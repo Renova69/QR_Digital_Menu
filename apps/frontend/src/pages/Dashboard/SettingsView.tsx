@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { BrandingEditor } from "../../components/ui/BrandingEditor";
 
 const AVAILABLE_LANGUAGES = [
+  { code: "en", name: "English" },
   { code: "bg", name: "Bulgarian" },
   { code: "de", name: "German" },
   { code: "es", name: "Spanish" },
@@ -48,7 +49,6 @@ const SettingsView = () => {
   ) as any;
   const [address, setAddress] = useState("");
   const [contactInfo, setContactInfo] = useState("");
-  const [deeplApiKey, setDeeplApiKey] = useState("");
   const [targetLanguages, setTargetLanguages] = useState<string[]>([]);
   const [timezone, setTimezone] = useState("UTC");
 
@@ -80,7 +80,6 @@ const SettingsView = () => {
     if (activeRestaurant) {
       setAddress(activeRestaurant.address || "");
       setContactInfo(activeRestaurant.contactInfo || "");
-      setDeeplApiKey(activeRestaurant.deeplApiKey || "");
       setTargetLanguages(activeRestaurant.targetLanguages || []);
       setTimezone(activeRestaurant.timezone || "UTC");
 
@@ -124,7 +123,6 @@ const SettingsView = () => {
       await updateRestaurant(activeRestaurant.id, {
         address,
         contactInfo,
-        deeplApiKey,
         targetLanguages,
         timezone,
         isLoyaltyEnabled,
@@ -157,16 +155,11 @@ const SettingsView = () => {
 
   const handleForceTranslate = async () => {
     if (!activeRestaurant) return;
-    if (!deeplApiKey) {
-      setStatus({ loading: false, error: t("settings.apiKeyRequired"), success: "" });
-      return;
-    }
 
     setTranslating(true);
     setStatus({ loading: false, error: "", success: "" });
 
     try {
-      await updateRestaurant(activeRestaurant.id, { deeplApiKey, targetLanguages });
       const res = await triggerTranslation(activeRestaurant.id);
       if (res.success) {
         setStatus({ loading: false, error: "", success: res.message });
@@ -240,9 +233,9 @@ const SettingsView = () => {
 
           {/* ── Timezone ── */}
           <div className="border-b border-border pb-6">
-            <h3 className="text-lg font-medium text-foreground mb-1">Timezone</h3>
+            <h3 className="text-lg font-medium text-foreground mb-1">{t("settings.timezone")}</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Used for Happy Hour calculations. Must match the restaurant's local clock.
+              {t("settings.timezoneDesc")}
             </p>
             <select
               value={timezone}
@@ -267,18 +260,6 @@ const SettingsView = () => {
             </p>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-foreground/80 mb-1">
-                  {t("settings.deeplApiKey", "DeepL API Key")}
-                </label>
-                <input
-                  type="password"
-                  value={deeplApiKey}
-                  onChange={(e) => setDeeplApiKey(e.target.value)}
-                  placeholder="DeepL-Auth-Key..."
-                  className={inputCls}
-                />
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-foreground/80 mb-2">
                   {t("settings.targetLanguages")}
                 </label>
@@ -299,6 +280,7 @@ const SettingsView = () => {
                   ))}
                 </div>
               </div>
+              <p className="text-xs text-muted-foreground">{t("settings.translationPoweredBy")}</p>
             </div>
             <div className="mt-6 flex flex-col sm:flex-row gap-4 items-center p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
               <div className="flex-1">
@@ -312,7 +294,7 @@ const SettingsView = () => {
               <button
                 type="button"
                 onClick={handleForceTranslate}
-                disabled={translating || !deeplApiKey}
+                disabled={translating || targetLanguages.length === 0}
                 className="whitespace-nowrap px-4 py-2 bg-yellow-600 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 disabled:opacity-50 transition-colors"
               >
                 {translating ? t("settings.translating") : t("settings.translateAllNow")}
