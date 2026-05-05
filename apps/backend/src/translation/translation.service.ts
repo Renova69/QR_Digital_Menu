@@ -5,29 +5,38 @@ import axios from 'axios';
 export class TranslationService {
   private readonly logger = new Logger(TranslationService.name);
 
+  private get apiKey(): string | undefined {
+    return process.env.DEEPL_API_KEY;
+  }
+
+  private get baseUrl(): string {
+    return this.apiKey?.endsWith(':fx')
+      ? 'https://api-free.deepl.com'
+      : 'https://api.deepl.com';
+  }
+
   async translateTexts(
     texts: string[],
     targetLanguage: string,
-    apiKey: string,
   ): Promise<string[]> {
     if (!texts || texts.length === 0) return texts;
 
-    try {
-      const isFreeApi = apiKey.endsWith(':fx');
-      const baseUrl = isFreeApi
-        ? 'https://api-free.deepl.com'
-        : 'https://api.deepl.com';
-      const targetLang = targetLanguage.toUpperCase();
+    const key = this.apiKey;
+    if (!key) {
+      this.logger.warn('DEEPL_API_KEY not set — returning original texts');
+      return texts;
+    }
 
+    try {
       const response = await axios.post(
-        `${baseUrl}/v2/translate`,
+        `${this.baseUrl}/v2/translate`,
         {
           text: texts,
-          target_lang: targetLang,
+          target_lang: targetLanguage.toUpperCase(),
         },
         {
           headers: {
-            Authorization: `DeepL-Auth-Key ${apiKey}`,
+            Authorization: `DeepL-Auth-Key ${key}`,
             'Content-Type': 'application/json',
           },
         },
@@ -42,23 +51,23 @@ export class TranslationService {
     }
   }
 
-  async translateText(
-    text: string,
-    targetLanguage: string,
-    apiKey: string,
-  ): Promise<string> {
-    const results = await this.translateTexts([text], targetLanguage, apiKey);
+  async translateText(text: string, targetLanguage: string): Promise<string> {
+    const results = await this.translateTexts([text], targetLanguage);
     return results[0] || text;
   }
 
   async translateObject(
     obj: Record<string, string | null | undefined>,
     targetLanguages: string[],
-    apiKey: string,
   ): Promise<Record<string, Record<string, string>>> {
     const translations: Record<string, Record<string, string>> = {};
 
-    if (!targetLanguages || targetLanguages.length === 0 || !apiKey) {
+    if (!targetLanguages || targetLanguages.length === 0) {
+      return translations;
+    }
+
+    if (!this.apiKey) {
+      this.logger.warn('DEEPL_API_KEY not set — skipping translateObject');
       return translations;
     }
 
@@ -68,11 +77,11 @@ export class TranslationService {
     if (entriesToTranslate.length === 0) return translations;
 
     const keys = entriesToTranslate.map(([key]) => key);
-    const texts = entriesToTranslate.map(([_, value]) => value);
+    const texts = entriesToTranslate.map(([_, value]) => value as string);
 
     for (const lang of targetLanguages) {
       translations[lang] = {};
-      const translatedTexts = await this.translateTexts(texts, lang, apiKey);
+      const translatedTexts = await this.translateTexts(texts, lang);
 
       for (let i = 0; i < keys.length; i++) {
         translations[lang][keys[i]] = translatedTexts[i] || texts[i];
