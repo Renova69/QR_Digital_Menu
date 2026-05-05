@@ -1,0 +1,156 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Repo layout
+
+Turborepo monorepo with npm workspaces (`apps/*`). Two apps, no `packages/` directory (the README mentions one but it doesn't exist):
+
+- **`apps/backend`** — NestJS 11 + Prisma 6 + Neon (hosted Postgres, pooled). API on `:3000` under `/api`, Swagger at `/api-docs`.
+- **`apps/frontend`** — Vite + React 18 + Tailwind v4 + TanStack Query + i18next + socket.io-client. Dev server on `:3001` (`strictPort: true`).
+
+## Common commands
+
+### Root (turbo orchestrated)
+```bash
+npm run dev      # runs both apps (backend :3000, frontend :3001)
+npm run build    # turbo build
+npm run lint     # turbo lint
+npm run format   # prettier on all .ts/.tsx/.md
+```
+
+### Backend (`apps/backend`)
+```bash
+npm run start:dev      # NestJS watch mode
+npm run build          # prisma generate + nest build
+npm run lint           # ESLint --fix
+npm test               # Jest unit tests
+npx jest path/to/file.spec.ts -t "test name"   # single test
+npm run test:e2e       # e2e (run `npm run test:prepare` first to copy .env.test → .env)
+npm run test:cov       # coverage
+npm run seed           # build + prisma db seed (runs prisma/seed.ts)
+npm run migrate:dev    # prisma migrate dev
+npx prisma db push     # preferred when migration history is drifted (additive schema only)
+```
+
+### Frontend (`apps/frontend`)
+```bash
+npm run dev      # vite --host (strictPort, fails fast on conflict)
+npm run build    # vite build
+npm test         # Vitest with jsdom
+npm start        # serve dist/ on :3001
+```
+
+## Environment & DB
+
+- Per-app `.env` files: `apps/backend/.env`, `apps/frontend/.env` — copy from `.env.example`.
+- DB is **hosted Neon Postgres** — no local Postgres in dev. The root `docker:up` / `docker:down` scripts exist but are not part of daily flow.
+- API base URL: `http://localhost:3000/api`. CORS origin = `FRONTEND_URL` env (default `http://localhost:3001`).
+- Global API prefix `/api` is set in `apps/backend/src/main.ts` via `app.setGlobalPrefix('api')`.
+
+## Backend architecture
+
+NestJS modules registered in `apps/backend/src/app.module.ts` (in order): Prisma, Auth, Restaurants, Menu, Orders, Assistance, Dashboard, Tables, Health, Feedback, Translation, Storage, Events, Loyalty. `ThrottlerGuard` applied globally (100 req / 60s).
+
+Cross-cutting concerns:
+- **Auth** (`auth/`) — JWT + Google OAuth + magic link via Passport strategies.
+- **Realtime** (`events/`) — `@nestjs/websockets` + socket.io for live order / assistance pushes.
+- **Translation** (`translation/`) — DeepL. **Current:** API key passed per-request from `restaurant.deeplApiKey` (owner-supplied). **Planned migration:** move to a single platform-managed `DEEPL_API_KEY` env var — owners will not need their own key. `TranslationService.translateTexts/translateText/translateObject` currently accept `apiKey` as a param; once migrated, the service will read from env and callers drop that param. `restaurant.deeplApiKey` will be deprecated (keep column, stop writing/reading it). Do not add new call-sites that depend on per-restaurant keys.
+- **Storage** (`storage/`) — AWS S3 client for image uploads.
+- **Schedule** — `@nestjs/schedule` is registered **only** inside `loyalty.module.ts`. Loyalty expiry-reminder cron runs at midnight UTC.
+
+## Loyalty subsystem (read these before changing tier or points logic)
+
+This is the most heavily modified subsystem. Single sources of truth:
+
+- **`apps/backend/src/loyalty/loyalty-tiers.utils.ts`** — `getTierInfo()` and `tierConfigFromRestaurant()`. Never hardcode tier thresholds (500/2000) or multipliers (1.2/1.5) anywhere — read them from the `Restaurant` row through this util.
+- **`apps/backend/src/loyalty/loyalty-ledger.utils.ts`** — FIFO point ledger ops: `expireAccountPoints`, `redeemAccountPoints`, `addEarnedPointBatch`, `getExpiringPointBatches(..., onlyUnnotified)`, `markRemindersSent`. **Never use `Promise.all` over Prisma writes inside `$transaction`** — use `updateMany` instead.
+- **`apps/backend/src/loyalty/loyalty.service.ts`** — `buildRewardSummary()` defines the tier/points API contract for the frontend. Cron `runDailyExpiryReminders` runs daily.
+- **`apps/backend/src/orders/orders.service.ts`** — happy-hour detection uses **Luxon** with the restaurant's IANA `timezone` field (never raw `new Date()`). Multiplier strategy is `Math.max(happyHour, tier)`, not additive.
+
+Frontend consumes tier info directly from the API — do not recompute it on the client:
+- `apps/frontend/src/pages/CustomerProfilePage.tsx`
+- `apps/frontend/src/pages/CheckoutPage.tsx`
+
+Design rationale and bug history: `03.05.26_loyalty_rewards_implementation.md` at repo root.
+
+### Loyalty rate semantics (important — past source of bugs)
+
+- **`loyaltyExchangeRate`** (Int, default 10) — points **earned** per €1 spent. Formula: `points = floor(totalEuros × earnRate × multiplier)`. A value of 10 gives 100 pts on a €10 order.
+- **`loyaltyRedeemRate`** (Int, default 150) — points **needed** for €1 of discount. `rewardValue = points / redeemRate`. Higher = less generous for customers.
+- Effective cashback % = `earnRate / redeemRate × 100`. Defaults give 6.7%. The SettingsView shows this live and warns when it exceeds 15%.
+- **`@Max(100)`** is enforced on `loyaltyExchangeRate` in `update-restaurant.dto.ts` — do not remove it.
+- The initial migration (`20260503092841`) added the column with `DEFAULT 20`. Migration `20260503200750` corrects existing rows where the value is still 20 to the intended default of 10.
+- If a restaurant reports absurdly high point awards, check `loyaltyExchangeRate` in the DB first — it is the most likely culprit.
+
+## Menu options / choices — JSON schema (critical)
+
+Choices are stored as `Json` on `MenuOption.choices`. The schema is **always**:
+```json
+[{ "name": "Medium Well", "priceModifier": 0.00 }, ...]
+```
+
+There is **no `id` field** and the price key is `priceModifier`, not `price`. This affects every layer:
+
+- **DB / seed / `ManageOptionsModal.tsx`** — create choices as `{ name, priceModifier }`.
+- **`ItemWithOptions.tsx`** — builds `selectedOptions` as `{ optionId, optionName, choiceName, priceModifier }` when adding to cart. Note: `choiceName` (not `choiceId`).
+- **`orders.service.ts`** — validates choices server-side by matching `c.name === selected.choiceName` and reads `choice.priceModifier`. **Never change this to `c.id` or `choice.price`** — those fields don't exist and will throw "Invalid choice selected" for every order with options.
+- **`CartContext.tsx`** — totals options via `opt.priceModifier || 0`.
+
+Key files for the options flow:
+- `apps/backend/src/orders/orders.service.ts` — server-side choice validation (lines ~143–169)
+- `apps/frontend/src/components/menu/ItemWithOptions.tsx` — builds cart item with `selectedOptions`
+- `apps/frontend/src/components/menu/ManageOptionsModal.tsx` — owner UI for creating options/choices
+- `apps/frontend/src/context/CartContext.tsx` — cart totals using `priceModifier`
+
+## Frontend architecture
+
+- **Routing** — React Router v7 in `apps/frontend/src/App.tsx`.
+- **State** — React Context per concern in `src/context/`: `AuthContext`, `RestaurantContext`, `MenuContext`, `CartContext`, `OrderContext`, `AssistanceContext`, `SocketContext`. Server state via TanStack Query.
+- **API client** — `src/lib/api.ts` (axios + JWT interceptors). All requests go through this — never call axios directly elsewhere.
+- **UI primitives** — `src/components/ui/` (Radix + class-variance-authority + tailwind-merge).
+
+## Conventions & gotchas
+
+- Backend `clean` script uses Windows `rmdir /s /q` (`apps/backend/package.json`). Cross-platform users should run `rm -rf dist` manually if needed.
+- `npm run build` in backend always regenerates the Prisma client before `nest build` — no need to run `prisma generate` separately.
+- Frontend `strictPort: true` means a stale dev server on `:3001` blocks startup. Kill with PowerShell (`Stop-Process -Id <pid> -Force`); Git Bash `taskkill` mangles paths.
+- When adding new fields on `Restaurant` (or any DTO-validated model), also add `@Min` / `@Max` / `@IsOptional` to `apps/backend/src/restaurants/dto/update-restaurant.dto.ts` — `class-validator` is the input boundary.
+
+## Roadmap & current focus
+
+Source of truth: `CODING_ROADMAP.md`. Detailed per-phase plans under `.planning/phases/`.
+
+**Shipped — V1 MVP (April 2026):** auth (JWT + Google OAuth), restaurant CRUD, menu builder + image upload, tables + QR codes, contactless ordering with server-side pricing, owner dashboard, Docker Compose, Swagger.
+
+**Shipped — V2 Premium (Phases 9–14):** smart analytics, customer feedback + Google Review redirect, automated dayparting (scheduled categories with timezone), multi-language menu (EN/BG/RO + DeepL), realtime via socket.io, upselling / trending / perfect pairing.
+
+**Shipped — post-roadmap (May 2026):** full loyalty program — FIFO point ledger, configurable VIP tiers, timezone-aware happy hour, expiry reminder cron.
+
+**Shipped — V2.5 Visual Polish, Branding & Mobile UX (May 2026):**
+- **Phase 15** — Square images, pinch-to-zoom lightbox (full gesture rewrite), category banners, mobile aspect ratio + card height fixes.
+- **Phase 16** — Google Fonts picker, 4-color scheme editor, WCAG contrast validator, live BrandingPreview panel, CSS custom props on public menu.
+- **Phase 17** — Menu Check widget (`MenuCheckWidget.tsx`, `/menu/audit/:id`), severity levels, one-click fix navigation.
+- **Mobile UX overhaul** — `viewport-fit=cover` + iOS PWA metas; layout routes in `App.tsx` (customer routes get no app header/container); CartDrawer → bottom sheet on mobile; bottom navigation on dashboard mobile; safe-area insets throughout; PublicMenuPage spacing tightened for 375px; CheckoutPage panel padding responsive; OrderConfirmationPage full premium redesign with live status.
+
+**Shipped — UI/UX Audit & Theme Polish (May 4, 2026):**
+- **Design system rewrite** (`index.css`) — warm restaurant color palette (HSL tokens throughout), dropped Plus Jakarta Sans (now 2 fonts: Outfit + Playfair Display), fixed `.text-glow` and `.premium-bg` to use `color-mix(in srgb, var(--token) N%, transparent)` instead of invalid `hsla(var(...))` syntax, removed `html { transition-colors }` (was causing 500ms delay globally), added `@media (prefers-reduced-motion)` for `.animate-float`.
+- **Table / assistance flow fixes** — removed browser `prompt()` for table number (table always comes from QR URL `?table=<name>`); Call Waiter now shows accessible `role="alert"` / `aria-live="polite"` notice when no table context, button disabled during `assistanceLoading`.
+- **Default customer theme** — new `defaultTheme String? @default("light")` field on `Restaurant` schema (pushed to Neon). `ThemeToggle` accepts `storageKey` + `defaultTheme` props; public menu uses per-restaurant localStorage key (`theme-{restaurantId}`) so each venue remembers independently. Dashboard toggle unchanged. Owner sets default in `BrandingEditor` (Light/Dark picker). ThemeToggle always visible on public menu even when custom branding is active.
+- **Accessibility** — logo alt text fixed (`${name} logo`), language select label added, accessible loading states (removed decorative `animate-pulse`), improved `aria-label` on ThemeToggle (`Switch to dark/light mode`).
+- **Schema fields added:** `Restaurant.defaultTheme` (String?, default `"light"`).
+- **Key files:** `index.css`, `PublicMenuPage.tsx`, `ThemeToggle.tsx`, `BrandingEditor.tsx`, `index.html`, `schema.prisma`, `update-restaurant.dto.ts`.
+
+**Current focus — V3 Growth:**
+- **Phase 18 — Staff Roles:** expand `UserRole` to `OWNER` / `MANAGER` / `WAITER` / `KITCHEN`, permission matrix, `StaffInvite` model with expiring tokens, activity log.
+- **Phase 19 — Stripe payments:** pay-at-table via Payment Intents, split payment, tips, Stripe Connect for platform fees.
+- **Phase 20 — Multi-location:** menu templates, bulk price updates, cross-location analytics.
+
+**Planned — V4 Enterprise:** AWS/GCP migration, Redis, CDN, POS integration (Square / Toast / Lightspeed), inventory + waste tracking, SMS/email marketing, React Native staff app.
+
+When asked to add a feature, first check whether it falls under an existing phase — follow the scope defined there rather than re-scoping.
+
+## Testing
+
+- **Backend** — Jest, specs co-located as `*.spec.ts` under `src/`. E2e config at `apps/backend/test/jest-e2e.json` and requires `.env.test` copied to `.env` first via `npm run test:prepare`.
+- **Frontend** — Vitest + jsdom; React Testing Library available.

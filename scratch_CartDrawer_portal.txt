@@ -1,0 +1,95 @@
+import { createPortal } from 'react-dom';
+import { useCart } from '../../context/CartContext';
+import { Button } from '../ui/button';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+
+const CartDrawer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
+  const { items, getTotal, clearCart, removeItem } = useCart();
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+
+  if (!isOpen) return null;
+
+  const handleCheckout = () => {
+    onClose();
+    navigate('/checkout');
+  }
+
+  return createPortal(
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] transition-opacity"
+      onClick={onClose}
+    >
+      <div
+        className="fixed top-0 right-0 h-full w-full max-w-sm glass-panel bg-zinc-950/95 shadow-2xl z-[10000] flex flex-col border-l border-white/10 animate-in slide-in-from-right duration-500 rounded-l-[1.5rem] md:rounded-l-[2.5rem]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center p-8 border-b border-white/5">
+          <h2 className="text-3xl font-serif font-black text-zinc-100 tracking-tighter">{t('cart.yourOrder')}</h2>
+          <button onClick={onClose} className="p-2.5 bg-white/5 hover:bg-white/10 rounded-full text-zinc-400 transition-all hover:text-zinc-100">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+
+        <div className="flex-grow overflow-y-auto p-6 hide-scrollbar">
+        {items.length === 0 ? (
+          <div className="text-center text-zinc-500 font-medium flex flex-col items-center justify-center h-full opacity-40">
+            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="mb-6"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+            <span className="text-sm font-bold uppercase tracking-widest">{t('cart.empty')}</span>
+          </div>
+        ) : (
+          <ul className="space-y-6">
+            {items.map(item => (
+              <li key={item.cartId} className="flex gap-4">
+                <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-accent font-serif font-black text-base shrink-0 border border-white/5">
+                    {item.quantity}×
+                </div>
+                <div className="flex-grow">
+                  <p className="font-bold text-zinc-100 text-lg leading-tight tracking-tight">{item.name}</p>
+                  {item.selectedOptions && item.selectedOptions.length > 0 && (
+                      <ul className="text-xs text-muted-foreground mt-1.5 space-y-1">
+                          {item.selectedOptions.map((opt: any, idx: number) => (
+                              <li key={`${item.cartId}-opt-${idx}`} className="flex items-center gap-1.5">
+                                  <span className="w-1 h-1 rounded-full bg-accent/50 block"></span>
+                                  {opt.choiceName} <span className="text-accent/70 font-semibold">(+€{(opt.priceModifier || 0).toFixed(2)})</span>
+                              </li>
+                          ))}
+                      </ul>
+                  )}
+                </div>
+                <div className="text-right flex flex-col justify-between shrink-0">
+                    <p className="font-bold text-lg text-zinc-100">€{(item.price * item.quantity).toFixed(2)}</p>
+                    <button onClick={() => removeItem(item.cartId)} className="text-xs font-semibold text-red-500 hover:text-red-400 transition-colors mt-2 text-right">
+                        {t('cart.remove')}
+                    </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        </div>
+
+        {items.length > 0 && (
+            <div className="p-8 border-t border-white/5 bg-white/5 rounded-bl-[1.5rem] md:rounded-bl-[2.5rem]">
+                <div className="flex justify-between items-baseline mb-8">
+                    <span className="text-zinc-400 font-bold uppercase tracking-widest text-[10px]">{t('cart.total')}</span>
+                    <span className="text-3xl font-serif font-black text-accent tracking-tighter">€{getTotal().toFixed(2)}</span>
+                </div>
+                <div className="space-y-3">
+                  <button onClick={handleCheckout} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-black uppercase tracking-widest py-5 px-6 rounded-2xl shadow-2xl shadow-accent/20 transition-all active:scale-95 text-xs">
+                      {t('cart.proceedCheckout')}
+                  </button>
+                  <button onClick={clearCart} className="w-full bg-transparent hover:bg-white/5 text-zinc-500 hover:text-zinc-300 font-bold py-3 px-6 rounded-2xl transition-all text-[10px] uppercase tracking-widest">
+                      {t('cart.clearCart')}
+                  </button>
+                </div>
+            </div>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+export default CartDrawer;

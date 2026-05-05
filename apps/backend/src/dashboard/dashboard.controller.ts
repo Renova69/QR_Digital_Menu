@@ -1,0 +1,73 @@
+import {
+  Controller,
+  Get,
+  Query,
+  UseGuards,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
+import { DashboardService } from './dashboard.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuthUser } from '../auth/auth-user.decorator';
+import { PrismaService } from '../prisma/prisma.service';
+
+@Controller('dashboard')
+export class DashboardController {
+  constructor(
+    private readonly dashboardService: DashboardService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  private async verifyOwnership(userId: string, restaurantId: string) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { ownerId: true },
+    });
+
+    if (!restaurant || restaurant.ownerId !== userId) {
+      throw new ForbiddenException(
+        "You do not have permission to access this restaurant's dashboard",
+      );
+    }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('summary')
+  async getSummary(
+    @AuthUser() user: any,
+    @Query('restaurantId') restaurantId: string,
+  ) {
+    await this.verifyOwnership(user.id, restaurantId);
+    return this.dashboardService.getSummary(restaurantId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('analytics')
+  async getAnalytics(
+    @AuthUser() user: any,
+    @Query('restaurantId') restaurantId: string,
+    @Query('period') periodStr?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    if (!restaurantId) {
+      throw new BadRequestException('restaurantId is required');
+    }
+
+    let period = 7;
+    if (periodStr) {
+      period = parseInt(periodStr, 10);
+      if (![7, 14, 30].includes(period)) {
+        throw new BadRequestException('period must be 7, 14, or 30');
+      }
+    }
+
+    await this.verifyOwnership(user.id, restaurantId);
+    return this.dashboardService.getAnalytics(
+      restaurantId,
+      period,
+      startDate,
+      endDate,
+    );
+  }
+}

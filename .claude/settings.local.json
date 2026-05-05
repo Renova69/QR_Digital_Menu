@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-Date *)",
+      "PowerShell(python \"C:\\\\Users\\\\Elysian Canvas\\\\.claude\\\\plugins\\\\cache\\\\ui-ux-pro-max-skill\\\\ui-ux-pro-max\\\\2.5.0\\\\src\\\\ui-ux-pro-max\\\\scripts\\\\search.py\" \"mobile menu checkout cart ordering animation\" --domain ux -f markdown 2>&1)",
+      "PowerShell(python \"C:\\\\Users\\\\Elysian Canvas\\\\.claude\\\\plugins\\\\cache\\\\ui-ux-pro-max-skill\\\\ui-ux-pro-max\\\\2.5.0\\\\src\\\\ui-ux-pro-max\\\\scripts\\\\search.py\" \"restaurant food warm appetizing color palette\" --domain color -f markdown -n 3 2>&1)",
+      "PowerShell(node -e \"const { Client } = require\\('F:/PROGRAMING/QR_Digital_Menu-main/node_modules/pg'\\); const c = new Client\\({connectionString: 'postgresql://neondb_owner:npg_tIu4LPA7oSsm@ep-shiny-flower-al0icrn9.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require'}\\); c.connect\\(\\).then\\(\\(\\) => { console.log\\('CONNECTED'\\); c.end\\(\\); }\\).catch\\(e => console.error\\('ERROR:', e.message, e.code\\)\\);\" 2>&1)",
+      "PowerShell(node -e \"const { Client } = require\\('./node_modules/pg'\\); const c = new Client\\({connectionString: 'postgresql://neondb_owner:npg_tIu4LPA7oSsm@ep-shiny-flower-al0icrn9.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require'}\\); c.connect\\(\\).then\\(\\(\\) => { console.log\\('CONNECTED'\\); c.end\\(\\); }\\).catch\\(e => console.error\\('ERROR:', e.message, e.code\\)\\);\" 2>&1)",
+      "Bash(xargs grep *)"
+    ]
+  }
+}

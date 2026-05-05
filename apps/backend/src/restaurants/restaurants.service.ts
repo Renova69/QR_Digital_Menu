@@ -1,0 +1,244 @@
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
+import { CreateRestaurantDto } from './dto/create-restaurant.dto';
+import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
+import { PrismaService } from '../prisma/prisma.service';
+import { TranslationService } from '../translation/translation.service';
+
+@Injectable()
+export class RestaurantsService {
+  private readonly logger = new Logger(RestaurantsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly translationService: TranslationService,
+  ) {}
+
+  async create(createRestaurantDto: CreateRestaurantDto, userId: string) {
+    const restaurant = await this.prisma.restaurant.create({
+      data: {
+        ...createRestaurantDto,
+        ownerId: userId,
+      },
+    });
+    return restaurant;
+  }
+
+  async findAll(userId: string) {
+    return this.prisma.restaurant.findMany({
+      where: { ownerId: userId },
+    });
+  }
+
+  async findOne(id: string, userId: string) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id },
+    });
+
+    if (!restaurant) {
+      throw new NotFoundException(`Restaurant with ID "${id}" not found`);
+    }
+
+    if (restaurant.ownerId !== userId) {
+      throw new ForbiddenException(
+        'You do not have permission to access this resource',
+      );
+    }
+
+    return restaurant;
+  }
+
+  async update(
+    id: string,
+    updateRestaurantDto: UpdateRestaurantDto,
+    userId: string,
+  ) {
+    // First, ensure the restaurant exists and the user has permission
+    await this.findOne(id, userId);
+
+    return this.prisma.restaurant.update({
+      where: { id },
+      data: updateRestaurantDto,
+    });
+  }
+
+  async remove(id: string, userId: string) {
+    // First, ensure the restaurant exists and the user has permission
+    await this.findOne(id, userId);
+
+    return this.prisma.restaurant.delete({
+      where: { id },
+    });
+  }
+
+  async updateLogo(id: string, logoUrl: string, userId: string) {
+    // First, ensure the restaurant exists and the user has permission
+    await this.findOne(id, userId);
+
+    return this.prisma.restaurant.update({
+      where: { id },
+      data: { logoUrl },
+    });
+  }
+
+  async translateAll(id: string, userId: string) {
+    const restaurant = await this.findOne(id, userId);
+
+    if (
+      !restaurant.deeplApiKey ||
+      !restaurant.targetLanguages ||
+      restaurant.targetLanguages.length === 0
+    ) {
+      return {
+        success: false,
+        message: 'Missing API key or target languages.',
+      };
+    }
+
+    // Process Categories
+    const categories = await this.prisma.menuCategory.findMany({
+      where: { restaurantId: id },
+    });
+
+    for (const cat of categories) {
+      const parsedTranslations: any =
+        cat.translations && typeof cat.translations === 'object'
+          ? cat.translations
+          : {};
+      const newTranslations = await this.translationService.translateObject(
+        { name: cat.name },
+        restaurant.targetLanguages,
+        restaurant.deeplApiKey,
+      );
+      await this.prisma.menuCategory.update({
+        where: { id: cat.id },
+        data: { translations: { ...parsedTranslations, ...newTranslations } },
+      });
+      await new Promise((resolve) => setTimeout(resolve, 300)); // Prevent DeepL rate-limiting
+    }
+
+    // Process Items
+    const items = await this.prisma.menuItem.findMany({
+      where: { category: { restaurantId: id } },
+    });
+
+    for (const item of items) {
+      const parsedTranslations: any =
+        item.translations && typeof item.translations === 'object'
+          ? item.translations
+          : {};
+
+      // Build translation map: name, description, + each allergen and tag
+      const textToTranslate: Record<string, string> = { name: item.name };
+      if (item.description) textToTranslate.description = item.description;
+
+      const allergens = item.allergens || [];
+      allergens.forEach((a) => {
+        textToTranslate[`allergen_${a}`] = a;
+      });
+
+      const dietaryTags = item.dietaryTags || [];
+      dietaryTags.forEach((t) => {
+        textToTranslate[`tag_${t}`] = t;
+      });
+
+      const newTranslations = await this.translationService.translateObject(
+        textToTranslate,
+        restaurant.targetLanguages,
+        restaurant.deeplApiKey,
+      );
+
+      // Restructure: pull allergen_ and tag_ keys into arrays per language
+      for (const lang of Object.keys(newTranslations)) {
+        const langData = newTranslations[lang];
+        const translatedAllergens: string[] = [];
+        const translatedTags: string[] = [];
+
+        for (const key of Object.keys(langData)) {
+          if (key.startsWith('allergen_')) {
+            translatedAllergens.push(langData[key]);
+            delete langData[key];
+          } else if (key.startsWith('tag_')) {
+            translatedTags.push(langData[key]);
+            delete langData[key];
+          }
+        }
+
+        if (translatedAllergens.length > 0)
+          langData.allergens = translatedAllergens as any;
+        if (translatedTags.length > 0)
+          langData.dietaryTags = translatedTags as any;
+      }
+
+      await this.prisma.menuItem.update({
+        where: { id: item.id },
+        data: { translations: { ...parsedTranslations, ...newTranslations } },
+      });
+      await new Promise((resolve) => setTimeout(resolve, 300)); // Prevent DeepL rate-limiting
+    }
+
+    // Process Options
+    const options = await this.prisma.menuOption.findMany({
+      where: { menuItem: { category: { restaurantId: id } } },
+    });
+
+    for (const option of options) {
+      const parsedTranslations: any =
+        (option as any).translations &&
+        typeof (option as any).translations === 'object'
+          ? (option as any).translations
+          : {};
+
+      const textToTranslate: Record<string, string> = { name: option.name };
+      const choices = (option.choices as any[]) || [];
+      choices.forEach((c: any) => {
+        if (c.name) textToTranslate[`choice_${c.name}`] = c.name;
+      });
+
+      const newTranslations = await this.translationService.translateObject(
+        textToTranslate,
+        restaurant.targetLanguages,
+        restaurant.deeplApiKey,
+      );
+
+      for (const lang of Object.keys(newTranslations)) {
+        if (!parsedTranslations[lang])
+          parsedTranslations[lang] = { choices: {} };
+        if (!parsedTranslations[lang].choices)
+          parsedTranslations[lang].choices = {};
+
+        if (newTranslations[lang].name) {
+          parsedTranslations[lang].name = newTranslations[lang].name;
+        }
+
+        for (const key of Object.keys(newTranslations[lang])) {
+          if (key.startsWith('choice_')) {
+            const originalChoiceName = key.replace('choice_', '');
+            parsedTranslations[lang].choices[originalChoiceName] =
+              newTranslations[lang][key];
+          }
+        }
+      }
+
+      await this.prisma.menuOption.update({
+        where: { id: option.id },
+        data: {
+          translations:
+            Object.keys(parsedTranslations).length > 0
+              ? parsedTranslations
+              : undefined,
+        } as any,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 300)); // Prevent DeepL rate-limiting
+    }
+
+    return {
+      success: true,
+      message: `Translated ${categories.length} categories, ${items.length} items, and ${options.length} options.`,
+    };
+  }
+}

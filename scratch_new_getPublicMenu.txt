@@ -1,0 +1,76 @@
+  async getPublicMenu(restaurantId: string) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { 
+        name: true, 
+        logoUrl: true, 
+        accentColor: true, 
+        targetLanguages: true,
+        timezone: true 
+      }
+    });
+
+    if (!restaurant) {
+      throw new NotFoundException(`Restaurant with ID "${restaurantId}" not found`);
+    }
+
+    const allCategories = await this.prisma.menuCategory.findMany({
+      where: { restaurantId },
+      include: {
+        items: {
+          where: { isOutOfStock: false },
+          orderBy: {
+            order: 'asc',
+          },
+          include: {
+            options: true,
+          }
+        },
+      },
+      orderBy: {
+        order: 'asc',
+      },
+    });
+
+    // Filtering logic for Dayparting
+    const restaurantTz = restaurant.timezone || 'UTC';
+    const now = DateTime.now().setZone(restaurantTz);
+    const currentTimeStr = now.toFormat('HH:mm');
+    const currentDay = now.weekday === 7 ? 0 : now.weekday; // luxon 1-7 (Mon-Sun) -> ours 0-6 (Sun-Sat)
+
+    const filteredCategories = allCategories.filter(category => {
+      // 1. Explicitly hidden
+      if (category.availabilityType === 'HIDDEN') {
+        return false;
+      }
+
+      // 2. Always available
+      if (category.availabilityType === 'ALWAYS') {
+        return true;
+      }
+
+      // 3. Scheduled availability
+      if (category.availabilityType === 'SCHEDULED') {
+        // Check day of week
+        if (category.daysOfWeek && category.daysOfWeek.length > 0 && !category.daysOfWeek.includes(currentDay)) {
+          return false;
+        }
+
+        // Check time window
+        if (category.startTime && category.endTime) {
+          // Normal case: 08:00 to 22:00
+          if (category.startTime <= category.endTime) {
+            return currentTimeStr >= category.startTime && currentTimeStr <= category.endTime;
+          } 
+          // Overnight case: 22:00 to 04:00
+          else {
+            return currentTimeStr >= category.startTime || currentTimeStr <= category.endTime;
+          }
+        }
+      }
+
+      return true; // Default to visible if schedule is malformed
+    });
+
+    return { restaurant, categories: filteredCategories };
+  }
