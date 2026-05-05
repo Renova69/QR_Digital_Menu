@@ -1,3 +1,66 @@
+# Session Log: May 5, 2026
+
+This session delivered two independent improvements: analytics data freshness + timezone correctness, and a full translation architecture overhaul (platform-managed DeepL key, lazy on-demand caching, dashboard UI cleanup).
+
+## 1. Analytics Fixes
+
+**Problem:** Analytics charts didn't update when new orders arrived (stale 5-minute cache). Revenue trend and peak hours showed data bucketed to wrong calendar days/hours for non-UTC restaurants.
+
+**Root causes and fixes:**
+
+| # | Problem | Fix |
+|---|---------|-----|
+| 1 | New orders don't refresh analytics | `staleTime: 0` in `useAnalytics.ts`; `OrderContext` invalidates `['analytics']` query on every order socket event |
+| 2 | Revenue trend on wrong calendar day | `getRevenueTrend` now uses `DateTime.fromJSDate(createdAt, { zone: tz }).toISODate()` (Luxon) |
+| 3 | Peak hours in wrong hour bucket | `getPeakHours` now uses `DateTime.fromJSDate(createdAt, { zone: tz }).hour` |
+| 4 | "Today" count wrong for non-UTC restaurants | `getSummary` derives midnight via `DateTime.now().setZone(tz).startOf('day').toJSDate()` |
+
+**Files changed:** `apps/backend/src/dashboard/dashboard.service.ts`, `apps/frontend/src/hooks/useAnalytics.ts`, `apps/frontend/src/context/OrderContext.tsx`
+
+## 2. Translation Architecture Overhaul
+
+**Platform-managed DeepL key:**
+- `DEEPL_API_KEY` added to `apps/backend/.env` — owners no longer supply their own key
+- `TranslationService.translateTexts/translateText/translateObject` — `apiKey` param removed; service reads key from env internally; free-tier auto-detected (`key.endsWith(':fx')` → routes to `api-free.deepl.com`)
+- `restaurant.deeplApiKey` column retained in schema but **never read or written** going forward
+- Removed from `UpdateRestaurantDto` (DTO is the validation boundary)
+
+**Three translation paths:**
+1. **Fire-and-forget pre-warm** — after any menu item / category / option create or update, background IIFE translates into all `restaurant.targetLanguages` and writes to the `translations` JSON field; does not block the HTTP response
+2. **Owner "Translate All"** — `POST /api/restaurants/:id/translate-all` guard changed from `restaurant.deeplApiKey` check to `process.env.DEEPL_API_KEY` check
+3. **Lazy on-demand** — `GET /api/menu/public/:id?lang=<code>` checks DB cache per entity; on miss: translates → writes to DB → overlays on response; 300ms delay between DeepL calls (rate limit). `lang` validated against `restaurant.targetLanguages` (prevents arbitrary DB key injection and unauthorized quota burn). Logic extracted into private `applyLazyTranslations()` helper
+
+**Dashboard UI cleanup (`SettingsView.tsx`):**
+- Removed DeepL API Key input field, state, and payload
+- "Translate All Now" button enabled by `targetLanguages.length > 0` (not by key presence)
+- English added to `AVAILABLE_LANGUAGES` (needed since BG is now the source language)
+- Added "Translation powered by DeepL" attribution text
+
+**i18n changes:**
+- `fallbackLng` changed from `'en'` → `'bg'` in `apps/frontend/src/i18n.ts`
+- Language picker (BG/EN/RO `<select>`) added to dashboard `Header.tsx` — visible when logged in, calls `i18n.changeLanguage()`, `LanguageDetector` persists to localStorage automatically
+- Locale JSON audit (all 3 files — EN/BG/RO): added `timezone`, `timezoneDesc`, `translationPoweredBy`, `failedSave`, `failedInitiate`; removed obsolete `deeplApiKey`/`googleApiKey`/`apiKeyRequired`; updated `localizationDesc` and `processExistingDesc` to reference DeepL instead of Google Translate
+
+## 3. Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/src/dashboard/dashboard.service.ts` | Luxon timezone-aware date/hour grouping in all analytics methods |
+| `apps/frontend/src/hooks/useAnalytics.ts` | `staleTime: 0` |
+| `apps/frontend/src/context/OrderContext.tsx` | Invalidate `['analytics']` on order socket events |
+| `apps/backend/.env` | Added `DEEPL_API_KEY` |
+| `apps/backend/src/translation/translation.service.ts` | Removed `apiKey` param; reads from env; free-tier detection |
+| `apps/backend/src/restaurants/dto/update-restaurant.dto.ts` | Removed `deeplApiKey` field |
+| `apps/backend/src/restaurants/restaurants.service.ts` | `translateAll` uses `process.env.DEEPL_API_KEY` guard |
+| `apps/backend/src/menu/menu.service.ts` | Fire-and-forget pre-warm on create/update; `applyLazyTranslations()` on public menu; `lang` validation against `targetLanguages` |
+| `apps/backend/src/menu/public-menu.controller.ts` | Accept `?lang` query param |
+| `apps/frontend/src/pages/Dashboard/SettingsView.tsx` | Remove API key field; add English; fix button condition; timezone i18n keys |
+| `apps/frontend/src/i18n.ts` | `fallbackLng: 'bg'` |
+| `apps/frontend/src/components/Header.tsx` | BG/EN/RO language picker |
+| `apps/frontend/src/locales/*/translation.json` | Audit: add 5 missing keys, remove 3 obsolete keys, update stale copy |
+
+---
+
 # Session Log: May 4, 2026
 
 This session covered a full UI/UX audit (via `ui-ux-pro-max` design plugin) followed by targeted bug fixes, design system improvements, and a new owner-controlled default theme feature.

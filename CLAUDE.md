@@ -55,7 +55,7 @@ NestJS modules registered in `apps/backend/src/app.module.ts` (in order): Prisma
 Cross-cutting concerns:
 - **Auth** (`auth/`) — JWT + Google OAuth + magic link via Passport strategies.
 - **Realtime** (`events/`) — `@nestjs/websockets` + socket.io for live order / assistance pushes.
-- **Translation** (`translation/`) — DeepL. **Current:** API key passed per-request from `restaurant.deeplApiKey` (owner-supplied). **Planned migration:** move to a single platform-managed `DEEPL_API_KEY` env var — owners will not need their own key. `TranslationService.translateTexts/translateText/translateObject` currently accept `apiKey` as a param; once migrated, the service will read from env and callers drop that param. `restaurant.deeplApiKey` will be deprecated (keep column, stop writing/reading it). Do not add new call-sites that depend on per-restaurant keys.
+- **Translation** (`translation/`) — DeepL. Platform owns the key via `DEEPL_API_KEY` env var in `apps/backend/.env`. `TranslationService.translateTexts/translateText/translateObject` take **no** `apiKey` param — the service reads the key internally. `restaurant.deeplApiKey` column exists in schema but is **never read or written** — do not add call-sites that touch it. Three translation paths: (1) fire-and-forget pre-warm on menu item/category/option create+update; (2) owner-triggered "Translate All Now" via `POST /api/restaurants/:id/translate-all`; (3) lazy on-demand per-request via `GET /api/menu/public/:id?lang=<code>` — translates missing entries and caches to DB `translations` JSON field immediately. `lang` param is validated against `restaurant.targetLanguages` — arbitrary langs are rejected. Free-tier detection: key ending in `:fx` routes to `api-free.deepl.com`.
 - **Storage** (`storage/`) — AWS S3 client for image uploads.
 - **Schedule** — `@nestjs/schedule` is registered **only** inside `loyalty.module.ts`. Loyalty expiry-reminder cron runs at midnight UTC.
 
@@ -140,6 +140,10 @@ Source of truth: `CODING_ROADMAP.md`. Detailed per-phase plans under `.planning/
 - **Accessibility** — logo alt text fixed (`${name} logo`), language select label added, accessible loading states (removed decorative `animate-pulse`), improved `aria-label` on ThemeToggle (`Switch to dark/light mode`).
 - **Schema fields added:** `Restaurant.defaultTheme` (String?, default `"light"`).
 - **Key files:** `index.css`, `PublicMenuPage.tsx`, `ThemeToggle.tsx`, `BrandingEditor.tsx`, `index.html`, `schema.prisma`, `update-restaurant.dto.ts`.
+
+**Shipped — Analytics & Translation Overhaul (May 5, 2026):**
+- **Analytics fixes** — `staleTime: 0` in `useAnalytics.ts` (always fresh); `OrderContext` invalidates `['analytics']` TanStack Query cache on every incoming socket event (new order or status change); `DashboardService` fetches `restaurant.timezone` and passes it through `getRevenueTrend`, `getPeakHours`, `getSummary` — all date/hour grouping now uses Luxon with restaurant local time instead of server UTC.
+- **Translation overhaul** — Platform-managed DeepL key (`DEEPL_API_KEY` env var); `TranslationService` reads key internally, no `apiKey` param on any method; `restaurant.deeplApiKey` column kept but never touched; fire-and-forget pre-warm on menu create/update; lazy on-demand public menu translation with DB caching (`?lang=<code>`); `lang` validated against `restaurant.targetLanguages`; `fallbackLng` changed to `'bg'`; language picker (BG/EN/RO) added to dashboard header; SettingsView removes API key field — only language checkboxes and Translate button remain; locale JSON audit (added `timezone`, `timezoneDesc`, `translationPoweredBy`, `failedSave`, `failedInitiate`; removed obsolete `deeplApiKey`/`googleApiKey`/`apiKeyRequired`).
 
 **Current focus — V3 Growth:**
 - **Phase 18 — Staff Roles:** expand `UserRole` to `OWNER` / `MANAGER` / `WAITER` / `KITCHEN`, permission matrix, `StaffInvite` model with expiring tokens, activity log.
