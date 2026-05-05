@@ -50,34 +50,36 @@ export class MenuService {
     createCategoryDto: CreateCategoryDto,
     userId: string,
   ) {
-    const restaurant = await this.checkRestaurantOwnership(
-      restaurantId,
-      userId,
-    );
+    const restaurant = await this.checkRestaurantOwnership(restaurantId, userId);
 
-    let translations = {};
-    if (
-      restaurant.googleTranslateApiKey &&
-      restaurant.targetLanguages.length > 0
-    ) {
-      translations = await this.translationService.translateObject(
-        { name: createCategoryDto.name },
-        restaurant.targetLanguages,
-        restaurant.googleTranslateApiKey,
-      );
-    }
-
-    const count = await this.prisma.menuCategory.count({
-      where: { restaurantId },
-    });
+    const count = await this.prisma.menuCategory.count({ where: { restaurantId } });
     const data: Prisma.MenuCategoryUncheckedCreateInput = {
       ...createCategoryDto,
       restaurantId,
       order: count,
-      translations:
-        Object.keys(translations).length > 0 ? translations : undefined,
     };
-    return this.prisma.menuCategory.create({ data });
+    const category = await this.prisma.menuCategory.create({ data });
+
+    if (process.env.DEEPL_API_KEY && restaurant.targetLanguages.length > 0) {
+      void (async () => {
+        try {
+          const newTranslations = await this.translationService.translateObject(
+            { name: createCategoryDto.name },
+            restaurant.targetLanguages,
+          );
+          if (Object.keys(newTranslations).length > 0) {
+            await this.prisma.menuCategory.update({
+              where: { id: category.id },
+              data: { translations: newTranslations },
+            });
+          }
+        } catch (e: any) {
+          this.logger.error(`Pre-warm failed for category ${category.id}: ${e.message}`);
+        }
+      })();
+    }
+
+    return category;
   }
 
   async findAllCategories(restaurantId: string, userId: string) {
@@ -102,40 +104,40 @@ export class MenuService {
     if (!category) {
       throw new NotFoundException(`Category with ID "${categoryId}" not found`);
     }
-    const restaurant = await this.checkRestaurantOwnership(
-      category.restaurantId,
-      userId,
-    );
+    const restaurant = await this.checkRestaurantOwnership(category.restaurantId, userId);
 
-    let parsedTranslations: any =
-      category.translations && typeof category.translations === 'object'
-        ? category.translations
-        : {};
+    const updated = await this.prisma.menuCategory.update({
+      where: { id: categoryId },
+      data: updateCategoryDto,
+    });
 
-    if (updateCategoryDto.name && updateCategoryDto.name !== category.name) {
-      if (
-        restaurant.googleTranslateApiKey &&
-        restaurant.targetLanguages.length > 0
-      ) {
-        const newTranslations = await this.translationService.translateObject(
-          { name: updateCategoryDto.name },
-          restaurant.targetLanguages,
-          restaurant.googleTranslateApiKey,
-        );
-        parsedTranslations = { ...parsedTranslations, ...newTranslations };
-      }
+    if (
+      updateCategoryDto.name &&
+      updateCategoryDto.name !== category.name &&
+      process.env.DEEPL_API_KEY &&
+      restaurant.targetLanguages.length > 0
+    ) {
+      void (async () => {
+        try {
+          const existing: any =
+            category.translations && typeof category.translations === 'object'
+              ? category.translations
+              : {};
+          const newTranslations = await this.translationService.translateObject(
+            { name: updateCategoryDto.name! },
+            restaurant.targetLanguages,
+          );
+          await this.prisma.menuCategory.update({
+            where: { id: categoryId },
+            data: { translations: { ...existing, ...newTranslations } },
+          });
+        } catch (e: any) {
+          this.logger.error(`Pre-warm failed for category ${categoryId}: ${e.message}`);
+        }
+      })();
     }
 
-    return this.prisma.menuCategory.update({
-      where: { id: categoryId },
-      data: {
-        ...updateCategoryDto,
-        translations:
-          Object.keys(parsedTranslations).length > 0
-            ? parsedTranslations
-            : undefined,
-      },
-    });
+    return updated;
   }
 
   async removeCategory(categoryId: string, userId: string) {
@@ -185,35 +187,58 @@ export class MenuService {
     if (!category) {
       throw new NotFoundException(`Category with ID "${categoryId}" not found`);
     }
-    const restaurant = await this.checkRestaurantOwnership(
-      category.restaurantId,
-      userId,
-    );
-
-    let translations = {};
-    if (
-      restaurant.googleTranslateApiKey &&
-      restaurant.targetLanguages.length > 0
-    ) {
-      translations = await this.translationService.translateObject(
-        {
-          name: createItemDto.name,
-          description: createItemDto.description,
-        },
-        restaurant.targetLanguages,
-        restaurant.googleTranslateApiKey,
-      );
-    }
+    const restaurant = await this.checkRestaurantOwnership(category.restaurantId, userId);
 
     const count = await this.prisma.menuItem.count({ where: { categoryId } });
     const data: Prisma.MenuItemUncheckedCreateInput = {
       ...createItemDto,
       categoryId,
       order: count,
-      translations:
-        Object.keys(translations).length > 0 ? translations : undefined,
     };
-    return this.prisma.menuItem.create({ data });
+    const item = await this.prisma.menuItem.create({ data });
+
+    if (process.env.DEEPL_API_KEY && restaurant.targetLanguages.length > 0) {
+      void (async () => {
+        try {
+          const textToTranslate: Record<string, string> = { name: createItemDto.name };
+          if (createItemDto.description) textToTranslate.description = createItemDto.description;
+          (createItemDto.allergens || []).forEach((a: string) => {
+            textToTranslate[`allergen_${a}`] = a;
+          });
+          (createItemDto.dietaryTags || []).forEach((t: string) => {
+            textToTranslate[`tag_${t}`] = t;
+          });
+
+          const newTranslations = await this.translationService.translateObject(
+            textToTranslate,
+            restaurant.targetLanguages,
+          );
+
+          for (const lang of Object.keys(newTranslations)) {
+            const langData = newTranslations[lang];
+            const translatedAllergens: string[] = [];
+            const translatedTags: string[] = [];
+            for (const key of Object.keys(langData)) {
+              if (key.startsWith('allergen_')) { translatedAllergens.push(langData[key]); delete langData[key]; }
+              else if (key.startsWith('tag_')) { translatedTags.push(langData[key]); delete langData[key]; }
+            }
+            if (translatedAllergens.length) (langData as any).allergens = translatedAllergens;
+            if (translatedTags.length) (langData as any).dietaryTags = translatedTags;
+          }
+
+          if (Object.keys(newTranslations).length > 0) {
+            await this.prisma.menuItem.update({
+              where: { id: item.id },
+              data: { translations: newTranslations },
+            });
+          }
+        } catch (e: any) {
+          this.logger.error(`Pre-warm failed for item ${item.id}: ${e.message}`);
+        }
+      })();
+    }
+
+    return item;
   }
 
   async findAllItemsInCategory(categoryId: string, userId: string) {
@@ -245,58 +270,56 @@ export class MenuService {
         name: true,
         description: true,
         translations: true,
+        allergens: true,
+        dietaryTags: true,
       },
     });
 
     if (!item) {
       throw new NotFoundException(`Menu item with ID "${itemId}" not found`);
     }
-    const restaurant = await this.checkRestaurantOwnership(
-      item.category.restaurantId,
-      userId,
-    );
+    const restaurant = await this.checkRestaurantOwnership(item.category.restaurantId, userId);
 
-    let parsedTranslations: any =
-      item.translations && typeof item.translations === 'object'
-        ? item.translations
-        : {};
+    const updated = await this.prisma.menuItem.update({
+      where: { id: itemId },
+      data: updateItemDto,
+    });
 
     const nameChanged = updateItemDto.name && updateItemDto.name !== item.name;
     const descriptionChanged =
-      updateItemDto.description !== undefined &&
-      updateItemDto.description !== item.description;
+      updateItemDto.description !== undefined && updateItemDto.description !== item.description;
 
-    if (nameChanged || descriptionChanged) {
-      if (
-        restaurant.googleTranslateApiKey &&
-        restaurant.targetLanguages.length > 0
-      ) {
-        const textToTranslate = {
-          name: updateItemDto.name || item.name,
-          description:
-            updateItemDto.description !== undefined
-              ? updateItemDto.description
-              : item.description,
-        };
-        const newTranslations = await this.translationService.translateObject(
-          textToTranslate,
-          restaurant.targetLanguages,
-          restaurant.googleTranslateApiKey,
-        );
-        parsedTranslations = { ...parsedTranslations, ...newTranslations };
-      }
+    if (
+      (nameChanged || descriptionChanged) &&
+      process.env.DEEPL_API_KEY &&
+      restaurant.targetLanguages.length > 0
+    ) {
+      void (async () => {
+        try {
+          const existing: any =
+            item.translations && typeof item.translations === 'object' ? item.translations : {};
+
+          const textToTranslate: Record<string, string> = {
+            name: updateItemDto.name || item.name,
+          };
+          const desc = updateItemDto.description !== undefined ? updateItemDto.description : item.description;
+          if (desc) textToTranslate.description = desc;
+
+          const newTranslations = await this.translationService.translateObject(
+            textToTranslate,
+            restaurant.targetLanguages,
+          );
+          await this.prisma.menuItem.update({
+            where: { id: itemId },
+            data: { translations: { ...existing, ...newTranslations } },
+          });
+        } catch (e: any) {
+          this.logger.error(`Pre-warm failed for item ${itemId}: ${e.message}`);
+        }
+      })();
     }
 
-    return this.prisma.menuItem.update({
-      where: { id: itemId },
-      data: {
-        ...updateItemDto,
-        translations:
-          Object.keys(parsedTranslations).length > 0
-            ? parsedTranslations
-            : undefined,
-      },
-    });
+    return updated;
   }
 
   async updateItemImage(itemId: string, imageUrl: string, userId: string) {
@@ -361,54 +384,52 @@ export class MenuService {
     if (!item) {
       throw new NotFoundException(`Menu item with ID "${itemId}" not found`);
     }
-    const restaurant = await this.checkRestaurantOwnership(
-      item.category.restaurantId,
-      userId,
-    );
+    const restaurant = await this.checkRestaurantOwnership(item.category.restaurantId, userId);
 
     const choices = JSON.parse(createMenuOptionDto.choices);
-    const parsedTranslations: any = {};
-
-    if (restaurant.deeplApiKey && restaurant.targetLanguages.length > 0) {
-      const textToTranslate: Record<string, string> = {
-        name: createMenuOptionDto.name,
-      };
-      choices.forEach((c: any) => {
-        if (c.name) textToTranslate[`choice_${c.name}`] = c.name;
-      });
-
-      const newTranslations = await this.translationService.translateObject(
-        textToTranslate,
-        restaurant.targetLanguages,
-        restaurant.deeplApiKey,
-      );
-
-      // Restructure translations for choices
-      for (const lang of Object.keys(newTranslations)) {
-        parsedTranslations[lang] = {
-          name: newTranslations[lang].name,
-          choices: {},
-        };
-        for (const key of Object.keys(newTranslations[lang])) {
-          if (key.startsWith('choice_')) {
-            const originalChoiceName = key.replace('choice_', '');
-            parsedTranslations[lang].choices[originalChoiceName] =
-              newTranslations[lang][key];
-          }
-        }
-      }
-    }
-
     const data: Prisma.MenuOptionUncheckedCreateInput = {
       ...createMenuOptionDto,
       choices,
       menuItemId: itemId,
-      translations:
-        Object.keys(parsedTranslations).length > 0
-          ? parsedTranslations
-          : undefined,
     };
-    return this.prisma.menuOption.create({ data });
+    const option = await this.prisma.menuOption.create({ data });
+
+    if (process.env.DEEPL_API_KEY && restaurant.targetLanguages.length > 0) {
+      void (async () => {
+        try {
+          const textToTranslate: Record<string, string> = { name: createMenuOptionDto.name };
+          choices.forEach((c: any) => {
+            if (c.name) textToTranslate[`choice_${c.name}`] = c.name;
+          });
+
+          const newTranslations = await this.translationService.translateObject(
+            textToTranslate,
+            restaurant.targetLanguages,
+          );
+
+          const parsedTranslations: any = {};
+          for (const lang of Object.keys(newTranslations)) {
+            parsedTranslations[lang] = { name: newTranslations[lang].name, choices: {} };
+            for (const key of Object.keys(newTranslations[lang])) {
+              if (key.startsWith('choice_')) {
+                parsedTranslations[lang].choices[key.replace('choice_', '')] = newTranslations[lang][key];
+              }
+            }
+          }
+
+          if (Object.keys(parsedTranslations).length > 0) {
+            await this.prisma.menuOption.update({
+              where: { id: option.id },
+              data: { translations: parsedTranslations } as any,
+            });
+          }
+        } catch (e: any) {
+          this.logger.error(`Pre-warm failed for option ${option.id}: ${e.message}`);
+        }
+      })();
+    }
+
+    return option;
   }
 
   async updateMenuOption(
@@ -434,66 +455,59 @@ export class MenuService {
       userId,
     );
 
-    const parsedTranslations: any =
-      (option as any).translations &&
-      typeof (option as any).translations === 'object'
-        ? (option as any).translations
-        : {};
     const choices = updateMenuOptionDto.choices
       ? JSON.parse(updateMenuOptionDto.choices)
       : undefined;
 
-    if (restaurant.deeplApiKey && restaurant.targetLanguages.length > 0) {
-      const textToTranslate: Record<string, string> = {};
-      if (updateMenuOptionDto.name)
-        textToTranslate.name = updateMenuOptionDto.name;
-
-      if (choices) {
-        choices.forEach((c: any) => {
-          if (c.name) textToTranslate[`choice_${c.name}`] = c.name;
-        });
-      }
-
-      if (Object.keys(textToTranslate).length > 0) {
-        const newTranslations = await this.translationService.translateObject(
-          textToTranslate,
-          restaurant.targetLanguages,
-          restaurant.deeplApiKey,
-        );
-
-        for (const lang of Object.keys(newTranslations)) {
-          if (!parsedTranslations[lang])
-            parsedTranslations[lang] = { choices: {} };
-          if (!parsedTranslations[lang].choices)
-            parsedTranslations[lang].choices = {};
-
-          if (newTranslations[lang].name) {
-            parsedTranslations[lang].name = newTranslations[lang].name;
-          }
-
-          for (const key of Object.keys(newTranslations[lang])) {
-            if (key.startsWith('choice_')) {
-              const originalChoiceName = key.replace('choice_', '');
-              parsedTranslations[lang].choices[originalChoiceName] =
-                newTranslations[lang][key];
-            }
-          }
-        }
-      }
-    }
-
     const data: Prisma.MenuOptionUncheckedUpdateInput = {
       ...updateMenuOptionDto,
       choices,
-      translations:
-        Object.keys(parsedTranslations).length > 0
-          ? parsedTranslations
-          : undefined,
     };
-    return this.prisma.menuOption.update({
-      where: { id: optionId },
-      data,
-    });
+    const updated = await this.prisma.menuOption.update({ where: { id: optionId }, data });
+
+    if (process.env.DEEPL_API_KEY && restaurant.targetLanguages.length > 0) {
+      void (async () => {
+        try {
+          const existingTrans: any =
+            option.translations && typeof option.translations === 'object'
+              ? option.translations
+              : {};
+          const textToTranslate: Record<string, string> = {};
+          if (updateMenuOptionDto.name) textToTranslate.name = updateMenuOptionDto.name;
+          if (choices) {
+            choices.forEach((c: any) => {
+              if (c.name) textToTranslate[`choice_${c.name}`] = c.name;
+            });
+          }
+          if (Object.keys(textToTranslate).length === 0) return;
+
+          const newTranslations = await this.translationService.translateObject(
+            textToTranslate,
+            restaurant.targetLanguages,
+          );
+
+          for (const lang of Object.keys(newTranslations)) {
+            if (!existingTrans[lang]) existingTrans[lang] = { choices: {} };
+            if (!existingTrans[lang].choices) existingTrans[lang].choices = {};
+            if (newTranslations[lang].name) existingTrans[lang].name = newTranslations[lang].name;
+            for (const key of Object.keys(newTranslations[lang])) {
+              if (key.startsWith('choice_')) {
+                existingTrans[lang].choices[key.replace('choice_', '')] = newTranslations[lang][key];
+              }
+            }
+          }
+
+          await this.prisma.menuOption.update({
+            where: { id: optionId },
+            data: { translations: existingTrans } as any,
+          });
+        } catch (e: any) {
+          this.logger.error(`Pre-warm failed for option ${optionId}: ${e.message}`);
+        }
+      })();
+    }
+
+    return updated;
   }
 
   async removeMenuOption(optionId: string, userId: string) {
