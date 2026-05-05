@@ -19,10 +19,6 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @IsOptional()
   contactInfo?: string;
 
-  @IsString()
-  @IsOptional()
-  deeplApiKey?: string;
-
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
