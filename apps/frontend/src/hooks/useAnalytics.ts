@@ -58,7 +58,7 @@ export const useAnalytics = (restaurantId: string | undefined, period: number, s
     queryKey: ['analytics', restaurantId, period, startDate, endDate],
     queryFn: () => getAnalytics(restaurantId!, period, startDate, endDate),
     enabled: !!restaurantId,
-    staleTime: 5 * 60 * 1000, // 5 minutes — analytics don't need real-time updates
+    staleTime: 0,
     refetchInterval: 30000,   // Silent background polling every 30s
     refetchOnWindowFocus: false,
   });
