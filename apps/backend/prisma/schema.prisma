@@ -1,0 +1,276 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String           @id @default(cuid())
+  email           String           @unique
+  password        String
+  name            String?
+  role            UserRole         @default(STAFF)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  orders          Order[]
+  loyaltyAccounts LoyaltyAccount[]
+  restaurants     Restaurant[]
+
+  @@map("app_user")
+}
+
+model Restaurant {
+  id                        String              @id @default(cuid())
+  name                      String
+  country                   String
+  logoUrl                   String?
+  accentColor               String?             @default("#4F46E5")
+  googleReviewUrl           String?
+  address                   String?
+  contactInfo               String?
+  googleTranslateApiKey     String?
+  targetLanguages           String[]            @default([])
+  dashboardLanguage         String?             @default("en")
+  timezone                  String?             @default("UTC")
+  ownerId                   String
+  createdAt                 DateTime            @default(now())
+  updatedAt                 DateTime            @updatedAt
+  deeplApiKey               String?
+  fontBody                  String?             @default("Outfit")
+  fontHeading               String?             @default("Playfair Display")
+  themeBgColor              String?
+  themeCardColor            String?
+  themeTextColor            String?
+  trendingMode              String              @default("AUTO")
+  happyHourEnable           Boolean             @default(false)
+  happyHourEndTime          String?
+  happyHourMultiplier       Float               @default(2.0)
+  happyHourStartTime        String?
+  isLoyaltyEnabled          Boolean             @default(true)
+  loyaltyExchangeRate       Int                 @default(10)
+  loyaltySignupBonus        Int                 @default(50)
+  loyaltyRedeemRate         Int                 @default(150)
+  loyaltyExpiryReminderDays Int                 @default(15)
+  loyaltyGoldMultiplier     Float               @default(1.5)
+  loyaltyGoldThreshold      Int                 @default(2000)
+  loyaltyPointExpiryDays    Int                 @default(90)
+  loyaltySilverMultiplier   Float               @default(1.2)
+  loyaltySilverThreshold    Int                 @default(500)
+  defaultTheme              String?             @default("light")
+  assistanceRequests        AssistanceRequest[]
+  orders                    Order[]
+  feedbacks                 Feedback[]
+  loyaltyAccounts           LoyaltyAccount[]
+  menuCategories            MenuCategory[]
+  owner                     User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tables                    RestaurantTable[]
+
+  @@map("restaurant")
+}
+
+model RestaurantTable {
+  id           String     @id @default(cuid())
+  name         String
+  restaurantId String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("restaurant_table")
+}
+
+model MenuCategory {
+  id               String           @id @default(cuid())
+  name             String
+  restaurantId     String
+  order            Int
+  availabilityType AvailabilityType @default(ALWAYS)
+  startTime        String?
+  endTime          String?
+  daysOfWeek       Int[]
+  translations     Json?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  imageUrl         String?
+  isDrinkCategory  Boolean          @default(false)
+  restaurant       Restaurant       @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  items            MenuItem[]
+
+  @@map("menu_category")
+}
+
+model MenuItem {
+  id                String       @id @default(cuid())
+  name              String
+  description       String?
+  price             Float
+  currency          Currency
+  allergens         String[]
+  dietaryTags       String[]
+  imageUrl          String?
+  isOutOfStock      Boolean      @default(false)
+  categoryId        String
+  order             Int
+  translations      Json?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  isFeatured        Boolean      @default(false)
+  relatedItemIds    String[]     @default([])
+  rewardPointsPrice Int?
+  category          MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  options           MenuOption[]
+  orderItems        OrderItem[]
+
+  @@map("menu_item")
+}
+
+model MenuOption {
+  id           String     @id @default(cuid())
+  name         String
+  type         OptionType
+  choices      Json
+  menuItemId   String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  translations Json?
+  menuItem     MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@map("menu_option")
+}
+
+model Order {
+  id                        String               @id @default(cuid())
+  customerName              String
+  customerPhone             String?
+  tableId                   String
+  status                    OrderStatus          @default(NEW)
+  restaurantId              String
+  totalPrice                Float
+  specialRequests           String?
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
+  customerId                String?
+  pointsEarned              Int                  @default(0)
+  pointsRedeemed            Int                  @default(0)
+  pointsRedeemedForDiscount Int                  @default(0)
+  pointsRedeemedForItems    Int                  @default(0)
+  customer                  User?                @relation(fields: [customerId], references: [id])
+  restaurant                Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  feedback                  Feedback?
+  loyaltyPointTransactions  LoyaltyPointLedger[]
+  items                     OrderItem[]
+
+  @@map("customer_order")
+}
+
+model OrderItem {
+  id              String    @id @default(cuid())
+  orderId         String
+  menuItemId      String?
+  quantity        Int
+  selectedOptions Json
+  menuItem        MenuItem? @relation(fields: [menuItemId], references: [id])
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_item")
+}
+
+model AssistanceRequest {
+  id           String     @id @default(cuid())
+  tableId      String
+  isResolved   Boolean    @default(false)
+  restaurantId String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("assistance_request")
+}
+
+model Feedback {
+  id                 String     @id @default(cuid())
+  rating             Int
+  comment            String?
+  redirectedToGoogle Boolean    @default(false)
+  orderId            String     @unique
+  restaurantId       String
+  createdAt          DateTime   @default(now())
+  order              Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  restaurant         Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("feedback")
+}
+
+model LoyaltyAccount {
+  id             String               @id @default(cuid())
+  userId         String
+  restaurantId   String
+  points         Int                  @default(0)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  lifetimePoints Int                  @default(0)
+  restaurant     Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pointLedger    LoyaltyPointLedger[]
+
+  @@unique([userId, restaurantId])
+  @@map("loyalty_account")
+}
+
+model LoyaltyPointLedger {
+  id               String                      @id @default(cuid())
+  loyaltyAccountId String
+  orderId          String?
+  type             LoyaltyPointTransactionType
+  points           Int
+  remainingPoints  Int                         @default(0)
+  expiresAt        DateTime?
+  reminderSentAt   DateTime?
+  createdAt        DateTime                    @default(now())
+  loyaltyAccount   LoyaltyAccount              @relation(fields: [loyaltyAccountId], references: [id], onDelete: Cascade)
+  order            Order?                      @relation(fields: [orderId], references: [id])
+
+  @@index([loyaltyAccountId, expiresAt])
+  @@index([expiresAt, reminderSentAt])
+  @@map("loyalty_point_ledger")
+}
+
+enum UserRole {
+  OWNER
+  STAFF
+  CUSTOMER
+}
+
+enum Currency {
+  EUR
+  BGN
+}
+
+enum OrderStatus {
+  NEW
+  IN_PROGRESS
+  SERVED
+  CANCELED
+}
+
+enum OptionType {
+  VARIATION
+  ADDON
+}
+
+enum AvailabilityType {
+  ALWAYS
+  SCHEDULED
+  HIDDEN
+}
+
+enum LoyaltyPointTransactionType {
+  EARN
+  SIGNUP
+  REDEEM
+  EXPIRE
+  ADJUSTMENT
+}

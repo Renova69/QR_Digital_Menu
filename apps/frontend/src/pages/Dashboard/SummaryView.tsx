@@ -1,0 +1,168 @@
+import { useOrders } from "../../context/OrderContext";
+import { useAssistance } from "../../context/AssistanceContext";
+import {
+  TrendingUp,
+  ShoppingCart,
+  Bell,
+  Users,
+  Gift,
+  Star,
+} from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { MenuCheckWidget } from "../../components/dashboard/MenuCheckWidget";
+import { useEffect, useState, useContext } from "react";
+import api from "../../lib/api";
+import RestaurantContext from "../../context/RestaurantContext";
+
+interface SummaryViewProps {
+  onViewAnalytics?: () => void;
+}
+
+const SummaryView = ({ onViewAnalytics }: SummaryViewProps) => {
+  const { orders } = useOrders();
+  const { requests } = useAssistance();
+  const { t } = useTranslation();
+  const { activeRestaurant } = useContext(RestaurantContext) as any;
+  const [loyaltyData, setLoyaltyData] = useState<any>(null);
+
+  useEffect(() => {
+    if (activeRestaurant?.id) {
+      api
+        .get(`/loyalty/${activeRestaurant.id}/analytics`)
+        .then((res) => setLoyaltyData(res.data))
+        .catch(console.error);
+    }
+  }, [activeRestaurant]);
+
+  const totalRevenue = orders
+    .filter((o) => o.status !== "CANCELED")
+    .reduce((sum, order) => sum + order.totalPrice, 0);
+
+  const pendingOrders = orders.filter((o) => o.status === "NEW").length;
+  const pendingRequests = requests.filter((r) => !r.isResolved).length;
+
+  return (
+    <div className="space-y-10">
+      <div className="flex items-end justify-between">
+        <div>
+          <h2 className="text-3xl font-serif font-black text-foreground tracking-tight mb-1">
+            {t("dashboard.overview")}
+          </h2>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-60">
+            Status Snapshot
+          </p>
+        </div>
+        {onViewAnalytics && (
+          <button
+            onClick={onViewAnalytics}
+            className="text-[10px] font-black uppercase tracking-[0.2em] text-accent hover:text-accent/80 flex items-center gap-2 transition-all hover:gap-3 px-4 py-2 bg-accent/5 rounded-xl border border-accent/10"
+          >
+            {t("dashboard.viewFullAnalytics")}
+            <TrendingUp className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="glass-panel p-8 rounded-[2.5rem] border-white/5 group hover:shadow-[0_20px_50px_-15px_hsla(var(--color-accent),0.2)] transition-all duration-500">
+          <div className="flex items-center justify-between mb-6">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+              {t("dashboard.totalRevenue")}
+            </p>
+            <div className="p-3.5 rounded-2xl bg-accent/10 border border-accent/10">
+              <TrendingUp className="h-5 w-5 text-accent" />
+            </div>
+          </div>
+          <p className="text-4xl font-serif font-black text-accent tracking-tighter">
+            €{totalRevenue.toFixed(2)}
+          </p>
+          <div className="mt-4 h-1 w-12 bg-accent/20 rounded-full group-hover:w-full transition-all duration-700"></div>
+        </div>
+
+        <div className="glass-panel p-8 rounded-[2.5rem] border-white/5 group hover:shadow-[0_20px_50px_-15px_rgba(59,130,246,0.2)] transition-all duration-500">
+          <div className="flex items-center justify-between mb-6">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+              {t("dashboard.newOrders")}
+            </p>
+            <div className="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/10">
+              <ShoppingCart className="h-5 w-5 text-blue-500" />
+            </div>
+          </div>
+          <p className="text-5xl font-serif font-black text-blue-500 tracking-tighter">
+            {pendingOrders}
+          </p>
+          <div className="mt-4 h-1 w-12 bg-blue-500/20 rounded-full group-hover:w-full transition-all duration-700"></div>
+        </div>
+
+        <div className="glass-panel p-8 rounded-[2.5rem] border-white/5 group hover:shadow-[0_20px_50px_-15px_rgba(249,115,22,0.2)] transition-all duration-500">
+          <div className="flex items-center justify-between mb-6">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+              {t("dashboard.pendingAssistance")}
+            </p>
+            <div className="p-3.5 rounded-2xl bg-orange-500/10 border border-orange-500/10">
+              <Bell className="h-5 w-5 text-orange-500" />
+            </div>
+          </div>
+          <p className="text-5xl font-serif font-black text-orange-500 tracking-tighter">
+            {pendingRequests}
+          </p>
+          <div className="mt-4 h-1 w-12 bg-orange-500/20 rounded-full group-hover:w-full transition-all duration-700"></div>
+        </div>
+      </div>
+
+      {loyaltyData && activeRestaurant?.isLoyaltyEnabled && (
+        <div className="mt-8">
+          <h3 className="text-xl font-serif font-black text-foreground tracking-tight mb-6">
+            Loyalty Program Performance
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="glass-panel p-8 rounded-[2rem] border-white/5 border-l-4 border-l-purple-500 bg-gradient-to-br from-background to-purple-500/5">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                  Total VIP Members
+                </p>
+                <Users className="h-4 w-4 text-purple-500" />
+              </div>
+              <p className="text-3xl font-black text-foreground">
+                {loyaltyData.totalMembers}
+              </p>
+            </div>
+            <div className="glass-panel p-8 rounded-[2rem] border-white/5 border-l-4 border-l-blue-500 bg-gradient-to-br from-background to-blue-500/5">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                  Points Redeemed
+                </p>
+                <Star className="h-4 w-4 text-blue-500" />
+              </div>
+              <p className="text-3xl font-black text-foreground">
+                {loyaltyData.totalPointsRedeemed}
+              </p>
+              <p className="text-xs font-semibold text-blue-500 mt-2">
+                Freebies & Discounts Issued
+              </p>
+            </div>
+            <div className="glass-panel p-8 rounded-[2rem] border-white/5 border-l-4 border-l-green-500 bg-gradient-to-br from-background to-green-500/5">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                  Points Outstanding Liability
+                </p>
+                <Gift className="h-4 w-4 text-green-500" />
+              </div>
+              <p className="text-3xl font-black text-foreground">
+                {loyaltyData.totalPointsOutstanding}
+              </p>
+              <p className="text-xs font-semibold text-green-500 mt-2">
+                Unspent Customer Points
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="pt-8 border-t border-border/40">
+        <MenuCheckWidget />
+      </div>
+    </div>
+  );
+};
+
+export default SummaryView;

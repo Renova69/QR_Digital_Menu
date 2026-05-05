@@ -1,0 +1,189 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* Warm Restaurant Design System */
+  --font-sans: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Playfair Display', serif;
+
+  /* Light Mode — Warm & Appetizing */
+  --color-background: hsl(20 30% 98%);
+  --color-foreground: hsl(20 60% 5%);
+
+  --color-card: hsla(0 0% 100% / 0.8);
+  --color-card-foreground: hsl(20 60% 5%);
+
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(20 60% 5%);
+
+  --color-primary: hsl(20 60% 5%);
+  --color-primary-foreground: hsl(20 30% 98%);
+
+  --color-secondary: hsl(28 25% 94%);
+  --color-secondary-foreground: hsl(20 60% 5%);
+
+  --color-muted: hsl(28 25% 94%);
+  --color-muted-foreground: hsl(28 12% 46%);
+
+  /* Restaurant Red — main CTA / brand color */
+  --color-accent: hsl(0 72% 51%);
+  --color-accent-foreground: hsl(0 0% 98%);
+
+  --color-destructive: hsl(0 72% 36%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+
+  --color-border: hsl(20 18% 88%);
+  --color-input: hsl(20 18% 88%);
+  --color-ring: hsl(0 72% 51%);
+
+  --radius: 1.5rem;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --glass-opacity: 0.7;
+    --glass-blur: 12px;
+  }
+}
+
+.dark {
+  color-scheme: dark;
+  --color-background: hsl(20 20% 5%);
+  --color-foreground: hsl(28 15% 95%);
+
+  --color-card: hsla(20 20% 7% / 0.8);
+  --color-card-foreground: hsl(28 15% 95%);
+
+  --color-popover: hsl(20 20% 5%);
+  --color-popover-foreground: hsl(28 15% 95%);
+
+  --color-primary: hsl(28 15% 95%);
+  --color-primary-foreground: hsl(20 20% 5%);
+
+  --color-secondary: hsl(20 18% 12%);
+  --color-secondary-foreground: hsl(28 15% 95%);
+
+  --color-muted: hsl(20 18% 12%);
+  --color-muted-foreground: hsl(28 10% 65%);
+
+  /* Brighter red for dark backgrounds */
+  --color-accent: hsl(0 72% 61%);
+  --color-accent-foreground: hsl(0 0% 98%);
+
+  --color-destructive: hsl(0 72% 50%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+
+  --color-border: hsl(20 18% 14%);
+  --color-input: hsl(20 18% 14%);
+  --color-ring: hsl(0 72% 61%);
+
+  --glass-opacity: 0.4;
+}
+
+@layer base {
+  * {
+    @apply border-border/60;
+  }
+  html {
+    @apply scroll-smooth;
+  }
+  body {
+    @apply bg-background text-foreground tracking-tight selection:bg-accent/20 overflow-x-hidden;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 200ms ease;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight font-bold;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply backdrop-blur-[var(--glass-blur)] border border-white/10 dark:border-white/5 shadow-xl transition-all duration-300;
+    background-color: var(--color-card);
+  }
+  .glass-panel-hover {
+    @apply hover:shadow-2xl hover:translate-y-[-2px] transition-all duration-300;
+  }
+  .premium-bg {
+    @apply bg-background relative;
+    background-image:
+      radial-gradient(at 0% 0%, color-mix(in srgb, var(--color-accent) 6%, transparent) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, color-mix(in srgb, var(--color-primary) 3%, transparent) 0px, transparent 50%);
+  }
+  .text-glow {
+    text-shadow: 0 0 40px color-mix(in srgb, var(--color-accent) 25%, transparent);
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float {
+    animation: none;
+  }
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes toastSlideUp {
+  from { opacity: 0; transform: translateY(12px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes toastFadeOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(-6px) scale(0.97); }
+}
+
+@keyframes lightboxFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes lightboxZoomIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes cartSlideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes cartSlideRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+@layer utilities {
+  /* iOS safe-area helpers */
+  .pt-safe  { padding-top:    env(safe-area-inset-top,    0px); }
+  .pb-safe  { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .pl-safe  { padding-left:   env(safe-area-inset-left,   0px); }
+  .pr-safe  { padding-right:  env(safe-area-inset-right,  0px); }
+
+  /* Cart panel animation — direction changes per breakpoint */
+  .cart-panel-enter {
+    animation: cartSlideUp 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @media (min-width: 768px) {
+    .cart-panel-enter {
+      animation: cartSlideRight 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  }
+}
