@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { MenuService } from './menu.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -6,19 +6,20 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class PublicMenuController {
   constructor(private readonly menuService: MenuService) {}
 
-  // Add this method to handle the base /menu route
   @Get()
   @UseGuards(JwtAuthGuard)
   getAllMenuData() {
-    // You could return all restaurants' menus or implement another logic
     return {
       message: "Use /public/:restaurantId to get a specific restaurant's menu",
     };
   }
 
   @Get('public/:restaurantId')
-  getPublicMenu(@Param('restaurantId') restaurantId: string) {
-    return this.menuService.getPublicMenu(restaurantId);
+  getPublicMenu(
+    @Param('restaurantId') restaurantId: string,
+    @Query('lang') lang?: string,
+  ) {
+    return this.menuService.getPublicMenu(restaurantId, lang);
   }
 
   @Get('public/:restaurantId/trending')
