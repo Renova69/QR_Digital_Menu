@@ -1,13 +1,21 @@
-import React, { useContext } from 'react';
+import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 import { ThemeToggle } from './ui/ThemeToggle';
+
+const DASHBOARD_LANGUAGES = [
+  { code: 'bg', label: 'BG' },
+  { code: 'en', label: 'EN' },
+  { code: 'ro', label: 'RO' },
+];
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { i18n } = useTranslation();
 
   if (location.pathname.startsWith('/menu/public')) {
     return null;
@@ -30,6 +38,18 @@ const Header: React.FC = () => {
           {/* Nav links */}
           <div className="flex items-center gap-4 sm:gap-6">
             <ThemeToggle />
+            {user && (
+              <select
+                value={i18n.language?.slice(0, 2) ?? 'bg'}
+                onChange={(e) => void i18n.changeLanguage(e.target.value)}
+                aria-label="Dashboard language"
+                className="bg-transparent text-foreground text-xs font-bold uppercase tracking-widest border border-border rounded-lg px-2 py-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/50"
+              >
+                {DASHBOARD_LANGUAGES.map((l) => (
+                  <option key={l.code} value={l.code}>{l.label}</option>
+                ))}
+              </select>
+            )}
             {user ? (
               <>
                 <Link
