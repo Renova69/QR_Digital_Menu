@@ -88,14 +88,17 @@ export class RestaurantsService {
   async translateAll(id: string, userId: string) {
     const restaurant = await this.findOne(id, userId);
 
-    if (
-      !restaurant.deeplApiKey ||
-      !restaurant.targetLanguages ||
-      restaurant.targetLanguages.length === 0
-    ) {
+    if (!process.env.DEEPL_API_KEY) {
       return {
         success: false,
-        message: 'Missing API key or target languages.',
+        message: 'Translation service not configured on this server.',
+      };
+    }
+
+    if (!restaurant.targetLanguages || restaurant.targetLanguages.length === 0) {
+      return {
+        success: false,
+        message: 'No target languages configured.',
       };
     }
 
@@ -112,7 +115,6 @@ export class RestaurantsService {
       const newTranslations = await this.translationService.translateObject(
         { name: cat.name },
         restaurant.targetLanguages,
-        restaurant.deeplApiKey,
       );
       await this.prisma.menuCategory.update({
         where: { id: cat.id },
@@ -149,7 +151,6 @@ export class RestaurantsService {
       const newTranslations = await this.translationService.translateObject(
         textToTranslate,
         restaurant.targetLanguages,
-        restaurant.deeplApiKey,
       );
 
       // Restructure: pull allergen_ and tag_ keys into arrays per language
@@ -202,7 +203,6 @@ export class RestaurantsService {
       const newTranslations = await this.translationService.translateObject(
         textToTranslate,
         restaurant.targetLanguages,
-        restaurant.deeplApiKey,
       );
 
       for (const lang of Object.keys(newTranslations)) {
