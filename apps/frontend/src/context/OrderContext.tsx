@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { getOrders, updateOrderStatus as apiUpdateOrderStatus } from '../lib/api';
 import { useSocket } from './SocketContext';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Define order status types
 export type OrderStatus = 'NEW' | 'IN_PROGRESS' | 'SERVED' | 'CANCELED';
@@ -44,6 +45,7 @@ const OrderContext = createContext<OrderContextType | undefined>(undefined);
 export function OrderProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const { socket, isConnected } = useSocket();
+  const queryClient = useQueryClient();
 
   // Function to refresh orders from API
   const refreshOrders = async () => {
@@ -76,14 +78,16 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       // Small chime for new UI event
       const audio = new Audio('/notification.mp3');
       audio.play().catch(() => {}); // Catch autoplay restrictions
-      
+
       // We can either append to state or just refresh fully
       refreshOrders();
+      void queryClient.invalidateQueries({ queryKey: ['analytics'] });
     };
 
     const handleOrderStatusChanged = () => {
        // Refresh or perfectly mutate state
        refreshOrders();
+       void queryClient.invalidateQueries({ queryKey: ['analytics'] });
     };
 
     socket.on('newOrder', handleNewOrder);
