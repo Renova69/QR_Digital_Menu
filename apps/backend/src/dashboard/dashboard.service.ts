@@ -1,28 +1,29 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderStatus } from '@prisma/client';
+import { DateTime } from 'luxon';
 
 @Injectable()
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getSummary(restaurantId: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { timezone: true },
+    });
+    const tz = restaurant?.timezone || 'UTC';
+    const today = DateTime.now().setZone(tz).startOf('day').toJSDate();
 
     const ordersToday = await this.prisma.order.count({
       where: {
         restaurantId,
-        createdAt: {
-          gte: today,
-        },
+        createdAt: { gte: today },
       },
     });
 
     const totalRevenueResult = await this.prisma.order.aggregate({
-      _sum: {
-        totalPrice: true,
-      },
+      _sum: { totalPrice: true },
       where: {
         restaurantId,
         status: OrderStatus.SERVED,
@@ -37,12 +38,8 @@ export class DashboardService {
     });
 
     const recentOrders = await this.prisma.order.findMany({
-      where: {
-        restaurantId,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      where: { restaurantId },
+      orderBy: { createdAt: 'desc' },
       take: 5,
     });
 
@@ -60,6 +57,12 @@ export class DashboardService {
     startDateStr?: string,
     endDateStr?: string,
   ) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { timezone: true },
+    });
+    const tz = restaurant?.timezone || 'UTC';
+
     let now = new Date();
     let periodStart = new Date(now);
 
@@ -74,14 +77,10 @@ export class DashboardService {
       periodStart.setHours(0, 0, 0, 0);
     }
 
-    // Measure exact time difference for equivalent comparative period
     const timeDeltaMs = now.getTime() - periodStart.getTime();
-
-    // Previous period for comparison
     const prevPeriodStart = new Date(periodStart.getTime() - timeDeltaMs);
     const prevPeriodEnd = new Date(periodStart.getTime() - 1);
 
-    // Run all queries in parallel for performance
     const [
       revenueTrend,
       topItems,
@@ -92,9 +91,9 @@ export class DashboardService {
       categoryBreakdown,
       ordersByTable,
     ] = await Promise.all([
-      this.getRevenueTrend(restaurantId, periodStart, now),
+      this.getRevenueTrend(restaurantId, periodStart, now, tz),
       this.getTopItems(restaurantId, periodStart, now),
-      this.getPeakHours(restaurantId, periodStart, now),
+      this.getPeakHours(restaurantId, periodStart, now, tz),
       this.getPeriodStats(restaurantId, periodStart, now),
       this.getPeriodStats(restaurantId, prevPeriodStart, prevPeriodEnd),
       this.getOrdersByStatus(restaurantId, periodStart, now),
@@ -102,11 +101,9 @@ export class DashboardService {
       this.getOrdersByTable(restaurantId, periodStart, now),
     ]);
 
-    // Calculate comparison percentages
     const revenueChange =
       previousPeriodStats.totalRevenue > 0
-        ? ((currentPeriodStats.totalRevenue -
-            previousPeriodStats.totalRevenue) /
+        ? ((currentPeriodStats.totalRevenue - previousPeriodStats.totalRevenue) /
             previousPeriodStats.totalRevenue) *
           100
         : currentPeriodStats.totalRevenue > 0
@@ -158,7 +155,12 @@ export class DashboardService {
     };
   }
 
-  private async getRevenueTrend(restaurantId: string, start: Date, end: Date) {
+  private async getRevenueTrend(
+    restaurantId: string,
+    start: Date,
+    end: Date,
+    tz: string,
+  ) {
     const orders = await this.prisma.order.findMany({
       where: {
         restaurantId,
@@ -172,23 +174,21 @@ export class DashboardService {
       orderBy: { createdAt: 'asc' },
     });
 
-    // Group by date
     const grouped: Record<
       string,
       { date: string; revenue: number; orders: number }
     > = {};
 
-    // Initialize all dates in range with zero values
-    const current = new Date(start);
-    while (current <= end) {
-      const dateKey = current.toISOString().split('T')[0];
+    let current = DateTime.fromJSDate(start, { zone: tz });
+    const endDt = DateTime.fromJSDate(end, { zone: tz });
+    while (current <= endDt) {
+      const dateKey = current.toISODate()!;
       grouped[dateKey] = { date: dateKey, revenue: 0, orders: 0 };
-      current.setDate(current.getDate() + 1);
+      current = current.plus({ days: 1 });
     }
 
-    // Fill in actual data
     for (const order of orders) {
-      const dateKey = order.createdAt.toISOString().split('T')[0];
+      const dateKey = DateTime.fromJSDate(order.createdAt, { zone: tz }).toISODate()!;
       if (grouped[dateKey]) {
         grouped[dateKey].revenue += order.totalPrice;
         grouped[dateKey].orders += 1;
@@ -243,7 +243,12 @@ export class DashboardService {
       }));
   }
 
-  private async getPeakHours(restaurantId: string, start: Date, end: Date) {
+  private async getPeakHours(
+    restaurantId: string,
+    start: Date,
+    end: Date,
+    tz: string,
+  ) {
     const orders = await this.prisma.order.findMany({
       where: {
         restaurantId,
@@ -253,7 +258,6 @@ export class DashboardService {
       select: { createdAt: true },
     });
 
-    // Initialize all 24 hours
     const hours: { hour: number; label: string; orders: number }[] = [];
     for (let h = 0; h < 24; h++) {
       hours.push({
@@ -264,7 +268,7 @@ export class DashboardService {
     }
 
     for (const order of orders) {
-      const hour = order.createdAt.getHours();
+      const hour = DateTime.fromJSDate(order.createdAt, { zone: tz }).hour;
       hours[hour].orders += 1;
     }
 
