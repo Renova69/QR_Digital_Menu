@@ -2,10 +2,15 @@ import { NestFactory } from '@nestjs/core';
 import { RequestMethod } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import * as express from 'express';
 
 async function bootstrap() {
   try {
-    const app = await NestFactory.create(AppModule);
+    const app = await NestFactory.create(AppModule, { bodyParser: false });
+
+    app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+    app.use(express.json());
+    app.use(express.urlencoded({ extended: true }));
 
     app.enableCors({
       origin: process.env.FRONTEND_URL || 'http://localhost:3001',
