@@ -30,6 +30,11 @@
   "settings": {
     "title": "Settings",
     "desc": "Manage your restaurant's contact information and integrate auto-translation services.",
+    "tabs": {
+      "general": "General",
+      "loyalty": "Loyalty",
+      "payments": "Payments"
+    },
     "locationContact": "Location & Contact",
     "address": "Address",
     "contactInfo": "Contact Info (Phone / Email)",
@@ -251,10 +256,49 @@
     "qrInstructions": "Scan this QR code to view the menu and order to Table {{name}}",
     "downloadPNG": "Download PNG",
     "loadingTables": "Loading tables...",
-    "printAllQr": "Print All QR Codes"
+    "printAllQr": "Print All QR Codes",
+    "sessionOpen": "Open session",
+    "sessionPaid": "Paid",
+    "closeSession": "Close session"
   },
   "common": {
-    "pleaseLogin": "Please log in to continue"
+    "pleaseLogin": "Please log in to continue",
+    "cancel": "Cancel"
+  },
+  "payment": {
+    "requestBill": "Request Bill",
+    "yourBill": "Your Bill",
+    "payment": "Payment",
+    "thankYou": "Thank You!",
+    "subtotal": "Subtotal",
+    "tip": "Tip",
+    "total": "Total",
+    "addTip": "Add a tip?",
+    "noTip": "No Tip",
+    "custom": "Custom",
+    "tipAmount": "Tip amount",
+    "continue": "Continue to Payment",
+    "pay": "Pay",
+    "processing": "Processing...",
+    "paymentReceived": "Payment received",
+    "backToMenu": "Back to Menu",
+    "loading": "Loading...",
+    "paymentFailed": "Payment failed. Please try again.",
+    "failedToLoad": "Could not initiate payment. Please try again.",
+    "settings": {
+      "acceptPayments": "Accept digital payments",
+      "acceptPaymentsDesc": "Allow customers to pay from their phone after ordering.",
+      "connectStripeWarning": "Connect Stripe to start accepting payments.",
+      "stripeConnect": "Stripe Connect",
+      "stripeConnected": "Stripe Connected",
+      "disconnect": "Disconnect",
+      "disconnectConfirm": "Disconnect Stripe? This will disable digital payments.",
+      "connectStripe": "Connect Stripe",
+      "connecting": "Connecting...",
+      "tips": "Tips",
+      "quickTipOptions": "Quick tip % buttons shown to customers",
+      "addTipOption": "Add"
+    }
   },
   "summary": {
     "statusSnapshot": "Status Snapshot",

@@ -30,6 +30,11 @@
   "settings": {
     "title": "Setări",
     "desc": "Gestionați informațiile de contact ale restaurantului și integrați serviciile de traducere automată.",
+    "tabs": {
+      "general": "General",
+      "loyalty": "Loialitate",
+      "payments": "Plăți"
+    },
     "locationContact": "Locație și Contact",
     "address": "Adresă",
     "contactInfo": "Informații Contact (Telefon / Email)",
@@ -251,10 +256,49 @@
     "qrInstructions": "Scanați acest cod QR pentru a vedea meniul și a comanda la Masa {{name}}",
     "downloadPNG": "Descarcă PNG",
     "loadingTables": "Se încarcă mesele...",
-    "printAllQr": "Tipărește toate codurile QR"
+    "printAllQr": "Tipărește toate codurile QR",
+    "sessionOpen": "Sesiune deschisă",
+    "sessionPaid": "Plătit",
+    "closeSession": "Închide sesiunea"
   },
   "common": {
-    "pleaseLogin": "Vă rugăm să vă conectați"
+    "pleaseLogin": "Vă rugăm să vă conectați",
+    "cancel": "Anulează"
+  },
+  "payment": {
+    "requestBill": "Cere nota",
+    "yourBill": "Nota ta",
+    "payment": "Plată",
+    "thankYou": "Mulțumim!",
+    "subtotal": "Subtotal",
+    "tip": "Bacșiș",
+    "total": "Total",
+    "addTip": "Adaugă bacșiș?",
+    "noTip": "Fără bacșiș",
+    "custom": "Personalizat",
+    "tipAmount": "Sumă bacșiș",
+    "continue": "Continuă la plată",
+    "pay": "Plătește",
+    "processing": "Se procesează...",
+    "paymentReceived": "Plată primită",
+    "backToMenu": "Înapoi la meniu",
+    "loading": "Se încarcă...",
+    "paymentFailed": "Plata a eșuat. Încearcă din nou.",
+    "failedToLoad": "Nu se poate iniția plata. Încearcă din nou.",
+    "settings": {
+      "acceptPayments": "Acceptă plăți digitale",
+      "acceptPaymentsDesc": "Permite clienților să plătească de pe telefon.",
+      "connectStripeWarning": "Conectează Stripe pentru a accepta plăți.",
+      "stripeConnect": "Stripe Connect",
+      "stripeConnected": "Stripe conectat",
+      "disconnect": "Deconectează",
+      "disconnectConfirm": "Deconectează Stripe? Aceasta va dezactiva plățile digitale.",
+      "connectStripe": "Conectează Stripe",
+      "connecting": "Se conectează...",
+      "tips": "Bacșișuri",
+      "quickTipOptions": "Butoane rapide % bacșiș afișate clienților",
+      "addTipOption": "Adaugă"
+    }
   },
   "summary": {
     "statusSnapshot": "Instantaneu Status",
