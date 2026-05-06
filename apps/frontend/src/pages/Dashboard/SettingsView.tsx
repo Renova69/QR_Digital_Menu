@@ -1,8 +1,9 @@
 import React, { useContext, useState, useEffect } from "react";
 import RestaurantContext from "../../context/RestaurantContext";
-import { updateRestaurant, triggerTranslation } from "../../lib/api";
+import { updateRestaurant, triggerTranslation, generateStripeConnectLink, getStripeStatus, disconnectStripe } from "../../lib/api";
 import { useTranslation } from "react-i18next";
 import { BrandingEditor } from "../../components/ui/BrandingEditor";
+import { Button } from "../../components/ui/button";
 
 const AVAILABLE_LANGUAGES = [
   { code: "en", name: "English" },
@@ -72,6 +73,15 @@ const SettingsView = () => {
   const [happyHourEndTime, setHappyHourEndTime] = useState("");
   const [happyHourMultiplier, setHappyHourMultiplier] = useState(2.0);
 
+  // Payments
+  const [paymentsEnabled, setPaymentsEnabled] = useState(false);
+  const [tipsEnabled, setTipsEnabled] = useState(false);
+  const [tipOptions, setTipOptions] = useState<number[]>([2, 4, 5]);
+  const [newTipOption, setNewTipOption] = useState('');
+  const [stripeOnboarded, setStripeOnboarded] = useState(false);
+  const [stripeLoading, setStripeLoading] = useState(false);
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'general' | 'loyalty' | 'payments'>('general');
+
   const [status, setStatus] = useState({ loading: false, error: "", success: "" });
   const [translating, setTranslating] = useState(false);
   const { t } = useTranslation();
@@ -99,6 +109,16 @@ const SettingsView = () => {
       setHappyHourStartTime(activeRestaurant.happyHourStartTime || "");
       setHappyHourEndTime(activeRestaurant.happyHourEndTime || "");
       setHappyHourMultiplier(activeRestaurant.happyHourMultiplier ?? 2.0);
+
+      setPaymentsEnabled(activeRestaurant.paymentsEnabled ?? false);
+      setTipsEnabled(activeRestaurant.tipsEnabled ?? false);
+      setTipOptions(activeRestaurant.tipOptions ?? [2, 4, 5]);
+      setStripeOnboarded(activeRestaurant.stripeOnboarded ?? false);
+
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('stripe') === 'success' && activeRestaurant?.id) {
+        getStripeStatus(activeRestaurant.id).then((s) => setStripeOnboarded(s.stripeOnboarded));
+      }
     }
   }, [activeRestaurant]);
 
@@ -108,8 +128,8 @@ const SettingsView = () => {
     );
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!activeRestaurant) return;
 
     if (loyaltySilverThreshold >= loyaltyGoldThreshold) {
@@ -139,6 +159,9 @@ const SettingsView = () => {
         happyHourStartTime: happyHourStartTime || undefined,
         happyHourEndTime: happyHourEndTime || undefined,
         happyHourMultiplier: Number(happyHourMultiplier),
+        paymentsEnabled,
+        tipsEnabled,
+        tipOptions,
       });
 
       await fetchRestaurants();
@@ -196,8 +219,27 @@ const SettingsView = () => {
       )}
 
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden text-left">
+        {/* Tab nav */}
+        <div className="flex gap-1 border-b border-border px-6 pt-4">
+          {(['general', 'loyalty', 'payments'] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveSettingsTab(tab)}
+              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                activeSettingsTab === tab
+                  ? 'border-accent text-accent'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {t(`settings.tabs.${tab}`)}
+            </button>
+          ))}
+        </div>
+
         <form onSubmit={handleSave} className="p-6 space-y-6">
 
+          {activeSettingsTab === 'general' && (<>
           {/* ── Location & Contact ── */}
           <div className="border-b border-border pb-6">
             <h3 className="text-lg font-medium text-foreground mb-4">
@@ -302,6 +344,9 @@ const SettingsView = () => {
             </div>
           </div>
 
+          </>)}
+
+          {activeSettingsTab === 'loyalty' && (<>
           {/* ── Loyalty & Rewards ── */}
           <div className="border-b border-border pb-6">
             <h3 className="text-lg font-medium text-foreground mb-4">
@@ -557,15 +602,154 @@ const SettingsView = () => {
             )}
           </div>
 
-          <div className="flex justify-end pt-4 border-t border-border">
-            <button
-              type="submit"
-              disabled={status.loading}
-              className="bg-accent text-accent-foreground px-6 py-2 rounded-lg font-medium hover:bg-accent/90 transition-colors disabled:opacity-50"
-            >
-              {status.loading ? t("settings.saving") : t("settings.saveSettings")}
-            </button>
-          </div>
+          </>)}
+
+          {activeSettingsTab === 'payments' && (
+            <div className="space-y-6">
+              {/* Enable payments toggle */}
+              <div className="p-4 border border-border rounded-lg space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">{t('payment.settings.acceptPayments')}</p>
+                    <p className="text-sm text-muted-foreground">{t('payment.settings.acceptPaymentsDesc')}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentsEnabled(!paymentsEnabled)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${paymentsEnabled ? 'bg-accent' : 'bg-muted'}`}
+                    role="switch"
+                    aria-checked={paymentsEnabled}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${paymentsEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+                {paymentsEnabled && !stripeOnboarded && (
+                  <p className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-950 p-2 rounded">
+                    {t('payment.settings.connectStripeWarning')}
+                  </p>
+                )}
+              </div>
+
+              {/* Stripe Connect */}
+              <div className="p-4 border border-border rounded-lg space-y-3">
+                <p className="font-medium">{t('payment.settings.stripeConnect')}</p>
+                {stripeOnboarded ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-green-600 font-medium">✓ {t('payment.settings.stripeConnected')}</span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!activeRestaurant?.id) return;
+                        if (!window.confirm(t('payment.settings.disconnectConfirm'))) return;
+                        await disconnectStripe(activeRestaurant.id);
+                        setStripeOnboarded(false);
+                      }}
+                      className="text-sm text-red-500 hover:underline"
+                    >
+                      {t('payment.settings.disconnect')}
+                    </button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    type="button"
+                    disabled={stripeLoading}
+                    onClick={async () => {
+                      if (!activeRestaurant?.id) return;
+                      setStripeLoading(true);
+                      try {
+                        const { url } = await generateStripeConnectLink(activeRestaurant.id);
+                        window.location.href = url;
+                      } catch {
+                        setStripeLoading(false);
+                      }
+                    }}
+                  >
+                    {stripeLoading ? t('payment.settings.connecting') : t('payment.settings.connectStripe')}
+                  </Button>
+                )}
+              </div>
+
+              {/* Tips */}
+              {paymentsEnabled && (
+                <div className="p-4 border border-border rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium">{t('payment.settings.tips')}</p>
+                    <button
+                      type="button"
+                      onClick={() => setTipsEnabled(!tipsEnabled)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${tipsEnabled ? 'bg-accent' : 'bg-muted'}`}
+                      role="switch"
+                      aria-checked={tipsEnabled}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${tipsEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                  {tipsEnabled && (
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">{t('payment.settings.quickTipOptions')}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {tipOptions.map((pct) => (
+                          <span key={pct} className="flex items-center gap-1 px-2 py-1 bg-muted rounded text-sm">
+                            {pct}%
+                            <button
+                              type="button"
+                              onClick={() => setTipOptions(tipOptions.filter((o) => o !== pct))}
+                              className="text-muted-foreground hover:text-red-500 ml-1"
+                              aria-label={`Remove ${pct}%`}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={newTipOption}
+                          onChange={(e) => setNewTipOption(e.target.value)}
+                          placeholder="e.g. 15"
+                          className="w-24 px-2 py-1 border border-border rounded text-sm bg-background"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          type="button"
+                          onClick={() => {
+                            const v = parseInt(newTipOption);
+                            if (v > 0 && v <= 100 && !tipOptions.includes(v)) {
+                              setTipOptions([...tipOptions, v].sort((a, b) => a - b));
+                              setNewTipOption('');
+                            }
+                          }}
+                        >
+                          {t('payment.settings.addTipOption')}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <Button type="button" onClick={() => handleSave()} disabled={status.loading}>
+                {status.loading ? t('settings.saving') : t('settings.saveSettings')}
+              </Button>
+            </div>
+          )}
+
+          {activeSettingsTab !== 'payments' && (
+            <div className="flex justify-end pt-4 border-t border-border">
+              <button
+                type="submit"
+                disabled={status.loading}
+                className="bg-accent text-accent-foreground px-6 py-2 rounded-lg font-medium hover:bg-accent/90 transition-colors disabled:opacity-50"
+              >
+                {status.loading ? t("settings.saving") : t("settings.saveSettings")}
+              </button>
+            </div>
+          )}
         </form>
       </div>
 
