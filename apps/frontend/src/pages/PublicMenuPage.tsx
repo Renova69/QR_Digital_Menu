@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { getMenu, createAssistanceRequest } from "../lib/api";
+import { getMenu, createAssistanceRequest, getSessionBill } from "../lib/api";
 import { Category } from "../types";
+import { PaymentModal } from "../components/payment/PaymentModal";
 import { useCart } from "../context/CartContext";
 import { Button } from "../components/ui/button";
 import CartIcon from "../components/cart/CartIcon";
@@ -32,6 +33,9 @@ const PublicMenuPage = () => {
   const [noTableNotice, setNoTableNotice] = useState(false);
   const [selectedLang, setSelectedLang] = useState<string>("");
 
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+
   const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -45,6 +49,8 @@ const PublicMenuPage = () => {
     setTableNumberState(table);
     if (table) {
       setTableNumber(table);
+      const stored = localStorage.getItem(`session-${table}`);
+      if (stored) setSessionToken(stored);
     }
 
     if (!restaurantId) return;
@@ -121,6 +127,13 @@ const PublicMenuPage = () => {
       observer.disconnect();
     };
   }, [menuData]);
+
+  useEffect(() => {
+    if (tableNumber) {
+      const stored = localStorage.getItem(`session-${tableNumber}`);
+      setSessionToken(stored);
+    }
+  }, [tableNumber]);
 
   useEffect(() => {
     if (menuData?.restaurant) {
@@ -581,6 +594,25 @@ const PublicMenuPage = () => {
             )}
 
             <div className="w-px h-8 bg-border/40 mx-1 md:mx-2 flex-shrink-0" />
+            {sessionToken && (
+              <Button
+                variant="default"
+                size="sm"
+                className="bg-accent text-accent-foreground flex-shrink-0"
+                onClick={async () => {
+                  try {
+                    await getSessionBill(sessionToken);
+                    setIsPaymentModalOpen(true);
+                  } catch {
+                    setSessionToken(null);
+                    if (tableNumber) localStorage.removeItem(`session-${tableNumber}`);
+                  }
+                }}
+              >
+                {t('payment.requestBill')}
+              </Button>
+            )}
+            <div className="w-px h-8 bg-border/40 mx-1 md:mx-2 flex-shrink-0" />
             <div className="pr-2 md:pr-4 flex-shrink-0">
               <CartIcon
                 categories={menuData?.categories}
@@ -597,6 +629,19 @@ const PublicMenuPage = () => {
         onClose={() => setIsLoginModalOpen(false)}
         returnTo={location.pathname + location.search}
       />
+
+      {isPaymentModalOpen && sessionToken && restaurantId && (
+        <PaymentModal
+          sessionToken={sessionToken}
+          restaurantId={restaurantId}
+          onClose={() => setIsPaymentModalOpen(false)}
+          onSuccess={() => {
+            setIsPaymentModalOpen(false);
+            setSessionToken(null);
+            if (tableNumber) localStorage.removeItem(`session-${tableNumber}`);
+          }}
+        />
+      )}
     </div>
   );
 };
