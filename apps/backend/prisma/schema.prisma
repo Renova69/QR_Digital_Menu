@@ -61,6 +61,12 @@ model Restaurant {
   loyaltySilverMultiplier   Float               @default(1.2)
   loyaltySilverThreshold    Int                 @default(500)
   defaultTheme              String?             @default("light")
+  stripeAccountId           String?
+  stripeOnboarded           Boolean             @default(false)
+  paymentsEnabled           Boolean             @default(false)
+  tipsEnabled               Boolean             @default(false)
+  tipOptions                Int[]               @default([2, 4, 5])
+  platformFeePercent        Float               @default(0.5)
   assistanceRequests        AssistanceRequest[]
   orders                    Order[]
   feedbacks                 Feedback[]
@@ -68,6 +74,8 @@ model Restaurant {
   menuCategories            MenuCategory[]
   owner                     User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   tables                    RestaurantTable[]
+  tableSessions             TableSession[]
+  payments                  Payment[]
 
   @@map("restaurant")
 }
@@ -78,7 +86,8 @@ model RestaurantTable {
   restaurantId String
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  sessions     TableSession[]
 
   @@map("restaurant_table")
 }
@@ -151,6 +160,8 @@ model Order {
   restaurantId              String
   totalPrice                Float
   specialRequests           String?
+  tableSessionId            String?
+  tableSession              TableSession?        @relation(fields: [tableSessionId], references: [id])
   createdAt                 DateTime             @default(now())
   updatedAt                 DateTime             @updatedAt
   customerId                String?
@@ -285,4 +296,60 @@ model VerificationToken {
   createdAt DateTime  @default(now())
 
   @@index([email])
+}
+
+model TableSession {
+  id           String             @id @default(cuid())
+  token        String             @unique @default(cuid())
+  tableId      String
+  restaurantId String
+  status       TableSessionStatus @default(OPEN)
+  createdAt    DateTime           @default(now())
+  paidAt       DateTime?
+  orders       Order[]
+  payments     Payment[]
+  restaurant   Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table        RestaurantTable    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([tableId, status])
+  @@map("table_session")
+}
+
+model Payment {
+  id                    String          @id @default(cuid())
+  tableSessionId        String
+  restaurantId          String
+  stripePaymentIntentId String?         @unique
+  amount                Float
+  tipAmount             Float           @default(0)
+  platformFeeAmount     Float           @default(0)
+  currency              String          @default("eur")
+  status                PaymentStatus   @default(PENDING)
+  provider              PaymentProvider @default(STRIPE)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  tableSession          TableSession    @relation(fields: [tableSessionId], references: [id])
+  restaurant            Restaurant      @relation(fields: [restaurantId], references: [id])
+
+  @@index([stripePaymentIntentId])
+  @@map("payment")
+}
+
+enum TableSessionStatus {
+  OPEN
+  PAID
+  CLOSED_NO_PAYMENT
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  STRIPE
+  MYPOS
 }
