@@ -34,7 +34,7 @@ export class PaymentService {
     return { session, token: session.token };
   }
 
-  async getSessionBill(token: string) {
+  async getSessionBill(token: string): Promise<{ orders: any[]; subtotal: number; restaurantId: string; tipsEnabled: boolean; tipOptions: number[] }> {
     const session = await this.prisma.tableSession.findFirst({
       where: { token, status: 'OPEN' },
       include: { restaurant: true },
@@ -57,7 +57,7 @@ export class PaymentService {
     };
   }
 
-  async createPaymentIntent(token: string, tipPercent: number) {
+  async createPaymentIntent(token: string, tipPercent: number): Promise<{ clientSecret: string; paymentId: string; total: number; tipAmount: number }> {
     const session = await this.prisma.tableSession.findFirst({
       where: { token, status: 'OPEN' },
       include: { restaurant: true },
@@ -82,7 +82,8 @@ export class PaymentService {
     const subtotal = orders.reduce((sum, o) => sum + o.totalPrice, 0);
     const tipAmount = Math.round(subtotal * tipPercent) / 100;
     const total = subtotal + tipAmount;
-    const platformFee = (total * restaurant.platformFeePercent) / 100;
+    const platformFeeCents = Math.round(total * 100 * restaurant.platformFeePercent / 100);
+    const platformFeeAmount = platformFeeCents / 100;
 
     const payment = await this.prisma.payment.create({
       data: {
@@ -90,7 +91,7 @@ export class PaymentService {
         restaurantId: session.restaurantId,
         amount: total,
         tipAmount,
-        platformFeeAmount: platformFee,
+        platformFeeAmount,
         currency: 'eur',
         status: 'PENDING',
       },
@@ -100,19 +101,23 @@ export class PaymentService {
       amountCents: Math.round(total * 100),
       currency: 'eur',
       restaurantStripeAccountId: restaurant.stripeAccountId,
-      platformFeeCents: Math.round(platformFee * 100),
+      platformFeeCents,
       metadata: { sessionId: session.id, paymentId: payment.id },
     });
 
-    await this.prisma.payment.update({
-      where: { id: payment.id },
-      data: { stripePaymentIntentId: paymentIntentId },
-    });
+    try {
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: { stripePaymentIntentId: paymentIntentId },
+      });
+    } catch {
+      // Intent ID update failed — webhook will reconcile via metadata
+    }
 
     return { clientSecret, paymentId: payment.id, total, tipAmount };
   }
 
-  async handleWebhookEvent(payload: Buffer, signature: string) {
+  async handleWebhookEvent(payload: Buffer, signature: string): Promise<void> {
     const event = this.stripe.constructWebhookEvent(payload, signature);
 
     if (event.type === 'payment_intent.succeeded') {
@@ -123,15 +128,16 @@ export class PaymentService {
       });
       if (!payment) return;
 
-      await this.prisma.payment.update({
-        where: { id: payment.id },
-        data: { status: 'SUCCEEDED', stripePaymentIntentId: intent.id },
-      });
-
-      await this.prisma.tableSession.update({
-        where: { id: payment.tableSessionId },
-        data: { status: 'PAID', paidAt: new Date() },
-      });
+      await this.prisma.$transaction([
+        this.prisma.payment.update({
+          where: { id: payment.id },
+          data: { status: 'SUCCEEDED', stripePaymentIntentId: intent.id },
+        }),
+        this.prisma.tableSession.update({
+          where: { id: payment.tableSessionId },
+          data: { status: 'PAID', paidAt: new Date() },
+        }),
+      ]);
 
       this.events.emitToRestaurant(
         payment.tableSession.restaurantId,
@@ -154,7 +160,7 @@ export class PaymentService {
     }
   }
 
-  async closeSession(token: string, restaurantId: string) {
+  async closeSession(token: string, restaurantId: string): Promise<void> {
     const session = await this.prisma.tableSession.findFirst({
       where: { token, restaurantId, status: 'OPEN' },
     });
@@ -166,7 +172,7 @@ export class PaymentService {
     });
   }
 
-  async getTableSessions(restaurantId: string) {
+  async getTableSessions(restaurantId: string): Promise<any[]> {
     return this.prisma.tableSession.findMany({
       where: { restaurantId, status: { in: ['OPEN', 'PAID'] } },
       orderBy: { createdAt: 'desc' },

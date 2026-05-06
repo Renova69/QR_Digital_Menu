@@ -22,9 +22,7 @@ describe('PaymentService', () => {
       order: {
         findMany: jest.fn(),
       },
-      restaurant: {
-        findUnique: jest.fn(),
-      },
+      $transaction: jest.fn((ops: any[]) => Promise.all(ops)),
     };
     mockStripeProvider = {
       createPaymentIntent: jest.fn(),
@@ -204,6 +202,21 @@ describe('PaymentService', () => {
         where: { id: 'pay1' },
         data: { status: 'FAILED' },
       });
+      expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
+    });
+
+    it('silently returns when payment record not found for succeeded event', async () => {
+      mockStripeProvider.constructWebhookEvent.mockReturnValue({
+        type: 'payment_intent.succeeded',
+        data: { object: { id: 'pi_orphan' } },
+      });
+      mockPrisma.payment.findFirst.mockResolvedValue(null);
+
+      await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+
+      expect(mockPrisma.payment.update).not.toHaveBeenCalled();
+      expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
+      expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
     });
   });
 
@@ -218,6 +231,11 @@ describe('PaymentService', () => {
         where: { id: 's1' },
         data: { status: 'CLOSED_NO_PAYMENT' },
       });
+    });
+
+    it('throws NotFoundException when session not found', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue(null);
+      await expect(service.closeSession('bad-token', 'rest1')).rejects.toThrow(NotFoundException);
     });
   });
 });
