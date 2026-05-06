@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import api from "../lib/api";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "../components/ui/button";
+import { useTranslation } from "react-i18next";
 
 export const CustomerProfilePage: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { t } = useTranslation();
+  const returnTo = searchParams.get("returnTo");
+
   const [history, setHistory] = useState<any[]>([]);
   const [loyaltyAccounts, setLoyaltyAccounts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,9 +41,9 @@ export const CustomerProfilePage: React.FC = () => {
   if (!user) {
     return (
       <div className="pt-32 text-center">
-        <p>Please log in to view your profile.</p>
+        <p>{t("profile.pleaseLogin")}</p>
         <Button onClick={() => navigate("/login")} className="mt-4">
-          Login
+          {t("profile.loginButton")}
         </Button>
       </div>
     );
@@ -47,51 +52,60 @@ export const CustomerProfilePage: React.FC = () => {
   return (
     <div className="pt-28 pb-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto min-h-screen">
       <div className="flex justify-between items-center mb-10">
-        <h1 className="text-4xl font-serif font-black text-foreground tracking-tighter">
-          My Profile
-        </h1>
+        <div>
+          {returnTo && (
+            <button
+              onClick={() => navigate(returnTo)}
+              className="text-sm text-muted-foreground hover:text-foreground mb-2 flex items-center gap-1 transition-colors"
+            >
+              {t("profile.backToMenu")}
+            </button>
+          )}
+          <h1 className="text-4xl font-serif font-black text-foreground tracking-tighter">
+            {t("profile.title")}
+          </h1>
+        </div>
         <Button variant="outline" onClick={logout}>
-          Sign Out
+          {t("profile.signOut")}
         </Button>
       </div>
 
       <div className="glass-panel p-8 rounded-[2rem] border-white/5 mb-8">
         <h2 className="text-2xl font-bold mb-2">
-          Welcome back, {user.name || user.email.split("@")[0]}!
+          {t("profile.welcome", {
+            name: user.name || user.email.split("@")[0],
+          })}
         </h2>
-        <p className="text-muted-foreground">
-          View your order history and earned loyalty points.
-        </p>
+        <p className="text-muted-foreground">{t("profile.subtitle")}</p>
       </div>
 
       {loyaltyAccounts.length > 0 && (
         <div className="glass-panel p-8 rounded-[2rem] border-white/5 mb-8">
-          <h2 className="text-xl font-bold mb-6">Your VIP Tiers & Points</h2>
+          <h2 className="text-xl font-bold mb-6">{t("profile.vipTiersTitle")}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {loyaltyAccounts.map((acc: any) => {
-              // Tier info is computed by the backend (single source of truth).
-              // tierConfig thresholds vary per restaurant, so we never hardcode them.
-              const tier: string = acc.tier ?? (acc.lifetimePoints >= 2000 ? "Gold" : acc.lifetimePoints >= 500 ? "Silver" : "Bronze");
+              const tier: string = acc.tier ?? "Bronze";
+              const tierLower = tier.toLowerCase();
               const multiplier = `${acc.tierMultiplier ?? 1.0}x`;
               const nextTierName: string = acc.nextTierName ?? "Silver";
               const pointsToNext: number = acc.pointsToNextTier ?? 0;
               const progressStr = `${Math.min(100, acc.tierProgressPercent ?? 0)}%`;
               const borderColor =
-                acc.lifetimePoints >= 2000
+                tierLower === "gold"
                   ? "border-yellow-500"
-                  : acc.lifetimePoints >= 500
+                  : tierLower === "silver"
                     ? "border-slate-400"
                     : "border-orange-700";
               const bgColor =
-                acc.lifetimePoints >= 2000
+                tierLower === "gold"
                   ? "bg-yellow-500/10"
-                  : acc.lifetimePoints >= 500
+                  : tierLower === "silver"
                     ? "bg-slate-400/10"
                     : "bg-orange-700/10";
               const textColor =
-                acc.lifetimePoints >= 2000
+                tierLower === "gold"
                   ? "text-yellow-500"
-                  : acc.lifetimePoints >= 500
+                  : tierLower === "silver"
                     ? "text-slate-300"
                     : "text-orange-600";
               const rewardValue: number =
@@ -125,7 +139,7 @@ export const CustomerProfilePage: React.FC = () => {
                   <div className="flex justify-between items-end mb-4">
                     <div>
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                        Current Balance
+                        {t("profile.currentBalance")}
                       </p>
                       <p className={`text-3xl font-black ${textColor}`}>
                         {acc.points} pts
@@ -136,7 +150,7 @@ export const CustomerProfilePage: React.FC = () => {
                     </div>
                     <div className="text-right">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                        Multiplier
+                        {t("profile.multiplier")}
                       </p>
                       <p className={`text-xl font-bold ${textColor}`}>
                         {multiplier}
@@ -146,56 +160,69 @@ export const CustomerProfilePage: React.FC = () => {
 
                   <div className="mt-4 pt-4 border-t border-white/10">
                     <div className="flex justify-between text-xs text-muted-foreground mb-2">
-                      <span>First EUR 1 reward</span>
+                      <span>{t("profile.firstReward")}</span>
                       {pointsToFirstReward > 0 ? (
-                        <span>{pointsToFirstReward} pts to go</span>
+                        <span>
+                          {t("profile.ptsToGo", {
+                            count: pointsToFirstReward,
+                          })}
+                        </span>
                       ) : (
-                        <span>Ready to redeem</span>
+                        <span>{t("profile.readyToRedeem")}</span>
                       )}
                     </div>
                     <div className="w-full bg-black/40 rounded-full h-2">
                       <div
                         className={`h-2 rounded-full ${textColor.replace("text-", "bg-")}`}
                         style={{ width: `${rewardProgress}%` }}
-                      ></div>
+                      />
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">
-                      {rewardProgress}% of the way to your first EUR 1 reward.
+                      {t("profile.rewardProgress", { pct: rewardProgress })}
                     </p>
                   </div>
 
                   {expiringSoonPoints > 0 && (
                     <div className="mt-4 rounded-xl border border-yellow-500/25 bg-yellow-500/10 p-3">
                       <p className="text-xs font-bold text-yellow-600 dark:text-yellow-400">
-                        EUR {expiringSoonValue.toFixed(2)} in rewards expires
-                        soon
+                        {t("profile.expiringSoonTitle", {
+                          value: expiringSoonValue.toFixed(2),
+                        })}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {expiringSoonPoints} points expire
-                        {nextExpirationAt
-                          ? ` on ${nextExpirationAt.toLocaleDateString()}`
-                          : " soon"}
-                        . Come back before they disappear.
+                        {t("profile.expiringSoonBody", {
+                          count: expiringSoonPoints,
+                          date: nextExpirationAt
+                            ? t("profile.expiringSoonOn", {
+                                date: nextExpirationAt.toLocaleDateString(),
+                              })
+                            : "",
+                        })}
                       </p>
                     </div>
                   )}
 
                   <div className="mt-4 pt-4 border-t border-white/10">
                     <div className="flex justify-between text-xs text-muted-foreground mb-2">
-                      <span>Lifetime: {acc.lifetimePoints} pts</span>
+                      <span>
+                        {t("profile.lifetime", { pts: acc.lifetimePoints })}
+                      </span>
                       {pointsToNext > 0 ? (
                         <span>
-                          {pointsToNext} pts to {nextTierName}
+                          {t("profile.ptsToTier", {
+                            count: pointsToNext,
+                            tier: nextTierName,
+                          })}
                         </span>
                       ) : (
-                        <span>Max Tier Reached</span>
+                        <span>{t("profile.maxTier")}</span>
                       )}
                     </div>
                     <div className="w-full bg-black/40 rounded-full h-2">
                       <div
                         className={`h-2 rounded-full ${textColor.replace("text-", "bg-")}`}
                         style={{ width: progressStr }}
-                      ></div>
+                      />
                     </div>
                   </div>
                 </div>
@@ -206,16 +233,13 @@ export const CustomerProfilePage: React.FC = () => {
       )}
 
       <div className="glass-panel p-8 rounded-[2rem] border-white/5">
-        <h2 className="text-xl font-bold mb-6">Past Orders</h2>
+        <h2 className="text-xl font-bold mb-6">{t("profile.pastOrders")}</h2>
         {isLoading ? (
-          <p className="text-muted-foreground">Loading history...</p>
+          <p className="text-muted-foreground">{t("profile.loading")}</p>
         ) : history.length === 0 ? (
           <div className="text-center py-10 opacity-60">
-            <p className="font-bold mb-2">No orders yet</p>
-            <p className="text-sm">
-              When you order from participating restaurants, they'll appear
-              here.
-            </p>
+            <p className="font-bold mb-2">{t("profile.noOrders")}</p>
+            <p className="text-sm">{t("profile.noOrdersHint")}</p>
           </div>
         ) : (
           <ul className="space-y-6">
@@ -225,20 +249,19 @@ export const CustomerProfilePage: React.FC = () => {
                 className="p-6 bg-accent/5 border border-accent/10 rounded-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-4"
               >
                 <div>
-                  <h3 className="font-black text-lg">
-                    {order.restaurant.name}
-                  </h3>
+                  <h3 className="font-black text-lg">{order.restaurant.name}</h3>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mt-1">
-                    {new Date(order.createdAt).toLocaleDateString()} at{" "}
+                    {new Date(order.createdAt).toLocaleDateString()}{" "}
+                    {t("profile.at")}{" "}
                     {new Date(order.createdAt).toLocaleTimeString()}
                   </p>
                   <p className="text-sm mt-3 font-medium">
                     {order.items
                       ?.map(
                         (i: any) =>
-                          `${i.quantity}x ${i.menuItem?.name || "Item"}`,
+                          `${i.quantity}x ${i.menuItem?.name || t("profile.noItems")}`,
                       )
-                      .join(", ") || "No items"}
+                      .join(", ") || t("profile.noItems")}
                   </p>
                 </div>
                 <div className="text-left sm:text-right shrink-0">
