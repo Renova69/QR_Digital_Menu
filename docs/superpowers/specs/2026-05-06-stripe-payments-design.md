@@ -98,6 +98,7 @@ Add fields:
 ```prisma
 stripeAccountId      String?
 stripeOnboarded      Boolean  @default(false)
+paymentsEnabled      Boolean  @default(false)
 tipsEnabled          Boolean  @default(false)
 tipOptions           Int[]    @default([2, 4, 5])
 platformFeePercent   Float    @default(0.5)
@@ -156,7 +157,8 @@ export interface IPaymentProvider {
 
 `createPaymentIntent(token, tipPercent)`:
 - Fetch session + restaurant
-- Validate restaurant has `stripeOnboarded = true`
+- Validate restaurant has `paymentsEnabled = true` → else throw `403 Forbidden`
+- Validate restaurant has `stripeOnboarded = true` → else throw `400 Bad Request('Stripe not connected')`
 - Calculate: `subtotal` = sum of orders, `tipAmount` = subtotal × tipPercent/100, `total` = subtotal + tipAmount
 - `platformFee` = total × `restaurant.platformFeePercent` / 100
 - Create `Payment` record (status=PENDING)
@@ -260,11 +262,17 @@ Step 3 — **Confirmation**:
 
 New tab in `SettingsView.tsx`:
 
+**Enable payments toggle (top of tab):**
+- Toggle: "Accept digital payments" → sets `paymentsEnabled`
+- When OFF: "Request Bill" button hidden on public menu; payment intent routes return 403 for this restaurant; Stripe Connect + tips sections still visible so owner can configure in advance
+- When ON but `!stripeOnboarded`: show warning banner "Connect Stripe to start accepting payments"
+- Use case: restaurants using app for ordering + loyalty only (cash / physical POS) can leave this off indefinitely
+
 **Stripe Connect section:**
 - If `!stripeOnboarded`: "Connect Stripe" button → calls `POST /api/restaurants/:id/stripe/connect` → redirect to Stripe onboarding URL
 - If `stripeOnboarded`: green badge "Stripe Connected" + "Disconnect" option
 
-**Tips section** (visible always):
+**Tips section** (visible when `paymentsEnabled`):
 - Toggle: "Enable tips"
 - When enabled: editable list of quick-tip % options (default [2, 4, 5]) + add/remove buttons
 - Save → `PATCH /api/restaurants/:id` with `{ tipsEnabled, tipOptions }`
