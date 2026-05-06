@@ -151,4 +151,57 @@ api.interceptors.response.use(
   }
 );
 
+// Payment / TableSession
+
+export const getOrCreateSession = async (tableId: string, restaurantId: string, sessionToken?: string) => {
+  const response = await api.post('/payments/session', { tableId, restaurantId, sessionToken });
+  return response.data as { session: any; token: string };
+};
+
+export const getSessionBill = async (token: string) => {
+  const response = await api.get(`/payments/session/${token}/bill`);
+  return response.data as {
+    orders: any[];
+    subtotal: number;
+    restaurantId: string;
+    tipsEnabled: boolean;
+    tipOptions: number[];
+  };
+};
+
+export const createPaymentIntent = async (token: string, tipPercent: number) => {
+  const response = await api.post(`/payments/session/${token}/intent`, { tipPercent });
+  return response.data as {
+    clientSecret: string;
+    paymentId: string;
+    total: number;
+    tipAmount: number;
+  };
+};
+
+export const closeSession = async (token: string, restaurantId: string) => {
+  const response = await api.post(`/payments/session/${token}/close`, { restaurantId });
+  return response.data;
+};
+
+export const getTableSessions = async (restaurantId: string) => {
+  const response = await api.get(`/payments/sessions/${restaurantId}`);
+  return response.data as Array<{ id: string; token: string; tableId: string; status: string; createdAt: string; paidAt?: string }>;
+};
+
+export const generateStripeConnectLink = async (restaurantId: string) => {
+  const response = await api.post(`/restaurants/${restaurantId}/stripe/connect`);
+  return response.data as { url: string };
+};
+
+export const getStripeStatus = async (restaurantId: string) => {
+  const response = await api.get(`/restaurants/${restaurantId}/stripe/status`);
+  return response.data as { stripeOnboarded: boolean };
+};
+
+export const disconnectStripe = async (restaurantId: string) => {
+  const response = await api.post(`/restaurants/${restaurantId}/stripe/disconnect`);
+  return response.data;
+};
+
 export default api;
