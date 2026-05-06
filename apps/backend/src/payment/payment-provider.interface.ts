@@ -8,4 +8,14 @@ export interface IPaymentProvider {
   }): Promise<{ clientSecret: string; paymentIntentId: string }>;
 
   constructWebhookEvent(payload: Buffer, signature: string): any;
+
+  createExpressAccount(): Promise<string>;
+
+  createAccountLink(
+    accountId: string,
+    refreshUrl: string,
+    returnUrl: string,
+  ): Promise<string>;
+
+  retrieveAccount(accountId: string): Promise<boolean>;
 }

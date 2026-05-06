@@ -1,14 +1,22 @@
-import { Injectable } from '@nestjs/common';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const StripeLib = require('stripe');
+import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import Stripe = require('stripe');
 import { IPaymentProvider } from './payment-provider.interface';
 
 @Injectable()
-export class StripeProvider implements IPaymentProvider {
-  private readonly stripe: any;
+export class StripeProvider implements IPaymentProvider, OnModuleInit {
+  private readonly stripe: Stripe.Stripe;
+  private readonly logger = new Logger(StripeProvider.name);
 
   constructor() {
-    this.stripe = new StripeLib(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
+    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder', {
+      apiVersion: '2026-04-22.dahlia',
+    });
+  }
+
+  onModuleInit() {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      this.logger.warn('STRIPE_SECRET_KEY is not set — Stripe calls will fail');
+    }
   }
 
   async createPaymentIntent(params: {
