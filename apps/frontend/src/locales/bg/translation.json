@@ -30,6 +30,11 @@
   "settings": {
     "title": "Настройки",
     "desc": "Управлявайте информацията за контакт на вашия ресторант и интегрирайте услуги за автоматичен превод.",
+    "tabs": {
+      "general": "Общи",
+      "loyalty": "Лоялност",
+      "payments": "Плащания"
+    },
     "locationContact": "Местоположение и Контакт",
     "address": "Адрес",
     "contactInfo": "Контакт (Телефон / Email)",
@@ -251,10 +256,49 @@
     "qrInstructions": "Сканирайте този QR код, за да разгледате менюто и да поръчате на Маса {{name}}",
     "downloadPNG": "Изтегли PNG",
     "loadingTables": "Зареждане на масите...",
-    "printAllQr": "Отпечатай всички QR кодове"
+    "printAllQr": "Отпечатай всички QR кодове",
+    "sessionOpen": "Отворена сесия",
+    "sessionPaid": "Платено",
+    "closeSession": "Затвори сесията"
   },
   "common": {
-    "pleaseLogin": "Моля влезте в акаунта си"
+    "pleaseLogin": "Моля влезте в акаунта си",
+    "cancel": "Отказ"
+  },
+  "payment": {
+    "requestBill": "Поискай сметката",
+    "yourBill": "Вашата сметка",
+    "payment": "Плащане",
+    "thankYou": "Благодарим!",
+    "subtotal": "Сума",
+    "tip": "Бакшиш",
+    "total": "Общо",
+    "addTip": "Добави бакшиш?",
+    "noTip": "Без бакшиш",
+    "custom": "По избор",
+    "tipAmount": "Сума за бакшиш",
+    "continue": "Продължи към плащане",
+    "pay": "Плати",
+    "processing": "Обработва се...",
+    "paymentReceived": "Плащането е получено",
+    "backToMenu": "Обратно към менюто",
+    "loading": "Зарежда се...",
+    "paymentFailed": "Плащането неуспешно. Опитайте отново.",
+    "failedToLoad": "Не може да се стартира плащане. Опитайте отново.",
+    "settings": {
+      "acceptPayments": "Приемай дигитални плащания",
+      "acceptPaymentsDesc": "Позволи на клиентите да плащат от телефона си.",
+      "connectStripeWarning": "Свържи Stripe, за да започнеш да приемаш плащания.",
+      "stripeConnect": "Stripe Connect",
+      "stripeConnected": "Stripe свързан",
+      "disconnect": "Изключи",
+      "disconnectConfirm": "Изключи Stripe? Това ще деактивира дигиталните плащания.",
+      "connectStripe": "Свържи Stripe",
+      "connecting": "Свързване...",
+      "tips": "Бакшиши",
+      "quickTipOptions": "Бързи % бутони за бакшиш, показани на клиентите",
+      "addTipOption": "Добави"
+    }
   },
   "summary": {
     "statusSnapshot": "Моментна снимка",
