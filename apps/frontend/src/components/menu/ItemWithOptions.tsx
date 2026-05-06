@@ -48,6 +48,29 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
         return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
     }, []);
 
+    // Pre-select first VARIATION option
+    useEffect(() => {
+      if (!item.options?.length) return;
+      setSelectedOptions((prev) => {
+        const init: Record<string, any> = { ...prev };
+        (item.options as any[]).forEach((opt: any) => {
+          if (
+            opt.type === 'VARIATION' &&
+            opt.choices?.length > 0 &&
+            !init[opt.id]
+          ) {
+            init[opt.id] = {
+              optionId: opt.id,
+              optionName: opt.name,
+              choiceName: opt.choices[0].name,
+              priceModifier: opt.choices[0].priceModifier ?? 0,
+            };
+          }
+        });
+        return init;
+      });
+    }, [item.id]);
+
     const preserveScrollPosition = () => {
         const y = window.scrollY;
         requestAnimationFrame(() => {
@@ -296,22 +319,22 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                         <div className="relative z-10 p-8 sm:p-12 flex flex-col md:flex-row gap-10">
                             <div className="flex-1 flex flex-col justify-center text-center md:text-left">
                                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent/20 border border-accent/30 w-fit mx-auto md:mx-0 mb-6">
-                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-accent-foreground">Perfect Pairing</span>
+                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-accent-foreground">{t('publicMenu.pairing.title')}</span>
                                 </div>
                                 
                                 <h3 className="text-4xl sm:text-5xl font-serif font-black text-white tracking-tighter leading-[0.95] mb-6">
-                                    Complete Your <br className="hidden sm:block" /> {item.name}
+                                    {t('publicMenu.pairing.completeYour', { name: item.name })}
                                 </h3>
                                 
                                 <p className="text-zinc-400 text-sm font-medium leading-relaxed mb-8 max-w-[280px] mx-auto md:mx-0">
-                                    Exquisite additions selected by our chef to elevate your experience.
+                                    {t('publicMenu.pairing.chefDescription')}
                                 </p>
                                 
-                                <button 
+                                <button
                                     onClick={() => handlePairingAction(undefined)}
                                     className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-white transition-colors text-center md:text-left"
                                 >
-                                    No thanks, continue
+                                    {t('publicMenu.pairing.noThanks')}
                                 </button>
                             </div>
 
@@ -341,11 +364,11 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                                             </div>
                                         </div>
                                         
-                                        <button 
+                                        <button
                                             onClick={() => handlePairingAction(pairing)}
                                             className="w-full py-3.5 rounded-[1.25rem] bg-white text-black font-black uppercase text-[9px] tracking-[0.2em] transition-all hover:bg-accent hover:text-white"
                                         >
-                                            Add to order
+                                            {t('publicMenu.pairing.addToOrder')}
                                         </button>
                                     </div>
                                 )})}
