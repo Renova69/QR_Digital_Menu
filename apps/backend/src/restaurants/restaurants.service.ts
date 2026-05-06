@@ -8,6 +8,7 @@ import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { TranslationService } from '../translation/translation.service';
+import { StripeProvider } from '../payment/stripe.provider';
 
 @Injectable()
 export class RestaurantsService {
@@ -16,6 +17,7 @@ export class RestaurantsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly translationService: TranslationService,
+    private readonly stripeProvider: StripeProvider,
   ) {}
 
   async create(createRestaurantDto: CreateRestaurantDto, userId: string) {
@@ -240,5 +242,57 @@ export class RestaurantsService {
       success: true,
       message: `Translated ${categories.length} categories, ${items.length} items, and ${options.length} options.`,
     };
+  }
+
+  async generateConnectLink(restaurantId: string, userId: string) {
+    const restaurant = await this.findOne(restaurantId, userId);
+
+    let accountId = restaurant.stripeAccountId;
+    if (!accountId) {
+      accountId = await this.stripeProvider.createExpressAccount();
+      await this.prisma.restaurant.update({
+        where: { id: restaurantId },
+        data: { stripeAccountId: accountId },
+      });
+    }
+
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+    const url = await this.stripeProvider.createAccountLink(
+      accountId,
+      `${baseUrl}/dashboard/settings?stripe=refresh`,
+      `${baseUrl}/dashboard/settings?stripe=success`,
+    );
+
+    return { url };
+  }
+
+  async getStripeStatus(restaurantId: string, userId: string) {
+    const restaurant = await this.findOne(restaurantId, userId);
+
+    if (!restaurant.stripeAccountId) {
+      return { stripeOnboarded: false };
+    }
+
+    const chargesEnabled = await this.stripeProvider.retrieveAccount(
+      restaurant.stripeAccountId,
+    );
+
+    if (chargesEnabled && !restaurant.stripeOnboarded) {
+      await this.prisma.restaurant.update({
+        where: { id: restaurantId },
+        data: { stripeOnboarded: true },
+      });
+    }
+
+    return { stripeOnboarded: chargesEnabled };
+  }
+
+  async disconnectStripe(restaurantId: string, userId: string) {
+    await this.findOne(restaurantId, userId);
+
+    return this.prisma.restaurant.update({
+      where: { id: restaurantId },
+      data: { stripeAccountId: null, stripeOnboarded: false },
+    });
   }
 }
