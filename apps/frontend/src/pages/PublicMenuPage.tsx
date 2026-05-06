@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useLocation } from "react-router-dom";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { getMenu, createAssistanceRequest } from "../lib/api";
 import { Category } from "../types";
 import { useCart } from "../context/CartContext";
 import { Button } from "../components/ui/button";
 import CartIcon from "../components/cart/CartIcon";
 import { ItemWithOptions } from "../components/menu/ItemWithOptions";
-import { Bell, Globe } from "lucide-react";
+import { Bell, Globe, LogOut } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
 import { TrendingCarousel } from "../components/menu/TrendingCarousel";
@@ -16,6 +16,7 @@ import { useAuth } from "../context/AuthContext";
 const PublicMenuPage = () => {
   const { restaurantId } = useParams<{ restaurantId: string }>();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const { setTableNumber, pruneInvalidItems } = useCart();
   const [tableNumber, setTableNumberState] = useState<string | null>(null);
@@ -544,18 +545,32 @@ const PublicMenuPage = () => {
             <div className="w-px h-8 bg-border/40 mx-1 md:mx-2 flex-shrink-0" />
 
             {user ? (
-              <button
-                onClick={() => logout()}
-                aria-label={t("publicMenu.logout", "Sign out")}
-                className="flex flex-col items-center justify-center px-3 md:px-4 min-h-[48px] hover:opacity-70 transition-opacity flex-shrink-0"
-              >
-                <span className="text-xs font-black uppercase text-accent truncate max-w-[64px] md:max-w-[80px]">
-                  {user.name?.split(" ")[0] || "Me"}
-                </span>
-                <span className="text-[10px] font-medium text-muted-foreground uppercase">
-                  {t("publicMenu.logout", "Logout")}
-                </span>
-              </button>
+              <div className="flex items-center gap-0.5 flex-shrink-0">
+                <button
+                  onClick={() =>
+                    navigate(
+                      `/profile?returnTo=${encodeURIComponent(
+                        location.pathname + location.search,
+                      )}`,
+                    )
+                  }
+                  className="flex flex-col items-center justify-center px-2 md:px-3 min-h-[48px] hover:opacity-70 transition-opacity"
+                >
+                  <span className="text-xs font-black uppercase text-accent truncate max-w-[56px] md:max-w-[72px]">
+                    {user.name?.split(" ")[0] || t("publicMenu.myProfile")}
+                  </span>
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase">
+                    {t("publicMenu.myProfile")}
+                  </span>
+                </button>
+                <button
+                  onClick={() => logout()}
+                  aria-label={t("publicMenu.logout")}
+                  className="p-2 hover:opacity-70 transition-opacity"
+                >
+                  <LogOut className="w-4 h-4 text-muted-foreground" />
+                </button>
+              </div>
             ) : (
               <button
                 onClick={() => setIsLoginModalOpen(true)}
@@ -570,6 +585,7 @@ const PublicMenuPage = () => {
               <CartIcon
                 categories={menuData?.categories}
                 restaurantId={restaurantId}
+                selectedLang={selectedLang}
               />
             </div>
           </div>
