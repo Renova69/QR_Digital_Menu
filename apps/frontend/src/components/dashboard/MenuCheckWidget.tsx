@@ -65,14 +65,14 @@ export const MenuCheckWidget = () => {
 
       <div className="flex justify-between items-start mb-6 relative z-10">
         <div>
-          <h3 className="text-xl font-serif font-black text-foreground tracking-tight">Menu Health</h3>
-          <p className="text-sm text-muted-foreground mt-1">AI-powered audit to optimize your menu</p>
+          <h3 className="text-xl font-serif font-black text-foreground tracking-tight">{t('menuCheck.title')}</h3>
+          <p className="text-sm text-muted-foreground mt-1">{t('menuCheck.subtitle')}</p>
         </div>
-        <button 
+        <button
             onClick={fetchAudit}
             className="text-xs font-bold uppercase tracking-widest text-accent hover:text-accent/80 transition-colors"
         >
-          Rescan
+          {t('menuCheck.rescan')}
         </button>
       </div>
 
@@ -81,8 +81,8 @@ export const MenuCheckWidget = () => {
           <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mb-4 text-green-500">
             <CheckCircle2 className="w-8 h-8" />
           </div>
-          <h4 className="text-lg font-bold text-green-600 dark:text-green-400 mb-1">Perfect Score!</h4>
-          <p className="text-sm text-green-700/70 dark:text-green-300/70">Your menu is fully optimized and ready to convert customers.</p>
+          <h4 className="text-lg font-bold text-green-600 dark:text-green-400 mb-1">{t('menuCheck.perfectScore')}</h4>
+          <p className="text-sm text-green-700/70 dark:text-green-300/70">{t('menuCheck.perfectScoreDesc')}</p>
         </div>
       ) : (
         <div className="space-y-6 relative z-10">
@@ -90,19 +90,19 @@ export const MenuCheckWidget = () => {
             {errors.length > 0 && (
               <div className="flex items-center gap-2 bg-red-500/10 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-full text-xs font-bold">
                 <AlertCircle className="w-4 h-4" />
-                {errors.length} Critical
+                {t('menuCheck.critical', { count: errors.length })}
               </div>
             )}
             {warnings.length > 0 && (
               <div className="flex items-center gap-2 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 px-3 py-1.5 rounded-full text-xs font-bold">
                 <AlertTriangle className="w-4 h-4" />
-                {warnings.length} Warnings
+                {t('menuCheck.warnings', { count: warnings.length })}
               </div>
             )}
             {infos.length > 0 && (
               <div className="flex items-center gap-2 bg-blue-500/10 text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-full text-xs font-bold">
                 <Info className="w-4 h-4" />
-                {infos.length} Suggestions
+                {t('menuCheck.suggestions', { count: infos.length })}
               </div>
             )}
           </div>
@@ -132,7 +132,7 @@ export const MenuCheckWidget = () => {
                       {issue.message}
                     </p>
                     <p className="text-xs opacity-60 mt-1 capitalize">
-                      {issue.itemId ? 'Item Issue' : 'Category Issue'} &middot; Field: {issue.field}
+                      {issue.itemId ? t('menuCheck.itemIssue') : t('menuCheck.categoryIssue')} &middot; {t('menuCheck.fieldLabel', { field: issue.field })}
                     </p>
                   </div>
                 </div>
@@ -144,7 +144,7 @@ export const MenuCheckWidget = () => {
                     'bg-blue-500/10 text-blue-600 hover:bg-blue-500/20'
                   }`}
                 >
-                  Fix
+                  {t('menuCheck.fix')}
                   <ChevronRight className="w-3 h-3" />
                 </button>
               </div>

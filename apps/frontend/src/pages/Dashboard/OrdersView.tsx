@@ -67,7 +67,7 @@ const OrdersView = () => {
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="w-1.5 h-1.5 bg-accent/40 rounded-full"></div>
-                    <span className="text-[11px] text-muted-foreground font-bold uppercase tracking-[0.1em] opacity-60">Plucked {new Date(order.createdAt).toLocaleTimeString()}</span>
+                    <span className="text-[11px] text-muted-foreground font-bold uppercase tracking-[0.1em] opacity-60">{t('orders.pluckedAt', { time: new Date(order.createdAt).toLocaleTimeString() })}</span>
                 </div>
               </div>
               <div className="text-right w-full md:w-auto">

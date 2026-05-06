@@ -1,6 +1,7 @@
 import React from 'react';
 import { getContrastStatus } from '../../utils/colors';
 import { AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface ColorSchemeEditorProps {
   themeBgColor: string;
@@ -17,6 +18,7 @@ export const ColorSchemeEditor: React.FC<ColorSchemeEditorProps> = ({
   accentColor,
   onChange,
 }) => {
+  const { t } = useTranslation();
   const contrast = getContrastStatus(themeBgColor, themeTextColor);
 
   return (
@@ -24,7 +26,7 @@ export const ColorSchemeEditor: React.FC<ColorSchemeEditorProps> = ({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <div className="flex flex-col justify-between">
           <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">
-            Menu Background
+            {t('branding.menuBackground')}
           </label>
           <div className="flex items-center gap-4">
             <input
@@ -41,7 +43,7 @@ export const ColorSchemeEditor: React.FC<ColorSchemeEditorProps> = ({
 
         <div className="flex flex-col justify-between">
           <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">
-            Text Color
+            {t('branding.textColor')}
           </label>
           <div className="flex items-center gap-4">
             <input
@@ -58,7 +60,7 @@ export const ColorSchemeEditor: React.FC<ColorSchemeEditorProps> = ({
 
         <div className="flex flex-col justify-between">
           <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">
-            Card Background
+            {t('branding.cardBackground')}
           </label>
           <div className="flex items-center gap-4">
             <input
@@ -75,7 +77,7 @@ export const ColorSchemeEditor: React.FC<ColorSchemeEditorProps> = ({
 
         <div className="flex flex-col justify-between">
           <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">
-            Button / Accent
+            {t('branding.buttonAccent')}
           </label>
           <div className="flex items-center gap-4">
             <input

@@ -90,7 +90,7 @@ const AssistanceView = () => {
                     <div className="flex items-center gap-6">
                       <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center font-black text-lg">{request.tableId}</div>
                       <div>
-                        <p className="font-serif font-black text-foreground uppercase tracking-tight">Resolved {new Date(request.updatedAt).toLocaleTimeString()}</p>
+                        <p className="font-serif font-black text-foreground uppercase tracking-tight">{t('assistance.resolvedAt', { time: new Date(request.updatedAt).toLocaleTimeString() })}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-6">

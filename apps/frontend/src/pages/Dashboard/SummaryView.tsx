@@ -49,7 +49,7 @@ const SummaryView = ({ onViewAnalytics }: SummaryViewProps) => {
             {t("dashboard.overview")}
           </h2>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-60">
-            Status Snapshot
+            {t('summary.statusSnapshot')}
           </p>
         </div>
         {onViewAnalytics && (
@@ -112,13 +112,13 @@ const SummaryView = ({ onViewAnalytics }: SummaryViewProps) => {
       {loyaltyData && activeRestaurant?.isLoyaltyEnabled && (
         <div className="mt-8">
           <h3 className="text-xl font-serif font-black text-foreground tracking-tight mb-6">
-            Loyalty Program Performance
+            {t('summary.loyaltyProgramPerformance')}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="glass-panel p-8 rounded-[2rem] border-white/5 border-l-4 border-l-purple-500 bg-gradient-to-br from-background to-purple-500/5">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                  Total VIP Members
+                  {t('summary.totalVipMembers')}
                 </p>
                 <Users className="h-4 w-4 text-purple-500" />
               </div>
@@ -129,7 +129,7 @@ const SummaryView = ({ onViewAnalytics }: SummaryViewProps) => {
             <div className="glass-panel p-8 rounded-[2rem] border-white/5 border-l-4 border-l-blue-500 bg-gradient-to-br from-background to-blue-500/5">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                  Points Redeemed
+                  {t('summary.pointsRedeemed')}
                 </p>
                 <Star className="h-4 w-4 text-blue-500" />
               </div>
@@ -137,13 +137,13 @@ const SummaryView = ({ onViewAnalytics }: SummaryViewProps) => {
                 {loyaltyData.totalPointsRedeemed}
               </p>
               <p className="text-xs font-semibold text-blue-500 mt-2">
-                Freebies & Discounts Issued
+                {t('summary.freebiesIssued')}
               </p>
             </div>
             <div className="glass-panel p-8 rounded-[2rem] border-white/5 border-l-4 border-l-green-500 bg-gradient-to-br from-background to-green-500/5">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                  Points Outstanding Liability
+                  {t('summary.pointsOutstandingLiability')}
                 </p>
                 <Gift className="h-4 w-4 text-green-500" />
               </div>
@@ -151,7 +151,7 @@ const SummaryView = ({ onViewAnalytics }: SummaryViewProps) => {
                 {loyaltyData.totalPointsOutstanding}
               </p>
               <p className="text-xs font-semibold text-green-500 mt-2">
-                Unspent Customer Points
+                {t('summary.unspentCustomerPoints')}
               </p>
             </div>
           </div>

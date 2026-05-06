@@ -120,7 +120,7 @@ const TableView: React.FC = () => {
           className="gap-2 shrink-0"
         >
           <Printer className="w-4 h-4" />
-          Print All QR Codes
+          {t('tables.printAllQr')}
         </Button>
       </div>
 

@@ -1,4 +1,10 @@
 {
+  "nav": {
+    "dashboard": "Dashboard",
+    "logout": "Logout",
+    "login": "Login",
+    "getStarted": "Get Started"
+  },
   "dashboard": {
     "title": "Restaurant Dashboard",
     "welcome": "Welcome back, {{name}}",
@@ -9,6 +15,9 @@
     "newOrders": "New Orders",
     "pendingAssistance": "Pending Assistance",
     "tabs": {
+      "home": "Home",
+      "requests": "Requests",
+      "stats": "Stats",
       "summary": "Summary",
       "analytics": "📊 Analytics",
       "orders": "Orders",
@@ -48,7 +57,20 @@
     "googleReviewDesc": "Customers who rate 4-5 stars will be redirected to leave a Google Review",
     "save": "Save Brand Settings",
     "saving": "Saving...",
-    "redirectActive": "✅ Google Reviews redirect is active"
+    "redirectActive": "✅ Google Reviews redirect is active",
+    "typography": "Typography",
+    "headingFont": "Heading Font",
+    "bodyFont": "Body Font",
+    "colorScheme": "Color Scheme",
+    "menuBackground": "Menu Background",
+    "textColor": "Text Color",
+    "cardBackground": "Card Background",
+    "buttonAccent": "Button / Accent",
+    "defaultTheme": "Default Customer Theme",
+    "defaultThemeDesc": "Customers see this mode when they first scan the QR code. They can still toggle it.",
+    "livePreview": "Live Preview",
+    "restaurantTimezone": "Restaurant Timezone",
+    "restaurantTimezoneDesc": "Used for automated menu scheduling."
   },
   "assistance": {
     "title": "Assistance Requests",
@@ -58,7 +80,8 @@
     "markResolved": "Mark as Resolved",
     "resolvedRequests": "Resolved Requests",
     "reopen": "Reopen",
-    "showMore": "Show {{count}} more requests"
+    "showMore": "Show {{count}} more requests",
+    "resolvedAt": "Resolved {{time}}"
   },
   "orders": {
     "tabs": {
@@ -78,7 +101,8 @@
     "cancel": "Cancel",
     "markServed": "Mark as Served",
     "reopen": "Reopen Order",
-    "noOrders": "No {{status}} orders"
+    "noOrders": "No {{status}} orders",
+    "pluckedAt": "Placed {{time}}"
   },
   "menuAdmin": {
     "editor": "Menu Editor",
@@ -92,7 +116,14 @@
     "save": "Save",
     "cancel": "Cancel",
     "addCategory": "Add Category",
-    "addItem": "Add Item"
+    "addItem": "Add Item",
+    "storefrontUpselling": "Storefront Upselling",
+    "trendingEngine": "Trending Engine",
+    "trendingModeAuto": "Auto (Algorithm)",
+    "trendingModeManual": "Manual (Hand-picked)",
+    "trendingModeOff": "Off",
+    "trendingDescAuto": "Automatically analyzes sales to trend popular items.",
+    "trendingDescManual": "Click the stars on items to feature them on your menu."
   },
   "forms": {
     "create": "Create",
@@ -114,7 +145,10 @@
     "promptTable": "Please enter your table number:",
     "contains": "⚠️ Contains",
     "addToCart": "Add to Cart",
-    "addedToCart": "Added to cart"
+    "addedToCart": "Added to cart",
+    "language": "Language",
+    "logout": "Logout",
+    "trendingNow": "Trending Now"
   },
   "cart": {
     "yourOrder": "Your Order",
@@ -125,7 +159,7 @@
     "clearCart": "Clear Cart"
   },
   "checkout": {
-    "title": "Checkout",
+    "title": "Your Order",
     "back": "← Back to Menu",
     "orderSummary": "Order Summary",
     "name": "Name",
@@ -138,7 +172,21 @@
     "submitting": "Submitting Order...",
     "placeOrder": "Place Order",
     "tableRequired": "Table number is required. Please scan the QR code again.",
-    "failedSubmit": "Failed to submit order. Please try again."
+    "failedSubmit": "Failed to submit order. Please try again.",
+    "loyaltyPoints": "Loyalty Points",
+    "pointsAvailable": "You have {{count}} points available (Value: EUR {{value}})",
+    "redeemForDiscount": "Redeem points for discount",
+    "discountApplied": "Discount applied:",
+    "finalTotal": "Final Total:",
+    "willEarn": "You will earn {{pts}} pts",
+    "happyHourBonus": "⚡ Happy Hour: {{multiplier}}x Points",
+    "redeemedFree": "Redeemed Free",
+    "redeemForPts": "Redeem for {{pts}} pts",
+    "notEnoughPoints": "Not enough points to redeem this item",
+    "earnFreeFood": "Want to earn free food?",
+    "signInToEarn": "Sign in to earn points on this order.",
+    "signIn": "Sign In / Join",
+    "free": "FREE"
   },
   "analytics": {
     "title": "{{name}} Analytics",
@@ -164,7 +212,12 @@
     "checkConnection": "Please check your connection and try again.",
     "days7": "7 Days",
     "days14": "14 Days",
-    "days30": "30 Days"
+    "days30": "30 Days",
+    "export": "Export",
+    "categoryBreakdown": "Category Breakdown",
+    "topTables": "Top Tables by Revenue",
+    "dateFrom": "From",
+    "dateTo": "To"
   },
   "tables": {
     "title": "Manage Tables",
@@ -177,6 +230,63 @@
     "qrTitle": "Table {{name}} QR Code",
     "qrInstructions": "Scan this QR code to view the menu and order to Table {{name}}",
     "downloadPNG": "Download PNG",
-    "loadingTables": "Loading tables..."
+    "loadingTables": "Loading tables...",
+    "printAllQr": "Print All QR Codes"
+  },
+  "common": {
+    "pleaseLogin": "Please log in to continue"
+  },
+  "summary": {
+    "statusSnapshot": "Status Snapshot",
+    "loyaltyProgramPerformance": "Loyalty Program Performance",
+    "totalVipMembers": "Total VIP Members",
+    "pointsRedeemed": "Points Redeemed",
+    "freebiesIssued": "Freebies & Discounts Issued",
+    "pointsOutstandingLiability": "Points Outstanding Liability",
+    "unspentCustomerPoints": "Unspent Customer Points"
+  },
+  "menuCheck": {
+    "title": "Menu Health",
+    "subtitle": "AI-powered audit to optimize your menu",
+    "rescan": "Rescan",
+    "fix": "Fix",
+    "perfectScore": "Perfect Score!",
+    "perfectScoreDesc": "Your menu is fully optimized and ready to convert customers.",
+    "critical": "{{count}} Critical",
+    "warnings": "{{count}} Warnings",
+    "suggestions": "{{count}} Suggestions",
+    "itemIssue": "Item Issue",
+    "categoryIssue": "Category Issue",
+    "fieldLabel": "Field: {{field}}"
+  },
+  "loyaltySettings": {
+    "sectionTitle": "Loyalty & Rewards Program",
+    "enableLoyalty": "Enable Loyalty Program",
+    "enableLoyaltyDesc": "Allow customers to earn and spend points on orders.",
+    "signupBonus": "Sign-up Bonus Points",
+    "signupBonusDesc": "Awarded on first order. Capped at 75 pts server-side.",
+    "earnRate": "Earn Rate (pts per €1)",
+    "earnRateDesc": "Points earned per €1 spent. e.g. 10 pts/€ on a €10 order = 100 pts.",
+    "redeemRate": "Redeem Rate (pts to earn €1)",
+    "redeemRateDesc": "Points needed for €1 discount. Higher = less generous for customers.",
+    "cashbackInfo": "Effective cashback rate: {{pct}}%",
+    "cashbackWarning": "⚠ High — check earn rate is pts/€, not €/pt",
+    "expiryDays": "Point Expiry (days)",
+    "expiryDaysDesc": "Default 90 days. Keeps liability manageable.",
+    "reminderDays": "Expiry Reminder Lead Time (days)",
+    "reminderDaysDesc": "Default 15 days before expiry. Triggers daily reminder job.",
+    "vipTiers": "VIP Tiers",
+    "vipTiersDesc": "Based on lifetime points spent. Higher tiers earn points faster.",
+    "silverThreshold": "🥈 Silver threshold (pts)",
+    "goldThreshold": "🥇 Gold threshold (pts)",
+    "silverMultiplier": "🥈 Silver multiplier",
+    "goldMultiplier": "🥇 Gold multiplier",
+    "silverMustBeLower": "Silver threshold must be lower than Gold threshold.",
+    "happyHour": "Happy Hour (Gamification)",
+    "happyHourDesc": "Fires at the restaurant's local time (set timezone above).",
+    "happyHourStart": "Start Time",
+    "happyHourEnd": "End Time",
+    "happyHourEndDesc": "End before start = overnight range (e.g. 22:00–02:00).",
+    "happyHourMultiplier": "Points Multiplier"
   }
 }

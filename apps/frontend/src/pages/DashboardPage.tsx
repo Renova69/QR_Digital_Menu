@@ -1,5 +1,5 @@
 import { useState, useRef, useContext } from 'react';
-import { type LucideIcon, Globe, LayoutDashboard, ShoppingBag, Bell, Table2, Settings, BarChart2 } from 'lucide-react';
+import { type LucideIcon, LayoutDashboard, ShoppingBag, Bell, Table2, Settings, BarChart2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrderContext';
 import { useAssistance } from '../context/AssistanceContext';
@@ -16,12 +16,12 @@ import { useTranslation } from 'react-i18next';
 
 type TabId = 'summary' | 'analytics' | 'orders' | 'assistance' | 'tables' | 'settings';
 
-const BOTTOM_NAV_TABS: { id: TabId; Icon: LucideIcon; short: string }[] = [
-  { id: 'summary',    Icon: LayoutDashboard, short: 'Home' },
-  { id: 'orders',     Icon: ShoppingBag,     short: 'Orders' },
-  { id: 'assistance', Icon: Bell,            short: 'Requests' },
-  { id: 'tables',     Icon: Table2,          short: 'Tables' },
-  { id: 'settings',  Icon: Settings,        short: 'Settings' },
+const BOTTOM_NAV_TABS: { id: TabId; Icon: LucideIcon; labelKey: string }[] = [
+  { id: 'summary',    Icon: LayoutDashboard, labelKey: 'dashboard.tabs.home' },
+  { id: 'orders',     Icon: ShoppingBag,     labelKey: 'dashboard.tabs.orders' },
+  { id: 'assistance', Icon: Bell,            labelKey: 'dashboard.tabs.requests' },
+  { id: 'tables',     Icon: Table2,          labelKey: 'dashboard.tabs.tables' },
+  { id: 'settings',  Icon: Settings,        labelKey: 'dashboard.tabs.settings' },
 ];
 
 const DashboardPage = () => {
@@ -40,10 +40,6 @@ const DashboardPage = () => {
     }
     lastRestaurantId.current = activeRestaurant?.id || null;
   }
-
-  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    i18n.changeLanguage(e.target.value);
-  };
 
   const newOrdersCount = orders.filter(o => o.status === 'NEW').length;
   const unresolvedRequestsCount = requests.filter(r => !r.isResolved).length;
@@ -93,21 +89,6 @@ const DashboardPage = () => {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-3 md:gap-4">
-          <div className="flex items-center gap-3 glass-panel p-1.5 rounded-2xl border-white/5 shadow-xl">
-            <div className="pl-3 pr-1 border-r border-border/40">
-              <Globe className="w-3.5 h-3.5 text-accent" />
-            </div>
-            <select
-              className="bg-transparent text-[10px] font-black uppercase tracking-[0.2em] text-foreground focus:outline-none cursor-pointer pr-6 py-1.5"
-              value={i18n.language}
-              onChange={handleLanguageChange}
-              style={{ backgroundImage: 'none' }}
-            >
-              <option value="en" className="bg-white dark:bg-zinc-950 text-black dark:text-white">English</option>
-              <option value="bg" className="bg-white dark:bg-zinc-950 text-black dark:text-white">Български</option>
-              <option value="ro" className="bg-white dark:bg-zinc-950 text-black dark:text-white">Română</option>
-            </select>
-          </div>
           {activeRestaurant && (
             <a
               href={`/menu/public/${activeRestaurant.id}`}
@@ -177,7 +158,7 @@ const DashboardPage = () => {
                 to="/dashboard/menu"
                 className="text-[10px] font-black uppercase tracking-widest text-accent border border-accent/20 px-3 py-1.5 rounded-xl hover:bg-accent/10 transition-colors"
               >
-                Menu Editor
+                {t('dashboard.tabs.menuEditor')}
               </Link>
             )}
           </div>
@@ -211,7 +192,7 @@ const DashboardPage = () => {
           style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         >
           <div className="flex items-stretch h-16">
-            {BOTTOM_NAV_TABS.map(({ id, Icon, short }) => {
+            {BOTTOM_NAV_TABS.map(({ id, Icon, labelKey }) => {
               const badge = getBadge(id);
               const isActive = activeTab === id;
               return (
@@ -236,7 +217,7 @@ const DashboardPage = () => {
                     )}
                   </div>
                   <span className="text-[9px] font-bold uppercase tracking-wide leading-none">
-                    {short}
+                    {t(labelKey)}
                   </span>
                 </button>
               );
@@ -255,7 +236,7 @@ const DashboardPage = () => {
               )}
               <BarChart2 className="w-[22px] h-[22px]" />
               <span className="text-[9px] font-bold uppercase tracking-wide leading-none">
-                Stats
+                {t('dashboard.tabs.stats')}
               </span>
             </button>
           </div>
