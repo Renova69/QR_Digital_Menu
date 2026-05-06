@@ -90,4 +90,19 @@ export class RestaurantsController {
   translateAll(@Param('id') id: string, @Request() req) {
     return this.restaurantsService.translateAll(id, req.user.id);
   }
+
+  @Post(':id/stripe/connect')
+  generateConnectLink(@Param('id') id: string, @Request() req) {
+    return this.restaurantsService.generateConnectLink(id, req.user.id);
+  }
+
+  @Get(':id/stripe/status')
+  getStripeStatus(@Param('id') id: string, @Request() req) {
+    return this.restaurantsService.getStripeStatus(id, req.user.id);
+  }
+
+  @Post(':id/stripe/disconnect')
+  disconnectStripe(@Param('id') id: string, @Request() req) {
+    return this.restaurantsService.disconnectStripe(id, req.user.id);
+  }
 }
