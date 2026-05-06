@@ -70,4 +70,21 @@ export class AuthController {
   ) {
     return this.authService.sendMagicLink(email, returnTo);
   }
+
+  @Post('otp/send')
+  sendOtp(
+    @Body('email') email: string,
+    @Body('phone') phone?: string,
+  ) {
+    return this.authService.sendOtp(email, phone);
+  }
+
+  @Post('otp/verify')
+  verifyOtp(
+    @Body('email') email: string,
+    @Body('code') code: string,
+    @Body('phone') phone?: string,
+  ) {
+    return this.authService.verifyOtp(email, code, phone);
+  }
 }
