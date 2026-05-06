@@ -313,6 +313,7 @@ model TableSession {
 
   @@index([token])
   @@index([tableId, status])
+  @@index([restaurantId, status])
   @@map("table_session")
 }
 
@@ -324,15 +325,15 @@ model Payment {
   amount                Float
   tipAmount             Float           @default(0)
   platformFeeAmount     Float           @default(0)
-  currency              String          @default("eur")
+  currency              String          @default("EUR")
   status                PaymentStatus   @default(PENDING)
   provider              PaymentProvider @default(STRIPE)
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
-  tableSession          TableSession    @relation(fields: [tableSessionId], references: [id])
-  restaurant            Restaurant      @relation(fields: [restaurantId], references: [id])
+  tableSession          TableSession    @relation(fields: [tableSessionId], references: [id], onDelete: Cascade)
+  restaurant            Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
-  @@index([stripePaymentIntentId])
+  @@index([tableSessionId])
   @@map("payment")
 }
 
