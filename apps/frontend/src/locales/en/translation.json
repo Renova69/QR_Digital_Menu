@@ -148,7 +148,27 @@
     "addedToCart": "Added to cart",
     "language": "Language",
     "logout": "Logout",
-    "trendingNow": "Trending Now"
+    "trendingNow": "Trending Now",
+    "signIn": "Sign In",
+    "myProfile": "My Profile",
+    "calling": "Calling…",
+    "scanQrForAssistance": "Scan your table QR to call for assistance",
+    "selectLanguage": "Select language",
+    "pairing": {
+      "title": "Perfect Pairing",
+      "completeYour": "Complete Your {{name}}",
+      "chefDescription": "Exquisite additions selected by our chef to elevate your experience.",
+      "noThanks": "No thanks, continue",
+      "addToOrder": "Add to order"
+    },
+    "drinkUpsell": {
+      "title": "Add a Drink?",
+      "question": "Wait, would you like a drink with that?",
+      "subtitle": "Complete your meal perfectly.",
+      "add": "Add",
+      "noThanks": "No Thanks",
+      "proceedCheckout": "Proceed to Checkout"
+    }
   },
   "cart": {
     "yourOrder": "Your Order",
@@ -288,5 +308,58 @@
     "happyHourEnd": "End Time",
     "happyHourEndDesc": "End before start = overnight range (e.g. 22:00–02:00).",
     "happyHourMultiplier": "Points Multiplier"
+  },
+  "auth": {
+    "otp": {
+      "title": "Sign In or Join",
+      "subtitle": "Earn points on every order",
+      "sendCode": "Send Code",
+      "sending": "Sending…",
+      "enterCode": "Enter your code",
+      "sentTo": "We sent a 6-digit code to {{email}}",
+      "verify": "Verify",
+      "verifying": "Verifying…",
+      "resend": "Resend code",
+      "resendIn": "Resend in {{seconds}}s",
+      "changeEmail": "← Change email",
+      "welcomeTitle": "Welcome!",
+      "welcomeBody": "You'll earn points on every order. Redeem them for free food and discounts.",
+      "letsOrder": "Let's order!",
+      "invalidCode": "Invalid or expired code. Try again.",
+      "tooManyRequests": "Wait a moment before requesting another code.",
+      "devCodeBanner": "DEV — code: {{code}}",
+      "continueWithGoogle": "Continue with Google",
+      "orDivider": "Or",
+      "emailPlaceholder": "Email address",
+      "phonePlaceholder": "Phone (optional)"
+    }
+  },
+  "profile": {
+    "title": "My Profile",
+    "welcome": "Welcome back, {{name}}!",
+    "subtitle": "View your order history and loyalty points.",
+    "signOut": "Sign Out",
+    "backToMenu": "← Back to menu",
+    "vipTiersTitle": "Your VIP Tiers & Points",
+    "currentBalance": "Current Balance",
+    "multiplier": "Multiplier",
+    "firstReward": "First EUR 1 reward",
+    "ptsToGo": "{{count}} pts to go",
+    "readyToRedeem": "Ready to redeem",
+    "rewardProgress": "{{pct}}% of the way to your first EUR 1 reward.",
+    "expiringSoonTitle": "EUR {{value}} in rewards expires soon",
+    "expiringSoonBody": "{{count}} points expire{{date}}. Come back before they disappear.",
+    "expiringSoonOn": " on {{date}}",
+    "lifetime": "Lifetime: {{pts}} pts",
+    "ptsToTier": "{{count}} pts to {{tier}}",
+    "maxTier": "Max Tier Reached",
+    "pastOrders": "Past Orders",
+    "loading": "Loading history…",
+    "noOrders": "No orders yet",
+    "noOrdersHint": "When you order from participating restaurants, they'll appear here.",
+    "at": "at",
+    "noItems": "No items",
+    "pleaseLogin": "Please sign in to view your profile.",
+    "loginButton": "Sign In"
   }
 }

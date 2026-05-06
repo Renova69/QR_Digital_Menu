@@ -148,7 +148,27 @@
     "addedToCart": "Добавено в количката",
     "language": "Език",
     "logout": "Изход",
-    "trendingNow": "Популярно сега"
+    "trendingNow": "Популярно сега",
+    "signIn": "Вход",
+    "myProfile": "Моят профил",
+    "calling": "Повикване…",
+    "scanQrForAssistance": "Сканирайте QR кода на масата за помощ",
+    "selectLanguage": "Избери език",
+    "pairing": {
+      "title": "Перфектно съчетание",
+      "completeYour": "Допълни своята {{name}}",
+      "chefDescription": "Изискани допълнения, избрани от нашия готвач, за да издигнат вашето изживяване.",
+      "noThanks": "Не, благодаря",
+      "addToOrder": "Добави към поръчката"
+    },
+    "drinkUpsell": {
+      "title": "Добави напитка?",
+      "question": "Искате ли напитка към вашата поръчка?",
+      "subtitle": "Допълнете перфектно вашето хранене.",
+      "add": "Добави",
+      "noThanks": "Не, благодаря",
+      "proceedCheckout": "Продължи към плащане"
+    }
   },
   "cart": {
     "yourOrder": "Вашата поръчка",
@@ -288,5 +308,58 @@
     "happyHourEnd": "Краен час",
     "happyHourEndDesc": "Край преди начало = нощен диапазон (напр. 22:00–02:00).",
     "happyHourMultiplier": "Множител на точките"
+  },
+  "auth": {
+    "otp": {
+      "title": "Вход или Регистрация",
+      "subtitle": "Печелете точки за всяка поръчка",
+      "sendCode": "Изпрати код",
+      "sending": "Изпращане…",
+      "enterCode": "Въведете кода",
+      "sentTo": "Изпратихме 6-цифрен код на {{email}}",
+      "verify": "Потвърди",
+      "verifying": "Потвърждаване…",
+      "resend": "Изпрати отново",
+      "resendIn": "Изпрати отново след {{seconds}}с",
+      "changeEmail": "← Промени имейл",
+      "welcomeTitle": "Добре дошли!",
+      "welcomeBody": "Ще печелите точки за всяка поръчка. Използвайте ги за безплатна храна и отстъпки.",
+      "letsOrder": "Нека поръчаме!",
+      "invalidCode": "Невалиден или изтекъл код. Опитайте отново.",
+      "tooManyRequests": "Изчакайте малко преди да поискате нов код.",
+      "devCodeBanner": "DEV — код: {{code}}",
+      "continueWithGoogle": "Продължи с Google",
+      "orDivider": "Или",
+      "emailPlaceholder": "Имейл адрес",
+      "phonePlaceholder": "Телефон (по желание)"
+    }
+  },
+  "profile": {
+    "title": "Моят профил",
+    "welcome": "Добре дошли отново, {{name}}!",
+    "subtitle": "Вижте историята на поръчките и лоялните точки.",
+    "signOut": "Изход",
+    "backToMenu": "← Обратно към менюто",
+    "vipTiersTitle": "Вашите VIP нива и точки",
+    "currentBalance": "Текущ баланс",
+    "multiplier": "Множител",
+    "firstReward": "Първа награда €1",
+    "ptsToGo": "{{count}} точки остават",
+    "readyToRedeem": "Готов за използване",
+    "rewardProgress": "{{pct}}% от пътя до първата награда €1.",
+    "expiringSoonTitle": "{{value}} EUR в награди изтичат скоро",
+    "expiringSoonBody": "{{count}} точки изтичат{{date}}. Върнете се преди да изчезнат.",
+    "expiringSoonOn": " на {{date}}",
+    "lifetime": "Общо: {{pts}} точки",
+    "ptsToTier": "{{count}} точки до {{tier}}",
+    "maxTier": "Максимално ниво",
+    "pastOrders": "Минали поръчки",
+    "loading": "Зареждане на историята…",
+    "noOrders": "Все още няма поръчки",
+    "noOrdersHint": "Когато поръчате от участващи ресторанти, те ще се появят тук.",
+    "at": "в",
+    "noItems": "Няма артикули",
+    "pleaseLogin": "Влезте, за да видите профила си.",
+    "loginButton": "Вход"
   }
 }

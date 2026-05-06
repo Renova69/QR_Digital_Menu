@@ -148,7 +148,27 @@
     "addedToCart": "Adăugat în coș",
     "language": "Limbă",
     "logout": "Deconectare",
-    "trendingNow": "În tendințe"
+    "trendingNow": "În tendințe",
+    "signIn": "Autentificare",
+    "myProfile": "Profilul meu",
+    "calling": "Se sună…",
+    "scanQrForAssistance": "Scanați QR-ul mesei pentru asistență",
+    "selectLanguage": "Selectați limba",
+    "pairing": {
+      "title": "Combinație perfectă",
+      "completeYour": "Completați-vă {{name}}",
+      "chefDescription": "Adăugiri rafinate selectate de bucătarul nostru pentru a vă ridica experiența.",
+      "noThanks": "Nu, mulțumesc",
+      "addToOrder": "Adaugă la comandă"
+    },
+    "drinkUpsell": {
+      "title": "Adăugați o băutură?",
+      "question": "Doriți o băutură cu comanda dumneavoastră?",
+      "subtitle": "Completați-vă perfect masa.",
+      "add": "Adaugă",
+      "noThanks": "Nu, mulțumesc",
+      "proceedCheckout": "Continuați la casă"
+    }
   },
   "cart": {
     "yourOrder": "Comanda ta",
@@ -288,5 +308,58 @@
     "happyHourEnd": "Ora de Sfârșit",
     "happyHourEndDesc": "Sfârșit înainte de început = interval nocturn.",
     "happyHourMultiplier": "Multiplicator Puncte"
+  },
+  "auth": {
+    "otp": {
+      "title": "Conectare sau Înregistrare",
+      "subtitle": "Câștigați puncte pentru fiecare comandă",
+      "sendCode": "Trimite Cod",
+      "sending": "Se trimite…",
+      "enterCode": "Introduceți codul",
+      "sentTo": "Am trimis un cod de 6 cifre la {{email}}",
+      "verify": "Verifică",
+      "verifying": "Se verifică…",
+      "resend": "Retrimite codul",
+      "resendIn": "Retrimite în {{seconds}}s",
+      "changeEmail": "← Schimbă emailul",
+      "welcomeTitle": "Bine ați venit!",
+      "welcomeBody": "Veți câștiga puncte pentru fiecare comandă. Folosiți-le pentru mâncare gratuită și reduceri.",
+      "letsOrder": "Să comandăm!",
+      "invalidCode": "Cod invalid sau expirat. Încercați din nou.",
+      "tooManyRequests": "Așteptați puțin înainte de a solicita alt cod.",
+      "devCodeBanner": "DEV — cod: {{code}}",
+      "continueWithGoogle": "Continuă cu Google",
+      "orDivider": "Sau",
+      "emailPlaceholder": "Adresă de email",
+      "phonePlaceholder": "Telefon (opțional)"
+    }
+  },
+  "profile": {
+    "title": "Profilul meu",
+    "welcome": "Bine ați revenit, {{name}}!",
+    "subtitle": "Vizualizați istoricul comenzilor și punctele de loialitate.",
+    "signOut": "Deconectare",
+    "backToMenu": "← Înapoi la meniu",
+    "vipTiersTitle": "Nivelurile VIP și punctele",
+    "currentBalance": "Soldul curent",
+    "multiplier": "Multiplicator",
+    "firstReward": "Prima recompensă EUR 1",
+    "ptsToGo": "{{count}} puncte rămase",
+    "readyToRedeem": "Gata de utilizare",
+    "rewardProgress": "{{pct}}% din drumul spre prima recompensă EUR 1.",
+    "expiringSoonTitle": "EUR {{value}} în recompense expiră curând",
+    "expiringSoonBody": "{{count}} puncte expiră{{date}}. Reveniți înainte să dispară.",
+    "expiringSoonOn": " pe {{date}}",
+    "lifetime": "Total: {{pts}} puncte",
+    "ptsToTier": "{{count}} puncte până la {{tier}}",
+    "maxTier": "Nivel maxim atins",
+    "pastOrders": "Comenzi anterioare",
+    "loading": "Se încarcă istoricul…",
+    "noOrders": "Nicio comandă încă",
+    "noOrdersHint": "Când comandați de la restaurante participante, vor apărea aici.",
+    "at": "la",
+    "noItems": "Niciun articol",
+    "pleaseLogin": "Conectați-vă pentru a vedea profilul.",
+    "loginButton": "Autentificare"
   }
 }
