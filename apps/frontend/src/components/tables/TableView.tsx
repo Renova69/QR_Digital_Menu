@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getTables, createTable, deleteTable } from '../../lib/api';
+import { getTables, createTable, deleteTable, getTableSessions, closeSession } from '../../lib/api';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Modal } from '../ui/modal';
@@ -37,6 +37,27 @@ const TableView: React.FC = () => {
     mutationFn: (id: string) => deleteTable(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tables', restaurantId] });
+    },
+  });
+
+  const { data: sessions } = useQuery({
+    queryKey: ['tableSessions', restaurantId],
+    queryFn: () => getTableSessions(restaurantId),
+    enabled: !!restaurantId,
+    refetchInterval: 30000,
+  });
+
+  const sessionByTableId = React.useMemo(() => {
+    const map = new Map<string, { token: string; status: string }>();
+    (sessions || []).forEach((s) => map.set(s.tableId, { token: s.token, status: s.status }));
+    return map;
+  }, [sessions]);
+
+  const closeSessionMutation = useMutation({
+    mutationFn: ({ token, restaurantId: rid }: { token: string; restaurantId: string }) =>
+      closeSession(token, rid),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tableSessions', restaurantId] });
     },
   });
 
@@ -130,13 +151,36 @@ const TableView: React.FC = () => {
         )}
         {tables?.map((table: any) => (
           <div key={table.id} className="flex items-center justify-between p-4 glass-panel rounded-2xl group hover:-translate-y-0.5 transition-all duration-300">
-            <span className="font-medium text-lg">{table.name}</span>
+            <div>
+              <span className="font-medium text-lg">{table.name}</span>
+              {/* Session status indicator */}
+              {(() => {
+                const session = sessionByTableId.get(table.id);
+                if (!session) return null;
+                return (
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`inline-block w-2 h-2 rounded-full ${session.status === 'OPEN' ? 'bg-orange-400' : 'bg-green-400'}`} />
+                    <span className="text-xs text-muted-foreground">
+                      {session.status === 'OPEN' ? t('tables.sessionOpen') : t('tables.sessionPaid')}
+                    </span>
+                    {session.status === 'OPEN' && (
+                      <button
+                        onClick={() => closeSessionMutation.mutate({ token: session.token, restaurantId })}
+                        className="text-xs text-muted-foreground hover:text-red-500 underline"
+                      >
+                        {t('tables.closeSession')}
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => handleShowQr(table)}>
                 {t('tables.generateQR')}
               </Button>
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 onClick={() => deleteMutation.mutate(table.id)}
                 disabled={deleteMutation.isPending}
               >
@@ -145,6 +189,7 @@ const TableView: React.FC = () => {
             </div>
           </div>
         ))}
+
       </div>
 
       <Modal
