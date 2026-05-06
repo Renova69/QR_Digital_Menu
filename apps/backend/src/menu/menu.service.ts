@@ -856,17 +856,6 @@ export class MenuService {
         });
       }
 
-      // Rule: Category has no image
-      if (!(category as any).imageUrl) {
-        issues.push({
-          type: 'info',
-          message:
-            'Category has no banner image. Adding one improves visual appeal.',
-          categoryId: category.id,
-          field: 'imageUrl',
-        });
-      }
-
       // Rule: Missing translations for category
       if (targetLanguages.length > 0) {
         const translations = (category as any).translations || {};
