@@ -6,6 +6,7 @@ import {
   IsArray,
   IsBoolean,
   IsNumber,
+  IsInt,
   Min,
   Max,
 } from 'class-validator';
@@ -130,4 +131,25 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @Min(1.0)
   @Max(10.0)
   happyHourMultiplier?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  paymentsEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  tipsEnabled?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  @Max(100, { each: true })
+  tipOptions?: number[];
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(10)
+  platformFeePercent?: number;
 }
