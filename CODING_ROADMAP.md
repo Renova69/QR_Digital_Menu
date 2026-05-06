@@ -1,9 +1,10 @@
 # QR Menu App — Coding Roadmap
 
-> **Last Updated:** May 4, 2026  
+> **Last Updated:** May 6, 2026  
 > **MVP Status:** ✅ Complete  
 > **V2 Status:** ✅ Phases 9–14 Complete  
 > **V2.5 Status:** ✅ Phases 15–17 + Mobile UX Overhaul + UI/UX Audit & Theme Polish Complete  
+> **Bug Fixes & Polish (May 6, 2026):** ✅ Customer auth OTP, cart language sync, options pre-selection, QR print, analytics dark mode, translation gaps, menu health false positive  
 > **Current Focus:** Bug fixes & polish only (Phases 18+ paused)
 
 ---
@@ -264,6 +265,32 @@ All foundational phases were completed on **April 9, 2026**. The application is 
 - `restaurant.googleTranslateApiKey` is already marked deprecated in schema — remove from settings UI at the same time
 
 **Do NOT add any new code that reads `restaurant.deeplApiKey` until this migration is complete.**
+
+---
+
+### Bug Fixes & Translation Gaps ✅ — May 6, 2026
+
+**Customer Auth — Email OTP Sign-in:**
+- `VerificationToken` model: 6-digit code bcrypt-hashed, 10-min expiry, 60s rate-limit, `@@index([email])`
+- `User.phone String?` field added
+- `POST /api/auth/otp/send` + `POST /api/auth/otp/verify` (public routes, no guard)
+- Resend REST API for email delivery; dev mode returns `devCode` in response + console.log when `RESEND_API_KEY` absent
+- `CustomerLoginModal` rewritten: 3-step state machine (`entry → otp → welcome`), Google button, 60s resend countdown, welcome card for new users
+- `AuthContext.loginWithToken(token, user)` — no extra API call, mirrors existing `login()` pattern
+- Profile chip + logout icon in public menu action bar; profile page navigates back via `?returnTo` param
+- `CustomerProfilePage` fully translated, tier colors from `acc.tier` (not hardcoded thresholds)
+
+**UI Bug Fixes:**
+- **Cart language sync** — `resolveItemName()` in `CartDrawer` resolves live translated name by item ID + `selectedLang`; prop chain `PublicMenuPage → CartIcon → CartDrawer`
+- **Options pre-selection** — `ItemWithOptions` auto-selects first `VARIATION` choice on item open; eliminates base-item-without-variant orders
+- **QR print layout** — single column, `@page { size: A4 portrait; margin: 12mm }`, `breakInside: avoid` per card
+- **Analytics dark mode** — Recharts axes use `hsl(var(--color-muted-foreground))` fill; custom `ChartTooltip` with theme-aware classes
+- **Menu health false positive** — category-image audit rule removed (no UI to add category images)
+
+**Translation Gaps (~120 new keys, EN/BG/RO):**
+- `auth.otp.*` — full OTP flow (20 keys)
+- `publicMenu.signIn`, `myProfile`, `calling`, `scanQrForAssistance`, `selectLanguage`, `pairing.*`, `drinkUpsell.*`
+- `profile.*` — full profile page (22 keys)
 
 ---
 
