@@ -196,16 +196,14 @@ const AnalyticsView = () => {
               <XAxis
                 dataKey="date"
                 tickFormatter={formatDate}
-                tick={{ fontSize: 10, fontWeight: 900, fill: 'currentColor' }}
-                className="text-muted-foreground"
+                tick={{ fontSize: 10, fontWeight: 900, fill: 'hsl(var(--color-muted-foreground))' }}
                 axisLine={false}
                 tickLine={false}
                 dy={15}
               />
               <YAxis
                 tickFormatter={(v) => `€${v}`}
-                tick={{ fontSize: 10, fontWeight: 900, fill: 'currentColor' }}
-                className="text-muted-foreground"
+                tick={{ fontSize: 10, fontWeight: 900, fill: 'hsl(var(--color-muted-foreground))' }}
                 axisLine={false}
                 tickLine={false}
                 dx={-10}
@@ -242,8 +240,7 @@ const AnalyticsView = () => {
                   dataKey="name"
                   type="category"
                   width={140}
-                  tick={{ fontSize: 10, fontWeight: 800, fill: 'currentColor' }}
-                  className="text-foreground"
+                  tick={{ fontSize: 10, fontWeight: 800, fill: 'hsl(var(--color-foreground))' }}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -266,8 +263,7 @@ const AnalyticsView = () => {
               >
                 <XAxis
                   dataKey="label"
-                  tick={{ fontSize: 9, fontWeight: 800, fill: 'currentColor' }}
-                  className="text-muted-foreground"
+                  tick={{ fontSize: 9, fontWeight: 800, fill: 'hsl(var(--color-muted-foreground))' }}
                   axisLine={false}
                   tickLine={false}
                   dy={10}
@@ -326,8 +322,8 @@ const AnalyticsView = () => {
           {data.ordersByTable && data.ordersByTable.length > 0 ? (
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={data.ordersByTable} margin={{ top: 0, right: 30, bottom: 0, left: 0 }}>
-                <XAxis dataKey="table" tick={{ fontSize: 10, fontWeight: 800, fill: 'currentColor' }} className="text-muted-foreground" axisLine={false} tickLine={false} dy={10} />
-                <YAxis tickFormatter={(v) => `€${v}`} tick={{ fontSize: 10, fontWeight: 800, fill: 'currentColor' }} className="text-muted-foreground" axisLine={false} tickLine={false} dx={-10} />
+                <XAxis dataKey="table" tick={{ fontSize: 10, fontWeight: 800, fill: 'hsl(var(--color-muted-foreground))' }} axisLine={false} tickLine={false} dy={10} />
+                <YAxis tickFormatter={(v) => `€${v}`} tick={{ fontSize: 10, fontWeight: 800, fill: 'hsl(var(--color-muted-foreground))' }} axisLine={false} tickLine={false} dx={-10} />
                 <Tooltip content={<CustomTooltip currency={true} />} />
                 <Bar dataKey="revenue" fill="hsl(var(--color-accent))" radius={[10, 10, 10, 10]} barSize={24} animationDuration={1800} />
               </BarChart>
