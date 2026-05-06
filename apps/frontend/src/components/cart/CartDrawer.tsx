@@ -6,16 +6,36 @@ import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { Category } from "../../types";
 
+function resolveItemName(
+  cartItem: { id: string; name: string },
+  categories: Category[],
+  lang: string,
+): string {
+  for (const cat of categories) {
+    const found = (cat.items as any[])?.find((i: any) => i.id === cartItem.id);
+    if (found) {
+      return (
+        (lang && (found.translations as any)?.[lang]?.name) ||
+        found.name ||
+        cartItem.name
+      );
+    }
+  }
+  return cartItem.name;
+}
+
 const CartDrawer = ({
   isOpen,
   onClose,
   categories,
   restaurantId,
+  selectedLang,
 }: {
   isOpen: boolean;
   onClose: () => void;
   categories?: Category[];
   restaurantId?: string;
+  selectedLang?: string;
 }) => {
   const { items, getTotal, clearCart, removeItem, addItem } = useCart();
   const navigate = useNavigate();
@@ -59,9 +79,6 @@ const CartDrawer = ({
       className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] transition-opacity"
       onClick={onClose}
     >
-      {/* Panel:
-          Mobile  — bottom sheet: full-width, slides up, rounded top corners, 88vh max
-          Desktop — right drawer: fixed width, slides in from right, rounded left corners */}
       <div
         className={[
           "fixed bottom-0 left-0 right-0 flex flex-col",
@@ -74,15 +91,15 @@ const CartDrawer = ({
         ].join(" ")}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Drag handle — mobile only visual cue */}
         <div className="md:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
           <div className="w-10 h-1 rounded-full bg-white/20" />
         </div>
 
-        {/* Header */}
         <div className="flex justify-between items-center px-6 py-5 md:p-8 border-b border-white/5 flex-shrink-0">
           <h2 className="text-2xl md:text-3xl font-serif font-black text-zinc-100 tracking-tighter">
-            {showDrinkUpsell ? "Add a Drink?" : t("cart.yourOrder")}
+            {showDrinkUpsell
+              ? t("publicMenu.drinkUpsell.title")
+              : t("cart.yourOrder")}
           </h2>
           <button
             onClick={onClose}
@@ -106,16 +123,17 @@ const CartDrawer = ({
           </button>
         </div>
 
-        {/* Scrollable content */}
         <div className="flex-grow overflow-y-auto p-5 md:p-6 hide-scrollbar">
           {showDrinkUpsell ? (
             <div className="space-y-5">
               <div className="text-center p-5 bg-accent/10 border border-accent/20 rounded-2xl mb-6">
                 <span className="text-4xl block mb-3">🥤</span>
                 <h3 className="text-lg font-bold text-white leading-tight mb-2">
-                  Wait, would you like a drink with that?
+                  {t("publicMenu.drinkUpsell.question")}
                 </h3>
-                <p className="text-sm text-zinc-400">Complete your meal perfectly.</p>
+                <p className="text-sm text-zinc-400">
+                  {t("publicMenu.drinkUpsell.subtitle")}
+                </p>
               </div>
               <ul className="space-y-3">
                 {categories
@@ -127,7 +145,11 @@ const CartDrawer = ({
                       className="flex justify-between items-center p-4 bg-white/5 rounded-[1.5rem] border border-white/5"
                     >
                       <div className="font-bold text-zinc-100 text-[15px]">
-                        {drink.name}
+                        {resolveItemName(
+                          { id: drink.id, name: drink.name },
+                          categories || [],
+                          selectedLang || "",
+                        )}
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-semibold text-accent">
@@ -148,7 +170,7 @@ const CartDrawer = ({
                           }}
                           className="h-9 min-w-[60px] rounded-full border-accent text-accent px-4 py-0"
                         >
-                          Add
+                          {t("publicMenu.drinkUpsell.add")}
                         </Button>
                       </div>
                     </li>
@@ -186,7 +208,11 @@ const CartDrawer = ({
                   </div>
                   <div className="flex-grow min-w-0">
                     <p className="font-bold text-zinc-100 text-base leading-tight tracking-tight">
-                      {item.name}
+                      {resolveItemName(
+                        item,
+                        categories || [],
+                        selectedLang || "",
+                      )}
                     </p>
                     {item.selectedOptions && item.selectedOptions.length > 0 && (
                       <ul className="text-xs text-muted-foreground mt-1.5 space-y-1">
@@ -222,7 +248,6 @@ const CartDrawer = ({
           )}
         </div>
 
-        {/* Footer */}
         {items.length > 0 && (
           <div
             className="px-5 pt-5 pb-5 md:p-8 border-t border-white/5 bg-white/5 flex-shrink-0 rounded-t-none rounded-b-none md:rounded-bl-[2.5rem]"
@@ -245,13 +270,13 @@ const CartDrawer = ({
                   onClick={finishCheckout}
                   className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-black uppercase tracking-widest py-4 px-6 rounded-2xl shadow-2xl shadow-accent/20 transition-all active:scale-95 text-xs"
                 >
-                  Proceed to Checkout
+                  {t("cart.proceedCheckout")}
                 </button>
                 <button
                   onClick={finishCheckout}
                   className="w-full bg-transparent border border-white/10 hover:bg-white/5 text-zinc-300 font-bold py-3 px-6 rounded-2xl transition-all text-[11px] uppercase tracking-widest"
                 >
-                  No Thanks
+                  {t("publicMenu.drinkUpsell.noThanks")}
                 </button>
               </div>
             ) : (
