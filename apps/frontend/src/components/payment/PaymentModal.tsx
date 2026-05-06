@@ -12,7 +12,6 @@ const stripePromise = loadStripe(
 
 interface PaymentModalProps {
   sessionToken: string;
-  restaurantId: string;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -100,7 +99,7 @@ function PaymentForm({
   );
 }
 
-export function PaymentModal({ sessionToken, restaurantId, onClose, onSuccess }: PaymentModalProps) {
+export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalProps) {
   const { t } = useTranslation();
   const [step, setStep] = useState<Step>('tip');
   const [bill, setBill] = useState<BillData | null>(null);
@@ -111,9 +110,6 @@ export function PaymentModal({ sessionToken, restaurantId, onClose, onSuccess }:
   const [paymentTip, setPaymentTip] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // restaurantId is used for context/future use
-  void restaurantId;
 
   useEffect(() => {
     getSessionBill(sessionToken)

@@ -633,7 +633,6 @@ const PublicMenuPage = () => {
       {isPaymentModalOpen && sessionToken && restaurantId && (
         <PaymentModal
           sessionToken={sessionToken}
-          restaurantId={restaurantId}
           onClose={() => setIsPaymentModalOpen(false)}
           onSuccess={() => {
             setIsPaymentModalOpen(false);
