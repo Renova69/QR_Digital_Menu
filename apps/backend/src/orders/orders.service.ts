@@ -87,7 +87,30 @@ export class OrdersService {
       throw new NotFoundException('Restaurant not found');
     }
 
-    // 5. Happy hour — use restaurant's local timezone via luxon so the window
+    // 5. Resolve or create TableSession for pay-at-table
+    let sessionToken = createOrderDto.sessionToken;
+    let tableSessionId: string | undefined;
+
+    if (sessionToken) {
+      const existingSession = await this.prisma.tableSession.findFirst({
+        where: { token: sessionToken, status: 'OPEN' },
+      });
+      if (existingSession) {
+        tableSessionId = existingSession.id;
+      } else {
+        sessionToken = undefined;
+      }
+    }
+
+    if (!tableSessionId && createOrderDto.tableId) {
+      const newSession = await this.prisma.tableSession.create({
+        data: { tableId: createOrderDto.tableId, restaurantId },
+      });
+      tableSessionId = newSession.id;
+      sessionToken = newSession.token;
+    }
+
+    // 6. Happy hour — use restaurant's local timezone via luxon so the window
     //    fires at the correct wall-clock time regardless of server timezone.
     let happyHourMultiplier = 1;
 
@@ -297,6 +320,7 @@ export class OrdersService {
           pointsRedeemedForItems,
           pointsRedeemed: pointsRedeemedForDiscount + pointsRedeemedForItems,
           restaurantId,
+          tableSessionId,
           items: { create: itemsData },
         },
         include: { items: true },
@@ -322,7 +346,7 @@ export class OrdersService {
       finalOrder,
     );
 
-    return finalOrder;
+    return { ...finalOrder, sessionToken };
   }
 
   async findAll(userId: string) {

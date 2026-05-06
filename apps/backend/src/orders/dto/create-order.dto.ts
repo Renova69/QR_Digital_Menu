@@ -5,6 +5,7 @@ import {
   ValidateNested,
   IsNumber,
 } from 'class-validator';
+
 import { Type } from 'class-transformer';
 
 class OrderItemOptionDto {
@@ -60,6 +61,10 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString({ each: true })
   redeemItemIds?: string[];
+
+  @IsString()
+  @IsOptional()
+  sessionToken?: string;
 
   @IsArray()
   @ValidateNested({ each: true })
