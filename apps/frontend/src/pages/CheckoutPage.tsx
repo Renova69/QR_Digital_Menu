@@ -170,6 +170,11 @@ const CheckoutPage = () => {
       }
 
       const newOrder = await createOrder(orderData);
+
+      if (newOrder.sessionToken && tableNumber) {
+        localStorage.setItem(`session-${tableNumber}`, newOrder.sessionToken);
+      }
+
       clearCart();
       setShowResetCartAction(false);
 
