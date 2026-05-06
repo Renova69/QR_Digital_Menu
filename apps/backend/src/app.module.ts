@@ -18,6 +18,7 @@ import { TranslationModule } from './translation/translation.module';
 import { StorageModule } from './storage/storage.module';
 import { EventsModule } from './events/events.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { LoyaltyModule } from './loyalty/loyalty.module';
     StorageModule,
     EventsModule,
     LoyaltyModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [
