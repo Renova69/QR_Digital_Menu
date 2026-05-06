@@ -1,4 +1,10 @@
 {
+  "nav": {
+    "dashboard": "Табло",
+    "logout": "Изход",
+    "login": "Вход",
+    "getStarted": "Започни"
+  },
   "dashboard": {
     "title": "Табло на ресторанта",
     "welcome": "Добре дошли отново, {{name}}",
@@ -9,6 +15,9 @@
     "newOrders": "Нови поръчки",
     "pendingAssistance": "Чакащи повиквания",
     "tabs": {
+      "home": "Начало",
+      "requests": "Повиквания",
+      "stats": "Статистики",
       "summary": "Резюме",
       "analytics": "📊 Анализи",
       "orders": "Поръчки",
@@ -48,7 +57,20 @@
     "googleReviewDesc": "Клиенти, които дадат 4-5 звезди, ще бъдат пренасочени да оставят отзив в Google",
     "save": "Запази настройките за марката",
     "saving": "Запазване...",
-    "redirectActive": "✅ Пренасочването към Google Reviews е активно"
+    "redirectActive": "✅ Пренасочването към Google Reviews е активно",
+    "typography": "Типография",
+    "headingFont": "Заглавен шрифт",
+    "bodyFont": "Основен шрифт",
+    "colorScheme": "Цветова схема",
+    "menuBackground": "Фон на менюто",
+    "textColor": "Цвят на текста",
+    "cardBackground": "Фон на карти",
+    "buttonAccent": "Бутон / Акцент",
+    "defaultTheme": "Тема по подразбиране за клиенти",
+    "defaultThemeDesc": "Клиентите виждат този режим при първото сканиране. Могат да го сменят.",
+    "livePreview": "Преглед на живо",
+    "restaurantTimezone": "Часова зона на ресторанта",
+    "restaurantTimezoneDesc": "Използва се за автоматично планиране на менюто."
   },
   "assistance": {
     "title": "Повиквания за помощ",
@@ -58,7 +80,8 @@
     "markResolved": "Маркирай като приключено",
     "resolvedRequests": "Приключени повиквания",
     "reopen": "Отвори отново",
-    "showMore": "Покажи още {{count}} повиквания"
+    "showMore": "Покажи още {{count}} повиквания",
+    "resolvedAt": "Приключено в {{time}}"
   },
   "orders": {
     "tabs": {
@@ -78,7 +101,8 @@
     "cancel": "Откажи",
     "markServed": "Маркирай като сервирана",
     "reopen": "Отвори поръчката отново",
-    "noOrders": "Няма {{status}} поръчки"
+    "noOrders": "Няма {{status}} поръчки",
+    "pluckedAt": "Направена в {{time}}"
   },
   "menuAdmin": {
     "editor": "Редактор на менюто",
@@ -92,7 +116,14 @@
     "save": "Запази",
     "cancel": "Отказ",
     "addCategory": "Добави категория",
-    "addItem": "Добави артикул"
+    "addItem": "Добави артикул",
+    "storefrontUpselling": "Витрина за допълнителни продажби",
+    "trendingEngine": "Двигател за тенденции",
+    "trendingModeAuto": "Авто (Алгоритъм)",
+    "trendingModeManual": "Ръчно (Избрани)",
+    "trendingModeOff": "Изкл.",
+    "trendingDescAuto": "Автоматично анализира продажбите за популярни артикули.",
+    "trendingDescManual": "Кликнете върху звездите на артикулите, за да ги изпъкнете."
   },
   "forms": {
     "create": "Създай",
@@ -114,7 +145,10 @@
     "promptTable": "Моля, въведете номера на вашата маса:",
     "contains": "⚠️ Съдържа",
     "addToCart": "Добави в количката",
-    "addedToCart": "Добавено в количката"
+    "addedToCart": "Добавено в количката",
+    "language": "Език",
+    "logout": "Изход",
+    "trendingNow": "Популярно сега"
   },
   "cart": {
     "yourOrder": "Вашата поръчка",
@@ -125,7 +159,7 @@
     "clearCart": "Изчисти количката"
   },
   "checkout": {
-    "title": "Плащане",
+    "title": "Вашата поръчка",
     "back": "← Обратно към менюто",
     "orderSummary": "Резюме на поръчката",
     "name": "Име",
@@ -138,7 +172,21 @@
     "submitting": "Изпращане...",
     "placeOrder": "Поръчай",
     "tableRequired": "Номерът на масата е задължителен. Моля сканирайте QR кода отново.",
-    "failedSubmit": "Неуспешна поръчка. Моля опитайте отново."
+    "failedSubmit": "Неуспешна поръчка. Моля опитайте отново.",
+    "loyaltyPoints": "Точки за лоялност",
+    "pointsAvailable": "Имате {{count}} точки (Стойност: EUR {{value}})",
+    "redeemForDiscount": "Използвай точки за отстъпка",
+    "discountApplied": "Приложена отстъпка:",
+    "finalTotal": "Крайна сума:",
+    "willEarn": "Ще спечелите {{pts}} точки",
+    "happyHourBonus": "⚡ Happy Hour: {{multiplier}}x точки",
+    "redeemedFree": "Осребрено безплатно",
+    "redeemForPts": "Осребри за {{pts}} точки",
+    "notEnoughPoints": "Недостатъчно точки за осребряване",
+    "earnFreeFood": "Искате безплатна храна?",
+    "signInToEarn": "Влезте, за да спечелите точки.",
+    "signIn": "Вход / Регистрация",
+    "free": "БЕЗПЛАТНО"
   },
   "analytics": {
     "title": "Анализи на {{name}}",
@@ -164,7 +212,12 @@
     "checkConnection": "Моля, проверете връзката си и опитайте отново.",
     "days7": "7 Дни",
     "days14": "14 Дни",
-    "days30": "30 Дни"
+    "days30": "30 Дни",
+    "export": "Експорт",
+    "categoryBreakdown": "Разбивка по категории",
+    "topTables": "Топ маси по приход",
+    "dateFrom": "От",
+    "dateTo": "До"
   },
   "tables": {
     "title": "Управление на Маси",
@@ -177,6 +230,63 @@
     "qrTitle": "QR Код за Маса {{name}}",
     "qrInstructions": "Сканирайте този QR код, за да разгледате менюто и да поръчате на Маса {{name}}",
     "downloadPNG": "Изтегли PNG",
-    "loadingTables": "Зареждане на масите..."
+    "loadingTables": "Зареждане на масите...",
+    "printAllQr": "Отпечатай всички QR кодове"
+  },
+  "common": {
+    "pleaseLogin": "Моля влезте в акаунта си"
+  },
+  "summary": {
+    "statusSnapshot": "Моментна снимка",
+    "loyaltyProgramPerformance": "Ефективност на програмата за лоялност",
+    "totalVipMembers": "Общо VIP членове",
+    "pointsRedeemed": "Осребрени точки",
+    "freebiesIssued": "Издадени безплатни продукти и отстъпки",
+    "pointsOutstandingLiability": "Задължения по точки",
+    "unspentCustomerPoints": "Неизползвани точки на клиенти"
+  },
+  "menuCheck": {
+    "title": "Здраве на менюто",
+    "subtitle": "AI одит за оптимизация на менюто",
+    "rescan": "Преодит",
+    "fix": "Поправи",
+    "perfectScore": "Перфектен резултат!",
+    "perfectScoreDesc": "Менюто ви е напълно оптимизирано и готово за клиенти.",
+    "critical": "{{count}} Критични",
+    "warnings": "{{count}} Предупреждения",
+    "suggestions": "{{count}} Предложения",
+    "itemIssue": "Проблем с артикул",
+    "categoryIssue": "Проблем с категория",
+    "fieldLabel": "Поле: {{field}}"
+  },
+  "loyaltySettings": {
+    "sectionTitle": "Програма за лоялност и награди",
+    "enableLoyalty": "Активиране на програмата за лоялност",
+    "enableLoyaltyDesc": "Позволете на клиентите да спечелят и изразходват точки.",
+    "signupBonus": "Бонус точки при регистрация",
+    "signupBonusDesc": "Присъжда се при първа поръчка. Максимум 75 т.",
+    "earnRate": "Курс на спечелване (т. за €1)",
+    "earnRateDesc": "Точки за €1 изразходвани. напр. 10 т/€ на €10 = 100 т.",
+    "redeemRate": "Курс на осребряване (т. за €1 отстъпка)",
+    "redeemRateDesc": "Точки за €1 отстъпка. По-висок = по-малко изгоден за клиенти.",
+    "cashbackInfo": "Ефективен кешбек: {{pct}}%",
+    "cashbackWarning": "⚠ Висок — проверете курса",
+    "expiryDays": "Срок на валидност на точките (дни)",
+    "expiryDaysDesc": "По подразбиране 90 дни.",
+    "reminderDays": "Напомняне преди изтичане (дни)",
+    "reminderDaysDesc": "По подразбиране 15 дни преди изтичане.",
+    "vipTiers": "VIP нива",
+    "vipTiersDesc": "Базирани на изразходвани точки за целия период.",
+    "silverThreshold": "🥈 Праг Сребро (т.)",
+    "goldThreshold": "🥇 Праг Злато (т.)",
+    "silverMultiplier": "🥈 Множител Сребро",
+    "goldMultiplier": "🥇 Множител Злато",
+    "silverMustBeLower": "Прагът за Сребро трябва да е по-нисък от Злато.",
+    "happyHour": "Happy Hour (Геймификация)",
+    "happyHourDesc": "Задейства се в местното час на ресторанта.",
+    "happyHourStart": "Начален час",
+    "happyHourEnd": "Краен час",
+    "happyHourEndDesc": "Край преди начало = нощен диапазон (напр. 22:00–02:00).",
+    "happyHourMultiplier": "Множител на точките"
   }
 }

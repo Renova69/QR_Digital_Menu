@@ -1,4 +1,10 @@
 {
+  "nav": {
+    "dashboard": "Panou",
+    "logout": "Deconectare",
+    "login": "Autentificare",
+    "getStarted": "Începeți"
+  },
   "dashboard": {
     "title": "Panou de Bord Restaurant",
     "welcome": "Bine ai revenit, {{name}}",
@@ -9,6 +15,9 @@
     "newOrders": "Comenzi Noi",
     "pendingAssistance": "Asistență în Așteptare",
     "tabs": {
+      "home": "Acasă",
+      "requests": "Solicitări",
+      "stats": "Statistici",
       "summary": "Rezumat",
       "analytics": "📊 Analize",
       "orders": "Comenzi",
@@ -48,7 +57,20 @@
     "googleReviewDesc": "Clienții care acordă 4-5 stele vor fi redirecționați să lase o recenzie pe Google",
     "save": "Salvează Setările de Brand",
     "saving": "Se salvează...",
-    "redirectActive": "✅ Redirecționarea către Google Reviews este activă"
+    "redirectActive": "✅ Redirecționarea către Google Reviews este activă",
+    "typography": "Tipografie",
+    "headingFont": "Font Titlu",
+    "bodyFont": "Font Corp",
+    "colorScheme": "Schemă Culori",
+    "menuBackground": "Fundal Meniu",
+    "textColor": "Culoare Text",
+    "cardBackground": "Fundal Card",
+    "buttonAccent": "Buton / Accent",
+    "defaultTheme": "Tema Implicită pentru Clienți",
+    "defaultThemeDesc": "Clienții văd acest mod la prima scanare. Îl pot schimba.",
+    "livePreview": "Previzualizare Live",
+    "restaurantTimezone": "Fus Orar Restaurant",
+    "restaurantTimezoneDesc": "Utilizat pentru programarea automată a meniului."
   },
   "assistance": {
     "title": "Cereri de Asistență",
@@ -58,7 +80,8 @@
     "markResolved": "Marchează ca Rezolvat",
     "resolvedRequests": "Cereri Rezolvate",
     "reopen": "Redeschide",
-    "showMore": "Arată încă {{count}} cereri"
+    "showMore": "Arată încă {{count}} cereri",
+    "resolvedAt": "Rezolvat la {{time}}"
   },
   "orders": {
     "tabs": {
@@ -78,7 +101,8 @@
     "cancel": "Anulează",
     "markServed": "Marchează ca Servit",
     "reopen": "Redeschide Comanda",
-    "noOrders": "Nicio comandă {{status}}"
+    "noOrders": "Nicio comandă {{status}}",
+    "pluckedAt": "Plasată la {{time}}"
   },
   "menuAdmin": {
     "editor": "Editor Meniu",
@@ -92,7 +116,14 @@
     "save": "Salvează",
     "cancel": "Anulează",
     "addCategory": "Adaugă Categorie",
-    "addItem": "Adaugă Articol"
+    "addItem": "Adaugă Articol",
+    "storefrontUpselling": "Vânzări Suplimentare Vitrină",
+    "trendingEngine": "Motor de Tendințe",
+    "trendingModeAuto": "Auto (Algoritm)",
+    "trendingModeManual": "Manual (Selectat)",
+    "trendingModeOff": "Oprit",
+    "trendingDescAuto": "Analizează automat vânzările pentru articole populare.",
+    "trendingDescManual": "Faceți clic pe stele pentru a evidenția articolele."
   },
   "forms": {
     "create": "Creează",
@@ -114,7 +145,10 @@
     "promptTable": "Vă rugăm să introduceți numărul mesei:",
     "contains": "⚠️ Conține",
     "addToCart": "Adaugă în coș",
-    "addedToCart": "Adăugat în coș"
+    "addedToCart": "Adăugat în coș",
+    "language": "Limbă",
+    "logout": "Deconectare",
+    "trendingNow": "În tendințe"
   },
   "cart": {
     "yourOrder": "Comanda ta",
@@ -125,7 +159,7 @@
     "clearCart": "Golește Coșul"
   },
   "checkout": {
-    "title": "Finalizare",
+    "title": "Comanda dvs.",
     "back": "← Înapoi la meniu",
     "orderSummary": "Rezumat Comandă",
     "name": "Nume",
@@ -138,7 +172,21 @@
     "submitting": "Se trimite comanda...",
     "placeOrder": "Plasează Comanda",
     "tableRequired": "Numărul mesei este obligatoriu. Vă rugăm să scanați codul QR.",
-    "failedSubmit": "Comanda a eșuat. Vă rugăm să încercați din nou."
+    "failedSubmit": "Comanda a eșuat. Vă rugăm să încercați din nou.",
+    "loyaltyPoints": "Puncte de loialitate",
+    "pointsAvailable": "Aveți {{count}} puncte disponibile (Valoare: EUR {{value}})",
+    "redeemForDiscount": "Folosiți puncte pentru reducere",
+    "discountApplied": "Reducere aplicată:",
+    "finalTotal": "Total final:",
+    "willEarn": "Veți câștiga {{pts}} puncte",
+    "happyHourBonus": "⚡ Happy Hour: {{multiplier}}x Puncte",
+    "redeemedFree": "Răscumpărat gratuit",
+    "redeemForPts": "Răscumpără pentru {{pts}} puncte",
+    "notEnoughPoints": "Puncte insuficiente pentru această răscumpărare",
+    "earnFreeFood": "Vrei mâncare gratuită?",
+    "signInToEarn": "Conectați-vă pentru a câștiga puncte.",
+    "signIn": "Conectare / Înregistrare",
+    "free": "GRATUIT"
   },
   "analytics": {
     "title": "Analize {{name}}",
@@ -164,7 +212,12 @@
     "checkConnection": "Vă rugăm verificați conexiunea și încercați din nou.",
     "days7": "7 Zile",
     "days14": "14 Zile",
-    "days30": "30 Zile"
+    "days30": "30 Zile",
+    "export": "Export",
+    "categoryBreakdown": "Defalcare pe Categorii",
+    "topTables": "Top Mese după Venit",
+    "dateFrom": "De la",
+    "dateTo": "Până la"
   },
   "tables": {
     "title": "Administrare Mese",
@@ -177,6 +230,63 @@
     "qrTitle": "Cod QR Masa {{name}}",
     "qrInstructions": "Scanați acest cod QR pentru a vedea meniul și a comanda la Masa {{name}}",
     "downloadPNG": "Descarcă PNG",
-    "loadingTables": "Se încarcă mesele..."
+    "loadingTables": "Se încarcă mesele...",
+    "printAllQr": "Tipărește toate codurile QR"
+  },
+  "common": {
+    "pleaseLogin": "Vă rugăm să vă conectați"
+  },
+  "summary": {
+    "statusSnapshot": "Instantaneu Status",
+    "loyaltyProgramPerformance": "Performanța programului de loialitate",
+    "totalVipMembers": "Total Membri VIP",
+    "pointsRedeemed": "Puncte Răscumpărate",
+    "freebiesIssued": "Produse Gratuite și Reduceri Emise",
+    "pointsOutstandingLiability": "Obligații Puncte",
+    "unspentCustomerPoints": "Puncte Necheltuuite ale Clienților"
+  },
+  "menuCheck": {
+    "title": "Sănătatea Meniului",
+    "subtitle": "Audit AI pentru optimizarea meniului",
+    "rescan": "Reaudit",
+    "fix": "Remediați",
+    "perfectScore": "Scor Perfect!",
+    "perfectScoreDesc": "Meniul dvs. este complet optimizat și gata pentru clienți.",
+    "critical": "{{count}} Critice",
+    "warnings": "{{count}} Avertismente",
+    "suggestions": "{{count}} Sugestii",
+    "itemIssue": "Problemă articol",
+    "categoryIssue": "Problemă categorie",
+    "fieldLabel": "Câmp: {{field}}"
+  },
+  "loyaltySettings": {
+    "sectionTitle": "Program de Loialitate și Recompense",
+    "enableLoyalty": "Activare Program de Loialitate",
+    "enableLoyaltyDesc": "Permiteți clienților să câștige și să cheltuiască puncte.",
+    "signupBonus": "Puncte Bonus la Înregistrare",
+    "signupBonusDesc": "Acordat la prima comandă. Maxim 75 puncte.",
+    "earnRate": "Rată Câștig (pts per €1)",
+    "earnRateDesc": "Puncte câștigate per €1 cheltuiți.",
+    "redeemRate": "Rată Răscumpărare (pts per €1 reducere)",
+    "redeemRateDesc": "Puncte necesare pentru €1 reducere.",
+    "cashbackInfo": "Rată cashback efectivă: {{pct}}%",
+    "cashbackWarning": "⚠ Ridicat — verificați rata",
+    "expiryDays": "Expirare Puncte (zile)",
+    "expiryDaysDesc": "Implicit 90 de zile.",
+    "reminderDays": "Timp Avertizare Expirare (zile)",
+    "reminderDaysDesc": "Implicit 15 zile înainte de expirare.",
+    "vipTiers": "Niveluri VIP",
+    "vipTiersDesc": "Bazat pe punctele cheltuite pe viață.",
+    "silverThreshold": "🥈 Prag Argint (pts)",
+    "goldThreshold": "🥇 Prag Aur (pts)",
+    "silverMultiplier": "🥈 Multiplicator Argint",
+    "goldMultiplier": "🥇 Multiplicator Aur",
+    "silverMustBeLower": "Pragul Argint trebuie să fie mai mic decât Aur.",
+    "happyHour": "Happy Hour (Gamification)",
+    "happyHourDesc": "Se declanșează la ora locală a restaurantului.",
+    "happyHourStart": "Ora de Început",
+    "happyHourEnd": "Ora de Sfârșit",
+    "happyHourEndDesc": "Sfârșit înainte de început = interval nocturn.",
+    "happyHourMultiplier": "Multiplicator Puncte"
   }
 }

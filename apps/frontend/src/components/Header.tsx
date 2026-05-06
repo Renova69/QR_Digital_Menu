@@ -15,7 +15,7 @@ const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
 
   if (location.pathname.startsWith('/menu/public')) {
     return null;
@@ -56,13 +56,13 @@ const Header: React.FC = () => {
                   to="/dashboard"
                   className="text-muted-foreground hover:text-foreground text-xs font-bold uppercase tracking-widest transition-colors duration-200"
                 >
-                  Dashboard
+                  {t('nav.dashboard')}
                 </Link>
                 <button
                   onClick={handleLogout}
                   className="text-foreground text-xs font-bold uppercase tracking-widest hover:text-red-500 transition-colors cursor-pointer"
                 >
-                  Logout
+                  {t('nav.logout')}
                 </button>
               </>
             ) : (
@@ -71,13 +71,13 @@ const Header: React.FC = () => {
                   to="/login"
                   className="text-muted-foreground hover:text-foreground text-xs font-bold uppercase tracking-widest transition-colors duration-200"
                 >
-                  Login
+                  {t('nav.login')}
                 </Link>
                 <Link
                   to="/register"
                   className="bg-accent text-accent-foreground text-[10px] font-black uppercase tracking-widest px-5 py-2.5 rounded-xl transition-all shadow-lg hover:shadow-accent/20 hover:-translate-y-0.5"
                 >
-                  Get Started
+                  {t('nav.getStarted')}
                 </Link>
               </>
             )}

@@ -75,22 +75,22 @@ const MenuEditorPage: React.FC = () => {
             <div className="glass-panel p-6 sm:p-10 rounded-[2rem] border-white/5 mb-8">
               <div className="flex items-center gap-3 mb-6">
                 <Settings2 className="w-5 h-5 text-accent" />
-                <h2 className="text-sm font-black uppercase tracking-widest text-zinc-400">Storefront Upselling</h2>
+                <h2 className="text-sm font-black uppercase tracking-widest text-zinc-400">{t('menuAdmin.storefrontUpselling')}</h2>
               </div>
               <div className="space-y-4">
                 <div>
-                   <label className="block text-[11px] font-black uppercase tracking-widest text-muted-foreground mb-2">Trending Engine</label>
-                   <select 
-                     value={activeRestaurant?.trendingMode || 'AUTO'} 
+                   <label className="block text-[11px] font-black uppercase tracking-widest text-muted-foreground mb-2">{t('menuAdmin.trendingEngine')}</label>
+                   <select
+                     value={activeRestaurant?.trendingMode || 'AUTO'}
                      onChange={handleTrendingChange}
                      className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-accent"
                    >
-                     <option value="AUTO">🤖 Auto (Algorithm)</option>
-                     <option value="MANUAL">⭐ Manual (Hand-picked)</option>
-                     <option value="OFF">🚫 Off</option>
+                     <option value="AUTO">🤖 {t('menuAdmin.trendingModeAuto')}</option>
+                     <option value="MANUAL">⭐ {t('menuAdmin.trendingModeManual')}</option>
+                     <option value="OFF">🚫 {t('menuAdmin.trendingModeOff')}</option>
                    </select>
                    <p className="text-[10px] text-muted-foreground mt-2 font-medium opacity-60">
-                     {activeRestaurant?.trendingMode === 'MANUAL' ? 'Click the stars on items to feature them on your menu.' : 'Automatically analyzes sales to trend popular items.'}
+                     {activeRestaurant?.trendingMode === 'MANUAL' ? t('menuAdmin.trendingDescManual') : t('menuAdmin.trendingDescAuto')}
                    </p>
                 </div>
               </div>

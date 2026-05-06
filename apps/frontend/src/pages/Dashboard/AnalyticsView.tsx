@@ -111,7 +111,7 @@ const AnalyticsView = () => {
               className="flex items-center gap-2 bg-foreground text-background px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform shadow-xl"
             >
               <Download className="w-3.5 h-3.5" />
-              Export
+              {t('analytics.export')}
             </button>
             <div className="flex bg-secondary/30 border border-border/40 rounded-xl p-1.5 gap-2 items-center shadow-inner w-full sm:w-auto">
               <input 
@@ -120,7 +120,7 @@ const AnalyticsView = () => {
                 onChange={(e) => setStartDate(e.target.value)} 
                 className="text-[10px] font-black uppercase tracking-widest border-none bg-transparent outline-none text-foreground cursor-pointer px-2" 
               />
-              <span className="text-muted-foreground text-[10px] font-black">TO</span>
+              <span className="text-muted-foreground text-[10px] font-black">{t('analytics.dateTo').toUpperCase()}</span>
               <input 
                 type="date" 
                 value={endDate} 

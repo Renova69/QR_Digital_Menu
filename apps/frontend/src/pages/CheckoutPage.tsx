@@ -29,6 +29,7 @@ const CheckoutPage = () => {
   const [usePoints, setUsePoints] = useState(false);
   const [redeemedItemIds, setRedeemItemIds] = useState<string[]>([]);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [notEnoughPointsError, setNotEnoughPointsError] = useState(false);
 
   // Gamification helpers — config comes from enroll() or getPublicConfig() API
   const restaurantConfig = loyaltyData?.restaurantConfig || loyaltyData;
@@ -274,38 +275,44 @@ const CheckoutPage = () => {
                   </ul>
                 )}
                 {(item as any).rewardPointsPrice && user && (
-                  <button
-                    onClick={() => {
-                      if (redeemedItemIds.includes(item.id)) {
-                        setRedeemItemIds((prev) =>
-                          prev.filter((id) => id !== item.id),
-                        );
-                      } else {
-                        if (
-                          loyaltyPoints - getItemsPointsCost() >=
-                          (item as any).rewardPointsPrice * item.quantity
-                        ) {
-                          setRedeemItemIds((prev) => [...prev, item.id]);
+                  <>
+                    <button
+                      onClick={() => {
+                        if (redeemedItemIds.includes(item.id)) {
+                          setRedeemItemIds((prev) =>
+                            prev.filter((id) => id !== item.id),
+                          );
                         } else {
-                          alert("Not enough points to redeem this item.");
+                          if (
+                            loyaltyPoints - getItemsPointsCost() >=
+                            (item as any).rewardPointsPrice * item.quantity
+                          ) {
+                            setRedeemItemIds((prev) => [...prev, item.id]);
+                          } else {
+                            setNotEnoughPointsError(true);
+                            setTimeout(() => setNotEnoughPointsError(false), 3000);
+                          }
                         }
-                      }
-                    }}
-                    className={`mt-2 text-xs font-bold px-2 py-1 rounded-md transition-colors ${
-                      redeemedItemIds.includes(item.id)
-                        ? "bg-accent text-white"
-                        : "bg-accent/10 text-accent hover:bg-accent/20 border border-accent/20"
-                    }`}
-                  >
-                    {redeemedItemIds.includes(item.id)
-                      ? "Redeemed Free"
-                      : `Redeem for ${(item as any).rewardPointsPrice * item.quantity} pts`}
-                  </button>
+                      }}
+                      className={`mt-2 text-xs font-bold px-2 py-1 rounded-md transition-colors ${
+                        redeemedItemIds.includes(item.id)
+                          ? "bg-accent text-white"
+                          : "bg-accent/10 text-accent hover:bg-accent/20 border border-accent/20"
+                      }`}
+                    >
+                      {redeemedItemIds.includes(item.id)
+                        ? t('checkout.redeemedFree')
+                        : t('checkout.redeemForPts', { pts: (item as any).rewardPointsPrice * item.quantity })}
+                    </button>
+                    {notEnoughPointsError && (
+                      <p className="text-red-500 text-xs mt-1">{t('checkout.notEnoughPoints')}</p>
+                    )}
+                  </>
                 )}
               </div>
               <p className="font-bold text-lg">
                 {redeemedItemIds.includes(item.id)
-                  ? "FREE"
+                  ? t('checkout.free')
                   : `€${(item.price * item.quantity).toFixed(2)}`}
               </p>
             </li>
@@ -322,17 +329,19 @@ const CheckoutPage = () => {
             <div className="mt-6 pt-6 border-t border-border space-y-4">
               <div className="flex justify-between items-center p-4 bg-accent/10 border border-accent/20 rounded-xl">
                 <div>
-                  <p className="font-bold text-accent">Loyalty Points</p>
+                  <p className="font-bold text-accent">{t('checkout.loyaltyPoints')}</p>
                   <p className="text-sm text-accent/80">
-                    You have {getAvailableLoyaltyPoints()} points available
-                    (Value: EUR {getAvailableRewardValue().toFixed(2)}).
+                    {t('checkout.pointsAvailable', {
+                      count: getAvailableLoyaltyPoints(),
+                      value: getAvailableRewardValue().toFixed(2)
+                    })}
                   </p>
                 </div>
                 {loyaltyPoints - getItemsPointsCost() > 0 &&
                   getCheckoutTotal() > 0 && (
                     <label className="flex items-center gap-3 cursor-pointer">
                       <span className="text-sm font-bold text-foreground">
-                        Redeem points for discount
+                        {t('checkout.redeemForDiscount')}
                       </span>
                       <div className="relative">
                         <input
@@ -372,7 +381,7 @@ const CheckoutPage = () => {
 
               {usePoints && loyaltyPoints - getItemsPointsCost() > 0 && (
                 <div className="flex justify-between font-bold text-lg text-green-600">
-                  <span>Discount applied:</span>
+                  <span>{t('checkout.discountApplied')}</span>
                   <span>
                     -€
                     {getPointsDiscount().toFixed(2)}
@@ -381,7 +390,7 @@ const CheckoutPage = () => {
               )}
 
               <div className="flex justify-between font-extrabold text-3xl text-foreground">
-                <span>Final Total:</span>
+                <span>{t('checkout.finalTotal')}</span>
                 <span>
                   €
                   {(
@@ -393,20 +402,16 @@ const CheckoutPage = () => {
 
               {isHappyHourActive() && (
                 <div className="flex items-center gap-2 text-yellow-500 font-bold bg-yellow-500/10 border border-yellow-500/20 px-3 py-1.5 rounded-lg justify-end">
-                  ⚡ Happy Hour: {hhMultiplier}x Points
+                  {t('checkout.happyHourBonus', { multiplier: hhMultiplier })}
                 </div>
               )}
 
               <p className="text-sm text-muted-foreground text-right font-medium">
-                You will earn{" "}
-                <span className="text-accent font-bold">
-                  {Math.floor(
-                    (getCheckoutTotal() - getPointsDiscount()) *
-                      exchangeRate *
-                      finalMultiplier,
-                  )}{" "}
-                  pts
-                </span>
+                {t('checkout.willEarn', {
+                  pts: Math.floor(
+                    (getCheckoutTotal() - getPointsDiscount()) * exchangeRate * finalMultiplier
+                  )
+                })}
                 {finalMultiplier > 1 && (
                   <span className="ml-1 text-xs text-accent/70">
                     ({finalMultiplier}x)
@@ -421,10 +426,10 @@ const CheckoutPage = () => {
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-5 bg-accent/5 border border-accent/10 rounded-xl">
               <div>
                 <p className="font-bold text-foreground">
-                  Want to earn free food?
+                  {t('checkout.earnFreeFood')}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Sign in to earn points on this order.
+                  {t('checkout.signInToEarn')}
                 </p>
               </div>
               <Button
@@ -432,7 +437,7 @@ const CheckoutPage = () => {
                 variant="outline"
                 className="shrink-0 rounded-xl border-accent text-accent hover:bg-accent/10"
               >
-                Sign In / Join
+                {t('checkout.signIn')}
               </Button>
             </div>
           </div>

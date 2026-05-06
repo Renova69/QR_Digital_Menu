@@ -83,23 +83,23 @@ export const BrandingEditor = ({ restaurant, onUpdate }: { restaurant: any, onUp
         </div>
 
           <div className="border-t border-border/40 pt-6">
-            <h4 className="text-sm font-bold mb-4">Typography</h4>
+            <h4 className="text-sm font-bold mb-4">{t('branding.typography')}</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FontPicker 
-                label="Heading Font" 
-                value={fontHeading} 
-                onChange={setFontHeading} 
+              <FontPicker
+                label={t('branding.headingFont')}
+                value={fontHeading}
+                onChange={setFontHeading}
               />
-              <FontPicker 
-                label="Body Font" 
-                value={fontBody} 
-                onChange={setFontBody} 
+              <FontPicker
+                label={t('branding.bodyFont')}
+                value={fontBody}
+                onChange={setFontBody}
               />
             </div>
           </div>
 
           <div className="border-t border-border/40 pt-6">
-            <h4 className="text-sm font-bold mb-4">Color Scheme</h4>
+            <h4 className="text-sm font-bold mb-4">{t('branding.colorScheme')}</h4>
             <ColorSchemeEditor 
               themeBgColor={themeBgColor}
               themeTextColor={themeTextColor}
@@ -116,10 +116,10 @@ export const BrandingEditor = ({ restaurant, onUpdate }: { restaurant: any, onUp
 
           <div className="border-t border-border/40 pt-6">
             <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">
-              Default Customer Theme
+              {t('branding.defaultTheme')}
             </label>
             <p className="text-[10px] font-medium text-muted-foreground/60 italic mb-4">
-              Customers see this mode when they first scan the QR code. They can still toggle it.
+              {t('branding.defaultThemeDesc')}
             </p>
             <div className="flex gap-3">
               {(['light', 'dark'] as const).map((mode) => (
@@ -160,10 +160,10 @@ export const BrandingEditor = ({ restaurant, onUpdate }: { restaurant: any, onUp
         </div>
         <div className="border-t border-border/40 pt-6">
           <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
-            Restaurant Timezone
+            {t('branding.restaurantTimezone')}
           </label>
           <p className="text-[10px] font-medium text-muted-foreground/60 italic mb-4">
-            Used for automated menu scheduling.
+            {t('branding.restaurantTimezoneDesc')}
           </p>
           <select
             value={timezone}
@@ -190,7 +190,7 @@ export const BrandingEditor = ({ restaurant, onUpdate }: { restaurant: any, onUp
           <div className="sticky top-8">
             <h4 className="text-sm font-bold mb-4 text-muted-foreground flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-accent animate-pulse"></span>
-              Live Preview
+              {t('branding.livePreview')}
             </h4>
             <BrandingPreview 
               fontHeading={fontHeading}

@@ -113,7 +113,7 @@ const SettingsView = () => {
     if (!activeRestaurant) return;
 
     if (loyaltySilverThreshold >= loyaltyGoldThreshold) {
-      setStatus({ loading: false, error: "Silver threshold must be lower than Gold threshold.", success: "" });
+      setStatus({ loading: false, error: t('loyaltySettings.silverMustBeLower'), success: "" });
       return;
     }
 
@@ -305,14 +305,14 @@ const SettingsView = () => {
           {/* ── Loyalty & Rewards ── */}
           <div className="border-b border-border pb-6">
             <h3 className="text-lg font-medium text-foreground mb-4">
-              Loyalty & Rewards Program
+              {t('loyaltySettings.sectionTitle')}
             </h3>
 
             <div className="mb-6 p-4 bg-accent/5 border border-accent/20 rounded-xl flex items-center justify-between">
               <div>
-                <p className="font-bold text-accent">Enable Loyalty Program</p>
+                <p className="font-bold text-accent">{t('loyaltySettings.enableLoyalty')}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Allow customers to earn and spend points on orders.
+                  {t('loyaltySettings.enableLoyaltyDesc')}
                 </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -332,7 +332,7 @@ const SettingsView = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-foreground/80 mb-1">
-                      Sign-up Bonus Points
+                      {t('loyaltySettings.signupBonus')}
                     </label>
                     <input
                       type="number"
@@ -342,12 +342,12 @@ const SettingsView = () => {
                       className={inputCls}
                     />
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      Awarded on first order. Capped at 75 pts server-side.
+                      {t('loyaltySettings.signupBonusDesc')}
                     </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground/80 mb-1">
-                      Earn Rate (pts per €1)
+                      {t('loyaltySettings.earnRate')}
                     </label>
                     <input
                       type="number"
@@ -358,12 +358,12 @@ const SettingsView = () => {
                       className={inputCls}
                     />
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      Points earned per €1 spent. e.g. 10 pts/€ on a €10 order = 100 pts.
+                      {t('loyaltySettings.earnRateDesc')}
                     </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground/80 mb-1">
-                      Redeem Rate (pts to earn €1)
+                      {t('loyaltySettings.redeemRate')}
                     </label>
                     <input
                       type="number"
@@ -373,19 +373,18 @@ const SettingsView = () => {
                       className={inputCls}
                     />
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      Points needed for €1 discount. Higher = less generous for customers.
+                      {t('loyaltySettings.redeemRateDesc')}
                     </p>
                   </div>
                 </div>
 
                 {/* Live cashback preview */}
                 <div className="text-xs text-muted-foreground bg-accent/5 border border-accent/10 rounded-lg px-3 py-2">
-                  Effective cashback rate:{" "}
                   <span className={`font-semibold ${(loyaltyExchangeRate / loyaltyRedeemRate) > 0.15 ? "text-yellow-500" : "text-accent"}`}>
-                    {((loyaltyExchangeRate / loyaltyRedeemRate) * 100).toFixed(1)}%
+                    {t('loyaltySettings.cashbackInfo', { pct: ((loyaltyExchangeRate / loyaltyRedeemRate) * 100).toFixed(1) })}
                   </span>
                   {(loyaltyExchangeRate / loyaltyRedeemRate) > 0.15 && (
-                    <span className="ml-2 text-yellow-500">⚠ High — check earn rate is pts/€, not €/pt</span>
+                    <span className="ml-2 text-yellow-500">{t('loyaltySettings.cashbackWarning')}</span>
                   )}
                 </div>
 
@@ -393,7 +392,7 @@ const SettingsView = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-foreground/80 mb-1">
-                      Point Expiry (days)
+                      {t('loyaltySettings.expiryDays')}
                     </label>
                     <input
                       type="number"
@@ -403,12 +402,12 @@ const SettingsView = () => {
                       className={inputCls}
                     />
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      Default 90 days. Keeps liability manageable.
+                      {t('loyaltySettings.expiryDaysDesc')}
                     </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground/80 mb-1">
-                      Expiry Reminder Lead Time (days)
+                      {t('loyaltySettings.reminderDays')}
                     </label>
                     <input
                       type="number"
@@ -418,21 +417,21 @@ const SettingsView = () => {
                       className={inputCls}
                     />
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      Default 15 days before expiry. Triggers daily reminder job.
+                      {t('loyaltySettings.reminderDaysDesc')}
                     </p>
                   </div>
                 </div>
 
                 {/* VIP Tiers */}
                 <div className="pt-4 border-t border-white/5">
-                  <p className="font-bold text-foreground mb-1">VIP Tiers</p>
+                  <p className="font-bold text-foreground mb-1">{t('loyaltySettings.vipTiers')}</p>
                   <p className="text-xs text-muted-foreground mb-4">
-                    Based on lifetime points spent. Higher tiers earn points faster.
+                    {t('loyaltySettings.vipTiersDesc')}
                   </p>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-foreground/80 mb-1">
-                        🥈 Silver threshold (pts)
+                        {t('loyaltySettings.silverThreshold')}
                       </label>
                       <input
                         type="number"
@@ -444,7 +443,7 @@ const SettingsView = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-foreground/80 mb-1">
-                        🥇 Gold threshold (pts)
+                        {t('loyaltySettings.goldThreshold')}
                       </label>
                       <input
                         type="number"
@@ -456,7 +455,7 @@ const SettingsView = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-foreground/80 mb-1">
-                        🥈 Silver multiplier
+                        {t('loyaltySettings.silverMultiplier')}
                       </label>
                       <input
                         type="number"
@@ -470,7 +469,7 @@ const SettingsView = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-foreground/80 mb-1">
-                        🥇 Gold multiplier
+                        {t('loyaltySettings.goldMultiplier')}
                       </label>
                       <input
                         type="number"
@@ -485,7 +484,7 @@ const SettingsView = () => {
                   </div>
                   {loyaltySilverThreshold >= loyaltyGoldThreshold && (
                     <p className="text-xs text-red-500 mt-2">
-                      Silver threshold must be lower than Gold threshold.
+                      {t('loyaltySettings.silverMustBeLower')}
                     </p>
                   )}
                 </div>
@@ -494,9 +493,9 @@ const SettingsView = () => {
                 <div className="pt-4 border-t border-white/5">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <p className="font-bold text-foreground">Happy Hour (Gamification)</p>
+                      <p className="font-bold text-foreground">{t('loyaltySettings.happyHour')}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Fires at the restaurant's local time (set timezone above).
+                        {t('loyaltySettings.happyHourDesc')}
                       </p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -514,7 +513,7 @@ const SettingsView = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-foreground/80 mb-1">
-                          Start Time
+                          {t('loyaltySettings.happyHourStart')}
                         </label>
                         <input
                           type="time"
@@ -525,7 +524,7 @@ const SettingsView = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-foreground/80 mb-1">
-                          End Time
+                          {t('loyaltySettings.happyHourEnd')}
                         </label>
                         <input
                           type="time"
@@ -534,12 +533,12 @@ const SettingsView = () => {
                           className={inputCls}
                         />
                         <p className="text-[10px] text-muted-foreground mt-1">
-                          End before start = overnight range (e.g. 22:00–02:00).
+                          {t('loyaltySettings.happyHourEndDesc')}
                         </p>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-foreground/80 mb-1">
-                          Points Multiplier
+                          {t('loyaltySettings.happyHourMultiplier')}
                         </label>
                         <input
                           type="number"
