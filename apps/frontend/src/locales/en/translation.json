@@ -24,7 +24,8 @@
       "assistance": "Assistance Requests",
       "tables": "Tables & QR",
       "settings": "Settings",
-      "menuEditor": "Menu Editor"
+      "menuEditor": "Menu Editor",
+      "payments": "Payments"
     }
   },
   "settings": {
@@ -405,5 +406,23 @@
     "noItems": "No items",
     "pleaseLogin": "Please sign in to view your profile.",
     "loginButton": "Sign In"
+  },
+  "payments": {
+    "title": "Payment History",
+    "noPayments": "No payments yet",
+    "allStatuses": "All Statuses",
+    "succeeded": "Succeeded",
+    "pending": "Pending",
+    "failed": "Failed",
+    "refunded": "Refunded",
+    "date": "Date",
+    "table": "Table",
+    "customer": "Customer",
+    "amount": "Amount",
+    "tip": "Tip",
+    "status": "Status",
+    "paymentReceived": "Payment Received",
+    "stripeNotConnected": "Connect Stripe in Settings to start accepting payments.",
+    "stripeNotConnectedTitle": "Stripe not connected"
   }
 }
