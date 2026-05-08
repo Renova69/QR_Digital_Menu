@@ -141,12 +141,20 @@ export class PaymentService {
       const intent = event.data.object as any;
       let payment = await this.prisma.payment.findFirst({
         where: { stripePaymentIntentId: intent.id },
-        include: { tableSession: true },
+        include: {
+          tableSession: {
+            include: { table: { select: { name: true } } },
+          },
+        },
       });
       if (!payment && intent.metadata?.paymentId) {
         payment = await this.prisma.payment.findFirst({
           where: { id: intent.metadata.paymentId },
-          include: { tableSession: true },
+          include: {
+            tableSession: {
+              include: { table: { select: { name: true } } },
+            },
+          },
         });
       }
       if (!payment) return;
@@ -162,10 +170,32 @@ export class PaymentService {
         }),
       ]);
 
+      const tableNumber = payment.tableSession?.table?.name
+        ?? (await this.prisma.restaurantTable.findUnique({
+          where: { id: payment.tableSession.tableId },
+          select: { name: true },
+        }))?.name
+        ?? null;
+
+      const customerName = (
+        await this.prisma.order.findFirst({
+          where: { tableSessionId: payment.tableSessionId },
+          orderBy: { createdAt: 'desc' },
+          select: { customerName: true },
+        })
+      )?.customerName ?? null;
+
       this.events.emitToRestaurant(
         payment.tableSession.restaurantId,
         'payment:confirmed',
-        { paymentId: payment.id, tableSessionId: payment.tableSessionId },
+        {
+          paymentId: payment.id,
+          tableSessionId: payment.tableSessionId,
+          amount: payment.amount,
+          tipAmount: payment.tipAmount,
+          tableNumber,
+          customerName,
+        },
       );
     }
 
