@@ -1,14 +1,17 @@
-import { useState } from 'react';
+import { useState, useContext } from 'react';
 import { useOrders } from '../../context/OrderContext';
 import { OrderStatus } from '../../context/OrderContext';
 import { Button } from '../../components/ui/button';
 import { useTranslation } from 'react-i18next';
 import { Bell } from 'lucide-react';
+import RestaurantContext from '../../context/RestaurantContext';
 
 const OrdersView = () => {
   const { orders, updateOrderStatus } = useOrders();
   const [activeTab, setActiveTab] = useState<OrderStatus>('NEW');
   const { t } = useTranslation();
+  const { activeRestaurant } = useContext(RestaurantContext) as any;
+  const paymentsEnabled = activeRestaurant?.paymentsEnabled ?? false;
 
   // Filter orders by active tab status
   const filteredOrders = orders.filter(order => order.status === activeTab);
@@ -74,6 +77,11 @@ const OrdersView = () => {
                 <p className={`inline-block font-black px-5 py-2.5 rounded-2xl text-[10px] uppercase tracking-[0.2em] shadow-sm border ${order.status === 'NEW' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' : order.status === 'IN_PROGRESS' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : order.status === 'SERVED' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
                     {getStatusLabel(order.status)}
                 </p>
+                {paymentsEnabled && order.tableSession?.status === 'PAID' && (
+                  <span className="inline-block font-black px-4 py-2 rounded-2xl text-[10px] uppercase tracking-[0.2em] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 ml-2">
+                    € Paid
+                  </span>
+                )}
               </div>
             </div>
 
