@@ -40,22 +40,23 @@ export class TablesService {
   }
 
   async getTablesWithStatus(restaurantId: string) {
-    const tables = await this.prisma.restaurantTable.findMany({
-      where: { restaurantId },
-      orderBy: { name: 'asc' },
-    });
-
-    const sessions = await this.prisma.tableSession.findMany({
-      where: {
-        restaurantId,
-        status: { in: ['OPEN', 'PAID'] },
-      },
-      include: {
-        orders: {
-          select: { customerName: true, totalPrice: true, status: true },
+    const [tables, sessions] = await Promise.all([
+      this.prisma.restaurantTable.findMany({
+        where: { restaurantId },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.tableSession.findMany({
+        where: {
+          restaurantId,
+          status: { in: ['OPEN', 'PAID'] },
         },
-      },
-    });
+        include: {
+          orders: {
+            select: { customerName: true, totalPrice: true, status: true },
+          },
+        },
+      }),
+    ]);
 
     const sessionByTableId = new Map(
       sessions.map((s) => [s.tableId, s]),

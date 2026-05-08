@@ -80,6 +80,17 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(`restaurant_${restaurantId}`).emit(eventName, payload);
   }
 
+  emitTableStatusChanged(
+    restaurantId: string,
+    tableId: string,
+    sessionId: string,
+  ) {
+    this.emitToRestaurant(restaurantId, 'table:status-changed', {
+      tableId,
+      sessionId,
+    });
+  }
+
   /**
    * Dispatch an event to a specific order's room (e.g. status change).
    */

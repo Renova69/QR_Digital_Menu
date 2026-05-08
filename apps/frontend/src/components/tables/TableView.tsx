@@ -25,6 +25,7 @@ const TableView: React.FC = () => {
   const { data: tables, isLoading } = useQuery({
     queryKey: ['tables', restaurantId],
     queryFn: () => getTables(restaurantId),
+    enabled: !!restaurantId,
   });
 
   const createMutation = useMutation({
