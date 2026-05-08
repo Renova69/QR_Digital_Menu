@@ -50,13 +50,15 @@ npm start        # serve dist/ on :3001
 
 ## Backend architecture
 
-NestJS modules registered in `apps/backend/src/app.module.ts` (in order): Prisma, Auth, Restaurants, Menu, Orders, Assistance, Dashboard, Tables, Health, Feedback, Translation, Storage, Events, Loyalty. `ThrottlerGuard` applied globally (100 req / 60s).
+NestJS modules registered in `apps/backend/src/app.module.ts` (in order): Prisma, Auth, Restaurants, Menu, Orders, Assistance, Dashboard, Tables, Health, Feedback, Translation, Storage, Events, Payment, Loyalty. `ThrottlerGuard` applied globally (100 req / 60s).
 
 Cross-cutting concerns:
 - **Auth** (`auth/`) — JWT + Google OAuth + magic link via Passport strategies.
-- **Realtime** (`events/`) — `@nestjs/websockets` + socket.io for live order / assistance pushes.
+- **Realtime** (`events/`) — `@nestjs/websockets` + socket.io for live order / assistance / table status / payment pushes. `EventsGateway.emitTableStatusChanged(restaurantId, tableId, sessionId)` emits `table:status-changed` — called from 4 locations (`OrdersService.create`, `OrdersService.updateStatus`, `PaymentService.handleWebhookEvent`, `PaymentService.closeSession`). `payment:confirmed` event emitted on successful payment.
+- **Payment** (`payment/`) — Stripe Connect pay-at-table. `IPaymentProvider` interface abstracts provider; `StripeProvider` implements it (future providers: MyPOS, Square). `PaymentService` handles sessions, bill calculation, PaymentIntent creation, webhook processing. `PaymentController` has 5 routes: sessions, bill, create-payment-intent, webhook (raw body), history. `RestaurantsService` manages Stripe Connect account onboarding (create account link, status check, disconnect). Never add provider-specific logic outside the provider — always go through `IPaymentProvider`.
+- **Tables** (`tables/`) — `getTablesWithStatus()` fetches tables + active sessions in parallel via `Promise.all`, derives status per table (empty/waiting/occupied/paid). `GET /tables/status/:restaurantId` returns enriched data with `orderCount`, `totalAmount`, `customerNames`, `sessionStatus`, `sessionId`.
 - **Translation** (`translation/`) — DeepL. Platform owns the key via `DEEPL_API_KEY` env var in `apps/backend/.env`. `TranslationService.translateTexts/translateText/translateObject` take **no** `apiKey` param — the service reads the key internally. `restaurant.deeplApiKey` column exists in schema but is **never read or written** — do not add call-sites that touch it. Three translation paths: (1) fire-and-forget pre-warm on menu item/category/option create+update; (2) owner-triggered "Translate All Now" via `POST /api/restaurants/:id/translate-all`; (3) lazy on-demand per-request via `GET /api/menu/public/:id?lang=<code>` — translates missing entries and caches to DB `translations` JSON field immediately. `lang` param is validated against `restaurant.targetLanguages` — arbitrary langs are rejected. Free-tier detection: key ending in `:fx` routes to `api-free.deepl.com`.
-- **Storage** (`storage/`) — AWS S3 client for image uploads.
+- **Storage** (`storage/`) — Cloudflare R2 client for image uploads. `StorageService` runs sharp image processing pipeline: EXIF auto-rotate, resize to 1200px max, convert to WebP (quality 82), generate 400px thumbnail (quality 75), upload both in parallel. Methods: `upload(fileBuffer, originalName, contentType)` returns URL; `uploadWithThumbnail(...)` returns `{url, thumbnailUrl}`. ALLOWED_TYPES: JPEG, PNG, WebP. File filter in controllers additionally restricts to JPEG/PNG only. R2 creds in `apps/backend/.env`: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`.
 - **Schedule** — `@nestjs/schedule` is registered **only** inside `loyalty.module.ts`. Loyalty expiry-reminder cron runs at midnight UTC.
 
 ## Loyalty subsystem (read these before changing tier or points logic)
@@ -106,7 +108,7 @@ Key files for the options flow:
 ## Frontend architecture
 
 - **Routing** — React Router v7 in `apps/frontend/src/App.tsx`.
-- **State** — React Context per concern in `src/context/`: `AuthContext`, `RestaurantContext`, `MenuContext`, `CartContext`, `OrderContext`, `AssistanceContext`, `SocketContext`. Server state via TanStack Query.
+- **State** — React Context per concern in `src/context/`: `AuthContext`, `RestaurantContext`, `MenuContext`, `CartContext`, `OrderContext`, `AssistanceContext`, `SocketContext`, `NotificationContext`. Server state via TanStack Query.
 - **API client** — `src/lib/api.ts` (axios + JWT interceptors). All requests go through this — never call axios directly elsewhere.
 - **UI primitives** — `src/components/ui/` (Radix + class-variance-authority + tailwind-merge).
 
@@ -121,11 +123,11 @@ Key files for the options flow:
 
 Source of truth: `CODING_ROADMAP.md`. Detailed per-phase plans under `.planning/phases/`.
 
-**Shipped — V1 MVP (April 2026):** auth (JWT + Google OAuth), restaurant CRUD, menu builder + image upload, tables + QR codes, contactless ordering with server-side pricing, owner dashboard, Docker Compose, Swagger.
+**Shipped — V1 MVP (April 2026):** auth (JWT + Google OAuth), restaurant CRUD, menu builder + image upload (upgraded May 2026 to R2 + sharp), tables + QR codes, contactless ordering with server-side pricing, owner dashboard, Docker Compose, Swagger.
 
 **Shipped — V2 Premium (Phases 9–14):** smart analytics, customer feedback + Google Review redirect, automated dayparting (scheduled categories with timezone), multi-language menu (EN/BG/RO + DeepL), realtime via socket.io, upselling / trending / perfect pairing.
 
-**Shipped — post-roadmap (May 2026):** full loyalty program — FIFO point ledger, configurable VIP tiers, timezone-aware happy hour, expiry reminder cron.
+**Shipped — post-roadmap (May 2026):** full loyalty program — FIFO point ledger, configurable VIP tiers, timezone-aware happy hour, expiry reminder cron. Image upload overhaul — Cloudflare R2 migration, sharp WebP compression pipeline (80-95% size reduction), `ImageUploadInput` component (preview thumbnail + remove), JPEG/PNG validation, toast success/error feedback.
 
 **Shipped — V2.5 Visual Polish, Branding & Mobile UX (May 2026):**
 - **Phase 15** — Square images, pinch-to-zoom lightbox (full gesture rewrite), category banners, mobile aspect ratio + card height fixes.
@@ -156,12 +158,17 @@ Source of truth: `CODING_ROADMAP.md`. Detailed per-phase plans under `.planning/
 - **Translation gaps** — ~120 new i18n keys across EN/BG/RO: `auth.otp.*` (20 keys), `publicMenu.signIn/myProfile/calling/scanQrForAssistance/selectLanguage/pairing.*/drinkUpsell.*`, `profile.*` (22 keys). All previously hardcoded strings in `CustomerLoginModal`, `CartDrawer`, `ItemWithOptions`, `CustomerProfilePage`, `PublicMenuPage` now wired to `t()`.
 - **Key files:** `schema.prisma`, `auth.service.ts`, `auth.controller.ts`, `AuthContext.tsx`, `CustomerLoginModal.tsx`, `PublicMenuPage.tsx`, `CustomerProfilePage.tsx`, `CartIcon.tsx`, `CartDrawer.tsx`, `ItemWithOptions.tsx`, `PrintableQRCodes.tsx`, `AnalyticsView.tsx`, `menu.service.ts`, `en/bg/ro translation.json`.
 
+**Shipped — Stripe Connect Payments & Live Table View (May 8, 2026):**
+- **Stripe Connect Payments** — `IPaymentProvider` interface + `StripeProvider` implementation; `PaymentService` (sessions, bill calculation, PaymentIntent creation, webhook handling); `PaymentController` (5 routes: sessions, bill, create-payment-intent, webhook, history); Stripe Connect onboarding via `RestaurantsService` (account link, status, disconnect); `PaymentModal` 3-step UI (tip → Stripe Elements → confirmation); `PaymentsView` history table with status/date filters; `NotificationContext` + `NotificationBell` (badge count) + `PaymentToast` (slide-in); `TableSession` model (OPEN/PAID/CLOSED_NO_PAYMENT) + `Payment` model (PENDING/SUCCEEDED/FAILED); webhook idempotency via `stripePaymentIntentId` lookup; raw body preservation for Stripe signature verification.
+- **Live Table View** — `getTablesWithStatus()` in `tables.service.ts` fetches tables + active sessions in parallel via `Promise.all`; derives status per table (empty/waiting/occupied/paid); `GET /tables/status/:restaurantId` returns enriched data; `emitTableStatusChanged()` helper in `EventsGateway` called from 4 locations; `LiveTablesView.tsx` with filter modes (Active/Occupied/Paid/All) defaulting to Active; `TableCard.tsx` color-coded cards (red/amber/green/gray left border); `TableDetailModal.tsx` showing orders + payment info; `TableView.tsx` parent with Live View / QR Management sub-tabs; socket listener invalidates React Query `['tableStatuses']` cache on `table:status-changed` events.
+- **Code review fixes** — Parallel DB queries replacing sequential awaits; `emitTableStatusChanged` helper deduplication across 4 call sites; removed unused `label` field from `statusStyles` Record; added `enabled: !!restaurantId` guard on `useQuery` in `TableView.tsx`; removed dead code + unnecessary existence checks.
+- **Key files:** `payment.service.ts`, `payment.controller.ts`, `stripe.provider.ts`, `payment-provider.interface.ts`, `tables.service.ts`, `tables.controller.ts`, `events.gateway.ts`, `orders.service.ts`, `PaymentModal.tsx`, `PaymentsView.tsx`, `LiveTablesView.tsx`, `TableCard.tsx`, `TableDetailModal.tsx`, `TableView.tsx`, `NotificationContext.tsx`, `NotificationBell.tsx`, `PaymentToast.tsx`, `api.ts`.
+
 **Current focus — V3 Growth:**
 - **Phase 18 — Staff Roles:** expand `UserRole` to `OWNER` / `MANAGER` / `WAITER` / `KITCHEN`, permission matrix, `StaffInvite` model with expiring tokens, activity log.
-- **Phase 19 — Stripe payments:** pay-at-table via Payment Intents, split payment, tips, Stripe Connect for platform fees.
 - **Phase 20 — Multi-location:** menu templates, bulk price updates, cross-location analytics.
 
-**Planned — V4 Enterprise:** AWS/GCP migration, Redis, CDN, POS integration (Square / Toast / Lightspeed), inventory + waste tracking, SMS/email marketing, React Native staff app.
+**Planned — V4 Enterprise:** AWS/GCP migration, Redis, POS integration (Square / Toast / Lightspeed), inventory + waste tracking, SMS/email marketing, React Native staff app.
 
 When asked to add a feature, first check whether it falls under an existing phase — follow the scope defined there rather than re-scoping.
 

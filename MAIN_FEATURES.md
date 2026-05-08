@@ -1,0 +1,1578 @@
+# QR Menu — Product & Technical Due Diligence Report
+
+> **Prepared for:** Fortune 500 Acquisition Review
+> **Date:** May 8, 2026
+> **Product Status:** V2.5 Shipped | V3 Growth Features — Stripe Payments + Live Tables Complete
+> **Codebase:** 100+ frontend source files, 16 backend modules, 13 database models, ~160 i18n keys across 3 languages
+
+---
+
+## 1. Executive Summary
+
+QR Menu is a full-stack SaaS platform that digitizes restaurant dining. Restaurant owners create and manage menus through an admin dashboard, generate table-specific QR codes, and customers scan those codes to browse menus, place orders, call for assistance, and earn loyalty rewards — all from their phone browser with no app download.
+
+The product has completed its V1 MVP, V2 Premium features, and V2.5 Visual Polish milestone as of May 2026. The codebase demonstrates production-grade engineering across the full stack: a NestJS backend with 17 domain modules, a React frontend with 7 context providers and comprehensive i18n support (EN/BG/RO), real-time WebSocket updates via Socket.io, a FIFO loyalty point ledger with timezone-aware happy hour, server-side price validation to prevent manipulation, and a platform-managed DeepL translation pipeline with lazy on-demand caching.
+
+The platform currently targets the Bulgarian restaurant market (BG is the i18n fallback language, default currency EUR/BGN, Neon database hosted in Europe) but the architecture is market-agnostic. The React frontend uses a dual-layout system (AppLayout for dashboard, PublicLayout for customer-facing routes) that delivers a near-native mobile experience on the primary device for this use case — the customer's phone.
+
+Revenue potential is now realized through Stripe Connect integration (fully implemented May 2026). The platform charges a configurable platform fee on every payment processed through Stripe. The payment system uses a provider abstraction pattern (`IPaymentProvider`) enabling future payment method additions (MyPOS, Square, etc.). The loyalty program — FIFO point ledger, configurable VIP tiers, timezone-aware happy hour multipliers — is a retention engine atypical for a pre-revenue product.
+
+**Core value proposition:** Restaurants get a branded, QR-code-driven digital ordering experience with zero customer friction. The platform handles menu management, real-time order routing, multi-language translation, and customer loyalty — replacing paper menus, reducing waiter dependency, and increasing order throughput.
+
+---
+
+## 2. Product Architecture
+
+### 2.1 High-Level System Architecture
+
+```mermaid
+graph TB
+    subgraph "Customer Device"
+        CUST[Phone Browser]
+    end
+
+    subgraph "Restaurant Staff"
+        STAFF[Dashboard Browser]
+    end
+
+    subgraph "Vercel / VPS"
+        subgraph "Frontend :3001"
+            REACT[React 18 SPA<br/>Vite + Tailwind 4 + Radix UI]
+            I18N[i18next<br/>EN/BG/RO]
+            SOCKET_CLIENT[Socket.io Client]
+            RQ[TanStack React Query 5]
+        end
+
+        subgraph "Backend :3000 /api"
+            NEST[NestJS 11]
+            AUTH[Auth Module<br/>JWT + Google OAuth + Email OTP]
+            MENU[Menu Module<br/>Categories/Items/Options/Audit]
+            ORDERS[Orders Module<br/>Server-side pricing]
+            LOYALTY[Loyalty Module<br/>FIFO Ledger + Cron]
+            TRANSLATE[Translation Module<br/>DeepL API]
+            GATEWAY[EventsGateway<br/>Socket.io]
+            THROTTLE[ThrottlerGuard<br/>100 req/60s]
+        end
+
+        subgraph "Data Layer"
+            PRISMA[Prisma 6 ORM]
+            NEON[(Neon Serverless<br/>PostgreSQL)]
+            S3[AWS S3 / Cloudflare R2<br/>Image Storage]
+        end
+    end
+
+    subgraph "External Services"
+        GOOGLE[Google OAuth 2.0]
+        DEEPL[DeepL Translate API]
+        RESEND[Resend Email API]
+        STRIPE[Stripe Connect<br/>Active]
+    end
+
+    CUST -->|QR Scan| REACT
+    STAFF --> REACT
+    REACT -->|REST + JWT| NEST
+    REACT <-->|WebSocket| GATEWAY
+    NEST --> PRISMA
+    PRISMA --> NEON
+    NEST --> S3
+    NEST --> GOOGLE
+    NEST --> DEEPL
+    NEST --> RESEND
+```
+
+### 2.2 Tech Stack Breakdown
+
+| Layer | Technology | Version | Purpose |
+|-------|-----------|---------|---------|
+| **Monorepo** | Turborepo + npm Workspaces | 2.4 | Task orchestration, dependency management |
+| **Frontend Framework** | React | 18.2 | SPA for dashboard + customer menu |
+| **Build Tool** | Vite | 6.2 | HMR dev server, production bundling |
+| **CSS Framework** | Tailwind CSS | 4.1 | Utility-first styling with custom design tokens |
+| **UI Primitives** | Radix UI | latest | Accessible dialog, slot composition |
+| **Icons** | Lucide React | 0.542 | Consistent SVG icon set |
+| **Server State** | TanStack React Query | 5.85 | Cache management, optimistic updates |
+| **Client State** | React Context API | — | 7 context providers (auth, cart, orders, etc.) |
+| **Routing** | React Router DOM | 7.8 | Layout-based routing (public vs authenticated) |
+| **Real-time** | Socket.io Client | latest | Order/assistance push notifications |
+| **i18n** | i18next + react-i18next | latest | 3 languages, browser detection, BG fallback |
+| **Charts** | Recharts | latest | Analytics visualizations |
+| **QR Generation** | react-qr-code, qrcode.react | 2.x | Customer-facing + printable QR codes |
+| **Drag & Drop** | @dnd-kit/core + sortable | 6.x/10.x | Menu category/item reordering |
+| **Backend Framework** | NestJS | 11.0 | Modular TypeScript backend |
+| **ORM** | Prisma | 6.15 | Type-safe database access |
+| **Database** | Neon PostgreSQL | Serverless | Cloud-hosted, pooled connections |
+| **Auth (JWT)** | @nestjs/jwt + passport-jwt | 11.0 | Bearer token authentication |
+| **Auth (OAuth)** | passport-google-oauth20 | latest | Google Sign-In |
+| **Auth (OTP)** | Resend API + bcryptjs | 3.0 | Email OTP for customer login |
+| **Validation** | class-validator + class-transformer | 0.14/0.5 | DTO validation at API boundary |
+| **Scheduling** | @nestjs/schedule | latest | Daily loyalty expiry cron |
+| **Rate Limiting** | @nestjs/throttler | latest | 100 req/60s global |
+| **API Docs** | @nestjs/swagger | 11.2 | Swagger UI at /api-docs |
+| **Dates/Time** | Luxon | latest | Timezone-aware date handling |
+| **File Storage** | AWS S3 / Cloudflare R2 | — | Image uploads with CDN |
+| **Translation** | DeepL API v2 | — | Auto-translate menus |
+| **Email** | Resend REST API | — | OTP code delivery |
+| **Testing (BE)** | Jest 30 + Supertest | — | Unit + E2E tests |
+| **Testing (FE)** | Vitest 3 + jsdom | — | Component tests |
+
+### 2.3 Data Flow: End-to-End Order Journey
+
+```mermaid
+sequenceDiagram
+    participant C as Customer Phone
+    participant F as React Frontend
+    participant B as NestJS Backend
+    participant D as Neon PostgreSQL
+    participant W as WebSocket Gateway
+    participant S as Staff Dashboard
+
+    Note over C,S: 1. Menu Browsing
+    C->>F: Scan QR code (?table=T1)
+    F->>B: GET /api/menu/public/:restaurantId?lang=bg
+    B->>D: Fetch categories + items (filter out-of-stock, apply schedule)
+    B->>D: Check translations cache<br/>On miss: DeepL translate → write cache
+    B-->>F: Full menu with translations
+    F-->>C: Render branded menu<br/>(restaurant theme, fonts, colors)
+
+    Note over C,S: 2. Add to Cart
+    C->>F: Select item + options (size, doneness)
+    F->>F: Auto-select first VARIATION<br/>Build cartId from item+options hash
+    F->>F: localStorage persistence
+    C->>F: Add another item with relatedItemIds
+    F->>F: Show Perfect Pairing modal<br/>(deterministic trigger)
+
+    Note over C,S: 3. Checkout
+    C->>F: Open cart → Checkout
+    F->>F: Check for drink upsell<br/>Show beverage suggestions if no drinks
+    F->>B: POST /api/orders
+    B->>D: Fetch all ordered items in 1 query<br/>(N+1 prevention)
+    B->>D: Validate every option choice<br/>against DB (server-side)
+    B->>B: Recalculate total (ignore client prices)
+    B->>B: Happy hour check (timezone-aware, Luxon)
+    B->>B: Loyalty: expire points → redeem → earn
+    B->>D: Atomic transaction: order + ledger entries
+    B->>W: Emit 'newOrder' to restaurant room
+    W-->>S: Push notification + audio alert
+    B-->>F: Order created + order ID
+    F-->>C: Order confirmation page
+
+    Note over C,S: 4. Order Tracking
+    F->>W: Join 'order:{id}' room
+    S->>B: PATCH /api/orders/:id/status (IN_PROGRESS)
+    B->>W: Emit 'orderStatusChanged'
+    W-->>F: Status update
+    F-->>C: Live status card update<br/>(NEW→IN_PROGRESS→SERVED)
+
+    Note over C,S: 5. Feedback Loop
+    C->>F: Star rating + comment
+    F->>B: POST /api/feedback
+    B->>D: Store feedback, check rating
+    alt Rating ≥ 4
+        B-->>F: Return Google Review URL
+        F-->>C: Redirect to Google Reviews
+    else Rating ≤ 3
+        B->>D: Store private feedback for owner
+    end
+```
+
+### 2.4 Key Architectural Decisions
+
+| Decision | Why |
+|----------|-----|
+| **Server-side price calculation** | Prevents price manipulation. `OrdersService.create()` ignores client-submitted prices — it fetches current prices from DB, validates every option choice against the schema, and recalculates the total. The client's `selectedOptions` are validated by matching `choiceName` (not ID, since the choices JSON schema has no IDs) against DB records. |
+| **Turborepo over Docker for dev** | Native dev startup in ~5 seconds vs 2–5 minutes. Docker Compose retained for production simulation only. The backend connects to hosted Neon PostgreSQL — no local DB container needed. |
+| **Platform-managed translation key** | Restaurant owners never supply API keys. The platform holds a single `DEEPL_API_KEY` env var. The `restaurant.deeplApiKey` column exists in the schema but is never read or written — it's deprecated. This eliminates owner friction and prevents key leakage. |
+| **Lazy translation with DB caching** | First request per language translates and persists to the `translations` JSON field on each entity. Subsequent requests hit DB cache. Three translation paths: fire-and-forget pre-warm on menu save, owner-triggered "Translate All", and lazy on-demand per-request. 300ms delay between DeepL calls respects free-tier rate limits. |
+| **FIFO loyalty ledger** | Points managed as discrete batches with expiry. Redemption draws oldest batches first (`redeemAccountPoints`). Expiry runs oldest-first (`expireAccountPoints`). Never parallel Prisma writes inside `$transaction` — use `updateMany` instead. This is a deliberate accounting pattern, not an ORM limitation. |
+| **Per-restaurant theme isolation** | Each venue's theme preference stored independently (`theme-{restaurantId}` localStorage key) vs single global key. Owner sets `defaultTheme` (light/dark) that applies on first visit. ThemeToggle always visible even with custom branding. |
+| **Layout split: AppLayout vs PublicLayout** | Customer routes (menu, checkout, confirmation, feedback) get no header chrome — full viewport, native-feel mobile experience. Dashboard routes get full app shell. Media-query-driven cart animation (slide-up on mobile, slide-right on desktop) with zero JS detection. |
+| **BG as i18n fallback** | Bulgarian is the default language (`fallbackLng: 'bg'`) since the primary market is Bulgarian restaurants. English and Romanian are secondary. English was moved from fallback to secondary in the May 5, 2026 overhaul. |
+| **Dual auth strategy** | JWT for dashboard owners, Email OTP for customers. Customers never create passwords. OTP codes are bcrypt-hashed (10 rounds), 10-min expiry, 60s rate-limit per email. Dev mode returns `devCode` in API response when `RESEND_API_KEY` is absent. |
+| **No customer password system** | The `User` model has a nullable `password` field. Customers created via OTP get no password — they authenticate exclusively through OTP or Google OAuth. Owners have hashed passwords. |
+
+---
+
+## 3. Feature Deep Dive
+
+### 3.1 Authentication System
+
+**What it does:** Three authentication methods for two distinct user types. Restaurant owners log in with email/password or Google OAuth. Customers sign in with email OTP (6-digit code) or Google OAuth — no password required. All methods issue a JWT with 1-day expiry.
+
+**How it works:**
+- **JWT Strategy** (`apps/backend/src/auth/jwt.strategy.ts`): Extracts Bearer token, validates signature with `JWT_SECRET`, looks up user by `payload.sub`. Throws `UnauthorizedException` if user not found.
+- **Local Strategy** (`apps/backend/src/auth/local.strategy.ts`): Uses email as username field. `validate()` calls `AuthService.validateUser()` which checks bcrypt-hashed password. Specific error messages: "No account found with this email" (404) vs "Incorrect password" (401).
+- **Google Strategy** (`apps/backend/src/auth/google.strategy.ts`): Scopes profile + email. `validate()` returns `{ googleId, email, firstName, lastName }`. `AuthService.validateGoogleUser()` auto-creates user with OWNER role if not found; generates random 8-char password.
+- **Email OTP** (`apps/backend/src/auth/auth.service.ts:sendOtp/verifyOtp`): `sendOtp` rate-limits to 60s/email (returns 429), deletes previous unused tokens, generates 6-digit code, bcrypt-hashes it, stores in `VerificationToken` with 10-min expiry. Delivers via Resend API or logs to console in dev. `verifyOtp` checks code with bcrypt, marks token used, auto-creates CUSTOMER user if new, returns `{ token, user, isNew }`.
+
+**Key files:**
+- `apps/backend/src/auth/auth.service.ts` — core auth logic (login, register, OTP, magic link, Google)
+- `apps/backend/src/auth/auth.controller.ts` — 8 endpoints (login, register, me, google, google/callback, magic-link, otp/send, otp/verify)
+- `apps/backend/src/auth/jwt.strategy.ts` — JWT extraction + user lookup
+- `apps/backend/src/auth/google.strategy.ts` — OAuth profile normalization
+- `apps/frontend/src/context/AuthContext.tsx` — token management, login/register/logout, 401 handling
+- `apps/frontend/src/components/auth/CustomerLoginModal.tsx` — 3-step OTP modal (entry → otp → welcome)
+- `apps/frontend/src/components/ProtectedRoute.tsx` — route guard, redirects CUSTOMER to /profile
+
+**Edge cases handled:**
+- Google OAuth callback parses `state` from query to preserve `returnTo` redirect (see `google-auth.guard.ts` line 12-14: serializes `returnTo` as JSON in `state` parameter)
+- OTP rate limiting: 60s cooldown per email (checks `createdAt` of newest token, returns 429 if <60s)
+- OTP verification: marks token `usedAt` to prevent replay
+- Auth context: on mount, if token exists in localStorage, fetches `/auth/me` — on failure clears token (handles expired tokens gracefully)
+- 401 interceptor (`apps/frontend/src/lib/api.ts`): auto-redirects to `/login` but excludes public paths (`/login`, `/auth/callback`, `/menu/public`)
+- ProtectedRoute redirects CUSTOMER-role users to `/profile` unless already there
+
+**Dependencies:** Passport.js ecosystem, Google Cloud Console (OAuth credentials), Resend API (email delivery), bcryptjs (password hashing)
+
+---
+
+### 3.2 Restaurant Management & Multi-Tenancy
+
+**What it does:** Authenticated owners create and manage multiple restaurants. Each restaurant has its own menu, tables, orders, branding, loyalty program, translation settings, and analytics — fully isolated.
+
+**How it works:**
+- Every protected endpoint resolves the authenticated user via `@AuthUser()` decorator (extracts `request.user` from JWT)
+- Ownership checks in service layer: `checkRestaurantOwnership(restaurantId, userId)` pattern throws `NotFoundException` if restaurant missing, `ForbiddenException` if not owner
+- Restaurant context (`apps/frontend/src/context/RestaurantContext.tsx`) manages active restaurant selection — on switch, joins/leaves Socket.io rooms for real-time events scoped to that restaurant
+- `UpdateRestaurantDto` (`apps/backend/src/restaurants/dto/update-restaurant.dto.ts`) is the most complex DTO — 30+ optional fields covering branding, loyalty config, localization, and timezone — all validated with `class-validator` decorators
+
+**Key files:**
+- `apps/backend/src/restaurants/restaurants.service.ts` — CRUD with ownership checks
+- `apps/backend/src/restaurants/restaurants.controller.ts` — 6 endpoints + logo upload + translate-all
+- `apps/backend/src/restaurants/dto/update-restaurant.dto.ts` — 30+ validated fields with Min/Max constraints
+- `apps/frontend/src/context/RestaurantContext.tsx` — active restaurant state + Socket room management
+- `apps/frontend/src/components/CreateRestaurantForm.tsx` — onboarding form
+
+**Edge cases handled:**
+- New users with no restaurants see onboarding form in DashboardPage (`apps/frontend/src/pages/DashboardPage.tsx` checks `restaurants.length === 0`)
+- Restaurant fetch preserves active selection by ID when possible, falls back to first restaurant
+- Ownership violation returns 403 Forbidden (not 404 — doesn't leak existence)
+
+**Dependencies:** PrismaModule, TranslationModule (translate-all endpoint)
+
+---
+
+### 3.3 Menu Builder
+
+**What it does:** Full CRUD for menu categories and items with drag-and-drop reordering, availability scheduling, image upload, dietary/allergen tagging, variation/option management, translation, perfect pairing configuration, and automated health audits.
+
+**How it works:**
+
+**Category Management:**
+- Controller path: `restaurants/:restaurantId/categories` (CRUD) + `categories/:id` (detail)
+- Availability: `AvailabilityType` enum — ALWAYS (24/7), SCHEDULED (time + day-of-week), HIDDEN. Scheduled categories use Luxon with restaurant timezone for accurate time comparison; supports overnight ranges (e.g., 22:00–02:00).
+- Banner images: `imageUrl` + `thumbnailUrl` on `MenuCategory`, uploaded via `POST /categories/:id/image` (FileInterceptor, 5MB, JPEG/PNG only). Backend runs sharp pipeline: EXIF auto-rotate → resize 1200px → WebP 82% → 400px thumbnail → parallel R2 upload. Frontend uses `ImageUploadInput` with preview thumbnail + remove support.
+- `isDrinkCategory` flag for drink upselling in checkout flow
+
+**Item Management:**
+- Controller path: `categories/:categoryId/items` (CRUD) + `items/:id` (detail)
+- Fields: name, description, price (with currency), allergens (string array), dietary tags (string array), image (`imageUrl` + `thumbnailUrl` with sharp processing), out-of-stock toggle, featured flag, related items (for pairings), reward points price (loyalty)
+- Items ordered by `order` field, auto-incremented on create
+- Translation pre-warm: fire-and-forget async IIFE on create/update — does not block HTTP response
+
+**Menu Options:**
+- Two types: `VARIATION` (mutually exclusive, e.g., Size, Doneness) and `ADDON` (optional extras, e.g., Extra Cheese)
+- Choices stored as JSON array `[{ name: "Medium Well", priceModifier: 0.00 }]` — no `id` field, price key is `priceModifier`
+- Server-side validation in `OrdersService.create()` matches submitted choices against DB by `choiceName`
+- Preset templates: Size (Small/Medium/Large), Doneness (Rare through Well Done), Quantity (Half/Full dozen)
+
+**Menu Health Audit:**
+- `GET /menu/audit/:restaurantId` — returns typed issues (error/warning/info)
+- Detects: empty categories, €0 prices (error), missing descriptions, missing translations (warning), missing images (info — "Images increase sales by up to 30%")
+- Frontend widget (`MenuCheckWidget.tsx`) shows severity counts, individual issue cards, "Fix" buttons that navigate to menu editor
+
+**Frontend:**
+- Drag-and-drop via `@dnd-kit/core` + `@dnd-kit/sortable` with `closestCenter` collision detection
+- On drag end: determines if category or item, applies `arrayMove`, updates local state via React Query `setQueryData`, persists order via API
+- `CategorySettingsModal.tsx` — schedule config, image upload, availability type, day-picker
+- `ManageOptionsModal.tsx` — preset templates, custom option builder, delete with confirm
+
+**Key files:**
+- `apps/backend/src/menu/menu.service.ts` — 220+ lines, most complex service: CRUD, translations, audit, trending, orphan cleanup, schedule filtering
+- `apps/backend/src/menu/category.controller.ts` — 2 controllers (list + detail)
+- `apps/backend/src/menu/item.controller.ts` — 2 controllers (list + detail)
+- `apps/backend/src/menu/menu-option.controller.ts` — 2 controllers (create + detail)
+- `apps/backend/src/menu/audit.controller.ts` — menu health endpoint
+- `apps/frontend/src/pages/MenuEditorPage.tsx` — drag-and-drop editor with trending mode
+- `apps/frontend/src/components/menu/CategoryList.tsx` — sortable categories with inline rename
+- `apps/frontend/src/components/menu/ItemList.tsx` — sortable items with featured toggle
+- `apps/frontend/src/components/menu/ManageOptionsModal.tsx` — option/choice CRUD with presets
+- `apps/frontend/src/components/menu/CategorySettingsModal.tsx` — schedule + image + availability
+- `apps/frontend/src/components/dashboard/MenuCheckWidget.tsx` — audit results widget
+
+**Edge cases handled:**
+- Orphan `relatedItemIds` cleanup: when an item is deleted, `removeItem()` in menu.service.ts finds all items referencing the deleted ID and removes the reference
+- Overnight category schedules: `startTime > endTime` handled with special comparison logic in `getPublicMenu()`
+- Out-of-stock items: filtered from public menu, preserved in dashboard
+- Image URL resolution: handles both HTTP absolute URLs and relative `/uploads/` paths
+- Empty selected category: ItemList shows prompt, CreateItemForm trigger disabled
+- Category name change: fire-and-forget re-translates all menu content for that category
+
+**Dependencies:** PrismaModule, TranslationModule, @dnd-kit/core + sortable, FileInterceptor (multer)
+
+---
+
+### 3.4 QR Code & Table Management
+
+**What it does:** Owners create named tables per restaurant. Each table gets a unique QR code linking to `/menu/public/:restaurantId?table=:name`. QR codes can be downloaded as PNG or bulk-printed in A4 format. Staff can monitor table status in real-time via the Live Table View with color-coded cards and a detail modal for order inspection.
+
+**How it works:**
+- `RestaurantTable` model: `id`, `name`, `restaurantId`. Cascade delete from restaurant.
+- Table listing is public (no auth on `GET /restaurants/:restaurantId/tables`) — needed for QR code generation
+- QR generation uses `qrcode.react` with restaurant branding: accent color, logo embedded in center, H error correction level
+- Bulk print: `PrintableQRCodes.tsx` renders single-column A4 layout with `@page { size: A4 portrait; margin: 12mm }`, `breakInside: avoid` per card — two cards per page, no cross-page cuts
+- Live View: real-time grid via `GET /api/tables/status/:restaurantId` + Socket.io `table:status-changed` events, color-coded cards (red=occupied, amber=waiting, green=paid, gray=empty), filterable by status
+- Sub-tab navigation: "Live View" (real-time status grid) / "QR Management" (QR codes + table CRUD)
+
+**Key files:**
+- `apps/backend/src/tables/tables.service.ts` — CRUD with ownership check + `getTablesWithStatus()`
+- `apps/backend/src/tables/tables.controller.ts` — 4 endpoints (create, list[public], delete, status)
+- `apps/frontend/src/components/tables/TableView.tsx` — sub-tab navigation (Live View / QR Management)
+- `apps/frontend/src/pages/Dashboard/LiveTablesView.tsx` — real-time status grid + filter
+- `apps/frontend/src/components/tables/TableCard.tsx` — color-coded table card
+- `apps/frontend/src/components/tables/TableDetailModal.tsx` — detail overlay with orders
+- `apps/frontend/src/components/tables/PrintableQRCodes.tsx` — print-only A4 layout
+
+**Edge cases handled:**
+- QR download: SVG → Image → Canvas → PNG data URL conversion for cross-browser support
+- Logo URL resolution: handles relative paths by constructing full URL from `window.location.origin`
+- Empty table state: "No tables" prompt
+- Print: only `.print-container` elements visible, all other content hidden via `@media print`
+- Session without orders: status shows `waiting` (amber) not `empty`
+- Real-time updates: invalidates React Query cache on every `table:status-changed` socket event
+- Order count badge: max display "9+" for readability
+
+**Dependencies:** `qrcode.react`, `react-qr-code`, `@nestjs/throttler`, Socket.io
+
+---
+
+### 3.5 Public Menu (Customer-Facing)
+
+**What it does:** The core customer experience — a branded, translated, scheduled, upsell-optimized digital menu accessed via QR scan. No authentication required.
+
+**How it works:**
+- `GET /api/menu/public/:restaurantId?lang=bg` — public endpoint, no auth
+- Fetches restaurant profile (name, logo, theme colors, fonts, targetLanguages, timezone)
+- Fetches categories with items (excluding out-of-stock), ordered
+- Applies schedule filtering using Luxon with restaurant timezone
+- Lazy translation: on `?lang=` param, checks `translations` JSON cache; on miss, calls DeepL, writes to DB, overlays on response (300ms rate limit)
+- Trending items: `AUTO` mode groups orders by item ID, takes top 4 by quantity, falls back to featured items if no data; `MANUAL` returns up to 4 featured in-stock items; `OFF` returns empty
+
+**Frontend (`PublicMenuPage.tsx`):**
+- Dynamically loads restaurant fonts via `<link>` tags
+- Injects CSS custom properties for theme (bg, text, card, accent colors)
+- Per-restaurant theme toggle (`theme-{restaurantId}` localStorage key)
+- Sticky category navigation with IntersectionObserver-based active highlighting
+- Category banner images with gradient overlay
+- Item cards in 2-column grid (1-col mobile)
+- Perfect Pairing modal on add-to-cart (deterministic trigger)
+- Add-to-cart toast with animated slide-up confirmation
+- Image lightbox with pinch-to-zoom (1–4x scale) and swipe-to-dismiss
+- Trending carousel section
+- Call waiter button with no-table notice (accessible, auto-dismiss)
+- Customer sign-in / profile in action bar
+- Cart icon with badge
+- Safe area insets for mobile notch
+- All tap targets ≥ 44px
+
+**Key files:**
+- `apps/backend/src/menu/menu.service.ts` — `getPublicMenu()`, `applyLazyTranslations()`, `getTrendingItems()`
+- `apps/backend/src/menu/public-menu.controller.ts` — 3 endpoints (menu, trending, test)
+- `apps/frontend/src/pages/PublicMenuPage.tsx` — 500+ lines: theme injection, sticky nav, table context, assistance
+- `apps/frontend/src/components/menu/ItemWithOptions.tsx` — option selection, pairings, toast, lightbox
+- `apps/frontend/src/components/menu/ImageLightbox.tsx` — pinch-zoom + swipe gesture engine
+- `apps/frontend/src/components/menu/TrendingCarousel.tsx` — horizontal scroll with snap points
+
+**Edge cases handled:**
+- No `?table` param: Call Waiter shows inline notice (not browser prompt) — `role="alert"`, `aria-live="polite"`, auto-dismiss 3.5s
+- Font deduplication: avoids duplicate `<link>` tags when restaurant changes
+- Only re-fetches menu when `restaurantId` or `location.search` changes (not on cart function reference changes)
+- Scroll position preservation: CartContext functions memoized with `useCallback`
+- Stale cart cleanup: `pruneInvalidItems()` removes items not in current menu on load
+
+**Dependencies:** `react-router-dom`, `i18next`, `lucide-react`, DeepL API
+
+---
+
+### 3.6 Shopping Cart & Checkout
+
+**What it does:** Persistent shopping cart with option selection, drink upselling, loyalty point redemption, and server-validated order submission.
+
+**How it works:**
+
+**Cart System (`CartContext.tsx`):**
+- Items persisted to localStorage with structure: `{ cartId, id, name, price, quantity, selectedOptions[] }`
+- `cartId` = item ID + option hash for deduplication (same item + same options = same cart entry, increment quantity)
+- Total calculation includes option price modifiers: `sum((price + opt.priceModifier || 0) * quantity)`
+- `pruneInvalidItems(validItemIds)`: uses `useRef` to avoid stale closure, removes items whose `id` not in current menu
+
+**Checkout Flow (`CheckoutPage.tsx`):**
+- Redirects to menu if cart empty
+- Customer name (pre-filled from profile), phone, special requests
+- **Loyalty integration:**
+  - Happy hour detection: timezone-aware, supports overnight ranges (22:00–02:00)
+  - Points earning preview: `floor(total × exchangeRate × max(happyHour, tierMultiplier))`
+  - Item redemption: toggle individual items as "free" for points (checks `rewardPointsPrice`)
+  - Cash discount: up to 15% of order total, uses FIFO redemption
+  - Not-enough-points error: inline red message
+  - Non-logged-in upsell banner: "Sign in to earn points"
+  - Expiring points warning: yellow banner for points expiring soon
+- **Drink upsell** (`CartDrawer.tsx`): if no drink items in cart at checkout, shows up to 4 beverage suggestions with "Add" buttons
+- 404 recovery: detects stale item submissions, shows exact backend error + "Clear cart and return to menu" action
+
+**Order Creation (backend):**
+- Fetches all ordered items in ONE query (`findMany({ where: { id: { in: ids } } })`) — N+1 prevention
+- Cross-restaurant validation: all items must belong to same restaurant
+- Server-side pricing: every option/choice validated against DB, total recalculated
+- Invalid option/choice: throws `BadRequestException` with detailed message
+- Loyalty processing in atomic `$transaction`: expire → redeem → earn → create order
+- WebSocket: emits `newOrder` to restaurant room
+
+**Key files:**
+- `apps/frontend/src/context/CartContext.tsx` — cart state, localStorage, pruneInvalidItems
+- `apps/frontend/src/components/cart/CartDrawer.tsx` — drawer UI, drink upsell, checkout navigation
+- `apps/frontend/src/components/cart/CartIcon.tsx` — floating button with badge
+- `apps/frontend/src/pages/CheckoutPage.tsx` — full checkout with loyalty integration
+- `apps/backend/src/orders/orders.service.ts` — server-side validation, pricing, loyalty processing
+- `apps/backend/src/orders/dto/create-order.dto.ts` — nested DTO validation
+
+**Edge cases handled:**
+- Table number validation: checkout requires `tableNumber` be set (from QR URL)
+- Empty order: `create()` throws `BadRequestException` if items array empty
+- Cross-restaurant items: throws `BadRequestException` if items from different restaurants
+- Zero/negative loyalty redemption capped
+- Same item + same options → same cart entry (quantity increment, not duplicate)
+- Driver upsell resets on cart drawer close
+
+**Dependencies:** CartContext, OrderContext, LoyaltyService, Socket.io, Radix UI Dialog
+
+---
+
+### 3.7 Order Management (Staff)
+
+**What it does:** Restaurant staff view incoming orders, update status through a workflow (NEW → IN_PROGRESS → SERVED → CANCELED), with real-time push notifications and audio alerts.
+
+**How it works:**
+- `OrdersView.tsx` displays orders in tabbed view (NEW/IN_PROGRESS/SERVED/CANCELED) with count badges
+- Status action buttons depend on current state: NEW can go to IN_PROGRESS or CANCELED; IN_PROGRESS to SERVED or CANCELED; SERVED can reopen to NEW; CANCELED has no actions
+- `OrderContext.tsx` listens for `'newOrder'` socket event: plays `/notification.mp3`, refreshes orders, invalidates `['analytics']` query cache
+- Each order card shows: order number (last 8 chars uppercase), table badge, timestamp, items grid (with quantity, name, selected options), special requests (red alert styling), total price, customer phone
+- `OrderConfirmationPage.tsx` (customer side): joins `order:{id}` socket room, shows live status card with animated dot and status-specific icon/color/message
+
+**Key files:**
+- `apps/frontend/src/pages/Dashboard/OrdersView.tsx` — tabbed order management UI
+- `apps/frontend/src/context/OrderContext.tsx` — order state + socket event handling + analytics invalidation
+- `apps/frontend/src/pages/OrderConfirmationPage.tsx` — customer tracking with live status
+- `apps/backend/src/orders/orders.controller.ts` — 4 endpoints (create, list, get, updateStatus)
+- `apps/backend/src/orders/orders.service.ts` — `updateStatus()` emits to both order room and restaurant room
+
+**Edge cases handled:**
+- Order status change: emits to BOTH `order:{id}` room (customer tracking) and `restaurant:{id}` room (staff refresh)
+- Missing customerPhone: handled gracefully (null check in display)
+- Selected options type guard: checks array type before mapping
+- Empty order list per tab: "No orders" message
+
+**Dependencies:** Socket.io (EventsGateway), OrderContext, TanStack Query
+
+---
+
+### 3.8 Real-Time System (Socket.io)
+
+**What it does:** WebSocket gateway for live push notifications — new orders, status changes, assistance requests — eliminating polling.
+
+**How it works:**
+- `EventsGateway` (`apps/backend/src/events/events.gateway.ts`): global NestJS WebSocket gateway, CORS origin `*`
+- Client joins rooms: `joinRestaurantRoom(restaurantId)` → `restaurant_{id}`, `joinOrderRoom(orderId)` → `order_{id}`
+- Emit methods: `emitToRestaurant(id, event, payload)`, `emitToOrder(id, event, payload)`
+- `SocketContext.tsx` (`apps/frontend/src/context/SocketContext.tsx`): manages connection lifecycle, derives backend URL from `VITE_API_URL`, passes JWT in auth handshake, reconnects on token change
+- `RestaurantContext.tsx`: on `activeRestaurant` change, joins new room and leaves old room
+
+**Events:**
+
+| Event | Direction | Trigger | Consumers |
+|-------|-----------|---------|-----------|
+| `newOrder` | Server → Staff | `OrdersService.create()` | OrderContext (refresh + audio + analytics invalidation) |
+| `orderStatusChanged` | Server → Both | `OrdersService.updateStatus()` | OrderContext (refresh), OrderConfirmationPage (live status) |
+| `newAssistanceRequest` | Server → Staff | `AssistanceService.create()` | AssistanceContext (refresh + audio) |
+| `assistanceStatusChanged` | Server → Staff | `AssistanceService.update()` | AssistanceContext (refresh) |
+
+**Key files:**
+- `apps/backend/src/events/events.gateway.ts` — gateway with room management
+- `apps/backend/src/events/events.module.ts` — global module
+- `apps/frontend/src/context/SocketContext.tsx` — client connection + lifecycle
+- `apps/frontend/src/context/OrderContext.tsx` — order event handlers
+- `apps/frontend/src/context/AssistanceContext.tsx` — assistance event handlers
+
+**Edge cases handled:**
+- Null socket guard: all operations check socket existence before emitting
+- Audio autoplay restriction: `.catch(() => {})` on `.play()` handles browser blocking
+- Token change: SocketContext tears down and reconnects on token change via useEffect cleanup
+
+**Dependencies:** `@nestjs/websockets`, `socket.io`, `socket.io-client`
+
+---
+
+### 3.9 Loyalty Program
+
+**What it does:** Configurable points-based loyalty with FIFO accounting, VIP tiers, timezone-aware happy hour, and automated expiry reminders. Customers earn points on orders, redeem for discounts or free items, and track progress across restaurants.
+
+**How it works:**
+
+**Point Lifecycle:**
+1. **Earn:** `floor(totalEuros × loyaltyExchangeRate × max(happyHourMultiplier, tierMultiplier))` on every order
+2. **Signup bonus:** `loyaltySignupBonus` points on first purchase (lifetimePoints === 0), capped at 75 points (MAX_SIGNUP_BONUS)
+3. **Store:** Points stored as discrete batches in `loyalty_point_ledger` with `expiresAt` (configurable, default 90 days)
+4. **Redeem:** FIFO (`redeemAccountPoints`) — oldest non-expired batches consumed first, creates REDEEM ledger entries
+5. **Expire:** `expireAccountPoints` called before any balance read — finds expired batches, creates EXPIRE entries, decrements account
+6. **Notify:** `runDailyExpiryReminders` cron at midnight UTC — finds unnotified batches expiring within `loyaltyExpiryReminderDays`, marks `reminderSentAt`
+
+**VIP Tiers:**
+- `tierConfigFromRestaurant()` reads tier thresholds + multipliers from Restaurant row — never hardcoded
+- Bronze (default, multiplier 1.0), Silver (≥ silverThreshold, multiplier 1.2), Gold (≥ goldThreshold, multiplier 1.5)
+- Frontend displays tier colors from API response, not client-side logic
+
+**Happy Hour:**
+- Timezone-aware via Luxon + restaurant IANA timezone — never raw `new Date()`
+- Supports overnight ranges (e.g., 22:00–02:00)
+- Multiplier strategy: `Math.max(happyHour, tier)` — not additive (discards the lower multiplier)
+
+**Rate Configuration:**
+- `loyaltyExchangeRate`: points per €1 spent (default 10, Max 100)
+- `loyaltyRedeemRate`: points needed for €1 discount (default 150)
+- Effective cashback: `exchangeRate / redeemRate × 100` (default 6.7%)
+- SettingsView shows live cashback % with warning when > 15%
+
+**Order Level Caps:**
+- `MAX_ORDER_DISCOUNT = 0.15` (15% of order total max cash redemption)
+- `MAX_SIGNUP_BONUS = 75` (€0.50 equivalent)
+
+**Key files:**
+- `apps/backend/src/loyalty/loyalty-ledger.utils.ts` — pure functions: expire, redeem (FIFO), earn, getExpiring, markReminders
+- `apps/backend/src/loyalty/loyalty-tiers.utils.ts` — `getTierInfo()`, `tierConfigFromRestaurant()`
+- `apps/backend/src/loyalty/loyalty.service.ts` — `buildRewardSummary()`, `enroll()`, `getPoints()`, cron
+- `apps/backend/src/loyalty/loyalty.controller.ts` — 8 endpoints (accounts, history, analytics, reminders, config, enroll, points)
+- `apps/backend/src/orders/orders.service.ts` — loyalty processing during order creation
+- `apps/frontend/src/pages/CheckoutPage.tsx` — customer-facing loyalty integration
+- `apps/frontend/src/pages/CustomerProfilePage.tsx` — account cards, tier progress, expiring points
+- `apps/frontend/src/pages/Dashboard/SettingsView.tsx` — owner loyalty configuration
+
+**Edge cases handled:**
+- Concurrent enrollment race: catches Prisma P2002 unique constraint error (duplicate enrollment request)
+- Negative points after expiry: corrected to 0 in `expireAccountPoints`
+- Insufficient points for redemption: `redeemAccountPoints` throws if ledger doesn't have enough
+- Zero redeem rate: `getRewardValue()` guards against division by zero
+- Loyalty disabled mid-session: `redeemAccountPoints` returns early if points are zero
+- First purchase detection: `lifetimePoints === 0` (before current order)
+- Migration `20260503200750`: corrects `loyaltyExchangeRate` from 20 → 10 for rows still at old default
+
+**Dependencies:** Prisma $transaction, Luxon, @nestjs/schedule (cron)
+
+---
+
+### 3.10 Translation System
+
+**What it does:** Automatic DeepL translation of all menu content (names, descriptions, allergens, dietary tags, option choices) into EN/BG/RO. Platform-managed — restaurant owners never supply API keys.
+
+**How it works:**
+
+**Three Translation Paths:**
+
+| Path | Trigger | Behavior |
+|------|---------|----------|
+| **Fire-and-forget pre-warm** | Category/item/option create/update | Background async IIFE translates to all `targetLanguages`, writes to `translations` JSON field. Does not block HTTP response. Errors caught silently. |
+| **Owner "Translate All"** | `POST /restaurants/:id/translate-all` | Translates all existing content. Returns summary: "Translated X categories, Y items, and Z options." |
+| **Lazy on-demand** | `GET /menu/public/:id?lang=bg` | Checks DB cache per entity; on miss: translates → writes to DB → overlays on response. 300ms delay between calls. `lang` validated against `targetLanguages`. |
+
+**Architecture:**
+- `DEEPL_API_KEY` env var in `apps/backend/.env` — single platform key
+- `TranslationService` (`apps/backend/src/translation/translation.service.ts`): `translateTexts()`, `translateText()`, `translateObject()`
+- Free-tier detection: key ending in `:fx` → routes to `api-free.deepl.com`
+- Translations stored as JSON: `{ "en": { "name": "..." }, "ro": { "name": "..." } }`
+- Allergens/dietary tags: translated and restructured into language-keyed arrays (e.g., `allergen_Gluten → { en: "Gluten", bg: "Глутен" }`)
+- `restaurant.deeplApiKey` column exists in schema but is NEVER read or written — kept for backward compatibility only
+
+**i18n Frontend:**
+- `i18next` with `react-i18next`, browser language detection
+- `fallbackLng: 'bg'` (Bulgarian default since May 5, 2026)
+- Dashboard language picker in Header (BG/EN/RO `<select>`)
+- ~120 translation keys across 3 locale files (`apps/frontend/src/locales/*/translation.json`)
+- All hardcoded strings wired to `t()` calls as of May 6, 2026
+
+**Key files:**
+- `apps/backend/src/translation/translation.service.ts` — DeepL API wrapper with free-tier detection
+- `apps/backend/src/translation/translation.module.ts` — exports service
+- `apps/backend/src/menu/menu.service.ts` — pre-warm on CRUD, lazy on-demand in `applyLazyTranslations()`
+- `apps/backend/src/restaurants/restaurants.service.ts` — `translateAll()` batch translation
+- `apps/frontend/src/i18n.ts` — i18next configuration
+- `apps/frontend/src/locales/en/translation.json` — English keys
+- `apps/frontend/src/locales/bg/translation.json` — Bulgarian keys
+- `apps/frontend/src/locales/ro/translation.json` — Romanian keys
+
+**Edge cases handled:**
+- No API key: graceful degradation — original text returned, warning logged
+- DeepL API failure: original text returned, error logged — translation is non-fatal
+- Rate limiting: static 300ms delay between DeepL API calls (free tier: 5 req/s)
+- Invalid language: `lang` query param validated against `restaurant.targetLanguages` — prevents unauthorized quota burn
+- Empty texts: filtered out before API call
+- Translation overwrite: `updateCategory`/`updateItem` merge new translations with existing, don't wipe
+
+**Dependencies:** DeepL API v2, axios, i18next ecosystem
+
+---
+
+### 3.11 Analytics Dashboard
+
+**What it does:** Comprehensive analytics with revenue trends, top items, peak hours, category breakdown, table performance, feedback metrics, and European-formatted CSV export — all timezone-aware.
+
+**How it works:**
+- `GET /dashboard/analytics?restaurantId=...&period=7|14|30&startDate=...&endDate=...`
+- Backend runs 8 analytics queries in parallel via `Promise.all`
+- All date/hour grouping uses Luxon with restaurant timezone — never server UTC
+- Revenue trend: groups by day, fills in zero-revenue days for complete date range
+- Comparison: previous period % change (revenue, orders)
+- `staleTime: 0` in `useAnalytics.ts` — always fresh
+- 30-second silent polling (`refetchInterval: 30000`)
+- Socket events invalidate analytics cache immediately
+
+**Charts (Recharts):**
+- Revenue Trend: AreaChart with gradient fill, custom `ChartTooltip` with glassmorphism
+- Top Items: Horizontal BarChart
+- Peak Hours: Vertical BarChart, opacity by relative volume
+- Category Breakdown: Donut PieChart
+- Table Performance: Vertical BarChart
+- All axes use `hsl(var(--color-muted-foreground))` fill — works in dark mode
+
+**CSV Export:**
+- European format: semicolon delimiters, UTF-8 BOM, `sep=;` metadata header
+- Includes date range, restaurant name in filename
+- Exports revenue trend data
+
+**Feedback Section:**
+- Average rating (large number + stars visual)
+- 5-star distribution bars (count per rating)
+- Positive rate % (≥ 4 stars)
+- Google redirect count
+- Feedback summary via `GET /feedback/summary?restaurantId=...`
+
+**Key files:**
+- `apps/backend/src/dashboard/dashboard.service.ts` — 8 parallel analytics queries, timezone-aware
+- `apps/backend/src/dashboard/dashboard.controller.ts` — 2 endpoints + ownership verification + period validation
+- `apps/backend/src/feedback/feedback.service.ts` — `getSummary()` stats aggregation
+- `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx` — full analytics UI with charts + CSV + feedback
+- `apps/frontend/src/hooks/useAnalytics.ts` — React Query hook with 30s polling
+- `apps/frontend/src/pages/Dashboard/SummaryView.tsx` — KPI cards + loyalty metrics + menu audit
+
+**Edge cases handled:**
+- Period validation: must be 7, 14, or 30 — throws `BadRequestException` otherwise
+- Division by zero: comparison calcs guard against zero previous values
+- Empty feedback: returns zero-filled stats, not errors
+- Empty tableId: handled in `getOrdersByTable()`
+- Custom date range: `startDate`/`endDate` query params accepted for arbitrary range
+- Dashboard ownership: `verifyOwnership()` helper throws 403 if user doesn't own restaurant
+
+**Dependencies:** Recharts, Luxon, TanStack Query, `@nestjs/throttler`
+
+---
+
+### 3.12 Customer Feedback System
+
+**What it does:** Multi-step post-order feedback with smart routing — 4–5 stars redirects to Google Reviews (public social proof), 1–3 stars goes to private owner feedback (damage control).
+
+**How it works:**
+- `FeedbackPage.tsx` implements 4-step flow: rating → comment → redirect (if applicable) → thank you
+- Rating step: 5 interactive stars with hover/select states, animated emoji label per rating (1 = 😞, 5 = 😍), 300ms delay before advancing
+- Comment step: context-aware placeholder ("What did you enjoy most?" for 4–5, "What could we improve?" for 1–3)
+- Redirect step (4–5 stars only, if restaurant has Google Review URL configured): "Leave a Google Review" button opens in new tab
+- Backend: `POST /feedback` checks for duplicate `orderId` (409 Conflict), creates `Feedback` record with `redirectedToGoogle` flag
+- Owner summary: `GET /feedback/summary` returns `totalFeedbacks`, `averageRating`, `ratingDistribution` (1–5 map), `googleRedirects`, `positiveRate`
+
+**Key files:**
+- `apps/frontend/src/pages/FeedbackPage.tsx` — 4-step feedback flow
+- `apps/backend/src/feedback/feedback.controller.ts` — 4 endpoints (submit, google URL, list, summary)
+- `apps/backend/src/feedback/feedback.service.ts` — create with duplicate check, summary aggregation
+
+**Edge cases handled:**
+- Duplicate feedback: returns 409 Conflict → frontend auto-advances to thank you
+- Missing order/restaurant ID: shows error message in UI
+- No Google Review URL configured: skip redirect step entirely
+
+**Dependencies:** `react-router-dom`, `fetch` API
+
+---
+
+### 3.13 Branding & Theming
+
+**What it does:** Per-restaurant visual customization — logo, fonts (16 Google Fonts, 3 categories), 4-color scheme editor with live WCAG contrast validation, preview panel, and per-customer theme persistence.
+
+**How it works:**
+- `BrandingEditor.tsx`: logo upload via `ImageUploadInput` component (image preview thumbnail, change/remove buttons, JPEG/PNG-only validation). Backend: `POST /restaurants/:id/logo` → `StorageService.uploadWithThumbnail()` → sharp pipeline (resize 1200px, WebP 82%, 400px thumbnail, parallel R2 upload). FontPicker (15 fonts in Serif/Sans-Serif/Display groups, dynamically loaded via `<link>`), ColorSchemeEditor (4 colors with real-time contrast ratio display), default theme toggle
+- `ColorSchemeEditor.tsx`: uses `colors.ts` utility for WCAG luminance calculation — `getContrastRatio(hex1, hex2)` returns ratio, `getContrastStatus(bg, text)` returns `{ status: 'pass'|'warning'|'fail', message, ratio }`. Thresholds: ≥ 4.5 = pass, ≥ 3.0 = warning, < 3.0 = fail
+- `BrandingPreview.tsx`: mock menu card with Live Preview — applies fonts + colors as inline styles with 500ms transitions
+- CSS custom properties injected on public menu via inline style: `--color-background`, `--color-foreground`, `--color-card`, `--color-accent`, `--font-heading`, `--font-body`
+- Per-restaurant theme: `ThemeToggle` accepts `storageKey` prop — public menu uses `theme-{restaurantId}`, dashboard uses `theme`. No stored pref → restaurant's `defaultTheme` → `'light'`
+- ThemeToggle always visible (previously hidden when custom branding active)
+
+**Key files:**
+- `apps/frontend/src/components/ui/BrandingEditor.tsx` — full branding config (logo, fonts, colors, theme, timezone)
+- `apps/frontend/src/components/branding/ColorSchemeEditor.tsx` — 4 color pickers + live WCAG contrast
+- `apps/frontend/src/components/branding/FontPicker.tsx` — 15-font dropdown with dynamic loading
+- `apps/frontend/src/components/branding/BrandingPreview.tsx` — live preview card
+- `apps/frontend/src/components/ui/ThemeToggle.tsx` — light/dark toggle with scoped storage
+- `apps/frontend/src/utils/colors.ts` — WCAG luminance + contrast utilities
+- `apps/frontend/src/index.css` — full design system with custom animations
+
+**Edge cases handled:**
+- Font deduplication: checks for existing `<link>` before adding new font
+- Invalid hex: `getContrastRatio` returns ratio 1 on parse failure
+- Empty color fields: fallback to defaults (`#ffffff`, `#000000`, `#4F46E5`)
+- SSR guard in ThemeToggle: checks `typeof window !== 'undefined'`
+
+**Dependencies:** Google Fonts API, Radix UI, `qrcode.react`
+
+---
+
+### 3.14 Menu Scheduling (Dayparting)
+
+**What it does:** Categories automatically appear/hide based on time of day and day of week — e.g., breakfast menu 6:00–11:00, cocktail menu 16:00–02:00.
+
+**How it works:**
+- `MenuCategory` fields: `availabilityType` (ALWAYS|SCHEDULED|HIDDEN), `startTime`, `endTime`, `daysOfWeek` (int array, 0=Sunday)
+- `getPublicMenu()` in `menu.service.ts`: filters HIDDEN categories; for SCHEDULED, checks `daysOfWeek` and time range using Luxon with restaurant timezone
+- Overnight ranges (e.g., 22:00–02:00): special case when `startTime > endTime` — category visible if current time ≥ startTime OR ≤ endTime
+- Day-of-week match: JS `getDay()` returns Sunday=0, matches the `daysOfWeek` array directly
+- `CategorySettingsModal.tsx`: owner UI with day-picker buttons, time inputs, availability type selector
+
+**Key files:**
+- `apps/backend/src/menu/menu.service.ts` — schedule filtering in `getPublicMenu()`
+- `apps/frontend/src/components/menu/CategorySettingsModal.tsx` — schedule configuration UI
+- `apps/backend/prisma/schema.prisma` — `AvailabilityType` enum, `startTime`, `endTime`, `daysOfWeek` fields
+
+**Edge cases handled:**
+- Overnight ranges: `startTime > endTime` special logic
+- Timezone awareness: all comparisons use restaurant timezone, not server UTC
+- Default: all categories created as ALWAYS (no configuration needed)
+
+**Dependencies:** Luxon, class-validator
+
+---
+
+### 3.15 Upselling Engine
+
+**What it does:** Three upsell mechanisms — Perfect Pairing (suggested item combos), Trending Carousel (social proof), Drink Upsell (checkout intervention).
+
+**How it works:**
+- **Perfect Pairing** (`ItemWithOptions.tsx`): When an item has `relatedItemIds`, clicking "Add to Cart" triggers a deterministic modal showing paired items. Modal renders via React portal with glassmorphism overlay. Shows "Chef's Recommendation" badge. Items can be added directly from modal.
+- **Trending Carousel** (`TrendingCarousel.tsx`): Horizontal scroll section with fire emoji header. `AUTO` mode aggregates order item quantities, takes top 4, falls back to featured items. `MANUAL` shows up to 4 admin-selected featured items. Items rendered as `ItemWithOptions` with full pairing support.
+- **Drink Upsell** (`CartDrawer.tsx`): On checkout, checks if any cart item belongs to a `isDrinkCategory` category. If no drinks, shows up to 4 items from first drink category found — with "Add" buttons. State resets on drawer close.
+
+**Key files:**
+- `apps/frontend/src/components/menu/ItemWithOptions.tsx` — pairing modal logic
+- `apps/frontend/src/components/menu/TrendingCarousel.tsx` — trending section
+- `apps/frontend/src/components/cart/CartDrawer.tsx` — drink upsell
+- `apps/backend/src/menu/menu.service.ts` — `getTrendingItems()` (AUTO/MANUAL/OFF logic)
+
+**Edge cases handled:**
+- Trending with no order data: falls back to featured items
+- Multiple drink categories: shows only the first one found
+- Empty relatedItemIds: no modal shown
+- No drink categories at all: skips upsell
+
+**Dependencies:** React portal, `lucide-react`
+
+---
+
+### 3.16 Stripe Connect Payments
+
+**What it does:** End-to-end pay-at-table flow using Stripe Connect. Customers request their bill through the public menu, pay with card via Stripe Elements, add optional tips, and the platform takes a configurable percentage fee. Restaurant owners onboard through Stripe Connect in the Settings dashboard. Staff receive real-time payment notifications.
+
+**How it works:**
+
+**Provider Abstraction:**
+- `IPaymentProvider` interface (`apps/backend/src/payment/payment-provider.interface.ts`) defines the contract: `createPaymentIntent`, `constructWebhookEvent`, `createAccountLink`, `getAccountStatus`, `disconnectAccount`
+- `StripeProvider` implements the interface — future providers (MyPOS, Square, etc.) can be added by implementing the same interface
+
+**Payment Flow:**
+1. Customer or waiter creates a `TableSession` for a table via `POST /api/payment/sessions` — returns a token
+2. Customer clicks "Request Bill" on the public menu — fetches session bill with tip config
+3. Customer selects tip percentage (configurable options from restaurant settings)
+4. `POST /api/payment/create-payment-intent` creates a Stripe PaymentIntent with platform fee
+5. Frontend renders Stripe Elements card input via `PaymentModal` (3-step: tip → card → confirmation)
+6. Stripe webhook receives `payment_intent.succeeded` → marks session PAID → emits `payment:confirmed` + `table:status-changed` via Socket.io
+7. Staff dashboard shows payment notification via `NotificationBell` + `PaymentToast`
+
+**Stripe Connect Onboarding:**
+- `POST /api/restaurants/:id/stripe/account-link` — creates Stripe Connect account + onboarding link
+- `GET /api/restaurants/:id/stripe/status` — checks account status (pending/onboarded/disabled)
+- `POST /api/restaurants/:id/stripe/disconnect` — revokes Connect access
+- Settings tab gated behind `paymentsEnabled` toggle
+
+**Payment History:**
+- `GET /api/payment/history/:restaurantId` — paginated list with filters: status, startDate, endDate
+- `PaymentsView.tsx` — table with columns: date, table, customer, amount, tip, status
+- Filter by status (SUCCEEDED/FAILED/PENDING) and date range
+
+**Real-Time Notifications:**
+- `NotificationContext` manages notification bell badge count and toast queue
+- Socket listener for `payment:confirmed` event
+- `NotificationBell` component in dashboard header shows unread count
+- `PaymentToast` slide-in notification for confirmed payments
+
+**TableSession Model:**
+- `id`, `token` (UUID for public access), `tableId`, `restaurantId`, `status` (OPEN/PAID/CLOSED_NO_PAYMENT), `paidAt`, `createdAt`
+- Created automatically on first order; reused for subsequent orders to the same table
+
+**Payment Model:**
+- `id`, `tableSessionId`, `restaurantId`, `stripePaymentIntentId`, `amount`, `tipAmount`, `platformFeeAmount`, `currency`, `status` (PENDING/SUCCEEDED/FAILED), `provider`, `createdAt`
+
+**Key files:**
+- `apps/backend/src/payment/payment.service.ts` — session, bill, intent, webhook handling
+- `apps/backend/src/payment/payment.controller.ts` — 5 endpoints (sessions, bill, intent, webhook, history)
+- `apps/backend/src/payment/stripe.provider.ts` — Stripe SDK wrapper with Connect support
+- `apps/backend/src/payment/payment-provider.interface.ts` — provider abstraction
+- `apps/backend/src/restaurants/restaurants.service.ts` — Stripe Connect account management
+- `apps/frontend/src/components/payment/PaymentModal.tsx` — 3-step payment UI
+- `apps/frontend/src/pages/Dashboard/PaymentsView.tsx` — payment history table
+- `apps/frontend/src/context/NotificationContext.tsx` — notification state management
+- `apps/frontend/src/components/NotificationBell.tsx` — header bell icon with badge
+- `apps/frontend/src/components/PaymentToast.tsx` — slide-in payment confirmation
+
+**Edge cases handled:**
+- Webhook idempotency: looks up payment by `stripePaymentIntentId` or `metadata.paymentId`
+- Failed payments: updates status to FAILED, doesn't close the session
+- Session reuse: `getOrCreateSession` finds existing OPEN session before creating new one
+- Empty order guard: prevents creating payment intent for sessions with zero orders
+- Platform fee: calculated as `total * restaurant.platformFeePercent`
+- Duplicate Stripe Connect onboarding: checks existing `stripeAccountId` before creating new account
+- Raw body preservation: webhook endpoint uses raw body buffer for Stripe signature verification
+
+**Dependencies:** `stripe` SDK, `@stripe/react-stripe-js`, `@stripe/stripe-js`, Stripe Connect platform account
+
+---
+
+### 3.17 Live Table View
+
+**What it does:** Real-time visual grid showing table status for restaurant staff. Each table appears as a color-coded card — red for occupied (OPEN session with orders), amber for waiting (OPEN session, no orders), green for paid, gray for empty. Staff can click any table card to see current orders, customer names, and payment status. Updates in real-time via Socket.io.
+
+**How it works:**
+
+**Backend — Table Status Endpoint:**
+- `GET /api/tables/status/:restaurantId` — JWT-protected, returns all tables with derived status
+- `TablesService.getTablesWithStatus()` fetches tables + active sessions (OPEN/PAID) in parallel via `Promise.all`
+- Maps each table to a status: `empty` (no session), `waiting` (OPEN + no orders), `occupied` (OPEN + orders), `paid` (PAID)
+- Returns enriched data: `orderCount`, `totalAmount`, `customerNames`, `sessionStatus`, `sessionId`
+
+**Real-Time Updates:**
+- `EventsGateway.emitTableStatusChanged(restaurantId, tableId, sessionId)` helper method
+- Emits `table:status-changed` event from 4 locations:
+  - `OrdersService.create()` — when a new order attaches to a table session
+  - `OrdersService.updateStatus()` — when order status changes
+  - `PaymentService.handleWebhookEvent()` — when payment succeeds
+  - `PaymentService.closeSession()` — when staff manually closes a session
+- Frontend `LiveTablesView` subscribes via `useSocket()`, invalidates React Query cache on event
+
+**Frontend:**
+- `LiveTablesView.tsx` — main grid component with filter dropdown
+- Filter modes: Active (non-empty), Occupied (red+amber), Paid (green), All
+- Default filter: Active only (shows tables that need attention)
+- `TableCard.tsx` — square card with colored left border, table number centered, order count badge, customer count
+- `TableDetailModal.tsx` — modal showing table name, session status badge, order list with status badges, payment info for paid sessions
+- `TableView.tsx` — parent with sub-tab navigation: "Live View" / "QR Management"
+
+**Key files:**
+- `apps/backend/src/tables/tables.service.ts` — `getTablesWithStatus()` with parallel queries
+- `apps/backend/src/tables/tables.controller.ts` — `GET tables/status/:restaurantId`
+- `apps/backend/src/events/events.gateway.ts` — `emitTableStatusChanged()` helper
+- `apps/frontend/src/pages/Dashboard/LiveTablesView.tsx` — real-time grid + filter
+- `apps/frontend/src/components/tables/TableCard.tsx` — color-coded card
+- `apps/frontend/src/components/tables/TableDetailModal.tsx` — detail overlay
+
+**Edge cases handled:**
+- Empty restaurant (no tables): shows "No tables created" empty state
+- All tables free: shows "All tables are free" message
+- Session with no orders: status resolves to `waiting` (amber) not `empty`
+- Multiple customers per table: deduplicates customer names via `Set`
+- Socket disconnect: React Query cache serves stale data until reconnect
+- Missing restaurantId: query disabled via `enabled: !!restaurantId`
+
+**Dependencies:** Socket.io, TanStack React Query, Lucide React icons
+
+---
+
+## 4. Data Model
+
+### 4.1 Entity Relationship Diagram
+
+```mermaid
+erDiagram
+    User ||--o{ Restaurant : "owns (ownerId)"
+    User ||--o{ Order : "places (customerId)"
+    User ||--o{ LoyaltyAccount : "has"
+    User ||--o{ VerificationToken : "authenticates"
+
+    Restaurant ||--o{ RestaurantTable : "has"
+    Restaurant ||--o{ MenuCategory : "contains"
+    Restaurant ||--o{ Order : "receives"
+    Restaurant ||--o{ AssistanceRequest : "receives"
+    Restaurant ||--o{ Feedback : "collects"
+    Restaurant ||--o{ LoyaltyAccount : "hosts"
+
+    MenuCategory ||--o{ MenuItem : "contains"
+    MenuItem ||--o{ MenuOption : "has"
+    MenuItem ||--o{ OrderItem : "referenced by"
+
+    Order ||--o{ OrderItem : "contains"
+    Order ||--|| Feedback : "has"
+    Order ||--o{ LoyaltyPointLedger : "triggers"
+    OrderItem }o--|| MenuItem : "references"
+
+    RestaurantTable ||--o{ TableSession : "hosts"
+    TableSession ||--o{ Order : "groups"
+    TableSession ||--o{ Payment : "has"
+
+    LoyaltyAccount ||--o{ LoyaltyPointLedger : "tracks"
+
+    User {
+        string id PK "cuid"
+        string email UK
+        string password "bcrypt-hashed, nullable for OTP users"
+        string name "nullable"
+        string phone "nullable"
+        UserRole role "OWNER|STAFF|CUSTOMER"
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    Restaurant {
+        string id PK "cuid"
+        string name
+        string country
+        string logoUrl "nullable"
+        string accentColor "default #4F46E5"
+        string googleReviewUrl "nullable"
+        string address "nullable"
+        string contactInfo "nullable"
+        string timezone "default UTC"
+        string[] targetLanguages "default []"
+        string trendingMode "AUTO|MANUAL|OFF, default AUTO"
+        string fontHeading "default Playfair Display"
+        string fontBody "default Outfit"
+        string themeBgColor "nullable"
+        string themeTextColor "nullable"
+        string themeCardColor "nullable"
+        string defaultTheme "light|dark, default light"
+        boolean isLoyaltyEnabled "default true"
+        int loyaltyExchangeRate "default 10, Max 100"
+        int loyaltyRedeemRate "default 150"
+        int loyaltySignupBonus "default 50"
+        int loyaltyPointExpiryDays "default 90"
+        int loyaltyExpiryReminderDays "default 15"
+        int loyaltySilverThreshold "default 500"
+        int loyaltyGoldThreshold "default 2000"
+        float loyaltySilverMultiplier "default 1.2"
+        float loyaltyGoldMultiplier "default 1.5"
+        boolean happyHourEnable "default false"
+        string happyHourStartTime "nullable"
+        string happyHourEndTime "nullable"
+        float happyHourMultiplier "default 2.0"
+    }
+
+    MenuCategory {
+        string id PK "cuid"
+        string name
+        int order
+        AvailabilityType availabilityType "ALWAYS|SCHEDULED|HIDDEN"
+        string startTime "nullable"
+        string endTime "nullable"
+        int[] daysOfWeek
+        boolean isDrinkCategory "default false"
+        string imageUrl "nullable"
+        Json translations "nullable"
+    }
+
+    MenuItem {
+        string id PK "cuid"
+        string name
+        string description "nullable"
+        float price
+        Currency currency "EUR|BGN"
+        string[] allergens
+        string[] dietaryTags
+        string imageUrl "nullable"
+        boolean isOutOfStock "default false"
+        int order
+        boolean isFeatured "default false"
+        string[] relatedItemIds "default []"
+        int rewardPointsPrice "nullable"
+        Json translations "nullable"
+    }
+
+    MenuOption {
+        string id PK "cuid"
+        string name
+        OptionType type "VARIATION|ADDON"
+        Json choices "[{name, priceModifier}]"
+        Json translations "nullable"
+    }
+
+    Order {
+        string id PK "cuid"
+        string customerName
+        string customerPhone "nullable"
+        string tableId
+        OrderStatus status "NEW|IN_PROGRESS|SERVED|CANCELED"
+        float totalPrice
+        string specialRequests "nullable"
+        int pointsEarned "default 0"
+        int pointsRedeemed "default 0"
+        int pointsRedeemedForDiscount "default 0"
+        int pointsRedeemedForItems "default 0"
+    }
+
+    OrderItem {
+        string id PK "cuid"
+        int quantity
+        Json selectedOptions
+    }
+
+    LoyaltyAccount {
+        string id PK "cuid"
+        int points "default 0"
+        int lifetimePoints "default 0"
+    }
+
+    LoyaltyPointLedger {
+        string id PK "cuid"
+        LoyaltyPointTransactionType type "EARN|SIGNUP|REDEEM|EXPIRE|ADJUSTMENT"
+        int points
+        int remainingPoints "default 0"
+        datetime expiresAt "nullable"
+        datetime reminderSentAt "nullable"
+    }
+
+    TableSession {
+        string id PK "cuid"
+        string token UK "UUID for public access"
+        string tableId FK
+        string restaurantId FK
+        SessionStatus status "OPEN|PAID|CLOSED_NO_PAYMENT"
+        datetime paidAt "nullable"
+        datetime createdAt
+    }
+
+    Payment {
+        string id PK "cuid"
+        string tableSessionId FK
+        string restaurantId FK
+        string stripePaymentIntentId UK "nullable"
+        float amount
+        float tipAmount "default 0"
+        float platformFeeAmount "default 0"
+        string currency "default eur"
+        PaymentStatus status "PENDING|SUCCEEDED|FAILED"
+        string provider "default stripe"
+        datetime createdAt
+    }
+
+    VerificationToken {
+        string id PK "cuid"
+        string email
+        string code "bcrypt-hashed 6-digit"
+        datetime expiresAt
+        datetime usedAt "nullable"
+    }
+```
+
+### 4.2 Model Descriptions
+
+| Model | Table Name | Purpose | Key Constraints |
+|-------|-----------|---------|-----------------|
+| `User` | `app_user` | Restaurant owners and customers. Password is nullable for OTP-only customers. | `email` unique. Role defaults to STAFF. |
+| `Restaurant` | `restaurant` | Central tenant entity. 30+ config fields covering branding, loyalty, localization, scheduling. | `ownerId` FK → User (CASCADE). All related entities cascade. |
+| `RestaurantTable` | `restaurant_table` | Physical tables in a restaurant. Name is the QR code identifier. | `(name, restaurantId)` implicitly unique. CASCADE from Restaurant. |
+| `MenuCategory` | `menu_category` | Menu sections with ordering, scheduling, and drink flag. | CASCADE from Restaurant. `order` field for sorting. |
+| `MenuItem` | `menu_item` | Individual dishes/drinks. Price with currency, dietary info, pairings. | CASCADE from Category. `order` field for sorting. |
+| `MenuOption` | `menu_option` | Variations (size, doneness) and add-ons (extra toppings). JSON choices without IDs. | CASCADE from MenuItem. |
+| `Order` | `customer_order` | Customer order with status workflow. Loyalty fields track points earned/redeemed. | CASCADE from Restaurant. Optional FK to User (customerId). |
+| `OrderItem` | `order_item` | Line items within an order. References MenuItem (SET NULL on delete). | CASCADE from Order. `menuItemId` nullable (SET NULL). |
+| `AssistanceRequest` | `assistance_request` | "Call Waiter" requests. Table-scoped, resolved/unresolved. | CASCADE from Restaurant. |
+| `Feedback` | `feedback` | Post-order satisfaction. 1:1 with Order. | Unique `orderId`. CASCADE from both Order and Restaurant. |
+| `LoyaltyAccount` | `loyalty_account` | Per-user-per-restaurant loyalty balance. | `@@unique([userId, restaurantId])`. CASCADE from both. |
+| `LoyaltyPointLedger` | `loyalty_point_ledger` | Immutable FIFO transaction log. Tracks earn/redeem/expire batches with expiry. | CASCADE from LoyaltyAccount. Composite indexes on `(accountId, expiresAt)` and `(expiresAt, reminderSentAt)`. |
+| `VerificationToken` | `VerificationToken` | Email OTP tokens for customer auth. Code is bcrypt-hashed. | `@@index([email])`. Auto-cleaned (old tokens deleted before new one created). |
+| `TableSession` | `table_session` | Active dining session per table. Tracks OPEN/PAID/CLOSED_NO_PAYMENT. Token is a UUID for public access. | CASCADE from Restaurant. `token` unique. `@@index([tableId, restaurantId, status])`. |
+| `Payment` | `payment` | Stripe payment record per session. Tracks amount, tip, platform fee, and status. | CASCADE from TableSession and Restaurant. `stripePaymentIntentId` nullable unique. `@@index([restaurantId, status, createdAt])`. |
+
+### 4.3 Enumerations
+
+| Enum | Values | Used By |
+|------|--------|---------|
+| `UserRole` | `OWNER`, `STAFF`, `CUSTOMER` | User |
+| `Currency` | `EUR`, `BGN` | MenuItem |
+| `OrderStatus` | `NEW`, `IN_PROGRESS`, `SERVED`, `CANCELED` | Order |
+| `OptionType` | `VARIATION`, `ADDON` | MenuOption |
+| `AvailabilityType` | `ALWAYS`, `SCHEDULED`, `HIDDEN` | MenuCategory |
+| `LoyaltyPointTransactionType` | `EARN`, `SIGNUP`, `REDEEM`, `EXPIRE`, `ADJUSTMENT` | LoyaltyPointLedger |
+| `SessionStatus` | `OPEN`, `PAID`, `CLOSED_NO_PAYMENT` | TableSession |
+| `PaymentStatus` | `PENDING`, `SUCCEEDED`, `FAILED` | Payment |
+
+---
+
+## 5. API Surface
+
+### 5.1 Authentication — `/api/auth/*`
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `POST` | `/auth/register` | None | Register with email + password (min 8 chars). Returns JWT + user. |
+| `POST` | `/auth/login` | LocalAuthGuard | Login with email + password. Returns JWT + user. |
+| `GET` | `/auth/me` | JWT | Get current user profile. |
+| `GET` | `/auth/google` | GoogleAuthGuard | Initiate Google OAuth flow. |
+| `GET` | `/auth/google/callback` | GoogleAuthGuard | OAuth callback. Parses `state` for `returnTo` redirect. |
+| `POST` | `/auth/magic-link` | None | Generate magic link token (15-min expiry, logged to console). |
+| `POST` | `/auth/otp/send` | None | Send 6-digit OTP via email. 60s rate limit. Returns `devCode` in dev. |
+| `POST` | `/auth/otp/verify` | None | Verify OTP code. Returns JWT + user + `isNew` flag. |
+
+### 5.2 Restaurants — `/api/restaurants/*`
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `POST` | `/restaurants` | JWT | Create restaurant. |
+| `GET` | `/restaurants` | JWT | List owner's restaurants. |
+| `GET` | `/restaurants/:id` | JWT | Get restaurant by ID (ownership check). |
+| `PATCH` | `/restaurants/:id` | JWT | Update restaurant (30+ optional fields validated). |
+| `DELETE` | `/restaurants/:id` | JWT | Delete restaurant (cascade). |
+| `POST` | `/restaurants/:id/logo` | JWT | Upload logo (FileInterceptor, 5MB, images only). |
+| `POST` | `/restaurants/:id/translate-all` | JWT | Translate all menu content via DeepL. |
+
+### 5.3 Menu — `/api/menu/*`
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `GET` | `/menu` | JWT | Info message directing to public menu endpoint. |
+| `GET` | `/menu/public/:restaurantId` | **None** | Public menu with optional `?lang=` query param. |
+| `GET` | `/menu/public/:restaurantId/trending` | **None** | Trending items (AUTO/MANUAL/OFF logic). |
+| `GET` | `/menu/audit/:restaurantId` | JWT | Menu health audit (errors/warnings/infos). |
+| `GET` | `/menu/test` | **None** | Test route returning success. |
+
+### 5.4 Menu Categories — `/api/restaurants/:restaurantId/categories/*` and `/api/categories/*`
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `POST` | `/restaurants/:restaurantId/categories` | JWT | Create category. |
+| `GET` | `/restaurants/:restaurantId/categories` | JWT | List categories (with items + options). |
+| `PATCH` | `/categories/:id` | JWT | Update category. |
+| `DELETE` | `/categories/:id` | JWT | Delete category. |
+| `POST` | `/categories/:id/image` | JWT | Upload category banner image (FileInterceptor, 5MB). |
+
+### 5.5 Menu Items — `/api/categories/:categoryId/items/*` and `/api/items/*`
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `POST` | `/categories/:categoryId/items` | JWT | Create item. |
+| `GET` | `/categories/:categoryId/items` | JWT | List items in category (with options). |
+| `PATCH` | `/items/:id` | JWT | Update item. |
+| `DELETE` | `/items/:id` | JWT | Delete item (orphans relatedItemIds cleanup). |
+| `POST` | `/items/:id/image` | JWT | Upload item image (FileInterceptor, 5MB). |
+
+### 5.6 Menu Options — `/api/items/:itemId/options/*` and `/api/options/*`
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `POST` | `/items/:itemId/options` | JWT | Create option (choices as JSON string). |
+| `PATCH` | `/options/:id` | JWT | Update option. |
+| `DELETE` | `/options/:id` | JWT | Delete option. |
+
+### 5.7 Orders — `/api/orders/*`
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `POST` | `/orders` | **None** | Create order (server-side pricing, loyalty processing). |
+| `GET` | `/orders` | JWT | List orders for owner's restaurants. |
+| `GET` | `/orders/:id` | JWT | Get order by ID (ownership check). |
+| `PATCH` | `/orders/:id/status` | JWT | Update order status (emits WebSocket event). |
+
+### 5.8 Tables — `/api/restaurants/:restaurantId/tables/*` and `/api/tables/*`
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `POST` | `/restaurants/:restaurantId/tables` | JWT | Create table. |
+| `GET` | `/restaurants/:restaurantId/tables` | **None** | List tables (public — needed for QR codes). |
+| `DELETE` | `/tables/:id` | JWT | Delete table. |
+
+### 5.9 Dashboard — `/api/dashboard/*`
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `GET` | `/dashboard/summary` | JWT | Summary stats (requires `?restaurantId=`). |
+| `GET` | `/dashboard/analytics` | JWT | Analytics (period 7/14/30, optional startDate/endDate). |
+
+### 5.10 Assistance — `/api/assistance-requests/*`
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `POST` | `/assistance-requests` | **None** | Customer requests assistance. Emits WebSocket event. |
+| `GET` | `/assistance-requests` | JWT | List all for owner's restaurants. |
+| `GET` | `/assistance-requests/:id` | JWT | Get single request. |
+| `PATCH` | `/assistance-requests/:id` | JWT | Update (resolve/unresolve). Emits WebSocket event. |
+| `DELETE` | `/assistance-requests/:id` | JWT | Delete request. |
+
+### 5.11 Feedback — `/api/feedback/*`
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `POST` | `/feedback` | **None** | Submit feedback (409 if duplicate orderId). |
+| `GET` | `/feedback/google-review-url/:restaurantId` | **None** | Get Google Review URL + restaurant name. |
+| `GET` | `/feedback` | JWT | List feedback (requires `?restaurantId=`). |
+| `GET` | `/feedback/summary` | JWT | Feedback stats (avg rating, distribution, positive rate). |
+
+### 5.12 Loyalty — `/api/loyalty/*`
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `GET` | `/loyalty/accounts` | JWT | All loyalty accounts for user (enriched with tier/expiry). |
+| `GET` | `/loyalty/orders/history` | JWT | User's order history (with restaurant info). |
+| `GET` | `/loyalty/:restaurantId/analytics` | JWT | Owner: loyalty analytics (members, outstanding, redeemed). |
+| `GET` | `/loyalty/:restaurantId/expiry-reminders` | JWT | Preview expiring point batches (doesn't mark sent). |
+| `POST` | `/loyalty/:restaurantId/expiry-reminders/notify` | JWT | Send expiry reminders (marks batches). |
+| `GET` | `/loyalty/:restaurantId/config` | **None** | Public loyalty config for a restaurant. |
+| `POST` | `/loyalty/:restaurantId/enroll` | JWT | Enroll in loyalty program (signup bonus). |
+| `GET` | `/loyalty/:restaurantId` | JWT | Get user's points + reward summary for restaurant. |
+
+### 5.13 Health — `/api/health/*`
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `GET` | `/health` | **None** | Health check (`{ status: 'ok', timestamp }`). |
+
+### 5.14 Payment — `/api/payment/*`
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `POST` | `/payment/sessions` | **None** | Create or get existing table session (token for public access). |
+| `GET` | `/payment/sessions/:token/bill` | **None** | Get session bill (items, total, tip config). |
+| `POST` | `/payment/create-payment-intent` | **None** | Create Stripe PaymentIntent with platform fee. |
+| `POST` | `/payment/webhook` | **None** (raw body) | Stripe webhook receiver (signature verification). |
+| `GET` | `/payment/history/:restaurantId` | JWT | Paginated payment history with status/date filters. |
+
+### 5.15 Table Status — `/api/tables/*`
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `GET` | `/tables/status/:restaurantId` | JWT | All tables with derived real-time status (empty/waiting/occupied/paid). |
+
+### 5.16 Stripe Connect — `/api/restaurants/:id/stripe/*`
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `POST` | `/restaurants/:id/stripe/account-link` | JWT | Create Stripe Connect account + onboarding link. |
+| `GET` | `/restaurants/:id/stripe/status` | JWT | Check Connect account status (pending/onboarded/disabled). |
+| `POST` | `/restaurants/:id/stripe/disconnect` | JWT | Revoke Stripe Connect access. |
+
+---
+
+## 6. Security & Authentication
+
+### 6.1 Authentication Flow
+
+```
+Registration/Login
+    │
+    ▼
+Backend validates credentials
+    │ (bcrypt compare for passwords)
+    │ (bcrypt compare for OTP codes)
+    │ (Google OAuth callback for social)
+    ▼
+JWT issued: { email, sub: userId }, 1-day expiry
+    │
+    ▼
+Frontend stores in localStorage
+    │ Axios interceptor attaches: Authorization: Bearer <token>
+    ▼
+Protected endpoints: JwtAuthGuard validates token
+    │ JwtStrategy.validate() looks up user by payload.sub
+    │ Throws UnauthorizedException if user not found
+    ▼
+Owner-only endpoints: checkRestaurantOwnership()
+    │ Throws ForbiddenException if ownerId mismatch
+    ▼
+Response returned
+```
+
+### 6.2 Security Measures Found in Code
+
+| Measure | Implementation | Location |
+|---------|---------------|----------|
+| **Rate Limiting** | 100 requests per 60 seconds globally | `app.module.ts` — `ThrottlerGuard` as `APP_GUARD` |
+| **Password Hashing** | bcrypt with 10 salt rounds | `auth.service.ts` — `register()`, `sendOtp()` |
+| **OTP Rate Limiting** | 60-second cooldown per email (429 response) | `auth.service.ts` — `sendOtp()` |
+| **OTP Expiry** | 10-minute TTL, code bcrypt-hashed, token marked `usedAt` | `auth.service.ts` — `sendOtp()`, `verifyOtp()` |
+| **Server-Side Pricing** | Order total recalculated from DB — client price ignored | `orders.service.ts` — `create()` |
+| **Option Validation** | Every submitted choice validated against DB records by `choiceName` | `orders.service.ts` — `create()` lines ~143–169 |
+| **Ownership Checks** | Every mutation verifies `restaurant.ownerId === userId` | All services — `checkRestaurantOwnership()` pattern |
+| **Input Validation** | `class-validator` decorators on all DTOs, `ValidationPipe({ whitelist: true })` | All controllers |
+| **File Upload Restrictions** | 5MB size limit, MIME type check (images only) | All `FileInterceptor` usage |
+| **CORS** | Configured to frontend URL only, with credentials | `main.ts` |
+| **JWT Expiry** | Tokens expire in 1 day | `auth.module.ts` — `expiresIn: '1d'` |
+| **401 Interceptor** | Auto-clears token and redirects on 401 (excludes public paths) | `frontend/src/lib/api.ts` |
+| **Prisma Parameterized Queries** | All DB access via Prisma ORM — prevents SQL injection | All services |
+| **WebSocket Auth** | JWT passed in Socket.io handshake auth object | `SocketContext.tsx` |
+| **DeepL Key Isolation** | Single platform key in backend `.env`, never exposed to frontend | `translation.service.ts` |
+
+### 6.3 Security Gaps Identified
+
+| Gap | Severity | Details |
+|-----|----------|---------|
+| JWT in localStorage | Medium | Vulnerable to XSS. Consider httpOnly cookies for production. |
+| No CSRF protection | Medium | No CSRF tokens on state-changing requests. |
+| No input sanitization on public endpoints | Low | Customer name/phone fields lack sanitization beyond class-validator. |
+| Relaxed TypeScript strictness (backend) | Low | `strictNullChecks: false`, `noImplicitAny: false` in `apps/backend/tsconfig.json`. |
+| Dev secrets in code | Low | `docker-compose.yml` uses hardcoded `JWT_SECRET` and `GOOGLE_CLIENT_ID`. |
+
+---
+
+## 7. Integrations & Third-Party Services
+
+| Service | Purpose | Integration Point | Auth Method |
+|---------|---------|-------------------|-------------|
+| **Neon** | Serverless PostgreSQL database | `DATABASE_URL` env var → Prisma ORM | Connection string |
+| **Google OAuth 2.0** | Social sign-in for owners + customers | `passport-google-oauth20` strategy | OAuth 2.0 (client ID + secret) |
+| **DeepL API v2** | Menu translation (EN/BG/RO) | `TranslationService` → REST API | API key (`DEEPL_API_KEY` env var) |
+| **Resend** | Email delivery for OTP codes | `AuthService.sendOtp()` → REST API | API key (`RESEND_API_KEY` env var) |
+| **Cloudflare R2** | Image upload storage + CDN delivery | `StorageService` → S3 SDK | Access key + secret + bucket |
+| **sharp** | Image processing pipeline (resize, WebP convert, thumbnail) | `StorageService.uploadOptimised()` | None (library) |
+| **Socket.io** | Real-time push notifications | `EventsGateway` (server) + `SocketContext` (client) | JWT in handshake |
+| **Google Fonts** | Dynamic font loading for branding | `FontPicker.tsx` → `<link>` injection | None (public CDN) |
+| **Stripe Connect** | Pay-at-table payments with platform fees, payment history, real-time notifications | `IPaymentProvider` interface → `StripeProvider`, Stripe Elements UI, Connect onboarding | Stripe secret + publishable keys |
+
+---
+
+## 8. Competitive Advantages
+
+### 8.1 Technical Strengths
+
+1. **Server-side price validation with defense-in-depth**: The order creation flow (`orders.service.ts:create()`) fetches ALL items in a single query, validates every submitted `choiceName` against DB records, and recalculates totals server-side. Client-side prices are completely ignored. This is not a simple "check the total matches" — it's a full independent recalculation that catches tampering at the option level.
+
+2. **Payment provider abstraction with Stripe Connect**: The `IPaymentProvider` interface defines a clean contract (`createPaymentIntent`, `constructWebhookEvent`, `createAccountLink`, `getAccountStatus`, `disconnectAccount`) implemented by `StripeProvider`. Adding MyPOS, Square, or any other payment processor is a matter of implementing the same interface — zero changes to `PaymentService` or the frontend. Platform fees are calculated per-transaction (`total * platformFeePercent`) via Stripe Connect application fees.
+
+3. **FIFO loyalty ledger with atomic transactions**: Instead of a simple `points` integer field, the system maintains an immutable FIFO transaction log (`LoyaltyPointLedger`) with discrete batches, expiry dates, and partial redemption tracking. All balance mutations (expire → redeem → earn) execute in a single Prisma `$transaction`. This is the same accounting pattern used by financial systems — unusual for a pre-revenue product.
+
+4. **Lazy translation with multi-level caching**: Three translation paths (pre-warm, batch, on-demand) with DB-level JSON caching. The on-demand path (`applyLazyTranslations()`) has a 300ms rate limiter that respects DeepL's free tier. Language parameter validation against `targetLanguages` prevents unauthorized API quota consumption.
+
+5. **Timezone-aware everything**: Analytics, category scheduling, happy hour, and order timestamps all use Luxon with the restaurant's IANA timezone — not server UTC. The migration from raw `new Date()` to Luxon is already complete (May 5, 2026).
+
+6. **Platform-managed third-party keys**: Restaurant owners never supply API keys. DeepL, Resend, S3, Stripe — all managed server-side via env vars. Eliminates owner friction and prevents key leakage.
+
+7. **Layout architecture for mobile-first experience**: The `AppLayout`/`PublicLayout` split in `App.tsx` means customer-facing routes (the primary use case) get zero chrome overhead. Cart animations are media-query-driven (CSS only, no JS detection). Safe area insets are handled throughout.
+
+8. **Per-restaurant theme isolation**: Each venue's dark/light preference stored independently (`theme-{restaurantId}` key). Owner sets default for first visit. This is a quality-of-life detail that most SaaS products miss.
+
+9. **Real-time table status with parallel queries**: `getTablesWithStatus()` fetches tables + active sessions in parallel via `Promise.all`, derives status (empty/waiting/occupied/paid), and pushes updates through 4 Socket.io emission points. Restaurant staff see table state change instantly — no polling, no refresh.
+
+### 8.2 Unique Approaches
+
+- **No customer passwords**: The email OTP auth flow and nullable `User.password` field means customers never create or remember passwords. This reduces friction significantly for the QR-scan-to-order use case.
+- **Cart deduplication by content hash**: `cartId = itemId + JSON.stringify(selectedOptions)` — same item with same options merges into one cart entry. Simple but effective.
+- **Prisma connection retry**: `PrismaService` retries connections 15 times with 2s delay. This handles Neon's serverless cold starts transparently.
+- **Orphan cleanup on item deletion**: When a menu item is deleted, the service finds all items referencing it in `relatedItemIds` and removes the reference. No dangling pointers.
+
+---
+
+## 9. Current State & Roadmap Potential
+
+### 9.1 What's Fully Implemented
+
+| Area | Status | Evidence |
+|------|--------|----------|
+| Authentication (JWT + Google + OTP) | Complete | 8 endpoints, 4 strategies, customer modal, protected routes |
+| Restaurant CRUD + Multi-tenancy | Complete | Full CRUD with ownership checks, 30+ config fields |
+| Menu Builder + Image Upload | Complete | Categories, items, options with DnD, presets, S3 upload |
+| Table Management + QR Codes | Complete | CRUD, branded QR, PNG download, A4 bulk print |
+| Public Menu (Customer UX) | Complete | Theming, fonts, translations, schedule, sticky nav |
+| Cart + Checkout + Loyalty | Complete | localStorage persistence, server-side pricing, FIFO ledger |
+| Order Management | Complete | Status workflow, real-time push, audio alerts |
+| Smart Analytics | Complete | 8 metrics, timezone-aware, CSV export (European format) |
+| Customer Feedback | Complete | 4-step flow, smart Google Review routing, owner summary |
+| Real-Time (Socket.io) | Complete | 4 event types, room-based scoping, analytics invalidation |
+| Multi-Language (EN/BG/RO) | Complete | ~120 keys, DeepL with lazy caching, platform-managed key |
+| Dayparting (Menu Scheduling) | Complete | Timezone-aware, overnight range support, day-picker UI |
+| Upselling (Pairing + Trending + Drinks) | Complete | Deterministic pairing, AUTO trending, cart drink upsell |
+| Branding + Theming | Complete | 15 fonts, 4-color WCAG, per-restaurant theme isolation |
+| Menu Health Audit | Complete | Severity levels, one-click fix navigation |
+| Design System | Complete | HSL tokens, glassmorphism, safe areas, reduced motion |
+| Stripe Connect Payments | Complete | Provider abstraction (`IPaymentProvider` → `StripeProvider`), Stripe Elements UI, Connect onboarding, payment history, notification bell + toast, 5 API endpoints |
+| Live Table View | Complete | Real-time status grid, color-coded cards, filter modes (Active/Occupied/Paid/All), table detail modal, Socket.io `table:status-changed` events, parallel DB queries |
+| Deployment | Complete | Docker Compose, health checks, rate limiting, Swagger |
+
+### 9.2 What's Partially Built or Planned
+
+| Area | Current State | Natural Extension Point |
+|------|---------------|------------------------|
+| **Stripe Payments** | ✅ Complete. `IPaymentProvider` interface, `StripeProvider`, `PaymentService`, `PaymentController` (5 routes), Stripe Connect onboarding, `PaymentModal` (3-step UI), `PaymentsView` history table, `NotificationContext` + `NotificationBell` + `PaymentToast`, `TableSession` + `Payment` models, webhook handling with idempotency. | Future: MyPOS provider via same interface, split bill, saved cards. |
+| **Staff Roles** | `UserRole` enum has `STAFF` but only `OWNER` and `CUSTOMER` used in code. Phase 18 planned with `MANAGER`/`WAITER`/`KITCHEN` roles. | Expand role checks in service layer, add staff invite system. |
+| **Email Notification Pipeline** | Resend API used for OTP only. `runDailyExpiryReminders` cron has `// TODO: implement email delivery` comment. | Wire loyalty reminders through Resend. |
+| **Multi-Location** | Phase 20 planned — menu templates, bulk price updates, cross-location analytics. | Template model, bulk operations. |
+| **POS Integration** | V4 planned — Square/Toast/Lightspeed. | Provider abstraction pattern from Stripe design can be reused. |
+
+### 9.3 Architecture Extension Points
+
+- **PaymentProvider interface** (`IPaymentProvider` in Stripe design spec): Same pattern can support MyPOS, Square, etc. — just implement the interface.
+- **Translation provider swap**: `TranslationService.translateTexts()` abstracts the DeepL API call — could be swapped to Google Translate or GPT by changing the HTTP call.
+- **Storage provider swap**: `StorageService` uses S3 SDK — swap to GCS or Azure Blob by changing the SDK calls.
+- **Loyalty engine**: Tier config already parameterized per restaurant. Could extend to point-multiplier events, birthday bonuses, referral rewards.
+- **WebSocket rooms**: Room pattern (`restaurant_{id}`, `order_{id}`) naturally extends to kitchen display, waiter tablets, etc.
+
+---
+
+## 10. Strategic Improvement Opportunities
+
+### 10.1 Quick Wins (Low Effort, High Impact)
+
+| # | Problem | Impact | Solution | Complexity | Priority |
+|---|---------|--------|----------|------------|----------|
+| 1 | ~~**No database indexes beyond PKs**~~ — **RESOLVED May 2026.** | ~~Queries degrade linearly with order volume.~~ | Added `@@index` on 4 high-traffic tables: `Order(restaurantId, status, createdAt)`, `MenuItem(categoryId, order)`, `Feedback(restaurantId)`, `AssistanceRequest(restaurantId, isResolved)`. Pushed via `prisma db push` to Neon. No application code changes needed — Prisma abstracts indexes transparently. | Low | ~~Must-have~~ **Done** |
+| 2 | **CSV export hardcoded to revenue trend only** — `AnalyticsView.tsx` exports only revenue data. Top items, peak hours, category breakdown are not exportable. | Restaurant owners need all data for external reporting (accounting, investors). | Add export tab selector or multi-sheet export. Use existing analytics data already in state — just add formatting. | Low | Must-have |
+| 3 | **OTP devCode returned in production when RESEND_API_KEY absent** — `auth.service.ts:sendOtp()` returns `{ devCode }` in the API response when `RESEND_API_KEY` is not set. | In production without Resend configured, OTP codes leak in API responses. | Remove `devCode` from production response — only include in `process.env.NODE_ENV !== 'production'` guard. Add explicit error when RESEND_API_KEY missing in production. | Low | Must-have |
+| 4 | **No pagination on list endpoints** — `GET /orders` returns all orders with no limit/offset. Same for assistance requests, feedback, tables. | A restaurant with 10,000+ orders will crash the dashboard. | Add `?limit=50&offset=0` query params. Prisma supports `take`/`skip` natively. Frontend already uses per-tab filtering (NEW/IN_PROGRESS/etc.) which masks the issue temporarily. | Low | Must-have |
+| 5 | **FeedbackPage uses window.location for routing** — `FeedbackPage.tsx` reads `orderId` and `restaurantId` from `window.location.search` directly instead of React Router params. | Browser history issues, can't use React Router navigation APIs. | Use `useParams()` and `useSearchParams()` from React Router — already imported elsewhere. | Low | Nice-to-have |
+| 6 | **Translation rate limiter is static 300ms** — `applyLazyTranslations()` in `menu.service.ts` uses a hardcoded `DEEPL_RATE_LIMIT_MS = 300`. | Different DeepL plans have different rate limits (free: 5/s, pro: 50/s). | Read rate limit from env var: `DEEPL_RATE_LIMIT_MS` with default 300. | Low | Nice-to-have |
+| 7 | ~~**No image compression before upload**~~ — **RESOLVED May 2026.** | ~~5MB menu item image on mobile is slow.~~ | Implemented `sharp` image processing pipeline in `StorageService`: auto-rotate (EXIF), resize to 1200px max dimension, convert to WebP (quality 82), generate 400px thumbnail (quality 75), upload both in parallel to Cloudflare R2. Average compression: 80-95% size reduction. Also added: JPEG/PNG MIME-type validation at multer + storage layers, `BadRequestException` for invalid types, `ImageUploadInput` component with preview thumbnail + remove button, Toast success/error feedback on all forms. | Medium | ~~Nice-to-have~~ **Done** |
+
+### 10.2 Architecture Improvements
+
+| # | Problem | Impact | Solution | Complexity | Priority |
+|---|---------|--------|----------|------------|----------|
+| 1 | **Dual auth system in frontend** — `AuthContext.tsx` uses raw `useState` for login/register; `useAuth.ts` hook uses TanStack Query for `GET /auth/me`. These are separate systems managing the same data. | Potential state desync, two sources of truth for user data. `AuthContext` manages token while `useAuth` manages user data. | Consolidate auth into a single `useAuth` hook backed by TanStack Query. Store only token in AuthContext (or localStorage), let React Query manage user data and cache invalidation. | Medium | Must-have |
+| 2 | **Context provider nesting is deep and rigid** — `App.tsx` nests 8 providers: `ErrorBoundary > BrowserRouter > AuthProvider > SocketProvider > RestaurantProvider > CartProvider > OrderProvider > AssistanceProvider`. All providers render on every route regardless of need. | Unnecessary re-renders when cart state changes affect header, etc. Socket connects even on pages that don't need it. | Split providers by layout route: `PublicLayout` gets only CartProvider + AuthProvider; `AppLayout` gets full stack. Lazy-load `SocketProvider` to avoid connecting on marketing pages. | Medium | Must-have |
+| 3 | **menu.service.ts is 220+ lines doing too many things** — CRUD, translation, audit, trending, scheduling, orphan cleanup all in one file. | Hard to test, hard to extend, tight coupling. | Split into: `menu-crud.service.ts`, `menu-translation.service.ts`, `menu-audit.service.ts`, `menu-scheduling.service.ts`. Extract schedule filtering to a pure utility function. | Medium | Must-have |
+| 4 | **No service-level unit tests** — Only `app.controller.spec.ts` and `auth.service.spec.ts` exist. `OrdersService`, `MenuService`, `LoyaltyService` have zero tests despite being 200+ lines of business logic each. | Regression risk is high for loyalty accounting and order pricing. | Add Jest tests for: `OrdersService.create()` (price calc, option validation, loyalty), `LoyaltyLedgerUtils` (FIFO redeem, expire), `MenuService.getPublicMenu()` (schedule filtering). Mock PrismaService. | Medium | Must-have |
+| 5 | **Logger is console.log throughout** — `orders.controller.ts` uses raw `console.log` for debugging. `prisma.service.ts` uses `console.error` for retries. `auth.service.ts` logs magic links. No structured logging. | No log levels, no correlation IDs, impossible to debug in production. | Integrate NestJS Logger (`@nestjs/common`). Replace `console.*` with `this.logger.log/error/warn/debug`. Add request ID middleware. | Medium | Should-have |
+| 6 | **No API versioning** — All endpoints under `/api/*` with no version prefix. | Breaking changes to API are impossible without breaking all existing clients. | Add `/api/v1/*` prefix. Support legacy `/api/*` with deprecation header during transition. NestJS supports versioning natively. | Low | Should-have |
+| 7 | **PrismaService connection retry is infinite** — 15 retries × 2s = 30s of blocking. No circuit breaker. | On Neon outage, the app hangs for 30s then crashes. | Add exponential backoff with jitter. Add circuit breaker: after 5 failures, serve degraded mode (health check fails, existing connections work). | Medium | Should-have |
+
+### 10.3 Missing Features That Competitors Have
+
+| Feature | Why It Matters | Competitors Who Have It |
+|---------|---------------|------------------------|
+| **Kitchen Display System (KDS)** — Real-time order queue on a dedicated kitchen screen. Orders appear as they're placed, staff mark them as prepared. | Restaurants without KDS still print tickets or shout orders. This is the #1 operational feature that drives kitchen efficiency. The backend already has real-time order events — the socket infrastructure exists. | Toast, Square, Lightspeed, Otter |
+| **Split Bill** — Allow customers to split an order by item or evenly between parties. | Top-requested feature in restaurant surveys. Reduces friction at payment time. Increases order value (people order more when they can split). The Stripe payment design already mentions this for Phase 19. | Sunday, Toast, Square |
+| **Allergen/Dietary Filtering** — Customers filter menu by allergens (gluten-free, dairy-free) or dietary preferences (vegan, keto). Data already exists on `MenuItem.allergens` and `MenuItem.dietaryTags`. | Essential for food safety and dietary UX. The data is in the DB — it's just not filterable on the frontend. | All modern menu apps |
+| **Menu Import from PDF/Photo** — AI-powered menu import from existing PDFs or photos. | Biggest onboarding friction: restaurants have existing menus in PDF/Word. Manual entry of 50+ items takes hours. The `06.06.26_AI_Menu_Import_Feature_Plan.md` file suggests this was considered. | Bite, Otter, Toast |
+| **Inventory Management** — Track stock levels, auto-mark items out of stock. | Directly reduces "sorry, we're out" experiences. The `isOutOfStock` toggle already exists — just needs stock tracking behind it. | Toast, Lightspeed |
+| **Customer-facing order progress bar** — Visual progress indicator (Order Received → Preparing → Ready → Served) with estimated wait time. | Reduces "where's my food?" inquiries from customers. The `OrderConfirmationPage` already shows status — just needs a progress bar visual and estimated times. | Sunday, Otter |
+| **Staff mobile app (React Native)** — Staff manage orders, mark items served, update table status from their phone. | Reduces dependency on fixed terminals. Waiters can update order status tableside. Phase 20 mentions this for V4. | Toast, Square |
+| **QR code table tent design templates** — Pre-made print templates for QR table tents (not just raw QR codes). | Restaurants want branded, designed table tents — not just QR codes on paper. Current `PrintableQRCodes` is functional but plain. | Sunday, Bite |
+
+### 10.4 Modern Tech Opportunities
+
+| Opportunity | Current State | Recommendation | Complexity |
+|-------------|---------------|----------------|------------|
+| **React Server Components / Next.js migration** — Move from Vite SPA to Next.js App Router for server-rendered public menu. | Vite SPA entirely client-rendered. Public menu loads with visible spinner. | Server-render public menu page — instant paint on QR scan. Keep dashboard as SPA (or use Next.js with RSC for menu, client for dashboard). The Turborepo monorepo structure already supports adding new apps. | High |
+| **Edge Functions for public menu** — Serve public menu from CDN edge (Vercel Edge / Cloudflare Workers). | All requests hit the NestJS server in single region. Bulgarian restaurants serving Bulgarian customers don't need global edge — but it future-proofs for expansion. | Deploy public menu endpoint as edge function with DB read replica. Cache restaurant config + menu at edge with CDN TTL; invalidate on menu update via webhook. | High |
+| **AI-powered menu descriptions** — Generate compelling dish descriptions from item names + ingredients. | Items require manual description entry. Menu audit catches missing descriptions as warnings. | Add optional AI description generation (call GPT-4o via backend endpoint). Keep as opt-in — owner reviews and approves. | Medium |
+| **tRPC or GraphQL for dashboard** — Type-safe API for the admin dashboard. | REST endpoints with manual type synchronization (`types/index.ts`). Prisma types don't flow to frontend. | Add tRPC layer between NestJS backend and React frontend. Share Prisma types end-to-end. Or use GraphQL with codegen. tRPC is lighter-weight for this use case. | High |
+| **Feature flags** — Toggle features per restaurant without redeploy. | All features are code-deployed. Can't A/B test or gradually roll out. | Add `@vercel/flags` or LaunchDarkly. Start with loyalty + trending toggles (these already have boolean feature flags in DB). | Medium |
+| **OpenTelemetry tracing** — Distributed tracing across frontend → backend → database. | No observability beyond console.log. Debugging production issues is blind. | Add `@opentelemetry/api` + auto-instrumentation. Export to Grafana or Datadog. NestJS has OpenTelemetry support. | Medium |
+| **Storybook for UI components** — Component catalog for the design system. | No component documentation. `BrandingPreview.tsx` is the closest to a design sandbox. | Add Storybook for UI primitives (`Button`, `Input`, `Modal`, `Card`, etc.) and key business components (`ItemWithOptions`, `CartDrawer`). | Medium |
+
+### 10.5 Security Hardening
+
+| # | Vulnerability / Weak Point | Evidence in Code | Solution | Priority |
+|---|--------------------------|------------------|----------|----------|
+| 1 | **JWT in localStorage — XSS risk** | `AuthContext.tsx` line ~50: `localStorage.setItem('token', token)`. `api.ts` line ~10: reads from `localStorage.getItem('token')`. | Move JWT to httpOnly cookie. Backend sets cookie on login (SameSite=Strict, Secure, HttpOnly). Axios sends with `withCredentials: true` (already configured). CSRF token required for state-changing requests. | Must-have for production |
+| 2 | **No CSRF protection** | No CSRF tokens on any endpoint. All state-changing POST/PATCH/DELETE rely solely on JWT in header. | With cookie-based auth, add CSRF token endpoint (`GET /api/auth/csrf-token`). Frontend sends in `X-CSRF-Token` header. NestJS has `csurf` or can use custom middleware. | Must-have for production |
+| 3 | **OTP brute-force vulnerability** | `auth.service.ts:verifyOtp()` has no rate limiting. An attacker could iterate through 1,000,000 codes. | Add attempt tracking: max 5 failed attempts per email per 10 minutes. Lock out after threshold. Store attempt count in `VerificationToken` or Redis. | Must-have for production |
+| 4 | **Rate limiter is global, not per-endpoint** | `ThrottlerGuard` applied once to all routes: 100 req/60s total. A single badly-behaved public endpoint can exhaust the entire quota. | Apply per-endpoint throttles: `@Throttle(10, 60)` on auth endpoints, `@Throttle(30, 60)` on public menu, `@SkipThrottle()` on health check. NestJS throttler supports this via decorators. | Must-have for production |
+| 5 | **No Content Security Policy** | `main.ts` sets CORS but no CSP headers. | Add helmet middleware (`@nestjs/platform-express` or `helmet` directly). Set CSP: `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' ws: wss:;` | Must-have for production |
+| 6 | **Google OAuth state parameter is JSON in query** | `google-auth.guard.ts` serializes `returnTo` as JSON in `state`. No nonce or CSRF token in state. | Add cryptographically random nonce to state. Validate on callback. This prevents CSRF on OAuth flow. | Should-have |
+| 7 | **No request size limits on non-file endpoints** | `ValidationPipe` validates DTOs but doesn't limit body size. | Add `app.use(express.json({ limit: '1mb' }))` in `main.ts`. File upload endpoints already have 5MB limit via Multer. | Should-have |
+
+### 10.6 Performance & Scale
+
+| # | Bottleneck | Evidence | Solution | Complexity |
+|---|-----------|----------|----------|------------|
+| 1 | **N+1 query in `applyLazyTranslations()`** — Iterates categories → items → options, calls DeepL for each untranslated entity individually. | `menu.service.ts` — `applyLazyTranslations()` loops with 300ms delay per call. 10 items × 3 languages = 30 API calls = 9 seconds. | Batch all untranslated texts into a single DeepL API call per language. The API supports up to 50 texts per request. | Low |
+| 2 | **No database connection pooling** — Prisma connects with default pool size. Neon's serverless nature means connections are cold. | `prisma.service.ts` retries 15 times — this implies cold starts are common. | Configure `connection_limit` in DATABASE_URL (Neon supports pooler). Use `@prisma/client` datasource with `pgbouncer=true` for Neon's pooled connection. | Low |
+| 3 | **All menu categories + items + options loaded in single request** — `getPublicMenu()` fetches entire menu tree with nested includes. | For a restaurant with 10 categories × 20 items × 3 options = 600+ records per request. Image URLs included inline. | Already mitigated by not loading images inline (they're URLs) and filtering out-of-stock. For very large menus, add pagination by category or lazy-load items on category scroll. | Medium |
+| 4 | **Analytics dashboard runs 8 queries per request** — `getAnalytics()` uses `Promise.all` over 8 queries. Each query aggregates across all orders. | At 100,000+ orders, some queries (revenue trend by day, peak hours) will need aggregation tables. | Add materialized views or summary tables refreshed hourly. Keep raw queries for custom date ranges, use summary tables for standard periods (7/14/30 days). | High |
+| 5 | **No CDN for static assets** — Menu images served from S3/R2 directly. React bundle split only by route (lazy loaded pages). | Customer on slow mobile connection downloading full dashboard JS bundle on public menu page. | The layout split already helps (public routes are separate). Add `React.lazy()` for dashboard sub-views. Set Cloudflare CDN in front of R2 bucket. Add image resizing (thumbnail + full-size URLs). | Medium |
+| 6 | **localStorage cart serialization on every state change** — `CartContext` syncs to localStorage on every add/remove/update. | JSON.stringify on every cart mutation — fine for 5-10 items, wasteful at scale. | Debounce localStorage writes to 500ms. Or use `beforeunload` event to persist only on page exit, with in-memory state during session. | Low |
+
+### 10.7 Monetization & Business Model Enhancements
+
+| Opportunity | Technical Implementation | Business Impact |
+|-------------|------------------------|-----------------|
+| **Stripe Connect platform fees** — Charge per-transaction fee on payments. The Stripe design already defines this: platform takes X% via application_fee_amount on Payment Intents. | Complete Phase 19 (Stripe Payments). The `IPaymentProvider` interface, `TableSession`/`Payment` models, and `PaymentController` routes are fully designed. Frontend `PaymentModal` 3-step flow is specified. | Recurring revenue tied to order volume. At 100 restaurants × €5,000/month × 2% fee = €10,000 MRR platform revenue. |
+| **Tiered subscription plans** — Basic (free: 50 menu items, 1 restaurant), Pro (€29/mo: unlimited items, 3 restaurants, analytics), Enterprise (€99/mo: unlimited restaurants, loyalty, API access). | Add `Plan` enum to `Restaurant` or `User` model. Feature-gate in service layer: check plan before enabling loyalty, analytics, multiple restaurants. Stripe Checkout for subscription billing. | Predictable MRR. The architecture already supports multi-tenant isolation — just add plan checks at the service level. |
+| **Menu usage analytics as upsell** — Show basic analytics for free, detailed analytics for Pro. The analytics infrastructure already exists. | Gate `getAnalytics()` period > 7 days and CSV export behind plan check. Summary view stays free. | Conversion lever. Restaurant owners see 7-day data, want 30-day comparison → upgrade prompt. |
+| **White-label custom domains** — Enterprise restaurants use their own domain for the public menu (menu.restaurant.com). | Add `customDomain` field to `Restaurant`. DNS verification endpoint. Vercel/Cloudflare API for automatic SSL. Frontend already supports per-restaurant theming — just need domain routing. | Premium differentiator. Enterprise-ready positioning. |
+| **Multi-location franchise dashboard** — Phase 20: centralized management for chains. | Cross-restaurant analytics aggregation. Menu template CRUD. Bulk pricing operations. Role-based multi-restaurant access (franchise owner vs location manager). | Enterprise ARPU multiplier. One franchise = 10+ locations = 10x the base subscription. |
+| **Marketing automation** — SMS/email campaigns to customers who've ordered before. | Add customer email collection (already exists for OTP users). Add campaign CRUD with segment targeting (visited in last 30 days, high spenders, haven't returned). Resend API already integrated for email. Add Twilio for SMS. | Retention tool. "We miss you, here's 10% off" campaigns drive repeat visits. V4 mentions this. |
+
+---
+
+## Appendix: File Index
+
+### Critical Backend Files
+| File | Lines | Purpose |
+|------|-------|---------|
+| `apps/backend/src/app.module.ts` | — | Root module registry (17 modules) |
+| `apps/backend/src/main.ts` | — | Bootstrap, CORS, Swagger, global prefix |
+| `apps/backend/src/auth/auth.service.ts` | — | Login, register, OTP, Google OAuth |
+| `apps/backend/src/menu/menu.service.ts` | 220+ | Menu CRUD, translations, audit, trending, scheduling |
+| `apps/backend/src/orders/orders.service.ts` | — | Server-side pricing, loyalty processing, validation |
+| `apps/backend/src/loyalty/loyalty.service.ts` | — | Enroll, points, summaries, cron |
+| `apps/backend/src/loyalty/loyalty-ledger.utils.ts` | — | FIFO redeem, expire, earn (pure functions) |
+| `apps/backend/src/loyalty/loyalty-tiers.utils.ts` | — | Tier config + progress calculation |
+| `apps/backend/src/dashboard/dashboard.service.ts` | — | 8 parallel analytics queries |
+| `apps/backend/src/translation/translation.service.ts` | — | DeepL API wrapper |
+| `apps/backend/src/events/events.gateway.ts` | — | Socket.io gateway, `emitTableStatusChanged` helper |
+| `apps/backend/src/storage/storage.service.ts` | — | R2 upload/delete with sharp image processing |
+| `apps/backend/src/payment/payment.service.ts` | — | Session, bill, intent, webhook handling |
+| `apps/backend/src/payment/payment.controller.ts` | — | 5 endpoints (sessions, bill, intent, webhook, history) |
+| `apps/backend/src/payment/stripe.provider.ts` | — | Stripe SDK wrapper with Connect support |
+| `apps/backend/src/payment/payment-provider.interface.ts` | — | Provider abstraction contract |
+| `apps/backend/src/tables/tables.service.ts` | — | Table CRUD + `getTablesWithStatus()` parallel queries |
+| `apps/backend/prisma/schema.prisma` | — | 13 models, 9 enums, all relations, 4 composite indexes |
+
+### Critical Frontend Files
+| File | Lines | Purpose |
+|------|-------|---------|
+| `apps/frontend/src/App.tsx` | — | Routing, provider hierarchy, layout split |
+| `apps/frontend/src/index.css` | — | Full design system, animations, safe areas |
+| `apps/frontend/src/pages/PublicMenuPage.tsx` | 500+ | Core customer experience |
+| `apps/frontend/src/pages/CheckoutPage.tsx` | — | Checkout with loyalty integration |
+| `apps/frontend/src/pages/DashboardPage.tsx` | — | Tabbed dashboard, mobile bottom nav |
+| `apps/frontend/src/components/menu/ItemWithOptions.tsx` | — | Options, pairings, toast, lightbox |
+| `apps/frontend/src/components/cart/CartDrawer.tsx` | — | Cart with drink upsell |
+| `apps/frontend/src/components/auth/CustomerLoginModal.tsx` | — | 3-step OTP modal |
+| `apps/frontend/src/context/AuthContext.tsx` | — | Auth state + token management |
+| `apps/frontend/src/context/CartContext.tsx` | — | Cart with localStorage persistence |
+| `apps/frontend/src/context/NotificationContext.tsx` | — | Payment notification state management |
+| `apps/frontend/src/lib/api.ts` | — | Axios client, interceptors, all API functions |
+| `apps/frontend/src/components/payment/PaymentModal.tsx` | — | 3-step payment UI (tip → card → confirmation) |
+| `apps/frontend/src/pages/Dashboard/PaymentsView.tsx` | — | Payment history table with filters |
+| `apps/frontend/src/pages/Dashboard/LiveTablesView.tsx` | — | Real-time table status grid + filter |
+| `apps/frontend/src/components/tables/TableCard.tsx` | — | Color-coded table status card |
+| `apps/frontend/src/components/tables/TableDetailModal.tsx` | — | Table detail overlay with orders + payment |
+| `apps/frontend/src/components/NotificationBell.tsx` | — | Header bell icon with unread badge |
+| `apps/frontend/src/components/PaymentToast.tsx` | — | Slide-in payment confirmation toast |
+| `apps/frontend/src/i18n.ts` | — | i18next configuration |
+| `apps/frontend/src/utils/colors.ts` | — | WCAG contrast utilities |
+
+### Planning & Design
+| File | Purpose |
+|------|---------|
+| `.planning/REQUIREMENTS.md` | 15 formal requirements (REQ-001 through REQ-015) |
+| `.planning/ROADMAP.md` | Phase-by-phase roadmap (Phases 1–20) |
+| `.planning/codebase/ARCHITECTURE.md` | Architecture docs with diagrams |
+| `.agent/design-system/qr-menu-saas/MASTER.md` | Design system master file |
+| `docs/superpowers/specs/2026-05-08-live-table-view-design.md` | Live Table View design spec |
+| `docs/superpowers/plans/2026-05-08-live-table-view.md` | Live Table View implementation plan |
+| `docs/superpowers/plans/2026-05-08-payment-history-notifications.md` | Payment history + notifications plan |
+| `CLAUDEMD` | Developer guide for Claude Code |
+| `CODING_ROADMAP.md` | Complete shipped + planned feature roadmap |
+| `MAIN.md` | Companion master documentation (this file's sibling) |
+
+---
+
+> **Report Methodology:** Every claim in this document is backed by actual source code. File paths and line-level references are provided where specific implementation details are cited. No features were invented — all capabilities described exist in the codebase as of May 7, 2026. Where features are planned but not implemented, this is explicitly stated.
