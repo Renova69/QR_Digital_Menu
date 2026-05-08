@@ -103,22 +103,25 @@ export class OrdersService {
     }
 
     if (!tableSessionId && createOrderDto.tableId) {
+      // Frontend sends table name (e.g. "1"), not cuid — resolve to real id
       const table = await this.prisma.restaurantTable.findFirst({
-        where: { id: createOrderDto.tableId, restaurantId },
+        where: { name: createOrderDto.tableId, restaurantId },
       });
       if (!table) throw new NotFoundException('Table not found for this restaurant');
+
+      const tableCuid = table.id;
 
       const newSession = await this.prisma.$transaction(async (tx) => {
         const existing = await tx.tableSession.findFirst({
           where: {
-            tableId: createOrderDto.tableId,
+            tableId: tableCuid,
             restaurantId,
             status: 'OPEN',
           },
         });
         if (existing) return existing;
         return tx.tableSession.create({
-          data: { tableId: createOrderDto.tableId, restaurantId },
+          data: { tableId: tableCuid, restaurantId },
         });
       });
       tableSessionId = newSession.id;

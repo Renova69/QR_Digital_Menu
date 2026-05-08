@@ -160,6 +160,7 @@ const CheckoutPage = () => {
         })),
         specialRequests,
         redeemItemIds: redeemedItemIds,
+        sessionToken: localStorage.getItem(`session-${tableNumber}`) || undefined,
       };
 
       if (user) {
@@ -182,6 +183,7 @@ const CheckoutPage = () => {
         state: {
           orderNumber: newOrder.id,
           restaurantId: newOrder.restaurantId,
+          tableNumber,
         },
       });
     } catch (err: any) {

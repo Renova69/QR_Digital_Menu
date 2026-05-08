@@ -48,6 +48,7 @@ const OrderConfirmationPage = () => {
   const orderNumber = location.state?.orderNumber || '';
   const restaurantId = location.state?.restaurantId || '';
   const orderId = location.state?.orderId || '';
+  const tableNumber = location.state?.tableNumber || '';
 
   const [orderStatus, setOrderStatus] = useState<keyof typeof STATUS_CONFIG>('NEW');
   const { socket, isConnected } = useSocket();
@@ -136,7 +137,7 @@ const OrderConfirmationPage = () => {
         {/* Navigation */}
         <div className="space-y-3">
           <button
-            onClick={() => navigate(-2)}
+            onClick={() => navigate(`/menu/public/${restaurantId}${tableNumber ? `?table=${tableNumber}` : ''}`)}
             className="w-full bg-foreground text-background font-black uppercase tracking-widest py-4 px-6 rounded-2xl shadow-xl transition-all active:scale-95 text-xs hover:opacity-90"
           >
             Continue Browsing Menu
