@@ -1,5 +1,5 @@
 import { useState, useRef, useContext } from 'react';
-import { type LucideIcon, LayoutDashboard, ShoppingBag, Bell, Table2, Settings, BarChart2 } from 'lucide-react';
+import { type LucideIcon, LayoutDashboard, ShoppingBag, Bell, Table2, Settings, BarChart2, CreditCard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrderContext';
 import { useAssistance } from '../context/AssistanceContext';
@@ -13,12 +13,17 @@ import SummaryView from './Dashboard/SummaryView';
 import AnalyticsView from './Dashboard/AnalyticsView';
 import SettingsView from './Dashboard/SettingsView';
 import { useTranslation } from 'react-i18next';
+import PaymentsView from './Dashboard/PaymentsView';
+import NotificationBell from '../components/NotificationBell';
+import PaymentToast from '../components/PaymentToast';
+import { NotificationProvider } from '../context/NotificationContext';
 
-type TabId = 'summary' | 'analytics' | 'orders' | 'assistance' | 'tables' | 'settings';
+type TabId = 'summary' | 'analytics' | 'orders' | 'payments' | 'assistance' | 'tables' | 'settings';
 
 const BOTTOM_NAV_TABS: { id: TabId; Icon: LucideIcon; labelKey: string }[] = [
   { id: 'summary',    Icon: LayoutDashboard, labelKey: 'dashboard.tabs.home' },
   { id: 'orders',     Icon: ShoppingBag,     labelKey: 'dashboard.tabs.orders' },
+  { id: 'payments',  Icon: CreditCard,    labelKey: 'dashboard.tabs.payments' },
   { id: 'assistance', Icon: Bell,            labelKey: 'dashboard.tabs.requests' },
   { id: 'tables',     Icon: Table2,          labelKey: 'dashboard.tabs.tables' },
   { id: 'settings',  Icon: Settings,        labelKey: 'dashboard.tabs.settings' },
@@ -32,6 +37,7 @@ const DashboardPage = () => {
   const [activeTab, setActiveTab] = useState<TabId>('summary');
 
   const { t, i18n } = useTranslation();
+  const paymentsEnabled = (activeRestaurant as any)?.paymentsEnabled ?? false;
 
   const lastRestaurantId = useRef<string | null>(null);
   if (activeRestaurant?.id !== lastRestaurantId.current) {
@@ -103,10 +109,12 @@ const DashboardPage = () => {
               <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             </a>
           )}
+          {paymentsEnabled && <NotificationBell />}
         </div>
       </div>
 
       {user ? (
+        <NotificationProvider>
         <div className="glass-panel p-4 sm:p-8 md:p-12 rounded-[2rem] md:rounded-[4rem] min-h-[60vh] border-white/10 dark:border-white/5 animate-in fade-in slide-in-from-bottom-8 duration-1000 overflow-hidden relative shadow-2xl">
           <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 blur-[100px] pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-80 h-80 bg-accent/5 blur-[120px] pointer-events-none" />
@@ -118,10 +126,11 @@ const DashboardPage = () => {
                 { id: 'summary',    label: t('dashboard.tabs.summary') },
                 { id: 'analytics',  label: t('dashboard.tabs.analytics') },
                 { id: 'orders',     label: t('dashboard.tabs.orders'),     count: newOrdersCount },
+                { id: 'payments',    label: t('dashboard.tabs.payments') },
                 { id: 'assistance', label: t('dashboard.tabs.assistance'), count: unresolvedRequestsCount },
                 { id: 'tables',     label: t('dashboard.tabs.tables') },
                 { id: 'settings',   label: t('dashboard.tabs.settings') },
-              ].map((tab) => (
+              ].filter(tab => tab.id !== 'payments' || paymentsEnabled).map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as TabId)}
@@ -171,11 +180,14 @@ const DashboardPage = () => {
             )}
             {activeTab === 'analytics' && activeRestaurant && <AnalyticsView />}
             {activeTab === 'orders' && <OrdersView />}
+            {activeTab === 'payments' && activeRestaurant && <PaymentsView />}
             {activeTab === 'assistance' && <AssistanceView />}
             {activeTab === 'tables' && activeRestaurant && <TableView />}
             {activeTab === 'settings' && activeRestaurant && <SettingsView />}
           </div>
         </div>
+        <PaymentToast />
+      </NotificationProvider>
       ) : (
         <div className="glass-panel p-20 text-center rounded-[3rem]">
           <p className="text-2xl font-serif font-bold text-muted-foreground">{t('common.pleaseLogin')}</p>
@@ -192,7 +204,7 @@ const DashboardPage = () => {
           style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         >
           <div className="flex items-stretch h-16">
-            {BOTTOM_NAV_TABS.map(({ id, Icon, labelKey }) => {
+            {BOTTOM_NAV_TABS.filter(tab => tab.id !== 'payments' || paymentsEnabled).map(({ id, Icon, labelKey }) => {
               const badge = getBadge(id);
               const isActive = activeTab === id;
               return (
