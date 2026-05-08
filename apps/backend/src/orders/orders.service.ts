@@ -103,8 +103,23 @@ export class OrdersService {
     }
 
     if (!tableSessionId && createOrderDto.tableId) {
-      const newSession = await this.prisma.tableSession.create({
-        data: { tableId: createOrderDto.tableId, restaurantId },
+      const table = await this.prisma.restaurantTable.findFirst({
+        where: { id: createOrderDto.tableId, restaurantId },
+      });
+      if (!table) throw new NotFoundException('Table not found for this restaurant');
+
+      const newSession = await this.prisma.$transaction(async (tx) => {
+        const existing = await tx.tableSession.findFirst({
+          where: {
+            tableId: createOrderDto.tableId,
+            restaurantId,
+            status: 'OPEN',
+          },
+        });
+        if (existing) return existing;
+        return tx.tableSession.create({
+          data: { tableId: createOrderDto.tableId, restaurantId },
+        });
       });
       tableSessionId = newSession.id;
       sessionToken = newSession.token;

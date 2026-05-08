@@ -31,13 +31,11 @@ export class PaymentService {
       if (existing) return { session: existing, token };
     }
 
-    // Fix 5: validate table belongs to this restaurant before creating a session
     const table = await this.prisma.restaurantTable.findFirst({
       where: { id: tableId, restaurantId },
     });
     if (!table) throw new NotFoundException('Table not found for this restaurant');
 
-    // Fix 9: wrap lookup+create in a transaction to minimise race window
     const session = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.tableSession.findFirst({
         where: { tableId, restaurantId, status: 'OPEN' },
@@ -81,7 +79,6 @@ export class PaymentService {
 
     if (!session) throw new NotFoundException('Session not found');
 
-    // Fix 4: validate tipPercent server-side
     if (tipPercent < 0 || tipPercent > 100) {
       throw new BadRequestException('tipPercent must be between 0 and 100');
     }
@@ -149,7 +146,6 @@ export class PaymentService {
 
     if (event.type === 'payment_intent.succeeded') {
       const intent = event.data.object as any;
-      // Fix 1: fallback to metadata.paymentId when PI ID lookup returns null
       let payment = await this.prisma.payment.findFirst({
         where: { stripePaymentIntentId: intent.id },
         include: { tableSession: true },
@@ -182,7 +178,6 @@ export class PaymentService {
 
     if (event.type === 'payment_intent.payment_failed') {
       const intent = event.data.object as any;
-      // Fix 1: fallback to metadata.paymentId when PI ID lookup returns null
       let payment = await this.prisma.payment.findFirst({
         where: { stripePaymentIntentId: intent.id },
       });
@@ -193,7 +188,6 @@ export class PaymentService {
       }
       if (!payment) return;
 
-      // Fix 2: use updateMany with status guard to prevent overwriting SUCCEEDED
       await this.prisma.payment.updateMany({
         where: { id: payment.id, status: 'PENDING' },
         data: { status: 'FAILED' },

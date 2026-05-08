@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from "react";
+import React, { useContext, useState, useEffect, useRef } from "react";
 import RestaurantContext from "../../context/RestaurantContext";
 import { updateRestaurant, triggerTranslation, generateStripeConnectLink, getStripeStatus, disconnectStripe } from "../../lib/api";
 import { useTranslation } from "react-i18next";
@@ -80,6 +80,7 @@ const SettingsView = () => {
   const [newTipOption, setNewTipOption] = useState('');
   const [stripeOnboarded, setStripeOnboarded] = useState(false);
   const [stripeLoading, setStripeLoading] = useState(false);
+  const stripeCheckedRef = useRef(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState<'general' | 'loyalty' | 'payments'>('general');
 
   const [status, setStatus] = useState({ loading: false, error: "", success: "" });
@@ -116,7 +117,8 @@ const SettingsView = () => {
       setStripeOnboarded(activeRestaurant.stripeOnboarded ?? false);
 
       const params = new URLSearchParams(window.location.search);
-      if (params.get('stripe') === 'success' && activeRestaurant?.id) {
+      if (params.get('stripe') === 'success' && activeRestaurant?.id && !stripeCheckedRef.current) {
+        stripeCheckedRef.current = true;
         getStripeStatus(activeRestaurant.id).then((s) => setStripeOnboarded(s.stripeOnboarded));
       }
     }

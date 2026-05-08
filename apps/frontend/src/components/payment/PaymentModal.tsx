@@ -105,9 +105,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
   const [bill, setBill] = useState<BillData | null>(null);
   const [selectedTip, setSelectedTip] = useState(0);
   const [customTip, setCustomTip] = useState('');
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [paymentTotal, setPaymentTotal] = useState(0);
-  const [paymentTip, setPaymentTip] = useState(0);
+  const [payment, setPayment] = useState<{ clientSecret: string; total: number; tipAmount: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -126,9 +124,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
     setError(null);
     try {
       const result = await createPaymentIntent(sessionToken, activeTipPercent);
-      setClientSecret(result.clientSecret);
-      setPaymentTotal(result.total);
-      setPaymentTip(result.tipAmount);
+      setPayment({ clientSecret: result.clientSecret, total: result.total, tipAmount: result.tipAmount });
       setStep('pay');
     } catch (e: any) {
       setError(e.response?.data?.message || t('payment.failedToLoad'));
@@ -204,15 +200,15 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
           </div>
         )}
 
-        {step === 'pay' && clientSecret && (
+        {step === 'pay' && payment && (
           <Elements
             stripe={stripePromise}
-            options={{ clientSecret, appearance: { theme: 'stripe' } }}
+            options={{ clientSecret: payment.clientSecret, appearance: { theme: 'stripe' } }}
           >
             <PaymentForm
-              clientSecret={clientSecret}
-              total={paymentTotal}
-              tipAmount={paymentTip}
+              clientSecret={payment.clientSecret}
+              total={payment.total}
+              tipAmount={payment.tipAmount}
               onSuccess={() => setStep('done')}
               onClose={onClose}
             />
@@ -223,7 +219,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
           <div className="flex flex-col items-center gap-4 py-4">
             <CheckCircle2 size={48} className="text-green-500" />
             <p className="text-lg font-medium">{t('payment.paymentReceived')}</p>
-            <p className="text-2xl font-bold">€{paymentTotal.toFixed(2)}</p>
+            <p className="text-2xl font-bold">€{(payment?.total ?? 0).toFixed(2)}</p>
             <Button className="w-full" onClick={onSuccess}>
               {t('payment.backToMenu')}
             </Button>

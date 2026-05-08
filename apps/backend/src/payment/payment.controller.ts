@@ -8,8 +8,10 @@ import {
   Headers,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PaymentService } from './payment.service';
 
 @Controller('payments')
@@ -44,6 +46,7 @@ export class PaymentController {
 
   @Post('session/:token/close')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
   closeSession(
     @Param('token') token: string,
     @Body() body: { restaurantId: string },
@@ -52,6 +55,7 @@ export class PaymentController {
   }
 
   @Get('sessions/:restaurantId')
+  @UseGuards(JwtAuthGuard)
   getTableSessions(@Param('restaurantId') restaurantId: string) {
     return this.paymentService.getTableSessions(restaurantId);
   }
