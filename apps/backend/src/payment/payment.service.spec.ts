@@ -175,10 +175,22 @@ describe('PaymentService', () => {
         type: 'payment_intent.succeeded',
         data: { object: { id: 'pi_test' } },
       });
-      const payment = { id: 'pay1', tableSessionId: 's1', tableSession: { restaurantId: 'rest1' } };
+      const payment = {
+        id: 'pay1',
+        amount: 45.50,
+        tipAmount: 5.00,
+        tableSessionId: 's1',
+        tableSession: {
+          restaurantId: 'rest1',
+          tableId: 'table1',
+          table: { name: '3' },
+        },
+      };
       mockPrisma.payment.findFirst.mockResolvedValue(payment);
       mockPrisma.payment.update.mockResolvedValue({});
       mockPrisma.tableSession.update.mockResolvedValue({});
+      mockPrisma.restaurantTable.findUnique = jest.fn().mockResolvedValue({ name: '3' });
+      mockPrisma.order.findFirst = jest.fn().mockResolvedValue({ customerName: 'Marco' });
 
       await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
 
@@ -193,7 +205,12 @@ describe('PaymentService', () => {
       expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
         'rest1',
         'payment:confirmed',
-        expect.any(Object),
+        expect.objectContaining({
+          paymentId: 'pay1',
+          tableSessionId: 's1',
+          amount: expect.any(Number),
+          tipAmount: expect.any(Number),
+        }),
       );
     });
 

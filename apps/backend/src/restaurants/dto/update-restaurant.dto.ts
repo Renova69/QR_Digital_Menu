@@ -147,4 +147,8 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @Max(100, { each: true })
   tipOptions?: number[];
 
+  @IsOptional()
+  @IsBoolean()
+  notifyAllStaffOnPayment?: boolean;
+
 }
