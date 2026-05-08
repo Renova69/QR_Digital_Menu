@@ -100,6 +100,14 @@ export const getAnalytics = async (restaurantId: string, period: number, startDa
   return response.data;
 };
 
+export const getPaymentHistory = (
+  restaurantId: string,
+  params?: { status?: string; startDate?: string; endDate?: string; page?: number; limit?: number },
+) =>
+  api
+    .get(`/payments/history/${restaurantId}`, { params })
+    .then((res) => res.data);
+
 // Feedback
 export const submitFeedback = async (data: {
   rating: number;

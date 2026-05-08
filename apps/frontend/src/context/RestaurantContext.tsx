@@ -25,6 +25,13 @@ interface Restaurant {
   happyHourStartTime?: string;
   happyHourEndTime?: string;
   happyHourMultiplier?: number;
+  paymentsEnabled?: boolean;
+  stripeOnboarded?: boolean;
+  stripeAccountId?: string;
+  tipsEnabled?: boolean;
+  tipOptions?: number[];
+  platformFeePercent?: number;
+  notifyAllStaffOnPayment?: boolean;
 }
 
 interface RestaurantContextType {
