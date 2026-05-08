@@ -206,4 +206,67 @@ export class PaymentService {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  async getPaymentHistory(
+    restaurantId: string,
+    filters: {
+      status?: string;
+      startDate?: string;
+      endDate?: string;
+      page?: number;
+      limit?: number;
+    },
+  ): Promise<{ data: any[]; meta: { total: number; page: number; limit: number } }> {
+    const page = filters.page ?? 1;
+    const limit = Math.min(filters.limit ?? 20, 50);
+    const skip = (page - 1) * limit;
+
+    const where: any = { restaurantId };
+    if (filters.status) where.status = filters.status;
+    if (filters.startDate || filters.endDate) {
+      where.createdAt = {};
+      if (filters.startDate) where.createdAt.gte = new Date(filters.startDate);
+      if (filters.endDate) where.createdAt.lte = new Date(filters.endDate);
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.payment.findMany({
+        where,
+        include: {
+          tableSession: {
+            include: {
+              table: { select: { name: true } },
+              orders: {
+                select: { customerName: true },
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.payment.count({ where }),
+    ]);
+
+    return {
+      data: data.map((p) => ({
+        id: p.id,
+        amount: p.amount,
+        tipAmount: p.tipAmount,
+        platformFeeAmount: p.platformFeeAmount,
+        currency: p.currency,
+        status: p.status,
+        stripePaymentIntentId: p.stripePaymentIntentId,
+        provider: p.provider,
+        createdAt: p.createdAt,
+        tableNumber: p.tableSession?.table?.name ?? null,
+        customerName: p.tableSession?.orders[0]?.customerName ?? null,
+        tableSessionId: p.tableSessionId,
+      })),
+      meta: { total, page, limit },
+    };
+  }
 }
