@@ -91,7 +91,7 @@ const DashboardPage = () => {
         <div className="flex flex-wrap items-center gap-3 md:gap-4">
           {activeRestaurant && (
             <a
-              href={`/menu/public/${activeRestaurant.id}`}
+              href={`/menu/public/${activeRestaurant.id}?table=1`}
               target="_blank"
               rel="noopener noreferrer"
               className="group relative bg-foreground text-background px-5 md:px-8 py-3 md:py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-2xl hover:shadow-[0_20px_40px_-10px_var(--color-primary)] hover:-translate-y-1 flex items-center gap-2 md:gap-3 overflow-hidden"
