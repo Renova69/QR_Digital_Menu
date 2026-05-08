@@ -5,19 +5,21 @@ import { IPaymentProvider } from './payment-provider.interface';
 @Injectable()
 export class StripeProvider implements IPaymentProvider, OnModuleInit {
   private readonly stripe: InstanceType<typeof Stripe>;
+  private readonly webhookSecret: string;
   private readonly logger = new Logger(StripeProvider.name);
 
   constructor() {
     this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder', {
       apiVersion: '2026-04-22.dahlia',
     });
+    this.webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
   }
 
   onModuleInit() {
     if (!process.env.STRIPE_SECRET_KEY) {
       this.logger.warn('STRIPE_SECRET_KEY is not set — Stripe calls will fail');
     }
-    if (!process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET === 'NONE') {
+    if (!this.webhookSecret || this.webhookSecret === 'NONE') {
       this.logger.warn('STRIPE_WEBHOOK_SECRET is not set — webhook signature verification will fail');
     }
   }
@@ -47,7 +49,7 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
     return this.stripe.webhooks.constructEvent(
       payload,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET || '',
+      this.webhookSecret,
     );
   }
 

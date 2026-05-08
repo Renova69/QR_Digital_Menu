@@ -310,15 +310,28 @@ All foundational phases were completed on **April 9, 2026**. The application is 
 
 ---
 
-### Phase 19: Digital Payment Integration (Stripe)
+### Phase 19: Digital Payment Integration (Stripe) ✅ COMPLETE
 **Goal:** Tableside payment without waiting for the check.
 
 **Scope:**
 - Stripe Payment Intents API integration
 - Pay-at-table flow after ordering
-- Split payment support (divide by items or equally)
-- Tip suggestions (15%, 18%, 20%, custom)
+- Tip suggestions (configurable % buttons, custom tip)
 - Stripe Connect for platform fee (SaaS revenue model)
+- TableSession tracking via localStorage token
+- Payment webhook handling (Stripe → DB sync)
+- Restaurant dashboard: Payments settings tab, table session indicators
+
+**Implementation:**
+- `PaymentModule` with `IPaymentProvider` interface (future MyPOS)
+- `StripeProvider` — PaymentIntent creation, webhook verification, Connect onboarding
+- `PaymentService` — session management, bill calculation, webhook handling
+- `PaymentController` — public routes + raw-body webhook
+- `RestaurantsService` — Stripe Connect account link, status, disconnect
+- `PaymentModal` — 3-step UI: tip → Stripe Elements → confirmation
+- `SettingsView` — Payments tab with Connect onboarding + tips config
+- `TableView` — session status dots (orange=OPEN, green=PAID)
+- i18n: EN, BG, RO locale keys
 
 **Selling Point:** *"Customers pay at the table. No waiting. Tips go up. Tables turn faster."*
 

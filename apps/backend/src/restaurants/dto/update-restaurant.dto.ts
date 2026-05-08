@@ -147,9 +147,4 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @Max(100, { each: true })
   tipOptions?: number[];
 
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Max(10)
-  platformFeePercent?: number;
 }
