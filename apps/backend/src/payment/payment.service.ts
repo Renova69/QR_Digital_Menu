@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StripeProvider } from './stripe.provider';
@@ -10,6 +11,8 @@ import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class PaymentService {
+  private readonly logger = new Logger(PaymentService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly stripe: StripeProvider,
@@ -28,8 +31,21 @@ export class PaymentService {
       if (existing) return { session: existing, token };
     }
 
-    const session = await this.prisma.tableSession.create({
-      data: { tableId, restaurantId },
+    // Fix 5: validate table belongs to this restaurant before creating a session
+    const table = await this.prisma.restaurantTable.findFirst({
+      where: { id: tableId, restaurantId },
+    });
+    if (!table) throw new NotFoundException('Table not found for this restaurant');
+
+    // Fix 9: wrap lookup+create in a transaction to minimise race window
+    const session = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.tableSession.findFirst({
+        where: { tableId, restaurantId, status: 'OPEN' },
+      });
+      if (existing) return existing;
+      return tx.tableSession.create({
+        data: { tableId, restaurantId },
+      });
     });
     return { session, token: session.token };
   }
@@ -65,6 +81,11 @@ export class PaymentService {
 
     if (!session) throw new NotFoundException('Session not found');
 
+    // Fix 4: validate tipPercent server-side
+    if (tipPercent < 0 || tipPercent > 100) {
+      throw new BadRequestException('tipPercent must be between 0 and 100');
+    }
+
     const { restaurant } = session;
 
     if (!restaurant.paymentsEnabled) {
@@ -80,9 +101,11 @@ export class PaymentService {
     });
 
     const subtotal = orders.reduce((sum, o) => sum + o.totalPrice, 0);
+    if (subtotal <= 0) throw new BadRequestException('Cannot create payment for an empty session');
+
     const tipAmount = Math.round(subtotal * tipPercent) / 100;
     const total = subtotal + tipAmount;
-    const platformFeeCents = Math.round(total * 100 * restaurant.platformFeePercent / 100);
+    const platformFeeCents = Math.round(total * restaurant.platformFeePercent);
     const platformFeeAmount = platformFeeCents / 100;
 
     const payment = await this.prisma.payment.create({
@@ -102,6 +125,7 @@ export class PaymentService {
       currency: 'eur',
       restaurantStripeAccountId: restaurant.stripeAccountId,
       platformFeeCents,
+      idempotencyKey: payment.id,
       metadata: { sessionId: session.id, paymentId: payment.id },
     });
 
@@ -110,8 +134,11 @@ export class PaymentService {
         where: { id: payment.id },
         data: { stripePaymentIntentId: paymentIntentId },
       });
-    } catch {
-      // Intent ID update failed — webhook will reconcile via metadata
+    } catch (err) {
+      this.logger.error(
+        `Failed to save stripePaymentIntentId for payment ${payment.id}`,
+        (err as Error).message,
+      );
     }
 
     return { clientSecret, paymentId: payment.id, total, tipAmount };
@@ -122,10 +149,17 @@ export class PaymentService {
 
     if (event.type === 'payment_intent.succeeded') {
       const intent = event.data.object as any;
-      const payment = await this.prisma.payment.findFirst({
+      // Fix 1: fallback to metadata.paymentId when PI ID lookup returns null
+      let payment = await this.prisma.payment.findFirst({
         where: { stripePaymentIntentId: intent.id },
         include: { tableSession: true },
       });
+      if (!payment && intent.metadata?.paymentId) {
+        payment = await this.prisma.payment.findFirst({
+          where: { id: intent.metadata.paymentId },
+          include: { tableSession: true },
+        });
+      }
       if (!payment) return;
 
       await this.prisma.$transaction([
@@ -133,8 +167,8 @@ export class PaymentService {
           where: { id: payment.id },
           data: { status: 'SUCCEEDED', stripePaymentIntentId: intent.id },
         }),
-        this.prisma.tableSession.update({
-          where: { id: payment.tableSessionId },
+        this.prisma.tableSession.updateMany({
+          where: { id: payment.tableSessionId, status: 'OPEN' },
           data: { status: 'PAID', paidAt: new Date() },
         }),
       ]);
@@ -148,13 +182,20 @@ export class PaymentService {
 
     if (event.type === 'payment_intent.payment_failed') {
       const intent = event.data.object as any;
-      const payment = await this.prisma.payment.findFirst({
+      // Fix 1: fallback to metadata.paymentId when PI ID lookup returns null
+      let payment = await this.prisma.payment.findFirst({
         where: { stripePaymentIntentId: intent.id },
       });
+      if (!payment && intent.metadata?.paymentId) {
+        payment = await this.prisma.payment.findFirst({
+          where: { id: intent.metadata.paymentId },
+        });
+      }
       if (!payment) return;
 
-      await this.prisma.payment.update({
-        where: { id: payment.id },
+      // Fix 2: use updateMany with status guard to prevent overwriting SUCCEEDED
+      await this.prisma.payment.updateMany({
+        where: { id: payment.id, status: 'PENDING' },
         data: { status: 'FAILED' },
       });
     }

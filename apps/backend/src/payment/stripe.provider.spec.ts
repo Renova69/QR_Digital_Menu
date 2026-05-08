@@ -34,6 +34,7 @@ describe('StripeProvider', () => {
         currency: 'eur',
         restaurantStripeAccountId: 'acct_123',
         platformFeeCents: 100,
+        idempotencyKey: 'pay1',
         metadata: { sessionId: 's1', paymentId: 'p1' },
       });
 
@@ -44,6 +45,8 @@ describe('StripeProvider', () => {
         application_fee_amount: 100,
         transfer_data: { destination: 'acct_123' },
         metadata: { sessionId: 's1', paymentId: 'p1' },
+      }, {
+        idempotencyKey: 'pay1',
       });
       expect(result).toEqual({ clientSecret: 'cs_test_secret', paymentIntentId: 'pi_test_123' });
     });
