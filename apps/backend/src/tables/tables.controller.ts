@@ -32,6 +32,12 @@ export class TablesController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('tables/status/:restaurantId')
+  getTablesWithStatus(@Param('restaurantId') restaurantId: string) {
+    return this.tablesService.getTablesWithStatus(restaurantId);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Delete('tables/:id')
   remove(@Param('id') id: string, @Request() req) {
     return this.tablesService.remove(id, req.user.id);

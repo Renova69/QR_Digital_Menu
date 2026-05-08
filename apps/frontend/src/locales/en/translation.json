@@ -260,7 +260,21 @@
     "printAllQr": "Print All QR Codes",
     "sessionOpen": "Open session",
     "sessionPaid": "Paid",
-    "closeSession": "Close session"
+    "closeSession": "Close session",
+    "tableDetail": "Table {{name}} Details",
+    "occupied": "Occupied",
+    "waiting": "Waiting",
+    "paid": "Paid",
+    "empty": "Empty",
+    "liveView": "Live View",
+    "qrManagement": "QR Management",
+    "allTables": "All Tables",
+    "active": "Active",
+    "allFree": "All tables are free",
+    "free": "Free",
+    "noTablesCreated": "Add tables in QR Management first",
+    "ordersCount": "{{count}} orders",
+    "sessionStarted": "Session started {{time}}"
   },
   "common": {
     "pleaseLogin": "Please log in to continue",

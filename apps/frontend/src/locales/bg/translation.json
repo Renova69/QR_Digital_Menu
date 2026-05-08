@@ -259,7 +259,21 @@
     "printAllQr": "Отпечатай всички QR кодове",
     "sessionOpen": "Отворена сесия",
     "sessionPaid": "Платено",
-    "closeSession": "Затвори сесията"
+    "closeSession": "Затвори сесията",
+    "occupied": "Заета",
+    "waiting": "Изчакваща",
+    "paid": "Платена",
+    "empty": "Празна",
+    "liveView": "Изглед на живо",
+    "qrManagement": "QR Управление",
+    "allTables": "Всички Маси",
+    "active": "Активни",
+    "allFree": "Всички маси са свободни",
+    "free": "Свободна",
+    "noTablesCreated": "Добавете маси в QR Управление",
+    "tableDetail": "Маса {{name}}",
+    "ordersCount": "{{count}} поръчки",
+    "sessionStarted": "Сесията започна {{time}}"
   },
   "common": {
     "pleaseLogin": "Моля влезте в акаунта си",
@@ -405,5 +419,23 @@
     "noItems": "Няма артикули",
     "pleaseLogin": "Влезте, за да видите профила си.",
     "loginButton": "Вход"
+  },
+  "payments": {
+    "title": "История на плащанията",
+    "noPayments": "Все още няма плащания",
+    "allStatuses": "Всички статуси",
+    "succeeded": "Успешни",
+    "pending": "Изчакващи",
+    "failed": "Неуспешни",
+    "refunded": "Възстановени",
+    "date": "Дата",
+    "table": "Маса",
+    "customer": "Клиент",
+    "amount": "Сума",
+    "tip": "Бакшиш",
+    "status": "Статус",
+    "paymentReceived": "Получено плащане",
+    "stripeNotConnected": "Свържете Stripe в Настройки, за да приемате плащания.",
+    "stripeNotConnectedTitle": "Stripe не е свързан"
   }
 }

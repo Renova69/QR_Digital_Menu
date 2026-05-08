@@ -259,7 +259,21 @@
     "printAllQr": "Tipărește toate codurile QR",
     "sessionOpen": "Sesiune deschisă",
     "sessionPaid": "Plătit",
-    "closeSession": "Închide sesiunea"
+    "closeSession": "Închide sesiunea",
+    "occupied": "Ocupată",
+    "waiting": "În așteptare",
+    "paid": "Plătită",
+    "empty": "Liberă",
+    "liveView": "Vedere Live",
+    "qrManagement": "QR Management",
+    "allTables": "Toate Mesele",
+    "active": "Active",
+    "allFree": "Toate mesele sunt libere",
+    "free": "Liberă",
+    "noTablesCreated": "Adăugați mese în QR Management",
+    "tableDetail": "Masa {{name}}",
+    "ordersCount": "{{count}} comenzi",
+    "sessionStarted": "Sesiune începută la {{time}}"
   },
   "common": {
     "pleaseLogin": "Vă rugăm să vă conectați",
@@ -405,5 +419,23 @@
     "noItems": "Niciun articol",
     "pleaseLogin": "Conectați-vă pentru a vedea profilul.",
     "loginButton": "Autentificare"
+  },
+  "payments": {
+    "title": "Istoric Plăți",
+    "noPayments": "Nicio plată încă",
+    "allStatuses": "Toate Statusurile",
+    "succeeded": "Reușite",
+    "pending": "În așteptare",
+    "failed": "Eșuate",
+    "refunded": "Rambursate",
+    "date": "Data",
+    "table": "Masa",
+    "customer": "Client",
+    "amount": "Sumă",
+    "tip": "Bacșiș",
+    "status": "Status",
+    "paymentReceived": "Plată Primită",
+    "stripeNotConnected": "Conectați Stripe în Setări pentru a accepta plăți.",
+    "stripeNotConnectedTitle": "Stripe neconectat"
   }
 }

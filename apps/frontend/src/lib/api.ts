@@ -92,6 +92,21 @@ export const deleteTable = async (tableId: string) => {
   return response.data;
 };
 
+export const getTableStatuses = async (restaurantId: string) => {
+  const response = await api.get(`/tables/status/${restaurantId}`);
+  return response.data as Array<{
+    id: string;
+    name: string;
+    status: 'empty' | 'occupied' | 'paid' | 'waiting';
+    sessionId: string | null;
+    orderCount: number;
+    totalAmount: number;
+    customerNames: string[];
+    sessionStatus: string | null;
+    updatedAt: string;
+  }>;
+};
+
 // Analytics
 export const getAnalytics = async (restaurantId: string, period: number, startDate?: string, endDate?: string) => {
   const response = await api.get('/dashboard/analytics', {
