@@ -1,0 +1,103 @@
+import { useState, useRef, useEffect } from 'react';
+import { Bell, CreditCard } from 'lucide-react';
+import { useNotifications } from '../context/NotificationContext';
+
+const NotificationBell = () => {
+  const { notifications, unreadCount, markAllRead } = useNotifications();
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen]);
+
+  const handleClose = () => {
+    setIsOpen(false);
+    markAllRead();
+  };
+
+  const timeAgo = (ts: number) => {
+    const seconds = Math.floor((Date.now() - ts) / 1000);
+    if (seconds < 60) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="relative p-3 rounded-2xl hover:bg-secondary/80 transition-colors"
+        aria-label="Payment notifications"
+      >
+        <Bell className="w-6 h-6 text-muted-foreground" />
+        {unreadCount > 0 && (
+          <span className="absolute top-1.5 right-1.5 bg-accent text-accent-foreground text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 shadow-lg shadow-accent/30">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto glass-panel border border-white/10 rounded-2xl shadow-2xl z-50">
+          <div className="p-4 border-b border-border/40 flex items-center justify-between">
+            <h3 className="font-black text-xs uppercase tracking-widest text-foreground">
+              Payment Notifications
+            </h3>
+            <span className="text-[10px] text-muted-foreground font-bold">
+              {notifications.length} total
+            </span>
+          </div>
+
+          {notifications.length === 0 ? (
+            <div className="p-8 text-center">
+              <CreditCard className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground font-bold">No payments yet</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border/20">
+              {notifications.map((n) => (
+                <div
+                  key={n.id}
+                  className={`p-4 hover:bg-secondary/40 transition-colors ${!n.read ? 'bg-accent/5' : ''}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-foreground">
+                        Table {n.tableNumber ?? '?'}
+                        {n.customerName && (
+                          <span className="text-muted-foreground font-normal">
+                            {' '}— {n.customerName}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-lg font-black text-foreground mt-0.5">
+                        €{n.amount.toFixed(2)}
+                      </p>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground font-bold whitespace-nowrap">
+                      {timeAgo(n.timestamp)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default NotificationBell;
