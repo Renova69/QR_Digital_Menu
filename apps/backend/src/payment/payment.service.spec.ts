@@ -13,6 +13,7 @@ describe('PaymentService', () => {
         findFirst: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       restaurantTable: {
         findFirst: jest.fn().mockResolvedValue({ id: 'table1', restaurantId: 'rest1' }),
@@ -161,6 +162,7 @@ describe('PaymentService', () => {
           currency: 'eur',
           restaurantStripeAccountId: 'acct_123',
           platformFeeCents: 11,
+          idempotencyKey: 'pay1',
         }),
       );
       expect(result.clientSecret).toBe('cs_test');
@@ -184,8 +186,8 @@ describe('PaymentService', () => {
         where: { id: 'pay1' },
         data: { status: 'SUCCEEDED', stripePaymentIntentId: 'pi_test' },
       });
-      expect(mockPrisma.tableSession.update).toHaveBeenCalledWith({
-        where: { id: 's1' },
+      expect(mockPrisma.tableSession.updateMany).toHaveBeenCalledWith({
+        where: { id: 's1', status: 'OPEN' },
         data: { status: 'PAID', paidAt: expect.any(Date) },
       });
       expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(

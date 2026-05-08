@@ -112,9 +112,11 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     getSessionBill(sessionToken)
-      .then((data) => setBill(data))
-      .catch(() => onClose());
+      .then((data) => { if (!cancelled) setBill(data); })
+      .catch(() => { if (!cancelled) onClose(); });
+    return () => { cancelled = true; };
   }, [sessionToken]);
 
   const activeTipPercent = customTip !== '' ? parseFloat(customTip) || 0 : selectedTip;

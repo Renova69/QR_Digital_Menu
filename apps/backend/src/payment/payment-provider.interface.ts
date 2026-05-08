@@ -6,6 +6,7 @@ export interface IPaymentProvider {
     currency: string;
     restaurantStripeAccountId: string;
     platformFeeCents: number;
+    idempotencyKey: string;
     metadata: Record<string, string>;
   }): Promise<{ clientSecret: string; paymentIntentId: string }>;
 

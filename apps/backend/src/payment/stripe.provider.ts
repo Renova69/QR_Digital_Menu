@@ -27,6 +27,7 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
     currency: string;
     restaurantStripeAccountId: string;
     platformFeeCents: number;
+    idempotencyKey: string;
     metadata: Record<string, string>;
   }): Promise<{ clientSecret: string; paymentIntentId: string }> {
     const intent = await this.stripe.paymentIntents.create({
@@ -36,6 +37,8 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
       application_fee_amount: params.platformFeeCents,
       transfer_data: { destination: params.restaurantStripeAccountId },
       metadata: params.metadata,
+    }, {
+      idempotencyKey: params.idempotencyKey,
     });
     return { clientSecret: intent.client_secret!, paymentIntentId: intent.id };
   }
