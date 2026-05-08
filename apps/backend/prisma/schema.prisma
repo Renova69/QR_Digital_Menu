@@ -64,6 +64,7 @@ model Restaurant {
   stripeAccountId           String?
   stripeOnboarded           Boolean             @default(false)
   paymentsEnabled           Boolean             @default(false)
+  notifyAllStaffOnPayment   Boolean             @default(true)
   tipsEnabled               Boolean             @default(false)
   tipOptions                Int[]               @default([2, 4, 5])
   platformFeePercent        Float               @default(0.5)
