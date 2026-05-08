@@ -1,10 +1,10 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
-import Stripe = require('stripe');
+import Stripe from 'stripe';
 import { IPaymentProvider } from './payment-provider.interface';
 
 @Injectable()
 export class StripeProvider implements IPaymentProvider, OnModuleInit {
-  private readonly stripe: Stripe.Stripe;
+  private readonly stripe: InstanceType<typeof Stripe>;
   private readonly logger = new Logger(StripeProvider.name);
 
   constructor() {
@@ -16,6 +16,9 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
   onModuleInit() {
     if (!process.env.STRIPE_SECRET_KEY) {
       this.logger.warn('STRIPE_SECRET_KEY is not set — Stripe calls will fail');
+    }
+    if (!process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET === 'NONE') {
+      this.logger.warn('STRIPE_WEBHOOK_SECRET is not set — webhook signature verification will fail');
     }
   }
 
@@ -41,7 +44,7 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
     return this.stripe.webhooks.constructEvent(
       payload,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET,
+      process.env.STRIPE_WEBHOOK_SECRET || '',
     );
   }
 
