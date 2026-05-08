@@ -126,17 +126,10 @@ export class PaymentService {
       metadata: { sessionId: session.id, paymentId: payment.id },
     });
 
-    try {
-      await this.prisma.payment.update({
-        where: { id: payment.id },
-        data: { stripePaymentIntentId: paymentIntentId },
-      });
-    } catch (err) {
-      this.logger.error(
-        `Failed to save stripePaymentIntentId for payment ${payment.id}`,
-        (err as Error).message,
-      );
-    }
+    await this.prisma.payment.update({
+      where: { id: payment.id },
+      data: { stripePaymentIntentId: paymentIntentId },
+    });
 
     return { clientSecret, paymentId: payment.id, total, tipAmount };
   }
@@ -163,7 +156,7 @@ export class PaymentService {
           where: { id: payment.id },
           data: { status: 'SUCCEEDED', stripePaymentIntentId: intent.id },
         }),
-        this.prisma.tableSession.updateMany({
+        this.prisma.tableSession.update({
           where: { id: payment.tableSessionId, status: 'OPEN' },
           data: { status: 'PAID', paidAt: new Date() },
         }),
