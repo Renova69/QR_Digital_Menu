@@ -29,6 +29,9 @@ interface Order {
   specialRequests?: string;
   createdAt: string;
   updatedAt: string;
+  tableSession?: {
+    status: string;
+  };
 }
 
 // Define context type
