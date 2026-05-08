@@ -197,6 +197,15 @@ export class PaymentService {
           customerName,
         },
       );
+
+      this.events.emitToRestaurant(
+        payment.tableSession.restaurantId,
+        'table:status-changed',
+        {
+          tableId: payment.tableSession.tableId,
+          sessionId: payment.tableSessionId,
+        },
+      );
     }
 
     if (event.type === 'payment_intent.payment_failed') {
@@ -228,6 +237,15 @@ export class PaymentService {
       where: { id: session.id },
       data: { status: 'CLOSED_NO_PAYMENT' },
     });
+
+    this.events.emitToRestaurant(
+      restaurantId,
+      'table:status-changed',
+      {
+        tableId: session.tableId,
+        sessionId: session.id,
+      },
+    );
   }
 
   async getTableSessions(restaurantId: string): Promise<any[]> {

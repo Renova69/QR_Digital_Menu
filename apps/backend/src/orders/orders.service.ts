@@ -364,6 +364,17 @@ export class OrdersService {
       finalOrder,
     );
 
+    if (finalOrder.tableSessionId) {
+      this.eventsGateway.emitToRestaurant(
+        finalOrder.restaurantId,
+        'table:status-changed',
+        {
+          tableId: finalOrder.tableId,
+          sessionId: finalOrder.tableSessionId,
+        },
+      );
+    }
+
     return { ...finalOrder, sessionToken };
   }
 
@@ -408,6 +419,17 @@ export class OrdersService {
       'orderStatusChanged',
       updatedOrder,
     );
+
+    if (updatedOrder.tableSessionId) {
+      this.eventsGateway.emitToRestaurant(
+        updatedOrder.restaurantId,
+        'table:status-changed',
+        {
+          tableId: updatedOrder.tableId,
+          sessionId: updatedOrder.tableSessionId,
+        },
+      );
+    }
 
     return updatedOrder;
   }
