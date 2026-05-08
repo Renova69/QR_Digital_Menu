@@ -365,13 +365,10 @@ export class OrdersService {
     );
 
     if (finalOrder.tableSessionId) {
-      this.eventsGateway.emitToRestaurant(
+      this.eventsGateway.emitTableStatusChanged(
         finalOrder.restaurantId,
-        'table:status-changed',
-        {
-          tableId: finalOrder.tableId,
-          sessionId: finalOrder.tableSessionId,
-        },
+        finalOrder.tableId,
+        finalOrder.tableSessionId,
       );
     }
 
@@ -421,13 +418,10 @@ export class OrdersService {
     );
 
     if (updatedOrder.tableSessionId) {
-      this.eventsGateway.emitToRestaurant(
+      this.eventsGateway.emitTableStatusChanged(
         updatedOrder.restaurantId,
-        'table:status-changed',
-        {
-          tableId: updatedOrder.tableId,
-          sessionId: updatedOrder.tableSessionId,
-        },
+        updatedOrder.tableId,
+        updatedOrder.tableSessionId,
       );
     }
 

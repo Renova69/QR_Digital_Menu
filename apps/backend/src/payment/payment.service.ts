@@ -198,13 +198,10 @@ export class PaymentService {
         },
       );
 
-      this.events.emitToRestaurant(
+      this.events.emitTableStatusChanged(
         payment.tableSession.restaurantId,
-        'table:status-changed',
-        {
-          tableId: payment.tableSession.tableId,
-          sessionId: payment.tableSessionId,
-        },
+        payment.tableSession.tableId,
+        payment.tableSessionId,
       );
     }
 
@@ -238,13 +235,10 @@ export class PaymentService {
       data: { status: 'CLOSED_NO_PAYMENT' },
     });
 
-    this.events.emitToRestaurant(
+    this.events.emitTableStatusChanged(
       restaurantId,
-      'table:status-changed',
-      {
-        tableId: session.tableId,
-        sessionId: session.id,
-      },
+      session.tableId,
+      session.id,
     );
   }
 

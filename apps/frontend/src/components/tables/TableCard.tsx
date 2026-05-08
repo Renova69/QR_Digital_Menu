@@ -9,11 +9,11 @@ interface TableCardProps {
   onClick: () => void;
 }
 
-const statusStyles: Record<string, { border: string; bg: string; label: string }> = {
-  occupied: { border: 'border-l-red-500', bg: 'bg-red-500/5', label: 'occupied' },
-  waiting: { border: 'border-l-amber-500', bg: 'bg-amber-500/5', label: 'waiting' },
-  paid: { border: 'border-l-emerald-500', bg: 'bg-emerald-500/5', label: 'paid' },
-  empty: { border: 'border-l-gray-400', bg: 'bg-gray-400/5', label: 'empty' },
+const statusStyles: Record<string, { border: string; bg: string }> = {
+  occupied: { border: 'border-l-red-500', bg: 'bg-red-500/5' },
+  waiting: { border: 'border-l-amber-500', bg: 'bg-amber-500/5' },
+  paid: { border: 'border-l-emerald-500', bg: 'bg-emerald-500/5' },
+  empty: { border: 'border-l-gray-400', bg: 'bg-gray-400/5' },
 };
 
 const TableCard: React.FC<TableCardProps> = ({ name, status, orderCount, customerCount, onClick }) => {

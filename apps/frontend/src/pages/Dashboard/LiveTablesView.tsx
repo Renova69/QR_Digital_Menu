@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useContext } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getTableStatuses, getOrders } from '../../lib/api';
+import { getTableStatuses } from '../../lib/api';
 import { useTranslation } from 'react-i18next';
 import RestaurantContext from '../../context/RestaurantContext';
 import { useSocket } from '../../context/SocketContext';
@@ -24,11 +24,6 @@ const LiveTablesView: React.FC = () => {
     queryKey: ['tableStatuses', restaurantId],
     queryFn: () => getTableStatuses(restaurantId),
     enabled: !!restaurantId,
-  });
-
-  const { data: allOrders } = useQuery({
-    queryKey: ['orders'],
-    queryFn: getOrders,
   });
 
   // Subscribe to real-time table status changes
@@ -63,13 +58,6 @@ const LiveTablesView: React.FC = () => {
     setSelectedTable(table);
     setModalOpen(true);
   };
-
-  const tableOrders = useMemo(() => {
-    if (!selectedTable?.sessionId || !allOrders) return [];
-    return (allOrders as any[]).filter(
-      (o: any) => o.tableSessionId === selectedTable.sessionId,
-    );
-  }, [selectedTable, allOrders]);
 
   if (isLoading) {
     return (
@@ -146,21 +134,12 @@ const LiveTablesView: React.FC = () => {
         </div>
       )}
 
-      {/* Detail modal */}
+      {/* Detail modal — shows summary from table status data */}
       <TableDetailModal
         open={modalOpen}
         onOpenChange={setModalOpen}
         table={selectedTable}
-        orders={tableOrders.map((o: any) => ({
-          id: o.id,
-          customerName: o.customerName,
-          items: (o.items || []).map((i: any) => ({
-            name: i.menuItem?.name || 'Item',
-            quantity: i.quantity,
-          })),
-          totalPrice: o.totalPrice,
-          status: o.status,
-        }))}
+        orders={[]}
         paymentInfo={
           selectedTable?.status === 'paid'
             ? { amount: selectedTable.totalAmount }
