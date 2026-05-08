@@ -14,15 +14,22 @@ describe('PaymentService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
+      restaurantTable: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'table1', restaurantId: 'rest1' }),
+      },
       payment: {
         create: jest.fn(),
         findFirst: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       order: {
         findMany: jest.fn(),
       },
-      $transaction: jest.fn((ops: any[]) => Promise.all(ops)),
+      $transaction: jest.fn((arg: any) => {
+        if (typeof arg === 'function') return arg(mockPrisma);
+        return Promise.all(arg);
+      }),
     };
     mockStripeProvider = {
       createPaymentIntent: jest.fn(),
@@ -194,12 +201,11 @@ describe('PaymentService', () => {
         data: { object: { id: 'pi_test' } },
       });
       mockPrisma.payment.findFirst.mockResolvedValue({ id: 'pay1', tableSessionId: 's1', tableSession: { restaurantId: 'rest1' } });
-      mockPrisma.payment.update.mockResolvedValue({});
 
       await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
 
-      expect(mockPrisma.payment.update).toHaveBeenCalledWith({
-        where: { id: 'pay1' },
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
+        where: { id: 'pay1', status: 'PENDING' },
         data: { status: 'FAILED' },
       });
       expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();

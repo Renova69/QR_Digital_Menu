@@ -1,3 +1,5 @@
+import type Stripe from 'stripe';
+
 export interface IPaymentProvider {
   createPaymentIntent(params: {
     amountCents: number;

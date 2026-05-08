@@ -57,7 +57,7 @@ describe('StripeProvider', () => {
       expect(mockStripe.webhooks.constructEvent).toHaveBeenCalledWith(
         payload,
         sig,
-        process.env.STRIPE_WEBHOOK_SECRET,
+        process.env.STRIPE_WEBHOOK_SECRET || '',
       );
       expect(result.type).toBe('payment_intent.succeeded');
     });
