@@ -1,10 +1,11 @@
 # QR Menu App — Coding Roadmap
 
-> **Last Updated:** May 6, 2026  
+> **Last Updated:** May 8, 2026  
 > **MVP Status:** ✅ Complete  
 > **V2 Status:** ✅ Phases 9–14 Complete  
 > **V2.5 Status:** ✅ Phases 15–17 + Mobile UX Overhaul + UI/UX Audit & Theme Polish Complete  
 > **Bug Fixes & Polish (May 6, 2026):** ✅ Customer auth OTP, cart language sync, options pre-selection, QR print, analytics dark mode, translation gaps, menu health false positive  
+> **V3 Growth (May 8, 2026):** ✅ Phase 19 (Stripe Connect Payments) Complete — Phase 18 & 20 paused  
 > **Current Focus:** Bug fixes & polish only (Phases 18+ paused)
 
 ---
@@ -44,7 +45,7 @@ All foundational phases were completed on **April 9, 2026**. The application is 
 
 - Category CRUD with ordering
 - Menu item CRUD (name, description, price in EUR, allergens, dietary tags)
-- Image upload for menu items (local file storage via `/uploads/`)
+- Image upload for menu items (Cloudflare R2 + sharp processing pipeline: resize 1200px, WebP, 400px thumbnail)
 - Drag-and-drop reorder for categories and items (dnd-kit)
 - "Out of Stock" toggle
 - Variations & add-ons (MenuOption model with VARIATION/ADDON types)
@@ -153,7 +154,7 @@ All foundational phases were completed on **April 9, 2026**. The application is 
 - Square aspect ratio for item images (portrait photos display correctly)
 - Click-to-zoom lightbox with pinch-to-zoom (scale 1–4×) and swipe-to-dismiss (mobile)
 - Swipe-down backdrop fade and 80px threshold to close (`ImageLightbox.tsx` full rewrite)
-- Category banner images (`imageUrl` on `MenuCategory`) with upload in dashboard Menu Editor
+- Category banner images (`imageUrl` + `thumbnailUrl` on `MenuCategory`) with upload in dashboard Menu Editor + sharp WebP processing
 - Mobile quality fixes: banner `aspect-[2/1] md:aspect-[3/1]`, item cards capped at `h-48` on mobile, padding `p-4 md:p-6`
 
 **Selling Point:** *"Every dish looks its best — customers eat with their eyes first."*
@@ -350,13 +351,63 @@ All foundational phases were completed on **April 9, 2026**. The application is 
 
 ---
 
+## 🔷 Post-Roadmap — Live Table View & Payment History ✅ (May 8, 2026)
+
+### Live Table View
+**Goal:** Real-time visual grid showing table status for restaurant staff.
+
+**Shipped:**
+- `GET /api/tables/status/:restaurantId` — all tables with derived status (empty/waiting/occupied/paid), enriched with `orderCount`, `totalAmount`, `customerNames`, `sessionStatus`, `sessionId`
+- `TablesService.getTablesWithStatus()` — fetches tables + active sessions in parallel via `Promise.all`
+- `EventsGateway.emitTableStatusChanged()` helper — emits `table:status-changed` from 4 locations (`OrdersService.create`, `OrdersService.updateStatus`, `PaymentService.handleWebhookEvent`, `PaymentService.closeSession`)
+- `LiveTablesView.tsx` — real-time grid with filter modes (Active/Occupied/Paid/All), defaults to Active
+- `TableCard.tsx` — color-coded card (red=occupied, amber=waiting, green=paid, gray=empty), order count badge, customer count
+- `TableDetailModal.tsx` — modal with table name, session status badge, order list with status badges, payment info
+- `TableView.tsx` — parent with sub-tab navigation: Live View / QR Management
+- Socket listener invalidates React Query `['tableStatuses']` cache on `table:status-changed` events
+- `enabled: !!restaurantId` guard on `useQuery`
+
+### Payment History & Notifications
+**Goal:** Staff can view payment history and receive real-time payment confirmations.
+
+**Shipped:**
+- `PaymentsView.tsx` — table with columns: date, table, customer, amount, tip, status; filters by status + date range
+- `GET /api/payment/history/:restaurantId` — paginated, filterable payment history
+- `NotificationContext` — manages notification bell badge count + toast queue
+- `NotificationBell` — dashboard header bell icon with unread count badge
+- `PaymentToast` — slide-in notification for confirmed payments
+- `payment:confirmed` socket event emitted on successful payment
+
+### Code Review Fixes (May 8, 2026)
+- Parallel `Promise.all` for tables + sessions queries (was sequential awaits)
+- `emitTableStatusChanged` helper deduplication across 4 call sites
+- Removed unused `label` field from `statusStyles` Record in `TableCard.tsx`
+- Added `enabled: !!restaurantId` guard on `useQuery` in `TableView.tsx`
+- Removed dead code + unnecessary existence checks
+
+**Key files:**
+- `apps/backend/src/tables/tables.service.ts` — `getTablesWithStatus()` parallel queries
+- `apps/backend/src/tables/tables.controller.ts` — `GET tables/status/:restaurantId`
+- `apps/backend/src/events/events.gateway.ts` — `emitTableStatusChanged()` helper
+- `apps/backend/src/payment/payment.service.ts` — webhook → emit events
+- `apps/backend/src/payment/payment.controller.ts` — history endpoint
+- `apps/frontend/src/pages/Dashboard/LiveTablesView.tsx` — real-time grid
+- `apps/frontend/src/components/tables/TableCard.tsx` — color-coded card
+- `apps/frontend/src/components/tables/TableDetailModal.tsx` — detail modal
+- `apps/frontend/src/pages/Dashboard/PaymentsView.tsx` — payment history
+- `apps/frontend/src/context/NotificationContext.tsx` — notification state
+- `apps/frontend/src/components/NotificationBell.tsx` — bell icon
+- `apps/frontend/src/components/PaymentToast.tsx` — toast notification
+
+---
+
 ## 🟡 V4 — Scale & Enterprise (Future)
 
 - Move database to AWS RDS / GCP Cloud SQL
-- Move file uploads to S3 / GCS
+- Move file uploads to S3 / GCS ✅ **(Done — moved to Cloudflare R2 with CDN delivery)**
 - Deploy backend to AWS ECS / GCP Cloud Run
 - Redis for caching and real-time queues
-- CDN for static assets and menu images
+- CDN for static assets and menu images ✅ **(R2 public CDN active + WebP compression)**
 - POS system integration (Square, Toast, Lightspeed)
 - Inventory management and waste tracking
 - Advanced loyalty program with points/tiers
