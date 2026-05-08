@@ -186,7 +186,7 @@ describe('PaymentService', () => {
         where: { id: 'pay1' },
         data: { status: 'SUCCEEDED', stripePaymentIntentId: 'pi_test' },
       });
-      expect(mockPrisma.tableSession.updateMany).toHaveBeenCalledWith({
+      expect(mockPrisma.tableSession.update).toHaveBeenCalledWith({
         where: { id: 's1', status: 'OPEN' },
         data: { status: 'PAID', paidAt: expect.any(Date) },
       });
