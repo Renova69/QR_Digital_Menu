@@ -72,6 +72,7 @@ const SettingsView = () => {
   const [happyHourStartTime, setHappyHourStartTime] = useState("");
   const [happyHourEndTime, setHappyHourEndTime] = useState("");
   const [happyHourMultiplier, setHappyHourMultiplier] = useState(2.0);
+  const [notifyAllStaffOnPayment, setNotifyAllStaffOnPayment] = useState(true);
 
   // Payments
   const [paymentsEnabled, setPaymentsEnabled] = useState(false);
@@ -86,6 +87,7 @@ const SettingsView = () => {
   const [status, setStatus] = useState({ loading: false, error: "", success: "" });
   const [translating, setTranslating] = useState(false);
   const { t } = useTranslation();
+  const paymentsEnabledLocal = activeRestaurant?.paymentsEnabled ?? false;
 
   useEffect(() => {
     if (activeRestaurant) {
@@ -110,6 +112,7 @@ const SettingsView = () => {
       setHappyHourStartTime(activeRestaurant.happyHourStartTime || "");
       setHappyHourEndTime(activeRestaurant.happyHourEndTime || "");
       setHappyHourMultiplier(activeRestaurant.happyHourMultiplier ?? 2.0);
+      setNotifyAllStaffOnPayment(activeRestaurant.notifyAllStaffOnPayment ?? true);
 
       setPaymentsEnabled(activeRestaurant.paymentsEnabled ?? false);
       setTipsEnabled(activeRestaurant.tipsEnabled ?? false);
@@ -161,6 +164,7 @@ const SettingsView = () => {
         happyHourStartTime: happyHourStartTime || undefined,
         happyHourEndTime: happyHourEndTime || undefined,
         happyHourMultiplier: Number(happyHourMultiplier),
+        notifyAllStaffOnPayment,
         paymentsEnabled,
         tipsEnabled,
         tipOptions,
@@ -599,6 +603,30 @@ const SettingsView = () => {
                       </div>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {paymentsEnabledLocal && (
+              <div className="pt-4 border-t border-white/5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-foreground">
+                      Payment Notifications
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      When enabled, all staff see payment notifications. When disabled, only the owner sees them.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={notifyAllStaffOnPayment}
+                      onChange={(e) => setNotifyAllStaffOnPayment(e.target.checked)}
+                    />
+                    <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                  </label>
                 </div>
               </div>
             )}
