@@ -21,8 +21,10 @@ describe('PaymentService', () => {
       payment: {
         create: jest.fn(),
         findFirst: jest.fn(),
+        findMany: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        count: jest.fn(),
       },
       order: {
         findMany: jest.fn(),
@@ -261,6 +263,74 @@ describe('PaymentService', () => {
     it('throws NotFoundException when session not found', async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue(null);
       await expect(service.closeSession('bad-token', 'rest1')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getPaymentHistory', () => {
+    it('returns paginated payment history with table number and customer name', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([
+        {
+          id: 'pay1',
+          amount: 45.50,
+          tipAmount: 5.00,
+          platformFeeAmount: 0.23,
+          currency: 'eur',
+          status: 'SUCCEEDED',
+          stripePaymentIntentId: 'pi_1',
+          provider: 'STRIPE',
+          createdAt: new Date('2026-05-08T14:22:00Z'),
+          tableSessionId: 's1',
+          tableSession: {
+            table: { name: '3' },
+            orders: [{ customerName: 'Marco' }],
+          },
+        },
+      ]);
+      mockPrisma.payment.count.mockResolvedValue(1);
+
+      const result = await service.getPaymentHistory('rest1', {});
+
+      expect(result.data[0].tableNumber).toBe('3');
+      expect(result.data[0].customerName).toBe('Marco');
+      expect(result.meta.total).toBe(1);
+    });
+
+    it('filters by status when provided', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.payment.count.mockResolvedValue(0);
+
+      await service.getPaymentHistory('rest1', { status: 'FAILED' });
+
+      expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { restaurantId: 'rest1', status: 'FAILED' },
+        }),
+      );
+    });
+
+    it('filters by date range when provided', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.payment.count.mockResolvedValue(0);
+
+      await service.getPaymentHistory('rest1', {
+        startDate: '2026-05-01',
+        endDate: '2026-05-31',
+      });
+
+      const callArgs = mockPrisma.payment.findMany.mock.calls[0][0];
+      expect(callArgs.where.createdAt.gte).toBeInstanceOf(Date);
+      expect(callArgs.where.createdAt.lte).toBeInstanceOf(Date);
+    });
+
+    it('respects pagination with default page 1 limit 20', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.payment.count.mockResolvedValue(0);
+
+      await service.getPaymentHistory('rest1', {});
+
+      expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0, take: 20 }),
+      );
     });
   });
 });
