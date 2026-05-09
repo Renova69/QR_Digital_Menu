@@ -7,7 +7,7 @@ import { useCart } from "../context/CartContext";
 import { Button } from "../components/ui/button";
 import CartIcon from "../components/cart/CartIcon";
 import { ItemWithOptions } from "../components/menu/ItemWithOptions";
-import { Bell, Globe, LogOut } from "lucide-react";
+import { Bell, Globe, LogOut, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
 import { TrendingCarousel } from "../components/menu/TrendingCarousel";
@@ -180,7 +180,7 @@ const PublicMenuPage = () => {
       setAssistanceLoading(true);
       await createAssistanceRequest(tableNumber, restaurantId);
       setAssistanceSent(true);
-      setTimeout(() => setAssistanceSent(false), 3000);
+      setTimeout(() => setAssistanceSent(false), 60000);
     } catch (err) {
       console.error("Assistance Request Error:", err);
     } finally {
@@ -202,9 +202,6 @@ const PublicMenuPage = () => {
 
   const themeVars = restaurantTheme
     ? ({
-        "--theme-bg": restaurantTheme.themeBgColor || undefined,
-        "--theme-text": restaurantTheme.themeTextColor || undefined,
-        "--theme-card": restaurantTheme.themeCardColor || undefined,
         "--font-heading": restaurantTheme.fontHeading
           ? `"${restaurantTheme.fontHeading}", serif`
           : undefined,
@@ -214,13 +211,10 @@ const PublicMenuPage = () => {
         "--color-accent": restaurantTheme.accentColor || undefined,
         ...(hasCustomTheme
           ? {
-              "--color-background": restaurantTheme.themeBgColor,
-              "--color-foreground": restaurantTheme.themeTextColor,
-              "--color-card":
+              "--custom-bg": restaurantTheme.themeBgColor,
+              "--custom-text": restaurantTheme.themeTextColor,
+              "--custom-card":
                 restaurantTheme.themeCardColor || restaurantTheme.themeBgColor,
-              "--color-card-foreground": restaurantTheme.themeTextColor,
-              "--color-popover": restaurantTheme.themeBgColor,
-              "--color-popover-foreground": restaurantTheme.themeTextColor,
             }
           : {}),
       } as React.CSSProperties)
@@ -228,17 +222,15 @@ const PublicMenuPage = () => {
 
   return (
     <div
-      className="relative min-h-screen overflow-x-hidden premium-bg text-foreground selection:bg-accent/30 transition-colors duration-1000"
+      className="relative min-h-screen premium-bg text-foreground selection:bg-accent/30 transition-colors duration-1000"
       style={{
         ...themeVars,
-        backgroundColor: "var(--theme-bg, var(--color-background))",
-        color: "var(--theme-text, var(--color-foreground))",
         fontFamily: "var(--font-body, inherit)",
         paddingBottom: 'max(8rem, calc(5rem + env(safe-area-inset-bottom, 0px)))',
       }}
     >
-      {/* Theme Toggle — always visible; scoped per restaurant so each venue remembers preference */}
-      <div className="fixed top-6 right-6 z-50 animate-in fade-in slide-in-from-right-4 duration-700 pointer-events-auto">
+      {/* Theme Toggle — scoped per restaurant so each venue remembers preference */}
+      <div className="absolute top-6 right-6 z-50 animate-in fade-in slide-in-from-right-4 duration-700 pointer-events-auto">
         <ThemeToggle
           storageKey={restaurantId ? `theme-${restaurantId}` : 'theme'}
           defaultTheme={(restaurantTheme?.defaultTheme as 'light' | 'dark') ?? 'light'}
@@ -310,7 +302,7 @@ const PublicMenuPage = () => {
           <>
             <div className="mb-10 md:mb-20 pt-8 text-center animate-in fade-in slide-in-from-bottom-8 duration-1000">
               <div className="inline-block p-1 bg-gradient-to-tr from-accent/20 to-transparent rounded-[3.2rem] mb-6 md:mb-10 shadow-2xl">
-                <div className="p-5 md:p-8 glass-panel rounded-[3rem] bg-white dark:bg-zinc-950/40">
+                <div className="p-5 md:p-8 rounded-[3rem] bg-white shadow-xl border border-black/5">
                   {menuData.restaurant?.logoUrl ? (
                     <img
                       src={
@@ -335,13 +327,12 @@ const PublicMenuPage = () => {
                 className="text-5xl md:text-8xl font-serif font-black tracking-tighter mb-4 md:mb-6 text-foreground leading-[0.9] text-glow"
                 style={{
                   fontFamily: "var(--font-heading, inherit)",
-                  color: "var(--theme-text, inherit)",
                 }}
               >
                 {menuData.restaurant?.name}
               </h1>
 
-              <div className="inline-flex items-center gap-4 p-1.5 glass-panel rounded-2xl border border-white/10 shadow-xl overflow-hidden">
+              <div className="inline-flex items-center gap-4 p-1.5 glass-panel rounded-2xl shadow-xl overflow-hidden">
                 <div className="pl-4 pr-2 flex items-center gap-2 border-r border-white/10 dark:border-white/5">
                   <Globe className="w-3.5 h-3.5 text-accent" aria-hidden="true" />
                   <span className="text-xs font-black uppercase tracking-[0.15em] text-muted-foreground whitespace-nowrap">
@@ -389,7 +380,8 @@ const PublicMenuPage = () => {
 
                 {/* Premium Sticky Navigation */}
                 <div className="sticky top-4 md:top-6 z-40 mb-10 md:mb-20 px-2 lg:px-0">
-                  <div className="glass-panel p-2 rounded-[2rem] flex overflow-x-auto hide-scrollbar gap-2 border-white/10 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.4)]">
+                  {/* Desktop view: Horizontal scrolling pills */}
+                  <div className="hidden md:flex glass-panel p-2 rounded-[2rem] overflow-x-auto hide-scrollbar gap-2 border-white/10 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.4)]">
                     {menuData.categories.map((cat: any) => {
                       const catName =
                         (selectedLang &&
@@ -401,15 +393,13 @@ const PublicMenuPage = () => {
                           key={`nav-${cat.id}`}
                           onClick={() => scrollToCategory(cat.id)}
                           data-active={activeCategory === cat.id}
-                          className="whitespace-nowrap px-8 py-3.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-300 active:scale-95 hover:bg-black/5 dark:hover:bg-white/5
+                          className="whitespace-nowrap px-8 py-3.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-300 active:scale-95 hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer hover:text-foreground
                                                   data-[active=true]:shadow-[0_10px_25px_-5px_var(--color-primary)] text-muted-foreground"
                           style={
                             activeCategory === cat.id
                               ? {
-                                  backgroundColor:
-                                    "var(--theme-text, var(--color-foreground))",
-                                  color:
-                                    "var(--theme-bg, var(--color-background))",
+                                  backgroundColor: "var(--color-foreground)",
+                                  color: "var(--color-background)",
                                 }
                               : {}
                           }
@@ -418,6 +408,42 @@ const PublicMenuPage = () => {
                         </button>
                       );
                     })}
+                  </div>
+
+                  {/* Mobile view: Native select dropdown overlay for better UX */}
+                  <div className="md:hidden relative w-full shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.4)] rounded-[1.5rem]">
+                    <select
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                      value={activeCategory || ""}
+                      onChange={(e) => scrollToCategory(e.target.value)}
+                      aria-label="Select Category"
+                    >
+                      {menuData.categories.map((cat: any) => {
+                        const catName =
+                          (selectedLang &&
+                            cat.translations &&
+                            cat.translations[selectedLang]?.name) ||
+                          cat.name;
+                        return (
+                          <option key={`opt-${cat.id}`} value={cat.id} className="text-base text-black">
+                            {catName}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <div className="glass-panel p-4 px-6 rounded-[1.5rem] flex items-center justify-between pointer-events-none relative z-0">
+                      <span className="font-black uppercase tracking-widest text-xs text-foreground truncate mr-4">
+                        {(() => {
+                          if (!activeCategory) return "Menu";
+                          const activeCat = menuData.categories.find((c: any) => c.id === activeCategory);
+                          if (!activeCat) return "Menu";
+                          return (selectedLang && activeCat.translations && activeCat.translations[selectedLang]?.name) || activeCat.name;
+                        })()}
+                      </span>
+                      <div className="flex-shrink-0 bg-black/5 dark:bg-white/5 p-2 rounded-full">
+                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -464,7 +490,6 @@ const PublicMenuPage = () => {
                               className="text-3xl md:text-5xl font-serif font-bold tracking-tight mb-3"
                               style={{
                                 fontFamily: "var(--font-heading, inherit)",
-                                color: "var(--theme-text, inherit)",
                               }}
                             >
                               {catName}
@@ -549,7 +574,7 @@ const PublicMenuPage = () => {
               </div>
               <span className="font-black text-xs md:text-sm uppercase tracking-[0.1em] md:tracking-[0.15em] text-foreground/90 truncate">
                 {assistanceSent
-                  ? t("publicMenu.staffNotified")
+                  ? t("publicMenu.staffNotifiedShort", "Staff Notified")
                   : assistanceLoading
                   ? t("publicMenu.calling", "Calling…")
                   : t("publicMenu.callWaiter")}

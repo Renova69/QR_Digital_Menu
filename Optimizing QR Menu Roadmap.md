@@ -313,7 +313,7 @@ No issues. NestJS, Prisma, PostgreSQL, React+Vite+TS, Tailwind, Radix UI, TanSta
 
 ### ✅ Phase 4: Menu Builder & Image Upload — **DONE**
 - Category CRUD with ordering ✅
-- Item CRUD with image upload (multer + diskStorage) ✅
+- Item CRUD with image upload (multer + diskStorage → **upgraded May 2026 to Cloudflare R2 + sharp WebP pipeline**) ✅
 - MenuOption CRUD (variations/add-ons) ✅
 - Ownership verification on every operation ✅
 - Public menu endpoint (filters out-of-stock items, includes options) ✅
@@ -554,7 +554,7 @@ Now rebuild to verify everything still compiles:
 
 **Hardening added:** Both upload endpoints now have 5MB file size limit and image-only MIME type validation.
 
-Check the detailed walkthrough artifact for the full flow diagram and all identified edge cases.
+> **UPGRADED May 7, 2026:** Image upload has been fully overhauled — see `fixed_issues_main.md` → "Image Upload Overhaul" section. Migrated from local `/uploads/` disk storage to Cloudflare R2 with CDN delivery. Added `sharp` image processing pipeline (auto-rotate, resize 1200px, WebP conversion, 400px thumbnails, 80-95% compression). Controller validation now restricts to JPEG/PNG only with `BadRequestException`. Frontend uses `ImageUploadInput` component with preview thumbnail + remove support. Toast success/error feedback on all forms. `thumbnailUrl` stored alongside `imageUrl` on Restaurant, MenuItem, and MenuCategory models.
 
 ### User Input
 
