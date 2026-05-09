@@ -1,5 +1,5 @@
 import { useState, useRef, useContext } from 'react';
-import { type LucideIcon, LayoutDashboard, ShoppingBag, Bell, Table2, Settings, BarChart2, CreditCard, FileUp } from 'lucide-react';
+import { type LucideIcon, LayoutDashboard, ShoppingBag, Bell, Table2, Settings, BarChart2, CreditCard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrderContext';
 import { useAssistance } from '../context/AssistanceContext';
@@ -28,7 +28,6 @@ const BOTTOM_NAV_TABS: { id: TabId; Icon: LucideIcon; labelKey: string }[] = [
   { id: 'assistance', Icon: Bell,            labelKey: 'dashboard.tabs.requests' },
   { id: 'tables',     Icon: Table2,          labelKey: 'dashboard.tabs.tables' },
   { id: 'settings',  Icon: Settings,        labelKey: 'dashboard.tabs.settings' },
-  { id: 'import',    Icon: FileUp,          labelKey: 'dashboard.tabs.import' },
 ];
 
 const DashboardPage = () => {
