@@ -242,6 +242,35 @@ export class PaymentService {
     );
   }
 
+  async forceOpenSession(
+    tableId: string,
+    restaurantId: string,
+  ): Promise<{ session: any; token: string }> {
+    const table = await this.prisma.restaurantTable.findFirst({
+      where: { id: tableId, restaurantId },
+    });
+    if (!table) throw new NotFoundException('Table not found for this restaurant');
+
+    const session = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.tableSession.findFirst({
+        where: { tableId, restaurantId, status: 'OPEN' },
+      });
+      if (existing) {
+        await tx.tableSession.update({
+          where: { id: existing.id },
+          data: { status: 'CLOSED_NO_PAYMENT' },
+        });
+        this.events.emitTableStatusChanged(restaurantId, existing.tableId, existing.id);
+      }
+      return tx.tableSession.create({
+        data: { tableId, restaurantId },
+      });
+    });
+
+    this.events.emitTableStatusChanged(restaurantId, tableId, session.id);
+    return { session, token: session.token };
+  }
+
   async getTableSessions(restaurantId: string): Promise<any[]> {
     return this.prisma.tableSession.findMany({
       where: { restaurantId, status: { in: ['OPEN', 'PAID'] } },

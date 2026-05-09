@@ -19,6 +19,10 @@ import MenuEditorPage from "./pages/MenuEditorPage";
 import OAuthCallbackPage from "./pages/OAuthCallbackPage";
 import FeedbackPage from "./pages/FeedbackPage";
 import ErrorBoundary from "./components/ErrorBoundary";
+import PosLayout from "./pages/pos/PosLayout";
+import PosPage from "./pages/pos/PosPage";
+import StaffRoute from "./components/StaffRoute";
+import { PosProvider } from "./context/PosContext";
 import CustomerProfilePage from "./pages/CustomerProfilePage";
 
 // App routes: header + container padding
@@ -75,6 +79,20 @@ function App() {
                                 <MenuEditorPage />
                               </MenuProvider>
                             </ProtectedRoute>
+                          }
+                        />
+                      </Route>
+
+                      {/* Staff POS — no chrome, full viewport */}
+                      <Route element={<PosLayout />}>
+                        <Route
+                          path="/staff/pos"
+                          element={
+                            <StaffRoute>
+                              <PosProvider>
+                                <PosPage />
+                              </PosProvider>
+                            </StaffRoute>
                           }
                         />
                       </Route>
