@@ -1,5 +1,5 @@
 import { useState, useRef, useContext } from 'react';
-import { type LucideIcon, LayoutDashboard, ShoppingBag, Bell, Table2, Settings, BarChart2, CreditCard } from 'lucide-react';
+import { type LucideIcon, LayoutDashboard, ShoppingBag, Bell, Table2, Settings, BarChart2, CreditCard, FileUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrderContext';
 import { useAssistance } from '../context/AssistanceContext';
@@ -14,11 +14,12 @@ import AnalyticsView from './Dashboard/AnalyticsView';
 import SettingsView from './Dashboard/SettingsView';
 import { useTranslation } from 'react-i18next';
 import PaymentsView from './Dashboard/PaymentsView';
+import MenuImportView from './Dashboard/MenuImportView';
 import NotificationBell from '../components/NotificationBell';
 import PaymentToast from '../components/PaymentToast';
 import { NotificationProvider } from '../context/NotificationContext';
 
-type TabId = 'summary' | 'analytics' | 'orders' | 'payments' | 'assistance' | 'tables' | 'settings';
+type TabId = 'summary' | 'analytics' | 'orders' | 'payments' | 'assistance' | 'tables' | 'settings' | 'import';
 
 const BOTTOM_NAV_TABS: { id: TabId; Icon: LucideIcon; labelKey: string }[] = [
   { id: 'summary',    Icon: LayoutDashboard, labelKey: 'dashboard.tabs.home' },
@@ -27,6 +28,7 @@ const BOTTOM_NAV_TABS: { id: TabId; Icon: LucideIcon; labelKey: string }[] = [
   { id: 'assistance', Icon: Bell,            labelKey: 'dashboard.tabs.requests' },
   { id: 'tables',     Icon: Table2,          labelKey: 'dashboard.tabs.tables' },
   { id: 'settings',  Icon: Settings,        labelKey: 'dashboard.tabs.settings' },
+  { id: 'import',    Icon: FileUp,          labelKey: 'dashboard.tabs.import' },
 ];
 
 const DashboardPage = () => {
@@ -130,6 +132,7 @@ const DashboardPage = () => {
                 { id: 'assistance', label: t('dashboard.tabs.assistance'), count: unresolvedRequestsCount },
                 { id: 'tables',     label: t('dashboard.tabs.tables') },
                 { id: 'settings',   label: t('dashboard.tabs.settings') },
+                { id: 'import',     label: t('dashboard.tabs.import') },
               ].filter(tab => tab.id !== 'payments' || paymentsEnabled).map((tab) => (
                 <button
                   key={tab.id}
@@ -184,6 +187,7 @@ const DashboardPage = () => {
             {activeTab === 'assistance' && <AssistanceView />}
             {activeTab === 'tables' && activeRestaurant && <TableView />}
             {activeTab === 'settings' && activeRestaurant && <SettingsView />}
+            {activeTab === 'import' && activeRestaurant && <MenuImportView />}
           </div>
         </div>
         <PaymentToast />
