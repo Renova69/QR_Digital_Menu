@@ -19,6 +19,7 @@ import { StorageModule } from './storage/storage.module';
 import { EventsModule } from './events/events.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
 import { PaymentModule } from './payment/payment.module';
+import { MenuImportModule } from './menu-import/menu-import.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { PaymentModule } from './payment/payment.module';
     EventsModule,
     LoyaltyModule,
     PaymentModule,
+    MenuImportModule,
   ],
   controllers: [AppController],
   providers: [

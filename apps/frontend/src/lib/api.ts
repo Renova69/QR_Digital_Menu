@@ -227,4 +227,25 @@ export const disconnectStripe = async (restaurantId: string) => {
   return response.data;
 };
 
+// Menu Import
+export const getImportApiKey = async (restaurantId: string) => {
+  const response = await api.get(`/restaurants/${restaurantId}/menu/import/api-key`);
+  return response.data as { apiKey: string; generated?: boolean };
+};
+
+export const revealImportApiKey = async (restaurantId: string) => {
+  const response = await api.post(`/restaurants/${restaurantId}/menu/import/api-key/reveal`);
+  return response.data as { apiKey: string };
+};
+
+export const regenerateImportApiKey = async (restaurantId: string) => {
+  const response = await api.post(`/restaurants/${restaurantId}/menu/import/api-key/regenerate`);
+  return response.data as { apiKey: string };
+};
+
+export const confirmMenuImport = async (restaurantId: string, payload: any) => {
+  const response = await api.post(`/restaurants/${restaurantId}/menu/import/confirm`, payload);
+  return response.data as { success: boolean; created: number; updated: number; categories: number };
+};
+
 export default api;

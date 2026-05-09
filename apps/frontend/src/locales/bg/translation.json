@@ -24,7 +24,8 @@
       "assistance": "Повиквания",
       "tables": "Маси и QR",
       "settings": "Настройки",
-      "menuEditor": "Редактор на менюто"
+      "menuEditor": "Редактор на менюто",
+      "import": "Импорт"
     }
   },
   "settings": {
@@ -90,10 +91,10 @@
   },
   "orders": {
     "tabs": {
-        "new": "Нови",
-        "inProgress": "В процес",
-        "served": "Сервирани",
-        "canceled": "Отказани"
+      "new": "Нови",
+      "inProgress": "В процес",
+      "served": "Сервирани",
+      "canceled": "Отказани"
     },
     "orderNo": "Поръчка #{{id}}",
     "table": "Маса {{id}}",
@@ -144,6 +145,7 @@
   "publicMenu": {
     "viewingTable": "Разглеждате менюто за маса {{tableNumber}}",
     "staffNotified": "✅ Персоналът е уведомен и ще бъде при вас скоро!",
+    "staffNotifiedShort": "Персоналът е уведомен!",
     "failedLoad": "Неуспешно зареждане на менюто. Моля, опитайте отново по-късно.",
     "noItems": "Няма налични артикули",
     "callWaiter": "Повикай сервитьор",

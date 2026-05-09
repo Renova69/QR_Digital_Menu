@@ -24,7 +24,8 @@
       "assistance": "Cereri de Asistență",
       "tables": "Mese și QR",
       "settings": "Setări",
-      "menuEditor": "Editor Meniu"
+      "menuEditor": "Editor Meniu",
+      "import": "Import"
     }
   },
   "settings": {
@@ -90,10 +91,10 @@
   },
   "orders": {
     "tabs": {
-        "new": "Noi",
-        "inProgress": "În desfășurare",
-        "served": "Servite",
-        "canceled": "Anulate"
+      "new": "Noi",
+      "inProgress": "În desfășurare",
+      "served": "Servite",
+      "canceled": "Anulate"
     },
     "orderNo": "Comandă #{{id}}",
     "table": "Masa {{id}}",
@@ -142,9 +143,10 @@
     "itemImage": "Imaginea Articolului"
   },
   "publicMenu": {
-    "viewingTable": "Vezi meniul pentru Masa {{tableNumber}}",
+    "viewingTable": "Vizualizați meniul pentru Masa {{tableNumber}}",
     "staffNotified": "✅ Un membru al personalului a fost notificat și va veni în curând!",
-    "failedLoad": "Nu s-a putut încărca meniul. Vă rugăm să încercați din nou.",
+    "staffNotifiedShort": "Personal notificat!",
+    "failedLoad": "Nu s-a putut încărca meniul. Vă rugăm să încercați din nou mai târziu.",
     "noItems": "Niciun articol disponibil",
     "callWaiter": "Cheamă Chelner",
     "promptTable": "Vă rugăm să introduceți numărul mesei:",
