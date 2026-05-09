@@ -31,6 +31,15 @@ export class PaymentController {
     );
   }
 
+  @Post('session/force-open')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  forceOpenSession(
+    @Body() body: { tableId: string; restaurantId: string },
+  ) {
+    return this.paymentService.forceOpenSession(body.tableId, body.restaurantId);
+  }
+
   @Get('session/:token/bill')
   getSessionBill(@Param('token') token: string) {
     return this.paymentService.getSessionBill(token);

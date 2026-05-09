@@ -181,6 +181,11 @@ export const getOrCreateSession = async (tableId: string, restaurantId: string, 
   return response.data as { session: any; token: string };
 };
 
+export const forceOpenSession = async (tableId: string, restaurantId: string) => {
+  const response = await api.post('/payments/session/force-open', { tableId, restaurantId });
+  return response.data as { session: any; token: string };
+};
+
 export const getSessionBill = async (token: string) => {
   const response = await api.get(`/payments/session/${token}/bill`);
   return response.data as {
