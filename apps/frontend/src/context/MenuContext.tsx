@@ -49,6 +49,7 @@ interface MenuContextType {
       rewardPointsPrice?: number;
       relatedItemIds?: string[];
       imageFile?: File | null;
+      imageRemoved?: boolean;
     },
   ) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
@@ -126,7 +127,11 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({
     })) as Item;
 
     if (imageFile && newItem) {
-      await uploadImage({ itemId: newItem.id, file: imageFile });
+      try {
+        await uploadImage({ itemId: newItem.id, file: imageFile });
+      } catch (error) {
+        throw new Error('Item created but image upload failed. Please try uploading the image again in edit mode.');
+      }
     }
   };
 
@@ -143,10 +148,16 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({
       rewardPointsPrice?: number;
       relatedItemIds?: string[];
       imageFile?: File | null;
+      imageRemoved?: boolean;
     },
   ) => {
     if (!selectedCategory) return;
-    const { imageFile, ...rest } = itemData;
+    const { imageFile, imageRemoved, ...rest } = itemData;
+
+    if (imageRemoved) {
+      (rest as any).imageUrl = null;
+      (rest as any).thumbnailUrl = null;
+    }
 
     await updateItem({
       id,

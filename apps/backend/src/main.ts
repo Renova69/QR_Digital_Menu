@@ -13,7 +13,20 @@ async function bootstrap() {
     app.use(express.urlencoded({ extended: true }));
 
     app.enableCors({
-      origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+      origin: (origin, callback) => {
+        const allowed = [
+          process.env.FRONTEND_URL || 'http://localhost:3001',
+          'http://localhost:3001',
+          'http://127.0.0.1:3001',
+          'http://localhost:3002',
+          'http://127.0.0.1:3002',
+        ];
+        if (!origin || allowed.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error(`CORS: ${origin} not allowed`));
+        }
+      },
       credentials: true,
     });
 

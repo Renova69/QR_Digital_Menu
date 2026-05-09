@@ -11,6 +11,7 @@ import {
   ValidationPipe,
   UseInterceptors,
   UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -68,8 +69,9 @@ export class ItemDetailController {
       storage: memoryStorage(),
       limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
       fileFilter: (req, file, cb) => {
-        if (!file.mimetype.startsWith('image/')) {
-          return cb(new Error('Only image files are allowed'), false);
+        const allowedTypes = ['image/jpeg', 'image/png'];
+        if (!allowedTypes.includes(file.mimetype)) {
+          return cb(null, false);
         }
         cb(null, true);
       },
@@ -80,11 +82,18 @@ export class ItemDetailController {
     @UploadedFile() file: Express.Multer.File,
     @Request() req,
   ) {
-    const imageUrl = await this.storageService.upload(
-      file.buffer,
-      file.originalname,
-      file.mimetype,
-    );
-    return this.menuService.updateItemImage(id, imageUrl, req.user.id);
+    if (!file) {
+      throw new BadRequestException('Only JPEG and PNG images are supported');
+    }
+    try {
+      const { url, thumbnailUrl } = await this.storageService.uploadWithThumbnail(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+      );
+      return this.menuService.updateItemImage(id, url, thumbnailUrl, req.user.id);
+    } catch (error: any) {
+      throw new BadRequestException(error.message || 'Failed to upload image');
+    }
   }
 }

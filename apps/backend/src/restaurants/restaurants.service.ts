@@ -77,13 +77,13 @@ export class RestaurantsService {
     });
   }
 
-  async updateLogo(id: string, logoUrl: string, userId: string) {
+  async updateLogo(id: string, logoUrl: string, logoThumbnailUrl: string, userId: string) {
     // First, ensure the restaurant exists and the user has permission
     await this.findOne(id, userId);
 
     return this.prisma.restaurant.update({
       where: { id },
-      data: { logoUrl },
+      data: { logoUrl, logoThumbnailUrl },
     });
   }
 

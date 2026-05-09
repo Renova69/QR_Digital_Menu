@@ -44,19 +44,28 @@
     color-scheme: light;
     --glass-opacity: 0.7;
     --glass-blur: 12px;
+    
+    /* Apply custom theme colors if provided by React inline styles, otherwise fallback to tailwind defaults */
+    --color-background: var(--custom-bg, hsl(20 30% 98%));
+    --color-foreground: var(--custom-text, hsl(20 60% 5%));
+    --color-card: var(--custom-card, hsla(0 0% 100% / 0.8));
+    --color-card-foreground: var(--custom-text, hsl(20 60% 5%));
+    --color-popover: var(--custom-bg, hsl(0 0% 100%));
+    --color-popover-foreground: var(--custom-text, hsl(20 60% 5%));
   }
 }
 
 .dark {
   color-scheme: dark;
-  --color-background: hsl(20 20% 5%);
-  --color-foreground: hsl(28 15% 95%);
+  /* Dark mode strictly ignores --custom-* variables to guarantee a dark UI */
+  --color-background: hsl(20 20% 5%) !important;
+  --color-foreground: hsl(28 15% 95%) !important;
 
-  --color-card: hsla(20 20% 7% / 0.8);
-  --color-card-foreground: hsl(28 15% 95%);
+  --color-card: hsla(20 20% 7% / 0.8) !important;
+  --color-card-foreground: hsl(28 15% 95%) !important;
 
-  --color-popover: hsl(20 20% 5%);
-  --color-popover-foreground: hsl(28 15% 95%);
+  --color-popover: hsl(20 20% 5%) !important;
+  --color-popover-foreground: hsl(28 15% 95%) !important;
 
   --color-primary: hsl(28 15% 95%);
   --color-primary-foreground: hsl(20 20% 5%);
@@ -89,7 +98,7 @@
     @apply scroll-smooth;
   }
   body {
-    @apply bg-background text-foreground tracking-tight selection:bg-accent/20 overflow-x-hidden;
+    @apply bg-background text-foreground tracking-tight selection:bg-accent/20 overflow-x-clip;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     transition: background-color 200ms ease;
@@ -101,7 +110,7 @@
 
 @layer utilities {
   .glass-panel {
-    @apply backdrop-blur-[var(--glass-blur)] border border-white/10 dark:border-white/5 shadow-xl transition-all duration-300;
+    @apply backdrop-blur-[var(--glass-blur)] border border-black/5 dark:border-white/10 shadow-xl transition-all duration-300;
     background-color: var(--color-card);
   }
   .glass-panel-hover {

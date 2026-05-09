@@ -156,6 +156,7 @@ export class MenuService {
   async updateCategoryImage(
     categoryId: string,
     imageUrl: string,
+    thumbnailUrl: string,
     userId: string,
   ) {
     const category = await this.prisma.menuCategory.findUnique({
@@ -169,7 +170,7 @@ export class MenuService {
     await this.checkRestaurantOwnership(category.restaurantId, userId);
     return this.prisma.menuCategory.update({
       where: { id: categoryId },
-      data: { imageUrl } as any,
+      data: { imageUrl, thumbnailUrl } as any,
     });
   }
 
@@ -322,7 +323,7 @@ export class MenuService {
     return updated;
   }
 
-  async updateItemImage(itemId: string, imageUrl: string, userId: string) {
+  async updateItemImage(itemId: string, imageUrl: string, thumbnailUrl: string, userId: string) {
     const item = await this.prisma.menuItem.findUnique({
       where: { id: itemId },
       select: { category: { select: { restaurantId: true } } },
@@ -334,7 +335,7 @@ export class MenuService {
     await this.checkRestaurantOwnership(item.category.restaurantId, userId);
     return this.prisma.menuItem.update({
       where: { id: itemId },
-      data: { imageUrl },
+      data: { imageUrl, thumbnailUrl },
     });
   }
 

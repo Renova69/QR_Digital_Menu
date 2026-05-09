@@ -24,6 +24,8 @@ export class MenuImportService {
     const stats = { created: 0, updated: 0, categories: 0 };
 
     await this.prisma.$transaction(async (tx) => {
+      if (!dto.categories?.length) throw new Error('No categories in payload');
+
       const maxCatOrder = await tx.menuCategory.aggregate({
         where: { restaurantId },
         _max: { order: true },

@@ -34,6 +34,7 @@ export interface Item {
   currency: "EUR" | "BGN";
   categoryId: string;
   imageUrl?: string | null;
+  thumbnailUrl?: string | null;
   allergens?: string[];
   dietaryTags?: string[];
   isFeatured?: boolean;
@@ -49,6 +50,7 @@ export interface Category {
   id: string;
   name: string;
   imageUrl?: string | null;
+  thumbnailUrl?: string | null;
   restaurantId: string;
   items: Item[];
   availabilityType: AvailabilityType;
