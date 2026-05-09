@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ImportMenuDto } from './dto/import-menu.dto';
 import { randomBytes } from 'crypto';
@@ -8,6 +8,8 @@ const VALID_AVAILABILITY = new Set(Object.values(AvailabilityType));
 
 @Injectable()
 export class MenuImportService {
+  private readonly logger = new Logger(MenuImportService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async checkOwnership(restaurantId: string, userId: string) {
@@ -23,6 +25,7 @@ export class MenuImportService {
   async upsertMenu(restaurantId: string, dto: ImportMenuDto) {
     const stats = { created: 0, updated: 0, categories: 0 };
 
+    try {
     await this.prisma.$transaction(async (tx) => {
       if (!dto.categories?.length) throw new Error('No categories in payload');
 
@@ -127,7 +130,11 @@ export class MenuImportService {
           }
         }
       }
-    });
+    }, { timeout: 60000 });
+    } catch (err) {
+      this.logger.error('upsertMenu failed', err instanceof Error ? err.stack : String(err));
+      throw err;
+    }
 
     return { success: true, ...stats };
   }
