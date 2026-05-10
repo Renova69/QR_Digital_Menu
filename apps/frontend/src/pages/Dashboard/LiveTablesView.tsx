@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useContext } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getTableStatuses } from '../../lib/api';
+import { getTableStatuses, getTableOrders } from '../../lib/api';
 import { useTranslation } from 'react-i18next';
 import RestaurantContext from '../../context/RestaurantContext';
 import { useSocket } from '../../context/SocketContext';
@@ -19,6 +19,8 @@ const LiveTablesView: React.FC = () => {
   const [filter, setFilter] = useState<FilterMode>('active');
   const [selectedTable, setSelectedTable] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [tableOrders, setTableOrders] = useState<any[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
 
   const { data: tables, isLoading, error } = useQuery({
     queryKey: ['tableStatuses', restaurantId],
@@ -54,9 +56,21 @@ const LiveTablesView: React.FC = () => {
     }
   }, [tables, filter]);
 
-  const handleTableClick = (table: any) => {
+  const handleTableClick = async (table: any) => {
     setSelectedTable(table);
     setModalOpen(true);
+    setTableOrders([]);
+    if (table.orderCount > 0 && restaurantId) {
+      setOrdersLoading(true);
+      try {
+        const orders = await getTableOrders(table.id, restaurantId);
+        setTableOrders(orders);
+      } catch {
+        setTableOrders([]);
+      } finally {
+        setOrdersLoading(false);
+      }
+    }
   };
 
   if (isLoading) {
@@ -134,12 +148,13 @@ const LiveTablesView: React.FC = () => {
         </div>
       )}
 
-      {/* Detail modal — shows summary from table status data */}
+      {/* Detail modal — shows real order data from API */}
       <TableDetailModal
         open={modalOpen}
         onOpenChange={setModalOpen}
         table={selectedTable}
-        orders={[]}
+        orders={tableOrders}
+        ordersLoading={ordersLoading}
         paymentInfo={
           selectedTable?.status === 'paid'
             ? { amount: selectedTable.totalAmount }

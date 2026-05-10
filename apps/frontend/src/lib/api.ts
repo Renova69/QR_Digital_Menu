@@ -92,6 +92,21 @@ export const deleteTable = async (tableId: string) => {
   return response.data;
 };
 
+export const getTableOrders = async (tableId: string, restaurantId: string) => {
+  const response = await api.get(`/tables/${tableId}/orders`, {
+    params: { restaurantId },
+  });
+  return response.data as Array<{
+    id: string;
+    customerName: string;
+    totalPrice: number;
+    status: string;
+    specialRequests: string | null;
+    createdAt: string;
+    items: Array<{ name: string; quantity: number }>;
+  }>;
+};
+
 export const getTableStatuses = async (restaurantId: string) => {
   const response = await api.get(`/tables/status/${restaurantId}`);
   return response.data as Array<{

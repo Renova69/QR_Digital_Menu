@@ -24,6 +24,7 @@ interface TableDetailModalProps {
     sessionStatus: string | null;
   } | null;
   orders: OrderDetail[];
+  ordersLoading?: boolean;
   paymentInfo?: { amount: number; tipAmount?: number } | null;
 }
 
@@ -46,6 +47,7 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
   onOpenChange,
   table,
   orders,
+  ordersLoading,
   paymentInfo,
 }) => {
   const { t } = useTranslation();
@@ -75,7 +77,13 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
           )}
         </div>
 
-        {orders.length === 0 && (
+        {ordersLoading && (
+          <div className="flex justify-center py-4">
+            <div className="animate-spin h-5 w-5 border-2 border-accent border-t-transparent rounded-full" />
+          </div>
+        )}
+
+        {!ordersLoading && orders.length === 0 && (
           <p className="text-muted-foreground text-sm py-4">{t('orders.noOrders', { status: '' })}</p>
         )}
 
