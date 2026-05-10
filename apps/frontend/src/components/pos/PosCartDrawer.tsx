@@ -44,6 +44,8 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
   const pendingTotal = getPendingTotal();
   const pendingCount = pendingItems.reduce((sum, i) => sum + i.quantity, 0);
   const hasAnyItems = items.length > 0;
+  const submittedTotal = total - pendingTotal;
+  const hasPending = pendingItems.length > 0;
 
   const handleSubmit = async () => {
     if (pendingItems.length === 0 || !session || !activeRestaurant) return;
@@ -314,22 +316,24 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
             {activeRestaurant?.paymentsEnabled && (
               <button
                 type="button"
-                onClick={() => setConfirmAction({ type: "card", total })}
-                disabled={closing || !hasAnyItems}
+                onClick={() => setConfirmAction({ type: "card", total: submittedTotal })}
+                disabled={closing || !hasAnyItems || hasPending}
+                title={hasPending ? "Submit pending items first" : undefined}
                 className="w-full py-3 rounded-lg bg-amber-500 text-white font-semibold disabled:opacity-50 min-h-[44px]"
               >
-                {closing ? "Closing..." : `Close - Paid by Card · €${total.toFixed(2)}`}
+                {closing ? "Closing..." : `Close - Paid by Card · €${submittedTotal.toFixed(2)}`}
               </button>
             )}
 
             {/* Close - Paid by Cash — always visible */}
             <button
               type="button"
-              onClick={() => setConfirmAction({ type: "cash", total })}
-              disabled={closing || !hasAnyItems}
+              onClick={() => setConfirmAction({ type: "cash", total: submittedTotal })}
+              disabled={closing || !hasAnyItems || hasPending}
+              title={hasPending ? "Submit pending items first" : undefined}
               className="w-full py-3 rounded-lg bg-emerald-600 text-white font-semibold disabled:opacity-50 min-h-[44px]"
             >
-              {closing ? "Closing..." : `Close - Paid by Cash · €${total.toFixed(2)}`}
+              {closing ? "Closing..." : `Close - Paid by Cash · €${submittedTotal.toFixed(2)}`}
             </button>
 
             {/* Force Close */}

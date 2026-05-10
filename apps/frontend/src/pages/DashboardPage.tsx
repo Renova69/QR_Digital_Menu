@@ -40,13 +40,16 @@ const DashboardPage = () => {
   const { activeRestaurant, restaurants, loading: restaurantsLoading, error: restaurantsError }: any = useContext(RestaurantContext);
   const [activeTab, setActiveTab] = useState<TabId>('summary');
   const [searchParams] = useSearchParams();
+  const tabFromParamApplied = useRef(false);
 
   useEffect(() => {
+    if (tabFromParamApplied.current) return;
     const tab = searchParams.get('tab') as TabId | null;
     if (tab && VALID_TABS.includes(tab)) {
       setActiveTab(tab);
+      tabFromParamApplied.current = true;
     }
-  }, []);
+  }, [searchParams]);
 
   const { t, i18n } = useTranslation();
   const paymentsEnabled = (activeRestaurant as any)?.paymentsEnabled ?? false;
@@ -193,7 +196,7 @@ const DashboardPage = () => {
             )}
             {activeTab === 'analytics' && activeRestaurant && <AnalyticsView />}
             {activeTab === 'orders' && <OrdersView />}
-            {activeTab === 'payments' && activeRestaurant && <PaymentsView />}
+            {activeTab === 'payments' && activeRestaurant && paymentsEnabled && <PaymentsView />}
             {activeTab === 'assistance' && <AssistanceView />}
             {activeTab === 'tables' && activeRestaurant && <TableView />}
             {activeTab === 'settings' && activeRestaurant && <SettingsView />}

@@ -260,6 +260,7 @@ export class PaymentService {
     if (!session) throw new NotFoundException('Session not found');
 
     const amount = session.orders.reduce((sum, o) => sum + o.totalPrice, 0);
+    if (amount <= 0) throw new BadRequestException('Cannot close a session with no orders');
 
     await this.prisma.$transaction(async (tx) => {
       await tx.payment.create({
@@ -269,16 +270,17 @@ export class PaymentService {
           amount,
           tipAmount: 0,
           platformFeeAmount: 0,
-          currency: 'EUR',
+          currency: 'eur',
           status: 'SUCCEEDED',
           provider: 'MYPOS',
         },
       });
 
-      await tx.tableSession.update({
-        where: { id: session.id },
+      const updated = await tx.tableSession.updateMany({
+        where: { id: session.id, status: 'OPEN' },
         data: { status: 'PAID', paidAt: new Date() },
       });
+      if (updated.count === 0) throw new Error('Session already closed');
     });
 
     this.events.emitTableStatusChanged(
@@ -316,6 +318,7 @@ export class PaymentService {
     if (!session) throw new NotFoundException('Session not found');
 
     const amount = session.orders.reduce((sum, o) => sum + o.totalPrice, 0);
+    if (amount <= 0) throw new BadRequestException('Cannot close a session with no orders');
 
     await this.prisma.$transaction(async (tx) => {
       await tx.payment.create({
@@ -325,16 +328,17 @@ export class PaymentService {
           amount,
           tipAmount: 0,
           platformFeeAmount: 0,
-          currency: 'EUR',
+          currency: 'eur',
           status: 'SUCCEEDED',
           provider: 'CASH',
         },
       });
 
-      await tx.tableSession.update({
-        where: { id: session.id },
+      const updated = await tx.tableSession.updateMany({
+        where: { id: session.id, status: 'OPEN' },
         data: { status: 'PAID', paidAt: new Date() },
       });
+      if (updated.count === 0) throw new Error('Session already closed');
     });
 
     this.events.emitTableStatusChanged(
