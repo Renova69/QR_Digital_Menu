@@ -1,7 +1,7 @@
 import { useState, useContext } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { usePos } from "../../context/PosContext";
-import { createOrder, closeSession, closeSessionWithCard } from "../../lib/api";
+import { createOrder, closeSession, closeSessionWithCard, closeSessionWithCash } from "../../lib/api";
 import RestaurantContext from "../../context/RestaurantContext";
 import PosSplitBill from "./PosSplitBill";
 import PosQRBill from "./PosQRBill";
@@ -14,6 +14,7 @@ interface PosCartDrawerProps {
 type ConfirmAction =
   | { type: "submit"; total: number }
   | { type: "card"; total: number }
+  | { type: "cash"; total: number }
   | { type: "force" }
   | null;
 
@@ -82,6 +83,24 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
     setSubmitError(null);
     try {
       await closeSessionWithCard(session.sessionToken, activeRestaurant.id);
+      clearSession();
+      setExpanded(false);
+    } catch (err: any) {
+      setSubmitError(
+        err.response?.data?.message ?? "Failed to close session. Try again."
+      );
+    } finally {
+      setClosing(false);
+    }
+  };
+
+  const handleCashPayment = async () => {
+    if (!session?.sessionToken || !activeRestaurant) return;
+    setConfirmAction(null);
+    setClosing(true);
+    setSubmitError(null);
+    try {
+      await closeSessionWithCash(session.sessionToken, activeRestaurant.id);
       clearSession();
       setExpanded(false);
     } catch (err: any) {
@@ -303,6 +322,16 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
               </button>
             )}
 
+            {/* Close - Paid by Cash — always visible */}
+            <button
+              type="button"
+              onClick={() => setConfirmAction({ type: "cash", total })}
+              disabled={closing || !hasAnyItems}
+              className="w-full py-3 rounded-lg bg-emerald-600 text-white font-semibold disabled:opacity-50 min-h-[44px]"
+            >
+              {closing ? "Closing..." : `Close - Paid by Cash · €${total.toFixed(2)}`}
+            </button>
+
             {/* Force Close */}
             <button
               type="button"
@@ -329,6 +358,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
             <Dialog.Title className="text-lg font-semibold mb-2">
               {confirmAction?.type === "submit" && "Submit Order"}
               {confirmAction?.type === "card" && "Close Table — Paid by Card"}
+              {confirmAction?.type === "cash" && "Close Table — Paid by Cash"}
               {confirmAction?.type === "force" && "Force Close — No Payment"}
             </Dialog.Title>
             <Dialog.Description className="text-sm text-muted-foreground mb-6">
@@ -343,6 +373,13 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                   Customer paid{" "}
                   <strong>€{confirmAction.total.toFixed(2)}</strong> by card
                   terminal. This will close the table and record the payment.
+                </>
+              )}
+              {confirmAction?.type === "cash" && (
+                <>
+                  Customer paid{" "}
+                  <strong>€{confirmAction.total.toFixed(2)}</strong> in cash.
+                  This will close the table and record the payment.
                 </>
               )}
               {confirmAction?.type === "force" && (
@@ -366,6 +403,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                 onClick={() => {
                   if (confirmAction?.type === "submit") handleSubmit();
                   else if (confirmAction?.type === "card") handleCardPayment();
+                  else if (confirmAction?.type === "cash") handleCashPayment();
                   else if (confirmAction?.type === "force") handleForceClose();
                 }}
                 className={`flex-1 py-3 rounded-lg text-white font-semibold min-h-[44px] ${
@@ -373,11 +411,14 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                     ? "bg-destructive"
                     : confirmAction?.type === "card"
                       ? "bg-amber-500"
-                      : "bg-green-600"
+                      : confirmAction?.type === "cash"
+                        ? "bg-emerald-600"
+                        : "bg-green-600"
                 }`}
               >
                 {confirmAction?.type === "submit" && "Submit"}
                 {confirmAction?.type === "card" && "Confirm Paid"}
+                {confirmAction?.type === "cash" && "Confirm Cash"}
                 {confirmAction?.type === "force" && "Force Close"}
               </button>
             </div>

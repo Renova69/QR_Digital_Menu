@@ -305,6 +305,62 @@ export class PaymentService {
     return { amount };
   }
 
+  async closeSessionWithCash(
+    token: string,
+    restaurantId: string,
+  ): Promise<{ amount: number }> {
+    const session = await this.prisma.tableSession.findFirst({
+      where: { token, restaurantId, status: 'OPEN' },
+      include: { orders: true },
+    });
+    if (!session) throw new NotFoundException('Session not found');
+
+    const amount = session.orders.reduce((sum, o) => sum + o.totalPrice, 0);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.payment.create({
+        data: {
+          tableSessionId: session.id,
+          restaurantId,
+          amount,
+          tipAmount: 0,
+          platformFeeAmount: 0,
+          currency: 'EUR',
+          status: 'SUCCEEDED',
+          provider: 'CASH',
+        },
+      });
+
+      await tx.tableSession.update({
+        where: { id: session.id },
+        data: { status: 'PAID', paidAt: new Date() },
+      });
+    });
+
+    this.events.emitTableStatusChanged(
+      restaurantId,
+      session.tableId,
+      session.id,
+    );
+
+    const tableNumber =
+      (
+        await this.prisma.restaurantTable.findUnique({
+          where: { id: session.tableId },
+          select: { name: true },
+        })
+      )?.name ?? null;
+
+    this.events.emitToRestaurant(restaurantId, 'payment:confirmed', {
+      tableSessionId: session.id,
+      amount,
+      tipAmount: 0,
+      tableNumber,
+    });
+
+    return { amount };
+  }
+
   async forceOpenSession(
     tableId: string,
     restaurantId: string,
