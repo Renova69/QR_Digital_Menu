@@ -1709,3 +1709,132 @@ Task 18 (Verification)
 ```
 
 Tasks 7-13 are frontend leaf components that depend on PosContext (Task 3). They can be built in parallel once Task 3 is done, but sequential build avoids import errors with missing files.
+
+---
+
+## Post-Implementation Deviations (2026-05-10)
+
+During code review and bug fixing, the implementation diverged from this plan in 12 areas. All deviations are **improvements** — the plan code had 3 critical bugs and 4 important functional gaps. This section documents the actual patterns so future maintainers are not misled by the original plan snippets.
+
+### Critical Fixes (plan code was broken)
+
+**1. Radix Dialog overlay pattern** (Tasks 11, 6)
+
+Plan used `if (!item) return null` which unmounts `Dialog.Root` before Radix cleans up its Portal. The `fixed inset-0 z-50` overlay stays in `document.body`, invisible but blocking all clicks after first drawer interaction.
+
+Actual pattern — always mount Root, conditionally render Portal content:
+```tsx
+<Dialog.Root open={open} onOpenChange={handleOpenChange}>
+  <Dialog.Portal>
+    {item && (
+      <>
+        <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+        <Dialog.Content>...</Dialog.Content>
+      </>
+    )}
+  </Dialog.Portal>
+</Dialog.Root>
+```
+
+Also: uses `Dialog` import (not `Sheet`) for consistency with PosTableModal. Both import from `@radix-ui/react-dialog`.
+
+**2. UUID generation** (Task 3)
+
+Plan used `crypto.randomUUID()` directly. This throws `TypeError` in non-secure contexts (HTTP without localhost, some WebViews). Every tap on a non-option item → silent crash in click handler.
+
+Actual: `generateId()` wrapper with `Math.random()` fallback:
+```typescript
+function generateId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+```
+
+**3. createOrder payload** (Task 13)
+
+Plan sent `tableId: session.tableId` (UUID) and `tableSessionId: session.sessionId` (field doesn't exist in DTO). Backend `OrdersService.create()` line 107 explicitly states: `"Frontend sends table name (e.g. '1'), not cuid — resolve to real id"`. Plan payload would cause every order to fail with `NotFoundException('Table not found')`.
+
+Actual payload:
+```typescript
+await createOrder({
+  customerName: "Staff",
+  tableId: session.tableName,         // human-readable name, not UUID
+  restaurantId: activeRestaurant.id,
+  specialRequests,
+  sessionToken: session.sessionToken,  // matches CreateOrderDto field
+  items: items.map((item) => ({
+    menuItemId: item.menuItemId,
+    quantity: item.quantity,
+    selectedOptions: item.selectedOptions,
+  })),
+});
+```
+
+### Important Gaps (plan missing required behavior)
+
+**4. Centralized menu fetch** (Tasks 8, 10)
+
+Plan had PosItemGrid and PosCategoryFilter each independently call `api.get(/menu/public/${activeRestaurant.id})`. This meant 2 requests for the same data, no request cancellation on unmount, and race conditions on restaurant switch.
+
+Actual: PosPage fetches menu once with `AbortController`, passes `items`/`categories`/`loading`/`error` as props to child components. Both PosItemGrid and PosCategoryFilter are now pure presentational components that receive data via props.
+
+**5. Inline note editing** (Task 13)
+
+Plan had no note editing in the cart drawer (notes only settable at item-add time in the options drawer). Actual adds inline text input with `autoFocus`, Enter to save, Escape to cancel — replacing the even-worse `window.prompt()` from the initial implementation.
+
+**6. Force Close session button** (Task 13)
+
+Plan missed the Force Close requirement from the spec. Actual adds a "Force Close · No Payment" button in PosCartDrawer calling `closeSession(session.sessionToken, activeRestaurant.id)`.
+
+**7. User-facing error states** (Task 6)
+
+Plan used `console.error("Failed to open session:", err)` — silent failure with no user feedback. Actual adds `actionError` state with red error banner, plus a Retry button for table-load failures.
+
+### Minor Improvements
+
+**8. Case-insensitive role check** (Task 2)
+
+Plan: `!ALLOWED_ROLES.includes(user.role)`. Actual: `!ALLOWED_ROLES.includes(user.role?.toUpperCase())`. Prisma enum is uppercase (`OWNER`/`STAFF`/`CUSTOMER`) so both work, but the defensive `toUpperCase()` adds zero-cost safety against future changes.
+
+**9. Split bill cap at 20** (Task 15)
+
+Plan: unbounded `setSplitCount(splitCount + 1)`. Actual: `setSplitCount(Math.min(20, splitCount + 1))`. No restaurant splits a bill 37 ways. Cap prevents nonsense values.
+
+**10. Dead code removal** (Task 7)
+
+Plan imported `useContext(RestaurantContext)` in PosTopBar but never used it. Actual removes the dead import.
+
+**11. Visual feedback on item add** (Task 9)
+
+Plan: no feedback. Actual: `added` state triggers `scale-[0.96]` + `bg-accent/20` animation for 200ms when item added to cart.
+
+**12. Filter clearing on restaurant switch** (Tasks 8, 10)
+
+Plan had no handling for restaurant change. Active category pills and search queries would stay stale. Actual: `useEffect` on data change resets filters.
+
+**13. QR code size** (Task 16)
+
+Plan: `size={200}`. Actual: `size={256}` — marginally better scan reliability.
+
+### Files Modified Beyond Plan Scope
+
+| File | Extra Changes |
+|------|--------------|
+| `PosContext.tsx` | Added `generateId()`, `clearSession` resets `activeSeat` |
+| `PosItemGrid.tsx` | Props-based data, `error` state display, filter clearing |
+| `PosCategoryFilter.tsx` | Props-based data, `menuError` display, filter clearing |
+| `PosItemCard.tsx` | `added` animation state |
+| `PosTableModal.tsx` | `actionError`, `error` with retry, `handleOpenChange` blocks dismiss when no session |
+| `PosCartDrawer.tsx` | Inline note editing, Force Close button, correct `createOrder` payload |
+| `PosOptionsDrawer.tsx` | Always-mounted Dialog.Root, conditional Portal content |
+| `PosTopBar.tsx` | Removed dead `RestaurantContext` import |
+| `PosSplitBill.tsx` | Split count capped at 20 |
+| `PosQRBill.tsx` | Size 256px |
+| `StaffRoute.tsx` | `toUpperCase()` defensive role check |
+| `PosPage.tsx` | Centralized menu fetch with `AbortController` |
