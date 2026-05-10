@@ -130,7 +130,7 @@ apps/frontend/src/
 │       ├── PosCategoryFilter.tsx   — sticky horizontal category pills
 │       ├── PosItemGrid.tsx         — 2-col dense grid, filtered by category + search query
 │       ├── PosItemCard.tsx         — tap → addItem directly, or open PosOptionsDrawer if item has MenuOptions
-│       ├── PosOptionsDrawer.tsx    — Radix Sheet (bottom), VARIATION/ADDON selection + item note input
+│       ├── PosOptionsDrawer.tsx    — Radix Dialog (bottom), VARIATION/ADDON selection + item note input
 │       ├── PosCartDrawer.tsx       — slide-up cart panel: items grouped by seat, total, submit button
 │       ├── PosSeatSelector.tsx     — pill row: Seat 1 | Seat 2 | Seat 3 | Shared (sets activeSeat)
 │       ├── PosTableModal.tsx       — Radix Dialog, table grid from getTablesWithStatus, force open/close buttons
@@ -217,10 +217,10 @@ No Prisma schema changes. `CLOSED_NO_PAYMENT` enum value already exists in `Tabl
    ```json
    {
      "customerName": "Staff",
-     "tableId": "session.tableId",
+     "tableId": "session.tableName",
      "restaurantId": "activeRestaurant.id",
      "specialRequests": "[Seat 1] Ribeye: no salt | [Seat 2] Pasta",
-     "tableSessionId": "session.sessionId",
+     "sessionToken": "session.sessionToken",
      "items": [{ "menuItemId": "...", "quantity": 1, "selectedOptions": [...] }]
    }
    ```
