@@ -1,8 +1,8 @@
 # QR Menu — Product & Technical Due Diligence Report
 
 > **Prepared for:** Fortune 500 Acquisition Review
-> **Date:** May 8, 2026
-> **Product Status:** V2.5 Shipped | V3 Growth Features — Stripe Payments + Live Tables Complete
+> **Date:** May 10, 2026
+> **Product Status:** V2.5 Shipped | V3 Growth Features — Stripe Payments + Live Tables + OCR Import + Waiter POS Complete
 > **Codebase:** 100+ frontend source files, 16 backend modules, 13 database models, ~160 i18n keys across 3 languages
 
 ---
@@ -189,6 +189,7 @@ sequenceDiagram
 | **BG as i18n fallback** | Bulgarian is the default language (`fallbackLng: 'bg'`) since the primary market is Bulgarian restaurants. English and Romanian are secondary. English was moved from fallback to secondary in the May 5, 2026 overhaul. |
 | **Dual auth strategy** | JWT for dashboard owners, Email OTP for customers. Customers never create passwords. OTP codes are bcrypt-hashed (10 rounds), 10-min expiry, 60s rate-limit per email. Dev mode returns `devCode` in API response when `RESEND_API_KEY` is absent. |
 | **No customer password system** | The `User` model has a nullable `password` field. Customers created via OTP get no password — they authenticate exclusively through OTP or Google OAuth. Owners have hashed passwords. |
+| **POS — third layout with isolated state** | Waiter POS uses `PosLayout` (zero chrome, full viewport) and `PosContext` (in-memory only, ephemeral). Completely isolated from `CartContext` — POS cart state never leaks into the customer ordering flow. `submitted: boolean` flag on `PosCartItem` enables history display + pending-only submission without schema changes. |
 
 ---
 
@@ -894,6 +895,97 @@ sequenceDiagram
 - Missing restaurantId: query disabled via `enabled: !!restaurantId`
 
 **Dependencies:** Socket.io, TanStack React Query, Lucide React icons
+
+---
+
+### 3.18 Waiter POS (Point of Sale)
+
+**What it does:** Full-viewport, mobile-first POS interface at `/staff/pos` for waiters to take tableside orders rapidly. Complete isolation from the customer-facing menu and cart system. Waiters select a table (or force-open an occupied one), browse the menu in a dense 2-column grid, add items with optional variations/add-ons and per-item notes, assign items to seats (Seat 1-3 / Shared), submit only new items to the kitchen, and close sessions via card payment or force-close. On reopening an occupied table, the full order history is visible as read-only items while new items are added as pending.
+
+**How it works:**
+
+**Architecture — Third Layout:**
+- `PosLayout` (`apps/frontend/src/pages/pos/PosLayout.tsx`) wraps `/staff/pos` — zero chrome, full viewport, sticky top bar, scrollable content area, fixed bottom action bar with safe-area insets
+- `StaffRoute` (`apps/frontend/src/components/StaffRoute.tsx`) guards access — allows OWNER and STAFF roles, redirects unauthenticated to `/login`, CUSTOMER to `/profile`
+- Added as layout route in `App.tsx` alongside existing `AppLayout` and `PublicLayout`
+
+**State Management — PosContext:**
+- In-memory only (no localStorage) — POS cart is ephemeral, cleared on order submit or session end
+- Completely isolated from `CartContext` — no shared state, no interference
+- Key type `PosCartItem.submitted: boolean` — the backbone of the history/pending split:
+  - `addItem()` creates items with `submitted: false`
+  - `markAsSubmitted()` marks all pending items as submitted (after order creation)
+  - `setHistoryItems(history)` loads past orders as submitted, preserves pending
+  - `clearCart()` removes only pending items (preserves history within session)
+  - `resetCart()` removes ALL items (used on table switch)
+  - `getPendingTotal()` returns sum of non-submitted items only
+  - `buildSpecialRequests()` serializes only pending items with seat grouping
+
+**Table Selection & Session Management:**
+- `PosTableModal` shows color-coded table grid from `getTablesWithStatus()`
+- Normal open: `POST /api/payments/session` (idempotent `getOrCreateSession`)
+- Force open: `POST /api/payments/session/force-open` (JWT) — closes existing OPEN session, creates new one
+- On select: loads order history via `GET /api/payments/session/:token/bill` → `setHistoryItems()` if the table has existing orders
+- Cart fully reset via `resetCart()` before loading new table's session
+
+**Order Submission:**
+- Waiter selects seat via `PosSeatSelector` (Seat 1 | Seat 2 | Seat 3 | Shared) — sets `activeSeat`
+- Tap item card: no options → immediate `addItem()` with active seat; has options → `PosOptionsDrawer` opens for variation/add-on selection + optional per-item note
+- Cart drawer shows submitted items (gray, ✓ checkmark, read-only) and pending items (full qty/note/delete controls)
+- Submit button shows pending count + pending-only total, disabled when no pending items
+- On submit: `buildSpecialRequests()` serializes pending items only → `POST /api/orders` → `markAsSubmitted()` on success. Session stays open. Kitchen receives `newOrder` socket event.
+
+**specialRequests Serialization Format:**
+```
+[Seat 1] Ribeye: no salt, Pasta | [Seat 2] Salmon: extra lemon | [Shared] Water
+```
+Items without notes appear as name only. Quantities > 1 append ` xN`.
+
+**Session End (3 options, all with Radix confirmation dialogs):**
+- **Submit Order** (green) — sends only pending items to kitchen, marks as submitted, session stays open
+- **Paid by Card** (amber) — `POST /api/payments/session/:token/close-card` (JWT) → creates MYPOS payment record via `closeSessionWithCard()`, sets session to PAID, emits `table:status-changed` + `payment:confirmed` events → clears session. Uses existing `PaymentProvider.MYPOS` and `TableSessionStatus.PAID` enum values — zero schema change.
+- **Force Close** (red) — `POST /api/payments/session/:token/close` (JWT) → sets CLOSED_NO_PAYMENT → clears session
+
+**Split Bill & QR Bill:**
+- `PosSplitBill`: `(getTotal() / n).toFixed(2)` — pure UI math, no API call
+- `PosQRBill`: `<QRCodeSVG value={billUrl} size={256} />` — same URL customers use for tableside payment
+
+**Backend Additions (4 new endpoints, zero Prisma changes):**
+- `POST /api/payments/session/force-open` (JWT) — force-open table session
+- `POST /api/payments/session/:token/close-card` (JWT) — close with MYPOS card payment
+- `GET /api/tables/:tableId/orders?restaurantId=X` (JWT) — all orders for active session with item names
+- `PaymentService.closeSessionWithCard()` — Prisma `$transaction`: creates Payment (provider MYPOS, status SUCCEEDED) + updates TableSession to PAID with `paidAt`
+
+**Styling:**
+- Dark-mode-compatible via existing CSS variables
+- `PosItemCard`: `h-20`, 2-column dense grid, name + price only (no image)
+- `PosCategoryFilter`: horizontal scroll with `scrollbar-hide`, active pill uses `bg-accent/10 border border-accent`
+- All tap targets ≥ 44px
+- `transition-none` on item cards for performance on mid-range Android
+
+**Key files:**
+- `apps/frontend/src/context/PosContext.tsx` — 190 lines, 15 context methods
+- `apps/frontend/src/pages/pos/PosLayout.tsx` — full-viewport shell
+- `apps/frontend/src/pages/pos/PosPage.tsx` — component composition
+- `apps/frontend/src/components/pos/` — 12 components (TopBar, CategoryFilter, ItemGrid, ItemCard, OptionsDrawer, CartDrawer, SeatSelector, TableModal, SplitBill, QRBill)
+- `apps/frontend/src/components/StaffRoute.tsx` — staff auth guard
+- `apps/backend/src/payment/payment.service.ts` — `forceOpenSession()`, `closeSessionWithCard()`
+- `apps/backend/src/payment/payment.controller.ts` — 2 new endpoints
+- `apps/backend/src/tables/tables.service.ts` — `getTableOrders()`
+- `apps/frontend/src/lib/api.ts` — `forceOpenSession()`, `closeSessionWithCard()`, `getTableOrders()`
+
+**Edge cases handled:**
+- Table switching: `resetCart()` clears all items before loading new session — no stale data from previous table
+- Occupied table reopen: `getSessionBill()` loads full order history as `submitted: true` items; new items added as pending; only pending items sent on submit
+- Force open: warns via Force Open button in table card (must explicitly click, not on normal tap)
+- Empty restaurant: "No restaurants selected" empty state in POS layout
+- No tables: "No tables found" prompt in table modal
+- History load failure: best-effort — caught silently, doesn't block session open
+- Zero pending items: Submit button shows "No new items to submit" disabled state
+- Duplicate menuItemIds in order: deduplicated with `[...new Set()]` before Prisma `findMany`
+- Dashboard live view: clicking table now fetches real orders (was hardcoded "No orders")
+
+**Dependencies:** React 18, Tailwind CSS 4, Radix UI (Dialog), TanStack Query, `qrcode.react`, existing `SocketContext` + `RestaurantContext`
 
 ---
 
