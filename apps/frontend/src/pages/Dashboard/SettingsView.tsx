@@ -660,8 +660,8 @@ const SettingsView = () => {
                 )}
               </div>
 
-              {/* Stripe Connect */}
-              <div className="p-4 border border-border rounded-lg space-y-3">
+              {/* Stripe Connect — only shown when payments are enabled */}
+              {paymentsEnabled && <div className="p-4 border border-border rounded-lg space-y-3">
                 <p className="font-medium">{t('payment.settings.stripeConnect')}</p>
                 {stripeOnboarded ? (
                   <div className="flex items-center justify-between">
@@ -698,7 +698,7 @@ const SettingsView = () => {
                     {stripeLoading ? t('payment.settings.connecting') : t('payment.settings.connectStripe')}
                   </Button>
                 )}
-              </div>
+              </div>}
 
               {/* Tips */}
               {paymentsEnabled && (
