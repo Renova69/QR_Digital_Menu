@@ -40,6 +40,7 @@ describe('PaymentService', () => {
     };
     mockEvents = {
       emitToRestaurant: jest.fn(),
+      emitTableStatusChanged: jest.fn(),
     };
 
     service = new PaymentService(mockPrisma, mockStripeProvider, mockEvents);
@@ -258,6 +259,7 @@ describe('PaymentService', () => {
         where: { id: 's1' },
         data: { status: 'CLOSED_NO_PAYMENT' },
       });
+      expect(mockEvents.emitTableStatusChanged).toHaveBeenCalledWith('rest1', undefined, 's1');
     });
 
     it('throws NotFoundException when session not found', async () => {
