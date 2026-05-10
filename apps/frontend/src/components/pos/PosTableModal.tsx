@@ -71,34 +71,33 @@ export default function PosTableModal() {
         sessionId: result.session.id,
       });
 
-      // Load existing orders as history for occupied tables
-      if (table.orderCount > 0) {
-        try {
-          const bill = await getSessionBill(result.token);
-          const historyItems = bill.orders.flatMap((order: any) =>
-            (order.items ?? []).map((oi: any) => ({
-              cartId: oi.id,
-              menuItemId: oi.menuItemId ?? "",
-              name: oi.menuItem?.name ?? "Unknown item",
-              price: oi.menuItem?.price ?? 0,
-              quantity: oi.quantity,
-              selectedOptions: (oi.selectedOptions ?? []) as Array<{
-                optionId: string;
-                optionName: string;
-                choiceName: string;
-                priceModifier: number;
-              }>,
-              seatNumber: "Shared",
-              itemNote: "",
-              submitted: true,
-            }))
-          );
-          if (historyItems.length > 0) {
-            setHistoryItems(historyItems);
-          }
-        } catch {
-          // History load is best-effort; don't block session open
+      // Always load existing orders as history — don't trust orderCount
+      // from getTableStatuses (can be stale or mismatched session)
+      try {
+        const bill = await getSessionBill(result.token);
+        const historyItems = bill.orders.flatMap((order: any) =>
+          (order.items ?? []).map((oi: any) => ({
+            cartId: oi.id,
+            menuItemId: oi.menuItemId ?? "",
+            name: oi.menuItem?.name ?? "Unknown item",
+            price: oi.menuItem?.price ?? 0,
+            quantity: oi.quantity,
+            selectedOptions: (oi.selectedOptions ?? []) as Array<{
+              optionId: string;
+              optionName: string;
+              choiceName: string;
+              priceModifier: number;
+            }>,
+            seatNumber: "Shared",
+            itemNote: "",
+            submitted: true,
+          }))
+        );
+        if (historyItems.length > 0) {
+          setHistoryItems(historyItems);
         }
+      } catch {
+        // History load is best-effort; don't block session open
       }
 
       setOpen(false);
