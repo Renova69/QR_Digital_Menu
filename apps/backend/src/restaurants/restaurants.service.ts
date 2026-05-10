@@ -259,8 +259,8 @@ export class RestaurantsService {
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
     const url = await this.stripeProvider.createAccountLink(
       accountId,
-      `${baseUrl}/dashboard/settings?stripe=refresh`,
-      `${baseUrl}/dashboard/settings?stripe=success`,
+      `${baseUrl}/dashboard?stripe=refresh&tab=settings`,
+      `${baseUrl}/dashboard?stripe=success&tab=settings`,
     );
 
     return { url };

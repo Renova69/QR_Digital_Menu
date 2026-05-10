@@ -291,15 +291,17 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                   : `Submit Order · €${pendingTotal.toFixed(2)}`}
             </button>
 
-            {/* Close - Paid by Card — full session total */}
-            <button
-              type="button"
-              onClick={() => setConfirmAction({ type: "card", total })}
-              disabled={closing || !hasAnyItems}
-              className="w-full py-3 rounded-lg bg-amber-500 text-white font-semibold disabled:opacity-50 min-h-[44px]"
-            >
-              {closing ? "Closing..." : `Close - Paid by Card · €${total.toFixed(2)}`}
-            </button>
+            {/* Close - Paid by Card — only shown when restaurant has payments enabled */}
+            {activeRestaurant?.paymentsEnabled && (
+              <button
+                type="button"
+                onClick={() => setConfirmAction({ type: "card", total })}
+                disabled={closing || !hasAnyItems}
+                className="w-full py-3 rounded-lg bg-amber-500 text-white font-semibold disabled:opacity-50 min-h-[44px]"
+              >
+                {closing ? "Closing..." : `Close - Paid by Card · €${total.toFixed(2)}`}
+              </button>
+            )}
 
             {/* Force Close */}
             <button
