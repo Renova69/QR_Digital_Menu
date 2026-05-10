@@ -26,7 +26,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function PosTableModal() {
   const restaurantCtx = useContext(RestaurantContext);
   const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
-  const { session, setSession, setHistoryItems } = usePos();
+  const { session, setSession, setHistoryItems, resetCart } = usePos();
 
   const [tables, setTables] = useState<TableStatus[]>([]);
   const [loading, setLoading] = useState(false);
@@ -62,6 +62,8 @@ export default function PosTableModal() {
     setActionError(null);
     try {
       const result = await getOrCreateSession(table.id, activeRestaurant.id);
+      // Clear previous table's cart before loading new session
+      resetCart();
       setSession({
         tableId: table.id,
         tableName: table.name,
@@ -110,6 +112,7 @@ export default function PosTableModal() {
     setActionError(null);
     try {
       const result = await forceOpenSession(table.id, activeRestaurant.id);
+      resetCart();
       setSession({
         tableId: table.id,
         tableName: table.name,
