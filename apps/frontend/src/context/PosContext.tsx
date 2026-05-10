@@ -48,6 +48,7 @@ interface PosContextType {
   updateQuantity: (cartId: string, qty: number) => void;
   updateNote: (cartId: string, note: string) => void;
   clearCart: () => void;
+  resetCart: () => void;
   markAsSubmitted: () => void;
   setHistoryItems: (historyItems: PosCartItem[]) => void;
   session: PosSession | null;
@@ -94,6 +95,10 @@ export function PosProvider({ children }: { children: ReactNode }) {
 
   const clearCart = useCallback(() => {
     setItems((prev) => prev.filter((i) => i.submitted));
+  }, []);
+
+  const resetCart = useCallback(() => {
+    setItems([]);
   }, []);
 
   const markAsSubmitted = useCallback(() => {
@@ -164,6 +169,7 @@ export function PosProvider({ children }: { children: ReactNode }) {
     updateQuantity,
     updateNote,
     clearCart,
+    resetCart,
     markAsSubmitted,
     setHistoryItems,
     session,
