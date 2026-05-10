@@ -60,16 +60,15 @@ const LiveTablesView: React.FC = () => {
     setSelectedTable(table);
     setModalOpen(true);
     setTableOrders([]);
-    if (table.orderCount > 0 && restaurantId) {
-      setOrdersLoading(true);
-      try {
-        const orders = await getTableOrders(table.id, restaurantId);
-        setTableOrders(orders);
-      } catch {
-        setTableOrders([]);
-      } finally {
-        setOrdersLoading(false);
-      }
+    if (!restaurantId || table.status === 'empty') return;
+    setOrdersLoading(true);
+    try {
+      const orders = await getTableOrders(table.id, restaurantId);
+      setTableOrders(orders);
+    } catch {
+      setTableOrders([]);
+    } finally {
+      setOrdersLoading(false);
     }
   };
 
