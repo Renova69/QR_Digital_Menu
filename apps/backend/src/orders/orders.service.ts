@@ -37,8 +37,9 @@ export class OrdersService {
       throw new BadRequestException('Order must contain at least one item');
     }
 
-    // 1. Fetch all menu items at once (no N+1)
-    const menuItemIds = createOrderDto.items.map((i) => i.menuItemId);
+    // 1. Fetch all menu items at once (no N+1). Deduplicate IDs —
+    //    same item added twice (e.g. qty 1 + qty 1) sends duplicate menuItemIds.
+    const menuItemIds = [...new Set(createOrderDto.items.map((i) => i.menuItemId))];
 
     const dbItems = await this.prisma.menuItem.findMany({
       where: { id: { in: menuItemIds } },
