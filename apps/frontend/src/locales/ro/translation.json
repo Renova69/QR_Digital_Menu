@@ -1,6 +1,7 @@
 {
   "nav": {
     "dashboard": "Panou",
+    "menu": "Meniu",
     "logout": "Deconectare",
     "login": "Autentificare",
     "getStarted": "Începeți"
@@ -25,6 +26,7 @@
       "tables": "Mese și QR",
       "settings": "Setări",
       "menuEditor": "Editor Meniu",
+      "payments": "Plăți",
       "import": "Import"
     }
   },
@@ -210,8 +212,8 @@
     "redeemedFree": "Răscumpărat gratuit",
     "redeemForPts": "Răscumpără pentru {{pts}} puncte",
     "notEnoughPoints": "Puncte insuficiente pentru această răscumpărare",
-    "earnFreeFood": "Vrei mâncare gratuită?",
-    "signInToEarn": "Conectați-vă pentru a câștiga puncte.",
+    "earnFreeFood": "Conectați-vă și câștigați puncte la această comandă",
+    "signInToEarn": "Alăturați-vă programului de loialitate — colectați puncte, deblocați recompense.",
     "signIn": "Conectare / Înregistrare",
     "free": "GRATUIT"
   },
@@ -384,6 +386,7 @@
       "changeEmail": "← Schimbă emailul",
       "welcomeTitle": "Bine ați venit!",
       "welcomeBody": "Veți câștiga puncte pentru fiecare comandă. Folosiți-le pentru mâncare gratuită și reduceri.",
+      "namePlaceholder": "Numele dvs. (opțional)",
       "letsOrder": "Să comandăm!",
       "invalidCode": "Cod invalid sau expirat. Încercați din nou.",
       "tooManyRequests": "Așteptați puțin înainte de a solicita alt cod.",
@@ -397,7 +400,11 @@
   "profile": {
     "title": "Profilul meu",
     "welcome": "Bine ați revenit, {{name}}!",
+    "welcomeBack": "Bine ați revenit!",
     "subtitle": "Vizualizați istoricul comenzilor și punctele de loialitate.",
+    "namePlaceholder": "Numele dvs.",
+    "saveName": "Salvează",
+    "nameSaved": "Salvat!",
     "signOut": "Deconectare",
     "backToMenu": "← Înapoi la meniu",
     "vipTiersTitle": "Nivelurile VIP și punctele",
