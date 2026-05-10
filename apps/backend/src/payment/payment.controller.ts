@@ -64,6 +64,16 @@ export class PaymentController {
     return this.paymentService.closeSession(token, body.restaurantId);
   }
 
+  @Post('session/:token/close-card')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  closeSessionWithCard(
+    @Param('token') token: string,
+    @Body() body: { restaurantId: string },
+  ) {
+    return this.paymentService.closeSessionWithCard(token, body.restaurantId);
+  }
+
   @Get('sessions/:restaurantId')
   @UseGuards(JwtAuthGuard)
   getTableSessions(@Param('restaurantId') restaurantId: string) {

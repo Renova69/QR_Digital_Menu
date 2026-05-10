@@ -212,6 +212,11 @@ export const closeSession = async (token: string, restaurantId: string) => {
   return response.data;
 };
 
+export const closeSessionWithCard = async (token: string, restaurantId: string) => {
+  const response = await api.post(`/payments/session/${token}/close-card`, { restaurantId });
+  return response.data as { amount: number };
+};
+
 export const getTableSessions = async (restaurantId: string) => {
   const response = await api.get(`/payments/sessions/${restaurantId}`);
   return response.data as Array<{ id: string; token: string; tableId: string; status: string; createdAt: string; paidAt?: string }>;
