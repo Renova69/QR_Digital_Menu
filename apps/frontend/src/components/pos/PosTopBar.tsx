@@ -1,10 +1,8 @@
-import { useState, useContext } from "react";
+import { useState } from "react";
 import { usePos } from "../../context/PosContext";
-import RestaurantContext from "../../context/RestaurantContext";
 
 export default function PosTopBar() {
   const { session } = usePos();
-  const restaurantCtx = useContext(RestaurantContext);
   const [search, setSearch] = useState("");
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {

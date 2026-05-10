@@ -26,7 +26,7 @@ export default function PosSplitBill({ total }: PosSplitBillProps) {
         </span>
         <button
           type="button"
-          onClick={() => setSplitCount(splitCount + 1)}
+          onClick={() => setSplitCount(Math.min(20, splitCount + 1))}
           className="h-10 w-10 rounded-full bg-card border border-border flex items-center justify-center text-sm min-h-[44px] min-w-[44px]"
         >
           +

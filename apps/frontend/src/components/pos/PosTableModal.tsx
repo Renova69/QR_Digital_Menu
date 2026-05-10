@@ -31,16 +31,15 @@ export default function PosTableModal() {
   const [tables, setTables] = useState<TableStatus[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
-  // Auto-open when no session (fresh POS entry)
   useEffect(() => {
     if (!session) {
       setOpen(true);
     }
   }, [session]);
 
-  // Listen for external open requests (e.g. from PosTopBar)
   useEffect(() => {
     const handler = () => setOpen(true);
     window.addEventListener("pos:open-table-modal", handler);
@@ -53,16 +52,14 @@ export default function PosTableModal() {
       setError(null);
       getTableStatuses(activeRestaurant.id)
         .then(setTables)
-        .catch((err) => {
-          console.error("Failed to load tables:", err);
-          setError("Failed to load tables.");
-        })
+        .catch(() => setError("Failed to load tables. Check your connection."))
         .finally(() => setLoading(false));
     }
   }, [open, activeRestaurant]);
 
   const handleSelect = async (table: TableStatus) => {
     if (!activeRestaurant) return;
+    setActionError(null);
     try {
       const result = await getOrCreateSession(table.id, activeRestaurant.id);
       setSession({
@@ -72,13 +69,14 @@ export default function PosTableModal() {
         sessionId: result.session.id,
       });
       setOpen(false);
-    } catch (err) {
-      console.error("Failed to open session:", err);
+    } catch {
+      setActionError("Failed to open session. Try again or use Force Open.");
     }
   };
 
   const handleForceOpen = async (table: TableStatus) => {
     if (!activeRestaurant) return;
+    setActionError(null);
     try {
       const result = await forceOpenSession(table.id, activeRestaurant.id);
       setSession({
@@ -88,18 +86,16 @@ export default function PosTableModal() {
         sessionId: result.session.id,
       });
       setOpen(false);
-    } catch (err) {
-      console.error("Failed to force open session:", err);
+    } catch {
+      setActionError("Failed to force open session. Check your connection.");
     }
   };
 
   const handleOpenChange = (isOpen: boolean) => {
-    // Never allow dismissing when no table is selected — reopen immediately
     if (!isOpen && !session) {
       setOpen(true);
       return;
     }
-    // Block overlay click and Escape key dismiss when session is active
     if (session && !isOpen) return;
     setOpen(isOpen);
   };
@@ -127,11 +123,17 @@ export default function PosTableModal() {
           {session && (
             <button
               type="button"
-              className="w-full mb-4 py-2 px-4 rounded-lg bg-accent text-accent-foreground font-medium"
+              className="w-full mb-4 py-2 px-4 rounded-lg bg-accent text-accent-foreground font-medium min-h-[44px]"
               onClick={() => setOpen(false)}
             >
               Back to POS — {session.tableName}
             </button>
+          )}
+
+          {actionError && (
+            <p className="text-sm text-red-600 dark:text-red-400 mb-3 p-2 rounded bg-red-50 dark:bg-red-900/20">
+              {actionError}
+            </p>
           )}
 
           {loading ? (
@@ -139,7 +141,23 @@ export default function PosTableModal() {
               <div className="animate-spin h-6 w-6 border-2 border-accent border-t-transparent rounded-full" />
             </div>
           ) : error ? (
-            <p className="text-center text-red-600 dark:text-red-400 py-4 text-sm">{error}</p>
+            <div className="flex flex-col items-center py-8">
+              <p className="text-center text-red-600 dark:text-red-400 text-sm mb-3">{error}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setLoading(true);
+                  getTableStatuses(activeRestaurant.id)
+                    .then(setTables)
+                    .catch(() => setError("Failed to load tables. Check your connection."))
+                    .finally(() => setLoading(false));
+                }}
+                className="px-4 py-2 rounded-lg bg-accent text-accent-foreground text-sm min-h-[44px]"
+              >
+                Retry
+              </button>
+            </div>
           ) : (
             <>
               <div className="grid grid-cols-3 gap-3">
@@ -159,7 +177,7 @@ export default function PosTableModal() {
                           e.stopPropagation();
                           handleForceOpen(table);
                         }}
-                        className="mt-2 text-xs underline opacity-70 hover:opacity-100"
+                        className="mt-2 text-xs underline opacity-70 hover:opacity-100 min-h-[44px] flex items-center"
                       >
                         Force Open
                       </button>

@@ -1,6 +1,6 @@
 import { useState, useContext } from "react";
 import { usePos } from "../../context/PosContext";
-import { createOrder } from "../../lib/api";
+import { createOrder, closeSession } from "../../lib/api";
 import RestaurantContext from "../../context/RestaurantContext";
 import PosSplitBill from "./PosSplitBill";
 import PosQRBill from "./PosQRBill";
@@ -20,11 +20,15 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
     updateQuantity,
     updateNote,
     clearCart,
+    clearSession,
     buildSpecialRequests,
   } = usePos();
   const [expanded, setExpanded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [closing, setClosing] = useState(false);
 
   const handleSubmit = async () => {
     if (items.length === 0 || !session || !activeRestaurant) return;
@@ -54,6 +58,39 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleForceClose = async () => {
+    if (!session?.sessionToken || !activeRestaurant) return;
+    setClosing(true);
+    setSubmitError(null);
+    try {
+      await closeSession(session.sessionToken, activeRestaurant.id);
+      clearSession();
+      setExpanded(false);
+    } catch (err: any) {
+      setSubmitError(
+        err.response?.data?.message ?? "Failed to close session. Try again."
+      );
+    } finally {
+      setClosing(false);
+    }
+  };
+
+  const startEditingNote = (cartId: string, currentNote: string) => {
+    setEditingNoteId(cartId);
+    setNoteDraft(currentNote);
+  };
+
+  const saveNote = (cartId: string) => {
+    updateNote(cartId, noteDraft.trim());
+    setEditingNoteId(null);
+    setNoteDraft("");
+  };
+
+  const cancelEditingNote = () => {
+    setEditingNoteId(null);
+    setNoteDraft("");
   };
 
   const itemsBySeat = items.reduce<Record<string, typeof items>>((acc, item) => {
@@ -101,21 +138,49 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                           .join(", ")}
                       </div>
                     )}
-                    {item.itemNote && (
+                    {item.itemNote && editingNoteId !== item.cartId && (
                       <div className="text-xs text-accent italic mt-0.5">
                         Note: {item.itemNote}
                       </div>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newNote = prompt("Edit note:", item.itemNote || "");
-                        if (newNote !== null) updateNote(item.cartId, newNote);
-                      }}
-                      className="text-xs text-muted-foreground underline mt-1"
-                    >
-                      {item.itemNote ? "Edit note" : "+ Add note"}
-                    </button>
+                    {editingNoteId === item.cartId ? (
+                      <div className="flex items-center gap-1 mt-1">
+                        <input
+                          type="text"
+                          value={noteDraft}
+                          onChange={(e) => setNoteDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveNote(item.cartId);
+                            if (e.key === "Escape") cancelEditingNote();
+                          }}
+                          placeholder="e.g. no salt, extra sauce..."
+                          className="flex-1 px-2 py-1 rounded bg-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => saveNote(item.cartId)}
+                          className="text-xs text-accent font-medium px-2 py-1 min-h-[32px]"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEditingNote}
+                          className="text-xs text-muted-foreground px-1 py-1 min-h-[32px]"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => startEditingNote(item.cartId, item.itemNote || "")}
+                        className="text-xs text-muted-foreground underline mt-1 min-h-[32px]"
+                      >
+                        {item.itemNote ? "Edit note" : "+ Add note"}
+                      </button>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <button
@@ -161,7 +226,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
           <PosSplitBill total={total} />
           <PosQRBill />
 
-          <div className="p-4">
+          <div className="p-4 flex flex-col gap-2">
             <button
               type="button"
               onClick={handleSubmit}
@@ -169,6 +234,14 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
               className="w-full py-3 rounded-lg bg-green-600 text-white font-semibold disabled:opacity-50 min-h-[44px]"
             >
               {submitting ? "Submitting..." : `Submit Order · €${total.toFixed(2)}`}
+            </button>
+            <button
+              type="button"
+              onClick={handleForceClose}
+              disabled={closing}
+              className="w-full py-3 rounded-lg bg-destructive text-destructive-foreground font-semibold disabled:opacity-50 min-h-[44px]"
+            >
+              {closing ? "Closing..." : "Force Close · No Payment"}
             </button>
           </div>
         </div>

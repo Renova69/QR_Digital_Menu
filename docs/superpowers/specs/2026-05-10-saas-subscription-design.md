@@ -54,7 +54,7 @@ Usage limits (tables, menu items) enforced server-side on `POST` create — retu
 
 ## Database Schema
 
-4 new fields on `Restaurant`, 2 new enums. No new models needed.
+5 new fields on `Restaurant`, 2 new enums. No new models needed.
 
 ```prisma
 enum SubscriptionTier {
@@ -78,10 +78,11 @@ model Restaurant {
   trialEndsAt          DateTime?
   stripeCustomerId     String?
   stripeSubscriptionId String?
+  stripePriceId        String?
 }
 ```
 
-`stripeCustomerId` and `stripeSubscriptionId` are null for Free-forever restaurants.
+`stripeCustomerId`, `stripeSubscriptionId`, and `stripePriceId` are null for Free-forever restaurants. `stripePriceId` is stored on every webhook update to enable future price grandfathering without Stripe API calls.
 
 ---
 
@@ -106,8 +107,9 @@ Base path: `/api/subscription`
 
 **`createCheckoutSession(restaurantId, tier)`**
 1. Find/create `stripeCustomerId` on Stripe, save to DB
-2. Create Stripe Checkout Session with `mode: 'subscription'`, correct price ID, `success_url`, `cancel_url`
-3. Return `{ url }` for frontend redirect
+2. If restaurant `subscriptionStatus = TRIALING` and `trialEndsAt > now`: pass `subscription_data.trial_end = trialEndsAt` (Unix timestamp) to Stripe. Stripe captures the card immediately but does NOT charge or change access until the trial naturally ends. Owner keeps Pro features for remaining trial days regardless of which tier they subscribe to.
+3. Create Stripe Checkout Session with `mode: 'subscription'`, correct price ID, `success_url`, `cancel_url`
+4. Return `{ url }` for frontend redirect
 
 **`createPortalSession(restaurantId)`**
 1. Lookup `stripeCustomerId` from DB
@@ -119,10 +121,12 @@ Verify Stripe signature. Handle 4 events:
 
 | Event | Action |
 |-------|--------|
-| `checkout.session.completed` | Set `subscriptionTier`, `subscriptionStatus = ACTIVE`, save `stripeSubscriptionId` |
-| `customer.subscription.updated` | Sync `subscriptionTier` (handles upgrade/downgrade via Stripe Portal) |
-| `customer.subscription.deleted` | Set `subscriptionTier = FREE`, `subscriptionStatus = CANCELED` |
-| `invoice.payment_failed` | Set `subscriptionStatus = PAST_DUE` (grace period, not immediate downgrade) |
+| `checkout.session.completed` | Idempotency check first: if `stripeSubscriptionId` already exists in DB, return `200 OK` and skip. Otherwise set `subscriptionTier`, `subscriptionStatus = ACTIVE`, save `stripeSubscriptionId` + `stripePriceId`. |
+| `customer.subscription.updated` | Sync `subscriptionTier` + `stripePriceId` (handles upgrade/downgrade via Stripe Portal). Idempotent by nature — always overwrites to current state. |
+| `customer.subscription.deleted` | Set `subscriptionTier = FREE`, `subscriptionStatus = CANCELED`, clear `stripeSubscriptionId` + `stripePriceId`. |
+| `invoice.payment_failed` | Set `subscriptionStatus = PAST_DUE` (grace period, not immediate downgrade). |
+
+**Idempotency rule:** Stripe explicitly retries failed webhooks. On `checkout.session.completed`, check `restaurant.stripeSubscriptionId === event.subscription` before writing. If already set, return `200 OK` immediately — no DB write, no race condition.
 
 **`runDailyTrialExpiry()`** — cron `@Cron('0 0 * * *')` (midnight UTC)
 Find restaurants where `subscriptionStatus = TRIALING` AND `trialEndsAt < now`. Downgrade: `subscriptionTier = FREE`, `subscriptionStatus = CANCELED`.
@@ -222,7 +226,7 @@ Shows: current plan name, status badge, trial end date (if trialing), next billi
 ### Modify
 - `apps/backend/src/app.module.ts` — register `SubscriptionModule`
 - `apps/backend/src/restaurants/restaurants.service.ts` — set trial fields on `create()`
-- `apps/backend/src/menu/menu.service.ts` — enforce 20-item Free limit on `create()`
+- `apps/backend/src/menu/menu.service.ts` — enforce 20-item Free limit on `create()`; apply `.take(20)` in `getPublicMenu()` when `subscriptionTier === FREE`
 - `apps/backend/src/tables/tables.service.ts` — enforce 3-table Free limit on `create()`
 - `apps/backend/src/loyalty/loyalty.service.ts` — add `@TierRequired(PRO)`
 - `apps/backend/src/translation/translation.service.ts` — add `@TierRequired(PRO)`
@@ -237,9 +241,11 @@ Shows: current plan name, status badge, trial end date (if trialing), next billi
 ## Downgrade Behavior
 
 When a restaurant downgrades (trial expires, subscription canceled, payment failed):
-- Existing data is **never deleted** — tables > 3 and items > 20 remain visible and functional
-- Only **new creates** are blocked until they re-subscribe or delete excess records
-- This avoids data loss and reduces support burden
+- Existing data is **never deleted** — tables > 3 and items > 20 remain in the dashboard safely
+- **New creates** are blocked (POST endpoints return `403` when at limit)
+- **Public menu enforcement:** `MenuService.getPublicMenu()` applies `.take(20)` when `subscriptionTier === FREE`. The owner can keep 60 items in the dashboard and edit/rename them freely — but customers on the QR menu only see the first 20 until the owner re-subscribes. This closes the loophole where owners could bypass the item limit via `PATCH` edits on existing records.
+- Tables > 3 are hidden from the public menu (`take(3)`) on Free tier using the same pattern
+- This avoids data loss and eliminates PATCH-based limit bypass
 
 ---
 
