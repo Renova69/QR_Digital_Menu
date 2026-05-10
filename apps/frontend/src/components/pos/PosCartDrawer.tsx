@@ -1,6 +1,7 @@
 import { useState, useContext } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
 import { usePos } from "../../context/PosContext";
-import { createOrder, closeSession } from "../../lib/api";
+import { createOrder, closeSession, closeSessionWithCard } from "../../lib/api";
 import RestaurantContext from "../../context/RestaurantContext";
 import PosSplitBill from "./PosSplitBill";
 import PosQRBill from "./PosQRBill";
@@ -9,6 +10,12 @@ interface PosCartDrawerProps {
   itemCount: number;
   total: number;
 }
+
+type ConfirmAction =
+  | { type: "submit"; total: number }
+  | { type: "card"; total: number }
+  | { type: "force" }
+  | null;
 
 export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) {
   const restaurantCtx = useContext(RestaurantContext);
@@ -29,9 +36,11 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
   const [closing, setClosing] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
 
   const handleSubmit = async () => {
     if (items.length === 0 || !session || !activeRestaurant) return;
+    setConfirmAction(null);
     setSubmitting(true);
     setSubmitError(null);
 
@@ -60,8 +69,27 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
     }
   };
 
+  const handleCardPayment = async () => {
+    if (!session?.sessionToken || !activeRestaurant) return;
+    setConfirmAction(null);
+    setClosing(true);
+    setSubmitError(null);
+    try {
+      await closeSessionWithCard(session.sessionToken, activeRestaurant.id);
+      clearSession();
+      setExpanded(false);
+    } catch (err: any) {
+      setSubmitError(
+        err.response?.data?.message ?? "Failed to close session. Try again."
+      );
+    } finally {
+      setClosing(false);
+    }
+  };
+
   const handleForceClose = async () => {
     if (!session?.sessionToken || !activeRestaurant) return;
+    setConfirmAction(null);
     setClosing(true);
     setSubmitError(null);
     try {
@@ -227,17 +255,30 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
           <PosQRBill />
 
           <div className="p-4 flex flex-col gap-2">
+            {/* Submit Order */}
             <button
               type="button"
-              onClick={handleSubmit}
+              onClick={() => setConfirmAction({ type: "submit", total })}
               disabled={submitting || items.length === 0}
               className="w-full py-3 rounded-lg bg-green-600 text-white font-semibold disabled:opacity-50 min-h-[44px]"
             >
               {submitting ? "Submitting..." : `Submit Order · €${total.toFixed(2)}`}
             </button>
+
+            {/* Close - Paid by Card */}
             <button
               type="button"
-              onClick={handleForceClose}
+              onClick={() => setConfirmAction({ type: "card", total })}
+              disabled={closing || items.length === 0}
+              className="w-full py-3 rounded-lg bg-amber-500 text-white font-semibold disabled:opacity-50 min-h-[44px]"
+            >
+              {closing ? "Closing..." : `Close - Paid by Card · €${total.toFixed(2)}`}
+            </button>
+
+            {/* Force Close */}
+            <button
+              type="button"
+              onClick={() => setConfirmAction({ type: "force" })}
               disabled={closing}
               className="w-full py-3 rounded-lg bg-destructive text-destructive-foreground font-semibold disabled:opacity-50 min-h-[44px]"
             >
@@ -246,6 +287,75 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
           </div>
         </div>
       )}
+
+      {/* Confirmation Dialog */}
+      <Dialog.Root
+        open={confirmAction !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmAction(null);
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+          <Dialog.Content className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-md mx-auto rounded-xl bg-background p-6">
+            <Dialog.Title className="text-lg font-semibold mb-2">
+              {confirmAction?.type === "submit" && "Submit Order"}
+              {confirmAction?.type === "card" && "Close Table — Paid by Card"}
+              {confirmAction?.type === "force" && "Force Close — No Payment"}
+            </Dialog.Title>
+            <Dialog.Description className="text-sm text-muted-foreground mb-6">
+              {confirmAction?.type === "submit" && (
+                <>
+                  Submit this order to the kitchen for{" "}
+                  <strong>€{confirmAction.total.toFixed(2)}</strong>?
+                </>
+              )}
+              {confirmAction?.type === "card" && (
+                <>
+                  Customer paid{" "}
+                  <strong>€{confirmAction.total.toFixed(2)}</strong> by card
+                  terminal. This will close the table and record the payment.
+                </>
+              )}
+              {confirmAction?.type === "force" && (
+                <>
+                  Close table without any payment? This cannot be undone. Use
+                  only when the customer is leaving without paying or for
+                  testing.
+                </>
+              )}
+            </Dialog.Description>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmAction(null)}
+                className="flex-1 py-3 rounded-lg bg-card border border-border text-foreground font-medium min-h-[44px]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirmAction?.type === "submit") handleSubmit();
+                  else if (confirmAction?.type === "card") handleCardPayment();
+                  else if (confirmAction?.type === "force") handleForceClose();
+                }}
+                className={`flex-1 py-3 rounded-lg text-white font-semibold min-h-[44px] ${
+                  confirmAction?.type === "force"
+                    ? "bg-destructive"
+                    : confirmAction?.type === "card"
+                      ? "bg-amber-500"
+                      : "bg-green-600"
+                }`}
+              >
+                {confirmAction?.type === "submit" && "Submit"}
+                {confirmAction?.type === "card" && "Confirm Paid"}
+                {confirmAction?.type === "force" && "Force Close"}
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }
