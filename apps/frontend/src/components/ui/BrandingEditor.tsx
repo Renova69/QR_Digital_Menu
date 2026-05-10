@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCircleCheck } from '@fortawesome/free-solid-svg-icons';
 import { Button } from './button';
 import { Input } from './input';
 import { ImageUploadInput } from './ImageUploadInput';
@@ -158,7 +160,7 @@ export const BrandingEditor = ({ restaurant, onUpdate }: { restaurant: any, onUp
               />
               {googleReviewUrl && (
                 <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                  {t('branding.redirectActive')}
+                  <FontAwesomeIcon icon={faCircleCheck} className="mr-1" /> {t('branding.redirectActive')}
                 </p>
               )}
             </div>
