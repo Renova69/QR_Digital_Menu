@@ -58,6 +58,13 @@ export class PaymentService {
 
     const orders = await this.prisma.order.findMany({
       where: { tableSessionId: session.id },
+      include: {
+        items: {
+          include: {
+            menuItem: { select: { name: true, price: true } },
+          },
+        },
+      },
     });
 
     const subtotal = orders.reduce((sum, o) => sum + o.totalPrice, 0);
