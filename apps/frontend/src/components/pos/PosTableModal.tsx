@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { getTableStatuses, getOrCreateSession, forceOpenSession } from "../../lib/api";
+import { getTableStatuses, getOrCreateSession, forceOpenSession, getSessionBill } from "../../lib/api";
 import { usePos } from "../../context/PosContext";
 import RestaurantContext from "../../context/RestaurantContext";
 
@@ -26,7 +26,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function PosTableModal() {
   const restaurantCtx = useContext(RestaurantContext);
   const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
-  const { session, setSession } = usePos();
+  const { session, setSession, setHistoryItems } = usePos();
 
   const [tables, setTables] = useState<TableStatus[]>([]);
   const [loading, setLoading] = useState(false);
@@ -68,6 +68,37 @@ export default function PosTableModal() {
         sessionToken: result.token,
         sessionId: result.session.id,
       });
+
+      // Load existing orders as history for occupied tables
+      if (table.orderCount > 0) {
+        try {
+          const bill = await getSessionBill(result.token);
+          const historyItems = bill.orders.flatMap((order: any) =>
+            (order.items ?? []).map((oi: any) => ({
+              cartId: oi.id,
+              menuItemId: oi.menuItemId ?? "",
+              name: oi.menuItem?.name ?? "Unknown item",
+              price: oi.menuItem?.price ?? 0,
+              quantity: oi.quantity,
+              selectedOptions: (oi.selectedOptions ?? []) as Array<{
+                optionId: string;
+                optionName: string;
+                choiceName: string;
+                priceModifier: number;
+              }>,
+              seatNumber: "Shared",
+              itemNote: "",
+              submitted: true,
+            }))
+          );
+          if (historyItems.length > 0) {
+            setHistoryItems(historyItems);
+          }
+        } catch {
+          // History load is best-effort; don't block session open
+        }
+      }
+
       setOpen(false);
     } catch {
       setActionError("Failed to open session. Try again or use Force Open.");

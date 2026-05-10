@@ -31,6 +31,7 @@ interface PosCartItem {
   }>;
   seatNumber: string;
   itemNote: string;
+  submitted: boolean;
 }
 
 interface PosSession {
@@ -42,15 +43,18 @@ interface PosSession {
 
 interface PosContextType {
   items: PosCartItem[];
-  addItem: (item: Omit<PosCartItem, "cartId">) => void;
+  addItem: (item: Omit<PosCartItem, "cartId" | "submitted">) => void;
   removeItem: (cartId: string) => void;
   updateQuantity: (cartId: string, qty: number) => void;
   updateNote: (cartId: string, note: string) => void;
   clearCart: () => void;
+  markAsSubmitted: () => void;
+  setHistoryItems: (historyItems: PosCartItem[]) => void;
   session: PosSession | null;
   setSession: (s: PosSession) => void;
   clearSession: () => void;
   getTotal: () => number;
+  getPendingTotal: () => number;
   activeSeat: string;
   setActiveSeat: (seat: string) => void;
   buildSpecialRequests: () => string;
@@ -63,9 +67,9 @@ export function PosProvider({ children }: { children: ReactNode }) {
   const [session, setSessionState] = useState<PosSession | null>(null);
   const [activeSeat, setActiveSeat] = useState("Seat 1");
 
-  const addItem = useCallback((item: Omit<PosCartItem, "cartId">) => {
+  const addItem = useCallback((item: Omit<PosCartItem, "cartId" | "submitted">) => {
     const cartId = generateId();
-    setItems((prev) => [...prev, { ...item, cartId }]);
+    setItems((prev) => [...prev, { ...item, cartId, submitted: false }]);
   }, []);
 
   const removeItem = useCallback((cartId: string) => {
@@ -89,7 +93,20 @@ export function PosProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearCart = useCallback(() => {
-    setItems([]);
+    setItems((prev) => prev.filter((i) => i.submitted));
+  }, []);
+
+  const markAsSubmitted = useCallback(() => {
+    setItems((prev) =>
+      prev.map((i) => (i.submitted ? i : { ...i, submitted: true }))
+    );
+  }, []);
+
+  const setHistoryItems = useCallback((historyItems: PosCartItem[]) => {
+    setItems((prev) => {
+      const pending = prev.filter((i) => !i.submitted);
+      return [...historyItems, ...pending];
+    });
   }, []);
 
   const setSession = useCallback((s: PosSession) => {
@@ -112,9 +129,22 @@ export function PosProvider({ children }: { children: ReactNode }) {
     }, 0);
   }, [items]);
 
+  const getPendingTotal = useCallback(() => {
+    return items
+      .filter((i) => !i.submitted)
+      .reduce((sum, item) => {
+        const optionsTotal = item.selectedOptions.reduce(
+          (optSum, opt) => optSum + opt.priceModifier,
+          0
+        );
+        return sum + (item.price + optionsTotal) * item.quantity;
+      }, 0);
+  }, [items]);
+
   const buildSpecialRequests = useCallback(() => {
     const grouped = new Map<string, string[]>();
     for (const item of items) {
+      if (item.submitted) continue;
       const seat = item.seatNumber || "Shared";
       if (!grouped.has(seat)) grouped.set(seat, []);
       let entry = item.name;
@@ -134,10 +164,13 @@ export function PosProvider({ children }: { children: ReactNode }) {
     updateQuantity,
     updateNote,
     clearCart,
+    markAsSubmitted,
+    setHistoryItems,
     session,
     setSession,
     clearSession,
     getTotal,
+    getPendingTotal,
     activeSeat,
     setActiveSeat,
     buildSpecialRequests,
