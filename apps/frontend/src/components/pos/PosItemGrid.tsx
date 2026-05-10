@@ -1,6 +1,4 @@
-import { useState, useEffect, useContext } from "react";
-import api from "../../lib/api";
-import RestaurantContext from "../../context/RestaurantContext";
+import { useState, useEffect } from "react";
 import PosItemCard from "./PosItemCard";
 
 interface MenuItem {
@@ -17,38 +15,21 @@ interface MenuItem {
   }>;
 }
 
-export default function PosItemGrid() {
-  const restaurantCtx = useContext(RestaurantContext);
-  const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
-  const [items, setItems] = useState<MenuItem[]>([]);
+interface PosItemGridProps {
+  items: MenuItem[];
+  loading: boolean;
+  error: string | null;
+}
+
+export default function PosItemGrid({ items, loading, error }: PosItemGridProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchMenu = () => {
-    if (!activeRestaurant) return;
-    setLoading(true);
-    setError(null);
-    api
-      .get(`/menu/public/${activeRestaurant.id}`)
-      .then((res) => {
-        const allItems: MenuItem[] = [];
-        const cats = res.data.categories ?? [];
-        for (const cat of cats) {
-          for (const item of cat.items ?? []) {
-            allItems.push({ ...item, categoryId: cat.id });
-          }
-        }
-        setItems(allItems);
-      })
-      .catch(() => setError("Failed to load menu. Check your connection."))
-      .finally(() => setLoading(false));
-  };
-
+  // Clear filters when items change (restaurant switched)
   useEffect(() => {
-    fetchMenu();
-  }, [activeRestaurant]);
+    setSearchQuery("");
+    setCategoryFilter(null);
+  }, [items]);
 
   useEffect(() => {
     const onSearch = (e: Event) => {
@@ -78,13 +59,6 @@ export default function PosItemGrid() {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4">
         <p className="text-sm text-red-600 dark:text-red-400 mb-2">{error}</p>
-        <button
-          type="button"
-          onClick={() => fetchMenu()}
-          className="px-4 py-2 rounded-lg bg-accent text-accent-foreground text-sm"
-        >
-          Retry
-        </button>
       </div>
     );
   }

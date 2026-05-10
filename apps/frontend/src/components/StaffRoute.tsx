@@ -19,7 +19,7 @@ export default function StaffRoute({ children }: { children: JSX.Element }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (!ALLOWED_ROLES.includes(user.role)) {
+  if (!ALLOWED_ROLES.includes(user.role?.toUpperCase())) {
     return <Navigate to="/profile" replace />;
   }
 
