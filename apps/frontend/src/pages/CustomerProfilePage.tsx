@@ -1,16 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import api from "../lib/api";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { useTranslation } from "react-i18next";
 
 export const CustomerProfilePage: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { t } = useTranslation();
-  const returnTo = searchParams.get("returnTo");
 
   const [history, setHistory] = useState<any[]>([]);
   const [loyaltyAccounts, setLoyaltyAccounts] = useState<any[]>([]);
@@ -51,30 +49,17 @@ export const CustomerProfilePage: React.FC = () => {
 
   return (
     <div className="pt-28 pb-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto min-h-screen">
-      <div className="flex justify-between items-center mb-10">
-        <div>
-          {returnTo && (
-            <button
-              onClick={() => navigate(returnTo)}
-              className="text-sm text-muted-foreground hover:text-foreground mb-2 flex items-center gap-1 transition-colors"
-            >
-              {t("profile.backToMenu")}
-            </button>
-          )}
-          <h1 className="text-4xl font-serif font-black text-foreground tracking-tighter">
-            {t("profile.title")}
-          </h1>
-        </div>
-        <Button variant="outline" onClick={logout}>
-          {t("profile.signOut")}
-        </Button>
+      <div className="mb-10">
+        <h1 className="text-4xl font-serif font-black text-foreground tracking-tighter">
+          {t("profile.title")}
+        </h1>
       </div>
 
       <div className="glass-panel p-8 rounded-[2rem] border-white/5 mb-8">
         <h2 className="text-2xl font-bold mb-2">
-          {t("profile.welcome", {
-            name: user.name || user.email.split("@")[0],
-          })}
+          {user.name
+            ? t("profile.welcome", { name: user.name })
+            : t("profile.welcomeBack", "Welcome back!")}
         </h2>
         <p className="text-muted-foreground">{t("profile.subtitle")}</p>
       </div>

@@ -46,6 +46,10 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
   }
 
   constructWebhookEvent(payload: Buffer, signature: string): any {
+    if (!this.webhookSecret || this.webhookSecret === 'NONE') {
+      // Dev mode: no signature verification — set STRIPE_WEBHOOK_SECRET via Stripe CLI for production
+      return JSON.parse(payload.toString());
+    }
     return this.stripe.webhooks.constructEvent(
       payload,
       signature,

@@ -1,7 +1,7 @@
 # QR Menu App — Master Documentation
 
 > **Last Updated:** May 10, 2026
-> **Status:** V2.5 Complete — V3 Growth Features (Stripe Payments ✅, Live Table View ✅, OCR Import ✅, Waiter POS ✅)
+> **Status:** V2.5 Complete — V3 Growth Features (Stripe Payments ✅, Live Table View ✅, OCR Import ✅, Waiter POS ✅) — Translation + Import + Menu Editor Fixes ✅
 > **Stack:** Turborepo Monorepo — React 18 + NestJS 11 + Prisma 6 + Neon (Serverless PostgreSQL)
 
 ---
@@ -281,6 +281,15 @@ Payment (sessionId, stripePaymentIntentId, amount, tip, status, method)
 | **Waiter POS** | Full-viewport, mobile-first Point-of-Sale at `/staff/pos`. New `PosLayout` + `PosContext` (in-memory, isolated from CartContext). Seat-level ordering (Seat 1-3 / Shared). Table selection modal with color-coded status grid + Force Open. Per-item notes aggregated into `Order.specialRequests`. Submitted/pending item tracking — reopening table shows full order history, submitting only sends new items to kitchen. Three session-end actions: Submit Order (pending only), Paid by Card (MYPOS payment record), Force Close (CLOSED_NO_PAYMENT). All 3 have Radix confirmation dialogs. Split bill (pure UI math) and QR bill sharing. 4 new backend endpoints. Zero Prisma schema changes. |
 | **POS Bug Fixes** | Duplicate menuItemId deduplication (`[...new Set()]`), cart reset on table switch, dashboard live view real order data (was hardcoded "No orders"), order history isolation (submitted items visible but not re-sent) |
 
+### Post-Roadmap Additions (Shipped May 10, 2026)
+
+| Feature | Details |
+|---------|---------|
+| **Translation Bug Fixes** | Three root causes fixed: (1) `handleForceTranslate` in `SettingsView` now saves `targetLanguages` to DB before calling translate-all — prevented "No target languages configured" 400 error when local state differed from DB. (2) `selectedLang` init in `PublicMenuPage` uses `.slice(0, 2)` to strip browser locale codes like "en-US" to "en"; dropdown is now dynamic from `restaurant.targetLanguages`, hidden when none configured. (3) `menu.service.ts` `getPublicMenu` select now includes `defaultTheme` — was missing, breaking per-restaurant theme on public menu load. |
+| **DeepL Rate Limit & Connection Fix** | `TranslationService`: replaced per-call `axios.post()` with shared `AxiosInstance` using `https.Agent({ keepAlive: true, maxSockets: 4 })` — eliminates `MaxListenersExceededWarning` from TLS listener accumulation. Added 250ms delay between language iterations in `translateObject` — eliminates DeepL 429 errors when translating to multiple languages back-to-back. |
+| **Menu Import Translation Passthrough** | `ImportItemDto` and `ImportCategoryDto` now accept `translations: Record<string, { name?, description? }>`. `menu-import.service.ts` passes `translations` through to Prisma `create`/`update` for both categories and items. Root cause: `jsonToPayload()` in `MenuImportView.tsx` explicitly rebuilt item/category objects without spreading `translations` — now passes through if present. Enables importing multilingual menus from JSON without a separate translate step. |
+| **Menu Editor Delete Buttons** | `window.confirm()` was silently blocked in some browser contexts, making category/item delete buttons non-functional. `CategoryList.tsx`: replaced with Radix `Dialog` confirmation showing "This will permanently delete [name] and ALL items inside it. This cannot be undone." with Cancel + Delete buttons and loading state. `ItemList.tsx`: replaced with inline `confirmingDeleteId` state — first click shows "Delete? / Cancel / Delete" buttons inline on the row, second click executes. ~15 new i18n keys added in EN/BG/RO (`menuAdmin.deleteCategoryTitle/Warning/Warning2/deleteCategory/confirmDelete`, `common.delete/deleting`). |
+
 ### V4 — Enterprise (Future)
 - AWS RDS / GCP Cloud SQL migration
 - ~~S3 / GCS for uploads~~ ✅ **(Done — Cloudflare R2 with CDN)**
@@ -399,10 +408,12 @@ Two types:
 
 Three paths:
 1. **Fire-and-forget pre-warm** — after menu item/category/option create/update, background IIFE translates to all `targetLanguages`, writes to `translations` JSON field
-2. **Owner "Translate All Now"** — `POST /api/restaurants/:id/translate-all`
-3. **Lazy on-demand** — `GET /api/menu/public/:id?lang=<code>` checks DB cache per entity; on miss, translates → writes to DB → overlays on response (300ms delay between DeepL calls)
+2. **Owner "Translate All Now"** — `POST /api/restaurants/:id/translate-all`. Dashboard saves `targetLanguages` to DB first if local state differs from saved, then triggers translate-all.
+3. **Lazy on-demand** — `GET /api/menu/public/:id?lang=<code>` checks DB cache per entity; on miss, translates → writes to DB → overlays on response
 
 `lang` param validated against `restaurant.targetLanguages` — prevents unauthorized DeepL quota burn. Free-tier key detection: key ending in `:fx` → routes to `api-free.deepl.com`.
+
+**Rate-limit & connection management:** `TranslationService` uses a shared `AxiosInstance` with `https.Agent({ keepAlive: true, maxSockets: 4 })` — prevents TLS listener accumulation (`MaxListenersExceededWarning`) from per-call connection creation. 250ms delay inserted between language iterations in `translateObject` — prevents DeepL 429 when translating to multiple languages back-to-back.
 
 ### Menu Check (Smart Audit)
 

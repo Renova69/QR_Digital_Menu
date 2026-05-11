@@ -41,7 +41,7 @@
     "address": "Address",
     "contactInfo": "Contact Info (Phone / Email)",
     "localization": "Localization & Auto-Translation",
-    "localizationDesc": "Enable auto-translation for your digital menu. Menu items are automatically translated via DeepL when created or updated.",
+    "localizationDesc": "Select one or more target languages below. Once configured, new or edited menu items will be automatically translated via DeepL into those languages. Items created before selecting languages will not be translated automatically — use \"Translate All Now\" to process your existing catalog.",
     "timezone": "Timezone",
     "timezoneDesc": "Used for Happy Hour calculations. Must match the restaurant's local clock.",
     "targetLanguages": "Target Languages",
@@ -130,7 +130,17 @@
     "trendingModeManual": "Manual (Hand-picked)",
     "trendingModeOff": "Off",
     "trendingDescAuto": "Automatically analyzes sales to trend popular items.",
-    "trendingDescManual": "Click the stars on items to feature them on your menu."
+    "trendingDescManual": "Click the stars on items to feature them on your menu.",
+    "deleteCategoryTitle": "Delete Category",
+    "deleteCategoryWarning": "This will permanently delete",
+    "deleteCategoryWarning2": "and ALL items inside it. This cannot be undone.",
+    "deleteCategory": "Delete Category",
+    "confirmDelete": "Delete?",
+    "noCategory": "No Category Selected",
+    "selectCategoryPrompt": "Select a category on the left to manage its menu items.",
+    "emptyCategory": "This category is currently empty.",
+    "addItemsPrompt": "Add items using the form below.",
+    "optionsBtn": "Options"
   },
   "forms": {
     "create": "Create",
@@ -280,7 +290,9 @@
   },
   "common": {
     "pleaseLogin": "Please log in to continue",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleting": "Deleting…"
   },
   "payment": {
     "requestBill": "Request Bill",

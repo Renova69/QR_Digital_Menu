@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Body,
   Patch,
   Param,
@@ -38,6 +39,15 @@ export class ItemController {
   @Get()
   findAll(@Param('categoryId') categoryId: string, @Request() req) {
     return this.menuService.findAllItemsInCategory(categoryId, req.user.id);
+  }
+
+  @Put('order')
+  updateOrder(
+    @Param('categoryId') categoryId: string,
+    @Body('orderedIds') orderedIds: string[],
+    @Request() req,
+  ) {
+    return this.menuService.updateItemOrder(categoryId, orderedIds, req.user.id);
   }
 }
 

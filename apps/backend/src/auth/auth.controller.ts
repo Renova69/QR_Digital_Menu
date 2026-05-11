@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Res,
   UsePipes,
@@ -36,6 +37,12 @@ export class AuthController {
   @Get('me')
   getProfile(@Request() req) {
     return req.user;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('me')
+  updateProfile(@Request() req, @Body('name') name: string) {
+    return this.authService.updateProfile(req.user.id, name);
   }
 
   @Get('google')
@@ -73,7 +80,7 @@ export class AuthController {
 
   @Post('otp/send')
   sendOtp(
-    @Body('email') email: string,
+    @Body('email') email?: string,
     @Body('phone') phone?: string,
   ) {
     return this.authService.sendOtp(email, phone);
@@ -81,10 +88,11 @@ export class AuthController {
 
   @Post('otp/verify')
   verifyOtp(
-    @Body('email') email: string,
-    @Body('code') code: string,
+    @Body('email') email?: string,
+    @Body('code') code?: string,
     @Body('phone') phone?: string,
+    @Body('name') name?: string,
   ) {
-    return this.authService.verifyOtp(email, code, phone);
+    return this.authService.verifyOtp(email, code, phone, name);
   }
 }

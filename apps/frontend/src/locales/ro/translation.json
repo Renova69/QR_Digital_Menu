@@ -42,7 +42,7 @@
     "address": "Adresă",
     "contactInfo": "Informații Contact (Telefon / Email)",
     "localization": "Localizare și Traducere Automată",
-    "localizationDesc": "Activați traducerea automată pentru meniul digital. Articolele sunt traduse automat prin DeepL la creare sau actualizare.",
+    "localizationDesc": "Selectați limbile țintă mai jos. Odată configurate, articolele noi sau editate vor fi traduse automat prin DeepL. Articolele create înainte de selectarea limbilor nu sunt traduse automat — folosiți `Traduce Tot Acum` pentru a procesa catalogul existent.",
     "timezone": "Fus orar",
     "timezoneDesc": "Utilizat pentru calculele Happy Hour. Trebuie să corespundă orei locale a restaurantului.",
     "targetLanguages": "Limbi Țintă",
@@ -131,7 +131,17 @@
     "trendingModeManual": "Manual (Selectat)",
     "trendingModeOff": "Oprit",
     "trendingDescAuto": "Analizează automat vânzările pentru articole populare.",
-    "trendingDescManual": "Faceți clic pe stele pentru a evidenția articolele."
+    "trendingDescManual": "Faceți clic pe stele pentru a evidenția articolele.",
+    "deleteCategoryTitle": "Ștergere categorie",
+    "deleteCategoryWarning": "Aceasta va șterge definitiv",
+    "deleteCategoryWarning2": "și TOATE articolele din ea. Acțiunea este ireversibilă.",
+    "deleteCategory": "Șterge categoria",
+    "confirmDelete": "Ștergi?",
+    "noCategory": "Nicio categorie selectată",
+    "selectCategoryPrompt": "Selectați o categorie din stânga pentru a gestiona articolele.",
+    "emptyCategory": "Această categorie este goală.",
+    "addItemsPrompt": "Adăugați articole folosind formularul de mai jos.",
+    "optionsBtn": "Opțiuni"
   },
   "forms": {
     "create": "Creează",
@@ -281,7 +291,9 @@
   },
   "common": {
     "pleaseLogin": "Vă rugăm să vă conectați",
-    "cancel": "Anulează"
+    "cancel": "Anulează",
+    "delete": "Șterge",
+    "deleting": "Se șterge…"
   },
   "payment": {
     "requestBill": "Cere nota",
