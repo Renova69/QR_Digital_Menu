@@ -140,6 +140,19 @@ export class MenuService {
     return updated;
   }
 
+  async updateCategoryOrder(restaurantId: string, orderedIds: string[], userId: string) {
+    await this.checkRestaurantOwnership(restaurantId, userId);
+    await this.prisma.$transaction(
+      orderedIds.map((id, index) =>
+        this.prisma.menuCategory.updateMany({
+          where: { id, restaurantId },
+          data: { order: index },
+        }),
+      ),
+    );
+    return { success: true };
+  }
+
   async removeCategory(categoryId: string, userId: string) {
     const category = await this.prisma.menuCategory.findUnique({
       where: { id: categoryId },
@@ -337,6 +350,26 @@ export class MenuService {
       where: { id: itemId },
       data: { imageUrl, thumbnailUrl },
     });
+  }
+
+  async updateItemOrder(categoryId: string, orderedIds: string[], userId: string) {
+    const category = await this.prisma.menuCategory.findUnique({
+      where: { id: categoryId },
+      select: { restaurantId: true },
+    });
+    if (!category) {
+      throw new NotFoundException(`Category with ID "${categoryId}" not found`);
+    }
+    await this.checkRestaurantOwnership(category.restaurantId, userId);
+    await this.prisma.$transaction(
+      orderedIds.map((id, index) =>
+        this.prisma.menuItem.updateMany({
+          where: { id, categoryId },
+          data: { order: index },
+        }),
+      ),
+    );
+    return { success: true };
   }
 
   async removeItem(itemId: string, userId: string) {
@@ -546,6 +579,7 @@ export class MenuService {
         themeCardColor: true,
         targetLanguages: true,
         timezone: true,
+        defaultTheme: true,
       } as any,
     });
 

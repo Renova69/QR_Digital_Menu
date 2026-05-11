@@ -57,13 +57,17 @@ export class MenuImportService {
               order: cat.order ?? nextCatOrder++,
               availabilityType,
               daysOfWeek: [],
+              ...(cat.translations ? { translations: cat.translations } : {}),
             },
           });
           stats.categories++;
         } else {
           await tx.menuCategory.update({
             where: { id: category.id },
-            data: { availabilityType },
+            data: {
+              availabilityType,
+              ...(cat.translations ? { translations: cat.translations } : {}),
+            },
           });
         }
 
@@ -85,6 +89,7 @@ export class MenuImportService {
             currency,
             allergens: item.allergens ?? [],
             dietaryTags: item.dietaryTags ?? [],
+            ...(item.translations ? { translations: item.translations } : {}),
           };
 
           const existing = await tx.menuItem.findFirst({

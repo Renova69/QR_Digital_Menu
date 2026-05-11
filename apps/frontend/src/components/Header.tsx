@@ -1,8 +1,7 @@
 import React from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
-
 import { ThemeToggle } from './ui/ThemeToggle';
 
 const DASHBOARD_LANGUAGES = [
@@ -15,73 +14,76 @@ const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { i18n, t } = useTranslation();
 
   if (location.pathname.startsWith('/menu/public')) {
     return null;
   }
 
+  const isProfile = location.pathname === '/profile';
+  const returnTo = searchParams.get('returnTo');
+
   const handleLogout = () => {
+    const isCustomer = user?.role === 'CUSTOMER';
+    const menuUrl = isCustomer ? localStorage.getItem('customerMenuUrl') : null;
     logout();
-    navigate('/');
+    localStorage.removeItem('customerMenuUrl');
+    navigate(menuUrl || '/');
   };
+
+  const pill = "h-9 flex items-center px-3 rounded-xl border border-border/50 bg-secondary/50 hover:bg-secondary text-xs font-bold uppercase tracking-widest text-foreground transition-all cursor-pointer";
+  const pillMuted = `${pill} text-muted-foreground hover:text-foreground`;
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 pt-4 px-4 sm:px-6 pointer-events-none">
       <header className="max-w-5xl mx-auto glass-panel rounded-2xl pointer-events-auto border-white/5 shadow-2xl">
-        <nav className="px-5 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 text-foreground font-serif font-black text-xl tracking-tight hover:text-accent transition-colors duration-200 uppercase">
-             QR SaaS
-          </Link>
+        <nav className="px-4 sm:px-6 h-14 flex items-center justify-center gap-2">
+          <ThemeToggle size="sm" />
 
-          {/* Nav links */}
-          <div className="flex items-center gap-4 sm:gap-6">
-            <ThemeToggle />
-            {user && (
-              <select
-                value={i18n.language?.slice(0, 2) ?? 'bg'}
-                onChange={(e) => void i18n.changeLanguage(e.target.value)}
-                aria-label="Dashboard language"
-                className="bg-transparent text-foreground text-xs font-bold uppercase tracking-widest border border-border rounded-lg px-2 py-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/50"
-              >
-                {DASHBOARD_LANGUAGES.map((l) => (
-                  <option key={l.code} value={l.code}>{l.label}</option>
-                ))}
-              </select>
-            )}
-            {user ? (
-              <>
-                <Link
-                  to="/dashboard"
-                  className="text-muted-foreground hover:text-foreground text-xs font-bold uppercase tracking-widest transition-colors duration-200"
-                >
+          {user && (
+            <select
+              value={i18n.language?.slice(0, 2) ?? 'bg'}
+              onChange={(e) => void i18n.changeLanguage(e.target.value)}
+              aria-label="Dashboard language"
+              className={pill}
+            >
+              {DASHBOARD_LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>{l.label}</option>
+              ))}
+            </select>
+          )}
+
+          {user ? (
+            <>
+              {isProfile ? (
+                returnTo && (
+                  <Link to={returnTo} className={pillMuted}>
+                    ← {t('nav.menu', 'Menu')}
+                  </Link>
+                )
+              ) : (
+                <Link to="/dashboard" className={pillMuted}>
                   {t('nav.dashboard')}
                 </Link>
-                <button
-                  onClick={handleLogout}
-                  className="text-foreground text-xs font-bold uppercase tracking-widest hover:text-red-500 transition-colors cursor-pointer"
-                >
-                  {t('nav.logout')}
-                </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  to="/login"
-                  className="text-muted-foreground hover:text-foreground text-xs font-bold uppercase tracking-widest transition-colors duration-200"
-                >
-                  {t('nav.login')}
-                </Link>
-                <Link
-                  to="/register"
-                  className="bg-accent text-accent-foreground text-[10px] font-black uppercase tracking-widest px-5 py-2.5 rounded-xl transition-all shadow-lg hover:shadow-accent/20 hover:-translate-y-0.5"
-                >
-                  {t('nav.getStarted')}
-                </Link>
-              </>
-            )}
-          </div>
+              )}
+              <button onClick={handleLogout} className={`${pill} hover:border-red-500/50 hover:text-red-500 hover:bg-red-500/5`}>
+                {t('nav.logout')}
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/login" className={pillMuted}>
+                {t('nav.login')}
+              </Link>
+              <Link
+                to="/register"
+                className="h-9 flex items-center bg-accent text-accent-foreground text-[10px] font-black uppercase tracking-widest px-4 rounded-xl transition-all shadow-lg hover:shadow-accent/20 hover:-translate-y-0.5"
+              >
+                {t('nav.getStarted')}
+              </Link>
+            </>
+          )}
         </nav>
       </header>
     </div>

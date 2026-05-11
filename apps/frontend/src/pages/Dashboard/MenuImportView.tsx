@@ -98,9 +98,15 @@ function jsonToPayload(text: string): any[] {
         allergens,
         dietaryTags,
         options,
+        ...(item.translations ? { translations: item.translations } : {}),
       };
     });
-    return { name: cat.name, order: cat.sort_order || cat.order || i + 1, items };
+    return {
+      name: cat.name,
+      order: cat.sort_order || cat.order || i + 1,
+      items,
+      ...(cat.translations ? { translations: cat.translations } : {}),
+    };
   });
 }
 

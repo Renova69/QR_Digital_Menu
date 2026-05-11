@@ -171,7 +171,7 @@ export class PaymentService {
           where: { id: payment.id },
           data: { status: 'SUCCEEDED', stripePaymentIntentId: intent.id },
         }),
-        this.prisma.tableSession.update({
+        this.prisma.tableSession.updateMany({
           where: { id: payment.tableSessionId, status: 'OPEN' },
           data: { status: 'PAID', paidAt: new Date() },
         }),

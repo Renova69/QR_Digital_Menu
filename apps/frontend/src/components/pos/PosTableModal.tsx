@@ -1,8 +1,9 @@
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect, useContext, useCallback } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { getTableStatuses, getOrCreateSession, forceOpenSession, getSessionBill } from "../../lib/api";
 import { usePos } from "../../context/PosContext";
 import RestaurantContext from "../../context/RestaurantContext";
+import { useSocket } from "../../context/SocketContext";
 
 interface TableStatus {
   id: string;
@@ -27,12 +28,21 @@ export default function PosTableModal() {
   const restaurantCtx = useContext(RestaurantContext);
   const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
   const { session, setSession, setHistoryItems, resetCart } = usePos();
+  const { socket } = useSocket();
 
   const [tables, setTables] = useState<TableStatus[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+
+  const fetchTables = useCallback(() => {
+    if (!activeRestaurant) return;
+    setError(null);
+    getTableStatuses(activeRestaurant.id)
+      .then(setTables)
+      .catch(() => setError("Failed to load tables. Check your connection."));
+  }, [activeRestaurant]);
 
   useEffect(() => {
     if (!session) {
@@ -49,13 +59,25 @@ export default function PosTableModal() {
   useEffect(() => {
     if (open && activeRestaurant) {
       setLoading(true);
-      setError(null);
       getTableStatuses(activeRestaurant.id)
         .then(setTables)
         .catch(() => setError("Failed to load tables. Check your connection."))
         .finally(() => setLoading(false));
     }
   }, [open, activeRestaurant]);
+
+  // Auto-refresh when table status, creation, or deletion changes
+  useEffect(() => {
+    if (!socket || !open) return;
+    socket.on("table:status-changed", fetchTables);
+    socket.on("table:created", fetchTables);
+    socket.on("table:deleted", fetchTables);
+    return () => {
+      socket.off("table:status-changed", fetchTables);
+      socket.off("table:created", fetchTables);
+      socket.off("table:deleted", fetchTables);
+    };
+  }, [socket, open, fetchTables]);
 
   const handleSelect = async (table: TableStatus) => {
     if (!activeRestaurant) return;
