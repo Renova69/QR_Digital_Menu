@@ -1,6 +1,8 @@
 import React, { useContext, useState, useEffect, useRef } from "react";
 import RestaurantContext from "../../context/RestaurantContext";
 import { updateRestaurant, triggerTranslation, generateStripeConnectLink, getStripeStatus, disconnectStripe } from "../../lib/api";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faTriangleExclamation, faMedal } from "@fortawesome/free-solid-svg-icons";
 import { useTranslation } from "react-i18next";
 import { BrandingEditor } from "../../components/ui/BrandingEditor";
 import { Button } from "../../components/ui/button";
@@ -189,6 +191,16 @@ const SettingsView = () => {
     setStatus({ loading: false, error: "", success: "" });
 
     try {
+      // Persist current language selection before translating (UI state may not be saved yet)
+      const savedLangs = activeRestaurant.targetLanguages || [];
+      const langsChanged =
+        targetLanguages.length !== savedLangs.length ||
+        targetLanguages.some((l) => !savedLangs.includes(l));
+      if (langsChanged) {
+        await updateRestaurant(activeRestaurant.id, { targetLanguages });
+        await fetchRestaurants();
+      }
+
       const res = await triggerTranslation(activeRestaurant.id);
       if (res.success) {
         setStatus({ loading: false, error: "", success: res.message });
@@ -435,7 +447,7 @@ const SettingsView = () => {
                     {t('loyaltySettings.cashbackInfo', { pct: ((loyaltyExchangeRate / loyaltyRedeemRate) * 100).toFixed(1) })}
                   </span>
                   {(loyaltyExchangeRate / loyaltyRedeemRate) > 0.15 && (
-                    <span className="ml-2 text-yellow-500">{t('loyaltySettings.cashbackWarning')}</span>
+                    <span className="ml-2 text-yellow-500"><FontAwesomeIcon icon={faTriangleExclamation} className="mr-1" />{t('loyaltySettings.cashbackWarning')}</span>
                   )}
                 </div>
 
@@ -482,7 +494,7 @@ const SettingsView = () => {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-foreground/80 mb-1">
-                        {t('loyaltySettings.silverThreshold')}
+                        <FontAwesomeIcon icon={faMedal} className="mr-1 text-slate-400" />{t('loyaltySettings.silverThreshold')}
                       </label>
                       <input
                         type="number"
@@ -494,7 +506,7 @@ const SettingsView = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-foreground/80 mb-1">
-                        {t('loyaltySettings.goldThreshold')}
+                        <FontAwesomeIcon icon={faMedal} className="mr-1 text-amber-400" />{t('loyaltySettings.goldThreshold')}
                       </label>
                       <input
                         type="number"
@@ -506,7 +518,7 @@ const SettingsView = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-foreground/80 mb-1">
-                        {t('loyaltySettings.silverMultiplier')}
+                        <FontAwesomeIcon icon={faMedal} className="mr-1 text-slate-400" />{t('loyaltySettings.silverMultiplier')}
                       </label>
                       <input
                         type="number"
@@ -520,7 +532,7 @@ const SettingsView = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-foreground/80 mb-1">
-                        {t('loyaltySettings.goldMultiplier')}
+                        <FontAwesomeIcon icon={faMedal} className="mr-1 text-amber-400" />{t('loyaltySettings.goldMultiplier')}
                       </label>
                       <input
                         type="number"
@@ -660,8 +672,8 @@ const SettingsView = () => {
                 )}
               </div>
 
-              {/* Stripe Connect */}
-              <div className="p-4 border border-border rounded-lg space-y-3">
+              {/* Stripe Connect — only shown when payments are enabled */}
+              {paymentsEnabled && <div className="p-4 border border-border rounded-lg space-y-3">
                 <p className="font-medium">{t('payment.settings.stripeConnect')}</p>
                 {stripeOnboarded ? (
                   <div className="flex items-center justify-between">
@@ -698,7 +710,7 @@ const SettingsView = () => {
                     {stripeLoading ? t('payment.settings.connecting') : t('payment.settings.connectStripe')}
                   </Button>
                 )}
-              </div>
+              </div>}
 
               {/* Tips */}
               {paymentsEnabled && (

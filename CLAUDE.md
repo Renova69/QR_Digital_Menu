@@ -55,8 +55,8 @@ NestJS modules registered in `apps/backend/src/app.module.ts` (in order): Prisma
 Cross-cutting concerns:
 - **Auth** (`auth/`) — JWT + Google OAuth + magic link via Passport strategies.
 - **Realtime** (`events/`) — `@nestjs/websockets` + socket.io for live order / assistance / table status / payment pushes. `EventsGateway.emitTableStatusChanged(restaurantId, tableId, sessionId)` emits `table:status-changed` — called from 4 locations (`OrdersService.create`, `OrdersService.updateStatus`, `PaymentService.handleWebhookEvent`, `PaymentService.closeSession`). `payment:confirmed` event emitted on successful payment.
-- **Payment** (`payment/`) — Stripe Connect pay-at-table. `IPaymentProvider` interface abstracts provider; `StripeProvider` implements it (future providers: MyPOS, Square). `PaymentService` handles sessions, bill calculation, PaymentIntent creation, webhook processing. `PaymentController` has 5 routes: sessions, bill, create-payment-intent, webhook (raw body), history. `RestaurantsService` manages Stripe Connect account onboarding (create account link, status check, disconnect). Never add provider-specific logic outside the provider — always go through `IPaymentProvider`.
-- **Tables** (`tables/`) — `getTablesWithStatus()` fetches tables + active sessions in parallel via `Promise.all`, derives status per table (empty/waiting/occupied/paid). `GET /tables/status/:restaurantId` returns enriched data with `orderCount`, `totalAmount`, `customerNames`, `sessionStatus`, `sessionId`.
+- **Payment** (`payment/`) — Stripe Connect pay-at-table + Waiter POS session management. `IPaymentProvider` interface abstracts provider; `StripeProvider` implements it (future providers: MyPOS, Square). `PaymentService` handles sessions, bill calculation, PaymentIntent creation, webhook processing, force-open (`forceOpenSession()`), card-payment close (`closeSessionWithCard()` — creates MYPOS payment, sets session PAID, emits socket events). `PaymentController` has 7 routes: sessions, bill, create-payment-intent, webhook (raw body), history, force-open, close-card. `RestaurantsService` manages Stripe Connect account onboarding (create account link, status check, disconnect). Never add provider-specific logic outside the provider — always go through `IPaymentProvider`.
+- **Tables** (`tables/`) — `getTablesWithStatus()` fetches tables + active sessions in parallel via `Promise.all`, derives status per table (empty/waiting/occupied/paid). `GET /tables/status/:restaurantId` returns enriched data with `orderCount`, `totalAmount`, `customerNames`, `sessionStatus`, `sessionId`. `getTableOrders(tableId, restaurantId)` returns all orders for a table's active OPEN session with item names — used by dashboard live view and POS order history.
 - **Translation** (`translation/`) — DeepL. Platform owns the key via `DEEPL_API_KEY` env var in `apps/backend/.env`. `TranslationService.translateTexts/translateText/translateObject` take **no** `apiKey` param — the service reads the key internally. `restaurant.deeplApiKey` column exists in schema but is **never read or written** — do not add call-sites that touch it. Three translation paths: (1) fire-and-forget pre-warm on menu item/category/option create+update; (2) owner-triggered "Translate All Now" via `POST /api/restaurants/:id/translate-all`; (3) lazy on-demand per-request via `GET /api/menu/public/:id?lang=<code>` — translates missing entries and caches to DB `translations` JSON field immediately. `lang` param is validated against `restaurant.targetLanguages` — arbitrary langs are rejected. Free-tier detection: key ending in `:fx` routes to `api-free.deepl.com`.
 - **Storage** (`storage/`) — Cloudflare R2 client for image uploads. `StorageService` runs sharp image processing pipeline: EXIF auto-rotate, resize to 1200px max, convert to WebP (quality 82), generate 400px thumbnail (quality 75), upload both in parallel. Methods: `upload(fileBuffer, originalName, contentType)` returns URL; `uploadWithThumbnail(...)` returns `{url, thumbnailUrl}`. ALLOWED_TYPES: JPEG, PNG, WebP. File filter in controllers additionally restricts to JPEG/PNG only. R2 creds in `apps/backend/.env`: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`.
 - **Schedule** — `@nestjs/schedule` is registered **only** inside `loyalty.module.ts`. Loyalty expiry-reminder cron runs at midnight UTC.
@@ -108,7 +108,7 @@ Key files for the options flow:
 ## Frontend architecture
 
 - **Routing** — React Router v7 in `apps/frontend/src/App.tsx`.
-- **State** — React Context per concern in `src/context/`: `AuthContext`, `RestaurantContext`, `MenuContext`, `CartContext`, `OrderContext`, `AssistanceContext`, `SocketContext`, `NotificationContext`. Server state via TanStack Query.
+- **State** — React Context per concern in `src/context/`: `AuthContext`, `RestaurantContext`, `MenuContext`, `CartContext`, `OrderContext`, `AssistanceContext`, `SocketContext`, `NotificationContext`, `PosContext`. Server state via TanStack Query.
 - **API client** — `src/lib/api.ts` (axios + JWT interceptors). All requests go through this — never call axios directly elsewhere.
 - **UI primitives** — `src/components/ui/` (Radix + class-variance-authority + tailwind-merge).
 
@@ -118,6 +118,37 @@ Key files for the options flow:
 - `npm run build` in backend always regenerates the Prisma client before `nest build` — no need to run `prisma generate` separately.
 - Frontend `strictPort: true` means a stale dev server on `:3001` blocks startup. Kill with PowerShell (`Stop-Process -Id <pid> -Force`); Git Bash `taskkill` mangles paths.
 - When adding new fields on `Restaurant` (or any DTO-validated model), also add `@Min` / `@Max` / `@IsOptional` to `apps/backend/src/restaurants/dto/update-restaurant.dto.ts` — `class-validator` is the input boundary.
+
+## Waiter POS (`/staff/pos`)
+
+Third layout (`PosLayout`) alongside `AppLayout` and `PublicLayout`. Full-viewport, mobile-first Point-of-Sale for waiters. `PosContext` (`apps/frontend/src/context/PosContext.tsx`) owns all POS state — in-memory only, completely isolated from `CartContext`.
+
+### Key concept: `submitted` flag
+`PosCartItem.submitted: boolean` separates order history (read-only display, gray, ✓ checkmark) from pending items (full quantity/note/delete controls):
+- `addItem()` → `submitted: false`
+- `markAsSubmitted()` → all pending → submitted (after order creation)
+- `setHistoryItems(history)` → replaces submitted items, keeps pending
+- `clearCart()` → removes only pending (preserves history)
+- `resetCart()` → removes ALL items (table switch)
+- `buildSpecialRequests()` → only includes `submitted: false` items
+- `getPendingTotal()` → sum of only non-submitted items
+
+### Session lifecycle
+| Action | Endpoint | Auth | Behavior |
+|--------|----------|------|----------|
+| Open table | `POST /payments/session` | Public | Idempotent `getOrCreateSession` |
+| Force open | `POST /payments/session/force-open` | JWT | Closes existing OPEN, creates new |
+| Load history | `GET /payments/session/:token/bill` | Public | All past orders → `setHistoryItems()` |
+| Submit order | `POST /api/orders` | Public | Only pending items → `markAsSubmitted()` |
+| Paid by card | `POST /payments/session/:token/close-card` | JWT | MYPOS payment → PAID |
+| Force close | `POST /payments/session/:token/close` | JWT | CLOSED_NO_PAYMENT |
+
+### POS files (15 new)
+- Context: `apps/frontend/src/context/PosContext.tsx` (190 lines, 15 methods)
+- Pages: `PosLayout.tsx`, `PosPage.tsx` in `apps/frontend/src/pages/pos/`
+- Components: 12 files in `apps/frontend/src/components/pos/`
+- Auth guard: `apps/frontend/src/components/StaffRoute.tsx`
+- Backend: `payment.service.ts` (+`forceOpenSession`, `+closeSessionWithCard`), `tables.service.ts` (+`getTableOrders`)
 
 ## Roadmap & current focus
 
@@ -163,6 +194,8 @@ Source of truth: `CODING_ROADMAP.md`. Detailed per-phase plans under `.planning/
 - **Live Table View** — `getTablesWithStatus()` in `tables.service.ts` fetches tables + active sessions in parallel via `Promise.all`; derives status per table (empty/waiting/occupied/paid); `GET /tables/status/:restaurantId` returns enriched data; `emitTableStatusChanged()` helper in `EventsGateway` called from 4 locations; `LiveTablesView.tsx` with filter modes (Active/Occupied/Paid/All) defaulting to Active; `TableCard.tsx` color-coded cards (red/amber/green/gray left border); `TableDetailModal.tsx` showing orders + payment info; `TableView.tsx` parent with Live View / QR Management sub-tabs; socket listener invalidates React Query `['tableStatuses']` cache on `table:status-changed` events.
 - **Code review fixes** — Parallel DB queries replacing sequential awaits; `emitTableStatusChanged` helper deduplication across 4 call sites; removed unused `label` field from `statusStyles` Record; added `enabled: !!restaurantId` guard on `useQuery` in `TableView.tsx`; removed dead code + unnecessary existence checks.
 - **Key files:** `payment.service.ts`, `payment.controller.ts`, `stripe.provider.ts`, `payment-provider.interface.ts`, `tables.service.ts`, `tables.controller.ts`, `events.gateway.ts`, `orders.service.ts`, `PaymentModal.tsx`, `PaymentsView.tsx`, `LiveTablesView.tsx`, `TableCard.tsx`, `TableDetailModal.tsx`, `TableView.tsx`, `NotificationContext.tsx`, `NotificationBell.tsx`, `PaymentToast.tsx`, `api.ts`.
+
+**Shipped — Waiter POS (May 9-10, 2026):** Full-viewport tableside ordering at `/staff/pos`. 15 new frontend files, 4 modified files. `PosLayout` + `PosContext` (in-memory, isolated from CartContext). Seat-level ordering, table selection modal with Force Open, submitted/pending item tracking, 3 session-end actions (Submit/Paid by Card/Force Close) with Radix confirmation dialogs. 4 new backend endpoints. Zero Prisma schema changes. 5 bug fix commits (duplicate menuItemId, session history, dashboard live view, cart reset, confirmation dialogs).
 
 **Current focus — V3 Growth:**
 - **Phase 18 — Staff Roles:** expand `UserRole` to `OWNER` / `MANAGER` / `WAITER` / `KITCHEN`, permission matrix, `StaffInvite` model with expiring tokens, activity log.

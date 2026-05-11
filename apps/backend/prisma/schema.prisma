@@ -363,4 +363,5 @@ enum PaymentStatus {
 enum PaymentProvider {
   STRIPE
   MYPOS
+  CASH
 }

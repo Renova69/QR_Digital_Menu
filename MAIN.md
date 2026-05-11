@@ -1,7 +1,7 @@
 # QR Menu App — Master Documentation
 
-> **Last Updated:** May 8, 2026
-> **Status:** V2.5 Complete — V3 Growth Features (Stripe Payments ✅, Live Table View ✅)
+> **Last Updated:** May 10, 2026
+> **Status:** V2.5 Complete — V3 Growth Features (Stripe Payments ✅, Live Table View ✅, OCR Import ✅, Waiter POS ✅) — Translation + Import + Menu Editor Fixes ✅
 > **Stack:** Turborepo Monorepo — React 18 + NestJS 11 + Prisma 6 + Neon (Serverless PostgreSQL)
 
 ---
@@ -115,6 +115,7 @@ AppModule
 ├── StorageModule (Cloudflare R2 image uploads + sharp image processing)
 ├── LoyaltyModule (FIFO point ledger, VIP tiers, expiry cron)
 ├── PaymentModule (Stripe Connect, provider abstraction, webhooks, payment history)
+├── MenuImportModule (OCR JSON → menu upsert, API key auth + JWT auth, 60s transaction)
 ├── HealthModule
 └── FeedbackModule
 ```
@@ -141,6 +142,7 @@ Controller (HTTP, validated DTOs)
 | `CartContext` | Shopping cart with localStorage persistence |
 | `OrderContext` | Order management, socket event handling |
 | `SocketContext` | Socket.io connection, room joining |
+| `PosContext` | POS cart state (in-memory, isolated from CartContext), seat selection, submitted/pending item tracking |
 | `NotificationContext` | Payment notification state, bell badge count, toast queue |
 
 **Routing (React Router v7):**
@@ -158,6 +160,7 @@ Controller (HTTP, validated DTOs)
 | `/profile` | `CustomerProfilePage` | Customer | **PublicLayout** |
 | `/dashboard` | `DashboardPage` | Protected | AppLayout |
 | `/dashboard/menu` | `MenuEditorPage` | Protected | AppLayout |
+| `/staff/pos` | `PosPage` | Staff | **PosLayout** (full-viewport) |
 
 **Layout split:** `AppLayout` (Header + container) for dashboard/auth routes; `PublicLayout` (bare) for all customer-facing routes — enables native-feel mobile experience.
 
@@ -264,6 +267,28 @@ Payment (sessionId, stripePaymentIntentId, amount, tip, status, method)
 | **Live Table View** | Real-time color-coded table status grid, filter modes (Active/Occupied/Paid/All), table detail modal with orders + payment info, Socket.io `table:status-changed` events from 4 emission points, parallel DB queries via `Promise.all` |
 | **Payment History & Notifications** | `PaymentsView` with status/date filters, `NotificationContext` + `NotificationBell` (badge count), `PaymentToast` slide-in, `payment:confirmed` socket event |
 | **Code Review Fixes** | Parallel DB queries replacing sequential awaits, `emitTableStatusChanged` helper deduplication, removed unused fields (`label` from statusStyles), `enabled: !!restaurantId` query guard, dead code removal |
+
+### Post-Roadmap Additions (Shipped May 9, 2026)
+
+| Feature | Details |
+|---------|---------|
+| **OCR Menu Import** | `MenuImportModule` — upserts categories + items + options from OCR JSON into the owner's live menu. Dual auth: API key bearer (OCR tool push) + JWT (dashboard confirm). `ImportItemDto` fields: `allergens[]`, `dietaryTags[]`, options with `VARIATION`/`ADDON` types. Prisma transaction timeout raised to 60s for large menus (~260 queries for 82-item menus over Neon cloud). `jsonToPayload()` in `MenuImportView.tsx` transforms OCR internal schema to import DTO. |
+
+### Post-Roadmap Additions (Shipped May 9-10, 2026)
+
+| Feature | Details |
+|---------|---------|
+| **Waiter POS** | Full-viewport, mobile-first Point-of-Sale at `/staff/pos`. New `PosLayout` + `PosContext` (in-memory, isolated from CartContext). Seat-level ordering (Seat 1-3 / Shared). Table selection modal with color-coded status grid + Force Open. Per-item notes aggregated into `Order.specialRequests`. Submitted/pending item tracking — reopening table shows full order history, submitting only sends new items to kitchen. Three session-end actions: Submit Order (pending only), Paid by Card (MYPOS payment record), Force Close (CLOSED_NO_PAYMENT). All 3 have Radix confirmation dialogs. Split bill (pure UI math) and QR bill sharing. 4 new backend endpoints. Zero Prisma schema changes. |
+| **POS Bug Fixes** | Duplicate menuItemId deduplication (`[...new Set()]`), cart reset on table switch, dashboard live view real order data (was hardcoded "No orders"), order history isolation (submitted items visible but not re-sent) |
+
+### Post-Roadmap Additions (Shipped May 10, 2026)
+
+| Feature | Details |
+|---------|---------|
+| **Translation Bug Fixes** | Three root causes fixed: (1) `handleForceTranslate` in `SettingsView` now saves `targetLanguages` to DB before calling translate-all — prevented "No target languages configured" 400 error when local state differed from DB. (2) `selectedLang` init in `PublicMenuPage` uses `.slice(0, 2)` to strip browser locale codes like "en-US" to "en"; dropdown is now dynamic from `restaurant.targetLanguages`, hidden when none configured. (3) `menu.service.ts` `getPublicMenu` select now includes `defaultTheme` — was missing, breaking per-restaurant theme on public menu load. |
+| **DeepL Rate Limit & Connection Fix** | `TranslationService`: replaced per-call `axios.post()` with shared `AxiosInstance` using `https.Agent({ keepAlive: true, maxSockets: 4 })` — eliminates `MaxListenersExceededWarning` from TLS listener accumulation. Added 250ms delay between language iterations in `translateObject` — eliminates DeepL 429 errors when translating to multiple languages back-to-back. |
+| **Menu Import Translation Passthrough** | `ImportItemDto` and `ImportCategoryDto` now accept `translations: Record<string, { name?, description? }>`. `menu-import.service.ts` passes `translations` through to Prisma `create`/`update` for both categories and items. Root cause: `jsonToPayload()` in `MenuImportView.tsx` explicitly rebuilt item/category objects without spreading `translations` — now passes through if present. Enables importing multilingual menus from JSON without a separate translate step. |
+| **Menu Editor Delete Buttons** | `window.confirm()` was silently blocked in some browser contexts, making category/item delete buttons non-functional. `CategoryList.tsx`: replaced with Radix `Dialog` confirmation showing "This will permanently delete [name] and ALL items inside it. This cannot be undone." with Cancel + Delete buttons and loading state. `ItemList.tsx`: replaced with inline `confirmingDeleteId` state — first click shows "Delete? / Cancel / Delete" buttons inline on the row, second click executes. ~15 new i18n keys added in EN/BG/RO (`menuAdmin.deleteCategoryTitle/Warning/Warning2/deleteCategory/confirmDelete`, `common.delete/deleting`). |
 
 ### V4 — Enterprise (Future)
 - AWS RDS / GCP Cloud SQL migration
@@ -383,10 +408,12 @@ Two types:
 
 Three paths:
 1. **Fire-and-forget pre-warm** — after menu item/category/option create/update, background IIFE translates to all `targetLanguages`, writes to `translations` JSON field
-2. **Owner "Translate All Now"** — `POST /api/restaurants/:id/translate-all`
-3. **Lazy on-demand** — `GET /api/menu/public/:id?lang=<code>` checks DB cache per entity; on miss, translates → writes to DB → overlays on response (300ms delay between DeepL calls)
+2. **Owner "Translate All Now"** — `POST /api/restaurants/:id/translate-all`. Dashboard saves `targetLanguages` to DB first if local state differs from saved, then triggers translate-all.
+3. **Lazy on-demand** — `GET /api/menu/public/:id?lang=<code>` checks DB cache per entity; on miss, translates → writes to DB → overlays on response
 
 `lang` param validated against `restaurant.targetLanguages` — prevents unauthorized DeepL quota burn. Free-tier key detection: key ending in `:fx` → routes to `api-free.deepl.com`.
+
+**Rate-limit & connection management:** `TranslationService` uses a shared `AxiosInstance` with `https.Agent({ keepAlive: true, maxSockets: 4 })` — prevents TLS listener accumulation (`MaxListenersExceededWarning`) from per-call connection creation. 250ms delay inserted between language iterations in `translateObject` — prevents DeepL 429 when translating to multiple languages back-to-back.
 
 ### Menu Check (Smart Audit)
 
@@ -614,6 +641,13 @@ Branding applied to public menu via inline style injection:
 | `POST /api/restaurants/:id/stripe/account-link` | JWT | Stripe Connect onboarding |
 | `GET /api/restaurants/:id/stripe/status` | JWT | Connect account status |
 | `POST /api/restaurants/:id/stripe/disconnect` | JWT | Revoke Connect access |
+| `POST /api/restaurants/:id/menu/import` | API Key | OCR tool push — upsert menu from JSON |
+| `POST /api/restaurants/:id/menu/import/confirm` | JWT | Dashboard confirm import |
+| `GET /api/restaurants/:id/menu/import/api-key` | JWT | Get/create import API key (masked) |
+| `POST /api/restaurants/:id/menu/import/api-key/regenerate` | JWT | Regenerate import API key |
+| `POST /api/payments/session/force-open` | JWT | Force-open table session (replaces existing OPEN session) |
+| `POST /api/payments/session/:token/close-card` | JWT | Close session with MYPOS card payment |
+| `GET /api/tables/:tableId/orders` | JWT | All orders for a table's active session |
 
 Full interactive docs at `/api-docs` (Swagger UI).
 
@@ -679,10 +713,11 @@ npm run build   # Production build
 | `RESEND_API_KEY` | Backend | Resend email API key (OTP delivery) |
 | `RESEND_FROM_EMAIL` | Backend | Sender email for OTP |
 | `FRONTEND_URL` | Backend | CORS origin (`http://localhost:3001`) |
-| `AWS_REGION` | Backend | S3 region |
-| `AWS_ACCESS_KEY_ID` | Backend | S3 access key |
-| `AWS_SECRET_ACCESS_KEY` | Backend | S3 secret key |
-| `AWS_S3_BUCKET` | Backend | S3 bucket name |
+| `R2_ACCOUNT_ID` | Backend | Cloudflare R2 account ID |
+| `R2_ACCESS_KEY_ID` | Backend | R2 access key |
+| `R2_SECRET_ACCESS_KEY` | Backend | R2 secret key |
+| `R2_BUCKET_NAME` | Backend | R2 bucket name |
+| `R2_PUBLIC_URL` | Backend | R2 CDN public base URL |
 | `VITE_API_URL` | Frontend | API base URL (`http://localhost:3000/api`) |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | Frontend | Stripe publishable key for Elements |
 | `STRIPE_SECRET_KEY` | Backend | Stripe secret key for PaymentIntents |
@@ -713,7 +748,7 @@ npm run build   # Production build
 | No pagination on list endpoints | Medium | Public menu loads all items; dashboard lists are unbounded |
 | Minimal test coverage | Medium | Only basic unit/E2E tests. No service-level tests |
 | Relaxed TS strictness (backend) | Low | `strictNullChecks: false`, `noImplicitAny: false` |
-| No database indexes beyond PKs | Low | Performance concern at scale |
+| ~~No database indexes beyond PKs~~ | ~~Low~~ | ✅ Fixed May 7, 2026 — indexes on `Order.[restaurantId,status,createdAt]`, `MenuItem.[categoryId,order]`, `Feedback.[restaurantId]`, `AssistanceRequest.[restaurantId,isResolved]` |
 | `any` types in frontend contexts | Low | `CartContext.selectedOptions: any[]`, etc. |
 
 ---
@@ -752,6 +787,10 @@ npm run build   # Production build
 | **Notification bell** | `apps/frontend/src/components/NotificationBell.tsx` |
 | **Payment toast** | `apps/frontend/src/components/PaymentToast.tsx` |
 | **Payment history view** | `apps/frontend/src/pages/Dashboard/PaymentsView.tsx` |
+| **POS context** | `apps/frontend/src/context/PosContext.tsx` |
+| **POS page + layout** | `apps/frontend/src/pages/pos/PosPage.tsx`, `PosLayout.tsx` |
+| **POS components** | `apps/frontend/src/components/pos/` (12 components) |
+| **Staff auth guard** | `apps/frontend/src/components/StaffRoute.tsx` |
 | **Planning docs** | `.planning/` |
 | **Design system** | `.agent/design-system/qr-menu-saas/MASTER.md` |
 | **Coding roadmap** | `CODING_ROADMAP.md` |

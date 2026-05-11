@@ -1,9 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
+import * as https from 'https';
 
 @Injectable()
 export class TranslationService {
   private readonly logger = new Logger(TranslationService.name);
+
+  // Shared instance with keep-alive agent — prevents TLS socket listener accumulation
+  private readonly http: AxiosInstance = axios.create({
+    httpsAgent: new https.Agent({ keepAlive: true, maxSockets: 4 }),
+  });
+
+  // Conservative: DeepL free = 5 req/s, paid = higher but stay safe
+  private static readonly LANG_DELAY_MS = 250;
 
   private get apiKey(): string | undefined {
     return process.env.DEEPL_API_KEY;
@@ -13,6 +22,10 @@ export class TranslationService {
     return this.apiKey?.endsWith(':fx')
       ? 'https://api-free.deepl.com'
       : 'https://api.deepl.com';
+  }
+
+  private sleep(ms: number) {
+    return new Promise((r) => setTimeout(r, ms));
   }
 
   async translateTexts(
@@ -28,7 +41,7 @@ export class TranslationService {
     }
 
     try {
-      const response = await axios.post(
+      const response = await this.http.post(
         `${this.baseUrl}/v2/translate`,
         {
           text: texts,
@@ -79,12 +92,18 @@ export class TranslationService {
     const keys = entriesToTranslate.map(([key]) => key);
     const texts = entriesToTranslate.map(([_, value]) => value as string);
 
-    for (const lang of targetLanguages) {
+    for (let i = 0; i < targetLanguages.length; i++) {
+      const lang = targetLanguages[i];
       translations[lang] = {};
       const translatedTexts = await this.translateTexts(texts, lang);
 
-      for (let i = 0; i < keys.length; i++) {
-        translations[lang][keys[i]] = translatedTexts[i] || texts[i];
+      for (let j = 0; j < keys.length; j++) {
+        translations[lang][keys[j]] = translatedTexts[j] || texts[j];
+      }
+
+      // Delay between language calls to respect DeepL rate limit
+      if (i < targetLanguages.length - 1) {
+        await this.sleep(TranslationService.LANG_DELAY_MS);
       }
     }
 

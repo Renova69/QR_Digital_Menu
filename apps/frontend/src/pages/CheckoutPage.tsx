@@ -6,6 +6,8 @@ import api, { createOrder } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faBolt } from "@fortawesome/free-solid-svg-icons";
 import { useTranslation } from "react-i18next";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 
@@ -409,7 +411,7 @@ const CheckoutPage = () => {
 
               {isHappyHourActive() && (
                 <div className="flex items-center gap-2 text-yellow-500 font-bold bg-yellow-500/10 border border-yellow-500/20 px-3 py-1.5 rounded-lg justify-end">
-                  {t('checkout.happyHourBonus', { multiplier: hhMultiplier })}
+                  <FontAwesomeIcon icon={faBolt} className="mr-1" />{t('checkout.happyHourBonus', { multiplier: hhMultiplier })}
                 </div>
               )}
 
@@ -466,13 +468,13 @@ const CheckoutPage = () => {
 
         <div className="space-y-2">
           <label htmlFor="name" className="text-sm font-bold text-foreground">
-            {t("checkout.name")} *
+            {t("checkout.name")}{" "}
+            <span className="text-muted-foreground font-normal ml-1">({t("checkout.nameOptional", "optional")})</span>
           </label>
           <Input
             id="name"
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
-            required
             className="h-12 rounded-xl"
           />
         </div>

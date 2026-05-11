@@ -72,12 +72,14 @@ interface PosCartItem {
   price: number;
   quantity: number;
   selectedOptions: Array<{
-    name: string;
+    optionId: string;
+    optionName: string;
     choiceName: string;
     priceModifier: number;
   }>;
   seatNumber: string;   // "Seat 1" | "Seat 2" | "Seat 3" | "Shared" — display only
   itemNote: string;     // free text — folded into specialRequests on submit
+  submitted: boolean;   // true = already sent to kitchen, read-only in cart
 }
 
 interface PosSession {
@@ -93,17 +95,22 @@ interface PosSession {
 ```ts
 interface PosContextType {
   items: PosCartItem[];
-  addItem: (item: Omit<PosCartItem, 'cartId'>) => void;
+  addItem: (item: Omit<PosCartItem, 'cartId' | 'submitted'>) => void;
   removeItem: (cartId: string) => void;
   updateQuantity: (cartId: string, qty: number) => void;
   updateNote: (cartId: string, note: string) => void;
-  clearCart: () => void;
+  clearCart: () => void;           // clears only pending (submitted: false) items
+  resetCart: () => void;           // clears ALL items — used when switching tables
+  markAsSubmitted: () => void;     // marks all pending items as submitted
+  setHistoryItems: (items: PosCartItem[]) => void;  // loads submitted items from session
   session: PosSession | null;
   setSession: (s: PosSession) => void;
   clearSession: () => void;
-  getTotal: () => number;
-  activeSeat: string;           // global for current session — "Seat 1" default
+  getTotal: () => number;          // full session total (submitted + pending)
+  getPendingTotal: () => number;   // pending-only total — used for submit button
+  activeSeat: string;
   setActiveSeat: (seat: string) => void;
+  buildSpecialRequests: () => string;  // only includes pending items
 }
 ```
 
@@ -130,7 +137,7 @@ apps/frontend/src/
 │       ├── PosCategoryFilter.tsx   — sticky horizontal category pills
 │       ├── PosItemGrid.tsx         — 2-col dense grid, filtered by category + search query
 │       ├── PosItemCard.tsx         — tap → addItem directly, or open PosOptionsDrawer if item has MenuOptions
-│       ├── PosOptionsDrawer.tsx    — Radix Sheet (bottom), VARIATION/ADDON selection + item note input
+│       ├── PosOptionsDrawer.tsx    — Radix Dialog (bottom), VARIATION/ADDON selection + item note input
 │       ├── PosCartDrawer.tsx       — slide-up cart panel: items grouped by seat, total, submit button
 │       ├── PosSeatSelector.tsx     — pill row: Seat 1 | Seat 2 | Seat 3 | Shared (sets activeSeat)
 │       ├── PosTableModal.tsx       — Radix Dialog, table grid from getTablesWithStatus, force open/close buttons
@@ -165,7 +172,7 @@ Safe-area insets applied to top and bottom bars via `pt-safe` / `pb-safe` utilit
 
 ## 4. Backend Additions
 
-**One new endpoint** added to `PaymentController`. One existing endpoint reused as-is.
+**Four new endpoints** added. Three to `PaymentController`, one to `TablesController`.
 
 ### Existing endpoints used by POS (no changes needed)
 
@@ -173,8 +180,11 @@ Safe-area insets applied to top and bottom bars via `pt-safe` / `pb-safe` utilit
 |---|---|---|
 | `POST /api/payments/session` | Public | Normal table open — idempotent `getOrCreateSession(tableId, restaurantId)` |
 | `POST /api/payments/session/:token/close` | JWT | Force Close — already sets `CLOSED_NO_PAYMENT`, already JWT-guarded |
+| `GET /api/payments/session/:token/bill` | Public | Fetch session orders with item names — used to load history on table reopen |
 
-### New endpoint: `POST /api/payments/session/force-open`
+### New endpoints
+
+#### `POST /api/payments/session/force-open`
 
 **Auth:** `JwtAuthGuard`
 
@@ -188,48 +198,74 @@ Safe-area insets applied to top and bottom bars via `pt-safe` / `pb-safe` utilit
 
 **Use case:** Waiter starts a fresh session on a table left open without payment — overrides the idempotent behaviour of the normal `POST /payments/session`.
 
-No Prisma schema changes. `CLOSED_NO_PAYMENT` enum value already exists in `TableSessionStatus`.
+#### `POST /api/payments/session/:token/close-card`
+
+**Auth:** `JwtAuthGuard`
+
+**Body:** `{ restaurantId: string }`
+
+**Logic:**
+1. Find OPEN session by token
+2. Sum all order totals
+3. Create `Payment` record with `provider: 'MYPOS'`, `status: 'SUCCEEDED'`
+4. Set session to `PAID` with `paidAt`
+5. Emit `table:status-changed` and `payment:confirmed` events
+6. Return `{ amount }`
+
+**Use case:** Customer pays with physical card terminal (not Stripe/QR). Records revenue without actual money passing through the system.
+
+#### `GET /api/tables/:tableId/orders?restaurantId=X`
+
+**Auth:** `JwtAuthGuard`
+
+**Returns:** All orders for the table's active OPEN session, with items including menu item names. Empty array if no active session.
+
+**Use case:** Dashboard Live View — clicking a table shows its full order details.
+
+No Prisma schema changes. `PaymentProvider.MYPOS` and `TableSessionStatus.PAID` enum values already exist.
 
 ---
 
 ## 5. Data Flow
 
-### Startup
+### Startup & Table Selection
 
 1. Waiter opens `/staff/pos` → `StaffRoute` verifies auth
 2. `PosTableModal` auto-opens (no session in `PosContext`)
 3. `getTablesWithStatus()` populates table grid with live status
 4. Waiter selects table:
    - Table has no open session → `POST /payments/session` (existing public endpoint, idempotent)
-   - Table has open session → `getOrCreateSession` returns existing token — use it directly
-   - Waiter taps "Force Open" → `POST /payments/session/force-open` (new endpoint)
-5. `PosContext.setSession()` stores session — modal closes, POS is ready
+   - Table has open session with orders → same endpoint returns existing token; then `GET /payments/session/:token/bill` loads all past orders as read-only history items (`submitted: true`)
+   - Waiter taps "Force Open" → `POST /payments/session/force-open` (new endpoint, clears old session, creates fresh one)
+5. `resetCart()` clears previous table's data. `PosContext.setSession()` stores session. If history loaded, `setHistoryItems()` populates submitted items. Modal closes, POS is ready with full order history visible.
 
 ### Order Submission
 
 1. Waiter selects seat via `PosSeatSelector` (sets `activeSeat`)
 2. Taps `PosItemCard`:
-   - No `MenuOption[]` on item → `addItem()` immediately with `activeSeat`
+   - No `MenuOption[]` on item → `addItem()` immediately with `activeSeat`, `submitted: false`
    - Has `MenuOption[]` → `PosOptionsDrawer` opens → waiter selects options + optional note → `addItem()`
-3. Bottom bar shows count + total → waiter taps "Submit"
-4. `PosContext` builds `specialRequests` string from seat groups + item notes
-5. `POST /api/orders`:
+3. Cart shows submitted items (gray, read-only, ✓ checkmark) and pending items (full controls)
+4. Submit button shows pending count and pending-only total, disabled if no pending items
+5. Waiter taps submit → confirmation dialog: "Submit N new items to the kitchen for €X?"
+6. On confirm → `buildSpecialRequests()` only includes pending items → `POST /api/orders`:
    ```json
    {
      "customerName": "Staff",
-     "tableId": "session.tableId",
+     "tableId": "session.tableName",
      "restaurantId": "activeRestaurant.id",
-     "specialRequests": "[Seat 1] Ribeye: no salt | [Seat 2] Pasta",
-     "tableSessionId": "session.sessionId",
+     "specialRequests": "[Seat 1] Main Dish | [Seat 2] Salad",
+     "sessionToken": "session.sessionToken",
      "items": [{ "menuItemId": "...", "quantity": 1, "selectedOptions": [...] }]
    }
    ```
-6. On success → `clearCart()`. Session stays open. Kitchen receives `newOrder` socket event via existing `EventsGateway`.
+7. On success → `markAsSubmitted()` marks pending items as submitted (they become gray history). Session stays open. Kitchen receives `newOrder` socket event via existing `EventsGateway`.
 
-### Session End
+### Session End (3 options, all with confirmation dialogs)
 
-- "Force Close" → `POST /payments/session/:token/close` (existing endpoint) → `clearSession()`
-- Customer pays via Stripe → session closes via existing webhook → `table:status-changed` socket event → `PosTableModal` can detect and prompt waiter
+- **Submit Order** (green) → sends only pending items to kitchen, marks them as submitted, session stays open
+- **Paid by Card** (amber) → `POST /payments/session/:token/close-card` → creates MYPOS payment record, sets session to PAID → `clearSession()` → "Customer paid €X by card terminal" confirmation
+- **Force Close** (red) → `POST /payments/session/:token/close` (existing endpoint, sets CLOSED_NO_PAYMENT) → `clearSession()` → "Close table without any payment?" warning
 
 ### Phase D — Split Bill & QR
 

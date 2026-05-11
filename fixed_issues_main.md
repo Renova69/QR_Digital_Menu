@@ -80,3 +80,63 @@ Following a full simplify/code-review pass on the Live Table View + Payment Hist
 
 ### Commit Reference
 - Commit `a0752c2` on `feature/stripe-payments` (merged to master May 8, 2026): `fix: code review — parallel queries, dedup emitTableStatusChanged, remove dead code, add enabled guard`
+
+---
+
+## OCR Menu Import — Schema Alignment & P2028 Fix (May 9, 2026)
+
+### Prisma P2028 Transaction Timeout
+
+- **Error**: `PrismaClientKnownRequestError: Transaction API error: Transaction not found` (code `P2028`) returned as HTTP 500 from `POST /api/restaurants/:id/menu/import/confirm`
+- **Root cause**: 82-item / 14-category menus generate ~260 DB queries inside a single `$transaction` (1 aggregate + findFirst/create/update + deleteMany per item). Over Neon cloud at 20–50 ms/query the total exceeds Prisma's default 5-second interactive transaction timeout.
+- **Fix**: Added `{ timeout: 60000 }` as second argument to `this.prisma.$transaction(async (tx) => { ... }, { timeout: 60000 })` in `menu-import.service.ts`. Added `Logger` to `MenuImportService` with try-catch wrapping `upsertMenu` for visibility into future failures.
+- **Commit**: `639e6ef` — `fix: increase Prisma transaction timeout to 60s for large menu imports`
+- **File**: `apps/backend/src/menu-import/menu-import.service.ts`
+- **Guideline**: If menus grow to 500+ items consider breaking into per-category transactions or removing the outer transaction; the P2028 threshold is `timeout / avg_query_latency`.
+
+### OCR Schema Alignment
+
+- **Problem 1**: OCR tool exported `tags: ["vegetarian", "gluten-free"]` but `ImportItemDto` and Prisma schema have separate `allergens: String[]` and `dietaryTags: String[]` fields. The mismatch caused `whitelist: true` ValidationPipe to strip the `tags` field silently, resulting in empty allergen/tag data on all imported items.
+- **Fix 1**: Updated `jsonToPayload()` in `MenuImportView.tsx` to read `item.allergens` and `item.dietaryTags` directly (no `tags` mapping). Updated OCR tool export to emit `allergens[]` and `dietaryTags[]` separately.
+- **Problem 2**: `price || 0` treated zero-priced items (e.g., "water: 0.00 BGN") as falsy and replaced them with `0` but also dropped the explicit `0` in some edge paths.
+- **Fix 2**: Changed to `price ?? 0` (`nullish` coalescing) so only `null`/`undefined` triggers the fallback — explicit `0` passes through correctly.
+- **Confirmed**: Import of 82 items across 14 categories succeeded end-to-end after fixes.
+
+---
+
+## Waiter POS — Bug Fixes & Feature Round (May 10, 2026)
+
+Five commits fixing critical POS issues found during testing after the initial 18-task implementation.
+
+### Duplicate MenuItemId in Order Creation (commit `e69b20c`)
+
+- **Bug**: "Some menu items not found" error when order had multiple items with the same `menuItemId` (e.g., 2 salads with different options). `findMany` with `where: { id: { in: menuItemIds } }` returned fewer rows than the input array because Prisma deduplicates by `id` — the subsequent validation loop couldn't match every `orderItem` to a DB item.
+- **Fix**: Deduplicate `menuItemIds` with `[...new Set(menuItemIds)]` before `findMany`. Prisma only needs each ID once to fetch all needed items. The validation loop then looks up `dbItems.find(i => i.id === item.menuItemId)` which works correctly for duplicates since all required items are in the array.
+- **File**: `apps/backend/src/orders/orders.service.ts`
+
+### Paid by Card + Confirmation Dialogs (commit `4e1bf4e`)
+
+- **Feature**: Added "Paid by Card" flow for physical card terminal payments (not Stripe/QR). Creates MYPOS payment record, sets session to PAID, emits socket events.
+- **Implementation**: `PaymentService.closeSessionWithCard()` with Prisma `$transaction` (payment create + session update). `POST /payments/session/:token/close-card` endpoint (JWT-guarded). Frontend `closeSessionWithCard()` in `api.ts`.
+- **Confirmation dialogs**: All 3 session-end actions (Submit Order, Paid by Card, Force Close) now have Radix Dialog confirmations with action-specific titles, descriptions, and button colors. Prevents accidental table closure.
+- **Files**: `payment.service.ts`, `payment.controller.ts`, `api.ts`, `PosCartDrawer.tsx` (full rewrite)
+
+### Session Order History — submitted/pending Tracking (commit `96d08f3`)
+
+- **Bug**: When waiter reopened an occupied table, past orders were invisible. Submitting again re-sent ALL items to kitchen — duplicate orders.
+- **Fix**: Added `submitted: boolean` to `PosCartItem`. New context methods: `markAsSubmitted()` (pending → submitted), `setHistoryItems()` (loads past orders as submitted), `clearCart()` (clears only pending), `resetCart()` (clears all), `getPendingTotal()` (pending-only sum), `buildSpecialRequests()` (pending-only serialization).
+- **Flow**: Waiter opens occupied table → `getSessionBill()` loads past orders as `submitted: true` (gray, read-only, ✓ checkmark) → new items added as `submitted: false` → submit only sends pending items → `markAsSubmitted()` makes them history. Session stays open.
+- **Files**: `PosContext.tsx` (full rewrite), `PosCartDrawer.tsx`, `PosTableModal.tsx`, `payment.service.ts` (`getSessionBill` enhanced include)
+
+### Dashboard Live View — Real Order Data (commit `7faa918`)
+
+- **Bug**: Clicking a table in the owner dashboard live view showed "No orders" — hardcoded empty state.
+- **Fix**: New `GET /tables/:tableId/orders?restaurantId=X` endpoint (JWT-guarded) — finds active OPEN session, returns all orders with item names via Prisma nested `include`. `LiveTablesView.tsx` `handleTableClick` now async — fetches real orders when `orderCount > 0`, passes to `TableDetailModal`. Added `ordersLoading` prop for spinner during fetch.
+- **Files**: `tables.service.ts` (+`getTableOrders()`), `tables.controller.ts` (+endpoint), `api.ts` (+`getTableOrders()`), `LiveTablesView.tsx`, `TableDetailModal.tsx`
+
+### POS Cart Reset on Table Switch (commit `99915c0`)
+
+- **Bug**: Switching from Table 3 (2 soups, €6) to Table 2 or an empty table still showed the 2 soups in the POS cart. Dashboard table view was fine — pure POS issue.
+- **Fix**: Added `resetCart()` to `PosContext` (clears ALL items, unlike `clearCart` which only clears pending). Both `handleSelect` and `handleForceOpen` in `PosTableModal.tsx` now call `resetCart()` before loading the new session.
+- **Root cause**: `clearCart()` was designed to preserve `submitted: true` items (for order history persistence within same session). Table switching needed a full reset.
+- **Files**: `PosContext.tsx`, `PosTableModal.tsx`

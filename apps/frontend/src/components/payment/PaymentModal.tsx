@@ -142,7 +142,8 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
             {step === 'pay' && t('payment.payment')}
             {step === 'done' && t('payment.thankYou')}
           </h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          {/* When payment is done, X clears the session (same as "Back to Menu") */}
+          <button onClick={step === 'done' ? onSuccess : onClose} className="text-muted-foreground hover:text-foreground">
             <X size={20} />
           </button>
         </div>

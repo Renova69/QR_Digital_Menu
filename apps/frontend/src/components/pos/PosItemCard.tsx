@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { usePos } from "../../context/PosContext";
 
 interface MenuOption {
@@ -19,6 +20,7 @@ interface PosItemCardProps {
 
 export default function PosItemCard({ item }: PosItemCardProps) {
   const { addItem, activeSeat } = usePos();
+  const [added, setAdded] = useState(false);
   const hasOptions = item.options && item.options.length > 0;
 
   const handleTap = () => {
@@ -36,6 +38,8 @@ export default function PosItemCard({ item }: PosItemCardProps) {
         seatNumber: activeSeat,
         itemNote: "",
       });
+      setAdded(true);
+      setTimeout(() => setAdded(false), 200);
     }
   };
 
@@ -43,7 +47,11 @@ export default function PosItemCard({ item }: PosItemCardProps) {
     <button
       type="button"
       onClick={handleTap}
-      className="h-20 w-full flex flex-col justify-center px-3 py-2 rounded-lg bg-card border border-border text-left transition-none active:bg-accent/10 min-h-[44px]"
+      className={`h-20 w-full flex flex-col justify-center px-3 py-2 rounded-lg border text-left transition-none active:bg-accent/10 min-h-[44px] ${
+        added
+          ? "bg-accent/20 border-accent scale-[0.96]"
+          : "bg-card border-border"
+      }`}
     >
       <span className="text-sm font-medium text-foreground line-clamp-2 leading-tight">
         {item.name}

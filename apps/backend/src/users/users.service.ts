@@ -11,6 +11,10 @@ export class UsersService {
     return this.prisma.user.findUnique({ where: { email: normalizedEmail } });
   }
 
+  async findByPhone(phone: string): Promise<User | null> {
+    return this.prisma.user.findFirst({ where: { phone } });
+  }
+
   async create(data: Prisma.UserCreateInput): Promise<User> {
     if (data.email) {
       data.email = data.email.toLowerCase().trim();

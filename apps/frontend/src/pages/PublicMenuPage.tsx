@@ -7,12 +7,20 @@ import { useCart } from "../context/CartContext";
 import { Button } from "../components/ui/button";
 import CartIcon from "../components/cart/CartIcon";
 import { ItemWithOptions } from "../components/menu/ItemWithOptions";
-import { Bell, Globe, LogOut, ChevronDown } from "lucide-react";
+import { Bell, Globe, LogOut, ChevronDown, UserCircle } from "lucide-react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCircleCheck } from "@fortawesome/free-solid-svg-icons";
 import { useTranslation } from "react-i18next";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
 import { TrendingCarousel } from "../components/menu/TrendingCarousel";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { useAuth } from "../context/AuthContext";
+
+const LANG_LABELS: Record<string, string> = {
+  en: "English", bg: "Български", ro: "Română", de: "Deutsch",
+  es: "Español", fr: "Français", it: "Italiano", zh: "中文",
+  el: "Ελληνικά", ja: "日本語", ru: "Русский", ar: "العربية",
+};
 
 const PublicMenuPage = () => {
   const { restaurantId } = useParams<{ restaurantId: string }>();
@@ -35,6 +43,7 @@ const PublicMenuPage = () => {
 
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isAssistanceDialogOpen, setIsAssistanceDialogOpen] = useState(false);
 
   const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
@@ -78,7 +87,9 @@ const PublicMenuPage = () => {
         }
 
         if (data.restaurant?.targetLanguages?.length > 0) {
-          const defaultLang = i18n.language || "en";
+          const browserLang = (i18n.language || "en").slice(0, 2);
+          const langs: string[] = data.restaurant.targetLanguages;
+          const defaultLang = langs.includes(browserLang) ? browserLang : langs[0];
           setSelectedLang(defaultLang);
         }
       } catch (err) {
@@ -229,14 +240,6 @@ const PublicMenuPage = () => {
         paddingBottom: 'max(8rem, calc(5rem + env(safe-area-inset-bottom, 0px)))',
       }}
     >
-      {/* Theme Toggle — scoped per restaurant so each venue remembers preference */}
-      <div className="absolute top-6 right-6 z-50 animate-in fade-in slide-in-from-right-4 duration-700 pointer-events-auto">
-        <ThemeToggle
-          storageKey={restaurantId ? `theme-${restaurantId}` : 'theme'}
-          defaultTheme={(restaurantTheme?.defaultTheme as 'light' | 'dark') ?? 'light'}
-        />
-      </div>
-
       {/* Ambient Depth Background */}
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
         <div
@@ -256,20 +259,33 @@ const PublicMenuPage = () => {
       </div>
 
       <div className="relative z-10 container mx-auto px-4 max-w-4xl">
-        {tableNumber && (
-          <div className="glass-panel border-l-4 border-accent p-5 mb-10 rounded-[1.5rem] flex justify-between items-center animate-in fade-in slide-in-from-top-4 duration-700">
+        {tableNumber ? (
+          <div className="glass-panel border-l-4 border-accent px-4 py-3 mb-10 rounded-[1.5rem] flex justify-between items-center animate-in fade-in slide-in-from-top-4 duration-700">
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 bg-accent rounded-full animate-pulse shadow-[0_0_10px_var(--color-accent)]"></div>
               <p className="font-black tracking-[0.08em] text-xs uppercase opacity-70">
                 {t("publicMenu.viewingTable", { tableNumber })}
               </p>
             </div>
+            <ThemeToggle
+              size="sm"
+              storageKey={restaurantId ? `theme-${restaurantId}` : 'theme'}
+              defaultTheme={(restaurantTheme?.defaultTheme as 'light' | 'dark') ?? 'light'}
+            />
+          </div>
+        ) : (
+          <div className="flex justify-end mb-6 animate-in fade-in duration-700">
+            <ThemeToggle
+              size="sm"
+              storageKey={restaurantId ? `theme-${restaurantId}` : 'theme'}
+              defaultTheme={(restaurantTheme?.defaultTheme as 'light' | 'dark') ?? 'light'}
+            />
           </div>
         )}
 
         {assistanceSent && (
           <div className="glass-panel border-l-4 border-emerald-500 text-emerald-600 dark:text-emerald-400 p-4 mb-8 rounded-2xl shadow-xl animate-in zoom-in-95 duration-300">
-            <p className="font-bold">{t("publicMenu.staffNotified")}</p>
+            <p className="font-bold"><FontAwesomeIcon icon={faCircleCheck} className="mr-1" />{t("publicMenu.staffNotified")}</p>
           </div>
         )}
 
@@ -332,6 +348,7 @@ const PublicMenuPage = () => {
                 {menuData.restaurant?.name}
               </h1>
 
+              {(menuData.restaurant?.targetLanguages?.length ?? 0) > 0 && (
               <div className="inline-flex items-center gap-4 p-1.5 glass-panel rounded-2xl shadow-xl overflow-hidden">
                 <div className="pl-4 pr-2 flex items-center gap-2 border-r border-white/10 dark:border-white/5">
                   <Globe className="w-3.5 h-3.5 text-accent" aria-hidden="true" />
@@ -343,19 +360,22 @@ const PublicMenuPage = () => {
                 <div className="relative flex items-center pr-2">
                   <select
                     id="lang-select"
-                    value={selectedLang || i18n.language}
+                    value={selectedLang}
                     onChange={handleLanguageChange}
                     className="bg-transparent border-none text-foreground font-black text-xs uppercase tracking-widest focus:ring-0 cursor-pointer outline-none appearance-none pr-6 py-2 min-w-[80px]"
                   >
-                    <option value="en" className="bg-white dark:bg-zinc-950 text-black dark:text-white">English</option>
-                    <option value="bg" className="bg-white dark:bg-zinc-950 text-black dark:text-white">Български</option>
-                    <option value="ro" className="bg-white dark:bg-zinc-950 text-black dark:text-white">Română</option>
+                    {(menuData.restaurant.targetLanguages as string[]).map((code) => (
+                      <option key={code} value={code} className="bg-white dark:bg-zinc-950 text-black dark:text-white">
+                        {LANG_LABELS[code] ?? code.toUpperCase()}
+                      </option>
+                    ))}
                   </select>
                   <svg className="absolute right-0 w-3 h-3 text-muted-foreground pointer-events-none" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                     <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </div>
               </div>
+              )}
             </div>
 
             {menuData.categories.length === 0 ? (
@@ -559,12 +579,17 @@ const PublicMenuPage = () => {
           className="fixed left-0 right-0 z-50 flex justify-center pointer-events-none px-4 md:px-6"
           style={{ bottom: 'max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))' }}
         >
-          <div className="flex items-center w-full max-w-[480px] justify-between p-2 md:p-2.5 glass-panel rounded-[2rem] md:rounded-[2.5rem] shadow-[0_30px_70px_-15px_rgba(0,0,0,0.5)] border-white/20 dark:border-white/10 pointer-events-auto bg-white/90 dark:bg-black/90">
+          <div className="flex items-center w-full max-w-[480px] justify-between p-1.5 md:p-2.5 glass-panel rounded-[2rem] md:rounded-[2.5rem] shadow-[0_30px_70px_-15px_rgba(0,0,0,0.5)] border-white/20 dark:border-white/10 pointer-events-auto bg-white/90 dark:bg-black/90">
+            {/* Call Waiter — icon only on mobile, icon+label on sm+ */}
             <button
-              onClick={handleAssistanceRequest}
+              onClick={() => {
+                if (assistanceSent || assistanceLoading) return;
+                if (!tableNumber) { handleAssistanceRequest(); return; }
+                setIsAssistanceDialogOpen(true);
+              }}
               disabled={assistanceSent || assistanceLoading}
               aria-label={tableNumber ? t("publicMenu.callWaiter") : t("publicMenu.scanQrForAssistance", "Scan QR to call waiter")}
-              className="flex items-center gap-2 md:gap-4 pl-4 md:pl-8 pr-3 md:pr-6 py-3 md:py-4 rounded-[1.75rem] hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-60 disabled:cursor-not-allowed transition-all group flex-1 min-h-[48px]"
+              className="flex items-center gap-1.5 md:gap-4 pl-3 md:pl-8 pr-2 md:pr-6 py-3 md:py-4 rounded-[1.75rem] hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-60 disabled:cursor-not-allowed transition-all group flex-shrink-0 min-h-[48px]"
             >
               <div className="relative flex-shrink-0">
                 <Bell className="h-5 w-5 md:h-6 md:w-6 text-accent group-hover:scale-110 transition-transform" />
@@ -572,7 +597,7 @@ const PublicMenuPage = () => {
                   <div className="absolute -top-1 -right-1 w-2 h-2 md:w-2.5 md:h-2.5 bg-destructive rounded-full border-2 border-white dark:border-black" />
                 )}
               </div>
-              <span className="font-black text-xs md:text-sm uppercase tracking-[0.1em] md:tracking-[0.15em] text-foreground/90 truncate">
+              <span className="hidden sm:block font-black text-xs uppercase tracking-[0.1em] text-foreground/90 truncate max-w-[90px]">
                 {assistanceSent
                   ? t("publicMenu.staffNotifiedShort", "Staff Notified")
                   : assistanceLoading
@@ -592,14 +617,10 @@ const PublicMenuPage = () => {
                       )}`,
                     )
                   }
-                  className="flex flex-col items-center justify-center px-2 md:px-3 min-h-[48px] hover:opacity-70 transition-opacity"
+                  aria-label={t("publicMenu.myProfile")}
+                  className="flex items-center justify-center p-2 min-h-[48px] hover:opacity-70 transition-opacity text-accent"
                 >
-                  <span className="text-xs font-black uppercase text-accent truncate max-w-[56px] md:max-w-[72px]">
-                    {user.name?.split(" ")[0] || t("publicMenu.myProfile")}
-                  </span>
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase">
-                    {t("publicMenu.myProfile")}
-                  </span>
+                  <UserCircle className="w-6 h-6" />
                 </button>
                 <button
                   onClick={() => logout()}
@@ -612,33 +633,36 @@ const PublicMenuPage = () => {
             ) : (
               <button
                 onClick={() => setIsLoginModalOpen(true)}
-                className="flex items-center justify-center px-3 md:px-4 py-2 min-h-[44px] bg-secondary text-secondary-foreground rounded-xl text-xs font-black uppercase tracking-widest hover:bg-secondary/80 transition-colors flex-shrink-0"
+                className="flex items-center justify-center px-2.5 md:px-4 py-2 min-h-[44px] bg-secondary text-secondary-foreground rounded-xl text-xs font-black uppercase tracking-widest hover:bg-secondary/80 transition-colors flex-shrink-0"
               >
                 {t("publicMenu.signIn", "Sign In")}
               </button>
             )}
 
-            <div className="w-px h-8 bg-border/40 mx-1 md:mx-2 flex-shrink-0" />
+            {/* Request Bill — divider only rendered when button is present */}
             {sessionToken && (
-              <Button
-                variant="default"
-                size="sm"
-                className="bg-accent text-accent-foreground flex-shrink-0"
-                onClick={async () => {
-                  try {
-                    await getSessionBill(sessionToken);
-                    setIsPaymentModalOpen(true);
-                  } catch {
-                    setSessionToken(null);
-                    if (tableNumber) localStorage.removeItem(`session-${tableNumber}`);
-                  }
-                }}
-              >
-                {t('payment.requestBill')}
-              </Button>
+              <>
+                <div className="w-px h-8 bg-border/40 mx-1 md:mx-2 flex-shrink-0" />
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="bg-accent text-accent-foreground flex-shrink-0 text-[11px] px-2.5 md:px-4"
+                  onClick={async () => {
+                    try {
+                      await getSessionBill(sessionToken);
+                      setIsPaymentModalOpen(true);
+                    } catch {
+                      setSessionToken(null);
+                      if (tableNumber) localStorage.removeItem(`session-${tableNumber}`);
+                    }
+                  }}
+                >
+                  {t('payment.requestBill')}
+                </Button>
+              </>
             )}
             <div className="w-px h-8 bg-border/40 mx-1 md:mx-2 flex-shrink-0" />
-            <div className="pr-2 md:pr-4 flex-shrink-0">
+            <div className="pr-1.5 md:pr-4 flex-shrink-0">
               <CartIcon
                 categories={menuData?.categories}
                 restaurantId={restaurantId}
@@ -648,6 +672,55 @@ const PublicMenuPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Assistance dialog */}
+      {isAssistanceDialogOpen && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 px-4" onClick={() => setIsAssistanceDialogOpen(false)}>
+          <div
+            className="bg-card text-card-foreground rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-6 space-y-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-border rounded-full mx-auto sm:hidden" />
+            <h2 className="text-lg font-bold text-foreground text-center">
+              {t("publicMenu.howCanWeHelp", "How can we help?")}
+            </h2>
+            <p className="text-sm text-muted-foreground text-center">
+              {t("publicMenu.selectAssistanceType", "Choose the type of help you need")}
+            </p>
+            <div className="space-y-3 pt-1">
+              <button
+                type="button"
+                onClick={() => { setIsAssistanceDialogOpen(false); handleAssistanceRequest(); }}
+                className="w-full flex items-center gap-3 p-4 rounded-xl border border-border hover:bg-secondary/60 transition-colors text-left min-h-[56px]"
+              >
+                <Bell className="h-5 w-5 text-accent flex-shrink-0" />
+                <div>
+                  <p className="font-bold text-sm text-foreground">{t("publicMenu.callWaiter", "Call Waiter")}</p>
+                  <p className="text-xs text-muted-foreground">{t("publicMenu.callWaiterDesc", "I'd like to order or ask a question")}</p>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setIsAssistanceDialogOpen(false); handleAssistanceRequest(); }}
+                className="w-full flex items-center gap-3 p-4 rounded-xl border border-destructive/30 hover:bg-destructive/5 transition-colors text-left min-h-[56px]"
+              >
+                <span className="text-xl flex-shrink-0">🚨</span>
+                <div>
+                  <p className="font-bold text-sm text-foreground">{t("publicMenu.needHelp", "Need Urgent Help")}</p>
+                  <p className="text-xs text-muted-foreground">{t("publicMenu.needHelpDesc", "I need immediate assistance")}</p>
+                </div>
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAssistanceDialogOpen(false)}
+              className="w-full py-3 rounded-xl text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors min-h-[44px]"
+            >
+              {t("common.cancel", "Cancel")}
+            </button>
+          </div>
+        </div>
+      )}
 
       <CustomerLoginModal
         isOpen={isLoginModalOpen}

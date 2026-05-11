@@ -4,9 +4,10 @@ import { Sun, Moon } from 'lucide-react';
 interface ThemeToggleProps {
   storageKey?: string;
   defaultTheme?: 'light' | 'dark';
+  size?: 'sm' | 'default';
 }
 
-export const ThemeToggle = ({ storageKey = 'theme', defaultTheme = 'light' }: ThemeToggleProps) => {
+export const ThemeToggle = ({ storageKey = 'theme', defaultTheme = 'light', size = 'default' }: ThemeToggleProps) => {
     const [theme, setTheme] = useState<'light' | 'dark'>(() => {
         if (typeof window !== 'undefined') {
             const stored = localStorage.getItem(storageKey) as 'light' | 'dark' | null;
@@ -33,11 +34,15 @@ export const ThemeToggle = ({ storageKey = 'theme', defaultTheme = 'light' }: Th
         setTheme(prev => prev === 'light' ? 'dark' : 'light');
     };
 
+    const sizeClass = size === 'sm'
+        ? 'h-9 w-9 rounded-xl'
+        : 'h-11 w-11 rounded-2xl';
+
     return (
         <button
             type="button"
             onClick={toggleTheme}
-            className="relative h-11 w-11 flex items-center justify-center rounded-2xl bg-secondary/80 hover:bg-secondary transition-all active:scale-90 border border-border/50 shadow-lg shadow-black/5 cursor-pointer"
+            className={`relative flex items-center justify-center bg-secondary/80 hover:bg-secondary transition-all active:scale-90 border border-border/50 shadow-lg shadow-black/5 cursor-pointer ${sizeClass}`}
             aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
         >
             <div className="relative overflow-hidden w-5 h-5 flex items-center justify-center">

@@ -6,7 +6,32 @@
       "PowerShell(python \"C:\\\\Users\\\\Elysian Canvas\\\\.claude\\\\plugins\\\\cache\\\\ui-ux-pro-max-skill\\\\ui-ux-pro-max\\\\2.5.0\\\\src\\\\ui-ux-pro-max\\\\scripts\\\\search.py\" \"restaurant food warm appetizing color palette\" --domain color -f markdown -n 3 2>&1)",
       "PowerShell(node -e \"const { Client } = require\\('F:/PROGRAMING/QR_Digital_Menu-main/node_modules/pg'\\); const c = new Client\\({connectionString: 'postgresql://neondb_owner:npg_tIu4LPA7oSsm@ep-shiny-flower-al0icrn9.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require'}\\); c.connect\\(\\).then\\(\\(\\) => { console.log\\('CONNECTED'\\); c.end\\(\\); }\\).catch\\(e => console.error\\('ERROR:', e.message, e.code\\)\\);\" 2>&1)",
       "PowerShell(node -e \"const { Client } = require\\('./node_modules/pg'\\); const c = new Client\\({connectionString: 'postgresql://neondb_owner:npg_tIu4LPA7oSsm@ep-shiny-flower-al0icrn9.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require'}\\); c.connect\\(\\).then\\(\\(\\) => { console.log\\('CONNECTED'\\); c.end\\(\\); }\\).catch\\(e => console.error\\('ERROR:', e.message, e.code\\)\\);\" 2>&1)",
-      "Bash(xargs grep *)"
+      "Bash(xargs grep *)",
+      "Bash(npx tsc *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(node -e \"const { DateTime } = require\\('luxon'\\); const a = DateTime.now\\(\\); const b = DateTime.now\\(\\).plus\\({days:1}\\); console.log\\('a <= b:', a <= b\\); console.log\\('b <= a:', b <= a\\);\")",
+      "Bash(node -e ' *)",
+      "Bash(echo \"Exit code: $?\")",
+      "Bash(git commit *)",
+      "PowerShell(Get-NetTCPConnection *)",
+      "Bash(node *)",
+      "Bash(ls -d .worktrees)",
+      "Bash(ls -d worktrees)",
+      "Bash(git worktree *)",
+      "Bash(cd \"F:\\\\\\\\PROGRAMING\\\\\\\\QR_Digital_Menu-main\\\\\\\\.worktrees\\\\\\\\remaining-fixes\")",
+      "Bash(find *)",
+      "Bash(npx jest *)",
+      "Bash(npm install *)",
+      "Bash(powershell -command \"\\(Get-Content 'F:\\\\PROGRAMING\\\\QR_Digital_Menu-main\\\\.worktrees\\\\feature\\\\stripe-payments\\\\apps\\\\frontend\\\\src\\\\pages\\\\Dashboard\\\\SettingsView.tsx'\\).Count\")",
+      "Bash(powershell *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(d.get\\('version'\\)\\); print\\(d.get\\('types',d.get\\('typings',''\\)\\)\\)\")",
+      "Bash(npm test *)",
+      "Bash(npx prisma *)",
+      "Skill(code-review:code-review)",
+      "Bash(findstr -i \"stripe webhook\")",
+      "Read(//c/Users/Elysian Canvas/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.5.0/**)",
+      "Bash(python skills/ui-ux-pro-max/scripts/search.py \"restaurant qr menu saas hospitality b2b dashboard\" --design-system -p \"QR Digital Menu\" -f markdown)"
     ]
   }
 }

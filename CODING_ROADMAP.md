@@ -1,11 +1,13 @@
 # QR Menu App — Coding Roadmap
 
-> **Last Updated:** May 8, 2026  
+> **Last Updated:** May 10, 2026  
 > **MVP Status:** ✅ Complete  
 > **V2 Status:** ✅ Phases 9–14 Complete  
 > **V2.5 Status:** ✅ Phases 15–17 + Mobile UX Overhaul + UI/UX Audit & Theme Polish Complete  
 > **Bug Fixes & Polish (May 6, 2026):** ✅ Customer auth OTP, cart language sync, options pre-selection, QR print, analytics dark mode, translation gaps, menu health false positive  
 > **V3 Growth (May 8, 2026):** ✅ Phase 19 (Stripe Connect Payments) Complete — Phase 18 & 20 paused  
+> **OCR Import Integration (May 9, 2026):** ✅ Prisma P2028 fix, schema alignment (allergens/dietaryTags), zero-price fix  
+> **Waiter POS (May 9-10, 2026):** ✅ Full POS interface at /staff/pos — 15 files created, 4 modified, zero schema changes  
 > **Current Focus:** Bug fixes & polish only (Phases 18+ paused)
 
 ---
@@ -398,6 +400,105 @@ All foundational phases were completed on **April 9, 2026**. The application is 
 - `apps/frontend/src/context/NotificationContext.tsx` — notification state
 - `apps/frontend/src/components/NotificationBell.tsx` — bell icon
 - `apps/frontend/src/components/PaymentToast.tsx` — toast notification
+
+---
+
+---
+
+## 🟤 OCR Import Integration ✅ (May 9, 2026)
+
+**Goal:** Allow restaurant owners to upload scanned/photographed menus via the offline OCR tool and push the structured result directly into their SaaS menu — no manual re-entry.
+
+**Shipped:**
+
+### Prisma Transaction Timeout Fix
+- Root cause: Large menus (82 items / 14 categories ≈ 260 DB queries) exceeded the 5-second default Prisma interactive transaction timeout when running against Neon cloud (20–50 ms/query over network).
+- Fix: `{ timeout: 60000 }` added to `prisma.$transaction()` in `menu-import.service.ts`.
+- Added `Logger` + try-catch to `MenuImportService` for permanent error visibility.
+
+### OCR Schema Alignment
+- `ImportItemDto` / Prisma schema use `allergens: String[]` + `dietaryTags: String[]` (separate arrays).
+- OCR tool previously exported a single `tags: []` field — now exports `allergens[]` and `dietaryTags[]` separately.
+- `price || 0` → `price ?? 0`: zero-priced items no longer treated as falsy.
+- `jsonToPayload()` in `MenuImportView.tsx` reads `allergens`/`dietaryTags` directly from OCR JSON.
+
+### End-to-End Flow
+1. Offline OCR tool scans menu → exports JSON with `allergens[]`, `dietaryTags[]`, `options[]` shape
+2. Owner opens dashboard Import tab, pastes/uploads JSON → `MenuImportView.tsx` previews data
+3. Owner clicks Confirm → `jsonToPayload()` transforms to `ImportMenuDto` shape → `POST /api/restaurants/:id/menu/import/confirm` (JWT)
+4. `MenuImportService.upsertMenu()` upserts categories + items + options inside a 60-second Prisma transaction
+
+**Key files:**
+- `apps/backend/src/menu-import/menu-import.service.ts` — timeout fix + Logger
+- `apps/backend/src/menu-import/dto/import-menu.dto.ts` — `allergens`/`dietaryTags` fields
+- `apps/frontend/src/pages/Dashboard/MenuImportView.tsx` — `jsonToPayload()` transformation
+- `F:\PROGRAMING\OFFLINE_OCR\public\js\screens\export.js` — OCR export shape updated
+
+---
+
+## 🔷 Waiter POS — Tableside Ordering Interface ✅ (May 9-10, 2026)
+
+**Goal:** Full-viewport, mobile-first Point-of-Sale at `/staff/pos` for waiters to take tableside orders rapidly with full order history visibility.
+
+**Shipped:**
+
+### Core Architecture
+- New `PosLayout` (third layout alongside AppLayout and PublicLayout) — zero chrome, full viewport
+- `PosContext` — in-memory state (no localStorage), isolated from customer `CartContext`
+- `PosCartItem.submitted: boolean` — distinguishes history (read-only, gray, ✓) from pending items (full controls)
+- `StaffRoute.tsx` auth guard — allows OWNER and STAFF roles, redirects CUSTOMER to /profile
+- Seat-level ordering: Seat 1 | Seat 2 | Seat 3 | Shared (local frontend grouping, no DB persistence)
+
+### Component Tree (15 new files)
+- `PosLayout.tsx` — full-viewport shell: sticky top bar, scrollable content, fixed bottom action bar
+- `PosPage.tsx` — composes all pos/ components
+- `PosTopBar.tsx` — search input + active table chip
+- `PosCategoryFilter.tsx` — sticky horizontal category pills
+- `PosItemGrid.tsx` — 2-col dense grid, filtered by category + search
+- `PosItemCard.tsx` — tap to add item (no options) or open options drawer (has MenuOptions)
+- `PosOptionsDrawer.tsx` — Radix Dialog (bottom), VARIATION/ADDON selection + item note input
+- `PosCartDrawer.tsx` — slide-up cart: items grouped by seat, 3 action buttons with confirmation dialogs
+- `PosSeatSelector.tsx` — pill row setting `activeSeat`
+- `PosTableModal.tsx` — Radix Dialog, table grid from `getTablesWithStatus`, Force Open button
+- `PosSplitBill.tsx` — integer input → per-person amount (pure UI math)
+- `PosQRBill.tsx` — QRCodeSVG pointed at session bill URL
+
+### Backend Additions (4 new endpoints, zero schema changes)
+- `POST /api/payments/session/force-open` (JWT) — force-open table session
+- `POST /api/payments/session/:token/close-card` (JWT) — MYPOS card payment record
+- `GET /api/tables/:tableId/orders` (JWT) — real order data for dashboard live view
+- `PaymentService.closeSessionWithCard()` — creates MYPOS payment, sets session to PAID, emits socket events
+
+### Data Flow
+| Action | Behavior |
+|--------|----------|
+| **Table selection** | `getOrCreateSession()` → if occupied, `getSessionBill()` loads history as submitted items |
+| **Order submission** | Only `submitted: false` items sent → `markAsSubmitted()` marks them as history |
+| **Paid by Card** | `closeSessionWithCard()` → MYPOS payment record → session PAID → clear session |
+| **Force Close** | `closeSession()` → CLOSED_NO_PAYMENT → clear session |
+
+### Bug Fixes (5 commits, May 10, 2026)
+- **Duplicate menuItemId** — deduplicated with `[...new Set()]` before Prisma `findMany`
+- **Session order history** — `submitted` flag pattern: re-opening table shows past orders, submit only sends new items
+- **Dashboard live view** — new backend endpoint + frontend async fetch on table click
+- **Cart reset on table switch** — `resetCart()` clears all items before loading new session
+- **Paid by Card + confirmation dialogs** — all 3 session-end actions have Radix confirmation modals
+
+**Key files:**
+- `apps/frontend/src/context/PosContext.tsx` — 190 lines, 15 context methods
+- `apps/frontend/src/pages/pos/PosLayout.tsx` — full-viewport shell
+- `apps/frontend/src/pages/pos/PosPage.tsx` — component composition
+- `apps/frontend/src/components/pos/PosCartDrawer.tsx` — cart + 3 action buttons + confirmations
+- `apps/frontend/src/components/pos/PosTableModal.tsx` — table selection with history loading
+- `apps/frontend/src/components/StaffRoute.tsx` — staff auth guard
+- `apps/backend/src/payment/payment.service.ts` — `forceOpenSession()`, `closeSessionWithCard()`
+- `apps/backend/src/payment/payment.controller.ts` — 2 new endpoints
+- `apps/backend/src/tables/tables.service.ts` — `getTableOrders()`
+- `apps/backend/src/tables/tables.controller.ts` — `GET /tables/:tableId/orders`
+- `apps/frontend/src/lib/api.ts` — `forceOpenSession()`, `closeSessionWithCard()`, `getTableOrders()`
+- `apps/frontend/src/App.tsx` — PosLayout + /staff/pos route
+- `apps/frontend/src/pages/Dashboard/LiveTablesView.tsx` — async table click handler
+- `apps/frontend/src/components/tables/TableDetailModal.tsx` — `ordersLoading` prop
 
 ---
 
