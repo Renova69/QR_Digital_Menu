@@ -15,6 +15,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<any>;
   register: (email: string, password: string, name?: string) => Promise<any>;
   loginWithToken: (token: string, user: User) => void;
+  updateUser: (user: User) => void;
   logout: () => void;
   isLoading: boolean;
   isError: boolean;
@@ -96,6 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   };
 
+  const updateUser = (user: User) => setUser(user);
+
   const logout = () => {
     localStorage.removeItem('token');
     setToken(null);
@@ -109,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     register,
     loginWithToken,
+    updateUser,
     logout,
     isLoading,
     isError,

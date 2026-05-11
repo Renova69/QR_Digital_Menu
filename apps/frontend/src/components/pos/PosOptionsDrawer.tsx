@@ -31,7 +31,6 @@ export default function PosOptionsDrawer() {
       const detail = (e as CustomEvent).detail as ItemWithOptions;
       setItem(detail);
       setOpen(true);
-      // Default select first choice for required VARIATION options
       const defaults: Record<string, { choiceName: string; priceModifier: number }> = {};
       for (const opt of detail.options ?? []) {
         if (opt.required && opt.choices.length > 0) {
@@ -48,9 +47,13 @@ export default function PosOptionsDrawer() {
     return () => window.removeEventListener("pos:open-options", handler);
   }, []);
 
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+  };
+
   const handleChoice = (
     optionId: string,
-    optionName: string,
+    _optionName: string,
     choiceName: string,
     priceModifier: number
   ) => {
@@ -86,10 +89,7 @@ export default function PosOptionsDrawer() {
     });
 
     setOpen(false);
-    setItem(null);
   };
-
-  if (!item) return null;
 
   const optionsPrice = Object.values(selections).reduce(
     (sum, s) => sum + (s.priceModifier || 0),
@@ -97,118 +97,122 @@ export default function PosOptionsDrawer() {
   );
 
   return (
-    <Dialog.Root open={open} onOpenChange={setOpen}>
+    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-        <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 max-h-[70dvh] overflow-y-auto rounded-t-xl bg-background p-6 pb-safe">
-          <Dialog.Title className="text-lg font-semibold mb-1">
-            {item.name}
-          </Dialog.Title>
-          <Dialog.Description className="text-sm text-muted-foreground mb-4">
-            €{item.price.toFixed(2)}
-          </Dialog.Description>
+        {item && (
+          <>
+            <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+            <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 max-h-[70dvh] overflow-y-auto rounded-t-xl bg-background p-6 pb-safe">
+              <Dialog.Title className="text-lg font-semibold mb-1">
+                {item.name}
+              </Dialog.Title>
+              <Dialog.Description className="text-sm text-muted-foreground mb-4">
+                €{item.price.toFixed(2)}
+              </Dialog.Description>
 
-          {item.options?.map((opt) => (
-            <div key={opt.id} className="mb-4">
-              <label className="text-sm font-medium text-foreground mb-2 block">
-                {opt.name}
-                {opt.required && (
-                  <span className="text-red-500 ml-1">*</span>
-                )}
-              </label>
-              {opt.type === "VARIATION" ? (
-                <div className="flex flex-wrap gap-2">
-                  {opt.choices.map((choice) => {
-                    const isSelected =
-                      selections[opt.id]?.choiceName === choice.name;
-                    return (
-                      <button
-                        key={choice.name}
-                        type="button"
-                        onClick={() =>
-                          handleChoice(
-                            opt.id,
-                            opt.name,
-                            choice.name,
-                            choice.priceModifier
-                          )
-                        }
-                        className={`px-3 py-2 rounded-lg text-sm min-h-[44px] transition-none ${
-                          isSelected
-                            ? "bg-accent text-accent-foreground"
-                            : "bg-card border border-border text-foreground"
-                        }`}
-                      >
-                        {choice.name}
-                        {choice.priceModifier > 0 &&
-                          ` +€${choice.priceModifier.toFixed(2)}`}
-                      </button>
-                    );
-                  })}
+              {item.options?.map((opt) => (
+                <div key={opt.id} className="mb-4">
+                  <label className="text-sm font-medium text-foreground mb-2 block">
+                    {opt.name}
+                    {opt.required && (
+                      <span className="text-red-500 ml-1">*</span>
+                    )}
+                  </label>
+                  {opt.type === "VARIATION" ? (
+                    <div className="flex flex-wrap gap-2">
+                      {opt.choices.map((choice) => {
+                        const isSelected =
+                          selections[opt.id]?.choiceName === choice.name;
+                        return (
+                          <button
+                            key={choice.name}
+                            type="button"
+                            onClick={() =>
+                              handleChoice(
+                                opt.id,
+                                opt.name,
+                                choice.name,
+                                choice.priceModifier
+                              )
+                            }
+                            className={`px-3 py-2 rounded-lg text-sm min-h-[44px] transition-none ${
+                              isSelected
+                                ? "bg-accent text-accent-foreground"
+                                : "bg-card border border-border text-foreground"
+                            }`}
+                          >
+                            {choice.name}
+                            {choice.priceModifier > 0 &&
+                              ` +€${choice.priceModifier.toFixed(2)}`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {opt.choices.map((choice) => {
+                        const isSelected =
+                          selections[opt.id]?.choiceName === choice.name;
+                        return (
+                          <button
+                            key={choice.name}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelections((prev) => {
+                                  const { [opt.id]: _, ...rest } = prev;
+                                  return rest;
+                                });
+                              } else {
+                                setSelections((prev) => ({
+                                  ...prev,
+                                  [opt.id]: {
+                                    choiceName: choice.name,
+                                    priceModifier: choice.priceModifier,
+                                  },
+                                }));
+                              }
+                            }}
+                            className={`px-3 py-2 rounded-lg text-sm min-h-[44px] transition-none ${
+                              isSelected
+                                ? "bg-accent text-accent-foreground"
+                                : "bg-card border border-border text-foreground"
+                            }`}
+                          >
+                            {choice.name}
+                            {choice.priceModifier > 0 &&
+                              ` +€${choice.priceModifier.toFixed(2)}`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {opt.choices.map((choice) => {
-                    const isSelected =
-                      selections[opt.id]?.choiceName === choice.name;
-                    return (
-                      <button
-                        key={choice.name}
-                        type="button"
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelections((prev) => {
-                              const { [opt.id]: _, ...rest } = prev;
-                              return rest;
-                            });
-                          } else {
-                            setSelections((prev) => ({
-                              ...prev,
-                              [opt.id]: {
-                                choiceName: choice.name,
-                                priceModifier: choice.priceModifier,
-                              },
-                            }));
-                          }
-                        }}
-                        className={`px-3 py-2 rounded-lg text-sm min-h-[44px] transition-none ${
-                          isSelected
-                            ? "bg-accent text-accent-foreground"
-                            : "bg-card border border-border text-foreground"
-                        }`}
-                      >
-                        {choice.name}
-                        {choice.priceModifier > 0 &&
-                          ` +€${choice.priceModifier.toFixed(2)}`}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ))}
+              ))}
 
-          <div className="mb-4">
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              Item Note
-            </label>
-            <input
-              type="text"
-              value={itemNote}
-              onChange={(e) => setItemNote(e.target.value)}
-              placeholder="e.g. no salt, extra sauce..."
-              className="w-full px-3 py-2 rounded-lg bg-card border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-            />
-          </div>
+              <div className="mb-4">
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  Item Note
+                </label>
+                <input
+                  type="text"
+                  value={itemNote}
+                  onChange={(e) => setItemNote(e.target.value)}
+                  placeholder="e.g. no salt, extra sauce..."
+                  className="w-full px-3 py-2 rounded-lg bg-card border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                />
+              </div>
 
-          <button
-            type="button"
-            onClick={handleAddToCart}
-            className="w-full py-3 rounded-lg bg-accent text-accent-foreground font-semibold text-sm min-h-[44px]"
-          >
-            Add to Cart — €{(item.price + optionsPrice).toFixed(2)}
-          </button>
-        </Dialog.Content>
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                className="w-full py-3 rounded-lg bg-accent text-accent-foreground font-semibold text-sm min-h-[44px]"
+              >
+                Add to Cart — €{(item.price + optionsPrice).toFixed(2)}
+              </button>
+            </Dialog.Content>
+          </>
+        )}
       </Dialog.Portal>
     </Dialog.Root>
   );

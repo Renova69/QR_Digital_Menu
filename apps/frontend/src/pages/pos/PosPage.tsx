@@ -1,4 +1,7 @@
+import { useState, useEffect, useContext } from "react";
+import api from "../../lib/api";
 import { usePos } from "../../context/PosContext";
+import RestaurantContext from "../../context/RestaurantContext";
 import PosTopBar from "../../components/pos/PosTopBar";
 import PosCategoryFilter from "../../components/pos/PosCategoryFilter";
 import PosItemGrid from "../../components/pos/PosItemGrid";
@@ -7,32 +10,93 @@ import PosOptionsDrawer from "../../components/pos/PosOptionsDrawer";
 import PosSeatSelector from "../../components/pos/PosSeatSelector";
 import PosCartDrawer from "../../components/pos/PosCartDrawer";
 
+interface MenuItem {
+  id: string;
+  name: string;
+  price: number;
+  categoryId: string;
+  options?: Array<{
+    id: string;
+    name: string;
+    type: "VARIATION" | "ADDON";
+    required: boolean;
+    choices: Array<{ name: string; priceModifier: number }>;
+  }>;
+}
+
+interface Category {
+  id: string;
+  name: string;
+}
+
 export default function PosPage() {
+  const restaurantCtx = useContext(RestaurantContext);
+  const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
   const { session, items, getTotal } = usePos();
+
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [menuLoading, setMenuLoading] = useState(false);
+  const [menuError, setMenuError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!activeRestaurant) return;
+
+    const controller = new AbortController();
+    setMenuLoading(true);
+    setMenuError(null);
+
+    api
+      .get(`/menu/public/${activeRestaurant.id}`, { signal: controller.signal })
+      .then((res) => {
+        const cats: Category[] = res.data.categories?.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+        })) ?? [];
+        setCategories(cats);
+
+        const allItems: MenuItem[] = [];
+        for (const cat of res.data.categories ?? []) {
+          for (const item of cat.items ?? []) {
+            allItems.push({ ...item, categoryId: cat.id });
+          }
+        }
+        setMenuItems(allItems);
+      })
+      .catch((err) => {
+        if (err?.name !== "CanceledError" && err?.code !== "ERR_CANCELED") {
+          setMenuError("Failed to load menu. Check your connection.");
+        }
+      })
+      .finally(() => setMenuLoading(false));
+
+    return () => controller.abort();
+  }, [activeRestaurant]);
 
   const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
   const total = getTotal();
 
   return (
     <>
-      {/* Sticky top — hidden until table selected */}
       {session && (
         <div className="sticky top-0 z-10 bg-background pt-safe">
           <PosTopBar />
-          <PosCategoryFilter />
+          <PosCategoryFilter categories={categories} menuError={menuError} />
         </div>
       )}
 
-      {/* Scrollable content */}
       {session ? (
         <div className="flex-1 overflow-y-auto">
-          <PosItemGrid />
+          <PosItemGrid
+            items={menuItems}
+            loading={menuLoading}
+            error={menuError}
+          />
         </div>
       ) : (
         <div className="flex-1" />
       )}
 
-      {/* Fixed bottom bar — hidden until table selected */}
       {session && (
         <div className="sticky bottom-0 z-10 bg-background border-t border-border pb-safe">
           <PosSeatSelector />
@@ -40,7 +104,6 @@ export default function PosPage() {
         </div>
       )}
 
-      {/* Modals — always mounted */}
       <PosTableModal />
       <PosOptionsDrawer />
     </>

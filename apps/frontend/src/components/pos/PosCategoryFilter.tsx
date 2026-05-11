@@ -1,28 +1,22 @@
-import { useState, useEffect, useContext } from "react";
-import api from "../../lib/api";
-import RestaurantContext from "../../context/RestaurantContext";
+import { useState, useEffect } from "react";
 
 interface Category {
   id: string;
   name: string;
 }
 
-export default function PosCategoryFilter() {
-  const restaurantCtx = useContext(RestaurantContext);
-  const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [error, setError] = useState(false);
+interface PosCategoryFilterProps {
+  categories: Category[];
+  menuError: string | null;
+}
 
+export default function PosCategoryFilter({ categories, menuError }: PosCategoryFilterProps) {
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+
+  // Clear active category when categories change (restaurant switched)
   useEffect(() => {
-    if (!activeRestaurant) return;
-    api
-      .get(`/menu/public/${activeRestaurant.id}`)
-      .then((res) => {
-        setCategories(res.data.categories ?? []);
-      })
-      .catch(() => setError(true));
-  }, [activeRestaurant]);
+    setActiveCategory(null);
+  }, [categories]);
 
   const handleSelect = (categoryId: string | null) => {
     setActiveCategory(categoryId);
@@ -60,7 +54,7 @@ export default function PosCategoryFilter() {
           </button>
         ))}
       </div>
-      {error && (
+      {menuError && (
         <p className="text-xs text-red-500 px-4 pb-1">Failed to load categories</p>
       )}
     </>

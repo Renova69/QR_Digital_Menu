@@ -12,12 +12,12 @@ import { useTranslation } from 'react-i18next';
 export const ItemList: React.FC = () => {
   const { items, isLoadingItems, selectedCategory, deleteItem, updateItem } = useMenuContext();
   const [selectedItemForOptions, setSelectedItemForOptions] = useState<Item | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const { t } = useTranslation();
 
-  const handleDelete = (id: string, name: string) => {
-    if (window.confirm(`${t('menuAdmin.confirmDelete', 'Are you sure you want to delete')} "${name}"?`)) {
-      deleteItem(id);
-    }
+  const handleDelete = async (id: string) => {
+    setConfirmingDeleteId(null);
+    await deleteItem(id);
   };
 
   const handleToggleFeatured = async (item: Item) => {
@@ -60,6 +60,9 @@ export const ItemList: React.FC = () => {
                   onDelete={handleDelete}
                   onOpenOptions={setSelectedItemForOptions}
                   onToggleFeatured={handleToggleFeatured}
+                  isConfirmingDelete={confirmingDeleteId === item.id}
+                  onRequestDelete={() => setConfirmingDeleteId(item.id)}
+                  onCancelDelete={() => setConfirmingDeleteId(null)}
                   t={t}
                 />
               </SortableItem>
@@ -85,11 +88,14 @@ export const ItemList: React.FC = () => {
 };
 
 // Extracted row component receives dragHandleProps from SortableItem
-const ItemRow = ({ item, onDelete, onOpenOptions, onToggleFeatured, dragHandleProps, t }: {
+const ItemRow = ({ item, onDelete, onOpenOptions, onToggleFeatured, isConfirmingDelete, onRequestDelete, onCancelDelete, dragHandleProps, t }: {
   item: Item;
-  onDelete: (id: string, name: string) => void;
+  onDelete: (id: string) => void;
   onOpenOptions: (item: Item) => void;
   onToggleFeatured: (item: Item) => void;
+  isConfirmingDelete: boolean;
+  onRequestDelete: () => void;
+  onCancelDelete: () => void;
   dragHandleProps?: any;
   t: any;
 }) => {
@@ -141,40 +147,64 @@ const ItemRow = ({ item, onDelete, onOpenOptions, onToggleFeatured, dragHandlePr
       
       {/* Action buttons - NOT inside drag target */}
       <div className="flex items-center gap-2 self-end sm:self-auto">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className={`h-8 w-8 ${item.isFeatured ? 'text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50' : 'text-muted-foreground hover:text-yellow-500'}`}
-            title="Feature Item"
-            onClick={() => onToggleFeatured(item)}
-          >
+        {isConfirmingDelete ? (
+          <>
+            <span className="text-xs text-red-600 font-medium">{t('menuAdmin.confirmDelete', 'Delete?')}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs text-muted-foreground hover:bg-secondary"
+              onClick={onCancelDelete}
+            >
+              {t('common.cancel', 'Cancel')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs bg-red-600 text-white hover:bg-red-700"
+              onClick={() => onDelete(item.id)}
+            >
+              {t('common.delete', 'Delete')}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-8 w-8 ${item.isFeatured ? 'text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50' : 'text-muted-foreground hover:text-yellow-500'}`}
+              title="Feature Item"
+              onClick={() => onToggleFeatured(item)}
+            >
               <Star className="h-4 w-4" fill={item.isFeatured ? 'currentColor' : 'none'} />
-          </Button>
+            </Button>
 
-          <EditItemForm 
-            item={item} 
-            trigger={
+            <EditItemForm
+              item={item}
+              trigger={
                 <Button variant="outline" size="icon" className="h-8 w-8">
-                    <Edit className="h-4 w-4 text-muted-foreground" />
+                  <Edit className="h-4 w-4 text-muted-foreground" />
                 </Button>
-            }
-          />
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => onOpenOptions(item)}
-            className="text-[11px] h-8"
-          >
+              }
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenOptions(item)}
+              className="text-[11px] h-8"
+            >
               {t('menuAdmin.optionsBtn', 'Options')}
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-8 w-8 hover:bg-red-50 hover:text-red-600"
-            onClick={() => onDelete(item.id, item.name)}
-          >
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 hover:bg-red-50 hover:text-red-600"
+              onClick={onRequestDelete}
+            >
               <Trash2 className="h-4 w-4" />
-          </Button>
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );

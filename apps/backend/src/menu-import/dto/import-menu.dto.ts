@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, IsArray, ValidateNested, IsEnum } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsArray, ValidateNested, IsObject } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class ImportChoiceDto {
@@ -63,6 +63,10 @@ export class ImportItemDto {
   @IsOptional()
   order?: number;
 
+  @IsObject()
+  @IsOptional()
+  translations?: Record<string, { name?: string; description?: string }>;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ImportOptionDto)
@@ -81,6 +85,10 @@ export class ImportCategoryDto {
   @IsString()
   @IsOptional()
   availabilityType?: string;
+
+  @IsObject()
+  @IsOptional()
+  translations?: Record<string, { name?: string }>;
 
   @IsArray()
   @ValidateNested({ each: true })

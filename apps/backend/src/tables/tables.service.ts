@@ -4,11 +4,15 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventsGateway } from '../events/events.gateway';
 import { CreateTableDto } from './dto/create-table.dto';
 
 @Injectable()
 export class TablesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventsGateway,
+  ) {}
 
   async create(
     restaurantId: string,
@@ -24,12 +28,14 @@ export class TablesService {
     if (restaurant.ownerId !== userId) {
       throw new ForbiddenException('You do not own this restaurant');
     }
-    return this.prisma.restaurantTable.create({
+    const table = await this.prisma.restaurantTable.create({
       data: {
         name: createTableDto.name,
         restaurantId,
       },
     });
+    this.events.emitToRestaurant(restaurantId, 'table:created', { tableId: table.id });
+    return table;
   }
 
   async findAll(restaurantId: string) {
@@ -97,6 +103,38 @@ export class TablesService {
     });
   }
 
+  async getTableOrders(tableId: string, restaurantId: string) {
+    const session = await this.prisma.tableSession.findFirst({
+      where: { tableId, restaurantId, status: 'OPEN' },
+    });
+    if (!session) return [];
+
+    const orders = await this.prisma.order.findMany({
+      where: { tableSessionId: session.id },
+      include: {
+        items: {
+          include: {
+            menuItem: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return orders.map((order) => ({
+      id: order.id,
+      customerName: order.customerName,
+      totalPrice: order.totalPrice,
+      status: order.status,
+      specialRequests: order.specialRequests,
+      createdAt: order.createdAt,
+      items: order.items.map((oi) => ({
+        name: oi.menuItem?.name ?? 'Unknown item',
+        quantity: oi.quantity,
+      })),
+    }));
+  }
+
   async remove(id: string, userId: string) {
     const table = await this.prisma.restaurantTable.findUnique({
       where: { id },
@@ -108,8 +146,10 @@ export class TablesService {
     if (table.restaurant.ownerId !== userId) {
       throw new ForbiddenException('You do not own this restaurant');
     }
-    return this.prisma.restaurantTable.delete({
+    const deleted = await this.prisma.restaurantTable.delete({
       where: { id },
     });
+    this.events.emitToRestaurant(deleted.restaurantId, 'table:deleted', { tableId: id });
+    return deleted;
   }
 }

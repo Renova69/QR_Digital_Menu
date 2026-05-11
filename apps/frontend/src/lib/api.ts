@@ -92,6 +92,21 @@ export const deleteTable = async (tableId: string) => {
   return response.data;
 };
 
+export const getTableOrders = async (tableId: string, restaurantId: string) => {
+  const response = await api.get(`/tables/${tableId}/orders`, {
+    params: { restaurantId },
+  });
+  return response.data as Array<{
+    id: string;
+    customerName: string;
+    totalPrice: number;
+    status: string;
+    specialRequests: string | null;
+    createdAt: string;
+    items: Array<{ name: string; quantity: number }>;
+  }>;
+};
+
 export const getTableStatuses = async (restaurantId: string) => {
   const response = await api.get(`/tables/status/${restaurantId}`);
   return response.data as Array<{
@@ -210,6 +225,16 @@ export const createPaymentIntent = async (token: string, tipPercent: number) => 
 export const closeSession = async (token: string, restaurantId: string) => {
   const response = await api.post(`/payments/session/${token}/close`, { restaurantId });
   return response.data;
+};
+
+export const closeSessionWithCard = async (token: string, restaurantId: string) => {
+  const response = await api.post(`/payments/session/${token}/close-card`, { restaurantId });
+  return response.data as { amount: number };
+};
+
+export const closeSessionWithCash = async (token: string, restaurantId: string) => {
+  const response = await api.post(`/payments/session/${token}/close-cash`, { restaurantId });
+  return response.data as { amount: number };
 };
 
 export const getTableSessions = async (restaurantId: string) => {

@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   Delete,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -35,6 +36,15 @@ export class TablesController {
   @Get('tables/status/:restaurantId')
   getTablesWithStatus(@Param('restaurantId') restaurantId: string) {
     return this.tablesService.getTablesWithStatus(restaurantId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('tables/:tableId/orders')
+  getTableOrders(
+    @Param('tableId') tableId: string,
+    @Query('restaurantId') restaurantId: string,
+  ) {
+    return this.tablesService.getTableOrders(tableId, restaurantId);
   }
 
   @UseGuards(JwtAuthGuard)

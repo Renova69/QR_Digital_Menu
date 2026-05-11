@@ -127,13 +127,85 @@ export class AuthService {
     return { success: true, message: 'Magic link generated in console', link };
   }
 
+  // ── helpers ──────────────────────────────────────────────────────────
+  private get twilioConfigured() {
+    return !!(
+      process.env.TWILIO_ACCOUNT_SID &&
+      process.env.TWILIO_AUTH_TOKEN &&
+      process.env.TWILIO_VERIFY_SERVICE_SID
+    );
+  }
+
+  private twilioBasicAuth() {
+    return Buffer.from(
+      `${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`,
+    ).toString('base64');
+  }
+
+  private twilioVerifyUrl(path: string) {
+    return `https://verify.twilio.com/v2/Services/${process.env.TWILIO_VERIFY_SERVICE_SID}${path}`;
+  }
+
+  private async sendTwilioOtp(phone: string): Promise<void> {
+    const channel = process.env.TWILIO_CHANNEL || 'sms'; // 'sms' | 'whatsapp'
+    console.log(`[Twilio] sending OTP → To=${phone} Channel=${channel} ServiceSID=${process.env.TWILIO_VERIFY_SERVICE_SID}`);
+    const res = await fetch(this.twilioVerifyUrl('/Verifications'), {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${this.twilioBasicAuth()}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ To: phone, Channel: channel }).toString(),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      console.error('[Twilio] error response:', JSON.stringify(body));
+      throw new HttpException(
+        (body as any).message || 'Failed to send verification code.',
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
+  private async verifyTwilioOtp(phone: string, code: string): Promise<boolean> {
+    const res = await fetch(this.twilioVerifyUrl('/VerificationCheck'), {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${this.twilioBasicAuth()}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ To: phone, Code: code }).toString(),
+    });
+    const data: any = await res.json().catch(() => ({}));
+    return data.status === 'approved';
+  }
+
+  // ── public methods ────────────────────────────────────────────────────
   async sendOtp(
-    email: string,
+    email?: string,
     phone?: string,
-  ): Promise<{ success: boolean; devCode?: string }> {
+  ): Promise<{ success: boolean; devCode?: string; channel: 'email' | 'sms' | 'whatsapp' }> {
+    if (!email && !phone) {
+      throw new HttpException('email or phone is required', HttpStatus.BAD_REQUEST);
+    }
+
+    // Phone-first flow via Twilio
+    if (phone && !email) {
+      if (!this.twilioConfigured) {
+        throw new HttpException(
+          'SMS/WhatsApp verification is not configured. Use email instead.',
+          HttpStatus.NOT_IMPLEMENTED,
+        );
+      }
+      await this.sendTwilioOtp(phone);
+      const channel = (process.env.TWILIO_CHANNEL as any) || 'sms';
+      return { success: true, channel };
+    }
+
+    // Email flow (existing)
     const recentToken = await this.prisma.verificationToken.findFirst({
       where: {
-        email,
+        email: email!,
         usedAt: null,
         createdAt: { gte: new Date(Date.now() - 60_000) },
       },
@@ -146,7 +218,7 @@ export class AuthService {
     }
 
     await this.prisma.verificationToken.deleteMany({
-      where: { email, usedAt: null },
+      where: { email: email!, usedAt: null },
     });
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -154,7 +226,7 @@ export class AuthService {
 
     await this.prisma.verificationToken.create({
       data: {
-        email,
+        email: email!,
         code: hashedCode,
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       },
@@ -171,7 +243,7 @@ export class AuthService {
         },
         body: JSON.stringify({
           from: process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com',
-          to: [email],
+          to: [email!],
           subject: 'Your verification code',
           text: `Your verification code: ${code}\n\nExpires in 10 minutes.`,
           html: `<p style="font-family:sans-serif;font-size:16px;">Your verification code:</p><p style="font-family:monospace;font-size:32px;font-weight:bold;letter-spacing:8px;">${code}</p><p style="font-family:sans-serif;color:#666;">Expires in 10 minutes. If you did not request this, ignore this email.</p>`,
@@ -181,56 +253,90 @@ export class AuthService {
       console.log(`\n\n🔑 OTP FOR ${email}: ${code}\n\n`);
     }
 
-    return { success: true, ...(isDev ? { devCode: code } : {}) };
+    return { success: true, ...(isDev ? { devCode: code } : {}), channel: 'email' };
+  }
+
+  async updateProfile(userId: string, name: string) {
+    const trimmed = name?.trim() || null;
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { name: trimmed },
+    });
+    return { id: user.id, email: user.email, name: user.name, role: user.role };
   }
 
   async verifyOtp(
-    email: string,
-    code: string,
+    email?: string,
+    code?: string,
     phone?: string,
+    name?: string,
   ): Promise<{ token: string; user: any; isNew: boolean }> {
-    const tokenRecord = await this.prisma.verificationToken.findFirst({
-      where: {
-        email,
-        usedAt: null,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    if (!code) throw new HttpException('code is required', HttpStatus.BAD_REQUEST);
 
-    if (!tokenRecord) {
-      throw new UnauthorizedException('Invalid or expired code.');
-    }
+    const cleanName = name?.trim() || undefined;
+    let user: any;
+    let isNew = false;
 
-    const valid = await bcrypt.compare(code, tokenRecord.code);
-    if (!valid) {
-      throw new UnauthorizedException('Invalid or expired code.');
-    }
+    // Phone-first flow
+    if (phone && !email) {
+      if (!this.twilioConfigured) {
+        throw new HttpException('SMS verification not configured.', HttpStatus.NOT_IMPLEMENTED);
+      }
+      const approved = await this.verifyTwilioOtp(phone, code);
+      if (!approved) throw new UnauthorizedException('Invalid or expired code.');
 
-    await this.prisma.verificationToken.update({
-      where: { id: tokenRecord.id },
-      data: { usedAt: new Date() },
-    });
+      user = await this.usersService.findByPhone(phone);
+      isNew = !user;
+      if (!user) {
+        const placeholderEmail = `phone-${phone.replace(/\D/g, '')}@phone.local`;
+        const password = await bcrypt.hash(Math.random().toString(36).slice(-12), 10);
+        user = await this.usersService.create({
+          email: placeholderEmail,
+          password,
+          role: 'CUSTOMER' as any,
+          phone,
+          ...(cleanName ? { name: cleanName } : {}),
+        });
+      } else if (cleanName && !user.name) {
+        user = await this.prisma.user.update({ where: { id: user.id }, data: { name: cleanName } });
+      }
+    } else {
+      // Email flow
+      if (!email) throw new HttpException('email is required', HttpStatus.BAD_REQUEST);
 
-    let user = await this.usersService.findByEmail(email);
-    const isNew = !user;
-
-    if (!user) {
-      const password = await bcrypt.hash(
-        Math.random().toString(36).slice(-12),
-        10,
-      );
-      user = await this.usersService.create({
-        email,
-        password,
-        role: 'CUSTOMER' as any,
-        ...(phone ? { phone } : {}),
+      const tokenRecord = await this.prisma.verificationToken.findFirst({
+        where: { email, usedAt: null, expiresAt: { gt: new Date() } },
+        orderBy: { createdAt: 'desc' },
       });
-    } else if (phone && !(user as any).phone) {
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { phone },
+      if (!tokenRecord) throw new UnauthorizedException('Invalid or expired code.');
+
+      const valid = await bcrypt.compare(code, tokenRecord.code);
+      if (!valid) throw new UnauthorizedException('Invalid or expired code.');
+
+      await this.prisma.verificationToken.update({
+        where: { id: tokenRecord.id },
+        data: { usedAt: new Date() },
       });
+
+      user = await this.usersService.findByEmail(email);
+      isNew = !user;
+      if (!user) {
+        const password = await bcrypt.hash(Math.random().toString(36).slice(-12), 10);
+        user = await this.usersService.create({
+          email,
+          password,
+          role: 'CUSTOMER' as any,
+          ...(phone ? { phone } : {}),
+          ...(cleanName ? { name: cleanName } : {}),
+        });
+      } else {
+        const updates: any = {};
+        if (phone && !(user as any).phone) updates.phone = phone;
+        if (cleanName && !user.name) updates.name = cleanName;
+        if (Object.keys(updates).length) {
+          user = await this.prisma.user.update({ where: { id: user.id }, data: updates });
+        }
+      }
     }
 
     const payload = { email: user.email, sub: user.id };

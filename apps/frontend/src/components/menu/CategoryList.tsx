@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import { useMenuContext } from '../../context/MenuContext';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableItem } from '../ui/SortableItem';
@@ -14,6 +15,8 @@ export const CategoryList: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [settingsCategory, setSettingsCategory] = useState<Category | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { t } = useTranslation();
 
   const handleStartEdit = (e: React.MouseEvent, id: string, currentName: string) => {
@@ -37,8 +40,17 @@ export const CategoryList: React.FC = () => {
 
   const handleDelete = (e: React.MouseEvent, id: string, name: string) => {
     e.stopPropagation();
-    if (window.confirm(`${t('menuAdmin.confirmDeleteCategory', 'Delete category')} "${name}" ${t('menuAdmin.andAllItems', 'and ALL its items?')} `)) {
-      deleteCategory(id);
+    setDeleteTarget({ id, name });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await deleteCategory(deleteTarget.id);
+    } finally {
+      setIsDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -77,12 +89,43 @@ export const CategoryList: React.FC = () => {
         ))}
       </ul>
       {settingsCategory && (
-        <CategorySettingsModal 
-          category={settingsCategory} 
-          isOpen={!!settingsCategory} 
-          onClose={() => setSettingsCategory(null)} 
+        <CategorySettingsModal
+          category={settingsCategory}
+          isOpen={!!settingsCategory}
+          onClose={() => setSettingsCategory(null)}
         />
       )}
+
+      <Dialog.Root open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+          <Dialog.Content className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-sm mx-auto rounded-xl bg-background p-6 shadow-xl">
+            <Dialog.Title className="text-base font-semibold text-foreground mb-2">
+              {t('menuAdmin.deleteCategoryTitle', 'Delete Category')}
+            </Dialog.Title>
+            <Dialog.Description className="text-sm text-muted-foreground mb-6">
+              {t('menuAdmin.deleteCategoryWarning', 'This will permanently delete')} <strong>"{deleteTarget?.name}"</strong> {t('menuAdmin.deleteCategoryWarning2', 'and ALL items inside it. This cannot be undone.')}
+            </Dialog.Description>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 py-2.5 rounded-lg border border-border text-foreground text-sm font-medium hover:bg-secondary transition-colors"
+              >
+                {t('common.cancel', 'Cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="flex-1 py-2.5 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {isDeleting ? t('common.deleting', 'Deleting…') : t('menuAdmin.deleteCategory', 'Delete Category')}
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </SortableContext>
   );
 };

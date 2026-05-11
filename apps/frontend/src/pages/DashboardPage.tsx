@@ -1,4 +1,5 @@
-import { useState, useRef, useContext } from 'react';
+import { useState, useRef, useContext, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { type LucideIcon, LayoutDashboard, ShoppingBag, Bell, Table2, Settings, BarChart2, CreditCard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrderContext';
@@ -30,12 +31,25 @@ const BOTTOM_NAV_TABS: { id: TabId; Icon: LucideIcon; labelKey: string }[] = [
   { id: 'settings',  Icon: Settings,        labelKey: 'dashboard.tabs.settings' },
 ];
 
+const VALID_TABS: TabId[] = ['summary', 'analytics', 'orders', 'payments', 'assistance', 'tables', 'settings', 'import'];
+
 const DashboardPage = () => {
   const { user } = useAuth();
   const { orders } = useOrders();
   const { requests } = useAssistance();
   const { activeRestaurant, restaurants, loading: restaurantsLoading, error: restaurantsError }: any = useContext(RestaurantContext);
   const [activeTab, setActiveTab] = useState<TabId>('summary');
+  const [searchParams] = useSearchParams();
+  const tabFromParamApplied = useRef(false);
+
+  useEffect(() => {
+    if (tabFromParamApplied.current) return;
+    const tab = searchParams.get('tab') as TabId | null;
+    if (tab && VALID_TABS.includes(tab)) {
+      setActiveTab(tab);
+      tabFromParamApplied.current = true;
+    }
+  }, [searchParams]);
 
   const { t, i18n } = useTranslation();
   const paymentsEnabled = (activeRestaurant as any)?.paymentsEnabled ?? false;
@@ -182,7 +196,7 @@ const DashboardPage = () => {
             )}
             {activeTab === 'analytics' && activeRestaurant && <AnalyticsView />}
             {activeTab === 'orders' && <OrdersView />}
-            {activeTab === 'payments' && activeRestaurant && <PaymentsView />}
+            {activeTab === 'payments' && activeRestaurant && paymentsEnabled && <PaymentsView />}
             {activeTab === 'assistance' && <AssistanceView />}
             {activeTab === 'tables' && activeRestaurant && <TableView />}
             {activeTab === 'settings' && activeRestaurant && <SettingsView />}

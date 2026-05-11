@@ -58,6 +58,13 @@ export class PaymentService {
 
     const orders = await this.prisma.order.findMany({
       where: { tableSessionId: session.id },
+      include: {
+        items: {
+          include: {
+            menuItem: { select: { name: true, price: true } },
+          },
+        },
+      },
     });
 
     const subtotal = orders.reduce((sum, o) => sum + o.totalPrice, 0);
@@ -164,7 +171,7 @@ export class PaymentService {
           where: { id: payment.id },
           data: { status: 'SUCCEEDED', stripePaymentIntentId: intent.id },
         }),
-        this.prisma.tableSession.update({
+        this.prisma.tableSession.updateMany({
           where: { id: payment.tableSessionId, status: 'OPEN' },
           data: { status: 'PAID', paidAt: new Date() },
         }),
@@ -240,6 +247,122 @@ export class PaymentService {
       session.tableId,
       session.id,
     );
+  }
+
+  async closeSessionWithCard(
+    token: string,
+    restaurantId: string,
+  ): Promise<{ amount: number }> {
+    const session = await this.prisma.tableSession.findFirst({
+      where: { token, restaurantId, status: 'OPEN' },
+      include: { orders: true },
+    });
+    if (!session) throw new NotFoundException('Session not found');
+
+    const amount = session.orders.reduce((sum, o) => sum + o.totalPrice, 0);
+    if (amount <= 0) throw new BadRequestException('Cannot close a session with no orders');
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.payment.create({
+        data: {
+          tableSessionId: session.id,
+          restaurantId,
+          amount,
+          tipAmount: 0,
+          platformFeeAmount: 0,
+          currency: 'eur',
+          status: 'SUCCEEDED',
+          provider: 'MYPOS',
+        },
+      });
+
+      const updated = await tx.tableSession.updateMany({
+        where: { id: session.id, status: 'OPEN' },
+        data: { status: 'PAID', paidAt: new Date() },
+      });
+      if (updated.count === 0) throw new Error('Session already closed');
+    });
+
+    this.events.emitTableStatusChanged(
+      restaurantId,
+      session.tableId,
+      session.id,
+    );
+
+    const tableNumber =
+      (
+        await this.prisma.restaurantTable.findUnique({
+          where: { id: session.tableId },
+          select: { name: true },
+        })
+      )?.name ?? null;
+
+    this.events.emitToRestaurant(restaurantId, 'payment:confirmed', {
+      tableSessionId: session.id,
+      amount,
+      tipAmount: 0,
+      tableNumber,
+    });
+
+    return { amount };
+  }
+
+  async closeSessionWithCash(
+    token: string,
+    restaurantId: string,
+  ): Promise<{ amount: number }> {
+    const session = await this.prisma.tableSession.findFirst({
+      where: { token, restaurantId, status: 'OPEN' },
+      include: { orders: true },
+    });
+    if (!session) throw new NotFoundException('Session not found');
+
+    const amount = session.orders.reduce((sum, o) => sum + o.totalPrice, 0);
+    if (amount <= 0) throw new BadRequestException('Cannot close a session with no orders');
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.payment.create({
+        data: {
+          tableSessionId: session.id,
+          restaurantId,
+          amount,
+          tipAmount: 0,
+          platformFeeAmount: 0,
+          currency: 'eur',
+          status: 'SUCCEEDED',
+          provider: 'CASH',
+        },
+      });
+
+      const updated = await tx.tableSession.updateMany({
+        where: { id: session.id, status: 'OPEN' },
+        data: { status: 'PAID', paidAt: new Date() },
+      });
+      if (updated.count === 0) throw new Error('Session already closed');
+    });
+
+    this.events.emitTableStatusChanged(
+      restaurantId,
+      session.tableId,
+      session.id,
+    );
+
+    const tableNumber =
+      (
+        await this.prisma.restaurantTable.findUnique({
+          where: { id: session.tableId },
+          select: { name: true },
+        })
+      )?.name ?? null;
+
+    this.events.emitToRestaurant(restaurantId, 'payment:confirmed', {
+      tableSessionId: session.id,
+      amount,
+      tipAmount: 0,
+      tableNumber,
+    });
+
+    return { amount };
   }
 
   async forceOpenSession(
