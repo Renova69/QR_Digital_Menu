@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { login as apiLogin, register as apiRegister, getCurrentUser } from '../lib/api';
+import { login as apiLogin, register as apiRegister } from '../lib/api';
 import api from '../lib/api';
 
 interface User {
@@ -11,12 +11,12 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
+  isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<any>;
   register: (email: string, password: string, name?: string) => Promise<any>;
-  loginWithToken: (token: string, user: User) => void;
+  loginWithToken: (user: User) => void;
   updateUser: (user: User) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   isLoading: boolean;
   isError: boolean;
   errorMessage: string | null;
@@ -26,44 +26,32 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const initializeAuth = async () => {
-      if (!token) {
-        setIsLoading(false);
-        return;
-      }
-
       try {
-        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         const userData = await api.get('/auth/me');
         setUser(userData.data);
-      } catch (error) {
-        localStorage.removeItem('token');
-        setToken(null);
-        delete api.defaults.headers.common['Authorization'];
+      } catch (_error) {
+        // Not logged in — cookie missing or expired
       } finally {
         setIsLoading(false);
       }
     };
 
     initializeAuth();
-  }, [token]);
+  }, []);
 
   const login = async (email: string, password: string) => {
     try {
       setIsError(false);
       setErrorMessage(null);
-      const { token, user } = await apiLogin(email, password);
-      localStorage.setItem('token', token);
-      setToken(token);
+      const { user } = await apiLogin(email, password);
       setUser(user);
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      return { token, user };
+      return { user };
     } catch (error: any) {
       setIsError(true);
       const msg = error.response?.data?.message || 'Login failed. Please check your credentials.';
@@ -76,12 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsError(false);
       setErrorMessage(null);
-      const { token, user } = await apiRegister(email, password, name);
-      localStorage.setItem('token', token);
-      setToken(token);
+      const { user } = await apiRegister(email, password, name);
       setUser(user);
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      return { token, user };
+      return { user };
     } catch (error: any) {
       setIsError(true);
       const msg = error.response?.data?.message || 'Registration failed. Please try again.';
@@ -90,25 +75,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loginWithToken = (token: string, user: User) => {
-    localStorage.setItem('token', token);
-    setToken(token);
+  const loginWithToken = (user: User) => {
     setUser(user);
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   };
 
   const updateUser = (user: User) => setUser(user);
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    setToken(null);
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (_error) {
+      // Cookie cleared server-side regardless
+    }
     setUser(null);
-    delete api.defaults.headers.common['Authorization'];
   };
 
-  const value = {
+  const value: AuthContextType = {
     user,
-    token,
+    isAuthenticated: !!user,
     login,
     register,
     loginWithToken,
