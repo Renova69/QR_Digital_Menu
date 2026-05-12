@@ -123,7 +123,7 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({
       if (res.data.user?.role === "CUSTOMER" && returnTo) {
         localStorage.setItem("customerMenuUrl", returnTo);
       }
-      loginWithToken(res.data.token, res.data.user);
+      loginWithToken(res.data.user);
       if (res.data.isNew) { setStep("welcome"); } else { onClose(); }
     } catch (err: any) {
       setError(err.response?.data?.message || t("auth.otp.invalidCode"));
