@@ -7,20 +7,21 @@ const OAuthCallbackPage: React.FC = () => {
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    const token = searchParams.get("token");
     const returnTo = searchParams.get("returnTo");
 
-    if (token) {
-      localStorage.setItem("token", token);
-      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-      if (returnTo) {
-        navigate(decodeURIComponent(returnTo), { replace: true });
-      } else {
-        navigate("/dashboard", { replace: true });
-      }
-    } else {
-      navigate("/login", { replace: true });
-    }
+    // Token is set via httpOnly cookie by the server — no localStorage needed.
+    // Verify the cookie took effect, then redirect.
+    api.get('/auth/me')
+      .then(() => {
+        if (returnTo) {
+          navigate(decodeURIComponent(returnTo), { replace: true });
+        } else {
+          navigate("/dashboard", { replace: true });
+        }
+      })
+      .catch(() => {
+        navigate("/login", { replace: true });
+      });
   }, [searchParams, navigate]);
 
   return (

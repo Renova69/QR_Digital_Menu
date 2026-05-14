@@ -11,6 +11,7 @@ import {
   HttpStatus,
   UseGuards,
 } from '@nestjs/common';
+import { PaymentHistoryQueryDto } from './dto/payment-history-query.dto';
 import { SkipThrottle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PaymentService } from './payment.service';
@@ -86,27 +87,25 @@ export class PaymentController {
 
   @Get('sessions/:restaurantId')
   @UseGuards(JwtAuthGuard)
-  getTableSessions(@Param('restaurantId') restaurantId: string) {
-    return this.paymentService.getTableSessions(restaurantId);
+  getTableSessions(
+    @Param('restaurantId') restaurantId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.paymentService.getTableSessions(
+      restaurantId,
+      page ? parseInt(page, 10) : undefined,
+      limit ? parseInt(limit, 10) : undefined,
+    );
   }
 
   @Get('history/:restaurantId')
   @UseGuards(JwtAuthGuard)
   getPaymentHistory(
     @Param('restaurantId') restaurantId: string,
-    @Query('status') status?: string,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
+    @Query() query: PaymentHistoryQueryDto,
   ) {
-    return this.paymentService.getPaymentHistory(restaurantId, {
-      status,
-      startDate,
-      endDate,
-      page: page ? parseInt(page, 10) : undefined,
-      limit: limit ? parseInt(limit, 10) : undefined,
-    });
+    return this.paymentService.getPaymentHistory(restaurantId, query);
   }
 
   @Post('webhook')

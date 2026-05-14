@@ -3,7 +3,7 @@ import { useCart } from "../../context/CartContext";
 import { Button } from "../ui/button";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Category } from "../../types";
 
 function resolveItemName(
@@ -43,9 +43,10 @@ const CartDrawer = ({
 
   const [showDrinkUpsell, setShowDrinkUpsell] = useState(false);
 
-  if (!isOpen && showDrinkUpsell) {
-    setShowDrinkUpsell(false);
-  }
+  // Reset upsell state when drawer closes (prevents setState-during-render)
+  useEffect(() => {
+    if (!isOpen) setShowDrinkUpsell(false);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -153,7 +154,7 @@ const CartDrawer = ({
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-semibold text-accent">
-                          €{drink.price.toFixed(2)}
+                          €{(drink.price ?? 0).toFixed(2)}
                         </span>
                         <Button
                           size="sm"

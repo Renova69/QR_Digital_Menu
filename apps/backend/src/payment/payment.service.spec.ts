@@ -11,9 +11,11 @@ describe('PaymentService', () => {
     mockPrisma = {
       tableSession: {
         findFirst: jest.fn(),
+        findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        count: jest.fn(),
       },
       restaurantTable: {
         findFirst: jest.fn().mockResolvedValue({ id: 'table1', restaurantId: 'rest1' }),
@@ -201,7 +203,7 @@ describe('PaymentService', () => {
         where: { id: 'pay1' },
         data: { status: 'SUCCEEDED', stripePaymentIntentId: 'pi_test' },
       });
-      expect(mockPrisma.tableSession.update).toHaveBeenCalledWith({
+      expect(mockPrisma.tableSession.updateMany).toHaveBeenCalledWith({
         where: { id: 's1', status: 'OPEN' },
         data: { status: 'PAID', paidAt: expect.any(Date) },
       });
@@ -230,7 +232,7 @@ describe('PaymentService', () => {
         where: { id: 'pay1', status: 'PENDING' },
         data: { status: 'FAILED' },
       });
-      expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
+      expect(mockPrisma.tableSession.updateMany).not.toHaveBeenCalled();
     });
 
     it('silently returns when payment record not found for succeeded event', async () => {
@@ -243,7 +245,7 @@ describe('PaymentService', () => {
       await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
 
       expect(mockPrisma.payment.update).not.toHaveBeenCalled();
-      expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
+      expect(mockPrisma.tableSession.updateMany).not.toHaveBeenCalled();
       expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
     });
   });
@@ -265,6 +267,32 @@ describe('PaymentService', () => {
     it('throws NotFoundException when session not found', async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue(null);
       await expect(service.closeSession('bad-token', 'rest1')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getTableSessions', () => {
+    it('returns sessions wrapped with meta', async () => {
+      const sessions = [
+        { id: 's1', token: 'tok1', status: 'OPEN', tableId: 't1', restaurantId: 'rest1', createdAt: new Date() },
+      ];
+      mockPrisma.tableSession.findMany.mockResolvedValue(sessions);
+      mockPrisma.tableSession.count.mockResolvedValue(1);
+
+      const result = await service.getTableSessions('rest1');
+
+      expect(result.data).toEqual(sessions);
+      expect(result.meta).toEqual({ total: 1, page: 1, limit: 50 });
+    });
+
+    it('respects page and limit params', async () => {
+      mockPrisma.tableSession.findMany.mockResolvedValue([]);
+      mockPrisma.tableSession.count.mockResolvedValue(10);
+
+      await service.getTableSessions('rest1', 2, 5);
+
+      expect(mockPrisma.tableSession.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 5, take: 5 }),
+      );
     });
   });
 

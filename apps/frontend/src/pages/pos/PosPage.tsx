@@ -1,6 +1,9 @@
 import { useState, useEffect, useContext } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../lib/api";
 import { usePos } from "../../context/PosContext";
+import { useAuth } from "../../context/AuthContext";
+import { useIdleTimer } from "../../hooks/useIdleTimer";
 import RestaurantContext from "../../context/RestaurantContext";
 import PosTopBar from "../../components/pos/PosTopBar";
 import PosCategoryFilter from "../../components/pos/PosCategoryFilter";
@@ -32,7 +35,15 @@ interface Category {
 export default function PosPage() {
   const restaurantCtx = useContext(RestaurantContext);
   const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
-  const { session, items, getTotal } = usePos();
+  const { session, items, getTotal, resetCart } = usePos();
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  useIdleTimer(() => {
+    logout();
+    resetCart();
+    navigate("/device-login", { replace: true });
+  });
 
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);

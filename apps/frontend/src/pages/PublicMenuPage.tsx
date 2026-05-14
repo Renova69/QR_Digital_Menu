@@ -48,6 +48,7 @@ const PublicMenuPage = () => {
   const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
   const categoryRefs = useRef<Record<string, HTMLElement | null>>({});
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -210,6 +211,22 @@ const PublicMenuPage = () => {
   const hasCustomTheme = !!(
     restaurantTheme?.themeBgColor && restaurantTheme?.themeTextColor
   );
+
+  // Extract unique dietary/allergen tags
+  const dietTags: { tag: string; count: number }[] = (() => {
+    const tagCounts = new Map<string, number>();
+    for (const cat of menuData?.categories ?? []) {
+      for (const item of cat.items ?? []) {
+        const tags = [...(item.allergens ?? []), ...(item.dietaryTags ?? [])];
+        for (const t of tags) {
+          tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
+        }
+      }
+    }
+    return [...tagCounts.entries()]
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => a.tag.localeCompare(b.tag));
+  })();
 
   const themeVars = restaurantTheme
     ? ({
@@ -398,6 +415,38 @@ const PublicMenuPage = () => {
                   </div>
                 )}
 
+                {/* Dietary / Allergen Filters */}
+                {dietTags.length > 0 && (
+                  <div className="mt-8 flex flex-wrap items-center gap-2 justify-center">
+                    <button
+                      onClick={() => setActiveFilter(null)}
+                      className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
+                        activeFilter === null
+                          ? 'bg-foreground text-background shadow-lg'
+                          : 'glass-panel text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {t('publicMenu.all', 'All')}
+                    </button>
+                    {dietTags.map(({ tag, count }) => (
+                      <button
+                        key={tag}
+                        onClick={() =>
+                          setActiveFilter(activeFilter === tag ? null : tag)
+                        }
+                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all active:scale-95 ${
+                          activeFilter === tag
+                            ? 'bg-foreground text-background shadow-lg'
+                            : 'glass-panel text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {tag}
+                        <span className="ml-1.5 opacity-50">{count}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 {/* Premium Sticky Navigation */}
                 <div className="sticky top-4 md:top-6 z-40 mb-10 md:mb-20 px-2 lg:px-0">
                   {/* Desktop view: Horizontal scrolling pills */}
@@ -518,37 +567,54 @@ const PublicMenuPage = () => {
                           </div>
                         )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8">
-                          {category.items.map((item: any) => {
-                            const translatedItem = {
-                              ...item,
-                              name:
-                                (selectedLang &&
-                                  item.translations &&
-                                  item.translations[selectedLang]?.name) ||
-                                item.name,
-                              description:
-                                (selectedLang &&
-                                  item.translations &&
-                                  item.translations[selectedLang]
-                                    ?.description) ||
-                                item.description,
-                            };
-                            const allMenuItems = menuData.categories.flatMap(
-                              (c) => c.items || [],
-                            );
-                            const pairings = allMenuItems.filter((i: any) =>
-                              item.relatedItemIds?.includes(i.id),
-                            );
+                        {(() => {
+                          const filteredItems = activeFilter
+                            ? category.items.filter((item: any) =>
+                                [...(item.allergens ?? []), ...(item.dietaryTags ?? [])].includes(activeFilter))
+                            : category.items;
+
+                          if (filteredItems.length === 0) {
                             return (
-                              <ItemWithOptions
-                                key={item.id}
-                                item={translatedItem}
-                                perfectPairings={pairings}
-                              />
+                              <p className="text-center text-muted-foreground text-sm py-8 opacity-50">
+                                {t('publicMenu.noItemsMatchFilter', 'No items match this filter')}
+                              </p>
                             );
-                          })}
-                        </div>
+                          }
+
+                          return (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8">
+                              {filteredItems.map((item: any) => {
+                                const translatedItem = {
+                                  ...item,
+                                  name:
+                                    (selectedLang &&
+                                      item.translations &&
+                                      item.translations[selectedLang]?.name) ||
+                                    item.name,
+                                  description:
+                                    (selectedLang &&
+                                      item.translations &&
+                                      item.translations[selectedLang]
+                                        ?.description) ||
+                                    item.description,
+                                };
+                                const allMenuItems = menuData.categories.flatMap(
+                                  (c) => c.items || [],
+                                );
+                                const pairings = allMenuItems.filter((i: any) =>
+                                  item.relatedItemIds?.includes(i.id),
+                                );
+                                return (
+                                  <ItemWithOptions
+                                    key={item.id}
+                                    item={translatedItem}
+                                    perfectPairings={pairings}
+                                  />
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}

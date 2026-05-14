@@ -1,7 +1,17 @@
 import axios from 'axios';
 
+// Module-level token store — AuthContext writes, interceptor reads.
+// Provides dual auth: httpOnly cookie (primary) + Bearer header (fallback for cross-origin POST).
+let authToken: string | null = null;
+export const setAuthToken = (token: string | null) => {
+  authToken = token;
+};
+
+// Use relative /api — Vite proxy forwards to backend. Same-origin = cookie works.
+const API_URL = '/api';
+
 const api = axios.create({
-  baseURL: (import.meta as any).env.VITE_API_URL || 'http://localhost:3000/api',
+  baseURL: API_URL,
   withCredentials: true,
 });
 
@@ -42,7 +52,8 @@ export const createOrder = async (orderData: any) => {
 
 export const getOrders = async () => {
     const response = await api.get('/orders');
-    return response.data;
+    // Unwrap paginated response — { data, total, page, totalPages } → array
+    return response.data?.data ?? response.data;
 }
 
 export const updateOrderStatus = async (orderId: string, status: string) => {
@@ -52,7 +63,7 @@ export const updateOrderStatus = async (orderId: string, status: string) => {
 
 export const getAssistanceRequests = async () => {
     const response = await api.get('/assistance-requests');
-    return response.data;
+    return response.data?.data ?? response.data;
 }
 
 export const updateAssistanceRequest = async (requestId: string, updates: { isResolved?: boolean }) => {
@@ -162,24 +173,48 @@ export const getFeedbackSummary = async (restaurantId: string) => {
   return response.data;
 };
 
-// Request interceptor — attach token to every request
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+// Module-level CSRF token — fetched once from /auth/csrf-token endpoint.
+// Cannot use document.cookie cross-origin (backend on different host than frontend in dev).
+let csrfToken: string | null = null;
+const fetchCsrfToken = async () => {
+  try {
+    const res = await fetch(`${API_URL}/auth/csrf-token`, { credentials: 'include' });
+    const data = await res.json();
+    csrfToken = data?.csrfToken ?? null;
+  } catch {
+    csrfToken = null;
+  }
+};
+
+api.interceptors.request.use(async (config) => {
+  // Bearer token — dual auth alongside httpOnly cookie
+  if (authToken) {
+    config.headers['Authorization'] = `Bearer ${authToken}`;
+  }
+  // CSRF token — attach to state-changing requests
+  if (config.method && ['post', 'patch', 'delete', 'put'].includes(config.method)) {
+    if (!csrfToken) await fetchCsrfToken();
+    if (csrfToken) {
+      config.headers['X-CSRF-Token'] = csrfToken;
+    }
   }
   return config;
 });
 
-// Response interceptor — handle 401 Unauthorized
+// Response interceptor — handle 401 Unauthorized (cookie expired)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      delete api.defaults.headers.common['Authorization'];
-      // Only redirect if not already on login or public pages
-      const publicPaths = ['/login', '/auth/callback', '/menu/public'];
+      // Never redirect for /auth/me — AuthContext handles auth check failures itself
+      const requestUrl = error.config?.url || '';
+      if (
+        requestUrl.endsWith('/auth/me') ||
+        requestUrl.endsWith('/auth/pin-login')
+      ) {
+        return Promise.reject(error);
+      }
+      const publicPaths = ['/login', '/register', '/auth/callback', '/menu/public', '/device-login'];
       const currentPath = window.location.pathname;
       if (!publicPaths.some(p => currentPath.startsWith(p))) {
         window.location.href = '/login';
@@ -239,7 +274,8 @@ export const closeSessionWithCash = async (token: string, restaurantId: string) 
 
 export const getTableSessions = async (restaurantId: string) => {
   const response = await api.get(`/payments/sessions/${restaurantId}`);
-  return response.data as Array<{ id: string; token: string; tableId: string; status: string; createdAt: string; paidAt?: string }>;
+  const body = response.data as { data: Array<{ id: string; token: string; tableId: string; status: string; createdAt: string; paidAt?: string }>; meta: { total: number; page: number; limit: number } };
+  return body.data;
 };
 
 export const generateStripeConnectLink = async (restaurantId: string) => {
@@ -276,6 +312,41 @@ export const regenerateImportApiKey = async (restaurantId: string) => {
 export const confirmMenuImport = async (restaurantId: string, payload: any) => {
   const response = await api.post(`/restaurants/${restaurantId}/menu/import/confirm`, payload);
   return response.data as { success: boolean; created: number; updated: number; categories: number };
+};
+
+// Staff Management
+export const listStaff = async (restaurantId: string) => {
+  const response = await api.get(`/auth/restaurants/${restaurantId}/staff`);
+  return response.data as Array<{ id: string; email: string; name: string | null; role: string }>;
+};
+
+export const createStaff = async (
+  restaurantId: string,
+  data: { name: string; email?: string; role: string },
+) => {
+  const response = await api.post(`/auth/restaurants/${restaurantId}/staff`, data);
+  return response.data as { user: { id: string; email: string; name: string | null; role: string }; rawPin: string };
+};
+
+export const removeStaff = async (restaurantId: string, userId: string) => {
+  const response = await api.delete(`/auth/restaurants/${restaurantId}/staff/${userId}`);
+  return response.data;
+};
+
+export const createDeviceEnrollment = async (restaurantId: string) => {
+  const response = await api.post(`/restaurants/${restaurantId}/device-enrollment`, {
+    mode: 'STAFF_DEVICE',
+  });
+  return response.data as { enrollmentUrl: string; expiresAt: string };
+};
+
+export const verifyDeviceEnrollment = async (token: string) => {
+  const response = await api.post('/device-enrollment/verify', { token });
+  return response.data as {
+    restaurantId: string;
+    restaurantName: string;
+    allowedModes: string[];
+  };
 };
 
 export default api;

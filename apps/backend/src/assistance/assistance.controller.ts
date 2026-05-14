@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
   UseGuards,
   Request,
   ValidationPipe,
@@ -14,6 +15,7 @@ import { AssistanceService } from './assistance.service';
 import { CreateAssistanceDto } from './dto/create-assistance.dto';
 import { UpdateAssistanceDto } from './dto/update-assistance.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Controller('assistance-requests')
 export class AssistanceController {
@@ -28,14 +30,14 @@ export class AssistanceController {
   // Protected — only restaurant owners can view their requests
   @UseGuards(JwtAuthGuard)
   @Get()
-  findAll(@Request() req) {
-    return this.assistanceService.findAll(req.user.id);
+  findAll(@Request() req, @Query() pagination: PaginationDto) {
+    return this.assistanceService.findAll(req.user.id, pagination);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.assistanceService.findOne(id);
+  findOne(@Param('id') id: string, @Request() req) {
+    return this.assistanceService.findOne(id, req.user.id);
   }
 
   // Protected — only staff can resolve/unresolve requests
@@ -44,13 +46,14 @@ export class AssistanceController {
   update(
     @Param('id') id: string,
     @Body(ValidationPipe) updateAssistanceDto: UpdateAssistanceDto,
+    @Request() req,
   ) {
-    return this.assistanceService.update(id, updateAssistanceDto);
+    return this.assistanceService.update(id, updateAssistanceDto, req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.assistanceService.remove(id);
+  remove(@Param('id') id: string, @Request() req) {
+    return this.assistanceService.remove(id, req.user.id);
   }
 }

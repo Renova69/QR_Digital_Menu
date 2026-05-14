@@ -1,4 +1,4 @@
-export type OrderStatus = "NEW" | "IN_PROGRESS" | "SERVED" | "CANCELED";
+export type OrderStatus = "NEW" | "IN_PROGRESS" | "SERVED" | "CANCELED" | "COMPLETED";
 
 export interface Order {
   id: string;
@@ -58,4 +58,5 @@ export interface Category {
   endTime?: string | null;
   daysOfWeek: number[];
   isDrinkCategory?: boolean;
+  translations?: any;
 }

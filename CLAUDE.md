@@ -45,15 +45,20 @@ npm start        # serve dist/ on :3001
 
 - Per-app `.env` files: `apps/backend/.env`, `apps/frontend/.env` — copy from `.env.example`.
 - DB is **hosted Neon Postgres** — no local Postgres in dev. The root `docker:up` / `docker:down` scripts exist but are not part of daily flow.
-- API base URL: `http://localhost:3000/api`. CORS origin = `FRONTEND_URL` env (default `http://localhost:3001`).
+- API base URL: **`/api`** (same-origin). Frontend does NOT call backend directly. Vite dev server proxies `/api` and `/socket.io` to backend target derived from `VITE_API_URL` env. This is critical for httpOnly cookies — `sameSite: 'lax'` blocks cross-site AJAX.
+- `VITE_API_URL` in `apps/frontend/.env` is ONLY used by `vite.config.js` for proxy target. `api.ts` hardcodes `/api`.
 - Global API prefix `/api` is set in `apps/backend/src/main.ts` via `app.setGlobalPrefix('api')`.
+- CORS origin = `FRONTEND_URL` env (default `http://localhost:3001`).
 
 ## Backend architecture
 
 NestJS modules registered in `apps/backend/src/app.module.ts` (in order): Prisma, Auth, Restaurants, Menu, Orders, Assistance, Dashboard, Tables, Health, Feedback, Translation, Storage, Events, Payment, Loyalty. `ThrottlerGuard` applied globally (100 req / 60s).
 
 Cross-cutting concerns:
-- **Auth** (`auth/`) — JWT + Google OAuth + magic link via Passport strategies.
+- **Auth** (`auth/`) — JWT + Google OAuth + magic link + Email OTP via Passport strategies. **JWT stored in httpOnly cookie** (not localStorage). `jwt.strategy.ts` reads from `request.cookies.token` first, Bearer header fallback. CSRF double-submit cookie pattern on all state-changing endpoints (`X-CSRF-Token` header must match `csrf-token` cookie). `AuthContext` no longer touches localStorage for token — reads user via `/auth/me` which sends cookie automatically.
+- **CSRF** — `main.ts` CSRF middleware validates `X-CSRF-Token` header matches `csrf-token` cookie on POST/PATCH/DELETE/PUT. Skipped in dev mode (`NODE_ENV !== 'production'`) and for Stripe webhook path. `GET /api/auth/csrf-token` issues token.
+- **401 interceptor** (`api.ts`) — redirects to `/login` on 401 EXCEPT for `/auth/me` (returns rejected promise instead). This prevents logout loop during app initialization. AuthContext handles `/auth/me` failures silently.
+- **Same-origin proxy** — `api.ts` baseURL is `/api` (same-origin). `vite.config.js` proxies `/api` and `/socket.io` to backend. `SocketContext` connects via `io()` with no URL. NEVER change `api.ts` baseURL to read from `VITE_API_URL` env directly — that creates cross-origin requests, which breaks httpOnly cookies.
 - **Realtime** (`events/`) — `@nestjs/websockets` + socket.io for live order / assistance / table status / payment pushes. `EventsGateway.emitTableStatusChanged(restaurantId, tableId, sessionId)` emits `table:status-changed` — called from 4 locations (`OrdersService.create`, `OrdersService.updateStatus`, `PaymentService.handleWebhookEvent`, `PaymentService.closeSession`). `payment:confirmed` event emitted on successful payment.
 - **Payment** (`payment/`) — Stripe Connect pay-at-table + Waiter POS session management. `IPaymentProvider` interface abstracts provider; `StripeProvider` implements it (future providers: MyPOS, Square). `PaymentService` handles sessions, bill calculation, PaymentIntent creation, webhook processing, force-open (`forceOpenSession()`), card-payment close (`closeSessionWithCard()` — creates MYPOS payment, sets session PAID, emits socket events). `PaymentController` has 7 routes: sessions, bill, create-payment-intent, webhook (raw body), history, force-open, close-card. `RestaurantsService` manages Stripe Connect account onboarding (create account link, status check, disconnect). Never add provider-specific logic outside the provider — always go through `IPaymentProvider`.
 - **Tables** (`tables/`) — `getTablesWithStatus()` fetches tables + active sessions in parallel via `Promise.all`, derives status per table (empty/waiting/occupied/paid). `GET /tables/status/:restaurantId` returns enriched data with `orderCount`, `totalAmount`, `customerNames`, `sessionStatus`, `sessionId`. `getTableOrders(tableId, restaurantId)` returns all orders for a table's active OPEN session with item names — used by dashboard live view and POS order history.
@@ -109,7 +114,7 @@ Key files for the options flow:
 
 - **Routing** — React Router v7 in `apps/frontend/src/App.tsx`.
 - **State** — React Context per concern in `src/context/`: `AuthContext`, `RestaurantContext`, `MenuContext`, `CartContext`, `OrderContext`, `AssistanceContext`, `SocketContext`, `NotificationContext`, `PosContext`. Server state via TanStack Query.
-- **API client** — `src/lib/api.ts` (axios + JWT interceptors). All requests go through this — never call axios directly elsewhere.
+- **API client** — `src/lib/api.ts` (axios + CSRF interceptor). BaseURL is `/api` (same-origin, Vite proxy). `withCredentials: true` sends httpOnly cookie. CSRF token fetched once, cached, attached to state-changing requests. 401 interceptor skips `/auth/me` to prevent logout loop. All requests go through this — never call axios directly elsewhere.
 - **UI primitives** — `src/components/ui/` (Radix + class-variance-authority + tailwind-merge).
 
 ## Conventions & gotchas
@@ -118,6 +123,9 @@ Key files for the options flow:
 - `npm run build` in backend always regenerates the Prisma client before `nest build` — no need to run `prisma generate` separately.
 - Frontend `strictPort: true` means a stale dev server on `:3001` blocks startup. Kill with PowerShell (`Stop-Process -Id <pid> -Force`); Git Bash `taskkill` mangles paths.
 - When adding new fields on `Restaurant` (or any DTO-validated model), also add `@Min` / `@Max` / `@IsOptional` to `apps/backend/src/restaurants/dto/update-restaurant.dto.ts` — `class-validator` is the input boundary.
+- **NEVER change `api.ts` baseURL** to read from `VITE_API_URL` directly. That creates cross-origin requests, breaking httpOnly cookies. Always use `/api` (same-origin, Vite proxy).
+- **NEVER read token from localStorage** in AuthContext or anywhere else. Token lives in httpOnly cookie only. Use `/auth/me` to get current user.
+- **CSRF middleware ordering in main.ts**: Helmet CSP → cookieParser → CSRF validation → app.useGlobalPipes. CSRF must run after cookieParser but before guards.
 
 ## Waiter POS (`/staff/pos`)
 
@@ -197,8 +205,18 @@ Source of truth: `CODING_ROADMAP.md`. Detailed per-phase plans under `.planning/
 
 **Shipped — Waiter POS (May 9-10, 2026):** Full-viewport tableside ordering at `/staff/pos`. 15 new frontend files, 4 modified files. `PosLayout` + `PosContext` (in-memory, isolated from CartContext). Seat-level ordering, table selection modal with Force Open, submitted/pending item tracking, 3 session-end actions (Submit/Paid by Card/Force Close) with Radix confirmation dialogs. 4 new backend endpoints. Zero Prisma schema changes. 5 bug fix commits (duplicate menuItemId, session history, dashboard live view, cart reset, confirmation dialogs).
 
+**Shipped — Staff Roles & RBAC (May 12-14, 2026):**
+- **RBAC Sprint** — `UserRole` expanded to `OWNER` / `MANAGER` / `WAITER` / `KITCHEN`. Permission matrix enforced in all service layers: `checkRestaurantOwnership` → `checkRestaurantAccess` allowing owner OR assigned staff. `User.restaurantId` links staff to their restaurant. Auth responses include `restaurantId` for frontend restaurant resolution.
+- **PIN-based staff login** — `POST /auth/pin-login` endpoint: staff set a 4-digit PIN on first enrollment, login by entering PIN on device login page. PIN hashed with SHA256. PIN login searches only users assigned to the configured restaurant. Role-based redirect: WAITER → `/staff/pos`, KITCHEN → `/staff/kitchen`, other → `/dashboard`.
+- **Device enrollment (Bond a Device)** — `DeviceEnrollmentToken` model: manager creates expiring enrollment token (SHA256-hashed, 10-min TTL), generates enrollment URL with frontend base URL. Staff scans QR code or opens link to set PIN. Re-bond flow: re-issue enrollment for existing staff. `POST /:id/device-enrollment` endpoint.
+- **StaffCreatedModal** — QR code display (`QRCodeSVG`), raw PIN display with copy-to-clipboard (clipboard API + execCommand fallback), expiry countdown timer, enrollment error banner. Used for both initial enrollment and re-bond.
+- **Shared Device Mode** — Toggle in Settings > Staff tab. Stores `{ restaurantId, restaurantName }` in `localStorage.sharedDevice`. Device login page clears existing session first, shows PIN keypad. 401 interceptor skips `/auth/pin-login` to prevent redirect loops.
+- **Staff settings consolidation** — Shared Device Mode + QR Code Management moved from General to Staff tab. Staff table shows: name, email (`.local` synthetic emails hidden with "—"), role badge, re-bond button, delete action. Enrollment errors surfaced inline in StaffCreatedModal.
+- **RBAC access fixes** — Orders: assigned staff can read/update orders for their restaurant. Dashboard: owner + MANAGER access. Restaurant management: owner + MANAGER (except delete + Stripe which remain owner-only). Assistance: owner + assigned staff. POS: restaurant resolved from `user.restaurantId`.
+- **Provider fetch noise fix** — `OrderProvider` and `AssistanceProvider` only fetch when authenticated session exists (not on socket reconnect). `SocketProvider` no longer depends on nonexistent `token` field from `AuthContext`. Both providers removed from public/customer routes.
+- **Key files:** `auth.controller.ts` (+pin-login), `auth.service.ts` (+validatePin), `device-enrollment.service.ts`, `restaurants.controller.ts` (+device-enrollment), `orders.service.ts` (RBAC), `dashboard.controller.ts` (RBAC), `assistance.service.ts` (RBAC), `StaffCreatedModal.tsx`, `SettingsView.tsx` (staff tab), `DeviceLoginPage.tsx`, `AuthContext.tsx`, `RestaurantContext.tsx`, `OrderContext.tsx`, `AssistanceContext.tsx`, `SocketContext.tsx`, `App.tsx`, `api.ts`.
+
 **Current focus — V3 Growth:**
-- **Phase 18 — Staff Roles:** expand `UserRole` to `OWNER` / `MANAGER` / `WAITER` / `KITCHEN`, permission matrix, `StaffInvite` model with expiring tokens, activity log.
 - **Phase 20 — Multi-location:** menu templates, bulk price updates, cross-location analytics.
 
 **Planned — V4 Enterprise:** AWS/GCP migration, Redis, POS integration (Square / Toast / Lightspeed), inventory + waste tracking, SMS/email marketing, React Native staff app.
@@ -209,3 +227,13 @@ When asked to add a feature, first check whether it falls under an existing phas
 
 - **Backend** — Jest, specs co-located as `*.spec.ts` under `src/`. E2e config at `apps/backend/test/jest-e2e.json` and requires `.env.test` copied to `.env` first via `npm run test:prepare`.
 - **Frontend** — Vitest + jsdom; React Testing Library available.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- ALWAYS read graphify-out/GRAPH_REPORT.md before reading any source files, running grep/glob searches, or answering codebase questions. The graph is your primary map of the codebase.
+- IF graphify-out/wiki/index.md EXISTS, navigate it instead of reading raw files
+- For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

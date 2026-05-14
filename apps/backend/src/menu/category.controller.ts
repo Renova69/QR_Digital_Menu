@@ -16,7 +16,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import { MenuService } from './menu.service';
+import { MenuCrudService } from './menu-crud.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -25,7 +25,7 @@ import { StorageService } from '../storage/storage.service';
 @UseGuards(JwtAuthGuard)
 @Controller('restaurants/:restaurantId/categories')
 export class CategoryController {
-  constructor(private readonly menuService: MenuService) {}
+  constructor(private readonly crud: MenuCrudService) {}
 
   @Post()
   create(
@@ -33,7 +33,7 @@ export class CategoryController {
     @Body(ValidationPipe) createCategoryDto: CreateCategoryDto,
     @Request() req,
   ) {
-    return this.menuService.createCategory(
+    return this.crud.createCategory(
       restaurantId,
       createCategoryDto,
       req.user.id,
@@ -42,7 +42,7 @@ export class CategoryController {
 
   @Get()
   findAll(@Param('restaurantId') restaurantId: string, @Request() req) {
-    return this.menuService.findAllCategories(restaurantId, req.user.id);
+    return this.crud.findAllCategories(restaurantId, req.user.id);
   }
 
   @Put('order')
@@ -51,7 +51,7 @@ export class CategoryController {
     @Body('orderedIds') orderedIds: string[],
     @Request() req,
   ) {
-    return this.menuService.updateCategoryOrder(restaurantId, orderedIds, req.user.id);
+    return this.crud.updateCategoryOrder(restaurantId, orderedIds, req.user.id);
   }
 }
 
@@ -59,7 +59,7 @@ export class CategoryController {
 @Controller('categories')
 export class CategoryDetailController {
   constructor(
-    private readonly menuService: MenuService,
+    private readonly crud: MenuCrudService,
     private readonly storageService: StorageService,
   ) {}
 
@@ -69,12 +69,12 @@ export class CategoryDetailController {
     @Body(ValidationPipe) updateCategoryDto: UpdateCategoryDto,
     @Request() req,
   ) {
-    return this.menuService.updateCategory(id, updateCategoryDto, req.user.id);
+    return this.crud.updateCategory(id, updateCategoryDto, req.user.id);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string, @Request() req) {
-    return this.menuService.removeCategory(id, req.user.id);
+    return this.crud.removeCategory(id, req.user.id);
   }
 
   @Post(':id/image')
@@ -105,7 +105,7 @@ export class CategoryDetailController {
         file.originalname,
         file.mimetype,
       );
-      return this.menuService.updateCategoryImage(id, url, thumbnailUrl, req.user.id);
+      return this.crud.updateCategoryImage(id, url, thumbnailUrl, req.user.id);
     } catch (error: any) {
       throw new BadRequestException(error.message || 'Failed to upload image');
     }

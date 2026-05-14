@@ -27,6 +27,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function PosTableModal() {
   const restaurantCtx = useContext(RestaurantContext);
   const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
+  const restaurantLoading = restaurantCtx?.loading ?? false;
   const { session, setSession, setHistoryItems, resetCart } = usePos();
   const { socket } = useSocket();
 
@@ -158,7 +159,7 @@ export default function PosTableModal() {
   if (!activeRestaurant) {
     return (
       <div className="flex items-center justify-center h-dvh text-muted-foreground">
-        No restaurant selected.
+        {restaurantLoading ? "Loading restaurant..." : "No restaurant selected."}
       </div>
     );
   }
