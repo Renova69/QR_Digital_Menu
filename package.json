@@ -14,7 +14,10 @@
     "docker:down": "docker-compose down"
   },
   "devDependencies": {
-    "turbo": "^2.4.4",
-    "prettier": "^3.5.3"
+    "prettier": "^3.5.3",
+    "turbo": "^2.4.4"
+  },
+  "dependencies": {
+    "helmet": "^8.1.0"
   }
 }

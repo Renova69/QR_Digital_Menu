@@ -2,10 +2,12 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TranslationService } from '../translation/translation.service';
+import { MenuTranslationService } from './menu-translation.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateItemDto } from './dto/create-item.dto';
@@ -16,13 +18,150 @@ import { Prisma } from '@prisma/client';
 import { DateTime } from 'luxon';
 
 @Injectable()
-export class MenuService {
-  private readonly logger = new Logger(MenuService.name);
+export class MenuCrudService {
+  private readonly logger = new Logger(MenuCrudService.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly translationService: TranslationService,
+    private readonly menuTranslationService: MenuTranslationService,
   ) {}
+
+  async getPublicMenu(restaurantId: string, lang?: string) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: {
+        name: true,
+        logoUrl: true,
+        accentColor: true,
+        fontHeading: true,
+        fontBody: true,
+        themeBgColor: true,
+        themeTextColor: true,
+        themeCardColor: true,
+        targetLanguages: true,
+        timezone: true,
+        defaultTheme: true,
+      } as any,
+    });
+
+    if (!restaurant) {
+      throw new NotFoundException(
+        `Restaurant with ID "${restaurantId}" not found`,
+      );
+    }
+
+    const allCategories = await this.prisma.menuCategory.findMany({
+      where: { restaurantId },
+      include: {
+        items: {
+          where: { isOutOfStock: false },
+          orderBy: { order: 'asc' },
+          include: { options: true },
+        },
+      },
+      orderBy: { order: 'asc' },
+    });
+
+    const restaurantTz = (restaurant as any).timezone || 'UTC';
+    const now = DateTime.now().setZone(restaurantTz as string);
+    const currentTimeStr = now.toFormat('HH:mm');
+    const currentDay = now.weekday === 7 ? 0 : now.weekday;
+
+    const filteredCategories = allCategories.filter((category) => {
+      if (category.availabilityType === 'HIDDEN') return false;
+      if (category.availabilityType === 'ALWAYS') return true;
+      if (category.availabilityType === 'SCHEDULED') {
+        if (
+          category.daysOfWeek &&
+          Array.isArray(category.daysOfWeek) &&
+          category.daysOfWeek.length > 0 &&
+          !category.daysOfWeek.includes(currentDay)
+        ) {
+          return false;
+        }
+        if (category.startTime && category.endTime) {
+          if (category.startTime <= category.endTime) {
+            return (
+              currentTimeStr >= category.startTime &&
+              currentTimeStr <= category.endTime
+            );
+          } else {
+            return (
+              currentTimeStr >= category.startTime ||
+              currentTimeStr <= category.endTime
+            );
+          }
+        }
+      }
+      return true;
+    });
+
+    const targetLangs = (restaurant as any).targetLanguages as string[] || [];
+    if (lang && process.env.DEEPL_API_KEY && targetLangs.includes(lang)) {
+      await this.menuTranslationService.applyLazyTranslations(filteredCategories, lang);
+    }
+
+    return { restaurant, categories: filteredCategories };
+  }
+
+  async getTrendingItems(restaurantId: string) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { trendingMode: true, id: true },
+    });
+
+    if (!restaurant || restaurant.trendingMode === 'OFF') {
+      return [];
+    }
+
+    if (restaurant.trendingMode === 'MANUAL') {
+      return this.prisma.menuItem.findMany({
+        where: {
+          category: { restaurantId },
+          isFeatured: true,
+          isOutOfStock: false,
+        },
+        take: 4,
+        orderBy: { order: 'asc' },
+        include: {
+          options: true,
+          category: { select: { isDrinkCategory: true, name: true } },
+        },
+      });
+    }
+
+    const mostOrdered = await this.prisma.orderItem.groupBy({
+      by: ['menuItemId'],
+      where: {
+        order: { restaurantId },
+        menuItemId: { not: null },
+      },
+      _sum: { quantity: true },
+      orderBy: { _sum: { quantity: 'desc' } },
+      take: 4,
+    });
+
+    const itemIds = mostOrdered
+      .map((mo) => mo.menuItemId)
+      .filter((id) => id !== null);
+    if (itemIds.length === 0) return [];
+
+    const trendingItems = await this.prisma.menuItem.findMany({
+      where: {
+        id: { in: itemIds },
+        isOutOfStock: false,
+      },
+      include: {
+        options: true,
+        category: { select: { isDrinkCategory: true, name: true } },
+      },
+    });
+
+    return itemIds
+      .map((id) => trendingItems.find((item) => item.id === id))
+      .filter(Boolean);
+  }
 
   private async checkRestaurantOwnership(restaurantId: string, userId: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
@@ -44,7 +183,8 @@ export class MenuService {
     return restaurant;
   }
 
-  // Category Methods
+  // ── Category Methods ──
+
   async createCategory(
     restaurantId: string,
     createCategoryDto: CreateCategoryDto,
@@ -187,7 +327,8 @@ export class MenuService {
     });
   }
 
-  // Item Methods
+  // ── Item Methods ──
+
   async createItem(
     categoryId: string,
     createItemDto: CreateItemDto,
@@ -404,7 +545,8 @@ export class MenuService {
     return this.prisma.menuItem.delete({ where: { id: itemId } });
   }
 
-  // Menu Option Methods
+  // ── Menu Option Methods ──
+
   async createMenuOption(
     itemId: string,
     createMenuOptionDto: CreateMenuOptionDto,
@@ -421,6 +563,9 @@ export class MenuService {
     const restaurant = await this.checkRestaurantOwnership(item.category.restaurantId, userId);
 
     const choices = JSON.parse(createMenuOptionDto.choices);
+    if (!Array.isArray(choices)) {
+      throw new BadRequestException('choices must be a JSON array');
+    }
     const data: Prisma.MenuOptionUncheckedCreateInput = {
       ...createMenuOptionDto,
       choices,
@@ -489,9 +634,14 @@ export class MenuService {
       userId,
     );
 
-    const choices = updateMenuOptionDto.choices
-      ? JSON.parse(updateMenuOptionDto.choices)
-      : undefined;
+    let choices: any[] | undefined;
+    if (updateMenuOptionDto.choices) {
+      const parsed = JSON.parse(updateMenuOptionDto.choices);
+      if (!Array.isArray(parsed)) {
+        throw new BadRequestException('choices must be a JSON array');
+      }
+      choices = parsed;
+    }
 
     const data: Prisma.MenuOptionUncheckedUpdateInput = {
       ...updateMenuOptionDto,
@@ -562,403 +712,5 @@ export class MenuService {
       userId,
     );
     return this.prisma.menuOption.delete({ where: { id: optionId } });
-  }
-
-  // Public Menu
-  async getPublicMenu(restaurantId: string, lang?: string) {
-    const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
-      select: {
-        name: true,
-        logoUrl: true,
-        accentColor: true,
-        fontHeading: true,
-        fontBody: true,
-        themeBgColor: true,
-        themeTextColor: true,
-        themeCardColor: true,
-        targetLanguages: true,
-        timezone: true,
-        defaultTheme: true,
-      } as any,
-    });
-
-    if (!restaurant) {
-      throw new NotFoundException(
-        `Restaurant with ID "${restaurantId}" not found`,
-      );
-    }
-
-    const allCategories = await this.prisma.menuCategory.findMany({
-      where: { restaurantId },
-      include: {
-        items: {
-          where: { isOutOfStock: false },
-          orderBy: {
-            order: 'asc',
-          },
-          include: {
-            options: true,
-          },
-        },
-      },
-      orderBy: {
-        order: 'asc',
-      },
-    });
-
-    const restaurantTz = (restaurant as any).timezone || 'UTC';
-    const now = DateTime.now().setZone(restaurantTz as string);
-    const currentTimeStr = now.toFormat('HH:mm');
-    const currentDay = now.weekday === 7 ? 0 : now.weekday;
-
-    const filteredCategories = allCategories.filter((category) => {
-      if (category.availabilityType === 'HIDDEN') return false;
-      if (category.availabilityType === 'ALWAYS') return true;
-      if (category.availabilityType === 'SCHEDULED') {
-        if (
-          category.daysOfWeek &&
-          Array.isArray(category.daysOfWeek) &&
-          category.daysOfWeek.length > 0 &&
-          !category.daysOfWeek.includes(currentDay)
-        ) {
-          return false;
-        }
-        if (category.startTime && category.endTime) {
-          if (category.startTime <= category.endTime) {
-            return (
-              currentTimeStr >= category.startTime &&
-              currentTimeStr <= category.endTime
-            );
-          } else {
-            return (
-              currentTimeStr >= category.startTime ||
-              currentTimeStr <= category.endTime
-            );
-          }
-        }
-      }
-      return true;
-    });
-
-    const targetLangs = (restaurant as any).targetLanguages as string[] || [];
-    if (lang && process.env.DEEPL_API_KEY && targetLangs.includes(lang)) {
-      await this.applyLazyTranslations(filteredCategories, lang);
-    }
-
-    return { restaurant, categories: filteredCategories };
-  }
-
-  // DeepL free-tier rate limit: 5 req/s — stay conservative
-  private static readonly DEEPL_RATE_LIMIT_MS = 300;
-
-  private async applyLazyTranslations(categories: any[], lang: string): Promise<void> {
-    for (const category of categories) {
-      const catTrans: any =
-        category.translations && typeof category.translations === 'object'
-          ? { ...(category.translations as any) }
-          : {};
-
-      if (!catTrans[lang]?.name) {
-        try {
-          const translated = await this.translationService.translateObject(
-            { name: category.name },
-            [lang],
-          );
-          if (translated[lang]) {
-            const merged = { ...catTrans, ...translated };
-            await this.prisma.menuCategory.update({
-              where: { id: category.id },
-              data: { translations: merged },
-            });
-            catTrans[lang] = translated[lang];
-          }
-        } catch { /* keep original */ }
-        await new Promise((r) => setTimeout(r, MenuService.DEEPL_RATE_LIMIT_MS));
-      }
-
-      if (catTrans[lang]?.name) {
-        category.name = catTrans[lang].name;
-      }
-
-      for (const item of category.items ?? []) {
-        const itemTrans: any =
-          item.translations && typeof item.translations === 'object'
-            ? { ...(item.translations as any) }
-            : {};
-
-        if (!itemTrans[lang]?.name) {
-          try {
-            const textToTranslate: Record<string, string> = { name: item.name };
-            if (item.description) textToTranslate.description = item.description;
-            (item.allergens || []).forEach((a: string) => {
-              textToTranslate[`allergen_${a}`] = a;
-            });
-            (item.dietaryTags || []).forEach((t: string) => {
-              textToTranslate[`tag_${t}`] = t;
-            });
-
-            const translated = await this.translationService.translateObject(
-              textToTranslate,
-              [lang],
-            );
-
-            if (translated[lang]) {
-              const langData = { ...translated[lang] };
-              const translatedAllergens: string[] = [];
-              const translatedTags: string[] = [];
-              for (const key of Object.keys(langData)) {
-                if (key.startsWith('allergen_')) {
-                  translatedAllergens.push(langData[key]);
-                  delete langData[key];
-                } else if (key.startsWith('tag_')) {
-                  translatedTags.push(langData[key]);
-                  delete langData[key];
-                }
-              }
-              if (translatedAllergens.length) (langData as any).allergens = translatedAllergens;
-              if (translatedTags.length) (langData as any).dietaryTags = translatedTags;
-
-              const merged = { ...itemTrans, [lang]: langData };
-              await this.prisma.menuItem.update({
-                where: { id: item.id },
-                data: { translations: merged },
-              });
-              itemTrans[lang] = langData;
-            }
-          } catch { /* keep original */ }
-          await new Promise((r) => setTimeout(r, MenuService.DEEPL_RATE_LIMIT_MS));
-        }
-
-        if (itemTrans[lang]?.name) item.name = itemTrans[lang].name;
-        if (itemTrans[lang]?.description) item.description = itemTrans[lang].description;
-        if (itemTrans[lang]?.allergens) item.allergens = itemTrans[lang].allergens;
-        if (itemTrans[lang]?.dietaryTags) item.dietaryTags = itemTrans[lang].dietaryTags;
-
-        for (const option of item.options ?? []) {
-          const optTrans: any =
-            option.translations && typeof option.translations === 'object'
-              ? { ...(option.translations as any) }
-              : {};
-
-          if (!optTrans[lang]?.name) {
-            try {
-              const textToTranslate: Record<string, string> = { name: option.name };
-              const choices = (option.choices as any[]) || [];
-              choices.forEach((c: any) => {
-                if (c.name) textToTranslate[`choice_${c.name}`] = c.name;
-              });
-
-              const translated = await this.translationService.translateObject(
-                textToTranslate,
-                [lang],
-              );
-
-              if (translated[lang]) {
-                if (!optTrans[lang]) optTrans[lang] = { choices: {} };
-                if (!optTrans[lang].choices) optTrans[lang].choices = {};
-
-                const langData = translated[lang];
-                if (langData.name) optTrans[lang].name = langData.name;
-                for (const key of Object.keys(langData)) {
-                  if (key.startsWith('choice_')) {
-                    optTrans[lang].choices[key.replace('choice_', '')] = langData[key];
-                  }
-                }
-
-                await this.prisma.menuOption.update({
-                  where: { id: option.id },
-                  data: { translations: optTrans } as any,
-                });
-              }
-            } catch { /* keep original */ }
-            await new Promise((r) => setTimeout(r, MenuService.DEEPL_RATE_LIMIT_MS));
-          }
-
-          if (optTrans[lang]?.name) option.name = optTrans[lang].name;
-          if (optTrans[lang]?.choices) {
-            const choices = (option.choices as any[]) || [];
-            option.choices = choices.map((c: any) => ({
-              ...c,
-              name: optTrans[lang].choices[c.name] || c.name,
-            }));
-          }
-        }
-      }
-    }
-  }
-
-  async getTrendingItems(restaurantId: string) {
-    const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
-      select: { trendingMode: true, id: true },
-    });
-
-    if (!restaurant || restaurant.trendingMode === 'OFF') {
-      return [];
-    }
-
-    if (restaurant.trendingMode === 'MANUAL') {
-      return this.prisma.menuItem.findMany({
-        where: {
-          category: { restaurantId },
-          isFeatured: true,
-          isOutOfStock: false,
-        },
-        take: 4,
-        orderBy: { order: 'asc' },
-        include: {
-          options: true,
-          category: { select: { isDrinkCategory: true, name: true } },
-        },
-      });
-    }
-
-    const mostOrdered = await this.prisma.orderItem.groupBy({
-      by: ['menuItemId'],
-      where: {
-        order: { restaurantId },
-        menuItemId: { not: null },
-      },
-      _sum: { quantity: true },
-      orderBy: { _sum: { quantity: 'desc' } },
-      take: 4,
-    });
-
-    if (mostOrdered.length === 0) {
-      return this.prisma.menuItem.findMany({
-        where: {
-          category: { restaurantId },
-          isFeatured: true,
-          isOutOfStock: false,
-        },
-        take: 4,
-        orderBy: { order: 'asc' },
-        include: {
-          options: true,
-          category: { select: { isDrinkCategory: true, name: true } },
-        },
-      });
-    }
-
-    const itemIds = mostOrdered
-      .map((mo) => mo.menuItemId)
-      .filter((id) => id !== null);
-    if (itemIds.length === 0) return [];
-
-    const trendingItems = await this.prisma.menuItem.findMany({
-      where: {
-        id: { in: itemIds },
-        isOutOfStock: false,
-      },
-      include: {
-        options: true,
-        category: { select: { isDrinkCategory: true, name: true } },
-      },
-    });
-
-    return itemIds
-      .map((id) => trendingItems.find((item) => item.id === id))
-      .filter(Boolean);
-  }
-  async auditMenu(restaurantId: string) {
-    const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
-      include: {
-        menuCategories: {
-          include: {
-            items: true,
-          },
-        },
-      },
-    });
-
-    if (!restaurant) {
-      throw new Error('Restaurant not found');
-    }
-
-    const issues: any[] = [];
-    const targetLanguages = restaurant.targetLanguages || [];
-
-    restaurant.menuCategories.forEach((category) => {
-      // Rule: Empty category
-      if (category.items.length === 0) {
-        issues.push({
-          type: 'error',
-          message: 'Category is empty and will not display any items.',
-          categoryId: category.id,
-          field: 'items',
-        });
-      }
-
-      // Rule: Missing translations for category
-      if (targetLanguages.length > 0) {
-        const translations = (category as any).translations || {};
-        targetLanguages.forEach((lang) => {
-          if (!translations[lang] || !translations[lang].name) {
-            issues.push({
-              type: 'warning',
-              message: `Category is missing translation for ${lang.toUpperCase()}.`,
-              categoryId: category.id,
-              field: 'translations',
-            });
-          }
-        });
-      }
-
-      // Check items
-      category.items.forEach((item) => {
-        // Rule: Item price is 0
-        if (item.price === 0) {
-          issues.push({
-            type: 'error',
-            message: `Item price is set to 0.`,
-            categoryId: category.id,
-            itemId: item.id,
-            field: 'price',
-          });
-        }
-
-        // Rule: Item has no description
-        if (!item.description || item.description.trim() === '') {
-          issues.push({
-            type: 'warning',
-            message: `Item has no description. Descriptions help customers make choices.`,
-            categoryId: category.id,
-            itemId: item.id,
-            field: 'description',
-          });
-        }
-
-        // Rule: Item has no image
-        if (!item.imageUrl) {
-          issues.push({
-            type: 'info',
-            message: `Item has no image. Images increase sales by up to 30%.`,
-            categoryId: category.id,
-            itemId: item.id,
-            field: 'imageUrl',
-          });
-        }
-
-        // Rule: Missing translations for item
-        if (targetLanguages.length > 0) {
-          const translations = (item.translations as any) || {};
-          targetLanguages.forEach((lang) => {
-            if (!translations[lang] || !translations[lang].name) {
-              issues.push({
-                type: 'warning',
-                message: `Item is missing translation for ${lang.toUpperCase()}.`,
-                categoryId: category.id,
-                itemId: item.id,
-                field: 'translations',
-              });
-            }
-          });
-        }
-      });
-    });
-
-    return issues;
   }
 }

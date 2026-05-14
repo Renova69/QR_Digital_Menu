@@ -1,7 +1,7 @@
 # QR Menu App — Master Documentation
 
-> **Last Updated:** May 10, 2026
-> **Status:** V2.5 Complete — V3 Growth Features (Stripe Payments ✅, Live Table View ✅, OCR Import ✅, Waiter POS ✅) — Translation + Import + Menu Editor Fixes ✅
+> **Last Updated:** May 14, 2026
+> **Status:** V2.5 Complete — V3 Growth Features (Stripe Payments ✅, Live Table View ✅, OCR Import ✅, Waiter POS ✅, Staff Roles & RBAC ✅) — Security Hardening ✅ (httpOnly cookies, CSRF, same-origin proxy, CSP) — Device Enrollment ✅ (PIN login, QR bonding, re-bond, Shared Device Mode)
 > **Stack:** Turborepo Monorepo — React 18 + NestJS 11 + Prisma 6 + Neon (Serverless PostgreSQL)
 
 ---
@@ -256,7 +256,7 @@ Payment (sessionId, stripePaymentIntentId, amount, tip, status, method)
 
 | Phase | Feature | Goal | Status |
 |-------|---------|------|--------|
-| 18 | Staff Roles | OWNER/MANAGER/WAITER/KITCHEN roles, permission matrix, staff invites, activity log | Planned |
+| 18 | Staff Roles | OWNER/MANAGER/WAITER/KITCHEN roles, permission matrix, PIN-based device login, QR enrollment, shared device mode | **✅ Complete** |
 | 19 | Stripe Payments | Pay-at-table via Payment Intents, split payment, tips, Stripe Connect for platform fees | **✅ Complete** |
 | 20 | Multi-Location | Menu templates, bulk price updates, cross-location analytics | Planned |
 
@@ -289,6 +289,19 @@ Payment (sessionId, stripePaymentIntentId, amount, tip, status, method)
 | **DeepL Rate Limit & Connection Fix** | `TranslationService`: replaced per-call `axios.post()` with shared `AxiosInstance` using `https.Agent({ keepAlive: true, maxSockets: 4 })` — eliminates `MaxListenersExceededWarning` from TLS listener accumulation. Added 250ms delay between language iterations in `translateObject` — eliminates DeepL 429 errors when translating to multiple languages back-to-back. |
 | **Menu Import Translation Passthrough** | `ImportItemDto` and `ImportCategoryDto` now accept `translations: Record<string, { name?, description? }>`. `menu-import.service.ts` passes `translations` through to Prisma `create`/`update` for both categories and items. Root cause: `jsonToPayload()` in `MenuImportView.tsx` explicitly rebuilt item/category objects without spreading `translations` — now passes through if present. Enables importing multilingual menus from JSON without a separate translate step. |
 | **Menu Editor Delete Buttons** | `window.confirm()` was silently blocked in some browser contexts, making category/item delete buttons non-functional. `CategoryList.tsx`: replaced with Radix `Dialog` confirmation showing "This will permanently delete [name] and ALL items inside it. This cannot be undone." with Cancel + Delete buttons and loading state. `ItemList.tsx`: replaced with inline `confirmingDeleteId` state — first click shows "Delete? / Cancel / Delete" buttons inline on the row, second click executes. ~15 new i18n keys added in EN/BG/RO (`menuAdmin.deleteCategoryTitle/Warning/Warning2/deleteCategory/confirmDelete`, `common.delete/deleting`). |
+
+### Post-Roadmap Additions (Shipped May 12-14, 2026)
+
+| Feature | Details |
+|---------|---------|
+| **Staff Roles & RBAC** | `UserRole` expanded to `OWNER`/`MANAGER`/`WAITER`/`KITCHEN`. Permission matrix enforced across all services: `checkRestaurantAccess` allowing owner OR assigned staff. `User.restaurantId` links staff to restaurant. Auth responses include `restaurantId` for frontend resolution. Role-based access: Orders (owner+assigned staff), Dashboard (owner+MANAGER), Restaurant management (owner+MANAGER except delete+Stripe), Assistance (owner+staff). |
+| **PIN-Based Staff Login** | `POST /auth/pin-login` endpoint. Staff set 4-digit PIN (SHA256-hashed) on enrollment. Device login page at `/device-login` clears existing session first, shows PIN keypad. Role-based redirect: WAITER→`/staff/pos`, KITCHEN→`/staff/kitchen`. Wrong PIN stays on keypad (no redirect). 401 interceptor skips `/auth/pin-login`. |
+| **Device Enrollment (Bond a Device)** | `DeviceEnrollmentToken` model with SHA256-hashed tokens, 10-min TTL. Manager creates enrollment → QR code + enrollment URL generated. Staff scans QR or opens link to set PIN. Re-bond flow: re-issue enrollment for existing staff. `POST /:id/device-enrollment` endpoint. Fixed 500 error from missing `device_enrollment_token` table via `prisma db push`. |
+| **StaffCreatedModal** | 172-line React component. QR code display (`QRCodeSVG`), raw PIN with copy-to-clipboard (Clipboard API + `execCommand` fallback), expiry countdown timer (mm:ss), invalid date guard, enrollment error banner. i18n support across EN/BG/RO. Used for initial enrollment and re-bond. |
+| **Shared Device Mode** | Toggle in Settings → Staff tab. Stores restaurant config in `localStorage.sharedDevice`. Device login page clears owner/manager/staff session before PIN entry. PIN buttons disabled during session clearing. |
+| **Staff Settings Consolidation** | Shared Device Mode + QR Code Management moved from General to Staff tab. Staff table: name, email (`.local` synthetic emails hidden with "—"), role badge, re-bond button, delete action. |
+| **Provider Fetch Noise Fix** | `OrderProvider` + `AssistanceProvider` only fetch when authenticated. `SocketProvider` no longer depends on nonexistent `token` field. Both removed from public/customer routes. |
+| **Updated Docs** | CLAUDE.md, MAIN.md, CODING_ROADMAP.md, MAIN_FEATURES.md, HOW_TO.md, fixed_issues_main.md updated with RBAC/staff details. `RBAC_Fixed_issues.md` documents all RBAC and shared-device fixes. |
 
 ### V4 — Enterprise (Future)
 - AWS RDS / GCP Cloud SQL migration
@@ -360,10 +373,13 @@ Payment (sessionId, stripePaymentIntentId, amount, tip, status, method)
 
 ### JWT Strategy
 - Payload: `{ email, sub: userId }`
-- Storage: `localStorage` (frontend), `Authorization: Bearer` header (Axios interceptor)
+- **Primary storage:** httpOnly cookie (`sameSite: 'lax'`, `secure` in production, 1-day expiry)
+- **Fallback:** `Authorization: Bearer` header (Axios interceptor) for transition period
+- **CSRF protection:** Double-submit cookie pattern — `GET /api/auth/csrf-token` returns token; state-changing requests require `X-CSRF-Token` header
+- **Same-origin proxy:** Frontend uses `/api` baseURL (not cross-origin). Vite dev server proxies `/api` and `/socket.io` to backend. Eliminates cross-origin cookie blocking.
 - Guard: `JwtAuthGuard` on protected endpoints
 - Owner-only routes: ownership check via `checkRestaurantOwnership()` in service layer
-- 401 auto-redirect with public path exclusions
+- 401 auto-redirect with public path exclusions + `/auth/me` guard (prevents logout loop)
 
 ### Customer OTP Flow
 1. Customer enters email + optional phone in `CustomerLoginModal`
@@ -672,6 +688,16 @@ npm run dev                    # Starts both apps via Turborepo
 | Backend API | http://localhost:3000/api |
 | API Documentation | http://localhost:3000/api-docs |
 
+### Vite Proxy Architecture (Same-Origin)
+Frontend on `:3001` does NOT make direct cross-origin requests to backend on `:3000`. Instead:
+- `api.ts` uses `/api` as baseURL (same-origin)
+- `vite.config.js` proxies `/api` → backend (target from `.env` `VITE_API_URL`)
+- `vite.config.js` proxies `/socket.io` → backend with WebSocket support
+- `SocketContext` connects via `io()` with no URL (same-origin default)
+- httpOnly cookies work because all requests are same-origin through the proxy
+
+**Why:** httpOnly cookies with `sameSite: 'lax'` are blocked by browsers on cross-site AJAX. `localhost:3001` and `192.168.0.3:3000` are different sites. The proxy makes them appear as the same origin.
+
 ### Key Commands
 
 **Root:**
@@ -718,7 +744,7 @@ npm run build   # Production build
 | `R2_SECRET_ACCESS_KEY` | Backend | R2 secret key |
 | `R2_BUCKET_NAME` | Backend | R2 bucket name |
 | `R2_PUBLIC_URL` | Backend | R2 CDN public base URL |
-| `VITE_API_URL` | Frontend | API base URL (`http://localhost:3000/api`) |
+| `VITE_API_URL` | Frontend | Backend origin for Vite proxy target (`http://192.168.0.3:3000/api` or `http://localhost:3000/api`) — api.ts uses `/api` baseURL (same-origin), proxy forwards to this target |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | Frontend | Stripe publishable key for Elements |
 | `STRIPE_SECRET_KEY` | Backend | Stripe secret key for PaymentIntents |
 | `STRIPE_WEBHOOK_SECRET` | Backend | Stripe webhook signing secret |
@@ -743,12 +769,13 @@ npm run build   # Production build
 
 | Item | Severity | Notes |
 |------|----------|-------|
-| JWT in localStorage | Medium | XSS-vulnerable. Consider httpOnly cookies for production |
-| No CSRF protection | Medium | No CSRF tokens on state-changing requests |
-| No pagination on list endpoints | Medium | Public menu loads all items; dashboard lists are unbounded |
-| Minimal test coverage | Medium | Only basic unit/E2E tests. No service-level tests |
+| ~~JWT in localStorage~~ | ~~Medium~~ | ✅ Fixed May 10, 2026 — migrated to httpOnly cookies with `sameSite: 'lax'`, Bearer header fallback |
+| ~~No CSRF protection~~ | ~~Medium~~ | ✅ Fixed May 10, 2026 — double-submit cookie pattern, `X-CSRF-Token` header on all state-changing requests |
+| ~~No pagination on list endpoints~~ | ~~Medium~~ | ✅ Fixed May 10, 2026 — orders, feedback, assistance-requests paginated (50/page, max 100) |
+| ~~No CSP headers~~ | ~~Medium~~ | ✅ Fixed May 10, 2026 — Helmet CSP with `default-src 'self'`, Stripe frame-src, Tailwind style-src |
+| ~~No per-endpoint rate limits~~ | ~~Medium~~ | ✅ Fixed May 10, 2026 — OTP: 10/min, login: 5/min, public menu: 60/min, health: skip |
+| Minimal test coverage | Medium | Only basic unit/E2E tests. No service-level tests for orders, loyalty, menu |
 | Relaxed TS strictness (backend) | Low | `strictNullChecks: false`, `noImplicitAny: false` |
-| ~~No database indexes beyond PKs~~ | ~~Low~~ | ✅ Fixed May 7, 2026 — indexes on `Order.[restaurantId,status,createdAt]`, `MenuItem.[categoryId,order]`, `Feedback.[restaurantId]`, `AssistanceRequest.[restaurantId,isResolved]` |
 | `any` types in frontend contexts | Low | `CartContext.selectedOptions: any[]`, etc. |
 
 ---

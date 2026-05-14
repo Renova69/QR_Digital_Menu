@@ -1,9 +1,9 @@
 # QR Menu — Product & Technical Due Diligence Report
 
 > **Prepared for:** Fortune 500 Acquisition Review
-> **Date:** May 10, 2026
-> **Product Status:** V2.5 Shipped | V3 Growth Features — Stripe Payments + Live Tables + OCR Import + Waiter POS Complete | Translation + Import + Menu Editor Bug Fixes
-> **Codebase:** 100+ frontend source files, 16 backend modules, 13 database models, ~175 i18n keys across 3 languages
+> **Date:** May 12, 2026 (audited — all sections verified against codebase)
+> **Product Status:** V2.5 Shipped | V3 Growth — Phase 19 (Stripe/OCR/POS) Complete, Phase 18 (Staff Roles & RBAC) Complete | Security Hardening Phase 21 Complete | Device Enrollment Live (PIN login, QR bonding, shared device mode) | KDS (Kitchen Display) Live at /staff/kitchen | SaaS Subscription Spec Ready | Menu Service Split Wired, Tests In Progress
+> **Codebase:** 100+ frontend source files, 16 backend modules, 15 database models, ~175 i18n keys across 3 languages
 
 ---
 
@@ -187,7 +187,9 @@ sequenceDiagram
 | **Per-restaurant theme isolation** | Each venue's theme preference stored independently (`theme-{restaurantId}` localStorage key) vs single global key. Owner sets `defaultTheme` (light/dark) that applies on first visit. ThemeToggle always visible even with custom branding. |
 | **Layout split: AppLayout vs PublicLayout** | Customer routes (menu, checkout, confirmation, feedback) get no header chrome — full viewport, native-feel mobile experience. Dashboard routes get full app shell. Media-query-driven cart animation (slide-up on mobile, slide-right on desktop) with zero JS detection. |
 | **BG as i18n fallback** | Bulgarian is the default language (`fallbackLng: 'bg'`) since the primary market is Bulgarian restaurants. English and Romanian are secondary. English was moved from fallback to secondary in the May 5, 2026 overhaul. |
-| **Dual auth strategy** | JWT for dashboard owners, Email OTP for customers. Customers never create passwords. OTP codes are bcrypt-hashed (10 rounds), 10-min expiry, 60s rate-limit per email. Dev mode returns `devCode` in API response when `RESEND_API_KEY` is absent. |
+| **Dual auth strategy** | JWT for dashboard owners, Email OTP for customers. Customers never create passwords. OTP codes are bcrypt-hashed (10 rounds), 10-min expiry, 60s rate-limit per email. OTP endpoint locked for 10 min after 5 failed attempts (brute-force protection). |
+| **httpOnly cookie + CSRF** | JWT stored in httpOnly cookie (`sameSite: 'lax'`, `secure` in production) — not localStorage. CSRF double-submit cookie pattern on all state-changing endpoints. Bearer header fallback for transition period. Eliminates XSS token theft vector. |
+| **Same-origin Vite proxy** | Frontend uses `/api` baseURL (not cross-origin). Vite dev server proxies `/api` and `/socket.io` to backend. Prevents cross-origin cookie blocking — `localhost:3001` and `192.168.0.3:3000` are different sites, `sameSite: 'lax'` blocks cross-site AJAX cookies. |
 | **No customer password system** | The `User` model has a nullable `password` field. Customers created via OTP get no password — they authenticate exclusively through OTP or Google OAuth. Owners have hashed passwords. |
 | **POS — third layout with isolated state** | Waiter POS uses `PosLayout` (zero chrome, full viewport) and `PosContext` (in-memory only, ephemeral). Completely isolated from `CartContext` — POS cart state never leaks into the customer ordering flow. `submitted: boolean` flag on `PosCartItem` enables history display + pending-only submission without schema changes. |
 
@@ -197,32 +199,41 @@ sequenceDiagram
 
 ### 3.1 Authentication System
 
-**What it does:** Three authentication methods for two distinct user types. Restaurant owners log in with email/password or Google OAuth. Customers sign in with email OTP (6-digit code) or Google OAuth — no password required. All methods issue a JWT with 1-day expiry.
+**What it does:** Three authentication methods for two distinct user types. Restaurant owners log in with email/password or Google OAuth. Customers sign in with email OTP (6-digit code) or Google OAuth — no password required. All methods issue a JWT with 1-day expiry, stored in httpOnly cookie with CSRF protection.
 
 **How it works:**
-- **JWT Strategy** (`apps/backend/src/auth/jwt.strategy.ts`): Extracts Bearer token, validates signature with `JWT_SECRET`, looks up user by `payload.sub`. Throws `UnauthorizedException` if user not found.
+- **JWT Strategy** (`apps/backend/src/auth/jwt.strategy.ts`): Reads token from httpOnly cookie (`request.cookies.token`) first, falls back to `Authorization: Bearer` header for transition compatibility. Validates signature with `JWT_SECRET`, looks up user by `payload.sub`. Throws `UnauthorizedException` if user not found.
+- **Token Storage:** httpOnly cookie set by server on login/register/OTP/OAuth: `{ httpOnly: true, secure: NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 86400000 }`. Frontend never touches token — `AuthContext` reads user via `/auth/me`, cookie sent automatically via `withCredentials: true`.
+- **CSRF Protection:** Double-submit cookie pattern. `GET /api/auth/csrf-token` returns `{ csrfToken }` + sets readable `csrf-token` cookie. All POST/PATCH/DELETE/PUT require `X-CSRF-Token` header matching cookie value. Skipped in dev mode + Stripe webhook path.
+- **Same-origin proxy:** Frontend uses `/api` baseURL (same-origin), Vite proxies to backend. Eliminates cross-origin cookie blocking (localhost:3001 ≠ 192.168.0.3:3000 → `sameSite: 'lax'` blocks cookies on cross-site AJAX).
 - **Local Strategy** (`apps/backend/src/auth/local.strategy.ts`): Uses email as username field. `validate()` calls `AuthService.validateUser()` which checks bcrypt-hashed password. Specific error messages: "No account found with this email" (404) vs "Incorrect password" (401).
 - **Google Strategy** (`apps/backend/src/auth/google.strategy.ts`): Scopes profile + email. `validate()` returns `{ googleId, email, firstName, lastName }`. `AuthService.validateGoogleUser()` auto-creates user with OWNER role if not found; generates random 8-char password.
-- **Email OTP** (`apps/backend/src/auth/auth.service.ts:sendOtp/verifyOtp`): `sendOtp` rate-limits to 60s/email (returns 429), deletes previous unused tokens, generates 6-digit code, bcrypt-hashes it, stores in `VerificationToken` with 10-min expiry. Delivers via Resend API or logs to console in dev. `verifyOtp` checks code with bcrypt, marks token used, auto-creates CUSTOMER user if new, returns `{ token, user, isNew }`.
+- **Email OTP** (`apps/backend/src/auth/auth.service.ts:sendOtp/verifyOtp`): `sendOtp` rate-limits to 60s/email (returns 429), deletes previous unused tokens, generates 6-digit code, bcrypt-hashes it, stores in `VerificationToken` with 10-min expiry. Delivers via Resend API. Brute-force protection: 5 failed attempts → 10-min account lockout (`lockedUntil`). `devCode` only returned when `NODE_ENV !== 'production'` AND `RESEND_API_KEY` absent. `verifyOtp` checks code with bcrypt, marks token used, resets attempts on success, auto-creates CUSTOMER user if new, sets httpOnly cookie, returns `{ token, user, isNew }`.
 
 **Key files:**
 - `apps/backend/src/auth/auth.service.ts` — core auth logic (login, register, OTP, magic link, Google)
-- `apps/backend/src/auth/auth.controller.ts` — 8 endpoints (login, register, me, google, google/callback, magic-link, otp/send, otp/verify)
-- `apps/backend/src/auth/jwt.strategy.ts` — JWT extraction + user lookup
+- `apps/backend/src/auth/auth.controller.ts` — 10 endpoints (login, register, logout, me, google, google/callback, magic-link, otp/send, otp/verify, csrf-token)
+- `apps/backend/src/auth/jwt.strategy.ts` — JWT extraction (cookie-first + Bearer fallback)
 - `apps/backend/src/auth/google.strategy.ts` — OAuth profile normalization
-- `apps/frontend/src/context/AuthContext.tsx` — token management, login/register/logout, 401 handling
+- `apps/backend/src/main.ts` — CSRF middleware, Helmet CSP, cookieParser, body limits
+- `apps/frontend/src/context/AuthContext.tsx` — user state via `/auth/me`, no localStorage token
+- `apps/frontend/src/lib/api.ts` — `withCredentials: true`, CSRF interceptor, 401 guard for `/auth/me`
+- `apps/frontend/vite.config.js` — same-origin proxy for `/api` and `/socket.io`
 - `apps/frontend/src/components/auth/CustomerLoginModal.tsx` — 3-step OTP modal (entry → otp → welcome)
 - `apps/frontend/src/components/ProtectedRoute.tsx` — route guard, redirects CUSTOMER to /profile
 
 **Edge cases handled:**
-- Google OAuth callback parses `state` from query to preserve `returnTo` redirect (see `google-auth.guard.ts` line 12-14: serializes `returnTo` as JSON in `state` parameter)
+- Google OAuth callback parses `state` from query to preserve `returnTo` redirect
 - OTP rate limiting: 60s cooldown per email (checks `createdAt` of newest token, returns 429 if <60s)
+- OTP brute-force: 5 failed attempts → 10-min lockout (`lockedUntil`); successful verify resets counter
 - OTP verification: marks token `usedAt` to prevent replay
-- Auth context: on mount, if token exists in localStorage, fetches `/auth/me` — on failure clears token (handles expired tokens gracefully)
-- 401 interceptor (`apps/frontend/src/lib/api.ts`): auto-redirects to `/login` but excludes public paths (`/login`, `/auth/callback`, `/menu/public`)
+- Auth context: on mount, calls `/auth/me` via cookie — on failure, user stays unauthenticated (no hard redirect)
+- 401 interceptor: auto-redirects to `/login` but excludes `/auth/me` (prevents logout loop) and public paths (`/login`, `/auth/callback`, `/menu/public`)
 - ProtectedRoute redirects CUSTOMER-role users to `/profile` unless already there
+- Token refresh: `AuthContext` no longer reads localStorage → no null-token gap on page refresh
+- CSRF skipped in dev mode (`NODE_ENV !== 'production'`) for local development convenience
 
-**Dependencies:** Passport.js ecosystem, Google Cloud Console (OAuth credentials), Resend API (email delivery), bcryptjs (password hashing)
+**Dependencies:** Passport.js ecosystem, Google Cloud Console (OAuth credentials), Resend API (email delivery), bcryptjs (password hashing), cookie-parser, helmet
 
 ---
 
@@ -1063,6 +1074,27 @@ Items without notes appear as name only. Quantities > 1 append ` xN`.
 - `apps/frontend/src/components/menu/ItemList.tsx` — inline confirm state
 - `apps/frontend/src/locales/*/translation.json` — new keys (EN, BG, RO)
 
+### 3.22 Kitchen Display System (May 12, 2026)
+
+**What it does:** Dedicated kitchen screen at `/staff/kitchen` showing incoming orders in a real-time kanban board. Orders appear as they're placed, kitchen staff tap cards to advance them through the workflow (NEW → IN_PROGRESS → SERVED). Eliminates paper tickets and shouted orders.
+
+**How it works:**
+- `KitchenPage.tsx` (`apps/frontend/src/pages/staff/KitchenPage.tsx`) — 270-line full-viewport kanban board
+- Three columns: New (blue top border), In Progress (amber), Ready (green)
+- Real-time audio alert (`/notification.mp3`) on `newOrder` socket event
+- Elapsed time counter per order — ticks every 10s, orders > 15 min flagged with red urgency styling
+- Tap card → advances to next status column (NEW → IN_PROGRESS → SERVED → COMPLETED)
+- History panel: toggle shows COMPLETED orders from last 24 hours in 2–4 column grid
+- Dark-only UI (`bg-gray-950`), monospace font, zero chrome — optimized for kitchen glare and visibility
+- Uses existing `useOrders()` context + `useSocket()` — no new backend endpoints
+
+**Current state:** Routed at `/staff/kitchen` with `StaffRoute` guard (OWNER/STAFF only). Backend requires no changes — relies entirely on existing order status workflow.
+
+**Key files:**
+- `apps/frontend/src/pages/staff/KitchenPage.tsx`
+
+**Dependencies:** Socket.io (existing EventsGateway), OrderContext, `/notification.mp3`
+
 ---
 
 ## 4. Data Model
@@ -1453,11 +1485,13 @@ Backend validates credentials
 JWT issued: { email, sub: userId }, 1-day expiry
     │
     ▼
-Frontend stores in localStorage
-    │ Axios interceptor attaches: Authorization: Bearer <token>
+Backend sets httpOnly cookie (sameSite=lax, secure in production)
+    │ Frontend sends cookie automatically via withCredentials: true
+    │ Bearer header fallback for transition period
     ▼
 Protected endpoints: JwtAuthGuard validates token
-    │ JwtStrategy.validate() looks up user by payload.sub
+    │ JwtStrategy.validate() reads cookie first, Bearer fallback
+    │ Looks up user by payload.sub
     │ Throws UnauthorizedException if user not found
     ▼
 Owner-only endpoints: checkRestaurantOwnership()
@@ -1470,10 +1504,16 @@ Response returned
 
 | Measure | Implementation | Location |
 |---------|---------------|----------|
-| **Rate Limiting** | 100 requests per 60 seconds globally | `app.module.ts` — `ThrottlerGuard` as `APP_GUARD` |
+| **Rate Limiting** | Per-endpoint throttles: OTP 10/60s, login 5/60s, public menu 60/60s, health check skipped | `auth.controller.ts`, `public-menu.controller.ts`, `menu.controller.ts` |
 | **Password Hashing** | bcrypt with 10 salt rounds | `auth.service.ts` — `register()`, `sendOtp()` |
+| **JWT httpOnly Cookie** | Token stored in httpOnly cookie (`sameSite: 'lax'`, `secure` in production, 1-day expiry). Never exposed to JS. | `auth.controller.ts`, `auth.service.ts`, `jwt.strategy.ts` |
+| **CSRF Protection** | Double-submit cookie pattern. `GET /api/auth/csrf-token` issues token. All POST/PATCH/DELETE/PUT require `X-CSRF-Token` header matching `csrf-token` cookie. Skipped in dev + Stripe webhook. | `main.ts` CSRF middleware, `api.ts` CSRF interceptor |
+| **CSP Headers** | Helmet with strict CSP: `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' ws: wss:; frame-src https://js.stripe.com` | `main.ts` |
+| **Same-Origin Proxy** | Frontend uses `/api` baseURL (same-origin). Vite proxies to backend. Prevents cross-origin cookie blocking. | `vite.config.js`, `api.ts` |
 | **OTP Rate Limiting** | 60-second cooldown per email (429 response) | `auth.service.ts` — `sendOtp()` |
 | **OTP Expiry** | 10-minute TTL, code bcrypt-hashed, token marked `usedAt` | `auth.service.ts` — `sendOtp()`, `verifyOtp()` |
+| **OTP Brute-Force** | 5 failed attempts → 10-min lockout (`lockedUntil` field). Successful verify resets counter. | `auth.service.ts` — `verifyOtp()` |
+| **Body Size Limits** | `express.json({ limit: '1mb' })`, `express.urlencoded({ limit: '1mb' })`. Stripe webhook: `limit: '5mb'`. | `main.ts` |
 | **Server-Side Pricing** | Order total recalculated from DB — client price ignored | `orders.service.ts` — `create()` |
 | **Option Validation** | Every submitted choice validated against DB records by `choiceName` | `orders.service.ts` — `create()` lines ~143–169 |
 | **Ownership Checks** | Every mutation verifies `restaurant.ownerId === userId` | All services — `checkRestaurantOwnership()` pattern |
@@ -1486,15 +1526,22 @@ Response returned
 | **WebSocket Auth** | JWT passed in Socket.io handshake auth object | `SocketContext.tsx` |
 | **DeepL Key Isolation** | Single platform key in backend `.env`, never exposed to frontend | `translation.service.ts` |
 
-### 6.3 Security Gaps Identified
+### 6.3 Security Gaps (All Resolved — May 11, 2026)
 
-| Gap | Severity | Details |
-|-----|----------|---------|
-| JWT in localStorage | Medium | Vulnerable to XSS. Consider httpOnly cookies for production. |
-| No CSRF protection | Medium | No CSRF tokens on state-changing requests. |
-| No input sanitization on public endpoints | Low | Customer name/phone fields lack sanitization beyond class-validator. |
-| Relaxed TypeScript strictness (backend) | Low | `strictNullChecks: false`, `noImplicitAny: false` in `apps/backend/tsconfig.json`. |
-| Dev secrets in code | Low | `docker-compose.yml` uses hardcoded `JWT_SECRET` and `GOOGLE_CLIENT_ID`. |
+All previously identified security gaps were resolved in Phase 21 (Security Hardening):
+
+| Gap | Severity | Resolution |
+|-----|----------|------------|
+| JWT in localStorage | Medium | **Resolved** — JWT now in httpOnly cookie (`sameSite: 'lax'`, `secure` in production). `jwt.strategy.ts` reads cookie-first, Bearer fallback. |
+| No CSRF protection | Medium | **Resolved** — Double-submit cookie pattern on all POST/PATCH/DELETE/PUT. `GET /api/auth/csrf-token` issues token. Skipped in dev + Stripe webhook. |
+| No CSP headers | Medium | **Resolved** — Helmet middleware with strict CSP: `default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' ws: wss:; frame-src https://js.stripe.com` |
+| OTP brute-force vulnerability | High | **Resolved** — 5 failed attempts → 10-min lockout. `VerificationToken.attempts` + `lockedUntil` fields with `@@index([lockedUntil])`. |
+| Global rate limiter only | Medium | **Resolved** — Per-endpoint throttles: `@Throttle(10, 60)` on OTP, `@Throttle(5, 60)` on login, `@Throttle(60, 60)` on public menu, `@SkipThrottle()` on health. |
+| No body size limits | Medium | **Resolved** — `express.json({ limit: '1mb' })`, `express.urlencoded({ limit: '1mb' })`. Stripe webhook: `limit: '5mb'` for raw body. |
+| console.log throughout | Low | **Resolved** — All 7 services migrated to NestJS `Logger`. Request ID middleware (`crypto.randomUUID()`) on every request. |
+| No input sanitization on public endpoints | Low | Mitigated by `class-validator` DTOs with `whitelist: true` on `ValidationPipe`. Customer name/phone validated at boundary. |
+| Relaxed TypeScript strictness (backend) | Low | Acknowledged — `strictNullChecks: false`, `noImplicitAny: false` in `apps/backend/tsconfig.json`. Non-blocking for current code quality. |
+| Dev secrets in code | Low | Acknowledged — `docker-compose.yml` uses hardcoded values. Not used in production (hosted Neon, no local Docker). |
 
 ---
 
@@ -1576,7 +1623,11 @@ Response returned
 | Area | Current State | Natural Extension Point |
 |------|---------------|------------------------|
 | **Stripe Payments** | ✅ Complete. `IPaymentProvider` interface, `StripeProvider`, `PaymentService`, `PaymentController` (5 routes), Stripe Connect onboarding, `PaymentModal` (3-step UI), `PaymentsView` history table, `NotificationContext` + `NotificationBell` + `PaymentToast`, `TableSession` + `Payment` models, webhook handling with idempotency. | Future: MyPOS provider via same interface, split bill, saved cards. |
-| **Staff Roles** | `UserRole` enum has `STAFF` but only `OWNER` and `CUSTOMER` used in code. Phase 18 planned with `MANAGER`/`WAITER`/`KITCHEN` roles. | Expand role checks in service layer, add staff invite system. |
+| **SaaS Subscription** | **Design approved, not implemented.** Full spec at `docs/superpowers/specs/2026-05-10-saas-subscription-design.md`. 3-tier (Free/Starter/Pro), Stripe billing, 14-day Pro trial, feature gating via `@TierRequired` guard, cron-based trial expiry. | Next major feature candidate. |
+| **Kitchen Display System** | **Routed and guarded.** `KitchenPage.tsx` (270 lines) at `/staff/kitchen` — kanban board with real-time order status advancement, audio alerts, 24h history. StaffRoute guard applied. No new backend endpoints needed. | Polish for production (styling, performance). |
+| **Menu Service Split** | **Wired into module.** Split into `menu-crud.service.ts`, `menu-audit.service.ts`, `menu-translation.service.ts` — all imported by `menu.module.ts`. Original `menu.service.ts` still exists but split services are functional. | Migrate remaining callers, delete monolithic file, add unit tests. |
+| **Service-Level Tests** | **In progress (untracked).** `loyalty-ledger.utils.spec.ts`, `loyalty-tiers.utils.spec.ts`, `orders.service.spec.ts` created. | Finish, commit, add CI coverage check. |
+| **Staff Roles** | ✅ Complete. `UserRole` expanded to `OWNER`/`MANAGER`/`WAITER`/`KITCHEN`. Permission matrix enforced across all services via `checkRestaurantAccess`. PIN-based login, QR device enrollment (bond/re-bond), shared device mode, `StaffCreatedModal` (QR + PIN + countdown). `DeviceEnrollmentToken` model with SHA256-hashed tokens. Staff settings consolidated in SettingsView Staff tab. | Polish: staff activity log, bulk invite. |
 | **Email Notification Pipeline** | Resend API used for OTP only. `runDailyExpiryReminders` cron has `// TODO: implement email delivery` comment. | Wire loyalty reminders through Resend. |
 | **Multi-Location** | Phase 20 planned — menu templates, bulk price updates, cross-location analytics. | Template model, bulk operations. |
 | **POS Integration** | V4 planned — Square/Toast/Lightspeed. | Provider abstraction pattern from Stripe design can be reused. |
@@ -1599,10 +1650,10 @@ Response returned
 |---|---------|--------|----------|------------|----------|
 | 1 | ~~**No database indexes beyond PKs**~~ — **RESOLVED May 2026.** | ~~Queries degrade linearly with order volume.~~ | Added `@@index` on 4 high-traffic tables: `Order(restaurantId, status, createdAt)`, `MenuItem(categoryId, order)`, `Feedback(restaurantId)`, `AssistanceRequest(restaurantId, isResolved)`. Pushed via `prisma db push` to Neon. No application code changes needed — Prisma abstracts indexes transparently. | Low | ~~Must-have~~ **Done** |
 | 2 | **CSV export hardcoded to revenue trend only** — `AnalyticsView.tsx` exports only revenue data. Top items, peak hours, category breakdown are not exportable. | Restaurant owners need all data for external reporting (accounting, investors). | Add export tab selector or multi-sheet export. Use existing analytics data already in state — just add formatting. | Low | Must-have |
-| 3 | **OTP devCode returned in production when RESEND_API_KEY absent** — `auth.service.ts:sendOtp()` returns `{ devCode }` in the API response when `RESEND_API_KEY` is not set. | In production without Resend configured, OTP codes leak in API responses. | Remove `devCode` from production response — only include in `process.env.NODE_ENV !== 'production'` guard. Add explicit error when RESEND_API_KEY missing in production. | Low | Must-have |
-| 4 | **No pagination on list endpoints** — `GET /orders` returns all orders with no limit/offset. Same for assistance requests, feedback, tables. | A restaurant with 10,000+ orders will crash the dashboard. | Add `?limit=50&offset=0` query params. Prisma supports `take`/`skip` natively. Frontend already uses per-tab filtering (NEW/IN_PROGRESS/etc.) which masks the issue temporarily. | Low | Must-have |
+| 3 | ~~**OTP devCode returned in production when RESEND_API_KEY absent**~~ — **VERIFIED SAFE May 2026.** | ~~OTP codes leak in API responses.~~ | Code already correctly gated: `isDev = NODE_ENV !== 'production'`. Production with missing key throws 503. devCode only returned in dev mode. | Low | ~~Must-have~~ **Done** |
+| 4 | **No pagination on list endpoints** — `GET /orders` returns all orders with no limit/offset. Same for assistance requests, feedback, tables. | A restaurant with 10,000+ orders will crash the dashboard. | `PaginationDto` + `PaginatedResult<T>` created in `apps/backend/src/common/dto/pagination.dto.ts`. Needs wiring to list endpoints. | Low | Must-have |
 | 5 | **FeedbackPage uses window.location for routing** — `FeedbackPage.tsx` reads `orderId` and `restaurantId` from `window.location.search` directly instead of React Router params. | Browser history issues, can't use React Router navigation APIs. | Use `useParams()` and `useSearchParams()` from React Router — already imported elsewhere. | Low | Nice-to-have |
-| 6 | **Translation rate limiter is static 300ms** — `applyLazyTranslations()` in `menu.service.ts` uses a hardcoded `DEEPL_RATE_LIMIT_MS = 300`. | Different DeepL plans have different rate limits (free: 5/s, pro: 50/s). | Read rate limit from env var: `DEEPL_RATE_LIMIT_MS` with default 300. | Low | Nice-to-have |
+| 6 | ~~**Translation rate limiter is static 300ms**~~ — **RESOLVED May 2026.** | ~~Different DeepL plans have different rate limits.~~ | Translation service now uses shared `AxiosInstance` with `keepAlive: true, maxSockets: 4` + 250ms inter-language delay. Free-tier detection via key suffix `:fx` → `api-free.deepl.com`. | Low | ~~Nice-to-have~~ **Done** |
 | 7 | ~~**No image compression before upload**~~ — **RESOLVED May 2026.** | ~~5MB menu item image on mobile is slow.~~ | Implemented `sharp` image processing pipeline in `StorageService`: auto-rotate (EXIF), resize to 1200px max dimension, convert to WebP (quality 82), generate 400px thumbnail (quality 75), upload both in parallel to Cloudflare R2. Average compression: 80-95% size reduction. Also added: JPEG/PNG MIME-type validation at multer + storage layers, `BadRequestException` for invalid types, `ImageUploadInput` component with preview thumbnail + remove button, Toast success/error feedback on all forms. | Medium | ~~Nice-to-have~~ **Done** |
 
 ### 10.2 Architecture Improvements
@@ -1611,9 +1662,9 @@ Response returned
 |---|---------|--------|----------|------------|----------|
 | 1 | **Dual auth system in frontend** — `AuthContext.tsx` uses raw `useState` for login/register; `useAuth.ts` hook uses TanStack Query for `GET /auth/me`. These are separate systems managing the same data. | Potential state desync, two sources of truth for user data. `AuthContext` manages token while `useAuth` manages user data. | Consolidate auth into a single `useAuth` hook backed by TanStack Query. Store only token in AuthContext (or localStorage), let React Query manage user data and cache invalidation. | Medium | Must-have |
 | 2 | **Context provider nesting is deep and rigid** — `App.tsx` nests 8 providers: `ErrorBoundary > BrowserRouter > AuthProvider > SocketProvider > RestaurantProvider > CartProvider > OrderProvider > AssistanceProvider`. All providers render on every route regardless of need. | Unnecessary re-renders when cart state changes affect header, etc. Socket connects even on pages that don't need it. | Split providers by layout route: `PublicLayout` gets only CartProvider + AuthProvider; `AppLayout` gets full stack. Lazy-load `SocketProvider` to avoid connecting on marketing pages. | Medium | Must-have |
-| 3 | **menu.service.ts is 220+ lines doing too many things** — CRUD, translation, audit, trending, scheduling, orphan cleanup all in one file. | Hard to test, hard to extend, tight coupling. | Split into: `menu-crud.service.ts`, `menu-translation.service.ts`, `menu-audit.service.ts`, `menu-scheduling.service.ts`. Extract schedule filtering to a pure utility function. | Medium | Must-have |
-| 4 | **No service-level unit tests** — Only `app.controller.spec.ts` and `auth.service.spec.ts` exist. `OrdersService`, `MenuService`, `LoyaltyService` have zero tests despite being 200+ lines of business logic each. | Regression risk is high for loyalty accounting and order pricing. | Add Jest tests for: `OrdersService.create()` (price calc, option validation, loyalty), `LoyaltyLedgerUtils` (FIFO redeem, expire), `MenuService.getPublicMenu()` (schedule filtering). Mock PrismaService. | Medium | Must-have |
-| 5 | **Logger is console.log throughout** — `orders.controller.ts` uses raw `console.log` for debugging. `prisma.service.ts` uses `console.error` for retries. `auth.service.ts` logs magic links. No structured logging. | No log levels, no correlation IDs, impossible to debug in production. | Integrate NestJS Logger (`@nestjs/common`). Replace `console.*` with `this.logger.log/error/warn/debug`. Add request ID middleware. | Medium | Should-have |
+| 3 | ~~**menu.service.ts is 220+ lines doing too many things**~~ — **IN PROGRESS May 2026.** Split into 3 files: `menu-crud.service.ts`, `menu-audit.service.ts`, `menu-translation.service.ts`. Created but not yet wired into module. | Tight coupling, hard to test. | Finish module wiring, verify all callers use new split services, delete old `menu.service.ts` after migration. | Medium | ~~Must-have~~ **In Progress** |
+| 4 | ~~**No service-level unit tests**~~ — **IN PROGRESS May 2026.** `loyalty-ledger.utils.spec.ts`, `loyalty-tiers.utils.spec.ts`, `orders.service.spec.ts` created (untracked). Coverage still below 80% threshold. | Regression risk. | Finish tests, commit, add CI coverage check. | Medium | ~~Must-have~~ **In Progress** |
+| 5 | ~~**Logger is console.log throughout**~~ — **RESOLVED May 2026.** All 7 services migrated to NestJS `Logger`. Request ID middleware (`crypto.randomUUID()`) on every request. | Structured logging with correlation IDs now standard. | Log aggregation/monitoring still future work. | Medium | ~~Should-have~~ **Done** |
 | 6 | **No API versioning** — All endpoints under `/api/*` with no version prefix. | Breaking changes to API are impossible without breaking all existing clients. | Add `/api/v1/*` prefix. Support legacy `/api/*` with deprecation header during transition. NestJS supports versioning natively. | Low | Should-have |
 | 7 | **PrismaService connection retry is infinite** — 15 retries × 2s = 30s of blocking. No circuit breaker. | On Neon outage, the app hangs for 30s then crashes. | Add exponential backoff with jitter. Add circuit breaker: after 5 failures, serve degraded mode (health check fails, existing connections work). | Medium | Should-have |
 
@@ -1621,10 +1672,10 @@ Response returned
 
 | Feature | Why It Matters | Competitors Who Have It |
 |---------|---------------|------------------------|
-| **Kitchen Display System (KDS)** — Real-time order queue on a dedicated kitchen screen. Orders appear as they're placed, staff mark them as prepared. | Restaurants without KDS still print tickets or shout orders. This is the #1 operational feature that drives kitchen efficiency. The backend already has real-time order events — the socket infrastructure exists. | Toast, Square, Lightspeed, Otter |
-| **Split Bill** — Allow customers to split an order by item or evenly between parties. | Top-requested feature in restaurant surveys. Reduces friction at payment time. Increases order value (people order more when they can split). The Stripe payment design already mentions this for Phase 19. | Sunday, Toast, Square |
+| **Kitchen Display System (KDS)** — ✅ **LIVE May 2026.** `KitchenPage.tsx` (270 lines) at `/staff/kitchen` — kanban board with NEW/IN_PROGRESS/SERVED columns, elapsed time counters, 15-min urgency highlighting, audio alerts, 24-hour history panel. Routed in `App.tsx` with `StaffRoute` guard (OWNER/KITCHEN). Backend real-time order events via Socket.io. | Restaurants without KDS still print tickets or shout orders. This is the #1 operational feature that drives kitchen efficiency. | Toast, Square, Lightspeed, Otter |
+| **Split Bill** — Allow customers to split an order by item or evenly between parties. | Top-requested feature in restaurant surveys. Reduces friction at payment time. Increases order value (people order more when they can split). The POS already has `PosSplitBill.tsx` for waiter-side split. Customer-side split not yet implemented. | Sunday, Toast, Square |
 | **Allergen/Dietary Filtering** — Customers filter menu by allergens (gluten-free, dairy-free) or dietary preferences (vegan, keto). Data already exists on `MenuItem.allergens` and `MenuItem.dietaryTags`. | Essential for food safety and dietary UX. The data is in the DB — it's just not filterable on the frontend. | All modern menu apps |
-| **Menu Import from PDF/Photo** — AI-powered menu import from existing PDFs or photos. | Biggest onboarding friction: restaurants have existing menus in PDF/Word. Manual entry of 50+ items takes hours. The `06.06.26_AI_Menu_Import_Feature_Plan.md` file suggests this was considered. | Bite, Otter, Toast |
+| **Menu Import from PDF/Photo** — AI-powered menu import from existing PDFs or photos. | Biggest onboarding friction: restaurants have existing menus in PDF/Word. Manual entry of 50+ items takes hours. OCR JSON import already exists via `MenuImportView.tsx` — PDF/photo AI import is the natural extension. | Bite, Otter, Toast |
 | **Inventory Management** — Track stock levels, auto-mark items out of stock. | Directly reduces "sorry, we're out" experiences. The `isOutOfStock` toggle already exists — just needs stock tracking behind it. | Toast, Lightspeed |
 | **Customer-facing order progress bar** — Visual progress indicator (Order Received → Preparing → Ready → Served) with estimated wait time. | Reduces "where's my food?" inquiries from customers. The `OrderConfirmationPage` already shows status — just needs a progress bar visual and estimated times. | Sunday, Otter |
 | **Staff mobile app (React Native)** — Staff manage orders, mark items served, update table status from their phone. | Reduces dependency on fixed terminals. Waiters can update order status tableside. Phase 20 mentions this for V4. | Toast, Square |
@@ -1642,17 +1693,17 @@ Response returned
 | **OpenTelemetry tracing** — Distributed tracing across frontend → backend → database. | No observability beyond console.log. Debugging production issues is blind. | Add `@opentelemetry/api` + auto-instrumentation. Export to Grafana or Datadog. NestJS has OpenTelemetry support. | Medium |
 | **Storybook for UI components** — Component catalog for the design system. | No component documentation. `BrandingPreview.tsx` is the closest to a design sandbox. | Add Storybook for UI primitives (`Button`, `Input`, `Modal`, `Card`, etc.) and key business components (`ItemWithOptions`, `CartDrawer`). | Medium |
 
-### 10.5 Security Hardening
+### 10.5 Security Hardening — ALL RESOLVED (Phase 21, May 10-11, 2026)
 
-| # | Vulnerability / Weak Point | Evidence in Code | Solution | Priority |
-|---|--------------------------|------------------|----------|----------|
-| 1 | **JWT in localStorage — XSS risk** | `AuthContext.tsx` line ~50: `localStorage.setItem('token', token)`. `api.ts` line ~10: reads from `localStorage.getItem('token')`. | Move JWT to httpOnly cookie. Backend sets cookie on login (SameSite=Strict, Secure, HttpOnly). Axios sends with `withCredentials: true` (already configured). CSRF token required for state-changing requests. | Must-have for production |
-| 2 | **No CSRF protection** | No CSRF tokens on any endpoint. All state-changing POST/PATCH/DELETE rely solely on JWT in header. | With cookie-based auth, add CSRF token endpoint (`GET /api/auth/csrf-token`). Frontend sends in `X-CSRF-Token` header. NestJS has `csurf` or can use custom middleware. | Must-have for production |
-| 3 | **OTP brute-force vulnerability** | `auth.service.ts:verifyOtp()` has no rate limiting. An attacker could iterate through 1,000,000 codes. | Add attempt tracking: max 5 failed attempts per email per 10 minutes. Lock out after threshold. Store attempt count in `VerificationToken` or Redis. | Must-have for production |
-| 4 | **Rate limiter is global, not per-endpoint** | `ThrottlerGuard` applied once to all routes: 100 req/60s total. A single badly-behaved public endpoint can exhaust the entire quota. | Apply per-endpoint throttles: `@Throttle(10, 60)` on auth endpoints, `@Throttle(30, 60)` on public menu, `@SkipThrottle()` on health check. NestJS throttler supports this via decorators. | Must-have for production |
-| 5 | **No Content Security Policy** | `main.ts` sets CORS but no CSP headers. | Add helmet middleware (`@nestjs/platform-express` or `helmet` directly). Set CSP: `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' ws: wss:;` | Must-have for production |
-| 6 | **Google OAuth state parameter is JSON in query** | `google-auth.guard.ts` serializes `returnTo` as JSON in `state`. No nonce or CSRF token in state. | Add cryptographically random nonce to state. Validate on callback. This prevents CSRF on OAuth flow. | Should-have |
-| 7 | **No request size limits on non-file endpoints** | `ValidationPipe` validates DTOs but doesn't limit body size. | Add `app.use(express.json({ limit: '1mb' }))` in `main.ts`. File upload endpoints already have 5MB limit via Multer. | Should-have |
+| # | Vulnerability / Weak Point | Resolution | Priority |
+|---|--------------------------|------------|----------|
+| 1 | **JWT in localStorage — XSS risk** | **Resolved.** JWT now in httpOnly cookie (`sameSite: 'lax'`, `secure` in production, 1-day expiry). `jwt.strategy.ts` reads cookie-first, Bearer fallback. `AuthContext` no longer touches localStorage for token. | ~~Must-have~~ **Done** |
+| 2 | **No CSRF protection** | **Resolved.** Double-submit cookie pattern. `GET /api/auth/csrf-token` issues token. All POST/PATCH/DELETE/PUT require `X-CSRF-Token` header. Skipped in dev mode + Stripe webhook. Frontend interceptor fetches once, caches, attaches to state-changing requests. | ~~Must-have~~ **Done** |
+| 3 | **OTP brute-force vulnerability** | **Resolved.** 5 failed attempts → 10-min lockout. `VerificationToken.attempts` + `lockedUntil` fields. `@@index([lockedUntil])` for efficient cleanup. Successful verify resets counter. | ~~Must-have~~ **Done** |
+| 4 | **Rate limiter is global, not per-endpoint** | **Resolved.** Per-endpoint throttles: `@Throttle(10, 60)` on OTP send/verify, `@Throttle(5, 60)` on login, `@Throttle(60, 60)` on public menu, `@SkipThrottle()` on health check. Named throttlers for auth-specific limits. | ~~Must-have~~ **Done** |
+| 5 | **No Content Security Policy** | **Resolved.** Helmet CSP: `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' ws: wss:; frame-src https://js.stripe.com`. Applied before CSRF middleware. | ~~Must-have~~ **Done** |
+| 6 | **Google OAuth state parameter is JSON in query** | **Acknowledged.** `state` serializes `returnTo` as JSON. No nonce in state. Risk is low for current use case (customer login, no financial operations during OAuth flow). | Should-have |
+| 7 | **No request size limits on non-file endpoints** | **Resolved.** `express.json({ limit: '1mb' })` + `express.urlencoded({ limit: '1mb' })`. Stripe webhook raw body: `limit: '5mb'`. File upload endpoints: 5MB via Multer. | ~~Should-have~~ **Done** |
 
 ### 10.6 Performance & Scale
 

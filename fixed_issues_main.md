@@ -140,3 +140,139 @@ Five commits fixing critical POS issues found during testing after the initial 1
 - **Fix**: Added `resetCart()` to `PosContext` (clears ALL items, unlike `clearCart` which only clears pending). Both `handleSelect` and `handleForceOpen` in `PosTableModal.tsx` now call `resetCart()` before loading the new session.
 - **Root cause**: `clearCart()` was designed to preserve `submitted: true` items (for order history persistence within same session). Table switching needed a full reset.
 - **Files**: `PosContext.tsx`, `PosTableModal.tsx`
+
+---
+
+## Security Hardening — httpOnly Cookies, CSRF, Same-Origin Proxy (May 10-11, 2026)
+
+Major security architecture overhaul. Moved JWT from localStorage (XSS-vulnerable) to httpOnly cookies with CSRF protection. Fixed cross-origin cookie blocking by migrating frontend to same-origin Vite proxy.
+
+### JWT → httpOnly Cookie Migration
+
+- **Problem**: JWT stored in `localStorage` — any XSS could read all user tokens. Payment + PII exposure. `sameSite: 'lax'` blocked cookies on cross-site AJAX (localhost:3001 → 192.168.0.3:3000 are different sites).
+- **Fix (backend)**:
+  - `auth.controller.ts`: login, register, OTP verify, OAuth callback all set httpOnly cookie via `res.cookie('token', token, { httpOnly: true, secure: NODE_ENV === 'production', sameSite: COOKIE_SAMESITE, path: '/', maxAge: 86400000 })`.
+  - `COOKIE_SAMESITE` env-driven, defaults to `'lax'`.
+  - `POST /auth/logout` clears cookie with matching `sameSite`.
+  - `main.ts`: Added `cookieParser()` middleware BEFORE auth middleware.
+  - `jwt.strategy.ts`: Reads token from `request.cookies.token` first, falls back to Bearer header.
+  - Response still includes `{ token }` in body for transition period (dual auth).
+- **Fix (frontend)**:
+  - `AuthContext.tsx`: Removed all `localStorage.setItem/removeItem('token', ...)`. Token now comes from httpOnly cookie set by server.
+  - `api.ts`: `withCredentials: true` already set — cookie sent automatically. Bearer header interceptor kept as fallback.
+- **Files**: `auth.controller.ts`, `jwt.strategy.ts`, `main.ts`, `AuthContext.tsx`, `api.ts`
+
+### CSRF Double-Submit Cookie Protection
+
+- **Problem**: httpOnly cookies are sent automatically on ALL requests — malicious sites could forge state-changing requests.
+- **Fix (backend)**:
+  - `GET /api/auth/csrf-token` returns `{ csrfToken }` — random UUID set as `csrf-token` cookie (not httpOnly, readable by JS).
+  - `main.ts`: CSRF validation middleware checks `X-CSRF-Token` header matches `csrf-token` cookie on POST/PATCH/DELETE/PUT.
+  - Skipped in dev mode (`NODE_ENV !== 'production'`) and for Stripe webhook path.
+  - Helmet CSP headers applied BEFORE CSRF middleware (ordering matters — CSP sets headers, CSRF checks them).
+- **Fix (frontend)**:
+  - `api.ts`: Request interceptor fetches CSRF token on first state-changing request, attaches `X-CSRF-Token` header.
+  - Token cached in module-level variable, fetched once per session.
+- **Files**: `main.ts`, `auth.controller.ts`, `api.ts`
+
+### Same-Origin Vite Proxy (Cross-Origin Cookie Fix)
+
+- **Problem**: Frontend on `localhost:3001` made API calls to `192.168.0.3:3000` (different sites). `sameSite: 'lax'` cookie NOT sent on cross-site AJAX → `/auth/me` returns 401 → StaffRoute redirects to `/login` → infinite logout loop.
+- **Root cause**: `api.ts` used `VITE_API_URL` env var (`http://192.168.0.3:3000/api`) as baseURL — cross-origin. SocketContext computed backend URL the same way.
+- **Fix**:
+  - `api.ts`: Changed `baseURL` from reading `VITE_API_URL` to hardcoded `'/api'` — all requests go through same-origin Vite proxy.
+  - `vite.config.js`: Changed from static `defineConfig({...})` to function form `defineConfig(({ mode }) => {...})` using `loadEnv` from Vite. Proxy target derived from `.env` `VITE_API_URL` (strip `/api` suffix): `'/api' → backendOrigin`, `'/socket.io' → backendOrigin` with `ws: true`.
+  - `SocketContext.tsx`: Changed from `io(backendUrl, {...})` to `io({...})` with no URL — defaults to `window.location.origin`, proxy forwards `/socket.io`.
+  - `.env`: Kept `VITE_API_URL=http://192.168.0.3:3000/api` for vite.config.js proxy target. `api.ts` ignores this and uses `/api` directly.
+- **Files**: `api.ts`, `vite.config.js`, `SocketContext.tsx`, `.env`
+
+### 401 Interceptor Logout Loop Fix
+
+- **Problem**: 401 response interceptor in `api.ts` redirected to `/login` when `/auth/me` failed during app initialization. AuthContext hadn't loaded yet, StaffRoute hadn't rendered — hard page reload. Navigating to `/staff/pos` or `/staff/kitchen` after successful login triggered the loop.
+- **Fix**: Added guard in 401 interceptor: `if (error.config?.url === '/auth/me') { return Promise.reject(error); }` — lets AuthContext handle auth check failures silently. StaffRoute redirects via `<Navigate>` without hard page reload.
+- **File**: `api.ts` (response interceptor, line ~210)
+
+### Category Type — Missing `translations` Field
+
+- **Problem**: TS2339 — `Property 'translations' does not exist on type 'Category'`. PublicMenuPage accessed `activeCat.translations[selectedLang]?.name` but Category interface in `types/index.ts` didn't declare `translations`.
+- **Fix**: Added `translations?: any;` to the `Category` interface.
+- **File**: `apps/frontend/src/types/index.ts`
+
+### Auth Context — Token Null on Refresh
+
+- **Problem**: On page refresh, `AuthContext` read `token` from localStorage (now empty), set state to `null`, then `/auth/me` succeeded via cookie — but SocketContext already disconnected because `token` was briefly null.
+- **Fix**: `AuthContext` no longer reads token from localStorage. `useEffect` calls `/auth/me` on mount — if cookie is valid, user + token loaded. SocketContext reconnects on token change via `useEffect` dependency.
+- **Files**: `AuthContext.tsx`, `SocketContext.tsx`
+
+---
+
+## RBAC & Staff Roles — Sprint Implementation (May 12-14, 2026)
+
+Full RBAC sprint implementing Phase 18 (Staff Role Management). 17 tasks across 4 phases. Design spec at `docs/superpowers/specs/2026-05-12-rbac-sprint-design.md`, plan at `docs/superpowers/plans/2026-05-12-rbac-sprint-plan.md`.
+
+### StaffCreatedModal — 4 Runtime Bug Fixes
+
+- **Bug 1 — QR code not appearing**: When `enrollmentUrl` was empty/falsy, `QRCodeSVG` rendered with empty `value` producing unreadable QR. **Fix**: Conditional rendering — QR section only renders when `enrollmentUrl` truthy. Empty state shows `qrUnavailable` message.
+- **Bug 2 — "Invalid date" in expiry countdown**: `new Date(expiresAt)` produced `Invalid Date` when `expiresAt` was empty/malformed. `useEffect` interval kept calling `getTime()` on `NaN`. **Fix**: Early return guard `if (isNaN(expiryDate.getTime())) return;` before `setInterval`.
+- **Bug 3 — Copy PIN not working (non-HTTPS)**: `navigator.clipboard.writeText()` unavailable on non-HTTPS origins (e.g., LAN IP access). **Fix**: Added `execCommand('copy')` fallback — creates hidden `<textarea>`, selects, copies, removes.
+- **Bug 4 — Copy enrollment link copying wrong data**: `handleCopyLink` passed `rawPin` instead of `enrollmentUrl`. **Fix**: Changed to pass `enrollmentUrl`.
+- **Files**: `StaffCreatedModal.tsx`
+
+### Device Enrollment Token — Missing DB Table (500 Error)
+
+- **Problem**: "Bond a Device" returned HTTP 500 — `device_enrollment_token` table existed in Prisma migration file (`20260513192000_device_enrollment_tokens/migration.sql`) but was never applied to Neon DB. DB managed via `prisma db push` (not `migrate dev`), so the migration file was present but the table was missing.
+- **Fix**: Ran `npx prisma db push` to sync schema directly to Neon DB. `DeviceEnrollmentToken` model now maps to existing `device_enrollment_token` table.
+- **Root cause**: Schema drift between migration history and live DB. Project prefers `prisma db push` over `migrate dev` for additive schema changes.
+- **Verification**: Enrollment creation succeeds, `POST /:id/device-enrollment` returns `{ enrollmentUrl, expiresAt }`, QR code generates correctly, staff can set PIN from enrollment URL.
+
+### Prisma Client Regeneration — File Lock on Windows
+
+- **Problem**: After `prisma db push`, `npx prisma generate` failed with `EPERM: operation not permitted, rename` on `query_engine-windows.dll.node`. Running NestJS dev server held file lock on the Prisma engine binary.
+- **Fix**: Stopped dev server, deleted stale `.tmp` and `.node` files in `node_modules/.prisma/client/` via PowerShell `Remove-Item -Force`, re-ran `npx prisma generate`.
+- **Guideline**: Always stop running Node processes before `prisma generate` on Windows — the query engine DLL is locked by any running Prisma client.
+
+### Email Display — Hide Synthetic `.local` Emails
+
+- **Problem**: Staff created without email got auto-generated `staff-{timestamp}@{restaurantId}.local` emails displayed in the staff table — confusing and non-functional.
+- **Fix**: Staff table row checks `s.email?.endsWith(".local")` and displays "—" instead.
+- **Files**: `SettingsView.tsx`
+
+### Re-Bond Functionality
+
+- **Problem**: Already-enrolled staff who lost their PIN or got a new device had no way to re-enroll without deleting and recreating the staff account.
+- **Fix**: "Re-bond" button on each staff row calls `handleRebondStaff()` which triggers the same device enrollment flow as initial creation. `StaffCreatedModal` shows `rebondTitle` / `rebondInstruction` when `rawPin` is absent. `enrollmentError` field cleared before each re-bond attempt.
+- **Files**: `SettingsView.tsx`, `StaffCreatedModal.tsx`
+
+### Shared Device Mode & Device Login Fixes
+
+- **Problem 1**: Shared Device Mode toggle didn't reflect current state. **Fix**: SettingsView reads `localStorage.sharedDevice` on mount to initialize toggle state.
+- **Problem 2**: Toggle button text didn't change after enabling. **Fix**: Button now shows "Disable Shared Device Mode" when active. Success/disabled message shown inline next to button.
+- **Problem 3**: `/device-login` mounted customer providers (CartContext, AssistanceContext), causing API fetch noise. **Fix**: Moved `/device-login` out of public customer layout — now bare route.
+- **Problem 4**: PIN login 401 errors redirected away from keypad. **Fix**: 401 interceptor now skips `/auth/pin-login` path.
+- **Files**: `SettingsView.tsx`, `App.tsx`, `DeviceLoginPage.tsx`, `api.ts`
+
+### POS & KDS Restaurant Resolution
+
+- **Problem 1**: POS showed "No restaurant selected" after staff login. **Fix**: `RestaurantContext` now prioritizes `user.restaurantId` for assigned staff/managers. Shows "Loading restaurant..." while fetching.
+- **Problem 2**: Kitchen Display showed no orders for kitchen staff. **Fix**: `OrdersService.findAll` allows assigned staff (not just owner) to read orders for their restaurant.
+- **Files**: `RestaurantContext.tsx`, `orders.service.ts`
+
+### Provider Fetch Noise & Socket Churn
+
+- **Problem**: `OrderProvider` fetched `/orders` on every socket connection state change (including reconnects) even when no authenticated user existed. `AssistanceProvider` had same issue. `SocketProvider` reconnected unnecessarily because it depended on nonexistent `token` field from `AuthContext`.
+- **Fix**: OrderProvider and AssistanceProvider now check for authenticated session before fetching. SocketProvider no longer reads `token`. Both providers removed from public/customer route layouts.
+- **Files**: `OrderContext.tsx`, `AssistanceContext.tsx`, `SocketContext.tsx`, `App.tsx`
+
+### Verification
+
+All checks passed after fixes:
+```bash
+npm.cmd --workspace frontend run build
+npm.cmd --workspace backend exec -- nest build
+npm.cmd --workspace backend test -- orders.service.spec.ts --runInBand
+```
+
+### Files Changed (RBAC Sprint)
+
+- Backend: `auth.controller.ts`, `auth.service.ts`, `orders.service.ts`, `restaurants.service.ts`, `dashboard.controller.ts`, `assistance.controller.ts`, `assistance.service.ts`, `restaurants.controller.ts`, `device-enrollment.service.ts`, `menu/*.controller.ts`, `feedback.service.ts`
+- Frontend: `App.tsx`, `AuthContext.tsx`, `RestaurantContext.tsx`, `OrderContext.tsx`, `AssistanceContext.tsx`, `SocketContext.tsx`, `api.ts`, `DeviceLoginPage.tsx`, `SettingsView.tsx`, `PosTableModal.tsx`, `StaffRoute.tsx`, `ProtectedRoute.tsx`

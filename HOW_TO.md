@@ -34,7 +34,8 @@ The application now uses app-specific environment files.
 
 2. **Frontend**:
    - Copy `apps/frontend/.env.example` to `apps/frontend/.env`.
-   - Ensure `VITE_API_URL` is set to `http://localhost:3000/api`.
+   - Set `VITE_API_URL` to your backend origin + `/api` (e.g., `http://192.168.0.3:3000/api` or `http://localhost:3000/api`).
+     - **Note:** The frontend does NOT call this URL directly. It uses `/api` as baseURL (same-origin). Vite's dev server proxies `/api` to the backend target derived from `VITE_API_URL`. This keeps httpOnly cookies working (no cross-origin blocking).
 
 ---
 
@@ -78,6 +79,48 @@ Your environment is now running natively on your host machine for maximum perfor
 | **HMR Speed** | 5-10 Seconds | **Instant (<100ms)** |
 | **DB Reliability** | Hard to reset | **Cloud-persisted (Neon)** |
 | **Complexity** | High (Docker YAML) | **Low (NPM Scripts)** |
+
+---
+
+## Auth Architecture — httpOnly Cookies + Vite Proxy
+
+### How authentication works
+
+1. User logs in → backend sets httpOnly cookie `token` with `sameSite: 'lax'`, 1-day expiry
+2. Frontend axios instance sends `withCredentials: true` → browser attaches cookie to all `/api` requests
+3. Backend `jwt.strategy.ts` reads token from `request.cookies.token`
+4. On logout, backend clears the cookie
+
+### Why same-origin proxy?
+
+httpOnly cookies with `sameSite: 'lax'` are NOT sent by browsers on cross-site AJAX requests. `localhost:3001` (frontend) and `192.168.0.3:3000` (backend) are different sites.
+
+The fix: frontend uses `/api` as baseURL (same-origin). Vite dev server proxies `/api` and `/socket.io` to the real backend. The browser sees all requests as same-origin → cookies work.
+
+```javascript
+// vite.config.js — proxy configuration
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const backendOrigin = (env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/api\/?$/, '');
+  return {
+    server: {
+      proxy: {
+        '/api': { target: backendOrigin, changeOrigin: true },
+        '/socket.io': { target: backendOrigin, changeOrigin: true, ws: true },
+      },
+    },
+  };
+});
+```
+
+### CSRF protection
+
+Even though cookies are httpOnly, they're sent automatically. To prevent cross-site request forgery:
+
+1. Frontend calls `GET /api/auth/csrf-token` → receives `{ csrfToken }`, cookie `csrf-token` set
+2. Frontend attaches `X-CSRF-Token` header on all POST/PATCH/DELETE/PUT requests
+3. Backend validates header matches cookie before processing
+4. Skipped in dev mode (`NODE_ENV !== 'production'`)
 
 ---
 

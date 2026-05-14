@@ -26,7 +26,9 @@
       "settings": "Settings",
       "menuEditor": "Menu Editor",
       "payments": "Payments",
-      "import": "Import"
+      "import": "Import",
+      "pos": "POS",
+      "kitchen": "Kitchen"
     }
   },
   "settings": {
@@ -35,7 +37,8 @@
     "tabs": {
       "general": "General",
       "loyalty": "Loyalty",
-      "payments": "Payments"
+      "payments": "Payments",
+      "staff": "Staff"
     },
     "locationContact": "Location & Contact",
     "address": "Address",
@@ -55,6 +58,59 @@
     "failedSave": "Failed to save settings. Please try again.",
     "failedInitiate": "Failed to initiate translation. Please try again.",
     "translating": "Translating..."
+  },
+  "staff": {
+    "sharedDeviceMode": "Shared Device Mode",
+    "enableSharedDevice": "Enable Shared Device Mode",
+    "disableSharedDevice": "Disable Shared Device Mode",
+    "sharedDeviceOffWarning": "Shared Device Mode is off. Enable it so staff can use PIN login at /device-login.",
+    "sharedDeviceBonded": "This device is bonded to {{name}}. Staff can log in without re-entering restaurant PIN.",
+    "bondDevice": "Bond a Device",
+    "bondDeviceDesc": "Generate a QR code to bond a device to this restaurant. Use for existing staff getting a new phone or tablet.",
+    "generateDeviceQr": "Generate Device QR",
+    "generating": "Generating...",
+    "scanQrInstruction": "Scan this QR on the staff device.",
+    "expiresAt": "Expires at {{time}}.",
+    "copyLink": "Copy Link",
+    "copied": "Copied!",
+    "staffMembers": "Staff Members",
+    "staffMembersDesc": "Invite staff and assign PINs. Staff log in at /device-login or /staff/pos using the restaurant PIN pad.",
+    "inviteNewStaff": "Invite New Staff",
+    "displayName": "Display name",
+    "emailOptional": "Email (optional)",
+    "roleManager": "Manager",
+    "roleWaiter": "Waiter",
+    "roleKitchen": "Kitchen",
+    "createStaffAccount": "Create Staff Account",
+    "loading": "Loading...",
+    "noStaffYet": "No staff members yet.",
+    "nameColumn": "Name",
+    "emailColumn": "Email",
+    "roleColumn": "Role",
+    "rebondTitle": "Re-bond Device",
+    "removeTitle": "Remove",
+    "removeConfirm": "Remove this staff member? This cannot be undone.",
+    "failedLoad": "Failed to load staff",
+    "failedCreate": "Failed to create staff member",
+    "failedRemove": "Failed to remove staff member",
+    "failedGenerateQr": "Failed to generate device QR",
+    "failedRebond": "Failed to generate re-bond QR",
+    "created": {
+      "title": "Staff Account Created",
+      "rebondTitle": "Device Bonding QR",
+      "scanInstruction": "Scan QR on the staff device, then enter the PIN below.",
+      "rebondInstruction": "Scan this QR on {{name}}'s device to re-bond it.",
+      "expiresIn": "Expires in",
+      "expired": "Expired",
+      "pinFor": "PIN for {{name}}",
+      "copyPinWarning": "Copy this PIN now — it won't be shown again.",
+      "copyPin": "Copy PIN",
+      "copied": "Copied!",
+      "copyLink": "Copy Enrollment Link",
+      "linkCopied": "Link Copied!",
+      "qrUnavailable": "QR code unavailable. The device enrollment service may be down. Please try again later.",
+      "close": "Close"
+    }
   },
   "branding": {
     "title": "Restaurant Branding",
@@ -95,6 +151,7 @@
       "new": "New",
       "inProgress": "In Progress",
       "served": "Served",
+      "completed": "Completed",
       "canceled": "Canceled"
     },
     "orderNo": "Order #{{id}}",
@@ -107,6 +164,7 @@
     "startPreparing": "Start Preparing",
     "cancel": "Cancel",
     "markServed": "Mark as Served",
+    "markCompleted": "Mark Completed",
     "reopen": "Reopen Order",
     "noOrders": "No {{status}} orders",
     "pluckedAt": "Placed {{time}}"

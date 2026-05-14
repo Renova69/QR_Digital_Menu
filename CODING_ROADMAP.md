@@ -1,6 +1,6 @@
 # QR Menu App — Coding Roadmap
 
-> **Last Updated:** May 10, 2026  
+> **Last Updated:** May 14, 2026  
 > **MVP Status:** ✅ Complete  
 > **V2 Status:** ✅ Phases 9–14 Complete  
 > **V2.5 Status:** ✅ Phases 15–17 + Mobile UX Overhaul + UI/UX Audit & Theme Polish Complete  
@@ -8,7 +8,9 @@
 > **V3 Growth (May 8, 2026):** ✅ Phase 19 (Stripe Connect Payments) Complete — Phase 18 & 20 paused  
 > **OCR Import Integration (May 9, 2026):** ✅ Prisma P2028 fix, schema alignment (allergens/dietaryTags), zero-price fix  
 > **Waiter POS (May 9-10, 2026):** ✅ Full POS interface at /staff/pos — 15 files created, 4 modified, zero schema changes  
-> **Current Focus:** Bug fixes & polish only (Phases 18+ paused)
+> **Security Hardening (May 10-11, 2026):** ✅ Phase 21 — JWT → httpOnly cookies, CSRF protection, same-origin Vite proxy, CSP headers, per-endpoint rate limits, OTP brute-force protection, body size limits  
+> **Staff Roles & RBAC (May 12-14, 2026):** ✅ Phase 18 Complete — OWNER/MANAGER/WAITER/KITCHEN roles, PIN-based device login, QR enrollment (bond/re-bond), shared device mode, staff settings consolidation, StaffCreatedModal, RBAC across all services  
+> **Current Focus:** Phase 20 (Multi-location) — planned
 
 ---
 
@@ -30,9 +32,11 @@ All foundational phases were completed on **April 9, 2026**. The application is 
 - JWT authentication with Passport.js
 - Google OAuth sign-in (full end-to-end flow)
 - Auth endpoints: `/api/auth/register`, `/api/auth/login`, `/api/auth/google`, `/api/auth/me`
-- JWT stored in localStorage with auto-attach via Axios interceptors
+- **JWT in httpOnly cookies** with SameSite=lax (May 2026 security upgrade — migrated from localStorage)
+- **CSRF double-submit cookie protection** on all state-changing endpoints
+- Bearer token header fallback for transition period
 - Protected routes with JWT guard (backend) and `<ProtectedRoute>` (frontend)
-- 401 auto-redirect with public path exclusions
+- 401 auto-redirect with public path exclusions + `/auth/me` guard
 - React Error Boundary for graceful error handling
 
 ### Phase 3: Restaurant Management ✅
@@ -297,17 +301,80 @@ All foundational phases were completed on **April 9, 2026**. The application is 
 
 ---
 
+## 🟢 Phase 21 — Security Hardening ✅ (May 10-11, 2026)
+
+**Goal:** Eliminate XSS token theft, add CSRF protection, fix cross-origin cookie blocking, add defense-in-depth.
+
+### JWT → httpOnly Cookies ✅
+- JWT moved from localStorage to httpOnly cookie (`sameSite: 'lax'`, `secure` in production, 1-day expiry)
+- Backend sets cookie on login/register/OTP/OAuth; clears on logout
+- `jwt.strategy.ts` reads from `request.cookies.token` first, Bearer header fallback
+- `AuthContext.tsx` no longer touches localStorage for token
+- Response still includes `{ token }` in body for transition period (dual auth)
+
+### CSRF Double-Submit Cookie Protection ✅
+- `GET /api/auth/csrf-token` returns `{ csrfToken }` + sets `csrf-token` cookie
+- All state-changing requests require `X-CSRF-Token` header matching cookie
+- Skipped in dev mode + Stripe webhook path
+- Frontend interceptor fetches token once, caches, attaches to POST/PATCH/DELETE/PUT
+
+### Same-Origin Vite Proxy ✅
+- `api.ts` uses `/api` baseURL (same-origin) — Vite proxy forwards to backend
+- `vite.config.js` uses `loadEnv` to read `VITE_API_URL` for proxy target
+- `SocketContext` connects same-origin via `io()` with no URL
+- Eliminates cross-origin cookie blocking (localhost:3001 ≠ 192.168.0.3:3000)
+
+### 401 Interceptor Guard ✅
+- 401 handler skips redirect when `error.config.url === '/auth/me'`
+- AuthContext handles auth check failures silently; StaffRoute uses `<Navigate>`
+- Prevents logout loop navigating to `/staff/pos` or `/staff/kitchen`
+
+### Per-Endpoint Rate Limiting ✅
+- `@Throttle(10, 60)` on OTP send/verify (10/min each)
+- `@Throttle(5, 60)` on login
+- `@Throttle(60, 60)` on public menu (generous)
+- `@SkipThrottle()` on health check
+- Named throttlers for auth-specific limits
+
+### OTP Brute-Force Protection ✅
+- `VerificationToken` model: `attempts Int @default(0)`, `lockedUntil DateTime?`
+- 5 failed attempts → 10-minute lockout
+- Successful verify resets attempts counter
+- `@@index([lockedUntil])` for efficient cleanup
+
+### Content Security Policy Headers ✅
+- Helmet middleware with CSP: `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' ws: wss:; frame-src https://js.stripe.com`
+- Applied before CSRF middleware (ordering critical)
+
+### Request Body Size Limits ✅
+- `express.json({ limit: '1mb' })` + `express.urlencoded({ limit: '1mb', extended: true })`
+- Stripe webhook raw body: `limit: '5mb'`
+- Prevents OOM from malicious large payloads
+
+### Structured Logging ✅
+- All 7 services migrated from `console.log` to NestJS `Logger`
+- Request ID middleware (`crypto.randomUUID()`) on every request
+
+**Key files changed:** `main.ts`, `auth.controller.ts`, `auth.service.ts`, `jwt.strategy.ts`, `api.ts`, `vite.config.js`, `AuthContext.tsx`, `SocketContext.tsx`, `schema.prisma`
+
+---
+
 ## 🔶 V3 — Growth Features (Planned)
 
-### Phase 18: Staff Role Management & Permissions
+### Phase 18: Staff Role Management & Permissions ✅ COMPLETE (May 12-14, 2026)
 **Goal:** Multi-user access with role-based permissions.
 
-**Scope:**
-- Expand `UserRole` enum: `OWNER`, `MANAGER`, `WAITER`, `KITCHEN`
-- Permission matrix per role
-- Staff invitation system via email
-- Staff activity log
-- `StaffInvite` model with expiring tokens
+**Scope (all delivered):**
+- `UserRole` expanded: `OWNER`, `MANAGER`, `WAITER`, `KITCHEN`
+- Permission matrix enforced in all service layers
+- PIN-based staff login (`POST /auth/pin-login`, SHA256-hashed)
+- Device enrollment via QR code (bond + re-bond)
+- `DeviceEnrollmentToken` model with expiring tokens (10-min TTL)
+- `StaffCreatedModal` with QR display, PIN copy, expiry countdown
+- Shared Device Mode (localStorage-based, PIN keypad)
+- Staff settings consolidation (Staff tab in SettingsView)
+- RBAC access: orders, dashboard, restaurants, assistance all gated
+- Provider fetch noise fixes (OrderProvider, AssistanceProvider, SocketContext)
 
 **Selling Point:** *"Give your staff exactly the access they need — nothing more."*
 

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
@@ -9,6 +10,8 @@ import { CreateTableDto } from './dto/create-table.dto';
 
 @Injectable()
 export class TablesService {
+  private readonly logger = new Logger(TablesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly events: EventsGateway,

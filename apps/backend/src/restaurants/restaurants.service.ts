@@ -31,6 +31,17 @@ export class RestaurantsService {
   }
 
   async findAll(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { restaurantId: true },
+    });
+
+    if (user?.restaurantId) {
+      return this.prisma.restaurant.findMany({
+        where: { id: user.restaurantId },
+      });
+    }
+
     return this.prisma.restaurant.findMany({
       where: { ownerId: userId },
     });
@@ -54,13 +65,63 @@ export class RestaurantsService {
     return restaurant;
   }
 
+  // Allows owner OR staff member to read the restaurant
+  async findOneOrStaff(id: string, userId: string) {
+    const [restaurant, user] = await Promise.all([
+      this.prisma.restaurant.findUnique({ where: { id } }),
+      this.prisma.user.findUnique({ where: { id: userId }, select: { restaurantId: true } }),
+    ]);
+
+    if (!restaurant) {
+      throw new NotFoundException(`Restaurant with ID "${id}" not found`);
+    }
+
+    const isOwner = restaurant.ownerId === userId;
+    const isStaff = user?.restaurantId === id;
+
+    if (!isOwner && !isStaff) {
+      throw new ForbiddenException(
+        'You do not have permission to access this resource',
+      );
+    }
+
+    return restaurant;
+  }
+
+  // Allows owner OR assigned manager to manage non-billing settings.
+  async findOneForManagement(id: string, userId: string) {
+    const [restaurant, user] = await Promise.all([
+      this.prisma.restaurant.findUnique({ where: { id } }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { restaurantId: true, role: true },
+      }),
+    ]);
+
+    if (!restaurant) {
+      throw new NotFoundException(`Restaurant with ID "${id}" not found`);
+    }
+
+    const role = user?.role?.toUpperCase();
+    const isOwner = restaurant.ownerId === userId;
+    const isManager = role === 'MANAGER' && user?.restaurantId === id;
+
+    if (!isOwner && !isManager) {
+      throw new ForbiddenException(
+        'You do not have permission to manage this restaurant',
+      );
+    }
+
+    return restaurant;
+  }
+
   async update(
     id: string,
     updateRestaurantDto: UpdateRestaurantDto,
     userId: string,
   ) {
     // First, ensure the restaurant exists and the user has permission
-    await this.findOne(id, userId);
+    await this.findOneForManagement(id, userId);
 
     return this.prisma.restaurant.update({
       where: { id },
@@ -79,7 +140,7 @@ export class RestaurantsService {
 
   async updateLogo(id: string, logoUrl: string, logoThumbnailUrl: string, userId: string) {
     // First, ensure the restaurant exists and the user has permission
-    await this.findOne(id, userId);
+    await this.findOneForManagement(id, userId);
 
     return this.prisma.restaurant.update({
       where: { id },
@@ -88,7 +149,7 @@ export class RestaurantsService {
   }
 
   async translateAll(id: string, userId: string) {
-    const restaurant = await this.findOne(id, userId);
+    const restaurant = await this.findOneForManagement(id, userId);
 
     if (!process.env.DEEPL_API_KEY) {
       return {

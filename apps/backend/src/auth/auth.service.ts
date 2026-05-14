@@ -5,6 +5,7 @@ import {
   NotFoundException,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import * as bcrypt from 'bcryptjs';
@@ -14,6 +15,8 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
@@ -43,6 +46,7 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
+        restaurantId: user.restaurantId,
       },
     };
   }
@@ -93,6 +97,7 @@ export class AuthService {
         email: result.email,
         name: result.name,
         role: result.role,
+        restaurantId: result.restaurantId,
       },
     };
   }
@@ -232,9 +237,15 @@ export class AuthService {
       },
     });
 
-    const isDev = !process.env.RESEND_API_KEY;
+    const isDev = process.env.NODE_ENV !== 'production';
 
     if (!isDev) {
+      if (!process.env.RESEND_API_KEY) {
+        throw new HttpException(
+          'Email delivery not configured.',
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
       await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -250,10 +261,102 @@ export class AuthService {
         }),
       });
     } else {
-      console.log(`\n\n🔑 OTP FOR ${email}: ${code}\n\n`);
+      this.logger.log(`OTP for ${email}: ${code}`);
     }
 
     return { success: true, ...(isDev ? { devCode: code } : {}), channel: 'email' };
+  }
+
+  async setPin(userId: string, pin: string) {
+    const pinHash = await bcrypt.hash(pin, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { pinHash, pinAttempts: 0, pinLockedUntil: null },
+    });
+    return { success: true };
+  }
+
+  async pinLogin(restaurantId: string, pin: string) {
+    const staffRoles: string[] = ['OWNER', 'MANAGER', 'WAITER', 'KITCHEN', 'STAFF'];
+    const MAX_ATTEMPTS = 5;
+    const LOCKOUT_MINUTES = 15;
+
+    const candidates = await this.prisma.user.findMany({
+      where: {
+        role: { in: staffRoles as any },
+        restaurantId,
+        pinHash: { not: null },
+      },
+    });
+
+    if (candidates.length === 0) {
+      throw new UnauthorizedException('No staff members found for this restaurant.');
+    }
+
+    // Check global lockout — all staff share the same device, so any lockout blocks everyone
+    const lockedUser = candidates.find(
+      (u) => u.pinLockedUntil && new Date(u.pinLockedUntil) > new Date(),
+    );
+    if (lockedUser) {
+      const minutes = Math.ceil(
+        (new Date(lockedUser.pinLockedUntil!).getTime() - Date.now()) / 60000,
+      );
+      throw new HttpException(
+        `Too many attempts. Try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    // Try matching PIN against any staff user
+    for (const user of candidates) {
+      const valid = await bcrypt.compare(pin, user.pinHash!);
+      if (!valid) continue;
+
+      // Successful login — reset attempts for all restaurant staff
+      await this.prisma.user.updateMany({
+        where: { restaurantId, pinHash: { not: null } },
+        data: { pinAttempts: 0, pinLockedUntil: null },
+      });
+
+      const payload = { email: user.email, sub: user.id };
+      return {
+        token: this.jwtService.sign(payload),
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          restaurantId: user.restaurantId,
+        },
+      };
+    }
+
+    // Failed attempt — increment counter across all restaurant staff.
+    // Shared-device context: PIN attempts are tracked restaurant-wide, not per-user.
+    // Max current attempts is the source of truth (candidates are unordered).
+    const currentAttempts = Math.max(...candidates.map((u) => u.pinAttempts ?? 0));
+    const attempts = currentAttempts + 1;
+
+    await this.prisma.user.updateMany({
+      where: { restaurantId, pinHash: { not: null } },
+      data: {
+        pinAttempts: attempts,
+        ...(attempts >= MAX_ATTEMPTS
+          ? { pinLockedUntil: new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000) }
+          : {}),
+      },
+    });
+
+    const remaining = MAX_ATTEMPTS - attempts;
+    if (remaining > 0) {
+      throw new UnauthorizedException(
+        `Invalid PIN. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`,
+      );
+    }
+    throw new HttpException(
+      `Too many attempts. Try again in ${LOCKOUT_MINUTES} minutes.`,
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
   }
 
   async updateProfile(userId: string, name: string) {
@@ -310,12 +413,33 @@ export class AuthService {
       });
       if (!tokenRecord) throw new UnauthorizedException('Invalid or expired code.');
 
+      if ((tokenRecord as any).lockedUntil && new Date((tokenRecord as any).lockedUntil) > new Date()) {
+        throw new HttpException(
+          'Too many attempts. Please try again later.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+
       const valid = await bcrypt.compare(code, tokenRecord.code);
-      if (!valid) throw new UnauthorizedException('Invalid or expired code.');
+      if (!valid) {
+        const attempts = ((tokenRecord as any).attempts || 0) + 1;
+        const MAX_ATTEMPTS = 5;
+        const LOCKOUT_MINUTES = 10;
+        await this.prisma.verificationToken.update({
+          where: { id: tokenRecord.id },
+          data: {
+            attempts,
+            ...(attempts >= MAX_ATTEMPTS
+              ? { lockedUntil: new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000) }
+              : {}),
+          },
+        });
+        throw new UnauthorizedException('Invalid or expired code.');
+      }
 
       await this.prisma.verificationToken.update({
         where: { id: tokenRecord.id },
-        data: { usedAt: new Date() },
+        data: { usedAt: new Date(), attempts: 0 },
       });
 
       user = await this.usersService.findByEmail(email);
@@ -342,7 +466,13 @@ export class AuthService {
     const payload = { email: user.email, sub: user.id };
     return {
       token: this.jwtService.sign(payload),
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        restaurantId: user.restaurantId,
+      },
       isNew,
     };
   }

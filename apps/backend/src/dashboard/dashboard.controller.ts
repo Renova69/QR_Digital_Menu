@@ -18,13 +18,18 @@ export class DashboardController {
     private readonly prisma: PrismaService,
   ) {}
 
-  private async verifyOwnership(userId: string, restaurantId: string) {
+  private async verifyDashboardAccess(user: any, restaurantId: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
       select: { ownerId: true },
     });
 
-    if (!restaurant || restaurant.ownerId !== userId) {
+    const role = user?.role?.toUpperCase();
+    const hasAccess =
+      restaurant?.ownerId === user?.id ||
+      (role === 'MANAGER' && user?.restaurantId === restaurantId);
+
+    if (!restaurant || !hasAccess) {
       throw new ForbiddenException(
         "You do not have permission to access this restaurant's dashboard",
       );
@@ -37,7 +42,7 @@ export class DashboardController {
     @AuthUser() user: any,
     @Query('restaurantId') restaurantId: string,
   ) {
-    await this.verifyOwnership(user.id, restaurantId);
+    await this.verifyDashboardAccess(user, restaurantId);
     return this.dashboardService.getSummary(restaurantId);
   }
 
@@ -62,7 +67,7 @@ export class DashboardController {
       }
     }
 
-    await this.verifyOwnership(user.id, restaurantId);
+    await this.verifyDashboardAccess(user, restaurantId);
     return this.dashboardService.getAnalytics(
       restaurantId,
       period,

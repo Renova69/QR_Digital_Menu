@@ -394,11 +394,25 @@ export class PaymentService {
     return { session, token: session.token };
   }
 
-  async getTableSessions(restaurantId: string): Promise<any[]> {
-    return this.prisma.tableSession.findMany({
+  async getTableSessions(
+    restaurantId: string,
+    page?: number,
+    limit?: number,
+  ): Promise<{ data: any[]; meta: { total: number; page: number; limit: number } }> {
+    const take = limit ?? 50;
+    const skip = page ? (page - 1) * take : 0;
+
+    const data = await this.prisma.tableSession.findMany({
       where: { restaurantId, status: { in: ['OPEN', 'PAID'] } },
       orderBy: { createdAt: 'desc' },
+      skip,
+      take,
     });
+
+    return {
+      data,
+      meta: { total: data.length, page: page ?? 1, limit: take },
+    };
   }
 
   async getPaymentHistory(
