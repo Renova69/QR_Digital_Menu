@@ -50,6 +50,16 @@ export const createRestaurant = async (restaurantData: { name: string; country: 
   }
 };
 
+export const getRestaurantById = async (id: string): Promise<Restaurant> => {
+  try {
+    const response = await api.get<Restaurant>(`/restaurants/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching restaurant:', error);
+    throw error;
+  }
+};
+
 export const updateRestaurant = async (id: string, data: Partial<Restaurant>): Promise<Restaurant> => {
   try {
     const response = await api.patch<Restaurant>(`/restaurants/${id}`, data);

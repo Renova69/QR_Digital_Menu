@@ -32,6 +32,7 @@ const OrdersView = () => {
           case 'IN_PROGRESS': return t('orders.tabs.inProgress');
           case 'SERVED': return t('orders.tabs.served');
           case 'CANCELED': return t('orders.tabs.canceled');
+          case 'COMPLETED': return t('orders.tabs.completed');
           default: return status;
       }
   };
@@ -40,7 +41,7 @@ const OrdersView = () => {
     <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
       <div className="flex items-center justify-between mb-10 overflow-x-auto hide-scrollbar pb-2">
         <nav className="flex space-x-2 min-w-max" aria-label="Tabs">
-            {(['NEW', 'IN_PROGRESS', 'SERVED', 'CANCELED'] as OrderStatus[]).map((status) => (
+            {(['NEW', 'IN_PROGRESS', 'SERVED', 'COMPLETED', 'CANCELED'] as OrderStatus[]).map((status) => (
             <button
                 key={status}
                 onClick={() => setActiveTab(status)}
@@ -74,7 +75,7 @@ const OrdersView = () => {
                 </div>
               </div>
               <div className="text-right w-full md:w-auto">
-                <p className={`inline-block font-black px-5 py-2.5 rounded-2xl text-[10px] uppercase tracking-[0.2em] shadow-sm border ${order.status === 'NEW' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' : order.status === 'IN_PROGRESS' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : order.status === 'SERVED' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
+                <p className={`inline-block font-black px-5 py-2.5 rounded-2xl text-[10px] uppercase tracking-[0.2em] shadow-sm border ${order.status === 'NEW' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' : order.status === 'IN_PROGRESS' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : order.status === 'SERVED' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : order.status === 'COMPLETED' ? 'bg-violet-500/10 text-violet-500 border-violet-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
                     {getStatusLabel(order.status)}
                 </p>
                 {paymentsEnabled && order.tableSession?.status === 'PAID' && (
@@ -173,8 +174,25 @@ const OrdersView = () => {
                 )}
 
                 {order.status === 'SERVED' && (
-                  <button 
-                    onClick={() => handleStatusChange(order.id, 'NEW')} 
+                  <>
+                    <button
+                        onClick={() => handleStatusChange(order.id, 'COMPLETED')}
+                        className="flex-1 lg:flex-none px-10 py-5 bg-foreground text-background rounded-2xl font-black text-[12px] uppercase tracking-[0.2em] shadow-2xl hover:shadow-[0_20px_40px_-10px_var(--color-primary)] hover:-translate-y-1 transition-all active:scale-95"
+                    >
+                      {t('orders.markCompleted')}
+                    </button>
+                    <button
+                        onClick={() => handleStatusChange(order.id, 'NEW')}
+                        className="px-6 py-5 bg-background border border-border/50 text-foreground rounded-2xl font-black text-[12px] uppercase tracking-[0.2em] hover:bg-secondary/80 transition-all active:scale-95"
+                    >
+                      {t('orders.reopen')}
+                    </button>
+                  </>
+                )}
+
+                {order.status === 'COMPLETED' && (
+                  <button
+                    onClick={() => handleStatusChange(order.id, 'NEW')}
                     className="flex-1 lg:flex-none px-10 py-5 bg-secondary text-foreground rounded-2xl font-black text-[12px] uppercase tracking-[0.2em] hover:bg-secondary/80 transition-all active:scale-95"
                   >
                     {t('orders.reopen')}

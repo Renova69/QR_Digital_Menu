@@ -3,34 +3,71 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
+  Param,
   Res,
+  Req,
   UsePipes,
   ValidationPipe,
   UseGuards,
   Request,
+  ForbiddenException,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Throttle } from '@nestjs/throttler';
+import { Response, Request as ExpressRequest } from 'express';
 import { AuthService } from './auth.service';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { GoogleAuthGuard } from './google-auth.guard';
+import { UsersService } from '../users/users.service';
+import { CreateStaffDto } from '../users/dto/create-staff.dto';
+import { PinLoginDto } from './dto/pin-login.dto';
+import { SetPinDto } from './dto/set-pin.dto';
+
+const COOKIE_SAMESITE = (process.env.COOKIE_SAMESITE as 'lax' | 'strict' | 'none') || (process.env.NODE_ENV === 'production' ? 'lax' : 'lax');
+
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: COOKIE_SAMESITE,
+  path: '/',
+  maxAge: 24 * 60 * 60 * 1000, // 1 day
+};
+
+function setTokenCookie(res: Response, token: string) {
+  res.cookie('token', token, COOKIE_OPTIONS);
+}
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly usersService: UsersService,
+  ) {}
 
   @Post('register')
   @UsePipes(new ValidationPipe({ whitelist: true }))
-  register(@Body() createAuthDto: CreateAuthDto) {
-    return this.authService.register(createAuthDto);
+  async register(
+    @Body() createAuthDto: CreateAuthDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.register(createAuthDto);
+    setTokenCookie(res, result.token);
+    return result;
   }
 
   @UseGuards(LocalAuthGuard)
   @Post('login')
-  async login(@Request() req) {
-    return this.authService.login(req.user);
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async login(
+    @Request() req,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.login(req.user);
+    setTokenCookie(res, result.token);
+    return result;
   }
 
   @UseGuards(JwtAuthGuard)
@@ -55,6 +92,7 @@ export class AuthController {
   @UseGuards(GoogleAuthGuard)
   async googleAuthRedirect(@Request() req, @Res() res: Response) {
     const { token } = await this.authService.login(req.user);
+    setTokenCookie(res, token);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
 
     let returnTo = '';
@@ -67,7 +105,8 @@ export class AuthController {
       } catch (e) {}
     }
 
-    res.redirect(`${frontendUrl}/auth/callback?token=${token}${returnTo}`);
+    // Token already set via httpOnly cookie above — do NOT leak in URL
+    res.redirect(`${frontendUrl}/auth/callback${returnTo ? `?${returnTo.slice(1)}` : ''}`);
   }
 
   @Post('magic-link')
@@ -79,6 +118,7 @@ export class AuthController {
   }
 
   @Post('otp/send')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   sendOtp(
     @Body('email') email?: string,
     @Body('phone') phone?: string,
@@ -87,12 +127,98 @@ export class AuthController {
   }
 
   @Post('otp/verify')
-  verifyOtp(
-    @Body('email') email?: string,
-    @Body('code') code?: string,
-    @Body('phone') phone?: string,
-    @Body('name') name?: string,
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  async verifyOtp(
+    @Body('email') email: string | undefined,
+    @Body('code') code: string | undefined,
+    @Body('phone') phone: string | undefined,
+    @Body('name') name: string | undefined,
+    @Res({ passthrough: true }) res: Response,
   ) {
-    return this.authService.verifyOtp(email, code, phone, name);
+    const result = await this.authService.verifyOtp(email, code, phone, name);
+    setTokenCookie(res, result.token);
+    return result;
+  }
+
+  @Post('logout')
+  async logout(@Res({ passthrough: true }) res: Response) {
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: COOKIE_SAMESITE,
+      path: '/',
+    });
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('me/pin')
+  setPin(@Request() req, @Body(new ValidationPipe({ whitelist: true })) dto: SetPinDto) {
+    return this.authService.setPin(req.user.id, dto.pin);
+  }
+
+  @Get('csrf-token')
+  getCsrfToken(@Req() req: ExpressRequest) {
+    return { csrfToken: (req as any)['csrfToken'] ?? null };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('restaurants/:id/staff')
+  async listStaff(
+    @Param('id') restaurantId: string,
+    @Request() req,
+  ) {
+    const role = req.user?.role?.toUpperCase();
+    if (role !== 'OWNER' && role !== 'MANAGER') {
+      throw new ForbiddenException('Only owners and managers can manage staff');
+    }
+    await this.usersService.verifyRestaurantAccess(restaurantId, req.user.id);
+    return this.usersService.listStaffMembers(restaurantId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('restaurants/:id/staff')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  async createStaff(
+    @Param('id') restaurantId: string,
+    @Body(new ValidationPipe({ whitelist: true })) dto: CreateStaffDto,
+    @Request() req,
+  ) {
+    const role = req.user?.role?.toUpperCase();
+    if (role !== 'OWNER' && role !== 'MANAGER') {
+      throw new ForbiddenException('Only owners and managers can manage staff');
+    }
+    await this.usersService.verifyRestaurantAccess(restaurantId, req.user.id);
+    return this.usersService.createStaffMember(restaurantId, {
+      name: dto.name,
+      email: dto.email,
+      role: dto.role,
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('restaurants/:id/staff/:userId')
+  async removeStaff(
+    @Param('id') restaurantId: string,
+    @Param('userId') userId: string,
+    @Request() req,
+  ) {
+    const role = req.user?.role?.toUpperCase();
+    if (role !== 'OWNER' && role !== 'MANAGER') {
+      throw new ForbiddenException('Only owners and managers can manage staff');
+    }
+    await this.usersService.verifyRestaurantAccess(restaurantId, req.user.id);
+    return this.usersService.removeStaffMember(restaurantId, userId);
+  }
+
+  @Post('pin-login')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async pinLogin(
+    @Body(new ValidationPipe({ whitelist: true })) dto: PinLoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.pinLogin(dto.restaurantId, dto.pin);
+    setTokenCookie(res, result.token);
+    return { user: result.user };
   }
 }

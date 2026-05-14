@@ -31,8 +31,13 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: ReactNode }) {
   // Initialize cart items from localStorage (if available)
   const [items, setItems] = useState<CartItem[]>(() => {
-    const savedItems = localStorage.getItem('cartItems');
-    return savedItems ? JSON.parse(savedItems) : [];
+    try {
+      const savedItems = localStorage.getItem('cartItems');
+      return savedItems ? JSON.parse(savedItems) : [];
+    } catch {
+      localStorage.removeItem('cartItems');
+      return [];
+    }
   });
 
   // Ref to access current items without creating dependency in useCallback

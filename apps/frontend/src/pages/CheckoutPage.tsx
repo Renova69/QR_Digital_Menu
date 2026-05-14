@@ -128,7 +128,7 @@ const CheckoutPage = () => {
   // Pre-fill name if user is logged in
   useEffect(() => {
     if (user && !customerName) {
-      setCustomerName(user.name || user.email.split("@")[0]);
+      setCustomerName(user.name || (user.email ? user.email.split("@")[0] : ""));
     }
   }, [user, customerName]);
 
@@ -277,7 +277,7 @@ const CheckoutPage = () => {
                         <span className="w-1.5 h-1.5 rounded-full bg-accent/50 block"></span>
                         {opt.choiceName}{" "}
                         <span className="text-accent/80 font-semibold">
-                          (+€{opt.priceModifier.toFixed(2)})
+                          (+€{(opt.priceModifier ?? 0).toFixed(2)})
                         </span>
                       </li>
                     ))}

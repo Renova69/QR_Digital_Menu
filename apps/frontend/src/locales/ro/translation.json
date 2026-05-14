@@ -27,7 +27,9 @@
       "settings": "Setări",
       "menuEditor": "Editor Meniu",
       "payments": "Plăți",
-      "import": "Import"
+      "import": "Import",
+      "pos": "POS",
+      "kitchen": "Bucătărie"
     }
   },
   "settings": {
@@ -36,7 +38,8 @@
     "tabs": {
       "general": "General",
       "loyalty": "Loialitate",
-      "payments": "Plăți"
+      "payments": "Plăți",
+      "staff": "Personal"
     },
     "locationContact": "Locație și Contact",
     "address": "Adresă",
@@ -56,6 +59,59 @@
     "failedSave": "Salvarea setărilor a eșuat. Vă rugăm să încercați din nou.",
     "failedInitiate": "Inițierea traducerii a eșuat. Vă rugăm să încercați din nou.",
     "translating": "Se traduce..."
+  },
+  "staff": {
+    "sharedDeviceMode": "Mod dispozitiv partajat",
+    "enableSharedDevice": "Activează dispozitiv partajat",
+    "disableSharedDevice": "Dezactivează dispozitiv partajat",
+    "sharedDeviceOffWarning": "Modul dispozitiv partajat este dezactivat. Activați-l pentru ca personalul să se poată autentifica cu PIN la /device-login.",
+    "sharedDeviceBonded": "Acest dispozitiv este asociat cu {{name}}. Personalul se poate autentifica fără a reintroduce PIN-ul restaurantului.",
+    "bondDevice": "Asociere dispozitiv",
+    "bondDeviceDesc": "Generați un cod QR pentru a asocia un dispozitiv la acest restaurant. Pentru personalul existent care primește un telefon sau tabletă nou.",
+    "generateDeviceQr": "Generează QR dispozitiv",
+    "generating": "Se generează...",
+    "scanQrInstruction": "Scanați acest QR pe dispozitivul personalului.",
+    "expiresAt": "Expiră la {{time}}.",
+    "copyLink": "Copiază linkul",
+    "copied": "Copiat!",
+    "staffMembers": "Personal",
+    "staffMembersDesc": "Invitați personal și atribuiți coduri PIN. Personalul se autentifică la /device-login sau /staff/pos folosind PIN pad-ul restaurantului.",
+    "inviteNewStaff": "Invită personal nou",
+    "displayName": "Nume afișat",
+    "emailOptional": "Email (opțional)",
+    "roleManager": "Manager",
+    "roleWaiter": "Ospătar",
+    "roleKitchen": "Bucătărie",
+    "createStaffAccount": "Creează cont personal",
+    "loading": "Se încarcă...",
+    "noStaffYet": "Încă nu există personal.",
+    "nameColumn": "Nume",
+    "emailColumn": "Email",
+    "roleColumn": "Rol",
+    "rebondTitle": "Reasociază dispozitiv",
+    "removeTitle": "Elimină",
+    "removeConfirm": "Eliminați acest membru al personalului? Aceasta nu poate fi anulată.",
+    "failedLoad": "Încărcarea personalului a eșuat",
+    "failedCreate": "Crearea contului de personal a eșuat",
+    "failedRemove": "Eliminarea personalului a eșuat",
+    "failedGenerateQr": "Generarea QR-ului a eșuat",
+    "failedRebond": "Generarea QR-ului de reasociere a eșuat",
+    "created": {
+      "title": "Cont de personal creat",
+      "rebondTitle": "Asociere dispozitiv",
+      "scanInstruction": "Scanați QR-ul pe dispozitivul personalului, apoi introduceți codul PIN.",
+      "rebondInstruction": "Scanați acest QR pe dispozitivul lui {{name}} pentru a-l reasocia.",
+      "expiresIn": "Expiră în",
+      "expired": "Expirat",
+      "pinFor": "PIN pentru {{name}}",
+      "copyPinWarning": "Copiați acest PIN acum — nu va mai fi afișat din nou.",
+      "copyPin": "Copiază PIN",
+      "copied": "Copiat!",
+      "copyLink": "Copiază linkul",
+      "linkCopied": "Link copiat!",
+      "qrUnavailable": "Codul QR nu este disponibil. Serviciul de înscriere a dispozitivului poate fi indisponibil. Încercați din nou mai târziu.",
+      "close": "Închide"
+    }
   },
   "branding": {
     "title": "Branding Restaurant",
@@ -96,6 +152,7 @@
       "new": "Noi",
       "inProgress": "În desfășurare",
       "served": "Servite",
+      "completed": "Finalizate",
       "canceled": "Anulate"
     },
     "orderNo": "Comandă #{{id}}",
@@ -108,6 +165,7 @@
     "startPreparing": "Începe Pregătirea",
     "cancel": "Anulează",
     "markServed": "Marchează ca Servit",
+    "markCompleted": "Marchează ca Finalizat",
     "reopen": "Redeschide Comanda",
     "noOrders": "Nicio comandă {{status}}",
     "pluckedAt": "Plasată la {{time}}"

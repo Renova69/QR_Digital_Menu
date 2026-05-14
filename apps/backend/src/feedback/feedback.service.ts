@@ -2,12 +2,16 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Injectable()
 export class FeedbackService {
+  private readonly logger = new Logger(FeedbackService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createFeedbackDto: CreateFeedbackDto) {
@@ -54,21 +58,39 @@ export class FeedbackService {
   }
 
   // Get all feedback for a restaurant (owner-only)
-  async findAll(restaurantId: string) {
-    return this.prisma.feedback.findMany({
-      where: { restaurantId },
-      include: {
-        order: {
-          select: {
-            customerName: true,
-            tableId: true,
-            totalPrice: true,
-            createdAt: true,
+  async findAll(restaurantId: string, pagination: PaginationDto) {
+    const page = Number.isFinite(pagination.page) ? pagination.page : 1;
+    const limit = Number.isFinite(pagination.limit) ? pagination.limit : 50;
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await Promise.all([
+      this.prisma.feedback.findMany({
+        where: { restaurantId },
+        include: {
+          order: {
+            select: {
+              customerName: true,
+              tableId: true,
+              totalPrice: true,
+              createdAt: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.feedback.count({
+        where: { restaurantId },
+      }),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   // Get feedback summary stats (owner-only)

@@ -1,6 +1,6 @@
 import { useState, useRef, useContext, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { type LucideIcon, LayoutDashboard, ShoppingBag, Bell, Table2, Settings, BarChart2, CreditCard } from 'lucide-react';
+import { type LucideIcon, LayoutDashboard, ShoppingBag, Bell, Table2, Settings, BarChart2, CreditCard, ChefHat, Monitor } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrderContext';
 import { useAssistance } from '../context/AssistanceContext';
@@ -135,8 +135,8 @@ const DashboardPage = () => {
           <div className="absolute bottom-0 left-0 w-80 h-80 bg-accent/5 blur-[120px] pointer-events-none" />
 
           {/* Desktop tab navigation — hidden on mobile (bottom nav used instead) */}
-          <div className="hidden md:flex mb-12 border-b border-border/40 overflow-x-auto pb-2 items-center justify-between hide-scrollbar">
-            <nav className="flex space-x-2 min-w-max" aria-label="Tabs">
+          <div className="hidden md:flex mb-12 border-b border-border/40 overflow-x-auto pb-2 items-center hide-scrollbar relative">
+            <nav className="flex space-x-2 min-w-max pr-12" aria-label="Tabs">
               {[
                 { id: 'summary',    label: t('dashboard.tabs.summary') },
                 { id: 'analytics',  label: t('dashboard.tabs.analytics') },
@@ -170,7 +170,22 @@ const DashboardPage = () => {
               >
                 {t('dashboard.tabs.menuEditor')}
               </Link>
+              <Link
+                to="/staff/pos"
+                className="text-muted-foreground hover:bg-secondary/80 hover:text-foreground px-7 py-4 rounded-[1.2rem] font-black text-[11px] uppercase tracking-[0.15em] transition-all flex items-center gap-1.5"
+              >
+                <Monitor className="w-3.5 h-3.5" />
+                {t('dashboard.tabs.pos')}
+              </Link>
+              <Link
+                to="/staff/kitchen"
+                className="text-muted-foreground hover:bg-secondary/80 hover:text-foreground px-7 py-4 rounded-[1.2rem] font-black text-[11px] uppercase tracking-[0.15em] transition-all flex items-center gap-1.5"
+              >
+                <ChefHat className="w-3.5 h-3.5" />
+                {t('dashboard.tabs.kitchen')}
+              </Link>
             </nav>
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-background to-transparent z-10" />
           </div>
 
           {/* Mobile tab label — shows current tab name */}
@@ -271,6 +286,7 @@ const DashboardPage = () => {
           </div>
         </div>
       </nav>
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-background to-transparent z-10" />
     </div>
   );
 };

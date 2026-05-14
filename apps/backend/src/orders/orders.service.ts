@@ -3,12 +3,14 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { DateTime } from 'luxon';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { EventsGateway } from '../events/events.gateway';
+import { PaginationDto } from '../common/dto/pagination.dto';
 import {
   addDays,
   addEarnedPointBatch,
@@ -27,6 +29,8 @@ const LOYALTY_CONFIG = {
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventsGateway: EventsGateway,
@@ -376,14 +380,40 @@ export class OrdersService {
     return { ...finalOrder, sessionToken };
   }
 
-  async findAll(userId: string) {
-    return this.prisma.order.findMany({
-      where: { restaurant: { ownerId: userId } },
-      include: {
-        items: { include: { menuItem: true } },
-      },
-      orderBy: { createdAt: 'desc' },
+  async findAll(userId: string, pagination: PaginationDto) {
+    const page = Number.isFinite(pagination.page) ? pagination.page : 1;
+    const limit = Number.isFinite(pagination.limit) ? pagination.limit : 50;
+    const skip = (page - 1) * limit;
+
+    // Allow both owner and staff to see orders
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { restaurantId: true },
     });
+
+    const where = user?.restaurantId
+      ? { restaurantId: user.restaurantId }
+      : { restaurant: { ownerId: userId } };
+
+    const [data, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        include: {
+          items: { include: { menuItem: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: string, userId: string) {
@@ -396,7 +426,17 @@ export class OrdersService {
     });
 
     if (!order) throw new NotFoundException('Order not found');
-    if (order.restaurant.ownerId !== userId) {
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { restaurantId: true },
+    });
+
+    const hasRestaurantAccess =
+      order.restaurant.ownerId === userId ||
+      user?.restaurantId === order.restaurantId;
+
+    if (!hasRestaurantAccess) {
       throw new ForbiddenException('Forbidden access');
     }
 

@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
-import { getRestaurants, createRestaurant as createRestaurantApi } from '../services/restaurantService';
+import { getRestaurants, getRestaurantById, createRestaurant as createRestaurantApi } from '../services/restaurantService';
 import { useAuth } from './AuthContext';
 import { useSocket } from './SocketContext';
 
@@ -72,6 +72,19 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({ children
   const fetchRestaurants = async () => {
     setLoading(true);
     try {
+      setError(null);
+      const role = user?.role?.toUpperCase();
+      const isAssignedStaff =
+        !!user?.restaurantId &&
+        ['MANAGER', 'WAITER', 'KITCHEN', 'STAFF'].includes(role || '');
+
+      if (isAssignedStaff) {
+        const restaurant = await getRestaurantById(user.restaurantId);
+        setRestaurants([restaurant]);
+        setActiveRestaurant(restaurant);
+        return;
+      }
+
       const data = await getRestaurants();
       setRestaurants(data);
       if (data.length > 0) {
@@ -83,6 +96,15 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({ children
           }
           return data[0];
         });
+      } else if (user?.restaurantId) {
+        // Staff user: fetch their assigned restaurant
+        try {
+          const r = await getRestaurantById(user.restaurantId);
+          setRestaurants([r]);
+          setActiveRestaurant(r);
+        } catch {
+          setActiveRestaurant(null);
+        }
       } else {
         setActiveRestaurant(null);
       }
