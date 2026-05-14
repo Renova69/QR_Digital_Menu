@@ -22,6 +22,7 @@ interface NotificationContextType {
   dismissToast: () => void;
   markAllRead: () => void;
   clearAll: () => void;
+  __providerMounted: boolean;
 }
 
 const NotificationContext = createContext<NotificationContextType>({
@@ -31,6 +32,7 @@ const NotificationContext = createContext<NotificationContextType>({
   dismissToast: () => {},
   markAllRead: () => {},
   clearAll: () => {},
+  __providerMounted: false,
 });
 
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -97,7 +99,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   return (
     <NotificationContext.Provider
-      value={{ notifications, unreadCount, showToast, dismissToast, markAllRead, clearAll }}
+      value={{ notifications, unreadCount, showToast, dismissToast, markAllRead, clearAll, __providerMounted: true }}
     >
       {children}
     </NotificationContext.Provider>

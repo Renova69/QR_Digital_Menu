@@ -12,6 +12,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -20,6 +21,9 @@ import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { StorageService } from '../storage/storage.service';
+import { DeviceEnrollmentService } from './device-enrollment.service';
+import { CreateDeviceEnrollmentDto } from './dto/create-device-enrollment.dto';
+import { Request as ExpressRequest } from 'express';
 
 @UseGuards(JwtAuthGuard)
 @Controller('restaurants')
@@ -27,6 +31,7 @@ export class RestaurantsController {
   constructor(
     private readonly restaurantsService: RestaurantsService,
     private readonly storageService: StorageService,
+    private readonly deviceEnrollment: DeviceEnrollmentService,
   ) {}
 
   @Post()
@@ -44,7 +49,7 @@ export class RestaurantsController {
 
   @Get(':id')
   findOne(@Param('id') id: string, @Request() req) {
-    return this.restaurantsService.findOne(id, req.user.id);
+    return this.restaurantsService.findOneOrStaff(id, req.user.id);
   }
 
   @Patch(':id')
@@ -93,6 +98,26 @@ export class RestaurantsController {
     } catch (error: any) {
       throw new BadRequestException(error.message || 'Failed to upload logo');
     }
+  }
+
+  @Post(':id/device-enrollment')
+  createDeviceEnrollment(
+    @Param('id') id: string,
+    @Body(new ValidationPipe({ whitelist: true }))
+    _dto: CreateDeviceEnrollmentDto,
+    @Request() req,
+    @Req() expressReq: ExpressRequest,
+  ) {
+    const frontendBaseUrl =
+      expressReq.headers.origin ||
+      process.env.FRONTEND_URL ||
+      'http://localhost:3001';
+
+    return this.deviceEnrollment.createEnrollment(
+      id,
+      req.user.id,
+      frontendBaseUrl,
+    );
   }
 
   @Post(':id/translate-all')

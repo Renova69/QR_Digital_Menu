@@ -5,6 +5,7 @@ describe('StripeProvider', () => {
   let mockStripe: any;
 
   beforeEach(() => {
+    process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_secret';
     provider = new StripeProvider();
     mockStripe = {
       paymentIntents: {

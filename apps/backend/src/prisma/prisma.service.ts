@@ -1,9 +1,11 @@
-import { INestApplication, Injectable, OnModuleInit } from '@nestjs/common';
+import { INestApplication, Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { setTimeout as sleep } from 'timers/promises';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit {
+  private readonly logger = new Logger(PrismaService.name);
+
   async onModuleInit() {
     const maxRetries = 15;
     const retryDelay = 2000; // 2 seconds
@@ -11,14 +13,12 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     for (let i = 0; i < maxRetries; i++) {
       try {
         await this.$connect();
-        console.log('✅ Connected to database');
+        this.logger.log('Connected to database');
         return;
       } catch (error) {
-        console.log(`⚠️ Database connection attempt ${i + 1} failed`);
+        this.logger.warn(`Database connection attempt ${i + 1} failed`);
         if (i === maxRetries - 1) {
-          console.error(
-            '❌ Failed to connect to database after maximum retries',
-          );
+          this.logger.error('Failed to connect to database after maximum retries');
           throw error;
         }
         await sleep(retryDelay);

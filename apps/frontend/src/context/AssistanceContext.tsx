@@ -1,9 +1,17 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from 'react';
 import {
   getAssistanceRequests,
   updateAssistanceRequest as apiUpdateAssistanceRequest
 } from '../lib/api';
 import { useSocket } from './SocketContext';
+import { useAuth } from './AuthContext';
 
 // Define assistance request interface
 interface AssistanceRequest {
@@ -29,16 +37,27 @@ const AssistanceContext = createContext<AssistanceContextType | undefined>(undef
 export function AssistanceProvider({ children }: { children: ReactNode }) {
   const [requests, setRequests] = useState<AssistanceRequest[]>([]);
   const { socket, isConnected } = useSocket();
+  const { user, isAuthenticated } = useAuth();
+  const role = user?.role?.toUpperCase();
+  const canAccessAssistance =
+    isAuthenticated &&
+    !!role &&
+    ['OWNER', 'MANAGER', 'WAITER', 'KITCHEN', 'STAFF'].includes(role);
 
   // Function to refresh requests from API
-  const refreshRequests = async () => {
+  const refreshRequests = useCallback(async () => {
+    if (!canAccessAssistance) {
+      setRequests([]);
+      return;
+    }
+
     try {
       const data = await getAssistanceRequests();
       setRequests(data);
     } catch (error) {
       console.error('Failed to fetch assistance requests:', error);
     }
-  };
+  }, [canAccessAssistance]);
 
   // Function to mark request as resolved
   const markAsResolved = async (requestId: string) => {
@@ -62,11 +81,14 @@ export function AssistanceProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Initial load and socket listeners
+  // Initial load when a staff/owner session becomes available.
   useEffect(() => {
-    refreshRequests();
+    void refreshRequests();
+  }, [refreshRequests]);
 
-    if (!socket || !isConnected) return;
+  // Socket listeners only refresh in response to assistance events.
+  useEffect(() => {
+    if (!canAccessAssistance || !socket || !isConnected) return;
 
     const handleNewRequest = () => {
       // Audio notification for call waiter
@@ -87,7 +109,7 @@ export function AssistanceProvider({ children }: { children: ReactNode }) {
       socket.off('newAssistanceRequest', handleNewRequest);
       socket.off('assistanceStatusChanged', handleStatusChanged);
     };
-  }, [socket, isConnected]);
+  }, [canAccessAssistance, socket, isConnected, refreshRequests]);
 
   const value = {
       requests,

@@ -12,6 +12,7 @@ import {
 import { FeedbackService } from './feedback.service';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Controller('feedback')
 export class FeedbackController {
@@ -32,8 +33,11 @@ export class FeedbackController {
   // Protected — owner views all feedback
   @UseGuards(JwtAuthGuard)
   @Get()
-  findAll(@Query('restaurantId') restaurantId: string) {
-    return this.feedbackService.findAll(restaurantId);
+  findAll(
+    @Query('restaurantId') restaurantId: string,
+    @Query() pagination: PaginationDto,
+  ) {
+    return this.feedbackService.findAll(restaurantId, pagination);
   }
 
   // Protected — owner views feedback summary/stats

@@ -13,12 +13,18 @@ model User {
   password        String
   name            String?
   phone           String?
+  pinHash         String?
+  pinAttempts     Int               @default(0)
+  pinLockedUntil  DateTime?
   role            UserRole         @default(STAFF)
+  restaurantId    String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   orders          Order[]
+  createdDeviceEnrollmentTokens DeviceEnrollmentToken[]
   loyaltyAccounts LoyaltyAccount[]
-  restaurants     Restaurant[]
+  restaurants     Restaurant[]     @relation("OwnedRestaurants")
+  staffRestaurant Restaurant?       @relation("StaffRestaurant", fields: [restaurantId], references: [id])
 
   @@map("app_user")
 }
@@ -71,11 +77,13 @@ model Restaurant {
   tipOptions                Int[]               @default([2, 4, 5])
   platformFeePercent        Float               @default(0.5)
   assistanceRequests        AssistanceRequest[]
+  deviceEnrollmentTokens    DeviceEnrollmentToken[]
   orders                    Order[]
   feedbacks                 Feedback[]
   loyaltyAccounts           LoyaltyAccount[]
   menuCategories            MenuCategory[]
-  owner                     User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  owner                     User                @relation("OwnedRestaurants", fields: [ownerId], references: [id], onDelete: Cascade)
+  staffMembers              User[]              @relation("StaffRestaurant")
   tables                    RestaurantTable[]
   tableSessions             TableSession[]
   payments                  Payment[]
@@ -211,6 +219,22 @@ model AssistanceRequest {
   @@map("assistance_request")
 }
 
+model DeviceEnrollmentToken {
+  id           String     @id @default(cuid())
+  tokenHash    String     @unique
+  restaurantId String
+  createdById  String
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime   @default(now())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdBy    User       @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+  @@index([expiresAt])
+  @@map("device_enrollment_token")
+}
+
 model Feedback {
   id                 String     @id @default(cuid())
   rating             Int
@@ -262,6 +286,9 @@ model LoyaltyPointLedger {
 
 enum UserRole {
   OWNER
+  MANAGER
+  WAITER
+  KITCHEN
   STAFF
   CUSTOMER
 }
@@ -276,6 +303,7 @@ enum OrderStatus {
   IN_PROGRESS
   SERVED
   CANCELED
+  COMPLETED
 }
 
 enum OptionType {
@@ -298,12 +326,14 @@ enum LoyaltyPointTransactionType {
 }
 
 model VerificationToken {
-  id        String    @id @default(cuid())
-  email     String
-  code      String
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
+  id         String    @id @default(cuid())
+  email      String
+  code       String
+  expiresAt  DateTime
+  usedAt     DateTime?
+  attempts   Int       @default(0)
+  lockedUntil DateTime?
+  createdAt  DateTime  @default(now())
 
   @@index([email])
 }

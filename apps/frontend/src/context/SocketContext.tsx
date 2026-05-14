@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { useAuth } from './AuthContext';
 
 interface SocketContextData {
   socket: Socket | null;
@@ -14,20 +13,14 @@ export const useSocket = () => useContext(SocketContext);
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const { user, token } = useAuth(); // If they are logged in staff
 
   useEffect(() => {
-    // URL fallback logic - handles local dev vs prod
-    const backendUrl = import.meta.env.VITE_API_URL 
-      ? import.meta.env.VITE_API_URL.replace('/api', '')
-      : 'http://localhost:3000';
-
-    const socketInstance = io(backendUrl, {
-      auth: {
-        token: token || undefined
-      },
+    // Always connect same-origin — Vite proxy forwards /socket.io to backend.
+    // Cross-origin connections would lose the httpOnly cookie due to SameSite.
+    const socketInstance = io({
       autoConnect: true,
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      withCredentials: true,
     });
 
     socketInstance.on('connect', () => {
@@ -45,7 +38,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => {
       socketInstance.disconnect();
     };
-  }, [token]);
+  }, []);
 
   return (
     <SocketContext.Provider value={{ socket, isConnected }}>

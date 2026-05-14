@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
-import { MenuService } from './menu.service';
+import { MenuCrudService } from './menu-crud.service';
+import { MenuTranslationService } from './menu-translation.service';
+import { MenuAuditService } from './menu-audit.service';
 import {
   CategoryController,
   CategoryDetailController,
@@ -27,7 +29,7 @@ import { MenuAuditController } from './audit.controller';
     MenuOptionController,
     MenuOptionDetailController,
   ],
-  providers: [MenuService],
-  exports: [MenuService],
+  providers: [MenuCrudService, MenuTranslationService, MenuAuditService],
+  exports: [MenuCrudService, MenuTranslationService, MenuAuditService],
 })
 export class MenuModule {}

@@ -16,7 +16,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import { MenuService } from './menu.service';
+import { MenuCrudService } from './menu-crud.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
@@ -25,7 +25,7 @@ import { StorageService } from '../storage/storage.service';
 @UseGuards(JwtAuthGuard)
 @Controller('categories/:categoryId/items')
 export class ItemController {
-  constructor(private readonly menuService: MenuService) {}
+  constructor(private readonly crud: MenuCrudService) {}
 
   @Post()
   create(
@@ -33,12 +33,12 @@ export class ItemController {
     @Body(ValidationPipe) createItemDto: CreateItemDto,
     @Request() req,
   ) {
-    return this.menuService.createItem(categoryId, createItemDto, req.user.id);
+    return this.crud.createItem(categoryId, createItemDto, req.user.id);
   }
 
   @Get()
   findAll(@Param('categoryId') categoryId: string, @Request() req) {
-    return this.menuService.findAllItemsInCategory(categoryId, req.user.id);
+    return this.crud.findAllItemsInCategory(categoryId, req.user.id);
   }
 
   @Put('order')
@@ -47,7 +47,7 @@ export class ItemController {
     @Body('orderedIds') orderedIds: string[],
     @Request() req,
   ) {
-    return this.menuService.updateItemOrder(categoryId, orderedIds, req.user.id);
+    return this.crud.updateItemOrder(categoryId, orderedIds, req.user.id);
   }
 }
 
@@ -55,7 +55,7 @@ export class ItemController {
 @Controller('items')
 export class ItemDetailController {
   constructor(
-    private readonly menuService: MenuService,
+    private readonly crud: MenuCrudService,
     private readonly storageService: StorageService,
   ) {}
 
@@ -65,12 +65,12 @@ export class ItemDetailController {
     @Body(ValidationPipe) updateItemDto: UpdateItemDto,
     @Request() req,
   ) {
-    return this.menuService.updateItem(id, updateItemDto, req.user.id);
+    return this.crud.updateItem(id, updateItemDto, req.user.id);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string, @Request() req) {
-    return this.menuService.removeItem(id, req.user.id);
+    return this.crud.removeItem(id, req.user.id);
   }
 
   @Post(':id/image')
@@ -101,7 +101,7 @@ export class ItemDetailController {
         file.originalname,
         file.mimetype,
       );
-      return this.menuService.updateItemImage(id, url, thumbnailUrl, req.user.id);
+      return this.crud.updateItemImage(id, url, thumbnailUrl, req.user.id);
     } catch (error: any) {
       throw new BadRequestException(error.message || 'Failed to upload image');
     }

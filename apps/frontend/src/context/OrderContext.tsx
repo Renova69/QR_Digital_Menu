@@ -1,10 +1,18 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from 'react';
 import { getOrders, updateOrderStatus as apiUpdateOrderStatus } from '../lib/api';
 import { useSocket } from './SocketContext';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from './AuthContext';
 
 // Define order status types
-export type OrderStatus = 'NEW' | 'IN_PROGRESS' | 'SERVED' | 'CANCELED';
+export type OrderStatus = 'NEW' | 'IN_PROGRESS' | 'SERVED' | 'CANCELED' | 'COMPLETED';
 
 // Define order interface
 interface Order {
@@ -48,17 +56,28 @@ const OrderContext = createContext<OrderContextType | undefined>(undefined);
 export function OrderProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const { socket, isConnected } = useSocket();
+  const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
+  const role = user?.role?.toUpperCase();
+  const canAccessOrders =
+    isAuthenticated &&
+    !!role &&
+    ['OWNER', 'MANAGER', 'WAITER', 'KITCHEN', 'STAFF'].includes(role);
 
   // Function to refresh orders from API
-  const refreshOrders = async () => {
+  const refreshOrders = useCallback(async () => {
+    if (!canAccessOrders) {
+      setOrders([]);
+      return;
+    }
+
     try {
       const data = await getOrders();
       setOrders(data);
     } catch (error) {
       console.error('Failed to fetch orders:', error);
     }
-  };
+  }, [canAccessOrders]);
 
   // Function to update order status
   const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
@@ -71,11 +90,14 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Initial load and socket listeners
+  // Initial load when a staff/owner session becomes available.
   useEffect(() => {
-    refreshOrders();
+    void refreshOrders();
+  }, [refreshOrders]);
 
-    if (!socket || !isConnected) return;
+  // Socket listeners only refresh in response to order events.
+  useEffect(() => {
+    if (!canAccessOrders || !socket || !isConnected) return;
 
     const handleNewOrder = () => {
       // Small chime for new UI event
@@ -100,7 +122,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       socket.off('newOrder', handleNewOrder);
       socket.off('orderStatusChanged', handleOrderStatusChanged);
     };
-  }, [socket, isConnected]);
+  }, [canAccessOrders, socket, isConnected, refreshOrders, queryClient]);
 
   const value = {
       orders,
