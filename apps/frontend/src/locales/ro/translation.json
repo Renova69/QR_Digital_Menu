@@ -499,6 +499,124 @@
     "pleaseLogin": "Conectați-vă pentru a vedea profilul.",
     "loginButton": "Autentificare"
   },
+  "landing": {
+    "heroBadge": "Platforma completă pentru restaurante",
+    "heroLine1": "Meniul tău,",
+    "heroWordAccent": "digitalizat",
+    "heroLine2": "afacerea ta, amplificată",
+    "heroSubtext": "QR Menu oferă restaurantelor o vitrină digitală completă — comandă fără contact, gestionarea meselor în direct, afișaj pentru bucătărie, plăți, loialitate și analize. Totul într-o singură platformă. Totul în mai puțin de 5 minute.",
+    "startFreeTrial": "Începeți perioada de probă gratuită",
+    "viewLiveDemo": "Vizualizați demo live",
+    "featuresBadge": "Tot ce ai nevoie",
+    "featuresTitle": "O platformă. Toate funcțiile.",
+    "featuresSubtitle": "De la scanarea codului QR până la procesarea plăților — fiecare instrument de care restaurantul tău are nevoie, integrat direct. Fără plugin-uri, fără integrări, fără costuri suplimentare.",
+    "pricingBadge": "Previzualizare demo — prețurile nu sunt încă active",
+    "pricingTitle": "Prețuri simple, transparente",
+    "pricingSubtitle": "Alege planul care se potrivește restaurantului tău. Toate planurile includ o perioadă de probă gratuită de 14 zile. Nu este necesar cardul de credit.",
+    "mostPopular": "Cel mai popular",
+    "getStarted": "Începeți",
+    "contactSales": "Contactați vânzările",
+    "bottomCtaTitle": "Ești gata să modernizezi",
+    "bottomCtaWordAccent": "restaurantul",
+    "bottomCtaSubtitle": "Alătură-te sutelor de restaurante care folosesc deja QR Menu pentru a servi mai rapid, a câștiga mai mult și a încânta clienții.",
+    "bottomCtaButton": "Începeți gratuit",
+    "bottomCtaLogin": "Autentificare în panou",
+    "footerRights": "QR Menu. Toate drepturile rezervate.",
+    "overview": "Prezentare",
+    "orders": "Comenzi",
+    "analytics": "Analize",
+    "tables": "Mese",
+    "settings": "Setări",
+    "revenue": "Venit",
+    "ordersCount": "Comenzi",
+    "tablesActive": "Mese active",
+    "table": "Masa",
+    "statusNew": "NOU",
+    "features": {
+      "qrOrdering": {
+        "title": "Comandă QR fără Contact",
+        "desc": "Clienții scanează un cod QR pe masă, navighează printr-un meniu digital bogat și comandă instantaneu — fără descărcare de aplicație."
+      },
+      "tableManagement": {
+        "title": "Gestionarea Meselor în Timp Real",
+        "desc": "Urmărește starea fiecărei mese în direct. Vezi cine a comandat ce, gestionează ocuparea și închide sesiunile cu o singură atingere."
+      },
+      "waiterPos": {
+        "title": "Sistem POS pentru Ospătari",
+        "desc": "Point-of-Sale mobil pe tot ecranul pentru ospătari. Comandă pe locuri, împărțirea notei și colectarea plăților la masă."
+      },
+      "kitchenDisplay": {
+        "title": "Sistem de Afișare pentru Bucătărie",
+        "desc": "Panou kanban live care arată comenzile primite, progresul preparării și articolele finalizate. Bucătăria rămâne sincronizată în timp real."
+      },
+      "multiLanguage": {
+        "title": "Meniuri Multilingve",
+        "desc": "Traducere automată DeepL în engleză, bulgară și română. Clienții navighează în limba preferată."
+      },
+      "analytics": {
+        "title": "Analize Inteligente",
+        "desc": "Tendințe de venituri, hărți termice ale orelor de vârf, cele mai vândute articole și informații despre comportamentul clienților — totul în fusul orar local."
+      },
+      "payments": {
+        "title": "Plăți Stripe Connect",
+        "desc": "Acceptați plăți cu cardul direct la masă. Clienții lasă bacșiș, plătesc și pleacă — fără să cheme ospătarul."
+      },
+      "loyalty": {
+        "title": "Program de Loialitate",
+        "desc": "Niveluri VIP cu multiplicatori configurabili, bonusuri pentru happy hour și registru de puncte FIFO. Clienții câștigă și valorifică fără probleme."
+      },
+      "branding": {
+        "title": "Studio de Branding",
+        "desc": "Culori de accent personalizate, selector de fonturi Google, încărcare logo și validator de contrast WCAG. Meniul tău, brandul tău."
+      },
+      "staffAccess": {
+        "title": "Controlul Accesului Personalului",
+        "desc": "Atribuie roluri Proprietar, Manager, Ospătar sau Bucătărie. Autentificare PIN pentru dispozitive partajate. Matrice detaliată de permisiuni."
+      },
+      "feedback": {
+        "title": "Feedback de la Clienți",
+        "desc": "Colectează recenzii după fiecare vizită, filtrează după rating și redirecționează clienții mulțumiți către pagina ta de recenzii Google."
+      },
+      "menuImport": {
+        "title": "Import și Export Meniu",
+        "desc": "Importă în masă articole din fișiere structurate. Exportă pentru backup, clonare între locații sau editare offline."
+      }
+    },
+    "tiers": {
+      "starterName": "Starter",
+      "starterDesc": "Perfect pentru un singur restaurant care începe cu meniuri digitale.",
+      "starterFeature1": "1 locație restaurant",
+      "starterFeature2": "Meniuri QR nelimitate",
+      "starterFeature3": "Gestionare de bază a meselor",
+      "starterFeature4": "Editor meniu + încărcare imagini",
+      "starterFeature5": "Generator cod QR",
+      "starterFeature6": "Suport prin email",
+      "proName": "Pro",
+      "proDesc": "Pentru restaurante în creștere care doresc analize, plăți și branding.",
+      "proFeature1": "Până la 3 locații",
+      "proFeature2": "Tot din Starter",
+      "proFeature3": "Panou de analize avansat",
+      "proFeature4": "Plăți Stripe Connect",
+      "proFeature5": "Program de loialitate (niveluri VIP)",
+      "proFeature6": "Sistem de afișare bucătărie",
+      "proFeature7": "Sistem POS pentru ospătari",
+      "proFeature8": "Studio branding + fonturi personalizate",
+      "proFeature9": "Multilingv (DeepL)",
+      "proFeature10": "Suport prioritar",
+      "enterpriseName": "Enterprise",
+      "enterpriseDesc": "Pentru grupuri de restaurante care au nevoie de scalare nelimitată și integrări personalizate.",
+      "enterpriseFeature1": "Locații nelimitate",
+      "enterpriseFeature2": "Tot din Pro",
+      "enterpriseFeature3": "Analize între locații",
+      "enterpriseFeature4": "Șabloane meniu și import în masă",
+      "enterpriseFeature5": "Integrări API personalizate",
+      "enterpriseFeature6": "Manager de cont dedicat",
+      "enterpriseFeature7": "SLA 99.9% disponibilitate",
+      "enterpriseFeature8": "Instruire și integrare personal",
+      "enterpriseFeature9": "Opțiune white-label",
+      "enterpriseFeature10": "Suport telefonic 24/7"
+    }
+  },
   "payments": {
     "title": "Istoric Plăți",
     "noPayments": "Nicio plată încă",

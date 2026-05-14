@@ -41,18 +41,16 @@ const Header: React.FC = () => {
         <nav className="px-4 sm:px-6 h-14 flex items-center justify-center gap-2">
           <ThemeToggle size="sm" />
 
-          {user && (
-            <select
-              value={i18n.language?.slice(0, 2) ?? 'bg'}
-              onChange={(e) => void i18n.changeLanguage(e.target.value)}
-              aria-label="Dashboard language"
-              className={pill}
-            >
-              {DASHBOARD_LANGUAGES.map((l) => (
-                <option key={l.code} value={l.code}>{l.label}</option>
-              ))}
-            </select>
-          )}
+          <select
+            value={i18n.language?.slice(0, 2) ?? 'bg'}
+            onChange={(e) => void i18n.changeLanguage(e.target.value)}
+            aria-label={t('publicMenu.selectLanguage') as string}
+            className={pill}
+          >
+            {DASHBOARD_LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code}>{l.label}</option>
+            ))}
+          </select>
 
           {user ? (
             <>

@@ -493,6 +493,124 @@
     "pleaseLogin": "Please sign in to view your profile.",
     "loginButton": "Sign In"
   },
+  "landing": {
+    "heroBadge": "The all-in-one restaurant platform",
+    "heroLine1": "Your menu,",
+    "heroWordAccent": "digitized",
+    "heroLine2": "your business, amplified",
+    "heroSubtext": "QR Menu gives restaurants a complete digital storefront — contactless ordering, live table management, kitchen display, payments, loyalty, and analytics. All in one platform. All in under 5 minutes.",
+    "startFreeTrial": "Start free trial",
+    "viewLiveDemo": "View live demo",
+    "featuresBadge": "Everything you need",
+    "featuresTitle": "One platform. Every feature.",
+    "featuresSubtitle": "From QR code scanning to payment processing — every tool your restaurant needs, built right in. No plugins, no integrations, no extra cost.",
+    "pricingBadge": "Demo preview — pricing not yet live",
+    "pricingTitle": "Simple, transparent pricing",
+    "pricingSubtitle": "Choose the plan that fits your restaurant. All plans include a 14-day free trial. No credit card required.",
+    "mostPopular": "Most Popular",
+    "getStarted": "Get Started",
+    "contactSales": "Contact Sales",
+    "bottomCtaTitle": "Ready to modernize your",
+    "bottomCtaWordAccent": "restaurant",
+    "bottomCtaSubtitle": "Join hundreds of restaurants already using QR Menu to serve faster, earn more, and delight customers.",
+    "bottomCtaButton": "Get started free",
+    "bottomCtaLogin": "Login to dashboard",
+    "footerRights": "QR Menu. All rights reserved.",
+    "overview": "Overview",
+    "orders": "Orders",
+    "analytics": "Analytics",
+    "tables": "Tables",
+    "settings": "Settings",
+    "revenue": "Revenue",
+    "ordersCount": "Orders",
+    "tablesActive": "Tables Active",
+    "table": "Table",
+    "statusNew": "NEW",
+    "features": {
+      "qrOrdering": {
+        "title": "QR Contactless Ordering",
+        "desc": "Customers scan a QR code on the table, browse a rich digital menu, and order instantly — no app download required."
+      },
+      "tableManagement": {
+        "title": "Real-time Table Management",
+        "desc": "Track every table status live. See who ordered what, manage occupancy, and close sessions with one tap."
+      },
+      "waiterPos": {
+        "title": "Waiter POS System",
+        "desc": "Full-viewport mobile Point-of-Sale for waiters. Seat-level ordering, split bills, and tableside payment collection."
+      },
+      "kitchenDisplay": {
+        "title": "Kitchen Display System",
+        "desc": "Live kanban board showing incoming orders, prep progress, and completed items. Kitchen stays in sync in real time."
+      },
+      "multiLanguage": {
+        "title": "Multi-language Menus",
+        "desc": "Automatic DeepL translation into English, Bulgarian, and Romanian. Customers browse in their preferred language."
+      },
+      "analytics": {
+        "title": "Smart Analytics",
+        "desc": "Revenue trends, peak hour heatmaps, top-selling items, and customer behavior insights — all in your local timezone."
+      },
+      "payments": {
+        "title": "Stripe Connect Payments",
+        "desc": "Accept card payments directly at the table. Customers tip, pay, and leave — all without flagging down a waiter."
+      },
+      "loyalty": {
+        "title": "Loyalty Program",
+        "desc": "VIP tiers with configurable multipliers, happy hour bonuses, and FIFO point ledger. Customers earn and redeem seamlessly."
+      },
+      "branding": {
+        "title": "Branding Studio",
+        "desc": "Custom accent colors, Google Fonts picker, logo upload, and WCAG contrast validator. Your menu, your brand."
+      },
+      "staffAccess": {
+        "title": "Staff Access Control",
+        "desc": "Assign Owner, Manager, Waiter, or Kitchen roles. PIN-based login for shared devices. Fine-grained permission matrix."
+      },
+      "feedback": {
+        "title": "Customer Feedback",
+        "desc": "Collect reviews after each visit, filter by rating, and redirect happy customers to your Google review page."
+      },
+      "menuImport": {
+        "title": "Menu Import & Export",
+        "desc": "Bulk-import menu items from structured files. Export for backup, cross-location cloning, or offline editing."
+      }
+    },
+    "tiers": {
+      "starterName": "Starter",
+      "starterDesc": "Perfect for a single restaurant getting started with digital menus.",
+      "starterFeature1": "1 restaurant location",
+      "starterFeature2": "Unlimited QR menus",
+      "starterFeature3": "Basic table management",
+      "starterFeature4": "Menu builder + image upload",
+      "starterFeature5": "QR code generator",
+      "starterFeature6": "Email support",
+      "proName": "Pro",
+      "proDesc": "For growing restaurants that want analytics, payments, and branding.",
+      "proFeature1": "Up to 3 locations",
+      "proFeature2": "Everything in Starter",
+      "proFeature3": "Advanced analytics dashboard",
+      "proFeature4": "Stripe Connect payments",
+      "proFeature5": "Loyalty program (VIP tiers)",
+      "proFeature6": "Kitchen Display System",
+      "proFeature7": "Waiter POS system",
+      "proFeature8": "Branding studio + custom fonts",
+      "proFeature9": "Multi-language (DeepL)",
+      "proFeature10": "Priority support",
+      "enterpriseName": "Enterprise",
+      "enterpriseDesc": "For restaurant groups needing unlimited scale and custom integrations.",
+      "enterpriseFeature1": "Unlimited locations",
+      "enterpriseFeature2": "Everything in Pro",
+      "enterpriseFeature3": "Cross-location analytics",
+      "enterpriseFeature4": "Menu templates & bulk import",
+      "enterpriseFeature5": "Custom API integrations",
+      "enterpriseFeature6": "Dedicated account manager",
+      "enterpriseFeature7": "99.9% uptime SLA",
+      "enterpriseFeature8": "Staff training & onboarding",
+      "enterpriseFeature9": "White-label option",
+      "enterpriseFeature10": "24/7 phone support"
+    }
+  },
   "payments": {
     "title": "Payment History",
     "noPayments": "No payments yet",
