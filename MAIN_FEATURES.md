@@ -2,7 +2,7 @@
 
 > **Prepared for:** Fortune 500 Acquisition Review
 > **Date:** May 15, 2026 (audited — all sections verified against codebase)
-> **Product Status:** V2.5 Shipped | V3 Growth — Phase 19 (Stripe/OCR/POS) Complete, Phase 18 (Staff Roles & RBAC) Complete | Security Hardening Phase 21 Complete | Public Menu Mobile UX Complete (TopBar, FilterPanel, dual currency, horizontal cards) | Code Review & Bug Fixes Complete (PR#3, Toggle, payments investigation) | KDS (Kitchen Display) Live at /staff/kitchen | SaaS Subscription Spec Ready
+> **Product Status:** V2.5 Shipped | V3 Growth — Phase 19 (Stripe/OCR/POS) Complete, Phase 18 (Staff Roles & RBAC) Complete | Security Hardening Phase 21 Complete | Public Menu Mobile UX Complete (TopBar, FilterPanel, dual currency, horizontal cards) | Code Review & Bug Fixes Complete (PR#3, Toggle, payments investigation) | Security & Bug Fixes Complete (CORS, magic-link removal, loyalty emails, CSV export, TS strict mode) | KDS (Kitchen Display) Live at /staff/kitchen | SaaS Subscription Spec Ready
 > **Codebase:** 100+ frontend source files, 16 backend modules, 15 database models, ~200 i18n keys across 3 languages
 
 ---
@@ -1193,6 +1193,56 @@ Items without notes appear as name only. Quantities > 1 append ` xN`.
 - BGN conversion: 1.95583 rate applied to EUR cent integer before formatting
 
 **Dependencies:** Lucide React, Tailwind CSS 4, i18next, existing ThemeToggle + CartIcon + TableContext
+
+---
+
+### 3.24 Security & Bug Fixes (May 15, 2026)
+
+**What it does:** Six targeted fixes addressing a security vulnerability, dead code with a token-leak, a silent no-op cron, an incomplete CSV export, missing TypeScript strict checks, and two frontend correctness bugs.
+
+**Fixes:**
+
+**Socket.io CORS wildcard (`events.gateway.ts`):**
+- Before: `cors: { origin: '*' }` — any webpage could subscribe to `restaurant:*` and `order:*` socket events
+- After: `cors: { origin: process.env.FRONTEND_URL || 'http://localhost:3001', credentials: true }`
+- Impact: real-time order, table, and payment events now restricted to the configured frontend origin
+
+**Magic-link endpoint removed (`auth.controller.ts`, `auth.service.ts`):**
+- `POST /auth/magic-link` endpoint deleted — zero frontend callers since OTP auth shipped May 6
+- `sendMagicLink()` service method deleted — it leaked a signed JWT in both the response body (`{ link }`) and `console.log`, bypassing httpOnly cookie security
+- Current customer login flow: Email OTP via `POST /auth/otp/send` + `POST /auth/otp/verify`
+
+**Loyalty expiry reminder emails (`loyalty.service.ts`):**
+- `runDailyExpiryReminders()` cron was marking point batches as "reminder sent" in DB but never actually sending any email — the TODO block was never filled in
+- Now sends per-candidate email via Resend REST API (same pattern as OTP emails): subject, plain text, and HTML body with points count and restaurant name
+- Dev fallback: `logger.log` when `RESEND_API_KEY` not set
+- Errors per-candidate caught and logged — one bad email doesn't abort the whole restaurant's batch
+
+**Analytics CSV export (`AnalyticsView.tsx`):**
+- `handleExportCSV()` exported summary + revenue trend + top items but skipped `peakHours` and `categoryBreakdown`
+- Both sections now appended: "Peak Hours;Orders" and "Category;Revenue" with the same semicolon delimiter and UTF-8 BOM as the rest of the export
+
+**TypeScript strict mode (`apps/backend/tsconfig.json`):**
+- `strictNullChecks: false` → `true`
+- `noImplicitAny: false` → `true`
+- Errors fixed across 18 files: `@Request() req: any` on NestJS controller params, nullish coalescing on pagination `page ?? 1` / `limit ?? 10`, null guard on `dbItem` in orders service, explicit type on `itemsData` array, `import request from 'supertest'` fix in e2e specs
+
+**CategoryPills auto-scroll (`CategoryPills.tsx`):**
+- Active category pill was not scrolling into view when category changed programmatically
+- Added `useRef` map of pill elements + `useEffect` calling `scrollIntoView({ behavior: 'smooth', inline: 'center' })` on `activeCategory` change
+
+**ItemWithOptions BGN price conversion (`ItemWithOptions.tsx`):**
+- If `item.currency === 'BGN'`, price was passed directly to `formatInlineDual` which applies the BGN rate again — double conversion
+- Fix: `const priceEuro = item.currency === 'BGN' ? item.price / BGN_RATE : item.price` before formatting, always pass `'EUR'` to `formatInlineDual`
+
+**Key files:**
+- `apps/backend/src/events/events.gateway.ts`
+- `apps/backend/src/auth/auth.controller.ts`, `auth.service.ts`
+- `apps/backend/src/loyalty/loyalty.service.ts`
+- `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx`
+- `apps/backend/tsconfig.json` (+ 17 backend source files)
+- `apps/frontend/src/components/menu/CategoryPills.tsx`
+- `apps/frontend/src/components/menu/ItemWithOptions.tsx`
 
 ## 4. Data Model
 
