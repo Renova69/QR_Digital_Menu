@@ -168,10 +168,13 @@ export class OrdersService {
     // 6. Pre-calculate totals server-side (never trust client prices)
     let computedTotal = 0;
     let itemsPointsRedeemed = 0;
-    const itemsData = [];
+    const itemsData: { menuItemId: string; quantity: number; selectedOptions: any[] }[] = [];
 
     for (const item of createOrderDto.items) {
       const dbItem = itemsMap.get(item.menuItemId);
+      if (!dbItem) {
+        throw new BadRequestException(`Menu item not found: ${item.menuItemId}`);
+      }
       let itemPrice = dbItem.price;
 
       const isRedeemedFree =
@@ -179,7 +182,7 @@ export class OrdersService {
         dbItem.rewardPointsPrice;
 
       if (isRedeemedFree) {
-        itemsPointsRedeemed += dbItem.rewardPointsPrice * item.quantity;
+        itemsPointsRedeemed += (dbItem.rewardPointsPrice ?? 0) * item.quantity;
         itemPrice = 0;
       }
 
@@ -381,8 +384,8 @@ export class OrdersService {
   }
 
   async findAll(userId: string, pagination: PaginationDto) {
-    const page = Number.isFinite(pagination.page) ? pagination.page : 1;
-    const limit = Number.isFinite(pagination.limit) ? pagination.limit : 50;
+    const page = Number.isFinite(pagination.page) ? (pagination.page ?? 1) : 1;
+    const limit = Number.isFinite(pagination.limit) ? (pagination.limit ?? 50) : 50;
     const skip = (page - 1) * limit;
 
     // Allow both owner and staff to see orders

@@ -23,7 +23,7 @@ export class MenuOptionController {
   create(
     @Param('itemId') itemId: string,
     @Body(ValidationPipe) createMenuOptionDto: CreateMenuOptionDto,
-    @Request() req,
+    @Request() req: any,
   ) {
     return this.crud.createMenuOption(
       itemId,
@@ -42,7 +42,7 @@ export class MenuOptionDetailController {
   update(
     @Param('id') id: string,
     @Body(ValidationPipe) updateMenuOptionDto: UpdateMenuOptionDto,
-    @Request() req,
+    @Request() req: any,
   ) {
     return this.crud.updateMenuOption(
       id,
@@ -52,7 +52,7 @@ export class MenuOptionDetailController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Request() req) {
+  remove(@Param('id') id: string, @Request() req: any) {
     return this.crud.removeMenuOption(id, req.user.id);
   }
 }

@@ -22,7 +22,7 @@ export class TablesController {
   create(
     @Param('restaurantId') restaurantId: string,
     @Body() createTableDto: CreateTableDto,
-    @Request() req,
+    @Request() req: any,
   ) {
     return this.tablesService.create(restaurantId, createTableDto, req.user.id);
   }
@@ -49,7 +49,7 @@ export class TablesController {
 
   @UseGuards(JwtAuthGuard)
   @Delete('tables/:id')
-  remove(@Param('id') id: string, @Request() req) {
+  remove(@Param('id') id: string, @Request() req: any) {
     return this.tablesService.remove(id, req.user.id);
   }
 }
