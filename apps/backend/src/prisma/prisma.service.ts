@@ -1,15 +1,20 @@
 import { INestApplication, Injectable, OnModuleInit, Logger } from '@nestjs/common';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import {
+  PrismaClientKnownRequestError,
+  PrismaClientInitializationError,
+  PrismaClientRustPanicError,
+} from '@prisma/client/runtime/library';
 import { setTimeout as sleep } from 'timers/promises';
 
 // Prisma error codes that are transient (connection/timeout) — safe to retry
 const TRANSIENT_CODES = new Set(['P1001', 'P1002', 'P1008', 'P1017', 'P2024', 'P1012']);
 
 function isTransient(err: unknown): boolean {
-  return err instanceof Prisma.PrismaClientKnownRequestError
-    ? TRANSIENT_CODES.has(err.code)
-    : err instanceof Prisma.PrismaClientInitializationError ||
-      err instanceof Prisma.PrismaClientRustPanicError;
+  if (err instanceof PrismaClientKnownRequestError) {
+    return TRANSIENT_CODES.has(err.code);
+  }
+  return err instanceof PrismaClientInitializationError || err instanceof PrismaClientRustPanicError;
 }
 
 function jitteredDelay(attempt: number, baseMs = 500, maxMs = 30_000): number {
