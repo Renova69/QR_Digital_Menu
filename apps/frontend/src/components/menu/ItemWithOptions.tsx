@@ -4,7 +4,7 @@ import { Item, OptionChoice } from '../../types';
 import { useCart } from '../../context/CartContext';
 import { useTranslation } from 'react-i18next';
 import { ImageLightbox } from './ImageLightbox';
-import { formatInlineDual } from '../../lib/currency';
+import { formatInlineDual, BGN_RATE } from '../../lib/currency';
 import { getImageUrl as resolveImageUrl } from '../../lib/getImageUrl';
 import { getTranslatedField, getTranslatedArray } from '../../lib/translation';
 
@@ -34,8 +34,8 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
         }>;
     } | null>(null);
     const { t, i18n } = useTranslation();
-
     const currentLang = i18n.language;
+    const priceEuro = item.currency === 'BGN' ? item.price / BGN_RATE : item.price;
     const itemName = getTranslatedField(item, currentLang, 'name') || item.name;
     const itemDesc = getTranslatedField(item, currentLang, 'description') || item.description;
 
@@ -184,7 +184,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                             className="font-serif font-black text-lg whitespace-nowrap shrink-0"
                             style={{ color: 'var(--theme-text, inherit)', fontFamily: 'var(--font-body, inherit)' }}
                         >
-                            {formatInlineDual(item.price, item.currency)}
+                            {formatInlineDual(priceEuro, 'EUR')}
                         </span>
                     </div>
 

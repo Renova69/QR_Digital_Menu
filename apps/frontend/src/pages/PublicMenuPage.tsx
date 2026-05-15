@@ -415,10 +415,16 @@ const PublicMenuPage = () => {
 
                             if (searchQuery.trim()) {
                               const q = searchQuery.toLowerCase();
-                              items = items.filter((item: any) =>
-                                item.name.toLowerCase().includes(q) ||
-                                (item.description ?? '').toLowerCase().includes(q),
-                              );
+                              items = items.filter((item: any) => {
+                                if (item.name.toLowerCase().includes(q)) return true;
+                                if ((item.description ?? '').toLowerCase().includes(q)) return true;
+                                if (selectedLang && item.translations?.[selectedLang]) {
+                                  const t = item.translations[selectedLang];
+                                  if ((t.name ?? '').toLowerCase().includes(q)) return true;
+                                  if ((t.description ?? '').toLowerCase().includes(q)) return true;
+                                }
+                                return false;
+                              });
                             }
 
                             if (activeDietTags.length > 0) {
