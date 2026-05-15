@@ -12,7 +12,8 @@ import { Logger } from '@nestjs/common';
 
 @WebSocketGateway({
   cors: {
-    origin: '*', // Allows connecting from any frontend port in dev
+    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+    credentials: true,
   },
 })
 export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
