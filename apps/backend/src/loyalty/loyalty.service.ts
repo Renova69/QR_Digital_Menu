@@ -461,10 +461,43 @@ export class LoyaltyService {
         });
 
         if (candidates.length > 0) {
-          // TODO: call your email/push service here, e.g.:
-          // await this.emailService.sendExpiryReminders(candidates);
+          const resendKey = process.env.RESEND_API_KEY;
+          const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com';
+
+          for (const candidate of candidates) {
+            if (!candidate.user.email) continue;
+
+            if (resendKey) {
+              try {
+                await fetch('https://api.resend.com/emails', {
+                  method: 'POST',
+                  headers: {
+                    Authorization: `Bearer ${resendKey}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    from: fromEmail,
+                    to: [candidate.user.email],
+                    subject: `Your loyalty points at ${candidate.restaurantName} are expiring soon`,
+                    text: `Hi ${candidate.user.name || 'there'},\n\nYou have ${candidate.points} loyalty points at ${candidate.restaurantName} that will expire soon.\n\nVisit us before they expire to redeem them!\n\nThe ${candidate.restaurantName} team`,
+                    html: `<p style="font-family:sans-serif">Hi ${candidate.user.name || 'there'},</p><p style="font-family:sans-serif">You have <strong>${candidate.points} loyalty points</strong> at <strong>${candidate.restaurantName}</strong> that will expire soon.</p><p style="font-family:sans-serif">Visit us before they expire to redeem them!</p><p style="font-family:sans-serif">The ${candidate.restaurantName} team</p>`,
+                  }),
+                });
+              } catch (emailErr) {
+                this.logger.error(
+                  `Failed to send expiry reminder to ${candidate.user.email}`,
+                  emailErr,
+                );
+              }
+            } else {
+              this.logger.log(
+                `[DEV] Expiry reminder for ${candidate.user.email}: ${candidate.points} pts at ${candidate.restaurantName}`,
+              );
+            }
+          }
+
           this.logger.log(
-            `[${restaurant.name}] ${candidates.length} expiry reminders marked as sent`,
+            `[${restaurant.name}] ${candidates.length} expiry reminders sent`,
           );
         }
       } catch (err) {

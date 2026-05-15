@@ -79,7 +79,7 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({ children
         ['MANAGER', 'WAITER', 'KITCHEN', 'STAFF'].includes(role || '');
 
       if (isAssignedStaff) {
-        const restaurant = await getRestaurantById(user.restaurantId);
+        const restaurant = await getRestaurantById(user.restaurantId!);
         setRestaurants([restaurant]);
         setActiveRestaurant(restaurant);
         return;

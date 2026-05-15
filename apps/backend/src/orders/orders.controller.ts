@@ -30,14 +30,14 @@ export class OrdersController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  findAll(@Request() req, @Query() pagination: PaginationDto) {
+  findAll(@Request() req: any, @Query() pagination: PaginationDto) {
     this.logger.log(`GET /orders for user ${req.user?.id}`);
     return this.ordersService.findAll(req.user.id, pagination);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string, @Request() req) {
+  findOne(@Param('id') id: string, @Request() req: any) {
     return this.ordersService.findOne(id, req.user.id);
   }
 
@@ -46,7 +46,7 @@ export class OrdersController {
   update(
     @Param('id') id: string,
     @Body() updateOrderDto: UpdateOrderDto,
-    @Request() req,
+    @Request() req: any,
   ) {
     return this.ordersService.updateStatus(id, updateOrderDto, req.user.id);
   }

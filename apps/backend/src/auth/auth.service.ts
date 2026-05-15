@@ -102,36 +102,6 @@ export class AuthService {
     };
   }
 
-  async sendMagicLink(email: string, returnTo?: string) {
-    let user = await this.usersService.findByEmail(email);
-
-    if (!user) {
-      const generatedPassword = await bcrypt.hash(
-        Math.random().toString(36).slice(-8),
-        10,
-      );
-      user = await this.usersService.create({
-        email,
-        password: generatedPassword,
-        role: 'CUSTOMER' as any,
-      });
-    }
-
-    const payload = { email: user.email, sub: user.id };
-    const token = this.jwtService.sign(payload, { expiresIn: '15m' });
-
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
-    let link = `${frontendUrl}/auth/callback?token=${token}`;
-    if (returnTo) {
-      link += `&returnTo=${encodeURIComponent(returnTo)}`;
-    }
-
-    console.log(`\n\n🔗 MAGIC LINK FOR ${email}:`);
-    console.log(`${link}\n\n`);
-
-    return { success: true, message: 'Magic link generated in console', link };
-  }
-
   // ── helpers ──────────────────────────────────────────────────────────
   private get twilioConfigured() {
     return !!(

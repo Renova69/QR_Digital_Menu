@@ -7,21 +7,17 @@ import { useCart } from "../context/CartContext";
 import { Button } from "../components/ui/button";
 import CartIcon from "../components/cart/CartIcon";
 import { ItemWithOptions } from "../components/menu/ItemWithOptions";
-import { Bell, Globe, LogOut, ChevronDown, UserCircle } from "lucide-react";
+import { Bell, LogOut, UserCircle } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircleCheck } from "@fortawesome/free-solid-svg-icons";
 import { useTranslation } from "react-i18next";
-import { ThemeToggle } from "../components/ui/ThemeToggle";
+import { TopBar } from "../components/menu/TopBar";
+import { FilterPanel } from "../components/menu/FilterPanel";
 import { TrendingCarousel } from "../components/menu/TrendingCarousel";
+import { CategoryPills } from "../components/menu/CategoryPills";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { useAuth } from "../context/AuthContext";
-
-const LANG_LABELS: Record<string, string> = {
-  en: "English", bg: "Български", ro: "Română", de: "Deutsch",
-  es: "Español", fr: "Français", it: "Italiano", zh: "中文",
-  el: "Ελληνικά", ja: "日本語", ru: "Русский", ar: "العربية",
-};
-
+import { getImageUrl } from "../lib/getImageUrl";
 const PublicMenuPage = () => {
   const { restaurantId } = useParams<{ restaurantId: string }>();
   const location = useLocation();
@@ -48,10 +44,25 @@ const PublicMenuPage = () => {
   const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [activeDietTags, setActiveDietTags] = useState<string[]>([]);
+  const [excludedAllergens, setExcludedAllergens] = useState<string[]>([]);
+
+  const toggleDietTag = (tag: string) => {
+    setActiveDietTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+    );
+  };
+
+  const toggleAllergen = (allergen: string) => {
+    setExcludedAllergens((prev) =>
+      prev.includes(allergen) ? prev.filter((a) => a !== allergen) : [...prev, allergen],
+    );
+  };
 
   const categoryRefs = useRef<Record<string, HTMLElement | null>>({});
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -166,21 +177,6 @@ const PublicMenuPage = () => {
       });
     }
   }, [menuData?.restaurant]);
-
-  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    setSelectedLang(val);
-    i18n.changeLanguage(val);
-  };
-
-  const getImageUrl = (url: string) => {
-    if (url.startsWith("http")) return url;
-    const apiUrl =
-      (import.meta as any).env.VITE_API_URL || "http://localhost:3000/api";
-    const baseUrl = apiUrl.replace("/api", "");
-    return `${baseUrl}/${url}`;
-  };
-
   const handleAssistanceRequest = async () => {
     if (!tableNumber) {
       setNoTableNotice(true);
@@ -276,29 +272,17 @@ const PublicMenuPage = () => {
       </div>
 
       <div className="relative z-10 container mx-auto px-4 max-w-4xl">
-        {tableNumber ? (
-          <div className="glass-panel border-l-4 border-accent px-4 py-3 mb-10 rounded-[1.5rem] flex justify-between items-center animate-in fade-in slide-in-from-top-4 duration-700">
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 bg-accent rounded-full animate-pulse shadow-[0_0_10px_var(--color-accent)]"></div>
-              <p className="font-black tracking-[0.08em] text-xs uppercase opacity-70">
-                {t("publicMenu.viewingTable", { tableNumber })}
-              </p>
-            </div>
-            <ThemeToggle
-              size="sm"
-              storageKey={restaurantId ? `theme-${restaurantId}` : 'theme'}
-              defaultTheme={(restaurantTheme?.defaultTheme as 'light' | 'dark') ?? 'light'}
-            />
-          </div>
-        ) : (
-          <div className="flex justify-end mb-6 animate-in fade-in duration-700">
-            <ThemeToggle
-              size="sm"
-              storageKey={restaurantId ? `theme-${restaurantId}` : 'theme'}
-              defaultTheme={(restaurantTheme?.defaultTheme as 'light' | 'dark') ?? 'light'}
-            />
-          </div>
-        )}
+        <TopBar
+          tableNumber={tableNumber}
+          targetLanguages={menuData?.restaurant?.targetLanguages ?? []}
+          selectedLang={selectedLang}
+          onLanguageChange={(code) => { setSelectedLang(code); i18n.changeLanguage(code); }}
+          restaurantId={restaurantId}
+          defaultTheme={(restaurantTheme?.defaultTheme as 'light' | 'dark') ?? 'light'}
+          onFilterClick={() => setFilterDrawerOpen(true)}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+        />
 
         {assistanceSent && (
           <div className="glass-panel border-l-4 border-emerald-500 text-emerald-600 dark:text-emerald-400 p-4 mb-8 rounded-2xl shadow-xl animate-in zoom-in-95 duration-300">
@@ -310,7 +294,7 @@ const PublicMenuPage = () => {
           <div className="flex flex-col items-center justify-center py-32 space-y-4">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent"></div>
             <p className="text-muted-foreground font-medium opacity-60">
-              Preparing your menu...
+              {t("publicMenu.preparingMenu", "Preparing your menu...")}
             </p>
           </div>
         )}
@@ -319,82 +303,20 @@ const PublicMenuPage = () => {
           <div className="glass-panel border-t-4 border-destructive p-12 rounded-[2.5rem] shadow-2xl mb-8 text-center animate-in fade-in duration-500">
             <h3 className="text-2xl font-serif font-bold mb-4">{error}</h3>
             <p className="text-muted-foreground mb-6">
-              Please check the link or ask staff for assistance.
+              {t("publicMenu.checkLink", "Please check the link or ask staff for assistance.")}
             </p>
             <Button
               onClick={() => window.location.reload()}
               variant="outline"
               className="rounded-xl"
             >
-              Try Again
+              {t("publicMenu.tryAgain", "Try Again")}
             </Button>
           </div>
         )}
 
         {!loading && !error && menuData && (
           <>
-            <div className="mb-10 md:mb-20 pt-8 text-center animate-in fade-in slide-in-from-bottom-8 duration-1000">
-              <div className="inline-block p-1 bg-gradient-to-tr from-accent/20 to-transparent rounded-[3.2rem] mb-6 md:mb-10 shadow-2xl">
-                <div className="p-5 md:p-8 rounded-[3rem] bg-white shadow-xl border border-black/5">
-                  {menuData.restaurant?.logoUrl ? (
-                    <img
-                      src={
-                        menuData.restaurant.logoUrl.startsWith("http")
-                          ? menuData.restaurant.logoUrl
-                          : `${((import.meta as any).env.VITE_API_URL || "http://localhost:3000/api").replace("/api", "")}/${menuData.restaurant.logoUrl}`
-                      }
-                      alt={`${menuData.restaurant?.name ?? ''} logo`}
-                      className="max-h-28 mx-auto object-contain drop-shadow-2xl"
-                    />
-                  ) : (
-                    <div className="w-24 h-24 bg-accent/10 rounded-full flex items-center justify-center border border-accent/20">
-                      <span className="text-5xl font-serif font-black text-accent">
-                        {menuData.restaurant?.name?.[0]}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <h1
-                className="text-5xl md:text-8xl font-serif font-black tracking-tighter mb-4 md:mb-6 text-foreground leading-[0.9] text-glow"
-                style={{
-                  fontFamily: "var(--font-heading, inherit)",
-                }}
-              >
-                {menuData.restaurant?.name}
-              </h1>
-
-              {(menuData.restaurant?.targetLanguages?.length ?? 0) > 0 && (
-              <div className="inline-flex items-center gap-4 p-1.5 glass-panel rounded-2xl shadow-xl overflow-hidden">
-                <div className="pl-4 pr-2 flex items-center gap-2 border-r border-white/10 dark:border-white/5">
-                  <Globe className="w-3.5 h-3.5 text-accent" aria-hidden="true" />
-                  <span className="text-xs font-black uppercase tracking-[0.15em] text-muted-foreground whitespace-nowrap">
-                    {t("publicMenu.language", "Language")}
-                  </span>
-                </div>
-                <label htmlFor="lang-select" className="sr-only">{t("publicMenu.selectLanguage", "Select language")}</label>
-                <div className="relative flex items-center pr-2">
-                  <select
-                    id="lang-select"
-                    value={selectedLang}
-                    onChange={handleLanguageChange}
-                    className="bg-transparent border-none text-foreground font-black text-xs uppercase tracking-widest focus:ring-0 cursor-pointer outline-none appearance-none pr-6 py-2 min-w-[80px]"
-                  >
-                    {(menuData.restaurant.targetLanguages as string[]).map((code) => (
-                      <option key={code} value={code} className="bg-white dark:bg-zinc-950 text-black dark:text-white">
-                        {LANG_LABELS[code] ?? code.toUpperCase()}
-                      </option>
-                    ))}
-                  </select>
-                  <svg className="absolute right-0 w-3 h-3 text-muted-foreground pointer-events-none" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-              </div>
-              )}
-            </div>
-
             {menuData.categories.length === 0 ? (
               <div className="text-center glass-panel p-20 rounded-[3rem] mt-8">
                 <p className="text-2xl font-serif font-bold opacity-30">
@@ -415,106 +337,26 @@ const PublicMenuPage = () => {
                   </div>
                 )}
 
-                {/* Dietary / Allergen Filters */}
-                {dietTags.length > 0 && (
-                  <div className="mt-8 flex flex-wrap items-center gap-2 justify-center">
-                    <button
-                      onClick={() => setActiveFilter(null)}
-                      className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
-                        activeFilter === null
-                          ? 'bg-foreground text-background shadow-lg'
-                          : 'glass-panel text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {t('publicMenu.all', 'All')}
-                    </button>
-                    {dietTags.map(({ tag, count }) => (
-                      <button
-                        key={tag}
-                        onClick={() =>
-                          setActiveFilter(activeFilter === tag ? null : tag)
-                        }
-                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all active:scale-95 ${
-                          activeFilter === tag
-                            ? 'bg-foreground text-background shadow-lg'
-                            : 'glass-panel text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        {tag}
-                        <span className="ml-1.5 opacity-50">{count}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {/* Filter Panel */}
+                <FilterPanel
+                  isOpen={filterDrawerOpen}
+                  onClose={() => setFilterDrawerOpen(false)}
+                  dietTags={dietTags}
+                  activeDietTags={activeDietTags}
+                  onDietTagToggle={toggleDietTag}
+                  excludedAllergens={excludedAllergens}
+                  onAllergenToggle={toggleAllergen}
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                />
 
-                {/* Premium Sticky Navigation */}
-                <div className="sticky top-4 md:top-6 z-40 mb-10 md:mb-20 px-2 lg:px-0">
-                  {/* Desktop view: Horizontal scrolling pills */}
-                  <div className="hidden md:flex glass-panel p-2 rounded-[2rem] overflow-x-auto hide-scrollbar gap-2 border-white/10 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.4)]">
-                    {menuData.categories.map((cat: any) => {
-                      const catName =
-                        (selectedLang &&
-                          cat.translations &&
-                          cat.translations[selectedLang]?.name) ||
-                        cat.name;
-                      return (
-                        <button
-                          key={`nav-${cat.id}`}
-                          onClick={() => scrollToCategory(cat.id)}
-                          data-active={activeCategory === cat.id}
-                          className="whitespace-nowrap px-8 py-3.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-300 active:scale-95 hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer hover:text-foreground
-                                                  data-[active=true]:shadow-[0_10px_25px_-5px_var(--color-primary)] text-muted-foreground"
-                          style={
-                            activeCategory === cat.id
-                              ? {
-                                  backgroundColor: "var(--color-foreground)",
-                                  color: "var(--color-background)",
-                                }
-                              : {}
-                          }
-                        >
-                          {catName}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Mobile view: Native select dropdown overlay for better UX */}
-                  <div className="md:hidden relative w-full shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.4)] rounded-[1.5rem]">
-                    <select
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                      value={activeCategory || ""}
-                      onChange={(e) => scrollToCategory(e.target.value)}
-                      aria-label="Select Category"
-                    >
-                      {menuData.categories.map((cat: any) => {
-                        const catName =
-                          (selectedLang &&
-                            cat.translations &&
-                            cat.translations[selectedLang]?.name) ||
-                          cat.name;
-                        return (
-                          <option key={`opt-${cat.id}`} value={cat.id} className="text-base text-black">
-                            {catName}
-                          </option>
-                        );
-                      })}
-                    </select>
-                    <div className="glass-panel p-4 px-6 rounded-[1.5rem] flex items-center justify-between pointer-events-none relative z-0">
-                      <span className="font-black uppercase tracking-widest text-xs text-foreground truncate mr-4">
-                        {(() => {
-                          if (!activeCategory) return "Menu";
-                          const activeCat = menuData.categories.find((c: any) => c.id === activeCategory);
-                          if (!activeCat) return "Menu";
-                          return (selectedLang && activeCat.translations && activeCat.translations[selectedLang]?.name) || activeCat.name;
-                        })()}
-                      </span>
-                      <div className="flex-shrink-0 bg-black/5 dark:bg-white/5 p-2 rounded-full">
-                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                {/* Category Horizontal Scroll Pills */}
+                <CategoryPills
+                  categories={menuData.categories}
+                  activeCategory={activeCategory}
+                  selectedLang={selectedLang}
+                  onSelect={scrollToCategory}
+                />
 
                 <div className="space-y-14 md:space-y-24">
                   {menuData.categories.map((category: any) => {
@@ -568,10 +410,43 @@ const PublicMenuPage = () => {
                         )}
 
                         {(() => {
-                          const filteredItems = activeFilter
-                            ? category.items.filter((item: any) =>
-                                [...(item.allergens ?? []), ...(item.dietaryTags ?? [])].includes(activeFilter))
-                            : category.items;
+                          const filteredItems = (() => {
+                            let items = category.items;
+
+                            if (searchQuery.trim()) {
+                              const q = searchQuery.toLowerCase();
+                              items = items.filter((item: any) => {
+                                if (item.name.toLowerCase().includes(q)) return true;
+                                if ((item.description ?? '').toLowerCase().includes(q)) return true;
+                                if (selectedLang && item.translations?.[selectedLang]) {
+                                  const t = item.translations[selectedLang];
+                                  if ((t.name ?? '').toLowerCase().includes(q)) return true;
+                                  if ((t.description ?? '').toLowerCase().includes(q)) return true;
+                                }
+                                return false;
+                              });
+                            }
+
+                            if (activeDietTags.length > 0) {
+                              items = items.filter((item: any) =>
+                                activeDietTags.every((tag) =>
+                                  [...(item.allergens ?? []), ...(item.dietaryTags ?? [])].includes(tag),
+                                ),
+                              );
+                            }
+
+                            if (excludedAllergens.length > 0) {
+                              items = items.filter((item: any) =>
+                                !excludedAllergens.some((allergen) =>
+                                  (item.allergens ?? []).some(
+                                    (a: string) => a.toLowerCase() === allergen.toLowerCase(),
+                                  ),
+                                ),
+                              );
+                            }
+
+                            return items;
+                          })();
 
                           if (filteredItems.length === 0) {
                             return (
@@ -640,79 +515,73 @@ const PublicMenuPage = () => {
           </div>
         )}
 
-        {/* Action Bar */}
+        {/* Action Bar — regrouped: profile/waiter left, cart/bill right */}
         <div
           className="fixed left-0 right-0 z-50 flex justify-center pointer-events-none px-4 md:px-6"
           style={{ bottom: 'max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))' }}
         >
           <div className="flex items-center w-full max-w-[480px] justify-between p-1.5 md:p-2.5 glass-panel rounded-[2rem] md:rounded-[2.5rem] shadow-[0_30px_70px_-15px_rgba(0,0,0,0.5)] border-white/20 dark:border-white/10 pointer-events-auto bg-white/90 dark:bg-black/90">
-            {/* Call Waiter — icon only on mobile, icon+label on sm+ */}
-            <button
-              onClick={() => {
-                if (assistanceSent || assistanceLoading) return;
-                if (!tableNumber) { handleAssistanceRequest(); return; }
-                setIsAssistanceDialogOpen(true);
-              }}
-              disabled={assistanceSent || assistanceLoading}
-              aria-label={tableNumber ? t("publicMenu.callWaiter") : t("publicMenu.scanQrForAssistance", "Scan QR to call waiter")}
-              className="flex items-center gap-1.5 md:gap-4 pl-3 md:pl-8 pr-2 md:pr-6 py-3 md:py-4 rounded-[1.75rem] hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-60 disabled:cursor-not-allowed transition-all group flex-shrink-0 min-h-[48px]"
-            >
-              <div className="relative flex-shrink-0">
-                <Bell className="h-5 w-5 md:h-6 md:w-6 text-accent group-hover:scale-110 transition-transform" />
-                {tableNumber && !assistanceSent && (
-                  <div className="absolute -top-1 -right-1 w-2 h-2 md:w-2.5 md:h-2.5 bg-destructive rounded-full border-2 border-white dark:border-black" />
-                )}
-              </div>
-              <span className="hidden sm:block font-black text-xs uppercase tracking-[0.1em] text-foreground/90 truncate max-w-[90px]">
-                {assistanceSent
-                  ? t("publicMenu.staffNotifiedShort", "Staff Notified")
-                  : assistanceLoading
-                  ? t("publicMenu.calling", "Calling…")
-                  : t("publicMenu.callWaiter")}
-              </span>
-            </button>
-            <div className="w-px h-8 bg-border/40 mx-1 md:mx-2 flex-shrink-0" />
-
-            {user ? (
-              <div className="flex items-center gap-0.5 flex-shrink-0">
-                <button
-                  onClick={() =>
-                    navigate(
-                      `/profile?returnTo=${encodeURIComponent(
-                        location.pathname + location.search,
-                      )}`,
-                    )
-                  }
-                  aria-label={t("publicMenu.myProfile")}
-                  className="flex items-center justify-center p-2 min-h-[48px] hover:opacity-70 transition-opacity text-accent"
-                >
-                  <UserCircle className="w-6 h-6" />
-                </button>
-                <button
-                  onClick={() => logout()}
-                  aria-label={t("publicMenu.logout")}
-                  className="p-2 hover:opacity-70 transition-opacity"
-                >
-                  <LogOut className="w-4 h-4 text-muted-foreground" />
-                </button>
-              </div>
-            ) : (
+            {/* LEFT GROUP: Waiter + Profile/Sign-In */}
+            <div className="flex items-center gap-0.5">
+              {/* Call Waiter */}
               <button
-                onClick={() => setIsLoginModalOpen(true)}
-                className="flex items-center justify-center px-2.5 md:px-4 py-2 min-h-[44px] bg-secondary text-secondary-foreground rounded-xl text-xs font-black uppercase tracking-widest hover:bg-secondary/80 transition-colors flex-shrink-0"
+                onClick={() => {
+                  if (assistanceSent || assistanceLoading) return;
+                  if (!tableNumber) { handleAssistanceRequest(); return; }
+                  setIsAssistanceDialogOpen(true);
+                }}
+                disabled={assistanceSent || assistanceLoading}
+                aria-label={tableNumber ? t("publicMenu.callWaiter") : t("publicMenu.scanQrForAssistance", "Scan QR to call waiter")}
+                className="flex items-center justify-center p-2.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-60 disabled:cursor-not-allowed transition-all min-h-[44px] min-w-[44px]"
               >
-                {t("publicMenu.signIn", "Sign In")}
+                <div className="relative">
+                  <Bell className="h-5 w-5 text-accent" />
+                  {tableNumber && !assistanceSent && (
+                    <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-destructive rounded-full border-2 border-white dark:border-black" />
+                  )}
+                </div>
               </button>
-            )}
 
-            {/* Request Bill — divider only rendered when button is present */}
-            {sessionToken && (
-              <>
-                <div className="w-px h-8 bg-border/40 mx-1 md:mx-2 flex-shrink-0" />
+              {user ? (
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={() =>
+                      navigate(
+                        `/profile?returnTo=${encodeURIComponent(
+                          location.pathname + location.search,
+                        )}`,
+                      )
+                    }
+                    aria-label={t("publicMenu.myProfile")}
+                    className="flex items-center justify-center p-2.5 min-h-[44px] min-w-[44px] hover:opacity-70 transition-opacity text-accent"
+                  >
+                    <UserCircle className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => logout()}
+                    aria-label={t("publicMenu.logout")}
+                    className="p-2.5 hover:opacity-70 transition-opacity"
+                  >
+                    <LogOut className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsLoginModalOpen(true)}
+                  className="px-3 py-2 rounded-xl bg-secondary text-secondary-foreground text-[10px] font-black uppercase tracking-wider hover:bg-secondary/80 transition-colors"
+                >
+                  {t("publicMenu.signIn", "Sign In")}
+                </button>
+              )}
+            </div>
+
+            {/* RIGHT GROUP: Bill + Cart */}
+            <div className="flex items-center gap-0.5">
+              {sessionToken && (
                 <Button
                   variant="default"
                   size="sm"
-                  className="bg-accent text-accent-foreground flex-shrink-0 text-[11px] px-2.5 md:px-4"
+                  className="bg-accent text-accent-foreground text-[10px] px-3 py-2 rounded-xl font-bold"
                   onClick={async () => {
                     try {
                       await getSessionBill(sessionToken);
@@ -725,15 +594,14 @@ const PublicMenuPage = () => {
                 >
                   {t('payment.requestBill')}
                 </Button>
-              </>
-            )}
-            <div className="w-px h-8 bg-border/40 mx-1 md:mx-2 flex-shrink-0" />
-            <div className="pr-1.5 md:pr-4 flex-shrink-0">
-              <CartIcon
-                categories={menuData?.categories}
-                restaurantId={restaurantId}
-                selectedLang={selectedLang}
-              />
+              )}
+              <div className="flex-shrink-0">
+                <CartIcon
+                  categories={menuData?.categories}
+                  restaurantId={restaurantId}
+                  selectedLang={selectedLang}
+                />
+              </div>
             </div>
           </div>
         </div>
