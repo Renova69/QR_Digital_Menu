@@ -7,13 +7,14 @@ import { useCart } from "../context/CartContext";
 import { Button } from "../components/ui/button";
 import CartIcon from "../components/cart/CartIcon";
 import { ItemWithOptions } from "../components/menu/ItemWithOptions";
-import { Bell, LogOut, ChevronDown, UserCircle } from "lucide-react";
+import { Bell, LogOut, UserCircle } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircleCheck } from "@fortawesome/free-solid-svg-icons";
 import { useTranslation } from "react-i18next";
 import { TopBar } from "../components/menu/TopBar";
 import { FilterPanel } from "../components/menu/FilterPanel";
 import { TrendingCarousel } from "../components/menu/TrendingCarousel";
+import { CategoryPills } from "../components/menu/CategoryPills";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { useAuth } from "../context/AuthContext";
 
@@ -370,74 +371,13 @@ const PublicMenuPage = () => {
                   onSearchChange={setSearchQuery}
                 />
 
-                {/* Premium Sticky Navigation */}
-                <div className="sticky top-4 md:top-6 z-40 mb-10 md:mb-20 px-2 lg:px-0">
-                  {/* Desktop view: Horizontal scrolling pills */}
-                  <div className="hidden md:flex glass-panel p-2 rounded-[2rem] overflow-x-auto hide-scrollbar gap-2 border-white/10 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.4)]">
-                    {menuData.categories.map((cat: any) => {
-                      const catName =
-                        (selectedLang &&
-                          cat.translations &&
-                          cat.translations[selectedLang]?.name) ||
-                        cat.name;
-                      return (
-                        <button
-                          key={`nav-${cat.id}`}
-                          onClick={() => scrollToCategory(cat.id)}
-                          data-active={activeCategory === cat.id}
-                          className="whitespace-nowrap px-8 py-3.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-300 active:scale-95 hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer hover:text-foreground
-                                                  data-[active=true]:shadow-[0_10px_25px_-5px_var(--color-primary)] text-muted-foreground"
-                          style={
-                            activeCategory === cat.id
-                              ? {
-                                  backgroundColor: "var(--color-foreground)",
-                                  color: "var(--color-background)",
-                                }
-                              : {}
-                          }
-                        >
-                          {catName}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Mobile view: Native select dropdown overlay for better UX */}
-                  <div className="md:hidden relative w-full shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.4)] rounded-[1.5rem]">
-                    <select
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                      value={activeCategory || ""}
-                      onChange={(e) => scrollToCategory(e.target.value)}
-                      aria-label="Select Category"
-                    >
-                      {menuData.categories.map((cat: any) => {
-                        const catName =
-                          (selectedLang &&
-                            cat.translations &&
-                            cat.translations[selectedLang]?.name) ||
-                          cat.name;
-                        return (
-                          <option key={`opt-${cat.id}`} value={cat.id} className="text-base text-black">
-                            {catName}
-                          </option>
-                        );
-                      })}
-                    </select>
-                    <div className="glass-panel p-4 px-6 rounded-[1.5rem] flex items-center justify-between pointer-events-none relative z-0">
-                      <span className="font-black uppercase tracking-widest text-xs text-foreground truncate mr-4">
-                        {(() => {
-                          if (!activeCategory) return "Menu";
-                          const activeCat = menuData.categories.find((c: any) => c.id === activeCategory);
-                          if (!activeCat) return "Menu";
-                          return (selectedLang && activeCat.translations && activeCat.translations[selectedLang]?.name) || activeCat.name;
-                        })()}
-                      </span>
-                      <div className="flex-shrink-0 bg-black/5 dark:bg-white/5 p-2 rounded-full">
-                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                {/* Category Horizontal Scroll Pills */}
+                <CategoryPills
+                  categories={menuData.categories}
+                  activeCategory={activeCategory}
+                  selectedLang={selectedLang}
+                  onSelect={scrollToCategory}
+                />
 
                 <div className="space-y-14 md:space-y-24">
                   {menuData.categories.map((category: any) => {
