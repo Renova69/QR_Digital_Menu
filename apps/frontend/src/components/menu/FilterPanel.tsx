@@ -83,6 +83,7 @@ export function FilterPanel({
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder={t('publicMenu.search', 'Search')}
+              aria-label={t('publicMenu.search', 'Search')}
               className="w-full pl-9 pr-3 py-2.5 bg-secondary rounded-xl text-sm font-medium placeholder:text-muted-foreground/50 border border-transparent focus:border-accent/30 focus:outline-none"
             />
           </div>
