@@ -90,7 +90,7 @@ const AnalyticsView = () => {
 
     csv += '\nCategory;Revenue\n';
     data.categoryBreakdown.forEach(row => {
-      csv += `"${row.name}";"€${row.value.toFixed(2)}"\n`;
+      csv += `"${row.category}";"€${row.revenue.toFixed(2)}"\n`;
     });
 
     // Add UTF-8 BOM for proper Excel encoding
