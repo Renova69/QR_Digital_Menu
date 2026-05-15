@@ -21,6 +21,8 @@ import {
   getTierInfo,
   tierConfigFromRestaurant,
 } from '../loyalty/loyalty-tiers.utils';
+import { FeatureService } from '../subscription/feature.service';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
 
 const LOYALTY_CONFIG = {
   MAX_SIGNUP_BONUS: 75,    // hard cap on signup bonus (= €0.50)
@@ -34,6 +36,7 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventsGateway: EventsGateway,
+    private readonly featureService: FeatureService,
   ) {}
 
   async create(createOrderDto: CreateOrderDto) {
@@ -90,6 +93,10 @@ export class OrdersService {
 
     if (!restaurant) {
       throw new NotFoundException('Restaurant not found');
+    }
+
+    if (!this.featureService.hasFeature(String(restaurant.tier), FeatureFlag.ORDERS_RECEIVE)) {
+      throw new ForbiddenException({ code: 'FEATURE_LOCKED', message: 'Online ordering is not available on this plan' });
     }
 
     // 5. Resolve or create TableSession for pay-at-table

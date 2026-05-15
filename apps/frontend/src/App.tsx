@@ -28,6 +28,7 @@ import CustomerProfilePage from "./pages/CustomerProfilePage";
 import DeviceLoginPage from "./pages/DeviceLoginPage";
 import DeviceEnrollPage from "./pages/DeviceEnrollPage";
 import { NotificationProvider } from "./context/NotificationContext";
+import PricingPage from "./pages/PricingPage";
 
 // App routes: header + container padding
 export const AppLayout = () => (
@@ -69,6 +70,7 @@ function App() {
             {/* App shell — header + container */}
             <Route element={<AppLayout />}>
               <Route path="/" element={<HomePage />} />
+              <Route path="/pricing" element={<PricingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/auth/callback" element={<OAuthCallbackPage />} />

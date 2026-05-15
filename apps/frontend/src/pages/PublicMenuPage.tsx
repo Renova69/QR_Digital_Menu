@@ -44,6 +44,8 @@ const PublicMenuPage = () => {
   const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+
+  const ordersEnabled = menuData?.restaurant?.tier !== 'FREE';
   const [activeDietTags, setActiveDietTags] = useState<string[]>([]);
   const [excludedAllergens, setExcludedAllergens] = useState<string[]>([]);
 
@@ -484,6 +486,7 @@ const PublicMenuPage = () => {
                                     key={item.id}
                                     item={translatedItem}
                                     perfectPairings={pairings}
+                                    ordersEnabled={ordersEnabled}
                                   />
                                 );
                               })}
@@ -595,6 +598,7 @@ const PublicMenuPage = () => {
                   {t('payment.requestBill')}
                 </Button>
               )}
+              {ordersEnabled && (
               <div className="flex-shrink-0">
                 <CartIcon
                   categories={menuData?.categories}
@@ -602,6 +606,7 @@ const PublicMenuPage = () => {
                   selectedLang={selectedLang}
                 />
               </div>
+              )}
             </div>
           </div>
         </div>

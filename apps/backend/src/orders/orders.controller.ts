@@ -15,6 +15,9 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { FeatureGuard } from '../subscription/feature.guard';
+import { RequireFeature } from '../subscription/require-feature.decorator';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
 
 @Controller('orders')
 export class OrdersController {
@@ -28,7 +31,8 @@ export class OrdersController {
     return this.ordersService.create(createOrderDto);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @RequireFeature(FeatureFlag.ORDERS_RECEIVE)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
   @Get()
   findAll(@Request() req: any, @Query() pagination: PaginationDto) {
     this.logger.log(`GET /orders for user ${req.user?.id}`);

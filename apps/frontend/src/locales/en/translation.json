@@ -38,7 +38,8 @@
       "general": "General",
       "loyalty": "Loyalty",
       "payments": "Payments",
-      "staff": "Staff"
+      "staff": "Staff",
+      "subscription": "Subscription"
     },
     "locationContact": "Location & Contact",
     "address": "Address",
@@ -638,5 +639,31 @@
     "paymentReceived": "Payment Received",
     "stripeNotConnected": "Connect Stripe in Settings to start accepting payments.",
     "stripeNotConnectedTitle": "Stripe not connected"
+  },
+  "subscription": {
+    "currentPlan": "Current Plan",
+    "staffLimit": "Staff limit",
+    "unlimited": "Unlimited",
+    "manageBilling": "Manage Billing",
+    "includedFeatures": "Included features",
+    "upgradeTo": "Upgrade to",
+    "loading": "Loading...",
+    "errorLoading": "Failed to load subscription",
+    "errorCheckout": "Could not start checkout. Please try again.",
+    "errorPortal": "Could not open billing portal. Please try again.",
+    "banner": {
+      "active": "Your {{tier}} subscription is active",
+      "freePlan": "You are on the Free plan",
+      "noSubscription": "No active subscription",
+      "upgrade": "Upgrade"
+    }
+  },
+  "pricing": {
+    "title": "Simple Pricing",
+    "subtitle": "Choose the plan that fits your restaurant. Upgrade or downgrade anytime.",
+    "popular": "Most Popular",
+    "getStarted": "Get Started",
+    "choosePlan": "Choose {{tier}}",
+    "terms": "Prices exclude VAT. Cancel anytime."
   }
 }

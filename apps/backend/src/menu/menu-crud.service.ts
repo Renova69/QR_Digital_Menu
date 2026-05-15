@@ -42,6 +42,7 @@ export class MenuCrudService {
         targetLanguages: true,
         timezone: true,
         defaultTheme: true,
+        tier: true,
       } as any,
     });
 

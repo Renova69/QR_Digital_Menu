@@ -13,7 +13,7 @@ export class SubscriptionController {
     private readonly prisma: PrismaService,
   ) {}
 
-  private async resolveRestaurant(userId: string, select: Record<string, boolean>) {
+  private async resolveRestaurant(userId: string, select: Record<string, boolean>): Promise<Record<string, any> | null> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { restaurantId: true },

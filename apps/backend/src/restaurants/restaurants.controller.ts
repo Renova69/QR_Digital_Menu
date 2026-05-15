@@ -24,6 +24,9 @@ import { StorageService } from '../storage/storage.service';
 import { DeviceEnrollmentService } from './device-enrollment.service';
 import { CreateDeviceEnrollmentDto } from './dto/create-device-enrollment.dto';
 import { Request as ExpressRequest } from 'express';
+import { FeatureGuard } from '../subscription/feature.guard';
+import { RequireFeature } from '../subscription/require-feature.decorator';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
 
 @UseGuards(JwtAuthGuard)
 @Controller('restaurants')
@@ -120,6 +123,8 @@ export class RestaurantsController {
     );
   }
 
+  @RequireFeature(FeatureFlag.LANGUAGES_MULTI)
+  @UseGuards(FeatureGuard)
   @Post(':id/translate-all')
   translateAll(@Param('id') id: string, @Request() req: any) {
     return this.restaurantsService.translateAll(id, req.user.id);

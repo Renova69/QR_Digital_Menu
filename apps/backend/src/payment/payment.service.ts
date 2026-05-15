@@ -8,6 +8,8 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { StripeProvider } from './stripe.provider';
 import { EventsGateway } from '../events/events.gateway';
+import { FeatureService } from '../subscription/feature.service';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
 
 @Injectable()
 export class PaymentService {
@@ -17,6 +19,7 @@ export class PaymentService {
     private readonly prisma: PrismaService,
     private readonly stripe: StripeProvider,
     private readonly events: EventsGateway,
+    private readonly featureService: FeatureService,
   ) {}
 
   async getOrCreateSession(
@@ -94,6 +97,10 @@ export class PaymentService {
 
     if (!restaurant.paymentsEnabled) {
       throw new ForbiddenException('Payments are not enabled for this restaurant');
+    }
+
+    if (!this.featureService.hasFeature(String(restaurant.tier), FeatureFlag.PAYMENTS_STRIPE)) {
+      throw new ForbiddenException({ code: 'FEATURE_LOCKED', message: 'Stripe payments require a Professional plan or above' });
     }
 
     if (!restaurant.stripeOnboarded || !restaurant.stripeAccountId) {

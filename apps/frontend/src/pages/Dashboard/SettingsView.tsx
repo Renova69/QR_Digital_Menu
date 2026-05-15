@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect, useRef } from "react";
 import RestaurantContext from "../../context/RestaurantContext";
 import { updateRestaurant, triggerTranslation, generateStripeConnectLink, getStripeStatus, disconnectStripe, listStaff, createStaff, removeStaff, createDeviceEnrollment } from "../../lib/api";
+import BillingView from "../../components/subscription/BillingView";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTriangleExclamation, faMedal, faTrash, faCopy, faCheck, faQrcode } from "@fortawesome/free-solid-svg-icons";
 import { useTranslation } from "react-i18next";
@@ -86,7 +87,7 @@ const SettingsView = () => {
   const [stripeOnboarded, setStripeOnboarded] = useState(false);
   const [stripeLoading, setStripeLoading] = useState(false);
   const stripeCheckedRef = useRef(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState<'general' | 'loyalty' | 'payments' | 'staff'>('general');
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'general' | 'loyalty' | 'payments' | 'staff' | 'subscription'>('general');
 
   // Staff management
   const [staffMembers, setStaffMembers] = useState<Array<{ id: string; email: string; name: string | null; role: string }>>([]);
@@ -393,7 +394,7 @@ const SettingsView = () => {
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden text-left">
         {/* Tab nav */}
         <div className="flex gap-1 border-b border-border px-6 pt-4">
-          {(['general', 'loyalty', 'payments', 'staff'] as const).map((tab) => (
+          {(['general', 'loyalty', 'payments', 'staff', 'subscription'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -1134,7 +1135,11 @@ const SettingsView = () => {
             </div>
           )}
 
-          {activeSettingsTab !== 'payments' && (
+          {activeSettingsTab === 'subscription' && (
+            <BillingView />
+          )}
+
+          {activeSettingsTab !== 'payments' && activeSettingsTab !== 'subscription' && (
             <div className="flex justify-end pt-4 border-t border-border">
               <button
                 type="submit"

@@ -1,5 +1,6 @@
 import { PaymentService } from './payment.service';
 import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { FeatureService } from '../subscription/feature.service';
 
 describe('PaymentService', () => {
   let service: PaymentService;
@@ -45,7 +46,8 @@ describe('PaymentService', () => {
       emitTableStatusChanged: jest.fn(),
     };
 
-    service = new PaymentService(mockPrisma, mockStripeProvider, mockEvents);
+    const mockFeatureService = { hasFeature: jest.fn().mockReturnValue(true) } as unknown as FeatureService;
+    service = new PaymentService(mockPrisma, mockStripeProvider, mockEvents, mockFeatureService);
   });
 
   describe('getOrCreateSession', () => {
@@ -117,7 +119,7 @@ describe('PaymentService', () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue({
         id: 's1',
         restaurantId: 'rest1',
-        restaurant: { paymentsEnabled: false, stripeOnboarded: true, stripeAccountId: 'acct_1', platformFeePercent: 0.5, tipsEnabled: false, tipOptions: [] },
+        restaurant: { paymentsEnabled: false, stripeOnboarded: true, stripeAccountId: 'acct_1', platformFeePercent: 0.5, tipsEnabled: false, tipOptions: [], tier: 'PROFESSIONAL' },
       });
       mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
 
@@ -128,7 +130,7 @@ describe('PaymentService', () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue({
         id: 's1',
         restaurantId: 'rest1',
-        restaurant: { paymentsEnabled: true, stripeOnboarded: false, stripeAccountId: null, platformFeePercent: 0.5, tipsEnabled: false, tipOptions: [] },
+        restaurant: { paymentsEnabled: true, stripeOnboarded: false, stripeAccountId: null, platformFeePercent: 0.5, tipsEnabled: false, tipOptions: [], tier: 'PROFESSIONAL' },
       });
       mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
 
@@ -146,6 +148,7 @@ describe('PaymentService', () => {
           platformFeePercent: 0.5,
           tipsEnabled: true,
           tipOptions: [5, 10],
+          tier: 'PROFESSIONAL',
         },
       });
       mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20.00 }]);

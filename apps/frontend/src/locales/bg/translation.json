@@ -39,7 +39,8 @@
       "general": "Общи",
       "loyalty": "Лоялност",
       "payments": "Плащания",
-      "staff": "Персонал"
+      "staff": "Персонал",
+      "subscription": "Абонамент"
     },
     "locationContact": "Местоположение и Контакт",
     "address": "Адрес",
@@ -644,5 +645,31 @@
     "paymentReceived": "Получено плащане",
     "stripeNotConnected": "Свържете Stripe в Настройки, за да приемате плащания.",
     "stripeNotConnectedTitle": "Stripe не е свързан"
+  },
+  "subscription": {
+    "currentPlan": "Текущ план",
+    "staffLimit": "Лимит персонал",
+    "unlimited": "Неограничен",
+    "manageBilling": "Управление на плащания",
+    "includedFeatures": "Включени функции",
+    "upgradeTo": "Надградете до",
+    "loading": "Зареждане...",
+    "errorLoading": "Грешка при зареждане на абонамента",
+    "errorCheckout": "Неуспешно стартиране на плащане. Опитайте отново.",
+    "errorPortal": "Неуспешно отваряне на портала. Опитайте отново.",
+    "banner": {
+      "active": "Вашият абонамент {{tier}} е активен",
+      "freePlan": "Използвате безплатния план",
+      "noSubscription": "Няма активен абонамент",
+      "upgrade": "Надграждане"
+    }
+  },
+  "pricing": {
+    "title": "Прозрачни цени",
+    "subtitle": "Изберете плана, подходящ за вашия ресторант.",
+    "popular": "Най-популярен",
+    "getStarted": "Започнете",
+    "choosePlan": "Изберете {{tier}}",
+    "terms": "Цените са без ДДС. Отмяна по всяко време."
   }
 }
