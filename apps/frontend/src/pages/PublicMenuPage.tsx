@@ -12,6 +12,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircleCheck } from "@fortawesome/free-solid-svg-icons";
 import { useTranslation } from "react-i18next";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
+import { TopBar } from "../components/menu/TopBar";
 import { TrendingCarousel } from "../components/menu/TrendingCarousel";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { useAuth } from "../context/AuthContext";
@@ -52,6 +53,8 @@ const PublicMenuPage = () => {
 
   const categoryRefs = useRef<Record<string, HTMLElement | null>>({});
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -276,29 +279,17 @@ const PublicMenuPage = () => {
       </div>
 
       <div className="relative z-10 container mx-auto px-4 max-w-4xl">
-        {tableNumber ? (
-          <div className="glass-panel border-l-4 border-accent px-4 py-3 mb-10 rounded-[1.5rem] flex justify-between items-center animate-in fade-in slide-in-from-top-4 duration-700">
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 bg-accent rounded-full animate-pulse shadow-[0_0_10px_var(--color-accent)]"></div>
-              <p className="font-black tracking-[0.08em] text-xs uppercase opacity-70">
-                {t("publicMenu.viewingTable", { tableNumber })}
-              </p>
-            </div>
-            <ThemeToggle
-              size="sm"
-              storageKey={restaurantId ? `theme-${restaurantId}` : 'theme'}
-              defaultTheme={(restaurantTheme?.defaultTheme as 'light' | 'dark') ?? 'light'}
-            />
-          </div>
-        ) : (
-          <div className="flex justify-end mb-6 animate-in fade-in duration-700">
-            <ThemeToggle
-              size="sm"
-              storageKey={restaurantId ? `theme-${restaurantId}` : 'theme'}
-              defaultTheme={(restaurantTheme?.defaultTheme as 'light' | 'dark') ?? 'light'}
-            />
-          </div>
-        )}
+        <TopBar
+          tableNumber={tableNumber}
+          targetLanguages={menuData?.restaurant?.targetLanguages ?? []}
+          selectedLang={selectedLang}
+          onLanguageChange={(code) => { setSelectedLang(code); i18n.changeLanguage(code); }}
+          restaurantId={restaurantId}
+          defaultTheme={(restaurantTheme?.defaultTheme as 'light' | 'dark') ?? 'light'}
+          onFilterClick={() => setFilterDrawerOpen(true)}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+        />
 
         {assistanceSent && (
           <div className="glass-panel border-l-4 border-emerald-500 text-emerald-600 dark:text-emerald-400 p-4 mb-8 rounded-2xl shadow-xl animate-in zoom-in-95 duration-300">
@@ -333,68 +324,6 @@ const PublicMenuPage = () => {
 
         {!loading && !error && menuData && (
           <>
-            <div className="mb-10 md:mb-20 pt-8 text-center animate-in fade-in slide-in-from-bottom-8 duration-1000">
-              <div className="inline-block p-1 bg-gradient-to-tr from-accent/20 to-transparent rounded-[3.2rem] mb-6 md:mb-10 shadow-2xl">
-                <div className="p-5 md:p-8 rounded-[3rem] bg-white shadow-xl border border-black/5">
-                  {menuData.restaurant?.logoUrl ? (
-                    <img
-                      src={
-                        menuData.restaurant.logoUrl.startsWith("http")
-                          ? menuData.restaurant.logoUrl
-                          : `${((import.meta as any).env.VITE_API_URL || "http://localhost:3000/api").replace("/api", "")}/${menuData.restaurant.logoUrl}`
-                      }
-                      alt={`${menuData.restaurant?.name ?? ''} logo`}
-                      className="max-h-28 mx-auto object-contain drop-shadow-2xl"
-                    />
-                  ) : (
-                    <div className="w-24 h-24 bg-accent/10 rounded-full flex items-center justify-center border border-accent/20">
-                      <span className="text-5xl font-serif font-black text-accent">
-                        {menuData.restaurant?.name?.[0]}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <h1
-                className="text-5xl md:text-8xl font-serif font-black tracking-tighter mb-4 md:mb-6 text-foreground leading-[0.9] text-glow"
-                style={{
-                  fontFamily: "var(--font-heading, inherit)",
-                }}
-              >
-                {menuData.restaurant?.name}
-              </h1>
-
-              {(menuData.restaurant?.targetLanguages?.length ?? 0) > 0 && (
-              <div className="inline-flex items-center gap-4 p-1.5 glass-panel rounded-2xl shadow-xl overflow-hidden">
-                <div className="pl-4 pr-2 flex items-center gap-2 border-r border-white/10 dark:border-white/5">
-                  <Globe className="w-3.5 h-3.5 text-accent" aria-hidden="true" />
-                  <span className="text-xs font-black uppercase tracking-[0.15em] text-muted-foreground whitespace-nowrap">
-                    {t("publicMenu.language", "Language")}
-                  </span>
-                </div>
-                <label htmlFor="lang-select" className="sr-only">{t("publicMenu.selectLanguage", "Select language")}</label>
-                <div className="relative flex items-center pr-2">
-                  <select
-                    id="lang-select"
-                    value={selectedLang}
-                    onChange={handleLanguageChange}
-                    className="bg-transparent border-none text-foreground font-black text-xs uppercase tracking-widest focus:ring-0 cursor-pointer outline-none appearance-none pr-6 py-2 min-w-[80px]"
-                  >
-                    {(menuData.restaurant.targetLanguages as string[]).map((code) => (
-                      <option key={code} value={code} className="bg-white dark:bg-zinc-950 text-black dark:text-white">
-                        {LANG_LABELS[code] ?? code.toUpperCase()}
-                      </option>
-                    ))}
-                  </select>
-                  <svg className="absolute right-0 w-3 h-3 text-muted-foreground pointer-events-none" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-              </div>
-              )}
-            </div>
-
             {menuData.categories.length === 0 ? (
               <div className="text-center glass-panel p-20 rounded-[3rem] mt-8">
                 <p className="text-2xl font-serif font-bold opacity-30">
