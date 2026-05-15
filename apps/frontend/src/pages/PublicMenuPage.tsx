@@ -17,13 +17,6 @@ import { TrendingCarousel } from "../components/menu/TrendingCarousel";
 import { CategoryPills } from "../components/menu/CategoryPills";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { useAuth } from "../context/AuthContext";
-
-const LANG_LABELS: Record<string, string> = {
-  en: "English", bg: "Български", ro: "Română", de: "Deutsch",
-  es: "Español", fr: "Français", it: "Italiano", zh: "中文",
-  el: "Ελληνικά", ja: "日本語", ru: "Русский", ar: "العربية",
-};
-
 const PublicMenuPage = () => {
   const { restaurantId } = useParams<{ restaurantId: string }>();
   const location = useLocation();
@@ -183,13 +176,6 @@ const PublicMenuPage = () => {
       });
     }
   }, [menuData?.restaurant]);
-
-  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    setSelectedLang(val);
-    i18n.changeLanguage(val);
-  };
-
   const getImageUrl = (url: string) => {
     if (url.startsWith("http")) return url;
     const apiUrl =
