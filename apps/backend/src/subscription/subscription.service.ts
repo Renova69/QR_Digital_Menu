@@ -96,11 +96,24 @@ export class SubscriptionService {
   }
 
   private async applySubscriptionFromEvent(event: any) {
-    const sub = event.data.object as any;
-    const customerId = sub.customer as string;
-    const priceId = sub.items?.data?.[0]?.price?.id;
-    const tier = priceId ? getTierFromPrice(priceId) : 'FREE';
+    const obj = event.data.object as any;
+    const customerId = obj.customer as string;
     const eventTime = new Date(event.created * 1000);
+
+    // checkout.session.completed: obj is a Session — no items.data, but metadata.tier is set
+    // customer.subscription.updated: obj is a Subscription — items.data has the price
+    let tier: string;
+    let subscriptionId: string;
+    let priceId: string | undefined;
+
+    if (event.type === 'checkout.session.completed') {
+      tier = (obj.metadata?.tier as string) ?? 'FREE';
+      subscriptionId = obj.subscription as string;
+    } else {
+      priceId = obj.items?.data?.[0]?.price?.id as string | undefined;
+      tier = priceId ? getTierFromPrice(priceId) : 'FREE';
+      subscriptionId = obj.id as string;
+    }
 
     const result = await this.prisma.restaurant.updateMany({
       where: {
@@ -112,8 +125,8 @@ export class SubscriptionService {
       },
       data: {
         tier: tier as any,
-        stripeSubscriptionId: sub.id ?? sub.subscription,
-        stripePriceId: priceId,
+        stripeSubscriptionId: subscriptionId,
+        stripePriceId: priceId ?? null,
         tierUpdatedAt: eventTime,
       },
     });

@@ -13,15 +13,28 @@ export class SubscriptionController {
     private readonly prisma: PrismaService,
   ) {}
 
+  private async resolveRestaurant(userId: string, select: Record<string, boolean>) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { restaurantId: true },
+    });
+    // Staff are linked via User.restaurantId; owners via Restaurant.ownerId
+    if (user?.restaurantId) {
+      return this.prisma.restaurant.findUnique({ where: { id: user.restaurantId }, select });
+    }
+    return this.prisma.restaurant.findFirst({ where: { ownerId: userId }, select });
+  }
+
   @Get('status')
   @UseGuards(JwtAuthGuard)
   async getStatus(@Req() req: any) {
     const userId = req.user.id ?? req.user.sub;
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { staffRestaurant: { select: { id: true, tier: true, stripeSubscriptionId: true, tierUpdatedAt: true } } },
+    const restaurant = await this.resolveRestaurant(userId, {
+      id: true,
+      tier: true,
+      stripeSubscriptionId: true,
+      tierUpdatedAt: true,
     });
-    const restaurant = user?.staffRestaurant;
     const tier = restaurant?.tier ?? 'FREE';
     return {
       tier,
@@ -35,22 +48,18 @@ export class SubscriptionController {
   @UseGuards(JwtAuthGuard)
   async createCheckout(@Req() req: any, @Body() dto: CreateCheckoutDto) {
     const userId = req.user.id ?? req.user.sub;
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { staffRestaurant: { select: { id: true } } },
-    });
-    return this.subscriptionService.createCheckoutSession(user.staffRestaurant.id, dto.tier, userId);
+    const restaurant = await this.resolveRestaurant(userId, { id: true });
+    if (!restaurant) throw new Error('No restaurant found for user');
+    return this.subscriptionService.createCheckoutSession(restaurant.id, dto.tier, userId);
   }
 
   @Post('portal')
   @UseGuards(JwtAuthGuard)
   async createPortal(@Req() req: any) {
     const userId = req.user.id ?? req.user.sub;
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { staffRestaurant: { select: { id: true } } },
-    });
-    return this.subscriptionService.createPortalSession(user.staffRestaurant.id);
+    const restaurant = await this.resolveRestaurant(userId, { id: true });
+    if (!restaurant) throw new Error('No restaurant found for user');
+    return this.subscriptionService.createPortalSession(restaurant.id);
   }
 
   @Post('webhook')

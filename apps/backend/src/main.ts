@@ -72,7 +72,9 @@ async function bootstrap() {
     ];
     app.use((req: any, res: any, next: any) => {
       const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
-      const isWebhook = req.path === '/api/v1/payments/webhook';
+      const isWebhook =
+        req.path === '/api/v1/payments/webhook' ||
+        req.path === '/api/v1/subscription/webhook';
       const isCsrfExempt = CSRF_EXEMPT.includes(req.path) && ['POST'].includes(req.method);
 
       if (safeMethods.includes(req.method) || isWebhook || isCsrfExempt || process.env.NODE_ENV !== 'production') {
