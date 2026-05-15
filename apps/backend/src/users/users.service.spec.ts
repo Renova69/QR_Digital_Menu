@@ -1,0 +1,161 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { UsersService } from './users.service';
+import { PrismaService } from '../prisma/prisma.service';
+
+describe('UsersService', () => {
+  let service: UsersService;
+  let prisma: any;
+
+  const mockUser = {
+    id: 'user-1',
+    email: 'alice@example.com',
+    name: 'Alice',
+    role: 'WAITER',
+    restaurantId: 'rest-1',
+    pinHash: null,
+    phone: null,
+  };
+
+  beforeEach(async () => {
+    prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue(mockUser),
+        findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([mockUser]),
+        create: jest.fn().mockResolvedValue(mockUser),
+        delete: jest.fn().mockResolvedValue(mockUser),
+      },
+      restaurant: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'rest-1', ownerId: 'owner-1' }),
+      },
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        UsersService,
+        { provide: PrismaService, useValue: prisma },
+      ],
+    }).compile();
+
+    service = module.get<UsersService>(UsersService);
+  });
+
+  describe('findByEmail', () => {
+    it('normalizes email to lowercase before querying', async () => {
+      await service.findByEmail('ALICE@Example.COM');
+      expect(prisma.user.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { email: 'alice@example.com' } }),
+      );
+    });
+
+    it('returns null when user not found', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      const result = await service.findByEmail('ghost@example.com');
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('findByPhone', () => {
+    it('queries by phone number', async () => {
+      prisma.user.findFirst.mockResolvedValue(mockUser);
+      const result = await service.findByPhone('+35912345678');
+      expect(prisma.user.findFirst).toHaveBeenCalledWith({ where: { phone: '+35912345678' } });
+      expect(result).toEqual(mockUser);
+    });
+  });
+
+  describe('create', () => {
+    it('normalizes email to lowercase on create', async () => {
+      await service.create({ email: 'BOB@Example.COM', name: 'Bob' } as any);
+      expect(prisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ email: 'bob@example.com' }),
+        }),
+      );
+    });
+
+    it('skips normalization when email is absent', async () => {
+      await service.create({ name: 'No Email' } as any);
+      expect(prisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ name: 'No Email' }) }),
+      );
+    });
+  });
+
+  describe('createStaffMember', () => {
+    it('returns rawPin and user info', async () => {
+      prisma.user.findUnique.mockResolvedValue(null); // no email collision
+      const result = await service.createStaffMember('rest-1', { name: 'Bob', role: 'WAITER' });
+      expect(result).toHaveProperty('rawPin');
+      expect(result.rawPin).toMatch(/^\d{4}$/);
+      expect(result.user).toHaveProperty('id');
+    });
+
+    it('generates synthetic email when none provided', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      await service.createStaffMember('rest-1', { name: 'Carl', role: 'KITCHEN' });
+      const createArgs = prisma.user.create.mock.calls[0][0];
+      expect(createArgs.data.email).toMatch(/@rest-1\.local$/);
+    });
+
+    it('generates fallback email when synthetic email already exists', async () => {
+      // findUnique returns user (collision), create still succeeds
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+      await service.createStaffMember('rest-1', { name: 'Dan', role: 'WAITER' });
+      const createArgs = prisma.user.create.mock.calls[0][0];
+      expect(createArgs.data.email).toMatch(/@rest-1\.local$/);
+    });
+  });
+
+  describe('listStaffMembers', () => {
+    it('excludes CUSTOMER role from query', async () => {
+      await service.listStaffMembers('rest-1');
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ role: { not: 'CUSTOMER' } }),
+        }),
+      );
+    });
+  });
+
+  describe('removeStaffMember', () => {
+    it('removes staff member and returns info', async () => {
+      prisma.user.findFirst.mockResolvedValue(mockUser);
+      const result = await service.removeStaffMember('rest-1', 'user-1');
+      expect(prisma.user.delete).toHaveBeenCalledWith({ where: { id: 'user-1' } });
+      expect(result).toHaveProperty('id', 'user-1');
+    });
+
+    it('throws NotFoundException when staff member not found', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+      await expect(service.removeStaffMember('rest-1', 'ghost')).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ForbiddenException when trying to remove OWNER', async () => {
+      prisma.user.findFirst.mockResolvedValue({ ...mockUser, role: 'OWNER' });
+      await expect(service.removeStaffMember('rest-1', 'user-1')).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('verifyRestaurantAccess', () => {
+    it('passes silently when user is the owner', async () => {
+      await expect(service.verifyRestaurantAccess('rest-1', 'owner-1')).resolves.toBeUndefined();
+    });
+
+    it('passes when user is assigned staff of the restaurant', async () => {
+      prisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1' });
+      await expect(service.verifyRestaurantAccess('rest-1', 'user-1')).resolves.toBeUndefined();
+    });
+
+    it('throws NotFoundException when restaurant not found', async () => {
+      prisma.restaurant.findUnique.mockResolvedValue(null);
+      await expect(service.verifyRestaurantAccess('bad-id', 'owner-1')).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ForbiddenException when user belongs to different restaurant', async () => {
+      prisma.user.findUnique.mockResolvedValue({ restaurantId: 'other-rest' });
+      await expect(service.verifyRestaurantAccess('rest-1', 'user-1')).rejects.toThrow(ForbiddenException);
+    });
+  });
+});
