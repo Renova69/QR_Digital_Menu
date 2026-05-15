@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import {
-  QrCode, Smartphone, Layers, Star, TrendingUp, ShoppingCart,
+  QrCode, Smartphone, Star, ShoppingCart,
   ChefHat, CreditCard, Globe, Shield, MessageSquare, Import,
-  BarChart2, Gift, Palette, Zap, Users, Check, ArrowRight,
+  BarChart2, Gift, Palette, Zap, Check, ArrowRight,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,7 +13,7 @@ const featureKeys = [
   'staffAccess', 'feedback', 'menuImport',
 ] as const;
 
-const featureIcons: Record<string, { icon: typeof QrCode, color: string }> = {
+const featureIcons: Record<typeof featureKeys[number], { icon: typeof QrCode, color: string }> = {
   qrOrdering:      { icon: QrCode,        color: 'bg-accent/10 text-accent border-accent/20' },
   tableManagement: { icon: ShoppingCart,  color: 'bg-blue-500/10 text-blue-500 border-blue-500/10' },
   waiterPos:       { icon: Smartphone,    color: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/10' },
@@ -52,7 +52,7 @@ const HomePage = () => {
       period: '/month',
       desc: t('landing.tiers.starterDesc'),
       accent: 'border-border/60',
-      features: Array.from({ length: 6 }, (_, i) => t(`landing.tiers.starterFeature${i + 1}` as any)),
+      features: Array.from({ length: 6 }, (_, i) => t(`landing.tiers.starterFeature${i + 1}`, `Feature ${i + 1}`)),
       cta: t('landing.getStarted'),
       highlight: false,
     },
@@ -63,7 +63,7 @@ const HomePage = () => {
       period: '/month',
       desc: t('landing.tiers.proDesc'),
       accent: 'border-accent/60 bg-accent/5 ring-2 ring-accent/20',
-      features: Array.from({ length: 10 }, (_, i) => t(`landing.tiers.proFeature${i + 1}` as any)),
+      features: Array.from({ length: 10 }, (_, i) => t(`landing.tiers.proFeature${i + 1}`, `Feature ${i + 1}`)),
       cta: t('landing.getStarted'),
       highlight: true,
       badge: t('landing.mostPopular'),
@@ -75,7 +75,7 @@ const HomePage = () => {
       period: '/month',
       desc: t('landing.tiers.enterpriseDesc'),
       accent: 'border-border/60',
-      features: Array.from({ length: 10 }, (_, i) => t(`landing.tiers.enterpriseFeature${i + 1}` as any)),
+      features: Array.from({ length: 10 }, (_, i) => t(`landing.tiers.enterpriseFeature${i + 1}`, `Feature ${i + 1}`)),
       cta: t('landing.contactSales'),
       highlight: false,
     },
@@ -142,7 +142,7 @@ const HomePage = () => {
         </div>
 
         {/* Hero mockup — fake dashboard card */}
-        <div className="relative w-full max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-1200">
+        <div className="relative w-full max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-1000">
           <div className="glass-panel w-full rounded-2xl md:rounded-3xl p-4 sm:p-6 aspect-[16/9] sm:aspect-[21/9] relative overflow-hidden shadow-2xl">
             {/* Fake browser chrome */}
             <div className="absolute top-0 inset-x-0 h-10 md:h-12 border-b border-black/5 dark:border-white/10 flex items-center px-4 gap-2 bg-black/5 dark:bg-white/5">
@@ -227,7 +227,7 @@ const HomePage = () => {
               return (
                 <div
                   key={key}
-                  className="group glass-panel rounded-[2rem] p-6 md:p-8 border-white/5 hover:shadow-[0_20px_50px_-15px_var(--color-accent)/0.15] hover:-translate-y-1.5 transition-all duration-400"
+                  className="group glass-panel rounded-[2rem] p-6 md:p-8 border-white/5 hover:shadow-[0_20px_50px_-15px_var(--color-accent)/0.15] hover:-translate-y-1.5 transition-all duration-300"
                 >
                   <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center border ${color} mb-5 group-hover:scale-110 transition-transform duration-300`}>
                     <Icon className="w-6 h-6 md:w-7 md:h-7" />
@@ -267,7 +267,7 @@ const HomePage = () => {
             {tiers.map((tier) => (
               <div
                 key={tier.key}
-                className={`relative glass-panel rounded-[2.5rem] p-8 md:p-10 border ${tier.accent} flex flex-col transition-all duration-400 hover:-translate-y-2 hover:shadow-2xl ${
+                className={`relative glass-panel rounded-[2.5rem] p-8 md:p-10 border ${tier.accent} flex flex-col transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl ${
                   tier.highlight ? 'md:scale-105 z-10 shadow-2xl' : ''
                 }`}
               >
