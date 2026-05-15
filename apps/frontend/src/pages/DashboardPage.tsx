@@ -20,6 +20,7 @@ import NotificationBell from '../components/NotificationBell';
 import PaymentToast from '../components/PaymentToast';
 import { NotificationProvider } from '../context/NotificationContext';
 import SubscriptionBanner from '../components/subscription/SubscriptionBanner';
+import { useFeature } from '../hooks/useFeature';
 
 type TabId = 'summary' | 'analytics' | 'orders' | 'payments' | 'assistance' | 'tables' | 'settings' | 'import';
 
@@ -54,6 +55,13 @@ const DashboardPage = () => {
 
   const { t, i18n } = useTranslation();
   const paymentsEnabled = (activeRestaurant as any)?.paymentsEnabled ?? false;
+  const canAnalytics  = useFeature('analytics:basic');
+  const canOrders     = useFeature('orders:receive');
+  const canPayments   = useFeature('payments:stripe');
+  const canAssistance = useFeature('orders:call-waiter');
+  const canImport     = useFeature('menu:import');
+  const canPos        = useFeature('pos');
+  const canKds        = useFeature('kds');
 
   const lastRestaurantId = useRef<string | null>(null);
   if (activeRestaurant?.id !== lastRestaurantId.current) {
@@ -140,15 +148,15 @@ const DashboardPage = () => {
           <div className="hidden md:flex mb-12 border-b border-border/40 overflow-x-auto pb-2 items-center hide-scrollbar relative">
             <nav className="flex space-x-2 min-w-max pr-12" aria-label="Tabs">
               {[
-                { id: 'summary',    label: t('dashboard.tabs.summary') },
-                { id: 'analytics',  label: t('dashboard.tabs.analytics') },
-                { id: 'orders',     label: t('dashboard.tabs.orders'),     count: newOrdersCount },
-                { id: 'payments',    label: t('dashboard.tabs.payments') },
-                { id: 'assistance', label: t('dashboard.tabs.assistance'), count: unresolvedRequestsCount },
-                { id: 'tables',     label: t('dashboard.tabs.tables') },
-                { id: 'settings',   label: t('dashboard.tabs.settings') },
-                { id: 'import',     label: t('dashboard.tabs.import') },
-              ].filter(tab => tab.id !== 'payments' || paymentsEnabled).map((tab) => (
+                { id: 'summary',    label: t('dashboard.tabs.summary'),                              show: true },
+                { id: 'analytics',  label: t('dashboard.tabs.analytics'),                            show: canAnalytics },
+                { id: 'orders',     label: t('dashboard.tabs.orders'),   count: newOrdersCount,      show: canOrders },
+                { id: 'payments',   label: t('dashboard.tabs.payments'),                             show: canPayments && paymentsEnabled },
+                { id: 'assistance', label: t('dashboard.tabs.assistance'), count: unresolvedRequestsCount, show: canAssistance },
+                { id: 'tables',     label: t('dashboard.tabs.tables'),                               show: true },
+                { id: 'settings',   label: t('dashboard.tabs.settings'),                             show: true },
+                { id: 'import',     label: t('dashboard.tabs.import'),                               show: canImport },
+              ].filter(tab => tab.show).map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as TabId)}
@@ -172,20 +180,24 @@ const DashboardPage = () => {
               >
                 {t('dashboard.tabs.menuEditor')}
               </Link>
-              <Link
-                to="/staff/pos"
-                className="text-muted-foreground hover:bg-secondary/80 hover:text-foreground px-7 py-4 rounded-[1.2rem] font-black text-[11px] uppercase tracking-[0.15em] transition-all flex items-center gap-1.5"
-              >
-                <Monitor className="w-3.5 h-3.5" />
-                {t('dashboard.tabs.pos')}
-              </Link>
-              <Link
-                to="/staff/kitchen"
-                className="text-muted-foreground hover:bg-secondary/80 hover:text-foreground px-7 py-4 rounded-[1.2rem] font-black text-[11px] uppercase tracking-[0.15em] transition-all flex items-center gap-1.5"
-              >
-                <ChefHat className="w-3.5 h-3.5" />
-                {t('dashboard.tabs.kitchen')}
-              </Link>
+              {canPos && (
+                <Link
+                  to="/staff/pos"
+                  className="text-muted-foreground hover:bg-secondary/80 hover:text-foreground px-7 py-4 rounded-[1.2rem] font-black text-[11px] uppercase tracking-[0.15em] transition-all flex items-center gap-1.5"
+                >
+                  <Monitor className="w-3.5 h-3.5" />
+                  {t('dashboard.tabs.pos')}
+                </Link>
+              )}
+              {canKds && (
+                <Link
+                  to="/staff/kitchen"
+                  className="text-muted-foreground hover:bg-secondary/80 hover:text-foreground px-7 py-4 rounded-[1.2rem] font-black text-[11px] uppercase tracking-[0.15em] transition-all flex items-center gap-1.5"
+                >
+                  <ChefHat className="w-3.5 h-3.5" />
+                  {t('dashboard.tabs.kitchen')}
+                </Link>
+              )}
             </nav>
             <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-background to-transparent z-10" />
           </div>
@@ -238,7 +250,12 @@ const DashboardPage = () => {
           style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         >
           <div className="flex items-stretch h-16">
-            {BOTTOM_NAV_TABS.filter(tab => tab.id !== 'payments' || paymentsEnabled).map(({ id, Icon, labelKey }) => {
+            {BOTTOM_NAV_TABS.filter(tab => {
+              if (tab.id === 'orders')     return canOrders;
+              if (tab.id === 'payments')   return canPayments && paymentsEnabled;
+              if (tab.id === 'assistance') return canAssistance;
+              return true;
+            }).map(({ id, Icon, labelKey }) => {
               const badge = getBadge(id);
               const isActive = activeTab === id;
               return (
@@ -270,21 +287,23 @@ const DashboardPage = () => {
             })}
 
             {/* Analytics shortcut — icon only */}
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 relative transition-colors active:scale-95 ${
-                activeTab === 'analytics' ? 'text-accent' : 'text-muted-foreground'
-              }`}
-              aria-current={activeTab === 'analytics' ? 'page' : undefined}
-            >
-              {activeTab === 'analytics' && (
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-accent" />
-              )}
-              <BarChart2 className="w-[22px] h-[22px]" />
-              <span className="text-[9px] font-bold uppercase tracking-wide leading-none">
-                {t('dashboard.tabs.stats')}
-              </span>
-            </button>
+            {canAnalytics && (
+              <button
+                onClick={() => setActiveTab('analytics')}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 relative transition-colors active:scale-95 ${
+                  activeTab === 'analytics' ? 'text-accent' : 'text-muted-foreground'
+                }`}
+                aria-current={activeTab === 'analytics' ? 'page' : undefined}
+              >
+                {activeTab === 'analytics' && (
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-accent" />
+                )}
+                <BarChart2 className="w-[22px] h-[22px]" />
+                <span className="text-[9px] font-bold uppercase tracking-wide leading-none">
+                  {t('dashboard.tabs.stats')}
+                </span>
+              </button>
+            )}
           </div>
         </div>
       </nav>

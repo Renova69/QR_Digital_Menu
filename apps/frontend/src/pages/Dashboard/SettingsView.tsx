@@ -1,4 +1,5 @@
 import React, { useContext, useState, useEffect, useRef } from "react";
+import { useFeature } from "../../hooks/useFeature";
 import RestaurantContext from "../../context/RestaurantContext";
 import { updateRestaurant, triggerTranslation, generateStripeConnectLink, getStripeStatus, disconnectStripe, listStaff, createStaff, removeStaff, createDeviceEnrollment } from "../../lib/api";
 import BillingView from "../../components/subscription/BillingView";
@@ -128,6 +129,8 @@ const SettingsView = () => {
   const [translating, setTranslating] = useState(false);
   const { t } = useTranslation();
   const paymentsEnabledLocal = activeRestaurant?.paymentsEnabled ?? false;
+  const canLoyalty  = useFeature('loyalty');
+  const canPayments = useFeature('payments:stripe');
 
   useEffect(() => {
     if (activeRestaurant) {
@@ -394,7 +397,11 @@ const SettingsView = () => {
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden text-left">
         {/* Tab nav */}
         <div className="flex gap-1 border-b border-border px-6 pt-4">
-          {(['general', 'loyalty', 'payments', 'staff', 'subscription'] as const).map((tab) => (
+          {(['general', 'loyalty', 'payments', 'staff', 'subscription'] as const).filter(tab => {
+              if (tab === 'loyalty')  return canLoyalty;
+              if (tab === 'payments') return canPayments;
+              return true;
+            }).map((tab) => (
             <button
               key={tab}
               type="button"
