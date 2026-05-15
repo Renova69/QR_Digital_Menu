@@ -10,6 +10,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBolt } from "@fortawesome/free-solid-svg-icons";
 import { useTranslation } from "react-i18next";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
+import { formatInlineDual, formatEuro, formatBgn } from "../lib/currency";
 
 const CheckoutPage = () => {
   const { user } = useAuth();
@@ -277,7 +278,7 @@ const CheckoutPage = () => {
                         <span className="w-1.5 h-1.5 rounded-full bg-accent/50 block"></span>
                         {opt.choiceName}{" "}
                         <span className="text-accent/80 font-semibold">
-                          (+€{(opt.priceModifier ?? 0).toFixed(2)})
+                          (+{formatInlineDual(opt.priceModifier ?? 0, 'EUR')})
                         </span>
                       </li>
                     ))}
@@ -322,14 +323,17 @@ const CheckoutPage = () => {
               <p className="font-bold text-lg">
                 {redeemedItemIds.includes(item.id)
                   ? t('checkout.free')
-                  : `€${(item.price * item.quantity).toFixed(2)}`}
+                  : formatInlineDual(item.price * item.quantity, 'EUR')}
               </p>
             </li>
           ))}
         </ul>
         <div className="mt-6 pt-6 border-t border-border flex justify-between font-extrabold text-2xl text-foreground">
           <span>{t("cart.total")}:</span>
-          <span>€{getCheckoutTotal().toFixed(2)}</span>
+          <div className="text-right">
+            <div>{formatEuro(getCheckoutTotal())}</div>
+            <span className="text-xs text-muted-foreground">{formatBgn(getCheckoutTotal())}</span>
+          </div>
         </div>
 
         {user &&
@@ -392,21 +396,17 @@ const CheckoutPage = () => {
                 <div className="flex justify-between font-bold text-lg text-green-600">
                   <span>{t('checkout.discountApplied')}</span>
                   <span>
-                    -€
-                    {getPointsDiscount().toFixed(2)}
+                    -{formatEuro(getPointsDiscount())}
                   </span>
                 </div>
               )}
 
               <div className="flex justify-between font-extrabold text-3xl text-foreground">
                 <span>{t('checkout.finalTotal')}</span>
-                <span>
-                  €
-                  {(
-                    getCheckoutTotal() -
-                    getPointsDiscount()
-                  ).toFixed(2)}
-                </span>
+                <div className="text-right">
+                  <div>{formatEuro(getCheckoutTotal() - getPointsDiscount())}</div>
+                  <span className="text-xs text-muted-foreground">{formatBgn(getCheckoutTotal() - getPointsDiscount())}</span>
+                </div>
               </div>
 
               {isHappyHourActive() && (

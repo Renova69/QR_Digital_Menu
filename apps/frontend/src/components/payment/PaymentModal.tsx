@@ -5,6 +5,7 @@ import { getSessionBill, createPaymentIntent } from '../../lib/api';
 import { Button } from '../ui/button';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, X } from 'lucide-react';
+import { formatEuro, formatBgn } from '../../lib/currency';
 
 const stripePromise = loadStripe(
   (import.meta as any).env.VITE_STRIPE_PUBLISHABLE_KEY || '',
@@ -69,17 +70,26 @@ function PaymentForm({
       <div className="text-sm text-muted-foreground space-y-1">
         <div className="flex justify-between">
           <span>{t('payment.subtotal')}</span>
-          <span>€{(total - tipAmount).toFixed(2)}</span>
+          <div className="text-right">
+            <div>{formatEuro(total - tipAmount)}</div>
+            <span className="text-xs text-muted-foreground">{formatBgn(total - tipAmount)}</span>
+          </div>
         </div>
         {tipAmount > 0 && (
           <div className="flex justify-between">
             <span>{t('payment.tip')}</span>
-            <span>€{tipAmount.toFixed(2)}</span>
+            <div className="text-right">
+              <div>{formatEuro(tipAmount)}</div>
+              <span className="text-xs text-muted-foreground">{formatBgn(tipAmount)}</span>
+            </div>
           </div>
         )}
         <div className="flex justify-between font-semibold text-foreground border-t pt-1">
           <span>{t('payment.total')}</span>
-          <span>€{total.toFixed(2)}</span>
+          <div className="text-right">
+            <div>{formatEuro(total)}</div>
+            <span className="text-xs text-muted-foreground">{formatBgn(total)}</span>
+          </div>
         </div>
       </div>
 
@@ -92,7 +102,7 @@ function PaymentForm({
           {t('common.cancel')}
         </Button>
         <Button type="submit" className="flex-1" disabled={processing || !stripe}>
-          {processing ? t('payment.processing') : `${t('payment.pay')} €${total.toFixed(2)}`}
+          {processing ? t('payment.processing') : `${t('payment.pay')} ${formatEuro(total)}`}
         </Button>
       </div>
     </form>
@@ -150,7 +160,10 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
 
         {step === 'tip' && bill && (
           <div className="space-y-4">
-            <p className="text-2xl font-bold">€{bill.subtotal.toFixed(2)}</p>
+            <div>
+              <p className="text-2xl font-bold">{formatEuro(bill.subtotal)}</p>
+              <span className="text-xs text-muted-foreground">{formatBgn(bill.subtotal)}</span>
+            </div>
 
             {bill.tipsEnabled && (
               <div className="space-y-2">
@@ -187,7 +200,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
                 </div>
                 {activeTipPercent > 0 && (
                   <p className="text-sm text-muted-foreground">
-                    {t('payment.tipAmount')}: €{(bill.subtotal * activeTipPercent / 100).toFixed(2)}
+                    {t('payment.tipAmount')}: {formatEuro(bill.subtotal * activeTipPercent / 100)}
                   </p>
                 )}
               </div>
@@ -220,7 +233,10 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
           <div className="flex flex-col items-center gap-4 py-4">
             <CheckCircle2 size={48} className="text-green-500" />
             <p className="text-lg font-medium">{t('payment.paymentReceived')}</p>
-            <p className="text-2xl font-bold">€{(payment?.total ?? 0).toFixed(2)}</p>
+            <div>
+              <p className="text-2xl font-bold">{formatEuro(payment?.total ?? 0)}</p>
+              <span className="text-xs text-muted-foreground">{formatBgn(payment?.total ?? 0)}</span>
+            </div>
             <Button className="w-full" onClick={onSuccess}>
               {t('payment.backToMenu')}
             </Button>

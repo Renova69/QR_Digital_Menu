@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { Category } from "../../types";
+import { formatInlineDual } from "../../lib/currency";
 
 function resolveItemName(
   cartItem: { id: string; name: string },
@@ -154,7 +155,7 @@ const CartDrawer = ({
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-semibold text-accent">
-                          €{(drink.price ?? 0).toFixed(2)}
+                          {formatInlineDual(drink.price ?? 0, drink.currency ?? 'EUR')}
                         </span>
                         <Button
                           size="sm"
@@ -225,7 +226,7 @@ const CartDrawer = ({
                             <span className="w-1 h-1 rounded-full bg-accent/50 block flex-shrink-0" />
                             {opt.choiceName}{" "}
                             <span className="text-accent/70 font-semibold">
-                              (+€{(opt.priceModifier || 0).toFixed(2)})
+                              (+{formatInlineDual(opt.priceModifier || 0, 'EUR')})
                             </span>
                           </li>
                         ))}
@@ -234,7 +235,7 @@ const CartDrawer = ({
                   </div>
                   <div className="text-right flex flex-col justify-between shrink-0">
                     <p className="font-bold text-base text-zinc-100">
-                      €{(item.price * item.quantity).toFixed(2)}
+                      {formatInlineDual(item.price * item.quantity, 'EUR')}
                     </p>
                     <button
                       onClick={() => removeItem(item.cartId)}
@@ -262,7 +263,7 @@ const CartDrawer = ({
                 {t("cart.total")}
               </span>
               <span className="text-3xl font-serif font-black text-accent tracking-tighter">
-                €{getTotal().toFixed(2)}
+                {formatInlineDual(getTotal(), 'EUR')}
               </span>
             </div>
             {showDrinkUpsell ? (
