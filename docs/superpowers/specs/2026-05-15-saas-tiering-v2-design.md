@@ -177,12 +177,38 @@ Note: `STRIPE_WEBHOOK_SECRET` is already used by the payment webhook (`StripePro
 
 ### Webhook Events
 
+**Race condition warning:** Stripe fires `checkout.session.completed` and `customer.subscription.updated` within milliseconds of each other for the same subscription. Both arrive at the webhook concurrently, both try to update the same `Restaurant` row. Without protection, the older event overwrites the newer one.
+
+**Fix:** Every webhook write uses an atomic `updateMany` gated by `tierUpdatedAt`. An event only applies if its Stripe timestamp is newer than what's already in the DB. Replayed events (same timestamp) are silently skipped.
+
+```typescript
+async applySubscriptionEvent(customerId: string, event: Stripe.Event, tier: SubscriptionTier, subId: string, priceId: string) {
+  const eventTime = new Date(event.created * 1000);
+
+  const result = await this.prisma.restaurant.updateMany({
+    where: {
+      stripeCustomerId: customerId,
+      OR: [
+        { tierUpdatedAt: null },
+        { tierUpdatedAt: { lt: eventTime } },
+      ],
+    },
+    data: { tier, stripeSubscriptionId: subId, stripePriceId: priceId, tierUpdatedAt: eventTime },
+  });
+
+  // count=0 → newer event already wrote. count>0 → this event was applied.
+  return result.count > 0;
+}
+```
+
 | Event | Action |
 |-------|--------|
-| `checkout.session.completed` | Idempotency check → set `tier`, save `stripeSubscriptionId` + `stripePriceId` |
-| `customer.subscription.updated` | Sync tier + price ID (handles upgrade/downgrade via Portal) |
-| `customer.subscription.deleted` | Set `tier = FREE`, clear Stripe IDs |
-| `invoice.payment_failed` | Notify owner, downgrade to FREE after 3 failed retries (Stripe handles retry schedule) |
+| `checkout.session.completed` | Extract tier from price metadata. Call `applySubscriptionEvent()` with atomic timestamp gate. |
+| `customer.subscription.updated` | Same atomic gate. Sync tier + price ID (handles upgrade/downgrade via Portal). |
+| `customer.subscription.deleted` | Same atomic gate. Set `tier = FREE`, clear `stripeSubscriptionId` + `stripePriceId`. |
+| `invoice.payment_failed` | Set `tier = FREE`, clear Stripe IDs after Stripe exhausts retries (3 attempts over ~2 weeks). Listen for `customer.subscription.deleted` instead of acting on first failure. |
+
+This guarantees: no race between concurrent webhooks, replay-safe (same event replayed = no-op), zero additional infrastructure (no queues, no advisory locks).
 
 ---
 
