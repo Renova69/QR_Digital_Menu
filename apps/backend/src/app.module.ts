@@ -20,6 +20,7 @@ import { EventsModule } from './events/events.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
 import { PaymentModule } from './payment/payment.module';
 import { MenuImportModule } from './menu-import/menu-import.module';
+import { SubscriptionModule } from './subscription/subscription.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { MenuImportModule } from './menu-import/menu-import.module';
       },
     ]),
     PrismaModule,
+    SubscriptionModule,
     AuthModule,
     RestaurantsModule,
     MenuModule,
