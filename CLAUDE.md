@@ -247,6 +247,15 @@ Source of truth: `CODING_ROADMAP.md`. Detailed per-phase plans under `.planning/
 - **ItemWithOptions BGN conversion** — If `item.currency === 'BGN'`, price divided by `BGN_RATE` before passing to `formatInlineDual`. Previously BGN-priced items would show double-converted amounts.
 - **Key files:** `events.gateway.ts`, `auth.controller.ts`, `auth.service.ts`, `loyalty.service.ts`, `AnalyticsView.tsx`, `tsconfig.json` (backend), `CategoryPills.tsx`, `ItemWithOptions.tsx`.
 
+**Shipped — Infrastructure & Polish Sprint (May 15, 2026):**
+- **API versioning** — All routes now at `/api/v1/*`. `main.ts` uses `VersioningType.URI` with `defaultVersion: '1'`. Frontend `api.ts` base URL updated to `/api/v1`. Vite proxy unchanged (matches `/api/*`). CSRF exempt paths and webhook path updated to `/api/v1/...`.
+- **Prisma retry/circuit breaker** — `PrismaService.onModuleInit()` startup retry now uses jittered exponential backoff (1s → 30s cap) instead of fixed 2s. New `withRetry<T>(fn, maxAttempts)` method for runtime query resilience. Circuit breaker: CLOSED → OPEN after 5 consecutive transient failures, HALF_OPEN after 30s cooldown. Only transient Prisma error codes trigger the breaker (P1001, P1002, P1008, P1017, P2024, P1012).
+- **Order progress stepper** — `OrderConfirmationPage` now shows a 3-step visual stepper: Placed → In Kitchen → Served. Animated state transitions (emerald for done, accent/pulse for current). Hidden for CANCELED orders. Also fixed `AnalyticsView` CSV export field names (`category`/`revenue` not `name`/`value`).
+- **QR table tent print templates** — 3 branded print layouts: Classic (white, dashed border), Premium (dark bg, corner accents, serif type), Minimal (clean border, oversized table name). Template selector dropdown added next to "Print All QR" button in `TableView`. `PrintTemplate` type exported.
+- **Service test coverage** — 3 new spec files: `tables.service.spec.ts` (19 tests), `users.service.spec.ts` (17 tests), `translation.service.spec.ts` (14 tests). Total: 122 tests (up from 77). Covers all CRUD paths, RBAC checks, transient error fallbacks, DeepL free/paid endpoint routing.
+- **Customer split bill** — `SplitBillSection` component in `CheckoutPage` — collapsible below order total, counter 2–20 people, per-person amount in EUR + BGN. Client-side only, no backend changes.
+- **Key files:** `main.ts`, `api.ts` (frontend), `prisma.service.ts`, `OrderConfirmationPage.tsx`, `PrintableQRCodes.tsx`, `TableView.tsx`, `CheckoutPage.tsx`, `tables.service.spec.ts`, `users.service.spec.ts`, `translation.service.spec.ts`.
+
 **Current focus — V3 Growth:**
 - **Phase 20 — Multi-location:** menu templates, bulk price updates, cross-location analytics.
 

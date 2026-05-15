@@ -2,7 +2,7 @@
 
 > **Prepared for:** Fortune 500 Acquisition Review
 > **Date:** May 15, 2026 (audited — all sections verified against codebase)
-> **Product Status:** V2.5 Shipped | V3 Growth — Phase 19 (Stripe/OCR/POS) Complete, Phase 18 (Staff Roles & RBAC) Complete | Security Hardening Phase 21 Complete | Public Menu Mobile UX Complete (TopBar, FilterPanel, dual currency, horizontal cards) | Code Review & Bug Fixes Complete (PR#3, Toggle, payments investigation) | Security & Bug Fixes Complete (CORS, magic-link removal, loyalty emails, CSV export, TS strict mode) | KDS (Kitchen Display) Live at /staff/kitchen | SaaS Subscription Spec Ready
+> **Product Status:** V2.5 Shipped | V3 Growth — Phase 19 (Stripe/OCR/POS) Complete, Phase 18 (Staff Roles & RBAC) Complete | Security Hardening Phase 21 Complete | Public Menu Mobile UX Complete (TopBar, FilterPanel, dual currency, horizontal cards) | Code Review & Bug Fixes Complete (PR#3, Toggle, payments investigation) | Security & Bug Fixes Complete (CORS, magic-link removal, loyalty emails, CSV export, TS strict mode) | KDS (Kitchen Display) Live at /staff/kitchen | Infrastructure & Polish Sprint Complete (API versioning, Prisma circuit breaker, order progress bar, QR print templates, 122 tests, customer split bill)
 > **Codebase:** 100+ frontend source files, 16 backend modules, 15 database models, ~200 i18n keys across 3 languages
 
 ---
@@ -1243,6 +1243,57 @@ Items without notes appear as name only. Quantities > 1 append ` xN`.
 - `apps/backend/tsconfig.json` (+ 17 backend source files)
 - `apps/frontend/src/components/menu/CategoryPills.tsx`
 - `apps/frontend/src/components/menu/ItemWithOptions.tsx`
+
+### 3.25 Infrastructure & Polish Sprint (May 15, 2026)
+
+**What it does:** Seven independent improvements: API versioning, DB resilience, order UX, print templates, test coverage, and two minor features.
+
+**API versioning (`main.ts`, `api.ts`):**
+- NestJS `VersioningType.URI` with `defaultVersion: '1'` — all routes now at `/api/v1/*`
+- Frontend `api.ts` base URL updated to `/api/v1`; Vite proxy unchanged (catches `/api/*`)
+- CSRF exempt paths and Stripe webhook path updated to `/api/v1/...`
+- No controller decorators needed — `defaultVersion: '1'` applies globally
+
+**Prisma retry/circuit breaker (`prisma.service.ts`):**
+- Startup retry: jittered exponential backoff (`500ms × 2^attempt`, 30s cap, 50–100% jitter) replaces fixed 2s delay
+- New `withRetry<T>(fn, maxAttempts = 3)` method — use for critical DB calls; handles transient errors only
+- Circuit breaker states: CLOSED (normal) → OPEN after 5 consecutive transient failures → HALF_OPEN after 30s → CLOSED on probe success
+- Transient codes: `P1001, P1002, P1008, P1017, P2024, P1012`, plus `PrismaClientInitializationError` and `PrismaClientRustPanicError`
+
+**Order progress stepper (`OrderConfirmationPage.tsx`):**
+- `OrderProgressStepper` component: 3 steps (Placed → In Kitchen → Served) with connector lines
+- Done steps: emerald fill + checkmark; current step: accent color + pulse animation; future: gray
+- Canceled orders skip the stepper entirely
+- Also fixed `AnalyticsView.tsx` CSV export using wrong field names (`name`/`value` → `category`/`revenue`) — was a pre-existing TS error under strict mode
+
+**QR table tent print templates (`PrintableQRCodes.tsx`, `TableView.tsx`):**
+- Three templates: **Classic** (white card, dashed border), **Premium** (dark bg `#0f0e0c`, corner accent brackets, serif `Georgia` typography), **Minimal** (thin border, bare QR + oversized table name)
+- Template selector `<select>` added next to "Print All QR" button; state in `TableView` passed as `template` prop
+- `PrintTemplate = 'classic' | 'premium' | 'minimal'` type exported for external use
+- All templates use inline styles for print-safe rendering; `@page { size: A4 portrait }` preserved
+
+**Service test coverage (`*.service.spec.ts`):**
+- New: `tables.service.spec.ts` — 19 tests covering `create`, `findAll`, `getTablesWithStatus` (empty/waiting/occupied/paid, dedup names), `getTableOrders`, `remove`
+- New: `users.service.spec.ts` — 17 tests covering email normalization, staff creation (PIN, synthetic email, collision), `listStaffMembers`, `removeStaffMember`, `verifyRestaurantAccess`
+- New: `translation.service.spec.ts` — 14 tests covering `translateTexts` (empty, no key, API call, free/paid endpoint, error fallback), `translateText`, `translateObject` (empty langs, null values, multi-lang)
+- Total: 122 tests (up from 77); all suites passing
+
+**Customer split bill (`CheckoutPage.tsx`):**
+- `SplitBillSection` component: collapsible toggle below order total, counter 2–20 people
+- Shows per-person amount in EUR + BGN (BNB fixed rate)
+- Client-side only — no backend changes; works before and after loyalty discount applied
+
+**Key files:**
+- `apps/backend/src/main.ts`
+- `apps/frontend/src/lib/api.ts`
+- `apps/backend/src/prisma/prisma.service.ts`
+- `apps/frontend/src/pages/OrderConfirmationPage.tsx`
+- `apps/frontend/src/components/tables/PrintableQRCodes.tsx`
+- `apps/frontend/src/components/tables/TableView.tsx`
+- `apps/frontend/src/pages/CheckoutPage.tsx`
+- `apps/backend/src/tables/tables.service.spec.ts` (new)
+- `apps/backend/src/users/users.service.spec.ts` (new)
+- `apps/backend/src/translation/translation.service.spec.ts` (new)
 
 ## 4. Data Model
 
