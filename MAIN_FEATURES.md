@@ -1,9 +1,9 @@
 # QR Menu — Product & Technical Due Diligence Report
 
 > **Prepared for:** Fortune 500 Acquisition Review
-> **Date:** May 12, 2026 (audited — all sections verified against codebase)
-> **Product Status:** V2.5 Shipped | V3 Growth — Phase 19 (Stripe/OCR/POS) Complete, Phase 18 (Staff Roles & RBAC) Complete | Security Hardening Phase 21 Complete | Device Enrollment Live (PIN login, QR bonding, shared device mode) | KDS (Kitchen Display) Live at /staff/kitchen | SaaS Subscription Spec Ready | Menu Service Split Wired, Tests In Progress
-> **Codebase:** 100+ frontend source files, 16 backend modules, 15 database models, ~175 i18n keys across 3 languages
+> **Date:** May 15, 2026 (audited — all sections verified against codebase)
+> **Product Status:** V2.5 Shipped | V3 Growth — Phase 19 (Stripe/OCR/POS) Complete, Phase 18 (Staff Roles & RBAC) Complete | Security Hardening Phase 21 Complete | Public Menu Mobile UX Complete (TopBar, FilterPanel, dual currency, horizontal cards) | Code Review & Bug Fixes Complete (PR#3, Toggle, payments investigation) | KDS (Kitchen Display) Live at /staff/kitchen | SaaS Subscription Spec Ready
+> **Codebase:** 100+ frontend source files, 16 backend modules, 15 database models, ~200 i18n keys across 3 languages
 
 ---
 
@@ -370,16 +370,20 @@ sequenceDiagram
 - Trending items: `AUTO` mode groups orders by item ID, takes top 4 by quantity, falls back to featured items if no data; `MANUAL` returns up to 4 featured in-stock items; `OFF` returns empty
 
 **Frontend (`PublicMenuPage.tsx`):**
+- TopBar with full-width search, filter toggle, theme, language codes, table chip
+- FilterPanel with dietary toggles (Spicy, Vegan, New, Featured) and allergen exclusion pills
+- CategoryPills — horizontal scroll pill navigation replacing sticky IntersectionObserver nav
+- Horizontal item cards with dual-currency prices (EUR + BGN at BNB fixed rate 1.95583)
+- Pill-shaped "+ Add" buttons replacing full-width solid blue "ADD TO CART" buttons
+- Slim TrendingCarousel with compact skeleton loader
+- Bottom nav regroup: profile/waiter left, cart/bill right
 - Dynamically loads restaurant fonts via `<link>` tags
 - Injects CSS custom properties for theme (bg, text, card, accent colors)
 - Per-restaurant theme toggle (`theme-{restaurantId}` localStorage key)
-- Sticky category navigation with IntersectionObserver-based active highlighting
 - Category banner images with gradient overlay
-- Item cards in 2-column grid (1-col mobile)
 - Perfect Pairing modal on add-to-cart (deterministic trigger)
 - Add-to-cart toast with animated slide-up confirmation
 - Image lightbox with pinch-to-zoom (1–4x scale) and swipe-to-dismiss
-- Trending carousel section
 - Call waiter button with no-table notice (accessible, auto-dismiss)
 - Customer sign-in / profile in action bar
 - Cart icon with badge
@@ -389,10 +393,14 @@ sequenceDiagram
 **Key files:**
 - `apps/backend/src/menu/menu.service.ts` — `getPublicMenu()`, `applyLazyTranslations()`, `getTrendingItems()`
 - `apps/backend/src/menu/public-menu.controller.ts` — 3 endpoints (menu, trending, test)
-- `apps/frontend/src/pages/PublicMenuPage.tsx` — 500+ lines: theme injection, sticky nav, table context, assistance
-- `apps/frontend/src/components/menu/ItemWithOptions.tsx` — option selection, pairings, toast, lightbox
+- `apps/frontend/src/pages/PublicMenuPage.tsx` — ~400 lines: theme injection, TopBar/FilterPanel/CategoryPills composition
+- `apps/frontend/src/pages/TopBar.tsx` — search, filter toggle, theme, language codes, table chip
+- `apps/frontend/src/pages/FilterPanel.tsx` — dietary toggles + allergen exclusion pills
+- `apps/frontend/src/pages/CategoryPills.tsx` — horizontal scroll pill navigation
+- `apps/frontend/src/lib/currency.ts` — dual EUR/BGN formatters at BNB fixed rate
+- `apps/frontend/src/components/menu/ItemWithOptions.tsx` — horizontal layout, dual-currency, pill +Add, pairings, toast, lightbox
 - `apps/frontend/src/components/menu/ImageLightbox.tsx` — pinch-zoom + swipe gesture engine
-- `apps/frontend/src/components/menu/TrendingCarousel.tsx` — horizontal scroll with snap points
+- `apps/frontend/src/components/menu/TrendingCarousel.tsx` — slim horizontal scroll with compact skeleton
 
 **Edge cases handled:**
 - No `?table` param: Call Waiter shows inline notice (not browser prompt) — `role="alert"`, `aria-live="polite"`, auto-dismiss 3.5s
@@ -1096,6 +1104,95 @@ Items without notes appear as name only. Quantities > 1 append ` xN`.
 **Dependencies:** Socket.io (existing EventsGateway), OrderContext, `/notification.mp3`
 
 ---
+
+### 3.23 Public Menu Mobile UX Redesign (May 15, 2026)
+
+**What it does:** Complete mobile-first redesign of the customer-facing public menu. Replaces the old 2-column item grid + sticky category nav with a compact TopBar (search, filter, theme, language, table), horizontal item cards with dual-currency prices, category scroll pills, and a slide-down filter panel with dietary toggles and allergen exclusion pills. Bottom nav regrouped for better visual hierarchy. PublicMenuPage.tsx refactored from 815 lines to ~400.
+
+**How it works:**
+
+**Shared Currency Utility (`lib/currency.ts`):**
+- `formatEuro(cents)` — formats euro amounts from cent integers (e.g., 950 → "€9.50")
+- `formatBgn(cents)` — converts EUR cents to BGN at fixed rate 1 EUR = 1.95583 BGN, then formats (e.g., 950 → "18.58 лв")
+- Single source of truth — consumed by CartDrawer, CheckoutPage, PaymentModal, ItemWithOptions
+- Bulgarian National Bank fixed rate — required by law for all price displays
+
+**TopBar (`TopBar.tsx`):**
+- Full-width search input with Lucide `Search` (magnifier) icon, placeholder "Search menu..."
+- Filter toggle button (hamburger-like `SlidersHorizontal` icon) opens/closes FilterPanel
+- ThemeToggle (light/dark) scoped to restaurant
+- Language codes (EN/BG/RO) as compact pills
+- Table chip: `Table` icon + number (e.g., "Table 5") replacing the text "You are viewing the menu for table 5"
+
+**FilterPanel (`FilterPanel.tsx`):**
+- Slide-down panel with smooth height transition
+- Search input at top (duplicates TopBar search for convenience while filtering)
+- Dietary toggles: Spicy, Vegan, New, Featured — row of toggle switches
+- Allergen exclusion pills: Milk, Wheat, Fish, Nuts, Eggs, Soy, Shellfish — click to exclude
+- Multi-select: toggling an allergen pill hides all products containing that allergen
+- Fully translated via i18n (`publicMenu.dietary.*`, `publicMenu.filters.*`)
+
+**Horizontal Item Cards (`ItemWithOptions.tsx`):**
+- Image left (square, ~72px), content right (name, description, price, allergens, dietary tags)
+- Dual-currency prices: EUR price prominent with BGN equivalent beneath at BNB fixed rate
+- Pill-shaped "+ Add" buttons (`rounded-full`) replace previous full-width solid blue "ADD TO CART" buttons
+- Compact form factor suitable for mobile 375px viewport
+
+**CategoryPills (`CategoryPills.tsx`):**
+- Horizontal scroll pill navigation for categories
+- Active pill highlighted with accent color background
+- Smooth `scrollIntoView` on tap
+- Replaces previous sticky category navigation with IntersectionObserver
+
+**Slim TrendingCarousel:**
+- Wider horizontal cards with compact skeleton loading state
+- Reduced vertical footprint vs previous carousel design
+- Fire emoji header preserved
+
+**Bottom Nav Regroup:**
+- User-centric icons (profile, Call Waiter) grouped on left side
+- Cart/bill actions (cart icon with badge, order action) on right side
+- Better visual hierarchy through spacing and grouping
+
+**i18n Additions:**
+- ~30 new keys across EN/BG/RO: `publicMenu.search`, `publicMenu.filters.title/allergens/dietary/spicy/vegan/new/featured`, `publicMenu.addShort`, and per-allergen labels
+- All dynamic content (dietary tags, allergen names) properly wired to translation files
+
+**Dead Code Cleanup:**
+- Removed unused `LANG_LABELS` constant (hardcoded language display names)
+- Removed unused `handleLanguageChange` function (superseded by TopBar language codes)
+
+**Design Integration:**
+- Reuses existing ThemeToggle, CartIcon, TableContext, i18n infrastructure
+- Zero backend changes required — all work in frontend
+- Backward compatible: same URL structure, same cart/order/assistance flows
+
+**Key files:**
+- `apps/frontend/src/lib/currency.ts` — shared EUR/BGN formatters
+- `apps/frontend/src/pages/TopBar.tsx` — search + filter + theme + lang + table chip
+- `apps/frontend/src/pages/FilterPanel.tsx` — dietary toggles + allergen pills
+- `apps/frontend/src/pages/CategoryPills.tsx` — horizontal scroll pill navigation
+- `apps/frontend/src/pages/PublicMenuPage.tsx` — refactored 815→~400 lines
+- `apps/frontend/src/components/menu/ItemWithOptions.tsx` — horizontal layout + dual currency
+- `apps/frontend/src/components/menu/TrendingCarousel.tsx` — slim version
+- `apps/frontend/src/components/cart/CartDrawer.tsx` — dual currency integration
+- `apps/frontend/src/pages/CheckoutPage.tsx` — dual currency integration
+- `apps/frontend/src/components/payment/PaymentModal.tsx` — dual currency integration
+- `apps/frontend/src/locales/en/translation.json` — English keys
+- `apps/frontend/src/locales/bg/translation.json` — Bulgarian keys
+- `apps/frontend/src/locales/ro/translation.json` — Romanian keys
+
+**Edge cases handled:**
+- Empty search: shows all items (no filter applied)
+- No allergens selected: all items visible
+- All items filtered out: empty state with "No items match your filters" message
+- Scroll position preservation on category pill tap
+- Category with no items: filtered from pills
+- Table number not in URL: table chip hidden
+- Theme override: per-restaurant theme respected via existing `theme-{restaurantId}` localStorage key
+- BGN conversion: 1.95583 rate applied to EUR cent integer before formatting
+
+**Dependencies:** Lucide React, Tailwind CSS 4, i18next, existing ThemeToggle + CartIcon + TableContext
 
 ## 4. Data Model
 

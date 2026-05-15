@@ -276,3 +276,166 @@ npm.cmd --workspace backend test -- orders.service.spec.ts --runInBand
 
 - Backend: `auth.controller.ts`, `auth.service.ts`, `orders.service.ts`, `restaurants.service.ts`, `dashboard.controller.ts`, `assistance.controller.ts`, `assistance.service.ts`, `restaurants.controller.ts`, `device-enrollment.service.ts`, `menu/*.controller.ts`, `feedback.service.ts`
 - Frontend: `App.tsx`, `AuthContext.tsx`, `RestaurantContext.tsx`, `OrderContext.tsx`, `AssistanceContext.tsx`, `SocketContext.tsx`, `api.ts`, `DeviceLoginPage.tsx`, `SettingsView.tsx`, `PosTableModal.tsx`, `StaffRoute.tsx`, `ProtectedRoute.tsx`
+
+---
+
+## Payments "Not Enabled" Investigation (May 15, 2026)
+
+### Summary
+
+Customer reported "Payments are not enabled for this restaurant" error despite having payments toggled on. Investigation confirmed this is **NOT a code bug** — it's the expected behavior of `paymentsEnabled Boolean @default(false)` in the Prisma schema.
+
+### Investigation Chain
+
+1. **Starting point** — `PaymentService.createPaymentIntent()` (line 81-97 of `payment.service.ts`) checks `restaurant.paymentsEnabled` and throws `ForbiddenException` if false.
+
+2. **Root cause** — `paymentsEnabled Boolean @default(false)` in `schema.prisma` line 74. New restaurants default to `false`. The toggle in the frontend Settings tab was never clicked, or the Stripe Connect onboarding was never completed, for the affected restaurants.
+
+3. **Fix** — Both affected restaurants had `paymentsEnabled = false` in their DB row. Updated via direct Neon SQL:
+   ```sql
+   UPDATE "Restaurant" SET "paymentsEnabled" = true WHERE id = '<id>';
+   ```
+
+### Files Affected
+- No code changes needed. Schema default is correct. Documentation updated.
+
+---
+
+## PR#3 Findings Fixes (May 15, 2026)
+
+### HomePage.tsx — Unused Imports (HIGH)
+
+- **Problem**: 3 Lucide icons (`TrendingUp`, `Users`, `Layers`) imported but never referenced in JSX or the `featureIcons` map. 16 icons imported, only 13 needed.
+- **Fix**: Removed `TrendingUp`, `Users`, `Layers` from import statement.
+- **Files**: `apps/frontend/src/pages/HomePage.tsx`
+
+### HomePage.tsx — `as any` on i18n Keys (MEDIUM)
+
+- **Problem**: Three instances of `t(`landing.tiers.starterFeature${i + 1}` as any)` — unsafe type cast bypassing TypeScript checking.
+- **Fix**: Replaced with `t(`landing.tiers.starterFeature${i + 1}`, `Feature ${i + 1}`)` using i18next's built-in fallback parameter.
+- **Files**: `apps/frontend/src/pages/HomePage.tsx`
+
+### HomePage.tsx — Loose `featureIcons` Record Type (MEDIUM)
+
+- **Problem**: `Record<string, { icon, color }>` allows any string key — no compile-time validation that all `featureKeys` have entries.
+- **Fix**: Changed to `Record<typeof featureKeys[number], { icon: typeof QrCode, color: string }>` — guarantees every key in `featureKeys` has an entry, catches typos at compile time.
+- **Files**: `apps/frontend/src/pages/HomePage.tsx`
+
+### HomePage.tsx — Non-Standard Tailwind Durations (MEDIUM)
+
+- **Problem**: `duration-400` and `duration-1200` classes don't exist in default Tailwind config — silently ignored by JIT compiler, animations had no transition duration.
+- **Fix**: `duration-400` → `duration-300`, `duration-1200` → `duration-1000`.
+- **Files**: `apps/frontend/src/pages/HomePage.tsx`
+
+### RestaurantContext.tsx — TS Error Line 82
+
+- **Problem**: `getRestaurantById(user.restaurantId)` — `user.restaurantId` is `string | undefined` but `getRestaurantById` expects `string`. TypeScript error even though line 78's `!!user?.restaurantId` guards the branch at runtime.
+- **Fix**: Added non-null assertion: `const restaurant = await getRestaurantById(user.restaurantId!);`
+- **Files**: `apps/frontend/src/context/RestaurantContext.tsx`
+
+### CheckoutPage.tsx — Sr-Only Checkbox Hack
+
+- **Problem**: Hand-built toggle using `<input type="checkbox" className="sr-only">` + two `<div>` elements — no ARIA semantics, no keyboard support, no `role="switch"`.
+- **Fix**: Replaced with `<Toggle>` component using Radix UI primitive — proper `role="switch"`, `aria-checked`, keyboard navigation, `useId()` for label association, focus-visible ring.
+- **Files**: `apps/frontend/src/pages/CheckoutPage.tsx`
+
+### Verification
+
+```bash
+cd apps/frontend
+npx tsc --noEmit   # Zero errors (RestaurantContext:82 error gone)
+npm run build       # Vite build succeeded
+```
+
+---
+
+## Code Review Findings Fixes (May 15, 2026)
+
+### Typed Translations (MEDIUM)
+
+- **Problem**: Multiple `t(key as any)` casts throughout codebase — unsafe, bypassing type checking.
+- **Fix**: Replaced all `as any` casts with proper `t(key, fallback)` calls. i18next's `t()` function accepts `string` as key; second argument is default/fallback.
+- **Files**: `HomePage.tsx`, `FilterPanel.tsx`, `TopBar.tsx`
+
+### Shared Utils Deduplication
+
+- **Problem**: Currency formatting logic duplicated across CartDrawer, CheckoutPage, PaymentModal.
+- **Fix**: Extracted to single `lib/currency.ts` utility — `formatEuro()` and `formatBgn()` at BNB fixed rate.
+- **Files**: `apps/frontend/src/lib/currency.ts`, `CartDrawer.tsx`, `CheckoutPage.tsx`, `PaymentModal.tsx`
+
+### Toggle Component Adoption
+
+- **Problem**: Custom toggle implementations without proper ARIA semantics in CheckoutPage points redemption switch.
+- **Fix**: Adopted existing `<Toggle>` component from `components/ui/` (Radix primitive with `role="switch"`, `aria-checked`, keyboard support).
+- **Files**: `CheckoutPage.tsx`
+
+### i18n Gaps
+
+- **Problem**: Search placeholder, dietary tags, allergen names not wired to translation files.
+- **Fix**: Added ~30 new keys across EN/BG/RO for all new public menu UX elements.
+- **Files**: `en/translation.json`, `bg/translation.json`, `ro/translation.json`
+
+### Verification
+
+All checks passed: `npx tsc --noEmit`, `npm run build`, `npx vitest run`
+
+---
+
+## Public Menu Mobile UX Redesign (May 15, 2026)
+
+### Summary
+
+Complete mobile-first redesign of the customer-facing public menu. 10 tasks across 14 files. `PublicMenuPage.tsx` refactored from 815 lines to ~400 by extracting TopBar, FilterPanel, and CategoryPills into standalone components.
+
+### Components Created/Modified
+
+| Component | File | Description |
+|-----------|------|-------------|
+| Currency Utility | `lib/currency.ts` | `formatEuro()`, `formatBgn()` at BNB fixed rate 1.95583 |
+| TopBar | `pages/TopBar.tsx` | Search, filter toggle, theme, language codes, table chip |
+| FilterPanel | `pages/FilterPanel.tsx` | Dietary toggles + allergen exclusion pills |
+| CategoryPills | `pages/CategoryPills.tsx` | Horizontal scroll pill navigation |
+| ItemWithOptions | `components/menu/ItemWithOptions.tsx` | Horizontal layout, dual currency, pill +Add buttons |
+| TrendingCarousel | `components/menu/TrendingCarousel.tsx` | Slim version with compact skeleton |
+| CartDrawer | `components/cart/CartDrawer.tsx` | Dual-currency integration |
+| CheckoutPage | `pages/CheckoutPage.tsx` | Dual-currency integration |
+| PaymentModal | `components/payment/PaymentModal.tsx` | Dual-currency integration |
+| PublicMenuPage | `pages/PublicMenuPage.tsx` | Refactored 815→~400 lines |
+| i18n | `locales/*/translation.json` | ~30 new keys EN/BG/RO |
+
+### Dead Code Removed
+
+- `LANG_LABELS` constant — hardcoded language display names, unused after TopBar extraction
+- `handleLanguageChange` function — unused after language selection moved to TopBar
+
+### Design Decisions
+
+1. **BNB fixed rate single source** — `currency.ts` is the only place that stores 1.95583. Components consume formatters, never duplicate the rate.
+2. **Component extraction** — TopBar, FilterPanel, CategoryPills extracted as page-level components (co-located with PublicMenuPage, not in `components/`) since they're specific to the public menu surface.
+3. **Zero backend changes** — Pure frontend redesign. Same API, same cart/order/assistance flows.
+4. **Pill-shaped buttons** — `rounded-full` + compact sizing replaces full-width solid blue buttons. Better for dense mobile layouts.
+
+### Verification
+
+```bash
+cd apps/frontend
+npx tsc --noEmit   # Zero errors
+npm run build       # Vite build succeeded
+```
+
+### Commits
+
+```
+68c939e feat: add shared currency utility — dual EUR/BGN formatters at BNB fixed rate 1.95583
+7f9d5dd feat: add TopBar component — search, filter, theme, lang codes, table chip
+ced6387 feat: add FilterPanel — dietary toggles + allergen exclusion pills, multi-select search
+5b30c84 feat: redesign item cards — horizontal layout, dual-currency prices, pill +Add buttons
+cc56598 feat: add CategoryPills — horizontal scroll pill navigation replacing sticky nav
+e56d1da feat: slim TrendingCarousel — wider horizontal cards, compact skeleton loader
+1b45d4e feat: regroup bottom nav — profile/waiter left, bill/cart right
+b044625 feat: add i18n keys — search, filters, addShort, dietary/allergen labels EN/BG/RO
+a1e96ca feat: dual-currency prices in CartDrawer, Checkout, PaymentModal — EUR + BGN at fixed BNB rate
+7e4b534 refactor: remove dead code from PublicMenuPage — unused LANG_LABELS constant, handleLanguageChange function
+2809930 fix: address code review findings — typed translations, shared utils, Toggle component, i18n gaps
+667e954 fix: HomePage.tsx PR#3 findings + RestaurantContext TS error
+```

@@ -1,7 +1,7 @@
 # QR Menu App — Master Documentation
 
-> **Last Updated:** May 14, 2026
-> **Status:** V2.5 Complete — V3 Growth Features (Stripe Payments ✅, Live Table View ✅, OCR Import ✅, Waiter POS ✅, Staff Roles & RBAC ✅) — Security Hardening ✅ (httpOnly cookies, CSRF, same-origin proxy, CSP) — Device Enrollment ✅ (PIN login, QR bonding, re-bond, Shared Device Mode)
+> **Last Updated:** May 15, 2026
+> **Status:** V2.5 Complete — V3 Growth Features (Stripe Payments ✅, Live Table View ✅, OCR Import ✅, Waiter POS ✅, Staff Roles & RBAC ✅) — Security Hardening ✅ (httpOnly cookies, CSRF, same-origin proxy, CSP) — Public Menu Mobile UX ✅ (top bar, filters, dual currency, horizontal cards, category pills) — Bug Fixes & Polish ✅ (PR#3 findings, code review fixes, dead code cleanup, payments investigation)
 > **Stack:** Turborepo Monorepo — React 18 + NestJS 11 + Prisma 6 + Neon (Serverless PostgreSQL)
 
 ---
@@ -51,6 +51,7 @@
 | **QR Code** | `react-qr-code`, `qrcode.react` |
 | **Charts** | Recharts |
 | **Dates** | Luxon (timezone-aware) |
+| **Currency** | Dual EUR/BGN formatter at BNB fixed rate 1.95583 |
 | **Validation** | `class-validator`, `class-transformer` |
 | **Email** | Resend REST API |
 
@@ -302,6 +303,25 @@ Payment (sessionId, stripePaymentIntentId, amount, tip, status, method)
 | **Staff Settings Consolidation** | Shared Device Mode + QR Code Management moved from General to Staff tab. Staff table: name, email (`.local` synthetic emails hidden with "—"), role badge, re-bond button, delete action. |
 | **Provider Fetch Noise Fix** | `OrderProvider` + `AssistanceProvider` only fetch when authenticated. `SocketProvider` no longer depends on nonexistent `token` field. Both removed from public/customer routes. |
 | **Updated Docs** | CLAUDE.md, MAIN.md, CODING_ROADMAP.md, MAIN_FEATURES.md, HOW_TO.md, fixed_issues_main.md updated with RBAC/staff details. `RBAC_Fixed_issues.md` documents all RBAC and shared-device fixes. |
+
+### Post-Roadmap Additions (Shipped May 15, 2026)
+
+| Feature | Details |
+|---------|---------|
+| **Shared Currency Utility** | `lib/currency.ts` — `formatEuro()` and `formatBgn()` formatters at Bulgarian National Bank fixed rate 1 EUR = 1.95583 BGN. Dual-currency display throughout checkout, cart, and payment flows. Bulgarian law compliance (all prices must show both currencies). |
+| **TopBar** | Full-width search with Lucide magnifier icon, filter toggle button, theme toggle (light/dark), language codes (EN/BG/RO), table chip replacing "You are viewing the menu for table X" text. Compact horizontal layout using ~48px height. |
+| **FilterPanel** | Slide-down filter panel with dietary toggle switches (Spicy, Vegan, New, Featured) and allergen exclusion pills (Milk, Wheat, Fish, Nuts, Eggs, Soy, Shellfish). Clicking an allergen pill hides all products containing that allergen. Fully translated EN/BG/RO. |
+| **Horizontal Item Cards** | `ItemWithOptions` redesigned to horizontal layout (image left, content right). Dual-currency prices: EUR price with BGN equivalent beneath at fixed rate. Pill-shaped "+ Add" buttons (`rounded-full`) replace full-width solid blue "ADD TO CART" buttons. Compact form factor suitable for mobile 375px viewport. |
+| **CategoryPills** | Horizontal scroll pill navigation replacing previous sticky category nav. Active pill highlighted with accent color background. Smooth scroll-to-category on tap. |
+| **Slim TrendingCarousel** | Wider horizontal cards with compact skeleton loader. Reduced vertical footprint vs previous carousel. |
+| **Bottom Nav Regroup** | Profile and Call Waiter icons grouped on left side, cart/bill actions on right. Better visual hierarchy and spacing. |
+| **i18n Keys** | ~30 new keys across EN/BG/RO for search placeholder, filter labels, dietary tags, allergen names, add-to-cart button (`publicMenu.search`, `publicMenu.filters.*`, `publicMenu.dietary.*`, `publicMenu.addShort`). |
+| **Dead Code Cleanup** | Removed unused `LANG_LABELS` constant and `handleLanguageChange` function from `PublicMenuPage.tsx`. |
+| **HomePage.tsx Fixes** | PR#3 findings resolved: 3 unused Lucide imports removed, 3 `as any` type casts fixed, `featureIcons` Record type tightened to `keyof featureKeys[number]`, non-standard Tailwind durations replaced. |
+| **RestaurantContext Fix** | TS error on line 82 fixed: non-null assertion on `user.restaurantId` after guard check. |
+| **CheckoutPage Toggle** | Sr-only checkbox hack replaced with `<Toggle>` component (Radix `role="switch"`, `aria-checked`, keyboard navigation). |
+| **Code Review Fixes** | Typed translations (no `as any`), shared utils deduplication, Toggle component adoption, i18n gaps filled. |
+| **Payments Investigation** | Confirmed NO code bug. `paymentsEnabled Boolean @default(false)` in schema means new restaurants default to off. Both affected restaurants enabled via DB update. |
 
 ### V4 — Enterprise (Future)
 - AWS RDS / GCP Cloud SQL migration
@@ -762,6 +782,7 @@ npm run build   # Production build
 6. **Layout split for mobile UX** — Customer routes use `PublicLayout` (no header chrome), dashboard routes use `AppLayout`. Enables native-feel experience on customer side.
 7. **FIFO loyalty ledger** — Points managed as batches with expiry. Redemption draws oldest first. Never parallel writes inside `$transaction`.
 8. **Turborepo over Docker for dev** — Native dev server startup in ~5 seconds vs 2-5 minutes. Docker Compose kept for production simulation only.
+9. **BNB fixed exchange rate** — All dual-currency displays use Bulgarian National Bank fixed rate 1 EUR = 1.95583 BGN. Single source of truth in `currency.ts` utility, never duplicated across components.
 
 ---
 
@@ -787,6 +808,7 @@ npm run build   # Production build
 | **App routing** | `apps/frontend/src/App.tsx` |
 | **API client** | `apps/frontend/src/lib/api.ts` |
 | **Design tokens / CSS** | `apps/frontend/src/index.css` |
+| **Currency utility** | `apps/frontend/src/lib/currency.ts` |
 | **i18n config** | `apps/frontend/src/i18n.ts` |
 | **Locale files** | `apps/frontend/src/locales/*/translation.json` |
 | **Database schema** | `apps/backend/prisma/schema.prisma` |
@@ -818,6 +840,9 @@ npm run build   # Production build
 | **POS page + layout** | `apps/frontend/src/pages/pos/PosPage.tsx`, `PosLayout.tsx` |
 | **POS components** | `apps/frontend/src/components/pos/` (12 components) |
 | **Staff auth guard** | `apps/frontend/src/components/StaffRoute.tsx` |
+| **Public menu TopBar** | `apps/frontend/src/pages/TopBar.tsx` |
+| **Public menu FilterPanel** | `apps/frontend/src/pages/FilterPanel.tsx` |
+| **Category pills** | `apps/frontend/src/pages/CategoryPills.tsx` |
 | **Planning docs** | `.planning/` |
 | **Design system** | `.agent/design-system/qr-menu-saas/MASTER.md` |
 | **Coding roadmap** | `CODING_ROADMAP.md` |

@@ -1,6 +1,6 @@
 # QR Menu App — Coding Roadmap
 
-> **Last Updated:** May 14, 2026  
+> **Last Updated:** May 15, 2026  
 > **MVP Status:** ✅ Complete  
 > **V2 Status:** ✅ Phases 9–14 Complete  
 > **V2.5 Status:** ✅ Phases 15–17 + Mobile UX Overhaul + UI/UX Audit & Theme Polish Complete  
@@ -10,6 +10,8 @@
 > **Waiter POS (May 9-10, 2026):** ✅ Full POS interface at /staff/pos — 15 files created, 4 modified, zero schema changes  
 > **Security Hardening (May 10-11, 2026):** ✅ Phase 21 — JWT → httpOnly cookies, CSRF protection, same-origin Vite proxy, CSP headers, per-endpoint rate limits, OTP brute-force protection, body size limits  
 > **Staff Roles & RBAC (May 12-14, 2026):** ✅ Phase 18 Complete — OWNER/MANAGER/WAITER/KITCHEN roles, PIN-based device login, QR enrollment (bond/re-bond), shared device mode, staff settings consolidation, StaffCreatedModal, RBAC across all services  
+> **Public Menu Mobile UX (May 15, 2026):** ✅ TopBar, FilterPanel, CategoryPills, horizontal item cards with dual-currency, slim TrendingCarousel, bottom nav regroup, ~30 i18n keys, dead code cleanup, PublicMenuPage refactored 815→~400 lines  
+> **Code Review & Bug Fixes (May 15, 2026):** ✅ PR#3 findings (HomePage imports, i18n casts, Tailwind durations), RestaurantContext TS error, CheckoutPage Toggle, payments investigation (not a bug — schema default)  
 > **Current Focus:** Phase 20 (Multi-location) — planned
 
 ---
@@ -566,6 +568,85 @@ All foundational phases were completed on **April 9, 2026**. The application is 
 - `apps/frontend/src/App.tsx` — PosLayout + /staff/pos route
 - `apps/frontend/src/pages/Dashboard/LiveTablesView.tsx` — async table click handler
 - `apps/frontend/src/components/tables/TableDetailModal.tsx` — `ordersLoading` prop
+
+---
+
+## 🟢 Public Menu Mobile UX Redesign (Complete — May 15, 2026)
+
+Design spec: `docs/superpowers/specs/2026-05-15-public-menu-mobile-ux-design.md`
+Implementation plan: `docs/superpowers/plans/2026-05-15-public-menu-mobile-ux.md`
+
+10 tasks across 14 files. Refactored `PublicMenuPage.tsx` from 815 lines to ~400 by extracting TopBar, FilterPanel, and CategoryPills into standalone components.
+
+### Task 1: Shared Currency Utility
+- `apps/frontend/src/lib/currency.ts` — `formatEuro()` and `formatBgn()` using BNB fixed rate 1 EUR = 1.95583 BGN
+- Single source of truth, never duplicated across components
+
+### Task 2: TopBar Component
+- `apps/frontend/src/pages/TopBar.tsx` — full-width search with Lucide `Search` icon, Filter toggle button, ThemeToggle, language codes (EN/BG/RO), Table chip (`Table` icon + number replacing "You are viewing the menu for table X" text)
+
+### Task 3: FilterPanel Component
+- `apps/frontend/src/pages/FilterPanel.tsx` — slide-down panel with dietary toggle switches (Spicy, Vegan, New, Featured) and allergen exclusion pills (Milk, Wheat, Fish, Nuts, Eggs, Soy, Shellfish). Clicking an allergen pill excludes matching products. Multi-select search remains functional inside panel.
+
+### Task 4: Horizontal Item Cards
+- `ItemWithOptions.tsx` redesigned to horizontal layout: image left, content right, dual-currency prices (EUR primary, BGN secondary at fixed rate), pill-shaped "+ Add" buttons replacing full-width solid blue "ADD TO CART" buttons
+
+### Task 5: CategoryPills
+- `apps/frontend/src/pages/CategoryPills.tsx` — horizontal scroll pill navigation replacing sticky category nav. Active pill highlighted with accent color.
+
+### Task 6: Slim TrendingCarousel
+- Wider horizontal cards with compact skeleton loader. Reduced vertical footprint.
+
+### Task 7: Bottom Nav Regroup
+- Profile and Call Waiter icons grouped left, cart/bill actions right.
+
+### Task 8: i18n Keys
+- ~30 new keys across EN/BG/RO: `publicMenu.search`, `publicMenu.filters.*`, `publicMenu.dietary.*`, `publicMenu.addShort`
+
+### Task 9: Dual-Currency Integration
+- CartDrawer, CheckoutPage, PaymentModal wired to `formatEuro()`/`formatBgn()`. EUR+BGN display at BNB fixed rate.
+
+### Task 10: Dead Code Cleanup
+- Removed unused `LANG_LABELS` constant and `handleLanguageChange` function from `PublicMenuPage.tsx`.
+
+### Key files:
+- `apps/frontend/src/lib/currency.ts` — dual formatters
+- `apps/frontend/src/pages/TopBar.tsx` — search + filter + theme + lang + table chip
+- `apps/frontend/src/pages/FilterPanel.tsx` — dietary toggles + allergen pills
+- `apps/frontend/src/pages/CategoryPills.tsx` — horizontal scroll pill nav
+- `apps/frontend/src/pages/PublicMenuPage.tsx` — refactored 815→~400 lines
+- `apps/frontend/src/components/menu/ItemWithOptions.tsx` — horizontal layout + dual currency
+- `apps/frontend/src/components/menu/TrendingCarousel.tsx` — slim version
+- `apps/frontend/src/components/cart/CartDrawer.tsx` — dual currency
+- `apps/frontend/src/pages/CheckoutPage.tsx` — dual currency
+- `apps/frontend/src/components/payment/PaymentModal.tsx` — dual currency
+- `apps/frontend/src/locales/*/translation.json` — ~30 new keys
+
+---
+
+## 🟢 Code Review & PR#3 Findings Fixes (Complete — May 15, 2026)
+
+Plan: `.claude/plans/snappy-tumbling-peach.md` (6 changes across 4 files)
+
+### HomePage.tsx (4 fixes)
+- Removed 3 unused Lucide imports (`TrendingUp`, `Users`, `Layers`)
+- Fixed 3 `as any` type casts on i18n keys → `t(key, fallback)` pattern
+- Tightened `featureIcons` Record type to `keyof featureKeys[number]`
+- Replaced non-standard Tailwind durations (`duration-400`→`duration-300`, `duration-1200`→`duration-1000`)
+
+### RestaurantContext.tsx
+- Fixed TS error on line 82: non-null assertion on `user.restaurantId` after guard check
+
+### CheckoutPage.tsx
+- Replaced sr-only checkbox hack with `<Toggle>` component (Radix `role="switch"`, `aria-checked`, keyboard navigation)
+
+### Code Review Fixes
+- Typed translations (removed `as any`), shared utils deduplication, Toggle component adoption, i18n gaps
+
+### Payments "Not Enabled" Investigation
+- Confirmed NOT a code bug. `paymentsEnabled Boolean @default(false)` in Prisma schema
+- `PaymentService` correctly checks `restaurant.paymentsEnabled` before allowing payment intent creation
+- Both affected restaurants had `paymentsEnabled = false` in DB — enabled via direct DB update
 
 ---
 
