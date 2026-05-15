@@ -7,7 +7,7 @@ import { Input } from '../ui/input';
 import { Modal } from '../ui/modal';
 import { useTranslation } from 'react-i18next';
 import { Printer, Eye, QrCode } from 'lucide-react';
-import PrintableQRCodes from './PrintableQRCodes';
+import PrintableQRCodes, { PrintTemplate } from './PrintableQRCodes';
 import RestaurantContext from '../../context/RestaurantContext';
 import LiveTablesView from '../../pages/Dashboard/LiveTablesView';
 
@@ -21,6 +21,7 @@ const TableView: React.FC = () => {
   const qrCodeRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
   const [subTab, setSubTab] = useState<'live' | 'qr'>('live');
+  const [printTemplate, setPrintTemplate] = useState<PrintTemplate>('classic');
 
   const { data: tables, isLoading } = useQuery({
     queryKey: ['tables', restaurantId],
@@ -169,15 +170,27 @@ const TableView: React.FC = () => {
                   </Button>
                 </form>
 
-                <Button
-                  variant="outline"
-                  onClick={() => window.print()}
-                  disabled={!tables || tables.length === 0}
-                  className="gap-2 shrink-0"
-                >
-                  <Printer className="w-4 h-4" />
-                  {t('tables.printAllQr')}
-                </Button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <select
+                    value={printTemplate}
+                    onChange={(e) => setPrintTemplate(e.target.value as PrintTemplate)}
+                    className="h-9 px-3 rounded-lg border border-border bg-background text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
+                    aria-label="Print template"
+                  >
+                    <option value="classic">Classic</option>
+                    <option value="premium">Premium</option>
+                    <option value="minimal">Minimal</option>
+                  </select>
+                  <Button
+                    variant="outline"
+                    onClick={() => window.print()}
+                    disabled={!tables || tables.length === 0}
+                    className="gap-2"
+                  >
+                    <Printer className="w-4 h-4" />
+                    {t('tables.printAllQr')}
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -255,7 +268,7 @@ const TableView: React.FC = () => {
                 )}
               </Modal>
 
-              <PrintableQRCodes restaurant={restaurant} tables={tables || []} />
+              <PrintableQRCodes restaurant={restaurant} tables={tables || []} template={printTemplate} />
             </>
           )}
         </>
