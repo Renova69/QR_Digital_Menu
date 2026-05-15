@@ -13,6 +13,59 @@ import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { formatInlineDual, formatEuro, formatBgn } from "../lib/currency";
 import { Toggle } from "../components/ui/Toggle";
 
+function SplitBillSection({ total }: { total: number }) {
+  const [open, setOpen] = useState(false);
+  const [count, setCount] = useState(2);
+  const { t } = useTranslation();
+  const perPerson = count > 0 ? total / count : total;
+
+  const decrement = () => setCount((c) => Math.max(2, c - 1));
+  const increment = () => setCount((c) => Math.min(20, c + 1));
+
+  return (
+    <div className="mt-4 pt-4 border-t border-border/40">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-foreground transition-colors"
+        aria-expanded={open}
+      >
+        <span className={`transition-transform duration-200 ${open ? 'rotate-90' : ''}`}>▶</span>
+        {t('checkout.splitBill', { defaultValue: 'Split Bill' })}
+      </button>
+      {open && (
+        <div className="mt-3 p-4 bg-secondary/40 rounded-2xl">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-foreground flex-shrink-0">
+              {t('checkout.splitAmong', { defaultValue: 'Split among' })}
+            </span>
+            <button
+              type="button"
+              onClick={decrement}
+              aria-label="Decrease split count"
+              className="w-9 h-9 rounded-full bg-background border border-border flex items-center justify-center text-base hover:bg-secondary transition-colors"
+            >−</button>
+            <span className="text-lg font-black text-foreground w-6 text-center">{count}</span>
+            <button
+              type="button"
+              onClick={increment}
+              aria-label="Increase split count"
+              className="w-9 h-9 rounded-full bg-background border border-border flex items-center justify-center text-base hover:bg-secondary transition-colors"
+            >+</button>
+            <div className="ml-auto text-right">
+              <div className="text-base font-black text-accent">{formatEuro(perPerson)}</div>
+              <div className="text-xs text-muted-foreground">{formatBgn(perPerson)}</div>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {t('checkout.splitNote', { defaultValue: 'per person' })}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const CheckoutPage = () => {
   const { user } = useAuth();
   const { items, tableNumber, getTotal, clearCart } = useCart();
@@ -336,6 +389,9 @@ const CheckoutPage = () => {
             <span className="text-xs text-muted-foreground">{formatBgn(getCheckoutTotal())}</span>
           </div>
         </div>
+
+        {/* Split bill calculator */}
+        <SplitBillSection total={getCheckoutTotal()} />
 
         {user &&
           restaurantId &&
