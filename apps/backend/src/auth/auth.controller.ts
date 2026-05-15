@@ -109,14 +109,6 @@ export class AuthController {
     res.redirect(`${frontendUrl}/auth/callback${returnTo ? `?${returnTo.slice(1)}` : ''}`);
   }
 
-  @Post('magic-link')
-  async sendMagicLink(
-    @Body('email') email: string,
-    @Body('returnTo') returnTo?: string,
-  ) {
-    return this.authService.sendMagicLink(email, returnTo);
-  }
-
   @Post('otp/send')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   sendOtp(
