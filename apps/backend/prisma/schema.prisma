@@ -76,6 +76,11 @@ model Restaurant {
   tipsEnabled               Boolean             @default(false)
   tipOptions                Int[]               @default([2, 4, 5])
   platformFeePercent        Float               @default(0.5)
+  tier                      SubscriptionTier    @default(FREE)
+  stripeCustomerId          String?
+  stripeSubscriptionId      String?
+  stripePriceId             String?
+  tierUpdatedAt             DateTime?
   assistanceRequests        AssistanceRequest[]
   deviceEnrollmentTokens    DeviceEnrollmentToken[]
   orders                    Order[]
@@ -394,4 +399,11 @@ enum PaymentProvider {
   STRIPE
   MYPOS
   CASH
+}
+
+enum SubscriptionTier {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
 }
