@@ -530,79 +530,73 @@ const PublicMenuPage = () => {
           </div>
         )}
 
-        {/* Action Bar */}
+        {/* Action Bar — regrouped: profile/waiter left, cart/bill right */}
         <div
           className="fixed left-0 right-0 z-50 flex justify-center pointer-events-none px-4 md:px-6"
           style={{ bottom: 'max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))' }}
         >
           <div className="flex items-center w-full max-w-[480px] justify-between p-1.5 md:p-2.5 glass-panel rounded-[2rem] md:rounded-[2.5rem] shadow-[0_30px_70px_-15px_rgba(0,0,0,0.5)] border-white/20 dark:border-white/10 pointer-events-auto bg-white/90 dark:bg-black/90">
-            {/* Call Waiter — icon only on mobile, icon+label on sm+ */}
-            <button
-              onClick={() => {
-                if (assistanceSent || assistanceLoading) return;
-                if (!tableNumber) { handleAssistanceRequest(); return; }
-                setIsAssistanceDialogOpen(true);
-              }}
-              disabled={assistanceSent || assistanceLoading}
-              aria-label={tableNumber ? t("publicMenu.callWaiter") : t("publicMenu.scanQrForAssistance", "Scan QR to call waiter")}
-              className="flex items-center gap-1.5 md:gap-4 pl-3 md:pl-8 pr-2 md:pr-6 py-3 md:py-4 rounded-[1.75rem] hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-60 disabled:cursor-not-allowed transition-all group flex-shrink-0 min-h-[48px]"
-            >
-              <div className="relative flex-shrink-0">
-                <Bell className="h-5 w-5 md:h-6 md:w-6 text-accent group-hover:scale-110 transition-transform" />
-                {tableNumber && !assistanceSent && (
-                  <div className="absolute -top-1 -right-1 w-2 h-2 md:w-2.5 md:h-2.5 bg-destructive rounded-full border-2 border-white dark:border-black" />
-                )}
-              </div>
-              <span className="hidden sm:block font-black text-xs uppercase tracking-[0.1em] text-foreground/90 truncate max-w-[90px]">
-                {assistanceSent
-                  ? t("publicMenu.staffNotifiedShort", "Staff Notified")
-                  : assistanceLoading
-                  ? t("publicMenu.calling", "Calling…")
-                  : t("publicMenu.callWaiter")}
-              </span>
-            </button>
-            <div className="w-px h-8 bg-border/40 mx-1 md:mx-2 flex-shrink-0" />
-
-            {user ? (
-              <div className="flex items-center gap-0.5 flex-shrink-0">
-                <button
-                  onClick={() =>
-                    navigate(
-                      `/profile?returnTo=${encodeURIComponent(
-                        location.pathname + location.search,
-                      )}`,
-                    )
-                  }
-                  aria-label={t("publicMenu.myProfile")}
-                  className="flex items-center justify-center p-2 min-h-[48px] hover:opacity-70 transition-opacity text-accent"
-                >
-                  <UserCircle className="w-6 h-6" />
-                </button>
-                <button
-                  onClick={() => logout()}
-                  aria-label={t("publicMenu.logout")}
-                  className="p-2 hover:opacity-70 transition-opacity"
-                >
-                  <LogOut className="w-4 h-4 text-muted-foreground" />
-                </button>
-              </div>
-            ) : (
+            {/* LEFT GROUP: Waiter + Profile/Sign-In */}
+            <div className="flex items-center gap-0.5">
+              {/* Call Waiter */}
               <button
-                onClick={() => setIsLoginModalOpen(true)}
-                className="flex items-center justify-center px-2.5 md:px-4 py-2 min-h-[44px] bg-secondary text-secondary-foreground rounded-xl text-xs font-black uppercase tracking-widest hover:bg-secondary/80 transition-colors flex-shrink-0"
+                onClick={() => {
+                  if (assistanceSent || assistanceLoading) return;
+                  if (!tableNumber) { handleAssistanceRequest(); return; }
+                  setIsAssistanceDialogOpen(true);
+                }}
+                disabled={assistanceSent || assistanceLoading}
+                aria-label={tableNumber ? t("publicMenu.callWaiter") : t("publicMenu.scanQrForAssistance", "Scan QR to call waiter")}
+                className="flex items-center justify-center p-2.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-60 disabled:cursor-not-allowed transition-all min-h-[44px] min-w-[44px]"
               >
-                {t("publicMenu.signIn", "Sign In")}
+                <div className="relative">
+                  <Bell className="h-5 w-5 text-accent" />
+                  {tableNumber && !assistanceSent && (
+                    <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-destructive rounded-full border-2 border-white dark:border-black" />
+                  )}
+                </div>
               </button>
-            )}
 
-            {/* Request Bill — divider only rendered when button is present */}
-            {sessionToken && (
-              <>
-                <div className="w-px h-8 bg-border/40 mx-1 md:mx-2 flex-shrink-0" />
+              {user ? (
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={() =>
+                      navigate(
+                        `/profile?returnTo=${encodeURIComponent(
+                          location.pathname + location.search,
+                        )}`,
+                      )
+                    }
+                    aria-label={t("publicMenu.myProfile")}
+                    className="flex items-center justify-center p-2.5 min-h-[44px] min-w-[44px] hover:opacity-70 transition-opacity text-accent"
+                  >
+                    <UserCircle className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => logout()}
+                    aria-label={t("publicMenu.logout")}
+                    className="p-2.5 hover:opacity-70 transition-opacity"
+                  >
+                    <LogOut className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsLoginModalOpen(true)}
+                  className="px-3 py-2 rounded-xl bg-secondary text-secondary-foreground text-[10px] font-black uppercase tracking-wider hover:bg-secondary/80 transition-colors"
+                >
+                  {t("publicMenu.signIn", "Sign In")}
+                </button>
+              )}
+            </div>
+
+            {/* RIGHT GROUP: Bill + Cart */}
+            <div className="flex items-center gap-0.5">
+              {sessionToken && (
                 <Button
                   variant="default"
                   size="sm"
-                  className="bg-accent text-accent-foreground flex-shrink-0 text-[11px] px-2.5 md:px-4"
+                  className="bg-accent text-accent-foreground text-[10px] px-3 py-2 rounded-xl font-bold"
                   onClick={async () => {
                     try {
                       await getSessionBill(sessionToken);
@@ -615,15 +609,14 @@ const PublicMenuPage = () => {
                 >
                   {t('payment.requestBill')}
                 </Button>
-              </>
-            )}
-            <div className="w-px h-8 bg-border/40 mx-1 md:mx-2 flex-shrink-0" />
-            <div className="pr-1.5 md:pr-4 flex-shrink-0">
-              <CartIcon
-                categories={menuData?.categories}
-                restaurantId={restaurantId}
-                selectedLang={selectedLang}
-              />
+              )}
+              <div className="flex-shrink-0">
+                <CartIcon
+                  categories={menuData?.categories}
+                  restaurantId={restaurantId}
+                  selectedLang={selectedLang}
+                />
+              </div>
             </div>
           </div>
         </div>
