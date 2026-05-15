@@ -3,6 +3,63 @@ import { useState, useEffect } from 'react';
 import { Star, ChefHat, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 
+const STEPS = ['Placed', 'In Kitchen', 'Served'] as const;
+
+const STATUS_STEP: Record<string, number> = {
+  NEW: 0,
+  IN_PROGRESS: 1,
+  SERVED: 2,
+};
+
+function OrderProgressStepper({ status }: { status: string }) {
+  if (status === 'CANCELED') return null;
+  const active = STATUS_STEP[status] ?? 0;
+  return (
+    <div className="glass-panel rounded-[2rem] p-5">
+      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4">
+        Order Progress
+      </p>
+      <div className="flex items-center">
+        {STEPS.map((label, idx) => {
+          const done = idx < active;
+          const current = idx === active;
+          return (
+            <div key={label} className="flex-1 flex flex-col items-center relative">
+              {idx < STEPS.length - 1 && (
+                <div
+                  className={`absolute top-3.5 left-1/2 w-full h-0.5 transition-colors duration-500 ${
+                    done ? 'bg-emerald-400' : 'bg-border'
+                  }`}
+                />
+              )}
+              <div
+                className={`relative z-10 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-500 border-2 ${
+                  done
+                    ? 'bg-emerald-400 border-emerald-400'
+                    : current
+                    ? 'bg-accent border-accent animate-pulse'
+                    : 'bg-background border-border'
+                }`}
+              >
+                {done ? (
+                  <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <span className={`text-[10px] font-black ${current ? 'text-white' : 'text-muted-foreground'}`}>{idx + 1}</span>
+                )}
+              </div>
+              <span className={`mt-2 text-[10px] font-bold text-center leading-tight ${current ? 'text-foreground' : done ? 'text-emerald-400' : 'text-muted-foreground'}`}>
+                {label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 const STATUS_CONFIG = {
   NEW: {
     icon: Clock,
@@ -95,6 +152,9 @@ const OrderConfirmationPage = () => {
             </div>
           </div>
         </div>
+
+        {/* Progress stepper */}
+        <OrderProgressStepper status={orderStatus} />
 
         {/* Order reference */}
         {orderNumber && (
