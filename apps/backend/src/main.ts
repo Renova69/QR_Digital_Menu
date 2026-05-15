@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { RequestMethod, ValidationPipe } from '@nestjs/common';
+import { RequestMethod, ValidationPipe, VersioningType } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import * as express from 'express';
@@ -63,17 +63,16 @@ async function bootstrap() {
     // Skip entirely in dev mode (cross-origin makes cookie reading impossible from JS)
     const COOKIE_SAMESITE = (process.env.COOKIE_SAMESITE as 'lax' | 'strict' | 'none') || (process.env.NODE_ENV === 'production' ? 'lax' : 'lax');
     const CSRF_EXEMPT = [
-      '/api/auth/login',
-      '/api/auth/register',
-      '/api/auth/otp/send',
-      '/api/auth/otp/verify',
-      '/api/auth/magic-link',
-      '/api/auth/google',
-      '/api/auth/google/callback',
+      '/api/v1/auth/login',
+      '/api/v1/auth/register',
+      '/api/v1/auth/otp/send',
+      '/api/v1/auth/otp/verify',
+      '/api/v1/auth/google',
+      '/api/v1/auth/google/callback',
     ];
     app.use((req: any, res: any, next: any) => {
       const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
-      const isWebhook = req.path === '/api/payments/webhook';
+      const isWebhook = req.path === '/api/v1/payments/webhook';
       const isCsrfExempt = CSRF_EXEMPT.includes(req.path) && ['POST'].includes(req.method);
 
       if (safeMethods.includes(req.method) || isWebhook || isCsrfExempt || process.env.NODE_ENV !== 'production') {
@@ -102,12 +101,17 @@ async function bootstrap() {
       next();
     });
 
-    app.use('/api/payments/webhook', express.raw({ type: 'application/json', limit: '5mb' }));
+    app.use('/api/v1/payments/webhook', express.raw({ type: 'application/json', limit: '5mb' }));
     app.use(express.json({ limit: '1mb' }));
     app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
     app.setGlobalPrefix('api', {
       exclude: [{ path: '/', method: RequestMethod.GET }],
+    });
+
+    app.enableVersioning({
+      type: VersioningType.URI,
+      defaultVersion: '1',
     });
 
     const config = new DocumentBuilder()
