@@ -12,6 +12,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircleCheck } from "@fortawesome/free-solid-svg-icons";
 import { useTranslation } from "react-i18next";
 import { TopBar } from "../components/menu/TopBar";
+import { FilterPanel } from "../components/menu/FilterPanel";
 import { TrendingCarousel } from "../components/menu/TrendingCarousel";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { useAuth } from "../context/AuthContext";
@@ -48,7 +49,20 @@ const PublicMenuPage = () => {
   const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [activeDietTags, setActiveDietTags] = useState<string[]>([]);
+  const [excludedAllergens, setExcludedAllergens] = useState<string[]>([]);
+
+  const toggleDietTag = (tag: string) => {
+    setActiveDietTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+    );
+  };
+
+  const toggleAllergen = (allergen: string) => {
+    setExcludedAllergens((prev) =>
+      prev.includes(allergen) ? prev.filter((a) => a !== allergen) : [...prev, allergen],
+    );
+  };
 
   const categoryRefs = useRef<Record<string, HTMLElement | null>>({});
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -343,37 +357,18 @@ const PublicMenuPage = () => {
                   </div>
                 )}
 
-                {/* Dietary / Allergen Filters */}
-                {dietTags.length > 0 && (
-                  <div className="mt-8 flex flex-wrap items-center gap-2 justify-center">
-                    <button
-                      onClick={() => setActiveFilter(null)}
-                      className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
-                        activeFilter === null
-                          ? 'bg-foreground text-background shadow-lg'
-                          : 'glass-panel text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {t('publicMenu.all', 'All')}
-                    </button>
-                    {dietTags.map(({ tag, count }) => (
-                      <button
-                        key={tag}
-                        onClick={() =>
-                          setActiveFilter(activeFilter === tag ? null : tag)
-                        }
-                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all active:scale-95 ${
-                          activeFilter === tag
-                            ? 'bg-foreground text-background shadow-lg'
-                            : 'glass-panel text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        {tag}
-                        <span className="ml-1.5 opacity-50">{count}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {/* Filter Panel */}
+                <FilterPanel
+                  isOpen={filterDrawerOpen}
+                  onClose={() => setFilterDrawerOpen(false)}
+                  dietTags={dietTags}
+                  activeDietTags={activeDietTags}
+                  onDietTagToggle={toggleDietTag}
+                  excludedAllergens={excludedAllergens}
+                  onAllergenToggle={toggleAllergen}
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                />
 
                 {/* Premium Sticky Navigation */}
                 <div className="sticky top-4 md:top-6 z-40 mb-10 md:mb-20 px-2 lg:px-0">
@@ -496,10 +491,37 @@ const PublicMenuPage = () => {
                         )}
 
                         {(() => {
-                          const filteredItems = activeFilter
-                            ? category.items.filter((item: any) =>
-                                [...(item.allergens ?? []), ...(item.dietaryTags ?? [])].includes(activeFilter))
-                            : category.items;
+                          const filteredItems = (() => {
+                            let items = category.items;
+
+                            if (searchQuery.trim()) {
+                              const q = searchQuery.toLowerCase();
+                              items = items.filter((item: any) =>
+                                item.name.toLowerCase().includes(q) ||
+                                (item.description ?? '').toLowerCase().includes(q),
+                              );
+                            }
+
+                            if (activeDietTags.length > 0) {
+                              items = items.filter((item: any) =>
+                                activeDietTags.every((tag) =>
+                                  [...(item.allergens ?? []), ...(item.dietaryTags ?? [])].includes(tag),
+                                ),
+                              );
+                            }
+
+                            if (excludedAllergens.length > 0) {
+                              items = items.filter((item: any) =>
+                                !excludedAllergens.some((allergen) =>
+                                  (item.allergens ?? []).some(
+                                    (a: string) => a.toLowerCase() === allergen.toLowerCase(),
+                                  ),
+                                ),
+                              );
+                            }
+
+                            return items;
+                          })();
 
                           if (filteredItems.length === 0) {
                             return (
