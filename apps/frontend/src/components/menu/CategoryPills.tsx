@@ -1,5 +1,6 @@
 // apps/frontend/src/components/menu/CategoryPills.tsx
 import { Category } from '../../types';
+import { getTranslatedField } from '../../lib/translation';
 
 interface CategoryPillsProps {
   categories: Category[];
@@ -19,9 +20,7 @@ export function CategoryPills({
       <div className="flex gap-2 overflow-x-auto hide-scrollbar glass-panel p-1.5 rounded-[1.75rem] border-white/5 shadow-lg">
         {categories.map((cat) => {
           const catName =
-            (selectedLang &&
-              (cat.translations as any)?.[selectedLang]?.name) ||
-            cat.name;
+            getTranslatedField(cat, selectedLang, 'name') || cat.name;
           const isActive = activeCategory === cat.id;
           return (
             <button

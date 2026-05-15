@@ -17,6 +17,7 @@ import { TrendingCarousel } from "../components/menu/TrendingCarousel";
 import { CategoryPills } from "../components/menu/CategoryPills";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { useAuth } from "../context/AuthContext";
+import { getImageUrl } from "../lib/getImageUrl";
 const PublicMenuPage = () => {
   const { restaurantId } = useParams<{ restaurantId: string }>();
   const location = useLocation();
@@ -176,14 +177,6 @@ const PublicMenuPage = () => {
       });
     }
   }, [menuData?.restaurant]);
-  const getImageUrl = (url: string) => {
-    if (url.startsWith("http")) return url;
-    const apiUrl =
-      (import.meta as any).env.VITE_API_URL || "http://localhost:3000/api";
-    const baseUrl = apiUrl.replace("/api", "");
-    return `${baseUrl}/${url}`;
-  };
-
   const handleAssistanceRequest = async () => {
     if (!tableNumber) {
       setNoTableNotice(true);
@@ -301,7 +294,7 @@ const PublicMenuPage = () => {
           <div className="flex flex-col items-center justify-center py-32 space-y-4">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent"></div>
             <p className="text-muted-foreground font-medium opacity-60">
-              Preparing your menu...
+              {t("publicMenu.preparingMenu", "Preparing your menu...")}
             </p>
           </div>
         )}
@@ -310,14 +303,14 @@ const PublicMenuPage = () => {
           <div className="glass-panel border-t-4 border-destructive p-12 rounded-[2.5rem] shadow-2xl mb-8 text-center animate-in fade-in duration-500">
             <h3 className="text-2xl font-serif font-bold mb-4">{error}</h3>
             <p className="text-muted-foreground mb-6">
-              Please check the link or ask staff for assistance.
+              {t("publicMenu.checkLink", "Please check the link or ask staff for assistance.")}
             </p>
             <Button
               onClick={() => window.location.reload()}
               variant="outline"
               className="rounded-xl"
             >
-              Try Again
+              {t("publicMenu.tryAgain", "Try Again")}
             </Button>
           </div>
         )}
