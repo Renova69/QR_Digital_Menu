@@ -92,7 +92,7 @@ export function FilterPanel({
         {dietary.length > 0 && (
           <div className="p-4 border-b border-border">
             <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-3">
-              {t('filters.dietaryPreferences', 'Dietary Preferences')}
+              {t('publicMenu.dietaryPreferences', 'Dietary Preferences')}
             </h3>
             <div className="space-y-1">
               {dietary.map(({ tag, count }) => (
@@ -119,7 +119,7 @@ export function FilterPanel({
         {allergens.length > 0 && (
           <div className="p-4">
             <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-3">
-              {t('filters.excludeAllergens', 'Exclude Allergens')}
+              {t('publicMenu.excludeAllergens', 'Exclude Allergens')}
             </h3>
             <div className="flex flex-wrap gap-2">
               {allergens.map(({ tag, count }) => (
