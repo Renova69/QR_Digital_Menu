@@ -29,17 +29,41 @@ export const TrendingCarousel: React.FC<TrendingCarouselProps> = ({ restaurantId
     fetchTrending();
   }, [restaurantId]);
 
-  if (loading || trendingItems.length === 0) return null;
+  if (loading) {
+    return (
+      <div className="mb-10">
+        <div className="flex items-center justify-between mb-4 px-4">
+          <div className="h-6 w-32 bg-secondary rounded-lg animate-pulse" />
+        </div>
+        <div className="flex overflow-hidden gap-4 px-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="min-w-[320px] max-w-[380px] shrink-0">
+              <div className="glass-panel p-3 rounded-[1.75rem] border-white/5 h-[120px] flex gap-3 animate-pulse">
+                <div className="w-[30%] rounded-2xl bg-secondary flex-shrink-0" />
+                <div className="flex-1 space-y-2 py-1">
+                  <div className="h-4 w-3/4 bg-secondary rounded-lg" />
+                  <div className="h-3 w-1/2 bg-secondary rounded-lg" />
+                  <div className="h-3 w-full bg-secondary rounded-lg mt-auto" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (trendingItems.length === 0) return null;
 
   return (
-    <div className="mb-16">
+    <div className="mb-10">
       <div className="flex items-center justify-between mb-6 px-4">
         <h2 className="text-2xl font-serif font-black tracking-tighter flex items-center gap-2">
             <span className="text-accent animate-pulse">🔥</span> {t('publicMenu.trendingNow', 'Trending Now')}
         </h2>
       </div>
       
-      <div className="flex overflow-x-auto gap-6 pb-8 px-4 hide-scrollbar snap-x">
+      <div className="flex overflow-x-auto gap-4 pb-4 px-4 hide-scrollbar snap-x">
         {trendingItems.map(item => {
             const translatedItem = {
                 ...item,
@@ -48,7 +72,7 @@ export const TrendingCarousel: React.FC<TrendingCarouselProps> = ({ restaurantId
             };
             const pairings = allMenuItems.filter(i => item.relatedItemIds?.includes(i.id));
             return (
-                <div key={item.id} className="min-w-[280px] max-w-[300px] snap-center shrink-0">
+                <div key={item.id} className="min-w-[320px] max-w-[380px] snap-center shrink-0">
                     <ItemWithOptions item={translatedItem} perfectPairings={pairings} />
                 </div>
             );
