@@ -237,6 +237,16 @@ Source of truth: `CODING_ROADMAP.md`. Detailed per-phase plans under `.planning/
 
 **Payments "not enabled" investigation (May 15, 2026):** Confirmed NO code bug. `paymentsEnabled Boolean @default(false)` in Prisma schema means new restaurants default to false. `PaymentService` correctly checks `restaurant.paymentsEnabled` before allowing payment intent creation. Both affected restaurants had `paymentsEnabled = false` in DB — enabled via direct DB update.
 
+**Shipped — Security & Bug Fixes (May 15, 2026):**
+- **Socket.io CORS** — `events.gateway.ts` wildcard `origin: '*'` replaced with `process.env.FRONTEND_URL || 'http://localhost:3001'` + `credentials: true`. Any page could previously subscribe to restaurant events.
+- **Magic-link removal** — Deleted `POST /auth/magic-link` endpoint and `sendMagicLink()` service method. Method leaked JWT token in response body and `console.log`. Flow replaced by Email OTP (already live since May 6).
+- **Loyalty expiry emails** — `runDailyExpiryReminders()` cron in `loyalty.service.ts` now sends per-candidate emails via Resend (`RESEND_API_KEY`). Dev fallback: `logger.log`. Previous implementation only marked DB batches as sent but never emailed anyone.
+- **Analytics CSV export** — `handleExportCSV()` in `AnalyticsView.tsx` was missing `peakHours` and `categoryBreakdown` sections. Both added — CSV now exports all 5 data sets (summary, revenue trend, top items, peak hours, category breakdown).
+- **TypeScript strict mode** — `apps/backend/tsconfig.json`: `strictNullChecks` and `noImplicitAny` both enabled (`false` → `true`). Fixed all resulting errors: explicit `any` on `@Request() req` controller params, nullish coalescing on pagination `page`/`limit`, null guards on `dbItem` in orders service, supertest import fix in e2e specs.
+- **CategoryPills auto-scroll** — Active pill now scrolls into view via `scrollIntoView` + `useRef` on pill elements. Previously active category could be off-screen after category change.
+- **ItemWithOptions BGN conversion** — If `item.currency === 'BGN'`, price divided by `BGN_RATE` before passing to `formatInlineDual`. Previously BGN-priced items would show double-converted amounts.
+- **Key files:** `events.gateway.ts`, `auth.controller.ts`, `auth.service.ts`, `loyalty.service.ts`, `AnalyticsView.tsx`, `tsconfig.json` (backend), `CategoryPills.tsx`, `ItemWithOptions.tsx`.
+
 **Current focus — V3 Growth:**
 - **Phase 20 — Multi-location:** menu templates, bulk price updates, cross-location analytics.
 
