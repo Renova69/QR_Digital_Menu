@@ -5,6 +5,8 @@ import { useCart } from '../../context/CartContext';
 import { useTranslation } from 'react-i18next';
 import { ImageLightbox } from './ImageLightbox';
 import { formatInlineDual } from '../../lib/currency';
+import { getImageUrl as resolveImageUrl } from '../../lib/getImageUrl';
+import { getTranslatedField, getTranslatedArray } from '../../lib/translation';
 
 interface ItemWithOptionsProps {
   item: Item;
@@ -34,9 +36,8 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
     const { t, i18n } = useTranslation();
 
     const currentLang = i18n.language;
-    const translations = item.translations as any;
-    const itemName = (currentLang && translations && translations[currentLang]?.name) || item.name;
-    const itemDesc = (currentLang && translations && translations[currentLang]?.description) || item.description;
+    const itemName = getTranslatedField(item, currentLang, 'name') || item.name;
+    const itemDesc = getTranslatedField(item, currentLang, 'description') || item.description;
 
     const showToast = (itemName: string) => {
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -79,12 +80,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
         });
     };
 
-    const getImageUrl = (url: string) => {
-        if (url.startsWith('http')) return url;
-        const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000/api';
-        const baseUrl = apiUrl.replace('/api', '');
-        return `${baseUrl}/${url}`;
-    };
+    const getImageUrl = resolveImageUrl;
 
     const buildMainCartItem = () => {
         const optionsWithDetails = Object.entries(selectedOptions).map(([optionId, choice]) => {
@@ -198,8 +194,8 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
 
                     {/* Dietary & Allergens */}
                     {(item.dietaryTags?.length || item.allergens?.length) ? (() => {
-                      const translatedAllergens = (currentLang && translations && translations[currentLang]?.allergens) || item.allergens || [];
-                      const translatedTags = (currentLang && translations && translations[currentLang]?.dietaryTags) || item.dietaryTags || [];
+                      const translatedAllergens = getTranslatedArray(item, currentLang, 'allergens') || item.allergens || [];
+                      const translatedTags = getTranslatedArray(item, currentLang, 'dietaryTags') || item.dietaryTags || [];
                       return (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {translatedTags.map((tag: string, idx: number) => (
@@ -285,8 +281,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
 
                             <div className="flex-1 space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                                 {perfectPairings.map((pairing) => {
-                                    const pTrans = pairing.translations as any;
-                                    const pairingName = (currentLang && pTrans && pTrans[currentLang]?.name) || pairing.name;
+                                    const pairingName = getTranslatedField(pairing, currentLang, 'name') || pairing.name;
 
                                     return (
                                     <div

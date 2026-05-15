@@ -3,6 +3,7 @@ import { getTrendingItems } from '../../lib/api';
 import { Item } from '../../types';
 import { ItemWithOptions } from './ItemWithOptions';
 import { useTranslation } from 'react-i18next';
+import { getTranslatedField } from '../../lib/translation';
 
 interface TrendingCarouselProps {
   restaurantId: string;
@@ -59,7 +60,7 @@ export const TrendingCarousel: React.FC<TrendingCarouselProps> = ({ restaurantId
     <div className="mb-10">
       <div className="flex items-center justify-between mb-6 px-4">
         <h2 className="text-2xl font-serif font-black tracking-tighter flex items-center gap-2">
-            <span className="text-accent animate-pulse">🔥</span> {t('publicMenu.trendingNow', 'Trending Now')}
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-accent animate-pulse align-middle mr-1" aria-hidden="true" /> {t('publicMenu.trendingNow', 'Trending Now')}
         </h2>
       </div>
       
@@ -67,8 +68,8 @@ export const TrendingCarousel: React.FC<TrendingCarouselProps> = ({ restaurantId
         {trendingItems.map(item => {
             const translatedItem = {
                 ...item,
-                name: (i18n.language && (item as any).translations && (item as any).translations[i18n.language]?.name) || item.name,
-                description: (i18n.language && (item as any).translations && (item as any).translations[i18n.language]?.description) || item.description,
+                name: getTranslatedField(item, i18n.language, 'name') || item.name,
+                description: getTranslatedField(item, i18n.language, 'description') || item.description,
             };
             const pairings = allMenuItems.filter(i => item.relatedItemIds?.includes(i.id));
             return (

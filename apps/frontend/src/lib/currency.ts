@@ -22,9 +22,9 @@ export function formatDualCurrency(
   if (primaryCurrency === 'EUR') {
     return { primary: formatEuro(value), secondary: formatBgn(value) };
   }
-  // Primary is BGN, derive EUR as secondary
+  // Value is already in BGN, format directly; derive EUR as secondary
   return {
-    primary: formatBgn(value),
+    primary: `${value.toFixed(2)} лв`,
     secondary: formatEuro(value / BGN_RATE),
   };
 }

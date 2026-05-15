@@ -11,6 +11,7 @@ import { faBolt } from "@fortawesome/free-solid-svg-icons";
 import { useTranslation } from "react-i18next";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { formatInlineDual, formatEuro, formatBgn } from "../lib/currency";
+import { Toggle } from "../components/ui/Toggle";
 
 const CheckoutPage = () => {
   const { user } = useAuth();
@@ -352,42 +353,32 @@ const CheckoutPage = () => {
                 </div>
                 {loyaltyPoints - getItemsPointsCost() > 0 &&
                   getCheckoutTotal() > 0 && (
-                    <label className="flex items-center gap-3 cursor-pointer">
+                    <div className="flex items-center gap-3">
                       <span className="text-sm font-bold text-foreground">
                         {t('checkout.redeemForDiscount')}
                       </span>
-                      <div className="relative">
-                        <input
-                          type="checkbox"
-                          className="sr-only"
-                          checked={usePoints}
-                          onChange={(e) => setUsePoints(e.target.checked)}
-                        />
-                        <div
-                          className={`block w-10 h-6 rounded-full transition-colors ${usePoints ? "bg-accent" : "bg-zinc-300 dark:bg-zinc-700"}`}
-                        ></div>
-                        <div
-                          className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${usePoints ? "transform translate-x-4" : ""}`}
-                        ></div>
-                      </div>
-                    </label>
+                      <Toggle
+                        checked={usePoints}
+                        onChange={setUsePoints}
+                        label={t('checkout.redeemForDiscount')}
+                        size="sm"
+                      />
+                    </div>
                   )}
               </div>
 
               {loyaltyData?.expiringSoonPoints > 0 && (
                 <div className="rounded-xl border border-yellow-500/25 bg-yellow-500/10 p-3 text-sm">
                   <p className="font-bold text-yellow-600 dark:text-yellow-400">
-                    EUR {loyaltyData.expiringSoonValue.toFixed(2)} expires
-                    soon
+                    {t('checkout.expiringSoon', { value: loyaltyData.expiringSoonValue.toFixed(2) })}
                   </p>
                   <p className="text-muted-foreground">
-                    {loyaltyData.expiringSoonPoints} points expire
-                    {loyaltyData.nextExpirationAt
-                      ? ` on ${new Date(
-                          loyaltyData.nextExpirationAt,
-                        ).toLocaleDateString()}`
-                      : " soon"}
-                    .
+                    {t('checkout.pointsExpire', {
+                      points: loyaltyData.expiringSoonPoints,
+                      date: loyaltyData.nextExpirationAt
+                        ? new Date(loyaltyData.nextExpirationAt).toLocaleDateString()
+                        : '',
+                    })}
                   </p>
                 </div>
               )}
