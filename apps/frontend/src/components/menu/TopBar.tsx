@@ -50,6 +50,7 @@ export function TopBar({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={t('publicMenu.search', 'Search')}
+            aria-label={t('publicMenu.search', 'Search')}
             className="w-full pl-9 pr-3 py-2 bg-secondary/50 rounded-xl text-sm font-medium text-foreground placeholder:text-muted-foreground/50 border border-transparent focus:border-accent/30 focus:outline-none transition-colors"
           />
         </div>
@@ -75,6 +76,7 @@ export function TopBar({
               <button
                 key={code}
                 onClick={() => onLanguageChange(code)}
+                aria-current={selectedLang === code ? 'true' : undefined}
                 className={`px-1.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
                   selectedLang === code
                     ? 'bg-accent text-accent-foreground'
