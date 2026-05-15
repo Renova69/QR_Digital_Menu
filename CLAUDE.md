@@ -8,6 +8,7 @@ Turborepo monorepo with npm workspaces (`apps/*`). Two apps, no `packages/` dire
 
 - **`apps/backend`** — NestJS 11 + Prisma 6 + Neon (hosted Postgres, pooled). API on `:3000` under `/api`, Swagger at `/api-docs`.
 - **`apps/frontend`** — Vite + React 18 + Tailwind v4 + TanStack Query + i18next + socket.io-client. Dev server on `:3001` (`strictPort: true`).
+- **Currency** — `apps/frontend/src/lib/currency.ts` — `formatEuro()` and `formatBgn()` at BNB fixed rate 1 EUR = 1.95583 BGN. Used in CartDrawer, CheckoutPage, PaymentModal, ItemWithOptions.
 
 ## Common commands
 
@@ -215,6 +216,36 @@ Source of truth: `CODING_ROADMAP.md`. Detailed per-phase plans under `.planning/
 - **RBAC access fixes** — Orders: assigned staff can read/update orders for their restaurant. Dashboard: owner + MANAGER access. Restaurant management: owner + MANAGER (except delete + Stripe which remain owner-only). Assistance: owner + assigned staff. POS: restaurant resolved from `user.restaurantId`.
 - **Provider fetch noise fix** — `OrderProvider` and `AssistanceProvider` only fetch when authenticated session exists (not on socket reconnect). `SocketProvider` no longer depends on nonexistent `token` field from `AuthContext`. Both providers removed from public/customer routes.
 - **Key files:** `auth.controller.ts` (+pin-login), `auth.service.ts` (+validatePin), `device-enrollment.service.ts`, `restaurants.controller.ts` (+device-enrollment), `orders.service.ts` (RBAC), `dashboard.controller.ts` (RBAC), `assistance.service.ts` (RBAC), `StaffCreatedModal.tsx`, `SettingsView.tsx` (staff tab), `DeviceLoginPage.tsx`, `AuthContext.tsx`, `RestaurantContext.tsx`, `OrderContext.tsx`, `AssistanceContext.tsx`, `SocketContext.tsx`, `App.tsx`, `api.ts`.
+
+**Shipped — Public Menu Mobile UX Redesign (May 15, 2026):**
+- **Shared currency utility** (`lib/currency.ts`) — `formatEuro()` and `formatBgn()` using BNB fixed rate 1 EUR = 1.95583 BGN. Dual-currency display throughout checkout, cart, and payment flows. Bulgarian law compliance.
+- **TopBar** (`TopBar.tsx`) — Full-width search with Lucide magnifier icon, filter toggle button, theme toggle, language codes (EN/BG/RO), table chip replacing "You are viewing the menu for table X" text.
+- **FilterPanel** (`FilterPanel.tsx`) — Slide-down panel with dietary toggle switches (Spicy, Vegan, New, Featured) and allergen exclusion pills (Milk, Wheat, Fish, Nuts, etc.). Clicking an allergen pill hides products containing it.
+- **Horizontal item cards** — `ItemWithOptions.tsx` redesigned to horizontal layout. Dual-currency prices (EUR + BGN). Pill-shaped "+ Add" buttons replace full-width solid blue buttons.
+- **CategoryPills** (`CategoryPills.tsx`) — Horizontal scroll pill navigation replacing sticky category nav. Active pill highlighted with accent color.
+- **Slim TrendingCarousel** — Wider horizontal cards with compact skeleton loader. Reduced vertical footprint.
+- **Bottom nav regroup** — Profile and Call Waiter icons grouped left, cart/bill actions right. Better visual hierarchy.
+- **i18n** — ~30 new keys across EN/BG/RO for search placeholder, filter labels, dietary tags, allergen names, add-to-cart button.
+- **Dead code cleanup** — Removed unused `LANG_LABELS` constant and `handleLanguageChange` function from `PublicMenuPage.tsx`.
+- **Key files:** `currency.ts`, `TopBar.tsx`, `FilterPanel.tsx`, `CategoryPills.tsx`, `ItemWithOptions.tsx` (rewrite), `TrendingCarousel.tsx` (slim), `PublicMenuPage.tsx` (refactor — 815→~400 lines), `BottomNav.tsx`, `CartDrawer.tsx` (+dual currency), `CheckoutPage.tsx` (+dual currency), `PaymentModal.tsx` (+dual currency), `en/bg/ro translation.json`.
+
+**Shipped — Code Review & PR#3 Fixes (May 15, 2026):**
+- **HomePage.tsx** — Removed 3 unused Lucide imports (`TrendingUp`, `Users`, `Layers`). Fixed 3 `as any` type casts on i18n keys → `t(key, fallback)` pattern. Tightened `featureIcons` Record type to keyof `featureKeys[number]`. Replaced non-standard Tailwind durations (`duration-400`→`duration-300`, `duration-1200`→`duration-1000`).
+- **RestaurantContext.tsx** — Fixed TS error on line 82: `user.restaurantId` is `string | undefined` but `getRestaurantById` expects `string`. Added non-null assertion after guard check.
+- **CheckoutPage.tsx** — Replaced sr-only checkbox toggle hack with `<Toggle>` component (Radix `role="switch"`, `aria-checked`, keyboard navigation).
+- **Code review fixes** — Typed translations (`t(key)` without `as any`), shared utils deduplication, Toggle component adoption, i18n gaps filled.
+
+**Payments "not enabled" investigation (May 15, 2026):** Confirmed NO code bug. `paymentsEnabled Boolean @default(false)` in Prisma schema means new restaurants default to false. `PaymentService` correctly checks `restaurant.paymentsEnabled` before allowing payment intent creation. Both affected restaurants had `paymentsEnabled = false` in DB — enabled via direct DB update.
+
+**Shipped — Security & Bug Fixes (May 15, 2026):**
+- **Socket.io CORS** — `events.gateway.ts` wildcard `origin: '*'` replaced with `process.env.FRONTEND_URL || 'http://localhost:3001'` + `credentials: true`. Any page could previously subscribe to restaurant events.
+- **Magic-link removal** — Deleted `POST /auth/magic-link` endpoint and `sendMagicLink()` service method. Method leaked JWT token in response body and `console.log`. Flow replaced by Email OTP (already live since May 6).
+- **Loyalty expiry emails** — `runDailyExpiryReminders()` cron in `loyalty.service.ts` now sends per-candidate emails via Resend (`RESEND_API_KEY`). Dev fallback: `logger.log`. Previous implementation only marked DB batches as sent but never emailed anyone.
+- **Analytics CSV export** — `handleExportCSV()` in `AnalyticsView.tsx` was missing `peakHours` and `categoryBreakdown` sections. Both added — CSV now exports all 5 data sets (summary, revenue trend, top items, peak hours, category breakdown).
+- **TypeScript strict mode** — `apps/backend/tsconfig.json`: `strictNullChecks` and `noImplicitAny` both enabled (`false` → `true`). Fixed all resulting errors: explicit `any` on `@Request() req` controller params, nullish coalescing on pagination `page`/`limit`, null guards on `dbItem` in orders service, supertest import fix in e2e specs.
+- **CategoryPills auto-scroll** — Active pill now scrolls into view via `scrollIntoView` + `useRef` on pill elements. Previously active category could be off-screen after category change.
+- **ItemWithOptions BGN conversion** — If `item.currency === 'BGN'`, price divided by `BGN_RATE` before passing to `formatInlineDual`. Previously BGN-priced items would show double-converted amounts.
+- **Key files:** `events.gateway.ts`, `auth.controller.ts`, `auth.service.ts`, `loyalty.service.ts`, `AnalyticsView.tsx`, `tsconfig.json` (backend), `CategoryPills.tsx`, `ItemWithOptions.tsx`.
 
 **Current focus — V3 Growth:**
 - **Phase 20 — Multi-location:** menu templates, bulk price updates, cross-location analytics.

@@ -31,7 +31,7 @@ export class CategoryController {
   create(
     @Param('restaurantId') restaurantId: string,
     @Body(ValidationPipe) createCategoryDto: CreateCategoryDto,
-    @Request() req,
+    @Request() req: any,
   ) {
     return this.crud.createCategory(
       restaurantId,
@@ -41,7 +41,7 @@ export class CategoryController {
   }
 
   @Get()
-  findAll(@Param('restaurantId') restaurantId: string, @Request() req) {
+  findAll(@Param('restaurantId') restaurantId: string, @Request() req: any) {
     return this.crud.findAllCategories(restaurantId, req.user.id);
   }
 
@@ -49,7 +49,7 @@ export class CategoryController {
   updateOrder(
     @Param('restaurantId') restaurantId: string,
     @Body('orderedIds') orderedIds: string[],
-    @Request() req,
+    @Request() req: any,
   ) {
     return this.crud.updateCategoryOrder(restaurantId, orderedIds, req.user.id);
   }
@@ -67,13 +67,13 @@ export class CategoryDetailController {
   update(
     @Param('id') id: string,
     @Body(ValidationPipe) updateCategoryDto: UpdateCategoryDto,
-    @Request() req,
+    @Request() req: any,
   ) {
     return this.crud.updateCategory(id, updateCategoryDto, req.user.id);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Request() req) {
+  remove(@Param('id') id: string, @Request() req: any) {
     return this.crud.removeCategory(id, req.user.id);
   }
 
@@ -94,7 +94,7 @@ export class CategoryDetailController {
   async uploadImage(
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
-    @Request() req,
+    @Request() req: any,
   ) {
     if (!file) {
       throw new BadRequestException('Only JPEG and PNG images are supported');

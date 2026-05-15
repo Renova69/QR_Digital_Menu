@@ -59,8 +59,8 @@ export class FeedbackService {
 
   // Get all feedback for a restaurant (owner-only)
   async findAll(restaurantId: string, pagination: PaginationDto) {
-    const page = Number.isFinite(pagination.page) ? pagination.page : 1;
-    const limit = Number.isFinite(pagination.limit) ? pagination.limit : 50;
+    const page = Number.isFinite(pagination.page) ? (pagination.page ?? 1) : 1;
+    const limit = Number.isFinite(pagination.limit) ? (pagination.limit ?? 50) : 50;
     const skip = (page - 1) * limit;
 
     const [data, total] = await Promise.all([

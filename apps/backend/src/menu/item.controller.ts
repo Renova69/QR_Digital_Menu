@@ -31,13 +31,13 @@ export class ItemController {
   create(
     @Param('categoryId') categoryId: string,
     @Body(ValidationPipe) createItemDto: CreateItemDto,
-    @Request() req,
+    @Request() req: any,
   ) {
     return this.crud.createItem(categoryId, createItemDto, req.user.id);
   }
 
   @Get()
-  findAll(@Param('categoryId') categoryId: string, @Request() req) {
+  findAll(@Param('categoryId') categoryId: string, @Request() req: any) {
     return this.crud.findAllItemsInCategory(categoryId, req.user.id);
   }
 
@@ -45,7 +45,7 @@ export class ItemController {
   updateOrder(
     @Param('categoryId') categoryId: string,
     @Body('orderedIds') orderedIds: string[],
-    @Request() req,
+    @Request() req: any,
   ) {
     return this.crud.updateItemOrder(categoryId, orderedIds, req.user.id);
   }
@@ -63,13 +63,13 @@ export class ItemDetailController {
   update(
     @Param('id') id: string,
     @Body(ValidationPipe) updateItemDto: UpdateItemDto,
-    @Request() req,
+    @Request() req: any,
   ) {
     return this.crud.updateItem(id, updateItemDto, req.user.id);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Request() req) {
+  remove(@Param('id') id: string, @Request() req: any) {
     return this.crud.removeItem(id, req.user.id);
   }
 
@@ -90,7 +90,7 @@ export class ItemDetailController {
   async uploadImage(
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
-    @Request() req,
+    @Request() req: any,
   ) {
     if (!file) {
       throw new BadRequestException('Only JPEG and PNG images are supported');

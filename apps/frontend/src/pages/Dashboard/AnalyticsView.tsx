@@ -83,6 +83,16 @@ const AnalyticsView = () => {
       csv += `"${item.name}";"${item.quantity}";"€${item.revenue.toFixed(2)}"\n`;
     });
 
+    csv += '\nPeak Hours;Orders\n';
+    data.peakHours.forEach(row => {
+      csv += `"${row.hour}:00";"${row.orders}"\n`;
+    });
+
+    csv += '\nCategory;Revenue\n';
+    data.categoryBreakdown.forEach(row => {
+      csv += `"${row.name}";"€${row.value.toFixed(2)}"\n`;
+    });
+
     // Add UTF-8 BOM for proper Excel encoding
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);

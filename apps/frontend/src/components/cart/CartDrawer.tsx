@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { Category } from "../../types";
+import { formatInlineDual } from "../../lib/currency";
+import { X, ShoppingCart } from "lucide-react";
 
 function resolveItemName(
   cartItem: { id: string; name: string },
@@ -107,20 +109,7 @@ const CartDrawer = ({
             className="p-2.5 bg-white/5 hover:bg-white/10 rounded-full text-zinc-400 transition-all hover:text-zinc-100"
             aria-label="Close cart"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <X size={20} strokeWidth={3} />
           </button>
         </div>
 
@@ -154,7 +143,7 @@ const CartDrawer = ({
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-semibold text-accent">
-                          €{(drink.price ?? 0).toFixed(2)}
+                          {formatInlineDual(drink.price ?? 0, drink.currency ?? 'EUR')}
                         </span>
                         <Button
                           size="sm"
@@ -180,22 +169,7 @@ const CartDrawer = ({
             </div>
           ) : items.length === 0 ? (
             <div className="text-center text-zinc-500 font-medium flex flex-col items-center justify-center h-full opacity-40">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="64"
-                height="64"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mb-6"
-              >
-                <circle cx="9" cy="21" r="1" />
-                <circle cx="20" cy="21" r="1" />
-                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-              </svg>
+              <ShoppingCart size={64} strokeWidth={1} className="mb-6" />
               <span className="text-sm font-bold uppercase tracking-widest">
                 {t("cart.empty")}
               </span>
@@ -225,7 +199,7 @@ const CartDrawer = ({
                             <span className="w-1 h-1 rounded-full bg-accent/50 block flex-shrink-0" />
                             {opt.choiceName}{" "}
                             <span className="text-accent/70 font-semibold">
-                              (+€{(opt.priceModifier || 0).toFixed(2)})
+                              (+{formatInlineDual(opt.priceModifier || 0, 'EUR')})
                             </span>
                           </li>
                         ))}
@@ -234,7 +208,7 @@ const CartDrawer = ({
                   </div>
                   <div className="text-right flex flex-col justify-between shrink-0">
                     <p className="font-bold text-base text-zinc-100">
-                      €{(item.price * item.quantity).toFixed(2)}
+                      {formatInlineDual(item.price * item.quantity, 'EUR')}
                     </p>
                     <button
                       onClick={() => removeItem(item.cartId)}
@@ -262,7 +236,7 @@ const CartDrawer = ({
                 {t("cart.total")}
               </span>
               <span className="text-3xl font-serif font-black text-accent tracking-tighter">
-                €{getTotal().toFixed(2)}
+                {formatInlineDual(getTotal(), 'EUR')}
               </span>
             </div>
             {showDrinkUpsell ? (
