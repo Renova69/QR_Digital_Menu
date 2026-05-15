@@ -32,9 +32,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     const { id, emails, name } = profile;
     return {
       googleId: id,
-      email: emails[0].value,
-      firstName: name.givenName,
-      lastName: name.familyName,
+      email: (emails ?? [])[0]?.value,
+      firstName: name?.givenName,
+      lastName: name?.familyName,
     };
   }
 }

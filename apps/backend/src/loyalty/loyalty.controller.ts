@@ -8,19 +8,19 @@ export class LoyaltyController {
 
   @UseGuards(JwtAuthGuard)
   @Get('accounts')
-  getLoyaltyAccounts(@Request() req) {
+  getLoyaltyAccounts(@Request() req: any) {
     return this.loyaltyService.getLoyaltyAccounts(req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('orders/history')
-  getHistory(@Request() req) {
+  getHistory(@Request() req: any) {
     return this.loyaltyService.getHistory(req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get(':restaurantId/analytics')
-  getAnalytics(@Param('restaurantId') restaurantId: string, @Request() req) {
+  getAnalytics(@Param('restaurantId') restaurantId: string, @Request() req: any) {
     return this.loyaltyService.getAnalytics(restaurantId, req.user.id);
   }
 
@@ -29,7 +29,7 @@ export class LoyaltyController {
   @Get(':restaurantId/expiry-reminders')
   getExpiryReminders(
     @Param('restaurantId') restaurantId: string,
-    @Request() req,
+    @Request() req: any,
   ) {
     return this.loyaltyService.getExpiryReminderCandidates(
       restaurantId,
@@ -42,7 +42,7 @@ export class LoyaltyController {
   @Post(':restaurantId/expiry-reminders/notify')
   notifyExpiryReminders(
     @Param('restaurantId') restaurantId: string,
-    @Request() req,
+    @Request() req: any,
   ) {
     return this.loyaltyService.notifyExpiryReminders(
       restaurantId,
@@ -57,13 +57,13 @@ export class LoyaltyController {
 
   @UseGuards(JwtAuthGuard)
   @Post(':restaurantId/enroll')
-  enroll(@Param('restaurantId') restaurantId: string, @Request() req) {
+  enroll(@Param('restaurantId') restaurantId: string, @Request() req: any) {
     return this.loyaltyService.enroll(req.user.id, restaurantId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get(':restaurantId')
-  getPoints(@Param('restaurantId') restaurantId: string, @Request() req) {
+  getPoints(@Param('restaurantId') restaurantId: string, @Request() req: any) {
     return this.loyaltyService.getPoints(req.user.id, restaurantId);
   }
 }

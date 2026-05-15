@@ -37,18 +37,18 @@ export class RestaurantsController {
   @Post()
   create(
     @Body(ValidationPipe) createRestaurantDto: CreateRestaurantDto,
-    @Request() req,
+    @Request() req: any,
   ) {
     return this.restaurantsService.create(createRestaurantDto, req.user.id);
   }
 
   @Get()
-  findAll(@Request() req) {
+  findAll(@Request() req: any) {
     return this.restaurantsService.findAll(req.user.id);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string, @Request() req) {
+  findOne(@Param('id') id: string, @Request() req: any) {
     return this.restaurantsService.findOneOrStaff(id, req.user.id);
   }
 
@@ -56,13 +56,13 @@ export class RestaurantsController {
   update(
     @Param('id') id: string,
     @Body(ValidationPipe) updateRestaurantDto: UpdateRestaurantDto,
-    @Request() req,
+    @Request() req: any,
   ) {
     return this.restaurantsService.update(id, updateRestaurantDto, req.user.id);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Request() req) {
+  remove(@Param('id') id: string, @Request() req: any) {
     return this.restaurantsService.remove(id, req.user.id);
   }
 
@@ -83,7 +83,7 @@ export class RestaurantsController {
   async uploadLogo(
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
-    @Request() req,
+    @Request() req: any,
   ) {
     if (!file) {
       throw new BadRequestException('Only JPEG and PNG images are supported');
@@ -105,7 +105,7 @@ export class RestaurantsController {
     @Param('id') id: string,
     @Body(new ValidationPipe({ whitelist: true }))
     _dto: CreateDeviceEnrollmentDto,
-    @Request() req,
+    @Request() req: any,
     @Req() expressReq: ExpressRequest,
   ) {
     const frontendBaseUrl =
@@ -121,22 +121,22 @@ export class RestaurantsController {
   }
 
   @Post(':id/translate-all')
-  translateAll(@Param('id') id: string, @Request() req) {
+  translateAll(@Param('id') id: string, @Request() req: any) {
     return this.restaurantsService.translateAll(id, req.user.id);
   }
 
   @Post(':id/stripe/connect')
-  generateConnectLink(@Param('id') id: string, @Request() req) {
+  generateConnectLink(@Param('id') id: string, @Request() req: any) {
     return this.restaurantsService.generateConnectLink(id, req.user.id);
   }
 
   @Get(':id/stripe/status')
-  getStripeStatus(@Param('id') id: string, @Request() req) {
+  getStripeStatus(@Param('id') id: string, @Request() req: any) {
     return this.restaurantsService.getStripeStatus(id, req.user.id);
   }
 
   @Post(':id/stripe/disconnect')
-  disconnectStripe(@Param('id') id: string, @Request() req) {
+  disconnectStripe(@Param('id') id: string, @Request() req: any) {
     return this.restaurantsService.disconnectStripe(id, req.user.id);
   }
 }

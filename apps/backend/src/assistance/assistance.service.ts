@@ -66,8 +66,8 @@ export class AssistanceService {
   }
 
   async findAll(userId: string, pagination: PaginationDto) {
-    const page = Number.isFinite(pagination.page) ? pagination.page : 1;
-    const limit = Number.isFinite(pagination.limit) ? pagination.limit : 50;
+    const page = Number.isFinite(pagination.page) ? (pagination.page ?? 1) : 1;
+    const limit = Number.isFinite(pagination.limit) ? (pagination.limit ?? 50) : 50;
     const skip = (page - 1) * limit;
 
     // Allow both owner and staff to see assistance requests

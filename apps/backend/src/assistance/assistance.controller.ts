@@ -30,13 +30,13 @@ export class AssistanceController {
   // Protected — only restaurant owners can view their requests
   @UseGuards(JwtAuthGuard)
   @Get()
-  findAll(@Request() req, @Query() pagination: PaginationDto) {
+  findAll(@Request() req: any, @Query() pagination: PaginationDto) {
     return this.assistanceService.findAll(req.user.id, pagination);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string, @Request() req) {
+  findOne(@Param('id') id: string, @Request() req: any) {
     return this.assistanceService.findOne(id, req.user.id);
   }
 
@@ -46,14 +46,14 @@ export class AssistanceController {
   update(
     @Param('id') id: string,
     @Body(ValidationPipe) updateAssistanceDto: UpdateAssistanceDto,
-    @Request() req,
+    @Request() req: any,
   ) {
     return this.assistanceService.update(id, updateAssistanceDto, req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  remove(@Param('id') id: string, @Request() req) {
+  remove(@Param('id') id: string, @Request() req: any) {
     return this.assistanceService.remove(id, req.user.id);
   }
 }

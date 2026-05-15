@@ -15,14 +15,14 @@ async function bootstrap() {
       new ValidationPipe({ transform: true, whitelist: true }),
     );
 
-    app.use((req, _res, next) => {
+    app.use((req: any, _res: any, next: any) => {
       req['requestId'] = crypto.randomUUID();
       next();
     });
 
     // CORS must run first so ALL responses (including CSRF 403s) include CORS headers
     app.enableCors({
-      origin: (origin, callback) => {
+      origin: (origin: any, callback: any) => {
         const allowed = [
           process.env.FRONTEND_URL || 'http://localhost:3001',
           'http://localhost:3001',
@@ -71,7 +71,7 @@ async function bootstrap() {
       '/api/auth/google',
       '/api/auth/google/callback',
     ];
-    app.use((req, res, next) => {
+    app.use((req: any, res: any, next: any) => {
       const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
       const isWebhook = req.path === '/api/payments/webhook';
       const isCsrfExempt = CSRF_EXEMPT.includes(req.path) && ['POST'].includes(req.method);

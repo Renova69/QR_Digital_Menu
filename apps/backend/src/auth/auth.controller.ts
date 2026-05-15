@@ -62,7 +62,7 @@ export class AuthController {
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   async login(
-    @Request() req,
+    @Request() req: any,
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.login(req.user);
@@ -72,13 +72,13 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  getProfile(@Request() req) {
+  getProfile(@Request() req: any) {
     return req.user;
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch('me')
-  updateProfile(@Request() req, @Body('name') name: string) {
+  updateProfile(@Request() req: any, @Body('name') name: string) {
     return this.authService.updateProfile(req.user.id, name);
   }
 
@@ -90,7 +90,7 @@ export class AuthController {
 
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
-  async googleAuthRedirect(@Request() req, @Res() res: Response) {
+  async googleAuthRedirect(@Request() req: any, @Res() res: Response) {
     const { token } = await this.authService.login(req.user);
     setTokenCookie(res, token);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
@@ -145,7 +145,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Patch('me/pin')
-  setPin(@Request() req, @Body(new ValidationPipe({ whitelist: true })) dto: SetPinDto) {
+  setPin(@Request() req: any, @Body(new ValidationPipe({ whitelist: true })) dto: SetPinDto) {
     return this.authService.setPin(req.user.id, dto.pin);
   }
 
@@ -158,7 +158,7 @@ export class AuthController {
   @Get('restaurants/:id/staff')
   async listStaff(
     @Param('id') restaurantId: string,
-    @Request() req,
+    @Request() req: any,
   ) {
     const role = req.user?.role?.toUpperCase();
     if (role !== 'OWNER' && role !== 'MANAGER') {
@@ -174,7 +174,7 @@ export class AuthController {
   async createStaff(
     @Param('id') restaurantId: string,
     @Body(new ValidationPipe({ whitelist: true })) dto: CreateStaffDto,
-    @Request() req,
+    @Request() req: any,
   ) {
     const role = req.user?.role?.toUpperCase();
     if (role !== 'OWNER' && role !== 'MANAGER') {
@@ -193,7 +193,7 @@ export class AuthController {
   async removeStaff(
     @Param('id') restaurantId: string,
     @Param('userId') userId: string,
-    @Request() req,
+    @Request() req: any,
   ) {
     const role = req.user?.role?.toUpperCase();
     if (role !== 'OWNER' && role !== 'MANAGER') {

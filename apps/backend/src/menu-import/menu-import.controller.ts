@@ -41,7 +41,7 @@ export class MenuImportController {
   importConfirm(
     @Param('id') id: string,
     @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: ImportMenuDto,
-    @Request() req,
+    @Request() req: any,
   ) {
     return this.menuImportService.checkOwnership(id, req.user.id).then(() =>
       this.menuImportService.upsertMenu(id, dto),
@@ -54,7 +54,7 @@ export class MenuImportController {
    */
   @Get('api-key')
   @UseGuards(JwtAuthGuard)
-  getApiKey(@Param('id') id: string, @Request() req) {
+  getApiKey(@Param('id') id: string, @Request() req: any) {
     return this.menuImportService.getOrCreateApiKey(id, req.user.id);
   }
 
@@ -64,7 +64,7 @@ export class MenuImportController {
    */
   @Post('api-key/reveal')
   @UseGuards(JwtAuthGuard)
-  revealApiKey(@Param('id') id: string, @Request() req) {
+  revealApiKey(@Param('id') id: string, @Request() req: any) {
     return this.menuImportService.revealApiKey(id, req.user.id);
   }
 
@@ -74,7 +74,7 @@ export class MenuImportController {
    */
   @Post('api-key/regenerate')
   @UseGuards(JwtAuthGuard)
-  regenerateApiKey(@Param('id') id: string, @Request() req) {
+  regenerateApiKey(@Param('id') id: string, @Request() req: any) {
     return this.menuImportService.regenerateApiKey(id, req.user.id);
   }
 }
