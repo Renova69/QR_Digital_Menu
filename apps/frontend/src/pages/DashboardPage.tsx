@@ -19,6 +19,7 @@ import MenuImportView from './Dashboard/MenuImportView';
 import NotificationBell from '../components/NotificationBell';
 import PaymentToast from '../components/PaymentToast';
 import { NotificationProvider } from '../context/NotificationContext';
+import SubscriptionBanner from '../components/subscription/SubscriptionBanner';
 
 type TabId = 'summary' | 'analytics' | 'orders' | 'payments' | 'assistance' | 'tables' | 'settings' | 'import';
 
@@ -130,6 +131,7 @@ const DashboardPage = () => {
 
       {user ? (
         <NotificationProvider>
+        <SubscriptionBanner />
         <div className="glass-panel p-4 sm:p-8 md:p-12 rounded-[2rem] md:rounded-[4rem] min-h-[60vh] border-white/10 dark:border-white/5 animate-in fade-in slide-in-from-bottom-8 duration-1000 overflow-hidden relative shadow-2xl">
           <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 blur-[100px] pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-80 h-80 bg-accent/5 blur-[120px] pointer-events-none" />

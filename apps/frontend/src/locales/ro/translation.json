@@ -39,7 +39,8 @@
       "general": "General",
       "loyalty": "Loialitate",
       "payments": "Plăți",
-      "staff": "Personal"
+      "staff": "Personal",
+      "subscription": "Abonament"
     },
     "locationContact": "Locație și Contact",
     "address": "Adresă",
@@ -644,5 +645,31 @@
     "paymentReceived": "Plată Primită",
     "stripeNotConnected": "Conectați Stripe în Setări pentru a accepta plăți.",
     "stripeNotConnectedTitle": "Stripe neconectat"
+  },
+  "subscription": {
+    "currentPlan": "Plan curent",
+    "staffLimit": "Limită personal",
+    "unlimited": "Nelimitat",
+    "manageBilling": "Gestionați facturarea",
+    "includedFeatures": "Funcții incluse",
+    "upgradeTo": "Treceți la",
+    "loading": "Se încarcă...",
+    "errorLoading": "Eroare la încărcarea abonamentului",
+    "errorCheckout": "Nu s-a putut iniția plata. Încercați din nou.",
+    "errorPortal": "Nu s-a putut deschide portalul. Încercați din nou.",
+    "banner": {
+      "active": "Abonamentul dvs. {{tier}} este activ",
+      "freePlan": "Utilizați planul gratuit",
+      "noSubscription": "Niciun abonament activ",
+      "upgrade": "Actualizare"
+    }
+  },
+  "pricing": {
+    "title": "Prețuri simple",
+    "subtitle": "Alegeți planul potrivit pentru restaurantul dvs.",
+    "popular": "Cel mai popular",
+    "getStarted": "Începeți",
+    "choosePlan": "Alegeți {{tier}}",
+    "terms": "Prețurile nu includ TVA. Anulare oricând."
   }
 }

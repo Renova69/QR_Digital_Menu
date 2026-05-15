@@ -3,6 +3,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
+import { FeatureService } from '../subscription/feature.service';
 
 describe('OrdersService — create', () => {
   let service: OrdersService;
@@ -14,6 +15,7 @@ describe('OrdersService — create', () => {
     timezone: 'UTC',
     happyHourEnable: false,
     isLoyaltyEnabled: false,
+    tier: 'PROFESSIONAL',
   };
 
   const mockMenuItems = [
@@ -44,6 +46,7 @@ describe('OrdersService — create', () => {
         OrdersService,
         { provide: PrismaService, useValue: prisma },
         { provide: EventsGateway, useValue: events },
+        { provide: FeatureService, useValue: { hasFeature: jest.fn().mockReturnValue(true) } },
       ],
     }).compile();
 

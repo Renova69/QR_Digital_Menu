@@ -126,7 +126,6 @@ export class SubscriptionService {
       data: {
         tier: tier as any,
         stripeSubscriptionId: subscriptionId,
-        stripePriceId: priceId ?? null,
         tierUpdatedAt: eventTime,
       },
     });
@@ -152,7 +151,6 @@ export class SubscriptionService {
       data: {
         tier: 'FREE',
         stripeSubscriptionId: null,
-        stripePriceId: null,
         tierUpdatedAt: eventTime,
       },
     });

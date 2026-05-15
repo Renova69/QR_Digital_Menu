@@ -11,9 +11,10 @@ import { getTranslatedField, getTranslatedArray } from '../../lib/translation';
 interface ItemWithOptionsProps {
   item: Item;
   perfectPairings?: Item[];
+  ordersEnabled?: boolean;
 }
 
-export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectPairings }) => {
+export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectPairings, ordersEnabled = true }) => {
     const { addItem } = useCart();
     const [selectedOptions, setSelectedOptions] = useState<Record<string, OptionChoice>>({});
     const [showIntercept, setShowIntercept] = useState(false);
@@ -213,6 +214,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                     })() : null}
 
                     {/* Action Button */}
+                    {ordersEnabled && (
                     <div className="mt-auto pt-3">
                         <button
                             onClick={handleAddToCart}
@@ -222,6 +224,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                             <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
                         </button>
                     </div>
+                    )}
                 </div>
 
                 {/* Add-to-cart toast confirmation */}

@@ -349,4 +349,25 @@ export const verifyDeviceEnrollment = async (token: string) => {
   };
 };
 
+// Subscription / SaaS billing
+export const getSubscriptionStatus = async () => {
+  const response = await api.get('/subscription/status');
+  return response.data as {
+    tier: string;
+    features: string[];
+    staffLimit: number;
+    hasSubscription: boolean;
+  };
+};
+
+export const createCheckoutSession = async (tier: string) => {
+  const response = await api.post('/subscription/checkout', { tier });
+  return response.data as { url: string };
+};
+
+export const createPortalSession = async () => {
+  const response = await api.post('/subscription/portal');
+  return response.data as { url: string };
+};
+
 export default api;
