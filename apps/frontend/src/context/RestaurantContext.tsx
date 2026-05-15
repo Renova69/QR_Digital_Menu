@@ -32,6 +32,9 @@ interface Restaurant {
   tipOptions?: number[];
   platformFeePercent?: number;
   notifyAllStaffOnPayment?: boolean;
+  tier?: 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
+  tierUpdatedAt?: string;
+  stripeSubscriptionId?: string;
 }
 
 interface RestaurantContextType {
