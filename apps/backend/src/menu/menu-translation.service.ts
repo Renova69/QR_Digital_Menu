@@ -2,7 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TranslationService } from '../translation/translation.service';
 
-const DEEPL_RATE_LIMIT_MS = 300;
+// DeepL accepts up to 50 text strings per request
+const DEEPL_BATCH_LIMIT = 50;
 
 @Injectable()
 export class MenuTranslationService {
@@ -13,135 +14,157 @@ export class MenuTranslationService {
     private readonly translationService: TranslationService,
   ) {}
 
+  private asTransObj(raw: unknown): Record<string, any> {
+    return raw && typeof raw === 'object' ? { ...(raw as Record<string, any>) } : {};
+  }
+
   async applyLazyTranslations(categories: any[], lang: string): Promise<void> {
+    interface Pending {
+      type: 'category' | 'item' | 'option';
+      entity: any;
+      existing: Record<string, any>;
+      textMap: Record<string, string>;
+    }
+
+    // Phase 1: collect entities that are missing a translation for this lang
+    const pending: Pending[] = [];
+
     for (const category of categories) {
-      const catTrans: any =
-        category.translations && typeof category.translations === 'object'
-          ? { ...(category.translations as any) }
-          : {};
-
-      if (!catTrans[lang]?.name) {
-        try {
-          const translated = await this.translationService.translateObject(
-            { name: category.name },
-            [lang],
-          );
-          if (translated[lang]) {
-            const merged = { ...catTrans, ...translated };
-            await this.prisma.menuCategory.update({
-              where: { id: category.id },
-              data: { translations: merged },
-            });
-            catTrans[lang] = translated[lang];
-          }
-        } catch { /* keep original */ }
-        await new Promise((r) => setTimeout(r, DEEPL_RATE_LIMIT_MS));
-      }
-
-      if (catTrans[lang]?.name) {
-        category.name = catTrans[lang].name;
+      const existing = this.asTransObj(category.translations);
+      if (!existing[lang]?.name) {
+        pending.push({
+          type: 'category',
+          entity: category,
+          existing,
+          textMap: { name: category.name },
+        });
       }
 
       for (const item of category.items ?? []) {
-        const itemTrans: any =
-          item.translations && typeof item.translations === 'object'
-            ? { ...(item.translations as any) }
-            : {};
-
-        if (!itemTrans[lang]?.name) {
-          try {
-            const textToTranslate: Record<string, string> = { name: item.name };
-            if (item.description) textToTranslate.description = item.description;
-            (item.allergens || []).forEach((a: string) => {
-              textToTranslate[`allergen_${a}`] = a;
-            });
-            (item.dietaryTags || []).forEach((t: string) => {
-              textToTranslate[`tag_${t}`] = t;
-            });
-
-            const translated = await this.translationService.translateObject(
-              textToTranslate,
-              [lang],
-            );
-
-            if (translated[lang]) {
-              const langData = { ...translated[lang] };
-              const translatedAllergens: string[] = [];
-              const translatedTags: string[] = [];
-              for (const key of Object.keys(langData)) {
-                if (key.startsWith('allergen_')) {
-                  translatedAllergens.push(langData[key]);
-                  delete langData[key];
-                } else if (key.startsWith('tag_')) {
-                  translatedTags.push(langData[key]);
-                  delete langData[key];
-                }
-              }
-              if (translatedAllergens.length) (langData as any).allergens = translatedAllergens;
-              if (translatedTags.length) (langData as any).dietaryTags = translatedTags;
-
-              const merged = { ...itemTrans, [lang]: langData };
-              await this.prisma.menuItem.update({
-                where: { id: item.id },
-                data: { translations: merged },
-              });
-              itemTrans[lang] = langData;
-            }
-          } catch { /* keep original */ }
-          await new Promise((r) => setTimeout(r, DEEPL_RATE_LIMIT_MS));
+        const existing = this.asTransObj(item.translations);
+        if (!existing[lang]?.name) {
+          const textMap: Record<string, string> = { name: item.name };
+          if (item.description) textMap.description = item.description;
+          (item.allergens || []).forEach((a: string) => { textMap[`allergen_${a}`] = a; });
+          (item.dietaryTags || []).forEach((t: string) => { textMap[`tag_${t}`] = t; });
+          pending.push({ type: 'item', entity: item, existing, textMap });
         }
 
-        if (itemTrans[lang]?.name) item.name = itemTrans[lang].name;
-        if (itemTrans[lang]?.description) item.description = itemTrans[lang].description;
-        if (itemTrans[lang]?.allergens) item.allergens = itemTrans[lang].allergens;
-        if (itemTrans[lang]?.dietaryTags) item.dietaryTags = itemTrans[lang].dietaryTags;
+        for (const option of item.options ?? []) {
+          const existing = this.asTransObj(option.translations);
+          if (!existing[lang]?.name) {
+            const textMap: Record<string, string> = { name: option.name };
+            (option.choices as any[] || []).forEach((c: any) => {
+              if (c.name) textMap[`choice_${c.name}`] = c.name;
+            });
+            pending.push({ type: 'option', entity: option, existing, textMap });
+          }
+        }
+      }
+    }
+
+    // Phase 2: single batched DeepL call (chunked at DEEPL_BATCH_LIMIT)
+    if (pending.length > 0) {
+      const allTexts: string[] = [];
+      const offsets: number[] = [];
+      const keyLists: string[][] = [];
+
+      for (const p of pending) {
+        const entries = Object.entries(p.textMap);
+        offsets.push(allTexts.length);
+        keyLists.push(entries.map(([k]) => k));
+        allTexts.push(...entries.map(([, v]) => v));
+      }
+
+      const translated: string[] = [];
+      for (let i = 0; i < allTexts.length; i += DEEPL_BATCH_LIMIT) {
+        const chunk = allTexts.slice(i, i + DEEPL_BATCH_LIMIT);
+        const result = await this.translationService.translateTexts(chunk, lang);
+        translated.push(...result);
+      }
+
+      // Phase 3: distribute results, update entity.translations, write DB in parallel
+      const dbWrites: Promise<unknown>[] = [];
+
+      for (let i = 0; i < pending.length; i++) {
+        const { type, entity, existing } = pending[i];
+        const offset = offsets[i];
+        const keys = keyLists[i];
+        const langData: Record<string, string> = {};
+        for (let j = 0; j < keys.length; j++) {
+          langData[keys[j]] = translated[offset + j];
+        }
+
+        if (type === 'category') {
+          const langEntry = { name: langData.name ?? entity.name };
+          const merged = { ...existing, [lang]: langEntry };
+          entity.translations = merged;
+          dbWrites.push(
+            this.prisma.menuCategory
+              .update({ where: { id: entity.id }, data: { translations: merged } })
+              .catch((e: unknown) => this.logger.warn(`Category translation save failed: ${String(e)}`)),
+          );
+
+        } else if (type === 'item') {
+          const langEntry: Record<string, unknown> = { name: langData.name ?? entity.name };
+          if (langData.description) langEntry.description = langData.description;
+          const allergens: string[] = [];
+          const tags: string[] = [];
+          for (const [k, v] of Object.entries(langData)) {
+            if (k.startsWith('allergen_')) allergens.push(v);
+            else if (k.startsWith('tag_')) tags.push(v);
+          }
+          if (allergens.length) langEntry.allergens = allergens;
+          if (tags.length) langEntry.dietaryTags = tags;
+          const merged = { ...existing, [lang]: langEntry };
+          entity.translations = merged;
+          dbWrites.push(
+            this.prisma.menuItem
+              .update({ where: { id: entity.id }, data: { translations: merged } })
+              .catch((e: unknown) => this.logger.warn(`Item translation save failed: ${String(e)}`)),
+          );
+
+        } else {
+          const optLang: Record<string, any> = {
+            ...(existing[lang] ?? {}),
+            choices: { ...(existing[lang]?.choices ?? {}) },
+          };
+          if (langData.name) optLang.name = langData.name;
+          for (const [k, v] of Object.entries(langData)) {
+            if (k.startsWith('choice_')) optLang.choices[k.replace('choice_', '')] = v;
+          }
+          const merged = { ...existing, [lang]: optLang };
+          entity.translations = merged;
+          dbWrites.push(
+            this.prisma.menuOption
+              .update({ where: { id: entity.id }, data: { translations: merged } as any })
+              .catch((e: unknown) => this.logger.warn(`Option translation save failed: ${String(e)}`)),
+          );
+        }
+      }
+
+      await Promise.all(dbWrites);
+    }
+
+    // Phase 4: apply all translations (cached + newly fetched) to in-memory objects
+    for (const category of categories) {
+      const t = category.translations as Record<string, any> | null;
+      if (t?.[lang]?.name) category.name = t[lang].name;
+
+      for (const item of category.items ?? []) {
+        const t = item.translations as Record<string, any> | null;
+        if (t?.[lang]?.name) item.name = t[lang].name;
+        if (t?.[lang]?.description) item.description = t[lang].description;
+        if (t?.[lang]?.allergens) item.allergens = t[lang].allergens;
+        if (t?.[lang]?.dietaryTags) item.dietaryTags = t[lang].dietaryTags;
 
         for (const option of item.options ?? []) {
-          const optTrans: any =
-            option.translations && typeof option.translations === 'object'
-              ? { ...(option.translations as any) }
-              : {};
-
-          if (!optTrans[lang]?.name) {
-            try {
-              const textToTranslate: Record<string, string> = { name: option.name };
-              const choices = (option.choices as any[]) || [];
-              choices.forEach((c: any) => {
-                if (c.name) textToTranslate[`choice_${c.name}`] = c.name;
-              });
-
-              const translated = await this.translationService.translateObject(
-                textToTranslate,
-                [lang],
-              );
-
-              if (translated[lang]) {
-                if (!optTrans[lang]) optTrans[lang] = { choices: {} };
-                if (!optTrans[lang].choices) optTrans[lang].choices = {};
-
-                const langData = translated[lang];
-                if (langData.name) optTrans[lang].name = langData.name;
-                for (const key of Object.keys(langData)) {
-                  if (key.startsWith('choice_')) {
-                    optTrans[lang].choices[key.replace('choice_', '')] = langData[key];
-                  }
-                }
-
-                await this.prisma.menuOption.update({
-                  where: { id: option.id },
-                  data: { translations: optTrans } as any,
-                });
-              }
-            } catch { /* keep original */ }
-            await new Promise((r) => setTimeout(r, DEEPL_RATE_LIMIT_MS));
-          }
-
-          if (optTrans[lang]?.name) option.name = optTrans[lang].name;
-          if (optTrans[lang]?.choices) {
-            const choices = (option.choices as any[]) || [];
-            option.choices = choices.map((c: any) => ({
+          const t = option.translations as Record<string, any> | null;
+          if (t?.[lang]?.name) option.name = t[lang].name;
+          if (t?.[lang]?.choices) {
+            option.choices = (option.choices as any[]).map((c: any) => ({
               ...c,
-              name: optTrans[lang].choices[c.name] || c.name,
+              name: t[lang].choices[c.name] ?? c.name,
             }));
           }
         }
