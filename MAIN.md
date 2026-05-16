@@ -325,6 +325,12 @@ Payment (sessionId, stripePaymentIntentId, amount, tip, status, method)
 | **Code Review Fixes** | Typed translations (no `as any`), shared utils deduplication, Toggle component adoption, i18n gaps filled. |
 | **Payments Investigation** | Confirmed NO code bug. `paymentsEnabled Boolean @default(false)` in schema means new restaurants default to off. Both affected restaurants enabled via DB update. |
 
+### Post-Roadmap Additions (Shipped May 16, 2026)
+
+| Feature | Details |
+|---------|---------|
+| **Menu Export** | `MenuImportExportView.tsx` — combined Import/Export dashboard tab with sub-tab navigation (Import / Export). Import sub-tab contains existing OCR JSON upload + preview + confirm flow. Export sub-tab offers three actions: Download JSON, Download CSV, Copy JSON to clipboard. Backend `GET /api/restaurants/:id/menu/export` endpoint already existed (JWT-guarded) — exports full menu with categories, items, options, translations. CSV export via `menuToCSV()` with BOM + European locale support. `exportMenu()` added to `api.ts` with lazy fetch (`enabled: false` on `useQuery`). Tab label changed from "Import" to "Import/Export" across EN/BG/RO locales. |
+
 ### V4 — Enterprise (Future)
 - AWS RDS / GCP Cloud SQL migration
 - ~~S3 / GCS for uploads~~ ✅ **(Done — Cloudflare R2 with CDN)**
@@ -683,6 +689,7 @@ Branding applied to public menu via inline style injection:
 | `POST /api/restaurants/:id/menu/import/confirm` | JWT | Dashboard confirm import |
 | `GET /api/restaurants/:id/menu/import/api-key` | JWT | Get/create import API key (masked) |
 | `POST /api/restaurants/:id/menu/import/api-key/regenerate` | JWT | Regenerate import API key |
+| `GET /api/restaurants/:id/menu/export` | JWT | Export full menu as JSON (categories, items, options, translations) |
 | `POST /api/payments/session/force-open` | JWT | Force-open table session (replaces existing OPEN session) |
 | `POST /api/payments/session/:token/close-card` | JWT | Close session with MYPOS card payment |
 | `GET /api/tables/:tableId/orders` | JWT | All orders for a table's active session |
@@ -852,6 +859,7 @@ npm run build   # Production build
 | **Notification bell** | `apps/frontend/src/components/NotificationBell.tsx` |
 | **Payment toast** | `apps/frontend/src/components/PaymentToast.tsx` |
 | **Payment history view** | `apps/frontend/src/pages/Dashboard/PaymentsView.tsx` |
+| **Menu import/export view** | `apps/frontend/src/pages/Dashboard/MenuImportExportView.tsx` |
 | **POS context** | `apps/frontend/src/context/PosContext.tsx` |
 | **POS page + layout** | `apps/frontend/src/pages/pos/PosPage.tsx`, `PosLayout.tsx` |
 | **POS components** | `apps/frontend/src/components/pos/` (12 components) |

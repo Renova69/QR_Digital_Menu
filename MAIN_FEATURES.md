@@ -1361,6 +1361,26 @@ STRIPE_SUBSCRIPTION_WEBHOOK_SECRET=whsec_xxx
 - `apps/frontend/src/pages/PricingPage.tsx` (new)
 - `apps/frontend/src/components/SubscriptionBanner.tsx` (new)
 
+### 3.27 Menu Import/Export — Combined Dashboard Tab (May 16, 2026)
+
+**What it does:** Combines the existing OCR JSON import flow with a new menu export feature under a single "Import/Export" dashboard tab with sub-tab navigation (Import / Export). Restaurant owners can now export their full menu as JSON, CSV, or copy JSON to clipboard for backup, migration, or external processing.
+
+**How it works:**
+- `MenuImportExportView.tsx` — parent component with sub-tab state (`activeSubTab: 'import' | 'export'`), Upload icon for Import, Download icon for Export
+- `ImportTab` — contains all existing import functionality: `ApiKeyPanel` (API key management for OCR tool push), `FileImporter` (JSON file upload + paste), `PreviewTable` (data preview before confirm), confirm import with `useMutation`
+- `ExportTab` — three action buttons: Download JSON, Download CSV, Copy JSON. Lazy fetch via `useQuery({ enabled: false })` — data only fetched when user clicks an action. Shows item/category count after successful fetch. Error handling for failed exports.
+- `menuToCSV()` helper — converts menu JSON to CSV format with UTF-8 BOM + `sep=;` European locale metadata for Excel/Numbers compatibility. Exports all fields: category, item name, description, price, currency, allergens, dietary tags, options with price modifiers.
+- `exportMenu()` in `api.ts` — `GET /api/restaurants/:id/menu/export` (JWT-guarded). Backend endpoint already existed — returns `{ restaurantId, categories }` with full item details including translations, options, allergens, dietary tags.
+- Tab label changed from "Import" to "Import/Export" in dashboard tab nav. Translation keys added: `dashboard.tabs.importExport` across EN/BG/RO locales.
+
+**Key files:**
+- `apps/frontend/src/pages/Dashboard/MenuImportExportView.tsx` (new, ~380 lines) — combined Import/Export view
+- `apps/frontend/src/pages/DashboardPage.tsx` — import changed to `MenuImportExportView`, tab label key updated
+- `apps/frontend/src/lib/api.ts` — `exportMenu()` function added
+- `apps/frontend/src/locales/*/translation.json` — `dashboard.tabs.importExport` keys added
+- `apps/backend/src/menu-import/menu-import.controller.ts` — existing `GET /export` endpoint (no changes needed)
+- `apps/backend/src/menu-import/menu-import.service.ts` — existing `exportMenu()` method (no changes needed)
+
 ## 4. Data Model
 
 ### 4.1 Entity Relationship Diagram

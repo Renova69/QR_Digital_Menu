@@ -589,3 +589,40 @@ e9a86c2 feat: add SubscriptionTier enum and tier fields to Restaurant schema
 979ad40 feat: SaaS tiering v2 — Tasks 2-12 complete
 75a4927 feat: wire useFeature into dashboard — gate tabs, links, and settings by tier
 ```
+
+---
+
+## Menu Import/Export — Combined Dashboard Tab (May 16, 2026)
+
+### Summary
+
+Combined the existing OCR JSON import flow with a new menu export feature under a single "Import/Export" dashboard tab. Export was always available on the backend (`GET /api/restaurants/:id/menu/export`) but had no UI until now.
+
+### Implementation
+
+- **`MenuImportExportView.tsx`** (new, ~380 lines) — parent component with `activeSubTab: 'import' | 'export'` state. Upload icon for Import sub-tab, Download icon for Export sub-tab.
+- **`ImportTab`** — all existing import functionality preserved: `ApiKeyPanel` (OCR tool API key management), `FileImporter` (JSON file upload + textarea paste), `PreviewTable` (data preview table), confirm import with `useMutation`.
+- **`ExportTab`** — three action buttons: Download JSON, Download CSV, Copy JSON to clipboard. Lazy fetch via `useQuery({ enabled: false })` — data only fetched when user clicks an action button. Shows item/category count after successful fetch. Error state for failed exports.
+- **`menuToCSV()`** — converts menu JSON to CSV format with UTF-8 BOM + `sep=;` European locale metadata for Excel/Numbers compatibility. Exports all fields: category, item name, description, price, currency, allergens, dietary tags, options with price modifiers.
+- **`exportMenu()` in `api.ts`** — calls existing backend endpoint `GET /api/restaurants/:id/menu/export` (JWT-guarded). Returns `{ restaurantId, categories }` with full item details including translations, options, allergens, dietary tags.
+- **Translation keys** — `dashboard.tabs.importExport` added to EN ("Import/Export"), BG ("Импорт/Експорт"), RO ("Import/Export") locale files.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/pages/Dashboard/MenuImportExportView.tsx` | **New** — combined Import/Export view (~380 lines) |
+| `apps/frontend/src/pages/DashboardPage.tsx` | Import changed to `MenuImportExportView`, tab label key updated |
+| `apps/frontend/src/lib/api.ts` | `exportMenu()` function added |
+| `apps/frontend/src/locales/en/translation.json` | `dashboard.tabs.importExport` key added |
+| `apps/frontend/src/locales/bg/translation.json` | `dashboard.tabs.importExport` key added |
+| `apps/frontend/src/locales/ro/translation.json` | `dashboard.tabs.importExport` key added |
+
+No backend changes needed — export endpoint already existed in `menu-import.controller.ts` and `menu-import.service.ts`.
+
+### Design Decisions
+
+1. **Sub-tab navigation** — Import and Export share a tab because they're closely related (menu data I/O). Sub-tabs prevent tab bar bloat.
+2. **Lazy fetch** — Export data is fetched only on button click, not on tab mount. Prevents unnecessary API calls when user only wants to import.
+3. **Frontend CSV generation** — CSV conversion happens client-side via `menuToCSV()`. Backend returns JSON only — single source of truth, avoids maintaining two export formats server-side.
+4. **No backend changes** — The backend `GET /export` endpoint was already built, tested, and JWT-guarded. Only frontend UI was missing.
