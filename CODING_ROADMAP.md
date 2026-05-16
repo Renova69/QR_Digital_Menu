@@ -15,6 +15,7 @@
 > **Security & Bug Fixes (May 15, 2026):** ✅ Socket.io CORS wildcard fix, magic-link endpoint removed (token-leak), loyalty expiry emails now sent via Resend, CSV export all 5 sections, TS strict mode (strictNullChecks + noImplicitAny), CategoryPills auto-scroll, ItemWithOptions BGN double-conversion  
 > **Infrastructure & Polish Sprint (May 15, 2026):** ✅ API versioning `/api/v1/*`, Prisma jittered-backoff retry + circuit breaker (CLOSED→OPEN after 5 failures, HALF_OPEN after 30s), order progress stepper, 3 QR print templates (Classic/Premium/Minimal), 122 tests (up from 77), customer split bill  
 > **SaaS Tiering V2 (May 16, 2026):** ✅ 4-tier FREE/STARTER/PROFESSIONAL/ENTERPRISE on `Restaurant.tier`, SubscriptionModule (FeatureService + FeatureGuard + @RequireFeature decorator), Stripe Checkout + Portal + webhook with timestamp-gate race protection, `useFeature` hook, BillingView, PricingPage, SubscriptionBanner, 4 demo accounts  
+> **Menu Import/Export (May 16, 2026):** ✅ Combined Import/Export dashboard tab with sub-tab navigation (Import / Export). Export offers Download JSON, Download CSV, Copy JSON. Backend endpoint already existed — frontend `exportMenu()` + `MenuImportExportView.tsx` added. CSV export with BOM + European locale support. Tab label changed to "Import/Export" across EN/BG/RO.  
 > **Current Focus:** Phase 20 (Multi-location) — planned
 
 ---
@@ -650,6 +651,26 @@ Plan: `.claude/plans/snappy-tumbling-peach.md` (6 changes across 4 files)
 - Confirmed NOT a code bug. `paymentsEnabled Boolean @default(false)` in Prisma schema
 - `PaymentService` correctly checks `restaurant.paymentsEnabled` before allowing payment intent creation
 - Both affected restaurants had `paymentsEnabled = false` in DB — enabled via direct DB update
+
+---
+
+## 🔷 Menu Import/Export — Combined Dashboard Tab ✅ (May 16, 2026)
+
+**Goal:** Combine the existing OCR JSON import flow with a new menu export feature under a single dashboard tab with sub-tab navigation.
+
+**Shipped:**
+- `MenuImportExportView.tsx` — parent component with sub-tab state (`activeSubTab: 'import' | 'export'`), Upload icon for Import, Download icon for Export
+- `ImportTab` — all existing import functionality preserved (ApiKeyPanel, FileImporter, PreviewTable, confirm import with mutation)
+- `ExportTab` — three action buttons: Download JSON, Download CSV, Copy JSON. Lazy fetch via `useQuery({ enabled: false })` — data fetched on button click only. Item/category count shown after fetch. Error handling.
+- `menuToCSV()` helper — converts menu JSON to CSV with UTF-8 BOM + European locale support (`sep=;`)
+- `exportMenu()` in `api.ts` — `GET /api/restaurants/:id/menu/export` (JWT-guarded, backend endpoint already existed)
+- Tab label changed from "Import" to "Import/Export" across EN/BG/RO locales
+
+**Key files:**
+- `apps/frontend/src/pages/Dashboard/MenuImportExportView.tsx` (new, ~380 lines)
+- `apps/frontend/src/pages/DashboardPage.tsx` — import changed to `MenuImportExportView`
+- `apps/frontend/src/lib/api.ts` — `exportMenu()` function
+- `apps/frontend/src/locales/*/translation.json` — `dashboard.tabs.importExport` keys
 
 ---
 
