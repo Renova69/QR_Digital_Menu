@@ -295,6 +295,189 @@ describe('OrdersService', () => {
         } as any),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('throws NotFoundException when restaurant not found after item validation', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.create({ items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }] } as any),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('ignores sessionToken when no matching OPEN session found and proceeds without session', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.tableSession.findFirst.mockResolvedValue(null);
+      const tx = makeTx();
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+
+      await service.create({
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        sessionToken: 'stale-token',
+      } as any);
+
+      // The stale-token lookup ran (tableSession.findFirst was called)
+      expect(prisma.tableSession.findFirst).toHaveBeenCalled();
+      expect(tx.order.create).toHaveBeenCalled();
+    });
+
+    it('creates new table session when table found but no existing OPEN session', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurantTable.findFirst.mockResolvedValue({ id: 'table-cuid-1', name: 'T1' });
+      const tx = makeTx();
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+
+      await service.create({
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        tableId: 'T1',
+      } as any);
+
+      expect(tx.tableSession.create).toHaveBeenCalled();
+    });
+
+    it('reuses existing OPEN session within table session transaction', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurantTable.findFirst.mockResolvedValue({ id: 'table-cuid-1', name: 'T1' });
+      const tx = makeTx();
+      tx.tableSession.findFirst.mockResolvedValue({ id: 'sess-open', token: 'tok-open' });
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+
+      await service.create({
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        tableId: 'T1',
+      } as any);
+
+      expect(tx.tableSession.create).not.toHaveBeenCalled();
+    });
+
+    it('executes happy hour path (normal range 00:00-23:59)', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({
+        happyHourEnable: true,
+        happyHourStartTime: '00:00',
+        happyHourEndTime: '23:59',
+        happyHourMultiplier: 2,
+        isLoyaltyEnabled: true,
+      }));
+      const tx = makeTx();
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+
+      await service.create({
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        customerId: 'cust-1',
+      } as any);
+
+      expect(tx.order.create).toHaveBeenCalled();
+    });
+
+    it('executes overnight happy hour branch (e.g. 22:00–02:00)', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({
+        happyHourEnable: true,
+        happyHourStartTime: '22:00',
+        happyHourEndTime: '02:00',
+        happyHourMultiplier: 1.5,
+        isLoyaltyEnabled: false,
+      }));
+      const tx = makeTx();
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+
+      await service.create({
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+      } as any);
+
+      expect(tx.order.create).toHaveBeenCalled();
+    });
+
+    it('zeroes price for items in redeemItemIds when rewardPointsPrice set', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem({ rewardPointsPrice: 100 })]);
+      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ isLoyaltyEnabled: true }));
+      const tx = makeTx();
+      tx.loyaltyAccount.findUnique.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
+      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
+      tx.loyaltyPointLedger.findMany.mockResolvedValue([{ id: 'batch-1', remainingPoints: 100 }]);
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+
+      await service.create({
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        customerId: 'cust-1',
+        redeemItemIds: ['item-1'],
+      } as any);
+
+      const createCall = tx.order.create.mock.calls[0][0];
+      expect(createCall.data.pointsRedeemedForItems).toBe(100);
+      expect(createCall.data.totalPrice).toBe(0);
+    });
+
+    it('creates new loyalty account and awards points on first order', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ isLoyaltyEnabled: true }));
+      const tx = makeTx();
+      // Default: loyaltyAccount.findUnique returns null → account created
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+
+      await service.create({
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        customerId: 'cust-1',
+      } as any);
+
+      expect(tx.loyaltyAccount.create).toHaveBeenCalled();
+      expect(tx.loyaltyAccount.update).toHaveBeenCalled();
+    });
+
+    it('reuses existing loyalty account (skips create) and still awards points', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ isLoyaltyEnabled: true }));
+      const tx = makeTx();
+      const existingAcc = { id: 'acc-existing', points: 200, lifetimePoints: 500 };
+      tx.loyaltyAccount.findUnique.mockResolvedValue(existingAcc);
+      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue(existingAcc);
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+
+      await service.create({
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        customerId: 'cust-1',
+      } as any);
+
+      expect(tx.loyaltyAccount.create).not.toHaveBeenCalled();
+      expect(tx.loyaltyAccount.update).toHaveBeenCalled();
+    });
+
+    it('awards signup bonus on first order (lifetimePoints === 0)', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({
+        isLoyaltyEnabled: true,
+        loyaltySignupBonus: 50,
+      }));
+      const tx = makeTx();
+      // Default account has lifetimePoints: 0
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+
+      await service.create({
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        customerId: 'cust-1',
+      } as any);
+
+      // Both EARN and SIGNUP batches created (purchasePoints > 0 and signupBonus > 0)
+      expect(tx.loyaltyPointLedger.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('throws BadRequestException when not enough loyalty points for discount', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ isLoyaltyEnabled: true }));
+      const tx = makeTx();
+      tx.loyaltyAccount.findUnique.mockResolvedValue({ id: 'acc-1', points: 5, lifetimePoints: 100 });
+      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({ id: 'acc-1', points: 5, lifetimePoints: 100 });
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+
+      await expect(
+        service.create({
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          customerId: 'cust-1',
+          redeemPoints: 10000,
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   // ── findAll ──────────────────────────────────────────────────────────────

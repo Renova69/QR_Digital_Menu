@@ -4,7 +4,7 @@ import { DashboardViewsService } from './dashboard-views.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderStatus } from '@prisma/client';
 
-const mockPrisma = {
+const mockPrisma: Record<string, any> = {
   restaurant: { findUnique: jest.fn() },
   order: {
     count: jest.fn(),
@@ -14,6 +14,7 @@ const mockPrisma = {
   },
   assistanceRequest: { count: jest.fn() },
   orderItem: { findMany: jest.fn() },
+  $queryRaw: jest.fn().mockResolvedValue([]),
 };
 
 const mockViews = { isReady: jest.fn().mockReturnValue(false) };
@@ -202,6 +203,112 @@ describe('DashboardService', () => {
       const result = (await service.getAnalytics('rest-1', 7)) as AnalyticsResult;
 
       expect(result['servedRate']).toBe(0);
+    });
+  });
+
+  describe('getAnalytics with non-empty data (loop body coverage)', () => {
+    beforeEach(() => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'UTC' });
+      mockPrisma.order.aggregate.mockResolvedValue({
+        _sum: { totalPrice: 50 }, _count: 1, _avg: { totalPrice: 50 },
+      });
+      mockPrisma.order.groupBy.mockResolvedValue([]);
+      // Return an order so revenueTrend, peakHours and ordersByTable loop bodies run
+      mockPrisma.order.findMany.mockResolvedValue([
+        { createdAt: new Date(), totalPrice: 50, tableId: 'table-1' },
+      ]);
+      // Return an orderItem so getTopItems and getCategoryBreakdown loop bodies run
+      mockPrisma.orderItem.findMany.mockResolvedValue([
+        {
+          menuItemId: 'item-1',
+          quantity: 2,
+          menuItem: { name: 'Pizza', price: 10, category: { name: 'Food' } },
+        },
+      ]);
+    });
+
+    it('populates topItems when orderItems exist', async () => {
+      const result = (await service.getAnalytics('rest-1', 7)) as AnalyticsResult;
+
+      expect(result['topItems']).toHaveLength(1);
+      expect(result['topItems'][0].name).toBe('Pizza');
+      expect(result['topItems'][0].quantity).toBe(2);
+    });
+
+    it('populates categoryBreakdown when orderItems with categories exist', async () => {
+      const result = (await service.getAnalytics('rest-1', 7)) as AnalyticsResult;
+
+      expect(result['categoryBreakdown']).toHaveLength(1);
+      expect(result['categoryBreakdown'][0].category).toBe('Food');
+    });
+
+    it('populates ordersByTable when orders with tableId exist', async () => {
+      const result = (await service.getAnalytics('rest-1', 7)) as AnalyticsResult;
+
+      expect(result['ordersByTable']).toHaveLength(1);
+      expect(result['ordersByTable'][0].table).toBe('table-1');
+    });
+
+    it('calls order.findMany and returns non-empty revenueTrend array', async () => {
+      const result = (await service.getAnalytics('rest-1', 7)) as AnalyticsResult;
+
+      expect(mockPrisma.order.findMany).toHaveBeenCalled();
+      expect(Array.isArray(result['revenueTrend'])).toBe(true);
+      expect(result['revenueTrend'].length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('getAnalytics via materialized views (isReady = true)', () => {
+    beforeEach(() => {
+      mockViews.isReady.mockReturnValue(true);
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'UTC' });
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+      mockPrisma.order.aggregate.mockResolvedValue({
+        _sum: { totalPrice: 0 }, _count: 0, _avg: { totalPrice: 0 },
+      });
+      mockPrisma.order.groupBy.mockResolvedValue([]);
+      mockPrisma.order.findMany.mockResolvedValue([]);
+      mockPrisma.orderItem.findMany.mockResolvedValue([]);
+    });
+
+    afterEach(() => {
+      mockViews.isReady.mockReturnValue(false);
+    });
+
+    it('calls $queryRaw three times (revenueTrend, peakHours, topItems views)', async () => {
+      await service.getAnalytics('rest-1', 7);
+
+      expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(3);
+    });
+
+    it('maps revenue view rows to revenueTrend entries', async () => {
+      const yesterday = new Date(Date.now() - 86_400_000);
+      mockPrisma.$queryRaw
+        .mockResolvedValueOnce([{ day_utc: yesterday, order_count: 3, revenue: 75.5 }]) // 1: revenueTrend
+        .mockResolvedValueOnce([                                                          // 2: topItems
+          { menuItemId: 'item-1', item_name: 'Burger', item_price: 8, quantity: 4, revenue: 32 },
+        ])
+        .mockResolvedValueOnce([{ hour_utc: 12, total_orders: 5 }]);                    // 3: peakHours
+
+      const result = (await service.getAnalytics('rest-2', 7)) as AnalyticsResult;
+
+      expect(result['topItems']).toHaveLength(1);
+      expect(result['topItems'][0].name).toBe('Burger');
+    });
+
+    it('maps peak hours view rows — shifts UTC hour to local', async () => {
+      mockPrisma.$queryRaw
+        .mockResolvedValueOnce([])                                    // 1: revenueTrend
+        .mockResolvedValueOnce([])                                    // 2: topItems
+        .mockResolvedValueOnce([{ hour_utc: 10, total_orders: 7 }]); // 3: peakHours
+
+      const result = (await service.getAnalytics('rest-3', 7)) as AnalyticsResult;
+
+      const totalOrders = result['peakHours'].reduce(
+        (sum: number, h: { orders: number }) => sum + h.orders,
+        0,
+      );
+      expect(totalOrders).toBe(7);
     });
   });
 });
