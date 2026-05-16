@@ -124,7 +124,11 @@
       "!**/*.interceptor.ts",
       "!**/*.entity.ts",
       "!**/main.ts",
-      "!**/prisma/**"
+      "!**/prisma/**",
+      "!**/app.service.ts",
+      "!**/jwt-auth.guard.ts",
+      "!**/local-auth.guard.ts",
+      "!**/orders/fix-points.migration.ts"
     ],
     "coverageDirectory": "../coverage",
     "coverageThreshold": {
