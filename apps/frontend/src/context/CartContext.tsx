@@ -49,10 +49,29 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return localStorage.getItem('tableNumber') || null;
   });
 
-  // Save cart items to localStorage whenever they change
+  // Debounce cart persistence — rapid add/remove coalesces into one write
+  const cartSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingCartRef = useRef<string | null>(null);
+
   useEffect(() => {
-    localStorage.setItem('cartItems', JSON.stringify(items));
+    const serialized = JSON.stringify(items);
+    pendingCartRef.current = serialized;
+    if (cartSaveTimerRef.current) clearTimeout(cartSaveTimerRef.current);
+    cartSaveTimerRef.current = setTimeout(() => {
+      localStorage.setItem('cartItems', serialized);
+      pendingCartRef.current = null;
+    }, 500);
   }, [items]);
+
+  // Flush pending cart write immediately on unmount
+  useEffect(() => {
+    return () => {
+      if (cartSaveTimerRef.current) clearTimeout(cartSaveTimerRef.current);
+      if (pendingCartRef.current !== null) {
+        localStorage.setItem('cartItems', pendingCartRef.current);
+      }
+    };
+  }, []);
 
   // Save table number to localStorage whenever it changes
   useEffect(() => {
