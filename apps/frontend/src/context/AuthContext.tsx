@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { login as apiLogin, register as apiRegister } from '../lib/api';
+import { login as apiLogin, register as apiRegister, setAuthToken } from '../lib/api';
 import api from '../lib/api';
 
 interface User {
@@ -50,7 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsError(false);
       setErrorMessage(null);
-      const { user } = await apiLogin(email, password);
+      const { user, token } = await apiLogin(email, password);
+      if (token) setAuthToken(token);
       setUser(user);
       return { user };
     } catch (error: any) {
@@ -65,7 +66,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsError(false);
       setErrorMessage(null);
-      const { user } = await apiRegister(email, password, name);
+      const { user, token } = await apiRegister(email, password, name);
+      if (token) setAuthToken(token);
       setUser(user);
       return { user };
     } catch (error: any) {
@@ -88,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (_error) {
       // Cookie cleared server-side regardless
     }
+    setAuthToken(null);
     setUser(null);
   };
 
