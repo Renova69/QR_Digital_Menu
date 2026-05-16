@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext";
@@ -5,30 +6,38 @@ import { OrderProvider } from "./context/OrderContext";
 import { AssistanceProvider } from "./context/AssistanceContext";
 import { SocketProvider } from "./context/SocketContext";
 import PublicMenuPage from "./pages/PublicMenuPage";
-import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
-import CheckoutPage from "./pages/CheckoutPage";
-import OrderConfirmationPage from "./pages/OrderConfirmationPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { RestaurantProvider } from "./context/RestaurantContext";
 import { MenuProvider } from "./context/MenuContext";
 import Header from "./components/Header";
 import HomePage from "./pages/HomePage";
-import MenuEditorPage from "./pages/MenuEditorPage";
-import OAuthCallbackPage from "./pages/OAuthCallbackPage";
-import FeedbackPage from "./pages/FeedbackPage";
 import ErrorBoundary from "./components/ErrorBoundary";
 import PosLayout from "./pages/pos/PosLayout";
-import PosPage from "./pages/pos/PosPage";
-import KitchenPage from "./pages/staff/KitchenPage";
 import StaffRoute from "./components/StaffRoute";
 import { PosProvider } from "./context/PosContext";
-import CustomerProfilePage from "./pages/CustomerProfilePage";
-import DeviceLoginPage from "./pages/DeviceLoginPage";
-import DeviceEnrollPage from "./pages/DeviceEnrollPage";
 import { NotificationProvider } from "./context/NotificationContext";
-import PricingPage from "./pages/PricingPage";
+
+// Lazy-loaded pages — not on the critical render path
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const MenuEditorPage = lazy(() => import("./pages/MenuEditorPage"));
+const PricingPage = lazy(() => import("./pages/PricingPage"));
+const PosPage = lazy(() => import("./pages/pos/PosPage"));
+const KitchenPage = lazy(() => import("./pages/staff/KitchenPage"));
+const CustomerProfilePage = lazy(() => import("./pages/CustomerProfilePage"));
+const OAuthCallbackPage = lazy(() => import("./pages/OAuthCallbackPage"));
+const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
+const OrderConfirmationPage = lazy(() => import("./pages/OrderConfirmationPage"));
+const FeedbackPage = lazy(() => import("./pages/FeedbackPage"));
+const DeviceLoginPage = lazy(() => import("./pages/DeviceLoginPage"));
+const DeviceEnrollPage = lazy(() => import("./pages/DeviceEnrollPage"));
+
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+  </div>
+);
 
 // App routes: header + container padding
 export const AppLayout = () => (
@@ -66,6 +75,7 @@ function App() {
     <ErrorBoundary>
       <Router>
         <AuthProvider>
+          <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* App shell — header + container */}
             <Route element={<AppLayout />}>
@@ -156,6 +166,7 @@ function App() {
               />
             </Route>
           </Routes>
+          </Suspense>
         </AuthProvider>
       </Router>
     </ErrorBoundary>
