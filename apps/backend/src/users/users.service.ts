@@ -29,6 +29,29 @@ export class UsersService {
     restaurantId: string,
     data: { name: string; email?: string; role: string },
   ): Promise<{ user: { id: string; email: string; name: string | null; role: string }; rawPin: string }> {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { tier: true },
+    });
+    const tier = restaurant?.tier ?? 'FREE';
+
+    const staffLimit = (() => {
+      switch (tier) {
+        case 'PROFESSIONAL': return 5;
+        case 'ENTERPRISE': return Infinity;
+        default: return 1; // FREE and STARTER
+      }
+    })();
+
+    const currentCount = await this.prisma.user.count({
+      where: { restaurantId, role: { in: ['WAITER', 'MANAGER', 'KITCHEN'] } },
+    });
+    if (currentCount >= staffLimit) {
+      throw new ForbiddenException(
+        `Staff limit of ${staffLimit} reached for the ${tier} plan. Upgrade to add more staff.`,
+      );
+    }
+
     const rawPin = Math.floor(1000 + Math.random() * 9000).toString();
     const pinHash = await bcrypt.hash(rawPin, 10);
 

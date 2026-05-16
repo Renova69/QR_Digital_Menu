@@ -280,7 +280,9 @@ export class LoyaltyService {
 
     if (!restaurant) throw new Error('Forbidden');
 
-    return this.prisma.$transaction(async (tx) => {
+    const restaurantName = restaurant.name;
+
+    const candidates = await this.prisma.$transaction(async (tx) => {
       const accounts = await tx.loyaltyAccount.findMany({
         where: { restaurantId, points: { gt: 0 } },
         include: {
@@ -288,7 +290,7 @@ export class LoyaltyService {
         },
       });
 
-      const candidates: any[] = [];
+      const results: any[] = [];
 
       for (const account of accounts) {
         await expireAccountPoints(tx, account.id);
@@ -307,19 +309,50 @@ export class LoyaltyService {
         await markRemindersSent(tx, batches.map((b) => b.id));
 
         const redeemRate = restaurant.loyaltyRedeemRate || 150;
-        candidates.push({
+        results.push({
           user: account.user,
           loyaltyAccountId: account.id,
           points,
           value: getRewardValue(points, redeemRate),
           nextExpirationAt: batches[0]?.expiresAt ?? null,
-          // TODO: replace with actual email/push delivery here
-          message: `You have €${getRewardValue(points, redeemRate).toFixed(2)} in rewards expiring soon at ${restaurant.name}!`,
+          message: `You have €${getRewardValue(points, redeemRate).toFixed(2)} in rewards expiring soon at ${restaurantName}!`,
         });
       }
 
-      return candidates;
+      return results;
     });
+
+    const resendKey = process.env.RESEND_API_KEY;
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com';
+
+    for (const candidate of candidates) {
+      if (!candidate.user.email) continue;
+
+      if (resendKey) {
+        try {
+          await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${resendKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              from: fromEmail,
+              to: [candidate.user.email],
+              subject: `Your loyalty points at ${restaurantName} are expiring soon`,
+              text: `Hi ${candidate.user.name || 'there'},\n\nYou have ${candidate.points} loyalty points at ${restaurantName} expiring soon.\n\nVisit us to redeem them!\n\nThe ${restaurantName} team`,
+              html: `<p style="font-family:sans-serif">Hi ${candidate.user.name || 'there'},</p><p style="font-family:sans-serif">You have <strong>${candidate.points} loyalty points</strong> at <strong>${restaurantName}</strong> expiring soon.</p><p style="font-family:sans-serif">Visit us to redeem them!</p><p style="font-family:sans-serif">The ${restaurantName} team</p>`,
+            }),
+          });
+        } catch (emailErr) {
+          this.logger.error(`Failed to send expiry reminder to ${candidate.user.email}`, emailErr);
+        }
+      } else {
+        this.logger.log(`[DEV] Expiry reminder for ${candidate.user.email}: ${candidate.message}`);
+      }
+    }
+
+    return candidates;
   }
 
   /** Preview: returns reminder candidates without marking them as sent. */
