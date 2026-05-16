@@ -2,8 +2,8 @@
 
 > **Prepared for:** Fortune 500 Acquisition Review
 > **Date:** May 16, 2026 (audited — all sections verified against codebase)
-> **Product Status:** V2.5 Shipped | V3 Growth — Phase 19 (Stripe/OCR/POS) Complete, Phase 18 (Staff Roles & RBAC) Complete | Security Hardening Phase 21 Complete | Public Menu Mobile UX Complete (TopBar, FilterPanel, dual currency, horizontal cards) | Code Review & Bug Fixes Complete (PR#3, Toggle, payments investigation) | Security & Bug Fixes Complete (CORS, magic-link removal, loyalty emails, CSV export, TS strict mode) | KDS (Kitchen Display) Live at /staff/kitchen | Infrastructure & Polish Sprint Complete (API versioning, Prisma circuit breaker, order progress bar, QR print templates, 122 tests, customer split bill) | SaaS Tiering V2 Complete (4-tier FREE/STARTER/PRO/ENTERPRISE, FeatureGuard, Stripe Billing, PricingPage, BillingView, SubscriptionBanner, demo accounts)
-> **Codebase:** 100+ frontend source files, 16 backend modules, 15 database models, ~200 i18n keys across 3 languages
+> **Product Status:** V2.5 Shipped | V3 Growth — Phase 19 (Stripe/Menu Import/POS) Complete, Phase 18 (Staff Roles & RBAC) Complete | Security Hardening Phase 21 Complete | Public Menu Mobile UX Complete (TopBar, FilterPanel, dual currency, horizontal cards) | Code Review & Bug Fixes Complete (PR#3, Toggle, payments investigation) | Security & Bug Fixes Complete (CORS, magic-link removal, loyalty emails, CSV export, TS strict mode) | KDS (Kitchen Display) Live at /staff/kitchen | Infrastructure & Polish Sprint Complete (API versioning, Prisma circuit breaker, order progress bar, QR print templates, 122 tests, customer split bill) | SaaS Tiering V2 Complete (4-tier FREE/STARTER/PRO/ENTERPRISE, FeatureGuard, Stripe Billing, PricingPage, BillingView, SubscriptionBanner, demo accounts)
+> **Codebase:** 100+ frontend source files, 17 backend domain modules (+2 infrastructure modules), 16 database models, ~200 i18n keys across 3 languages
 
 ---
 
@@ -11,7 +11,7 @@
 
 QR Menu is a full-stack SaaS platform that digitizes restaurant dining. Restaurant owners create and manage menus through an admin dashboard, generate table-specific QR codes, and customers scan those codes to browse menus, place orders, call for assistance, and earn loyalty rewards — all from their phone browser with no app download.
 
-The product has completed its V1 MVP, V2 Premium features, and V2.5 Visual Polish milestone as of May 2026. The codebase demonstrates production-grade engineering across the full stack: a NestJS backend with 17 domain modules, a React frontend with 7 context providers and comprehensive i18n support (EN/BG/RO), real-time WebSocket updates via Socket.io, a FIFO loyalty point ledger with timezone-aware happy hour, server-side price validation to prevent manipulation, and a platform-managed DeepL translation pipeline with lazy on-demand caching.
+The product has completed its V1 MVP, V2 Premium features, and V2.5 Visual Polish milestone as of May 2026. The codebase demonstrates production-grade engineering across the full stack: a NestJS backend with 17 domain modules, a React frontend with 9 context providers and comprehensive i18n support (EN/BG/RO), real-time WebSocket updates via Socket.io, a FIFO loyalty point ledger with timezone-aware happy hour, server-side price validation to prevent manipulation, and a platform-managed DeepL translation pipeline with lazy on-demand caching.
 
 The platform currently targets the Bulgarian restaurant market (BG is the i18n fallback language, default currency EUR/BGN, Neon database hosted in Europe) but the architecture is market-agnostic. The React frontend uses a dual-layout system (AppLayout for dashboard, PublicLayout for customer-facing routes) that delivers a near-native mobile experience on the primary device for this use case — the customer's phone.
 
@@ -211,8 +211,8 @@ sequenceDiagram
 - **Email OTP** (`apps/backend/src/auth/auth.service.ts:sendOtp/verifyOtp`): `sendOtp` rate-limits to 60s/email (returns 429), deletes previous unused tokens, generates 6-digit code, bcrypt-hashes it, stores in `VerificationToken` with 10-min expiry. Delivers via Resend API. Brute-force protection: 5 failed attempts → 10-min account lockout (`lockedUntil`). `devCode` only returned when `NODE_ENV !== 'production'` AND `RESEND_API_KEY` absent. `verifyOtp` checks code with bcrypt, marks token used, resets attempts on success, auto-creates CUSTOMER user if new, sets httpOnly cookie, returns `{ token, user, isNew }`.
 
 **Key files:**
-- `apps/backend/src/auth/auth.service.ts` — core auth logic (login, register, OTP, magic link, Google)
-- `apps/backend/src/auth/auth.controller.ts` — 10 endpoints (login, register, logout, me, google, google/callback, magic-link, otp/send, otp/verify, csrf-token)
+- `apps/backend/src/auth/auth.service.ts` — core auth logic (login, register, OTP, Google, PIN)
+- `apps/backend/src/auth/auth.controller.ts` — 15 endpoints (register, login, logout, me [GET+PATCH], google, google/callback, otp/send, otp/verify, me/pin, csrf-token, staff CRUD [3], pin-login)
 - `apps/backend/src/auth/jwt.strategy.ts` — JWT extraction (cookie-first + Bearer fallback)
 - `apps/backend/src/auth/google.strategy.ts` — OAuth profile normalization
 - `apps/backend/src/main.ts` — CSRF middleware, Helmet CSP, cookieParser, body limits
@@ -299,7 +299,9 @@ sequenceDiagram
 - `ManageOptionsModal.tsx` — preset templates, custom option builder, delete with confirm
 
 **Key files:**
-- `apps/backend/src/menu/menu.service.ts` — 220+ lines, most complex service: CRUD, translations, audit, trending, orphan cleanup, schedule filtering
+- `apps/backend/src/menu/menu-crud.service.ts` — menu CRUD, trending, scheduling, orphan cleanup
+- `apps/backend/src/menu/menu-audit.service.ts` — menu health audit, severity levels
+- `apps/backend/src/menu/menu-translation.service.ts` — translation pre-warm, lazy caching
 - `apps/backend/src/menu/category.controller.ts` — 2 controllers (list + detail)
 - `apps/backend/src/menu/item.controller.ts` — 2 controllers (list + detail)
 - `apps/backend/src/menu/menu-option.controller.ts` — 2 controllers (create + detail)
@@ -312,7 +314,7 @@ sequenceDiagram
 - `apps/frontend/src/components/dashboard/MenuCheckWidget.tsx` — audit results widget
 
 **Edge cases handled:**
-- Orphan `relatedItemIds` cleanup: when an item is deleted, `removeItem()` in menu.service.ts finds all items referencing the deleted ID and removes the reference
+- Orphan `relatedItemIds` cleanup: when an item is deleted, `removeItem()` in menu-crud.service.ts finds all items referencing the deleted ID and removes the reference
 - Overnight category schedules: `startTime > endTime` handled with special comparison logic in `getPublicMenu()`
 - Out-of-stock items: filtered from public menu, preserved in dashboard
 - Image URL resolution: handles both HTTP absolute URLs and relative `/uploads/` paths
@@ -391,7 +393,8 @@ sequenceDiagram
 - All tap targets ≥ 44px
 
 **Key files:**
-- `apps/backend/src/menu/menu.service.ts` — `getPublicMenu()`, `applyLazyTranslations()`, `getTrendingItems()`
+- `apps/backend/src/menu/menu-crud.service.ts` — `getPublicMenu()`, `getTrendingItems()`
+- `apps/backend/src/menu/menu-translation.service.ts` — `applyLazyTranslations()`
 - `apps/backend/src/menu/public-menu.controller.ts` — 3 endpoints (menu, trending, test)
 - `apps/frontend/src/pages/PublicMenuPage.tsx` — ~400 lines: theme injection, TopBar/FilterPanel/CategoryPills composition
 - `apps/frontend/src/pages/TopBar.tsx` — search, filter toggle, theme, language codes, table chip
@@ -500,7 +503,7 @@ sequenceDiagram
 **What it does:** WebSocket gateway for live push notifications — new orders, status changes, assistance requests — eliminating polling.
 
 **How it works:**
-- `EventsGateway` (`apps/backend/src/events/events.gateway.ts`): global NestJS WebSocket gateway, CORS origin `*`
+- `EventsGateway` (`apps/backend/src/events/events.gateway.ts`): global NestJS WebSocket gateway, CORS origin `process.env.FRONTEND_URL \|\| 'http://localhost:3001'` with `credentials: true`
 - Client joins rooms: `joinRestaurantRoom(restaurantId)` → `restaurant_{id}`, `joinOrderRoom(orderId)` → `order_{id}`
 - Emit methods: `emitToRestaurant(id, event, payload)`, `emitToOrder(id, event, payload)`
 - `SocketContext.tsx` (`apps/frontend/src/context/SocketContext.tsx`): manages connection lifecycle, derives backend URL from `VITE_API_URL`, passes JWT in auth handshake, reconnects on token change
@@ -620,7 +623,7 @@ sequenceDiagram
 **Key files:**
 - `apps/backend/src/translation/translation.service.ts` — DeepL API wrapper with free-tier detection
 - `apps/backend/src/translation/translation.module.ts` — exports service
-- `apps/backend/src/menu/menu.service.ts` — pre-warm on CRUD, lazy on-demand in `applyLazyTranslations()`
+- `apps/backend/src/menu/menu-translation.service.ts` — pre-warm on CRUD, lazy on-demand in `applyLazyTranslations()`
 - `apps/backend/src/restaurants/restaurants.service.ts` — `translateAll()` batch translation
 - `apps/frontend/src/i18n.ts` — i18next configuration
 - `apps/frontend/src/locales/en/translation.json` — English keys
@@ -756,13 +759,13 @@ sequenceDiagram
 
 **How it works:**
 - `MenuCategory` fields: `availabilityType` (ALWAYS|SCHEDULED|HIDDEN), `startTime`, `endTime`, `daysOfWeek` (int array, 0=Sunday)
-- `getPublicMenu()` in `menu.service.ts`: filters HIDDEN categories; for SCHEDULED, checks `daysOfWeek` and time range using Luxon with restaurant timezone
+- `getPublicMenu()` in `menu-crud.service.ts`: filters HIDDEN categories; for SCHEDULED, checks `daysOfWeek` and time range using Luxon with restaurant timezone
 - Overnight ranges (e.g., 22:00–02:00): special case when `startTime > endTime` — category visible if current time ≥ startTime OR ≤ endTime
 - Day-of-week match: JS `getDay()` returns Sunday=0, matches the `daysOfWeek` array directly
 - `CategorySettingsModal.tsx`: owner UI with day-picker buttons, time inputs, availability type selector
 
 **Key files:**
-- `apps/backend/src/menu/menu.service.ts` — schedule filtering in `getPublicMenu()`
+- `apps/backend/src/menu/menu-crud.service.ts` — schedule filtering in `getPublicMenu()`
 - `apps/frontend/src/components/menu/CategorySettingsModal.tsx` — schedule configuration UI
 - `apps/backend/prisma/schema.prisma` — `AvailabilityType` enum, `startTime`, `endTime`, `daysOfWeek` fields
 
@@ -788,7 +791,7 @@ sequenceDiagram
 - `apps/frontend/src/components/menu/ItemWithOptions.tsx` — pairing modal logic
 - `apps/frontend/src/components/menu/TrendingCarousel.tsx` — trending section
 - `apps/frontend/src/components/cart/CartDrawer.tsx` — drink upsell
-- `apps/backend/src/menu/menu.service.ts` — `getTrendingItems()` (AUTO/MANUAL/OFF logic)
+- `apps/backend/src/menu/menu-crud.service.ts` — `getTrendingItems()` (AUTO/MANUAL/OFF logic)
 
 **Edge cases handled:**
 - Trending with no order data: falls back to featured items
@@ -1021,8 +1024,8 @@ Items without notes appear as name only. Quantities > 1 append ` xN`.
 - Root cause 1: `selectedLang` initialized from `i18n.language` which returns full locale codes like `"en-US"` — didn't match `"en"` keys in the `translations` JSONB. Fixed with `.slice(0, 2)`.
 - Root cause 2: Language dropdown was hardcoded to EN/BG/RO tabs rather than dynamic from `restaurant.targetLanguages`. Owner could enable only RO but dropdown still showed EN + BG.
 - Root cause 3: Dropdown visible even when `targetLanguages` was empty — showed languages with no translations. Hidden with `{(menuData.restaurant?.targetLanguages?.length ?? 0) > 0 && ...}`.
-- Root cause 4: `getPublicMenu` Prisma select in `menu.service.ts` was missing `defaultTheme: true` — `ThemeToggle.defaultTheme` received `undefined`, breaking per-restaurant theme on first load.
-- File: `apps/frontend/src/pages/PublicMenuPage.tsx`, `apps/backend/src/menu/menu.service.ts`
+- Root cause 4: `getPublicMenu` Prisma select in `menu-crud.service.ts` was missing `defaultTheme: true` — `ThemeToggle.defaultTheme` received `undefined`, breaking per-restaurant theme on first load.
+- File: `apps/frontend/src/pages/PublicMenuPage.tsx`, `apps/backend/src/menu/menu-crud.service.ts`
 
 **Bug 3 — DeepL 429 + MaxListenersExceededWarning:**
 - Root cause 1: `TranslationService` called `axios.post(url, ...)` directly per request — each call created a new HTTP client instance with a fresh TLS socket. When translating to 3+ languages simultaneously, Node.js accumulated listeners beyond the default threshold.
@@ -1034,7 +1037,7 @@ Items without notes appear as name only. Quantities > 1 append ` xN`.
 **Key files:**
 - `apps/frontend/src/pages/Dashboard/SettingsView.tsx` — translate-all now saves langs first
 - `apps/frontend/src/pages/PublicMenuPage.tsx` — `selectedLang` init, dynamic dropdown, conditional render
-- `apps/backend/src/menu/menu.service.ts` — added `defaultTheme` to public menu select
+- `apps/backend/src/menu/menu-crud.service.ts` — added `defaultTheme` to public menu select
 - `apps/backend/src/translation/translation.service.ts` — shared AxiosInstance, 250ms inter-language delay
 
 ---
@@ -1397,7 +1400,7 @@ erDiagram
         string password "bcrypt-hashed, nullable for OTP users"
         string name "nullable"
         string phone "nullable"
-        UserRole role "OWNER|STAFF|CUSTOMER"
+        UserRole role "OWNER|MANAGER|WAITER|KITCHEN|STAFF|CUSTOMER"
         datetime createdAt
         datetime updatedAt
     }
@@ -1479,7 +1482,7 @@ erDiagram
         string customerName
         string customerPhone "nullable"
         string tableId
-        OrderStatus status "NEW|IN_PROGRESS|SERVED|CANCELED"
+        OrderStatus status "NEW|IN_PROGRESS|SERVED|CANCELED|COMPLETED"
         float totalPrice
         string specialRequests "nullable"
         int pointsEarned "default 0"
@@ -1528,8 +1531,8 @@ erDiagram
         float tipAmount "default 0"
         float platformFeeAmount "default 0"
         string currency "default eur"
-        PaymentStatus status "PENDING|SUCCEEDED|FAILED"
-        string provider "default stripe"
+        PaymentStatus status "PENDING|SUCCEEDED|FAILED|REFUNDED"
+        PaymentProvider provider "STRIPE|MYPOS|CASH, default STRIPE"
         datetime createdAt
     }
 
@@ -1539,6 +1542,8 @@ erDiagram
         string code "bcrypt-hashed 6-digit"
         datetime expiresAt
         datetime usedAt "nullable"
+        int attempts "default 0"
+        datetime lockedUntil "nullable"
     }
 ```
 
@@ -1559,21 +1564,21 @@ erDiagram
 | `LoyaltyAccount` | `loyalty_account` | Per-user-per-restaurant loyalty balance. | `@@unique([userId, restaurantId])`. CASCADE from both. |
 | `LoyaltyPointLedger` | `loyalty_point_ledger` | Immutable FIFO transaction log. Tracks earn/redeem/expire batches with expiry. | CASCADE from LoyaltyAccount. Composite indexes on `(accountId, expiresAt)` and `(expiresAt, reminderSentAt)`. |
 | `VerificationToken` | `VerificationToken` | Email OTP tokens for customer auth. Code is bcrypt-hashed. | `@@index([email])`. Auto-cleaned (old tokens deleted before new one created). |
-| `TableSession` | `table_session` | Active dining session per table. Tracks OPEN/PAID/CLOSED_NO_PAYMENT. Token is a UUID for public access. | CASCADE from Restaurant. `token` unique. `@@index([tableId, restaurantId, status])`. |
-| `Payment` | `payment` | Stripe payment record per session. Tracks amount, tip, platform fee, and status. | CASCADE from TableSession and Restaurant. `stripePaymentIntentId` nullable unique. `@@index([restaurantId, status, createdAt])`. |
+| `TableSession` | `table_session` | Active dining session per table. Tracks OPEN/PAID/CLOSED_NO_PAYMENT. Token is a UUID for public access. | CASCADE from Restaurant. `token` unique. `@@index([token])`, `@@index([tableId, status])`, `@@index([restaurantId, status])`. |
+| `Payment` | `payment` | Stripe payment record per session. Tracks amount, tip, platform fee, and status. | CASCADE from TableSession and Restaurant. `stripePaymentIntentId` nullable unique. `@@index([tableSessionId])`. |
 
 ### 4.3 Enumerations
 
 | Enum | Values | Used By |
 |------|--------|---------|
-| `UserRole` | `OWNER`, `STAFF`, `CUSTOMER` | User |
+| `UserRole` | `OWNER`, `MANAGER`, `WAITER`, `KITCHEN`, `STAFF`, `CUSTOMER` | User |
 | `Currency` | `EUR`, `BGN` | MenuItem |
-| `OrderStatus` | `NEW`, `IN_PROGRESS`, `SERVED`, `CANCELED` | Order |
+| `OrderStatus` | `NEW`, `IN_PROGRESS`, `SERVED`, `CANCELED`, `COMPLETED` | Order |
 | `OptionType` | `VARIATION`, `ADDON` | MenuOption |
 | `AvailabilityType` | `ALWAYS`, `SCHEDULED`, `HIDDEN` | MenuCategory |
 | `LoyaltyPointTransactionType` | `EARN`, `SIGNUP`, `REDEEM`, `EXPIRE`, `ADJUSTMENT` | LoyaltyPointLedger |
 | `SessionStatus` | `OPEN`, `PAID`, `CLOSED_NO_PAYMENT` | TableSession |
-| `PaymentStatus` | `PENDING`, `SUCCEEDED`, `FAILED` | Payment |
+| `PaymentStatus` | `PENDING`, `SUCCEEDED`, `FAILED`, `REFUNDED` | Payment |
 
 ---
 
@@ -1588,7 +1593,6 @@ erDiagram
 | `GET` | `/auth/me` | JWT | Get current user profile. |
 | `GET` | `/auth/google` | GoogleAuthGuard | Initiate Google OAuth flow. |
 | `GET` | `/auth/google/callback` | GoogleAuthGuard | OAuth callback. Parses `state` for `returnTo` redirect. |
-| `POST` | `/auth/magic-link` | None | Generate magic link token (15-min expiry, logged to console). |
 | `POST` | `/auth/otp/send` | None | Send 6-digit OTP via email. 60s rate limit. Returns `devCode` in dev. |
 | `POST` | `/auth/otp/verify` | None | Verify OTP code. Returns JWT + user + `isNew` flag. |
 
@@ -1704,15 +1708,20 @@ erDiagram
 |--------|------|------|---------|
 | `GET` | `/health` | **None** | Health check (`{ status: 'ok', timestamp }`). |
 
-### 5.14 Payment — `/api/payment/*`
+### 5.14 Payment — `/api/payments/*`
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `POST` | `/payment/sessions` | **None** | Create or get existing table session (token for public access). |
-| `GET` | `/payment/sessions/:token/bill` | **None** | Get session bill (items, total, tip config). |
-| `POST` | `/payment/create-payment-intent` | **None** | Create Stripe PaymentIntent with platform fee. |
-| `POST` | `/payment/webhook` | **None** (raw body) | Stripe webhook receiver (signature verification). |
-| `GET` | `/payment/history/:restaurantId` | JWT | Paginated payment history with status/date filters. |
+| `POST` | `/payments/session` | **None** | Create or get existing table session (token for public access). |
+| `POST` | `/payments/session/force-open` | JWT | Force-open a new session (closes existing OPEN). |
+| `GET` | `/payments/session/:token/bill` | **None** | Get session bill (items, total, tip config). |
+| `POST` | `/payments/session/:token/intent` | **None** | Create Stripe PaymentIntent with platform fee. |
+| `POST` | `/payments/session/:token/close` | JWT | Close session (CLOSED_NO_PAYMENT). |
+| `POST` | `/payments/session/:token/close-card` | JWT | Close session with card payment (MYPOS → PAID). |
+| `POST` | `/payments/session/:token/close-cash` | JWT | Close session with cash payment. |
+| `GET` | `/payments/sessions/:restaurantId` | JWT | List table sessions (paginated). |
+| `GET` | `/payments/history/:restaurantId` | JWT | Paginated payment history with status/date filters. |
+| `POST` | `/payments/webhook` | **None** (raw body) | Stripe webhook receiver (signature verification). |
 
 ### 5.15 Table Status — `/api/tables/*`
 
@@ -1770,7 +1779,7 @@ Response returned
 | **JWT httpOnly Cookie** | Token stored in httpOnly cookie (`sameSite: 'lax'`, `secure` in production, 1-day expiry). Never exposed to JS. | `auth.controller.ts`, `auth.service.ts`, `jwt.strategy.ts` |
 | **CSRF Protection** | Double-submit cookie pattern. `GET /api/auth/csrf-token` issues token. All POST/PATCH/DELETE/PUT require `X-CSRF-Token` header matching `csrf-token` cookie. Skipped in dev + Stripe webhook. | `main.ts` CSRF middleware, `api.ts` CSRF interceptor |
 | **CSP Headers** | Helmet with strict CSP: `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' ws: wss:; frame-src https://js.stripe.com` | `main.ts` |
-| **Same-Origin Proxy** | Frontend uses `/api` baseURL (same-origin). Vite proxies to backend. Prevents cross-origin cookie blocking. | `vite.config.js`, `api.ts` |
+| **Same-Origin Proxy** | Frontend uses `/api/v1` baseURL (same-origin). Vite proxies `/api/*` to backend. Prevents cross-origin cookie blocking. | `vite.config.js`, `api.ts` |
 | **OTP Rate Limiting** | 60-second cooldown per email (429 response) | `auth.service.ts` — `sendOtp()` |
 | **OTP Expiry** | 10-minute TTL, code bcrypt-hashed, token marked `usedAt` | `auth.service.ts` — `sendOtp()`, `verifyOtp()` |
 | **OTP Brute-Force** | 5 failed attempts → 10-min lockout (`lockedUntil` field). Successful verify resets counter. | `auth.service.ts` — `verifyOtp()` |
@@ -1784,7 +1793,7 @@ Response returned
 | **JWT Expiry** | Tokens expire in 1 day | `auth.module.ts` — `expiresIn: '1d'` |
 | **401 Interceptor** | Auto-clears token and redirects on 401 (excludes public paths) | `frontend/src/lib/api.ts` |
 | **Prisma Parameterized Queries** | All DB access via Prisma ORM — prevents SQL injection | All services |
-| **WebSocket Auth** | JWT passed in Socket.io handshake auth object | `SocketContext.tsx` |
+| **WebSocket Auth** | httpOnly JWT cookie sent via `withCredentials: true` in Socket.io connection | `SocketContext.tsx` |
 | **DeepL Key Isolation** | Single platform key in backend `.env`, never exposed to frontend | `translation.service.ts` |
 
 ### 6.3 Security Gaps (All Resolved — May 11, 2026)
@@ -1801,7 +1810,7 @@ All previously identified security gaps were resolved in Phase 21 (Security Hard
 | No body size limits | Medium | **Resolved** — `express.json({ limit: '1mb' })`, `express.urlencoded({ limit: '1mb' })`. Stripe webhook: `limit: '5mb'` for raw body. |
 | console.log throughout | Low | **Resolved** — All 7 services migrated to NestJS `Logger`. Request ID middleware (`crypto.randomUUID()`) on every request. |
 | No input sanitization on public endpoints | Low | Mitigated by `class-validator` DTOs with `whitelist: true` on `ValidationPipe`. Customer name/phone validated at boundary. |
-| Relaxed TypeScript strictness (backend) | Low | Acknowledged — `strictNullChecks: false`, `noImplicitAny: false` in `apps/backend/tsconfig.json`. Non-blocking for current code quality. |
+| Relaxed TypeScript strictness (backend) | Low | **Resolved** — `strictNullChecks: true`, `noImplicitAny: true` in `apps/backend/tsconfig.json` (May 15, 2026). All resulting errors fixed. |
 | Dev secrets in code | Low | Acknowledged — `docker-compose.yml` uses hardcoded values. Not used in production (hosted Neon, no local Docker). |
 
 ---
@@ -1836,7 +1845,7 @@ All previously identified security gaps were resolved in Phase 21 (Security Hard
 
 5. **Timezone-aware everything**: Analytics, category scheduling, happy hour, and order timestamps all use Luxon with the restaurant's IANA timezone — not server UTC. The migration from raw `new Date()` to Luxon is already complete (May 5, 2026).
 
-6. **Platform-managed third-party keys**: Restaurant owners never supply API keys. DeepL, Resend, S3, Stripe — all managed server-side via env vars. Eliminates owner friction and prevents key leakage.
+6. **Platform-managed third-party keys**: Restaurant owners never supply API keys. DeepL, Resend, R2, Stripe — all managed server-side via env vars. Eliminates owner friction and prevents key leakage.
 
 7. **Layout architecture for mobile-first experience**: The `AppLayout`/`PublicLayout` split in `App.tsx` means customer-facing routes (the primary use case) get zero chrome overhead. Cart animations are media-query-driven (CSS only, no JS detection). Safe area insets are handled throughout.
 
@@ -1848,7 +1857,7 @@ All previously identified security gaps were resolved in Phase 21 (Security Hard
 
 - **No customer passwords**: The email OTP auth flow and nullable `User.password` field means customers never create or remember passwords. This reduces friction significantly for the QR-scan-to-order use case.
 - **Cart deduplication by content hash**: `cartId = itemId + JSON.stringify(selectedOptions)` — same item with same options merges into one cart entry. Simple but effective.
-- **Prisma connection retry**: `PrismaService` retries connections 15 times with 2s delay. This handles Neon's serverless cold starts transparently.
+- **Prisma connection retry with circuit breaker**: `PrismaService` retries connections 15 times with jittered exponential backoff (1s base → 30s cap). Circuit breaker opens after 5 consecutive transient failures with 30s cooldown. This handles Neon's serverless cold starts transparently.
 - **Orphan cleanup on item deletion**: When a menu item is deleted, the service finds all items referencing it in `relatedItemIds` and removes the reference. No dangling pointers.
 
 ---
@@ -1859,23 +1868,23 @@ All previously identified security gaps were resolved in Phase 21 (Security Hard
 
 | Area | Status | Evidence |
 |------|--------|----------|
-| Authentication (JWT + Google + OTP) | Complete | 8 endpoints, 4 strategies, customer modal, protected routes |
+| Authentication (JWT + Google + OTP) | Complete | 15 endpoints, 4 strategies, customer modal, protected routes |
 | Restaurant CRUD + Multi-tenancy | Complete | Full CRUD with ownership checks, 30+ config fields |
-| Menu Builder + Image Upload | Complete | Categories, items, options with DnD, presets, S3 upload |
+| Menu Builder + Image Upload | Complete | Categories, items, options with DnD, presets, R2 upload |
 | Table Management + QR Codes | Complete | CRUD, branded QR, PNG download, A4 bulk print |
 | Public Menu (Customer UX) | Complete | Theming, fonts, translations, schedule, sticky nav |
 | Cart + Checkout + Loyalty | Complete | localStorage persistence, server-side pricing, FIFO ledger |
 | Order Management | Complete | Status workflow, real-time push, audio alerts |
 | Smart Analytics | Complete | 8 metrics, timezone-aware, CSV export (European format) |
 | Customer Feedback | Complete | 4-step flow, smart Google Review routing, owner summary |
-| Real-Time (Socket.io) | Complete | 4 event types, room-based scoping, analytics invalidation |
+| Real-Time (Socket.io) | Complete | 8 event types, room-based scoping, analytics invalidation |
 | Multi-Language (EN/BG/RO) | Complete | ~120 keys, DeepL with lazy caching, platform-managed key |
 | Dayparting (Menu Scheduling) | Complete | Timezone-aware, overnight range support, day-picker UI |
 | Upselling (Pairing + Trending + Drinks) | Complete | Deterministic pairing, AUTO trending, cart drink upsell |
 | Branding + Theming | Complete | 15 fonts, 4-color WCAG, per-restaurant theme isolation |
 | Menu Health Audit | Complete | Severity levels, one-click fix navigation |
 | Design System | Complete | HSL tokens, glassmorphism, safe areas, reduced motion |
-| Stripe Connect Payments | Complete | Provider abstraction (`IPaymentProvider` → `StripeProvider`), Stripe Elements UI, Connect onboarding, payment history, notification bell + toast, 5 API endpoints |
+| Stripe Connect Payments | Complete | Provider abstraction (`IPaymentProvider` → `StripeProvider`), Stripe Elements UI, Connect onboarding, payment history, notification bell + toast, 10 API endpoints |
 | Live Table View | Complete | Real-time status grid, color-coded cards, filter modes (Active/Occupied/Paid/All), table detail modal, Socket.io `table:status-changed` events, parallel DB queries |
 | Deployment | Complete | Docker Compose, health checks, rate limiting, Swagger |
 
@@ -1883,7 +1892,7 @@ All previously identified security gaps were resolved in Phase 21 (Security Hard
 
 | Area | Current State | Natural Extension Point |
 |------|---------------|------------------------|
-| **Stripe Payments** | ✅ Complete. `IPaymentProvider` interface, `StripeProvider`, `PaymentService`, `PaymentController` (5 routes), Stripe Connect onboarding, `PaymentModal` (3-step UI), `PaymentsView` history table, `NotificationContext` + `NotificationBell` + `PaymentToast`, `TableSession` + `Payment` models, webhook handling with idempotency. | Future: MyPOS provider via same interface, split bill, saved cards. |
+| **Stripe Payments** | ✅ Complete. `IPaymentProvider` interface, `StripeProvider`, `PaymentService`, `PaymentController` (10 routes), Stripe Connect onboarding, `PaymentModal` (3-step UI), `PaymentsView` history table, `NotificationContext` + `NotificationBell` + `PaymentToast`, `TableSession` + `Payment` models, webhook handling with idempotency. | Future: MyPOS provider via same interface, split bill, saved cards. |
 | **SaaS Subscription** | ✅ Complete. 4-tier FREE/STARTER/PROFESSIONAL/ENTERPRISE on `Restaurant.tier`. `SubscriptionModule` with `FeatureService` (pure tier→flag map), `FeatureGuard` (owner+staff resolution, 403 FEATURE_LOCKED), `@RequireFeature` decorator. Stripe Checkout + Portal + webhook with timestamp-gate race protection. `useFeature` hook (frontend). `BillingView`, `PricingPage` at `/pricing`, `SubscriptionBanner`. 4 demo accounts. New env vars: `STRIPE_PRICE_*`, `STRIPE_SUBSCRIPTION_WEBHOOK_SECRET`. | Phase 20 (Multi-location) is next. |
 | **Kitchen Display System** | **Routed and guarded.** `KitchenPage.tsx` (270 lines) at `/staff/kitchen` — kanban board with real-time order status advancement, audio alerts, 24h history. StaffRoute guard applied. No new backend endpoints needed. | Polish for production (styling, performance). |
 | **Menu Service Split** | ✅ Complete. Split into `menu-crud.service.ts`, `menu-audit.service.ts`, `menu-translation.service.ts` — all wired into `menu.module.ts`. Original `menu.service.ts` deleted. | Unit tests for each service. |
@@ -1926,8 +1935,8 @@ All previously identified security gaps were resolved in Phase 21 (Security Hard
 | 3 | ~~**menu.service.ts is 220+ lines doing too many things**~~ — **RESOLVED May 2026.** Split into `menu-crud.service.ts`, `menu-audit.service.ts`, `menu-translation.service.ts`. All wired into `menu.module.ts`. Original `menu.service.ts` deleted. | ~~Tight coupling.~~ | ~~Split and delete monolith.~~ | Medium | ~~Must-have~~ **Done** |
 | 4 | ~~**No service-level unit tests**~~ — **IN PROGRESS.** 10 `.spec.ts` files committed. Coverage below 80% threshold. | Regression risk. | Reach 80% coverage, add CI gate. | Medium | ~~Must-have~~ **In Progress** |
 | 5 | ~~**Logger is console.log throughout**~~ — **RESOLVED May 2026.** All 7 services migrated to NestJS `Logger`. Request ID middleware (`crypto.randomUUID()`) on every request. | Structured logging with correlation IDs now standard. | Log aggregation/monitoring still future work. | Medium | ~~Should-have~~ **Done** |
-| 6 | **No API versioning** — All endpoints under `/api/*` with no version prefix. | Breaking changes to API are impossible without breaking all existing clients. | Add `/api/v1/*` prefix. Support legacy `/api/*` with deprecation header during transition. NestJS supports versioning natively. | Low | Should-have |
-| 7 | **PrismaService connection retry is infinite** — 15 retries × 2s = 30s of blocking. No circuit breaker. | On Neon outage, the app hangs for 30s then crashes. | Add exponential backoff with jitter. Add circuit breaker: after 5 failures, serve degraded mode (health check fails, existing connections work). | Medium | Should-have |
+| 6 | ~~**No API versioning**~~ — **RESOLVED May 2026.** All endpoints now at `/api/v1/*` via `VersioningType.URI` with `defaultVersion: '1'`. Frontend `api.ts` base URL updated to `/api/v1`. Vite proxy unchanged. | Breaking changes managed via versioned URIs. | Done. | Low | ~~Should-have~~ **Done** |
+| 7 | ~~**PrismaService connection retry is infinite**~~ — **RESOLVED May 2026.** Now uses jittered exponential backoff (500ms base → 30s cap) on startup. Runtime `withRetry()` method with circuit breaker: CLOSED → OPEN after 5 consecutive transient failures, HALF_OPEN after 30s cooldown. Only transient Prisma error codes (P1001, P1002, P1008, P1017, P2024, P1012) trigger the breaker. | Resilient to Neon cold starts and transient outages. | Done. | Medium | ~~Should-have~~ **Done** |
 
 ### 10.3 Missing Features That Competitors Have
 
@@ -1970,7 +1979,7 @@ All previously identified security gaps were resolved in Phase 21 (Security Hard
 
 | # | Bottleneck | Evidence | Solution | Complexity |
 |---|-----------|----------|----------|------------|
-| 1 | **N+1 query in `applyLazyTranslations()`** — Iterates categories → items → options, calls DeepL for each untranslated entity individually. | `menu.service.ts` — `applyLazyTranslations()` loops with 300ms delay per call. 10 items × 3 languages = 30 API calls = 9 seconds. | Batch all untranslated texts into a single DeepL API call per language. The API supports up to 50 texts per request. | Low |
+| 1 | **N+1 query in `applyLazyTranslations()`** — Iterates categories → items → options, calls DeepL for each untranslated entity individually. | `menu-translation.service.ts` — `applyLazyTranslations()` loops with 300ms delay per call. 10 items × 3 languages = 30 API calls = 9 seconds. | Batch all untranslated texts into a single DeepL API call per language. The API supports up to 50 texts per request. | Low |
 | 2 | **No database connection pooling** — Prisma connects with default pool size. Neon's serverless nature means connections are cold. | `prisma.service.ts` retries 15 times — this implies cold starts are common. | Configure `connection_limit` in DATABASE_URL (Neon supports pooler). Use `@prisma/client` datasource with `pgbouncer=true` for Neon's pooled connection. | Low |
 | 3 | **All menu categories + items + options loaded in single request** — `getPublicMenu()` fetches entire menu tree with nested includes. | For a restaurant with 10 categories × 20 items × 3 options = 600+ records per request. Image URLs included inline. | Already mitigated by not loading images inline (they're URLs) and filtering out-of-stock. For very large menus, add pagination by category or lazy-load items on category scroll. | Medium |
 | 4 | **Analytics dashboard runs 8 queries per request** — `getAnalytics()` uses `Promise.all` over 8 queries. Each query aggregates across all orders. | At 100,000+ orders, some queries (revenue trend by day, peak hours) will need aggregation tables. | Add materialized views or summary tables refreshed hourly. Keep raw queries for custom date ranges, use summary tables for standard periods (7/14/30 days). | High |
@@ -1998,7 +2007,9 @@ All previously identified security gaps were resolved in Phase 21 (Security Hard
 | `apps/backend/src/app.module.ts` | — | Root module registry (17 modules) |
 | `apps/backend/src/main.ts` | — | Bootstrap, CORS, Swagger, global prefix |
 | `apps/backend/src/auth/auth.service.ts` | — | Login, register, OTP, Google OAuth |
-| `apps/backend/src/menu/menu.service.ts` | 220+ | Menu CRUD, translations, audit, trending, scheduling |
+| `apps/backend/src/menu/menu-crud.service.ts` | — | Menu CRUD, trending, scheduling |
+| `apps/backend/src/menu/menu-audit.service.ts` | — | Menu health audit, severity levels |
+| `apps/backend/src/menu/menu-translation.service.ts` | — | Menu translation pre-warm + lazy caching |
 | `apps/backend/src/orders/orders.service.ts` | — | Server-side pricing, loyalty processing, validation |
 | `apps/backend/src/loyalty/loyalty.service.ts` | — | Enroll, points, summaries, cron |
 | `apps/backend/src/loyalty/loyalty-ledger.utils.ts` | — | FIFO redeem, expire, earn (pure functions) |
@@ -2008,11 +2019,11 @@ All previously identified security gaps were resolved in Phase 21 (Security Hard
 | `apps/backend/src/events/events.gateway.ts` | — | Socket.io gateway, `emitTableStatusChanged` helper |
 | `apps/backend/src/storage/storage.service.ts` | — | R2 upload/delete with sharp image processing |
 | `apps/backend/src/payment/payment.service.ts` | — | Session, bill, intent, webhook handling |
-| `apps/backend/src/payment/payment.controller.ts` | — | 5 endpoints (sessions, bill, intent, webhook, history) |
+| `apps/backend/src/payment/payment.controller.ts` | — | 10 endpoints (sessions, bill, intent, close, close-card, close-cash, history, webhook) |
 | `apps/backend/src/payment/stripe.provider.ts` | — | Stripe SDK wrapper with Connect support |
 | `apps/backend/src/payment/payment-provider.interface.ts` | — | Provider abstraction contract |
 | `apps/backend/src/tables/tables.service.ts` | — | Table CRUD + `getTablesWithStatus()` parallel queries |
-| `apps/backend/prisma/schema.prisma` | — | 13 models, 9 enums, all relations, 4 composite indexes |
+| `apps/backend/prisma/schema.prisma` | — | 16 models, 10 enums, all relations, composite indexes |
 
 ### Critical Frontend Files
 | File | Lines | Purpose |
