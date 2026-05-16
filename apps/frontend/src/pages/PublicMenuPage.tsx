@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { getMenu, createAssistanceRequest, getSessionBill } from "../lib/api";
-import { Category } from "../types";
+import { getMenuMeta, getCategoryItems, createAssistanceRequest, getSessionBill } from "../lib/api";
 import { PaymentModal } from "../components/payment/PaymentModal";
 import { useCart } from "../context/CartContext";
 import { Button } from "../components/ui/button";
@@ -18,6 +17,7 @@ import { CategoryPills } from "../components/menu/CategoryPills";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { useAuth } from "../context/AuthContext";
 import { getImageUrl } from "../lib/getImageUrl";
+
 const PublicMenuPage = () => {
   const { restaurantId } = useParams<{ restaurantId: string }>();
   const location = useLocation();
@@ -26,10 +26,11 @@ const PublicMenuPage = () => {
   const { setTableNumber, pruneInvalidItems } = useCart();
   const [tableNumber, setTableNumberState] = useState<string | null>(null);
 
-  const [menuData, setMenuData] = useState<{
-    restaurant: any;
-    categories: Category[];
-  } | null>(null);
+  // Phase 1: restaurant branding + category names (fast, no items)
+  const [menuMeta, setMenuMeta] = useState<{ restaurant: any; categories: any[] } | null>(null);
+  // Phase 2: per-category items — undefined=not started, null=loading, array=loaded
+  const [loadedItemsMap, setLoadedItemsMap] = useState<Record<string, any[] | null>>({});
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assistanceSent, setAssistanceSent] = useState(false);
@@ -45,9 +46,14 @@ const PublicMenuPage = () => {
   const { user, logout } = useAuth();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
-  const ordersEnabled = menuData?.restaurant?.tier !== 'FREE';
+  const ordersEnabled = menuMeta?.restaurant?.tier !== 'FREE';
   const [activeDietTags, setActiveDietTags] = useState<string[]>([]);
   const [excludedAllergens, setExcludedAllergens] = useState<string[]>([]);
+
+  const categoryRefs = useRef<Record<string, HTMLElement | null>>({});
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   const toggleDietTag = (tag: string) => {
     setActiveDietTags((prev) =>
@@ -61,11 +67,33 @@ const PublicMenuPage = () => {
     );
   };
 
-  const categoryRefs = useRef<Record<string, HTMLElement | null>>({});
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  // All items currently loaded across all categories
+  const allLoadedItems: any[] = Object.values(loadedItemsMap).flatMap(
+    (items) => (Array.isArray(items) ? items : []),
+  );
 
+  // Categories merged with loaded items — used by CartIcon for name resolution
+  const categoriesForCart = menuMeta?.categories.map((cat: any) => ({
+    ...cat,
+    items: Array.isArray(loadedItemsMap[cat.id]) ? (loadedItemsMap[cat.id] as any[]) : [],
+  })) ?? [];
+
+  // Load all categories for a given lang; called on initial load and lang change
+  const loadAllCategoryItems = (categories: any[], lang: string | undefined, cancelled: { v: boolean }) => {
+    // Mark all as loading
+    setLoadedItemsMap(Object.fromEntries(categories.map((c: any) => [c.id, null])));
+    // Fire requests in parallel, update state as each resolves
+    categories.forEach(async (cat: any) => {
+      try {
+        const items = await getCategoryItems(restaurantId!, cat.id, lang);
+        if (!cancelled.v) setLoadedItemsMap((prev) => ({ ...prev, [cat.id]: items }));
+      } catch {
+        if (!cancelled.v) setLoadedItemsMap((prev) => ({ ...prev, [cat.id]: [] }));
+      }
+    });
+  };
+
+  // Main fetch effect: meta first, then parallel category items
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const table = params.get("table");
@@ -78,49 +106,65 @@ const PublicMenuPage = () => {
 
     if (!restaurantId) return;
 
+    const cancelled = { v: false };
+
     const fetchMenu = async () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await getMenu(restaurantId);
+        setMenuMeta(null);
+        setLoadedItemsMap({});
 
-        if (!data || !data.restaurant) {
+        const data = await getMenuMeta(restaurantId);
+        if (cancelled.v) return;
+
+        if (!data?.restaurant) {
           setError(t("publicMenu.failedLoad"));
           return;
         }
 
-        setMenuData(data);
-        const validItemIds = data.categories.flatMap((c: any) =>
-          (c.items || []).map((i: any) => i.id),
-        );
-        const removedCount = pruneInvalidItems(validItemIds);
-        if (removedCount > 0) {
-          console.warn(
-            `[PublicMenu] Removed ${removedCount} stale cart item(s) not present in current menu.`,
-          );
-        }
+        setMenuMeta(data);
 
+        let initialLang: string | undefined;
         if (data.restaurant?.targetLanguages?.length > 0) {
           const browserLang = (i18n.language || "en").slice(0, 2);
           const langs: string[] = data.restaurant.targetLanguages;
-          const defaultLang = langs.includes(browserLang) ? browserLang : langs[0];
-          setSelectedLang(defaultLang);
+          initialLang = langs.includes(browserLang) ? browserLang : langs[0];
+          setSelectedLang(initialLang);
         }
+
+        loadAllCategoryItems(data.categories, initialLang, cancelled);
       } catch (err) {
-        console.error("Public Menu Fetch Error:", err);
-        setError(t("publicMenu.failedLoad"));
+        if (!cancelled.v) {
+          console.error("Public Menu Fetch Error:", err);
+          setError(t("publicMenu.failedLoad"));
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled.v) setLoading(false);
       }
     };
 
     fetchMenu();
-    // Only re-fetch when restaurant or URL query params change.
-    // Cart functions (setTableNumber, pruneInvalidItems) are memoized/stable via useCallback.
-    // t/i18n are used inside but should not trigger a re-fetch.
+    return () => { cancelled.v = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantId, location.search]);
 
+  // Prune stale cart items once every category has loaded
+  useEffect(() => {
+    if (!menuMeta?.categories?.length) return;
+    const allLoaded = menuMeta.categories.every((cat: any) =>
+      Array.isArray(loadedItemsMap[cat.id]),
+    );
+    if (!allLoaded) return;
+    const validItemIds = allLoadedItems.map((i: any) => i.id);
+    const removedCount = pruneInvalidItems(validItemIds);
+    if (removedCount > 0) {
+      console.warn(`[PublicMenu] Removed ${removedCount} stale cart item(s) not present in current menu.`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadedItemsMap]);
+
+  // IntersectionObserver: track active category for scroll-spy pill nav
   useEffect(() => {
     const observerOptions = {
       root: null,
@@ -136,10 +180,7 @@ const PublicMenuPage = () => {
       });
     };
 
-    const observer = new IntersectionObserver(
-      observerCallback,
-      observerOptions,
-    );
+    const observer = new IntersectionObserver(observerCallback, observerOptions);
 
     const timeoutId = setTimeout(() => {
       Object.values(categoryRefs.current).forEach((ref) => {
@@ -151,7 +192,7 @@ const PublicMenuPage = () => {
       clearTimeout(timeoutId);
       observer.disconnect();
     };
-  }, [menuData]);
+  }, [menuMeta]);
 
   useEffect(() => {
     if (tableNumber) {
@@ -161,8 +202,8 @@ const PublicMenuPage = () => {
   }, [tableNumber]);
 
   useEffect(() => {
-    if (menuData?.restaurant) {
-      const { fontHeading, fontBody } = menuData.restaurant;
+    if (menuMeta?.restaurant) {
+      const { fontHeading, fontBody } = menuMeta.restaurant;
       const fontsToLoad = new Set<string>();
       if (fontHeading) fontsToLoad.add(fontHeading);
       if (fontBody) fontsToLoad.add(fontBody);
@@ -178,7 +219,8 @@ const PublicMenuPage = () => {
         }
       });
     }
-  }, [menuData?.restaurant]);
+  }, [menuMeta?.restaurant]);
+
   const handleAssistanceRequest = async () => {
     if (!tableNumber) {
       setNoTableNotice(true);
@@ -198,27 +240,30 @@ const PublicMenuPage = () => {
     }
   };
 
-  const scrollToCategory = (id: string) => {
-    categoryRefs.current[id]?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+  const handleLanguageChange = (code: string) => {
+    setSelectedLang(code);
+    i18n.changeLanguage(code);
+    // Re-fetch all category items with the new language
+    if (menuMeta?.categories?.length && restaurantId) {
+      const cancelled = { v: false };
+      loadAllCategoryItems(menuMeta.categories, code, cancelled);
+    }
   };
 
-  const restaurantTheme = menuData?.restaurant;
-  const hasCustomTheme = !!(
-    restaurantTheme?.themeBgColor && restaurantTheme?.themeTextColor
-  );
+  const scrollToCategory = (id: string) => {
+    categoryRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
-  // Extract unique dietary/allergen tags
+  const restaurantTheme = menuMeta?.restaurant;
+  const hasCustomTheme = !!(restaurantTheme?.themeBgColor && restaurantTheme?.themeTextColor);
+
+  // Dietary/allergen tags derived from all currently loaded items
   const dietTags: { tag: string; count: number }[] = (() => {
     const tagCounts = new Map<string, number>();
-    for (const cat of menuData?.categories ?? []) {
-      for (const item of cat.items ?? []) {
-        const tags = [...(item.allergens ?? []), ...(item.dietaryTags ?? [])];
-        for (const t of tags) {
-          tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
-        }
+    for (const item of allLoadedItems) {
+      const tags = [...(item.allergens ?? []), ...(item.dietaryTags ?? [])];
+      for (const tag of tags) {
+        tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
       }
     }
     return [...tagCounts.entries()]
@@ -239,8 +284,7 @@ const PublicMenuPage = () => {
           ? {
               "--custom-bg": restaurantTheme.themeBgColor,
               "--custom-text": restaurantTheme.themeTextColor,
-              "--custom-card":
-                restaurantTheme.themeCardColor || restaurantTheme.themeBgColor,
+              "--custom-card": restaurantTheme.themeCardColor || restaurantTheme.themeBgColor,
             }
           : {}),
       } as React.CSSProperties)
@@ -259,26 +303,20 @@ const PublicMenuPage = () => {
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
         <div
           className="absolute -top-[10%] -right-[10%] w-[60%] h-[60%] rounded-full opacity-10 blur-[120px] transition-colors duration-1000"
-          style={{
-            backgroundColor:
-              menuData?.restaurant?.accentColor || "var(--color-accent)",
-          }}
+          style={{ backgroundColor: menuMeta?.restaurant?.accentColor || "var(--color-accent)" }}
         />
         <div
           className="absolute -bottom-[10%] -left-[10%] w-[50%] h-[50%] rounded-full opacity-5 blur-[100px] transition-colors duration-1000"
-          style={{
-            backgroundColor:
-              menuData?.restaurant?.accentColor || "var(--color-accent)",
-          }}
+          style={{ backgroundColor: menuMeta?.restaurant?.accentColor || "var(--color-accent)" }}
         />
       </div>
 
       <div className="relative z-10 container mx-auto px-4 max-w-4xl">
         <TopBar
           tableNumber={tableNumber}
-          targetLanguages={menuData?.restaurant?.targetLanguages ?? []}
+          targetLanguages={menuMeta?.restaurant?.targetLanguages ?? []}
           selectedLang={selectedLang}
-          onLanguageChange={(code) => { setSelectedLang(code); i18n.changeLanguage(code); }}
+          onLanguageChange={handleLanguageChange}
           restaurantId={restaurantId}
           defaultTheme={(restaurantTheme?.defaultTheme as 'light' | 'dark') ?? 'light'}
           onFilterClick={() => setFilterDrawerOpen(true)}
@@ -307,19 +345,15 @@ const PublicMenuPage = () => {
             <p className="text-muted-foreground mb-6">
               {t("publicMenu.checkLink", "Please check the link or ask staff for assistance.")}
             </p>
-            <Button
-              onClick={() => window.location.reload()}
-              variant="outline"
-              className="rounded-xl"
-            >
+            <Button onClick={() => window.location.reload()} variant="outline" className="rounded-xl">
               {t("publicMenu.tryAgain", "Try Again")}
             </Button>
           </div>
         )}
 
-        {!loading && !error && menuData && (
+        {!loading && !error && menuMeta && (
           <>
-            {menuData.categories.length === 0 ? (
+            {menuMeta.categories.length === 0 ? (
               <div className="text-center glass-panel p-20 rounded-[3rem] mt-8">
                 <p className="text-2xl font-serif font-bold opacity-30">
                   {t("publicMenu.noItems")}
@@ -332,9 +366,7 @@ const PublicMenuPage = () => {
                   <div className="mt-8">
                     <TrendingCarousel
                       restaurantId={restaurantId}
-                      allMenuItems={menuData.categories.flatMap(
-                        (c) => c.items || [],
-                      )}
+                      allMenuItems={allLoadedItems}
                     />
                   </div>
                 )}
@@ -354,26 +386,25 @@ const PublicMenuPage = () => {
 
                 {/* Category Horizontal Scroll Pills */}
                 <CategoryPills
-                  categories={menuData.categories}
+                  categories={menuMeta.categories}
                   activeCategory={activeCategory}
                   selectedLang={selectedLang}
                   onSelect={scrollToCategory}
                 />
 
                 <div className="space-y-14 md:space-y-24">
-                  {menuData.categories.map((category: any) => {
+                  {menuMeta.categories.map((category: any) => {
                     const catName =
-                      (selectedLang &&
-                        category.translations &&
-                        category.translations[selectedLang]?.name) ||
+                      (selectedLang && category.translations?.[selectedLang]?.name) ||
                       category.name;
+                    const categoryItems = loadedItemsMap[category.id];
+                    const isItemsLoading = categoryItems === null || categoryItems === undefined;
+
                     return (
                       <div
                         key={category.id}
                         id={category.id}
-                        ref={(el) => {
-                          categoryRefs.current[category.id] = el;
-                        }}
+                        ref={(el) => { categoryRefs.current[category.id] = el; }}
                         className="scroll-mt-32"
                       >
                         {category.imageUrl ? (
@@ -387,10 +418,7 @@ const PublicMenuPage = () => {
                             <div className="absolute bottom-0 left-0 right-0 p-5 md:p-8">
                               <h2
                                 className="text-3xl md:text-5xl font-serif font-bold tracking-tight mb-2 drop-shadow-lg"
-                                style={{
-                                  fontFamily: "var(--font-heading, inherit)",
-                                  color: "white",
-                                }}
+                                style={{ fontFamily: "var(--font-heading, inherit)", color: "white" }}
                               >
                                 {catName}
                               </h2>
@@ -401,9 +429,7 @@ const PublicMenuPage = () => {
                           <div className="flex flex-col items-center mb-8 md:mb-12">
                             <h2
                               className="text-3xl md:text-5xl font-serif font-bold tracking-tight mb-3"
-                              style={{
-                                fontFamily: "var(--font-heading, inherit)",
-                              }}
+                              style={{ fontFamily: "var(--font-heading, inherit)" }}
                             >
                               {catName}
                             </h2>
@@ -411,26 +437,38 @@ const PublicMenuPage = () => {
                           </div>
                         )}
 
-                        {(() => {
+                        {isItemsLoading ? (
+                          /* Skeleton grid while items load */
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8">
+                            {[...Array(4)].map((_, i) => (
+                              <div
+                                key={i}
+                                className="h-24 rounded-2xl bg-muted/20 animate-pulse"
+                              />
+                            ))}
+                          </div>
+                        ) : (() => {
+                          const items = categoryItems as any[];
+
                           const filteredItems = (() => {
-                            let items = category.items;
+                            let result = items;
 
                             if (searchQuery.trim()) {
                               const q = searchQuery.toLowerCase();
-                              items = items.filter((item: any) => {
+                              result = result.filter((item: any) => {
                                 if (item.name.toLowerCase().includes(q)) return true;
                                 if ((item.description ?? '').toLowerCase().includes(q)) return true;
                                 if (selectedLang && item.translations?.[selectedLang]) {
-                                  const t = item.translations[selectedLang];
-                                  if ((t.name ?? '').toLowerCase().includes(q)) return true;
-                                  if ((t.description ?? '').toLowerCase().includes(q)) return true;
+                                  const tr = item.translations[selectedLang];
+                                  if ((tr.name ?? '').toLowerCase().includes(q)) return true;
+                                  if ((tr.description ?? '').toLowerCase().includes(q)) return true;
                                 }
                                 return false;
                               });
                             }
 
                             if (activeDietTags.length > 0) {
-                              items = items.filter((item: any) =>
+                              result = result.filter((item: any) =>
                                 activeDietTags.every((tag) =>
                                   [...(item.allergens ?? []), ...(item.dietaryTags ?? [])].includes(tag),
                                 ),
@@ -438,7 +476,7 @@ const PublicMenuPage = () => {
                             }
 
                             if (excludedAllergens.length > 0) {
-                              items = items.filter((item: any) =>
+                              result = result.filter((item: any) =>
                                 !excludedAllergens.some((allergen) =>
                                   (item.allergens ?? []).some(
                                     (a: string) => a.toLowerCase() === allergen.toLowerCase(),
@@ -447,7 +485,7 @@ const PublicMenuPage = () => {
                               );
                             }
 
-                            return items;
+                            return result;
                           })();
 
                           if (filteredItems.length === 0) {
@@ -464,21 +502,13 @@ const PublicMenuPage = () => {
                                 const translatedItem = {
                                   ...item,
                                   name:
-                                    (selectedLang &&
-                                      item.translations &&
-                                      item.translations[selectedLang]?.name) ||
+                                    (selectedLang && item.translations?.[selectedLang]?.name) ||
                                     item.name,
                                   description:
-                                    (selectedLang &&
-                                      item.translations &&
-                                      item.translations[selectedLang]
-                                        ?.description) ||
+                                    (selectedLang && item.translations?.[selectedLang]?.description) ||
                                     item.description,
                                 };
-                                const allMenuItems = menuData.categories.flatMap(
-                                  (c) => c.items || [],
-                                );
-                                const pairings = allMenuItems.filter((i: any) =>
+                                const pairings = allLoadedItems.filter((i: any) =>
                                   item.relatedItemIds?.includes(i.id),
                                 );
                                 return (
@@ -502,7 +532,7 @@ const PublicMenuPage = () => {
           </>
         )}
 
-        {/* No-table notice — shown above action bar when waiter called without table */}
+        {/* No-table notice */}
         {noTableNotice && (
           <div
             className="fixed left-0 right-0 z-50 flex justify-center px-4 md:px-6 pointer-events-none"
@@ -518,7 +548,7 @@ const PublicMenuPage = () => {
           </div>
         )}
 
-        {/* Action Bar — regrouped: profile/waiter left, cart/bill right */}
+        {/* Action Bar */}
         <div
           className="fixed left-0 right-0 z-50 flex justify-center pointer-events-none px-4 md:px-6"
           style={{ bottom: 'max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))' }}
@@ -526,7 +556,6 @@ const PublicMenuPage = () => {
           <div className="flex items-center w-full max-w-[480px] justify-between p-1.5 md:p-2.5 glass-panel rounded-[2rem] md:rounded-[2.5rem] shadow-[0_30px_70px_-15px_rgba(0,0,0,0.5)] border-white/20 dark:border-white/10 pointer-events-auto bg-white/90 dark:bg-black/90">
             {/* LEFT GROUP: Waiter + Profile/Sign-In */}
             <div className="flex items-center gap-0.5">
-              {/* Call Waiter */}
               <button
                 onClick={() => {
                   if (assistanceSent || assistanceLoading) return;
@@ -550,9 +579,7 @@ const PublicMenuPage = () => {
                   <button
                     onClick={() =>
                       navigate(
-                        `/profile?returnTo=${encodeURIComponent(
-                          location.pathname + location.search,
-                        )}`,
+                        `/profile?returnTo=${encodeURIComponent(location.pathname + location.search)}`,
                       )
                     }
                     aria-label={t("publicMenu.myProfile")}
@@ -599,13 +626,13 @@ const PublicMenuPage = () => {
                 </Button>
               )}
               {ordersEnabled && (
-              <div className="flex-shrink-0">
-                <CartIcon
-                  categories={menuData?.categories}
-                  restaurantId={restaurantId}
-                  selectedLang={selectedLang}
-                />
-              </div>
+                <div className="flex-shrink-0">
+                  <CartIcon
+                    categories={categoriesForCart}
+                    restaurantId={restaurantId}
+                    selectedLang={selectedLang}
+                  />
+                </div>
               )}
             </div>
           </div>

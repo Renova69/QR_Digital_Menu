@@ -143,7 +143,7 @@ export class StorageService {
       .webp({ quality: StorageService.QUALITY_THUMB })
       .toBuffer();
 
-    // Upload both in parallel
+    // Upload both in parallel — immutable cache-control lets Cloudflare CDN cache forever
     await Promise.all([
       this.s3.send(
         new PutObjectCommand({
@@ -151,6 +151,7 @@ export class StorageService {
           Key: mainKey,
           Body: mainBuffer,
           ContentType: 'image/webp',
+          CacheControl: 'public, max-age=31536000, immutable',
         }),
       ),
       this.s3.send(
@@ -159,6 +160,7 @@ export class StorageService {
           Key: thumbKey,
           Body: thumbBuffer,
           ContentType: 'image/webp',
+          CacheControl: 'public, max-age=31536000, immutable',
         }),
       ),
     ]);
