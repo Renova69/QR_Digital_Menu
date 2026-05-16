@@ -58,6 +58,8 @@ export class MenuImportService {
               availabilityType,
               daysOfWeek: [],
               ...(cat.translations ? { translations: cat.translations } : {}),
+              ...(cat.imageUrl !== undefined ? { imageUrl: cat.imageUrl } : {}),
+              ...(cat.thumbnailUrl !== undefined ? { thumbnailUrl: cat.thumbnailUrl } : {}),
             },
           });
           stats.categories++;
@@ -67,6 +69,8 @@ export class MenuImportService {
             data: {
               availabilityType,
               ...(cat.translations ? { translations: cat.translations } : {}),
+              ...(cat.imageUrl !== undefined ? { imageUrl: cat.imageUrl } : {}),
+              ...(cat.thumbnailUrl !== undefined ? { thumbnailUrl: cat.thumbnailUrl } : {}),
             },
           });
         }
@@ -90,6 +94,8 @@ export class MenuImportService {
             allergens: item.allergens ?? [],
             dietaryTags: item.dietaryTags ?? [],
             ...(item.translations ? { translations: item.translations } : {}),
+            ...(item.imageUrl !== undefined ? { imageUrl: item.imageUrl } : {}),
+            ...(item.thumbnailUrl !== undefined ? { thumbnailUrl: item.thumbnailUrl } : {}),
           };
 
           const existing = await tx.menuItem.findFirst({
@@ -142,6 +148,59 @@ export class MenuImportService {
     }
 
     return { success: true, ...stats };
+  }
+
+  async exportMenu(restaurantId: string, userId: string) {
+    await this.checkOwnership(restaurantId, userId);
+
+    const categories = await this.prisma.menuCategory.findMany({
+      where: { restaurantId },
+      orderBy: { order: 'asc' },
+      include: {
+        items: {
+          orderBy: { order: 'asc' },
+          include: { options: true },
+        },
+      },
+    });
+
+    return {
+      restaurantId,
+      categories: categories.map((cat) => ({
+        name: cat.name,
+        order: cat.order,
+        availabilityType: cat.availabilityType,
+        ...(cat.imageUrl ? { imageUrl: cat.imageUrl } : {}),
+        ...(cat.thumbnailUrl ? { thumbnailUrl: cat.thumbnailUrl } : {}),
+        ...(cat.translations ? { translations: cat.translations } : {}),
+        items: cat.items.map((item) => ({
+          name: item.name,
+          ...(item.description ? { description: item.description } : {}),
+          price: item.price,
+          currency: item.currency,
+          ...(item.weight ? { weight: item.weight } : {}),
+          ...(item.allergens?.length ? { allergens: item.allergens } : {}),
+          ...(item.dietaryTags?.length ? { dietaryTags: item.dietaryTags } : {}),
+          order: item.order,
+          ...(item.imageUrl ? { imageUrl: item.imageUrl } : {}),
+          ...(item.thumbnailUrl ? { thumbnailUrl: item.thumbnailUrl } : {}),
+          ...(item.translations ? { translations: item.translations } : {}),
+          ...(item.options?.length
+            ? {
+                options: item.options.map((opt) => ({
+                  name: opt.name,
+                  type: opt.type,
+                  choices: ((opt.choices as any[]) ?? []).map((c: any) => ({
+                    name: c.name,
+                    price: c.priceModifier ?? 0,
+                    ...(c.weight ? { weight: c.weight } : {}),
+                  })),
+                })),
+              }
+            : {}),
+        })),
+      })),
+    };
   }
 
   async getOrCreateApiKey(restaurantId: string, userId: string) {

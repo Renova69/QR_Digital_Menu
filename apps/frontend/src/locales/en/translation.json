@@ -27,6 +27,7 @@
       "menuEditor": "Menu Editor",
       "payments": "Payments",
       "import": "Import",
+      "importExport": "Import/Export",
       "pos": "POS",
       "kitchen": "Kitchen"
     }

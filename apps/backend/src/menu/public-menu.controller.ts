@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { MenuCrudService } from './menu-crud.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -22,6 +22,22 @@ export class PublicMenuController {
     @Query('lang') lang?: string,
   ) {
     return this.crud.getPublicMenu(restaurantId, lang);
+  }
+
+  @Get('public/:restaurantId/meta')
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
+  getPublicMenuMeta(@Param('restaurantId') restaurantId: string) {
+    return this.crud.getPublicMenuMeta(restaurantId);
+  }
+
+  @Get('public/:restaurantId/categories/:categoryId/items')
+  @Throttle({ default: { limit: 120, ttl: 60000 } })
+  getCategoryItems(
+    @Param('restaurantId') restaurantId: string,
+    @Param('categoryId') categoryId: string,
+    @Query('lang') lang?: string,
+  ) {
+    return this.crud.getCategoryItems(restaurantId, categoryId, lang);
   }
 
   @Get('public/:restaurantId/trending')

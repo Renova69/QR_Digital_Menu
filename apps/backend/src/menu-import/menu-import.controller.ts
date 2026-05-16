@@ -15,7 +15,7 @@ import { ImportMenuDto } from './dto/import-menu.dto';
 import { ApiKeyGuard } from './guards/api-key.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
-@Controller('restaurants/:id/menu/import')
+@Controller('restaurants/:id/menu')
 export class MenuImportController {
   constructor(private readonly menuImportService: MenuImportService) {}
 
@@ -23,7 +23,7 @@ export class MenuImportController {
    * OCR tool direct push — authenticated via per-restaurant Bearer API key.
    * POST /api/restaurants/:id/menu/import
    */
-  @Post()
+  @Post('import')
   @UseGuards(ApiKeyGuard)
   importFromOcr(
     @Param('id') id: string,
@@ -36,7 +36,7 @@ export class MenuImportController {
    * Dashboard UI confirm import — authenticated via JWT.
    * POST /api/restaurants/:id/menu/import/confirm
    */
-  @Post('confirm')
+  @Post('import/confirm')
   @UseGuards(JwtAuthGuard)
   importConfirm(
     @Param('id') id: string,
@@ -52,7 +52,7 @@ export class MenuImportController {
    * Get masked API key (or generate if none).
    * GET /api/restaurants/:id/menu/import/api-key
    */
-  @Get('api-key')
+  @Get('import/api-key')
   @UseGuards(JwtAuthGuard)
   getApiKey(@Param('id') id: string, @Request() req: any) {
     return this.menuImportService.getOrCreateApiKey(id, req.user.id);
@@ -62,7 +62,7 @@ export class MenuImportController {
    * Reveal full API key (for copy-to-clipboard).
    * POST /api/restaurants/:id/menu/import/api-key/reveal
    */
-  @Post('api-key/reveal')
+  @Post('import/api-key/reveal')
   @UseGuards(JwtAuthGuard)
   revealApiKey(@Param('id') id: string, @Request() req: any) {
     return this.menuImportService.revealApiKey(id, req.user.id);
@@ -72,9 +72,19 @@ export class MenuImportController {
    * Regenerate API key.
    * POST /api/restaurants/:id/menu/import/api-key/regenerate
    */
-  @Post('api-key/regenerate')
+  @Post('import/api-key/regenerate')
   @UseGuards(JwtAuthGuard)
   regenerateApiKey(@Param('id') id: string, @Request() req: any) {
     return this.menuImportService.regenerateApiKey(id, req.user.id);
+  }
+
+  /**
+   * Export full menu as JSON in import-compatible format (round-trip safe).
+   * GET /api/restaurants/:id/menu/export
+   */
+  @Get('export')
+  @UseGuards(JwtAuthGuard)
+  exportMenu(@Param('id') id: string, @Request() req: any) {
+    return this.menuImportService.exportMenu(id, req.user.id);
   }
 }

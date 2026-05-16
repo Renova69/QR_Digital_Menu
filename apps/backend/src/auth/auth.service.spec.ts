@@ -423,5 +423,26 @@ describe('AuthService', () => {
       expect(result.isNew).toBe(false);
       expect(mockUsersService.create).not.toHaveBeenCalled();
     });
+
+    it('updates existing user phone and name when provided in email flow', async () => {
+      const plainCode = '999777';
+      const hashedCode = await jest.requireActual<typeof bcrypt>('bcryptjs').hash(plainCode, 10);
+      mockCompare.mockImplementation(jest.requireActual('bcryptjs').compare);
+
+      mockPrisma.verificationToken.findFirst.mockResolvedValue({
+        id: 'tok-upd',
+        code: hashedCode,
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      mockUsersService.findByEmail.mockResolvedValue(makeUser({ phone: null, name: null }));
+      mockPrisma.user.update.mockResolvedValue(makeUser({ phone: '+1234567890', name: 'Alice' }));
+
+      const result = await service.verifyOtp('user@example.com', plainCode, '+1234567890', 'Alice');
+
+      expect(result.isNew).toBe(false);
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ phone: '+1234567890', name: 'Alice' }) }),
+      );
+    });
   });
 });

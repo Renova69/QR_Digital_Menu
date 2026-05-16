@@ -20,6 +20,7 @@ describe('PaymentService', () => {
       },
       restaurantTable: {
         findFirst: jest.fn().mockResolvedValue({ id: 'table1', restaurantId: 'rest1' }),
+        findUnique: jest.fn().mockResolvedValue({ name: 'T1' }),
       },
       payment: {
         create: jest.fn(),
@@ -174,6 +175,31 @@ describe('PaymentService', () => {
         }),
       );
       expect(result.clientSecret).toBe('cs_test');
+    });
+
+    it('throws BadRequestException when tipPercent is negative', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1', restaurantId: 'rest1', restaurant: {},
+      });
+      await expect(service.createPaymentIntent('tok1', -1)).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when tipPercent exceeds 100', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1', restaurantId: 'rest1', restaurant: {},
+      });
+      await expect(service.createPaymentIntent('tok1', 101)).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws ForbiddenException with FEATURE_LOCKED when tier does not include Stripe payments', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1', restaurantId: 'rest1',
+        restaurant: { paymentsEnabled: true, tier: 'FREE', stripeOnboarded: true, stripeAccountId: 'acct_1', platformFeePercent: 0.5 },
+      });
+      const lockedFeatureService = { hasFeature: jest.fn().mockReturnValue(false) } as unknown as FeatureService;
+      const lockedService = new PaymentService(mockPrisma, mockStripeProvider, mockEvents, lockedFeatureService);
+
+      await expect(lockedService.createPaymentIntent('tok1', 0)).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -364,6 +390,122 @@ describe('PaymentService', () => {
       expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ skip: 0, take: 20 }),
       );
+    });
+  });
+
+  describe('closeSessionWithCard', () => {
+    it('throws NotFoundException when session not found', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue(null);
+      await expect(service.closeSessionWithCard('bad-tok', 'rest1')).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws BadRequestException when total amount is zero', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1', tableId: 'table1', restaurantId: 'rest1', orders: [],
+      });
+      await expect(service.closeSessionWithCard('tok1', 'rest1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('creates MYPOS payment, closes session, emits events, returns amount', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1', tableId: 'table1', restaurantId: 'rest1',
+        orders: [{ totalPrice: 20 }, { totalPrice: 5 }],
+      });
+      mockPrisma.payment.create.mockResolvedValue({ id: 'pay1' });
+
+      const result = await service.closeSessionWithCard('tok1', 'rest1');
+
+      expect(result.amount).toBeCloseTo(25);
+      expect(mockPrisma.payment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ amount: 25, status: 'SUCCEEDED', provider: 'MYPOS' }),
+        }),
+      );
+      expect(mockEvents.emitTableStatusChanged).toHaveBeenCalled();
+      expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
+        'rest1', 'payment:confirmed', expect.objectContaining({ amount: 25 }),
+      );
+    });
+
+    it('throws when session is already closed (race condition)', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1', tableId: 'table1', restaurantId: 'rest1',
+        orders: [{ totalPrice: 30 }],
+      });
+      mockPrisma.tableSession.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      await expect(service.closeSessionWithCard('tok1', 'rest1')).rejects.toThrow('Session already closed');
+    });
+  });
+
+  describe('closeSessionWithCash', () => {
+    it('throws NotFoundException when session not found', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue(null);
+      await expect(service.closeSessionWithCash('bad-tok', 'rest1')).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws BadRequestException when total amount is zero', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1', tableId: 'table1', restaurantId: 'rest1', orders: [],
+      });
+      await expect(service.closeSessionWithCash('tok1', 'rest1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('creates CASH payment, closes session, emits events, returns amount', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1', tableId: 'table1', restaurantId: 'rest1',
+        orders: [{ totalPrice: 15 }],
+      });
+      mockPrisma.payment.create.mockResolvedValue({ id: 'pay1' });
+
+      const result = await service.closeSessionWithCash('tok1', 'rest1');
+
+      expect(result.amount).toBeCloseTo(15);
+      expect(mockPrisma.payment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ amount: 15, status: 'SUCCEEDED', provider: 'CASH' }),
+        }),
+      );
+      expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
+        'rest1', 'payment:confirmed', expect.objectContaining({ amount: 15 }),
+      );
+    });
+  });
+
+  describe('forceOpenSession', () => {
+    it('throws NotFoundException when table not found for this restaurant', async () => {
+      mockPrisma.restaurantTable.findFirst.mockResolvedValue(null);
+      await expect(service.forceOpenSession('table-1', 'rest1')).rejects.toThrow(NotFoundException);
+    });
+
+    it('closes existing OPEN session and creates new one', async () => {
+      mockPrisma.restaurantTable.findFirst.mockResolvedValue({ id: 'table-1', restaurantId: 'rest1' });
+      const existingSession = { id: 'old-session', tableId: 'table-1' };
+      const newSession = { id: 'new-session', token: 'new-token', tableId: 'table-1' };
+      mockPrisma.tableSession.findFirst.mockResolvedValue(existingSession);
+      mockPrisma.tableSession.update.mockResolvedValue({});
+      mockPrisma.tableSession.create.mockResolvedValue(newSession);
+
+      const result = await service.forceOpenSession('table-1', 'rest1');
+
+      expect(mockPrisma.tableSession.update).toHaveBeenCalledWith({
+        where: { id: 'old-session' },
+        data: { status: 'CLOSED_NO_PAYMENT' },
+      });
+      expect(result.token).toBe('new-token');
+      expect(mockEvents.emitTableStatusChanged).toHaveBeenCalledTimes(2);
+    });
+
+    it('creates new session when no existing OPEN session', async () => {
+      mockPrisma.restaurantTable.findFirst.mockResolvedValue({ id: 'table-1', restaurantId: 'rest1' });
+      mockPrisma.tableSession.findFirst.mockResolvedValue(null);
+      const newSession = { id: 'new-session', token: 'new-token', tableId: 'table-1' };
+      mockPrisma.tableSession.create.mockResolvedValue(newSession);
+
+      const result = await service.forceOpenSession('table-1', 'rest1');
+
+      expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
+      expect(result.token).toBe('new-token');
     });
   });
 });

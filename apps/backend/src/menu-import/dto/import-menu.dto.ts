@@ -67,6 +67,14 @@ export class ImportItemDto {
   @IsOptional()
   translations?: Record<string, { name?: string; description?: string }>;
 
+  @IsString()
+  @IsOptional()
+  imageUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  thumbnailUrl?: string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ImportOptionDto)
@@ -89,6 +97,14 @@ export class ImportCategoryDto {
   @IsObject()
   @IsOptional()
   translations?: Record<string, { name?: string }>;
+
+  @IsString()
+  @IsOptional()
+  imageUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  thumbnailUrl?: string;
 
   @IsArray()
   @ValidateNested({ each: true })
