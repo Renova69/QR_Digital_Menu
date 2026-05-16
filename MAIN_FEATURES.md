@@ -1,8 +1,8 @@
 # QR Menu — Product & Technical Due Diligence Report
 
 > **Prepared for:** Fortune 500 Acquisition Review
-> **Date:** May 15, 2026 (audited — all sections verified against codebase)
-> **Product Status:** V2.5 Shipped | V3 Growth — Phase 19 (Stripe/OCR/POS) Complete, Phase 18 (Staff Roles & RBAC) Complete | Security Hardening Phase 21 Complete | Public Menu Mobile UX Complete (TopBar, FilterPanel, dual currency, horizontal cards) | Code Review & Bug Fixes Complete (PR#3, Toggle, payments investigation) | Security & Bug Fixes Complete (CORS, magic-link removal, loyalty emails, CSV export, TS strict mode) | KDS (Kitchen Display) Live at /staff/kitchen | Infrastructure & Polish Sprint Complete (API versioning, Prisma circuit breaker, order progress bar, QR print templates, 122 tests, customer split bill)
+> **Date:** May 16, 2026 (audited — all sections verified against codebase)
+> **Product Status:** V2.5 Shipped | V3 Growth — Phase 19 (Stripe/OCR/POS) Complete, Phase 18 (Staff Roles & RBAC) Complete | Security Hardening Phase 21 Complete | Public Menu Mobile UX Complete (TopBar, FilterPanel, dual currency, horizontal cards) | Code Review & Bug Fixes Complete (PR#3, Toggle, payments investigation) | Security & Bug Fixes Complete (CORS, magic-link removal, loyalty emails, CSV export, TS strict mode) | KDS (Kitchen Display) Live at /staff/kitchen | Infrastructure & Polish Sprint Complete (API versioning, Prisma circuit breaker, order progress bar, QR print templates, 122 tests, customer split bill) | SaaS Tiering V2 Complete (4-tier FREE/STARTER/PRO/ENTERPRISE, FeatureGuard, Stripe Billing, PricingPage, BillingView, SubscriptionBanner, demo accounts)
 > **Codebase:** 100+ frontend source files, 16 backend modules, 15 database models, ~200 i18n keys across 3 languages
 
 ---
@@ -1295,6 +1295,69 @@ Items without notes appear as name only. Quantities > 1 append ` xN`.
 - `apps/backend/src/users/users.service.spec.ts` (new)
 - `apps/backend/src/translation/translation.service.spec.ts` (new)
 
+### 3.26 SaaS Tiering V2 (May 16, 2026)
+
+**What it does:** Introduces a 4-tier subscription system — FREE, STARTER, PROFESSIONAL, ENTERPRISE — with per-feature gating enforced server-side and client-side. Stripe Checkout + Customer Portal + webhook integration handles subscription lifecycle. Timestamp-gate on webhook processing prevents race conditions from out-of-order Stripe events.
+
+**Schema changes (`schema.prisma`):**
+- `SubscriptionTier` enum: `FREE | STARTER | PROFESSIONAL | ENTERPRISE`
+- `Restaurant.tier SubscriptionTier @default(FREE)`
+- `Restaurant.stripeCustomerId String?`
+- `Restaurant.stripeSubscriptionId String?`
+- `Restaurant.tierUpdatedAt DateTime?` — used for webhook race protection
+
+**Backend — SubscriptionModule (`apps/backend/src/subscription/`):**
+- `FeatureFlag` enum — `ANALYTICS_ADVANCED`, `ORDERS_RECEIVE`, `LOYALTY`, `LANGUAGES_MULTI`, `STAFF_MANAGE`, `POS`, `KDS`, `API_ACCESS` and others
+- `FeatureService` — pure `TIER_FEATURES` map; `hasFeature(tier, flag)` boolean; never hardcode tier→feature mappings elsewhere
+- `FeatureGuard` — `CanActivate` implementation; resolves restaurant via `Restaurant.ownerId` (owners) OR `User.restaurantId` (staff); throws `403 { code: 'FEATURE_LOCKED', requiredFeatures: [...], message: '...' }`
+- `@RequireFeature(...FeatureFlag[])` — method/class decorator that stores metadata `REQUIRE_FEATURE_KEY`; consumed by `FeatureGuard`
+- `SubscriptionService` — `createCheckoutSession(restaurantId, tier, ownerId)` → Stripe Checkout URL; `createPortalSession(restaurantId)` → Stripe Portal URL; `handleWebhookEvent(event)` → handles `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` with race-safe `updateMany`
+- Race protection: `prisma.restaurant.updateMany({ where: { id, OR: [{ tierUpdatedAt: null }, { tierUpdatedAt: { lt: eventTime } }] }, data: { tier, tierUpdatedAt: eventTime } })` — older Stripe events can never overwrite newer tier state
+- `SubscriptionController` — 4 routes: `GET /subscription/status`, `POST /subscription/checkout`, `POST /subscription/portal`, `POST /subscription/webhook` (raw body, CSRF-exempt)
+
+**Frontend:**
+- `useFeature(flag: string): boolean` hook — reads `RestaurantContext.activeRestaurant?.tier ?? 'FREE'`, matches against frontend `TIER_FEATURES` map
+- `BillingView` — current plan badge, billing period, Stripe Customer Portal button, feature comparison matrix, upgrade CTA for locked features
+- `PricingPage` at `/pricing` — 4-column tier comparison table, price/month, feature checklist, "Current Plan" badge on active tier, upgrade button calls `POST /api/v1/subscription/checkout`
+- `SubscriptionBanner` — dismissible banner in dashboard header when restaurant is on FREE tier; links to `/pricing`
+- `DashboardPage` — advanced analytics section gated with `useFeature('analytics:advanced')`
+- `SettingsView` — loyalty settings section gated with `useFeature('loyalty')`
+
+**Webhook infrastructure (already in place from Infrastructure Sprint):**
+- Raw body registered at `main.ts:107` for `/api/v1/subscription/webhook`
+- CSRF-exempt via `isWebhook` check at `main.ts:76–77`
+- No changes to `main.ts` needed
+
+**New env vars (`apps/backend/.env`):**
+```
+STRIPE_PRICE_STARTER=price_xxx
+STRIPE_PRICE_PROFESSIONAL=price_xxx
+STRIPE_PRICE_ENTERPRISE=price_xxx
+STRIPE_SUBSCRIPTION_WEBHOOK_SECRET=whsec_xxx
+```
+
+**Demo accounts (seeded via `prisma/seed.ts`):**
+| Email | Password | Tier |
+|-------|----------|------|
+| `demo.free@qrmenu.test` | `demo1234` | FREE |
+| `demo.starter@qrmenu.test` | `demo1234` | STARTER |
+| `demo.pro@qrmenu.test` | `demo1234` | PROFESSIONAL |
+| `demo.enterprise@qrmenu.test` | `demo1234` | ENTERPRISE |
+
+**Key files:**
+- `apps/backend/prisma/schema.prisma` — SubscriptionTier enum + Restaurant fields
+- `apps/backend/src/subscription/feature-flag.enum.ts` (new)
+- `apps/backend/src/subscription/feature.service.ts` (new)
+- `apps/backend/src/subscription/feature.guard.ts` (new)
+- `apps/backend/src/subscription/require-feature.decorator.ts` (new)
+- `apps/backend/src/subscription/subscription.service.ts` (new)
+- `apps/backend/src/subscription/subscription.controller.ts` (new)
+- `apps/backend/src/subscription/subscription.module.ts` (new)
+- `apps/frontend/src/hooks/useFeature.ts` (new)
+- `apps/frontend/src/pages/Dashboard/BillingView.tsx` (new)
+- `apps/frontend/src/pages/PricingPage.tsx` (new)
+- `apps/frontend/src/components/SubscriptionBanner.tsx` (new)
+
 ## 4. Data Model
 
 ### 4.1 Entity Relationship Diagram
@@ -1821,7 +1884,7 @@ All previously identified security gaps were resolved in Phase 21 (Security Hard
 | Area | Current State | Natural Extension Point |
 |------|---------------|------------------------|
 | **Stripe Payments** | ✅ Complete. `IPaymentProvider` interface, `StripeProvider`, `PaymentService`, `PaymentController` (5 routes), Stripe Connect onboarding, `PaymentModal` (3-step UI), `PaymentsView` history table, `NotificationContext` + `NotificationBell` + `PaymentToast`, `TableSession` + `Payment` models, webhook handling with idempotency. | Future: MyPOS provider via same interface, split bill, saved cards. |
-| **SaaS Subscription** | **Design approved, not implemented.** Full spec at `docs/superpowers/specs/2026-05-10-saas-subscription-design.md`. 3-tier (Free/Starter/Pro), Stripe billing, 14-day Pro trial, feature gating via `@TierRequired` guard, cron-based trial expiry. | Next major feature candidate. |
+| **SaaS Subscription** | ✅ Complete. 4-tier FREE/STARTER/PROFESSIONAL/ENTERPRISE on `Restaurant.tier`. `SubscriptionModule` with `FeatureService` (pure tier→flag map), `FeatureGuard` (owner+staff resolution, 403 FEATURE_LOCKED), `@RequireFeature` decorator. Stripe Checkout + Portal + webhook with timestamp-gate race protection. `useFeature` hook (frontend). `BillingView`, `PricingPage` at `/pricing`, `SubscriptionBanner`. 4 demo accounts. New env vars: `STRIPE_PRICE_*`, `STRIPE_SUBSCRIPTION_WEBHOOK_SECRET`. | Phase 20 (Multi-location) is next. |
 | **Kitchen Display System** | **Routed and guarded.** `KitchenPage.tsx` (270 lines) at `/staff/kitchen` — kanban board with real-time order status advancement, audio alerts, 24h history. StaffRoute guard applied. No new backend endpoints needed. | Polish for production (styling, performance). |
 | **Menu Service Split** | ✅ Complete. Split into `menu-crud.service.ts`, `menu-audit.service.ts`, `menu-translation.service.ts` — all wired into `menu.module.ts`. Original `menu.service.ts` deleted. | Unit tests for each service. |
 | **Service-Level Tests** | **In progress.** 10 `.spec.ts` files committed: `loyalty-ledger.utils.spec.ts`, `loyalty-tiers.utils.spec.ts`, `orders.service.spec.ts` + others. Coverage below 80% threshold. | Reach 80% coverage, add CI gate. |

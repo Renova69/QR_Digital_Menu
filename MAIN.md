@@ -1,7 +1,7 @@
 # QR Menu App — Master Documentation
 
-> **Last Updated:** May 15, 2026
-> **Status:** V2.5 Complete — V3 Growth Features (Stripe Payments ✅, Live Table View ✅, OCR Import ✅, Waiter POS ✅, Staff Roles & RBAC ✅) — Security Hardening ✅ (httpOnly cookies, CSRF, same-origin proxy, CSP) — Public Menu Mobile UX ✅ (top bar, filters, dual currency, horizontal cards, category pills) — Bug Fixes & Polish ✅ (PR#3 findings, code review fixes, dead code cleanup, payments investigation)
+> **Last Updated:** May 16, 2026
+> **Status:** V2.5 Complete — V3 Growth Features (Stripe Payments ✅, Live Table View ✅, OCR Import ✅, Waiter POS ✅, Staff Roles & RBAC ✅) — Security Hardening ✅ (httpOnly cookies, CSRF, same-origin proxy, CSP) — Public Menu Mobile UX ✅ (top bar, filters, dual currency, horizontal cards, category pills) — Bug Fixes & Polish ✅ (PR#3 findings, code review fixes, dead code cleanup, payments investigation) — Security & Bug Fixes ✅ (CORS wildcard, magic-link removed, loyalty emails, CSV export, TS strict mode) — Infrastructure & Polish ✅ (API versioning /api/v1, Prisma circuit breaker, order progress stepper, QR print templates, 122 tests) — SaaS Tiering V2 ✅ (4-tier FREE/STARTER/PRO/ENTERPRISE, FeatureGuard, Stripe Billing, PricingPage, BillingView, demo accounts)
 > **Stack:** Turborepo Monorepo — React 18 + NestJS 11 + Prisma 6 + Neon (Serverless PostgreSQL)
 
 ---
@@ -116,6 +116,7 @@ AppModule
 ├── StorageModule (Cloudflare R2 image uploads + sharp image processing)
 ├── LoyaltyModule (FIFO point ledger, VIP tiers, expiry cron)
 ├── PaymentModule (Stripe Connect, provider abstraction, webhooks, payment history)
+├── SubscriptionModule (SaaS tiering: FeatureService, FeatureGuard, SubscriptionService, Stripe Checkout/Portal/webhook) [@Global]
 ├── MenuImportModule (OCR JSON → menu upsert, API key auth + JWT auth, 60s transaction)
 ├── HealthModule
 └── FeedbackModule
@@ -173,6 +174,7 @@ User (owner/customer)
   │
   └── 1:N → Restaurant
        ├── id, name, country, timezone, branding (logo, colors, fonts)
+       ├── tier (FREE|STARTER|PROFESSIONAL|ENTERPRISE), stripeCustomerId, stripeSubscriptionId, tierUpdatedAt
        ├── loyaltyExchangeRate, loyaltyRedeemRate
        ├── defaultTheme ("light"|"dark"), targetLanguages (JSON)
        ├── translations (JSON field for DeepL cache)
@@ -684,6 +686,10 @@ Branding applied to public menu via inline style injection:
 | `POST /api/payments/session/force-open` | JWT | Force-open table session (replaces existing OPEN session) |
 | `POST /api/payments/session/:token/close-card` | JWT | Close session with MYPOS card payment |
 | `GET /api/tables/:tableId/orders` | JWT | All orders for a table's active session |
+| `GET /api/v1/subscription/status` | JWT | Current plan + feature list for restaurant |
+| `POST /api/v1/subscription/checkout` | JWT | Create Stripe Checkout session for plan upgrade |
+| `POST /api/v1/subscription/portal` | JWT | Create Stripe Customer Portal session |
+| `POST /api/v1/subscription/webhook` | Public | Stripe subscription webhook (raw body, CSRF-exempt) |
 
 Full interactive docs at `/api-docs` (Swagger UI).
 
@@ -767,8 +773,12 @@ npm run build   # Production build
 | `VITE_API_URL` | Frontend | Backend origin for Vite proxy target (`http://192.168.0.3:3000/api` or `http://localhost:3000/api`) — api.ts uses `/api` baseURL (same-origin), proxy forwards to this target |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | Frontend | Stripe publishable key for Elements |
 | `STRIPE_SECRET_KEY` | Backend | Stripe secret key for PaymentIntents |
-| `STRIPE_WEBHOOK_SECRET` | Backend | Stripe webhook signing secret |
+| `STRIPE_WEBHOOK_SECRET` | Backend | Stripe webhook signing secret (Connect payments) |
 | `STRIPE_CONNECT_CLIENT_ID` | Backend | Stripe Connect platform client ID |
+| `STRIPE_PRICE_STARTER` | Backend | Stripe price ID for Starter plan |
+| `STRIPE_PRICE_PROFESSIONAL` | Backend | Stripe price ID for Professional plan |
+| `STRIPE_PRICE_ENTERPRISE` | Backend | Stripe price ID for Enterprise plan |
+| `STRIPE_SUBSCRIPTION_WEBHOOK_SECRET` | Backend | Stripe webhook secret for subscription events |
 
 ---
 
@@ -783,6 +793,7 @@ npm run build   # Production build
 7. **FIFO loyalty ledger** — Points managed as batches with expiry. Redemption draws oldest first. Never parallel writes inside `$transaction`.
 8. **Turborepo over Docker for dev** — Native dev server startup in ~5 seconds vs 2-5 minutes. Docker Compose kept for production simulation only.
 9. **BNB fixed exchange rate** — All dual-currency displays use Bulgarian National Bank fixed rate 1 EUR = 1.95583 BGN. Single source of truth in `currency.ts` utility, never duplicated across components.
+10. **SaaS tiering at the service layer, not routes** — `FeatureGuard` uses `@RequireFeature` decorator on controller methods. Public endpoints (orders, assistance) must add service-level tier checks via `FeatureService.hasFeature(tier, flag)` since guards require JWT. Frontend `useFeature` hook is UI-only; server is the authoritative gating boundary.
 
 ---
 
@@ -796,7 +807,7 @@ npm run build   # Production build
 | ~~No CSP headers~~ | ~~Medium~~ | ✅ Fixed May 10, 2026 — Helmet CSP with `default-src 'self'`, Stripe frame-src, Tailwind style-src |
 | ~~No per-endpoint rate limits~~ | ~~Medium~~ | ✅ Fixed May 10, 2026 — OTP: 10/min, login: 5/min, public menu: 60/min, health: skip |
 | Minimal test coverage | Medium | Only basic unit/E2E tests. No service-level tests for orders, loyalty, menu |
-| Relaxed TS strictness (backend) | Low | `strictNullChecks: false`, `noImplicitAny: false` |
+| ~~Relaxed TS strictness (backend)~~ | ~~Low~~ | ✅ Fixed May 15, 2026 — `strictNullChecks: true`, `noImplicitAny: true` enabled in `apps/backend/tsconfig.json` |
 | `any` types in frontend contexts | Low | `CartContext.selectedOptions: any[]`, etc. |
 
 ---
@@ -829,6 +840,11 @@ npm run build   # Production build
 | **FIFO ledger** | `apps/backend/src/loyalty/loyalty-ledger.utils.ts` |
 | **DTO validation** | `apps/backend/src/restaurants/dto/update-restaurant.dto.ts` |
 | **Type definitions** | `apps/frontend/src/types/index.ts` |
+| **Subscription module** | `apps/backend/src/subscription/` (feature.service.ts, feature.guard.ts, feature-flag.enum.ts, require-feature.decorator.ts, subscription.service.ts, subscription.controller.ts) |
+| **useFeature hook** | `apps/frontend/src/hooks/useFeature.ts` |
+| **Billing view** | `apps/frontend/src/pages/Dashboard/BillingView.tsx` |
+| **Pricing page** | `apps/frontend/src/pages/PricingPage.tsx` |
+| **Subscription banner** | `apps/frontend/src/components/SubscriptionBanner.tsx` |
 | **Payment UI** | `apps/frontend/src/components/payment/PaymentModal.tsx` |
 | **Live table grid** | `apps/frontend/src/pages/Dashboard/LiveTablesView.tsx` |
 | **Table status card** | `apps/frontend/src/components/tables/TableCard.tsx` |

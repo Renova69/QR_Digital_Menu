@@ -439,3 +439,153 @@ a1e96ca feat: dual-currency prices in CartDrawer, Checkout, PaymentModal — EUR
 2809930 fix: address code review findings — typed translations, shared utils, Toggle component, i18n gaps
 667e954 fix: HomePage.tsx PR#3 findings + RestaurantContext TS error
 ```
+
+---
+
+## Security & Bug Fixes (May 15, 2026)
+
+### Socket.io CORS Wildcard
+
+- **Problem**: `events.gateway.ts` used `origin: '*'` — any page (including malicious sites) could subscribe to restaurant Socket.io events.
+- **Fix**: Replaced with `process.env.FRONTEND_URL || 'http://localhost:3001'` and added `credentials: true`.
+- **File**: `apps/backend/src/events/events.gateway.ts`
+
+### Magic-Link Endpoint Removal
+
+- **Problem**: `POST /auth/magic-link` returned `{ token }` in response body AND `console.log`-ed it — JWT was readable to XSS and visible in server logs.
+- **Fix**: Deleted endpoint and `sendMagicLink()` service method entirely. Replaced by Email OTP (shipped May 6, 2026).
+- **Files**: `auth.controller.ts`, `auth.service.ts`
+
+### Loyalty Expiry Emails Not Sent
+
+- **Problem**: `runDailyExpiryReminders()` cron ran daily, marked DB batches as `reminderSentAt`, but never sent an email to anyone. Notification was silently dropped.
+- **Fix**: Added Resend API call per candidate inside the cron. Dev fallback: `logger.log` if `RESEND_API_KEY` absent.
+- **File**: `apps/backend/src/loyalty/loyalty.service.ts`
+
+### Analytics CSV Export Missing Sections
+
+- **Problem**: `handleExportCSV()` exported summary + revenue trend + top items but was missing `peakHours` and `categoryBreakdown` — 2 of 5 data sets.
+- **Fix**: Added both sections to the CSV export builder.
+- **File**: `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx`
+
+### TypeScript Strict Mode Enabled
+
+- **Problem**: Backend `tsconfig.json` had `strictNullChecks: false` and `noImplicitAny: false` — masking dozens of type errors.
+- **Fix**: Both set to `true`. Fixed all resulting errors: explicit `any` on controller `@Request() req` params, nullish coalescing on pagination `page`/`limit`, null guards in orders service, supertest import fix in e2e specs.
+- **File**: `apps/backend/tsconfig.json` + multiple service/controller files
+
+### CategoryPills Auto-Scroll
+
+- **Problem**: Active category pill could be off-screen after category change — user had to manually scroll to find their active filter.
+- **Fix**: Added `scrollIntoView` via `useRef` on pill elements. Active pill scrolls into view on change.
+- **File**: `apps/frontend/src/pages/CategoryPills.tsx`
+
+### ItemWithOptions BGN Double-Conversion
+
+- **Problem**: BGN-priced items (`item.currency === 'BGN'`) were passed directly to `formatInlineDual()` which assumed EUR input and multiplied by 1.95583 — showing double-converted amounts.
+- **Fix**: If `item.currency === 'BGN'`, divide by `BGN_RATE` before passing to formatter.
+- **File**: `apps/frontend/src/components/menu/ItemWithOptions.tsx`
+
+---
+
+## Infrastructure & Polish Sprint (May 15, 2026)
+
+### API Versioning — All Routes at `/api/v1/*`
+
+- All routes migrated from `/api/*` to `/api/v1/*` via `VersioningType.URI` in `main.ts` with `defaultVersion: '1'`. Frontend `api.ts` base URL updated. CSRF exempt paths and webhook path updated to include `/v1`. Vite proxy unchanged (matches `/api/*`).
+- **Files**: `main.ts`, `apps/frontend/src/lib/api.ts`
+
+### Prisma Retry / Circuit Breaker
+
+- `PrismaService.onModuleInit()` startup retry upgraded from fixed 2s to jittered exponential backoff (1s → 30s cap).
+- New `withRetry<T>(fn, maxAttempts)` for runtime query resilience.
+- Circuit breaker: CLOSED → OPEN after 5 consecutive transient failures (P1001/P1002/P1008/P1017/P2024/P1012), HALF_OPEN after 30s cooldown.
+- **File**: `apps/backend/src/prisma/prisma.service.ts`
+
+### Order Progress Stepper
+
+- `OrderConfirmationPage` now shows a 3-step visual stepper: Placed → In Kitchen → Served. Animated state transitions (emerald for done, accent/pulse for current). Hidden for CANCELED orders.
+- **File**: `apps/frontend/src/pages/OrderConfirmationPage.tsx`
+
+### QR Table Tent Print Templates
+
+- 3 branded print layouts: Classic (white, dashed border), Premium (dark bg, corner accents, serif type), Minimal (clean border, oversized table name). Template selector dropdown added to `TableView.tsx`. `PrintTemplate` type exported.
+- **Files**: `apps/frontend/src/components/tables/PrintableQRCodes.tsx`, `apps/frontend/src/pages/Dashboard/TableView.tsx`
+
+### Service Test Coverage — 122 Tests (up from 77)
+
+- 3 new spec files: `tables.service.spec.ts` (19 tests), `users.service.spec.ts` (17 tests), `translation.service.spec.ts` (14 tests). Covers CRUD paths, RBAC checks, transient error fallbacks, DeepL free/paid endpoint routing.
+
+### Customer Split Bill
+
+- `SplitBillSection` component added to `CheckoutPage` — collapsible, counter 2–20 people, shows per-person EUR + BGN amounts. Client-side only, no backend changes.
+- **File**: `apps/frontend/src/pages/CheckoutPage.tsx`
+
+### AnalyticsView CSV Field Names
+
+- Field names in revenue trend CSV rows were `name`/`value` instead of `category`/`revenue` — caused incorrect column headers. Fixed to match actual data shape.
+- **File**: `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx`
+
+---
+
+## SaaS Tiering V2 (May 16, 2026)
+
+Full subscription tier system: 4 tiers (FREE/STARTER/PROFESSIONAL/ENTERPRISE), Stripe Checkout + Customer Portal, feature gating on dashboard and settings, demo accounts for QA.
+
+### Schema Changes
+
+- `SubscriptionTier` enum added: `FREE`, `STARTER`, `PROFESSIONAL`, `ENTERPRISE`.
+- `Restaurant` model: `tier SubscriptionTier @default(FREE)`, `stripeCustomerId String?`, `stripeSubscriptionId String?`, `stripePriceId String?`, `tierUpdatedAt DateTime?`.
+- Pushed to Neon via `prisma db push`.
+- **File**: `apps/backend/prisma/schema.prisma`
+
+### Backend — SubscriptionModule
+
+- `FeatureService` — pure tier→feature flag resolver. `TIER_FEATURES` map: FREE gets `menu:view`, `menu:edit`, `qr:manage` only. Higher tiers unlock `analytics:basic`, `orders:receive`, `payments:stripe`, `loyalty`, `pos`, `kds`, `menu:import`, `orders:call-waiter`.
+- `FeatureGuard` — NestJS `CanActivate` guard. Resolves restaurant from owner (`Restaurant.ownerId`) OR staff (`User.restaurantId`) — both cases handled. Throws `ForbiddenException({ code: 'FEATURE_LOCKED' })` when tier insufficient.
+- `@RequireFeature(...flags)` decorator — marks controller methods with required feature flags.
+- `SubscriptionService` — Stripe Checkout session creation, Customer Portal session creation, webhook handling with timestamp-gate to prevent race conditions. `checkout.session.completed` and `customer.subscription.updated` apply tier; `customer.subscription.deleted` resets to FREE.
+- `SubscriptionController` — `/subscription/status`, `/subscription/checkout`, `/subscription/portal`, `/subscription/webhook` (raw body, CSRF-exempt).
+- Raw body middleware registered for `/api/v1/subscription/webhook` in `main.ts`. Webhook path added to `isWebhook` CSRF exempt check.
+- `@Global()` `SubscriptionModule` — guard available everywhere without per-module imports.
+- **Files**: `subscription/feature.service.ts`, `subscription/feature.guard.ts`, `subscription/require-feature.decorator.ts`, `subscription/feature-flag.enum.ts`, `subscription/subscription.service.ts`, `subscription/subscription.controller.ts`, `subscription/subscription.module.ts`, `subscription/dto/checkout.dto.ts`, `main.ts`, `app.module.ts`
+
+### Frontend — Feature Gating
+
+- `useFeature(flag)` hook — reads `RestaurantContext.activeRestaurant.tier`, maps to `TIER_FEATURES` matching backend. Returns `boolean`. Default tier: FREE when no tier in context.
+- `DashboardPage.tsx` — 7 feature flags checked. Tabs filtered (analytics, orders, payments, assistance hidden for FREE). POS/KDS links wrapped in `canPos`/`canKds`. Mobile bottom nav filtered.
+- `SettingsView.tsx` — loyalty and payments settings tabs hidden for FREE/STARTER.
+- `BillingView.tsx` — new Settings tab showing current plan, upgrade options, and Stripe Portal link.
+- `SubscriptionBanner.tsx` — inline upgrade nudge shown on locked features.
+- `PricingPage.tsx` — `/pricing` public page showing all 4 tier plans with upgrade CTAs.
+- **Files**: `hooks/useFeature.ts`, `pages/DashboardPage.tsx`, `pages/Dashboard/SettingsView.tsx`, `components/subscription/BillingView.tsx`, `components/subscription/SubscriptionBanner.tsx`, `pages/PricingPage.tsx`, `App.tsx`, `lib/api.ts`
+
+### Webhook Race Condition Protection
+
+- `updateMany` with `OR: [{ tierUpdatedAt: null }, { tierUpdatedAt: { lt: eventTime } }]` ensures older events never overwrite newer tier state. Stripe can deliver events out of order — this gate prevents downgrade from a redelivered old event.
+
+### Demo Accounts Seeded
+
+- `apps/backend/prisma/seed-demo-restaurants.ts` — 4 owner+restaurant pairs: `demo.free@qrmenu.test`, `demo.starter@qrmenu.test`, `demo.pro@qrmenu.test`, `demo.enterprise@qrmenu.test` (password: `demo1234`). Useful for QA testing all 4 tier experiences.
+
+### New Env Vars
+
+```env
+STRIPE_PRICE_STARTER=price_...
+STRIPE_PRICE_PROFESSIONAL=price_...
+STRIPE_PRICE_ENTERPRISE=price_...
+STRIPE_SUBSCRIPTION_WEBHOOK_SECRET=whsec_...
+```
+
+### Commits
+
+```
+e9a86c2 feat: add SubscriptionTier enum and tier fields to Restaurant schema
+79d84e5 feat: add @RequireFeature decorator and FeatureGuard with NestJS guard pattern
+5021adf feat: add Stripe Checkout, Customer Portal, and timestamp-gated webhook handling
+020153a feat: add useFeature hook with tier-based feature resolution for frontend
+831369c fix: resolve 4 critical bugs in subscription module
+4696061 fix: correct Prisma error imports and replace stub specs with real assertions
+979ad40 feat: SaaS tiering v2 — Tasks 2-12 complete
+75a4927 feat: wire useFeature into dashboard — gate tabs, links, and settings by tier
+```
