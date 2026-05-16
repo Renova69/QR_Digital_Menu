@@ -1949,7 +1949,7 @@ All previously identified security gaps were resolved in Phase 21 (Security Hard
 | **Inventory Management** — Track stock levels, auto-mark items out of stock. | Directly reduces "sorry, we're out" experiences. The `isOutOfStock` toggle already exists — just needs stock tracking behind it. | Toast, Lightspeed |
 | **Customer-facing order progress bar** — Visual progress indicator (Order Received → Preparing → Ready → Served) with estimated wait time. | Reduces "where's my food?" inquiries from customers. The `OrderConfirmationPage` already shows status — just needs a progress bar visual and estimated times. | Sunday, Otter |
 | **Staff mobile app (React Native)** — Staff manage orders, mark items served, update table status from their phone. | Reduces dependency on fixed terminals. Waiters can update order status tableside. Phase 20 mentions this for V4. | Toast, Square |
-| **QR code table tent design templates** — Pre-made print templates for QR table tents (not just raw QR codes). | Restaurants want branded, designed table tents — not just QR codes on paper. Current `PrintableQRCodes` is functional but plain. | Sunday, Bite |
+| ~~**QR code table tent design templates**~~ — ✅ **SHIPPED May 2026.** `PrintableQRCodes.tsx` ships 3 branded templates: **Classic** (white card, dashed border), **Premium** (dark bg `#0f0e0c`, corner accent brackets, serif Georgia type), **Minimal** (thin border, oversized table name). Template selector `<select>` next to "Print All QR" button in `TableView.tsx`. `PrintTemplate = 'classic' \| 'premium' \| 'minimal'` type exported. | ~~Restaurants want branded, designed table tents — not just QR codes on paper.~~ | Sunday, Bite |
 
 ### 10.4 Modern Tech Opportunities
 
