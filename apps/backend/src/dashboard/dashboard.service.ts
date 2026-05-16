@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { DashboardViewsService } from './dashboard-views.service';
 import { OrderStatus } from '@prisma/client';
 import { DateTime } from 'luxon';
 
@@ -11,7 +12,10 @@ export class DashboardService {
   private readonly analyticsCache = new Map<string, { data: unknown; expiresAt: number }>();
   private static readonly ANALYTICS_TTL_MS = 60_000;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly views: DashboardViewsService,
+  ) {}
 
   async getSummary(restaurantId: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
@@ -91,6 +95,7 @@ export class DashboardService {
     const prevPeriodStart = new Date(periodStart.getTime() - timeDeltaMs);
     const prevPeriodEnd = new Date(periodStart.getTime() - 1);
 
+    const useViews = this.views.isReady();
     const [
       revenueTrend,
       topItems,
@@ -101,9 +106,15 @@ export class DashboardService {
       categoryBreakdown,
       ordersByTable,
     ] = await Promise.all([
-      this.getRevenueTrend(restaurantId, periodStart, now, tz),
-      this.getTopItems(restaurantId, periodStart, now),
-      this.getPeakHours(restaurantId, periodStart, now, tz),
+      useViews
+        ? this.getRevenueTrendFromView(restaurantId, periodStart, now, tz)
+        : this.getRevenueTrend(restaurantId, periodStart, now, tz),
+      useViews
+        ? this.getTopItemsFromView(restaurantId, periodStart, now)
+        : this.getTopItems(restaurantId, periodStart, now),
+      useViews
+        ? this.getPeakHoursFromView(restaurantId, periodStart, now, tz)
+        : this.getPeakHours(restaurantId, periodStart, now, tz),
       this.getPeriodStats(restaurantId, periodStart, now),
       this.getPeriodStats(restaurantId, prevPeriodStart, prevPeriodEnd),
       this.getOrdersByStatus(restaurantId, periodStart, now),
@@ -371,6 +382,104 @@ export class DashboardService {
         ...item,
         revenue: Math.round(item.revenue * 100) / 100,
       }));
+  }
+
+  // ── View-backed fast paths ────────────────────────────────────────────────
+
+  private async getRevenueTrendFromView(
+    restaurantId: string,
+    start: Date,
+    end: Date,
+    tz: string,
+  ) {
+    type Row = { day_utc: Date; order_count: number; revenue: number };
+    const rows = await this.prisma.$queryRaw<Row[]>`
+      SELECT day_utc, order_count, revenue::float AS revenue
+      FROM mv_daily_stats
+      WHERE "restaurantId" = ${restaurantId}
+        AND day_utc >= ${start} AND day_utc <= ${end}
+      ORDER BY day_utc
+    `;
+
+    const grouped: Record<string, { date: string; revenue: number; orders: number }> = {};
+    let current = DateTime.fromJSDate(start, { zone: tz });
+    const endDt = DateTime.fromJSDate(end, { zone: tz });
+    while (current <= endDt) {
+      const dateKey = current.toISODate()!;
+      grouped[dateKey] = { date: dateKey, revenue: 0, orders: 0 };
+      current = current.plus({ days: 1 });
+    }
+
+    for (const row of rows) {
+      const dateKey = DateTime.fromJSDate(row.day_utc, { zone: tz }).toISODate()!;
+      if (grouped[dateKey]) {
+        grouped[dateKey].revenue += Number(row.revenue);
+        grouped[dateKey].orders += row.order_count;
+      }
+    }
+
+    return Object.values(grouped).map((d) => ({
+      ...d,
+      revenue: Math.round(d.revenue * 100) / 100,
+    }));
+  }
+
+  private async getPeakHoursFromView(
+    restaurantId: string,
+    start: Date,
+    end: Date,
+    tz: string,
+  ) {
+    type Row = { hour_utc: number; total_orders: number };
+    const rows = await this.prisma.$queryRaw<Row[]>`
+      SELECT hour_utc, SUM(order_count)::int AS total_orders
+      FROM mv_peak_hours
+      WHERE "restaurantId" = ${restaurantId}
+        AND day_utc >= ${start} AND day_utc <= ${end}
+      GROUP BY hour_utc
+      ORDER BY hour_utc
+    `;
+
+    const tzOffsetHours = Math.round(DateTime.now().setZone(tz).offset / 60);
+    const hours: { hour: number; label: string; orders: number }[] = Array.from(
+      { length: 24 },
+      (_, h) => ({ hour: h, label: `${h.toString().padStart(2, '0')}:00`, orders: 0 }),
+    );
+
+    for (const row of rows) {
+      const localHour = ((row.hour_utc + tzOffsetHours) % 24 + 24) % 24;
+      hours[localHour].orders += row.total_orders;
+    }
+
+    return hours;
+  }
+
+  private async getTopItemsFromView(restaurantId: string, start: Date, end: Date) {
+    type Row = {
+      menuItemId: string;
+      item_name: string;
+      item_price: number;
+      quantity: number;
+      revenue: number;
+    };
+    const rows = await this.prisma.$queryRaw<Row[]>`
+      SELECT "menuItemId", item_name,
+             item_price::float AS item_price,
+             SUM(total_quantity)::int AS quantity,
+             SUM(total_revenue)::float AS revenue
+      FROM mv_item_stats
+      WHERE "restaurantId" = ${restaurantId}
+        AND day_utc >= ${start} AND day_utc <= ${end}
+      GROUP BY "menuItemId", item_name, item_price
+      ORDER BY SUM(total_quantity) DESC
+      LIMIT 10
+    `;
+
+    return rows.map((r) => ({
+      name: r.item_name,
+      quantity: r.quantity,
+      revenue: Math.round(Number(r.revenue) * 100) / 100,
+    }));
   }
 
   private async getOrdersByTable(restaurantId: string, start: Date, end: Date) {
