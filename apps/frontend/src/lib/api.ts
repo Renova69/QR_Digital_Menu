@@ -7,8 +7,14 @@ export const setAuthToken = (token: string | null) => {
   authToken = token;
 };
 
-// Use relative /api/v1 — Vite proxy forwards /api/* to backend. Same-origin = cookie works.
-const API_URL = '/api/v1';
+// Dev: relative /api/v1 (Vite proxy). Production: absolute backend URL from VITE_API_URL.
+// httpOnly cookies won't work cross-origin — fallback to Bearer token (set via AuthContext).
+const API_URL =
+  typeof window !== 'undefined' &&
+  window.location.hostname !== 'localhost' &&
+  import.meta.env.VITE_API_URL
+    ? import.meta.env.VITE_API_URL + '/v1'
+    : '/api/v1';
 
 const api = axios.create({
   baseURL: API_URL,

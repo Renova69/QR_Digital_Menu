@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Turbo cache
+.turbo/
+
+# Git
+.git/
+
+# Backend source (keep only package.json for npm workspace resolution)
+apps/backend/*
+!apps/backend/package.json
+
+# Test and build artifacts
+coverage/
+dist/
+build/
+
+# Env files (use Vercel dashboard env vars instead)
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+
+# Claude
+.claude/
+
+# Documentation (not needed for build)
+*.md
+!README.md
+
+# IDE
+.vscode/
+.idea/

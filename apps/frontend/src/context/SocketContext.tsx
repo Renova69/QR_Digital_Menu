@@ -15,9 +15,17 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    // Always connect same-origin — Vite proxy forwards /socket.io to backend.
-    // Cross-origin connections would lose the httpOnly cookie due to SameSite.
-    const socketInstance = io({
+    // Dev: same-origin via Vite proxy. Production: connect directly to backend.
+    // VITE_API_URL is the backend origin (e.g. https://api.example.com/api).
+    // In production, the backend is on a different host — must pass URL explicitly.
+    const socketUrl =
+      typeof window !== 'undefined' &&
+      window.location.hostname !== 'localhost' &&
+      import.meta.env.VITE_API_URL
+        ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
+        : undefined;
+
+    const socketInstance = io(socketUrl, {
       autoConnect: true,
       transports: ['websocket', 'polling'],
       withCredentials: true,
