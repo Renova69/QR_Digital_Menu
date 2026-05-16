@@ -1,29 +1,32 @@
 import { useContext } from 'react';
 import RestaurantContext from '../context/RestaurantContext';
 
-export type FeatureFlag =
-  | 'menu:view'
-  | 'menu:edit'
-  | 'menu:import'
-  | 'qr:manage'
-  | 'orders:receive'
-  | 'orders:call-waiter'
-  | 'analytics:basic'
-  | 'analytics:full'
-  | 'payments:stripe'
-  | 'languages:multi'
-  | 'branding:custom'
-  | 'loyalty'
-  | 'customers:auth'
-  | 'upselling'
-  | 'dayparting'
-  | 'pos'
-  | 'kds'
-  | 'rbac'
-  | 'multilocation'
-  | 'printers:thermal'
-  | 'templates:menu'
-  | 'staff:unlimited';
+const ALL_FEATURE_FLAGS = [
+  'menu:view',
+  'menu:edit',
+  'menu:import',
+  'qr:manage',
+  'orders:receive',
+  'orders:call-waiter',
+  'analytics:basic',
+  'analytics:full',
+  'payments:stripe',
+  'languages:multi',
+  'branding:custom',
+  'loyalty',
+  'customers:auth',
+  'upselling',
+  'dayparting',
+  'pos',
+  'kds',
+  'rbac',
+  'multilocation',
+  'printers:thermal',
+  'templates:menu',
+  'staff:unlimited',
+] as const;
+
+export type FeatureFlag = (typeof ALL_FEATURE_FLAGS)[number];
 
 export type SubscriptionTier = 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
 
@@ -54,30 +57,7 @@ const TIER_FEATURES: Record<SubscriptionTier, FeatureFlag[]> = {
     'upselling',
     'dayparting',
   ],
-  ENTERPRISE: [
-    'menu:view',
-    'menu:edit',
-    'menu:import',
-    'qr:manage',
-    'orders:receive',
-    'orders:call-waiter',
-    'analytics:basic',
-    'analytics:full',
-    'payments:stripe',
-    'languages:multi',
-    'branding:custom',
-    'loyalty',
-    'customers:auth',
-    'upselling',
-    'dayparting',
-    'pos',
-    'kds',
-    'rbac',
-    'multilocation',
-    'printers:thermal',
-    'templates:menu',
-    'staff:unlimited',
-  ],
+  ENTERPRISE: [...ALL_FEATURE_FLAGS],
 };
 
 function getStaffLimit(tier: SubscriptionTier): number {

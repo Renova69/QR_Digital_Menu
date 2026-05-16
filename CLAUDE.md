@@ -53,7 +53,7 @@ npm start        # serve dist/ on :3001
 
 ## Backend architecture
 
-NestJS modules registered in `apps/backend/src/app.module.ts` (in order): Prisma, Auth, Restaurants, Menu, Orders, Assistance, Dashboard, Tables, Health, Feedback, Translation, Storage, Events, Payment, Loyalty. `ThrottlerGuard` applied globally (100 req / 60s).
+NestJS modules registered in `apps/backend/src/app.module.ts` (in order): Config (global), Throttler, Prisma, Subscription, Auth, Restaurants, Menu, Orders, Assistance, Dashboard, Tables, Health, Feedback, Translation, Storage, Events, Loyalty, Payment, MenuImport. `ThrottlerGuard` applied globally (100 req / 60s).
 
 Cross-cutting concerns:
 - **Auth** (`auth/`) — JWT + Google OAuth + magic link + Email OTP via Passport strategies. **JWT stored in httpOnly cookie** (not localStorage). `jwt.strategy.ts` reads from `request.cookies.token` first, Bearer header fallback. CSRF double-submit cookie pattern on all state-changing endpoints (`X-CSRF-Token` header must match `csrf-token` cookie). `AuthContext` no longer touches localStorage for token — reads user via `/auth/me` which sends cookie automatically.

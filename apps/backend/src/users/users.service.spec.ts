@@ -25,9 +25,10 @@ describe('UsersService', () => {
         findMany: jest.fn().mockResolvedValue([mockUser]),
         create: jest.fn().mockResolvedValue(mockUser),
         delete: jest.fn().mockResolvedValue(mockUser),
+        count: jest.fn().mockResolvedValue(0),
       },
       restaurant: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'rest-1', ownerId: 'owner-1' }),
+        findUnique: jest.fn().mockResolvedValue({ id: 'rest-1', ownerId: 'owner-1', tier: 'FREE' }),
       },
     };
 
@@ -105,6 +106,22 @@ describe('UsersService', () => {
       await service.createStaffMember('rest-1', { name: 'Dan', role: 'WAITER' });
       const createArgs = prisma.user.create.mock.calls[0][0];
       expect(createArgs.data.email).toMatch(/@rest-1\.local$/);
+    });
+
+    it('throws ForbiddenException when FREE tier staff limit (1) is reached', async () => {
+      prisma.user.count.mockResolvedValue(1); // 1 existing staff = at limit
+      prisma.restaurant.findUnique.mockResolvedValue({ id: 'rest-1', ownerId: 'owner-1', tier: 'FREE' });
+      await expect(
+        service.createStaffMember('rest-1', { name: 'Eve', role: 'WAITER' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('allows PROFESSIONAL tier to create up to 5 staff', async () => {
+      prisma.user.count.mockResolvedValue(4); // 4 existing, limit is 5
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.restaurant.findUnique.mockResolvedValue({ id: 'rest-1', ownerId: 'owner-1', tier: 'PROFESSIONAL' });
+      const result = await service.createStaffMember('rest-1', { name: 'Frank', role: 'WAITER' });
+      expect(result).toHaveProperty('rawPin');
     });
   });
 
