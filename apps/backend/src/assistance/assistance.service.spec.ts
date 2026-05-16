@@ -91,6 +91,19 @@ describe('AssistanceService', () => {
       expect(result).toHaveProperty('totalPages');
       expect(result).toHaveProperty('total', 1);
     });
+
+    it('defaults page=1 and limit=50 when pagination values are not finite', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1' });
+      mockPrisma.assistanceRequest.findMany.mockResolvedValue([]);
+      mockPrisma.assistanceRequest.count.mockResolvedValue(0);
+
+      const result = await service.findAll('user-1', { page: NaN, limit: NaN } as any);
+
+      expect(result.page).toBe(1);
+      expect(mockPrisma.assistanceRequest.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0, take: 50 }),
+      );
+    });
   });
 
   describe('findOne', () => {

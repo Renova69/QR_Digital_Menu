@@ -175,6 +175,24 @@ describe('LoyaltyService', () => {
 
       expect(capturedSignupBonus).toBe(75);
     });
+
+    it('swallows P2002 duplicate-enrollment race condition', async () => {
+      const p2002: any = new Error('Unique constraint failed');
+      p2002.code = 'P2002';
+      mockPrisma.$transaction
+        .mockRejectedValueOnce(p2002)
+        .mockImplementation(async (fn: (tx: any) => any) => fn(makeTx()));
+
+      await expect(service.enroll('user-1', 'rest-1')).resolves.toBeDefined();
+    });
+
+    it('rethrows non-P2002 transaction errors', async () => {
+      const connErr: any = new Error('Connection timeout');
+      connErr.code = 'P1001';
+      mockPrisma.$transaction.mockRejectedValue(connErr);
+
+      await expect(service.enroll('user-1', 'rest-1')).rejects.toThrow('Connection timeout');
+    });
   });
 
   // ── getPoints ────────────────────────────────────────────────────────────
@@ -219,6 +237,25 @@ describe('LoyaltyService', () => {
       await service.getPoints('user-1', 'rest-1');
 
       expect(mockPrisma.$transaction).toHaveBeenCalled();
+    });
+
+    it('populates expiringSoon fields when ledger has expiring batches', async () => {
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const mockAccount = { id: 'acc-1', points: 100, lifetimePoints: 500 };
+      mockPrisma.loyaltyAccount.findUnique.mockResolvedValue(mockAccount);
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+
+      const tx = makeTx();
+      tx.loyaltyPointLedger.findMany = jest.fn()
+        .mockResolvedValueOnce([]) // expireAccountPoints: no expired entries
+        .mockResolvedValue([{ id: 'l-1', remainingPoints: 50, expiresAt }]);
+      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+
+      const result = await service.getPoints('user-1', 'rest-1');
+
+      expect(result.expiringSoonPoints).toBe(50);
+      expect(result.expiringSoon).toHaveLength(1);
+      expect(result.nextExpirationAt).toEqual(expiresAt);
     });
   });
 

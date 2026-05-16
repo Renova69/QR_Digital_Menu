@@ -65,11 +65,116 @@ export class MenuCrudService {
     });
 
     const restaurantTz = (restaurant as any).timezone || 'UTC';
-    const now = DateTime.now().setZone(restaurantTz as string);
+    const filteredCategories = this.filterByAvailability(allCategories, restaurantTz);
+
+    const targetLangs = (restaurant as any).targetLanguages as string[] || [];
+    if (lang && process.env.DEEPL_API_KEY && targetLangs.includes(lang)) {
+      await this.menuTranslationService.applyLazyTranslations(filteredCategories, lang);
+    }
+
+    return { restaurant, categories: filteredCategories };
+  }
+
+  /** Returns restaurant branding + category metadata (no items).
+   *  Frontend uses this for the initial fast paint, then lazy-loads items per category. */
+  async getPublicMenuMeta(restaurantId: string) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: {
+        name: true,
+        logoUrl: true,
+        accentColor: true,
+        fontHeading: true,
+        fontBody: true,
+        themeBgColor: true,
+        themeTextColor: true,
+        themeCardColor: true,
+        targetLanguages: true,
+        timezone: true,
+        defaultTheme: true,
+        tier: true,
+      } as any,
+    });
+
+    if (!restaurant) {
+      throw new NotFoundException(`Restaurant with ID "${restaurantId}" not found`);
+    }
+
+    const allCategories = await this.prisma.menuCategory.findMany({
+      where: { restaurantId },
+      select: {
+        id: true,
+        name: true,
+        order: true,
+        imageUrl: true,
+        thumbnailUrl: true,
+        availabilityType: true,
+        startTime: true,
+        endTime: true,
+        daysOfWeek: true,
+        translations: true,
+        isDrinkCategory: true,
+      },
+      orderBy: { order: 'asc' },
+    });
+
+    const tz = (restaurant as any).timezone || 'UTC';
+    const filteredCategories = this.filterByAvailability(allCategories as any[], tz);
+
+    return { restaurant, categories: filteredCategories };
+  }
+
+  /** Returns items (with options + translation) for a single visible category. */
+  async getCategoryItems(restaurantId: string, categoryId: string, lang?: string) {
+    const category = await this.prisma.menuCategory.findFirst({
+      where: { id: categoryId, restaurantId },
+      select: {
+        id: true,
+        name: true,
+        translations: true,
+        availabilityType: true,
+        startTime: true,
+        endTime: true,
+        daysOfWeek: true,
+      },
+    });
+
+    if (!category) {
+      throw new NotFoundException(`Category not found or does not belong to restaurant`);
+    }
+
+    const items = await this.prisma.menuItem.findMany({
+      where: { categoryId, isOutOfStock: false },
+      orderBy: { order: 'asc' },
+      include: { options: true },
+    });
+
+    if (lang && process.env.DEEPL_API_KEY) {
+      const restaurant = await this.prisma.restaurant.findUnique({
+        where: { id: restaurantId },
+        select: { targetLanguages: true },
+      });
+      if (restaurant?.targetLanguages.includes(lang)) {
+        const fakeCategory = { ...category, items };
+        await this.menuTranslationService.applyLazyTranslations([fakeCategory as any], lang);
+        return fakeCategory.items;
+      }
+    }
+
+    return items;
+  }
+
+  private filterByAvailability<T extends {
+    availabilityType: string;
+    startTime: string | null;
+    endTime: string | null;
+    daysOfWeek: number[];
+  }>(categories: T[], timezone: string): T[] {
+    const now = DateTime.now().setZone(timezone);
     const currentTimeStr = now.toFormat('HH:mm');
     const currentDay = now.weekday === 7 ? 0 : now.weekday;
 
-    const filteredCategories = allCategories.filter((category) => {
+    return categories.filter((category) => {
       if (category.availabilityType === 'HIDDEN') return false;
       if (category.availabilityType === 'ALWAYS') return true;
       if (category.availabilityType === 'SCHEDULED') {
@@ -78,32 +183,17 @@ export class MenuCrudService {
           Array.isArray(category.daysOfWeek) &&
           category.daysOfWeek.length > 0 &&
           !category.daysOfWeek.includes(currentDay)
-        ) {
-          return false;
-        }
+        ) return false;
         if (category.startTime && category.endTime) {
           if (category.startTime <= category.endTime) {
-            return (
-              currentTimeStr >= category.startTime &&
-              currentTimeStr <= category.endTime
-            );
+            return currentTimeStr >= category.startTime && currentTimeStr <= category.endTime;
           } else {
-            return (
-              currentTimeStr >= category.startTime ||
-              currentTimeStr <= category.endTime
-            );
+            return currentTimeStr >= category.startTime || currentTimeStr <= category.endTime;
           }
         }
       }
       return true;
     });
-
-    const targetLangs = (restaurant as any).targetLanguages as string[] || [];
-    if (lang && process.env.DEEPL_API_KEY && targetLangs.includes(lang)) {
-      await this.menuTranslationService.applyLazyTranslations(filteredCategories, lang);
-    }
-
-    return { restaurant, categories: filteredCategories };
   }
 
   async getTrendingItems(restaurantId: string) {

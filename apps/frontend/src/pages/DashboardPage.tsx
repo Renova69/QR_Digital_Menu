@@ -15,7 +15,7 @@ import AnalyticsView from './Dashboard/AnalyticsView';
 import SettingsView from './Dashboard/SettingsView';
 import { useTranslation } from 'react-i18next';
 import PaymentsView from './Dashboard/PaymentsView';
-import MenuImportView from './Dashboard/MenuImportView';
+import MenuImportExportView from './Dashboard/MenuImportExportView';
 import NotificationBell from '../components/NotificationBell';
 import PaymentToast from '../components/PaymentToast';
 import { NotificationProvider } from '../context/NotificationContext';
@@ -155,7 +155,7 @@ const DashboardPage = () => {
                 { id: 'assistance', label: t('dashboard.tabs.assistance'), count: unresolvedRequestsCount, show: canAssistance },
                 { id: 'tables',     label: t('dashboard.tabs.tables'),                               show: true },
                 { id: 'settings',   label: t('dashboard.tabs.settings'),                             show: true },
-                { id: 'import',     label: t('dashboard.tabs.import'),                               show: canImport },
+                { id: 'import',     label: t('dashboard.tabs.importExport'),                               show: canImport },
               ].filter(tab => tab.show).map((tab) => (
                 <button
                   key={tab.id}
@@ -229,7 +229,7 @@ const DashboardPage = () => {
             {activeTab === 'assistance' && <AssistanceView />}
             {activeTab === 'tables' && activeRestaurant && <TableView />}
             {activeTab === 'settings' && activeRestaurant && <SettingsView />}
-            {activeTab === 'import' && activeRestaurant && <MenuImportView />}
+            {activeTab === 'import' && activeRestaurant && <MenuImportExportView />}
           </div>
         </div>
         <PaymentToast />

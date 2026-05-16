@@ -305,7 +305,7 @@ export const disconnectStripe = async (restaurantId: string) => {
   return response.data;
 };
 
-// Menu Import
+// Menu Import / Export
 export const getImportApiKey = async (restaurantId: string) => {
   const response = await api.get(`/restaurants/${restaurantId}/menu/import/api-key`);
   return response.data as { apiKey: string; generated?: boolean };
@@ -324,6 +324,11 @@ export const regenerateImportApiKey = async (restaurantId: string) => {
 export const confirmMenuImport = async (restaurantId: string, payload: any) => {
   const response = await api.post(`/restaurants/${restaurantId}/menu/import/confirm`, payload);
   return response.data as { success: boolean; created: number; updated: number; categories: number };
+};
+
+export const exportMenu = async (restaurantId: string) => {
+  const response = await api.get(`/restaurants/${restaurantId}/menu/export`);
+  return response.data as { restaurantId: string; categories: any[] };
 };
 
 // Staff Management

@@ -95,4 +95,46 @@ describe('StripeProvider', () => {
       expect(result).toBe(true);
     });
   });
+
+  describe('onModuleInit', () => {
+    it('warns when STRIPE_SECRET_KEY is not set', () => {
+      const saved = process.env.STRIPE_SECRET_KEY;
+      delete process.env.STRIPE_SECRET_KEY;
+      const p = new StripeProvider();
+      const warnSpy = jest.spyOn((p as any).logger, 'warn').mockImplementation(() => {});
+      p.onModuleInit();
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('STRIPE_SECRET_KEY'));
+      process.env.STRIPE_SECRET_KEY = saved;
+    });
+
+    it('warns when STRIPE_WEBHOOK_SECRET is "NONE"', () => {
+      process.env.STRIPE_SECRET_KEY = 'sk_test_set';
+      process.env.STRIPE_WEBHOOK_SECRET = 'NONE';
+      const p = new StripeProvider();
+      const warnSpy = jest.spyOn((p as any).logger, 'warn').mockImplementation(() => {});
+      p.onModuleInit();
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('STRIPE_WEBHOOK_SECRET'));
+    });
+
+    it('warns when STRIPE_WEBHOOK_SECRET is empty', () => {
+      process.env.STRIPE_SECRET_KEY = 'sk_test_set';
+      process.env.STRIPE_WEBHOOK_SECRET = '';
+      const p = new StripeProvider();
+      const warnSpy = jest.spyOn((p as any).logger, 'warn').mockImplementation(() => {});
+      p.onModuleInit();
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('STRIPE_WEBHOOK_SECRET'));
+    });
+  });
+
+  describe('constructWebhookEvent (dev mode)', () => {
+    it('parses payload as JSON when webhookSecret is empty (no Stripe verification)', () => {
+      process.env.STRIPE_WEBHOOK_SECRET = '';
+      const devProvider = new StripeProvider();
+      const payload = Buffer.from(JSON.stringify({ type: 'test_event' }));
+
+      const result = devProvider.constructWebhookEvent(payload, 'any-sig');
+
+      expect(result).toEqual({ type: 'test_event' });
+    });
+  });
 });
