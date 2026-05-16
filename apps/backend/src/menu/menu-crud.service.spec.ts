@@ -4,6 +4,7 @@ import { MenuCrudService } from './menu-crud.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TranslationService } from '../translation/translation.service';
 import { MenuTranslationService } from './menu-translation.service';
+import { DateTime } from 'luxon';
 
 const mockPrisma = {
   restaurant: {
@@ -109,6 +110,12 @@ describe('MenuCrudService', () => {
     });
 
     it('filters out SCHEDULED categories when current day not in daysOfWeek', async () => {
+      // Pin to 2026-01-14 12:00 UTC = Wednesday (weekday 3) in Sofia (UTC+2 winter)
+      // daysOfWeek [1,2] = Mon/Tue — Wednesday is not in the list → filtered out
+      const spy = jest.spyOn(DateTime, 'now').mockReturnValue(
+        DateTime.fromISO('2026-01-14T10:00:00.000Z') as any,
+      );
+
       const mockCategories = [
         { id: 'cat-1', availabilityType: 'ALWAYS', items: [] },
         {
@@ -124,11 +131,17 @@ describe('MenuCrudService', () => {
 
       const result = await service.getPublicMenu('rest-1');
 
+      spy.mockRestore();
       expect(result.categories).toHaveLength(1);
       expect(result.categories[0].id).toBe('cat-1');
     });
 
     it('filters out SCHEDULED category when current time outside range', async () => {
+      // Pin to 2026-01-14 18:00 UTC = 20:00 Sofia (UTC+2 winter) — outside 09:00-17:00
+      const spy = jest.spyOn(DateTime, 'now').mockReturnValue(
+        DateTime.fromISO('2026-01-14T18:00:00.000Z') as any,
+      );
+
       const mockCategories = [
         { id: 'cat-1', availabilityType: 'ALWAYS', items: [] },
         {
@@ -144,6 +157,7 @@ describe('MenuCrudService', () => {
 
       const result = await service.getPublicMenu('rest-1');
 
+      spy.mockRestore();
       expect(result.categories).toHaveLength(1);
       expect(result.categories[0].id).toBe('cat-1');
     });

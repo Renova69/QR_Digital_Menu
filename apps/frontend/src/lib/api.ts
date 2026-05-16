@@ -20,6 +20,18 @@ export const getMenu = async (restaurantId: string) => {
   return response.data;
 };
 
+export const getMenuMeta = async (restaurantId: string) => {
+  const response = await api.get(`/menu/public/${restaurantId}/meta`);
+  return response.data as { restaurant: any; categories: any[] };
+};
+
+export const getCategoryItems = async (restaurantId: string, categoryId: string, lang?: string) => {
+  const response = await api.get(`/menu/public/${restaurantId}/categories/${categoryId}/items`, {
+    params: lang ? { lang } : undefined,
+  });
+  return response.data as any[];
+};
+
 export const getTrendingItems = async (restaurantId: string) => {
   const response = await api.get(`/menu/public/${restaurantId}/trending`);
   return response.data;

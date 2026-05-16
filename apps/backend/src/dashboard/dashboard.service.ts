@@ -7,6 +7,10 @@ import { DateTime } from 'luxon';
 export class DashboardService {
   private readonly logger = new Logger(DashboardService.name);
 
+  // In-memory analytics cache — per restaurantId+period key, 60-second TTL
+  private readonly analyticsCache = new Map<string, { data: unknown; expiresAt: number }>();
+  private static readonly ANALYTICS_TTL_MS = 60_000;
+
   constructor(private readonly prisma: PrismaService) {}
 
   async getSummary(restaurantId: string) {
@@ -59,6 +63,10 @@ export class DashboardService {
     startDateStr?: string,
     endDateStr?: string,
   ) {
+    const cacheKey = `${restaurantId}:${period}:${startDateStr ?? ''}:${endDateStr ?? ''}`;
+    const cached = this.analyticsCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) return cached.data;
+
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
       select: { timezone: true },
@@ -128,7 +136,7 @@ export class DashboardService {
         ? (servedOrders / currentPeriodStats.totalOrders) * 100
         : 0;
 
-    return {
+    const result = {
       period,
       revenueTrend,
       topItems,
@@ -155,6 +163,9 @@ export class DashboardService {
               : 0,
       },
     };
+
+    this.analyticsCache.set(cacheKey, { data: result, expiresAt: Date.now() + DashboardService.ANALYTICS_TTL_MS });
+    return result;
   }
 
   private async getRevenueTrend(
@@ -305,27 +316,20 @@ export class DashboardService {
     start: Date,
     end: Date,
   ) {
+    const grouped = await this.prisma.order.groupBy({
+      by: ['status'],
+      _count: true,
+      where: { restaurantId, createdAt: { gte: start, lte: end } },
+    });
+
+    const countMap = new Map(grouped.map((g) => [g.status, g._count]));
     const statuses: OrderStatus[] = [
       OrderStatus.NEW,
       OrderStatus.IN_PROGRESS,
       OrderStatus.SERVED,
       OrderStatus.CANCELED,
     ];
-
-    const results = await Promise.all(
-      statuses.map(async (status) => {
-        const count = await this.prisma.order.count({
-          where: {
-            restaurantId,
-            status,
-            createdAt: { gte: start, lte: end },
-          },
-        });
-        return { status, count };
-      }),
-    );
-
-    return results;
+    return statuses.map((status) => ({ status, count: countMap.get(status) ?? 0 }));
   }
 
   private async getCategoryBreakdown(
