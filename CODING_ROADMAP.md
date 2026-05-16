@@ -1,6 +1,6 @@
 # QR Menu App — Coding Roadmap
 
-> **Last Updated:** May 15, 2026  
+> **Last Updated:** May 16, 2026  
 > **MVP Status:** ✅ Complete  
 > **V2 Status:** ✅ Phases 9–14 Complete  
 > **V2.5 Status:** ✅ Phases 15–17 + Mobile UX Overhaul + UI/UX Audit & Theme Polish Complete  
@@ -12,6 +12,9 @@
 > **Staff Roles & RBAC (May 12-14, 2026):** ✅ Phase 18 Complete — OWNER/MANAGER/WAITER/KITCHEN roles, PIN-based device login, QR enrollment (bond/re-bond), shared device mode, staff settings consolidation, StaffCreatedModal, RBAC across all services  
 > **Public Menu Mobile UX (May 15, 2026):** ✅ TopBar, FilterPanel, CategoryPills, horizontal item cards with dual-currency, slim TrendingCarousel, bottom nav regroup, ~30 i18n keys, dead code cleanup, PublicMenuPage refactored 815→~400 lines  
 > **Code Review & Bug Fixes (May 15, 2026):** ✅ PR#3 findings (HomePage imports, i18n casts, Tailwind durations), RestaurantContext TS error, CheckoutPage Toggle, payments investigation (not a bug — schema default)  
+> **Security & Bug Fixes (May 15, 2026):** ✅ Socket.io CORS wildcard fix, magic-link endpoint removed (token-leak), loyalty expiry emails now sent via Resend, CSV export all 5 sections, TS strict mode (strictNullChecks + noImplicitAny), CategoryPills auto-scroll, ItemWithOptions BGN double-conversion  
+> **Infrastructure & Polish Sprint (May 15, 2026):** ✅ API versioning `/api/v1/*`, Prisma jittered-backoff retry + circuit breaker (CLOSED→OPEN after 5 failures, HALF_OPEN after 30s), order progress stepper, 3 QR print templates (Classic/Premium/Minimal), 122 tests (up from 77), customer split bill  
+> **SaaS Tiering V2 (May 16, 2026):** ✅ 4-tier FREE/STARTER/PROFESSIONAL/ENTERPRISE on `Restaurant.tier`, SubscriptionModule (FeatureService + FeatureGuard + @RequireFeature decorator), Stripe Checkout + Portal + webhook with timestamp-gate race protection, `useFeature` hook, BillingView, PricingPage, SubscriptionBanner, 4 demo accounts  
 > **Current Focus:** Phase 20 (Multi-location) — planned
 
 ---

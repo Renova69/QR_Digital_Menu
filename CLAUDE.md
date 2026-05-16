@@ -256,6 +256,14 @@ Source of truth: `CODING_ROADMAP.md`. Detailed per-phase plans under `.planning/
 - **Customer split bill** — `SplitBillSection` component in `CheckoutPage` — collapsible below order total, counter 2–20 people, per-person amount in EUR + BGN. Client-side only, no backend changes.
 - **Key files:** `main.ts`, `api.ts` (frontend), `prisma.service.ts`, `OrderConfirmationPage.tsx`, `PrintableQRCodes.tsx`, `TableView.tsx`, `CheckoutPage.tsx`, `tables.service.spec.ts`, `users.service.spec.ts`, `translation.service.spec.ts`.
 
+**Shipped — SaaS Tiering V2 (May 16, 2026):**
+- **Schema** — `SubscriptionTier` enum (`FREE/STARTER/PROFESSIONAL/ENTERPRISE`) on `Restaurant.tier` (default `FREE`). Added `stripeCustomerId`, `stripeSubscriptionId`, `tierUpdatedAt` fields.
+- **SubscriptionModule** — `FeatureService` maps tier→feature flags (`TIER_FEATURES` map — never hardcode). `FeatureGuard` resolves restaurant from owner (`Restaurant.ownerId`) OR staff (`User.restaurantId`), throws `403 FEATURE_LOCKED`. `@RequireFeature(...flags)` decorator for controllers. `SubscriptionService` handles Stripe Checkout + Portal + webhook with timestamp-gate race protection (`updateMany WHERE tierUpdatedAt IS NULL OR < eventTime`). Controller at `/subscription` with 4 routes: `status`, `checkout`, `portal`, `webhook`.
+- **Frontend** — `useFeature(flag)` reads `RestaurantContext.activeRestaurant.tier`. `BillingView` (current plan + Stripe Portal link). `PricingPage` at `/pricing` (tier comparison + upgrade CTA). `SubscriptionBanner` in dashboard header on FREE. `DashboardPage` + `SettingsView` gated.
+- **Demo accounts** — `demo.free@qrmenu.test`, `demo.starter@qrmenu.test`, `demo.pro@qrmenu.test`, `demo.enterprise@qrmenu.test` / password `demo1234`.
+- **New env vars** — `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_PROFESSIONAL`, `STRIPE_PRICE_ENTERPRISE`, `STRIPE_SUBSCRIPTION_WEBHOOK_SECRET` in `apps/backend/.env`.
+- **Key files:** `apps/backend/src/subscription/` (new: `feature.service.ts`, `feature.guard.ts`, `feature-flag.enum.ts`, `require-feature.decorator.ts`, `subscription.service.ts`, `subscription.controller.ts`, `subscription.module.ts`), `apps/frontend/src/hooks/useFeature.ts`, `BillingView.tsx`, `PricingPage.tsx`, `SubscriptionBanner.tsx`.
+
 **Current focus — V3 Growth:**
 - **Phase 20 — Multi-location:** menu templates, bulk price updates, cross-location analytics.
 
