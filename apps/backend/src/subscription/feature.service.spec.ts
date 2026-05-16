@@ -64,4 +64,34 @@ describe('FeatureService', () => {
       expect(service.hasFeature('PROFESSIONAL', FeatureFlag.KDS)).toBe(false);
     });
   });
+
+  describe('getFeatures — unknown tier fallback', () => {
+    it('falls back to FREE features for an unknown tier string', () => {
+      const features = service.getFeatures('UNKNOWN_TIER');
+      expect(features).toContain(FeatureFlag.MENU_VIEW);
+      expect(features).not.toContain(FeatureFlag.LOYALTY);
+    });
+  });
+
+  describe('getStaffLimit', () => {
+    it('returns 1 for FREE tier', () => {
+      expect(service.getStaffLimit('FREE')).toBe(1);
+    });
+
+    it('returns 1 for STARTER tier', () => {
+      expect(service.getStaffLimit('STARTER')).toBe(1);
+    });
+
+    it('returns 5 for PROFESSIONAL tier', () => {
+      expect(service.getStaffLimit('PROFESSIONAL')).toBe(5);
+    });
+
+    it('returns Infinity for ENTERPRISE tier', () => {
+      expect(service.getStaffLimit('ENTERPRISE')).toBe(Infinity);
+    });
+
+    it('returns 1 for unknown tier (default)', () => {
+      expect(service.getStaffLimit('UNKNOWN')).toBe(1);
+    });
+  });
 });
