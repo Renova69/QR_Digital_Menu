@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DashboardService } from './dashboard.service';
+import { DashboardViewsService } from './dashboard-views.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderStatus } from '@prisma/client';
 
@@ -15,6 +16,8 @@ const mockPrisma = {
   orderItem: { findMany: jest.fn() },
 };
 
+const mockViews = { isReady: jest.fn().mockReturnValue(false) };
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnalyticsResult = Record<string, any>;
 
@@ -26,6 +29,7 @@ describe('DashboardService', () => {
       providers: [
         DashboardService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: DashboardViewsService, useValue: mockViews },
       ],
     }).compile();
 
