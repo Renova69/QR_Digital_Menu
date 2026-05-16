@@ -30,7 +30,12 @@ async function bootstrap() {
           'http://localhost:3002',
           'http://127.0.0.1:3002',
         ];
-        if (!origin || allowed.includes(origin)) {
+        // Allow Vercel preview + production domains
+        if (
+          !origin ||
+          allowed.includes(origin) ||
+          (typeof origin === 'string' && origin.endsWith('.vercel.app'))
+        ) {
           callback(null, true);
         } else {
           callback(new Error(`CORS: ${origin} not allowed`));
@@ -131,8 +136,9 @@ async function bootstrap() {
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api-docs', app, document);
 
-    await app.listen(3000, '0.0.0.0');
-    console.log('✅ Application is running');
+    const port = parseInt(process.env.PORT || '3000', 10);
+    await app.listen(port, '0.0.0.0');
+    console.log(`✅ Application is running on port ${port}`);
   } catch (error) {
     console.error('❌ Application failed to start:', error);
     process.exit(1);
