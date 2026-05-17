@@ -31,7 +31,7 @@ export type FeatureFlag = (typeof ALL_FEATURE_FLAGS)[number];
 export type SubscriptionTier = 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
 
 const TIER_FEATURES: Record<SubscriptionTier, FeatureFlag[]> = {
-  FREE: ['menu:view', 'menu:edit', 'qr:manage'],
+  FREE: ['menu:view', 'menu:edit', 'menu:import', 'qr:manage'],
   STARTER: [
     'menu:view',
     'menu:edit',
@@ -89,4 +89,10 @@ export function useTier(): {
 export function useFeature(feature: FeatureFlag): boolean {
   const { features } = useTier();
   return features.includes(feature);
+}
+
+export function hasTierFeature(tier: string | undefined | null, feature: FeatureFlag): boolean {
+  const t = (tier as SubscriptionTier) ?? 'FREE';
+  const feats = TIER_FEATURES[t] ?? TIER_FEATURES.FREE;
+  return feats.includes(feature);
 }

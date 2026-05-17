@@ -19,6 +19,7 @@ const CheckoutPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const restaurantId = location.state?.restaurantId;
+  const tier = location.state?.tier as string | undefined;
   const { t } = useTranslation();
 
   const [customerName, setCustomerName] = useState("");
@@ -191,6 +192,7 @@ const CheckoutPage = () => {
           orderId: newOrder.id,
           restaurantId: newOrder.restaurantId,
           tableNumber,
+          tier,
         },
       });
     } catch (err: any) {

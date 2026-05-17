@@ -7,6 +7,7 @@ const TIER_FEATURES: Record<Tier, FeatureFlag[]> = {
   FREE: [
     FeatureFlag.MENU_VIEW,
     FeatureFlag.MENU_EDIT,
+    FeatureFlag.MENU_IMPORT,
     FeatureFlag.QR_MANAGE,
   ],
   STARTER: [

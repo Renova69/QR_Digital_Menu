@@ -109,6 +109,7 @@ const OrderConfirmationPage = () => {
   const restaurantId = location.state?.restaurantId || '';
   const orderId = location.state?.orderId || '';
   const tableNumber = location.state?.tableNumber || '';
+  const tier = (location.state?.tier as string) || 'FREE';
 
   const [orderStatus, setOrderStatus] = useState<StatusKey>('NEW');
   const { socket, isConnected } = useSocket();
@@ -156,8 +157,8 @@ const OrderConfirmationPage = () => {
           </div>
         </div>
 
-        {/* Progress stepper */}
-        <OrderProgressStepper status={orderStatus} t={t} />
+        {/* Progress stepper — hidden on FREE (no orders:receive) */}
+        {tier !== 'FREE' && <OrderProgressStepper status={orderStatus} t={t} />}
 
         {/* Order reference */}
         {orderNumber && (

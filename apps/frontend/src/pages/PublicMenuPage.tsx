@@ -17,6 +17,7 @@ import { CategoryPills } from "../components/menu/CategoryPills";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { useAuth } from "../context/AuthContext";
 import { getImageUrl } from "../lib/getImageUrl";
+import { hasTierFeature } from "../hooks/useFeature";
 
 const PublicMenuPage = () => {
   const { restaurantId } = useParams<{ restaurantId: string }>();
@@ -46,7 +47,11 @@ const PublicMenuPage = () => {
   const { user, logout } = useAuth();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
-  const ordersEnabled = menuMeta?.restaurant?.tier !== 'FREE';
+  const tier = menuMeta?.restaurant?.tier as string | undefined;
+  const ordersEnabled = tier !== 'FREE';
+  const paymentsEnabled = hasTierFeature(tier, 'payments:stripe');
+  const callWaiterEnabled = hasTierFeature(tier, 'orders:call-waiter');
+  const languagesEnabled = tier !== 'FREE';
   const [activeDietTags, setActiveDietTags] = useState<string[]>([]);
   const [excludedAllergens, setExcludedAllergens] = useState<string[]>([]);
 
@@ -344,6 +349,7 @@ const PublicMenuPage = () => {
           onFilterClick={() => setFilterDrawerOpen(true)}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          languagesEnabled={languagesEnabled}
         />
 
         {assistanceSent && (
@@ -568,6 +574,7 @@ const PublicMenuPage = () => {
           <div className="flex items-center w-full max-w-[480px] justify-between p-1.5 md:p-2.5 glass-panel rounded-[2rem] md:rounded-[2.5rem] shadow-[0_30px_70px_-15px_rgba(0,0,0,0.5)] border-white/20 dark:border-white/10 pointer-events-auto bg-white/90 dark:bg-black/90">
             {/* LEFT GROUP: Waiter + Profile/Sign-In */}
             <div className="flex items-center gap-0.5">
+              {callWaiterEnabled && (
               <button
                 onClick={() => {
                   if (assistanceSent || assistanceLoading) return;
@@ -585,6 +592,7 @@ const PublicMenuPage = () => {
                   )}
                 </div>
               </button>
+              )}
 
               {user ? (
                 <div className="flex items-center gap-0.5">
@@ -619,7 +627,7 @@ const PublicMenuPage = () => {
 
             {/* RIGHT GROUP: Bill + Cart */}
             <div className="flex items-center gap-0.5">
-              {sessionToken && (
+              {sessionToken && paymentsEnabled && (
                 <Button
                   variant="default"
                   size="sm"
@@ -643,6 +651,7 @@ const PublicMenuPage = () => {
                     categories={categoriesForCart}
                     restaurantId={restaurantId}
                     selectedLang={selectedLang}
+                    tier={tier}
                   />
                 </div>
               )}

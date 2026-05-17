@@ -60,7 +60,9 @@
                      "updatedSuccess":  "Setări actualizate cu succes!",
                      "failedSave":  "Salvarea setărilor a eșuat. Vă rugăm să încercați din nou.",
                      "failedInitiate":  "Inițierea traducerii a eșuat. Vă rugăm să încercați din nou.",
-                     "translating":  "Se traduce..."
+                     "translating":  "Se traduce...",
+                     "brandingLocked":  "Branding personalizat",
+                     "brandingLockedDesc":  "Upgradeaza la Professional pentru a personaliza fonturile, culorile si logo-ul."
                  },
     "staff":  {
                   "sharedDeviceMode":  "Mod dispozitiv partajat",

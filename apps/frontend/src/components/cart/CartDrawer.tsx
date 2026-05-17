@@ -32,12 +32,14 @@ const CartDrawer = ({
   categories,
   restaurantId,
   selectedLang,
+  tier,
 }: {
   isOpen: boolean;
   onClose: () => void;
   categories?: Category[];
   restaurantId?: string;
   selectedLang?: string;
+  tier?: string;
 }) => {
   const { items, getTotal, clearCart, removeItem, addItem } = useCart();
   const navigate = useNavigate();
@@ -74,7 +76,7 @@ const CartDrawer = ({
   const finishCheckout = () => {
     setShowDrinkUpsell(false);
     onClose();
-    navigate("/checkout", { state: { restaurantId } });
+    navigate("/checkout", { state: { restaurantId, tier } });
   };
 
   return createPortal(

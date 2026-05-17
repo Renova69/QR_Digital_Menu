@@ -17,6 +17,7 @@ interface TopBarProps {
   onFilterClick: () => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
+  languagesEnabled?: boolean;
 }
 
 export function TopBar({
@@ -29,6 +30,7 @@ export function TopBar({
   onFilterClick,
   searchQuery,
   onSearchChange,
+  languagesEnabled = true,
 }: TopBarProps) {
   const { t } = useTranslation();
 
@@ -70,7 +72,7 @@ export function TopBar({
           defaultTheme={defaultTheme ?? 'light'}
         />
 
-        {targetLanguages.length > 1 && (
+        {languagesEnabled && targetLanguages.length > 1 && (
           <div className="relative flex-shrink-0">
             <Globe className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <select
