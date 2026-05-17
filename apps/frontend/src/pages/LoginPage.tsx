@@ -9,7 +9,11 @@ const LoginPage: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      if (user.role === 'SUPER_ADMIN') {
+        navigate('/super-admin');
+      } else {
+        navigate('/dashboard');
+      }
     }
   }, [user, navigate]);
 

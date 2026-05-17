@@ -16,6 +16,7 @@ import HomePage from "./pages/HomePage";
 import ErrorBoundary from "./components/ErrorBoundary";
 import PosLayout from "./pages/pos/PosLayout";
 import StaffRoute from "./components/StaffRoute";
+import SuperAdminRoute from "./components/SuperAdminRoute";
 import { PosProvider } from "./context/PosContext";
 import { NotificationProvider } from "./context/NotificationContext";
 
@@ -32,6 +33,11 @@ const OrderConfirmationPage = lazy(() => import("./pages/OrderConfirmationPage")
 const FeedbackPage = lazy(() => import("./pages/FeedbackPage"));
 const DeviceLoginPage = lazy(() => import("./pages/DeviceLoginPage"));
 const DeviceEnrollPage = lazy(() => import("./pages/DeviceEnrollPage"));
+
+const SuperAdminLayout = lazy(() => import("./pages/super-admin/SuperAdminLayout"));
+const OverviewPage = lazy(() => import("./pages/super-admin/OverviewPage"));
+const TenantsPage = lazy(() => import("./pages/super-admin/TenantsPage"));
+const TenantDetailPage = lazy(() => import("./pages/super-admin/TenantDetailPage"));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -148,6 +154,44 @@ function App() {
 
             <Route path="/device-enroll" element={<DeviceEnrollPage />} />
             <Route path="/device-login" element={<DeviceLoginPage />} />
+
+            {/* Super Admin — dark sidebar, platform-wide access */}
+            <Route
+              element={
+                <SocketProvider>
+                  <RestaurantProvider>
+                    <NotificationProvider>
+                      <SuperAdminLayout />
+                    </NotificationProvider>
+                  </RestaurantProvider>
+                </SocketProvider>
+              }
+            >
+              <Route
+                path="/super-admin"
+                element={
+                  <SuperAdminRoute>
+                    <OverviewPage />
+                  </SuperAdminRoute>
+                }
+              />
+              <Route
+                path="/super-admin/tenants"
+                element={
+                  <SuperAdminRoute>
+                    <TenantsPage />
+                  </SuperAdminRoute>
+                }
+              />
+              <Route
+                path="/super-admin/tenants/:id"
+                element={
+                  <SuperAdminRoute>
+                    <TenantDetailPage />
+                  </SuperAdminRoute>
+                }
+              />
+            </Route>
 
             {/* Customer-facing routes — no header, full viewport */}
             <Route element={<PublicLayout />}>
