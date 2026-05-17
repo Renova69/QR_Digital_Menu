@@ -33,6 +33,7 @@ interface Restaurant {
   platformFeePercent?: number;
   notifyAllStaffOnPayment?: boolean;
   tier?: 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
+  forceTier?: 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE' | null;
   tierUpdatedAt?: string;
   stripeSubscriptionId?: string;
 }
