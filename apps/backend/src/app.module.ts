@@ -21,6 +21,7 @@ import { LoyaltyModule } from './loyalty/loyalty.module';
 import { PaymentModule } from './payment/payment.module';
 import { MenuImportModule } from './menu-import/menu-import.module';
 import { SubscriptionModule } from './subscription/subscription.module';
+import { SuperAdminModule } from './super-admin/super-admin.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { SubscriptionModule } from './subscription/subscription.module';
     ]),
     PrismaModule,
     SubscriptionModule,
+    SuperAdminModule,
     AuthModule,
     RestaurantsModule,
     MenuModule,
