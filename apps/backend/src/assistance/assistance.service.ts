@@ -9,6 +9,8 @@ import { CreateAssistanceDto } from './dto/create-assistance.dto';
 import { UpdateAssistanceDto } from './dto/update-assistance.dto';
 import { EventsGateway } from '../events/events.gateway';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { FeatureService } from '../subscription/feature.service';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
 
 @Injectable()
 export class AssistanceService {
@@ -17,6 +19,7 @@ export class AssistanceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventsGateway: EventsGateway,
+    private readonly featureService: FeatureService,
   ) {}
 
   private async verifyRequestAccess(id: string, userId: string) {
@@ -50,6 +53,27 @@ export class AssistanceService {
   }
 
   async create(createAssistanceDto: CreateAssistanceDto) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: createAssistanceDto.restaurantId },
+      select: { tier: true },
+    });
+
+    if (!restaurant) {
+      throw new NotFoundException('Restaurant not found');
+    }
+
+    if (
+      !this.featureService.hasFeature(
+        String(restaurant.tier),
+        FeatureFlag.ORDERS_CALL_WAITER,
+      )
+    ) {
+      throw new ForbiddenException({
+        code: 'FEATURE_LOCKED',
+        message: 'Call waiter is not available on this plan',
+      });
+    }
+
     const newRequest = await this.prisma.assistanceRequest.create({
       data: {
         tableId: createAssistanceDto.tableId,

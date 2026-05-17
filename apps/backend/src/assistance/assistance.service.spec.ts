@@ -3,6 +3,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AssistanceService } from './assistance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
+import { FeatureService } from '../subscription/feature.service';
 
 const mockPrisma = {
   assistanceRequest: {
@@ -13,6 +14,9 @@ const mockPrisma = {
     update: jest.fn(),
     delete: jest.fn(),
   },
+  restaurant: {
+    findUnique: jest.fn(),
+  },
   user: {
     findUnique: jest.fn(),
   },
@@ -20,6 +24,10 @@ const mockPrisma = {
 
 const mockEvents = {
   emitToRestaurant: jest.fn(),
+};
+
+const mockFeatureService = {
+  hasFeature: jest.fn().mockReturnValue(true),
 };
 
 describe('AssistanceService', () => {
@@ -31,19 +39,26 @@ describe('AssistanceService', () => {
         AssistanceService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EventsGateway, useValue: mockEvents },
+        { provide: FeatureService, useValue: mockFeatureService },
       ],
     }).compile();
 
     service = module.get<AssistanceService>(AssistanceService);
     jest.clearAllMocks();
+    mockFeatureService.hasFeature.mockReturnValue(true);
   });
 
   describe('create', () => {
-    it('creates a request and emits socket event', async () => {
-      const req = { id: 'req-1', tableId: 't-1', restaurantId: 'rest-1' };
-      mockPrisma.assistanceRequest.create.mockResolvedValue(req);
+    const dto = { tableId: 't-1', restaurantId: 'rest-1' };
+    const req = { id: 'req-1', tableId: 't-1', restaurantId: 'rest-1' };
 
-      const result = await service.create({ tableId: 't-1', restaurantId: 'rest-1' });
+    beforeEach(() => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ tier: 'PROFESSIONAL' });
+      mockPrisma.assistanceRequest.create.mockResolvedValue(req);
+    });
+
+    it('creates a request and emits socket event', async () => {
+      const result = await service.create(dto);
 
       expect(result).toEqual(req);
       expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
@@ -51,6 +66,18 @@ describe('AssistanceService', () => {
         'newAssistanceRequest',
         req,
       );
+    });
+
+    it('throws NotFoundException when restaurant not found', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(null);
+
+      await expect(service.create(dto)).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ForbiddenException when ORDERS_CALL_WAITER feature is locked', async () => {
+      mockFeatureService.hasFeature.mockReturnValue(false);
+
+      await expect(service.create(dto)).rejects.toThrow(ForbiddenException);
     });
   });
 

@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { RequestMethod, ValidationPipe, VersioningType } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { RedisIoAdapter } from './adapters/redis-io.adapter';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import * as express from 'express';
 import helmet from 'helmet';
@@ -139,6 +140,10 @@ async function bootstrap() {
 
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api-docs', app, document);
+
+    const redisAdapter = new RedisIoAdapter(app);
+    await redisAdapter.connectToRedis();
+    app.useWebSocketAdapter(redisAdapter);
 
     const port = parseInt(process.env.PORT || '3000', 10);
     await app.listen(port, '0.0.0.0');
