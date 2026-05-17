@@ -4,6 +4,7 @@ import { submitFeedback, getGoogleReviewUrl } from '../lib/api';
 import { Star, ExternalLink, MessageSquare, CheckCircle, Heart } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
+import { useTranslation } from 'react-i18next';
 
 type FeedbackStep = 'rating' | 'comment' | 'redirect' | 'thankyou';
 
@@ -11,6 +12,7 @@ const FeedbackPage = () => {
   const { restaurantId } = useParams<{ restaurantId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const orderId = searchParams.get('orderId');
   const returnUrl = searchParams.get('returnUrl') || `/menu/public/${restaurantId}`;
 
@@ -23,7 +25,6 @@ const FeedbackPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch Google Review URL on mount
   useEffect(() => {
     if (restaurantId) {
       getGoogleReviewUrl(restaurantId)
@@ -37,13 +38,12 @@ const FeedbackPage = () => {
 
   const handleRatingSelect = (selectedRating: number) => {
     setRating(selectedRating);
-    // Short delay for the animation to show, then advance
     setTimeout(() => setStep('comment'), 300);
   };
 
   const handleSubmit = async () => {
     if (!orderId || !restaurantId) {
-      setError('Missing order information.');
+      setError(t('feedback.missingInfo'));
       return;
     }
 
@@ -51,7 +51,6 @@ const FeedbackPage = () => {
       setSubmitting(true);
       setError(null);
 
-      // If high rating and Google URL exists, go to redirect step
       const shouldRedirect = rating >= 4 && googleReviewUrl;
 
       await submitFeedback({
@@ -69,10 +68,10 @@ const FeedbackPage = () => {
       }
     } catch (err: any) {
       if (err.response?.status === 409) {
-        setError('You already submitted feedback for this order.');
+        setError(t('feedback.alreadySubmitted'));
         setStep('thankyou');
       } else {
-        setError('Failed to submit feedback. Please try again.');
+        setError(t('feedback.failedSubmit'));
       }
     } finally {
       setSubmitting(false);
@@ -90,7 +89,14 @@ const FeedbackPage = () => {
     navigate(returnUrl, { replace: true });
   };
 
-  const ratingLabels = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];
+  const ratingLabels = [
+    '',
+    t('feedback.ratings.poor'),
+    t('feedback.ratings.fair'),
+    t('feedback.ratings.good'),
+    t('feedback.ratings.great'),
+    t('feedback.ratings.excellent'),
+  ];
   const ratingEmojis = ['', '😞', '😐', '🙂', '😊', '🤩'];
 
   return (
@@ -104,10 +110,12 @@ const FeedbackPage = () => {
               <Heart className="h-8 w-8 text-accent" />
             </div>
             <h1 className="text-2xl font-bold text-foreground mb-2">
-              How was your experience?
+              {t('feedback.howWasExperience')}
             </h1>
             <p className="text-muted-foreground text-sm mb-8">
-              {restaurantName ? `at ${restaurantName}` : 'Your feedback helps us improve'}
+              {restaurantName
+                ? t('feedback.atRestaurant', { name: restaurantName })
+                : t('feedback.helpsUsImprove')}
             </p>
 
             <div className="flex justify-center gap-2 mb-4">
@@ -135,7 +143,7 @@ const FeedbackPage = () => {
                 ? `${ratingEmojis[hoveredStar]} ${ratingLabels[hoveredStar]}`
                 : rating > 0
                 ? `${ratingEmojis[rating]} ${ratingLabels[rating]}`
-                : 'Tap a star to rate'}
+                : t('feedback.tapToRate')}
             </p>
           </div>
         )}
@@ -159,8 +167,8 @@ const FeedbackPage = () => {
             </h2>
             <p className="text-muted-foreground text-sm mb-6">
               {rating >= 4
-                ? "We're glad you enjoyed it! Any extra thoughts?"
-                : "We're sorry. Tell us how we can do better."}
+                ? t('feedback.gladYouEnjoyed')
+                : t('feedback.tellUsDoBetter')}
             </p>
 
             <div className="mb-6">
@@ -171,8 +179,8 @@ const FeedbackPage = () => {
                   onChange={(e) => setComment(e.target.value)}
                   placeholder={
                     rating >= 4
-                      ? 'What did you enjoy most? (optional)'
-                      : 'What could we improve? (optional)'
+                      ? t('feedback.whatDidYouEnjoy')
+                      : t('feedback.whatCouldImprove')
                   }
                   className="pl-10 min-h-[100px] resize-none"
                 />
@@ -186,35 +194,27 @@ const FeedbackPage = () => {
             )}
 
             <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setStep('rating')}
-                className="flex-1"
-              >
-                Back
+              <Button variant="outline" onClick={() => setStep('rating')} className="flex-1">
+                {t('feedback.back')}
               </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="flex-1"
-              >
-                {submitting ? 'Submitting...' : 'Submit'}
+              <Button onClick={handleSubmit} disabled={submitting} className="flex-1">
+                {submitting ? t('feedback.submitting') : t('feedback.submit')}
               </Button>
             </div>
           </div>
         )}
 
-        {/* Step 3: Google Review Redirect (only for 4-5 star ratings) */}
+        {/* Step 3: Google Review Redirect */}
         {step === 'redirect' && (
           <div className="bg-card rounded-2xl shadow-lg border border-border p-8 text-center animate-in">
             <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-5">
               <CheckCircle className="h-8 w-8 text-green-500" />
             </div>
             <h2 className="text-2xl font-bold text-foreground mb-2">
-              Thank you! ❤️
+              {t('feedback.thankYouRedirect')} ❤️
             </h2>
             <p className="text-muted-foreground mb-8">
-              Would you mind sharing your experience on Google? It really helps us!
+              {t('feedback.shareOnGoogle')}
             </p>
 
             <Button
@@ -227,7 +227,7 @@ const FeedbackPage = () => {
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
               </svg>
-              Leave a Google Review
+              {t('feedback.leaveGoogleReview')}
               <ExternalLink className="h-4 w-4" />
             </Button>
 
@@ -235,7 +235,7 @@ const FeedbackPage = () => {
               onClick={handleContinueBrowsing}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              Maybe later
+              {t('feedback.maybeLater')}
             </button>
           </div>
         )}
@@ -247,16 +247,16 @@ const FeedbackPage = () => {
               <CheckCircle className="h-10 w-10 text-green-500" />
             </div>
             <h2 className="text-2xl font-bold text-foreground mb-2">
-              Thank you! 🎉
+              {t('feedback.thankYou')} 🎉
             </h2>
             <p className="text-muted-foreground mb-2">
-              Your feedback has been recorded.
+              {t('feedback.feedbackRecorded')}
             </p>
             <p className="text-muted-foreground/70 text-sm mb-6">
-              We appreciate you taking the time to help us improve.
+              {t('feedback.appreciateTime')}
             </p>
             <Button onClick={handleContinueBrowsing} className="w-full">
-              Continue Browsing Menu
+              {t('feedback.continueBrowsing')}
             </Button>
           </div>
         )}
