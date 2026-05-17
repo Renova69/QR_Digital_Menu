@@ -2,8 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Star, ChefHat, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
-
-const STEPS = ['Placed', 'In Kitchen', 'On its way!'] as const;
+import { useTranslation } from 'react-i18next';
 
 const STATUS_STEP: Record<string, number> = {
   NEW: 1,
@@ -12,22 +11,62 @@ const STATUS_STEP: Record<string, number> = {
   COMPLETED: 3,
 };
 
-function OrderProgressStepper({ status }: { status: string }) {
+type StatusKey = 'NEW' | 'IN_PROGRESS' | 'SERVED' | 'COMPLETED' | 'CANCELED';
+
+const STATUS_STYLE: Record<StatusKey, { icon: React.ElementType; color: string; bg: string; border: string; dot: string; titleKey: string; subtitleKey: string }> = {
+  NEW: {
+    icon: Clock, color: 'text-accent', bg: 'bg-accent/10', border: 'border-accent/20',
+    dot: 'bg-accent animate-pulse',
+    titleKey: 'orderConfirmation.status.new.title',
+    subtitleKey: 'orderConfirmation.status.new.subtitle',
+  },
+  IN_PROGRESS: {
+    icon: ChefHat, color: 'text-orange-400', bg: 'bg-orange-400/10', border: 'border-orange-400/20',
+    dot: 'bg-orange-400 animate-pulse',
+    titleKey: 'orderConfirmation.status.inProgress.title',
+    subtitleKey: 'orderConfirmation.status.inProgress.subtitle',
+  },
+  SERVED: {
+    icon: CheckCircle2, color: 'text-emerald-400', bg: 'bg-emerald-400/10', border: 'border-emerald-400/20',
+    dot: 'bg-emerald-400 animate-pulse',
+    titleKey: 'orderConfirmation.status.served.title',
+    subtitleKey: 'orderConfirmation.status.served.subtitle',
+  },
+  COMPLETED: {
+    icon: CheckCircle2, color: 'text-emerald-400', bg: 'bg-emerald-400/10', border: 'border-emerald-400/20',
+    dot: 'bg-emerald-400',
+    titleKey: 'orderConfirmation.status.completed.title',
+    subtitleKey: 'orderConfirmation.status.completed.subtitle',
+  },
+  CANCELED: {
+    icon: XCircle, color: 'text-red-400', bg: 'bg-red-400/10', border: 'border-red-400/20',
+    dot: 'bg-red-400',
+    titleKey: 'orderConfirmation.status.canceled.title',
+    subtitleKey: 'orderConfirmation.status.canceled.subtitle',
+  },
+};
+
+function OrderProgressStepper({ status, t }: { status: string; t: (k: string) => string }) {
   if (status === 'CANCELED') return null;
+  const steps = [
+    t('orderConfirmation.steps.placed'),
+    t('orderConfirmation.steps.inKitchen'),
+    t('orderConfirmation.steps.onWay'),
+  ];
   const active = STATUS_STEP[status] ?? 1;
-  const allDone = active >= STEPS.length;
+  const allDone = active >= steps.length;
   return (
     <div className="glass-panel rounded-[2rem] p-5">
       <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4">
-        Order Progress
+        {t('orderConfirmation.orderProgress')}
       </p>
       <div className="flex items-center">
-        {STEPS.map((label, idx) => {
+        {steps.map((label, idx) => {
           const done = allDone || idx < active;
           const current = !allDone && idx === active;
           return (
             <div key={label} className="flex-1 flex flex-col items-center relative">
-              {idx < STEPS.length - 1 && (
+              {idx < steps.length - 1 && (
                 <div
                   className={`absolute top-3.5 left-1/2 w-full h-0.5 transition-colors duration-500 ${
                     done ? 'bg-emerald-400' : 'bg-border'
@@ -62,63 +101,16 @@ function OrderProgressStepper({ status }: { status: string }) {
   );
 }
 
-const STATUS_CONFIG = {
-  NEW: {
-    icon: Clock,
-    color: 'text-accent',
-    bg: 'bg-accent/10',
-    border: 'border-accent/20',
-    title: 'Order Received',
-    subtitle: 'Sent to the kitchen — hang tight.',
-    dot: 'bg-accent animate-pulse',
-  },
-  IN_PROGRESS: {
-    icon: ChefHat,
-    color: 'text-orange-400',
-    bg: 'bg-orange-400/10',
-    border: 'border-orange-400/20',
-    title: 'Being Prepared',
-    subtitle: "The kitchen is cooking your order right now!",
-    dot: 'bg-orange-400 animate-pulse',
-  },
-  SERVED: {
-    icon: CheckCircle2,
-    color: 'text-emerald-400',
-    bg: 'bg-emerald-400/10',
-    border: 'border-emerald-400/20',
-    title: 'Coming Any Second!',
-    subtitle: 'Your order is on its way — almost there!',
-    dot: 'bg-emerald-400 animate-pulse',
-  },
-  COMPLETED: {
-    icon: CheckCircle2,
-    color: 'text-emerald-400',
-    bg: 'bg-emerald-400/10',
-    border: 'border-emerald-400/20',
-    title: 'Enjoy Your Meal!',
-    subtitle: 'Your order is complete. Bon appétit!',
-    dot: 'bg-emerald-400',
-  },
-  CANCELED: {
-    icon: XCircle,
-    color: 'text-red-400',
-    bg: 'bg-red-400/10',
-    border: 'border-red-400/20',
-    title: 'Order Canceled',
-    subtitle: 'Please ask your waiter for assistance.',
-    dot: 'bg-red-400',
-  },
-} as const;
-
 const OrderConfirmationPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
   const orderNumber = location.state?.orderNumber || '';
   const restaurantId = location.state?.restaurantId || '';
   const orderId = location.state?.orderId || '';
   const tableNumber = location.state?.tableNumber || '';
 
-  const [orderStatus, setOrderStatus] = useState<keyof typeof STATUS_CONFIG>('NEW');
+  const [orderStatus, setOrderStatus] = useState<StatusKey>('NEW');
   const { socket, isConnected } = useSocket();
 
   useEffect(() => {
@@ -131,7 +123,7 @@ const OrderConfirmationPage = () => {
     return () => { socket.off('orderStatusChanged', handleStatusChanged); };
   }, [socket, isConnected, orderId]);
 
-  const cfg = STATUS_CONFIG[orderStatus] ?? STATUS_CONFIG.NEW;
+  const cfg = STATUS_STYLE[orderStatus] ?? STATUS_STYLE.NEW;
   const StatusIcon = cfg.icon;
 
   return (
@@ -151,28 +143,28 @@ const OrderConfirmationPage = () => {
               <div className="flex items-center gap-2 mb-1">
                 <div className={`w-2 h-2 rounded-full ${cfg.dot}`} />
                 <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                  Live Status
+                  {t('orderConfirmation.liveStatus')}
                 </span>
               </div>
               <h1 className={`text-xl font-black tracking-tight ${cfg.color}`}>
-                {cfg.title}
+                {t(cfg.titleKey)}
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
-                {cfg.subtitle}
+                {t(cfg.subtitleKey)}
               </p>
             </div>
           </div>
         </div>
 
         {/* Progress stepper */}
-        <OrderProgressStepper status={orderStatus} />
+        <OrderProgressStepper status={orderStatus} t={t} />
 
         {/* Order reference */}
         {orderNumber && (
           <div className="glass-panel rounded-[2rem] p-5 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
-                Order Ref
+                {t('orderConfirmation.orderRef')}
               </p>
               <p className="font-mono text-sm font-bold text-foreground truncate max-w-[200px]">
                 #{orderNumber.slice(-8).toUpperCase()}
@@ -192,15 +184,15 @@ const OrderConfirmationPage = () => {
                 <Star key={star} className="h-4 w-4 fill-amber-400 text-amber-400" />
               ))}
             </div>
-            <p className="font-bold text-foreground mb-1 text-sm">Enjoying your visit?</p>
+            <p className="font-bold text-foreground mb-1 text-sm">{t('orderConfirmation.enjoyingVisit')}</p>
             <p className="text-xs text-muted-foreground mb-4">
-              Tell us how we're doing — it helps a lot.
+              {t('orderConfirmation.feedbackHelps')}
             </p>
             <button
               onClick={() => navigate(`/feedback/${restaurantId}?orderId=${orderNumber}&returnUrl=${encodeURIComponent(`/menu/public/${restaurantId}${tableNumber ? `?table=${tableNumber}` : ''}`)}`)}
               className="w-full py-3 px-4 rounded-xl bg-amber-400/15 border border-amber-400/30 text-amber-600 dark:text-amber-400 font-black text-xs uppercase tracking-widest hover:bg-amber-400/25 transition-colors active:scale-95"
             >
-              Rate Your Experience
+              {t('orderConfirmation.rateExperience')}
             </button>
           </div>
         )}
@@ -210,7 +202,7 @@ const OrderConfirmationPage = () => {
           onClick={() => navigate(`/menu/public/${restaurantId}${tableNumber ? `?table=${tableNumber}` : ''}`)}
           className="w-full bg-foreground text-background font-black uppercase tracking-widest py-4 px-6 rounded-2xl shadow-xl transition-all active:scale-95 text-xs hover:opacity-90"
         >
-          Continue Browsing Menu
+          {t('orderConfirmation.continueBrowsing')}
         </button>
       </div>
     </div>
