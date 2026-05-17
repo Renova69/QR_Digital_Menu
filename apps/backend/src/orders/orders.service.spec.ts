@@ -9,6 +9,7 @@ import { FeatureService } from '../subscription/feature.service';
 
 const makeRestaurant = (overrides: Record<string, any> = {}) => ({
   id: 'rest-1',
+  isActive: true,
   tier: 'PROFESSIONAL',
   timezone: 'UTC',
   happyHourEnable: false,
