@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useOrders, OrderStatus } from '../../context/OrderContext';
 import { useSocket } from '../../context/SocketContext';
+import { useFeature } from '../../hooks/useFeature';
 
 function elapsedMinutes(createdAt: string): number {
   const diff = Date.now() - new Date(createdAt).getTime();
@@ -18,8 +20,16 @@ const HISTORY_HOURS = 24;
 export default function KitchenPage() {
   const { orders, updateOrderStatus } = useOrders();
   const { socket } = useSocket();
+  const navigate = useNavigate();
+  const canKds = useFeature('kds');
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+
+  useEffect(() => {
+    if (!canKds) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [canKds, navigate]);
 
   // Audio alert on new order
   useEffect(() => {

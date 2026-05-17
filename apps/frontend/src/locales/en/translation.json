@@ -99,6 +99,9 @@
                   "failedRemove":  "Failed to remove staff member",
                   "failedGenerateQr":  "Failed to generate device QR",
                   "failedRebond":  "Failed to generate re-bond QR",
+                  "staffCount":  "Staff members",
+                  "noRolesAvailable":  "Staff roles locked",
+                  "noRolesDesc":  "Upgrade to Professional to invite managers, or Enterprise for waiters and kitchen staff.",
                   "created":  {
                                   "title":  "Staff Account Created",
                                   "rebondTitle":  "Device Bonding QR",
@@ -735,5 +738,15 @@
                      "feedbackRecorded":  "Your feedback has been recorded.",
                      "appreciateTime":  "We appreciate you taking the time to help us improve.",
                      "continueBrowsing":  "Continue Browsing Menu"
-                 }
+                 },
+    "tierLocked":  {
+                      "upgrade":  "Upgrade",
+                      "analyticsTitle":  "Full Analytics locked",
+                      "analyticsDesc":  "Top items, peak hours, category breakdown, and guest feedback require Professional plan.",
+                      "kds":  "Kitchen Display requires Enterprise plan.",
+                      "pos":  "Point of Sale requires Enterprise plan.",
+                      "dayparting":  "Schedules disabled on this plan.",
+                      "customers":  "Customer login requires Professional plan.",
+                      "upselling":  "Upselling features require Professional plan."
+                  }
 }

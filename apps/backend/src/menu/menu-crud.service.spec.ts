@@ -163,7 +163,7 @@ describe('MenuCrudService', () => {
       const spy = jest.spyOn(DateTime, 'now').mockReturnValue(
         DateTime.fromISO('2026-01-14T10:00:00.000Z') as any,
       );
-      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ ...BASE_RESTAURANT, tier: 'PROFESSIONAL' });
       mockPrisma.menuCategory.findMany.mockResolvedValue([
         makeCategory({ availabilityType: 'ALWAYS' }),
         makeCategory({ id: 'cat-2', availabilityType: 'SCHEDULED', daysOfWeek: [1, 2], startTime: null, endTime: null }),
@@ -181,7 +181,7 @@ describe('MenuCrudService', () => {
       const spy = jest.spyOn(DateTime, 'now').mockReturnValue(
         DateTime.fromISO('2026-01-14T18:00:00.000Z') as any,
       );
-      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ ...BASE_RESTAURANT, tier: 'PROFESSIONAL' });
       mockPrisma.menuCategory.findMany.mockResolvedValue([
         makeCategory({ availabilityType: 'ALWAYS' }),
         makeCategory({ id: 'cat-2', availabilityType: 'SCHEDULED', daysOfWeek: [], startTime: '09:00', endTime: '17:00' }),
@@ -276,7 +276,7 @@ describe('MenuCrudService', () => {
     });
 
     it('returns featured items when trendingMode is MANUAL', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ trendingMode: 'MANUAL', id: 'rest-1' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ trendingMode: 'MANUAL', id: 'rest-1', tier: 'PROFESSIONAL' });
       mockPrisma.menuItem.findMany.mockResolvedValue([makeItem()]);
 
       const result = await service.getTrendingItems('rest-1');
@@ -288,7 +288,7 @@ describe('MenuCrudService', () => {
     });
 
     it('returns ordered items by popularity when trendingMode is AUTO', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ trendingMode: 'AUTO', id: 'rest-1' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ trendingMode: 'AUTO', id: 'rest-1', tier: 'PROFESSIONAL' });
       mockPrisma.orderItem.groupBy.mockResolvedValue([
         { menuItemId: 'item-2', _sum: { quantity: 10 } },
         { menuItemId: 'item-1', _sum: { quantity: 5 } },

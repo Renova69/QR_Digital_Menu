@@ -10,6 +10,9 @@ import { DashboardService } from './dashboard.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AuthUser } from '../auth/auth-user.decorator';
 import { PrismaService } from '../prisma/prisma.service';
+import { FeatureGuard } from '../subscription/feature.guard';
+import { RequireFeature } from '../subscription/require-feature.decorator';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
 
 @Controller('dashboard')
 export class DashboardController {
@@ -36,7 +39,8 @@ export class DashboardController {
     }
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @RequireFeature(FeatureFlag.ANALYTICS_BASIC)
   @Get('summary')
   async getSummary(
     @AuthUser() user: any,
@@ -46,7 +50,8 @@ export class DashboardController {
     return this.dashboardService.getSummary(restaurantId);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @RequireFeature(FeatureFlag.ANALYTICS_FULL)
   @Get('analytics')
   async getAnalytics(
     @AuthUser() user: any,

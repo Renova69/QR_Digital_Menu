@@ -1,13 +1,17 @@
 import { Injectable, Logger, ForbiddenException, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
+import { FeatureService } from '../subscription/feature.service';
 import { User, Prisma } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private featureService: FeatureService,
+  ) {}
 
   async findByEmail(email: string): Promise<User | null> {
     const normalizedEmail = email.toLowerCase().trim();
@@ -33,16 +37,16 @@ export class UsersService {
       where: { id: restaurantId },
       select: { tier: true },
     });
-    const tier = restaurant?.tier ?? 'FREE';
+    const tier = (restaurant?.tier ?? 'FREE') as string;
 
-    const staffLimit = (() => {
-      switch (tier) {
-        case 'PROFESSIONAL': return 5;
-        case 'ENTERPRISE': return Infinity;
-        default: return 1; // FREE and STARTER
-      }
-    })();
+    const allowedRoles = this.featureService.getAllowedStaffRoles(tier);
+    if (!allowedRoles.includes(data.role)) {
+      throw new ForbiddenException(
+        `Role ${data.role} is not available on the ${tier} plan. Upgrade to add staff members.`,
+      );
+    }
 
+    const staffLimit = this.featureService.getStaffLimit(tier);
     const currentCount = await this.prisma.user.count({
       where: { restaurantId, role: { in: ['WAITER', 'MANAGER', 'KITCHEN'] } },
     });

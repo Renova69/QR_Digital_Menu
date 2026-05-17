@@ -276,6 +276,18 @@ Source of truth: `CODING_ROADMAP.md`. Detailed per-phase plans under `.planning/
 - **CORS** — Backend allows all `.vercel.app` origins + `localhost` ports.
 - **Key files:** `main.ts`, `auth.controller.ts`, `CheckoutPage.tsx`, `api.ts`, `vercel.json`.
 
+**Shipped — Tier Enforcement Sweep Round 2 (May 17, 2026):**
+- **Backend gates closed** — 22 feature flags defined; ~5 were previously enforced. All remaining gaps closed.
+- **`feature.service.ts`** — `getAllowedStaffRoles(tier)` added: FREE/STARTER → `[]`, PROFESSIONAL → `['MANAGER']`, ENTERPRISE → `['MANAGER','WAITER','KITCHEN']`.
+- **`dashboard.controller.ts`** — `GET /dashboard/summary` gated with `@RequireFeature(ANALYTICS_BASIC)` (STARTER+); `GET /dashboard/analytics` gated with `@RequireFeature(ANALYTICS_FULL)` (PRO+).
+- **`payment.controller.ts`** — 6 authenticated routes (force-open, close, close-card, close-cash, sessions, history) gated with `@RequireFeature(PAYMENTS_STRIPE)`.
+- **`restaurants.controller.ts`** — 3 Stripe Connect routes (stripe/connect, stripe/status, stripe/disconnect) gated with `@RequireFeature(PAYMENTS_STRIPE)`.
+- **`users.service.ts`** — `createStaffMember` refactored: uses `FeatureService.getAllowedStaffRoles(tier)` for role-tier matrix enforcement; `FeatureService.getStaffLimit(tier)` replaces inline switch (single source of truth). `FeatureService` injected into constructor.
+- **`menu-crud.service.ts`** — DAYPARTING: `createCategory`/`updateCategory` strip schedule fields (forces `ALWAYS`) for non-PRO tiers; `filterByAvailability` treats SCHEDULED as ALWAYS on non-DAYPARTING tiers (safe after tier downgrade). UPSELLING: `getTrendingItems` returns `[]` for non-PRO; `getPublicMenuMeta` strips `perfectPairings` + trending fields for non-UPSELLING tiers.
+- **Frontend gates** — `AnalyticsView.tsx`: advanced charts (Top Items, Peak Hours, Category Breakdown, Top Tables, Feedback) wrapped in `{canFullAnalytics && ...}` with upgrade card for STARTER-. `PublicMenuPage.tsx`: `TrendingCarousel` + `perfectPairings` prop gated by `upselling`; `CustomerLoginModal` + sign-in section gated by `customers:auth`; `PaymentModal` gated by `payments:stripe`. `CheckoutPage.tsx`: `CustomerLoginModal` gated by `customers:auth`. `CategorySettingsModal.tsx`: schedule UI gated by `dayparting` with downgrade badge for stale SCHEDULED on non-PRO. `PosPage.tsx`/`KitchenPage.tsx`: early-return upgrade redirect for non-ENTERPRISE tiers. Staff settings role dropdown: `MANAGER` only on PRO, all roles on ENTERPRISE, locked card on FREE/STARTER.
+- **i18n** — 11 new keys across EN/BG/RO: `tierLocked.upgrade`, `tierLocked.analyticsTitle`, `tierLocked.analyticsDesc`, `tierLocked.kds`, `tierLocked.pos`, `tierLocked.dayparting`, `tierLocked.customers`, `tierLocked.upselling`, `staff.staffCount`, `staff.noRolesAvailable`, `staff.noRolesDesc`.
+- **Tests** — 454 total passing (up from 122). Fixed `users.service.spec.ts` (added `FeatureService` provider; updated role/tier combos to match `getAllowedStaffRoles` rules). Fixed `menu-crud.service.spec.ts` (added `tier: 'PROFESSIONAL'` to SCHEDULED-filter and trending mocks so service-layer tier gates pass).
+
 **Current focus — V3 Growth:**
 - **Phase 20 — Multi-location:** menu templates, bulk price updates, cross-location analytics.
 

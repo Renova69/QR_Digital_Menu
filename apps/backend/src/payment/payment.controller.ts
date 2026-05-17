@@ -15,6 +15,9 @@ import { PaymentHistoryQueryDto } from './dto/payment-history-query.dto';
 import { SkipThrottle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PaymentService } from './payment.service';
+import { FeatureGuard } from '../subscription/feature.guard';
+import { RequireFeature } from '../subscription/require-feature.decorator';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
 
 @Controller('payments')
 export class PaymentController {
@@ -34,7 +37,8 @@ export class PaymentController {
 
   @Post('session/force-open')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   forceOpenSession(
     @Body() body: { tableId: string; restaurantId: string },
   ) {
@@ -57,7 +61,8 @@ export class PaymentController {
 
   @Post('session/:token/close')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   closeSession(
     @Param('token') token: string,
     @Body() body: { restaurantId: string },
@@ -67,7 +72,8 @@ export class PaymentController {
 
   @Post('session/:token/close-card')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   closeSessionWithCard(
     @Param('token') token: string,
     @Body() body: { restaurantId: string },
@@ -77,7 +83,8 @@ export class PaymentController {
 
   @Post('session/:token/close-cash')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   closeSessionWithCash(
     @Param('token') token: string,
     @Body() body: { restaurantId: string },
@@ -86,7 +93,8 @@ export class PaymentController {
   }
 
   @Get('sessions/:restaurantId')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   getTableSessions(
     @Param('restaurantId') restaurantId: string,
     @Query('page') page?: string,
@@ -100,7 +108,8 @@ export class PaymentController {
   }
 
   @Get('history/:restaurantId')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   getPaymentHistory(
     @Param('restaurantId') restaurantId: string,
     @Query() query: PaymentHistoryQueryDto,

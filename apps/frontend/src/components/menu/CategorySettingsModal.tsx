@@ -7,7 +7,8 @@ import { useToast } from '../ui/toast';
 import { Category, AvailabilityType } from '../../types';
 import { useMenuContext } from '../../context/MenuContext';
 import { uploadCategoryImage } from '../../services/menuService';
-import { Clock, Calendar, Eye, EyeOff, Timer } from 'lucide-react';
+import { Clock, Calendar, Eye, EyeOff, Timer, Lock } from 'lucide-react';
+import { useFeature } from '../../hooks/useFeature';
 
 interface CategorySettingsModalProps {
   category: Category;
@@ -19,6 +20,7 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({ category, isOpen, onClose }) => {
   const { updateCategory } = useMenuContext();
+  const daypartingEnabled = useFeature('dayparting');
   const [availabilityType, setAvailabilityType] = useState<AvailabilityType>(category.availabilityType || 'ALWAYS');
   const [startTime, setStartTime] = useState(category.startTime || '09:00');
   const [endTime, setEndTime] = useState(category.endTime || '22:00');
@@ -95,17 +97,24 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({ ca
               <span className="text-xs font-bold uppercase tracking-tight">Always</span>
             </button>
 
-            <button
-              onClick={() => setAvailabilityType('SCHEDULED')}
-              className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all ${
-                availabilityType === 'SCHEDULED'
-                  ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm'
-                  : 'border-border bg-background text-muted-foreground hover:border-muted-foreground/30'
-              }`}
-            >
-              <Timer className="h-6 w-6 mb-2" />
-              <span className="text-xs font-bold uppercase tracking-tight">Schedule</span>
-            </button>
+            {daypartingEnabled ? (
+              <button
+                onClick={() => setAvailabilityType('SCHEDULED')}
+                className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all ${
+                  availabilityType === 'SCHEDULED'
+                    ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm'
+                    : 'border-border bg-background text-muted-foreground hover:border-muted-foreground/30'
+                }`}
+              >
+                <Timer className="h-6 w-6 mb-2" />
+                <span className="text-xs font-bold uppercase tracking-tight">Schedule</span>
+              </button>
+            ) : (
+              <div className="flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-dashed border-border text-muted-foreground/40 cursor-not-allowed select-none">
+                <Lock className="h-6 w-6 mb-2" />
+                <span className="text-xs font-bold uppercase tracking-tight">Schedule</span>
+              </div>
+            )}
 
             <button
               onClick={() => setAvailabilityType('HIDDEN')}
@@ -120,7 +129,14 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({ ca
             </button>
           </div>
 
-          {availabilityType === 'SCHEDULED' && (
+          {availabilityType === 'SCHEDULED' && !daypartingEnabled && (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-3">
+              <Lock className="h-4 w-4 text-amber-600 flex-shrink-0" />
+              <p className="text-sm text-amber-700 font-medium">Schedules are disabled on this plan. <a href="/pricing" className="underline">Upgrade to Professional</a> to use dayparting.</p>
+            </div>
+          )}
+
+          {availabilityType === 'SCHEDULED' && daypartingEnabled && (
             <div className="space-y-6 animate-in slide-in-from-top-2 duration-300">
               {/* Days Selection */}
               <div className="space-y-3">

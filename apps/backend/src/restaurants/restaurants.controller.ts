@@ -130,16 +130,22 @@ export class RestaurantsController {
     return this.restaurantsService.translateAll(id, req.user.id);
   }
 
+  @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
+  @UseGuards(FeatureGuard)
   @Post(':id/stripe/connect')
   generateConnectLink(@Param('id') id: string, @Request() req: any) {
     return this.restaurantsService.generateConnectLink(id, req.user.id);
   }
 
+  @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
+  @UseGuards(FeatureGuard)
   @Get(':id/stripe/status')
   getStripeStatus(@Param('id') id: string, @Request() req: any) {
     return this.restaurantsService.getStripeStatus(id, req.user.id);
   }
 
+  @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
+  @UseGuards(FeatureGuard)
   @Post(':id/stripe/disconnect')
   disconnectStripe(@Param('id') id: string, @Request() req: any) {
     return this.restaurantsService.disconnectStripe(id, req.user.id);

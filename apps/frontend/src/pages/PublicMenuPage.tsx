@@ -52,6 +52,8 @@ const PublicMenuPage = () => {
   const paymentsEnabled = hasTierFeature(tier, 'payments:stripe');
   const callWaiterEnabled = hasTierFeature(tier, 'orders:call-waiter');
   const languagesEnabled = tier !== 'FREE';
+  const upsellEnabled = hasTierFeature(tier, 'upselling');
+  const customersAuthEnabled = hasTierFeature(tier, 'customers:auth');
   const [activeDietTags, setActiveDietTags] = useState<string[]>([]);
   const [excludedAllergens, setExcludedAllergens] = useState<string[]>([]);
 
@@ -390,7 +392,7 @@ const PublicMenuPage = () => {
             ) : (
               <>
                 {/* Trending Carousel */}
-                {restaurantId && (
+                {upsellEnabled && restaurantId && (
                   <div className="mt-8">
                     <TrendingCarousel
                       restaurantId={restaurantId}
@@ -527,9 +529,9 @@ const PublicMenuPage = () => {
                                   (selectedLang && item.translations?.[selectedLang]?.description) ||
                                   item.description,
                               };
-                              const pairings = allLoadedItems.filter((i: any) =>
-                                item.relatedItemIds?.includes(i.id),
-                              );
+                              const pairings = upsellEnabled
+                                ? allLoadedItems.filter((i: any) => item.relatedItemIds?.includes(i.id))
+                                : [];
                               return (
                                 <ItemWithOptions
                                   key={item.id}
@@ -594,7 +596,7 @@ const PublicMenuPage = () => {
               </button>
               )}
 
-              {user ? (
+              {customersAuthEnabled && (user ? (
                 <div className="flex items-center gap-0.5">
                   <button
                     onClick={() =>
@@ -622,7 +624,7 @@ const PublicMenuPage = () => {
                 >
                   {t("publicMenu.signIn", "Sign In")}
                 </button>
-              )}
+              ))}
             </div>
 
             {/* RIGHT GROUP: Bill + Cart */}
@@ -709,13 +711,15 @@ const PublicMenuPage = () => {
         </div>
       )}
 
-      <CustomerLoginModal
-        isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
-        returnTo={location.pathname + location.search}
-      />
+      {customersAuthEnabled && (
+        <CustomerLoginModal
+          isOpen={isLoginModalOpen}
+          onClose={() => setIsLoginModalOpen(false)}
+          returnTo={location.pathname + location.search}
+        />
+      )}
 
-      {isPaymentModalOpen && sessionToken && restaurantId && (
+      {isPaymentModalOpen && sessionToken && restaurantId && paymentsEnabled && (
         <PaymentModal
           sessionToken={sessionToken}
           onClose={() => setIsPaymentModalOpen(false)}

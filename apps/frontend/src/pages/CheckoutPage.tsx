@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { formatInlineDual, formatEuro, formatBgn } from "../lib/currency";
 import { Toggle } from "../components/ui/Toggle";
+import { hasTierFeature } from "../hooks/useFeature";
 
 const CheckoutPage = () => {
   const { user } = useAuth();
@@ -20,6 +21,7 @@ const CheckoutPage = () => {
   const location = useLocation();
   const restaurantId = location.state?.restaurantId;
   const tier = location.state?.tier as string | undefined;
+  const customersAuthEnabled = hasTierFeature(tier, 'customers:auth');
   const { t } = useTranslation();
 
   const [customerName, setCustomerName] = useState("");
@@ -515,11 +517,13 @@ const CheckoutPage = () => {
         </button>
       </form>
 
-      <CustomerLoginModal
-        isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
-        returnTo={location.pathname + location.search}
-      />
+      {customersAuthEnabled && (
+        <CustomerLoginModal
+          isOpen={isLoginModalOpen}
+          onClose={() => setIsLoginModalOpen(false)}
+          returnTo={location.pathname + location.search}
+        />
+      )}
     </div>
   );
 };

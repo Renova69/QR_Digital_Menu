@@ -7,8 +7,9 @@ import RestaurantContext from '../../context/RestaurantContext';
 import { useAnalytics } from '../../hooks/useAnalytics';
 import { getFeedbackSummary } from '../../lib/api';
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, TrendingDown, ShoppingCart, DollarSign, BarChart3, CheckCircle, Star, ExternalLink, Calendar, Download } from 'lucide-react';
+import { TrendingUp, TrendingDown, ShoppingCart, DollarSign, BarChart3, CheckCircle, Star, ExternalLink, Calendar, Download, Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useFeature } from '../../hooks/useFeature';
 
 const PERIOD_KEYS: Record<number, string> = {
   7: 'analytics.days7',
@@ -24,7 +25,8 @@ const AnalyticsView = () => {
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const { t } = useTranslation();
-  
+  const canFullAnalytics = useFeature('analytics:full');
+
   const { data, isLoading, error } = useAnalytics(activeRestaurant?.id, period, startDate || undefined, endDate || undefined);
   const { data: feedbackData } = useQuery({
     queryKey: ['feedbackSummary', activeRestaurant?.id],
@@ -187,6 +189,22 @@ const AnalyticsView = () => {
         />
       </div>
 
+      {/* Analytics Full upgrade banner */}
+      {!canFullAnalytics && (
+        <div className="glass-panel p-6 rounded-[2rem] border-accent/20 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Lock className="w-5 h-5 text-accent flex-shrink-0" />
+            <div>
+              <p className="text-sm font-black uppercase tracking-widest text-foreground">{t('tierLocked.analyticsTitle', 'Full Analytics locked')}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t('tierLocked.analyticsDesc', 'Top items, peak hours, category breakdown, and guest feedback require Professional plan.')}</p>
+            </div>
+          </div>
+          <a href="/pricing" className="px-4 py-2 bg-accent text-accent-foreground text-[10px] font-black uppercase tracking-widest rounded-xl hover:opacity-90 transition-opacity whitespace-nowrap flex-shrink-0">
+            {t('tierLocked.upgrade', 'Upgrade')}
+          </a>
+        </div>
+      )}
+
       {/* Revenue Trend Chart */}
       <div className="glass-panel p-8 rounded-[2.5rem] border-white/5 relative overflow-hidden group">
         <div className="absolute top-0 right-0 p-10 opacity-[0.03] pointer-events-none group-hover:scale-110 transition-transform duration-1000">
@@ -239,7 +257,7 @@ const AnalyticsView = () => {
       </div>
 
       {/* Two-column layout: Top Items + Peak Hours */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {canFullAnalytics && <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="glass-panel p-8 rounded-[2.5rem] border-white/5">
           <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground mb-10">{t('analytics.popularSelections')}</h3>
           {data.topItems.length > 0 ? (
@@ -295,10 +313,9 @@ const AnalyticsView = () => {
             <EmptyState message={t('analytics.noOrderData')} />
           )}
         </div>
-      </div>
+      </div>}
 
-      {/* Two-column layout: Category Breakdown + Top Tables */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {canFullAnalytics && <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="glass-panel p-8 rounded-[2.5rem] border-white/5">
           <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground mb-10">{t('analytics.categoryBreakdown', 'Category Breakdown')}</h3>
           {data.categoryBreakdown && data.categoryBreakdown.length > 0 ? (
@@ -342,11 +359,10 @@ const AnalyticsView = () => {
             <EmptyState message={t('analytics.noTableData', 'No table data')} />
           )}
         </div>
-      </div>
-
+      </div>}
 
       {/* Feedback & Satisfaction */}
-      {feedbackData && (
+      {canFullAnalytics && feedbackData && (
         <div className="glass-panel p-8 rounded-[2.5rem] border-white/5">
           <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground mb-10">{t('analytics.guestSatisfaction')}</h3>
           {feedbackData.totalFeedbacks > 0 ? (

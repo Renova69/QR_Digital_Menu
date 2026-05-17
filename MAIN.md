@@ -1,7 +1,7 @@
 # QR Menu App — Master Documentation
 
-> **Last Updated:** May 16, 2026
-> **Status:** V2.5 Complete — V3 Growth Features (Stripe Payments ✅, Live Table View ✅, OCR Import ✅, Waiter POS ✅, Staff Roles & RBAC ✅) — Security Hardening ✅ (httpOnly cookies, CSRF, same-origin proxy, CSP) — Public Menu Mobile UX ✅ (top bar, filters, dual currency, horizontal cards, category pills) — Bug Fixes & Polish ✅ (PR#3 findings, code review fixes, dead code cleanup, payments investigation) — Security & Bug Fixes ✅ (CORS wildcard, magic-link removed, loyalty emails, CSV export, TS strict mode) — Infrastructure & Polish ✅ (API versioning /api/v1, Prisma circuit breaker, order progress stepper, QR print templates, 122 tests) — SaaS Tiering V2 ✅ (4-tier FREE/STARTER/PRO/ENTERPRISE, FeatureGuard, Stripe Billing, PricingPage, BillingView, demo accounts) — **Production Deployment ✅ (Vercel frontend + Cloud Run backend, cross-origin cookies, CSRF fixed)**
+> **Last Updated:** May 17, 2026
+> **Status:** V2.5 Complete — V3 Growth Features (Stripe Payments ✅, Live Table View ✅, OCR Import ✅, Waiter POS ✅, Staff Roles & RBAC ✅) — Security Hardening ✅ (httpOnly cookies, CSRF, same-origin proxy, CSP) — Public Menu Mobile UX ✅ (top bar, filters, dual currency, horizontal cards, category pills) — Bug Fixes & Polish ✅ (PR#3 findings, code review fixes, dead code cleanup, payments investigation) — Security & Bug Fixes ✅ (CORS wildcard, magic-link removed, loyalty emails, CSV export, TS strict mode) — Infrastructure & Polish ✅ (API versioning /api/v1, Prisma circuit breaker, order progress stepper, QR print templates, 122 tests) — SaaS Tiering V2 ✅ (4-tier FREE/STARTER/PRO/ENTERPRISE, FeatureGuard, Stripe Billing, PricingPage, BillingView, demo accounts) — Production Deployment ✅ (Vercel frontend + Cloud Run backend, cross-origin cookies, CSRF fixed) — **Tier Enforcement Sweep Round 2 ✅ (all 22 feature flags enforced, 454 tests passing)**
 > **Stack:** Turborepo Monorepo — React 18 + NestJS 11 + Prisma 6 + Neon (Serverless PostgreSQL)
 
 ---
@@ -906,3 +906,38 @@ Frontend on Vercel (`vercel.app`) and backend on Cloud Run (`run.app`) are diffe
 | **Planning docs** | `.planning/` |
 | **Design system** | `.agent/design-system/qr-menu-saas/MASTER.md` |
 | **Coding roadmap** | `CODING_ROADMAP.md` |
+
+---
+
+## 22. Tier Enforcement Sweep Round 2 (May 17, 2026)
+
+Closes all remaining gaps between `TIER_FEATURES` definitions and actual enforcement. Every flag in `FeatureService` is now honored at both controller-decorator level (backend) and UI-render level (frontend).
+
+### Backend Changes
+
+| File | Change |
+|------|--------|
+| `feature.service.ts` | `getAllowedStaffRoles(tier)` — FREE/STARTER → `[]`, PRO → `['MANAGER']`, ENT → all roles |
+| `dashboard.controller.ts` | `GET /summary` gated `ANALYTICS_BASIC`; `GET /analytics` gated `ANALYTICS_FULL` |
+| `payment.controller.ts` | 6 authenticated routes gated `PAYMENTS_STRIPE` |
+| `restaurants.controller.ts` | 3 Stripe Connect routes gated `PAYMENTS_STRIPE` |
+| `users.service.ts` | Role-tier matrix via `getAllowedStaffRoles`; `getStaffLimit` replaces inline switch |
+| `menu-crud.service.ts` | DAYPARTING: strip schedule fields on write for non-PRO; treat SCHEDULED as ALWAYS in `filterByAvailability`. UPSELLING: return `[]` from `getTrendingItems`; strip pairings from `getPublicMenuMeta` |
+
+### Frontend Changes
+
+| File | Change |
+|------|--------|
+| `AnalyticsView.tsx` | Advanced charts (Top Items, Peak Hours, Category, Tables, Feedback) gated `analytics:full`; upgrade card shown to STARTER- |
+| `PublicMenuPage.tsx` | `TrendingCarousel` + pairings gated `upselling`; `CustomerLoginModal` + sign-in gated `customers:auth`; `PaymentModal` gated `payments:stripe` |
+| `CheckoutPage.tsx` | `CustomerLoginModal` gated `customers:auth` |
+| `CategorySettingsModal.tsx` | Schedule UI gated `dayparting`; downgrade badge for stale SCHEDULED categories |
+| `PosPage.tsx` | Early-return upgrade redirect if tier lacks `pos` flag |
+| `KitchenPage.tsx` | Early-return upgrade redirect if tier lacks `kds` flag |
+| `SettingsView.tsx` (staff tab) | Role dropdown filtered by `canRbac`/`canPos`/`canKds`; staff count display; locked card on FREE/STARTER |
+
+### i18n (EN/BG/RO)
+
+11 new keys: `tierLocked.upgrade`, `tierLocked.analyticsTitle`, `tierLocked.analyticsDesc`, `tierLocked.kds`, `tierLocked.pos`, `tierLocked.dayparting`, `tierLocked.customers`, `tierLocked.upselling`, `staff.staffCount`, `staff.noRolesAvailable`, `staff.noRolesDesc`
+
+### Test Count: 454 passing (up from 122)
