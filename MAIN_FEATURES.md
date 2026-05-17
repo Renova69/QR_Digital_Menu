@@ -188,8 +188,8 @@ sequenceDiagram
 | **Layout split: AppLayout vs PublicLayout** | Customer routes (menu, checkout, confirmation, feedback) get no header chrome — full viewport, native-feel mobile experience. Dashboard routes get full app shell. Media-query-driven cart animation (slide-up on mobile, slide-right on desktop) with zero JS detection. |
 | **BG as i18n fallback** | Bulgarian is the default language (`fallbackLng: 'bg'`) since the primary market is Bulgarian restaurants. English and Romanian are secondary. English was moved from fallback to secondary in the May 5, 2026 overhaul. |
 | **Dual auth strategy** | JWT for dashboard owners, Email OTP for customers. Customers never create passwords. OTP codes are bcrypt-hashed (10 rounds), 10-min expiry, 60s rate-limit per email. OTP endpoint locked for 10 min after 5 failed attempts (brute-force protection). |
-| **httpOnly cookie + CSRF** | JWT stored in httpOnly cookie (`sameSite: 'lax'`, `secure` in production) — not localStorage. CSRF double-submit cookie pattern on all state-changing endpoints. Bearer header fallback for transition period. Eliminates XSS token theft vector. |
-| **Same-origin Vite proxy** | Frontend uses `/api` baseURL (not cross-origin). Vite dev server proxies `/api` and `/socket.io` to backend. Prevents cross-origin cookie blocking — `localhost:3001` and `192.168.0.3:3000` are different sites, `sameSite: 'lax'` blocks cross-site AJAX cookies. |
+| **httpOnly cookie + CSRF** | JWT stored in httpOnly cookie (`sameSite: 'none'` in production with `secure: true`, `sameSite: 'lax'` in dev) — not localStorage. CSRF double-submit cookie pattern on all state-changing endpoints. Bearer header fallback for transition period. Eliminates XSS token theft vector. |
+| **Vite proxy (dev) / Cross-origin (prod)** | Dev: frontend uses `/api/v1` baseURL (same-origin via Vite proxy). Production (Vercel → Cloud Run): cross-origin with `VITE_API_URL` env, `sameSite: 'none'` cookies + CORS. `COOKIE_SAMESITE` env-driven, defaults to `'none'` in production. |
 | **No customer password system** | The `User` model has a nullable `password` field. Customers created via OTP get no password — they authenticate exclusively through OTP or Google OAuth. Owners have hashed passwords. |
 | **POS — third layout with isolated state** | Waiter POS uses `PosLayout` (zero chrome, full viewport) and `PosContext` (in-memory only, ephemeral). Completely isolated from `CartContext` — POS cart state never leaks into the customer ordering flow. `submitted: boolean` flag on `PosCartItem` enables history display + pending-only submission without schema changes. |
 
@@ -203,9 +203,9 @@ sequenceDiagram
 
 **How it works:**
 - **JWT Strategy** (`apps/backend/src/auth/jwt.strategy.ts`): Reads token from httpOnly cookie (`request.cookies.token`) first, falls back to `Authorization: Bearer` header for transition compatibility. Validates signature with `JWT_SECRET`, looks up user by `payload.sub`. Throws `UnauthorizedException` if user not found.
-- **Token Storage:** httpOnly cookie set by server on login/register/OTP/OAuth: `{ httpOnly: true, secure: NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 86400000 }`. Frontend never touches token — `AuthContext` reads user via `/auth/me`, cookie sent automatically via `withCredentials: true`.
+- **Token Storage:** httpOnly cookie set by server on login/register/OTP/OAuth: `{ httpOnly: true, secure: NODE_ENV === 'production', sameSite: COOKIE_SAMESITE, path: '/', maxAge: 86400000 }`. `COOKIE_SAMESITE` defaults to `'none'` in production (cross-origin Vercel → Cloud Run), `'lax'` in dev. Overridable via env var for same-origin deploys. Frontend never touches token — `AuthContext` reads user via `/auth/me`, cookie sent automatically via `withCredentials: true`.
 - **CSRF Protection:** Double-submit cookie pattern. `GET /api/auth/csrf-token` returns `{ csrfToken }` + sets readable `csrf-token` cookie. All POST/PATCH/DELETE/PUT require `X-CSRF-Token` header matching cookie value. Skipped in dev mode + Stripe webhook path.
-- **Same-origin proxy:** Frontend uses `/api` baseURL (same-origin), Vite proxies to backend. Eliminates cross-origin cookie blocking (localhost:3001 ≠ 192.168.0.3:3000 → `sameSite: 'lax'` blocks cookies on cross-site AJAX).
+- **Auth transport (dev vs prod):** Dev uses `/api/v1` baseURL (same-origin via Vite proxy, `sameSite: 'lax'`). Production uses `VITE_API_URL` env (cross-origin Vercel → Cloud Run, `sameSite: 'none'` + `secure: true`). `api.ts` auto-selects baseURL based on environment.
 - **Local Strategy** (`apps/backend/src/auth/local.strategy.ts`): Uses email as username field. `validate()` calls `AuthService.validateUser()` which checks bcrypt-hashed password. Specific error messages: "No account found with this email" (404) vs "Incorrect password" (401).
 - **Google Strategy** (`apps/backend/src/auth/google.strategy.ts`): Scopes profile + email. `validate()` returns `{ googleId, email, firstName, lastName }`. `AuthService.validateGoogleUser()` auto-creates user with OWNER role if not found; generates random 8-char password.
 - **Email OTP** (`apps/backend/src/auth/auth.service.ts:sendOtp/verifyOtp`): `sendOtp` rate-limits to 60s/email (returns 429), deletes previous unused tokens, generates 6-digit code, bcrypt-hashes it, stores in `VerificationToken` with 10-min expiry. Delivers via Resend API. Brute-force protection: 5 failed attempts → 10-min account lockout (`lockedUntil`). `devCode` only returned when `NODE_ENV !== 'production'` AND `RESEND_API_KEY` absent. `verifyOtp` checks code with bcrypt, marks token used, resets attempts on success, auto-creates CUSTOMER user if new, sets httpOnly cookie, returns `{ token, user, isNew }`.
@@ -1775,7 +1775,7 @@ Backend validates credentials
 JWT issued: { email, sub: userId }, 1-day expiry
     │
     ▼
-Backend sets httpOnly cookie (sameSite=lax, secure in production)
+Backend sets httpOnly cookie (sameSite=none in production with secure=true, sameSite=lax in dev)
     │ Frontend sends cookie automatically via withCredentials: true
     │ Bearer header fallback for transition period
     ▼
@@ -1796,10 +1796,10 @@ Response returned
 |---------|---------------|----------|
 | **Rate Limiting** | Per-endpoint throttles: OTP 10/60s, login 5/60s, public menu 60/60s, health check skipped | `auth.controller.ts`, `public-menu.controller.ts`, `menu.controller.ts` |
 | **Password Hashing** | bcrypt with 10 salt rounds | `auth.service.ts` — `register()`, `sendOtp()` |
-| **JWT httpOnly Cookie** | Token stored in httpOnly cookie (`sameSite: 'lax'`, `secure` in production, 1-day expiry). Never exposed to JS. | `auth.controller.ts`, `auth.service.ts`, `jwt.strategy.ts` |
+| **JWT httpOnly Cookie** | Token stored in httpOnly cookie (`sameSite: 'none'` in production with `secure: true`, `sameSite: 'lax'` in dev, 1-day expiry). Never exposed to JS. | `auth.controller.ts`, `auth.service.ts`, `jwt.strategy.ts` |
 | **CSRF Protection** | Double-submit cookie pattern. `GET /api/auth/csrf-token` issues token. All POST/PATCH/DELETE/PUT require `X-CSRF-Token` header matching `csrf-token` cookie. Skipped in dev + Stripe webhook. | `main.ts` CSRF middleware, `api.ts` CSRF interceptor |
 | **CSP Headers** | Helmet with strict CSP: `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' ws: wss:; frame-src https://js.stripe.com` | `main.ts` |
-| **Same-Origin Proxy** | Frontend uses `/api/v1` baseURL (same-origin). Vite proxies `/api/*` to backend. Prevents cross-origin cookie blocking. | `vite.config.js`, `api.ts` |
+| **Auth Transport** | Dev: same-origin Vite proxy (`/api/v1` baseURL, `sameSite: 'lax'`). Production: cross-origin (`VITE_API_URL` env, `sameSite: 'none'` + `secure: true`). CSRF cookie also cross-origin compatible. | `vite.config.js`, `api.ts`, `main.ts`, `auth.controller.ts` |
 | **OTP Rate Limiting** | 60-second cooldown per email (429 response) | `auth.service.ts` — `sendOtp()` |
 | **OTP Expiry** | 10-minute TTL, code bcrypt-hashed, token marked `usedAt` | `auth.service.ts` — `sendOtp()`, `verifyOtp()` |
 | **OTP Brute-Force** | 5 failed attempts → 10-min lockout (`lockedUntil` field). Successful verify resets counter. | `auth.service.ts` — `verifyOtp()` |
@@ -1822,7 +1822,7 @@ All previously identified security gaps were resolved in Phase 21 (Security Hard
 
 | Gap | Severity | Resolution |
 |-----|----------|------------|
-| JWT in localStorage | Medium | **Resolved** — JWT now in httpOnly cookie (`sameSite: 'lax'`, `secure` in production). `jwt.strategy.ts` reads cookie-first, Bearer fallback. |
+| JWT in localStorage | Medium | **Resolved** — JWT now in httpOnly cookie (`sameSite: 'none'` in production with `secure: true`, `sameSite: 'lax'` in dev). `jwt.strategy.ts` reads cookie-first, Bearer fallback. |
 | No CSRF protection | Medium | **Resolved** — Double-submit cookie pattern on all POST/PATCH/DELETE/PUT. `GET /api/auth/csrf-token` issues token. Skipped in dev + Stripe webhook. |
 | No CSP headers | Medium | **Resolved** — Helmet middleware with strict CSP: `default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' ws: wss:; frame-src https://js.stripe.com` |
 | OTP brute-force vulnerability | High | **Resolved** — 5 failed attempts → 10-min lockout. `VerificationToken.attempts` + `lockedUntil` fields with `@@index([lockedUntil])`. |
