@@ -81,6 +81,8 @@ model Restaurant {
   stripeSubscriptionId      String?
   stripePriceId             String?
   tierUpdatedAt             DateTime?
+  forceTier                 SubscriptionTier?
+  isActive                  Boolean             @default(true)
   assistanceRequests        AssistanceRequest[]
   deviceEnrollmentTokens    DeviceEnrollmentToken[]
   orders                    Order[]
@@ -296,6 +298,7 @@ enum UserRole {
   KITCHEN
   STAFF
   CUSTOMER
+  SUPER_ADMIN
 }
 
 enum Currency {
