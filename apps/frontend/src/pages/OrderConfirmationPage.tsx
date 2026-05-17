@@ -3,17 +3,19 @@ import { useState, useEffect } from 'react';
 import { Star, ChefHat, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 
-const STEPS = ['Placed', 'In Kitchen', 'Served'] as const;
+const STEPS = ['Placed', 'In Kitchen', 'On its way!'] as const;
 
 const STATUS_STEP: Record<string, number> = {
-  NEW: 0,
-  IN_PROGRESS: 1,
-  SERVED: 2,
+  NEW: 1,
+  IN_PROGRESS: 2,
+  SERVED: 3,
+  COMPLETED: 3,
 };
 
 function OrderProgressStepper({ status }: { status: string }) {
   if (status === 'CANCELED') return null;
-  const active = STATUS_STEP[status] ?? 0;
+  const active = STATUS_STEP[status] ?? 1;
+  const allDone = active >= STEPS.length;
   return (
     <div className="glass-panel rounded-[2rem] p-5">
       <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4">
@@ -21,8 +23,8 @@ function OrderProgressStepper({ status }: { status: string }) {
       </p>
       <div className="flex items-center">
         {STEPS.map((label, idx) => {
-          const done = idx < active;
-          const current = idx === active;
+          const done = allDone || idx < active;
+          const current = !allDone && idx === active;
           return (
             <div key={label} className="flex-1 flex flex-col items-center relative">
               {idx < STEPS.length - 1 && (
@@ -84,8 +86,17 @@ const STATUS_CONFIG = {
     color: 'text-emerald-400',
     bg: 'bg-emerald-400/10',
     border: 'border-emerald-400/20',
-    title: 'Served — Enjoy!',
-    subtitle: 'Your order has arrived. Bon appétit!',
+    title: 'Coming Any Second!',
+    subtitle: 'Your order is on its way — almost there!',
+    dot: 'bg-emerald-400 animate-pulse',
+  },
+  COMPLETED: {
+    icon: CheckCircle2,
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-400/10',
+    border: 'border-emerald-400/20',
+    title: 'Enjoy Your Meal!',
+    subtitle: 'Your order is complete. Bon appétit!',
     dot: 'bg-emerald-400',
   },
   CANCELED: {
@@ -186,7 +197,7 @@ const OrderConfirmationPage = () => {
               Tell us how we're doing — it helps a lot.
             </p>
             <button
-              onClick={() => navigate(`/feedback/${restaurantId}?orderId=${orderNumber}`)}
+              onClick={() => navigate(`/feedback/${restaurantId}?orderId=${orderNumber}&returnUrl=${encodeURIComponent(`/menu/public/${restaurantId}${tableNumber ? `?table=${tableNumber}` : ''}`)}`)}
               className="w-full py-3 px-4 rounded-xl bg-amber-400/15 border border-amber-400/30 text-amber-600 dark:text-amber-400 font-black text-xs uppercase tracking-widest hover:bg-amber-400/25 transition-colors active:scale-95"
             >
               Rate Your Experience
@@ -195,20 +206,12 @@ const OrderConfirmationPage = () => {
         )}
 
         {/* Navigation */}
-        <div className="space-y-3">
-          <button
-            onClick={() => navigate(`/menu/public/${restaurantId}${tableNumber ? `?table=${tableNumber}` : ''}`)}
-            className="w-full bg-foreground text-background font-black uppercase tracking-widest py-4 px-6 rounded-2xl shadow-xl transition-all active:scale-95 text-xs hover:opacity-90"
-          >
-            Continue Browsing Menu
-          </button>
-          <button
-            onClick={() => navigate('/')}
-            className="w-full bg-transparent border border-border text-muted-foreground font-bold py-3 px-6 rounded-2xl transition-all text-[11px] uppercase tracking-widest hover:bg-secondary active:scale-95"
-          >
-            Back to Home
-          </button>
-        </div>
+        <button
+          onClick={() => navigate(`/menu/public/${restaurantId}${tableNumber ? `?table=${tableNumber}` : ''}`)}
+          className="w-full bg-foreground text-background font-black uppercase tracking-widest py-4 px-6 rounded-2xl shadow-xl transition-all active:scale-95 text-xs hover:opacity-90"
+        >
+          Continue Browsing Menu
+        </button>
       </div>
     </div>
   );

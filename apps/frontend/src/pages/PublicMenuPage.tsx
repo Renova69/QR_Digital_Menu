@@ -54,6 +54,7 @@ const PublicMenuPage = () => {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const langFetchId = useRef(0);
 
   const toggleDietTag = (tag: string) => {
     setActiveDietTags((prev) =>
@@ -78,17 +79,29 @@ const PublicMenuPage = () => {
     items: Array.isArray(loadedItemsMap[cat.id]) ? (loadedItemsMap[cat.id] as any[]) : [],
   })) ?? [];
 
-  // Load all categories for a given lang; called on initial load and lang change
-  const loadAllCategoryItems = (categories: any[], lang: string | undefined, cancelled: { v: boolean }) => {
-    // Mark all as loading
-    setLoadedItemsMap(Object.fromEntries(categories.map((c: any) => [c.id, null])));
-    // Fire requests in parallel, update state as each resolves
+  // Load all categories for a given lang; called on initial load and lang change.
+  // resetFirst=true (initial load) wipes to null (shows skeletons).
+  // resetFirst=false (lang switch) keeps existing items visible while translations load.
+  const loadAllCategoryItems = (categories: any[], lang: string | undefined, cancelled: { v: boolean }, resetFirst = true) => {
+    langFetchId.current += 1;
+    const myFetchId = langFetchId.current;
+    if (resetFirst) {
+      setLoadedItemsMap(Object.fromEntries(categories.map((c: any) => [c.id, null])));
+    }
     categories.forEach(async (cat: any) => {
+      const stale = () => cancelled.v || langFetchId.current !== myFetchId;
       try {
         const items = await getCategoryItems(restaurantId!, cat.id, lang);
-        if (!cancelled.v) setLoadedItemsMap((prev) => ({ ...prev, [cat.id]: items }));
+        if (!stale()) setLoadedItemsMap((prev) => ({ ...prev, [cat.id]: items }));
       } catch {
-        if (!cancelled.v) setLoadedItemsMap((prev) => ({ ...prev, [cat.id]: [] }));
+        if (stale()) return;
+        // On translation failure, fall back to default-language items
+        try {
+          const fallback = await getCategoryItems(restaurantId!, cat.id, undefined);
+          if (!stale()) setLoadedItemsMap((prev) => ({ ...prev, [cat.id]: fallback }));
+        } catch {
+          if (!stale()) setLoadedItemsMap((prev) => ({ ...prev, [cat.id]: [] }));
+        }
       }
     });
   };
@@ -246,7 +259,7 @@ const PublicMenuPage = () => {
     // Re-fetch all category items with the new language
     if (menuMeta?.categories?.length && restaurantId) {
       const cancelled = { v: false };
-      loadAllCategoryItems(menuMeta.categories, code, cancelled);
+      loadAllCategoryItems(menuMeta.categories, code, cancelled, false);
     }
   };
 
@@ -400,6 +413,46 @@ const PublicMenuPage = () => {
                     const categoryItems = loadedItemsMap[category.id];
                     const isItemsLoading = categoryItems === null || categoryItems === undefined;
 
+                    // Compute filtered items at map level so we can suppress the whole category during search
+                    const filteredItems = isItemsLoading ? [] : (() => {
+                      let result = categoryItems as any[];
+                      if (searchQuery.trim()) {
+                        const q = searchQuery.toLowerCase();
+                        result = result.filter((item: any) => {
+                          if (item.name.toLowerCase().includes(q)) return true;
+                          if ((item.description ?? '').toLowerCase().includes(q)) return true;
+                          if (selectedLang && item.translations?.[selectedLang]) {
+                            const tr = item.translations[selectedLang];
+                            if ((tr.name ?? '').toLowerCase().includes(q)) return true;
+                            if ((tr.description ?? '').toLowerCase().includes(q)) return true;
+                          }
+                          return false;
+                        });
+                      }
+                      if (activeDietTags.length > 0) {
+                        result = result.filter((item: any) =>
+                          activeDietTags.every((tag) =>
+                            [...(item.allergens ?? []), ...(item.dietaryTags ?? [])].includes(tag),
+                          ),
+                        );
+                      }
+                      if (excludedAllergens.length > 0) {
+                        result = result.filter((item: any) =>
+                          !excludedAllergens.some((allergen) =>
+                            (item.allergens ?? []).some(
+                              (a: string) => a.toLowerCase() === allergen.toLowerCase(),
+                            ),
+                          ),
+                        );
+                      }
+                      return result;
+                    })();
+
+                    // During search, skip entire category (heading + items) when no matches
+                    if (!isItemsLoading && searchQuery.trim() && filteredItems.length === 0) {
+                      return null;
+                    }
+
                     return (
                       <div
                         key={category.id}
@@ -438,91 +491,41 @@ const PublicMenuPage = () => {
                         )}
 
                         {isItemsLoading ? (
-                          /* Skeleton grid while items load */
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8">
                             {[...Array(4)].map((_, i) => (
-                              <div
-                                key={i}
-                                className="h-24 rounded-2xl bg-muted/20 animate-pulse"
-                              />
+                              <div key={i} className="h-24 rounded-2xl bg-muted/20 animate-pulse" />
                             ))}
                           </div>
-                        ) : (() => {
-                          const items = categoryItems as any[];
-
-                          const filteredItems = (() => {
-                            let result = items;
-
-                            if (searchQuery.trim()) {
-                              const q = searchQuery.toLowerCase();
-                              result = result.filter((item: any) => {
-                                if (item.name.toLowerCase().includes(q)) return true;
-                                if ((item.description ?? '').toLowerCase().includes(q)) return true;
-                                if (selectedLang && item.translations?.[selectedLang]) {
-                                  const tr = item.translations[selectedLang];
-                                  if ((tr.name ?? '').toLowerCase().includes(q)) return true;
-                                  if ((tr.description ?? '').toLowerCase().includes(q)) return true;
-                                }
-                                return false;
-                              });
-                            }
-
-                            if (activeDietTags.length > 0) {
-                              result = result.filter((item: any) =>
-                                activeDietTags.every((tag) =>
-                                  [...(item.allergens ?? []), ...(item.dietaryTags ?? [])].includes(tag),
-                                ),
+                        ) : filteredItems.length === 0 ? (
+                          <p className="text-center text-muted-foreground text-sm py-8 opacity-50">
+                            {t('publicMenu.noItemsMatchFilter', 'No items match this filter')}
+                          </p>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8">
+                            {filteredItems.map((item: any) => {
+                              const translatedItem = {
+                                ...item,
+                                name:
+                                  (selectedLang && item.translations?.[selectedLang]?.name) ||
+                                  item.name,
+                                description:
+                                  (selectedLang && item.translations?.[selectedLang]?.description) ||
+                                  item.description,
+                              };
+                              const pairings = allLoadedItems.filter((i: any) =>
+                                item.relatedItemIds?.includes(i.id),
                               );
-                            }
-
-                            if (excludedAllergens.length > 0) {
-                              result = result.filter((item: any) =>
-                                !excludedAllergens.some((allergen) =>
-                                  (item.allergens ?? []).some(
-                                    (a: string) => a.toLowerCase() === allergen.toLowerCase(),
-                                  ),
-                                ),
+                              return (
+                                <ItemWithOptions
+                                  key={item.id}
+                                  item={translatedItem}
+                                  perfectPairings={pairings}
+                                  ordersEnabled={ordersEnabled}
+                                />
                               );
-                            }
-
-                            return result;
-                          })();
-
-                          if (filteredItems.length === 0) {
-                            return (
-                              <p className="text-center text-muted-foreground text-sm py-8 opacity-50">
-                                {t('publicMenu.noItemsMatchFilter', 'No items match this filter')}
-                              </p>
-                            );
-                          }
-
-                          return (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8">
-                              {filteredItems.map((item: any) => {
-                                const translatedItem = {
-                                  ...item,
-                                  name:
-                                    (selectedLang && item.translations?.[selectedLang]?.name) ||
-                                    item.name,
-                                  description:
-                                    (selectedLang && item.translations?.[selectedLang]?.description) ||
-                                    item.description,
-                                };
-                                const pairings = allLoadedItems.filter((i: any) =>
-                                  item.relatedItemIds?.includes(i.id),
-                                );
-                                return (
-                                  <ItemWithOptions
-                                    key={item.id}
-                                    item={translatedItem}
-                                    perfectPairings={pairings}
-                                    ordersEnabled={ordersEnabled}
-                                  />
-                                );
-                              })}
-                            </div>
-                          );
-                        })()}
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

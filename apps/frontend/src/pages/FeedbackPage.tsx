@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { submitFeedback, getGoogleReviewUrl } from '../lib/api';
 import { Star, ExternalLink, MessageSquare, CheckCircle, Heart } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -10,7 +10,9 @@ type FeedbackStep = 'rating' | 'comment' | 'redirect' | 'thankyou';
 const FeedbackPage = () => {
   const { restaurantId } = useParams<{ restaurantId: string }>();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const orderId = searchParams.get('orderId');
+  const returnUrl = searchParams.get('returnUrl') || `/menu/public/${restaurantId}`;
 
   const [step, setStep] = useState<FeedbackStep>('rating');
   const [rating, setRating] = useState(0);
@@ -82,6 +84,10 @@ const FeedbackPage = () => {
       window.open(googleReviewUrl, '_blank', 'noopener,noreferrer');
     }
     setStep('thankyou');
+  };
+
+  const handleContinueBrowsing = () => {
+    navigate(returnUrl, { replace: true });
   };
 
   const ratingLabels = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];
@@ -226,7 +232,7 @@ const FeedbackPage = () => {
             </Button>
 
             <button
-              onClick={() => setStep('thankyou')}
+              onClick={handleContinueBrowsing}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               Maybe later
@@ -246,9 +252,12 @@ const FeedbackPage = () => {
             <p className="text-muted-foreground mb-2">
               Your feedback has been recorded.
             </p>
-            <p className="text-muted-foreground/70 text-sm">
+            <p className="text-muted-foreground/70 text-sm mb-6">
               We appreciate you taking the time to help us improve.
             </p>
+            <Button onClick={handleContinueBrowsing} className="w-full">
+              Continue Browsing Menu
+            </Button>
           </div>
         )}
       </div>

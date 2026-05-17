@@ -4,7 +4,7 @@ import { Item, OptionChoice } from '../../types';
 import { useCart } from '../../context/CartContext';
 import { useTranslation } from 'react-i18next';
 import { ImageLightbox } from './ImageLightbox';
-import { formatInlineDual, BGN_RATE } from '../../lib/currency';
+import { formatEuro, formatBgn, formatInlineDual, BGN_RATE } from '../../lib/currency';
 import { getImageUrl as resolveImageUrl } from '../../lib/getImageUrl';
 import { getTranslatedField, getTranslatedArray } from '../../lib/translation';
 
@@ -206,18 +206,23 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                       );
                     })() : null}
 
-                    {/* Price + Add Button — inline at bottom */}
+                    {/* Price + Add Button — stacked price, pill button */}
                     {ordersEnabled && (
-                    <div className="mt-auto pt-3 flex items-center justify-between gap-3">
-                        <span
-                            className="font-serif font-black text-lg whitespace-nowrap shrink-0"
-                            style={{ color: 'var(--theme-text, inherit)', fontFamily: 'var(--font-body, inherit)' }}
-                        >
-                            {formatInlineDual(priceEuro, 'EUR')}
-                        </span>
+                    <div className="mt-auto pt-3 flex items-center justify-between gap-2">
+                        <div className="shrink-0 leading-tight">
+                            <div
+                                className="font-black text-base"
+                                style={{ color: 'var(--theme-text, inherit)', fontFamily: 'var(--font-body, inherit)' }}
+                            >
+                                {formatEuro(priceEuro)}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground font-medium">
+                                {formatBgn(priceEuro)}
+                            </div>
+                        </div>
                         <button
                             onClick={handleAddToCart}
-                            className="group/btn relative bg-accent text-white font-black uppercase tracking-[0.15em] text-[11px] py-3 px-6 rounded-full shadow-xl hover:shadow-[0_15px_30px_-5px_var(--color-accent)] hover:-translate-y-1 transition-all active:scale-[0.97] flex items-center justify-center gap-2 overflow-hidden"
+                            className="group/btn relative bg-accent text-white font-black uppercase tracking-[0.12em] text-[11px] py-2.5 px-5 rounded-full shadow-xl hover:shadow-[0_15px_30px_-5px_var(--color-accent)] hover:-translate-y-1 transition-all active:scale-[0.97] flex items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap shrink-0"
                         >
                             <span className="relative z-10">{t('publicMenu.addShort', '+ Add')}</span>
                             <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
