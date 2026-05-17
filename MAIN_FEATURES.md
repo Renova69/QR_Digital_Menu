@@ -1423,6 +1423,62 @@ STRIPE_SUBSCRIPTION_WEBHOOK_SECRET=whsec_xxx
 
 ---
 
+### 3.29 Super-Admin Dashboard (May 17, 2026)
+
+**What it does:** Provides a secure internal operations panel at `/super-admin` for platform administrators (role `SUPER_ADMIN`) to manage all tenants, override subscription tiers, suspend/reactivate accounts, and soft-delete restaurants — without touching the database directly.
+
+**Access control:** All routes behind `@Roles('SUPER_ADMIN')` + `RolesGuard`. No restaurant context — `SuperAdminLayout` is intentionally outside `RestaurantProvider`.
+
+**Backend — `SuperAdminModule`:**
+- **`GET /super-admin/stats`** — platform totals (total restaurants, users, orders, revenue) + tier distribution via Prisma `groupBy` (avoids raw SQL / `@@map` casing issues).
+- **`GET /super-admin/tenants`** — paginated list with `search`, `tier`, `status`, `deleted` filters. `GetTenantsQueryDto` validates `tier` against `SubscriptionTier` enum (no arbitrary string accepted).
+- **`GET /super-admin/tenants/:id`** — tenant detail with owner info (`id`, `email`, `name`, `createdAt`), record counts (`_count: menuItems, orders, tables`), payment summary. Explicit `select` — never exposes `deeplApiKey`, `importApiKey`, `stripeAccountId`, `stripeCustomerId`, `stripeSubscriptionId`.
+- **`PATCH /super-admin/tenants/:id/tier`** — sets `forceTier` override on restaurant (bypasses Stripe subscription state).
+- **`PATCH /super-admin/tenants/:id/status`** — suspend (`isActive: false`) or reactivate (`isActive: true`).
+- **`DELETE /super-admin/tenants/:id`** — soft-delete via `deletedAt` timestamp; restaurant data preserved.
+- **`POST /super-admin/tenants/:id/restore`** — clears `deletedAt`, sets `isActive: true`.
+
+**Schema additions** (pushed to Neon):
+- `Restaurant.isActive Boolean @default(true)` — suspension flag.
+- `Restaurant.forceTier SubscriptionTier?` — admin tier override, takes precedence over Stripe-driven `tier`.
+- `Restaurant.deletedAt DateTime?` — soft-delete timestamp.
+
+**Frontend — Super-Admin pages:**
+- **`SuperAdminLayout`** — sidebar nav (Overview / Tenants), header with super-admin identity. Deliberately outside `RestaurantProvider` to avoid wasted API calls (SUPER_ADMIN has no restaurant).
+- **`OverviewPage`** — platform stats cards + tier distribution pie chart. Chart uses literal hex colors (not CSS `hsl(var(...))` tokens which don't resolve in Recharts context).
+- **`TenantsPage`** — table with 300ms debounced search (`useDebouncedValue` hook), tier/status/deleted dropdown filter. Deleted rows show slate "Deleted" badge. Active rows show green "Active", suspended show red "Suspended". `staleTime: 30_000` on queries.
+- **`TenantDetailPage`** — tier override dropdown (forces `forceTier`), suspend/reactivate action, soft-delete/restore action. All 4 mutations wired with `onError` handler + inline red error banner (previously failed silently — no feedback to admin).
+
+**Tier propagation — end-to-end fix:**
+
+When super-admin sets `forceTier`, the change must propagate to the logged-in owner's session without requiring logout. Three pipeline layers were fixed:
+
+1. **`subscription.controller.ts` `getStatus()`** — now selects `forceTier` and calls `getEffectiveTier(tier, forceTier)` — returns effective tier to frontend.
+2. **`restaurants.service.ts`** — `applyEffectiveTier<T>()` helper overwrites `tier` with `forceTier` when set. Applied to `findAll`, `findOne`, `findOneOrStaff` — restaurant API responses always return the effective tier.
+3. **`useFeature.ts` `useTier()`** — migrated from reading stale `RestaurantContext` (fetched once on login, never refreshes) to `useQuery(['subscription-status'], getSubscriptionStatus, { staleTime: 60_000 })`. TanStack Query's default `refetchOnWindowFocus: true` means switching back to the owner's tab refetches tier from `/subscription/status`. Falls back to context while query loads or for users without a restaurant.
+4. **`SubscriptionBanner.tsx` + `BillingView.tsx`** — converted from `useEffect + useState` to `useQuery` with the same `['subscription-status']` cache key. All three consumers share one cache entry.
+
+**Result:** Tier changes by super-admin reflect in owner's browser within 60s (next window focus), with no re-login required.
+
+**Key files:**
+- `apps/backend/src/super-admin/super-admin.service.ts`
+- `apps/backend/src/super-admin/super-admin.controller.ts`
+- `apps/backend/src/super-admin/super-admin.module.ts`
+- `apps/backend/src/super-admin/dto/get-tenants-query.dto.ts`
+- `apps/backend/prisma/schema.prisma` — `isActive`, `forceTier`, `deletedAt` added
+- `apps/backend/src/subscription/subscription.controller.ts` — `getEffectiveTier` applied
+- `apps/backend/src/restaurants/restaurants.service.ts` — `applyEffectiveTier` helper
+- `apps/frontend/src/pages/super-admin/SuperAdminLayout.tsx`
+- `apps/frontend/src/pages/super-admin/OverviewPage.tsx`
+- `apps/frontend/src/pages/super-admin/TenantsPage.tsx`
+- `apps/frontend/src/pages/super-admin/TenantDetailPage.tsx`
+- `apps/frontend/src/hooks/useFeature.ts` — `useTier()` via TanStack Query
+- `apps/frontend/src/hooks/useDebouncedValue.ts` — new
+- `apps/frontend/src/components/subscription/SubscriptionBanner.tsx` — `useQuery`
+- `apps/frontend/src/components/subscription/BillingView.tsx` — `useQuery`
+
+---
+
 ## 4. Data Model
 
 ### 4.1 Entity Relationship Diagram
