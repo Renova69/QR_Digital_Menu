@@ -264,6 +264,19 @@ export class MenuCrudService {
       .filter(Boolean);
   }
 
+  async checkRestaurantActive(restaurantId: string): Promise<void> {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { isActive: true },
+    });
+    if (restaurant && !restaurant.isActive) {
+      throw new ForbiddenException({
+        code: 'RESTAURANT_SUSPENDED',
+        message: 'This restaurant has been suspended',
+      });
+    }
+  }
+
   private async checkRestaurantOwnership(restaurantId: string, userId: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },

@@ -32,19 +32,31 @@ export class FeatureGuard implements CanActivate {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { restaurantId: true },
+      select: { restaurantId: true, role: true },
     });
+
+    // SUPER_ADMIN bypasses all tier and suspension checks
+    if (user?.role === 'SUPER_ADMIN') {
+      return true;
+    }
 
     // Staff linked via User.restaurantId; owners via Restaurant.ownerId
     const restaurant = user?.restaurantId
       ? await this.prisma.restaurant.findUnique({
           where: { id: user.restaurantId },
-          select: { tier: true, forceTier: true },
+          select: { tier: true, forceTier: true, isActive: true },
         })
       : await this.prisma.restaurant.findFirst({
           where: { ownerId: userId },
-          select: { tier: true, forceTier: true },
+          select: { tier: true, forceTier: true, isActive: true },
         });
+
+    if (restaurant?.isActive === false) {
+      throw new ForbiddenException({
+        code: 'RESTAURANT_SUSPENDED',
+        message: 'This restaurant has been suspended',
+      });
+    }
 
     const tier = this.featureService.getEffectiveTier(
       restaurant?.tier ?? 'FREE',
