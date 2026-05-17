@@ -33,7 +33,13 @@ export default function KitchenPage() {
     return () => { socket.off('newOrder', handler); };
   }, [socket]);
 
+  const [clock, setClock] = useState(() => new Date().toLocaleTimeString());
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const t = setInterval(() => setClock(new Date().toLocaleTimeString()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   // Tick elapsed counters every 10s
   useEffect(() => {
@@ -91,7 +97,7 @@ export default function KitchenPage() {
         </h1>
         <div className="flex items-center gap-4">
           <div className="text-sm text-gray-500">
-            {new Date().toLocaleTimeString()}
+            {clock}
           </div>
           <button
             onClick={() => setShowHistory((v) => !v)}

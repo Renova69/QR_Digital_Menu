@@ -10,7 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { EventsGateway } from '../events/events.gateway';
-import { PaginationDto } from '../common/dto/pagination.dto';
+import { OrderQueryDto } from './dto/order-query.dto';
 import {
   addDays,
   addEarnedPointBatch,
@@ -390,9 +390,9 @@ export class OrdersService {
     return { ...finalOrder, sessionToken };
   }
 
-  async findAll(userId: string, pagination: PaginationDto) {
-    const page = Number.isFinite(pagination.page) ? (pagination.page ?? 1) : 1;
-    const limit = Number.isFinite(pagination.limit) ? (pagination.limit ?? 50) : 50;
+  async findAll(userId: string, query: OrderQueryDto) {
+    const page = Number.isFinite(query.page) ? (query.page ?? 1) : 1;
+    const limit = Number.isFinite(query.limit) ? (query.limit ?? 50) : 50;
     const skip = (page - 1) * limit;
 
     // Allow both owner and staff to see orders
@@ -401,9 +401,13 @@ export class OrdersService {
       select: { restaurantId: true },
     });
 
-    const where = user?.restaurantId
+    const baseWhere = user?.restaurantId
       ? { restaurantId: user.restaurantId }
       : { restaurant: { ownerId: userId } };
+
+    const where = query.statuses?.length
+      ? { ...baseWhere, status: { in: query.statuses } }
+      : baseWhere;
 
     const [data, total] = await Promise.all([
       this.prisma.order.findMany({
