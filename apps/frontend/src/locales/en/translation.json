@@ -59,7 +59,9 @@
                      "updatedSuccess":  "Settings updated successfully!",
                      "failedSave":  "Failed to save settings. Please try again.",
                      "failedInitiate":  "Failed to initiate translation. Please try again.",
-                     "translating":  "Translating..."
+                     "translating":  "Translating...",
+                     "brandingLocked":  "Custom Branding",
+                     "brandingLockedDesc":  "Upgrade to Professional to customise fonts, colours, and logo."
                  },
     "staff":  {
                   "sharedDeviceMode":  "Shared Device Mode",

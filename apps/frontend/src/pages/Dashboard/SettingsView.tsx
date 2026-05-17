@@ -129,8 +129,9 @@ const SettingsView = () => {
   const [translating, setTranslating] = useState(false);
   const { t } = useTranslation();
   const paymentsEnabledLocal = activeRestaurant?.paymentsEnabled ?? false;
-  const canLoyalty  = useFeature('loyalty');
-  const canPayments = useFeature('payments:stripe');
+  const canLoyalty   = useFeature('loyalty');
+  const canPayments  = useFeature('payments:stripe');
+  const canBranding  = useFeature('branding:custom');
 
   useEffect(() => {
     if (activeRestaurant) {
@@ -1160,12 +1161,21 @@ const SettingsView = () => {
         </form>
       </div>
 
-      <div className="pt-8 mt-8 border-t border-border/40">
-        <BrandingEditor
-          restaurant={activeRestaurant}
-          onUpdate={() => fetchRestaurants()}
-        />
-      </div>
+      {canBranding ? (
+        <div className="pt-8 mt-8 border-t border-border/40">
+          <BrandingEditor
+            restaurant={activeRestaurant}
+            onUpdate={() => fetchRestaurants()}
+          />
+        </div>
+      ) : (
+        <div className="pt-8 mt-8 border-t border-border/40">
+          <div className="rounded-2xl border border-border/40 bg-muted/30 p-6 text-center">
+            <p className="text-sm font-bold text-foreground mb-1">{t('settings.brandingLocked', 'Custom Branding')}</p>
+            <p className="text-xs text-muted-foreground">{t('settings.brandingLockedDesc', 'Upgrade to Professional to customise fonts, colours, and logo.')}</p>
+          </div>
+        </div>
+      )}
 
       <StaffCreatedModal
         open={staffCreatedModal.open}

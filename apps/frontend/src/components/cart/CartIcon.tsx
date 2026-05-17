@@ -8,9 +8,10 @@ interface CartIconProps {
   categories?: Category[];
   restaurantId?: string;
   selectedLang?: string;
+  tier?: string;
 }
 
-const CartIcon = ({ categories, restaurantId, selectedLang }: CartIconProps) => {
+const CartIcon = ({ categories, restaurantId, selectedLang, tier }: CartIconProps) => {
   const { getItemCount } = useCart();
   const [isVisible, setIsVisible] = useState(false);
 
@@ -43,6 +44,7 @@ const CartIcon = ({ categories, restaurantId, selectedLang }: CartIconProps) => 
         categories={categories}
         restaurantId={restaurantId}
         selectedLang={selectedLang}
+        tier={tier}
       />
     </>
   );
