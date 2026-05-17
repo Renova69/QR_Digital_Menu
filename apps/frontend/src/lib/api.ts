@@ -413,4 +413,10 @@ export const updateTenantTier = (id: string, forceTier: string | null) =>
 export const updateTenantStatus = (id: string, isActive: boolean) =>
   api.patch(`/super-admin/tenants/${id}/status`, { isActive }).then((r) => r.data);
 
+export const resetTenantOwnerPassword = (id: string, password: string) =>
+  api.patch(`/super-admin/tenants/${id}/reset-password`, { password }).then((r) => r.data);
+
+export const updateTenantPayments = (id: string, paymentsEnabled: boolean) =>
+  api.patch(`/super-admin/tenants/${id}/payments`, { paymentsEnabled }).then((r) => r.data);
+
 export default api;

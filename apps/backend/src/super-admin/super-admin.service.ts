@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, SubscriptionTier } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 
 const VALID_TIERS: readonly string[] = ['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'];
 
@@ -179,6 +180,65 @@ export class SuperAdminService {
           targetType: 'RESTAURANT',
           targetId: id,
           metadata: { previousIsActive: restaurant.isActive },
+        },
+      }),
+    ]);
+
+    return results[0];
+  }
+
+  async resetOwnerPassword(id: string, newPassword: string, actorUserId: string) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id },
+      select: { id: true, ownerId: true, name: true },
+    });
+    if (!restaurant) {
+      throw new NotFoundException({ code: 'TENANT_NOT_FOUND', message: 'Restaurant not found' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: restaurant.ownerId },
+        data: { password: hashedPassword },
+      }),
+      this.prisma.adminAuditLog.create({
+        data: {
+          actorUserId,
+          action: 'OWNER_PASSWORD_RESET',
+          targetType: 'USER',
+          targetId: restaurant.ownerId,
+          metadata: { restaurantId: id, restaurantName: restaurant.name },
+        },
+      }),
+    ]);
+
+    return { success: true };
+  }
+
+  async updatePaymentsEnabled(id: string, paymentsEnabled: boolean, actorUserId: string) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id },
+      select: { id: true, paymentsEnabled: true },
+    });
+    if (!restaurant) {
+      throw new NotFoundException({ code: 'TENANT_NOT_FOUND', message: 'Restaurant not found' });
+    }
+
+    const results = await this.prisma.$transaction([
+      this.prisma.restaurant.update({
+        where: { id },
+        data: { paymentsEnabled },
+        select: { id: true, name: true, paymentsEnabled: true },
+      }),
+      this.prisma.adminAuditLog.create({
+        data: {
+          actorUserId,
+          action: paymentsEnabled ? 'PAYMENTS_ENABLED' : 'PAYMENTS_DISABLED',
+          targetType: 'RESTAURANT',
+          targetId: id,
+          metadata: { previousPaymentsEnabled: restaurant.paymentsEnabled },
         },
       }),
     ]);
