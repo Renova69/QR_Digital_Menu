@@ -25,6 +25,7 @@ export default function TenantDetailPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [selectedTier, setSelectedTier] = useState<string>("");
+  const [mutationError, setMutationError] = useState<string | null>(null);
   const [staffToDelete, setStaffToDelete] = useState<{ id: string; email: string } | null>(null);
 
   // Menu import state
@@ -44,24 +45,33 @@ export default function TenantDetailPage() {
     queryClient.invalidateQueries({ queryKey: ["super-admin", "tenants"] });
   };
 
+  const onMutationError = (err: any) => {
+    const msg = err?.response?.data?.message ?? err?.message ?? 'Request failed';
+    setMutationError(typeof msg === 'string' ? msg : JSON.stringify(msg));
+  };
+
   const tierMutation = useMutation({
     mutationFn: (forceTier: string | null) => updateTenantTier(id!, forceTier),
-    onSuccess: () => { invalidate(); setTierDialogOpen(false); },
+    onSuccess: () => { invalidate(); setTierDialogOpen(false); setMutationError(null); },
+    onError: onMutationError,
   });
 
   const statusMutation = useMutation({
     mutationFn: (isActive: boolean) => updateTenantStatus(id!, isActive),
-    onSuccess: () => { invalidate(); setSuspendDialogOpen(false); },
+    onSuccess: () => { invalidate(); setSuspendDialogOpen(false); setMutationError(null); },
+    onError: onMutationError,
   });
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteTenant(id!),
-    onSuccess: () => { invalidate(); setDeleteDialogOpen(false); },
+    onSuccess: () => { invalidate(); setDeleteDialogOpen(false); setMutationError(null); },
+    onError: onMutationError,
   });
 
   const restoreMutation = useMutation({
     mutationFn: () => restoreTenant(id!),
-    onSuccess: () => { invalidate(); setRestoreDialogOpen(false); },
+    onSuccess: () => { invalidate(); setRestoreDialogOpen(false); setMutationError(null); },
+    onError: onMutationError,
   });
 
   const deleteStaffMutation = useMutation({
@@ -129,6 +139,13 @@ export default function TenantDetailPage() {
         <ArrowLeft className="w-4 h-4" />
         Back to Tenants
       </button>
+
+      {mutationError && (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-500 px-4 py-3 rounded-lg text-sm flex items-center justify-between gap-4">
+          <span>{mutationError}</span>
+          <button onClick={() => setMutationError(null)} className="shrink-0 text-xs underline">Dismiss</button>
+        </div>
+      )}
 
       <div className="flex items-center gap-3">
         <h2 className="text-2xl font-bold">{tenant.name}</h2>
