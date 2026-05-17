@@ -748,5 +748,36 @@
                       "dayparting":  "Schedules disabled on this plan.",
                       "customers":  "Customer login requires Professional plan.",
                       "upselling":  "Upselling features require Professional plan."
-                  }
+                  },
+  "superAdmin": {
+    "title": "Super Admin",
+    "overview": "Overview",
+    "tenants": "Tenants",
+    "totalRestaurants": "Total Restaurants",
+    "totalUsers": "Total Users",
+    "activeSubscriptions": "Active Subscriptions",
+    "suspended": "Suspended",
+    "searchPlaceholder": "Search by name or email...",
+    "tier": "Tier",
+    "forceTier": "Forced Tier",
+    "overrideTier": "Override Tier",
+    "clearOverride": "Clear Override",
+    "suspend": "Suspend Restaurant",
+    "reactivate": "Reactivate Restaurant",
+    "confirmSuspend": "All access will be frozen. Continue?",
+    "confirmReactivate": "Reactivate this restaurant?",
+    "noTenants": "No restaurants found",
+    "byTier": "Restaurants by Tier",
+    "stripeStatus": "Stripe Status",
+    "onboarded": "Connected",
+    "notOnboarded": "Not Connected",
+    "loadError": "Failed to load data.",
+    "tenantNotFound": "Tenant not found.",
+    "backToTenants": "Back to Tenants",
+    "changeOverride": "Change Override",
+    "effectiveTier": "Effective Tier",
+    "stripeTier": "Stripe Tier",
+    "paymentsProcessed": "Payments Processed",
+    "paymentVolume": "Payment Volume"
+  }
 }
