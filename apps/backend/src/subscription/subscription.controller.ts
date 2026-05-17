@@ -32,10 +32,14 @@ export class SubscriptionController {
     const restaurant = await this.resolveRestaurant(userId, {
       id: true,
       tier: true,
+      forceTier: true,
       stripeSubscriptionId: true,
       tierUpdatedAt: true,
     });
-    const tier = restaurant?.tier ?? 'FREE';
+    const tier = this.featureService.getEffectiveTier(
+      restaurant?.tier ?? 'FREE',
+      restaurant?.forceTier ?? null,
+    );
     return {
       tier,
       features: this.featureService.getFeatures(tier),

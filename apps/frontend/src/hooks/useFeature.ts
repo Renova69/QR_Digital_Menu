@@ -78,7 +78,9 @@ export function useTier(): {
   staffLimit: number;
 } {
   const ctx = useContext(RestaurantContext);
-  const tier = (ctx?.activeRestaurant?.tier as SubscriptionTier) || 'FREE';
+  const raw = (ctx?.activeRestaurant?.tier as SubscriptionTier) || 'FREE';
+  const forced = ctx?.activeRestaurant?.forceTier as SubscriptionTier | null | undefined;
+  const tier = forced ?? raw;
   return {
     tier,
     features: TIER_FEATURES[tier] ?? TIER_FEATURES.FREE,
