@@ -4,16 +4,17 @@ import { Building2, Users, CreditCard, AlertTriangle } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 
 const TIER_COLORS: Record<string, string> = {
-  FREE: "hsl(var(--color-muted-foreground))",
-  STARTER: "hsl(var(--color-green-500))",
-  PROFESSIONAL: "hsl(var(--color-accent))",
-  ENTERPRISE: "hsl(var(--color-violet-500))",
+  FREE: "#94a3b8",
+  STARTER: "#3b82f6",
+  PROFESSIONAL: "#a855f7",
+  ENTERPRISE: "#f59e0b",
 };
 
 export default function OverviewPage() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ["super-admin", "stats"],
     queryFn: getSuperAdminStats,
+    staleTime: 30_000,
   });
 
   if (isLoading) {

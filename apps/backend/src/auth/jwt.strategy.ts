@@ -32,13 +32,25 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: { sub: string; email: string }) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
+      include: {
+        staffRestaurant: { select: { isActive: true } },
+        restaurants: { select: { isActive: true }, take: 1 },
+      },
     });
 
     if (!user) {
       throw new UnauthorizedException();
     }
 
-    const { password, ...result } = user;
+    if (user.role !== 'SUPER_ADMIN') {
+      const restaurantIsActive =
+        user.staffRestaurant?.isActive ?? user.restaurants[0]?.isActive;
+      if (restaurantIsActive === false) {
+        throw new UnauthorizedException('ACCOUNT_SUSPENDED');
+      }
+    }
+
+    const { password, staffRestaurant, restaurants, ...result } = user;
     return result;
   }
 }
