@@ -30,21 +30,21 @@ export class RestaurantsService {
     return restaurant;
   }
 
+  private applyEffectiveTier<T extends { tier: string; forceTier?: string | null }>(r: T): T {
+    return r.forceTier ? { ...r, tier: r.forceTier } : r;
+  }
+
   async findAll(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { restaurantId: true },
     });
 
-    if (user?.restaurantId) {
-      return this.prisma.restaurant.findMany({
-        where: { id: user.restaurantId },
-      });
-    }
+    const rows = user?.restaurantId
+      ? await this.prisma.restaurant.findMany({ where: { id: user.restaurantId } })
+      : await this.prisma.restaurant.findMany({ where: { ownerId: userId } });
 
-    return this.prisma.restaurant.findMany({
-      where: { ownerId: userId },
-    });
+    return rows.map((r) => this.applyEffectiveTier(r));
   }
 
   async findOne(id: string, userId: string) {
@@ -62,7 +62,7 @@ export class RestaurantsService {
       );
     }
 
-    return restaurant;
+    return this.applyEffectiveTier(restaurant);
   }
 
   // Allows owner OR staff member to read the restaurant
@@ -85,7 +85,7 @@ export class RestaurantsService {
       );
     }
 
-    return restaurant;
+    return this.applyEffectiveTier(restaurant);
   }
 
   // Allows owner OR assigned manager to manage non-billing settings.
