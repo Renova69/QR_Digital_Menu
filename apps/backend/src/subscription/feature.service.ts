@@ -72,4 +72,8 @@ export class FeatureService {
         return [];
     }
   }
+
+  getEffectiveTier(tier: string, forceTier?: string | null): string {
+    return forceTier ?? tier;
+  }
 }

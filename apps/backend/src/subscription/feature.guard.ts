@@ -39,14 +39,17 @@ export class FeatureGuard implements CanActivate {
     const restaurant = user?.restaurantId
       ? await this.prisma.restaurant.findUnique({
           where: { id: user.restaurantId },
-          select: { tier: true },
+          select: { tier: true, forceTier: true },
         })
       : await this.prisma.restaurant.findFirst({
           where: { ownerId: userId },
-          select: { tier: true },
+          select: { tier: true, forceTier: true },
         });
 
-    const tier = restaurant?.tier ?? 'FREE';
+    const tier = this.featureService.getEffectiveTier(
+      restaurant?.tier ?? 'FREE',
+      restaurant?.forceTier,
+    );
 
     const missing = requiredFeatures.filter((f) => !this.featureService.hasFeature(tier, f));
     if (missing.length > 0) {
