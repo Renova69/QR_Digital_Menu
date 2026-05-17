@@ -95,6 +95,14 @@ export class OrdersService {
       throw new NotFoundException('Restaurant not found');
     }
 
+    // Check restaurant is active (not suspended)
+    if (!restaurant.isActive) {
+      throw new ForbiddenException({
+        code: 'RESTAURANT_SUSPENDED',
+        message: 'This restaurant has been suspended',
+      });
+    }
+
     if (!this.featureService.hasFeature(String(restaurant.tier), FeatureFlag.ORDERS_RECEIVE)) {
       throw new ForbiddenException({ code: 'FEATURE_LOCKED', message: 'Online ordering is not available on this plan' });
     }

@@ -17,31 +17,35 @@ export class PublicMenuController {
 
   @Get('public/:restaurantId')
   @Throttle({ default: { limit: 60, ttl: 60000 } })
-  getPublicMenu(
+  async getPublicMenu(
     @Param('restaurantId') restaurantId: string,
     @Query('lang') lang?: string,
   ) {
+    await this.crud.checkRestaurantActive(restaurantId);
     return this.crud.getPublicMenu(restaurantId, lang);
   }
 
   @Get('public/:restaurantId/meta')
   @Throttle({ default: { limit: 60, ttl: 60000 } })
-  getPublicMenuMeta(@Param('restaurantId') restaurantId: string) {
+  async getPublicMenuMeta(@Param('restaurantId') restaurantId: string) {
+    await this.crud.checkRestaurantActive(restaurantId);
     return this.crud.getPublicMenuMeta(restaurantId);
   }
 
   @Get('public/:restaurantId/categories/:categoryId/items')
   @Throttle({ default: { limit: 120, ttl: 60000 } })
-  getCategoryItems(
+  async getCategoryItems(
     @Param('restaurantId') restaurantId: string,
     @Param('categoryId') categoryId: string,
     @Query('lang') lang?: string,
   ) {
+    await this.crud.checkRestaurantActive(restaurantId);
     return this.crud.getCategoryItems(restaurantId, categoryId, lang);
   }
 
   @Get('public/:restaurantId/trending')
-  getTrendingItems(@Param('restaurantId') restaurantId: string) {
+  async getTrendingItems(@Param('restaurantId') restaurantId: string) {
+    await this.crud.checkRestaurantActive(restaurantId);
     return this.crud.getTrendingItems(restaurantId);
   }
 
