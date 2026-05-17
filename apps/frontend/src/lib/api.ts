@@ -413,4 +413,16 @@ export const updateTenantTier = (id: string, forceTier: string | null) =>
 export const updateTenantStatus = (id: string, isActive: boolean) =>
   api.patch(`/super-admin/tenants/${id}/status`, { isActive }).then((r) => r.data);
 
+export const deleteTenant = (id: string) =>
+  api.delete(`/super-admin/tenants/${id}`).then((r) => r.data);
+
+export const restoreTenant = (id: string) =>
+  api.post(`/super-admin/tenants/${id}/restore`).then((r) => r.data);
+
+export const deleteTenantStaff = (restaurantId: string, userId: string) =>
+  api.delete(`/super-admin/tenants/${restaurantId}/staff/${userId}`).then((r) => r.data);
+
+export const importMenuForTenant = (id: string, dto: object) =>
+  api.post(`/super-admin/tenants/${id}/menu/import`, dto).then((r) => r.data);
+
 export default api;

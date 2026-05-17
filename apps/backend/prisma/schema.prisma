@@ -84,6 +84,7 @@ model Restaurant {
   tierUpdatedAt             DateTime?
   forceTier                 SubscriptionTier?
   isActive                  Boolean             @default(true)
+  deletedAt                 DateTime?
   assistanceRequests        AssistanceRequest[]
   deviceEnrollmentTokens    DeviceEnrollmentToken[]
   orders                    Order[]
