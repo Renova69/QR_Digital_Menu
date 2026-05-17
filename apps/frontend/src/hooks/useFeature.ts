@@ -1,5 +1,7 @@
 import { useContext } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import RestaurantContext from '../context/RestaurantContext';
+import { getSubscriptionStatus } from '../lib/api';
 
 const ALL_FEATURE_FLAGS = [
   'menu:view',
@@ -78,9 +80,23 @@ export function useTier(): {
   staffLimit: number;
 } {
   const ctx = useContext(RestaurantContext);
-  const raw = (ctx?.activeRestaurant?.tier as SubscriptionTier) || 'FREE';
-  const forced = ctx?.activeRestaurant?.forceTier as SubscriptionTier | null | undefined;
-  const tier = forced ?? raw;
+  const hasRestaurant = !!ctx?.activeRestaurant;
+
+  const { data } = useQuery({
+    queryKey: ['subscription-status'],
+    queryFn: getSubscriptionStatus,
+    staleTime: 60_000,
+    enabled: hasRestaurant,
+  });
+
+  // Prefer live API tier (already has forceTier applied server-side).
+  // Fall back to context while query is loading or user has no restaurant.
+  const tier =
+    (data?.tier as SubscriptionTier) ??
+    (ctx?.activeRestaurant?.forceTier as SubscriptionTier | null | undefined) ??
+    (ctx?.activeRestaurant?.tier as SubscriptionTier) ??
+    'FREE';
+
   return {
     tier,
     features: TIER_FEATURES[tier] ?? TIER_FEATURES.FREE,
