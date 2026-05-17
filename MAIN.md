@@ -1,7 +1,7 @@
 # QR Menu App — Master Documentation
 
 > **Last Updated:** May 16, 2026
-> **Status:** V2.5 Complete — V3 Growth Features (Stripe Payments ✅, Live Table View ✅, OCR Import ✅, Waiter POS ✅, Staff Roles & RBAC ✅) — Security Hardening ✅ (httpOnly cookies, CSRF, same-origin proxy, CSP) — Public Menu Mobile UX ✅ (top bar, filters, dual currency, horizontal cards, category pills) — Bug Fixes & Polish ✅ (PR#3 findings, code review fixes, dead code cleanup, payments investigation) — Security & Bug Fixes ✅ (CORS wildcard, magic-link removed, loyalty emails, CSV export, TS strict mode) — Infrastructure & Polish ✅ (API versioning /api/v1, Prisma circuit breaker, order progress stepper, QR print templates, 122 tests) — SaaS Tiering V2 ✅ (4-tier FREE/STARTER/PRO/ENTERPRISE, FeatureGuard, Stripe Billing, PricingPage, BillingView, demo accounts)
+> **Status:** V2.5 Complete — V3 Growth Features (Stripe Payments ✅, Live Table View ✅, OCR Import ✅, Waiter POS ✅, Staff Roles & RBAC ✅) — Security Hardening ✅ (httpOnly cookies, CSRF, same-origin proxy, CSP) — Public Menu Mobile UX ✅ (top bar, filters, dual currency, horizontal cards, category pills) — Bug Fixes & Polish ✅ (PR#3 findings, code review fixes, dead code cleanup, payments investigation) — Security & Bug Fixes ✅ (CORS wildcard, magic-link removed, loyalty emails, CSV export, TS strict mode) — Infrastructure & Polish ✅ (API versioning /api/v1, Prisma circuit breaker, order progress stepper, QR print templates, 122 tests) — SaaS Tiering V2 ✅ (4-tier FREE/STARTER/PRO/ENTERPRISE, FeatureGuard, Stripe Billing, PricingPage, BillingView, demo accounts) — **Production Deployment ✅ (Vercel frontend + Cloud Run backend, cross-origin cookies, CSRF fixed)**
 > **Stack:** Turborepo Monorepo — React 18 + NestJS 11 + Prisma 6 + Neon (Serverless PostgreSQL)
 
 ---
@@ -69,8 +69,8 @@ Customer Phone (Browser)
         v
 +----------------------+     +----------------------+
 |  Frontend (React)    |---->|  Backend (NestJS)    |
-|  Port 3001 (Vite)    |     |  Port 3000            |
-|                      |     |  /api prefix           |
+|  Vercel (Static)     |     |  Cloud Run (Docker)  |
+|  /api/v1 cross-origin|     |  /api/v1 prefix      |
 +----------------------+     +----------+-----------+
                                         |
                                         v
@@ -401,10 +401,11 @@ Payment (sessionId, stripePaymentIntentId, amount, tip, status, method)
 
 ### JWT Strategy
 - Payload: `{ email, sub: userId }`
-- **Primary storage:** httpOnly cookie (`sameSite: 'lax'`, `secure` in production, 1-day expiry)
+- **Primary storage:** httpOnly cookie (`sameSite: 'none'` in production with `secure: true`, `sameSite: 'lax'` in dev, 1-day expiry)
 - **Fallback:** `Authorization: Bearer` header (Axios interceptor) for transition period
 - **CSRF protection:** Double-submit cookie pattern — `GET /api/auth/csrf-token` returns token; state-changing requests require `X-CSRF-Token` header
-- **Same-origin proxy:** Frontend uses `/api` baseURL (not cross-origin). Vite dev server proxies `/api` and `/socket.io` to backend. Eliminates cross-origin cookie blocking.
+- **Dev proxy:** Frontend uses `/api/v1` baseURL (same-origin via Vite proxy). `sameSite: 'lax'` works because all requests are same-origin through the proxy.
+- **Production:** Frontend on Vercel uses `VITE_API_URL` env (cross-origin to Cloud Run). `sameSite: 'none'` + `secure: true` cookies required. `COOKIE_SAMESITE` env-driven, defaults to `'none'` in production.
 - Guard: `JwtAuthGuard` on protected endpoints
 - Owner-only routes: ownership check via `checkRestaurantOwnership()` in service layer
 - 401 auto-redirect with public path exclusions + `/auth/me` guard (prevents logout loop)
@@ -721,15 +722,23 @@ npm run dev                    # Starts both apps via Turborepo
 | Backend API | http://localhost:3000/api |
 | API Documentation | http://localhost:3000/api-docs |
 
-### Vite Proxy Architecture (Same-Origin)
-Frontend on `:3001` does NOT make direct cross-origin requests to backend on `:3000`. Instead:
-- `api.ts` uses `/api` as baseURL (same-origin)
+### Vite Proxy Architecture (Dev Same-Origin, Prod Cross-Origin)
+
+**Development:**
+- `api.ts` uses `/api/v1` as baseURL (same-origin)
 - `vite.config.js` proxies `/api` → backend (target from `.env` `VITE_API_URL`)
 - `vite.config.js` proxies `/socket.io` → backend with WebSocket support
 - `SocketContext` connects via `io()` with no URL (same-origin default)
-- httpOnly cookies work because all requests are same-origin through the proxy
+- httpOnly cookies with `sameSite: 'lax'` work because all requests are same-origin through the proxy
 
-**Why:** httpOnly cookies with `sameSite: 'lax'` are blocked by browsers on cross-site AJAX. `localhost:3001` and `192.168.0.3:3000` are different sites. The proxy makes them appear as the same origin.
+**Production (Vercel → Cloud Run):**
+- `api.ts` uses `VITE_API_URL` env directly (cross-origin: `vercel.app` → `run.app`)
+- No Vite proxy available on static hosting
+- `sameSite: 'none'` + `secure: true` required on all cookies (auth + CSRF)
+- CORS backend allows all `.vercel.app` origins + `localhost` ports
+- `COOKIE_SAMESITE` env-driven, defaults to `'none'` in production
+
+**Why two modes:** httpOnly cookies with `sameSite: 'lax'` are blocked by browsers on cross-site AJAX. In dev, `localhost:3001` and `192.168.0.3:3000` are different sites — the Vite proxy fixes this. In production, Vercel and Cloud Run are different origins — `sameSite: 'none'` is required.
 
 ### Key Commands
 
@@ -759,7 +768,34 @@ npm run build   # Production build
 
 ---
 
-## 17. Environment Variables
+## 17. Production Deployment
+
+### Infrastructure
+
+| Component | Platform | URL |
+|-----------|----------|-----|
+| **Frontend** | Vercel (Static) | `https://qr-digital-menu-ivory.vercel.app` |
+| **Backend** | Google Cloud Run (Docker) | `https://qr-menu-backend-822584248302.europe-west1.run.app` |
+| **Database** | Neon PostgreSQL | Serverless, auto-scaling |
+
+### Cross-Origin Architecture
+
+Frontend on Vercel (`vercel.app`) and backend on Cloud Run (`run.app`) are different origins. This requires:
+
+1. **Cookies:** `sameSite: 'none'` + `secure: true` on auth (`token`) and CSRF (`csrf-token`) cookies. Default in production via `COOKIE_SAMESITE` env (override with `COOKIE_SAMESITE=lax` for same-origin deploys).
+2. **CORS:** Backend allows all `.vercel.app` origins, `localhost:3001`, `localhost:3002`, `127.0.0.1:3001`, `127.0.0.1:3002`. `credentials: true` for cookie support.
+3. **API base URL:** `api.ts` uses `VITE_API_URL` env directly in production (no Vite proxy on static hosts): `VITE_API_URL=https://qr-menu-backend-822584248302.europe-west1.run.app/api/v1`.
+4. **SPA routing:** `vercel.json` rewrites all paths to `/index.html` for client-side routing.
+5. **CSRF:** Cross-origin compatible — `csrf-token` cookie uses `sameSite: 'none'` so `X-CSRF-Token` header validation works. POST orders (public endpoint) now succeeds cross-origin.
+
+### Auth Flow (Production)
+1. User logs in → backend sets httpOnly `token` cookie with `sameSite: 'none'`, `secure: true`
+2. Backend returns `{ user, token }` in response body
+3. Frontend stores token in memory via `setAuthToken(token)` for Bearer fallback
+4. Subsequent requests: cookie auto-attached via `withCredentials: true`, Bearer header as fallback
+5. `/auth/me` verifies cookie on page refresh — no localStorage involved
+
+## 18. Environment Variables
 
 | Variable | Service | Purpose |
 |----------|---------|---------|
@@ -789,7 +825,7 @@ npm run build   # Production build
 
 ---
 
-## 18. Key Architectural Decisions
+## 19. Key Architectural Decisions
 
 1. **Server-side pricing** — Order total recalculated from DB on checkout. Client-side price is ignored. Prevents price manipulation.
 2. **Platform-managed translation** — Restaurant owners never supply API keys. Platform holds single DeepL key. `restaurant.deeplApiKey` column deprecated at DB level.
@@ -804,7 +840,7 @@ npm run build   # Production build
 
 ---
 
-## 19. Known Technical Debt & Constraints
+## 20. Known Technical Debt & Constraints
 
 | Item | Severity | Notes |
 |------|----------|-------|
@@ -819,7 +855,7 @@ npm run build   # Production build
 
 ---
 
-## 20. File Index — Key Locations
+## 21. File Index — Key Locations
 
 | What | Where |
 |------|-------|

@@ -46,8 +46,9 @@ npm start        # serve dist/ on :3001
 
 - Per-app `.env` files: `apps/backend/.env`, `apps/frontend/.env` — copy from `.env.example`.
 - DB is **hosted Neon Postgres** — no local Postgres in dev. The root `docker:up` / `docker:down` scripts exist but are not part of daily flow.
-- API base URL: **`/api`** (same-origin). Frontend does NOT call backend directly. Vite dev server proxies `/api` and `/socket.io` to backend target derived from `VITE_API_URL` env. This is critical for httpOnly cookies — `sameSite: 'lax'` blocks cross-site AJAX.
-- `VITE_API_URL` in `apps/frontend/.env` is ONLY used by `vite.config.js` for proxy target. `api.ts` hardcodes `/api`.
+- API base URL: **`/api/v1`** (same-origin in dev, cross-origin in production). In development, Vite dev server proxies `/api` and `/socket.io` to backend target derived from `VITE_API_URL` env. In production (Vercel → Cloud Run), frontend uses `VITE_API_URL` directly — cross-origin with `sameSite: 'none'` cookies + CORS.
+- `VITE_API_URL` in `apps/frontend/.env` is used by `vite.config.js` for proxy target in dev, and by `api.ts` for cross-origin API calls in production.
+- **Production:** `COOKIE_SAMESITE` env-driven, defaults to `'none'` in production (required for cross-origin cookie send from Vercel → Cloud Run). Set `COOKIE_SAMESITE=lax` for same-origin deploys.
 - Global API prefix `/api` is set in `apps/backend/src/main.ts` via `app.setGlobalPrefix('api')`.
 - CORS origin = `FRONTEND_URL` env (default `http://localhost:3001`).
 
@@ -59,7 +60,7 @@ Cross-cutting concerns:
 - **Auth** (`auth/`) — JWT + Google OAuth + magic link + Email OTP via Passport strategies. **JWT stored in httpOnly cookie** (not localStorage). `jwt.strategy.ts` reads from `request.cookies.token` first, Bearer header fallback. CSRF double-submit cookie pattern on all state-changing endpoints (`X-CSRF-Token` header must match `csrf-token` cookie). `AuthContext` no longer touches localStorage for token — reads user via `/auth/me` which sends cookie automatically.
 - **CSRF** — `main.ts` CSRF middleware validates `X-CSRF-Token` header matches `csrf-token` cookie on POST/PATCH/DELETE/PUT. Skipped in dev mode (`NODE_ENV !== 'production'`) and for Stripe webhook path. `GET /api/auth/csrf-token` issues token.
 - **401 interceptor** (`api.ts`) — redirects to `/login` on 401 EXCEPT for `/auth/me` (returns rejected promise instead). This prevents logout loop during app initialization. AuthContext handles `/auth/me` failures silently.
-- **Same-origin proxy** — `api.ts` baseURL is `/api` (same-origin). `vite.config.js` proxies `/api` and `/socket.io` to backend. `SocketContext` connects via `io()` with no URL. NEVER change `api.ts` baseURL to read from `VITE_API_URL` env directly — that creates cross-origin requests, which breaks httpOnly cookies.
+- **Auth cookie transport** — Dev: same-origin Vite proxy (`api.ts` baseURL `/api/v1`, `sameSite: 'lax'`). Production: cross-origin (`api.ts` uses `VITE_API_URL` env, `sameSite: 'none'` + `secure: true`). CSRF double-submit cookie pattern protects cross-origin state-changing requests. `api.ts` auto-selects baseURL: `/api/v1` in dev (proxy), `VITE_API_URL` in production (cross-origin).
 - **Realtime** (`events/`) — `@nestjs/websockets` + socket.io for live order / assistance / table status / payment pushes. `EventsGateway.emitTableStatusChanged(restaurantId, tableId, sessionId)` emits `table:status-changed` — called from 4 locations (`OrdersService.create`, `OrdersService.updateStatus`, `PaymentService.handleWebhookEvent`, `PaymentService.closeSession`). `payment:confirmed` event emitted on successful payment.
 - **Payment** (`payment/`) — Stripe Connect pay-at-table + Waiter POS session management. `IPaymentProvider` interface abstracts provider; `StripeProvider` implements it (future providers: MyPOS, Square). `PaymentService` handles sessions, bill calculation, PaymentIntent creation, webhook processing, force-open (`forceOpenSession()`), card-payment close (`closeSessionWithCard()` — creates MYPOS payment, sets session PAID, emits socket events). `PaymentController` has 7 routes: sessions, bill, create-payment-intent, webhook (raw body), history, force-open, close-card. `RestaurantsService` manages Stripe Connect account onboarding (create account link, status check, disconnect). Never add provider-specific logic outside the provider — always go through `IPaymentProvider`.
 - **Tables** (`tables/`) — `getTablesWithStatus()` fetches tables + active sessions in parallel via `Promise.all`, derives status per table (empty/waiting/occupied/paid). `GET /tables/status/:restaurantId` returns enriched data with `orderCount`, `totalAmount`, `customerNames`, `sessionStatus`, `sessionId`. `getTableOrders(tableId, restaurantId)` returns all orders for a table's active OPEN session with item names — used by dashboard live view and POS order history.
@@ -115,7 +116,7 @@ Key files for the options flow:
 
 - **Routing** — React Router v7 in `apps/frontend/src/App.tsx`.
 - **State** — React Context per concern in `src/context/`: `AuthContext`, `RestaurantContext`, `MenuContext`, `CartContext`, `OrderContext`, `AssistanceContext`, `SocketContext`, `NotificationContext`, `PosContext`. Server state via TanStack Query.
-- **API client** — `src/lib/api.ts` (axios + CSRF interceptor). BaseURL is `/api` (same-origin, Vite proxy). `withCredentials: true` sends httpOnly cookie. CSRF token fetched once, cached, attached to state-changing requests. 401 interceptor skips `/auth/me` to prevent logout loop. All requests go through this — never call axios directly elsewhere.
+- **API client** — `src/lib/api.ts` (axios + CSRF interceptor). BaseURL auto-selects: `/api/v1` in dev (same-origin via Vite proxy), `VITE_API_URL` in production (cross-origin to Cloud Run). `withCredentials: true` sends httpOnly cookie. CSRF token fetched once, cached, attached to state-changing requests. 401 interceptor skips `/auth/me` to prevent logout loop. All requests go through this — never call axios directly elsewhere.
 - **UI primitives** — `src/components/ui/` (Radix + class-variance-authority + tailwind-merge).
 - **Menu import/export** — `src/pages/Dashboard/MenuImportExportView.tsx` (~380 lines). Combined Import/Export dashboard tab with sub-tab navigation. `ImportTab` contains full OCR JSON import flow (ApiKeyPanel, FileImporter, PreviewTable, confirm import with mutation). `ExportTab` offers Download JSON, Download CSV (`menuToCSV()` with BOM + European locale), Copy JSON. Uses lazy fetch (`useQuery({ enabled: false })`) — data fetched on button click only. `exportMenu()` in `api.ts` calls `GET /api/restaurants/:id/menu/export` (JWT-guarded, backend endpoint already existed). Tab label key: `dashboard.tabs.importExport`.
 
@@ -125,7 +126,7 @@ Key files for the options flow:
 - `npm run build` in backend always regenerates the Prisma client before `nest build` — no need to run `prisma generate` separately.
 - Frontend `strictPort: true` means a stale dev server on `:3001` blocks startup. Kill with PowerShell (`Stop-Process -Id <pid> -Force`); Git Bash `taskkill` mangles paths.
 - When adding new fields on `Restaurant` (or any DTO-validated model), also add `@Min` / `@Max` / `@IsOptional` to `apps/backend/src/restaurants/dto/update-restaurant.dto.ts` — `class-validator` is the input boundary.
-- **NEVER change `api.ts` baseURL** to read from `VITE_API_URL` directly. That creates cross-origin requests, breaking httpOnly cookies. Always use `/api` (same-origin, Vite proxy).
+- **Dev:** `api.ts` uses `/api/v1` (same-origin, Vite proxy). **Production:** `api.ts` uses `VITE_API_URL` (cross-origin, `sameSite: 'none'` + `secure: true` cookies). Both paths valid — proxy not available on static hosts like Vercel.
 - **NEVER read token from localStorage** in AuthContext or anywhere else. Token lives in httpOnly cookie only. Use `/auth/me` to get current user.
 - **CSRF middleware ordering in main.ts**: Helmet CSP → cookieParser → CSRF validation → app.useGlobalPipes. CSRF must run after cookieParser but before guards.
 
@@ -264,6 +265,16 @@ Source of truth: `CODING_ROADMAP.md`. Detailed per-phase plans under `.planning/
 - **Demo accounts** — `demo.free@qrmenu.test`, `demo.starter@qrmenu.test`, `demo.pro@qrmenu.test`, `demo.enterprise@qrmenu.test` / password `demo1234`.
 - **New env vars** — `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_PROFESSIONAL`, `STRIPE_PRICE_ENTERPRISE`, `STRIPE_SUBSCRIPTION_WEBHOOK_SECRET` in `apps/backend/.env`.
 - **Key files:** `apps/backend/src/subscription/` (new: `feature.service.ts`, `feature.guard.ts`, `feature-flag.enum.ts`, `require-feature.decorator.ts`, `subscription.service.ts`, `subscription.controller.ts`, `subscription.module.ts`), `apps/frontend/src/hooks/useFeature.ts`, `BillingView.tsx`, `PricingPage.tsx`, `SubscriptionBanner.tsx`.
+
+**Shipped — Production Deployment & Cross-Origin Fixes (May 16, 2026):**
+- **Production deployment** — Frontend on Vercel (`https://qr-digital-menu-ivory.vercel.app`), Backend on Google Cloud Run (`https://qr-menu-backend-822584248302.europe-west1.run.app`). Cross-origin setup: Vercel static hosting → Cloud Run API.
+- **Cross-origin auth** — `COOKIE_SAMESITE` defaults to `'none'` in production (was `'lax'`), `secure: true`. Required because Vercel and Cloud Run are different origins — `lax` cookies blocked on cross-site fetch/XHR. `api.ts` uses `VITE_API_URL` env var directly in production (Vite proxy unavailable on static hosts). Bearer token fallback via axios interceptor for transition.
+- **CSRF cross-origin** — CSRF `csrf-token` cookie also uses `sameSite: 'none'` in production so `X-CSRF-Token` header validation works cross-origin. CSRF exempt list unchanged.
+- **CheckoutPage hang fix** — `useRef(false)` flag set to `true` before `clearCart()` prevents `useEffect([items, navigate])` from firing `navigate(-1)` which was undoing the `navigate("/order-confirmation")`. Screen showed "submitting..." permanently.
+- **Missing `orderId` in navigate state** — `CheckoutPage` now passes `orderId: newOrder.id` to `/order-confirmation` navigate state. `OrderConfirmationPage` reads `orderId` for WebSocket `joinOrderRoom` (real-time status tracking was broken without it).
+- **SPA rewrites** — `vercel.json` rewrites all paths to `/index.html` for client-side routing.
+- **CORS** — Backend allows all `.vercel.app` origins + `localhost` ports.
+- **Key files:** `main.ts`, `auth.controller.ts`, `CheckoutPage.tsx`, `api.ts`, `vercel.json`.
 
 **Current focus — V3 Growth:**
 - **Phase 20 — Multi-location:** menu templates, bulk price updates, cross-location analytics.

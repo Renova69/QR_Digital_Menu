@@ -87,23 +87,30 @@ Your environment is now running natively on your host machine for maximum perfor
 
 ---
 
-## Auth Architecture — httpOnly Cookies + Vite Proxy
+## Auth Architecture — httpOnly Cookies + Vite Proxy (Dev) / Cross-Origin (Prod)
 
 ### How authentication works
 
-1. User logs in → backend sets httpOnly cookie `token` with `sameSite: 'lax'`, 1-day expiry
-2. Frontend axios instance sends `withCredentials: true` → browser attaches cookie to all `/api` requests
-3. Backend `jwt.strategy.ts` reads token from `request.cookies.token`
+1. User logs in → backend sets httpOnly cookie `token` with `sameSite: 'none'` in production, `'lax'` in dev, 1-day expiry
+2. Frontend axios instance sends `withCredentials: true` → browser attaches cookie to all API requests
+3. Backend `jwt.strategy.ts` reads token from `request.cookies.token` first, Bearer header fallback
 4. On logout, backend clears the cookie
 
-### Why same-origin proxy?
+### Development: Same-Origin Vite Proxy
 
-httpOnly cookies with `sameSite: 'lax'` are NOT sent by browsers on cross-site AJAX requests. `localhost:3001` (frontend) and `192.168.0.3:3000` (backend) are different sites.
+Frontend uses `/api/v1` as baseURL (same-origin). Vite dev server proxies `/api` and `/socket.io` to the real backend. Browser sees all requests as same-origin → `sameSite: 'lax'` cookies work.
 
-The fix: frontend uses `/api` as baseURL (same-origin). Vite dev server proxies `/api` and `/socket.io` to the real backend. The browser sees all requests as same-origin → cookies work.
+### Production: Cross-Origin (Vercel → Cloud Run)
+
+Frontend on Vercel and backend on Cloud Run are different origins. Vite proxy is not available on static hosting.
+
+1. **`COOKIE_SAMESITE`** defaults to `'none'` in production (required for cross-origin cookies). `secure: true` already set.
+2. **CORS** backend allows `.vercel.app` origins + `localhost` ports.
+3. **`api.ts`** uses `VITE_API_URL` env directly in production: `VITE_API_URL=https://qr-menu-backend-822584248302.europe-west1.run.app/api/v1`.
+4. **SPA routing** via `vercel.json` rewrites all paths to `/index.html`.
 
 ```javascript
-// vite.config.js — proxy configuration
+// vite.config.js — proxy configuration (dev only)
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const backendOrigin = (env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/api\/?$/, '');
@@ -122,10 +129,52 @@ export default defineConfig(({ mode }) => {
 
 Even though cookies are httpOnly, they're sent automatically. To prevent cross-site request forgery:
 
-1. Frontend calls `GET /api/auth/csrf-token` → receives `{ csrfToken }`, cookie `csrf-token` set
+1. Frontend calls `GET /api/v1/auth/csrf-token` → receives `{ csrfToken }`, cookie `csrf-token` set (also `sameSite: 'none'` in production)
 2. Frontend attaches `X-CSRF-Token` header on all POST/PATCH/DELETE/PUT requests
 3. Backend validates header matches cookie before processing
 4. Skipped in dev mode (`NODE_ENV !== 'production'`)
+5. CSRF exempt: `/api/v1/auth/login`, `/api/v1/auth/register`, `/api/v1/auth/otp/send`, `/api/v1/auth/otp/verify`, `/api/v1/auth/google`, `/api/v1/auth/google/callback`
+
+---
+
+## Production Deployment
+
+The app is deployed with a cross-origin architecture:
+
+| Component | Platform | URL |
+|-----------|----------|-----|
+| **Frontend** | Vercel (Static) | `https://qr-digital-menu-ivory.vercel.app` |
+| **Backend** | Google Cloud Run (Docker) | `https://qr-menu-backend-822584248302.europe-west1.run.app` |
+| **Database** | Neon PostgreSQL | Serverless, auto-scaling |
+
+### Deploy Backend (Cloud Run)
+
+```bash
+cd apps/backend
+docker build -t gcr.io/<project>/qr-menu-backend .
+docker push gcr.io/<project>/qr-menu-backend
+gcloud run deploy qr-menu-backend \
+  --image gcr.io/<project>/qr-menu-backend \
+  --region europe-west1 \
+  --allow-unauthenticated \
+  --set-env-vars NODE_ENV=production,COOKIE_SAMESITE=none,...
+```
+
+### Deploy Frontend (Vercel)
+
+Set environment variable in Vercel dashboard:
+- `VITE_API_URL=https://qr-menu-backend-822584248302.europe-west1.run.app/api`
+
+Then push to trigger automatic deploy via Vercel GitHub integration.
+
+### Key Production Env Vars
+
+| Variable | Value |
+|----------|-------|
+| `NODE_ENV` | `production` |
+| `COOKIE_SAMESITE` | `none` (default in prod, override to `lax` for same-origin deploys) |
+| `VITE_API_URL` | `https://<cloud-run-url>/api` |
+| `FRONTEND_URL` | `https://<vercel-url>` |
 
 ---
 

@@ -626,3 +626,97 @@ No backend changes needed — export endpoint already existed in `menu-import.co
 2. **Lazy fetch** — Export data is fetched only on button click, not on tab mount. Prevents unnecessary API calls when user only wants to import.
 3. **Frontend CSV generation** — CSV conversion happens client-side via `menuToCSV()`. Backend returns JSON only — single source of truth, avoids maintaining two export formats server-side.
 4. **No backend changes** — The backend `GET /export` endpoint was already built, tested, and JWT-guarded. Only frontend UI was missing.
+
+---
+
+## Cross-Origin Cookie & CSRF Fix — Production Deployment (May 16, 2026)
+
+### COOKIE_SAMESITE Default Changed from 'lax' to 'none' in Production
+
+- **Problem**: Frontend deployed on Vercel (`vercel.app`) and backend on Cloud Run (`run.app`) are different origins. `sameSite: 'lax'` cookies are NOT sent on cross-site fetch/XHR requests. `/auth/me` return 401 (cookie missing), `/auth/csrf-token` cookie not sent → `X-CSRF-Token` validation fail 403 on POST /orders. Customer can browse menu but cannot place orders.
+- **Root cause**: `COOKIE_SAMESITE` defaulted to `'lax'` in both `main.ts` (CSRF cookie) and `auth.controller.ts` (auth token cookie) when `NODE_ENV === 'production'`.
+- **Fix**: Changed default production value from `'lax'` to `'none'` in both files. `secure: true` already set in production (required by browsers when `sameSite: 'none'`).
+  - `main.ts` line 73: `(process.env.NODE_ENV === 'production' ? 'none' : 'lax')`
+  - `auth.controller.ts` line 31: same pattern
+  - `COOKIE_SAMESITE` env var still overridable — set to `'lax'` for same-origin deploys.
+- **Impact**: All cross-origin POST requests now work (orders, assistance, feedback, OTP). Auth cookies sent cross-origin. CSRF validation passes.
+- **Files**: `apps/backend/src/main.ts`, `apps/backend/src/auth/auth.controller.ts`
+
+### Frontend API Base URL — Production Cross-Origin Mode
+
+- **Problem**: `api.ts` hardcoded `/api` as baseURL. In production on Vercel static hosting, there's no Vite proxy — `/api` resolves to `vercel.app/api` which doesn't exist.
+- **Fix**: `api.ts` auto-selects baseURL: `/api/v1` in dev (same-origin via Vite proxy), `VITE_API_URL` env in production (cross-origin to Cloud Run).
+- **Files**: `apps/frontend/src/lib/api.ts`
+
+### CSRF Cross-Origin Compatibility
+
+- **Problem**: CSRF `csrf-token` cookie also used `sameSite: 'lax'` — not sent cross-origin. `X-CSRF-Token` header validation failed on all state-changing POST requests in production.
+- **Fix**: CSRF cookie now uses same `COOKIE_SAMESITE` defaulting to `'none'` in production. `httpOnly: false` (readable by JS for header attachment). CSRF exempt list unchanged (login, register, OTP, Google auth).
+- **Files**: `apps/backend/src/main.ts`
+
+---
+
+## CheckoutPage Screen Hang After Order Submission (May 16, 2026)
+
+### useEffect Redirect Race Condition
+
+- **Problem**: Placing order → screen showed "Submitting order..." permanently. Backend received order immediately (owner could see it), but frontend never navigated to order confirmation. Refreshing page went to public menu (not order confirmation).
+- **Root cause**: Race condition in `CheckoutPage.tsx`:
+  1. `createOrder()` succeeds, returns `{ ...newOrder, sessionToken }`
+  2. `navigate("/order-confirmation", { state: {...} })` fires
+  3. `clearCart()` sets `items` to `[]`
+  4. `useEffect([items, navigate])` on line 191 detects `items.length === 0` → fires `navigate(-1)`
+  5. `navigate(-1)` UNDOES the `navigate("/order-confirmation")` — component stays mounted, `submitting` state stays `true`
+- **Fix**: Added `useRef(false)` flag:
+  ```typescript
+  const orderPlaced = useRef(false);
+  // useEffect guard: only navigate back if order NOT just placed
+  if (items.length === 0 && !orderPlaced.current) { navigate(-1); }
+  // Before clearCart: orderPlaced.current = true;
+  ```
+  Flag set to `true` before `clearCart()`, checked in useEffect before navigating back.
+- **Files**: `apps/frontend/src/pages/CheckoutPage.tsx`
+
+### Missing orderId in Navigate State
+
+- **Problem**: Order confirmation page could not join WebSocket room for real-time order status updates.
+- **Root cause**: `OrderConfirmationPage.tsx` reads `orderId` from `location.state` (line 107) for `joinOrderRoom(orderId)`. `CheckoutPage` navigate state only passed `orderNumber: newOrder.id` — missing `orderId`.
+- **Fix**: Added `orderId: newOrder.id` to navigate state object in `CheckoutPage.tsx`.
+- **Files**: `apps/frontend/src/pages/CheckoutPage.tsx`
+
+---
+
+## Menu Import/Export — Combined Dashboard Tab (May 16, 2026)
+
+### Summary
+
+Combined the existing OCR JSON import flow with a new menu export feature under a single "Import/Export" dashboard tab. Export was always available on the backend (`GET /api/restaurants/:id/menu/export`) but had no UI until now.
+
+### Implementation
+
+- **`MenuImportExportView.tsx`** (new, ~380 lines) — parent component with `activeSubTab: 'import' | 'export'` state. Upload icon for Import sub-tab, Download icon for Export sub-tab.
+- **`ImportTab`** — all existing import functionality preserved: `ApiKeyPanel` (OCR tool API key management), `FileImporter` (JSON file upload + textarea paste), `PreviewTable` (data preview table), confirm import with `useMutation`.
+- **`ExportTab`** — three action buttons: Download JSON, Download CSV, Copy JSON to clipboard. Lazy fetch via `useQuery({ enabled: false })` — data only fetched when user clicks an action button. Shows item/category count after successful fetch. Error state for failed exports.
+- **`menuToCSV()`** — converts menu JSON to CSV format with UTF-8 BOM + `sep=;` European locale metadata for Excel/Numbers compatibility. Exports all fields: category, item name, description, price, currency, allergens, dietary tags, options with price modifiers.
+- **`exportMenu()` in `api.ts`** — calls existing backend endpoint `GET /api/restaurants/:id/menu/export` (JWT-guarded). Returns `{ restaurantId, categories }` with full item details including translations, options, allergens, dietary tags.
+- **Translation keys** — `dashboard.tabs.importExport` added to EN ("Import/Export"), BG ("Импорт/Експорт"), RO ("Import/Export") locale files.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/pages/Dashboard/MenuImportExportView.tsx` | **New** — combined Import/Export view (~380 lines) |
+| `apps/frontend/src/pages/DashboardPage.tsx` | Import changed to `MenuImportExportView`, tab label key updated |
+| `apps/frontend/src/lib/api.ts` | `exportMenu()` function added |
+| `apps/frontend/src/locales/en/translation.json` | `dashboard.tabs.importExport` key added |
+| `apps/frontend/src/locales/bg/translation.json` | `dashboard.tabs.importExport` key added |
+| `apps/frontend/src/locales/ro/translation.json` | `dashboard.tabs.importExport` key added |
+
+No backend changes needed — export endpoint already existed in `menu-import.controller.ts` and `menu-import.service.ts`.
+
+### Design Decisions
+
+1. **Sub-tab navigation** — Import and Export share a tab because they're closely related (menu data I/O). Sub-tabs prevent tab bar bloat.
+2. **Lazy fetch** — Export data is fetched only on button click, not on tab mount. Prevents unnecessary API calls when user only wants to import.
+3. **Frontend CSV generation** — CSV conversion happens client-side via `menuToCSV()`. Backend returns JSON only — single source of truth, avoids maintaining two export formats server-side.
+4. **No backend changes** — The backend `GET /export` endpoint was already built, tested, and JWT-guarded. Only frontend UI was missing.

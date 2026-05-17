@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
@@ -187,9 +187,10 @@ const CheckoutPage = () => {
     }
   }, [user, customerName]);
 
-  // Redirect if no items in cart
+  // Redirect if no items in cart — skip when order was just submitted
+  const orderPlaced = useRef(false);
   useEffect(() => {
-    if (items.length === 0) {
+    if (items.length === 0 && !orderPlaced.current) {
       navigate(-1); // Go back to the menu
     }
   }, [items, navigate]);
@@ -233,12 +234,14 @@ const CheckoutPage = () => {
         localStorage.setItem(`session-${tableNumber}`, newOrder.sessionToken);
       }
 
+      orderPlaced.current = true;
       clearCart();
       setShowResetCartAction(false);
 
       navigate("/order-confirmation", {
         state: {
           orderNumber: newOrder.id,
+          orderId: newOrder.id,
           restaurantId: newOrder.restaurantId,
           tableNumber,
         },

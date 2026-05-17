@@ -26,7 +26,9 @@ import { CreateStaffDto } from '../users/dto/create-staff.dto';
 import { PinLoginDto } from './dto/pin-login.dto';
 import { SetPinDto } from './dto/set-pin.dto';
 
-const COOKIE_SAMESITE = (process.env.COOKIE_SAMESITE as 'lax' | 'strict' | 'none') || (process.env.NODE_ENV === 'production' ? 'lax' : 'lax');
+const COOKIE_SAMESITE: 'lax' | 'strict' | 'none' =
+  (process.env.COOKIE_SAMESITE as any) ||
+  (process.env.NODE_ENV === 'production' ? 'none' : 'lax');
 
 const COOKIE_OPTIONS = {
   httpOnly: true,

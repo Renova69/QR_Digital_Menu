@@ -16,6 +16,7 @@
 > **Infrastructure & Polish Sprint (May 15, 2026):** ✅ API versioning `/api/v1/*`, Prisma jittered-backoff retry + circuit breaker (CLOSED→OPEN after 5 failures, HALF_OPEN after 30s), order progress stepper, 3 QR print templates (Classic/Premium/Minimal), 122 tests (up from 77), customer split bill  
 > **SaaS Tiering V2 (May 16, 2026):** ✅ 4-tier FREE/STARTER/PROFESSIONAL/ENTERPRISE on `Restaurant.tier`, SubscriptionModule (FeatureService + FeatureGuard + @RequireFeature decorator), Stripe Checkout + Portal + webhook with timestamp-gate race protection, `useFeature` hook, BillingView, PricingPage, SubscriptionBanner, 4 demo accounts  
 > **Menu Import/Export (May 16, 2026):** ✅ Combined Import/Export dashboard tab with sub-tab navigation (Import / Export). Export offers Download JSON, Download CSV, Copy JSON. Backend endpoint already existed — frontend `exportMenu()` + `MenuImportExportView.tsx` added. CSV export with BOM + European locale support. Tab label changed to "Import/Export" across EN/BG/RO.  
+> **Production Deployment & Cross-Origin Fixes (May 16, 2026):** ✅ Frontend on Vercel, backend on Cloud Run. Cross-origin cookie fix (`COOKIE_SAMESITE` default `'none'` in production). CheckoutPage useEffect hang fix (useRef guard). Missing orderId in navigate state fix. CSRF cross-origin compatibility. SPA rewrites in vercel.json.  
 > **Current Focus:** Phase 20 (Multi-location) — planned
 
 ---
@@ -651,6 +652,49 @@ Plan: `.claude/plans/snappy-tumbling-peach.md` (6 changes across 4 files)
 - Confirmed NOT a code bug. `paymentsEnabled Boolean @default(false)` in Prisma schema
 - `PaymentService` correctly checks `restaurant.paymentsEnabled` before allowing payment intent creation
 - Both affected restaurants had `paymentsEnabled = false` in DB — enabled via direct DB update
+
+---
+
+## 🌐 Production Deployment & Cross-Origin Fixes ✅ (May 16, 2026)
+
+**Goal:** Deploy frontend to Vercel and backend to Cloud Run. Fix cross-origin cookie blocking that prevented order placement.
+
+### Production Infrastructure
+
+| Component | Platform | URL |
+|-----------|----------|-----|
+| **Frontend** | Vercel (Static) | `https://qr-digital-menu-ivory.vercel.app` |
+| **Backend** | Google Cloud Run (Docker) | `https://qr-menu-backend-822584248302.europe-west1.run.app` |
+| **Database** | Neon PostgreSQL | Serverless, auto-scaling |
+
+### Cross-Origin Cookie Fix (COOKIE_SAMESITE)
+
+- **Bug**: `sameSite: 'lax'` default in production blocked all cookies on cross-site requests (Vercel → Cloud Run). Orders failed with 403 CSRF, auth failed with 401.
+- **Fix**: Changed `COOKIE_SAMESITE` default from `'lax'` to `'none'` in production (both `main.ts` and `auth.controller.ts`). `secure: true` already set. Env var still overridable for same-origin deploys.
+- **Files**: `apps/backend/src/main.ts`, `apps/backend/src/auth/auth.controller.ts`
+
+### CheckoutPage Screen Hang Fix
+
+- **Bug**: After order submission, screen stuck on "Submitting order..." permanently. Backend received order immediately. Refresh went to public menu, not order confirmation.
+- **Root cause**: `useEffect([items, navigate])` detected `items.length === 0` after `clearCart()` and fired `navigate(-1)`, undoing the `navigate("/order-confirmation")` that was just called.
+- **Fix**: Added `useRef(false)` flag set to `true` before `clearCart()`. useEffect checks flag before navigating back.
+- **Files**: `apps/frontend/src/pages/CheckoutPage.tsx`
+
+### Missing orderId in Navigate State
+
+- **Bug**: Order confirmation page couldn't join WebSocket room for real-time status updates.
+- **Fix**: Added `orderId: newOrder.id` to navigate state object.
+- **Files**: `apps/frontend/src/pages/CheckoutPage.tsx`
+
+### Production Auth Architecture
+
+- **Dev**: Same-origin Vite proxy (`/api/v1` baseURL, `sameSite: 'lax'` cookies)
+- **Production**: Cross-origin (`VITE_API_URL` env, `sameSite: 'none'` + `secure: true` cookies)
+- **api.ts**: Auto-selects baseURL — `/api/v1` in dev, `VITE_API_URL` in production
+- **CORS**: Backend allows all `.vercel.app` origins + `localhost` ports
+- **SPA**: `vercel.json` rewrites all paths to `/index.html`
+
+**Key files:** `main.ts`, `auth.controller.ts`, `CheckoutPage.tsx`, `api.ts`, `vercel.json`
 
 ---
 

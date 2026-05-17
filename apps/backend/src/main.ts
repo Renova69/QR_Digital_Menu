@@ -65,8 +65,12 @@ async function bootstrap() {
     );
 
     // CSRF — double-submit cookie pattern
-    // Skip entirely in dev mode (cross-origin makes cookie reading impossible from JS)
-    const COOKIE_SAMESITE = (process.env.COOKIE_SAMESITE as 'lax' | 'strict' | 'none') || (process.env.NODE_ENV === 'production' ? 'lax' : 'lax');
+    // Cross-origin deployments (Vercel → Cloud Run) need SameSite=None so cookies are
+    // sent on cross-site fetch/XHR. Secure=true is set for production, which is required
+    // by browsers when SameSite=None.
+    const COOKIE_SAMESITE: 'lax' | 'strict' | 'none' =
+      (process.env.COOKIE_SAMESITE as any) ||
+      (process.env.NODE_ENV === 'production' ? 'none' : 'lax');
     const CSRF_EXEMPT = [
       '/api/v1/auth/login',
       '/api/v1/auth/register',
