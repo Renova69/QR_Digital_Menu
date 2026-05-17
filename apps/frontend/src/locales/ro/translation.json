@@ -100,6 +100,9 @@
                   "failedRemove":  "Eliminarea personalului a eșuat",
                   "failedGenerateQr":  "Generarea QR-ului a eșuat",
                   "failedRebond":  "Generarea QR-ului de reasociere a eșuat",
+                  "staffCount":  "Membri personal",
+                  "noRolesAvailable":  "Rolurile de personal sunt blocate",
+                  "noRolesDesc":  "Actualizați la Professional pentru manageri sau Enterprise pentru chelneri și personal de bucătărie.",
                   "created":  {
                                   "title":  "Cont de personal creat",
                                   "rebondTitle":  "Asociere dispozitiv",
@@ -741,5 +744,15 @@
                      "feedbackRecorded":  "Feedback-ul dvs. a fost inregistrat.",
                      "appreciateTime":  "Va multumim ca ati luat timp sa ne ajutati sa ne imbunatatim.",
                      "continueBrowsing":  "Inapoi la meniu"
-                 }
+                 },
+    "tierLocked":  {
+                      "upgrade":  "Actualizați",
+                      "analyticsTitle":  "Analitice complete blocate",
+                      "analyticsDesc":  "Articole populare, ore de vârf, distribuție pe categorii și feedback necesită planul Professional.",
+                      "kds":  "Afișajul bucătărie necesită planul Enterprise.",
+                      "pos":  "Punctul de vânzare necesită planul Enterprise.",
+                      "dayparting":  "Programele sunt dezactivate pe acest plan.",
+                      "customers":  "Autentificarea clienților necesită planul Professional.",
+                      "upselling":  "Funcțiile de upselling necesită planul Professional."
+                  }
 }

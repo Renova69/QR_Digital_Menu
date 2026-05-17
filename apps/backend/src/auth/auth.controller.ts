@@ -116,8 +116,9 @@ export class AuthController {
   sendOtp(
     @Body('email') email?: string,
     @Body('phone') phone?: string,
+    @Body('restaurantId') restaurantId?: string,
   ) {
-    return this.authService.sendOtp(email, phone);
+    return this.authService.sendOtp(email, phone, restaurantId);
   }
 
   @Post('otp/verify')
@@ -127,9 +128,10 @@ export class AuthController {
     @Body('code') code: string | undefined,
     @Body('phone') phone: string | undefined,
     @Body('name') name: string | undefined,
+    @Body('restaurantId') restaurantId: string | undefined,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.verifyOtp(email, code, phone, name);
+    const result = await this.authService.verifyOtp(email, code, phone, name, restaurantId);
     setTokenCookie(res, result.token);
     return result;
   }

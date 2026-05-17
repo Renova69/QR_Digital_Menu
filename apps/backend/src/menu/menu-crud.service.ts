@@ -14,7 +14,7 @@ import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { CreateMenuOptionDto } from './dto/create-menu-option.dto';
 import { UpdateMenuOptionDto } from './dto/update-menu-option.dto';
-import { Prisma } from '@prisma/client';
+import { Prisma, AvailabilityType } from '@prisma/client';
 import { DateTime } from 'luxon';
 
 @Injectable()
@@ -65,7 +65,8 @@ export class MenuCrudService {
     });
 
     const restaurantTz = (restaurant as any).timezone || 'UTC';
-    const filteredCategories = this.filterByAvailability(allCategories, restaurantTz);
+    const restaurantTier = (restaurant as any).tier as string | undefined;
+    const filteredCategories = this.filterByAvailability(allCategories, restaurantTz, restaurantTier);
 
     const targetLangs = (restaurant as any).targetLanguages as string[] || [];
     if (lang && process.env.DEEPL_API_KEY && targetLangs.includes(lang)) {
@@ -119,7 +120,8 @@ export class MenuCrudService {
     });
 
     const tz = (restaurant as any).timezone || 'UTC';
-    const filteredCategories = this.filterByAvailability(allCategories as any[], tz);
+    const tier = (restaurant as any).tier as string | undefined;
+    const filteredCategories = this.filterByAvailability(allCategories as any[], tz, tier);
 
     return { restaurant, categories: filteredCategories };
   }
@@ -169,7 +171,8 @@ export class MenuCrudService {
     startTime: string | null;
     endTime: string | null;
     daysOfWeek: number[];
-  }>(categories: T[], timezone: string): T[] {
+  }>(categories: T[], timezone: string, tier?: string): T[] {
+    const daypartingEnabled = ['PROFESSIONAL', 'ENTERPRISE'].includes(tier ?? 'FREE');
     const now = DateTime.now().setZone(timezone);
     const currentTimeStr = now.toFormat('HH:mm');
     const currentDay = now.weekday === 7 ? 0 : now.weekday;
@@ -178,6 +181,8 @@ export class MenuCrudService {
       if (category.availabilityType === 'HIDDEN') return false;
       if (category.availabilityType === 'ALWAYS') return true;
       if (category.availabilityType === 'SCHEDULED') {
+        // Treat SCHEDULED as ALWAYS when tier lacks DAYPARTING (e.g. after downgrade)
+        if (!daypartingEnabled) return true;
         if (
           category.daysOfWeek &&
           Array.isArray(category.daysOfWeek) &&
@@ -199,8 +204,13 @@ export class MenuCrudService {
   async getTrendingItems(restaurantId: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: { trendingMode: true, id: true },
+      select: { trendingMode: true, id: true, tier: true },
     });
+
+    const tier = (restaurant as any)?.tier ?? 'FREE';
+    if (!['PROFESSIONAL', 'ENTERPRISE'].includes(tier)) {
+      return [];
+    }
 
     if (!restaurant || restaurant.trendingMode === 'OFF') {
       return [];
@@ -283,9 +293,14 @@ export class MenuCrudService {
   ) {
     const restaurant = await this.checkRestaurantOwnership(restaurantId, userId);
 
+    const daypartingEnabled = ['PROFESSIONAL', 'ENTERPRISE'].includes((restaurant as any).tier ?? 'FREE');
+    const sanitizedDto = daypartingEnabled
+      ? createCategoryDto
+      : { ...createCategoryDto, availabilityType: AvailabilityType.ALWAYS, startTime: null, endTime: null, daysOfWeek: [] };
+
     const count = await this.prisma.menuCategory.count({ where: { restaurantId } });
     const data: Prisma.MenuCategoryUncheckedCreateInput = {
-      ...createCategoryDto,
+      ...sanitizedDto,
       restaurantId,
       order: count,
     };
@@ -337,9 +352,14 @@ export class MenuCrudService {
     }
     const restaurant = await this.checkRestaurantOwnership(category.restaurantId, userId);
 
+    const daypartingEnabled = ['PROFESSIONAL', 'ENTERPRISE'].includes((restaurant as any).tier ?? 'FREE');
+    const sanitizedDto = daypartingEnabled
+      ? updateCategoryDto
+      : { ...updateCategoryDto, availabilityType: AvailabilityType.ALWAYS, startTime: null, endTime: null, daysOfWeek: [] };
+
     const updated = await this.prisma.menuCategory.update({
       where: { id: categoryId },
-      data: updateCategoryDto,
+      data: sanitizedDto,
     });
 
     if (

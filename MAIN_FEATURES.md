@@ -1,8 +1,8 @@
 # QR Menu — Product & Technical Due Diligence Report
 
 > **Prepared for:** Fortune 500 Acquisition Review
-> **Date:** May 16, 2026 (audited — all sections verified against codebase)
-> **Product Status:** V2.5 Shipped | V3 Growth — Phase 19 (Stripe/Menu Import/POS) Complete, Phase 18 (Staff Roles & RBAC) Complete | Security Hardening Phase 21 Complete | Public Menu Mobile UX Complete (TopBar, FilterPanel, dual currency, horizontal cards) | Code Review & Bug Fixes Complete (PR#3, Toggle, payments investigation) | Security & Bug Fixes Complete (CORS, magic-link removal, loyalty emails, CSV export, TS strict mode) | KDS (Kitchen Display) Live at /staff/kitchen | Infrastructure & Polish Sprint Complete (API versioning, Prisma circuit breaker, order progress bar, QR print templates, 122 tests, customer split bill) | SaaS Tiering V2 Complete (4-tier FREE/STARTER/PRO/ENTERPRISE, FeatureGuard, Stripe Billing, PricingPage, BillingView, SubscriptionBanner, demo accounts)
+> **Date:** May 17, 2026 (audited — all sections verified against codebase)
+> **Product Status:** V2.5 Shipped | V3 Growth — Phase 19 (Stripe/Menu Import/POS) Complete, Phase 18 (Staff Roles & RBAC) Complete | Security Hardening Phase 21 Complete | Public Menu Mobile UX Complete (TopBar, FilterPanel, dual currency, horizontal cards) | Code Review & Bug Fixes Complete (PR#3, Toggle, payments investigation) | Security & Bug Fixes Complete (CORS, magic-link removal, loyalty emails, CSV export, TS strict mode) | KDS (Kitchen Display) Live at /staff/kitchen | Infrastructure & Polish Sprint Complete (API versioning, Prisma circuit breaker, order progress bar, QR print templates, 122 tests, customer split bill) | SaaS Tiering V2 Complete (4-tier FREE/STARTER/PRO/ENTERPRISE, FeatureGuard, Stripe Billing, PricingPage, BillingView, SubscriptionBanner, demo accounts) | **Tier Enforcement Sweep Round 2 Complete (all 22 feature flags enforced, 454 tests passing)**
 > **Codebase:** 100+ frontend source files, 17 backend domain modules (+2 infrastructure modules), 16 database models, ~200 i18n keys across 3 languages
 
 ---
@@ -1380,6 +1380,48 @@ STRIPE_SUBSCRIPTION_WEBHOOK_SECRET=whsec_xxx
 - `apps/frontend/src/locales/*/translation.json` — `dashboard.tabs.importExport` keys added
 - `apps/backend/src/menu-import/menu-import.controller.ts` — existing `GET /export` endpoint (no changes needed)
 - `apps/backend/src/menu-import/menu-import.service.ts` — existing `exportMenu()` method (no changes needed)
+
+### 3.28 Tier Enforcement Sweep Round 2 (May 17, 2026)
+
+**What it does:** Closes all remaining gaps between `TIER_FEATURES` definitions and actual enforcement. Every feature flag is now honored at controller-decorator level (backend) and UI-render level (frontend). Before this sprint ~5 of 22 defined flags were enforced; now all 22 are.
+
+**Backend gates:**
+- **`FeatureService.getAllowedStaffRoles(tier)`** — new method; returns `[]` on FREE/STARTER, `['MANAGER']` on PROFESSIONAL, `['MANAGER','WAITER','KITCHEN']` on ENTERPRISE. `UsersService.createStaffMember` uses this for role-tier validation before creating staff; `getStaffLimit(tier)` replaces inline switch (single source of truth).
+- **Dashboard controller** — `GET /dashboard/summary` now requires `ANALYTICS_BASIC` (STARTER+); `GET /dashboard/analytics` requires `ANALYTICS_FULL` (PRO+).
+- **Payment controller** — 6 authenticated routes (force-open, close, close-card, close-cash, sessions, history) require `PAYMENTS_STRIPE`.
+- **Restaurants controller** — Stripe Connect routes (stripe/connect, stripe/status, stripe/disconnect) require `PAYMENTS_STRIPE`.
+- **Menu DAYPARTING** — `createCategory`/`updateCategory` strip `availabilityType`/`startTime`/`endTime`/`daysOfWeek` for non-DAYPARTING tiers (forces ALWAYS). `filterByAvailability` treats SCHEDULED categories as ALWAYS for non-DAYPARTING tiers (prevents orphaned schedules after tier downgrade).
+- **Menu UPSELLING** — `getTrendingItems` returns `[]` for non-UPSELLING tiers. `getPublicMenuMeta` strips `perfectPairings` and trending fields.
+
+**Frontend gates:**
+- **`AnalyticsView.tsx`** — KPI cards (STARTER+) always visible; Top Items, Peak Hours, Category Breakdown, Top Tables, Feedback sections wrapped in `{canFullAnalytics && ...}` (PRO+). Upgrade card rendered for STARTER-.
+- **`PublicMenuPage.tsx`** — `TrendingCarousel` + `perfectPairings` prop gated by `upselling`; `CustomerLoginModal` + sign-in section gated by `customers:auth`; `PaymentModal` gated by `payments:stripe`.
+- **`CheckoutPage.tsx`** — `CustomerLoginModal` gated by `customers:auth`.
+- **`CategorySettingsModal.tsx`** — Schedule button + SCHEDULED config UI gated by `dayparting`; downgrade badge "Schedules disabled on this plan" shown when category has SCHEDULED type on non-PRO.
+- **`PosPage.tsx`** — Renders upgrade redirect card if tier lacks `pos` flag (ENTERPRISE only).
+- **`KitchenPage.tsx`** — Renders upgrade redirect card if tier lacks `kds` flag (ENTERPRISE only).
+- **Staff settings** — Role dropdown dynamically filtered: MANAGER visible if `canRbac`, WAITER if `canPos`, KITCHEN if `canKds`. Staff count display (current / limit). Full locked card shown to FREE/STARTER ("Upgrade to invite staff").
+
+**i18n (EN/BG/RO):** 11 new keys — `tierLocked.upgrade`, `tierLocked.analyticsTitle`, `tierLocked.analyticsDesc`, `tierLocked.kds`, `tierLocked.pos`, `tierLocked.dayparting`, `tierLocked.customers`, `tierLocked.upselling`, `staff.staffCount`, `staff.noRolesAvailable`, `staff.noRolesDesc`.
+
+**Tests:** 454 passing (suite of 29 specs all green). Fixed `users.service.spec.ts` (added `FeatureService` to DI providers; updated createStaffMember test fixtures to use ENTERPRISE tier for WAITER/KITCHEN roles, PROFESSIONAL for MANAGER). Fixed `menu-crud.service.spec.ts` (added `tier: 'PROFESSIONAL'` to SCHEDULED-filter mocks and trending mocks so tier-gated code paths execute).
+
+**Key files:**
+- `apps/backend/src/subscription/feature.service.ts` — `getAllowedStaffRoles()` added
+- `apps/backend/src/dashboard/dashboard.controller.ts` — `@RequireFeature(ANALYTICS_BASIC/FULL)` added
+- `apps/backend/src/payment/payment.controller.ts` — `@RequireFeature(PAYMENTS_STRIPE)` on 6 routes
+- `apps/backend/src/restaurants/restaurants.controller.ts` — `@RequireFeature(PAYMENTS_STRIPE)` on 3 Stripe routes
+- `apps/backend/src/users/users.service.ts` — `getAllowedStaffRoles` + `getStaffLimit` wired, `FeatureService` injected
+- `apps/backend/src/menu/menu-crud.service.ts` — DAYPARTING strip-on-write, UPSELLING strip-on-read, `filterByAvailability` tier-aware
+- `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx` — basic/full split
+- `apps/frontend/src/pages/PublicMenuPage.tsx` — upselling/customers-auth/payments gates
+- `apps/frontend/src/pages/CheckoutPage.tsx` — customers-auth gate
+- `apps/frontend/src/components/menu/CategorySettingsModal.tsx` — dayparting gate + downgrade badge
+- `apps/frontend/src/pages/pos/PosPage.tsx` — pos flag redirect
+- `apps/frontend/src/pages/staff/KitchenPage.tsx` — kds flag redirect
+- `apps/frontend/src/pages/Dashboard/SettingsView.tsx` (staff tab) — role dropdown + limit display
+
+---
 
 ## 4. Data Model
 

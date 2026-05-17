@@ -3,6 +3,7 @@ import {
   ConflictException,
   UnauthorizedException,
   NotFoundException,
+  ForbiddenException,
   HttpException,
   HttpStatus,
   Logger,
@@ -155,11 +156,26 @@ export class AuthService {
     return data.status === 'approved';
   }
 
+  private async checkCustomersAuthFeature(restaurantId?: string): Promise<void> {
+    if (!restaurantId) return;
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { tier: true },
+    });
+    const tier = (restaurant?.tier ?? 'FREE') as string;
+    const allowed = ['PROFESSIONAL', 'ENTERPRISE'];
+    if (!allowed.includes(tier)) {
+      throw new ForbiddenException('Customer authentication is not available on this plan');
+    }
+  }
+
   // ── public methods ────────────────────────────────────────────────────
   async sendOtp(
     email?: string,
     phone?: string,
+    restaurantId?: string,
   ): Promise<{ success: boolean; devCode?: string; channel: 'email' | 'sms' | 'whatsapp' }> {
+    await this.checkCustomersAuthFeature(restaurantId);
     if (!email && !phone) {
       throw new HttpException('email or phone is required', HttpStatus.BAD_REQUEST);
     }
@@ -343,7 +359,9 @@ export class AuthService {
     code?: string,
     phone?: string,
     name?: string,
+    restaurantId?: string,
   ): Promise<{ token: string; user: any; isNew: boolean }> {
+    await this.checkCustomersAuthFeature(restaurantId);
     if (!code) throw new HttpException('code is required', HttpStatus.BAD_REQUEST);
 
     const cleanName = name?.trim() || undefined;

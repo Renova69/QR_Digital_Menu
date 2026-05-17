@@ -61,4 +61,15 @@ export class FeatureService {
         return 1;
     }
   }
+
+  getAllowedStaffRoles(tier: string): string[] {
+    switch (tier) {
+      case 'PROFESSIONAL':
+        return ['MANAGER'];
+      case 'ENTERPRISE':
+        return ['MANAGER', 'WAITER', 'KITCHEN'];
+      default: // FREE, STARTER
+        return [];
+    }
+  }
 }

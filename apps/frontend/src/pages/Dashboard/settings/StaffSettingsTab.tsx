@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { QrCode, Trash2, Copy, Check } from "lucide-react";
+import { QrCode, Trash2, Copy, Check, Lock } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { QRCodeSVG } from "qrcode.react";
 import { listStaff, createStaff, removeStaff, createDeviceEnrollment } from "../../../lib/api";
 import StaffCreatedModal from "../../../components/staff/StaffCreatedModal";
+import { useFeature, useTier } from "../../../hooks/useFeature";
 
 const inputCls =
   "w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/50 transition-all";
@@ -15,6 +16,16 @@ interface StaffSettingsTabProps {
 
 const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant }) => {
   const { t } = useTranslation();
+  const canRbac = useFeature('rbac');
+  const canPos = useFeature('pos');
+  const canKds = useFeature('kds');
+  const { staffLimit } = useTier();
+
+  const allowedRoles = [
+    ...(canRbac ? [{ value: 'MANAGER', label: t('staff.roleManager', 'Manager') }] : []),
+    ...(canPos ? [{ value: 'WAITER', label: t('staff.roleWaiter', 'Waiter') }] : []),
+    ...(canKds ? [{ value: 'KITCHEN', label: t('staff.roleKitchen', 'Kitchen') }] : []),
+  ];
 
   // Staff management state
   const [staffMembers, setStaffMembers] = useState<Array<{ id: string; email: string; name: string | null; role: string }>>([]);
@@ -22,7 +33,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
   const [staffError, setStaffError] = useState("");
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("WAITER");
+  const [inviteRole, setInviteRole] = useState(() => allowedRoles[0]?.value ?? "MANAGER");
 
   // Shared device state
   const [sharedDeviceConfig, setSharedDeviceConfig] = useState<{
@@ -275,38 +286,65 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
           <div className="bg-destructive/10 text-destructive p-3 rounded-lg text-sm">{staffError}</div>
         )}
 
+        {/* Staff limit display */}
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span>{t('staff.staffCount', 'Staff members')}: <strong className="text-foreground">{staffMembers.filter(s => s.role !== 'OWNER').length}</strong> / {staffLimit === Infinity ? '∞' : staffLimit}</span>
+          {staffMembers.filter(s => s.role !== 'OWNER').length >= staffLimit && staffLimit !== Infinity && (
+            <a href="/pricing" className="text-accent text-xs font-medium hover:underline">{t('tierLocked.upgrade', 'Upgrade for more')}</a>
+          )}
+        </div>
+
         {/* Invite form */}
         <div className="p-4 border border-border rounded-lg space-y-3">
           <p className="font-medium text-sm">{t("staff.inviteNewStaff")}</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <input
-              type="text"
-              value={inviteName}
-              onChange={(e) => setInviteName(e.target.value)}
-              placeholder={t("staff.displayName")}
-              className={inputCls}
-              required
-            />
-            <input
-              type="email"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder={t("staff.emailOptional")}
-              className={inputCls}
-            />
-            <select
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value)}
-              className={inputCls}
-            >
-              <option value="MANAGER">{t("staff.roleManager")}</option>
-              <option value="WAITER">{t("staff.roleWaiter")}</option>
-              <option value="KITCHEN">{t("staff.roleKitchen")}</option>
-            </select>
-          </div>
-          <Button type="button" variant="outline" size="sm" onClick={handleInviteStaff}>
-            {t("staff.createStaffAccount")}
-          </Button>
+          {allowedRoles.length === 0 ? (
+            <div className="flex items-center gap-3 p-4 bg-muted/30 rounded-xl border border-dashed border-border">
+              <Lock className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-foreground">{t('staff.noRolesAvailable', 'Staff roles locked')}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('staff.noRolesDesc', 'Upgrade to Professional to invite managers, or Enterprise for waiters and kitchen staff.')}</p>
+                <a href="/pricing" className="text-xs text-accent font-medium hover:underline mt-1 inline-block">{t('tierLocked.upgrade', 'View plans')}</a>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <input
+                  type="text"
+                  value={inviteName}
+                  onChange={(e) => setInviteName(e.target.value)}
+                  placeholder={t("staff.displayName")}
+                  className={inputCls}
+                  required
+                />
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder={t("staff.emailOptional")}
+                  className={inputCls}
+                />
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value)}
+                  className={inputCls}
+                >
+                  {allowedRoles.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleInviteStaff}
+                disabled={staffMembers.filter(s => s.role !== 'OWNER').length >= staffLimit && staffLimit !== Infinity}
+              >
+                {t("staff.createStaffAccount")}
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Staff list */}

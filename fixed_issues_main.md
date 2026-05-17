@@ -720,3 +720,52 @@ No backend changes needed — export endpoint already existed in `menu-import.co
 2. **Lazy fetch** — Export data is fetched only on button click, not on tab mount. Prevents unnecessary API calls when user only wants to import.
 3. **Frontend CSV generation** — CSV conversion happens client-side via `menuToCSV()`. Backend returns JSON only — single source of truth, avoids maintaining two export formats server-side.
 4. **No backend changes** — The backend `GET /export` endpoint was already built, tested, and JWT-guarded. Only frontend UI was missing.
+
+---
+
+## Tier Enforcement Sweep Round 2 — Test Fixes (May 17, 2026)
+
+### Context
+
+Round 2 made `UsersService.createStaffMember` and `MenuCrudService` tier-aware. This broke 22 previously-passing tests whose mocks did not include the new `tier` field that the services now read.
+
+### `users.service.spec.ts` — Two Root Causes
+
+**Root cause 1 — Missing DI provider:**
+`UsersService` now injects `FeatureService` in its constructor. The test module did not provide `FeatureService`, causing NestJS DI to throw at module init time (all tests failed with "Nest can't resolve dependencies").
+
+- **Fix**: Added `FeatureService` to the `providers` array in `Test.createTestingModule`. Since `FeatureService` has no constructor params, it can be added as a class directly — NestJS instantiates it normally.
+
+**Root cause 2 — Role/tier mismatch:**
+`createStaffMember` tests used `role: 'WAITER'` and `role: 'KITCHEN'` with the default `{ tier: 'FREE' }` restaurant mock. `getAllowedStaffRoles('FREE')` returns `[]`, so the service threw `ForbiddenException` before reaching the staff-limit or user-creation logic.
+
+- **Fix**: Updated mock restaurant tier per `getAllowedStaffRoles` rules:
+  - Tests that create WAITER or KITCHEN use `tier: 'ENTERPRISE'`
+  - Tests that create MANAGER use `tier: 'PROFESSIONAL'`
+  - Staff-limit test (PROFESSIONAL, count=5) — role changed from WAITER to MANAGER
+
+### `menu-crud.service.spec.ts` — Two Root Causes
+
+**Root cause 1 — SCHEDULED filter tests:**
+`filterByAvailability` now checks `tier` and treats SCHEDULED as ALWAYS for non-DAYPARTING tiers. `BASE_RESTAURANT` had `tier: 'FREE'`, so SCHEDULED categories were never filtered — tests expecting 1 filtered result got 2.
+
+- **Fix**: Two SCHEDULED tests override with `{ ...BASE_RESTAURANT, tier: 'PROFESSIONAL' }` so DAYPARTING enforcement activates.
+
+**Root cause 2 — Trending item tests:**
+`getTrendingItems` checks `hasFeature(tier, UPSELLING)` and returns `[]` immediately for non-UPSELLING tiers. Trending mocks passed `{ trendingMode: 'MANUAL', id: 'rest-1' }` with no `tier` — `hasFeature(undefined, ...)` defaulted to FREE so UPSELLING was never enabled.
+
+- **Fix**: Added `tier: 'PROFESSIONAL'` to both MANUAL and AUTO trending restaurant mocks.
+
+### Result
+
+```
+Test Suites: 29 passed, 29 total
+Tests:       454 passed, 454 total
+```
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/src/users/users.service.spec.ts` | Added FeatureService provider; updated 5 createStaffMember test fixtures with correct tier/role combos |
+| `apps/backend/src/menu/menu-crud.service.spec.ts` | Added tier: PROFESSIONAL to 4 test fixtures (2 SCHEDULED, 2 trending) |

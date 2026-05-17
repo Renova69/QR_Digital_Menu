@@ -5,6 +5,7 @@ import { usePos } from "../../context/PosContext";
 import { useAuth } from "../../context/AuthContext";
 import { useIdleTimer } from "../../hooks/useIdleTimer";
 import RestaurantContext from "../../context/RestaurantContext";
+import { useFeature } from "../../hooks/useFeature";
 import PosTopBar from "../../components/pos/PosTopBar";
 import PosCategoryFilter from "../../components/pos/PosCategoryFilter";
 import PosItemGrid from "../../components/pos/PosItemGrid";
@@ -38,6 +39,13 @@ export default function PosPage() {
   const { session, items, getTotal, resetCart } = usePos();
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const canPos = useFeature('pos');
+
+  useEffect(() => {
+    if (activeRestaurant && !canPos) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [activeRestaurant, canPos, navigate]);
 
   useIdleTimer(() => {
     logout();
