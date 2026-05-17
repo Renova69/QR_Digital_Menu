@@ -55,6 +55,7 @@ const PublicMenuPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const langFetchId = useRef(0);
+  const langFetchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const toggleDietTag = (tag: string) => {
     setActiveDietTags((prev) =>
@@ -100,7 +101,10 @@ const PublicMenuPage = () => {
           const fallback = await getCategoryItems(restaurantId!, cat.id, undefined);
           if (!stale()) setLoadedItemsMap((prev) => ({ ...prev, [cat.id]: fallback }));
         } catch {
-          if (!stale()) setLoadedItemsMap((prev) => ({ ...prev, [cat.id]: [] }));
+          // Preserve existing items rather than wiping to empty on complete failure
+          if (!stale()) setLoadedItemsMap((prev) =>
+            Array.isArray(prev[cat.id]) ? prev : { ...prev, [cat.id]: [] }
+          );
         }
       }
     });
@@ -254,13 +258,18 @@ const PublicMenuPage = () => {
   };
 
   const handleLanguageChange = (code: string) => {
+    // Immediate: update UI language + translated item names from embedded translations
     setSelectedLang(code);
     i18n.changeLanguage(code);
-    // Re-fetch all category items with the new language
-    if (menuMeta?.categories?.length && restaurantId) {
-      const cancelled = { v: false };
-      loadAllCategoryItems(menuMeta.categories, code, cancelled, false);
-    }
+    // Debounced: only fire API fetch after 350ms of no further switches
+    // This prevents N×categories requests on rapid switching
+    if (langFetchDebounce.current) clearTimeout(langFetchDebounce.current);
+    langFetchDebounce.current = setTimeout(() => {
+      if (menuMeta?.categories?.length && restaurantId) {
+        const cancelled = { v: false };
+        loadAllCategoryItems(menuMeta.categories, code, cancelled, false);
+      }
+    }, 350);
   };
 
   const scrollToCategory = (id: string) => {
