@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsBoolean } from 'class-validator';
+import { IsIn, IsOptional, IsBoolean, IsString, MinLength } from 'class-validator';
 import { SubscriptionTier } from '@prisma/client';
 
 const TIERS: SubscriptionTier[] = ['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'];
@@ -12,4 +12,15 @@ export class UpdateTenantTierDto {
 export class UpdateTenantStatusDto {
   @IsBoolean()
   isActive: boolean;
+}
+
+export class ResetOwnerPasswordDto {
+  @IsString()
+  @MinLength(8)
+  password: string;
+}
+
+export class UpdatePaymentsEnabledDto {
+  @IsBoolean()
+  paymentsEnabled: boolean;
 }

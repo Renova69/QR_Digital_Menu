@@ -425,4 +425,10 @@ export const deleteTenantStaff = (restaurantId: string, userId: string) =>
 export const importMenuForTenant = (id: string, dto: object) =>
   api.post(`/super-admin/tenants/${id}/menu/import`, dto).then((r) => r.data);
 
+export const resetTenantOwnerPassword = (id: string, password: string) =>
+  api.patch(`/super-admin/tenants/${id}/reset-password`, { password }).then((r) => r.data);
+
+export const updateTenantPayments = (id: string, paymentsEnabled: boolean) =>
+  api.patch(`/super-admin/tenants/${id}/payments`, { paymentsEnabled }).then((r) => r.data);
+
 export default api;

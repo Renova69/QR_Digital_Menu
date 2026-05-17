@@ -16,7 +16,7 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { SuperAdminService } from './super-admin.service';
 import { SuperAdminGuard } from './super-admin.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { UpdateTenantTierDto, UpdateTenantStatusDto } from './dto/update-tenant.dto';
+import { UpdateTenantTierDto, UpdateTenantStatusDto, ResetOwnerPasswordDto, UpdatePaymentsEnabledDto } from './dto/update-tenant.dto';
 import { ImportMenuDto } from '../menu-import/dto/import-menu.dto';
 
 @ApiTags('Super Admin')
@@ -67,6 +67,26 @@ export class SuperAdminController {
     @Request() req: any,
   ) {
     return this.service.updateStatus(id, dto.isActive, req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Reset owner password' })
+  @Patch('tenants/:id/reset-password')
+  resetOwnerPassword(
+    @Param('id') id: string,
+    @Body() dto: ResetOwnerPasswordDto,
+    @Request() req: any,
+  ) {
+    return this.service.resetOwnerPassword(id, dto.password, req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Enable or disable payments for a tenant' })
+  @Patch('tenants/:id/payments')
+  updatePaymentsEnabled(
+    @Param('id') id: string,
+    @Body() dto: UpdatePaymentsEnabledDto,
+    @Request() req: any,
+  ) {
+    return this.service.updatePaymentsEnabled(id, dto.paymentsEnabled, req.user.id);
   }
 
   @ApiOperation({ summary: 'Soft-delete a restaurant' })

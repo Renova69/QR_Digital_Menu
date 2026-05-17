@@ -9,6 +9,8 @@ import {
   restoreTenant,
   deleteTenantStaff,
   importMenuForTenant,
+  resetTenantOwnerPassword,
+  updateTenantPayments,
 } from "../../lib/api";
 import * as Dialog from "@radix-ui/react-dialog";
 import { ArrowLeft, Trash2, Upload, RotateCcw, Users } from "lucide-react";
@@ -32,6 +34,11 @@ export default function TenantDetailPage() {
   const [importJson, setImportJson] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [resetPwDialogOpen, setResetPwDialogOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [paymentsDialogOpen, setPaymentsDialogOpen] = useState(false);
 
   const { data: tenant, isLoading, isError } = useQuery({
     queryKey: ["super-admin", "tenant", id],
@@ -82,6 +89,24 @@ export default function TenantDetailPage() {
   const importMutation = useMutation({
     mutationFn: (dto: object) => importMenuForTenant(id!, dto),
     onSuccess: () => { invalidate(); setImportJson(""); setImportError(null); },
+  });
+
+  const resetPwMutation = useMutation({
+    mutationFn: (password: string) => resetTenantOwnerPassword(id!, password),
+    onSuccess: () => {
+      setResetPwDialogOpen(false);
+      setNewPassword("");
+      setConfirmPassword("");
+    },
+  });
+
+  const paymentsMutation = useMutation({
+    mutationFn: (enabled: boolean) => updateTenantPayments(id!, enabled),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["super-admin", "tenant", id] });
+      queryClient.invalidateQueries({ queryKey: ["super-admin", "tenants"] });
+      setPaymentsDialogOpen(false);
+    },
   });
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -198,6 +223,61 @@ export default function TenantDetailPage() {
         <div>
           <p className="text-xs text-muted-foreground">Tables</p>
           <p className="text-sm font-medium">{tenant.tableCount}</p>
+        </div>
+      </div>
+
+      {/* Payments Toggle */}
+      <div className="glass-panel rounded-xl p-6">
+        <h3 className="text-lg font-semibold mb-4">Payments</h3>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium">
+              {tenant.paymentsEnabled ? "Payments Enabled" : "Payments Disabled"}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Controls whether this restaurant can accept payments via Stripe.
+            </p>
+          </div>
+          <Dialog.Root open={paymentsDialogOpen} onOpenChange={setPaymentsDialogOpen}>
+            <Dialog.Trigger asChild>
+              <button
+                className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                  tenant.paymentsEnabled
+                    ? "bg-red-500/10 text-red-500 hover:bg-red-500/20"
+                    : "bg-green-500/10 text-green-500 hover:bg-green-500/20"
+                }`}
+              >
+                {tenant.paymentsEnabled ? "Disable Payments" : "Enable Payments"}
+              </button>
+            </Dialog.Trigger>
+            <Dialog.Portal>
+              <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+              <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background rounded-xl p-6 shadow-xl w-[400px] max-w-[90vw]">
+                <Dialog.Title className="text-lg font-semibold mb-2">
+                  {tenant.paymentsEnabled ? "Disable Payments?" : "Enable Payments?"}
+                </Dialog.Title>
+                <Dialog.Description className="text-sm text-muted-foreground mb-4">
+                  {tenant.paymentsEnabled
+                    ? "This restaurant will no longer be able to accept new payments. Ongoing sessions will still complete."
+                    : "This restaurant will be able to accept payments via Stripe."}
+                </Dialog.Description>
+                <div className="flex justify-end gap-3">
+                  <Dialog.Close asChild>
+                    <button className="px-4 py-2 rounded-lg text-sm border border-border">Cancel</button>
+                  </Dialog.Close>
+                  <button
+                    onClick={() => paymentsMutation.mutate(!tenant.paymentsEnabled)}
+                    disabled={paymentsMutation.isPending}
+                    className={`px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50 ${
+                      tenant.paymentsEnabled ? "bg-red-500" : "bg-green-500"
+                    }`}
+                  >
+                    {paymentsMutation.isPending ? "Processing..." : tenant.paymentsEnabled ? "Yes, Disable" : "Yes, Enable"}
+                  </button>
+                </div>
+              </Dialog.Content>
+            </Dialog.Portal>
+          </Dialog.Root>
         </div>
       </div>
 
@@ -464,6 +544,77 @@ export default function TenantDetailPage() {
                       className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-medium disabled:opacity-50"
                     >
                       {deleteMutation.isPending ? 'Deleting...' : 'Yes, Delete'}
+                    </button>
+                  </div>
+                </Dialog.Content>
+              </Dialog.Portal>
+            </Dialog.Root>
+          </div>
+        )}
+
+        {!isDeleted && (
+          <div className="mt-6 pt-6 border-t border-border">
+            <h4 className="text-sm font-medium text-red-500 mb-2">Reset Owner Password</h4>
+            <p className="text-xs text-muted-foreground mb-4">
+              Owner: {tenant.owner.email}. Changing the password will log the owner out immediately.
+            </p>
+
+            <Dialog.Root open={resetPwDialogOpen} onOpenChange={setResetPwDialogOpen}>
+              <Dialog.Trigger asChild>
+                <button className="px-4 py-2 rounded-lg text-sm font-medium bg-red-500/10 text-red-500 hover:bg-red-500/20">
+                  Reset Owner Password
+                </button>
+              </Dialog.Trigger>
+              <Dialog.Portal>
+                <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+                <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background rounded-xl p-6 shadow-xl w-[400px] max-w-[90vw]">
+                  <Dialog.Title className="text-lg font-semibold mb-2">Reset Owner Password</Dialog.Title>
+                  <Dialog.Description className="text-sm text-muted-foreground mb-4">
+                    Enter a new password for <strong>{tenant.owner.email}</strong>. The owner will be logged out and must use this new password to sign in.
+                  </Dialog.Description>
+
+                  <input
+                    type="password"
+                    placeholder="New password (min 8 characters)"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm mb-3"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Confirm new password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm mb-4"
+                  />
+
+                  {newPassword && confirmPassword && newPassword !== confirmPassword && (
+                    <p className="text-xs text-red-500 mb-3">Passwords do not match</p>
+                  )}
+                  {newPassword && newPassword.length < 8 && (
+                    <p className="text-xs text-red-500 mb-3">Password must be at least 8 characters</p>
+                  )}
+
+                  <div className="flex justify-end gap-3">
+                    <Dialog.Close asChild>
+                      <button
+                        className="px-4 py-2 rounded-lg text-sm border border-border"
+                        onClick={() => { setNewPassword(""); setConfirmPassword(""); }}
+                      >
+                        Cancel
+                      </button>
+                    </Dialog.Close>
+                    <button
+                      onClick={() => resetPwMutation.mutate(newPassword)}
+                      disabled={
+                        resetPwMutation.isPending ||
+                        !newPassword ||
+                        newPassword.length < 8 ||
+                        newPassword !== confirmPassword
+                      }
+                      className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-medium disabled:opacity-50"
+                    >
+                      {resetPwMutation.isPending ? "Resetting..." : "Yes, Reset Password"}
                     </button>
                   </div>
                 </Dialog.Content>
