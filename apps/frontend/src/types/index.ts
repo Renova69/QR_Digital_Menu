@@ -60,3 +60,50 @@ export interface Category {
   isDrinkCategory?: boolean;
   translations?: any;
 }
+
+// Super Admin
+export interface SuperAdminStats {
+  totalRestaurants: number;
+  totalUsers: number;
+  byTier: Record<string, number>;
+  activeSubscriptions: number;
+  suspendedCount: number;
+}
+
+export interface TenantSummary {
+  id: string;
+  name: string;
+  tier: string;
+  forceTier: string | null;
+  isActive: boolean;
+  stripeOnboarded: boolean;
+  paymentsEnabled: boolean;
+  createdAt: string;
+  owner: {
+    id: string;
+    email: string;
+    name: string | null;
+  };
+}
+
+export interface TenantDetail extends TenantSummary {
+  address: string | null;
+  country: string;
+  timezone: string;
+  stripeAccountId: string | null;
+  stripeSubscriptionId: string | null;
+  orderCount: number;
+  paymentSummary: {
+    totalAmount: number;
+    totalPayments: number;
+  };
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+  };
+}
