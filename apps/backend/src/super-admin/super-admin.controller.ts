@@ -1,7 +1,9 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
+  Delete,
   Param,
   Query,
   Body,
@@ -15,6 +17,7 @@ import { SuperAdminService } from './super-admin.service';
 import { SuperAdminGuard } from './super-admin.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UpdateTenantTierDto, UpdateTenantStatusDto } from './dto/update-tenant.dto';
+import { ImportMenuDto } from '../menu-import/dto/import-menu.dto';
 
 @ApiTags('Super Admin')
 @Controller('super-admin')
@@ -64,6 +67,38 @@ export class SuperAdminController {
     @Request() req: any,
   ) {
     return this.service.updateStatus(id, dto.isActive, req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Soft-delete a restaurant' })
+  @Delete('tenants/:id')
+  deleteRestaurant(@Param('id') id: string, @Request() req: any) {
+    return this.service.deleteRestaurant(id, req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Restore a soft-deleted restaurant' })
+  @Post('tenants/:id/restore')
+  restoreRestaurant(@Param('id') id: string, @Request() req: any) {
+    return this.service.restoreRestaurant(id, req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Delete a staff member from a restaurant' })
+  @Delete('tenants/:restaurantId/staff/:userId')
+  deleteStaff(
+    @Param('restaurantId') restaurantId: string,
+    @Param('userId') userId: string,
+    @Request() req: any,
+  ) {
+    return this.service.deleteStaff(restaurantId, userId, req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Import menu JSON into a restaurant' })
+  @Post('tenants/:id/menu/import')
+  importMenu(
+    @Param('id') id: string,
+    @Body() dto: ImportMenuDto,
+    @Request() req: any,
+  ) {
+    return this.service.importMenu(id, dto, req.user.id);
   }
 
   @ApiOperation({ summary: 'Paginated admin audit log' })

@@ -8,5 +8,6 @@ import { ApiKeyGuard } from './guards/api-key.guard';
   imports: [PrismaModule],
   controllers: [MenuImportController],
   providers: [MenuImportService, ApiKeyGuard],
+  exports: [MenuImportService],
 })
 export class MenuImportModule {}

@@ -76,6 +76,7 @@ export interface TenantSummary {
   tier: string;
   forceTier: string | null;
   isActive: boolean;
+  deletedAt: string | null;
   stripeOnboarded: boolean;
   paymentsEnabled: boolean;
   createdAt: string;
@@ -86,13 +87,20 @@ export interface TenantSummary {
   };
 }
 
+export interface StaffMember {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  createdAt: string;
+}
+
 export interface TenantDetail extends TenantSummary {
-  address: string | null;
-  country: string;
   timezone: string;
-  stripeAccountId: string | null;
-  stripeSubscriptionId: string | null;
   orderCount: number;
+  menuCategoryCount: number;
+  tableCount: number;
+  staffMembers: StaffMember[];
   paymentSummary: {
     totalAmount: number;
     totalPayments: number;

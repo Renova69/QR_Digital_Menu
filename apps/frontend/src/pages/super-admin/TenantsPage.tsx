@@ -71,6 +71,7 @@ export default function TenantsPage() {
           <option value="">All Status</option>
           <option value="active">Active</option>
           <option value="suspended">Suspended</option>
+          <option value="deleted">Deleted</option>
         </select>
       </div>
 
@@ -131,11 +132,17 @@ export default function TenantsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
-                        t.isActive ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
-                      }`}>
-                        {t.isActive ? 'Active' : 'Suspended'}
-                      </span>
+                      {t.deletedAt ? (
+                        <span className="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-slate-500/10 text-slate-500">
+                          Deleted
+                        </span>
+                      ) : (
+                        <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+                          t.isActive ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+                        }`}>
+                          {t.isActive ? 'Active' : 'Suspended'}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}
