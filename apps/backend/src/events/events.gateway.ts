@@ -10,11 +10,30 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 
+const wsOrigin = (
+  origin: string | undefined,
+  callback: (err: Error | null, allow?: boolean) => void,
+) => {
+  const allowed = [
+    process.env.FRONTEND_URL || 'http://localhost:3001',
+    'http://localhost:3001',
+    'http://127.0.0.1:3001',
+    'http://localhost:3002',
+    'http://127.0.0.1:3002',
+  ];
+  if (
+    !origin ||
+    allowed.includes(origin) ||
+    (typeof origin === 'string' && origin.endsWith('.vercel.app'))
+  ) {
+    callback(null, true);
+  } else {
+    callback(new Error(`Socket.IO CORS: ${origin} not allowed`));
+  }
+};
+
 @WebSocketGateway({
-  cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
-    credentials: true,
-  },
+  cors: { origin: wsOrigin, credentials: true },
 })
 export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
