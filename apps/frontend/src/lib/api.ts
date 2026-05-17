@@ -393,4 +393,24 @@ export const createPortalSession = async () => {
   return response.data as { url: string };
 };
 
+// Super Admin
+export const getSuperAdminStats = () =>
+  api.get('/super-admin/stats').then((r) => r.data as import('../types').SuperAdminStats);
+
+export const getSuperAdminTenants = (
+  params?: { page?: number; limit?: number; search?: string; tier?: string; status?: string },
+) =>
+  api
+    .get('/super-admin/tenants', { params })
+    .then((r) => r.data as import('../types').PaginatedResponse<import('../types').TenantSummary>);
+
+export const getSuperAdminTenant = (id: string) =>
+  api.get(`/super-admin/tenants/${id}`).then((r) => r.data as import('../types').TenantDetail);
+
+export const updateTenantTier = (id: string, forceTier: string | null) =>
+  api.patch(`/super-admin/tenants/${id}/tier`, { forceTier }).then((r) => r.data);
+
+export const updateTenantStatus = (id: string, isActive: boolean) =>
+  api.patch(`/super-admin/tenants/${id}/status`, { isActive }).then((r) => r.data);
+
 export default api;
