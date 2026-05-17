@@ -3,15 +3,18 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getSuperAdminTenants } from "../../lib/api";
 import { Search } from "lucide-react";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 
 const PAGE_SIZE = 20;
 
 export default function TenantsPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [tierFilter, setTierFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+
+  const search = useDebouncedValue(searchInput, 300);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["super-admin", "tenants", page, search, tierFilter, statusFilter],
@@ -23,6 +26,7 @@ export default function TenantsPage() {
         ...(tierFilter && { tier: tierFilter }),
         ...(statusFilter && { status: statusFilter }),
       }),
+    staleTime: 30_000,
   });
 
   const totalPages = data ? Math.ceil(data.meta.total / PAGE_SIZE) : 0;
@@ -38,9 +42,9 @@ export default function TenantsPage() {
           <input
             type="text"
             placeholder="Search by name or email..."
-            value={search}
+            value={searchInput}
             onChange={(e) => {
-              setSearch(e.target.value);
+              setSearchInput(e.target.value);
               setPage(1);
             }}
             className="w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-background text-sm"

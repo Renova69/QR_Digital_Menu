@@ -25,6 +25,7 @@ model User {
   loyaltyAccounts LoyaltyAccount[]
   restaurants     Restaurant[]     @relation("OwnedRestaurants")
   staffRestaurant Restaurant?       @relation("StaffRestaurant", fields: [restaurantId], references: [id])
+  adminAuditLogs  AdminAuditLog[]
 
   @@map("app_user")
 }
@@ -409,4 +410,19 @@ enum SubscriptionTier {
   STARTER
   PROFESSIONAL
   ENTERPRISE
+}
+
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String
+  action      String
+  targetType  String
+  targetId    String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  actor       User     @relation(fields: [actorUserId], references: [id])
+
+  @@index([targetType, targetId])
+  @@index([actorUserId])
+  @@map("admin_audit_log")
 }
