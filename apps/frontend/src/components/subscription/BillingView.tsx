@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import { getSubscriptionStatus, createCheckoutSession, createPortalSession } from '../../lib/api';
 
 const TIER_COLORS: Record<string, string> = {
@@ -11,26 +12,16 @@ const TIER_COLORS: Record<string, string> = {
 
 const TIER_ORDER = ['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'];
 
-interface SubscriptionStatus {
-  tier: string;
-  features: string[];
-  staffLimit: number;
-  hasSubscription: boolean;
-}
-
 export default function BillingView() {
   const { t } = useTranslation();
-  const [status, setStatus] = useState<SubscriptionStatus | null>(null);
-  const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState('');
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    getSubscriptionStatus()
-      .then(setStatus)
-      .catch(() => setError(t('subscription.errorLoading', 'Failed to load subscription')))
-      .finally(() => setLoading(false));
-  }, [t]);
+  const { data: status, isLoading: loading } = useQuery({
+    queryKey: ['subscription-status'],
+    queryFn: getSubscriptionStatus,
+    staleTime: 60_000,
+  });
 
   const handleUpgrade = async (tier: string) => {
     setActionLoading(tier);
