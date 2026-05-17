@@ -174,20 +174,13 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
 
                 {/* Content — right side */}
                 <div className="flex-1 flex flex-col min-w-0 z-10">
-                    <div className="flex items-start justify-between gap-3">
-                        <h3
-                            className="text-base font-serif font-black tracking-tight leading-[1.1] truncate"
-                            style={{ fontFamily: 'var(--font-heading, inherit)', color: 'var(--theme-text, inherit)' }}
-                        >
-                            {itemName}
-                        </h3>
-                        <span
-                            className="font-serif font-black text-lg whitespace-nowrap shrink-0"
-                            style={{ color: 'var(--theme-text, inherit)', fontFamily: 'var(--font-body, inherit)' }}
-                        >
-                            {formatInlineDual(priceEuro, 'EUR')}
-                        </span>
-                    </div>
+                    {/* Name — full line */}
+                    <h3
+                        className="text-base font-serif font-black tracking-tight leading-[1.1]"
+                        style={{ fontFamily: 'var(--font-heading, inherit)', color: 'var(--theme-text, inherit)' }}
+                    >
+                        {itemName}
+                    </h3>
 
                     <p className="text-sm text-muted-foreground font-medium leading-relaxed mt-1 line-clamp-2">
                       {itemDesc}
@@ -213,12 +206,18 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                       );
                     })() : null}
 
-                    {/* Action Button */}
+                    {/* Price + Add Button — inline at bottom */}
                     {ordersEnabled && (
-                    <div className="mt-auto pt-3">
+                    <div className="mt-auto pt-3 flex items-center justify-between gap-3">
+                        <span
+                            className="font-serif font-black text-lg whitespace-nowrap shrink-0"
+                            style={{ color: 'var(--theme-text, inherit)', fontFamily: 'var(--font-body, inherit)' }}
+                        >
+                            {formatInlineDual(priceEuro, 'EUR')}
+                        </span>
                         <button
                             onClick={handleAddToCart}
-                            className="group/btn relative w-full bg-accent text-white font-black uppercase tracking-[0.15em] text-[11px] py-3 px-6 rounded-full shadow-xl hover:shadow-[0_15px_30px_-5px_var(--color-accent)] hover:-translate-y-1 transition-all active:scale-[0.97] flex items-center justify-center gap-2 overflow-hidden"
+                            className="group/btn relative bg-accent text-white font-black uppercase tracking-[0.15em] text-[11px] py-3 px-6 rounded-full shadow-xl hover:shadow-[0_15px_30px_-5px_var(--color-accent)] hover:-translate-y-1 transition-all active:scale-[0.97] flex items-center justify-center gap-2 overflow-hidden"
                         >
                             <span className="relative z-10">{t('publicMenu.addShort', '+ Add')}</span>
                             <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
