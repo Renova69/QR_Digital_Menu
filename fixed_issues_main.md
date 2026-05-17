@@ -769,3 +769,66 @@ Tests:       454 passed, 454 total
 |------|--------|
 | `apps/backend/src/users/users.service.spec.ts` | Added FeatureService provider; updated 5 createStaffMember test fixtures with correct tier/role combos |
 | `apps/backend/src/menu/menu-crud.service.spec.ts` | Added tier: PROFESSIONAL to 4 test fixtures (2 SCHEDULED, 2 trending) |
+
+---
+
+## Super-Admin Dashboard (May 17, 2026)
+
+Full internal operations panel at `/super-admin` for platform-level management.
+
+### Backend — `SuperAdminModule`
+
+- **`GET /super-admin/stats`** — platform totals (restaurants, users, orders, revenue) + tier distribution (`groupBy` not raw SQL — avoids `@@map` casing pitfall).
+- **`GET /super-admin/tenants`** — paginated list with search, tier filter, status filter, deleted filter. `GetTenantsQueryDto` validates `tier` against enum (no arbitrary string pass-through).
+- **`GET /super-admin/tenants/:id`** — tenant detail with owner info and counts. Explicit `select` — never exposes `deeplApiKey`, `importApiKey`, `stripeAccountId`, `stripeCustomerId`.
+- **`PATCH /super-admin/tenants/:id/tier`** — sets `forceTier` override (bypasses Stripe subscription).
+- **`PATCH /super-admin/tenants/:id/status`** — suspend (`isActive: false`) / reactivate (`isActive: true`).
+- **`DELETE /super-admin/tenants/:id`** — soft-delete via `deletedAt` timestamp (not hard delete).
+- **`POST /super-admin/tenants/:id/restore`** — clears `deletedAt`, reactivates tenant.
+- All routes guarded by `@Roles('SUPER_ADMIN')` + `RolesGuard`.
+- **Schema additions**: `Restaurant.isActive Boolean @default(true)`, `Restaurant.forceTier SubscriptionTier?`, `Restaurant.deletedAt DateTime?`.
+
+### Frontend — Super-Admin Pages
+
+- **`SuperAdminLayout`** — sidebar nav (Overview / Tenants), isolated from `RestaurantProvider` (SUPER_ADMIN has no restaurant).
+- **`OverviewPage`** — platform stats cards + tier distribution pie chart (literal hex colors, not CSS vars).
+- **`TenantsPage`** — table with search (debounced 300ms via `useDebouncedValue` hook), tier/status/deleted filter dropdown. Deleted rows show slate "Deleted" badge. `staleTime: 30_000` on queries.
+- **`TenantDetailPage`** — tier override dropdown (forceTier), suspend/reactivate button, soft-delete/restore button. All mutations have `onError` handler + red error banner (previously failed silently with no feedback).
+- **Files**: `super-admin.service.ts`, `super-admin.controller.ts`, `super-admin.module.ts`, `SuperAdminLayout.tsx`, `OverviewPage.tsx`, `TenantsPage.tsx`, `TenantDetailPage.tsx`, `hooks/useDebouncedValue.ts`
+
+---
+
+## Tier Override Live Propagation (May 17, 2026)
+
+### Problem
+
+Super-admin sets `forceTier` on a restaurant. Owner is already logged in. Owner's browser shows OLD tier until they log out and back in — `RestaurantContext` is fetched once on login and never refreshes.
+
+### Root causes (3 layers)
+
+1. **`subscription.controller.ts` `getStatus()`** — fetched `tier` only, not `forceTier`. Returned raw tier even when `forceTier` was set.
+2. **`restaurants.service.ts`** — `findAll/findOne/findOneOrStaff` returned raw Prisma row without applying `forceTier`.
+3. **`useFeature.ts` `useTier()`** — read `activeRestaurant.tier` from `RestaurantContext` (stale on-login snapshot). Even with correct API data, context was never refreshed.
+
+### Fixes
+
+**Backend:**
+- `subscription.controller.ts`: `getStatus()` now selects `forceTier` and passes both fields to `featureService.getEffectiveTier(tier, forceTier)`.
+- `restaurants.service.ts`: Added `applyEffectiveTier<T>(r)` helper that overwrites `tier` with `forceTier` when set. Applied to `findAll`, `findOne`, `findOneOrStaff`.
+
+**Frontend:**
+- `useFeature.ts` `useTier()`: Replaced `useContext(RestaurantContext)` read with `useQuery(['subscription-status'], getSubscriptionStatus, { staleTime: 60_000 })`. TanStack Query's default `refetchOnWindowFocus: true` means switching tabs fetches fresh tier. Falls back to context while query is loading.
+- `SubscriptionBanner.tsx`: Migrated from `useEffect + useState` to `useQuery(['subscription-status'])` — shares cache key, no extra requests.
+- `BillingView.tsx`: Same migration — removed `SubscriptionStatus` interface, `loading` state, `useEffect`. Now driven by `useQuery` data.
+
+**Result**: Tier override by super-admin reflects in owner's browser within 60s (next window-focus event) without logout.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/src/subscription/subscription.controller.ts` | `getStatus()` selects `forceTier`, uses `getEffectiveTier` |
+| `apps/backend/src/restaurants/restaurants.service.ts` | `applyEffectiveTier` helper on all 3 read methods |
+| `apps/frontend/src/hooks/useFeature.ts` | `useTier()` uses `useQuery` instead of stale context |
+| `apps/frontend/src/components/subscription/SubscriptionBanner.tsx` | `useEffect` → `useQuery` |
+| `apps/frontend/src/components/subscription/BillingView.tsx` | `useEffect` → `useQuery`, removed unused interface |

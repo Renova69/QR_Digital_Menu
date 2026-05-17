@@ -288,6 +288,16 @@ Source of truth: `CODING_ROADMAP.md`. Detailed per-phase plans under `.planning/
 - **i18n** — 11 new keys across EN/BG/RO: `tierLocked.upgrade`, `tierLocked.analyticsTitle`, `tierLocked.analyticsDesc`, `tierLocked.kds`, `tierLocked.pos`, `tierLocked.dayparting`, `tierLocked.customers`, `tierLocked.upselling`, `staff.staffCount`, `staff.noRolesAvailable`, `staff.noRolesDesc`.
 - **Tests** — 454 total passing (up from 122). Fixed `users.service.spec.ts` (added `FeatureService` provider; updated role/tier combos to match `getAllowedStaffRoles` rules). Fixed `menu-crud.service.spec.ts` (added `tier: 'PROFESSIONAL'` to SCHEDULED-filter and trending mocks so service-layer tier gates pass).
 
+**Shipped — Super-Admin Dashboard (May 17, 2026):**
+- **Backend `SuperAdminModule`** — `GET /super-admin/stats` (platform totals + `groupBy` tier distribution — not raw SQL), `GET /super-admin/tenants` (paginated, search, tier/status/deleted filters, `GetTenantsQueryDto` enum-validates `tier`), `GET /super-admin/tenants/:id` (explicit select — no secrets exposed), `PATCH /tenants/:id/tier` (forceTier override), `PATCH /tenants/:id/status` (suspend/reactivate `isActive`), `DELETE /tenants/:id` (soft-delete `deletedAt`), `POST /tenants/:id/restore`. All routes behind `@Roles('SUPER_ADMIN')`.
+- **Schema** — `Restaurant.isActive Boolean @default(true)`, `Restaurant.forceTier SubscriptionTier?`, `Restaurant.deletedAt DateTime?`. Pushed to Neon.
+- **Frontend** — `SuperAdminLayout` (isolated from `RestaurantProvider` — SUPER_ADMIN has no restaurant), `OverviewPage` (stats + tier pie chart with literal hex colors), `TenantsPage` (debounced search 300ms, deleted filter, `staleTime: 30_000`), `TenantDetailPage` (tier override dropdown, suspend/restore actions, mutation error banner on all actions).
+- **Tier propagation pipeline** (all 3 layers fixed):
+  - `subscription.controller.ts` `getStatus()` applies `getEffectiveTier(tier, forceTier)`.
+  - `restaurants.service.ts` `applyEffectiveTier` helper overwrites `tier` with `forceTier` on `findAll/findOne/findOneOrStaff`.
+  - `useFeature.ts` `useTier()` migrated from stale `RestaurantContext` snapshot to `useQuery(['subscription-status'], getSubscriptionStatus, { staleTime: 60_000 })` — reflects admin changes within 60s via default `refetchOnWindowFocus`.
+  - `SubscriptionBanner.tsx` + `BillingView.tsx` migrated from `useEffect+useState` to `useQuery` (share `['subscription-status']` cache key).
+
 **Current focus — V3 Growth:**
 - **Phase 20 — Multi-location:** menu templates, bulk price updates, cross-location analytics.
 
