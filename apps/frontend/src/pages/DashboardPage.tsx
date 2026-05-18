@@ -1,6 +1,6 @@
 import { useState, useRef, useContext, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { type LucideIcon, LayoutDashboard, ShoppingBag, Bell, Table2, Settings, BarChart2, CreditCard, ChefHat, Monitor } from 'lucide-react';
+import { type LucideIcon, LayoutDashboard, ShoppingBag, Bell, Table2, Settings, BarChart2, CreditCard, ChefHat, Monitor, Upload, Utensils } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrderContext';
 import { useAssistance } from '../context/AssistanceContext';
@@ -27,10 +27,10 @@ type TabId = 'summary' | 'analytics' | 'orders' | 'payments' | 'assistance' | 't
 const BOTTOM_NAV_TABS: { id: TabId; Icon: LucideIcon; labelKey: string }[] = [
   { id: 'summary',    Icon: LayoutDashboard, labelKey: 'dashboard.tabs.home' },
   { id: 'orders',     Icon: ShoppingBag,     labelKey: 'dashboard.tabs.orders' },
-  { id: 'payments',  Icon: CreditCard,    labelKey: 'dashboard.tabs.payments' },
+  { id: 'payments',  Icon: CreditCard,       labelKey: 'dashboard.tabs.payments' },
   { id: 'assistance', Icon: Bell,            labelKey: 'dashboard.tabs.requests' },
   { id: 'tables',     Icon: Table2,          labelKey: 'dashboard.tabs.tables' },
-  { id: 'settings',  Icon: Settings,        labelKey: 'dashboard.tabs.settings' },
+  { id: 'settings',  Icon: Settings,         labelKey: 'dashboard.tabs.settings' },
 ];
 
 const VALID_TABS: TabId[] = ['summary', 'analytics', 'orders', 'payments', 'assistance', 'tables', 'settings', 'import'];
@@ -100,11 +100,24 @@ const DashboardPage = () => {
     );
   }
 
+  const desktopNavItems = [
+    { id: 'summary'    as TabId, Icon: LayoutDashboard, label: t('dashboard.tabs.summary'),     show: true },
+    { id: 'analytics'  as TabId, Icon: BarChart2,        label: t('dashboard.tabs.analytics'),   show: canAnalytics },
+    { id: 'orders'     as TabId, Icon: ShoppingBag,      label: t('dashboard.tabs.orders'),      show: canOrders },
+    { id: 'payments'   as TabId, Icon: CreditCard,       label: t('dashboard.tabs.payments'),    show: canPayments && paymentsEnabled },
+    { id: 'assistance' as TabId, Icon: Bell,             label: t('dashboard.tabs.assistance'),  show: canAssistance },
+    { id: 'tables'     as TabId, Icon: Table2,           label: t('dashboard.tabs.tables'),      show: true },
+    { id: 'settings'   as TabId, Icon: Settings,         label: t('dashboard.tabs.settings'),    show: true },
+    { id: 'import'     as TabId, Icon: Upload,           label: t('dashboard.tabs.importExport'),show: canImport },
+  ];
+
   return (
-    <div className="pt-28 pb-8 md:pb-12 px-4 md:px-6 lg:px-8 max-w-7xl mx-auto min-h-screen"
-         style={{ paddingBottom: 'max(2rem, calc(env(safe-area-inset-bottom, 0px) + 5.5rem))' }}>
+    <div
+      className="pt-28 pb-8 md:pb-12 px-4 md:px-6 lg:px-8 max-w-7xl mx-auto min-h-screen"
+      style={{ paddingBottom: 'max(2rem, calc(env(safe-area-inset-bottom, 0px) + 5.5rem))' }}
+    >
       {/* Page header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 md:mb-12 gap-6 animate-in fade-in slide-in-from-top-4 duration-700">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-6 animate-in fade-in slide-in-from-top-4 duration-700">
         <div>
           <h1 className="text-4xl md:text-7xl font-serif font-black text-foreground tracking-tighter mb-2 md:mb-3 leading-none">
             {t('dashboard.title')}
@@ -139,108 +152,119 @@ const DashboardPage = () => {
 
       {user ? (
         <NotificationProvider>
-        <SubscriptionBanner />
-        <div className="glass-panel p-4 sm:p-8 md:p-12 rounded-[2rem] md:rounded-[4rem] min-h-[60vh] border-white/10 dark:border-white/5 animate-in fade-in slide-in-from-bottom-8 duration-1000 overflow-hidden relative shadow-2xl">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 blur-[100px] pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-80 h-80 bg-accent/5 blur-[120px] pointer-events-none" />
+          <SubscriptionBanner />
 
-          {/* Desktop tab navigation — hidden on mobile (bottom nav used instead) */}
-          <div className="hidden md:flex mb-12 border-b border-border/40 overflow-x-auto pb-2 items-center hide-scrollbar relative">
-            <nav className="flex space-x-2 min-w-max pr-12" aria-label="Tabs">
-              {[
-                { id: 'summary',    label: t('dashboard.tabs.summary'),                              show: true },
-                { id: 'analytics',  label: t('dashboard.tabs.analytics'),                            show: canAnalytics },
-                { id: 'orders',     label: t('dashboard.tabs.orders'),   count: newOrdersCount,      show: canOrders },
-                { id: 'payments',   label: t('dashboard.tabs.payments'),                             show: canPayments && paymentsEnabled },
-                { id: 'assistance', label: t('dashboard.tabs.assistance'), count: unresolvedRequestsCount, show: canAssistance },
-                { id: 'tables',     label: t('dashboard.tabs.tables'),                               show: true },
-                { id: 'settings',   label: t('dashboard.tabs.settings'),                             show: true },
-                { id: 'import',     label: t('dashboard.tabs.importExport'),                               show: canImport },
-              ].filter(tab => tab.show).map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as TabId)}
-                  className={`${activeTab === tab.id
-                    ? 'bg-foreground text-background shadow-2xl scale-105 z-10'
-                    : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground'}
-                    px-7 py-4 rounded-[1.2rem] font-black text-[11px] uppercase tracking-[0.15em] transition-all flex items-center gap-2.5 active:scale-95`}
-                >
-                  {tab.label}
-                  {tab.count !== undefined && tab.count > 0 && (
-                    <span className="bg-accent text-accent-foreground text-[10px] font-black px-2.5 py-1 rounded-full shadow-lg shadow-accent/20">
-                      {tab.count}
-                    </span>
-                  )}
-                </button>
-              ))}
-              <div className="w-px h-8 bg-border/40 mx-4 self-center" />
-              <Link
-                to="/dashboard/menu"
-                className="text-muted-foreground hover:bg-secondary/80 hover:text-foreground px-7 py-4 rounded-[1.2rem] font-black text-[11px] uppercase tracking-[0.15em] transition-all"
-              >
-                {t('dashboard.tabs.menuEditor')}
-              </Link>
-              {canPos && (
+          {/* Main panel — sidebar + content on desktop, stacked on mobile */}
+          <div className="glass-panel rounded-[2rem] md:rounded-[3rem] min-h-[70vh] border-white/10 dark:border-white/5 animate-in fade-in slide-in-from-bottom-8 duration-1000 overflow-hidden relative shadow-2xl flex flex-col md:flex-row">
+
+            {/* Ambient glow orbs */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 blur-[100px] pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-80 h-80 bg-accent/5 blur-[120px] pointer-events-none" />
+
+            {/* ── Desktop sidebar nav (hidden on mobile) ── */}
+            <aside className="hidden md:flex flex-col w-56 shrink-0 border-r border-border/50 py-6 px-3 relative z-10">
+              <nav className="flex-1 space-y-0.5" aria-label={t('dashboard.title')}>
+                {desktopNavItems.filter(item => item.show).map(({ id, Icon, label }) => {
+                  const badge = getBadge(id);
+                  const isActive = activeTab === id;
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => setActiveTab(id)}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 border cursor-pointer ${
+                        isActive
+                          ? 'bg-accent/10 text-accent border-accent/20'
+                          : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground border-transparent'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span className="flex-1 text-left truncate">{label}</span>
+                      {badge > 0 && (
+                        <span className="bg-accent text-accent-foreground text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 shadow-sm shadow-accent/20">
+                          {badge > 9 ? '9+' : badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
+
+              {/* Divider + external tool links (always visible, regardless of plan) */}
+              <div className="mt-4 pt-4 border-t border-border/50 space-y-0.5">
                 <Link
-                  to="/staff/pos"
-                  className="text-muted-foreground hover:bg-secondary/80 hover:text-foreground px-7 py-4 rounded-[1.2rem] font-black text-[11px] uppercase tracking-[0.15em] transition-all flex items-center gap-1.5"
+                  to="/dashboard/menu"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent transition-all duration-150"
                 >
-                  <Monitor className="w-3.5 h-3.5" />
-                  {t('dashboard.tabs.pos')}
+                  <Utensils className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{t('dashboard.tabs.menuEditor')}</span>
                 </Link>
-              )}
-              {canKds && (
-                <Link
-                  to="/staff/kitchen"
-                  className="text-muted-foreground hover:bg-secondary/80 hover:text-foreground px-7 py-4 rounded-[1.2rem] font-black text-[11px] uppercase tracking-[0.15em] transition-all flex items-center gap-1.5"
-                >
-                  <ChefHat className="w-3.5 h-3.5" />
-                  {t('dashboard.tabs.kitchen')}
-                </Link>
-              )}
-            </nav>
-            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-background to-transparent z-10" />
-          </div>
-
-          {/* Mobile tab label — shows current tab name */}
-          <div className="flex md:hidden items-center justify-between mb-6">
-            <h2 className="text-lg font-black uppercase tracking-[0.15em] text-foreground">
-              {t(`dashboard.tabs.${activeTab}`)}
-            </h2>
-            {activeTab === 'summary' && activeRestaurant && (
-              <Link
-                to="/dashboard/menu"
-                className="text-[10px] font-black uppercase tracking-widest text-accent border border-accent/20 px-3 py-1.5 rounded-xl hover:bg-accent/10 transition-colors"
-              >
-                {t('dashboard.tabs.menuEditor')}
-              </Link>
-            )}
-          </div>
-
-          <div className="relative z-10">
-            {activeTab === 'summary' && activeRestaurant && (
-              <div className="space-y-8 md:space-y-12">
-                <SummaryView onViewAnalytics={() => setActiveTab('analytics')} />
+                {canPos && (
+                  <Link
+                    to="/staff/pos"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent transition-all duration-150"
+                  >
+                    <Monitor className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{t('dashboard.tabs.pos')}</span>
+                  </Link>
+                )}
+                {canKds && (
+                  <Link
+                    to="/staff/kitchen"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent transition-all duration-150"
+                  >
+                    <ChefHat className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{t('dashboard.tabs.kitchen')}</span>
+                  </Link>
+                )}
               </div>
-            )}
-            {activeTab === 'analytics' && activeRestaurant && <AnalyticsView />}
-            {activeTab === 'orders' && <OrdersView />}
-            {activeTab === 'payments' && activeRestaurant && paymentsEnabled && <PaymentsView />}
-            {activeTab === 'assistance' && <AssistanceView />}
-            {activeTab === 'tables' && activeRestaurant && <TableView />}
-            {activeTab === 'settings' && activeRestaurant && <SettingsView />}
-            {activeTab === 'import' && activeRestaurant && <MenuImportExportView />}
+            </aside>
+
+            {/* ── Content area ── */}
+            <div className="flex-1 min-w-0 p-4 sm:p-6 md:p-10 relative z-10">
+
+              {/* Mobile tab label — shows current tab name */}
+              <div className="flex md:hidden items-center justify-between mb-6">
+                <h2 className="text-lg font-black uppercase tracking-[0.15em] text-foreground">
+                  {t(`dashboard.tabs.${activeTab}`)}
+                </h2>
+                {activeTab === 'summary' && activeRestaurant && (
+                  <Link
+                    to="/dashboard/menu"
+                    className="text-[10px] font-black uppercase tracking-widest text-accent border border-accent/20 px-3 py-1.5 rounded-xl hover:bg-accent/10 transition-colors"
+                  >
+                    {t('dashboard.tabs.menuEditor')}
+                  </Link>
+                )}
+              </div>
+
+              {/* Tab content */}
+              <div>
+                {activeTab === 'summary' && activeRestaurant && (
+                  <div className="space-y-8 md:space-y-12">
+                    <SummaryView onViewAnalytics={() => setActiveTab('analytics')} />
+                  </div>
+                )}
+                {activeTab === 'analytics' && activeRestaurant && <AnalyticsView />}
+                {activeTab === 'orders' && <OrdersView />}
+                {activeTab === 'payments' && activeRestaurant && paymentsEnabled && <PaymentsView />}
+                {activeTab === 'assistance' && <AssistanceView />}
+                {activeTab === 'tables' && activeRestaurant && <TableView />}
+                {activeTab === 'settings' && activeRestaurant && <SettingsView />}
+                {activeTab === 'import' && activeRestaurant && <MenuImportExportView />}
+              </div>
+            </div>
           </div>
-        </div>
-        <PaymentToast />
-      </NotificationProvider>
+
+          <PaymentToast />
+        </NotificationProvider>
       ) : (
         <div className="glass-panel p-20 text-center rounded-[3rem]">
           <p className="text-2xl font-serif font-bold text-muted-foreground">{t('common.pleaseLogin')}</p>
         </div>
       )}
 
-      {/* Mobile bottom navigation */}
+      {/* Mobile bottom navigation — unchanged */}
       <nav
         className="fixed bottom-0 inset-x-0 z-50 md:hidden"
         aria-label="Mobile navigation"
@@ -267,7 +291,6 @@ const DashboardPage = () => {
                   }`}
                   aria-current={isActive ? 'page' : undefined}
                 >
-                  {/* Active indicator bar */}
                   {isActive && (
                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-accent" />
                   )}
@@ -307,7 +330,6 @@ const DashboardPage = () => {
           </div>
         </div>
       </nav>
-            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-background to-transparent z-10" />
     </div>
   );
 };
