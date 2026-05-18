@@ -149,8 +149,10 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({
   };
 
   const handleGoogleAuth = () => {
-    const apiUrl = (import.meta as any).env.VITE_API_URL || "http://localhost:3000/api";
-    window.location.href = `${apiUrl.replace("/api", "")}/api/auth/google?returnTo=${encodeURIComponent(returnTo)}`;
+    const backendBase = (import.meta as any).env.VITE_API_URL
+      ? `${(import.meta as any).env.VITE_API_URL}/v1`
+      : "http://localhost:3000/api/v1";
+    window.location.href = `${backendBase}/auth/google?returnTo=${encodeURIComponent(returnTo)}`;
   };
 
   const deliveryDescription = deliveryChannel === "whatsapp"
