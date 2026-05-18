@@ -47,7 +47,10 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = `${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/auth/google`;
+    const backendBase = import.meta.env.VITE_API_URL
+      ? `${import.meta.env.VITE_API_URL}/v1`
+      : "http://localhost:3000/api/v1";
+    window.location.href = `${backendBase}/auth/google`;
   };
 
   return (
