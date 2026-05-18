@@ -124,7 +124,9 @@ export class AuthService {
 
   private async sendTwilioOtp(phone: string): Promise<void> {
     const channel = process.env.TWILIO_CHANNEL || 'sms'; // 'sms' | 'whatsapp'
-    console.log(`[Twilio] sending OTP → To=${phone} Channel=${channel} ServiceSID=${process.env.TWILIO_VERIFY_SERVICE_SID}`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[Twilio] sending OTP → Channel=${channel} ServiceSID=${process.env.TWILIO_VERIFY_SERVICE_SID}`);
+    }
     const res = await fetch(this.twilioVerifyUrl('/Verifications'), {
       method: 'POST',
       headers: {
@@ -247,7 +249,9 @@ export class AuthService {
         }),
       });
     } else {
-      this.logger.log(`OTP for ${email}: ${code}`);
+      if (process.env.NODE_ENV !== 'production') {
+        this.logger.log(`OTP for ${email}: ${code}`);
+      }
     }
 
     return { success: true, ...(isDev ? { devCode: code } : {}), channel: 'email' };

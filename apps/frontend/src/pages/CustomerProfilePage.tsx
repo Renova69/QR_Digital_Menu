@@ -4,6 +4,7 @@ import api from "../lib/api";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { useTranslation } from "react-i18next";
+import DataPrivacyTab from "./profile/DataPrivacyTab";
 
 export const CustomerProfilePage: React.FC = () => {
   const { user } = useAuth();
@@ -266,6 +267,10 @@ export const CustomerProfilePage: React.FC = () => {
             ))}
           </ul>
         )}
+      </div>
+
+      <div className="mt-8">
+        <DataPrivacyTab />
       </div>
     </div>
   );

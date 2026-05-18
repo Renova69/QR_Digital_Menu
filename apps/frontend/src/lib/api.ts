@@ -431,4 +431,21 @@ export const resetTenantOwnerPassword = (id: string, password: string) =>
 export const updateTenantPayments = (id: string, paymentsEnabled: boolean) =>
   api.patch(`/super-admin/tenants/${id}/payments`, { paymentsEnabled }).then((r) => r.data);
 
+// ── GDPR / Legal helpers ─────────────────────────────────────────────────────
+
+export const getPublicLegalSettings = () =>
+  api.get('/platform-settings/public').then((r) => r.data);
+
+export const getAdminLegalSettings = () =>
+  api.get('/super-admin/platform-settings').then((r) => r.data);
+
+export const updateAdminLegalSettings = (patch: Record<string, unknown>) =>
+  api.patch('/super-admin/platform-settings', patch).then((r) => r.data);
+
+export const exportUserData = () =>
+  api.get('/users/me/export').then((r) => r.data);
+
+export const deleteUserAccount = () =>
+  api.delete('/users/me/delete').then((r) => r.data);
+
 export default api;
