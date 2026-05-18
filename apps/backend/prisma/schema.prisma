@@ -40,14 +40,12 @@ model Restaurant {
   googleReviewUrl           String?
   address                   String?
   contactInfo               String?
-  googleTranslateApiKey     String?
   targetLanguages           String[]            @default([])
   dashboardLanguage         String?             @default("en")
   timezone                  String?             @default("UTC")
   ownerId                   String
   createdAt                 DateTime            @default(now())
   updatedAt                 DateTime            @updatedAt
-  deeplApiKey               String?
   fontBody                  String?             @default("Outfit")
   fontHeading               String?             @default("Playfair Display")
   themeBgColor              String?
@@ -426,4 +424,29 @@ model AdminAuditLog {
   @@index([targetType, targetId])
   @@index([actorUserId])
   @@map("admin_audit_log")
+}
+
+model PlatformSettings {
+  id                        String   @id @default("singleton")
+  gdprEnabled               Boolean  @default(false)
+  cookieBannerEnabled       Boolean  @default(false)
+  privacyPolicyEnabled      Boolean  @default(false)
+  termsEnabled              Boolean  @default(false)
+  cookiePolicyEnabled       Boolean  @default(false)
+  erasureEndpointEnabled    Boolean  @default(false)
+  dataExportEndpointEnabled Boolean  @default(false)
+  retentionCronEnabled      Boolean  @default(false)
+  orderPiiRetentionYears    Int      @default(7)
+  verificationTokenTtlDays  Int      @default(7)
+  cookieBannerText          Json?
+  privacyPolicyContent      Json?
+  termsContent              Json?
+  cookiePolicyContent       Json?
+  dataControllerName        String?
+  dataControllerEmail       String?
+  dataControllerAddress     String?
+  updatedAt                 DateTime @updatedAt
+  updatedById               String?
+
+  @@map("platform_settings")
 }

@@ -19,6 +19,7 @@ import StaffRoute from "./components/StaffRoute";
 import SuperAdminRoute from "./components/SuperAdminRoute";
 import { PosProvider } from "./context/PosContext";
 import { NotificationProvider } from "./context/NotificationContext";
+import CookieConsentBanner from "./components/legal/CookieConsentBanner";
 
 // Lazy-loaded pages — not on the critical render path
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
@@ -38,6 +39,11 @@ const SuperAdminLayout = lazy(() => import("./pages/super-admin/SuperAdminLayout
 const OverviewPage = lazy(() => import("./pages/super-admin/OverviewPage"));
 const TenantsPage = lazy(() => import("./pages/super-admin/TenantsPage"));
 const TenantDetailPage = lazy(() => import("./pages/super-admin/TenantDetailPage"));
+const LegalSettingsPage = lazy(() => import("./pages/super-admin/LegalSettingsPage"));
+
+const PrivacyPolicyPage = lazy(() => import("./pages/legal/PrivacyPolicyPage"));
+const TermsPage = lazy(() => import("./pages/legal/TermsPage"));
+const CookiePolicyPage = lazy(() => import("./pages/legal/CookiePolicyPage"));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -181,7 +187,20 @@ function App() {
                   </SuperAdminRoute>
                 }
               />
+              <Route
+                path="/super-admin/legal"
+                element={
+                  <SuperAdminRoute>
+                    <LegalSettingsPage />
+                  </SuperAdminRoute>
+                }
+              />
             </Route>
+
+            {/* Legal pages — public, no auth required */}
+            <Route path="/privacy" element={<PrivacyPolicyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/cookies" element={<CookiePolicyPage />} />
 
             {/* Customer-facing routes — no header, full viewport */}
             <Route element={<PublicLayout />}>
@@ -201,6 +220,7 @@ function App() {
             </Route>
           </Routes>
           </Suspense>
+          <CookieConsentBanner />
         </AuthProvider>
       </Router>
     </ErrorBoundary>

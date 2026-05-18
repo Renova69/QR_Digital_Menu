@@ -22,6 +22,8 @@ import { PaymentModule } from './payment/payment.module';
 import { MenuImportModule } from './menu-import/menu-import.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { SuperAdminModule } from './super-admin/super-admin.module';
+import { PlatformSettingsModule } from './platform-settings/platform-settings.module';
+import { UsersDataModule } from './users-data/users-data.module';
 
 @Module({
   imports: [
@@ -37,6 +39,8 @@ import { SuperAdminModule } from './super-admin/super-admin.module';
     PrismaModule,
     SubscriptionModule,
     SuperAdminModule,
+    PlatformSettingsModule,
+    UsersDataModule,
     AuthModule,
     RestaurantsModule,
     MenuModule,
