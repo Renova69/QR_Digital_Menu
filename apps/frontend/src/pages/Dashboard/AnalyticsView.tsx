@@ -28,7 +28,12 @@ const AnalyticsView = () => {
   const { t } = useTranslation();
   const canFullAnalytics = useFeature('analytics:full');
 
-  const { data, isLoading, error } = useAnalytics(activeRestaurant?.id, period, startDate || undefined, endDate || undefined);
+  const { data, isLoading, error } = useAnalytics(
+    canFullAnalytics ? activeRestaurant?.id : undefined,
+    period,
+    startDate || undefined,
+    endDate || undefined,
+  );
   const { data: feedbackData } = useQuery({
     queryKey: ['feedbackSummary', activeRestaurant?.id],
     queryFn: () => getFeedbackSummary(activeRestaurant!.id),
@@ -41,6 +46,20 @@ const AnalyticsView = () => {
     return (
       <div className="flex justify-center items-center py-32">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent"></div>
+      </div>
+    );
+  }
+
+  if (!canFullAnalytics) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-6 text-center">
+        <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center">
+          <Lock className="w-7 h-7 text-accent" />
+        </div>
+        <div>
+          <p className="font-serif font-bold text-2xl text-foreground mb-2">{t('tierLocked.analyticsTitle', 'Full Analytics — Professional Plan')}</p>
+          <p className="text-sm text-muted-foreground max-w-sm">{t('tierLocked.analyticsDesc', 'Top items, peak hours, category breakdown, and guest feedback require Professional plan.')}</p>
+        </div>
       </div>
     );
   }
