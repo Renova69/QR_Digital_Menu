@@ -718,7 +718,60 @@
       "title": "Compare all features"
     },
     "faq": {
-      "title": "Frequently asked questions"
+      "title": "Frequently asked questions",
+      "q1": "Are prices inclusive of VAT?",
+      "a1": "Prices shown exclude VAT. Your local VAT rate applies at checkout via Stripe.",
+      "q2": "Can I cancel anytime?",
+      "a2": "Yes. Cancel via the Billing portal at any time. You keep access until the end of the current billing period.",
+      "q3": "What happens when I downgrade?",
+      "a3": "You move to the new plan's features immediately. Stripe applies a prorated credit for unused time toward your next invoice.",
+      "q4": "Is there a free trial?",
+      "a4": "The FREE plan is permanent with no time limit — it is your trial. Upgrade whenever you are ready.",
+      "q5": "Are there transaction fees?",
+      "a5": "Stripe charges 1.4% + €0.25 per EU card transaction. There is no additional platform fee from us.",
+      "q6": "Can I switch between monthly and yearly billing?",
+      "a6": "Yes, via the Billing portal. The change takes effect at your next billing date."
+    },
+    "tiers": {
+      "free": { "b1": "Digital menu (view & edit)", "b2": "QR code management", "b3": "OCR menu import", "b4": "1 staff member" },
+      "starter": { "b1": "Everything in Free", "b2": "Online ordering", "b3": "Basic analytics", "b4": "1 staff member" },
+      "professional": { "b1": "Everything in Starter", "b2": "Stripe pay-at-table", "b3": "Full analytics", "b4": "Call waiter button", "b5": "Multi-language menu", "b6": "Custom branding", "b7": "Loyalty program", "b8": "Customer accounts", "b9": "Upselling & dayparting", "b10": "Up to 5 staff + Manager role" },
+      "enterprise": { "b1": "Everything in Professional", "b2": "Point of Sale (POS)", "b3": "Kitchen Display (KDS)", "b4": "Multi-location", "b5": "Thermal printers", "b6": "Menu templates", "b7": "Advanced RBAC", "b8": "Unlimited staff", "b9": "Priority support" }
+    },
+    "features": {
+      "digitalMenu": "Digital menu",
+      "ocrImport": "OCR menu import",
+      "multiLanguage": "Multi-language menu",
+      "menuTemplates": "Menu templates",
+      "onlineOrdering": "Online ordering",
+      "callWaiter": "Call waiter button",
+      "pos": "Point of Sale (POS)",
+      "kds": "Kitchen Display (KDS)",
+      "stripePayments": "Stripe pay-at-table",
+      "basicAnalytics": "Basic analytics",
+      "fullAnalytics": "Full analytics",
+      "qrCodes": "QR codes",
+      "customerAccounts": "Customer accounts",
+      "loyalty": "Loyalty program",
+      "upselling": "Upselling",
+      "dayparting": "Dayparting / happy hour",
+      "customBranding": "Custom branding",
+      "multiLocation": "Multi-location",
+      "thermalPrinters": "Thermal printers",
+      "staffMembers": "Staff members",
+      "rbac": "Advanced RBAC",
+      "prioritySupport": "Priority support",
+      "unlimited": "Unlimited"
+    },
+    "sections": {
+      "menu": "Menu",
+      "orders": "Orders",
+      "payments": "Payments",
+      "analytics": "Analytics",
+      "customers": "QR & Customers",
+      "customization": "Customization",
+      "team": "Team",
+      "support": "Support"
     }
   },
   "orderConfirmation": {
