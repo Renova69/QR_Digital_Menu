@@ -127,7 +127,9 @@ export default function TenantDetailPage() {
       setResetPwDialogOpen(false);
       setNewPassword("");
       setConfirmPassword("");
+      setMutationError(null);
     },
+    onError: onMutationError,
   });
 
   const paymentsMutation = useMutation({
@@ -585,10 +587,10 @@ export default function TenantDetailPage() {
                       className="w-full px-3 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-sm focus:outline-none focus:border-slate-600 placeholder-slate-600 transition-colors"
                     />
                   </div>
-                  {newPassword && newPassword.length < 8 && (
-                    <p className="text-xs text-red-400 mb-3">Password must be at least 8 characters</p>
+                  {newPassword && !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(newPassword) && (
+                    <p className="text-xs text-red-400 mb-3">Min 8 chars with uppercase, lowercase, and a number</p>
                   )}
-                  {newPassword && confirmPassword && newPassword !== confirmPassword && (
+                  {newPassword && /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(newPassword) && confirmPassword && newPassword !== confirmPassword && (
                     <p className="text-xs text-red-400 mb-3">Passwords do not match</p>
                   )}
                   <div className="flex justify-end gap-2.5">
@@ -605,7 +607,7 @@ export default function TenantDetailPage() {
                       disabled={
                         resetPwMutation.isPending ||
                         !newPassword ||
-                        newPassword.length < 8 ||
+                        !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(newPassword) ||
                         newPassword !== confirmPassword
                       }
                       className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-semibold disabled:opacity-40 hover:bg-red-600 transition-colors"

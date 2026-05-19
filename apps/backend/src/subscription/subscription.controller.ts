@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Req, UseGuards, Headers, RawBodyRequest, HttpCode, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Req, UseGuards, Headers, HttpCode, NotFoundException } from '@nestjs/common';
 import { SubscriptionService } from './subscription.service';
 import { CreateCheckoutDto } from './dto/checkout.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -40,11 +40,15 @@ export class SubscriptionController {
       restaurant?.tier ?? 'FREE',
       restaurant?.forceTier ?? null,
     );
+    const subscription = restaurant?.id
+      ? await this.subscriptionService.getSubscriptionDetails(restaurant.id)
+      : null;
     return {
       tier,
       features: this.featureService.getFeatures(tier),
       staffLimit: this.featureService.getStaffLimit(tier),
       hasSubscription: !!restaurant?.stripeSubscriptionId,
+      subscription,
     };
   }
 
@@ -68,7 +72,7 @@ export class SubscriptionController {
 
   @Post('webhook')
   @HttpCode(200)
-  async webhook(@Req() req: RawBodyRequest<Request>, @Headers('stripe-signature') sig: string) {
-    return this.subscriptionService.handleWebhook(req.rawBody!, sig);
+  async webhook(@Req() req: any, @Headers('stripe-signature') sig: string) {
+    return this.subscriptionService.handleWebhook(req.body, sig);
   }
 }
