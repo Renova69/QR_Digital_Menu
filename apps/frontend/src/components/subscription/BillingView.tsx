@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { getSubscriptionStatus, createCheckoutSession, createPortalSession } from '../../lib/api';
+import { getSubscriptionStatus, createPortalSession } from '../../lib/api';
 
 const TIER_COLORS: Record<string, string> = {
   FREE: 'bg-secondary text-secondary-foreground',
@@ -14,6 +15,7 @@ const TIER_ORDER = ['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'];
 
 export default function BillingView() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [actionLoading, setActionLoading] = useState('');
   const [error, setError] = useState('');
 
@@ -22,19 +24,6 @@ export default function BillingView() {
     queryFn: getSubscriptionStatus,
     staleTime: 60_000,
   });
-
-  const handleUpgrade = async (tier: string) => {
-    setActionLoading(tier);
-    setError('');
-    try {
-      const { url } = await createCheckoutSession(tier);
-      window.location.href = url;
-    } catch {
-      setError(t('subscription.errorCheckout', 'Could not start checkout. Please try again.'));
-    } finally {
-      setActionLoading('');
-    }
-  };
 
   const handleManage = async () => {
     setActionLoading('portal');
@@ -81,6 +70,15 @@ export default function BillingView() {
             <p className="text-sm text-muted-foreground mt-1">
               {t('subscription.staffLimit', 'Staff limit')}: {status?.staffLimit === Infinity ? t('subscription.unlimited', 'Unlimited') : status?.staffLimit}
             </p>
+            {status?.subscription && (
+              <p className="text-sm text-muted-foreground mt-1">
+                {t('subscription.billedInterval', 'Billed {{interval}}', { interval: status.subscription.interval ?? 'monthly' })}
+                {' · '}
+                {status.subscription.cancelAtPeriodEnd
+                  ? t('subscription.cancelsOn', 'Cancels {{date}}', { date: new Date(status.subscription.currentPeriodEnd).toLocaleDateString() })
+                  : t('subscription.renewsOn', 'Renews {{date}}', { date: new Date(status.subscription.currentPeriodEnd).toLocaleDateString() })}
+              </p>
+            )}
           </div>
           {status?.hasSubscription && (
             <button
@@ -115,13 +113,12 @@ export default function BillingView() {
             {TIER_ORDER.slice(currentTierIndex + 1).map((tier) => (
               <button
                 key={tier}
-                onClick={() => handleUpgrade(tier)}
-                disabled={!!actionLoading}
-                className="flex flex-col items-start p-4 rounded-xl border border-border hover:border-accent hover:bg-accent/5 transition-all text-left disabled:opacity-50 group"
+                onClick={() => navigate('/pricing')}
+                className="flex flex-col items-start p-4 rounded-xl border border-border hover:border-accent hover:bg-accent/5 transition-all text-left group"
               >
                 <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2 ${TIER_COLORS[tier]}`}>{tier}</span>
                 <span className="text-sm font-bold text-foreground group-hover:text-accent transition-colors">
-                  {actionLoading === tier ? t('subscription.loading', 'Loading...') : `${t('subscription.upgradeTo', 'Upgrade to')} ${tier} →`}
+                  {`${t('subscription.upgradeTo', 'Upgrade to')} ${tier} →`}
                 </span>
               </button>
             ))}

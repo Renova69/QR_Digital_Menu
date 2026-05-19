@@ -60,6 +60,18 @@ export class SubscriptionService {
       });
     }
 
+    const existingSubs = await stripe.subscriptions.list({
+      customer: stripeCustomerId!,
+      status: 'active',
+      limit: 5,
+    });
+    if (existingSubs.data.length > 0) {
+      throw new BadRequestException({
+        code: 'ALREADY_SUBSCRIBED',
+        message: 'Active subscription exists. Use the Billing Portal to change plans.',
+      });
+    }
+
     const session = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       mode: 'subscription',
@@ -87,6 +99,27 @@ export class SubscriptionService {
     return { url: session.url };
   }
 
+  async getSubscriptionDetails(restaurantId: string) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { stripeSubscriptionId: true },
+    });
+    if (!restaurant?.stripeSubscriptionId) return null;
+
+    try {
+      const sub = await stripe.subscriptions.retrieve(restaurant.stripeSubscriptionId);
+      return {
+        currentPeriodStart: new Date(sub.current_period_start * 1000).toISOString(),
+        currentPeriodEnd: new Date(sub.current_period_end * 1000).toISOString(),
+        cancelAtPeriodEnd: sub.cancel_at_period_end,
+        status: sub.status,
+        interval: (sub.items.data[0]?.price?.recurring?.interval) ?? null,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   async handleWebhook(rawBody: Buffer, signature: string) {
     const secret = process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET || '';
     let event: any;
@@ -100,12 +133,15 @@ export class SubscriptionService {
 
     switch (event.type) {
       case 'checkout.session.completed':
+      case 'customer.subscription.created':
       case 'customer.subscription.updated':
         await this.applySubscriptionFromEvent(event);
         break;
       case 'customer.subscription.deleted':
         await this.applyCancellationFromEvent(event);
         break;
+      default:
+        this.logger.log(`Ignoring webhook event: ${event.type}`);
     }
 
     return { received: true };

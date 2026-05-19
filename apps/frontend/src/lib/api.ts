@@ -373,6 +373,14 @@ export const verifyDeviceEnrollment = async (token: string) => {
 };
 
 // Subscription / SaaS billing
+export interface SubscriptionDetails {
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  cancelAtPeriodEnd: boolean;
+  status: string;
+  interval: string | null;
+}
+
 export const getSubscriptionStatus = async () => {
   const response = await api.get('/subscription/status');
   return response.data as {
@@ -380,6 +388,7 @@ export const getSubscriptionStatus = async () => {
     features: string[];
     staffLimit: number;
     hasSubscription: boolean;
+    subscription: SubscriptionDetails | null;
   };
 };
 

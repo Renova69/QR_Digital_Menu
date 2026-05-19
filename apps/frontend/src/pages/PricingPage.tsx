@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { ChevronDown } from 'lucide-react';
-import { createCheckoutSession } from '../lib/api';
+import { createCheckoutSession, createPortalSession, getSubscriptionStatus } from '../lib/api';
 
 type Billing = 'monthly' | 'yearly';
 
@@ -40,6 +41,8 @@ function FeatureCell({ val }: { val: boolean | string }) {
   );
 }
 
+const TIER_ORDER = ['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'];
+
 export default function PricingPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -47,6 +50,13 @@ export default function PricingPage() {
   const [loading, setLoading] = useState('');
   const [error, setError] = useState('');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const { data: status } = useQuery({
+    queryKey: ['subscription-status'],
+    queryFn: getSubscriptionStatus,
+    retry: false,
+    staleTime: 60_000,
+  });
 
   const TIERS = [
     {
@@ -164,9 +174,29 @@ export default function PricingPage() {
     return acc;
   }, []);
 
+  const currentTierIndex = TIER_ORDER.indexOf(status?.tier ?? 'FREE');
+
+  const handlePortal = async () => {
+    setLoading('portal');
+    setError('');
+    try {
+      const { url } = await createPortalSession();
+      window.location.href = url;
+    } catch {
+      setError(t('subscription.errorPortal', 'Could not open billing portal. Please try again.'));
+    } finally {
+      setLoading('');
+    }
+  };
+
   const handleSelect = async (tier: string) => {
     if (tier === 'FREE') {
       navigate('/dashboard');
+      return;
+    }
+    const tierIndex = TIER_ORDER.indexOf(tier);
+    if (tierIndex <= currentTierIndex && status?.tier) {
+      await handlePortal();
       return;
     }
     setLoading(tier);
@@ -175,6 +205,10 @@ export default function PricingPage() {
       const { url } = await createCheckoutSession(tier, billing);
       window.location.href = url;
     } catch (e: any) {
+      if (e?.response?.data?.code === 'ALREADY_SUBSCRIBED') {
+        await handlePortal();
+        return;
+      }
       const backendMsg = e?.response?.data?.message;
       setError(
         import.meta.env.DEV && backendMsg
@@ -221,6 +255,9 @@ export default function PricingPage() {
               </span>
             </button>
           </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            {t('pricing.billing.recurringNote', 'All paid plans auto-renew via Stripe. Cancel anytime from the Billing Portal.')}
+          </p>
         </div>
 
         {error && (
@@ -276,21 +313,36 @@ export default function PricingPage() {
                   ))}
                 </ul>
 
-                <button
-                  onClick={() => handleSelect(tier.key)}
-                  disabled={!!loading}
-                  className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all disabled:opacity-50 ${
-                    tier.highlight
-                      ? 'bg-foreground text-background hover:opacity-80'
-                      : 'bg-secondary text-foreground hover:bg-secondary/80'
-                  }`}
-                >
-                  {loading === tier.key
+                {(() => {
+                  const tierIndex = TIER_ORDER.indexOf(tier.key);
+                  const isCurrentTier = status?.tier && tier.key === status.tier;
+                  const isLowerTier = status?.tier && tierIndex < currentTierIndex;
+                  const isLoading = loading === tier.key || loading === 'portal';
+                  const label = isLoading
                     ? t('subscription.loading', 'Loading...')
+                    : isCurrentTier
+                    ? t('pricing.currentPlan', 'Current Plan')
+                    : isLowerTier
+                    ? t('pricing.manageBilling', 'Manage in Billing Portal')
                     : tier.key === 'FREE'
                     ? t('pricing.getStarted', 'Get Started')
-                    : t('pricing.choosePlan', 'Choose {{tier}}', { tier: tier.key })}
-                </button>
+                    : t('pricing.choosePlan', 'Choose {{tier}}', { tier: tier.key });
+                  return (
+                    <button
+                      onClick={() => handleSelect(tier.key)}
+                      disabled={!!loading || !!isCurrentTier}
+                      className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all disabled:opacity-50 ${
+                        isCurrentTier
+                          ? 'bg-accent/20 text-accent cursor-default'
+                          : tier.highlight
+                          ? 'bg-foreground text-background hover:opacity-80'
+                          : 'bg-secondary text-foreground hover:bg-secondary/80'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })()}
               </div>
             );
           })}
