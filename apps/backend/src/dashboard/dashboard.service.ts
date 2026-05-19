@@ -227,6 +227,7 @@ export class DashboardService {
 
   private async getTopItems(restaurantId: string, start: Date, end: Date) {
     const orderItems = await this.prisma.orderItem.findMany({
+      take: 10000,
       where: {
         order: {
           restaurantId,
@@ -274,6 +275,7 @@ export class DashboardService {
     tz: string,
   ) {
     const orders = await this.prisma.order.findMany({
+      take: 10000,
       where: {
         restaurantId,
         status: { not: OrderStatus.CANCELED },
@@ -349,6 +351,7 @@ export class DashboardService {
     end: Date,
   ) {
     const orderItems = await this.prisma.orderItem.findMany({
+      take: 10000,
       where: {
         order: {
           restaurantId,
@@ -484,6 +487,7 @@ export class DashboardService {
 
   private async getOrdersByTable(restaurantId: string, start: Date, end: Date) {
     const orders = await this.prisma.order.findMany({
+      take: 10000,
       where: {
         restaurantId,
         status: { not: OrderStatus.CANCELED },

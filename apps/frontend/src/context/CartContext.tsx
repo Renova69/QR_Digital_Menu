@@ -1,5 +1,12 @@
 import { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef } from 'react';
 
+export interface SelectedOption {
+  optionId: string;
+  optionName: string;
+  choiceName: string;
+  priceModifier: number;
+}
+
 // Define the structure of a cart item
 interface CartItem {
   cartId: string; // Unique key for the cart entry
@@ -7,14 +14,14 @@ interface CartItem {
   name: string;
   price: number;
   quantity: number;
-  selectedOptions: any[];
+  selectedOptions: SelectedOption[];
 }
 
 // Define what the CartContext provides
 interface CartContextType {
   items: CartItem[];
   addItem: (item: CartItem) => void;
-  updateItem: (cartId: string, quantity: number, options: any[]) => void;
+  updateItem: (cartId: string, quantity: number, options: SelectedOption[]) => void;
   removeItem: (cartId: string) => void;
   clearCart: () => void;
   getItemCount: () => number;
@@ -101,7 +108,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const updateItem = useCallback((cartId: string, quantity: number, options: any[]) => {
+  const updateItem = useCallback((cartId: string, quantity: number, options: SelectedOption[]) => {
     setItems(prevItems =>
       prevItems.map(item =>
         item.cartId === cartId
@@ -129,7 +136,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const getTotal = () => {
     return items.reduce((sum, item) => {
       const selectedOptions = item.selectedOptions || [];
-      const optionsTotal = selectedOptions.reduce((optSum: number, opt: any) => optSum + (opt.priceModifier || 0), 0);
+      const optionsTotal = selectedOptions.reduce((optSum: number, opt: SelectedOption) => optSum + (opt.priceModifier || 0), 0);
       return sum + ((item.price + optionsTotal) * item.quantity);
     }, 0);
   };

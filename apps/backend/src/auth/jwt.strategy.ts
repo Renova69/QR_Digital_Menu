@@ -10,11 +10,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
   ) {
+    // Production: cookie-only — Bearer header bypasses httpOnly cookie security.
+    // Dev/test: Bearer allowed so Swagger UI and test helpers work.
+    const extractors =
+      process.env.NODE_ENV === 'production'
+        ? [(req: any) => req?.cookies?.token ?? null]
+        : [
+            ExtractJwt.fromAuthHeaderAsBearerToken(),
+            (req: any) => req?.cookies?.token ?? null,
+          ];
     super({
-      jwtFromRequest: ExtractJwt.fromExtractors([
-        ExtractJwt.fromAuthHeaderAsBearerToken(),
-        (req) => req?.cookies?.token ?? null,
-      ]),
+      jwtFromRequest: ExtractJwt.fromExtractors(extractors),
       ignoreExpiration: false,
       secretOrKey: (() => {
         if (process.env.NODE_ENV === 'test') return 'test-secret';

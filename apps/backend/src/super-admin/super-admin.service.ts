@@ -50,7 +50,7 @@ export class SuperAdminService {
     status?: string;
   }) {
     const page = params.page ?? 1;
-    const limit = params.limit ?? 20;
+    const limit = Math.min(params.limit ?? 20, 100);
     const skip = (page - 1) * limit;
 
     const where: Prisma.RestaurantWhereInput = {};
@@ -388,7 +388,8 @@ export class SuperAdminService {
   }
 
   async getAuditLog(params: { page: number; limit: number; targetId?: string }) {
-    const { page, limit, targetId } = params;
+    const { page, targetId } = params;
+    const limit = Math.min(params.limit, 100);
     const skip = (page - 1) * limit;
     const where: Prisma.AdminAuditLogWhereInput = targetId ? { targetId } : {};
 

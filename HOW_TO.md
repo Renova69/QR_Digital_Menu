@@ -135,6 +135,8 @@ Even though cookies are httpOnly, they're sent automatically. To prevent cross-s
 4. Skipped in dev mode (`NODE_ENV !== 'production'`)
 5. CSRF exempt: `/api/v1/auth/login`, `/api/v1/auth/register`, `/api/v1/auth/otp/send`, `/api/v1/auth/otp/verify`, `/api/v1/auth/google`, `/api/v1/auth/google/callback`
 
+> **Google OAuth callback URL:** The authorized redirect URI registered in Google Cloud Console must be `https://<backend-url>/api/v1/auth/google/callback` (including `/v1/`). All frontend OAuth buttons construct their redirect as `/v1/auth/google`. A URL missing `/v1/` will return 404 — this was the root cause of the May 18, 2026 OAuth outage.
+
 ---
 
 ## Production Deployment
@@ -157,8 +159,10 @@ gcloud run deploy qr-menu-backend \
   --image gcr.io/<project>/qr-menu-backend \
   --region europe-west1 \
   --allow-unauthenticated \
-  --set-env-vars NODE_ENV=production,COOKIE_SAMESITE=none,...
+  --update-env-vars NODE_ENV=production,COOKIE_SAMESITE=none,...
 ```
+
+> **WARNING:** Always use `--update-env-vars`, NEVER `--set-env-vars`. The `--set-env-vars` flag **wipes all existing env vars** and replaces them with only the values you pass — this will delete your database URL, JWT secret, API keys, and everything else in Cloud Run.
 
 ### Deploy Frontend (Vercel)
 
@@ -178,9 +182,21 @@ Then push to trigger automatic deploy via Vercel GitHub integration.
 
 ---
 
+## CI Gate
+
+A GitHub Actions workflow at `.github/workflows/ci.yml` blocks merging to `main`/`master` if any check fails:
+
+1. Backend unit tests — `npx jest --reporters=default --ci`
+2. Frontend type-check — `npx tsc --noEmit`
+3. Frontend tests — `npx vitest run`
+4. Full build — `npx turbo run build`
+
+After the first successful CI run, enable branch protection in GitHub → Settings → Branches → `main` → require status check `verify`.
+
 ## Troubleshooting
 
 - **"Module not found"**: Always run `npm install` at the root, not inside subfolders.
 - **"Database Error"**: Ensure your Neon DB URL includes `?sslmode=require` at the end.
 - **"Port Conflict"**: If localhost:3000 or 3001 is taken, check for hanging node processes in your task manager.
 - **"HMR not working"**: Ensure you are running `npm run dev` from the root folder.
+- **"CI tests fail with tdd-guard-jest path error"**: The project has a `tdd-guard-jest` reporter with a hardcoded Windows path in `jest.config.js`. CI overrides it with `--reporters=default --ci`, which is correct. If you see this locally, use `npm test` (which uses the jest config), not `npx jest --reporters=default`.

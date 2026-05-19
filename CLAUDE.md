@@ -10,7 +10,21 @@ Turborepo monorepo with npm workspaces (`apps/*`). Two apps, no `packages/` dire
 - **`apps/frontend`** — Vite + React 18 + Tailwind v4 + TanStack Query + i18next + socket.io-client. Dev server on `:3001` (`strictPort: true`).
 - **Currency** — `apps/frontend/src/lib/currency.ts` — `formatEuro()` and `formatBgn()` at BNB fixed rate 1 EUR = 1.95583 BGN. Used in CartDrawer, CheckoutPage, PaymentModal, ItemWithOptions.
 
-## Common commands
+
+## I have provided you with two files:
+
+- \@CLAUDE.md — Project instruction file for Claude Code. Describes repo layout, common commands, architecture, conventions, and history. Claude reads it at session start to understand how to work in this codebase.
+- \@CODING_ROADMAP.md — Phased development plan. Lists shipped phases (V1 MVP through V2.5 polish, RBAC, Stripe, POS,mobile UX), current focus (Phase 20 Multi-location), and planned V4 Enterprise work. Single source of truth for what's   done vs. next.
+- \@HOW_TO.md — Developer onboarding guide. Step-by-step setup instructions: clone, install deps, configure .env, run dev servers, seed DB, common troubleshooting.
+- \@MAIN.md — Project overview/README supplement. High-level description of the QR Digital Menu product, tech stack, and feature set. Likely used as internal reference or mirrors parts of the public README.
+- \@MAIN_FEATURES.md — Feature catalog. Lists all user-facing and admin features by category (menu management, orders,payments, loyalty, analytics, etc.). Used for scope tracking and feature completeness checks.
+- \@fixed_issues_main.md — fixed_issues_main.md — Chronological bug-fix log. Each entry documents problem, root cause, fix applied, and affected files for resolved production issues. Purpose: prevent regressions, provide reference for future debugging,     and maintain institutional memory of what broke and why.
+- \@FILE_INDEX.md - contains a list of all the files in the codebase along with a simple description of what it does.
+
+
+This index may or may not be up to date.
+
+
 
 ### Root (turbo orchestrated)
 ```bash
@@ -161,149 +175,6 @@ Third layout (`PosLayout`) alongside `AppLayout` and `PublicLayout`. Full-viewpo
 - Auth guard: `apps/frontend/src/components/StaffRoute.tsx`
 - Backend: `payment.service.ts` (+`forceOpenSession`, `+closeSessionWithCard`), `tables.service.ts` (+`getTableOrders`)
 
-## Roadmap & current focus
-
-Source of truth: `CODING_ROADMAP.md`. Detailed per-phase plans under `.planning/phases/`.
-
-**Shipped — V1 MVP (April 2026):** auth (JWT + Google OAuth), restaurant CRUD, menu builder + image upload (upgraded May 2026 to R2 + sharp), tables + QR codes, contactless ordering with server-side pricing, owner dashboard, Docker Compose, Swagger.
-
-**Shipped — V2 Premium (Phases 9–14):** smart analytics, customer feedback + Google Review redirect, automated dayparting (scheduled categories with timezone), multi-language menu (EN/BG/RO + DeepL), realtime via socket.io, upselling / trending / perfect pairing.
-
-**Shipped — post-roadmap (May 2026):** full loyalty program — FIFO point ledger, configurable VIP tiers, timezone-aware happy hour, expiry reminder cron. Image upload overhaul — Cloudflare R2 migration, sharp WebP compression pipeline (80-95% size reduction), `ImageUploadInput` component (preview thumbnail + remove), JPEG/PNG validation, toast success/error feedback.
-
-**Shipped — V2.5 Visual Polish, Branding & Mobile UX (May 2026):**
-- **Phase 15** — Square images, pinch-to-zoom lightbox (full gesture rewrite), category banners, mobile aspect ratio + card height fixes.
-- **Phase 16** — Google Fonts picker, 4-color scheme editor, WCAG contrast validator, live BrandingPreview panel, CSS custom props on public menu.
-- **Phase 17** — Menu Check widget (`MenuCheckWidget.tsx`, `/menu/audit/:id`), severity levels, one-click fix navigation.
-- **Mobile UX overhaul** — `viewport-fit=cover` + iOS PWA metas; layout routes in `App.tsx` (customer routes get no app header/container); CartDrawer → bottom sheet on mobile; bottom navigation on dashboard mobile; safe-area insets throughout; PublicMenuPage spacing tightened for 375px; CheckoutPage panel padding responsive; OrderConfirmationPage full premium redesign with live status.
-
-**Shipped — UI/UX Audit & Theme Polish (May 4, 2026):**
-- **Design system rewrite** (`index.css`) — warm restaurant color palette (HSL tokens throughout), dropped Plus Jakarta Sans (now 2 fonts: Outfit + Playfair Display), fixed `.text-glow` and `.premium-bg` to use `color-mix(in srgb, var(--token) N%, transparent)` instead of invalid `hsla(var(...))` syntax, removed `html { transition-colors }` (was causing 500ms delay globally), added `@media (prefers-reduced-motion)` for `.animate-float`.
-- **Table / assistance flow fixes** — removed browser `prompt()` for table number (table always comes from QR URL `?table=<name>`); Call Waiter now shows accessible `role="alert"` / `aria-live="polite"` notice when no table context, button disabled during `assistanceLoading`.
-- **Default customer theme** — new `defaultTheme String? @default("light")` field on `Restaurant` schema (pushed to Neon). `ThemeToggle` accepts `storageKey` + `defaultTheme` props; public menu uses per-restaurant localStorage key (`theme-{restaurantId}`) so each venue remembers independently. Dashboard toggle unchanged. Owner sets default in `BrandingEditor` (Light/Dark picker). ThemeToggle always visible on public menu even when custom branding is active.
-- **Accessibility** — logo alt text fixed (`${name} logo`), language select label added, accessible loading states (removed decorative `animate-pulse`), improved `aria-label` on ThemeToggle (`Switch to dark/light mode`).
-- **Schema fields added:** `Restaurant.defaultTheme` (String?, default `"light"`).
-- **Key files:** `index.css`, `PublicMenuPage.tsx`, `ThemeToggle.tsx`, `BrandingEditor.tsx`, `index.html`, `schema.prisma`, `update-restaurant.dto.ts`.
-
-**Shipped — Analytics & Translation Overhaul (May 5, 2026):**
-- **Analytics fixes** — `staleTime: 0` in `useAnalytics.ts` (always fresh); `OrderContext` invalidates `['analytics']` TanStack Query cache on every incoming socket event (new order or status change); `DashboardService` fetches `restaurant.timezone` and passes it through `getRevenueTrend`, `getPeakHours`, `getSummary` — all date/hour grouping now uses Luxon with restaurant local time instead of server UTC.
-- **Translation overhaul** — Platform-managed DeepL key (`DEEPL_API_KEY` env var); `TranslationService` reads key internally, no `apiKey` param on any method; `restaurant.deeplApiKey` column kept but never touched; fire-and-forget pre-warm on menu create/update; lazy on-demand public menu translation with DB caching (`?lang=<code>`); `lang` validated against `restaurant.targetLanguages`; `fallbackLng` changed to `'bg'`; language picker (BG/EN/RO) added to dashboard header; SettingsView removes API key field — only language checkboxes and Translate button remain; locale JSON audit (added `timezone`, `timezoneDesc`, `translationPoweredBy`, `failedSave`, `failedInitiate`; removed obsolete `deeplApiKey`/`googleApiKey`/`apiKeyRequired`).
-
-**Shipped — Customer Auth, UI Bug Fixes & Translation Gaps (May 6, 2026):**
-- **Customer auth (Email OTP)** — `VerificationToken` model added to schema (`id, email, code, expiresAt, usedAt, createdAt`, `@@index([email])`); `User.phone String?` added. `AuthService.sendOtp` + `verifyOtp` methods: 6-digit code, bcrypt-hashed (10 rounds), 10-min expiry, 60s rate-limit, Resend REST API when `RESEND_API_KEY` env set, otherwise `console.log` + `devCode` in response. New env vars: `RESEND_API_KEY`, `RESEND_FROM_EMAIL`. Two new controller routes: `POST /api/auth/otp/send`, `POST /api/auth/otp/verify` (public, no guard). `AuthContext.loginWithToken(token, user)` stores JWT + sets axios header without extra API call. `CustomerLoginModal` fully rewritten to 3-step state machine (`entry → otp → welcome`): Google button, email+phone inputs, 6-digit code input with 60s resend countdown, welcome card for new customers.
-- **Profile nav** — Public menu action bar logged-in state replaced: profile chip navigates to `/profile?returnTo=<current url>`, separate `LogOut` icon button. `CustomerProfilePage` fully translated (`t("profile.*")`), reads `returnTo` query param to show back button, tier colors derived from `acc.tier` (no hardcoded threshold comparisons).
-- **Cart language sync** — `resolveItemName(cartItem, categories, lang)` in `CartDrawer` looks up live translated name from `categories` prop by item ID + `lang` key, bypassing stale snapshot `name` stored at add-time. `selectedLang` prop forwarded `PublicMenuPage → CartIcon → CartDrawer`.
-- **Options pre-selection** — `ItemWithOptions` `useEffect` keyed on `item.id` auto-selects first choice for every `VARIATION` option on modal open; `ADD_ON` options remain unselected. Eliminates ability to order base item without selecting required variant.
-- **QR print layout** — `PrintableQRCodes` changed from `grid-cols-2` to `grid-cols-1`; each card has `breakInside: avoid`; `<style>@page { size: A4 portrait; margin: 12mm }</style>` injected. Two cards fit per A4 page, no cross-page cuts.
-- **Analytics dark mode** — All Recharts `XAxis`/`YAxis` tick fills changed from `'currentColor'` to explicit `'hsl(var(--color-muted-foreground))'`; custom `ChartTooltip` component uses `glass-panel` styling with `text-foreground`/`text-muted-foreground` tokens.
-- **Menu health false positive** — Deleted category-image audit rule from `menu.service.ts` (no UI exists to add category images).
-- **Translation gaps** — ~120 new i18n keys across EN/BG/RO: `auth.otp.*` (20 keys), `publicMenu.signIn/myProfile/calling/scanQrForAssistance/selectLanguage/pairing.*/drinkUpsell.*`, `profile.*` (22 keys). All previously hardcoded strings in `CustomerLoginModal`, `CartDrawer`, `ItemWithOptions`, `CustomerProfilePage`, `PublicMenuPage` now wired to `t()`.
-- **Key files:** `schema.prisma`, `auth.service.ts`, `auth.controller.ts`, `AuthContext.tsx`, `CustomerLoginModal.tsx`, `PublicMenuPage.tsx`, `CustomerProfilePage.tsx`, `CartIcon.tsx`, `CartDrawer.tsx`, `ItemWithOptions.tsx`, `PrintableQRCodes.tsx`, `AnalyticsView.tsx`, `menu.service.ts`, `en/bg/ro translation.json`.
-
-**Shipped — Stripe Connect Payments & Live Table View (May 8, 2026):**
-- **Stripe Connect Payments** — `IPaymentProvider` interface + `StripeProvider` implementation; `PaymentService` (sessions, bill calculation, PaymentIntent creation, webhook handling); `PaymentController` (5 routes: sessions, bill, create-payment-intent, webhook, history); Stripe Connect onboarding via `RestaurantsService` (account link, status, disconnect); `PaymentModal` 3-step UI (tip → Stripe Elements → confirmation); `PaymentsView` history table with status/date filters; `NotificationContext` + `NotificationBell` (badge count) + `PaymentToast` (slide-in); `TableSession` model (OPEN/PAID/CLOSED_NO_PAYMENT) + `Payment` model (PENDING/SUCCEEDED/FAILED); webhook idempotency via `stripePaymentIntentId` lookup; raw body preservation for Stripe signature verification.
-- **Live Table View** — `getTablesWithStatus()` in `tables.service.ts` fetches tables + active sessions in parallel via `Promise.all`; derives status per table (empty/waiting/occupied/paid); `GET /tables/status/:restaurantId` returns enriched data; `emitTableStatusChanged()` helper in `EventsGateway` called from 4 locations; `LiveTablesView.tsx` with filter modes (Active/Occupied/Paid/All) defaulting to Active; `TableCard.tsx` color-coded cards (red/amber/green/gray left border); `TableDetailModal.tsx` showing orders + payment info; `TableView.tsx` parent with Live View / QR Management sub-tabs; socket listener invalidates React Query `['tableStatuses']` cache on `table:status-changed` events.
-- **Code review fixes** — Parallel DB queries replacing sequential awaits; `emitTableStatusChanged` helper deduplication across 4 call sites; removed unused `label` field from `statusStyles` Record; added `enabled: !!restaurantId` guard on `useQuery` in `TableView.tsx`; removed dead code + unnecessary existence checks.
-- **Key files:** `payment.service.ts`, `payment.controller.ts`, `stripe.provider.ts`, `payment-provider.interface.ts`, `tables.service.ts`, `tables.controller.ts`, `events.gateway.ts`, `orders.service.ts`, `PaymentModal.tsx`, `PaymentsView.tsx`, `LiveTablesView.tsx`, `TableCard.tsx`, `TableDetailModal.tsx`, `TableView.tsx`, `NotificationContext.tsx`, `NotificationBell.tsx`, `PaymentToast.tsx`, `api.ts`.
-
-**Shipped — Waiter POS (May 9-10, 2026):** Full-viewport tableside ordering at `/staff/pos`. 15 new frontend files, 4 modified files. `PosLayout` + `PosContext` (in-memory, isolated from CartContext). Seat-level ordering, table selection modal with Force Open, submitted/pending item tracking, 3 session-end actions (Submit/Paid by Card/Force Close) with Radix confirmation dialogs. 4 new backend endpoints. Zero Prisma schema changes. 5 bug fix commits (duplicate menuItemId, session history, dashboard live view, cart reset, confirmation dialogs).
-
-**Shipped — Staff Roles & RBAC (May 12-14, 2026):**
-- **RBAC Sprint** — `UserRole` expanded to `OWNER` / `MANAGER` / `WAITER` / `KITCHEN`. Permission matrix enforced in all service layers: `checkRestaurantOwnership` → `checkRestaurantAccess` allowing owner OR assigned staff. `User.restaurantId` links staff to their restaurant. Auth responses include `restaurantId` for frontend restaurant resolution.
-- **PIN-based staff login** — `POST /auth/pin-login` endpoint: staff set a 4-digit PIN on first enrollment, login by entering PIN on device login page. PIN hashed with SHA256. PIN login searches only users assigned to the configured restaurant. Role-based redirect: WAITER → `/staff/pos`, KITCHEN → `/staff/kitchen`, other → `/dashboard`.
-- **Device enrollment (Bond a Device)** — `DeviceEnrollmentToken` model: manager creates expiring enrollment token (SHA256-hashed, 10-min TTL), generates enrollment URL with frontend base URL. Staff scans QR code or opens link to set PIN. Re-bond flow: re-issue enrollment for existing staff. `POST /:id/device-enrollment` endpoint.
-- **StaffCreatedModal** — QR code display (`QRCodeSVG`), raw PIN display with copy-to-clipboard (clipboard API + execCommand fallback), expiry countdown timer, enrollment error banner. Used for both initial enrollment and re-bond.
-- **Shared Device Mode** — Toggle in Settings > Staff tab. Stores `{ restaurantId, restaurantName }` in `localStorage.sharedDevice`. Device login page clears existing session first, shows PIN keypad. 401 interceptor skips `/auth/pin-login` to prevent redirect loops.
-- **Staff settings consolidation** — Shared Device Mode + QR Code Management moved from General to Staff tab. Staff table shows: name, email (`.local` synthetic emails hidden with "—"), role badge, re-bond button, delete action. Enrollment errors surfaced inline in StaffCreatedModal.
-- **RBAC access fixes** — Orders: assigned staff can read/update orders for their restaurant. Dashboard: owner + MANAGER access. Restaurant management: owner + MANAGER (except delete + Stripe which remain owner-only). Assistance: owner + assigned staff. POS: restaurant resolved from `user.restaurantId`.
-- **Provider fetch noise fix** — `OrderProvider` and `AssistanceProvider` only fetch when authenticated session exists (not on socket reconnect). `SocketProvider` no longer depends on nonexistent `token` field from `AuthContext`. Both providers removed from public/customer routes.
-- **Key files:** `auth.controller.ts` (+pin-login), `auth.service.ts` (+validatePin), `device-enrollment.service.ts`, `restaurants.controller.ts` (+device-enrollment), `orders.service.ts` (RBAC), `dashboard.controller.ts` (RBAC), `assistance.service.ts` (RBAC), `StaffCreatedModal.tsx`, `SettingsView.tsx` (staff tab), `DeviceLoginPage.tsx`, `AuthContext.tsx`, `RestaurantContext.tsx`, `OrderContext.tsx`, `AssistanceContext.tsx`, `SocketContext.tsx`, `App.tsx`, `api.ts`.
-
-**Shipped — Public Menu Mobile UX Redesign (May 15, 2026):**
-- **Shared currency utility** (`lib/currency.ts`) — `formatEuro()` and `formatBgn()` using BNB fixed rate 1 EUR = 1.95583 BGN. Dual-currency display throughout checkout, cart, and payment flows. Bulgarian law compliance.
-- **TopBar** (`TopBar.tsx`) — Full-width search with Lucide magnifier icon, filter toggle button, theme toggle, language codes (EN/BG/RO), table chip replacing "You are viewing the menu for table X" text.
-- **FilterPanel** (`FilterPanel.tsx`) — Slide-down panel with dietary toggle switches (Spicy, Vegan, New, Featured) and allergen exclusion pills (Milk, Wheat, Fish, Nuts, etc.). Clicking an allergen pill hides products containing it.
-- **Horizontal item cards** — `ItemWithOptions.tsx` redesigned to horizontal layout. Dual-currency prices (EUR + BGN). Pill-shaped "+ Add" buttons replace full-width solid blue buttons.
-- **CategoryPills** (`CategoryPills.tsx`) — Horizontal scroll pill navigation replacing sticky category nav. Active pill highlighted with accent color.
-- **Slim TrendingCarousel** — Wider horizontal cards with compact skeleton loader. Reduced vertical footprint.
-- **Bottom nav regroup** — Profile and Call Waiter icons grouped left, cart/bill actions right. Better visual hierarchy.
-- **i18n** — ~30 new keys across EN/BG/RO for search placeholder, filter labels, dietary tags, allergen names, add-to-cart button.
-- **Dead code cleanup** — Removed unused `LANG_LABELS` constant and `handleLanguageChange` function from `PublicMenuPage.tsx`.
-- **Key files:** `currency.ts`, `TopBar.tsx`, `FilterPanel.tsx`, `CategoryPills.tsx`, `ItemWithOptions.tsx` (rewrite), `TrendingCarousel.tsx` (slim), `PublicMenuPage.tsx` (refactor — 815→~400 lines), `BottomNav.tsx`, `CartDrawer.tsx` (+dual currency), `CheckoutPage.tsx` (+dual currency), `PaymentModal.tsx` (+dual currency), `en/bg/ro translation.json`.
-
-**Shipped — Code Review & PR#3 Fixes (May 15, 2026):**
-- **HomePage.tsx** — Removed 3 unused Lucide imports (`TrendingUp`, `Users`, `Layers`). Fixed 3 `as any` type casts on i18n keys → `t(key, fallback)` pattern. Tightened `featureIcons` Record type to keyof `featureKeys[number]`. Replaced non-standard Tailwind durations (`duration-400`→`duration-300`, `duration-1200`→`duration-1000`).
-- **RestaurantContext.tsx** — Fixed TS error on line 82: `user.restaurantId` is `string | undefined` but `getRestaurantById` expects `string`. Added non-null assertion after guard check.
-- **CheckoutPage.tsx** — Replaced sr-only checkbox toggle hack with `<Toggle>` component (Radix `role="switch"`, `aria-checked`, keyboard navigation).
-- **Code review fixes** — Typed translations (`t(key)` without `as any`), shared utils deduplication, Toggle component adoption, i18n gaps filled.
-
-**Payments "not enabled" investigation (May 15, 2026):** Confirmed NO code bug. `paymentsEnabled Boolean @default(false)` in Prisma schema means new restaurants default to false. `PaymentService` correctly checks `restaurant.paymentsEnabled` before allowing payment intent creation. Both affected restaurants had `paymentsEnabled = false` in DB — enabled via direct DB update.
-
-**Shipped — Security & Bug Fixes (May 15, 2026):**
-- **Socket.io CORS** — `events.gateway.ts` wildcard `origin: '*'` replaced with `process.env.FRONTEND_URL || 'http://localhost:3001'` + `credentials: true`. Any page could previously subscribe to restaurant events.
-- **Magic-link removal** — Deleted `POST /auth/magic-link` endpoint and `sendMagicLink()` service method. Method leaked JWT token in response body and `console.log`. Flow replaced by Email OTP (already live since May 6).
-- **Loyalty expiry emails** — `runDailyExpiryReminders()` cron in `loyalty.service.ts` now sends per-candidate emails via Resend (`RESEND_API_KEY`). Dev fallback: `logger.log`. Previous implementation only marked DB batches as sent but never emailed anyone.
-- **Analytics CSV export** — `handleExportCSV()` in `AnalyticsView.tsx` was missing `peakHours` and `categoryBreakdown` sections. Both added — CSV now exports all 5 data sets (summary, revenue trend, top items, peak hours, category breakdown).
-- **TypeScript strict mode** — `apps/backend/tsconfig.json`: `strictNullChecks` and `noImplicitAny` both enabled (`false` → `true`). Fixed all resulting errors: explicit `any` on `@Request() req` controller params, nullish coalescing on pagination `page`/`limit`, null guards on `dbItem` in orders service, supertest import fix in e2e specs.
-- **CategoryPills auto-scroll** — Active pill now scrolls into view via `scrollIntoView` + `useRef` on pill elements. Previously active category could be off-screen after category change.
-- **ItemWithOptions BGN conversion** — If `item.currency === 'BGN'`, price divided by `BGN_RATE` before passing to `formatInlineDual`. Previously BGN-priced items would show double-converted amounts.
-- **Key files:** `events.gateway.ts`, `auth.controller.ts`, `auth.service.ts`, `loyalty.service.ts`, `AnalyticsView.tsx`, `tsconfig.json` (backend), `CategoryPills.tsx`, `ItemWithOptions.tsx`.
-
-**Shipped — Infrastructure & Polish Sprint (May 15, 2026):**
-- **API versioning** — All routes now at `/api/v1/*`. `main.ts` uses `VersioningType.URI` with `defaultVersion: '1'`. Frontend `api.ts` base URL updated to `/api/v1`. Vite proxy unchanged (matches `/api/*`). CSRF exempt paths and webhook path updated to `/api/v1/...`.
-- **Prisma retry/circuit breaker** — `PrismaService.onModuleInit()` startup retry now uses jittered exponential backoff (1s → 30s cap) instead of fixed 2s. New `withRetry<T>(fn, maxAttempts)` method for runtime query resilience. Circuit breaker: CLOSED → OPEN after 5 consecutive transient failures, HALF_OPEN after 30s cooldown. Only transient Prisma error codes trigger the breaker (P1001, P1002, P1008, P1017, P2024, P1012).
-- **Order progress stepper** — `OrderConfirmationPage` now shows a 3-step visual stepper: Placed → In Kitchen → Served. Animated state transitions (emerald for done, accent/pulse for current). Hidden for CANCELED orders. Also fixed `AnalyticsView` CSV export field names (`category`/`revenue` not `name`/`value`).
-- **QR table tent print templates** — 3 branded print layouts: Classic (white, dashed border), Premium (dark bg, corner accents, serif type), Minimal (clean border, oversized table name). Template selector dropdown added next to "Print All QR" button in `TableView`. `PrintTemplate` type exported.
-- **Service test coverage** — 3 new spec files: `tables.service.spec.ts` (19 tests), `users.service.spec.ts` (17 tests), `translation.service.spec.ts` (14 tests). Total: 122 tests (up from 77). Covers all CRUD paths, RBAC checks, transient error fallbacks, DeepL free/paid endpoint routing.
-- **Customer split bill** — `SplitBillSection` component in `CheckoutPage` — collapsible below order total, counter 2–20 people, per-person amount in EUR + BGN. Client-side only, no backend changes.
-- **Key files:** `main.ts`, `api.ts` (frontend), `prisma.service.ts`, `OrderConfirmationPage.tsx`, `PrintableQRCodes.tsx`, `TableView.tsx`, `CheckoutPage.tsx`, `tables.service.spec.ts`, `users.service.spec.ts`, `translation.service.spec.ts`.
-
-**Shipped — SaaS Tiering V2 (May 16, 2026):**
-- **Schema** — `SubscriptionTier` enum (`FREE/STARTER/PROFESSIONAL/ENTERPRISE`) on `Restaurant.tier` (default `FREE`). Added `stripeCustomerId`, `stripeSubscriptionId`, `tierUpdatedAt` fields.
-- **SubscriptionModule** — `FeatureService` maps tier→feature flags (`TIER_FEATURES` map — never hardcode). `FeatureGuard` resolves restaurant from owner (`Restaurant.ownerId`) OR staff (`User.restaurantId`), throws `403 FEATURE_LOCKED`. `@RequireFeature(...flags)` decorator for controllers. `SubscriptionService` handles Stripe Checkout + Portal + webhook with timestamp-gate race protection (`updateMany WHERE tierUpdatedAt IS NULL OR < eventTime`). Controller at `/subscription` with 4 routes: `status`, `checkout`, `portal`, `webhook`.
-- **Frontend** — `useFeature(flag)` reads `RestaurantContext.activeRestaurant.tier`. `BillingView` (current plan + Stripe Portal link). `PricingPage` at `/pricing` (tier comparison + upgrade CTA). `SubscriptionBanner` in dashboard header on FREE. `DashboardPage` + `SettingsView` gated.
-- **Demo accounts** — `demo.free@qrmenu.test`, `demo.starter@qrmenu.test`, `demo.pro@qrmenu.test`, `demo.enterprise@qrmenu.test` / password `demo1234`.
-- **New env vars** — `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_PROFESSIONAL`, `STRIPE_PRICE_ENTERPRISE`, `STRIPE_SUBSCRIPTION_WEBHOOK_SECRET` in `apps/backend/.env`.
-- **Key files:** `apps/backend/src/subscription/` (new: `feature.service.ts`, `feature.guard.ts`, `feature-flag.enum.ts`, `require-feature.decorator.ts`, `subscription.service.ts`, `subscription.controller.ts`, `subscription.module.ts`), `apps/frontend/src/hooks/useFeature.ts`, `BillingView.tsx`, `PricingPage.tsx`, `SubscriptionBanner.tsx`.
-
-**Shipped — Production Deployment & Cross-Origin Fixes (May 16, 2026):**
-- **Production deployment** — Frontend on Vercel (`https://qr-digital-menu-ivory.vercel.app`), Backend on Google Cloud Run (`https://qr-menu-backend-822584248302.europe-west1.run.app`). Cross-origin setup: Vercel static hosting → Cloud Run API.
-- **Cross-origin auth** — `COOKIE_SAMESITE` defaults to `'none'` in production (was `'lax'`), `secure: true`. Required because Vercel and Cloud Run are different origins — `lax` cookies blocked on cross-site fetch/XHR. `api.ts` uses `VITE_API_URL` env var directly in production (Vite proxy unavailable on static hosts). Bearer token fallback via axios interceptor for transition.
-- **CSRF cross-origin** — CSRF `csrf-token` cookie also uses `sameSite: 'none'` in production so `X-CSRF-Token` header validation works cross-origin. CSRF exempt list unchanged.
-- **CheckoutPage hang fix** — `useRef(false)` flag set to `true` before `clearCart()` prevents `useEffect([items, navigate])` from firing `navigate(-1)` which was undoing the `navigate("/order-confirmation")`. Screen showed "submitting..." permanently.
-- **Missing `orderId` in navigate state** — `CheckoutPage` now passes `orderId: newOrder.id` to `/order-confirmation` navigate state. `OrderConfirmationPage` reads `orderId` for WebSocket `joinOrderRoom` (real-time status tracking was broken without it).
-- **SPA rewrites** — `vercel.json` rewrites all paths to `/index.html` for client-side routing.
-- **CORS** — Backend allows all `.vercel.app` origins + `localhost` ports.
-- **Key files:** `main.ts`, `auth.controller.ts`, `CheckoutPage.tsx`, `api.ts`, `vercel.json`.
-
-**Shipped — Tier Enforcement Sweep Round 2 (May 17, 2026):**
-- **Backend gates closed** — 22 feature flags defined; ~5 were previously enforced. All remaining gaps closed.
-- **`feature.service.ts`** — `getAllowedStaffRoles(tier)` added: FREE/STARTER → `[]`, PROFESSIONAL → `['MANAGER']`, ENTERPRISE → `['MANAGER','WAITER','KITCHEN']`.
-- **`dashboard.controller.ts`** — `GET /dashboard/summary` gated with `@RequireFeature(ANALYTICS_BASIC)` (STARTER+); `GET /dashboard/analytics` gated with `@RequireFeature(ANALYTICS_FULL)` (PRO+).
-- **`payment.controller.ts`** — 6 authenticated routes (force-open, close, close-card, close-cash, sessions, history) gated with `@RequireFeature(PAYMENTS_STRIPE)`.
-- **`restaurants.controller.ts`** — 3 Stripe Connect routes (stripe/connect, stripe/status, stripe/disconnect) gated with `@RequireFeature(PAYMENTS_STRIPE)`.
-- **`users.service.ts`** — `createStaffMember` refactored: uses `FeatureService.getAllowedStaffRoles(tier)` for role-tier matrix enforcement; `FeatureService.getStaffLimit(tier)` replaces inline switch (single source of truth). `FeatureService` injected into constructor.
-- **`menu-crud.service.ts`** — DAYPARTING: `createCategory`/`updateCategory` strip schedule fields (forces `ALWAYS`) for non-PRO tiers; `filterByAvailability` treats SCHEDULED as ALWAYS on non-DAYPARTING tiers (safe after tier downgrade). UPSELLING: `getTrendingItems` returns `[]` for non-PRO; `getPublicMenuMeta` strips `perfectPairings` + trending fields for non-UPSELLING tiers.
-- **Frontend gates** — `AnalyticsView.tsx`: advanced charts (Top Items, Peak Hours, Category Breakdown, Top Tables, Feedback) wrapped in `{canFullAnalytics && ...}` with upgrade card for STARTER-. `PublicMenuPage.tsx`: `TrendingCarousel` + `perfectPairings` prop gated by `upselling`; `CustomerLoginModal` + sign-in section gated by `customers:auth`; `PaymentModal` gated by `payments:stripe`. `CheckoutPage.tsx`: `CustomerLoginModal` gated by `customers:auth`. `CategorySettingsModal.tsx`: schedule UI gated by `dayparting` with downgrade badge for stale SCHEDULED on non-PRO. `PosPage.tsx`/`KitchenPage.tsx`: early-return upgrade redirect for non-ENTERPRISE tiers. Staff settings role dropdown: `MANAGER` only on PRO, all roles on ENTERPRISE, locked card on FREE/STARTER.
-- **i18n** — 11 new keys across EN/BG/RO: `tierLocked.upgrade`, `tierLocked.analyticsTitle`, `tierLocked.analyticsDesc`, `tierLocked.kds`, `tierLocked.pos`, `tierLocked.dayparting`, `tierLocked.customers`, `tierLocked.upselling`, `staff.staffCount`, `staff.noRolesAvailable`, `staff.noRolesDesc`.
-- **Tests** — 454 total passing (up from 122). Fixed `users.service.spec.ts` (added `FeatureService` provider; updated role/tier combos to match `getAllowedStaffRoles` rules). Fixed `menu-crud.service.spec.ts` (added `tier: 'PROFESSIONAL'` to SCHEDULED-filter and trending mocks so service-layer tier gates pass).
-
-**Shipped — Super-Admin Dashboard (May 17, 2026):**
-- **Backend `SuperAdminModule`** — `GET /super-admin/stats` (platform totals + `groupBy` tier distribution — not raw SQL), `GET /super-admin/tenants` (paginated, search, tier/status/deleted filters, `GetTenantsQueryDto` enum-validates `tier`), `GET /super-admin/tenants/:id` (explicit select — no secrets exposed), `PATCH /tenants/:id/tier` (forceTier override), `PATCH /tenants/:id/status` (suspend/reactivate `isActive`), `DELETE /tenants/:id` (soft-delete `deletedAt`), `POST /tenants/:id/restore`. All routes behind `@Roles('SUPER_ADMIN')`.
-- **Schema** — `Restaurant.isActive Boolean @default(true)`, `Restaurant.forceTier SubscriptionTier?`, `Restaurant.deletedAt DateTime?`. Pushed to Neon.
-- **Frontend** — `SuperAdminLayout` (isolated from `RestaurantProvider` — SUPER_ADMIN has no restaurant), `OverviewPage` (stats + tier pie chart with literal hex colors), `TenantsPage` (debounced search 300ms, deleted filter, `staleTime: 30_000`), `TenantDetailPage` (tier override dropdown, suspend/restore actions, mutation error banner on all actions).
-- **Tier propagation pipeline** (all 3 layers fixed):
-  - `subscription.controller.ts` `getStatus()` applies `getEffectiveTier(tier, forceTier)`.
-  - `restaurants.service.ts` `applyEffectiveTier` helper overwrites `tier` with `forceTier` on `findAll/findOne/findOneOrStaff`.
-  - `useFeature.ts` `useTier()` migrated from stale `RestaurantContext` snapshot to `useQuery(['subscription-status'], getSubscriptionStatus, { staleTime: 60_000 })` — reflects admin changes within 60s via default `refetchOnWindowFocus`.
-  - `SubscriptionBanner.tsx` + `BillingView.tsx` migrated from `useEffect+useState` to `useQuery` (share `['subscription-status']` cache key).
-
-**Current focus — V3 Growth:**
-- **Phase 20 — Multi-location:** menu templates, bulk price updates, cross-location analytics.
-
-**Planned — V4 Enterprise:** AWS/GCP migration, Redis, POS integration (Square / Toast / Lightspeed), inventory + waste tracking, SMS/email marketing, React Native staff app.
-
-When asked to add a feature, first check whether it falls under an existing phase — follow the scope defined there rather than re-scoping.
 
 ## Testing
 
@@ -319,3 +190,6 @@ Rules:
 - IF graphify-out/wiki/index.md EXISTS, navigate it instead of reading raw files
 - For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+
+## Deplotyment
+When asked to deploy , deploy backend to existing GCloud - installed at C:\google-cloud-sdk\bin and frontend via Vercel MCP 

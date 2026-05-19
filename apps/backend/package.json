@@ -9,7 +9,7 @@
     "clean": "if exist dist rmdir /s /q dist",
     "build": "npx prisma generate && nest build",
     "dev": "npm run start:dev",
-    "seed": "npm run build && npx prisma db seed",
+    "seed": "npm run build && npx ts-node prisma/seed.ts",
     "migrate:dev": "npx prisma migrate dev",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "node dist/main",
@@ -148,8 +148,5 @@
       }
     },
     "testEnvironment": "node"
-  },
-  "prisma": {
-    "seed": "ts-node prisma/seed.ts"
   }
 }

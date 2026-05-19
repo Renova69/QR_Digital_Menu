@@ -1,7 +1,7 @@
 # QR Menu App — Master Documentation
 
-> **Last Updated:** May 17, 2026
-> **Status:** V2.5 Complete — V3 Growth Features (Stripe Payments ✅, Live Table View ✅, OCR Import ✅, Waiter POS ✅, Staff Roles & RBAC ✅) — Security Hardening ✅ (httpOnly cookies, CSRF, same-origin proxy, CSP) — Public Menu Mobile UX ✅ (top bar, filters, dual currency, horizontal cards, category pills) — Bug Fixes & Polish ✅ (PR#3 findings, code review fixes, dead code cleanup, payments investigation) — Security & Bug Fixes ✅ (CORS wildcard, magic-link removed, loyalty emails, CSV export, TS strict mode) — Infrastructure & Polish ✅ (API versioning /api/v1, Prisma circuit breaker, order progress stepper, QR print templates, 122 tests) — SaaS Tiering V2 ✅ (4-tier FREE/STARTER/PRO/ENTERPRISE, FeatureGuard, Stripe Billing, PricingPage, BillingView, demo accounts) — Production Deployment ✅ (Vercel frontend + Cloud Run backend, cross-origin cookies, CSRF fixed) — Tier Enforcement Sweep Round 2 ✅ (all 22 feature flags enforced, 454 tests passing) — **Super-Admin Dashboard ✅ (internal ops panel, tier override, suspend/reactivate, soft delete, live tier propagation via TanStack Query)**
+> **Last Updated:** May 18, 2026
+> **Status:** V2.5 Complete — V3 Growth Features (Stripe Payments ✅, Live Table View ✅, OCR Import ✅, Waiter POS ✅, Staff Roles & RBAC ✅) — Security Hardening ✅ (httpOnly cookies, CSRF, same-origin proxy, CSP) — Public Menu Mobile UX ✅ (top bar, filters, dual currency, horizontal cards, category pills) — Bug Fixes & Polish ✅ (PR#3 findings, code review fixes, dead code cleanup, payments investigation) — Security & Bug Fixes ✅ (CORS wildcard, magic-link removed, loyalty emails, CSV export, TS strict mode) — Infrastructure & Polish ✅ (API versioning /api/v1, Prisma circuit breaker, order progress stepper, QR print templates, 122 tests) — SaaS Tiering V2 ✅ (4-tier FREE/STARTER/PRO/ENTERPRISE, FeatureGuard, Stripe Billing, PricingPage, BillingView, demo accounts) — Production Deployment ✅ (Vercel frontend + Cloud Run backend, cross-origin cookies, CSRF fixed) — Tier Enforcement Sweep Round 2 ✅ (all 22 feature flags enforced, 454 tests passing) — Super-Admin Dashboard ✅ (internal ops panel, tier override, suspend/reactivate, soft delete, live tier propagation via TanStack Query) — **GDPR / Legal Module ✅ (May 18, 2026 — PlatformSettings, right-to-erasure Art. 17, data export Art. 20, CookieConsentBanner, /privacy /terms /cookies routes)** — **Dashboard Vertical Sidebar ✅ (May 18, 2026)** — **Super-Admin Dark OLED Redesign ✅ (May 18, 2026)** — **Auth Hardening ✅ (May 18, 2026 — Google OAuth /v1/ URL fix, auth log scrubbing, CI gate)**
 > **Stack:** Turborepo Monorepo — React 18 + NestJS 11 + Prisma 6 + Neon (Serverless PostgreSQL)
 
 ---
@@ -118,6 +118,9 @@ AppModule
 ├── PaymentModule (Stripe Connect, provider abstraction, webhooks, payment history)
 ├── SubscriptionModule (SaaS tiering: FeatureService, FeatureGuard, SubscriptionService, Stripe Checkout/Portal/webhook) [@Global]
 ├── MenuImportModule (OCR JSON → menu upsert, API key auth + JWT auth, 60s transaction)
+├── PlatformSettingsModule (GDPR toggles + legal content; public GET with 30s cache, super-admin PATCH)
+├── UsersDataModule (GDPR Art. 17 erasure + Art. 20 data export; retention cron 0 3 * * *)
+├── SuperAdminModule (internal ops panel — stats, tenant management, tier override, soft delete/restore)
 ├── HealthModule
 └── FeedbackModule
 ```
@@ -828,7 +831,7 @@ Frontend on Vercel (`vercel.app`) and backend on Cloud Run (`run.app`) are diffe
 ## 19. Key Architectural Decisions
 
 1. **Server-side pricing** — Order total recalculated from DB on checkout. Client-side price is ignored. Prevents price manipulation.
-2. **Platform-managed translation** — Restaurant owners never supply API keys. Platform holds single DeepL key. `restaurant.deeplApiKey` column deprecated at DB level.
+2. **Platform-managed translation** — Restaurant owners never supply API keys. Platform holds single DeepL key via `DEEPL_API_KEY` env var. `restaurant.deeplApiKey` column fully removed from schema and all code — do not add call-sites that read or write it.
 3. **Per-restaurant theme isolation** — Each venue's theme preference stored independently (`theme-{restaurantId}`) vs single global key.
 4. **Lazy translation with DB caching** — First request per language translates and persists to `translations` JSON field. Subsequent requests hit DB cache.
 5. **BG as i18n fallback** — Bulgarian is default language (`fallbackLng: 'bg'`) since target market is primarily Bulgarian restaurants.
@@ -849,9 +852,10 @@ Frontend on Vercel (`vercel.app`) and backend on Cloud Run (`run.app`) are diffe
 | ~~No pagination on list endpoints~~ | ~~Medium~~ | ✅ Fixed May 10, 2026 — orders, feedback, assistance-requests paginated (50/page, max 100) |
 | ~~No CSP headers~~ | ~~Medium~~ | ✅ Fixed May 10, 2026 — Helmet CSP with `default-src 'self'`, Stripe frame-src, Tailwind style-src |
 | ~~No per-endpoint rate limits~~ | ~~Medium~~ | ✅ Fixed May 10, 2026 — OTP: 10/min, login: 5/min, public menu: 60/min, health: skip |
-| Minimal test coverage | Medium | Only basic unit/E2E tests. No service-level tests for orders, loyalty, menu |
+| Minimal test coverage | Medium | 454 unit tests passing; coverage still below 80% target. CI gate now blocks regressions from merging. |
 | ~~Relaxed TS strictness (backend)~~ | ~~Low~~ | ✅ Fixed May 15, 2026 — `strictNullChecks: true`, `noImplicitAny: true` enabled in `apps/backend/tsconfig.json` |
-| `any` types in frontend contexts | Low | `CartContext.selectedOptions: any[]`, etc. |
+| ~~`any` types in frontend contexts~~ | ~~Low~~ | Partially resolved May 18, 2026 — `CartContext.updateItem` parameter `options: any[]` → `options: SelectedOption[]`. `SelectedOption` type was already defined and exported. Other call-sites clean. |
+| No CI gate | ~~Medium~~ | ✅ Fixed May 18, 2026 — `.github/workflows/ci.yml` blocks merge on failed tests / typecheck / build. |
 
 ---
 
@@ -896,6 +900,18 @@ Frontend on Vercel (`vercel.app`) and backend on Cloud Run (`run.app`) are diffe
 | **Payment toast** | `apps/frontend/src/components/PaymentToast.tsx` |
 | **Payment history view** | `apps/frontend/src/pages/Dashboard/PaymentsView.tsx` |
 | **Menu import/export view** | `apps/frontend/src/pages/Dashboard/MenuImportExportView.tsx` |
+| **Super-admin layout** | `apps/frontend/src/pages/super-admin/SuperAdminLayout.tsx` |
+| **Super-admin overview** | `apps/frontend/src/pages/super-admin/OverviewPage.tsx` |
+| **Super-admin tenants** | `apps/frontend/src/pages/super-admin/TenantsPage.tsx` |
+| **Super-admin tenant detail** | `apps/frontend/src/pages/super-admin/TenantDetailPage.tsx` |
+| **Legal settings (GDPR)** | `apps/frontend/src/pages/super-admin/LegalSettingsPage.tsx` |
+| **Cookie consent banner** | `apps/frontend/src/components/legal/CookieConsentBanner.tsx` |
+| **Privacy / Terms / Cookies pages** | `apps/frontend/src/pages/legal/` |
+| **Data privacy tab** | `apps/frontend/src/pages/profile/DataPrivacyTab.tsx` |
+| **PlatformSettings service** | `apps/backend/src/platform-settings/platform-settings.service.ts` |
+| **UsersData service** | `apps/backend/src/users-data/users-data.service.ts` |
+| **Retention cron** | `apps/backend/src/users-data/retention.service.ts` |
+| **Super-admin controller** | `apps/backend/src/super-admin/super-admin.controller.ts` |
 | **POS context** | `apps/frontend/src/context/PosContext.tsx` |
 | **POS page + layout** | `apps/frontend/src/pages/pos/PosPage.tsx`, `PosLayout.tsx` |
 | **POS components** | `apps/frontend/src/components/pos/` (12 components) |
