@@ -1,4 +1,4 @@
-import { IsEnum } from 'class-validator';
+import { IsEnum, IsOptional } from 'class-validator';
 
 export enum CheckoutTier {
   STARTER = 'STARTER',
@@ -6,7 +6,16 @@ export enum CheckoutTier {
   ENTERPRISE = 'ENTERPRISE',
 }
 
+export enum BillingPeriod {
+  MONTHLY = 'monthly',
+  YEARLY = 'yearly',
+}
+
 export class CreateCheckoutDto {
   @IsEnum(CheckoutTier)
   tier: CheckoutTier;
+
+  @IsOptional()
+  @IsEnum(BillingPeriod)
+  billingPeriod: BillingPeriod = BillingPeriod.MONTHLY;
 }

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import Stripe from 'stripe';
 
@@ -6,15 +6,24 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder'
   apiVersion: '2026-04-22.dahlia',
 });
 
-const PRICE_MAP: Record<string, string> = {
-  STARTER: process.env.STRIPE_PRICE_STARTER || '',
-  PROFESSIONAL: process.env.STRIPE_PRICE_PROFESSIONAL || '',
-  ENTERPRISE: process.env.STRIPE_PRICE_ENTERPRISE || '',
+const PRICE_MAP: Record<string, Record<'monthly' | 'yearly', string>> = {
+  STARTER: {
+    monthly: process.env.STRIPE_PRICE_STARTER_MONTHLY || '',
+    yearly: process.env.STRIPE_PRICE_STARTER_YEARLY || '',
+  },
+  PROFESSIONAL: {
+    monthly: process.env.STRIPE_PRICE_PROFESSIONAL_MONTHLY || '',
+    yearly: process.env.STRIPE_PRICE_PROFESSIONAL_YEARLY || '',
+  },
+  ENTERPRISE: {
+    monthly: process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY || '',
+    yearly: process.env.STRIPE_PRICE_ENTERPRISE_YEARLY || '',
+  },
 };
 
 function getTierFromPrice(priceId: string): string {
-  for (const [tier, pid] of Object.entries(PRICE_MAP)) {
-    if (pid === priceId) return tier;
+  for (const [tier, periods] of Object.entries(PRICE_MAP)) {
+    if (periods.monthly === priceId || periods.yearly === priceId) return tier;
   }
   return 'FREE';
 }
@@ -25,9 +34,16 @@ export class SubscriptionService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async createCheckoutSession(restaurantId: string, tier: string, ownerId: string) {
-    const priceId = PRICE_MAP[tier];
-    if (!priceId) throw new Error(`No Stripe price configured for tier ${tier}`);
+  async createCheckoutSession(
+    restaurantId: string,
+    tier: string,
+    billingPeriod: 'monthly' | 'yearly',
+    ownerId: string,
+  ) {
+    const priceId = PRICE_MAP[tier]?.[billingPeriod];
+    if (!priceId) {
+      throw new BadRequestException(`No Stripe price configured for tier ${tier} (${billingPeriod})`);
+    }
 
     let { stripeCustomerId } = await this.prisma.restaurant.findUniqueOrThrow({
       where: { id: restaurantId },
@@ -61,7 +77,7 @@ export class SubscriptionService {
       where: { id: restaurantId },
       select: { stripeCustomerId: true },
     });
-    if (!stripeCustomerId) throw new Error('No Stripe customer');
+    if (!stripeCustomerId) throw new BadRequestException('No Stripe customer associated with this restaurant');
 
     const session = await stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,
