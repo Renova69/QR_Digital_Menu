@@ -107,13 +107,13 @@ export class SubscriptionService {
     if (!restaurant?.stripeSubscriptionId) return null;
 
     try {
-      const sub = await stripe.subscriptions.retrieve(restaurant.stripeSubscriptionId);
+      const sub = await stripe.subscriptions.retrieve(restaurant.stripeSubscriptionId) as any;
       return {
         currentPeriodStart: new Date(sub.current_period_start * 1000).toISOString(),
         currentPeriodEnd: new Date(sub.current_period_end * 1000).toISOString(),
-        cancelAtPeriodEnd: sub.cancel_at_period_end,
-        status: sub.status,
-        interval: (sub.items.data[0]?.price?.recurring?.interval) ?? null,
+        cancelAtPeriodEnd: sub.cancel_at_period_end as boolean,
+        status: sub.status as string,
+        interval: (sub.items?.data?.[0]?.price?.recurring?.interval as string) ?? null,
       };
     } catch {
       return null;
