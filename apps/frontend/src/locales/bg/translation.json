@@ -327,11 +327,48 @@
         "days7": "7 Дни",
         "days14": "14 Дни",
         "days30": "30 Дни",
-        "export": "Експорт",
+        "exportLabel": "Експорт",
         "categoryBreakdown": "Разбивка по категории",
         "topTables": "Топ маси по приход",
         "dateFrom": "От",
-        "dateTo": "До"
+        "dateTo": "До",
+        "export": {
+            "rangeInvalid": "Началната дата трябва да е преди крайната",
+            "noData": "Няма данни за този период",
+            "sheets": {
+                "summary": "Резюме",
+                "revenueTrend": "Приходна тенденция",
+                "topItems": "Топ артикули",
+                "peakHours": "Пикови часове",
+                "categories": "Категории",
+                "topTables": "Топ маси"
+            },
+            "columns": {
+                "kpi": "Показател",
+                "value": "Стойност",
+                "date": "Дата",
+                "revenue": "Приход",
+                "orders": "Поръчки",
+                "rank": "Място",
+                "itemName": "Артикул",
+                "qtySold": "Продадено кол.",
+                "hour": "Час",
+                "category": "Категория",
+                "sharePct": "Дял %",
+                "table": "Маса"
+            },
+            "summary": {
+                "restaurant": "Ресторант",
+                "period": "Период",
+                "generatedAt": "Генерирано на",
+                "totalRevenue": "Общ приход",
+                "totalOrders": "Общо поръчки",
+                "avgOrderValue": "Средна поръчка",
+                "servedRate": "% сервирани",
+                "revenueChange": "Приход спрямо предходен",
+                "ordersChange": "Поръчки спрямо предходен"
+            }
+        }
     },
     "tables": {
         "title": "Управление на Маси",
