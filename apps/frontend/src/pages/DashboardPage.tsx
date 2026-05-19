@@ -55,7 +55,7 @@ const DashboardPage = () => {
 
   const { t, i18n } = useTranslation();
   const paymentsEnabled = (activeRestaurant as any)?.paymentsEnabled ?? false;
-  const canAnalytics  = useFeature('analytics:basic');
+  const canAnalytics  = useFeature('analytics:full');
   const canOrders     = useFeature('orders:receive');
   const canPayments   = useFeature('payments:stripe');
   const canAssistance = useFeature('orders:call-waiter');
