@@ -383,8 +383,8 @@ export const getSubscriptionStatus = async () => {
   };
 };
 
-export const createCheckoutSession = async (tier: string) => {
-  const response = await api.post('/subscription/checkout', { tier });
+export const createCheckoutSession = async (tier: string, billingPeriod: 'monthly' | 'yearly' = 'monthly') => {
+  const response = await api.post('/subscription/checkout', { tier, billingPeriod });
   return response.data as { url: string };
 };
 

@@ -63,13 +63,13 @@ describe('SubscriptionService', () => {
   describe('createCheckoutSession', () => {
     it('throws when no Stripe price is configured for the tier', async () => {
       await expect(
-        service.createCheckoutSession('rest1', 'STARTER', 'owner1'),
+        service.createCheckoutSession('rest1', 'STARTER', 'monthly', 'owner1'),
       ).rejects.toThrow('No Stripe price configured for tier STARTER');
     });
 
     it('throws for ENTERPRISE tier when price env var is absent', async () => {
       await expect(
-        service.createCheckoutSession('rest1', 'ENTERPRISE', 'owner1'),
+        service.createCheckoutSession('rest1', 'ENTERPRISE', 'monthly', 'owner1'),
       ).rejects.toThrow('No Stripe price configured for tier ENTERPRISE');
     });
   });

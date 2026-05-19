@@ -708,7 +708,18 @@
     "popular": "Most Popular",
     "getStarted": "Get Started",
     "choosePlan": "Choose {{tier}}",
-    "terms": "Prices exclude VAT. Cancel anytime."
+    "terms": "Prices exclude VAT. Cancel anytime.",
+    "billing": {
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "saveAnnual": "Save 15%"
+    },
+    "comparison": {
+      "title": "Compare all features"
+    },
+    "faq": {
+      "title": "Frequently asked questions"
+    }
   },
   "orderConfirmation": {
     "liveStatus": "Live Status",

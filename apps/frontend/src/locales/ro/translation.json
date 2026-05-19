@@ -714,7 +714,18 @@
     "popular": "Cel mai popular",
     "getStarted": "Începeți",
     "choosePlan": "Alegeți {{tier}}",
-    "terms": "Prețurile nu includ TVA. Anulare oricând."
+    "terms": "Prețurile nu includ TVA. Anulare oricând.",
+    "billing": {
+      "monthly": "Lunar",
+      "yearly": "Anual",
+      "saveAnnual": "Economisiți 15%"
+    },
+    "comparison": {
+      "title": "Comparați toate funcțiile"
+    },
+    "faq": {
+      "title": "Întrebări frecvente"
+    }
   },
   "orderConfirmation": {
     "liveStatus": "Stare in timp real",

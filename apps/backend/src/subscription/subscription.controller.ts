@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Req, UseGuards, Headers, RawBodyRequest, HttpCode } from '@nestjs/common';
+import { Controller, Get, Post, Body, Req, UseGuards, Headers, RawBodyRequest, HttpCode, NotFoundException } from '@nestjs/common';
 import { SubscriptionService } from './subscription.service';
 import { CreateCheckoutDto } from './dto/checkout.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -53,8 +53,8 @@ export class SubscriptionController {
   async createCheckout(@Req() req: any, @Body() dto: CreateCheckoutDto) {
     const userId = req.user.id ?? req.user.sub;
     const restaurant = await this.resolveRestaurant(userId, { id: true });
-    if (!restaurant) throw new Error('No restaurant found for user');
-    return this.subscriptionService.createCheckoutSession(restaurant.id, dto.tier, userId);
+    if (!restaurant) throw new NotFoundException('No restaurant found for user');
+    return this.subscriptionService.createCheckoutSession(restaurant.id, dto.tier, dto.billingPeriod ?? 'monthly', userId);
   }
 
   @Post('portal')
@@ -62,7 +62,7 @@ export class SubscriptionController {
   async createPortal(@Req() req: any) {
     const userId = req.user.id ?? req.user.sub;
     const restaurant = await this.resolveRestaurant(userId, { id: true });
-    if (!restaurant) throw new Error('No restaurant found for user');
+    if (!restaurant) throw new NotFoundException('No restaurant found for user');
     return this.subscriptionService.createPortalSession(restaurant.id);
   }
 
