@@ -1,4 +1,4 @@
-﻿{
+{
     "nav":  {
                 "dashboard":  "Dashboard",
                 "logout":  "Logout",
@@ -326,11 +326,48 @@
                       "days7":  "7 Days",
                       "days14":  "14 Days",
                       "days30":  "30 Days",
-                      "export":  "Export",
+                      "exportLabel":  "Export",
                       "categoryBreakdown":  "Category Breakdown",
                       "topTables":  "Top Tables by Revenue",
                       "dateFrom":  "From",
-                      "dateTo":  "To"
+                      "dateTo":  "To",
+                      "export": {
+                          "rangeInvalid": "Start date must be before end date",
+                          "noData": "No data for this period",
+                          "sheets": {
+                              "summary": "Summary",
+                              "revenueTrend": "Revenue Trend",
+                              "topItems": "Top Items",
+                              "peakHours": "Peak Hours",
+                              "categories": "Categories",
+                              "topTables": "Top Tables"
+                          },
+                          "columns": {
+                              "kpi": "KPI",
+                              "value": "Value",
+                              "date": "Date",
+                              "revenue": "Revenue",
+                              "orders": "Orders",
+                              "rank": "Rank",
+                              "itemName": "Item Name",
+                              "qtySold": "Qty Sold",
+                              "hour": "Hour",
+                              "category": "Category",
+                              "sharePct": "Share %",
+                              "table": "Table"
+                          },
+                          "summary": {
+                              "restaurant": "Restaurant",
+                              "period": "Period",
+                              "generatedAt": "Generated At",
+                              "totalRevenue": "Total Revenue",
+                              "totalOrders": "Total Orders",
+                              "avgOrderValue": "Avg Order Value",
+                              "servedRate": "Served Rate",
+                              "revenueChange": "Revenue vs Prev Period",
+                              "ordersChange": "Orders vs Prev Period"
+                          }
+                      }
                   },
     "tables":  {
                    "title":  "Manage Tables",

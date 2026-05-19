@@ -327,11 +327,48 @@
         "days7": "7 Zile",
         "days14": "14 Zile",
         "days30": "30 Zile",
-        "export": "Export",
+        "exportLabel": "Export",
         "categoryBreakdown": "Defalcare pe Categorii",
         "topTables": "Top Mese după Venit",
         "dateFrom": "De la",
-        "dateTo": "Până la"
+        "dateTo": "Până la",
+        "export": {
+            "rangeInvalid": "Data de început trebuie să fie înaintea datei de sfârșit",
+            "noData": "Nu există date pentru această perioadă",
+            "sheets": {
+                "summary": "Rezumat",
+                "revenueTrend": "Tendință Venituri",
+                "topItems": "Top Articole",
+                "peakHours": "Ore de Vârf",
+                "categories": "Categorii",
+                "topTables": "Top Mese"
+            },
+            "columns": {
+                "kpi": "Indicator",
+                "value": "Valoare",
+                "date": "Dată",
+                "revenue": "Venit",
+                "orders": "Comenzi",
+                "rank": "Rang",
+                "itemName": "Articol",
+                "qtySold": "Cantitate vândută",
+                "hour": "Oră",
+                "category": "Categorie",
+                "sharePct": "Pondere %",
+                "table": "Masă"
+            },
+            "summary": {
+                "restaurant": "Restaurant",
+                "period": "Perioadă",
+                "generatedAt": "Generat la",
+                "totalRevenue": "Venit Total",
+                "totalOrders": "Comenzi Totale",
+                "avgOrderValue": "Valoare Medie Comandă",
+                "servedRate": "Rată Servire",
+                "revenueChange": "Venit față de perioada anterioară",
+                "ordersChange": "Comenzi față de perioada anterioară"
+            }
+        }
     },
     "tables": {
         "title": "Administrare Mese",

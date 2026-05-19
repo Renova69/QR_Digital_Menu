@@ -1,4 +1,4 @@
-import { useState, useContext } from 'react';
+﻿import { useState, useContext } from 'react';
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area
@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, TrendingDown, ShoppingCart, DollarSign, BarChart3, CheckCircle, Star, ExternalLink, Calendar, Download, Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useFeature } from '../../hooks/useFeature';
+import { downloadAnalyticsExport } from '../../lib/analyticsExport';
 
 const PERIOD_KEYS: Record<number, string> = {
   7: 'analytics.days7',
@@ -67,41 +68,15 @@ const AnalyticsView = () => {
     setEndDate('');
   };
 
-  const handleExportCSV = () => {
-    if (!data) return;
-    
-    // Use semicolon as delimiter and add sep=; for maximum Excel compatibility in European locales
-    let csv = 'sep=;\n';
-    csv += 'Report Period;Total Revenue;Total Orders;Avg Order Value\n';
-    csv += `"${startDate && endDate ? `${startDate} to ${endDate}` : `Last ${period} days`}";"€${data.totalRevenue.toFixed(2)}";"${data.totalOrders}";"€${data.avgOrderValue.toFixed(2)}"\n\n`;
+  const isRangeInvalid = !!(startDate && endDate && startDate > endDate);
 
-    csv += 'Date;Revenue;Orders\n';
-    data.revenueTrend.forEach(row => {
-      csv += `"${row.date}";"€${row.revenue.toFixed(2)}";"${row.orders}"\n`;
-    });
-
-    csv += '\nTop Items;Quantity Sold;Revenue\n';
-    data.topItems.forEach(item => {
-      csv += `"${item.name}";"${item.quantity}";"€${item.revenue.toFixed(2)}"\n`;
-    });
-
-    csv += '\nPeak Hours;Orders\n';
-    data.peakHours.forEach(row => {
-      csv += `"${row.hour}:00";"${row.orders}"\n`;
-    });
-
-    csv += '\nCategory;Revenue\n';
-    data.categoryBreakdown.forEach(row => {
-      csv += `"${row.category}";"€${row.revenue.toFixed(2)}"\n`;
-    });
-
-    // Add UTF-8 BOM for proper Excel encoding
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `analytics-report-${activeRestaurant?.name?.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
+  const handleExport = async () => {
+    if (!data || isRangeInvalid) return;
+    await downloadAnalyticsExport(
+      data,
+      { restaurantName: activeRestaurant?.name ?? 'restaurant', startDate, endDate, period },
+      t,
+    );
   };
 
   return (
@@ -118,12 +93,18 @@ const AnalyticsView = () => {
           </p>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
-            <button 
-              onClick={handleExportCSV}
-              className="flex items-center gap-2 bg-foreground text-background px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform shadow-xl"
+            <button
+              onClick={handleExport}
+              disabled={isRangeInvalid}
+              title={isRangeInvalid ? t('analytics.export.rangeInvalid', 'Start date must be before end date') : undefined}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-transform shadow-xl ${
+                isRangeInvalid
+                  ? 'bg-foreground/30 text-background/50 cursor-not-allowed'
+                  : 'bg-foreground text-background hover:scale-105'
+              }`}
             >
               <Download className="w-3.5 h-3.5" />
-              {t('analytics.export')}
+              {t('analytics.exportLabel', 'Export')}
             </button>
             <div className="flex bg-secondary/30 border border-border/40 rounded-xl p-1.5 gap-2 items-center shadow-inner w-full sm:w-auto">
               <input 
