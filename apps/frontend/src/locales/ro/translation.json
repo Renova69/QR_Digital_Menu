@@ -724,7 +724,60 @@
       "title": "Comparați toate funcțiile"
     },
     "faq": {
-      "title": "Întrebări frecvente"
+      "title": "Întrebări frecvente",
+      "q1": "Prețurile includ TVA?",
+      "a1": "Prețurile afișate nu includ TVA. Rata TVA locală se aplică la plată prin Stripe.",
+      "q2": "Pot anula oricând?",
+      "a2": "Da. Anulați prin Billing portal oricând. Accesul se păstrează până la sfârșitul perioadei de facturare curente.",
+      "q3": "Ce se întâmplă când cobor planul?",
+      "a3": "Treceți imediat la funcțiile noului plan. Stripe aplică un credit proporțional pentru timpul neutilizat.",
+      "q4": "Există o perioadă de probă gratuită?",
+      "a4": "Planul FREE este permanent fără limită de timp — acesta este perioada dvs. de probă. Faceți upgrade când sunteți pregătit.",
+      "q5": "Există taxe de tranzacție?",
+      "a5": "Stripe percepe 1.4% + €0.25 per tranzacție cu cardul UE. Nu percepem taxe suplimentare de platformă.",
+      "q6": "Pot comuta între facturare lunară și anuală?",
+      "a6": "Da, prin Billing portal. Modificarea intră în vigoare la data următoarei facturări."
+    },
+    "tiers": {
+      "free": { "b1": "Meniu digital (vizualizare și editare)", "b2": "Gestionare coduri QR", "b3": "Import meniu (OCR)", "b4": "1 angajat" },
+      "starter": { "b1": "Tot din Free", "b2": "Comenzi online", "b3": "Analize de bază", "b4": "1 angajat" },
+      "professional": { "b1": "Tot din Starter", "b2": "Plăți Stripe la masă", "b3": "Analize complete", "b4": "Buton chemare chelner", "b5": "Meniu multilingv", "b6": "Branding personalizat", "b7": "Program de loialitate", "b8": "Conturi clienți", "b9": "Upselling și orar", "b10": "Până la 5 angajați + Manager" },
+      "enterprise": { "b1": "Tot din Professional", "b2": "Punct de vânzare (POS)", "b3": "Afișaj bucătărie (KDS)", "b4": "Mai multe locații", "b5": "Imprimante termice", "b6": "Șabloane meniu", "b7": "RBAC avansat", "b8": "Personal nelimitat", "b9": "Suport prioritar" }
+    },
+    "features": {
+      "digitalMenu": "Meniu digital",
+      "ocrImport": "Import meniu (OCR)",
+      "multiLanguage": "Meniu multilingv",
+      "menuTemplates": "Șabloane meniu",
+      "onlineOrdering": "Comenzi online",
+      "callWaiter": "Buton chemare chelner",
+      "pos": "Punct de vânzare (POS)",
+      "kds": "Afișaj bucătărie (KDS)",
+      "stripePayments": "Plăți Stripe la masă",
+      "basicAnalytics": "Analize de bază",
+      "fullAnalytics": "Analize complete",
+      "qrCodes": "Coduri QR",
+      "customerAccounts": "Conturi clienți",
+      "loyalty": "Program de loialitate",
+      "upselling": "Upselling",
+      "dayparting": "Program orar / happy hour",
+      "customBranding": "Branding personalizat",
+      "multiLocation": "Mai multe locații",
+      "thermalPrinters": "Imprimante termice",
+      "staffMembers": "Angajați",
+      "rbac": "RBAC avansat",
+      "prioritySupport": "Suport prioritar",
+      "unlimited": "Nelimitat"
+    },
+    "sections": {
+      "menu": "Meniu",
+      "orders": "Comenzi",
+      "payments": "Plăți",
+      "analytics": "Analize",
+      "customers": "QR și clienți",
+      "customization": "Personalizare",
+      "team": "Echipă",
+      "support": "Suport"
     }
   },
   "orderConfirmation": {

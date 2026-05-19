@@ -6,69 +6,7 @@ import { createCheckoutSession } from '../lib/api';
 
 type Billing = 'monthly' | 'yearly';
 
-interface TierDef {
-  key: string;
-  monthly: number;
-  highlight?: boolean;
-  bullets: string[];
-}
-
-const TIERS: TierDef[] = [
-  {
-    key: 'FREE',
-    monthly: 0,
-    bullets: [
-      'Digital menu (view & edit)',
-      'QR code management',
-      'OCR menu import',
-      '1 staff member',
-    ],
-  },
-  {
-    key: 'STARTER',
-    monthly: 15,
-    bullets: [
-      'Everything in Free',
-      'Online ordering',
-      'Basic analytics',
-      '1 staff member',
-    ],
-  },
-  {
-    key: 'PROFESSIONAL',
-    monthly: 25,
-    highlight: true,
-    bullets: [
-      'Everything in Starter',
-      'Stripe pay-at-table',
-      'Full analytics',
-      'Call waiter button',
-      'Multi-language menu',
-      'Custom branding',
-      'Loyalty program',
-      'Customer accounts',
-      'Upselling & dayparting',
-      'Up to 5 staff + Manager role',
-    ],
-  },
-  {
-    key: 'ENTERPRISE',
-    monthly: 45,
-    bullets: [
-      'Everything in Professional',
-      'Point of Sale (POS)',
-      'Kitchen Display (KDS)',
-      'Multi-location',
-      'Thermal printers',
-      'Menu templates',
-      'Advanced RBAC',
-      'Unlimited staff',
-      'Priority support',
-    ],
-  },
-];
-
-interface FeatureRow {
+interface FeatureRowData {
   label: string;
   section?: string;
   free: boolean | string;
@@ -77,57 +15,9 @@ interface FeatureRow {
   enterprise: boolean | string;
 }
 
-const FEATURE_ROWS: FeatureRow[] = [
-  { section: 'Menu', label: 'Digital menu', free: true, starter: true, professional: true, enterprise: true },
-  { label: 'OCR menu import', free: true, starter: true, professional: true, enterprise: true },
-  { label: 'Multi-language menu', free: false, starter: false, professional: true, enterprise: true },
-  { label: 'Menu templates', free: false, starter: false, professional: false, enterprise: true },
-  { section: 'Orders', label: 'Online ordering', free: false, starter: true, professional: true, enterprise: true },
-  { label: 'Call waiter button', free: false, starter: false, professional: true, enterprise: true },
-  { label: 'Point of Sale (POS)', free: false, starter: false, professional: false, enterprise: true },
-  { label: 'Kitchen Display (KDS)', free: false, starter: false, professional: false, enterprise: true },
-  { section: 'Payments', label: 'Stripe pay-at-table', free: false, starter: false, professional: true, enterprise: true },
-  { section: 'Analytics', label: 'Basic analytics', free: false, starter: true, professional: true, enterprise: true },
-  { label: 'Full analytics', free: false, starter: false, professional: true, enterprise: true },
-  { section: 'QR & Customers', label: 'QR codes', free: true, starter: true, professional: true, enterprise: true },
-  { label: 'Customer accounts', free: false, starter: false, professional: true, enterprise: true },
-  { label: 'Loyalty program', free: false, starter: false, professional: true, enterprise: true },
-  { label: 'Upselling', free: false, starter: false, professional: true, enterprise: true },
-  { label: 'Dayparting / happy hour', free: false, starter: false, professional: true, enterprise: true },
-  { section: 'Customization', label: 'Custom branding', free: false, starter: false, professional: true, enterprise: true },
-  { label: 'Multi-location', free: false, starter: false, professional: false, enterprise: true },
-  { label: 'Thermal printers', free: false, starter: false, professional: false, enterprise: true },
-  { section: 'Team', label: 'Staff members', free: '1', starter: '1', professional: '5', enterprise: 'Unlimited' },
-  { label: 'Advanced RBAC', free: false, starter: false, professional: false, enterprise: true },
-  { section: 'Support', label: 'Priority support', free: false, starter: false, professional: false, enterprise: true },
-];
-
-const FAQ_ITEMS = [
-  {
-    q: 'Are prices inclusive of VAT?',
-    a: 'Prices shown exclude VAT. Your local VAT rate applies at checkout via Stripe.',
-  },
-  {
-    q: 'Can I cancel anytime?',
-    a: 'Yes. Cancel via the Billing portal at any time. You keep access until the end of the current billing period.',
-  },
-  {
-    q: 'What happens when I downgrade?',
-    a: "You move to the new plan's features immediately. Stripe applies a prorated credit for unused time toward your next invoice.",
-  },
-  {
-    q: 'Is there a free trial?',
-    a: 'The FREE plan is permanent with no time limit — it is your trial. Upgrade whenever you are ready.',
-  },
-  {
-    q: 'Are there transaction fees?',
-    a: 'Stripe charges 1.4% + €0.25 per EU card transaction. There is no additional platform fee from us.',
-  },
-  {
-    q: 'Can I switch between monthly and yearly billing?',
-    a: 'Yes, via the Billing portal. The change takes effect at your next billing date.',
-  },
-];
+type TableItem =
+  | { type: 'section'; label: string; key: string }
+  | { type: 'row'; row: FeatureRowData; index: number };
 
 const YEARLY_DISCOUNT = 0.85;
 
@@ -158,6 +48,122 @@ export default function PricingPage() {
   const [error, setError] = useState('');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
+  const TIERS = [
+    {
+      key: 'FREE',
+      monthly: 0,
+      highlight: false,
+      bullets: [
+        t('pricing.tiers.free.b1', 'Digital menu (view & edit)'),
+        t('pricing.tiers.free.b2', 'QR code management'),
+        t('pricing.tiers.free.b3', 'OCR menu import'),
+        t('pricing.tiers.free.b4', '1 staff member'),
+      ],
+    },
+    {
+      key: 'STARTER',
+      monthly: 15,
+      highlight: false,
+      bullets: [
+        t('pricing.tiers.starter.b1', 'Everything in Free'),
+        t('pricing.tiers.starter.b2', 'Online ordering'),
+        t('pricing.tiers.starter.b3', 'Basic analytics'),
+        t('pricing.tiers.starter.b4', '1 staff member'),
+      ],
+    },
+    {
+      key: 'PROFESSIONAL',
+      monthly: 25,
+      highlight: true,
+      bullets: [
+        t('pricing.tiers.professional.b1', 'Everything in Starter'),
+        t('pricing.tiers.professional.b2', 'Stripe pay-at-table'),
+        t('pricing.tiers.professional.b3', 'Full analytics'),
+        t('pricing.tiers.professional.b4', 'Call waiter button'),
+        t('pricing.tiers.professional.b5', 'Multi-language menu'),
+        t('pricing.tiers.professional.b6', 'Custom branding'),
+        t('pricing.tiers.professional.b7', 'Loyalty program'),
+        t('pricing.tiers.professional.b8', 'Customer accounts'),
+        t('pricing.tiers.professional.b9', 'Upselling & dayparting'),
+        t('pricing.tiers.professional.b10', 'Up to 5 staff + Manager role'),
+      ],
+    },
+    {
+      key: 'ENTERPRISE',
+      monthly: 45,
+      highlight: false,
+      bullets: [
+        t('pricing.tiers.enterprise.b1', 'Everything in Professional'),
+        t('pricing.tiers.enterprise.b2', 'Point of Sale (POS)'),
+        t('pricing.tiers.enterprise.b3', 'Kitchen Display (KDS)'),
+        t('pricing.tiers.enterprise.b4', 'Multi-location'),
+        t('pricing.tiers.enterprise.b5', 'Thermal printers'),
+        t('pricing.tiers.enterprise.b6', 'Menu templates'),
+        t('pricing.tiers.enterprise.b7', 'Advanced RBAC'),
+        t('pricing.tiers.enterprise.b8', 'Unlimited staff'),
+        t('pricing.tiers.enterprise.b9', 'Priority support'),
+      ],
+    },
+  ];
+
+  const FEATURE_ROWS: FeatureRowData[] = [
+    { section: t('pricing.sections.menu', 'Menu'), label: t('pricing.features.digitalMenu', 'Digital menu'), free: true, starter: true, professional: true, enterprise: true },
+    { label: t('pricing.features.ocrImport', 'OCR menu import'), free: true, starter: true, professional: true, enterprise: true },
+    { label: t('pricing.features.multiLanguage', 'Multi-language menu'), free: false, starter: false, professional: true, enterprise: true },
+    { label: t('pricing.features.menuTemplates', 'Menu templates'), free: false, starter: false, professional: false, enterprise: true },
+    { section: t('pricing.sections.orders', 'Orders'), label: t('pricing.features.onlineOrdering', 'Online ordering'), free: false, starter: true, professional: true, enterprise: true },
+    { label: t('pricing.features.callWaiter', 'Call waiter button'), free: false, starter: false, professional: true, enterprise: true },
+    { label: t('pricing.features.pos', 'Point of Sale (POS)'), free: false, starter: false, professional: false, enterprise: true },
+    { label: t('pricing.features.kds', 'Kitchen Display (KDS)'), free: false, starter: false, professional: false, enterprise: true },
+    { section: t('pricing.sections.payments', 'Payments'), label: t('pricing.features.stripePayments', 'Stripe pay-at-table'), free: false, starter: false, professional: true, enterprise: true },
+    { section: t('pricing.sections.analytics', 'Analytics'), label: t('pricing.features.basicAnalytics', 'Basic analytics'), free: false, starter: true, professional: true, enterprise: true },
+    { label: t('pricing.features.fullAnalytics', 'Full analytics'), free: false, starter: false, professional: true, enterprise: true },
+    { section: t('pricing.sections.customers', 'QR & Customers'), label: t('pricing.features.qrCodes', 'QR codes'), free: true, starter: true, professional: true, enterprise: true },
+    { label: t('pricing.features.customerAccounts', 'Customer accounts'), free: false, starter: false, professional: true, enterprise: true },
+    { label: t('pricing.features.loyalty', 'Loyalty program'), free: false, starter: false, professional: true, enterprise: true },
+    { label: t('pricing.features.upselling', 'Upselling'), free: false, starter: false, professional: true, enterprise: true },
+    { label: t('pricing.features.dayparting', 'Dayparting / happy hour'), free: false, starter: false, professional: true, enterprise: true },
+    { section: t('pricing.sections.customization', 'Customization'), label: t('pricing.features.customBranding', 'Custom branding'), free: false, starter: false, professional: true, enterprise: true },
+    { label: t('pricing.features.multiLocation', 'Multi-location'), free: false, starter: false, professional: false, enterprise: true },
+    { label: t('pricing.features.thermalPrinters', 'Thermal printers'), free: false, starter: false, professional: false, enterprise: true },
+    { section: t('pricing.sections.team', 'Team'), label: t('pricing.features.staffMembers', 'Staff members'), free: '1', starter: '1', professional: '5', enterprise: t('pricing.features.unlimited', 'Unlimited') },
+    { label: t('pricing.features.rbac', 'Advanced RBAC'), free: false, starter: false, professional: false, enterprise: true },
+    { section: t('pricing.sections.support', 'Support'), label: t('pricing.features.prioritySupport', 'Priority support'), free: false, starter: false, professional: false, enterprise: true },
+  ];
+
+  const FAQ_ITEMS = [
+    {
+      q: t('pricing.faq.q1', 'Are prices inclusive of VAT?'),
+      a: t('pricing.faq.a1', 'Prices shown exclude VAT. Your local VAT rate applies at checkout via Stripe.'),
+    },
+    {
+      q: t('pricing.faq.q2', 'Can I cancel anytime?'),
+      a: t('pricing.faq.a2', 'Yes. Cancel via the Billing portal at any time. You keep access until the end of the current billing period.'),
+    },
+    {
+      q: t('pricing.faq.q3', 'What happens when I downgrade?'),
+      a: t('pricing.faq.a3', "You move to the new plan's features immediately. Stripe applies a prorated credit for unused time toward your next invoice."),
+    },
+    {
+      q: t('pricing.faq.q4', 'Is there a free trial?'),
+      a: t('pricing.faq.a4', 'The FREE plan is permanent with no time limit — it is your trial. Upgrade whenever you are ready.'),
+    },
+    {
+      q: t('pricing.faq.q5', 'Are there transaction fees?'),
+      a: t('pricing.faq.a5', 'Stripe charges 1.4% + €0.25 per EU card transaction. There is no additional platform fee from us.'),
+    },
+    {
+      q: t('pricing.faq.q6', 'Can I switch between monthly and yearly billing?'),
+      a: t('pricing.faq.a6', 'Yes, via the Billing portal. The change takes effect at your next billing date.'),
+    },
+  ];
+
+  const tableItems = FEATURE_ROWS.reduce<TableItem[]>((acc, row, i) => {
+    if (row.section) acc.push({ type: 'section', label: row.section, key: `section-${i}` });
+    acc.push({ type: 'row', row, index: i });
+    return acc;
+  }, []);
+
   const handleSelect = async (tier: string) => {
     if (tier === 'FREE') {
       navigate('/dashboard');
@@ -179,16 +185,6 @@ export default function PricingPage() {
       setLoading('');
     }
   };
-
-  type DisplayItem =
-    | { type: 'section'; label: string; key: string }
-    | { type: 'row'; row: FeatureRow; index: number };
-
-  const tableItems: DisplayItem[] = FEATURE_ROWS.reduce<DisplayItem[]>((acc, row, i) => {
-    if (row.section) acc.push({ type: 'section', label: row.section, key: `section-${row.section}` });
-    acc.push({ type: 'row', row, index: i });
-    return acc;
-  }, []);
 
   return (
     <div className="min-h-screen bg-background py-20 px-4">
@@ -220,7 +216,7 @@ export default function PricingPage() {
               }`}
             >
               {t('pricing.billing.yearly', 'Yearly')}
-              <span className="bg-accent text-accent-foreground text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
+              <span className="bg-accent text-accent-foreground text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide whitespace-nowrap">
                 {t('pricing.billing.saveAnnual', 'Save 15%')}
               </span>
             </button>
@@ -247,8 +243,8 @@ export default function PricingPage() {
                 }`}
               >
                 {tier.highlight && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <span className="bg-accent text-accent-foreground px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
+                    <span className="bg-accent text-accent-foreground px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-lg whitespace-nowrap">
                       {t('pricing.popular', 'Most Popular')}
                     </span>
                   </div>
@@ -272,9 +268,9 @@ export default function PricingPage() {
                 </div>
 
                 <ul className="flex-1 space-y-2.5 mb-8">
-                  {tier.bullets.map((f) => (
-                    <li key={f} className="flex items-start gap-2.5 text-sm text-foreground">
-                      <span className="text-accent font-bold mt-0.5">✓</span>
+                  {tier.bullets.map((f, i) => (
+                    <li key={i} className="flex items-start gap-2.5 text-sm text-foreground">
+                      <span className="text-accent font-bold mt-0.5 flex-shrink-0">✓</span>
                       {f}
                     </li>
                   ))}
