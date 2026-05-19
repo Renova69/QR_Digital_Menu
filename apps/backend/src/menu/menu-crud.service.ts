@@ -43,6 +43,7 @@ export class MenuCrudService {
         timezone: true,
         defaultTheme: true,
         tier: true,
+        forceTier: true,
       } as any,
     });
 
@@ -51,6 +52,9 @@ export class MenuCrudService {
         `Restaurant with ID "${restaurantId}" not found`,
       );
     }
+
+    (restaurant as any).tier = (restaurant as any).forceTier ?? (restaurant as any).tier;
+    delete (restaurant as any).forceTier;
 
     const allCategories = await this.prisma.menuCategory.findMany({
       where: { restaurantId },
@@ -94,12 +98,16 @@ export class MenuCrudService {
         timezone: true,
         defaultTheme: true,
         tier: true,
+        forceTier: true,
       } as any,
     });
 
     if (!restaurant) {
       throw new NotFoundException(`Restaurant with ID "${restaurantId}" not found`);
     }
+
+    (restaurant as any).tier = (restaurant as any).forceTier ?? (restaurant as any).tier;
+    delete (restaurant as any).forceTier;
 
     const allCategories = await this.prisma.menuCategory.findMany({
       where: { restaurantId },
@@ -204,11 +212,11 @@ export class MenuCrudService {
   async getTrendingItems(restaurantId: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: { trendingMode: true, id: true, tier: true },
+      select: { trendingMode: true, id: true, tier: true, forceTier: true },
     });
 
-    const tier = (restaurant as any)?.tier ?? 'FREE';
-    if (!['PROFESSIONAL', 'ENTERPRISE'].includes(tier)) {
+    const effectiveTier = (restaurant as any)?.forceTier ?? (restaurant as any)?.tier ?? 'FREE';
+    if (!['PROFESSIONAL', 'ENTERPRISE'].includes(effectiveTier)) {
       return [];
     }
 

@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsEnum,
   IsArray,
+  MaxLength,
 } from 'class-validator';
 
 export enum Currency {
@@ -16,10 +17,12 @@ export enum Currency {
 export class CreateItemDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   name: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(1000)
   description?: string;
 
   @IsNumber()

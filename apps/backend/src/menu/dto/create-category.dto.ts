@@ -7,6 +7,7 @@ import {
   IsInt,
   Min,
   Max,
+  MaxLength,
 } from 'class-validator';
 
 export enum AvailabilityType {
@@ -18,6 +19,7 @@ export enum AvailabilityType {
 export class CreateCategoryDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   name: string;
 
   @IsEnum(AvailabilityType)

@@ -832,3 +832,116 @@ Super-admin sets `forceTier` on a restaurant. Owner is already logged in. Owner'
 | `apps/frontend/src/hooks/useFeature.ts` | `useTier()` uses `useQuery` instead of stale context |
 | `apps/frontend/src/components/subscription/SubscriptionBanner.tsx` | `useEffect` → `useQuery` |
 | `apps/frontend/src/components/subscription/BillingView.tsx` | `useEffect` → `useQuery`, removed unused interface |
+
+---
+
+## Google OAuth URL Versioning Fix (May 18, 2026)
+
+### Problem
+
+Clicking "Sign in with Google" in both the customer login modal and the dashboard login dialog returned a 404. The button constructed the OAuth redirect URL by appending `/auth/google` to the backend URL, missing the `/v1/` URI version segment.
+
+### Root Cause
+
+Three locations hardcoded `/auth/google` without the version prefix:
+- `CustomerLoginModal.tsx` — `window.location.href = apiUrl + '/auth/google'`
+- `LoginDialog.tsx` — same pattern
+- `google.strategy.ts` — fallback `callbackURL` was `/api/auth/google/callback` (missing `/v1/`)
+
+The backend uses `VersioningType.URI` with `defaultVersion: '1'`, so all routes are mounted at `/api/v1/*`. Requests to `/api/auth/google` had no matching route.
+
+### Fix
+
+All three files updated to include `/v1/` in the OAuth path:
+- Frontend: construct URLs as `apiUrl + '/v1/auth/google'`
+- Backend `google.strategy.ts`: fallback callback URL corrected to `/api/v1/auth/google/callback`
+- Google Cloud Console OAuth credentials updated with correct authorized callback URL
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/components/auth/CustomerLoginModal.tsx` | `/auth/google` → `/v1/auth/google` in URL construction |
+| `apps/frontend/src/components/ui/LoginDialog.tsx` | `/auth/google` → `/v1/auth/google` in URL construction |
+| `apps/backend/src/auth/google.strategy.ts` | Fallback `callbackURL` updated to include `/v1/` |
+
+---
+
+## Auth Log Scrubbing (May 18, 2026)
+
+### Problem
+
+OTP verification codes and customer phone numbers (from Twilio) were visible in Cloud Run production logs. Anyone with log access could see live OTP codes.
+
+### Fix
+
+Two `console.log` calls in `auth.service.ts` wrapped in `if (process.env.NODE_ENV !== 'production')` guard:
+1. OTP code log (~line 250): `console.log('OTP code for', email, ':', code)` — suppressed in production
+2. Twilio phone number log (~line 127): log that included raw phone number — suppressed in production
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/src/auth/auth.service.ts` | OTP code and Twilio phone number logs gated behind `NODE_ENV !== 'production'` |
+
+---
+
+## CartContext `updateItem` Type Fix (May 18, 2026)
+
+### Problem
+
+`CartContext.updateItem` had `options: any[]` parameter type, bypassing TypeScript's type safety. The correct shape (`SelectedOption`) was already defined and exported at the top of the same file.
+
+### Fix
+
+One-line change: `options: any[]` → `options: SelectedOption[]` in the `updateItem` useCallback signature. No callers needed updating (function has no UI call-sites in the current codebase, exists for future use).
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/context/CartContext.tsx` | `updateItem` parameter `options: any[]` → `options: SelectedOption[]` |
+
+---
+
+## PrismaService Pool Exhaustion Logging (May 18, 2026)
+
+### Problem
+
+Pool exhaustion on Neon cold starts produced no visible warnings in Cloud Run logs, making DB performance issues hard to diagnose.
+
+### Fix
+
+`PrismaService` constructor now calls `super({ log: ['warn', 'error'] })` — surfaces Prisma pool exhaustion warnings and error-level events to stdout, which Cloud Run captures and routes to Google Cloud Logging.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/src/prisma/prisma.service.ts` | Constructor added with `super({ log: ['warn', 'error'] })` |
+
+---
+
+## CI Gate Added (May 18, 2026)
+
+### Problem
+
+Tier/auth regressions reached production undetected (pattern from May 16-17 incidents). No automated check blocked merging broken code on the main branch.
+
+### Fix
+
+`.github/workflows/ci.yml` created. Runs on every PR to `main`/`master` and every push to those branches. Four checks must pass before merge is allowed:
+
+1. **Backend unit tests** — `npx jest --reporters=default --ci` (overrides the hardcoded Windows absolute path in the `tdd-guard-jest` reporter that exists in the project's jest config)
+2. **Frontend type-check** — `npx tsc --noEmit` (Vite build does NOT type-check; this step catches TypeScript errors)
+3. **Frontend tests** — `npx vitest run` (non-interactive mode; `vitest` without `run` opens interactive watch mode and hangs CI)
+4. **Full monorepo build** — `npx turbo run build` (catches missing imports, broken builds in either app)
+
+A dummy `DATABASE_URL` satisfies Prisma's connection string format validation during `prisma generate` (which runs as part of backend build) without needing a real database.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `.github/workflows/ci.yml` | New file — CI gate workflow |

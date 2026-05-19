@@ -28,6 +28,10 @@ type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
 export class PrismaService extends PrismaClient implements OnModuleInit {
   private readonly logger = new Logger(PrismaService.name);
 
+  constructor() {
+    super({ log: ['warn', 'error'] });
+  }
+
   private circuitState: CircuitState = 'CLOSED';
   private consecutiveFailures = 0;
   private openedAt = 0;

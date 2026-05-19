@@ -1,6 +1,6 @@
 # QR Menu App — Coding Roadmap
 
-> **Last Updated:** May 16, 2026  
+> **Last Updated:** May 18, 2026  
 > **MVP Status:** ✅ Complete  
 > **V2 Status:** ✅ Phases 9–14 Complete  
 > **V2.5 Status:** ✅ Phases 15–17 + Mobile UX Overhaul + UI/UX Audit & Theme Polish Complete  
@@ -18,8 +18,12 @@
 > **Menu Import/Export (May 16, 2026):** ✅ Combined Import/Export dashboard tab with sub-tab navigation (Import / Export). Export offers Download JSON, Download CSV, Copy JSON. Backend endpoint already existed — frontend `exportMenu()` + `MenuImportExportView.tsx` added. CSV export with BOM + European locale support. Tab label changed to "Import/Export" across EN/BG/RO.  
 > **Production Deployment & Cross-Origin Fixes (May 16, 2026):** ✅ Frontend on Vercel, backend on Cloud Run. Cross-origin cookie fix (`COOKIE_SAMESITE` default `'none'` in production). CheckoutPage useEffect hang fix (useRef guard). Missing orderId in navigate state fix. CSRF cross-origin compatibility. SPA rewrites in vercel.json.  
 > **Tier Enforcement Sweep Round 2 (May 17, 2026):** ✅ All 22 feature flags now enforced. Backend: `getAllowedStaffRoles(tier)` in FeatureService, dashboard/payment/Stripe controller gates, users.service role-tier matrix, menu-crud DAYPARTING strip-on-write + filter, UPSELLING strip-on-read. Frontend: AnalyticsView basic/full split, PublicMenuPage upselling/customers-auth/payments gates, CheckoutPage customers-auth gate, CategorySettingsModal dayparting gate, PosPage/KitchenPage tier redirect, staff role dropdown filtered by tier. i18n: 11 new keys EN/BG/RO. Tests: 454 passing.  
+> **Auth Hardening & Bug Fixes (May 18, 2026):** ✅ Google OAuth URL fix — corrected `/api/auth/google` → `/api/v1/auth/google` (URI versioning mismatch causing 404). Google OAuth credentials provisioned and stored in Google Secret Manager. OTP verification codes and phone numbers now gated behind `NODE_ENV !== 'production'` — no longer visible in Cloud Run logs. CI gate added (`.github/workflows/ci.yml`) — unit tests + frontend typecheck + build block merge on `main`/`master`.
+> **GDPR / Legal Module (May 18, 2026):** ✅ Super-admin-controlled compliance layer. Backend: `PlatformSettings` singleton with 8 feature toggles (`gdprEnabled`, `cookieConsentEnabled`, `privacyPolicyEnabled`, `termsEnabled`, `rightToErasureEnabled`, `dataExportEnabled`, `retentionCronEnabled`, `dataControllerVisible`), per-locale JSON content fields (privacy/terms/cookies), retention tunables, data-controller metadata. `PlatformSettingsModule` — public `GET` (no auth, 30s in-memory cache) + admin `GET/PATCH` with audit log. `UsersDataModule` — right-to-erasure (`POST /users-data/erasure`, Art. 17): anonymise-in-place on `Order` rows (tax retention), cascade delete of `LoyaltyAccount`/`DeviceEnrollmentToken`/`VerificationToken` in single transaction. Data export (`GET /users-data/export`, Art. 20): full JSON dump of user data. Retention cron (`0 3 * * *`): deletes expired `VerificationToken` rows + anonymises old `Order` PII; gated by toggle. Frontend: `LegalSettingsPage` (super-admin panel with switches + per-locale textarea editors with EN/BG/RO tabs + retention inputs + controller fields). `CookieConsentBanner` (localStorage-dismissed, reads public API). `/privacy`, `/terms`, `/cookies` routes. `DataPrivacyTab` in customer profile. Five new `api.ts` helpers. i18n keys in EN/BG/RO. Schema adds: `PlatformSettings` model with 8 toggles + content fields.
+> **Dashboard Vertical Sidebar (May 18, 2026):** ✅ Replaced the dashboard desktop horizontal tab overflow with a permanent vertical sidebar. All tabs (including Menu Editor, POS, Kitchen) always visible on Enterprise/Pro — no more hidden overflow tabs. Mobile bottom nav unchanged. Theme-aware borders (`border-border/50`) work in both light and dark mode. Single file change: `DashboardPage.tsx` (118 insertions, 96 deletions).
+> **Super-Admin Dark OLED Redesign (May 18, 2026):** ✅ Complete visual overhaul of all 5 super-admin pages. `SuperAdminLayout`: emerald accent, Shield branding, user avatar initials, `slate-950` background. `OverviewPage`: colored stat cards with icon badges, donut chart with dark tooltip. `TenantsPage`: polished table with badge tiers, Stripe indicator dots, chevron affordance. `TenantDetailPage`: `SectionCard` system, consistent dialogs (`slate-900`), sticky danger zone. `LegalSettingsPage`: sticky save bar with unsaved-state indicator, faded sections when GDPR off, locale editor with emerald active tab, toggle rows with focus rings.
 > **Super-Admin Dashboard (May 17, 2026):** ✅ Full internal ops panel at `/super-admin`. Backend: `SuperAdminModule` with `SUPER_ADMIN` role guard, `GET /super-admin/stats` (platform totals + tier distribution), `GET /super-admin/tenants` (paginated search + tier/status filter), `GET /super-admin/tenants/:id` (tenant detail + owner + counts + payment summary — explicit select, no secrets exposed), `PATCH /super-admin/tenants/:id/tier` (forceTier override), `PATCH /super-admin/tenants/:id/status` (suspend/reactivate `isActive`), `DELETE /super-admin/tenants/:id` (soft-delete via `deletedAt`), `POST /super-admin/tenants/:id/restore`. Schema: `Restaurant.isActive Boolean @default(true)`, `Restaurant.forceTier SubscriptionTier?`, `Restaurant.deletedAt DateTime?`. Frontend: `SuperAdminLayout` (sidebar nav), `OverviewPage` (platform stats + tier pie chart), `TenantsPage` (table with search + tier/status/deleted filters), `TenantDetailPage` (tier override dropdown, suspend/reactivate, delete/restore, mutation error banner). Tier override propagates live — `getEffectiveTier` applied in subscription status endpoint + `applyEffectiveTier` in restaurants service. `useTier()` migrated to TanStack Query (`['subscription-status']`, `staleTime: 60_000`, `refetchOnWindowFocus: true`) — tier changes from admin reflect within 60s without re-login. `SubscriptionBanner` + `BillingView` also migrated to `useQuery` (shared cache key).  
-> **Current Focus:** Phase 20 (Multi-location) — planned
+> **Current Focus:** Concerns triage + CI gate (May 18, 2026) — Phase 20 (Multi-location) paused until concerns cleared
 
 ---
 
@@ -717,6 +721,60 @@ Plan: `.claude/plans/snappy-tumbling-peach.md` (6 changes across 4 files)
 - `apps/frontend/src/pages/DashboardPage.tsx` — import changed to `MenuImportExportView`
 - `apps/frontend/src/lib/api.ts` — `exportMenu()` function
 - `apps/frontend/src/locales/*/translation.json` — `dashboard.tabs.importExport` keys
+
+---
+
+## 🔷 GDPR / Legal Module ✅ (May 18, 2026)
+
+**Goal:** Super-admin-controlled compliance layer for GDPR Art. 17 (right to erasure) and Art. 20 (data portability), cookie consent, and customisable legal text pages.
+
+**Shipped:**
+- `PlatformSettings` DB model — singleton row with 8 boolean feature toggles, per-locale JSON content fields (privacy/terms/cookies in EN/BG/RO), retention settings, data-controller metadata
+- `PlatformSettingsModule` — public `GET /platform-settings` (no auth, 30s in-memory cache) + super-admin `GET/PATCH` with full field access
+- `UsersDataModule` — `POST /users-data/erasure` (Art. 17): anonymise-in-place on `Order` rows for tax retention, cascade delete of `LoyaltyAccount`/`DeviceEnrollmentToken`/`VerificationToken` in single `$transaction`. `GET /users-data/export` (Art. 20): full JSON dump of all user data
+- Retention cron (`0 3 * * *`): deletes expired `VerificationToken` rows + anonymises old `Order` PII; gated by `retentionCronEnabled` toggle
+- `LegalSettingsPage` — super-admin panel with toggle switches + per-locale textarea editors (EN/BG/RO tabs) + retention inputs + controller metadata fields; sticky save bar with unsaved-state indicator
+- `CookieConsentBanner` — localStorage-dismissed consent banner, reads public platform-settings API
+- `/privacy`, `/terms`, `/cookies` customer-facing routes with platform-managed content
+- `DataPrivacyTab` in customer profile — data export + erasure request UI
+- 5 new `api.ts` helpers; i18n keys in EN/BG/RO
+
+**Key files:**
+- `apps/backend/src/platform-settings/platform-settings.service.ts`
+- `apps/backend/src/platform-settings/platform-settings.controller.ts`
+- `apps/backend/src/users-data/users-data.service.ts`
+- `apps/backend/src/users-data/users-data.controller.ts`
+- `apps/backend/src/users-data/retention.service.ts`
+- `apps/frontend/src/pages/super-admin/LegalSettingsPage.tsx`
+- `apps/frontend/src/components/legal/CookieConsentBanner.tsx`
+- `apps/frontend/src/pages/legal/PrivacyPolicyPage.tsx`, `TermsPage.tsx`, `CookiePolicyPage.tsx`
+- `apps/frontend/src/pages/profile/DataPrivacyTab.tsx`
+
+---
+
+## 🔷 Dashboard Vertical Sidebar ✅ (May 18, 2026)
+
+**Goal:** Replace the horizontal tab bar (which overflowed and hid tabs on Pro/Enterprise) with a permanent vertical sidebar.
+
+**Shipped:**
+- All dashboard tabs always visible in a left-side vertical sidebar on desktop
+- Menu Editor, POS, Kitchen permanently accessible — no more click-through overflow menu
+- Mobile bottom nav unchanged (horizontal, ≤5 items)
+- Theme-aware borders (`border-border/50`) work in both light and dark mode
+- Single file change: `apps/frontend/src/pages/DashboardPage.tsx`
+
+---
+
+## 🔷 Super-Admin Dark OLED Redesign ✅ (May 18, 2026)
+
+**Goal:** Full visual overhaul of all 5 super-admin pages for a professional internal tools aesthetic.
+
+**Shipped:**
+- `SuperAdminLayout`: emerald accent color, Shield branding, user avatar initials, `slate-950` background
+- `OverviewPage`: colored stat cards with icon badges, donut chart with dark tooltip
+- `TenantsPage`: polished table with badge tiers, Stripe indicator dots, chevron affordance
+- `TenantDetailPage`: `SectionCard` component system, consistent `slate-900` dialogs, sticky danger zone
+- `LegalSettingsPage`: sticky save bar with unsaved-state indicator, faded inactive sections when GDPR toggle off, locale editor with emerald active tab, toggle rows with visible focus rings
 
 ---
 

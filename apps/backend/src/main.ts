@@ -24,19 +24,15 @@ async function bootstrap() {
     // CORS must run first so ALL responses (including CSRF 403s) include CORS headers
     app.enableCors({
       origin: (origin: any, callback: any) => {
-        const allowed = [
+        const allowed = new Set([
           process.env.FRONTEND_URL || 'http://localhost:3001',
           'http://localhost:3001',
           'http://127.0.0.1:3001',
           'http://localhost:3002',
           'http://127.0.0.1:3002',
-        ];
-        // Allow Vercel preview + production domains
-        if (
-          !origin ||
-          allowed.includes(origin) ||
-          (typeof origin === 'string' && origin.endsWith('.vercel.app'))
-        ) {
+        ]);
+        // In production restrict to explicit origin list only; no wildcard *.vercel.app
+        if (!origin || allowed.has(origin)) {
           callback(null, true);
         } else {
           callback(new Error(`CORS: ${origin} not allowed`));
