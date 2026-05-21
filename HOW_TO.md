@@ -32,7 +32,12 @@ The application now uses app-specific environment files.
    - Update `DATABASE_URL` with your **Neon.tech** connection string.
    - Set a custom `JWT_SECRET`.
    - **Stripe payments** — set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_CLIENT_ID`.
-   - **SaaS subscription billing** — set `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_PROFESSIONAL`, `STRIPE_PRICE_ENTERPRISE` (Stripe price IDs), and `STRIPE_SUBSCRIPTION_WEBHOOK_SECRET` (separate from Connect webhook secret).
+   - **SaaS subscription billing** — set 6 Stripe price IDs (monthly + yearly per tier) and the subscription webhook secret:
+     - `STRIPE_PRICE_STARTER_MONTHLY`, `STRIPE_PRICE_STARTER_YEARLY`
+     - `STRIPE_PRICE_PROFESSIONAL_MONTHLY`, `STRIPE_PRICE_PROFESSIONAL_YEARLY`
+     - `STRIPE_PRICE_ENTERPRISE_MONTHLY`, `STRIPE_PRICE_ENTERPRISE_YEARLY`
+     - `STRIPE_SUBSCRIPTION_WEBHOOK_SECRET` (separate from Connect webhook secret)
+     - See `apps/backend/.env.example` for Stripe Dashboard setup instructions.
    - **Email OTP** — set `RESEND_API_KEY` and `RESEND_FROM_EMAIL`.
    - **Translation** — set `DEEPL_API_KEY` (platform-managed; never exposed to restaurant owners).
    - **Image storage** — set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` for Cloudflare R2.

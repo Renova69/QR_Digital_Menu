@@ -1,7 +1,7 @@
 # QR Menu App — Master Documentation
 
-> **Last Updated:** May 18, 2026
-> **Status:** V2.5 Complete — V3 Growth Features (Stripe Payments ✅, Live Table View ✅, OCR Import ✅, Waiter POS ✅, Staff Roles & RBAC ✅) — Security Hardening ✅ (httpOnly cookies, CSRF, same-origin proxy, CSP) — Public Menu Mobile UX ✅ (top bar, filters, dual currency, horizontal cards, category pills) — Bug Fixes & Polish ✅ (PR#3 findings, code review fixes, dead code cleanup, payments investigation) — Security & Bug Fixes ✅ (CORS wildcard, magic-link removed, loyalty emails, CSV export, TS strict mode) — Infrastructure & Polish ✅ (API versioning /api/v1, Prisma circuit breaker, order progress stepper, QR print templates, 122 tests) — SaaS Tiering V2 ✅ (4-tier FREE/STARTER/PRO/ENTERPRISE, FeatureGuard, Stripe Billing, PricingPage, BillingView, demo accounts) — Production Deployment ✅ (Vercel frontend + Cloud Run backend, cross-origin cookies, CSRF fixed) — Tier Enforcement Sweep Round 2 ✅ (all 22 feature flags enforced, 454 tests passing) — Super-Admin Dashboard ✅ (internal ops panel, tier override, suspend/reactivate, soft delete, live tier propagation via TanStack Query) — **GDPR / Legal Module ✅ (May 18, 2026 — PlatformSettings, right-to-erasure Art. 17, data export Art. 20, CookieConsentBanner, /privacy /terms /cookies routes)** — **Dashboard Vertical Sidebar ✅ (May 18, 2026)** — **Super-Admin Dark OLED Redesign ✅ (May 18, 2026)** — **Auth Hardening ✅ (May 18, 2026 — Google OAuth /v1/ URL fix, auth log scrubbing, CI gate)**
+> **Last Updated:** May 19, 2026
+> **Status:** V2.5 Complete — V3 Growth Features (Stripe Payments ✅, Live Table View ✅, OCR Import ✅, Waiter POS ✅, Staff Roles & RBAC ✅) — Security Hardening ✅ (httpOnly cookies, CSRF, same-origin proxy, CSP) — Public Menu Mobile UX ✅ (top bar, filters, dual currency, horizontal cards, category pills) — Bug Fixes & Polish ✅ (PR#3 findings, code review fixes, dead code cleanup, payments investigation) — Security & Bug Fixes ✅ (CORS wildcard, magic-link removed, loyalty emails, CSV export, TS strict mode) — Infrastructure & Polish ✅ (API versioning /api/v1, Prisma circuit breaker, order progress stepper, QR print templates, 122 tests) — SaaS Tiering V2 ✅ (4-tier FREE/STARTER/PRO/ENTERPRISE, FeatureGuard, Stripe Billing, PricingPage, BillingView, demo accounts) — Production Deployment ✅ (Vercel frontend + Cloud Run backend, cross-origin cookies, CSRF fixed) — Tier Enforcement Sweep Round 2 ✅ (all 22 feature flags enforced, 454 tests passing) — Super-Admin Dashboard ✅ (internal ops panel, tier override, suspend/reactivate, soft delete, live tier propagation via TanStack Query) — **GDPR / Legal Module ✅ (May 18, 2026 — PlatformSettings, right-to-erasure Art. 17, data export Art. 20, CookieConsentBanner, /privacy /terms /cookies routes)** — **Dashboard Vertical Sidebar ✅ (May 18, 2026)** — **Super-Admin Dark OLED Redesign ✅ (May 18, 2026)** — **Auth Hardening ✅ (May 18, 2026 — Google OAuth /v1/ URL fix, auth log scrubbing, CI gate)** — **Pricing Page Redesign ✅ (May 19, 2026 — annual billing toggle, correct prices €0/€15/€25/€45, comparison table, FAQ, full i18n EN/BG/RO, checkout BadRequestException fix)**
 > **Stack:** Turborepo Monorepo — React 18 + NestJS 11 + Prisma 6 + Neon (Serverless PostgreSQL)
 
 ---
@@ -821,9 +821,12 @@ Frontend on Vercel (`vercel.app`) and backend on Cloud Run (`run.app`) are diffe
 | `STRIPE_SECRET_KEY` | Backend | Stripe secret key for PaymentIntents |
 | `STRIPE_WEBHOOK_SECRET` | Backend | Stripe webhook signing secret (Connect payments) |
 | `STRIPE_CONNECT_CLIENT_ID` | Backend | Stripe Connect platform client ID |
-| `STRIPE_PRICE_STARTER` | Backend | Stripe price ID for Starter plan |
-| `STRIPE_PRICE_PROFESSIONAL` | Backend | Stripe price ID for Professional plan |
-| `STRIPE_PRICE_ENTERPRISE` | Backend | Stripe price ID for Enterprise plan |
+| `STRIPE_PRICE_STARTER_MONTHLY` | Backend | Stripe monthly price ID for Starter plan |
+| `STRIPE_PRICE_STARTER_YEARLY` | Backend | Stripe yearly price ID for Starter plan (15% off) |
+| `STRIPE_PRICE_PROFESSIONAL_MONTHLY` | Backend | Stripe monthly price ID for Professional plan |
+| `STRIPE_PRICE_PROFESSIONAL_YEARLY` | Backend | Stripe yearly price ID for Professional plan (15% off) |
+| `STRIPE_PRICE_ENTERPRISE_MONTHLY` | Backend | Stripe monthly price ID for Enterprise plan |
+| `STRIPE_PRICE_ENTERPRISE_YEARLY` | Backend | Stripe yearly price ID for Enterprise plan (15% off) |
 | `STRIPE_SUBSCRIPTION_WEBHOOK_SECRET` | Backend | Stripe webhook secret for subscription events |
 
 ---

@@ -199,17 +199,19 @@
 
 @media print {
   body {
-    visibility: hidden;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
   }
-  .print-container,
-  .print-container * {
-    visibility: visible;
+  body > *:not(.print-container) {
+    display: none !important;
   }
   .print-container {
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: 100%;
-    background: white;
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
   }
 }

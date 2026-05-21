@@ -778,6 +778,59 @@ Plan: `.claude/plans/snappy-tumbling-peach.md` (6 changes across 4 files)
 
 ---
 
+## 🔷 Pricing Page Redesign + Subscription Checkout Fix ✅ (May 19, 2026)
+
+**Goal:** Replace the shallow, inaccurate `/pricing` page with a full-featured redesign, fix "Could not start checkout" error caused by missing Stripe env vars, and add annual billing support.
+
+**Root cause of checkout failure:** `STRIPE_PRICE_*` env vars were unset → service threw a plain `Error` (returns 500 with no body) → frontend `catch {}` swallowed it and showed a generic message. Fixed with `BadRequestException` (400 with `{ message }` body) and dev-mode real error surfacing.
+
+**Shipped:**
+
+### Frontend — PricingPage.tsx (full rewrite)
+- 4 tier cards: FREE €0 / STARTER €15 / PROFESSIONAL €25 / ENTERPRISE €45 monthly
+- Annual billing toggle: 15% off, yearly prices shown as `€X.XX/mo · €Y/yr`, "Save 15%" badge
+- Feature bullets sync'd to actual backend `FeatureFlag` enum (22 flags, accurate per tier)
+- Feature comparison table: all 22 flags as rows, 4 tiers as columns, ✓ / — cells, section headers, mobile horizontal scroll
+- FAQ accordion: 6 entries (VAT, cancellation, downgrade, free trial, transaction fees, billing-period switching)
+- "Most Popular" badge: `whitespace-nowrap` prevents 2-row wrap in BG/RO
+- All strings via `t(key, englishDefault)` — fully i18n-wired in EN/BG/RO
+
+### Backend — Subscription module
+- `PRICE_MAP` replaced with monthly+yearly lookup: `STRIPE_PRICE_STARTER_MONTHLY`, `STRIPE_PRICE_STARTER_YEARLY`, `STRIPE_PRICE_PROFESSIONAL_MONTHLY`, `STRIPE_PRICE_PROFESSIONAL_YEARLY`, `STRIPE_PRICE_ENTERPRISE_MONTHLY`, `STRIPE_PRICE_ENTERPRISE_YEARLY`
+- `createCheckoutSession(restaurantId, tier, billingPeriod, ownerId)` — new `billingPeriod: 'monthly' | 'yearly'` param
+- All `throw new Error(...)` → `throw new BadRequestException(...)` for proper HTTP 400 responses
+- `CreateCheckoutDto` — new optional `billingPeriod` enum field (`'monthly'` | `'yearly'`, defaults to `'monthly'`)
+- `subscription.service.spec.ts` — updated test calls to 4-arg signature
+- `.env.example` — new 6 price env vars documented with setup instructions
+
+### Frontend — Error surfacing
+- `PricingPage.tsx` `catch` block: in `import.meta.env.DEV`, shows real backend `e?.response?.data?.message`; in production shows generic localized message
+- `api.ts createCheckoutSession` — accepts `billingPeriod` param, passes to backend
+
+### i18n (EN/BG/RO)
+- `pricing.tiers.{free,starter,professional,enterprise}.b1-b10` — tier bullet points
+- `pricing.features.*` — 23 feature comparison table row labels
+- `pricing.sections.*` — 8 section header labels
+- `pricing.faq.q1-q6.{question,answer}` — FAQ accordion content
+- `pricing.billing.{monthly,yearly,saveAnnual}`, `pricing.popular`, etc.
+
+**Key files:**
+- `apps/frontend/src/pages/PricingPage.tsx` (full rewrite, ~320 lines)
+- `apps/backend/src/subscription/subscription.service.ts` (PRICE_MAP + billingPeriod + BadRequestException)
+- `apps/backend/src/subscription/subscription.controller.ts` (pass billingPeriod)
+- `apps/backend/src/subscription/dto/checkout.dto.ts` (BillingPeriod enum)
+- `apps/backend/src/subscription/subscription.service.spec.ts` (4-arg calls)
+- `apps/backend/.env.example` (6 new STRIPE_PRICE_* vars)
+- `apps/frontend/src/lib/api.ts` (billingPeriod param)
+- `apps/frontend/src/locales/{en,bg,ro}/translation.json` (pricing.* keys)
+
+**Analytics tab — STARTER gating:**
+- `DashboardPage.tsx`: Analytics tab now uses `useFeature('analytics:full')` (was `analytics:basic`) — STARTER users no longer see the Analytics tab at all (consistent with STARTER having only basic analytics, full analytics being PRO+).
+
+**Cloud Run redeployed:** revision `qr-menu-backend-00025-8qt`
+
+---
+
 ## 🟡 V4 — Scale & Enterprise (Future)
 
 - Move database to AWS RDS / GCP Cloud SQL

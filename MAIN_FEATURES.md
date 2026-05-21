@@ -1314,16 +1314,16 @@ Items without notes appear as name only. Quantities > 1 append ` xN`.
 - `FeatureService` — pure `TIER_FEATURES` map; `hasFeature(tier, flag)` boolean; never hardcode tier→feature mappings elsewhere
 - `FeatureGuard` — `CanActivate` implementation; resolves restaurant via `Restaurant.ownerId` (owners) OR `User.restaurantId` (staff); throws `403 { code: 'FEATURE_LOCKED', requiredFeatures: [...], message: '...' }`
 - `@RequireFeature(...FeatureFlag[])` — method/class decorator that stores metadata `REQUIRE_FEATURE_KEY`; consumed by `FeatureGuard`
-- `SubscriptionService` — `createCheckoutSession(restaurantId, tier, ownerId)` → Stripe Checkout URL; `createPortalSession(restaurantId)` → Stripe Portal URL; `handleWebhookEvent(event)` → handles `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` with race-safe `updateMany`
+- `SubscriptionService` — `createCheckoutSession(restaurantId, tier, billingPeriod, ownerId)` → Stripe Checkout URL (monthly or yearly); `createPortalSession(restaurantId)` → Stripe Portal URL; `handleWebhookEvent(event)` → handles `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` with race-safe `updateMany`. All error paths throw `BadRequestException` (HTTP 400 with `{ message }` body) not plain `Error`.
 - Race protection: `prisma.restaurant.updateMany({ where: { id, OR: [{ tierUpdatedAt: null }, { tierUpdatedAt: { lt: eventTime } }] }, data: { tier, tierUpdatedAt: eventTime } })` — older Stripe events can never overwrite newer tier state
 - `SubscriptionController` — 4 routes: `GET /subscription/status`, `POST /subscription/checkout`, `POST /subscription/portal`, `POST /subscription/webhook` (raw body, CSRF-exempt)
 
 **Frontend:**
 - `useFeature(flag: string): boolean` hook — reads `RestaurantContext.activeRestaurant?.tier ?? 'FREE'`, matches against frontend `TIER_FEATURES` map
 - `BillingView` — current plan badge, billing period, Stripe Customer Portal button, feature comparison matrix, upgrade CTA for locked features
-- `PricingPage` at `/pricing` — 4-column tier comparison table, price/month, feature checklist, "Current Plan" badge on active tier, upgrade button calls `POST /api/v1/subscription/checkout`
+- `PricingPage` at `/pricing` — full redesign (May 19, 2026): monthly/yearly billing toggle (15% annual discount), correct prices FREE €0 / STARTER €15 / PROFESSIONAL €25 / ENTERPRISE €45, feature comparison table (22 rows × 4 tiers), FAQ accordion (6 items), "Most Popular" badge on PRO, all strings i18n-wired (EN/BG/RO). Upgrade button calls `POST /api/v1/subscription/checkout` with `{ tier, billingPeriod }`. Dev-only: real backend error shown on checkout failure.
 - `SubscriptionBanner` — dismissible banner in dashboard header when restaurant is on FREE tier; links to `/pricing`
-- `DashboardPage` — advanced analytics section gated with `useFeature('analytics:advanced')`
+- `DashboardPage` — Analytics tab gated with `useFeature('analytics:full')` — STARTER and below don't see the tab. Other tabs (orders, payments, assistance) gated per tier.
 - `SettingsView` — loyalty settings section gated with `useFeature('loyalty')`
 
 **Webhook infrastructure (already in place from Infrastructure Sprint):**
@@ -1333,11 +1333,15 @@ Items without notes appear as name only. Quantities > 1 append ` xN`.
 
 **New env vars (`apps/backend/.env`):**
 ```
-STRIPE_PRICE_STARTER=price_xxx
-STRIPE_PRICE_PROFESSIONAL=price_xxx
-STRIPE_PRICE_ENTERPRISE=price_xxx
+STRIPE_PRICE_STARTER_MONTHLY=price_xxx
+STRIPE_PRICE_STARTER_YEARLY=price_xxx
+STRIPE_PRICE_PROFESSIONAL_MONTHLY=price_xxx
+STRIPE_PRICE_PROFESSIONAL_YEARLY=price_xxx
+STRIPE_PRICE_ENTERPRISE_MONTHLY=price_xxx
+STRIPE_PRICE_ENTERPRISE_YEARLY=price_xxx
 STRIPE_SUBSCRIPTION_WEBHOOK_SECRET=whsec_xxx
 ```
+Yearly price = monthly × 12 × 0.85 (15% annual discount). Create 3 products in Stripe Dashboard, each with monthly + yearly recurring prices.
 
 **Demo accounts (seeded via `prisma/seed.ts`):**
 | Email | Password | Tier |
