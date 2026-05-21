@@ -7,6 +7,7 @@ import {
   Users,
   Gift,
   Star,
+  HelpCircle,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MenuCheckWidget } from "../../components/dashboard/MenuCheckWidget";
@@ -16,9 +17,10 @@ import RestaurantContext from "../../context/RestaurantContext";
 
 interface SummaryViewProps {
   onViewAnalytics?: () => void;
+  onViewHelp?: () => void;
 }
 
-const SummaryView = ({ onViewAnalytics }: SummaryViewProps) => {
+const SummaryView = ({ onViewAnalytics, onViewHelp }: SummaryViewProps) => {
   const { orders } = useOrders();
   const { requests } = useAssistance();
   const { t } = useTranslation();
@@ -161,6 +163,31 @@ const SummaryView = ({ onViewAnalytics }: SummaryViewProps) => {
       <div className="pt-8 border-t border-border/40">
         <MenuCheckWidget />
       </div>
+
+      {onViewHelp && (
+        <div className="glass-panel p-8 rounded-[2.5rem] border-white/5 bg-gradient-to-br from-background to-accent/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mt-10 hover:shadow-[0_20px_50px_-15px_hsla(var(--color-accent),0.15)] transition-all duration-500 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-accent/5 blur-[80px] pointer-events-none" />
+          <div className="flex items-start gap-5">
+            <div className="p-4 bg-accent/10 border border-accent/20 rounded-2xl shrink-0 group-hover:scale-105 transition-transform duration-300">
+              <HelpCircle className="h-6 w-6 text-accent" />
+            </div>
+            <div>
+              <h3 className="text-xl font-serif font-black text-foreground tracking-tight">
+                {t("summary.helpCenterTitle", "Help Center & Tutorials")}
+              </h3>
+              <p className="text-sm text-muted-foreground mt-2 max-w-xl leading-relaxed">
+                {t("summary.helpCenterDesc", "Need help setting up table QR codes, configuring Stripe payments, or managing VIP loyalty points? View our step-by-step guides and FAQs.")}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onViewHelp}
+            className="w-full md:w-auto shrink-0 text-center bg-foreground text-background font-black uppercase tracking-[0.15em] text-[10px] px-6 py-4 rounded-xl hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 transition-all cursor-pointer"
+          >
+            {t("summary.goToHelpCenter", "Go to Help Center")}
+          </button>
+        </div>
+      )}
     </div>
   );
 };
