@@ -272,7 +272,7 @@ npm.cmd --workspace backend exec -- nest build
 npm.cmd --workspace backend test -- orders.service.spec.ts --runInBand
 ```
 
-### Files Changed (RBAC Sprint)
+### Files Changed (RBAC Sprint - May 12-14)
 
 - Backend: `auth.controller.ts`, `auth.service.ts`, `orders.service.ts`, `restaurants.service.ts`, `dashboard.controller.ts`, `assistance.controller.ts`, `assistance.service.ts`, `restaurants.controller.ts`, `device-enrollment.service.ts`, `menu/*.controller.ts`, `feedback.service.ts`
 - Frontend: `App.tsx`, `AuthContext.tsx`, `RestaurantContext.tsx`, `OrderContext.tsx`, `AssistanceContext.tsx`, `SocketContext.tsx`, `api.ts`, `DeviceLoginPage.tsx`, `SettingsView.tsx`, `PosTableModal.tsx`, `StaffRoute.tsx`, `ProtectedRoute.tsx`
@@ -945,3 +945,72 @@ A dummy `DATABASE_URL` satisfies Prisma's connection string format validation du
 | File | Change |
 |------|--------|
 | `.github/workflows/ci.yml` | New file — CI gate workflow |
+
+---
+
+## Pricing Page Redesign + Subscription Checkout Fix (May 19, 2026)
+
+### "Could not start checkout" — Hidden Backend Error
+
+- **Problem**: Clicking "Choose Professional" on `/pricing` showed generic "Could not start checkout. Please try again." The real error was never visible.
+- **Root cause** (3 layers):
+  1. `STRIPE_PRICE_STARTER/PROFESSIONAL/ENTERPRISE` env vars were never set on Cloud Run — `PRICE_MAP` returned empty strings for all tiers.
+  2. `subscription.service.ts` threw `new Error('No Stripe price configured for tier X')` — plain `Error` → NestJS returns 500 with an empty body (no `{ message }` field).
+  3. `PricingPage.tsx` catch block: `catch {}` — no reference to `e`, so `e?.response?.data?.message` was never read; frontend fell straight to the generic localized fallback.
+- **Fix**:
+  - All `throw new Error(...)` → `throw new BadRequestException(...)` in `subscription.service.ts` — Nest returns HTTP 400 with `{ message: '...' }` body.
+  - `PricingPage.tsx` catch: in `import.meta.env.DEV`, shows real `e?.response?.data?.message`; production shows generic localized string.
+  - `STRIPE_PRICE_*` env vars must be set in Cloud Run for checkout to work (operator action — see `.env.example`).
+- **Files**: `apps/backend/src/subscription/subscription.service.ts`, `apps/frontend/src/pages/PricingPage.tsx`
+
+### Annual Billing Support
+
+- **Problem**: Subscription checkout only supported monthly pricing; no annual toggle existed anywhere.
+- **Fix**:
+  - `PRICE_MAP` replaced with nested monthly/yearly lookup:
+    ```
+    STRIPE_PRICE_STARTER_MONTHLY / STARTER_YEARLY
+    STRIPE_PRICE_PROFESSIONAL_MONTHLY / PROFESSIONAL_YEARLY
+    STRIPE_PRICE_ENTERPRISE_MONTHLY / ENTERPRISE_YEARLY
+    ```
+  - `createCheckoutSession` accepts new `billingPeriod: 'monthly' | 'yearly'` param.
+  - `CreateCheckoutDto` gains optional `billingPeriod` enum field (defaults to `'monthly'`).
+  - `subscription.controller.ts` passes `dto.billingPeriod` through.
+  - `api.ts createCheckoutSession` accepts and forwards `billingPeriod`.
+  - `subscription.service.spec.ts` updated to 4-arg calls.
+- **Files**: `subscription.service.ts`, `subscription.controller.ts`, `dto/checkout.dto.ts`, `subscription.service.spec.ts`, `api.ts`
+
+### Pricing Page Redesign (full rewrite)
+
+- **Problem**: `/pricing` showed wrong prices (€29/€79/€199), incomplete feature lists, no annual toggle, no comparison table, no FAQ. "Most Popular" badge wrapped to 2 rows in BG/RO. All strings were hardcoded English (not wired to i18n).
+- **Fix**: Full rewrite of `PricingPage.tsx` (~320 lines):
+  - Correct prices: FREE €0 / STARTER €15 / PROFESSIONAL €25 / ENTERPRISE €45 monthly
+  - Annual toggle: 15% discount, prices shown as `€X.XX/mo · €Y/yr`
+  - Feature bullets sync'd to actual backend `FeatureFlag` enum (22 flags, accurate per tier)
+  - Feature comparison table: 22 feature rows, 4 tier columns, ✓ / — cells, section headers, mobile horizontal scroll
+  - FAQ accordion: 6 entries (VAT, cancellation, downgrade, free trial, transaction fees, billing-period switching)
+  - All strings via `t(key, englishDefault)` — fully i18n-wired
+  - "Most Popular" badge: `whitespace-nowrap` + tighter padding prevents 2-row wrap in BG/RO
+- **Files**: `apps/frontend/src/pages/PricingPage.tsx`
+
+### i18n — Pricing Page Keys (EN/BG/RO)
+
+- Added ~60 new keys under `pricing.*` namespace to all 3 locale files:
+  - `pricing.tiers.{free,starter,professional,enterprise}.b1-b10` — tier bullets
+  - `pricing.features.*` (23 keys) — comparison table row labels
+  - `pricing.sections.*` (8 keys) — section headers
+  - `pricing.faq.q1-q6.{question,answer}` — FAQ accordion
+  - `pricing.billing.{monthly,yearly,saveAnnual}`, `pricing.popular`, etc.
+- **Files**: `apps/frontend/src/locales/{en,bg,ro}/translation.json`
+
+### Analytics Tab — STARTER Gating Tightened
+
+- **Problem**: `DashboardPage.tsx` showed the Analytics tab to STARTER users (`useFeature('analytics:basic')`). STARTER only has `ANALYTICS_BASIC` — full analytics views are PRO+. Showing the tab and then gating individual charts inside it was confusing.
+- **Fix**: Analytics tab guard changed to `useFeature('analytics:full')` — STARTER no longer sees the tab at all.
+- **File**: `apps/frontend/src/pages/DashboardPage.tsx`
+
+### Cloud Run Redeployed
+
+- Revision `qr-menu-backend-00025-8qt` deployed via `deploy.ps1`.
+- New env vars `STRIPE_PRICE_*_MONTHLY/YEARLY` must be set manually via `gcloud run services update --update-env-vars` before checkout will work end-to-end.
+

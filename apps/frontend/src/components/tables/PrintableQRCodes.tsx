@@ -1,12 +1,17 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { QRCodeSVG } from 'qrcode.react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 export type PrintTemplate = 'classic' | 'premium' | 'minimal';
+export type PrintOrientation = 'portrait' | 'landscape';
 
 interface PrintableQRCodesProps {
   restaurant: any;
   tables: any[];
   template?: PrintTemplate;
+  orientation?: PrintOrientation;
 }
 
 function resolveLogoUrl(restaurant: any): string | null {
@@ -21,46 +26,41 @@ function getQrCodeUrl(restaurantId: string, tableName: string): string {
 }
 
 // ------------------------------------------------------------------
-// Classic template — white card, dashed border, top logo, bottom table name
+// Classic template — white card, dashed border, logo + QR + table name
 // ------------------------------------------------------------------
-function ClassicCard({ restaurant, table, logoUrl }: { restaurant: any; table: any; logoUrl: string | null }) {
+function ClassicCard({ restaurant, table, logoUrl, t }: { restaurant: any; table: any; logoUrl: string | null; t: TFunction }) {
   const accent = restaurant.accentColor || '#111111';
   return (
     <div
       style={{
-        breakInside: 'avoid',
-        pageBreakInside: 'avoid',
-        border: '3px dashed #d1d5db',
-        borderRadius: 28,
-        padding: '36px 32px',
-        marginBottom: 8,
-        minHeight: 140,
-        maxHeight: 148,
+        border: '2px dashed #d1d5db',
+        borderRadius: 16,
+        padding: '12px 10px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         background: '#ffffff',
-        width: '100%',
         boxSizing: 'border-box',
+        overflow: 'hidden',
       }}
     >
       {logoUrl && (
-        <img src={logoUrl} alt="logo" style={{ height: 52, objectFit: 'contain', marginBottom: 16 }} />
+        <img src={logoUrl} alt="logo" style={{ height: 28, objectFit: 'contain', marginBottom: 6 }} />
       )}
-      <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 22, fontWeight: 900, color: accent, textAlign: 'center', margin: '0 0 4px' }}>
+      <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 13, fontWeight: 900, color: accent, textAlign: 'center', margin: '0 0 2px', lineHeight: 1.2 }}>
         {restaurant.name}
       </h2>
-      <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9ca3af', marginBottom: 24, textAlign: 'center' }}>
-        Scan to view menu &amp; order
+      <p style={{ fontSize: 6, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#9ca3af', margin: '0 0 8px', textAlign: 'center' }}>
+        {t('tables.printScanPrompt')}
       </p>
-      <div style={{ background: '#fff', borderRadius: 20, padding: 16, boxShadow: '0 1px 8px rgba(0,0,0,0.08)', marginBottom: 24 }}>
-        <QRCodeSVG value={getQrCodeUrl(restaurant.id, table.name)} size={160} fgColor={accent} bgColor="#ffffff" level="H"
-          imageSettings={logoUrl ? { src: logoUrl, height: 36, width: 36, excavate: true } : undefined} />
+      <div style={{ background: '#fff', borderRadius: 10, padding: 8, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 8 }}>
+        <QRCodeSVG value={getQrCodeUrl(restaurant.id, table.name)} size={120} fgColor={accent} bgColor="#ffffff" level="H"
+          imageSettings={logoUrl ? { src: logoUrl, height: 24, width: 24, excavate: true } : undefined} />
       </div>
-      <div style={{ width: '100%', textAlign: 'center', background: '#f9fafb', borderRadius: 16, padding: '12px 0' }}>
-        <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9ca3af', marginBottom: 4 }}>Table</p>
-        <p style={{ fontSize: 36, fontWeight: 900, color: '#111', margin: 0 }}>{table.name}</p>
+      <div style={{ textAlign: 'center', background: '#f9fafb', borderRadius: 8, padding: '4px 16px', width: '80%' }}>
+        <p style={{ fontSize: 6, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9ca3af', margin: '0 0 1px' }}>{t('tables.printTableLabel')}</p>
+        <p style={{ fontSize: 22, fontWeight: 900, color: '#111', margin: 0, lineHeight: 1.1 }}>{table.name}</p>
       </div>
     </div>
   );
@@ -69,50 +69,44 @@ function ClassicCard({ restaurant, table, logoUrl }: { restaurant: any; table: a
 // ------------------------------------------------------------------
 // Premium template — dark background, accent QR, serif typography
 // ------------------------------------------------------------------
-function PremiumCard({ restaurant, table, logoUrl }: { restaurant: any; table: any; logoUrl: string | null }) {
+function PremiumCard({ restaurant, table, logoUrl, t }: { restaurant: any; table: any; logoUrl: string | null; t: TFunction }) {
   const accent = restaurant.accentColor || '#d4a853';
   return (
     <div
       style={{
-        breakInside: 'avoid',
-        pageBreakInside: 'avoid',
         background: '#0f0e0c',
-        borderRadius: 28,
-        padding: '36px 32px',
-        marginBottom: 8,
-        minHeight: 140,
-        maxHeight: 148,
+        borderRadius: 16,
+        padding: '12px 10px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        width: '100%',
-        boxSizing: 'border-box',
         position: 'relative',
+        boxSizing: 'border-box',
         overflow: 'hidden',
       }}
     >
       {/* Decorative corner accents */}
-      <div style={{ position: 'absolute', top: 16, left: 16, width: 24, height: 24, borderTop: `2px solid ${accent}`, borderLeft: `2px solid ${accent}`, borderRadius: '4px 0 0 0' }} />
-      <div style={{ position: 'absolute', top: 16, right: 16, width: 24, height: 24, borderTop: `2px solid ${accent}`, borderRight: `2px solid ${accent}`, borderRadius: '0 4px 0 0' }} />
-      <div style={{ position: 'absolute', bottom: 16, left: 16, width: 24, height: 24, borderBottom: `2px solid ${accent}`, borderLeft: `2px solid ${accent}`, borderRadius: '0 0 0 4px' }} />
-      <div style={{ position: 'absolute', bottom: 16, right: 16, width: 24, height: 24, borderBottom: `2px solid ${accent}`, borderRight: `2px solid ${accent}`, borderRadius: '0 0 4px 0' }} />
+      <div style={{ position: 'absolute', top: 8, left: 8, width: 14, height: 14, borderTop: `2px solid ${accent}`, borderLeft: `2px solid ${accent}`, borderRadius: '3px 0 0 0' }} />
+      <div style={{ position: 'absolute', top: 8, right: 8, width: 14, height: 14, borderTop: `2px solid ${accent}`, borderRight: `2px solid ${accent}`, borderRadius: '0 3px 0 0' }} />
+      <div style={{ position: 'absolute', bottom: 8, left: 8, width: 14, height: 14, borderBottom: `2px solid ${accent}`, borderLeft: `2px solid ${accent}`, borderRadius: '0 0 0 3px' }} />
+      <div style={{ position: 'absolute', bottom: 8, right: 8, width: 14, height: 14, borderBottom: `2px solid ${accent}`, borderRight: `2px solid ${accent}`, borderRadius: '0 0 3px 0' }} />
 
       {logoUrl && (
-        <img src={logoUrl} alt="logo" style={{ height: 44, objectFit: 'contain', marginBottom: 12, filter: 'brightness(0) invert(1)' }} />
+        <img src={logoUrl} alt="logo" style={{ height: 24, objectFit: 'contain', marginBottom: 6, filter: 'brightness(0) invert(1)' }} />
       )}
-      <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 20, fontWeight: 900, color: '#ffffff', textAlign: 'center', margin: '0 0 2px', letterSpacing: '0.02em' }}>
+      <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 12, fontWeight: 900, color: '#ffffff', textAlign: 'center', margin: '0 0 2px', letterSpacing: '0.02em', lineHeight: 1.2 }}>
         {restaurant.name}
       </h2>
-      <div style={{ width: 40, height: 2, background: accent, margin: '8px auto 16px', borderRadius: 2 }} />
-      <div style={{ background: '#ffffff', borderRadius: 16, padding: 14, marginBottom: 20 }}>
-        <QRCodeSVG value={getQrCodeUrl(restaurant.id, table.name)} size={150} fgColor="#0f0e0c" bgColor="#ffffff" level="H"
-          imageSettings={logoUrl ? { src: logoUrl, height: 34, width: 34, excavate: true } : undefined} />
+      <div style={{ width: 24, height: 1.5, background: accent, margin: '4px auto 8px', borderRadius: 2 }} />
+      <div style={{ background: '#ffffff', borderRadius: 10, padding: 8, marginBottom: 8 }}>
+        <QRCodeSVG value={getQrCodeUrl(restaurant.id, table.name)} size={120} fgColor="#0f0e0c" bgColor="#ffffff" level="H"
+          imageSettings={logoUrl ? { src: logoUrl, height: 24, width: 24, excavate: true } : undefined} />
       </div>
-      <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: accent, marginBottom: 4, textAlign: 'center' }}>
-        Table
+      <p style={{ fontSize: 6, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: accent, margin: '0 0 2px', textAlign: 'center' }}>
+        {t('tables.printTableLabel')}
       </p>
-      <p style={{ fontSize: 32, fontWeight: 900, color: '#ffffff', margin: 0, fontFamily: 'Georgia, serif', letterSpacing: '0.05em' }}>
+      <p style={{ fontSize: 20, fontWeight: 900, color: '#ffffff', margin: 0, fontFamily: 'Georgia, serif', letterSpacing: '0.05em', lineHeight: 1.1 }}>
         {table.name}
       </p>
     </div>
@@ -122,55 +116,113 @@ function PremiumCard({ restaurant, table, logoUrl }: { restaurant: any; table: a
 // ------------------------------------------------------------------
 // Minimal template — bare QR + table name, ultra-clean
 // ------------------------------------------------------------------
-function MinimalCard({ restaurant, table }: { restaurant: any; table: any }) {
+function MinimalCard({ restaurant, table, t }: { restaurant: any; table: any; t: TFunction }) {
   const accent = restaurant.accentColor || '#111111';
   return (
     <div
       style={{
-        breakInside: 'avoid',
-        pageBreakInside: 'avoid',
-        border: `1px solid #e5e7eb`,
-        borderRadius: 20,
-        padding: '28px 24px',
-        marginBottom: 8,
-        minHeight: 100,
-        maxHeight: 148,
+        border: '1px solid #e5e7eb',
+        borderRadius: 12,
+        padding: '14px 10px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         background: '#ffffff',
-        width: '100%',
         boxSizing: 'border-box',
+        overflow: 'hidden',
       }}
     >
-      <QRCodeSVG value={getQrCodeUrl(restaurant.id, table.name)} size={170} fgColor={accent} bgColor="#ffffff" level="H" />
-      <div style={{ marginTop: 20, textAlign: 'center' }}>
-        <p style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9ca3af', margin: '0 0 4px', fontWeight: 700 }}>
-          {restaurant.name} · Table
+      <QRCodeSVG value={getQrCodeUrl(restaurant.id, table.name)} size={130} fgColor={accent} bgColor="#ffffff" level="H" />
+      <div style={{ marginTop: 8, textAlign: 'center' }}>
+        <p style={{ fontSize: 6, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#9ca3af', margin: '0 0 2px', fontWeight: 700 }}>
+          {restaurant.name} · {t('tables.printTableLabel')}
         </p>
-        <p style={{ fontSize: 34, fontWeight: 900, color: '#111', margin: 0 }}>{table.name}</p>
+        <p style={{ fontSize: 24, fontWeight: 900, color: '#111', margin: 0, lineHeight: 1.1 }}>{table.name}</p>
       </div>
     </div>
   );
 }
 
-const PrintableQRCodes: React.FC<PrintableQRCodesProps> = ({ restaurant, tables, template = 'classic' }) => {
+/**
+ * Print-only container rendered via React Portal directly into <body>.
+ *
+ * This avoids the 30% top-gap problem: without a portal the print container
+ * lives deep inside the React tree (dashboard sidebar, content area, etc.).
+ * Even with visibility:hidden those ancestors still occupy layout space,
+ * pushing the print content down the page.
+ *
+ * By portalling into <body> we can use `body > *:not(.print-container)`
+ * to fully collapse (display:none) every sibling, so nothing occupies space.
+ *
+ * Grid layout:
+ *   Portrait  → 2 columns, ~6 cards per page  (cells ~90mm × 88mm)
+ *   Landscape → 3 columns, ~6 cards per page  (cells ~88mm × 60mm)
+ */
+const PrintableQRCodes: React.FC<PrintableQRCodesProps> = ({
+  restaurant,
+  tables,
+  template = 'classic',
+  orientation = 'portrait',
+}) => {
+  const { t } = useTranslation();
   if (!tables || tables.length === 0) return null;
   const logoUrl = resolveLogoUrl(restaurant);
 
-  return (
-    <div className="hidden print:block absolute inset-0 bg-white z-[99999] print-container">
-      <style>{`@page { size: A4 portrait; margin: 12mm; } body { margin: 0; }`}</style>
-      <div style={{ width: '100%' }}>
-        {tables.map((table) => {
-          if (template === 'premium') return <PremiumCard key={table.id} restaurant={restaurant} table={table} logoUrl={logoUrl} />;
-          if (template === 'minimal') return <MinimalCard key={table.id} restaurant={restaurant} table={table} />;
-          return <ClassicCard key={table.id} restaurant={restaurant} table={table} logoUrl={logoUrl} />;
-        })}
+  const cols = orientation === 'landscape' ? 3 : 2;
+  const pageSize = orientation === 'landscape' ? 'A4 landscape' : 'A4 portrait';
+
+  const content = (
+    <div className="print-container" style={{ display: 'none' }}>
+      <style>{`
+        @page { size: ${pageSize}; margin: 10mm; }
+        @media print {
+          /* Collapse every sibling of the portal container */
+          body > *:not(.print-container) {
+            display: none !important;
+          }
+          body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+          .print-container {
+            display: block !important;
+            position: static !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+          .qr-grid {
+            display: grid !important;
+            grid-template-columns: repeat(${cols}, 1fr);
+            gap: 6px;
+            width: 100%;
+          }
+          .qr-grid-cell {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+        }
+      `}</style>
+      <div className="qr-grid">
+        {tables.map((table) => (
+          <div className="qr-grid-cell" key={table.id}>
+            {template === 'premium'
+              ? <PremiumCard restaurant={restaurant} table={table} logoUrl={logoUrl} t={t} />
+              : template === 'minimal'
+                ? <MinimalCard restaurant={restaurant} table={table} t={t} />
+                : <ClassicCard restaurant={restaurant} table={table} logoUrl={logoUrl} t={t} />
+            }
+          </div>
+        ))}
       </div>
     </div>
   );
+
+  // Portal directly into document.body so no parent layout offsets the cards
+  return createPortal(content, document.body);
 };
 
 export default PrintableQRCodes;

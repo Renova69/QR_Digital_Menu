@@ -7,7 +7,7 @@ import { Input } from '../ui/input';
 import { Modal } from '../ui/modal';
 import { useTranslation } from 'react-i18next';
 import { Printer, Eye, QrCode } from 'lucide-react';
-import PrintableQRCodes, { PrintTemplate } from './PrintableQRCodes';
+import PrintableQRCodes, { PrintTemplate, PrintOrientation } from './PrintableQRCodes';
 import RestaurantContext from '../../context/RestaurantContext';
 import LiveTablesView from '../../pages/Dashboard/LiveTablesView';
 
@@ -22,6 +22,7 @@ const TableView: React.FC = () => {
   const { t } = useTranslation();
   const [subTab, setSubTab] = useState<'live' | 'qr'>('live');
   const [printTemplate, setPrintTemplate] = useState<PrintTemplate>('classic');
+  const [printOrientation, setPrintOrientation] = useState<PrintOrientation>('portrait');
 
   const { data: tables, isLoading } = useQuery({
     queryKey: ['tables', restaurantId],
@@ -181,6 +182,15 @@ const TableView: React.FC = () => {
                     <option value="premium">Premium</option>
                     <option value="minimal">Minimal</option>
                   </select>
+                  <select
+                    value={printOrientation}
+                    onChange={(e) => setPrintOrientation(e.target.value as PrintOrientation)}
+                    className="h-9 px-3 rounded-lg border border-border bg-background text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
+                    aria-label="Print orientation"
+                  >
+                    <option value="portrait">Portrait</option>
+                    <option value="landscape">Landscape</option>
+                  </select>
                   <Button
                     variant="outline"
                     onClick={() => window.print()}
@@ -268,7 +278,7 @@ const TableView: React.FC = () => {
                 )}
               </Modal>
 
-              <PrintableQRCodes restaurant={restaurant} tables={tables || []} template={printTemplate} />
+              <PrintableQRCodes restaurant={restaurant} tables={tables || []} template={printTemplate} orientation={printOrientation} />
             </>
           )}
         </>

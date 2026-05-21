@@ -399,7 +399,9 @@
     "free": "Free",
     "noTablesCreated": "Add tables in QR Management first",
     "ordersCount": "{{count}} orders",
-    "sessionStarted": "Session started {{time}}"
+    "sessionStarted": "Session started {{time}}",
+    "printScanPrompt": "Scan to view menu & order",
+    "printTableLabel": "Table"
   },
   "common": {
     "pleaseLogin": "Please log in to continue",

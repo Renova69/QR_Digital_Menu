@@ -400,7 +400,9 @@
     "noTablesCreated": "Добавете маси в QR Управление",
     "tableDetail": "Маса {{name}}",
     "ordersCount": "{{count}} поръчки",
-    "sessionStarted": "Сесията започна {{time}}"
+    "sessionStarted": "Сесията започна {{time}}",
+    "printScanPrompt": "Сканирайте за меню и поръчка",
+    "printTableLabel": "Маса"
   },
   "common": {
     "pleaseLogin": "Моля влезте в акаунта си",
