@@ -1,6 +1,6 @@
 import { useState, useRef, useContext, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { type LucideIcon, LayoutDashboard, ShoppingBag, Bell, Table2, Settings, BarChart2, CreditCard, ChefHat, Monitor, Upload, Utensils } from 'lucide-react';
+import { type LucideIcon, LayoutDashboard, ShoppingBag, Bell, Table2, Settings, BarChart2, CreditCard, ChefHat, Monitor, Upload, Utensils, HelpCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrderContext';
 import { useAssistance } from '../context/AssistanceContext';
@@ -16,13 +16,14 @@ import SettingsView from './Dashboard/SettingsView';
 import { useTranslation } from 'react-i18next';
 import PaymentsView from './Dashboard/PaymentsView';
 import MenuImportExportView from './Dashboard/MenuImportExportView';
+import HelpView from './Dashboard/HelpView';
 import NotificationBell from '../components/NotificationBell';
 import PaymentToast from '../components/PaymentToast';
 import { NotificationProvider } from '../context/NotificationContext';
 import SubscriptionBanner from '../components/subscription/SubscriptionBanner';
 import { useFeature } from '../hooks/useFeature';
 
-type TabId = 'summary' | 'analytics' | 'orders' | 'payments' | 'assistance' | 'tables' | 'settings' | 'import';
+type TabId = 'summary' | 'analytics' | 'orders' | 'payments' | 'assistance' | 'tables' | 'settings' | 'import' | 'help';
 
 const BOTTOM_NAV_TABS: { id: TabId; Icon: LucideIcon; labelKey: string }[] = [
   { id: 'summary',    Icon: LayoutDashboard, labelKey: 'dashboard.tabs.home' },
@@ -33,7 +34,7 @@ const BOTTOM_NAV_TABS: { id: TabId; Icon: LucideIcon; labelKey: string }[] = [
   { id: 'settings',  Icon: Settings,         labelKey: 'dashboard.tabs.settings' },
 ];
 
-const VALID_TABS: TabId[] = ['summary', 'analytics', 'orders', 'payments', 'assistance', 'tables', 'settings', 'import'];
+const VALID_TABS: TabId[] = ['summary', 'analytics', 'orders', 'payments', 'assistance', 'tables', 'settings', 'import', 'help'];
 
 const DashboardPage = () => {
   const { user } = useAuth();
@@ -109,6 +110,7 @@ const DashboardPage = () => {
     { id: 'tables'     as TabId, Icon: Table2,           label: t('dashboard.tabs.tables'),      show: true },
     { id: 'settings'   as TabId, Icon: Settings,         label: t('dashboard.tabs.settings'),    show: true },
     { id: 'import'     as TabId, Icon: Upload,           label: t('dashboard.tabs.importExport'),show: canImport },
+    { id: 'help'       as TabId, Icon: HelpCircle,       label: t('dashboard.tabs.help'),        show: true },
   ];
 
   return (
@@ -242,7 +244,10 @@ const DashboardPage = () => {
               <div>
                 {activeTab === 'summary' && activeRestaurant && (
                   <div className="space-y-8 md:space-y-12">
-                    <SummaryView onViewAnalytics={() => setActiveTab('analytics')} />
+                    <SummaryView 
+                      onViewAnalytics={() => setActiveTab('analytics')} 
+                      onViewHelp={() => setActiveTab('help')} 
+                    />
                   </div>
                 )}
                 {activeTab === 'analytics' && activeRestaurant && <AnalyticsView />}
@@ -252,6 +257,7 @@ const DashboardPage = () => {
                 {activeTab === 'tables' && activeRestaurant && <TableView />}
                 {activeTab === 'settings' && activeRestaurant && <SettingsView />}
                 {activeTab === 'import' && activeRestaurant && <MenuImportExportView />}
+                {activeTab === 'help' && activeRestaurant && <HelpView />}
               </div>
             </div>
           </div>

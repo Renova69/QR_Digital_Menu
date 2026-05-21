@@ -29,7 +29,8 @@
       "import": "Import",
       "importExport": "Import/Export",
       "pos": "POS",
-      "kitchen": "Kitchen"
+      "kitchen": "Kitchen",
+      "help": "Help Center"
     }
   },
   "settings": {
@@ -451,7 +452,10 @@
     "pointsRedeemed": "Points Redeemed",
     "freebiesIssued": "Freebies & Discounts Issued",
     "pointsOutstandingLiability": "Points Outstanding Liability",
-    "unspentCustomerPoints": "Unspent Customer Points"
+    "unspentCustomerPoints": "Unspent Customer Points",
+    "helpCenterTitle": "Help Center & Tutorials",
+    "helpCenterDesc": "Need help setting up table QR codes, configuring Stripe payments, or managing VIP loyalty points? View our step-by-step guides and FAQs.",
+    "goToHelpCenter": "Go to Help Center"
   },
   "menuCheck": {
     "title": "Menu Health",
@@ -918,5 +922,136 @@
     "deleteAccountConfirm": "Delete permanently",
     "deleteAccountCancel": "Cancel",
     "notEnabled": "This feature is not enabled on this platform."
+  },
+  "help": {
+    "title": "Help Center",
+    "desc": "Find tutorials, guides, and answers to frequently asked questions.",
+    "searchPlaceholder": "Search help guides and FAQs...",
+    "tutorialSteps": "Step-by-step Guide",
+    "tipLabel": "Tip",
+    "warningLabel": "Important",
+    "faqSearchResults": "Matching FAQs",
+    "faqTitle": "Frequently Asked Questions",
+    "noFaqsFound": "No FAQs matching your query. Try searching for other keywords.",
+    "categories": {
+      "gettingStarted": "Getting Started",
+      "menu": "Menu Builder",
+      "tables": "Tables & QR Codes",
+      "payments": "Stripe Payments",
+      "loyalty": "Loyalty Program",
+      "staff": "POS & KDS Systems",
+      "legal": "Privacy & GDPR"
+    },
+    "guides": {
+      "gettingStarted": {
+        "title": "Getting Started Walkthrough",
+        "desc": "Set up your digital restaurant and launch tableside QR ordering in four quick steps.",
+        "steps": {
+          "0": "Complete your restaurant contact information, address, and local timezone in the Settings > General tab.",
+          "1": "Create your dining tables in the Tables & QR tab to generate table-specific menu scanning URLs.",
+          "2": "Build your menu inside the Menu Editor: define food categories and add items with pricing, photos, and descriptions.",
+          "3": "Configure payment integration or loyalty settings, then display printed QR cards at your tables for customers."
+        },
+        "tip": "Verify your timezone setting! Happy hours and menu category visibility depend on your restaurant timezone."
+      },
+      "menu": {
+        "title": "Building & Customizing Your Menu",
+        "desc": "Create an attractive digital catalog with drag-and-drop ordering, options, schedules, and automatic translations.",
+        "steps": {
+          "0": "Add categories (e.g. Main Dishes, Soft Drinks) and drag items vertically to order them as you like.",
+          "1": "Create Item Options for variations (e.g., Rare/Medium/Well-Done steak sizes) or addons (e.g., Extra Cheese).",
+          "2": "Use Dayparting schedules to show specific categories only during certain hours (e.g., Breakfast menu from 8 AM to 11 AM).",
+          "3": "Add target translation languages in Settings. New items will automatically translate via DeepL to English, Bulgarian, or Romanian."
+        },
+        "tip": "Have existing menu items created before adding target languages? Click \"Translate All Now\" in settings to translate your entire menu at once.",
+        "warning": "Items marked \"Out of Stock\" are instantly hidden from the public menu but remain editable in your dashboard."
+      },
+      "tables": {
+        "title": "Table Setup & QR Printing",
+        "desc": "Add named dining tables, monitor occupied rooms in real-time, and print branded tabletop QR codes.",
+        "steps": {
+          "0": "Create tables named numerically (e.g. Table 1, Table 2) or custom (e.g. Bar 1, Garden 5).",
+          "1": "Download high-resolution individual QR codes or bulk print them directly using our A4 templates.",
+          "2": "Choose a print template: Classic (standard cards), Premium (dark brackets, elegant branding), or Minimal (compact, table number only).",
+          "3": "Use the Live Table View to track occupancy: color-coded statuses indicate open sessions, unpaid bills, or waiting orders.",
+          "4": "When printing, set your browser print options to \"Portrait\" and check the \"Print Background Graphics\" checkbox so background frames print correctly."
+        },
+        "tip": "When printing, set your browser print options to \"Portrait\" and check the \"Print Background Graphics\" checkbox so background frames print correctly.",
+        "warning": "Do not manually edit the URL structure of the QR codes. They embed table names to link client orders directly to the correct tables."
+      },
+      "payments": {
+        "title": "Stripe Connect Tableside Payments",
+        "desc": "Onboard with Stripe to allow customers to request their bill, tip waiters, and pay directly from their phones.",
+        "steps": {
+          "0": "Navigate to Settings > Payments and click \"Connect with Stripe\" to register or link your Stripe account.",
+          "1": "Set custom Tip Percentages (e.g. 5%, 10%, 15%) in settings to prompt clients during tableside checkout.",
+          "2": "Once connected, customers can request their bill from their browser, choose their tip, and pay securely using card.",
+          "3": "Monitor incoming payouts and transaction logs in the Payments tab. Platform fees are auto-deducted per transaction."
+        },
+        "tip": "Customers can calculate how to split the bill directly on the checkout screen (up to 20 people) before submitting cash/card payments.",
+        "warning": "Stripe payments require an active HTTPS connection. Stripe Connect settings are only accessible by restaurant owners."
+      },
+      "loyalty": {
+        "title": "Configuring Loyalty & VIP Tiers",
+        "desc": "Establish a gamified rewards program that awards points per purchase and unlocks custom VIP discount multipliers.",
+        "steps": {
+          "0": "Go to Settings > Loyalty and toggle loyalty rewards active. Define point earning rates (points per € spent) and signup bonuses.",
+          "1": "Set up VIP Tier thresholds (Bronze, Silver, Gold). High-tier members automatically gain point multipliers (e.g. Gold: 1.5x points).",
+          "2": "Configure timezone-aware Happy Hours to award multipliers (e.g., 2.0x points) on food during off-peak dining periods.",
+          "3": "Points are automatically deducted on checkout when customers choose to exchange points for cash discounts or free menu items."
+        },
+        "tip": "The system uses accounting-grade FIFO (First-In, First-Out) calculations. Expiring customer points are automatically purged daily.",
+        "warning": "Earning rate cashback defaults to 6.7%. We show a warning indicator if your configured cashback exceeds 15% to protect profit margins."
+      },
+      "staff": {
+        "title": "Waiter POS & Kitchen KDS Systems",
+        "desc": "Equip floor staff with tableside digital order pads and kitchen cooks with real-time ticket display screens.",
+        "steps": {
+          "0": "Add staff profiles in Settings > Staff. Assign credentials and secure login PINs.",
+          "1": "Waiters use the tableside POS at \"/staff/pos\" to rapidly select tables, browse items, type custom notes, and send tickets.",
+          "2": "Kitchen cooks monitor incoming orders in real time on the Dark OLED KDS board at \"/staff/kitchen\".",
+          "3": "Kitchen staff tap cards to advance tickets through Placed, In Kitchen, and Served columns, playing sound alerts on arrival."
+        },
+        "tip": "The Waiter POS cart is fully isolated in-memory. Switching tables resets pending items without interfering with customer browsers.",
+        "warning": "KDS screens display elapsed timers. Tickets active for longer than 15 minutes highlight in red to indicate kitchen urgency."
+      },
+      "legal": {
+        "title": "GDPR Compliance & Customer Privacy",
+        "desc": "Ensure your business respects privacy regulations, displays consent notifications, and processes data deletion requests.",
+        "steps": {
+          "0": "Toggle cookie consent banners in settings to notify customers on their public menu browser.",
+          "1": "Provide visible links to privacy policy pages. The platform auto-generates localized /privacy and /terms routes.",
+          "2": "Under GDPR guidelines, if a customer requests account erasure, navigate to the User Management dashboard.",
+          "3": "Use the \"Purge Account / Right to Erasure\" button to permanently delete customer emails, transaction lists, and point ledgers."
+        },
+        "tip": "Deleted GDPR customer accounts cannot be recovered. Ensure you verify client identity before processing erasure requests."
+      }
+    },
+    "faqs": {
+      "q1": {
+        "question": "How do I print QR codes without page margins cutting them off?",
+        "answer": "When your browser print panel opens, set the layout orientation to \"Portrait\", set paper size to A4, and make sure \"Print Background Graphics\" is enabled under the advanced settings. Our Classic, Premium, and Minimal layouts are formatted to fit a 2x2 grid cleanly on standard A4 paper without overflow."
+      },
+      "q2": {
+        "question": "Why are my translated menu titles showing up blank or in English only?",
+        "answer": "Translations occur dynamically via DeepL when menu items are saved or when target languages are configured. If you imported items or configured languages after adding items, go to Settings > Localization, check the desired languages, and click \"Translate All Now\". This runs a complete background batch translation on your existing database records."
+      },
+      "q3": {
+        "question": "What are the charges for using tableside Stripe card payments?",
+        "answer": "The platform integrates using Stripe Connect. Standard card processing fees apply per transaction from Stripe. The platform also charges a configurable platform fee (e.g. 1%) which is automatically split and routed during purchase checkouts. You can disconnect your Stripe account at any time from the Payments Settings."
+      },
+      "q4": {
+        "question": "Can customers sign up for loyalty rewards without creating a password?",
+        "answer": "Yes! The customer-facing menu uses an Email OTP (One-Time Password) system. Customers simply input their email address, receive a 6-digit verification code in their email, and input it to log in. No passwords or registration forms are required, keeping tableside ordering frictionless."
+      },
+      "q5": {
+        "question": "What is the difference between Waiter POS and Kitchen KDS access permissions?",
+        "answer": "Waiter POS (/staff/pos) is optimized for floor waiters to place orders at the table. Kitchen KDS (/staff/kitchen) is optimized for cooks to track tickets in the kitchen. Both require a user account created under Settings > Staff. However, settings panels, analytics charts, and payment configurations are strictly restricted to the Owner role and cannot be opened by floor staff."
+      },
+      "q6": {
+        "question": "How can I back up my restaurant menu or migrate it to another account?",
+        "answer": "Go to the Import/Export dashboard tab. Choose \"Export Menu\" to download your full menu in JSON or CSV (Excel/Numbers-compatible) formats, or copy the JSON catalog to your clipboard. You can restore this catalog on another account by uploading the exported JSON file in the \"Import Menu\" sub-tab."
+      }
+    }
   }
 }

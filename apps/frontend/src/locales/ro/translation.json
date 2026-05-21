@@ -30,7 +30,8 @@
       "import": "Import",
       "importExport": "Import/Export",
       "pos": "POS",
-      "kitchen": "Bucătărie"
+      "kitchen": "Bucătărie",
+      "help": "Centru de ajutor"
     }
   },
   "settings": {
@@ -452,7 +453,10 @@
     "pointsRedeemed": "Puncte Răscumpărate",
     "freebiesIssued": "Produse Gratuite și Reduceri Emise",
     "pointsOutstandingLiability": "Obligații Puncte",
-    "unspentCustomerPoints": "Puncte Necheltuuite ale Clienților"
+    "unspentCustomerPoints": "Puncte Necheltuuite ale Clienților",
+    "helpCenterTitle": "Centru de ajutor și ghiduri",
+    "helpCenterDesc": "Aveți nevoie de ajutor pentru configurarea codurilor QR, plăților sau a programului de loialitate? Consultați ghidurile noastre pas cu pas și întrebările frecvente.",
+    "goToHelpCenter": "Mergi la Centru de ajutor"
   },
   "menuCheck": {
     "title": "Sănătatea Meniului",
@@ -924,5 +928,136 @@
     "deleteAccountConfirm": "Sterge definitiv",
     "deleteAccountCancel": "Anuleaza",
     "notEnabled": "Aceasta functie nu este activata."
+  },
+  "help": {
+    "title": "Centru de ajutor",
+    "desc": "Găsiți tutoriale, ghiduri și răspunsuri la întrebări frecvente.",
+    "searchPlaceholder": "Căutați ghiduri și întrebări frecvente...",
+    "tutorialSteps": "Ghid pas cu pas",
+    "tipLabel": "Sfat",
+    "warningLabel": "Important",
+    "faqSearchResults": "Întrebări frecvente potrivite",
+    "faqTitle": "Întrebări frecvente",
+    "noFaqsFound": "Nu există întrebări frecvente pentru căutarea dvs. Încercați alte cuvinte cheie.",
+    "categories": {
+      "gettingStarted": "Primii pași",
+      "menu": "Configurarea meniului",
+      "tables": "Mese & coduri QR",
+      "payments": "Plăți prin Stripe",
+      "loyalty": "Program de loialitate",
+      "staff": "Sisteme POS & KDS",
+      "legal": "Confidențialitate & GDPR"
+    },
+    "guides": {
+      "gettingStarted": {
+        "title": "Ghid pentru primii pași",
+        "desc": "Configurați restaurantul dvs. digital și lansați comenzile prin cod QR la masă în patru pași simpli.",
+        "steps": {
+          "0": "Completați informațiile de contact, adresa și fusul orar în secțiunea Setări > General.",
+          "1": "Creați mesele de dining în fila Mese & QR pentru a genera coduri QR unice pentru fiecare masă.",
+          "2": "Construiți meniul în Editorul de meniu: definiți categorii de mâncare și adăugați articole cu prețuri, poze și descrieri.",
+          "3": "Configurați integrarea de plată sau setările de loialitate, apoi plasați codurile QR imprimate la mese pentru clienți."
+        },
+        "tip": "Verificați setările fusului orar! Orele Happy Hour și vizibilitatea categoriilor de meniu depind de acesta."
+      },
+      "menu": {
+        "title": "Configurarea și personalizarea meniului",
+        "desc": "Creați un catalog digital atractiv cu ordonare prin glisare (drag-and-drop), opțiuni de articole, orare și traduceri automate.",
+        "steps": {
+          "0": "Adăugați categorii (ex. Feluri principale, Băuturi) și glisați articolele pe verticală pentru a le ordona.",
+          "1": "Creați Opțiuni articol pentru variații (ex. nivel de gătire friptură: în sânge/mediu/bine făcut) sau extra-opțiuni (ex. brânză suplimentară).",
+          "2": "Utilizați programul orar pentru a afișa anumite categorii doar la anumite ore (ex. meniu mic dejun între 8:00 și 11:00).",
+          "3": "Adăugați limbi țintă în Setări. Articolele noi se vor traduce automat prin DeepL în engleză, bulgară sau română."
+        },
+        "tip": "Aveți articole create înainte de adăugarea limbilor țintă? Faceți clic pe „Traduceți tot acum” în setări pentru a traduce tot catalogul.",
+        "warning": "Articolele marcate „Stoc epuizat” sunt ascunse instantaneu din meniul public, dar rămân editabile în panou."
+      },
+      "tables": {
+        "title": "Configurarea meselor și imprimarea QR",
+        "desc": "Adăugați mese, monitorizați ocuparea în timp real și imprimați coduri QR personalizate cu logo.",
+        "steps": {
+          "0": "Creați mese cu nume numerice (ex. Masa 1, Masa 2) sau personalizate (ex. Bar 1, Grădină 5).",
+          "1": "Descărcați coduri QR individuale la rezoluție mare sau imprimați-le în format A4 folosind șabloanele noastre.",
+          "2": "Alegeți un șablon de imprimare: Clasic (carduri standard), Premium (branding elegant și margini închise) sau Minimal (compact, doar numărul mesei).",
+          "3": "Utilizați Vizualizarea live a meselor pentru a urmări ocuparea: culorile indică sesiuni deschise, note neplătite sau comenzi în așteptare.",
+          "4": "La imprimare, setați orientarea paginii pe „Portrait” (Portret) și bifați „Print Background Graphics” (Imprimare imagini de fundal)."
+        },
+        "tip": "La imprimare, setați orientarea paginii pe „Portrait” (Portret) și bifați „Print Background Graphics” (Imprimare imagini de fundal).",
+        "warning": "Nu modificați manual structura URL-urilor codurilor QR. Ele conțin identificatori de masă pentru conectarea corectă a comenzilor clienților."
+      },
+      "payments": {
+        "title": "Plăți la masă prin Stripe Connect",
+        "desc": "Conectați contul Stripe pentru a le permite clienților să ceară nota de plată, să lase bacșiș și să plătească de pe telefon.",
+        "steps": {
+          "0": "Navigați la Setări > Plăți și faceți clic pe „Conectare cu Stripe” pentru a înregistra sau conecta contul Stripe.",
+          "1": "Configurați procente prestabilite pentru Bacșiș (ex. 5%, 10%, 15%) pentru a fi afișate clienților la plată.",
+          "2": "După conectare, clienții pot solicita nota de plată din meniul mobil, alege bacșișul și plăti securizat cu cardul.",
+          "3": "Monitorizați încasările și tranzacțiile în fila Plăți. Taxele platformei sunt reținute automat la fiecare tranzacție."
+        },
+        "tip": "Clienții pot calcula cum să împartă nota direct pe ecranul de plată (până la 20 de persoane), înainte de a plăti cash sau cu cardul.",
+        "warning": "Plățile prin Stripe necesită o conexiune securizată HTTPS. Setările Stripe Connect pot fi accesate doar de către proprietar."
+      },
+      "loyalty": {
+        "title": "Configurarea programului de loialitate și a nivelurilor VIP",
+        "desc": "Creați un program de recompense care oferă puncte pentru cumpărături și deblochează discount-uri progresive VIP.",
+        "steps": {
+          "0": "Accesați Setări > Loialitate și activați programul. Definiți rata de câștig (puncte pe 1 €) și bonusul de înregistrare.",
+          "1": "Configurați pragurile pentru nivelurile VIP (Argint, Aur). Membrii VIP acumulează puncte mai rapid (ex. Aur: 1.5x puncte).",
+          "2": "Configurați intervale Happy Hours pentru a acorda puncte multiplicatoare (ex. 2x puncte) în orele mai puțin aglomerate.",
+          "3": "Punctele sunt scăzute automat la finalizarea comenzii atunci când clienții aleg să le preschimbe în reduceri sau produse gratuite."
+        },
+        "tip": "Sistemul utilizează FIFO (primul intrat, primul ieșit) pentru puncte. Punctele care expiră sunt eliminate zilnic din sistem.",
+        "warning": "Rata cashback-ului implicită este de 6.7%. Afișăm un avertisment dacă cashback-ul depășește 15%, pentru a vă proteja profitul."
+      },
+      "staff": {
+        "title": "Sisteme POS pentru ospătari și KDS pentru bucătărie",
+        "desc": "Dotați ospătarii cu terminale digitale pentru preluarea comenzilor și bucătarii cu ecrane de monitorizare în timp real.",
+        "steps": {
+          "0": "Adăugați profile de angajați în Setări > Personal. Atribuiți roluri de acces și coduri PIN de securitate.",
+          "1": "Ospătarii utilizează POS-ul mobil la adresa „/staff/pos” pentru a selecta rapid mesele, adăuga produse și trimite comenzi.",
+          "2": "Bucătarii monitorizează comenzile în timp real pe ecranul KDS cu fundal întunecat la adresa „/staff/kitchen”.",
+          "3": "Personalul din bucătărie apasă pe cardurile de comenzi pentru a le muta între coloanele Plasate, În pregătire și Servite."
+        },
+        "tip": "Coșul din POS-ul ospătarilor este păstrat doar în memoria dispozitivului. Schimbarea mesei resetează articolele, fără a afecta clienții.",
+        "warning": "Ecranele KDS afișează cronometre de timp scurs. Comenzile mai vechi de 15 minute sunt evidențiate cu roșu pentru urgență."
+      },
+      "legal": {
+        "title": "Conformitate GDPR & Confidențialitate",
+        "desc": "Asigurați-vă că afacerea dvs. respectă confidențialitatea clienților, afișează bannere de consimțământ și șterge datele solicitate.",
+        "steps": {
+          "0": "Activați bannerul de consimțământ pentru cookie-uri în setări pentru a fi afișat clienților în meniul public.",
+          "1": "Adăugați legături vizibile către politica de confidențialitate. Platforma generează automat rutele /privacy și /terms.",
+          "2": "La cererea unui client pentru ștergerea datelor (GDPR), navigați în panoul de administrare a utilizatorilor.",
+          "3": "Folosiți butonul „Dreptul de a fi uitat (GDPR)” pentru a șterge definitiv email-urile, tranzacțiile și punctele clientului."
+        },
+        "tip": "Conturile clienților șterse conform GDPR nu mai pot fi recuperate. Verificați identitatea clientului înainte de ștergere."
+      }
+    },
+    "faqs": {
+      "q1": {
+        "question": "Cum imprim codurile QR fără ca marginile paginii să le taie?",
+        "answer": "Când se deschide panoul de imprimare, setați orientarea pe „Portrait” (Portret), dimensiunea A4 și asigurați-vă că opțiunea „Print Background Graphics” (Imprimare imagini de fundal) este activată. Șabloanele noastre Clasic, Premium și Minimal se încadrează perfect pe o grilă 2x2."
+      },
+      "q2": {
+        "question": "De ce numele traduse ale produselor sunt goale sau doar în engleză?",
+        "answer": "Traducerile se fac automat prin DeepL la salvarea produselor. Dacă ați adăugat limbi țintă după ce ați creat produsele, accesați Setări > Localizare și faceți clic pe „Traduceți tot acum” pentru a procesa catalogul existent."
+      },
+      "q3": {
+        "question": "Care sunt taxele pentru utilizarea plăților la masă prin Stripe Connect?",
+        "answer": "Platforma utilizează Stripe Connect. Se aplică comisioanele standard ale Stripe pentru procesarea tranzacțiilor cu cardul. Suplimentar, se percepe un comision al platformei (ex. 1%), reținut automat la plată. Puteți deconecta contul Stripe oricând."
+      },
+      "q4": {
+        "question": "Se pot înscrie clienții în programul de loialitate fără a crea o parolă?",
+        "answer": "Da! Meniul clienților utilizează un sistem de autentificare prin Email OTP (One-Time Password). Clienții își introduc email-ul, primesc un cod de 6 cifre pe mail și îl introduc pentru a intra. Fără formulare lungi de înregistrare."
+      },
+      "q5": {
+        "question": "Care este diferența de acces între POS ospătari și KDS bucătărie?",
+        "answer": "POS-ul ospătarilor (/staff/pos) este conceput pentru ospătari pentru a prelua rapid comenzi de la mese. KDS bucătărie (/staff/kitchen) este optimizat pentru bucătari pentru urmărirea comenzilor. Ambele necesită un cont creat în Setări > Personal, dar setările restaurantului și plățile rămân exclusive pentru rolul de Proprietar."
+      },
+      "q6": {
+        "question": "Cum pot face o copie de rezervă a meniului sau să-l transfer pe alt cont?",
+        "answer": "Accesați fila Import/Export din panou. Alegeți „Export catalog” pentru a descărca meniul în format JSON sau CSV. Îl puteți importa pe alt cont folosind opțiunea „Import catalog” din aceeași pagină."
+      }
+    }
   }
 }
