@@ -29,7 +29,14 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   private readonly logger = new Logger(PrismaService.name);
 
   constructor() {
-    super({ log: ['warn', 'error'] });
+    super({
+      log: ['warn', 'error'],
+      datasources: {
+        db: {
+          url: process.env.DATABASE_URL,
+        },
+      },
+    });
   }
 
   private circuitState: CircuitState = 'CLOSED';
@@ -113,6 +120,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
       this.openedAt = Date.now();
       this.logger.error(`Circuit breaker → OPEN after ${this.consecutiveFailures} consecutive failures`);
     }
+  }
+
+  async onModuleDestroy() {
+    await this.$disconnect();
+    this.logger.log('Database disconnected');
   }
 
   async enableShutdownHooks(app: INestApplication) {
