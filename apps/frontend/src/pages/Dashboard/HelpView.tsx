@@ -15,7 +15,18 @@ import {
   Sparkles,
   AlertTriangle,
   ChevronRight,
+  Settings,
+  Users,
+  Star,
+  ShoppingBag,
+  Info,
+  Coffee, Pizza, Beer, Wine, IceCream, MapPin, Phone, Mail, FileText, Image, Layout, Globe, Tag, Ticket, Zap, Clock, Calendar, MessageSquare, Lightbulb, GraduationCap, Video, Book, Bookmark, Compass, LifeBuoy, Wrench, PlayCircle, FileQuestion
 } from 'lucide-react';
+
+const ICON_MAP: Record<string, any> = {
+  BookOpen, Utensils, QrCode, CreditCard, Award, Monitor, ShieldAlert, Settings, Users, Star, ShoppingBag, Info, HelpCircle,
+  Coffee, Pizza, Beer, Wine, IceCream, MapPin, Phone, Mail, FileText, Image, Layout, Globe, Tag, Ticket, Zap, Clock, Calendar, MessageSquare, Lightbulb, GraduationCap, Video, Book, Bookmark, Compass, LifeBuoy, Wrench, PlayCircle, FileQuestion
+};
 import { getHelpContent, type HelpContentItem } from '../../lib/api';
 
 type HelpCategory = 'getting-started' | 'menu' | 'tables' | 'payments' | 'loyalty' | 'staff' | 'legal';
@@ -61,7 +72,7 @@ function getGuideSteps(catItems: HelpContentItem[]): string[] {
 
 const HelpView = () => {
   const { t, i18n } = useTranslation();
-  const [activeCategory, setActiveCategory] = useState<HelpCategory>('getting-started');
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
 
@@ -71,10 +82,43 @@ const HelpView = () => {
   });
 
   const activeItems = items.filter((i) => i.active);
+
+  // Build an ordered list of category keys from the backend response
+  // (which is already sorted by sortOrder ASC)
+  const orderedCategoryKeys: string[] = [];
+  for (const item of activeItems) {
+    if (!orderedCategoryKeys.includes(item.categoryKey)) {
+      orderedCategoryKeys.push(item.categoryKey);
+    }
+  }
+
   const categoriesByKey = groupBy(activeItems, 'categoryKey');
 
+  // Build display categories in the order from the database
+  const DISPLAY_CATEGORIES = orderedCategoryKeys.map((k) => {
+    const hardcoded = CATEGORY_META.find((c) => c.id === k);
+    const metaItem = activeItems.find((i) => i.categoryKey === k && i.itemKey === 'category-meta');
+    const titleItem = activeItems.find((i) => i.categoryKey === k && i.itemKey === 'guide-title');
+    const iconName = metaItem?.title;
+    const resolvedIcon = (iconName && ICON_MAP[iconName]) ? ICON_MAP[iconName] : (hardcoded?.icon || BookOpen);
+
+    return {
+      id: k as typeof CATEGORY_META[0]['id'],
+      labelKey: hardcoded ? hardcoded.labelKey : `help.categories.${k}`,
+      defaultLabel: metaItem?.body || (hardcoded ? hardcoded.defaultLabel : (titleItem?.title || (k.charAt(0).toUpperCase() + k.slice(1).replace(/-/g, ' ')))),
+      icon: resolvedIcon,
+    };
+  });
+
+  // Default to first category with content
+  const resolvedCategory = activeCategory && categoriesByKey.has(activeCategory)
+    ? activeCategory
+    : orderedCategoryKeys[0] || 'getting-started';
+
+  const activeMeta = DISPLAY_CATEGORIES.find((c) => c.id === resolvedCategory);
+
   // Build guide data for the active category
-  const catItems = categoriesByKey.get(activeCategory) || [];
+  const catItems = categoriesByKey.get(resolvedCategory) || [];
   const guideTitle = getGuideField(catItems, 'guide-title');
   const guideDesc = getGuideField(catItems, 'guide-desc');
   const guideSteps = getGuideSteps(catItems);
@@ -114,8 +158,6 @@ const HelpView = () => {
     setExpandedFaq(expandedFaq === itemKey ? null : itemKey);
   };
 
-  const activeMeta = CATEGORY_META.find((c) => c.id === activeCategory);
-
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header section */}
@@ -148,9 +190,9 @@ const HelpView = () => {
           className="lg:col-span-3 space-y-1.5 scrollbar-hide flex lg:flex-col overflow-x-auto pb-2 lg:pb-0 gap-2 lg:gap-0"
           aria-label="Help Categories"
         >
-          {CATEGORY_META.map((cat) => {
+          {DISPLAY_CATEGORIES.map((cat) => {
             const CatIcon = cat.icon;
-            const isActive = activeCategory === cat.id;
+            const isActive = resolvedCategory === cat.id;
             const hasContent = categoriesByKey.has(cat.id);
             const matchesSearch =
               !searchQuery || filteredCategoryKeys.includes(cat.id);
