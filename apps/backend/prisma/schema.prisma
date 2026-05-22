@@ -450,3 +450,20 @@ model PlatformSettings {
 
   @@map("platform_settings")
 }
+
+model HelpContent {
+  id          String   @id @default(uuid())
+  section     String   // 'landing' | 'dashboard'
+  categoryKey String   // e.g. 'getting-started', 'menu', 'general'
+  itemKey     String   // unique key per item within its section+category
+  sortOrder   Int      @default(0)
+  locale      String   // 'en' | 'bg' | 'ro'
+  title       String   // FAQ question or help section title
+  body        String   // FAQ answer or help content (plain text or Markdown)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([section, categoryKey, itemKey, locale])
+  @@map("help_content")
+}
