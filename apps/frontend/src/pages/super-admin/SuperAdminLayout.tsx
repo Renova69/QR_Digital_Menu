@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Outlet, NavLink } from "react-router-dom";
-import { LayoutDashboard, Building2, LogOut, Menu, X, ShieldCheck, Shield } from "lucide-react";
+import { LayoutDashboard, Building2, LogOut, Menu, X, ShieldCheck, Shield, MessageCircleQuestion } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
 const NAV_ITEMS = [
   { to: "/super-admin", icon: LayoutDashboard, label: "Overview", end: true },
   { to: "/super-admin/tenants", icon: Building2, label: "Tenants" },
   { to: "/super-admin/legal", icon: ShieldCheck, label: "Legal & GDPR" },
+  { to: "/super-admin/help", icon: MessageCircleQuestion, label: "Help Center" },
 ];
 
 function SidebarContent({ onClose }: { onClose: () => void }) {

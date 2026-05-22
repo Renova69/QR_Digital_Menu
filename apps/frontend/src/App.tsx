@@ -40,6 +40,7 @@ const OverviewPage = lazy(() => import("./pages/super-admin/OverviewPage"));
 const TenantsPage = lazy(() => import("./pages/super-admin/TenantsPage"));
 const TenantDetailPage = lazy(() => import("./pages/super-admin/TenantDetailPage"));
 const LegalSettingsPage = lazy(() => import("./pages/super-admin/LegalSettingsPage"));
+const HelpCenterPage = lazy(() => import("./pages/super-admin/HelpCenterPage"));
 
 const PrivacyPolicyPage = lazy(() => import("./pages/legal/PrivacyPolicyPage"));
 const TermsPage = lazy(() => import("./pages/legal/TermsPage"));
@@ -192,6 +193,14 @@ function App() {
                 element={
                   <SuperAdminRoute>
                     <LegalSettingsPage />
+                  </SuperAdminRoute>
+                }
+              />
+              <Route
+                path="/super-admin/help"
+                element={
+                  <SuperAdminRoute>
+                    <HelpCenterPage />
                   </SuperAdminRoute>
                 }
               />
