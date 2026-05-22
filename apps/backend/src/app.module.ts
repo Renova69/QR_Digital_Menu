@@ -24,6 +24,7 @@ import { SubscriptionModule } from './subscription/subscription.module';
 import { SuperAdminModule } from './super-admin/super-admin.module';
 import { PlatformSettingsModule } from './platform-settings/platform-settings.module';
 import { UsersDataModule } from './users-data/users-data.module';
+import { HelpContentModule } from './help-content/help-content.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { UsersDataModule } from './users-data/users-data.module';
     SuperAdminModule,
     PlatformSettingsModule,
     UsersDataModule,
+    HelpContentModule,
     AuthModule,
     RestaurantsModule,
     MenuModule,
