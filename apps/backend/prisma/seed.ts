@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { PrismaClient, Currency, AvailabilityType, OptionType } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { seedHelpContent } from './seed-help-content';
 
 const prisma = new PrismaClient();
 const SALT_ROUNDS = 10;
@@ -32,6 +33,7 @@ async function main() {
   await prisma.menuCategory.deleteMany();
   await prisma.assistanceRequest.deleteMany();
   await prisma.restaurant.deleteMany();
+  await prisma.adminAuditLog.deleteMany();
   await prisma.user.deleteMany();
   
   console.log('🧹 Cleared existing data');
@@ -609,6 +611,9 @@ async function main() {
   });
 
   console.log('✅ Created 35+ signature items with options, allergens, and tags');
+
+  await seedHelpContent(prisma);
+
   console.log('🎉 Premium Demo seeding completed successfully!');
   console.log('👤 Demo Credentials:');
   console.log('Email: demo@codespaces.com');
