@@ -22,8 +22,20 @@ async function main() {
     console.warn('⚠️  ALLOW_REMOTE_SEED=true — proceeding with remote seed.');
   }
 
+  // Safety: refuse to wipe a populated database
+  const userCount = await prisma.user.count();
+  if (userCount > 5) {
+    console.error(`❌ Seed aborted: ${userCount} users exist. Refusing to wipe a populated database.`);
+    console.error('   Seeds are for fresh/dev databases only.');
+    console.error('   To force (DESTRUCTIVE), set FORCE_SEED_WIPE=true');
+    if (process.env.FORCE_SEED_WIPE !== 'true') {
+      process.exit(1);
+    }
+    console.warn('⚠️  FORCE_SEED_WIPE=true — proceeding despite populated database.');
+  }
+
   console.log('🌱 Starting comprehensive database seeding...');
-  
+
   // Delete existing data in correct order
   await prisma.feedback.deleteMany();
   await prisma.orderItem.deleteMany();
