@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SuperAdminService } from './super-admin.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { MenuImportService } from '../menu-import/menu-import.service';
 
 const ACTOR_ID = 'actor-user-id';
 
@@ -17,6 +18,10 @@ describe('SuperAdminService', () => {
     },
     user: {
       count: jest.fn(),
+      groupBy: jest.fn(),
+    },
+    order: {
+      count: jest.fn(),
     },
     payment: {
       aggregate: jest.fn(),
@@ -28,6 +33,9 @@ describe('SuperAdminService', () => {
     },
     $transaction: jest.fn(),
   };
+  const mockMenuImport = {
+    upsertMenu: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -35,6 +43,7 @@ describe('SuperAdminService', () => {
       providers: [
         SuperAdminService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: MenuImportService, useValue: mockMenuImport },
       ],
     }).compile();
 
@@ -45,24 +54,80 @@ describe('SuperAdminService', () => {
     it('returns platform stats using groupBy', async () => {
       mockPrisma.restaurant.count
         .mockResolvedValueOnce(10)
-        .mockResolvedValueOnce(8)
-        .mockResolvedValueOnce(2);
-      mockPrisma.user.count.mockResolvedValueOnce(50);
+        .mockResolvedValueOnce(9)
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(4)
+        .mockResolvedValueOnce(3)
+        .mockResolvedValueOnce(1);
+      mockPrisma.user.count
+        .mockResolvedValueOnce(50)
+        .mockResolvedValueOnce(3);
       mockPrisma.restaurant.groupBy.mockResolvedValueOnce([
         { tier: 'FREE', _count: { _all: 5 } },
         { tier: 'STARTER', _count: { _all: 3 } },
         { tier: 'PROFESSIONAL', _count: { _all: 1 } },
         { tier: 'ENTERPRISE', _count: { _all: 1 } },
       ]);
+      mockPrisma.user.groupBy.mockResolvedValueOnce([
+        { role: 'OWNER', _count: { _all: 10 } },
+        { role: 'CUSTOMER', _count: { _all: 20 } },
+      ]);
+      mockPrisma.order.count
+        .mockResolvedValueOnce(12)
+        .mockResolvedValueOnce(50);
+      mockPrisma.payment.aggregate.mockResolvedValueOnce({
+        _sum: { amount: '123.45' as any },
+        _count: 6,
+      });
+      mockPrisma.restaurant.findMany.mockResolvedValueOnce([
+        {
+          id: 'r1',
+          name: 'Free',
+          tier: 'FREE',
+          forceTier: 'ENTERPRISE',
+          paymentsEnabled: true,
+          stripeOnboarded: false,
+          stripeSubscriptionId: null,
+          isActive: true,
+          createdAt: new Date(),
+          owner: { email: 'owner@test.com' },
+          _count: { menuCategories: 0, tables: 0, orders: 0 },
+        },
+        {
+          id: 'r2',
+          name: 'Starter',
+          tier: 'STARTER',
+          forceTier: null,
+          paymentsEnabled: false,
+          stripeOnboarded: false,
+          stripeSubscriptionId: null,
+          isActive: false,
+          createdAt: new Date(),
+          owner: { email: 'starter@test.com' },
+          _count: { menuCategories: 1, tables: 1, orders: 2 },
+        },
+      ]);
 
       const result = await service.getStats();
 
       expect(result.totalRestaurants).toBe(10);
+      expect(result.activeRestaurants).toBe(9);
+      expect(result.deletedRestaurants).toBe(1);
       expect(result.totalUsers).toBe(50);
-      expect(result.activeSubscriptions).toBe(8);
+      expect(result.activeSubscriptions).toBe(4);
+      expect(result.paidPlanTenants).toBe(4);
+      expect(result.stripeLinkedSubscriptions).toBe(3);
       expect(result.suspendedCount).toBe(2);
-      expect(result.byTier.FREE).toBe(5);
-      expect(result.byTier.STARTER).toBe(3);
+      expect(result.byBillingTier.FREE).toBe(5);
+      expect(result.byBillingTier.STARTER).toBe(3);
+      expect(result.byEffectiveTier.FREE).toBe(0);
+      expect(result.byEffectiveTier.ENTERPRISE).toBe(1);
+      expect(result.forcedOverrideCount).toBe(1);
+      expect(result.forcedUpgrades).toBe(1);
+      expect(result.attentionNeeded.paymentsNotOnboarded.count).toBe(1);
+      expect(result.recent.orders7d).toBe(50);
+      expect(result.recent.payments7d.amount).toBeCloseTo(123.45);
     });
   });
 

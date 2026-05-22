@@ -1,49 +1,227 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
+import type { ComponentType } from "react";
+import {
+  AlertTriangle,
+  ArrowDownRight,
+  ArrowUpRight,
+  Building2,
+  CheckCircle2,
+  CreditCard,
+  DoorOpen,
+  ListChecks,
+  ShieldAlert,
+  Users,
+} from "lucide-react";
 import { getSuperAdminStats } from "../../lib/api";
-import { Building2, Users, CreditCard, AlertTriangle, PieChart as PieIcon } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 
-const TIER_COLORS: Record<string, string> = {
-  FREE: "#64748b",
-  STARTER: "#3b82f6",
-  PROFESSIONAL: "#a855f7",
-  ENTERPRISE: "#f59e0b",
+const TIER_ORDER = ["FREE", "STARTER", "PROFESSIONAL", "ENTERPRISE"] as const;
+
+const TIER_STYLES: Record<string, string> = {
+  FREE: "bg-slate-700/30 text-slate-300 border-slate-700/50",
+  STARTER: "bg-emerald-500/10 text-emerald-300 border-emerald-500/25",
+  PROFESSIONAL: "bg-blue-500/10 text-blue-300 border-blue-500/25",
+  ENTERPRISE: "bg-violet-500/10 text-violet-300 border-violet-500/25",
 };
 
-const CARD_CONFIGS = [
-  {
-    key: "totalRestaurants",
-    label: "Total Restaurants",
-    icon: Building2,
-    iconBg: "bg-blue-500/10",
-    iconBorder: "border-blue-500/20",
-    iconColor: "text-blue-400",
-  },
-  {
-    key: "totalUsers",
-    label: "Total Users",
-    icon: Users,
-    iconBg: "bg-violet-500/10",
-    iconBorder: "border-violet-500/20",
-    iconColor: "text-violet-400",
-  },
-  {
-    key: "activeSubscriptions",
-    label: "Active Subscriptions",
-    icon: CreditCard,
-    iconBg: "bg-emerald-500/10",
-    iconBorder: "border-emerald-500/20",
-    iconColor: "text-emerald-400",
-  },
-  {
-    key: "suspendedCount",
-    label: "Suspended",
-    icon: AlertTriangle,
-    iconBg: "bg-amber-500/10",
-    iconBorder: "border-amber-500/20",
-    iconColor: "text-amber-400",
-  },
-] as const;
+type TierCounts = Record<string, number>;
+
+function countFor(counts: TierCounts | undefined, tier: string) {
+  return counts?.[tier] ?? 0;
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("en", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function maxTierCount(...groups: Array<TierCounts | undefined>) {
+  return Math.max(1, ...groups.flatMap((group) => TIER_ORDER.map((tier) => countFor(group, tier))));
+}
+
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+  tone,
+  helper,
+}: {
+  label: string;
+  value: number | string;
+  icon: ComponentType<{ className?: string }>;
+  tone: string;
+  helper?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+      <div className="flex items-start gap-3">
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${tone}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-slate-500">{label}</p>
+          <p className="mt-1 text-2xl font-bold leading-none text-white tabular-nums">{value}</p>
+          {helper && <p className="mt-2 text-xs text-slate-500">{helper}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TierBadge({ tier }: { tier: string }) {
+  return (
+    <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-bold ${TIER_STYLES[tier] ?? TIER_STYLES.FREE}`}>
+      {tier}
+    </span>
+  );
+}
+
+function TierComparison({ billing, effective }: { billing: TierCounts; effective: TierCounts }) {
+  const max = maxTierCount(billing, effective);
+
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900 p-5">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-white">Billing vs Effective Tier</h3>
+          <p className="mt-1 text-xs text-slate-500">Billing is Stripe/base tier. Effective is force tier applied.</p>
+        </div>
+        <CreditCard className="h-4 w-4 shrink-0 text-slate-500" />
+      </div>
+
+      <div className="space-y-4">
+        {TIER_ORDER.map((tier) => {
+          const billingCount = countFor(billing, tier);
+          const effectiveCount = countFor(effective, tier);
+          return (
+            <div key={tier} className="grid gap-2 md:grid-cols-[120px_1fr_64px_1fr_64px] md:items-center">
+              <TierBadge tier={tier} />
+              <div className="h-2 rounded-full bg-slate-800">
+                <div
+                  className="h-2 rounded-full bg-slate-500"
+                  style={{ width: `${Math.max(4, (billingCount / max) * 100)}%` }}
+                />
+              </div>
+              <span className="text-xs text-slate-400 tabular-nums md:text-right">Billing {billingCount}</span>
+              <div className="h-2 rounded-full bg-slate-800">
+                <div
+                  className="h-2 rounded-full bg-emerald-400"
+                  style={{ width: `${Math.max(4, (effectiveCount / max) * 100)}%` }}
+                />
+              </div>
+              <span className="text-xs text-slate-400 tabular-nums md:text-right">Live {effectiveCount}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function OverrideSummary({
+  total,
+  upgrades,
+  downgrades,
+}: {
+  total: number;
+  upgrades: number;
+  downgrades: number;
+}) {
+  const neutral = Math.max(0, total - upgrades - downgrades);
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900 p-5">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-white">Force Tier Overrides</h3>
+          <p className="mt-1 text-xs text-slate-500">Manual access changes that bypass billing tier.</p>
+        </div>
+        <ShieldAlert className="h-4 w-4 shrink-0 text-amber-400" />
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+          <p className="text-xs text-slate-500">Total</p>
+          <p className="mt-1 text-2xl font-bold text-white tabular-nums">{total}</p>
+        </div>
+        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+          <div className="flex items-center gap-1 text-xs text-emerald-300">
+            <ArrowUpRight className="h-3.5 w-3.5" />
+            Upgrades
+          </div>
+          <p className="mt-1 text-2xl font-bold text-white tabular-nums">{upgrades}</p>
+        </div>
+        <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+          <div className="flex items-center gap-1 text-xs text-red-300">
+            <ArrowDownRight className="h-3.5 w-3.5" />
+            Downgrades
+          </div>
+          <p className="mt-1 text-2xl font-bold text-white tabular-nums">{downgrades}</p>
+        </div>
+      </div>
+      {neutral > 0 && <p className="mt-3 text-xs text-slate-500">{neutral} override keeps the same effective tier.</p>}
+    </div>
+  );
+}
+
+function AttentionPanel({ stats }: { stats: NonNullable<Awaited<ReturnType<typeof getSuperAdminStats>>["attentionNeeded"]> }) {
+  const rows = [
+    { key: "forcedOverrides", label: "Forced tier overrides", tone: "text-amber-300" },
+    { key: "paymentsNotOnboarded", label: "Payments enabled, Stripe missing", tone: "text-red-300" },
+    { key: "emptyMenus", label: "No menu categories", tone: "text-slate-300" },
+    { key: "noTables", label: "No tables", tone: "text-slate-300" },
+    { key: "inactiveTenants", label: "Suspended tenants", tone: "text-red-300" },
+  ] as const;
+
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900 p-5">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-white">Attention Needed</h3>
+          <p className="mt-1 text-xs text-slate-500">Tenants worth checking before they become support work.</p>
+        </div>
+        <ListChecks className="h-4 w-4 shrink-0 text-slate-500" />
+      </div>
+      <div className="divide-y divide-slate-800">
+        {rows.map(({ key, label, tone }) => {
+          const group = stats[key];
+          const items = group?.items ?? [];
+          return (
+            <div key={key} className="py-4 first:pt-0 last:pb-0">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <span className="text-sm font-medium text-slate-200">{label}</span>
+                <span className={`text-sm font-bold tabular-nums ${tone}`}>{group?.count ?? 0}</span>
+              </div>
+              {items.length > 0 ? (
+                <div className="space-y-1.5">
+                  {items.map((item) => (
+                    <Link
+                      key={`${key}-${item.id}`}
+                      to={`/super-admin/tenants/${item.id}`}
+                      className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                    >
+                      <span className="min-w-0 truncate">{item.name}</span>
+                      {item.billingTier && item.effectiveTier ? (
+                        <span className="shrink-0 text-slate-500">
+                          {`${item.billingTier} -> ${item.effectiveTier}`}
+                        </span>
+                      ) : (
+                        <span className="shrink-0 text-slate-600">{item.ownerEmail}</span>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-600">All clear</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function OverviewPage() {
   const { data, isLoading, isError } = useQuery({
@@ -56,12 +234,12 @@ export default function OverviewPage() {
     return (
       <div className="space-y-6">
         <div>
-          <div className="h-7 w-32 rounded-lg bg-slate-800 animate-pulse mb-2" />
-          <div className="h-4 w-64 rounded bg-slate-800/60 animate-pulse" />
+          <div className="mb-2 h-7 w-32 animate-pulse rounded-lg bg-slate-800" />
+          <div className="h-4 w-64 animate-pulse rounded bg-slate-800/60" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-28 rounded-xl bg-slate-900 border border-slate-800 animate-pulse" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="h-28 animate-pulse rounded-lg border border-slate-800 bg-slate-900" />
           ))}
         </div>
       </div>
@@ -71,92 +249,102 @@ export default function OverviewPage() {
   if (isError || !data) {
     return (
       <div className="flex flex-col items-center justify-center py-24">
-        <AlertTriangle className="w-10 h-10 text-slate-700 mb-3" />
-        <p className="text-slate-400 font-medium">Failed to load platform stats</p>
-        <p className="text-slate-600 text-sm mt-1">Check your connection and try again</p>
+        <AlertTriangle className="mb-3 h-10 w-10 text-slate-700" />
+        <p className="font-medium text-slate-400">Failed to load platform stats</p>
+        <p className="mt-1 text-sm text-slate-600">Check your connection and try again</p>
       </div>
     );
   }
 
-  const chartData = Object.entries(data.byTier)
-    .filter(([, count]) => count > 0)
-    .map(([tier, count]) => ({ name: tier, value: count }));
+  const ownerCount = data.userRoles?.OWNER ?? 0;
+  const staffCount =
+    (data.userRoles?.MANAGER ?? 0) +
+    (data.userRoles?.WAITER ?? 0) +
+    (data.userRoles?.KITCHEN ?? 0) +
+    (data.userRoles?.STAFF ?? 0);
+  const customerCount = data.userRoles?.CUSTOMER ?? 0;
+  const billingTier = data.byBillingTier ?? data.byTier;
+  const effectiveTier = data.byEffectiveTier ?? data.byTier;
 
   return (
-    <div className="space-y-8">
-      {/* Page header */}
+    <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white tracking-tight">Overview</h2>
-        <p className="text-slate-500 text-sm mt-1">Platform-wide metrics and tenant distribution</p>
+        <h2 className="text-2xl font-bold text-white">Overview</h2>
+        <p className="mt-1 text-sm text-slate-500">Platform health, tier access, and tenant risks</p>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {CARD_CONFIGS.map(({ key, label, icon: Icon, iconBg, iconBorder, iconColor }) => (
-          <div
-            key={key}
-            className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex items-start gap-4 hover:border-slate-700 transition-colors"
-          >
-            <div className={`w-10 h-10 rounded-xl ${iconBg} border ${iconBorder} flex items-center justify-center shrink-0`}>
-              <Icon className={`w-5 h-5 ${iconColor}`} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-1 truncate">{label}</p>
-              <p className="text-3xl font-bold text-white tabular-nums leading-none">
-                {(data as unknown as Record<string, number>)[key] ?? 0}
-              </p>
-            </div>
-          </div>
-        ))}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Restaurants"
+          value={data.totalRestaurants}
+          icon={Building2}
+          tone="border-blue-500/20 bg-blue-500/10 text-blue-300"
+          helper={`${data.activeRestaurants} active, ${data.deletedRestaurants} deleted`}
+        />
+        <StatCard
+          label="Users"
+          value={data.totalUsers}
+          icon={Users}
+          tone="border-violet-500/20 bg-violet-500/10 text-violet-300"
+          helper={`${ownerCount} owners, ${staffCount} staff, ${customerCount} customers`}
+        />
+        <StatCard
+          label="Paid Plan Tenants"
+          value={data.paidPlanTenants ?? data.activeSubscriptions}
+          icon={CreditCard}
+          tone="border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+          helper={`${data.stripeLinkedSubscriptions} Stripe subscriptions linked`}
+        />
+        <StatCard
+          label="Suspended"
+          value={data.suspendedCount}
+          icon={AlertTriangle}
+          tone="border-amber-500/20 bg-amber-500/10 text-amber-300"
+          helper={`${data.forcedOverrideCount} force tier overrides`}
+        />
       </div>
 
-      {/* Tier chart */}
-      {chartData.length > 0 && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-          <div className="flex items-center gap-2 mb-6">
-            <PieIcon className="w-4 h-4 text-slate-400" />
-            <h3 className="text-sm font-semibold text-white">Restaurants by Tier</h3>
-          </div>
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
-              <Pie
-                data={chartData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={110}
-                innerRadius={55}
-                paddingAngle={3}
-                label={({ name, value }) => `${name}: ${value}`}
-              >
-                {chartData.map((entry) => (
-                  <Cell
-                    key={entry.name}
-                    fill={TIER_COLORS[entry.name] ?? "#64748b"}
-                    stroke="transparent"
-                  />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#1e293b",
-                  border: "1px solid #334155",
-                  borderRadius: "8px",
-                  color: "#f1f5f9",
-                  fontSize: "13px",
-                  boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
-                }}
-              />
-              <Legend
-                formatter={(value) => (
-                  <span style={{ color: "#94a3b8", fontSize: "12px", fontWeight: 500 }}>{value}</span>
-                )}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_0.8fr]">
+        <TierComparison billing={billingTier} effective={effectiveTier} />
+        <OverrideSummary
+          total={data.forcedOverrideCount}
+          upgrades={data.forcedUpgrades}
+          downgrades={data.forcedDowngrades}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="New Restaurants"
+          value={data.recent.restaurants7d}
+          icon={DoorOpen}
+          tone="border-cyan-500/20 bg-cyan-500/10 text-cyan-300"
+          helper="Last 7 days"
+        />
+        <StatCard
+          label="New Users"
+          value={data.recent.users7d}
+          icon={Users}
+          tone="border-indigo-500/20 bg-indigo-500/10 text-indigo-300"
+          helper="Last 7 days"
+        />
+        <StatCard
+          label="Orders"
+          value={data.recent.orders7d}
+          icon={CheckCircle2}
+          tone="border-lime-500/20 bg-lime-500/10 text-lime-300"
+          helper={`${data.recent.orders24h} in the last 24h`}
+        />
+        <StatCard
+          label="Payment Volume"
+          value={formatMoney(data.recent.payments7d.amount)}
+          icon={CreditCard}
+          tone="border-pink-500/20 bg-pink-500/10 text-pink-300"
+          helper={`${data.recent.payments7d.count} successful payments, 7 days`}
+        />
+      </div>
+
+      <AttentionPanel stats={data.attentionNeeded} />
     </div>
   );
 }
