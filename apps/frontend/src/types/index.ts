@@ -64,10 +64,41 @@ export interface Category {
 // Super Admin
 export interface SuperAdminStats {
   totalRestaurants: number;
+  activeRestaurants: number;
+  deletedRestaurants: number;
   totalUsers: number;
+  userRoles: Record<string, number>;
   byTier: Record<string, number>;
+  byBillingTier: Record<string, number>;
+  byEffectiveTier: Record<string, number>;
   activeSubscriptions: number;
+  paidPlanTenants: number;
+  stripeLinkedSubscriptions: number;
   suspendedCount: number;
+  forcedOverrideCount: number;
+  forcedUpgrades: number;
+  forcedDowngrades: number;
+  recent: {
+    restaurants7d: number;
+    users7d: number;
+    orders24h: number;
+    orders7d: number;
+    payments7d: {
+      count: number;
+      amount: number;
+    };
+  };
+  attentionNeeded: Record<string, {
+    count: number;
+    items: Array<{
+      id: string;
+      name: string;
+      ownerEmail: string;
+      billingTier?: string;
+      effectiveTier?: string;
+      direction?: string;
+    }>;
+  }>;
 }
 
 export interface TenantSummary {

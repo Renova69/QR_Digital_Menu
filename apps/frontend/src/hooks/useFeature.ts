@@ -1,6 +1,7 @@
 import { useContext } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import RestaurantContext from '../context/RestaurantContext';
+import { useAuth } from '../context/AuthContext';
 import { getSubscriptionStatus } from '../lib/api';
 
 const ALL_FEATURE_FLAGS = [
@@ -80,10 +81,13 @@ export function useTier(): {
   staffLimit: number;
 } {
   const ctx = useContext(RestaurantContext);
-  const hasRestaurant = !!ctx?.activeRestaurant;
+  const { user } = useAuth();
+  const activeRestaurantId = ctx?.activeRestaurant?.id ?? null;
+  const userId = user?.id ?? null;
+  const hasRestaurant = !!activeRestaurantId && !!userId;
 
   const { data } = useQuery({
-    queryKey: ['subscription-status'],
+    queryKey: ['subscription-status', userId, activeRestaurantId],
     queryFn: getSubscriptionStatus,
     staleTime: 60_000,
     enabled: hasRestaurant,

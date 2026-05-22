@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { login as apiLogin, register as apiRegister, setAuthToken } from '../lib/api';
 import api from '../lib/api';
 
@@ -30,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -51,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsError(false);
       setErrorMessage(null);
       const { user, token } = await apiLogin(email, password);
+      queryClient.clear();
       if (token) setAuthToken(token);
       setUser(user);
       return { user };
@@ -67,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsError(false);
       setErrorMessage(null);
       const { user, token } = await apiRegister(email, password, name);
+      queryClient.clear();
       if (token) setAuthToken(token);
       setUser(user);
       return { user };
@@ -79,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loginWithToken = (user: User) => {
+    queryClient.clear();
     setUser(user);
   };
 
@@ -91,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Cookie cleared server-side regardless
     }
     setAuthToken(null);
+    queryClient.clear();
     setUser(null);
   };
 

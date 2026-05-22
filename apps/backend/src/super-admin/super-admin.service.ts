@@ -10,6 +10,16 @@ import { Prisma, SubscriptionTier } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const VALID_TIERS: readonly string[] = ['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'];
+const TIER_RANK: Record<string, number> = {
+  FREE: 0,
+  STARTER: 1,
+  PROFESSIONAL: 2,
+  ENTERPRISE: 3,
+};
+
+function emptyTierCounts(): Record<string, number> {
+  return { FREE: 0, STARTER: 0, PROFESSIONAL: 0, ENTERPRISE: 0 };
+}
 
 @Injectable()
 export class SuperAdminService {
@@ -19,27 +29,180 @@ export class SuperAdminService {
   ) {}
 
   async getStats() {
-    const [totalRestaurants, totalUsers, activeSubscriptions, suspendedCount, tierDistribution] =
-      await Promise.all([
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const [
+      totalRestaurants,
+      activeRestaurants,
+      deletedRestaurants,
+      totalUsers,
+      suspendedCount,
+      paidPlanTenants,
+      stripeLinkedSubscriptions,
+      tierDistribution,
+      userRoleDistribution,
+      recentRestaurants,
+      recentUsers,
+      ordersLast24h,
+      ordersLast7d,
+      paymentsLast7d,
+      tenants,
+    ] = await Promise.all([
         this.prisma.restaurant.count({ where: { deletedAt: null } }),
+        this.prisma.restaurant.count({ where: { isActive: true, deletedAt: null } }),
+        this.prisma.restaurant.count({ where: { deletedAt: { not: null } } }),
         this.prisma.user.count(),
+        this.prisma.restaurant.count({ where: { isActive: false, deletedAt: null } }),
         this.prisma.restaurant.count({
           where: { tier: { not: SubscriptionTier.FREE }, isActive: true, deletedAt: null },
         }),
-        this.prisma.restaurant.count({ where: { isActive: false, deletedAt: null } }),
+        this.prisma.restaurant.count({
+          where: { stripeSubscriptionId: { not: null }, isActive: true, deletedAt: null },
+        }),
         this.prisma.restaurant.groupBy({
           by: ['tier'],
           where: { deletedAt: null },
           _count: { _all: true },
         }),
+        this.prisma.user.groupBy({
+          by: ['role'],
+          _count: { _all: true },
+        }),
+        this.prisma.restaurant.count({ where: { createdAt: { gte: sevenDaysAgo }, deletedAt: null } }),
+        this.prisma.user.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
+        this.prisma.order.count({ where: { createdAt: { gte: twentyFourHoursAgo } } }),
+        this.prisma.order.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
+        this.prisma.payment.aggregate({
+          where: { createdAt: { gte: sevenDaysAgo }, status: 'SUCCEEDED' },
+          _sum: { amount: true },
+          _count: true,
+        }),
+        this.prisma.restaurant.findMany({
+          where: { deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            name: true,
+            tier: true,
+            forceTier: true,
+            paymentsEnabled: true,
+            stripeOnboarded: true,
+            stripeSubscriptionId: true,
+            isActive: true,
+            createdAt: true,
+            owner: { select: { email: true } },
+            _count: { select: { menuCategories: true, tables: true, orders: true } },
+          },
+        }),
       ]);
 
-    const byTier: Record<string, number> = { FREE: 0, STARTER: 0, PROFESSIONAL: 0, ENTERPRISE: 0 };
+    const byBillingTier = emptyTierCounts();
     for (const row of tierDistribution) {
-      byTier[row.tier] = row._count._all;
+      byBillingTier[row.tier] = row._count._all;
     }
 
-    return { totalRestaurants, totalUsers, byTier, activeSubscriptions, suspendedCount };
+    const byEffectiveTier = emptyTierCounts();
+    const forcedOverrides = [];
+    let forcedUpgrades = 0;
+    let forcedDowngrades = 0;
+
+    for (const tenant of tenants) {
+      const effectiveTier = tenant.forceTier ?? tenant.tier;
+      byEffectiveTier[effectiveTier] = (byEffectiveTier[effectiveTier] ?? 0) + 1;
+
+      if (tenant.forceTier) {
+        const direction =
+          TIER_RANK[tenant.forceTier] > TIER_RANK[tenant.tier]
+            ? 'upgrade'
+            : TIER_RANK[tenant.forceTier] < TIER_RANK[tenant.tier]
+              ? 'downgrade'
+              : 'same';
+        if (direction === 'upgrade') forcedUpgrades += 1;
+        if (direction === 'downgrade') forcedDowngrades += 1;
+        forcedOverrides.push({
+          id: tenant.id,
+          name: tenant.name,
+          ownerEmail: tenant.owner.email,
+          billingTier: tenant.tier,
+          effectiveTier,
+          direction,
+        });
+      }
+    }
+
+    const userRoles: Record<string, number> = {};
+    for (const row of userRoleDistribution) {
+      userRoles[row.role] = row._count._all;
+    }
+
+    const paymentsNotOnboarded = tenants
+      .filter((tenant) => tenant.paymentsEnabled && !tenant.stripeOnboarded)
+      .map((tenant) => ({
+        id: tenant.id,
+        name: tenant.name,
+        ownerEmail: tenant.owner.email,
+        billingTier: tenant.tier,
+        effectiveTier: tenant.forceTier ?? tenant.tier,
+      }));
+    const emptyMenus = tenants
+      .filter((tenant) => tenant._count.menuCategories === 0)
+      .map((tenant) => ({
+        id: tenant.id,
+        name: tenant.name,
+        ownerEmail: tenant.owner.email,
+      }));
+    const noTables = tenants
+      .filter((tenant) => tenant._count.tables === 0)
+      .map((tenant) => ({
+        id: tenant.id,
+        name: tenant.name,
+        ownerEmail: tenant.owner.email,
+      }));
+    const inactiveTenants = tenants
+      .filter((tenant) => !tenant.isActive)
+      .map((tenant) => ({
+        id: tenant.id,
+        name: tenant.name,
+        ownerEmail: tenant.owner.email,
+      }));
+
+    const attentionNeeded = {
+      forcedOverrides: { count: forcedOverrides.length, items: forcedOverrides.slice(0, 5) },
+      paymentsNotOnboarded: { count: paymentsNotOnboarded.length, items: paymentsNotOnboarded.slice(0, 5) },
+      emptyMenus: { count: emptyMenus.length, items: emptyMenus.slice(0, 5) },
+      noTables: { count: noTables.length, items: noTables.slice(0, 5) },
+      inactiveTenants: { count: inactiveTenants.length, items: inactiveTenants.slice(0, 5) },
+    };
+
+    return {
+      totalRestaurants,
+      activeRestaurants,
+      deletedRestaurants,
+      totalUsers,
+      userRoles,
+      byTier: byBillingTier,
+      byBillingTier,
+      byEffectiveTier,
+      activeSubscriptions: paidPlanTenants,
+      paidPlanTenants,
+      stripeLinkedSubscriptions,
+      suspendedCount,
+      forcedOverrideCount: forcedOverrides.length,
+      forcedUpgrades,
+      forcedDowngrades,
+      recent: {
+        restaurants7d: recentRestaurants,
+        users7d: recentUsers,
+        orders24h: ordersLast24h,
+        orders7d: ordersLast7d,
+        payments7d: {
+          count: paymentsLast7d._count,
+          amount: Number(paymentsLast7d._sum.amount ?? 0),
+        },
+      },
+      attentionNeeded,
+    };
   }
 
   async getTenants(params: {

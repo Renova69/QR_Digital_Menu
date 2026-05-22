@@ -30,8 +30,15 @@ async function main() {
 
     const existingRestaurant = await prisma.restaurant.findFirst({ where: { ownerId: user.id } });
     if (existingRestaurant) {
-      await prisma.restaurant.update({ where: { id: existingRestaurant.id }, data: { tier: d.tier } });
-      console.log(`Updated ${d.restaurantName} → ${d.tier}`);
+      await prisma.restaurant.update({
+        where: { id: existingRestaurant.id },
+        data: {
+          tier: d.tier,
+          forceTier: null,
+          paymentsEnabled: d.tier === SubscriptionTier.PROFESSIONAL || d.tier === SubscriptionTier.ENTERPRISE,
+        },
+      });
+      console.log(`Updated ${d.restaurantName} -> ${d.tier}`);
     } else {
       await prisma.restaurant.create({
         data: {
