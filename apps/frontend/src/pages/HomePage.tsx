@@ -6,6 +6,7 @@ import {
   BarChart2, Gift, Palette, Zap, Check, ArrowRight,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import LandingFAQ from '../components/landing/LandingFAQ';
 
 const featureKeys = [
   'qrOrdering', 'tableManagement', 'waiterPos', 'kitchenDisplay',
@@ -345,6 +346,9 @@ const HomePage = () => {
           </div>
         </div>
       </section>
+
+      {/* ──────────────── FAQ ──────────────── */}
+      <LandingFAQ />
 
       {/* ──────────────── FOOTER ──────────────── */}
       <footer className="relative border-t border-border py-12 px-4 sm:px-6 lg:px-8">
