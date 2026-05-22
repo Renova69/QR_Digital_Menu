@@ -457,4 +457,48 @@ export const exportUserData = () =>
 export const deleteUserAccount = () =>
   api.delete('/users/me/delete').then((r) => r.data);
 
+// ── Help Content ──────────────────────────────────────────────────────────────
+
+export interface HelpContentItem {
+  id: string;
+  section: 'landing' | 'dashboard';
+  categoryKey: string;
+  itemKey: string;
+  sortOrder: number;
+  locale: 'en' | 'bg' | 'ro';
+  title: string;
+  body: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const getHelpContent = (section: 'landing' | 'dashboard', locale?: string) =>
+  api
+    .get(`/help-content/${section}`, { params: locale ? { locale } : undefined })
+    .then((r) => r.data as HelpContentItem[]);
+
+export const getAdminHelpContent = (section: string) =>
+  api.get('/super-admin/help-content', { params: { section } }).then((r) => r.data as HelpContentItem[]);
+
+export const createHelpContent = (dto: {
+  section: string;
+  categoryKey: string;
+  itemKey: string;
+  sortOrder?: number;
+  locale: string;
+  title: string;
+  body: string;
+  active?: boolean;
+}) => api.post('/super-admin/help-content', dto).then((r) => r.data as HelpContentItem);
+
+export const updateHelpContent = (id: string, dto: { title?: string; body?: string; sortOrder?: number; active?: boolean }) =>
+  api.patch(`/super-admin/help-content/${id}`, dto).then((r) => r.data as HelpContentItem);
+
+export const deleteHelpContent = (id: string) =>
+  api.delete(`/super-admin/help-content/${id}`).then((r) => r.data);
+
+export const reorderHelpContent = (items: { id: string; sortOrder: number }[]) =>
+  api.patch('/super-admin/help-content/reorder', { items }).then((r) => r.data);
+
 export default api;
