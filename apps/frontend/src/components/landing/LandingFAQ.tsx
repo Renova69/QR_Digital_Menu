@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HelpCircle, ChevronDown } from 'lucide-react';
 
@@ -72,6 +72,19 @@ const faqItems: FAQItem[] = [
 const LandingFAQ = () => {
   const { t } = useTranslation();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const answerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  useEffect(() => {
+    answerRefs.current.forEach((el, id) => {
+      if (id === expandedId) {
+        el.style.maxHeight = el.scrollHeight + 'px';
+        el.style.opacity = '1';
+      } else {
+        el.style.maxHeight = '0px';
+        el.style.opacity = '0';
+      }
+    });
+  }, [expandedId]);
 
   const toggleFaq = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
@@ -101,28 +114,34 @@ const LandingFAQ = () => {
             return (
               <div
                 key={faq.id}
-                className="group glass-panel rounded-2xl border-white/5 overflow-hidden transition-all duration-300 hover:shadow-[0_10px_30px_-10px_var(--color-accent)/0.1]"
+                className="group glass-panel rounded-2xl border border-border/50 hover:border-accent/20 overflow-hidden transition-all duration-300 ease-out motion-safe:hover:shadow-[0_10px_30px_-10px_var(--color-accent)/0.1]"
               >
                 <button
                   onClick={() => toggleFaq(faq.id)}
                   className="w-full flex items-center justify-between gap-4 p-5 md:p-6 text-left font-semibold text-sm md:text-base text-foreground cursor-pointer"
                   aria-expanded={isExpanded}
                 >
-                  <span className="leading-snug">{t(faq.questionKey, faq.defaultQuestion)}</span>
+                  <span className="leading-snug pr-4">{t(faq.questionKey, faq.defaultQuestion)}</span>
                   <ChevronDown
-                    className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform duration-300 ${
-                      isExpanded ? 'rotate-180' : ''
+                    className={`w-5 h-5 shrink-0 transition-all duration-300 ease-out ${
+                      isExpanded ? 'rotate-180 text-accent' : 'text-muted-foreground'
                     }`}
                   />
                 </button>
 
-                {isExpanded && (
-                  <div className="px-5 md:px-6 pb-5 md:pb-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div
+                  ref={(el) => {
+                    if (el) answerRefs.current.set(faq.id, el);
+                  }}
+                  className="overflow-hidden transition-all duration-300 ease-out"
+                  style={{ maxHeight: '0px', opacity: '0' }}
+                >
+                  <div className="px-5 md:px-6 pb-5 md:pb-6">
                     <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
                       {t(faq.answerKey, faq.defaultAnswer)}
                     </p>
                   </div>
-                )}
+                </div>
               </div>
             );
           })}
