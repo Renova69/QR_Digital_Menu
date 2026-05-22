@@ -1,78 +1,34 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import { HelpCircle, ChevronDown } from 'lucide-react';
+import { getHelpContent, type HelpContentItem } from '../../lib/api';
 
-interface FAQItem {
-  id: string;
-  questionKey: string;
-  answerKey: string;
-  defaultQuestion: string;
-  defaultAnswer: string;
+function groupBy<T>(items: T[], key: keyof T): Map<string, T[]> {
+  const map = new Map<string, T[]>();
+  for (const item of items) {
+    const k = String(item[key]);
+    const group = map.get(k) || [];
+    group.push(item);
+    map.set(k, group);
+  }
+  return map;
 }
 
-const faqItems: FAQItem[] = [
-  {
-    id: 'faq-what',
-    questionKey: 'landing.faq.q1.question',
-    defaultQuestion: 'What is QR Menu and how does it work?',
-    answerKey: 'landing.faq.q1.answer',
-    defaultAnswer: 'QR Menu turns every table into a digital ordering station. Customers scan a QR code, browse your full menu on their phone, place orders instantly, and pay by card — all from their browser. No app download, no account sign-up, no friction. Orders appear immediately in your dashboard, on the Kitchen Display, and in the Waiter POS.'
-  },
-  {
-    id: 'faq-hardware',
-    questionKey: 'landing.faq.q2.question',
-    defaultQuestion: 'Do I need special hardware or printers?',
-    answerKey: 'landing.faq.q2.answer',
-    defaultAnswer: 'No special hardware required. QR Menu is fully cloud-based — you only need a standard printer (any inkjet or laser) to print QR code cards on A4 paper. We provide three print templates (Classic, Premium, Minimal) formatted for clean 2×2 grid layouts. Tablets for Waiter POS and Kitchen Display are optional. Best part: your QR codes never change — update your menu, prices, or items anytime without reprinting.'
-  },
-  {
-    id: 'faq-pricing',
-    questionKey: 'landing.faq.q3.question',
-    defaultQuestion: 'How much does it cost? Are there hidden fees?',
-    answerKey: 'landing.faq.q3.answer',
-    defaultAnswer: 'Plans start at €29/month (Starter), €79/month (Pro), and €199/month (Enterprise). There are no per-order commissions and no hidden platform fees. Stripe card processing fees (1.4% + €0.25 per EU transaction) are standard and go directly to Stripe, not us. All plans are billed monthly with no lock-in contracts — cancel anytime from the Billing portal.'
-  },
-  {
-    id: 'faq-setup',
-    questionKey: 'landing.faq.q4.question',
-    defaultQuestion: 'How quickly can I go live?',
-    answerKey: 'landing.faq.q4.answer',
-    defaultAnswer: 'Most restaurants go live the same day. The setup takes under 30 minutes: create your restaurant profile, add your tables, build your menu (or import from an existing file), and print QR codes. No technical skills, no coding, no integration work needed. If you have an existing digital menu, our team can convert it for free.'
-  },
-  {
-    id: 'faq-payments',
-    questionKey: 'landing.faq.q5.question',
-    defaultQuestion: 'How do tableside payments and tipping work?',
-    answerKey: 'landing.faq.q5.answer',
-    defaultAnswer: 'Customers tap "Request Bill" on their phone to see an itemized bill, select a tip percentage (you set the options — e.g., 5%, 10%, 15%), and pay securely by card via Stripe Connect. The payment processes in seconds and your dashboard updates instantly. Customers can also split the bill between up to 20 people. Waiters can close tables with card payments through the POS as well.'
-  },
-  {
-    id: 'faq-languages',
-    questionKey: 'landing.faq.q6.question',
-    defaultQuestion: 'Which languages does the menu support?',
-    answerKey: 'landing.faq.q6.answer',
-    defaultAnswer: 'Your menu auto-translates to English, Bulgarian, and Romanian via DeepL — the industry-leading neural machine translation engine. Add target languages in Settings, and new menu items translate automatically. Use "Translate All Now" to batch-translate your entire existing menu. Customers see the menu in their browser language without changing any settings.'
-  },
-  {
-    id: 'faq-gdpr',
-    questionKey: 'landing.faq.q7.question',
-    defaultQuestion: 'What about customer data privacy and GDPR?',
-    answerKey: 'landing.faq.q7.answer',
-    defaultAnswer: 'QR Menu is fully GDPR-compliant. We provide cookie consent banners for your public menu page, auto-generate /privacy and /terms routes, and include a one-click "Right to Erasure" button that permanently deletes customer emails, transaction history, and loyalty point ledgers. Customers log in with email OTP (one-time passcodes) — no passwords are ever stored. Deleted accounts cannot be recovered, ensuring complete data removal.'
-  },
-  {
-    id: 'faq-trial',
-    questionKey: 'landing.faq.q8.question',
-    defaultQuestion: 'Can I try it before subscribing?',
-    answerKey: 'landing.faq.q8.answer',
-    defaultAnswer: 'Absolutely. Start with our free plan — it has no time limit and no credit card required. Build your digital menu, generate QR codes, and manage tables at no cost. When you are ready for advanced features like Stripe payments, loyalty programs, analytics, POS, and Kitchen Display, upgrade to a paid plan. You can upgrade or downgrade anytime.'
-  }
-];
-
 const LandingFAQ = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const answerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  const { data: items = [] } = useQuery({
+    queryKey: ['help-content', 'landing', i18n.language],
+    queryFn: () => getHelpContent('landing', i18n.language),
+  });
+
+  const faqGroups = groupBy(
+    items.filter((i) => i.active),
+    'itemKey',
+  );
 
   useEffect(() => {
     answerRefs.current.forEach((el, id) => {
@@ -109,42 +65,46 @@ const LandingFAQ = () => {
 
         {/* FAQ accordion */}
         <div className="space-y-3">
-          {faqItems.map((faq) => {
-            const isExpanded = expandedId === faq.id;
-            return (
-              <div
-                key={faq.id}
-                className="group glass-panel rounded-2xl border border-border/50 hover:border-accent/20 overflow-hidden transition-all duration-300 ease-out motion-safe:hover:shadow-[0_10px_30px_-10px_var(--color-accent)/0.1]"
-              >
-                <button
-                  onClick={() => toggleFaq(faq.id)}
-                  className="w-full flex items-center justify-between gap-4 p-5 md:p-6 text-left font-semibold text-sm md:text-base text-foreground cursor-pointer"
-                  aria-expanded={isExpanded}
-                >
-                  <span className="leading-snug pr-4">{t(faq.questionKey, faq.defaultQuestion)}</span>
-                  <ChevronDown
-                    className={`w-5 h-5 shrink-0 transition-all duration-300 ease-out ${
-                      isExpanded ? 'rotate-180 text-accent' : 'text-muted-foreground'
-                    }`}
-                  />
-                </button>
-
+          {Array.from(faqGroups.entries())
+            .sort(([, a], [, b]) => (a[0]?.sortOrder ?? 0) - (b[0]?.sortOrder ?? 0))
+            .map(([itemKey, localeItems]) => {
+              const item = localeItems[0];
+              if (!item) return null;
+              const isExpanded = expandedId === itemKey;
+              return (
                 <div
-                  ref={(el) => {
-                    if (el) answerRefs.current.set(faq.id, el);
-                  }}
-                  className="overflow-hidden transition-all duration-300 ease-out"
-                  style={{ maxHeight: '0px', opacity: '0' }}
+                  key={itemKey}
+                  className="group glass-panel rounded-2xl border border-border/50 hover:border-accent/20 overflow-hidden transition-all duration-300 ease-out motion-safe:hover:shadow-[0_10px_30px_-10px_var(--color-accent)/0.1]"
                 >
-                  <div className="px-5 md:px-6 pb-5 md:pb-6">
-                    <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
-                      {t(faq.answerKey, faq.defaultAnswer)}
-                    </p>
+                  <button
+                    onClick={() => toggleFaq(itemKey)}
+                    className="w-full flex items-center justify-between gap-4 p-5 md:p-6 text-left font-semibold text-sm md:text-base text-foreground cursor-pointer"
+                    aria-expanded={isExpanded}
+                  >
+                    <span className="leading-snug pr-4">{item.title}</span>
+                    <ChevronDown
+                      className={`w-5 h-5 shrink-0 transition-all duration-300 ease-out ${
+                        isExpanded ? 'rotate-180 text-accent' : 'text-muted-foreground'
+                      }`}
+                    />
+                  </button>
+
+                  <div
+                    ref={(el) => {
+                      if (el) answerRefs.current.set(itemKey, el);
+                    }}
+                    className="overflow-hidden transition-all duration-300 ease-out"
+                    style={{ maxHeight: '0px', opacity: '0' }}
+                  >
+                    <div className="px-5 md:px-6 pb-5 md:pb-6">
+                      <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
+                        {item.body}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
       </div>
     </section>
