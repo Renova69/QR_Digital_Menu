@@ -676,6 +676,43 @@
       "enterpriseFeature8": "Instruire și integrare personal",
       "enterpriseFeature9": "Opțiune white-label",
       "enterpriseFeature10": "Suport telefonic 24/7"
+    },
+    "faq": {
+      "badge": "Aveți întrebări?",
+      "title": "Întrebări frecvente",
+      "subtitle": "Tot ce trebuie să știți înainte de a începe.",
+      "q1": {
+        "question": "Ce este QR Menu și cum funcționează?",
+        "answer": "QR Menu transformă fiecare masă într-o stație digitală de comandă. Clienții scanează un cod QR, navighează prin meniul complet pe telefon, plasează comenzi instantaneu și plătesc cu cardul — totul din browser. Fără descărcare de aplicație, fără înregistrare, fără fricțiuni. Comenzile apar imediat în panoul dvs., pe afișajul de bucătărie și în sistemul POS."
+      },
+      "q2": {
+        "question": "Am nevoie de hardware sau imprimante speciale?",
+        "answer": "Nu este necesar hardware special. QR Menu este complet bazat pe cloud — aveți nevoie doar de o imprimantă standard (inkjet sau laser) pentru a imprima cartonașe QR pe hârtie A4. Oferim trei șabloane de imprimare (Classic, Premium, Minimal) formatate pentru o distribuție curată 2×2. Tabletele pentru POS și afișajul de bucătărie sunt opționale. Cel mai bun lucru: codurile QR nu se schimbă niciodată — actualizați meniul, prețurile sau articolele fără a reimprima."
+      },
+      "q3": {
+        "question": "Cât costă? Există taxe ascunse?",
+        "answer": "Planurile încep de la 29€/lună (Starter), 79€/lună (Pro) și 199€/lună (Enterprise). Nu există comisioane pe comandă și nici taxe de platformă ascunse. Taxele de procesare a cardurilor Stripe (1,4% + 0,25€ per tranzacție UE) sunt standard și ajung direct la Stripe, nu la noi. Toate planurile sunt facturate lunar, fără contracte pe termen lung — anulați oricând din portalul de Facturare."
+      },
+      "q4": {
+        "question": "Cât de repede pot deveni operațional?",
+        "answer": "Majoritatea restaurantelor devin operaționale în aceeași zi. Configurarea durează sub 30 de minute: creați profilul restaurantului, adăugați mesele, construiți meniul (sau importați dintr-un fișier existent) și imprimați codurile QR. Fără abilități tehnice, fără programare, fără integrări. Dacă aveți deja un meniu digital, echipa noastră îl poate converti gratuit."
+      },
+      "q5": {
+        "question": "Cum funcționează plățile la masă și bacșișul?",
+        "answer": "Clienții apasă „Solicită nota\" pe telefon, văd nota detaliată, selectează un procent de bacșiș (dvs. setați opțiunile — de ex. 5%, 10%, 15%) și plătesc sigur cu cardul prin Stripe Connect. Plata se procesează în secunde și panoul dvs. se actualizează instantaneu. Clienții pot împărți nota între până la 20 de persoane. Chelnerii pot închide mesele cu plată cu cardul și prin POS."
+      },
+      "q6": {
+        "question": "Ce limbi suportă meniul?",
+        "answer": "Meniul dvs. se traduce automat în engleză, bulgară și română prin DeepL — motorul de traducere neurală de top din industrie. Adăugați limbile țintă în Setări, iar articolele noi se traduc automat. Folosiți „Tradu tot acum\" pentru a traduce întregul meniu existent dintr-o dată. Clienții văd meniul în limba browserului lor fără a schimba setări."
+      },
+      "q7": {
+        "question": "Ce se întâmplă cu confidențialitatea datelor clienților și GDPR?",
+        "answer": "QR Menu este complet conform cu GDPR. Oferim bannere de consimțământ pentru cookie-uri pe pagina publică a meniului, generăm automat paginile /privacy și /terms și includem un buton „Dreptul la ștergere\" cu un singur clic care șterge definitiv e-mailurile clienților, istoricul tranzacțiilor și punctele de loialitate. Clienții se autentifică cu OTP prin e-mail (coduri unice) — parolele nu sunt niciodată stocate. Conturile șterse nu pot fi recuperate."
+      },
+      "q8": {
+        "question": "Pot să-l încerc înainte de a mă abona?",
+        "answer": "Absolut. Începeți cu planul nostru gratuit — nu are limită de timp și nu necesită card de credit. Construiți meniul digital, generați coduri QR și gestionați mesele gratuit. Când sunteți pregătit pentru funcții avansate precum plăți Stripe, program de loialitate, analize, POS și afișaj de bucătărie, faceți upgrade la un plan plătit. Puteți face upgrade sau downgrade oricând."
+      }
     }
   },
   "payments": {
