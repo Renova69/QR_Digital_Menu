@@ -670,6 +670,43 @@
       "enterpriseFeature8": "Staff training & onboarding",
       "enterpriseFeature9": "White-label option",
       "enterpriseFeature10": "24/7 phone support"
+    },
+    "faq": {
+      "badge": "Got Questions?",
+      "title": "Frequently Asked Questions",
+      "subtitle": "Everything you need to know before getting started.",
+      "q1": {
+        "question": "What is QR Menu and how does it work?",
+        "answer": "QR Menu turns every table into a digital ordering station. Customers scan a QR code, browse your full menu on their phone, place orders instantly, and pay by card — all from their browser. No app download, no account sign-up, no friction. Orders appear immediately in your dashboard, on the Kitchen Display, and in the Waiter POS."
+      },
+      "q2": {
+        "question": "Do I need special hardware or printers?",
+        "answer": "No special hardware required. QR Menu is fully cloud-based — you only need a standard printer (any inkjet or laser) to print QR code cards on A4 paper. We provide three print templates (Classic, Premium, Minimal) formatted for clean 2×2 grid layouts. Tablets for Waiter POS and Kitchen Display are optional. Best part: your QR codes never change — update your menu, prices, or items anytime without reprinting."
+      },
+      "q3": {
+        "question": "How much does it cost? Are there hidden fees?",
+        "answer": "Plans start at €29/month (Starter), €79/month (Pro), and €199/month (Enterprise). There are no per-order commissions and no hidden platform fees. Stripe card processing fees (1.4% + €0.25 per EU transaction) are standard and go directly to Stripe, not us. All plans are billed monthly with no lock-in contracts — cancel anytime from the Billing portal."
+      },
+      "q4": {
+        "question": "How quickly can I go live?",
+        "answer": "Most restaurants go live the same day. The setup takes under 30 minutes: create your restaurant profile, add your tables, build your menu (or import from an existing file), and print QR codes. No technical skills, no coding, no integration work needed. If you have an existing digital menu, our team can convert it for free."
+      },
+      "q5": {
+        "question": "How do tableside payments and tipping work?",
+        "answer": "Customers tap \"Request Bill\" on their phone to see an itemized bill, select a tip percentage (you set the options — e.g., 5%, 10%, 15%), and pay securely by card via Stripe Connect. The payment processes in seconds and your dashboard updates instantly. Customers can also split the bill between up to 20 people. Waiters can close tables with card payments through the POS as well."
+      },
+      "q6": {
+        "question": "Which languages does the menu support?",
+        "answer": "Your menu auto-translates to English, Bulgarian, and Romanian via DeepL — the industry-leading neural machine translation engine. Add target languages in Settings, and new menu items translate automatically. Use \"Translate All Now\" to batch-translate your entire existing menu. Customers see the menu in their browser language without changing any settings."
+      },
+      "q7": {
+        "question": "What about customer data privacy and GDPR?",
+        "answer": "QR Menu is fully GDPR-compliant. We provide cookie consent banners for your public menu page, auto-generate /privacy and /terms routes, and include a one-click \"Right to Erasure\" button that permanently deletes customer emails, transaction history, and loyalty point ledgers. Customers log in with email OTP (one-time passcodes) — no passwords are ever stored. Deleted accounts cannot be recovered, ensuring complete data removal."
+      },
+      "q8": {
+        "question": "Can I try it before subscribing?",
+        "answer": "Absolutely. Start with our free plan — it has no time limit and no credit card required. Build your digital menu, generate QR codes, and manage tables at no cost. When you are ready for advanced features like Stripe payments, loyalty programs, analytics, POS, and Kitchen Display, upgrade to a paid plan. You can upgrade or downgrade anytime."
+      }
     }
   },
   "payments": {
