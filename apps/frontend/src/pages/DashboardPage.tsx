@@ -110,7 +110,6 @@ const DashboardPage = () => {
     { id: 'tables'     as TabId, Icon: Table2,           label: t('dashboard.tabs.tables'),      show: true },
     { id: 'settings'   as TabId, Icon: Settings,         label: t('dashboard.tabs.settings'),    show: true },
     { id: 'import'     as TabId, Icon: Upload,           label: t('dashboard.tabs.importExport'),show: canImport },
-    { id: 'help'       as TabId, Icon: HelpCircle,       label: t('dashboard.tabs.help'),        show: true },
   ];
 
   return (
@@ -219,6 +218,13 @@ const DashboardPage = () => {
                     <span className="truncate">{t('dashboard.tabs.kitchen')}</span>
                   </Link>
                 )}
+                <Link
+                  to="/dashboard?tab=help"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent transition-all duration-150"
+                >
+                  <HelpCircle className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{t('dashboard.tabs.help')}</span>
+                </Link>
               </div>
             </aside>
 
