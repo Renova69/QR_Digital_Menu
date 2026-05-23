@@ -24,7 +24,7 @@ i18n
   .init({
     resources,
     fallbackLng: 'bg',
-    namespaceSeparator: false,
+    nsSeparator: false,
     interpolation: {
       escapeValue: false, // React already safeguards from xss
     },
