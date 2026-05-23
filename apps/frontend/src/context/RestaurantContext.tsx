@@ -36,6 +36,9 @@ interface Restaurant {
   forceTier?: 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE' | null;
   tierUpdatedAt?: string;
   stripeSubscriptionId?: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
+  tiktokUrl?: string;
 }
 
 interface RestaurantContextType {

@@ -28,6 +28,9 @@ interface Restaurant {
   happyHourStartTime?: string;
   happyHourEndTime?: string;
   happyHourMultiplier?: number;
+  facebookUrl?: string;
+  instagramUrl?: string;
+  tiktokUrl?: string;
 }
 
 export const getRestaurants = async (): Promise<Restaurant[]> => {
