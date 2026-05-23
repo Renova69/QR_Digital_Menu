@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback, useContext } from 'react';
 import { Upload, Key, RefreshCw, Eye, EyeOff, Copy, Check, AlertTriangle, FileJson, FileText, Trash2, Download, Loader2 } from 'lucide-react';
+import writeXlsxFile from 'write-excel-file/browser';
+import { readSheet as readXlsxSheet } from 'read-excel-file/browser';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import RestaurantContext from '../../context/RestaurantContext';
@@ -111,6 +113,51 @@ function jsonToPayload(text: string): any[] {
       ...(cat.translations ? { translations: cat.translations } : {}),
     };
   });
+}
+
+// XLSX export column order: Category, Item Name, Description, Price, Weight, Currency, Tags, Variants
+async function xlsxToPayload(file: File): Promise<any[]> {
+  const rows = (await readXlsxSheet(file)) as unknown as any[][];
+  if (rows.length < 2) throw new Error('XLSX has no data rows');
+
+  const headers = rows[0].map((h: any) => String(h ?? '').trim().toLowerCase().replace(/\s+/g, '_'));
+
+  const col = (name: string) => headers.indexOf(name);
+  const catIdx       = col('category');
+  const nameIdx      = col('item_name');
+  const descIdx      = col('description');
+  const priceIdx     = col('price');
+  const weightIdx    = col('weight');
+  const currencyIdx  = col('currency');
+  const tagsIdx      = col('tags');
+  const variantsIdx  = col('variants');
+
+  if (catIdx === -1 || nameIdx === -1) throw new Error('XLSX missing required columns: category, item_name');
+
+  const catMap = new Map<string, any[]>();
+  for (const row of rows.slice(1)) {
+    const catName = String(row[catIdx] ?? '').trim();
+    if (!catName) continue;
+    if (!catMap.has(catName)) catMap.set(catName, []);
+
+    const rawTags = tagsIdx >= 0 && row[tagsIdx]
+      ? String(row[tagsIdx]).split(',').map((t: string) => t.trim()).filter(Boolean)
+      : [];
+    const { allergens, dietaryTags } = splitTags(rawTags);
+    const variants = variantsIdx >= 0 ? parseVariants(String(row[variantsIdx] ?? '')) : [];
+
+    catMap.get(catName)!.push({
+      name: String(row[nameIdx] ?? '').trim(),
+      description: descIdx >= 0 ? String(row[descIdx] ?? '').trim() : '',
+      price: priceIdx >= 0 ? (typeof row[priceIdx] === 'number' ? row[priceIdx] : parseFloat(String(row[priceIdx])) || 0) : 0,
+      weight: weightIdx >= 0 && row[weightIdx] ? String(row[weightIdx]) : null,
+      currency: currencyIdx >= 0 && row[currencyIdx] ? String(row[currencyIdx]) : 'BGN',
+      allergens,
+      dietaryTags,
+      options: variants.length ? [{ name: 'Size / Variant', type: 'VARIATION', choices: variants }] : [],
+    });
+  }
+  return Array.from(catMap.entries()).map(([name, items], i) => ({ name, order: i + 1, items }));
 }
 
 // ── API Key Panel ──────────────────────────────────────────────────────────────
@@ -245,8 +292,19 @@ function FileImporter({ onParsed }: { onParsed: (m: ParsedMenu | null) => void }
 
   const processFile = useCallback((file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase();
-    if (ext !== 'json' && ext !== 'csv') {
-      onParsed({ categories: [], filename: file.name, format: 'json', totalItems: 0, error: 'Only .json and .csv files are supported' });
+    if (ext !== 'json' && ext !== 'csv' && ext !== 'xlsx') {
+      onParsed({ categories: [], filename: file.name, format: 'json', totalItems: 0, error: 'Only .json, .csv, and .xlsx files are supported' });
+      return;
+    }
+    if (ext === 'xlsx') {
+      xlsxToPayload(file)
+        .then((categories) => {
+          const totalItems = categories.reduce((s: number, c: any) => s + (c.items?.length || 0), 0);
+          onParsed({ categories, filename: file.name, format: 'json', totalItems });
+        })
+        .catch((err: any) => {
+          onParsed({ categories: [], filename: file.name, format: 'json', totalItems: 0, error: err.message });
+        });
       return;
     }
     const reader = new FileReader();
@@ -280,12 +338,12 @@ function FileImporter({ onParsed }: { onParsed: (m: ParsedMenu | null) => void }
         dragging ? 'border-accent bg-accent/5' : 'border-border/40 hover:border-accent/50 hover:bg-secondary/30'
       }`}
     >
-      <input ref={inputRef} type="file" accept=".json,.csv" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) processFile(f); }} />
+      <input ref={inputRef} type="file" accept=".json,.csv,.xlsx" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) processFile(f); }} />
       <div className="flex flex-col items-center gap-3">
         <Upload className={`w-8 h-8 transition-colors ${dragging ? 'text-accent' : 'text-muted-foreground'}`} />
         <div>
           <p className="font-bold text-sm text-foreground">{t('importExport.dropFileHere', 'Drop file here or click to browse')}</p>
-          <p className="text-xs text-muted-foreground mt-1">{t('importExport.acceptsFormats', 'Accepts')} <code className="bg-secondary px-1 rounded">.json</code> {t('common.and', 'and')} <code className="bg-secondary px-1 rounded">.csv</code></p>
+          <p className="text-xs text-muted-foreground mt-1">{t('importExport.acceptsFormats', 'Accepts')} <code className="bg-secondary px-1 rounded">.json</code> <code className="bg-secondary px-1 rounded">.csv</code> <code className="bg-secondary px-1 rounded">.xlsx</code></p>
         </div>
         <div className="flex gap-4 mt-2">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -295,6 +353,10 @@ function FileImporter({ onParsed }: { onParsed: (m: ParsedMenu | null) => void }
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <FileText className="w-3.5 h-3.5" />
             <span>{t('importExport.csvFlatExport', 'CSV flat export')}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <FileText className="w-3.5 h-3.5 text-green-500" />
+            <span>{t('importExport.xlsxImport', 'XLSX (exported menu)')}</span>
           </div>
         </div>
       </div>
@@ -453,25 +515,44 @@ function ImportTab({ restaurantId }: { restaurantId: string }) {
 
 // ── Export Tab ─────────────────────────────────────────────────────────────────
 
-function menuToCSV(data: { restaurantId: string; categories: any[] }): string {
-  const rows: string[] = ['category,item_name,description,price,weight,currency,tags,variants'];
+async function downloadMenuXLSX(data: { restaurantId: string; categories: any[] }, restaurantId: string) {
+  const h = (value: string) => ({
+    value, fontWeight: 'bold' as const, backgroundColor: '#1e3a5f', textColor: '#ffffff',
+  });
+
+  const rows: any[][] = [[
+    h('Category'), h('Item Name'), h('Description'), h('Price'),
+    h('Weight'), h('Currency'), h('Tags'), h('Variants'),
+  ]];
+
   for (const cat of data.categories) {
     for (const item of cat.items || []) {
-      const tags = [...(item.allergens || []), ...(item.dietaryTags || [])].join(',');
-      const variants = (item.options?.[0]?.choices || []).map((v: any) => `${v.name}:${v.price}${v.weight ? `:${v.weight}` : ''}`).join(';');
-      const escape = (s: string) => s ? `"${s.replace(/"/g, '""')}"` : '';
+      const tags = [...(item.allergens || []), ...(item.dietaryTags || [])].join(', ');
+      const variants = (item.options?.[0]?.choices || [])
+        .map((v: any) => `${v.name}:${v.priceModifier ?? v.price}${v.weight ? `:${v.weight}` : ''}`)
+        .join('; ');
       rows.push([
-        escape(cat.name),
-        escape(item.name),
-        item.price,
-        item.weight || '',
-        item.currency || 'BGN',
-        tags,
-        variants,
-      ].join(','));
+        { value: cat.name },
+        { value: item.name },
+        { value: item.description || '' },
+        { value: item.price ?? 0, type: Number },
+        { value: item.weight || '' },
+        { value: item.currency || 'BGN' },
+        { value: tags },
+        { value: variants },
+      ]);
     }
   }
-  return rows.join('\n');
+
+  const wb = writeXlsxFile([{
+    sheet: 'Menu',
+    columns: [
+      { width: 20 }, { width: 30 }, { width: 45 }, { width: 10 },
+      { width: 12 }, { width: 10 }, { width: 30 }, { width: 40 },
+    ],
+    data: rows,
+  }]);
+  await wb.toFile(`menu-export-${restaurantId}.xlsx`);
 }
 
 function ExportTab({ restaurantId }: { restaurantId: string }) {
@@ -495,21 +576,14 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
     URL.revokeObjectURL(url);
   }, [restaurantId]);
 
-  const downloadCSV = useCallback((exportData: any) => {
-    const csv = menuToCSV(exportData);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `menu-export-${restaurantId}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [restaurantId]);
-
   const copyJSON = async (exportData: any) => {
-    await navigator.clipboard.writeText(JSON.stringify(exportData, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(exportData, null, 2));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard unavailable in this context
+    }
   };
 
   const handleExport = async () => {
@@ -519,17 +593,17 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
     }
   };
 
-  const handleExportCSV = async () => {
+  const handleExportXLSX = async () => {
     const result = await refetch();
     if (result.data) {
-      downloadCSV(result.data);
+      await downloadMenuXLSX(result.data, restaurantId);
     }
   };
 
   const handleCopyJSON = async () => {
     const result = await refetch();
     if (result.data) {
-      copyJSON(result.data);
+      await copyJSON(result.data);
     }
   };
 
@@ -560,12 +634,12 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
             {t('importExport.downloadJson', 'Download JSON')}
           </button>
           <button
-            onClick={handleExportCSV}
+            onClick={handleExportXLSX}
             disabled={isLoading}
             className="flex items-center gap-2 px-6 py-3 rounded-xl border border-border/40 text-sm font-black uppercase tracking-widest transition-all hover:bg-secondary/60 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-            {t('importExport.downloadCsv', 'Download CSV')}
+            {t('importExport.downloadXlsx', 'Download XLSX')}
           </button>
           <button
             onClick={handleCopyJSON}
@@ -614,10 +688,10 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
           <div className="rounded-xl bg-secondary/40 p-4 space-y-2">
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-accent" />
-              <span className="font-bold text-xs text-foreground">{t('importExport.csvFormat', 'CSV (flat export)')}</span>
+              <span className="font-bold text-xs text-foreground">{t('importExport.xlsxFormat', 'XLSX (styled spreadsheet)')}</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {t('importExport.csvFormatDesc', 'Flat spreadsheet format: one row per item. Compatible with Excel, Google Sheets, and the OCR tool\'s CSV import path.')}
+              {t('importExport.xlsxFormatDesc', 'Excel spreadsheet with styled headers, proper column widths, and correct encoding for all languages including Cyrillic.')}
             </p>
           </div>
         </div>

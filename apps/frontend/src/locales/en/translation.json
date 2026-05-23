@@ -1160,6 +1160,7 @@
     "exportMenuDesc": "Download your full menu as JSON or CSV for backup, cross-location cloning, or offline editing.",
     "downloadJson": "Download JSON",
     "downloadCsv": "Download CSV",
+    "downloadXlsx": "Download XLSX",
     "copyJson": "Copy JSON",
     "menuReady": "Menu ready: {{catCount}} {{catLabel}} · {{itemCount}} {{itemLabel}}",
     "fetchFailed": "Failed to fetch menu data",
@@ -1167,6 +1168,9 @@
     "jsonFormat": "JSON (round-trip safe)",
     "jsonFormatDesc": "Full export with all metadata: translations, options, images, availability. Safe to re-import via the Import tab or OCR tool.",
     "csvFormat": "CSV (flat export)",
-    "csvFormatDesc": "Flat spreadsheet format: one row per item. Compatible with Excel, Google Sheets, and the OCR tool's CSV import path."
+    "csvFormatDesc": "Flat spreadsheet format: one row per item. Compatible with Excel, Google Sheets, and the OCR tool's CSV import path.",
+    "xlsxFormat": "XLSX (styled spreadsheet)",
+    "xlsxFormatDesc": "Excel spreadsheet with styled headers, proper column widths, and correct encoding for all languages including Cyrillic.",
+    "xlsxImport": "XLSX (exported menu)"
   }
 }

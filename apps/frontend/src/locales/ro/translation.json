@@ -1164,6 +1164,7 @@
       "exportMenuDesc": "Descărcați meniul complet ca JSON sau CSV pentru arhivare, clonare sau editare offline.",
       "downloadJson": "Descarcă JSON",
       "downloadCsv": "Descarcă CSV",
+      "downloadXlsx": "Descarcă XLSX",
       "copyJson": "Copiază JSON",
       "menuReady": "Meniu gata: {{catCount}} {{catLabel}} · {{itemCount}} {{itemLabel}}",
       "fetchFailed": "Eroare la încărcarea datelor meniului",
@@ -1171,6 +1172,9 @@
       "jsonFormat": "JSON (ciclu complet)",
       "jsonFormatDesc": "Export complet cu toate metadatele: traduceri, opțiuni, imagini, disponibilitate. Poate fi reimportat.",
       "csvFormat": "CSV (export plat)",
-      "csvFormatDesc": "Format foaie de calcul plată: un rând per articol. Compatibil cu Excel, Google Sheets și calea de import CSV a instrumentului OCR."
+      "csvFormatDesc": "Format foaie de calcul plată: un rând per articol. Compatibil cu Excel, Google Sheets și calea de import CSV a instrumentului OCR.",
+      "xlsxFormat": "XLSX (foaie de calcul stilizată)",
+      "xlsxFormatDesc": "Foaie de calcul Excel cu anteturi stilizate, lățimi de coloane corecte și codificare corectă pentru toate limbile inclusiv chirilic.",
+      "xlsxImport": "XLSX (meniu exportat)"
     }
 }

@@ -1164,6 +1164,7 @@
       "exportMenuDesc": "Изтеглете пълното меню като JSON или CSV за архив, клониране или offline редактиране.",
       "downloadJson": "Изтегли JSON",
       "downloadCsv": "Изтегли CSV",
+      "downloadXlsx": "Изтегли XLSX",
       "copyJson": "Копирай JSON",
       "menuReady": "Менюто е готово: {{catCount}} {{catLabel}} · {{itemCount}} {{itemLabel}}",
       "fetchFailed": "Грешка при зареждане на данните",
@@ -1171,6 +1172,9 @@
       "jsonFormat": "JSON (пълен цикъл)",
       "jsonFormatDesc": "Пълен експорт с всички метаданни: преводи, опции, изображения, наличност. Може да се импортира повторно.",
       "csvFormat": "CSV (плосък експорт)",
-      "csvFormatDesc": "Плосък формат: по един ред на артикул. Съвместим с Excel, Google Sheets и OCR инструмента."
+      "csvFormatDesc": "Плосък формат: по един ред на артикул. Съвместим с Excel, Google Sheets и OCR инструмента.",
+      "xlsxFormat": "XLSX (форматирана таблица)",
+      "xlsxFormatDesc": "Excel таблица с форматирани заглавия, правилни ширини на колоните и коректно кодиране за всички езици включително кирилица.",
+      "xlsxImport": "XLSX (експортирано меню)"
     }
 }
