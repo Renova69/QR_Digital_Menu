@@ -57,7 +57,7 @@ const SummaryView = ({ onViewAnalytics, onViewHelp }: SummaryViewProps) => {
             {t('summary.statusSnapshot')}
           </p>
         </div>
-        {onViewAnalytics && (
+        {onViewAnalytics && !isFree && (
           <button
             onClick={onViewAnalytics}
             className="text-[10px] font-black uppercase tracking-[0.2em] text-accent hover:text-accent/80 flex items-center gap-2 transition-all hover:gap-3 px-4 py-2 bg-accent/5 rounded-xl border border-accent/10"
@@ -67,7 +67,8 @@ const SummaryView = ({ onViewAnalytics, onViewHelp }: SummaryViewProps) => {
           </button>
         )}
       </div>
-      <div className={`grid grid-cols-1 gap-8 ${isFree ? '' : 'md:grid-cols-3'}`}>
+      {!isFree && (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="glass-panel p-8 rounded-[2.5rem] border-white/5 group hover:shadow-[0_20px_50px_-15px_hsla(var(--color-accent),0.2)] transition-all duration-500">
           <div className="flex items-center justify-between mb-6">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
@@ -83,7 +84,6 @@ const SummaryView = ({ onViewAnalytics, onViewHelp }: SummaryViewProps) => {
           <div className="mt-4 h-1 w-12 bg-accent/20 rounded-full group-hover:w-full transition-all duration-700"></div>
         </div>
 
-        {!isFree && (
         <div className="glass-panel p-8 rounded-[2.5rem] border-white/5 group hover:shadow-[0_20px_50px_-15px_rgba(59,130,246,0.2)] transition-all duration-500">
           <div className="flex items-center justify-between mb-6">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
@@ -98,9 +98,7 @@ const SummaryView = ({ onViewAnalytics, onViewHelp }: SummaryViewProps) => {
           </p>
           <div className="mt-4 h-1 w-12 bg-blue-500/20 rounded-full group-hover:w-full transition-all duration-700"></div>
         </div>
-        )}
 
-        {!isFree && (
         <div className="glass-panel p-8 rounded-[2.5rem] border-white/5 group hover:shadow-[0_20px_50px_-15px_rgba(249,115,22,0.2)] transition-all duration-500">
           <div className="flex items-center justify-between mb-6">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
@@ -115,8 +113,8 @@ const SummaryView = ({ onViewAnalytics, onViewHelp }: SummaryViewProps) => {
           </p>
           <div className="mt-4 h-1 w-12 bg-orange-500/20 rounded-full group-hover:w-full transition-all duration-700"></div>
         </div>
-        )}
       </div>
+      )}
 
       {loyaltyData && activeRestaurant?.isLoyaltyEnabled && (
         <div className="mt-8">
