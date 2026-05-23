@@ -1,6 +1,6 @@
 import { useState, useRef, useContext, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { type LucideIcon, LayoutDashboard, ShoppingBag, Bell, Table2, Settings, BarChart2, CreditCard, ChefHat, Monitor, Upload, Utensils, HelpCircle } from 'lucide-react';
+import { type LucideIcon, LayoutDashboard, ShoppingBag, Bell, Table2, Settings, BarChart2, CreditCard, ChefHat, Monitor, Upload, Utensils, HelpCircle, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrderContext';
 import { useAssistance } from '../context/AssistanceContext';
@@ -21,7 +21,8 @@ import NotificationBell from '../components/NotificationBell';
 import PaymentToast from '../components/PaymentToast';
 import { NotificationProvider } from '../context/NotificationContext';
 import SubscriptionBanner from '../components/subscription/SubscriptionBanner';
-import { useFeature } from '../hooks/useFeature';
+import UpgradeModal from '../components/subscription/UpgradeModal';
+import { useFeature, type FeatureFlag } from '../hooks/useFeature';
 
 type TabId = 'summary' | 'analytics' | 'orders' | 'payments' | 'assistance' | 'tables' | 'settings' | 'import' | 'help';
 
@@ -42,6 +43,7 @@ const DashboardPage = () => {
   const { requests } = useAssistance();
   const { activeRestaurant, restaurants, loading: restaurantsLoading, error: restaurantsError }: any = useContext(RestaurantContext);
   const [activeTab, setActiveTab] = useState<TabId>('summary');
+  const [lockedFeatureClicked, setLockedFeatureClicked] = useState<FeatureFlag | null>(null);
   const [searchParams] = useSearchParams();
   const tabFromParamApplied = useRef(false);
 
@@ -101,15 +103,22 @@ const DashboardPage = () => {
     );
   }
 
-  const desktopNavItems = [
-    { id: 'summary'    as TabId, Icon: LayoutDashboard, label: t('dashboard.tabs.summary'),     show: true },
-    { id: 'analytics'  as TabId, Icon: BarChart2,        label: t('dashboard.tabs.analytics'),   show: canAnalytics },
-    { id: 'orders'     as TabId, Icon: ShoppingBag,      label: t('dashboard.tabs.orders'),      show: canOrders },
-    { id: 'payments'   as TabId, Icon: CreditCard,       label: t('dashboard.tabs.payments'),    show: canPayments && paymentsEnabled },
-    { id: 'assistance' as TabId, Icon: Bell,             label: t('dashboard.tabs.assistance'),  show: canAssistance },
-    { id: 'tables'     as TabId, Icon: Table2,           label: t('dashboard.tabs.tables'),      show: true },
-    { id: 'settings'   as TabId, Icon: Settings,         label: t('dashboard.tabs.settings'),    show: true },
-    { id: 'import'     as TabId, Icon: Upload,           label: t('dashboard.tabs.importExport'),show: canImport },
+  const desktopNavItems: Array<{
+    id: TabId;
+    Icon: LucideIcon;
+    label: string;
+    feature: FeatureFlag | null;
+    locked: boolean;
+    hidden?: boolean;
+  }> = [
+    { id: 'summary'    as TabId, Icon: LayoutDashboard, label: t('dashboard.tabs.summary'),      feature: null,                 locked: false },
+    { id: 'analytics'  as TabId, Icon: BarChart2,        label: t('dashboard.tabs.analytics'),    feature: 'analytics:full',     locked: !canAnalytics },
+    { id: 'orders'     as TabId, Icon: ShoppingBag,      label: t('dashboard.tabs.orders'),       feature: 'orders:receive',     locked: !canOrders },
+    { id: 'payments'   as TabId, Icon: CreditCard,       label: t('dashboard.tabs.payments'),     feature: 'payments:stripe',    locked: !canPayments, hidden: !paymentsEnabled },
+    { id: 'assistance' as TabId, Icon: Bell,             label: t('dashboard.tabs.assistance'),   feature: 'orders:call-waiter', locked: !canAssistance },
+    { id: 'tables'     as TabId, Icon: Table2,           label: t('dashboard.tabs.tables'),       feature: null,                 locked: false },
+    { id: 'settings'   as TabId, Icon: Settings,         label: t('dashboard.tabs.settings'),     feature: null,                 locked: false },
+    { id: 'import'     as TabId, Icon: Upload,           label: t('dashboard.tabs.importExport'), feature: null,                 locked: false },
   ];
 
   return (
@@ -165,27 +174,31 @@ const DashboardPage = () => {
             {/* ── Desktop sidebar nav (hidden on mobile) ── */}
             <aside className="hidden md:flex flex-col w-56 shrink-0 border-r border-border/50 py-6 px-3 relative z-10">
               <nav className="flex-1 space-y-0.5" aria-label={t('dashboard.title')}>
-                {desktopNavItems.filter(item => item.show).map(({ id, Icon, label }) => {
+                {desktopNavItems.map(({ id, Icon, label, feature, locked, hidden }) => {
+                  if (hidden) return null;
                   const badge = getBadge(id);
-                  const isActive = activeTab === id;
+                  const isActive = !locked && activeTab === id;
                   return (
                     <button
                       key={id}
-                      onClick={() => setActiveTab(id)}
+                      onClick={() => locked ? (feature && setLockedFeatureClicked(feature)) : setActiveTab(id)}
                       aria-current={isActive ? 'page' : undefined}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 border cursor-pointer ${
-                        isActive
+                        locked
+                          ? 'text-muted-foreground/50 border-transparent hover:bg-secondary/30'
+                          : isActive
                           ? 'bg-accent/10 text-accent border-accent/20'
                           : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground border-transparent'
                       }`}
                     >
                       <Icon className="w-4 h-4 shrink-0" />
                       <span className="flex-1 text-left truncate">{label}</span>
-                      {badge > 0 && (
+                      {!locked && badge > 0 && (
                         <span className="bg-accent text-accent-foreground text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 shadow-sm shadow-accent/20">
                           {badge > 9 ? '9+' : badge}
                         </span>
                       )}
+                      {locked && <Lock className="w-3.5 h-3.5 shrink-0 opacity-40" />}
                     </button>
                   );
                 })}
@@ -200,23 +213,41 @@ const DashboardPage = () => {
                   <Utensils className="w-4 h-4 shrink-0" />
                   <span className="truncate">{t('dashboard.tabs.menuEditor')}</span>
                 </Link>
-                {canPos && (
+                {canPos ? (
                   <Link
                     to="/staff/pos"
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent transition-all duration-150"
                   >
                     <Monitor className="w-4 h-4 shrink-0" />
-                    <span className="truncate">{t('dashboard.tabs.pos')}</span>
+                    <span className="flex-1 truncate">{t('dashboard.tabs.pos')}</span>
                   </Link>
+                ) : (
+                  <button
+                    onClick={() => setLockedFeatureClicked('pos')}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground/50 hover:bg-secondary/30 border border-transparent transition-all duration-150 cursor-pointer"
+                  >
+                    <Monitor className="w-4 h-4 shrink-0" />
+                    <span className="flex-1 truncate">{t('dashboard.tabs.pos')}</span>
+                    <Lock className="w-3.5 h-3.5 shrink-0 opacity-40" />
+                  </button>
                 )}
-                {canKds && (
+                {canKds ? (
                   <Link
                     to="/staff/kitchen"
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent transition-all duration-150"
                   >
                     <ChefHat className="w-4 h-4 shrink-0" />
-                    <span className="truncate">{t('dashboard.tabs.kitchen')}</span>
+                    <span className="flex-1 truncate">{t('dashboard.tabs.kitchen')}</span>
                   </Link>
+                ) : (
+                  <button
+                    onClick={() => setLockedFeatureClicked('kds')}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground/50 hover:bg-secondary/30 border border-transparent transition-all duration-150 cursor-pointer"
+                  >
+                    <ChefHat className="w-4 h-4 shrink-0" />
+                    <span className="flex-1 truncate">{t('dashboard.tabs.kitchen')}</span>
+                    <Lock className="w-3.5 h-3.5 shrink-0 opacity-40" />
+                  </button>
                 )}
                 <Link
                   to="/dashboard?tab=help"
@@ -250,13 +281,13 @@ const DashboardPage = () => {
               <div>
                 {activeTab === 'summary' && activeRestaurant && (
                   <div className="space-y-8 md:space-y-12">
-                    <SummaryView 
-                      onViewAnalytics={() => setActiveTab('analytics')} 
-                      onViewHelp={() => setActiveTab('help')} 
+                    <SummaryView
+                      onViewAnalytics={canAnalytics ? () => setActiveTab('analytics') : undefined}
+                      onViewHelp={() => setActiveTab('help')}
                     />
                   </div>
                 )}
-                {activeTab === 'analytics' && activeRestaurant && <AnalyticsView />}
+                {activeTab === 'analytics' && activeRestaurant && canAnalytics && <AnalyticsView />}
                 {activeTab === 'orders' && <OrdersView />}
                 {activeTab === 'payments' && activeRestaurant && paymentsEnabled && <PaymentsView />}
                 {activeTab === 'assistance' && <AssistanceView />}
@@ -269,6 +300,7 @@ const DashboardPage = () => {
           </div>
 
           <PaymentToast />
+          <UpgradeModal feature={lockedFeatureClicked} onClose={() => setLockedFeatureClicked(null)} />
         </NotificationProvider>
       ) : (
         <div className="glass-panel p-20 text-center rounded-[3rem]">
@@ -286,20 +318,22 @@ const DashboardPage = () => {
           style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         >
           <div className="flex items-stretch h-16">
-            {BOTTOM_NAV_TABS.filter(tab => {
-              if (tab.id === 'orders')     return canOrders;
-              if (tab.id === 'payments')   return canPayments && paymentsEnabled;
-              if (tab.id === 'assistance') return canAssistance;
-              return true;
-            }).map(({ id, Icon, labelKey }) => {
+            {BOTTOM_NAV_TABS.filter(tab => !(tab.id === 'payments' && !paymentsEnabled)).map(({ id, Icon, labelKey }) => {
+              const mobileFeatureMap: Partial<Record<TabId, FeatureFlag>> = {
+                orders: 'orders:receive',
+                payments: 'payments:stripe',
+                assistance: 'orders:call-waiter',
+              };
+              const tabFeature = mobileFeatureMap[id] ?? null;
+              const isLocked = (id === 'orders' && !canOrders) || (id === 'payments' && !canPayments) || (id === 'assistance' && !canAssistance);
               const badge = getBadge(id);
-              const isActive = activeTab === id;
+              const isActive = !isLocked && activeTab === id;
               return (
                 <button
                   key={id}
-                  onClick={() => setActiveTab(id)}
+                  onClick={() => isLocked ? (tabFeature && setLockedFeatureClicked(tabFeature)) : setActiveTab(id)}
                   className={`flex-1 flex flex-col items-center justify-center gap-0.5 relative transition-colors active:scale-95 ${
-                    isActive ? 'text-accent' : 'text-muted-foreground'
+                    isLocked ? 'text-muted-foreground/40' : isActive ? 'text-accent' : 'text-muted-foreground'
                   }`}
                   aria-current={isActive ? 'page' : undefined}
                 >
@@ -308,11 +342,12 @@ const DashboardPage = () => {
                   )}
                   <div className="relative">
                     <Icon className="w-[22px] h-[22px]" />
-                    {badge > 0 && (
+                    {!isLocked && badge > 0 && (
                       <span className="absolute -top-1.5 -right-2 bg-accent text-accent-foreground text-[9px] font-black min-w-[16px] h-4 rounded-full flex items-center justify-center px-0.5 shadow-lg shadow-accent/30">
                         {badge > 9 ? '9+' : badge}
                       </span>
                     )}
+                    {isLocked && <Lock className="absolute -bottom-1 -right-1 w-3 h-3 opacity-60" />}
                   </div>
                   <span className="text-[9px] font-bold uppercase tracking-wide leading-none">
                     {t(labelKey)}
@@ -321,24 +356,27 @@ const DashboardPage = () => {
               );
             })}
 
-            {/* Analytics shortcut — icon only */}
-            {canAnalytics && (
-              <button
-                onClick={() => setActiveTab('analytics')}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 relative transition-colors active:scale-95 ${
-                  activeTab === 'analytics' ? 'text-accent' : 'text-muted-foreground'
-                }`}
-                aria-current={activeTab === 'analytics' ? 'page' : undefined}
-              >
-                {activeTab === 'analytics' && (
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-accent" />
-                )}
+            {/* Analytics shortcut */}
+            <button
+              onClick={() => canAnalytics ? setActiveTab('analytics') : setLockedFeatureClicked('analytics:full')}
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 relative transition-colors active:scale-95 ${
+                canAnalytics
+                  ? activeTab === 'analytics' ? 'text-accent' : 'text-muted-foreground'
+                  : 'text-muted-foreground/40'
+              }`}
+              aria-current={canAnalytics && activeTab === 'analytics' ? 'page' : undefined}
+            >
+              {canAnalytics && activeTab === 'analytics' && (
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-accent" />
+              )}
+              <div className="relative">
                 <BarChart2 className="w-[22px] h-[22px]" />
-                <span className="text-[9px] font-bold uppercase tracking-wide leading-none">
-                  {t('dashboard.tabs.stats')}
-                </span>
-              </button>
-            )}
+                {!canAnalytics && <Lock className="absolute -bottom-1 -right-1 w-3 h-3 opacity-60" />}
+              </div>
+              <span className="text-[9px] font-bold uppercase tracking-wide leading-none">
+                {t('dashboard.tabs.stats')}
+              </span>
+            </button>
           </div>
         </div>
       </nav>
