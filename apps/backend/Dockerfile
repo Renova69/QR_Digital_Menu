@@ -18,4 +18,4 @@ RUN npm run build
 
 EXPOSE 3000
 RUN mkdir -p /app/uploads
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && npm run start:prod"]
+CMD ["npm", "run", "start:prod"]
