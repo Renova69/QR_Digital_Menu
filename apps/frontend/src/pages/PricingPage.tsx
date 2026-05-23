@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import { ChevronDown } from 'lucide-react';
-import { createCheckoutSession, createPortalSession, getSubscriptionStatus } from '../lib/api';
+import { createCheckoutSession, createPortalSession } from '../lib/api';
+import { useTier } from '../hooks/useFeature';
 
 type Billing = 'monthly' | 'yearly';
 
@@ -51,12 +51,7 @@ export default function PricingPage() {
   const [error, setError] = useState('');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  const { data: status } = useQuery({
-    queryKey: ['subscription-status'],
-    queryFn: getSubscriptionStatus,
-    retry: false,
-    staleTime: 60_000,
-  });
+  const { tier: currentTier, hasSubscription } = useTier();
 
   const TIERS = [
     {
@@ -174,7 +169,7 @@ export default function PricingPage() {
     return acc;
   }, []);
 
-  const currentTierIndex = TIER_ORDER.indexOf(status?.tier ?? 'FREE');
+  const currentTierIndex = TIER_ORDER.indexOf(currentTier);
 
   const handlePortal = async () => {
     setLoading('portal');
@@ -195,7 +190,7 @@ export default function PricingPage() {
       return;
     }
     const tierIndex = TIER_ORDER.indexOf(tier);
-    if (tierIndex <= currentTierIndex && status?.tier) {
+    if (tierIndex <= currentTierIndex && hasSubscription) {
       await handlePortal();
       return;
     }
@@ -315,8 +310,8 @@ export default function PricingPage() {
 
                 {(() => {
                   const tierIndex = TIER_ORDER.indexOf(tier.key);
-                  const isCurrentTier = status?.tier && tier.key === status.tier;
-                  const isLowerTier = status?.tier && tierIndex < currentTierIndex;
+                  const isCurrentTier = tier.key === currentTier;
+                  const isLowerTier = hasSubscription && tierIndex < currentTierIndex;
                   const isLoading = loading === tier.key || loading === 'portal';
                   const label = isLoading
                     ? t('subscription.loading', 'Loading...')

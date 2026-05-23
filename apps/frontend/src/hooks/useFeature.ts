@@ -76,10 +76,20 @@ function getStaffLimit(tier: SubscriptionTier): number {
   }
 }
 
+export interface SubscriptionInfo {
+  currentPeriodEnd: string;
+  cancelAtPeriodEnd: boolean;
+  status: string;
+  interval: string | null;
+}
+
 export function useTier(): {
   tier: SubscriptionTier;
   features: FeatureFlag[];
   staffLimit: number;
+  hasSubscription: boolean;
+  subscription: SubscriptionInfo | null;
+  isLoading: boolean;
 } {
   const ctx = useContext(RestaurantContext);
   const { user } = useAuth();
@@ -87,7 +97,7 @@ export function useTier(): {
   const userId = user?.id ?? null;
   const hasRestaurant = !!activeRestaurantId && !!userId;
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['subscription-status', userId, activeRestaurantId],
     queryFn: getSubscriptionStatus,
     staleTime: 60_000,
@@ -106,6 +116,9 @@ export function useTier(): {
     tier,
     features: TIER_FEATURES[tier] ?? TIER_FEATURES.FREE,
     staffLimit: getStaffLimit(tier),
+    hasSubscription: data?.hasSubscription ?? false,
+    subscription: (data?.subscription as SubscriptionInfo | null) ?? null,
+    isLoading,
   };
 }
 

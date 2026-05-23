@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
-import { getSubscriptionStatus } from '../../lib/api';
+import { useTier } from '../../hooks/useFeature';
 
 const TIER_STYLES: Record<string, { bg: string; text: string; badge: string }> = {
   FREE:         { bg: 'bg-secondary/50',       text: 'text-muted-foreground',  badge: 'bg-secondary text-secondary-foreground' },
@@ -14,16 +13,7 @@ export default function SubscriptionBanner() {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const { data } = useQuery({
-    queryKey: ['subscription-status'],
-    queryFn: getSubscriptionStatus,
-    staleTime: 60_000,
-  });
-
-  const tier = data?.tier ?? null;
-  const hasSubscription = data?.hasSubscription ?? false;
-
-  if (!tier) return null;
+  const { tier, hasSubscription } = useTier();
 
   const styles = TIER_STYLES[tier] ?? TIER_STYLES.FREE;
   const showUpgrade = tier !== 'ENTERPRISE';

@@ -387,7 +387,7 @@ export class OrdersService {
       finalOrder,
     );
 
-    if (finalOrder.tableSessionId) {
+    if (finalOrder.tableSessionId && finalOrder.tableId) {
       this.eventsGateway.emitTableStatusChanged(
         finalOrder.restaurantId,
         finalOrder.tableId,
@@ -480,7 +480,7 @@ export class OrdersService {
       updatedOrder,
     );
 
-    if (updatedOrder.tableSessionId) {
+    if (updatedOrder.tableSessionId && updatedOrder.tableId) {
       this.eventsGateway.emitTableStatusChanged(
         updatedOrder.restaurantId,
         updatedOrder.tableId,

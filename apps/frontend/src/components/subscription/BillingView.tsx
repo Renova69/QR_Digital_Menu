@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { getSubscriptionStatus, createPortalSession } from '../../lib/api';
+import { createPortalSession } from '../../lib/api';
+import { useTier } from '../../hooks/useFeature';
 
 const FEATURE_LABELS: Record<string, string> = {
   'menu:view': 'Menu View',
@@ -44,11 +44,7 @@ export default function BillingView() {
   const [actionLoading, setActionLoading] = useState('');
   const [error, setError] = useState('');
 
-  const { data: status, isLoading: loading } = useQuery({
-    queryKey: ['subscription-status'],
-    queryFn: getSubscriptionStatus,
-    staleTime: 60_000,
-  });
+  const { tier, features, staffLimit, hasSubscription, subscription, isLoading: loading } = useTier();
 
   const handleManage = async () => {
     setActionLoading('portal');
@@ -71,7 +67,7 @@ export default function BillingView() {
     );
   }
 
-  const currentTierIndex = TIER_ORDER.indexOf(status?.tier ?? 'FREE');
+  const currentTierIndex = TIER_ORDER.indexOf(tier);
 
   return (
     <div className="space-y-6">
@@ -87,25 +83,25 @@ export default function BillingView() {
               {t('subscription.currentPlan', 'Current Plan')}
             </p>
             <div className="flex items-center gap-3">
-              <h3 className="text-2xl font-black text-foreground">{status?.tier ?? 'FREE'}</h3>
-              <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${TIER_COLORS[status?.tier ?? 'FREE']}`}>
-                {status?.tier ?? 'FREE'}
+              <h3 className="text-2xl font-black text-foreground">{tier}</h3>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${TIER_COLORS[tier]}`}>
+                {tier}
               </span>
             </div>
             <p className="text-sm text-muted-foreground mt-1">
-              {t('subscription.staffLimit', 'Staff limit')}: {status?.staffLimit === Infinity ? t('subscription.unlimited', 'Unlimited') : status?.staffLimit}
+              {t('subscription.staffLimit', 'Staff limit')}: {staffLimit === Infinity ? t('subscription.unlimited', 'Unlimited') : staffLimit}
             </p>
-            {status?.subscription && (
+            {subscription && (
               <p className="text-sm text-muted-foreground mt-1">
-                {t('subscription.billedInterval', 'Billed {{interval}}', { interval: status.subscription.interval ?? 'monthly' })}
+                {t('subscription.billedInterval', 'Billed {{interval}}', { interval: subscription.interval ?? 'monthly' })}
                 {' · '}
-                {status.subscription.cancelAtPeriodEnd
-                  ? t('subscription.cancelsOn', 'Cancels {{date}}', { date: new Date(status.subscription.currentPeriodEnd).toLocaleDateString() })
-                  : t('subscription.renewsOn', 'Renews {{date}}', { date: new Date(status.subscription.currentPeriodEnd).toLocaleDateString() })}
+                {subscription.cancelAtPeriodEnd
+                  ? t('subscription.cancelsOn', 'Cancels {{date}}', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString() })
+                  : t('subscription.renewsOn', 'Renews {{date}}', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString() })}
               </p>
             )}
           </div>
-          {status?.hasSubscription && (
+          {hasSubscription && (
             <button
               onClick={handleManage}
               disabled={actionLoading === 'portal'}
@@ -116,11 +112,11 @@ export default function BillingView() {
           )}
         </div>
 
-        {status && status.features.length > 0 && (
+        {features.length > 0 && (
           <div className="mt-4 pt-4 border-t border-border">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">{t('subscription.includedFeatures', 'Included features')}</p>
             <div className="flex flex-wrap gap-2">
-              {status.features.map((f) => (
+              {features.map((f) => (
                 <span key={f} className="px-2.5 py-1 bg-secondary rounded-lg text-xs font-medium text-foreground">
                   {FEATURE_LABELS[f] ?? f}
                 </span>
@@ -137,15 +133,15 @@ export default function BillingView() {
             {t('subscription.upgradeTo', 'Upgrade to')}
           </h4>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {TIER_ORDER.slice(currentTierIndex + 1).map((tier) => (
+            {TIER_ORDER.slice(currentTierIndex + 1).map((tierKey) => (
               <button
-                key={tier}
+                key={tierKey}
                 onClick={() => navigate('/pricing')}
                 className="flex flex-col items-start p-4 rounded-xl border border-border hover:border-accent hover:bg-accent/5 transition-all text-left group"
               >
-                <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2 ${TIER_COLORS[tier]}`}>{tier}</span>
+                <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2 ${TIER_COLORS[tierKey]}`}>{tierKey}</span>
                 <span className="text-sm font-bold text-foreground group-hover:text-accent transition-colors">
-                  {`${t('subscription.upgradeTo', 'Upgrade to')} ${tier} →`}
+                  {`${t('subscription.upgradeTo', 'Upgrade to')} ${tierKey} →`}
                 </span>
               </button>
             ))}
