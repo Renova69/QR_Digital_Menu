@@ -34,11 +34,26 @@ export class PlatformSettingsService {
     dto: UpdatePlatformSettingsDto,
     updatedById: string,
   ): Promise<PlatformSettings> {
-    const settings = await this.prisma.platformSettings.upsert({
-      where: { id: 'singleton' },
-      create: { id: 'singleton', ...dto, updatedById },
-      update: { ...dto, updatedById },
+    const changedKeys = Object.keys(dto);
+    let settings!: PlatformSettings;
+
+    await this.prisma.$transaction(async (tx) => {
+      settings = await tx.platformSettings.upsert({
+        where: { id: 'singleton' },
+        create: { id: 'singleton', ...dto, updatedById },
+        update: { ...dto, updatedById },
+      });
+      await tx.adminAuditLog.create({
+        data: {
+          actorUserId: updatedById,
+          action: 'PLATFORM_SETTINGS_UPDATE',
+          targetType: 'PlatformSettings',
+          targetId: 'singleton',
+          metadata: { changedKeys },
+        },
+      });
     });
+
     this.cache = settings;
     this.cacheExpiresAt = Date.now() + this.CACHE_TTL_MS;
     return settings;

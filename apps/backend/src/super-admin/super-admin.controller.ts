@@ -13,10 +13,17 @@ import {
   Request,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { SuperAdminService } from './super-admin.service';
 import { SuperAdminGuard } from './super-admin.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { UpdateTenantTierDto, UpdateTenantStatusDto, ResetOwnerPasswordDto, UpdatePaymentsEnabledDto } from './dto/update-tenant.dto';
+import {
+  ResetOwnerPasswordDto,
+  SuperAdminConfirmationDto,
+  UpdatePaymentsEnabledDto,
+  UpdateTenantStatusDto,
+  UpdateTenantTierDto,
+} from './dto/update-tenant.dto';
 import { ImportMenuDto } from '../menu-import/dto/import-menu.dto';
 
 @ApiTags('Super Admin')
@@ -50,6 +57,7 @@ export class SuperAdminController {
   }
 
   @ApiOperation({ summary: 'Force-override tenant tier' })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Patch('tenants/:id/tier')
   updateTier(
     @Param('id') id: string,
@@ -60,6 +68,7 @@ export class SuperAdminController {
   }
 
   @ApiOperation({ summary: 'Suspend or reactivate a tenant' })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Patch('tenants/:id/status')
   updateStatus(
     @Param('id') id: string,
@@ -70,6 +79,7 @@ export class SuperAdminController {
   }
 
   @ApiOperation({ summary: 'Reset owner password' })
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Patch('tenants/:id/reset-password')
   resetOwnerPassword(
     @Param('id') id: string,
@@ -80,6 +90,7 @@ export class SuperAdminController {
   }
 
   @ApiOperation({ summary: 'Enable or disable payments for a tenant' })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Patch('tenants/:id/payments')
   updatePaymentsEnabled(
     @Param('id') id: string,
@@ -90,18 +101,29 @@ export class SuperAdminController {
   }
 
   @ApiOperation({ summary: 'Soft-delete a restaurant' })
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Delete('tenants/:id')
-  deleteRestaurant(@Param('id') id: string, @Request() req: any) {
+  deleteRestaurant(
+    @Param('id') id: string,
+    @Body() _dto: SuperAdminConfirmationDto,
+    @Request() req: any,
+  ) {
     return this.service.deleteRestaurant(id, req.user.id);
   }
 
   @ApiOperation({ summary: 'Restore a soft-deleted restaurant' })
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('tenants/:id/restore')
-  restoreRestaurant(@Param('id') id: string, @Request() req: any) {
+  restoreRestaurant(
+    @Param('id') id: string,
+    @Body() _dto: SuperAdminConfirmationDto,
+    @Request() req: any,
+  ) {
     return this.service.restoreRestaurant(id, req.user.id);
   }
 
   @ApiOperation({ summary: 'Delete a staff member from a restaurant' })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Delete('tenants/:restaurantId/staff/:userId')
   deleteStaff(
     @Param('restaurantId') restaurantId: string,
@@ -112,6 +134,7 @@ export class SuperAdminController {
   }
 
   @ApiOperation({ summary: 'Import menu JSON into a restaurant' })
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('tenants/:id/menu/import')
   importMenu(
     @Param('id') id: string,

@@ -47,6 +47,22 @@ function DialogShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function ConfirmationField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="mb-4 block">
+      <span className="mb-1.5 block text-xs font-medium text-slate-400">
+        Type <span className="font-bold text-slate-200">CONFIRM</span> to continue
+      </span>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="CONFIRM"
+        className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-slate-200 placeholder-slate-600 transition-colors focus:border-slate-600 focus:outline-none"
+      />
+    </label>
+  );
+}
+
 export default function TenantDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -68,6 +84,7 @@ export default function TenantDetailPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [paymentsDialogOpen, setPaymentsDialogOpen] = useState(false);
+  const [confirmationText, setConfirmationText] = useState("");
 
   const { data: tenant, isLoading, isError } = useQuery({
     queryKey: ["super-admin", "tenant", id],
@@ -114,11 +131,17 @@ export default function TenantDetailPage() {
   const deleteStaffMutation = useMutation({
     mutationFn: (staffId: string) => deleteTenantStaff(id!, staffId),
     onSuccess: () => { invalidate(); setStaffToDelete(null); },
+    onError: onMutationError,
   });
 
   const importMutation = useMutation({
     mutationFn: (dto: object) => importMenuForTenant(id!, dto),
     onSuccess: () => { invalidate(); setImportJson(""); setImportError(null); },
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { message?: unknown } }; message?: string };
+      const msg = e?.response?.data?.message ?? e?.message ?? "Import failed";
+      setImportError(typeof msg === "string" ? msg : JSON.stringify(msg));
+    },
   });
 
   const resetPwMutation = useMutation({
@@ -139,6 +162,7 @@ export default function TenantDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["super-admin", "tenants"] });
       setPaymentsDialogOpen(false);
     },
+    onError: onMutationError,
   });
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -191,6 +215,7 @@ export default function TenantDetailPage() {
 
   const effectiveTier = tenant.forceTier ?? tenant.tier;
   const isDeleted = !!tenant.deletedAt;
+  const confirmed = confirmationText === "CONFIRM";
 
   return (
     <div className="space-y-6">
@@ -272,7 +297,7 @@ export default function TenantDetailPage() {
               Controls whether this restaurant can accept payments via Stripe.
             </p>
           </div>
-          <Dialog.Root open={paymentsDialogOpen} onOpenChange={setPaymentsDialogOpen}>
+          <Dialog.Root open={paymentsDialogOpen} onOpenChange={(open) => { setPaymentsDialogOpen(open); setConfirmationText(""); }}>
             <Dialog.Trigger asChild>
               <button
                 className={`shrink-0 px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${
@@ -293,6 +318,7 @@ export default function TenantDetailPage() {
                   ? "This restaurant will no longer accept new payments. Ongoing sessions will still complete."
                   : "This restaurant will be able to accept payments via Stripe."}
               </Dialog.Description>
+              <ConfirmationField value={confirmationText} onChange={setConfirmationText} />
               <div className="flex justify-end gap-2.5">
                 <Dialog.Close asChild>
                   <button className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 transition-colors">
@@ -301,7 +327,7 @@ export default function TenantDetailPage() {
                 </Dialog.Close>
                 <button
                   onClick={() => paymentsMutation.mutate(!tenant.paymentsEnabled)}
-                  disabled={paymentsMutation.isPending}
+                  disabled={paymentsMutation.isPending || !confirmed}
                   className={`px-4 py-2 rounded-lg text-white text-sm font-semibold disabled:opacity-50 transition-colors ${
                     tenant.paymentsEnabled ? "bg-red-500 hover:bg-red-600" : "bg-emerald-500 hover:bg-emerald-600"
                   }`}
@@ -335,7 +361,7 @@ export default function TenantDetailPage() {
               )}
             </div>
 
-            <Dialog.Root open={tierDialogOpen} onOpenChange={setTierDialogOpen}>
+            <Dialog.Root open={tierDialogOpen} onOpenChange={(open) => { setTierDialogOpen(open); setConfirmationText(""); }}>
               <Dialog.Trigger asChild>
                 <button className="px-4 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-sm font-semibold hover:bg-emerald-500/20 transition-colors">
                   {tenant.forceTier ? "Change Override" : "Override Tier"}
@@ -354,6 +380,7 @@ export default function TenantDetailPage() {
                   <option value="">Select tier…</option>
                   {TIERS.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
+                <ConfirmationField value={confirmationText} onChange={setConfirmationText} />
                 <div className="flex justify-end gap-2.5">
                   <Dialog.Close asChild>
                     <button className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 transition-colors">
@@ -362,7 +389,7 @@ export default function TenantDetailPage() {
                   </Dialog.Close>
                   <button
                     onClick={() => selectedTier && tierMutation.mutate(selectedTier)}
-                    disabled={!selectedTier || tierMutation.isPending}
+                    disabled={!selectedTier || tierMutation.isPending || !confirmed}
                     className="px-4 py-2 rounded-lg bg-emerald-500 text-white text-sm font-semibold disabled:opacity-40 hover:bg-emerald-600 transition-colors"
                   >
                     {tierMutation.isPending ? "Applying…" : "Apply Override"}
@@ -371,7 +398,7 @@ export default function TenantDetailPage() {
                 {tenant.forceTier && (
                   <button
                     onClick={() => tierMutation.mutate(null)}
-                    disabled={tierMutation.isPending}
+                    disabled={tierMutation.isPending || !confirmed}
                     className="mt-3 w-full px-4 py-2 rounded-lg text-sm border border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-600 transition-colors"
                   >
                     Clear Override (restore Stripe-driven tier)
@@ -460,7 +487,7 @@ export default function TenantDetailPage() {
               <p className="text-sm text-slate-400">
                 Deleted on {new Date(tenant.deletedAt!).toLocaleDateString()}. Restoring will set it back to active.
               </p>
-              <Dialog.Root open={restoreDialogOpen} onOpenChange={setRestoreDialogOpen}>
+              <Dialog.Root open={restoreDialogOpen} onOpenChange={(open) => { setRestoreDialogOpen(open); setConfirmationText(""); }}>
                 <Dialog.Trigger asChild>
                   <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 text-sm font-semibold transition-colors">
                     <RotateCcw className="w-3.5 h-3.5" />
@@ -472,13 +499,14 @@ export default function TenantDetailPage() {
                   <Dialog.Description className="text-sm text-slate-400 mb-5">
                     <strong className="text-slate-200">{tenant.name}</strong> will be restored and set to active. Owners and staff will regain access.
                   </Dialog.Description>
+                  <ConfirmationField value={confirmationText} onChange={setConfirmationText} />
                   <div className="flex justify-end gap-2.5">
                     <Dialog.Close asChild>
                       <button className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 transition-colors">Cancel</button>
                     </Dialog.Close>
                     <button
                       onClick={() => restoreMutation.mutate()}
-                      disabled={restoreMutation.isPending}
+                      disabled={restoreMutation.isPending || !confirmed}
                       className="px-4 py-2 rounded-lg bg-emerald-500 text-white text-sm font-semibold disabled:opacity-50 hover:bg-emerald-600 transition-colors"
                     >
                       {restoreMutation.isPending ? "Restoring…" : "Yes, Restore"}
@@ -490,7 +518,7 @@ export default function TenantDetailPage() {
           ) : (
             <div className="flex flex-wrap gap-3">
               {/* Suspend / Reactivate */}
-              <Dialog.Root open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
+              <Dialog.Root open={suspendDialogOpen} onOpenChange={(open) => { setSuspendDialogOpen(open); setConfirmationText(""); }}>
                 <Dialog.Trigger asChild>
                   <button className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${
                     tenant.isActive
@@ -509,13 +537,14 @@ export default function TenantDetailPage() {
                       ? "All menu access, ordering, and dashboard will be frozen. Reversible."
                       : "The restaurant will regain full access."}
                   </Dialog.Description>
+                  <ConfirmationField value={confirmationText} onChange={setConfirmationText} />
                   <div className="flex justify-end gap-2.5">
                     <Dialog.Close asChild>
                       <button className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 transition-colors">Cancel</button>
                     </Dialog.Close>
                     <button
                       onClick={() => statusMutation.mutate(!tenant.isActive)}
-                      disabled={statusMutation.isPending}
+                      disabled={statusMutation.isPending || !confirmed}
                       className={`px-4 py-2 rounded-lg text-white text-sm font-semibold disabled:opacity-50 transition-colors ${tenant.isActive ? "bg-amber-500 hover:bg-amber-600" : "bg-emerald-500 hover:bg-emerald-600"}`}
                     >
                       {statusMutation.isPending ? "Processing…" : tenant.isActive ? "Yes, Suspend" : "Yes, Reactivate"}
@@ -525,7 +554,7 @@ export default function TenantDetailPage() {
               </Dialog.Root>
 
               {/* Delete */}
-              <Dialog.Root open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <Dialog.Root open={deleteDialogOpen} onOpenChange={(open) => { setDeleteDialogOpen(open); setConfirmationText(""); }}>
                 <Dialog.Trigger asChild>
                   <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 text-sm font-semibold transition-colors">
                     <Trash2 className="w-3.5 h-3.5" />
@@ -537,13 +566,14 @@ export default function TenantDetailPage() {
                   <Dialog.Description className="text-sm text-slate-400 mb-5">
                     <strong className="text-slate-200">{tenant.name}</strong> will be soft-deleted — all data is preserved and can be restored. Owner and staff will immediately lose access.
                   </Dialog.Description>
+                  <ConfirmationField value={confirmationText} onChange={setConfirmationText} />
                   <div className="flex justify-end gap-2.5">
                     <Dialog.Close asChild>
                       <button className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 transition-colors">Cancel</button>
                     </Dialog.Close>
                     <button
                       onClick={() => deleteMutation.mutate()}
-                      disabled={deleteMutation.isPending}
+                      disabled={deleteMutation.isPending || !confirmed}
                       className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-semibold disabled:opacity-50 hover:bg-red-600 transition-colors"
                     >
                       {deleteMutation.isPending ? "Deleting…" : "Yes, Delete"}
@@ -560,7 +590,7 @@ export default function TenantDetailPage() {
               <p className="text-xs text-slate-500 mb-3">
                 Reset password for <span className="text-slate-300 font-medium">{tenant.owner.email}</span>. The owner will be logged out immediately.
               </p>
-              <Dialog.Root open={resetPwDialogOpen} onOpenChange={setResetPwDialogOpen}>
+              <Dialog.Root open={resetPwDialogOpen} onOpenChange={(open) => { setResetPwDialogOpen(open); setConfirmationText(""); }}>
                 <Dialog.Trigger asChild>
                   <button className="px-4 py-2 rounded-lg text-sm font-semibold bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors">
                     Reset Owner Password
@@ -593,6 +623,7 @@ export default function TenantDetailPage() {
                   {newPassword && /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(newPassword) && confirmPassword && newPassword !== confirmPassword && (
                     <p className="text-xs text-red-400 mb-3">Passwords do not match</p>
                   )}
+                  <ConfirmationField value={confirmationText} onChange={setConfirmationText} />
                   <div className="flex justify-end gap-2.5">
                     <Dialog.Close asChild>
                       <button
@@ -608,7 +639,8 @@ export default function TenantDetailPage() {
                         resetPwMutation.isPending ||
                         !newPassword ||
                         !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(newPassword) ||
-                        newPassword !== confirmPassword
+                        newPassword !== confirmPassword ||
+                        !confirmed
                       }
                       className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-semibold disabled:opacity-40 hover:bg-red-600 transition-colors"
                     >

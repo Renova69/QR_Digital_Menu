@@ -10,15 +10,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
   ) {
-    // Production: cookie-only — Bearer header bypasses httpOnly cookie security.
-    // Dev/test: Bearer allowed so Swagger UI and test helpers work.
+    const allowBearerAuth =
+      process.env.NODE_ENV === 'test' ||
+      process.env.NODE_ENV === 'development' ||
+      process.env.ALLOW_BEARER_AUTH === 'true';
+    // Production and unset NODE_ENV: cookie-only. Bearer auth must be explicitly enabled.
     const extractors =
-      process.env.NODE_ENV === 'production'
-        ? [(req: any) => req?.cookies?.token ?? null]
-        : [
+      allowBearerAuth && process.env.NODE_ENV !== 'production'
+        ? [
             ExtractJwt.fromAuthHeaderAsBearerToken(),
             (req: any) => req?.cookies?.token ?? null,
-          ];
+          ]
+        : [(req: any) => req?.cookies?.token ?? null];
     super({
       jwtFromRequest: ExtractJwt.fromExtractors(extractors),
       ignoreExpiration: false,
@@ -46,6 +49,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     if (!user) {
       throw new UnauthorizedException();
+    }
+
+    if (user.isActive === false || user.disabledAt) {
+      throw new UnauthorizedException('ACCOUNT_DISABLED');
     }
 
     if (user.role !== 'SUPER_ADMIN') {
