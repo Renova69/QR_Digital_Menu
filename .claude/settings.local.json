@@ -174,7 +174,26 @@
       "Bash(claude plugin *)",
       "PowerShell(Get-ChildItem \"F:\\\\PROGRAMING\\\\QR_Digital_Menu-main\\\\apps\\\\frontend\" -Recurse | Where-Object { $_.Extension -eq '.json' } | Select-Object -First 20 FullName)",
       "PowerShell(node -e \"const fs=require\\('fs'\\); let f=fs.readFileSync\\('F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/locales/en/translation.json','utf8'\\); if\\(f.charCodeAt\\(0\\)===0xFEFF\\) f=f.slice\\(1\\); const j=JSON.parse\\(f\\); console.log\\(JSON.stringify\\(j.analytics?.export?.columns, null, 2\\)\\);\")",
-      "PowerShell(node -e \"const fs=require\\('fs'\\); let f=fs.readFileSync\\('F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/locales/bg/translation.json','utf8'\\); if\\(f.charCodeAt\\(0\\)===0xFEFF\\) f=f.slice\\(1\\); const j=JSON.parse\\(f\\); console.log\\(JSON.stringify\\(j.analytics?.export?.columns, null, 2\\)\\);\")"
+      "PowerShell(node -e \"const fs=require\\('fs'\\); let f=fs.readFileSync\\('F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/locales/bg/translation.json','utf8'\\); if\\(f.charCodeAt\\(0\\)===0xFEFF\\) f=f.slice\\(1\\); const j=JSON.parse\\(f\\); console.log\\(JSON.stringify\\(j.analytics?.export?.columns, null, 2\\)\\);\")",
+      "Bash(bash *)",
+      "WebSearch",
+      "WebFetch(domain:www.mytabble.com)",
+      "WebFetch(domain:queueat.com)",
+      "WebFetch(domain:www.menubly.com)",
+      "Bash(python3 \"skills/ui-ux-pro-max/scripts/search.py\" \"restaurant saas landing faq accordion glassmorphism dark\" --design-system -p \"QR Menu\" -f markdown)",
+      "Bash(npx vite *)",
+      "PowerShell(npm run *)",
+      "Bash(Select-Object -First 50)",
+      "Bash(Select-Object -First 60)",
+      "mcp__plugin_neon_neon__search",
+      "mcp__plugin_neon_neon__describe_project",
+      "mcp__plugin_neon_neon__run_sql_transaction",
+      "mcp__plugin_neon_neon__describe_table_schema",
+      "mcp__plugin_neon_neon__get_connection_string",
+      "Bash(dir *)",
+      "mcp__plugin_serena_serena__insert_after_symbol",
+      "PowerShell(Get-Process *)",
+      "Bash(echo \"Exit: $?\")"
     ]
   }
 }

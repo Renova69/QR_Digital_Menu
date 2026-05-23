@@ -1,9 +1,9 @@
 # QR Menu — Product & Technical Due Diligence Report
 
 > **Prepared for:** Fortune 500 Acquisition Review
-> **Date:** May 18, 2026 (audited — all sections verified against codebase)
-> **Product Status:** V2.5 Shipped | V3 Growth — Phase 19 (Stripe/Menu Import/POS) Complete, Phase 18 (Staff Roles & RBAC) Complete | Security Hardening Phase 21 Complete | Public Menu Mobile UX Complete (TopBar, FilterPanel, dual currency, horizontal cards) | Code Review & Bug Fixes Complete (PR#3, Toggle, payments investigation) | Security & Bug Fixes Complete (CORS, magic-link removal, loyalty emails, CSV export, TS strict mode) | KDS (Kitchen Display) Live at /staff/kitchen | Infrastructure & Polish Sprint Complete (API versioning, Prisma circuit breaker, order progress bar, QR print templates, 122 tests, customer split bill) | SaaS Tiering V2 Complete (4-tier FREE/STARTER/PRO/ENTERPRISE, FeatureGuard, Stripe Billing, PricingPage, BillingView, SubscriptionBanner, demo accounts) | **Tier Enforcement Sweep Round 2 Complete (all 22 feature flags enforced, 454 tests passing)** | Super-Admin Dashboard Complete (internal ops panel at /super-admin, tier override + live propagation, suspend/reactivate, soft delete/restore) | **GDPR/Legal Module Complete (May 18, 2026 — PlatformSettings, right-to-erasure, data export, CookieConsentBanner, /privacy /terms /cookies routes)** | **Dashboard Vertical Sidebar Complete (May 18, 2026)** | **Super-Admin Dark OLED Redesign Complete (May 18, 2026)** | **Auth Hardening Complete (May 18, 2026 — Google OAuth /v1/ URL fix, auth log scrubbing, CI gate)**
-> **Codebase:** 100+ frontend source files, 17 backend domain modules (+2 infrastructure modules), 16 database models, ~200 i18n keys across 3 languages
+> **Date:** May 22, 2026 (audited — all sections verified against codebase)
+> **Product Status:** V2.5 Shipped | V3 Growth — Phase 19 (Stripe/Menu Import/POS) Complete, Phase 18 (Staff Roles & RBAC) Complete | Security Hardening Phase 21 + Round 2 Complete | Public Menu Mobile UX Complete (TopBar, FilterPanel, dual currency, horizontal cards) | Code Review & Bug Fixes Complete (PR#3, Toggle, payments investigation) | Security & Bug Fixes Complete (CORS, magic-link removal, loyalty emails, CSV export, TS strict mode) | KDS (Kitchen Display) Live at /staff/kitchen | Infrastructure & Polish Sprint Complete (API versioning, Prisma circuit breaker, order progress bar, QR print templates, 122 tests, customer split bill) | SaaS Tiering V2 Complete (4-tier FREE/STARTER/PRO/ENTERPRISE, FeatureGuard, Stripe Billing, PricingPage, BillingView, SubscriptionBanner, demo accounts) | **Tier Enforcement Sweep Round 2 Complete (all 22 feature flags enforced, 454 tests passing)** | Super-Admin Dashboard Complete (internal ops panel at /super-admin, tier override + live propagation, suspend/reactivate, soft delete/restore) | **GDPR/Legal Module Complete (May 18, 2026)** | **Dashboard Vertical Sidebar Complete (May 18, 2026)** | **Super-Admin Dark OLED Redesign Complete (May 18, 2026)** | **Auth Hardening Complete (May 18, 2026)** | **Help Center CMS Complete (May 22, 2026 — Prisma-backed FAQ CRUD, LandingFAQ API-driven, HelpCenterPage in super-admin)** | **Pricing Page Redesign Complete (May 21, 2026 — annual toggle, 22-row comparison, 6-entry FAQ)** | **Analytics XLSX Export Complete (May 21, 2026 — 5-sheet workbook, BGN dual currency)** | **Seed Safety Guards Complete (May 22, 2026 — 3-layer guard, seed:help command)** | **Security Hardening Round 2 Complete (May 22, 2026 — account disable, CONFIRM DTOs, per-mutation throttles, guard coverage tests, NODE_ENV enforcement, AdminAuditLog audit trail)** | **Super Admin Overview v2 Complete (May 22, 2026 — billing vs effective tier, force-tier summary, attention needed panel, richer KPIs)**
+> **Codebase:** 100+ frontend source files, 18 backend domain modules (+2 infrastructure modules), 18 database models, ~260 i18n keys across 3 languages
 
 ---
 
@@ -1483,6 +1483,278 @@ When super-admin sets `forceTier`, the change must propagate to the logged-in ow
 
 ---
 
+### 3.30 Help Center CMS (May 19-22, 2026)
+
+**What it does:** Replaces all hardcoded i18n JSON help/FAQ content with a database-driven CMS. Super-admins can create, edit, delete, and reorder help articles through a new "Help Center" tab in the super-admin dashboard — no code changes needed to update FAQ text. Public landing page FAQ and dashboard help view both fetch content from the API.
+
+**Backend — `HelpContentModule`:**
+
+- **`HelpContent` model** (`prisma/schema.prisma`): `id`, `section` (LANDING_FAQ | DASHBOARD_HELP), `question` (JSON — locale-keyed), `answer` (JSON — locale-keyed), `order` (Int), `isActive` (Boolean), `createdAt`, `updatedAt`. `@@index([section, order])` for efficient listing.
+- **`HelpContentService`** — full CRUD + `findBySection(section)` ordered by `order` ASC, `reorder(id, newOrder)` for drag-to-reorder support.
+- **`HelpContentController`** — 6 endpoints:
+  - `GET /help-content/:section` — **public** (no auth), returns active items for given section. Used by LandingFAQ and HelpView.
+  - `GET /super-admin/help-content` — admin list all, optional `?section=` filter.
+  - `POST /super-admin/help-content` — create new article.
+  - `PATCH /super-admin/help-content/:id` — update article.
+  - `DELETE /super-admin/help-content/:id` — delete article.
+  - `PATCH /super-admin/help-content/reorder` — batch reorder via `ReorderHelpContentDto`.
+- **DTOs** — `CreateHelpContentDto` (validates `section` enum, `question`/`answer` as JSON objects with locale keys), `UpdateHelpContentDto` (all fields optional), `ReorderHelpContentDto` (array of `{ id, order }`).
+
+**Frontend — `HelpCenterPage.tsx`:**
+
+- **Location:** `/super-admin/help` — new route in `SuperAdminLayout` sidebar (between Tenants and Settings).
+- **Sub-tabs:** "Landing FAQ" and "Dashboard Help" — each shows a table of articles filtered by `section`.
+- **Locale tabs:** EN / BG / RO — toggle which language's question/answer is displayed in the inline edit form.
+- **Inline CRUD:** Click an article row → inline edit form appears below (question + answer textareas). Save/Cancel buttons. "Add New" button at top of each sub-tab.
+- **Delete with confirmation:** Red delete button with "Are you sure?" dialog.
+- **Reorder:** Up/Down arrow buttons on each row call `reorderHelpContent()` mutation.
+
+**Public consumers (switched from i18n to API):**
+- **`LandingFAQ.tsx`** — fetches `GET /help-content/LANDING_FAQ` via TanStack Query. Renders as accordion with smooth open/close transitions. Falls back gracefully when API is unavailable.
+- **`HelpView.tsx`** — fetches `GET /help-content/DASHBOARD_HELP`. Renders searchable FAQ list in the dashboard help tab. Search filters by question text across all locales.
+
+**Seed — `prisma/seed-help-content.ts`:**
+- Idempotent: checks `helpContent.count() > 0` before inserting.
+- Seeds 25+ articles across EN/BG/RO from the previous hardcoded i18n values.
+- `npm run seed:help` — standalone command that only seeds help content (safe on any database, never deletes).
+
+**Key files:**
+- `apps/backend/prisma/schema.prisma` — `HelpContent` model
+- `apps/backend/src/help-content/help-content.module.ts`
+- `apps/backend/src/help-content/help-content.service.ts`
+- `apps/backend/src/help-content/help-content.controller.ts`
+- `apps/backend/src/help-content/dto/create-help-content.dto.ts`
+- `apps/backend/src/help-content/dto/update-help-content.dto.ts`
+- `apps/backend/src/help-content/dto/reorder-help-content.dto.ts`
+- `apps/backend/prisma/seed-help-content.ts`
+- `apps/backend/src/app.module.ts` — `HelpContentModule` registered
+- `apps/frontend/src/pages/super-admin/HelpCenterPage.tsx` (507 lines)
+- `apps/frontend/src/pages/super-admin/SuperAdminLayout.tsx` — sidebar nav + route
+- `apps/frontend/src/App.tsx` — `/super-admin/help` route
+- `apps/frontend/src/components/landing/LandingFAQ.tsx` — API-driven accordion
+- `apps/frontend/src/pages/Dashboard/HelpView.tsx` — API-driven help search
+- `apps/frontend/src/lib/api.ts` — 6 help content API functions
+
+### 3.31 Landing Page FAQ (May 22, 2026)
+
+**What it does:** Adds a pre-sale FAQ accordion section to the public landing page (home page) between the CTA section and footer. 8 FAQ items address common restaurant-owner questions before signup — reducing bounce rate and preempting support inquiries.
+
+**How it works:**
+- `LandingFAQ` component renders as an accessible accordion (WAI-ARIA disclosure pattern).
+- Each item: click header → smooth `max-height` transition reveals answer with chevron rotation.
+- Fetches from `GET /help-content/LANDING_FAQ` — same API as the super-admin CMS.
+- Fully i18n across EN/BG/RO — questions and answers display in the user's selected language.
+- Help link relocated from dashboard tab bar to sidebar footer (less prominent, more contextual).
+
+**Key files:**
+- `apps/frontend/src/components/landing/LandingFAQ.tsx`
+- `apps/frontend/src/pages/LandingPage.tsx` — integrated between CTA and footer
+- `apps/frontend/src/locales/*/translation.json` — `landing.faq.*` keys
+- `apps/frontend/src/pages/Dashboard/Sidebar.tsx` — Help link in footer
+
+### 3.32 Pricing Page Redesign + Annual Billing (May 21, 2026)
+
+**What it does:** Full visual and functional redesign of the public pricing page (`/pricing`). Adds annual billing toggle with 15% discount, a 22-row feature comparison table, 6-entry FAQ section, and proper error handling for the Stripe checkout flow.
+
+**How it works:**
+- **Annual toggle** — switch between monthly/yearly pricing. Yearly prices are 15% less than monthly equivalent. Toggle animates between states.
+- **Feature comparison table** — 22 feature rows across 4 tiers (FREE/STARTER/PROFESSIONAL/ENTERPRISE). Checkmarks/crosses per tier. Responsive: horizontal scroll on mobile, full table on desktop.
+- **FAQ section** — 6 common questions about billing, upgrades, and cancellation.
+- **Stripe checkout errors** — ALREADY_SUBSCRIBED detection: if user already has active subscription, redirects to Stripe Customer Portal instead of showing duplicate checkout error. Password reset flow fixed.
+- **Stripe type cast fix** — dahlia API version returned untyped subscription objects. 4 explicit type casts added in `subscription.service.ts` to prevent runtime errors.
+- **i18n badge wrap fix** — language badge on pricing cards no longer overflows on narrow screens.
+- **~60 new i18n keys** across EN/BG/RO for pricing page content.
+
+**Key files:**
+- `apps/frontend/src/pages/PricingPage.tsx` — full redesign (~500 lines)
+- `apps/backend/src/subscription/subscription.service.ts` — annual billing, ALREADY_SUBSCRIBED guard, type casts
+- `apps/backend/src/subscription/subscription.controller.ts` — annual price ID selection
+- `apps/frontend/src/locales/*/translation.json` — ~60 new pricing keys
+
+### 3.33 Analytics XLSX Export (May 21, 2026)
+
+**What it does:** Replaces the previous single-sheet CSV export with a professional multi-sheet XLSX workbook. Restaurant owners get a ready-to-present analytics report with formatted headers, auto-sized columns, and dual-currency (EUR + BGN) columns.
+
+**How it works:**
+- `analyticsExport.ts` (217 lines) — builds an XLSX workbook with 5 sheets using the `xlsx` library:
+  1. **Summary** — KPI cards data (total orders, revenue, avg order value, etc.)
+  2. **Revenue Trend** — daily revenue with EUR and BGN columns
+  3. **Top Items** — best-selling items with quantity and revenue
+  4. **Peak Hours** — hourly order distribution
+  5. **Category Breakdown** — revenue by menu category
+- Header rows use colored backgrounds (blue header with white text) for professional appearance.
+- All monetary columns include both EUR and BGN (converted at BNB fixed rate 1 EUR = 1.95583 BGN).
+- Auto-column-width calculation based on content length.
+- File downloaded with timestamp in filename: `analytics-<restaurant>-<date>.xlsx`.
+
+**Key files:**
+- `apps/frontend/src/lib/analyticsExport.ts` (217 lines)
+- `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx` — export button wired to XLSX
+
+### 3.34 Subscription UX Fixes (May 21-22, 2026)
+
+**What it does:** Hardens the Stripe subscription checkout flow against duplicate subscriptions, fixes password reset, and resolves a Stripe API type compatibility issue with the dahlia API version.
+
+**Fixes applied:**
+1. **Active-subscription guard** — `subscription.service.ts` `createCheckoutSession()` checks if user already has an active subscription before creating a new checkout session. Returns `ALREADY_SUBSCRIBED` error code.
+2. **Auto-redirect to Stripe Portal** — frontend catches `ALREADY_SUBSCRIBED` error and automatically redirects to the Stripe Customer Portal (`/subscription/portal`) instead of showing a confusing error.
+3. **Stripe type casts** — dahlia API version returned `subscription` objects as `any`. 4 explicit TypeScript type casts added to prevent `Property does not exist` runtime errors during webhook processing and status checks.
+4. **Password reset** — fixed broken password reset flow (token validation issue in `auth.service.ts`).
+
+**Key files:**
+- `apps/backend/src/subscription/subscription.service.ts` — ALREADY_SUBSCRIBED guard, type casts
+- `apps/frontend/src/pages/PricingPage.tsx` — ALREADY_SUBSCRIBED error → portal redirect
+- `apps/backend/src/auth/auth.service.ts` — password reset fix
+
+### 3.35 QR Print Template Improvements (May 22, 2026)
+
+**What it does:** Polishes the printable QR code layouts for professional restaurant use. Consistent margins, i18n-wired labels, and improved visual hierarchy across all three templates (Classic, Premium, Minimal).
+
+**Fixes applied:**
+- **Consistent margins** — all three templates now share the same print margins, preventing cut-off at printer edges.
+- **i18n labels** — "Scan to view menu" and table number labels now use i18n translation keys instead of hardcoded English text. Supports EN/BG/RO.
+- **Classic template** — white card with dashed border, centered QR code, clean typography.
+- **Premium template** — dark background (`#0f0e0c`), corner accent brackets, serif Georgia type for table name, gold accent color.
+- **Minimal template** — thin border, oversized table name, minimalist QR placement.
+
+**Key files:**
+- `apps/frontend/src/components/tables/PrintableQRCodes.tsx`
+- `apps/frontend/src/locales/*/translation.json` — QR print label keys
+
+### 3.36 Seed Safety Guards + Prisma PgBouncer (May 22, 2026)
+
+**What it does:** Prevents accidental data loss from seed scripts and resolves Prisma connection pool exhaustion on Neon (serverless PostgreSQL with PgBouncer transaction mode).
+
+**Seed safety — 3-layer guard (`prisma/seed.ts`):**
+1. **Production check** — refuses to run if `NODE_ENV === 'production'`.
+2. **Remote DB check** — warns if connecting to a remote (non-localhost) database and requires confirmation.
+3. **User count check** — refuses to run if database already has >5 users. Override: `FORCE_SEED_WIPE=true npm run seed`.
+
+**Additional seed commands:**
+- **`npm run seed:help`** — seeds only help content (always safe, insert-only, no deletes). Use on any database to add/replenish FAQ content.
+- **Upsert patterns** — `seed-demo-restaurants.ts` uses Prisma `upsert` throughout. `seed-help-content.ts` checks `count() > 0` before inserting.
+
+**Prisma PgBouncer fix:**
+- Neon uses PgBouncer in transaction mode, which blocks multi-statement queries and `SET` commands.
+- `PrismaService` constructor now passes `log: ['warn', 'error']` — pool exhaustion warnings surface in Cloud Run logs.
+- `.env.example` documents `?pgbouncer=true&connection_limit=10` for Neon pooled connection strings.
+- Production `DATABASE_URL` must include `pgbouncer=true` parameter.
+
+**Key files:**
+- `apps/backend/prisma/seed.ts` — 3-layer safety guard
+- `apps/backend/prisma/seed-help-content.ts` — idempotent, count-check
+- `apps/backend/prisma/seed-help-only.ts` — standalone help-only seeder
+- `apps/backend/prisma/seed-demo-restaurants.ts` — upsert patterns
+- `apps/backend/src/prisma/prisma.service.ts` — PgBouncer-aware logging
+- `apps/backend/.env.example` — connection string docs
+
+### 3.37 Advanced Category Settings + Dual Titles (May 22, 2026)
+
+**What it does:** Adds advanced configuration options to menu categories. Restaurant owners can set a display title separate from the internal category name, and configure additional category-level settings.
+
+**How it works:**
+- **Dual titles** — categories support both an internal `name` (shown in dashboard) and a `displayName` (shown on public menu). Useful when internal organization differs from customer-facing presentation.
+- **Advanced settings modal** — expanded category configuration UI with additional fields beyond the basic name/order/availability.
+- **UI polish** — improved modal layout, consistent spacing, better mobile responsiveness.
+
+**Key files:**
+- `apps/frontend/src/components/menu/CategorySettingsModal.tsx`
+- `apps/backend/src/menu/menu-crud.service.ts`
+- `apps/backend/prisma/schema.prisma` — `MenuCategory` fields
+
+### 3.38 Super Admin Overview Improvements (May 22, 2026)
+
+**What it does:** Overhauls the super-admin overview page with actionable platform intelligence. Shows billing tier vs effective tier (revealing forced overrides at a glance), force-tier summary statistics, richer KPI cards, recent activity feed, and an "Attention Needed" panel that surfaces configuration problems across all tenants.
+
+**How it works:**
+
+**Backend — `SuperAdminService.getStats()` overhaul:**
+- **Billing vs Effective Tier** — iterates all tenants, computes `effectiveTier = forceTier ?? tier`. Returns both `byBillingTier` and `byEffectiveTier` distributions so the admin can see how many tenants have been overridden.
+- **Force-tier summary** — counts `forcedUpgrades`, `forcedDowngrades`, and lists individual overrides with direction (upgrade/downgrade/same), billing tier, and effective tier.
+- **Richer KPI cards** — `activeRestaurants`, `deletedRestaurants`, `totalUsers`, `paidPlanTenants` (tier !== FREE), `stripeLinkedSubscriptions`, `suspendedCount`.
+- **User role breakdown** — `userRoles` object from `groupBy role` query.
+- **Recent activity** — `restaurants7d`, `users7d`, `orders24h`, `orders7d`, `payments7d` (count + total amount from SUCCEEDED payments).
+- **Attention Needed panel** — 5 categories, each capped at 5 items:
+  - `forcedOverrides` — tenants with `forceTier` set
+  - `paymentsNotOnboarded` — `paymentsEnabled` but `!stripeOnboarded`
+  - `emptyMenus` — 0 `menuCategories`
+  - `noTables` — 0 `tables`
+  - `inactiveTenants` — `!isActive`
+- All stats computed in single `Promise.all` batch — 12 parallel queries, one `findMany` for all tenants.
+
+**Frontend — `OverviewPage.tsx` overhaul:**
+- Colored stat cards with icon badges (emerald for active, amber for suspended, red for deleted, blue for users).
+- Billing vs Effective Tier donut chart with dark tooltip.
+- Force-tier summary panel: total overrides, upgrades, downgrades.
+- "Attention Needed" section with expandable panels per category. Each item links to tenant detail.
+- Recent activity cards showing 7-day and 24-hour metrics.
+
+**Key files:**
+- `apps/backend/src/super-admin/super-admin.service.ts` — `getStats()` full rewrite (206 lines)
+- `apps/backend/src/super-admin/super-admin.controller.ts` — `GET /super-admin/stats`
+- `apps/frontend/src/pages/super-admin/OverviewPage.tsx` — full redesign
+
+### 3.39 Security Hardening Round 2 — Account Disable + Dangerous Action Confirmation + Audit Trail (May 22, 2026)
+
+**What it does:** Implements 5 security hardening measures: account disable mechanism (including SUPER_ADMIN enforcement), CONFIRM-typing second-factor for all dangerous super-admin actions, per-mutation rate limiting, automated guard coverage tests, and production NODE_ENV startup enforcement.
+
+**How it works:**
+
+**1. User.isActive / disabledAt enforcement:**
+- **Schema** — `User.isActive Boolean @default(true)`, `disabledAt DateTime?`, `disabledReason String?`. Migration: `20260522193000_add_user_account_disable_fields`.
+- **JWT validation** (`jwt.strategy.ts`) — rejects disabled users (`isActive === false || disabledAt`) with `UnauthorizedException('ACCOUNT_DISABLED')`. Applies to ALL roles including SUPER_ADMIN.
+- **Login guard** (`auth.service.ts`) — rejects disabled accounts before issuing JWT token.
+- **Tests** (`jwt.strategy.spec.ts`) — verifies disabled SUPER_ADMIN rejection + active user return with sensitive field stripping.
+
+**2. CONFIRM-typing second factor:**
+- **Backend DTOs** — all 5 dangerous actions require `@Matches(/^CONFIRM$/) confirmation: string`:
+  - `UpdateTenantTierDto` — force tier override
+  - `UpdateTenantStatusDto` — suspend/reactivate
+  - `ResetOwnerPasswordDto` — reset owner password
+  - `UpdatePaymentsEnabledDto` — toggle payments
+  - `SuperAdminConfirmationDto` — delete/restore tenant
+- **Frontend** — `ConfirmationField` component on `TenantDetailPage.tsx`: "Type CONFIRM to continue" input with placeholder. Validated server-side (class-validator pipeline), not just client-side.
+
+**3. Per-mutation rate limiting:**
+- **Super-admin mutations** — `@Throttle` on all 7 dangerous endpoints:
+  - Tier override: 5/60s, Status change: 5/60s, Password reset: 3/60s
+  - Payments toggle: 5/60s, Delete: 3/60s, Restore: 3/60s, Delete staff: 5/60s
+- **Help-content admin writes** — `@Throttle({ default: { limit: 10, ttl: 60000 } })` on create, update, delete, reorder.
+- **Platform settings update** — `@Throttle({ default: { limit: 5, ttl: 60000 } })`.
+- Each throttle uses independent limits — no shared bucket across mutations.
+
+**4. Guard coverage tests:**
+- **`super-admin.guard-coverage.spec.ts`** — uses `Reflect.getMetadata(GUARDS_METADATA)` to introspect guards without spinning up NestJS test module. Verifies `JwtAuthGuard` + `SuperAdminGuard` on:
+  - `SuperAdminController` (class-level)
+  - `PlatformSettingsController.getAdmin` / `updateAdmin`
+  - All 5 `HelpContentController` admin methods
+
+**5. NODE_ENV=production enforcement:**
+- **Startup crash** (`main.ts`) — detects Cloud Run (`K_SERVICE`, `CLOUD_RUN_JOB`) or `REQUIRE_PRODUCTION_NODE_ENV=true`. Refuses to start if `NODE_ENV !== 'production'` — prevents relaxed dev security in production.
+- **Bearer auth gate** (`jwt.strategy.ts`) — Bearer token extraction only allowed when `NODE_ENV` is `test`/`development` or `ALLOW_BEARER_AUTH=true`. Production and unset NODE_ENV: cookie-only.
+
+**6. Admin Audit Trail:**
+- **`AdminAuditLog` model** — `id`, `actorUserId`, `action`, `targetType`, `targetId`, `metadata JSON`, `createdAt`. Indexed on `[targetType, targetId]` and `[actorUserId]`.
+- Every dangerous action in `SuperAdminService` creates audit log entries in the same `$transaction` as the mutation. Actions logged: `TIER_OVERRIDE`, `TIER_CLEAR`, `SUSPEND`, `REACTIVATE`, `OWNER_PASSWORD_RESET`, `PAYMENTS_ENABLED`, `PAYMENTS_DISABLED`, `DELETE`, `RESTORE`, `DELETE_STAFF`, `MENU_IMPORT`, `PLATFORM_SETTINGS_UPDATE`.
+- **`GET /super-admin/audit-log`** — paginated audit log with actor email/name, filterable by `targetId`.
+
+**Key files:**
+- `apps/backend/prisma/schema.prisma` — `User.isActive`, `disabledAt`, `disabledReason` + `AdminAuditLog` model
+- `apps/backend/prisma/migrations/20260522193000_add_user_account_disable_fields/migration.sql`
+- `apps/backend/src/auth/jwt.strategy.ts` — disabled user rejection + Bearer auth gate
+- `apps/backend/src/auth/jwt.strategy.spec.ts` — 2 tests
+- `apps/backend/src/auth/auth.service.ts` — login disabled-account rejection
+- `apps/backend/src/main.ts` — NODE_ENV startup enforcement
+- `apps/backend/src/super-admin/super-admin.controller.ts` — 7 throttled mutations + confirmation DTOs
+- `apps/backend/src/super-admin/super-admin.service.ts` — all mutations with `$transaction` audit logging
+- `apps/backend/src/super-admin/super-admin.guard-coverage.spec.ts` — guard introspection tests
+- `apps/backend/src/super-admin/dto/update-tenant.dto.ts` — 5 CONFIRM-validated DTOs
+- `apps/backend/src/help-content/help-content.controller.ts` — 4 throttled admin endpoints
+- `apps/backend/src/platform-settings/platform-settings.controller.ts` — throttled update with audit log
+- `apps/frontend/src/pages/super-admin/TenantDetailPage.tsx` — `ConfirmationField` component
+
+---
+
 ## 4. Data Model
 
 ### 4.1 Entity Relationship Diagram
@@ -2026,6 +2298,17 @@ All previously identified security gaps were resolved in Phase 21 (Security Hard
 | Deployment | Complete | Docker Compose, health checks, rate limiting, Swagger |
 | GDPR / Legal Module | Complete (May 18, 2026) | `PlatformSettings` singleton, right-to-erasure (Art. 17), data export (Art. 20), retention cron, `CookieConsentBanner`, `/privacy` `/terms` `/cookies` routes, `LegalSettingsPage` in super-admin, `DataPrivacyTab` in customer profile |
 | CI Gate | Complete (May 18, 2026) | `.github/workflows/ci.yml` — backend unit tests + frontend typecheck + frontend tests + turbo build block merge on main/master |
+| Help Center CMS | Complete (May 22, 2026) | `HelpContent` model + `HelpContentModule` (6 endpoints) + `HelpCenterPage.tsx` in super-admin with inline CRUD + locale tabs (EN/BG/RO). LandingFAQ and HelpView switched from hardcoded i18n to API fetch. Seed with 25+ articles. |
+| Landing Page FAQ | Complete (May 22, 2026) | 8 pre-sale FAQ accordion items on home page between CTA and footer. Accessible disclosure pattern with smooth animations. Fully i18n across EN/BG/RO. |
+| Pricing Page Redesign | Complete (May 21, 2026) | Full visual redesign with annual billing toggle (15% discount), 22-row feature comparison table, 6-entry FAQ, ~60 i18n keys. ALREADY_SUBSCRIBED guard with auto-redirect to Stripe Portal. |
+| Analytics XLSX Export | Complete (May 21, 2026) | Multi-sheet XLSX workbook (5 sheets: Summary, Revenue Trend, Top Items, Peak Hours, Category Breakdown). Blue-formatted headers, BGN dual-currency columns, auto-sized columns. `analyticsExport.ts` (217 lines). |
+| Seed Safety Guards | Complete (May 22, 2026) | 3-layer protection: production check → remote DB check → user count > 5. `FORCE_SEED_WIPE=true` override. `seed:help` command for safe help-only seeding. Upsert patterns throughout demo seed. |
+| Prisma PgBouncer Compatibility | Complete (May 22, 2026) | `PrismaService` logs pool warnings. `.env.example` documents `?pgbouncer=true&connection_limit=10` for Neon pooled connections. |
+| Subscription UX Fixes | Complete (May 21-22, 2026) | Duplicate subscription prevention, ALREADY_SUBSCRIBED → portal redirect, Stripe dahlia API type casts, password reset fix. |
+| QR Print Template Polish | Complete (May 22, 2026) | Consistent margins, i18n-wired labels (EN/BG/RO) across Classic/Premium/Minimal templates. |
+| Advanced Category Settings | Complete (May 22, 2026) | Dual titles (internal name + display name), expanded configuration UI. |
+| Super Admin Overview v2 | Complete (May 22, 2026) | Billing vs Effective Tier separation, force-tier summary, Attention Needed panel (5 categories), richer KPI cards, recent activity feed. All computed in single `Promise.all` batch. |
+| Security Hardening Round 2 | Complete (May 22, 2026) | Account disable with SUPER_ADMIN enforcement, CONFIRM-typing on 5 dangerous actions (server-validated), per-mutation throttles (7 super-admin + 4 help-content + platform-settings), guard coverage tests (Reflect.getMetadata), NODE_ENV startup enforcement, `AdminAuditLog` model with full audit trail across all dangerous mutations. 2 new test files, 1 migration. |
 
 ### 9.2 What's Partially Built or Planned
 
@@ -2058,7 +2341,7 @@ All previously identified security gaps were resolved in Phase 21 (Security Hard
 | # | Problem | Impact | Solution | Complexity | Priority |
 |---|---------|--------|----------|------------|----------|
 | 1 | ~~**No database indexes beyond PKs**~~ — **RESOLVED May 2026.** | ~~Queries degrade linearly with order volume.~~ | Added `@@index` on 4 high-traffic tables: `Order(restaurantId, status, createdAt)`, `MenuItem(categoryId, order)`, `Feedback(restaurantId)`, `AssistanceRequest(restaurantId, isResolved)`. Pushed via `prisma db push` to Neon. No application code changes needed — Prisma abstracts indexes transparently. | Low | ~~Must-have~~ **Done** |
-| 2 | ~~**CSV export hardcoded to revenue trend only**~~ — **RESOLVED May 15, 2026.** `AnalyticsView.tsx` now exports all 5 sections: summary, revenue trend, top items, peak hours, category breakdown. Semicolon delimiter with UTF-8 BOM for Excel compatibility. | ~~Restaurant owners need all data for external reporting.~~ | ~~Add export tab selector or multi-sheet export.~~ | Low | ~~Must-have~~ **Done** |
+| 2 | ~~**CSV export hardcoded to revenue trend only**~~ — **UPGRADED May 21, 2026.** Multi-sheet XLSX workbook replaces single-sheet CSV. 5 sheets (Summary, Revenue Trend, Top Items, Peak Hours, Category Breakdown) with formatted headers, BGN dual-currency columns, auto-sized columns. `analyticsExport.ts` (217 lines). | ~~Restaurant owners need all data for external reporting.~~ | ~~Add export tab selector or multi-sheet export.~~ | Low | ~~Must-have~~ **Done + Upgraded** |
 | 3 | ~~**OTP devCode returned in production when RESEND_API_KEY absent**~~ — **VERIFIED SAFE May 2026.** | ~~OTP codes leak in API responses.~~ | Code already correctly gated: `isDev = NODE_ENV !== 'production'`. Production with missing key throws 503. devCode only returned in dev mode. | Low | ~~Must-have~~ **Done** |
 | 4 | ~~**No pagination on list endpoints**~~ — **RESOLVED May 2026.** `PaginationDto` + `PaginatedResult<T>` wired to Orders (`orders.controller.ts:33`), Assistance (`assistance.controller.ts:33`), and Feedback list endpoints. | ~~A restaurant with 10,000+ orders will crash the dashboard.~~ | ~~Wire PaginationDto to list endpoints.~~ | Low | ~~Must-have~~ **Done** |
 | 5 | ~~**FeedbackPage uses window.location for routing**~~ — **RESOLVED May 2026.** `FeedbackPage.tsx` uses `useParams()` and `useSearchParams()` from React Router. | ~~Browser history issues.~~ | ~~Use React Router params.~~ | Low | ~~Nice-to-have~~ **Done** |
@@ -2122,7 +2405,7 @@ All previously identified security gaps were resolved in Phase 21 (Security Hard
 | # | Bottleneck | Evidence | Solution | Complexity |
 |---|-----------|----------|----------|------------|
 | 1 | ~~**N+1 query in `applyLazyTranslations()`**~~ — **RESOLVED (already done; doc was stale).** `menu-translation.service.ts` batches all untranslated texts per language into a single DeepL call, chunked at `DEEPL_BATCH_LIMIT = 50` texts per request. Phase 1: collect missing texts. Phase 2: one batched call (or multiple if >50). Phase 3: distribute results. Parallel DB writes with `.catch()` warning. | ~~`menu-translation.service.ts` — `applyLazyTranslations()` loops with 300ms delay per call. 10 items × 3 languages = 30 API calls = 9 seconds.~~ | ~~Batch all untranslated texts into a single DeepL API call per language.~~ | ~~Low~~ **Done** |
-| 2 | **No database connection pooling** — Prisma connects with default pool size. Neon's serverless nature means connections are cold. **Partial improvement May 18, 2026:** `PrismaService` constructor now passes `log: ['warn', 'error']` to surface pool exhaustion warnings in Cloud Run logs. `.env.example` documents `?connection_limit=10&pgbouncer=true` for Neon's pooled connection string. Full fix still requires appending the connection params in production `DATABASE_URL`. | `prisma.service.ts` retries 15 times — this implies cold starts are common. | Configure `connection_limit` in DATABASE_URL (Neon supports pooler). Append `?connection_limit=10&pgbouncer=true` to production `DATABASE_URL`. | Low |
+| 2 | ~~**No database connection pooling**~~ — **PARTIALLY RESOLVED May 22, 2026.** `PrismaService` constructor now passes `log: ['warn', 'error']` to surface pool exhaustion warnings. `.env.example` documents `?connection_limit=10&pgbouncer=true` for Neon's pooled connection string. Seed safety guards documented. Full resolution requires updating production `DATABASE_URL` with pooler params. | `prisma.service.ts` retries 15 times — this implies cold starts are common. | Configure `connection_limit` in DATABASE_URL (Neon supports pooler). Append `?connection_limit=10&pgbouncer=true` to production `DATABASE_URL`. | Low |
 | 3 | ~~**All menu categories + items + options loaded in single request**~~ — **RESOLVED (already done; doc was stale).** Two-phase public menu loading: `GET /api/v1/menu/public/:id/meta` returns category list (fast first paint); `GET /api/v1/menu/public/:id/categories/:catId/items` returns items per category. Frontend `PublicMenuPage.tsx` calls `getMenuMeta` on mount, then `loadAllCategoryItems` in parallel via `getCategoryItems`. `loadedItemsMap` tracks per-category state. | ~~For a restaurant with 10 categories × 20 items × 3 options = 600+ records per request.~~ | ~~Lazy-load items on category scroll.~~ | ~~Medium~~ **Done** |
 | 4 | ~~**Analytics dashboard runs 8 queries per request**~~ — **RESOLVED May 16, 2026.** `DashboardViewsService` creates 3 Postgres materialized views on `onModuleInit` (`mv_daily_stats`, `mv_peak_hours`, `mv_item_stats`) with unique indexes for `CONCURRENTLY` refresh. `@Cron(EVERY_HOUR)` refreshes all 3 concurrently. `DashboardService.getAnalytics()` checks `this.views.isReady()` — if true, routes `getRevenueTrend`, `getPeakHours`, `getTopItems` to `$queryRaw` view methods; ORM fallbacks retained for custom date ranges and when views aren't ready. Commit `a304cb7`. | ~~At 100,000+ orders, revenue trend by day and peak hours queries need aggregation tables.~~ | ~~Materialized views refreshed hourly.~~ | ~~High~~ **Done** |
 | 5 | ~~**No CDN for static assets**~~ — **RESOLVED (already done; doc was stale).** `StorageService` sets `CacheControl: 'public, max-age=31536000, immutable'` on all R2 uploads (both main image and thumbnail). React.lazy + route-based code splitting already in place via `AppLayout`/`PublicLayout`/`PosLayout` split. Dashboard sub-views lazy-loaded. Public menu routes carry no dashboard JS. Image resizing pipeline (`sharp`: 1200px main + 400px thumbnail, both WebP) ships both URLs. | ~~Customer on slow mobile connection downloading full dashboard JS bundle on public menu page.~~ | ~~Set Cloudflare CDN in front of R2 bucket.~~ | ~~Medium~~ **Done** |

@@ -60,6 +60,42 @@ npx prisma db push
 
 ---
 
+## Step 3.5: Seed the Database
+
+After syncing the schema, populate the database with initial data:
+
+```bash
+cd apps/backend
+npm run seed
+```
+
+This seeds:
+- **Demo users + restaurants** (FREE/STARTER/PROFESSIONAL/ENTERPRISE tiers, password: `demo1234`)
+- **Help/FAQ content** (landing FAQ + dashboard help in EN/BG/RO)
+- **Demo menu items** (35+ items across categories)
+
+### Seed Safety Guards
+
+The seed script has built-in protections to prevent accidental data loss:
+
+1. **Production check** — refuses to run if `NODE_ENV === 'production'`
+2. **Remote DB check** — warns if connecting to a remote database
+3. **User count check** — refuses to run if database already has >5 users
+
+To force seed on a populated database (WARNING: this WILL wipe existing data):
+```bash
+FORCE_SEED_WIPE=true npm run seed
+```
+
+To seed only help content without touching users/restaurants/menu data:
+```bash
+npm run seed:help
+```
+
+The `seed:help` command is **always safe** — it only inserts new rows, never deletes.
+
+---
+
 ## Step 4: Start the Applications (The Fast Way)
 
 You no longer need to manage multiple terminals. From the **root folder**, simply run:
@@ -205,3 +241,6 @@ After the first successful CI run, enable branch protection in GitHub → Settin
 - **"Port Conflict"**: If localhost:3000 or 3001 is taken, check for hanging node processes in your task manager.
 - **"HMR not working"**: Ensure you are running `npm run dev` from the root folder.
 - **"CI tests fail with tdd-guard-jest path error"**: The project has a `tdd-guard-jest` reporter with a hardcoded Windows path in `jest.config.js`. CI overrides it with `--reporters=default --ci`, which is correct. If you see this locally, use `npm test` (which uses the jest config), not `npx jest --reporters=default`.
+- **"Seed refuses to run — database has existing users"**: This is the safety guard working correctly. Use `FORCE_SEED_WIPE=true npm run seed` only if you intend to wipe all data. For adding help content to an existing database, use `npm run seed:help` instead.
+- **"Help Center shows no content"**: Run `npm run seed:help` from `apps/backend` to populate the HelpContent table with initial FAQ data. This is safe on any database — it only inserts, never deletes.
+- **"Prisma connection pool errors"**: Neon uses PgBouncer in transaction mode. Ensure `pgbouncer=true` is in the `DATABASE_URL` connection string. The PrismaService logs pool warnings to Cloud Run logs for diagnosis.

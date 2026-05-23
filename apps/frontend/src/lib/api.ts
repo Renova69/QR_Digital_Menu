@@ -416,17 +416,19 @@ export const getSuperAdminTenants = (
 export const getSuperAdminTenant = (id: string) =>
   api.get(`/super-admin/tenants/${id}`).then((r) => r.data as import('../types').TenantDetail);
 
+const SUPER_ADMIN_CONFIRMATION = 'CONFIRM';
+
 export const updateTenantTier = (id: string, forceTier: string | null) =>
-  api.patch(`/super-admin/tenants/${id}/tier`, { forceTier }).then((r) => r.data);
+  api.patch(`/super-admin/tenants/${id}/tier`, { forceTier, confirmation: SUPER_ADMIN_CONFIRMATION }).then((r) => r.data);
 
 export const updateTenantStatus = (id: string, isActive: boolean) =>
-  api.patch(`/super-admin/tenants/${id}/status`, { isActive }).then((r) => r.data);
+  api.patch(`/super-admin/tenants/${id}/status`, { isActive, confirmation: SUPER_ADMIN_CONFIRMATION }).then((r) => r.data);
 
 export const deleteTenant = (id: string) =>
-  api.delete(`/super-admin/tenants/${id}`).then((r) => r.data);
+  api.delete(`/super-admin/tenants/${id}`, { data: { confirmation: SUPER_ADMIN_CONFIRMATION } }).then((r) => r.data);
 
 export const restoreTenant = (id: string) =>
-  api.post(`/super-admin/tenants/${id}/restore`).then((r) => r.data);
+  api.post(`/super-admin/tenants/${id}/restore`, { confirmation: SUPER_ADMIN_CONFIRMATION }).then((r) => r.data);
 
 export const deleteTenantStaff = (restaurantId: string, userId: string) =>
   api.delete(`/super-admin/tenants/${restaurantId}/staff/${userId}`).then((r) => r.data);
@@ -435,10 +437,10 @@ export const importMenuForTenant = (id: string, dto: object) =>
   api.post(`/super-admin/tenants/${id}/menu/import`, dto).then((r) => r.data);
 
 export const resetTenantOwnerPassword = (id: string, password: string) =>
-  api.patch(`/super-admin/tenants/${id}/reset-password`, { password }).then((r) => r.data);
+  api.patch(`/super-admin/tenants/${id}/reset-password`, { password, confirmation: SUPER_ADMIN_CONFIRMATION }).then((r) => r.data);
 
 export const updateTenantPayments = (id: string, paymentsEnabled: boolean) =>
-  api.patch(`/super-admin/tenants/${id}/payments`, { paymentsEnabled }).then((r) => r.data);
+  api.patch(`/super-admin/tenants/${id}/payments`, { paymentsEnabled, confirmation: SUPER_ADMIN_CONFIRMATION }).then((r) => r.data);
 
 // ── GDPR / Legal helpers ─────────────────────────────────────────────────────
 
