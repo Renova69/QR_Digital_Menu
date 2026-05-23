@@ -47,6 +47,8 @@ export class MenuCrudService {
         facebookUrl: true,
         instagramUrl: true,
         tiktokUrl: true,
+        address: true,
+        contactInfo: true,
       } as any,
     });
 
@@ -105,6 +107,8 @@ export class MenuCrudService {
         facebookUrl: true,
         instagramUrl: true,
         tiktokUrl: true,
+        address: true,
+        contactInfo: true,
       } as any,
     });
 
