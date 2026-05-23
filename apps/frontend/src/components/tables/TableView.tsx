@@ -10,6 +10,7 @@ import { Printer, Eye, QrCode } from 'lucide-react';
 import PrintableQRCodes, { PrintTemplate, PrintOrientation } from './PrintableQRCodes';
 import RestaurantContext from '../../context/RestaurantContext';
 import LiveTablesView from '../../pages/Dashboard/LiveTablesView';
+import { useTier } from '../../hooks/useFeature';
 
 const TableView: React.FC = () => {
   const { activeRestaurant: restaurant } = React.useContext(RestaurantContext) as any;
@@ -20,7 +21,9 @@ const TableView: React.FC = () => {
   const [selectedTable, setSelectedTable] = useState<{ id: string; name: string } | null>(null);
   const qrCodeRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
-  const [subTab, setSubTab] = useState<'live' | 'qr'>('live');
+  const { tier } = useTier();
+  const isFree = tier === 'FREE';
+  const [subTab, setSubTab] = useState<'live' | 'qr'>(isFree ? 'qr' : 'live');
   const [printTemplate, setPrintTemplate] = useState<PrintTemplate>('classic');
   const [printOrientation, setPrintOrientation] = useState<PrintOrientation>('portrait');
 
@@ -124,6 +127,7 @@ const TableView: React.FC = () => {
     <div>
       {/* Sub-tab navigation */}
       <div className="flex items-center gap-1 mb-6 border-b border-border/40 pb-3">
+        {!isFree && (
         <button
           onClick={() => setSubTab('live')}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
@@ -135,6 +139,7 @@ const TableView: React.FC = () => {
           <Eye className="w-3.5 h-3.5" />
           {t('tables.liveView')}
         </button>
+        )}
         <button
           onClick={() => setSubTab('qr')}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${

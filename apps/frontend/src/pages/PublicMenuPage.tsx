@@ -24,7 +24,21 @@ const PublicMenuPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const { setTableNumber, pruneInvalidItems } = useCart();
+  const { setTableNumber, pruneInvalidItems, clearCart } = useCart();
+
+  // Clear cart immediately when navigating to a different restaurant's menu.
+  // sessionStorage scopes this to the current tab — a new tab or incognito always starts clean.
+  useEffect(() => {
+    const CART_RESTAURANT_KEY = 'cartRestaurantId';
+    const prev = sessionStorage.getItem(CART_RESTAURANT_KEY);
+    if (prev && prev !== restaurantId) {
+      clearCart();
+    }
+    if (restaurantId) {
+      sessionStorage.setItem(CART_RESTAURANT_KEY, restaurantId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restaurantId]);
   const [tableNumber, setTableNumberState] = useState<string | null>(null);
 
   // Phase 1: restaurant branding + category names (fast, no items)
@@ -54,6 +68,7 @@ const PublicMenuPage = () => {
   const languagesEnabled = tier !== 'FREE';
   const upsellEnabled = hasTierFeature(tier, 'upselling');
   const customersAuthEnabled = hasTierFeature(tier, 'customers:auth');
+  const showActionBar = ordersEnabled || callWaiterEnabled || customersAuthEnabled;
   const [activeDietTags, setActiveDietTags] = useState<string[]>([]);
   const [excludedAllergens, setExcludedAllergens] = useState<string[]>([]);
 
@@ -63,6 +78,8 @@ const PublicMenuPage = () => {
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const langFetchId = useRef(0);
   const langFetchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const hasActiveFilters = activeDietTags.length > 0 || excludedAllergens.length > 0;
 
   const toggleDietTag = (tag: string) => {
     setActiveDietTags((prev) =>
@@ -74,6 +91,11 @@ const PublicMenuPage = () => {
     setExcludedAllergens((prev) =>
       prev.includes(allergen) ? prev.filter((a) => a !== allergen) : [...prev, allergen],
     );
+  };
+
+  const clearFilters = () => {
+    setActiveDietTags([]);
+    setExcludedAllergens([]);
   };
 
   // All items currently loaded across all categories
@@ -325,7 +347,7 @@ const PublicMenuPage = () => {
       style={{
         ...themeVars,
         fontFamily: "var(--font-body, inherit)",
-        paddingBottom: 'max(8rem, calc(5rem + env(safe-area-inset-bottom, 0px)))',
+        paddingBottom: showActionBar ? 'max(8rem, calc(5rem + env(safe-area-inset-bottom, 0px)))' : '2rem',
       }}
     >
       {/* Ambient Depth Background */}
@@ -349,6 +371,7 @@ const PublicMenuPage = () => {
           restaurantId={restaurantId}
           defaultTheme={(restaurantTheme?.defaultTheme as 'light' | 'dark') ?? 'light'}
           onFilterClick={() => setFilterDrawerOpen(true)}
+          filtersActive={hasActiveFilters}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           languagesEnabled={languagesEnabled}
@@ -412,6 +435,8 @@ const PublicMenuPage = () => {
                   onAllergenToggle={toggleAllergen}
                   searchQuery={searchQuery}
                   onSearchChange={setSearchQuery}
+                  filtersActive={hasActiveFilters}
+                  onClearFilters={clearFilters}
                 />
 
                 {/* Category Horizontal Scroll Pills */}
@@ -465,8 +490,8 @@ const PublicMenuPage = () => {
                       return result;
                     })();
 
-                    // During search, skip entire category (heading + items) when no matches
-                    if (!isItemsLoading && searchQuery.trim() && filteredItems.length === 0) {
+                    // Hide entire category when search or filters yield no matches
+                    if (!isItemsLoading && (searchQuery.trim() || hasActiveFilters) && filteredItems.length === 0) {
                       return null;
                     }
 
@@ -568,8 +593,8 @@ const PublicMenuPage = () => {
           </div>
         )}
 
-        {/* Action Bar */}
-        <div
+        {/* Action Bar — hidden on FREE tier (no icons to show) */}
+        {showActionBar && <div
           className="fixed left-0 right-0 z-50 flex justify-center pointer-events-none px-4 md:px-6"
           style={{ bottom: 'max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))' }}
         >
@@ -659,7 +684,7 @@ const PublicMenuPage = () => {
               )}
             </div>
           </div>
-        </div>
+        </div>}
       </div>
 
       {/* Assistance dialog */}

@@ -12,6 +12,8 @@ interface FilterPanelProps {
   onAllergenToggle: (allergen: string) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
+  filtersActive?: boolean;
+  onClearFilters?: () => void;
 }
 
 export function FilterPanel({
@@ -24,6 +26,8 @@ export function FilterPanel({
   onAllergenToggle,
   searchQuery,
   onSearchChange,
+  filtersActive = false,
+  onClearFilters,
 }: FilterPanelProps) {
   const { t } = useTranslation();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -138,6 +142,17 @@ export function FilterPanel({
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {filtersActive && onClearFilters && (
+          <div className="p-4 border-t border-border">
+            <button
+              onClick={() => { onClearFilters(); onClose(); }}
+              className="w-full py-3 rounded-xl bg-destructive/10 text-destructive text-sm font-bold hover:bg-destructive/20 transition-colors active:scale-[0.98]"
+            >
+              {t('publicMenu.clearFilters', 'Clear filters')}
+            </button>
           </div>
         )}
       </div>
