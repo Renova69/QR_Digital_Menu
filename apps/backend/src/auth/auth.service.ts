@@ -31,6 +31,9 @@ export class AuthService {
         'No account found with this email. Please check or create an account.',
       );
     }
+    if (user.isActive === false || user.disabledAt) {
+      throw new UnauthorizedException('This account has been disabled.');
+    }
     if (user.password && (await bcrypt.compare(pass, user.password))) {
       const { password, ...result } = user;
       return result;
@@ -67,6 +70,10 @@ export class AuthService {
         password: generatedPassword,
         role: 'OWNER',
       });
+    }
+
+    if (user.isActive === false || user.disabledAt) {
+      throw new UnauthorizedException('This account has been disabled.');
     }
 
     return user;
@@ -301,6 +308,10 @@ export class AuthService {
     for (const user of candidates) {
       const valid = await bcrypt.compare(pin, user.pinHash!);
       if (!valid) continue;
+
+      if (user.isActive === false || user.disabledAt) {
+        throw new UnauthorizedException('This account has been disabled.');
+      }
 
       // Successful login — reset attempts for all restaurant staff
       await this.prisma.user.updateMany({

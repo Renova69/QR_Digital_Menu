@@ -44,14 +44,18 @@ export class HelpContentService {
   }
 
   async reorder(items: { id: string; sortOrder: number }[]) {
+    if (items.length === 0) return { updated: 0 };
+
     await this.prisma.$transaction(
-      items.map(({ id, sortOrder }) =>
+      items.map((i) =>
         this.prisma.helpContent.update({
-          where: { id },
-          data: { sortOrder },
+          where: { id: i.id },
+          data: { sortOrder: i.sortOrder },
         }),
       ),
     );
+
+    return { updated: items.length };
   }
 
   deleteByCategory(section: string, categoryKey: string) {
