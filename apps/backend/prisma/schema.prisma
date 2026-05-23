@@ -183,7 +183,7 @@ model Order {
   id                        String               @id @default(cuid())
   customerName              String
   customerPhone             String?
-  tableId                   String
+  tableId                   String?
   status                    OrderStatus          @default(NEW)
   restaurantId              String
   totalPrice                Float
