@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { SuperAdminGuard } from '../super-admin/super-admin.guard';
+import { Throttle } from '@nestjs/throttler';
 import { HelpContentService } from './help-content.service';
 import { CreateHelpContentDto } from './dto/create-help-content.dto';
 import { UpdateHelpContentDto } from './dto/update-help-content.dto';
@@ -38,26 +39,30 @@ export class HelpContentController {
   }
 
   @UseGuards(JwtAuthGuard, SuperAdminGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('super-admin/help-content')
   create(@Body() dto: CreateHelpContentDto) {
     return this.helpContentService.create(dto);
   }
 
   @UseGuards(JwtAuthGuard, SuperAdminGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Patch('super-admin/help-content/reorder')
+  reorder(@Body() dto: ReorderHelpContentDto) {
+    return this.helpContentService.reorder(dto.items);
+  }
+
+  @UseGuards(JwtAuthGuard, SuperAdminGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Patch('super-admin/help-content/:id')
   update(@Param('id') id: string, @Body() dto: UpdateHelpContentDto) {
     return this.helpContentService.update(id, dto);
   }
 
   @UseGuards(JwtAuthGuard, SuperAdminGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Delete('super-admin/help-content/:id')
   delete(@Param('id') id: string) {
     return this.helpContentService.delete(id);
-  }
-
-  @UseGuards(JwtAuthGuard, SuperAdminGuard)
-  @Patch('super-admin/help-content/reorder')
-  reorder(@Body() dto: ReorderHelpContentDto) {
-    return this.helpContentService.reorder(dto.items);
   }
 }

@@ -23,7 +23,13 @@
 > **Dashboard Vertical Sidebar (May 18, 2026):** ✅ Replaced the dashboard desktop horizontal tab overflow with a permanent vertical sidebar. All tabs (including Menu Editor, POS, Kitchen) always visible on Enterprise/Pro — no more hidden overflow tabs. Mobile bottom nav unchanged. Theme-aware borders (`border-border/50`) work in both light and dark mode. Single file change: `DashboardPage.tsx` (118 insertions, 96 deletions).
 > **Super-Admin Dark OLED Redesign (May 18, 2026):** ✅ Complete visual overhaul of all 5 super-admin pages. `SuperAdminLayout`: emerald accent, Shield branding, user avatar initials, `slate-950` background. `OverviewPage`: colored stat cards with icon badges, donut chart with dark tooltip. `TenantsPage`: polished table with badge tiers, Stripe indicator dots, chevron affordance. `TenantDetailPage`: `SectionCard` system, consistent dialogs (`slate-900`), sticky danger zone. `LegalSettingsPage`: sticky save bar with unsaved-state indicator, faded sections when GDPR off, locale editor with emerald active tab, toggle rows with focus rings.
 > **Super-Admin Dashboard (May 17, 2026):** ✅ Full internal ops panel at `/super-admin`. Backend: `SuperAdminModule` with `SUPER_ADMIN` role guard, `GET /super-admin/stats` (platform totals + tier distribution), `GET /super-admin/tenants` (paginated search + tier/status filter), `GET /super-admin/tenants/:id` (tenant detail + owner + counts + payment summary — explicit select, no secrets exposed), `PATCH /super-admin/tenants/:id/tier` (forceTier override), `PATCH /super-admin/tenants/:id/status` (suspend/reactivate `isActive`), `DELETE /super-admin/tenants/:id` (soft-delete via `deletedAt`), `POST /super-admin/tenants/:id/restore`. Schema: `Restaurant.isActive Boolean @default(true)`, `Restaurant.forceTier SubscriptionTier?`, `Restaurant.deletedAt DateTime?`. Frontend: `SuperAdminLayout` (sidebar nav), `OverviewPage` (platform stats + tier pie chart), `TenantsPage` (table with search + tier/status/deleted filters), `TenantDetailPage` (tier override dropdown, suspend/reactivate, delete/restore, mutation error banner). Tier override propagates live — `getEffectiveTier` applied in subscription status endpoint + `applyEffectiveTier` in restaurants service. `useTier()` migrated to TanStack Query (`['subscription-status']`, `staleTime: 60_000`, `refetchOnWindowFocus: true`) — tier changes from admin reflect within 60s without re-login. `SubscriptionBanner` + `BillingView` also migrated to `useQuery` (shared cache key).  
-> **Current Focus:** Concerns triage + CI gate (May 18, 2026) — Phase 20 (Multi-location) paused until concerns cleared
+> **Help Center CMS (May 19-22, 2026):** ✅ Database-driven CMS for all Help/FAQ content. `HelpContent` model + `HelpContentModule` (6 endpoints) + `HelpCenterPage.tsx` in super-admin with inline CRUD + locale tabs (EN/BG/RO). LandingFAQ and HelpView switched from hardcoded i18n to API fetch (`GET /help-content/:section`). Seed with 25+ articles.  
+> **Pricing Page Redesign (May 21, 2026):** ✅ Full visual redesign with annual billing toggle (15% discount), 22-row feature comparison table, 6-entry FAQ, ~60 i18n keys. ALREADY_SUBSCRIBED guard with auto-redirect to Stripe Portal.  
+> **Analytics XLSX Export (May 21, 2026):** ✅ Multi-sheet XLSX workbook (5 sheets). BGN dual-currency columns. `analyticsExport.ts` (217 lines).  
+> **Seed Safety + PgBouncer (May 22, 2026):** ✅ 3-layer seed guard (production → remote DB → user count). `seed:help` command. `PrismaService` pool logging.  
+> **Super Admin Overview v2 (May 22, 2026):** ✅ Billing vs Effective Tier separation, force-tier summary (upgrades/downgrades), richer KPI cards, recent activity feed (7d/24h), "Attention Needed" panel (5 categories: forced overrides, payments not onboarded, empty menus, no tables, inactive tenants). Backend `getStats()` full rewrite — single `Promise.all` batch with 12 parallel queries.  
+> **Security Hardening Round 2 (May 22, 2026):** ✅ Account disable (`User.isActive`, `disabledAt`, `disabledReason`) with SUPER_ADMIN enforcement in JWT + login. CONFIRM-typing on 5 dangerous actions (server-validated DTOs). Per-mutation throttles: 7 super-admin + 4 help-content + platform-settings. Guard coverage tests via `Reflect.getMetadata`. NODE_ENV startup enforcement. `AdminAuditLog` model with full audit trail across all dangerous mutations (`$transaction`-atomic). 2 new test files, 1 migration.  
+> **Current Focus:** Documentation update (May 22, 2026) — Phase 20 (Multi-location) paused until concerns cleared
 
 ---
 
@@ -828,6 +834,158 @@ Plan: `.claude/plans/snappy-tumbling-peach.md` (6 changes across 4 files)
 - `DashboardPage.tsx`: Analytics tab now uses `useFeature('analytics:full')` (was `analytics:basic`) — STARTER users no longer see the Analytics tab at all (consistent with STARTER having only basic analytics, full analytics being PRO+).
 
 **Cloud Run redeployed:** revision `qr-menu-backend-00025-8qt`
+
+---
+
+## 🔷 Subscription UX Fixes ✅ (May 19, 2026)
+
+**Goal:** Prevent duplicate subscriptions, add current-plan detection on pricing page, wire annual billing, display subscription details in BillingView, and fix password-reset error handling in super-admin.
+
+**Shipped:**
+
+### Duplicate Subscription Prevention
+- `SubscriptionService.createCheckoutSession` now checks for active Stripe subscription before creating checkout — throws `BadRequestException('ALREADY_SUBSCRIBED')` if customer has active sub
+- Frontend `PricingPage`: detects current tier → shows "Current Plan" badge (disabled button); lower tiers → "Manage in Billing Portal"; `ALREADY_SUBSCRIBED` error → auto-redirect to Stripe Portal
+- Auto-renew caption shown near billing toggle
+
+### Subscription Details in BillingView
+- `getSubscriptionDetails()` retrieves period dates, interval, cancel status from Stripe
+- BillingView plan card now shows `subscriptionStart`, `subscriptionEnd`, and billing interval
+- Upgrade buttons route to `/pricing` for billing-period selection
+- `SubscriptionsController.getStatus()` merges subscription detail into response
+
+### Password Reset Error Handling
+- `TenantDetailPage.tsx`: `resetPwMutation` gained `onError` handler — backend 400/500 now surfaces as visible error
+- Client password validation tightened to match backend DTO regex (uppercase + lowercase + digit + 8+ chars)
+
+**Key files:**
+- `apps/backend/src/subscription/subscription.service.ts` — active-sub guard, getSubscriptionDetails
+- `apps/backend/src/subscription/subscription.controller.ts` — getStatus merge
+- `apps/frontend/src/pages/PricingPage.tsx` — current-plan detection, re-checkout guard
+- `apps/frontend/src/components/subscription/BillingView.tsx` — upgrade routing, dates
+- `apps/frontend/src/pages/super-admin/TenantDetailPage.tsx` — pw reset error handling
+- `apps/frontend/src/lib/api.ts` — SubscriptionDetails interface
+
+---
+
+## 🔷 Stripe Type Cast Fix ✅ (May 19, 2026)
+
+**Problem:** Stripe's dahlia API version returned untyped subscription objects. Passing them directly to Prisma `updateMany` caused silent type mismatches.
+
+**Fix:** 4 explicit type casts (`subscription.status as string`, `subscription.id as string`) in `subscription.service.ts`.
+
+**Key files:** `apps/backend/src/subscription/subscription.service.ts`
+
+---
+
+## 🔷 Analytics XLSX Export ✅ (May 19, 2026)
+
+**Goal:** Replace single-sheet CSV with multi-sheet XLSX workbook, add BGN dual-currency columns, fix column header bugs.
+
+**Shipped:**
+- New `lib/analyticsExport.ts` (217 lines) — multi-sheet XLSX generation
+- 5 sheets: Summary, Revenue Trend, Top Items, Peak Hours, Category Breakdown
+- BGN dual-currency columns on all monetary sheets
+- Excel auto-sizing columns + styled headers
+- CSV field name bug fixed (was `name`/`value`, now `category`/`revenue`)
+- `AnalyticsView.tsx` updated with new export function and header colors fix
+
+**Key files:**
+- `apps/frontend/src/lib/analyticsExport.ts`
+- `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx`
+
+---
+
+## 🔷 QR Code Print Layout Fixes ✅ (May 19, 2026)
+
+**Problem:** Printable QR code templates had inconsistent margins and hardcoded English labels.
+
+**Fix:** Refactored all 3 templates (Classic, Premium, Minimal) with consistent margins, proper padding, and i18n-wired labels in EN/BG/RO.
+
+**Key files:**
+- `apps/frontend/src/components/tables/PrintableQRCodes.tsx` (190 lines changed)
+- `apps/frontend/src/components/tables/TableView.tsx`
+
+---
+
+## 🔷 Landing FAQ on Home Page ✅ (May 21, 2026)
+
+**Goal:** Add a pre-sale FAQ section to the landing/home page between the CTA and footer to answer common customer questions before sign-up.
+
+**Shipped:**
+- `LandingFAQ.tsx` component with 8 FAQ items in accordion layout
+- Smooth expand/collapse transitions + keyboard navigation + ARIA labels
+- ~30 i18n keys under `landing.faq.*` in EN/BG/RO
+- Help link moved from dashboard tabs to sidebar footer (less prominent, more appropriate)
+- FAQ section inserted between CTA and footer on HomePage
+
+**Key files:**
+- `apps/frontend/src/components/landing/LandingFAQ.tsx`
+- `apps/frontend/src/pages/HomePage.tsx`
+- `apps/frontend/src/pages/DashboardPage.tsx`
+- `apps/frontend/src/locales/{en,bg,ro}/translation.json`
+
+---
+
+## 🔷 Help Center CMS ✅ (May 22, 2026)
+
+**Goal:** Move all Help/FAQ content from hardcoded i18n JSON into a Prisma-backed CMS with full CRUD. Integrate into super-admin dashboard for easy text editing and new FAQ creation.
+
+**Backend — HelpContentModule:**
+- `HelpContent` model: `id`, `section` (landing/dashboard), `categoryKey`, `itemKey`, `sortOrder`, `locale` (EN/BG/RO), `title`, `body`, `active`, timestamps
+- `HelpContentService`: `findBySection`, `findBySectionAndLocale`, `create`, `update`, `delete`, `reorder`
+- `HelpContentController`: 6 endpoints — public `GET /help-content/:section`, super-admin CRUD + reorder (all JWT + SuperAdmin guarded)
+- DTOs: `CreateHelpContentDto`, `UpdateHelpContentDto`, `ReorderHelpContentDto` with class-validator
+- Tests: `help-content.service.spec.ts` (118 lines), `help-content.controller.spec.ts` (96 lines)
+
+**Frontend — HelpCenterPage CMS:**
+- `HelpCenterPage.tsx` (507 lines) — super-admin page with sub-tabs (Landing FAQ / Dashboard Help), locale tabs (EN/BG/RO), inline create/edit/delete with modal forms, category grouping
+- `LandingFAQ.tsx` — home page component now fetches from API via `useQuery(['help-content', 'landing', i18n.language])`
+- `HelpView.tsx` (310 lines) — dashboard Help tab now fetches from API instead of hardcoded i18n
+- `api.ts` — 6 functions: `getHelpContent`, `getAdminHelpContent`, `createHelpContent`, `updateHelpContent`, `deleteHelpContent`, `reorderHelpContent`
+- `SuperAdminLayout.tsx` — Help Center nav item (`MessageCircleQuestion` icon)
+- `App.tsx` — lazy route for `/super-admin/help`
+
+**Seed:**
+- `seed-help-content.ts` (581 lines) — 50+ items across landing FAQ + dashboard help in EN/BG/RO, idempotent (checks existing count)
+- `seed-help-only.ts` (23 lines) — single-purpose help content seed, zero destructive operations
+
+**Key files:**
+- `apps/backend/prisma/schema.prisma` — HelpContent model
+- `apps/backend/src/help-content/*` — 7 files (module, service, controller, 3 DTOs, 2 specs)
+- `apps/backend/prisma/seed-help-content.ts`, `seed-help-only.ts`
+- `apps/frontend/src/pages/super-admin/HelpCenterPage.tsx`
+- `apps/frontend/src/components/landing/LandingFAQ.tsx`
+- `apps/frontend/src/pages/Dashboard/HelpView.tsx`
+- `apps/frontend/src/lib/api.ts`
+
+---
+
+## 🔷 Seed Safety Guards ✅ (May 22, 2026)
+
+**Goal:** Prevent `npm run seed` from accidentally wiping production or populated databases.
+
+**Shipped:**
+- `seed.ts`: 3-layer guard — (1) `NODE_ENV === 'production'` check, (2) remote DB host check, (3) user count > 5 check (refuses unless `FORCE_SEED_WIPE=true`)
+- `seed-help-content.ts`: checks `helpContent.count() > 0` before inserting — idempotent, never deletes
+- `seed-help-only.ts`: single-purpose script, zero destructive ops — only calls `seedHelpContent()`
+- `seed-demo-restaurants.ts`: upsert pattern throughout — `findUnique` before `create`, `findFirst` before `update`
+
+**Key files:**
+- `apps/backend/prisma/seed.ts`
+- `apps/backend/prisma/seed-help-content.ts`
+- `apps/backend/prisma/seed-help-only.ts`
+- `apps/backend/prisma/seed-demo-restaurants.ts`
+
+---
+
+## 🔷 Prisma PgBouncer Connection Pool Fix ✅ (May 21, 2026)
+
+**Problem:** Prisma's default connection pool settings conflicted with Neon's PgBouncer transaction mode, causing sporadic connection errors under load.
+
+**Fix:** Configured PgBouncer-compatible connection parameters in `PrismaService`. Added `super({ log: ['warn', 'error'] })` for pool exhaustion visibility in Cloud Run logs.
+
+**Key files:** `apps/backend/src/prisma/prisma.service.ts`
 
 ---
 

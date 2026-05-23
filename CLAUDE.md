@@ -68,7 +68,7 @@ npm start        # serve dist/ on :3001
 
 ## Backend architecture
 
-NestJS modules registered in `apps/backend/src/app.module.ts` (in order): Config (global), Throttler, Prisma, Subscription, Auth, Restaurants, Menu, Orders, Assistance, Dashboard, Tables, Health, Feedback, Translation, Storage, Events, Loyalty, Payment, MenuImport. `ThrottlerGuard` applied globally (100 req / 60s).
+NestJS modules registered in `apps/backend/src/app.module.ts` (in order): Config (global), Throttler, Prisma, Subscription, Auth, Restaurants, Menu, Orders, Assistance, Dashboard, Tables, Health, Feedback, Translation, Storage, Events, Loyalty, Payment, MenuImport, HelpContent. `ThrottlerGuard` applied globally (100 req / 60s).
 
 Cross-cutting concerns:
 - **Auth** (`auth/`) — JWT + Google OAuth + magic link + Email OTP via Passport strategies. **JWT stored in httpOnly cookie** (not localStorage). `jwt.strategy.ts` reads from `request.cookies.token` first, Bearer header fallback. CSRF double-submit cookie pattern on all state-changing endpoints (`X-CSRF-Token` header must match `csrf-token` cookie). `AuthContext` no longer touches localStorage for token — reads user via `/auth/me` which sends cookie automatically.
@@ -133,6 +133,8 @@ Key files for the options flow:
 - **API client** — `src/lib/api.ts` (axios + CSRF interceptor). BaseURL auto-selects: `/api/v1` in dev (same-origin via Vite proxy), `VITE_API_URL` in production (cross-origin to Cloud Run). `withCredentials: true` sends httpOnly cookie. CSRF token fetched once, cached, attached to state-changing requests. 401 interceptor skips `/auth/me` to prevent logout loop. All requests go through this — never call axios directly elsewhere.
 - **UI primitives** — `src/components/ui/` (Radix + class-variance-authority + tailwind-merge).
 - **Menu import/export** — `src/pages/Dashboard/MenuImportExportView.tsx` (~380 lines). Combined Import/Export dashboard tab with sub-tab navigation. `ImportTab` contains full OCR JSON import flow (ApiKeyPanel, FileImporter, PreviewTable, confirm import with mutation). `ExportTab` offers Download JSON, Download CSV (`menuToCSV()` with BOM + European locale), Copy JSON. Uses lazy fetch (`useQuery({ enabled: false })`) — data fetched on button click only. `exportMenu()` in `api.ts` calls `GET /api/restaurants/:id/menu/export` (JWT-guarded, backend endpoint already existed). Tab label key: `dashboard.tabs.importExport`.
+- **Analytics export** — `src/lib/analyticsExport.ts` (217 lines). Multi-sheet XLSX workbook generation replacing single-sheet CSV. 5 sheets: Summary, Revenue Trend, Top Items, Peak Hours, Category Breakdown. BGN dual-currency columns. Used by `AnalyticsView.tsx` via download button.
+- **Help Center CMS** — `src/pages/super-admin/HelpCenterPage.tsx` (~507 lines). Database-driven CMS for all Help/FAQ content. Sub-tabs for Landing FAQ and Dashboard Help sections. Locale tabs (EN/BG/RO). Inline CRUD with modal forms. `LandingFAQ.tsx` on home page fetches from API (`getHelpContent('landing', locale)`). `HelpView.tsx` in dashboard fetches from API. Backend: `HelpContentModule` with 6 endpoints — public `GET /help-content/:section` (grouped by category, ordered by sortOrder) + super-admin CRUD under `/super-admin/help-content`. Seed: `prisma/seed-help-content.ts` (idempotent, checks existing count) + `prisma/seed-help-only.ts` (help-only, zero destructive ops). Help content is tri-lingual (EN/BG/RO) per item.
 
 ## Conventions & gotchas
 
@@ -143,6 +145,15 @@ Key files for the options flow:
 - **Dev:** `api.ts` uses `/api/v1` (same-origin, Vite proxy). **Production:** `api.ts` uses `VITE_API_URL` (cross-origin, `sameSite: 'none'` + `secure: true` cookies). Both paths valid — proxy not available on static hosts like Vercel.
 - **NEVER read token from localStorage** in AuthContext or anywhere else. Token lives in httpOnly cookie only. Use `/auth/me` to get current user.
 - **CSRF middleware ordering in main.ts**: Helmet CSP → cookieParser → CSRF validation → app.useGlobalPipes. CSRF must run after cookieParser but before guards.
+- **Seed safety**: `seed.ts` has 3-layer guard — production check, remote DB check, user count > 5 (refuses unless `FORCE_SEED_WIPE=true`). `seed-help-content.ts` and `seed-demo-restaurants.ts` use idempotent upsert patterns — never delete existing data. `seed-help-only.ts` is single-purpose, zero destructive ops. Never bypass these guards without explicit user approval.
+- **Prisma PgBouncer**: Neon uses PgBouncer in transaction mode. PrismaService constructor calls `super({ log: ['warn', 'error'] })` to surface pool exhaustion. Connection URL includes `pgbouncer=true`.
+- **Security — Account disable**: `User.isActive` (default true), `disabledAt`, `disabledReason`. JWT strategy rejects disabled users including SUPER_ADMIN with `UnauthorizedException('ACCOUNT_DISABLED')`. Login rejects disabled accounts before token issuance.
+- **Security — Dangerous action confirmation**: 5 super-admin actions require `@Matches(/^CONFIRM$/) confirmation: string` in DTOs: tier override, suspend/reactivate, reset password, payments toggle, delete/restore. Frontend `ConfirmationField` with "Type CONFIRM to continue" input. Server-enforced via class-validator pipeline.
+- **Security — Super-admin rate limiting**: All dangerous mutations throttled independently: tier 5/60s, status 5/60s, password reset 3/60s, payments 5/60s, delete 3/60s, restore 3/60s. Help-content admin writes: 10/60s. Platform-settings update: 5/60s.
+- **Security — Guard coverage**: `super-admin.guard-coverage.spec.ts` uses `Reflect.getMetadata(GUARDS_METADATA)` to verify JwtAuthGuard + SuperAdminGuard on all super-admin, help-content admin, and platform-settings admin endpoints.
+- **Security — NODE_ENV enforcement**: `main.ts` crashes if production env (K_SERVICE/CLOUD_RUN_JOB) detected without NODE_ENV=production. Bearer JWT auth only allowed in test/dev/ALLOW_BEARER_AUTH=true — production is cookie-only.
+- **AdminAuditLog**: Every dangerous super-admin action logs to `AdminAuditLog` with actorUserId, action, targetType, targetId, metadata — all in same `$transaction` as the mutation. `GET /super-admin/audit-log` provides paginated audit trail.
+- **Super-admin overview v2**: `GET /super-admin/stats` returns billing vs effective tier counts, force-tier summary (upgrades/downgrades), richer KPIs (active/deleted/suspended/paid/stripe-linked), recent activity (7d/24h), and "Attention Needed" panel (forced overrides, payments not onboarded, empty menus, no tables, inactive tenants). Single `Promise.all` batch with 12 parallel queries.
 
 ## Waiter POS (`/staff/pos`)
 

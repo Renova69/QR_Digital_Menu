@@ -16,6 +16,9 @@ model User {
   pinHash         String?
   pinAttempts     Int               @default(0)
   pinLockedUntil  DateTime?
+  isActive        Boolean           @default(true)
+  disabledAt      DateTime?
+  disabledReason  String?
   role            UserRole         @default(STAFF)
   restaurantId    String?
   createdAt       DateTime         @default(now())

@@ -10,6 +10,16 @@ import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   try {
+    const requiresProductionNodeEnv =
+      process.env.REQUIRE_PRODUCTION_NODE_ENV === 'true' ||
+      !!process.env.K_SERVICE ||
+      !!process.env.CLOUD_RUN_JOB;
+    if (requiresProductionNodeEnv && process.env.NODE_ENV !== 'production') {
+      throw new Error(
+        'NODE_ENV must be set to production in this deployment. Refusing to start with relaxed development security.',
+      );
+    }
+
     const app = await NestFactory.create(AppModule, { bodyParser: false });
 
     app.useGlobalPipes(

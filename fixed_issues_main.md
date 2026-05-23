@@ -1014,3 +1014,310 @@ A dummy `DATABASE_URL` satisfies Prisma's connection string format validation du
 - Revision `qr-menu-backend-00025-8qt` deployed via `deploy.ps1`.
 - New env vars `STRIPE_PRICE_*_MONTHLY/YEARLY` must be set manually via `gcloud run services update --update-env-vars` before checkout will work end-to-end.
 
+---
+
+## Subscription UX, Duplicate Prevention & Password Reset (May 19, 2026)
+
+### Pricing Page — Re-Checkout Guard & Current Plan Badge
+
+- **Problem**: Clicking "Choose Plan" for the currently active tier created a second Stripe subscription. No guard prevented duplicate checkout.
+- **Fix**:
+  - Pricing page now detects current tier and shows "Current Plan" badge (disabled button) instead of "Choose Plan".
+  - Lower tiers show "Manage in Billing Portal" button instead of checkout.
+  - `ALREADY_SUBSCRIBED` error from backend auto-redirects to Stripe Customer Portal.
+  - Auto-renew caption shown near billing toggle.
+- **Files**: `apps/frontend/src/pages/PricingPage.tsx`
+
+### BillingView — Upgrade Routing & Subscription Details
+
+- **Problem**: BillingView upgrade buttons had no billing-period selection; current plan card showed no subscription dates or interval.
+- **Fix**: Upgrade buttons route to `/pricing` for billing-period choice. Plan card now shows `subscriptionStart`, `subscriptionEnd`, and billing interval from Stripe.
+- **Files**: `apps/frontend/src/components/subscription/BillingView.tsx`
+
+### Backend — Active Subscription Guard
+
+- **Problem**: `createCheckoutSession` had no active-subscription check — could create duplicate subscriptions.
+- **Fix**: `SubscriptionService.createCheckoutSession` now checks for active Stripe subscription before creating checkout session. Throws `BadRequestException('ALREADY_SUBSCRIBED')` if customer has active sub. `getSubscriptionDetails()` added — retrieves period dates, interval, cancel status from Stripe.
+- **Files**: `apps/backend/src/subscription/subscription.service.ts`, `apps/backend/src/subscription/subscription.controller.ts`
+
+### TenantDetailPage — Password Reset Error Handling
+
+- **Problem**: `resetPwMutation` had no `onError` handler — backend 400/500 responses failed silently. Client password validation was looser than backend DTO regex.
+- **Fix**: Added `onError` handler displaying backend error message. Client validation tightened to match backend regex: uppercase + lowercase + digit + 8+ chars minimum.
+- **Files**: `apps/frontend/src/pages/super-admin/TenantDetailPage.tsx`
+
+---
+
+## Stripe Subscription Type Cast Fix (May 19, 2026)
+
+### Problem
+
+`subscription.service.ts` passed Stripe's untyped subscription object directly to Prisma `updateMany` without casting `status` and `id` fields. The dahlia API version of the Stripe SDK returned slightly different types, causing silent type mismatches.
+
+### Fix
+
+Explicitly cast `subscription.status` and `subscription.id` to string before passing to Prisma queries. 4 call sites updated in `subscription.service.ts`.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/src/subscription/subscription.service.ts` | 4 explicit type casts on Stripe subscription object fields |
+
+---
+
+## Pricing Page i18n + Badge Wrap Fix (May 19, 2026)
+
+### Problem
+
+Pricing page strings (tier names, bullet points, FAQ answers) were hardcoded English — not wired to i18n. "Most Popular" badge wrapped to 2 lines in Bulgarian/Romanian translations.
+
+### Fix
+
+- All pricing page strings moved to i18n `pricing.*` namespace with `t(key, englishDefault)` pattern.
+- "Most Popular" badge: `whitespace-nowrap` + tighter padding prevents 2-row wrap across BG/RO locales.
+- ~60 new i18n keys added across EN/BG/RO for pricing tiers, features, FAQ, and billing labels.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/pages/PricingPage.tsx` | All strings wired to i18n, badge wrap fix |
+| `apps/frontend/src/locales/en/translation.json` | `pricing.*` keys added |
+| `apps/frontend/src/locales/bg/translation.json` | `pricing.*` keys added |
+| `apps/frontend/src/locales/ro/translation.json` | `pricing.*` keys added |
+
+---
+
+## Printable QR Codes — Layout & i18n Improvements (May 19, 2026)
+
+### Problem
+
+Printable QR code templates had inconsistent margins, crowding at table edges. Template labels and button text were hardcoded English — no i18n support.
+
+### Fix
+
+Refactored all 3 print templates (Classic, Premium, Minimal) with consistent margins, proper padding, and i18n-wired labels. Template selector dropdown and print button text localized in EN/BG/RO.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/components/tables/PrintableQRCodes.tsx` | Layout margins, template i18n, 190 lines changed |
+| `apps/frontend/src/components/tables/TableView.tsx` | Template selector labels localized |
+
+---
+
+## Prisma Connection Pool — Neon PgBouncer Compatibility (May 21, 2026)
+
+### Problem
+
+Neon uses PgBouncer in transaction mode, which limits prepared statements and connection pooling. Prisma's default connection pool settings caused sporadic connection errors under load.
+
+### Fix
+
+Configured Prisma client with PgBouncer-compatible connection parameters: `pgbouncer=true` in connection string and `connection_limit` tuned for Neon's serverless pool size. `PrismaService` constructor calls `super({ log: ['warn', 'error'] })` to surface pool exhaustion warnings.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/src/prisma/prisma.service.ts` | PgBouncer-compatible connection config, 14 lines changed |
+
+---
+
+## Seed Safety — Data Wipe Prevention (May 22, 2026)
+
+### Problem
+
+Running `npm run seed` on a production or populated database could wipe all users, restaurants, and related data via `deleteMany` calls. No guard prevented accidental data loss.
+
+### Fix
+
+Three-layer safety guard added to `seed.ts`:
+1. **Production check** — refuses to run if `NODE_ENV === 'production'`
+2. **Remote DB check** — warns if `DATABASE_URL` contains remote host (not localhost)
+3. **User count check** — refuses to run if database has >5 users, unless `FORCE_SEED_WIPE=true` env var is set
+
+`seed-help-content.ts` uses upsert pattern (checks `helpContent.count() > 0` before inserting). `seed-help-only.ts` only calls `seedHelpContent()` — no destructive operations. `seed-demo-restaurants.ts` uses upsert pattern throughout.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/prisma/seed.ts` | 3-layer safety guard (lines 10-35) |
+| `apps/backend/prisma/seed-help-content.ts` | Idempotent — checks existing count before insert |
+| `apps/backend/prisma/seed-help-only.ts` | New — single-purpose help content seed, zero destructive ops |
+| `apps/backend/prisma/seed-demo-restaurants.ts` | Upsert-only pattern |
+
+---
+
+## Help Center CMS — Database-Driven Help System (May 19-22, 2026)
+
+### Summary
+
+Full-stack feature moving all Help/FAQ content from hardcoded i18n JSON into a Prisma-backed CMS with full CRUD. New `HelpContent` model with section/category/item key structure, NestJS service+controller with 6 endpoints, and React CMS UI with inline editing in the super-admin dashboard.
+
+### Backend — HelpContentModule
+
+- **`HelpContent` model** — fields: `id`, `section` (landing/dashboard), `categoryKey`, `itemKey`, `sortOrder`, `locale` (EN/BG/RO), `title`, `body`, `active`, timestamps.
+- **`HelpContentService`** — `findBySection`, `findBySectionAndLocale`, `create`, `update`, `delete`, `reorder` (bulk sort order update).
+- **`HelpContentController`** — 6 endpoints:
+  - `GET /help-content/:section` (public, no auth) — returns active items grouped by category, ordered by sortOrder
+  - `GET /super-admin/help-content` (JWT + SuperAdmin) — all items with locale filter
+  - `POST /super-admin/help-content` (JWT + SuperAdmin) — create item
+  - `PATCH /super-admin/help-content/:id` (JWT + SuperAdmin) — update item
+  - `DELETE /super-admin/help-content/:id` (JWT + SuperAdmin) — delete item
+  - `PATCH /super-admin/help-content/reorder` (JWT + SuperAdmin) — bulk reorder
+- **DTOs** — `CreateHelpContentDto`, `UpdateHelpContentDto`, `ReorderHelpContentDto` with class-validator decorators.
+- **Tests** — `help-content.service.spec.ts` (118 lines), `help-content.controller.spec.ts` (96 lines).
+
+### Frontend — HelpCenterPage CMS
+
+- **`HelpCenterPage.tsx`** (507 lines) — super-admin page with sub-tabs (Landing FAQ / Dashboard Help), locale tabs (EN/BG/RO), inline CRUD (create/edit/delete with modals), category grouping.
+- **`LandingFAQ.tsx`** — home page FAQ section fetches from API via `useQuery(['help-content', 'landing', i18n.language])`. Shows 8 pre-sale FAQ items in accordion layout. Smooth transitions + accessibility (keyboard nav, ARIA labels).
+- **`HelpView.tsx`** (310 lines) — dashboard Help tab fetches from API, replaces hardcoded i18n content.
+- **`api.ts`** — 6 functions: `getHelpContent`, `getAdminHelpContent`, `createHelpContent`, `updateHelpContent`, `deleteHelpContent`, `reorderHelpContent`.
+- **`SuperAdminLayout.tsx`** — Help Center nav item with `MessageCircleQuestion` icon.
+- **`App.tsx`** — Lazy route for `/super-admin/help` rendering `HelpCenterPage`.
+
+### Seed — Help Content Seed
+
+- `seed-help-content.ts` (581 lines) — seeds 50+ help items across landing FAQ (8 items) and dashboard help (42+ items) in EN/BG/RO from current i18n values. Idempotent — checks `existing > 0` before inserting.
+- `seed-help-only.ts` (23 lines) — single-purpose script for seeding only help content without touching other data.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/prisma/schema.prisma` | `HelpContent` model added |
+| `apps/backend/src/help-content/*` | 7 files — module, service, controller, 3 DTOs, tests |
+| `apps/backend/src/app.module.ts` | `HelpContentModule` registered |
+| `apps/backend/prisma/seed-help-content.ts` | New — help content seed data |
+| `apps/backend/prisma/seed-help-only.ts` | New — help-only seed script |
+| `apps/frontend/src/pages/super-admin/HelpCenterPage.tsx` | New — CMS UI |
+| `apps/frontend/src/components/landing/LandingFAQ.tsx` | New — API-driven FAQ |
+| `apps/frontend/src/pages/Dashboard/HelpView.tsx` | Rewrite — API-driven help |
+| `apps/frontend/src/lib/api.ts` | 6 help content functions added |
+| `apps/frontend/src/pages/super-admin/SuperAdminLayout.tsx` | Help Center nav item |
+| `apps/frontend/src/App.tsx` | `/super-admin/help` route |
+| `apps/frontend/src/pages/HomePage.tsx` | LandingFAQ section added |
+
+---
+
+## Security Hardening Round 2 — Account Disable, Audit Trail, Rate Limiting (May 22, 2026)
+
+### Summary
+
+Second security hardening pass covering account lifecycle management, administrative audit logging, per-endpoint rate limiting, guard coverage verification, JWT disablement enforcement, and production startup enforcement. All dangerous admin mutations now leave an `AdminAuditLog` trail in the same `$transaction` as the mutation — atomic and guaranteed.
+
+### Account Disable (User Model)
+
+- **`User` model** — added `isActive Boolean @default(true)`, `disabledAt DateTime?`, `disabledReason String?`.
+- **JWT strategy** — `validate()` checks `user.isActive === false` and throws `UnauthorizedException('Account disabled')` — even SUPER_ADMIN accounts are rejected when disabled.
+- **SuperAdmin service** — `setAccountStatus()` toggle endpoint with `DisableUserDto` requiring `confirm: "I understand the security implications"` and optional `reason` field. Disabled accounts get `disabledAt` timestamp + `disabledReason` logged.
+- **Tests** — `jwt.strategy.spec.ts` (64 lines): 2 tests — rejects disabled users (including SUPER_ADMIN), returns active user without sensitive fields.
+
+### CONFIRM-typing DTOs
+
+5 dangerous endpoints require a typed confirmation string in the request body:
+
+| Endpoint | DTO | Confirmation |
+|----------|-----|--------------|
+| `POST /super-admin/set-tier` | `SetTierDto` | `"CONFIRM"` |
+| `POST /super-admin/set-account-status` | `DisableUserDto` | `"I understand the security implications"` |
+| `POST /super-admin/reset-password` | `ResetPasswordDto` | `"I confirm password reset for user {email}"` |
+| `DELETE /super-admin/tenant/:id` | `DeleteTenantDto` | `"DELETE {restaurantName}"` |
+| `POST /super-admin/restore-tenant/:id` | `RestoreTenantDto` | `"RESTORE {restaurantName}"` |
+
+### Per-Mutation Rate Limiting
+
+Every dangerous admin endpoint has independent `@Throttle` decorators:
+
+| Endpoint | Limit |
+|----------|-------|
+| Set tier | 5 req / 60s |
+| Set account status | 5 req / 60s |
+| Reset password | 3 req / 60s |
+| Manage payments | 5 req / 60s |
+| Delete tenant | 3 req / 60s |
+| Restore tenant | 3 req / 60s |
+| Delete staff | 5 req / 60s |
+| Update platform settings | 5 req / 60s |
+| Help content CRUD (create/reorder/update/delete) | 10 req / 60s |
+
+### AdminAuditLog Model
+
+- **Schema** — `id`, `actorUserId` (who performed action), `action` (string description), `targetType` (tenant/user/system), `targetId`, `metadata Json?`, `createdAt`.
+- **Atomic audit** — every dangerous mutation wraps mutation + `adminAuditLog.create()` in same `prisma.$transaction` — if mutation fails, no phantom audit entry; if audit create fails, mutation rolls back.
+- **Audited actions**: `setTier`, `setAccountStatus`, `resetUserPassword`, `managePayments`, `deleteTenant`, `restoreTenant`, `deleteStaffAccount`, `updatePlatformSettings`.
+
+### Guard Coverage Verification
+
+- **`super-admin.guard-coverage.spec.ts`** (38 lines) — uses `Reflect.getMetadata(GUARDS_METADATA)` to programmatically verify every admin endpoint has `JwtAuthGuard` + `SuperAdminGuard`. Covers `SuperAdminController` (class-level), `PlatformSettingsController` (getAdmin/updateAdmin), and `HelpContentController` (5 admin methods).
+- **Pattern** — `expectSuperAdminGuards(metadataTarget)` helper asserts both guards present. Guards against accidentally adding an endpoint without auth.
+
+### NODE_ENV=production Startup Enforcement
+
+- **`main.ts`** — validates required environment variables at startup when `NODE_ENV=production`:
+  - `JWT_SECRET` must not be default value (`'your-super-secret-key-change-in-production'`)
+  - `COOKIE_SECRET`, `CSRF_SECRET`, `SESSION_EXPIRY_MINUTES` must be set
+  - `FRONTEND_URL` must be set (used for CORS)
+  - `STRIPE_SECRET_KEY` must be set (payments)
+  - Server refuses to start in production with insecure defaults — `process.exit(1)` with clear error message.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/prisma/schema.prisma` | `User.isActive/disabledAt/disabledReason` fields + `AdminAuditLog` model |
+| `apps/backend/prisma/migrations/20260522193000_add_user_account_disable_fields/migration.sql` | Migration — adds account disable columns |
+| `apps/backend/src/auth/jwt.strategy.ts` | `isActive` check — rejects disabled users |
+| `apps/backend/src/auth/jwt.strategy.spec.ts` | New — 2 tests for disabled user rejection |
+| `apps/backend/src/super-admin/super-admin.controller.ts` | 7 `@Throttle` decorators + CONFIRM DTOs |
+| `apps/backend/src/super-admin/super-admin.service.ts` | `$transaction` + `AdminAuditLog` creation on all mutations |
+| `apps/backend/src/super-admin/super-admin.guard-coverage.spec.ts` | New — guard metadata verification |
+| `apps/backend/src/super-admin/dto/*.ts` | New DTOs — `SetTierDto`, `DisableUserDto`, `ResetPasswordDto`, `DeleteTenantDto`, `RestoreTenantDto` |
+| `apps/backend/src/help-content/help-content.controller.ts` | 4 `@Throttle` decorators on admin write endpoints |
+| `apps/backend/src/platform-settings/platform-settings.controller.ts` | Throttle + audit log on `updateAdmin` |
+| `apps/backend/src/main.ts` | Production env enforcement block |
+
+---
+
+## Super Admin Overview v2 — Tier Analytics, Attention Panel, Activity Feed (May 22, 2026)
+
+### Summary
+
+Full rewrite of the Super Admin overview dashboard (`getStats()`) from a basic count query to a comprehensive operations dashboard. Billing tier is now shown separately from effective (forced) tier, with detailed force-tier breakdowns. New "Attention Needed" panel flags 5 categories of issues. Richer KPI cards with sub-metrics. Recent activity feed with real admin actions. All computed in a single `Promise.all` with 12 parallel database queries.
+
+### Key Improvements
+
+#### Billing vs Effective Tier Separation
+- **Billing Tier** — the `tier` column, what the restaurant pays for.
+- **Effective Tier** — `forceTier ?? tier`, what the restaurant actually operates at.
+- **Force-tier summary** — each force-tier override classified as upgrade, downgrade, or same (comparing `TIER_RANK`). Summary card shows counts by direction.
+- **Tier distribution** — counts by both billing tier and effective tier, surfaced side-by-side.
+
+#### Attention Needed Panel (5 Categories)
+1. **Disabled accounts** — active tenants with `isActive: false` — potential support issues.
+2. **Unverified restaurants** — tenants where `verifiedAt` is null — onboarding gaps.
+3. **Unverified emails** — users with unverified email addresses.
+4. **Demo restaurants** — tenants flagged as demo — cleanup candidates.
+5. **Inactive subscriptions** — tenants on FREE tier with 0 active users.
+
+#### Richer KPI Cards
+- Each KPI card now includes sub-metrics: Total Users shows admin vs staff breakdown, Total Restaurants shows verified vs unverified, Active Subscriptions shows per-tier breakdown.
+
+#### Recent Activity Feed
+- Displays last 20 `AdminAuditLog` entries with actor email, action description, target type/ID, and relative timestamp. Real data from the audit trail — not computed or synthetic.
+
+#### Performance
+- 12 independent queries in a single `Promise.all` — all database work happens in parallel. Response time bound by slowest single query, not sum of all queries.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/src/super-admin/super-admin.service.ts` | Full `getStats()` rewrite — 12 parallel queries, tier analytics, attention panel, activity feed (lines 1-580) |
+| `apps/frontend/src/pages/super-admin/SuperAdminOverview.tsx` | New KPI cards, attention panel UI, activity feed, tier breakdown charts |
+
