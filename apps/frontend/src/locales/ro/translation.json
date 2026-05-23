@@ -44,6 +44,8 @@
       "staff": "Personal",
       "subscription": "Abonament"
     },
+    "restaurantName": "Numele Restaurantului",
+    "restaurantNamePlaceholder": "Restaurantul Meu",
     "locationContact": "Locație și Contact",
     "address": "Adresă",
     "contactInfo": "Informații Contact (Telefon / Email)",
@@ -63,7 +65,12 @@
     "failedInitiate": "Inițierea traducerii a eșuat. Vă rugăm să încercați din nou.",
     "translating": "Se traduce...",
     "brandingLocked": "Branding personalizat",
-    "brandingLockedDesc": "Upgradeaza la Professional pentru a personaliza fonturile, culorile si logo-ul."
+    "brandingLockedDesc": "Upgradeaza la Professional pentru a personaliza fonturile, culorile si logo-ul.",
+    "socialMedia": "Rețele sociale",
+    "socialMediaDesc": "Adaugă link-uri către rețelele tale sociale. Acestea vor apărea în meniul public.",
+    "facebookUrl": "Facebook URL",
+    "instagramUrl": "Instagram URL",
+    "tiktokUrl": "TikTok URL"
   },
   "staff": {
     "sharedDeviceMode": "Mod dispozitiv partajat",

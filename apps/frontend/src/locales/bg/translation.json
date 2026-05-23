@@ -44,6 +44,8 @@
       "staff": "Персонал",
       "subscription": "Абонамент"
     },
+    "restaurantName": "Име на ресторанта",
+    "restaurantNamePlaceholder": "Моят ресторант",
     "locationContact": "Местоположение и Контакт",
     "address": "Адрес",
     "contactInfo": "Контакт (Телефон / Email)",
@@ -63,7 +65,12 @@
     "failedInitiate": "Неуспешно стартиране на превода. Моля, опитайте отново.",
     "translating": "Превеждане...",
     "brandingLocked": "Персонализиран облик",
-    "brandingLockedDesc": "Надградете до Professional, за да персонализирате шрифтове, цветове и лого."
+    "brandingLockedDesc": "Надградете до Professional, за да персонализирате шрифтове, цветове и лого.",
+    "socialMedia": "Социални медии",
+    "socialMediaDesc": "Добавете линкове към вашите социални медии. Те ще се показват в публичното меню.",
+    "facebookUrl": "Facebook URL",
+    "instagramUrl": "Instagram URL",
+    "tiktokUrl": "TikTok URL"
   },
   "staff": {
     "sharedDeviceMode": "Режим споделено устройство",

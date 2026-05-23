@@ -14,6 +14,7 @@ import { TopBar } from "../components/menu/TopBar";
 import { FilterPanel } from "../components/menu/FilterPanel";
 import { TrendingCarousel } from "../components/menu/TrendingCarousel";
 import { CategoryPills } from "../components/menu/CategoryPills";
+import SocialBar from "../components/menu/SocialBar";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { useAuth } from "../context/AuthContext";
 import { getImageUrl } from "../lib/getImageUrl";
@@ -173,9 +174,8 @@ const PublicMenuPage = () => {
 
         let initialLang: string | undefined;
         if (data.restaurant?.targetLanguages?.length > 0) {
-          const browserLang = (i18n.language || "en").slice(0, 2);
           const langs: string[] = data.restaurant.targetLanguages;
-          initialLang = langs.includes(browserLang) ? browserLang : langs[0];
+          initialLang = langs[0];
           setSelectedLang(initialLang);
         }
 
@@ -363,6 +363,14 @@ const PublicMenuPage = () => {
       </div>
 
       <div className="relative z-10 container mx-auto px-4 max-w-4xl">
+        {/* Social Bar — restaurant name + social icons (top) */}
+        <SocialBar
+          restaurantName={menuMeta?.restaurant?.name ?? ''}
+          facebookUrl={(menuMeta?.restaurant as any)?.facebookUrl}
+          instagramUrl={(menuMeta?.restaurant as any)?.instagramUrl}
+          tiktokUrl={(menuMeta?.restaurant as any)?.tiktokUrl}
+        />
+
         <TopBar
           tableNumber={tableNumber}
           targetLanguages={menuMeta?.restaurant?.targetLanguages ?? []}
@@ -416,7 +424,7 @@ const PublicMenuPage = () => {
               <>
                 {/* Trending Carousel */}
                 {upsellEnabled && restaurantId && (
-                  <div className="mt-8">
+                  <div className="mt-4">
                     <TrendingCarousel
                       restaurantId={restaurantId}
                       allMenuItems={allLoadedItems}

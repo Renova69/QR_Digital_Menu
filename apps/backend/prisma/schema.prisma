@@ -41,6 +41,9 @@ model Restaurant {
   logoThumbnailUrl           String?
   accentColor               String?             @default("#4F46E5")
   googleReviewUrl           String?
+  facebookUrl               String?
+  instagramUrl               String?
+  tiktokUrl                 String?
   address                   String?
   contactInfo               String?
   targetLanguages           String[]            @default([])

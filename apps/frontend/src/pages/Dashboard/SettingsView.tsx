@@ -55,7 +55,11 @@ const SettingsView = () => {
     RestaurantContext,
   ) as any;
   const [address, setAddress] = useState("");
+  const [restaurantName, setRestaurantName] = useState("");
   const [contactInfo, setContactInfo] = useState("");
+  const [facebookUrl, setFacebookUrl] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [tiktokUrl, setTiktokUrl] = useState("");
   const [targetLanguages, setTargetLanguages] = useState<string[]>([]);
   const [timezone, setTimezone] = useState("UTC");
 
@@ -138,7 +142,11 @@ const SettingsView = () => {
   useEffect(() => {
     if (activeRestaurant) {
       setAddress(activeRestaurant.address || "");
+      setRestaurantName(activeRestaurant.name || "");
       setContactInfo(activeRestaurant.contactInfo || "");
+      setFacebookUrl(activeRestaurant.facebookUrl || "");
+      setInstagramUrl(activeRestaurant.instagramUrl || "");
+      setTiktokUrl(activeRestaurant.tiktokUrl || "");
       setTargetLanguages(activeRestaurant.targetLanguages || []);
       setTimezone(activeRestaurant.timezone || "UTC");
 
@@ -309,8 +317,12 @@ const SettingsView = () => {
 
     try {
       await updateRestaurant(activeRestaurant.id, {
+        name: restaurantName.trim() || undefined,
         address,
         contactInfo,
+        facebookUrl: facebookUrl || null,
+        instagramUrl: instagramUrl || null,
+        tiktokUrl: tiktokUrl || null,
         targetLanguages,
         timezone,
         isLoyaltyEnabled,
@@ -424,6 +436,23 @@ const SettingsView = () => {
         <form onSubmit={handleSave} className="p-6 space-y-6">
 
           {activeSettingsTab === 'general' && (<>
+          {/* ── Restaurant Name ── */}
+          <div className="border-b border-border pb-6">
+            <h3 className="text-lg font-medium text-foreground mb-4">
+              {t("settings.restaurantName")}
+            </h3>
+            <div className="max-w-md">
+              <input
+                type="text"
+                value={restaurantName}
+                onChange={(e) => setRestaurantName(e.target.value)}
+                placeholder={t("settings.restaurantNamePlaceholder")}
+                className={inputCls}
+                required
+              />
+            </div>
+          </div>
+
           {/* ── Location & Contact ── */}
           <div className="border-b border-border pb-6">
             <h3 className="text-lg font-medium text-foreground mb-4">
@@ -451,6 +480,52 @@ const SettingsView = () => {
                   value={contactInfo}
                   onChange={(e) => setContactInfo(e.target.value)}
                   placeholder="(555) 555-5555"
+                  className={inputCls}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Social Media ── */}
+          <div className="border-b border-border pb-6">
+            <h3 className="text-lg font-medium text-foreground mb-1">{t("settings.socialMedia")}</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              {t("settings.socialMediaDesc")}
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground/80 mb-1">
+                  {t("settings.facebookUrl")}
+                </label>
+                <input
+                  type="url"
+                  value={facebookUrl}
+                  onChange={(e) => setFacebookUrl(e.target.value)}
+                  placeholder="https://facebook.com/yourpage"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground/80 mb-1">
+                  {t("settings.instagramUrl")}
+                </label>
+                <input
+                  type="url"
+                  value={instagramUrl}
+                  onChange={(e) => setInstagramUrl(e.target.value)}
+                  placeholder="https://instagram.com/yourhandle"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground/80 mb-1">
+                  {t("settings.tiktokUrl")}
+                </label>
+                <input
+                  type="url"
+                  value={tiktokUrl}
+                  onChange={(e) => setTiktokUrl(e.target.value)}
+                  placeholder="https://tiktok.com/@yourhandle"
                   className={inputCls}
                 />
               </div>

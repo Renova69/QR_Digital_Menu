@@ -43,6 +43,8 @@
       "staff": "Staff",
       "subscription": "Subscription"
     },
+    "restaurantName": "Restaurant Name",
+    "restaurantNamePlaceholder": "My Restaurant",
     "locationContact": "Location & Contact",
     "address": "Address",
     "contactInfo": "Contact Info (Phone / Email)",
@@ -62,7 +64,12 @@
     "failedInitiate": "Failed to initiate translation. Please try again.",
     "translating": "Translating...",
     "brandingLocked": "Custom Branding",
-    "brandingLockedDesc": "Upgrade to Professional to customise fonts, colours, and logo."
+    "brandingLockedDesc": "Upgrade to Professional to customise fonts, colours, and logo.",
+    "socialMedia": "Social Media",
+    "socialMediaDesc": "Add links to your social media profiles. They will appear on your public menu.",
+    "facebookUrl": "Facebook URL",
+    "instagramUrl": "Instagram URL",
+    "tiktokUrl": "TikTok URL"
   },
   "staff": {
     "sharedDeviceMode": "Shared Device Mode",

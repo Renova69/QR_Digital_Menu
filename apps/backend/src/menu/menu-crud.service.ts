@@ -44,6 +44,9 @@ export class MenuCrudService {
         defaultTheme: true,
         tier: true,
         forceTier: true,
+        facebookUrl: true,
+        instagramUrl: true,
+        tiktokUrl: true,
       } as any,
     });
 
@@ -99,6 +102,9 @@ export class MenuCrudService {
         defaultTheme: true,
         tier: true,
         forceTier: true,
+        facebookUrl: true,
+        instagramUrl: true,
+        tiktokUrl: true,
       } as any,
     });
 

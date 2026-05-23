@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsUrl } from 'class-validator';
 
 export class CreateRestaurantDto {
   @IsString()
@@ -17,9 +17,21 @@ export class CreateRestaurantDto {
   @IsOptional()
   accentColor?: string;
 
-  @IsString()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true, require_valid_protocol: true })
   @IsOptional()
   googleReviewUrl?: string;
+
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true, require_valid_protocol: true })
+  @IsOptional()
+  facebookUrl?: string;
+
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true, require_valid_protocol: true })
+  @IsOptional()
+  instagramUrl?: string;
+
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true, require_valid_protocol: true })
+  @IsOptional()
+  tiktokUrl?: string;
 
   @IsString()
   @IsOptional()

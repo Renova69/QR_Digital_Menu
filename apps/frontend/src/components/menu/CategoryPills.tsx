@@ -28,7 +28,7 @@ export function CategoryPills({
   }, [activeCategory]);
 
   return (
-    <div className="sticky top-[4.5rem] z-30 px-3 py-2">
+    <div className="sticky top-[7rem] z-30 px-3 py-2">
       <div
         ref={scrollRef}
         className="flex gap-2 overflow-x-auto hide-scrollbar glass-panel p-1.5 rounded-[1.75rem] border-white/5 shadow-lg"
