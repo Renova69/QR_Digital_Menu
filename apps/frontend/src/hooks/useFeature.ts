@@ -66,7 +66,7 @@ const TIER_FEATURES: Record<SubscriptionTier, FeatureFlag[]> = {
 function getStaffLimit(tier: SubscriptionTier): number {
   switch (tier) {
     case 'FREE':
-      return 0;
+      return 1;
     case 'STARTER':
       return 1;
     case 'PROFESSIONAL':
