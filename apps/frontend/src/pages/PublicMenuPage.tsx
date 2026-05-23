@@ -15,6 +15,7 @@ import { FilterPanel } from "../components/menu/FilterPanel";
 import { TrendingCarousel } from "../components/menu/TrendingCarousel";
 import { CategoryPills } from "../components/menu/CategoryPills";
 import SocialBar from "../components/menu/SocialBar";
+import Footer from "../components/menu/Footer";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { useAuth } from "../context/AuthContext";
 import { getImageUrl } from "../lib/getImageUrl";
@@ -763,6 +764,16 @@ const PublicMenuPage = () => {
           }}
         />
       )}
+
+      {/* Footer */}
+      <Footer
+        restaurantName={menuMeta?.restaurant?.name ?? ''}
+        address={(menuMeta?.restaurant as any)?.address}
+        contactInfo={(menuMeta?.restaurant as any)?.contactInfo}
+        facebookUrl={(menuMeta?.restaurant as any)?.facebookUrl}
+        instagramUrl={(menuMeta?.restaurant as any)?.instagramUrl}
+        tiktokUrl={(menuMeta?.restaurant as any)?.tiktokUrl}
+      />
     </div>
   );
 };
