@@ -14,6 +14,7 @@ import { MenuCheckWidget } from "../../components/dashboard/MenuCheckWidget";
 import { useEffect, useState, useContext } from "react";
 import api from "../../lib/api";
 import RestaurantContext from "../../context/RestaurantContext";
+import { useTier } from "../../hooks/useFeature";
 
 interface SummaryViewProps {
   onViewAnalytics?: () => void;
@@ -26,6 +27,8 @@ const SummaryView = ({ onViewAnalytics, onViewHelp }: SummaryViewProps) => {
   const { t } = useTranslation();
   const { activeRestaurant } = useContext(RestaurantContext) as any;
   const [loyaltyData, setLoyaltyData] = useState<any>(null);
+  const { tier } = useTier();
+  const isFree = tier === 'FREE';
 
   useEffect(() => {
     if (activeRestaurant?.id) {
@@ -64,7 +67,7 @@ const SummaryView = ({ onViewAnalytics, onViewHelp }: SummaryViewProps) => {
           </button>
         )}
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className={`grid grid-cols-1 gap-8 ${isFree ? '' : 'md:grid-cols-3'}`}>
         <div className="glass-panel p-8 rounded-[2.5rem] border-white/5 group hover:shadow-[0_20px_50px_-15px_hsla(var(--color-accent),0.2)] transition-all duration-500">
           <div className="flex items-center justify-between mb-6">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
@@ -80,6 +83,7 @@ const SummaryView = ({ onViewAnalytics, onViewHelp }: SummaryViewProps) => {
           <div className="mt-4 h-1 w-12 bg-accent/20 rounded-full group-hover:w-full transition-all duration-700"></div>
         </div>
 
+        {!isFree && (
         <div className="glass-panel p-8 rounded-[2.5rem] border-white/5 group hover:shadow-[0_20px_50px_-15px_rgba(59,130,246,0.2)] transition-all duration-500">
           <div className="flex items-center justify-between mb-6">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
@@ -94,7 +98,9 @@ const SummaryView = ({ onViewAnalytics, onViewHelp }: SummaryViewProps) => {
           </p>
           <div className="mt-4 h-1 w-12 bg-blue-500/20 rounded-full group-hover:w-full transition-all duration-700"></div>
         </div>
+        )}
 
+        {!isFree && (
         <div className="glass-panel p-8 rounded-[2.5rem] border-white/5 group hover:shadow-[0_20px_50px_-15px_rgba(249,115,22,0.2)] transition-all duration-500">
           <div className="flex items-center justify-between mb-6">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
@@ -109,6 +115,7 @@ const SummaryView = ({ onViewAnalytics, onViewHelp }: SummaryViewProps) => {
           </p>
           <div className="mt-4 h-1 w-12 bg-orange-500/20 rounded-full group-hover:w-full transition-all duration-700"></div>
         </div>
+        )}
       </div>
 
       {loyaltyData && activeRestaurant?.isLoyaltyEnabled && (

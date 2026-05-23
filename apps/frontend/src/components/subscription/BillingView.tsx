@@ -4,6 +4,31 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getSubscriptionStatus, createPortalSession } from '../../lib/api';
 
+const FEATURE_LABELS: Record<string, string> = {
+  'menu:view': 'Menu View',
+  'menu:edit': 'Menu Management',
+  'menu:import': 'Menu Import',
+  'qr:manage': 'QR Codes',
+  'orders:receive': 'Online Orders',
+  'orders:call-waiter': 'Call Waiter',
+  'analytics:basic': 'Basic Analytics',
+  'analytics:full': 'Full Analytics',
+  'payments:stripe': 'Stripe Payments',
+  'languages:multi': 'Multi-language',
+  'branding:custom': 'Custom Branding',
+  'loyalty': 'Loyalty Program',
+  'customers:auth': 'Customer Accounts',
+  'upselling': 'Upselling',
+  'dayparting': 'Day-Parting',
+  'pos': 'Point of Sale',
+  'kds': 'Kitchen Display',
+  'rbac': 'Role-Based Access',
+  'multilocation': 'Multi-location',
+  'printers:thermal': 'Thermal Printers',
+  'templates:menu': 'Menu Templates',
+  'staff:unlimited': 'Unlimited Staff',
+};
+
 const TIER_COLORS: Record<string, string> = {
   FREE: 'bg-secondary text-secondary-foreground',
   STARTER: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
@@ -96,7 +121,9 @@ export default function BillingView() {
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">{t('subscription.includedFeatures', 'Included features')}</p>
             <div className="flex flex-wrap gap-2">
               {status.features.map((f) => (
-                <span key={f} className="px-2.5 py-1 bg-secondary rounded-lg text-xs font-medium text-foreground">{f}</span>
+                <span key={f} className="px-2.5 py-1 bg-secondary rounded-lg text-xs font-medium text-foreground">
+                  {FEATURE_LABELS[f] ?? f}
+                </span>
               ))}
             </div>
           </div>

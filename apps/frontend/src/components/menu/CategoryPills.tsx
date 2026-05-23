@@ -32,7 +32,16 @@ export function CategoryPills({
       <div
         ref={scrollRef}
         className="flex gap-2 overflow-x-auto hide-scrollbar glass-panel p-1.5 rounded-[1.75rem] border-white/5 shadow-lg"
+        style={{
+          // Fade the first/last ~1.5rem so partially-visible pills blend out rather than hard-clip
+          maskImage: 'linear-gradient(to right, transparent, black 1.5rem, black calc(100% - 1.5rem), transparent)',
+          WebkitMaskImage: 'linear-gradient(to right, transparent, black 1.5rem, black calc(100% - 1.5rem), transparent)',
+          // scrollIntoView respects this padding so it won't land items inside the fade zone
+          scrollPaddingInline: '1.5rem',
+        }}
       >
+        {/* Left spacer keeps first pill clear of the fade zone */}
+        <div className="flex-shrink-0 w-3" aria-hidden="true" />
         {categories.map((cat) => {
           const catName =
             getTranslatedField(cat, selectedLang, 'name') || cat.name;
@@ -52,6 +61,8 @@ export function CategoryPills({
             </button>
           );
         })}
+        {/* Right spacer mirrors the left */}
+        <div className="flex-shrink-0 w-3" aria-hidden="true" />
       </div>
     </div>
   );

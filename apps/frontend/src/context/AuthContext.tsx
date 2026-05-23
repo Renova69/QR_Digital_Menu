@@ -97,6 +97,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setAuthToken(null);
     queryClient.clear();
+    localStorage.removeItem('cartItems');
+    localStorage.removeItem('tableNumber');
+    sessionStorage.removeItem('cartRestaurantId');
     setUser(null);
   };
 

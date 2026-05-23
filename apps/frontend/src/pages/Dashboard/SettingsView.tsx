@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect, useRef } from "react";
-import { useFeature } from "../../hooks/useFeature";
+import { useFeature, useTier } from "../../hooks/useFeature";
 import RestaurantContext from "../../context/RestaurantContext";
 import { updateRestaurant, triggerTranslation, generateStripeConnectLink, getStripeStatus, disconnectStripe, listStaff, createStaff, removeStaff, createDeviceEnrollment } from "../../lib/api";
 import BillingView from "../../components/subscription/BillingView";
@@ -132,6 +132,8 @@ const SettingsView = () => {
   const canLoyalty   = useFeature('loyalty');
   const canPayments  = useFeature('payments:stripe');
   const canBranding  = useFeature('branding:custom');
+  const { tier: currentTier } = useTier();
+  const isFree = currentTier === 'FREE';
 
   useEffect(() => {
     if (activeRestaurant) {
@@ -401,6 +403,7 @@ const SettingsView = () => {
           {(['general', 'loyalty', 'payments', 'staff', 'subscription'] as const).filter(tab => {
               if (tab === 'loyalty')  return canLoyalty;
               if (tab === 'payments') return canPayments;
+              if (tab === 'staff')    return !isFree;
               return true;
             }).map((tab) => (
             <button
@@ -474,6 +477,7 @@ const SettingsView = () => {
           </div>
 
           {/* ── Localization ── */}
+          {!isFree && (
           <div className="border-b border-border pb-6">
             <h3 className="text-lg font-medium text-foreground mb-4">
               {t("settings.localization")}
@@ -524,6 +528,7 @@ const SettingsView = () => {
               </button>
             </div>
           </div>
+          )}
 
           </>)}
 
@@ -1161,7 +1166,7 @@ const SettingsView = () => {
         </form>
       </div>
 
-      {canBranding ? (
+      {!isFree && (canBranding ? (
         <div className="pt-8 mt-8 border-t border-border/40">
           <BrandingEditor
             restaurant={activeRestaurant}
@@ -1175,7 +1180,7 @@ const SettingsView = () => {
             <p className="text-xs text-muted-foreground">{t('settings.brandingLockedDesc', 'Upgrade to Professional to customise fonts, colours, and logo.')}</p>
           </div>
         </div>
-      )}
+      ))}
 
       <StaffCreatedModal
         open={staffCreatedModal.open}

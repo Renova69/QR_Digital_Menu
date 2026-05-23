@@ -15,6 +15,7 @@ interface TopBarProps {
   restaurantId?: string;
   defaultTheme?: 'light' | 'dark';
   onFilterClick: () => void;
+  filtersActive?: boolean;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   languagesEnabled?: boolean;
@@ -28,6 +29,7 @@ export function TopBar({
   restaurantId,
   defaultTheme,
   onFilterClick,
+  filtersActive = false,
   searchQuery,
   onSearchChange,
   languagesEnabled = true,
@@ -61,9 +63,16 @@ export function TopBar({
         <button
           onClick={onFilterClick}
           aria-label={t('publicMenu.filters', 'Filters')}
-          className="h-9 w-9 flex items-center justify-center rounded-xl hover:bg-secondary/60 transition-colors flex-shrink-0"
+          className={`relative h-9 w-9 flex items-center justify-center rounded-xl transition-colors flex-shrink-0 ${
+            filtersActive
+              ? 'bg-accent/15 ring-1 ring-accent/40 hover:bg-accent/20'
+              : 'hover:bg-secondary/60'
+          }`}
         >
-          <Filter className="h-5 w-5 text-foreground/70" />
+          <Filter className={`h-5 w-5 ${filtersActive ? 'text-accent' : 'text-foreground/70'}`} />
+          {filtersActive && (
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-accent rounded-full border-2 border-background" />
+          )}
         </button>
 
         <ThemeToggle

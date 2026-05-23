@@ -206,8 +206,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                       );
                     })() : null}
 
-                    {/* Price + Add Button — stacked price, pill button */}
-                    {ordersEnabled && (
+                    {/* Price + Add Button — price always visible; add button only when ordering is enabled */}
                     <div className="mt-auto pt-3 flex items-center justify-between gap-2">
                         <div className="shrink-0 leading-tight">
                             <div
@@ -220,6 +219,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                                 {formatBgn(priceEuro)}
                             </div>
                         </div>
+                        {ordersEnabled && (
                         <button
                             onClick={handleAddToCart}
                             className="group/btn relative bg-accent text-white font-black uppercase tracking-[0.12em] text-[11px] py-2.5 px-5 rounded-full shadow-xl hover:shadow-[0_15px_30px_-5px_var(--color-accent)] hover:-translate-y-1 transition-all active:scale-[0.97] flex items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap shrink-0"
@@ -227,8 +227,8 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                             <span className="relative z-10">{t('publicMenu.addShort', '+ Add')}</span>
                             <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
                         </button>
+                        )}
                     </div>
-                    )}
                 </div>
 
                 {/* Add-to-cart toast confirmation */}
