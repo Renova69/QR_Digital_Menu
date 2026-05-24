@@ -138,13 +138,29 @@ export class PaymentService {
             menuItem: { select: { name: true, price: true } },
           },
         },
+        staff: { select: { name: true, email: true } },
       },
     });
 
     const subtotal = orders.reduce((sum, o) => sum + o.totalPrice, 0);
 
+    const enrichedOrders = orders.map((order) => ({
+      id: order.id,
+      source: order.source,
+      staffName: order.staff
+        ? (order.staff.name ?? order.staff.email)
+        : null,
+      totalPrice: order.totalPrice,
+      items: order.items.map((oi) => ({
+        name: oi.menuItem?.name ?? 'Unknown item',
+        quantity: oi.quantity,
+        unitPrice: oi.menuItem?.price ?? 0,
+        selectedOptions: Array.isArray(oi.selectedOptions) ? oi.selectedOptions : [],
+      })),
+    }));
+
     return {
-      orders,
+      orders: enrichedOrders,
       subtotal,
       restaurantId: session.restaurantId,
       tipsEnabled: session.restaurant.tipsEnabled,
