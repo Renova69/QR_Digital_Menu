@@ -80,4 +80,18 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
     const account = await this.stripe.accounts.retrieve(accountId);
     return account.charges_enabled;
   }
+
+  async createRefund(params: {
+    paymentIntentId: string;
+    amountCents?: number;
+    reason?: string;
+  }): Promise<{ refundId: string; status: string | null }> {
+    const refund = await this.stripe.refunds.create({
+      payment_intent: params.paymentIntentId,
+      ...(params.amountCents ? { amount: params.amountCents } : {}),
+      ...(params.reason ? { metadata: { reason: params.reason } } : {}),
+    });
+
+    return { refundId: refund.id, status: refund.status ?? null };
+  }
 }

@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { TablesService } from './tables.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
@@ -17,6 +17,7 @@ describe('TablesService', () => {
       restaurant: { findUnique: jest.fn().mockResolvedValue(mockRestaurant) },
       restaurantTable: {
         create: jest.fn().mockResolvedValue(mockTable),
+        findFirst: jest.fn().mockResolvedValue(null),
         findMany: jest.fn().mockResolvedValue([mockTable]),
         findUnique: jest.fn().mockResolvedValue({ ...mockTable, restaurant: mockRestaurant }),
         delete: jest.fn().mockResolvedValue(mockTable),
@@ -61,6 +62,21 @@ describe('TablesService', () => {
 
     it('throws ForbiddenException when user is not owner', async () => {
       await expect(service.create('rest-1', { name: 'T1' }, 'other-user')).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws ConflictException when table name already exists for restaurant', async () => {
+      prisma.restaurantTable.findFirst.mockResolvedValue({ id: 'existing-table' });
+
+      await expect(service.create('rest-1', { name: '  T1  ' }, 'owner-1')).rejects.toThrow(ConflictException);
+      expect(prisma.restaurantTable.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            restaurantId: 'rest-1',
+            name: { equals: 'T1', mode: 'insensitive' },
+          }),
+        }),
+      );
+      expect(prisma.restaurantTable.create).not.toHaveBeenCalled();
     });
   });
 
@@ -165,7 +181,7 @@ describe('TablesService', () => {
           specialRequests: null,
           createdAt: new Date(),
           items: [
-            { quantity: 2, menuItem: { name: 'Burger' } },
+            { quantity: 2, selectedOptions: [], menuItem: { name: 'Burger', price: 5 } },
           ],
         },
       ];
@@ -174,7 +190,7 @@ describe('TablesService', () => {
 
       const result = await service.getTableOrders('table-1', 'rest-1');
       expect(result).toHaveLength(1);
-      expect(result[0].items[0]).toEqual({ name: 'Burger', quantity: 2 });
+      expect(result[0].items[0]).toEqual({ name: 'Burger', quantity: 2, totalPrice: 10, options: [] });
     });
 
     it('falls back to "Unknown item" when menuItem is null', async () => {
@@ -187,7 +203,7 @@ describe('TablesService', () => {
           status: 'NEW',
           specialRequests: null,
           createdAt: new Date(),
-          items: [{ quantity: 1, menuItem: null }],
+          items: [{ quantity: 1, selectedOptions: [], menuItem: null }],
         },
       ]);
 

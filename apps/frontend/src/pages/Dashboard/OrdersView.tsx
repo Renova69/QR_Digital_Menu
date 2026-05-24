@@ -50,9 +50,10 @@ function getOrderCode(id: string) {
 
 function formatOrderTime(createdAt: string) {
   return new Date(createdAt).toLocaleTimeString([], {
-    hour: 'numeric',
+    hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
+    hour12: false,
   });
 }
 
@@ -283,45 +284,54 @@ const OrdersView = () => {
                   }
                 }}
                 className={cn(
-                  'relative flex aspect-[1.08/1] cursor-pointer flex-col overflow-hidden rounded-lg border border-border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40',
+                  'relative flex aspect-[1/1.05] cursor-pointer flex-col overflow-hidden rounded-lg border border-border bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40',
                   'before:absolute before:bottom-0 before:left-0 before:top-0 before:w-1',
                   statusAccent[order.status],
                 )}
               >
-                <div className="mb-4 flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-black text-sm tracking-tight text-foreground">
-                      {getOrderCode(order.id)}
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-muted-foreground">
+                <div className="mb-3">
+                  <div className="mb-2 flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <p className="truncate font-black text-sm tracking-tight text-foreground">
+                        {getOrderCode(order.id)}
+                      </p>
+                      {specialRequests.length > 0 && (
+                        <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full bg-[#F97316] px-2 text-[10px] font-black uppercase text-white">
+                          <ClipboardList className="h-3 w-3" />
+                          Note
+                        </span>
+                      )}
+                    </div>
+                    <span className="whitespace-nowrap text-xs font-bold text-muted-foreground">
+                      {getElapsedLabel(order.createdAt)}
+                    </span>
+                  </div>
+
+                  <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
                       <span className="rounded-md bg-muted px-2.5 py-1 font-black text-foreground">
                         {t('orders.table', { id: order.tableId })}
                       </span>
-                      <span className="flex items-center gap-1.5">
+                      <span className="flex min-w-0 items-center gap-1.5 truncate">
                         <Clock className="h-3.5 w-3.5" />
                         {t('orders.pluckedAt', { time: formatOrderTime(order.createdAt) })}
                       </span>
-                    </div>
                   </div>
-                  <span className="whitespace-nowrap text-xs font-bold text-muted-foreground">
-                    {getElapsedLabel(order.createdAt)}
-                  </span>
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-hidden">
-                  <p className="mb-3 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                  <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
                     {stripTrailingColon(t('orders.items', 'Items'))}
                   </p>
 
-                  <ul className="space-y-2.5">
-                    {order.items.slice(0, 4).map((item, index) => (
+                  <ul className="space-y-1.5">
+                    {order.items.slice(0, 6).map((item, index) => (
                       <li
                         key={`${item.id}-${index}`}
-                        className="grid grid-cols-[34px_minmax(0,1fr)_auto] items-start gap-2 text-sm"
+                        className="grid grid-cols-[28px_minmax(0,1fr)_auto] items-start gap-2 text-xs"
                       >
                         <span className="font-black text-primary">{item.quantity}x</span>
                         <div className="min-w-0">
-                          <span className="block break-words font-medium leading-snug text-foreground">
+                          <span className="block truncate font-semibold leading-snug text-foreground">
                             {item.menuItem?.name ?? t('orders.unknownItem', 'Item')}
                           </span>
                           {Array.isArray(item.selectedOptions) && item.selectedOptions.length > 0 && (
@@ -342,41 +352,37 @@ const OrdersView = () => {
                         </span>
                       </li>
                     ))}
-                    {order.items.length > 4 && (
+                    {order.items.length > 6 && (
                       <li className="text-xs font-black text-muted-foreground">
-                        +{order.items.length - 4} more
+                        +{order.items.length - 6} more
                       </li>
                     )}
                   </ul>
 
                   {specialRequests.length > 0 && (
-                    <div className="mt-4 max-h-[70px] overflow-hidden rounded-lg border border-[#F59E0B] bg-[#FFE1B3] p-3 text-[#321405] shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_1px_0_rgba(146,64,14,0.08)] dark:border-orange-400/20 dark:bg-orange-400/10 dark:text-orange-100 dark:shadow-none">
-                      <div className="mb-2 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-[#7C2D12] dark:text-orange-100/70">
+                    <div className="mt-3 overflow-hidden rounded-lg border border-[#F59E0B] bg-[#FFE1B3] px-2.5 py-2 text-[#321405] shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_1px_0_rgba(146,64,14,0.08)] dark:border-orange-400/20 dark:bg-orange-400/10 dark:text-orange-100 dark:shadow-none">
+                      <div className="mb-1 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-[#7C2D12] dark:text-orange-100/70">
                         <ClipboardList className="h-3.5 w-3.5" />
                         {stripTrailingColon(t('orders.specialRequests', 'Special Requests'))}
                       </div>
-                      <div className="space-y-1.5">
-                        {specialRequests.map((request, index) => (
-                          <p key={`${order.id}-request-${index}`} className="text-xs font-bold leading-relaxed text-[#321405] dark:text-orange-100">
-                            {request.seat && (
-                              <span className="mr-2 rounded bg-[#F97316] px-1.5 py-0.5 text-[10px] font-black uppercase text-white dark:bg-orange-400/20 dark:text-orange-100">
-                                {request.seat}
-                              </span>
-                            )}
-                            {request.text}
-                          </p>
-                        ))}
-                      </div>
+                      <p className="truncate text-[11px] font-bold leading-relaxed text-[#321405] dark:text-orange-100">
+                        {specialRequests[0]?.seat && (
+                          <span className="mr-1.5 rounded bg-[#F97316] px-1.5 py-0.5 text-[9px] font-black uppercase text-white dark:bg-orange-400/20 dark:text-orange-100">
+                            {specialRequests[0].seat}
+                          </span>
+                        )}
+                        {specialRequests[0]?.text}
+                      </p>
                     </div>
                   )}
                 </div>
 
-                <div className="mt-auto border-t border-border pt-4">
-                  <div className="mb-3 flex items-end justify-between gap-4">
-                    <span className="text-sm font-medium text-muted-foreground">
+                <div className="mt-auto border-t border-border pt-3">
+                  <div className="mb-2 flex items-end justify-between gap-4">
+                    <span className="text-xs font-medium text-muted-foreground">
                       {t('orders.total', 'Total')}
                     </span>
-                    <span className="text-2xl font-black tracking-tight text-foreground">
+                    <span className="text-xl font-black tracking-tight text-foreground">
                       €{order.totalPrice.toFixed(2)}
                     </span>
                   </div>

@@ -193,6 +193,65 @@ export const getPaymentHistory = (
     .get(`/payments/history/${restaurantId}`, { params })
     .then((res) => res.data);
 
+export const getPaymentOverview = (
+  restaurantId: string,
+  params?: { startDate?: string; endDate?: string },
+) =>
+  api
+    .get(`/payments/overview/${restaurantId}`, { params })
+    .then((res) => res.data as {
+      account: {
+        paymentsEnabled: boolean;
+        stripeOnboarded: boolean;
+        stripeAccountId: string | null;
+        platformFeePercent: number;
+        tipsEnabled: boolean;
+        tipOptions: number[];
+      };
+      metrics: {
+        totalCollected: number;
+        averageTransaction: number;
+        tipsCollected: number;
+        platformFees: number;
+        refundsIssued: number;
+        netCollected: number;
+        successfulTransactions: number;
+        refundsCount: number;
+      };
+      statusCounts: Array<{ status: string; count: number }>;
+      methodTotals: Array<{ method: string; amount: number; fees: number; count: number }>;
+      currency: string;
+      latestPaymentAt: string | null;
+    });
+
+export const getPaymentDetail = (paymentId: string) =>
+  api
+    .get(`/payments/${paymentId}`)
+    .then((res) => res.data);
+
+export const getPaymentPayouts = (restaurantId: string) =>
+  api
+    .get(`/payments/payouts/${restaurantId}`)
+    .then((res) => res.data as {
+      estimatedBalance: number;
+      platformFees: number;
+      totalCollected: number;
+      methodTotals: Array<{ method: string; amount: number; fees: number; count: number }>;
+      stripeAccountId: string | null;
+      stripeOnboarded: boolean;
+      note: string;
+    });
+
+export const getPaymentSettings = (restaurantId: string) =>
+  api
+    .get(`/payments/settings/${restaurantId}`)
+    .then((res) => res.data);
+
+export const refundPayment = (paymentId: string, data?: { amount?: number; reason?: string }) =>
+  api
+    .post(`/payments/${paymentId}/refund`, data ?? {})
+    .then((res) => res.data);
+
 // Feedback
 export const submitFeedback = async (data: {
   rating: number;

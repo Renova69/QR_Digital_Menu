@@ -1,14 +1,28 @@
-import React, { useState, useMemo, useContext } from 'react';
+import React, { useContext, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getTableStatuses, getTableOrders } from '../../lib/api';
+import { getTableOrders, getTableStatuses } from '../../lib/api';
 import { useTranslation } from 'react-i18next';
 import RestaurantContext from '../../context/RestaurantContext';
 import { useSocket } from '../../context/SocketContext';
 import TableCard from '../../components/tables/TableCard';
 import TableDetailModal from '../../components/tables/TableDetailModal';
-import { Filter, Grid3X3 } from 'lucide-react';
+import { cn } from '../../lib/utils';
+import { CheckCircle2, CircleDollarSign, Grid3X3, Search, Timer, Users } from 'lucide-react';
 
-type FilterMode = 'active' | 'occupied' | 'paid' | 'all';
+type FilterMode = 'active' | 'occupied' | 'waiting' | 'paid' | 'all';
+
+const filterConfig: Array<{
+  id: FilterMode;
+  labelKey: string;
+  fallback: string;
+  Icon: typeof Grid3X3;
+}> = [
+  { id: 'active', labelKey: 'tables.active', fallback: 'Active', Icon: Timer },
+  { id: 'occupied', labelKey: 'tables.occupied', fallback: 'Occupied', Icon: Users },
+  { id: 'waiting', labelKey: 'tables.waiting', fallback: 'Waiting', Icon: Grid3X3 },
+  { id: 'paid', labelKey: 'tables.paid', fallback: 'Paid', Icon: CircleDollarSign },
+  { id: 'all', labelKey: 'tables.allTables', fallback: 'All', Icon: Grid3X3 },
+];
 
 const LiveTablesView: React.FC = () => {
   const { activeRestaurant: restaurant } = useContext(RestaurantContext) as any;
@@ -17,6 +31,7 @@ const LiveTablesView: React.FC = () => {
   const queryClient = useQueryClient();
   const { socket } = useSocket();
   const [filter, setFilter] = useState<FilterMode>('active');
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedTable, setSelectedTable] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [tableOrders, setTableOrders] = useState<any[]>([]);
@@ -28,7 +43,6 @@ const LiveTablesView: React.FC = () => {
     enabled: !!restaurantId,
   });
 
-  // Subscribe to real-time table status changes
   React.useEffect(() => {
     if (!socket || !restaurantId) return;
 
@@ -42,19 +56,50 @@ const LiveTablesView: React.FC = () => {
     };
   }, [socket, restaurantId, queryClient]);
 
+  const stats = useMemo(() => {
+    const source = tables ?? [];
+    return {
+      total: source.length,
+      active: source.filter((table: any) => table.status !== 'empty').length,
+      occupied: source.filter((table: any) => table.status === 'occupied').length,
+      waiting: source.filter((table: any) => table.status === 'waiting').length,
+      paid: source.filter((table: any) => table.status === 'paid').length,
+      revenue: source.reduce((sum: number, table: any) => sum + Number(table.totalAmount ?? 0), 0),
+    };
+  }, [tables]);
+
   const filteredTables = useMemo(() => {
     if (!tables) return [];
-    switch (filter) {
-      case 'active':
-        return tables.filter((t: any) => t.status !== 'empty');
-      case 'occupied':
-        return tables.filter((t: any) => t.status === 'occupied' || t.status === 'waiting');
-      case 'paid':
-        return tables.filter((t: any) => t.status === 'paid');
-      case 'all':
-        return tables;
-    }
-  }, [tables, filter]);
+    const query = searchTerm.trim().toLowerCase();
+
+    return tables
+      .filter((table: any) => {
+        switch (filter) {
+          case 'active':
+            return table.status !== 'empty';
+          case 'occupied':
+            return table.status === 'occupied';
+          case 'waiting':
+            return table.status === 'waiting';
+          case 'paid':
+            return table.status === 'paid';
+          case 'all':
+            return true;
+        }
+      })
+      .filter((table: any) => {
+        if (!query) return true;
+        return String(table.name ?? '').toLowerCase().includes(query);
+      });
+  }, [tables, filter, searchTerm]);
+
+  const counts: Record<FilterMode, number> = {
+    active: stats.active,
+    occupied: stats.occupied,
+    waiting: stats.waiting,
+    paid: stats.paid,
+    all: stats.total,
+  };
 
   const handleTableClick = async (table: any) => {
     setSelectedTable(table);
@@ -74,9 +119,9 @@ const LiveTablesView: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {[...Array(8)].map((_, i) => (
-          <div key={i} className="aspect-square rounded-2xl bg-muted/20 animate-pulse" />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        {[...Array(8)].map((_, index) => (
+          <div key={index} className="aspect-[1.08/1] animate-pulse rounded-lg bg-muted/50" />
         ))}
       </div>
     );
@@ -84,56 +129,98 @@ const LiveTablesView: React.FC = () => {
 
   if (error) {
     return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground mb-4">Failed to load tables</p>
-        <button
-          onClick={() => queryClient.invalidateQueries({ queryKey: ['tableStatuses', restaurantId] })}
-          className="text-primary text-sm font-bold underline"
-        >
-          Retry
-        </button>
+      <div className="flex min-h-[300px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center">
+        <div>
+          <p className="mb-4 font-bold text-muted-foreground">Failed to load tables</p>
+          <button
+            onClick={() => queryClient.invalidateQueries({ queryKey: ['tableStatuses', restaurantId] })}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-black text-white"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
 
   if (!tables || tables.length === 0) {
     return (
-      <div className="text-center py-16">
-        <Grid3X3 className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-        <p className="text-muted-foreground">{t('tables.noTablesCreated')}</p>
+      <div className="flex min-h-[360px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center">
+        <div>
+          <Grid3X3 className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
+          <p className="font-bold text-muted-foreground">{t('tables.noTablesCreated')}</p>
+        </div>
       </div>
     );
   }
 
-  const activeCount = tables.filter((t: any) => t.status !== 'empty').length;
-
   return (
-    <div>
-      {/* Filter bar */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-muted-foreground" />
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as FilterMode)}
-            className="text-sm font-medium bg-transparent border border-border/40 rounded-xl px-3 py-1.5 text-foreground focus:outline-none focus:border-primary"
-          >
-            <option value="active">{t('tables.active')} ({activeCount})</option>
-            <option value="occupied">{t('tables.occupied')}</option>
-            <option value="paid">{t('tables.paid')}</option>
-            <option value="all">{t('tables.allTables')} ({tables.length})</option>
-          </select>
+    <section>
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Total tables</p>
+          <p className="mt-1 text-2xl font-black text-foreground">{stats.total}</p>
+        </div>
+        <div className="rounded-lg border border-primary/20 bg-primary/10 px-4 py-3 shadow-sm">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary">Active</p>
+          <p className="mt-1 text-2xl font-black text-primary">{stats.active}</p>
+        </div>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm dark:border-amber-400/20 dark:bg-amber-400/10">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-700 dark:text-amber-200">Waiting</p>
+          <p className="mt-1 text-2xl font-black text-amber-700 dark:text-amber-200">{stats.waiting}</p>
+        </div>
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm dark:border-emerald-400/20 dark:bg-emerald-400/10">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-200">Open value</p>
+          <p className="mt-1 text-2xl font-black text-emerald-700 dark:text-emerald-200">&euro;{stats.revenue.toFixed(2)}</p>
         </div>
       </div>
 
-      {/* Table grid */}
+      <div className="mb-6 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="overflow-x-auto hide-scrollbar">
+          <div className="inline-flex min-w-max items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-sm">
+            {filterConfig.map(({ id, labelKey, fallback, Icon }) => {
+              const active = filter === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setFilter(id)}
+                  className={cn(
+                    'flex h-9 items-center gap-2 rounded-md px-4 text-sm font-bold transition active:scale-[0.98]',
+                    active ? 'bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{t(labelKey, fallback)}</span>
+                  <span className={cn('flex h-5 min-w-6 items-center justify-center rounded-full px-2 text-[11px] font-black', active ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground')}>
+                    {counts[id]}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="relative xl:w-80">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search table..."
+            className="h-10 w-full rounded-lg border border-border bg-card pl-10 pr-3 text-sm font-medium text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
+          />
+        </div>
+      </div>
+
       {filteredTables.length === 0 ? (
-        <div className="text-center py-16">
-          <Grid3X3 className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-          <p className="text-muted-foreground">{t('tables.allFree')}</p>
+        <div className="flex min-h-[280px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center">
+          <div>
+            <CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
+            <p className="font-bold text-muted-foreground">{t('tables.allFree')}</p>
+          </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {filteredTables.map((table: any) => (
             <TableCard
               key={table.id}
@@ -141,26 +228,23 @@ const LiveTablesView: React.FC = () => {
               status={table.status}
               orderCount={table.orderCount}
               customerCount={table.customerNames.length}
+              totalAmount={table.totalAmount}
+              updatedAt={table.updatedAt}
               onClick={() => handleTableClick(table)}
             />
           ))}
         </div>
       )}
 
-      {/* Detail modal — shows real order data from API */}
       <TableDetailModal
         open={modalOpen}
         onOpenChange={setModalOpen}
         table={selectedTable}
         orders={tableOrders}
         ordersLoading={ordersLoading}
-        paymentInfo={
-          selectedTable?.status === 'paid'
-            ? { amount: selectedTable.totalAmount }
-            : null
-        }
+        paymentInfo={selectedTable?.status === 'paid' ? { amount: selectedTable.totalAmount } : null}
       />
-    </div>
+    </section>
   );
 };
 

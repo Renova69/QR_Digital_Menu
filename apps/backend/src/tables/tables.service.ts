@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   Logger,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
@@ -22,6 +23,7 @@ export class TablesService {
     createTableDto: CreateTableDto,
     userId: string,
   ) {
+    const normalizedName = createTableDto.name.trim().replace(/\s+/g, ' ');
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
     });
@@ -31,9 +33,21 @@ export class TablesService {
     if (restaurant.ownerId !== userId) {
       throw new ForbiddenException('You do not own this restaurant');
     }
+
+    const existingTable = await this.prisma.restaurantTable.findFirst({
+      where: {
+        restaurantId,
+        name: { equals: normalizedName, mode: 'insensitive' },
+      },
+      select: { id: true },
+    });
+    if (existingTable) {
+      throw new ConflictException(`Table "${normalizedName}" already exists`);
+    }
+
     const table = await this.prisma.restaurantTable.create({
       data: {
-        name: createTableDto.name,
+        name: normalizedName,
         restaurantId,
       },
     });
