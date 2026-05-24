@@ -1,19 +1,6 @@
 import { useContext, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  AlertCircle,
-  Banknote,
-  ChevronRight,
-  CreditCard,
-  Download,
-  ExternalLink,
-  Receipt,
-  RefreshCcw,
-  Search,
-  ShieldCheck,
-  Smartphone,
-  X,
-} from 'lucide-react';
+import { AlertCircle, ChevronRight, CreditCard, Download, ExternalLink, Search, ShieldCheck } from 'lucide-react';
 import {
   getPaymentDetail,
   getPaymentHistory,
@@ -24,47 +11,21 @@ import {
 } from '../../lib/api';
 import RestaurantContext from '../../context/RestaurantContext';
 import { cn } from '../../lib/utils';
+import {
+  type PaymentDetail,
+  type PaymentMethod,
+  type PaymentRecord,
+  type PaymentStatus,
+  exportPaymentsCsv,
+  formatDateTime,
+  formatMoney,
+  methodStyles,
+  shortId,
+  statusStyles,
+} from './paymentsShared';
+import { PaymentDrawer } from './PaymentDrawer';
 
-type PaymentStatus = 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'REFUNDED';
-type PaymentMethod = 'STRIPE' | 'MYPOS' | 'CASH';
 type PaymentTab = 'transactions' | 'payouts' | 'refunds' | 'settings';
-
-interface PaymentRecord {
-  id: string;
-  amount: number;
-  tipAmount: number;
-  platformFeeAmount: number;
-  currency: string;
-  status: PaymentStatus;
-  stripePaymentIntentId?: string | null;
-  provider: PaymentMethod;
-  createdAt: string;
-  tableNumber?: string | null;
-  customerName?: string | null;
-  tableSessionId: string;
-}
-
-interface PaymentDetail extends PaymentRecord {
-  table?: { id: string; name: string } | null;
-  orders?: Array<{
-    id: string;
-    customerName: string;
-    customerPhone?: string | null;
-    totalPrice: number;
-    status: string;
-    specialRequests?: string | null;
-    createdAt: string;
-    items: Array<{ name: string; quantity: number; unitPrice: number; options: string[] }>;
-  }>;
-  breakdown?: {
-    subtotal: number;
-    tip: number;
-    totalCharged: number;
-    platformFee: number;
-    net: number;
-  };
-  timeline?: Array<{ label: string; at: string }>;
-}
 
 const statusOptions: Array<{ value: '' | PaymentStatus; label: string }> = [
   { value: '', label: 'All statuses' },
@@ -88,76 +49,9 @@ const tabs: Array<{ id: PaymentTab; label: string }> = [
   { id: 'settings', label: 'Settings' },
 ];
 
-const statusStyles: Record<PaymentStatus, string> = {
-  SUCCEEDED: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200',
-  PENDING: 'bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200',
-  FAILED: 'bg-red-100 text-red-700 dark:bg-red-400/15 dark:text-red-200',
-  REFUNDED: 'bg-violet-100 text-violet-700 dark:bg-violet-400/15 dark:text-violet-200',
-};
-
-const methodStyles: Record<PaymentMethod, { label: string; Icon: typeof CreditCard; tone: string }> = {
-  STRIPE: { label: 'Stripe', Icon: Smartphone, tone: 'bg-violet-100 text-violet-700 dark:bg-violet-400/15 dark:text-violet-200' },
-  MYPOS: { label: 'Card', Icon: CreditCard, tone: 'bg-blue-100 text-blue-700 dark:bg-blue-400/15 dark:text-blue-200' },
-  CASH: { label: 'Cash', Icon: Banknote, tone: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200' },
-};
-
-function formatMoney(value = 0, currency = 'EUR') {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: currency || 'EUR',
-    minimumFractionDigits: 2,
-  }).format(value);
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(new Date(value));
-}
-
-function shortId(value?: string | null) {
-  if (!value) return 'manual';
-  return value.length > 12 ? `${value.slice(0, 7)}...${value.slice(-4)}` : value;
-}
-
-function exportPaymentsCsv(payments: PaymentRecord[]) {
-  const header = ['id', 'date', 'customer', 'table', 'method', 'amount', 'tip', 'fee', 'net', 'status'];
-  const rows = payments.map((payment) => [
-    payment.id,
-    new Date(payment.createdAt).toISOString(),
-    payment.customerName ?? '',
-    payment.tableNumber ?? '',
-    payment.provider,
-    payment.amount.toFixed(2),
-    payment.tipAmount.toFixed(2),
-    payment.platformFeeAmount.toFixed(2),
-    (payment.amount - payment.platformFeeAmount).toFixed(2),
-    payment.status,
-  ]);
-  const csv = [header, ...rows]
-    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-    .join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `payments-${new Date().toISOString().slice(0, 10)}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
 function openStripeAccount(accountId?: string | null) {
   if (!accountId) return;
   window.open(`https://dashboard.stripe.com/connect/accounts/${accountId}`, '_blank', 'noopener,noreferrer');
-}
-
-function openStripePayment(paymentIntentId?: string | null) {
-  if (!paymentIntentId) return;
-  window.open(`https://dashboard.stripe.com/payments/${paymentIntentId}`, '_blank', 'noopener,noreferrer');
 }
 
 const PaymentsView = () => {
@@ -209,7 +103,7 @@ const PaymentsView = () => {
   });
 
   const refundMutation = useMutation({
-    mutationFn: (paymentId: string) => refundPayment(paymentId, { reason: 'Dashboard refund' }),
+    mutationFn: (paymentId: string) => refundPayment(paymentId, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['paymentHistory', activeRestaurant?.id] });
       queryClient.invalidateQueries({ queryKey: ['paymentOverview', activeRestaurant?.id] });
@@ -469,10 +363,7 @@ const PaymentsView = () => {
         payment={(selectedPaymentDetail as PaymentDetail | undefined) ?? selectedPayment}
         loading={isDetailLoading}
         refunding={refundMutation.isPending}
-        onRefund={(payment) => {
-          const confirmed = window.confirm(`Refund ${formatMoney(payment.amount, payment.currency)} for this payment?`);
-          if (confirmed) refundMutation.mutate(payment.id);
-        }}
+        onRefund={(payment) => refundMutation.mutate(payment.id)}
         onClose={() => setSelectedPayment(null)}
       />
     </section>
@@ -675,201 +566,6 @@ function SettingCard({ label, value, detail, active }: { label: string; value: s
         <p className="text-xl font-black text-foreground">{value}</p>
       </div>
       <p className="mt-2 text-sm font-medium text-muted-foreground">{detail}</p>
-    </div>
-  );
-}
-
-function PaymentDrawer({
-  payment,
-  loading,
-  refunding,
-  onRefund,
-  onClose,
-}: {
-  payment: PaymentDetail | PaymentRecord | null;
-  loading: boolean;
-  refunding: boolean;
-  onRefund: (payment: PaymentRecord) => void;
-  onClose: () => void;
-}) {
-  if (!payment) return null;
-  const method = methodStyles[payment.provider] ?? methodStyles.STRIPE;
-  const subtotal = payment.breakdown?.subtotal ?? Math.max(payment.amount - payment.tipAmount, 0);
-  const net = payment.breakdown?.net ?? payment.amount - payment.platformFeeAmount;
-  const timeline = payment.timeline ?? [
-    { label: `Payment ${payment.status.toLowerCase()}`, at: payment.createdAt },
-    { label: 'Session attached', at: payment.tableSessionId },
-  ];
-
-  return (
-    <div className="fixed inset-0 z-[1000]">
-      <button
-        type="button"
-        className="absolute inset-0 bg-background/65 backdrop-blur-sm"
-        onClick={onClose}
-        aria-label="Close transaction detail"
-      />
-      <aside className="absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col border-l border-border bg-background shadow-2xl">
-        <div className="border-b border-border p-6">
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground transition hover:text-foreground"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Transaction</p>
-          <p className="mt-1 text-3xl font-black tracking-tight text-foreground">{formatMoney(payment.amount, payment.currency)}</p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className={cn('inline-flex rounded-full px-2.5 py-1 text-xs font-black', statusStyles[payment.status])}>
-              {payment.status === 'SUCCEEDED' ? 'Succeeded' : payment.status[0] + payment.status.slice(1).toLowerCase()}
-            </span>
-            <span className="font-mono text-sm font-medium text-muted-foreground">{shortId(payment.stripePaymentIntentId ?? payment.id)}</span>
-          </div>
-        </div>
-
-        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
-          {loading && (
-            <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs font-bold text-muted-foreground">
-              Loading full payment details...
-            </div>
-          )}
-
-          <section>
-            <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">Order</p>
-            <p className="text-sm font-medium text-foreground">
-              <span className="font-mono font-black text-primary">{shortId(payment.tableSessionId)}</span>
-              <span className="mx-1">.</span>
-              {payment.tableNumber ?? 'No table'}
-              <span className="mx-1">.</span>
-              {payment.customerName ?? 'Walk-in'}
-            </p>
-          </section>
-
-          {'orders' in payment && payment.orders && payment.orders.length > 0 && (
-            <section>
-              <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">Items</p>
-              <div className="space-y-2">
-                {payment.orders.map((order) => (
-                  <div key={order.id} className="rounded-lg border border-border bg-muted/25 p-3">
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <p className="text-xs font-black text-foreground">{order.customerName || 'Walk-in'}</p>
-                      <p className="text-xs font-black text-muted-foreground">{formatMoney(order.totalPrice, payment.currency)}</p>
-                    </div>
-                    {order.items.map((item, index) => (
-                      <div key={`${order.id}-${item.name}-${index}`} className="flex items-start justify-between gap-3 py-1 text-sm">
-                        <span className="min-w-0 font-medium text-foreground">
-                          {item.quantity}x {item.name}
-                          {item.options.length > 0 && (
-                            <span className="block truncate text-xs text-muted-foreground">{item.options.join(', ')}</span>
-                          )}
-                        </span>
-                        <span className="shrink-0 font-bold text-muted-foreground">{formatMoney(item.unitPrice * item.quantity, payment.currency)}</span>
-                      </div>
-                    ))}
-                    {order.specialRequests && (
-                      <p className="mt-2 rounded-md bg-amber-50 p-2 text-xs font-medium text-amber-800 dark:bg-amber-400/10 dark:text-amber-100">
-                        {order.specialRequests}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          <section>
-            <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">Method</p>
-            <div className="flex items-center gap-2">
-              <span className={cn('flex h-8 w-8 items-center justify-center rounded-lg', method.tone)}>
-                <method.Icon className="h-4 w-4" />
-              </span>
-              <span className="text-sm font-black text-foreground">{method.label}</span>
-            </div>
-          </section>
-
-          <section>
-            <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">Breakdown</p>
-            <div className="rounded-lg border border-border bg-muted/30 p-4">
-              <BreakdownRow label="Subtotal" value={formatMoney(subtotal, payment.currency)} />
-              <BreakdownRow label="Tip" value={(payment.breakdown?.tip ?? payment.tipAmount) > 0 ? formatMoney(payment.breakdown?.tip ?? payment.tipAmount, payment.currency) : '-'} />
-              <BreakdownRow label="Total charged" value={formatMoney(payment.breakdown?.totalCharged ?? payment.amount, payment.currency)} />
-              <BreakdownRow label="Platform fee" value={`-${formatMoney(payment.breakdown?.platformFee ?? payment.platformFeeAmount, payment.currency)}`} />
-              <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
-                <span className="text-sm font-black text-primary">Net to you</span>
-                <span className="text-lg font-black text-primary">{formatMoney(net, payment.currency)}</span>
-              </div>
-            </div>
-          </section>
-
-          <section>
-            <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">Timeline</p>
-            <div className="space-y-4">
-              {timeline.map((item, index) => (
-                <TimelineItem
-                  key={`${item.label}-${index}`}
-                  active={index === 0}
-                  icon={index === 0 ? <ShieldCheck className="h-3.5 w-3.5" /> : <Receipt className="h-3.5 w-3.5" />}
-                  title={item.label}
-                  time={Number.isNaN(new Date(item.at).getTime()) ? item.at : formatDateTime(item.at)}
-                />
-              ))}
-              {payment.status === 'REFUNDED' && <TimelineItem icon={<RefreshCcw className="h-3.5 w-3.5" />} title="Refund recorded" time={formatDateTime(payment.createdAt)} />}
-            </div>
-          </section>
-        </div>
-
-        <div className="flex flex-wrap justify-end gap-2 border-t border-border p-5">
-          <button
-            type="button"
-            onClick={() => openStripePayment(payment.stripePaymentIntentId)}
-            disabled={!payment.stripePaymentIntentId}
-            className="flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <ExternalLink className="h-4 w-4" />
-            View on Stripe
-          </button>
-          <button type="button" onClick={() => exportPaymentsCsv([payment])} className="flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground transition hover:bg-muted">
-            <Download className="h-4 w-4" />
-            Receipt
-          </button>
-          {payment.status === 'SUCCEEDED' && (
-            <button
-              type="button"
-              onClick={() => onRefund(payment)}
-              disabled={refunding}
-              className="flex h-10 items-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-black text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <RefreshCcw className="h-4 w-4" />
-              {refunding ? 'Refunding...' : 'Refund'}
-            </button>
-          )}
-        </div>
-      </aside>
-    </div>
-  );
-}
-
-function BreakdownRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between py-1.5 text-sm">
-      <span className="font-medium text-muted-foreground">{label}</span>
-      <span className="font-black text-foreground">{value}</span>
-    </div>
-  );
-}
-
-function TimelineItem({ active, icon, title, time }: { active?: boolean; icon: React.ReactNode; title: string; time: string }) {
-  return (
-    <div className="flex gap-3">
-      <span className={cn('mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border', active ? 'border-primary bg-primary text-white' : 'border-border bg-background text-muted-foreground')}>
-        {icon}
-      </span>
-      <div>
-        <p className="text-sm font-black text-foreground">{title}</p>
-        <p className="text-xs font-medium text-muted-foreground">{time}</p>
-      </div>
     </div>
   );
 }

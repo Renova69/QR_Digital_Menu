@@ -1,4 +1,4 @@
-import { TrendingUp, DollarSign, QrCode, ShoppingCart, Users } from "lucide-react";
+import { TrendingUp, TrendingDown, ShoppingCart, Users, Clock } from "lucide-react";
 import KpiCard from "../../../components/dashboard/KpiCard";
 import type { AnalyticsData } from "../../../hooks/useAnalytics";
 import { formatEuro } from "../../../lib/currency";
@@ -23,36 +23,45 @@ const formatComparisonLabel = (data: AnalyticsData) => {
 const KpiRow = ({ data, showTrends }: KpiRowProps) => {
   const comparisonLabel = showTrends ? formatComparisonLabel(data) : undefined;
 
+  const peakHour = data.peakHours.length > 0
+    ? data.peakHours.reduce((max, h) => h.orders > max.orders ? h : max)
+    : null;
+
   const kpis = [
     {
       label: "Total Orders",
       value: data.totalOrders.toLocaleString('en-US'),
       Icon: ShoppingCart,
       change: showTrends ? data.comparison.ordersChange : null,
+      detail: undefined as string | undefined,
     },
     {
       label: "Revenue",
       value: formatEuro(data.totalRevenue),
-      Icon: DollarSign,
-      change: showTrends ? data.comparison.revenueChange : null,
-    },
-    {
-      label: "QR Scans",
-      value: data.totalOrders.toLocaleString('en-US'),
-      Icon: QrCode,
-      change: null,
-    },
-    {
-      label: "Average Order Value",
-      value: formatEuro(data.avgOrderValue),
       Icon: TrendingUp,
-      change: showTrends ? data.comparison.avgOrderValueChange ?? null : null,
+      change: showTrends ? data.comparison.revenueChange : null,
+      detail: undefined as string | undefined,
     },
     {
-      label: "New Customers",
+      label: "Avg Order Value",
+      value: formatEuro(data.avgOrderValue),
+      Icon: TrendingDown,
+      change: showTrends ? data.comparison.avgOrderValueChange ?? null : null,
+      detail: undefined as string | undefined,
+    },
+    {
+      label: "Active Customers",
       value: data.newCustomers.toLocaleString('en-US'),
       Icon: Users,
       change: showTrends ? data.comparison.newCustomersChange : null,
+      detail: undefined as string | undefined,
+    },
+    {
+      label: "Peak Hour",
+      value: peakHour?.label ?? '—',
+      Icon: Clock,
+      change: null,
+      detail: peakHour ? `${peakHour.orders} orders` : undefined,
     },
   ];
 
@@ -65,7 +74,8 @@ const KpiRow = ({ data, showTrends }: KpiRowProps) => {
           value={kpi.value}
           Icon={kpi.Icon}
           change={kpi.change}
-          comparisonLabel={comparisonLabel}
+          comparisonLabel={kpi.change != null ? comparisonLabel : undefined}
+          detail={kpi.detail}
         />
       ))}
     </div>

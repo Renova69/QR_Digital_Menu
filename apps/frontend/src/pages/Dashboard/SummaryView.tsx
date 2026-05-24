@@ -10,7 +10,7 @@ import { useSummaryDateRange } from "../../hooks/useSummaryDateRange";
 import { usePaymentSummary } from "../../hooks/usePaymentSummary";
 import { getLoyaltyAnalytics, getOrders, getTableStatuses } from "../../lib/api";
 import { formatEuro } from "../../lib/currency";
-import { TrendingUp, ShoppingCart, BarChart2, CreditCard, Users } from "lucide-react";
+import { TrendingUp, ShoppingCart, CreditCard, Users, Clock } from "lucide-react";
 import KpiCard from "../../components/dashboard/KpiCard";
 import DateRangeFilter from "./summary/DateRangeFilter";
 import KpiRow from "./summary/KpiRow";
@@ -92,11 +92,11 @@ const SummaryView = () => {
   const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
   const freeKpis = [
-    { label: t("dashboard.totalOrders", "Total Orders"), value: totalOrders.toLocaleString('en-US'), Icon: BarChart2 },
+    { label: t("dashboard.totalOrders", "Total Orders"), value: totalOrders.toLocaleString('en-US'), Icon: ShoppingCart },
     { label: t("dashboard.totalRevenue", "Total Revenue"), value: formatEuro(totalRevenue), Icon: TrendingUp },
-    { label: "Orders (QR)", value: totalOrders.toLocaleString('en-US'), Icon: ShoppingCart },
-    { label: t("dashboard.avgOrderValue", "Avg Order"), value: formatEuro(avgOrderValue), Icon: CreditCard },
-    { label: "New Customers", value: "—", Icon: Users },
+    { label: t("dashboard.avgOrderValue", "Avg Order Value"), value: formatEuro(avgOrderValue), Icon: CreditCard },
+    { label: "Active Customers", value: "—", Icon: Users },
+    { label: "Peak Hour", value: "—", Icon: Clock },
   ];
 
   return (

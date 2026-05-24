@@ -13,6 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { FeatureGuard } from '../subscription/feature.guard';
 import { RequireFeature } from '../subscription/require-feature.decorator';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
+import { DateRangeQueryDto } from '../common/dto/date-range-query.dto';
 
 @Controller('dashboard')
 export class DashboardController {
@@ -56,14 +57,13 @@ export class DashboardController {
   async getPaymentsSummary(
     @AuthUser() user: any,
     @Query('restaurantId') restaurantId: string,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
+    @Query() dateRange: DateRangeQueryDto,
   ) {
     if (!restaurantId) {
       throw new BadRequestException('restaurantId is required');
     }
     await this.verifyDashboardAccess(user, restaurantId);
-    return this.dashboardService.getPaymentsSummary(restaurantId, startDate, endDate);
+    return this.dashboardService.getPaymentsSummary(restaurantId, dateRange.startDate, dateRange.endDate);
   }
 
   @UseGuards(JwtAuthGuard, FeatureGuard)
@@ -73,8 +73,7 @@ export class DashboardController {
     @AuthUser() user: any,
     @Query('restaurantId') restaurantId: string,
     @Query('period') periodStr?: string,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
+    @Query() dateRange?: DateRangeQueryDto,
   ) {
     if (!restaurantId) {
       throw new BadRequestException('restaurantId is required');
@@ -92,8 +91,8 @@ export class DashboardController {
     return this.dashboardService.getAnalytics(
       restaurantId,
       period,
-      startDate,
-      endDate,
+      dateRange?.startDate,
+      dateRange?.endDate,
     );
   }
 }

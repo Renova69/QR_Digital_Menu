@@ -6,10 +6,11 @@ interface KpiCardProps {
   Icon: LucideIcon;
   change?: number | null;
   comparisonLabel?: string;
+  detail?: string;
   locked?: boolean;
 }
 
-const KpiCard = ({ label, value, Icon, change, comparisonLabel, locked }: KpiCardProps) => (
+const KpiCard = ({ label, value, Icon, change, comparisonLabel, detail, locked }: KpiCardProps) => (
   <div className="kpi-tile group hover:shadow-[0_12px_40px_-8px_hsl(265_95%_70%/0.3)] hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden">
     {locked && (
       <div className="absolute inset-0 z-20 bg-background/60 backdrop-blur-[2px] flex items-center justify-center rounded-[1.2rem]">
@@ -44,6 +45,8 @@ const KpiCard = ({ label, value, Icon, change, comparisonLabel, locked }: KpiCar
         </div>
       ) : comparisonLabel ? (
         <p className="text-[10px] text-muted-foreground">vs {comparisonLabel}</p>
+      ) : detail ? (
+        <p className="text-[10px] text-muted-foreground">{detail}</p>
       ) : null}
     </div>
   </div>

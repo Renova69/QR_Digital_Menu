@@ -21,4 +21,10 @@ export interface IPaymentProvider {
   ): Promise<string>;
 
   retrieveAccount(accountId: string): Promise<boolean>;
+
+  createRefund(params: {
+    paymentIntentId: string;
+    amountCents?: number;
+    reason?: string;
+  }): Promise<{ refundId: string; status: string | null }>;
 }

@@ -155,9 +155,7 @@ export const getAnalytics = async (restaurantId: string, period: number, startDa
   const response = await api.get('/dashboard/analytics', {
     params: {
       restaurantId,
-      period: (startDate && endDate) ? 30 : period,
-      ...(startDate && { startDate }),
-      ...(endDate && { endDate }),
+      ...(startDate && endDate ? { startDate, endDate } : { period }),
     },
   });
   return response.data;
