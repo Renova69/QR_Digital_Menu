@@ -142,11 +142,11 @@ export default function PosTableModal() {
       try {
         const bill = await getSessionBill(result.token);
         const historyItems = bill.orders.flatMap((order: any) =>
-          (order.items ?? []).map((oi: any) => ({
-            cartId: oi.id,
-            menuItemId: oi.menuItemId ?? "",
-            name: oi.menuItem?.name ?? "Unknown item",
-            price: oi.menuItem?.price ?? 0,
+          (order.items ?? []).map((oi: any, idx: number) => ({
+            cartId: `${order.id}-${idx}`,
+            menuItemId: "",
+            name: oi.name ?? "Unknown item",
+            price: oi.unitPrice ?? 0,
             quantity: oi.quantity,
             selectedOptions: (oi.selectedOptions ?? []) as Array<{
               optionId: string;
