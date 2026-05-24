@@ -9,6 +9,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
 import { CreateTableDto } from './dto/create-table.dto';
+import { UpdateTableDto } from './dto/update-table.dto';
 
 const PAID_SESSION_AUTO_CLOSE_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -75,13 +76,24 @@ export class TablesService {
       throw new ConflictException(`Table "${normalizedName}" already exists`);
     }
 
+    let zoneId = createTableDto.zoneId ?? null;
+    if (!zoneId) {
+      const defaultZone = await this.prisma.tableZone.findFirst({
+        where: { restaurantId },
+        orderBy: { displayOrder: 'asc' },
+      });
+      zoneId = defaultZone?.id ?? null;
+    }
+
     const table = await this.prisma.restaurantTable.create({
       data: {
         name: normalizedName,
         restaurantId,
+        zoneId,
       },
     });
     this.events.emitToRestaurant(restaurantId, 'table:created', { tableId: table.id });
+    this.events.emitZoneChanged(restaurantId);
     return table;
   }
 
@@ -92,28 +104,90 @@ export class TablesService {
     if (!restaurant) throw new NotFoundException('Restaurant not found');
     if (restaurant.ownerId !== userId) throw new ForbiddenException('You do not own this restaurant');
 
+    const defaultZone = await this.prisma.tableZone.findFirst({
+      where: { restaurantId },
+      orderBy: { displayOrder: 'asc' },
+    });
+
     const tables = await this.prisma.$transaction(
       Array.from({ length: count }, (_, i) =>
         this.prisma.restaurantTable.create({
-          data: { name: `Table ${i + 1}`, restaurantId },
+          data: {
+            name: `Table ${i + 1}`,
+            restaurantId,
+            zoneId: defaultZone?.id ?? null,
+          },
         }),
       ),
     );
+    this.events.emitZoneChanged(restaurantId);
     return tables;
+  }
+
+  async update(id: string, dto: UpdateTableDto, userId: string) {
+    const table = await this.prisma.restaurantTable.findUnique({
+      where: { id },
+      include: { restaurant: true },
+    });
+    if (!table) throw new NotFoundException('Table not found');
+    if (table.restaurant.ownerId !== userId)
+      throw new ForbiddenException('You do not own this restaurant');
+
+    if (dto.zoneId !== undefined) {
+      if (dto.zoneId !== null) {
+        const zone = await this.prisma.tableZone.findUnique({
+          where: { id: dto.zoneId },
+        });
+        if (!zone || zone.restaurantId !== table.restaurantId)
+          throw new NotFoundException('Zone not found');
+      }
+    }
+
+    if (dto.name && dto.name !== table.name) {
+      const normalizedName = dto.name.trim().replace(/\s+/g, ' ');
+      const existing = await this.prisma.restaurantTable.findFirst({
+        where: {
+          restaurantId: table.restaurantId,
+          name: { equals: normalizedName, mode: 'insensitive' },
+          id: { not: id },
+        },
+      });
+      if (existing)
+        throw new ConflictException(`Table "${normalizedName}" already exists`);
+      dto.name = normalizedName;
+    }
+
+    const updated = await this.prisma.restaurantTable.update({
+      where: { id },
+      data: dto,
+    });
+    this.events.emitToRestaurant(table.restaurantId, 'table:updated', {
+      tableId: id,
+    });
+    if (dto.zoneId !== undefined) {
+      this.events.emitZoneChanged(table.restaurantId);
+    }
+    return updated;
   }
 
   async findAll(restaurantId: string) {
     return this.prisma.restaurantTable.findMany({
       where: { restaurantId },
       orderBy: { name: 'asc' },
+      include: { zone: { select: { id: true, name: true } } },
     });
   }
 
-  async getTablesWithStatus(restaurantId: string) {
+  async getTablesWithStatus(restaurantId: string, zoneId?: string) {
+    const tableWhere: any = { restaurantId };
+    if (zoneId) {
+      tableWhere.zoneId = zoneId;
+    }
     const [tables, sessions] = await Promise.all([
       this.prisma.restaurantTable.findMany({
-        where: { restaurantId },
+        where: tableWhere,
         orderBy: { name: 'asc' },
+        include: { zone: { select: { id: true, name: true } } },
       }),
       this.prisma.tableSession.findMany({
         where: {
@@ -182,6 +256,7 @@ export class TablesService {
             menuItem: { select: { name: true, price: true } },
           },
         },
+        staff: { select: { name: true, email: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -193,6 +268,10 @@ export class TablesService {
       status: order.status,
       specialRequests: order.specialRequests,
       createdAt: order.createdAt,
+      source: order.source,
+      staffName: order.staff
+        ? (order.staff.name ?? order.staff.email)
+        : null,
       items: order.items.map((oi) => ({
         name: oi.menuItem?.name ?? 'Unknown item',
         quantity: oi.quantity,
@@ -221,6 +300,7 @@ export class TablesService {
       where: { id },
     });
     this.events.emitToRestaurant(deleted.restaurantId, 'table:deleted', { tableId: id });
+    this.events.emitZoneChanged(deleted.restaurantId);
     return deleted;
   }
 }
