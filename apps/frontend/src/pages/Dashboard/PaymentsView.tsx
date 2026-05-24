@@ -1,5 +1,6 @@
 import { useContext, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { AlertCircle, ChevronRight, CreditCard, Download, ExternalLink, Search, ShieldCheck } from 'lucide-react';
 import {
   getPaymentDetail,
@@ -27,28 +28,6 @@ import { PaymentDrawer } from './PaymentDrawer';
 
 type PaymentTab = 'transactions' | 'payouts' | 'refunds' | 'settings';
 
-const statusOptions: Array<{ value: '' | PaymentStatus; label: string }> = [
-  { value: '', label: 'All statuses' },
-  { value: 'SUCCEEDED', label: 'Succeeded' },
-  { value: 'PENDING', label: 'Pending' },
-  { value: 'FAILED', label: 'Failed' },
-  { value: 'REFUNDED', label: 'Refunded' },
-];
-
-const methodOptions: Array<{ value: '' | PaymentMethod; label: string }> = [
-  { value: '', label: 'All methods' },
-  { value: 'STRIPE', label: 'Stripe' },
-  { value: 'MYPOS', label: 'Card' },
-  { value: 'CASH', label: 'Cash' },
-];
-
-const tabs: Array<{ id: PaymentTab; label: string }> = [
-  { id: 'transactions', label: 'Transactions' },
-  { id: 'payouts', label: 'Payouts' },
-  { id: 'refunds', label: 'Refunds' },
-  { id: 'settings', label: 'Settings' },
-];
-
 function openStripeAccount(accountId?: string | null) {
   if (!accountId) return;
   window.open(`https://dashboard.stripe.com/connect/accounts/${accountId}`, '_blank', 'noopener,noreferrer');
@@ -57,6 +36,7 @@ function openStripeAccount(accountId?: string | null) {
 const PaymentsView = () => {
   const { activeRestaurant } = useContext(RestaurantContext) as any;
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<PaymentTab>('transactions');
   const [statusFilter, setStatusFilter] = useState<'' | PaymentStatus>('');
   const [methodFilter, setMethodFilter] = useState<'' | PaymentMethod>('');
@@ -176,13 +156,35 @@ const PaymentsView = () => {
   const stripeMissing = account?.paymentsEnabled && !account?.stripeOnboarded;
   const feePercent = Number(account?.platformFeePercent ?? 0);
 
+  const statusOptions: Array<{ value: '' | PaymentStatus; label: string }> = [
+    { value: '', label: t('payments.allStatuses') },
+    { value: 'SUCCEEDED', label: t('payments.succeeded') },
+    { value: 'PENDING', label: t('payments.pending') },
+    { value: 'FAILED', label: t('payments.failed') },
+    { value: 'REFUNDED', label: t('payments.refunded') },
+  ];
+
+  const methodOptions: Array<{ value: '' | PaymentMethod; label: string }> = [
+    { value: '', label: t('payments.allMethods') },
+    { value: 'STRIPE', label: t('payments.stripeMethod') },
+    { value: 'MYPOS', label: t('payments.cardMethod') },
+    { value: 'CASH', label: t('payments.cashMethod') },
+  ];
+
+  const tabs: Array<{ id: PaymentTab; label: string }> = [
+    { id: 'transactions', label: t('payments.transactions') },
+    { id: 'payouts', label: t('payments.payouts') },
+    { id: 'refunds', label: t('payments.refunds') },
+    { id: 'settings', label: t('payments.settings') },
+  ];
+
   return (
     <section className="min-h-full bg-background text-foreground">
       <div className="mb-5 flex flex-col gap-3 border-b border-border/70 pb-5 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-2xl font-black leading-tight text-foreground">Payments</h1>
+          <h1 className="text-2xl font-black leading-tight text-foreground">{t('payments.title')}</h1>
           <p className="mt-1 text-sm font-medium text-muted-foreground">
-            Stripe Connect, table sessions, fees, refunds, and payouts.
+            {t('payments.description')}
           </p>
         </div>
       </div>
@@ -194,7 +196,7 @@ const PaymentsView = () => {
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-black text-primary">stripe</p>
+              <p className="text-sm font-black text-primary">{t('payments.stripe')}</p>
               <span
                 className={cn(
                   'rounded-full px-2.5 py-1 text-xs font-black',
@@ -203,13 +205,13 @@ const PaymentsView = () => {
                     : 'bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200',
                 )}
               >
-                {account?.stripeOnboarded ? 'Connected' : 'Needs setup'}
+                {account?.stripeOnboarded ? t('payments.connected') : t('payments.needsSetup')}
               </span>
             </div>
             <p className="mt-1 truncate text-sm font-medium text-muted-foreground">
-              Account <span className="font-bold text-foreground">{account?.stripeAccountId ?? 'not connected'}</span>
+              {t('payments.account')} <span className="font-bold text-foreground">{account?.stripeAccountId ?? t('payments.notConnected')}</span>
               <span className="mx-1">.</span>
-              Platform fee <span className="font-bold text-foreground">{feePercent ? `${feePercent}%` : 'not set'}</span>
+              {t('payments.platformFee')} <span className="font-bold text-foreground">{feePercent ? `${feePercent}%` : t('payments.notSet')}</span>
             </p>
           </div>
         </div>
@@ -220,7 +222,7 @@ const PaymentsView = () => {
             disabled={!account?.stripeAccountId}
             className="flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground shadow-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
           >
-            View on Stripe
+            {t('payments.viewOnStripe')}
             <ExternalLink className="h-4 w-4" />
           </button>
           <button
@@ -228,7 +230,7 @@ const PaymentsView = () => {
             onClick={() => setActiveTab('payouts')}
             className="flex h-10 items-center rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground shadow-sm transition hover:bg-muted"
           >
-            Manage payouts
+            {t('payments.managePayouts')}
           </button>
         </div>
       </div>
@@ -237,20 +239,20 @@ const PaymentsView = () => {
         <div className="mb-5 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-400/20 dark:bg-amber-400/10">
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-200" />
           <div>
-            <p className="text-sm font-black text-amber-800 dark:text-amber-100">Stripe not connected</p>
+            <p className="text-sm font-black text-amber-800 dark:text-amber-100">{t('payments.stripeNotConnectedTitle')}</p>
             <p className="mt-1 text-sm font-medium text-amber-700 dark:text-amber-200">
-              Connect Stripe in Settings to start accepting phone payments.
+              {t('payments.stripeNotConnected')}
             </p>
           </div>
         </div>
       )}
 
       <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <MetricCard label="Total collected" value={formatMoney(metrics.totalCollected)} detail={`${metrics.successfulCount} successful transactions`} trend="+ live" tone="text-emerald-600" />
-        <MetricCard label="Avg. transaction" value={formatMoney(metrics.average)} detail="Current page average" trend="gross" tone="text-emerald-600" />
-        <MetricCard label="Tips collected" value={formatMoney(metrics.tipsCollected)} detail="Included in total charged" trend="tips" tone="text-emerald-600" />
-        <MetricCard label="Platform fees" value={formatMoney(metrics.fees)} detail={feePercent ? `${feePercent}% configured` : 'Fee not configured'} />
-        <MetricCard label="Refunds issued" value={formatMoney(metrics.refundAmount)} detail={`${metrics.refundCount} refunds on page`} trend={metrics.refundAmount ? 'review' : 'clear'} tone={metrics.refundAmount ? 'text-red-600' : 'text-emerald-600'} />
+        <MetricCard label={t('payments.totalCollected')} value={formatMoney(metrics.totalCollected)} detail={t('payments.successfulTransactions', { count: metrics.successfulCount })} trend={t('payments.trendLive')} tone="text-emerald-600" />
+        <MetricCard label={t('payments.avgTransaction')} value={formatMoney(metrics.average)} detail={t('payments.currentPageAverage')} trend={t('payments.trendGross')} tone="text-emerald-600" />
+        <MetricCard label={t('payments.tipsCollected')} value={formatMoney(metrics.tipsCollected)} detail={t('payments.includedInTotal')} trend={t('payments.trendTips')} tone="text-emerald-600" />
+        <MetricCard label={t('payments.platformFees')} value={formatMoney(metrics.fees)} detail={feePercent ? t('payments.feePercentConfigured', { percent: feePercent }) : t('payments.feeNotConfigured')} />
+        <MetricCard label={t('payments.refundsIssued')} value={formatMoney(metrics.refundAmount)} detail={t('payments.refundsOnPage', { count: metrics.refundCount })} trend={metrics.refundAmount ? t('payments.trendReview') : t('payments.trendClear')} tone={metrics.refundAmount ? 'text-red-600' : 'text-emerald-600'} />
       </div>
 
       <div className="mb-5 overflow-x-auto hide-scrollbar">
@@ -283,7 +285,7 @@ const PaymentsView = () => {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by payment ID, table, customer, method..."
+                placeholder={t('payments.searchPlaceholder')}
                 className="h-11 w-full rounded-lg border border-border bg-card pl-10 pr-3 text-sm font-medium text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
               />
             </div>
@@ -317,7 +319,7 @@ const PaymentsView = () => {
               className="flex h-11 items-center justify-center gap-2 rounded-lg border border-border bg-muted px-4 text-sm font-black text-foreground shadow-sm transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Download className="h-4 w-4" />
-              Export CSV
+              {t('payments.exportCsv')}
             </button>
           </div>
 
@@ -325,7 +327,7 @@ const PaymentsView = () => {
             payments={filteredPayments}
             loading={isLoading}
             error={isError}
-            emptyLabel={activeTab === 'refunds' ? 'No refunds issued yet' : 'No payments yet'}
+            emptyLabel={activeTab === 'refunds' ? t('payments.noRefunds') : t('payments.noPayments')}
             onSelect={setSelectedPayment}
           />
 
@@ -337,10 +339,10 @@ const PaymentsView = () => {
                 disabled={page === 1}
                 className="h-10 rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground transition hover:bg-muted disabled:opacity-40"
               >
-                Previous
+                {t('payments.previous')}
               </button>
               <span className="text-sm font-bold text-muted-foreground">
-                Page {page} of {Math.ceil(meta.total / limit)}
+                {t('payments.pageOf', { page, total: Math.ceil(meta.total / limit) })}
               </span>
               <button
                 type="button"
@@ -348,7 +350,7 @@ const PaymentsView = () => {
                 disabled={page >= Math.ceil(meta.total / limit)}
                 className="h-10 rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground transition hover:bg-muted disabled:opacity-40"
               >
-                Next
+                {t('payments.next')}
               </button>
             </div>
           )}
@@ -408,6 +410,7 @@ function PaymentTable({
   emptyLabel: string;
   onSelect: (payment: PaymentRecord) => void;
 }) {
+  const { t } = useTranslation();
   if (loading) {
     return (
       <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
@@ -421,7 +424,7 @@ function PaymentTable({
   if (error) {
     return (
       <div className="flex min-h-[260px] items-center justify-center rounded-lg border border-border bg-card text-sm font-bold text-muted-foreground">
-        Failed to load payment history.
+        {t('payments.failedLoad')}
       </div>
     );
   }
@@ -441,20 +444,23 @@ function PaymentTable({
         <table className="w-full min-w-[980px] text-left">
           <thead className="bg-muted/45">
             <tr className="border-b border-border">
-              <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">Transaction</th>
-              <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">Customer</th>
-              <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">Method</th>
-              <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">Amount</th>
-              <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">Tip</th>
-              <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">Fee</th>
-              <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">Net</th>
-              <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">Status</th>
+              <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">{t('payments.transaction')}</th>
+              <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">{t('payments.customer')}</th>
+              <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">{t('payments.method')}</th>
+              <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">{t('payments.amount')}</th>
+              <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">{t('payments.tip')}</th>
+              <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">{t('payments.fee')}</th>
+              <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">{t('payments.net')}</th>
+              <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">{t('payments.status')}</th>
               <th className="w-10 px-4 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {payments.map((payment) => {
               const method = methodStyles[payment.provider] ?? methodStyles.STRIPE;
+              const methodLabel = payment.provider === 'STRIPE' ? t('payments.stripeMethod') :
+                                   payment.provider === 'MYPOS' ? t('payments.cardMethod') :
+                                   t('payments.cashMethod');
               const net = payment.amount - payment.platformFeeAmount;
               return (
                 <tr
@@ -465,16 +471,16 @@ function PaymentTable({
                   <td className="px-4 py-4">
                     <p className="font-mono text-sm font-black text-foreground">{shortId(payment.stripePaymentIntentId ?? payment.id)}</p>
                     <p className="mt-0.5 text-xs font-medium text-muted-foreground">
-                      {payment.tableNumber ?? 'No table'} . {formatDateTime(payment.createdAt)}
+                      {payment.tableNumber ?? t('payments.noTable')} . {formatDateTime(payment.createdAt)}
                     </p>
                   </td>
-                  <td className="px-4 py-4 text-sm font-medium text-foreground">{payment.customerName ?? 'Walk-in'}</td>
+                  <td className="px-4 py-4 text-sm font-medium text-foreground">{payment.customerName ?? t('dashboard.walkIn')}</td>
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-2">
                       <span className={cn('flex h-8 w-8 items-center justify-center rounded-lg', method.tone)}>
                         <method.Icon className="h-4 w-4" />
                       </span>
-                      <span className="text-sm font-black text-foreground">{method.label}</span>
+                      <span className="text-sm font-black text-foreground">{methodLabel}</span>
                     </div>
                   </td>
                   <td className="px-4 py-4 text-sm font-black text-foreground">{formatMoney(payment.amount, payment.currency)}</td>
@@ -485,7 +491,7 @@ function PaymentTable({
                   <td className="px-4 py-4 text-sm font-black text-foreground">{formatMoney(net, payment.currency)}</td>
                   <td className="px-4 py-4">
                     <span className={cn('inline-flex rounded-full px-2.5 py-1 text-xs font-black', statusStyles[payment.status])}>
-                      {payment.status === 'SUCCEEDED' ? 'Succeeded' : payment.status[0] + payment.status.slice(1).toLowerCase()}
+                      {t(`payments.${payment.status.toLowerCase()}` as any)}
                     </span>
                   </td>
                   <td className="px-4 py-4 text-right text-muted-foreground">
@@ -510,24 +516,25 @@ function PayoutsPanel({
   total: number;
   note?: string;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
-        <p className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">Payout balance</p>
+        <p className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">{t('payments.payoutBalance')}</p>
         <p className="mt-3 text-4xl font-black tracking-tight text-foreground">{formatMoney(Math.max(total, 0))}</p>
         <p className="mt-2 text-sm font-medium text-muted-foreground">
-          Estimated net from successful transactions after platform fees.
+          {t('payments.payoutEstimate')}
         </p>
         <div className="mt-5 space-y-3">
           {methodTotals.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-border p-4 text-sm font-bold text-muted-foreground">No settled method totals yet.</p>
+            <p className="rounded-lg border border-dashed border-border p-4 text-sm font-bold text-muted-foreground">{t('payments.noSettledTotals')}</p>
           ) : (
             methodTotals.map((item) => (
               <div key={item.method} className="flex items-center justify-between rounded-lg border border-border bg-muted/25 p-3">
                 <div>
-                  <span className="text-sm font-black text-foreground">{methodStyles[item.method as PaymentMethod]?.label ?? item.method}</span>
+                  <span className="text-sm font-black text-foreground">{item.method === 'STRIPE' ? t('payments.stripeMethod') : item.method === 'MYPOS' ? t('payments.cardMethod') : item.method === 'CASH' ? t('payments.cashMethod') : item.method}</span>
                   <p className="mt-0.5 text-xs font-medium text-muted-foreground">
-                    {item.count ?? 0} tx{item.fees ? ` . ${formatMoney(item.fees)} fees` : ''}
+                    {item.count ?? 0} {t('payments.txLabel')}{item.fees ? ` . ${formatMoney(item.fees)} ${t('payments.feesLabel')}` : ''}
                   </p>
                 </div>
                 <span className="text-sm font-black text-foreground">{formatMoney(item.amount)}</span>
@@ -537,10 +544,10 @@ function PayoutsPanel({
         </div>
       </div>
       <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
-        <p className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">Schedule</p>
+        <p className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">{t('payments.schedule')}</p>
         <div className="mt-4 space-y-3 text-sm font-medium text-muted-foreground">
-          <p>{note ?? 'Stripe payout timing is managed in Stripe Connect.'}</p>
-          <p>Use the Stripe dashboard to update bank details, payout cadence, and account verification.</p>
+          <p>{note ?? t('payments.payoutScheduleNote')}</p>
+          <p>{t('payments.payoutScheduleDetail')}</p>
         </div>
       </div>
     </div>
@@ -548,11 +555,12 @@ function PayoutsPanel({
 }
 
 function SettingsPanel({ restaurant, feePercent }: { restaurant: any; feePercent: number }) {
+  const { t } = useTranslation();
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      <SettingCard label="Payment collection" value={restaurant?.paymentsEnabled ? 'Enabled' : 'Disabled'} detail="Controlled from dashboard payment settings." active={restaurant?.paymentsEnabled} />
-      <SettingCard label="Stripe Connect" value={restaurant?.stripeOnboarded ? 'Connected' : 'Incomplete'} detail={restaurant?.stripeAccountId ?? 'No Stripe account linked'} active={restaurant?.stripeOnboarded} />
-      <SettingCard label="Platform fee" value={feePercent ? `${feePercent}%` : 'Not set'} detail="Used to calculate platform fees on Stripe payments." active={feePercent > 0} />
+      <SettingCard label={t('payments.paymentCollection')} value={restaurant?.paymentsEnabled ? t('payments.enabled') : t('payments.disabled')} detail={t('payments.paymentCollectionDetail')} active={restaurant?.paymentsEnabled} />
+      <SettingCard label={t('payments.stripeConnect')} value={restaurant?.stripeOnboarded ? t('payments.connected') : t('payments.incomplete')} detail={restaurant?.stripeAccountId ?? t('payments.noStripeAccount')} active={restaurant?.stripeOnboarded} />
+      <SettingCard label={t('payments.platformFee')} value={feePercent ? `${feePercent}%` : t('payments.notSet')} detail={t('payments.platformFeeDetail')} active={feePercent > 0} />
     </div>
   );
 }
