@@ -25,6 +25,10 @@ export default function ProtectedRoute({
     return <Navigate to="/profile" replace />;
   }
 
+  if (role === "OWNER" && !user.onboardingComplete) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
   if (
     DASHBOARD_BLOCKED_ROLES.includes(role) &&
     location.pathname.startsWith("/dashboard")

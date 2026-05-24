@@ -46,7 +46,7 @@ interface RestaurantContextType {
   activeRestaurant: Restaurant | null;
   loading: boolean;
   error: Error | null;
-  createRestaurant: (restaurantData: { name: string; country: string; dashboardLanguage?: string }) => Promise<void>;
+  createRestaurant: (restaurantData: { name: string; city?: string; dashboardLanguage?: string }) => Promise<void>;
   selectRestaurant: (restaurant: Restaurant | null) => void;
   fetchRestaurants: () => Promise<void>;
 }
@@ -132,7 +132,7 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   }, [user]);
 
-  const createRestaurant = async (restaurantData: { name: string; country: string; dashboardLanguage?: string }) => {
+  const createRestaurant = async (restaurantData: { name: string; city?: string; dashboardLanguage?: string }) => {
     const newRestaurant = await createRestaurantApi(restaurantData);
     setRestaurants(prev => [...prev, newRestaurant]);
     setActiveRestaurant(newRestaurant);

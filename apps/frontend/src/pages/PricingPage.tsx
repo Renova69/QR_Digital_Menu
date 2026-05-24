@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { createCheckoutSession, createPortalSession } from '../lib/api';
 import { useTier } from '../hooks/useFeature';
+import { useAuth } from '../context/AuthContext';
 
 type Billing = 'monthly' | 'yearly';
 
@@ -52,6 +53,7 @@ export default function PricingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const { tier: currentTier, hasSubscription } = useTier();
+  const { user } = useAuth();
 
   const TIERS = [
     {
@@ -185,6 +187,11 @@ export default function PricingPage() {
   };
 
   const handleSelect = async (tier: string) => {
+    if (!user) {
+      sessionStorage.setItem('selectedPlan', tier);
+      navigate('/register');
+      return;
+    }
     if (tier === 'FREE') {
       navigate('/dashboard');
       return;

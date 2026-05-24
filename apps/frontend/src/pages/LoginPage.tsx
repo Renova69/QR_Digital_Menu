@@ -11,6 +11,8 @@ const LoginPage: React.FC = () => {
     if (user) {
       if (user.role === 'SUPER_ADMIN') {
         navigate('/super-admin');
+      } else if (!user.onboardingComplete && user.role === 'OWNER') {
+        navigate('/onboarding');
       } else {
         navigate('/dashboard');
       }

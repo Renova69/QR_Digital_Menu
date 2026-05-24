@@ -8,21 +8,23 @@ datasource db {
 }
 
 model User {
-  id              String           @id @default(cuid())
-  email           String           @unique
-  password        String
-  name            String?
-  phone           String?
-  pinHash         String?
-  pinAttempts     Int               @default(0)
-  pinLockedUntil  DateTime?
-  isActive        Boolean           @default(true)
-  disabledAt      DateTime?
-  disabledReason  String?
-  role            UserRole         @default(STAFF)
-  restaurantId    String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id                 String           @id @default(cuid())
+  email              String           @unique
+  password           String
+  name               String?
+  phone              String?
+  pinHash            String?
+  pinAttempts        Int               @default(0)
+  pinLockedUntil     DateTime?
+  isActive           Boolean           @default(true)
+  disabledAt         DateTime?
+  disabledReason     String?
+  role               UserRole         @default(STAFF)
+  restaurantId       String?
+  onboardingComplete Boolean          @default(false)
+  onboardingStep     String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
   orders          Order[]
   createdDeviceEnrollmentTokens DeviceEnrollmentToken[]
   loyaltyAccounts LoyaltyAccount[]
@@ -36,7 +38,8 @@ model User {
 model Restaurant {
   id                        String              @id @default(cuid())
   name                      String
-  country                   String
+  country                   String              @default("Bulgaria")
+  city                      String?
   logoUrl                   String?
   logoThumbnailUrl           String?
   accentColor               String?             @default("#4F46E5")

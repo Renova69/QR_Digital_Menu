@@ -43,7 +43,7 @@ export const getRestaurants = async (): Promise<Restaurant[]> => {
   }
 };
 
-export const createRestaurant = async (restaurantData: { name: string; country: string; dashboardLanguage?: string }): Promise<Restaurant> => {
+export const createRestaurant = async (restaurantData: { name: string; city?: string; dashboardLanguage?: string }): Promise<Restaurant> => {
   try {
     const response = await api.post<Restaurant>('/restaurants', restaurantData);
     return response.data;

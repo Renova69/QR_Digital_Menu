@@ -8,6 +8,7 @@ import {
   Query,
   Request,
   UseGuards,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { TablesService } from './tables.service';
 import { CreateTableDto } from './dto/create-table.dto';
@@ -25,6 +26,16 @@ export class TablesController {
     @Request() req: any,
   ) {
     return this.tablesService.create(restaurantId, createTableDto, req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('restaurants/:restaurantId/tables/bulk')
+  bulkCreate(
+    @Param('restaurantId') restaurantId: string,
+    @Body('count', ParseIntPipe) count: number,
+    @Request() req: any,
+  ) {
+    return this.tablesService.bulkCreate(restaurantId, count, req.user.id);
   }
 
   @Get('restaurants/:restaurantId/tables')

@@ -9,6 +9,7 @@ interface User {
   name?: string;
   role: string;
   restaurantId?: string;
+  onboardingComplete?: boolean;
 }
 
 interface AuthContextType {
