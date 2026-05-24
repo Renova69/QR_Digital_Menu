@@ -480,6 +480,11 @@ export const createCheckoutSession = async (tier: string, billingPeriod: 'monthl
   return response.data as { url: string };
 };
 
+export const confirmCheckoutSession = async (sessionId: string) => {
+  const response = await api.post('/subscription/confirm-session', { sessionId });
+  return response.data as { tier: string };
+};
+
 export const createPortalSession = async () => {
   const response = await api.post('/subscription/portal');
   return response.data as { url: string };

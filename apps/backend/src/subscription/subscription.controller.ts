@@ -61,6 +61,13 @@ export class SubscriptionController {
     return this.subscriptionService.createCheckoutSession(restaurant.id, dto.tier, dto.billingPeriod ?? 'monthly', userId, dto.onboarding ?? false);
   }
 
+  @Post('confirm-session')
+  @UseGuards(JwtAuthGuard)
+  async confirmSession(@Body('sessionId') sessionId: string) {
+    if (!sessionId) return { tier: 'FREE' };
+    return this.subscriptionService.confirmCheckoutSession(sessionId);
+  }
+
   @Post('portal')
   @UseGuards(JwtAuthGuard)
   async createPortal(@Req() req: any) {
