@@ -228,6 +228,7 @@ const LiveTablesView: React.FC = () => {
               status={table.status}
               orderCount={table.orderCount}
               customerCount={table.customerNames.length}
+              customerNames={table.customerNames}
               totalAmount={table.totalAmount}
               updatedAt={table.updatedAt}
               onClick={() => handleTableClick(table)}

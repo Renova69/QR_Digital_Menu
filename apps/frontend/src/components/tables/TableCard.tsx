@@ -1,5 +1,6 @@
-import React from 'react';
-import { Clock, ReceiptText, Users } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Clock, ShoppingBag, Users } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 
 interface TableCardProps {
@@ -7,48 +8,53 @@ interface TableCardProps {
   status: 'empty' | 'occupied' | 'paid' | 'waiting';
   orderCount: number;
   customerCount: number;
+  customerNames: string[];
   totalAmount?: number;
   updatedAt?: string;
   onClick: () => void;
 }
 
-const statusStyles: Record<
+const statusConfig: Record<
   string,
-  { accent: string; badge: string; label: string; dot: string }
+  { dot: string; labelKey: string; fallback: string }
 > = {
   occupied: {
-    accent: 'before:bg-red-500',
-    badge: 'bg-red-100 text-red-700 dark:bg-red-400/15 dark:text-red-200',
-    label: 'Occupied',
     dot: 'bg-red-500',
+    labelKey: 'tables.occupied',
+    fallback: 'Occupied',
   },
   waiting: {
-    accent: 'before:bg-amber-500',
-    badge: 'bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200',
-    label: 'Waiting',
     dot: 'bg-amber-500',
+    labelKey: 'tables.waiting',
+    fallback: 'Waiting',
   },
   paid: {
-    accent: 'before:bg-emerald-500',
-    badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200',
-    label: 'Paid',
     dot: 'bg-emerald-500',
+    labelKey: 'tables.paid',
+    fallback: 'Paid',
   },
   empty: {
-    accent: 'before:bg-slate-300 dark:before:bg-slate-600',
-    badge: 'bg-slate-100 text-slate-600 dark:bg-slate-400/15 dark:text-slate-300',
-    label: 'Available',
     dot: 'bg-emerald-500',
+    labelKey: 'tables.available',
+    fallback: 'Available',
   },
 };
 
-function formatUpdatedAt(value?: string) {
-  if (!value) return null;
-  return new Date(value).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
+function formatElapsed(seconds: number): string {
+  if (seconds < 60) return '<1m';
+  const m = Math.floor(seconds / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  const rm = m % 60;
+  if (h < 24) return rm > 0 ? `${h}h ${rm}m` : `${h}h`;
+  const d = Math.floor(h / 24);
+  const rh = h % 24;
+  return rh > 0 ? `${d}d ${rh}h` : `${d}d`;
+}
+
+function calcElapsedSince(iso?: string): number {
+  if (!iso) return 0;
+  return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
 }
 
 const TableCard: React.FC<TableCardProps> = ({
@@ -56,75 +62,82 @@ const TableCard: React.FC<TableCardProps> = ({
   status,
   orderCount,
   customerCount,
+  customerNames,
   totalAmount = 0,
   updatedAt,
   onClick,
 }) => {
-  const style = statusStyles[status] ?? statusStyles.empty;
-  const updatedLabel = formatUpdatedAt(updatedAt);
+  const { t } = useTranslation();
+  const cfg = statusConfig[status] ?? statusConfig.empty;
+  const hasSession = status !== 'empty';
+  const hasCustomers = customerCount > 0;
+
+  const [elapsed, setElapsed] = useState(() => calcElapsedSince(updatedAt));
+
+  useEffect(() => {
+    if (!hasSession) return;
+    setElapsed(calcElapsedSince(updatedAt));
+    const timer = setInterval(() => setElapsed(calcElapsedSince(updatedAt)), 30000);
+    return () => clearInterval(timer);
+  }, [hasSession, updatedAt]);
+
+  const customerLabel = customerNames.length > 0
+    ? customerNames.join(', ')
+    : hasCustomers
+      ? `${customerCount} ${customerCount === 1 ? 'guest' : 'guests'}`
+      : null;
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={cn(
-        'relative flex aspect-[1.08/1] w-full cursor-pointer flex-col overflow-hidden rounded-lg border border-border bg-card p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40 active:scale-[0.99]',
-        'before:absolute before:bottom-0 before:left-0 before:top-0 before:w-1',
-        style.accent,
-      )}
+      className="flex w-full cursor-pointer flex-col gap-2.5 rounded-2xl border border-border bg-card p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40 active:scale-[0.99]"
     >
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <span className={cn('inline-flex h-6 items-center gap-1.5 rounded-full px-2 text-[10px] font-black uppercase', style.badge)}>
-            <span className={cn('h-1.5 w-1.5 rounded-full', style.dot)} />
-            {style.label}
-          </span>
-          <h3 className="mt-3 truncate text-3xl font-black tracking-tight text-foreground">
-            {name}
-          </h3>
-        </div>
-
-        {orderCount > 0 && (
-          <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-primary px-2 text-[11px] font-black text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]">
-            {orderCount > 99 ? '99+' : orderCount}
+      {/* Row 1: Table name + person count */}
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="truncate text-lg font-black tracking-tight text-foreground">
+          {name}
+        </h3>
+        {hasCustomers && (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
+            <Users className="h-3.5 w-3.5" />
+            {customerCount}
           </span>
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-lg bg-muted/60 px-3 py-2">
-          <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
-            <ReceiptText className="h-3.5 w-3.5" />
-            Orders
-          </p>
-          <p className="mt-1 text-lg font-black text-foreground">{orderCount}</p>
-        </div>
-        <div className="rounded-lg bg-muted/60 px-3 py-2">
-          <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
-            <Users className="h-3.5 w-3.5" />
-            Guests
-          </p>
-          <p className="mt-1 text-lg font-black text-foreground">{customerCount}</p>
-        </div>
+      {/* Row 2: Status dot + label */}
+      <div className="flex items-center gap-1.5">
+        <span className={cn('h-2 w-2 rounded-full', cfg.dot)} />
+        <span className="text-xs font-bold text-muted-foreground">
+          {t(cfg.labelKey, cfg.fallback)}
+        </span>
       </div>
 
-      <div className="mt-auto border-t border-border pt-3">
-        <div className="flex items-end justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
-              Session total
-            </p>
-            <p className="mt-0.5 text-xl font-black tracking-tight text-foreground">
-              &euro;{totalAmount.toFixed(2)}
-            </p>
-          </div>
-          {updatedLabel && (
-            <span className="flex shrink-0 items-center gap-1.5 text-xs font-bold text-muted-foreground">
-              <Clock className="h-3.5 w-3.5" />
-              {updatedLabel}
+      {/* Row 3: Timer + guests/names */}
+      {hasSession && (
+        <div className="flex items-center justify-between gap-2">
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <Clock className="h-3.5 w-3.5" />
+            {formatElapsed(elapsed)}
+          </span>
+          {customerLabel && (
+            <span className="truncate text-xs font-medium text-muted-foreground">
+              {customerLabel}
             </span>
           )}
         </div>
+      )}
+
+      {/* Row 4: Orders + total */}
+      <div className="flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+          <ShoppingBag className="h-3.5 w-3.5" />
+          {orderCount} {orderCount === 1 ? 'order' : 'orders'}
+        </span>
+        <span className="text-base font-black tracking-tight text-foreground">
+          &euro;{totalAmount.toFixed(2)}
+        </span>
       </div>
     </button>
   );
