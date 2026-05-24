@@ -9,6 +9,8 @@ interface OrderDetail {
   customerName?: string;
   createdAt?: string;
   specialRequests?: string | null;
+  source?: 'CUSTOMER' | 'POS';
+  staffName?: string | null;
   items: {
     name: string;
     quantity: number;
@@ -103,6 +105,22 @@ function getSpecialRequestRows(requests?: string | null) {
       if (!match) return { seat: null, text: part };
       return { seat: match[1], text: match[2] || part };
     });
+}
+
+function SourceBadge({ source, staffName }: { source?: 'CUSTOMER' | 'POS'; staffName?: string | null }) {
+  if (!source) return null;
+  if (source === 'CUSTOMER') {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+        Self-order
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
+      {staffName?.split(' ')[0] ?? 'Staff'}
+    </span>
+  );
 }
 
 const TableDetailModal: React.FC<TableDetailModalProps> = ({
@@ -257,6 +275,7 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
                           <span className={cn('rounded-md px-2 py-1 text-[10px] font-black uppercase', orderStatusStyles[order.status])}>
                             {t(statusLabels[order.status] || 'orders.tabs.new')}
                           </span>
+                          <SourceBadge source={order.source} staffName={order.staffName} />
                         </div>
                         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs font-medium text-muted-foreground">
                           {order.customerName && <span>{order.customerName}</span>}
