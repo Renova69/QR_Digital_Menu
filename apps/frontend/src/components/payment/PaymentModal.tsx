@@ -19,10 +19,37 @@ interface PaymentModalProps {
 
 type Step = 'tip' | 'pay' | 'done';
 
+interface BillItem {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  selectedOptions: any[];
+}
+
+interface BillOrder {
+  id: string;
+  source: 'CUSTOMER' | 'POS';
+  staffName: string | null;
+  totalPrice: number;
+  items: BillItem[];
+}
+
 interface BillData {
+  orders: BillOrder[];
   subtotal: number;
   tipsEnabled: boolean;
   tipOptions: number[];
+  restaurantId?: string;
+}
+
+function getSourceLabel(order: BillOrder): string {
+  if (order.source === 'CUSTOMER') return 'You';
+  const name = order.staffName ?? '';
+  return name.split(' ')[0] || name || 'Staff';
+}
+
+function showGroupHeaders(orders: BillOrder[]): boolean {
+  return orders.some((o) => o.source === 'POS');
 }
 
 function PaymentForm({
@@ -160,6 +187,39 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
 
         {step === 'tip' && bill && (
           <div className="space-y-4">
+            {/* Itemized order breakdown */}
+            {bill.orders && showGroupHeaders(bill.orders) ? (
+              <div className="mb-4 space-y-3">
+                {bill.orders.map((order) => (
+                  <div key={order.id}>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      {getSourceLabel(order) === 'You' ? '👤 You' : `👤 ${getSourceLabel(order)}`}
+                    </p>
+                    {order.items.map((item, i) => (
+                      <div key={i} className="flex justify-between text-sm py-0.5">
+                        <span className="text-gray-700">{item.name} ×{item.quantity}</span>
+                        <span className="text-gray-700">
+                          {formatEuro(item.unitPrice * item.quantity)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+                <hr className="border-gray-200" />
+              </div>
+            ) : bill.orders && bill.orders.length > 0 ? (
+              <div className="mb-4 space-y-1">
+                {bill.orders.flatMap((order) =>
+                  order.items.map((item, i) => (
+                    <div key={`${order.id}-${i}`} className="flex justify-between text-sm py-0.5">
+                      <span className="text-gray-700">{item.name} ×{item.quantity}</span>
+                      <span className="text-gray-700">{formatEuro(item.unitPrice * item.quantity)}</span>
+                    </div>
+                  ))
+                )}
+                <hr className="border-gray-200" />
+              </div>
+            ) : null}
             <div>
               <p className="text-2xl font-bold">{formatEuro(bill.subtotal)}</p>
               <span className="text-xs text-muted-foreground">{formatBgn(bill.subtotal)}</span>
