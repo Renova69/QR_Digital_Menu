@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 
-export type DateRangePreset = 7 | 14 | 30;
+export type DateRangePreset = 0 | 7 | 14 | 30;
 
 export interface SummaryDateRange {
   period: DateRangePreset;
@@ -30,7 +30,7 @@ export function useSummaryDateRange(): SummaryDateRange {
   const setCustomRange = useCallback((start: string, end: string) => {
     setStartDate(start);
     setEndDate(end);
-    setPeriodState(0 as DateRangePreset);
+    setPeriodState(0);
   }, []);
 
   const label = startDate && endDate

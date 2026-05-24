@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { PaymentHistoryQueryDto } from './dto/payment-history-query.dto';
 import { RefundPaymentDto } from './dto/refund-payment.dto';
+import { DateRangeQueryDto } from '../common/dto/date-range-query.dto';
 import { SkipThrottle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PaymentService } from './payment.service';
@@ -116,12 +117,11 @@ export class PaymentController {
   getPaymentsOverview(
     @Req() req: any,
     @Param('restaurantId') restaurantId: string,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
+    @Query() dateRange: DateRangeQueryDto,
   ) {
     return this.paymentService.getPaymentsOverview(restaurantId, req.user.id, {
-      startDate,
-      endDate,
+      startDate: dateRange.startDate,
+      endDate: dateRange.endDate,
     });
   }
 

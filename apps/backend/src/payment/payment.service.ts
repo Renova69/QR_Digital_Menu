@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -54,7 +55,12 @@ export class PaymentService {
       select: { restaurantId: true, role: true },
     });
 
-    if (user?.role === 'SUPER_ADMIN' || user?.restaurantId === restaurantId) {
+    if (user?.role === 'SUPER_ADMIN') return restaurant;
+
+    if (
+      user?.restaurantId === restaurantId &&
+      (user?.role === 'MANAGER' || user?.role === 'OWNER')
+    ) {
       return restaurant;
     }
 
@@ -763,30 +769,59 @@ export class PaymentService {
 
     await this.verifyRestaurantAccess(payment.restaurantId, userId);
 
-    if (payment.status !== 'SUCCEEDED') {
-      throw new BadRequestException('Only succeeded payments can be refunded');
-    }
-
     const refundAmount = data.amount ?? payment.amount;
     if (Math.abs(refundAmount - payment.amount) > 0.001) {
       throw new BadRequestException('Partial refunds are not supported yet');
     }
 
+    if (payment.provider === 'MYPOS') {
+      throw new BadRequestException(
+        'MYPOS card refunds must be processed at the physical terminal',
+      );
+    }
+
+    // Atomic claim — prevents duplicate refunds under concurrent requests.
+    // updateMany with status condition acts as an optimistic lock: only one
+    // request will get count=1; all others see count=0 and are rejected.
+    const { count } = await this.prisma.payment.updateMany({
+      where: { id: paymentId, status: 'SUCCEEDED' },
+      data: { status: 'REFUNDED' },
+    });
+
+    if (count === 0) {
+      throw new ConflictException(
+        'Payment has already been refunded or is not in a refundable state',
+      );
+    }
+
     let refund: { refundId: string; status: string | null } | null = null;
     if (payment.provider === 'STRIPE') {
       if (!payment.stripePaymentIntentId) {
+        await this.prisma.payment.updateMany({
+          where: { id: paymentId },
+          data: { status: 'SUCCEEDED' },
+        }).catch(() => {});
         throw new BadRequestException('Stripe payment intent is missing');
       }
-      refund = await this.stripe.createRefund({
-        paymentIntentId: payment.stripePaymentIntentId,
-        amountCents: Math.round(payment.amount * 100),
-        reason: data.reason,
-      });
+      try {
+        refund = await this.stripe.createRefund({
+          paymentIntentId: payment.stripePaymentIntentId,
+          amountCents: Math.round(payment.amount * 100),
+          reason: data.reason,
+        });
+      } catch (err) {
+        // Best-effort rollback — restore succeeded so a retry is possible.
+        await this.prisma.payment.updateMany({
+          where: { id: paymentId },
+          data: { status: 'SUCCEEDED' },
+        }).catch(() => {});
+        this.logger.error(`Stripe refund failed for ${paymentId}, status rolled back`, err);
+        throw err;
+      }
     }
 
-    const updated = await this.prisma.payment.update({
-      where: { id: payment.id },
-      data: { status: 'REFUNDED' },
+    const updated = await this.prisma.payment.findUnique({
+      where: { id: paymentId },
       include: {
         tableSession: {
           include: {
@@ -810,7 +845,7 @@ export class PaymentService {
     });
 
     return {
-      payment: this.mapPayment(updated),
+      payment: this.mapPayment(updated!),
       refund,
     };
   }

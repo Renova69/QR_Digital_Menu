@@ -1,5 +1,5 @@
 import { PaymentService } from './payment.service';
-import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { FeatureService } from '../subscription/feature.service';
 
 describe('PaymentService', () => {
@@ -479,37 +479,35 @@ describe('PaymentService', () => {
   });
 
   describe('refundPayment', () => {
+    const succeededPayload = {
+      id: 'pay1',
+      restaurantId: 'rest1',
+      amount: 24,
+      tipAmount: 4,
+      platformFeeAmount: 1,
+      currency: 'eur',
+      status: 'SUCCEEDED',
+      stripePaymentIntentId: 'pi_123',
+      provider: 'STRIPE',
+      createdAt: new Date('2026-05-24T10:00:00Z'),
+      updatedAt: new Date('2026-05-24T10:01:00Z'),
+      tableSessionId: 'sess1',
+      tableSession: { table: { name: 'Table 3' } },
+    };
+
+    const refundedPayload = {
+      ...succeededPayload,
+      status: 'REFUNDED',
+      updatedAt: new Date('2026-05-24T10:02:00Z'),
+      tableSession: { table: { name: 'Table 3' }, orders: [{ customerName: 'Maria' }] },
+    };
+
     it('creates a Stripe refund and marks the payment refunded', async () => {
-      mockPrisma.payment.findUnique.mockResolvedValue({
-        id: 'pay1',
-        restaurantId: 'rest1',
-        amount: 24,
-        tipAmount: 4,
-        platformFeeAmount: 1,
-        currency: 'eur',
-        status: 'SUCCEEDED',
-        stripePaymentIntentId: 'pi_123',
-        provider: 'STRIPE',
-        createdAt: new Date('2026-05-24T10:00:00Z'),
-        updatedAt: new Date('2026-05-24T10:01:00Z'),
-        tableSessionId: 'sess1',
-        tableSession: { table: { name: 'Table 3' } },
-      });
+      mockPrisma.payment.findUnique
+        .mockResolvedValueOnce(succeededPayload)   // initial fetch
+        .mockResolvedValueOnce(refundedPayload);   // post-update fetch
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
       mockStripeProvider.createRefund.mockResolvedValue({ refundId: 're_123', status: 'succeeded' });
-      mockPrisma.payment.update.mockResolvedValue({
-        id: 'pay1',
-        amount: 24,
-        tipAmount: 4,
-        platformFeeAmount: 1,
-        currency: 'eur',
-        status: 'REFUNDED',
-        stripePaymentIntentId: 'pi_123',
-        provider: 'STRIPE',
-        createdAt: new Date('2026-05-24T10:00:00Z'),
-        updatedAt: new Date('2026-05-24T10:02:00Z'),
-        tableSessionId: 'sess1',
-        tableSession: { table: { name: 'Table 3' }, orders: [{ customerName: 'Maria' }] },
-      });
 
       const result = await service.refundPayment('pay1', 'owner1', { reason: 'guest request' });
 
@@ -518,8 +516,8 @@ describe('PaymentService', () => {
         amountCents: 2400,
         reason: 'guest request',
       });
-      expect(mockPrisma.payment.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'pay1' }, data: { status: 'REFUNDED' } }),
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'pay1', status: 'SUCCEEDED' }, data: { status: 'REFUNDED' } }),
       );
       expect(result.payment.status).toBe('REFUNDED');
       expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
@@ -529,17 +527,33 @@ describe('PaymentService', () => {
       );
     });
 
-    it('rejects partial refunds until refund ledger support exists', async () => {
-      mockPrisma.payment.findUnique.mockResolvedValue({
-        id: 'pay1',
-        restaurantId: 'rest1',
-        amount: 24,
-        status: 'SUCCEEDED',
+    it('throws ConflictException when payment is already refunded (race condition)', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValueOnce(succeededPayload);
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(ConflictException);
+      expect(mockStripeProvider.createRefund).not.toHaveBeenCalled();
+    });
+
+    it('rejects MYPOS refunds with BadRequestException', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValueOnce({
+        ...succeededPayload,
+        provider: 'MYPOS',
+        stripePaymentIntentId: null,
+      });
+
+      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects partial refunds', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValueOnce({
+        ...succeededPayload,
         provider: 'CASH',
-        tableSessionId: 'sess1',
       });
 
       await expect(service.refundPayment('pay1', 'owner1', { amount: 10 })).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
     });
   });
 
