@@ -22,10 +22,28 @@ describe('PaymentService', () => {
         findFirst: jest.fn().mockResolvedValue({ id: 'table1', restaurantId: 'rest1' }),
         findUnique: jest.fn().mockResolvedValue({ name: 'T1' }),
       },
+      restaurant: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'rest1',
+          ownerId: 'owner1',
+          paymentsEnabled: true,
+          stripeOnboarded: true,
+          stripeAccountId: 'acct_123',
+          platformFeePercent: 0.5,
+          tipsEnabled: true,
+          tipOptions: [5, 10, 15],
+        }),
+      },
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ restaurantId: 'rest1', role: 'MANAGER' }),
+      },
       payment: {
+        aggregate: jest.fn(),
         create: jest.fn(),
         findFirst: jest.fn(),
+        findUnique: jest.fn(),
         findMany: jest.fn(),
+        groupBy: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         count: jest.fn(),
@@ -40,6 +58,7 @@ describe('PaymentService', () => {
     };
     mockStripeProvider = {
       createPaymentIntent: jest.fn(),
+      createRefund: jest.fn(),
       constructWebhookEvent: jest.fn(),
     };
     mockEvents = {
@@ -390,6 +409,137 @@ describe('PaymentService', () => {
       expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ skip: 0, take: 20 }),
       );
+    });
+  });
+
+  describe('getPaymentsOverview', () => {
+    it('returns account data, metrics, status counts, and method totals', async () => {
+      mockPrisma.payment.aggregate
+        .mockResolvedValueOnce({ _sum: { amount: 100 } })
+        .mockResolvedValueOnce({ _sum: { tipAmount: 12 } })
+        .mockResolvedValueOnce({ _sum: { platformFeeAmount: 4 } })
+        .mockResolvedValueOnce({ _sum: { amount: 10 } });
+      mockPrisma.payment.count
+        .mockResolvedValueOnce(4)
+        .mockResolvedValueOnce(1);
+      mockPrisma.payment.groupBy
+        .mockResolvedValueOnce([{ status: 'SUCCEEDED', _count: 4 }])
+        .mockResolvedValueOnce([{ provider: 'STRIPE', _sum: { amount: 100, platformFeeAmount: 4 }, _count: 4 }]);
+      mockPrisma.payment.findFirst.mockResolvedValue({ createdAt: new Date('2026-05-24T10:00:00Z'), currency: 'eur' });
+
+      const result = await service.getPaymentsOverview('rest1', 'owner1');
+
+      expect(result.account.stripeAccountId).toBe('acct_123');
+      expect(result.metrics.totalCollected).toBe(100);
+      expect(result.metrics.averageTransaction).toBe(25);
+      expect(result.metrics.netCollected).toBe(96);
+      expect(result.methodTotals[0]).toEqual({ method: 'STRIPE', amount: 100, fees: 4, count: 4 });
+    });
+  });
+
+  describe('getPaymentDetail', () => {
+    it('returns a detailed payment with order items and breakdown', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValue({
+        id: 'pay1',
+        restaurantId: 'rest1',
+        amount: 24,
+        tipAmount: 4,
+        platformFeeAmount: 1,
+        currency: 'eur',
+        status: 'SUCCEEDED',
+        stripePaymentIntentId: 'pi_123',
+        provider: 'STRIPE',
+        createdAt: new Date('2026-05-24T10:00:00Z'),
+        updatedAt: new Date('2026-05-24T10:01:00Z'),
+        tableSessionId: 'sess1',
+        tableSession: {
+          createdAt: new Date('2026-05-24T09:45:00Z'),
+          table: { id: 'table1', name: 'Table 3' },
+          orders: [
+            {
+              id: 'order1',
+              customerName: 'Maria',
+              customerPhone: null,
+              totalPrice: 20,
+              status: 'SERVED',
+              specialRequests: null,
+              createdAt: new Date('2026-05-24T09:50:00Z'),
+              items: [{ quantity: 2, selectedOptions: [], menuItem: { name: 'Soup', price: 10 } }],
+            },
+          ],
+        },
+      });
+
+      const result = await service.getPaymentDetail('pay1', 'owner1');
+
+      expect(result.table?.name).toBe('Table 3');
+      expect(result.breakdown.net).toBe(23);
+      expect(result.orders[0].items[0]).toEqual({ name: 'Soup', quantity: 2, unitPrice: 10, options: [] });
+    });
+  });
+
+  describe('refundPayment', () => {
+    it('creates a Stripe refund and marks the payment refunded', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValue({
+        id: 'pay1',
+        restaurantId: 'rest1',
+        amount: 24,
+        tipAmount: 4,
+        platformFeeAmount: 1,
+        currency: 'eur',
+        status: 'SUCCEEDED',
+        stripePaymentIntentId: 'pi_123',
+        provider: 'STRIPE',
+        createdAt: new Date('2026-05-24T10:00:00Z'),
+        updatedAt: new Date('2026-05-24T10:01:00Z'),
+        tableSessionId: 'sess1',
+        tableSession: { table: { name: 'Table 3' } },
+      });
+      mockStripeProvider.createRefund.mockResolvedValue({ refundId: 're_123', status: 'succeeded' });
+      mockPrisma.payment.update.mockResolvedValue({
+        id: 'pay1',
+        amount: 24,
+        tipAmount: 4,
+        platformFeeAmount: 1,
+        currency: 'eur',
+        status: 'REFUNDED',
+        stripePaymentIntentId: 'pi_123',
+        provider: 'STRIPE',
+        createdAt: new Date('2026-05-24T10:00:00Z'),
+        updatedAt: new Date('2026-05-24T10:02:00Z'),
+        tableSessionId: 'sess1',
+        tableSession: { table: { name: 'Table 3' }, orders: [{ customerName: 'Maria' }] },
+      });
+
+      const result = await service.refundPayment('pay1', 'owner1', { reason: 'guest request' });
+
+      expect(mockStripeProvider.createRefund).toHaveBeenCalledWith({
+        paymentIntentId: 'pi_123',
+        amountCents: 2400,
+        reason: 'guest request',
+      });
+      expect(mockPrisma.payment.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'pay1' }, data: { status: 'REFUNDED' } }),
+      );
+      expect(result.payment.status).toBe('REFUNDED');
+      expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
+        'rest1',
+        'payment:refunded',
+        expect.objectContaining({ paymentId: 'pay1', refundId: 're_123' }),
+      );
+    });
+
+    it('rejects partial refunds until refund ledger support exists', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValue({
+        id: 'pay1',
+        restaurantId: 'rest1',
+        amount: 24,
+        status: 'SUCCEEDED',
+        provider: 'CASH',
+        tableSessionId: 'sess1',
+      });
+
+      await expect(service.refundPayment('pay1', 'owner1', { amount: 10 })).rejects.toThrow(BadRequestException);
     });
   });
 

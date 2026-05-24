@@ -22,6 +22,71 @@ export class PaymentService {
     private readonly featureService: FeatureService,
   ) {}
 
+  private roundMoney(value: number) {
+    return Math.round(value * 100) / 100;
+  }
+
+  private async verifyRestaurantAccess(restaurantId: string, userId: string) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: {
+        id: true,
+        ownerId: true,
+        paymentsEnabled: true,
+        stripeOnboarded: true,
+        stripeAccountId: true,
+        platformFeePercent: true,
+        tipsEnabled: true,
+        tipOptions: true,
+      },
+    });
+
+    if (!restaurant) {
+      throw new NotFoundException('Restaurant not found');
+    }
+
+    if (restaurant.ownerId === userId) {
+      return restaurant;
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { restaurantId: true, role: true },
+    });
+
+    if (user?.role === 'SUPER_ADMIN' || user?.restaurantId === restaurantId) {
+      return restaurant;
+    }
+
+    throw new ForbiddenException('You do not have permission to access these payments');
+  }
+
+  private paymentStatusLabel(status: string) {
+    return status === 'SUCCEEDED'
+      ? 'Succeeded'
+      : status.charAt(0) + status.slice(1).toLowerCase();
+  }
+
+  private mapPayment(payment: any) {
+    return {
+      id: payment.id,
+      amount: payment.amount,
+      tipAmount: payment.tipAmount,
+      platformFeeAmount: payment.platformFeeAmount,
+      currency: payment.currency,
+      status: payment.status,
+      statusLabel: this.paymentStatusLabel(payment.status),
+      stripePaymentIntentId: payment.stripePaymentIntentId,
+      provider: payment.provider,
+      createdAt: payment.createdAt,
+      updatedAt: payment.updatedAt,
+      tableNumber: payment.tableSession?.table?.name ?? null,
+      customerName: payment.tableSession?.orders?.[0]?.customerName ?? null,
+      tableSessionId: payment.tableSessionId,
+      netAmount: this.roundMoney(payment.amount - payment.platformFeeAmount),
+    };
+  }
+
   async getOrCreateSession(
     tableId: string,
     restaurantId: string,
@@ -405,7 +470,12 @@ export class PaymentService {
     restaurantId: string,
     page?: number,
     limit?: number,
+    userId?: string,
   ): Promise<{ data: any[]; meta: { total: number; page: number; limit: number } }> {
+    if (userId) {
+      await this.verifyRestaurantAccess(restaurantId, userId);
+    }
+
     const take = limit ?? 50;
     const skip = page ? (page - 1) * take : 0;
 
@@ -431,7 +501,12 @@ export class PaymentService {
       page?: number;
       limit?: number;
     },
+    userId?: string,
   ): Promise<{ data: any[]; meta: { total: number; page: number; limit: number } }> {
+    if (userId) {
+      await this.verifyRestaurantAccess(restaurantId, userId);
+    }
+
     const page = filters.page ?? 1;
     const limit = Math.min(filters.limit ?? 20, 50);
     const skip = (page - 1) * limit;
@@ -467,21 +542,276 @@ export class PaymentService {
     ]);
 
     return {
-      data: data.map((p) => ({
-        id: p.id,
-        amount: p.amount,
-        tipAmount: p.tipAmount,
-        platformFeeAmount: p.platformFeeAmount,
-        currency: p.currency,
-        status: p.status,
-        stripePaymentIntentId: p.stripePaymentIntentId,
-        provider: p.provider,
-        createdAt: p.createdAt,
-        tableNumber: p.tableSession?.table?.name ?? null,
-        customerName: p.tableSession?.orders[0]?.customerName ?? null,
-        tableSessionId: p.tableSessionId,
-      })),
+      data: data.map((payment) => this.mapPayment(payment)),
       meta: { total, page, limit },
+    };
+  }
+
+  async getPaymentsOverview(
+    restaurantId: string,
+    userId: string,
+    filters: { startDate?: string; endDate?: string } = {},
+  ) {
+    const restaurant = await this.verifyRestaurantAccess(restaurantId, userId);
+    const dateFilter: { gte?: Date; lte?: Date } = {};
+    if (filters.startDate) dateFilter.gte = new Date(filters.startDate);
+    if (filters.endDate) {
+      const end = new Date(filters.endDate);
+      end.setHours(23, 59, 59, 999);
+      dateFilter.lte = end;
+    }
+
+    const where = {
+      restaurantId,
+      ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}),
+    };
+
+    const [
+      collected,
+      tips,
+      fees,
+      refunds,
+      successfulCount,
+      refundCount,
+      statusCounts,
+      methodTotals,
+      latestPayment,
+    ] = await Promise.all([
+      this.prisma.payment.aggregate({
+        _sum: { amount: true },
+        where: { ...where, status: 'SUCCEEDED' },
+      }),
+      this.prisma.payment.aggregate({
+        _sum: { tipAmount: true },
+        where: { ...where, status: 'SUCCEEDED' },
+      }),
+      this.prisma.payment.aggregate({
+        _sum: { platformFeeAmount: true },
+        where: { ...where, status: 'SUCCEEDED' },
+      }),
+      this.prisma.payment.aggregate({
+        _sum: { amount: true },
+        where: { ...where, status: 'REFUNDED' },
+      }),
+      this.prisma.payment.count({ where: { ...where, status: 'SUCCEEDED' } }),
+      this.prisma.payment.count({ where: { ...where, status: 'REFUNDED' } }),
+      this.prisma.payment.groupBy({
+        by: ['status'],
+        _count: true,
+        where,
+      }),
+      this.prisma.payment.groupBy({
+        by: ['provider'],
+        _sum: { amount: true, platformFeeAmount: true },
+        _count: true,
+        where: { ...where, status: 'SUCCEEDED' },
+      }),
+      this.prisma.payment.findFirst({
+        where,
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true, currency: true },
+      }),
+    ]);
+
+    const totalCollected = this.roundMoney(collected._sum.amount ?? 0);
+    const platformFees = this.roundMoney(fees._sum.platformFeeAmount ?? 0);
+
+    return {
+      account: {
+        paymentsEnabled: restaurant.paymentsEnabled,
+        stripeOnboarded: restaurant.stripeOnboarded,
+        stripeAccountId: restaurant.stripeAccountId,
+        platformFeePercent: restaurant.platformFeePercent,
+        tipsEnabled: restaurant.tipsEnabled,
+        tipOptions: restaurant.tipOptions,
+      },
+      metrics: {
+        totalCollected,
+        averageTransaction: successfulCount ? this.roundMoney(totalCollected / successfulCount) : 0,
+        tipsCollected: this.roundMoney(tips._sum.tipAmount ?? 0),
+        platformFees,
+        refundsIssued: this.roundMoney(refunds._sum.amount ?? 0),
+        netCollected: this.roundMoney(totalCollected - platformFees),
+        successfulTransactions: successfulCount,
+        refundsCount: refundCount,
+      },
+      statusCounts: statusCounts.map((item) => ({
+        status: item.status,
+        count: item._count,
+      })),
+      methodTotals: methodTotals.map((item) => ({
+        method: item.provider,
+        amount: this.roundMoney(item._sum.amount ?? 0),
+        fees: this.roundMoney(item._sum.platformFeeAmount ?? 0),
+        count: item._count,
+      })),
+      currency: latestPayment?.currency ?? 'eur',
+      latestPaymentAt: latestPayment?.createdAt ?? null,
+    };
+  }
+
+  async getPaymentDetail(paymentId: string, userId: string) {
+    const payment = await this.prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: {
+        tableSession: {
+          include: {
+            table: { select: { id: true, name: true } },
+            orders: {
+              orderBy: { createdAt: 'asc' },
+              include: {
+                items: {
+                  include: {
+                    menuItem: { select: { name: true, price: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment not found');
+    }
+
+    await this.verifyRestaurantAccess(payment.restaurantId, userId);
+
+    const mapped = this.mapPayment(payment);
+    const orders = (payment.tableSession?.orders ?? []).map((order) => ({
+      id: order.id,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      totalPrice: order.totalPrice,
+      status: order.status,
+      specialRequests: order.specialRequests,
+      createdAt: order.createdAt,
+      items: order.items.map((item) => ({
+        name: item.menuItem?.name ?? 'Unknown item',
+        quantity: item.quantity,
+        unitPrice: item.menuItem?.price ?? 0,
+        options: Array.isArray(item.selectedOptions)
+          ? (item.selectedOptions as any[]).map((option: any) => option?.choiceName).filter(Boolean)
+          : [],
+      })),
+    }));
+
+    return {
+      ...mapped,
+      table: payment.tableSession?.table ?? null,
+      orders,
+      breakdown: {
+        subtotal: this.roundMoney(payment.amount - payment.tipAmount),
+        tip: payment.tipAmount,
+        totalCharged: payment.amount,
+        platformFee: payment.platformFeeAmount,
+        net: mapped.netAmount,
+      },
+      timeline: [
+        { label: `Payment ${mapped.statusLabel.toLowerCase()}`, at: payment.updatedAt },
+        { label: 'Payment record created', at: payment.createdAt },
+        ...(payment.tableSession?.createdAt
+          ? [{ label: 'Table session opened', at: payment.tableSession.createdAt }]
+          : []),
+      ],
+    };
+  }
+
+  async getPayoutsSnapshot(restaurantId: string, userId: string) {
+    const overview = await this.getPaymentsOverview(restaurantId, userId);
+    return {
+      estimatedBalance: overview.metrics.netCollected,
+      platformFees: overview.metrics.platformFees,
+      totalCollected: overview.metrics.totalCollected,
+      methodTotals: overview.methodTotals,
+      stripeAccountId: overview.account.stripeAccountId,
+      stripeOnboarded: overview.account.stripeOnboarded,
+      note: 'Live payout timing and bank account details are managed in Stripe Connect.',
+    };
+  }
+
+  async getPaymentSettings(restaurantId: string, userId: string) {
+    const restaurant = await this.verifyRestaurantAccess(restaurantId, userId);
+    return {
+      paymentsEnabled: restaurant.paymentsEnabled,
+      stripeOnboarded: restaurant.stripeOnboarded,
+      stripeAccountId: restaurant.stripeAccountId,
+      platformFeePercent: restaurant.platformFeePercent,
+      tipsEnabled: restaurant.tipsEnabled,
+      tipOptions: restaurant.tipOptions,
+    };
+  }
+
+  async refundPayment(
+    paymentId: string,
+    userId: string,
+    data: { amount?: number; reason?: string },
+  ) {
+    const payment = await this.prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: {
+        tableSession: {
+          include: { table: { select: { name: true } } },
+        },
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment not found');
+    }
+
+    await this.verifyRestaurantAccess(payment.restaurantId, userId);
+
+    if (payment.status !== 'SUCCEEDED') {
+      throw new BadRequestException('Only succeeded payments can be refunded');
+    }
+
+    const refundAmount = data.amount ?? payment.amount;
+    if (Math.abs(refundAmount - payment.amount) > 0.001) {
+      throw new BadRequestException('Partial refunds are not supported yet');
+    }
+
+    let refund: { refundId: string; status: string | null } | null = null;
+    if (payment.provider === 'STRIPE') {
+      if (!payment.stripePaymentIntentId) {
+        throw new BadRequestException('Stripe payment intent is missing');
+      }
+      refund = await this.stripe.createRefund({
+        paymentIntentId: payment.stripePaymentIntentId,
+        amountCents: Math.round(payment.amount * 100),
+        reason: data.reason,
+      });
+    }
+
+    const updated = await this.prisma.payment.update({
+      where: { id: payment.id },
+      data: { status: 'REFUNDED' },
+      include: {
+        tableSession: {
+          include: {
+            table: { select: { name: true } },
+            orders: {
+              select: { customerName: true },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+
+    this.events.emitToRestaurant(payment.restaurantId, 'payment:refunded', {
+      paymentId: payment.id,
+      tableSessionId: payment.tableSessionId,
+      amount: payment.amount,
+      tableNumber: payment.tableSession?.table?.name ?? null,
+      refundId: refund?.refundId ?? null,
+    });
+
+    return {
+      payment: this.mapPayment(updated),
+      refund,
     };
   }
 }
