@@ -8,6 +8,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LocalStrategy } from './local.strategy';
 import { JwtStrategy } from './jwt.strategy';
 import { GoogleStrategy } from './google.strategy';
+import { OptionalJwtStrategy } from './optional-jwt.strategy';
 import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
@@ -29,7 +30,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, LocalStrategy, JwtStrategy, GoogleStrategy],
+  providers: [AuthService, LocalStrategy, JwtStrategy, GoogleStrategy, OptionalJwtStrategy],
   exports: [AuthService],
 })
 export class AuthModule {}
