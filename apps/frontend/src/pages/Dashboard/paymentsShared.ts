@@ -36,6 +36,8 @@ export interface PaymentDetail extends PaymentRecord {
     status: string;
     specialRequests?: string | null;
     createdAt: string;
+    source?: 'CUSTOMER' | 'POS';
+    staffName?: string | null;
     items: Array<{ name: string; quantity: number; unitPrice: number; options: string[] }>;
   }>;
 }
