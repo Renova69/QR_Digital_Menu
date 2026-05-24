@@ -687,6 +687,7 @@ export class PaymentService {
                     menuItem: { select: { name: true, price: true } },
                   },
                 },
+                staff: { select: { name: true, email: true } },
               },
             },
           },
@@ -709,6 +710,8 @@ export class PaymentService {
       status: order.status,
       specialRequests: order.specialRequests,
       createdAt: order.createdAt,
+      source: order.source,
+      staffName: order.staff ? (order.staff.name ?? order.staff.email) : null,
       items: order.items.map((item) => ({
         name: item.menuItem?.name ?? 'Unknown item',
         quantity: item.quantity,

@@ -100,7 +100,11 @@ export function PaymentDrawer({
                 {payment.orders.map((order) => (
                   <div key={order.id} className="rounded-lg border border-border bg-muted/25 p-3">
                     <div className="mb-2 flex items-center justify-between gap-3">
-                      <p className="text-xs font-black text-foreground">{order.customerName || t('dashboard.walkIn')}</p>
+                      <p className="text-xs font-black text-foreground">
+                        {order.source === 'POS'
+                          ? order.staffName ?? t('dashboard.staff', 'Staff')
+                          : order.customerName || t('dashboard.walkIn')}
+                      </p>
                       <p className="text-xs font-black text-muted-foreground">{formatMoney(order.totalPrice, payment.currency)}</p>
                     </div>
                     {order.items.map((item, index) => (
