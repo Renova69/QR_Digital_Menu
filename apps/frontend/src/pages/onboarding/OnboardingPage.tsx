@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { updateOnboardingStep, createCheckoutSession, getSubscriptionStatus } from '../../lib/api';
+import { updateOnboardingStep, createCheckoutSession, confirmCheckoutSession } from '../../lib/api';
 import PlanPickerStep from './steps/PlanPickerStep';
 import RestaurantBasicsStep from './steps/RestaurantBasicsStep';
 import TableSetupStep from './steps/TableSetupStep';
@@ -69,7 +69,6 @@ export default function OnboardingPage() {
   const [activeRestaurantName, setActiveRestaurantName] = useState(restaurantName);
 
   const [loading, setLoading] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auth guard
   useEffect(() => {
@@ -91,39 +90,27 @@ export default function OnboardingPage() {
     }
   }, [stripeResult]);
 
-  // Poll subscription status after Stripe success to wait for webhook
+  // Confirm Stripe session synchronously — don't wait for webhook
   useEffect(() => {
     if (step !== 'stripe-confirming') return;
 
-    let retries = 0;
-    const MAX_RETRIES = 20;
+    const sessionId = searchParams.get('session_id');
 
-    const poll = async () => {
-      try {
-        const status = await getSubscriptionStatus();
-        if (status.tier && status.tier !== 'FREE') {
-          const newTier = status.tier as Tier;
-          setSelectedTier(newTier);
-          sessionStorage.setItem('selectedPlan', newTier);
-          setStep('tables');
-          return;
-        }
-      } catch (_) {}
-
-      retries++;
-      if (retries < MAX_RETRIES) {
-        pollRef.current = setTimeout(poll, 1000);
-      } else {
-        setStep('tables');
+    const confirm = async () => {
+      if (sessionId) {
+        try {
+          const { tier } = await confirmCheckoutSession(sessionId);
+          if (tier && tier !== 'FREE') {
+            setSelectedTier(tier as Tier);
+            sessionStorage.setItem('selectedPlan', tier);
+          }
+        } catch (_) {}
       }
+      setStep('tables');
     };
 
-    poll();
-
-    return () => {
-      if (pollRef.current) clearTimeout(pollRef.current);
-    };
-  }, [step]);
+    confirm();
+  }, [step, searchParams]);
 
   const persistStep = async (s: Step) => {
     try { await updateOnboardingStep(s); } catch (_) {}

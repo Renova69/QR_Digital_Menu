@@ -78,7 +78,7 @@ export class SubscriptionService {
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: onboarding
-        ? `${process.env.FRONTEND_URL || 'http://localhost:3001'}/onboarding?stripe=success`
+        ? `${process.env.FRONTEND_URL || 'http://localhost:3001'}/onboarding?stripe=success&session_id={CHECKOUT_SESSION_ID}`
         : `${process.env.FRONTEND_URL || 'http://localhost:3001'}/dashboard?subscribed=true`,
       cancel_url: onboarding
         ? `${process.env.FRONTEND_URL || 'http://localhost:3001'}/onboarding?stripe=cancel`
@@ -87,6 +87,37 @@ export class SubscriptionService {
     });
 
     return { url: session.url };
+  }
+
+  async confirmCheckoutSession(sessionId: string): Promise<{ tier: string }> {
+    let session: any;
+    try {
+      session = await stripe.checkout.sessions.retrieve(sessionId);
+    } catch {
+      return { tier: 'FREE' };
+    }
+
+    if (session.status !== 'complete') return { tier: 'FREE' };
+
+    const customerId = session.customer as string;
+    const tier = (session.metadata?.tier as string) ?? 'FREE';
+    const subscriptionId = session.subscription as string;
+    const eventTime = new Date(session.created * 1000);
+
+    await this.prisma.restaurant.updateMany({
+      where: {
+        stripeCustomerId: customerId,
+        OR: [{ tierUpdatedAt: null }, { tierUpdatedAt: { lt: eventTime } }],
+      },
+      data: {
+        tier: tier as any,
+        stripeSubscriptionId: subscriptionId,
+        tierUpdatedAt: eventTime,
+      },
+    });
+
+    this.logger.log(`Session confirmed: customer=${customerId} tier=${tier}`);
+    return { tier };
   }
 
   async createPortalSession(restaurantId: string) {
