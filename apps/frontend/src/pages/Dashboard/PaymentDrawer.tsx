@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Download, ExternalLink, Receipt, RefreshCcw, ShieldCheck, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
@@ -27,6 +28,7 @@ export function PaymentDrawer({
   onClose: () => void;
 }) {
   const [confirmingRefund, setConfirmingRefund] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     setConfirmingRefund(false);
@@ -34,11 +36,15 @@ export function PaymentDrawer({
 
   if (!payment) return null;
   const method = methodStyles[payment.provider] ?? methodStyles.STRIPE;
+  const methodLabel = payment.provider === 'STRIPE' ? t('payments.stripeMethod') :
+                       payment.provider === 'MYPOS' ? t('payments.cardMethod') :
+                       t('payments.cashMethod');
   const subtotal = payment.breakdown?.subtotal ?? Math.max(payment.amount - payment.tipAmount, 0);
   const net = payment.breakdown?.net ?? payment.amount - payment.platformFeeAmount;
+  const statusKey = `payments.${payment.status.toLowerCase()}` as const;
   const timeline = payment.timeline ?? [
-    { label: `Payment ${payment.status.toLowerCase()}`, at: payment.createdAt },
-    { label: 'Session attached', at: payment.tableSessionId },
+    { label: t('payments.paymentStatus', { status: t(statusKey as any) }), at: payment.createdAt },
+    { label: t('payments.sessionAttached'), at: payment.tableSessionId },
   ];
 
   return (
@@ -47,7 +53,7 @@ export function PaymentDrawer({
         type="button"
         className="absolute inset-0 bg-background/65 backdrop-blur-sm"
         onClick={onClose}
-        aria-label="Close transaction detail"
+        aria-label={t('payments.closeDetail')}
       />
       <aside className="absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col border-l border-border bg-background shadow-2xl">
         <div className="border-b border-border p-6">
@@ -55,15 +61,15 @@ export function PaymentDrawer({
             type="button"
             onClick={onClose}
             className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground transition hover:text-foreground"
-            aria-label="Close"
+            aria-label={t('payments.close')}
           >
             <X className="h-4 w-4" />
           </button>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Transaction</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">{t('payments.transaction')}</p>
           <p className="mt-1 text-3xl font-black tracking-tight text-foreground">{formatMoney(payment.amount, payment.currency)}</p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className={cn('inline-flex rounded-full px-2.5 py-1 text-xs font-black', statusStyles[payment.status])}>
-              {payment.status === 'SUCCEEDED' ? 'Succeeded' : payment.status[0] + payment.status.slice(1).toLowerCase()}
+              {t(`payments.${payment.status.toLowerCase()}` as any)}
             </span>
             <span className="font-mono text-sm font-medium text-muted-foreground">{shortId(payment.stripePaymentIntentId ?? payment.id)}</span>
           </div>
@@ -72,29 +78,29 @@ export function PaymentDrawer({
         <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
           {loading && (
             <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs font-bold text-muted-foreground">
-              Loading full payment details...
+              {t('payments.loadingDetail')}
             </div>
           )}
 
           <section>
-            <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">Order</p>
+            <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">{t('payments.order')}</p>
             <p className="text-sm font-medium text-foreground">
               <span className="font-mono font-black text-primary">{shortId(payment.tableSessionId)}</span>
               <span className="mx-1">.</span>
-              {payment.tableNumber ?? 'No table'}
+              {payment.tableNumber ?? t('payments.noTable')}
               <span className="mx-1">.</span>
-              {payment.customerName ?? 'Walk-in'}
+              {payment.customerName ?? t('dashboard.walkIn')}
             </p>
           </section>
 
           {'orders' in payment && payment.orders && payment.orders.length > 0 && (
             <section>
-              <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">Items</p>
+              <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">{t('payments.items')}</p>
               <div className="space-y-2">
                 {payment.orders.map((order) => (
                   <div key={order.id} className="rounded-lg border border-border bg-muted/25 p-3">
                     <div className="mb-2 flex items-center justify-between gap-3">
-                      <p className="text-xs font-black text-foreground">{order.customerName || 'Walk-in'}</p>
+                      <p className="text-xs font-black text-foreground">{order.customerName || t('dashboard.walkIn')}</p>
                       <p className="text-xs font-black text-muted-foreground">{formatMoney(order.totalPrice, payment.currency)}</p>
                     </div>
                     {order.items.map((item, index) => (
@@ -120,31 +126,31 @@ export function PaymentDrawer({
           )}
 
           <section>
-            <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">Method</p>
+            <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">{t('payments.method')}</p>
             <div className="flex items-center gap-2">
               <span className={cn('flex h-8 w-8 items-center justify-center rounded-lg', method.tone)}>
                 <method.Icon className="h-4 w-4" />
               </span>
-              <span className="text-sm font-black text-foreground">{method.label}</span>
+              <span className="text-sm font-black text-foreground">{methodLabel}</span>
             </div>
           </section>
 
           <section>
-            <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">Breakdown</p>
+            <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">{t('payments.breakdown')}</p>
             <div className="rounded-lg border border-border bg-muted/30 p-4">
-              <BreakdownRow label="Subtotal" value={formatMoney(subtotal, payment.currency)} />
-              <BreakdownRow label="Tip" value={(payment.breakdown?.tip ?? payment.tipAmount) > 0 ? formatMoney(payment.breakdown?.tip ?? payment.tipAmount, payment.currency) : '-'} />
-              <BreakdownRow label="Total charged" value={formatMoney(payment.breakdown?.totalCharged ?? payment.amount, payment.currency)} />
-              <BreakdownRow label="Platform fee" value={`-${formatMoney(payment.breakdown?.platformFee ?? payment.platformFeeAmount, payment.currency)}`} />
+              <BreakdownRow label={t('payments.subtotal')} value={formatMoney(subtotal, payment.currency)} />
+              <BreakdownRow label={t('payments.tip')} value={(payment.breakdown?.tip ?? payment.tipAmount) > 0 ? formatMoney(payment.breakdown?.tip ?? payment.tipAmount, payment.currency) : '-'} />
+              <BreakdownRow label={t('payments.totalCharged')} value={formatMoney(payment.breakdown?.totalCharged ?? payment.amount, payment.currency)} />
+              <BreakdownRow label={t('payments.platformFee')} value={`-${formatMoney(payment.breakdown?.platformFee ?? payment.platformFeeAmount, payment.currency)}`} />
               <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
-                <span className="text-sm font-black text-primary">Net to you</span>
+                <span className="text-sm font-black text-primary">{t('payments.netToYou')}</span>
                 <span className="text-lg font-black text-primary">{formatMoney(net, payment.currency)}</span>
               </div>
             </div>
           </section>
 
           <section>
-            <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">Timeline</p>
+            <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">{t('payments.timeline')}</p>
             <div className="space-y-4">
               {timeline.map((item, index) => (
                 <TimelineItem
@@ -155,7 +161,7 @@ export function PaymentDrawer({
                   time={Number.isNaN(new Date(item.at).getTime()) ? item.at : formatDateTime(item.at)}
                 />
               ))}
-              {payment.status === 'REFUNDED' && <TimelineItem icon={<RefreshCcw className="h-3.5 w-3.5" />} title="Refund recorded" time={formatDateTime(payment.createdAt)} />}
+              {payment.status === 'REFUNDED' && <TimelineItem icon={<RefreshCcw className="h-3.5 w-3.5" />} title={t('payments.refundRecorded')} time={formatDateTime(payment.createdAt)} />}
             </div>
           </section>
         </div>
@@ -164,7 +170,7 @@ export function PaymentDrawer({
           {confirmingRefund ? (
             <>
               <span className="flex h-10 items-center text-sm font-medium text-foreground">
-                Refund {formatMoney(payment.amount, payment.currency)}?
+                {t('payments.refundConfirm', { amount: formatMoney(payment.amount, payment.currency) })}
               </span>
               <button
                 type="button"
@@ -172,7 +178,7 @@ export function PaymentDrawer({
                 disabled={refunding}
                 className="flex h-10 items-center rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground transition hover:bg-muted disabled:opacity-40"
               >
-                Cancel
+                {t('payments.cancel')}
               </button>
               <button
                 type="button"
@@ -181,7 +187,7 @@ export function PaymentDrawer({
                 className="flex h-10 items-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-black text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <RefreshCcw className="h-4 w-4" />
-                {refunding ? 'Refunding...' : 'Confirm refund'}
+                {refunding ? t('payments.refunding') : t('payments.confirmRefund')}
               </button>
             </>
           ) : (
@@ -193,11 +199,11 @@ export function PaymentDrawer({
                 className="flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <ExternalLink className="h-4 w-4" />
-                View on Stripe
+                {t('payments.viewOnStripe')}
               </button>
               <button type="button" onClick={() => exportPaymentsCsv([payment])} className="flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground transition hover:bg-muted">
                 <Download className="h-4 w-4" />
-                Receipt
+                {t('payments.receipt')}
               </button>
               {payment.status === 'SUCCEEDED' && (
                 <button
@@ -206,7 +212,7 @@ export function PaymentDrawer({
                   className="flex h-10 items-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-black text-white transition hover:bg-red-500"
                 >
                   <RefreshCcw className="h-4 w-4" />
-                  Refund
+                  {t('payments.refund')}
                 </button>
               )}
             </>

@@ -226,7 +226,7 @@ const AssistanceView = () => {
         <div className="grid grid-cols-2 gap-3 sm:flex sm:items-center">
           <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 dark:border-red-500/20 dark:bg-red-500/10">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-red-600 dark:text-red-300">
-              Waiting
+              {t('assistance.waiting')}
             </p>
             <p className="mt-0.5 text-xl font-black text-red-700 dark:text-red-200">
               {activeRequests.length}
@@ -234,7 +234,7 @@ const AssistanceView = () => {
           </div>
           <div className="rounded-lg border border-border bg-card px-3 py-2">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-              Cleared
+              {t('assistance.cleared')}
             </p>
             <p className="mt-0.5 text-xl font-black text-foreground">
               {resolvedRequests.length}
@@ -278,7 +278,7 @@ const AssistanceView = () => {
 
                   <div className="text-right">
                     <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                      {request.isResolved ? 'Cleared' : 'Waiting'}
+                      {request.isResolved ? t('assistance.cleared') : t('assistance.waiting')}
                     </p>
                     <p className="mt-1 flex items-center justify-end gap-1.5 text-sm font-black text-foreground">
                       <Timer className="h-3.5 w-3.5 text-primary" />
@@ -291,7 +291,7 @@ const AssistanceView = () => {
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <span className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
                       <Clock className="h-3.5 w-3.5" />
-                      {request.isResolved ? t('assistance.resolvedAt', { time: formatRequestTime(request.updatedAt) }) : `Requested ${formatRequestTime(request.createdAt)}`}
+                      {request.isResolved ? t('assistance.resolvedAt', { time: formatRequestTime(request.updatedAt) }) : t('assistance.requested', { time: formatRequestTime(request.createdAt) })}
                     </span>
                   </div>
 
@@ -301,7 +301,7 @@ const AssistanceView = () => {
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-black text-foreground">
-                        {request.isResolved ? 'Request completed' : 'Guest needs staff'}
+                        {request.isResolved ? t('assistance.requestCompleted') : t('assistance.guestNeedsStaff')}
                       </p>
                     </div>
                   </div>
@@ -342,11 +342,11 @@ const AssistanceView = () => {
               {filter === 'active'
                 ? t('assistance.noActive')
                 : searchTerm
-                ? 'No matching requests'
-                : 'No requests here'}
+                ? t('assistance.noMatchingRequests')
+                : t('assistance.noRequestsHere')}
             </p>
             <p className="mt-1 text-sm font-medium text-muted-foreground">
-              {filter === 'active' ? 'All guests are currently assisted.' : 'Try another filter or table number.'}
+              {filter === 'active' ? t('assistance.allGuestsAssisted') : t('assistance.tryAnotherFilter')}
             </p>
           </div>
         </div>
