@@ -22,6 +22,7 @@ import { NotificationProvider } from "./context/NotificationContext";
 import CookieConsentBanner from "./components/legal/CookieConsentBanner";
 
 // Lazy-loaded pages — not on the critical render path
+const OnboardingPage = lazy(() => import("./pages/onboarding/OnboardingPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const MenuEditorPage = lazy(() => import("./pages/MenuEditorPage"));
 const PricingPage = lazy(() => import("./pages/PricingPage"));
@@ -97,6 +98,7 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/auth/callback" element={<OAuthCallbackPage />} />
+              <Route path="/onboarding" element={<OnboardingPage />} />
               <Route
                 path="/profile"
                 element={

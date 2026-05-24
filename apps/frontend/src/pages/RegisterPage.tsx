@@ -9,7 +9,11 @@ const RegisterPage: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      if (user.onboardingComplete) {
+        navigate('/dashboard');
+      } else {
+        navigate('/onboarding');
+      }
     }
   }, [user, navigate]);
 

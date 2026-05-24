@@ -39,6 +39,7 @@ export class SubscriptionService {
     tier: string,
     billingPeriod: 'monthly' | 'yearly',
     ownerId: string,
+    onboarding = false,
   ) {
     const priceId = PRICE_MAP[tier]?.[billingPeriod];
     if (!priceId) {
@@ -76,8 +77,12 @@ export class SubscriptionService {
       customer: stripeCustomerId,
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/dashboard?subscribed=true`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/pricing`,
+      success_url: onboarding
+        ? `${process.env.FRONTEND_URL || 'http://localhost:3001'}/onboarding?stripe=success`
+        : `${process.env.FRONTEND_URL || 'http://localhost:3001'}/dashboard?subscribed=true`,
+      cancel_url: onboarding
+        ? `${process.env.FRONTEND_URL || 'http://localhost:3001'}/onboarding?stripe=cancel`
+        : `${process.env.FRONTEND_URL || 'http://localhost:3001'}/pricing`,
       metadata: { restaurantId, tier },
     });
 

@@ -58,7 +58,7 @@ export class SubscriptionController {
     const userId = req.user.id ?? req.user.sub;
     const restaurant = await this.resolveRestaurant(userId, { id: true });
     if (!restaurant) throw new NotFoundException('No restaurant found for user');
-    return this.subscriptionService.createCheckoutSession(restaurant.id, dto.tier, dto.billingPeriod ?? 'monthly', userId);
+    return this.subscriptionService.createCheckoutSession(restaurant.id, dto.tier, dto.billingPeriod ?? 'monthly', userId, dto.onboarding ?? false);
   }
 
   @Post('portal')

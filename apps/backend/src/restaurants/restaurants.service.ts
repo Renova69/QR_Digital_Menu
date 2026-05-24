@@ -24,6 +24,7 @@ export class RestaurantsService {
     const restaurant = await this.prisma.restaurant.create({
       data: {
         ...createRestaurantDto,
+        country: 'Bulgaria',
         ownerId: userId,
       },
     });

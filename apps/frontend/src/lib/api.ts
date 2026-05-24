@@ -475,14 +475,24 @@ export const getSubscriptionStatus = async () => {
   };
 };
 
-export const createCheckoutSession = async (tier: string, billingPeriod: 'monthly' | 'yearly' = 'monthly') => {
-  const response = await api.post('/subscription/checkout', { tier, billingPeriod });
+export const createCheckoutSession = async (tier: string, billingPeriod: 'monthly' | 'yearly' = 'monthly', onboarding = false) => {
+  const response = await api.post('/subscription/checkout', { tier, billingPeriod, onboarding });
   return response.data as { url: string };
 };
 
 export const createPortalSession = async () => {
   const response = await api.post('/subscription/portal');
   return response.data as { url: string };
+};
+
+export const updateOnboardingStep = async (step: string) => {
+  const response = await api.patch('/auth/onboarding-step', { step });
+  return response.data as { success: boolean };
+};
+
+export const bulkCreateTables = async (restaurantId: string, count: number) => {
+  const response = await api.post(`/restaurants/${restaurantId}/tables/bulk`, { count });
+  return response.data as Array<{ id: string; name: string }>;
 };
 
 // Super Admin

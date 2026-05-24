@@ -6,8 +6,8 @@ export class CreateRestaurantDto {
   name: string;
 
   @IsString()
-  @IsNotEmpty()
-  country: string;
+  @IsOptional()
+  city?: string;
 
   @IsString()
   @IsOptional()

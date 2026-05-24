@@ -12,9 +12,12 @@ const OAuthCallbackPage: React.FC = () => {
     // Token is set via httpOnly cookie by the server — no localStorage needed.
     // Verify the cookie took effect, then redirect.
     api.get('/auth/me')
-      .then(() => {
+      .then((res) => {
+        const user = res.data;
         if (returnTo) {
           navigate(decodeURIComponent(returnTo), { replace: true });
+        } else if (user?.role === 'OWNER' && !user?.onboardingComplete) {
+          navigate("/onboarding", { replace: true });
         } else {
           navigate("/dashboard", { replace: true });
         }

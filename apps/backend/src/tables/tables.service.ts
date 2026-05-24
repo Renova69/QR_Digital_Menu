@@ -55,6 +55,23 @@ export class TablesService {
     return table;
   }
 
+  async bulkCreate(restaurantId: string, count: number, userId: string) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+    });
+    if (!restaurant) throw new NotFoundException('Restaurant not found');
+    if (restaurant.ownerId !== userId) throw new ForbiddenException('You do not own this restaurant');
+
+    const tables = await this.prisma.$transaction(
+      Array.from({ length: count }, (_, i) =>
+        this.prisma.restaurantTable.create({
+          data: { name: `Table ${i + 1}`, restaurantId },
+        }),
+      ),
+    );
+    return tables;
+  }
+
   async findAll(restaurantId: string) {
     return this.prisma.restaurantTable.findMany({
       where: { restaurantId },

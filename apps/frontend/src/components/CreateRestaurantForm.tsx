@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 const CreateRestaurantForm: React.FC = () => {
   const [name, setName] = useState<string>('');
-  const [country, setCountry] = useState<string>('');
+  const [city, setCity] = useState<string>('');
   const [dashboardLanguage, setDashboardLanguage] = useState<string>('en');
   const [error, setError] = useState<string>('');
   const { createRestaurant }: any = useContext(RestaurantContext);
@@ -14,10 +14,9 @@ const CreateRestaurantForm: React.FC = () => {
     e.preventDefault();
     setError('');
     try {
-      await createRestaurant({ name, country, dashboardLanguage });
-      // Clear form on success
+      await createRestaurant({ name, city, dashboardLanguage });
       setName('');
-      setCountry('');
+      setCity('');
       i18n.changeLanguage(dashboardLanguage);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create restaurant.');
@@ -44,14 +43,13 @@ const CreateRestaurantForm: React.FC = () => {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-foreground">Country / Region</label>
+            <label className="text-sm font-semibold text-foreground">City</label>
             <input
               type="text"
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
               className="w-full rounded-xl border border-input bg-background/50 backdrop-blur-sm px-4 py-3 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all shadow-inner"
-              placeholder="e.g. United States"
-              required
+              placeholder="e.g. Sofia"
             />
           </div>
 

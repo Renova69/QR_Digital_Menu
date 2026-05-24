@@ -51,6 +51,7 @@ export class AuthService {
         name: user.name,
         role: user.role,
         restaurantId: user.restaurantId,
+        onboardingComplete: user.onboardingComplete ?? false,
       },
     };
   }
@@ -106,6 +107,7 @@ export class AuthService {
         name: result.name,
         role: result.role,
         restaurantId: result.restaurantId,
+        onboardingComplete: (result as any).onboardingComplete ?? false,
       },
     };
   }
@@ -358,6 +360,18 @@ export class AuthService {
       `Too many attempts. Try again in ${LOCKOUT_MINUTES} minutes.`,
       HttpStatus.TOO_MANY_REQUESTS,
     );
+  }
+
+  async updateOnboardingStep(userId: string, step: string) {
+    const isDone = step === 'done';
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        onboardingStep: isDone ? null : step,
+        ...(isDone ? { onboardingComplete: true } : {}),
+      },
+    });
+    return { success: true };
   }
 
   async updateProfile(userId: string, name: string) {

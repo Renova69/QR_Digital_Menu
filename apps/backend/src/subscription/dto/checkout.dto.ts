@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional } from 'class-validator';
 
 export enum CheckoutTier {
   STARTER = 'STARTER',
@@ -18,4 +18,8 @@ export class CreateCheckoutDto {
   @IsOptional()
   @IsEnum(BillingPeriod)
   billingPeriod: BillingPeriod = BillingPeriod.MONTHLY;
+
+  @IsOptional()
+  @IsBoolean()
+  onboarding?: boolean;
 }

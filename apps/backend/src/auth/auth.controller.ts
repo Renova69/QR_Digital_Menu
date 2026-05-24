@@ -84,6 +84,12 @@ export class AuthController {
     return this.authService.updateProfile(req.user.id, name);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Patch('onboarding-step')
+  updateOnboardingStep(@Request() req: any, @Body('step') step: string) {
+    return this.authService.updateOnboardingStep(req.user.id, step);
+  }
+
   @Get('google')
   @UseGuards(GoogleAuthGuard)
   googleAuth() {
