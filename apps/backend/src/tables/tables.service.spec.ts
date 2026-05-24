@@ -27,11 +27,13 @@ describe('TablesService', () => {
         findFirst: jest.fn().mockResolvedValue(null),
       },
       order: { findMany: jest.fn().mockResolvedValue([]) },
+      tableZone: { findFirst: jest.fn().mockResolvedValue({ id: 'zone-1' }) },
     };
 
     events = {
       emitToRestaurant: jest.fn(),
       emitTableStatusChanged: jest.fn(),
+      emitZoneChanged: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -129,7 +131,7 @@ describe('TablesService', () => {
       prisma.tableSession.findMany.mockResolvedValue([session]);
 
       const result = await service.getTablesWithStatus('rest-1');
-      expect(result[0].status).toBe('waiting');
+      expect(result[0].status).toBe('occupied');
     });
 
     it('returns paid status for PAID session', async () => {
