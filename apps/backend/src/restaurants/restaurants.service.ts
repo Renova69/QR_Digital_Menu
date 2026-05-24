@@ -306,7 +306,7 @@ export class RestaurantsService {
     };
   }
 
-  async generateConnectLink(restaurantId: string, userId: string) {
+  async generateConnectLink(restaurantId: string, userId: string, returnUrl?: string, refreshUrl?: string) {
     const restaurant = await this.findOne(restaurantId, userId);
 
     let accountId = restaurant.stripeAccountId;
@@ -321,8 +321,8 @@ export class RestaurantsService {
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
     const url = await this.stripeProvider.createAccountLink(
       accountId,
-      `${baseUrl}/dashboard?stripe=refresh&tab=settings`,
-      `${baseUrl}/dashboard?stripe=success&tab=settings`,
+      refreshUrl || `${baseUrl}/dashboard?stripe=refresh&tab=settings`,
+      returnUrl || `${baseUrl}/dashboard?stripe=success&tab=settings`,
     );
 
     return { url };

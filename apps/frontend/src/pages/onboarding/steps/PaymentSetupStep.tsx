@@ -4,11 +4,13 @@ import { generateStripeConnectLink } from '../../../lib/api';
 
 interface Props {
   restaurantId: string;
+  returnUrl: string;
+  refreshUrl: string;
   onNext: () => void;
   onSkip: () => void;
 }
 
-export default function PaymentSetupStep({ restaurantId, onNext, onSkip }: Props) {
+export default function PaymentSetupStep({ restaurantId, returnUrl, refreshUrl, onNext, onSkip }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -16,7 +18,7 @@ export default function PaymentSetupStep({ restaurantId, onNext, onSkip }: Props
     setLoading(true);
     setError('');
     try {
-      const data = await generateStripeConnectLink(restaurantId);
+      const data = await generateStripeConnectLink(restaurantId, returnUrl, refreshUrl);
       window.location.href = data.url;
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to connect Stripe. You can set it up later in Payments settings.');
