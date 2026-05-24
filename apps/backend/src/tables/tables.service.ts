@@ -5,9 +5,12 @@ import {
   Logger,
   ConflictException,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
 import { CreateTableDto } from './dto/create-table.dto';
+
+const PAID_SESSION_AUTO_CLOSE_MS = 5 * 60 * 1000; // 5 minutes
 
 @Injectable()
 export class TablesService {
@@ -17,6 +20,33 @@ export class TablesService {
     private readonly prisma: PrismaService,
     private readonly events: EventsGateway,
   ) {}
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async autoClosePaidSessions() {
+    const cutoff = new Date(Date.now() - PAID_SESSION_AUTO_CLOSE_MS);
+
+    const expired = await this.prisma.tableSession.findMany({
+      where: { status: 'PAID', paidAt: { lt: cutoff } },
+      select: { id: true, restaurantId: true, tableId: true },
+    });
+
+    if (expired.length === 0) return;
+
+    await this.prisma.tableSession.updateMany({
+      where: { id: { in: expired.map((s) => s.id) } },
+      data: { status: 'CLOSED_NO_PAYMENT' },
+    });
+
+    // Emit per restaurant so dashboard refreshes
+    const restaurantIds = [...new Set(expired.map((s) => s.restaurantId))];
+    for (const rid of restaurantIds) {
+      this.events.emitToRestaurant(rid, 'table:status-changed', {});
+    }
+
+    this.logger.log(
+      `Auto-closed ${expired.length} paid session(s) across ${restaurantIds.length} restaurant(s)`,
+    );
+  }
 
   async create(
     restaurantId: string,
@@ -98,8 +128,11 @@ export class TablesService {
       }),
     ]);
 
+    // OPEN wins over PAID when both exist (new customer sat at paid table)
     const sessionByTableId = new Map(
-      sessions.map((s) => [s.tableId, s]),
+      sessions
+        .sort((a, b) => (a.status === 'OPEN' ? 1 : -1))
+        .map((s) => [s.tableId, s]),
     );
 
     return tables.map((table) => {
@@ -118,10 +151,7 @@ export class TablesService {
         };
       }
 
-      const status =
-        session.status === 'PAID' ? 'paid' :
-        session.orders.length === 0 ? 'waiting' :
-        'occupied';
+      const status = session.status === 'PAID' ? 'paid' : 'occupied';
 
       return {
         id: table.id,

@@ -5,7 +5,7 @@ import { cn } from '../../lib/utils';
 
 interface TableCardProps {
   name: string;
-  status: 'empty' | 'occupied' | 'paid' | 'waiting';
+  status: 'empty' | 'occupied' | 'paid';
   orderCount: number;
   customerCount: number;
   customerNames: string[];
@@ -16,27 +16,25 @@ interface TableCardProps {
 
 const statusConfig: Record<
   string,
-  { dot: string; labelKey: string; fallback: string }
+  { dot: string; labelKey: string; fallback: string; bg: string }
 > = {
   occupied: {
     dot: 'bg-red-500',
     labelKey: 'tables.occupied',
     fallback: 'Occupied',
-  },
-  waiting: {
-    dot: 'bg-amber-500',
-    labelKey: 'tables.waiting',
-    fallback: 'Waiting',
+    bg: 'bg-[rgba(239,68,68,0.11)] border-red-300/40 dark:border-red-500/30',
   },
   paid: {
-    dot: 'bg-emerald-500',
+    dot: 'bg-blue-500',
     labelKey: 'tables.paid',
     fallback: 'Paid',
+    bg: 'bg-[rgba(167,139,250,0.1)] border-violet-300/40 dark:border-violet-500/30',
   },
   empty: {
     dot: 'bg-emerald-500',
     labelKey: 'tables.available',
     fallback: 'Available',
+    bg: 'bg-[rgba(52,211,153,0.08)] border-emerald-300/40 dark:border-emerald-500/30',
   },
 };
 
@@ -91,7 +89,10 @@ const TableCard: React.FC<TableCardProps> = ({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full cursor-pointer flex-col gap-2.5 rounded-2xl border border-border bg-card p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40 active:scale-[0.99]"
+      className={cn(
+        'flex w-full cursor-pointer flex-col gap-2.5 rounded-2xl border p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40 active:scale-[0.99]',
+        hasSession ? cfg.bg : 'bg-[rgba(52,211,153,0.08)] border-emerald-300/40 dark:border-emerald-500/30',
+      )}
     >
       {/* Row 1: Table name + person count */}
       <div className="flex items-center justify-between gap-2">

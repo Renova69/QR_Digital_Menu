@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import PosItemCard from "./PosItemCard";
 
 interface MenuItem {
@@ -22,6 +23,7 @@ interface PosItemGridProps {
 }
 
 export default function PosItemGrid({ items, loading, error }: PosItemGridProps) {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
@@ -74,7 +76,7 @@ export default function PosItemGrid({ items, loading, error }: PosItemGridProps)
   if (filtered.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-muted-foreground">
-        <p className="text-sm">No items found</p>
+        <p className="text-sm">{t("pos.noItems", "No items found")}</p>
       </div>
     );
   }

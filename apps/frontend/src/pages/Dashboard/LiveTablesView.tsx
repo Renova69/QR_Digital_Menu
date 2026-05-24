@@ -9,7 +9,7 @@ import TableDetailModal from '../../components/tables/TableDetailModal';
 import { cn } from '../../lib/utils';
 import { CheckCircle2, CircleDollarSign, Grid3X3, Search, Timer, Users } from 'lucide-react';
 
-type FilterMode = 'active' | 'occupied' | 'waiting' | 'paid' | 'all';
+type FilterMode = 'active' | 'occupied' | 'paid' | 'all';
 
 const filterConfig: Array<{
   id: FilterMode;
@@ -19,7 +19,6 @@ const filterConfig: Array<{
 }> = [
   { id: 'active', labelKey: 'tables.active', fallback: 'Active', Icon: Timer },
   { id: 'occupied', labelKey: 'tables.occupied', fallback: 'Occupied', Icon: Users },
-  { id: 'waiting', labelKey: 'tables.waiting', fallback: 'Waiting', Icon: Grid3X3 },
   { id: 'paid', labelKey: 'tables.paid', fallback: 'Paid', Icon: CircleDollarSign },
   { id: 'all', labelKey: 'tables.allTables', fallback: 'All', Icon: Grid3X3 },
 ];
@@ -62,7 +61,6 @@ const LiveTablesView: React.FC = () => {
       total: source.length,
       active: source.filter((table: any) => table.status !== 'empty').length,
       occupied: source.filter((table: any) => table.status === 'occupied').length,
-      waiting: source.filter((table: any) => table.status === 'waiting').length,
       paid: source.filter((table: any) => table.status === 'paid').length,
       revenue: source.reduce((sum: number, table: any) => sum + Number(table.totalAmount ?? 0), 0),
     };
@@ -79,8 +77,6 @@ const LiveTablesView: React.FC = () => {
             return table.status !== 'empty';
           case 'occupied':
             return table.status === 'occupied';
-          case 'waiting':
-            return table.status === 'waiting';
           case 'paid':
             return table.status === 'paid';
           case 'all':
@@ -96,7 +92,6 @@ const LiveTablesView: React.FC = () => {
   const counts: Record<FilterMode, number> = {
     active: stats.active,
     occupied: stats.occupied,
-    waiting: stats.waiting,
     paid: stats.paid,
     all: stats.total,
   };
@@ -156,7 +151,7 @@ const LiveTablesView: React.FC = () => {
 
   return (
     <section>
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{t('tables.totalTables')}</p>
           <p className="mt-1 text-2xl font-black text-foreground">{stats.total}</p>
@@ -165,13 +160,9 @@ const LiveTablesView: React.FC = () => {
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary">{t('tables.active')}</p>
           <p className="mt-1 text-2xl font-black text-primary">{stats.active}</p>
         </div>
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm dark:border-amber-400/20 dark:bg-amber-400/10">
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-700 dark:text-amber-200">{t('tables.waiting')}</p>
-          <p className="mt-1 text-2xl font-black text-amber-700 dark:text-amber-200">{stats.waiting}</p>
-        </div>
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm dark:border-emerald-400/20 dark:bg-emerald-400/10">
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-200">{t('tables.openValue')}</p>
-          <p className="mt-1 text-2xl font-black text-emerald-700 dark:text-emerald-200">&euro;{stats.revenue.toFixed(2)}</p>
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 shadow-sm dark:border-blue-400/20 dark:bg-blue-400/10">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700 dark:text-blue-200">{t('tables.openValue')}</p>
+          <p className="mt-1 text-2xl font-black text-blue-700 dark:text-blue-200">&euro;{stats.revenue.toFixed(2)}</p>
         </div>
       </div>
 

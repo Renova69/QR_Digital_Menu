@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 interface Category {
   id: string;
@@ -11,6 +12,7 @@ interface PosCategoryFilterProps {
 }
 
 export default function PosCategoryFilter({ categories, menuError }: PosCategoryFilterProps) {
+  const { t } = useTranslation();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   // Clear active category when categories change (restaurant switched)
@@ -37,7 +39,7 @@ export default function PosCategoryFilter({ categories, menuError }: PosCategory
               : "bg-card border border-border text-foreground"
           }`}
         >
-          All
+          {t("pos.allCategories", "All")}
         </button>
         {categories.map((cat) => (
           <button
@@ -55,7 +57,7 @@ export default function PosCategoryFilter({ categories, menuError }: PosCategory
         ))}
       </div>
       {menuError && (
-        <p className="text-xs text-red-500 px-4 pb-1">Failed to load categories</p>
+        <p className="text-xs text-red-500 px-4 pb-1">{t("pos.failedCategories", "Failed to load categories")}</p>
       )}
     </>
   );
