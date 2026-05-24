@@ -66,7 +66,7 @@ export default function PosItemGrid({ items, loading, error }: PosItemGridProps)
   if (loading) {
     return (
       <div className="flex justify-center py-12">
-        <div className="animate-spin h-6 w-6 border-2 border-accent border-t-transparent rounded-full" />
+        <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
       </div>
     );
   }

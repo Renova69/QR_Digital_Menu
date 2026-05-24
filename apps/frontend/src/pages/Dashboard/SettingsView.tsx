@@ -48,7 +48,7 @@ const TIMEZONES = [
 ];
 
 const inputCls =
-  "w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/50 transition-all";
+  "w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all";
 
 const SettingsView = () => {
   const { activeRestaurant, fetchRestaurants } = useContext(
@@ -424,7 +424,7 @@ const SettingsView = () => {
               onClick={() => setActiveSettingsTab(tab)}
               className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
                 activeSettingsTab === tab
-                  ? 'border-accent text-accent'
+                  ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -573,7 +573,7 @@ const SettingsView = () => {
                       onClick={() => handleLanguageToggle(lang.code)}
                       className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
                         targetLanguages.includes(lang.code)
-                          ? "bg-accent/15 text-accent border-accent/30"
+                          ? "bg-primary/15 text-primary border-primary/30"
                           : "bg-secondary text-foreground border-border hover:bg-secondary/80"
                       }`}
                     >
@@ -614,9 +614,9 @@ const SettingsView = () => {
               {t('loyaltySettings.sectionTitle')}
             </h3>
 
-            <div className="mb-6 p-4 bg-accent/5 border border-accent/20 rounded-xl flex items-center justify-between">
+            <div className="mb-6 p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between">
               <div>
-                <p className="font-bold text-accent">{t('loyaltySettings.enableLoyalty')}</p>
+                <p className="font-bold text-primary">{t('loyaltySettings.enableLoyalty')}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {t('loyaltySettings.enableLoyaltyDesc')}
                 </p>
@@ -628,7 +628,7 @@ const SettingsView = () => {
                   checked={isLoyaltyEnabled}
                   onChange={(e) => setIsLoyaltyEnabled(e.target.checked)}
                 />
-                <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
               </label>
             </div>
 
@@ -685,8 +685,8 @@ const SettingsView = () => {
                 </div>
 
                 {/* Live cashback preview */}
-                <div className="text-xs text-muted-foreground bg-accent/5 border border-accent/10 rounded-lg px-3 py-2">
-                  <span className={`font-semibold ${(loyaltyExchangeRate / loyaltyRedeemRate) > 0.15 ? "text-yellow-500" : "text-accent"}`}>
+                <div className="text-xs text-muted-foreground bg-primary/5 border border-primary/10 rounded-lg px-3 py-2">
+                  <span className={`font-semibold ${(loyaltyExchangeRate / loyaltyRedeemRate) > 0.15 ? "text-yellow-500" : "text-primary"}`}>
                     {t('loyaltySettings.cashbackInfo', { pct: ((loyaltyExchangeRate / loyaltyRedeemRate) * 100).toFixed(1) })}
                   </span>
                   {(loyaltyExchangeRate / loyaltyRedeemRate) > 0.15 && (
@@ -811,7 +811,7 @@ const SettingsView = () => {
                         checked={happyHourEnable}
                         onChange={(e) => setHappyHourEnable(e.target.checked)}
                       />
-                      <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                      <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                     </label>
                   </div>
 
@@ -880,7 +880,7 @@ const SettingsView = () => {
                       checked={notifyAllStaffOnPayment}
                       onChange={(e) => setNotifyAllStaffOnPayment(e.target.checked)}
                     />
-                    <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                    <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                   </label>
                 </div>
               </div>
@@ -1062,7 +1062,7 @@ const SettingsView = () => {
                                 <button
                                   type="button"
                                   onClick={() => handleRebondStaff(s.name || "Staff")}
-                                  className="text-muted-foreground hover:text-accent transition-colors"
+                                  className="text-muted-foreground hover:text-primary transition-colors"
                                   title={t("staff.rebondTitle")}
                                 >
                                   <FontAwesomeIcon icon={faQrcode} />
@@ -1100,7 +1100,7 @@ const SettingsView = () => {
                   <button
                     type="button"
                     onClick={() => setPaymentsEnabled(!paymentsEnabled)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${paymentsEnabled ? 'bg-accent' : 'bg-muted'}`}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${paymentsEnabled ? 'bg-primary' : 'bg-muted'}`}
                     role="switch"
                     aria-checked={paymentsEnabled}
                   >
@@ -1162,7 +1162,7 @@ const SettingsView = () => {
                     <button
                       type="button"
                       onClick={() => setTipsEnabled(!tipsEnabled)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${tipsEnabled ? 'bg-accent' : 'bg-muted'}`}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${tipsEnabled ? 'bg-primary' : 'bg-muted'}`}
                       role="switch"
                       aria-checked={tipsEnabled}
                     >
@@ -1232,7 +1232,7 @@ const SettingsView = () => {
               <button
                 type="submit"
                 disabled={status.loading}
-                className="bg-accent text-accent-foreground px-6 py-2 rounded-lg font-medium hover:bg-accent/90 transition-colors disabled:opacity-50"
+                className="brand-cta text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
               >
                 {status.loading ? t("settings.saving") : t("settings.saveSettings")}
               </button>

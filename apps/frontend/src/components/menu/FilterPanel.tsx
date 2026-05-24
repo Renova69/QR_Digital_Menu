@@ -88,7 +88,7 @@ export function FilterPanel({
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder={t('publicMenu.search', 'Search')}
               aria-label={t('publicMenu.search', 'Search')}
-              className="w-full pl-9 pr-3 py-2.5 bg-secondary rounded-xl text-sm font-medium placeholder:text-muted-foreground/50 border border-transparent focus:border-accent/30 focus:outline-none"
+              className="w-full pl-9 pr-3 py-2.5 bg-secondary rounded-xl text-sm font-medium placeholder:text-muted-foreground/50 border border-transparent focus:border-primary/30 focus:outline-none"
             />
           </div>
         </div>
@@ -109,7 +109,7 @@ export function FilterPanel({
                       type="checkbox"
                       checked={activeDietTags.includes(tag)}
                       onChange={() => onDietTagToggle(tag)}
-                      className="w-4 h-4 rounded accent-accent"
+                      className="w-4 h-4 rounded accent-primary"
                     />
                     <span className="text-sm font-medium">{tag}</span>
                   </div>

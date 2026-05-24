@@ -129,7 +129,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
     return (
         <Modal open={open} onOpenChange={onOpenChange} title={`Options: ${item.name}`}>
             <div className="max-w-2xl w-full">
-                <h2 className="text-2xl font-serif font-bold mb-6">Options: <span className="text-accent">{item.name}</span></h2>
+                <h2 className="text-2xl font-display font-bold mb-6">Options: <span className="text-primary">{item.name}</span></h2>
                 
                 {/* Existing Options */}
                 <div className="space-y-4 mb-8">
@@ -140,14 +140,14 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
                                 <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Quick Templates</h3>
                             </div>
                             <div className="flex flex-wrap justify-center gap-3 mb-5">
-                                <Button variant="outline" size="sm" onClick={() => handleApplyPreset('SIZE')} className="gap-2 border-accent/30 hover:border-accent">
-                                    <Wand2 className="w-3 h-3 text-accent" /> Size
+                                <Button variant="outline" size="sm" onClick={() => handleApplyPreset('SIZE')} className="gap-2 border-primary/30 hover:border-primary">
+                                    <Wand2 className="w-3 h-3 text-primary" /> Size
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={() => handleApplyPreset('DONENESS')} className="gap-2 border-accent/30 hover:border-accent">
-                                    <Wand2 className="w-3 h-3 text-accent" /> Doneness
+                                <Button variant="outline" size="sm" onClick={() => handleApplyPreset('DONENESS')} className="gap-2 border-primary/30 hover:border-primary">
+                                    <Wand2 className="w-3 h-3 text-primary" /> Doneness
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={() => handleApplyPreset('QUANTITY')} className="gap-2 border-accent/30 hover:border-accent">
-                                    <Wand2 className="w-3 h-3 text-accent" /> Quantity
+                                <Button variant="outline" size="sm" onClick={() => handleApplyPreset('QUANTITY')} className="gap-2 border-primary/30 hover:border-primary">
+                                    <Wand2 className="w-3 h-3 text-primary" /> Quantity
                                 </Button>
                             </div>
                             <Button onClick={() => setIsAdding(true)} variant="outline" className="gap-2">
@@ -159,7 +159,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
                     {options.map(option => {
                         const parsedChoices = Array.isArray(option.choices) ? option.choices : [];
                         return (
-                            <div key={option.id} className="p-5 bg-card border border-border rounded-xl shadow-sm hover:border-accent/30 transition-colors">
+                            <div key={option.id} className="p-5 bg-card border border-border rounded-xl shadow-sm hover:border-primary/30 transition-colors">
                                 <div className="flex justify-between items-start mb-3">
                                     <div>
                                         <div className="flex items-center gap-3">
@@ -178,7 +178,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
                                         <div key={idx} className="flex items-center gap-2 px-3 py-1.5 bg-background border border-border rounded-lg text-sm">
                                             <span className="font-medium">{choice.name}</span>
                                             {choice.priceModifier !== 0 && (
-                                                <span className="text-accent font-bold">
+                                                <span className="text-primary font-bold">
                                                     {choice.priceModifier > 0 ? '+' : ''}€{choice.priceModifier.toFixed(2)}
                                                 </span>
                                             )}
@@ -208,7 +208,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
                                 <select 
                                     value={newOptionType} 
                                     onChange={e => setNewOptionType(e.target.value as OptionType)} 
-                                    className="w-full h-10 px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-accent/50"
+                                    className="w-full h-10 px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
                                 >
                                     <option value="VARIATION">Variation (Customer chooses one)</option>
                                     <option value="ADDON">Add-on (Customer can choose multiple)</option>
@@ -277,14 +277,14 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
                             <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Quick Templates</h3>
                         </div>
                         <div className="flex flex-wrap gap-3 mb-6">
-                            <Button variant="outline" size="sm" onClick={() => handleApplyPreset('SIZE')} className="gap-2 border-accent/30 hover:border-accent">
-                                <Wand2 className="w-3 h-3 text-accent" /> Size Template
+                            <Button variant="outline" size="sm" onClick={() => handleApplyPreset('SIZE')} className="gap-2 border-primary/30 hover:border-primary">
+                                <Wand2 className="w-3 h-3 text-primary" /> Size Template
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleApplyPreset('DONENESS')} className="gap-2 border-accent/30 hover:border-accent">
-                                <Wand2 className="w-3 h-3 text-accent" /> Doneness Template
+                            <Button variant="outline" size="sm" onClick={() => handleApplyPreset('DONENESS')} className="gap-2 border-primary/30 hover:border-primary">
+                                <Wand2 className="w-3 h-3 text-primary" /> Doneness Template
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleApplyPreset('QUANTITY')} className="gap-2 border-accent/30 hover:border-accent">
-                                <Wand2 className="w-3 h-3 text-accent" /> Quantity Template
+                            <Button variant="outline" size="sm" onClick={() => handleApplyPreset('QUANTITY')} className="gap-2 border-primary/30 hover:border-primary">
+                                <Wand2 className="w-3 h-3 text-primary" /> Quantity Template
                             </Button>
                         </div>
                         <Button onClick={() => setIsAdding(true)} className="w-full gap-2">

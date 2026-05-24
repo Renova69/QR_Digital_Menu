@@ -161,7 +161,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between py-3 px-4 rounded-lg bg-accent text-accent-foreground font-semibold min-h-[44px]"
+        className="w-full flex items-center justify-between py-3 px-4 rounded-lg brand-cta text-white font-semibold min-h-[44px]"
       >
         <span>
           {itemCount} {itemCount === 1 ? "item" : "items"} · €{total.toFixed(2)}
@@ -203,7 +203,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                         </div>
                       )}
                       {item.itemNote && editingNoteId !== item.cartId && (
-                        <div className="text-xs text-accent italic mt-0.5">
+                        <div className="text-xs text-primary italic mt-0.5">
                           Note: {item.itemNote}
                         </div>
                       )}
@@ -218,13 +218,13 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                               if (e.key === "Escape") cancelEditingNote();
                             }}
                             placeholder="e.g. no salt, extra sauce..."
-                            className="flex-1 px-2 py-1 rounded bg-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                            className="flex-1 px-2 py-1 rounded bg-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                             autoFocus
                           />
                           <button
                             type="button"
                             onClick={() => saveNote(item.cartId)}
-                            className="text-xs text-accent font-medium px-2 py-1 min-h-[32px]"
+                            className="text-xs text-primary font-medium px-2 py-1 min-h-[32px]"
                           >
                             Save
                           </button>
@@ -303,7 +303,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
               type="button"
               onClick={() => setConfirmAction({ type: "submit", total: pendingTotal })}
               disabled={submitting || pendingItems.length === 0}
-              className="w-full py-3 rounded-lg bg-green-600 text-white font-semibold disabled:opacity-50 min-h-[44px]"
+              className="w-full py-3 rounded-lg brand-cta text-white font-semibold disabled:opacity-50 min-h-[44px]"
             >
               {submitting
                 ? "Submitting..."
@@ -417,7 +417,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                       ? "bg-amber-500"
                       : confirmAction?.type === "cash"
                         ? "bg-emerald-600"
-                        : "bg-green-600"
+                        : "brand-cta"
                 }`}
               >
                 {confirmAction?.type === "submit" && "Submit"}

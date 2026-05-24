@@ -153,8 +153,8 @@ function ApiKeyPanel({ restaurantId }: { restaurantId: string }) {
   return (
     <div className="glass-panel rounded-2xl p-6 border border-white/10 space-y-5">
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-xl bg-accent/10 flex items-center justify-center">
-          <Key className="w-4 h-4 text-accent" />
+        <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+          <Key className="w-4 h-4 text-primary" />
         </div>
         <div>
           <h3 className="font-black text-sm uppercase tracking-widest text-foreground">OCR API Key</h3>
@@ -275,12 +275,12 @@ function FileImporter({ onParsed }: { onParsed: (m: ParsedMenu | null) => void }
       onDrop={onDrop}
       onClick={() => inputRef.current?.click()}
       className={`relative rounded-2xl border-2 border-dashed transition-all cursor-pointer p-10 text-center ${
-        dragging ? 'border-accent bg-accent/5' : 'border-border/40 hover:border-accent/50 hover:bg-secondary/30'
+        dragging ? 'border-primary bg-primary/5' : 'border-border/40 hover:border-primary/50 hover:bg-secondary/30'
       }`}
     >
       <input ref={inputRef} type="file" accept=".json,.csv" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) processFile(f); }} />
       <div className="flex flex-col items-center gap-3">
-        <Upload className={`w-8 h-8 transition-colors ${dragging ? 'text-accent' : 'text-muted-foreground'}`} />
+        <Upload className={`w-8 h-8 transition-colors ${dragging ? 'text-primary' : 'text-muted-foreground'}`} />
         <div>
           <p className="font-bold text-sm text-foreground">Drop file here or click to browse</p>
           <p className="text-xs text-muted-foreground mt-1">Accepts <code className="bg-secondary px-1 rounded">.json</code> and <code className="bg-secondary px-1 rounded">.csv</code> exports from the OCR tool</p>
@@ -392,7 +392,7 @@ export default function MenuImportView() {
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
       <div>
-        <h2 className="text-2xl font-serif font-black text-foreground">Menu Import</h2>
+        <h2 className="text-2xl font-display font-black text-foreground">Menu Import</h2>
         <p className="text-sm text-muted-foreground mt-1">
           Import menus digitized by the offline OCR tool via API push or file upload.
         </p>
@@ -416,8 +416,8 @@ export default function MenuImportView() {
 
       <div className="glass-panel rounded-2xl p-6 border border-white/10 space-y-6">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-accent/10 flex items-center justify-center">
-            <Upload className="w-4 h-4 text-accent" />
+          <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Upload className="w-4 h-4 text-primary" />
           </div>
           <div>
             <h3 className="font-black text-sm uppercase tracking-widest text-foreground">File Import</h3>
@@ -441,7 +441,7 @@ export default function MenuImportView() {
               <button
                 onClick={handleConfirm}
                 disabled={importMutation.isPending}
-                className="px-6 py-2.5 rounded-xl bg-accent text-white text-sm font-black uppercase tracking-widest transition-all hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2.5 rounded-xl brand-cta text-white text-sm font-black uppercase tracking-widest transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {importMutation.isPending ? 'Importing…' : `Confirm Import (${parsed.totalItems} items)`}
               </button>

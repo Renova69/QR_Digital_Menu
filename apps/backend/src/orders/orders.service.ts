@@ -413,9 +413,19 @@ export class OrdersService {
       ? { restaurantId: user.restaurantId }
       : { restaurant: { ownerId: userId } };
 
-    const where = query.statuses?.length
-      ? { ...baseWhere, status: { in: query.statuses } }
-      : baseWhere;
+    const createdAt: { gte?: Date; lte?: Date } = {};
+    if (query.startDate) createdAt.gte = new Date(query.startDate);
+    if (query.endDate) {
+      const end = new Date(query.endDate);
+      end.setHours(23, 59, 59, 999);
+      createdAt.lte = end;
+    }
+
+    const where = {
+      ...baseWhere,
+      ...(query.statuses?.length ? { status: { in: query.statuses } } : {}),
+      ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
+    };
 
     const [data, total] = await Promise.all([
       this.prisma.order.findMany({

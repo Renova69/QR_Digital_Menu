@@ -32,7 +32,7 @@ const FEATURE_LABELS: Record<string, string> = {
 const TIER_COLORS: Record<string, string> = {
   FREE: 'bg-secondary text-secondary-foreground',
   STARTER: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-  PROFESSIONAL: 'bg-accent/10 text-accent',
+  PROFESSIONAL: 'bg-primary/10 text-primary',
   ENTERPRISE: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
 };
 
@@ -62,7 +62,7 @@ export default function BillingView() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-accent" />
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary" />
       </div>
     );
   }
@@ -137,10 +137,10 @@ export default function BillingView() {
               <button
                 key={tierKey}
                 onClick={() => navigate('/pricing')}
-                className="flex flex-col items-start p-4 rounded-xl border border-border hover:border-accent hover:bg-accent/5 transition-all text-left group"
+                className="flex flex-col items-start p-4 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-all text-left group"
               >
                 <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2 ${TIER_COLORS[tierKey]}`}>{tierKey}</span>
-                <span className="text-sm font-bold text-foreground group-hover:text-accent transition-colors">
+                <span className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
                   {`${t('subscription.upgradeTo', 'Upgrade to')} ${tierKey} →`}
                 </span>
               </button>

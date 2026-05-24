@@ -25,7 +25,7 @@ const TableCard: React.FC<TableCardProps> = ({ name, status, orderCount, custome
       className={`relative w-full aspect-square rounded-2xl border-l-4 ${style.border} ${style.bg} glass-panel flex flex-col items-center justify-center gap-1.5 transition-all hover:-translate-y-1 hover:shadow-lg active:scale-95`}
     >
       {orderCount > 0 && (
-        <span className="absolute top-2 right-2 bg-accent text-accent-foreground text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 shadow-lg shadow-accent/20">
+        <span className="absolute top-2 right-2 text-white text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 shadow-lg" style={{ background: 'var(--gradient-brand)' }}>
           {orderCount > 9 ? '9+' : orderCount}
         </span>
       )}

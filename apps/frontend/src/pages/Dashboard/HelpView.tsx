@@ -163,8 +163,8 @@ const HelpView = () => {
       {/* Header section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/40 pb-6">
         <div>
-          <h2 className="text-3xl font-serif font-black text-foreground tracking-tight mb-1 flex items-center gap-3">
-            <HelpCircle className="h-8 w-8 text-accent" />
+          <h2 className="text-3xl font-display font-black text-foreground tracking-tight mb-1 flex items-center gap-3">
+            <HelpCircle className="h-8 w-8 text-primary" />
             {t('help.title', 'Help Center')}
           </h2>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -178,7 +178,7 @@ const HelpView = () => {
             placeholder={t('help.searchPlaceholder', 'Search help guides and FAQs...')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-secondary/30 hover:bg-secondary/40 focus:bg-background border border-border/50 focus:border-accent/40 rounded-xl px-10 py-3 text-sm focus:outline-none transition-all pr-4 text-foreground placeholder:text-muted-foreground/60"
+            className="w-full bg-secondary/30 hover:bg-secondary/40 focus:bg-background border border-border/50 focus:border-primary/40 rounded-xl px-10 py-3 text-sm focus:outline-none transition-all pr-4 text-foreground placeholder:text-muted-foreground/60"
           />
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
         </div>
@@ -207,7 +207,7 @@ const HelpView = () => {
                 }}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all border cursor-pointer shrink-0 ${
                   isActive
-                    ? 'bg-accent/10 text-accent border-accent/20'
+                    ? 'bg-primary/10 text-primary border-primary/20'
                     : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground border-transparent'
                 }`}
               >
@@ -225,11 +225,11 @@ const HelpView = () => {
           {activeMeta && guideTitle && !searchQuery && (
             <div className="glass-panel p-6 sm:p-8 rounded-[2rem] border-white/5 bg-gradient-to-br from-background to-secondary/10 space-y-6 animate-in fade-in duration-300">
               <div className="flex items-center gap-4 border-b border-border/30 pb-4">
-                <div className="p-3 bg-accent/10 border border-accent/10 rounded-xl text-accent">
+                <div className="p-3 bg-primary/10 border border-primary/10 rounded-xl text-primary">
                   <activeMeta.icon className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-serif font-black text-foreground">
+                  <h3 className="text-xl font-display font-black text-foreground">
                     {guideTitle}
                   </h3>
                   {guideDesc && (
@@ -247,7 +247,7 @@ const HelpView = () => {
                   <ol className="space-y-4">
                     {guideSteps.map((step, idx) => (
                       <li key={idx} className="flex gap-4 items-start">
-                        <div className="w-6 h-6 rounded-full bg-accent/10 border border-accent/25 flex items-center justify-center shrink-0 mt-0.5 text-accent text-xs font-black">
+                        <div className="w-6 h-6 rounded-full bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0 mt-0.5 text-primary text-xs font-black">
                           {idx + 1}
                         </div>
                         <p className="text-sm text-foreground leading-relaxed pt-0.5">
@@ -261,10 +261,10 @@ const HelpView = () => {
 
               {/* Callouts */}
               {guideTip && (
-                <div className="p-5 rounded-2xl bg-accent/5 border border-accent/10 flex items-start gap-4 mt-6">
-                  <Sparkles className="h-5 w-5 text-accent shrink-0 mt-0.5" />
+                <div className="p-5 rounded-2xl bg-primary/5 border border-primary/10 flex items-start gap-4 mt-6">
+                  <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-accent">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-primary">
                       {t('help.tipLabel', 'Tip')}
                     </span>
                     <p className="text-sm text-foreground mt-1 leading-relaxed">
@@ -299,7 +299,7 @@ const HelpView = () => {
 
           {/* FAQ list */}
           <div className="space-y-4">
-            <h3 className="text-lg font-serif font-black text-foreground border-b border-border/30 pb-2">
+            <h3 className="text-lg font-display font-black text-foreground border-b border-border/30 pb-2">
               {searchQuery
                 ? t('help.faqSearchResults', 'Matching FAQs')
                 : t('help.faqTitle', 'Frequently Asked Questions')}

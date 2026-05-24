@@ -137,7 +137,7 @@ export default function PosOptionsDrawer() {
                             }
                             className={`px-3 py-2 rounded-lg text-sm min-h-[44px] transition-none ${
                               isSelected
-                                ? "bg-accent text-accent-foreground"
+                                ? "bg-primary text-white"
                                 : "bg-card border border-border text-foreground"
                             }`}
                           >
@@ -175,7 +175,7 @@ export default function PosOptionsDrawer() {
                             }}
                             className={`px-3 py-2 rounded-lg text-sm min-h-[44px] transition-none ${
                               isSelected
-                                ? "bg-accent text-accent-foreground"
+                                ? "bg-primary text-white"
                                 : "bg-card border border-border text-foreground"
                             }`}
                           >
@@ -199,14 +199,14 @@ export default function PosOptionsDrawer() {
                   value={itemNote}
                   onChange={(e) => setItemNote(e.target.value)}
                   placeholder="e.g. no salt, extra sauce..."
-                  className="w-full px-3 py-2 rounded-lg bg-card border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                  className="w-full px-3 py-2 rounded-lg bg-card border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
 
               <button
                 type="button"
                 onClick={handleAddToCart}
-                className="w-full py-3 rounded-lg bg-accent text-accent-foreground font-semibold text-sm min-h-[44px]"
+                className="w-full py-3 rounded-lg brand-cta text-white font-semibold text-sm min-h-[44px]"
               >
                 Add to Cart — €{(item.price + optionsPrice).toFixed(2)}
               </button>

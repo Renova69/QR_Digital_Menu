@@ -55,7 +55,7 @@ const OperationsView = ({ activeRestaurant }: OperationsViewProps) => {
               <Icon className="w-4 h-4" />
               {t(labelKey)}
               {badge > 0 && (
-                <span className="bg-accent text-accent-foreground text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg shadow-accent/20">
+                <span className="text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg" style={{ background: 'var(--gradient-brand)' }}>
                   {badge > 9 ? '9+' : badge}
                 </span>
               )}

@@ -180,7 +180,7 @@ const TableView: React.FC = () => {
                   <select
                     value={printTemplate}
                     onChange={(e) => setPrintTemplate(e.target.value as PrintTemplate)}
-                    className="h-9 px-3 rounded-lg border border-border bg-background text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
+                    className="h-9 px-3 rounded-lg border border-border bg-background text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                     aria-label="Print template"
                   >
                     <option value="classic">Classic</option>
@@ -190,7 +190,7 @@ const TableView: React.FC = () => {
                   <select
                     value={printOrientation}
                     onChange={(e) => setPrintOrientation(e.target.value as PrintOrientation)}
-                    className="h-9 px-3 rounded-lg border border-border bg-background text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
+                    className="h-9 px-3 rounded-lg border border-border bg-background text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                     aria-label="Print orientation"
                   >
                     <option value="portrait">Portrait</option>

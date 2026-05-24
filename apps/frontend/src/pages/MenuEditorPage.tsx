@@ -67,14 +67,14 @@ const MenuEditorPage: React.FC = () => {
   return (
     <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <div className="pt-28 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto min-h-screen">
-        <h1 className="text-4xl md:text-5xl font-serif font-black text-foreground tracking-tighter mb-10 animate-in fade-in slide-in-from-top-4 duration-700">
+        <h1 className="text-4xl md:text-5xl font-display font-black text-foreground tracking-tighter mb-10 animate-in fade-in slide-in-from-top-4 duration-700">
             {t('menuAdmin.editor')}
         </h1>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-8 duration-1000">
           <div className="lg:col-span-1">
             <div className="glass-panel p-6 sm:p-10 rounded-[2rem] border-white/5 mb-8">
               <div className="flex items-center gap-3 mb-6">
-                <Settings2 className="w-5 h-5 text-accent" />
+                <Settings2 className="w-5 h-5 text-primary" />
                 <h2 className="text-sm font-black uppercase tracking-widest text-zinc-400">{t('menuAdmin.storefrontUpselling')}</h2>
               </div>
               <div className="space-y-4">
@@ -83,7 +83,7 @@ const MenuEditorPage: React.FC = () => {
                    <select
                      value={activeRestaurant?.trendingMode || 'AUTO'}
                      onChange={handleTrendingChange}
-                     className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-accent"
+                     className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-primary"
                    >
                      <option value="AUTO">🤖 {t('menuAdmin.trendingModeAuto')}</option>
                      <option value="MANUAL">⭐ {t('menuAdmin.trendingModeManual')}</option>

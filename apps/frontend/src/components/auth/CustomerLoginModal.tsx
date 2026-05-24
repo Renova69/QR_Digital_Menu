@@ -295,7 +295,7 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({
                   {channel === "email" ? t("auth.otp.changeEmail") : t("auth.otp.changePhone", "Change number")}
                 </button>
                 <button type="button" onClick={handleResend} disabled={countdown > 0}
-                  className="text-accent hover:opacity-70 disabled:opacity-40">
+                  className="text-primary hover:opacity-70 disabled:opacity-40">
                   {countdown > 0 ? t("auth.otp.resendIn", { seconds: countdown }) : t("auth.otp.resend")}
                 </button>
               </div>
@@ -306,8 +306,8 @@ export const CustomerLoginModal: React.FC<CustomerLoginModalProps> = ({
         {/* ── Welcome step ── */}
         {step === "welcome" && (
           <div className="text-center py-4">
-            <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>

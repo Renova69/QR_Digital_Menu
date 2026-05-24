@@ -123,10 +123,10 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className={`w-full ${ASPECT_CLASSES[aspectRatio]} rounded-2xl border-2 border-dashed border-border hover:border-accent/50 bg-muted/30 hover:bg-muted/50 transition-all flex flex-col items-center justify-center gap-2 group cursor-pointer`}
+          className={`w-full ${ASPECT_CLASSES[aspectRatio]} rounded-2xl border-2 border-dashed border-border hover:border-primary/50 bg-muted/30 hover:bg-muted/50 transition-all flex flex-col items-center justify-center gap-2 group cursor-pointer`}
         >
-          <ImagePlus className="h-8 w-8 text-muted-foreground/50 group-hover:text-accent transition-colors" />
-          <span className="text-xs font-bold text-muted-foreground/60 group-hover:text-accent transition-colors">
+          <ImagePlus className="h-8 w-8 text-muted-foreground/50 group-hover:text-primary transition-colors" />
+          <span className="text-xs font-bold text-muted-foreground/60 group-hover:text-primary transition-colors">
             Click to upload
           </span>
           <span className="text-[10px] text-muted-foreground/40">{hint}</span>

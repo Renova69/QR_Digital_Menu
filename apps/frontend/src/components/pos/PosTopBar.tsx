@@ -38,14 +38,14 @@ export default function PosTopBar() {
           value={search}
           onChange={handleSearchChange}
           placeholder="Search items..."
-          className="w-full pl-10 pr-4 py-2 rounded-lg bg-card border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+          className="w-full pl-10 pr-4 py-2 rounded-lg bg-card border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
         />
       </div>
 
       <button
         type="button"
         onClick={handleOpenTableModal}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent/10 border border-accent text-accent text-sm font-medium shrink-0 min-h-[44px]"
+        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary text-sm font-medium shrink-0 min-h-[44px]"
       >
         <span className="h-2 w-2 rounded-full bg-green-500" />
         {session?.tableName ?? "Select Table"}

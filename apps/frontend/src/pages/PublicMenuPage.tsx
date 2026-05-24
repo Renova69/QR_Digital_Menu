@@ -344,7 +344,7 @@ const PublicMenuPage = () => {
 
   return (
     <div
-      className="relative min-h-screen premium-bg text-foreground selection:bg-accent/30 transition-colors duration-1000"
+      className="relative min-h-screen premium-bg text-foreground selection:bg-primary/30 transition-colors duration-1000"
       style={{
         ...themeVars,
         fontFamily: "var(--font-body, inherit)",
@@ -394,7 +394,7 @@ const PublicMenuPage = () => {
 
         {loading && (
           <div className="flex flex-col items-center justify-center py-32 space-y-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
             <p className="text-muted-foreground font-medium opacity-60">
               {t("publicMenu.preparingMenu", "Preparing your menu...")}
             </p>
@@ -403,7 +403,7 @@ const PublicMenuPage = () => {
 
         {error && (
           <div className="glass-panel border-t-4 border-destructive p-12 rounded-[2.5rem] shadow-2xl mb-8 text-center animate-in fade-in duration-500">
-            <h3 className="text-2xl font-serif font-bold mb-4">{error}</h3>
+            <h3 className="text-2xl font-display font-bold mb-4">{error}</h3>
             <p className="text-muted-foreground mb-6">
               {t("publicMenu.checkLink", "Please check the link or ask staff for assistance.")}
             </p>
@@ -417,7 +417,7 @@ const PublicMenuPage = () => {
           <>
             {menuMeta.categories.length === 0 ? (
               <div className="text-center glass-panel p-20 rounded-[3rem] mt-8">
-                <p className="text-2xl font-serif font-bold opacity-30">
+                <p className="text-2xl font-display font-bold opacity-30">
                   {t("publicMenu.noItems")}
                 </p>
               </div>
@@ -521,7 +521,7 @@ const PublicMenuPage = () => {
                             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                             <div className="absolute bottom-0 left-0 right-0 p-5 md:p-8">
                               <h2
-                                className="text-3xl md:text-5xl font-serif font-bold tracking-tight mb-2 drop-shadow-lg"
+                                className="text-3xl md:text-5xl font-display font-bold tracking-tight mb-2 drop-shadow-lg"
                                 style={{ fontFamily: "var(--font-heading, inherit)", color: "white" }}
                               >
                                 {catName}
@@ -532,7 +532,7 @@ const PublicMenuPage = () => {
                         ) : (
                           <div className="flex flex-col items-center mb-8 md:mb-12">
                             <h2
-                              className="text-3xl md:text-5xl font-serif font-bold tracking-tight mb-3"
+                              className="text-3xl md:text-5xl font-display font-bold tracking-tight mb-3"
                               style={{ fontFamily: "var(--font-heading, inherit)" }}
                             >
                               {catName}
@@ -593,7 +593,7 @@ const PublicMenuPage = () => {
             style={{ bottom: 'calc(max(1.5rem, env(safe-area-inset-bottom, 0px) + 0.75rem) + 5rem)' }}
           >
             <div
-              className="glass-panel max-w-[480px] w-full px-5 py-3.5 rounded-2xl border-accent/30 text-sm font-semibold text-foreground/80 text-center animate-in fade-in slide-in-from-bottom-2 duration-300"
+              className="glass-panel max-w-[480px] w-full px-5 py-3.5 rounded-2xl border-primary/30 text-sm font-semibold text-foreground/80 text-center animate-in fade-in slide-in-from-bottom-2 duration-300"
               role="alert"
               aria-live="polite"
             >
@@ -622,7 +622,7 @@ const PublicMenuPage = () => {
                 className="flex items-center justify-center p-2.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-60 disabled:cursor-not-allowed transition-all min-h-[44px] min-w-[44px]"
               >
                 <div className="relative">
-                  <Bell className="h-5 w-5 text-accent" />
+                  <Bell className="h-5 w-5 text-primary" />
                   {tableNumber && !assistanceSent && (
                     <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-destructive rounded-full border-2 border-white dark:border-black" />
                   )}
@@ -639,7 +639,7 @@ const PublicMenuPage = () => {
                       )
                     }
                     aria-label={t("publicMenu.myProfile")}
-                    className="flex items-center justify-center p-2.5 min-h-[44px] min-w-[44px] hover:opacity-70 transition-opacity text-accent"
+                    className="flex items-center justify-center p-2.5 min-h-[44px] min-w-[44px] hover:opacity-70 transition-opacity text-primary"
                   >
                     <UserCircle className="w-5 h-5" />
                   </button>
@@ -667,7 +667,7 @@ const PublicMenuPage = () => {
                 <Button
                   variant="default"
                   size="sm"
-                  className="bg-accent text-accent-foreground text-[10px] px-3 py-2 rounded-xl font-bold"
+                  className="brand-cta text-white text-[10px] px-3 py-2 rounded-xl font-bold"
                   onClick={async () => {
                     try {
                       await getSessionBill(sessionToken);
@@ -716,7 +716,7 @@ const PublicMenuPage = () => {
                 onClick={() => { setIsAssistanceDialogOpen(false); handleAssistanceRequest(); }}
                 className="w-full flex items-center gap-3 p-4 rounded-xl border border-border hover:bg-secondary/60 transition-colors text-left min-h-[56px]"
               >
-                <Bell className="h-5 w-5 text-accent flex-shrink-0" />
+                <Bell className="h-5 w-5 text-primary flex-shrink-0" />
                 <div>
                   <p className="font-bold text-sm text-foreground">{t("publicMenu.callWaiter", "Call Waiter")}</p>
                   <p className="text-xs text-muted-foreground">{t("publicMenu.callWaiterDesc", "I'd like to order or ask a question")}</p>

@@ -426,9 +426,29 @@ export class LoyaltyService {
       return tx.loyaltyAccount.findMany({ where: { restaurantId } });
     });
 
-    const ordersWithRedemptions = await this.prisma.order.findMany({
-      where: { restaurantId, pointsRedeemed: { gt: 0 } },
-    });
+    const [ordersWithRedemptions, customerOrderCounts, topAccount] = await Promise.all([
+      this.prisma.order.findMany({
+        where: { restaurantId, pointsRedeemed: { gt: 0 } },
+      }),
+      this.prisma.order.groupBy({
+        by: ['customerPhone'],
+        _count: true,
+        where: {
+          restaurantId,
+          customerPhone: { not: '' },
+          status: { not: 'CANCELED' },
+        },
+      }),
+      this.prisma.loyaltyAccount.findFirst({
+        where: { restaurantId, points: { gt: 0 } },
+        orderBy: { points: 'desc' },
+        include: { user: { select: { name: true, email: true } } },
+      }),
+    ]);
+
+    const totalCustomers = customerOrderCounts.length;
+    const repeatCustomers = customerOrderCounts.filter((c) => c._count > 1).length;
+    const repeatRate = totalCustomers > 0 ? Math.round((repeatCustomers / totalCustomers) * 1000) / 10 : 0;
 
     return {
       totalMembers: accounts.length,
@@ -437,6 +457,13 @@ export class LoyaltyService {
         (s, o) => s + o.pointsRedeemed,
         0,
       ),
+      repeatRate,
+      topMember: topAccount
+        ? {
+            name: topAccount.user?.name || topAccount.user?.email || 'Unknown',
+            points: topAccount.points,
+          }
+        : null,
     };
   }
 

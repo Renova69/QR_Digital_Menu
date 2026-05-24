@@ -164,7 +164,7 @@ export const CreateItemForm: React.FC = () => {
               id={`isFeatured-new`}
               checked={isFeatured}
               onChange={(e) => setIsFeatured(e.target.checked)}
-              className="w-4 h-4 rounded border-border text-accent focus:ring-accent"
+              className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
             />
             <label
               htmlFor={`isFeatured-new`}
@@ -211,9 +211,9 @@ export const CreateItemForm: React.FC = () => {
                             relatedItemIds.filter((id) => id !== otherItem.id),
                           );
                       }}
-                      className="w-3.5 h-3.5 rounded border-border/70 text-accent focus:ring-accent focus:ring-1"
+                      className="w-3.5 h-3.5 rounded border-border/70 text-primary focus:ring-primary focus:ring-1"
                     />
-                    <span className="text-xs text-foreground group-hover:text-accent font-medium">
+                    <span className="text-xs text-foreground group-hover:text-primary font-medium">
                       {otherItem.name}
                     </span>
                   </label>

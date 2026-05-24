@@ -51,11 +51,12 @@ export function CategoryPills({
               key={cat.id}
               ref={(el) => { pillRefs.current[cat.id] = el; }}
               onClick={() => onSelect(cat.id)}
-              className={`whitespace-nowrap px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-wider transition-all duration-200 active:scale-95 flex-shrink-0 ${
+              className={`whitespace-nowrap px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all duration-200 active:scale-95 flex-shrink-0 ${
                 isActive
-                  ? 'bg-foreground text-background shadow-md'
+                  ? 'text-white shadow-md'
                   : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
               }`}
+              style={isActive ? { background: 'var(--gradient-brand)' } : {}}
             >
               {catName}
             </button>

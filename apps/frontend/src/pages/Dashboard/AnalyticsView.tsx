@@ -1,4 +1,4 @@
-﻿import { useState, useContext } from 'react';
+import { useState, useContext } from 'react';
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area
@@ -39,7 +39,7 @@ const AnalyticsView = () => {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-32">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -47,7 +47,7 @@ const AnalyticsView = () => {
   if (error) {
     return (
       <div className="glass-panel border-destructive/20 text-destructive p-8 rounded-[2rem] text-center">
-        <p className="font-serif font-bold text-xl mb-2">{t('analytics.loadingFailed')}</p>
+        <p className="font-display font-bold text-xl mb-2">{t('analytics.loadingFailed')}</p>
         <p className="text-sm opacity-70">{t('analytics.checkConnection')}</p>
       </div>
     );
@@ -83,11 +83,11 @@ const AnalyticsView = () => {
       {/* Header with Period Selector */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div>
-          <h2 className="text-3xl font-serif font-black text-foreground tracking-tight">{t('analytics.title', { name: activeRestaurant?.name })}</h2>
+          <h2 className="text-3xl font-display font-black text-foreground tracking-tight">{t('analytics.title', { name: activeRestaurant?.name })}</h2>
           <p className="text-xs font-black uppercase tracking-widest text-muted-foreground mt-2 flex items-center gap-2">
             <Calendar className="w-3 h-3" />
             {startDate && endDate 
-                ? `${formatDate(startDate)} — ${formatDate(endDate)}` 
+                ? `${formatDate(startDate)} — ${formatDate(endDate)}`
                 : t('analytics.lastNDays', { days: period })}
           </p>
         </div>
@@ -171,15 +171,15 @@ const AnalyticsView = () => {
 
       {/* Analytics Full upgrade banner */}
       {!canFullAnalytics && (
-        <div className="glass-panel p-6 rounded-[2rem] border-accent/20 flex items-center justify-between gap-4">
+        <div className="glass-panel p-6 rounded-[2rem] border-primary/20 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <Lock className="w-5 h-5 text-accent flex-shrink-0" />
+            <Lock className="w-5 h-5 text-primary flex-shrink-0" />
             <div>
               <p className="text-sm font-black uppercase tracking-widest text-foreground">{t('tierLocked.analyticsTitle', 'Full Analytics locked')}</p>
               <p className="text-xs text-muted-foreground mt-1">{t('tierLocked.analyticsDesc', 'Top items, peak hours, category breakdown, and guest feedback require Professional plan.')}</p>
             </div>
           </div>
-          <a href="/pricing" className="px-4 py-2 bg-accent text-accent-foreground text-[10px] font-black uppercase tracking-widest rounded-xl hover:opacity-90 transition-opacity whitespace-nowrap flex-shrink-0">
+          <a href="/pricing" className="px-4 py-2 brand-cta text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:opacity-90 transition-opacity whitespace-nowrap flex-shrink-0">
             {t('tierLocked.upgrade', 'Upgrade')}
           </a>
         </div>
@@ -196,8 +196,8 @@ const AnalyticsView = () => {
             <AreaChart data={data.revenueTrend} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--color-accent))" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(var(--color-accent))" stopOpacity={0} />
+                  <stop offset="5%" stopColor="hsl(var(--color-primary))" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="hsl(var(--color-primary))" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border" vertical={false} opacity={0.1} />
@@ -218,12 +218,12 @@ const AnalyticsView = () => {
               />
               <Tooltip
                 content={<CustomTooltip currency={true} />}
-                cursor={{ stroke: 'hsl(var(--color-accent))', strokeWidth: 1, strokeDasharray: '4 4' }}
+                cursor={{ stroke: 'hsl(var(--color-primary))', strokeWidth: 1, strokeDasharray: '4 4' }}
               />
               <Area
                 type="monotone"
                 dataKey="revenue"
-                stroke="hsl(var(--color-accent))"
+                stroke="hsl(var(--color-primary))"
                 strokeWidth={4}
                 fillOpacity={1}
                 fill="url(#revenueGradient)"
@@ -253,7 +253,7 @@ const AnalyticsView = () => {
                   tickLine={false}
                 />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="quantity" fill="hsl(var(--color-accent))" radius={[0, 10, 10, 0]} barSize={24} animationDuration={1500} />
+                <Bar dataKey="quantity" fill="hsl(var(--color-primary))" radius={[0, 10, 10, 0]} barSize={24} animationDuration={1500} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -284,7 +284,7 @@ const AnalyticsView = () => {
                     .map((entry, index) => {
                       const maxOrders = Math.max(...data.peakHours.map(h => h.orders));
                       const opacity = maxOrders > 0 ? (entry.orders / maxOrders) * 0.8 + 0.2 : 0.2;
-                      return <Cell key={`cell-${index}`} fill="hsl(var(--color-accent))" fillOpacity={opacity} />;
+                      return <Cell key={`cell-${index}`} fill="hsl(var(--color-primary))" fillOpacity={opacity} />;
                     })}
                 </Bar>
               </BarChart>
@@ -332,7 +332,7 @@ const AnalyticsView = () => {
                 <XAxis dataKey="table" tick={{ fontSize: 10, fontWeight: 800, fill: 'hsl(var(--color-muted-foreground))' }} axisLine={false} tickLine={false} dy={10} />
                 <YAxis tickFormatter={(v) => `€${v}`} tick={{ fontSize: 10, fontWeight: 800, fill: 'hsl(var(--color-muted-foreground))' }} axisLine={false} tickLine={false} dx={-10} />
                 <Tooltip content={<CustomTooltip currency={true} />} />
-                <Bar dataKey="revenue" fill="hsl(var(--color-accent))" radius={[10, 10, 10, 10]} barSize={24} animationDuration={1800} />
+                <Bar dataKey="revenue" fill="hsl(var(--color-primary))" radius={[10, 10, 10, 10]} barSize={24} animationDuration={1800} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -348,12 +348,12 @@ const AnalyticsView = () => {
           {feedbackData.totalFeedbacks > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
                {/* Big Rating Card */}
-               <div className="flex flex-col items-center justify-center p-10 bg-accent/5 rounded-[2rem] border border-accent/10 relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-accent/5 translate-y-full group-hover:translate-y-0 transition-transform duration-700 animate-pulse" />
-                  <p className="text-7xl font-serif font-black text-accent mb-4 relative z-10">{feedbackData.averageRating}</p>
+               <div className="flex flex-col items-center justify-center p-10 bg-primary/5 rounded-[2rem] border border-primary/10 relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-primary/5 translate-y-full group-hover:translate-y-0 transition-transform duration-700 animate-pulse" />
+                  <p className="text-7xl font-display font-black text-primary mb-4 relative z-10">{feedbackData.averageRating}</p>
                   <div className="flex gap-1 mb-4 relative z-10">
                     {[1, 2, 3, 4, 5].map((s) => (
-                      <Star key={s} className={`h-6 w-6 ${s <= Math.round(feedbackData.averageRating) ? 'fill-accent text-accent' : 'text-muted/20'}`} />
+                      <Star key={s} className={`h-6 w-6 ${s <= Math.round(feedbackData.averageRating) ? 'fill-primary text-primary' : 'text-muted/20'}`} />
                     ))}
                   </div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground relative z-10">
@@ -369,11 +369,11 @@ const AnalyticsView = () => {
                     return (
                       <div key={rating} className="flex items-center gap-6">
                         <span className="text-xs font-black w-8 flex items-center gap-1 text-foreground">
-                          {rating} <Star className="h-3 w-3 fill-accent text-accent" />
+                          {rating} <Star className="h-3 w-3 fill-primary text-primary" />
                         </span>
                         <div className="flex-1 bg-secondary/50 rounded-full h-3 overflow-hidden shadow-inner">
                           <div
-                            className="h-full rounded-full transition-all duration-1000 bg-accent"
+                            className="h-full rounded-full transition-all duration-1000 bg-primary"
                             style={{ width: `${pct}%` }}
                           />
                         </div>
@@ -384,11 +384,11 @@ const AnalyticsView = () => {
                   <div className="pt-6 grid grid-cols-2 gap-4">
                      <div className="p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10 flex items-center justify-between">
                         <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500">{t('analytics.positiveRate')}</span>
-                        <span className="text-xl font-serif font-black text-emerald-500">{feedbackData.positiveRate}%</span>
+                        <span className="text-xl font-display font-black text-emerald-500">{feedbackData.positiveRate}%</span>
                      </div>
                      <div className="p-4 bg-blue-500/5 rounded-2xl border border-blue-500/10 flex items-center justify-between">
                         <span className="text-[10px] font-black uppercase tracking-widest text-blue-500">{t('analytics.googleImpact')}</span>
-                        <span className="text-xl font-serif font-black text-blue-500 flex items-center gap-2">
+                        <span className="text-xl font-display font-black text-blue-500 flex items-center gap-2">
                            {feedbackData.googleRedirects} <ExternalLink className="w-4 h-4" />
                         </span>
                      </div>
@@ -409,9 +409,9 @@ const AnalyticsView = () => {
 const CustomTooltip = ({ active, payload, label, currency = false }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="glass-panel p-4 rounded-xl border-accent/20 shadow-2xl backdrop-blur-2xl">
+      <div className="glass-panel p-4 rounded-xl border-primary/20 shadow-2xl backdrop-blur-2xl">
         <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">{label}</p>
-        <p className="text-lg font-serif font-black text-accent">
+        <p className="text-lg font-display font-black text-primary">
           {currency ? `€${payload[0].value.toFixed(2)}` : payload[0].value}
           <span className="text-[10px] font-sans font-bold ml-2 text-foreground opacity-60 uppercase tracking-tighter">
              {payload[0].name}
@@ -428,7 +428,7 @@ const KpiCard = ({ title, value, change, icon }: any) => {
   const { t } = useTranslation();
   
   return (
-    <div className="glass-panel p-6 rounded-[2rem] border-white/5 relative overflow-hidden group hover:-translate-y-1 transition-all duration-500 border-accent/0 hover:border-accent/10">
+    <div className="glass-panel p-6 rounded-[2rem] border-white/5 relative overflow-hidden group hover:-translate-y-1 transition-all duration-500 border-primary/0 hover:border-primary/10">
       <div className="flex items-center justify-between mb-8 relative z-10">
         <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{title}</span>
         <div className={`p-3 rounded-2xl bg-secondary/80 text-foreground group-hover:scale-110 transition-transform`}>
@@ -436,7 +436,7 @@ const KpiCard = ({ title, value, change, icon }: any) => {
         </div>
       </div>
       <div className="relative z-10">
-        <p className={`text-3xl font-serif font-black text-foreground mb-4`}>{value}</p>
+        <p className={`text-3xl font-display font-black text-foreground mb-4`}>{value}</p>
         {change !== undefined && (
           <div className="flex items-center gap-2">
             <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black ${isPositive ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
@@ -456,7 +456,7 @@ const EmptyState = ({ message }: { message: string }) => {
   return (
   <div className="flex flex-col items-center justify-center py-24 text-center opacity-40">
     <BarChart3 className="h-16 w-16 text-muted-foreground mb-6 animate-pulse" />
-    <p className="font-serif text-xl font-bold text-foreground mb-1">{message}</p>
+    <p className="font-display text-xl font-bold text-foreground mb-1">{message}</p>
     <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">{t('analytics.realTimeData')}</p>
   </div>
   );

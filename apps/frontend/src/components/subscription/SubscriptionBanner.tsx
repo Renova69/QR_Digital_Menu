@@ -5,7 +5,7 @@ import { useTier } from '../../hooks/useFeature';
 const TIER_STYLES: Record<string, { bg: string; text: string; badge: string }> = {
   FREE:         { bg: 'bg-secondary/50',       text: 'text-muted-foreground',  badge: 'bg-secondary text-secondary-foreground' },
   STARTER:      { bg: 'bg-blue-500/5',          text: 'text-blue-700 dark:text-blue-300', badge: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
-  PROFESSIONAL: { bg: 'bg-accent/5',            text: 'text-accent',            badge: 'bg-accent/10 text-accent' },
+  PROFESSIONAL: { bg: 'bg-primary/5',            text: 'text-primary',            badge: 'bg-primary/10 text-primary' },
   ENTERPRISE:   { bg: 'bg-purple-500/5',        text: 'text-purple-700 dark:text-purple-300', badge: 'bg-purple-500/10 text-purple-600 dark:text-purple-400' },
 };
 

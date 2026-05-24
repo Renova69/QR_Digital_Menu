@@ -59,7 +59,7 @@ function linkifyPhones(text: string): React.ReactNode {
     const raw = match[0];
     const digits = raw.replace(/\D/g, '');
     parts.push(
-      <a key={match.index} href={`tel:${digits}`} className="hover:text-accent transition-colors no-underline">
+      <a key={match.index} href={`tel:${digits}`} className="hover:text-primary transition-colors no-underline">
         {raw}
       </a>
     );

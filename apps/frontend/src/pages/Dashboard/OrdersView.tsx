@@ -1,216 +1,517 @@
-import { useState, useContext } from 'react';
-import { useOrders } from '../../context/OrderContext';
-import { OrderStatus } from '../../context/OrderContext';
-import { Button } from '../../components/ui/button';
+import { useMemo, useState } from 'react';
+import {
+  Bell,
+  Check,
+  ChefHat,
+  ClipboardList,
+  Clock,
+  Flame,
+  Menu,
+  Play,
+  Search,
+  Utensils,
+  Volume2,
+  X,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Bell } from 'lucide-react';
-import RestaurantContext from '../../context/RestaurantContext';
+import { useOrders, OrderStatus } from '../../context/OrderContext';
+import { cn } from '../../lib/utils';
+import TableDetailModal from '../../components/tables/TableDetailModal';
+
+type OrdersContextValue = ReturnType<typeof useOrders>;
+type DashboardOrder = OrdersContextValue['orders'][number];
+type DashboardOrderItem = DashboardOrder['items'][number];
+
+const ORDER_STATUSES: Array<{
+  status: OrderStatus;
+  labelKey: string;
+  fallback: string;
+  Icon: typeof Bell;
+  tone: string;
+}> = [
+  { status: 'NEW', labelKey: 'orders.tabs.new', fallback: 'New', Icon: Bell, tone: 'text-primary' },
+  { status: 'IN_PROGRESS', labelKey: 'orders.tabs.inProgress', fallback: 'In Progress', Icon: Flame, tone: 'text-orange-500' },
+  { status: 'SERVED', labelKey: 'orders.tabs.served', fallback: 'Served', Icon: Utensils, tone: 'text-slate-600 dark:text-slate-300' },
+  { status: 'COMPLETED', labelKey: 'orders.tabs.completed', fallback: 'Completed', Icon: Check, tone: 'text-emerald-600' },
+  { status: 'CANCELED', labelKey: 'orders.tabs.canceled', fallback: 'Canceled', Icon: X, tone: 'text-rose-600' },
+];
+
+const statusAccent: Record<OrderStatus, string> = {
+  NEW: 'before:bg-blue-500',
+  IN_PROGRESS: 'before:bg-orange-500',
+  SERVED: 'before:bg-slate-500',
+  COMPLETED: 'before:bg-emerald-500',
+  CANCELED: 'before:bg-rose-500',
+};
+
+function getOrderCode(id: string) {
+  return `#${id.slice(-6).toUpperCase()}`;
+}
+
+function formatOrderTime(createdAt: string) {
+  return new Date(createdAt).toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+function getElapsedLabel(createdAt: string) {
+  const diffMinutes = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000),
+  );
+
+  if (diffMinutes < 1) return 'just now';
+  if (diffMinutes === 1) return '1 min ago';
+  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+
+  const hours = Math.floor(diffMinutes / 60);
+  return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+}
+
+function getItemTotal(item: DashboardOrderItem) {
+  const optionTotal = Array.isArray(item.selectedOptions)
+    ? item.selectedOptions.reduce(
+        (sum, option) => sum + Number(option?.priceModifier ?? 0),
+        0,
+      )
+    : 0;
+
+  return (Number(item.menuItem?.price ?? 0) + optionTotal) * item.quantity;
+}
+
+function getSpecialRequestRows(requests?: string) {
+  if (!requests?.trim()) return [];
+
+  return requests
+    .split('|')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const match = part.match(/^\[(.+?)\]\s*(.*)$/);
+      if (!match) return { seat: null, text: part };
+      return { seat: match[1], text: match[2] || part };
+    });
+}
+
+function stripTrailingColon(value: string) {
+  return value.replace(/:\s*$/, '');
+}
 
 const OrdersView = () => {
   const { orders, updateOrderStatus } = useOrders();
   const [activeTab, setActiveTab] = useState<OrderStatus>('NEW');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(null);
   const { t } = useTranslation();
-  const { activeRestaurant } = useContext(RestaurantContext) as any;
-  const paymentsEnabled = activeRestaurant?.paymentsEnabled ?? false;
 
-  // Filter orders by active tab status
-  const filteredOrders = orders.filter(order => order.status === activeTab);
+  const counts = useMemo(() => {
+    return ORDER_STATUSES.reduce<Record<OrderStatus, number>>((acc, { status }) => {
+      acc[status] = orders.filter((order) => order.status === status).length;
+      return acc;
+    }, {
+      NEW: 0,
+      IN_PROGRESS: 0,
+      SERVED: 0,
+      COMPLETED: 0,
+      CANCELED: 0,
+    });
+  }, [orders]);
 
-  // Handle status change for an order
+  const filteredOrders = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+
+    return orders
+      .filter((order) => order.status === activeTab)
+      .filter((order) => {
+        if (!query) return true;
+
+        const itemNames = order.items
+          .map((item) => item.menuItem?.name ?? '')
+          .join(' ')
+          .toLowerCase();
+
+        return [
+          order.id.toLowerCase(),
+          getOrderCode(order.id).toLowerCase(),
+          String(order.tableId ?? '').toLowerCase(),
+          `table ${order.tableId}`.toLowerCase(),
+          itemNames,
+        ].some((value) => value.includes(query));
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [activeTab, orders, searchTerm]);
+
   const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
     try {
       await updateOrderStatus(orderId, newStatus);
     } catch (error) {
-      // Error handling - could show a toast notification
       console.error('Failed to update order status:', error);
     }
   };
 
-  const getStatusLabel = (status: OrderStatus) => {
-      switch(status) {
-          case 'NEW': return t('orders.tabs.new');
-          case 'IN_PROGRESS': return t('orders.tabs.inProgress');
-          case 'SERVED': return t('orders.tabs.served');
-          case 'CANCELED': return t('orders.tabs.canceled');
-          case 'COMPLETED': return t('orders.tabs.completed');
-          default: return status;
-      }
+  const handleSoundPreview = () => {
+    new Audio('/notification.mp3').play().catch(() => {});
   };
 
+  const activeStatus = ORDER_STATUSES.find((status) => status.status === activeTab);
+  const selectedTable = selectedOrder
+    ? {
+        name: t('orders.table', { id: selectedOrder.tableId }),
+        status: selectedOrder.tableSession?.status === 'PAID' ? 'paid' : selectedOrder.status === 'CANCELED' ? 'waiting' : 'occupied',
+        sessionId: selectedOrder.id,
+        orderCount: 1,
+        totalAmount: selectedOrder.totalPrice,
+        customerNames: selectedOrder.customerName ? [selectedOrder.customerName] : [],
+        sessionStatus: selectedOrder.tableSession?.status ?? selectedOrder.status,
+        updatedAt: selectedOrder.createdAt,
+      }
+    : null;
+  const selectedTableOrders = selectedOrder
+    ? [
+        {
+          id: selectedOrder.id,
+          customerName: selectedOrder.customerName,
+          createdAt: selectedOrder.createdAt,
+          specialRequests: selectedOrder.specialRequests ?? null,
+          status: selectedOrder.status,
+          totalPrice: selectedOrder.totalPrice,
+          items: selectedOrder.items.map((item) => ({
+            name: item.menuItem?.name ?? t('orders.unknownItem', 'Item'),
+            quantity: item.quantity,
+            totalPrice: getItemTotal(item),
+            options: Array.isArray(item.selectedOptions)
+              ? item.selectedOptions.map((option: any) => option.choiceName).filter(Boolean)
+              : [],
+          })),
+        },
+      ]
+    : [];
+
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
-      <div className="flex items-center justify-between mb-10 overflow-x-auto hide-scrollbar pb-2">
-        <nav className="flex space-x-2 min-w-max" aria-label="Tabs">
-            {(['NEW', 'IN_PROGRESS', 'SERVED', 'COMPLETED', 'CANCELED'] as OrderStatus[]).map((status) => (
-            <button
-                key={status}
-                onClick={() => setActiveTab(status)}
-                className={`px-6 py-4 font-black text-[11px] uppercase tracking-[0.15em] transition-all rounded-[1.2rem] flex items-center gap-3 active:scale-95 ${
-                activeTab === status
-                    ? 'bg-foreground text-background shadow-[0_15px_30px_-5px_var(--color-primary)] z-10 scale-105'
-                    : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground'
-                }`}
-            >
-                {getStatusLabel(status)}
-                <span className={`py-1 px-2.5 rounded-full text-[10px] font-black ${activeTab === status ? 'bg-accent text-accent-foreground shadow-lg' : 'bg-secondary text-muted-foreground'}`}>
-                    {orders.filter(o => o.status === status).length}
-                </span>
-            </button>
-            ))}
-        </nav>
+    <section className="min-h-full bg-background text-foreground">
+      <div className="mb-6 flex flex-col gap-5 border-b border-border/70 pb-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex items-start gap-3">
+          <button
+            type="button"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-sm transition hover:bg-muted"
+            aria-label={t('common.menu', 'Menu')}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-black leading-tight text-foreground">
+              {t('dashboard.tabs.orders', 'Orders')}
+            </h1>
+            <p className="mt-1 text-sm font-medium text-muted-foreground">
+              {t('orders.subtitle', 'Track and route every order in real-time.')}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto lg:justify-end">
+          <div className="relative sm:w-80">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder={t('orders.searchPlaceholder', 'Search by order # or table...')}
+              className="h-10 w-full rounded-lg border border-border bg-card pl-10 pr-3 text-sm font-medium text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleSoundPreview}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary transition hover:bg-primary/15"
+            aria-label={t('orders.previewSound', 'Preview order sound')}
+          >
+            <Volume2 className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
-      <div className="space-y-8">
-        {filteredOrders.map(order => (
-          <div key={order.id} className="glass-panel p-10 rounded-[3rem] border-white/10 dark:border-white/5 hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.15)] dark:hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.4)] transition-all duration-700">
-            <div className="flex flex-col md:flex-row justify-between items-start gap-6">
-              <div className="flex-1">
-                <div className="flex items-center gap-4 mb-3">
-                    <p className="font-serif font-black text-foreground text-4xl tracking-tighter leading-none">{t('orders.orderNo', { id: order.id.slice(-6).toUpperCase() })}</p>
-                    <span className="bg-accent text-accent-foreground px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl shadow-accent/20">{t('orders.table', { id: order.tableId })}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-1.5 bg-accent/40 rounded-full"></div>
-                    <span className="text-[11px] text-muted-foreground font-bold uppercase tracking-[0.1em] opacity-60">{t('orders.pluckedAt', { time: new Date(order.createdAt).toLocaleTimeString() })}</span>
-                </div>
-              </div>
-              <div className="text-right w-full md:w-auto">
-                <p className={`inline-block font-black px-5 py-2.5 rounded-2xl text-[10px] uppercase tracking-[0.2em] shadow-sm border ${order.status === 'NEW' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' : order.status === 'IN_PROGRESS' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : order.status === 'SERVED' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : order.status === 'COMPLETED' ? 'bg-violet-500/10 text-violet-500 border-violet-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
-                    {getStatusLabel(order.status)}
-                </p>
-                {paymentsEnabled && order.tableSession?.status === 'PAID' && (
-                  <span className="inline-block font-black px-4 py-2 rounded-2xl text-[10px] uppercase tracking-[0.2em] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 ml-2">
-                    € Paid
-                  </span>
+      <div className="mb-8 overflow-x-auto hide-scrollbar">
+        <div className="inline-flex min-w-max items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-sm">
+          {ORDER_STATUSES.map(({ status, labelKey, fallback, Icon, tone }) => {
+            const isActive = activeTab === status;
+            return (
+              <button
+                key={status}
+                type="button"
+                onClick={() => setActiveTab(status)}
+                className={cn(
+                  'flex h-9 items-center gap-2 rounded-md px-4 text-sm font-bold transition active:scale-[0.98]',
+                  isActive
+                    ? 'bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 )}
-              </div>
-            </div>
+              >
+                <Icon className={cn('h-4 w-4', isActive ? 'text-white' : tone)} />
+                <span>{t(labelKey, fallback)}</span>
+                <span
+                  className={cn(
+                    'flex h-5 min-w-6 items-center justify-center rounded-full px-2 text-[11px] font-black',
+                    isActive
+                      ? 'bg-white/20 text-white'
+                      : 'bg-muted text-muted-foreground',
+                  )}
+                >
+                  {counts[status]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-            <div className="mt-10 pt-10 border-t border-border/40">
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 mb-6">{t('orders.items')}</p>
-              <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {order.items.map(item => (
-                  <li key={item.id} className="bg-secondary/40 p-6 rounded-[1.8rem] border border-white/5 flex flex-col gap-3 group/item hover:bg-secondary/60 transition-all">
-                    <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-3">
-                            <span className="w-8 h-8 bg-foreground/5 rounded-xl flex items-center justify-center font-black text-xs text-foreground/40">{item.quantity}×</span>
-                            <span className="font-serif font-black text-xl text-foreground/90">{item.menuItem?.name}</span>
-                        </div>
-                        <span className="font-serif font-black text-lg text-accent">€{((item.menuItem?.price || 0) * item.quantity).toFixed(2)}</span>
+      {filteredOrders.length > 0 ? (
+        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {filteredOrders.map((order) => {
+            const specialRequests = getSpecialRequestRows(order.specialRequests);
+
+            return (
+              <article
+                key={order.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedOrder(order)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setSelectedOrder(order);
+                  }
+                }}
+                className={cn(
+                  'relative flex aspect-[1.08/1] cursor-pointer flex-col overflow-hidden rounded-lg border border-border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40',
+                  'before:absolute before:bottom-0 before:left-0 before:top-0 before:w-1',
+                  statusAccent[order.status],
+                )}
+              >
+                <div className="mb-4 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-black text-sm tracking-tight text-foreground">
+                      {getOrderCode(order.id)}
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-muted-foreground">
+                      <span className="rounded-md bg-muted px-2.5 py-1 font-black text-foreground">
+                        {t('orders.table', { id: order.tableId })}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5" />
+                        {t('orders.pluckedAt', { time: formatOrderTime(order.createdAt) })}
+                      </span>
                     </div>
-                    {item.selectedOptions && Array.isArray(item.selectedOptions) && item.selectedOptions.length > 0 && (
-                      <div className="flex flex-wrap gap-2 pt-2 border-t border-border/20">
-                        {item.selectedOptions.map((opt: any) => (
-                           <span key={`${item.id}-${opt.optionId}`} className="text-[9px] text-muted-foreground font-black uppercase tracking-widest bg-background/50 px-2.5 py-1 rounded-full border border-border/30">
-                             {opt.choiceName}
-                           </span>
+                  </div>
+                  <span className="whitespace-nowrap text-xs font-bold text-muted-foreground">
+                    {getElapsedLabel(order.createdAt)}
+                  </span>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-hidden">
+                  <p className="mb-3 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                    {stripTrailingColon(t('orders.items', 'Items'))}
+                  </p>
+
+                  <ul className="space-y-2.5">
+                    {order.items.slice(0, 4).map((item, index) => (
+                      <li
+                        key={`${item.id}-${index}`}
+                        className="grid grid-cols-[34px_minmax(0,1fr)_auto] items-start gap-2 text-sm"
+                      >
+                        <span className="font-black text-primary">{item.quantity}x</span>
+                        <div className="min-w-0">
+                          <span className="block break-words font-medium leading-snug text-foreground">
+                            {item.menuItem?.name ?? t('orders.unknownItem', 'Item')}
+                          </span>
+                          {Array.isArray(item.selectedOptions) && item.selectedOptions.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {item.selectedOptions.map((option: any, optionIndex: number) => (
+                                <span
+                                  key={`${item.id}-option-${optionIndex}`}
+                                  className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground"
+                                >
+                                  {option.choiceName}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <span className="whitespace-nowrap font-bold text-muted-foreground">
+                          €{getItemTotal(item).toFixed(2)}
+                        </span>
+                      </li>
+                    ))}
+                    {order.items.length > 4 && (
+                      <li className="text-xs font-black text-muted-foreground">
+                        +{order.items.length - 4} more
+                      </li>
+                    )}
+                  </ul>
+
+                  {specialRequests.length > 0 && (
+                    <div className="mt-4 max-h-[70px] overflow-hidden rounded-lg border border-[#F59E0B] bg-[#FFE1B3] p-3 text-[#321405] shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_1px_0_rgba(146,64,14,0.08)] dark:border-orange-400/20 dark:bg-orange-400/10 dark:text-orange-100 dark:shadow-none">
+                      <div className="mb-2 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-[#7C2D12] dark:text-orange-100/70">
+                        <ClipboardList className="h-3.5 w-3.5" />
+                        {stripTrailingColon(t('orders.specialRequests', 'Special Requests'))}
+                      </div>
+                      <div className="space-y-1.5">
+                        {specialRequests.map((request, index) => (
+                          <p key={`${order.id}-request-${index}`} className="text-xs font-bold leading-relaxed text-[#321405] dark:text-orange-100">
+                            {request.seat && (
+                              <span className="mr-2 rounded bg-[#F97316] px-1.5 py-0.5 text-[10px] font-black uppercase text-white dark:bg-orange-400/20 dark:text-orange-100">
+                                {request.seat}
+                              </span>
+                            )}
+                            {request.text}
+                          </p>
                         ))}
                       </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
+                    </div>
+                  )}
+                </div>
 
-            {order.specialRequests && (
-              <div className="mt-8 p-6 bg-destructive/5 rounded-2xl border border-destructive/10 text-destructive flex gap-4 items-start">
-                <div className="mt-1 p-1 bg-destructive/10 rounded-lg">
-                    <Bell className="w-4 h-4" />
-                </div>
-                <div>
-                    <p className="font-black text-[10px] uppercase tracking-widest mb-1">{t('orders.specialRequests')}</p>
-                    <p className="text-sm font-semibold">{order.specialRequests}</p>
-                </div>
-              </div>
-            )}
-
-            <div className="mt-10 pt-10 border-t border-border/40 flex flex-col lg:flex-row justify-between items-center gap-10">
-              <div className="w-full lg:w-auto">
-                <div className="flex items-baseline gap-4">
-                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">{t('orders.total')}</span>
-                    <span className="text-5xl md:text-7xl font-serif font-black text-foreground tracking-tighter drop-shadow-xl">€{order.totalPrice.toFixed(2)}</span>
-                </div>
-                {order.customerPhone && (
-                  <div className="flex items-center gap-2 mt-4 text-muted-foreground">
-                    <div className="w-4 h-px bg-muted-foreground/30"></div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em]">{t('orders.phone', { phone: order.customerPhone })}</p>
+                <div className="mt-auto border-t border-border pt-4">
+                  <div className="mb-3 flex items-end justify-between gap-4">
+                    <span className="text-sm font-medium text-muted-foreground">
+                      {t('orders.total', 'Total')}
+                    </span>
+                    <span className="text-2xl font-black tracking-tight text-foreground">
+                      €{order.totalPrice.toFixed(2)}
+                    </span>
                   </div>
-                )}
-              </div>
 
-              <div className="flex gap-4 w-full lg:w-auto">
-                {order.status === 'NEW' && (
-                  <>
-                    <button 
-                        onClick={() => handleStatusChange(order.id, 'IN_PROGRESS')} 
-                        className="flex-1 lg:flex-none px-10 py-5 bg-foreground text-background rounded-2xl font-black text-[12px] uppercase tracking-[0.2em] shadow-2xl hover:shadow-[0_20px_40px_-10px_var(--color-primary)] hover:-translate-y-1 transition-all active:scale-95"
-                    >
-                      {t('orders.startPreparing')}
-                    </button>
-                    <button 
-                        onClick={() => handleStatusChange(order.id, 'CANCELED')} 
-                        className="px-6 py-5 bg-background border border-border/50 text-destructive rounded-2xl font-black text-[12px] uppercase tracking-[0.2em] hover:bg-destructive/10 hover:border-destructive/20 transition-all active:scale-95"
-                    >
-                      {t('orders.cancel')}
-                    </button>
-                  </>
-                )}
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                    {order.status === 'NEW' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleStatusChange(order.id, 'IN_PROGRESS');
+                          }}
+                          className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent active:scale-[0.98]"
+                        >
+                          <Play className="h-3.5 w-3.5 fill-current" />
+                          {t('orders.startPreparing')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleStatusChange(order.id, 'CANCELED');
+                          }}
+                          className="flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-card px-3 text-xs font-black text-rose-600 transition hover:bg-rose-50 dark:border-rose-500/30 dark:hover:bg-rose-500/10"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                          {t('orders.cancel')}
+                        </button>
+                      </>
+                    )}
 
-                {order.status === 'IN_PROGRESS' && (
-                  <>
-                    <button 
-                        onClick={() => handleStatusChange(order.id, 'SERVED')} 
-                        className="flex-1 lg:flex-none px-10 py-5 bg-foreground text-background rounded-2xl font-black text-[12px] uppercase tracking-[0.2em] shadow-2xl hover:shadow-[0_20px_40px_-10px_var(--color-primary)] hover:-translate-y-1 transition-all active:scale-95"
-                    >
-                      {t('orders.markServed')}
-                    </button>
-                    <button 
-                        onClick={() => handleStatusChange(order.id, 'CANCELED')} 
-                        className="px-6 py-5 bg-background border border-border/50 text-destructive rounded-2xl font-black text-[12px] uppercase tracking-[0.2em] hover:bg-destructive/10 hover:border-destructive/20 transition-all active:scale-95"
-                    >
-                      {t('orders.cancel')}
-                    </button>
-                  </>
-                )}
+                    {order.status === 'IN_PROGRESS' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleStatusChange(order.id, 'SERVED');
+                          }}
+                          className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent active:scale-[0.98]"
+                        >
+                          <ChefHat className="h-3.5 w-3.5" />
+                          {t('orders.markServed')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleStatusChange(order.id, 'CANCELED');
+                          }}
+                          className="flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-card px-3 text-xs font-black text-rose-600 transition hover:bg-rose-50 dark:border-rose-500/30 dark:hover:bg-rose-500/10"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                          {t('orders.cancel')}
+                        </button>
+                      </>
+                    )}
 
-                {order.status === 'SERVED' && (
-                  <>
-                    <button
-                        onClick={() => handleStatusChange(order.id, 'COMPLETED')}
-                        className="flex-1 lg:flex-none px-10 py-5 bg-foreground text-background rounded-2xl font-black text-[12px] uppercase tracking-[0.2em] shadow-2xl hover:shadow-[0_20px_40px_-10px_var(--color-primary)] hover:-translate-y-1 transition-all active:scale-95"
-                    >
-                      {t('orders.markCompleted')}
-                    </button>
-                    <button
-                        onClick={() => handleStatusChange(order.id, 'NEW')}
-                        className="px-6 py-5 bg-background border border-border/50 text-foreground rounded-2xl font-black text-[12px] uppercase tracking-[0.2em] hover:bg-secondary/80 transition-all active:scale-95"
-                    >
-                      {t('orders.reopen')}
-                    </button>
-                  </>
-                )}
+                    {order.status === 'SERVED' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleStatusChange(order.id, 'COMPLETED');
+                          }}
+                          className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent active:scale-[0.98]"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                          {t('orders.markCompleted')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleStatusChange(order.id, 'NEW');
+                          }}
+                          className="flex h-10 items-center justify-center rounded-lg border border-border bg-card px-3 text-xs font-black text-foreground transition hover:bg-muted"
+                        >
+                          {t('orders.reopen')}
+                        </button>
+                      </>
+                    )}
 
-                {order.status === 'COMPLETED' && (
-                  <button
-                    onClick={() => handleStatusChange(order.id, 'NEW')}
-                    className="flex-1 lg:flex-none px-10 py-5 bg-secondary text-foreground rounded-2xl font-black text-[12px] uppercase tracking-[0.2em] hover:bg-secondary/80 transition-all active:scale-95"
-                  >
-                    {t('orders.reopen')}
-                  </button>
-                )}
-              </div>
+                    {(order.status === 'COMPLETED' || order.status === 'CANCELED') && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleStatusChange(order.id, 'NEW');
+                        }}
+                        className="col-span-2 flex h-10 items-center justify-center rounded-lg border border-border bg-muted px-3 text-xs font-black text-foreground transition hover:bg-secondary"
+                      >
+                        {t('orders.reopen')}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex min-h-[360px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center shadow-sm">
+          <div>
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              {activeStatus ? <activeStatus.Icon className="h-6 w-6" /> : <Bell className="h-6 w-6" />}
             </div>
+            <p className="text-lg font-black text-foreground">
+              {t('orders.noOrders', {
+                status: activeStatus
+                  ? t(activeStatus.labelKey, activeStatus.fallback).toLowerCase()
+                  : 'matching',
+              })}
+            </p>
+            <p className="mt-1 text-sm font-medium text-muted-foreground">
+              {searchTerm
+                ? t('orders.noSearchResults', 'Try a different order number, table, or dish.')
+                : t('orders.clearKitchen', 'The kitchen is clear for now.')}
+            </p>
           </div>
-        ))}
+        </div>
+      )}
 
-        {filteredOrders.length === 0 && (
-          <div className="text-center text-muted-foreground py-32 glass-panel rounded-[3rem] border-white/5 shadow-inner">
-            <p className="font-serif font-black text-3xl mb-3 italic opacity-20">{t('orders.noOrders', { status: getStatusLabel(activeTab).toLowerCase() })}</p>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-30">The kitchen is clear for now</p>
-          </div>
-        )}
-      </div>
-    </div>
+      <TableDetailModal
+        open={!!selectedOrder}
+        onOpenChange={(open) => {
+          if (!open) setSelectedOrder(null);
+        }}
+        table={selectedTable}
+        orders={selectedTableOrders}
+        paymentInfo={selectedOrder?.tableSession?.status === 'PAID' ? { amount: selectedOrder.totalPrice } : null}
+      />
+    </section>
   );
 };
 

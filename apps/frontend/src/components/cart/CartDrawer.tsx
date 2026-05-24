@@ -101,7 +101,7 @@ const CartDrawer = ({
         </div>
 
         <div className="flex justify-between items-center px-6 py-5 md:p-8 border-b border-white/5 flex-shrink-0">
-          <h2 className="text-2xl md:text-3xl font-serif font-black text-zinc-100 tracking-tighter">
+          <h2 className="text-2xl md:text-3xl font-display font-black text-zinc-100 tracking-tighter">
             {showDrinkUpsell
               ? t("publicMenu.drinkUpsell.title")
               : t("cart.yourOrder")}
@@ -118,7 +118,7 @@ const CartDrawer = ({
         <div className="flex-grow overflow-y-auto p-5 md:p-6 hide-scrollbar">
           {showDrinkUpsell ? (
             <div className="space-y-5">
-              <div className="text-center p-5 bg-accent/10 border border-accent/20 rounded-2xl mb-6">
+              <div className="text-center p-5 bg-primary/10 border border-primary/20 rounded-2xl mb-6">
                 <span className="text-4xl block mb-3">🥤</span>
                 <h3 className="text-lg font-bold text-white leading-tight mb-2">
                   {t("publicMenu.drinkUpsell.question")}
@@ -144,7 +144,7 @@ const CartDrawer = ({
                         )}
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-sm font-semibold text-accent">
+                        <span className="text-sm font-semibold text-primary">
                           {formatInlineDual(drink.price ?? 0, drink.currency ?? 'EUR')}
                         </span>
                         <Button
@@ -160,7 +160,7 @@ const CartDrawer = ({
                               cartId: `${drink.id}-${Date.now()}`,
                             });
                           }}
-                          className="h-9 min-w-[60px] rounded-full border-accent text-accent px-4 py-0"
+                          className="h-9 min-w-[60px] rounded-full border-primary text-primary px-4 py-0"
                         >
                           {t("publicMenu.drinkUpsell.add")}
                         </Button>
@@ -180,7 +180,7 @@ const CartDrawer = ({
             <ul className="space-y-5">
               {items.map((item) => (
                 <li key={item.cartId} className="flex gap-3">
-                  <div className="w-11 h-11 bg-white/5 rounded-2xl flex items-center justify-center text-accent font-serif font-black text-base shrink-0 border border-white/5">
+                  <div className="w-11 h-11 bg-white/5 rounded-2xl flex items-center justify-center text-primary font-display font-black text-base shrink-0 border border-white/5">
                     {item.quantity}×
                   </div>
                   <div className="flex-grow min-w-0">
@@ -198,9 +198,9 @@ const CartDrawer = ({
                             key={`${item.cartId}-opt-${idx}`}
                             className="flex items-center gap-1.5"
                           >
-                            <span className="w-1 h-1 rounded-full bg-accent/50 block flex-shrink-0" />
+                            <span className="w-1 h-1 rounded-full bg-primary/50 block flex-shrink-0" />
                             {opt.choiceName}{" "}
-                            <span className="text-accent/70 font-semibold">
+                            <span className="text-primary/70 font-semibold">
                               (+{formatInlineDual(opt.priceModifier || 0, 'EUR')})
                             </span>
                           </li>
@@ -237,7 +237,7 @@ const CartDrawer = ({
               <span className="text-zinc-400 font-bold uppercase tracking-widest text-[10px]">
                 {t("cart.total")}
               </span>
-              <span className="text-3xl font-serif font-black text-accent tracking-tighter">
+              <span className="text-3xl font-display font-black text-primary tracking-tighter">
                 {formatInlineDual(getTotal(), 'EUR')}
               </span>
             </div>
@@ -245,7 +245,7 @@ const CartDrawer = ({
               <div className="space-y-3">
                 <button
                   onClick={finishCheckout}
-                  className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-black uppercase tracking-widest py-4 px-6 rounded-2xl shadow-2xl shadow-accent/20 transition-all active:scale-95 text-xs"
+                  className="w-full brand-cta text-white font-black uppercase tracking-widest py-4 px-6 rounded-2xl shadow-2xl transition-all active:scale-95 text-xs"
                 >
                   {t("cart.proceedCheckout")}
                 </button>
@@ -260,7 +260,7 @@ const CartDrawer = ({
               <div className="space-y-3">
                 <button
                   onClick={handleCheckout}
-                  className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-black uppercase tracking-widest py-4 px-6 rounded-2xl shadow-2xl shadow-accent/20 transition-all active:scale-95 text-[11px]"
+                  className="w-full brand-cta text-white font-black uppercase tracking-widest py-4 px-6 rounded-2xl shadow-2xl transition-all active:scale-95 text-[11px]"
                 >
                   {t("cart.proceedCheckout")}
                 </button>

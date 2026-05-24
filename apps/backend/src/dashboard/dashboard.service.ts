@@ -105,6 +105,8 @@ export class DashboardService {
       ordersByStatus,
       categoryBreakdown,
       ordersByTable,
+      currentNewCustomers,
+      previousNewCustomers,
     ] = await Promise.all([
       useViews
         ? this.getRevenueTrendFromView(restaurantId, periodStart, now, tz)
@@ -120,6 +122,8 @@ export class DashboardService {
       this.getOrdersByStatus(restaurantId, periodStart, now),
       this.getCategoryBreakdown(restaurantId, periodStart, now),
       this.getOrdersByTable(restaurantId, periodStart, now),
+      this.getNewCustomers(restaurantId, periodStart, now),
+      this.getNewCustomers(restaurantId, prevPeriodStart, prevPeriodEnd),
     ]);
 
     const revenueChange =
@@ -140,12 +144,30 @@ export class DashboardService {
           ? 100
           : 0;
 
+    const newCustomersChange =
+      previousNewCustomers > 0
+        ? ((currentNewCustomers - previousNewCustomers) /
+            previousNewCustomers) *
+          100
+        : currentNewCustomers > 0
+          ? 100
+          : 0;
+
     const servedOrders =
       ordersByStatus.find((s) => s.status === 'SERVED')?.count || 0;
     const servedRate =
       currentPeriodStats.totalOrders > 0
         ? (servedOrders / currentPeriodStats.totalOrders) * 100
         : 0;
+
+    const avgOrderValueChange =
+      previousPeriodStats.avgOrderValue > 0
+        ? ((currentPeriodStats.avgOrderValue - previousPeriodStats.avgOrderValue) /
+            previousPeriodStats.avgOrderValue) *
+          100
+        : currentPeriodStats.avgOrderValue > 0
+          ? 100
+          : 0;
 
     const result = {
       period,
@@ -156,9 +178,12 @@ export class DashboardService {
       ordersByTable,
       totalRevenue: currentPeriodStats.totalRevenue,
       totalOrders: currentPeriodStats.totalOrders,
+      newCustomers: currentNewCustomers,
       avgOrderValue: currentPeriodStats.avgOrderValue,
       servedRate: Math.round(servedRate * 10) / 10,
       ordersByStatus,
+      prevPeriodStart: prevPeriodStart.toISOString(),
+      prevPeriodEnd: prevPeriodEnd.toISOString(),
       comparison: {
         revenueChange:
           previousPeriodStats.totalRevenue > 0
@@ -170,6 +195,18 @@ export class DashboardService {
           previousPeriodStats.totalOrders > 0
             ? Math.round(ordersChange * 10) / 10
             : currentPeriodStats.totalOrders > 0
+              ? 100
+              : 0,
+        newCustomersChange:
+          previousNewCustomers > 0
+            ? Math.round(newCustomersChange * 10) / 10
+            : currentNewCustomers > 0
+              ? 100
+              : 0,
+        avgOrderValueChange:
+          previousPeriodStats.avgOrderValue > 0
+            ? Math.round(avgOrderValueChange * 10) / 10
+            : currentPeriodStats.avgOrderValue > 0
               ? 100
               : 0,
       },
@@ -321,6 +358,64 @@ export class DashboardService {
           ? Math.round(((result._sum.totalPrice || 0) / result._count) * 100) /
             100
           : 0,
+    };
+  }
+
+  private async getNewCustomers(restaurantId: string, start: Date, end: Date) {
+    const result = await this.prisma.order.groupBy({
+      by: ['customerPhone'],
+      _count: true,
+      where: {
+        restaurantId,
+        customerPhone: { not: '' },
+        status: { not: OrderStatus.CANCELED },
+        createdAt: { gte: start, lte: end },
+      },
+    });
+    return result.length;
+  }
+
+  async getPaymentsSummary(
+    restaurantId: string,
+    startDateStr?: string,
+    endDateStr?: string,
+  ) {
+    const dateFilter: { gte?: Date; lte?: Date } = {};
+    if (startDateStr) dateFilter.gte = new Date(startDateStr);
+    if (endDateStr) {
+      const end = new Date(endDateStr);
+      end.setHours(23, 59, 59, 999);
+      dateFilter.lte = end;
+    }
+
+    const where = {
+      restaurantId,
+      ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}),
+    };
+
+    const [collected, refunded, byMethod] = await Promise.all([
+      this.prisma.payment.aggregate({
+        _sum: { amount: true },
+        where: { ...where, status: 'SUCCEEDED' },
+      }),
+      this.prisma.payment.aggregate({
+        _sum: { amount: true },
+        where: { ...where, status: 'REFUNDED' },
+      }),
+      this.prisma.payment.groupBy({
+        by: ['provider'],
+        _sum: { amount: true },
+        where: { ...where, status: 'SUCCEEDED' },
+      }),
+    ]);
+
+    return {
+      totalCollected: Math.round((collected._sum.amount || 0) * 100) / 100,
+      refundAmount: Math.round((refunded._sum.amount || 0) * 100) / 100,
+      byMethod: byMethod.map((m) => ({
+        method: m.provider,
+        amount: Math.round((m._sum.amount || 0) * 100) / 100,
+      })),
     };
   }
 

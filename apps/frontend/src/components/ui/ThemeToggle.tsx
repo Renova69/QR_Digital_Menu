@@ -46,8 +46,8 @@ export const ThemeToggle = ({ storageKey = 'theme', defaultTheme = 'light', size
             aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
         >
             <div className="relative overflow-hidden w-5 h-5 flex items-center justify-center">
-                <Sun className={`absolute h-5 w-5 text-accent transition-all duration-500 transform ${theme === 'dark' ? 'translate-y-0 rotate-0 opacity-100' : 'translate-y-10 rotate-90 opacity-0'}`} />
-                <Moon className={`absolute h-5 w-5 text-accent transition-all duration-500 transform ${theme === 'light' ? 'translate-y-0 rotate-0 opacity-100' : 'translate-y-10 -rotate-90 opacity-0'}`} />
+                <Sun className={`absolute h-5 w-5 text-primary transition-all duration-500 transform ${theme === 'dark' ? 'translate-y-0 rotate-0 opacity-100' : 'translate-y-10 rotate-90 opacity-0'}`} />
+                <Moon className={`absolute h-5 w-5 text-primary transition-all duration-500 transform ${theme === 'light' ? 'translate-y-0 rotate-0 opacity-100' : 'translate-y-10 -rotate-90 opacity-0'}`} />
             </div>
             <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-white/10 to-transparent opacity-0 transition-opacity pointer-events-none"></div>
         </button>

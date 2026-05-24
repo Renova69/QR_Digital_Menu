@@ -15,8 +15,8 @@ type StatusKey = 'NEW' | 'IN_PROGRESS' | 'SERVED' | 'COMPLETED' | 'CANCELED';
 
 const STATUS_STYLE: Record<StatusKey, { icon: React.ElementType; color: string; bg: string; border: string; dot: string; titleKey: string; subtitleKey: string }> = {
   NEW: {
-    icon: Clock, color: 'text-accent', bg: 'bg-accent/10', border: 'border-accent/20',
-    dot: 'bg-accent animate-pulse',
+    icon: Clock, color: 'text-primary', bg: 'bg-primary/10', border: 'border-primary/20',
+    dot: 'bg-primary animate-pulse',
     titleKey: 'orderConfirmation.status.new.title',
     subtitleKey: 'orderConfirmation.status.new.subtitle',
   },
@@ -78,7 +78,7 @@ function OrderProgressStepper({ status, t }: { status: string; t: (k: string) =>
                   done
                     ? 'bg-emerald-400 border-emerald-400'
                     : current
-                    ? 'bg-accent border-accent animate-pulse'
+                    ? 'bg-primary border-primary animate-pulse'
                     : 'bg-background border-border'
                 }`}
               >
@@ -171,8 +171,8 @@ const OrderConfirmationPage = () => {
                 #{orderNumber.slice(-8).toUpperCase()}
               </p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5 text-accent" />
+            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <CheckCircle2 className="w-5 h-5 text-primary" />
             </div>
           </div>
         )}

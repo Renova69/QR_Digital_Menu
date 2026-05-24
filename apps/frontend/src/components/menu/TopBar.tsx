@@ -40,9 +40,9 @@ export function TopBar({
     <div className="sticky top-[2.5rem] z-[25] px-3 pt-3 pb-2">
       <div className="flex items-center gap-2 p-2 rounded-[1.75rem] glass-panel border-white/10 shadow-lg">
         {tableNumber && (
-          <div className="flex items-center gap-1.5 h-9 px-2.5 rounded-xl bg-accent/10 border border-accent/20 flex-shrink-0">
-            <Utensils className="h-4 w-4 text-accent" />
-            <span className="text-sm font-black text-accent">
+          <div className="flex items-center gap-1.5 h-9 px-3 rounded-xl flex-shrink-0" style={{ background: 'var(--gradient-brand)' }}>
+            <Utensils className="h-3.5 w-3.5 text-white" />
+            <span className="text-sm font-bold text-white">
               {tableNumber}
             </span>
           </div>
@@ -56,7 +56,7 @@ export function TopBar({
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={t('publicMenu.search', 'Search')}
             aria-label={t('publicMenu.search', 'Search')}
-            className="w-full pl-9 pr-3 py-2 bg-secondary/50 rounded-xl text-sm font-medium text-foreground placeholder:text-muted-foreground/50 border border-transparent focus:border-accent/30 focus:outline-none transition-colors"
+            className="w-full pl-9 pr-3 py-2 bg-secondary/50 rounded-xl text-sm font-medium text-foreground placeholder:text-muted-foreground/50 border border-transparent focus:border-primary/30 focus:outline-none transition-colors"
           />
         </div>
 
@@ -65,13 +65,13 @@ export function TopBar({
           aria-label={t('publicMenu.filters', 'Filters')}
           className={`relative h-9 w-9 flex items-center justify-center rounded-xl transition-colors flex-shrink-0 ${
             filtersActive
-              ? 'bg-accent/15 ring-1 ring-accent/40 hover:bg-accent/20'
+              ? 'bg-primary/15 ring-1 ring-primary/40 hover:bg-primary/20'
               : 'hover:bg-secondary/60'
           }`}
         >
-          <Filter className={`h-5 w-5 ${filtersActive ? 'text-accent' : 'text-foreground/70'}`} />
+          <Filter className={`h-5 w-5 ${filtersActive ? 'text-primary' : 'text-foreground/70'}`} />
           {filtersActive && (
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-accent rounded-full border-2 border-background" />
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-primary rounded-full border-2 border-background" />
           )}
         </button>
 
@@ -88,7 +88,7 @@ export function TopBar({
               value={selectedLang}
               onChange={(e) => onLanguageChange(e.target.value)}
               aria-label={t('publicMenu.selectLanguage', 'Select language')}
-              className="appearance-none h-9 pl-7 pr-3 bg-secondary/50 rounded-xl text-xs font-black uppercase tracking-wider text-foreground border border-transparent focus:border-accent/30 focus:outline-none cursor-pointer"
+              className="appearance-none h-9 pl-7 pr-3 bg-secondary/50 rounded-xl text-xs font-black uppercase tracking-wider text-foreground border border-transparent focus:border-primary/30 focus:outline-none cursor-pointer"
             >
               {targetLanguages.map((code) => (
                 <option key={code} value={code}>

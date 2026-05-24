@@ -137,7 +137,7 @@ const CategoryRow = ({ category, isSelected, isEditing, editName, onSelect, onEd
       onClick={onSelect}
       className={`group flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all border ${
         isSelected
-          ? 'bg-accent text-white border-accent shadow-sm'
+          ? 'bg-primary text-white border-primary shadow-sm'
           : 'hover:bg-secondary border-transparent text-foreground'
       }`}
     >

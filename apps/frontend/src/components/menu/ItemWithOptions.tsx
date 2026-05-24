@@ -164,8 +164,8 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000"
                         />
                     ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-accent/10">
-                            <span className="text-4xl font-serif font-black text-accent/40">
+                        <div className="w-full h-full flex items-center justify-center bg-primary/10">
+                            <span className="text-4xl font-display font-black text-primary/40">
                                 {itemName[0]}
                             </span>
                         </div>
@@ -176,7 +176,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                 <div className="flex-1 flex flex-col min-w-0 z-10">
                     {/* Name — full line */}
                     <h3
-                        className="text-base font-serif font-black tracking-tight leading-[1.1]"
+                        className="text-base font-display font-black tracking-tight leading-[1.1]"
                         style={{ fontFamily: 'var(--font-heading, inherit)', color: 'var(--theme-text, inherit)' }}
                     >
                         {itemName}
@@ -222,7 +222,8 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                         {ordersEnabled && (
                         <button
                             onClick={handleAddToCart}
-                            className="group/btn relative bg-accent text-white font-black uppercase tracking-[0.12em] text-[11px] py-2.5 px-5 rounded-full shadow-xl hover:shadow-[0_15px_30px_-5px_var(--color-accent)] hover:-translate-y-1 transition-all active:scale-[0.97] flex items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap shrink-0"
+                            className="group/btn relative text-white font-black uppercase tracking-[0.12em] text-[11px] py-2.5 px-5 rounded-full shadow-xl hover:-translate-y-1 transition-all active:scale-[0.97] flex items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap shrink-0"
+                            style={{ background: 'var(--gradient-brand)' }}
                         >
                             <span className="relative z-10">{t('publicMenu.addShort', '+ Add')}</span>
                             <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
@@ -262,15 +263,15 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
 
                     {/* Modal */}
                     <div className="relative w-full max-w-3xl bg-zinc-900 border border-white/10 shadow-2xl rounded-[3rem] overflow-hidden animate-in zoom-in-95 duration-300">
-                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-accent/20 blur-[120px] pointer-events-none" />
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-primary/20 blur-[120px] pointer-events-none" />
 
                         <div className="relative z-10 p-8 sm:p-12 flex flex-col md:flex-row gap-10">
                             <div className="flex-1 flex flex-col justify-center text-center md:text-left">
-                                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent/20 border border-accent/30 w-fit mx-auto md:mx-0 mb-6">
-                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-accent-foreground">{t('publicMenu.pairing.title')}</span>
+                                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/20 border border-primary/30 w-fit mx-auto md:mx-0 mb-6">
+                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary-foreground">{t('publicMenu.pairing.title')}</span>
                                 </div>
 
-                                <h3 className="text-4xl sm:text-5xl font-serif font-black text-white tracking-tighter leading-[0.95] mb-6">
+                                <h3 className="text-4xl sm:text-5xl font-display font-black text-white tracking-tighter leading-[0.95] mb-6">
                                     {t('publicMenu.pairing.completeYour', { name: item.name })}
                                 </h3>
 
@@ -300,20 +301,20 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                                                 {pairing.imageUrl ? (
                                                     <img src={getImageUrl(pairing.imageUrl)} alt={pairingName} loading="lazy" className="w-full h-full object-cover" />
                                                 ) : (
-                                                    <div className="w-full h-full flex items-center justify-center bg-accent/10">
-                                                        <span className="text-xl font-serif font-black text-accent">{pairingName[0]}</span>
+                                                    <div className="w-full h-full flex items-center justify-center bg-primary/10">
+                                                        <span className="text-xl font-display font-black text-primary">{pairingName[0]}</span>
                                                     </div>
                                                 )}
                                             </div>
                                             <div className="flex-grow min-w-0">
-                                                <h4 className="text-lg font-serif font-bold text-white leading-tight truncate">{pairingName}</h4>
-                                                <p className="text-accent font-black text-sm mt-1">+{formatInlineDual(pairing.price, pairing.currency)}</p>
+                                                <h4 className="text-lg font-display font-bold text-white leading-tight truncate">{pairingName}</h4>
+                                                <p className="text-primary font-black text-sm mt-1">+{formatInlineDual(pairing.price, pairing.currency)}</p>
                                             </div>
                                         </div>
 
                                         <button
                                             onClick={() => handlePairingAction(pairing)}
-                                            className="w-full py-3.5 rounded-[1.25rem] bg-white text-black font-black uppercase text-[9px] tracking-[0.2em] transition-all hover:bg-accent hover:text-white"
+                                            className="w-full py-3.5 rounded-[1.25rem] bg-white text-black font-black uppercase text-[9px] tracking-[0.2em] transition-all hover:bg-primary hover:text-white"
                                         >
                                             {t('publicMenu.pairing.addToOrder')}
                                         </button>

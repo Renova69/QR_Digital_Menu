@@ -20,8 +20,8 @@ export function Toggle({ checked, onChange, label, size = "default" }: TogglePro
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}
-      className={`${w} ${h} rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
-        checked ? "bg-accent" : "bg-zinc-300 dark:bg-zinc-700"
+      className={`${w} ${h} rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+        checked ? "bg-primary" : "bg-zinc-300 dark:bg-zinc-700"
       }`}
     >
       <div

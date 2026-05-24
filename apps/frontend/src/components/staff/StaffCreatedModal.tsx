@@ -151,7 +151,7 @@ export default function StaffCreatedModal({
             </p>
             <button
               onClick={handleCopyPin}
-              className="mt-2 inline-flex items-center gap-1 text-sm text-accent hover:underline"
+              className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline"
             >
               <FontAwesomeIcon icon={pinCopied ? faCheck : faCopy} />
               {pinCopied ? t("staff.created.copied") : t("staff.created.copyPin")}
