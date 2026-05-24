@@ -117,8 +117,8 @@ describe('PaymentService', () => {
       };
       mockPrisma.tableSession.findFirst.mockResolvedValue(session);
       mockPrisma.order.findMany.mockResolvedValue([
-        { totalPrice: 15.00 },
-        { totalPrice: 8.50 },
+        { totalPrice: 15.00, items: [] },
+        { totalPrice: 8.50, items: [] },
       ]);
 
       const result = await service.getSessionBill('tok1');

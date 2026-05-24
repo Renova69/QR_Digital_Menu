@@ -52,6 +52,7 @@ let mockPrisma: any;
 const buildMockPrisma = () => ({
   loyaltyAccount: {
     findUnique: jest.fn(),
+    findFirst: jest.fn().mockResolvedValue(null),
     create: jest.fn(),
     findMany: jest.fn().mockResolvedValue([]),
     findUniqueOrThrow: jest.fn(),
@@ -61,7 +62,7 @@ const buildMockPrisma = () => ({
     findFirst: jest.fn(),
     findMany: jest.fn().mockResolvedValue([]),
   },
-  order: { findMany: jest.fn().mockResolvedValue([]) },
+  order: { findMany: jest.fn().mockResolvedValue([]), groupBy: jest.fn().mockResolvedValue([]) },
   loyaltyPointBatch: {
     findMany: jest.fn().mockResolvedValue([]),
     updateMany: jest.fn(),

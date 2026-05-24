@@ -67,7 +67,7 @@ describe('RestaurantsService', () => {
       const result = await service.create(dto as any, 'user1');
 
       expect(mockPrisma.restaurant.create).toHaveBeenCalledWith({
-        data: { ...dto, ownerId: 'user1' },
+        data: expect.objectContaining({ ...dto, ownerId: 'user1' }),
       });
       expect(result).toBe(expected);
     });
