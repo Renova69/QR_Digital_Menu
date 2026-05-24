@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { updateOnboardingStep, createCheckoutSession } from '../../lib/api';
+import { updateOnboardingStep, createCheckoutSession, getSubscriptionStatus } from '../../lib/api';
 import PlanPickerStep from './steps/PlanPickerStep';
 import RestaurantBasicsStep from './steps/RestaurantBasicsStep';
 import TableSetupStep from './steps/TableSetupStep';
@@ -9,25 +9,25 @@ import PaymentSetupStep from './steps/PaymentSetupStep';
 import FinishStep from './steps/FinishStep';
 
 type Tier = 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
+type Billing = 'monthly' | 'yearly';
+type Step = 'plan' | 'basics' | 'stripe-pending' | 'stripe-confirming' | 'tables' | 'payment' | 'done';
+
 const PAID_TIERS: Tier[] = ['STARTER', 'PROFESSIONAL', 'ENTERPRISE'];
 const PAYMENT_TIERS: Tier[] = ['PROFESSIONAL', 'ENTERPRISE'];
+const VALID_TIERS: Tier[] = ['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'];
 
-type Step = 'plan' | 'basics' | 'stripe-pending' | 'tables' | 'payment' | 'done';
-
-const STEP_LABELS: Record<Step, string> = {
+const STEP_LABELS: Record<'plan' | 'basics' | 'tables' | 'payment' | 'done', string> = {
   plan: 'Choose plan',
   basics: 'Restaurant info',
-  'stripe-pending': 'Subscription',
   tables: 'Tables',
   payment: 'Payments',
   done: 'Done',
 };
 
-function getSteps(tier: Tier, needsPlanPicker: boolean): Step[] {
-  const steps: Step[] = [];
-  if (needsPlanPicker) steps.push('plan');
+function getVisibleSteps(tier: Tier, hasPlanPicker: boolean): Array<'plan' | 'basics' | 'tables' | 'payment' | 'done'> {
+  const steps: Array<'plan' | 'basics' | 'tables' | 'payment' | 'done'> = [];
+  if (hasPlanPicker) steps.push('plan');
   steps.push('basics');
-  if (PAID_TIERS.includes(tier)) steps.push('stripe-pending');
   steps.push('tables');
   if (PAYMENT_TIERS.includes(tier)) steps.push('payment');
   steps.push('done');
@@ -35,52 +35,98 @@ function getSteps(tier: Tier, needsPlanPicker: boolean): Step[] {
 }
 
 export default function OnboardingPage() {
-  const { user, updateUser } = useAuth();
+  const { user, isLoading, updateUser } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const stripeResult = searchParams.get('stripe'); // 'success' | 'cancel'
+  const stripeResult = searchParams.get('stripe');   // 'success' | 'cancel'
+  const connectResult = searchParams.get('connect'); // 'success' | 'refresh'
+
+  // Stable — captured once at mount, never recomputed
+  const [hasPlanPicker] = useState(() => !sessionStorage.getItem('selectedPlan'));
 
   const [selectedTier, setSelectedTier] = useState<Tier>(() => {
     const stored = sessionStorage.getItem('selectedPlan') as Tier | null;
-    return stored && ['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'].includes(stored)
-      ? stored
-      : 'FREE';
+    return stored && VALID_TIERS.includes(stored) ? stored : 'FREE';
   });
 
-  const needsPlanPicker = !sessionStorage.getItem('selectedPlan');
+  const [billing, setBilling] = useState<Billing>(() => {
+    return (sessionStorage.getItem('onboardingBilling') as Billing) || 'monthly';
+  });
+
   const [step, setStep] = useState<Step>(() => {
-    if (stripeResult) return 'tables';
-    return needsPlanPicker ? 'plan' : 'basics';
+    if (connectResult === 'success') return 'done';
+    if (connectResult === 'refresh') return 'payment';
+    if (stripeResult === 'success') return 'stripe-confirming';
+    if (stripeResult === 'cancel') return 'tables';
+    return hasPlanPicker ? 'plan' : 'basics';
   });
 
-  const [restaurantId, setRestaurantId] = useState<string | null>(null);
-  const [restaurantName, setRestaurantName] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [restaurantId] = useState<string>(() => sessionStorage.getItem('onboardingRestaurantId') || '');
+  const [restaurantName] = useState<string>(() => sessionStorage.getItem('onboardingRestaurantName') || '');
 
+  const [activeRestaurantId, setActiveRestaurantId] = useState(restaurantId);
+  const [activeRestaurantName, setActiveRestaurantName] = useState(restaurantName);
+
+  const [loading, setLoading] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auth guard
   useEffect(() => {
-    if (!user) return;
+    if (isLoading) return;
+    if (!user) {
+      navigate('/login', { replace: true });
+      return;
+    }
     if (user.onboardingComplete) {
       navigate('/dashboard', { replace: true });
     }
-  }, [user, navigate]);
+  }, [user, isLoading, navigate]);
 
+  // On Stripe cancel: downgrade to FREE
   useEffect(() => {
     if (stripeResult === 'cancel') {
       setSelectedTier('FREE');
-      sessionStorage.removeItem('selectedPlan');
+      sessionStorage.setItem('selectedPlan', 'FREE');
     }
   }, [stripeResult]);
 
-  const steps = getSteps(selectedTier, needsPlanPicker);
-  const currentIndex = steps.indexOf(step);
-  const visibleSteps = steps.filter((s) => s !== 'stripe-pending');
-  const visibleIndex = visibleSteps.indexOf(step === 'stripe-pending' ? 'basics' : step);
+  // Poll subscription status after Stripe success to wait for webhook
+  useEffect(() => {
+    if (step !== 'stripe-confirming') return;
+
+    let retries = 0;
+    const MAX_RETRIES = 20;
+
+    const poll = async () => {
+      try {
+        const status = await getSubscriptionStatus();
+        if (status.tier && status.tier !== 'FREE') {
+          const newTier = status.tier as Tier;
+          setSelectedTier(newTier);
+          sessionStorage.setItem('selectedPlan', newTier);
+          setStep('tables');
+          return;
+        }
+      } catch (_) {}
+
+      retries++;
+      if (retries < MAX_RETRIES) {
+        pollRef.current = setTimeout(poll, 1000);
+      } else {
+        setStep('tables');
+      }
+    };
+
+    poll();
+
+    return () => {
+      if (pollRef.current) clearTimeout(pollRef.current);
+    };
+  }, [step]);
 
   const persistStep = async (s: Step) => {
-    try {
-      await updateOnboardingStep(s);
-    } catch (_) {}
+    try { await updateOnboardingStep(s); } catch (_) {}
   };
 
   const handlePlanSelected = (tier: Tier) => {
@@ -88,21 +134,24 @@ export default function OnboardingPage() {
     sessionStorage.setItem('selectedPlan', tier);
   };
 
-  const handlePlanNext = () => {
-    setStep('basics');
+  const handleBillingChange = (b: Billing) => {
+    setBilling(b);
+    sessionStorage.setItem('onboardingBilling', b);
   };
 
-  const handleRestaurantCreated = async (id: string, name: string) => {
-    setRestaurantId(id);
-    setRestaurantName(name);
-    sessionStorage.setItem('onboardingRestaurantId', id);
+  const handlePlanNext = () => setStep('basics');
 
-    const tier = selectedTier;
-    if (PAID_TIERS.includes(tier)) {
+  const handleRestaurantCreated = async (id: string, name: string) => {
+    setActiveRestaurantId(id);
+    setActiveRestaurantName(name);
+    sessionStorage.setItem('onboardingRestaurantId', id);
+    sessionStorage.setItem('onboardingRestaurantName', name);
+
+    if (PAID_TIERS.includes(selectedTier)) {
       await persistStep('stripe-pending');
       setLoading(true);
       try {
-        const { url } = await createCheckoutSession(tier, 'monthly', true);
+        const { url } = await createCheckoutSession(selectedTier, billing, true);
         window.location.href = url;
       } catch (_) {
         setLoading(false);
@@ -129,17 +178,30 @@ export default function OnboardingPage() {
     await updateOnboardingStep('done');
     if (user) updateUser({ ...user, onboardingComplete: true });
     sessionStorage.removeItem('selectedPlan');
+    sessionStorage.removeItem('onboardingBilling');
     sessionStorage.removeItem('onboardingRestaurantId');
+    sessionStorage.removeItem('onboardingRestaurantName');
     navigate('/dashboard', { replace: true });
   };
 
-  const activeRestaurantId =
-    restaurantId || sessionStorage.getItem('onboardingRestaurantId') || '';
+  const visibleSteps = getVisibleSteps(selectedTier, hasPlanPicker);
+  const displayStep = (step === 'stripe-pending' || step === 'stripe-confirming') ? 'basics' : step;
+  const visibleIndex = visibleSteps.indexOf(displayStep as 'plan' | 'basics' | 'tables' | 'payment' | 'done');
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  const isRedirecting = step === 'stripe-pending' || step === 'stripe-confirming' || loading;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border px-6 py-4 flex items-center justify-between">
+      <header className="border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           <span className="text-lg font-display font-bold text-foreground">QR Menu</span>
           <span className="text-muted-foreground/40">·</span>
@@ -151,22 +213,22 @@ export default function OnboardingPage() {
       </header>
 
       {/* Progress bar */}
-      {step !== 'stripe-pending' && (
-        <div className="border-b border-border px-6 py-3">
-          <div className="max-w-2xl mx-auto flex items-center gap-2">
+      {!isRedirecting && (
+        <div className="border-b border-border px-6 py-3 shrink-0">
+          <div className="max-w-2xl mx-auto flex items-center">
             {visibleSteps.map((s, i) => {
-              const active = s === step;
-              const done = i < visibleIndex;
+              const isActive = s === step;
+              const isDone = i < visibleIndex;
               return (
-                <div key={s} className="flex items-center gap-2">
+                <div key={s} className="flex items-center flex-1 min-w-0">
                   {i > 0 && (
-                    <div className={`h-px flex-1 w-8 ${done ? 'bg-primary' : 'bg-border'}`} />
+                    <div className={`h-px flex-1 mx-2 ${isDone ? 'bg-primary/50' : 'bg-border'}`} />
                   )}
-                  <div className={`flex items-center gap-1.5 text-xs font-semibold transition-all
-                    ${active ? 'text-primary' : done ? 'text-muted-foreground' : 'text-muted-foreground/50'}`}>
-                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black
-                      ${active ? 'bg-primary text-primary-foreground' : done ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground/50'}`}>
-                      {done ? '✓' : i + 1}
+                  <div className={`flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap
+                    ${isActive ? 'text-primary' : isDone ? 'text-muted-foreground' : 'text-muted-foreground/40'}`}>
+                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0
+                      ${isActive ? 'bg-primary text-primary-foreground' : isDone ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground/40'}`}>
+                      {isDone ? '✓' : i + 1}
                     </span>
                     <span className="hidden sm:inline">{STEP_LABELS[s]}</span>
                   </div>
@@ -180,22 +242,25 @@ export default function OnboardingPage() {
       {/* Content */}
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-12">
         <div className="w-full max-w-2xl">
-
-          {step === 'stripe-pending' || loading ? (
+          {isRedirecting ? (
             <div className="flex flex-col items-center gap-4 py-16 text-center">
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-              <p className="text-sm text-muted-foreground">Redirecting to Stripe…</p>
+              <p className="text-sm text-muted-foreground">
+                {step === 'stripe-confirming'
+                  ? 'Confirming your subscription…'
+                  : 'Redirecting to Stripe…'}
+              </p>
             </div>
           ) : step === 'plan' ? (
             <PlanPickerStep
               selected={selectedTier}
+              billing={billing}
               onSelect={handlePlanSelected}
+              onBillingChange={handleBillingChange}
               onNext={handlePlanNext}
             />
           ) : step === 'basics' ? (
-            <RestaurantBasicsStep
-              onCreated={(id, name) => handleRestaurantCreated(id, name)}
-            />
+            <RestaurantBasicsStep onCreated={handleRestaurantCreated} />
           ) : step === 'tables' ? (
             <TableSetupStep
               restaurantId={activeRestaurantId}
@@ -205,16 +270,17 @@ export default function OnboardingPage() {
           ) : step === 'payment' ? (
             <PaymentSetupStep
               restaurantId={activeRestaurantId}
+              returnUrl={`${window.location.origin}/onboarding?connect=success`}
+              refreshUrl={`${window.location.origin}/onboarding?connect=refresh`}
               onNext={handlePaymentNext}
               onSkip={handlePaymentNext}
             />
           ) : step === 'done' ? (
             <FinishStep
-              restaurantName={restaurantName || 'your restaurant'}
+              restaurantName={activeRestaurantName || 'your restaurant'}
               onDone={handleDone}
             />
           ) : null}
-
         </div>
       </main>
     </div>

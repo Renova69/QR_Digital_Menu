@@ -379,8 +379,8 @@ export const getTableSessions = async (restaurantId: string) => {
   return body.data;
 };
 
-export const generateStripeConnectLink = async (restaurantId: string) => {
-  const response = await api.post(`/restaurants/${restaurantId}/stripe/connect`);
+export const generateStripeConnectLink = async (restaurantId: string, returnUrl?: string, refreshUrl?: string) => {
+  const response = await api.post(`/restaurants/${restaurantId}/stripe/connect`, { returnUrl, refreshUrl });
   return response.data as { url: string };
 };
 

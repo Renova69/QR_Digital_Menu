@@ -133,8 +133,13 @@ export class RestaurantsController {
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   @UseGuards(FeatureGuard)
   @Post(':id/stripe/connect')
-  generateConnectLink(@Param('id') id: string, @Request() req: any) {
-    return this.restaurantsService.generateConnectLink(id, req.user.id);
+  generateConnectLink(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body('returnUrl') returnUrl?: string,
+    @Body('refreshUrl') refreshUrl?: string,
+  ) {
+    return this.restaurantsService.generateConnectLink(id, req.user.id, returnUrl, refreshUrl);
   }
 
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)

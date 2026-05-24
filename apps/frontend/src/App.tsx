@@ -98,7 +98,6 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/auth/callback" element={<OAuthCallbackPage />} />
-              <Route path="/onboarding" element={<OnboardingPage />} />
               <Route
                 path="/profile"
                 element={
@@ -160,6 +159,9 @@ function App() {
                 }
               />
             </Route>
+
+            {/* Onboarding — full-screen, no app chrome */}
+            <Route path="/onboarding" element={<OnboardingPage />} />
 
             <Route path="/device-enroll" element={<DeviceEnrollPage />} />
             <Route path="/device-login" element={<DeviceLoginPage />} />

@@ -5,11 +5,6 @@ const DASHBOARD_LANGUAGES = [
   { value: 'en', label: 'English' },
   { value: 'bg', label: 'Bulgarian' },
   { value: 'ro', label: 'Romanian' },
-  { value: 'de', label: 'German' },
-  { value: 'fr', label: 'French' },
-  { value: 'es', label: 'Spanish' },
-  { value: 'it', label: 'Italian' },
-  { value: 'el', label: 'Greek' },
 ];
 
 interface Props {
