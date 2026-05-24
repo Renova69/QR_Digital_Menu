@@ -38,7 +38,7 @@ const TIMEZONES = [
 ];
 
 const inputCls =
-  "w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/50 transition-all";
+  "w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all";
 
 interface GeneralSettingsTabProps {
   address: string;
@@ -148,7 +148,7 @@ const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
                   onClick={() => handleLanguageToggle(lang.code)}
                   className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
                     targetLanguages.includes(lang.code)
-                      ? "bg-accent/15 text-accent border-accent/30"
+                      ? "bg-primary/15 text-primary border-primary/30"
                       : "bg-secondary text-foreground border-border hover:bg-secondary/80"
                   }`}
                 >

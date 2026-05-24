@@ -67,7 +67,7 @@ export const BrandingEditor = ({ restaurant, onUpdate }: { restaurant: any, onUp
     <>
       {ToastComponent}
       <div className="glass-panel p-8 rounded-[2rem] border-white/5 mt-10">
-        <h3 className="text-xl font-serif font-black mb-8 text-foreground tracking-tight">{t('branding.title')}</h3>
+        <h3 className="text-xl font-display font-black mb-8 text-foreground tracking-tight">{t('branding.title')}</h3>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           <form onSubmit={handleUpdate} className="space-y-8">
@@ -174,7 +174,7 @@ export const BrandingEditor = ({ restaurant, onUpdate }: { restaurant: any, onUp
               <select
                 value={timezone}
                 onChange={(e) => setTimezone(e.target.value)}
-                className="w-full h-11 px-3 border border-border rounded-xl bg-background text-sm focus:ring-accent focus:border-accent"
+                className="w-full h-11 px-3 border border-border rounded-xl bg-background text-sm focus:ring-primary focus:border-primary"
               >
                 <option value="UTC">UTC (GMT+0)</option>
                 <option value="Europe/Sofia">Europe/Sofia (GMT+2/3)</option>

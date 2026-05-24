@@ -43,7 +43,7 @@ const NotificationBell = () => {
       >
         <Bell className="w-6 h-6 text-muted-foreground" />
         {unreadCount > 0 && (
-          <span className="absolute top-1.5 right-1.5 bg-accent text-accent-foreground text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 shadow-lg shadow-accent/30">
+          <span className="absolute top-1.5 right-1.5 text-white text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 shadow-lg" style={{ background: 'var(--gradient-brand)' }}>
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -70,7 +70,7 @@ const NotificationBell = () => {
               {notifications.map((n) => (
                 <div
                   key={n.id}
-                  className={`p-4 hover:bg-secondary/40 transition-colors ${!n.read ? 'bg-accent/5' : ''}`}
+                  className={`p-4 hover:bg-secondary/40 transition-colors ${!n.read ? 'bg-primary/5' : ''}`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">

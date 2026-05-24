@@ -42,7 +42,7 @@ export default function CookieConsentBanner() {
       <div className="flex items-center gap-3 flex-wrap">
         <button
           onClick={accept}
-          className="px-4 py-2 rounded-lg bg-accent text-white text-xs font-semibold hover:bg-accent/90 transition-colors"
+          className="px-4 py-2 rounded-lg brand-cta text-white text-xs font-semibold hover:opacity-90 transition-colors"
         >
           {t("gdpr.cookieBannerAccept")}
         </button>

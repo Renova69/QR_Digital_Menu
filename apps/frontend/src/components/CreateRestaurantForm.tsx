@@ -38,7 +38,7 @@ const CreateRestaurantForm: React.FC = () => {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-xl border border-input bg-background/50 backdrop-blur-sm px-4 py-3 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all shadow-inner"
+              className="w-full rounded-xl border border-input bg-background/50 backdrop-blur-sm px-4 py-3 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all shadow-inner"
               placeholder="e.g. The Golden Spatula"
               required
             />
@@ -49,7 +49,7 @@ const CreateRestaurantForm: React.FC = () => {
               type="text"
               value={country}
               onChange={(e) => setCountry(e.target.value)}
-              className="w-full rounded-xl border border-input bg-background/50 backdrop-blur-sm px-4 py-3 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all shadow-inner"
+              className="w-full rounded-xl border border-input bg-background/50 backdrop-blur-sm px-4 py-3 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all shadow-inner"
               placeholder="e.g. United States"
               required
             />
@@ -61,7 +61,7 @@ const CreateRestaurantForm: React.FC = () => {
                 <select
                     value={dashboardLanguage}
                     onChange={(e) => setDashboardLanguage(e.target.value)}
-                    className="w-full rounded-xl border border-input bg-background/50 backdrop-blur-sm px-4 py-3 text-sm text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all shadow-inner cursor-pointer"
+                    className="w-full rounded-xl border border-input bg-background/50 backdrop-blur-sm px-4 py-3 text-sm text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all shadow-inner cursor-pointer"
                 >
                     <option value="en">English</option>
                     <option value="bg">Български (Bulgarian)</option>
@@ -82,7 +82,7 @@ const CreateRestaurantForm: React.FC = () => {
           
           <button 
             type="submit"
-            className="w-full bg-accent hover:bg-yellow-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 active:scale-95"
+            className="w-full brand-cta text-white font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 active:scale-95"
           >
             Create Restaurant
           </button>

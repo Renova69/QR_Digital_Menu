@@ -14,7 +14,7 @@ export default function PosSeatSelector() {
           onClick={() => setActiveSeat(seat)}
           className={`shrink-0 px-4 py-2 rounded-full text-xs font-semibold min-h-[44px] transition-none ${
             activeSeat === seat
-              ? "bg-accent text-accent-foreground"
+              ? "bg-primary text-white"
               : "bg-card border border-border text-foreground"
           }`}
         >

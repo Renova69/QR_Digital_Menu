@@ -43,7 +43,7 @@ export const ItemList: React.FC = () => {
   if (isLoadingItems) {
     return (
       <div className="flex justify-center p-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -100,7 +100,7 @@ const ItemRow = ({ item, onDelete, onOpenOptions, onToggleFeatured, isConfirming
   t: any;
 }) => {
   return (
-    <div className="p-4 bg-card border border-border rounded-lg shadow-sm hover:border-accent/30 transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group">
+    <div className="p-4 bg-card border border-border rounded-lg shadow-sm hover:border-primary/30 transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group">
       <div className="flex items-start gap-3 flex-1">
         {/* Drag handle - only this triggers drag */}
         <span
@@ -132,7 +132,7 @@ const ItemRow = ({ item, onDelete, onOpenOptions, onToggleFeatured, isConfirming
             </div>
             <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{item.description}</p>
             <div className="flex items-center gap-3 mt-2">
-                <span className="font-bold text-accent">
+                <span className="font-bold text-primary">
                     {item.currency === 'BGN' ? 'лв' : '€'}{item.price.toFixed(2)}
                 </span>
                 {item.allergens && item.allergens.length > 0 && (

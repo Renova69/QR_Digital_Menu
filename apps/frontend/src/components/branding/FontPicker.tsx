@@ -47,7 +47,7 @@ export const FontPicker: React.FC<FontPickerProps> = ({ label, value, onChange }
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full text-left px-4 py-3 border border-border rounded-xl bg-background text-foreground flex justify-between items-center focus:ring-2 focus:ring-accent/50"
+        className="w-full text-left px-4 py-3 border border-border rounded-xl bg-background text-foreground flex justify-between items-center focus:ring-2 focus:ring-primary/50"
         style={{ fontFamily: value }}
       >
         <span>{value}</span>
@@ -72,7 +72,7 @@ export const FontPicker: React.FC<FontPickerProps> = ({ label, value, onChange }
                       onChange(font.name);
                       setIsOpen(false);
                     }}
-                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${value === font.name ? 'bg-accent/10 text-accent font-bold' : 'hover:bg-muted text-foreground'}`}
+                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${value === font.name ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-muted text-foreground'}`}
                   >
                     <span style={{ fontFamily: font.name }}>{font.name}</span>
                   </button>

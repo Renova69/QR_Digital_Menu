@@ -42,6 +42,7 @@ export interface AnalyticsData {
   peakHours: PeakHour[];
   totalRevenue: number;
   totalOrders: number;
+  newCustomers: number;
   avgOrderValue: number;
   servedRate: number;
   ordersByStatus: OrderStatusBreakdown[];
@@ -50,16 +51,27 @@ export interface AnalyticsData {
   comparison: {
     revenueChange: number;
     ordersChange: number;
+    newCustomersChange: number;
+    avgOrderValueChange: number;
   };
+  prevPeriodStart?: string;
+  prevPeriodEnd?: string;
 }
 
-export const useAnalytics = (restaurantId: string | undefined, period: number, startDate?: string, endDate?: string) => {
+export const useAnalytics = (
+  restaurantId: string | undefined,
+  period: number,
+  startDate?: string,
+  endDate?: string,
+  enabled = true,
+) => {
   return useQuery<AnalyticsData>({
     queryKey: ['analytics', restaurantId, period, startDate, endDate],
     queryFn: () => getAnalytics(restaurantId!, period, startDate, endDate),
-    enabled: !!restaurantId,
-    staleTime: 0,
-    refetchInterval: 30000,   // Silent background polling every 30s
+    enabled: !!restaurantId && enabled,
+    staleTime: 30_000,
+    placeholderData: (prev) => prev,
+    refetchInterval: 30_000,
     refetchOnWindowFocus: false,
   });
 };

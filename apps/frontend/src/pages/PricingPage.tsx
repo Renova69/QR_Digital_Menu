@@ -35,7 +35,7 @@ function FeatureCell({ val }: { val: boolean | string }) {
     return <span className="text-sm font-medium text-foreground">{val}</span>;
   }
   return val ? (
-    <span className="text-accent font-bold text-base">✓</span>
+    <span className="text-primary font-bold text-base">✓</span>
   ) : (
     <span className="text-muted-foreground/40 text-base">—</span>
   );
@@ -221,7 +221,7 @@ export default function PricingPage() {
 
         {/* Hero */}
         <div className="text-center mb-14">
-          <h1 className="text-5xl md:text-7xl font-serif font-black text-foreground tracking-tighter mb-4">
+          <h1 className="text-5xl md:text-7xl font-display font-black text-foreground tracking-tighter mb-4">
             {t('pricing.title', 'Simple Pricing')}
           </h1>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto mb-8">
@@ -245,7 +245,7 @@ export default function PricingPage() {
               }`}
             >
               {t('pricing.billing.yearly', 'Yearly')}
-              <span className="bg-accent text-accent-foreground text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide whitespace-nowrap">
+              <span className="text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide whitespace-nowrap" style={{ background: 'var(--gradient-brand)' }}>
                 {t('pricing.billing.saveAnnual', 'Save 15%')}
               </span>
             </button>
@@ -270,13 +270,13 @@ export default function PricingPage() {
                 key={tier.key}
                 className={`relative flex flex-col rounded-3xl border p-8 transition-all ${
                   tier.highlight
-                    ? 'border-accent shadow-2xl shadow-accent/10 bg-card scale-105'
-                    : 'border-border bg-card hover:border-accent/40 hover:shadow-lg'
+                    ? 'border-primary shadow-2xl shadow-primary/10 bg-card scale-105'
+                    : 'border-border bg-card hover:border-primary/40 hover:shadow-lg'
                 }`}
               >
                 {tier.highlight && (
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
-                    <span className="bg-accent text-accent-foreground px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-lg whitespace-nowrap">
+                    <span className="text-white px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-lg whitespace-nowrap" style={{ background: 'var(--gradient-brand)' }}>
                       {t('pricing.popular', 'Most Popular')}
                     </span>
                   </div>
@@ -293,7 +293,7 @@ export default function PricingPage() {
                     )}
                   </div>
                   {billing === 'yearly' && tier.monthly > 0 && (
-                    <p className="text-xs text-accent mt-1 font-semibold">
+                    <p className="text-xs text-primary mt-1 font-semibold">
                       {t('pricing.billing.saveAnnual', 'Save 15%')} vs monthly
                     </p>
                   )}
@@ -302,7 +302,7 @@ export default function PricingPage() {
                 <ul className="flex-1 space-y-2.5 mb-8">
                   {tier.bullets.map((f, i) => (
                     <li key={i} className="flex items-start gap-2.5 text-sm text-foreground">
-                      <span className="text-accent font-bold mt-0.5 flex-shrink-0">✓</span>
+                      <span className="text-primary font-bold mt-0.5 flex-shrink-0">✓</span>
                       {f}
                     </li>
                   ))}
@@ -328,7 +328,7 @@ export default function PricingPage() {
                       disabled={!!loading || !!isCurrentTier}
                       className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all disabled:opacity-50 ${
                         isCurrentTier
-                          ? 'bg-accent/20 text-accent cursor-default'
+                          ? 'bg-primary/20 text-primary cursor-default'
                           : tier.highlight
                           ? 'bg-foreground text-background hover:opacity-80'
                           : 'bg-secondary text-foreground hover:bg-secondary/80'
@@ -345,7 +345,7 @@ export default function PricingPage() {
 
         {/* Feature comparison table */}
         <div className="mb-20">
-          <h2 className="text-3xl font-serif font-black text-foreground tracking-tight text-center mb-8">
+          <h2 className="text-3xl font-display font-black text-foreground tracking-tight text-center mb-8">
             {t('pricing.comparison.title', 'Compare all features')}
           </h2>
           <div className="overflow-x-auto rounded-2xl border border-border">
@@ -391,7 +391,7 @@ export default function PricingPage() {
 
         {/* FAQ */}
         <div className="mb-20 max-w-3xl mx-auto">
-          <h2 className="text-3xl font-serif font-black text-foreground tracking-tight text-center mb-8">
+          <h2 className="text-3xl font-display font-black text-foreground tracking-tight text-center mb-8">
             {t('pricing.faq.title', 'Frequently asked questions')}
           </h2>
           <div className="space-y-2">

@@ -42,7 +42,7 @@ export const CreateCategoryForm: React.FC = () => {
             id="isDrinkCategory"
             checked={isDrinkCategory}
             onChange={(e) => setIsDrinkCategory(e.target.checked)}
-            className="w-4 h-4 rounded border-border text-accent focus:ring-accent"
+            className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
           />
           <label htmlFor="isDrinkCategory" className="text-[12px] font-bold text-foreground">
             This is a Beverage Category

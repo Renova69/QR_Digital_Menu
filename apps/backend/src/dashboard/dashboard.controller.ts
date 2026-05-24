@@ -51,6 +51,22 @@ export class DashboardController {
   }
 
   @UseGuards(JwtAuthGuard, FeatureGuard)
+  @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
+  @Get('payments-summary')
+  async getPaymentsSummary(
+    @AuthUser() user: any,
+    @Query('restaurantId') restaurantId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    if (!restaurantId) {
+      throw new BadRequestException('restaurantId is required');
+    }
+    await this.verifyDashboardAccess(user, restaurantId);
+    return this.dashboardService.getPaymentsSummary(restaurantId, startDate, endDate);
+  }
+
+  @UseGuards(JwtAuthGuard, FeatureGuard)
   @RequireFeature(FeatureFlag.ANALYTICS_FULL)
   @Get('analytics')
   async getAnalytics(

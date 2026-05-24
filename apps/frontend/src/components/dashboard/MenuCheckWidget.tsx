@@ -65,12 +65,12 @@ export const MenuCheckWidget = () => {
 
       <div className="flex justify-between items-start mb-6 relative z-10">
         <div>
-          <h3 className="text-xl font-serif font-black text-foreground tracking-tight">{t('menuCheck.title')}</h3>
+          <h3 className="text-xl font-display font-black text-foreground tracking-tight">{t('menuCheck.title')}</h3>
           <p className="text-sm text-muted-foreground mt-1">{t('menuCheck.subtitle')}</p>
         </div>
         <button
             onClick={fetchAudit}
-            className="text-xs font-bold uppercase tracking-widest text-accent hover:text-accent/80 transition-colors"
+            className="text-xs font-bold uppercase tracking-widest text-primary hover:text-primary/80 transition-colors"
         >
           {t('menuCheck.rescan')}
         </button>

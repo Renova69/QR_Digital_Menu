@@ -8,7 +8,7 @@ import StaffCreatedModal from "../../../components/staff/StaffCreatedModal";
 import { useFeature, useTier } from "../../../hooks/useFeature";
 
 const inputCls =
-  "w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/50 transition-all";
+  "w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all";
 
 interface StaffSettingsTabProps {
   activeRestaurant: any;
@@ -290,7 +290,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>{t('staff.staffCount', 'Staff members')}: <strong className="text-foreground">{staffMembers.filter(s => s.role !== 'OWNER').length}</strong> / {staffLimit === Infinity ? '∞' : staffLimit}</span>
           {staffMembers.filter(s => s.role !== 'OWNER').length >= staffLimit && staffLimit !== Infinity && (
-            <a href="/pricing" className="text-accent text-xs font-medium hover:underline">{t('tierLocked.upgrade', 'Upgrade for more')}</a>
+            <a href="/pricing" className="text-primary text-xs font-medium hover:underline">{t('tierLocked.upgrade', 'Upgrade for more')}</a>
           )}
         </div>
 
@@ -303,7 +303,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
               <div>
                 <p className="text-sm font-medium text-foreground">{t('staff.noRolesAvailable', 'Staff roles locked')}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{t('staff.noRolesDesc', 'Upgrade to Professional to invite managers, or Enterprise for waiters and kitchen staff.')}</p>
-                <a href="/pricing" className="text-xs text-accent font-medium hover:underline mt-1 inline-block">{t('tierLocked.upgrade', 'View plans')}</a>
+                <a href="/pricing" className="text-xs text-primary font-medium hover:underline mt-1 inline-block">{t('tierLocked.upgrade', 'View plans')}</a>
               </div>
             </div>
           ) : (
@@ -385,7 +385,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                             <button
                               type="button"
                               onClick={() => handleRebondStaff(s.name || "Staff")}
-                              className="text-muted-foreground hover:text-accent transition-colors"
+                              className="text-muted-foreground hover:text-primary transition-colors"
                               title={t("staff.rebondTitle")}
                             >
                               <QrCode className="w-4 h-4" />

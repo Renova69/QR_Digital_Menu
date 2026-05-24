@@ -68,9 +68,8 @@ export const createOrder = async (orderData: any) => {
     return response.data;
 }
 
-export const getOrders = async () => {
-    const response = await api.get('/orders');
-    // Unwrap paginated response — { data, total, page, totalPages } → array
+export const getOrders = async (params?: { startDate?: string; endDate?: string; page?: number; limit?: number }) => {
+    const response = await api.get('/orders', { params });
     return response.data?.data ?? response.data;
 }
 
@@ -132,7 +131,7 @@ export const getTableOrders = async (tableId: string, restaurantId: string) => {
     status: string;
     specialRequests: string | null;
     createdAt: string;
-    items: Array<{ name: string; quantity: number }>;
+    items: Array<{ name: string; quantity: number; totalPrice?: number; options?: string[] }>;
   }>;
 };
 
@@ -154,9 +153,36 @@ export const getTableStatuses = async (restaurantId: string) => {
 // Analytics
 export const getAnalytics = async (restaurantId: string, period: number, startDate?: string, endDate?: string) => {
   const response = await api.get('/dashboard/analytics', {
-    params: { restaurantId, period, ...(startDate && { startDate }), ...(endDate && { endDate }) },
+    params: {
+      restaurantId,
+      period: (startDate && endDate) ? 30 : period,
+      ...(startDate && { startDate }),
+      ...(endDate && { endDate }),
+    },
   });
   return response.data;
+};
+
+export const getPaymentSummary = async (restaurantId: string, startDate?: string, endDate?: string) => {
+  const response = await api.get('/dashboard/payments-summary', {
+    params: { restaurantId, ...(startDate && { startDate }), ...(endDate && { endDate }) },
+  });
+  return response.data as {
+    totalCollected: number;
+    refundAmount: number;
+    byMethod: { method: string; amount: number }[];
+  };
+};
+
+export const getLoyaltyAnalytics = async (restaurantId: string) => {
+  const response = await api.get(`/loyalty/${restaurantId}/analytics`);
+  return response.data as {
+    totalMembers: number;
+    totalPointsOutstanding: number;
+    totalPointsRedeemed: number;
+    repeatRate: number;
+    topMember: { name: string; points: number } | null;
+  };
 };
 
 export const getPaymentHistory = (

@@ -1,6 +1,6 @@
 import { useState, useRef, useContext, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { type LucideIcon, LayoutDashboard, ShoppingBag, Bell, Table2, Settings, BarChart2, CreditCard, ChefHat, Monitor, Upload, Utensils, HelpCircle, Lock } from 'lucide-react';
+import { useSearchParams, Link } from 'react-router-dom';
+import { type LucideIcon, LayoutDashboard, ShoppingBag, Bell, Table2, Settings, BarChart2, CreditCard, ChefHat, Monitor, Upload, Utensils, HelpCircle, Lock, QrCode, Zap, LogOut, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrderContext';
 import { useAssistance } from '../context/AssistanceContext';
@@ -9,7 +9,6 @@ import AssistanceView from './Dashboard/AssistanceView';
 import TableView from '../components/tables/TableView';
 import RestaurantContext from '../context/RestaurantContext';
 import CreateRestaurantForm from '../components/CreateRestaurantForm';
-import { Link } from 'react-router-dom';
 import SummaryView from './Dashboard/SummaryView';
 import AnalyticsView from './Dashboard/AnalyticsView';
 import SettingsView from './Dashboard/SettingsView';
@@ -23,6 +22,7 @@ import { NotificationProvider } from '../context/NotificationContext';
 import SubscriptionBanner from '../components/subscription/SubscriptionBanner';
 import UpgradeModal from '../components/subscription/UpgradeModal';
 import { useFeature, type FeatureFlag } from '../hooks/useFeature';
+import { ThemeToggle } from '../components/ui/ThemeToggle';
 
 type TabId = 'summary' | 'analytics' | 'orders' | 'payments' | 'assistance' | 'tables' | 'settings' | 'import' | 'help';
 
@@ -37,8 +37,14 @@ const BOTTOM_NAV_TABS: { id: TabId; Icon: LucideIcon; labelKey: string }[] = [
 
 const VALID_TABS: TabId[] = ['summary', 'analytics', 'orders', 'payments', 'assistance', 'tables', 'settings', 'import', 'help'];
 
+const DASHBOARD_LANGUAGES = [
+  { code: 'bg', label: 'BG' },
+  { code: 'en', label: 'EN' },
+  { code: 'ro', label: 'RO' },
+];
+
 const DashboardPage = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { orders } = useOrders();
   const { requests } = useAssistance();
   const { activeRestaurant, restaurants, loading: restaurantsLoading, error: restaurantsError }: any = useContext(RestaurantContext);
@@ -85,20 +91,22 @@ const DashboardPage = () => {
 
   if (restaurantsLoading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-[50vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent" />
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent" />
       </div>
     );
   }
 
   if (restaurantsError) {
-    return <div className="p-8">Error loading restaurants.</div>;
+    return <div className="p-8 text-muted-foreground">Error loading restaurants.</div>;
   }
 
   if (restaurants.length === 0) {
     return (
-      <div className="p-8 max-w-4xl mx-auto pt-32">
-        <CreateRestaurantForm />
+      <div className="min-h-screen premium-bg flex items-center justify-center p-4">
+        <div className="w-full max-w-xl">
+          <CreateRestaurantForm />
+        </div>
       </div>
     );
   }
@@ -112,180 +120,211 @@ const DashboardPage = () => {
     hidden?: boolean;
   }> = [
     { id: 'summary'    as TabId, Icon: LayoutDashboard, label: t('dashboard.tabs.summary'),      feature: null,                 locked: false },
-    { id: 'analytics'  as TabId, Icon: BarChart2,        label: t('dashboard.tabs.analytics'),    feature: 'analytics:full',     locked: !canAnalytics },
     { id: 'orders'     as TabId, Icon: ShoppingBag,      label: t('dashboard.tabs.orders'),       feature: 'orders:receive',     locked: !canOrders },
-    { id: 'payments'   as TabId, Icon: CreditCard,       label: t('dashboard.tabs.payments'),     feature: 'payments:stripe',    locked: !canPayments, hidden: !paymentsEnabled },
     { id: 'assistance' as TabId, Icon: Bell,             label: t('dashboard.tabs.assistance'),   feature: 'orders:call-waiter', locked: !canAssistance },
     { id: 'tables'     as TabId, Icon: Table2,           label: t('dashboard.tabs.tables'),       feature: null,                 locked: false },
+    { id: 'payments'   as TabId, Icon: CreditCard,       label: t('dashboard.tabs.payments'),     feature: 'payments:stripe',    locked: !canPayments, hidden: !paymentsEnabled },
+    { id: 'analytics'  as TabId, Icon: BarChart2,        label: t('dashboard.tabs.analytics'),    feature: 'analytics:full',     locked: !canAnalytics },
     { id: 'settings'   as TabId, Icon: Settings,         label: t('dashboard.tabs.settings'),     feature: null,                 locked: false },
     { id: 'import'     as TabId, Icon: Upload,           label: t('dashboard.tabs.importExport'), feature: null,                 locked: false },
   ];
 
+  const userName = user?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
+  const restaurantName = activeRestaurant?.name || '';
+
   return (
-    <div
-      className="pt-28 pb-8 md:pb-12 px-4 md:px-6 lg:px-8 max-w-7xl mx-auto min-h-screen"
-      style={{ paddingBottom: 'max(2rem, calc(env(safe-area-inset-bottom, 0px) + 5.5rem))' }}
-    >
-      {/* Page header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-6 animate-in fade-in slide-in-from-top-4 duration-700">
-        <div>
-          <h1 className="text-4xl md:text-7xl font-serif font-black text-foreground tracking-tighter mb-2 md:mb-3 leading-none">
-            {t('dashboard.title')}
-          </h1>
-          {user && (
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 bg-accent rounded-full" />
-              <p className="text-muted-foreground font-bold tracking-widest text-[10px] uppercase opacity-50">
-                {t('dashboard.welcome', { name: user.name || user.email })}
-              </p>
+    <div className="flex h-screen overflow-hidden bg-background">
+
+      {/* ── FIXED LEFT SIDEBAR (desktop) ── */}
+      <aside className="hidden md:flex flex-col w-[260px] shrink-0 sidebar-dark h-full overflow-y-auto hide-scrollbar z-40">
+        {/* Wordmark */}
+        <div className="px-5 py-5 border-b border-border/40">
+          <Link to="/" className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--brand)' }}>
+              <QrCode className="w-4 h-4 text-white" />
             </div>
-          )}
+            <span className="text-sm font-display font-bold brand-gradient-text tracking-tight">QR MENU</span>
+          </Link>
         </div>
-        <div className="flex flex-wrap items-center gap-3 md:gap-4">
-          {activeRestaurant && (
-            <a
-              href={`/menu/public/${activeRestaurant.id}?table=1`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group relative bg-foreground text-background px-5 md:px-8 py-3 md:py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-2xl hover:shadow-[0_20px_40px_-10px_var(--color-primary)] hover:-translate-y-1 flex items-center gap-2 md:gap-3 overflow-hidden"
+
+        {/* Main nav */}
+        <nav className="flex-1 px-3 py-4 space-y-0.5" aria-label="Dashboard navigation">
+          {desktopNavItems.map(({ id, Icon, label, feature, locked, hidden }) => {
+            if (hidden) return null;
+            const badge = getBadge(id);
+            const isActive = !locked && activeTab === id;
+            return (
+              <button
+                key={id}
+                onClick={() => locked ? (feature && setLockedFeatureClicked(feature)) : setActiveTab(id)}
+                aria-current={isActive ? 'page' : undefined}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer ${
+                  locked
+                    ? 'text-foreground/25 hover:bg-muted/30'
+                    : isActive
+                    ? 'text-white font-semibold'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                }`}
+                style={isActive ? { background: 'var(--brand)', boxShadow: '0 6px 16px -6px rgba(110, 86, 248, 0.55)' } : {}}
+              >
+                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : ''}`} />
+                <span className="flex-1 text-left truncate">{label}</span>
+                {!locked && badge > 0 && (
+                  <span className="text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 text-white" style={{ background: 'var(--brand)' }}>
+                    {badge > 9 ? '9+' : badge}
+                  </span>
+                )}
+                {locked && <Lock className="w-3.5 h-3.5 shrink-0 opacity-30" />}
+              </button>
+            );
+          })}
+
+          <div className="pt-4 mt-4 border-t border-border/40 space-y-0.5">
+            <Link
+              to="/dashboard/menu"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all"
             >
-              <span className="relative z-10">{t('dashboard.viewPublicMenu')}</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 relative z-10 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-              <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            </a>
-          )}
-          {paymentsEnabled && <NotificationBell />}
+              <Utensils className="w-4 h-4 shrink-0" />
+              <span className="truncate">{t('dashboard.tabs.menuEditor')}</span>
+            </Link>
+            {canPos ? (
+              <Link to="/staff/pos" className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all">
+                <Monitor className="w-4 h-4 shrink-0" />
+                <span className="flex-1 truncate">{t('dashboard.tabs.pos')}</span>
+              </Link>
+            ) : (
+              <button onClick={() => setLockedFeatureClicked('pos')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground/25 hover:bg-muted/30 cursor-pointer transition-all">
+                <Monitor className="w-4 h-4 shrink-0" />
+                <span className="flex-1 truncate">{t('dashboard.tabs.pos')}</span>
+                <Lock className="w-3.5 h-3.5 opacity-40" />
+              </button>
+            )}
+            {canKds ? (
+              <Link to="/staff/kitchen" className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all">
+                <ChefHat className="w-4 h-4 shrink-0" />
+                <span className="flex-1 truncate">{t('dashboard.tabs.kitchen')}</span>
+              </Link>
+            ) : (
+              <button onClick={() => setLockedFeatureClicked('kds')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground/25 hover:bg-muted/30 cursor-pointer transition-all">
+                <ChefHat className="w-4 h-4 shrink-0" />
+                <span className="flex-1 truncate">{t('dashboard.tabs.kitchen')}</span>
+                <Lock className="w-3.5 h-3.5 opacity-40" />
+              </button>
+            )}
+            <button
+              onClick={() => setActiveTab('help')}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all cursor-pointer"
+            >
+              <HelpCircle className="w-4 h-4 shrink-0" />
+              <span className="truncate">{t('dashboard.tabs.help')}</span>
+            </button>
+          </div>
+        </nav>
+
+        {/* Pro Plan card */}
+        <div className="px-3 pb-4">
+          <div className="rounded-2xl p-4" style={{ background: 'var(--gradient-brand-soft)', border: '1px solid rgba(110, 86, 248, 0.2)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <Zap className="w-4 h-4 text-primary" />
+              <span className="text-xs font-bold text-foreground">Pro Plan</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">
+              {t('dashboard.proCard', 'Unlock analytics, loyalty & more')}
+            </p>
+            <button
+              onClick={() => setLockedFeatureClicked('analytics:full')}
+              className="w-full py-2 rounded-xl text-[11px] font-bold text-white transition-all hover:opacity-90 cursor-pointer"
+              style={{ background: 'var(--brand)' }}
+            >
+              {t('dashboard.upgrade', 'Upgrade Plan')}
+            </button>
+          </div>
+
+          {/* User footer */}
+          <div className="mt-3 flex items-center gap-3 px-2">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ background: 'var(--brand)' }}>
+              {userName.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-foreground truncate">{user?.name || user?.email}</p>
+              <p className="text-[10px] text-muted-foreground truncate">{user?.role}</p>
+            </div>
+            <button
+              onClick={() => { logout(); }}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all cursor-pointer"
+              aria-label="Logout"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
-      </div>
+      </aside>
 
-      {user ? (
-        <NotificationProvider>
-          <SubscriptionBanner />
+      {/* ── MAIN CONTENT ── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-          {/* Main panel — sidebar + content on desktop, stacked on mobile */}
-          <div className="glass-panel rounded-[2rem] md:rounded-[3rem] min-h-[70vh] border-white/10 dark:border-white/5 animate-in fade-in slide-in-from-bottom-8 duration-1000 overflow-hidden relative shadow-2xl flex flex-col md:flex-row">
+        {/* Top header bar */}
+        <header className="hidden md:flex items-center justify-between px-6 py-3 bg-card border-b border-border/60 shrink-0">
+          <div>
+            <p className="text-sm font-semibold text-foreground">
+              {t('dashboard.welcomeBack', 'Welcome back')}, <span className="font-bold">{userName}</span>
+            </p>
+            {restaurantName && (
+              <p className="text-xs text-muted-foreground">
+                {t('dashboard.happeningAt', "Here's what's happening at")} {restaurantName}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <select
+              value={i18n.language?.slice(0, 2) ?? 'en'}
+              onChange={(e) => void i18n.changeLanguage(e.target.value)}
+              className="h-8 px-3 rounded-xl text-xs font-bold uppercase tracking-widest text-foreground/70 cursor-pointer bg-secondary border border-border hover:bg-muted transition-all"
+            >
+              {DASHBOARD_LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>{l.label}</option>
+              ))}
+            </select>
+            <ThemeToggle size="sm" />
+            {paymentsEnabled && <NotificationBell />}
+            {activeRestaurant && (
+              <a
+                href={`/menu/public/${activeRestaurant.id}?table=1`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="h-8 flex items-center gap-1.5 px-3 rounded-xl text-[11px] font-bold text-white hover:opacity-90 transition-all"
+                style={{ background: 'var(--brand)' }}
+              >
+                <Users className="w-3.5 h-3.5" />
+                {t('dashboard.viewPublicMenu', 'View Menu')}
+              </a>
+            )}
+          </div>
+        </header>
 
-            {/* Ambient glow orbs */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 blur-[100px] pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-80 h-80 bg-accent/5 blur-[120px] pointer-events-none" />
+        {/* Mobile top bar */}
+        <header className="md:hidden flex items-center justify-between px-4 py-3 bg-card border-b border-border/60 shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'var(--brand)' }}>
+              <QrCode className="w-3.5 h-3.5 text-white" />
+            </div>
+            <span className="text-sm font-display font-bold brand-gradient-text">QR MENU</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle size="sm" />
+            {paymentsEnabled && <NotificationBell />}
+          </div>
+        </header>
 
-            {/* ── Desktop sidebar nav (hidden on mobile) ── */}
-            <aside className="hidden md:flex flex-col w-56 shrink-0 border-r border-border/50 py-6 px-3 relative z-10">
-              <nav className="flex-1 space-y-0.5" aria-label={t('dashboard.title')}>
-                {desktopNavItems.map(({ id, Icon, label, feature, locked, hidden }) => {
-                  if (hidden) return null;
-                  const badge = getBadge(id);
-                  const isActive = !locked && activeTab === id;
-                  return (
-                    <button
-                      key={id}
-                      onClick={() => locked ? (feature && setLockedFeatureClicked(feature)) : setActiveTab(id)}
-                      aria-current={isActive ? 'page' : undefined}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 border cursor-pointer ${
-                        locked
-                          ? 'text-muted-foreground/50 border-transparent hover:bg-secondary/30'
-                          : isActive
-                          ? 'bg-accent/10 text-accent border-accent/20'
-                          : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground border-transparent'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4 shrink-0" />
-                      <span className="flex-1 text-left truncate">{label}</span>
-                      {!locked && badge > 0 && (
-                        <span className="bg-accent text-accent-foreground text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 shadow-sm shadow-accent/20">
-                          {badge > 9 ? '9+' : badge}
-                        </span>
-                      )}
-                      {locked && <Lock className="w-3.5 h-3.5 shrink-0 opacity-40" />}
-                    </button>
-                  );
-                })}
-              </nav>
+        {/* Scrollable content area */}
+        <main className="flex-1 overflow-y-auto hide-scrollbar bg-background">
+          <div className="p-4 md:p-6 pb-24 md:pb-8" style={{ minHeight: '100%' }}>
+            {user ? (
+              <NotificationProvider>
+                <SubscriptionBanner />
 
-              {/* Divider + external tool links (always visible, regardless of plan) */}
-              <div className="mt-4 pt-4 border-t border-border/50 space-y-0.5">
-                <Link
-                  to="/dashboard/menu"
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent transition-all duration-150"
-                >
-                  <Utensils className="w-4 h-4 shrink-0" />
-                  <span className="truncate">{t('dashboard.tabs.menuEditor')}</span>
-                </Link>
-                {canPos ? (
-                  <Link
-                    to="/staff/pos"
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent transition-all duration-150"
-                  >
-                    <Monitor className="w-4 h-4 shrink-0" />
-                    <span className="flex-1 truncate">{t('dashboard.tabs.pos')}</span>
-                  </Link>
-                ) : (
-                  <button
-                    onClick={() => setLockedFeatureClicked('pos')}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground/50 hover:bg-secondary/30 border border-transparent transition-all duration-150 cursor-pointer"
-                  >
-                    <Monitor className="w-4 h-4 shrink-0" />
-                    <span className="flex-1 truncate">{t('dashboard.tabs.pos')}</span>
-                    <Lock className="w-3.5 h-3.5 shrink-0 opacity-40" />
-                  </button>
-                )}
-                {canKds ? (
-                  <Link
-                    to="/staff/kitchen"
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent transition-all duration-150"
-                  >
-                    <ChefHat className="w-4 h-4 shrink-0" />
-                    <span className="flex-1 truncate">{t('dashboard.tabs.kitchen')}</span>
-                  </Link>
-                ) : (
-                  <button
-                    onClick={() => setLockedFeatureClicked('kds')}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground/50 hover:bg-secondary/30 border border-transparent transition-all duration-150 cursor-pointer"
-                  >
-                    <ChefHat className="w-4 h-4 shrink-0" />
-                    <span className="flex-1 truncate">{t('dashboard.tabs.kitchen')}</span>
-                    <Lock className="w-3.5 h-3.5 shrink-0 opacity-40" />
-                  </button>
-                )}
-                <Link
-                  to="/dashboard?tab=help"
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent transition-all duration-150"
-                >
-                  <HelpCircle className="w-4 h-4 shrink-0" />
-                  <span className="truncate">{t('dashboard.tabs.help')}</span>
-                </Link>
-              </div>
-            </aside>
-
-            {/* ── Content area ── */}
-            <div className="flex-1 min-w-0 p-4 sm:p-6 md:p-10 relative z-10">
-
-              {/* Mobile tab label — shows current tab name */}
-              <div className="flex md:hidden items-center justify-between mb-6">
-                <h2 className="text-lg font-black uppercase tracking-[0.15em] text-foreground">
-                  {t(`dashboard.tabs.${activeTab}`)}
-                </h2>
                 {activeTab === 'summary' && activeRestaurant && (
-                  <Link
-                    to="/dashboard/menu"
-                    className="text-[10px] font-black uppercase tracking-widest text-accent border border-accent/20 px-3 py-1.5 rounded-xl hover:bg-accent/10 transition-colors"
-                  >
-                    {t('dashboard.tabs.menuEditor')}
-                  </Link>
-                )}
-              </div>
-
-              {/* Tab content */}
-              <div>
-                {activeTab === 'summary' && activeRestaurant && (
-                  <div className="space-y-8 md:space-y-12">
-                    <SummaryView
-                      onViewAnalytics={canAnalytics ? () => setActiveTab('analytics') : undefined}
-                      onViewHelp={() => setActiveTab('help')}
-                    />
-                  </div>
+                  <SummaryView />
                 )}
                 {activeTab === 'analytics' && activeRestaurant && canAnalytics && <AnalyticsView />}
                 {activeTab === 'orders' && <OrdersView />}
@@ -295,28 +334,22 @@ const DashboardPage = () => {
                 {activeTab === 'settings' && activeRestaurant && <SettingsView />}
                 {activeTab === 'import' && activeRestaurant && <MenuImportExportView />}
                 {activeTab === 'help' && activeRestaurant && <HelpView />}
+
+                <PaymentToast />
+                <UpgradeModal feature={lockedFeatureClicked} onClose={() => setLockedFeatureClicked(null)} />
+              </NotificationProvider>
+            ) : (
+              <div className="glass-panel p-20 text-center rounded-[2rem]">
+                <p className="text-xl font-display font-bold text-muted-foreground">{t('common.pleaseLogin')}</p>
               </div>
-            </div>
+            )}
           </div>
+        </main>
+      </div>
 
-          <PaymentToast />
-          <UpgradeModal feature={lockedFeatureClicked} onClose={() => setLockedFeatureClicked(null)} />
-        </NotificationProvider>
-      ) : (
-        <div className="glass-panel p-20 text-center rounded-[3rem]">
-          <p className="text-2xl font-serif font-bold text-muted-foreground">{t('common.pleaseLogin')}</p>
-        </div>
-      )}
-
-      {/* Mobile bottom navigation — unchanged */}
-      <nav
-        className="fixed bottom-0 inset-x-0 z-50 md:hidden"
-        aria-label="Mobile navigation"
-      >
-        <div
-          className="glass-panel border-t border-white/10 bg-background/95 backdrop-blur-2xl"
-          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-        >
+      {/* Mobile bottom nav */}
+      <nav className="fixed bottom-0 inset-x-0 z-50 md:hidden" aria-label="Mobile navigation">
+        <div className="bg-card border-t border-border/60" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
           <div className="flex items-stretch h-16">
             {BOTTOM_NAV_TABS.filter(tab => !(tab.id === 'payments' && !paymentsEnabled)).map(({ id, Icon, labelKey }) => {
               const mobileFeatureMap: Partial<Record<TabId, FeatureFlag>> = {
@@ -333,49 +366,41 @@ const DashboardPage = () => {
                   key={id}
                   onClick={() => isLocked ? (tabFeature && setLockedFeatureClicked(tabFeature)) : setActiveTab(id)}
                   className={`flex-1 flex flex-col items-center justify-center gap-0.5 relative transition-colors active:scale-95 ${
-                    isLocked ? 'text-muted-foreground/40' : isActive ? 'text-accent' : 'text-muted-foreground'
+                    isLocked ? 'text-foreground/25' : isActive ? 'text-primary' : 'text-muted-foreground'
                   }`}
                   aria-current={isActive ? 'page' : undefined}
                 >
                   {isActive && (
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-accent" />
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full" style={{ background: 'var(--brand)' }} />
                   )}
                   <div className="relative">
                     <Icon className="w-[22px] h-[22px]" />
                     {!isLocked && badge > 0 && (
-                      <span className="absolute -top-1.5 -right-2 bg-accent text-accent-foreground text-[9px] font-black min-w-[16px] h-4 rounded-full flex items-center justify-center px-0.5 shadow-lg shadow-accent/30">
+                      <span className="absolute -top-1.5 -right-2 text-[9px] font-black min-w-[16px] h-4 rounded-full flex items-center justify-center px-0.5 text-white" style={{ background: 'var(--brand)' }}>
                         {badge > 9 ? '9+' : badge}
                       </span>
                     )}
                     {isLocked && <Lock className="absolute -bottom-1 -right-1 w-3 h-3 opacity-60" />}
                   </div>
-                  <span className="text-[9px] font-bold uppercase tracking-wide leading-none">
-                    {t(labelKey)}
-                  </span>
+                  <span className="text-[9px] font-bold uppercase tracking-wide leading-none">{t(labelKey)}</span>
                 </button>
               );
             })}
-
-            {/* Analytics shortcut */}
             <button
               onClick={() => canAnalytics ? setActiveTab('analytics') : setLockedFeatureClicked('analytics:full')}
               className={`flex-1 flex flex-col items-center justify-center gap-0.5 relative transition-colors active:scale-95 ${
-                canAnalytics
-                  ? activeTab === 'analytics' ? 'text-accent' : 'text-muted-foreground'
-                  : 'text-muted-foreground/40'
+                canAnalytics ? (activeTab === 'analytics' ? 'text-primary' : 'text-muted-foreground') : 'text-foreground/25'
               }`}
               aria-current={canAnalytics && activeTab === 'analytics' ? 'page' : undefined}
             >
               {canAnalytics && activeTab === 'analytics' && (
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-accent" />
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full" style={{ background: 'var(--brand)' }} />
               )}
               <div className="relative">
                 <BarChart2 className="w-[22px] h-[22px]" />
                 {!canAnalytics && <Lock className="absolute -bottom-1 -right-1 w-3 h-3 opacity-60" />}
               </div>
-              <span className="text-[9px] font-bold uppercase tracking-wide leading-none">
-                {t('dashboard.tabs.stats')}
-              </span>
+              <span className="text-[9px] font-bold uppercase tracking-wide leading-none">{t('dashboard.tabs.stats')}</span>
             </button>
           </div>
         </div>

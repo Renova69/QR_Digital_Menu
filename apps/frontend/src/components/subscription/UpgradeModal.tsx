@@ -130,18 +130,18 @@ export default function UpgradeModal({ feature, onClose }: Props) {
           </button>
 
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0">
-              <Lock className="w-5 h-5 text-accent" />
+            <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+              <Lock className="w-5 h-5 text-primary" />
             </div>
             <div className="flex items-center gap-2">
-              <Sparkles className="w-3.5 h-3.5 text-accent" />
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
               <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                 {t('upgrade.premiumFeature', 'Premium Feature')}
               </p>
             </div>
           </div>
 
-          <h2 className="text-2xl md:text-3xl font-serif font-black text-foreground tracking-tight mb-1">
+          <h2 className="text-2xl md:text-3xl font-display font-black text-foreground tracking-tight mb-1">
             {t('upgrade.unlockTitle', 'Unlock {{feature}}', { feature: featureLabel })}
           </h2>
           <p className="text-sm text-muted-foreground">
@@ -163,15 +163,15 @@ export default function UpgradeModal({ feature, onClose }: Props) {
                 key={key}
                 className={`relative flex flex-col rounded-2xl border p-4 transition-all ${
                   isRecommended
-                    ? 'border-accent bg-accent/5 shadow-lg shadow-accent/10'
+                    ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
                     : isBelow
                     ? 'border-border/40 bg-secondary/20 opacity-50'
-                    : 'border-border bg-card hover:border-accent/30'
+                    : 'border-border bg-card hover:border-primary/30'
                 }`}
               >
                 {isRecommended && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-                    <span className="bg-accent text-accent-foreground px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow whitespace-nowrap">
+                    <span className="text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow whitespace-nowrap" style={{ background: 'var(--gradient-brand)' }}>
                       {t('upgrade.recommended', 'Recommended')}
                     </span>
                   </div>
@@ -193,7 +193,7 @@ export default function UpgradeModal({ feature, onClose }: Props) {
                 <ul className="flex-1 space-y-1.5 mb-4">
                   {bullets.map((b) => (
                     <li key={b} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                      <Check className={`w-3 h-3 mt-0.5 shrink-0 ${isRecommended ? 'text-accent' : 'text-muted-foreground/60'}`} />
+                      <Check className={`w-3 h-3 mt-0.5 shrink-0 ${isRecommended ? 'text-primary' : 'text-muted-foreground/60'}`} />
                       {b}
                     </li>
                   ))}

@@ -179,7 +179,7 @@ export default function PosTableModal() {
           {session && (
             <button
               type="button"
-              className="w-full mb-4 py-2 px-4 rounded-lg bg-accent text-accent-foreground font-medium min-h-[44px]"
+              className="w-full mb-4 py-2 px-4 rounded-lg brand-cta text-white font-medium min-h-[44px]"
               onClick={() => setOpen(false)}
             >
               Back to POS — {session.tableName}
@@ -194,7 +194,7 @@ export default function PosTableModal() {
 
           {loading ? (
             <div className="flex justify-center py-8">
-              <div className="animate-spin h-6 w-6 border-2 border-accent border-t-transparent rounded-full" />
+              <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
             </div>
           ) : error ? (
             <div className="flex flex-col items-center py-8">
@@ -209,7 +209,7 @@ export default function PosTableModal() {
                     .catch(() => setError("Failed to load tables. Check your connection."))
                     .finally(() => setLoading(false));
                 }}
-                className="px-4 py-2 rounded-lg bg-accent text-accent-foreground text-sm min-h-[44px]"
+                className="px-4 py-2 rounded-lg brand-cta text-white text-sm min-h-[44px]"
               >
                 Retry
               </button>

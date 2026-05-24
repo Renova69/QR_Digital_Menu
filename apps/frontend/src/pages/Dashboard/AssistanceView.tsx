@@ -34,7 +34,7 @@ const AssistanceView = () => {
     <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
       <div className="flex flex-col sm:flex-row justify-between items-end mb-12 gap-6">
         <div>
-          <h2 className="text-4xl font-serif font-black text-foreground tracking-tighter mb-2">{t('assistance.title')}</h2>
+          <h2 className="text-4xl font-display font-black text-foreground tracking-tighter mb-2">{t('assistance.title')}</h2>
           <div className="flex items-center gap-3">
               <div className="flex items-center gap-2.5 bg-destructive/10 px-4 py-2 rounded-xl border border-destructive/10 shadow-lg shadow-destructive/5 animate-pulse">
                   <span className="text-sm font-black text-destructive">{activeRequests.length}</span>
@@ -50,7 +50,7 @@ const AssistanceView = () => {
 
       {activeRequests.length === 0 ? (
         <div className="text-center text-muted-foreground py-32 glass-panel rounded-[3rem] border-white/5 shadow-inner">
-          <p className="font-serif font-black text-3xl mb-3 italic opacity-20">{t('assistance.noActive')}</p>
+          <p className="font-display font-black text-3xl mb-3 italic opacity-20">{t('assistance.noActive')}</p>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-30">All guests are currently assisted</p>
         </div>
       ) : (
@@ -59,7 +59,7 @@ const AssistanceView = () => {
             <div key={request.id} className="glass-panel p-8 rounded-[2.5rem] border-destructive/20 flex flex-col sm:flex-row justify-between items-center gap-8 hover:shadow-[0_20px_50px_-15px_hsla(var(--color-destructive),0.2)] transition-all duration-700 group animate-in zoom-in-95">
               <div className="text-center sm:text-left">
                 <p className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-40 mb-1">{t('orders.table', { id: '' })}</p>
-                <p className="text-5xl font-serif font-black text-foreground tracking-tighter uppercase leading-none">{request.tableId}</p>
+                <p className="text-5xl font-display font-black text-foreground tracking-tighter uppercase leading-none">{request.tableId}</p>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-60 mt-3 italic">{new Date(request.createdAt).toLocaleTimeString()}</p>
               </div>
               <div className="flex flex-col gap-3 w-full sm:w-auto">
@@ -90,13 +90,13 @@ const AssistanceView = () => {
                     <div className="flex items-center gap-6">
                       <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center font-black text-lg">{request.tableId}</div>
                       <div>
-                        <p className="font-serif font-black text-foreground uppercase tracking-tight">{t('assistance.resolvedAt', { time: new Date(request.updatedAt).toLocaleTimeString() })}</p>
+                        <p className="font-display font-black text-foreground uppercase tracking-tight">{t('assistance.resolvedAt', { time: new Date(request.updatedAt).toLocaleTimeString() })}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-6">
                         <button 
                             onClick={() => handleReopen(request.id)} 
-                            className="text-[10px] font-black uppercase tracking-[0.2em] text-accent hover:text-accent/80 transition-colors"
+                            className="text-[10px] font-black uppercase tracking-[0.2em] text-primary hover:text-primary/80 transition-colors"
                         >
                           {t('assistance.reopen')}
                         </button>

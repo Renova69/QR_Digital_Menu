@@ -31,7 +31,7 @@ export default function PosSplitBill({ total }: PosSplitBillProps) {
         >
           +
         </button>
-        <span className="ml-auto text-lg font-bold text-accent">
+        <span className="ml-auto text-lg font-bold text-primary">
           €{perPerson.toFixed(2)} / person
         </span>
       </div>

@@ -59,7 +59,7 @@ export const TrendingCarousel: React.FC<TrendingCarouselProps> = ({ restaurantId
   return (
     <div className="mb-10">
       <div className="flex items-center justify-between mb-6 px-4">
-        <h2 className="text-2xl font-serif font-black tracking-tighter flex items-center gap-2">
+        <h2 className="text-2xl font-display font-black tracking-tighter flex items-center gap-2">
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-accent animate-pulse align-middle mr-1" aria-hidden="true" /> {t('publicMenu.trendingNow', 'Trending Now')}
         </h2>
       </div>

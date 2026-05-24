@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { AlertTriangle, Award } from "lucide-react";
 
 const inputCls =
-  "w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/50 transition-all";
+  "w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all";
 
 interface LoyaltySettingsTabProps {
   isLoyaltyEnabled: boolean;
@@ -82,9 +82,9 @@ const LoyaltySettingsTab: React.FC<LoyaltySettingsTabProps> = ({
           {t('loyaltySettings.sectionTitle')}
         </h3>
 
-        <div className="mb-6 p-4 bg-accent/5 border border-accent/20 rounded-xl flex items-center justify-between">
+        <div className="mb-6 p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between">
           <div>
-            <p className="font-bold text-accent">{t('loyaltySettings.enableLoyalty')}</p>
+            <p className="font-bold text-primary">{t('loyaltySettings.enableLoyalty')}</p>
             <p className="text-xs text-muted-foreground mt-1">
               {t('loyaltySettings.enableLoyaltyDesc')}
             </p>
@@ -96,7 +96,7 @@ const LoyaltySettingsTab: React.FC<LoyaltySettingsTabProps> = ({
               checked={isLoyaltyEnabled}
               onChange={(e) => setIsLoyaltyEnabled(e.target.checked)}
             />
-            <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+            <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
           </label>
         </div>
 
@@ -153,8 +153,8 @@ const LoyaltySettingsTab: React.FC<LoyaltySettingsTabProps> = ({
             </div>
 
             {/* Live cashback preview */}
-            <div className="text-xs text-muted-foreground bg-accent/5 border border-accent/10 rounded-lg px-3 py-2">
-              <span className={`font-semibold ${(loyaltyExchangeRate / loyaltyRedeemRate) > 0.15 ? "text-yellow-500" : "text-accent"}`}>
+            <div className="text-xs text-muted-foreground bg-primary/5 border border-primary/10 rounded-lg px-3 py-2">
+              <span className={`font-semibold ${(loyaltyExchangeRate / loyaltyRedeemRate) > 0.15 ? "text-yellow-500" : "text-primary"}`}>
                 {t('loyaltySettings.cashbackInfo', { pct: ((loyaltyExchangeRate / loyaltyRedeemRate) * 100).toFixed(1) })}
               </span>
               {(loyaltyExchangeRate / loyaltyRedeemRate) > 0.15 && (
@@ -279,7 +279,7 @@ const LoyaltySettingsTab: React.FC<LoyaltySettingsTabProps> = ({
                     checked={happyHourEnable}
                     onChange={(e) => setHappyHourEnable(e.target.checked)}
                   />
-                  <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                  <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                 </label>
               </div>
 
@@ -348,7 +348,7 @@ const LoyaltySettingsTab: React.FC<LoyaltySettingsTabProps> = ({
                   checked={notifyAllStaffOnPayment}
                   onChange={(e) => setNotifyAllStaffOnPayment(e.target.checked)}
                 />
-                <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
               </label>
             </div>
           </div>

@@ -46,7 +46,7 @@ const PaymentSettingsTab: React.FC<PaymentSettingsTabProps> = ({
           <button
             type="button"
             onClick={() => setPaymentsEnabled(!paymentsEnabled)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${paymentsEnabled ? 'bg-accent' : 'bg-muted'}`}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${paymentsEnabled ? 'bg-primary' : 'bg-muted'}`}
             role="switch"
             aria-checked={paymentsEnabled}
           >
@@ -108,7 +108,7 @@ const PaymentSettingsTab: React.FC<PaymentSettingsTabProps> = ({
             <button
               type="button"
               onClick={() => setTipsEnabled(!tipsEnabled)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${tipsEnabled ? 'bg-accent' : 'bg-muted'}`}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${tipsEnabled ? 'bg-primary' : 'bg-muted'}`}
               role="switch"
               aria-checked={tipsEnabled}
             >

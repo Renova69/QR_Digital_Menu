@@ -88,7 +88,7 @@ const LiveTablesView: React.FC = () => {
         <p className="text-muted-foreground mb-4">Failed to load tables</p>
         <button
           onClick={() => queryClient.invalidateQueries({ queryKey: ['tableStatuses', restaurantId] })}
-          className="text-accent text-sm font-bold underline"
+          className="text-primary text-sm font-bold underline"
         >
           Retry
         </button>
@@ -116,7 +116,7 @@ const LiveTablesView: React.FC = () => {
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value as FilterMode)}
-            className="text-sm font-medium bg-transparent border border-border/40 rounded-xl px-3 py-1.5 text-foreground focus:outline-none focus:border-accent"
+            className="text-sm font-medium bg-transparent border border-border/40 rounded-xl px-3 py-1.5 text-foreground focus:outline-none focus:border-primary"
           >
             <option value="active">{t('tables.active')} ({activeCount})</option>
             <option value="occupied">{t('tables.occupied')}</option>

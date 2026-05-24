@@ -33,7 +33,7 @@ const CartIcon = ({ categories, restaurantId, selectedLang, tier }: CartIconProp
           className="text-foreground group-hover:scale-110 transition-transform"
         />
         {hasItems && (
-          <span className="absolute -top-1 -right-1 bg-accent text-accent-foreground text-[10px] font-black rounded-full h-5 w-5 flex items-center justify-center shadow-lg border-2 border-zinc-950 dark:border-white">
+          <span className="absolute -top-1 -right-1 text-white text-[10px] font-black rounded-full h-5 w-5 flex items-center justify-center shadow-lg border-2 border-zinc-950 dark:border-white" style={{ background: 'var(--gradient-brand)' }}>
             {getItemCount()}
           </span>
         )}

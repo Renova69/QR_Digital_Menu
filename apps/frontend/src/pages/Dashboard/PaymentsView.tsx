@@ -43,7 +43,7 @@ const PaymentsView = () => {
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="px-4 py-2.5 rounded-xl bg-secondary border border-border text-foreground text-sm font-bold focus:outline-none focus:ring-2 focus:ring-accent/50"
+            className="px-4 py-2.5 rounded-xl bg-secondary border border-border text-foreground text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/50"
           >
             <option value="">All Statuses</option>
             <option value="SUCCEEDED">Succeeded</option>
@@ -70,7 +70,7 @@ const PaymentsView = () => {
 
       {isLoading && (
         <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-accent" />
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary" />
         </div>
       )}
 
@@ -83,7 +83,7 @@ const PaymentsView = () => {
       {data && data.data.length === 0 && !isLoading && (
         <div className="text-center py-20 glass-panel rounded-[3rem]">
           <CreditCard className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="font-serif font-black text-2xl text-muted-foreground/30 italic">
+          <p className="font-display font-black text-2xl text-muted-foreground/30 italic">
             No payments yet
           </p>
         </div>

@@ -1,198 +1,193 @@
-import { useOrders } from "../../context/OrderContext";
-import { useAssistance } from "../../context/AssistanceContext";
-import {
-  TrendingUp,
-  ShoppingCart,
-  Bell,
-  Users,
-  Gift,
-  Star,
-  HelpCircle,
-} from "lucide-react";
+import { useContext } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { MenuCheckWidget } from "../../components/dashboard/MenuCheckWidget";
-import { useEffect, useState, useContext } from "react";
-import api from "../../lib/api";
 import RestaurantContext from "../../context/RestaurantContext";
-import { useTier } from "../../hooks/useFeature";
+import { useOrders } from "../../context/OrderContext";
+import { useFeature } from "../../hooks/useFeature";
+import { useAnalytics } from "../../hooks/useAnalytics";
+import { useSummaryDateRange } from "../../hooks/useSummaryDateRange";
+import { usePaymentSummary } from "../../hooks/usePaymentSummary";
+import { getLoyaltyAnalytics, getOrders, getTableStatuses } from "../../lib/api";
+import { formatEuro } from "../../lib/currency";
+import { TrendingUp, ShoppingCart, BarChart2, CreditCard, Users } from "lucide-react";
+import KpiCard from "../../components/dashboard/KpiCard";
+import DateRangeFilter from "./summary/DateRangeFilter";
+import KpiRow from "./summary/KpiRow";
+import OrdersOverviewChart from "./summary/OrdersOverviewChart";
+import RecentOrdersTable from "./summary/RecentOrdersTable";
+import LiveTablesGrid from "./summary/LiveTablesGrid";
+import TopDishesTable from "./summary/TopDishesTable";
+import PaymentsSummaryCard from "./summary/PaymentsSummaryCard";
+import LoyaltyRetentionCard from "./summary/LoyaltyRetentionCard";
+import QuickActionsRow from "./summary/QuickActionsRow";
 
-interface SummaryViewProps {
-  onViewAnalytics?: () => void;
-  onViewHelp?: () => void;
-}
+const UpgradeBanner = ({ feature }: { feature: string }) => (
+  <div className="glass-panel rounded-[1.5rem] p-8 flex flex-col items-center justify-center gap-3 text-center">
+    <Lock className="w-8 h-8 text-muted-foreground/50" />
+    <p className="text-sm font-bold text-muted-foreground">Upgrade to access {feature}</p>
+    <p className="text-xs text-muted-foreground/70">Available on PRO plan and above</p>
+  </div>
+);
 
-const SummaryView = ({ onViewAnalytics, onViewHelp }: SummaryViewProps) => {
-  const { orders } = useOrders();
-  const { requests } = useAssistance();
-  const { t } = useTranslation();
+const SummaryView = () => {
   const { activeRestaurant } = useContext(RestaurantContext) as any;
-  const [loyaltyData, setLoyaltyData] = useState<any>(null);
-  const { tier } = useTier();
-  const isFree = tier === 'FREE';
+  const { t } = useTranslation();
+  const restaurantId = activeRestaurant?.id;
+  const { orders } = useOrders();
 
-  useEffect(() => {
-    if (activeRestaurant?.id) {
-      api
-        .get(`/loyalty/${activeRestaurant.id}/analytics`)
-        .then((res) => setLoyaltyData(res.data))
-        .catch(console.error);
-    }
-  }, [activeRestaurant]);
+  const canBasic = useFeature("analytics:basic");
+  const canFull = useFeature("analytics:full");
+  const canOrders = useFeature("orders:receive");
+  const canPayments = useFeature("payments:stripe");
+  const canLoyalty = useFeature("loyalty");
 
+  const dateRange = useSummaryDateRange();
+  const { data: analytics } = useAnalytics(
+    restaurantId,
+    dateRange.period,
+    dateRange.startDate,
+    dateRange.endDate,
+    canFull,
+  );
+
+  const { data: paymentSummary } = usePaymentSummary(
+    restaurantId,
+    dateRange.startDate,
+    dateRange.endDate,
+    canPayments,
+  );
+
+  const { data: loyalty } = useQuery({
+    queryKey: ['loyaltyAnalytics', restaurantId],
+    queryFn: () => getLoyaltyAnalytics(restaurantId!),
+    enabled: !!restaurantId && canLoyalty && activeRestaurant?.isLoyaltyEnabled,
+    staleTime: 60_000,
+  });
+
+  const { data: recentOrders } = useQuery({
+    queryKey: ['recentOrders', restaurantId, dateRange.startDate, dateRange.endDate],
+    queryFn: () => getOrders({
+      startDate: dateRange.startDate,
+      endDate: dateRange.endDate,
+      limit: 50,
+    }),
+    enabled: !!restaurantId && canOrders,
+    staleTime: 30_000,
+  });
+
+  const { data: tables } = useQuery({
+    queryKey: ['tableStatuses', restaurantId],
+    queryFn: () => getTableStatuses(restaurantId!),
+    enabled: !!restaurantId && canOrders,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+
+  // FREE tier: compute basic KPIs from orders context
   const totalRevenue = orders
-    .filter((o) => o.status !== "CANCELED")
-    .reduce((sum, order) => sum + order.totalPrice, 0);
+    .filter((o: any) => o.status !== "CANCELED")
+    .reduce((sum: number, o: any) => sum + o.totalPrice, 0);
+  const totalOrders = orders.filter((o: any) => o.status !== "CANCELED").length;
+  const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
-  const pendingOrders = orders.filter((o) => o.status === "NEW").length;
-  const pendingRequests = requests.filter((r) => !r.isResolved).length;
+  const freeKpis = [
+    { label: t("dashboard.totalOrders", "Total Orders"), value: totalOrders.toLocaleString('en-US'), Icon: BarChart2 },
+    { label: t("dashboard.totalRevenue", "Total Revenue"), value: formatEuro(totalRevenue), Icon: TrendingUp },
+    { label: "Orders (QR)", value: totalOrders.toLocaleString('en-US'), Icon: ShoppingCart },
+    { label: t("dashboard.avgOrderValue", "Avg Order"), value: formatEuro(avgOrderValue), Icon: CreditCard },
+    { label: "New Customers", value: "—", Icon: Users },
+  ];
 
   return (
-    <div className="space-y-10">
-      <div className="flex items-end justify-between">
-        <div>
-          <h2 className="text-3xl font-serif font-black text-foreground tracking-tight mb-1">
-            {t("dashboard.overview")}
-          </h2>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-60">
-            {t('summary.statusSnapshot')}
-          </p>
+    <div className="space-y-6">
+      <DateRangeFilter
+        period={dateRange.period}
+        startDate={dateRange.startDate}
+        endDate={dateRange.endDate}
+        label={dateRange.label}
+        onPeriodChange={dateRange.setPeriod}
+        onCustomRange={dateRange.setCustomRange}
+      />
+
+      {/* KPI Row */}
+      {canBasic && analytics ? (
+        <KpiRow data={analytics} showTrends={canFull} />
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          {freeKpis.map((kpi) => (
+            <KpiCard key={kpi.label} label={kpi.label} value={kpi.value} Icon={kpi.Icon} />
+          ))}
         </div>
-        {onViewAnalytics && !isFree && (
-          <button
-            onClick={onViewAnalytics}
-            className="text-[10px] font-black uppercase tracking-[0.2em] text-accent hover:text-accent/80 flex items-center gap-2 transition-all hover:gap-3 px-4 py-2 bg-accent/5 rounded-xl border border-accent/10"
-          >
-            {t("dashboard.viewFullAnalytics")}
-            <TrendingUp className="h-3 w-3" />
-          </button>
+      )}
+
+      {/* Row 2: Chart + Recent Orders + Live Tables */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1.2fr_1fr] gap-5">
+        {!canFull ? (
+          <UpgradeBanner feature="Orders Chart" />
+        ) : analytics ? (
+          <OrdersOverviewChart data={analytics.revenueTrend} />
+        ) : (
+          <div className="glass-panel rounded-[1.5rem] p-5 flex items-center justify-center">
+            <p className="text-xs text-muted-foreground">Loading chart…</p>
+          </div>
+        )}
+        {!canOrders ? (
+          <UpgradeBanner feature="Recent Orders" />
+        ) : (
+          <RecentOrdersTable orders={Array.isArray(recentOrders) ? recentOrders : (recentOrders as any)?.data ?? []} />
+        )}
+        {!canOrders ? (
+          <UpgradeBanner feature="Live Tables" />
+        ) : tables ? (
+          <LiveTablesGrid tables={tables} />
+        ) : (
+          <div className="glass-panel rounded-[1.5rem] p-5 flex items-center justify-center">
+            <p className="text-xs text-muted-foreground">Loading tables…</p>
+          </div>
         )}
       </div>
-      {!isFree && (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="glass-panel p-8 rounded-[2.5rem] border-white/5 group hover:shadow-[0_20px_50px_-15px_hsla(var(--color-accent),0.2)] transition-all duration-500">
-          <div className="flex items-center justify-between mb-6">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-              {t("dashboard.totalRevenue")}
+
+      {/* Row 3: Top Dishes + Payments + Loyalty */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1.2fr_1fr] gap-5">
+        {!canFull ? (
+          <UpgradeBanner feature="Top Dishes" />
+        ) : analytics ? (
+          <TopDishesTable items={analytics.topItems} />
+        ) : (
+          <div className="glass-panel rounded-[1.5rem] p-5">
+            <h3 className="text-sm font-display font-bold text-foreground mb-4">Top Dishes</h3>
+            <p className="text-xs text-muted-foreground text-center py-8">{t('dashboard.noData', 'No data for this period')}</p>
+          </div>
+        )}
+        {!canPayments ? (
+          <UpgradeBanner feature="Payment Summary" />
+        ) : paymentSummary && paymentSummary.totalCollected > 0 ? (
+          <PaymentsSummaryCard data={paymentSummary} />
+        ) : (
+          <div className="glass-panel rounded-[1.5rem] p-5">
+            <h3 className="text-sm font-display font-bold text-foreground mb-4">Payments</h3>
+            <p className="text-xs text-muted-foreground text-center py-8">No payments in this period</p>
+          </div>
+        )}
+        {!canLoyalty ? (
+          <UpgradeBanner feature="Loyalty & Retention" />
+        ) : loyalty ? (
+          <LoyaltyRetentionCard data={loyalty} />
+        ) : (
+          <div className="glass-panel rounded-[1.5rem] p-5">
+            <h3 className="text-sm font-display font-bold text-foreground mb-4">Loyalty & Retention</h3>
+            <p className="text-xs text-muted-foreground text-center py-8">
+              {activeRestaurant?.isLoyaltyEnabled
+                ? t('dashboard.noLoyaltyData', 'No loyalty data yet')
+                : t('dashboard.loyaltyDisabled', 'Loyalty program is disabled — enable it in Settings')}
             </p>
-            <div className="p-3.5 rounded-2xl bg-accent/10 border border-accent/10">
-              <TrendingUp className="h-5 w-5 text-accent" />
-            </div>
           </div>
-          <p className="text-4xl font-serif font-black text-accent tracking-tighter">
-            €{totalRevenue.toFixed(2)}
-          </p>
-          <div className="mt-4 h-1 w-12 bg-accent/20 rounded-full group-hover:w-full transition-all duration-700"></div>
-        </div>
-
-        <div className="glass-panel p-8 rounded-[2.5rem] border-white/5 group hover:shadow-[0_20px_50px_-15px_rgba(59,130,246,0.2)] transition-all duration-500">
-          <div className="flex items-center justify-between mb-6">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-              {t("dashboard.newOrders")}
-            </p>
-            <div className="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/10">
-              <ShoppingCart className="h-5 w-5 text-blue-500" />
-            </div>
-          </div>
-          <p className="text-5xl font-serif font-black text-blue-500 tracking-tighter">
-            {pendingOrders}
-          </p>
-          <div className="mt-4 h-1 w-12 bg-blue-500/20 rounded-full group-hover:w-full transition-all duration-700"></div>
-        </div>
-
-        <div className="glass-panel p-8 rounded-[2.5rem] border-white/5 group hover:shadow-[0_20px_50px_-15px_rgba(249,115,22,0.2)] transition-all duration-500">
-          <div className="flex items-center justify-between mb-6">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
-              {t("dashboard.pendingAssistance")}
-            </p>
-            <div className="p-3.5 rounded-2xl bg-orange-500/10 border border-orange-500/10">
-              <Bell className="h-5 w-5 text-orange-500" />
-            </div>
-          </div>
-          <p className="text-5xl font-serif font-black text-orange-500 tracking-tighter">
-            {pendingRequests}
-          </p>
-          <div className="mt-4 h-1 w-12 bg-orange-500/20 rounded-full group-hover:w-full transition-all duration-700"></div>
-        </div>
-      </div>
-      )}
-
-      {loyaltyData && activeRestaurant?.isLoyaltyEnabled && (
-        <div className="mt-8">
-          <h3 className="text-xl font-serif font-black text-foreground tracking-tight mb-6">
-            {t('summary.loyaltyProgramPerformance')}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="glass-panel p-8 rounded-[2rem] border-white/5 border-l-4 border-l-purple-500 bg-gradient-to-br from-background to-purple-500/5">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                  {t('summary.totalVipMembers')}
-                </p>
-                <Users className="h-4 w-4 text-purple-500" />
-              </div>
-              <p className="text-3xl font-black text-foreground">
-                {loyaltyData.totalMembers}
-              </p>
-            </div>
-            <div className="glass-panel p-8 rounded-[2rem] border-white/5 border-l-4 border-l-blue-500 bg-gradient-to-br from-background to-blue-500/5">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                  {t('summary.pointsRedeemed')}
-                </p>
-                <Star className="h-4 w-4 text-blue-500" />
-              </div>
-              <p className="text-3xl font-black text-foreground">
-                {loyaltyData.totalPointsRedeemed}
-              </p>
-              <p className="text-xs font-semibold text-blue-500 mt-2">
-                {t('summary.freebiesIssued')}
-              </p>
-            </div>
-            <div className="glass-panel p-8 rounded-[2rem] border-white/5 border-l-4 border-l-green-500 bg-gradient-to-br from-background to-green-500/5">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                  {t('summary.pointsOutstandingLiability')}
-                </p>
-                <Gift className="h-4 w-4 text-green-500" />
-              </div>
-              <p className="text-3xl font-black text-foreground">
-                {loyaltyData.totalPointsOutstanding}
-              </p>
-              <p className="text-xs font-semibold text-green-500 mt-2">
-                {t('summary.unspentCustomerPoints')}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="pt-8 border-t border-border/40">
-        <MenuCheckWidget />
+        )}
       </div>
 
-      {onViewHelp && (
-        <div className="glass-panel p-8 rounded-[2.5rem] border-white/5 bg-gradient-to-br from-background to-accent/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mt-10 hover:shadow-[0_20px_50px_-15px_hsla(var(--color-accent),0.15)] transition-all duration-500 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-accent/5 blur-[80px] pointer-events-none" />
-          <div className="flex items-start gap-5">
-            <div className="p-4 bg-accent/10 border border-accent/20 rounded-2xl shrink-0 group-hover:scale-105 transition-transform duration-300">
-              <HelpCircle className="h-6 w-6 text-accent" />
-            </div>
-            <div>
-              <h3 className="text-xl font-serif font-black text-foreground tracking-tight">
-                {t("summary.helpCenterTitle", "Help Center & Tutorials")}
-              </h3>
-              <p className="text-sm text-muted-foreground mt-2 max-w-xl leading-relaxed">
-                {t("summary.helpCenterDesc", "Need help setting up table QR codes, configuring Stripe payments, or managing VIP loyalty points? View our step-by-step guides and FAQs.")}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onViewHelp}
-            className="w-full md:w-auto shrink-0 text-center bg-foreground text-background font-black uppercase tracking-[0.15em] text-[10px] px-6 py-4 rounded-xl hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 transition-all cursor-pointer"
-          >
-            {t("summary.goToHelpCenter", "Go to Help Center")}
-          </button>
-        </div>
-      )}
+      {/* Quick Actions */}
+      <QuickActionsRow restaurantId={restaurantId} />
     </div>
   );
 };

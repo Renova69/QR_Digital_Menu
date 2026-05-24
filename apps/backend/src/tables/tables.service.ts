@@ -108,7 +108,8 @@ export class TablesService {
 
   async getTableOrders(tableId: string, restaurantId: string) {
     const session = await this.prisma.tableSession.findFirst({
-      where: { tableId, restaurantId, status: 'OPEN' },
+      where: { tableId, restaurantId, status: { in: ['OPEN', 'PAID'] } },
+      orderBy: { createdAt: 'desc' },
     });
     if (!session) return [];
 
@@ -117,7 +118,7 @@ export class TablesService {
       include: {
         items: {
           include: {
-            menuItem: { select: { name: true } },
+            menuItem: { select: { name: true, price: true } },
           },
         },
       },
@@ -134,6 +135,12 @@ export class TablesService {
       items: order.items.map((oi) => ({
         name: oi.menuItem?.name ?? 'Unknown item',
         quantity: oi.quantity,
+        totalPrice: ((oi.menuItem?.price ?? 0) + (Array.isArray(oi.selectedOptions)
+          ? (oi.selectedOptions as any[]).reduce((sum: number, option: any) => sum + Number(option?.priceModifier ?? 0), 0)
+          : 0)) * oi.quantity,
+        options: Array.isArray(oi.selectedOptions)
+          ? (oi.selectedOptions as any[]).map((option: any) => option?.choiceName).filter(Boolean)
+          : [],
       })),
     }));
   }

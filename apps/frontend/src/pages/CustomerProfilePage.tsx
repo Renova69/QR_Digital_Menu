@@ -51,7 +51,7 @@ export const CustomerProfilePage: React.FC = () => {
   return (
     <div className="pt-28 pb-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto min-h-screen">
       <div className="mb-10">
-        <h1 className="text-4xl font-serif font-black text-foreground tracking-tighter">
+        <h1 className="text-4xl font-display font-black text-foreground tracking-tighter">
           {t("profile.title")}
         </h1>
       </div>
@@ -232,7 +232,7 @@ export const CustomerProfilePage: React.FC = () => {
             {history.map((order) => (
               <li
                 key={order.id}
-                className="p-6 bg-accent/5 border border-accent/10 rounded-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-4"
+                className="p-6 bg-primary/5 border border-primary/10 rounded-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-4"
               >
                 <div>
                   <h3 className="font-black text-lg">{order.restaurant.name}</h3>

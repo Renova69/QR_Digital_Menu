@@ -171,7 +171,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => { setSelectedTip(0); setCustomTip(''); }}
-                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${selectedTip === 0 && customTip === '' ? 'bg-accent text-accent-foreground border-accent' : 'border-border'}`}
+                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${selectedTip === 0 && customTip === '' ? 'bg-primary text-white border-primary' : 'border-border'}`}
                   >
                     {t('payment.noTip')}
                   </button>
@@ -179,7 +179,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
                     <button
                       key={pct}
                       onClick={() => { setSelectedTip(pct); setCustomTip(''); }}
-                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${selectedTip === pct && customTip === '' ? 'bg-accent text-accent-foreground border-accent' : 'border-border'}`}
+                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${selectedTip === pct && customTip === '' ? 'bg-primary text-white border-primary' : 'border-border'}`}
                     >
                       {pct}%
                     </button>

@@ -1,4 +1,4 @@
-import { IsOptional, IsEnum, IsArray } from 'class-validator';
+import { IsOptional, IsEnum, IsArray, IsDateString } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { OrderStatus } from '@prisma/client';
 import { PaginationDto } from '../../common/dto/pagination.dto';
@@ -11,4 +11,12 @@ export class OrderQueryDto extends PaginationDto {
     Array.isArray(value) ? value : value ? [value] : undefined,
   )
   statuses?: OrderStatus[];
+
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
 }

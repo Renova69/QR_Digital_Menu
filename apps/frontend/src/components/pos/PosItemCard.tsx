@@ -47,16 +47,16 @@ export default function PosItemCard({ item }: PosItemCardProps) {
     <button
       type="button"
       onClick={handleTap}
-      className={`h-20 w-full flex flex-col justify-center px-3 py-2 rounded-lg border text-left transition-none active:bg-accent/10 min-h-[44px] ${
+      className={`h-20 w-full flex flex-col justify-center px-3 py-2 rounded-lg border text-left transition-none active:bg-primary/10 min-h-[44px] ${
         added
-          ? "bg-accent/20 border-accent scale-[0.96]"
+          ? "bg-primary/20 border-primary scale-[0.96]"
           : "bg-card border-border"
       }`}
     >
       <span className="text-sm font-medium text-foreground line-clamp-2 leading-tight">
         {item.name}
       </span>
-      <span className="text-sm font-semibold text-accent mt-1">
+      <span className="text-sm font-semibold text-primary mt-1">
         €{item.price.toFixed(2)}
       </span>
     </button>

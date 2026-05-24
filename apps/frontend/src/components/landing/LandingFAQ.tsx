@@ -51,11 +51,11 @@ const LandingFAQ = () => {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section header */}
         <div className="text-center mb-16 md:mb-20">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 text-accent text-[10px] font-black uppercase tracking-[0.15em] mb-4 border border-accent/20">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.15em] mb-4 border border-primary/20">
             <HelpCircle className="w-3.5 h-3.5" />
             {t('landing.faq.badge', 'Got Questions?')}
           </div>
-          <h2 className="text-3xl sm:text-4xl md:text-6xl font-serif font-black text-foreground tracking-tight mb-4">
+          <h2 className="text-3xl sm:text-4xl md:text-6xl font-display font-black text-foreground tracking-tight mb-4">
             {t('landing.faq.title', 'Frequently Asked Questions')}
           </h2>
           <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto font-medium">
@@ -74,7 +74,7 @@ const LandingFAQ = () => {
               return (
                 <div
                   key={itemKey}
-                  className="group glass-panel rounded-2xl border border-border/50 hover:border-accent/20 overflow-hidden transition-all duration-300 ease-out motion-safe:hover:shadow-[0_10px_30px_-10px_var(--color-accent)/0.1]"
+                  className="group glass-panel rounded-2xl border border-border/50 hover:border-primary/20 overflow-hidden transition-all duration-300 ease-out motion-safe:hover:shadow-[0_10px_30px_-10px_var(--color-accent)/0.1]"
                 >
                   <button
                     onClick={() => toggleFaq(itemKey)}
@@ -84,7 +84,7 @@ const LandingFAQ = () => {
                     <span className="leading-snug pr-4">{item.title}</span>
                     <ChevronDown
                       className={`w-5 h-5 shrink-0 transition-all duration-300 ease-out ${
-                        isExpanded ? 'rotate-180 text-accent' : 'text-muted-foreground'
+                        isExpanded ? 'rotate-180 text-primary' : 'text-muted-foreground'
                       }`}
                     />
                   </button>

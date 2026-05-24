@@ -283,9 +283,9 @@ const CheckoutPage = () => {
                         key={opt.choiceName}
                         className="flex items-center gap-2"
                       >
-                        <span className="w-1.5 h-1.5 rounded-full bg-accent/50 block"></span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary/50 block"></span>
                         {opt.choiceName}{" "}
-                        <span className="text-accent/80 font-semibold">
+                        <span className="text-primary/80 font-semibold">
                           (+{formatInlineDual(opt.priceModifier ?? 0, 'EUR')})
                         </span>
                       </li>
@@ -314,8 +314,8 @@ const CheckoutPage = () => {
                       }}
                       className={`mt-2 text-xs font-bold px-2 py-1 rounded-md transition-colors ${
                         redeemedItemIds.includes(item.id)
-                          ? "bg-accent text-white"
-                          : "bg-accent/10 text-accent hover:bg-accent/20 border border-accent/20"
+                          ? "bg-primary text-white"
+                          : "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
                       }`}
                     >
                       {redeemedItemIds.includes(item.id)
@@ -348,10 +348,10 @@ const CheckoutPage = () => {
           restaurantId &&
           restaurantConfig?.isLoyaltyEnabled && (
             <div className="mt-6 pt-6 border-t border-border space-y-4">
-              <div className="flex justify-between items-center p-4 bg-accent/10 border border-accent/20 rounded-xl">
+              <div className="flex justify-between items-center p-4 bg-primary/10 border border-primary/20 rounded-xl">
                 <div>
-                  <p className="font-bold text-accent">{t('checkout.loyaltyPoints')}</p>
-                  <p className="text-sm text-accent/80">
+                  <p className="font-bold text-primary">{t('checkout.loyaltyPoints')}</p>
+                  <p className="text-sm text-primary/80">
                     {t('checkout.pointsAvailable', {
                       count: getAvailableLoyaltyPoints(),
                       value: getAvailableRewardValue().toFixed(2)
@@ -420,7 +420,7 @@ const CheckoutPage = () => {
                   )
                 })}
                 {finalMultiplier > 1 && (
-                  <span className="ml-1 text-xs text-accent/70">
+                  <span className="ml-1 text-xs text-primary/70">
                     ({finalMultiplier}x)
                   </span>
                 )}
@@ -430,7 +430,7 @@ const CheckoutPage = () => {
 
         {!user && restaurantConfig?.isLoyaltyEnabled && (
           <div className="mt-6 pt-6 border-t border-border">
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-5 bg-accent/5 border border-accent/10 rounded-xl">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-5 bg-primary/5 border border-primary/10 rounded-xl">
               <div>
                 <p className="font-bold text-foreground">
                   {t('checkout.earnFreeFood')}
@@ -442,7 +442,7 @@ const CheckoutPage = () => {
               <Button
                 onClick={() => setIsLoginModalOpen(true)}
                 variant="outline"
-                className="shrink-0 rounded-xl border-accent text-accent hover:bg-accent/10"
+                className="shrink-0 rounded-xl border-primary text-primary hover:bg-primary/10"
               >
                 {t('checkout.signIn')}
               </Button>
@@ -455,9 +455,9 @@ const CheckoutPage = () => {
         onSubmit={handleSubmit}
         className="glass-panel p-5 md:p-8 rounded-[2rem] shadow-xl space-y-6 border border-white/20"
       >
-        <div className="bg-accent/10 border border-accent/20 p-5 rounded-2xl mb-8">
-          <p className="font-bold text-accent text-lg flex items-center gap-2">
-            <span className="bg-accent text-white px-2 py-0.5 rounded-md text-sm">
+        <div className="bg-primary/10 border border-primary/20 p-5 rounded-2xl mb-8">
+          <p className="font-bold text-primary text-lg flex items-center gap-2">
+            <span className="bg-primary text-white px-2 py-0.5 rounded-md text-sm">
               {t("checkout.table")}
             </span>
             {tableNumber || t("checkout.notSpecified")}

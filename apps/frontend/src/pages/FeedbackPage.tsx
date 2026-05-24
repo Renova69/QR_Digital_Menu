@@ -106,8 +106,8 @@ const FeedbackPage = () => {
         {/* Step 1: Star Rating */}
         {step === 'rating' && (
           <div className="bg-card rounded-2xl shadow-lg border border-border p-8 text-center animate-in">
-            <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-5">
-              <Heart className="h-8 w-8 text-accent" />
+            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-5">
+              <Heart className="h-8 w-8 text-primary" />
             </div>
             <h1 className="text-2xl font-bold text-foreground mb-2">
               {t('feedback.howWasExperience')}

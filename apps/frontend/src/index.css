@@ -1,93 +1,127 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @theme {
-  /* Warm Restaurant Design System */
-  --font-sans: 'Outfit', ui-sans-serif, system-ui, sans-serif;
-  --font-serif: 'Playfair Display', serif;
+  /* QR MENU — Design System (CC-Design) */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
-  /* Light Mode — Warm & Appetizing */
-  --color-background: hsl(20 30% 98%);
-  --color-foreground: hsl(20 60% 5%);
+  /* Light Mode */
+  --color-background: #FFFFFF;
+  --color-foreground: #0E0B1A;
 
-  --color-card: hsla(0 0% 100% / 0.8);
-  --color-card-foreground: hsl(20 60% 5%);
+  --color-card: #FFFFFF;
+  --color-card-foreground: #0E0B1A;
 
-  --color-popover: hsl(0 0% 100%);
-  --color-popover-foreground: hsl(20 60% 5%);
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #0E0B1A;
 
-  --color-primary: hsl(20 60% 5%);
-  --color-primary-foreground: hsl(20 30% 98%);
+  --color-primary: #6E56F8;
+  --color-primary-foreground: #FFFFFF;
 
-  --color-secondary: hsl(28 25% 94%);
-  --color-secondary-foreground: hsl(20 60% 5%);
+  --color-secondary: #F6F6FB;
+  --color-secondary-foreground: #0E0B1A;
 
-  --color-muted: hsl(28 25% 94%);
-  --color-muted-foreground: hsl(28 12% 46%);
+  --color-muted: #F6F6FB;
+  --color-muted-foreground: #4C4860;
 
-  /* Restaurant Red — main CTA / brand color */
-  --color-accent: hsl(0 72% 51%);
-  --color-accent-foreground: hsl(0 0% 98%);
+  --color-accent: #8B6FFF;
+  --color-accent-foreground: #FFFFFF;
 
-  --color-destructive: hsl(0 72% 36%);
-  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-destructive: #DC2626;
+  --color-destructive-foreground: #FFFFFF;
 
-  --color-border: hsl(20 18% 88%);
-  --color-input: hsl(20 18% 88%);
-  --color-ring: hsl(0 72% 51%);
+  --color-border: #ECEAF3;
+  --color-input: #ECEAF3;
+  --color-ring: #6E56F8;
 
-  --radius: 1.5rem;
+  --radius: 0.75rem;
 }
 
 @layer base {
   :root {
     color-scheme: light;
-    --glass-opacity: 0.7;
-    --glass-blur: 12px;
-    
-    /* Apply custom theme colors if provided by React inline styles, otherwise fallback to tailwind defaults */
-    --color-background: var(--custom-bg, hsl(20 30% 98%));
-    --color-foreground: var(--custom-text, hsl(20 60% 5%));
-    --color-card: var(--custom-card, hsla(0 0% 100% / 0.8));
-    --color-card-foreground: var(--custom-text, hsl(20 60% 5%));
-    --color-popover: var(--custom-bg, hsl(0 0% 100%));
-    --color-popover-foreground: var(--custom-text, hsl(20 60% 5%));
+    --glass-opacity: 0.95;
+    --glass-blur: 10px;
+
+    /* Brand */
+    --brand:        #6E56F8;
+    --brand-2:      #8B6FFF;
+    --brand-soft:   #EFEBFF;
+    --gradient-brand: #6E56F8;
+    --gradient-brand-soft: rgba(110, 86, 248, 0.10);
+    --gradient-chart: rgba(110, 86, 248, 0.35);
+
+    /* Elevation layers */
+    --color-bg-elev:    #FFFFFF;
+    --color-bg-muted:   #F6F6FB;
+    --color-bg-section: #F4F2FB;
+
+    /* Shadows */
+    --shadow-sm:    0 1px 2px rgba(20, 14, 50, 0.04);
+    --shadow-md:    0 6px 18px rgba(20, 14, 50, 0.06);
+    --shadow-lg:    0 24px 60px rgba(20, 14, 50, 0.10);
+    --shadow-brand: 0 8px 20px -8px rgba(110, 86, 248, 0.55);
+    --shadow-soft:  0 6px 18px rgba(20, 14, 50, 0.06);
+    --shadow-glow:  0 8px 20px -8px rgba(110, 86, 248, 0.55);
+
+    --radius-card: 1rem;
+    --radius-pill: 9999px;
+
+    /* Public menu custom-brand overrides */
+    --color-background:         var(--custom-bg,   #FFFFFF);
+    --color-foreground:         var(--custom-text,  #0E0B1A);
+    --color-card:               var(--custom-card,  #FFFFFF);
+    --color-card-foreground:    var(--custom-text,  #0E0B1A);
+    --color-popover:            var(--custom-bg,    #FFFFFF);
+    --color-popover-foreground: var(--custom-text,  #0E0B1A);
   }
 }
 
 .dark {
   color-scheme: dark;
-  /* Dark mode strictly ignores --custom-* variables to guarantee a dark UI */
-  --color-background: hsl(20 20% 5%) !important;
-  --color-foreground: hsl(28 15% 95%) !important;
+  --color-background: #0B0A14 !important;
+  --color-foreground: #F5F4FA !important;
 
-  --color-card: hsla(20 20% 7% / 0.8) !important;
-  --color-card-foreground: hsl(28 15% 95%) !important;
+  --color-card: #15131F !important;
+  --color-card-foreground: #F5F4FA !important;
 
-  --color-popover: hsl(20 20% 5%) !important;
-  --color-popover-foreground: hsl(28 15% 95%) !important;
+  --color-popover: #15131F !important;
+  --color-popover-foreground: #F5F4FA !important;
 
-  --color-primary: hsl(28 15% 95%);
-  --color-primary-foreground: hsl(20 20% 5%);
+  --color-primary: #8B6FFF;
+  --color-primary-foreground: #FFFFFF;
 
-  --color-secondary: hsl(20 18% 12%);
-  --color-secondary-foreground: hsl(28 15% 95%);
+  --color-secondary: #1A1827;
+  --color-secondary-foreground: #F5F4FA;
 
-  --color-muted: hsl(20 18% 12%);
-  --color-muted-foreground: hsl(28 10% 65%);
+  --color-muted: #1A1827;
+  --color-muted-foreground: #807C99;
 
-  /* Brighter red for dark backgrounds */
-  --color-accent: hsl(0 72% 61%);
-  --color-accent-foreground: hsl(0 0% 98%);
+  --color-accent: #C4B5FD;
+  --color-accent-foreground: #FFFFFF;
 
-  --color-destructive: hsl(0 72% 50%);
-  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-destructive: #EF4444;
+  --color-destructive-foreground: #FFFFFF;
 
-  --color-border: hsl(20 18% 14%);
-  --color-input: hsl(20 18% 14%);
-  --color-ring: hsl(0 72% 61%);
+  --color-border: #25223A !important;
+  --color-input: #25223A !important;
+  --color-ring: #8B6FFF;
 
-  --glass-opacity: 0.4;
+  --glass-opacity: 0.85;
+
+  /* Dark elevation */
+  --color-bg-elev:    #15131F;
+  --color-bg-muted:   #1A1827;
+  --color-bg-section: #0B0A14;
+  --brand-soft:       rgba(110, 86, 248, 0.16);
+
+  /* Dark shadows */
+  --shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.40);
+  --shadow-md:    0 6px 18px rgba(0, 0, 0, 0.35);
+  --shadow-lg:    0 24px 60px rgba(0, 0, 0, 0.45);
+  --shadow-brand: 0 8px 20px -8px rgba(139, 111, 255, 0.60);
+  --shadow-glow:  0 8px 20px -8px rgba(139, 111, 255, 0.60);
 }
 
 @layer base {
@@ -98,54 +132,105 @@
     @apply scroll-smooth;
   }
   body {
-    @apply bg-background text-foreground tracking-tight selection:bg-accent/20 overflow-x-clip;
+    @apply bg-background text-foreground tracking-tight selection:bg-primary/20 overflow-x-clip;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     transition: background-color 200ms ease;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply tracking-tight font-bold;
+    font-family: var(--font-display);
   }
 }
 
 @layer utilities {
   .glass-panel {
-    @apply backdrop-blur-[var(--glass-blur)] border border-black/5 dark:border-white/10 shadow-xl transition-all duration-300;
+    @apply backdrop-blur-[var(--glass-blur)] border transition-all duration-200;
     background-color: var(--color-card);
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-sm);
+  }
+  .dark .glass-panel {
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-md);
   }
   .glass-panel-hover {
-    @apply hover:shadow-2xl hover:translate-y-[-2px] transition-all duration-300;
+    @apply hover:shadow-lg hover:translate-y-[-2px] transition-all duration-200;
   }
+
   .premium-bg {
     @apply bg-background relative;
     background-image:
-      radial-gradient(at 0% 0%, color-mix(in srgb, var(--color-accent) 6%, transparent) 0px, transparent 50%),
-      radial-gradient(at 100% 0%, color-mix(in srgb, var(--color-primary) 3%, transparent) 0px, transparent 50%);
+      radial-gradient(ellipse 800px 500px at 75% 20%, rgba(110, 86, 248, 0.06) 0px, transparent 70%),
+      radial-gradient(ellipse 600px 400px at 20% 80%, rgba(110, 86, 248, 0.04) 0px, transparent 70%);
   }
+  .dark .premium-bg {
+    background-image:
+      radial-gradient(ellipse 1100px 600px at 75% 30%, rgba(110, 86, 248, 0.18) 0px, transparent 70%),
+      radial-gradient(ellipse 800px 500px at 20% 80%, rgba(110, 86, 248, 0.12) 0px, transparent 70%);
+  }
+
   .text-glow {
-    text-shadow: 0 0 40px color-mix(in srgb, var(--color-accent) 25%, transparent);
+    text-shadow: 0 0 30px rgba(110, 86, 248, 0.35);
   }
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;
+
+  .brand-gradient-text {
+    background: linear-gradient(135deg, #6E56F8 0%, #8B6FFF 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
   }
-  .hide-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+
+  .brand-cta {
+    background: #6E56F8;
+    color: white;
+    font-weight: 700;
+    box-shadow: 0 8px 20px -8px rgba(110, 86, 248, 0.55);
+    transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
   }
-  .animate-float {
-    animation: float 6s ease-in-out infinite;
+  .brand-cta:hover {
+    background: #8B6FFF;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px -8px rgba(110, 86, 248, 0.65);
   }
+  .dark .brand-cta {
+    background: #8B6FFF;
+    box-shadow: 0 8px 20px -8px rgba(139, 111, 255, 0.60);
+  }
+  .dark .brand-cta:hover {
+    background: #9E84FF;
+    box-shadow: 0 10px 24px -8px rgba(139, 111, 255, 0.70);
+  }
+
+  .kpi-tile {
+    @apply relative overflow-hidden;
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-sm);
+    padding: 1.125rem;
+  }
+
+  /* sidebar-dark: kept for compat, now theme-adaptive */
+  .sidebar-dark {
+    background: var(--color-card);
+    border-right: 1px solid var(--color-border);
+  }
+
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
+  .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .animate-float { animation: float 6s ease-in-out infinite; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-float {
-    animation: none;
-  }
+  .animate-float { animation: none; }
 }
 
 @keyframes float {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
+  0%   { transform: translateY(0px); }
+  50%  { transform: translateY(-10px); }
   100% { transform: translateY(0px); }
 }
 
@@ -186,7 +271,7 @@
   .pl-safe  { padding-left:   env(safe-area-inset-left,   0px); }
   .pr-safe  { padding-right:  env(safe-area-inset-right,  0px); }
 
-  /* Cart panel animation — direction changes per breakpoint */
+  /* Cart panel animation */
   .cart-panel-enter {
     animation: cartSlideUp 0.32s cubic-bezier(0.16, 1, 0.3, 1);
   }

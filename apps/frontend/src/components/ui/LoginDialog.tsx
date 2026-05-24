@@ -121,7 +121,7 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email"
                 required
-                className="w-full px-3 py-2.5 border border-border rounded-xl shadow-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/50 transition-all"
+                className="w-full px-3 py-2.5 border border-border rounded-xl shadow-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
               />
             </div>
             <div>
@@ -136,13 +136,13 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
                 placeholder="Password"
                 required
                 minLength={8}
-                className="w-full px-3 py-2.5 border border-border rounded-xl shadow-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/50 transition-all"
+                className="w-full px-3 py-2.5 border border-border rounded-xl shadow-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
               />
             </div>
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-accent-foreground bg-accent hover:bg-accent/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent transition-colors"
+              className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white brand-cta focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
             >
               {isLoading ? "..." : isLogin ? "Login" : "Create account"}
             </button>
@@ -152,7 +152,7 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
             <button
               type="button"
               onClick={handleToggle}
-              className="font-medium text-accent hover:text-accent/80 transition-colors"
+              className="font-medium text-primary hover:text-primary/80 transition-colors"
             >
               {isLogin
                 ? "Don't have an account? Sign up"
