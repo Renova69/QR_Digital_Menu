@@ -100,6 +100,22 @@ function stripTrailingColon(value: string) {
   return value.replace(/:\s*$/, '');
 }
 
+function SourceBadge({ source, staffName }: { source?: 'CUSTOMER' | 'POS'; staffName?: string | null }) {
+  if (!source) return null;
+  if (source === 'CUSTOMER') {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+        Self
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
+      {staffName?.split(' ')[0] ?? 'Staff'}
+    </span>
+  );
+}
+
 const OrdersView = () => {
   const { orders, updateOrderStatus } = useOrders();
   const [activeTab, setActiveTab] = useState<OrderStatus>('NEW');
@@ -295,6 +311,7 @@ const OrdersView = () => {
                       <p className="truncate font-black text-sm tracking-tight text-foreground">
                         {getOrderCode(order.id)}
                       </p>
+                      <SourceBadge source={order.source} staffName={order.staffName} />
                       {specialRequests.length > 0 && (
                         <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full bg-[#F97316] px-2 text-[10px] font-black uppercase text-white">
                           <ClipboardList className="h-3 w-3" />
