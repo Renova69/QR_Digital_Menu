@@ -8,6 +8,8 @@ interface DateRangeFilterProps {
   startDate?: string;
   endDate?: string;
   label: string;
+  title?: string;
+  subtitle?: string;
   onPeriodChange: (days: DateRangePreset) => void;
   onCustomRange: (start: string, end: string) => void;
 }
@@ -69,7 +71,16 @@ const CustomDateInput = ({
 
 const PRESET_DAYS: DateRangePreset[] = [7, 14, 30];
 
-const DateRangeFilter = ({ period, startDate, endDate, label, onPeriodChange, onCustomRange }: DateRangeFilterProps) => {
+const DateRangeFilter = ({
+  period,
+  startDate,
+  endDate,
+  label,
+  title,
+  subtitle,
+  onPeriodChange,
+  onCustomRange,
+}: DateRangeFilterProps) => {
   const { t } = useTranslation();
   const [draftStart, setDraftStart] = useState(startDate || '');
   const [draftEnd, setDraftEnd] = useState(endDate || '');
@@ -98,10 +109,10 @@ const DateRangeFilter = ({ period, startDate, endDate, label, onPeriodChange, on
   return (
     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div>
-        <h2 className="text-xl font-display font-bold text-foreground">{t('dashboard.tabs.summary')}</h2>
+        <h2 className="text-xl font-display font-bold text-foreground">{title ?? t('dashboard.tabs.summary')}</h2>
         <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
           <Calendar className="w-3 h-3" />
-          {label}
+          {subtitle ?? label}
         </p>
       </div>
       <div className="flex items-center gap-2">
