@@ -86,7 +86,7 @@ describe('RestaurantsService — Stripe Connect', () => {
 
       expect(mockPrisma.restaurant.update).toHaveBeenCalledWith({
         where: { id: 'rest1' },
-        data: { stripeOnboarded: true },
+        data: { stripeOnboarded: true, paymentsEnabled: true },
       });
       expect(result.stripeOnboarded).toBe(true);
     });

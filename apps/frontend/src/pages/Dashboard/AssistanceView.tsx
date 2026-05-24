@@ -303,11 +303,6 @@ const AssistanceView = () => {
                       <p className="text-sm font-black text-foreground">
                         {request.isResolved ? 'Request completed' : 'Guest needs staff'}
                       </p>
-                      <p className="mt-1 text-xs font-medium leading-relaxed text-muted-foreground">
-                        {request.isResolved
-                          ? `Resolved at ${formatRequestTime(request.updatedAt)}.`
-                          : 'Go to the table, then clear the request from this card.'}
-                      </p>
                     </div>
                   </div>
                 </div>

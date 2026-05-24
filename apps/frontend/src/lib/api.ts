@@ -490,6 +490,11 @@ export const createPortalSession = async () => {
   return response.data as { url: string };
 };
 
+export const updateProfile = async (name: string) => {
+  const response = await api.patch('/auth/me', { name });
+  return response.data;
+};
+
 export const updateOnboardingStep = async (step: string) => {
   const response = await api.patch('/auth/onboarding-step', { step });
   return response.data as { success: boolean };

@@ -1,4 +1,5 @@
 import { TrendingUp, TrendingDown, ShoppingCart, Users, Clock } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import KpiCard from "../../../components/dashboard/KpiCard";
 import type { AnalyticsData } from "../../../hooks/useAnalytics";
 import { formatEuro } from "../../../lib/currency";
@@ -13,15 +14,16 @@ const formatDateShort = (iso: string) => {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-const formatComparisonLabel = (data: AnalyticsData) => {
+const formatComparisonLabel = (data: AnalyticsData, fallback: string) => {
   if (data.prevPeriodStart && data.prevPeriodEnd) {
     return `${formatDateShort(data.prevPeriodStart)} – ${formatDateShort(data.prevPeriodEnd)}`;
   }
-  return "prev period";
+  return fallback;
 };
 
 const KpiRow = ({ data, showTrends }: KpiRowProps) => {
-  const comparisonLabel = showTrends ? formatComparisonLabel(data) : undefined;
+  const { t } = useTranslation();
+  const comparisonLabel = showTrends ? formatComparisonLabel(data, t('dashboard.prevPeriod')) : undefined;
 
   const peakHour = data.peakHours.length > 0
     ? data.peakHours.reduce((max, h) => h.orders > max.orders ? h : max)
@@ -29,39 +31,39 @@ const KpiRow = ({ data, showTrends }: KpiRowProps) => {
 
   const kpis = [
     {
-      label: "Total Orders",
+      label: t('dashboard.totalOrders'),
       value: data.totalOrders.toLocaleString('en-US'),
       Icon: ShoppingCart,
       change: showTrends ? data.comparison.ordersChange : null,
       detail: undefined as string | undefined,
     },
     {
-      label: "Revenue",
+      label: t('dashboard.totalRevenue'),
       value: formatEuro(data.totalRevenue),
       Icon: TrendingUp,
       change: showTrends ? data.comparison.revenueChange : null,
       detail: undefined as string | undefined,
     },
     {
-      label: "Avg Order Value",
+      label: t('dashboard.avgOrderValue'),
       value: formatEuro(data.avgOrderValue),
       Icon: TrendingDown,
       change: showTrends ? data.comparison.avgOrderValueChange ?? null : null,
       detail: undefined as string | undefined,
     },
     {
-      label: "Active Customers",
+      label: t('dashboard.activeCustomers'),
       value: data.newCustomers.toLocaleString('en-US'),
       Icon: Users,
       change: showTrends ? data.comparison.newCustomersChange : null,
       detail: undefined as string | undefined,
     },
     {
-      label: "Peak Hour",
+      label: t('dashboard.peakHour'),
       value: peakHour?.label ?? '—',
       Icon: Clock,
       change: null,
-      detail: peakHour ? `${peakHour.orders} orders` : undefined,
+      detail: peakHour ? t('dashboard.ordersCount', { count: peakHour.orders }) : undefined,
     },
   ];
 

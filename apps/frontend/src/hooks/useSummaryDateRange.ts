@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 export type DateRangePreset = 0 | 7 | 14 | 30;
 
@@ -12,8 +12,13 @@ export interface SummaryDateRange {
 }
 
 const formatDate = (dateStr: string) => {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+  });
 };
 
 export function useSummaryDateRange(): SummaryDateRange {
@@ -34,8 +39,15 @@ export function useSummaryDateRange(): SummaryDateRange {
   }, []);
 
   const label = startDate && endDate
-    ? `${formatDate(startDate)} — ${formatDate(endDate)}`
+    ? `${formatDate(startDate)} - ${formatDate(endDate)}`
     : `Last ${period} days`;
 
-  return { period, startDate: startDate || undefined, endDate: endDate || undefined, setPeriod, setCustomRange, label };
+  return {
+    period,
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
+    setPeriod,
+    setCustomRange,
+    label,
+  };
 }
