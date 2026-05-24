@@ -110,8 +110,8 @@ export const getTables = async (restaurantId: string) => {
   return response.data;
 };
 
-export const createTable = async (restaurantId: string, name: string) => {
-  const response = await api.post(`/restaurants/${restaurantId}/tables`, { name });
+export const createTable = async (restaurantId: string, name: string, zoneId?: string) => {
+  const response = await api.post(`/restaurants/${restaurantId}/tables`, { name, zoneId });
   return response.data;
 };
 
@@ -135,19 +135,62 @@ export const getTableOrders = async (tableId: string, restaurantId: string) => {
   }>;
 };
 
-export const getTableStatuses = async (restaurantId: string) => {
-  const response = await api.get(`/tables/status/${restaurantId}`);
+export const getTableStatuses = async (restaurantId: string, zoneId?: string) => {
+  const response = await api.get(`/tables/status/${restaurantId}`, {
+    params: zoneId ? { zoneId } : undefined,
+  });
   return response.data as Array<{
     id: string;
     name: string;
-    status: 'empty' | 'occupied' | 'paid' | 'waiting';
+    status: 'empty' | 'occupied' | 'paid';
     sessionId: string | null;
     orderCount: number;
     totalAmount: number;
     customerNames: string[];
     sessionStatus: string | null;
     updatedAt: string;
+    zone?: { id: string; name: string };
   }>;
+};
+
+export const updateTable = async (tableId: string, data: { name?: string; zoneId?: string | null }) => {
+  const response = await api.patch(`/tables/${tableId}`, data);
+  return response.data;
+};
+
+// ── Table Zones ─────────────────────────────────────────────────────────────────
+
+export interface TableZone {
+  id: string;
+  name: string;
+  restaurantId: string;
+  displayOrder: number;
+  _count?: { tables: number };
+}
+
+export const getZones = async (restaurantId: string) => {
+  const response = await api.get(`/restaurants/${restaurantId}/zones`);
+  return response.data as TableZone[];
+};
+
+export const createZone = async (restaurantId: string, name: string, displayOrder?: number) => {
+  const response = await api.post(`/restaurants/${restaurantId}/zones`, { name, displayOrder });
+  return response.data as TableZone;
+};
+
+export const updateZone = async (zoneId: string, data: { name?: string; displayOrder?: number }) => {
+  const response = await api.patch(`/zones/${zoneId}`, data);
+  return response.data as TableZone;
+};
+
+export const deleteZone = async (zoneId: string) => {
+  const response = await api.delete(`/zones/${zoneId}`);
+  return response.data;
+};
+
+export const reorderZones = async (restaurantId: string, items: { id: string; displayOrder: number }[]) => {
+  const response = await api.patch(`/restaurants/${restaurantId}/zones/reorder`, { items });
+  return response.data;
 };
 
 // Analytics

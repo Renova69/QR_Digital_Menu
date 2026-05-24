@@ -1,10 +1,12 @@
 import { useState, useEffect, useContext, useCallback } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useTranslation } from "react-i18next";
-import { getTableStatuses, getOrCreateSession, forceOpenSession, getSessionBill } from "../../lib/api";
+import { getTableStatuses, getZones, getOrCreateSession, forceOpenSession, getSessionBill } from "../../lib/api";
+import type { TableZone } from "../../lib/api";
 import { usePos } from "../../context/PosContext";
 import RestaurantContext from "../../context/RestaurantContext";
 import { useSocket } from "../../context/SocketContext";
+import ZoneSelector from "./ZoneSelector";
 
 interface TableStatus {
   id: string;
@@ -33,17 +35,31 @@ export default function PosTableModal() {
   const { socket } = useSocket();
 
   const [tables, setTables] = useState<TableStatus[]>([]);
+  const [zones, setZones] = useState<TableZone[]>([]);
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
-  const fetchTables = useCallback(() => {
+  const fetchTables = useCallback(
+    (zoneId?: string | null) => {
+      if (!activeRestaurant) return;
+      setError(null);
+      getTableStatuses(activeRestaurant.id, zoneId ?? undefined)
+        .then(setTables)
+        .catch(() =>
+          setError(t("pos.failedLoadTables", "Failed to load tables. Check your connection.")),
+        );
+    },
+    [activeRestaurant],
+  );
+
+  const fetchZones = useCallback(() => {
     if (!activeRestaurant) return;
-    setError(null);
-    getTableStatuses(activeRestaurant.id)
-      .then(setTables)
-      .catch(() => setError(t("pos.failedLoadTables", "Failed to load tables. Check your connection.")));
+    getZones(activeRestaurant.id)
+      .then(setZones)
+      .catch((err) => console.error('Failed to fetch zones:', err));
   }, [activeRestaurant]);
 
   useEffect(() => {
@@ -61,25 +77,51 @@ export default function PosTableModal() {
   useEffect(() => {
     if (open && activeRestaurant) {
       setLoading(true);
-      getTableStatuses(activeRestaurant.id)
-        .then(setTables)
-        .catch(() => setError(t("pos.failedLoadTables", "Failed to load tables. Check your connection.")))
+      Promise.all([
+        getTableStatuses(activeRestaurant.id),
+        getZones(activeRestaurant.id),
+      ])
+        .then(([tableData, zoneData]) => {
+          setTables(tableData);
+          setZones(zoneData);
+          if (zoneData.length > 1 && !selectedZoneId) {
+            setSelectedZoneId(zoneData[0].id);
+          }
+        })
+        .catch(() =>
+          setError(t("pos.failedLoadTables", "Failed to load tables. Check your connection.")),
+        )
         .finally(() => setLoading(false));
     }
   }, [open, activeRestaurant]);
 
-  // Auto-refresh when table status, creation, or deletion changes
+  // Refetch tables when zone changes
+  useEffect(() => {
+    if (open && activeRestaurant) {
+      fetchTables(selectedZoneId);
+    }
+  }, [selectedZoneId, open, activeRestaurant, fetchTables]);
+
+  // Auto-refresh when table status, creation, deletion, or zone changes
   useEffect(() => {
     if (!socket || !open) return;
-    socket.on("table:status-changed", fetchTables);
-    socket.on("table:created", fetchTables);
-    socket.on("table:deleted", fetchTables);
-    return () => {
-      socket.off("table:status-changed", fetchTables);
-      socket.off("table:created", fetchTables);
-      socket.off("table:deleted", fetchTables);
+    const refresh = () => fetchTables(selectedZoneId);
+    const refreshZones = () => fetchZones();
+    socket.on("table:status-changed", refresh);
+    socket.on("table:created", refresh);
+    socket.on("table:deleted", refresh);
+    const onZoneChanged = () => {
+      refreshZones();
+      refresh();
     };
-  }, [socket, open, fetchTables]);
+    socket.on("zone:changed", onZoneChanged);
+    return () => {
+      socket.off("table:status-changed", refresh);
+      socket.off("table:created", refresh);
+      socket.off("table:deleted", refresh);
+      socket.off("zone:changed", onZoneChanged);
+    };
+  }, [socket, open, fetchTables, fetchZones, selectedZoneId]);
 
   const handleSelect = async (table: TableStatus) => {
     if (!activeRestaurant) return;
@@ -173,9 +215,15 @@ export default function PosTableModal() {
           <Dialog.Title className="text-lg font-semibold mb-1">
             Select Table
           </Dialog.Title>
-          <Dialog.Description className="text-sm text-muted-foreground mb-4">
+          <Dialog.Description className="text-sm text-muted-foreground mb-3">
             Choose a table to start taking orders.
           </Dialog.Description>
+
+          <ZoneSelector
+            zones={zones}
+            selectedZoneId={selectedZoneId}
+            onSelectZone={setSelectedZoneId}
+          />
 
           {session && (
             <button

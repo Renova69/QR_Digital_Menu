@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 interface TableData {
   id: string;
   name: string;
-  status: 'empty' | 'occupied' | 'paid' | 'waiting';
+  status: 'empty' | 'occupied' | 'paid';
   orderCount: number;
   customerNames: string[];
 }
@@ -19,7 +19,6 @@ const LiveTablesGrid = ({ tables }: LiveTablesGridProps) => {
     empty: { bg: 'bg-emerald-500/10', text: 'text-emerald-500', label: t('dashboard.available') },
     occupied: { bg: 'bg-primary/10', text: 'text-primary', label: t('tables.occupied') },
     paid: { bg: 'bg-amber-500/10', text: 'text-amber-500', label: t('tables.paid') },
-    waiting: { bg: 'bg-sky-500/10', text: 'text-sky-500', label: t('tables.waiting') },
   };
 
   return (

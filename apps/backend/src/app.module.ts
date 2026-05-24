@@ -12,6 +12,7 @@ import { OrdersModule } from './orders/orders.module';
 import { AssistanceModule } from './assistance/assistance.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { TablesModule } from './tables/tables.module';
+import { TableZonesModule } from './table-zones/table-zones.module';
 import { HealthModule } from './health/health.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { TranslationModule } from './translation/translation.module';
@@ -50,6 +51,7 @@ import { HelpContentModule } from './help-content/help-content.module';
     AssistanceModule,
     DashboardModule,
     TablesModule,
+    TableZonesModule,
     HealthModule,
     FeedbackModule,
     TranslationModule,

@@ -120,6 +120,7 @@ export class TablesService {
         }),
       ),
     );
+    this.events.emitToRestaurant(restaurantId, 'table:created', {});
     this.events.emitZoneChanged(restaurantId);
     return tables;
   }
