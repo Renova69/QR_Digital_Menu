@@ -39,7 +39,7 @@ export class OrdersService {
     private readonly featureService: FeatureService,
   ) {}
 
-  async create(createOrderDto: CreateOrderDto) {
+  async create(createOrderDto: CreateOrderDto, staffUserId: string | null = null) {
     if (!createOrderDto.items || createOrderDto.items.length === 0) {
       throw new BadRequestException('Order must contain at least one item');
     }
@@ -362,6 +362,8 @@ export class OrdersService {
           pointsRedeemed: pointsRedeemedForDiscount + pointsRedeemedForItems,
           restaurantId,
           tableSessionId,
+          source: staffUserId ? 'POS' : 'CUSTOMER',
+          staffUserId: staffUserId ?? undefined,
           items: { create: itemsData },
         },
         include: { items: true },
@@ -432,6 +434,7 @@ export class OrdersService {
         where,
         include: {
           items: { include: { menuItem: true } },
+          staff: { select: { id: true, name: true, email: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip,
