@@ -1,25 +1,39 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   closeSession,
   createTable,
   deleteTable,
-  getTableSessions,
   getTables,
+  getTableSessions,
+  getZones,
+  createZone,
+  updateZone,
+  deleteZone,
+  reorderZones,
+  updateTable,
 } from '../../lib/api';
+import type { TableZone } from '../../lib/api';
 import { Button } from '../ui/button';
 import { Modal } from '../ui/modal';
 import { useTranslation } from 'react-i18next';
 import {
+  ArrowDown,
+  ArrowUp,
+  Copy,
   Download,
+  Edit2,
   Eye,
   LayoutGrid,
+  MapPin,
   Plus,
   Printer,
   QrCode,
   Search,
   Trash2,
+  Check,
+  X,
 } from 'lucide-react';
 import PrintableQRCodes, { PrintOrientation, PrintTemplate } from './PrintableQRCodes';
 import RestaurantContext from '../../context/RestaurantContext';
@@ -47,6 +61,7 @@ const TableView: React.FC = () => {
   const restaurantId = restaurant?.id;
   const queryClient = useQueryClient();
   const [newTableName, setNewTableName] = useState('');
+  const [newTableZoneId, setNewTableZoneId] = useState<string>('');
   const [tableSearch, setTableSearch] = useState('');
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [selectedTable, setSelectedTable] = useState<{ id: string; name: string } | null>(null);
@@ -54,7 +69,7 @@ const TableView: React.FC = () => {
   const { t } = useTranslation();
   const { tier } = useTier();
   const isFree = tier === 'FREE';
-  const [subTab, setSubTab] = useState<'live' | 'qr'>(isFree ? 'qr' : 'live');
+  const [subTab, setSubTab] = useState<'live' | 'qr' | 'zones'>(isFree ? 'qr' : 'live');
   const [printTemplate, setPrintTemplate] = useState<PrintTemplate>('classic');
   const [printOrientation, setPrintOrientation] = useState<PrintOrientation>('portrait');
 
@@ -65,10 +80,12 @@ const TableView: React.FC = () => {
   });
 
   const createMutation = useMutation({
-    mutationFn: (name: string) => createTable(restaurantId, name),
+    mutationFn: ({ name, zoneId }: { name: string; zoneId?: string }) =>
+      createTable(restaurantId, name, zoneId || undefined),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tables', restaurantId] });
       queryClient.invalidateQueries({ queryKey: ['tableStatuses', restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['zones', restaurantId] });
       setNewTableName('');
     },
   });
@@ -78,6 +95,7 @@ const TableView: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tables', restaurantId] });
       queryClient.invalidateQueries({ queryKey: ['tableStatuses', restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['zones', restaurantId] });
     },
   });
 
@@ -124,10 +142,95 @@ const TableView: React.FC = () => {
     },
   });
 
+  // ── Zone state ──────────────────────────────────────────────────────────
+  const [newZoneName, setNewZoneName] = useState('');
+  const [editingZoneId, setEditingZoneId] = useState<string | null>(null);
+  const [editingZoneName, setEditingZoneName] = useState('');
+
+  const { data: zones } = useQuery({
+    queryKey: ['zones', restaurantId],
+    queryFn: () => getZones(restaurantId),
+    enabled: !!restaurantId,
+  });
+
+  // Initialize zone dropdown to first zone when zones load
+  useEffect(() => {
+    if (zones && zones.length > 0 && !newTableZoneId) {
+      const sorted = [...zones].sort((a, b) => a.displayOrder - b.displayOrder);
+      setNewTableZoneId(sorted[0].id);
+    }
+  }, [zones]);
+
+  const zoneInvalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['zones', restaurantId] });
+    queryClient.invalidateQueries({ queryKey: ['tables', restaurantId] });
+    queryClient.invalidateQueries({ queryKey: ['tableStatuses', restaurantId] });
+  };
+
+  const createZoneMutation = useMutation({
+    mutationFn: (name: string) => createZone(restaurantId, name),
+    onSuccess: () => {
+      zoneInvalidate();
+      setNewZoneName('');
+    },
+  });
+
+  const updateZoneMutation = useMutation({
+    mutationFn: ({ zoneId, data }: { zoneId: string; data: { name?: string; displayOrder?: number } }) =>
+      updateZone(zoneId, data),
+    onSuccess: () => zoneInvalidate(),
+  });
+
+  const deleteZoneMutation = useMutation({
+    mutationFn: (zoneId: string) => deleteZone(zoneId),
+    onSuccess: () => zoneInvalidate(),
+  });
+
+  const reorderZonesMutation = useMutation({
+    mutationFn: (items: { id: string; displayOrder: number }[]) => reorderZones(restaurantId, items),
+    onSuccess: () => zoneInvalidate(),
+  });
+
+  const updateTableMutation = useMutation({
+    mutationFn: ({ tableId, data }: { tableId: string; data: { name?: string; zoneId?: string | null } }) =>
+      updateTable(tableId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tables', restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['tableStatuses', restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['zones', restaurantId] });
+    },
+  });
+
+  const moveZoneUp = (index: number) => {
+    if (!zones || index === 0) return;
+    const items = zones.map((z, i) => ({ id: z.id, displayOrder: z.displayOrder }));
+    [items[index - 1].displayOrder, items[index].displayOrder] =
+      [items[index].displayOrder, items[index - 1].displayOrder];
+    reorderZonesMutation.mutate(items);
+  };
+
+  const moveZoneDown = (index: number) => {
+    if (!zones || index === zones.length - 1) return;
+    const items = zones.map((z, i) => ({ id: z.id, displayOrder: z.displayOrder }));
+    [items[index].displayOrder, items[index + 1].displayOrder] =
+      [items[index + 1].displayOrder, items[index].displayOrder];
+    reorderZonesMutation.mutate(items);
+  };
+
   const handleCreate = (event: React.FormEvent) => {
     event.preventDefault();
     if (newTableName.trim() && !duplicateTable) {
-      createMutation.mutate(newTableName.trim().replace(/\s+/g, ' '));
+      createMutation.mutate({
+        name: newTableName.trim().replace(/\s+/g, ' '),
+        zoneId: newTableZoneId || undefined,
+      });
+    }
+  };
+
+  const handleCreateZone = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (newZoneName.trim()) {
+      createZoneMutation.mutate(newZoneName.trim());
     }
   };
 
@@ -236,11 +339,164 @@ const TableView: React.FC = () => {
             <QrCode className="h-4 w-4" />
             {t('tables.qrManagement')}
           </button>
+          <button
+            type="button"
+            onClick={() => setSubTab('zones')}
+            className={cn(
+              'flex h-9 items-center gap-2 rounded-md px-4 text-sm font-bold transition active:scale-[0.98]',
+              subTab === 'zones'
+                ? 'bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}
+          >
+            <MapPin className="h-4 w-4" />
+            Zones
+          </button>
         </div>
       </div>
 
       {subTab === 'live' ? (
         <LiveTablesView />
+      ) : subTab === 'zones' ? (
+        <div className="space-y-6">
+          <form onSubmit={handleCreateZone} className="rounded-lg border border-border bg-card p-4 shadow-sm">
+            <div className="mb-4 flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <MapPin className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-black text-foreground">Table Zones</h2>
+                <p className="mt-0.5 text-sm font-medium text-muted-foreground">
+                  Organize tables into zones (Restaurant, Garden, Terrace, etc.)
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <input
+                type="text"
+                value={newZoneName}
+                onChange={(e) => setNewZoneName(e.target.value)}
+                placeholder="Zone name..."
+                className="h-11 flex-1 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
+              />
+              <button
+                type="submit"
+                disabled={createZoneMutation.isPending || !newZoneName.trim()}
+                className="flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" />
+                Add Zone
+              </button>
+            </div>
+          </form>
+
+          <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <LayoutGrid className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">Zone list</h2>
+            </div>
+
+            {!zones || zones.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">No zones created yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {[...zones]
+                  .sort((a, b) => a.displayOrder - b.displayOrder)
+                  .map((zone, index) => (
+                    <div key={zone.id} className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
+                      <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+
+                      {editingZoneId === zone.id ? (
+                        <>
+                          <input
+                            type="text"
+                            value={editingZoneName}
+                            onChange={(e) => setEditingZoneName(e.target.value)}
+                            className="h-9 flex-1 rounded border border-border bg-background px-2 text-sm font-medium outline-none focus:border-primary"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                updateZoneMutation.mutate({ zoneId: zone.id, data: { name: editingZoneName.trim() } });
+                                setEditingZoneId(null);
+                              }
+                              if (e.key === 'Escape') setEditingZoneId(null);
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateZoneMutation.mutate({ zoneId: zone.id, data: { name: editingZoneName.trim() } });
+                              setEditingZoneId(null);
+                            }}
+                            className="shrink-0 rounded p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
+                            aria-label="Save"
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingZoneId(null)}
+                            className="shrink-0 rounded p-1.5 text-muted-foreground hover:bg-muted"
+                            aria-label="Cancel"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="flex-1 text-sm font-bold text-foreground">{zone.name}</span>
+                          <span className="text-xs text-muted-foreground">{zone._count?.tables ?? 0} tables</span>
+                          <button
+                            type="button"
+                            onClick={() => moveZoneUp(index)}
+                            disabled={index === 0}
+                            className="shrink-0 rounded p-1.5 text-muted-foreground hover:bg-muted disabled:opacity-30"
+                            aria-label="Move up"
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveZoneDown(index)}
+                            disabled={index === zones.length - 1}
+                            className="shrink-0 rounded p-1.5 text-muted-foreground hover:bg-muted disabled:opacity-30"
+                            aria-label="Move down"
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingZoneId(zone.id);
+                              setEditingZoneName(zone.name);
+                            }}
+                            className="shrink-0 rounded p-1.5 text-muted-foreground hover:bg-muted"
+                            aria-label="Edit"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm('Delete this zone? Tables in it will become unassigned.')) {
+                                deleteZoneMutation.mutate(zone.id);
+                              }
+                            }}
+                            disabled={zones.length <= 1}
+                            className="shrink-0 rounded p-1.5 text-red-500 hover:bg-red-50 disabled:opacity-30 dark:hover:bg-red-500/10"
+                            aria-label="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        </div>
       ) : (
         <div className="space-y-6">
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -265,6 +521,19 @@ const TableView: React.FC = () => {
                   placeholder={t('tables.addPlaceholder')}
                   className="h-11 flex-1 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
                 />
+                {zones && zones.length > 1 && (
+                  <select
+                    value={newTableZoneId}
+                    onChange={(e) => setNewTableZoneId(e.target.value)}
+                    className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  >
+                    {[...zones]
+                      .sort((a, b) => a.displayOrder - b.displayOrder)
+                      .map((z) => (
+                        <option key={z.id} value={z.id}>{z.name}</option>
+                    ))}
+                  </select>
+                )}
                 <button
                   type="submit"
                   disabled={createMutation.isPending || !newTableName.trim() || duplicateTable}
@@ -346,7 +615,7 @@ const TableView: React.FC = () => {
           {isLoading ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {[...Array(8)].map((_, index) => (
-                <div key={index} className="aspect-[1.08/1] animate-pulse rounded-lg bg-muted/50" />
+                <div key={index} className="h-32 animate-pulse rounded-lg bg-muted/50" />
               ))}
             </div>
           ) : filteredTables.length === 0 ? (
@@ -357,19 +626,17 @@ const TableView: React.FC = () => {
             <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {filteredTables.map((table: any) => {
                 const session = sessionByTableId.get(table.id);
+                const publicUrl = `${window.location.origin}/menu/public/${restaurantId}?table=${encodeURIComponent(table.name)}`;
                 return (
-                  <article key={table.id} className="relative flex aspect-[1.08/1] flex-col overflow-hidden rounded-lg border border-border bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-                    <div className="mb-4 flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-primary/10 px-2 text-[10px] font-black uppercase text-primary">
-                          <QrCode className="h-3.5 w-3.5" />
-                          QR ready
-                        </span>
-                        <h3 className="mt-3 truncate text-3xl font-black tracking-tight text-foreground">{table.name}</h3>
-                      </div>
+                  <article key={table.id} className="flex flex-col gap-2.5 rounded-lg border border-border bg-card p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex h-5 items-center gap-1 rounded-full bg-primary/10 px-1.5 text-[10px] font-black uppercase text-primary">
+                        <QrCode className="h-3 w-3" />
+                        QR ready
+                      </span>
                       {session && (
                         <span className={cn(
-                          'rounded-full px-2.5 py-1 text-[10px] font-black uppercase',
+                          'rounded-full px-2 py-0.5 text-[10px] font-black uppercase',
                           session.status === 'OPEN'
                             ? 'bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200'
                             : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200',
@@ -379,39 +646,64 @@ const TableView: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="min-h-0 flex-1 rounded-lg border border-border bg-muted/35 p-3">
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Public URL</p>
-                      <p className="mt-2 line-clamp-2 break-all text-xs font-medium text-foreground">
-                        /menu/public/{restaurantId}?table={encodeURIComponent(table.name)}
-                      </p>
-                      {session?.status === 'OPEN' && (
-                        <button
-                          type="button"
-                          onClick={() => closeSessionMutation.mutate({ token: session.token, restaurantId })}
-                          className="mt-3 text-xs font-black text-red-600 transition hover:text-red-500"
-                        >
-                          {t('tables.closeSession')}
-                        </button>
-                      )}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-2xl font-black tracking-tight text-foreground">{table.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(publicUrl).catch(() => {});
+                        }}
+                        className="flex h-7 shrink-0 items-center gap-1 rounded px-2 text-[10px] font-black text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                        title={publicUrl}
+                      >
+                        <Copy className="h-3 w-3" />
+                        Copy URL
+                      </button>
                     </div>
 
-                    <div className="mt-auto grid grid-cols-[1fr_auto] gap-2 border-t border-border pt-3">
+                    {zones && zones.length > 0 && (
+                      <select
+                        value={table.zone?.id ?? ''}
+                        onChange={(e) => {
+                          const newZoneId = e.target.value || null;
+                          updateTableMutation.mutate({ tableId: table.id, data: { zoneId: newZoneId } });
+                        }}
+                        className="h-7 w-full rounded border border-border bg-background px-1.5 text-[11px] font-medium text-foreground outline-none focus:border-primary"
+                      >
+                        <option value="">No zone</option>
+                        {zones.map((z: TableZone) => (
+                          <option key={z.id} value={z.id}>{z.name}</option>
+                        ))}
+                      </select>
+                    )}
+
+                    {session?.status === 'OPEN' && (
+                      <button
+                        type="button"
+                        onClick={() => closeSessionMutation.mutate({ token: session.token, restaurantId })}
+                        className="text-[10px] font-black text-red-600 transition hover:text-red-500"
+                      >
+                        Close Session
+                      </button>
+                    )}
+
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => handleShowQr(table)}
-                        className="flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent"
+                        className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-xs font-black text-white shadow-[0_8px_16px_-10px_rgba(110,86,248,0.8)] transition hover:bg-accent"
                       >
                         <QrCode className="h-3.5 w-3.5" />
-                        {t('tables.generateQR')}
+                        Generate QR
                       </button>
                       <button
                         type="button"
                         onClick={() => deleteMutation.mutate(table.id)}
                         disabled={deleteMutation.isPending}
-                        className="flex h-10 w-10 items-center justify-center rounded-lg border border-red-200 bg-card text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-500/30 dark:hover:bg-red-500/10"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-red-200 bg-card text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-500/30 dark:hover:bg-red-500/10"
                         aria-label={t('tables.delete')}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </article>

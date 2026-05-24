@@ -111,6 +111,10 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
+  emitZoneChanged(restaurantId: string) {
+    this.emitToRestaurant(restaurantId, 'zone:changed', {});
+  }
+
   /**
    * Dispatch an event to a specific order's room (e.g. status change).
    */

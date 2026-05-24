@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   Delete,
@@ -12,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { TablesService } from './tables.service';
 import { CreateTableDto } from './dto/create-table.dto';
+import { UpdateTableDto } from './dto/update-table.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller()
@@ -45,8 +47,11 @@ export class TablesController {
 
   @UseGuards(JwtAuthGuard)
   @Get('tables/status/:restaurantId')
-  getTablesWithStatus(@Param('restaurantId') restaurantId: string) {
-    return this.tablesService.getTablesWithStatus(restaurantId);
+  getTablesWithStatus(
+    @Param('restaurantId') restaurantId: string,
+    @Query('zoneId') zoneId?: string,
+  ) {
+    return this.tablesService.getTablesWithStatus(restaurantId, zoneId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -56,6 +61,16 @@ export class TablesController {
     @Query('restaurantId') restaurantId: string,
   ) {
     return this.tablesService.getTableOrders(tableId, restaurantId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('tables/:id')
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateTableDto,
+    @Request() req: any,
+  ) {
+    return this.tablesService.update(id, dto, req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
