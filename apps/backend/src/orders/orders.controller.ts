@@ -15,6 +15,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { OrderQueryDto } from './dto/order-query.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import { FeatureGuard } from '../subscription/feature.guard';
 import { RequireFeature } from '../subscription/require-feature.decorator';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
@@ -26,9 +27,10 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
-  create(@Body() createOrderDto: CreateOrderDto) {
+  @UseGuards(OptionalJwtAuthGuard)
+  create(@Body() createOrderDto: CreateOrderDto, @Request() req: any) {
     this.logger.log('POST /orders');
-    return this.ordersService.create(createOrderDto);
+    return this.ordersService.create(createOrderDto, req.user?.id ?? null);
   }
 
   @RequireFeature(FeatureFlag.ORDERS_RECEIVE)
