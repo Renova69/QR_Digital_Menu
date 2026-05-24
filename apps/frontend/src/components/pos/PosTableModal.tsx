@@ -1,5 +1,6 @@
 import { useState, useEffect, useContext, useCallback } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import { useTranslation } from "react-i18next";
 import { getTableStatuses, getOrCreateSession, forceOpenSession, getSessionBill } from "../../lib/api";
 import { usePos } from "../../context/PosContext";
 import RestaurantContext from "../../context/RestaurantContext";
@@ -8,7 +9,7 @@ import { useSocket } from "../../context/SocketContext";
 interface TableStatus {
   id: string;
   name: string;
-  status: "empty" | "occupied" | "paid" | "waiting";
+  status: "empty" | "occupied" | "paid";
   sessionId: string | null;
   orderCount: number;
   totalAmount: number;
@@ -18,13 +19,13 @@ interface TableStatus {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  empty: "bg-green-100 border-green-300 text-green-800 dark:bg-green-900/30 dark:border-green-700 dark:text-green-400",
-  occupied: "bg-red-100 border-red-300 text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-400",
-  paid: "bg-blue-100 border-blue-300 text-blue-800 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-400",
-  waiting: "bg-yellow-100 border-yellow-300 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-700 dark:text-yellow-400",
+  empty: "bg-[rgba(52,211,153,0.08)] border-emerald-300/40 text-[#7C7892]",
+  occupied: "bg-[rgba(239,68,68,0.11)] border-red-300/40 text-[#7C7892]",
+  paid: "bg-[rgba(167,139,250,0.1)] border-violet-300/40 text-[#7C7892]",
 };
 
 export default function PosTableModal() {
+  const { t } = useTranslation();
   const restaurantCtx = useContext(RestaurantContext);
   const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
   const restaurantLoading = restaurantCtx?.loading ?? false;
@@ -42,7 +43,7 @@ export default function PosTableModal() {
     setError(null);
     getTableStatuses(activeRestaurant.id)
       .then(setTables)
-      .catch(() => setError("Failed to load tables. Check your connection."));
+      .catch(() => setError(t("pos.failedLoadTables", "Failed to load tables. Check your connection.")));
   }, [activeRestaurant]);
 
   useEffect(() => {
@@ -62,7 +63,7 @@ export default function PosTableModal() {
       setLoading(true);
       getTableStatuses(activeRestaurant.id)
         .then(setTables)
-        .catch(() => setError("Failed to load tables. Check your connection."))
+        .catch(() => setError(t("pos.failedLoadTables", "Failed to load tables. Check your connection.")))
         .finally(() => setLoading(false));
     }
   }, [open, activeRestaurant]);
@@ -125,7 +126,7 @@ export default function PosTableModal() {
 
       setOpen(false);
     } catch {
-      setActionError("Failed to open session. Try again or use Force Open.");
+      setActionError(t("pos.failedOpenSession", "Failed to open session. Try again or use Force Open."));
     }
   };
 
@@ -143,7 +144,7 @@ export default function PosTableModal() {
       });
       setOpen(false);
     } catch {
-      setActionError("Failed to force open session. Check your connection.");
+      setActionError(t("pos.failedForceOpen", "Failed to force open session. Check your connection."));
     }
   };
 
@@ -159,7 +160,7 @@ export default function PosTableModal() {
   if (!activeRestaurant) {
     return (
       <div className="flex items-center justify-center h-dvh text-muted-foreground">
-        {restaurantLoading ? "Loading restaurant..." : "No restaurant selected."}
+        {restaurantLoading ? t("pos.loadingRestaurant", "Loading restaurant...") : t("pos.noRestaurant", "No restaurant selected.")}
       </div>
     );
   }
@@ -206,7 +207,7 @@ export default function PosTableModal() {
                   setLoading(true);
                   getTableStatuses(activeRestaurant.id)
                     .then(setTables)
-                    .catch(() => setError("Failed to load tables. Check your connection."))
+                    .catch(() => setError(t("pos.failedLoadTables", "Failed to load tables. Check your connection.")))
                     .finally(() => setLoading(false));
                 }}
                 className="px-4 py-2 rounded-lg brand-cta text-white text-sm min-h-[44px]"
@@ -224,8 +225,8 @@ export default function PosTableModal() {
                     onClick={() => handleSelect(table)}
                     className={`relative flex flex-col items-center justify-center p-4 rounded-lg border-2 min-h-[80px] transition-none ${STATUS_COLORS[table.status]}`}
                   >
-                    <span className="text-lg font-bold">{table.name}</span>
-                    <span className="text-xs capitalize">{table.status}</span>
+                    <span className="text-lg font-extrabold">{table.name}</span>
+                    <span className="text-sm font-semibold capitalize">{table.status}</span>
                     {table.sessionStatus === "OPEN" && (
                       <button
                         type="button"

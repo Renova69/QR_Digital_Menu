@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import { useTranslation } from "react-i18next";
 import { usePos } from "../../context/PosContext";
 
 interface MenuOption {
@@ -18,6 +19,7 @@ interface ItemWithOptions {
 }
 
 export default function PosOptionsDrawer() {
+  const { t } = useTranslation();
   const { addItem, activeSeat } = usePos();
   const [item, setItem] = useState<ItemWithOptions | null>(null);
   const [open, setOpen] = useState(false);
@@ -192,13 +194,13 @@ export default function PosOptionsDrawer() {
 
               <div className="mb-4">
                 <label className="text-sm font-medium text-foreground mb-2 block">
-                  Item Note
+                  {t("pos.itemNote", "Item Note")}
                 </label>
                 <input
                   type="text"
                   value={itemNote}
                   onChange={(e) => setItemNote(e.target.value)}
-                  placeholder="e.g. no salt, extra sauce..."
+                  placeholder={t("pos.notePlaceholder", "e.g. no salt, extra sauce...")}
                   className="w-full px-3 py-2 rounded-lg bg-card border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
@@ -208,7 +210,7 @@ export default function PosOptionsDrawer() {
                 onClick={handleAddToCart}
                 className="w-full py-3 rounded-lg brand-cta text-white font-semibold text-sm min-h-[44px]"
               >
-                Add to Cart — €{(item.price + optionsPrice).toFixed(2)}
+                {t("pos.addToCart", { total: (item.price + optionsPrice).toFixed(2) })}
               </button>
             </Dialog.Content>
           </>

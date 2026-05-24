@@ -1,13 +1,22 @@
+import { useTranslation } from "react-i18next";
 import { usePos } from "../../context/PosContext";
 
-const SEATS = ["Seat 1", "Seat 2", "Seat 3", "Shared"];
+const SEAT_KEYS = ["Seat 1", "Seat 2", "Seat 3", "Shared"] as const;
+
+const SEAT_LABEL_KEYS: Record<string, string> = {
+  "Seat 1": "pos.seat1",
+  "Seat 2": "pos.seat2",
+  "Seat 3": "pos.seat3",
+  Shared: "pos.seatShared",
+};
 
 export default function PosSeatSelector() {
+  const { t } = useTranslation();
   const { activeSeat, setActiveSeat } = usePos();
 
   return (
     <div className="flex gap-2 px-4 py-2 overflow-x-auto scrollbar-hide">
-      {SEATS.map((seat) => (
+      {SEAT_KEYS.map((seat) => (
         <button
           key={seat}
           type="button"
@@ -18,7 +27,7 @@ export default function PosSeatSelector() {
               : "bg-card border border-border text-foreground"
           }`}
         >
-          {seat}
+          {t(SEAT_LABEL_KEYS[seat], seat)}
         </button>
       ))}
     </div>

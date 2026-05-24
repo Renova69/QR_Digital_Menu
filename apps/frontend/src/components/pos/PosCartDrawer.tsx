@@ -1,5 +1,6 @@
 import { useState, useContext } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import { useTranslation } from "react-i18next";
 import { usePos } from "../../context/PosContext";
 import { createOrder, closeSession, closeSessionWithCard, closeSessionWithCash } from "../../lib/api";
 import RestaurantContext from "../../context/RestaurantContext";
@@ -19,6 +20,7 @@ type ConfirmAction =
   | null;
 
 export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) {
+  const { t } = useTranslation();
   const restaurantCtx = useContext(RestaurantContext);
   const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
   const {
@@ -71,7 +73,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
       setExpanded(false);
     } catch (err: any) {
       setSubmitError(
-        err.response?.data?.message ?? "Failed to submit order. Try again."
+        err.response?.data?.message ?? t("pos.failedSubmitOrder", "Failed to submit order. Try again.")
       );
     } finally {
       setSubmitting(false);
@@ -89,7 +91,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
       setExpanded(false);
     } catch (err: any) {
       setSubmitError(
-        err.response?.data?.message ?? "Failed to close session. Try again."
+        err.response?.data?.message ?? t("pos.failedCloseSession", "Failed to close session. Try again.")
       );
     } finally {
       setClosing(false);
@@ -107,7 +109,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
       setExpanded(false);
     } catch (err: any) {
       setSubmitError(
-        err.response?.data?.message ?? "Failed to close session. Try again."
+        err.response?.data?.message ?? t("pos.failedCloseSession", "Failed to close session. Try again.")
       );
     } finally {
       setClosing(false);
@@ -125,7 +127,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
       setExpanded(false);
     } catch (err: any) {
       setSubmitError(
-        err.response?.data?.message ?? "Failed to close session. Try again."
+        err.response?.data?.message ?? t("pos.failedCloseSession", "Failed to close session. Try again.")
       );
     } finally {
       setClosing(false);
@@ -164,9 +166,9 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
         className="w-full flex items-center justify-between py-3 px-4 rounded-lg brand-cta text-white font-semibold min-h-[44px]"
       >
         <span>
-          {itemCount} {itemCount === 1 ? "item" : "items"} · €{total.toFixed(2)}
+          {itemCount} {itemCount === 1 ? t("pos.item", "item") : t("pos.items", "items")} · €{total.toFixed(2)}
         </span>
-        <span>{expanded ? "Close" : "View Cart"}</span>
+        <span>{expanded ? t("pos.closeCart", "Close") : t("pos.viewCart", "View Cart")}</span>
       </button>
 
       {/* Expanded cart */}
@@ -204,7 +206,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                       )}
                       {item.itemNote && editingNoteId !== item.cartId && (
                         <div className="text-xs text-primary italic mt-0.5">
-                          Note: {item.itemNote}
+                          {t("pos.note", "Note:")} {item.itemNote}
                         </div>
                       )}
                       {!isSubmitted && editingNoteId === item.cartId ? (
@@ -217,7 +219,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                               if (e.key === "Enter") saveNote(item.cartId);
                               if (e.key === "Escape") cancelEditingNote();
                             }}
-                            placeholder="e.g. no salt, extra sauce..."
+                            placeholder={t("pos.notePlaceholder", "e.g. no salt, extra sauce...")}
                             className="flex-1 px-2 py-1 rounded bg-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                             autoFocus
                           />
@@ -226,7 +228,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                             onClick={() => saveNote(item.cartId)}
                             className="text-xs text-primary font-medium px-2 py-1 min-h-[32px]"
                           >
-                            Save
+                            {t("pos.save", "Save")}
                           </button>
                           <button
                             type="button"
@@ -242,7 +244,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                           onClick={() => startEditingNote(item.cartId, item.itemNote || "")}
                           className="text-xs text-muted-foreground underline mt-1 min-h-[32px]"
                         >
-                          {item.itemNote ? "Edit note" : "+ Add note"}
+                          {item.itemNote ? t("pos.editNote", "Edit note") : t("pos.addNote", "+ Add note")}
                         </button>
                       ) : null}
                     </div>
@@ -306,10 +308,10 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
               className="w-full py-3 rounded-lg brand-cta text-white font-semibold disabled:opacity-50 min-h-[44px]"
             >
               {submitting
-                ? "Submitting..."
+                ? t("pos.submitting", "Submitting...")
                 : pendingItems.length === 0
-                  ? "No new items to submit"
-                  : `Submit Order · €${pendingTotal.toFixed(2)}`}
+                  ? t("pos.noNewItems", "No new items to submit")
+                  : t("pos.submitOrderTotal", { total: pendingTotal.toFixed(2) })}
             </button>
 
             {/* Close - Paid by Card — only shown when restaurant has payments enabled */}
@@ -318,10 +320,10 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                 type="button"
                 onClick={() => setConfirmAction({ type: "card", total: submittedTotal })}
                 disabled={closing || !hasAnyItems || hasPending}
-                title={hasPending ? "Submit pending items first" : undefined}
+                title={hasPending ? t("pos.submitPendingFirst", "Submit pending items first") : undefined}
                 className="w-full py-3 rounded-lg bg-amber-500 text-white font-semibold disabled:opacity-50 min-h-[44px]"
               >
-                {closing ? "Closing..." : `Close - Paid by Card · €${submittedTotal.toFixed(2)}`}
+                {closing ? t("pos.closing", "Closing...") : t("pos.closeCardTotal", { total: submittedTotal.toFixed(2) })}
               </button>
             )}
 
@@ -330,10 +332,10 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
               type="button"
               onClick={() => setConfirmAction({ type: "cash", total: submittedTotal })}
               disabled={closing || !hasAnyItems || hasPending}
-              title={hasPending ? "Submit pending items first" : undefined}
+              title={hasPending ? t("pos.submitPendingFirst", "Submit pending items first") : undefined}
               className="w-full py-3 rounded-lg bg-emerald-600 text-white font-semibold disabled:opacity-50 min-h-[44px]"
             >
-              {closing ? "Closing..." : `Close - Paid by Cash · €${submittedTotal.toFixed(2)}`}
+              {closing ? t("pos.closing", "Closing...") : t("pos.closeCashTotal", { total: submittedTotal.toFixed(2) })}
             </button>
 
             {/* Force Close */}
@@ -343,7 +345,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
               disabled={closing}
               className="w-full py-3 rounded-lg bg-destructive text-destructive-foreground font-semibold disabled:opacity-50 min-h-[44px]"
             >
-              {closing ? "Closing..." : "Force Close · No Payment"}
+              {closing ? t("pos.closing", "Closing...") : t("pos.forceCloseNoPayment", "Force Close · No Payment")}
             </button>
           </div>
         </div>
@@ -360,37 +362,34 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
           <Dialog.Content className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-md mx-auto rounded-xl bg-background p-6">
             <Dialog.Title className="text-lg font-semibold mb-2">
-              {confirmAction?.type === "submit" && "Submit Order"}
-              {confirmAction?.type === "card" && "Close Table — Paid by Card"}
-              {confirmAction?.type === "cash" && "Close Table — Paid by Cash"}
-              {confirmAction?.type === "force" && "Force Close — No Payment"}
+              {confirmAction?.type === "submit" && t("pos.confirmSubmitTitle", "Submit Order")}
+              {confirmAction?.type === "card" && t("pos.confirmCardTitle", "Close Table — Paid by Card")}
+              {confirmAction?.type === "cash" && t("pos.confirmCashTitle", "Close Table — Paid by Cash")}
+              {confirmAction?.type === "force" && t("pos.confirmForceTitle", "Force Close — No Payment")}
             </Dialog.Title>
             <Dialog.Description className="text-sm text-muted-foreground mb-6">
               {confirmAction?.type === "submit" && (
                 <>
-                  Submit {pendingCount} new {pendingCount === 1 ? "item" : "items"} to the kitchen for{" "}
-                  <strong>€{confirmAction.total.toFixed(2)}</strong>?
+                  {t("pos.confirmSubmitDesc", {
+                    count: pendingCount,
+                    itemText: pendingCount === 1 ? t("pos.item", "item") : t("pos.items", "items"),
+                    total: confirmAction.total.toFixed(2),
+                  })}
                 </>
               )}
               {confirmAction?.type === "card" && (
                 <>
-                  Customer paid{" "}
-                  <strong>€{confirmAction.total.toFixed(2)}</strong> by card
-                  terminal. This will close the table and record the payment.
+                  {t("pos.confirmCardDesc", { total: confirmAction.total.toFixed(2) })}
                 </>
               )}
               {confirmAction?.type === "cash" && (
                 <>
-                  Customer paid{" "}
-                  <strong>€{confirmAction.total.toFixed(2)}</strong> in cash.
-                  This will close the table and record the payment.
+                  {t("pos.confirmCashDesc", { total: confirmAction.total.toFixed(2) })}
                 </>
               )}
               {confirmAction?.type === "force" && (
                 <>
-                  Close table without any payment? This cannot be undone. Use
-                  only when the customer is leaving without paying or for
-                  testing.
+                  {t("pos.confirmForceDesc", "Close table without any payment? This cannot be undone. Use only when the customer is leaving without paying or for testing.")}
                 </>
               )}
             </Dialog.Description>
@@ -400,7 +399,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                 onClick={() => setConfirmAction(null)}
                 className="flex-1 py-3 rounded-lg bg-card border border-border text-foreground font-medium min-h-[44px]"
               >
-                Cancel
+                {t("common.cancel", "Cancel")}
               </button>
               <button
                 type="button"
@@ -420,10 +419,10 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                         : "brand-cta"
                 }`}
               >
-                {confirmAction?.type === "submit" && "Submit"}
-                {confirmAction?.type === "card" && "Confirm Paid"}
-                {confirmAction?.type === "cash" && "Confirm Cash"}
-                {confirmAction?.type === "force" && "Force Close"}
+                {confirmAction?.type === "submit" && t("pos.submit", "Submit")}
+                {confirmAction?.type === "card" && t("pos.confirmPaid", "Confirm Paid")}
+                {confirmAction?.type === "cash" && t("pos.confirmCash", "Confirm Cash")}
+                {confirmAction?.type === "force" && t("pos.forceOpen", "Force Close")}
               </button>
             </div>
           </Dialog.Content>
