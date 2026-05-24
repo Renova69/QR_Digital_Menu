@@ -26,6 +26,7 @@ model User {
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   orders          Order[]
+  staffOrders     Order[]      @relation("StaffOrders")
   createdDeviceEnrollmentTokens DeviceEnrollmentToken[]
   loyaltyAccounts LoyaltyAccount[]
   restaurants     Restaurant[]     @relation("OwnedRestaurants")
@@ -102,20 +103,39 @@ model Restaurant {
   staffMembers              User[]              @relation("StaffRestaurant")
   tables                    RestaurantTable[]
   tableSessions             TableSession[]
+  tableZones                TableZone[]
   payments                  Payment[]
 
   @@map("restaurant")
 }
 
-model RestaurantTable {
-  id           String     @id @default(cuid())
+model TableZone {
+  id           String            @id @default(cuid())
   name         String
   restaurantId String
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  displayOrder Int               @default(0)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  restaurant   Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  tables       RestaurantTable[]
+
+  @@unique([restaurantId, name])
+  @@index([restaurantId, displayOrder])
+  @@map("table_zone")
+}
+
+model RestaurantTable {
+  id           String          @id @default(cuid())
+  name         String
+  restaurantId String
+  zoneId       String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  restaurant   Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  zone         TableZone?      @relation(fields: [zoneId], references: [id], onDelete: SetNull)
   sessions     TableSession[]
 
+  @@index([restaurantId, zoneId])
   @@map("restaurant_table")
 }
 
@@ -205,6 +225,9 @@ model Order {
   feedback                  Feedback?
   loyaltyPointTransactions  LoyaltyPointLedger[]
   items                     OrderItem[]
+  source                    OrderSource          @default(CUSTOMER)
+  staffUserId               String?
+  staff                     User?                @relation("StaffOrders", fields: [staffUserId], references: [id])
 
   @@index([restaurantId, status, createdAt])
   @@map("customer_order")
@@ -321,6 +344,12 @@ enum OrderStatus {
   SERVED
   CANCELED
   COMPLETED
+  PENDING_PAYMENT
+}
+
+enum OrderSource {
+  CUSTOMER
+  POS
 }
 
 enum OptionType {
