@@ -35,6 +35,8 @@ interface Order {
   }>;
   totalPrice: number;
   specialRequests?: string;
+  source?: 'CUSTOMER' | 'POS';
+  staffName?: string | null;
   createdAt: string;
   updatedAt: string;
   tableSession?: {
