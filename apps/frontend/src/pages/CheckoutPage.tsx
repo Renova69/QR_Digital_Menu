@@ -153,30 +153,30 @@ const CheckoutPage = () => {
       return;
     }
 
+    const orderData: any = {
+      customerName,
+      customerPhone,
+      tableId: tableNumber,
+      items: items.map((item) => ({
+        menuItemId: item.id,
+        quantity: item.quantity,
+        selectedOptions: item.selectedOptions,
+      })),
+      specialRequests,
+      redeemItemIds: redeemedItemIds,
+      sessionToken: localStorage.getItem(`session-${tableNumber}`) || undefined,
+    };
+
+    if (user) {
+      orderData.customerId = user.id;
+      if (usePoints && loyaltyPoints > 0) {
+        orderData.redeemPoints = getDiscountPointsToRedeem();
+      }
+    }
+
     try {
       setSubmitting(true);
       setError(null);
-
-      const orderData: any = {
-        customerName,
-        customerPhone,
-        tableId: tableNumber,
-        items: items.map((item) => ({
-          menuItemId: item.id,
-          quantity: item.quantity,
-          selectedOptions: item.selectedOptions,
-        })),
-        specialRequests,
-        redeemItemIds: redeemedItemIds,
-        sessionToken: localStorage.getItem(`session-${tableNumber}`) || undefined,
-      };
-
-      if (user) {
-        orderData.customerId = user.id;
-        if (usePoints && loyaltyPoints > 0) {
-          orderData.redeemPoints = getDiscountPointsToRedeem();
-        }
-      }
 
       const newOrder = await createOrder(orderData);
 

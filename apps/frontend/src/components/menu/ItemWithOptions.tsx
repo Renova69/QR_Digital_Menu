@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Item, OptionChoice } from '../../types';
-import { useCart } from '../../context/CartContext';
+import { Item, MenuOption, OptionChoice } from '../../types';
+import { useCart, type SelectedOption } from '../../context/CartContext';
 import { useTranslation } from 'react-i18next';
 import { ImageLightbox } from './ImageLightbox';
 import { formatEuro, formatBgn, formatInlineDual, BGN_RATE } from '../../lib/currency';
 import { getImageUrl as resolveImageUrl } from '../../lib/getImageUrl';
 import { getTranslatedField, getTranslatedArray } from '../../lib/translation';
+import { cn } from '../../lib/utils';
+import { Check, X } from 'lucide-react';
 
 interface ItemWithOptionsProps {
   item: Item;
@@ -16,8 +18,9 @@ interface ItemWithOptionsProps {
 
 export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectPairings, ordersEnabled = true }) => {
     const { addItem } = useCart();
-    const [selectedOptions, setSelectedOptions] = useState<Record<string, OptionChoice>>({});
+    const [selectedOptions, setSelectedOptions] = useState<Record<string, SelectedOption>>({});
     const [showIntercept, setShowIntercept] = useState(false);
+    const [showOptionsModal, setShowOptionsModal] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -89,7 +92,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
             return {
                 optionId: optionId,
                 optionName: option?.name || 'Option',
-                choiceName: choice.name,
+                choiceName: choice.choiceName,
                 priceModifier: choice.priceModifier || 0,
             };
         });
@@ -111,7 +114,16 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
 
     const handleAddToCart = () => {
         const mainCartItem = buildMainCartItem();
-        // If pairings exist, open pairing modal first so user can choose explicitly.
+
+        // If item has options, show options modal first
+        if (item.options && item.options.length > 0) {
+            setPendingMainItem(mainCartItem);
+            setShowOptionsModal(true);
+            preserveScrollPosition();
+            return;
+        }
+
+        // If pairings exist, open pairing modal first
         if (perfectPairings && perfectPairings.length > 0) {
             setPendingMainItem(mainCartItem);
             setShowIntercept(true);
@@ -121,6 +133,58 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
         addItem(mainCartItem);
         showToast(item.name);
         preserveScrollPosition();
+    };
+
+    const handleOptionsConfirm = () => {
+        const mainCartItem = buildMainCartItem();
+        setShowOptionsModal(false);
+
+        if (perfectPairings && perfectPairings.length > 0) {
+            setPendingMainItem(mainCartItem);
+            setShowIntercept(true);
+            preserveScrollPosition();
+            return;
+        }
+        addItem(mainCartItem);
+        showToast(item.name);
+        preserveScrollPosition();
+    };
+
+    const handleOptionsCancel = () => {
+        setShowOptionsModal(false);
+        setPendingMainItem(null);
+    };
+
+    const handleOptionChoiceSelect = (option: MenuOption, choice: OptionChoice) => {
+        setSelectedOptions((prev) => {
+            if (option.type === 'VARIATION') {
+                // VARIATION: pick exactly one
+                return {
+                    ...prev,
+                    [option.id]: {
+                        optionId: option.id,
+                        optionName: option.name,
+                        choiceName: choice.name,
+                        priceModifier: choice.priceModifier ?? 0,
+                    },
+                };
+            }
+            // ADDON: toggle on/off
+            const current = prev[option.id];
+            if (current && current.choiceName === choice.name) {
+                const { [option.id]: _, ...rest } = prev;
+                return rest;
+            }
+            return {
+                ...prev,
+                [option.id]: {
+                    optionId: option.id,
+                    optionName: option.name,
+                    choiceName: choice.name,
+                    priceModifier: choice.priceModifier ?? 0,
+                },
+            };
+        });
     };
 
     const handlePairingAction = (pairing?: Item) => {
@@ -321,6 +385,115 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                                     </div>
                                 )})}
                             </div>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+            {/* Options Selection Modal */}
+            {showOptionsModal && item.options && item.options.length > 0 && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[9998] flex items-end sm:items-center justify-center p-0 sm:p-4">
+                    {/* Backdrop */}
+                    <div
+                        className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+                        onClick={handleOptionsCancel}
+                    />
+
+                    {/* Modal — bottom sheet on mobile, centered on desktop */}
+                    <div className="relative w-full sm:max-w-md bg-zinc-900 border border-white/10 shadow-2xl rounded-t-[2rem] sm:rounded-[2rem] overflow-hidden animate-in slide-in-from-bottom-4 zoom-in-95 duration-250 max-h-[85vh] flex flex-col">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-6 pt-5 pb-3">
+                            <div className="min-w-0">
+                                <h3 className="text-lg font-display font-black text-white truncate">
+                                    {itemName}
+                                </h3>
+                                <p className="text-xs text-zinc-400 font-medium mt-0.5">
+                                    {t('publicMenu.customizeOptions', 'Customize your order')}
+                                </p>
+                            </div>
+                            <button
+                                onClick={handleOptionsCancel}
+                                className="shrink-0 ml-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-zinc-400 hover:bg-white/20 hover:text-white transition"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        {/* Options list */}
+                        <div className="overflow-y-auto px-6 py-2 space-y-5">
+                            {item.options.map((option) => {
+                                const translatedOptName = getTranslatedField(option, currentLang, 'name') || option.name;
+                                const translatedChoices = getTranslatedArray(option, currentLang, 'choices');
+                                const choices: OptionChoice[] = (translatedChoices?.length ? translatedChoices : option.choices) as any;
+
+                                return (
+                                    <div key={option.id}>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="text-sm font-black text-white">
+                                                {translatedOptName}
+                                            </span>
+                                            <span className={cn(
+                                                'text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded',
+                                                option.type === 'VARIATION'
+                                                    ? 'bg-amber-500/10 text-amber-400'
+                                                    : 'bg-blue-500/10 text-blue-400',
+                                            )}>
+                                                {option.type === 'VARIATION' ? t('publicMenu.pickOne', 'Pick one') : t('publicMenu.optional', 'Optional')}
+                                            </span>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            {choices.map((choice, idx) => {
+                                                const isSelected =
+                                                    selectedOptions[option.id]?.choiceName === choice.name;
+                                                return (
+                                                    <button
+                                                        key={`${choice.name}-${idx}`}
+                                                        type="button"
+                                                        onClick={() => handleOptionChoiceSelect(option, choice)}
+                                                        className={cn(
+                                                            'flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-left transition active:scale-[0.99]',
+                                                            isSelected
+                                                                ? 'bg-primary/20 border border-primary/40 text-white'
+                                                                : 'bg-white/5 border border-transparent text-zinc-300 hover:bg-white/10',
+                                                        )}
+                                                    >
+                                                        <span className="flex items-center gap-3">
+                                                            <span className={cn(
+                                                                'flex h-5 w-5 items-center justify-center rounded-full border-2 transition',
+                                                                option.type === 'VARIATION'
+                                                                    ? (isSelected ? 'border-primary bg-primary' : 'border-zinc-500')
+                                                                    : (isSelected ? 'border-primary bg-primary' : 'border-zinc-500'),
+                                                            )}>
+                                                                {isSelected && <Check className="h-3 w-3 text-white" />}
+                                                            </span>
+                                                            <span className="text-sm font-bold">{choice.name}</span>
+                                                        </span>
+                                                        {choice.priceModifier > 0 && (
+                                                            <span className="text-xs font-bold text-primary">
+                                                                +{formatEuro(choice.priceModifier)}
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Footer with add button */}
+                        <div className="px-6 pt-3 pb-6">
+                            <button
+                                onClick={handleOptionsConfirm}
+                                className="w-full py-3.5 rounded-[1.25rem] text-white font-black uppercase text-xs tracking-[0.15em] transition-all active:scale-[0.98] shadow-xl"
+                                style={{ background: 'var(--gradient-brand)' }}
+                            >
+                                {t('publicMenu.addToCart', 'Add to Cart')} &mdash; {formatEuro(
+                                    item.price +
+                                    Object.values(selectedOptions).reduce((sum, c) => sum + (c.priceModifier || 0), 0),
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>,

@@ -5,7 +5,7 @@ import { Input } from '../ui/input';
 import { Item, MenuOption } from '../../types';
 import { OptionType } from '@prisma/client';
 import api from '../../lib/api';
-import { Plus, Trash2, X, Wand2 } from 'lucide-react';
+import { Plus, Trash2, X, Wand2, Pencil } from 'lucide-react';
 
 interface ManageOptionsModalProps {
   item: Item;
@@ -57,6 +57,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
     const [newOptionName, setNewOptionName] = useState('');
     const [newOptionType, setNewOptionType] = useState<OptionType>('VARIATION');
     const [choices, setChoices] = useState<ChoiceInput[]>([{ name: '', priceModifier: 0 }]);
+    const [editingId, setEditingId] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -65,6 +66,20 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
         setNewOptionName(preset.name);
         setNewOptionType(preset.type);
         setChoices([...preset.choices]);
+        setEditingId(null);
+        setIsAdding(true);
+        setErrorMsg(null);
+    };
+
+    const handleStartEdit = (option: MenuOption) => {
+        const parsedChoices: ChoiceInput[] = (option.choices as any[]).map((c: any) => ({
+            name: c.name,
+            priceModifier: c.priceModifier ?? 0,
+        }));
+        setNewOptionName(option.name);
+        setNewOptionType(option.type as OptionType);
+        setChoices(parsedChoices.length > 0 ? parsedChoices : [{ name: '', priceModifier: 0 }]);
+        setEditingId(option.id);
         setIsAdding(true);
         setErrorMsg(null);
     };
@@ -87,7 +102,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
 
     const handleSaveOption = async () => {
         if (!newOptionName.trim()) return;
-        
+
         // Filter out empty choices
         const validChoices = choices.filter(c => c.name.trim() !== '');
         if (validChoices.length === 0) return;
@@ -95,20 +110,28 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
         setIsSaving(true);
         setErrorMsg(null);
         try {
-            const createdOption = await api.post(`/items/${item.id}/options`, {
+            const payload = {
                 name: newOptionName,
                 type: newOptionType,
                 choices: JSON.stringify(validChoices),
-            });
-            setOptions([...options, createdOption.data]);
-            
+            };
+
+            if (editingId) {
+                const updated = await api.patch(`/options/${editingId}`, payload);
+                setOptions(options.map(opt => opt.id === editingId ? updated.data : opt));
+            } else {
+                const created = await api.post(`/items/${item.id}/options`, payload);
+                setOptions([...options, created.data]);
+            }
+
             // Reset form
             setNewOptionName('');
             setNewOptionType('VARIATION');
             setChoices([{ name: '', priceModifier: 0 }]);
+            setEditingId(null);
             setIsAdding(false);
         } catch (error: any) {
-            console.error('Failed to add option', error);
+            console.error('Failed to save option', error);
             const msg = error?.response?.data?.message || error?.message || 'Failed to save option. Please try again.';
             setErrorMsg(Array.isArray(msg) ? msg.join(', ') : msg);
         } finally {
@@ -150,7 +173,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
                                     <Wand2 className="w-3 h-3 text-primary" /> Quantity
                                 </Button>
                             </div>
-                            <Button onClick={() => setIsAdding(true)} variant="outline" className="gap-2">
+                            <Button onClick={() => { setIsAdding(true); setEditingId(null); }} variant="outline" className="gap-2">
                                 <Plus className="w-4 h-4" /> Create Custom Option
                             </Button>
                         </div>
@@ -169,9 +192,14 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
                                             </span>
                                         </div>
                                     </div>
-                                    <Button variant="ghost" size="sm" onClick={() => handleDeleteOption(option.id)} className="text-red-500 hover:text-red-600 hover:bg-red-500/10">
-                                        <Trash2 className="w-4 h-4" />
-                                    </Button>
+                                    <div className="flex items-center gap-1">
+                                        <Button variant="ghost" size="sm" onClick={() => handleStartEdit(option)} className="text-muted-foreground hover:text-primary hover:bg-primary/10">
+                                            <Pencil className="w-4 h-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="sm" onClick={() => handleDeleteOption(option.id)} className="text-red-500 hover:text-red-600 hover:bg-red-500/10">
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    </div>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
                                     {parsedChoices.map((choice: any, idx: number) => (
@@ -194,8 +222,8 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
                 {isAdding ? (
                     <div className="bg-secondary/20 p-6 rounded-xl border border-border">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold">Create New Option</h3>
-                            <Button variant="ghost" size="sm" onClick={() => setIsAdding(false)}><X className="w-4 h-4" /></Button>
+                            <h3 className="text-lg font-bold">{editingId ? 'Edit Option' : 'Create New Option'}</h3>
+                            <Button variant="ghost" size="sm" onClick={() => { setIsAdding(false); setEditingId(null); }}><X className="w-4 h-4" /></Button>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4 mb-6">
@@ -264,9 +292,9 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
                                 </div>
                             )}
                             <div className="flex justify-end gap-3">
-                                <Button variant="ghost" onClick={() => setIsAdding(false)}>Cancel</Button>
+                                <Button variant="ghost" onClick={() => { setIsAdding(false); setEditingId(null); }}>Cancel</Button>
                                 <Button onClick={handleSaveOption} disabled={isSaving || !newOptionName.trim()}>
-                                    {isSaving ? 'Saving...' : 'Save Option'}
+                                    {isSaving ? 'Saving...' : editingId ? 'Update Option' : 'Save Option'}
                                 </Button>
                             </div>
                         </div>
@@ -287,7 +315,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
                                 <Wand2 className="w-3 h-3 text-primary" /> Quantity Template
                             </Button>
                         </div>
-                        <Button onClick={() => setIsAdding(true)} className="w-full gap-2">
+                        <Button onClick={() => { setIsAdding(true); setEditingId(null); }} className="w-full gap-2">
                             <Plus className="w-4 h-4" /> Create Custom Option
                         </Button>
                     </div>
