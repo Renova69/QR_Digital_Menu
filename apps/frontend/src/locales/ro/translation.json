@@ -15,6 +15,45 @@
     "totalRevenue": "Venit Total",
     "newOrders": "Comenzi Noi",
     "pendingAssistance": "Asistență în Așteptare",
+    "totalOrders": "Total Comenzi",
+    "avgOrderValue": "Valoare Medie",
+    "activeCustomers": "Clienți Activi",
+    "peakHour": "Oră de Vârf",
+    "ordersCount": "{{count}} comenzi",
+    "prevPeriod": "perioada precedentă",
+    "loadingChart": "Se încarcă graficul…",
+    "loadingTables": "Se încarcă mesele…",
+    "upgradeToAccess": "Actualizați pentru a accesa {{feature}}",
+    "availableOnPro": "Disponibil cu planul PRO sau superior",
+    "ordersOverview": "Prezentare Comenzi",
+    "revenue": "Venit",
+    "recentOrders": "Comenzi Recente",
+    "total": "{{count}} total",
+    "noOrdersPeriod": "Nicio comandă în această perioadă",
+    "walkIn": "Fără rezervare",
+    "itemsCount": "{{count}} articole",
+    "topDishes": "Top Feluri",
+    "noDataYet": "Încă nu sunt date",
+    "sold": "vândute",
+    "revenueLabel": "venit",
+    "payments": "Plăți",
+    "noData": "Fără date",
+    "collected": "Încasate",
+    "refunded": "Rambursate",
+    "card": "Card",
+    "terminal": "Terminal",
+    "cash": "Numerar",
+    "liveTables": "Mese Live",
+    "noTablesConfigured": "Nicio masă configurată",
+    "available": "Disponibilă",
+    "loyaltyRetention": "Loialitate & Retenție",
+    "members": "Membri",
+    "repeatRate": "Rată de Repetare",
+    "pointsOutstanding": "Puncte Restante",
+    "redeemed": "Valorificate",
+    "topMember": "Top Membru",
+    "pointsCount": "{{count}} puncte",
+    "noPaymentsPeriod": "Nicio plată în această perioadă",
     "tabs": {
       "home": "Acasă",
       "requests": "Solicitări",
@@ -153,6 +192,7 @@
   },
   "assistance": {
     "title": "Cereri de Asistență",
+    "subtitle": "Vedeți ce mese au nevoie de personal și rezolvați rapid.",
     "active": "Active",
     "resolved": "Rezolvate",
     "noActive": "Nicio cerere de asistență activă",
@@ -160,7 +200,17 @@
     "resolvedRequests": "Cereri Rezolvate",
     "reopen": "Redeschide",
     "showMore": "Arată încă {{count}} cereri",
-    "resolvedAt": "Rezolvat la {{time}}"
+    "resolvedAt": "Rezolvat la {{time}}",
+    "waiting": "În așteptare",
+    "cleared": "Rezolvate",
+    "requested": "Solicitat {{time}}",
+    "guestNeedsStaff": "Clientul are nevoie de personal",
+    "requestCompleted": "Cerere finalizată",
+    "noMatchingRequests": "Nicio cerere potrivită",
+    "noRequestsHere": "Nicio cerere aici",
+    "allGuestsAssisted": "Toți clienții sunt asistați.",
+    "tryAnotherFilter": "Încercați alt filtru sau număr de masă.",
+    "searchPlaceholder": "Căutare după masă..."
   },
   "orders": {
     "tabs": {
@@ -406,6 +456,11 @@
     "allFree": "Toate mesele sunt libere",
     "free": "Liberă",
     "noTablesCreated": "Adăugați mese în QR Management",
+    "totalTables": "Total mese",
+    "openValue": "Valoare deschisă",
+    "searchTable": "Căutare masă...",
+    "failedLoadTables": "Încărcarea meselor a eșuat",
+    "retry": "Reîncercați",
     "tableDetail": "Masa {{name}}",
     "ordersCount": "{{count}} comenzi",
     "sessionStarted": "Sesiune începută la {{time}}",
@@ -1183,5 +1238,108 @@
       "xlsxFormat": "XLSX (foaie de calcul stilizată)",
       "xlsxFormatDesc": "Foaie de calcul Excel cu anteturi stilizate, lățimi de coloane corecte și codificare corectă pentru toate limbile inclusiv chirilic.",
       "xlsxImport": "XLSX (meniu exportat)"
+  },
+  "onboarding": {
+    "brand": "QR Menu",
+    "setup": "Configurare",
+    "backToHome": "Înapoi acasă",
+    "steps": {
+      "plan": "Alege planul",
+      "basics": "Informații restaurant",
+      "payment": "Plăți",
+      "done": "Finalizat"
+    },
+    "redirecting": {
+      "confirming": "Se confirmă abonamentul…",
+      "stripe": "Se redirecționează către Stripe…"
+    },
+    "plans": {
+      "title": "Alegeți planul",
+      "subtitle": "Începeți gratuit sau deblocați experiența completă. Schimbați oricând.",
+      "monthly": "Lunar",
+      "yearly": "Anual",
+      "savePercent": "Economisiți 15%",
+      "mostPopular": "Cel mai popular",
+      "saveVsMonthly": "Economisiți 15% față de lunar",
+      "selected": "Selectat",
+      "choose": "Alege {{tier}}",
+      "continue": "Continuați cu {{tier}}",
+      "free": {
+        "name": "FREE",
+        "features": [
+          "Meniu digital (vizualizare și editare)",
+          "Gestionare coduri QR",
+          "Import meniu OCR",
+          "1 angajat"
+        ]
+      },
+      "starter": {
+        "name": "STARTER",
+        "features": [
+          "Tot din Free",
+          "Comenzi online",
+          "Analiză de bază",
+          "1 angajat"
+        ]
+      },
+      "professional": {
+        "name": "PROFESSIONAL",
+        "features": [
+          "Tot din Starter",
+          "Plată la masă Stripe",
+          "Analiză completă",
+          "Buton de chemare ospătar",
+          "Meniu multilingv",
+          "Branding personalizat",
+          "Program de loialitate",
+          "Până la 5 angajați"
+        ]
+      },
+      "enterprise": {
+        "name": "ENTERPRISE",
+        "features": [
+          "Tot din Professional",
+          "POS și afișaj bucătărie",
+          "Locații multiple",
+          "Angajați nelimitați",
+          "Suport prioritar"
+        ]
+      }
+    },
+    "basics": {
+      "title": "Despre tine și restaurantul tău",
+      "subtitle": "Poți actualiza toate acestea mai târziu în Setări.",
+      "ownerName": "Numele tău",
+      "restaurantName": "Numele restaurantului *",
+      "city": "Oraș",
+      "dashboardLanguage": "Limba tabloului de bord",
+      "dashboardLanguageHint": "Limba utilizată pentru tabloul de bord.",
+      "createError": "Crearea restaurantului a eșuat. Încercați din nou.",
+      "creating": "Se creează…",
+      "continue": "Continuă"
+    },
+    "payment": {
+      "title": "Configurare plăți",
+      "subtitle": "Conectați Stripe pentru a accepta plăți cu cardul la masă. Durează aproximativ 2 minute.",
+      "stripeConnect": "Stripe Connect",
+      "stripeDesc": "Plăți securizate cu cardul prin Stripe. Fără taxă lunară.",
+      "featureCards": "Acceptați Visa, Mastercard și alte carduri",
+      "featureSplit": "Împărțirea notei și bacșiș",
+      "featurePayouts": "Transferuri directe în contul bancar",
+      "connectButton": "Conectați-vă cu Stripe",
+      "skip": "Săriți pentru moment — configurați mai târziu în Plăți",
+      "redirecting": "Se redirecționează…",
+      "error": "Conectarea la Stripe a eșuat. Puteți configura mai târziu în setările de plăți."
+    },
+    "finish": {
+      "title": "Ești gata!",
+      "subtitle": "{{restaurantName}} este pregătit. Începeți să construiți meniul, să adăugați personal și să preluați comenzi.",
+      "nextSteps": "Pașii următori pe care îi puteți face în tabloul de bord:",
+      "tipCategories": "Adăugați categorii și articole în meniu",
+      "tipQrCodes": "Imprimați sau partajați codurile QR",
+      "tipStaff": "Invitați membri ai personalului",
+      "tipBranding": "Personalizați brandingul și culorile",
+      "cta": "Către tabloul de bord"
     }
+  }
 }

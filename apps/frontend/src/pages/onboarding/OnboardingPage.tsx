@@ -1,40 +1,32 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { updateOnboardingStep, createCheckoutSession, confirmCheckoutSession } from '../../lib/api';
+import { updateOnboardingStep, createCheckoutSession, confirmCheckoutSession, getStripeStatus, updateProfile } from '../../lib/api';
 import PlanPickerStep from './steps/PlanPickerStep';
 import RestaurantBasicsStep from './steps/RestaurantBasicsStep';
-import TableSetupStep from './steps/TableSetupStep';
 import PaymentSetupStep from './steps/PaymentSetupStep';
 import FinishStep from './steps/FinishStep';
 
 type Tier = 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
 type Billing = 'monthly' | 'yearly';
-type Step = 'plan' | 'basics' | 'stripe-pending' | 'stripe-confirming' | 'tables' | 'payment' | 'done';
+type Step = 'plan' | 'basics' | 'stripe-pending' | 'stripe-confirming' | 'payment' | 'done';
 
 const PAID_TIERS: Tier[] = ['STARTER', 'PROFESSIONAL', 'ENTERPRISE'];
 const PAYMENT_TIERS: Tier[] = ['PROFESSIONAL', 'ENTERPRISE'];
 const VALID_TIERS: Tier[] = ['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'];
 
-const STEP_LABELS: Record<'plan' | 'basics' | 'tables' | 'payment' | 'done', string> = {
-  plan: 'Choose plan',
-  basics: 'Restaurant info',
-  tables: 'Tables',
-  payment: 'Payments',
-  done: 'Done',
-};
-
-function getVisibleSteps(tier: Tier, hasPlanPicker: boolean): Array<'plan' | 'basics' | 'tables' | 'payment' | 'done'> {
-  const steps: Array<'plan' | 'basics' | 'tables' | 'payment' | 'done'> = [];
+function getVisibleSteps(tier: Tier, hasPlanPicker: boolean): Array<'plan' | 'basics' | 'payment' | 'done'> {
+  const steps: Array<'plan' | 'basics' | 'payment' | 'done'> = [];
   if (hasPlanPicker) steps.push('plan');
   steps.push('basics');
-  steps.push('tables');
   if (PAYMENT_TIERS.includes(tier)) steps.push('payment');
   steps.push('done');
   return steps;
 }
 
 export default function OnboardingPage() {
+  const { t } = useTranslation();
   const { user, isLoading, updateUser } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -58,7 +50,7 @@ export default function OnboardingPage() {
     if (connectResult === 'success') return 'done';
     if (connectResult === 'refresh') return 'payment';
     if (stripeResult === 'success') return 'stripe-confirming';
-    if (stripeResult === 'cancel') return 'tables';
+    if (stripeResult === 'cancel') return 'done';
     return hasPlanPicker ? 'plan' : 'basics';
   });
 
@@ -90,6 +82,12 @@ export default function OnboardingPage() {
     }
   }, [stripeResult]);
 
+  // On Stripe Connect success: call getStripeStatus so backend sets paymentsEnabled=true
+  useEffect(() => {
+    if (connectResult !== 'success' || !activeRestaurantId) return;
+    getStripeStatus(activeRestaurantId).catch(() => {});
+  }, [connectResult, activeRestaurantId]);
+
   // Confirm Stripe session synchronously — don't wait for webhook
   useEffect(() => {
     if (step !== 'stripe-confirming') return;
@@ -97,16 +95,18 @@ export default function OnboardingPage() {
     const sessionId = searchParams.get('session_id');
 
     const confirm = async () => {
+      let confirmedTier: Tier = selectedTier;
       if (sessionId) {
         try {
           const { tier } = await confirmCheckoutSession(sessionId);
           if (tier && tier !== 'FREE') {
-            setSelectedTier(tier as Tier);
+            confirmedTier = tier as Tier;
+            setSelectedTier(confirmedTier);
             sessionStorage.setItem('selectedPlan', tier);
           }
         } catch (_) {}
       }
-      setStep('tables');
+      setStep(PAYMENT_TIERS.includes(confirmedTier) ? 'payment' : 'done');
     };
 
     confirm();
@@ -128,11 +128,18 @@ export default function OnboardingPage() {
 
   const handlePlanNext = () => setStep('basics');
 
-  const handleRestaurantCreated = async (id: string, name: string) => {
+  const handleRestaurantCreated = async (id: string, name: string, ownerName: string) => {
     setActiveRestaurantId(id);
     setActiveRestaurantName(name);
     sessionStorage.setItem('onboardingRestaurantId', id);
     sessionStorage.setItem('onboardingRestaurantName', name);
+
+    if (ownerName && user) {
+      try {
+        await updateProfile(ownerName);
+        updateUser({ ...user, name: ownerName });
+      } catch (_) {}
+    }
 
     if (PAID_TIERS.includes(selectedTier)) {
       await persistStep('stripe-pending');
@@ -142,18 +149,14 @@ export default function OnboardingPage() {
         window.location.href = url;
       } catch (_) {
         setLoading(false);
-        setStep('tables');
+        const next: Step = PAYMENT_TIERS.includes(selectedTier) ? 'payment' : 'done';
+        setStep(next);
       }
     } else {
-      await persistStep('tables');
-      setStep('tables');
+      const next: Step = PAYMENT_TIERS.includes(selectedTier) ? 'payment' : 'done';
+      await persistStep(next);
+      setStep(next);
     }
-  };
-
-  const handleTablesNext = async () => {
-    const next: Step = PAYMENT_TIERS.includes(selectedTier) ? 'payment' : 'done';
-    await persistStep(next);
-    setStep(next);
   };
 
   const handlePaymentNext = async () => {
@@ -173,7 +176,7 @@ export default function OnboardingPage() {
 
   const visibleSteps = getVisibleSteps(selectedTier, hasPlanPicker);
   const displayStep = (step === 'stripe-pending' || step === 'stripe-confirming') ? 'basics' : step;
-  const visibleIndex = visibleSteps.indexOf(displayStep as 'plan' | 'basics' | 'tables' | 'payment' | 'done');
+  const visibleIndex = visibleSteps.indexOf(displayStep as 'plan' | 'basics' | 'payment' | 'done');
 
   if (isLoading) {
     return (
@@ -190,12 +193,12 @@ export default function OnboardingPage() {
       {/* Header */}
       <header className="border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <span className="text-lg font-display font-bold text-foreground">QR Menu</span>
+          <span className="text-lg font-display font-bold text-foreground">{t('onboarding.brand')}</span>
           <span className="text-muted-foreground/40">·</span>
-          <span className="text-sm text-muted-foreground">Setup</span>
+          <span className="text-sm text-muted-foreground">{t('onboarding.setup')}</span>
         </div>
         <a href="/" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-          Back to home
+          {t('onboarding.backToHome')}
         </a>
       </header>
 
@@ -217,7 +220,7 @@ export default function OnboardingPage() {
                       ${isActive ? 'bg-primary text-primary-foreground' : isDone ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground/40'}`}>
                       {isDone ? '✓' : i + 1}
                     </span>
-                    <span className="hidden sm:inline">{STEP_LABELS[s]}</span>
+                    <span className="hidden sm:inline">{t(`onboarding.steps.${s}`)}</span>
                   </div>
                 </div>
               );
@@ -234,8 +237,8 @@ export default function OnboardingPage() {
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
               <p className="text-sm text-muted-foreground">
                 {step === 'stripe-confirming'
-                  ? 'Confirming your subscription…'
-                  : 'Redirecting to Stripe…'}
+                  ? t('onboarding.redirecting.confirming')
+                  : t('onboarding.redirecting.stripe')}
               </p>
             </div>
           ) : step === 'plan' ? (
@@ -248,12 +251,6 @@ export default function OnboardingPage() {
             />
           ) : step === 'basics' ? (
             <RestaurantBasicsStep onCreated={handleRestaurantCreated} />
-          ) : step === 'tables' ? (
-            <TableSetupStep
-              restaurantId={activeRestaurantId}
-              onNext={handleTablesNext}
-              onSkip={handleTablesNext}
-            />
           ) : step === 'payment' ? (
             <PaymentSetupStep
               restaurantId={activeRestaurantId}
@@ -264,7 +261,7 @@ export default function OnboardingPage() {
             />
           ) : step === 'done' ? (
             <FinishStep
-              restaurantName={activeRestaurantName || 'your restaurant'}
+              restaurantName={activeRestaurantName || t('onboarding.finish.title')}
               onDone={handleDone}
             />
           ) : null}

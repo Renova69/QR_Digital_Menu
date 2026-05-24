@@ -14,6 +14,45 @@
     "totalRevenue": "Total Revenue",
     "newOrders": "New Orders",
     "pendingAssistance": "Pending Assistance",
+    "totalOrders": "Total Orders",
+    "avgOrderValue": "Avg Order Value",
+    "activeCustomers": "Active Customers",
+    "peakHour": "Peak Hour",
+    "ordersCount": "{{count}} orders",
+    "prevPeriod": "prev period",
+    "loadingChart": "Loading chart…",
+    "loadingTables": "Loading tables…",
+    "upgradeToAccess": "Upgrade to access {{feature}}",
+    "availableOnPro": "Available on PRO plan and above",
+    "ordersOverview": "Orders Overview",
+    "revenue": "Revenue",
+    "recentOrders": "Recent Orders",
+    "total": "{{count}} total",
+    "noOrdersPeriod": "No orders in this period",
+    "walkIn": "Walk-in",
+    "itemsCount": "{{count}} items",
+    "topDishes": "Top Dishes",
+    "noDataYet": "No data yet",
+    "sold": "sold",
+    "revenueLabel": "revenue",
+    "payments": "Payments",
+    "noData": "No data",
+    "collected": "Collected",
+    "refunded": "Refunded",
+    "card": "Card",
+    "terminal": "Terminal",
+    "cash": "Cash",
+    "liveTables": "Live Tables",
+    "noTablesConfigured": "No tables configured",
+    "available": "Available",
+    "loyaltyRetention": "Loyalty & Retention",
+    "members": "Members",
+    "repeatRate": "Repeat Rate",
+    "pointsOutstanding": "Points Outstanding",
+    "redeemed": "Redeemed",
+    "topMember": "Top Member",
+    "pointsCount": "{{count}} points",
+    "noPaymentsPeriod": "No payments in this period",
     "tabs": {
       "home": "Home",
       "requests": "Requests",
@@ -152,6 +191,7 @@
   },
   "assistance": {
     "title": "Assistance Requests",
+    "subtitle": "See which tables need staff and clear requests fast.",
     "active": "Active",
     "resolved": "Resolved",
     "noActive": "No active assistance requests",
@@ -159,7 +199,17 @@
     "resolvedRequests": "Resolved Requests",
     "reopen": "Reopen",
     "showMore": "Show {{count}} more requests",
-    "resolvedAt": "Resolved {{time}}"
+    "resolvedAt": "Resolved {{time}}",
+    "waiting": "Waiting",
+    "cleared": "Cleared",
+    "requested": "Requested {{time}}",
+    "guestNeedsStaff": "Guest needs staff",
+    "requestCompleted": "Request completed",
+    "noMatchingRequests": "No matching requests",
+    "noRequestsHere": "No requests here",
+    "allGuestsAssisted": "All guests are currently assisted.",
+    "tryAnotherFilter": "Try another filter or table number.",
+    "searchPlaceholder": "Search by table..."
   },
   "orders": {
     "tabs": {
@@ -408,6 +458,11 @@
     "allFree": "All tables are free",
     "free": "Free",
     "noTablesCreated": "Add tables in QR Management first",
+    "totalTables": "Total tables",
+    "openValue": "Open value",
+    "searchTable": "Search table...",
+    "failedLoadTables": "Failed to load tables",
+    "retry": "Retry",
     "ordersCount": "{{count}} orders",
     "sessionStarted": "Session started {{time}}",
     "printScanPrompt": "Scan to view menu & order",
@@ -1179,5 +1234,108 @@
     "xlsxFormat": "XLSX (styled spreadsheet)",
     "xlsxFormatDesc": "Excel spreadsheet with styled headers, proper column widths, and correct encoding for all languages including Cyrillic.",
     "xlsxImport": "XLSX (exported menu)"
+},
+"onboarding": {
+  "brand": "QR Menu",
+  "setup": "Setup",
+  "backToHome": "Back to home",
+  "steps": {
+    "plan": "Choose plan",
+    "basics": "Restaurant info",
+    "payment": "Payments",
+    "done": "Done"
+  },
+  "redirecting": {
+    "confirming": "Confirming your subscription…",
+    "stripe": "Redirecting to Stripe…"
+  },
+  "plans": {
+    "title": "Choose your plan",
+    "subtitle": "Start free or unlock the full experience. Change anytime.",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "savePercent": "Save 15%",
+    "mostPopular": "Most Popular",
+    "saveVsMonthly": "Save 15% vs monthly",
+    "selected": "Selected",
+    "choose": "Choose {{tier}}",
+    "continue": "Continue with {{tier}}",
+    "free": {
+      "name": "FREE",
+      "features": [
+        "Digital menu (view & edit)",
+        "QR code management",
+        "OCR menu import",
+        "1 staff member"
+      ]
+    },
+    "starter": {
+      "name": "STARTER",
+      "features": [
+        "Everything in Free",
+        "Online ordering",
+        "Basic analytics",
+        "1 staff member"
+      ]
+    },
+    "professional": {
+      "name": "PROFESSIONAL",
+      "features": [
+        "Everything in Starter",
+        "Stripe pay-at-table",
+        "Full analytics",
+        "Call waiter button",
+        "Multi-language menu",
+        "Custom branding",
+        "Loyalty program",
+        "Up to 5 staff"
+      ]
+    },
+    "enterprise": {
+      "name": "ENTERPRISE",
+      "features": [
+        "Everything in Professional",
+        "POS & Kitchen Display",
+        "Multi-location",
+        "Unlimited staff",
+        "Priority support"
+      ]
+    }
+  },
+  "basics": {
+    "title": "About you & your restaurant",
+    "subtitle": "You can update all of this later in Settings.",
+    "ownerName": "Your name",
+    "restaurantName": "Restaurant name *",
+    "city": "City",
+    "dashboardLanguage": "Dashboard language",
+    "dashboardLanguageHint": "Language used for your owner dashboard.",
+    "createError": "Failed to create restaurant. Please try again.",
+    "creating": "Creating…",
+    "continue": "Continue"
+  },
+  "payment": {
+    "title": "Set up payments",
+    "subtitle": "Connect Stripe to accept card payments at the table. Takes about 2 minutes.",
+    "stripeConnect": "Stripe Connect",
+    "stripeDesc": "Secure card payments via Stripe. No monthly fee.",
+    "featureCards": "Accept Visa, Mastercard, and other cards",
+    "featureSplit": "Split bills and tip support",
+    "featurePayouts": "Payouts directly to your bank account",
+    "connectButton": "Connect with Stripe",
+    "skip": "Skip for now — set up later in Payments",
+    "redirecting": "Redirecting…",
+    "error": "Failed to connect Stripe. You can set it up later in Payments settings."
+  },
+  "finish": {
+    "title": "You're all set!",
+    "subtitle": "{{restaurantName}} is ready. Start building your menu, adding staff, and taking orders.",
+    "nextSteps": "Next steps you can do in your dashboard:",
+    "tipCategories": "Add menu categories and items",
+    "tipQrCodes": "Print or share your QR codes",
+    "tipStaff": "Invite staff members",
+    "tipBranding": "Customise branding and colours",
+    "cta": "Go to Dashboard"
   }
+}
 }

@@ -22,13 +22,16 @@ import PaymentsSummaryCard from "./summary/PaymentsSummaryCard";
 import LoyaltyRetentionCard from "./summary/LoyaltyRetentionCard";
 import QuickActionsRow from "./summary/QuickActionsRow";
 
-const UpgradeBanner = ({ feature }: { feature: string }) => (
-  <div className="glass-panel rounded-[1.5rem] p-8 flex flex-col items-center justify-center gap-3 text-center">
-    <Lock className="w-8 h-8 text-muted-foreground/50" />
-    <p className="text-sm font-bold text-muted-foreground">Upgrade to access {feature}</p>
-    <p className="text-xs text-muted-foreground/70">Available on PRO plan and above</p>
-  </div>
-);
+const UpgradeBanner = ({ feature }: { feature: string }) => {
+  const { t } = useTranslation();
+  return (
+    <div className="glass-panel rounded-[1.5rem] p-8 flex flex-col items-center justify-center gap-3 text-center">
+      <Lock className="w-8 h-8 text-muted-foreground/50" />
+      <p className="text-sm font-bold text-muted-foreground">{t('dashboard.upgradeToAccess', { feature })}</p>
+      <p className="text-xs text-muted-foreground/70">{t('dashboard.availableOnPro')}</p>
+    </div>
+  );
+};
 
 const SummaryView = () => {
   const { activeRestaurant } = useContext(RestaurantContext) as any;
@@ -92,11 +95,11 @@ const SummaryView = () => {
   const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
   const freeKpis = [
-    { label: t("dashboard.totalOrders", "Total Orders"), value: totalOrders.toLocaleString('en-US'), Icon: ShoppingCart },
-    { label: t("dashboard.totalRevenue", "Total Revenue"), value: formatEuro(totalRevenue), Icon: TrendingUp },
-    { label: t("dashboard.avgOrderValue", "Avg Order Value"), value: formatEuro(avgOrderValue), Icon: CreditCard },
-    { label: "Active Customers", value: "—", Icon: Users },
-    { label: "Peak Hour", value: "—", Icon: Clock },
+    { label: t("dashboard.totalOrders"), value: totalOrders.toLocaleString('en-US'), Icon: ShoppingCart },
+    { label: t("dashboard.totalRevenue"), value: formatEuro(totalRevenue), Icon: TrendingUp },
+    { label: t("dashboard.avgOrderValue"), value: formatEuro(avgOrderValue), Icon: CreditCard },
+    { label: t("dashboard.activeCustomers"), value: "—", Icon: Users },
+    { label: t("dashboard.peakHour"), value: "—", Icon: Clock },
   ];
 
   return (
@@ -124,26 +127,26 @@ const SummaryView = () => {
       {/* Row 2: Chart + Recent Orders + Live Tables */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1.2fr_1fr] gap-5">
         {!canFull ? (
-          <UpgradeBanner feature="Orders Chart" />
+          <UpgradeBanner feature={t('dashboard.ordersOverview')} />
         ) : analytics ? (
           <OrdersOverviewChart data={analytics.revenueTrend} />
         ) : (
           <div className="glass-panel rounded-[1.5rem] p-5 flex items-center justify-center">
-            <p className="text-xs text-muted-foreground">Loading chart…</p>
+            <p className="text-xs text-muted-foreground">{t('dashboard.loadingChart')}</p>
           </div>
         )}
         {!canOrders ? (
-          <UpgradeBanner feature="Recent Orders" />
+          <UpgradeBanner feature={t('dashboard.recentOrders')} />
         ) : (
           <RecentOrdersTable orders={Array.isArray(recentOrders) ? recentOrders : (recentOrders as any)?.data ?? []} />
         )}
         {!canOrders ? (
-          <UpgradeBanner feature="Live Tables" />
+          <UpgradeBanner feature={t('dashboard.liveTables')} />
         ) : tables ? (
           <LiveTablesGrid tables={tables} />
         ) : (
           <div className="glass-panel rounded-[1.5rem] p-5 flex items-center justify-center">
-            <p className="text-xs text-muted-foreground">Loading tables…</p>
+            <p className="text-xs text-muted-foreground">{t('dashboard.loadingTables')}</p>
           </div>
         )}
       </div>
@@ -151,32 +154,32 @@ const SummaryView = () => {
       {/* Row 3: Top Dishes + Payments + Loyalty */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1.2fr_1fr] gap-5">
         {!canFull ? (
-          <UpgradeBanner feature="Top Dishes" />
+          <UpgradeBanner feature={t('dashboard.topDishes')} />
         ) : analytics ? (
           <TopDishesTable items={analytics.topItems} />
         ) : (
           <div className="glass-panel rounded-[1.5rem] p-5">
-            <h3 className="text-sm font-display font-bold text-foreground mb-4">Top Dishes</h3>
+            <h3 className="text-sm font-display font-bold text-foreground mb-4">{t('dashboard.topDishes')}</h3>
             <p className="text-xs text-muted-foreground text-center py-8">{t('dashboard.noData', 'No data for this period')}</p>
           </div>
         )}
         {!canPayments ? (
-          <UpgradeBanner feature="Payment Summary" />
+          <UpgradeBanner feature={t('dashboard.payments')} />
         ) : paymentSummary && paymentSummary.totalCollected > 0 ? (
           <PaymentsSummaryCard data={paymentSummary} />
         ) : (
           <div className="glass-panel rounded-[1.5rem] p-5">
-            <h3 className="text-sm font-display font-bold text-foreground mb-4">Payments</h3>
-            <p className="text-xs text-muted-foreground text-center py-8">No payments in this period</p>
+            <h3 className="text-sm font-display font-bold text-foreground mb-4">{t('dashboard.payments')}</h3>
+            <p className="text-xs text-muted-foreground text-center py-8">{t('dashboard.noPaymentsPeriod')}</p>
           </div>
         )}
         {!canLoyalty ? (
-          <UpgradeBanner feature="Loyalty & Retention" />
+          <UpgradeBanner feature={t('dashboard.loyaltyRetention')} />
         ) : loyalty ? (
           <LoyaltyRetentionCard data={loyalty} />
         ) : (
           <div className="glass-panel rounded-[1.5rem] p-5">
-            <h3 className="text-sm font-display font-bold text-foreground mb-4">Loyalty & Retention</h3>
+            <h3 className="text-sm font-display font-bold text-foreground mb-4">{t('dashboard.loyaltyRetention')}</h3>
             <p className="text-xs text-muted-foreground text-center py-8">
               {activeRestaurant?.isLoyaltyEnabled
                 ? t('dashboard.noLoyaltyData', 'No loyalty data yet')

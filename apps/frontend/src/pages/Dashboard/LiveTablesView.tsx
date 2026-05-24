@@ -131,12 +131,12 @@ const LiveTablesView: React.FC = () => {
     return (
       <div className="flex min-h-[300px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center">
         <div>
-          <p className="mb-4 font-bold text-muted-foreground">Failed to load tables</p>
+          <p className="mb-4 font-bold text-muted-foreground">{t('tables.failedLoadTables')}</p>
           <button
             onClick={() => queryClient.invalidateQueries({ queryKey: ['tableStatuses', restaurantId] })}
             className="rounded-lg bg-primary px-4 py-2 text-sm font-black text-white"
           >
-            Retry
+            {t('tables.retry')}
           </button>
         </div>
       </div>
@@ -158,19 +158,19 @@ const LiveTablesView: React.FC = () => {
     <section>
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Total tables</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{t('tables.totalTables')}</p>
           <p className="mt-1 text-2xl font-black text-foreground">{stats.total}</p>
         </div>
         <div className="rounded-lg border border-primary/20 bg-primary/10 px-4 py-3 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary">Active</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary">{t('tables.active')}</p>
           <p className="mt-1 text-2xl font-black text-primary">{stats.active}</p>
         </div>
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm dark:border-amber-400/20 dark:bg-amber-400/10">
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-700 dark:text-amber-200">Waiting</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-700 dark:text-amber-200">{t('tables.waiting')}</p>
           <p className="mt-1 text-2xl font-black text-amber-700 dark:text-amber-200">{stats.waiting}</p>
         </div>
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm dark:border-emerald-400/20 dark:bg-emerald-400/10">
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-200">Open value</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-200">{t('tables.openValue')}</p>
           <p className="mt-1 text-2xl font-black text-emerald-700 dark:text-emerald-200">&euro;{stats.revenue.toFixed(2)}</p>
         </div>
       </div>
@@ -206,7 +206,7 @@ const LiveTablesView: React.FC = () => {
           <input
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Search table..."
+            placeholder={t('tables.searchTable')}
             className="h-10 w-full rounded-lg border border-border bg-card pl-10 pr-3 text-sm font-medium text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
           />
         </div>

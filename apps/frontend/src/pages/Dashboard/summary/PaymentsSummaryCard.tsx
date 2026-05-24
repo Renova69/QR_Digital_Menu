@@ -1,5 +1,6 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { CreditCard, Banknote } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { formatEuro } from "../../../lib/currency";
 
 interface PaymentsSummaryData {
@@ -18,20 +19,22 @@ const COLORS: Record<string, string> = {
   CASH: '#34D399',
 };
 
-const METHOD_LABELS: Record<string, string> = {
-  STRIPE: 'Card',
-  MYPOS: 'Terminal',
-  CASH: 'Cash',
-};
-
 const PaymentsSummaryCard = ({ data }: PaymentsSummaryCardProps) => {
+  const { t } = useTranslation();
+
+  const METHOD_LABELS: Record<string, string> = {
+    STRIPE: t('dashboard.card'),
+    MYPOS: t('dashboard.terminal'),
+    CASH: t('dashboard.cash'),
+  };
+
   const chartData = data.byMethod
     .filter((m) => m.amount > 0)
     .map((m) => ({ name: METHOD_LABELS[m.method] || m.method, value: m.amount, color: COLORS[m.method] || '#9CA3AF' }));
 
   return (
     <div className="glass-panel rounded-[1.5rem] p-5">
-      <h3 className="text-sm font-display font-bold text-foreground mb-4">Payments</h3>
+      <h3 className="text-sm font-display font-bold text-foreground mb-4">{t('dashboard.payments')}</h3>
       <div className="flex items-center gap-4">
         <div className="w-24 h-24 shrink-0">
           {chartData.length > 0 ? (
@@ -46,17 +49,17 @@ const PaymentsSummaryCard = ({ data }: PaymentsSummaryCardProps) => {
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">No data</div>
+            <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">{t('dashboard.noData')}</div>
           )}
         </div>
         <div className="flex-1 space-y-2">
           <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Collected</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest">{t('dashboard.collected')}</p>
             <p className="text-lg font-display font-bold text-foreground">{formatEuro(data.totalCollected)}</p>
           </div>
           {data.refundAmount > 0 && (
             <div>
-              <p className="text-[10px] text-red-400 uppercase tracking-widest">Refunded</p>
+              <p className="text-[10px] text-red-400 uppercase tracking-widest">{t('dashboard.refunded')}</p>
               <p className="text-sm font-bold text-red-400">{formatEuro(data.refundAmount)}</p>
             </div>
           )}

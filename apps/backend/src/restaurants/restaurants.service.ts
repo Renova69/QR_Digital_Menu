@@ -342,7 +342,7 @@ export class RestaurantsService {
     if (chargesEnabled && !restaurant.stripeOnboarded) {
       await this.prisma.restaurant.update({
         where: { id: restaurantId },
-        data: { stripeOnboarded: true },
+        data: { stripeOnboarded: true, paymentsEnabled: true },
       });
     }
 
