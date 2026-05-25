@@ -1,7 +1,7 @@
-import React, { useContext, useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { CheckCircle2, X, AlertTriangle } from "lucide-react";
-import RestaurantContext from "../../../context/RestaurantContext";
+import { useRestaurantContext } from "../../../context/RestaurantContext";
 import { updateRestaurant, generateStripeConnectLink, getStripeStatus, disconnectStripe } from "../../../lib/api";
 import { useFeature } from "../../../hooks/useFeature";
 import ToggleSwitch from "../../../components/ui/ToggleSwitch";
@@ -14,7 +14,7 @@ const sectionHeading = "text-sm font-semibold text-foreground uppercase tracking
 const DEFAULT_TIP_OPTIONS = [5, 10, 15, 20];
 
 const PaymentSettingsTab: React.FC = () => {
-  const { activeRestaurant, fetchRestaurants } = useContext(RestaurantContext) as any;
+  const { activeRestaurant, fetchRestaurants } = useRestaurantContext();
   const { t } = useTranslation();
   const isStripeFeature = useFeature("payments:stripe");
 
@@ -30,17 +30,22 @@ const PaymentSettingsTab: React.FC = () => {
   const [stripeError, setStripeError] = useState("");
   const [disconnecting, setDisconnecting] = useState(false);
   const [status, setStatus] = useState({ loading: false, error: "", success: "" });
-  const initialized = useRef(false);
+  const initializedRestaurantId = useRef<string | null>(null);
   const stripeCheckedRef = useRef(false);
 
   useEffect(() => {
-    if (activeRestaurant && !initialized.current) {
-      initialized.current = true;
+    if (activeRestaurant && initializedRestaurantId.current !== activeRestaurant.id) {
+      initializedRestaurantId.current = activeRestaurant.id;
       setPaymentsEnabled(activeRestaurant.paymentsEnabled ?? false);
       setTipsEnabled(activeRestaurant.tipsEnabled ?? false);
       setTipOptions(activeRestaurant.tipOptions ?? DEFAULT_TIP_OPTIONS);
       setStripeOnboarded(activeRestaurant.stripeOnboarded ?? false);
       setNotifyAllStaffOnPayment(activeRestaurant.notifyAllStaffOnPayment ?? true);
+      setDisconnectConfirming(false);
+      setStripeError("");
+      setTipError("");
+      setStatus({ loading: false, error: "", success: "" });
+      stripeCheckedRef.current = false;
     }
   }, [activeRestaurant]);
 

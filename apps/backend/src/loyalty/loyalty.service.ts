@@ -28,6 +28,7 @@ const TIER_FIELDS = {
 const LOYALTY_CONFIG_FIELDS = {
   isLoyaltyEnabled: true,
   happyHourEnable: true,
+  happyHourDays: true,
   happyHourStartTime: true,
   happyHourEndTime: true,
   happyHourMultiplier: true,

@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCircleCheck } from '@fortawesome/free-solid-svg-icons';
+import { CircleCheck } from 'lucide-react';
 import { Button } from './button';
 import { Input } from './input';
 import { ImageUploadInput } from './ImageUploadInput';
@@ -10,8 +9,9 @@ import { useTranslation } from 'react-i18next';
 import { FontPicker } from '../branding/FontPicker';
 import { ColorSchemeEditor } from '../branding/ColorSchemeEditor';
 import { BrandingPreview } from '../branding/BrandingPreview';
+import type { Restaurant } from '../../context/RestaurantContext';
 
-export const BrandingEditor = ({ restaurant, onUpdate }: { restaurant: any, onUpdate: () => void }) => {
+export const BrandingEditor = ({ restaurant, onUpdate }: { restaurant: Restaurant, onUpdate: () => void }) => {
   const [accentColor, setAccentColor] = useState(restaurant.accentColor || '#4F46E5');
   const [fontHeading, setFontHeading] = useState(restaurant.fontHeading || 'Playfair Display');
   const [fontBody, setFontBody] = useState(restaurant.fontBody || 'Outfit');
@@ -22,7 +22,6 @@ export const BrandingEditor = ({ restaurant, onUpdate }: { restaurant: any, onUp
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoRemoved, setLogoRemoved] = useState(false);
   const [googleReviewUrl, setGoogleReviewUrl] = useState(restaurant.googleReviewUrl || '');
-  const [timezone, setTimezone] = useState(restaurant.timezone || 'UTC');
   const [isUpdating, setIsUpdating] = useState(false);
   const { t } = useTranslation();
   const { showToast, ToastComponent } = useToast();
@@ -50,7 +49,6 @@ export const BrandingEditor = ({ restaurant, onUpdate }: { restaurant: any, onUp
         defaultTheme,
         logoUrl: finalLogoUrl,
         googleReviewUrl: googleReviewUrl.trim() || null,
-        timezone,
       });
 
       showToast('Branding settings saved successfully', 'success');
@@ -160,30 +158,9 @@ export const BrandingEditor = ({ restaurant, onUpdate }: { restaurant: any, onUp
               />
               {googleReviewUrl && (
                 <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                  <FontAwesomeIcon icon={faCircleCheck} className="mr-1" /> {t('branding.redirectActive')}
+                  <CircleCheck className="mr-1 h-3.5 w-3.5" /> {t('branding.redirectActive')}
                 </p>
               )}
-            </div>
-            <div className="border-t border-border/40 pt-6">
-              <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
-                {t('branding.restaurantTimezone')}
-              </label>
-              <p className="text-[10px] font-medium text-muted-foreground/60 italic mb-4">
-                {t('branding.restaurantTimezoneDesc')}
-              </p>
-              <select
-                value={timezone}
-                onChange={(e) => setTimezone(e.target.value)}
-                className="w-full h-11 px-3 border border-border rounded-xl bg-background text-sm focus:ring-primary focus:border-primary"
-              >
-                <option value="UTC">UTC (GMT+0)</option>
-                <option value="Europe/Sofia">Europe/Sofia (GMT+2/3)</option>
-                <option value="Europe/Bucharest">Europe/Bucharest (GMT+2/3)</option>
-                <option value="Europe/London">Europe/London (GMT+0/1)</option>
-                <option value="Europe/Paris">Europe/Paris (GMT+1/2)</option>
-                <option value="Europe/Istanbul">Europe/Istanbul (GMT+3)</option>
-                <option value="America/New_York">America/New_York (GMT-5/4)</option>
-              </select>
             </div>
 
             <Button type="submit" disabled={isUpdating} className="w-full">

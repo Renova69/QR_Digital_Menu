@@ -1,7 +1,7 @@
-import React, { useContext, useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, Award, Calculator } from "lucide-react";
-import RestaurantContext from "../../../context/RestaurantContext";
+import { useRestaurantContext } from "../../../context/RestaurantContext";
 import { updateRestaurant } from "../../../lib/api";
 import { useFeature } from "../../../hooks/useFeature";
 import ToggleSwitch from "../../../components/ui/ToggleSwitch";
@@ -10,9 +10,20 @@ const inputCls =
   "w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all";
 
 const sectionHeading = "text-sm font-semibold text-foreground uppercase tracking-wide";
+const MAX_RECOMMENDED_CASHBACK_RATE = 0.15;
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => hour);
+const MINUTE_OPTIONS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+
+const parseTimeParts = (time: string | undefined, fallback: [number, number]) => {
+  const [hour, minute] = (time ?? "").split(":").map(Number);
+  return [
+    Number.isInteger(hour) && hour >= 0 && hour <= 23 ? hour : fallback[0],
+    Number.isInteger(minute) && minute >= 0 && minute <= 59 ? minute : fallback[1],
+  ] as const;
+};
 
 const LoyaltySettingsTab: React.FC = () => {
-  const { activeRestaurant, fetchRestaurants } = useContext(RestaurantContext) as any;
+  const { activeRestaurant, fetchRestaurants } = useRestaurantContext();
   const { t } = useTranslation();
   const isLoyaltyFeature = useFeature("loyalty");
 
@@ -34,11 +45,11 @@ const LoyaltySettingsTab: React.FC = () => {
   const [happyHourEndM, setHappyHourEndM] = useState(0);
   const [happyHourMultiplier, setHappyHourMultiplier] = useState(2.0);
   const [status, setStatus] = useState({ loading: false, error: "", success: "" });
-  const initialized = useRef(false);
+  const initializedRestaurantId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (activeRestaurant && !initialized.current) {
-      initialized.current = true;
+    if (activeRestaurant && initializedRestaurantId.current !== activeRestaurant.id) {
+      initializedRestaurantId.current = activeRestaurant.id;
       setIsLoyaltyEnabled(activeRestaurant.isLoyaltyEnabled ?? false);
       setLoyaltySignupBonus(activeRestaurant.loyaltySignupBonus ?? 0);
       setLoyaltyExchangeRate(activeRestaurant.loyaltyExchangeRate ?? 10);
@@ -51,13 +62,14 @@ const LoyaltySettingsTab: React.FC = () => {
       setLoyaltyGoldMultiplier(activeRestaurant.loyaltyGoldMultiplier ?? 1.5);
       setHappyHourEnable(activeRestaurant.happyHourEnable ?? false);
       setHappyHourDays(activeRestaurant.happyHourDays ?? [1,2,3,4,5,6,7]);
-      const [sh, sm] = (activeRestaurant.happyHourStartTime ?? "18:00").split(":").map(Number);
-      const [eh, em] = (activeRestaurant.happyHourEndTime ?? "20:00").split(":").map(Number);
+      const [sh, sm] = parseTimeParts(activeRestaurant.happyHourStartTime, [18, 0]);
+      const [eh, em] = parseTimeParts(activeRestaurant.happyHourEndTime, [20, 0]);
       setHappyHourStartH(sh);
       setHappyHourStartM(sm);
       setHappyHourEndH(eh);
       setHappyHourEndM(em);
       setHappyHourMultiplier(activeRestaurant.happyHourMultiplier ?? 2.0);
+      setStatus({ loading: false, error: "", success: "" });
     }
   }, [activeRestaurant]);
 
@@ -96,7 +108,7 @@ const LoyaltySettingsTab: React.FC = () => {
   };
 
   const cashbackPct = loyaltyExchangeRate / loyaltyRedeemRate;
-  const cashbackHigh = cashbackPct > 0.15;
+  const cashbackHigh = cashbackPct > MAX_RECOMMENDED_CASHBACK_RATE;
   const reminderTooHigh = loyaltyExpiryReminderDays >= loyaltyPointExpiryDays;
   const silverAboveGold = loyaltySilverThreshold >= loyaltyGoldThreshold;
 
@@ -411,21 +423,22 @@ const LoyaltySettingsTab: React.FC = () => {
                     {t("loyaltySettings.happyHourStart")}
                   </label>
                   <div className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      min={0}
-                      max={23}
+                    <select
                       value={happyHourStartH}
-                      onChange={(e) => setHappyHourStartH(Math.min(23, Math.max(0, Number(e.target.value))))}
+                      onChange={(e) => setHappyHourStartH(Number(e.target.value))}
                       className="w-16 px-2 py-2 border border-border rounded-lg bg-background text-foreground text-center focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    />
+                    >
+                      {HOUR_OPTIONS.map((h) => (
+                        <option key={h} value={h}>{String(h).padStart(2,"0")}</option>
+                      ))}
+                    </select>
                     <span className="text-muted-foreground font-bold">:</span>
                     <select
                       value={happyHourStartM}
                       onChange={(e) => setHappyHourStartM(Number(e.target.value))}
                       className="w-16 px-2 py-2 border border-border rounded-lg bg-background text-foreground text-center focus:outline-none focus:ring-2 focus:ring-primary/50"
                     >
-                      {[0,5,10,15,20,25,30,35,40,45,50,55].map((m) => (
+                      {MINUTE_OPTIONS.map((m) => (
                         <option key={m} value={m}>{String(m).padStart(2,"0")}</option>
                       ))}
                     </select>
@@ -438,21 +451,22 @@ const LoyaltySettingsTab: React.FC = () => {
                     {t("loyaltySettings.happyHourEnd")}
                   </label>
                   <div className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      min={0}
-                      max={23}
+                    <select
                       value={happyHourEndH}
-                      onChange={(e) => setHappyHourEndH(Math.min(23, Math.max(0, Number(e.target.value))))}
+                      onChange={(e) => setHappyHourEndH(Number(e.target.value))}
                       className="w-16 px-2 py-2 border border-border rounded-lg bg-background text-foreground text-center focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    />
+                    >
+                      {HOUR_OPTIONS.map((h) => (
+                        <option key={h} value={h}>{String(h).padStart(2,"0")}</option>
+                      ))}
+                    </select>
                     <span className="text-muted-foreground font-bold">:</span>
                     <select
                       value={happyHourEndM}
                       onChange={(e) => setHappyHourEndM(Number(e.target.value))}
                       className="w-16 px-2 py-2 border border-border rounded-lg bg-background text-foreground text-center focus:outline-none focus:ring-2 focus:ring-primary/50"
                     >
-                      {[0,5,10,15,20,25,30,35,40,45,50,55].map((m) => (
+                      {MINUTE_OPTIONS.map((m) => (
                         <option key={m} value={m}>{String(m).padStart(2,"0")}</option>
                       ))}
                     </select>

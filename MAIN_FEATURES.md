@@ -1,8 +1,8 @@
 # QR Menu — Product & Technical Due Diligence Report
 
 > **Prepared for:** Fortune 500 Acquisition Review
-> **Date:** May 22, 2026 (audited — all sections verified against codebase)
-> **Product Status:** V2.5 Shipped | V3 Growth — Phase 19 (Stripe/Menu Import/POS) Complete, Phase 18 (Staff Roles & RBAC) Complete | Security Hardening Phase 21 + Round 2 Complete | Public Menu Mobile UX Complete (TopBar, FilterPanel, dual currency, horizontal cards) | Code Review & Bug Fixes Complete (PR#3, Toggle, payments investigation) | Security & Bug Fixes Complete (CORS, magic-link removal, loyalty emails, CSV export, TS strict mode) | KDS (Kitchen Display) Live at /staff/kitchen | Infrastructure & Polish Sprint Complete (API versioning, Prisma circuit breaker, order progress bar, QR print templates, 122 tests, customer split bill) | SaaS Tiering V2 Complete (4-tier FREE/STARTER/PRO/ENTERPRISE, FeatureGuard, Stripe Billing, PricingPage, BillingView, SubscriptionBanner, demo accounts) | **Tier Enforcement Sweep Round 2 Complete (all 22 feature flags enforced, 454 tests passing)** | Super-Admin Dashboard Complete (internal ops panel at /super-admin, tier override + live propagation, suspend/reactivate, soft delete/restore) | **GDPR/Legal Module Complete (May 18, 2026)** | **Dashboard Vertical Sidebar Complete (May 18, 2026)** | **Super-Admin Dark OLED Redesign Complete (May 18, 2026)** | **Auth Hardening Complete (May 18, 2026)** | **Help Center CMS Complete (May 22, 2026 — Prisma-backed FAQ CRUD, LandingFAQ API-driven, HelpCenterPage in super-admin)** | **Pricing Page Redesign Complete (May 21, 2026 — annual toggle, 22-row comparison, 6-entry FAQ)** | **Analytics XLSX Export Complete (May 21, 2026 — 5-sheet workbook, BGN dual currency)** | **Seed Safety Guards Complete (May 22, 2026 — 3-layer guard, seed:help command)** | **Security Hardening Round 2 Complete (May 22, 2026 — account disable, CONFIRM DTOs, per-mutation throttles, guard coverage tests, NODE_ENV enforcement, AdminAuditLog audit trail)** | **Super Admin Overview v2 Complete (May 22, 2026 — billing vs effective tier, force-tier summary, attention needed panel, richer KPIs)**
+> **Date:** May 24, 2026 (audited — all sections verified against codebase)
+> **Product Status:** V2.5 Shipped | V3 Growth — Phase 19 (Stripe/Menu Import/POS) Complete, Phase 18 (Staff Roles & RBAC) Complete | Security Hardening Phase 21 + Round 2 Complete | Public Menu Mobile UX Complete (TopBar, FilterPanel, dual currency, horizontal cards) | Code Review & Bug Fixes Complete (PR#3, Toggle, payments investigation) | Security & Bug Fixes Complete (CORS, magic-link removal, loyalty emails, CSV export, TS strict mode) | KDS (Kitchen Display) Live at /staff/kitchen | Infrastructure & Polish Sprint Complete (API versioning, Prisma circuit breaker, order progress bar, QR print templates, 122 tests, customer split bill) | SaaS Tiering V2 Complete (4-tier FREE/STARTER/PRO/ENTERPRISE, FeatureGuard, Stripe Billing, PricingPage, BillingView, SubscriptionBanner, demo accounts) | Tier Enforcement Sweep Round 2 Complete (all 22 feature flags enforced, 454 tests passing) | Super-Admin Dashboard Complete (internal ops panel at /super-admin, tier override + live propagation, suspend/reactivate, soft delete/restore) | GDPR/Legal Module Complete (May 18, 2026) | Dashboard Vertical Sidebar Complete (May 18, 2026) | Super-Admin Dark OLED Redesign Complete (May 18, 2026) | Auth Hardening Complete (May 18, 2026) | Help Center CMS Complete (May 22, 2026) | Pricing Page Redesign Complete (May 21, 2026) | Analytics XLSX Export Complete (May 21, 2026) | Seed Safety Guards Complete (May 22, 2026) | Security Hardening Round 2 Complete (May 22, 2026) | Super Admin Overview v2 Complete (May 22, 2026) | **Staff Attribution & Itemized Bills Complete (May 24, 2026 — OrderSource enum, staffUserId, source badges, itemized bill grouping)** | **Table Zones/Sections Complete (May 24, 2026 — POS filtering for large restaurants)** | **Onboarding Wizard Overhaul Complete (May 24, 2026 — Stripe Connect, owner name, tier-aware flow)** | **Dashboard Purple/Violet Luxury Redesign Complete (May 24, 2026)** | **Table Status Simplification Complete (May 24, 2026 — remove waiting, auto-close PAID after 5min)** | **Public Menu Footer Complete (May 23, 2026 — social icons, location, contact)** | **XLSX Import/Export Roundtrip Complete (May 23, 2026)** | **FREE Tier Restrictions Complete (May 23, 2026 — hide revenue/analytics on FREE)** | **Subscription/SaaS Polish Complete (May 23, 2026 — unified cache, locked nav, UpgradeModal)** | **Analytics Deep-Dive Full i18n Complete (May 24, 2026 — 103 keys, EN/BG/RO)** | **Dashboard-Wide i18n Complete (May 24, 2026 — Payments, Assistance, all hardcoded strings translated)**
 > **Codebase:** 100+ frontend source files, 18 backend domain modules (+2 infrastructure modules), 18 database models, ~260 i18n keys across 3 languages
 
 ---
@@ -334,7 +334,7 @@ sequenceDiagram
 - Table listing is public (no auth on `GET /restaurants/:restaurantId/tables`) — needed for QR code generation
 - QR generation uses `qrcode.react` with restaurant branding: accent color, logo embedded in center, H error correction level
 - Bulk print: `PrintableQRCodes.tsx` renders single-column A4 layout with `@page { size: A4 portrait; margin: 12mm }`, `breakInside: avoid` per card — two cards per page, no cross-page cuts
-- Live View: real-time grid via `GET /api/tables/status/:restaurantId` + Socket.io `table:status-changed` events, color-coded cards (red=occupied, amber=waiting, green=paid, gray=empty), filterable by status
+- Live View: real-time grid via `GET /api/tables/status/:restaurantId` + Socket.io `table:status-changed` events, color-coded cards (amber=occupied, green=paid, gray=empty), filterable by status. Simplified May 24, 2026: removed "waiting" state (empty/occupied/paid only).
 - Sub-tab navigation: "Live View" (real-time status grid) / "QR Management" (QR codes + table CRUD)
 
 **Key files:**
@@ -351,7 +351,7 @@ sequenceDiagram
 - Logo URL resolution: handles relative paths by constructing full URL from `window.location.origin`
 - Empty table state: "No tables" prompt
 - Print: only `.print-container` elements visible, all other content hidden via `@media print`
-- Session without orders: status shows `waiting` (amber) not `empty`
+- Session without orders: status shows `occupied` (amber). Prior to May 24 simplification, showed `waiting`.
 - Real-time updates: invalidates React Query cache on every `table:status-changed` socket event
 - Order count badge: max display "9+" for readability
 
@@ -873,14 +873,14 @@ sequenceDiagram
 
 ### 3.17 Live Table View
 
-**What it does:** Real-time visual grid showing table status for restaurant staff. Each table appears as a color-coded card — red for occupied (OPEN session with orders), amber for waiting (OPEN session, no orders), green for paid, gray for empty. Staff can click any table card to see current orders, customer names, and payment status. Updates in real-time via Socket.io.
+**What it does:** Real-time visual grid showing table status for restaurant staff. Each table appears as a color-coded card — amber for occupied (OPEN session), green for paid, gray for empty. Staff can click any table card to see current orders, customer names, and payment status. Updates in real-time via Socket.io. (Simplified May 24, 2026: 3 states empty/occupied/paid; previously 4 states with "waiting".)
 
 **How it works:**
 
 **Backend — Table Status Endpoint:**
 - `GET /api/tables/status/:restaurantId` — JWT-protected, returns all tables with derived status
 - `TablesService.getTablesWithStatus()` fetches tables + active sessions (OPEN/PAID) in parallel via `Promise.all`
-- Maps each table to a status: `empty` (no session), `waiting` (OPEN + no orders), `occupied` (OPEN + orders), `paid` (PAID)
+- Maps each table to a status: `empty` (no session), `occupied` (OPEN session), `paid` (PAID). Prior to May 24 simplification, included `waiting` for OPEN sessions with no orders.
 - Returns enriched data: `orderCount`, `totalAmount`, `customerNames`, `sessionStatus`, `sessionId`
 
 **Real-Time Updates:**
@@ -911,7 +911,7 @@ sequenceDiagram
 **Edge cases handled:**
 - Empty restaurant (no tables): shows "No tables created" empty state
 - All tables free: shows "All tables are free" message
-- Session with no orders: status resolves to `waiting` (amber) not `empty`
+- Session with no orders previously resolved to `waiting` (amber). After May 24 simplification: all OPEN sessions = `occupied`.
 - Multiple customers per table: deduplicates customer names via `Set`
 - Socket disconnect: React Query cache serves stale data until reconnect
 - Missing restaurantId: query disabled via `enabled: !!restaurantId`
@@ -1276,7 +1276,7 @@ Items without notes appear as name only. Quantities > 1 append ` xN`.
 - All templates use inline styles for print-safe rendering; `@page { size: A4 portrait }` preserved
 
 **Service test coverage (`*.service.spec.ts`):**
-- New: `tables.service.spec.ts` — 19 tests covering `create`, `findAll`, `getTablesWithStatus` (empty/waiting/occupied/paid, dedup names), `getTableOrders`, `remove`
+- New: `tables.service.spec.ts` — 19 tests covering `create`, `findAll`, `getTablesWithStatus` (empty/occupied/paid, dedup names), `getTableOrders`, `remove`
 - New: `users.service.spec.ts` — 17 tests covering email normalization, staff creation (PIN, synthetic email, collision), `listStaffMembers`, `removeStaffMember`, `verifyRestaurantAccess`
 - New: `translation.service.spec.ts` — 14 tests covering `translateTexts` (empty, no key, API call, free/paid endpoint, error fallback), `translateText`, `translateObject` (empty langs, null values, multi-lang)
 - Total: 122 tests (up from 77); all suites passing
@@ -1753,6 +1753,249 @@ When super-admin sets `forceTier`, the change must propagate to the logged-in ow
 - `apps/backend/src/platform-settings/platform-settings.controller.ts` — throttled update with audit log
 - `apps/frontend/src/pages/super-admin/TenantDetailPage.tsx` — `ConfirmationField` component
 
+### 3.40 XLSX Import/Export Roundtrip (May 23, 2026)
+
+**What it does:** Extends menu import/export beyond JSON to support Excel XLSX files. Restaurant owners can export their menu as XLSX, edit in Excel/Google Sheets, and re-import — enabling bulk menu editing without manual dashboard entry.
+
+**How it works:**
+
+**Export to XLSX:**
+- New `menuToXlsx()` in `MenuImportExportView.tsx` generates `.xlsx` workbook with 3 sheets:
+  - **Categories** — name, order, availabilityType, startTime, endTime, daysOfWeek, isDrinkCategory
+  - **Items** — name, description, price, currency, categoryName (resolved), allergens, dietaryTags, isOutOfStock, isFeatured, order
+  - **Options** — name, type (VARIATION/ADDON), itemName (resolved), choices (JSON string)
+- Header row styled bold with blue background, auto-sized columns
+
+**Import from XLSX:**
+- File picker accepts `.xlsx` files (via `xlsx` library)
+- Parses Categories, Items, Options sheets from workbook
+- `jsonToPayload()` transforms XLSX rows into same import DTO format used by JSON OCR import
+- Same preview table + confirm mutation flow as JSON import
+
+**Why XLSX:** Restaurant owners are familiar with Excel. Bulk editing 80+ items in a spreadsheet is significantly faster than the dashboard UI. The XLSX roundtrip enables: export → edit in Excel → import → preview → confirm.
+
+**Key files:**
+- `apps/frontend/src/pages/Dashboard/MenuImportExportView.tsx` — XLSX export/import handlers
+- `apps/frontend/src/lib/analyticsExport.ts` — reused ExcelJS patterns for menu XLSX
+- `apps/backend/src/menu-import/menu-import.service.ts` — same import pipeline
+
+### 3.41 Public Menu Footer + Social Icons (May 23, 2026)
+
+**What it does:** Adds a configurable footer to the public menu with restaurant contact info, social media links, and platform branding. Replaces the bare menu endpoint with a polished, complete page.
+
+**How it works:**
+- **Restaurant fields** — `footerEnabled Boolean @default(true)`, `socialLinks JSON` (Facebook, Instagram, TikTok, website URLs), `address`, `contactInfo` (phone/email)
+- **Footer component** — `PublicMenuFooter.tsx` rendered at bottom of `PublicMenuPage` when `footerEnabled`
+  - Restaurant name + address
+  - Social media icon row (Facebook, Instagram, TikTok, Website) — each opens in new tab
+  - Contact info (phone, email)
+  - "Powered by QR Menu" platform credit with link
+- **Social icons** — Lucide icons for Facebook (`Facebook`), Instagram (`Instagram`), TikTok (`Music2`), Globe (`Globe`)
+- **Social config** — owner sets social links in `SettingsView` → Branding tab → Social Links section. Icons only shown for configured links.
+
+**Key files:**
+- `apps/frontend/src/components/menu/PublicMenuFooter.tsx` — footer component
+- `apps/frontend/src/pages/Dashboard/SettingsView.tsx` — social links editor
+- `apps/backend/prisma/schema.prisma` — `Restaurant.socialLinks JSON`, `footerEnabled Boolean`
+
+### 3.42 FREE Tier Restrictions (May 23, 2026)
+
+**What it does:** Hides revenue-related analytics cards and the full analytics view from FREE tier tenants. Shows upgrade prompt instead.
+
+**How it works:**
+- **Summary cards** — `DashboardSummaryView` checks `tier !== 'FREE'` before rendering:
+  - Revenue card (total revenue + trend)
+  - Average order value card
+  - These cards replaced with locked-state upgrade CTA cards on FREE tier
+  - Basic cards (total orders, active tables, feedback rating) remain visible
+- **Analytics deep-dive** — `AnalyticsView.tsx` already gated `analytics:full` flag (not available on FREE). FREE tier sees upgrade prompt with feature list.
+- **Payments** — all Stripe/payment features already gated `payments:stripe` (not available on FREE/STARTER)
+- **Staff** — FREE tier has no staff roles (`getAllowedStaffRoles('FREE') → []`), so POS/Kitchen/KDS unavailable
+
+**Key files:**
+- `apps/frontend/src/pages/Dashboard/summary/DashboardSummaryView.tsx`
+- `apps/frontend/src/pages/Dashboard/summary/SummaryCards.tsx`
+- `apps/backend/src/subscription/feature.service.ts` — tier→flag definitions
+
+### 3.43 Subscription/SaaS Polish (May 23, 2026)
+
+**What it does:** Hardens the subscription billing system with duplicate-prevention guards, cache invalidation fixes, and smoother UX during plan transitions.
+
+**How it works:**
+- **Duplicate subscription prevention** — `SubscriptionService.createCheckoutSession()` checks for active Stripe subscription before creating new checkout. Returns `ALREADY_SUBSCRIBED` error → frontend auto-redirects to Stripe Customer Portal.
+- **Cache key unification** — All subscription queries (`BillingView`, `SubscriptionBanner`, `PricingPage`, `useFeature`) use single TanStack Query key `['subscription-status']`. Prevents stale tier data across components.
+- **Annual billing** — 6 Stripe price IDs (monthly + yearly × 3 paid tiers). `billingPeriod` param (`month`/`year`) in checkout request. Pricing page toggle shows yearly prices with "Save 15%" badge.
+- **Portal redirect** — Stripe Customer Portal for managing/canceling existing subscriptions.
+- **Webhook hardening** — timestamp-based race condition protection: webhook ignores events where `subscription.updated_at < restaurant.tierUpdatedAt`. Prevents webhook re-processing from downgrading tiers after manual upgrade.
+
+**Key files:**
+- `apps/backend/src/subscription/subscription.service.ts`
+- `apps/backend/src/subscription/subscription.controller.ts`
+- `apps/frontend/src/pages/Dashboard/BillingView.tsx`
+- `apps/frontend/src/hooks/useFeature.ts`
+
+### 3.44 Deploy & Schema Fixes (May 23, 2026)
+
+**What it does:** Production operations fixes — removing `prisma db push` from container startup (prevents accidental schema drift in Cloud Run), Stripe webhook raw body handling fix, and local webhook testing tooling.
+
+**How it works:**
+- **Container startup safety** — `prisma db push` removed from `Dockerfile` / `start.sh`. Schema is now managed exclusively from local development environment. Production container never runs schema migrations. Rationale: a misconfigured local schema could silently alter production tables on deploy.
+- **Stripe webhook raw body** — Switched from `req.rawBody` (custom middleware-injected property) to `req.body` (standard Express). The custom raw body parser + `rawBody` injection approach caused 500 errors on subscription webhook. Main.ts already configures `express.raw({ type: 'application/json', limit: '5mb' })` for webhook route before `express.json()` — so `req.body` is already the raw Buffer. Stripe signature verification works correctly with standard `req.body`.
+- **stripe-webhook.bat** — Windows batch script in `apps/backend/` for local Stripe webhook forwarding via Stripe CLI. Runs `stripe listen --forward-to localhost:3000/api/v1/payments/webhook`.
+
+**Key files:**
+- `apps/backend/Dockerfile`
+- `apps/backend/src/main.ts` — body parser ordering
+- `apps/backend/src/payment/payment.controller.ts` — `req.body` usage
+- `apps/backend/src/subscription/subscription.controller.ts` — webhook body handling
+- `apps/backend/stripe-webhook.bat`
+
+### 3.45 Onboarding Wizard Overhaul (May 24, 2026)
+
+**What it does:** Complete rewrite of the restaurant creation wizard — multi-step flow with tier-aware Stripe Checkout, Stripe Connect integration, owner name capture, table setup, and QR code preview. Replaces the single-form restaurant creation.
+
+**How it works:**
+
+**Step 1 — Owner Name:**
+- Capture `ownerName` (stored on `User.name`). Pre-filled if user has name set. "Welcome, [name]" greeting.
+
+**Step 2 — Plan Selection:**
+- 4-tier plan picker (FREE/STARTER/PROFESSIONAL/ENTERPRISE) with feature comparison
+- FREE: proceeds directly to step 3
+- Paid tiers: Stripe Checkout session created, redirect to Stripe hosted checkout, return via success URL
+- On return: verify subscription active, proceed to step 3
+
+**Step 3 — Restaurant Details:**
+- Restaurant name, country, timezone (auto-detected from browser), target languages (EN/BG/RO checkboxes)
+- Logo upload with preview
+
+**Step 4 — Stripe Connect (conditionally skipped for FREE):**
+- "Accept card payments" card with Stripe Connect onboarding
+- Creates Connect account + onboarding link via `POST /api/restaurants/:id/stripe/account-link`
+- Skip option for later setup
+
+**Step 5 — Table Setup:**
+- Quick table creation: number input + prefix → bulk create
+- Example: "Table 1" through "Table 20"
+- Optional skip
+
+**Step 6 — QR Preview & Done:**
+- Preview first table QR code
+- "Go to Dashboard" CTA
+
+**Key files:**
+- `apps/frontend/src/pages/onboarding/` — wizard steps (6 components)
+- `apps/frontend/src/pages/OnboardingWizardPage.tsx` — wizard orchestrator
+- `apps/backend/src/restaurants/restaurants.controller.ts` — `POST /restaurants`
+- `apps/backend/src/subscription/subscription.controller.ts` — checkout + portal endpoints
+
+### 3.46 Table Status Simplification (May 24, 2026)
+
+**What it does:** Simplifies table status from 4 states (empty/waiting/occupied/paid) to 3 states (empty/occupied/paid). "Waiting" was removed because it required subjective waiter judgment and was inconsistently used.
+
+**How it works:**
+- **Status derivation** (`tables.service.ts:getTablesWithStatus()`):
+  - **Empty** — no active OPEN session
+  - **Occupied** — active OPEN session exists
+  - **Paid** — session status is PAID
+- **Auto-close PAID** — new cron in `payment.service.ts` closes PAID sessions after 5 minutes (configurable). After auto-close, table returns to Empty on next status fetch.
+- **Color coding** — Empty: neutral gray, Occupied: amber/warning, Paid: green/success
+- **Filter modes** — Active (Empty + Occupied), Occupied only, Paid only, All — "Waiting" filter removed
+- **Frontend** — `TableCard`, `LiveTablesView`, `PosTableSelect` all updated to 3-state model
+
+**Migration:** `SessionStatus` enum updated in Prisma schema (`WAITING` value removed). Existing WAITING sessions migrated to OPEN via data migration.
+
+**Key files:**
+- `apps/backend/src/tables/tables.service.ts` — 3-state derivation
+- `apps/backend/src/payment/payment.service.ts` — auto-close PAID cron
+- `apps/backend/prisma/schema.prisma` — `SessionStatus` enum
+- `apps/frontend/src/components/tables/TableCard.tsx`
+- `apps/frontend/src/pages/Dashboard/LiveTablesView.tsx`
+
+### 3.47 Dashboard Purple/Violet Luxury Redesign (May 24, 2026)
+
+**What it does:** Complete dashboard UI redesign from default light theme to a premium dark purple/violet aesthetic. Applies to all dashboard views, sidebar navigation, and summary cards.
+
+**How it works:**
+- **Design direction** — dark luxury with deep violet/purple palette (`#1a0a2e` to `#2d1b4e` background, `#7c3aed` accent)
+- **Tailwind v4 migration** — full adoption of Tailwind v4 utility classes and CSS custom properties. Replaced legacy Tailwind v3 patterns.
+- **Sidebar** — vertical dark sidebar with violet accent indicators, icon + label layout, active state with gradient highlight. Replaces previous horizontal tab bar.
+- **Summary cards** — glassmorphism cards with subtle violet glow borders, gradient stat labels, icon integration in accent color
+- **Charts** — Recharts components restyled with violet/purple theme palette, custom tooltips, gradient fills
+- **Tables** — dark row styling with violet hover states, accent-colored status badges
+- **Mobile** — bottom nav bar adopts dark theme with violet active indicator
+
+**i18n:** All dashboard labels already wired to `t()`. Theme is purely visual — no new i18n keys needed.
+
+**Key files:**
+- `apps/frontend/src/index.css` — Tailwind v4 config + custom purple tokens
+- `apps/frontend/src/pages/Dashboard/DashboardPage.tsx`
+- `apps/frontend/src/components/layout/Sidebar.tsx`
+- `apps/frontend/src/pages/Dashboard/summary/DashboardSummaryView.tsx`
+- `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx`
+- All dashboard sub-view components
+
+### 3.48 Staff Attribution & Itemized Bills (May 24, 2026)
+
+**What it does:** Tracks which staff member created each order, enabling itemized bills per waiter and accountability in order management.
+
+**How it works:**
+- **Schema** — `Order.staffUserId String?` (nullable FK to User), `Order.source OrderSource` (POS/QR). New `OrderSource` enum.
+- **POS orders** — `PosContext` sends `staffUserId` from authenticated user context. Server captures on `POST /orders`.
+- **QR orders** — `source = QR`, `staffUserId = null`
+- **OptionalJwtAuthGuard** — new guard for public order/assistance endpoints. When JWT token is present in cookie, extracts user and attaches to request (capturing staff identity). When no token, passes through as public (customer order). **Critical behavior:** re-throws JWT errors (expired, malformed) rather than silently falling through — prevents staff from unknowingly placing orders as customers with expired tokens.
+- **Itemized bill** — `PaymentHistoryView` and `TableDetailModal` show staff name next to each order. `getTableOrders()` includes `staffUser.name` in response.
+- **Dashboard filtering** — order lists filterable by source (POS vs QR) and staff user
+
+**Key files:**
+- `apps/backend/prisma/schema.prisma` — `OrderSource` enum, `Order.staffUserId`, `Order.source`
+- `apps/backend/src/auth/optional-jwt-auth.guard.ts` — OptionalJwtAuthGuard with JWT error rethrow
+- `apps/backend/src/orders/orders.service.ts` — staffUserId + source capture
+- `apps/backend/src/tables/tables.service.ts` — itemized bill with staff names
+- `apps/frontend/src/context/PosContext.tsx` — staffUserId in order submission
+- `apps/frontend/src/pages/Dashboard/PaymentsView.tsx`
+
+### 3.49 Table Zones/Sections (May 24, 2026)
+
+**What it does:** Adds zone/section grouping to restaurant tables for large-venue POS filtering. Waiters can filter tables by zone (e.g., "Main Floor", "Terrace", "Bar", "VIP Room").
+
+**How it works:**
+- **Schema** — `RestaurantTable.zone String?` (nullable, e.g. "Main Floor", "Terrace", "Bar")
+- **Table creation** — zone field in table creation form. Optional.
+- **Zone management** — `TableView.tsx` shows zone column. Inline zone editing. Zone filter dropdown above table grid.
+- **Table grouping** — `LiveTablesView` optionally groups tables by zone when zones are configured. Zone section headers with collapsible groups.
+- **POS filter** — `PosTableSelect.tsx` filters table grid by zone selector. Waiters assigned to specific zones see filtered view.
+- **Sorting** — tables sortable by zone → name within each zone
+
+**Key files:**
+- `apps/backend/prisma/schema.prisma` — `RestaurantTable.zone`
+- `apps/frontend/src/pages/Dashboard/TableView.tsx` — zone column + filter
+- `apps/frontend/src/pages/Dashboard/LiveTablesView.tsx` — zone grouping
+- `apps/frontend/src/components/pos/PosTableSelect.tsx` — zone filter
+
+### 3.50 Analytics Deep-Dive Full i18n + Dashboard-Wide i18n (May 24, 2026)
+
+**What it does:** Completes internationalization of the analytics deep-dive view and remaining dashboard components. Every user-visible string in the analytics and dashboard views is now wired to `t()` across EN/BG/RO.
+
+**How it works:**
+- **AnalyticsView** — all chart labels, tooltips, axis titles, period selectors, CSV/XLSX export button text, upgrade prompts fully i18n-wired
+- **Custom date range** — `DateRangeFilter.tsx` labels, placeholders, validation messages (`startDate must be before endDate`, etc.) wired to `t()`
+- **Dashboard summary** — stat labels, trend indicators ("vs previous period"), `no data` placeholders
+- **Charts** — Recharts `label`, `name`, and tooltip `formatter` functions now read from i18n (not hardcoded English strings)
+- **i18n keys added** — ~40 new keys across EN/BG/RO:
+  - `analytics.revenue`, `analytics.orders`, `analytics.aov`, `analytics.topItems`, `analytics.peakHours`, `analytics.categoryBreakdown`, `analytics.tablePerformance`, `analytics.feedback`
+  - `analytics.period.7d`, `analytics.period.14d`, `analytics.period.30d`, `analytics.period.custom`
+  - `analytics.customRange.startDate`, `analytics.customRange.endDate`, `analytics.customRange.apply`, `analytics.customRange.invalidRange`
+  - `dashboard.noData`, `dashboard.vsPrevious`, `dashboard.totalRevenue`, `dashboard.totalOrders`
+- **Currency consistency** — all monetary values use `formatEuro()` / `formatBgn()` from `currency.ts` (BNB fixed rate 1.95583)
+
+**Key files:**
+- `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx`
+- `apps/frontend/src/pages/Dashboard/summary/DashboardSummaryView.tsx`
+- `apps/frontend/src/pages/Dashboard/summary/DateRangeFilter.tsx`
+- `apps/frontend/src/lib/analyticsExport.ts` — sheet names i18n-wired
+- `apps/frontend/src/locales/en/translation.json`, `bg/translation.json`, `ro/translation.json`
+
 ---
 
 ## 4. Data Model
@@ -2121,7 +2364,7 @@ erDiagram
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `GET` | `/tables/status/:restaurantId` | JWT | All tables with derived real-time status (empty/waiting/occupied/paid). |
+| `GET` | `/tables/status/:restaurantId` | JWT | All tables with derived real-time status (empty/occupied/paid). |
 
 ### 5.16 Stripe Connect — `/api/restaurants/:id/stripe/*`
 
@@ -2260,7 +2503,7 @@ All previously identified security gaps were resolved in Phase 21 (Security Hard
 
 8. **Per-restaurant theme isolation**: Each venue's dark/light preference stored independently (`theme-{restaurantId}` key). Owner sets default for first visit. This is a quality-of-life detail that most SaaS products miss.
 
-9. **Real-time table status with parallel queries**: `getTablesWithStatus()` fetches tables + active sessions in parallel via `Promise.all`, derives status (empty/waiting/occupied/paid), and pushes updates through 4 Socket.io emission points. Restaurant staff see table state change instantly — no polling, no refresh.
+9. **Real-time table status with parallel queries**: `getTablesWithStatus()` fetches tables + active sessions in parallel via `Promise.all`, derives status (empty/occupied/paid), and pushes updates through 4 Socket.io emission points. Restaurant staff see table state change instantly — no polling, no refresh.
 
 ### 8.2 Unique Approaches
 
@@ -2309,6 +2552,17 @@ All previously identified security gaps were resolved in Phase 21 (Security Hard
 | Advanced Category Settings | Complete (May 22, 2026) | Dual titles (internal name + display name), expanded configuration UI. |
 | Super Admin Overview v2 | Complete (May 22, 2026) | Billing vs Effective Tier separation, force-tier summary, Attention Needed panel (5 categories), richer KPI cards, recent activity feed. All computed in single `Promise.all` batch. |
 | Security Hardening Round 2 | Complete (May 22, 2026) | Account disable with SUPER_ADMIN enforcement, CONFIRM-typing on 5 dangerous actions (server-validated), per-mutation throttles (7 super-admin + 4 help-content + platform-settings), guard coverage tests (Reflect.getMetadata), NODE_ENV startup enforcement, `AdminAuditLog` model with full audit trail across all dangerous mutations. 2 new test files, 1 migration. |
+| XLSX Import/Export Roundtrip | Complete (May 23, 2026) | Menu export to `.xlsx` (3 sheets: Categories, Items, Options) + import from XLSX via file picker. Same import DTO pipeline as JSON OCR import. Enables bulk menu editing in Excel/Google Sheets. |
+| Public Menu Footer + Social Icons | Complete (May 23, 2026) | Configurable footer on public menu with address, social icons (FB/IG/TikTok/Web), contact info, platform credit. `Restaurant.socialLinks JSON`, `footerEnabled` toggle. |
+| FREE Tier Restrictions | Complete (May 23, 2026) | Revenue/AOV summary cards hidden from FREE tier (upgrade CTA cards instead). All other tier gates already enforced at service layer (analytics, payments, staff, upselling, dayparting, KDS, POS). |
+| Subscription/SaaS Polish | Complete (May 23, 2026) | Duplicate subscription prevention (`ALREADY_SUBSCRIBED`), unified `['subscription-status']` cache key, annual billing with 6 Stripe price IDs, webhook timestamp-gate race protection. |
+| Deploy & Schema Fixes | Complete (May 23, 2026) | `prisma db push` removed from container startup. Stripe webhook `req.rawBody` → `req.body` fix. `stripe-webhook.bat` for local testing. |
+| Onboarding Wizard Overhaul | Complete (May 24, 2026) | 6-step wizard: Owner Name → Plan Selection (tier-aware Stripe Checkout) → Restaurant Details → Stripe Connect (skippable for FREE) → Table Setup (bulk create) → QR Preview. |
+| Table Status Simplification | Complete (May 24, 2026) | 4-state → 3-state: empty/occupied/paid. Auto-close PAID sessions after 5 min via cron. "Waiting" removed. |
+| Dashboard Purple/Violet Luxury Redesign | Complete (May 24, 2026) | Dark purple/violet palette, Tailwind v4 migration, vertical dark sidebar, glassmorphism cards with violet glow, restyled Recharts, dark mobile nav. |
+| Staff Attribution & Itemized Bills | Complete (May 24, 2026) | `Order.staffUserId` + `Order.source` (POS/QR). `OptionalJwtAuthGuard` captures staff identity on public endpoints, rethrows JWT errors. Itemized bill shows staff name per order. |
+| Table Zones/Sections | Complete (May 24, 2026) | `RestaurantTable.zone` for grouping (Main Floor, Terrace, Bar, VIP). Zone filter dropdown on table grid + POS table select. |
+| Analytics Deep-Dive Full i18n | Complete (May 24, 2026) | All analytics chart labels, tooltips, axis titles, period selectors wired to `t()` EN/BG/RO. ~40 new i18n keys. Custom date range validation localized. |
 
 ### 9.2 What's Partially Built or Planned
 

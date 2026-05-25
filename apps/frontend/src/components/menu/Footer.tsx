@@ -1,13 +1,15 @@
-import { MapPin, Phone } from 'lucide-react';
+import { Globe, MapPin, Phone, Youtube } from 'lucide-react';
 import React from 'react';
 
 interface FooterProps {
   restaurantName: string;
   address?: string;
   contactInfo?: string;
+  websiteUrl?: string;
   facebookUrl?: string;
   instagramUrl?: string;
   tiktokUrl?: string;
+  youtubeUrl?: string;
 }
 
 const socialIconCls =
@@ -71,8 +73,8 @@ function linkifyPhones(text: string): React.ReactNode {
   return parts.length > 0 ? parts : text;
 }
 
-export default function Footer({ restaurantName, address, contactInfo, facebookUrl, instagramUrl, tiktokUrl }: FooterProps) {
-  const hasSocials = !!(facebookUrl || instagramUrl || tiktokUrl);
+export default function Footer({ restaurantName, address, contactInfo, websiteUrl, facebookUrl, instagramUrl, tiktokUrl, youtubeUrl }: FooterProps) {
+  const hasSocials = !!(websiteUrl || facebookUrl || instagramUrl || tiktokUrl || youtubeUrl);
   const hasContact = !!(address || contactInfo);
 
   return (
@@ -104,6 +106,11 @@ export default function Footer({ restaurantName, address, contactInfo, facebookU
         {/* Social Icons */}
         {hasSocials && (
           <div className="flex items-center justify-center gap-4 pt-1">
+            {websiteUrl && (
+              <a href={websiteUrl} target="_blank" rel="noopener noreferrer" aria-label="Website" className="p-1.5 rounded-xl hover:bg-secondary/60 transition-colors">
+                <Globe className={socialIconCls} />
+              </a>
+            )}
             {facebookUrl && (
               <a href={facebookUrl} target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="p-1.5 rounded-xl hover:bg-secondary/60 transition-colors">
                 <FacebookIcon />
@@ -117,6 +124,11 @@ export default function Footer({ restaurantName, address, contactInfo, facebookU
             {tiktokUrl && (
               <a href={tiktokUrl} target="_blank" rel="noopener noreferrer" aria-label="TikTok" className="p-1.5 rounded-xl hover:bg-secondary/60 transition-colors">
                 <TikTokIcon />
+              </a>
+            )}
+            {youtubeUrl && (
+              <a href={youtubeUrl} target="_blank" rel="noopener noreferrer" aria-label="YouTube" className="p-1.5 rounded-xl hover:bg-secondary/60 transition-colors">
+                <Youtube className={`${socialIconCls} text-red-600`} />
               </a>
             )}
           </div>

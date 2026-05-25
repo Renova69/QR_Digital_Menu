@@ -108,9 +108,11 @@
     "brandingLockedDesc": "Надградете до Professional, за да персонализирате шрифтове, цветове и лого.",
     "socialMedia": "Социални медии",
     "socialMediaDesc": "Добавете линкове към вашите социални медии. Те ще се показват в публичното меню.",
+    "websiteUrl": "Уебсайт URL",
     "facebookUrl": "Facebook URL",
     "instagramUrl": "Instagram URL",
     "tiktokUrl": "TikTok URL",
+    "youtubeUrl": "YouTube URL",
     "summaryLanguages": "{{count}} активен(и) език(а)",
     "translationActiveCount": "{{count}} избран(и) език(а) — натиснете за превод на менюто",
     "featureNotAvailable": "Тази функция не е достъпна в текущия ви план."

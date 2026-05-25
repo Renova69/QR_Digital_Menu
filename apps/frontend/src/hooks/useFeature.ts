@@ -111,11 +111,18 @@ export function useTier(): {
     (ctx?.activeRestaurant?.forceTier as SubscriptionTier | null | undefined) ??
     (ctx?.activeRestaurant?.tier as SubscriptionTier) ??
     'FREE';
+  const apiFeatures = Array.isArray(data?.features)
+    ? (data.features as FeatureFlag[])
+    : null;
+  const apiStaffLimit =
+    typeof data?.staffLimit === 'number' && Number.isFinite(data.staffLimit)
+      ? data.staffLimit
+      : null;
 
   return {
     tier,
-    features: TIER_FEATURES[tier] ?? TIER_FEATURES.FREE,
-    staffLimit: getStaffLimit(tier),
+    features: apiFeatures ?? TIER_FEATURES[tier] ?? TIER_FEATURES.FREE,
+    staffLimit: apiStaffLimit ?? getStaffLimit(tier),
     hasSubscription: data?.hasSubscription ?? false,
     subscription: (data?.subscription as SubscriptionInfo | null) ?? null,
     isLoading,
