@@ -828,7 +828,15 @@
     "silver": "Сребро",
     "gold": "Злато",
     "liveCalcTitle": "Пример — поръчка от €{{amount}}",
-    "reminderMustBeLower": "Дните за напомняне трябва да са по-малко от дните за изтичане."
+    "reminderMustBeLower": "Дните за напомняне трябва да са по-малко от дните за изтичане.",
+    "happyHourDays": "Активни дни",
+    "dayMon": "Пон",
+    "dayTue": "Вто",
+    "dayWed": "Сря",
+    "dayThu": "Чет",
+    "dayFri": "Пет",
+    "daySat": "Съб",
+    "daySun": "Нед"
   },
   "auth": {
     "otp": {

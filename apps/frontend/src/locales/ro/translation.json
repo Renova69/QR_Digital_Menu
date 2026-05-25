@@ -772,7 +772,15 @@
     "silver": "Argint",
     "gold": "Aur",
     "liveCalcTitle": "Exemplu live — comandă de €{{amount}}",
-    "reminderMustBeLower": "Zilele de reamintire trebuie să fie mai puțin decât zilele de expirare."
+    "reminderMustBeLower": "Zilele de reamintire trebuie să fie mai puțin decât zilele de expirare.",
+    "happyHourDays": "Zile active",
+    "dayMon": "Lun",
+    "dayTue": "Mar",
+    "dayWed": "Mie",
+    "dayThu": "Joi",
+    "dayFri": "Vin",
+    "daySat": "Sâm",
+    "daySun": "Dum"
   },
   "auth": {
     "otp": {

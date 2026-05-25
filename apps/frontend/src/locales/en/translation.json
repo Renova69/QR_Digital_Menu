@@ -774,7 +774,15 @@
     "silver": "Silver",
     "gold": "Gold",
     "liveCalcTitle": "Live Example — €{{amount}} order",
-    "reminderMustBeLower": "Reminder days must be less than expiry days."
+    "reminderMustBeLower": "Reminder days must be less than expiry days.",
+    "happyHourDays": "Active days",
+    "dayMon": "Mon",
+    "dayTue": "Tue",
+    "dayWed": "Wed",
+    "dayThu": "Thu",
+    "dayFri": "Fri",
+    "daySat": "Sat",
+    "daySun": "Sun"
   },
   "auth": {
     "otp": {
