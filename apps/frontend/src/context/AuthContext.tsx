@@ -65,6 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { user, token } = await apiLogin(email, password);
       queryClient.clear();
       if (token) setAuthToken(token);
+      // Clear stale prefetch from previous session before setting new user
+      setPrefetchedRestaurants(null);
       setUser(user);
       return { user };
     } catch (error: any) {
@@ -82,6 +84,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { user, token } = await apiRegister(email, password, name);
       queryClient.clear();
       if (token) setAuthToken(token);
+      // Clear stale prefetch from previous session before setting new user
+      setPrefetchedRestaurants(null);
       setUser(user);
       return { user };
     } catch (error: any) {
@@ -94,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginWithToken = (user: User) => {
     queryClient.clear();
+    setPrefetchedRestaurants(null);
     setUser(user);
   };
 
