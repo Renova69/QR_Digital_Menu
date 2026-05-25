@@ -81,6 +81,7 @@
       "loyalty": "Loialitate",
       "payments": "Plăți",
       "staff": "Personal",
+      "branding": "Branding",
       "subscription": "Abonament"
     },
     "restaurantName": "Numele Restaurantului",
@@ -109,7 +110,10 @@
     "socialMediaDesc": "Adaugă link-uri către rețelele tale sociale. Acestea vor apărea în meniul public.",
     "facebookUrl": "Facebook URL",
     "instagramUrl": "Instagram URL",
-    "tiktokUrl": "TikTok URL"
+    "tiktokUrl": "TikTok URL",
+    "summaryLanguages": "{{count}} limbă(i) activă(e)",
+    "translationActiveCount": "{{count}} limbă(i) selectată(e) — click pentru a traduce meniul",
+    "featureNotAvailable": "Această funcție nu este disponibilă în planul dvs. curent."
   },
   "staff": {
     "sharedDeviceMode": "Mod dispozitiv partajat",
@@ -691,7 +695,21 @@
       "connecting": "Se conectează...",
       "tips": "Bacșișuri",
       "quickTipOptions": "Butoane rapide % bacșiș afișate clienților",
-      "addTipOption": "Adaugă"
+      "addTipOption": "Adaugă",
+      "resetTips": "Resetează la implicite",
+      "tipValidationError": "Introduceți o valoare între 1 și 100.",
+      "tipDuplicateError": "Acel % este deja adăugat.",
+      "statusPaymentsOn": "Plăți ACTIVE",
+      "statusPaymentsOff": "Plăți INACTIVE",
+      "statusStripeConnected": "Stripe conectat",
+      "statusStripeNotConnected": "Stripe neconectat",
+      "statusTipsOn": "Bacșișuri ACTIVE",
+      "statusTipsOff": "Bacșișuri INACTIVE",
+      "disconnectAreYouSure": "Deconectați Stripe?",
+      "disconnectConfirmBtn": "Da, deconectează",
+      "connectError": "Nu s-a putut conecta Stripe. Vă rugăm încercați din nou.",
+      "notifyStaff": "Notificări Plăți",
+      "notifyStaffDesc": "Când este activat, tot personalul vede notificările de plată. Când este dezactivat, doar proprietarul le vede."
     }
   },
   "summary": {
@@ -748,7 +766,13 @@
     "happyHourStart": "Ora de Început",
     "happyHourEnd": "Ora de Sfârșit",
     "happyHourEndDesc": "Sfârșit înainte de început = interval nocturn.",
-    "happyHourMultiplier": "Multiplicator Puncte"
+    "happyHourMultiplier": "Multiplicator Puncte",
+    "pointsEconomy": "Economia Punctelor",
+    "expirySection": "Expirare Puncte",
+    "silver": "Argint",
+    "gold": "Aur",
+    "liveCalcTitle": "Exemplu live — comandă de €{{amount}}",
+    "reminderMustBeLower": "Zilele de reamintire trebuie să fie mai puțin decât zilele de expirare."
   },
   "auth": {
     "otp": {
