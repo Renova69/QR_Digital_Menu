@@ -338,6 +338,14 @@ const PublicMenuPage = () => {
               "--custom-bg": restaurantTheme.themeBgColor,
               "--custom-text": restaurantTheme.themeTextColor,
               "--custom-card": restaurantTheme.themeCardColor || restaurantTheme.themeBgColor,
+              // Set these directly on the wrapper so child elements inherit them,
+              // overriding the .dark { !important } vars on html.
+              "--color-background": restaurantTheme.themeBgColor,
+              "--color-foreground": restaurantTheme.themeTextColor,
+              "--color-card": restaurantTheme.themeCardColor || restaurantTheme.themeBgColor,
+              "--color-card-foreground": restaurantTheme.themeTextColor,
+              "--color-popover": restaurantTheme.themeBgColor,
+              "--color-popover-foreground": restaurantTheme.themeTextColor,
             }
           : {}),
       } as React.CSSProperties)
