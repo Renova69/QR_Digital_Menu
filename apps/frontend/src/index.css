@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   /* QR MENU — Design System (CC-Design) */
@@ -104,8 +105,8 @@
   --color-destructive: #EF4444;
   --color-destructive-foreground: #FFFFFF;
 
-  --color-border: rgba(255, 255, 255, 0.04) !important;
-  --color-input: rgba(255, 255, 255, 0.04) !important;
+  --color-border: #25223A !important;
+  --color-input: #25223A !important;
   --color-ring: #8B6FFF;
 
   --glass-opacity: 0.85;
@@ -126,7 +127,7 @@
 
 @layer base {
   * {
-    @apply border-border/60;
+    @apply border-border;
   }
   html {
     @apply scroll-smooth;

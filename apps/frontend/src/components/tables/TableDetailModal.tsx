@@ -305,13 +305,13 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
                     </div>
 
                     {specialRequests.length > 0 && (
-                      <div className="mt-3 rounded-lg border border-[#F59E0B] bg-[#FFE1B3] p-3 text-[#321405] dark:border-orange-400/20 dark:bg-orange-400/10 dark:text-orange-100">
-                        <p className="mb-2 text-[11px] font-black uppercase tracking-[0.14em] text-[#7C2D12] dark:text-orange-100/70">
+                      <div className="mt-3 rounded-lg border border-[#F59E0B] bg-[#FFE1B3] p-3 text-orange-950 dark:border-orange-400/20 dark:bg-orange-400/10 dark:text-orange-100">
+                        <p className="mb-2 text-[11px] font-black uppercase tracking-[0.14em] text-orange-900 dark:text-orange-100/70">
                           {t('orders.specialRequests', 'Special Requests')}
                         </p>
                         <div className="space-y-1.5">
                           {specialRequests.map((request, index) => (
-                            <p key={`${order.id}-special-${index}`} className="text-xs font-bold leading-relaxed">
+                            <p key={`${order.id}-special-${index}`} className="text-xs font-bold leading-relaxed text-orange-950 dark:text-orange-100">
                               {request.seat && (
                                 <span className="mr-2 rounded bg-[#F97316] px-1.5 py-0.5 text-[10px] font-black uppercase text-white dark:bg-orange-400/20 dark:text-orange-100">
                                   {request.seat}
