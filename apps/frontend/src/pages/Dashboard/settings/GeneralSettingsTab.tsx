@@ -1,9 +1,9 @@
-import React, { useContext, useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Globe } from "lucide-react";
-import RestaurantContext from "../../../context/RestaurantContext";
+import { useRestaurantContext } from "../../../context/RestaurantContext";
 import { updateRestaurant, triggerTranslation } from "../../../lib/api";
-import { useTier } from "../../../hooks/useFeature";
+import { useFeature } from "../../../hooks/useFeature";
 
 const AVAILABLE_LANGUAGES = [
   { code: "en", name: "English" },
@@ -47,34 +47,38 @@ const inputCls =
 const sectionHeading = "text-sm font-semibold text-foreground uppercase tracking-wide";
 
 const GeneralSettingsTab: React.FC = () => {
-  const { activeRestaurant, fetchRestaurants } = useContext(RestaurantContext) as any;
-  const { tier } = useTier();
-  const isFree = tier === "FREE";
+  const { activeRestaurant, fetchRestaurants } = useRestaurantContext();
+  const canLanguages = useFeature("languages:multi");
   const { t } = useTranslation();
 
   const [restaurantName, setRestaurantName] = useState("");
   const [address, setAddress] = useState("");
   const [contactInfo, setContactInfo] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
   const [facebookUrl, setFacebookUrl] = useState("");
   const [instagramUrl, setInstagramUrl] = useState("");
   const [tiktokUrl, setTiktokUrl] = useState("");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
   const [timezone, setTimezone] = useState("UTC");
   const [targetLanguages, setTargetLanguages] = useState<string[]>([]);
   const [status, setStatus] = useState({ loading: false, error: "", success: "" });
   const [translating, setTranslating] = useState(false);
-  const initialized = useRef(false);
+  const initializedRestaurantId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (activeRestaurant && !initialized.current) {
-      initialized.current = true;
+    if (activeRestaurant && initializedRestaurantId.current !== activeRestaurant.id) {
+      initializedRestaurantId.current = activeRestaurant.id;
       setRestaurantName(activeRestaurant.name || "");
       setAddress(activeRestaurant.address || "");
       setContactInfo(activeRestaurant.contactInfo || "");
+      setWebsiteUrl(activeRestaurant.websiteUrl || "");
       setFacebookUrl(activeRestaurant.facebookUrl || "");
       setInstagramUrl(activeRestaurant.instagramUrl || "");
       setTiktokUrl(activeRestaurant.tiktokUrl || "");
+      setYoutubeUrl(activeRestaurant.youtubeUrl || "");
       setTimezone(activeRestaurant.timezone || "UTC");
       setTargetLanguages(activeRestaurant.targetLanguages || []);
+      setStatus({ loading: false, error: "", success: "" });
     }
   }, [activeRestaurant]);
 
@@ -87,9 +91,11 @@ const GeneralSettingsTab: React.FC = () => {
         name: restaurantName.trim() || undefined,
         address,
         contactInfo,
+        websiteUrl: websiteUrl || null,
         facebookUrl: facebookUrl || null,
         instagramUrl: instagramUrl || null,
         tiktokUrl: tiktokUrl || null,
+        youtubeUrl: youtubeUrl || null,
         timezone,
         targetLanguages,
       });
@@ -224,7 +230,19 @@ const GeneralSettingsTab: React.FC = () => {
       <div className="border-b border-border pb-6">
         <h3 className={`${sectionHeading} mb-1`}>{t("settings.socialMedia")}</h3>
         <p className="text-sm text-muted-foreground mb-4">{t("settings.socialMediaDesc")}</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground/80 mb-1">
+              {t("settings.websiteUrl")}
+            </label>
+            <input
+              type="url"
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
+              placeholder="https://yourrestaurant.com"
+              className={inputCls}
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium text-foreground/80 mb-1">
               {t("settings.facebookUrl")}
@@ -261,6 +279,18 @@ const GeneralSettingsTab: React.FC = () => {
               className={inputCls}
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground/80 mb-1">
+              {t("settings.youtubeUrl")}
+            </label>
+            <input
+              type="url"
+              value={youtubeUrl}
+              onChange={(e) => setYoutubeUrl(e.target.value)}
+              placeholder="https://youtube.com/@yourchannel"
+              className={inputCls}
+            />
+          </div>
         </div>
       </div>
 
@@ -281,8 +311,8 @@ const GeneralSettingsTab: React.FC = () => {
         </select>
       </div>
 
-      {/* ── Localization & Translation ── (non-free only) */}
-      {!isFree && (
+      {/* ── Localization & Translation ── */}
+      {canLanguages && (
         <div className="border-b border-border pb-6">
           <h3 className={`${sectionHeading} mb-1`}>{t("settings.localization")}</h3>
           <p className="text-sm text-muted-foreground mb-4">{t("settings.localizationDesc")}</p>

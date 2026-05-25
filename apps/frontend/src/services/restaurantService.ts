@@ -1,6 +1,6 @@
 import api from '../lib/api';
 
-interface Restaurant {
+export interface Restaurant {
   id: string;
   name: string;
   country: string;
@@ -12,6 +12,8 @@ interface Restaurant {
   address?: string;
   contactInfo?: string;
   targetLanguages?: string[];
+  timezone?: string;
+  defaultTheme?: 'light' | 'dark';
   trendingMode?: 'AUTO' | 'MANUAL' | 'OFF';
   fontHeading?: string;
   fontBody?: string;
@@ -24,13 +26,31 @@ interface Restaurant {
   loyaltyRedeemRate?: number;
   loyaltyPointExpiryDays?: number;
   loyaltyExpiryReminderDays?: number;
+  loyaltySilverThreshold?: number;
+  loyaltyGoldThreshold?: number;
+  loyaltySilverMultiplier?: number;
+  loyaltyGoldMultiplier?: number;
   happyHourEnable?: boolean;
+  happyHourDays?: number[];
   happyHourStartTime?: string;
   happyHourEndTime?: string;
   happyHourMultiplier?: number;
+  paymentsEnabled?: boolean;
+  stripeOnboarded?: boolean;
+  stripeAccountId?: string;
+  tipsEnabled?: boolean;
+  tipOptions?: number[];
+  platformFeePercent?: number;
+  notifyAllStaffOnPayment?: boolean;
+  tier?: 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
+  forceTier?: 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE' | null;
+  tierUpdatedAt?: string;
+  stripeSubscriptionId?: string;
   facebookUrl?: string;
   instagramUrl?: string;
   tiktokUrl?: string;
+  websiteUrl?: string;
+  youtubeUrl?: string;
 }
 
 export const getRestaurants = async (): Promise<Restaurant[]> => {

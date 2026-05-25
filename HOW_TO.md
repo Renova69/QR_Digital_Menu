@@ -32,6 +32,7 @@ The application now uses app-specific environment files.
    - Update `DATABASE_URL` with your **Neon.tech** connection string.
    - Set a custom `JWT_SECRET`.
    - **Stripe payments** — set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_CLIENT_ID`.
+   - **Stripe webhook testing** — use `stripe-webhook.bat` (in `apps/backend/`) to forward Stripe webhook events to your local dev server via the Stripe CLI. Requires `stripe` CLI installed and logged in.
    - **SaaS subscription billing** — set 6 Stripe price IDs (monthly + yearly per tier) and the subscription webhook secret:
      - `STRIPE_PRICE_STARTER_MONTHLY`, `STRIPE_PRICE_STARTER_YEARLY`
      - `STRIPE_PRICE_PROFESSIONAL_MONTHLY`, `STRIPE_PRICE_PROFESSIONAL_YEARLY`
@@ -57,6 +58,8 @@ Instead of local Docker Postgres, we use a cloud-native database. You must sync 
 cd apps/backend
 npx prisma db push
 ```
+
+> **Note:** Schema is managed locally via `prisma db push`. The production container does NOT run `prisma db push` on startup (removed May 23, 2026 to prevent accidental schema drift in Cloud Run). Always push schema changes from your local environment before deploying.
 
 ---
 

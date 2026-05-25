@@ -1,8 +1,12 @@
+import { Globe, Youtube } from 'lucide-react';
+
 interface SocialBarProps {
   restaurantName: string;
+  websiteUrl?: string;
   facebookUrl?: string;
   instagramUrl?: string;
   tiktokUrl?: string;
+  youtubeUrl?: string;
 }
 
 const socialIconCls =
@@ -39,8 +43,8 @@ function TikTokIcon() {
   );
 }
 
-export default function SocialBar({ restaurantName, facebookUrl, instagramUrl, tiktokUrl }: SocialBarProps) {
-  const hasSocials = !!(facebookUrl || instagramUrl || tiktokUrl);
+export default function SocialBar({ restaurantName, websiteUrl, facebookUrl, instagramUrl, tiktokUrl, youtubeUrl }: SocialBarProps) {
+  const hasSocials = !!(websiteUrl || facebookUrl || instagramUrl || tiktokUrl || youtubeUrl);
 
   return (
     <div
@@ -56,6 +60,17 @@ export default function SocialBar({ restaurantName, facebookUrl, instagramUrl, t
       </h1>
       <div className="flex-1" />
       <div className="flex items-center justify-end gap-3">
+        {websiteUrl && (
+          <a
+            href={websiteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Website"
+            className="p-1 rounded-lg hover:bg-secondary/80 transition-colors"
+          >
+            <Globe className={socialIconCls} />
+          </a>
+        )}
         {facebookUrl && (
           <a
             href={facebookUrl}
@@ -87,6 +102,17 @@ export default function SocialBar({ restaurantName, facebookUrl, instagramUrl, t
             className="p-1 rounded-lg hover:bg-secondary/80 transition-colors"
           >
             <TikTokIcon />
+          </a>
+        )}
+        {youtubeUrl && (
+          <a
+            href={youtubeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="YouTube"
+            className="p-1 rounded-lg hover:bg-secondary/80 transition-colors"
+          >
+            <Youtube className={`${socialIconCls} text-red-600`} />
           </a>
         )}
         {!hasSocials && <div className="w-5" />}

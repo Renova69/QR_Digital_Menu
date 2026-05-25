@@ -1321,3 +1321,414 @@ Full rewrite of the Super Admin overview dashboard (`getStats()`) from a basic c
 | `apps/backend/src/super-admin/super-admin.service.ts` | Full `getStats()` rewrite — 12 parallel queries, tier analytics, attention panel, activity feed (lines 1-580) |
 | `apps/frontend/src/pages/super-admin/SuperAdminOverview.tsx` | New KPI cards, attention panel UI, activity feed, tier breakdown charts |
 
+---
+
+## Onboarding Wizard — 6 Bugs from Walkthrough (May 23-24, 2026)
+
+### Summary
+
+Full walkthrough of the new-user onboarding wizard uncovered 6 bugs. All resolved before the May 24 redesign completion.
+
+### Bug 1 — Stripe Connect Onboarding Not Shown for FREE→Starter
+
+- **Problem**: Users starting on FREE tier who upgraded to Starter during onboarding skipped the Stripe Connect step. Connect was only offered to Starter+ starters.
+- **Fix**: Connect step now shown when the selected tier requires payments (STARTER or higher), regardless of starting tier.
+- **Files**: `OnboardingWizard.tsx`
+
+### Bug 2 — Owner Name Not Collected
+
+- **Problem**: Onboarding created a restaurant without collecting the owner's display name. Restaurant appeared with no owner name in dashboard header and public menu footer.
+- **Fix**: Added owner name field to wizard (Step 1). Saved to `Restaurant.ownerName` field on create.
+- **Files**: `OnboardingWizard.tsx`, `restaurants.service.ts`
+
+### Bug 3 — Table Setup Step Skipped on Fast Click
+
+- **Problem**: Rapidly clicking "Next" on the table setup step could skip table creation entirely — restaurant created with zero tables.
+- **Fix**: Added disabled state during table creation, loading spinner on Next button, and minimum 1 table validation before proceeding.
+- **Files**: `OnboardingWizard.tsx`
+
+### Bug 4 — Tier Synced from Webhook, Not Session (Race Condition)
+
+- **Problem**: Stripe subscription tier was applied via webhook (`checkout.session.completed`), which can take seconds to minutes to arrive. Users saw FREE tier after payment until webhook fired.
+- **Fix**: Tier now synced directly from Stripe Checkout session metadata during the return redirect — instant activation. Webhook still processes as fallback for edge cases (closed browser before redirect).
+- **Files**: `subscription.service.ts`, `OnboardingWizard.tsx`
+
+### Bug 5 — Wizard Could Be Re-entered After Completion
+
+- **Problem**: Completing the wizard and navigating away, then clicking browser back, re-entered the wizard. Could create duplicate restaurants.
+- **Fix**: Wizard checks `restaurant.wizardCompleted` flag on mount — redirects to dashboard if already completed.
+- **Files**: `OnboardingWizard.tsx`
+
+### Bug 6 — Stripe Connect Onboarding URL Expired
+
+- **Problem**: Stripe Connect account link URLs expire after use. Returning to the wizard after completing Connect showed "Link expired" with no recovery.
+- **Fix**: "Generate New Link" button added — calls `POST /restaurants/:id/stripe/account-link` to create a fresh onboarding URL.
+- **Files**: `OnboardingWizard.tsx`, `restaurants.controller.ts`
+
+---
+
+## POS Bill History — Flat Shape Mapping Fix (May 24, 2026)
+
+### Problem
+
+POS bill history (`getSessionBill`) returned old nested shape with `item: { name, price }` but POS cart items expected flat shape `{ name, unitPrice }`. Bill history items rendered with empty names and zero prices — read-only history rows showed blank data.
+
+### Root Cause
+
+`payment.service.ts` `getSessionBill()` Prisma `include` returned `orderItems { menuItem: { name, price } }` — nested under `menuItem`. `PosContext.setHistoryItems()` mapped `oi.menuItem.name` and `oi.menuItem.price` to `name` and `unitPrice`, but the mapping broke after the schema changed to flat fields.
+
+### Fix
+
+Updated `PosContext.setHistoryItems()` to read the new flat shape: `oi.name` and `oi.unitPrice` directly from `OrderItem` fields (not nested under `menuItem`).
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/context/PosContext.tsx` | `setHistoryItems` mapping: nested `menuItem.name` → flat `oi.name`, `menuItem.price` → `oi.unitPrice` |
+
+---
+
+## Stale Test Mocks After Staff Attribution (May 24, 2026)
+
+### Problem
+
+22 backend tests failed after adding `OrderSource` enum and `staffUserId` to the Order model. Existing test mocks created orders without the new required fields, causing Prisma validation failures.
+
+### Root Cause
+
+`orders.service.spec.ts` mock order objects used the old shape without `source` and `staffUserId` fields. `create-order.dto.ts` and `CreateOrderDto` validation expected the new fields.
+
+### Fix
+
+Updated all mock order fixtures in `orders.service.spec.ts` to include `source: 'QR'` and `staffUserId: null` (public orders have no staff). Added `source: 'POS'` variants where POS-specific behavior was tested.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/src/orders/orders.service.spec.ts` | 22 mock fixtures updated with `source` + `staffUserId` fields |
+
+---
+
+## OptionalJwtAuthGuard — JWT Error Rethrow (May 24, 2026)
+
+### Problem
+
+`OptionalJwtAuthGuard` silently caught all JWT errors (expired, malformed, invalid signature) and set `request.user = null`. Expired or tampered JWTs were treated identically to no-JWT — degrading to anonymous access without any signal.
+
+### Root Cause
+
+The guard's `handleRequest(err, user, info)` returned `null` for ALL error cases including expired tokens. Legitimate staff with an expired token got anonymous access instead of a clear auth error.
+
+### Fix
+
+`handleRequest` now rethrows JWT errors (expired, malformed) while still allowing missing-JWT (no auth header) as anonymous. Expired tokens produce a 401 error; absent tokens pass through as anonymous. This preserves the public endpoint behavior while surfacing real auth problems.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/src/auth/optional-jwt-auth.guard.ts` | `handleRequest` — rethrow JWT errors, pass through missing auth only |
+
+---
+
+## TableCard Redesign — Compact Layout + Live Timer (May 24, 2026)
+
+### Problem
+
+Table cards in the POS table picker and dashboard live view were bulky with excessive padding and scattered information. No live indicator showed how long a table had been occupied or how long until auto-close of PAID sessions.
+
+### Fix
+
+Redesigned `TableCard` with compact 4-row layout: row 1 (table name + status badge), row 2 (customer count + order count), row 3 (total amount), row 4 (live timer showing elapsed time for occupied, countdown for PAID auto-close). `TableStatusBadge` color-coded: green (empty), amber (occupied), slate (paid).
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/components/tables/TableCard.tsx` | Full redesign — compact 4-row layout + live timer |
+
+---
+
+## Custom Date Filter Heading — Analytics Deep-Dive (May 24, 2026)
+
+### Problem
+
+Analytics deep-dive tab showed "Custom Range" as a static English string in the date range heading, even when i18n was active. The custom date range label was not wired to the translation system.
+
+### Fix
+
+Added `analytics.customRange` key to all 3 locale files. `DateRangeFilter.tsx` now uses `t('analytics.customRange', 'Custom Range')` for the heading when a custom date range is selected.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/pages/Dashboard/summary/DateRangeFilter.tsx` | Custom range heading wired to i18n |
+| `apps/frontend/src/locales/{en,bg,ro}/translation.json` | `analytics.customRange` key added |
+
+---
+
+## Stripe Webhook — Raw Body Handling (May 19, 2026)
+
+### Problem
+
+Stripe subscription webhook returned HTTP 500. The webhook controller used `req.rawBody` to access the raw request body for signature verification, but `main.ts` body parser configuration did not preserve `rawBody`.
+
+### Fix
+
+Changed webhook controller to use `req.body` (parsed by NestJS raw body middleware registered specifically for the webhook route). The raw body middleware in `main.ts` already preserves the raw buffer on `req.body` for the webhook path — the controller just needed to read the correct property.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/src/subscription/subscription.controller.ts` | `req.rawBody` → `req.body` in webhook handler |
+
+**Guideline**: Always use `req.body` (not `req.rawBody`) in any webhook controller given the current `main.ts` raw-body middleware setup.
+
+---
+
+## Atomic Refund — Race Condition Fix (May 23, 2026)
+
+### Problem
+
+Refunding a Stripe payment and updating the local Payment record were two separate operations — if the DB update failed after a successful Stripe refund, the payment record showed incorrect status. Additionally, concurrent refund requests could double-refund.
+
+### Fix
+
+Wrapped Stripe refund API call + local Payment status update in a Prisma `$transaction`. Added optimistic lock check: `where: { status: 'PAID' }` on the payment update — if another request already processed the refund, the second update affects 0 rows and throws a handled error.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/src/payment/payment.service.ts` | Atomic refund in `$transaction` with status guard |
+
+---
+
+## Date Range Validation — Analytics (May 23, 2026)
+
+### Problem
+
+Analytics date range picker allowed end dates before start dates, producing empty charts with no error message. Users confused by blank analytics views.
+
+### Fix
+
+Added client-side validation in `DateRangeFilter.tsx`: if end date is before start date, shows inline red error message and disables the apply button. Server-side validation added to `DashboardController` analytics endpoints — returns 400 with clear message if `endDate < startDate`.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/pages/Dashboard/summary/DateRangeFilter.tsx` | Client-side date validation + error state |
+| `apps/backend/src/dashboard/dashboard.controller.ts` | Server-side date range validation on analytics endpoints |
+
+---
+
+## XLSX Import/Export Roundtrip (May 23, 2026)
+
+### Summary
+
+Menu import expanded to accept XLSX files alongside JSON OCR. Export already produced XLSX workbooks. Combined, this enables a full roundtrip: export menu → edit in Excel → re-import.
+
+### Implementation
+
+- **`MenuImportExportView.tsx`** — ImportTab now accepts both `.json` and `.xlsx` files. `xlsxToPayload()` converts XLSX rows to the same `ImportPayload` shape used by JSON import. Preview table works identically for both formats.
+- **Export** — Download XLSX button added alongside existing JSON/CSV options.
+- **Backend** — No changes needed. All import goes through the same `POST /menu-import/confirm` endpoint.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/pages/Dashboard/MenuImportExportView.tsx` | XLSX file acceptance + `xlsxToPayload()` converter |
+
+---
+
+## Public Menu Footer + Social Icons (May 23, 2026)
+
+### Summary
+
+Added a footer to the public customer menu showing restaurant name, location, contact info, and social media icon links. Language defaults to Bulgarian.
+
+### Implementation
+
+- **`PublicMenuFooter.tsx`** — new component rendered at bottom of `PublicMenuPage`. Shows restaurant name bar, address, phone, and social media icons (Facebook, Instagram, TikTok, YouTube, website) as clickable links.
+- **i18n** — Footer labels in EN/BG/RO.
+- **`Restaurant` model** — social media URL fields (`facebookUrl`, `instagramUrl`, `tiktokUrl`, `youtubeUrl`, `websiteUrl`) added to schema.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/components/menu/PublicMenuFooter.tsx` | New — footer component with social icons |
+| `apps/frontend/src/pages/PublicMenuPage.tsx` | Footer rendered below menu content |
+| `apps/backend/prisma/schema.prisma` | Social media URL fields on Restaurant |
+
+---
+
+## FREE Tier Restrictions (May 23, 2026)
+
+### Summary
+
+Revenue cards and analytics button hidden for FREE tier restaurants. Tier enforcement hardened across the dashboard.
+
+### Implementation
+
+- **`DashboardPage.tsx`** — Revenue KPI cards wrapped in `useFeature('analytics:full')` guard. Analytics tab button hidden for FREE tier.
+- **`SummaryView.tsx`** — Revenue and order summary cards gated behind tier check.
+- **Backend** — `DashboardController` analytics endpoints return 403 for FREE tier restaurants (double-checked at API layer, not just UI).
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/pages/DashboardPage.tsx` | Revenue cards + analytics button gated |
+| `apps/frontend/src/pages/Dashboard/SummaryView.tsx` | Revenue summary cards gated |
+| `apps/backend/src/dashboard/dashboard.controller.ts` | Tier check on analytics endpoints |
+
+---
+
+## Subscription/SaaS Polish (May 23, 2026)
+
+### Summary
+
+Unified TanStack Query cache for subscription status across all components. Locked navigation for unpaid tiers. UpgradeModal with revenue trap messaging.
+
+### Key Changes
+
+- **Unified cache key** — All components use `['subscription-status']` query key. Prevents duplicate fetches and inconsistent tier state across the dashboard.
+- **Locked navigation** — Unpaid tier tabs show lock icon, redirect to UpgradeModal instead of navigating.
+- **UpgradeModal** — Revenue trap messaging: "Unlock €X.XX/month in platform fees" based on current order volume.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/hooks/useFeature.ts` | Unified query key `['subscription-status']` |
+| `apps/frontend/src/components/subscription/SubscriptionBanner.tsx` | Same query key, no duplicate fetch |
+| `apps/frontend/src/components/subscription/BillingView.tsx` | Same query key |
+| `apps/frontend/src/components/subscription/UpgradeModal.tsx` | New — revenue trap messaging |
+| `apps/frontend/src/pages/DashboardPage.tsx` | Locked nav items for unpaid tiers |
+
+---
+
+## Dashboard Purple/Violet Luxury Redesign (May 24, 2026)
+
+### Summary
+
+Complete visual overhaul of dashboard operations. Purple/violet accent palette replacing the previous warm-red scheme. Stronger visual hierarchy across all dashboard views. Payments view card density and readability improved.
+
+### Key Changes
+
+- **Color palette** — Accent shifted from warm red (`hsl(0 72% 51%)`) to purple/violet (`hsl(267 100% 61%)`). CSS custom properties updated across all dashboard components.
+- **KPI cards** — Gradient backgrounds, larger numerals, animated hover states with depth.
+- **Payments view** — Card density improved, status badges more prominent, amount columns right-aligned for scanability.
+- **Chart theming** — Recharts axes, tooltips, and area fills use new purple palette consistently.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/styles/tokens.css` | Purple/violet accent palette |
+| `apps/frontend/src/pages/Dashboard/*.tsx` | All dashboard views restyled |
+| `apps/frontend/src/components/ui/*.tsx` | UI primitives updated to new palette |
+
+---
+
+## Table Status Simplification (May 24, 2026)
+
+### Summary
+
+Removed the "waiting" table status — tables now have 3 states: empty, occupied, paid. PAID sessions auto-close after 5 minutes.
+
+### Key Changes
+
+- **Status reduction** — `tableStatus` now returns `'empty' | 'occupied' | 'paid'`. The `'waiting'` status (session open but no orders) was confusing — tables with open sessions but no orders now show as `'occupied'`.
+- **Auto-close PAID** — `PaymentService.autoClosePaidSessions()` cron runs every minute, closes PAID sessions older than 5 minutes. Prevents tables staying in PAID state indefinitely.
+- **POS i18n** — POS interface now available in Bulgarian. All POS strings wired to `t()`.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/src/tables/tables.service.ts` | Status logic: 3 states, no "waiting" |
+| `apps/backend/src/payment/payment.service.ts` | Auto-close PAID cron |
+| `apps/frontend/src/components/tables/TableCard.tsx` | Status badge: 3 colors |
+| `apps/frontend/src/components/pos/*.tsx` | POS BG translations |
+
+---
+
+## Staff Attribution & Itemized Bills (May 24, 2026)
+
+### Summary
+
+Orders now track which staff member created them and via which channel (POS vs QR). Itemized bills group items by source with visual badges.
+
+### Key Changes
+
+- **Schema** — `OrderSource` enum (`POS` | `QR`) added to Prisma schema. `Order.staffUserId` (nullable, FK to User) + `Order.source` fields.
+- **Order creation** — `OrdersService.create()` sets `source: 'QR'` for public orders, `source: 'POS'` for staff-submitted orders. `staffUserId` captured from JWT when `OptionalJwtAuthGuard` extracts the authenticated staff member.
+- **Source badges** — Order list rows show POS/QR badge. Table detail cards show per-order source. Payment detail drawer shows source badge on each order row. PaymentModal shows source breakdown.
+- **Itemized bills** — Bill grouped by source: "POS Orders" section and "QR Orders" section with subtotals.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/prisma/schema.prisma` | `OrderSource` enum + `Order.source` + `Order.staffUserId` |
+| `apps/backend/src/orders/orders.service.ts` | Source tracking on order create |
+| `apps/backend/src/orders/dto/create-order.dto.ts` | `source` field added to DTO |
+| `apps/frontend/src/components/orders/*.tsx` | Source badges on order list, table cards |
+| `apps/frontend/src/components/payment/PaymentDrawer.tsx` | Source badge on payment detail rows |
+| `apps/frontend/src/components/payment/PaymentModal.tsx` | Source breakdown |
+| `apps/frontend/src/context/PosContext.tsx` | POS source tracking |
+
+---
+
+## Table Zones/Sections (May 24, 2026)
+
+### Summary
+
+Tables can be grouped into zones/sections for large-restaurant POS filtering. POS table picker groups by zone with section headers.
+
+### Key Changes
+
+- **Schema** — `RestaurantTable.zone` field (optional string) added to Prisma schema.
+- **POS table picker** — Tables grouped by zone with collapsible section headers. Ungrouped tables fall under "Other" section.
+- **Dashboard table view** — Zone filter dropdown added to table management view.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/prisma/schema.prisma` | `zone` field on `RestaurantTable` |
+| `apps/frontend/src/components/pos/PosTableModal.tsx` | Zone-grouped table list |
+| `apps/frontend/src/pages/Dashboard/TableView.tsx` | Zone filter dropdown |
+
+---
+
+## Analytics Deep-Dive Full i18n (May 24, 2026)
+
+### Summary
+
+All hardcoded English strings in the analytics deep-dive tab replaced with i18next `t()` calls. 103 keys synced across EN/BG/RO.
+
+### Key Changes
+
+- **103 analytics keys** — Day parts, order statuses, hour bar labels, chart names, custom range labels, all wired to `t()`.
+- **Module-scope lookup maps** — `dayPartKeyMap` and `orderStatusKeyMap` for translating data-driven labels at module scope (before component render).
+- **Excel export localized** — XLSX export respects current language for sheet names and column headers.
+- **Custom date filter heading** — `analytics.customRange` key for custom date range display.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx` | All strings wired to `t()` + lookup maps |
+| `apps/frontend/src/lib/analyticsExport.ts` | Localized sheet names + headers |
+| `apps/frontend/src/pages/Dashboard/summary/DateRangeFilter.tsx` | Custom range heading i18n |
+| `apps/frontend/src/locales/{en,bg,ro}/translation.json` | 103 analytics keys synced |
+

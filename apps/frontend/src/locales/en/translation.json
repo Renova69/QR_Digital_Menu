@@ -107,9 +107,11 @@
     "brandingLockedDesc": "Upgrade to Professional to customise fonts, colours, and logo.",
     "socialMedia": "Social Media",
     "socialMediaDesc": "Add links to your social media profiles. They will appear on your public menu.",
+    "websiteUrl": "Website URL",
     "facebookUrl": "Facebook URL",
     "instagramUrl": "Instagram URL",
     "tiktokUrl": "TikTok URL",
+    "youtubeUrl": "YouTube URL",
     "summaryLanguages": "{{count}} language(s) active",
     "translationActiveCount": "{{count}} language(s) selected — click to translate your menu",
     "featureNotAvailable": "This feature is not available on your current plan."

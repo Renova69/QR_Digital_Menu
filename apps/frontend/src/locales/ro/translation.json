@@ -108,9 +108,11 @@
     "brandingLockedDesc": "Upgradeaza la Professional pentru a personaliza fonturile, culorile si logo-ul.",
     "socialMedia": "Rețele sociale",
     "socialMediaDesc": "Adaugă link-uri către rețelele tale sociale. Acestea vor apărea în meniul public.",
+    "websiteUrl": "Website URL",
     "facebookUrl": "Facebook URL",
     "instagramUrl": "Instagram URL",
     "tiktokUrl": "TikTok URL",
+    "youtubeUrl": "YouTube URL",
     "summaryLanguages": "{{count}} limbă(i) activă(e)",
     "translationActiveCount": "{{count}} limbă(i) selectată(e) — click pentru a traduce meniul",
     "featureNotAvailable": "Această funcție nu este disponibilă în planul dvs. curent."
