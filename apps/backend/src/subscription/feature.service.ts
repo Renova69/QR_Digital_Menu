@@ -65,7 +65,7 @@ export class FeatureService {
   getAllowedStaffRoles(tier: string): string[] {
     switch (tier) {
       case 'PROFESSIONAL':
-        return ['MANAGER'];
+        return [];
       case 'ENTERPRISE':
         return ['MANAGER', 'WAITER', 'KITCHEN'];
       default: // FREE, STARTER

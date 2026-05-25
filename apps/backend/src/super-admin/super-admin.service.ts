@@ -211,6 +211,7 @@ export class SuperAdminService {
     search?: string;
     tier?: string;
     status?: string;
+    subscription?: string;
   }) {
     const page = params.page ?? 1;
     const limit = Math.min(params.limit ?? 20, 100);
@@ -237,6 +238,12 @@ export class SuperAdminService {
       where.tier = params.tier as SubscriptionTier;
     }
 
+    if (params.subscription === 'active') {
+      where.stripeSubscriptionId = { not: null };
+    } else if (params.subscription === 'none') {
+      where.stripeSubscriptionId = null;
+    }
+
     const [data, total] = await Promise.all([
       this.prisma.restaurant.findMany({
         where,
@@ -251,6 +258,7 @@ export class SuperAdminService {
           isActive: true,
           deletedAt: true,
           stripeOnboarded: true,
+          stripeSubscriptionId: true,
           paymentsEnabled: true,
           createdAt: true,
           owner: { select: { id: true, email: true, name: true } },

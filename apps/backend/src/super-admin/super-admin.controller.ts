@@ -46,8 +46,9 @@ export class SuperAdminController {
     @Query('search') search?: string,
     @Query('tier') tier?: string,
     @Query('status') status?: string,
+    @Query('subscription') subscription?: string,
   ) {
-    return this.service.getTenants({ page, limit, search, tier, status });
+    return this.service.getTenants({ page, limit, search, tier, status, subscription });
   }
 
   @ApiOperation({ summary: 'Get single tenant detail' })

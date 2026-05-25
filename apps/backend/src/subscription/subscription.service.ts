@@ -144,12 +144,16 @@ export class SubscriptionService {
 
     try {
       const sub = await stripe.subscriptions.retrieve(restaurant.stripeSubscriptionId) as any;
+      const item = sub.items?.data?.[0];
+      // Stripe API ≥2024-09-30 moved current_period_* from Subscription to SubscriptionItem
+      const periodStart: number = sub.current_period_start ?? item?.current_period_start;
+      const periodEnd: number = sub.current_period_end ?? item?.current_period_end;
       return {
-        currentPeriodStart: new Date(sub.current_period_start * 1000).toISOString(),
-        currentPeriodEnd: new Date(sub.current_period_end * 1000).toISOString(),
+        currentPeriodStart: periodStart ? new Date(periodStart * 1000).toISOString() : null,
+        currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
         cancelAtPeriodEnd: sub.cancel_at_period_end as boolean,
         status: sub.status as string,
-        interval: (sub.items?.data?.[0]?.price?.recurring?.interval as string) ?? null,
+        interval: (item?.price?.recurring?.interval as string) ?? null,
       };
     } catch {
       return null;

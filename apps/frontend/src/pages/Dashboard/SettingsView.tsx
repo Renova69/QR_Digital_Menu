@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 import { useFeature, useTier } from "../../hooks/useFeature";
 import BillingView from "../../components/subscription/BillingView";
 import { BrandingEditor } from "../../components/ui/BrandingEditor";
@@ -16,25 +17,38 @@ type SettingsTab = "general" | "loyalty" | "payments" | "staff" | "branding" | "
 const SettingsView = () => {
   const { activeRestaurant, fetchRestaurants } = useRestaurantContext();
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
   const canLoyalty = useFeature("loyalty");
   const canPayments = useFeature("payments:stripe");
   const canBranding = useFeature("branding:custom");
   const { tier } = useTier();
   const isFree = tier === "FREE";
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
+    const tab = searchParams.get("settingsTab") as SettingsTab | null;
+    return tab && ["general", "loyalty", "payments", "staff", "branding", "subscription"].includes(tab)
+      ? tab
+      : "general";
+  });
 
   const tabs: { id: SettingsTab; label: string; visible: boolean }[] = [
     { id: "general", label: t("settings.tabs.general"), visible: true },
     { id: "loyalty", label: t("settings.tabs.loyalty"), visible: canLoyalty },
     { id: "payments", label: t("settings.tabs.payments"), visible: canPayments },
-    { id: "staff", label: t("settings.tabs.staff"), visible: !isFree },
+    { id: "staff", label: t("settings.tabs.staff"), visible: tier === "ENTERPRISE" },
     // Visible to all non-free tiers as an upsell; content shows locked state when canBranding is false
     { id: "branding", label: t("settings.tabs.branding", "Branding"), visible: !isFree },
     { id: "subscription", label: t("settings.tabs.subscription"), visible: true },
   ];
 
   const visibleTabs = tabs.filter((t) => t.visible);
+
+  useEffect(() => {
+    const tab = searchParams.get("settingsTab") as SettingsTab | null;
+    if (tab && tabs.some((item) => item.id === tab && item.visible)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   return (
     <div className="w-full space-y-6">
