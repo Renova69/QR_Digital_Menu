@@ -591,7 +591,7 @@ export const getSuperAdminStats = () =>
   api.get('/super-admin/stats').then((r) => r.data as import('../types').SuperAdminStats);
 
 export const getSuperAdminTenants = (
-  params?: { page?: number; limit?: number; search?: string; tier?: string; status?: string },
+  params?: { page?: number; limit?: number; search?: string; tier?: string; status?: string; subscription?: string },
 ) =>
   api
     .get('/super-admin/tenants', { params })

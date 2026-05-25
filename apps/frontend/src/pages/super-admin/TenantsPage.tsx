@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getSuperAdminTenants } from "../../lib/api";
-import { Search, ChevronRight, Building2 } from "lucide-react";
+import { Search, ChevronRight, Building2, CheckCircle2, XCircle } from "lucide-react";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 
 const PAGE_SIZE = 20;
@@ -20,11 +20,12 @@ export default function TenantsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [tierFilter, setTierFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [subscriptionFilter, setSubscriptionFilter] = useState("");
 
   const search = useDebouncedValue(searchInput, 300);
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["super-admin", "tenants", page, search, tierFilter, statusFilter],
+    queryKey: ["super-admin", "tenants", page, search, tierFilter, statusFilter, subscriptionFilter],
     queryFn: () =>
       getSuperAdminTenants({
         page,
@@ -32,6 +33,7 @@ export default function TenantsPage() {
         ...(search && { search }),
         ...(tierFilter && { tier: tierFilter }),
         ...(statusFilter && { status: statusFilter }),
+        ...(subscriptionFilter && { subscription: subscriptionFilter }),
       }),
     staleTime: 30_000,
   });
@@ -84,6 +86,16 @@ export default function TenantsPage() {
           <option value="suspended">Suspended</option>
           <option value="deleted">Deleted</option>
         </select>
+
+        <select
+          value={subscriptionFilter}
+          onChange={(e) => { setSubscriptionFilter(e.target.value); setPage(1); }}
+          className="px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-sm focus:outline-none focus:border-slate-600 transition-colors cursor-pointer"
+        >
+          <option value="">All Subscriptions</option>
+          <option value="active">Subscribed</option>
+          <option value="none">No Subscription</option>
+        </select>
       </div>
 
       {/* Table */}
@@ -94,6 +106,8 @@ export default function TenantsPage() {
               <div className="h-4 rounded bg-slate-800 animate-pulse w-40" />
               <div className="h-4 rounded bg-slate-800 animate-pulse flex-1 hidden md:block" />
               <div className="h-6 rounded-md bg-slate-800 animate-pulse w-20" />
+              <div className="h-6 rounded-md bg-slate-800 animate-pulse w-16 hidden lg:block" />
+              <div className="h-6 rounded-md bg-slate-800 animate-pulse w-16 hidden lg:block" />
               <div className="h-6 rounded-md bg-slate-800 animate-pulse w-16" />
             </div>
           ))}
@@ -112,7 +126,8 @@ export default function TenantsPage() {
                   <th className="text-left px-5 py-3.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Owner</th>
                   <th className="text-left px-5 py-3.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Tier</th>
                   <th className="text-left px-5 py-3.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Override</th>
-                  <th className="text-left px-5 py-3.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Stripe</th>
+                  <th className="text-left px-5 py-3.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Connect</th>
+                  <th className="text-left px-5 py-3.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Subscription</th>
                   <th className="text-left px-5 py-3.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Status</th>
                   <th className="w-10 px-3 py-3.5" />
                 </tr>
@@ -152,6 +167,19 @@ export default function TenantsPage() {
                         </span>
                       ) : (
                         <span className="text-xs text-slate-700">—</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 hidden lg:table-cell">
+                      {t.stripeSubscriptionId ? (
+                        <span className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span className="text-xs text-emerald-400 font-medium">Active</span>
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1.5">
+                          <XCircle className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                          <span className="text-xs text-slate-600 font-medium">None</span>
+                        </span>
                       )}
                     </td>
                     <td className="px-5 py-4">

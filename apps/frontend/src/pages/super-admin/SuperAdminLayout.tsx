@@ -14,7 +14,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
   const { user, logout } = useAuth();
 
   return (
-    <aside className="sidebar-dark w-64 flex flex-col h-full border-r border-white/10">
+    <aside className="w-64 flex flex-col h-full border-r border-white/10" style={{ background: 'hsl(248 38% 9%)' }}>
       {/* Danger accent bar */}
       <div className="h-1 w-full shrink-0" style={{ background: 'linear-gradient(90deg, hsl(0 80% 55%) 0%, hsl(25 90% 55%) 100%)' }} />
 

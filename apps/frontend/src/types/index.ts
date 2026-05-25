@@ -109,6 +109,7 @@ export interface TenantSummary {
   isActive: boolean;
   deletedAt: string | null;
   stripeOnboarded: boolean;
+  stripeSubscriptionId: string | null;
   paymentsEnabled: boolean;
   createdAt: string;
   owner: {
