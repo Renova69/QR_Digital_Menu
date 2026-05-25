@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  ConflictException,
   Logger,
 } from '@nestjs/common';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
@@ -21,6 +22,10 @@ export class RestaurantsService {
   ) {}
 
   async create(createRestaurantDto: CreateRestaurantDto, userId: string) {
+    const existing = await this.prisma.restaurant.count({ where: { ownerId: userId } });
+    if (existing > 0) {
+      throw new ConflictException('Owner already has a restaurant. Contact support to enable multi-location.');
+    }
     const restaurant = await this.prisma.restaurant.create({
       data: {
         ...createRestaurantDto,

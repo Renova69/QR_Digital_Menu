@@ -250,7 +250,11 @@ export default function OnboardingPage() {
               onNext={handlePlanNext}
             />
           ) : step === 'basics' ? (
-            <RestaurantBasicsStep onCreated={handleRestaurantCreated} />
+            <RestaurantBasicsStep
+              onCreated={handleRestaurantCreated}
+              existingRestaurantId={activeRestaurantId || undefined}
+              existingRestaurantName={activeRestaurantName || undefined}
+            />
           ) : step === 'payment' ? (
             <PaymentSetupStep
               restaurantId={activeRestaurantId}
