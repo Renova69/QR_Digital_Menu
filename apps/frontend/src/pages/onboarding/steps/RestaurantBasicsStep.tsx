@@ -10,16 +10,42 @@ const DASHBOARD_LANGUAGES = [
 
 interface Props {
   onCreated: (restaurantId: string, restaurantName: string, ownerName: string) => void;
+  existingRestaurantId?: string;
+  existingRestaurantName?: string;
 }
 
-export default function RestaurantBasicsStep({ onCreated }: Props) {
+export default function RestaurantBasicsStep({ onCreated, existingRestaurantId, existingRestaurantName }: Props) {
   const { t } = useTranslation();
   const [ownerName, setOwnerName] = useState('');
-  const [name, setName] = useState('');
+  const [name, setName] = useState(existingRestaurantName || '');
   const [city, setCity] = useState('');
   const [dashboardLanguage, setDashboardLanguage] = useState('bg');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Restaurant was already created in a prior onboarding attempt — skip creation
+  if (existingRestaurantId) {
+    return (
+      <div className="space-y-6 max-w-md">
+        <div>
+          <h2 className="text-2xl font-display font-bold text-foreground">{t('onboarding.basics.title')}</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            {existingRestaurantName
+              ? t('onboarding.basics.alreadyCreated', { name: existingRestaurantName, defaultValue: `"${existingRestaurantName}" was already created.` })
+              : t('onboarding.basics.alreadyCreatedGeneric', { defaultValue: 'Your restaurant was already created.' })}
+          </p>
+        </div>
+        <div className="flex justify-end pt-2">
+          <button
+            onClick={() => onCreated(existingRestaurantId, existingRestaurantName || '', '')}
+            className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-all"
+          >
+            {t('onboarding.basics.continue')}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
