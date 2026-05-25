@@ -377,12 +377,12 @@ const OrdersView = () => {
                   </ul>
 
                   {specialRequests.length > 0 && (
-                    <div className="mt-3 overflow-hidden rounded-lg border border-[#F59E0B] bg-[#FFE1B3] px-2.5 py-2 text-[#321405] shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_1px_0_rgba(146,64,14,0.08)] dark:border-orange-400/20 dark:bg-orange-400/10 dark:text-orange-100 dark:shadow-none">
-                      <div className="mb-1 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-[#7C2D12] dark:text-orange-100/70">
+                    <div className="mt-3 overflow-hidden rounded-lg border border-[#F59E0B] bg-[#FFE1B3] px-2.5 py-2 text-orange-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_1px_0_rgba(146,64,14,0.08)] dark:border-orange-400/20 dark:bg-orange-400/10 dark:text-orange-100 dark:shadow-none">
+                      <div className="mb-1 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-orange-900 dark:text-orange-100/70">
                         <ClipboardList className="h-3.5 w-3.5" />
                         {stripTrailingColon(t('orders.specialRequests', 'Special Requests'))}
                       </div>
-                      <p className="truncate text-[11px] font-bold leading-relaxed text-[#321405] dark:text-orange-100">
+                      <p className="truncate text-[11px] font-bold leading-relaxed text-orange-950 dark:text-orange-100">
                         {specialRequests[0]?.seat && (
                           <span className="mr-1.5 rounded bg-[#F97316] px-1.5 py-0.5 text-[9px] font-black uppercase text-white dark:bg-orange-400/20 dark:text-orange-100">
                             {specialRequests[0].seat}

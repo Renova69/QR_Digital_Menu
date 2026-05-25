@@ -365,30 +365,34 @@ const DashboardPage = () => {
 
         {/* Pro Plan card */}
         <div className="px-3 pb-4">
-          <div
-            className="rounded-2xl p-4"
-            style={{
-              background: 'var(--gradient-brand-soft)',
-              border: '1px solid rgba(110, 86, 248, 0.2)',
-            }}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <Zap className="w-4 h-4 text-primary" />
-              <span className="text-xs font-bold text-foreground">
-                Pro Plan
-              </span>
-            </div>
-            <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">
-              {t('dashboard.proCard', 'Unlock analytics, loyalty & more')}
-            </p>
-            <button
-              onClick={() => setLockedFeatureClicked('analytics:full')}
-              className="w-full py-2 rounded-xl text-[11px] font-bold text-white transition-all hover:opacity-90 cursor-pointer"
-              style={{ background: 'var(--brand)' }}
+          {activeRestaurant?.tier !== 'ENTERPRISE' && (
+            <div
+              className="rounded-2xl p-4"
+              style={{
+                background: 'var(--gradient-brand-soft)',
+                border: '1px solid rgba(110, 86, 248, 0.2)',
+              }}
             >
-              {t('dashboard.upgrade', 'Upgrade Plan')}
-            </button>
-          </div>
+              <div className="flex items-center gap-2 mb-2">
+                <Zap className="w-4 h-4 text-primary" />
+                <span className="text-xs font-bold text-foreground">
+                  {activeRestaurant?.tier === 'PROFESSIONAL' ? 'Enterprise Plan' : 'Pro Plan'}
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">
+                {activeRestaurant?.tier === 'PROFESSIONAL'
+                  ? t('dashboard.enterpriseCard', 'Custom SLA, white-label & priority support')
+                  : t('dashboard.proCard', 'Unlock analytics, loyalty & more')}
+              </p>
+              <button
+                onClick={() => setLockedFeatureClicked(activeRestaurant?.tier === 'PROFESSIONAL' ? 'pos' : 'analytics:full')}
+                className="w-full py-2 rounded-xl text-[11px] font-bold text-white transition-all hover:opacity-90 cursor-pointer"
+                style={{ background: 'var(--brand)' }}
+              >
+                {t('dashboard.upgrade', 'Upgrade Plan')}
+              </button>
+            </div>
+          )}
 
           {/* User footer */}
           <div className="mt-3 flex items-center gap-3 px-2">

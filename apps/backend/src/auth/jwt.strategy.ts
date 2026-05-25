@@ -64,6 +64,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     const { password, staffRestaurant, restaurants, ...result } = user;
-    return result;
+    // Existing owners pre-dating the onboarding flow have onboardingComplete=false in DB.
+    // Treat any owner who already has a restaurant as having completed onboarding.
+    const ownsRestaurant = restaurants.length > 0;
+    return {
+      ...result,
+      onboardingComplete: result.onboardingComplete || ownsRestaurant,
+    };
   }
 }
