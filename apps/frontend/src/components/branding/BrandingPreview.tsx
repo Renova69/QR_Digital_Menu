@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Smartphone, Monitor, Sun, Moon, ShoppingCart, List, Tag } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import type { BrandPalette } from './ThemePresets';
+import { getReadableTextColor } from '../../utils/colors';
 
 interface BrandingPreviewProps {
   fontHeading: string;
   fontBody: string;
-  themeBgColor: string;
-  themeTextColor: string;
-  themeCardColor: string;
-  accentColor: string;
+  lightPalette: BrandPalette;
+  darkPalette: BrandPalette;
   restaurantName?: string;
   logoUrl?: string | null;
   defaultTheme?: 'light' | 'dark';
@@ -26,10 +26,8 @@ const SCENE_KEYS = [
 export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
   fontHeading,
   fontBody,
-  themeBgColor,
-  themeTextColor,
-  themeCardColor,
-  accentColor,
+  lightPalette,
+  darkPalette,
   restaurantName = 'Your Restaurant',
   logoUrl,
   defaultTheme = 'light',
@@ -44,10 +42,12 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
     setThemeMode(defaultTheme);
   }, [defaultTheme]);
 
-  const bg = themeBgColor;
-  const text = themeTextColor;
-  const card = themeCardColor;
-  const accent = accentColor;
+  const palette = themeMode === 'dark' ? darkPalette : lightPalette;
+  const bg = palette.bg;
+  const text = palette.text;
+  const card = palette.card;
+  const accent = palette.accent;
+  const accentText = getReadableTextColor(accent);
 
   const CardScene = (
     <div className="p-4 space-y-3">
@@ -86,7 +86,7 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
           </p>
           <button
             className="w-full py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider"
-            style={{ backgroundColor: accent, color: '#fff', fontFamily: fontBody }}
+            style={{ backgroundColor: accent, color: accentText, fontFamily: fontBody }}
           >
             {t('branding.previewAddToOrder', 'Add to order')}
           </button>
@@ -118,7 +118,7 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
               className="w-5 h-5 rounded-md flex items-center justify-center text-[9px] font-bold"
               style={{
                 backgroundColor: i === 0 ? accent : `${text}1A`,
-                color: i === 0 ? '#fff' : text,
+                color: i === 0 ? accentText : text,
               }}
             >
               {cat[0]}
@@ -163,7 +163,7 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
           <div className="flex items-center gap-2">
             <div
               className="w-4 h-4 rounded-md flex items-center justify-center text-[8px] font-bold flex-shrink-0"
-              style={{ backgroundColor: accent, color: '#fff' }}
+              style={{ backgroundColor: accent, color: accentText }}
             >
               {i + 1}
             </div>
@@ -189,7 +189,7 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
       </div>
       <button
         className="w-full py-2 rounded-lg text-[10px] font-black uppercase tracking-wider"
-        style={{ backgroundColor: accent, color: '#fff', fontFamily: fontBody }}
+        style={{ backgroundColor: accent, color: accentText, fontFamily: fontBody }}
       >
         {t('branding.previewPlaceOrder', 'Place Order')}
       </button>
@@ -342,7 +342,8 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
           <button
             type="button"
             onClick={() => setThemeMode((m) => (m === 'light' ? 'dark' : 'light'))}
-            aria-label={themeMode === 'light' ? t('branding.dark', 'Dark') : t('branding.light', 'Light')}
+            aria-label={themeMode === 'light' ? t('branding.previewDarkMode', 'Preview dark mode') : t('branding.previewLightMode', 'Preview light mode')}
+            aria-pressed={themeMode === 'dark'}
             className="p-1.5 rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors"
           >
             {themeMode === 'light' ? <Moon size={11} /> : <Sun size={11} />}

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { ImagePlus, X } from 'lucide-react';
 
 interface ImageUploadInputProps {
@@ -13,6 +13,8 @@ interface ImageUploadInputProps {
   changeLabel?: string;
   removeLabel?: string;
   uploadLabel?: string;
+  invalidTypeMessage?: string;
+  maxSizeMessage?: string;
 }
 
 const ASPECT_CLASSES = {
@@ -33,13 +35,22 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
   changeLabel = 'Change image',
   removeLabel = 'Remove image',
   uploadLabel = 'Click to upload',
+  invalidTypeMessage = 'Please upload a JPEG or PNG image.',
+  maxSizeMessage = 'Image must be 5MB or smaller.',
 }) => {
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [removed, setRemoved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Show new preview first, then existing image — unless user explicitly removed it
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+  }, [preview]);
+
+  // Show new preview first, then existing image unless user explicitly removed it.
   const displayImage = preview || (removed ? null : currentImageUrl);
 
   const getDisplayUrl = (url: string) => {
@@ -58,11 +69,22 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
       onFileSelect(null);
       setPreview(null);
       setFileName(null);
+      setError(invalidTypeMessage);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      onFileSelect(null);
+      setPreview(null);
+      setFileName(null);
+      setError(maxSizeMessage);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
     setRemoved(false);
+    setError(null);
     setPreview(URL.createObjectURL(file));
     setFileName(file.name);
     onFileSelect(file);
@@ -71,6 +93,7 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
   const handleRemove = () => {
     setPreview(null);
     setFileName(null);
+    setError(null);
     setRemoved(true);
     onFileSelect(null);
     onRemove?.();
@@ -140,6 +163,11 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
           </span>
           <span className="text-[10px] text-muted-foreground/40">{hint}</span>
         </button>
+      )}
+      {error && (
+        <p className="text-xs font-medium text-red-600 dark:text-red-400">
+          {error}
+        </p>
       )}
     </div>
   );

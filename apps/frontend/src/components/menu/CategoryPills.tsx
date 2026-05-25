@@ -53,10 +53,10 @@ export function CategoryPills({
               onClick={() => onSelect(cat.id)}
               className={`whitespace-nowrap px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all duration-200 active:scale-95 flex-shrink-0 ${
                 isActive
-                  ? 'text-white shadow-md'
+                  ? 'shadow-md'
                   : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
               }`}
-              style={isActive ? { background: 'var(--gradient-brand)' } : {}}
+              style={isActive ? { background: 'var(--gradient-brand)', color: 'var(--brand-contrast, #fff)' } : {}}
             >
               {catName}
             </button>

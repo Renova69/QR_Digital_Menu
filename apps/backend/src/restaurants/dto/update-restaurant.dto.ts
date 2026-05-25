@@ -59,6 +59,38 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
 
   @IsString()
   @IsOptional()
+  themeLightBgColor?: string;
+
+  @IsString()
+  @IsOptional()
+  themeLightTextColor?: string;
+
+  @IsString()
+  @IsOptional()
+  themeLightCardColor?: string;
+
+  @IsString()
+  @IsOptional()
+  themeLightAccentColor?: string;
+
+  @IsString()
+  @IsOptional()
+  themeDarkBgColor?: string;
+
+  @IsString()
+  @IsOptional()
+  themeDarkTextColor?: string;
+
+  @IsString()
+  @IsOptional()
+  themeDarkCardColor?: string;
+
+  @IsString()
+  @IsOptional()
+  themeDarkAccentColor?: string;
+
+  @IsString()
+  @IsOptional()
   defaultTheme?: string;
 
   @IsOptional()

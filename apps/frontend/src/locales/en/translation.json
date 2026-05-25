@@ -246,7 +246,18 @@
     "dark": "Dark",
     "noFontsFound": "No fonts found",
     "fontPairsBadge": "pairs",
-    "applyPreset": "Apply {{name}}"
+    "applyPreset": "Apply {{name}}",
+    "presetCoastal": "Coastal",
+    "presetStreetFood": "Street Food",
+    "presetSakura": "Sakura",
+    "background": "Background",
+    "buttonText": "Button text",
+    "pickColor": "Pick {{label}}",
+    "imageHint": "JPEG or PNG only. Max 5MB.",
+    "invalidImageType": "Please upload a JPEG or PNG image.",
+    "imageTooLarge": "Image must be 5MB or smaller.",
+    "previewDarkMode": "Preview dark mode",
+    "previewLightMode": "Preview light mode"
   },
   "assistance": {
     "title": "Assistance Requests",

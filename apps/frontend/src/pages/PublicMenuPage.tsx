@@ -21,6 +21,69 @@ import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { useAuth } from "../context/AuthContext";
 import { getImageUrl } from "../lib/getImageUrl";
 import { hasTierFeature } from "../hooks/useFeature";
+import type { BrandPalette, BrandMode } from "../components/branding/ThemePresets";
+import { getReadableTextColor } from "../utils/colors";
+
+const DEFAULT_PUBLIC_LIGHT: BrandPalette = {
+  bg: '#FFFFFF',
+  text: '#0E0B1A',
+  card: '#FFFFFF',
+  accent: '#4F46E5',
+};
+
+const DEFAULT_PUBLIC_DARK: BrandPalette = {
+  bg: '#0B0A14',
+  text: '#F5F4FA',
+  card: '#15131F',
+  accent: '#8B6FFF',
+};
+
+function resolvePublicPalette(restaurant: Restaurant | undefined, mode: BrandMode): BrandPalette | null {
+  if (!restaurant) return null;
+  const hasPairedBrand =
+    !!restaurant.themeLightBgColor ||
+    !!restaurant.themeLightTextColor ||
+    !!restaurant.themeLightCardColor ||
+    !!restaurant.themeLightAccentColor ||
+    !!restaurant.themeDarkBgColor ||
+    !!restaurant.themeDarkTextColor ||
+    !!restaurant.themeDarkCardColor ||
+    !!restaurant.themeDarkAccentColor;
+  const hasLegacyBrand = !!(restaurant.themeBgColor && restaurant.themeTextColor);
+  if (!hasPairedBrand && !hasLegacyBrand && !restaurant.accentColor) return null;
+
+  if (mode === 'dark') {
+    return {
+      bg: restaurant.themeDarkBgColor || DEFAULT_PUBLIC_DARK.bg,
+      text: restaurant.themeDarkTextColor || DEFAULT_PUBLIC_DARK.text,
+      card: restaurant.themeDarkCardColor || DEFAULT_PUBLIC_DARK.card,
+      accent: restaurant.themeDarkAccentColor || restaurant.accentColor || DEFAULT_PUBLIC_DARK.accent,
+    };
+  }
+
+  return {
+    bg: restaurant.themeLightBgColor || restaurant.themeBgColor || DEFAULT_PUBLIC_LIGHT.bg,
+    text: restaurant.themeLightTextColor || restaurant.themeTextColor || DEFAULT_PUBLIC_LIGHT.text,
+    card: restaurant.themeLightCardColor || restaurant.themeCardColor || restaurant.themeBgColor || DEFAULT_PUBLIC_LIGHT.card,
+    accent: restaurant.themeLightAccentColor || restaurant.accentColor || DEFAULT_PUBLIC_LIGHT.accent,
+  };
+}
+
+function getStoredPublicTheme(restaurantId: string | undefined, fallback: BrandMode): BrandMode {
+  if (typeof window === 'undefined') return fallback;
+  const key = restaurantId ? `theme-${restaurantId}` : 'theme';
+  const stored = localStorage.getItem(key) as BrandMode | null;
+  return stored ?? fallback;
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  const normalized = hex.replace('#', '');
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return hex;
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 const PublicMenuPage = () => {
   const { restaurantId } = useParams<{ restaurantId: string }>();
@@ -79,6 +142,7 @@ const PublicMenuPage = () => {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [publicThemeMode, setPublicThemeMode] = useState<BrandMode>(() => getStoredPublicTheme(restaurantId, 'light'));
   const langFetchId = useRef(0);
   const langFetchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -308,7 +372,12 @@ const PublicMenuPage = () => {
   };
 
   const restaurantTheme = menuMeta?.restaurant;
-  const hasCustomTheme = !!(restaurantTheme?.themeBgColor && restaurantTheme?.themeTextColor);
+  const activeBrandPalette = resolvePublicPalette(restaurantTheme, publicThemeMode);
+
+  useEffect(() => {
+    const fallback = (restaurantTheme?.defaultTheme as BrandMode | undefined) ?? 'light';
+    setPublicThemeMode(getStoredPublicTheme(restaurantId, fallback));
+  }, [restaurantId, restaurantTheme?.defaultTheme]);
 
   // Dietary/allergen tags derived from all currently loaded items
   const dietTags: { tag: string; count: number }[] = (() => {
@@ -332,20 +401,49 @@ const PublicMenuPage = () => {
         "--font-body": restaurantTheme.fontBody
           ? `"${restaurantTheme.fontBody}", sans-serif`
           : undefined,
-        "--color-accent": restaurantTheme.accentColor || undefined,
-        ...(hasCustomTheme
+        "--color-accent": activeBrandPalette?.accent || restaurantTheme.accentColor || undefined,
+        "--color-primary": activeBrandPalette?.accent || restaurantTheme.accentColor || undefined,
+        "--brand": activeBrandPalette?.accent || restaurantTheme.accentColor || undefined,
+        "--brand-2": activeBrandPalette?.accent || restaurantTheme.accentColor || undefined,
+        "--gradient-brand": activeBrandPalette?.accent || restaurantTheme.accentColor || undefined,
+        "--brand-contrast": activeBrandPalette ? getReadableTextColor(activeBrandPalette.accent) : undefined,
+        ...(activeBrandPalette
           ? {
-              "--custom-bg": restaurantTheme.themeBgColor,
-              "--custom-text": restaurantTheme.themeTextColor,
-              "--custom-card": restaurantTheme.themeCardColor || restaurantTheme.themeBgColor,
+              "--ambient-primary": hexToRgba(activeBrandPalette.accent, publicThemeMode === 'dark' ? 0.18 : 0.07),
+              "--ambient-secondary": hexToRgba(activeBrandPalette.accent, publicThemeMode === 'dark' ? 0.12 : 0.045),
+              "--custom-bg": activeBrandPalette.bg,
+              "--custom-text": activeBrandPalette.text,
+              "--custom-card": activeBrandPalette.card,
               // Set these directly on the wrapper so child elements inherit them,
               // overriding the .dark { !important } vars on html.
-              "--color-background": restaurantTheme.themeBgColor,
-              "--color-foreground": restaurantTheme.themeTextColor,
-              "--color-card": restaurantTheme.themeCardColor || restaurantTheme.themeBgColor,
-              "--color-card-foreground": restaurantTheme.themeTextColor,
-              "--color-popover": restaurantTheme.themeBgColor,
-              "--color-popover-foreground": restaurantTheme.themeTextColor,
+              "--color-background": activeBrandPalette.bg,
+              "--color-foreground": activeBrandPalette.text,
+              "--color-card": activeBrandPalette.card,
+              "--color-card-foreground": activeBrandPalette.text,
+              "--color-popover": activeBrandPalette.bg,
+              "--color-popover-foreground": activeBrandPalette.text,
+              "--color-secondary": hexToRgba(activeBrandPalette.text, publicThemeMode === 'dark' ? 0.12 : 0.07),
+              "--color-secondary-foreground": activeBrandPalette.text,
+              "--color-muted": hexToRgba(activeBrandPalette.text, publicThemeMode === 'dark' ? 0.13 : 0.075),
+              "--color-muted-foreground": hexToRgba(activeBrandPalette.text, 0.62),
+              "--color-border": hexToRgba(activeBrandPalette.text, publicThemeMode === 'dark' ? 0.22 : 0.18),
+              "--color-input": hexToRgba(activeBrandPalette.text, publicThemeMode === 'dark' ? 0.22 : 0.18),
+              "--color-bg-elev": activeBrandPalette.card,
+              "--color-bg-muted": hexToRgba(activeBrandPalette.text, publicThemeMode === 'dark' ? 0.1 : 0.05),
+              "--color-bg-section": activeBrandPalette.bg,
+              "--glass-opacity": publicThemeMode === 'dark' ? '0.88' : '0.95',
+              "--shadow-sm": publicThemeMode === 'dark'
+                ? `0 1px 2px ${hexToRgba('#000000', 0.34)}`
+                : `0 1px 2px ${hexToRgba(activeBrandPalette.text, 0.08)}`,
+              "--shadow-md": publicThemeMode === 'dark'
+                ? `0 10px 26px ${hexToRgba('#000000', 0.38)}`
+                : `0 10px 26px ${hexToRgba(activeBrandPalette.text, 0.1)}`,
+              "--shadow-lg": publicThemeMode === 'dark'
+                ? `0 24px 60px ${hexToRgba('#000000', 0.46)}`
+                : `0 24px 60px ${hexToRgba(activeBrandPalette.text, 0.12)}`,
+              "--color-primary-foreground": getReadableTextColor(activeBrandPalette.accent),
+              "--color-accent-foreground": getReadableTextColor(activeBrandPalette.accent),
+              "--color-ring": activeBrandPalette.accent,
             }
           : {}),
       } as React.CSSProperties)
@@ -364,11 +462,11 @@ const PublicMenuPage = () => {
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
         <div
           className="absolute -top-[10%] -right-[10%] w-[60%] h-[60%] rounded-full opacity-10 blur-[120px] transition-colors duration-1000"
-          style={{ backgroundColor: menuMeta?.restaurant?.accentColor || "var(--color-accent)" }}
+          style={{ backgroundColor: activeBrandPalette?.accent || menuMeta?.restaurant?.accentColor || "var(--color-accent)" }}
         />
         <div
           className="absolute -bottom-[10%] -left-[10%] w-[50%] h-[50%] rounded-full opacity-5 blur-[100px] transition-colors duration-1000"
-          style={{ backgroundColor: menuMeta?.restaurant?.accentColor || "var(--color-accent)" }}
+          style={{ backgroundColor: activeBrandPalette?.accent || menuMeta?.restaurant?.accentColor || "var(--color-accent)" }}
         />
       </div>
 
@@ -390,6 +488,7 @@ const PublicMenuPage = () => {
           onLanguageChange={handleLanguageChange}
           restaurantId={restaurantId}
           defaultTheme={(restaurantTheme?.defaultTheme as 'light' | 'dark') ?? 'light'}
+          onThemeChange={setPublicThemeMode}
           onFilterClick={() => setFilterDrawerOpen(true)}
           filtersActive={hasActiveFilters}
           searchQuery={searchQuery}

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { getContrastStatus } from '../../utils/colors';
+import { getContrastStatus, getReadableTextColor } from '../../utils/colors';
 import { AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import type { BrandPalette } from './ThemePresets';
 
 const HEX_RE = /^#[0-9A-Fa-f]{6}$/;
+type PaletteField = keyof BrandPalette;
 
 interface ColorSwatchProps {
   label: string;
@@ -13,6 +15,7 @@ interface ColorSwatchProps {
 
 const ColorSwatch: React.FC<ColorSwatchProps> = ({ label, value, onChange }) => {
   const [draft, setDraft] = useState(value.toUpperCase());
+  const { t } = useTranslation();
 
   // Sync draft when prop changes externally (preset apply, reset, etc.)
   useEffect(() => {
@@ -31,7 +34,7 @@ const ColorSwatch: React.FC<ColorSwatchProps> = ({ label, value, onChange }) => 
         <div
           className="relative w-9 h-9 rounded-lg flex-shrink-0 cursor-pointer border border-border shadow-sm transition-transform hover:scale-105"
           style={{ backgroundColor: value }}
-          title={`Pick ${label}`}
+          title={t('branding.pickColor', 'Pick {{label}}', { label })}
         >
           <input
             type="color"
@@ -99,18 +102,12 @@ const ContrastBadge: React.FC<ContrastBadgeProps> = ({ label, bg, fg }) => {
 };
 
 interface ColorSchemeEditorProps {
-  themeBgColor: string;
-  themeTextColor: string;
-  themeCardColor: string;
-  accentColor: string;
-  onChange: (field: string, value: string) => void;
+  palette: BrandPalette;
+  onChange: (field: PaletteField, value: string) => void;
 }
 
 export const ColorSchemeEditor: React.FC<ColorSchemeEditorProps> = ({
-  themeBgColor,
-  themeTextColor,
-  themeCardColor,
-  accentColor,
+  palette,
   onChange,
 }) => {
   const { t } = useTranslation();
@@ -120,23 +117,23 @@ export const ColorSchemeEditor: React.FC<ColorSchemeEditorProps> = ({
       <div className="grid grid-cols-2 gap-4">
         <ColorSwatch
           label={t('branding.menuBackground')}
-          value={themeBgColor || '#ffffff'}
-          onChange={(v) => onChange('themeBgColor', v)}
+          value={palette.bg || '#ffffff'}
+          onChange={(v) => onChange('bg', v)}
         />
         <ColorSwatch
           label={t('branding.cardBackground')}
-          value={themeCardColor || '#f9f9f9'}
-          onChange={(v) => onChange('themeCardColor', v)}
+          value={palette.card || '#f9f9f9'}
+          onChange={(v) => onChange('card', v)}
         />
         <ColorSwatch
           label={t('branding.textColor')}
-          value={themeTextColor || '#000000'}
-          onChange={(v) => onChange('themeTextColor', v)}
+          value={palette.text || '#000000'}
+          onChange={(v) => onChange('text', v)}
         />
         <ColorSwatch
           label={t('branding.buttonAccent')}
-          value={accentColor || '#4F46E5'}
-          onChange={(v) => onChange('accentColor', v)}
+          value={palette.accent || '#4F46E5'}
+          onChange={(v) => onChange('accent', v)}
         />
       </div>
 
@@ -146,19 +143,19 @@ export const ColorSchemeEditor: React.FC<ColorSchemeEditorProps> = ({
         </p>
         <div className="space-y-1">
           <ContrastBadge
-            label={`${t('branding.textColor')} / Background`}
-            bg={themeBgColor}
-            fg={themeTextColor}
+            label={`${t('branding.textColor')} / ${t('branding.background', 'Background')}`}
+            bg={palette.bg}
+            fg={palette.text}
           />
           <ContrastBadge
-            label={`${t('branding.buttonAccent')} / Background`}
-            bg={themeBgColor}
-            fg={accentColor}
+            label={`${t('branding.buttonAccent')} / ${t('branding.background', 'Background')}`}
+            bg={palette.bg}
+            fg={palette.accent}
           />
           <ContrastBadge
-            label={`${t('branding.buttonAccent')} / Card`}
-            bg={themeCardColor}
-            fg={accentColor}
+            label={`${t('branding.buttonText', 'Button text')} / ${t('branding.buttonAccent')}`}
+            bg={palette.accent}
+            fg={getReadableTextColor(palette.accent)}
           />
         </div>
       </div>

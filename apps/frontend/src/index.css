@@ -104,8 +104,8 @@
   --color-destructive: #EF4444;
   --color-destructive-foreground: #FFFFFF;
 
-  --color-border: #25223A !important;
-  --color-input: #25223A !important;
+  --color-border: rgba(255, 255, 255, 0.04) !important;
+  --color-input: rgba(255, 255, 255, 0.04) !important;
   --color-ring: #8B6FFF;
 
   --glass-opacity: 0.85;
@@ -161,13 +161,13 @@
   .premium-bg {
     @apply bg-background relative;
     background-image:
-      radial-gradient(ellipse 800px 500px at 75% 20%, rgba(110, 86, 248, 0.06) 0px, transparent 70%),
-      radial-gradient(ellipse 600px 400px at 20% 80%, rgba(110, 86, 248, 0.04) 0px, transparent 70%);
+      radial-gradient(ellipse 800px 500px at 75% 20%, var(--ambient-primary, rgba(110, 86, 248, 0.06)) 0px, transparent 70%),
+      radial-gradient(ellipse 600px 400px at 20% 80%, var(--ambient-secondary, rgba(110, 86, 248, 0.04)) 0px, transparent 70%);
   }
   .dark .premium-bg {
     background-image:
-      radial-gradient(ellipse 1100px 600px at 75% 30%, rgba(110, 86, 248, 0.18) 0px, transparent 70%),
-      radial-gradient(ellipse 800px 500px at 20% 80%, rgba(110, 86, 248, 0.12) 0px, transparent 70%);
+      radial-gradient(ellipse 1100px 600px at 75% 30%, var(--ambient-primary, rgba(110, 86, 248, 0.18)) 0px, transparent 70%),
+      radial-gradient(ellipse 800px 500px at 20% 80%, var(--ambient-secondary, rgba(110, 86, 248, 0.12)) 0px, transparent 70%);
   }
 
   .text-glow {
@@ -183,23 +183,23 @@
   }
 
   .brand-cta {
-    background: #6E56F8;
-    color: white;
+    background: var(--gradient-brand, #6E56F8);
+    color: var(--brand-contrast, white) !important;
     font-weight: 700;
     box-shadow: 0 8px 20px -8px rgba(110, 86, 248, 0.55);
     transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
   }
   .brand-cta:hover {
-    background: #8B6FFF;
+    background: var(--brand-2, #8B6FFF);
     transform: translateY(-1px);
     box-shadow: 0 10px 24px -8px rgba(110, 86, 248, 0.65);
   }
   .dark .brand-cta {
-    background: #8B6FFF;
+    background: var(--gradient-brand, #8B6FFF);
     box-shadow: 0 8px 20px -8px rgba(139, 111, 255, 0.60);
   }
   .dark .brand-cta:hover {
-    background: #9E84FF;
+    background: var(--brand-2, #9E84FF);
     box-shadow: 0 10px 24px -8px rgba(139, 111, 255, 0.70);
   }
 

@@ -47,3 +47,9 @@ export const getContrastStatus = (bgColor: string, textColor: string) => {
     if (ratio >= 3.0) return { status: 'warning', message: 'Low contrast, readability might suffer', ratio };
     return { status: 'fail', message: 'Poor contrast, text may be invisible', ratio };
 };
+
+export const getReadableTextColor = (bgColor: string): '#FFFFFF' | '#111111' => {
+    return getContrastRatio(bgColor, '#FFFFFF') >= getContrastRatio(bgColor, '#111111')
+        ? '#FFFFFF'
+        : '#111111';
+};

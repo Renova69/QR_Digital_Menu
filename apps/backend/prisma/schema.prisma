@@ -63,6 +63,14 @@ model Restaurant {
   themeBgColor              String?
   themeCardColor            String?
   themeTextColor            String?
+  themeLightBgColor         String?
+  themeLightTextColor       String?
+  themeLightCardColor       String?
+  themeLightAccentColor     String?
+  themeDarkBgColor          String?
+  themeDarkTextColor        String?
+  themeDarkCardColor        String?
+  themeDarkAccentColor      String?
   trendingMode              String              @default("AUTO")
   happyHourEnable           Boolean             @default(false)
   happyHourDays             Int[]               @default([1,2,3,4,5,6,7])
