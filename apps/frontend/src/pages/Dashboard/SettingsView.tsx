@@ -3,8 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useFeature, useTier } from "../../hooks/useFeature";
 import BillingView from "../../components/subscription/BillingView";
 import { BrandingEditor } from "../../components/ui/BrandingEditor";
-import { useContext } from "react";
-import RestaurantContext from "../../context/RestaurantContext";
+import { useRestaurantContext } from "../../context/RestaurantContext";
 import {
   GeneralSettingsTab,
   LoyaltySettingsTab,
@@ -15,10 +14,11 @@ import {
 type SettingsTab = "general" | "loyalty" | "payments" | "staff" | "branding" | "subscription";
 
 const SettingsView = () => {
-  const { activeRestaurant, fetchRestaurants } = useContext(RestaurantContext) as any;
+  const { activeRestaurant, fetchRestaurants } = useRestaurantContext();
   const { t } = useTranslation();
   const canLoyalty = useFeature("loyalty");
   const canPayments = useFeature("payments:stripe");
+  const canBranding = useFeature("branding:custom");
   const { tier } = useTier();
   const isFree = tier === "FREE";
 
@@ -29,6 +29,7 @@ const SettingsView = () => {
     { id: "loyalty", label: t("settings.tabs.loyalty"), visible: canLoyalty },
     { id: "payments", label: t("settings.tabs.payments"), visible: canPayments },
     { id: "staff", label: t("settings.tabs.staff"), visible: !isFree },
+    // Visible to all non-free tiers as an upsell; content shows locked state when canBranding is false
     { id: "branding", label: t("settings.tabs.branding", "Branding"), visible: !isFree },
     { id: "subscription", label: t("settings.tabs.subscription"), visible: true },
   ];
@@ -69,8 +70,22 @@ const SettingsView = () => {
           {activeTab === "staff" && activeRestaurant && (
             <StaffSettingsTab activeRestaurant={activeRestaurant} />
           )}
-          {activeTab === "branding" && activeRestaurant && (
-            <BrandingEditor restaurant={activeRestaurant} onUpdate={fetchRestaurants} />
+          {activeTab === "branding" && activeRestaurant && canBranding && (
+            <BrandingEditor
+              key={activeRestaurant.id}
+              restaurant={activeRestaurant}
+              onUpdate={fetchRestaurants}
+            />
+          )}
+          {activeTab === "branding" && activeRestaurant && !canBranding && (
+            <div className="rounded-xl border border-border bg-muted/30 p-8 text-center">
+              <h3 className="text-lg font-semibold text-foreground">
+                {t("settings.brandingLocked")}
+              </h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {t("settings.brandingLockedDesc")}
+              </p>
+            </div>
           )}
           {activeTab === "subscription" && <BillingView />}
         </div>
