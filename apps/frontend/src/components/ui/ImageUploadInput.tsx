@@ -9,6 +9,10 @@ interface ImageUploadInputProps {
   label?: string;
   hint?: string;
   aspectRatio?: 'square' | 'wide' | 'banner';
+  /** Override button labels for i18n */
+  changeLabel?: string;
+  removeLabel?: string;
+  uploadLabel?: string;
 }
 
 const ASPECT_CLASSES = {
@@ -26,6 +30,9 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
   label = 'Image',
   hint = 'JPEG or PNG only. Max 5MB.',
   aspectRatio = 'square',
+  changeLabel = 'Change image',
+  removeLabel = 'Remove image',
+  uploadLabel = 'Click to upload',
 }) => {
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -92,7 +99,7 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
           <img
             src={getDisplayUrl(displayImage)}
             alt="Preview"
-            className="w-full h-full object-cover"
+            className={`w-full h-full ${aspectRatio === 'wide' ? 'object-contain' : 'object-cover'}`}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -100,7 +107,8 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="p-2 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white transition-all"
-              title="Change image"
+              aria-label={changeLabel}
+              title={changeLabel}
             >
               <ImagePlus className="h-4 w-4" />
             </button>
@@ -108,7 +116,8 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
               type="button"
               onClick={handleRemove}
               className="p-2 rounded-full bg-red-500/80 hover:bg-red-500 text-white transition-all"
-              title="Remove image"
+              aria-label={removeLabel}
+              title={removeLabel}
             >
               <X className="h-4 w-4" />
             </button>
@@ -127,7 +136,7 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
         >
           <ImagePlus className="h-8 w-8 text-muted-foreground/50 group-hover:text-primary transition-colors" />
           <span className="text-xs font-bold text-muted-foreground/60 group-hover:text-primary transition-colors">
-            Click to upload
+            {uploadLabel}
           </span>
           <span className="text-[10px] text-muted-foreground/40">{hint}</span>
         </button>

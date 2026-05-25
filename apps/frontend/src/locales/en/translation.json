@@ -195,7 +195,58 @@
     "defaultThemeDesc": "Customers see this mode when they first scan the QR code. They can still toggle it.",
     "livePreview": "Live Preview",
     "restaurantTimezone": "Restaurant Timezone",
-    "restaurantTimezoneDesc": "Used for automated menu scheduling."
+    "restaurantTimezoneDesc": "Used for automated menu scheduling.",
+    "themePresets": "Theme Presets",
+    "themePresetsDesc": "Start with a curated palette. Fine-tune after applying.",
+    "identity": "Brand Identity",
+    "unsavedChanges": "Unsaved changes",
+    "reset": "Reset",
+    "restoreDefaults": "Restore factory defaults",
+    "publicMenuCta": "Public Menu CTA",
+    "saveSuccess": "Branding settings saved",
+    "saveError": "Failed to save branding settings",
+    "brandHealthLogo": "Logo uploaded",
+    "brandHealthNoLogo": "No logo",
+    "brandHealthCustomColors": "Custom colors",
+    "brandHealthDefaultColors": "Default colors",
+    "brandHealthContrast": "Contrast OK",
+    "brandHealthContrastWarn": "Contrast warning",
+    "fontSearch": "Search fonts...",
+    "fontPairingGood": "Pairs well with",
+    "fontPairingSuggest": "Try pairing with:",
+    "previewMobile": "Mobile",
+    "previewDesktop": "Desktop",
+    "wcagContrast": "WCAG Contrast",
+    "presetClassicLight": "Classic Light",
+    "presetModernDark": "Modern Dark",
+    "presetWarmBistro": "Warm Bistro",
+    "presetMinimal": "Minimal",
+    "presetFineDining": "Fine Dining",
+    "presetFreshCafe": "Fresh Cafe",
+    "previewSignatureDishes": "Signature Dishes",
+    "previewDishName": "Truffle Burrata",
+    "previewDishDesc": "Fresh burrata with black truffle shavings and aged balsamic.",
+    "previewAddToOrder": "Add to order",
+    "previewStarters": "Starters",
+    "previewMains": "Mains",
+    "previewDesserts": "Desserts",
+    "previewDrinks": "Drinks",
+    "previewYourOrder": "Your Order",
+    "previewPlaceOrder": "Place Order",
+    "previewTotal": "Total",
+    "previewCard": "Card",
+    "previewCategory": "Category",
+    "previewCart": "Cart",
+    "previewItem1": "Truffle Burrata",
+    "previewItem2": "Grilled Salmon",
+    "changeImage": "Change image",
+    "removeImage": "Remove image",
+    "clickToUpload": "Click to upload",
+    "light": "Light",
+    "dark": "Dark",
+    "noFontsFound": "No fonts found",
+    "fontPairsBadge": "pairs",
+    "applyPreset": "Apply {{name}}"
   },
   "assistance": {
     "title": "Assistance Requests",
@@ -508,7 +559,7 @@
         "date": "Date",
         "revenue": "Revenue",
         "revenueEur": "Revenue EUR",
-        "revenueBgn": "Revenue BGN",
+        "revenueBgn": "Revenue (лв)",
         "revenueBgnExcel": "Revenue BGN",
         "orders": "Orders",
         "avgOrderEur": "Avg order EUR",
@@ -535,8 +586,7 @@
         "shareOfSelectedOrders": "Share of selected orders",
         "rating": "Rating",
         "count": "Count",
-        "share": "Share",
-        "revenueBgn": "Revenue (лв)"
+        "share": "Share"
       },
       "summary": {
         "restaurant": "Restaurant",
@@ -1166,10 +1216,41 @@
       "a6": "Yes, via the Billing portal. The change takes effect at your next billing date."
     },
     "tiers": {
-      "free": { "b1": "Digital menu (view & edit)", "b2": "QR code management", "b3": "OCR menu import", "b4": "1 staff member" },
-      "starter": { "b1": "Everything in Free", "b2": "Online ordering", "b3": "Basic analytics", "b4": "1 staff member" },
-      "professional": { "b1": "Everything in Starter", "b2": "Stripe pay-at-table", "b3": "Full analytics", "b4": "Call waiter button", "b5": "Multi-language menu", "b6": "Custom branding", "b7": "Loyalty program", "b8": "Customer accounts", "b9": "Upselling & dayparting", "b10": "Up to 5 staff + Manager role" },
-      "enterprise": { "b1": "Everything in Professional", "b2": "Point of Sale (POS)", "b3": "Kitchen Display (KDS)", "b4": "Multi-location", "b5": "Thermal printers", "b6": "Menu templates", "b7": "Advanced RBAC", "b8": "Unlimited staff", "b9": "Priority support" }
+      "free": {
+        "b1": "Digital menu (view & edit)",
+        "b2": "QR code management",
+        "b3": "OCR menu import",
+        "b4": "1 staff member"
+      },
+      "starter": {
+        "b1": "Everything in Free",
+        "b2": "Online ordering",
+        "b3": "Basic analytics",
+        "b4": "1 staff member"
+      },
+      "professional": {
+        "b1": "Everything in Starter",
+        "b2": "Stripe pay-at-table",
+        "b3": "Full analytics",
+        "b4": "Call waiter button",
+        "b5": "Multi-language menu",
+        "b6": "Custom branding",
+        "b7": "Loyalty program",
+        "b8": "Customer accounts",
+        "b9": "Upselling & dayparting",
+        "b10": "Up to 5 staff + Manager role"
+      },
+      "enterprise": {
+        "b1": "Everything in Professional",
+        "b2": "Point of Sale (POS)",
+        "b3": "Kitchen Display (KDS)",
+        "b4": "Multi-location",
+        "b5": "Thermal printers",
+        "b6": "Menu templates",
+        "b7": "Advanced RBAC",
+        "b8": "Unlimited staff",
+        "b9": "Priority support"
+      }
     },
     "features": {
       "digitalMenu": "Digital menu",
@@ -1531,108 +1612,108 @@
     "xlsxFormat": "XLSX (styled spreadsheet)",
     "xlsxFormatDesc": "Excel spreadsheet with styled headers, proper column widths, and correct encoding for all languages including Cyrillic.",
     "xlsxImport": "XLSX (exported menu)"
-},
-"onboarding": {
-  "brand": "QR Menu",
-  "setup": "Setup",
-  "backToHome": "Back to home",
-  "steps": {
-    "plan": "Choose plan",
-    "basics": "Restaurant info",
-    "payment": "Payments",
-    "done": "Done"
   },
-  "redirecting": {
-    "confirming": "Confirming your subscription…",
-    "stripe": "Redirecting to Stripe…"
-  },
-  "plans": {
-    "title": "Choose your plan",
-    "subtitle": "Start free or unlock the full experience. Change anytime.",
-    "monthly": "Monthly",
-    "yearly": "Yearly",
-    "savePercent": "Save 15%",
-    "mostPopular": "Most Popular",
-    "saveVsMonthly": "Save 15% vs monthly",
-    "selected": "Selected",
-    "choose": "Choose {{tier}}",
-    "continue": "Continue with {{tier}}",
-    "free": {
-      "name": "FREE",
-      "features": [
-        "Digital menu (view & edit)",
-        "QR code management",
-        "OCR menu import",
-        "1 staff member"
-      ]
+  "onboarding": {
+    "brand": "QR Menu",
+    "setup": "Setup",
+    "backToHome": "Back to home",
+    "steps": {
+      "plan": "Choose plan",
+      "basics": "Restaurant info",
+      "payment": "Payments",
+      "done": "Done"
     },
-    "starter": {
-      "name": "STARTER",
-      "features": [
-        "Everything in Free",
-        "Online ordering",
-        "Basic analytics",
-        "1 staff member"
-      ]
+    "redirecting": {
+      "confirming": "Confirming your subscription…",
+      "stripe": "Redirecting to Stripe…"
     },
-    "professional": {
-      "name": "PROFESSIONAL",
-      "features": [
-        "Everything in Starter",
-        "Stripe pay-at-table",
-        "Full analytics",
-        "Call waiter button",
-        "Multi-language menu",
-        "Custom branding",
-        "Loyalty program",
-        "Up to 5 staff"
-      ]
+    "plans": {
+      "title": "Choose your plan",
+      "subtitle": "Start free or unlock the full experience. Change anytime.",
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "savePercent": "Save 15%",
+      "mostPopular": "Most Popular",
+      "saveVsMonthly": "Save 15% vs monthly",
+      "selected": "Selected",
+      "choose": "Choose {{tier}}",
+      "continue": "Continue with {{tier}}",
+      "free": {
+        "name": "FREE",
+        "features": [
+          "Digital menu (view & edit)",
+          "QR code management",
+          "OCR menu import",
+          "1 staff member"
+        ]
+      },
+      "starter": {
+        "name": "STARTER",
+        "features": [
+          "Everything in Free",
+          "Online ordering",
+          "Basic analytics",
+          "1 staff member"
+        ]
+      },
+      "professional": {
+        "name": "PROFESSIONAL",
+        "features": [
+          "Everything in Starter",
+          "Stripe pay-at-table",
+          "Full analytics",
+          "Call waiter button",
+          "Multi-language menu",
+          "Custom branding",
+          "Loyalty program",
+          "Up to 5 staff"
+        ]
+      },
+      "enterprise": {
+        "name": "ENTERPRISE",
+        "features": [
+          "Everything in Professional",
+          "POS & Kitchen Display",
+          "Multi-location",
+          "Unlimited staff",
+          "Priority support"
+        ]
+      }
     },
-    "enterprise": {
-      "name": "ENTERPRISE",
-      "features": [
-        "Everything in Professional",
-        "POS & Kitchen Display",
-        "Multi-location",
-        "Unlimited staff",
-        "Priority support"
-      ]
+    "basics": {
+      "title": "About you & your restaurant",
+      "subtitle": "You can update all of this later in Settings.",
+      "ownerName": "Your name",
+      "restaurantName": "Restaurant name *",
+      "city": "City",
+      "dashboardLanguage": "Dashboard language",
+      "dashboardLanguageHint": "Language used for your owner dashboard.",
+      "createError": "Failed to create restaurant. Please try again.",
+      "creating": "Creating…",
+      "continue": "Continue"
+    },
+    "payment": {
+      "title": "Set up payments",
+      "subtitle": "Connect Stripe to accept card payments at the table. Takes about 2 minutes.",
+      "stripeConnect": "Stripe Connect",
+      "stripeDesc": "Secure card payments via Stripe. No monthly fee.",
+      "featureCards": "Accept Visa, Mastercard, and other cards",
+      "featureSplit": "Split bills and tip support",
+      "featurePayouts": "Payouts directly to your bank account",
+      "connectButton": "Connect with Stripe",
+      "skip": "Skip for now — set up later in Payments",
+      "redirecting": "Redirecting…",
+      "error": "Failed to connect Stripe. You can set it up later in Payments settings."
+    },
+    "finish": {
+      "title": "You're all set!",
+      "subtitle": "{{restaurantName}} is ready. Start building your menu, adding staff, and taking orders.",
+      "nextSteps": "Next steps you can do in your dashboard:",
+      "tipCategories": "Add menu categories and items",
+      "tipQrCodes": "Print or share your QR codes",
+      "tipStaff": "Invite staff members",
+      "tipBranding": "Customise branding and colours",
+      "cta": "Go to Dashboard"
     }
-  },
-  "basics": {
-    "title": "About you & your restaurant",
-    "subtitle": "You can update all of this later in Settings.",
-    "ownerName": "Your name",
-    "restaurantName": "Restaurant name *",
-    "city": "City",
-    "dashboardLanguage": "Dashboard language",
-    "dashboardLanguageHint": "Language used for your owner dashboard.",
-    "createError": "Failed to create restaurant. Please try again.",
-    "creating": "Creating…",
-    "continue": "Continue"
-  },
-  "payment": {
-    "title": "Set up payments",
-    "subtitle": "Connect Stripe to accept card payments at the table. Takes about 2 minutes.",
-    "stripeConnect": "Stripe Connect",
-    "stripeDesc": "Secure card payments via Stripe. No monthly fee.",
-    "featureCards": "Accept Visa, Mastercard, and other cards",
-    "featureSplit": "Split bills and tip support",
-    "featurePayouts": "Payouts directly to your bank account",
-    "connectButton": "Connect with Stripe",
-    "skip": "Skip for now — set up later in Payments",
-    "redirecting": "Redirecting…",
-    "error": "Failed to connect Stripe. You can set it up later in Payments settings."
-  },
-  "finish": {
-    "title": "You're all set!",
-    "subtitle": "{{restaurantName}} is ready. Start building your menu, adding staff, and taking orders.",
-    "nextSteps": "Next steps you can do in your dashboard:",
-    "tipCategories": "Add menu categories and items",
-    "tipQrCodes": "Print or share your QR codes",
-    "tipStaff": "Invite staff members",
-    "tipBranding": "Customise branding and colours",
-    "cta": "Go to Dashboard"
   }
-}
 }

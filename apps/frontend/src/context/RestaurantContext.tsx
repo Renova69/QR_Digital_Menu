@@ -50,8 +50,9 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({ children
   }, [activeRestaurant, socket, isConnected]);
 
   // Internal fetch — accepts prefetched data to skip network call on initial load
-  const _fetchRestaurants = async (prefetchedData?: any[] | null) => {
-    setLoading(true);
+  // showLoading=false for background refreshes to avoid unmounting mounted views
+  const _fetchRestaurants = async (prefetchedData?: any[] | null, showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       setError(null);
       const role = user?.role?.toUpperCase();
@@ -63,6 +64,7 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({ children
         const restaurant = await getRestaurantById(user.restaurantId!);
         setRestaurants([restaurant]);
         setActiveRestaurant(restaurant);
+        if (showLoading) setLoading(false);
         return;
       }
 
@@ -95,12 +97,12 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({ children
     } catch (err) {
       setError(err as Error);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
-  // Public API — always fetches fresh from network
-  const fetchRestaurants = () => _fetchRestaurants();
+  // Public API — always fetches fresh from network, no loading spinner (background refresh)
+  const fetchRestaurants = () => _fetchRestaurants(undefined, false);
 
   useEffect(() => {
     if (user) {

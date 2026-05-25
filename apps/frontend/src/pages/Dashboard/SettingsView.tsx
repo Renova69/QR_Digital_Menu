@@ -43,7 +43,7 @@ const SettingsView = () => {
         <p className="text-sm text-muted-foreground mt-1">{t("settings.desc")}</p>
       </div>
 
-      <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden text-left">
+      <div className="bg-card rounded-xl shadow-sm border border-border overflow-clip text-left">
         {/* Tab nav */}
         <div className="flex gap-1 border-b border-border px-6 pt-4 overflow-x-auto">
           {visibleTabs.map((tab) => (
