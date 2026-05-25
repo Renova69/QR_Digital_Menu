@@ -3,16 +3,13 @@ import {
   Get,
   Post,
   Patch,
-  Delete,
   Body,
-  Param,
   Res,
   Req,
   UsePipes,
   ValidationPipe,
   UseGuards,
   Request,
-  ForbiddenException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Response, Request as ExpressRequest } from 'express';
@@ -21,8 +18,6 @@ import { CreateAuthDto } from './dto/create-auth.dto';
 import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { GoogleAuthGuard } from './google-auth.guard';
-import { UsersService } from '../users/users.service';
-import { CreateStaffDto } from '../users/dto/create-staff.dto';
 import { PinLoginDto } from './dto/pin-login.dto';
 import { SetPinDto } from './dto/set-pin.dto';
 
@@ -44,10 +39,7 @@ function setTokenCookie(res: Response, token: string) {
 
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private readonly authService: AuthService,
-    private readonly usersService: UsersService,
-  ) {}
+  constructor(private readonly authService: AuthService) {}
 
   @Post('register')
   @UsePipes(new ValidationPipe({ whitelist: true }))
@@ -162,55 +154,6 @@ export class AuthController {
   @Get('csrf-token')
   getCsrfToken(@Req() req: ExpressRequest) {
     return { csrfToken: (req as any)['csrfToken'] ?? null };
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Get('restaurants/:id/staff')
-  async listStaff(
-    @Param('id') restaurantId: string,
-    @Request() req: any,
-  ) {
-    const role = req.user?.role?.toUpperCase();
-    if (role !== 'OWNER' && role !== 'MANAGER') {
-      throw new ForbiddenException('Only owners and managers can manage staff');
-    }
-    await this.usersService.verifyRestaurantAccess(restaurantId, req.user.id);
-    return this.usersService.listStaffMembers(restaurantId);
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Post('restaurants/:id/staff')
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
-  async createStaff(
-    @Param('id') restaurantId: string,
-    @Body(new ValidationPipe({ whitelist: true })) dto: CreateStaffDto,
-    @Request() req: any,
-  ) {
-    const role = req.user?.role?.toUpperCase();
-    if (role !== 'OWNER' && role !== 'MANAGER') {
-      throw new ForbiddenException('Only owners and managers can manage staff');
-    }
-    await this.usersService.verifyRestaurantAccess(restaurantId, req.user.id);
-    return this.usersService.createStaffMember(restaurantId, {
-      name: dto.name,
-      email: dto.email,
-      role: dto.role,
-    });
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Delete('restaurants/:id/staff/:userId')
-  async removeStaff(
-    @Param('id') restaurantId: string,
-    @Param('userId') userId: string,
-    @Request() req: any,
-  ) {
-    const role = req.user?.role?.toUpperCase();
-    if (role !== 'OWNER' && role !== 'MANAGER') {
-      throw new ForbiddenException('Only owners and managers can manage staff');
-    }
-    await this.usersService.verifyRestaurantAccess(restaurantId, req.user.id);
-    return this.usersService.removeStaffMember(restaurantId, userId);
   }
 
   @Post('pin-login')
