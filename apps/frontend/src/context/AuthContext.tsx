@@ -23,6 +23,7 @@ interface AuthContextType {
   isLoading: boolean;
   isError: boolean;
   errorMessage: string | null;
+  prefetchedRestaurants: any[] | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,18 +33,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [prefetchedRestaurants, setPrefetchedRestaurants] = useState<any[] | null>(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
     const initializeAuth = async () => {
-      try {
-        const userData = await api.get('/auth/me');
-        setUser(userData.data);
-      } catch (_error) {
-        // Not logged in — cookie missing or expired
-      } finally {
-        setIsLoading(false);
-      }
+      // Fetch /auth/me and /restaurants in parallel — eliminates the sequential waterfall
+      // /restaurants will 401 if not logged in; Promise.allSettled handles that safely
+      const [meResult, restaurantsResult] = await Promise.allSettled([
+        api.get('/auth/me'),
+        api.get('/restaurants'),
+      ]);
+
+      const userData = meResult.status === 'fulfilled' ? meResult.value.data : null;
+      const restaurantsData =
+        restaurantsResult.status === 'fulfilled' ? restaurantsResult.value.data : null;
+
+      // React 18 batches these automatically — single re-render
+      setUser(userData);
+      setPrefetchedRestaurants(restaurantsData);
+      setIsLoading(false);
     };
 
     initializeAuth();
@@ -102,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('tableNumber');
     sessionStorage.removeItem('cartRestaurantId');
     setUser(null);
+    setPrefetchedRestaurants(null);
   };
 
   const value: AuthContextType = {
@@ -115,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading,
     isError,
     errorMessage,
+    prefetchedRestaurants,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

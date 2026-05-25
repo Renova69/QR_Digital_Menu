@@ -54,7 +54,7 @@ interface RestaurantContextType {
 const RestaurantContext = createContext<RestaurantContextType | undefined>(undefined);
 
 export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, prefetchedRestaurants } = useAuth();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [activeRestaurant, setActiveRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -76,7 +76,8 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({ children
     };
   }, [activeRestaurant, socket, isConnected]);
 
-  const fetchRestaurants = async () => {
+  // Internal fetch — accepts prefetched data to skip network call on initial load
+  const _fetchRestaurants = async (prefetchedData?: any[] | null) => {
     setLoading(true);
     try {
       setError(null);
@@ -92,10 +93,13 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({ children
         return;
       }
 
-      const data = await getRestaurants();
+      // Use prefetched data when available (eliminates sequential waterfall on login)
+      const data: Restaurant[] = Array.isArray(prefetchedData)
+        ? prefetchedData
+        : await getRestaurants();
+
       setRestaurants(data);
       if (data.length > 0) {
-        // preserve currently active restaurant if possible, or fallback to first
         setActiveRestaurant(current => {
           if (current) {
             const updated = data.find((r: Restaurant) => r.id === current.id);
@@ -122,9 +126,13 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   };
 
+  // Public API — always fetches fresh from network
+  const fetchRestaurants = () => _fetchRestaurants();
+
   useEffect(() => {
     if (user) {
-      fetchRestaurants();
+      // Pass prefetched restaurants from AuthContext (set in parallel with /auth/me)
+      _fetchRestaurants(prefetchedRestaurants);
     } else {
       setRestaurants([]);
       setActiveRestaurant(null);
