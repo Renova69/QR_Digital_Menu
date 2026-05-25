@@ -15,7 +15,7 @@ export class DeviceEnrollmentService {
   constructor(private readonly prisma: PrismaService) {}
 
   private get tokenStore() {
-    return (this.prisma as any).deviceEnrollmentToken;
+    return this.prisma.deviceEnrollmentToken;
   }
 
   private hashToken(token: string) {
@@ -79,6 +79,25 @@ export class DeviceEnrollmentService {
     const enrollmentUrl = `${baseUrl}/device-enroll?token=${encodeURIComponent(rawToken)}`;
 
     return { enrollmentUrl, expiresAt };
+  }
+
+  async listEnrollments(restaurantId: string, userId: string) {
+    await this.verifyManagerAccess(restaurantId, userId);
+
+    return this.tokenStore.findMany({
+      where: { restaurantId },
+      select: {
+        id: true,
+        createdAt: true,
+        expiresAt: true,
+        usedAt: true,
+        createdBy: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    });
   }
 
   async verifyEnrollment(token: string) {

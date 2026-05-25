@@ -144,6 +144,8 @@
     "removeConfirm": "Eliminați acest membru al personalului? Aceasta nu poate fi anulată.",
     "failedLoad": "Încărcarea personalului a eșuat",
     "failedCreate": "Crearea contului de personal a eșuat",
+    "failedUpdate": "Actualizarea membrului personalului a eșuat",
+    "failedResetPin": "Resetarea PIN-ului a eșuat",
     "failedRemove": "Eliminarea personalului a eșuat",
     "failedGenerateQr": "Generarea QR-ului a eșuat",
     "failedRebond": "Generarea QR-ului de reasociere a eșuat",

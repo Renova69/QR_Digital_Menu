@@ -464,22 +464,49 @@ export const exportMenu = async (restaurantId: string) => {
 };
 
 // Staff Management
+export type StaffMember = {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export const listStaff = async (restaurantId: string) => {
-  const response = await api.get(`/auth/restaurants/${restaurantId}/staff`);
-  return response.data as Array<{ id: string; email: string; name: string | null; role: string }>;
+  const response = await api.get(`/restaurants/${restaurantId}/staff`);
+  return response.data as StaffMember[];
 };
 
 export const createStaff = async (
   restaurantId: string,
   data: { name: string; email?: string; role: string },
 ) => {
-  const response = await api.post(`/auth/restaurants/${restaurantId}/staff`, data);
+  const response = await api.post(`/restaurants/${restaurantId}/staff`, data);
   return response.data as { user: { id: string; email: string; name: string | null; role: string }; rawPin: string };
 };
 
 export const removeStaff = async (restaurantId: string, userId: string) => {
-  const response = await api.delete(`/auth/restaurants/${restaurantId}/staff/${userId}`);
+  const response = await api.delete(`/restaurants/${restaurantId}/staff/${userId}`);
   return response.data;
+};
+
+export const updateStaff = async (
+  restaurantId: string,
+  userId: string,
+  data: { role?: string; isActive?: boolean },
+) => {
+  const response = await api.patch(`/restaurants/${restaurantId}/staff/${userId}`, data);
+  return response.data as StaffMember;
+};
+
+export const resetStaffPin = async (restaurantId: string, userId: string) => {
+  const response = await api.post(`/restaurants/${restaurantId}/staff/${userId}/reset-pin`);
+  return response.data as {
+    user: { id: string; email: string; name: string | null; role: string };
+    rawPin: string;
+  };
 };
 
 export const createDeviceEnrollment = async (restaurantId: string) => {
@@ -487,6 +514,17 @@ export const createDeviceEnrollment = async (restaurantId: string) => {
     mode: 'STAFF_DEVICE',
   });
   return response.data as { enrollmentUrl: string; expiresAt: string };
+};
+
+export const listDeviceEnrollments = async (restaurantId: string) => {
+  const response = await api.get(`/restaurants/${restaurantId}/device-enrollments`);
+  return response.data as Array<{
+    id: string;
+    createdAt: string;
+    expiresAt: string;
+    usedAt: string | null;
+    createdBy: { id: string; name: string | null; email: string };
+  }>;
 };
 
 export const verifyDeviceEnrollment = async (token: string) => {

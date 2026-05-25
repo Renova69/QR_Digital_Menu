@@ -143,6 +143,8 @@
     "removeConfirm": "Remove this staff member? This cannot be undone.",
     "failedLoad": "Failed to load staff",
     "failedCreate": "Failed to create staff member",
+    "failedUpdate": "Failed to update staff member",
+    "failedResetPin": "Failed to reset staff PIN",
     "failedRemove": "Failed to remove staff member",
     "failedGenerateQr": "Failed to generate device QR",
     "failedRebond": "Failed to generate re-bond QR",
