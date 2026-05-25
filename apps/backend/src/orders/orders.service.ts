@@ -161,10 +161,6 @@ export class OrdersService {
       const nowInTz = DateTime.now().setZone(tz);
       const currentMinutes = nowInTz.hour * 60 + nowInTz.minute;
 
-      // Check day of week (Luxon weekday: 1=Mon … 7=Sun). Empty/all-days = always active.
-      const activeDays: number[] = (restaurant as any).happyHourDays ?? [1,2,3,4,5,6,7];
-      const dayMatches = activeDays.length === 0 || activeDays.includes(nowInTz.weekday);
-
       const [startH, startM] = restaurant.happyHourStartTime
         .split(':')
         .map(Number);
@@ -172,12 +168,21 @@ export class OrdersService {
 
       const startMinutes = startH * 60 + startM;
       const endMinutes = endH * 60 + endM;
+      const activeDays: number[] = Array.isArray(restaurant.happyHourDays)
+        ? restaurant.happyHourDays
+        : [1, 2, 3, 4, 5, 6, 7];
 
-      // Supports overnight ranges e.g. 22:00–02:00
+      // Overnight ranges belong to the selected start day, e.g. Friday 22:00-02:00 includes Saturday 01:00.
       const inHappyHour =
         startMinutes <= endMinutes
           ? currentMinutes >= startMinutes && currentMinutes <= endMinutes
           : currentMinutes >= startMinutes || currentMinutes <= endMinutes;
+      const effectiveWeekday =
+        startMinutes <= endMinutes || currentMinutes >= startMinutes
+          ? nowInTz.weekday
+          : nowInTz.minus({ days: 1 }).weekday;
+      const dayMatches =
+        activeDays.length > 0 && activeDays.includes(effectiveWeekday);
 
       if (dayMatches && inHappyHour) {
         happyHourMultiplier = restaurant.happyHourMultiplier || 1;

@@ -166,8 +166,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
   useEffect(() => {
     if (!activeRestaurant) return;
     fetchStaff();
-    fetchDeviceEnrollments();
-  }, [activeRestaurant]);
+    if (canPos) fetchDeviceEnrollments();
+  }, [activeRestaurant, canPos]);
 
   useEffect(() => {
     if (!openActionId) return;
@@ -446,11 +446,13 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
             </p>
             <p className="text-xs text-muted-foreground">PIN login support</p>
           </div>
-          <div className="rounded-lg border border-border bg-muted/20 p-4">
-            <p className="text-xs font-bold uppercase text-muted-foreground">Device links</p>
-            <p className="mt-2 text-2xl font-semibold text-foreground">{deviceEnrollments.length}</p>
-            <p className="text-xs text-muted-foreground">Recent enrollment sessions</p>
-          </div>
+          {canPos && (
+            <div className="rounded-lg border border-border bg-muted/20 p-4">
+              <p className="text-xs font-bold uppercase text-muted-foreground">Device links</p>
+              <p className="mt-2 text-2xl font-semibold text-foreground">{deviceEnrollments.length}</p>
+              <p className="text-xs text-muted-foreground">Recent enrollment sessions</p>
+            </div>
+          )}
         </div>
 
         {limitReached && (
@@ -675,7 +677,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
               )}
             </section>
 
-            <section className="rounded-lg border border-border bg-background p-4">
+            {canPos && <section className="rounded-lg border border-border bg-background p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-foreground">{t('staff.bondDevice')}</p>
@@ -716,9 +718,9 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                   </div>
                 </div>
               )}
-            </section>
+            </section>}
 
-            <section className="rounded-lg border border-border bg-background p-4">
+            {canPos && <section className="rounded-lg border border-border bg-background p-4">
               <p className="text-sm font-semibold text-foreground">Device sessions</p>
               <div className="mt-3 space-y-2">
                 {deviceEnrollmentsLoading ? (
@@ -743,7 +745,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                   ))
                 )}
               </div>
-            </section>
+            </section>}
 
             <section className="rounded-lg border border-border bg-background p-4">
               <p className="text-sm font-semibold text-foreground">Role preview</p>

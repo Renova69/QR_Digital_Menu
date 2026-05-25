@@ -1,47 +1,12 @@
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import { getRestaurants, getRestaurantById, createRestaurant as createRestaurantApi } from '../services/restaurantService';
+import type { Restaurant } from '../services/restaurantService';
 import { useAuth } from './AuthContext';
 import { useSocket } from './SocketContext';
 
-interface Restaurant {
-  id: string;
-  name: string;
-  country: string;
-  ownerId: string;
-  dashboardLanguage?: string;
-  trendingMode?: 'AUTO' | 'MANUAL' | 'OFF';
-  fontHeading?: string;
-  fontBody?: string;
-  themeBgColor?: string;
-  themeTextColor?: string;
-  themeCardColor?: string;
-  isLoyaltyEnabled?: boolean;
-  loyaltySignupBonus?: number;
-  loyaltyExchangeRate?: number;
-  loyaltyRedeemRate?: number;
-  loyaltyPointExpiryDays?: number;
-  loyaltyExpiryReminderDays?: number;
-  happyHourEnable?: boolean;
-  happyHourStartTime?: string;
-  happyHourEndTime?: string;
-  happyHourMultiplier?: number;
-  paymentsEnabled?: boolean;
-  stripeOnboarded?: boolean;
-  stripeAccountId?: string;
-  tipsEnabled?: boolean;
-  tipOptions?: number[];
-  platformFeePercent?: number;
-  notifyAllStaffOnPayment?: boolean;
-  tier?: 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
-  forceTier?: 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE' | null;
-  tierUpdatedAt?: string;
-  stripeSubscriptionId?: string;
-  facebookUrl?: string;
-  instagramUrl?: string;
-  tiktokUrl?: string;
-}
+export type { Restaurant };
 
-interface RestaurantContextType {
+export interface RestaurantContextType {
   restaurants: Restaurant[];
   activeRestaurant: Restaurant | null;
   loading: boolean;
@@ -52,6 +17,14 @@ interface RestaurantContextType {
 }
 
 const RestaurantContext = createContext<RestaurantContextType | undefined>(undefined);
+
+export const useRestaurantContext = () => {
+  const context = useContext(RestaurantContext);
+  if (!context) {
+    throw new Error('useRestaurantContext must be used within RestaurantProvider');
+  }
+  return context;
+};
 
 export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user, prefetchedRestaurants } = useAuth();

@@ -103,6 +103,8 @@ export class RestaurantsController {
     }
   }
 
+  @RequireFeature(FeatureFlag.POS)
+  @UseGuards(FeatureGuard)
   @Post(':id/device-enrollment')
   createDeviceEnrollment(
     @Param('id') id: string,
@@ -121,6 +123,13 @@ export class RestaurantsController {
       req.user.id,
       frontendBaseUrl,
     );
+  }
+
+  @RequireFeature(FeatureFlag.POS)
+  @UseGuards(FeatureGuard)
+  @Get(':id/device-enrollments')
+  listDeviceEnrollments(@Param('id') id: string, @Request() req: any) {
+    return this.deviceEnrollment.listEnrollments(id, req.user.id);
   }
 
   @RequireFeature(FeatureFlag.LANGUAGES_MULTI)

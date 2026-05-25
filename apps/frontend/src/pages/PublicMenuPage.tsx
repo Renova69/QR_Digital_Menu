@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
+import type { Restaurant } from "../services/restaurantService";
 import { getMenuMeta, getCategoryItems, createAssistanceRequest, getSessionBill } from "../lib/api";
 import { PaymentModal } from "../components/payment/PaymentModal";
 import { useCart } from "../context/CartContext";
@@ -44,7 +45,7 @@ const PublicMenuPage = () => {
   const [tableNumber, setTableNumberState] = useState<string | null>(null);
 
   // Phase 1: restaurant branding + category names (fast, no items)
-  const [menuMeta, setMenuMeta] = useState<{ restaurant: any; categories: any[] } | null>(null);
+  const [menuMeta, setMenuMeta] = useState<{ restaurant: Restaurant; categories: any[] } | null>(null);
   // Phase 2: per-category items — undefined=not started, null=loading, array=loaded
   const [loadedItemsMap, setLoadedItemsMap] = useState<Record<string, any[] | null>>({});
 
@@ -367,9 +368,11 @@ const PublicMenuPage = () => {
         {/* Social Bar — restaurant name + social icons (top) */}
         <SocialBar
           restaurantName={menuMeta?.restaurant?.name ?? ''}
-          facebookUrl={(menuMeta?.restaurant as any)?.facebookUrl}
-          instagramUrl={(menuMeta?.restaurant as any)?.instagramUrl}
-          tiktokUrl={(menuMeta?.restaurant as any)?.tiktokUrl}
+          websiteUrl={menuMeta?.restaurant?.websiteUrl}
+          facebookUrl={menuMeta?.restaurant?.facebookUrl}
+          instagramUrl={menuMeta?.restaurant?.instagramUrl}
+          tiktokUrl={menuMeta?.restaurant?.tiktokUrl}
+          youtubeUrl={menuMeta?.restaurant?.youtubeUrl}
         />
 
         <TopBar
@@ -768,11 +771,13 @@ const PublicMenuPage = () => {
       {/* Footer */}
       <Footer
         restaurantName={menuMeta?.restaurant?.name ?? ''}
-        address={(menuMeta?.restaurant as any)?.address}
-        contactInfo={(menuMeta?.restaurant as any)?.contactInfo}
-        facebookUrl={(menuMeta?.restaurant as any)?.facebookUrl}
-        instagramUrl={(menuMeta?.restaurant as any)?.instagramUrl}
-        tiktokUrl={(menuMeta?.restaurant as any)?.tiktokUrl}
+        address={menuMeta?.restaurant?.address}
+        contactInfo={menuMeta?.restaurant?.contactInfo}
+        websiteUrl={menuMeta?.restaurant?.websiteUrl}
+        facebookUrl={menuMeta?.restaurant?.facebookUrl}
+        instagramUrl={menuMeta?.restaurant?.instagramUrl}
+        tiktokUrl={menuMeta?.restaurant?.tiktokUrl}
+        youtubeUrl={menuMeta?.restaurant?.youtubeUrl}
       />
     </div>
   );

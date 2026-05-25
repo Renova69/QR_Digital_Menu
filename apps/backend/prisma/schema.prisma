@@ -48,6 +48,8 @@ model Restaurant {
   facebookUrl               String?
   instagramUrl               String?
   tiktokUrl                 String?
+  websiteUrl                String?
+  youtubeUrl                String?
   address                   String?
   contactInfo               String?
   targetLanguages           String[]            @default([])
