@@ -80,6 +80,7 @@
       "loyalty": "Loyalty",
       "payments": "Payments",
       "staff": "Staff",
+      "branding": "Branding",
       "subscription": "Subscription"
     },
     "restaurantName": "Restaurant Name",
@@ -108,7 +109,10 @@
     "socialMediaDesc": "Add links to your social media profiles. They will appear on your public menu.",
     "facebookUrl": "Facebook URL",
     "instagramUrl": "Instagram URL",
-    "tiktokUrl": "TikTok URL"
+    "tiktokUrl": "TikTok URL",
+    "summaryLanguages": "{{count}} language(s) active",
+    "translationActiveCount": "{{count}} language(s) selected — click to translate your menu",
+    "featureNotAvailable": "This feature is not available on your current plan."
   },
   "staff": {
     "sharedDeviceMode": "Shared Device Mode",
@@ -693,7 +697,21 @@
       "connecting": "Connecting...",
       "tips": "Tips",
       "quickTipOptions": "Quick tip % buttons shown to customers",
-      "addTipOption": "Add"
+      "addTipOption": "Add",
+      "resetTips": "Reset to defaults",
+      "tipValidationError": "Enter a value between 1 and 100.",
+      "tipDuplicateError": "That % is already added.",
+      "statusPaymentsOn": "Payments ON",
+      "statusPaymentsOff": "Payments OFF",
+      "statusStripeConnected": "Stripe connected",
+      "statusStripeNotConnected": "Stripe not connected",
+      "statusTipsOn": "Tips ON",
+      "statusTipsOff": "Tips OFF",
+      "disconnectAreYouSure": "Disconnect Stripe?",
+      "disconnectConfirmBtn": "Yes, disconnect",
+      "connectError": "Failed to connect Stripe. Please try again.",
+      "notifyStaff": "Payment Notifications",
+      "notifyStaffDesc": "When enabled, all staff see payment notifications. When disabled, only the owner sees them."
     }
   },
   "summary": {
@@ -750,7 +768,13 @@
     "happyHourStart": "Start Time",
     "happyHourEnd": "End Time",
     "happyHourEndDesc": "End before start = overnight range (e.g. 22:00–02:00).",
-    "happyHourMultiplier": "Points Multiplier"
+    "happyHourMultiplier": "Points Multiplier",
+    "pointsEconomy": "Points Economy",
+    "expirySection": "Point Expiry",
+    "silver": "Silver",
+    "gold": "Gold",
+    "liveCalcTitle": "Live Example — €{{amount}} order",
+    "reminderMustBeLower": "Reminder days must be less than expiry days."
   },
   "auth": {
     "otp": {

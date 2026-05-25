@@ -81,6 +81,7 @@
       "loyalty": "Лоялност",
       "payments": "Плащания",
       "staff": "Персонал",
+      "branding": "Брандинг",
       "subscription": "Абонамент"
     },
     "restaurantName": "Име на ресторанта",
@@ -109,7 +110,10 @@
     "socialMediaDesc": "Добавете линкове към вашите социални медии. Те ще се показват в публичното меню.",
     "facebookUrl": "Facebook URL",
     "instagramUrl": "Instagram URL",
-    "tiktokUrl": "TikTok URL"
+    "tiktokUrl": "TikTok URL",
+    "summaryLanguages": "{{count}} активен(и) език(а)",
+    "translationActiveCount": "{{count}} избран(и) език(а) — натиснете за превод на менюто",
+    "featureNotAvailable": "Тази функция не е достъпна в текущия ви план."
   },
   "staff": {
     "sharedDeviceMode": "Режим споделено устройство",
@@ -747,7 +751,21 @@
       "connecting": "Свързване...",
       "tips": "Бакшиши",
       "quickTipOptions": "Бързи % бутони за бакшиш, показани на клиентите",
-      "addTipOption": "Добави"
+      "addTipOption": "Добави",
+      "resetTips": "Върни към стандартните",
+      "tipValidationError": "Въведи стойност между 1 и 100.",
+      "tipDuplicateError": "Тази % вече е добавена.",
+      "statusPaymentsOn": "Плащания ВКЛЮЧЕНИ",
+      "statusPaymentsOff": "Плащания ИЗКЛЮЧЕНИ",
+      "statusStripeConnected": "Stripe свързан",
+      "statusStripeNotConnected": "Stripe не е свързан",
+      "statusTipsOn": "Бакшиши ВКЛЮЧЕНИ",
+      "statusTipsOff": "Бакшиши ИЗКЛЮЧЕНИ",
+      "disconnectAreYouSure": "Изключи Stripe?",
+      "disconnectConfirmBtn": "Да, изключи",
+      "connectError": "Неуспешно свързване на Stripe. Моля, опитайте отново.",
+      "notifyStaff": "Известия за плащания",
+      "notifyStaffDesc": "Когато е включено, целият персонал вижда известия за плащания. Когато е изключено, само собственикът ги вижда."
     }
   },
   "summary": {
@@ -804,7 +822,13 @@
     "happyHourStart": "Начален час",
     "happyHourEnd": "Краен час",
     "happyHourEndDesc": "Край преди начало = нощен диапазон (напр. 22:00–02:00).",
-    "happyHourMultiplier": "Множител на точките"
+    "happyHourMultiplier": "Множител на точките",
+    "pointsEconomy": "Икономика на точките",
+    "expirySection": "Изтичане на точки",
+    "silver": "Сребро",
+    "gold": "Злато",
+    "liveCalcTitle": "Пример — поръчка от €{{amount}}",
+    "reminderMustBeLower": "Дните за напомняне трябва да са по-малко от дните за изтичане."
   },
   "auth": {
     "otp": {
