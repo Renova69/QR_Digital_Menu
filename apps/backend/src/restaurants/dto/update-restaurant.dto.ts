@@ -119,6 +119,13 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   happyHourEnable?: boolean;
 
   @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  @Max(7, { each: true })
+  happyHourDays?: number[];
+
+  @IsOptional()
   @IsString()
   happyHourStartTime?: string;
 

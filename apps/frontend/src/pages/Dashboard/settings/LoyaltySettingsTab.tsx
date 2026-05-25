@@ -27,8 +27,11 @@ const LoyaltySettingsTab: React.FC = () => {
   const [loyaltySilverMultiplier, setLoyaltySilverMultiplier] = useState(1.2);
   const [loyaltyGoldMultiplier, setLoyaltyGoldMultiplier] = useState(1.5);
   const [happyHourEnable, setHappyHourEnable] = useState(false);
-  const [happyHourStartTime, setHappyHourStartTime] = useState("18:00");
-  const [happyHourEndTime, setHappyHourEndTime] = useState("20:00");
+  const [happyHourDays, setHappyHourDays] = useState<number[]>([1,2,3,4,5,6,7]);
+  const [happyHourStartH, setHappyHourStartH] = useState(18);
+  const [happyHourStartM, setHappyHourStartM] = useState(0);
+  const [happyHourEndH, setHappyHourEndH] = useState(20);
+  const [happyHourEndM, setHappyHourEndM] = useState(0);
   const [happyHourMultiplier, setHappyHourMultiplier] = useState(2.0);
   const [status, setStatus] = useState({ loading: false, error: "", success: "" });
   const initialized = useRef(false);
@@ -47,8 +50,13 @@ const LoyaltySettingsTab: React.FC = () => {
       setLoyaltySilverMultiplier(activeRestaurant.loyaltySilverMultiplier ?? 1.2);
       setLoyaltyGoldMultiplier(activeRestaurant.loyaltyGoldMultiplier ?? 1.5);
       setHappyHourEnable(activeRestaurant.happyHourEnable ?? false);
-      setHappyHourStartTime(activeRestaurant.happyHourStartTime ?? "18:00");
-      setHappyHourEndTime(activeRestaurant.happyHourEndTime ?? "20:00");
+      setHappyHourDays(activeRestaurant.happyHourDays ?? [1,2,3,4,5,6,7]);
+      const [sh, sm] = (activeRestaurant.happyHourStartTime ?? "18:00").split(":").map(Number);
+      const [eh, em] = (activeRestaurant.happyHourEndTime ?? "20:00").split(":").map(Number);
+      setHappyHourStartH(sh);
+      setHappyHourStartM(sm);
+      setHappyHourEndH(eh);
+      setHappyHourEndM(em);
       setHappyHourMultiplier(activeRestaurant.happyHourMultiplier ?? 2.0);
     }
   }, [activeRestaurant]);
@@ -70,8 +78,9 @@ const LoyaltySettingsTab: React.FC = () => {
         loyaltySilverMultiplier,
         loyaltyGoldMultiplier,
         happyHourEnable,
-        happyHourStartTime,
-        happyHourEndTime,
+        happyHourDays,
+        happyHourStartTime: `${String(happyHourStartH).padStart(2,"0")}:${String(happyHourStartM).padStart(2,"0")}`,
+        happyHourEndTime: `${String(happyHourEndH).padStart(2,"0")}:${String(happyHourEndM).padStart(2,"0")}`,
         happyHourMultiplier,
       });
       await fetchRestaurants();
@@ -355,43 +364,117 @@ const LoyaltySettingsTab: React.FC = () => {
           </div>
 
           {happyHourEnable && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-4">
+              {/* Day-of-week picker */}
               <div>
-                <label className="block text-sm font-medium text-foreground/80 mb-1">
-                  {t("loyaltySettings.happyHourStart")}
+                <label className="block text-sm font-medium text-foreground/80 mb-2">
+                  {t("loyaltySettings.happyHourDays", { defaultValue: "Active days" })}
                 </label>
-                <input
-                  type="time"
-                  value={happyHourStartTime}
-                  onChange={(e) => setHappyHourStartTime(e.target.value)}
-                  className={inputCls}
-                />
+                <div className="flex flex-wrap gap-1.5">
+                  {([
+                    { n: 1, short: t("loyaltySettings.dayMon", { defaultValue: "Mon" }) },
+                    { n: 2, short: t("loyaltySettings.dayTue", { defaultValue: "Tue" }) },
+                    { n: 3, short: t("loyaltySettings.dayWed", { defaultValue: "Wed" }) },
+                    { n: 4, short: t("loyaltySettings.dayThu", { defaultValue: "Thu" }) },
+                    { n: 5, short: t("loyaltySettings.dayFri", { defaultValue: "Fri" }) },
+                    { n: 6, short: t("loyaltySettings.daySat", { defaultValue: "Sat" }) },
+                    { n: 7, short: t("loyaltySettings.daySun", { defaultValue: "Sun" }) },
+                  ] as const).map(({ n, short }) => {
+                    const active = happyHourDays.includes(n);
+                    return (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() =>
+                          setHappyHourDays((prev) =>
+                            active ? prev.filter((d) => d !== n) : [...prev, n].sort()
+                          )
+                        }
+                        className={`w-12 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                          active
+                            ? "bg-primary/15 text-primary border-primary/30"
+                            : "bg-secondary text-foreground border-border hover:bg-secondary/80"
+                        }`}
+                      >
+                        {short}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground/80 mb-1">
-                  {t("loyaltySettings.happyHourEnd")}
-                </label>
-                <input
-                  type="time"
-                  value={happyHourEndTime}
-                  onChange={(e) => setHappyHourEndTime(e.target.value)}
-                  className={inputCls}
-                />
-                <p className="text-[10px] text-muted-foreground mt-1">{t("loyaltySettings.happyHourEndDesc")}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground/80 mb-1">
-                  {t("loyaltySettings.happyHourMultiplier")}
-                </label>
-                <input
-                  type="number"
-                  min={1.0}
-                  max={10.0}
-                  step={0.1}
-                  value={happyHourMultiplier}
-                  onChange={(e) => setHappyHourMultiplier(Number(e.target.value))}
-                  className={inputCls}
-                />
+
+              {/* Time + multiplier row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Start time */}
+                <div>
+                  <label className="block text-sm font-medium text-foreground/80 mb-1">
+                    {t("loyaltySettings.happyHourStart")}
+                  </label>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min={0}
+                      max={23}
+                      value={happyHourStartH}
+                      onChange={(e) => setHappyHourStartH(Math.min(23, Math.max(0, Number(e.target.value))))}
+                      className="w-16 px-2 py-2 border border-border rounded-lg bg-background text-foreground text-center focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                    <span className="text-muted-foreground font-bold">:</span>
+                    <select
+                      value={happyHourStartM}
+                      onChange={(e) => setHappyHourStartM(Number(e.target.value))}
+                      className="w-16 px-2 py-2 border border-border rounded-lg bg-background text-foreground text-center focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      {[0,5,10,15,20,25,30,35,40,45,50,55].map((m) => (
+                        <option key={m} value={m}>{String(m).padStart(2,"0")}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* End time */}
+                <div>
+                  <label className="block text-sm font-medium text-foreground/80 mb-1">
+                    {t("loyaltySettings.happyHourEnd")}
+                  </label>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min={0}
+                      max={23}
+                      value={happyHourEndH}
+                      onChange={(e) => setHappyHourEndH(Math.min(23, Math.max(0, Number(e.target.value))))}
+                      className="w-16 px-2 py-2 border border-border rounded-lg bg-background text-foreground text-center focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                    <span className="text-muted-foreground font-bold">:</span>
+                    <select
+                      value={happyHourEndM}
+                      onChange={(e) => setHappyHourEndM(Number(e.target.value))}
+                      className="w-16 px-2 py-2 border border-border rounded-lg bg-background text-foreground text-center focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      {[0,5,10,15,20,25,30,35,40,45,50,55].map((m) => (
+                        <option key={m} value={m}>{String(m).padStart(2,"0")}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">{t("loyaltySettings.happyHourEndDesc")}</p>
+                </div>
+
+                {/* Multiplier */}
+                <div>
+                  <label className="block text-sm font-medium text-foreground/80 mb-1">
+                    {t("loyaltySettings.happyHourMultiplier")}
+                  </label>
+                  <input
+                    type="number"
+                    min={1.0}
+                    max={10.0}
+                    step={0.1}
+                    value={happyHourMultiplier}
+                    onChange={(e) => setHappyHourMultiplier(Number(e.target.value))}
+                    className={inputCls}
+                  />
+                </div>
               </div>
             </div>
           )}

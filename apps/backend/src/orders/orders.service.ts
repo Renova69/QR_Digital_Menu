@@ -161,6 +161,10 @@ export class OrdersService {
       const nowInTz = DateTime.now().setZone(tz);
       const currentMinutes = nowInTz.hour * 60 + nowInTz.minute;
 
+      // Check day of week (Luxon weekday: 1=Mon … 7=Sun). Empty/all-days = always active.
+      const activeDays: number[] = (restaurant as any).happyHourDays ?? [1,2,3,4,5,6,7];
+      const dayMatches = activeDays.length === 0 || activeDays.includes(nowInTz.weekday);
+
       const [startH, startM] = restaurant.happyHourStartTime
         .split(':')
         .map(Number);
@@ -175,7 +179,7 @@ export class OrdersService {
           ? currentMinutes >= startMinutes && currentMinutes <= endMinutes
           : currentMinutes >= startMinutes || currentMinutes <= endMinutes;
 
-      if (inHappyHour) {
+      if (dayMatches && inHappyHour) {
         happyHourMultiplier = restaurant.happyHourMultiplier || 1;
       }
     }
