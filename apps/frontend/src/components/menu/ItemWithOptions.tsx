@@ -286,8 +286,8 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                         {ordersEnabled && (
                         <button
                             onClick={handleAddToCart}
-                            className="group/btn relative text-white font-black uppercase tracking-[0.12em] text-[11px] py-2.5 px-5 rounded-full shadow-xl hover:-translate-y-1 transition-all active:scale-[0.97] flex items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap shrink-0"
-                            style={{ background: 'var(--gradient-brand)' }}
+                            className="group/btn relative font-black uppercase tracking-[0.12em] text-[11px] py-2.5 px-5 rounded-full shadow-xl hover:-translate-y-1 transition-all active:scale-[0.97] flex items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap shrink-0"
+                            style={{ background: 'var(--gradient-brand)', color: 'var(--brand-contrast, #fff)' }}
                         >
                             <span className="relative z-10">{t('publicMenu.addShort', '+ Add')}</span>
                             <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
@@ -486,8 +486,8 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                         <div className="px-6 pt-3 pb-6">
                             <button
                                 onClick={handleOptionsConfirm}
-                                className="w-full py-3.5 rounded-[1.25rem] text-white font-black uppercase text-xs tracking-[0.15em] transition-all active:scale-[0.98] shadow-xl"
-                                style={{ background: 'var(--gradient-brand)' }}
+                                className="w-full py-3.5 rounded-[1.25rem] font-black uppercase text-xs tracking-[0.15em] transition-all active:scale-[0.98] shadow-xl"
+                                style={{ background: 'var(--gradient-brand)', color: 'var(--brand-contrast, #fff)' }}
                             >
                                 {t('publicMenu.addToCart', 'Add to Cart')} &mdash; {formatEuro(
                                     item.price +

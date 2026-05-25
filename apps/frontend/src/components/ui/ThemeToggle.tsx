@@ -5,20 +5,25 @@ interface ThemeToggleProps {
   storageKey?: string;
   defaultTheme?: 'light' | 'dark';
   size?: 'sm' | 'default';
+  onThemeChange?: (theme: 'light' | 'dark') => void;
 }
 
-export const ThemeToggle = ({ storageKey = 'theme', defaultTheme = 'light', size = 'default' }: ThemeToggleProps) => {
-    const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-        if (typeof window !== 'undefined') {
-            const stored = localStorage.getItem(storageKey) as 'light' | 'dark' | null;
-            if (stored) return stored;
-            if (storageKey === 'theme') {
-                return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-            }
-            return defaultTheme;
-        }
-        return defaultTheme;
-    });
+function getInitialTheme(storageKey: string, defaultTheme: 'light' | 'dark') {
+    if (typeof window === 'undefined') return defaultTheme;
+    const stored = localStorage.getItem(storageKey) as 'light' | 'dark' | null;
+    if (stored) return stored;
+    if (storageKey === 'theme') {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return defaultTheme;
+}
+
+export const ThemeToggle = ({ storageKey = 'theme', defaultTheme = 'light', size = 'default', onThemeChange }: ThemeToggleProps) => {
+    const [theme, setTheme] = useState<'light' | 'dark'>(() => getInitialTheme(storageKey, defaultTheme));
+
+    useEffect(() => {
+        setTheme(getInitialTheme(storageKey, defaultTheme));
+    }, [storageKey, defaultTheme]);
 
     useEffect(() => {
         const root = window.document.documentElement;
@@ -28,7 +33,8 @@ export const ThemeToggle = ({ storageKey = 'theme', defaultTheme = 'light', size
             root.classList.remove('dark');
         }
         localStorage.setItem(storageKey, theme);
-    }, [theme, storageKey]);
+        onThemeChange?.(theme);
+    }, [theme, storageKey, onThemeChange]);
 
     const toggleTheme = () => {
         setTheme(prev => prev === 'light' ? 'dark' : 'light');

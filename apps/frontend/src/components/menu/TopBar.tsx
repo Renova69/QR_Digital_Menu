@@ -14,6 +14,7 @@ interface TopBarProps {
   onLanguageChange: (code: string) => void;
   restaurantId?: string;
   defaultTheme?: 'light' | 'dark';
+  onThemeChange?: (theme: 'light' | 'dark') => void;
   onFilterClick: () => void;
   filtersActive?: boolean;
   searchQuery: string;
@@ -28,6 +29,7 @@ export function TopBar({
   onLanguageChange,
   restaurantId,
   defaultTheme,
+  onThemeChange,
   onFilterClick,
   filtersActive = false,
   searchQuery,
@@ -40,9 +42,12 @@ export function TopBar({
     <div className="sticky top-[2.5rem] z-[25] px-3 pt-3 pb-2">
       <div className="flex items-center gap-2 p-2 rounded-[1.75rem] glass-panel border-white/10 shadow-lg">
         {tableNumber && (
-          <div className="flex items-center gap-1.5 h-9 px-3 rounded-xl flex-shrink-0" style={{ background: 'var(--gradient-brand)' }}>
-            <Utensils className="h-3.5 w-3.5 text-white" />
-            <span className="text-sm font-bold text-white">
+          <div
+            className="flex items-center gap-1.5 h-9 px-3 rounded-xl flex-shrink-0"
+            style={{ background: 'var(--gradient-brand)', color: 'var(--brand-contrast, #fff)' }}
+          >
+            <Utensils className="h-3.5 w-3.5" />
+            <span className="text-sm font-bold">
               {tableNumber}
             </span>
           </div>
@@ -79,6 +84,7 @@ export function TopBar({
           size="sm"
           storageKey={restaurantId ? `theme-${restaurantId}` : 'theme'}
           defaultTheme={defaultTheme ?? 'light'}
+          onThemeChange={onThemeChange}
         />
 
         {languagesEnabled && targetLanguages.length > 1 && (

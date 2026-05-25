@@ -247,8 +247,19 @@
     "dark": "Тъмна",
     "noFontsFound": "Няма намерени шрифтове",
     "fontPairsBadge": "съвместим",
-    "applyPreset": "Приложи {{name}}"
-                 },
+    "applyPreset": "Приложи {{name}}",
+    "presetCoastal": "Крайбрежен",
+    "presetStreetFood": "Улична храна",
+    "presetSakura": "Сакура",
+    "background": "Фон",
+    "buttonText": "Текст на бутон",
+    "pickColor": "Избери {{label}}",
+    "imageHint": "Само JPEG или PNG. Макс. 5MB.",
+    "invalidImageType": "Моля, качете JPEG или PNG изображение.",
+    "imageTooLarge": "Изображението трябва да е 5MB или по-малко.",
+    "previewDarkMode": "Преглед в тъмен режим",
+    "previewLightMode": "Преглед в светъл режим"
+  },
     "assistance":  {
                        "title":  "Повиквания за помощ",
                        "subtitle":  "Вижте кои маси се нуждаят от персонал и приключете бързо.",

@@ -247,8 +247,19 @@
     "dark": "Întunecat",
     "noFontsFound": "Niciun font găsit",
     "fontPairsBadge": "potrivire",
-    "applyPreset": "Aplică {{name}}"
-                 },
+    "applyPreset": "Aplică {{name}}",
+    "presetCoastal": "Coastal",
+    "presetStreetFood": "Street Food",
+    "presetSakura": "Sakura",
+    "background": "Fundal",
+    "buttonText": "Text buton",
+    "pickColor": "Alege {{label}}",
+    "imageHint": "Doar JPEG sau PNG. Max. 5MB.",
+    "invalidImageType": "Încărcați o imagine JPEG sau PNG.",
+    "imageTooLarge": "Imaginea trebuie să fie de cel mult 5MB.",
+    "previewDarkMode": "Previzualizează modul întunecat",
+    "previewLightMode": "Previzualizează modul luminos"
+  },
     "assistance":  {
                        "title":  "Cereri de Asistență",
                        "subtitle":  "Vedeți ce mese au nevoie de personal și rezolvați rapid.",

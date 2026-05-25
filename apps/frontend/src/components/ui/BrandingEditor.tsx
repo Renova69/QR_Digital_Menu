@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   Image,
   Palette,
@@ -7,36 +7,105 @@ import {
   Star,
   CheckCircle2,
   AlertCircle,
+  Sun,
+  Moon,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ImageUploadInput } from './ImageUploadInput';
 import { useToast } from './toast';
 import api from '../../lib/api';
-import { useTranslation } from 'react-i18next';
 import { FontPicker } from '../branding/FontPicker';
 import { ColorSchemeEditor } from '../branding/ColorSchemeEditor';
 import { BrandingPreview } from '../branding/BrandingPreview';
 import { ThemePresets } from '../branding/ThemePresets';
-import type { ThemePreset } from '../branding/ThemePresets';
+import type { BrandMode, BrandPalette, ThemePreset } from '../branding/ThemePresets';
 import type { Restaurant } from '../../context/RestaurantContext';
-import { getContrastStatus } from '../../utils/colors';
+import { getContrastStatus, getReadableTextColor } from '../../utils/colors';
 
 const sectionHeading = 'text-sm font-semibold text-foreground uppercase tracking-wide';
 const inputCls =
   'w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all';
 
+const DEFAULT_LIGHT: BrandPalette = {
+  bg: '#FFFFFF',
+  text: '#0E0B1A',
+  card: '#FFFFFF',
+  accent: '#4F46E5',
+};
+
+const DEFAULT_DARK: BrandPalette = {
+  bg: '#0B0A14',
+  text: '#F5F4FA',
+  card: '#15131F',
+  accent: '#8B6FFF',
+};
+
 const DEFAULTS = {
-  accentColor: '#4F46E5',
+  light: DEFAULT_LIGHT,
+  dark: DEFAULT_DARK,
   fontHeading: 'Playfair Display',
   fontBody: 'Outfit',
-  themeBgColor: '#ffffff',
-  themeTextColor: '#000000',
-  themeCardColor: '#f9f9f9',
-  defaultTheme: 'light' as const,
+  defaultTheme: 'light' as BrandMode,
   googleReviewUrl: '',
 };
 
-function savedVal<T>(restaurantVal: T | undefined, fallback: T): T {
+interface BrandSnapshot {
+  light: BrandPalette;
+  dark: BrandPalette;
+  fontHeading: string;
+  fontBody: string;
+  defaultTheme: BrandMode;
+  googleReviewUrl: string;
+}
+
+function savedVal<T>(restaurantVal: T | undefined | null, fallback: T): T {
   return restaurantVal ?? fallback;
+}
+
+function getRestaurantBrand(restaurant: Restaurant): BrandSnapshot {
+  return {
+    light: {
+      bg: savedVal(restaurant.themeLightBgColor, savedVal(restaurant.themeBgColor, DEFAULT_LIGHT.bg)),
+      text: savedVal(restaurant.themeLightTextColor, savedVal(restaurant.themeTextColor, DEFAULT_LIGHT.text)),
+      card: savedVal(restaurant.themeLightCardColor, savedVal(restaurant.themeCardColor, DEFAULT_LIGHT.card)),
+      accent: savedVal(restaurant.themeLightAccentColor, savedVal(restaurant.accentColor, DEFAULT_LIGHT.accent)),
+    },
+    dark: {
+      bg: savedVal(restaurant.themeDarkBgColor, DEFAULT_DARK.bg),
+      text: savedVal(restaurant.themeDarkTextColor, DEFAULT_DARK.text),
+      card: savedVal(restaurant.themeDarkCardColor, DEFAULT_DARK.card),
+      accent: savedVal(restaurant.themeDarkAccentColor, savedVal(restaurant.accentColor, DEFAULT_DARK.accent)),
+    },
+    fontHeading: savedVal(restaurant.fontHeading, DEFAULTS.fontHeading),
+    fontBody: savedVal(restaurant.fontBody, DEFAULTS.fontBody),
+    defaultTheme: savedVal(restaurant.defaultTheme as BrandMode | undefined, DEFAULTS.defaultTheme),
+    googleReviewUrl: savedVal(restaurant.googleReviewUrl, DEFAULTS.googleReviewUrl),
+  };
+}
+
+function paletteEqual(a: BrandPalette, b: BrandPalette) {
+  return a.bg === b.bg && a.text === b.text && a.card === b.card && a.accent === b.accent;
+}
+
+function brandEqual(a: BrandSnapshot, b: BrandSnapshot) {
+  return (
+    paletteEqual(a.light, b.light) &&
+    paletteEqual(a.dark, b.dark) &&
+    a.fontHeading === b.fontHeading &&
+    a.fontBody === b.fontBody &&
+    a.defaultTheme === b.defaultTheme &&
+    a.googleReviewUrl === b.googleReviewUrl
+  );
+}
+
+function paletteContrastOk(palette: BrandPalette) {
+  const textContrast = getContrastStatus(palette.bg, palette.text);
+  const accentContrast = getContrastStatus(palette.bg, palette.accent);
+  const buttonContrast = getContrastStatus(palette.accent, getReadableTextColor(palette.accent));
+  return {
+    pass: textContrast.status === 'pass' && accentContrast.status === 'pass' && buttonContrast.status === 'pass',
+    warn: textContrast.status === 'warning' || accentContrast.status === 'warning' || buttonContrast.status === 'warning',
+  };
 }
 
 export const BrandingEditor = ({
@@ -44,23 +113,23 @@ export const BrandingEditor = ({
   onUpdate,
 }: {
   restaurant: Restaurant;
-  onUpdate: () => void;
+  onUpdate: () => void | Promise<void>;
 }) => {
-  const [accentColor, setAccentColor] = useState(savedVal(restaurant.accentColor, DEFAULTS.accentColor));
-  const [fontHeading, setFontHeading] = useState(savedVal(restaurant.fontHeading, DEFAULTS.fontHeading));
-  const [fontBody, setFontBody] = useState(savedVal(restaurant.fontBody, DEFAULTS.fontBody));
-  const [themeBgColor, setThemeBgColor] = useState(savedVal(restaurant.themeBgColor, DEFAULTS.themeBgColor));
-  const [themeTextColor, setThemeTextColor] = useState(savedVal(restaurant.themeTextColor, DEFAULTS.themeTextColor));
-  const [themeCardColor, setThemeCardColor] = useState(savedVal(restaurant.themeCardColor, DEFAULTS.themeCardColor));
-  const [defaultTheme, setDefaultTheme] = useState<'light' | 'dark'>(
-    savedVal(restaurant.defaultTheme as 'light' | 'dark' | undefined, DEFAULTS.defaultTheme),
-  );
+  const initialBrand = useMemo(() => getRestaurantBrand(restaurant), [restaurant]);
+  const [savedBrand, setSavedBrand] = useState<BrandSnapshot>(initialBrand);
+  const [lightPalette, setLightPalette] = useState<BrandPalette>(initialBrand.light);
+  const [darkPalette, setDarkPalette] = useState<BrandPalette>(initialBrand.dark);
+  const [activePaletteMode, setActivePaletteMode] = useState<BrandMode>(initialBrand.defaultTheme);
+  const [fontHeading, setFontHeading] = useState(initialBrand.fontHeading);
+  const [fontBody, setFontBody] = useState(initialBrand.fontBody);
+  const [defaultTheme, setDefaultTheme] = useState<BrandMode>(initialBrand.defaultTheme);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoRemoved, setLogoRemoved] = useState(false);
   const [logoResetKey, setLogoResetKey] = useState(0);
-  const [googleReviewUrl, setGoogleReviewUrl] = useState(savedVal(restaurant.googleReviewUrl, DEFAULTS.googleReviewUrl));
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [savedLogoUrl, setSavedLogoUrl] = useState<string | null>(restaurant.logoUrl ?? null);
   const [previewLogoUrl, setPreviewLogoUrl] = useState<string | null>(restaurant.logoUrl ?? null);
+  const [googleReviewUrl, setGoogleReviewUrl] = useState(initialBrand.googleReviewUrl);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const { t } = useTranslation();
   const { showToast, ToastComponent } = useToast();
@@ -75,47 +144,45 @@ export const BrandingEditor = ({
       setPreviewLogoUrl(url);
       return () => URL.revokeObjectURL(url);
     }
-    setPreviewLogoUrl(restaurant.logoUrl ?? null);
-  }, [logoFile, logoRemoved, restaurant.logoUrl]);
+    setPreviewLogoUrl(savedLogoUrl);
+  }, [logoFile, logoRemoved, savedLogoUrl]);
 
-  const isDirty = useMemo(() => {
-    if (logoFile || logoRemoved) return true;
-    return (
-      accentColor !== savedVal(restaurant.accentColor, DEFAULTS.accentColor) ||
-      fontHeading !== savedVal(restaurant.fontHeading, DEFAULTS.fontHeading) ||
-      fontBody !== savedVal(restaurant.fontBody, DEFAULTS.fontBody) ||
-      themeBgColor !== savedVal(restaurant.themeBgColor, DEFAULTS.themeBgColor) ||
-      themeTextColor !== savedVal(restaurant.themeTextColor, DEFAULTS.themeTextColor) ||
-      themeCardColor !== savedVal(restaurant.themeCardColor, DEFAULTS.themeCardColor) ||
-      defaultTheme !== savedVal(restaurant.defaultTheme as 'light' | 'dark' | undefined, DEFAULTS.defaultTheme) ||
-      googleReviewUrl !== savedVal(restaurant.googleReviewUrl, DEFAULTS.googleReviewUrl)
-    );
-  }, [
-    accentColor, fontHeading, fontBody, themeBgColor, themeTextColor,
-    themeCardColor, defaultTheme, googleReviewUrl, logoFile, logoRemoved, restaurant,
-  ]);
+  const currentBrand: BrandSnapshot = useMemo(
+    () => ({
+      light: lightPalette,
+      dark: darkPalette,
+      fontHeading,
+      fontBody,
+      defaultTheme,
+      googleReviewUrl,
+    }),
+    [lightPalette, darkPalette, fontHeading, fontBody, defaultTheme, googleReviewUrl],
+  );
+
+  const isDirty = useMemo(
+    () => logoFile !== null || logoRemoved || !brandEqual(currentBrand, savedBrand),
+    [currentBrand, savedBrand, logoFile, logoRemoved],
+  );
 
   const handleReset = useCallback(() => {
-    setAccentColor(savedVal(restaurant.accentColor, DEFAULTS.accentColor));
-    setFontHeading(savedVal(restaurant.fontHeading, DEFAULTS.fontHeading));
-    setFontBody(savedVal(restaurant.fontBody, DEFAULTS.fontBody));
-    setThemeBgColor(savedVal(restaurant.themeBgColor, DEFAULTS.themeBgColor));
-    setThemeTextColor(savedVal(restaurant.themeTextColor, DEFAULTS.themeTextColor));
-    setThemeCardColor(savedVal(restaurant.themeCardColor, DEFAULTS.themeCardColor));
-    setDefaultTheme(savedVal(restaurant.defaultTheme as 'light' | 'dark' | undefined, DEFAULTS.defaultTheme));
-    setGoogleReviewUrl(savedVal(restaurant.googleReviewUrl, DEFAULTS.googleReviewUrl));
+    setLightPalette(savedBrand.light);
+    setDarkPalette(savedBrand.dark);
+    setActivePaletteMode(savedBrand.defaultTheme);
+    setFontHeading(savedBrand.fontHeading);
+    setFontBody(savedBrand.fontBody);
+    setDefaultTheme(savedBrand.defaultTheme);
+    setGoogleReviewUrl(savedBrand.googleReviewUrl);
     setLogoFile(null);
     setLogoRemoved(false);
     setLogoResetKey((k) => k + 1);
-  }, [restaurant]);
+  }, [savedBrand]);
 
   const handleRestoreDefaults = useCallback(() => {
-    setAccentColor(DEFAULTS.accentColor);
+    setLightPalette(DEFAULT_LIGHT);
+    setDarkPalette(DEFAULT_DARK);
+    setActivePaletteMode(DEFAULTS.defaultTheme);
     setFontHeading(DEFAULTS.fontHeading);
     setFontBody(DEFAULTS.fontBody);
-    setThemeBgColor(DEFAULTS.themeBgColor);
-    setThemeTextColor(DEFAULTS.themeTextColor);
-    setThemeCardColor(DEFAULTS.themeCardColor);
     setDefaultTheme(DEFAULTS.defaultTheme);
     setGoogleReviewUrl('');
     setLogoFile(null);
@@ -124,26 +191,23 @@ export const BrandingEditor = ({
   }, []);
 
   const handleApplyPreset = useCallback((preset: ThemePreset) => {
-    setThemeBgColor(preset.bg);
-    setThemeTextColor(preset.text);
-    setThemeCardColor(preset.card);
-    setAccentColor(preset.accent);
+    setLightPalette(preset.light);
+    setDarkPalette(preset.dark);
     setFontHeading(preset.fontHeading);
     setFontBody(preset.fontBody);
   }, []);
 
-  const handleColorChange = useCallback((field: string, value: string) => {
-    if (field === 'themeBgColor') setThemeBgColor(value);
-    else if (field === 'themeTextColor') setThemeTextColor(value);
-    else if (field === 'themeCardColor') setThemeCardColor(value);
-    else if (field === 'accentColor') setAccentColor(value);
-  }, []);
+  const handleColorChange = useCallback((field: keyof BrandPalette, value: string) => {
+    const setter = activePaletteMode === 'light' ? setLightPalette : setDarkPalette;
+    setter((current) => ({ ...current, [field]: value }));
+  }, [activePaletteMode]);
 
-  const handleUpdate = async (e: React.FormEvent) => {
+  const handleUpdate = async (e: FormEvent) => {
     e.preventDefault();
     if (!isDirty) return;
     setIsUpdating(true);
-    let finalLogoUrl: string | null = logoRemoved ? null : (restaurant.logoUrl ?? null);
+    let finalLogoUrl: string | null = logoRemoved ? null : savedLogoUrl;
+    const defaultPalette = defaultTheme === 'dark' ? darkPalette : lightPalette;
 
     try {
       if (logoFile) {
@@ -154,22 +218,41 @@ export const BrandingEditor = ({
       }
 
       await api.patch(`/restaurants/${restaurant.id}`, {
-        accentColor,
+        accentColor: defaultPalette.accent,
         fontHeading,
         fontBody,
-        themeBgColor,
-        themeTextColor,
-        themeCardColor,
+        themeBgColor: defaultPalette.bg,
+        themeTextColor: defaultPalette.text,
+        themeCardColor: defaultPalette.card,
+        themeLightBgColor: lightPalette.bg,
+        themeLightTextColor: lightPalette.text,
+        themeLightCardColor: lightPalette.card,
+        themeLightAccentColor: lightPalette.accent,
+        themeDarkBgColor: darkPalette.bg,
+        themeDarkTextColor: darkPalette.text,
+        themeDarkCardColor: darkPalette.card,
+        themeDarkAccentColor: darkPalette.accent,
         defaultTheme,
         logoUrl: finalLogoUrl,
         googleReviewUrl: googleReviewUrl.trim() || null,
       });
 
+      const nextSaved = {
+        light: lightPalette,
+        dark: darkPalette,
+        fontHeading,
+        fontBody,
+        defaultTheme,
+        googleReviewUrl,
+      };
+      setSavedBrand(nextSaved);
+      setSavedLogoUrl(finalLogoUrl);
+      setPreviewLogoUrl(finalLogoUrl);
       setLogoFile(null);
       setLogoRemoved(false);
       setLogoResetKey((k) => k + 1);
       showToast(t('branding.saveSuccess', 'Branding settings saved'), 'success');
-      onUpdate();
+      await onUpdate();
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message ||
@@ -181,10 +264,12 @@ export const BrandingEditor = ({
     }
   };
 
-  const contrast = getContrastStatus(themeBgColor, themeTextColor);
-  const hasLogo = !logoRemoved && (restaurant.logoUrl || logoFile);
+  const activePalette = activePaletteMode === 'light' ? lightPalette : darkPalette;
+  const lightContrast = paletteContrastOk(lightPalette);
+  const darkContrast = paletteContrastOk(darkPalette);
+  const hasLogo = !logoRemoved && (savedLogoUrl || logoFile);
   const hasCustomColors =
-    themeBgColor !== DEFAULTS.themeBgColor || accentColor !== DEFAULTS.accentColor;
+    !paletteEqual(lightPalette, DEFAULT_LIGHT) || !paletteEqual(darkPalette, DEFAULT_DARK);
 
   const healthChips = [
     {
@@ -198,8 +283,8 @@ export const BrandingEditor = ({
       failLabel: t('branding.brandHealthDefaultColors', 'Default colors'),
     },
     {
-      ok: contrast.status === 'pass',
-      warn: contrast.status === 'warning',
+      ok: lightContrast.pass && darkContrast.pass,
+      warn: lightContrast.warn || darkContrast.warn,
       okLabel: t('branding.brandHealthContrast', 'Contrast OK'),
       failLabel: t('branding.brandHealthContrastWarn', 'Contrast warning'),
     },
@@ -209,7 +294,6 @@ export const BrandingEditor = ({
     <>
       {ToastComponent}
       <form onSubmit={handleUpdate} className="space-y-0">
-        {/* ── Action bar ── sticky within the page scroll */}
         <div className="sticky top-0 z-20 -mx-6 px-6 py-3 bg-card border-b border-border flex items-center justify-between gap-4 flex-wrap mb-6">
           <div className="flex items-center gap-2 flex-wrap">
             {healthChips.map((chip, i) => (
@@ -254,11 +338,28 @@ export const BrandingEditor = ({
           </div>
         </div>
 
-        {/* ── Two-column layout ── */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_360px] gap-8 pt-6">
-          {/* Left: sections */}
           <div>
-            {/* Brand Identity */}
+            <div className="block lg:hidden mb-6">
+              <div className="rounded-xl border border-border bg-muted/30 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    {t('branding.livePreview')}
+                  </h4>
+                </div>
+                <BrandingPreview
+                  fontHeading={fontHeading}
+                  fontBody={fontBody}
+                  lightPalette={lightPalette}
+                  darkPalette={darkPalette}
+                  restaurantName={restaurant.name}
+                  logoUrl={previewLogoUrl}
+                  defaultTheme={defaultTheme}
+                />
+              </div>
+            </div>
+
             <div className="border-b border-border pb-6 mb-6">
               <div className="flex items-center gap-2 mb-4">
                 <Image size={14} className="text-muted-foreground" />
@@ -269,7 +370,7 @@ export const BrandingEditor = ({
               <div className="max-w-[280px]">
                 <ImageUploadInput
                   key={logoResetKey}
-                  currentImageUrl={restaurant.logoUrl}
+                  currentImageUrl={savedLogoUrl}
                   onFileSelect={(file) => {
                     setLogoFile(file);
                     if (file) setLogoRemoved(false);
@@ -280,41 +381,55 @@ export const BrandingEditor = ({
                   }}
                   label={t('branding.logo')}
                   aspectRatio="wide"
-                  hint="JPEG or PNG only. Max 5MB."
+                  hint={t('branding.imageHint', 'JPEG or PNG only. Max 5MB.')}
                   changeLabel={t('branding.changeImage', 'Change image')}
                   removeLabel={t('branding.removeImage', 'Remove image')}
                   uploadLabel={t('branding.clickToUpload', 'Click to upload')}
+                  invalidTypeMessage={t('branding.invalidImageType', 'Please upload a JPEG or PNG image.')}
+                  maxSizeMessage={t('branding.imageTooLarge', 'Image must be 5MB or smaller.')}
                 />
               </div>
             </div>
 
-            {/* Theme Presets */}
             <ThemePresets
-              currentAccent={accentColor}
-              currentBg={themeBgColor}
-              currentText={themeTextColor}
-              currentCard={themeCardColor}
+              currentLight={lightPalette}
+              currentDark={darkPalette}
               currentFontHeading={fontHeading}
               currentFontBody={fontBody}
               onApply={handleApplyPreset}
             />
 
-            {/* Colors */}
             <div className="border-b border-border pb-6 mb-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Palette size={14} className="text-muted-foreground" />
-                <h3 className={sectionHeading}>{t('branding.colorScheme')}</h3>
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <div className="flex items-center gap-2">
+                  <Palette size={14} className="text-muted-foreground" />
+                  <h3 className={sectionHeading}>{t('branding.colorScheme')}</h3>
+                </div>
+                <div className="flex gap-0.5 bg-muted rounded-lg p-1">
+                  {(['light', 'dark'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setActivePaletteMode(mode)}
+                      aria-pressed={activePaletteMode === mode}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                        activePaletteMode === mode
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {mode === 'light' ? <Sun size={12} /> : <Moon size={12} />}
+                      {mode === 'light' ? t('branding.light', 'Light') : t('branding.dark', 'Dark')}
+                    </button>
+                  ))}
+                </div>
               </div>
               <ColorSchemeEditor
-                themeBgColor={themeBgColor}
-                themeTextColor={themeTextColor}
-                themeCardColor={themeCardColor}
-                accentColor={accentColor}
+                palette={activePalette}
                 onChange={handleColorChange}
               />
             </div>
 
-            {/* Typography */}
             <div className="border-b border-border pb-6 mb-6">
               <div className="flex items-center gap-2 mb-4">
                 <Type size={14} className="text-muted-foreground" />
@@ -336,7 +451,6 @@ export const BrandingEditor = ({
               </div>
             </div>
 
-            {/* Appearance */}
             <div className="border-b border-border pb-6 mb-6">
               <div className="flex items-center gap-2 mb-1">
                 <MonitorSmartphone size={14} className="text-muted-foreground" />
@@ -350,29 +464,24 @@ export const BrandingEditor = ({
                   <button
                     key={mode}
                     type="button"
-                    onClick={() => setDefaultTheme(mode)}
+                    onClick={() => {
+                      setDefaultTheme(mode);
+                      setActivePaletteMode(mode);
+                    }}
+                    aria-pressed={defaultTheme === mode}
                     className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg border text-xs font-semibold uppercase tracking-wide transition-all ${
                       defaultTheme === mode
                         ? 'bg-foreground text-background border-foreground'
                         : 'bg-transparent border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground'
                     }`}
                   >
-                    {mode === 'light' ? (
-                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                        <circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-                      </svg>
-                    ) : (
-                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                        <path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z" />
-                      </svg>
-                    )}
+                    {mode === 'light' ? <Sun size={13} /> : <Moon size={13} />}
                     {mode === 'light' ? t('branding.light', 'Light') : t('branding.dark', 'Dark')}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Public Menu CTA */}
             <div className="pb-6">
               <div className="flex items-center gap-2 mb-1">
                 <Star size={14} className="text-muted-foreground" />
@@ -403,7 +512,6 @@ export const BrandingEditor = ({
               </div>
             </div>
 
-            {/* Restore defaults */}
             <div className="pt-4 border-t border-border">
               <button
                 type="button"
@@ -415,30 +523,6 @@ export const BrandingEditor = ({
             </div>
           </div>
 
-          {/* Mobile preview — shown below controls on small screens */}
-          <div className="block lg:hidden mt-2">
-            <div className="rounded-xl border border-border bg-muted/30 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  {t('branding.livePreview')}
-                </h4>
-              </div>
-              <BrandingPreview
-                fontHeading={fontHeading}
-                fontBody={fontBody}
-                themeBgColor={themeBgColor}
-                themeTextColor={themeTextColor}
-                themeCardColor={themeCardColor}
-                accentColor={accentColor}
-                restaurantName={restaurant.name}
-                logoUrl={previewLogoUrl}
-                defaultTheme={defaultTheme}
-              />
-            </div>
-          </div>
-
-          {/* Right: sticky live preview */}
           <div className="hidden lg:block">
             <div className="sticky top-14">
               <div className="rounded-xl border border-border bg-muted/30 p-4">
@@ -451,10 +535,8 @@ export const BrandingEditor = ({
                 <BrandingPreview
                   fontHeading={fontHeading}
                   fontBody={fontBody}
-                  themeBgColor={themeBgColor}
-                  themeTextColor={themeTextColor}
-                  themeCardColor={themeCardColor}
-                  accentColor={accentColor}
+                  lightPalette={lightPalette}
+                  darkPalette={darkPalette}
                   restaurantName={restaurant.name}
                   logoUrl={previewLogoUrl}
                   defaultTheme={defaultTheme}

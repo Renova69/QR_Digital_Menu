@@ -20,6 +20,14 @@ export interface Restaurant {
   themeBgColor?: string;
   themeTextColor?: string;
   themeCardColor?: string;
+  themeLightBgColor?: string;
+  themeLightTextColor?: string;
+  themeLightCardColor?: string;
+  themeLightAccentColor?: string;
+  themeDarkBgColor?: string;
+  themeDarkTextColor?: string;
+  themeDarkCardColor?: string;
+  themeDarkAccentColor?: string;
   isLoyaltyEnabled?: boolean;
   loyaltySignupBonus?: number;
   loyaltyExchangeRate?: number;
