@@ -19,6 +19,7 @@ export const useMenu = (restaurantId: string | undefined) => {
     queryKey: ['categories', restaurantId],
     queryFn: () => getCategories(restaurantId!),
     enabled: !!restaurantId,
+    staleTime: 60_000,
   });
 
   const setCategories = (updater: (old: Category[] | undefined) => Category[]) => {
@@ -50,6 +51,7 @@ export const useMenu = (restaurantId: string | undefined) => {
     queryKey: ['items', categoryId],
     queryFn: () => getItems(categoryId!),
     enabled: !!categoryId,
+    staleTime: 60_000,
   });
 
   const setItems = (categoryId: string, updater: (old: Item[] | undefined) => Item[]) => {

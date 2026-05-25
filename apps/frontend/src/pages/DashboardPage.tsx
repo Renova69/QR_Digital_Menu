@@ -130,8 +130,17 @@ const DashboardPage = () => {
 
   if (restaurantsLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent" />
+      <div className="min-h-screen">
+        <div className="max-w-7xl mx-auto px-4 py-6 space-y-5">
+          <div className="h-8 w-40 rounded-lg bg-muted animate-pulse" />
+          <div className="h-12 w-full rounded-xl bg-muted animate-pulse" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
+            ))}
+          </div>
+          <div className="h-64 rounded-xl bg-muted animate-pulse" />
+        </div>
       </div>
     );
   }
