@@ -26,6 +26,7 @@ import { SuperAdminModule } from './super-admin/super-admin.module';
 import { PlatformSettingsModule } from './platform-settings/platform-settings.module';
 import { UsersDataModule } from './users-data/users-data.module';
 import { HelpContentModule } from './help-content/help-content.module';
+import { MenuViewModule } from './menu-views/menu-view.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { HelpContentModule } from './help-content/help-content.module';
     LoyaltyModule,
     PaymentModule,
     MenuImportModule,
+    MenuViewModule,
   ],
   controllers: [AppController],
   providers: [

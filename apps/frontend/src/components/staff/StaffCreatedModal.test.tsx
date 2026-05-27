@@ -13,6 +13,7 @@ const mockT = vi.fn((key: string, opts?: any) => {
     "staff.created.title": "Staff Account Created",
     "staff.created.rebondTitle": "Device Bonding QR",
     "staff.created.scanInstruction": "Scan QR on the staff device, then enter the PIN below.",
+    "staff.created.passwordInstruction": "Share this temporary dashboard login with the staff member.",
     "staff.created.expiresIn": "Expires in",
     "staff.created.expired": "Expired",
     "staff.created.copyPinWarning": "Copy this PIN now — it won't be shown again.",
@@ -45,6 +46,7 @@ const defaultProps = {
   open: true,
   onClose: () => {},
   staffName: "Alice",
+  staffEmail: "alice@example.com",
   enrollmentUrl: "https://example.com/enroll/alice",
   expiresAt: new Date(Date.now() + 120_000).toISOString(),
 };

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Req, UseGuards, Headers, HttpCode, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Req, UseGuards, Headers, HttpCode, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { SubscriptionService } from './subscription.service';
 import { CreateCheckoutDto } from './dto/checkout.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -47,6 +47,7 @@ export class SubscriptionController {
       tier,
       features: this.featureService.getFeatures(tier),
       staffLimit: this.featureService.getStaffLimit(tier),
+      allowedStaffRoles: this.featureService.getAllowedStaffRoles(tier),
       hasSubscription: !!restaurant?.stripeSubscriptionId,
       subscription,
     };
@@ -55,6 +56,7 @@ export class SubscriptionController {
   @Post('checkout')
   @UseGuards(JwtAuthGuard)
   async createCheckout(@Req() req: any, @Body() dto: CreateCheckoutDto) {
+    if (req.user.role !== 'OWNER') throw new ForbiddenException('Only restaurant owners can manage billing');
     const userId = req.user.id ?? req.user.sub;
     const restaurant = await this.resolveRestaurant(userId, { id: true });
     if (!restaurant) throw new NotFoundException('No restaurant found for user');
@@ -71,6 +73,7 @@ export class SubscriptionController {
   @Post('portal')
   @UseGuards(JwtAuthGuard)
   async createPortal(@Req() req: any) {
+    if (req.user.role !== 'OWNER') throw new ForbiddenException('Only restaurant owners can manage billing');
     const userId = req.user.id ?? req.user.sub;
     const restaurant = await this.resolveRestaurant(userId, { id: true });
     if (!restaurant) throw new NotFoundException('No restaurant found for user');

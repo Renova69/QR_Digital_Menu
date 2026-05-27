@@ -186,7 +186,8 @@ export class PaymentService {
       throw new ForbiddenException('Payments are not enabled for this restaurant');
     }
 
-    if (!this.featureService.hasFeature(String(restaurant.tier), FeatureFlag.PAYMENTS_STRIPE)) {
+    const effectiveTier = this.featureService.getEffectiveTier(String(restaurant.tier), restaurant.forceTier ?? null);
+    if (!this.featureService.hasFeature(effectiveTier, FeatureFlag.PAYMENTS_STRIPE)) {
       throw new ForbiddenException({ code: 'FEATURE_LOCKED', message: 'Stripe payments require a Professional plan or above' });
     }
 

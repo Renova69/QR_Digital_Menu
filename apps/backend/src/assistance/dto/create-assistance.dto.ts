@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsIn } from 'class-validator';
 
 export class CreateAssistanceDto {
   @IsString()
@@ -8,4 +8,9 @@ export class CreateAssistanceDto {
   @IsString()
   @IsNotEmpty()
   restaurantId: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['STANDARD', 'URGENT'])
+  type?: string;
 }

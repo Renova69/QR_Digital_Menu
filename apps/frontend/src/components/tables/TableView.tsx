@@ -40,6 +40,7 @@ import RestaurantContext from '../../context/RestaurantContext';
 import LiveTablesView from '../../pages/Dashboard/LiveTablesView';
 import { useTier } from '../../hooks/useFeature';
 import { cn } from '../../lib/utils';
+import { useAuth } from '../../context/AuthContext';
 
 const templateOptions: Array<{ value: PrintTemplate; label: string }> = [
   { value: 'classic', label: 'Classic' },
@@ -68,8 +69,11 @@ const TableView: React.FC = () => {
   const qrCodeRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
   const { tier } = useTier();
+  const { user } = useAuth();
+  const isManagerOrOwner = user?.role === 'OWNER' || user?.role === 'MANAGER';
   const isFree = tier === 'FREE';
-  const [subTab, setSubTab] = useState<'live' | 'qr' | 'zones'>(isFree ? 'qr' : 'live');
+  const defaultTab = !isManagerOrOwner ? 'live' : (isFree ? 'qr' : 'live');
+  const [subTab, setSubTab] = useState<'live' | 'qr' | 'zones'>(defaultTab);
   const [printTemplate, setPrintTemplate] = useState<PrintTemplate>('classic');
   const [printOrientation, setPrintOrientation] = useState<PrintOrientation>('portrait');
 
@@ -326,32 +330,36 @@ const TableView: React.FC = () => {
               {t('tables.liveView')}
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setSubTab('qr')}
-            className={cn(
-              'flex h-9 items-center gap-2 rounded-md px-4 text-sm font-bold transition active:scale-[0.98]',
-              subTab === 'qr'
-                ? 'bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-            )}
-          >
-            <QrCode className="h-4 w-4" />
-            {t('tables.qrManagement')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setSubTab('zones')}
-            className={cn(
-              'flex h-9 items-center gap-2 rounded-md px-4 text-sm font-bold transition active:scale-[0.98]',
-              subTab === 'zones'
-                ? 'bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-            )}
-          >
-            <MapPin className="h-4 w-4" />
-            Zones
-          </button>
+          {isManagerOrOwner && (
+            <>
+              <button
+                type="button"
+                onClick={() => setSubTab('qr')}
+                className={cn(
+                  'flex h-9 items-center gap-2 rounded-md px-4 text-sm font-bold transition active:scale-[0.98]',
+                  subTab === 'qr'
+                    ? 'bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                <QrCode className="h-4 w-4" />
+                {t('tables.qrManagement')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSubTab('zones')}
+                className={cn(
+                  'flex h-9 items-center gap-2 rounded-md px-4 text-sm font-bold transition active:scale-[0.98]',
+                  subTab === 'zones'
+                    ? 'bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                <MapPin className="h-4 w-4" />
+                Zones
+              </button>
+            </>
+          )}
         </div>
       </div>
 

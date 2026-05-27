@@ -219,7 +219,10 @@ const CheckoutPage = () => {
       })),
       specialRequests,
       redeemItemIds: redeemedItemIds,
-      sessionToken: localStorage.getItem(`session-${tableNumber}`) || undefined,
+      sessionToken:
+        restaurantId && tableNumber
+          ? localStorage.getItem(`session-${restaurantId}-${tableNumber}`) || undefined
+          : undefined,
     };
 
     if (user) {
@@ -236,7 +239,7 @@ const CheckoutPage = () => {
       const newOrder = await createOrder(orderData);
 
       if (newOrder.sessionToken && tableNumber) {
-        localStorage.setItem(`session-${tableNumber}`, newOrder.sessionToken);
+        localStorage.setItem(`session-${restaurantId}-${tableNumber}`, newOrder.sessionToken);
       }
 
       orderPlaced.current = true;

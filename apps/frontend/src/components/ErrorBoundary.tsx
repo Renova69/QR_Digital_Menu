@@ -30,24 +30,27 @@ class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center justify-center min-h-screen p-4">
-          <div className="max-w-md text-center">
-            <h1 className="text-2xl font-bold text-foreground mb-2">Something went wrong</h1>
-            <p className="text-muted-foreground mb-4">
-              An unexpected error occurred. Please try again.
-            </p>
+        <div className="glass-panel rounded-[1.5rem] p-10 flex flex-col items-center justify-center gap-4 text-center min-h-[240px]">
+          <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+            <svg className="w-6 h-6 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-base font-display font-bold text-foreground">Something went wrong</h2>
+            <p className="mt-1 text-sm text-muted-foreground">An unexpected error occurred in this panel.</p>
             {this.state.error && (
-              <p className="text-sm text-destructive bg-destructive/10 p-3 rounded mb-4 font-mono">
+              <p className="mt-2 text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg font-mono">
                 {this.state.error.message}
               </p>
             )}
-            <button
-              onClick={this.handleRetry}
-              className="px-4 py-2 brand-cta text-white rounded-md transition-colors"
-            >
-              Try Again
-            </button>
           </div>
+          <button
+            onClick={this.handleRetry}
+            className="brand-cta text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-opacity hover:opacity-90"
+          >
+            Try Again
+          </button>
         </div>
       );
     }

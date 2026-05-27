@@ -179,7 +179,22 @@ export class TablesService {
     });
   }
 
-  async getTablesWithStatus(restaurantId: string, zoneId?: string) {
+  private async verifyRestaurantAccess(restaurantId: string, user: any): Promise<void> {
+    if (!user) throw new ForbiddenException('Access denied');
+    // Staff/Manager: restaurantId is embedded in JWT payload by jwt.strategy
+    if (user.restaurantId === restaurantId) return;
+    if (user.role?.toUpperCase() === 'SUPER_ADMIN') return;
+    // Owner: verify via DB
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { ownerId: true },
+    });
+    if (!restaurant) throw new NotFoundException('Restaurant not found');
+    if (restaurant.ownerId !== user.id) throw new ForbiddenException('Access denied');
+  }
+
+  async getTablesWithStatus(restaurantId: string, zoneId?: string, user?: any) {
+    await this.verifyRestaurantAccess(restaurantId, user);
     const tableWhere: any = { restaurantId };
     if (zoneId) {
       tableWhere.zoneId = zoneId;
@@ -242,7 +257,8 @@ export class TablesService {
     });
   }
 
-  async getTableOrders(tableId: string, restaurantId: string) {
+  async getTableOrders(tableId: string, restaurantId: string, user?: any) {
+    await this.verifyRestaurantAccess(restaurantId, user);
     const session = await this.prisma.tableSession.findFirst({
       where: { tableId, restaurantId, status: { in: ['OPEN', 'PAID'] } },
       orderBy: { createdAt: 'desc' },

@@ -127,7 +127,10 @@ describe('OrdersService', () => {
       emitToOrder: jest.fn(),
     };
 
-    featureService = { hasFeature: jest.fn().mockReturnValue(true) };
+    featureService = {
+      hasFeature: jest.fn().mockReturnValue(true),
+      getEffectiveTier: jest.fn().mockImplementation((tier: string) => tier),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

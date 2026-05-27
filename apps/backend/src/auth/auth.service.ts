@@ -171,9 +171,10 @@ export class AuthService {
     if (!restaurantId) return;
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: { tier: true },
+      select: { tier: true, forceTier: true },
     });
-    const tier = (restaurant?.tier ?? 'FREE') as string;
+    const rawTier = (restaurant?.tier ?? 'FREE') as string;
+    const tier = restaurant?.forceTier ? String(restaurant.forceTier) : rawTier;
     const allowed = ['PROFESSIONAL', 'ENTERPRISE'];
     if (!allowed.includes(tier)) {
       throw new ForbiddenException('Customer authentication is not available on this plan');

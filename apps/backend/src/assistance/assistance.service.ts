@@ -55,16 +55,21 @@ export class AssistanceService {
   async create(createAssistanceDto: CreateAssistanceDto) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: createAssistanceDto.restaurantId },
-      select: { tier: true },
+      select: { tier: true, forceTier: true },
     });
 
     if (!restaurant) {
       throw new NotFoundException('Restaurant not found');
     }
 
+    const effectiveTier = this.featureService.getEffectiveTier(
+      String(restaurant.tier),
+      restaurant.forceTier ?? null,
+    );
+
     if (
       !this.featureService.hasFeature(
-        String(restaurant.tier),
+        effectiveTier,
         FeatureFlag.ORDERS_CALL_WAITER,
       )
     ) {
@@ -78,6 +83,7 @@ export class AssistanceService {
       data: {
         tableId: createAssistanceDto.tableId,
         restaurantId: createAssistanceDto.restaurantId,
+        type: createAssistanceDto.type ?? 'STANDARD',
       },
     });
 

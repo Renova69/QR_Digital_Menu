@@ -1,16 +1,14 @@
 import { useContext } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Lock } from "lucide-react";
+import { Eye, Lock, Users2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import RestaurantContext from "../../context/RestaurantContext";
-import { useOrders } from "../../context/OrderContext";
 import { useFeature } from "../../hooks/useFeature";
 import { useAnalytics } from "../../hooks/useAnalytics";
 import { useSummaryDateRange } from "../../hooks/useSummaryDateRange";
 import { usePaymentSummary } from "../../hooks/usePaymentSummary";
+import { useScanStats } from "../../hooks/useScanStats";
 import { getLoyaltyAnalytics, getOrders, getTableStatuses } from "../../lib/api";
-import { formatEuro } from "../../lib/currency";
-import { TrendingUp, ShoppingCart, CreditCard, Users, Clock } from "lucide-react";
 import KpiCard from "../../components/dashboard/KpiCard";
 import DateRangeFilter from "./summary/DateRangeFilter";
 import KpiRow from "./summary/KpiRow";
@@ -37,8 +35,6 @@ const SummaryView = () => {
   const { activeRestaurant } = useContext(RestaurantContext) as any;
   const { t } = useTranslation();
   const restaurantId = activeRestaurant?.id;
-  const { orders } = useOrders();
-
   const canBasic = useFeature("analytics:basic");
   const canFull = useFeature("analytics:full");
   const canOrders = useFeature("orders:receive");
@@ -87,20 +83,7 @@ const SummaryView = () => {
     refetchInterval: 30_000,
   });
 
-  // FREE tier: compute basic KPIs from orders context
-  const totalRevenue = orders
-    .filter((o: any) => o.status !== "CANCELED")
-    .reduce((sum: number, o: any) => sum + o.totalPrice, 0);
-  const totalOrders = orders.filter((o: any) => o.status !== "CANCELED").length;
-  const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-
-  const freeKpis = [
-    { label: t("dashboard.totalOrders"), value: totalOrders.toLocaleString('en-US'), Icon: ShoppingCart },
-    { label: t("dashboard.totalRevenue"), value: formatEuro(totalRevenue), Icon: TrendingUp },
-    { label: t("dashboard.avgOrderValue"), value: formatEuro(avgOrderValue), Icon: CreditCard },
-    { label: t("dashboard.activeCustomers"), value: "—", Icon: Users },
-    { label: t("dashboard.peakHour"), value: "—", Icon: Clock },
-  ];
+  const { data: scanStats, isLoading: scanLoading } = useScanStats();
 
   return (
     <div className="space-y-6">
@@ -117,10 +100,54 @@ const SummaryView = () => {
       {canBasic && analytics ? (
         <KpiRow data={analytics} showTrends={canFull} />
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          {freeKpis.map((kpi) => (
-            <KpiCard key={kpi.label} label={kpi.label} value={kpi.value} Icon={kpi.Icon} />
-          ))}
+        <div className="space-y-4">
+          {/* Scan metrics — FREE tier */}
+          <div className="grid grid-cols-2 gap-4">
+            <KpiCard
+              label={t("dashboard.menuViews")}
+              value={scanLoading ? "..." : (scanStats?.totalViews ?? 0).toLocaleString('en-US')}
+              Icon={Eye}
+            />
+            <KpiCard
+              label={t("dashboard.uniqueVisitors")}
+              value={scanLoading ? "..." : (scanStats?.uniqueVisitors ?? 0).toLocaleString('en-US')}
+              Icon={Users2}
+            />
+          </div>
+
+          {/* Per-table breakdown */}
+          {!scanLoading && scanStats && scanStats.perTable.length > 0 && (
+            <div className="glass-panel rounded-[1.5rem] p-5">
+              <p className="text-sm font-display font-bold text-foreground mb-3">
+                {t("dashboard.perTableViews")}
+              </p>
+              <div className="space-y-2">
+                {scanStats.perTable.slice(0, 10).map((row) => (
+                  <div key={row.tableName} className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{row.tableName}</span>
+                    <span className="font-semibold text-foreground">{t("dashboard.perTableViewsCount", { views: row.views, unique: row.uniqueVisitors })}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Upsell banner */}
+          <div className="glass-panel rounded-[1.5rem] p-6 flex flex-col items-center gap-3 text-center border border-primary/20 bg-primary/5">
+            <p className="text-sm font-bold text-foreground">
+              {t("dashboard.scanUpsellTitle")}
+            </p>
+            <p className="text-xs text-muted-foreground max-w-md">
+              {t("dashboard.scanUpsellBody", { count: scanStats?.totalViews ?? 0 })}
+            </p>
+            <a
+              href="/pricing"
+              className="mt-1 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-opacity hover:opacity-90"
+              style={{ background: 'var(--brand)' }}
+            >
+              {t("tierLocked.upgrade", "Upgrade")}
+            </a>
+          </div>
         </div>
       )}
 

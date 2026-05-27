@@ -13,18 +13,20 @@ describe('FeatureService', () => {
   });
 
   describe('getFeatures', () => {
-    it('returns only menu+qr features for FREE tier', () => {
+    it('returns menu+qr+import features for FREE tier', () => {
       const features = service.getFeatures('FREE');
       expect(features).toContain(FeatureFlag.MENU_VIEW);
       expect(features).toContain(FeatureFlag.MENU_EDIT);
+      expect(features).toContain(FeatureFlag.MENU_IMPORT);
       expect(features).toContain(FeatureFlag.QR_MANAGE);
       expect(features).not.toContain(FeatureFlag.ORDERS_RECEIVE);
       expect(features).not.toContain(FeatureFlag.POS);
     });
 
-    it('returns orders+analytics for STARTER tier', () => {
+    it('returns orders+call-waiter+analytics for STARTER tier', () => {
       const features = service.getFeatures('STARTER');
       expect(features).toContain(FeatureFlag.ORDERS_RECEIVE);
+      expect(features).toContain(FeatureFlag.ORDERS_CALL_WAITER);
       expect(features).toContain(FeatureFlag.ANALYTICS_BASIC);
       expect(features).toContain(FeatureFlag.MENU_IMPORT);
       expect(features).not.toContain(FeatureFlag.PAYMENTS_STRIPE);
@@ -74,8 +76,8 @@ describe('FeatureService', () => {
   });
 
   describe('getStaffLimit', () => {
-    it('returns 1 for FREE tier', () => {
-      expect(service.getStaffLimit('FREE')).toBe(1);
+    it('returns 0 for FREE tier (owner only)', () => {
+      expect(service.getStaffLimit('FREE')).toBe(0);
     });
 
     it('returns 1 for STARTER tier', () => {
@@ -86,12 +88,34 @@ describe('FeatureService', () => {
       expect(service.getStaffLimit('PROFESSIONAL')).toBe(5);
     });
 
-    it('returns Infinity for ENTERPRISE tier', () => {
-      expect(service.getStaffLimit('ENTERPRISE')).toBe(Infinity);
+    it('returns 999999 for ENTERPRISE tier', () => {
+      expect(service.getStaffLimit('ENTERPRISE')).toBe(999999);
     });
 
-    it('returns 1 for unknown tier (default)', () => {
-      expect(service.getStaffLimit('UNKNOWN')).toBe(1);
+    it('returns 0 for unknown tier (default)', () => {
+      expect(service.getStaffLimit('UNKNOWN')).toBe(0);
+    });
+  });
+
+  describe('getAllowedStaffRoles', () => {
+    it('returns [] for FREE tier', () => {
+      expect(service.getAllowedStaffRoles('FREE')).toEqual([]);
+    });
+
+    it('returns [STAFF] for STARTER tier', () => {
+      expect(service.getAllowedStaffRoles('STARTER')).toEqual(['STAFF']);
+    });
+
+    it('returns [STAFF, MANAGER] for PROFESSIONAL tier', () => {
+      expect(service.getAllowedStaffRoles('PROFESSIONAL')).toEqual(['STAFF', 'MANAGER']);
+    });
+
+    it('returns [STAFF, MANAGER, WAITER, KITCHEN] for ENTERPRISE tier', () => {
+      expect(service.getAllowedStaffRoles('ENTERPRISE')).toEqual(['STAFF', 'MANAGER', 'WAITER', 'KITCHEN']);
+    });
+
+    it('returns [] for unknown tier', () => {
+      expect(service.getAllowedStaffRoles('UNKNOWN')).toEqual([]);
     });
   });
 });

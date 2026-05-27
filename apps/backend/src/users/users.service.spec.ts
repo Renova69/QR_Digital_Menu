@@ -31,6 +31,7 @@ describe('UsersService', () => {
       restaurant: {
         findUnique: jest.fn().mockResolvedValue({ id: 'rest-1', ownerId: 'owner-1', tier: 'FREE' }),
       },
+      $transaction: jest.fn().mockImplementation((fn: (tx: any) => Promise<any>) => fn(prisma)),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -113,6 +114,22 @@ describe('UsersService', () => {
       expect(createArgs.data.email).toMatch(/@rest-1\.local$/);
     });
 
+    it('throws ForbiddenException when STARTER tier staff limit (1) is reached', async () => {
+      prisma.user.count.mockResolvedValue(1); // 1 existing STAFF = at limit
+      prisma.restaurant.findUnique.mockResolvedValue({ id: 'rest-1', ownerId: 'owner-1', tier: 'STARTER' });
+      await expect(
+        service.createStaffMember('rest-1', { name: 'Eve', role: 'STAFF' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('allows STARTER tier to create 1 STAFF seat', async () => {
+      prisma.user.count.mockResolvedValue(0);
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.restaurant.findUnique.mockResolvedValue({ id: 'rest-1', ownerId: 'owner-1', tier: 'STARTER' });
+      const result = await service.createStaffMember('rest-1', { name: 'Frank', role: 'STAFF' });
+      expect(result).toHaveProperty('rawPin');
+    });
+
     it('throws ForbiddenException when PROFESSIONAL tier staff limit (5) is reached', async () => {
       prisma.user.count.mockResolvedValue(5); // 5 existing staff = at limit
       prisma.restaurant.findUnique.mockResolvedValue({ id: 'rest-1', ownerId: 'owner-1', tier: 'PROFESSIONAL' });
@@ -128,14 +145,26 @@ describe('UsersService', () => {
       const result = await service.createStaffMember('rest-1', { name: 'Frank', role: 'MANAGER' });
       expect(result).toHaveProperty('rawPin');
     });
+
+    it('counts STAFF role against the seat limit', async () => {
+      prisma.user.count.mockResolvedValue(0);
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.restaurant.findUnique.mockResolvedValue({ id: 'rest-1', ownerId: 'owner-1', tier: 'STARTER' });
+      await service.createStaffMember('rest-1', { name: 'Grace', role: 'STAFF' });
+      expect(prisma.user.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ role: { in: expect.arrayContaining(['STAFF']) } }),
+        }),
+      );
+    });
   });
 
   describe('listStaffMembers', () => {
-    it('excludes CUSTOMER role from query', async () => {
+    it('includes STAFF role in query', async () => {
       await service.listStaffMembers('rest-1');
       expect(prisma.user.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ role: { not: 'CUSTOMER' } }),
+          where: expect.objectContaining({ role: { in: expect.arrayContaining(['STAFF', 'WAITER', 'MANAGER', 'KITCHEN']) } }),
         }),
       );
     });

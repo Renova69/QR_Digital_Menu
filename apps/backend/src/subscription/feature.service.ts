@@ -16,6 +16,7 @@ const TIER_FEATURES: Record<Tier, FeatureFlag[]> = {
     FeatureFlag.MENU_IMPORT,
     FeatureFlag.QR_MANAGE,
     FeatureFlag.ORDERS_RECEIVE,
+    FeatureFlag.ORDERS_CALL_WAITER,
     FeatureFlag.ANALYTICS_BASIC,
   ],
   PROFESSIONAL: [
@@ -51,24 +52,27 @@ export class FeatureService {
   getStaffLimit(tier: string): number {
     switch (tier) {
       case 'FREE':
+        return 0;
       case 'STARTER':
         return 1;
       case 'PROFESSIONAL':
         return 5;
       case 'ENTERPRISE':
-        return Infinity;
+        return 999999;
       default:
-        return 1;
+        return 0;
     }
   }
 
   getAllowedStaffRoles(tier: string): string[] {
     switch (tier) {
+      case 'STARTER':
+        return ['STAFF'];
       case 'PROFESSIONAL':
-        return [];
+        return ['STAFF', 'MANAGER'];
       case 'ENTERPRISE':
-        return ['MANAGER', 'WAITER', 'KITCHEN'];
-      default: // FREE, STARTER
+        return ['STAFF', 'MANAGER', 'WAITER', 'KITCHEN'];
+      default: // FREE and unknown
         return [];
     }
   }

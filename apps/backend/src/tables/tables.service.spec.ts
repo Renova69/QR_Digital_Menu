@@ -11,6 +11,7 @@ describe('TablesService', () => {
 
   const mockRestaurant = { id: 'rest-1', ownerId: 'owner-1' };
   const mockTable = { id: 'table-1', name: 'T1', restaurantId: 'rest-1', updatedAt: new Date() };
+  const mockOwner = { id: 'owner-1', role: 'OWNER' };
 
   beforeEach(async () => {
     prisma = {
@@ -94,7 +95,7 @@ describe('TablesService', () => {
 
   describe('getTablesWithStatus', () => {
     it('returns empty status for tables with no session', async () => {
-      const result = await service.getTablesWithStatus('rest-1');
+      const result = await service.getTablesWithStatus('rest-1', undefined, mockOwner);
       expect(result).toHaveLength(1);
       expect(result[0].status).toBe('empty');
       expect(result[0].orderCount).toBe(0);
@@ -113,7 +114,7 @@ describe('TablesService', () => {
       };
       prisma.tableSession.findMany.mockResolvedValue([session]);
 
-      const result = await service.getTablesWithStatus('rest-1');
+      const result = await service.getTablesWithStatus('rest-1', undefined, mockOwner);
       expect(result[0].status).toBe('occupied');
       expect(result[0].orderCount).toBe(2);
       expect(result[0].totalAmount).toBe(30);
@@ -130,7 +131,7 @@ describe('TablesService', () => {
       };
       prisma.tableSession.findMany.mockResolvedValue([session]);
 
-      const result = await service.getTablesWithStatus('rest-1');
+      const result = await service.getTablesWithStatus('rest-1', undefined, mockOwner);
       expect(result[0].status).toBe('occupied');
     });
 
@@ -144,7 +145,7 @@ describe('TablesService', () => {
       };
       prisma.tableSession.findMany.mockResolvedValue([session]);
 
-      const result = await service.getTablesWithStatus('rest-1');
+      const result = await service.getTablesWithStatus('rest-1', undefined, mockOwner);
       expect(result[0].status).toBe('paid');
     });
 
@@ -161,14 +162,14 @@ describe('TablesService', () => {
       };
       prisma.tableSession.findMany.mockResolvedValue([session]);
 
-      const result = await service.getTablesWithStatus('rest-1');
+      const result = await service.getTablesWithStatus('rest-1', undefined, mockOwner);
       expect(result[0].customerNames).toEqual(['Alice']);
     });
   });
 
   describe('getTableOrders', () => {
     it('returns empty array when no open session', async () => {
-      const result = await service.getTableOrders('table-1', 'rest-1');
+      const result = await service.getTableOrders('table-1', 'rest-1', mockOwner);
       expect(result).toEqual([]);
     });
 
@@ -190,7 +191,7 @@ describe('TablesService', () => {
       prisma.tableSession.findFirst.mockResolvedValue(session);
       prisma.order.findMany.mockResolvedValue(mockOrders);
 
-      const result = await service.getTableOrders('table-1', 'rest-1');
+      const result = await service.getTableOrders('table-1', 'rest-1', mockOwner);
       expect(result).toHaveLength(1);
       expect(result[0].items[0]).toEqual({ name: 'Burger', quantity: 2, totalPrice: 10, options: [] });
     });
@@ -209,7 +210,7 @@ describe('TablesService', () => {
         },
       ]);
 
-      const result = await service.getTableOrders('table-1', 'rest-1');
+      const result = await service.getTableOrders('table-1', 'rest-1', mockOwner);
       expect(result[0].items[0].name).toBe('Unknown item');
     });
   });

@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import type { Restaurant } from "../services/restaurantService";
-import { getMenuMeta, getCategoryItems, createAssistanceRequest, getSessionBill } from "../lib/api";
+import { getMenuMeta, getCategoryItems, createAssistanceRequest, getSessionBill, recordMenuView } from "../lib/api";
+import { getVisitorId } from "../lib/visitorId";
 import { PaymentModal } from "../components/payment/PaymentModal";
 import { useCart } from "../context/CartContext";
 import { Button } from "../components/ui/button";
 import CartIcon from "../components/cart/CartIcon";
 import { ItemWithOptions } from "../components/menu/ItemWithOptions";
-import { Bell, LogOut, UserCircle } from "lucide-react";
+import { AlertTriangle, Bell, LogOut, UserCircle } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircleCheck } from "@fortawesome/free-solid-svg-icons";
 import { useTranslation } from "react-i18next";
@@ -106,6 +107,7 @@ const PublicMenuPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantId]);
   const [tableNumber, setTableNumberState] = useState<string | null>(null);
+  const viewRecordedRef = useRef<string | null>(null);
 
   // Phase 1: restaurant branding + category names (fast, no items)
   const [menuMeta, setMenuMeta] = useState<{ restaurant: Restaurant; categories: any[] } | null>(null);
@@ -131,7 +133,7 @@ const PublicMenuPage = () => {
   const ordersEnabled = tier !== 'FREE';
   const paymentsEnabled = hasTierFeature(tier, 'payments:stripe');
   const callWaiterEnabled = hasTierFeature(tier, 'orders:call-waiter');
-  const languagesEnabled = tier !== 'FREE';
+  const languagesEnabled = hasTierFeature(tier, 'languages:multi');
   const upsellEnabled = hasTierFeature(tier, 'upselling');
   const customersAuthEnabled = hasTierFeature(tier, 'customers:auth');
   const showActionBar = ordersEnabled || callWaiterEnabled || customersAuthEnabled;
@@ -213,11 +215,17 @@ const PublicMenuPage = () => {
     setTableNumberState(table);
     if (table) {
       setTableNumber(table);
-      const stored = localStorage.getItem(`session-${table}`);
+      const stored = localStorage.getItem(`session-${restaurantId}-${table}`);
       if (stored) setSessionToken(stored);
     }
 
     if (!restaurantId) return;
+
+    const viewKey = `${restaurantId}:${table ?? ''}`;
+    if (viewRecordedRef.current !== viewKey) {
+      viewRecordedRef.current = viewKey;
+      recordMenuView(restaurantId, { table, visitorId: getVisitorId() });
+    }
 
     const cancelled = { v: false };
 
@@ -308,10 +316,10 @@ const PublicMenuPage = () => {
 
   useEffect(() => {
     if (tableNumber) {
-      const stored = localStorage.getItem(`session-${tableNumber}`);
+      const stored = localStorage.getItem(`session-${restaurantId}-${tableNumber}`);
       setSessionToken(stored);
     }
-  }, [tableNumber]);
+  }, [restaurantId, tableNumber]);
 
   useEffect(() => {
     if (menuMeta?.restaurant) {
@@ -320,20 +328,22 @@ const PublicMenuPage = () => {
       if (fontHeading) fontsToLoad.add(fontHeading);
       if (fontBody) fontsToLoad.add(fontBody);
 
+      const ALLOWED_FONTS = new Set(['Playfair Display', 'Outfit', 'Lato']);
       fontsToLoad.forEach((font) => {
+        if (!ALLOWED_FONTS.has(font)) return;
         const linkId = `font-${font.replace(/ /g, "-")}`;
         if (!document.getElementById(linkId)) {
           const link = document.createElement("link");
           link.id = linkId;
           link.rel = "stylesheet";
-          link.href = `https://fonts.googleapis.com/css2?family=${font.replace(/ /g, "+")}:wght@400;700;900&display=swap`;
+          link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(font).replace(/%20/g, "+")}:wght@400;700;900&display=swap`;
           document.head.appendChild(link);
         }
       });
     }
   }, [menuMeta?.restaurant]);
 
-  const handleAssistanceRequest = async () => {
+  const handleAssistanceRequest = async (type: 'STANDARD' | 'URGENT' = 'STANDARD') => {
     if (!tableNumber) {
       setNoTableNotice(true);
       setTimeout(() => setNoTableNotice(false), 3500);
@@ -342,7 +352,7 @@ const PublicMenuPage = () => {
     if (!restaurantId || assistanceSent || assistanceLoading) return;
     try {
       setAssistanceLoading(true);
-      await createAssistanceRequest(tableNumber, restaurantId);
+      await createAssistanceRequest(tableNumber, restaurantId, type);
       setAssistanceSent(true);
       setTimeout(() => setAssistanceSent(false), 60000);
     } catch (err) {
@@ -717,7 +727,7 @@ const PublicMenuPage = () => {
           className="fixed left-0 right-0 z-50 flex justify-center pointer-events-none px-4 md:px-6"
           style={{ bottom: 'max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))' }}
         >
-          <div className="flex items-center w-full max-w-[480px] justify-between p-1.5 md:p-2.5 glass-panel rounded-[2rem] md:rounded-[2.5rem] shadow-[0_30px_70px_-15px_rgba(0,0,0,0.5)] border-white/20 dark:border-white/10 pointer-events-auto bg-white/90 dark:bg-black/90">
+          <div className={`flex items-center w-full max-w-[480px] ${ordersEnabled ? 'justify-between' : 'justify-end'} p-1.5 md:p-2.5 glass-panel rounded-[2rem] md:rounded-[2.5rem] shadow-[0_30px_70px_-15px_rgba(0,0,0,0.5)] border-white/20 dark:border-white/10 pointer-events-auto bg-white/90 dark:bg-black/90`}>
             {/* LEFT GROUP: Waiter + Profile/Sign-In */}
             <div className="flex items-center gap-0.5">
               {callWaiterEnabled && (
@@ -784,7 +794,7 @@ const PublicMenuPage = () => {
                       setIsPaymentModalOpen(true);
                     } catch {
                       setSessionToken(null);
-                      if (tableNumber) localStorage.removeItem(`session-${tableNumber}`);
+                      if (tableNumber) localStorage.removeItem(`session-${restaurantId}-${tableNumber}`);
                     }
                   }}
                 >
@@ -823,7 +833,7 @@ const PublicMenuPage = () => {
             <div className="space-y-3 pt-1">
               <button
                 type="button"
-                onClick={() => { setIsAssistanceDialogOpen(false); handleAssistanceRequest(); }}
+                onClick={() => { setIsAssistanceDialogOpen(false); handleAssistanceRequest('STANDARD'); }}
                 className="w-full flex items-center gap-3 p-4 rounded-xl border border-border hover:bg-secondary/60 transition-colors text-left min-h-[56px]"
               >
                 <Bell className="h-5 w-5 text-primary flex-shrink-0" />
@@ -834,10 +844,10 @@ const PublicMenuPage = () => {
               </button>
               <button
                 type="button"
-                onClick={() => { setIsAssistanceDialogOpen(false); handleAssistanceRequest(); }}
+                onClick={() => { setIsAssistanceDialogOpen(false); handleAssistanceRequest('URGENT'); }}
                 className="w-full flex items-center gap-3 p-4 rounded-xl border border-destructive/30 hover:bg-destructive/5 transition-colors text-left min-h-[56px]"
               >
-                <span className="text-xl flex-shrink-0">🚨</span>
+                <AlertTriangle className="w-5 h-5 flex-shrink-0 text-destructive" />
                 <div>
                   <p className="font-bold text-sm text-foreground">{t("publicMenu.needHelp", "Need Urgent Help")}</p>
                   <p className="text-xs text-muted-foreground">{t("publicMenu.needHelpDesc", "I need immediate assistance")}</p>
@@ -870,7 +880,7 @@ const PublicMenuPage = () => {
           onSuccess={() => {
             setIsPaymentModalOpen(false);
             setSessionToken(null);
-            if (tableNumber) localStorage.removeItem(`session-${tableNumber}`);
+            if (tableNumber) localStorage.removeItem(`session-${restaurantId}-${tableNumber}`);
           }}
         />
       )}

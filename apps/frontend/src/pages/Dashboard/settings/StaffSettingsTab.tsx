@@ -55,12 +55,14 @@ interface StaffSettingsTabProps {
 
 const roleBadgeClasses: Record<string, string> = {
   OWNER: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  STAFF: 'bg-slate-500/10 text-slate-600 dark:text-slate-400',
   MANAGER: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
   WAITER: 'bg-green-500/10 text-green-600 dark:text-green-400',
   KITCHEN: 'bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400',
 };
 
 const rolePermissions: Record<string, string[]> = {
+  STAFF: ['Order management', 'Call Waiter alerts', 'Table status'],
   MANAGER: ['Settings access', 'Staff devices', 'Menu operations'],
   WAITER: ['Table POS', 'Order entry', 'Payment notifications'],
   KITCHEN: ['Kitchen display', 'Ticket progress', 'Order alerts'],
@@ -82,18 +84,19 @@ const displayEmail = (email: string) => (email?.endsWith('.local') ? '-' : email
 
 const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant }) => {
   const { t } = useTranslation();
-  const canRbac = useFeature('rbac');
   const canPos = useFeature('pos');
-  const canKds = useFeature('kds');
-  const { staffLimit } = useTier();
+  const { staffLimit, allowedStaffRoles } = useTier();
 
   const allowedRoles = useMemo(
-    () => [
-      ...(canRbac ? [{ value: 'MANAGER', label: t('staff.roleManager', 'Manager') }] : []),
-      ...(canPos ? [{ value: 'WAITER', label: t('staff.roleWaiter', 'Waiter') }] : []),
-      ...(canKds ? [{ value: 'KITCHEN', label: t('staff.roleKitchen', 'Kitchen') }] : []),
-    ],
-    [canKds, canPos, canRbac, t],
+    () => allowedStaffRoles.map((role) => ({
+      value: role,
+      label: role === 'STAFF' ? t('staff.roleStaff', 'Staff')
+        : role === 'MANAGER' ? t('staff.roleManager', 'Manager')
+        : role === 'WAITER' ? t('staff.roleWaiter', 'Waiter')
+        : role === 'KITCHEN' ? t('staff.roleKitchen', 'Kitchen')
+        : role,
+    })),
+    [allowedStaffRoles, t],
   );
 
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
@@ -105,6 +108,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
   const [inviteRole, setInviteRole] = useState(() => allowedRoles[0]?.value ?? 'MANAGER');
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [openActionId, setOpenActionId] = useState<string | null>(null);
+  const [actionMenuPosition, setActionMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const [busyStaffId, setBusyStaffId] = useState<string | null>(null);
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
 
@@ -133,11 +137,13 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
   const [staffCreatedModal, setStaffCreatedModal] = useState<{
     open: boolean;
     staffName: string;
+    staffEmail: string;
     rawPin: string;
+    tempPassword?: string;
     enrollmentUrl: string;
     expiresAt: string;
     enrollmentError: string;
-  }>({ open: false, staffName: '', rawPin: '', enrollmentUrl: '', expiresAt: '', enrollmentError: '' });
+  }>({ open: false, staffName: '', staffEmail: '', rawPin: '', enrollmentUrl: '', expiresAt: '', enrollmentError: '' });
 
   const sharedDeviceEnabled =
     !!activeRestaurant && sharedDeviceConfig?.restaurantId === activeRestaurant.id;
@@ -174,12 +180,55 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
     const handler = (e: MouseEvent) => {
       if (!(e.target as Element).closest('[data-kebab]')) {
         setOpenActionId(null);
+        setActionMenuPosition(null);
         setConfirmRemoveId(null);
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [openActionId]);
+
+  useEffect(() => {
+    if (!openActionId) return;
+    const closeMenu = () => {
+      setOpenActionId(null);
+      setActionMenuPosition(null);
+      setConfirmRemoveId(null);
+    };
+    window.addEventListener('resize', closeMenu);
+    window.addEventListener('scroll', closeMenu, true);
+    return () => {
+      window.removeEventListener('resize', closeMenu);
+      window.removeEventListener('scroll', closeMenu, true);
+    };
+  }, [openActionId]);
+
+  const toggleActionMenu = (event: React.MouseEvent<HTMLButtonElement>, memberId: string) => {
+    if (openActionId === memberId) {
+      setOpenActionId(null);
+      setActionMenuPosition(null);
+      setConfirmRemoveId(null);
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const menuWidth = 208;
+    const menuHeight = canPos ? 232 : 188;
+    const gap = 6;
+    const viewportPadding = 12;
+    const left = Math.min(
+      Math.max(viewportPadding, rect.right - menuWidth),
+      window.innerWidth - menuWidth - viewportPadding,
+    );
+    const opensUp = rect.bottom + gap + menuHeight > window.innerHeight - viewportPadding;
+    const top = opensUp
+      ? Math.max(viewportPadding, rect.top - menuHeight - gap)
+      : rect.bottom + gap;
+
+    setActionMenuPosition({ top, left });
+    setOpenActionId(memberId);
+    setConfirmRemoveId(null);
+  };
 
   const fetchStaff = async () => {
     if (!activeRestaurant) return;
@@ -221,18 +270,22 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
       let enrollmentUrl = '';
       let expiresAt = '';
       let enrollmentError = '';
-      try {
-        const enrollment = await createDeviceEnrollment(activeRestaurant.id);
-        enrollmentUrl = enrollment.enrollmentUrl;
-        expiresAt = enrollment.expiresAt;
-      } catch (err: any) {
-        enrollmentError = err.response?.data?.message || err.message || t('staff.failedGenerateQr');
+      if (canPos) {
+        try {
+          const enrollment = await createDeviceEnrollment(activeRestaurant.id);
+          enrollmentUrl = enrollment.enrollmentUrl;
+          expiresAt = enrollment.expiresAt;
+        } catch (err: any) {
+          enrollmentError = err.response?.data?.message || err.message || t('staff.failedGenerateQr');
+        }
       }
 
       setStaffCreatedModal({
         open: true,
         staffName: result.user.name || inviteName.trim(),
-        rawPin: result.rawPin,
+        staffEmail: result.user.email,
+        rawPin: inviteRole === 'STAFF' ? '' : result.rawPin,
+        tempPassword: inviteRole === 'STAFF' ? result.tempPassword : undefined,
         enrollmentUrl,
         expiresAt,
         enrollmentError,
@@ -242,7 +295,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
       setInviteName('');
       setInviteEmail('');
       setInviteRole(allowedRoles[0]?.value ?? 'MANAGER');
-      await Promise.all([fetchStaff(), fetchDeviceEnrollments()]);
+      await Promise.all([fetchStaff(), ...(canPos ? [fetchDeviceEnrollments()] : [])]);
     } catch (err: any) {
       setStaffError(err.response?.data?.message || t('staff.failedCreate'));
     }
@@ -292,22 +345,25 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
       let enrollmentUrl = '';
       let expiresAt = '';
       let enrollmentError = '';
-      try {
-        const enrollment = await createDeviceEnrollment(activeRestaurant.id);
-        enrollmentUrl = enrollment.enrollmentUrl;
-        expiresAt = enrollment.expiresAt;
-      } catch (err: any) {
-        enrollmentError = err.response?.data?.message || err.message || t('staff.failedGenerateQr');
+      if (canPos) {
+        try {
+          const enrollment = await createDeviceEnrollment(activeRestaurant.id);
+          enrollmentUrl = enrollment.enrollmentUrl;
+          expiresAt = enrollment.expiresAt;
+        } catch (err: any) {
+          enrollmentError = err.response?.data?.message || err.message || t('staff.failedGenerateQr');
+        }
       }
       setStaffCreatedModal({
         open: true,
         staffName: result.user.name || member.name || 'Staff',
+        staffEmail: result.user.email,
         rawPin: result.rawPin,
         enrollmentUrl,
         expiresAt,
         enrollmentError,
       });
-      await Promise.all([fetchStaff(), fetchDeviceEnrollments()]);
+      await Promise.all([fetchStaff(), ...(canPos ? [fetchDeviceEnrollments()] : [])]);
     } catch (err: any) {
       setStaffError(err.response?.data?.message || t('staff.failedResetPin'));
     } finally {
@@ -341,6 +397,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
       setStaffCreatedModal({
         open: true,
         staffName: member.name || 'Staff',
+        staffEmail: member.email,
         rawPin: '',
         enrollmentUrl: result.enrollmentUrl,
         expiresAt: result.expiresAt,
@@ -428,29 +485,31 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div className="rounded-lg border border-border bg-muted/20 p-4">
-            <p className="text-xs font-bold uppercase text-muted-foreground">Staff</p>
+            <p className="text-xs font-bold uppercase text-muted-foreground">{t('staff.statsLabelStaff')}</p>
             <p className="mt-2 text-2xl font-semibold text-foreground">{staffOnlyMembers.length}</p>
             <p className="text-xs text-muted-foreground">
-              {staffLimit === Infinity ? 'Unlimited seats' : `${staffOnlyMembers.length}/${staffLimit} seats`}
+              {staffLimit >= 999999
+                ? t('staff.statsSeatsUnlimited')
+                : t('staff.statsSeatsCount', { current: staffOnlyMembers.length, limit: staffLimit })}
             </p>
           </div>
           <div className="rounded-lg border border-border bg-muted/20 p-4">
-            <p className="text-xs font-bold uppercase text-muted-foreground">Active</p>
+            <p className="text-xs font-bold uppercase text-muted-foreground">{t('staff.statsLabelActive')}</p>
             <p className="mt-2 text-2xl font-semibold text-foreground">{activeCount}</p>
-            <p className="text-xs text-muted-foreground">{inactiveCount} inactive</p>
+            <p className="text-xs text-muted-foreground">{t('staff.statsInactive', { count: inactiveCount })}</p>
           </div>
           <div className="rounded-lg border border-border bg-muted/20 p-4">
-            <p className="text-xs font-bold uppercase text-muted-foreground">Shared device</p>
+            <p className="text-xs font-bold uppercase text-muted-foreground">{t('staff.statsLabelSharedDevice')}</p>
             <p className="mt-2 text-sm font-semibold text-foreground">
-              {sharedDeviceEnabled ? 'Enabled here' : 'Not bonded'}
+              {sharedDeviceEnabled ? t('staff.statsSharedEnabled') : t('staff.statsSharedNotBonded')}
             </p>
-            <p className="text-xs text-muted-foreground">PIN login support</p>
+            <p className="text-xs text-muted-foreground">{t('staff.statsSharedPinSupport')}</p>
           </div>
           {canPos && (
             <div className="rounded-lg border border-border bg-muted/20 p-4">
-              <p className="text-xs font-bold uppercase text-muted-foreground">Device links</p>
+              <p className="text-xs font-bold uppercase text-muted-foreground">{t('staff.statsLabelDeviceLinks')}</p>
               <p className="mt-2 text-2xl font-semibold text-foreground">{deviceEnrollments.length}</p>
-              <p className="text-xs text-muted-foreground">Recent enrollment sessions</p>
+              <p className="text-xs text-muted-foreground">{t('staff.statsEnrollmentSessions')}</p>
             </div>
           )}
         </div>
@@ -458,8 +517,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
         {limitReached && (
           <div className="flex flex-col gap-2 rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="font-semibold text-foreground">Staff limit reached</p>
-              <p className="text-muted-foreground">Upgrade to add more team members without replacing seats.</p>
+              <p className="font-semibold text-foreground">{t('staff.limitReachedTitle')}</p>
+              <p className="text-muted-foreground">{t('staff.limitReachedDesc')}</p>
             </div>
             <a href="/pricing" className="text-xs font-bold uppercase text-primary hover:underline">
               {t('tierLocked.upgrade', 'Upgrade')}
@@ -471,8 +530,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
           <section className="rounded-lg border border-border bg-background">
             <div className="flex flex-col gap-3 border-b border-border p-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-sm font-semibold text-foreground">Team console</p>
-                <p className="text-xs text-muted-foreground">Inline roles, status, PIN reset, and device actions.</p>
+                <p className="text-sm font-semibold text-foreground">{t('staff.teamConsoleTitle')}</p>
+                <p className="text-xs text-muted-foreground">{t('staff.teamConsoleDesc')}</p>
               </div>
               <label className="flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
                 <Filter className="h-4 w-4" />
@@ -481,9 +540,9 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                   onChange={(event) => setRoleFilter(event.target.value)}
                   className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium normal-case text-foreground"
                 >
-                  <option value="ALL">All staff</option>
-                  <option value="ACTIVE">Active</option>
-                  <option value="INACTIVE">Inactive</option>
+                  <option value="ALL">{t('staff.filterAll')}</option>
+                  <option value="ACTIVE">{t('staff.filterActive')}</option>
+                  <option value="INACTIVE">{t('staff.filterInactive')}</option>
                   {allowedRoles.map((role) => (
                     <option key={role.value} value={role.value}>
                       {role.label}
@@ -503,7 +562,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                 <div>
                   <p className="text-sm font-semibold text-foreground">{t('staff.noStaffYet')}</p>
                   <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                    Create the first staff account to unlock POS, KDS, and shared device workflows.
+                    {t('staff.noStaffFirstAccount')}
                   </p>
                 </div>
                 <Button
@@ -517,7 +576,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                 </Button>
               </div>
             ) : filteredStaff.length === 0 ? (
-              <div className="p-6 text-sm text-muted-foreground">No staff match this filter.</div>
+              <div className="p-6 text-sm text-muted-foreground">{t('staff.noStaffMatchFilter')}</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[760px] text-sm">
@@ -526,8 +585,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                       <th className="px-4 py-3 text-left font-semibold">{t('staff.nameColumn')}</th>
                       <th className="px-4 py-3 text-left font-semibold">{t('staff.emailColumn')}</th>
                       <th className="px-4 py-3 text-left font-semibold">{t('staff.roleColumn')}</th>
-                      <th className="px-4 py-3 text-left font-semibold">Status</th>
-                      <th className="px-4 py-3 text-left font-semibold">Last update</th>
+                      <th className="px-4 py-3 text-left font-semibold">{t('staff.colStatus')}</th>
+                      <th className="px-4 py-3 text-left font-semibold">{t('staff.colLastUpdate')}</th>
                       <th className="w-14 px-4 py-3" />
                     </tr>
                   </thead>
@@ -544,8 +603,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                       return (
                         <tr key={member.id} className="border-t border-border">
                           <td className="px-4 py-3">
-                            <p className="font-medium text-foreground">{member.name || 'Unnamed staff'}</p>
-                            <p className="text-xs text-muted-foreground">Created {formatDateTime(member.createdAt)}</p>
+                            <p className="font-medium text-foreground">{member.name || t('staff.unnamedStaff')}</p>
+                            <p className="text-xs text-muted-foreground">{t('staff.createdAt', { date: formatDateTime(member.createdAt) })}</p>
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">{displayEmail(member.email)}</td>
                           <td className="px-4 py-3">
@@ -578,35 +637,40 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                             <button
                               type="button"
                               data-kebab
-                              onClick={() => {
-                                setOpenActionId(openActionId === member.id ? null : member.id);
-                                setConfirmRemoveId(null);
-                              }}
+                              onClick={(event) => toggleActionMenu(event, member.id)}
                               className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                               aria-label="Open staff actions"
                             >
                               <MoreVertical className="h-4 w-4" />
                             </button>
-                            {openActionId === member.id && (
-                              <div data-kebab className="absolute right-4 top-11 z-20 w-52 rounded-lg border border-border bg-background p-1 text-left shadow-xl">
-                                <button
-                                  type="button"
-                                  onClick={() => handleResetPin(member)}
-                                  disabled={isBusy}
-                                  className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-muted disabled:opacity-50"
-                                >
-                                  <KeyRound className="h-4 w-4" />
-                                  Reset PIN
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRebondStaff(member)}
-                                  disabled={isBusy}
-                                  className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-muted disabled:opacity-50"
-                                >
-                                  <QrCode className="h-4 w-4" />
-                                  Re-bond device
-                                </button>
+                            {openActionId === member.id && actionMenuPosition && (
+                              <div
+                                data-kebab
+                                className="fixed z-50 w-52 rounded-lg border border-border bg-background p-1 text-left shadow-xl"
+                                style={{ top: actionMenuPosition.top, left: actionMenuPosition.left }}
+                              >
+                                {member.role !== 'STAFF' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResetPin(member)}
+                                    disabled={isBusy}
+                                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-muted disabled:opacity-50"
+                                  >
+                                    <KeyRound className="h-4 w-4" />
+                                    {t('staff.actionResetPin')}
+                                  </button>
+                                )}
+                                {canPos && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRebondStaff(member)}
+                                    disabled={isBusy}
+                                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-muted disabled:opacity-50"
+                                  >
+                                    <QrCode className="h-4 w-4" />
+                                    {t('staff.rebondTitle')}
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => handleToggleActive(member)}
@@ -614,25 +678,25 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                                   className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-muted disabled:opacity-50"
                                 >
                                   {isInactive ? <UserCheck className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
-                                  {isInactive ? 'Reactivate' : 'Deactivate'}
+                                  {isInactive ? t('staff.actionReactivate') : t('staff.actionDeactivate')}
                                 </button>
                                 {confirmRemoveId === member.id ? (
                                   <div className="flex items-center gap-1 px-3 py-2">
-                                    <span className="flex-1 text-xs font-semibold text-destructive">Remove?</span>
+                                    <span className="flex-1 text-xs font-semibold text-destructive">{t('staff.actionRemoveConfirm')}</span>
                                     <button
                                       type="button"
                                       onClick={() => handleRemoveStaff(member)}
                                       disabled={isBusy}
                                       className="rounded-md px-2 py-1 text-xs font-semibold text-destructive hover:bg-destructive/10 disabled:opacity-50"
                                     >
-                                      Yes
+                                      {t('staff.actionRemoveYes')}
                                     </button>
                                     <button
                                       type="button"
                                       onClick={() => setConfirmRemoveId(null)}
                                       className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
                                     >
-                                      Cancel
+                                      {t('staff.actionRemoveCancel')}
                                     </button>
                                   </div>
                                 ) : (
@@ -643,7 +707,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                                     className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-destructive hover:bg-destructive/10 disabled:opacity-50"
                                   >
                                     <UserX className="h-4 w-4" />
-                                    Remove permanently
+                                    {t('staff.actionRemovePermanently')}
                                   </button>
                                 )}
                               </div>
@@ -721,25 +785,25 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
             </section>}
 
             {canPos && <section className="rounded-lg border border-border bg-background p-4">
-              <p className="text-sm font-semibold text-foreground">Device sessions</p>
+              <p className="text-sm font-semibold text-foreground">{t('staff.deviceSessionsTitle')}</p>
               <div className="mt-3 space-y-2">
                 {deviceEnrollmentsLoading ? (
                   <p className="text-sm text-muted-foreground">{t('staff.loading')}</p>
                 ) : deviceEnrollments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No recent device enrollment links.</p>
+                  <p className="text-sm text-muted-foreground">{t('staff.deviceSessionsEmpty')}</p>
                 ) : (
                   deviceEnrollments.slice(0, 5).map((enrollment) => (
                     <div key={enrollment.id} className="rounded-lg bg-muted/40 p-3">
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-xs font-semibold text-foreground">
-                          {enrollment.usedAt ? 'Used' : 'Pending'}
+                          {enrollment.usedAt ? t('staff.deviceStatusUsed') : t('staff.deviceStatusPending')}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {formatDateTime(enrollment.usedAt || enrollment.createdAt)}
                         </p>
                       </div>
                       <p className="mt-1 truncate text-xs text-muted-foreground">
-                        By {enrollment.createdBy.name || displayEmail(enrollment.createdBy.email)}
+                        {t('staff.deviceSessionBy', { name: enrollment.createdBy.name || displayEmail(enrollment.createdBy.email) })}
                       </p>
                     </div>
                   ))
@@ -748,7 +812,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
             </section>}
 
             <section className="rounded-lg border border-border bg-background p-4">
-              <p className="text-sm font-semibold text-foreground">Role preview</p>
+              <p className="text-sm font-semibold text-foreground">{t('staff.rolePreviewTitle')}</p>
               <div className="mt-3 space-y-3">
                 {allowedRoles.length === 0 ? (
                   <div className="flex gap-3 rounded-lg border border-dashed border-border p-3">
@@ -851,7 +915,9 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
         open={staffCreatedModal.open}
         onClose={() => setStaffCreatedModal((prev) => ({ ...prev, open: false }))}
         staffName={staffCreatedModal.staffName}
+        staffEmail={staffCreatedModal.staffEmail}
         rawPin={staffCreatedModal.rawPin}
+        tempPassword={staffCreatedModal.tempPassword}
         enrollmentUrl={staffCreatedModal.enrollmentUrl}
         expiresAt={staffCreatedModal.expiresAt}
         enrollmentError={staffCreatedModal.enrollmentError}
