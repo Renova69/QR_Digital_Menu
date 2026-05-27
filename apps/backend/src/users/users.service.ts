@@ -1,4 +1,5 @@
 import { Injectable, Logger, ForbiddenException, NotFoundException, ConflictException } from '@nestjs/common';
+import * as crypto from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { FeatureService } from '../subscription/feature.service';
@@ -33,16 +34,19 @@ export class UsersService {
     restaurantId: string,
     data: { name: string; email?: string; role: string },
     callerRole: string = 'OWNER',
-  ): Promise<{ user: { id: string; email: string; name: string | null; role: string }; rawPin: string }> {
+  ): Promise<{ user: { id: string; email: string; name: string | null; role: string }; rawPin: string; tempPassword?: string }> {
     if (data.role === 'MANAGER' && callerRole !== 'OWNER') {
       throw new ForbiddenException('Only owners can create manager accounts');
     }
 
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: { tier: true },
+      select: { tier: true, forceTier: true },
     });
-    const tier = (restaurant?.tier ?? 'FREE') as string;
+    const tier = this.featureService.getEffectiveTier(
+      (restaurant?.tier ?? 'FREE') as string,
+      restaurant?.forceTier ?? null,
+    );
 
     const allowedRoles = this.featureService.getAllowedStaffRoles(tier);
     if (!allowedRoles.includes(data.role)) {
@@ -52,40 +56,63 @@ export class UsersService {
     }
 
     const staffLimit = this.featureService.getStaffLimit(tier);
-    const currentCount = await this.prisma.user.count({
-      where: { restaurantId, role: { in: ['WAITER', 'MANAGER', 'KITCHEN'] } },
-    });
-    if (currentCount >= staffLimit) {
-      throw new ForbiddenException(
-        `Staff limit of ${staffLimit} reached for the ${tier} plan. Upgrade to add more staff.`,
-      );
-    }
 
-    const rawPin = Math.floor(1000 + Math.random() * 9000).toString();
+    const rawPin = crypto.randomInt(1000, 10000).toString();
     const pinHash = await bcrypt.hash(rawPin, 10);
 
     const explicitEmail = !!data.email;
-    const email = data.email || `staff-${Date.now()}@${restaurantId}.local`;
+    const baseEmail = data.email || `staff-${Date.now()}@${restaurantId}.local`;
+    
+    const tempPassword = crypto.randomBytes(6).toString('hex'); // 12-character random string
 
     const createData: Prisma.UserUncheckedCreateInput = {
-      email: email.toLowerCase().trim(),
-      password: await bcrypt.hash(Math.random().toString(36).slice(-12), 10),
+      email: baseEmail.toLowerCase().trim(),
+      password: await bcrypt.hash(tempPassword, 10),
       name: data.name,
       role: data.role as any,
       pinHash,
       restaurantId,
     };
 
+    const doCreate = async (tx: Prisma.TransactionClient, emailOverride?: string) => {
+      const currentCount = await tx.user.count({
+        where: { restaurantId, role: { in: ['STAFF', 'WAITER', 'MANAGER', 'KITCHEN'] } },
+      });
+      if (currentCount >= staffLimit) {
+        throw new ForbiddenException(
+          `Staff limit of ${staffLimit} reached for the ${tier} plan. Upgrade to add more staff.`,
+        );
+      }
+      if (emailOverride) createData.email = emailOverride;
+      return tx.user.create({ data: createData });
+    };
+
+    const txOpts = { isolationLevel: Prisma.TransactionIsolationLevel.Serializable };
+
+    const runTx = async (emailOverride?: string): Promise<typeof user> => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          return await this.prisma.$transaction((tx) => doCreate(tx, emailOverride), txOpts);
+        } catch (err: any) {
+          if (err instanceof ForbiddenException || err instanceof ConflictException) throw err;
+          if (err?.code === 'P2034' && attempt < 2) continue; // serialization conflict -- retry
+          throw err;
+        }
+      }
+      throw new Error('Unreachable');
+    };
+
     let user: Awaited<ReturnType<typeof this.prisma.user.create>>;
     try {
-      user = await this.prisma.user.create({ data: createData });
+      user = await runTx();
     } catch (err: any) {
+      if (err instanceof ForbiddenException || err instanceof ConflictException) throw err;
       if (err?.code === 'P2002') {
         if (explicitEmail) {
           throw new ConflictException('A user with this email already exists');
         }
-        createData.email = `staff-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@${restaurantId}.local`;
-        user = await this.prisma.user.create({ data: createData });
+        const fallbackEmail = `staff-${Date.now()}-${crypto.randomBytes(3).toString('hex')}@${restaurantId}.local`;
+        user = await runTx(fallbackEmail);
       } else {
         throw err;
       }
@@ -94,6 +121,7 @@ export class UsersService {
     return {
       user: { id: user.id, email: user.email, name: user.name, role: user.role },
       rawPin,
+      tempPassword,
     };
   }
 
@@ -101,7 +129,7 @@ export class UsersService {
     return this.prisma.user.findMany({
       where: {
         restaurantId,
-        role: { in: ['WAITER', 'MANAGER', 'KITCHEN'] as any[] },
+        role: { in: ['STAFF', 'WAITER', 'MANAGER', 'KITCHEN'] as any[] },
       },
       select: {
         id: true,
@@ -140,9 +168,12 @@ export class UsersService {
     if (data.role) {
       const restaurant = await this.prisma.restaurant.findUnique({
         where: { id: restaurantId },
-        select: { tier: true },
+        select: { tier: true, forceTier: true },
       });
-      const tier = (restaurant?.tier ?? 'FREE') as string;
+      const tier = this.featureService.getEffectiveTier(
+        (restaurant?.tier ?? 'FREE') as string,
+        restaurant?.forceTier ?? null,
+      );
       const allowedRoles = this.featureService.getAllowedStaffRoles(tier);
       if (!allowedRoles.includes(data.role)) {
         throw new ForbiddenException(
@@ -191,7 +222,7 @@ export class UsersService {
       throw new ForbiddenException('Only owners can reset manager PINs');
     }
 
-    const rawPin = Math.floor(1000 + Math.random() * 9000).toString();
+    const rawPin = crypto.randomInt(1000, 10000).toString();
     const pinHash = await bcrypt.hash(rawPin, 10);
     await this.prisma.user.update({
       where: { id: userId },

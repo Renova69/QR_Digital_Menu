@@ -103,7 +103,8 @@ export class OrdersService {
       });
     }
 
-    if (!this.featureService.hasFeature(String(restaurant.tier), FeatureFlag.ORDERS_RECEIVE)) {
+    const effectiveTier = this.featureService.getEffectiveTier(String(restaurant.tier), restaurant.forceTier ?? null);
+    if (!this.featureService.hasFeature(effectiveTier, FeatureFlag.ORDERS_RECEIVE)) {
       throw new ForbiddenException({ code: 'FEATURE_LOCKED', message: 'Online ordering is not available on this plan' });
     }
 

@@ -40,6 +40,7 @@ import SubscriptionBanner from '../components/subscription/SubscriptionBanner';
 import UpgradeModal from '../components/subscription/UpgradeModal';
 import { useFeature, type FeatureFlag } from '../hooks/useFeature';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 type TabId =
   | 'summary'
@@ -93,14 +94,24 @@ const DashboardPage = () => {
   const [searchParams] = useSearchParams();
   const tabFromParamApplied = useRef(false);
 
+  const isStaff = user?.role?.toUpperCase() === 'STAFF';
+  const STAFF_ALLOWED_TABS: TabId[] = ['orders', 'assistance', 'tables'];
+
   useEffect(() => {
     if (tabFromParamApplied.current) return;
     const tab = searchParams.get('tab') as TabId | null;
     if (tab && VALID_TABS.includes(tab)) {
-      setActiveTab(tab);
+      const resolved = isStaff && !STAFF_ALLOWED_TABS.includes(tab) ? 'orders' : tab;
+      setActiveTab(resolved);
       tabFromParamApplied.current = true;
     }
-  }, [searchParams]);
+  }, [searchParams, isStaff]);
+
+  useEffect(() => {
+    if (isStaff && !STAFF_ALLOWED_TABS.includes(activeTab)) {
+      setActiveTab('orders');
+    }
+  }, [isStaff, activeTab]);
 
   const { t, i18n } = useTranslation();
   const paymentsEnabled = (activeRestaurant as any)?.paymentsEnabled ?? false;
@@ -112,12 +123,14 @@ const DashboardPage = () => {
   const canKds = useFeature('kds');
 
   const lastRestaurantId = useRef<string | null>(null);
-  if (activeRestaurant?.id !== lastRestaurantId.current) {
-    if (activeRestaurant?.dashboardLanguage) {
-      i18n.changeLanguage(activeRestaurant.dashboardLanguage);
+  useEffect(() => {
+    if (activeRestaurant?.id !== lastRestaurantId.current) {
+      if (activeRestaurant?.dashboardLanguage) {
+        i18n.changeLanguage(activeRestaurant.dashboardLanguage);
+      }
+      lastRestaurantId.current = activeRestaurant?.id || null;
     }
-    lastRestaurantId.current = activeRestaurant?.id || null;
-  }
+  }, [activeRestaurant?.id, activeRestaurant?.dashboardLanguage, i18n]);
 
   const newOrdersCount = orders.filter((o) => o.status === 'NEW').length;
   const unresolvedRequestsCount = requests.filter((r) => !r.isResolved).length;
@@ -223,6 +236,10 @@ const DashboardPage = () => {
     },
   ];
 
+  const visibleNavItems = isStaff
+    ? desktopNavItems.filter((item) => STAFF_ALLOWED_TABS.includes(item.id))
+    : desktopNavItems;
+
   const userName =
     user?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
   const restaurantName = activeRestaurant?.name || '';
@@ -251,7 +268,7 @@ const DashboardPage = () => {
           className="flex-1 px-3 py-4 space-y-0.5"
           aria-label="Dashboard navigation"
         >
-          {desktopNavItems.map(
+          {visibleNavItems.map(
             ({ id, Icon, label, feature, locked, hidden }) => {
               if (hidden) return null;
               const badge = getBadge(id);
@@ -302,6 +319,7 @@ const DashboardPage = () => {
           )}
 
           <div className="pt-4 mt-4 border-t border-border/40 space-y-0.5">
+            {!isStaff && (
             <Link
               to="/dashboard/menu"
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all"
@@ -309,7 +327,8 @@ const DashboardPage = () => {
               <Utensils className="w-4 h-4 shrink-0" />
               <span className="truncate">{t('dashboard.tabs.menuEditor')}</span>
             </Link>
-            {canPos ? (
+            )}
+            {!isStaff && (canPos ? (
               <Link
                 to="/staff/pos"
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all"
@@ -330,8 +349,8 @@ const DashboardPage = () => {
                 </span>
                 <Lock className="w-3.5 h-3.5 opacity-40" />
               </button>
-            )}
-            {canKds ? (
+            ))}
+            {!isStaff && (canKds ? (
               <Link
                 to="/staff/kitchen"
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all"
@@ -352,7 +371,8 @@ const DashboardPage = () => {
                 </span>
                 <Lock className="w-3.5 h-3.5 opacity-40" />
               </button>
-            )}
+            ))}
+            {!isStaff && (
             <button
               onClick={() => setActiveTab('help')}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all cursor-pointer"
@@ -360,6 +380,7 @@ const DashboardPage = () => {
               <HelpCircle className="w-4 h-4 shrink-0" />
               <span className="truncate">{t('dashboard.tabs.help')}</span>
             </button>
+            )}
           </div>
         </nav>
 
@@ -497,20 +518,24 @@ const DashboardPage = () => {
               <NotificationProvider>
                 <SubscriptionBanner />
 
-                {activeTab === 'summary' && activeRestaurant && <SummaryView />}
-                {activeTab === 'analytics' &&
-                  activeRestaurant &&
-                  canAnalytics && <AnalyticsView />}
-                {activeTab === 'orders' && <OrdersView />}
-                {activeTab === 'payments' &&
-                  activeRestaurant &&
-                  paymentsEnabled && <PaymentsView />}
-                {activeTab === 'assistance' && <AssistanceView />}
-                {activeTab === 'tables' && activeRestaurant && <TableView />}
-                {activeTab === 'settings' && activeRestaurant && (
-                  <SettingsView />
-                )}
-                {activeTab === 'help' && activeRestaurant && <HelpView />}
+                <ErrorBoundary>
+                  {activeTab === 'summary' && activeRestaurant && !isStaff && <SummaryView />}
+                  {activeTab === 'analytics' &&
+                    activeRestaurant &&
+                    canAnalytics &&
+                    !isStaff && <AnalyticsView />}
+                  {activeTab === 'orders' && <OrdersView />}
+                  {activeTab === 'payments' &&
+                    activeRestaurant &&
+                    paymentsEnabled &&
+                    !isStaff && <PaymentsView />}
+                  {activeTab === 'assistance' && <AssistanceView />}
+                  {activeTab === 'tables' && activeRestaurant && <TableView />}
+                  {activeTab === 'settings' && activeRestaurant && !isStaff && (
+                    <SettingsView />
+                  )}
+                  {activeTab === 'help' && activeRestaurant && !isStaff && <HelpView />}
+                </ErrorBoundary>
 
                 <PaymentToast />
                 <UpgradeModal
@@ -540,7 +565,9 @@ const DashboardPage = () => {
         >
           <div className="flex items-stretch h-16">
             {BOTTOM_NAV_TABS.filter(
-              (tab) => !(tab.id === 'payments' && !paymentsEnabled),
+              (tab) =>
+                !(tab.id === 'payments' && !paymentsEnabled) &&
+                (!isStaff || STAFF_ALLOWED_TABS.includes(tab.id)),
             ).map(({ id, Icon, labelKey }) => {
               const mobileFeatureMap: Partial<Record<TabId, FeatureFlag>> = {
                 orders: 'orders:receive',
@@ -597,6 +624,7 @@ const DashboardPage = () => {
                 </button>
               );
             })}
+            {!isStaff && (
             <button
               onClick={() =>
                 canAnalytics
@@ -630,6 +658,7 @@ const DashboardPage = () => {
                 {t('dashboard.tabs.stats')}
               </span>
             </button>
+            )}
           </div>
         </div>
       </nav>

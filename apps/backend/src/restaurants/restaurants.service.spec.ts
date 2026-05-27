@@ -23,6 +23,7 @@ describe('RestaurantsService', () => {
         create: jest.fn(),
         findMany: jest.fn(),
         findUnique: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
         update: jest.fn().mockResolvedValue(makeRestaurant()),
         delete: jest.fn().mockResolvedValue(makeRestaurant()),
       },

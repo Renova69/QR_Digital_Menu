@@ -110,6 +110,7 @@ model Restaurant {
   feedbacks                 Feedback[]
   loyaltyAccounts           LoyaltyAccount[]
   menuCategories            MenuCategory[]
+  menuViews                 MenuView[]
   owner                     User                @relation("OwnedRestaurants", fields: [ownerId], references: [id], onDelete: Cascade)
   staffMembers              User[]              @relation("StaffRestaurant")
   tables                    RestaurantTable[]
@@ -118,6 +119,21 @@ model Restaurant {
   payments                  Payment[]
 
   @@map("restaurant")
+}
+
+model MenuView {
+  id           String     @id @default(cuid())
+  restaurantId String
+  tableId      String?
+  tableName    String?
+  visitorId    String?
+  createdAt    DateTime   @default(now())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, createdAt])
+  @@index([restaurantId, tableId, createdAt])
+  @@index([restaurantId, visitorId, createdAt])
+  @@map("menu_view")
 }
 
 model TableZone {
@@ -261,6 +277,7 @@ model AssistanceRequest {
   tableId      String
   isResolved   Boolean    @default(false)
   restaurantId String
+  type         String     @default("STANDARD")
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)

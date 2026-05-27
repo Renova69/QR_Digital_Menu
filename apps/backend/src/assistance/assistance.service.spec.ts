@@ -28,6 +28,7 @@ const mockEvents = {
 
 const mockFeatureService = {
   hasFeature: jest.fn().mockReturnValue(true),
+  getEffectiveTier: jest.fn().mockImplementation((tier: string) => tier),
 };
 
 describe('AssistanceService', () => {

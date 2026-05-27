@@ -88,8 +88,8 @@ export const updateAssistanceRequest = async (requestId: string, updates: { isRe
     return response.data;
 }
 
-export const createAssistanceRequest = async (tableId: string, restaurantId: string) => {
-    const response = await api.post('/assistance-requests', { tableId, restaurantId });
+export const createAssistanceRequest = async (tableId: string, restaurantId: string, type: 'STANDARD' | 'URGENT' = 'STANDARD') => {
+    const response = await api.post('/assistance-requests', { tableId, restaurantId, type });
     return response.data;
 }
 
@@ -484,7 +484,11 @@ export const createStaff = async (
   data: { name: string; email?: string; role: string },
 ) => {
   const response = await api.post(`/restaurants/${restaurantId}/staff`, data);
-  return response.data as { user: { id: string; email: string; name: string | null; role: string }; rawPin: string };
+  return response.data as {
+    user: { id: string; email: string; name: string | null; role: string };
+    rawPin: string;
+    tempPassword?: string;
+  };
 };
 
 export const removeStaff = async (restaurantId: string, userId: string) => {
@@ -551,6 +555,7 @@ export const getSubscriptionStatus = async () => {
     tier: string;
     features: string[];
     staffLimit: number;
+    allowedStaffRoles: string[];
     hasSubscription: boolean;
     subscription: SubscriptionDetails | null;
   };
@@ -686,5 +691,24 @@ export const deleteHelpContent = (id: string) =>
 
 export const reorderHelpContent = (items: { id: string; sortOrder: number }[]) =>
   api.patch('/super-admin/help-content/reorder', { items }).then((r) => r.data);
+
+export const recordMenuView = (
+  restaurantId: string,
+  data: { table?: string | null; visitorId?: string },
+): void => {
+  api
+    .post(`/menu/public/${restaurantId}/view`, { table: data.table ?? undefined, visitorId: data.visitorId })
+    .catch(() => undefined);
+};
+
+export interface ScanStats {
+  totalViews: number;
+  uniqueVisitors: number;
+  todayViews: number;
+  perTable: Array<{ tableName: string; views: number; uniqueVisitors: number }>;
+}
+
+export const getScanStats = (restaurantId: string): Promise<ScanStats> =>
+  api.get(`/dashboard/scan-stats/${restaurantId}`).then((r) => r.data as ScanStats);
 
 export default api;

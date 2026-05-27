@@ -41,6 +41,7 @@ const TIER_FEATURES: Record<SubscriptionTier, FeatureFlag[]> = {
     'menu:import',
     'qr:manage',
     'orders:receive',
+    'orders:call-waiter',
     'analytics:basic',
   ],
   PROFESSIONAL: [
@@ -66,13 +67,26 @@ const TIER_FEATURES: Record<SubscriptionTier, FeatureFlag[]> = {
 function getStaffLimit(tier: SubscriptionTier): number {
   switch (tier) {
     case 'FREE':
-      return 1;
+      return 0;
     case 'STARTER':
       return 1;
     case 'PROFESSIONAL':
       return 5;
     case 'ENTERPRISE':
-      return Infinity;
+      return 999999;
+  }
+}
+
+function getAllowedStaffRoles(tier: SubscriptionTier): string[] {
+  switch (tier) {
+    case 'STARTER':
+      return ['STAFF'];
+    case 'PROFESSIONAL':
+      return ['STAFF', 'MANAGER'];
+    case 'ENTERPRISE':
+      return ['STAFF', 'MANAGER', 'WAITER', 'KITCHEN'];
+    default:
+      return [];
   }
 }
 
@@ -87,6 +101,7 @@ export function useTier(): {
   tier: SubscriptionTier;
   features: FeatureFlag[];
   staffLimit: number;
+  allowedStaffRoles: string[];
   hasSubscription: boolean;
   subscription: SubscriptionInfo | null;
   isLoading: boolean;
@@ -118,11 +133,15 @@ export function useTier(): {
     typeof data?.staffLimit === 'number' && Number.isFinite(data.staffLimit)
       ? data.staffLimit
       : null;
+  const apiAllowedStaffRoles = Array.isArray(data?.allowedStaffRoles)
+    ? (data.allowedStaffRoles as string[])
+    : null;
 
   return {
     tier,
     features: apiFeatures ?? TIER_FEATURES[tier] ?? TIER_FEATURES.FREE,
     staffLimit: apiStaffLimit ?? getStaffLimit(tier),
+    allowedStaffRoles: apiAllowedStaffRoles ?? getAllowedStaffRoles(tier),
     hasSubscription: data?.hasSubscription ?? false,
     subscription: (data?.subscription as SubscriptionInfo | null) ?? null,
     isLoading,

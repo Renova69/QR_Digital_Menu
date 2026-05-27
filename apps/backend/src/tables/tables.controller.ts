@@ -49,9 +49,10 @@ export class TablesController {
   @Get('tables/status/:restaurantId')
   getTablesWithStatus(
     @Param('restaurantId') restaurantId: string,
-    @Query('zoneId') zoneId?: string,
+    @Query('zoneId') zoneId: string | undefined,
+    @Request() req: any,
   ) {
-    return this.tablesService.getTablesWithStatus(restaurantId, zoneId);
+    return this.tablesService.getTablesWithStatus(restaurantId, zoneId, req.user);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -59,8 +60,9 @@ export class TablesController {
   getTableOrders(
     @Param('tableId') tableId: string,
     @Query('restaurantId') restaurantId: string,
+    @Request() req: any,
   ) {
-    return this.tablesService.getTableOrders(tableId, restaurantId);
+    return this.tablesService.getTableOrders(tableId, restaurantId, req.user);
   }
 
   @UseGuards(JwtAuthGuard)

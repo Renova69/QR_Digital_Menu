@@ -66,7 +66,10 @@ describe('PaymentService', () => {
       emitTableStatusChanged: jest.fn(),
     };
 
-    const mockFeatureService = { hasFeature: jest.fn().mockReturnValue(true) } as unknown as FeatureService;
+    const mockFeatureService = {
+      hasFeature: jest.fn().mockReturnValue(true),
+      getEffectiveTier: jest.fn().mockImplementation((tier: string) => tier),
+    } as unknown as FeatureService;
     service = new PaymentService(mockPrisma, mockStripeProvider, mockEvents, mockFeatureService);
   });
 
@@ -215,7 +218,10 @@ describe('PaymentService', () => {
         id: 's1', restaurantId: 'rest1',
         restaurant: { paymentsEnabled: true, tier: 'FREE', stripeOnboarded: true, stripeAccountId: 'acct_1', platformFeePercent: 0.5 },
       });
-      const lockedFeatureService = { hasFeature: jest.fn().mockReturnValue(false) } as unknown as FeatureService;
+      const lockedFeatureService = {
+        hasFeature: jest.fn().mockReturnValue(false),
+        getEffectiveTier: jest.fn().mockImplementation((tier: string) => tier),
+      } as unknown as FeatureService;
       const lockedService = new PaymentService(mockPrisma, mockStripeProvider, mockEvents, lockedFeatureService);
 
       await expect(lockedService.createPaymentIntent('tok1', 0)).rejects.toThrow(ForbiddenException);

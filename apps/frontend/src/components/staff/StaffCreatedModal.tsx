@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useTranslation } from "react-i18next";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -8,7 +8,9 @@ interface StaffCreatedModalProps {
   open: boolean;
   onClose: () => void;
   staffName: string;
+  staffEmail: string;
   rawPin?: string;
+  tempPassword?: string;
   enrollmentUrl: string;
   expiresAt: string;
   enrollmentError?: string;
@@ -18,7 +20,9 @@ export default function StaffCreatedModal({
   open,
   onClose,
   staffName,
+  staffEmail,
   rawPin,
+  tempPassword,
   enrollmentUrl,
   expiresAt,
   enrollmentError,
@@ -90,6 +94,8 @@ export default function StaffCreatedModal({
 
   if (!open) return null;
 
+  const isPasswordOnly = !!tempPassword && !rawPin;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="bg-card rounded-2xl shadow-xl border border-border w-full max-w-sm p-6 relative">
@@ -102,10 +108,12 @@ export default function StaffCreatedModal({
         </button>
 
         <h3 className="text-lg font-semibold text-foreground mb-1">
-          {rawPin ? t("staff.created.title") : t("staff.created.rebondTitle")}
+          {rawPin || tempPassword ? t("staff.created.title") : t("staff.created.rebondTitle")}
         </h3>
         <p className="text-sm text-muted-foreground mb-6">
-          {rawPin
+          {isPasswordOnly
+            ? t("staff.created.passwordInstruction")
+            : rawPin
             ? t("staff.created.scanInstruction")
             : t("staff.created.rebondInstruction", { name: staffName })}
         </p>
@@ -131,11 +139,28 @@ export default function StaffCreatedModal({
             )}
           </>
         ) : (
-          !enrollmentError && (
+          !enrollmentError && !tempPassword && (
             <div className="bg-muted rounded-xl p-8 mb-6 flex items-center justify-center">
               <p className="text-sm text-muted-foreground">{t("staff.created.qrUnavailable")}</p>
             </div>
           )
+        )}
+
+        {tempPassword && (
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 mb-4 text-center">
+            <p className="text-sm text-muted-foreground mb-1">
+              {t("staff.created.passwordFor", { name: staffName, defaultValue: `Dashboard Password for ${staffName}` })}
+            </p>
+            <p className="text-xs text-muted-foreground mb-2">
+              Email: <span className="font-semibold text-foreground">{staffEmail}</span>
+            </p>
+            <p className="text-2xl font-mono font-bold text-foreground tracking-widest select-all">
+              {tempPassword}
+            </p>
+            <p className="text-[10px] uppercase font-bold text-blue-500 mt-2">
+              {t("staff.created.copyPasswordWarning", { defaultValue: "Copy this now. It won't be shown again." })}
+            </p>
+          </div>
         )}
 
         {rawPin && (
@@ -159,13 +184,15 @@ export default function StaffCreatedModal({
           </div>
         )}
 
-        <button
-          onClick={handleCopyLink}
-          className="w-full inline-flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <FontAwesomeIcon icon={linkCopied ? faCheck : faCopy} />
-          {linkCopied ? t("staff.created.linkCopied") : t("staff.created.copyLink")}
-        </button>
+        {enrollmentUrl && (
+          <button
+            onClick={handleCopyLink}
+            className="w-full inline-flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <FontAwesomeIcon icon={linkCopied ? faCheck : faCopy} />
+            {linkCopied ? t("staff.created.linkCopied") : t("staff.created.copyLink")}
+          </button>
+        )}
       </div>
     </div>
   );

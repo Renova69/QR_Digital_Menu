@@ -21,7 +21,7 @@ const SettingsView = () => {
   const canLoyalty = useFeature("loyalty");
   const canPayments = useFeature("payments:stripe");
   const canBranding = useFeature("branding:custom");
-  const { tier } = useTier();
+  const { tier, allowedStaffRoles } = useTier();
   const isFree = tier === "FREE";
 
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
@@ -35,7 +35,7 @@ const SettingsView = () => {
     { id: "general", label: t("settings.tabs.general"), visible: true },
     { id: "loyalty", label: t("settings.tabs.loyalty"), visible: canLoyalty },
     { id: "payments", label: t("settings.tabs.payments"), visible: canPayments },
-    { id: "staff", label: t("settings.tabs.staff"), visible: tier === "ENTERPRISE" },
+    { id: "staff", label: t("settings.tabs.staff"), visible: allowedStaffRoles.length > 0 },
     // Visible to all non-free tiers as an upsell; content shows locked state when canBranding is false
     { id: "branding", label: t("settings.tabs.branding", "Branding"), visible: !isFree },
     { id: "subscription", label: t("settings.tabs.subscription"), visible: true },

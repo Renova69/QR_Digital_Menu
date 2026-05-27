@@ -9,6 +9,6 @@ export class CreateStaffDto {
   email?: string;
 
   @IsString()
-  @IsIn(['MANAGER', 'WAITER', 'KITCHEN'])
+  @IsIn(['STAFF', 'MANAGER', 'WAITER', 'KITCHEN'])
   role: string;
 }
