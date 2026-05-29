@@ -319,6 +319,18 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
       setStaffMembers((prev) =>
         prev.map((item) => (item.id === member.id ? { ...item, ...updated } : item)),
       );
+      // Changing to a device role (WAITER/KITCHEN) mints a new PIN — surface it.
+      if (updated.rawPin) {
+        setStaffCreatedModal({
+          open: true,
+          staffName: updated.name || member.name || 'Staff',
+          staffEmail: updated.email || member.email || '',
+          rawPin: updated.rawPin,
+          enrollmentUrl: '',
+          expiresAt: '',
+          enrollmentError: '',
+        });
+      }
     } catch (err: any) {
       setStaffError(err.response?.data?.message || t('staff.failedUpdate'));
       await fetchStaff();

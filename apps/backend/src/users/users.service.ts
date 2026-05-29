@@ -191,10 +191,29 @@ export class UsersService {
       }
     }
 
-    return this.prisma.user.update({
+    // Reconcile the PIN credential when the role actually changes so the
+    // "dashboard roles have no PIN, device roles do" invariant holds in the DB:
+    //   → device role (WAITER/KITCHEN): mint a fresh PIN (surfaced via rawPin)
+    //   → dashboard role (STAFF/MANAGER): clear any stale pinHash
+    let pinCredential: { rawPin: string; pinHash: string } | null = null;
+    let clearPin = false;
+    if (data.role && data.role !== user.role) {
+      if (isPinRole(data.role)) {
+        const rawPin = crypto.randomInt(1000, 10000).toString();
+        pinCredential = { rawPin, pinHash: await bcrypt.hash(rawPin, 10) };
+      } else {
+        clearPin = true;
+      }
+    }
+
+    const updated = await this.prisma.user.update({
       where: { id: userId },
       data: {
         ...(data.role ? { role: data.role as any } : {}),
+        ...(pinCredential
+          ? { pinHash: pinCredential.pinHash, pinAttempts: 0, pinLockedUntil: null }
+          : {}),
+        ...(clearPin ? { pinHash: null, pinAttempts: 0, pinLockedUntil: null } : {}),
         ...(typeof data.isActive === 'boolean'
           ? {
               isActive: data.isActive,
@@ -214,6 +233,9 @@ export class UsersService {
         updatedAt: true,
       },
     });
+
+    // Surface the freshly minted PIN so the dashboard can show it (WAITER/KITCHEN).
+    return pinCredential ? { ...updated, rawPin: pinCredential.rawPin } : updated;
   }
 
   async resetStaffPin(restaurantId: string, userId: string, callerRole: string = 'OWNER') {
@@ -229,6 +251,13 @@ export class UsersService {
     }
     if (user.role === 'MANAGER' && callerRole !== 'OWNER') {
       throw new ForbiddenException('Only owners can reset manager PINs');
+    }
+    // Dashboard roles (STAFF/MANAGER/OWNER) authenticate by password and must
+    // never hold a PIN — reject even direct API calls (the UI already hides this).
+    if (!isPinRole(user.role)) {
+      throw new ForbiddenException(
+        'Only device roles (waiter/kitchen) use a PIN. Dashboard roles sign in with email and password.',
+      );
     }
 
     const rawPin = crypto.randomInt(1000, 10000).toString();
