@@ -58,11 +58,6 @@ export const getCurrentUser = async () => {
     return response.data;
 }
 
-export const callWaiter = async (restaurantId: string, table: string) => {
-    const response = await api.post('/assistance', { restaurantId, table });
-    return response.data;
-}
-
 export const createOrder = async (orderData: any) => {
     const response = await api.post('/orders', orderData);
     return response.data;
