@@ -1,6 +1,6 @@
 # QR Menu App — Coding Roadmap
 
-> **Last Updated:** May 24, 2026  
+> **Last Updated:** May 29, 2026  
 > **MVP Status:** ✅ Complete  
 > **V2 Status:** ✅ Phases 9–14 Complete  
 > **V2.5 Status:** ✅ Phases 15–17 + Mobile UX Overhaul + UI/UX Audit & Theme Polish Complete  
@@ -38,6 +38,16 @@
 > **Onboarding Wizard Overhaul (May 24, 2026):** ✅ New-user wizard fully rewritten. Tier-aware Stripe Checkout (FREE→Starter skips payment). Stripe Connect onboarding integrated. Owner name collected. Table setup flow. 6 bugs from walkthrough resolved. Tier synced from Stripe session (not webhook).
 > **Table Status Simplification (May 24, 2026):** ✅ Removed "waiting" status — tables now: empty/occupied/paid. Auto-close PAID sessions after 5 minutes. POS i18n (BG). TableCard redesigned with compact 4-row layout + live timer.
 > **Dashboard-Wide i18n (May 24, 2026):** ✅ PaymentsView, PaymentDrawer, and AssistanceView fully translated. All dashboard hardcoded strings now wired to i18next. 103 analytics keys synced across EN/BG/RO.
+> **Homepage Redesign (May 25, 2026):** ✅ CC-DESIGN 3-column hero layout, 16 feature cards, 22-row comparison table, 7 FAQ items, operations center, pricing, footer. Menu editor header redesigned.
+> **Settings & Staff Refactor (May 25, 2026):** ✅ All settings tabs extracted to self-contained components (`GeneralSettingsTab`, `LoyaltySettingsTab`, `PaymentSettingsTab`, `StaffSettingsTab`), `SettingsView` slimmed to a shell. Staff CRUD moved to dedicated `StaffController`; auth hardened with serializable-transaction retry + duplicate-email handling. Prevent duplicate restaurant per owner. Stale `prefetchedRestaurants` cleared on login.
+> **Perf (May 25, 2026):** ✅ Eliminated login/navigation request waterfall + added menu query cache.
+> **Loyalty (May 25, 2026):** ✅ Happy-hour day-of-week selector + 24h time inputs.
+> **Branding Dual Palette (May 25, 2026):** ✅ Paired light/dark brand palette system end-to-end (`themeLight*` / `themeDark*` / `defaultTheme`). Editor polish (i18n, dark-mode override, tab stability). Public-menu theme application + border-opacity fixes. `websiteUrl`/`youtubeUrl` wired into public menu.
+> **Subscription/Billing (May 25, 2026):** ✅ Billing UI redesign, tier-gating fixes, test-subscriptions tooling. Onboarding: dashboard access restored for pre-existing owners.
+> **QR Scan Tracking & STAFF Role (May 27, 2026):** ✅ `MenuView` model + public `recordView` + dashboard `scan-stats` endpoint (menu views, unique visitors, per-table). Visitor-ID tracking. Seat-matrix rework. STAFF dashboard role with restricted tabs (orders/assistance/tables). Order session tokens scoped by restaurant+table. Assistance `type` (STANDARD/URGENT).
+> **Role-Exclusive Staff Credentials (May 29, 2026):** ✅ `apps/backend/src/users/staff-roles.ts` is the single source of truth. WAITER/KITCHEN authenticate by PIN; STAFF/MANAGER/OWNER by email+password and are excluded from `pinLogin` (a 4-digit PIN can never mint a dashboard JWT). Device-enrollment QR shown only for PIN roles.
+> **Mobile Dashboard UX (May 29, 2026):** ✅ Bottom nav trimmed to 4 primary tabs + a "More" sheet (account, overflow tabs, language, theme, logout, view public menu). Equal-width grid segmented controls (no ragged wrap). Trimmed mobile padding. Scan metrics shown on all tiers. Tab guard redirects forced `?tab=` to unentitled tabs → summary; `PaymentsView` render now also requires `canPayments`. `UpgradeModal` shows only required-tier-and-above, stacks on mobile.
+> **Assistance & Misc (May 29, 2026):** ✅ URGENT badge in dashboard assistance view; call-waiter 60s cooldown persisted per restaurant+table (survives page reload). Stripe SDK `apiVersion` bumped to `2026-05-27.dahlia` (Cloud Build fix).
 > **Staff Attribution & Itemized Bills (May 24, 2026):** ✅ `OrderSource` enum (POS/QR) + `staffUserId` on Order. Order recorded with source on create. Source badges on dashboard order list, table detail cards, payment detail rows, and PaymentModal. Itemized bill grouped by source. `OptionalJwtAuthGuard` for public order endpoints — captures staff identity when JWT present.
 > **Table Zones/Sections (May 24, 2026):** ✅ Table zones/sections for large-restaurant POS filtering. Zone field on RestaurantTable. POS table picker grouped by zone with section headers.
 > **Analytics Deep-Dive Full i18n (May 24, 2026):** ✅ All hardcoded English strings in analytics deep-dive tab replaced with i18next `t()` calls. 16 new keys (day parts, order statuses, hour bar labels). Excel export localized. Custom date filter heading supported.
