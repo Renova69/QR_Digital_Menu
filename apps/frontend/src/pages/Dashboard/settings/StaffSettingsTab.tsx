@@ -53,6 +53,12 @@ interface StaffSettingsTabProps {
   activeRestaurant: Restaurant;
 }
 
+// Device/floor roles authenticate by PIN at a shared POS/KDS tablet. Dashboard
+// roles (STAFF/MANAGER/OWNER) authenticate by email + password and are not PIN
+// candidates. Mirror of backend apps/backend/src/users/staff-roles.ts.
+const PIN_ROLES = ['WAITER', 'KITCHEN'];
+const isPinRole = (role: string): boolean => PIN_ROLES.includes(role);
+
 const roleBadgeClasses: Record<string, string> = {
   OWNER: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
   STAFF: 'bg-slate-500/10 text-slate-600 dark:text-slate-400',
@@ -270,7 +276,10 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
       let enrollmentUrl = '';
       let expiresAt = '';
       let enrollmentError = '';
-      if (canPos) {
+      // Device-enrollment QR is only meaningful for PIN/device roles (WAITER/KITCHEN)
+      // that sign in at a shared POS/KDS tablet. Dashboard roles (STAFF/MANAGER)
+      // use email + password, so no enrollment link is generated for them.
+      if (canPos && isPinRole(inviteRole)) {
         try {
           const enrollment = await createDeviceEnrollment(activeRestaurant.id);
           enrollmentUrl = enrollment.enrollmentUrl;
@@ -284,8 +293,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
         open: true,
         staffName: result.user.name || inviteName.trim(),
         staffEmail: result.user.email,
-        rawPin: inviteRole === 'STAFF' ? '' : result.rawPin,
-        tempPassword: inviteRole === 'STAFF' ? result.tempPassword : undefined,
+        rawPin: isPinRole(inviteRole) ? result.rawPin : '',
+        tempPassword: isPinRole(inviteRole) ? undefined : result.tempPassword,
         enrollmentUrl,
         expiresAt,
         enrollmentError,
@@ -345,7 +354,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
       let enrollmentUrl = '';
       let expiresAt = '';
       let enrollmentError = '';
-      if (canPos) {
+      if (canPos && isPinRole(member.role)) {
         try {
           const enrollment = await createDeviceEnrollment(activeRestaurant.id);
           enrollmentUrl = enrollment.enrollmentUrl;
@@ -649,7 +658,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                                 className="fixed z-50 w-52 rounded-lg border border-border bg-background p-1 text-left shadow-xl"
                                 style={{ top: actionMenuPosition.top, left: actionMenuPosition.left }}
                               >
-                                {member.role !== 'STAFF' && (
+                                {isPinRole(member.role) && (
                                   <button
                                     type="button"
                                     onClick={() => handleResetPin(member)}

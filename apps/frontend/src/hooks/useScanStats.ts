@@ -1,10 +1,10 @@
 import { useContext } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import RestaurantContext from '../context/RestaurantContext';
+import RestaurantContext, { type RestaurantContextType } from '../context/RestaurantContext';
 import { getScanStats, type ScanStats } from '../lib/api';
 
 export function useScanStats(): { data: ScanStats | undefined; isLoading: boolean } {
-  const ctx = useContext(RestaurantContext) as any;
+  const ctx = useContext(RestaurantContext) as RestaurantContextType | undefined;
   const restaurantId = ctx?.activeRestaurant?.id ?? null;
 
   const { data, isLoading } = useQuery({

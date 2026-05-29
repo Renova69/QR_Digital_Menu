@@ -187,6 +187,16 @@ describe('AuthService', () => {
       await expect(service.pinLogin('rest1', '1234')).rejects.toThrow(UnauthorizedException);
     });
 
+    it('only considers device roles (WAITER/KITCHEN) — dashboard roles excluded', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([]);
+      await expect(service.pinLogin('rest1', '1234')).rejects.toThrow(UnauthorizedException);
+      const where = mockPrisma.user.findMany.mock.calls[0][0].where;
+      expect(where.role.in).toEqual(['WAITER', 'KITCHEN']);
+      expect(where.role.in).not.toContain('OWNER');
+      expect(where.role.in).not.toContain('MANAGER');
+      expect(where.role.in).not.toContain('STAFF');
+    });
+
     it('throws HttpException(429) when a candidate is locked', async () => {
       const futureDate = new Date(Date.now() + 60 * 60 * 1000);
       mockPrisma.user.findMany.mockResolvedValue([
