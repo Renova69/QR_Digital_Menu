@@ -195,6 +195,16 @@ The app is deployed with a cross-origin architecture:
 
 ### Deploy Backend (Cloud Run)
 
+**Preferred:** run the repo's deploy script from the project root (Windows PowerShell):
+
+```powershell
+.\deploy.ps1
+```
+
+It runs Cloud Build (`gcloud builds submit` → `gcr.io/qr-menu-app-469216/qr-menu-backend:latest`) then `gcloud run deploy` to `qr-menu-backend` in `europe-west1`. Secrets live in Google Secret Manager — never pass them on the command line. To change a secret use `gcloud secrets versions add`; to add a new plain env var use `--update-env-vars` (see the header comments inside `deploy.ps1`). The Cloud Build runs `npm run build` (prisma generate + nest build), so a type error fails the deploy.
+
+Manual equivalent:
+
 ```bash
 cd apps/backend
 docker build -t gcr.io/<project>/qr-menu-backend .

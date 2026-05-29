@@ -1732,3 +1732,112 @@ All hardcoded English strings in the analytics deep-dive tab replaced with i18ne
 | `apps/frontend/src/pages/Dashboard/summary/DateRangeFilter.tsx` | Custom range heading i18n |
 | `apps/frontend/src/locales/{en,bg,ro}/translation.json` | 103 analytics keys synced |
 
+## Staff Creation Race & Duplicate Handling (May 25, 2026)
+
+### Summary
+
+Staff CRUD moved out of `auth.controller.ts` into a dedicated `StaffController`, and concurrent staff creation hardened.
+
+### Key Changes
+
+- **Serializable transaction + retry** — `createStaffMember` runs inside a `Serializable` `$transaction` and retries up to 3× on `P2034` serialization conflicts, closing a race where two simultaneous creates could exceed the tier seat limit.
+- **Duplicate generated email** — on `P2002` for an auto-generated `staff-<ts>@<restaurantId>.local` email, a `crypto.randomBytes` fallback email is generated and the create is retried; explicit duplicate emails return a `ConflictException`.
+- **Duplicate restaurant per owner** — `c358777` prevents an owner from accidentally creating multiple restaurants.
+- **Stale prefetch** — `db05681` clears stale `prefetchedRestaurants` on login/register/loginWithToken to prevent showing the previous account's data.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/src/restaurants/staff.controller.ts` | New dedicated staff routing |
+| `apps/backend/src/users/users.service.ts` | Serializable tx + P2034 retry + P2002 fallback |
+| `apps/frontend/src/context/AuthContext.tsx` | Clear stale prefetch on auth |
+
+## Branding: Public Menu Theme Application (May 25, 2026)
+
+### Summary
+
+Dual light/dark brand palette shipped end-to-end; fixed theme colors not applying correctly on the public menu and harsh border/overlay opacities.
+
+### Key Changes
+
+- **Dual palette** — `themeLight*` (Bg/Text/Card/Accent) + `themeDark*` columns + `defaultTheme` (light/dark) on `Restaurant`; public menu applies the correct palette per active theme.
+- **Border opacity** — `f1815ce` softened dynamic border opacities in the public menu (previously too harsh in one theme).
+- **Editor stability** — `f3948a5` fixed i18n gaps, dark-mode override bug, and tab-switch instability in the branding editor.
+
+## Onboarding: Pre-Existing Owner Access (May 25, 2026)
+
+### Summary
+
+Owners who existed before the onboarding-wizard rewrite were incorrectly bounced into onboarding. `32fdacb` restores direct dashboard access for pre-existing restaurant owners.
+
+## Stripe API Version Drift (May 29, 2026)
+
+### Summary
+
+Cloud Build failed (`TS2322`) because the Stripe SDK `^22.1.0` resolved to `22.2.0`, whose typed `apiVersion` literal advanced to `2026-05-27.dahlia`, while the code hardcoded `2026-04-22.dahlia`. Local `tsc` had passed on stale `node_modules`.
+
+### Key Changes
+
+- Bumped both call sites to `2026-05-27.dahlia`; synced local stripe to `22.2.0` so local and Cloud Build agree.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/src/payment/stripe.provider.ts` | apiVersion → 2026-05-27.dahlia |
+| `apps/backend/src/subscription/subscription.service.ts` | apiVersion → 2026-05-27.dahlia |
+
+## Staff Credential Model Hardening (May 29, 2026)
+
+### Summary
+
+Closed a security gap where every staff account (including dashboard roles and OWNER) carried a brute-forceable 4-digit PIN that `pinLogin` accepted, allowing a guessed PIN to mint a JWT for a privileged account.
+
+### Key Changes
+
+- **`staff-roles.ts` SoT** — `PIN_LOGIN_ROLES = ['WAITER','KITCHEN']`, `isPinRole()`.
+- **Role-exclusive credentials** — `createStaffMember` issues a PIN only for WAITER/KITCHEN and a temp password only for STAFF/MANAGER (password column always set; never both surfaced).
+- **`pinLogin` scoped** — only WAITER/KITCHEN are candidates; OWNER/MANAGER/STAFF can never authenticate by PIN.
+- **Frontend** — invite modal + Reset-PIN gating switched from `=== 'STAFF'` to `isPinRole`; device-enrollment QR shown only for PIN roles.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/backend/src/users/staff-roles.ts` | New SoT for credential roles |
+| `apps/backend/src/users/users.service.ts` | Role-exclusive credential issuance |
+| `apps/backend/src/auth/auth.service.ts` | pinLogin restricted to device roles |
+| `apps/frontend/src/pages/Dashboard/settings/StaffSettingsTab.tsx` | isPinRole gating |
+
+## Tier Entitlement: Tab Guard & Payments (May 29, 2026)
+
+### Summary
+
+A forced `?tab=payments` URL on a FREE restaurant (with `paymentsEnabled=true`) could render `PaymentsView` despite no entitlement (UI-only; backend FeatureGuard already blocked the APIs).
+
+### Key Changes
+
+- `PaymentsView` render now also requires `canPayments`.
+- Added an owner tab-sanitizing effect: any locked tab (orders/assistance/payments/analytics) reached via URL redirects to `summary`, preventing a blank content area.
+
+## Call-Waiter Cooldown Bypass on Reload (May 29, 2026)
+
+### Summary
+
+The 60s anti-spam cooldown on the public-menu call-waiter button was in-memory only, so reloading the page re-enabled it immediately.
+
+### Key Changes
+
+- Cooldown timestamp persisted in `localStorage` keyed `assist-cd-{restaurantId}-{tableNumber}`; restored on mount and auto-released after the remaining time. Per-table.
+- Dashboard now distinguishes STANDARD vs URGENT requests via a red **URGENT** badge (`type` added to `AssistanceContext`; `assistance.urgent` i18n in EN/BG/RO).
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/frontend/src/pages/PublicMenuPage.tsx` | Persisted cooldown |
+| `apps/frontend/src/context/AssistanceContext.tsx` | `type` field exposed |
+| `apps/frontend/src/pages/Dashboard/AssistanceView.tsx` | URGENT badge |
+| `apps/frontend/src/locales/{en,bg,ro}/translation.json` | `assistance.urgent` |
+
