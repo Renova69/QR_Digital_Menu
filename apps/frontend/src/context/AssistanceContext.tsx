@@ -18,6 +18,7 @@ interface AssistanceRequest {
   id: string;
   tableId: string;
   isResolved: boolean;
+  type?: 'STANDARD' | 'URGENT';
   createdAt: string;
   updatedAt: string;
 }

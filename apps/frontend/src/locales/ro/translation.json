@@ -314,6 +314,7 @@
                        "subtitle":  "Vedeți ce mese au nevoie de personal și rezolvați rapid.",
                        "active":  "Active",
                        "resolved":  "Rezolvate",
+                       "urgent":  "Urgent",
                        "noActive":  "Nicio cerere de asistență activă",
                        "markResolved":  "Marchează ca Rezolvat",
                        "resolvedRequests":  "Cereri Rezolvate",
