@@ -25,6 +25,7 @@ describe('UsersService', () => {
         findFirst: jest.fn().mockResolvedValue(null),
         findMany: jest.fn().mockResolvedValue([mockUser]),
         create: jest.fn().mockResolvedValue(mockUser),
+        update: jest.fn().mockResolvedValue(mockUser),
         delete: jest.fn().mockResolvedValue(mockUser),
         count: jest.fn().mockResolvedValue(0),
       },
@@ -195,6 +196,51 @@ describe('UsersService', () => {
         expect.objectContaining({
           where: expect.objectContaining({ role: { in: expect.arrayContaining(['STAFF', 'WAITER', 'MANAGER', 'KITCHEN']) } }),
         }),
+      );
+    });
+  });
+
+  describe('resetStaffPin', () => {
+    it('resets PIN for a device role (WAITER)', async () => {
+      prisma.user.findFirst.mockResolvedValue({ id: 'u', name: 'W', email: 'w@x', role: 'WAITER' });
+      const result = await service.resetStaffPin('rest-1', 'u');
+      expect(result.rawPin).toMatch(/^\d{4}$/);
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ pinHash: expect.any(String) }) }),
+      );
+    });
+
+    it('refuses to set a PIN for a dashboard role (STAFF)', async () => {
+      prisma.user.findFirst.mockResolvedValue({ id: 'u', name: 'S', email: 's@x', role: 'STAFF' });
+      await expect(service.resetStaffPin('rest-1', 'u')).rejects.toThrow(ForbiddenException);
+    });
+
+    it('refuses to set a PIN for a dashboard role (MANAGER)', async () => {
+      prisma.user.findFirst.mockResolvedValue({ id: 'u', name: 'M', email: 'm@x', role: 'MANAGER' });
+      await expect(service.resetStaffPin('rest-1', 'u')).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('updateStaffMember credential reconciliation', () => {
+    beforeEach(() => {
+      prisma.restaurant.findUnique.mockResolvedValue({ id: 'rest-1', ownerId: 'owner-1', tier: 'ENTERPRISE' });
+    });
+
+    it('clears pinHash when changing a device role to a dashboard role (WAITER → STAFF)', async () => {
+      prisma.user.findFirst.mockResolvedValue({ id: 'u', email: 'w@x', name: 'W', role: 'WAITER' });
+      const result = await service.updateStaffMember('rest-1', 'u', { role: 'STAFF' });
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ pinHash: null }) }),
+      );
+      expect((result as any).rawPin).toBeUndefined();
+    });
+
+    it('mints a PIN when changing a dashboard role to a device role (STAFF → WAITER)', async () => {
+      prisma.user.findFirst.mockResolvedValue({ id: 'u', email: 's@x', name: 'S', role: 'STAFF' });
+      const result = await service.updateStaffMember('rest-1', 'u', { role: 'WAITER' });
+      expect((result as any).rawPin).toMatch(/^\d{4}$/);
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ pinHash: expect.any(String) }) }),
       );
     });
   });

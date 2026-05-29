@@ -502,7 +502,8 @@ export const updateStaff = async (
   data: { role?: string; isActive?: boolean },
 ) => {
   const response = await api.patch(`/restaurants/${restaurantId}/staff/${userId}`, data);
-  return response.data as StaffMember;
+  // Backend mints a fresh PIN (rawPin) when a role change makes the user a device role.
+  return response.data as StaffMember & { rawPin?: string };
 };
 
 export const resetStaffPin = async (restaurantId: string, userId: string) => {
