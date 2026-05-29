@@ -59,16 +59,16 @@ const SettingsView = () => {
 
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-clip text-left">
         {/* Tab nav */}
-        <div className="flex gap-1 border-b border-border px-6 pt-4 overflow-x-auto">
+        <div className="grid grid-cols-2 gap-1 px-3 pt-4 sm:flex sm:flex-wrap sm:border-b sm:border-border sm:px-6">
           {visibleTabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px ${
+              className={`rounded-md px-4 py-2.5 text-center text-sm font-medium whitespace-nowrap transition-colors sm:rounded-none sm:py-2 sm:border-b-2 sm:-mb-px ${
                 activeTab === tab.id
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+                  ? "bg-primary/10 text-primary sm:bg-transparent sm:border-primary"
+                  : "text-muted-foreground hover:text-foreground sm:border-transparent"
               }`}
             >
               {tab.label}

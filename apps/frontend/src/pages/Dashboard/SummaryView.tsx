@@ -86,7 +86,7 @@ const SummaryView = () => {
   const { data: scanStats, isLoading: scanLoading } = useScanStats();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 md:space-y-6">
       <DateRangeFilter
         period={dateRange.period}
         startDate={dateRange.startDate}
@@ -96,58 +96,59 @@ const SummaryView = () => {
         onCustomRange={dateRange.setCustomRange}
       />
 
-      {/* KPI Row */}
-      {canBasic && analytics ? (
+      {/* Reach metrics — menu views & unique visitors. Shown for ALL tiers:
+          QR scans / unique visitors are valuable regardless of plan. */}
+      <div className="grid grid-cols-2 gap-4">
+        <KpiCard
+          label={t("dashboard.menuViews")}
+          value={scanLoading ? "..." : (scanStats?.totalViews ?? 0).toLocaleString('en-US')}
+          Icon={Eye}
+        />
+        <KpiCard
+          label={t("dashboard.uniqueVisitors")}
+          value={scanLoading ? "..." : (scanStats?.uniqueVisitors ?? 0).toLocaleString('en-US')}
+          Icon={Users2}
+        />
+      </div>
+
+      {/* Revenue / order KPIs — paid tiers (STARTER+) only */}
+      {canBasic && analytics && (
         <KpiRow data={analytics} showTrends={canFull} />
-      ) : (
-        <div className="space-y-4">
-          {/* Scan metrics — FREE tier */}
-          <div className="grid grid-cols-2 gap-4">
-            <KpiCard
-              label={t("dashboard.menuViews")}
-              value={scanLoading ? "..." : (scanStats?.totalViews ?? 0).toLocaleString('en-US')}
-              Icon={Eye}
-            />
-            <KpiCard
-              label={t("dashboard.uniqueVisitors")}
-              value={scanLoading ? "..." : (scanStats?.uniqueVisitors ?? 0).toLocaleString('en-US')}
-              Icon={Users2}
-            />
-          </div>
+      )}
 
-          {/* Per-table breakdown */}
-          {!scanLoading && scanStats && scanStats.perTable.length > 0 && (
-            <div className="glass-panel rounded-[1.5rem] p-5">
-              <p className="text-sm font-display font-bold text-foreground mb-3">
-                {t("dashboard.perTableViews")}
-              </p>
-              <div className="space-y-2">
-                {scanStats.perTable.slice(0, 10).map((row) => (
-                  <div key={row.tableName} className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{row.tableName}</span>
-                    <span className="font-semibold text-foreground">{t("dashboard.perTableViewsCount", { views: row.views, unique: row.uniqueVisitors })}</span>
-                  </div>
-                ))}
+      {/* Per-table reach breakdown — all tiers, when data exists */}
+      {!scanLoading && scanStats && scanStats.perTable.length > 0 && (
+        <div className="glass-panel rounded-[1.5rem] p-4 md:p-5">
+          <p className="text-sm font-display font-bold text-foreground mb-3">
+            {t("dashboard.perTableViews")}
+          </p>
+          <div className="space-y-2">
+            {scanStats.perTable.slice(0, 10).map((row) => (
+              <div key={row.tableName} className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">{row.tableName}</span>
+                <span className="font-semibold text-foreground">{t("dashboard.perTableViewsCount", { views: row.views, unique: row.uniqueVisitors })}</span>
               </div>
-            </div>
-          )}
-
-          {/* Upsell banner */}
-          <div className="glass-panel rounded-[1.5rem] p-6 flex flex-col items-center gap-3 text-center border border-primary/20 bg-primary/5">
-            <p className="text-sm font-bold text-foreground">
-              {t("dashboard.scanUpsellTitle")}
-            </p>
-            <p className="text-xs text-muted-foreground max-w-md">
-              {t("dashboard.scanUpsellBody", { count: scanStats?.totalViews ?? 0 })}
-            </p>
-            <a
-              href="/pricing"
-              className="mt-1 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-opacity hover:opacity-90"
-              style={{ background: 'var(--brand)' }}
-            >
-              {t("tierLocked.upgrade", "Upgrade")}
-            </a>
+            ))}
           </div>
+        </div>
+      )}
+
+      {/* Upsell banner — FREE tier only */}
+      {!canBasic && (
+        <div className="glass-panel rounded-[1.5rem] p-5 md:p-6 flex flex-col items-center gap-3 text-center border border-primary/20 bg-primary/5">
+          <p className="text-sm font-bold text-foreground">
+            {t("dashboard.scanUpsellTitle")}
+          </p>
+          <p className="text-xs text-muted-foreground max-w-md">
+            {t("dashboard.scanUpsellBody", { count: scanStats?.totalViews ?? 0 })}
+          </p>
+          <a
+            href="/pricing"
+            className="mt-1 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-opacity hover:opacity-90"
+            style={{ background: 'var(--brand)' }}
+          >
+            {t("tierLocked.upgrade", "Upgrade")}
+          </a>
         </div>
       )}
 
@@ -158,7 +159,7 @@ const SummaryView = () => {
         ) : analytics ? (
           <OrdersOverviewChart data={analytics.revenueTrend} />
         ) : (
-          <div className="glass-panel rounded-[1.5rem] p-5 flex items-center justify-center">
+          <div className="glass-panel rounded-[1.5rem] p-4 md:p-5 flex items-center justify-center">
             <p className="text-xs text-muted-foreground">{t('dashboard.loadingChart')}</p>
           </div>
         )}
@@ -172,7 +173,7 @@ const SummaryView = () => {
         ) : tables ? (
           <LiveTablesGrid tables={tables} />
         ) : (
-          <div className="glass-panel rounded-[1.5rem] p-5 flex items-center justify-center">
+          <div className="glass-panel rounded-[1.5rem] p-4 md:p-5 flex items-center justify-center">
             <p className="text-xs text-muted-foreground">{t('dashboard.loadingTables')}</p>
           </div>
         )}
@@ -185,7 +186,7 @@ const SummaryView = () => {
         ) : analytics ? (
           <TopDishesTable items={analytics.topItems} />
         ) : (
-          <div className="glass-panel rounded-[1.5rem] p-5">
+          <div className="glass-panel rounded-[1.5rem] p-4 md:p-5">
             <h3 className="text-sm font-display font-bold text-foreground mb-4">{t('dashboard.topDishes')}</h3>
             <p className="text-xs text-muted-foreground text-center py-8">{t('dashboard.noData', 'No data for this period')}</p>
           </div>
@@ -195,7 +196,7 @@ const SummaryView = () => {
         ) : paymentSummary && paymentSummary.totalCollected > 0 ? (
           <PaymentsSummaryCard data={paymentSummary} />
         ) : (
-          <div className="glass-panel rounded-[1.5rem] p-5">
+          <div className="glass-panel rounded-[1.5rem] p-4 md:p-5">
             <h3 className="text-sm font-display font-bold text-foreground mb-4">{t('dashboard.payments')}</h3>
             <p className="text-xs text-muted-foreground text-center py-8">{t('dashboard.noPaymentsPeriod')}</p>
           </div>
@@ -205,7 +206,7 @@ const SummaryView = () => {
         ) : loyalty ? (
           <LoyaltyRetentionCard data={loyalty} />
         ) : (
-          <div className="glass-panel rounded-[1.5rem] p-5">
+          <div className="glass-panel rounded-[1.5rem] p-4 md:p-5">
             <h3 className="text-sm font-display font-bold text-foreground mb-4">{t('dashboard.loyaltyRetention')}</h3>
             <p className="text-xs text-muted-foreground text-center py-8">
               {activeRestaurant?.isLoyaltyEnabled

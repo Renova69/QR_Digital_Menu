@@ -313,14 +313,14 @@ const TableView: React.FC = () => {
         </div>
       </div>
 
-      <div className="mb-6 overflow-x-auto hide-scrollbar">
-        <div className="inline-flex min-w-max items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-sm">
+      <div className="mb-6">
+        <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-card p-1 shadow-sm sm:flex sm:flex-wrap sm:items-center">
           {!isFree && (
             <button
               type="button"
               onClick={() => setSubTab('live')}
               className={cn(
-                'flex h-9 items-center gap-2 rounded-md px-4 text-sm font-bold transition active:scale-[0.98]',
+                'flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4',
                 subTab === 'live'
                   ? 'bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -336,7 +336,7 @@ const TableView: React.FC = () => {
                 type="button"
                 onClick={() => setSubTab('qr')}
                 className={cn(
-                  'flex h-9 items-center gap-2 rounded-md px-4 text-sm font-bold transition active:scale-[0.98]',
+                  'flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4',
                   subTab === 'qr'
                     ? 'bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -349,7 +349,7 @@ const TableView: React.FC = () => {
                 type="button"
                 onClick={() => setSubTab('zones')}
                 className={cn(
-                  'flex h-9 items-center gap-2 rounded-md px-4 text-sm font-bold transition active:scale-[0.98]',
+                  'flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4',
                   subTab === 'zones'
                     ? 'bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground',

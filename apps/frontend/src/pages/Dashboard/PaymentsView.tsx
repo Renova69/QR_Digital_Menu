@@ -255,8 +255,8 @@ const PaymentsView = () => {
         <MetricCard label={t('payments.refundsIssued')} value={formatMoney(metrics.refundAmount)} detail={t('payments.refundsOnPage', { count: metrics.refundCount })} trend={metrics.refundAmount ? t('payments.trendReview') : t('payments.trendClear')} tone={metrics.refundAmount ? 'text-red-600' : 'text-emerald-600'} />
       </div>
 
-      <div className="mb-5 overflow-x-auto hide-scrollbar">
-        <div className="inline-flex min-w-max items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-sm">
+      <div className="mb-5">
+        <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-card p-1 shadow-sm sm:flex sm:flex-wrap sm:items-center">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -267,7 +267,7 @@ const PaymentsView = () => {
                 setSelectedPayment(null);
               }}
               className={cn(
-                'h-9 rounded-md px-5 text-sm font-black transition active:scale-[0.98]',
+                'flex h-10 items-center justify-center rounded-md px-3 text-sm font-black transition active:scale-[0.98] sm:h-9 sm:px-5',
                 activeTab === tab.id ? 'bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]' : 'text-foreground hover:bg-muted',
               )}
             >

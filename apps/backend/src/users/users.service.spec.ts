@@ -88,13 +88,42 @@ describe('UsersService', () => {
   });
 
   describe('createStaffMember', () => {
-    it('returns rawPin and user info', async () => {
+    it('issues a PIN (no password) for WAITER device role', async () => {
       prisma.user.findUnique.mockResolvedValue(null); // no email collision
       prisma.restaurant.findUnique.mockResolvedValue({ id: 'rest-1', ownerId: 'owner-1', tier: 'ENTERPRISE' });
       const result = await service.createStaffMember('rest-1', { name: 'Bob', role: 'WAITER' });
-      expect(result).toHaveProperty('rawPin');
       expect(result.rawPin).toMatch(/^\d{4}$/);
+      expect(result.tempPassword).toBeUndefined();
       expect(result.user).toHaveProperty('id');
+      // pinHash persisted for device roles
+      expect(prisma.user.create.mock.calls[0][0].data.pinHash).toEqual(expect.any(String));
+    });
+
+    it('issues a PIN for KITCHEN device role', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.restaurant.findUnique.mockResolvedValue({ id: 'rest-1', ownerId: 'owner-1', tier: 'ENTERPRISE' });
+      const result = await service.createStaffMember('rest-1', { name: 'Kim', role: 'KITCHEN' });
+      expect(result.rawPin).toMatch(/^\d{4}$/);
+      expect(result.tempPassword).toBeUndefined();
+    });
+
+    it('issues a temp password (no PIN) for STAFF dashboard role', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.restaurant.findUnique.mockResolvedValue({ id: 'rest-1', ownerId: 'owner-1', tier: 'ENTERPRISE' });
+      const result = await service.createStaffMember('rest-1', { name: 'Sam', role: 'STAFF' });
+      expect(result.tempPassword).toEqual(expect.any(String));
+      expect(result.rawPin).toBeUndefined();
+      // dashboard roles must NOT carry a pinHash — keeps them out of pinLogin
+      expect(prisma.user.create.mock.calls[0][0].data.pinHash).toBeNull();
+    });
+
+    it('issues a temp password (no PIN) for MANAGER dashboard role', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.restaurant.findUnique.mockResolvedValue({ id: 'rest-1', ownerId: 'owner-1', tier: 'ENTERPRISE' });
+      const result = await service.createStaffMember('rest-1', { name: 'Mary', role: 'MANAGER' });
+      expect(result.tempPassword).toEqual(expect.any(String));
+      expect(result.rawPin).toBeUndefined();
+      expect(prisma.user.create.mock.calls[0][0].data.pinHash).toBeNull();
     });
 
     it('generates synthetic email when none provided', async () => {
@@ -127,7 +156,7 @@ describe('UsersService', () => {
       prisma.user.findUnique.mockResolvedValue(null);
       prisma.restaurant.findUnique.mockResolvedValue({ id: 'rest-1', ownerId: 'owner-1', tier: 'STARTER' });
       const result = await service.createStaffMember('rest-1', { name: 'Frank', role: 'STAFF' });
-      expect(result).toHaveProperty('rawPin');
+      expect(result.tempPassword).toEqual(expect.any(String));
     });
 
     it('throws ForbiddenException when PROFESSIONAL tier staff limit (5) is reached', async () => {
@@ -143,7 +172,7 @@ describe('UsersService', () => {
       prisma.user.findUnique.mockResolvedValue(null);
       prisma.restaurant.findUnique.mockResolvedValue({ id: 'rest-1', ownerId: 'owner-1', tier: 'PROFESSIONAL' });
       const result = await service.createStaffMember('rest-1', { name: 'Frank', role: 'MANAGER' });
-      expect(result).toHaveProperty('rawPin');
+      expect(result.tempPassword).toEqual(expect.any(String));
     });
 
     it('counts STAFF role against the seat limit', async () => {

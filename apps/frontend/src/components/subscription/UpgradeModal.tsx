@@ -93,6 +93,16 @@ export default function UpgradeModal({ feature, onClose }: Props) {
   const minTierIndex = TIER_ORDER.indexOf(minTier);
   const featureLabel = feature ? (FEATURE_DISPLAY[feature] ?? feature) : '';
 
+  // Only show the required tier and the tiers above it — never upsell a plan
+  // that doesn't unlock the feature. (e.g. a PRO-gated feature shows PRO + ENTERPRISE.)
+  const shownTiers = TIERS.filter(({ key }) => TIER_ORDER.indexOf(key) >= minTierIndex);
+  const colsClass =
+    shownTiers.length >= 3
+      ? 'sm:grid-cols-3'
+      : shownTiers.length === 2
+        ? 'sm:grid-cols-2'
+        : 'sm:grid-cols-1';
+
   const { mutate: checkout, isPending } = useMutation({
     mutationFn: (tier: string) => createCheckoutSession(tier, 'monthly'),
     onSuccess: ({ url }) => { window.location.href = url; },
@@ -117,10 +127,10 @@ export default function UpgradeModal({ feature, onClose }: Props) {
     >
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative z-10 w-full max-w-2xl bg-card border border-border rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative z-10 w-full max-w-2xl max-h-[90dvh] overflow-y-auto bg-card border border-border rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
 
         {/* Header */}
-        <div className="relative px-8 pt-8 pb-6 border-b border-border">
+        <div className="relative px-5 sm:px-8 pt-8 pb-6 border-b border-border">
           <button
             onClick={onClose}
             className="absolute top-4 right-4 p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
@@ -149,13 +159,10 @@ export default function UpgradeModal({ feature, onClose }: Props) {
           </p>
         </div>
 
-        {/* Tier cards */}
-        <div className="px-8 py-6 grid grid-cols-3 gap-3">
-          {TIERS.map(({ key, price, bullets }) => {
-            const tierIndex = TIER_ORDER.indexOf(key);
-            const isBelow = tierIndex < minTierIndex;
+        {/* Tier cards — required tier + above, stacked on mobile */}
+        <div className={`px-5 sm:px-8 py-6 grid grid-cols-1 gap-3 ${colsClass}`}>
+          {shownTiers.map(({ key, price, bullets }) => {
             const isRecommended = key === minTier;
-            const isAbove = tierIndex > minTierIndex;
             const isThisLoading = isPending && loadingTier === key;
 
             return (
@@ -164,8 +171,6 @@ export default function UpgradeModal({ feature, onClose }: Props) {
                 className={`relative flex flex-col rounded-2xl border p-4 transition-all ${
                   isRecommended
                     ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
-                    : isBelow
-                    ? 'border-border/40 bg-secondary/20 opacity-50'
                     : 'border-border bg-card hover:border-primary/30'
                 }`}
               >
@@ -173,13 +178,6 @@ export default function UpgradeModal({ feature, onClose }: Props) {
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
                     <span className="text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow whitespace-nowrap" style={{ background: 'var(--gradient-brand)' }}>
                       {t('upgrade.recommended', 'Recommended')}
-                    </span>
-                  </div>
-                )}
-                {isBelow && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-                    <span className="bg-secondary text-muted-foreground px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest whitespace-nowrap">
-                      {t('upgrade.notIncluded', 'Not included')}
                     </span>
                   </div>
                 )}
@@ -199,33 +197,29 @@ export default function UpgradeModal({ feature, onClose }: Props) {
                   ))}
                 </ul>
 
-                {!isBelow && (
-                  <button
-                    onClick={() => handleUpgrade(key)}
-                    disabled={isPending}
-                    className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all disabled:opacity-50 ${
-                      isRecommended
-                        ? 'bg-foreground text-background hover:opacity-80'
-                        : isAbove
-                        ? 'bg-secondary text-foreground hover:bg-secondary/80'
-                        : ''
-                    }`}
-                  >
-                    {isThisLoading
-                      ? t('subscription.loading', 'Loading...')
-                      : t('upgrade.cta', 'Upgrade to {{tier}}', { tier: key })}
-                  </button>
-                )}
+                <button
+                  onClick={() => handleUpgrade(key)}
+                  disabled={isPending}
+                  className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all disabled:opacity-50 ${
+                    isRecommended
+                      ? 'bg-foreground text-background hover:opacity-80'
+                      : 'bg-secondary text-foreground hover:bg-secondary/80'
+                  }`}
+                >
+                  {isThisLoading
+                    ? t('subscription.loading', 'Loading...')
+                    : t('upgrade.cta', 'Upgrade to {{tier}}', { tier: key })}
+                </button>
               </div>
             );
           })}
         </div>
 
         {error && (
-          <p className="px-8 pb-2 text-sm text-destructive text-center">{error}</p>
+          <p className="px-5 sm:px-8 pb-2 text-sm text-destructive text-center">{error}</p>
         )}
 
-        <div className="px-8 pb-6 text-center">
+        <div className="px-5 sm:px-8 pb-6 text-center">
           <p className="text-xs text-muted-foreground">
             {t('pricing.terms', 'Prices exclude VAT. Cancel anytime.')}
             {' · '}

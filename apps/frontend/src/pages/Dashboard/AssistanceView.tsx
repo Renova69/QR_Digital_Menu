@@ -191,8 +191,8 @@ const AssistanceView = () => {
       </div>
 
       <div className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="overflow-x-auto hide-scrollbar">
-          <div className="inline-flex min-w-max items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-sm">
+        <div>
+          <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-card p-1 shadow-sm sm:flex sm:flex-wrap sm:items-center">
             {filters.map(({ id, label, count, Icon }) => {
               const isActive = filter === id;
               return (
@@ -201,7 +201,7 @@ const AssistanceView = () => {
                   type="button"
                   onClick={() => setFilter(id)}
                   className={cn(
-                    'flex h-9 items-center gap-2 rounded-md px-4 text-sm font-bold transition active:scale-[0.98]',
+                    'flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4',
                     isActive
                       ? 'bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground',

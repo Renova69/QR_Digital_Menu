@@ -3,6 +3,7 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { FeatureService } from '../subscription/feature.service';
+import { isPinRole } from './staff-roles';
 import { User, Prisma } from '@prisma/client';
 
 @Injectable()
@@ -34,7 +35,7 @@ export class UsersService {
     restaurantId: string,
     data: { name: string; email?: string; role: string },
     callerRole: string = 'OWNER',
-  ): Promise<{ user: { id: string; email: string; name: string | null; role: string }; rawPin: string; tempPassword?: string }> {
+  ): Promise<{ user: { id: string; email: string; name: string | null; role: string }; rawPin?: string; tempPassword?: string }> {
     if (data.role === 'MANAGER' && callerRole !== 'OWNER') {
       throw new ForbiddenException('Only owners can create manager accounts');
     }
@@ -57,13 +58,22 @@ export class UsersService {
 
     const staffLimit = this.featureService.getStaffLimit(tier);
 
-    const rawPin = crypto.randomInt(1000, 10000).toString();
-    const pinHash = await bcrypt.hash(rawPin, 10);
+    // Role-exclusive credentials. Device roles (WAITER/KITCHEN) authenticate by
+    // PIN at a shared POS/KDS tablet; dashboard roles (STAFF/MANAGER) authenticate
+    // by email + temp password. A role must never carry both — a short PIN must
+    // not be able to mint a JWT for a dashboard account (see pinLogin scoping).
+    const usePinCredential = isPinRole(data.role);
+
+    const rawPin = usePinCredential ? crypto.randomInt(1000, 10000).toString() : undefined;
+    const pinHash = rawPin ? await bcrypt.hash(rawPin, 10) : null;
+
+    // `password` is non-nullable in the schema, so every user gets a hash. For
+    // PIN roles it is a random throwaway value that is never surfaced and cannot
+    // be used to log in (it is not returned to the caller).
+    const tempPassword = crypto.randomBytes(6).toString('hex'); // 12-character random string
 
     const explicitEmail = !!data.email;
     const baseEmail = data.email || `staff-${Date.now()}@${restaurantId}.local`;
-    
-    const tempPassword = crypto.randomBytes(6).toString('hex'); // 12-character random string
 
     const createData: Prisma.UserUncheckedCreateInput = {
       email: baseEmail.toLowerCase().trim(),
@@ -120,8 +130,7 @@ export class UsersService {
 
     return {
       user: { id: user.id, email: user.email, name: user.name, role: user.role },
-      rawPin,
-      tempPassword,
+      ...(usePinCredential ? { rawPin } : { tempPassword }),
     };
   }
 

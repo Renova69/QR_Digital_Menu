@@ -12,6 +12,7 @@ import { CreateAuthDto } from './dto/create-auth.dto';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
+import { PIN_LOGIN_ROLES } from '../users/staff-roles';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -277,7 +278,10 @@ export class AuthService {
   }
 
   async pinLogin(restaurantId: string, pin: string) {
-    const staffRoles: string[] = ['OWNER', 'MANAGER', 'WAITER', 'KITCHEN', 'STAFF'];
+    // Only device/floor roles authenticate by PIN. Dashboard roles
+    // (OWNER/MANAGER/STAFF) are excluded so a 4-digit PIN can never mint a JWT
+    // for a privileged dashboard account. Source of truth: users/staff-roles.ts.
+    const staffRoles: string[] = [...PIN_LOGIN_ROLES];
     const MAX_ATTEMPTS = 5;
     const LOCKOUT_MINUTES = 15;
 
