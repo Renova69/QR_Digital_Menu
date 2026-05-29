@@ -313,6 +313,7 @@
     "subtitle": "See which tables need staff and clear requests fast.",
     "active": "Active",
     "resolved": "Resolved",
+    "urgent": "Urgent",
     "noActive": "No active assistance requests",
     "markResolved": "Mark as Resolved",
     "resolvedRequests": "Resolved Requests",

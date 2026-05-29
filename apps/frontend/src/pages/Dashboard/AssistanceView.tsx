@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
+  AlertTriangle,
   BellRing,
   Check,
   Clock,
@@ -264,6 +265,12 @@ const AssistanceView = () => {
                       <span className={cn('inline-flex h-6 items-center rounded-full px-2 text-[10px] font-black uppercase', urgency.badge)}>
                         {request.isResolved ? t('assistance.resolved', 'Resolved') : t('assistance.active', 'Active')}
                       </span>
+                      {request.type === 'URGENT' && !request.isResolved && (
+                        <span className="inline-flex h-6 items-center gap-1 rounded-full bg-red-500 px-2 text-[10px] font-black uppercase text-white shadow-sm">
+                          <AlertTriangle className="h-3 w-3" />
+                          {t('assistance.urgent', 'Urgent')}
+                        </span>
+                      )}
                       {!request.isResolved && (
                         <span className="flex h-2 w-2 rounded-full bg-red-500 shadow-[0_0_0_4px_rgba(239,68,68,0.12)]" />
                       )}

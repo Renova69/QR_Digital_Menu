@@ -119,6 +119,9 @@ const PublicMenuPage = () => {
   const [assistanceSent, setAssistanceSent] = useState(false);
   const [assistanceLoading, setAssistanceLoading] = useState(false);
   const [noTableNotice, setNoTableNotice] = useState(false);
+  const ASSIST_COOLDOWN_MS = 60000;
+  const assistCooldownKey =
+    restaurantId && tableNumber ? `assist-cd-${restaurantId}-${tableNumber}` : null;
   const [selectedLang, setSelectedLang] = useState<string>("");
 
   const [sessionToken, setSessionToken] = useState<string | null>(null);
@@ -321,6 +324,20 @@ const PublicMenuPage = () => {
     }
   }, [restaurantId, tableNumber]);
 
+  // Restore call-waiter cooldown across reloads — the 60s anti-spam window is
+  // persisted per restaurant+table so reloading the page can't bypass it.
+  useEffect(() => {
+    if (!assistCooldownKey) return;
+    let stored: string | null = null;
+    try { stored = localStorage.getItem(assistCooldownKey); } catch { /* ignore */ }
+    if (!stored) return;
+    const elapsed = Date.now() - Number(stored);
+    if (!Number.isFinite(elapsed) || elapsed < 0 || elapsed >= ASSIST_COOLDOWN_MS) return;
+    setAssistanceSent(true);
+    const id = setTimeout(() => setAssistanceSent(false), ASSIST_COOLDOWN_MS - elapsed);
+    return () => clearTimeout(id);
+  }, [assistCooldownKey]);
+
   useEffect(() => {
     if (menuMeta?.restaurant) {
       const { fontHeading, fontBody } = menuMeta.restaurant;
@@ -353,8 +370,11 @@ const PublicMenuPage = () => {
     try {
       setAssistanceLoading(true);
       await createAssistanceRequest(tableNumber, restaurantId, type);
+      try {
+        if (assistCooldownKey) localStorage.setItem(assistCooldownKey, String(Date.now()));
+      } catch { /* ignore */ }
       setAssistanceSent(true);
-      setTimeout(() => setAssistanceSent(false), 60000);
+      setTimeout(() => setAssistanceSent(false), ASSIST_COOLDOWN_MS);
     } catch (err) {
       console.error("Assistance Request Error:", err);
     } finally {
