@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useContext } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { X, Lock, Sparkles, Check } from 'lucide-react';
 import { createCheckoutSession } from '../../lib/api';
+import RestaurantContext from '../../context/RestaurantContext';
 import type { FeatureFlag, SubscriptionTier } from '../../hooks/useFeature';
 
 const FEATURE_MIN_TIER: Partial<Record<FeatureFlag, SubscriptionTier>> = {
@@ -88,6 +89,7 @@ export default function UpgradeModal({ feature, onClose }: Props) {
   const { t } = useTranslation();
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const activeRestaurantId = useContext(RestaurantContext)?.activeRestaurant?.id;
 
   const minTier: SubscriptionTier = feature ? (FEATURE_MIN_TIER[feature] ?? 'ENTERPRISE') : 'ENTERPRISE';
   const minTierIndex = TIER_ORDER.indexOf(minTier);
@@ -104,7 +106,7 @@ export default function UpgradeModal({ feature, onClose }: Props) {
         : 'sm:grid-cols-1';
 
   const { mutate: checkout, isPending } = useMutation({
-    mutationFn: (tier: string) => createCheckoutSession(tier, 'monthly'),
+    mutationFn: (tier: string) => createCheckoutSession(tier, 'monthly', false, activeRestaurantId),
     onSuccess: ({ url }) => { window.location.href = url; },
     onError: () => {
       setLoadingTier(null);

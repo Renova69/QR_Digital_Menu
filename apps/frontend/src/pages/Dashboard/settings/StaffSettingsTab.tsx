@@ -67,17 +67,34 @@ const roleBadgeClasses: Record<string, string> = {
   KITCHEN: 'bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400',
 };
 
-const rolePermissions: Record<string, string[]> = {
-  STAFF: ['Order management', 'Call Waiter alerts', 'Table status'],
-  MANAGER: ['Settings access', 'Staff devices', 'Menu operations'],
-  WAITER: ['Table POS', 'Order entry', 'Payment notifications'],
-  KITCHEN: ['Kitchen display', 'Ticket progress', 'Order alerts'],
+// i18n key + English fallback per permission, resolved with t() at render.
+const rolePermissions: Record<string, { key: string; label: string }[]> = {
+  STAFF: [
+    { key: 'staff.perm.orderManagement', label: 'Order management' },
+    { key: 'staff.perm.callWaiterAlerts', label: 'Call Waiter alerts' },
+    { key: 'staff.perm.tableStatus', label: 'Table status' },
+  ],
+  MANAGER: [
+    { key: 'staff.perm.settingsAccess', label: 'Settings access' },
+    { key: 'staff.perm.staffDevices', label: 'Staff devices' },
+    { key: 'staff.perm.menuOperations', label: 'Menu operations' },
+  ],
+  WAITER: [
+    { key: 'staff.perm.tablePos', label: 'Table POS' },
+    { key: 'staff.perm.orderEntry', label: 'Order entry' },
+    { key: 'staff.perm.paymentNotifications', label: 'Payment notifications' },
+  ],
+  KITCHEN: [
+    { key: 'staff.perm.kitchenDisplay', label: 'Kitchen display' },
+    { key: 'staff.perm.ticketProgress', label: 'Ticket progress' },
+    { key: 'staff.perm.orderAlerts', label: 'Order alerts' },
+  ],
 };
 
 const formatDateTime = (value?: string | null) => {
-  if (!value) return 'Not recorded';
+  if (!value) return '—';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Not recorded';
+  if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleString([], {
     month: 'short',
     day: 'numeric',
@@ -865,7 +882,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                       </div>
                       <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
                         {(rolePermissions[role.value] || []).map((permission) => (
-                          <li key={permission}>{permission}</li>
+                          <li key={permission.key}>{t(permission.key, permission.label)}</li>
                         ))}
                       </ul>
                     </div>
