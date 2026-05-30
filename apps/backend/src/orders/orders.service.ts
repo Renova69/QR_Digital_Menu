@@ -45,6 +45,10 @@ export class OrdersService {
   ) {}
 
   async create(createOrderDto: CreateOrderDto, staffUserId: string | null = null) {
+    // `createOrderDto.source` is the caller's INTENT only — used here to require
+    // an authenticated staff identity for POS orders. The source actually
+    // recorded on the Order is DERIVED from resolvePosStaff below (#L3); never
+    // trust the client to label an order as staff-created.
     if (createOrderDto.source === 'POS' && !staffUserId) {
       throw new UnauthorizedException('Session expired. Please log in again.');
     }

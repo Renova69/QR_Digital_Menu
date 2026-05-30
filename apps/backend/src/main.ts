@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { RequestMethod, ValidationPipe, VersioningType } from '@nestjs/common';
+import { Logger, RequestMethod, ValidationPipe, VersioningType } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { RedisIoAdapter } from './adapters/redis-io.adapter';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
@@ -9,6 +9,7 @@ import * as crypto from 'crypto';
 import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   try {
     const requiresProductionNodeEnv =
       process.env.REQUIRE_PRODUCTION_NODE_ENV === 'true' ||
@@ -161,9 +162,9 @@ async function bootstrap() {
 
     const port = parseInt(process.env.PORT || '3000', 10);
     await app.listen(port, '0.0.0.0');
-    console.log(`✅ Application is running on port ${port}`);
+    logger.log(`✅ Application is running on port ${port}`);
   } catch (error) {
-    console.error('❌ Application failed to start:', error);
+    logger.error('❌ Application failed to start:', error as any);
     process.exit(1);
   }
 }
