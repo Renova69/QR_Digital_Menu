@@ -212,7 +212,13 @@ export class TablesService {
         },
         include: {
           orders: {
-            select: { customerName: true, totalPrice: true, status: true },
+            select: {
+              customerName: true,
+              totalPrice: true,
+              status: true,
+              source: true,
+              staff: { select: { name: true, email: true, role: true } },
+            },
           },
         },
       }),
@@ -250,7 +256,26 @@ export class TablesService {
         sessionId: session.id,
         orderCount: session.orders.length,
         totalAmount: session.orders.reduce((sum, o) => sum + o.totalPrice, 0),
-        customerNames: [...new Set(session.orders.map((o) => o.customerName).filter(Boolean))],
+        customerNames: [
+          ...new Set(
+            session.orders
+              .map((o) => {
+                // POS/staff orders: show "Waiter: 444" (role + first name)
+                // instead of the hardcoded "Staff" customerName.
+                if (o.source === 'POS') {
+                  const name = o.staff?.name ?? o.staff?.email ?? null;
+                  if (!name) return 'Staff';
+                  const first = String(name).split(/[ @]/)[0];
+                  const role = o.staff?.role
+                    ? o.staff.role.charAt(0).toUpperCase() + o.staff.role.slice(1).toLowerCase()
+                    : 'Staff';
+                  return `${role}: ${first}`;
+                }
+                return o.customerName;
+              })
+              .filter(Boolean),
+          ),
+        ],
         sessionStatus: session.status,
         updatedAt: session.createdAt.toISOString(),
       };
