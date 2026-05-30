@@ -33,7 +33,9 @@ const SettingsView = () => {
 
   const tabs: { id: SettingsTab; label: string; visible: boolean }[] = [
     { id: "general", label: t("settings.tabs.general"), visible: true },
-    { id: "loyalty", label: t("settings.tabs.loyalty"), visible: canLoyalty },
+    // Visible to all non-free tiers as an upsell; content shows a locked state
+    // (with "settings preserved") when canLoyalty is false (#5).
+    { id: "loyalty", label: t("settings.tabs.loyalty"), visible: !isFree },
     { id: "payments", label: t("settings.tabs.payments"), visible: canPayments },
     { id: "staff", label: t("settings.tabs.staff"), visible: allowedStaffRoles.length > 0 },
     // Visible to all non-free tiers as an upsell; content shows locked state when canBranding is false
@@ -79,7 +81,20 @@ const SettingsView = () => {
         {/* Tab content */}
         <div className="p-6">
           {activeTab === "general" && <GeneralSettingsTab />}
-          {activeTab === "loyalty" && <LoyaltySettingsTab />}
+          {activeTab === "loyalty" && canLoyalty && <LoyaltySettingsTab />}
+          {activeTab === "loyalty" && !canLoyalty && (
+            <div className="rounded-xl border border-border bg-muted/30 p-8 text-center">
+              <h3 className="text-lg font-semibold text-foreground">
+                {t("settings.loyaltyLocked", "Loyalty is part of the Professional plan")}
+              </h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {t(
+                  "settings.loyaltyLockedDesc",
+                  "Upgrade to re-enable your loyalty program. Your existing settings and customer point balances are preserved and resume automatically.",
+                )}
+              </p>
+            </div>
+          )}
           {activeTab === "payments" && <PaymentSettingsTab />}
           {activeTab === "staff" && activeRestaurant && (
             <StaffSettingsTab activeRestaurant={activeRestaurant} />

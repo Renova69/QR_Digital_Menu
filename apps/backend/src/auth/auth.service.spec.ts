@@ -165,20 +165,6 @@ describe('AuthService', () => {
     });
   });
 
-  // ─── setPin ──────────────────────────────────────────────────────────────────
-
-  describe('setPin', () => {
-    it('hashes PIN and updates user record', async () => {
-      mockHash.mockResolvedValue('hashed-pin');
-      const result = await service.setPin('usr1', '1234');
-      expect(mockPrisma.user.update).toHaveBeenCalledWith({
-        where: { id: 'usr1' },
-        data: { pinHash: 'hashed-pin', pinAttempts: 0, pinLockedUntil: null },
-      });
-      expect(result.success).toBe(true);
-    });
-  });
-
   // ─── pinLogin ────────────────────────────────────────────────────────────────
 
   describe('pinLogin', () => {

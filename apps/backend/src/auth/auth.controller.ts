@@ -19,7 +19,6 @@ import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { GoogleAuthGuard } from './google-auth.guard';
 import { PinLoginDto } from './dto/pin-login.dto';
-import { SetPinDto } from './dto/set-pin.dto';
 
 const COOKIE_SAMESITE: 'lax' | 'strict' | 'none' =
   (process.env.COOKIE_SAMESITE as any) ||
@@ -143,12 +142,6 @@ export class AuthController {
       path: '/',
     });
     return { success: true };
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Patch('me/pin')
-  setPin(@Request() req: any, @Body(new ValidationPipe({ whitelist: true })) dto: SetPinDto) {
-    return this.authService.setPin(req.user.id, dto.pin);
   }
 
   @Get('csrf-token')

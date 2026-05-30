@@ -270,15 +270,6 @@ export class AuthService {
     return { success: true, ...(isDev ? { devCode: code } : {}), channel: 'email' };
   }
 
-  async setPin(userId: string, pin: string) {
-    const pinHash = await bcrypt.hash(pin, 10);
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { pinHash, pinAttempts: 0, pinLockedUntil: null },
-    });
-    return { success: true };
-  }
-
   async pinLogin(restaurantId: string, pin: string) {
     // Only device/floor roles authenticate by PIN. Dashboard roles
     // (OWNER/MANAGER/STAFF) are excluded so a 4-digit PIN can never mint a JWT

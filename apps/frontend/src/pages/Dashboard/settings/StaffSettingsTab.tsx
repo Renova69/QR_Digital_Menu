@@ -744,6 +744,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
           </section>
 
           <aside className="space-y-4">
+            {/* Shared-device bonding is a POS/KDS concept — gate by canPos (#15) */}
+            {canPos && (
             <section className="rounded-lg border border-border bg-background p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -752,7 +754,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={handleSharedDeviceToggle}>
                   <Smartphone className="mr-2 h-4 w-4" />
-                  {sharedDeviceEnabled ? 'Disable' : 'Enable'}
+                  {sharedDeviceEnabled ? t('common.disable', 'Disable') : t('common.enable', 'Enable')}
                 </Button>
               </div>
               {(sharedDeviceMessage || sharedDeviceEnabled) && (
@@ -761,6 +763,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                 </p>
               )}
             </section>
+            )}
 
             {canPos && <section className="rounded-lg border border-border bg-background p-4">
               <div className="flex items-start justify-between gap-3">
@@ -878,7 +881,10 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
         open={inviteOpen}
         onOpenChange={setInviteOpen}
         title={t('staff.inviteNewStaff')}
-        description="Create a PIN based staff account. Email invite links are planned for v2."
+        description={t(
+          'staff.inviteNewStaffDesc',
+          'Create a staff account. Waiter and kitchen roles get a PIN; manager and staff roles get a temporary password.',
+        )}
       >
         <div className="space-y-4">
           <div className="space-y-3">
