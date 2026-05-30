@@ -4,7 +4,10 @@ export interface Order {
   id: string;
   customerName: string;
   customerPhone: string | null;
+  /** Real RestaurantTable cuid (stable identifier). */
   tableId: string;
+  /** Human-readable table label for display (e.g. "1", "Terrace 3"). */
+  tableName?: string | null;
   status: OrderStatus;
   restaurantId: string;
   totalPrice: number;

@@ -157,8 +157,8 @@ const OrdersView = () => {
         return [
           order.id.toLowerCase(),
           getOrderCode(order.id).toLowerCase(),
-          String(order.tableId ?? '').toLowerCase(),
-          `table ${order.tableId}`.toLowerCase(),
+          String(order.tableName ?? order.tableId ?? '').toLowerCase(),
+          `table ${order.tableName ?? order.tableId}`.toLowerCase(),
           itemNames,
         ].some((value) => value.includes(query));
       })
@@ -180,7 +180,7 @@ const OrdersView = () => {
   const activeStatus = ORDER_STATUSES.find((status) => status.status === activeTab);
   const selectedTable = selectedOrder
     ? {
-        name: t('orders.table', { id: selectedOrder.tableId }),
+        name: t('orders.table', { id: selectedOrder.tableName ?? selectedOrder.tableId }),
         status: selectedOrder.tableSession?.status === 'PAID' ? 'paid' : selectedOrder.status === 'CANCELED' ? 'waiting' : 'occupied',
         sessionId: selectedOrder.id,
         orderCount: 1,
@@ -379,7 +379,7 @@ const OrdersView = () => {
 
                   <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
                       <span className="rounded-md bg-muted px-2.5 py-1 font-black text-foreground">
-                        {t('orders.table', { id: order.tableId })}
+                        {t('orders.table', { id: order.tableName ?? order.tableId })}
                       </span>
                       <span className="flex min-w-0 items-center gap-1.5 truncate">
                         <Clock className="h-3.5 w-3.5" />

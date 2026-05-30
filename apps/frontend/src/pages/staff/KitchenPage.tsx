@@ -173,7 +173,7 @@ export default function KitchenPage() {
                         ))}
                       </ul>
                       <p className="text-[10px] text-gray-600">
-                        Table {order.tableId || '—'}
+                        Table {order.tableName || order.tableId || '—'}
                         {order.customerName ? ` — ${order.customerName}` : ''}
                       </p>
                     </div>
@@ -212,7 +212,7 @@ export default function KitchenPage() {
                 {colOrders.map((order) => {
                   const minutes = getElapsed(order.id, order.createdAt);
                   const urgent = minutes > 15;
-                  const tableNum = order.tableId || '—';
+                  const tableNum = order.tableName || order.tableId || '—';
 
                   return (
                     <button
