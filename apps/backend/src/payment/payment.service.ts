@@ -67,6 +67,32 @@ export class PaymentService {
     throw new ForbiddenException('You do not have permission to access these payments');
   }
 
+  /**
+   * Access check for table-session operations performed from the POS
+   * (open/close/force). Unlike verifyRestaurantAccess (dashboard, manager+
+   * only), this allows ANY staff assigned to the restaurant — waiters and
+   * kitchen run these flows — plus the owner and super-admin. Without it,
+   * these endpoints mutated sessions by token/restaurantId with no check that
+   * the caller belongs to the target restaurant (#3).
+   */
+  private async verifyPosOperatorAccess(restaurantId: string, userId: string) {
+    const [restaurant, user] = await Promise.all([
+      this.prisma.restaurant.findUnique({
+        where: { id: restaurantId },
+        select: { ownerId: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { restaurantId: true, role: true },
+      }),
+    ]);
+    if (!restaurant) throw new NotFoundException('Restaurant not found');
+    if (user?.role === 'SUPER_ADMIN') return;
+    if (restaurant.ownerId === userId) return;
+    if (user?.restaurantId === restaurantId) return; // any staff of this restaurant
+    throw new ForbiddenException('You do not have permission to manage this table session');
+  }
+
   private paymentStatusLabel(status: string) {
     return status === 'SUCCEEDED'
       ? 'Succeeded'
@@ -326,7 +352,8 @@ export class PaymentService {
     }
   }
 
-  async closeSession(token: string, restaurantId: string): Promise<void> {
+  async closeSession(token: string, restaurantId: string, userId: string): Promise<void> {
+    await this.verifyPosOperatorAccess(restaurantId, userId);
     const session = await this.prisma.tableSession.findFirst({
       where: { token, restaurantId, status: 'OPEN' },
     });
@@ -347,7 +374,9 @@ export class PaymentService {
   async closeSessionWithCard(
     token: string,
     restaurantId: string,
+    userId: string,
   ): Promise<{ amount: number }> {
+    await this.verifyPosOperatorAccess(restaurantId, userId);
     const session = await this.prisma.tableSession.findFirst({
       where: { token, restaurantId, status: 'OPEN' },
       include: { orders: true },
@@ -405,7 +434,9 @@ export class PaymentService {
   async closeSessionWithCash(
     token: string,
     restaurantId: string,
+    userId: string,
   ): Promise<{ amount: number }> {
+    await this.verifyPosOperatorAccess(restaurantId, userId);
     const session = await this.prisma.tableSession.findFirst({
       where: { token, restaurantId, status: 'OPEN' },
       include: { orders: true },
@@ -463,7 +494,9 @@ export class PaymentService {
   async forceOpenSession(
     tableId: string,
     restaurantId: string,
+    userId: string,
   ): Promise<{ session: any; token: string }> {
+    await this.verifyPosOperatorAccess(restaurantId, userId);
     const table = await this.prisma.restaurantTable.findFirst({
       where: { id: tableId, restaurantId },
     });

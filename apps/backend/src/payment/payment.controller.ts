@@ -42,9 +42,10 @@ export class PaymentController {
   @UseGuards(JwtAuthGuard, FeatureGuard)
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   forceOpenSession(
+    @Req() req: any,
     @Body() body: { tableId: string; restaurantId: string },
   ) {
-    return this.paymentService.forceOpenSession(body.tableId, body.restaurantId);
+    return this.paymentService.forceOpenSession(body.tableId, body.restaurantId, req.user.id);
   }
 
   @Get('session/:token/bill')
@@ -66,10 +67,11 @@ export class PaymentController {
   @UseGuards(JwtAuthGuard, FeatureGuard)
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   closeSession(
+    @Req() req: any,
     @Param('token') token: string,
     @Body() body: { restaurantId: string },
   ) {
-    return this.paymentService.closeSession(token, body.restaurantId);
+    return this.paymentService.closeSession(token, body.restaurantId, req.user.id);
   }
 
   @Post('session/:token/close-card')
@@ -77,10 +79,11 @@ export class PaymentController {
   @UseGuards(JwtAuthGuard, FeatureGuard)
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   closeSessionWithCard(
+    @Req() req: any,
     @Param('token') token: string,
     @Body() body: { restaurantId: string },
   ) {
-    return this.paymentService.closeSessionWithCard(token, body.restaurantId);
+    return this.paymentService.closeSessionWithCard(token, body.restaurantId, req.user.id);
   }
 
   @Post('session/:token/close-cash')
@@ -88,10 +91,11 @@ export class PaymentController {
   @UseGuards(JwtAuthGuard, FeatureGuard)
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   closeSessionWithCash(
+    @Req() req: any,
     @Param('token') token: string,
     @Body() body: { restaurantId: string },
   ) {
-    return this.paymentService.closeSessionWithCash(token, body.restaurantId);
+    return this.paymentService.closeSessionWithCash(token, body.restaurantId, req.user.id);
   }
 
   @Get('sessions/:restaurantId')
