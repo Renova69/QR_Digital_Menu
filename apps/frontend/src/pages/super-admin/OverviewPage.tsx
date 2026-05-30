@@ -10,6 +10,7 @@ import {
   CreditCard,
   DoorOpen,
   ListChecks,
+  RefreshCw,
   ShieldAlert,
   Users,
 } from "lucide-react";
@@ -224,10 +225,11 @@ function AttentionPanel({ stats }: { stats: NonNullable<Awaited<ReturnType<typeo
 }
 
 export default function OverviewPage() {
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: ["super-admin", "stats"],
     queryFn: getSuperAdminStats,
     staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   if (isLoading) {
@@ -263,14 +265,24 @@ export default function OverviewPage() {
     (data.userRoles?.KITCHEN ?? 0) +
     (data.userRoles?.STAFF ?? 0);
   const customerCount = data.userRoles?.CUSTOMER ?? 0;
-  const billingTier = data.byBillingTier ?? data.byTier;
-  const effectiveTier = data.byEffectiveTier ?? data.byTier;
+  const billingTier = data.byBillingTier;
+  const effectiveTier = data.byEffectiveTier;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-white">Overview</h2>
-        <p className="mt-1 text-sm text-slate-500">Platform health, tier access, and tenant risks</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-white">Overview</h2>
+          <p className="mt-1 text-sm text-slate-500">Platform health, tier access, and tenant risks</p>
+        </div>
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-40 transition-colors"
+        >
+          <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
+          {isFetching ? "Refreshing…" : "Refresh"}
+        </button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -290,7 +302,7 @@ export default function OverviewPage() {
         />
         <StatCard
           label="Paid Plan Tenants"
-          value={data.paidPlanTenants ?? data.activeSubscriptions}
+          value={data.paidPlanTenants}
           icon={CreditCard}
           tone="border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
           helper={`${data.stripeLinkedSubscriptions} Stripe subscriptions linked`}

@@ -47,7 +47,16 @@ export class SuperAdminService {
       ordersLast24h,
       ordersLast7d,
       paymentsLast7d,
-      tenants,
+      allTiers,
+      forcedTierList,
+      paymentsNotOnboarded,
+      paymentsNotOnboardedCount,
+      emptyMenuList,
+      emptyMenuCount,
+      noTableList,
+      noTableCount,
+      inactiveList,
+      inactiveCount,
     ] = await Promise.all([
         this.prisma.restaurant.count({ where: { deletedAt: null } }),
         this.prisma.restaurant.count({ where: { isActive: true, deletedAt: null } }),
@@ -80,20 +89,43 @@ export class SuperAdminService {
         }),
         this.prisma.restaurant.findMany({
           where: { deletedAt: null },
-          orderBy: { createdAt: 'desc' },
-          select: {
-            id: true,
-            name: true,
-            tier: true,
-            forceTier: true,
-            paymentsEnabled: true,
-            stripeOnboarded: true,
-            stripeSubscriptionId: true,
-            isActive: true,
-            createdAt: true,
-            owner: { select: { email: true } },
-            _count: { select: { menuCategories: true, tables: true, orders: true } },
-          },
+          select: { tier: true, forceTier: true },
+        }),
+        this.prisma.restaurant.findMany({
+          where: { forceTier: { not: null }, deletedAt: null },
+          select: { id: true, name: true, tier: true, forceTier: true, owner: { select: { email: true } } },
+        }),
+        this.prisma.restaurant.findMany({
+          where: { paymentsEnabled: true, stripeOnboarded: false, deletedAt: null },
+          select: { id: true, name: true, tier: true, forceTier: true, owner: { select: { email: true } } },
+          take: 5,
+        }),
+        this.prisma.restaurant.count({
+          where: { paymentsEnabled: true, stripeOnboarded: false, deletedAt: null },
+        }),
+        this.prisma.restaurant.findMany({
+          where: { menuCategories: { none: {} }, deletedAt: null },
+          select: { id: true, name: true, owner: { select: { email: true } } },
+          take: 5,
+        }),
+        this.prisma.restaurant.count({
+          where: { menuCategories: { none: {} }, deletedAt: null },
+        }),
+        this.prisma.restaurant.findMany({
+          where: { tables: { none: {} }, deletedAt: null },
+          select: { id: true, name: true, owner: { select: { email: true } } },
+          take: 5,
+        }),
+        this.prisma.restaurant.count({
+          where: { tables: { none: {} }, deletedAt: null },
+        }),
+        this.prisma.restaurant.findMany({
+          where: { isActive: false, deletedAt: null },
+          select: { id: true, name: true, owner: { select: { email: true } } },
+          take: 5,
+        }),
+        this.prisma.restaurant.count({
+          where: { isActive: false, deletedAt: null },
         }),
       ]);
 
@@ -103,32 +135,32 @@ export class SuperAdminService {
     }
 
     const byEffectiveTier = emptyTierCounts();
+    for (const t of allTiers) {
+      const effectiveTier = t.forceTier ?? t.tier;
+      byEffectiveTier[effectiveTier] = (byEffectiveTier[effectiveTier] ?? 0) + 1;
+    }
+
     const forcedOverrides = [];
     let forcedUpgrades = 0;
     let forcedDowngrades = 0;
 
-    for (const tenant of tenants) {
-      const effectiveTier = tenant.forceTier ?? tenant.tier;
-      byEffectiveTier[effectiveTier] = (byEffectiveTier[effectiveTier] ?? 0) + 1;
-
-      if (tenant.forceTier) {
-        const direction =
-          TIER_RANK[tenant.forceTier] > TIER_RANK[tenant.tier]
-            ? 'upgrade'
-            : TIER_RANK[tenant.forceTier] < TIER_RANK[tenant.tier]
-              ? 'downgrade'
-              : 'same';
-        if (direction === 'upgrade') forcedUpgrades += 1;
-        if (direction === 'downgrade') forcedDowngrades += 1;
-        forcedOverrides.push({
-          id: tenant.id,
-          name: tenant.name,
-          ownerEmail: tenant.owner.email,
-          billingTier: tenant.tier,
-          effectiveTier,
-          direction,
-        });
-      }
+    for (const tenant of forcedTierList) {
+      const direction =
+        TIER_RANK[tenant.forceTier!] > TIER_RANK[tenant.tier]
+          ? 'upgrade'
+          : TIER_RANK[tenant.forceTier!] < TIER_RANK[tenant.tier]
+            ? 'downgrade'
+            : 'same';
+      if (direction === 'upgrade') forcedUpgrades += 1;
+      if (direction === 'downgrade') forcedDowngrades += 1;
+      forcedOverrides.push({
+        id: tenant.id,
+        name: tenant.name,
+        ownerEmail: tenant.owner.email,
+        billingTier: tenant.tier,
+        effectiveTier: tenant.forceTier!,
+        direction,
+      });
     }
 
     const userRoles: Record<string, number> = {};
@@ -136,43 +168,12 @@ export class SuperAdminService {
       userRoles[row.role] = row._count._all;
     }
 
-    const paymentsNotOnboarded = tenants
-      .filter((tenant) => tenant.paymentsEnabled && !tenant.stripeOnboarded)
-      .map((tenant) => ({
-        id: tenant.id,
-        name: tenant.name,
-        ownerEmail: tenant.owner.email,
-        billingTier: tenant.tier,
-        effectiveTier: tenant.forceTier ?? tenant.tier,
-      }));
-    const emptyMenus = tenants
-      .filter((tenant) => tenant._count.menuCategories === 0)
-      .map((tenant) => ({
-        id: tenant.id,
-        name: tenant.name,
-        ownerEmail: tenant.owner.email,
-      }));
-    const noTables = tenants
-      .filter((tenant) => tenant._count.tables === 0)
-      .map((tenant) => ({
-        id: tenant.id,
-        name: tenant.name,
-        ownerEmail: tenant.owner.email,
-      }));
-    const inactiveTenants = tenants
-      .filter((tenant) => !tenant.isActive)
-      .map((tenant) => ({
-        id: tenant.id,
-        name: tenant.name,
-        ownerEmail: tenant.owner.email,
-      }));
-
     const attentionNeeded = {
-      forcedOverrides: { count: forcedOverrides.length, items: forcedOverrides.slice(0, 5) },
-      paymentsNotOnboarded: { count: paymentsNotOnboarded.length, items: paymentsNotOnboarded.slice(0, 5) },
-      emptyMenus: { count: emptyMenus.length, items: emptyMenus.slice(0, 5) },
-      noTables: { count: noTables.length, items: noTables.slice(0, 5) },
-      inactiveTenants: { count: inactiveTenants.length, items: inactiveTenants.slice(0, 5) },
+      forcedOverrides: { count: forcedTierList.length, items: forcedOverrides.slice(0, 5) },
+      paymentsNotOnboarded: { count: paymentsNotOnboardedCount, items: paymentsNotOnboarded.map((t) => ({ id: t.id, name: t.name, ownerEmail: t.owner.email, billingTier: t.tier, effectiveTier: t.forceTier ?? t.tier })) },
+      emptyMenus: { count: emptyMenuCount, items: emptyMenuList.map((t) => ({ id: t.id, name: t.name, ownerEmail: t.owner.email })) },
+      noTables: { count: noTableCount, items: noTableList.map((t) => ({ id: t.id, name: t.name, ownerEmail: t.owner.email })) },
+      inactiveTenants: { count: inactiveCount, items: inactiveList.map((t) => ({ id: t.id, name: t.name, ownerEmail: t.owner.email })) },
     };
 
     return {
@@ -181,14 +182,12 @@ export class SuperAdminService {
       deletedRestaurants,
       totalUsers,
       userRoles,
-      byTier: byBillingTier,
       byBillingTier,
       byEffectiveTier,
-      activeSubscriptions: paidPlanTenants,
       paidPlanTenants,
       stripeLinkedSubscriptions,
       suspendedCount,
-      forcedOverrideCount: forcedOverrides.length,
+      forcedOverrideCount: forcedTierList.length,
       forcedUpgrades,
       forcedDowngrades,
       recent: {
@@ -323,6 +322,8 @@ export class SuperAdminService {
       throw new NotFoundException({ code: 'TENANT_NOT_FOUND', message: 'Restaurant not found' });
     }
 
+    if (restaurant.forceTier === forceTier) return restaurant;
+
     const results = await this.prisma.$transaction([
       this.prisma.restaurant.update({
         where: { id },
@@ -409,10 +410,22 @@ export class SuperAdminService {
   async updatePaymentsEnabled(id: string, paymentsEnabled: boolean, actorUserId: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id },
-      select: { id: true, paymentsEnabled: true },
+      select: { id: true, paymentsEnabled: true, tier: true, forceTier: true },
     });
     if (!restaurant) {
       throw new NotFoundException({ code: 'TENANT_NOT_FOUND', message: 'Restaurant not found' });
+    }
+
+    if (restaurant.paymentsEnabled === paymentsEnabled) return restaurant;
+
+    if (paymentsEnabled) {
+      const effectiveTier = restaurant.forceTier ?? restaurant.tier;
+      if (effectiveTier !== 'PROFESSIONAL' && effectiveTier !== 'ENTERPRISE') {
+        throw new BadRequestException({
+          code: 'TIER_RESTRICTED',
+          message: `Payments require PROFESSIONAL or ENTERPRISE tier. Current effective tier: ${effectiveTier}.`,
+        });
+      }
     }
 
     const results = await this.prisma.$transaction([
@@ -510,14 +523,6 @@ export class SuperAdminService {
       throw new BadRequestException({ code: 'NOT_STAFF', message: 'User is not staff of this restaurant' });
     }
 
-    const ownsRestaurant = await this.prisma.restaurant.findFirst({
-      where: { ownerId: staffId },
-      select: { id: true },
-    });
-    if (ownsRestaurant) {
-      throw new BadRequestException({ code: 'IS_OWNER', message: 'Cannot delete restaurant owner' });
-    }
-
     await this.prisma.$transaction([
       this.prisma.user.delete({ where: { id: staffId } }),
       this.prisma.adminAuditLog.create({
@@ -558,11 +563,19 @@ export class SuperAdminService {
     return stats;
   }
 
-  async getAuditLog(params: { page: number; limit: number; targetId?: string }) {
-    const { page, targetId } = params;
+  async getAuditLog(params: { page: number; limit: number; targetId?: string; action?: string; dateFrom?: string; dateTo?: string }) {
+    const { page, targetId, action, dateFrom, dateTo } = params;
     const limit = Math.min(params.limit, 100);
     const skip = (page - 1) * limit;
-    const where: Prisma.AdminAuditLogWhereInput = targetId ? { targetId } : {};
+    const where: Prisma.AdminAuditLogWhereInput = {};
+
+    if (targetId) where.targetId = targetId;
+    if (action) where.action = action;
+    if (dateFrom || dateTo) {
+      where.createdAt = {};
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom);
+      if (dateTo) where.createdAt.lte = new Date(dateTo);
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.adminAuditLog.findMany({

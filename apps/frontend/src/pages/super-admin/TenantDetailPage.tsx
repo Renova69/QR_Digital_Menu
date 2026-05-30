@@ -274,6 +274,8 @@ export default function TenantDetailPage() {
             { label: "Payment Volume", value: `€${tenant.paymentSummary.totalAmount.toFixed(2)}` },
             { label: "Menu Categories", value: String(tenant.menuCategoryCount) },
             { label: "Tables", value: String(tenant.tableCount) },
+            { label: "Created", value: new Date(tenant.createdAt).toLocaleDateString() },
+            { label: "Tier Updated", value: tenant.tierUpdatedAt ? new Date(tenant.tierUpdatedAt).toLocaleDateString() : "—" },
           ].map(({ label, value, extra, valueClass }) => (
             <div key={label}>
               <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">{label}</p>
@@ -287,7 +289,8 @@ export default function TenantDetailPage() {
       </SectionCard>
 
       {/* Payments toggle */}
-      <SectionCard title="Payments" icon={CreditCard}>
+      {!isDeleted && (effectiveTier === 'PROFESSIONAL' || effectiveTier === 'ENTERPRISE' || tenant.paymentsEnabled) && (
+        <SectionCard title="Payments" icon={CreditCard}>
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-slate-200">
@@ -339,6 +342,7 @@ export default function TenantDetailPage() {
           </Dialog.Root>
         </div>
       </SectionCard>
+      )}
 
       {/* Tier management */}
       {!isDeleted && (
@@ -378,7 +382,7 @@ export default function TenantDetailPage() {
                   className="w-full px-3 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-sm mb-4 focus:outline-none focus:border-slate-600"
                 >
                   <option value="">Select tier…</option>
-                  {TIERS.map((t) => <option key={t} value={t}>{t}</option>)}
+                  {TIERS.filter((t) => t !== effectiveTier && t !== tenant.tier).map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
                 <ConfirmationField value={confirmationText} onChange={setConfirmationText} />
                 <div className="flex justify-end gap-2.5">
@@ -661,6 +665,7 @@ export default function TenantDetailPage() {
           <Dialog.Description className="text-sm text-slate-400 mb-5">
             <strong className="text-slate-200">{staffToDelete?.email}</strong> will be permanently deleted. This cannot be undone.
           </Dialog.Description>
+          <ConfirmationField value={confirmationText} onChange={setConfirmationText} />
           <div className="flex justify-end gap-2.5">
             <button
               onClick={() => setStaffToDelete(null)}
@@ -670,7 +675,7 @@ export default function TenantDetailPage() {
             </button>
             <button
               onClick={() => staffToDelete && deleteStaffMutation.mutate(staffToDelete.id)}
-              disabled={deleteStaffMutation.isPending}
+              disabled={deleteStaffMutation.isPending || !confirmed}
               className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-semibold disabled:opacity-50 hover:bg-red-600 transition-colors"
             >
               {deleteStaffMutation.isPending ? "Deleting…" : "Yes, Delete"}

@@ -433,14 +433,12 @@ export const disconnectStripe = async (restaurantId: string) => {
 };
 
 // Menu Import / Export
+// The plaintext key is only ever returned once (on first creation or
+// regeneration). Afterwards the backend reports `configured: true` only — the
+// stored key is hashed and cannot be revealed (#10).
 export const getImportApiKey = async (restaurantId: string) => {
   const response = await api.get(`/restaurants/${restaurantId}/menu/import/api-key`);
-  return response.data as { apiKey: string; generated?: boolean };
-};
-
-export const revealImportApiKey = async (restaurantId: string) => {
-  const response = await api.post(`/restaurants/${restaurantId}/menu/import/api-key/reveal`);
-  return response.data as { apiKey: string };
+  return response.data as { apiKey?: string; generated?: boolean; configured?: boolean };
 };
 
 export const regenerateImportApiKey = async (restaurantId: string) => {

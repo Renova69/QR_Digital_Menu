@@ -387,61 +387,41 @@ describe('MenuImportService', () => {
         .mockResolvedValueOnce({ id: 'rest-1', ownerId: 'user-1' }); // checkOwnership
     });
 
-    it('returns masked existing key without generating new one', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({ importApiKey: 'ocrk_existingkey12345678' });
+    it('reports configured without revealing the key when a hash exists', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({ importApiKeyHash: 'deadbeef' });
 
       const result = await service.getOrCreateApiKey('rest-1', 'user-1');
 
-      expect(result.apiKey).toContain('••••');
+      expect(result).toEqual({ configured: true });
+      expect((result as any).apiKey).toBeUndefined();
       expect(mockPrisma.restaurant.update).not.toHaveBeenCalled();
     });
 
-    it('generates and stores new key when none exists', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({ importApiKey: null });
+    it('generates a key once and stores only its hash when none exists', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({ importApiKeyHash: null });
 
       const result = await service.getOrCreateApiKey('rest-1', 'user-1');
 
       expect(result.generated).toBe(true);
-      expect(mockPrisma.restaurant.update).toHaveBeenCalled();
-    });
-  });
-
-  // ── revealApiKey ─────────────────────────────────────────────────────────
-
-  describe('revealApiKey', () => {
-    beforeEach(() => {
-      mockPrisma.restaurant.findUnique
-        .mockResolvedValueOnce({ id: 'rest-1', ownerId: 'user-1' }); // checkOwnership
-    });
-
-    it('returns existing key plaintext', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({ importApiKey: 'ocrk_abc123' });
-
-      const result = await service.revealApiKey('rest-1', 'user-1');
-
-      expect(result.apiKey).toBe('ocrk_abc123');
-    });
-
-    it('generates new key when none stored', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({ importApiKey: null });
-
-      const result = await service.revealApiKey('rest-1', 'user-1');
-
       expect(result.apiKey).toMatch(/^ocrk_/);
-      expect(mockPrisma.restaurant.update).toHaveBeenCalled();
+      // Stored value is the hash of the returned key, never the key itself.
+      const stored = mockPrisma.restaurant.update.mock.calls[0][0].data.importApiKeyHash;
+      expect(stored).toBe(service.hashKey(result.apiKey!));
+      expect(stored).not.toBe(result.apiKey);
     });
   });
 
   // ── regenerateApiKey ─────────────────────────────────────────────────────
 
   describe('regenerateApiKey', () => {
-    it('always updates key and returns new one', async () => {
+    it('returns a new key once and stores only its hash', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({ id: 'rest-1', ownerId: 'user-1' });
 
       const result = await service.regenerateApiKey('rest-1', 'user-1');
 
       expect(result.apiKey).toMatch(/^ocrk_/);
-      expect(mockPrisma.restaurant.update).toHaveBeenCalled();
+      const stored = mockPrisma.restaurant.update.mock.calls[0][0].data.importApiKeyHash;
+      expect(stored).toBe(service.hashKey(result.apiKey));
     });
   });
 });

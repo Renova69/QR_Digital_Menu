@@ -704,16 +704,12 @@ export default function HelpCenterPage() {
 
   const reorderMutation = useMutation({
     mutationFn: (payload: { id: string; sortOrder: number }[]) => {
-      console.log('[HelpCenter] Reorder payload:', payload.length, 'items', payload.slice(0, 3));
       return reorderHelpContent(payload);
     },
     onSuccess: () => {
-      console.log('[HelpCenter] Reorder saved successfully');
       queryClient.invalidateQueries({ queryKey: ['admin-help-content'] });
     },
-    onError: (err: any) => {
-      console.error('[HelpCenter] Reorder FAILED:', err?.response?.status, err?.response?.data || err.message);
-      // Revert optimistic update by re-fetching
+    onError: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-help-content'] });
     },
   });
@@ -1245,8 +1241,7 @@ function DashboardCategorySettingsDialog({
       queryClient.invalidateQueries({ queryKey: ['admin-help-content'] });
       onClose();
     },
-    onError: (err: any) => {
-      console.error('Failed to save category settings:', err);
+    onError: () => {
       setErrorMsg('Failed to save settings. Please try again.');
     }
   });

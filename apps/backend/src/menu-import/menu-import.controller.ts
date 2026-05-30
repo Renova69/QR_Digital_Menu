@@ -49,23 +49,14 @@ export class MenuImportController {
   }
 
   /**
-   * Get masked API key (or generate if none).
+   * Report whether an import key is configured (or generate + return one once).
+   * The stored key is hashed and can never be re-revealed (#10).
    * GET /api/restaurants/:id/menu/import/api-key
    */
   @Get('import/api-key')
   @UseGuards(JwtAuthGuard)
   getApiKey(@Param('id') id: string, @Request() req: any) {
     return this.menuImportService.getOrCreateApiKey(id, req.user.id);
-  }
-
-  /**
-   * Reveal full API key (for copy-to-clipboard).
-   * POST /api/restaurants/:id/menu/import/api-key/reveal
-   */
-  @Post('import/api-key/reveal')
-  @UseGuards(JwtAuthGuard)
-  revealApiKey(@Param('id') id: string, @Request() req: any) {
-    return this.menuImportService.revealApiKey(id, req.user.id);
   }
 
   /**

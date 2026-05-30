@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ImportMenuDto } from './dto/import-menu.dto';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 import { AvailabilityType, Currency, OptionType } from '@prisma/client';
 
 const VALID_AVAILABILITY = new Set(Object.values(AvailabilityType));
@@ -203,38 +203,27 @@ export class MenuImportService {
     };
   }
 
+  /**
+   * Report whether an import key is configured. The plaintext key is only ever
+   * shown once at create/regenerate (#10) — only its hash is stored, so an
+   * existing key can never be re-displayed. If none exists yet, one is created
+   * and returned in full this single time.
+   */
   async getOrCreateApiKey(restaurantId: string, userId: string) {
     await this.checkOwnership(restaurantId, userId);
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: { importApiKey: true },
+      select: { importApiKeyHash: true },
     });
-    if (restaurant?.importApiKey) {
-      return { apiKey: this.maskKey(restaurant.importApiKey) };
+    if (restaurant?.importApiKeyHash) {
+      return { configured: true };
     }
     const key = this.generateKey();
     await this.prisma.restaurant.update({
       where: { id: restaurantId },
-      data: { importApiKey: key },
+      data: { importApiKeyHash: this.hashKey(key) },
     });
-    return { apiKey: this.maskKey(key), generated: true };
-  }
-
-  async revealApiKey(restaurantId: string, userId: string) {
-    await this.checkOwnership(restaurantId, userId);
-    const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
-      select: { importApiKey: true },
-    });
-    if (!restaurant?.importApiKey) {
-      const key = this.generateKey();
-      await this.prisma.restaurant.update({
-        where: { id: restaurantId },
-        data: { importApiKey: key },
-      });
-      return { apiKey: key };
-    }
-    return { apiKey: restaurant.importApiKey };
+    return { apiKey: key, generated: true };
   }
 
   async regenerateApiKey(restaurantId: string, userId: string) {
@@ -242,7 +231,7 @@ export class MenuImportService {
     const key = this.generateKey();
     await this.prisma.restaurant.update({
       where: { id: restaurantId },
-      data: { importApiKey: key },
+      data: { importApiKeyHash: this.hashKey(key) },
     });
     return { apiKey: key };
   }
@@ -251,8 +240,9 @@ export class MenuImportService {
     return 'ocrk_' + randomBytes(24).toString('hex');
   }
 
-  private maskKey(key: string): string {
-    if (key.length <= 8) return '••••••••';
-    return key.slice(0, 8) + '••••••••••••' + key.slice(-4);
+  /** SHA-256 of the key. The key is 24 random bytes, so a fast hash is
+   *  sufficient (no need for bcrypt) and lookups stay index-friendly. */
+  hashKey(key: string): string {
+    return createHash('sha256').update(key).digest('hex');
   }
 }

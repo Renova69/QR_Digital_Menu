@@ -1,4 +1,5 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -16,8 +17,11 @@ export class ApiKeyGuard implements CanActivate {
     const restaurantId: string = request.params.id;
     if (!restaurantId) return false;
 
+    // Only the SHA-256 hash of the key is stored (#10) — hash the presented
+    // token and match on that.
+    const tokenHash = createHash('sha256').update(token).digest('hex');
     const restaurant = await this.prisma.restaurant.findFirst({
-      where: { id: restaurantId, importApiKey: token },
+      where: { id: restaurantId, importApiKeyHash: tokenHash },
       select: { id: true },
     });
 

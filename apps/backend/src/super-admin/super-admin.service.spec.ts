@@ -51,7 +51,8 @@ describe('SuperAdminService', () => {
   });
 
   describe('getStats', () => {
-    it('returns platform stats using groupBy', async () => {
+    it('returns platform stats using aggregate queries', async () => {
+      // 7 + 4 count calls: total, active, deleted, suspended, paidPlan, stripeLinked, recent7d, paymentsNotOnboardedCount, emptyMenuCount, noTableCount, inactiveCount
       mockPrisma.restaurant.count
         .mockResolvedValueOnce(10)
         .mockResolvedValueOnce(9)
@@ -59,6 +60,10 @@ describe('SuperAdminService', () => {
         .mockResolvedValueOnce(2)
         .mockResolvedValueOnce(4)
         .mockResolvedValueOnce(3)
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(1)
         .mockResolvedValueOnce(1);
       mockPrisma.user.count
         .mockResolvedValueOnce(50)
@@ -80,33 +85,36 @@ describe('SuperAdminService', () => {
         _sum: { amount: '123.45' as any },
         _count: 6,
       });
+      // allTiers query (lightweight: tier + forceTier only)
+      mockPrisma.restaurant.findMany.mockResolvedValueOnce([
+        { tier: 'FREE', forceTier: 'ENTERPRISE' },
+        { tier: 'STARTER', forceTier: null },
+      ]);
+      // forcedTierList query
       mockPrisma.restaurant.findMany.mockResolvedValueOnce([
         {
-          id: 'r1',
-          name: 'Free',
-          tier: 'FREE',
-          forceTier: 'ENTERPRISE',
-          paymentsEnabled: true,
-          stripeOnboarded: false,
-          stripeSubscriptionId: null,
-          isActive: true,
-          createdAt: new Date(),
+          id: 'r1', name: 'Free', tier: 'FREE', forceTier: 'ENTERPRISE',
           owner: { email: 'owner@test.com' },
-          _count: { menuCategories: 0, tables: 0, orders: 0 },
         },
+      ]);
+      // paymentsNotOnboarded (take:5)
+      mockPrisma.restaurant.findMany.mockResolvedValueOnce([
         {
-          id: 'r2',
-          name: 'Starter',
-          tier: 'STARTER',
-          forceTier: null,
-          paymentsEnabled: false,
-          stripeOnboarded: false,
-          stripeSubscriptionId: null,
-          isActive: false,
-          createdAt: new Date(),
-          owner: { email: 'starter@test.com' },
-          _count: { menuCategories: 1, tables: 1, orders: 2 },
+          id: 'r1', name: 'Free', tier: 'FREE', forceTier: 'ENTERPRISE',
+          owner: { email: 'owner@test.com' },
         },
+      ]);
+      // emptyMenuList (take:5)
+      mockPrisma.restaurant.findMany.mockResolvedValueOnce([
+        { id: 'r1', name: 'Free', owner: { email: 'owner@test.com' } },
+      ]);
+      // noTableList (take:5)
+      mockPrisma.restaurant.findMany.mockResolvedValueOnce([
+        { id: 'r1', name: 'Free', owner: { email: 'owner@test.com' } },
+      ]);
+      // inactiveList (take:5)
+      mockPrisma.restaurant.findMany.mockResolvedValueOnce([
+        { id: 'r2', name: 'Starter', owner: { email: 'starter@test.com' } },
       ]);
 
       const result = await service.getStats();
@@ -115,7 +123,6 @@ describe('SuperAdminService', () => {
       expect(result.activeRestaurants).toBe(9);
       expect(result.deletedRestaurants).toBe(1);
       expect(result.totalUsers).toBe(50);
-      expect(result.activeSubscriptions).toBe(4);
       expect(result.paidPlanTenants).toBe(4);
       expect(result.stripeLinkedSubscriptions).toBe(3);
       expect(result.suspendedCount).toBe(2);
@@ -150,8 +157,10 @@ describe('SuperAdminService', () => {
 
       await expect(service.updateTier('nonexistent', 'FREE', ACTOR_ID)).rejects.toThrow();
     });
+  });
 
-    it('ignores invalid tier in getTenants query', async () => {
+  describe('getTenants', () => {
+    it('ignores invalid tier in query', async () => {
       mockPrisma.restaurant.findMany.mockResolvedValueOnce([]);
       mockPrisma.restaurant.count.mockResolvedValueOnce(0);
 
@@ -162,16 +171,49 @@ describe('SuperAdminService', () => {
     });
   });
 
-  describe('updateStatus', () => {
-    it('suspends restaurant and writes audit log', async () => {
-      const updated = { id: '1', name: 'Test', isActive: false };
-      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({ id: '1', isActive: true });
-      mockPrisma.$transaction.mockResolvedValueOnce([updated, {}]);
+  describe('updatePaymentsEnabled', () => {
+    const PROFESSIONAL_RESTAURANT = { id: '1', paymentsEnabled: false, tier: 'PROFESSIONAL', forceTier: null };
+    const FREE_RESTAURANT = { id: '2', paymentsEnabled: false, tier: 'FREE', forceTier: null };
 
-      const result = await service.updateStatus('1', false, ACTOR_ID);
+    it('allows enabling on PROFESSIONAL tier', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce(PROFESSIONAL_RESTAURANT);
+      mockPrisma.$transaction.mockResolvedValueOnce([{ id: '1', name: 'Test', paymentsEnabled: true }, {}]);
 
-      expect(result.isActive).toBe(false);
-      expect(mockPrisma.$transaction).toHaveBeenCalled();
+      const result = await service.updatePaymentsEnabled('1', true, ACTOR_ID);
+
+      expect(result.paymentsEnabled).toBe(true);
+    });
+
+    it('throws TIER_RESTRICTED when enabling on FREE tier', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce(FREE_RESTAURANT);
+
+      await expect(
+        service.updatePaymentsEnabled('2', true, ACTOR_ID),
+      ).rejects.toThrow('Payments require PROFESSIONAL or ENTERPRISE');
+    });
+
+    it('allows disabling on FREE tier', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
+        ...FREE_RESTAURANT,
+        paymentsEnabled: true,
+      });
+      mockPrisma.$transaction.mockResolvedValueOnce([{ id: '2', name: 'Test', paymentsEnabled: false }, {}]);
+
+      const result = await service.updatePaymentsEnabled('2', false, ACTOR_ID);
+
+      expect(result.paymentsEnabled).toBe(false);
+    });
+
+    it('skips transaction when paymentsEnabled unchanged', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
+        ...PROFESSIONAL_RESTAURANT,
+        paymentsEnabled: true,
+      });
+
+      const result = await service.updatePaymentsEnabled('1', true, ACTOR_ID);
+
+      expect(result.paymentsEnabled).toBe(true);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
   });
 
