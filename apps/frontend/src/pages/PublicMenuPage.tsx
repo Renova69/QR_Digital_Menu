@@ -814,9 +814,15 @@ const PublicMenuPage = () => {
                     try {
                       await getSessionBill(sessionToken);
                       setIsPaymentModalOpen(true);
-                    } catch {
-                      setSessionToken(null);
-                      if (tableNumber) localStorage.removeItem(`session-${restaurantId}-${tableNumber}`);
+                    } catch (err: any) {
+                      // Only forget the session when the server says it is
+                      // truly gone (404/410). Transient network/5xx errors must
+                      // NOT delete a still-valid session token.
+                      const status = err?.response?.status;
+                      if (status === 404 || status === 410) {
+                        setSessionToken(null);
+                        if (tableNumber) localStorage.removeItem(`session-${restaurantId}-${tableNumber}`);
+                      }
                     }
                   }}
                 >
