@@ -32,12 +32,23 @@ export const ThemeToggle = ({ storageKey = 'theme', defaultTheme = 'light', size
         } else {
             root.classList.remove('dark');
         }
-        localStorage.setItem(storageKey, theme);
+        // Apply to the DOM on mount/change, but DO NOT persist here — writing
+        // the default on first render would lock a returning visitor onto the
+        // old default even if the restaurant later changes it (#13). Persist
+        // only on an explicit user toggle, below.
         onThemeChange?.(theme);
-    }, [theme, storageKey, onThemeChange]);
+    }, [theme, onThemeChange]);
 
     const toggleTheme = () => {
-        setTheme(prev => prev === 'light' ? 'dark' : 'light');
+        setTheme(prev => {
+            const next = prev === 'light' ? 'dark' : 'light';
+            try {
+                localStorage.setItem(storageKey, next);
+            } catch {
+                /* ignore storage failures (private mode, etc.) */
+            }
+            return next;
+        });
     };
 
     const sizeClass = size === 'sm'

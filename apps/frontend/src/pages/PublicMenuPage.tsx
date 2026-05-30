@@ -3,6 +3,7 @@ import { useParams, useLocation, useNavigate } from "react-router-dom";
 import type { Restaurant } from "../services/restaurantService";
 import { getMenuMeta, getCategoryItems, createAssistanceRequest, getSessionBill, recordMenuView } from "../lib/api";
 import { getVisitorId } from "../lib/visitorId";
+import { BRANDING_FONT_NAMES } from "../lib/brandingFonts";
 import { PaymentModal } from "../components/payment/PaymentModal";
 import { useCart } from "../context/CartContext";
 import { Button } from "../components/ui/button";
@@ -345,9 +346,10 @@ const PublicMenuPage = () => {
       if (fontHeading) fontsToLoad.add(fontHeading);
       if (fontBody) fontsToLoad.add(fontBody);
 
-      const ALLOWED_FONTS = new Set(['Playfair Display', 'Outfit', 'Lato']);
       fontsToLoad.forEach((font) => {
-        if (!ALLOWED_FONTS.has(font)) return;
+        // Allowlist == the branding editor's font set (#12) — also guards
+        // against arbitrary values being interpolated into the Fonts URL.
+        if (!BRANDING_FONT_NAMES.has(font)) return;
         const linkId = `font-${font.replace(/ /g, "-")}`;
         if (!document.getElementById(linkId)) {
           const link = document.createElement("link");

@@ -1,26 +1,10 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { ChevronDown, Search, X, CheckCircle2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { BRANDING_FONTS } from '../../lib/brandingFonts';
 
-const FONTS = [
-  { name: 'Playfair Display', category: 'Serif', pairsWith: ['Outfit', 'Lato', 'Karla', 'Open Sans'] },
-  { name: 'Merriweather', category: 'Serif', pairsWith: ['Open Sans', 'Lato', 'Roboto'] },
-  { name: 'Lora', category: 'Serif', pairsWith: ['Lato', 'Open Sans', 'Karla'] },
-  { name: 'Crimson Text', category: 'Serif', pairsWith: ['Outfit', 'Karla', 'Open Sans'] },
-  { name: 'PT Serif', category: 'Serif', pairsWith: ['Open Sans', 'Roboto'] },
-  { name: 'Inter', category: 'Sans-Serif', pairsWith: ['Inter', 'Outfit', 'Lato'] },
-  { name: 'Outfit', category: 'Sans-Serif', pairsWith: ['Outfit', 'Inter', 'Playfair Display'] },
-  { name: 'Roboto', category: 'Sans-Serif', pairsWith: ['Roboto', 'Open Sans', 'Merriweather'] },
-  { name: 'Open Sans', category: 'Sans-Serif', pairsWith: ['Merriweather', 'Lora', 'Oswald'] },
-  { name: 'Montserrat', category: 'Sans-Serif', pairsWith: ['Montserrat', 'Open Sans', 'Lato'] },
-  { name: 'Lato', category: 'Sans-Serif', pairsWith: ['Playfair Display', 'Lora', 'Merriweather'] },
-  { name: 'Poppins', category: 'Sans-Serif', pairsWith: ['Poppins', 'Open Sans', 'Lato'] },
-  { name: 'Karla', category: 'Sans-Serif', pairsWith: ['Playfair Display', 'Crimson Text', 'Lora'] },
-  { name: 'Oswald', category: 'Display', pairsWith: ['Open Sans', 'Roboto', 'Lato'] },
-  { name: 'Bebas Neue', category: 'Display', pairsWith: ['Roboto', 'Open Sans', 'Lato'] },
-  { name: 'Lobster', category: 'Display', pairsWith: ['Open Sans', 'Lato', 'Roboto'] },
-  { name: 'Pacifico', category: 'Display', pairsWith: ['Open Sans', 'Lato', 'Outfit'] },
-];
+// Single source of truth shared with the public menu's load allowlist (#12).
+const FONTS = BRANDING_FONTS;
 
 interface FontPickerProps {
   label: string;
