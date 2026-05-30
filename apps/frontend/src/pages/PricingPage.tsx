@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { createCheckoutSession, createPortalSession } from '../lib/api';
 import { useTier } from '../hooks/useFeature';
 import { useAuth } from '../context/AuthContext';
+import RestaurantContext from '../context/RestaurantContext';
 
 type Billing = 'monthly' | 'yearly';
 
@@ -54,6 +55,7 @@ export default function PricingPage() {
 
   const { tier: currentTier, hasSubscription } = useTier();
   const { user } = useAuth();
+  const activeRestaurantId = useContext(RestaurantContext)?.activeRestaurant?.id;
 
   const TIERS = [
     {
@@ -177,7 +179,7 @@ export default function PricingPage() {
     setLoading('portal');
     setError('');
     try {
-      const { url } = await createPortalSession();
+      const { url } = await createPortalSession(activeRestaurantId);
       window.location.href = url;
     } catch {
       setError(t('subscription.errorPortal', 'Could not open billing portal. Please try again.'));
@@ -204,7 +206,7 @@ export default function PricingPage() {
     setLoading(tier);
     setError('');
     try {
-      const { url } = await createCheckoutSession(tier, billing);
+      const { url } = await createCheckoutSession(tier, billing, false, activeRestaurantId);
       window.location.href = url;
     } catch (e: any) {
       if (e?.response?.data?.code === 'ALREADY_SUBSCRIBED') {
