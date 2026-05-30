@@ -185,7 +185,19 @@ const OrdersView = () => {
         sessionId: selectedOrder.id,
         orderCount: 1,
         totalAmount: selectedOrder.totalPrice,
-        customerNames: selectedOrder.customerName ? [selectedOrder.customerName] : [],
+        customerNames: (() => {
+          // POS orders: show "Waiter: 444" instead of the hardcoded "Staff".
+          if (selectedOrder.source === 'POS') {
+            const staff: any = selectedOrder.staff;
+            const rawName = staff?.name ?? staff?.email ?? '';
+            const first = rawName ? String(rawName).split(/[ @]/)[0] : 'Staff';
+            const role = staff?.role
+              ? String(staff.role).charAt(0).toUpperCase() + String(staff.role).slice(1).toLowerCase()
+              : 'Staff';
+            return [`${role}: ${first}`];
+          }
+          return selectedOrder.customerName ? [selectedOrder.customerName] : [];
+        })(),
         sessionStatus: selectedOrder.tableSession?.status ?? selectedOrder.status,
         updatedAt: selectedOrder.createdAt,
       }
