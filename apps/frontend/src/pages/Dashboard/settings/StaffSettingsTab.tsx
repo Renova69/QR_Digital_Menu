@@ -921,7 +921,15 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
             <div className="flex items-start gap-3">
               <Mail className="mt-0.5 h-4 w-4 text-muted-foreground" />
               <p className="text-xs text-muted-foreground">
-                The account is created now with a one-time PIN. Sending a direct email invitation can be added in v2.
+                {isPinRole(inviteRole)
+                  ? t(
+                      'staff.inviteHintPin',
+                      'The account is created now with a one-time PIN. Sending a direct email invitation can be added in v2.',
+                    )
+                  : t(
+                      'staff.inviteHintPassword',
+                      'The account is created now with a temporary password. Sending a direct email invitation can be added in v2.',
+                    )}
               </p>
             </div>
           </div>

@@ -69,11 +69,11 @@ export class PaymentService {
 
   /**
    * Access check for table-session operations performed from the POS
-   * (open/close/force). Unlike verifyRestaurantAccess (dashboard, manager+
-   * only), this allows ANY staff assigned to the restaurant — waiters and
-   * kitchen run these flows — plus the owner and super-admin. Without it,
-   * these endpoints mutated sessions by token/restaurantId with no check that
-   * the caller belongs to the target restaurant (#3).
+   * (open/close/force). Allows the owner, super-admin, and floor staff who
+   * actually handle bills — MANAGER and WAITER — assigned to this restaurant.
+   * STAFF (a dashboard/password role) and KITCHEN are excluded: they should
+   * not close or force-open payment sessions. Without this check the endpoints
+   * mutated sessions by token/restaurantId with no caller verification (#3).
    */
   private async verifyPosOperatorAccess(restaurantId: string, userId: string) {
     const [restaurant, user] = await Promise.all([
@@ -89,7 +89,12 @@ export class PaymentService {
     if (!restaurant) throw new NotFoundException('Restaurant not found');
     if (user?.role === 'SUPER_ADMIN') return;
     if (restaurant.ownerId === userId) return;
-    if (user?.restaurantId === restaurantId) return; // any staff of this restaurant
+    if (
+      user?.restaurantId === restaurantId &&
+      (user.role === 'MANAGER' || user.role === 'WAITER')
+    ) {
+      return;
+    }
     throw new ForbiddenException('You do not have permission to manage this table session');
   }
 
