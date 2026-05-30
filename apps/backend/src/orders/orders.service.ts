@@ -492,7 +492,7 @@ export class OrdersService {
         where,
         include: {
           items: { include: { menuItem: true } },
-          staff: { select: { id: true, name: true, email: true } },
+          staff: { select: { id: true, name: true, email: true, role: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip,

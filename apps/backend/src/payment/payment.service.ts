@@ -169,7 +169,7 @@ export class PaymentService {
             menuItem: { select: { name: true, price: true } },
           },
         },
-        staff: { select: { name: true, email: true } },
+        staff: { select: { name: true, email: true, role: true } },
       },
     });
 
@@ -181,6 +181,7 @@ export class PaymentService {
       staffName: order.staff
         ? (order.staff.name ?? order.staff.email)
         : null,
+      staffRole: order.staff?.role ?? null,
       totalPrice: order.totalPrice,
       items: order.items.map((oi) => ({
         name: oi.menuItem?.name ?? 'Unknown item',
@@ -726,7 +727,7 @@ export class PaymentService {
                     menuItem: { select: { name: true, price: true } },
                   },
                 },
-                staff: { select: { name: true, email: true } },
+                staff: { select: { name: true, email: true, role: true } },
               },
             },
           },
@@ -751,6 +752,7 @@ export class PaymentService {
       createdAt: order.createdAt,
       source: order.source,
       staffName: order.staff ? (order.staff.name ?? order.staff.email) : null,
+      staffRole: order.staff?.role ?? null,
       items: order.items.map((item) => ({
         name: item.menuItem?.name ?? 'Unknown item',
         quantity: item.quantity,

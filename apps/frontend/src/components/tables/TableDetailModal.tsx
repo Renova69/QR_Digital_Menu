@@ -11,6 +11,7 @@ interface OrderDetail {
   specialRequests?: string | null;
   source?: 'CUSTOMER' | 'POS';
   staffName?: string | null;
+  staffRole?: string | null;
   staff?: {
     id?: string;
     name?: string | null;
@@ -113,7 +114,17 @@ function getSpecialRequestRows(requests?: string | null) {
     });
 }
 
-function SourceBadge({ source, staff }: { source?: 'CUSTOMER' | 'POS'; staff?: any }) {
+function SourceBadge({
+  source,
+  staff,
+  staffName,
+  staffRole,
+}: {
+  source?: 'CUSTOMER' | 'POS';
+  staff?: any;
+  staffName?: string | null;
+  staffRole?: string | null;
+}) {
   if (!source) return null;
   if (source === 'CUSTOMER') {
     return (
@@ -122,11 +133,14 @@ function SourceBadge({ source, staff }: { source?: 'CUSTOMER' | 'POS'; staff?: a
       </span>
     );
   }
-  
-  const roleStr = staff?.role ? String(staff.role) : '';
+
+  // Resolve from either the dashboard `staff` object or the live-table
+  // flattened staffName/staffRole fields.
+  const roleStr = staff?.role ? String(staff.role) : (staffRole ? String(staffRole) : '');
   const roleName = roleStr ? roleStr.charAt(0).toUpperCase() + roleStr.slice(1).toLowerCase() : 'Staff';
-  const name = staff?.name ? staff.name.split(' ')[0] : (staff?.email ? staff.email.split('@')[0] : 'Staff');
-  
+  const rawName = staff?.name ?? staff?.email ?? staffName ?? '';
+  const name = rawName ? String(rawName).split(/[ @]/)[0] : 'Staff';
+
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
       {roleName}: {name}
@@ -286,7 +300,12 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
                           <span className={cn('rounded-md px-2 py-1 text-[10px] font-black uppercase', orderStatusStyles[order.status])}>
                             {t(statusLabels[order.status] || 'orders.tabs.new')}
                           </span>
-                          <SourceBadge source={order.source} staff={order.staff} />
+                          <SourceBadge
+                            source={order.source}
+                            staff={order.staff}
+                            staffName={order.staffName}
+                            staffRole={order.staffRole}
+                          />
                         </div>
                         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs font-medium text-muted-foreground">
                           {order.customerName && order.source === 'CUSTOMER' && <span>{order.customerName}</span>}
