@@ -557,8 +557,8 @@ export const getSubscriptionStatus = async (restaurantId?: string) => {
   };
 };
 
-export const createCheckoutSession = async (tier: string, billingPeriod: 'monthly' | 'yearly' = 'monthly', onboarding = false) => {
-  const response = await api.post('/subscription/checkout', { tier, billingPeriod, onboarding });
+export const createCheckoutSession = async (tier: string, billingPeriod: 'monthly' | 'yearly' = 'monthly', onboarding = false, restaurantId?: string) => {
+  const response = await api.post('/subscription/checkout', { tier, billingPeriod, onboarding, restaurantId });
   return response.data as { url: string };
 };
 
@@ -567,8 +567,8 @@ export const confirmCheckoutSession = async (sessionId: string) => {
   return response.data as { tier: string };
 };
 
-export const createPortalSession = async () => {
-  const response = await api.post('/subscription/portal');
+export const createPortalSession = async (restaurantId?: string) => {
+  const response = await api.post('/subscription/portal', { restaurantId });
   return response.data as { url: string };
 };
 

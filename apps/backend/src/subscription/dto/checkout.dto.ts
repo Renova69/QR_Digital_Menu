@@ -1,4 +1,4 @@
-import { IsBoolean, IsEnum, IsOptional } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
 
 export enum CheckoutTier {
   STARTER = 'STARTER',
@@ -22,4 +22,8 @@ export class CreateCheckoutDto {
   @IsOptional()
   @IsBoolean()
   onboarding?: boolean;
+
+  @IsOptional()
+  @IsString()
+  restaurantId?: string;
 }

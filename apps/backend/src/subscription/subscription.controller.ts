@@ -85,7 +85,7 @@ export class SubscriptionController {
   async createCheckout(@Req() req: any, @Body() dto: CreateCheckoutDto) {
     if (req.user.role !== 'OWNER') throw new ForbiddenException('Only restaurant owners can manage billing');
     const userId = req.user.id ?? req.user.sub;
-    const restaurant = await this.resolveRestaurant(userId, { id: true });
+    const restaurant = await this.resolveRestaurant(userId, { id: true }, dto.restaurantId);
     if (!restaurant) throw new NotFoundException('No restaurant found for user');
     return this.subscriptionService.createCheckoutSession(restaurant.id, dto.tier, dto.billingPeriod ?? 'monthly', userId, dto.onboarding ?? false);
   }
@@ -99,10 +99,10 @@ export class SubscriptionController {
 
   @Post('portal')
   @UseGuards(JwtAuthGuard)
-  async createPortal(@Req() req: any) {
+  async createPortal(@Req() req: any, @Body('restaurantId') restaurantId?: string) {
     if (req.user.role !== 'OWNER') throw new ForbiddenException('Only restaurant owners can manage billing');
     const userId = req.user.id ?? req.user.sub;
-    const restaurant = await this.resolveRestaurant(userId, { id: true });
+    const restaurant = await this.resolveRestaurant(userId, { id: true }, restaurantId);
     if (!restaurant) throw new NotFoundException('No restaurant found for user');
     return this.subscriptionService.createPortalSession(restaurant.id);
   }

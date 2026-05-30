@@ -139,7 +139,7 @@ export default function BillingView() {
   );
 
   const checkoutMutation = useMutation({
-    mutationFn: (targetTier: SubscriptionTier) => createCheckoutSession(targetTier, 'monthly'),
+    mutationFn: (targetTier: SubscriptionTier) => createCheckoutSession(targetTier, 'monthly', false, activeRestaurant?.id),
     onSuccess: ({ url }) => {
       window.location.href = url;
     },
@@ -153,7 +153,7 @@ export default function BillingView() {
     setActionLoading('portal');
     setError('');
     try {
-      const { url } = await createPortalSession();
+      const { url } = await createPortalSession(activeRestaurant?.id);
       window.location.href = url;
     } catch {
       setError(t('subscription.errorPortal', 'Could not open billing portal. Please try again.'));

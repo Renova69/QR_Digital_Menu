@@ -330,6 +330,26 @@ describe('PaymentService', () => {
       await expect(service.closeSession('tok1', 'rest1', 'intruder')).rejects.toThrow(ForbiddenException);
       expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
     });
+
+    it('denies KITCHEN and STAFF roles even when assigned to the restaurant', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ ownerId: 'someone-else' });
+      for (const role of ['KITCHEN', 'STAFF']) {
+        mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest1', role });
+        await expect(service.closeSession('tok1', 'rest1', 'u-' + role)).rejects.toThrow(ForbiddenException);
+      }
+      expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
+    });
+
+    it('allows a WAITER assigned to the restaurant', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ ownerId: 'someone-else' });
+      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest1', role: 'WAITER' });
+      mockPrisma.tableSession.findFirst.mockResolvedValue({ id: 's1', status: 'OPEN', restaurantId: 'rest1' });
+      mockPrisma.tableSession.update.mockResolvedValue({});
+
+      await service.closeSession('tok1', 'rest1', 'waiter-1');
+
+      expect(mockPrisma.tableSession.update).toHaveBeenCalled();
+    });
   });
 
   describe('getTableSessions', () => {
