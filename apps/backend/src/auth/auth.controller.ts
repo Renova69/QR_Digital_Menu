@@ -19,6 +19,7 @@ import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { GoogleAuthGuard } from './google-auth.guard';
 import { PinLoginDto } from './dto/pin-login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 const COOKIE_SAMESITE: 'lax' | 'strict' | 'none' =
   (process.env.COOKIE_SAMESITE as any) ||
@@ -73,6 +74,20 @@ export class AuthController {
   @Patch('me')
   updateProfile(@Request() req: any, @Body('name') name: string) {
     return this.authService.updateProfile(req.user.id, name);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('me/password')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  changePassword(
+    @Request() req: any,
+    @Body(new ValidationPipe({ whitelist: true })) dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(
+      req.user.id,
+      dto.currentPassword,
+      dto.newPassword,
+    );
   }
 
   @UseGuards(JwtAuthGuard)

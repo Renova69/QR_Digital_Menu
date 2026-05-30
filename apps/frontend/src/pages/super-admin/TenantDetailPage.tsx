@@ -216,6 +216,7 @@ export default function TenantDetailPage() {
   const effectiveTier = tenant.forceTier ?? tenant.tier;
   const isDeleted = !!tenant.deletedAt;
   const confirmed = confirmationText === "CONFIRM";
+  const ownerName = tenant.owner.name?.trim() || "—";
 
   return (
     <div className="space-y-6">
@@ -257,7 +258,8 @@ export default function TenantDetailPage() {
       <SectionCard title="Restaurant Overview" icon={LayoutGrid}>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-5">
           {[
-            { label: "Owner", value: tenant.owner.email },
+            { label: "Owner Name", value: ownerName },
+            { label: "Owner Email", value: tenant.owner.email },
             { label: "Stripe Tier", value: tenant.tier },
             {
               label: "Effective Tier",

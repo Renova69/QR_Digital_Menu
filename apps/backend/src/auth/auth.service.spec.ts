@@ -53,6 +53,7 @@ describe('AuthService', () => {
         update: jest.fn().mockResolvedValue({}),
       },
       user: {
+        findUnique: jest.fn(),
         update: jest.fn().mockResolvedValue(makeUser()),
         updateMany: jest.fn().mockResolvedValue({}),
         findMany: jest.fn().mockResolvedValue([]),
@@ -256,6 +257,34 @@ describe('AuthService', () => {
   });
 
   // ─── sendOtp ─────────────────────────────────────────────────────────────────
+
+  describe('changePassword', () => {
+    it('updates password when current password matches', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(makeUser({ password: 'old-hash' }));
+      mockCompare
+        .mockResolvedValueOnce(true)
+        .mockResolvedValueOnce(false);
+      mockHash.mockResolvedValue('new-hash');
+
+      const result = await service.changePassword('usr1', 'old-password', 'new-password');
+
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'usr1' },
+        data: { password: 'new-hash' },
+      });
+      expect(result).toEqual({ success: true });
+    });
+
+    it('rejects when current password is wrong', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(makeUser({ password: 'old-hash' }));
+      mockCompare.mockResolvedValueOnce(false);
+
+      await expect(
+        service.changePassword('usr1', 'wrong-password', 'new-password'),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
+  });
 
   describe('sendOtp', () => {
     it('throws HttpException(400) when neither email nor phone provided', async () => {

@@ -6,6 +6,26 @@
     "login": "Autentificare",
     "getStarted": "Începeți"
   },
+  "profileDashboard": {
+    "title": "Profil",
+    "description": "Gestionati numele si parola pentru dashboard.",
+    "openProfile": "Deschide profilul",
+    "personalSection": "Date personale",
+    "displayName": "Nume afisat",
+    "displayNamePlaceholder": "Numele dvs.",
+    "saveName": "Salveaza numele",
+    "nameSaved": "Numele a fost actualizat",
+    "nameError": "Nu s-a putut actualiza numele.",
+    "securitySection": "Securitate",
+    "currentPassword": "Parola actuala",
+    "newPassword": "Parola noua",
+    "confirmPassword": "Confirma parola",
+    "changePassword": "Schimba parola",
+    "passwordMin": "Parola noua trebuie sa aiba cel putin 8 caractere.",
+    "passwordMismatch": "Parolele nu coincid.",
+    "passwordSaved": "Parola a fost schimbata",
+    "passwordError": "Nu s-a putut schimba parola."
+  },
   "dashboard": {
     "title": "Panou de Bord Restaurant",
     "welcome": "Bine ai revenit, {{name}}",

@@ -577,6 +577,14 @@ export const updateProfile = async (name: string) => {
   return response.data;
 };
 
+export const changePassword = async (currentPassword: string, newPassword: string) => {
+  const response = await api.patch('/auth/me/password', {
+    currentPassword,
+    newPassword,
+  });
+  return response.data as { success: boolean };
+};
+
 export const updateOnboardingStep = async (step: string) => {
   const response = await api.patch('/auth/onboarding-step', { step });
   return response.data as { success: boolean };

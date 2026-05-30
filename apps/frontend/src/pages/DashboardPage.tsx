@@ -43,6 +43,7 @@ import UpgradeModal from '../components/subscription/UpgradeModal';
 import { useFeature, type FeatureFlag } from '../hooks/useFeature';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { DashboardProfileModal } from '../components/dashboard/DashboardProfileModal';
 
 type TabId =
   | 'summary'
@@ -94,7 +95,7 @@ const DASHBOARD_LANGUAGES = [
 ];
 
 const DashboardPage = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const { orders } = useOrders();
   const { requests } = useAssistance();
   const {
@@ -107,6 +108,7 @@ const DashboardPage = () => {
   const [lockedFeatureClicked, setLockedFeatureClicked] =
     useState<FeatureFlag | null>(null);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [searchParams] = useSearchParams();
   const tabFromParamApplied = useRef(false);
 
@@ -455,20 +457,27 @@ const DashboardPage = () => {
 
           {/* User footer */}
           <div className="mt-3 flex items-center gap-3 px-2">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-              style={{ background: 'var(--brand)' }}
+            <button
+              type="button"
+              onClick={() => setProfileOpen(true)}
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              aria-label={t('profileDashboard.openProfile', 'Open profile')}
             >
-              {userName.charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-foreground truncate">
-                {user?.name || user?.email}
-              </p>
-              <p className="text-[10px] text-muted-foreground truncate">
-                {user?.role}
-              </p>
-            </div>
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                style={{ background: 'var(--brand)' }}
+              >
+                {userName.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-foreground truncate">
+                  {user?.name || user?.email}
+                </p>
+                <p className="text-[10px] text-muted-foreground truncate">
+                  {user?.role}
+                </p>
+              </div>
+            </button>
             <button
               onClick={() => {
                 logout();
@@ -710,6 +719,15 @@ const DashboardPage = () => {
 
             {/* Account header */}
             <div className="flex items-center gap-3 mb-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMoreOpen(false);
+                  setProfileOpen(true);
+                }}
+                className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                aria-label={t('profileDashboard.openProfile', 'Open profile')}
+              >
               <div
                 className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
                 style={{ background: 'var(--brand)' }}
@@ -724,6 +742,7 @@ const DashboardPage = () => {
                   {user?.role}
                 </p>
               </div>
+              </button>
               <button
                 onClick={() => setMobileMoreOpen(false)}
                 className="p-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
@@ -826,6 +845,12 @@ const DashboardPage = () => {
           </div>
         </div>
       )}
+      <DashboardProfileModal
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+        user={user}
+        onUserUpdate={updateUser}
+      />
     </div>
   );
 };
