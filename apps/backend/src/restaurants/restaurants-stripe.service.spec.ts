@@ -21,7 +21,17 @@ describe('RestaurantsService — Stripe Connect', () => {
       retrieveAccount: jest.fn().mockResolvedValue(true),
     };
 
-    service = new RestaurantsService(mockPrisma, mockTranslation as any, mockStripe as any);
+    const mockFeature = {
+      getEffectiveTier: jest.fn((tier: string, force?: string | null) => force ?? tier),
+      hasFeature: jest.fn().mockReturnValue(true),
+    };
+
+    service = new RestaurantsService(
+      mockPrisma,
+      mockTranslation as any,
+      mockStripe as any,
+      mockFeature as any,
+    );
   });
 
   describe('generateConnectLink', () => {

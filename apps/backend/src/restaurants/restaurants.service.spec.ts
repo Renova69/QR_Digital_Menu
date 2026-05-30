@@ -16,6 +16,7 @@ describe('RestaurantsService', () => {
   let mockPrisma: any;
   let mockTranslation: any;
   let mockStripe: any;
+  let mockFeature: any;
 
   beforeEach(() => {
     mockPrisma = {
@@ -54,7 +55,12 @@ describe('RestaurantsService', () => {
       retrieveAccount: jest.fn().mockResolvedValue(true),
     };
 
-    service = new RestaurantsService(mockPrisma, mockTranslation, mockStripe);
+    mockFeature = {
+      getEffectiveTier: jest.fn((tier: string, force?: string | null) => force ?? tier),
+      hasFeature: jest.fn().mockReturnValue(true),
+    };
+
+    service = new RestaurantsService(mockPrisma, mockTranslation, mockStripe, mockFeature);
   });
 
   // ─── create ──────────────────────────────────────────────────────────────────
@@ -71,6 +77,18 @@ describe('RestaurantsService', () => {
         data: expect.objectContaining({ ...dto, ownerId: 'user1' }),
       });
       expect(result).toBe(expected);
+    });
+
+    it('strips branding fields — new restaurants start on FREE', async () => {
+      const dto = { name: 'New Place', logoUrl: 'https://r2/logo.webp', accentColor: '#abc' };
+      mockPrisma.restaurant.create.mockResolvedValue(makeRestaurant());
+
+      await service.create(dto as any, 'user1');
+
+      const sentData = mockPrisma.restaurant.create.mock.calls[0][0].data;
+      expect(sentData).not.toHaveProperty('logoUrl');
+      expect(sentData).not.toHaveProperty('accentColor');
+      expect(sentData).toMatchObject({ name: 'New Place', ownerId: 'user1' });
     });
   });
 
@@ -226,6 +244,61 @@ describe('RestaurantsService', () => {
       mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'WAITER' });
 
       await expect(service.update('rest1', {} as any, 'waiter1')).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  // ─── branding tier enforcement ────────────────────────────────────────────────
+
+  describe('update — branding tier gating', () => {
+    const brandingDto = {
+      name: 'Updated',
+      fontHeading: 'Lobster',
+      themeDarkAccentColor: '#ff0000',
+      logoUrl: 'https://r2/evil.webp',
+    };
+
+    beforeEach(() => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ tier: 'STARTER', forceTier: null }),
+      );
+      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'OWNER' });
+    });
+
+    it('strips branding fields when tier lacks BRANDING_CUSTOM', async () => {
+      mockFeature.hasFeature.mockReturnValue(false);
+
+      await service.update('rest1', brandingDto as any, 'user1');
+
+      expect(mockPrisma.restaurant.update).toHaveBeenCalledWith({
+        where: { id: 'rest1' },
+        data: { name: 'Updated' },
+      });
+      const sentData = mockPrisma.restaurant.update.mock.calls[0][0].data;
+      expect(sentData).not.toHaveProperty('fontHeading');
+      expect(sentData).not.toHaveProperty('themeDarkAccentColor');
+      expect(sentData).not.toHaveProperty('logoUrl');
+    });
+
+    it('keeps branding fields when tier has BRANDING_CUSTOM', async () => {
+      mockFeature.hasFeature.mockReturnValue(true);
+
+      await service.update('rest1', brandingDto as any, 'user1');
+
+      expect(mockPrisma.restaurant.update).toHaveBeenCalledWith({
+        where: { id: 'rest1' },
+        data: brandingDto,
+      });
+    });
+
+    it('resolves the effective (forced) tier before checking the feature', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ tier: 'FREE', forceTier: 'PROFESSIONAL' }),
+      );
+      mockFeature.hasFeature.mockReturnValue(true);
+
+      await service.update('rest1', brandingDto as any, 'user1');
+
+      expect(mockFeature.getEffectiveTier).toHaveBeenCalledWith('FREE', 'PROFESSIONAL');
     });
   });
 
