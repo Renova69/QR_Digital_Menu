@@ -312,14 +312,65 @@ describe('OrdersService', () => {
 
     it('emits table status changed when order has tableSessionId', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
-      const tx = makeTx({ tableSessionId: 'sess-1', tableId: 'table-1' });
+      prisma.restaurantTable.findFirst.mockResolvedValue({ id: 'table-cuid-1', name: 'T1' });
+      const tx = makeTx({ tableSessionId: 'sess-1', tableId: 'table-cuid-1' });
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
 
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        tableId: 'T1',
       } as any);
 
       expect(events.emitTableStatusChanged).toHaveBeenCalled();
+    });
+
+    it('persists the table cuid in tableId and the name in tableName (#M1)', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurantTable.findFirst.mockResolvedValue({ id: 'table-cuid-1', name: 'T1' });
+      const tx = makeTx();
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+
+      await service.create({
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        tableId: 'T1',
+      } as any);
+
+      const createArgs = tx.order.create.mock.calls[0][0];
+      expect(createArgs.data.tableId).toBe('table-cuid-1');
+      expect(createArgs.data.tableName).toBe('T1');
+    });
+
+    it('emits table status with the table cuid, not the name (#M1)', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurantTable.findFirst.mockResolvedValue({ id: 'table-cuid-1', name: 'T1' });
+      const tx = makeTx();
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+
+      await service.create({
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        tableId: 'T1',
+      } as any);
+
+      // makeOrder() returns tableSessionId 'sess-1'; the key assertion is the
+      // second arg is the cuid 'table-cuid-1', never the name 'T1'.
+      expect(events.emitTableStatusChanged).toHaveBeenCalledWith('rest-1', 'table-cuid-1', 'sess-1');
+    });
+
+    it('resolves tableId from the existing session on the sessionToken path (#M1)', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.tableSession.findFirst.mockResolvedValue({ id: 'sess-exist', token: 'tok-exist', tableId: 'table-cuid-9' });
+      const tx = makeTx();
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+
+      await service.create({
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        tableId: 'T9',
+        sessionToken: 'tok-exist',
+      } as any);
+
+      const createArgs = tx.order.create.mock.calls[0][0];
+      expect(createArgs.data.tableId).toBe('table-cuid-9');
+      expect(createArgs.data.tableName).toBe('T9');
     });
 
     it('throws BadRequestException when loyalty redeemPoints sent but loyalty disabled', async () => {
