@@ -54,7 +54,7 @@ model Restaurant {
   contactInfo               String?
   targetLanguages           String[]            @default([])
   dashboardLanguage         String?             @default("en")
-  timezone                  String?             @default("UTC")
+  timezone                  String?             @default("Europe/Sofia")
   ownerId                   String
   createdAt                 DateTime            @default(now())
   updatedAt                 DateTime            @updatedAt

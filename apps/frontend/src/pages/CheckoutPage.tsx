@@ -106,7 +106,7 @@ const CheckoutPage = () => {
     const endMinutes = parseTimeToMinutes(restaurantConfig.happyHourEndTime);
     if (startMinutes === null || endMinutes === null) return false;
 
-    const timeZone = restaurantConfig.timezone || "UTC";
+    const timeZone = restaurantConfig.timezone || "Europe/Sofia";
     const now = new Date();
     const current = getZonedClockParts(now, timeZone);
     const previous = getZonedClockParts(new Date(now.getTime() - 24 * 60 * 60 * 1000), timeZone);

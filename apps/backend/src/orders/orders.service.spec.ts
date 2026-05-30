@@ -11,7 +11,7 @@ const makeRestaurant = (overrides: Record<string, any> = {}) => ({
   id: 'rest-1',
   isActive: true,
   tier: 'PROFESSIONAL',
-  timezone: 'UTC',
+  timezone: 'Europe/Sofia',
   happyHourEnable: false,
   happyHourStartTime: null,
   happyHourEndTime: null,

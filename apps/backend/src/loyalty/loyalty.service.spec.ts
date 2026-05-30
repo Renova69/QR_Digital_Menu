@@ -22,7 +22,7 @@ const BASE_RESTAURANT = {
   happyHourStartTime: null,
   happyHourEndTime: null,
   happyHourMultiplier: 100,
-  timezone: 'UTC',
+  timezone: 'Europe/Sofia',
 };
 
 // Full tx mock — covers expireAccountPoints + getExpiringPointBatches + markRemindersSent

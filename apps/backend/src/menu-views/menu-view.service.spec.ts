@@ -18,7 +18,7 @@ describe('MenuViewService', () => {
     mockPrisma = {
       restaurant: {
         count: jest.fn().mockResolvedValue(1),
-        findUnique: jest.fn().mockResolvedValue({ timezone: 'UTC' }),
+        findUnique: jest.fn().mockResolvedValue({ timezone: 'Europe/Sofia' }),
       },
       restaurantTable: {
         findFirst: jest.fn().mockResolvedValue({ id: 'table1' }),

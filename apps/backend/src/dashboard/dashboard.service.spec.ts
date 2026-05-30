@@ -40,7 +40,7 @@ describe('DashboardService', () => {
 
   describe('getSummary', () => {
     beforeEach(() => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'UTC' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'Europe/Sofia' });
       mockPrisma.order.count.mockResolvedValue(5);
       mockPrisma.order.aggregate.mockResolvedValue({ _sum: { totalPrice: 250 } });
       mockPrisma.assistanceRequest.count.mockResolvedValue(2);
@@ -84,7 +84,7 @@ describe('DashboardService', () => {
     const defaultAggregate = { _sum: { totalPrice: 100 }, _count: 3, _avg: { totalPrice: 33.33 } };
 
     beforeEach(() => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'UTC' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'Europe/Sofia' });
       mockPrisma.order.findMany.mockResolvedValue([]);
       mockPrisma.order.aggregate.mockResolvedValue(defaultAggregate);
       mockPrisma.order.groupBy.mockResolvedValue([]);
@@ -151,7 +151,7 @@ describe('DashboardService', () => {
 
   describe('getOrdersByStatus (via getAnalytics)', () => {
     beforeEach(() => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'UTC' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'Europe/Sofia' });
       mockPrisma.order.findMany.mockResolvedValue([]);
       mockPrisma.order.aggregate.mockResolvedValue({
         _sum: { totalPrice: 0 },
@@ -194,7 +194,7 @@ describe('DashboardService', () => {
 
   describe('servedRate calculation', () => {
     it('returns 0 servedRate when no orders', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'UTC' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'Europe/Sofia' });
       mockPrisma.order.findMany.mockResolvedValue([]);
       mockPrisma.order.aggregate.mockResolvedValue({ _sum: { totalPrice: 0 }, _count: 0, _avg: { totalPrice: 0 } });
       mockPrisma.order.groupBy.mockResolvedValue([]);
@@ -208,7 +208,7 @@ describe('DashboardService', () => {
 
   describe('getAnalytics with non-empty data (loop body coverage)', () => {
     beforeEach(() => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'UTC' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'Europe/Sofia' });
       mockPrisma.order.aggregate.mockResolvedValue({
         _sum: { totalPrice: 50 }, _count: 1, _avg: { totalPrice: 50 },
       });
@@ -261,7 +261,7 @@ describe('DashboardService', () => {
   describe('getAnalytics via materialized views (isReady = true)', () => {
     beforeEach(() => {
       mockViews.isReady.mockReturnValue(true);
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'UTC' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'Europe/Sofia' });
       mockPrisma.$queryRaw.mockResolvedValue([]);
       mockPrisma.order.aggregate.mockResolvedValue({
         _sum: { totalPrice: 0 }, _count: 0, _avg: { totalPrice: 0 },

@@ -158,7 +158,7 @@ export class OrdersService {
       restaurant.happyHourStartTime &&
       restaurant.happyHourEndTime
     ) {
-      const tz = restaurant.timezone || 'UTC';
+      const tz = restaurant.timezone || 'Europe/Sofia';
       const nowInTz = DateTime.now().setZone(tz);
       const currentMinutes = nowInTz.hour * 60 + nowInTz.minute;
 

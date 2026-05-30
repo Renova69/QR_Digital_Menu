@@ -121,7 +121,8 @@
     "youtubeUrl": "YouTube URL",
     "summaryLanguages": "{{count}} language(s) active",
     "translationActiveCount": "{{count}} language(s) selected — click to translate your menu",
-    "featureNotAvailable": "This feature is not available on your current plan."
+    "featureNotAvailable": "This feature is not available on your current plan.",
+    "noSocialMedia": "No social media links added yet. Click 'Add' to add them."
   },
   "staff": {
     "sharedDeviceMode": "Shared Device Mode",
@@ -776,7 +777,10 @@
     "dismiss": "Dismiss",
     "clear": "Clear",
     "copied": "Copied",
-    "and": "and"
+    "and": "and",
+    "add": "Add",
+    "selectToAdd": "Select link to add...",
+    "remove": "Remove"
   },
   "payment": {
     "requestBill": "Request Bill",
@@ -843,7 +847,6 @@
     "title": "Menu Health",
     "subtitle": "AI-powered audit to optimize your menu",
     "rescan": "Rescan",
-    "fix": "Fix",
     "perfectScore": "Perfect Score!",
     "perfectScoreDesc": "Your menu is fully optimized and ready to convert customers.",
     "critical": "{{count}} Critical",
@@ -851,7 +854,16 @@
     "suggestions": "{{count}} Suggestions",
     "itemIssue": "Item Issue",
     "categoryIssue": "Category Issue",
-    "fieldLabel": "Field: {{field}}"
+    "fieldLabel": "Field: {{field}}",
+    "fix": "Fix",
+    "issues": {
+      "emptyCategory": "Category is empty and will not display any items.",
+      "missingCategoryTranslation": "Category is missing translation for {{lang}}.",
+      "itemPriceZero": "Item price is set to 0.",
+      "missingItemDescription": "Item has no description. Descriptions help customers make choices.",
+      "missingItemImage": "Item has no image. Images increase sales by up to 30%.",
+      "missingItemTranslation": "Item is missing translation for {{lang}}."
+    }
   },
   "loyaltySettings": {
     "sectionTitle": "Loyalty & Rewards Program",
