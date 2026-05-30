@@ -28,6 +28,7 @@ export class MenuAuditService {
       if (category.items.length === 0) {
         issues.push({
           type: 'error',
+          code: 'emptyCategory',
           message: 'Category is empty and will not display any items.',
           categoryId: category.id,
           field: 'items',
@@ -40,6 +41,8 @@ export class MenuAuditService {
           if (!translations[lang] || !translations[lang].name) {
             issues.push({
               type: 'warning',
+              code: 'missingCategoryTranslation',
+              args: { lang: lang.toUpperCase() },
               message: `Category is missing translation for ${lang.toUpperCase()}.`,
               categoryId: category.id,
               field: 'translations',
@@ -52,6 +55,7 @@ export class MenuAuditService {
         if (item.price === 0) {
           issues.push({
             type: 'error',
+            code: 'itemPriceZero',
             message: `Item price is set to 0.`,
             categoryId: category.id,
             itemId: item.id,
@@ -62,6 +66,7 @@ export class MenuAuditService {
         if (!item.description || item.description.trim() === '') {
           issues.push({
             type: 'warning',
+            code: 'missingItemDescription',
             message: `Item has no description. Descriptions help customers make choices.`,
             categoryId: category.id,
             itemId: item.id,
@@ -72,6 +77,7 @@ export class MenuAuditService {
         if (!item.imageUrl) {
           issues.push({
             type: 'info',
+            code: 'missingItemImage',
             message: `Item has no image. Images increase sales by up to 30%.`,
             categoryId: category.id,
             itemId: item.id,
@@ -85,6 +91,8 @@ export class MenuAuditService {
             if (!translations[lang] || !translations[lang].name) {
               issues.push({
                 type: 'warning',
+                code: 'missingItemTranslation',
+                args: { lang: lang.toUpperCase() },
                 message: `Item is missing translation for ${lang.toUpperCase()}.`,
                 categoryId: category.id,
                 itemId: item.id,

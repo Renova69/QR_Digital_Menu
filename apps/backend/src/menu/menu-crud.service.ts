@@ -83,7 +83,7 @@ export class MenuCrudService {
       orderBy: { order: 'asc' },
     });
 
-    const restaurantTz = (restaurant as any).timezone || 'UTC';
+    const restaurantTz = (restaurant as any).timezone || 'Europe/Sofia';
     const restaurantTier = (restaurant as any).tier as string | undefined;
     const filteredCategories = this.filterByAvailability(allCategories, restaurantTz, restaurantTier);
 
@@ -157,7 +157,7 @@ export class MenuCrudService {
       orderBy: { order: 'asc' },
     });
 
-    const tz = (restaurant as any).timezone || 'UTC';
+    const tz = (restaurant as any).timezone || 'Europe/Sofia';
     const tier = (restaurant as any).tier as string | undefined;
     const filteredCategories = this.filterByAvailability(allCategories as any[], tz, tier);
 

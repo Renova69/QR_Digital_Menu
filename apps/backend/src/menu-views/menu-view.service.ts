@@ -48,7 +48,7 @@ export class MenuViewService {
       where: { id: restaurantId },
       select: { timezone: true },
     });
-    const tz = restaurant?.timezone ?? 'UTC';
+    const tz = restaurant?.timezone ?? 'Europe/Sofia';
 
     const since = new Date();
     since.setDate(since.getDate() - 7);

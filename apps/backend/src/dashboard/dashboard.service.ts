@@ -22,7 +22,7 @@ export class DashboardService {
       where: { id: restaurantId },
       select: { timezone: true },
     });
-    const tz = restaurant?.timezone || 'UTC';
+    const tz = restaurant?.timezone || 'Europe/Sofia';
     const today = DateTime.now().setZone(tz).startOf('day').toJSDate();
 
     const ordersToday = await this.prisma.order.count({
@@ -75,7 +75,7 @@ export class DashboardService {
       where: { id: restaurantId },
       select: { timezone: true },
     });
-    const tz = restaurant?.timezone || 'UTC';
+    const tz = restaurant?.timezone || 'Europe/Sofia';
 
     let now = new Date();
     let periodStart = new Date(now);

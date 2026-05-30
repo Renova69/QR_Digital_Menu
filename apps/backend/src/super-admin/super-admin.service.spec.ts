@@ -221,7 +221,7 @@ describe('SuperAdminService', () => {
     it('coerces Decimal payment amount to Number', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
         id: '1', name: 'Test', tier: 'FREE', forceTier: null, isActive: true,
-        tierUpdatedAt: null, createdAt: new Date(), timezone: 'UTC',
+        tierUpdatedAt: null, createdAt: new Date(), timezone: 'Europe/Sofia',
         targetLanguages: [], paymentsEnabled: false, stripeOnboarded: false,
         owner: { id: 'u1', email: 'o@test.com', name: 'Owner', createdAt: new Date() },
         _count: { menuCategories: 3, orders: 10, tables: 5 },
@@ -240,7 +240,7 @@ describe('SuperAdminService', () => {
     it('handles null payment amount as 0', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
         id: '1', name: 'Test', tier: 'FREE', forceTier: null, isActive: true,
-        tierUpdatedAt: null, createdAt: new Date(), timezone: 'UTC',
+        tierUpdatedAt: null, createdAt: new Date(), timezone: 'Europe/Sofia',
         targetLanguages: [], paymentsEnabled: false, stripeOnboarded: false,
         owner: { id: 'u1', email: 'o@test.com', name: 'Owner', createdAt: new Date() },
         _count: { menuCategories: 0, orders: 0, tables: 0 },

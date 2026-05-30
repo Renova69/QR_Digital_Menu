@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Globe } from "lucide-react";
+import { Globe, Plus, X } from "lucide-react";
 import { useRestaurantContext } from "../../../context/RestaurantContext";
 import { updateRestaurant, triggerTranslation } from "../../../lib/api";
 import { useFeature } from "../../../hooks/useFeature";
@@ -59,7 +59,8 @@ const GeneralSettingsTab: React.FC = () => {
   const [instagramUrl, setInstagramUrl] = useState("");
   const [tiktokUrl, setTiktokUrl] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
-  const [timezone, setTimezone] = useState("UTC");
+  const [addedSocialFields, setAddedSocialFields] = useState<string[]>([]);
+  const [timezone, setTimezone] = useState("Europe/Sofia");
   const [targetLanguages, setTargetLanguages] = useState<string[]>([]);
   const [status, setStatus] = useState({ loading: false, error: "", success: "" });
   const [translating, setTranslating] = useState(false);
@@ -76,7 +77,7 @@ const GeneralSettingsTab: React.FC = () => {
       setInstagramUrl(activeRestaurant.instagramUrl || "");
       setTiktokUrl(activeRestaurant.tiktokUrl || "");
       setYoutubeUrl(activeRestaurant.youtubeUrl || "");
-      setTimezone(activeRestaurant.timezone || "UTC");
+      setTimezone(activeRestaurant.timezone || "Europe/Sofia");
       setTargetLanguages(activeRestaurant.targetLanguages || []);
       setStatus({ loading: false, error: "", success: "" });
     }
@@ -150,6 +151,17 @@ const GeneralSettingsTab: React.FC = () => {
   const tzLabel = TIMEZONES.find((tz) => tz.value === timezone)?.label ?? timezone;
   const langCount = targetLanguages.length;
 
+  const socialFields = [
+    { key: "websiteUrl", labelKey: "settings.websiteUrl", value: websiteUrl, setter: setWebsiteUrl, placeholder: "https://yourrestaurant.com" },
+    { key: "facebookUrl", labelKey: "settings.facebookUrl", value: facebookUrl, setter: setFacebookUrl, placeholder: "https://facebook.com/yourpage" },
+    { key: "instagramUrl", labelKey: "settings.instagramUrl", value: instagramUrl, setter: setInstagramUrl, placeholder: "https://instagram.com/yourhandle" },
+    { key: "tiktokUrl", labelKey: "settings.tiktokUrl", value: tiktokUrl, setter: setTiktokUrl, placeholder: "https://tiktok.com/@yourhandle" },
+    { key: "youtubeUrl", labelKey: "settings.youtubeUrl", value: youtubeUrl, setter: setYoutubeUrl, placeholder: "https://youtube.com/@yourchannel" },
+  ];
+
+  const visibleSocialFields = socialFields.filter(f => f.value || addedSocialFields.includes(f.key));
+  const availableToAdd = socialFields.filter(f => !f.value && !addedSocialFields.includes(f.key));
+
   return (
     <form onSubmit={handleSave} className="space-y-6">
       {status.error && (
@@ -166,10 +178,21 @@ const GeneralSettingsTab: React.FC = () => {
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium border border-primary/20 truncate max-w-[200px]">
           {restaurantName || t("settings.restaurantNamePlaceholder")}
         </span>
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium border border-border">
+        <div className="relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium border border-border hover:bg-muted/80 transition-colors cursor-pointer" title={t("settings.timezoneDesc")}>
           <Globe size={11} />
-          {tzLabel}
-        </span>
+          <span>{tzLabel}</span>
+          <select
+            value={timezone}
+            onChange={(e) => setTimezone(e.target.value)}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          >
+            {TIMEZONES.map((tz) => (
+              <option key={tz.value} value={tz.value}>
+                {tz.label}
+              </option>
+            ))}
+          </select>
+        </div>
         {langCount > 0 && (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium border border-border">
             {t("settings.summaryLanguages", {
@@ -180,25 +203,26 @@ const GeneralSettingsTab: React.FC = () => {
         )}
       </div>
 
-      {/* ── Restaurant Name ── */}
+      {/* ── Basic Info (Name & Contact) ── */}
       <div className="border-b border-border pb-6">
-        <h3 className={`${sectionHeading} mb-4`}>{t("settings.restaurantName")}</h3>
-        <div className="max-w-md">
-          <input
-            type="text"
-            value={restaurantName}
-            onChange={(e) => setRestaurantName(e.target.value)}
-            placeholder={t("settings.restaurantNamePlaceholder")}
-            className={inputCls}
-            required
-          />
-        </div>
-      </div>
+        <h3 className={`${sectionHeading} mb-4`}>{t("settings.restaurantName")} & {t("settings.locationContact")}</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Restaurant Name */}
+          <div>
+            <label className="block text-sm font-medium text-foreground/80 mb-1">
+              {t("settings.restaurantName")}
+            </label>
+            <input
+              type="text"
+              value={restaurantName}
+              onChange={(e) => setRestaurantName(e.target.value)}
+              placeholder={t("settings.restaurantNamePlaceholder")}
+              className={inputCls}
+              required
+            />
+          </div>
 
-      {/* ── Location & Contact ── */}
-      <div className="border-b border-border pb-6">
-        <h3 className={`${sectionHeading} mb-4`}>{t("settings.locationContact")}</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Address */}
           <div>
             <label className="block text-sm font-medium text-foreground/80 mb-1">
               {t("settings.address")}
@@ -211,6 +235,8 @@ const GeneralSettingsTab: React.FC = () => {
               className={inputCls}
             />
           </div>
+          
+          {/* Contact */}
           <div>
             <label className="block text-sm font-medium text-foreground/80 mb-1">
               {t("settings.contactInfo")}
@@ -228,88 +254,72 @@ const GeneralSettingsTab: React.FC = () => {
 
       {/* ── Social Media ── */}
       <div className="border-b border-border pb-6">
-        <h3 className={`${sectionHeading} mb-1`}>{t("settings.socialMedia")}</h3>
-        <p className="text-sm text-muted-foreground mb-4">{t("settings.socialMediaDesc")}</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground/80 mb-1">
-              {t("settings.websiteUrl")}
-            </label>
-            <input
-              type="url"
-              value={websiteUrl}
-              onChange={(e) => setWebsiteUrl(e.target.value)}
-              placeholder="https://yourrestaurant.com"
-              className={inputCls}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground/80 mb-1">
-              {t("settings.facebookUrl")}
-            </label>
-            <input
-              type="url"
-              value={facebookUrl}
-              onChange={(e) => setFacebookUrl(e.target.value)}
-              placeholder="https://facebook.com/yourpage"
-              className={inputCls}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground/80 mb-1">
-              {t("settings.instagramUrl")}
-            </label>
-            <input
-              type="url"
-              value={instagramUrl}
-              onChange={(e) => setInstagramUrl(e.target.value)}
-              placeholder="https://instagram.com/yourhandle"
-              className={inputCls}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground/80 mb-1">
-              {t("settings.tiktokUrl")}
-            </label>
-            <input
-              type="url"
-              value={tiktokUrl}
-              onChange={(e) => setTiktokUrl(e.target.value)}
-              placeholder="https://tiktok.com/@yourhandle"
-              className={inputCls}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground/80 mb-1">
-              {t("settings.youtubeUrl")}
-            </label>
-            <input
-              type="url"
-              value={youtubeUrl}
-              onChange={(e) => setYoutubeUrl(e.target.value)}
-              placeholder="https://youtube.com/@yourchannel"
-              className={inputCls}
-            />
-          </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-1">
+          <h3 className={sectionHeading}>{t("settings.socialMedia")}</h3>
+          
+          {availableToAdd.length > 0 && (
+            <div className="relative inline-flex">
+              <button 
+                type="button" 
+                className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10 transition-colors bg-primary/5 px-2 py-1 rounded-md"
+              >
+                <Plus size={12} />
+                {t("common.add", "Add")}
+              </button>
+              <select
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                value=""
+                onChange={(e) => {
+                  setAddedSocialFields(prev => [...prev, e.target.value]);
+                }}
+              >
+                <option value="" disabled>{t("common.selectToAdd", "Select link to add...")}</option>
+                {availableToAdd.map(f => (
+                  <option key={f.key} value={f.key}>{t(f.labelKey)}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
+        <p className="text-sm text-muted-foreground mb-4">{t("settings.socialMediaDesc")}</p>
+        
+        {visibleSocialFields.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {visibleSocialFields.map(f => (
+              <div key={f.key} className="relative group">
+                <label className="block text-sm font-medium text-foreground/80 mb-1">
+                  {t(f.labelKey)}
+                </label>
+                <div className="relative">
+                  <input
+                    type="url"
+                    value={f.value}
+                    onChange={(e) => f.setter(e.target.value)}
+                    placeholder={f.placeholder}
+                    className={`${inputCls} pr-8`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      f.setter("");
+                      setAddedSocialFields(prev => prev.filter(key => key !== f.key));
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md opacity-0 group-hover:opacity-100 transition-all"
+                    title={t("common.remove", "Remove")}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground italic bg-muted/30 py-4 px-5 rounded-xl border border-dashed border-border/60">
+            {t("settings.noSocialMedia", "No social media links added yet. Click 'Add' to add them.")}
+          </div>
+        )}
       </div>
 
-      {/* ── Timezone ── */}
-      <div className="border-b border-border pb-6">
-        <h3 className={`${sectionHeading} mb-1`}>{t("settings.timezone")}</h3>
-        <p className="text-sm text-muted-foreground mb-4">{t("settings.timezoneDesc")}</p>
-        <select
-          value={timezone}
-          onChange={(e) => setTimezone(e.target.value)}
-          className={`${inputCls} max-w-sm`}
-        >
-          {TIMEZONES.map((tz) => (
-            <option key={tz.value} value={tz.value}>
-              {tz.label}
-            </option>
-          ))}
-        </select>
-      </div>
 
       {/* ── Localization & Translation ── */}
       {canLanguages && (

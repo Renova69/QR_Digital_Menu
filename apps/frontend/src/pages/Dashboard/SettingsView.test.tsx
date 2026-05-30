@@ -47,7 +47,7 @@ const mockRestaurant = {
   id: "rest-1",
   name: "Test Restaurant",
   targetLanguages: ["en"],
-  timezone: "UTC",
+  timezone: "Europe/Sofia",
   isLoyaltyEnabled: true,
   loyaltySignupBonus: 50,
   loyaltyExchangeRate: 10,

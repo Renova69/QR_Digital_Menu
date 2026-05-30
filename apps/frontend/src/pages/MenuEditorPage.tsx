@@ -15,6 +15,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { useAuth } from '../context/AuthContext';
 import MenuImportExportView from './Dashboard/MenuImportExportView';
+import { MenuCheckWidget } from '../components/dashboard/MenuCheckWidget';
 
 type EditorTab = 'editor' | 'importExport';
 
@@ -237,6 +238,10 @@ const MenuEditorPage: React.FC = () => {
                     <CreateCategoryForm />
                   </div>
                 </div>
+                
+                <div className="mt-4 hidden lg:block">
+                  <MenuCheckWidget />
+                </div>
               </div>
               <div className="lg:col-span-2">
                 <div className="glass-panel p-6 sm:p-8 rounded-2xl min-h-[50vh] border-white/5 relative overflow-hidden">
@@ -261,6 +266,10 @@ const MenuEditorPage: React.FC = () => {
                       <CreateItemForm />
                     </div>
                   )}
+                </div>
+                
+                <div className="mt-8 block lg:hidden">
+                  <MenuCheckWidget />
                 </div>
               </div>
             </div>
