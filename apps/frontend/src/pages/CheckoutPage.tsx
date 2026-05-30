@@ -192,6 +192,18 @@ const CheckoutPage = () => {
     }
   }, [user, customerName]);
 
+  // Pre-fill name for returning anonymous customers from the same table-session.
+  // Persisted on submit below; the customer can still override it (e.g. ordering
+  // for someone else). Runs once when the table/restaurant context is known.
+  const namePrefilledRef = useRef(false);
+  useEffect(() => {
+    if (namePrefilledRef.current || user) return;
+    if (!restaurantId || !tableNumber) return;
+    const saved = localStorage.getItem(`customerName-${restaurantId}-${tableNumber}`);
+    if (saved) setCustomerName(saved);
+    namePrefilledRef.current = true;
+  }, [user, restaurantId, tableNumber]);
+
   // Redirect if no items in cart — skip when order was just submitted
   const orderPlaced = useRef(false);
   useEffect(() => {
@@ -240,6 +252,11 @@ const CheckoutPage = () => {
 
       if (newOrder.sessionToken && tableNumber) {
         localStorage.setItem(`session-${restaurantId}-${tableNumber}`, newOrder.sessionToken);
+      }
+
+      // Remember the name so a returning customer on this table is pre-filled.
+      if (customerName.trim() && restaurantId && tableNumber) {
+        localStorage.setItem(`customerName-${restaurantId}-${tableNumber}`, customerName.trim());
       }
 
       orderPlaced.current = true;

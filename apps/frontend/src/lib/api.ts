@@ -126,6 +126,9 @@ export const getTableOrders = async (tableId: string, restaurantId: string) => {
     status: string;
     specialRequests: string | null;
     createdAt: string;
+    source?: 'CUSTOMER' | 'POS';
+    staffName?: string | null;
+    staffRole?: string | null;
     items: Array<{ name: string; quantity: number; totalPrice?: number; options?: string[] }>;
   }>;
 };

@@ -273,7 +273,7 @@ export class TablesService {
             menuItem: { select: { name: true, price: true } },
           },
         },
-        staff: { select: { name: true, email: true } },
+        staff: { select: { name: true, email: true, role: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -289,6 +289,7 @@ export class TablesService {
       staffName: order.staff
         ? (order.staff.name ?? order.staff.email)
         : null,
+      staffRole: order.staff?.role ?? null,
       items: order.items.map((oi) => ({
         name: oi.menuItem?.name ?? 'Unknown item',
         quantity: oi.quantity,

@@ -30,6 +30,7 @@ interface BillOrder {
   id: string;
   source: 'CUSTOMER' | 'POS';
   staffName: string | null;
+  staffRole: string | null;
   totalPrice: number;
   items: BillItem[];
 }
@@ -44,8 +45,11 @@ interface BillData {
 
 function getSourceLabel(order: BillOrder): string {
   if (order.source === 'CUSTOMER') return 'You';
-  const name = order.staffName ?? '';
-  return name.split(' ')[0] || name || 'Staff';
+  const rawName = order.staffName ?? '';
+  const name = rawName.split(' ')[0] || rawName || 'Staff';
+  const role = order.staffRole ? String(order.staffRole) : '';
+  const roleName = role ? role.charAt(0).toUpperCase() + role.slice(1).toLowerCase() : 'Staff';
+  return `${roleName}: ${name}`;
 }
 
 function showGroupHeaders(orders: BillOrder[]): boolean {
