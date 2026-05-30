@@ -423,7 +423,7 @@ describe('PaymentService', () => {
       mockPrisma.tableSession.findMany.mockResolvedValue(sessions);
       mockPrisma.tableSession.count.mockResolvedValue(1);
 
-      const result = await service.getTableSessions('rest1');
+      const result = await service.getTableSessions('rest1', undefined, undefined, 'owner1');
 
       expect(result.data).toEqual(sessions);
       expect(result.meta).toEqual({ total: 1, page: 1, limit: 50 });
@@ -433,7 +433,7 @@ describe('PaymentService', () => {
       mockPrisma.tableSession.findMany.mockResolvedValue([]);
       mockPrisma.tableSession.count.mockResolvedValue(10);
 
-      await service.getTableSessions('rest1', 2, 5);
+      await service.getTableSessions('rest1', 2, 5, 'owner1');
 
       expect(mockPrisma.tableSession.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ skip: 5, take: 5 }),
@@ -463,7 +463,7 @@ describe('PaymentService', () => {
       ]);
       mockPrisma.payment.count.mockResolvedValue(1);
 
-      const result = await service.getPaymentHistory('rest1', {});
+      const result = await service.getPaymentHistory('rest1', {}, 'owner1');
 
       expect(result.data[0].tableNumber).toBe('3');
       expect(result.data[0].customerName).toBe('Marco');
@@ -474,7 +474,7 @@ describe('PaymentService', () => {
       mockPrisma.payment.findMany.mockResolvedValue([]);
       mockPrisma.payment.count.mockResolvedValue(0);
 
-      await service.getPaymentHistory('rest1', { status: 'FAILED' });
+      await service.getPaymentHistory('rest1', { status: 'FAILED' }, 'owner1');
 
       expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -490,7 +490,7 @@ describe('PaymentService', () => {
       await service.getPaymentHistory('rest1', {
         startDate: '2026-05-01',
         endDate: '2026-05-31',
-      });
+      }, 'owner1');
 
       const callArgs = mockPrisma.payment.findMany.mock.calls[0][0];
       expect(callArgs.where.createdAt.gte).toBeInstanceOf(Date);
@@ -501,7 +501,7 @@ describe('PaymentService', () => {
       mockPrisma.payment.findMany.mockResolvedValue([]);
       mockPrisma.payment.count.mockResolvedValue(0);
 
-      await service.getPaymentHistory('rest1', {});
+      await service.getPaymentHistory('rest1', {}, 'owner1');
 
       expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ skip: 0, take: 20 }),

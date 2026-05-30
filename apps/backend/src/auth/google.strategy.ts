@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, Profile } from 'passport-google-oauth20';
 
@@ -11,8 +11,10 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
 
     // Skip Google Strategy if environment variables are missing (for tests)
     if (!clientId || !clientSecret || !callbackURL) {
-      console.warn(
+      // Static logger — constructor runs before super(), so no instance yet.
+      Logger.warn(
         'Google OAuth environment variables not set. Skipping Google Strategy.',
+        'GoogleStrategy',
       );
     }
 

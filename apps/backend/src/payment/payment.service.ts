@@ -267,7 +267,15 @@ export class PaymentService {
 
     const tipAmount = Math.round(subtotal * tipPercent) / 100;
     const total = subtotal + tipAmount;
-    const platformFeeCents = Math.round(total * restaurant.platformFeePercent);
+    // platformFeePercent is a WHOLE-NUMBER percent (e.g. 5 = 5%), not a fraction
+    // (#L1). fee_in_cents = total_euros × percent works only under that unit:
+    //   €20 × 5 = 100 cents = €1.00 = 5% of €20.
+    // If this is ever stored as a fraction (0.05), fees become 100× too small.
+    const feePercent = restaurant.platformFeePercent ?? 0;
+    if (feePercent < 0 || feePercent > 100) {
+      throw new BadRequestException('Invalid platform fee configuration');
+    }
+    const platformFeeCents = Math.round(total * feePercent);
     const platformFeeAmount = platformFeeCents / 100;
 
     const payment = await this.prisma.payment.create({
@@ -561,13 +569,13 @@ export class PaymentService {
 
   async getTableSessions(
     restaurantId: string,
-    page?: number,
-    limit?: number,
-    userId?: string,
+    page: number | undefined,
+    limit: number | undefined,
+    userId: string,
   ): Promise<{ data: any[]; meta: { total: number; page: number; limit: number } }> {
-    if (userId) {
-      await this.verifyRestaurantAccess(restaurantId, userId);
-    }
+    // Access check is mandatory — the guard belongs to the method, not the
+    // caller, so a future internal caller can't accidentally skip it (#L2).
+    await this.verifyRestaurantAccess(restaurantId, userId);
 
     const take = limit ?? 50;
     const skip = page ? (page - 1) * take : 0;
@@ -598,11 +606,10 @@ export class PaymentService {
       page?: number;
       limit?: number;
     },
-    userId?: string,
+    userId: string,
   ): Promise<{ data: any[]; meta: { total: number; page: number; limit: number } }> {
-    if (userId) {
-      await this.verifyRestaurantAccess(restaurantId, userId);
-    }
+    // Mandatory access check (#L2) — see getTableSessions.
+    await this.verifyRestaurantAccess(restaurantId, userId);
 
     const page = filters.page ?? 1;
     const limit = Math.min(filters.limit ?? 20, 50);

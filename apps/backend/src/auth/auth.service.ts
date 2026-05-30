@@ -137,7 +137,7 @@ export class AuthService {
   private async sendTwilioOtp(phone: string): Promise<void> {
     const channel = process.env.TWILIO_CHANNEL || 'sms'; // 'sms' | 'whatsapp'
     if (process.env.NODE_ENV !== 'production') {
-      console.log(`[Twilio] sending OTP → Channel=${channel} ServiceSID=${process.env.TWILIO_VERIFY_SERVICE_SID}`);
+      this.logger.log(`[Twilio] sending OTP → Channel=${channel} ServiceSID=${process.env.TWILIO_VERIFY_SERVICE_SID}`);
     }
     const res = await fetch(this.twilioVerifyUrl('/Verifications'), {
       method: 'POST',
@@ -149,7 +149,7 @@ export class AuthService {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      console.error('[Twilio] error response:', JSON.stringify(body));
+      this.logger.error('[Twilio] error response:', JSON.stringify(body));
       throw new HttpException(
         (body as any).message || 'Failed to send verification code.',
         HttpStatus.BAD_GATEWAY,
