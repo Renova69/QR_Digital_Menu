@@ -1,106 +1,166 @@
 {
   "testModules": [
     {
-      "moduleId": "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\super-admin\\super-admin.guard.spec.ts",
+      "moduleId": "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\auth\\auth.service.spec.ts",
       "tests": [
         {
-          "name": "should allow active SUPER_ADMIN user",
-          "fullName": "SuperAdminGuard should allow active SUPER_ADMIN user",
+          "name": "throws NotFoundException when user not found",
+          "fullName": "AuthService validateUser throws NotFoundException when user not found",
           "state": "passed"
         },
         {
-          "name": "should reject OWNER user",
-          "fullName": "SuperAdminGuard should reject OWNER user",
+          "name": "throws UnauthorizedException when password is wrong",
+          "fullName": "AuthService validateUser throws UnauthorizedException when password is wrong",
           "state": "passed"
         },
         {
-          "name": "should reject unauthenticated user (no user)",
-          "fullName": "SuperAdminGuard should reject unauthenticated user (no user)",
+          "name": "returns user without password when credentials are valid",
+          "fullName": "AuthService validateUser returns user without password when credentials are valid",
           "state": "passed"
         },
         {
-          "name": "should reject deactivated SUPER_ADMIN",
-          "fullName": "SuperAdminGuard should reject deactivated SUPER_ADMIN",
+          "name": "returns JWT token and user object",
+          "fullName": "AuthService login returns JWT token and user object",
           "state": "passed"
         },
         {
-          "name": "should reject SUPER_ADMIN with undefined isActive",
-          "fullName": "SuperAdminGuard should reject SUPER_ADMIN with undefined isActive",
-          "state": "passed"
-        }
-      ]
-    },
-    {
-      "moduleId": "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\super-admin\\super-admin.service.spec.ts",
-      "tests": [
-        {
-          "name": "returns platform stats using aggregate queries",
-          "fullName": "SuperAdminService getStats returns platform stats using aggregate queries",
+          "name": "returns existing user when found",
+          "fullName": "AuthService validateGoogleUser returns existing user when found",
           "state": "passed"
         },
         {
-          "name": "sets forceTier and writes audit log in transaction",
-          "fullName": "SuperAdminService updateTier sets forceTier and writes audit log in transaction",
+          "name": "creates a new user when not found",
+          "fullName": "AuthService validateGoogleUser creates a new user when not found",
           "state": "passed"
         },
         {
-          "name": "throws NotFoundException for missing restaurant",
-          "fullName": "SuperAdminService updateTier throws NotFoundException for missing restaurant",
+          "name": "throws ConflictException when email already exists",
+          "fullName": "AuthService register throws ConflictException when email already exists",
           "state": "passed"
         },
         {
-          "name": "ignores invalid tier in query",
-          "fullName": "SuperAdminService getTenants ignores invalid tier in query",
+          "name": "creates user and returns JWT + user on success",
+          "fullName": "AuthService register creates user and returns JWT + user on success",
           "state": "passed"
         },
         {
-          "name": "allows enabling on PROFESSIONAL tier",
-          "fullName": "SuperAdminService updatePaymentsEnabled allows enabling on PROFESSIONAL tier",
+          "name": "throws UnauthorizedException when no staff candidates found",
+          "fullName": "AuthService pinLogin throws UnauthorizedException when no staff candidates found",
           "state": "passed"
         },
         {
-          "name": "throws TIER_RESTRICTED when enabling on FREE tier",
-          "fullName": "SuperAdminService updatePaymentsEnabled throws TIER_RESTRICTED when enabling on FREE tier",
+          "name": "only considers device roles (WAITER/KITCHEN) — dashboard roles excluded",
+          "fullName": "AuthService pinLogin only considers device roles (WAITER/KITCHEN) — dashboard roles excluded",
           "state": "passed"
         },
         {
-          "name": "allows disabling on FREE tier",
-          "fullName": "SuperAdminService updatePaymentsEnabled allows disabling on FREE tier",
+          "name": "throws HttpException(429) when a candidate is locked",
+          "fullName": "AuthService pinLogin throws HttpException(429) when a candidate is locked",
           "state": "passed"
         },
         {
-          "name": "skips transaction when paymentsEnabled unchanged",
-          "fullName": "SuperAdminService updatePaymentsEnabled skips transaction when paymentsEnabled unchanged",
+          "name": "returns JWT and resets attempts on valid PIN",
+          "fullName": "AuthService pinLogin returns JWT and resets attempts on valid PIN",
           "state": "passed"
         },
         {
-          "name": "coerces Decimal payment amount to Number",
-          "fullName": "SuperAdminService getTenantById coerces Decimal payment amount to Number",
+          "name": "increments attempts and throws UnauthorizedException on wrong PIN",
+          "fullName": "AuthService pinLogin increments attempts and throws UnauthorizedException on wrong PIN",
           "state": "passed"
         },
         {
-          "name": "handles null payment amount as 0",
-          "fullName": "SuperAdminService getTenantById handles null payment amount as 0",
-          "state": "passed"
-        }
-      ]
-    },
-    {
-      "moduleId": "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\super-admin\\super-admin.guard-coverage.spec.ts",
-      "tests": [
-        {
-          "name": "guards every route on the /super-admin tenant controller at class level",
-          "fullName": "Super-admin route guard coverage guards every route on the /super-admin tenant controller at class level",
+          "name": "locks account and throws HttpException(429) after MAX_ATTEMPTS",
+          "fullName": "AuthService pinLogin locks account and throws HttpException(429) after MAX_ATTEMPTS",
           "state": "passed"
         },
         {
-          "name": "guards platform settings admin endpoints",
-          "fullName": "Super-admin route guard coverage guards platform settings admin endpoints",
+          "name": "trims name and updates user",
+          "fullName": "AuthService updateProfile trims name and updates user",
           "state": "passed"
         },
         {
-          "name": "guards help-content admin endpoints",
-          "fullName": "Super-admin route guard coverage guards help-content admin endpoints",
+          "name": "updates password when current password matches",
+          "fullName": "AuthService changePassword updates password when current password matches",
+          "state": "passed"
+        },
+        {
+          "name": "rejects when current password is wrong",
+          "fullName": "AuthService changePassword rejects when current password is wrong",
+          "state": "passed"
+        },
+        {
+          "name": "throws HttpException(400) when neither email nor phone provided",
+          "fullName": "AuthService sendOtp throws HttpException(400) when neither email nor phone provided",
+          "state": "passed"
+        },
+        {
+          "name": "throws HttpException(501) when phone provided but Twilio not configured",
+          "fullName": "AuthService sendOtp throws HttpException(501) when phone provided but Twilio not configured",
+          "state": "passed"
+        },
+        {
+          "name": "creates a VerificationToken and returns success:true",
+          "fullName": "AuthService sendOtp creates a VerificationToken and returns success:true",
+          "state": "passed"
+        },
+        {
+          "name": "includes devCode in response when NODE_ENV is not production",
+          "fullName": "AuthService sendOtp includes devCode in response when NODE_ENV is not production",
+          "state": "passed"
+        },
+        {
+          "name": "throws HttpException(429) when token created within last 60 seconds",
+          "fullName": "AuthService sendOtp throws HttpException(429) when token created within last 60 seconds",
+          "state": "passed"
+        },
+        {
+          "name": "calls Resend API and omits devCode in production mode",
+          "fullName": "AuthService sendOtp calls Resend API and omits devCode in production mode",
+          "state": "passed"
+        },
+        {
+          "name": "throws HttpException(503) in production when RESEND_API_KEY is missing",
+          "fullName": "AuthService sendOtp throws HttpException(503) in production when RESEND_API_KEY is missing",
+          "state": "passed"
+        },
+        {
+          "name": "throws HttpException(400) when code is not provided",
+          "fullName": "AuthService verifyOtp throws HttpException(400) when code is not provided",
+          "state": "passed"
+        },
+        {
+          "name": "throws HttpException(400) when email is missing in email flow",
+          "fullName": "AuthService verifyOtp throws HttpException(400) when email is missing in email flow",
+          "state": "passed"
+        },
+        {
+          "name": "throws UnauthorizedException when no valid token record exists",
+          "fullName": "AuthService verifyOtp throws UnauthorizedException when no valid token record exists",
+          "state": "passed"
+        },
+        {
+          "name": "throws HttpException(429) when token is locked",
+          "fullName": "AuthService verifyOtp throws HttpException(429) when token is locked",
+          "state": "passed"
+        },
+        {
+          "name": "increments attempts and throws UnauthorizedException on wrong code",
+          "fullName": "AuthService verifyOtp increments attempts and throws UnauthorizedException on wrong code",
+          "state": "passed"
+        },
+        {
+          "name": "returns JWT + isNew:true for a new user with valid code",
+          "fullName": "AuthService verifyOtp returns JWT + isNew:true for a new user with valid code",
+          "state": "passed"
+        },
+        {
+          "name": "returns isNew:false for an existing user",
+          "fullName": "AuthService verifyOtp returns isNew:false for an existing user",
+          "state": "passed"
+        },
+        {
+          "name": "updates existing user phone and name when provided in email flow",
+          "fullName": "AuthService verifyOtp updates existing user phone and name when provided in email flow",
           "state": "passed"
         }
       ]
