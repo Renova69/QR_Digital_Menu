@@ -5,6 +5,26 @@
     "login": "Login",
     "getStarted": "Get Started"
   },
+  "profileDashboard": {
+    "title": "Profile",
+    "description": "Manage your dashboard name and password.",
+    "openProfile": "Open profile",
+    "personalSection": "Personal details",
+    "displayName": "Display name",
+    "displayNamePlaceholder": "Your name",
+    "saveName": "Save name",
+    "nameSaved": "Name updated",
+    "nameError": "Could not update your name.",
+    "securitySection": "Security",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "changePassword": "Change password",
+    "passwordMin": "New password must be at least 8 characters.",
+    "passwordMismatch": "Passwords do not match.",
+    "passwordSaved": "Password changed",
+    "passwordError": "Could not change your password."
+  },
   "dashboard": {
     "title": "Restaurant Dashboard",
     "welcome": "Welcome back, {{name}}",

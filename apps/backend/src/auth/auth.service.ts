@@ -381,6 +381,38 @@ export class AuthService {
     return { id: user.id, email: user.email, name: user.name, role: user.role };
   }
 
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, password: true, isActive: true, disabledAt: true },
+    });
+
+    if (!user) throw new NotFoundException('User not found');
+    if (user.isActive === false || user.disabledAt) {
+      throw new UnauthorizedException('This account has been disabled.');
+    }
+    if (!user.password || !(await bcrypt.compare(currentPassword, user.password))) {
+      throw new UnauthorizedException('Current password is incorrect.');
+    }
+    if (await bcrypt.compare(newPassword, user.password)) {
+      throw new HttpException(
+        'New password must be different from the current password.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: await bcrypt.hash(newPassword, 10) },
+    });
+
+    return { success: true };
+  }
+
   async verifyOtp(
     email?: string,
     code?: string,
