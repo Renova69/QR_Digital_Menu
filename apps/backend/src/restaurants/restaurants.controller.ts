@@ -69,6 +69,8 @@ export class RestaurantsController {
     return this.restaurantsService.remove(id, req.user.id);
   }
 
+  @RequireFeature(FeatureFlag.BRANDING_CUSTOM)
+  @UseGuards(FeatureGuard)
   @Post(':id/logo')
   @UseInterceptors(
     FileInterceptor('file', {

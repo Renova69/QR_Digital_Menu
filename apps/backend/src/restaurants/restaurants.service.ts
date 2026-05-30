@@ -10,6 +10,9 @@ import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { TranslationService } from '../translation/translation.service';
 import { StripeProvider } from '../payment/stripe.provider';
+import { FeatureService } from '../subscription/feature.service';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
+import { stripBrandingFields } from './branding-fields';
 
 @Injectable()
 export class RestaurantsService {
@@ -19,6 +22,7 @@ export class RestaurantsService {
     private readonly prisma: PrismaService,
     private readonly translationService: TranslationService,
     private readonly stripeProvider: StripeProvider,
+    private readonly featureService: FeatureService,
   ) {}
 
   async create(createRestaurantDto: CreateRestaurantDto, userId: string) {
@@ -26,9 +30,11 @@ export class RestaurantsService {
     if (existing > 0) {
       throw new ConflictException('Owner already has a restaurant. Contact support to enable multi-location.');
     }
+    // New restaurants start on FREE — no branding entitlement. Strip any
+    // branding fields (logoUrl, accentColor) so creation can't seed them.
     const restaurant = await this.prisma.restaurant.create({
       data: {
-        ...createRestaurantDto,
+        ...stripBrandingFields({ ...createRestaurantDto }),
         country: 'Bulgaria',
         ownerId: userId,
       },
@@ -127,11 +133,23 @@ export class RestaurantsService {
     userId: string,
   ) {
     // First, ensure the restaurant exists and the user has permission
-    await this.findOneForManagement(id, userId);
+    const restaurant = await this.findOneForManagement(id, userId);
+
+    // Tier enforcement: branding fields require BRANDING_CUSTOM (PROFESSIONAL+).
+    // The frontend gate is cosmetic; this is the server-side boundary. Strip
+    // branding fields silently for lower tiers so a mixed PATCH (loyalty +
+    // localization + branding) still applies its non-branding fields.
+    const tier = this.featureService.getEffectiveTier(
+      restaurant.tier ?? 'FREE',
+      restaurant.forceTier,
+    );
+    const data = this.featureService.hasFeature(tier, FeatureFlag.BRANDING_CUSTOM)
+      ? updateRestaurantDto
+      : stripBrandingFields({ ...updateRestaurantDto });
 
     return this.prisma.restaurant.update({
       where: { id },
-      data: updateRestaurantDto,
+      data,
     });
   }
 
