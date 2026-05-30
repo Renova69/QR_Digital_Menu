@@ -35,21 +35,20 @@ const RecentOrdersTable = ({ orders }: RecentOrdersTableProps) => {
   return (
     <div className="glass-panel rounded-[1.5rem] p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-display font-bold text-foreground">{t('dashboard.recentOrders')}</h3>
-        <span className="text-xs text-muted-foreground">{t('dashboard.total', { count: orders.length })}</span>
+        <h3 className="text-sm font-display font-bold text-foreground">Last 50 orders</h3>
       </div>
-      <div className="space-y-2">
-        {orders.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-8">{t('dashboard.noOrdersPeriod')}</p>
-        ) : (
-          orders.slice(0, 8).map((order) => (
+        <div className="max-h-[420px] overflow-y-auto pr-1 space-y-2">
+          {orders.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-8">{t('dashboard.noOrdersPeriod')}</p>
+          ) : (
+          orders.map((order) => (
             <div key={order.id} className="flex items-center gap-3 py-2 px-3 rounded-xl hover:bg-secondary/50 transition-colors">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-foreground">
-                  #{order.id.slice(-6)} — Table {order.tableId || '—'}
+                  #{order.id.slice(-6).toUpperCase()} — Table {order.tableId || '—'}
                 </p>
                 <p className="text-[10px] text-muted-foreground">
-                  {order.customerPhone || t('dashboard.walkIn')} · {formatDateTime(order.createdAt)}
+                  {order.customerPhone ? `${order.customerPhone} · ` : ''}{formatDateTime(order.createdAt)}
                 </p>
               </div>
               <div className="text-right shrink-0">

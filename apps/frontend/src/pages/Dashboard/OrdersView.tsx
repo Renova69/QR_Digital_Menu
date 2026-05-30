@@ -122,7 +122,7 @@ function SourceBadge({ source, staff }: { source?: 'CUSTOMER' | 'POS'; staff?: a
 }
 
 const OrdersView = () => {
-  const { orders, updateOrderStatus } = useOrders();
+  const { orders, updateOrderStatus, batchUpdateOrderStatus } = useOrders();
   const [activeTab, setActiveTab] = useState<OrderStatus>('NEW');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(null);
@@ -299,6 +299,41 @@ const OrdersView = () => {
           })}
         </div>
       </div>
+
+      {filteredOrders.length > 0 && (
+        <div className="mb-4">
+          {activeTab === 'NEW' && (
+            <button
+              type="button"
+              onClick={() => batchUpdateOrderStatus(filteredOrders.map((o) => o.id), 'IN_PROGRESS')}
+              className="flex items-center gap-2 h-10 px-4 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm font-bold hover:bg-primary/15 transition-colors"
+            >
+              <Play className="w-4 h-4" />
+              Mark all as In Progress ({filteredOrders.length})
+            </button>
+          )}
+          {activeTab === 'IN_PROGRESS' && (
+            <button
+              type="button"
+              onClick={() => batchUpdateOrderStatus(filteredOrders.map((o) => o.id), 'SERVED')}
+              className="flex items-center gap-2 h-10 px-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm font-bold hover:bg-emerald-500/15 transition-colors"
+            >
+              <Utensils className="w-4 h-4" />
+              Mark all as Served ({filteredOrders.length})
+            </button>
+          )}
+          {activeTab === 'SERVED' && (
+            <button
+              type="button"
+              onClick={() => batchUpdateOrderStatus(filteredOrders.map((o) => o.id), 'COMPLETED')}
+              className="flex items-center gap-2 h-10 px-4 rounded-lg bg-slate-500/10 border border-slate-500/20 text-slate-400 text-sm font-bold hover:bg-slate-500/15 transition-colors"
+            >
+              <Check className="w-4 h-4" />
+              Mark all as Completed ({filteredOrders.length})
+            </button>
+          )}
+        </div>
+      )}
 
       {filteredOrders.length > 0 ? (
         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">

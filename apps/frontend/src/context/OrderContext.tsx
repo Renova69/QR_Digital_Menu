@@ -55,6 +55,7 @@ interface OrderContextType {
   orders: Order[];
   refreshOrders: () => Promise<void>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
+  batchUpdateOrderStatus: (orderIds: string[], status: OrderStatus) => Promise<void>;
 }
 
 // Create the context
@@ -98,6 +99,16 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const batchUpdateOrderStatus = async (orderIds: string[], status: OrderStatus) => {
+    try {
+      await Promise.all(orderIds.map((id) => apiUpdateOrderStatus(id, status)));
+      await refreshOrders();
+    } catch (error) {
+      console.error('Failed to batch update order status:', error);
+      throw error;
+    }
+  };
+
   // Initial load when a staff/owner session becomes available.
   useEffect(() => {
     void refreshOrders();
@@ -136,6 +147,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       orders,
       refreshOrders,
       updateOrderStatus,
+      batchUpdateOrderStatus,
   }
 
   return (

@@ -237,6 +237,8 @@ export class TablesService {
         return {
           id: table.id,
           name: table.name,
+          zoneId: table.zone?.id ?? null,
+          zoneName: table.zone?.name ?? null,
           status: 'empty' as const,
           sessionId: null,
           orderCount: 0,
@@ -252,6 +254,8 @@ export class TablesService {
       return {
         id: table.id,
         name: table.name,
+        zoneId: table.zone?.id ?? null,
+        zoneName: table.zone?.name ?? null,
         status,
         sessionId: session.id,
         orderCount: session.orders.length,

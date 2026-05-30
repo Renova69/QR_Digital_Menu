@@ -1,6 +1,6 @@
 import { useContext } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Eye, Lock, Users2 } from "lucide-react";
+import { Lock, QrCode, User } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import RestaurantContext from "../../context/RestaurantContext";
 import { useFeature } from "../../hooks/useFeature";
@@ -9,7 +9,6 @@ import { useSummaryDateRange } from "../../hooks/useSummaryDateRange";
 import { usePaymentSummary } from "../../hooks/usePaymentSummary";
 import { useScanStats } from "../../hooks/useScanStats";
 import { getLoyaltyAnalytics, getOrders, getTableStatuses } from "../../lib/api";
-import KpiCard from "../../components/dashboard/KpiCard";
 import DateRangeFilter from "./summary/DateRangeFilter";
 import KpiRow from "./summary/KpiRow";
 import OrdersOverviewChart from "./summary/OrdersOverviewChart";
@@ -96,41 +95,66 @@ const SummaryView = () => {
         onCustomRange={dateRange.setCustomRange}
       />
 
-      {/* Reach metrics — menu views & unique visitors. Shown for ALL tiers:
-          QR scans / unique visitors are valuable regardless of plan. */}
-      <div className="grid grid-cols-2 gap-4">
-        <KpiCard
-          label={t("dashboard.menuViews")}
-          value={scanLoading ? "..." : (scanStats?.totalViews ?? 0).toLocaleString('en-US')}
-          Icon={Eye}
-        />
-        <KpiCard
-          label={t("dashboard.uniqueVisitors")}
-          value={scanLoading ? "..." : (scanStats?.uniqueVisitors ?? 0).toLocaleString('en-US')}
-          Icon={Users2}
-        />
-      </div>
+      {/* Reach metrics + per-table breakdown */}
+      {(() => {
+        const hasPerTable = !scanLoading && !!scanStats && scanStats.perTable.length > 0;
+        return (
+          <div
+            className={
+              hasPerTable
+                ? "grid grid-cols-2 gap-4 md:grid-cols-2 lg:grid-cols-[1fr_1fr_3fr]"
+                : "grid grid-cols-1 sm:grid-cols-2 gap-4"
+            }
+          >
+            <div className="kpi-tile p-4 md:p-5 group hover:shadow-[0_12px_40px_-8px_hsl(265_95%_70%/0.3)] hover:-translate-y-0.5 transition-all duration-300">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[11px] font-semibold text-muted-foreground">{t("dashboard.menuViews")}</p>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-primary/10 border border-primary/15">
+                  <QrCode className="w-3.5 h-3.5 text-primary" />
+                </div>
+              </div>
+              <p className="text-[1.65rem] font-display font-bold text-foreground leading-none">
+                {scanLoading ? "..." : (scanStats?.totalViews ?? 0).toLocaleString('en-US')}
+              </p>
+            </div>
+            <div className="kpi-tile p-4 md:p-5 group hover:shadow-[0_12px_40px_-8px_hsl(265_95%_70%/0.3)] hover:-translate-y-0.5 transition-all duration-300">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[11px] font-semibold text-muted-foreground">{t("dashboard.uniqueVisitors")}</p>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-primary/10 border border-primary/15">
+                  <User className="w-3.5 h-3.5 text-primary" />
+                </div>
+              </div>
+              <p className="text-[1.65rem] font-display font-bold text-foreground leading-none">
+                {scanLoading ? "..." : (scanStats?.uniqueVisitors ?? 0).toLocaleString('en-US')}
+              </p>
+            </div>
+            {hasPerTable && (
+              <div className="glass-panel rounded-[1.5rem] p-4 md:p-5 col-span-2 lg:col-span-1">
+                <p className="text-sm font-display font-bold text-foreground mb-3">
+                  {t("dashboard.perTableViews")}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1.5">
+                  {scanStats!.perTable.slice(0, 12).map((row) => (
+                    <div
+                      key={row.tableName}
+                      className="flex items-center justify-between gap-3 border-b border-border/30 pb-1.5"
+                    >
+                      <span className="text-sm text-muted-foreground truncate">{row.tableName}</span>
+                      <span className="text-xs font-semibold text-foreground whitespace-nowrap">
+                        {t("dashboard.perTableViewsCount", { views: row.views, unique: row.uniqueVisitors })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Revenue / order KPIs — paid tiers (STARTER+) only */}
       {canBasic && analytics && (
         <KpiRow data={analytics} showTrends={canFull} />
-      )}
-
-      {/* Per-table reach breakdown — all tiers, when data exists */}
-      {!scanLoading && scanStats && scanStats.perTable.length > 0 && (
-        <div className="glass-panel rounded-[1.5rem] p-4 md:p-5">
-          <p className="text-sm font-display font-bold text-foreground mb-3">
-            {t("dashboard.perTableViews")}
-          </p>
-          <div className="space-y-2">
-            {scanStats.perTable.slice(0, 10).map((row) => (
-              <div key={row.tableName} className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{row.tableName}</span>
-                <span className="font-semibold text-foreground">{t("dashboard.perTableViewsCount", { views: row.views, unique: row.uniqueVisitors })}</span>
-              </div>
-            ))}
-          </div>
-        </div>
       )}
 
       {/* Upsell banner — FREE tier only */}
@@ -152,22 +176,29 @@ const SummaryView = () => {
         </div>
       )}
 
-      {/* Row 2: Chart + Recent Orders + Live Tables */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1.2fr_1fr] gap-5">
-        {!canFull ? (
-          <UpgradeBanner feature={t('dashboard.ordersOverview')} />
-        ) : analytics ? (
-          <OrdersOverviewChart data={analytics.revenueTrend} />
-        ) : (
-          <div className="glass-panel rounded-[1.5rem] p-4 md:p-5 flex items-center justify-center">
-            <p className="text-xs text-muted-foreground">{t('dashboard.loadingChart')}</p>
-          </div>
-        )}
-        {!canOrders ? (
-          <UpgradeBanner feature={t('dashboard.recentOrders')} />
-        ) : (
-          <RecentOrdersTable orders={Array.isArray(recentOrders) ? recentOrders : (recentOrders as any)?.data ?? []} />
-        )}
+      {/* Row 2: Chart + Payments | Live Tables */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-5">
+        <div className="flex flex-col gap-5">
+          {!canFull ? (
+            <UpgradeBanner feature={t('dashboard.ordersOverview')} />
+          ) : analytics ? (
+            <OrdersOverviewChart data={analytics.revenueTrend} />
+          ) : (
+            <div className="glass-panel rounded-[1.5rem] p-4 md:p-5 flex items-center justify-center">
+              <p className="text-xs text-muted-foreground">{t('dashboard.loadingChart')}</p>
+            </div>
+          )}
+          {!canPayments ? (
+            <UpgradeBanner feature={t('dashboard.payments')} />
+          ) : paymentSummary && paymentSummary.totalCollected > 0 ? (
+            <PaymentsSummaryCard data={paymentSummary} />
+          ) : (
+            <div className="glass-panel rounded-[1.5rem] p-4 md:p-5">
+              <h3 className="text-sm font-display font-bold text-foreground mb-4">{t('dashboard.payments')}</h3>
+              <p className="text-xs text-muted-foreground text-center py-8">{t('dashboard.noPaymentsPeriod')}</p>
+            </div>
+          )}
+        </div>
         {!canOrders ? (
           <UpgradeBanner feature={t('dashboard.liveTables')} />
         ) : tables ? (
@@ -179,8 +210,8 @@ const SummaryView = () => {
         )}
       </div>
 
-      {/* Row 3: Top Dishes + Payments + Loyalty */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1.2fr_1fr] gap-5">
+      {/* Row 3: Top Dishes + Loyalty + Last 50 Orders */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {!canFull ? (
           <UpgradeBanner feature={t('dashboard.topDishes')} />
         ) : analytics ? (
@@ -189,16 +220,6 @@ const SummaryView = () => {
           <div className="glass-panel rounded-[1.5rem] p-4 md:p-5">
             <h3 className="text-sm font-display font-bold text-foreground mb-4">{t('dashboard.topDishes')}</h3>
             <p className="text-xs text-muted-foreground text-center py-8">{t('dashboard.noData', 'No data for this period')}</p>
-          </div>
-        )}
-        {!canPayments ? (
-          <UpgradeBanner feature={t('dashboard.payments')} />
-        ) : paymentSummary && paymentSummary.totalCollected > 0 ? (
-          <PaymentsSummaryCard data={paymentSummary} />
-        ) : (
-          <div className="glass-panel rounded-[1.5rem] p-4 md:p-5">
-            <h3 className="text-sm font-display font-bold text-foreground mb-4">{t('dashboard.payments')}</h3>
-            <p className="text-xs text-muted-foreground text-center py-8">{t('dashboard.noPaymentsPeriod')}</p>
           </div>
         )}
         {!canLoyalty ? (
@@ -214,6 +235,11 @@ const SummaryView = () => {
                 : t('dashboard.loyaltyDisabled', 'Loyalty program is disabled — enable it in Settings')}
             </p>
           </div>
+        )}
+        {!canOrders ? (
+          <UpgradeBanner feature={t('dashboard.recentOrders')} />
+        ) : (
+          <RecentOrdersTable orders={Array.isArray(recentOrders) ? recentOrders : (recentOrders as any)?.data ?? []} />
         )}
       </div>
 
