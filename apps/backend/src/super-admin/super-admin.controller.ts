@@ -145,13 +145,16 @@ export class SuperAdminController {
     return this.service.importMenu(id, dto, req.user.id);
   }
 
-  @ApiOperation({ summary: 'Paginated admin audit log' })
+  @ApiOperation({ summary: 'Paginated admin audit log with filters' })
   @Get('audit-log')
   getAuditLog(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
     @Query('targetId') targetId?: string,
+    @Query('action') action?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
   ) {
-    return this.service.getAuditLog({ page, limit, targetId });
+    return this.service.getAuditLog({ page, limit, targetId, action, dateFrom, dateTo });
   }
 }

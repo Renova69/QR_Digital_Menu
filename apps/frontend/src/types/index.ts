@@ -128,6 +128,7 @@ export interface StaffMember {
 }
 
 export interface TenantDetail extends TenantSummary {
+  tierUpdatedAt: string | null;
   timezone: string;
   orderCount: number;
   menuCategoryCount: number;

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getSuperAdminTenants } from "../../lib/api";
-import { Search, ChevronRight, Building2, CheckCircle2, XCircle } from "lucide-react";
+import { Search, ChevronRight, Building2, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 
 const PAGE_SIZE = 20;
@@ -24,7 +24,7 @@ export default function TenantsPage() {
 
   const search = useDebouncedValue(searchInput, 300);
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: ["super-admin", "tenants", page, search, tierFilter, statusFilter, subscriptionFilter],
     queryFn: () =>
       getSuperAdminTenants({
@@ -36,6 +36,7 @@ export default function TenantsPage() {
         ...(subscriptionFilter && { subscription: subscriptionFilter }),
       }),
     staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   const totalPages = data ? Math.ceil(data.meta.total / PAGE_SIZE) : 0;
@@ -44,11 +45,21 @@ export default function TenantsPage() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div>
-        <h2 className="text-2xl font-bold text-white tracking-tight">Tenants</h2>
-        <p className="text-slate-500 text-sm mt-1">
-          {totalCount > 0 ? `${totalCount} restaurants on the platform` : "Manage all platform restaurants"}
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Tenants</h2>
+          <p className="text-slate-500 text-sm mt-1">
+            {totalCount > 0 ? `${totalCount} restaurants on the platform` : "Manage all platform restaurants"}
+          </p>
+        </div>
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-40 transition-colors"
+        >
+          <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
+          {isFetching ? "Refreshing…" : "Refresh"}
+        </button>
       </div>
 
       {/* Filters */}
@@ -128,6 +139,7 @@ export default function TenantsPage() {
                   <th className="text-left px-5 py-3.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Override</th>
                   <th className="text-left px-5 py-3.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Connect</th>
                   <th className="text-left px-5 py-3.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Subscription</th>
+                  <th className="text-left px-5 py-3.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hidden xl:table-cell">Payments</th>
                   <th className="text-left px-5 py-3.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Status</th>
                   <th className="w-10 px-3 py-3.5" />
                 </tr>
@@ -180,6 +192,16 @@ export default function TenantsPage() {
                           <XCircle className="w-3.5 h-3.5 text-slate-600 shrink-0" />
                           <span className="text-xs text-slate-600 font-medium">None</span>
                         </span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 hidden xl:table-cell">
+                      {t.paymentsEnabled ? (
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                          <span className="text-xs text-emerald-400 font-medium">Enabled</span>
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-700">Disabled</span>
                       )}
                     </td>
                     <td className="px-5 py-4">

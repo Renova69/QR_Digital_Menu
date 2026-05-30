@@ -88,7 +88,7 @@ model Restaurant {
   loyaltySilverMultiplier   Float               @default(1.2)
   loyaltySilverThreshold    Int                 @default(500)
   defaultTheme              String?             @default("light")
-  importApiKey              String?             @unique
+  importApiKeyHash          String?             @unique
   stripeAccountId           String?
   stripeOnboarded           Boolean             @default(false)
   paymentsEnabled           Boolean             @default(false)

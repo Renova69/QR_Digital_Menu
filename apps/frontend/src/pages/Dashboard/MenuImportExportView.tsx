@@ -3,8 +3,6 @@ import {
   Upload,
   Key,
   RefreshCw,
-  Eye,
-  EyeOff,
   Copy,
   Check,
   AlertTriangle,
@@ -21,7 +19,6 @@ import { useTranslation } from 'react-i18next';
 import RestaurantContext from '../../context/RestaurantContext';
 import {
   getImportApiKey,
-  revealImportApiKey,
   regenerateImportApiKey,
   confirmMenuImport,
   exportMenu,
@@ -259,7 +256,8 @@ async function xlsxToPayload(file: File): Promise<any[]> {
 function ApiKeyPanel({ restaurantId }: { restaurantId: string }) {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
-  const [revealed, setRevealed] = useState(false);
+  // Plaintext key captured the one time it's returned (first creation or
+  // regeneration). The stored key is hashed and can never be re-displayed (#10).
   const [fullKey, setFullKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [showRegen, setShowRegen] = useState(false);
@@ -270,19 +268,14 @@ function ApiKeyPanel({ restaurantId }: { restaurantId: string }) {
     enabled: !!restaurantId,
   });
 
-  const revealMutation = useMutation({
-    mutationFn: () => revealImportApiKey(restaurantId),
-    onSuccess: (d) => {
-      setFullKey(d.apiKey);
-      setRevealed(true);
-    },
-  });
+  // First load on a fresh restaurant returns a freshly-generated key once.
+  const oneTimeKey = fullKey ?? data?.apiKey ?? null;
+  const isConfigured = !!oneTimeKey || !!data?.configured;
 
   const regenMutation = useMutation({
     mutationFn: () => regenerateImportApiKey(restaurantId),
     onSuccess: (d) => {
       setFullKey(d.apiKey);
-      setRevealed(true);
       setShowRegen(false);
       queryClient.invalidateQueries({
         queryKey: ['import-api-key', restaurantId],
@@ -291,14 +284,12 @@ function ApiKeyPanel({ restaurantId }: { restaurantId: string }) {
   });
 
   const copyKey = async () => {
-    const key = fullKey || data?.apiKey || '';
-    await navigator.clipboard.writeText(key);
+    if (!oneTimeKey) return;
+    await navigator.clipboard.writeText(oneTimeKey);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const displayKey =
-    revealed && fullKey ? fullKey : data?.apiKey || '••••••••••••••••';
   const apiUrl = `${(import.meta as any).env?.VITE_API_URL || 'http://localhost:3000/api'}/restaurants/${restaurantId}/menu/import`;
 
   return (
@@ -322,40 +313,40 @@ function ApiKeyPanel({ restaurantId }: { restaurantId: string }) {
 
       <div className="flex items-center gap-2">
         <code className="flex-1 bg-secondary/60 rounded-xl px-4 py-3 text-sm font-mono text-foreground truncate border border-border/40">
-          {displayKey}
+          {oneTimeKey ?? (isConfigured ? '•••••••• ' + t('importExport.keyHidden', 'key hidden') + ' ••••••••' : '—')}
         </code>
-        <button
-          onClick={() => {
-            if (revealed) {
-              setRevealed(false);
-              setFullKey(null);
-            } else revealMutation.mutate();
-          }}
-          className="p-3 rounded-xl bg-secondary/60 border border-border/40 hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
-          title={
-            revealed
-              ? t('importExport.hideKey', 'Hide key')
-              : t('importExport.revealKey', 'Reveal full key')
-          }
-        >
-          {revealed ? (
-            <EyeOff className="w-4 h-4" />
-          ) : (
-            <Eye className="w-4 h-4" />
-          )}
-        </button>
-        <button
-          onClick={copyKey}
-          className="p-3 rounded-xl bg-secondary/60 border border-border/40 hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
-          title={t('importExport.copyKey', 'Copy')}
-        >
-          {copied ? (
-            <Check className="w-4 h-4 text-green-500" />
-          ) : (
-            <Copy className="w-4 h-4" />
-          )}
-        </button>
+        {oneTimeKey && (
+          <button
+            onClick={copyKey}
+            className="p-3 rounded-xl bg-secondary/60 border border-border/40 hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+            title={t('importExport.copyKey', 'Copy')}
+          >
+            {copied ? (
+              <Check className="w-4 h-4 text-green-500" />
+            ) : (
+              <Copy className="w-4 h-4" />
+            )}
+          </button>
+        )}
       </div>
+
+      {oneTimeKey ? (
+        <p className="text-xs text-amber-500 font-medium">
+          {t(
+            'importExport.saveKeyNow',
+            'Copy this key now — for security it is not stored in readable form and cannot be shown again.',
+          )}
+        </p>
+      ) : (
+        isConfigured && (
+          <p className="text-xs text-muted-foreground">
+            {t(
+              'importExport.keyConfigured',
+              'A key is configured. It cannot be displayed again — regenerate to issue a new one.',
+            )}
+          </p>
+        )
+      )}
 
       <details className="group">
         <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors font-semibold uppercase tracking-wider">

@@ -1,5 +1,8 @@
 import { ApiKeyGuard } from './api-key.guard';
 import { ExecutionContext } from '@nestjs/common';
+import { createHash } from 'crypto';
+
+const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 
 const mockPrisma = {
   restaurant: { findFirst: jest.fn() },
@@ -56,7 +59,7 @@ describe('ApiKeyGuard', () => {
       await guard.canActivate(makeContext({ authHeader: 'Bearer valid-key', restaurantId: 'rest-1' })),
     ).toBe(true);
     expect(mockPrisma.restaurant.findFirst).toHaveBeenCalledWith({
-      where: { id: 'rest-1', importApiKey: 'valid-key' },
+      where: { id: 'rest-1', importApiKeyHash: sha256('valid-key') },
       select: { id: true },
     });
   });

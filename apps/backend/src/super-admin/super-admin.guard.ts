@@ -10,6 +10,12 @@ export class SuperAdminGuard implements CanActivate {
         message: 'Only super admins can access this resource',
       });
     }
+    if (!request.user?.isActive) {
+      throw new ForbiddenException({
+        code: 'ACCOUNT_DEACTIVATED',
+        message: 'Super admin account is deactivated',
+      });
+    }
     return true;
   }
 }

@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import * as bcrypt from 'bcryptjs';
+import { randomInt, randomBytes } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { PIN_LOGIN_ROLES } from '../users/staff-roles';
@@ -63,7 +64,7 @@ export class AuthService {
 
     if (!user) {
       const generatedPassword = await bcrypt.hash(
-        Math.random().toString(36).slice(-8),
+        randomBytes(24).toString('hex'),
         10,
       );
       user = await this.usersService.create({
@@ -225,7 +226,8 @@ export class AuthService {
       where: { email: email!, usedAt: null },
     });
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    // OTP is an auth factor — must use a CSPRNG, not Math.random (#9).
+    const code = randomInt(100000, 1000000).toString();
     const hashedCode = await bcrypt.hash(code, 10);
 
     await this.prisma.verificationToken.create({
@@ -414,7 +416,7 @@ export class AuthService {
       isNew = !user;
       if (!user) {
         const placeholderEmail = `phone-${phone.replace(/\D/g, '')}@phone.local`;
-        const password = await bcrypt.hash(Math.random().toString(36).slice(-12), 10);
+        const password = await bcrypt.hash(randomBytes(24).toString('hex'), 10);
         user = await this.usersService.create({
           email: placeholderEmail,
           password,
@@ -467,7 +469,7 @@ export class AuthService {
       user = await this.usersService.findByEmail(email);
       isNew = !user;
       if (!user) {
-        const password = await bcrypt.hash(Math.random().toString(36).slice(-12), 10);
+        const password = await bcrypt.hash(randomBytes(24).toString('hex'), 10);
         user = await this.usersService.create({
           email,
           password,
