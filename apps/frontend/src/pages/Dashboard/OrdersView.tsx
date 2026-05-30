@@ -105,7 +105,7 @@ function SourceBadge({ source, staff }: { source?: 'CUSTOMER' | 'POS'; staff?: a
   if (source === 'CUSTOMER') {
     return (
       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
-        Self-order
+        QR
       </span>
     );
   }
