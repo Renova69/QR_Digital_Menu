@@ -1,0 +1,772 @@
+{
+  "nodes": [
+    {
+      "id": "agents_md_graphify_rules",
+      "label": "AGENTS.md - Graphify Knowledge Graph Rules",
+      "file_type": "document",
+      "source_file": "AGENTS.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "saas_subscription_system",
+      "label": "SaaS Subscription System (3-Tier: Free / Starter / Pro)",
+      "file_type": "document",
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": "QR Menu Dev",
+      "contributor": null
+    },
+    {
+      "id": "subscription_tiers",
+      "label": "Subscription Tiers (Free/Starter/Pro)",
+      "file_type": "document",
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L16-L21",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "feature_gating_matrix",
+      "label": "Feature Gating Matrix (per-tier restrictions)",
+      "file_type": "document",
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L28-L40",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "trial_policy_14_day",
+      "label": "14-Day Pro Trial Policy (no credit card)",
+      "file_type": "document",
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L47-L51",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "subscription_schema_fields",
+      "label": "Subscription Schema (SubscriptionTier + SubscriptionStatus enums on Restaurant)",
+      "file_type": "document",
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L57-L83",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "subscription_module",
+      "label": "SubscriptionModule (Stripe checkout + webhook)",
+      "file_type": "document",
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L91-L133",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "subscription_guard",
+      "label": "SubscriptionGuard + @TierRequired decorator",
+      "file_type": "document",
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L137-L147",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "subscription_frontend_banner",
+      "label": "SubscriptionBanner + UpgradeModal + BillingView (frontend)",
+      "file_type": "document",
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L185-L198",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "downgrade_behavior_no_data_loss",
+      "label": "Downgrade Behavior — no data deletion, .take(20) Free limit on public menu",
+      "file_type": "document",
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L242-L248",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Existing data never deleted on downgrade; new creates blocked by server-side count enforcement; public menu applies .take(20) to close PATCH-based bypass loophole."
+    },
+    {
+      "id": "saas_stripe_integration",
+      "label": "Stripe Integration (Checkout + Billing Portal + Webhooks)",
+      "file_type": "document",
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L106-L132",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "saas_upgrade_flow",
+      "label": "End-to-End Upgrade Flow (click locked feature -> Stripe -> webhook -> unlocked)",
+      "file_type": "document",
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L200-L208",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "custom_analyzer_skill_rules",
+      "label": "Custom Analyzer Skill — evidenced-backed deep repo audit rules",
+      "file_type": "document",
+      "source_file": "docs/16.05.26-My-Custom-analyser-skill.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "citation_rule_no_speculation",
+      "label": "Citation Rule: cite every claim with file:line, no speculation",
+      "file_type": "document",
+      "source_file": "docs/16.05.26-My-Custom-analyser-skill.md",
+      "source_location": "L6-L13",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Enforce factual accuracy and make reports auditable by requiring file:line citations for every claim."
+    },
+    {
+      "id": "analyzer_required_reading_order",
+      "label": "Required Reading Order (CLAUDE.md -> GRAPH_REPORT -> MAIN docs -> app.module -> schema -> App.tsx)",
+      "file_type": "document",
+      "source_file": "docs/16.05.26-My-Custom-analyser-skill.md",
+      "source_location": "L15-L24",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "analyzer_output_format",
+      "label": "Analyzer Output Format (12 sections: Repo Map through Open Questions)",
+      "file_type": "document",
+      "source_file": "docs/16.05.26-My-Custom-analyser-skill.md",
+      "source_location": "L39-L91",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "loyalty_settings_tab",
+      "label": "LoyaltySettingsTab — Loyalty configuration UI component",
+      "file_type": "code",
+      "source_file": "apps/frontend/src/pages/Dashboard/settings/LoyaltySettingsTab.tsx",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "points_economy",
+      "label": "Points Economy (earn rate, redeem rate, signup bonus, cashback % )",
+      "file_type": "code",
+      "source_file": "apps/frontend/src/pages/Dashboard/settings/LoyaltySettingsTab.tsx",
+      "source_location": "L31-L34, L110-L118",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "loyalty_vip_tiers",
+      "label": "VIP Tiers — Silver + Gold (thresholds + multipliers)",
+      "file_type": "code",
+      "source_file": "apps/frontend/src/pages/Dashboard/settings/LoyaltySettingsTab.tsx",
+      "source_location": "L36-L39, L276-L361",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "loyalty_happy_hour",
+      "label": "Happy Hour — day picker + time range + points multiplier",
+      "file_type": "code",
+      "source_file": "apps/frontend/src/pages/Dashboard/settings/LoyaltySettingsTab.tsx",
+      "source_location": "L40-L46, L364-L495",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "coverage_restaurants_service",
+      "label": "Coverage: RestaurantsService — 93% stmts / 76% branches / 100% funcs / 93% lines",
+      "file_type": "rationale",
+      "source_file": "apps/backend/coverage/lcov-report/restaurants/restaurants.service.ts.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "9 uncovered statements, 18 uncovered branches — branch coverage gap suggests conditional paths need more tests."
+    },
+    {
+      "id": "coverage_loyalty_service",
+      "label": "Coverage: LoyaltyService — 95% stmts / 69% branches / 100% funcs / 98% lines",
+      "file_type": "rationale",
+      "source_file": "apps/backend/coverage/lcov-report/loyalty/loyalty.service.ts.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "8 uncovered statements, 25 uncovered branches — high branch gap signals untested edge cases in loyalty logic."
+    },
+    {
+      "id": "coverage_app_controller",
+      "label": "Coverage: AppController — 100% stmts / 100% branches / 67% funcs / 100% lines",
+      "file_type": "rationale",
+      "source_file": "apps/backend/coverage/lcov-report/src/app.controller.ts.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "1 uncovered function: getRoot() redirect handler is not tested; all other code paths fully covered."
+    },
+    {
+      "id": "coverage_dashboard_controller",
+      "label": "Coverage: DashboardController — 0% ALL metrics (completely untested)",
+      "file_type": "rationale",
+      "source_file": "apps/backend/coverage/lcov-report/src/dashboard/dashboard.controller.ts.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "0/28 statements, 0/13 branches, 0/4 functions, 0/26 lines — critical dashboard endpoints (summary, analytics) have zero test coverage."
+    },
+    {
+      "id": "coverage_public_menu_controller",
+      "label": "Coverage: PublicMenuController — 0% ALL metrics (completely untested)",
+      "file_type": "rationale",
+      "source_file": "apps/backend/coverage/lcov-report/src/menu/public-menu.controller.ts.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "0/20 statements, 0/7 functions, 0/18 lines — public menu endpoints (customer-facing) have zero test coverage."
+    },
+    {
+      "id": "coverage_menu_option_controller",
+      "label": "Coverage: MenuOptionController — 0% ALL metrics (completely untested)",
+      "file_type": "rationale",
+      "source_file": "apps/backend/coverage/lcov-report/src/menu/menu-option.controller.ts.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "0/19 statements, 0/5 functions, 0/15 lines — menu option CRUD controller has zero test coverage."
+    },
+    {
+      "id": "useFeature_hook_gating",
+      "label": "useFeature hook — feature gating in LoyaltySettingsTab",
+      "file_type": "code",
+      "source_file": "apps/frontend/src/pages/Dashboard/settings/LoyaltySettingsTab.tsx",
+      "source_location": "L28, L122-L128",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "updateRestaurant_api_call",
+      "label": "updateRestaurant API call — persistence of loyalty settings",
+      "file_type": "code",
+      "source_file": "apps/frontend/src/pages/Dashboard/settings/LoyaltySettingsTab.tsx",
+      "source_location": "L81-L97",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "schedule_module_global",
+      "label": "ScheduleModule — must be moved from LoyaltyModule to AppModule for global Cron support",
+      "file_type": "document",
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L134",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "ScheduleModule is a global NestJS module; registering in AppModule allows both LoyaltyModule and SubscriptionModule to use @Cron without conflict."
+    },
+    {
+      "id": "loyalty_point_expiry",
+      "label": "Loyalty Point Expiry + Reminder System",
+      "file_type": "code",
+      "source_file": "apps/frontend/src/pages/Dashboard/settings/LoyaltySettingsTab.tsx",
+      "source_location": "L34-L35, L237-L272",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "agents_md_graphify_rules",
+      "target": "custom_analyzer_skill_rules",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "AGENTS.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "saas_subscription_system",
+      "target": "subscription_tiers",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L16-L21",
+      "weight": 1.0
+    },
+    {
+      "source": "subscription_tiers",
+      "target": "feature_gating_matrix",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L25-L40",
+      "weight": 1.0
+    },
+    {
+      "source": "feature_gating_matrix",
+      "target": "loyalty_settings_tab",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L38",
+      "weight": 1.0
+    },
+    {
+      "source": "subscription_guard",
+      "target": "feature_gating_matrix",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L137-L147",
+      "weight": 1.0
+    },
+    {
+      "source": "saas_stripe_integration",
+      "target": "subscription_module",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L106-L132",
+      "weight": 1.0
+    },
+    {
+      "source": "saas_upgrade_flow",
+      "target": "saas_stripe_integration",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L200-L208",
+      "weight": 1.0
+    },
+    {
+      "source": "downgrade_behavior_no_data_loss",
+      "target": "feature_gating_matrix",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L242-L248",
+      "weight": 1.0
+    },
+    {
+      "source": "trial_policy_14_day",
+      "target": "subscription_schema_fields",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L48-L49",
+      "weight": 1.0
+    },
+    {
+      "source": "subscription_frontend_banner",
+      "target": "saas_upgrade_flow",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L185-L208",
+      "weight": 1.0
+    },
+    {
+      "source": "loyalty_settings_tab",
+      "target": "points_economy",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/frontend/src/pages/Dashboard/settings/LoyaltySettingsTab.tsx",
+      "source_location": "L110-L118",
+      "weight": 1.0
+    },
+    {
+      "source": "loyalty_settings_tab",
+      "target": "loyalty_vip_tiers",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/frontend/src/pages/Dashboard/settings/LoyaltySettingsTab.tsx",
+      "source_location": "L276-L361",
+      "weight": 1.0
+    },
+    {
+      "source": "loyalty_settings_tab",
+      "target": "loyalty_happy_hour",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/frontend/src/pages/Dashboard/settings/LoyaltySettingsTab.tsx",
+      "source_location": "L364-L495",
+      "weight": 1.0
+    },
+    {
+      "source": "loyalty_settings_tab",
+      "target": "loyalty_point_expiry",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/frontend/src/pages/Dashboard/settings/LoyaltySettingsTab.tsx",
+      "source_location": "L237-L272",
+      "weight": 1.0
+    },
+    {
+      "source": "loyalty_settings_tab",
+      "target": "updateRestaurant_api_call",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/frontend/src/pages/Dashboard/settings/LoyaltySettingsTab.tsx",
+      "source_location": "L81",
+      "weight": 1.0
+    },
+    {
+      "source": "loyalty_settings_tab",
+      "target": "useFeature_hook_gating",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/frontend/src/pages/Dashboard/settings/LoyaltySettingsTab.tsx",
+      "source_location": "L28",
+      "weight": 1.0
+    },
+    {
+      "source": "useFeature_hook_gating",
+      "target": "feature_gating_matrix",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "apps/frontend/src/pages/Dashboard/settings/LoyaltySettingsTab.tsx",
+      "source_location": "L28",
+      "weight": 1.0
+    },
+    {
+      "source": "subscription_guard",
+      "target": "useFeature_hook_gating",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L137-L147",
+      "weight": 1.0
+    },
+    {
+      "source": "points_economy",
+      "target": "coverage_loyalty_service",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "apps/frontend/src/pages/Dashboard/settings/LoyaltySettingsTab.tsx",
+      "source_location": "L110-L118",
+      "weight": 1.0
+    },
+    {
+      "source": "loyalty_vip_tiers",
+      "target": "coverage_loyalty_service",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "apps/frontend/src/pages/Dashboard/settings/LoyaltySettingsTab.tsx",
+      "source_location": "L276-L361",
+      "weight": 1.0
+    },
+    {
+      "source": "loyalty_happy_hour",
+      "target": "coverage_loyalty_service",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "apps/frontend/src/pages/Dashboard/settings/LoyaltySettingsTab.tsx",
+      "source_location": "L364-L495",
+      "weight": 1.0
+    },
+    {
+      "source": "coverage_dashboard_controller",
+      "target": "downgrade_behavior_no_data_loss",
+      "relation": "rationale_for",
+      "confidence": "AMBIGUOUS",
+      "confidence_score": 0.2,
+      "source_file": "apps/backend/coverage/lcov-report/src/dashboard/dashboard.controller.ts.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "coverage_public_menu_controller",
+      "target": "downgrade_behavior_no_data_loss",
+      "relation": "rationale_for",
+      "confidence": "AMBIGUOUS",
+      "confidence_score": 0.2,
+      "source_file": "apps/backend/coverage/lcov-report/src/menu/public-menu.controller.ts.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "coverage_menu_option_controller",
+      "target": "coverage_public_menu_controller",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "apps/backend/coverage/lcov-report/src/menu/menu-option.controller.ts.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "coverage_dashboard_controller",
+      "target": "coverage_public_menu_controller",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "apps/backend/coverage/lcov-report/src/dashboard/dashboard.controller.ts.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "schedule_module_global",
+      "target": "subscription_module",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L134",
+      "weight": 1.0
+    },
+    {
+      "source": "subscription_schema_fields",
+      "target": "updateRestaurant_api_call",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.65,
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L57-L83",
+      "weight": 1.0
+    },
+    {
+      "source": "custom_analyzer_skill_rules",
+      "target": "citation_rule_no_speculation",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/16.05.26-My-Custom-analyser-skill.md",
+      "source_location": "L6-L13",
+      "weight": 1.0
+    },
+    {
+      "source": "custom_analyzer_skill_rules",
+      "target": "analyzer_required_reading_order",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/16.05.26-My-Custom-analyser-skill.md",
+      "source_location": "L15-L24",
+      "weight": 1.0
+    },
+    {
+      "source": "custom_analyzer_skill_rules",
+      "target": "analyzer_output_format",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/16.05.26-My-Custom-analyser-skill.md",
+      "source_location": "L39-L91",
+      "weight": 1.0
+    },
+    {
+      "source": "coverage_app_controller",
+      "target": "analyzer_output_format",
+      "relation": "rationale_for",
+      "confidence": "AMBIGUOUS",
+      "confidence_score": 0.15,
+      "source_file": "apps/backend/coverage/lcov-report/src/app.controller.ts.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "coverage_restaurants_service",
+      "target": "subscription_schema_fields",
+      "relation": "rationale_for",
+      "confidence": "AMBIGUOUS",
+      "confidence_score": 0.2,
+      "source_file": "apps/backend/coverage/lcov-report/restaurants/restaurants.service.ts.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "citation_rule_no_speculation",
+      "target": "agents_md_graphify_rules",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.65,
+      "source_file": "docs/16.05.26-My-Custom-analyser-skill.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "feature_gating_matrix",
+      "target": "useFeature_hook_gating",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L25-L40",
+      "weight": 1.0
+    },
+    {
+      "source": "saas_subscription_system",
+      "target": "loyalty_settings_tab",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L38",
+      "weight": 1.0
+    },
+    {
+      "source": "trial_policy_14_day",
+      "target": "saas_upgrade_flow",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md",
+      "source_location": "L47-L51, L200-L208",
+      "weight": 1.0
+    },
+    {
+      "source": "coverage_restaurants_service",
+      "target": "coverage_loyalty_service",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "apps/backend/coverage/lcov-report/restaurants/restaurants.service.ts.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "loyalty_point_expiry",
+      "target": "points_economy",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "apps/frontend/src/pages/Dashboard/settings/LoyaltySettingsTab.tsx",
+      "source_location": "L237-L272",
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "saas_subscription_architecture",
+      "label": "SaaS Subscription End-to-End System",
+      "nodes": [
+        "saas_subscription_system",
+        "subscription_module",
+        "subscription_guard",
+        "saas_stripe_integration",
+        "subscription_frontend_banner"
+      ],
+      "relation": "implement",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/superpowers/specs/2026-05-10-saas-subscription-design.md"
+    },
+    {
+      "id": "loyalty_feature_ecosystem",
+      "label": "Loyalty Program Feature Ecosystem",
+      "nodes": [
+        "loyalty_settings_tab",
+        "points_economy",
+        "loyalty_vip_tiers",
+        "loyalty_happy_hour",
+        "loyalty_point_expiry"
+      ],
+      "relation": "form",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/frontend/src/pages/Dashboard/settings/LoyaltySettingsTab.tsx"
+    },
+    {
+      "id": "zero_coverage_controllers",
+      "label": "Zero-Test-Coverage Backend Controllers",
+      "nodes": [
+        "coverage_dashboard_controller",
+        "coverage_public_menu_controller",
+        "coverage_menu_option_controller"
+      ],
+      "relation": "participate_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "apps/backend/coverage/lcov-report/"
+    }
+  ],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

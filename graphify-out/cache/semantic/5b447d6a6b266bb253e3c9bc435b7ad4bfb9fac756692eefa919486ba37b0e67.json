@@ -1,0 +1,1 @@
+{"nodes": [{"id": "cov_events_gateway", "label": "EventsGateway: 40% Statement Coverage (10/25)", "file_type": "rationale", "source_file": "apps/backend/coverage/lcov-report/src/events/events.gateway.ts.html", "source_location": "line 28", "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}

@@ -1,0 +1,76 @@
+<h2>Mobile Public Menu — Top Bar Redesign</h2>
+<p class="subtitle">Current layout vs. proposed new layout. Which direction feels right?</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Current (Before)</div>
+    <div class="mockup-body" style="font-family: system-ui; padding: 12px; max-width: 375px; margin: 0 auto;">
+      <!-- Table banner -->
+      <div style="background: rgba(255,255,255,0.8); border-left: 4px solid #3b82f6; padding: 10px 14px; border-radius: 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 8px; height: 8px; background: #3b82f6; border-radius: 50%;"></div>
+          <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7;">Viewing Table 5</span>
+        </div>
+        <div style="width: 36px; height: 36px; background: #e5e7eb; border-radius: 12px; display: flex; align-items: center; justify-content: center;">☀️</div>
+      </div>
+      <!-- Logo -->
+      <div style="text-align: center; margin-bottom: 16px;">
+        <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border-radius: 20px; margin: 0 auto 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 28px; font-weight: 800;">R</div>
+        <h2 style="font-size: 20px; font-weight: 800; margin: 0;">Restaurant Name</h2>
+      </div>
+      <!-- Language pill -->
+      <div style="display: flex; justify-content: center; margin-bottom: 16px;">
+        <div style="background: rgba(255,255,255,0.6); border-radius: 100px; padding: 8px 16px; display: flex; align-items: center; gap: 8px; font-size: 13px;">
+          🌐 Language
+          <select style="border: none; background: transparent; font-size: 13px; font-weight: 600;">
+            <option>EN</option><option>BG</option><option>RO</option>
+          </select>
+        </div>
+      </div>
+      <!-- Allergen/diet chips (all mixed) -->
+      <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;">
+        <span style="padding: 4px 12px; border-radius: 100px; background: #3b82f6; color: white; font-size: 10px; font-weight: 700;">All (32)</span>
+        <span style="padding: 4px 12px; border-radius: 100px; background: #f3f4f6; font-size: 10px; font-weight: 700;">Vegan (8)</span>
+        <span style="padding: 4px 12px; border-radius: 100px; background: #f3f4f6; font-size: 10px; font-weight: 700;">Spicy (6)</span>
+        <span style="padding: 4px 12px; border-radius: 100px; background: #f3f4f6; font-size: 10px; font-weight: 700;">Gluten (4)</span>
+        <span style="padding: 4px 12px; border-radius: 100px; background: #f3f4f6; font-size: 10px; font-weight: 700;">Nuts (3)</span>
+        <span style="padding: 4px 12px; border-radius: 100px; background: #f3f4f6; font-size: 10px; font-weight: 700;">Milk (5)</span>
+        <span style="padding: 4px 12px; border-radius: 100px; background: #f3f4f6; font-size: 10px; font-weight: 700;">Fish (2)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Proposed (After)</div>
+    <div class="mockup-body" style="font-family: system-ui; padding: 12px; max-width: 375px; margin: 0 auto; background: #f8fafc; border-radius: 24px;">
+      <!-- Top row: table + theme + lang -->
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+        <div style="display: flex; align-items: center; gap: 5px; background: rgba(255,255,255,0.9); padding: 5px 10px; border-radius: 100px; font-size: 11px; font-weight: 700;">
+          🪑 5
+        </div>
+        <div style="flex: 1;"></div>
+        <div style="width: 32px; height: 32px; background: white; border-radius: 10px; display: flex; align-items: center; justify-content: center;">🌙</div>
+        <div style="display: flex; align-items: center; gap: 3px; background: white; border-radius: 100px; padding: 5px 10px; font-size: 11px; font-weight: 600;">
+          🌐 EN ▾
+        </div>
+      </div>
+      <!-- Search bar row -->
+      <div style="display: flex; align-items: center; gap: 8px; background: white; border-radius: 100px; padding: 4px 4px 4px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+        <span style="opacity: 0.4;">🔍</span>
+        <input placeholder="Search menu..." style="border: none; background: transparent; flex: 1; font-size: 14px; outline: none; padding: 8px 0;" />
+        <button style="width: 32px; height: 32px; border-radius: 50%; border: none; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 16px;">☰</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3 style="margin-top: 32px;">Key changes</h3>
+<div class="section">
+  <ul style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+    <li style="display: flex; align-items: flex-start; gap: 8px;"><span style="color: #22c55e; font-weight: 700;">+</span> Logo removed — saves ~80px vertical space</li>
+    <li style="display: flex; align-items: flex-start; gap: 8px;"><span style="color: #22c55e; font-weight: 700;">+</span> Compact top row: table pill + theme toggle + language selector</li>
+    <li style="display: flex; align-items: flex-start; gap: 8px;"><span style="color: #22c55e; font-weight: 700;">+</span> Full-width search bar with magnifier icon + filter hamburger button</li>
+    <li style="display: flex; align-items: flex-start; gap: 8px;"><span style="color: #22c55e; font-weight: 700;">+</span> Filter chips hidden inside filter panel (not always visible)</li>
+    <li style="display: flex; align-items: flex-start; gap: 8px;"><span style="color: #f59e0b; font-weight: 700;">!</span> Table text replaced with compact pill icon+number</li>
+  </ul>
+</div>

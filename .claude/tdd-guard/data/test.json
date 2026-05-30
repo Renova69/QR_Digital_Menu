@@ -1,0 +1,111 @@
+{
+  "testModules": [
+    {
+      "moduleId": "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\super-admin\\super-admin.guard.spec.ts",
+      "tests": [
+        {
+          "name": "should allow active SUPER_ADMIN user",
+          "fullName": "SuperAdminGuard should allow active SUPER_ADMIN user",
+          "state": "passed"
+        },
+        {
+          "name": "should reject OWNER user",
+          "fullName": "SuperAdminGuard should reject OWNER user",
+          "state": "passed"
+        },
+        {
+          "name": "should reject unauthenticated user (no user)",
+          "fullName": "SuperAdminGuard should reject unauthenticated user (no user)",
+          "state": "passed"
+        },
+        {
+          "name": "should reject deactivated SUPER_ADMIN",
+          "fullName": "SuperAdminGuard should reject deactivated SUPER_ADMIN",
+          "state": "passed"
+        },
+        {
+          "name": "should reject SUPER_ADMIN with undefined isActive",
+          "fullName": "SuperAdminGuard should reject SUPER_ADMIN with undefined isActive",
+          "state": "passed"
+        }
+      ]
+    },
+    {
+      "moduleId": "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\super-admin\\super-admin.service.spec.ts",
+      "tests": [
+        {
+          "name": "returns platform stats using aggregate queries",
+          "fullName": "SuperAdminService getStats returns platform stats using aggregate queries",
+          "state": "passed"
+        },
+        {
+          "name": "sets forceTier and writes audit log in transaction",
+          "fullName": "SuperAdminService updateTier sets forceTier and writes audit log in transaction",
+          "state": "passed"
+        },
+        {
+          "name": "throws NotFoundException for missing restaurant",
+          "fullName": "SuperAdminService updateTier throws NotFoundException for missing restaurant",
+          "state": "passed"
+        },
+        {
+          "name": "ignores invalid tier in query",
+          "fullName": "SuperAdminService getTenants ignores invalid tier in query",
+          "state": "passed"
+        },
+        {
+          "name": "allows enabling on PROFESSIONAL tier",
+          "fullName": "SuperAdminService updatePaymentsEnabled allows enabling on PROFESSIONAL tier",
+          "state": "passed"
+        },
+        {
+          "name": "throws TIER_RESTRICTED when enabling on FREE tier",
+          "fullName": "SuperAdminService updatePaymentsEnabled throws TIER_RESTRICTED when enabling on FREE tier",
+          "state": "passed"
+        },
+        {
+          "name": "allows disabling on FREE tier",
+          "fullName": "SuperAdminService updatePaymentsEnabled allows disabling on FREE tier",
+          "state": "passed"
+        },
+        {
+          "name": "skips transaction when paymentsEnabled unchanged",
+          "fullName": "SuperAdminService updatePaymentsEnabled skips transaction when paymentsEnabled unchanged",
+          "state": "passed"
+        },
+        {
+          "name": "coerces Decimal payment amount to Number",
+          "fullName": "SuperAdminService getTenantById coerces Decimal payment amount to Number",
+          "state": "passed"
+        },
+        {
+          "name": "handles null payment amount as 0",
+          "fullName": "SuperAdminService getTenantById handles null payment amount as 0",
+          "state": "passed"
+        }
+      ]
+    },
+    {
+      "moduleId": "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\super-admin\\super-admin.guard-coverage.spec.ts",
+      "tests": [
+        {
+          "name": "guards every route on the /super-admin tenant controller at class level",
+          "fullName": "Super-admin route guard coverage guards every route on the /super-admin tenant controller at class level",
+          "state": "passed"
+        },
+        {
+          "name": "guards platform settings admin endpoints",
+          "fullName": "Super-admin route guard coverage guards platform settings admin endpoints",
+          "state": "passed"
+        },
+        {
+          "name": "guards help-content admin endpoints",
+          "fullName": "Super-admin route guard coverage guards help-content admin endpoints",
+          "state": "passed"
+        }
+      ]
+    }
+  ],
+  "unhandledErrors": [],
+  "reason": "passed"
+}

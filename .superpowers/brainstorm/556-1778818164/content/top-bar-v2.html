@@ -1,0 +1,64 @@
+<h2>Mobile Top Bar — All-in-One Row</h2>
+<p class="subtitle">Everything compact in one bar: table pill → search → filters → theme → language codes</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Row 1: Controls | Row 2: Search</h3>
+      <div style="background: #f8fafc; border-radius: 16px; padding: 12px; max-width: 400px;">
+        <!-- Row 1: table + theme + lang -->
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+          <span style="background: #eff6ff; color: #3b82f6; padding: 4px 8px; border-radius: 8px; font-size: 11px; font-weight: 700;">🪑 5</span>
+          <div style="flex: 1;"></div>
+          <button style="width: 30px; height: 30px; border-radius: 8px; border: none; background: white; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px rgba(0,0,0,0.06);">🌙</button>
+          <span style="background: white; padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,0.06);">EN</span>
+        </div>
+        <!-- Row 2: search + filter -->
+        <div style="display: flex; align-items: center; gap: 6px; background: white; border-radius: 14px; padding: 3px 3px 3px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+          <span style="opacity: 0.3; font-size: 14px;">🔍</span>
+          <input placeholder="Search menu..." style="border: none; background: transparent; flex: 1; font-size: 13px; outline: none; padding: 7px 0;" />
+          <button style="width: 30px; height: 30px; border-radius: 10px; border: none; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 15px;">☰</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Single Row — All Compact</h3>
+      <div style="background: white; border-radius: 16px; padding: 6px; display: flex; align-items: center; gap: 6px; max-width: 400px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);">
+        <span style="background: #eff6ff; color: #3b82f6; padding: 4px 7px; border-radius: 8px; font-size: 10px; font-weight: 700; white-space: nowrap;">🪑 5</span>
+        <div style="flex: 1; display: flex; align-items: center; background: #f8fafc; border-radius: 10px; padding: 2px 8px;">
+          <span style="opacity: 0.25; font-size: 13px;">🔍</span>
+          <input placeholder="Search..." style="border: none; background: transparent; flex: 1; font-size: 12px; outline: none; padding: 7px 0; min-width: 0;" />
+        </div>
+        <button style="width: 30px; height: 30px; border-radius: 10px; border: none; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0;">☰</button>
+        <button style="width: 30px; height: 30px; border-radius: 10px; border: none; background: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">🌙</button>
+        <span style="font-size: 10px; font-weight: 800; padding: 4px 6px; background: #f8fafc; border-radius: 8px; flex-shrink: 0;">EN</span>
+      </div>
+      <p style="margin-top: 6px; font-size: 11px; opacity: 0.5;">Very tight on 320px phones — table pill might need to collapse to icon-only</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Glass Panel Bar — Table + Search + 3 Action Icons</h3>
+      <div style="background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); border-radius: 20px; padding: 8px 10px; display: flex; align-items: center; gap: 7px; max-width: 400px; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
+        <span style="background: #3b82f6; color: white; padding: 5px 8px; border-radius: 10px; font-size: 10px; font-weight: 800; white-space: nowrap;">T5</span>
+        <div style="flex: 1; display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.04); border-radius: 12px; padding: 4px 10px;">
+          <span style="opacity: 0.3; font-size: 13px;">🔍</span>
+          <input placeholder="Search menu..." style="border: none; background: transparent; flex: 1; font-size: 13px; outline: none; padding: 5px 0; min-width: 0;" />
+        </div>
+        <div style="display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
+          <button style="width: 30px; height: 30px; border-radius: 10px; border: none; background: rgba(0,0,0,0.05); font-size: 14px;">☰</button>
+          <button style="width: 30px; height: 30px; border-radius: 10px; border: none; font-size: 13px;">🌙</button>
+          <span style="font-size: 10px; font-weight: 800; opacity: 0.5; padding: 0 2px;">EN</span>
+        </div>
+      </div>
+      <p style="margin-top: 6px; font-size: 11px; opacity: 0.5;">Table as "T5" chip, glass-morphism panel, 3 compact action items on right</p>
+    </div>
+  </div>
+</div>

@@ -37,6 +37,12 @@ interface Order {
   specialRequests?: string;
   source?: 'CUSTOMER' | 'POS';
   staffName?: string | null;
+  staff?: {
+    id: string;
+    name: string | null;
+    email: string;
+    role: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
   tableSession?: {
