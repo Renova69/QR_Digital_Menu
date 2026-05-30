@@ -59,6 +59,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
       const specialRequests = buildSpecialRequests();
       await createOrder({
         customerName: "Staff",
+        source: "POS",
         tableId: session.tableName,
         restaurantId: activeRestaurant.id,
         specialRequests,

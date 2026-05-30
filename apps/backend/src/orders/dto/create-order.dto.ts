@@ -66,6 +66,10 @@ export class CreateOrderDto {
   @IsOptional()
   sessionToken?: string;
 
+  @IsString()
+  @IsOptional()
+  source?: 'CUSTOMER' | 'POS';
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)
