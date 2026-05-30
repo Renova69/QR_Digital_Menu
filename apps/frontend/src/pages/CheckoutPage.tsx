@@ -250,6 +250,7 @@ const CheckoutPage = () => {
         state: {
           orderNumber: newOrder.id,
           orderId: newOrder.id,
+          orderTrackToken: newOrder.orderTrackToken,
           restaurantId: newOrder.restaurantId,
           tableNumber,
           tier,

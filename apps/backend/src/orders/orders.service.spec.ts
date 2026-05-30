@@ -125,6 +125,7 @@ describe('OrdersService', () => {
       emitToRestaurant: jest.fn(),
       emitTableStatusChanged: jest.fn(),
       emitToOrder: jest.fn(),
+      signOrderToken: jest.fn().mockReturnValue('order-track-token'),
     };
 
     featureService = {

@@ -108,6 +108,7 @@ const OrderConfirmationPage = () => {
   const orderNumber = location.state?.orderNumber || '';
   const restaurantId = location.state?.restaurantId || '';
   const orderId = location.state?.orderId || '';
+  const orderTrackToken = location.state?.orderTrackToken || '';
   const tableNumber = location.state?.tableNumber || '';
   const tier = (location.state?.tier as string) || 'FREE';
 
@@ -115,14 +116,14 @@ const OrderConfirmationPage = () => {
   const { socket, isConnected } = useSocket();
 
   useEffect(() => {
-    if (!socket || !isConnected || !orderId) return;
-    socket.emit('joinOrderRoom', orderId);
+    if (!socket || !isConnected || !orderId || !orderTrackToken) return;
+    socket.emit('joinOrderRoom', { orderId, token: orderTrackToken });
     const handleStatusChanged = (updatedOrder: any) => {
       setOrderStatus(updatedOrder.status);
     };
     socket.on('orderStatusChanged', handleStatusChanged);
     return () => { socket.off('orderStatusChanged', handleStatusChanged); };
-  }, [socket, isConnected, orderId]);
+  }, [socket, isConnected, orderId, orderTrackToken]);
 
   const cfg = STATUS_STYLE[orderStatus] ?? STATUS_STYLE.NEW;
   const StatusIcon = cfg.icon;

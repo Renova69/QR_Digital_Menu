@@ -412,7 +412,11 @@ export class OrdersService {
       );
     }
 
-    return { ...finalOrder, sessionToken };
+    // Order-scoped token so the customer can track THIS order over the socket
+    // without access to the restaurant's live event feed (see EventsGateway).
+    const orderTrackToken = this.eventsGateway.signOrderToken(finalOrder.id);
+
+    return { ...finalOrder, sessionToken, orderTrackToken };
   }
 
   async findAll(userId: string, query: OrderQueryDto) {
