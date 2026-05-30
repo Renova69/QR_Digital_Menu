@@ -4,6 +4,7 @@ import { formatEuro } from "../../../lib/currency";
 interface OrderRow {
   id: string;
   tableId?: string | null;
+  tableName?: string | null;
   customerPhone?: string | null;
   totalPrice: number;
   status: string;
@@ -45,7 +46,7 @@ const RecentOrdersTable = ({ orders }: RecentOrdersTableProps) => {
             <div key={order.id} className="flex items-center gap-3 py-2 px-3 rounded-xl hover:bg-secondary/50 transition-colors">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-foreground">
-                  #{order.id.slice(-6).toUpperCase()} — Table {order.tableId || '—'}
+                  #{order.id.slice(-6).toUpperCase()} — Table {order.tableName || order.tableId || '—'}
                 </p>
                 <p className="text-[10px] text-muted-foreground">
                   {order.customerPhone ? `${order.customerPhone} · ` : ''}{formatDateTime(order.createdAt)}

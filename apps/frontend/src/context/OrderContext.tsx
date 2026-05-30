@@ -20,6 +20,7 @@ interface Order {
   customerName: string;
   customerPhone?: string;
   tableId: string;
+  tableName?: string | null;
   status: OrderStatus;
   items: Array<{
     id: string;
