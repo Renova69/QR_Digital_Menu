@@ -17,7 +17,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<any>;
   register: (email: string, password: string, name?: string) => Promise<any>;
-  loginWithToken: (user: User) => void;
+  loginWithToken: (user: User, token?: string) => void;
   updateUser: (user: User) => void;
   logout: () => Promise<void>;
   isLoading: boolean;
@@ -96,8 +96,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loginWithToken = (user: User) => {
+  const loginWithToken = (user: User, token?: string) => {
     queryClient.clear();
+    // Store the Bearer token for cross-origin contexts where the httpOnly
+    // cookie is not sent (prod Vercel→Cloud Run, LAN-IP dev). Mirrors login().
+    if (token) setAuthToken(token);
     setPrefetchedRestaurants(null);
     setUser(user);
   };

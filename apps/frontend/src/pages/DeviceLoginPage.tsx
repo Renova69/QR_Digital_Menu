@@ -70,8 +70,9 @@ export default function DeviceLoginPage() {
           pin: pinCode,
         });
         const user = res.data.user;
+        const token = res.data.token;
         const role = user?.role?.toUpperCase();
-        loginWithToken(user);
+        loginWithToken(user, token);
         const target = ROLE_REDIRECT[role] || "/dashboard";
         navigate(target, { replace: true });
       } catch (err: any) {
