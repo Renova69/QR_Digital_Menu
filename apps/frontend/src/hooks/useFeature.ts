@@ -114,7 +114,7 @@ export function useTier(): {
 
   const { data, isLoading } = useQuery({
     queryKey: ['subscription-status', userId, activeRestaurantId],
-    queryFn: getSubscriptionStatus,
+    queryFn: () => getSubscriptionStatus(activeRestaurantId ?? undefined),
     staleTime: 60_000,
     enabled: hasRestaurant,
   });

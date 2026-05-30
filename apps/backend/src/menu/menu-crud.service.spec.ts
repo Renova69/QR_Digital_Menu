@@ -5,6 +5,7 @@ import { MenuCrudService } from './menu-crud.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TranslationService } from '../translation/translation.service';
 import { MenuTranslationService } from './menu-translation.service';
+import { FeatureService } from '../subscription/feature.service';
 
 const mockPrisma = {
   restaurant: { findUnique: jest.fn() },
@@ -104,6 +105,7 @@ describe('MenuCrudService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: TranslationService, useValue: mockTranslation },
         { provide: MenuTranslationService, useValue: mockMenuTranslation },
+        FeatureService,
       ],
     }).compile();
 

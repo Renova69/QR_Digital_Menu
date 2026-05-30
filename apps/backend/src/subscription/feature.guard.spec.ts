@@ -41,6 +41,14 @@ describe('FeatureGuard', () => {
     } as any;
   }
 
+  function makeCtxWithReq(req: Record<string, any>, userId = 'u1') {
+    return {
+      getHandler: () => ({}),
+      getClass: () => ({}),
+      switchToHttp: () => ({ getRequest: () => ({ user: { id: userId }, ...req }) }),
+    } as any;
+  }
+
   it('allows if no feature requirement set', async () => {
     (reflector.getAllAndOverride as jest.Mock).mockReturnValue(undefined);
     expect(await guard.canActivate(makeCtx())).toBe(true);
@@ -81,5 +89,66 @@ describe('FeatureGuard', () => {
     prismaMock.user.findUnique.mockResolvedValue({ restaurantId: null });
     prismaMock.restaurant.findFirst.mockResolvedValue(null);
     await expect(guard.canActivate(makeCtx())).rejects.toThrow(ForbiddenException);
+  });
+
+  // ── target-aware resolution (#2) ─────────────────────────────────────────
+
+  it('checks the TARGET restaurant (from params.id), not the first owned', async () => {
+    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([FeatureFlag.BRANDING_CUSTOM]);
+    prismaMock.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'OWNER' });
+    // Target restaurant rest-2 is PROFESSIONAL and owned by the caller.
+    prismaMock.restaurant.findUnique.mockResolvedValue({
+      ownerId: 'u1',
+      tier: 'PROFESSIONAL',
+      forceTier: null,
+      isActive: true,
+    });
+    const ctx = makeCtxWithReq({ params: { id: 'rest-2' } });
+    expect(await guard.canActivate(ctx)).toBe(true);
+    expect(prismaMock.restaurant.findUnique).toHaveBeenCalledWith({
+      where: { id: 'rest-2' },
+      select: expect.anything(),
+    });
+    expect(prismaMock.restaurant.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('denies passing another restaurant id you do not own (bypass prevention)', async () => {
+    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([FeatureFlag.BRANDING_CUSTOM]);
+    prismaMock.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'OWNER' });
+    // Target is a PROFESSIONAL restaurant the caller is NOT associated with.
+    prismaMock.restaurant.findUnique.mockResolvedValue({
+      ownerId: 'someone-else',
+      tier: 'PROFESSIONAL',
+      forceTier: null,
+      isActive: true,
+    });
+    const ctx = makeCtxWithReq({ query: { restaurantId: 'rest-victim' } });
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('resolves the target from body.restaurantId for staff', async () => {
+    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([FeatureFlag.PAYMENTS_STRIPE]);
+    prismaMock.user.findUnique.mockResolvedValue({ restaurantId: 'rest-3', role: 'WAITER' });
+    prismaMock.restaurant.findUnique.mockResolvedValue({
+      ownerId: 'owner-x',
+      tier: 'PROFESSIONAL',
+      forceTier: null,
+      isActive: true,
+    });
+    const ctx = makeCtxWithReq({ body: { restaurantId: 'rest-3' } });
+    expect(await guard.canActivate(ctx)).toBe(true);
+  });
+
+  it('honors forceTier on the target restaurant', async () => {
+    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([FeatureFlag.BRANDING_CUSTOM]);
+    prismaMock.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'OWNER' });
+    prismaMock.restaurant.findUnique.mockResolvedValue({
+      ownerId: 'u1',
+      tier: 'FREE',
+      forceTier: 'PROFESSIONAL',
+      isActive: true,
+    });
+    const ctx = makeCtxWithReq({ params: { id: 'rest-2' } });
+    expect(await guard.canActivate(ctx)).toBe(true);
   });
 });
