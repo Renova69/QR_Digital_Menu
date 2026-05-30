@@ -234,6 +234,7 @@ model Order {
   customerName              String
   customerPhone             String?
   tableId                   String?
+  tableName                 String?
   status                    OrderStatus          @default(NEW)
   restaurantId              String
   totalPrice                Float

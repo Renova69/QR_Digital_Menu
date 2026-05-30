@@ -123,9 +123,14 @@ export class OrdersService {
     // customer order, not POS (#4). Prevents misclassifying customers as staff.
     const resolvedStaffUserId = await this.resolvePosStaff(staffUserId, restaurant.ownerId, restaurantId);
 
-    // 5. Resolve or create TableSession for pay-at-table
+    // 5. Resolve or create TableSession for pay-at-table.
+    // The client sends the table NAME (e.g. "1"). We persist the real table
+    // cuid in Order.tableId and keep the name in Order.tableName for display
+    // (#M1) — so tableId is a stable identifier consistent with TableSession
+    // and the socket layer, not a renameable label.
     let sessionToken = createOrderDto.sessionToken;
     let tableSessionId: string | undefined;
+    let resolvedTableCuid: string | null = null;
 
     if (sessionToken) {
       const existingSession = await this.prisma.tableSession.findFirst({
@@ -133,6 +138,7 @@ export class OrdersService {
       });
       if (existingSession) {
         tableSessionId = existingSession.id;
+        resolvedTableCuid = existingSession.tableId;
       } else {
         sessionToken = undefined;
       }
@@ -146,6 +152,7 @@ export class OrdersService {
       if (!table) throw new NotFoundException('Table not found for this restaurant');
 
       const tableCuid = table.id;
+      resolvedTableCuid = tableCuid;
 
       const newSession = await this.prisma.$transaction(async (tx) => {
         const existing = await tx.tableSession.findFirst({
@@ -381,7 +388,8 @@ export class OrdersService {
           customerName: createOrderDto.customerName,
           customerPhone: createOrderDto.customerPhone,
           customerId: createOrderDto.customerId,
-          tableId: createOrderDto.tableId,
+          tableId: resolvedTableCuid,
+          tableName: createOrderDto.tableId ?? null,
           specialRequests: createOrderDto.specialRequests,
           totalPrice: finalTotal,
           pointsEarned,
@@ -417,10 +425,10 @@ export class OrdersService {
       finalOrder,
     );
 
-    if (finalOrder.tableSessionId && finalOrder.tableId) {
+    if (finalOrder.tableSessionId && resolvedTableCuid) {
       this.eventsGateway.emitTableStatusChanged(
         finalOrder.restaurantId,
-        finalOrder.tableId,
+        resolvedTableCuid,
         finalOrder.tableSessionId,
       );
     }
