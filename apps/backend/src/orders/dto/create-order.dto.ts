@@ -4,6 +4,9 @@ import {
   IsArray,
   ValidateNested,
   IsNumber,
+  IsInt,
+  Min,
+  Max,
 } from 'class-validator';
 
 import { Type } from 'class-transformer';
@@ -26,12 +29,16 @@ class OrderItemDto {
   @IsString()
   menuItemId: string;
 
-  @IsNumber()
+  @IsInt()
+  @Min(1)
+  @Max(999)
   quantity: number;
 
   @IsArray()
   @IsOptional()
-  selectedOptions: any[];
+  @ValidateNested({ each: true })
+  @Type(() => OrderItemOptionDto)
+  selectedOptions?: OrderItemOptionDto[];
 }
 
 export class CreateOrderDto {
@@ -53,7 +60,8 @@ export class CreateOrderDto {
   @IsOptional()
   customerId?: string;
 
-  @IsNumber()
+  @IsInt()
+  @Min(0)
   @IsOptional()
   redeemPoints?: number;
 

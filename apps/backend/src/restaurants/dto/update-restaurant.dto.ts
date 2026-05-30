@@ -7,9 +7,17 @@ import {
   IsBoolean,
   IsNumber,
   IsInt,
+  IsHexColor,
+  IsIn,
+  Matches,
   Min,
   Max,
 } from 'class-validator';
+import {
+  HHMM_PATTERN,
+  HAPPY_HOUR_WEEKDAY_MIN,
+  HAPPY_HOUR_WEEKDAY_MAX,
+} from '../../common/weekday';
 
 export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @IsString()
@@ -33,7 +41,7 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @IsOptional()
   timezone?: string;
 
-  @IsString()
+  @IsIn(['AUTO', 'MANUAL', 'OFF'])
   @IsOptional()
   trendingMode?: string;
 
@@ -45,51 +53,51 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @IsOptional()
   fontBody?: string;
 
-  @IsString()
+  @IsHexColor()
   @IsOptional()
   themeBgColor?: string;
 
-  @IsString()
+  @IsHexColor()
   @IsOptional()
   themeTextColor?: string;
 
-  @IsString()
+  @IsHexColor()
   @IsOptional()
   themeCardColor?: string;
 
-  @IsString()
+  @IsHexColor()
   @IsOptional()
   themeLightBgColor?: string;
 
-  @IsString()
+  @IsHexColor()
   @IsOptional()
   themeLightTextColor?: string;
 
-  @IsString()
+  @IsHexColor()
   @IsOptional()
   themeLightCardColor?: string;
 
-  @IsString()
+  @IsHexColor()
   @IsOptional()
   themeLightAccentColor?: string;
 
-  @IsString()
+  @IsHexColor()
   @IsOptional()
   themeDarkBgColor?: string;
 
-  @IsString()
+  @IsHexColor()
   @IsOptional()
   themeDarkTextColor?: string;
 
-  @IsString()
+  @IsHexColor()
   @IsOptional()
   themeDarkCardColor?: string;
 
-  @IsString()
+  @IsHexColor()
   @IsOptional()
   themeDarkAccentColor?: string;
 
-  @IsString()
+  @IsIn(['light', 'dark'])
   @IsOptional()
   defaultTheme?: string;
 
@@ -150,19 +158,20 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @IsBoolean()
   happyHourEnable?: boolean;
 
+  // Luxon weekday convention: 1=Mon … 7=Sun. See common/weekday.ts (#16).
   @IsOptional()
   @IsArray()
   @IsInt({ each: true })
-  @Min(1, { each: true })
-  @Max(7, { each: true })
+  @Min(HAPPY_HOUR_WEEKDAY_MIN, { each: true })
+  @Max(HAPPY_HOUR_WEEKDAY_MAX, { each: true })
   happyHourDays?: number[];
 
   @IsOptional()
-  @IsString()
+  @Matches(HHMM_PATTERN, { message: 'happyHourStartTime must be HH:mm (00:00–23:59)' })
   happyHourStartTime?: string;
 
   @IsOptional()
-  @IsString()
+  @Matches(HHMM_PATTERN, { message: 'happyHourEndTime must be HH:mm (00:00–23:59)' })
   happyHourEndTime?: string;
 
   @IsOptional()
