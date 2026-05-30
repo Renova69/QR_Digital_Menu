@@ -126,6 +126,46 @@ describe('StripeProvider', () => {
     });
   });
 
+  describe('onModuleInit (production hard-fail #H2)', () => {
+    const savedEnv = { ...process.env };
+    afterEach(() => {
+      process.env.NODE_ENV = savedEnv.NODE_ENV;
+      process.env.STRIPE_SECRET_KEY = savedEnv.STRIPE_SECRET_KEY;
+      process.env.STRIPE_WEBHOOK_SECRET = savedEnv.STRIPE_WEBHOOK_SECRET;
+    });
+
+    it('throws when STRIPE_WEBHOOK_SECRET is missing in production', () => {
+      process.env.NODE_ENV = 'production';
+      process.env.STRIPE_SECRET_KEY = 'sk_live_set';
+      process.env.STRIPE_WEBHOOK_SECRET = '';
+      const p = new StripeProvider();
+      expect(() => p.onModuleInit()).toThrow(/STRIPE_WEBHOOK_SECRET/);
+    });
+
+    it('throws when STRIPE_SECRET_KEY is missing in production', () => {
+      process.env.NODE_ENV = 'production';
+      delete process.env.STRIPE_SECRET_KEY;
+      process.env.STRIPE_WEBHOOK_SECRET = 'whsec_live';
+      const p = new StripeProvider();
+      expect(() => p.onModuleInit()).toThrow(/STRIPE_SECRET_KEY/);
+    });
+  });
+
+  describe('constructWebhookEvent (production refuses unverified #H2)', () => {
+    const savedEnv = { ...process.env };
+    afterEach(() => {
+      process.env.NODE_ENV = savedEnv.NODE_ENV;
+      process.env.STRIPE_WEBHOOK_SECRET = savedEnv.STRIPE_WEBHOOK_SECRET;
+    });
+
+    it('throws instead of JSON-parsing when no secret in production', () => {
+      process.env.NODE_ENV = 'production';
+      process.env.STRIPE_WEBHOOK_SECRET = '';
+      const p = new StripeProvider();
+      expect(() => p.constructWebhookEvent(Buffer.from('{}'), 'sig')).toThrow(/unverified/);
+    });
+  });
+
   describe('constructWebhookEvent (dev mode)', () => {
     it('parses payload as JSON when webhookSecret is empty (no Stripe verification)', () => {
       process.env.STRIPE_WEBHOOK_SECRET = '';

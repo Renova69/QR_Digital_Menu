@@ -1,7 +1,6 @@
 import {
   ConflictException,
   HttpException,
-  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
@@ -76,9 +75,11 @@ describe('AuthService', () => {
   // ─── validateUser ────────────────────────────────────────────────────────────
 
   describe('validateUser', () => {
-    it('throws NotFoundException when user not found', async () => {
+    it('throws a generic UnauthorizedException when user not found (no enumeration #M3)', async () => {
       mockUsersService.findByEmail.mockResolvedValue(null);
-      await expect(service.validateUser('x@x.com', 'pass')).rejects.toThrow(NotFoundException);
+      await expect(service.validateUser('x@x.com', 'pass')).rejects.toThrow(UnauthorizedException);
+      // Must match the wrong-password message exactly so the two cases are indistinguishable.
+      await expect(service.validateUser('x@x.com', 'pass')).rejects.toThrow('Invalid email or password.');
     });
 
     it('throws UnauthorizedException when password is wrong', async () => {

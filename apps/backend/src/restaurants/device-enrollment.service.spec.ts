@@ -11,6 +11,7 @@ describe('DeviceEnrollmentService', () => {
       create: jest.fn().mockResolvedValue({}),
       findUnique: jest.fn(),
       update: jest.fn().mockResolvedValue({}),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     };
     mockPrisma = {
       restaurant: { findUnique: jest.fn() },
@@ -84,34 +85,34 @@ describe('DeviceEnrollmentService', () => {
 
   describe('verifyEnrollment', () => {
     it('throws UnauthorizedException when token not found', async () => {
+      mockTokenStore.updateMany.mockResolvedValue({ count: 0 });
       mockTokenStore.findUnique.mockResolvedValue(null);
       await expect(service.verifyEnrollment('bad-token')).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws GoneException when token already used', async () => {
+      mockTokenStore.updateMany.mockResolvedValue({ count: 0 });
       mockTokenStore.findUnique.mockResolvedValue({
-        id: 'tok1',
         usedAt: new Date(),
         expiresAt: new Date(Date.now() + 60_000),
-        restaurant: { id: 'rest1', name: 'Test' },
       });
       await expect(service.verifyEnrollment('some-token')).rejects.toThrow(GoneException);
     });
 
     it('throws GoneException when token is expired', async () => {
+      mockTokenStore.updateMany.mockResolvedValue({ count: 0 });
       mockTokenStore.findUnique.mockResolvedValue({
-        id: 'tok1',
         usedAt: null,
         expiresAt: new Date(Date.now() - 1000),
-        restaurant: { id: 'rest1', name: 'Test' },
       });
       await expect(service.verifyEnrollment('some-token')).rejects.toThrow(GoneException);
     });
 
-    it('marks token as used and returns restaurant info on valid token', async () => {
+    it('claims the token atomically and returns restaurant info on valid token', async () => {
+      mockTokenStore.updateMany.mockResolvedValue({ count: 1 });
       mockTokenStore.findUnique.mockResolvedValue({
         id: 'tok1',
-        usedAt: null,
+        usedAt: new Date(),
         expiresAt: new Date(Date.now() + 60_000),
         restaurant: { id: 'rest1', name: 'Test Restaurant' },
       });
@@ -121,9 +122,23 @@ describe('DeviceEnrollmentService', () => {
       expect(result.restaurantId).toBe('rest1');
       expect(result.restaurantName).toBe('Test Restaurant');
       expect(result.allowedModes).toEqual(['POS', 'KDS']);
-      expect(mockTokenStore.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ usedAt: expect.any(Date) }) }),
+      // The claim must be a guarded updateMany (usedAt: null) — not a blind update.
+      expect(mockTokenStore.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ usedAt: null }),
+          data: expect.objectContaining({ usedAt: expect.any(Date) }),
+        }),
       );
+    });
+
+    it('does not consume the link a second time under concurrent use', async () => {
+      // Second concurrent request: the guarded claim matches 0 rows.
+      mockTokenStore.updateMany.mockResolvedValue({ count: 0 });
+      mockTokenStore.findUnique.mockResolvedValue({
+        usedAt: new Date(),
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      await expect(service.verifyEnrollment('valid-token')).rejects.toThrow(GoneException);
     });
   });
 });

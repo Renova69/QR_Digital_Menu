@@ -101,8 +101,33 @@ export class DeviceEnrollmentService {
   }
 
   async verifyEnrollment(token: string) {
+    const tokenHash = this.hashToken(token);
+
+    // Atomic single-use claim (#M4). Marking usedAt in a guarded updateMany
+    // means only one of N concurrent requests can win — a find→check→update
+    // sequence let two requests both pass the usedAt check and consume the link.
+    const claim = await this.tokenStore.updateMany({
+      where: { tokenHash, usedAt: null, expiresAt: { gt: new Date() } },
+      data: { usedAt: new Date() },
+    });
+
+    if (claim.count === 0) {
+      // Claim failed — disambiguate the reason for a useful error.
+      const existing = await this.tokenStore.findUnique({
+        where: { tokenHash },
+        select: { usedAt: true, expiresAt: true },
+      });
+      if (!existing) {
+        throw new UnauthorizedException('Invalid device enrollment link');
+      }
+      if (existing.usedAt) {
+        throw new GoneException('Device enrollment link has already been used');
+      }
+      throw new GoneException('Device enrollment link has expired');
+    }
+
     const tokenRecord = await this.tokenStore.findUnique({
-      where: { tokenHash: this.hashToken(token) },
+      where: { tokenHash },
       include: {
         restaurant: {
           select: { id: true, name: true },
@@ -110,26 +135,9 @@ export class DeviceEnrollmentService {
       },
     });
 
-    if (!tokenRecord) {
-      throw new UnauthorizedException('Invalid device enrollment link');
-    }
-
-    if (tokenRecord.usedAt) {
-      throw new GoneException('Device enrollment link has already been used');
-    }
-
-    if (new Date(tokenRecord.expiresAt).getTime() <= Date.now()) {
-      throw new GoneException('Device enrollment link has expired');
-    }
-
-    await this.tokenStore.update({
-      where: { id: tokenRecord.id },
-      data: { usedAt: new Date() },
-    });
-
     return {
-      restaurantId: tokenRecord.restaurant.id,
-      restaurantName: tokenRecord.restaurant.name,
+      restaurantId: tokenRecord!.restaurant.id,
+      restaurantName: tokenRecord!.restaurant.name,
       allowedModes: ['POS', 'KDS'],
     };
   }

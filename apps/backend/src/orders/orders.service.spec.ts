@@ -428,6 +428,58 @@ describe('OrdersService', () => {
       expect(tx.order.create).toHaveBeenCalled();
     });
 
+    // Overnight happy hour belongs to the START day (#L4). 2026-01-10 is a
+    // Saturday; 01:00 falls inside a Fri→Sat 22:00–02:00 window, which is the
+    // FRIDAY happy hour, not Saturday. Timezone UTC avoids DST ambiguity.
+    describe('overnight happy-hour weekday attribution (#L4)', () => {
+      afterEach(() => jest.useRealTimers());
+
+      const runAt = async (activeDays: number[]) => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-01-10T01:00:00Z')); // Sat 01:00 UTC
+        prisma.menuItem.findMany.mockResolvedValue([makeMenuItem({ price: 10 })]);
+        prisma.restaurant.findUnique.mockResolvedValue(
+          makeRestaurant({
+            timezone: 'UTC',
+            happyHourEnable: true,
+            happyHourStartTime: '22:00',
+            happyHourEndTime: '02:00',
+            happyHourMultiplier: 1.5,
+            happyHourDays: activeDays,
+            isLoyaltyEnabled: true,
+            loyaltyExchangeRate: 10,
+          }),
+        );
+        const tx = makeTx();
+        prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+        await service.create({
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          customerId: 'cust-1',
+        } as any);
+        return tx;
+      };
+
+      it('applies the multiplier when Friday is active (start day)', async () => {
+        const tx = await runAt([5]); // Friday
+        // base = 10 * 10 = 100, ×1.5 = 150 points
+        expect(tx.loyaltyAccount.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ points: { increment: 150 } }),
+          }),
+        );
+      });
+
+      it('does NOT apply the multiplier when only Saturday is active (current day)', async () => {
+        const tx = await runAt([6]); // Saturday only — must NOT match a Friday window
+        // no multiplier → base 100 points
+        expect(tx.loyaltyAccount.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ points: { increment: 100 } }),
+          }),
+        );
+      });
+    });
+
     it('zeroes price for items in redeemItemIds when rewardPointsPrice set', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem({ rewardPointsPrice: 100 })]);
       prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ isLoyaltyEnabled: true }));

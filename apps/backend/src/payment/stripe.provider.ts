@@ -15,11 +15,30 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
     this.webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
   }
 
+  private get hasWebhookSecret() {
+    return !!this.webhookSecret && this.webhookSecret !== 'NONE';
+  }
+
   onModuleInit() {
+    const isProduction = process.env.NODE_ENV === 'production';
+
     if (!process.env.STRIPE_SECRET_KEY) {
+      if (isProduction) {
+        throw new Error(
+          'STRIPE_SECRET_KEY must be set in production. Refusing to start.',
+        );
+      }
       this.logger.warn('STRIPE_SECRET_KEY is not set — Stripe calls will fail');
     }
-    if (!this.webhookSecret || this.webhookSecret === 'NONE') {
+
+    if (!this.hasWebhookSecret) {
+      if (isProduction) {
+        // Without signature verification, anyone reaching the webhook endpoint
+        // could forge payment_intent.succeeded and mark sessions paid (#H2).
+        throw new Error(
+          'STRIPE_WEBHOOK_SECRET must be set in production. Refusing to start with unverified webhooks.',
+        );
+      }
       this.logger.warn('STRIPE_WEBHOOK_SECRET is not set — webhook signature verification will fail');
     }
   }
@@ -45,8 +64,18 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
     return { clientSecret: intent.client_secret!, paymentIntentId: intent.id };
   }
 
+  async cancelPaymentIntent(paymentIntentId: string): Promise<void> {
+    await this.stripe.paymentIntents.cancel(paymentIntentId);
+  }
+
   constructWebhookEvent(payload: Buffer, signature: string): any {
-    if (!this.webhookSecret || this.webhookSecret === 'NONE') {
+    if (!this.hasWebhookSecret) {
+      // Production boot is blocked when the secret is missing (see onModuleInit),
+      // so this unverified branch can only run in dev/test. Never trust an
+      // unsigned webhook in production.
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('Refusing to process unverified Stripe webhook in production');
+      }
       // Dev mode: no signature verification — set STRIPE_WEBHOOK_SECRET via Stripe CLI for production
       return JSON.parse(payload.toString());
     }
