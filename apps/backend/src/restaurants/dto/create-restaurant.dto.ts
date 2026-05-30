@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsUrl } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsUrl, IsHexColor } from 'class-validator';
 
 export class CreateRestaurantDto {
   @IsString()
@@ -13,7 +13,7 @@ export class CreateRestaurantDto {
   @IsOptional()
   logoUrl?: string;
 
-  @IsString()
+  @IsHexColor()
   @IsOptional()
   accentColor?: string;
 
