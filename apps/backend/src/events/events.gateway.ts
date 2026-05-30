@@ -9,6 +9,8 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from '../prisma/prisma.service';
 
 const wsOrigin = (
   origin: string | undefined,
@@ -32,6 +34,23 @@ const wsOrigin = (
   }
 };
 
+/** Token scope for the short-lived order-tracking token issued to customers. */
+const ORDER_TRACK_SCOPE = 'order-track';
+const ORDER_TRACK_TTL = '6h';
+
+/** Minimal cookie-header parser — avoids a dependency for the one value we need. */
+function parseCookie(header: string | undefined, name: string): string | null {
+  if (!header) return null;
+  for (const part of header.split(';')) {
+    const eq = part.indexOf('=');
+    if (eq === -1) continue;
+    if (part.slice(0, eq).trim() === name) {
+      return decodeURIComponent(part.slice(eq + 1).trim());
+    }
+  }
+  return null;
+}
+
 @WebSocketGateway({
   cors: { origin: wsOrigin, credentials: true },
 })
@@ -41,53 +60,129 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private logger = new Logger('EventsGateway');
 
+  constructor(
+    private readonly jwt: JwtService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  /**
+   * Authenticate the handshake from the `token` cookie. A valid JWT marks the
+   * socket with its userId; anything else (no cookie, expired, order-track
+   * token) leaves it anonymous. Connections are NOT rejected when anonymous —
+   * customers tracking an order connect without a dashboard JWT and are
+   * authorized per-room via an order-scoped token instead.
+   */
   handleConnection(client: Socket) {
-    this.logger.log(`Client connected: ${client.id}`);
+    const token = parseCookie(client.handshake.headers?.cookie, 'token');
+    if (token) {
+      try {
+        const payload = this.jwt.verify(token) as { sub?: string };
+        if (payload?.sub) {
+          client.data.userId = payload.sub;
+        }
+      } catch {
+        // invalid/expired — stay anonymous
+      }
+    }
+    this.logger.log(
+      `Client connected: ${client.id}${client.data.userId ? ` (user ${client.data.userId})` : ' (anon)'}`,
+    );
   }
 
   handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 
-  /**
-   * Listen for clients specifying which restaurant they want to listen to.
-   * This allows the admin of "Restaurant A" to ONLY receive events for "Restaurant A".
-   */
-  @SubscribeMessage('joinRestaurantRoom')
-  handleJoinRoom(
-    @MessageBody() restaurantId: string,
-    @ConnectedSocket() client: Socket,
-  ) {
-    client.join(`restaurant_${restaurantId}`);
-    this.logger.log(
-      `Client ${client.id} joined room: restaurant_${restaurantId}`,
-    );
-    return { event: 'joinedRoom', data: restaurantId };
+  private async canAccessRestaurant(
+    userId: string,
+    restaurantId: string,
+  ): Promise<boolean> {
+    const [user, restaurant] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true, restaurantId: true, isActive: true, disabledAt: true },
+      }),
+      this.prisma.restaurant.findUnique({
+        where: { id: restaurantId },
+        select: { ownerId: true, isActive: true },
+      }),
+    ]);
+    if (!user || !restaurant) return false;
+    // Mirror jwt.strategy: disabled accounts and suspended restaurants are
+    // rejected on the HTTP path — enforce the same over the socket.
+    if (user.isActive === false || user.disabledAt) return false;
+    if (user.role === 'SUPER_ADMIN') return true;
+    if (restaurant.isActive === false) return false;
+    return restaurant.ownerId === userId || user.restaurantId === restaurantId;
   }
 
   /**
-   * Listen for clients leaving a restaurant room.
+   * Join a restaurant's live event room. Requires an authenticated owner,
+   * assigned staff, or super-admin for that restaurant — restaurant IDs are
+   * public (menu URLs), so this is the access boundary for the live feed.
    */
+  @SubscribeMessage('joinRestaurantRoom')
+  async handleJoinRoom(
+    @MessageBody() restaurantId: string,
+    @ConnectedSocket() client: Socket,
+  ) {
+    const userId = client.data.userId as string | undefined;
+    if (!userId || !(await this.canAccessRestaurant(userId, restaurantId))) {
+      this.logger.warn(
+        `Denied restaurant room join: client ${client.id} → restaurant_${restaurantId}`,
+      );
+      client.emit('roomError', { room: 'restaurant', restaurantId, error: 'UNAUTHORIZED' });
+      return { event: 'roomError', data: restaurantId };
+    }
+    client.join(`restaurant_${restaurantId}`);
+    this.logger.log(`Client ${client.id} joined room: restaurant_${restaurantId}`);
+    return { event: 'joinedRoom', data: restaurantId };
+  }
+
   @SubscribeMessage('leaveRestaurantRoom')
   handleLeaveRoom(
     @MessageBody() restaurantId: string,
     @ConnectedSocket() client: Socket,
   ) {
     client.leave(`restaurant_${restaurantId}`);
-    this.logger.log(
-      `Client ${client.id} left room: restaurant_${restaurantId}`,
-    );
+    this.logger.log(`Client ${client.id} left room: restaurant_${restaurantId}`);
     return { event: 'leftRoom', data: restaurantId };
   }
 
+  private verifyOrderToken(token: string, orderId: string): boolean {
+    try {
+      const payload = this.jwt.verify(token) as { scope?: string; orderId?: string };
+      return payload?.scope === ORDER_TRACK_SCOPE && payload?.orderId === orderId;
+    } catch {
+      return false;
+    }
+  }
+
   /**
-   * Listen for a specific order room (e.g. for customer real-time tracking)
+   * Issue a short-lived token scoped to a single order. Returned to the
+   * customer on order creation so they can track that order — and only that
+   * order — over the socket without seeing the restaurant's event feed.
+   */
+  signOrderToken(orderId: string): string {
+    return this.jwt.sign({ scope: ORDER_TRACK_SCOPE, orderId }, { expiresIn: ORDER_TRACK_TTL });
+  }
+
+  /**
+   * Join a single order's room for real-time status tracking. Requires the
+   * order-scoped token issued at order creation.
    */
   @SubscribeMessage('joinOrderRoom')
   handleJoinOrderRoom(
-    @MessageBody() orderId: string,
+    @MessageBody() body: { orderId: string; token: string },
     @ConnectedSocket() client: Socket,
   ) {
+    const orderId = body?.orderId;
+    const token = body?.token;
+    if (!orderId || !token || !this.verifyOrderToken(token, orderId)) {
+      this.logger.warn(`Denied order room join: client ${client.id} → order_${orderId}`);
+      client.emit('roomError', { room: 'order', orderId, error: 'UNAUTHORIZED' });
+      return { event: 'roomError', data: orderId };
+    }
     client.join(`order_${orderId}`);
     this.logger.log(`Client ${client.id} joined order room: order_${orderId}`);
     return { event: 'joinedOrderRoom', data: orderId };

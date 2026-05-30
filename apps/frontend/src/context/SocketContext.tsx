@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { useAuth } from './AuthContext';
 
 interface SocketContextData {
   socket: Socket | null;
@@ -13,6 +14,10 @@ export const useSocket = () => useContext(SocketContext);
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  // Reconnect when auth identity changes so the handshake re-runs with the
+  // current `token` cookie — dashboard room joins require an authed handshake.
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
 
   useEffect(() => {
     // Dev: same-origin via Vite proxy. Production: connect directly to backend.
@@ -46,7 +51,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => {
       socketInstance.disconnect();
     };
-  }, []);
+  }, [userId]);
 
   return (
     <SocketContext.Provider value={{ socket, isConnected }}>
