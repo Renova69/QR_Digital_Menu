@@ -211,7 +211,7 @@ export default function PosTableModal() {
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-        <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto rounded-t-xl bg-background p-6 pt-safe md:inset-auto md:top-1/2 md:left-1/2 md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:bottom-auto">
+        <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 w-full max-h-[85dvh] overflow-y-auto rounded-t-xl bg-background p-6 pt-safe md:inset-auto md:top-1/2 md:left-1/2 md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:bottom-auto">
           <Dialog.Title className="text-lg font-semibold mb-1">
             Select Table
           </Dialog.Title>
@@ -265,6 +265,7 @@ export default function PosTableModal() {
             </div>
           ) : (
             <>
+            <div className="min-h-[50vh] max-h-[50vh] md:min-h-[400px] md:max-h-[400px] overflow-y-auto custom-scrollbar pr-1 -mr-1 content-start">
               <div className="grid grid-cols-3 gap-3">
                 {tables.map((table) => (
                   <button
@@ -295,6 +296,7 @@ export default function PosTableModal() {
                   No tables found. Create tables in the dashboard first.
                 </p>
               )}
+            </div>
             </>
           )}
         </Dialog.Content>

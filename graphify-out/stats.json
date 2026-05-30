@@ -1,0 +1,305 @@
+{
+  "total_nodes": 768,
+  "total_edges": 1561,
+  "communities": 48,
+  "file_types": {
+    "code": 717,
+    "document": 36,
+    "data": 1,
+    "incident": 1,
+    "rule": 8,
+    "image": 5
+  },
+  "edge_confidences": {
+    "EXTRACTED": 1517,
+    "INFERRED": 41,
+    "AMBIGUOUS": 3
+  },
+  "edge_relations": {
+    "contains": 341,
+    "imports": 402,
+    "method": 259,
+    "imports_from": 240,
+    "calls": 136,
+    "documents": 15,
+    "conceptually_related_to": 10,
+    "resulted_from": 1,
+    "documented_in": 2,
+    "has_gotcha": 1,
+    "replaced": 1,
+    "adopted": 1,
+    "motivated": 1,
+    "requires": 1,
+    "paired_with": 1,
+    "enforces": 5,
+    "implements": 15,
+    "compatible_with": 1,
+    "hardens": 2,
+    "depends_on": 14,
+    "implemented_by": 1,
+    "documents_implementation": 1,
+    "tracks": 1,
+    "governed_by": 3,
+    "uses": 26,
+    "registers": 1,
+    "constrained_by": 1,
+    "validates": 1,
+    "must_respect": 1,
+    "resolved_by": 1,
+    "blocked": 1,
+    "related_to": 6,
+    "caused_by": 1,
+    "addressed": 1,
+    "identified": 1,
+    "identified_gaps_in": 1,
+    "fixes": 2,
+    "fixed_in": 1,
+    "semantically_similar_to": 3,
+    "fixed": 1,
+    "implemented_as": 1,
+    "deduplicated_in": 1,
+    "affected": 2,
+    "summarized_in": 1,
+    "backup_of": 1,
+    "powers": 4,
+    "populates": 1,
+    "addresses": 1,
+    "manipulated_by": 1,
+    "invalidates_cache_for": 1,
+    "complements": 1,
+    "guarded_by": 1,
+    "has_architecture_component": 2,
+    "has_roadmap": 1,
+    "has_planned_feature": 1,
+    "references": 2,
+    "accepts_input_from": 1,
+    "accepts": 1,
+    "has_ui_component": 2,
+    "routes": 1,
+    "extends": 2,
+    "transforms_to": 1,
+    "generated_by": 1,
+    "generates": 1,
+    "proxies_to": 1,
+    "connects_to": 1,
+    "serves_different_role": 1,
+    "bundled_with": 6,
+    "builds_on": 1,
+    "part_of": 2,
+    "creates_and_validates": 1,
+    "has_layout": 1,
+    "indirectly_depends_on": 1,
+    "manages": 1,
+    "specifies": 2,
+    "manipulates": 2,
+    "abstracts": 1,
+    "reads": 1,
+    "displays_in": 1,
+    "updates": 1,
+    "implements_client_side": 1
+  },
+  "top_communities": [
+    {
+      "id": 0,
+      "size": 92,
+      "label": "index.tsx \u00b7 button.tsx \u00b7 CartDrawer.tsx"
+    },
+    {
+      "id": 1,
+      "size": 86,
+      "label": ".constructor() \u00b7 restaurantService.ts \u00b7 AppModule"
+    },
+    {
+      "id": 2,
+      "size": 83,
+      "label": "App.tsx \u00b7 RestaurantContext \u00b7 DashboardPage()"
+    },
+    {
+      "id": 3,
+      "size": 52,
+      "label": "LoyaltyService \u00b7 OrdersService \u00b7 PrismaService"
+    },
+    {
+      "id": 4,
+      "size": 38,
+      "label": "Waiter Point-of-Sale at /staff/pos \u0432\u0402\u201d full-viewport mobile-first tableside ordering, isolated PosContext, seat-level grouping, 3 session-end actions \u00b7 Stripe Connect pay-at-table \u0432\u0402\u201d IPaymentProvider interface, StripeProvider, PaymentService, PaymentIntent, webhooks, TableSession/Payment models \u00b7 Platform-managed DeepL API translation \u0432\u0402\u201d 3 paths: fire-and-forget pre-warm, Translate All button, lazy on-demand with DB caching, 300ms rate limiting, free/pro tier detection"
+    },
+    {
+      "id": 5,
+      "size": 36,
+      "label": "AuthService \u00b7 AuthController \u00b7 AuthModule"
+    },
+    {
+      "id": 6,
+      "size": 31,
+      "label": "QR Digital Menu SaaS Platform \u0432\u0402\u201d full-stack digital restaurant menu with QR ordering, POS, loyalty, and multi-language \u00b7 POST /api/v1/restaurants/[id]/menu/import \u0432\u0402\u201d API push, JSON file upload, CSV file upload for OCR menu data \u00b7 Email OTP authentication \u0432\u0402\u201d VerificationToken model, bcrypt-hashed 6-digit code, 10-min expiry, 60s rate limit, Resend REST API, dev mode code logging"
+    },
+    {
+      "id": 7,
+      "size": 29,
+      "label": "MenuService \u00b7 MenuCrudService \u00b7 .checkRestaurantOwnership()"
+    },
+    {
+      "id": 8,
+      "size": 24,
+      "label": "PosContext.tsx \u00b7 PosPage() \u00b7 usePos()"
+    },
+    {
+      "id": 9,
+      "size": 21,
+      "label": "StripeProvider \u00b7 TranslationService \u00b7 AppController"
+    },
+    {
+      "id": 10,
+      "size": 21,
+      "label": "MenuImportService \u00b7 menu-import.controller.ts \u00b7 ImportMenuDto"
+    },
+    {
+      "id": 11,
+      "size": 18,
+      "label": "api.ts \u00b7 SettingsView() \u00b7 FeedbackPage()"
+    },
+    {
+      "id": 12,
+      "size": 18,
+      "label": "Comprehensive bug fix log \u0432\u0402\u201d 20+ resolved issues: stale cart cleanup, scroll jump, perfect pairing flow, CSS hsla() fix, image upload overhaul, live table view fixes, POS bugs, security hardening \u00b7 CSS design system \u0432\u0402\u201d HSL color tokens (color-surface, color-text, color-accent, color-muted-foreground), 2-font stack (Outfit + Playfair Display), .glass-panel, .premium-bg with color-mix(), reduced-motion support \u00b7 Mobile UX patterns \u0432\u0402\u201d viewport-fit=cover, iOS PWA meta tags, bottom navigation on dashboard mobile, safe-area insets, CartDrawer as bottom sheet, 375px PublicMenuPage optimization, checkout responsive padding"
+    },
+    {
+      "id": 13,
+      "size": 15,
+      "label": "table.tsx \u00b7 RecentOrders() \u00b7 useDashboard()"
+    },
+    {
+      "id": 14,
+      "size": 15,
+      "label": "PaymentService \u00b7 PaymentController \u00b7 closeSession()"
+    },
+    {
+      "id": 15,
+      "size": 15,
+      "label": "MenuImportView() \u00b7 csvToPayload() \u00b7 getImportApiKey()"
+    },
+    {
+      "id": 17,
+      "size": 14,
+      "label": "prisma \u00b7 main() \u00b7 reset_password.js"
+    },
+    {
+      "id": 16,
+      "size": 14,
+      "label": "getAnalytics() \u00b7 DashboardService \u00b7 dashboard.controller.ts"
+    },
+    {
+      "id": 18,
+      "size": 12,
+      "label": "JWT auth via httpOnly cookie with sameSite:lax \u0432\u0402\u201d token never in localStorage, jwt.strategy reads cookies first then Bearer fallback, 1-day expiry \u00b7 CSRF double-submit cookie pattern \u0432\u0402\u201d GET /api/auth/csrf-token issues token+cookie, X-CSRF-Token header must match csrf-token cookie on POST/PATCH/DELETE/PUT, skipped in dev mode \u00b7 Vite dev server proxy \u0432\u0402\u201d /api and /socket.io proxied to backend target from VITE_API_URL env, changeOrigin:true, ws:true"
+    },
+    {
+      "id": 19,
+      "size": 11,
+      "label": "CLAUDE.md \u0432\u0402\u201d primary AI guidance file: menu options JSON schema, loyalty rate semantics, never hardcode tier thresholds, never Promise.all inside $transaction, never change api.ts baseURL, JWT cookie rules, CSRF middleware ordering \u00b7 FIFO point ledger loyalty program \u0432\u0402\u201d earn/redeem rates (loyaltyExchangeRate default 10, loyaltyRedeemRate default 150), Silver/Gold VIP tiers (500/2000 point thresholds), Happy Hour multipliers (Math.max with tier, not additive), expiry reminder cron at midnight UTC, timezone-aware via Luxon \u00b7 Loyalty rate semantics \u0432\u0402\u201d loyaltyExchangeRate (Int, default 10): points earned per 1 spent; loyaltyRedeemRate (Int, default 150): points needed for 1 discount; effective cashback = earnRate/redeemRate * 100, defaults give 6.7%"
+    }
+  ],
+  "god_nodes": [
+    {
+      "id": "menu_menu_service_menuservice",
+      "label": "MenuService",
+      "degree": 31
+    },
+    {
+      "id": "loyalty_loyalty_service_loyaltyservice",
+      "label": "LoyaltyService",
+      "degree": 28
+    },
+    {
+      "id": "context_restaurantcontext_restaurantcontext",
+      "label": "RestaurantContext",
+      "degree": 27
+    },
+    {
+      "id": "pages_dashboardpage_dashboardpage",
+      "label": "DashboardPage()",
+      "degree": 24
+    },
+    {
+      "id": "orders_orders_service_ordersservice",
+      "label": "OrdersService",
+      "degree": 22
+    },
+    {
+      "id": "prisma_prisma_service_prismaservice",
+      "label": "PrismaService",
+      "degree": 22
+    },
+    {
+      "id": "ui_button_button",
+      "label": "Button",
+      "degree": 22
+    },
+    {
+      "id": "src_app_module_appmodule",
+      "label": "AppModule",
+      "degree": 21
+    },
+    {
+      "id": "auth_auth_service_authservice",
+      "label": "AuthService",
+      "degree": 21
+    },
+    {
+      "id": "auth_auth_controller_authcontroller",
+      "label": "AuthController",
+      "degree": 20
+    },
+    {
+      "id": "menu_menu_crud_service_menucrudservice",
+      "label": "MenuCrudService",
+      "degree": 20
+    },
+    {
+      "id": "payment_payment_service_paymentservice",
+      "label": "PaymentService",
+      "degree": 20
+    },
+    {
+      "id": "pages_publicmenupage_publicmenupage",
+      "label": "PublicMenuPage()",
+      "degree": 20
+    },
+    {
+      "id": "context_authcontext_useauth",
+      "label": "useAuth()",
+      "degree": 19
+    },
+    {
+      "id": "menu_categorysettingsmodal_categorysettingsmodal",
+      "label": "CategorySettingsModal()",
+      "degree": 18
+    },
+    {
+      "id": "menu_edititemform_edititemform",
+      "label": "EditItemForm()",
+      "degree": 17
+    },
+    {
+      "id": "context_menucontext_menucontext",
+      "label": "MenuContext",
+      "degree": 17
+    },
+    {
+      "id": "dashboard_menuimportview_menuimportview",
+      "label": "MenuImportView()",
+      "degree": 17
+    },
+    {
+      "id": "WaiterPOS",
+      "label": "Waiter Point-of-Sale at /staff/pos \u0432\u0402\u201d full-viewport mobile-first tableside ordering, isolated PosContext, seat-level grouping, 3 session-end actions",
+      "degree": 17
+    },
+    {
+      "id": "menu_menu_module_menumodule",
+      "label": "MenuModule",
+      "degree": 16
+    }
+  ]
+}

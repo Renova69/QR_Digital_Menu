@@ -1,0 +1,135 @@
+<h2>Design: Landing Page FAQ + Dashboard Help Relocation</h2>
+<p class="subtitle">Two changes: new FAQ section on home page + move help link in dashboard sidebar</p>
+
+<div class="section">
+  <h3>Home Page Structure (after changes)</h3>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">HomePage.tsx — Section Order</div>
+  <div class="mockup-body" style="font-size:13px;line-height:2;color:var(--muted-foreground);padding:1rem">
+    <div style="background:var(--primary-foreground);border-radius:12px;padding:12px 16px;margin-bottom:8px;border:1px solid var(--border)">
+      <span style="font-weight:800;color:var(--foreground)">1. Hero</span>
+      <span style="margin-left:8px;font-size:11px;opacity:0.6">badge, headline, subtext, CTA buttons, dashboard mockup</span>
+    </div>
+    <div style="background:var(--primary-foreground);border-radius:12px;padding:12px 16px;margin-bottom:8px;border:1px solid var(--border)">
+      <span style="font-weight:800;color:var(--foreground)">2. Feature Showcase</span>
+      <span style="margin-left:8px;font-size:11px;opacity:0.6">12-feature bento grid</span>
+    </div>
+    <div style="background:var(--primary-foreground);border-radius:12px;padding:12px 16px;margin-bottom:8px;border:1px solid var(--border)">
+      <span style="font-weight:800;color:var(--foreground)">3. Pricing Tiers</span>
+      <span style="margin-left:8px;font-size:11px;opacity:0.6">3-column tier comparison</span>
+    </div>
+    <div style="background:var(--primary-foreground);border-radius:12px;padding:12px 16px;margin-bottom:8px;border:1px solid var(--border)">
+      <span style="font-weight:800;color:var(--foreground)">4. Bottom CTA</span>
+      <span style="margin-left:8px;font-size:11px;opacity:0.6">final call-to-action &rarr; register</span>
+    </div>
+    <div style="background:var(--accent);background:oklch(0.68 0.21 250 / 0.12);border-radius:12px;padding:12px 16px;margin-bottom:8px;border:2px solid var(--accent);border-color:oklch(0.68 0.21 250 / 0.35)">
+      <span style="font-weight:800;color:var(--accent)">5. FAQ Section &larr; NEW</span>
+      <span style="margin-left:8px;font-size:11px;opacity:0.8">4-6 pre-sale questions, accordion, matching HomePage style</span>
+    </div>
+    <div style="background:var(--primary-foreground);border-radius:12px;padding:12px 16px;margin-bottom:8px;border:1px solid var(--border);opacity:0.5">
+      <span style="font-weight:800;color:var(--foreground)">6. Footer</span>
+      <span style="margin-left:8px;font-size:11px;opacity:0.6">logo, copyright</span>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Dashboard Sidebar (after changes)</h3>
+</div>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Before: Help in primary tabs</div>
+    <div class="mockup-body" style="padding:0.5rem">
+      <div style="background:var(--secondary);border-radius:8px;padding:10px 14px;margin-bottom:4px;font-size:13px;color:var(--muted-foreground)">📊 Summary</div>
+      <div style="background:var(--secondary);border-radius:8px;padding:10px 14px;margin-bottom:4px;font-size:13px;color:var(--muted-foreground)">📈 Analytics</div>
+      <div style="background:var(--secondary);border-radius:8px;padding:10px 14px;margin-bottom:4px;font-size:13px;color:var(--muted-foreground)">🛒 Orders</div>
+      <div style="background:var(--secondary);border-radius:8px;padding:10px 14px;margin-bottom:4px;font-size:13px;color:var(--muted-foreground)">💳 Payments</div>
+      <div style="background:var(--secondary);border-radius:8px;padding:10px 14px;margin-bottom:4px;font-size:13px;color:var(--muted-foreground)">🔔 Requests</div>
+      <div style="background:var(--secondary);border-radius:8px;padding:10px 14px;margin-bottom:4px;font-size:13px;color:var(--muted-foreground)">🍽️ Tables</div>
+      <div style="background:var(--secondary);border-radius:8px;padding:10px 14px;margin-bottom:4px;font-size:13px;color:var(--muted-foreground)">⚙️ Settings</div>
+      <div style="background:var(--secondary);border-radius:8px;padding:10px 14px;margin-bottom:4px;font-size:13px;color:var(--muted-foreground)">📥 Import</div>
+      <div style="background:var(--accent);background:oklch(0.68 0.21 250 / 0.15);border-radius:8px;padding:10px 14px;margin-bottom:4px;font-size:13px;color:var(--accent);font-weight:600">❓ Help</div>
+      <div style="border-top:1px solid var(--border);margin:8px 0"></div>
+      <div style="font-size:12px;color:var(--muted-foreground);padding:4px 14px">🍴 Menu Editor</div>
+      <div style="font-size:12px;color:var(--muted-foreground);padding:4px 14px">🖥️ POS</div>
+      <div style="font-size:12px;color:var(--muted-foreground);padding:4px 14px">👨‍🍳 Kitchen</div>
+    </div>
+  </div>
+  <div class="mockup">
+    <div class="mockup-header">After: Help in sidebar footer</div>
+    <div class="mockup-body" style="padding:0.5rem">
+      <div style="background:var(--secondary);border-radius:8px;padding:10px 14px;margin-bottom:4px;font-size:13px;color:var(--muted-foreground)">📊 Summary</div>
+      <div style="background:var(--secondary);border-radius:8px;padding:10px 14px;margin-bottom:4px;font-size:13px;color:var(--muted-foreground)">📈 Analytics</div>
+      <div style="background:var(--secondary);border-radius:8px;padding:10px 14px;margin-bottom:4px;font-size:13px;color:var(--muted-foreground)">🛒 Orders</div>
+      <div style="background:var(--secondary);border-radius:8px;padding:10px 14px;margin-bottom:4px;font-size:13px;color:var(--muted-foreground)">💳 Payments</div>
+      <div style="background:var(--secondary);border-radius:8px;padding:10px 14px;margin-bottom:4px;font-size:13px;color:var(--muted-foreground)">🔔 Requests</div>
+      <div style="background:var(--secondary);border-radius:8px;padding:10px 14px;margin-bottom:4px;font-size:13px;color:var(--muted-foreground)">🍽️ Tables</div>
+      <div style="background:var(--secondary);border-radius:8px;padding:10px 14px;margin-bottom:4px;font-size:13px;color:var(--muted-foreground)">⚙️ Settings</div>
+      <div style="background:var(--secondary);border-radius:8px;padding:10px 14px;margin-bottom:4px;font-size:13px;color:var(--muted-foreground)">📥 Import</div>
+      <div style="border-top:1px solid var(--border);margin:8px 0"></div>
+      <div style="font-size:12px;color:var(--muted-foreground);padding:4px 14px">🍴 Menu Editor</div>
+      <div style="font-size:12px;color:var(--muted-foreground);padding:4px 14px">🖥️ POS</div>
+      <div style="font-size:12px;color:var(--muted-foreground);padding:4px 14px">👨‍🍳 Kitchen</div>
+      <div style="background:var(--accent);background:oklch(0.68 0.21 250 / 0.12);border-radius:8px;padding:10px 14px;margin-top:4px;font-size:13px;color:var(--accent);font-weight:600;border:1px solid oklch(0.68 0.21 250 / 0.2)">❓ Help Center</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>New FAQ Component — Sample Questions</h3>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">LandingFAQ.tsx — Pre-sale accordion (matching HomePage glass-panel style)</div>
+  <div class="mockup-body" style="padding:1rem;display:flex;flex-direction:column;gap:8px">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 20px;font-size:14px;font-weight:600;color:var(--foreground);display:flex;justify-content:space-between;align-items:center">
+      What is QR Menu and how does it work?
+      <span style="font-size:18px;opacity:0.4">▾</span>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 20px;font-size:14px;font-weight:600;color:var(--foreground);display:flex;justify-content:space-between;align-items:center">
+      Do I need special hardware or printers?
+      <span style="font-size:18px;opacity:0.4">▾</span>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 20px;font-size:14px;font-weight:600;color:var(--foreground);display:flex;justify-content:space-between;align-items:center">
+      How do payments and tipping work?
+      <span style="font-size:18px;opacity:0.4">▾</span>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 20px;font-size:14px;font-weight:600;color:var(--foreground);display:flex;justify-content:space-between;align-items:center">
+      Which languages does the menu support?
+      <span style="font-size:18px;opacity:0.4">▾</span>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 20px;font-size:14px;font-weight:600;color:var(--foreground);display:flex;justify-content:space-between;align-items:center">
+      Can I try it before subscribing?
+      <span style="font-size:18px;opacity:0.4">▾</span>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Summary of Changes</h3>
+</div>
+
+<div class="pros-cons">
+  <div class="pros">
+    <h4>What changes</h4>
+    <ul>
+      <li>New <code>LandingFAQ.tsx</code> component — 5 pre-sale questions, accordion, i18n keys under <code>landing.faq.*</code></li>
+      <li>FAQ section inserted between Bottom CTA and Footer in HomePage</li>
+      <li>Help tab removed from <code>desktopNavItems</code> in DashboardPage</li>
+      <li>Help link moved to sidebar footer (alongside Menu Editor/POS/Kitchen)</li>
+      <li>New i18n keys in en/bg/ro translation.json</li>
+    </ul>
+  </div>
+  <div class="cons">
+    <h4>What stays</h4>
+    <ul>
+      <li>HelpView.tsx — untouched, still reachable at <code>?tab=help</code></li>
+      <li>SummaryView's <code>onViewHelp</code> prop — still works</li>
+      <li>All existing i18n keys under <code>help.*</code> — preserved</li>
+      <li>BOTTOM_NAV_TABS — help was never in mobile nav anyway</li>
+    </ul>
+  </div>
+</div>

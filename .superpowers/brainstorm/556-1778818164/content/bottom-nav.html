@@ -1,0 +1,81 @@
+<h2>Bottom Sticky Navigation — Regrouped</h2>
+<p class="subtitle">User icons on one side · Cart/bill distinct on other side.</p>
+
+<div class="options">
+  <!-- Option A: Left = user, Right = cart/actions -->
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Left: User &amp; Waiter · Right: Cart &amp; Bill</h3>
+      <div style="background: #f1f5f9; padding: 16px; border-radius: 16px; max-width: 400px;">
+        <div style="background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); border-radius: 24px; padding: 8px 14px; display: flex; align-items: center; box-shadow: 0 2px 16px rgba(0,0,0,0.08);">
+          <!-- Left group: Call Waiter + Profile -->
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <button style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 14px; border: none; background: transparent; font-size: 13px; font-weight: 600; cursor: pointer;">
+              🔔<span style="font-size: 11px;">Call</span>
+            </button>
+            <button style="display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 14px; border: none; background: transparent; font-size: 13px; cursor: pointer;">
+              👤
+            </button>
+          </div>
+          <div style="flex: 1;"></div>
+          <!-- Right group: Bill + Cart -->
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button style="padding: 8px 12px; border-radius: 14px; border: none; background: transparent; font-size: 12px; font-weight: 700;">💳 Bill</button>
+            <button style="position: relative; padding: 8px 10px; border-radius: 14px; border: none; background: transparent; font-size: 16px;">
+              🛒
+              <span style="position: absolute; top: 2px; right: 0; background: #3b82f6; color: white; font-size: 9px; font-weight: 800; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;">3</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option B: symmetrical with center cart -->
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Waiter · Profile ——— Cart · Bill (center gap)</h3>
+      <div style="background: #f1f5f9; padding: 16px; border-radius: 16px; max-width: 400px;">
+        <div style="background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); border-radius: 24px; padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 16px rgba(0,0,0,0.08);">
+          <button style="display: flex; align-items: center; gap: 5px; padding: 8px 10px; border-radius: 14px; border: none; background: transparent; font-size: 12px; font-weight: 600;">🔔</button>
+          <button style="display: flex; align-items: center; gap: 5px; padding: 8px 10px; border-radius: 14px; border: none; background: transparent; font-size: 12px; font-weight: 600;">👤</button>
+          <div style="width: 1px; height: 28px; background: rgba(0,0,0,0.08);"></div>
+          <button style="padding: 8px 10px; border-radius: 14px; border: none; background: transparent; font-size: 12px; font-weight: 700;">💳</button>
+          <button style="position: relative; padding: 8px 10px; border-radius: 14px; border: none; background: #3b82f6; color: white; font-size: 16px;">
+            🛒
+            <span style="position: absolute; top: 0; right: -2px; background: #ef4444; color: white; font-size: 9px; font-weight: 800; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;">3</span>
+          </button>
+        </div>
+      </div>
+      <p style="font-size: 10px; opacity: 0.5; margin-top: 4px;">Cart highlighted (primary action), single divider between groups</p>
+    </div>
+  </div>
+
+  <!-- Option C: icon-only minimal -->
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Icon-Only · Left Group + Right Group · No Labels</h3>
+      <div style="background: #f1f5f9; padding: 16px; border-radius: 16px; max-width: 400px;">
+        <div style="background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); border-radius: 24px; padding: 6px 10px; display: flex; align-items: center; box-shadow: 0 2px 16px rgba(0,0,0,0.08);">
+          <!-- Left: user stuff -->
+          <div style="display: flex; align-items: center; gap: 2px;">
+            <button style="width: 38px; height: 38px; border-radius: 50%; border: none; background: transparent; font-size: 18px;">🔔</button>
+            <button style="width: 38px; height: 38px; border-radius: 50%; border: none; background: transparent; font-size: 18px;">👤</button>
+          </div>
+          <div style="flex: 1;"></div>
+          <!-- Right: cart stuff -->
+          <div style="display: flex; align-items: center; gap: 2px;">
+            <button style="width: 38px; height: 38px; border-radius: 50%; border: none; background: transparent; font-size: 16px;">💳</button>
+            <button style="position: relative; width: 42px; height: 42px; border-radius: 50%; border: none; background: #3b82f6; color: white; font-size: 18px;">
+              🛒
+              <span style="position: absolute; top: 0; right: 0; background: #ef4444; color: white; font-size: 9px; font-weight: 800; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;">3</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

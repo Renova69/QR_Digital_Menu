@@ -1,0 +1,58 @@
+<h2>Top Bar — Icon-Only, Glass Panel</h2>
+<p class="subtitle">Minimum text: only search placeholder. Everything else is icons + short codes.</p>
+
+<div style="background: #f8fafc; padding: 24px 16px; max-width: 420px; margin: 0 auto;">
+
+  <!-- Compact glass bar -->
+  <div style="background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); border-radius: 18px; padding: 6px 8px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); font-family: system-ui;">
+
+    <!-- Table chip: icon + number -->
+    <span style="background: #3b82f6; color: white; border-radius: 12px; padding: 5px 9px; font-size: 11px; font-weight: 800; white-space: nowrap; display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
+      🪑 5
+    </span>
+
+    <!-- Search: icon + input -->
+    <div style="flex: 1; display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.04); border-radius: 12px; padding: 4px 10px; min-width: 0;">
+      <span style="opacity: 0.3; font-size: 14px; flex-shrink: 0;">🔍</span>
+      <input placeholder="Search menu..." style="border: none; background: transparent; flex: 1; font-size: 13px; outline: none; padding: 5px 0; min-width: 0; color: #334155;" />
+    </div>
+
+    <!-- Action icons: filter / theme / lang -->
+    <div style="display: flex; align-items: center; gap: 2px; flex-shrink: 0;">
+      <button style="width: 30px; height: 30px; border-radius: 10px; border: none; background: rgba(0,0,0,0.04); font-size: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer;">☰</button>
+      <button style="width: 30px; height: 30px; border-radius: 10px; border: none; background: transparent; font-size: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer;">🌙</button>
+      <span style="font-size: 10px; font-weight: 800; padding: 4px 5px; opacity: 0.55; flex-shrink: 0; cursor: pointer;">EN</span>
+    </div>
+
+  </div>
+
+  <!-- Annotations -->
+  <div style="margin-top: 32px; display: flex; flex-direction: column; gap: 8px;">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: white;">
+      <span style="width: 24px; text-align: center;">🪑</span>
+      <span style="font-size: 12px; font-weight: 600;">Table chip</span>
+      <span style="font-size: 11px; opacity: 0.5; margin-left: auto;">"T" + number or icon + number</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: white;">
+      <span style="width: 24px; text-align: center;">🔍</span>
+      <span style="font-size: 12px; font-weight: 600;">Search</span>
+      <span style="font-size: 11px; opacity: 0.5; margin-left: auto;">Only placeholder text kept</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: white;">
+      <span style="width: 24px; text-align: center;">☰</span>
+      <span style="font-size: 12px; font-weight: 600;">Filter button</span>
+      <span style="font-size: 11px; opacity: 0.5; margin-left: auto;">Opens filter panel (search still inside)</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: white;">
+      <span style="width: 24px; text-align: center;">🌙</span>
+      <span style="font-size: 12px; font-weight: 600;">Theme toggle</span>
+      <span style="font-size: 11px; opacity: 0.5; margin-left: auto;">Sun/Moon icon, no label</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: white;">
+      <span style="width: 24px; text-align: center;">EN</span>
+      <span style="font-size: 12px; font-weight: 600;">Language</span>
+      <span style="font-size: 11px; opacity: 0.5; margin-left: auto;">2-char code only, tap to cycle</span>
+    </div>
+  </div>
+
+</div>

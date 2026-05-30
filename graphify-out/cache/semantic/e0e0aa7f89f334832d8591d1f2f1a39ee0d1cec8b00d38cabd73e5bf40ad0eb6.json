@@ -1,0 +1,1 @@
+{"nodes": [{"id": "cov_app_service", "label": "AppService: 0% Statement Coverage (0/5)", "file_type": "rationale", "source_file": "apps/backend/coverage/lcov-report/src/app.service.ts.html", "source_location": "line 28", "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}

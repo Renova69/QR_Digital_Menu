@@ -11,6 +11,12 @@ interface OrderDetail {
   specialRequests?: string | null;
   source?: 'CUSTOMER' | 'POS';
   staffName?: string | null;
+  staff?: {
+    id?: string;
+    name?: string | null;
+    email?: string;
+    role?: string;
+  } | null;
   items: {
     name: string;
     quantity: number;
@@ -107,7 +113,7 @@ function getSpecialRequestRows(requests?: string | null) {
     });
 }
 
-function SourceBadge({ source, staffName }: { source?: 'CUSTOMER' | 'POS'; staffName?: string | null }) {
+function SourceBadge({ source, staff }: { source?: 'CUSTOMER' | 'POS'; staff?: any }) {
   if (!source) return null;
   if (source === 'CUSTOMER') {
     return (
@@ -116,9 +122,14 @@ function SourceBadge({ source, staffName }: { source?: 'CUSTOMER' | 'POS'; staff
       </span>
     );
   }
+  
+  const roleStr = staff?.role ? String(staff.role) : '';
+  const roleName = roleStr ? roleStr.charAt(0).toUpperCase() + roleStr.slice(1).toLowerCase() : 'Staff';
+  const name = staff?.name ? staff.name.split(' ')[0] : (staff?.email ? staff.email.split('@')[0] : 'Staff');
+  
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
-      {staffName?.split(' ')[0] ?? 'Staff'}
+      {roleName}: {name}
     </span>
   );
 }
@@ -275,10 +286,10 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
                           <span className={cn('rounded-md px-2 py-1 text-[10px] font-black uppercase', orderStatusStyles[order.status])}>
                             {t(statusLabels[order.status] || 'orders.tabs.new')}
                           </span>
-                          <SourceBadge source={order.source} staffName={order.staffName} />
+                          <SourceBadge source={order.source} staff={order.staff} />
                         </div>
                         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs font-medium text-muted-foreground">
-                          {order.customerName && <span>{order.customerName}</span>}
+                          {order.customerName && order.source === 'CUSTOMER' && <span>{order.customerName}</span>}
                           {formatTime(order.createdAt) && <span>{formatTime(order.createdAt)}</span>}
                         </div>
                       </div>

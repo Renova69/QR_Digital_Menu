@@ -100,7 +100,7 @@ function stripTrailingColon(value: string) {
   return value.replace(/:\s*$/, '');
 }
 
-function SourceBadge({ source, staffName }: { source?: 'CUSTOMER' | 'POS'; staffName?: string | null }) {
+function SourceBadge({ source, staff }: { source?: 'CUSTOMER' | 'POS'; staff?: any }) {
   if (!source) return null;
   if (source === 'CUSTOMER') {
     return (
@@ -109,9 +109,14 @@ function SourceBadge({ source, staffName }: { source?: 'CUSTOMER' | 'POS'; staff
       </span>
     );
   }
+  
+  const roleStr = staff?.role ? String(staff.role) : '';
+  const roleName = roleStr ? roleStr.charAt(0).toUpperCase() + roleStr.slice(1).toLowerCase() : 'Staff';
+  const name = staff?.name ? staff.name.split(' ')[0] : (staff?.email ? staff.email.split('@')[0] : 'Staff');
+  
   return (
     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
-      {staffName?.split(' ')[0] ?? 'Staff'}
+      {roleName}: {name}
     </span>
   );
 }
@@ -194,6 +199,7 @@ const OrdersView = () => {
           specialRequests: selectedOrder.specialRequests ?? null,
           status: selectedOrder.status,
           totalPrice: selectedOrder.totalPrice,
+          staff: selectedOrder.staff,
           items: selectedOrder.items.map((item) => ({
             name: item.menuItem?.name ?? t('orders.unknownItem', 'Item'),
             quantity: item.quantity,
@@ -311,7 +317,7 @@ const OrdersView = () => {
                       <p className="truncate font-black text-sm tracking-tight text-foreground">
                         {getOrderCode(order.id)}
                       </p>
-                      <SourceBadge source={order.source} staffName={order.staffName} />
+                      <SourceBadge source={order.source} staff={order.staff} />
                       {specialRequests.length > 0 && (
                         <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full bg-[#F97316] px-2 text-[10px] font-black uppercase text-white">
                           <ClipboardList className="h-3 w-3" />

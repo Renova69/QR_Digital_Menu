@@ -1,0 +1,1 @@
+{"nodes": [{"id": "cov_storage_service", "label": "StorageService: 100% Statement Coverage (49/49)", "file_type": "rationale", "source_file": "apps/backend/coverage/lcov-report/storage/storage.service.ts.html", "source_location": "line 28", "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}
