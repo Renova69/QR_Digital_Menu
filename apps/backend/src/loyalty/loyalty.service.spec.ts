@@ -1,12 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LoyaltyService } from './loyalty.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { FeatureService } from '../subscription/feature.service';
 
 // ─── Shared fixtures ─────────────────────────────────────────────────────────
 
 const BASE_RESTAURANT = {
   id: 'rest-1',
   name: 'Test Restaurant',
+  tier: 'PROFESSIONAL',
+  forceTier: null,
   isLoyaltyEnabled: true,
   loyaltySignupBonus: 50,
   loyaltyPointExpiryDays: 90,
@@ -87,6 +90,7 @@ describe('LoyaltyService', () => {
       providers: [
         LoyaltyService,
         { provide: PrismaService, useValue: mockPrisma },
+        FeatureService,
       ],
     }).compile();
 
@@ -105,7 +109,10 @@ describe('LoyaltyService', () => {
       expect(mockPrisma.restaurant.findUnique).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'rest-1' } }),
       );
-      expect(result).toEqual(BASE_RESTAURANT);
+      // tier/forceTier are used only for the availability check and stripped
+      // from the public response (#5).
+      const { tier, forceTier, ...publicConfig } = BASE_RESTAURANT;
+      expect(result).toEqual(publicConfig);
     });
 
     it('returns null when restaurant not found', async () => {
@@ -252,11 +259,43 @@ describe('LoyaltyService', () => {
         .mockResolvedValue([{ id: 'l-1', remainingPoints: 50, expiresAt }]);
       mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
 
-      const result = await service.getPoints('user-1', 'rest-1');
+      const result = await service.getPoints('user-1', 'rest-1') as any;
 
       expect(result.expiringSoonPoints).toBe(50);
       expect(result.expiringSoon).toHaveLength(1);
       expect(result.nextExpirationAt).toEqual(expiresAt);
+    });
+  });
+
+  // ── loyalty availability gating (#5) ──────────────────────────────────────
+
+  describe('availability gating', () => {
+    it('getPoints returns empty when the tier lacks LOYALTY', async () => {
+      mockPrisma.loyaltyAccount.findUnique.mockResolvedValue({ id: 'acc-1', points: 100, lifetimePoints: 500 });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ ...BASE_RESTAURANT, tier: 'FREE' });
+
+      const result = await service.getPoints('user-1', 'rest-1');
+
+      expect(result).toEqual({ points: 0, lifetimePoints: 0, restaurantConfig: null });
+    });
+
+    it('getPublicConfig returns null when loyalty is disabled', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ ...BASE_RESTAURANT, isLoyaltyEnabled: false });
+
+      const result = await service.getPublicConfig('rest-1');
+
+      expect(result).toBeNull();
+    });
+
+    it('getPublicConfig strips tier fields when available', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+
+      const result = (await service.getPublicConfig('rest-1')) as any;
+
+      expect(result).not.toBeNull();
+      expect(result.tier).toBeUndefined();
+      expect(result.forceTier).toBeUndefined();
+      expect(result.isLoyaltyEnabled).toBe(true);
     });
   });
 

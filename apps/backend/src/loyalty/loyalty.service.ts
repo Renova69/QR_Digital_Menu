@@ -15,8 +15,13 @@ import {
   tierConfigFromRestaurant,
   TierInfo,
 } from './loyalty-tiers.utils';
+import { FeatureService } from '../subscription/feature.service';
+import { isLoyaltyAvailable } from './loyalty-availability.util';
 
 const MAX_SIGNUP_BONUS = 75;
+
+// Effective-tier fields needed to evaluate loyalty availability (#5).
+const LOYALTY_TIER_FIELDS = { tier: true, forceTier: true } as const;
 
 const TIER_FIELDS = {
   loyaltySilverThreshold: true,
@@ -45,7 +50,10 @@ const LOYALTY_CONFIG_FIELDS = {
 export class LoyaltyService {
   private readonly logger = new Logger(LoyaltyService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly featureService: FeatureService,
+  ) {}
 
   private buildRewardSummary(
     account: { points: number; lifetimePoints: number },
@@ -97,10 +105,14 @@ export class LoyaltyService {
   }
 
   async getPublicConfig(restaurantId: string) {
-    return this.prisma.restaurant.findUnique({
+    const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: LOYALTY_CONFIG_FIELDS,
+      select: { ...LOYALTY_CONFIG_FIELDS, ...LOYALTY_TIER_FIELDS },
     });
+    // Unavailable (tier lacks LOYALTY or owner disabled it) → no config (#5).
+    if (!isLoyaltyAvailable(restaurant, this.featureService)) return null;
+    const { tier, forceTier, ...config } = restaurant!;
+    return config;
   }
 
   async enroll(userId: string, restaurantId: string) {
@@ -116,10 +128,11 @@ export class LoyaltyService {
         isLoyaltyEnabled: true,
         loyaltySignupBonus: true,
         loyaltyPointExpiryDays: true,
+        ...LOYALTY_TIER_FIELDS,
       },
     });
 
-    if (!restaurant?.isLoyaltyEnabled) {
+    if (!restaurant || !isLoyaltyAvailable(restaurant, this.featureService)) {
       return this.getPoints(userId, restaurantId);
     }
 
@@ -160,8 +173,14 @@ export class LoyaltyService {
 
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: LOYALTY_CONFIG_FIELDS,
+      select: { ...LOYALTY_CONFIG_FIELDS, ...LOYALTY_TIER_FIELDS },
     });
+
+    // Unavailable → surface nothing (balances stay preserved in the DB and
+    // resume when loyalty is re-enabled / the tier is restored) (#5).
+    if (!isLoyaltyAvailable(restaurant, this.featureService)) {
+      return { points: 0, lifetimePoints: 0, restaurantConfig: null };
+    }
 
     let expiringSoon: any[] = [];
 

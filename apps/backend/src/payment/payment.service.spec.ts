@@ -309,7 +309,7 @@ describe('PaymentService', () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue({ id: 's1', status: 'OPEN', restaurantId: 'rest1' });
       mockPrisma.tableSession.update.mockResolvedValue({});
 
-      await service.closeSession('tok1', 'rest1');
+      await service.closeSession('tok1', 'rest1', 'owner1');
 
       expect(mockPrisma.tableSession.update).toHaveBeenCalledWith({
         where: { id: 's1' },
@@ -320,7 +320,15 @@ describe('PaymentService', () => {
 
     it('throws NotFoundException when session not found', async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue(null);
-      await expect(service.closeSession('bad-token', 'rest1')).rejects.toThrow(NotFoundException);
+      await expect(service.closeSession('bad-token', 'rest1', 'owner1')).rejects.toThrow(NotFoundException);
+    });
+
+    it('denies a caller not associated with the restaurant (#3)', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ ownerId: 'someone-else' });
+      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: 'other-rest', role: 'WAITER' });
+
+      await expect(service.closeSession('tok1', 'rest1', 'intruder')).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
     });
   });
 
@@ -566,14 +574,14 @@ describe('PaymentService', () => {
   describe('closeSessionWithCard', () => {
     it('throws NotFoundException when session not found', async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue(null);
-      await expect(service.closeSessionWithCard('bad-tok', 'rest1')).rejects.toThrow(NotFoundException);
+      await expect(service.closeSessionWithCard('bad-tok', 'rest1', 'owner1')).rejects.toThrow(NotFoundException);
     });
 
     it('throws BadRequestException when total amount is zero', async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue({
         id: 's1', tableId: 'table1', restaurantId: 'rest1', orders: [],
       });
-      await expect(service.closeSessionWithCard('tok1', 'rest1')).rejects.toThrow(BadRequestException);
+      await expect(service.closeSessionWithCard('tok1', 'rest1', 'owner1')).rejects.toThrow(BadRequestException);
     });
 
     it('creates MYPOS payment, closes session, emits events, returns amount', async () => {
@@ -583,7 +591,7 @@ describe('PaymentService', () => {
       });
       mockPrisma.payment.create.mockResolvedValue({ id: 'pay1' });
 
-      const result = await service.closeSessionWithCard('tok1', 'rest1');
+      const result = await service.closeSessionWithCard('tok1', 'rest1', 'owner1');
 
       expect(result.amount).toBeCloseTo(25);
       expect(mockPrisma.payment.create).toHaveBeenCalledWith(
@@ -604,21 +612,21 @@ describe('PaymentService', () => {
       });
       mockPrisma.tableSession.updateMany.mockResolvedValueOnce({ count: 0 });
 
-      await expect(service.closeSessionWithCard('tok1', 'rest1')).rejects.toThrow('Session already closed');
+      await expect(service.closeSessionWithCard('tok1', 'rest1', 'owner1')).rejects.toThrow('Session already closed');
     });
   });
 
   describe('closeSessionWithCash', () => {
     it('throws NotFoundException when session not found', async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue(null);
-      await expect(service.closeSessionWithCash('bad-tok', 'rest1')).rejects.toThrow(NotFoundException);
+      await expect(service.closeSessionWithCash('bad-tok', 'rest1', 'owner1')).rejects.toThrow(NotFoundException);
     });
 
     it('throws BadRequestException when total amount is zero', async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue({
         id: 's1', tableId: 'table1', restaurantId: 'rest1', orders: [],
       });
-      await expect(service.closeSessionWithCash('tok1', 'rest1')).rejects.toThrow(BadRequestException);
+      await expect(service.closeSessionWithCash('tok1', 'rest1', 'owner1')).rejects.toThrow(BadRequestException);
     });
 
     it('creates CASH payment, closes session, emits events, returns amount', async () => {
@@ -628,7 +636,7 @@ describe('PaymentService', () => {
       });
       mockPrisma.payment.create.mockResolvedValue({ id: 'pay1' });
 
-      const result = await service.closeSessionWithCash('tok1', 'rest1');
+      const result = await service.closeSessionWithCash('tok1', 'rest1', 'owner1');
 
       expect(result.amount).toBeCloseTo(15);
       expect(mockPrisma.payment.create).toHaveBeenCalledWith(
@@ -645,7 +653,7 @@ describe('PaymentService', () => {
   describe('forceOpenSession', () => {
     it('throws NotFoundException when table not found for this restaurant', async () => {
       mockPrisma.restaurantTable.findFirst.mockResolvedValue(null);
-      await expect(service.forceOpenSession('table-1', 'rest1')).rejects.toThrow(NotFoundException);
+      await expect(service.forceOpenSession('table-1', 'rest1', 'owner1')).rejects.toThrow(NotFoundException);
     });
 
     it('closes existing OPEN session and creates new one', async () => {
@@ -656,7 +664,7 @@ describe('PaymentService', () => {
       mockPrisma.tableSession.update.mockResolvedValue({});
       mockPrisma.tableSession.create.mockResolvedValue(newSession);
 
-      const result = await service.forceOpenSession('table-1', 'rest1');
+      const result = await service.forceOpenSession('table-1', 'rest1', 'owner1');
 
       expect(mockPrisma.tableSession.update).toHaveBeenCalledWith({
         where: { id: 'old-session' },
@@ -672,7 +680,7 @@ describe('PaymentService', () => {
       const newSession = { id: 'new-session', token: 'new-token', tableId: 'table-1' };
       mockPrisma.tableSession.create.mockResolvedValue(newSession);
 
-      const result = await service.forceOpenSession('table-1', 'rest1');
+      const result = await service.forceOpenSession('table-1', 'rest1', 'owner1');
 
       expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
       expect(result.token).toBe('new-token');

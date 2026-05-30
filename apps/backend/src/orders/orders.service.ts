@@ -24,6 +24,10 @@ import {
 } from '../loyalty/loyalty-tiers.utils';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
+import { isLoyaltyAvailable } from '../loyalty/loyalty-availability.util';
+
+/** Roles that may be attributed as POS staff on an order (#4). */
+const POS_STAFF_ROLES = new Set(['OWNER', 'MANAGER', 'WAITER', 'KITCHEN', 'STAFF']);
 
 const LOYALTY_CONFIG = {
   MAX_SIGNUP_BONUS: 75,    // hard cap on signup bonus (= €0.50)
@@ -112,6 +116,12 @@ export class OrdersService {
     if (!this.featureService.hasFeature(effectiveTier, FeatureFlag.ORDERS_RECEIVE)) {
       throw new ForbiddenException({ code: 'FEATURE_LOCKED', message: 'Online ordering is not available on this plan' });
     }
+
+    // Attribute the order to POS staff ONLY when the authenticated caller is a
+    // staff member of THIS restaurant (or its owner). Otherwise — a logged-in
+    // customer, or an owner browsing another restaurant — the order is a normal
+    // customer order, not POS (#4). Prevents misclassifying customers as staff.
+    const resolvedStaffUserId = await this.resolvePosStaff(staffUserId, restaurant.ownerId, restaurantId);
 
     // 5. Resolve or create TableSession for pay-at-table
     let sessionToken = createOrderDto.sessionToken;
@@ -271,7 +281,10 @@ export class OrdersService {
       let purchasePointsEarned = 0;
       let signupBonusPoints = 0;
 
-      if (createOrderDto.customerId && restaurant.isLoyaltyEnabled) {
+      if (
+        createOrderDto.customerId &&
+        isLoyaltyAvailable(restaurant, this.featureService)
+      ) {
         const earnRate = restaurant.loyaltyExchangeRate || 10;
         const redeemRate = restaurant.loyaltyRedeemRate || 150;
 
@@ -377,8 +390,8 @@ export class OrdersService {
           pointsRedeemed: pointsRedeemedForDiscount + pointsRedeemedForItems,
           restaurantId,
           tableSessionId,
-          source: staffUserId ? 'POS' : 'CUSTOMER',
-          staffUserId: staffUserId ?? undefined,
+          source: resolvedStaffUserId ? 'POS' : 'CUSTOMER',
+          staffUserId: resolvedStaffUserId ?? undefined,
           items: { create: itemsData },
         },
         include: { items: true },
@@ -417,6 +430,32 @@ export class OrdersService {
     const orderTrackToken = this.eventsGateway.signOrderToken(finalOrder.id);
 
     return { ...finalOrder, sessionToken, orderTrackToken };
+  }
+
+  /**
+   * Resolve the POS staff attribution for an order. Returns the user id only
+   * when the authenticated caller is the restaurant owner or an assigned staff
+   * member of that restaurant; otherwise null (treated as a customer order).
+   */
+  private async resolvePosStaff(
+    staffUserId: string | null,
+    restaurantOwnerId: string,
+    restaurantId: string,
+  ): Promise<string | null> {
+    if (!staffUserId) return null;
+    if (staffUserId === restaurantOwnerId) return staffUserId;
+    const user = await this.prisma.user.findUnique({
+      where: { id: staffUserId },
+      select: { restaurantId: true, role: true },
+    });
+    if (
+      user?.restaurantId === restaurantId &&
+      user.role &&
+      POS_STAFF_ROLES.has(user.role.toUpperCase())
+    ) {
+      return staffUserId;
+    }
+    return null;
   }
 
   async findAll(userId: string, query: OrderQueryDto) {

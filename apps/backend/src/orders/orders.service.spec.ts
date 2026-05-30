@@ -219,6 +219,40 @@ describe('OrdersService', () => {
       expect(createCall.data.totalPrice).toBe(25); // 10*2 + 5*1
     });
 
+    it('attributes the order to CUSTOMER when the caller is not restaurant staff (#4)', async () => {
+      const tx = makeTx();
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ ownerId: 'owner-1' }));
+      prisma.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'STAFF' }); // a logged-in customer
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+
+      await service.create(
+        { items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }] } as any,
+        'customer-user',
+      );
+
+      const data = tx.order.create.mock.calls[0][0].data;
+      expect(data.source).toBe('CUSTOMER');
+      expect(data.staffUserId).toBeUndefined();
+    });
+
+    it('attributes the order to POS for an assigned staff member (#4)', async () => {
+      const tx = makeTx();
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ ownerId: 'owner-1' }));
+      prisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1', role: 'WAITER' });
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+
+      await service.create(
+        { items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }] } as any,
+        'waiter-1',
+      );
+
+      const data = tx.order.create.mock.calls[0][0].data;
+      expect(data.source).toBe('POS');
+      expect(data.staffUserId).toBe('waiter-1');
+    });
+
     it('adds option priceModifier to computed total', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.menuOption.findMany.mockResolvedValue([
