@@ -172,6 +172,9 @@ export class AuthController {
   ) {
     const result = await this.authService.pinLogin(dto.restaurantId, dto.pin);
     setTokenCookie(res, result.token);
-    return { user: result.user };
+    // Return the token in the body too — the frontend needs it as a Bearer
+    // fallback for cross-origin contexts (prod Vercel→Cloud Run, LAN-IP dev)
+    // where the sameSite cookie is not sent on cross-site XHR. Mirrors login/register.
+    return { user: result.user, token: result.token };
   }
 }
