@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  UnauthorizedException,
   Logger,
 } from '@nestjs/common';
 import { DateTime } from 'luxon';
@@ -40,6 +41,10 @@ export class OrdersService {
   ) {}
 
   async create(createOrderDto: CreateOrderDto, staffUserId: string | null = null) {
+    if (createOrderDto.source === 'POS' && !staffUserId) {
+      throw new UnauthorizedException('Session expired. Please log in again.');
+    }
+
     if (!createOrderDto.items || createOrderDto.items.length === 0) {
       throw new BadRequestException('Order must contain at least one item');
     }
