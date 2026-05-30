@@ -543,8 +543,10 @@ export interface SubscriptionDetails {
   interval: string | null;
 }
 
-export const getSubscriptionStatus = async () => {
-  const response = await api.get('/subscription/status');
+export const getSubscriptionStatus = async (restaurantId?: string) => {
+  const response = await api.get('/subscription/status', {
+    params: restaurantId ? { restaurantId } : undefined,
+  });
   return response.data as {
     tier: string;
     features: string[];

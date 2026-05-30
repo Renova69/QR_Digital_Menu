@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Req, UseGuards, Headers, HttpCode, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Req, Query, UseGuards, Headers, HttpCode, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { SubscriptionService } from './subscription.service';
 import { CreateCheckoutDto } from './dto/checkout.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -13,12 +13,35 @@ export class SubscriptionController {
     private readonly prisma: PrismaService,
   ) {}
 
-  private async resolveRestaurant(userId: string, select: Record<string, boolean>): Promise<Record<string, any> | null> {
+  private async resolveRestaurant(
+    userId: string,
+    select: Record<string, boolean>,
+    restaurantId?: string,
+  ): Promise<Record<string, any> | null> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { restaurantId: true },
+      select: { restaurantId: true, role: true },
     });
-    // Staff are linked via User.restaurantId; owners via Restaurant.ownerId
+
+    // Explicit target (e.g. active restaurant in a multi-location dashboard):
+    // resolve THAT restaurant and verify the caller may see it (#6).
+    if (restaurantId) {
+      const restaurant = await this.prisma.restaurant.findUnique({
+        where: { id: restaurantId },
+        select: { ...select, ownerId: true },
+      });
+      if (!restaurant) return null;
+      const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+      const isOwner = restaurant.ownerId === userId;
+      const isStaff = user?.restaurantId === restaurantId;
+      if (!isSuperAdmin && !isOwner && !isStaff) {
+        throw new ForbiddenException('You do not have access to this restaurant');
+      }
+      return restaurant;
+    }
+
+    // Fallback: caller's own restaurant. Staff via User.restaurantId; owners
+    // via Restaurant.ownerId.
     if (user?.restaurantId) {
       return this.prisma.restaurant.findUnique({ where: { id: user.restaurantId }, select });
     }
@@ -27,15 +50,19 @@ export class SubscriptionController {
 
   @Get('status')
   @UseGuards(JwtAuthGuard)
-  async getStatus(@Req() req: any) {
+  async getStatus(@Req() req: any, @Query('restaurantId') restaurantId?: string) {
     const userId = req.user.id ?? req.user.sub;
-    const restaurant = await this.resolveRestaurant(userId, {
-      id: true,
-      tier: true,
-      forceTier: true,
-      stripeSubscriptionId: true,
-      tierUpdatedAt: true,
-    });
+    const restaurant = await this.resolveRestaurant(
+      userId,
+      {
+        id: true,
+        tier: true,
+        forceTier: true,
+        stripeSubscriptionId: true,
+        tierUpdatedAt: true,
+      },
+      restaurantId,
+    );
     const tier = this.featureService.getEffectiveTier(
       restaurant?.tier ?? 'FREE',
       restaurant?.forceTier ?? null,

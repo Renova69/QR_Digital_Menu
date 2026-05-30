@@ -4,6 +4,14 @@ import { FeatureService } from './feature.service';
 import { REQUIRE_FEATURE_KEY } from './require-feature.decorator';
 import { FeatureFlag } from './feature-flag.enum';
 import { PrismaService } from '../prisma/prisma.service';
+import { extractRestaurantId } from './restaurant-id.util';
+
+const RESTAURANT_SELECT = {
+  ownerId: true,
+  tier: true,
+  forceTier: true,
+  isActive: true,
+} as const;
 
 @Injectable()
 export class FeatureGuard implements CanActivate {
@@ -40,18 +48,48 @@ export class FeatureGuard implements CanActivate {
       return true;
     }
 
-    // Staff linked via User.restaurantId; owners via Restaurant.ownerId
-    const restaurant = user?.restaurantId
+    // Resolve the TARGET restaurant: the one the request is acting on (from
+    // params/query/body), not an arbitrary first-owned one (#2). Falls back to
+    // the caller's own restaurant for routes with no restaurant in the request.
+    const targetId = extractRestaurantId(request);
+    const restaurant = targetId
       ? await this.prisma.restaurant.findUnique({
-          where: { id: user.restaurantId },
-          select: { tier: true, forceTier: true, isActive: true },
+          where: { id: targetId },
+          select: RESTAURANT_SELECT,
         })
-      : await this.prisma.restaurant.findFirst({
-          where: { ownerId: userId },
-          select: { tier: true, forceTier: true, isActive: true },
-        });
+      : user?.restaurantId
+        ? await this.prisma.restaurant.findUnique({
+            where: { id: user.restaurantId },
+            select: RESTAURANT_SELECT,
+          })
+        : await this.prisma.restaurant.findFirst({
+            where: { ownerId: userId },
+            select: RESTAURANT_SELECT,
+          });
 
-    if (restaurant?.isActive === false) {
+    if (!restaurant) {
+      throw new ForbiddenException({
+        code: 'FEATURE_LOCKED',
+        requiredFeatures,
+        message: 'No restaurant found for this request',
+      });
+    }
+
+    // When an explicit target was supplied, verify the caller is associated
+    // with it — otherwise a lower tier could pass another restaurant's id to
+    // dodge its own entitlement check.
+    if (targetId) {
+      const isOwner = restaurant.ownerId === userId;
+      const isStaff = user?.restaurantId === targetId;
+      if (!isOwner && !isStaff) {
+        throw new ForbiddenException({
+          code: 'FORBIDDEN',
+          message: 'You do not have access to this restaurant',
+        });
+      }
+    }
+
+    if (restaurant.isActive === false) {
       throw new ForbiddenException({
         code: 'RESTAURANT_SUSPENDED',
         message: 'This restaurant has been suspended',
@@ -59,8 +97,8 @@ export class FeatureGuard implements CanActivate {
     }
 
     const tier = this.featureService.getEffectiveTier(
-      restaurant?.tier ?? 'FREE',
-      restaurant?.forceTier,
+      restaurant.tier ?? 'FREE',
+      restaurant.forceTier,
     );
 
     const missing = requiredFeatures.filter((f) => !this.featureService.hasFeature(tier, f));

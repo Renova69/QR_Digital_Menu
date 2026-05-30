@@ -16,6 +16,8 @@ import { CreateMenuOptionDto } from './dto/create-menu-option.dto';
 import { UpdateMenuOptionDto } from './dto/update-menu-option.dto';
 import { Prisma, AvailabilityType } from '@prisma/client';
 import { DateTime } from 'luxon';
+import { FeatureService } from '../subscription/feature.service';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
 
 @Injectable()
 export class MenuCrudService {
@@ -25,7 +27,21 @@ export class MenuCrudService {
     private readonly prisma: PrismaService,
     private readonly translationService: TranslationService,
     private readonly menuTranslationService: MenuTranslationService,
+    private readonly featureService: FeatureService,
   ) {}
+
+  /** Dayparting requires the DAYPARTING feature on the restaurant's EFFECTIVE
+   *  tier (honors super-admin forceTier) — not a hardcoded tier list (#11). */
+  private isDaypartingEnabled(restaurant: {
+    tier: string | null;
+    forceTier?: string | null;
+  }): boolean {
+    const tier = this.featureService.getEffectiveTier(
+      restaurant.tier ?? 'FREE',
+      restaurant.forceTier ?? null,
+    );
+    return this.featureService.hasFeature(tier, FeatureFlag.DAYPARTING);
+  }
 
   async getPublicMenu(restaurantId: string, lang?: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
@@ -344,7 +360,7 @@ export class MenuCrudService {
   ) {
     const restaurant = await this.checkRestaurantOwnership(restaurantId, userId);
 
-    const daypartingEnabled = ['PROFESSIONAL', 'ENTERPRISE'].includes((restaurant as any).tier ?? 'FREE');
+    const daypartingEnabled = this.isDaypartingEnabled(restaurant);
     const sanitizedDto = daypartingEnabled
       ? createCategoryDto
       : { ...createCategoryDto, availabilityType: AvailabilityType.ALWAYS, startTime: null, endTime: null, daysOfWeek: [] };
@@ -403,7 +419,7 @@ export class MenuCrudService {
     }
     const restaurant = await this.checkRestaurantOwnership(category.restaurantId, userId);
 
-    const daypartingEnabled = ['PROFESSIONAL', 'ENTERPRISE'].includes((restaurant as any).tier ?? 'FREE');
+    const daypartingEnabled = this.isDaypartingEnabled(restaurant);
     const sanitizedDto = daypartingEnabled
       ? updateCategoryDto
       : { ...updateCategoryDto, availabilityType: AvailabilityType.ALWAYS, startTime: null, endTime: null, daysOfWeek: [] };
