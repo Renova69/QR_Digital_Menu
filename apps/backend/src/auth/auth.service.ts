@@ -28,10 +28,11 @@ export class AuthService {
 
   async validateUser(email: string, pass: string): Promise<any> {
     const user = await this.usersService.findByEmail(email);
+    // Generic message for both unknown-email and wrong-password so the
+    // endpoint cannot be used to enumerate which emails are registered (#M3).
+    const INVALID = 'Invalid email or password.';
     if (!user) {
-      throw new NotFoundException(
-        'No account found with this email. Please check or create an account.',
-      );
+      throw new UnauthorizedException(INVALID);
     }
     if (user.isActive === false || user.disabledAt) {
       throw new UnauthorizedException('This account has been disabled.');
@@ -40,7 +41,7 @@ export class AuthService {
       const { password, ...result } = user;
       return result;
     }
-    throw new UnauthorizedException('Incorrect password. Please try again.');
+    throw new UnauthorizedException(INVALID);
   }
 
   async login(user: any) {
@@ -287,7 +288,8 @@ export class AuthService {
     });
 
     if (candidates.length === 0) {
-      throw new UnauthorizedException('No staff members found for this restaurant.');
+      // Generic message — do not reveal whether a restaurant has staff (#M3).
+      throw new UnauthorizedException('Invalid PIN.');
     }
 
     // Check global lockout — all staff share the same device, so any lockout blocks everyone

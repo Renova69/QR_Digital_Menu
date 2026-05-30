@@ -234,6 +234,37 @@ export class PaymentService {
     const subtotal = orders.reduce((sum, o) => sum + o.totalPrice, 0);
     if (subtotal <= 0) throw new BadRequestException('Cannot create payment for an empty session');
 
+    // Guard against double capture (#H1). A session can accumulate multiple
+    // intents (double-click, retried tab) and all could be confirmed. Reject if
+    // already paid, and cancel any stale PENDING intent so only the newest one
+    // is capturable. The session-status=OPEN guard above already blocks new
+    // intents after the webhook flips the session to PAID; this closes the
+    // remaining window where two intents exist before either confirms.
+    const existingPayments = await this.prisma.payment.findMany({
+      where: { tableSessionId: session.id, status: { in: ['PENDING', 'SUCCEEDED'] } },
+    });
+    if (existingPayments.some((p) => p.status === 'SUCCEEDED')) {
+      throw new ConflictException('This session has already been paid');
+    }
+    for (const stale of existingPayments) {
+      if (stale.stripePaymentIntentId) {
+        try {
+          await this.stripe.cancelPaymentIntent(stale.stripePaymentIntentId);
+        } catch (err) {
+          // Cancel fails if the intent already succeeded — treat as paid to
+          // avoid a second charge rather than racing to create a new intent.
+          this.logger.warn(
+            `Could not cancel stale PaymentIntent ${stale.stripePaymentIntentId} for session ${session.id}`,
+          );
+          throw new ConflictException('A payment for this session is already being processed');
+        }
+      }
+      await this.prisma.payment.updateMany({
+        where: { id: stale.id, status: 'PENDING' },
+        data: { status: 'FAILED' },
+      });
+    }
+
     const tipAmount = Math.round(subtotal * tipPercent) / 100;
     const total = subtotal + tipAmount;
     const platformFeeCents = Math.round(total * restaurant.platformFeePercent);
@@ -541,16 +572,20 @@ export class PaymentService {
     const take = limit ?? 50;
     const skip = page ? (page - 1) * take : 0;
 
-    const data = await this.prisma.tableSession.findMany({
-      where: { restaurantId, status: { in: ['OPEN', 'PAID'] } },
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take,
-    });
+    const where = { restaurantId, status: { in: ['OPEN', 'PAID'] as any } };
+    const [data, total] = await Promise.all([
+      this.prisma.tableSession.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      this.prisma.tableSession.count({ where }),
+    ]);
 
     return {
       data,
-      meta: { total: data.length, page: page ?? 1, limit: take },
+      meta: { total, page: page ?? 1, limit: take },
     };
   }
 

@@ -34,12 +34,20 @@ async function bootstrap() {
     // CORS must run first so ALL responses (including CSRF 403s) include CORS headers
     app.enableCors({
       origin: (origin: any, callback: any) => {
+        const isProduction = process.env.NODE_ENV === 'production';
+        // Localhost origins are only trusted outside production (#M6). With
+        // credentials:true, trusting localhost in prod weakens the single-origin
+        // policy and aids local-driven credentialed requests.
         const allowed = new Set([
           process.env.FRONTEND_URL || 'http://localhost:3001',
-          'http://localhost:3001',
-          'http://127.0.0.1:3001',
-          'http://localhost:3002',
-          'http://127.0.0.1:3002',
+          ...(isProduction
+            ? []
+            : [
+                'http://localhost:3001',
+                'http://127.0.0.1:3001',
+                'http://localhost:3002',
+                'http://127.0.0.1:3002',
+              ]),
         ]);
         // In production restrict to explicit origin list only; no wildcard *.vercel.app
         if (!origin || allowed.has(origin)) {

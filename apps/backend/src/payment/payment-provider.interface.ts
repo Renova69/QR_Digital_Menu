@@ -10,6 +10,8 @@ export interface IPaymentProvider {
     metadata: Record<string, string>;
   }): Promise<{ clientSecret: string; paymentIntentId: string }>;
 
+  cancelPaymentIntent(paymentIntentId: string): Promise<void>;
+
   constructWebhookEvent(payload: Buffer, signature: string): any;
 
   createExpressAccount(): Promise<string>;

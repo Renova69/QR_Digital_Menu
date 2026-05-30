@@ -42,7 +42,7 @@ describe('PaymentService', () => {
         create: jest.fn(),
         findFirst: jest.fn(),
         findUnique: jest.fn(),
-        findMany: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         groupBy: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -59,6 +59,7 @@ describe('PaymentService', () => {
     mockStripeProvider = {
       createPaymentIntent: jest.fn(),
       createRefund: jest.fn(),
+      cancelPaymentIntent: jest.fn().mockResolvedValue(undefined),
       constructWebhookEvent: jest.fn(),
     };
     mockEvents = {
@@ -197,6 +198,68 @@ describe('PaymentService', () => {
         }),
       );
       expect(result.clientSecret).toBe('cs_test');
+    });
+
+    it('rejects when the session already has a SUCCEEDED payment (#H1)', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+        restaurant: {
+          paymentsEnabled: true, stripeOnboarded: true, stripeAccountId: 'acct_123',
+          platformFeePercent: 0.5, tipsEnabled: true, tipOptions: [], tier: 'PROFESSIONAL',
+        },
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([{ id: 'old', status: 'SUCCEEDED' }]);
+
+      await expect(service.createPaymentIntent('tok1', 0)).rejects.toThrow(ConflictException);
+      expect(mockStripeProvider.createPaymentIntent).not.toHaveBeenCalled();
+    });
+
+    it('cancels a stale PENDING intent before creating a new one (#H1)', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+        restaurant: {
+          paymentsEnabled: true, stripeOnboarded: true, stripeAccountId: 'acct_123',
+          platformFeePercent: 0.5, tipsEnabled: true, tipOptions: [], tier: 'PROFESSIONAL',
+        },
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([
+        { id: 'stale', status: 'PENDING', stripePaymentIntentId: 'pi_stale' },
+      ]);
+      mockPrisma.payment.create.mockResolvedValue({ id: 'pay2' });
+      mockStripeProvider.createPaymentIntent.mockResolvedValue({ clientSecret: 'cs', paymentIntentId: 'pi_new' });
+      mockPrisma.payment.update.mockResolvedValue({});
+
+      await service.createPaymentIntent('tok1', 0);
+
+      expect(mockStripeProvider.cancelPaymentIntent).toHaveBeenCalledWith('pi_stale');
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
+        where: { id: 'stale', status: 'PENDING' },
+        data: { status: 'FAILED' },
+      });
+      expect(mockStripeProvider.createPaymentIntent).toHaveBeenCalled();
+    });
+
+    it('refuses to create a new intent when cancelling the stale one fails (#H1)', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+        restaurant: {
+          paymentsEnabled: true, stripeOnboarded: true, stripeAccountId: 'acct_123',
+          platformFeePercent: 0.5, tipsEnabled: true, tipOptions: [], tier: 'PROFESSIONAL',
+        },
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([
+        { id: 'stale', status: 'PENDING', stripePaymentIntentId: 'pi_stale' },
+      ]);
+      mockStripeProvider.cancelPaymentIntent.mockRejectedValue(new Error('already succeeded'));
+
+      await expect(service.createPaymentIntent('tok1', 0)).rejects.toThrow(ConflictException);
+      expect(mockStripeProvider.createPaymentIntent).not.toHaveBeenCalled();
     });
 
     it('throws BadRequestException when tipPercent is negative', async () => {
