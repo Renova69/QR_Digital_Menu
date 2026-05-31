@@ -634,7 +634,11 @@ export const restoreTenant = (id: string) =>
   api.post(`/super-admin/tenants/${id}/restore`, { confirmation: SUPER_ADMIN_CONFIRMATION }).then((r) => r.data);
 
 export const deleteTenantStaff = (restaurantId: string, userId: string) =>
-  api.delete(`/super-admin/tenants/${restaurantId}/staff/${userId}`).then((r) => r.data);
+  api
+    .delete(`/super-admin/tenants/${restaurantId}/staff/${userId}`, {
+      data: { confirmation: SUPER_ADMIN_CONFIRMATION },
+    })
+    .then((r) => r.data);
 
 export const importMenuForTenant = (id: string, dto: object) =>
   api.post(`/super-admin/tenants/${id}/menu/import`, dto).then((r) => r.data);

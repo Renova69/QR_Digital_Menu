@@ -19,6 +19,7 @@ model User {
   isActive           Boolean           @default(true)
   disabledAt         DateTime?
   disabledReason     String?
+  passwordChangedAt  DateTime?
   role               UserRole         @default(STAFF)
   restaurantId       String?
   onboardingComplete Boolean          @default(false)

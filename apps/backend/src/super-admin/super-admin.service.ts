@@ -140,7 +140,14 @@ export class SuperAdminService {
       byEffectiveTier[effectiveTier] = (byEffectiveTier[effectiveTier] ?? 0) + 1;
     }
 
-    const forcedOverrides = [];
+    const forcedOverrides: Array<{
+      id: string;
+      name: string;
+      ownerEmail: string;
+      billingTier: string;
+      effectiveTier: string;
+      direction: string;
+    }> = [];
     let forcedUpgrades = 0;
     let forcedDowngrades = 0;
 
@@ -212,7 +219,7 @@ export class SuperAdminService {
     status?: string;
     subscription?: string;
   }) {
-    const page = params.page ?? 1;
+    const page = Math.max(1, params.page ?? 1);
     const limit = Math.min(params.limit ?? 20, 100);
     const skip = (page - 1) * limit;
 
@@ -301,11 +308,12 @@ export class SuperAdminService {
       _count: true,
     });
 
+    const { _count, ...tenantFields } = tenant;
     return {
-      ...tenant,
-      orderCount: tenant._count.orders,
-      menuCategoryCount: tenant._count.menuCategories,
-      tableCount: tenant._count.tables,
+      ...tenantFields,
+      orderCount: _count.orders,
+      menuCategoryCount: _count.menuCategories,
+      tableCount: _count.tables,
       paymentSummary: {
         totalAmount: Number(paymentStats._sum.amount ?? 0),
         totalPayments: paymentStats._count,
@@ -391,7 +399,7 @@ export class SuperAdminService {
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: restaurant.ownerId },
-        data: { password: hashedPassword },
+        data: { password: hashedPassword, passwordChangedAt: new Date() },
       }),
       this.prisma.adminAuditLog.create({
         data: {
@@ -522,6 +530,12 @@ export class SuperAdminService {
     if (user.restaurantId !== restaurantId) {
       throw new BadRequestException({ code: 'NOT_STAFF', message: 'User is not staff of this restaurant' });
     }
+    if (user.role === 'OWNER' || user.role === 'SUPER_ADMIN') {
+      throw new BadRequestException({
+        code: 'PROTECTED_ROLE',
+        message: 'Cannot delete an OWNER or SUPER_ADMIN via staff deletion',
+      });
+    }
 
     await this.prisma.$transaction([
       this.prisma.user.delete({ where: { id: staffId } }),
@@ -564,7 +578,8 @@ export class SuperAdminService {
   }
 
   async getAuditLog(params: { page: number; limit: number; targetId?: string; action?: string; dateFrom?: string; dateTo?: string }) {
-    const { page, targetId, action, dateFrom, dateTo } = params;
+    const { targetId, action, dateFrom, dateTo } = params;
+    const page = Math.max(1, params.page);
     const limit = Math.min(params.limit, 100);
     const skip = (page - 1) * limit;
     const where: Prisma.AdminAuditLogWhereInput = {};

@@ -129,6 +129,7 @@ export class SuperAdminController {
   deleteStaff(
     @Param('restaurantId') restaurantId: string,
     @Param('userId') userId: string,
+    @Body() _dto: SuperAdminConfirmationDto,
     @Request() req: any,
   ) {
     return this.service.deleteStaff(restaurantId, userId, req.user.id);

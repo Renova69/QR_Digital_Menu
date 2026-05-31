@@ -36,6 +36,54 @@ describe('JwtStrategy', () => {
     );
   });
 
+  it('rejects tokens issued before the last password change', async () => {
+    const passwordChangedAt = new Date('2026-05-31T12:00:00Z');
+    prisma.user.findUnique.mockResolvedValueOnce({
+      id: 'owner-1',
+      email: 'owner@test.com',
+      password: 'hash',
+      role: 'OWNER',
+      isActive: true,
+      disabledAt: null,
+      passwordChangedAt,
+      staffRestaurant: null,
+      restaurants: [{ isActive: true }],
+    });
+
+    // iat one minute before the reset → stale token
+    const staleIat = Math.floor(passwordChangedAt.getTime() / 1000) - 60;
+
+    await expect(
+      strategy.validate({ sub: 'owner-1', email: 'owner@test.com', iat: staleIat }),
+    ).rejects.toThrow('PASSWORD_CHANGED');
+  });
+
+  it('accepts tokens issued after the last password change', async () => {
+    const passwordChangedAt = new Date('2026-05-31T12:00:00Z');
+    prisma.user.findUnique.mockResolvedValueOnce({
+      id: 'owner-1',
+      email: 'owner@test.com',
+      password: 'hash',
+      role: 'OWNER',
+      isActive: true,
+      disabledAt: null,
+      disabledReason: null,
+      passwordChangedAt,
+      staffRestaurant: null,
+      restaurants: [{ isActive: true }],
+    });
+
+    const freshIat = Math.floor(passwordChangedAt.getTime() / 1000) + 60;
+
+    const result = await strategy.validate({
+      sub: 'owner-1',
+      email: 'owner@test.com',
+      iat: freshIat,
+    });
+
+    expect(result).toMatchObject({ id: 'owner-1', role: 'OWNER' });
+  });
+
   it('returns a DB-loaded user without sensitive fields when active', async () => {
     prisma.user.findUnique.mockResolvedValueOnce({
       id: 'admin-1',
