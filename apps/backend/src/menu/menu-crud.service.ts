@@ -18,6 +18,7 @@ import { Prisma, AvailabilityType } from '@prisma/client';
 import { DateTime } from 'luxon';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
+import { stripBrandingFields } from '../restaurants/branding-fields';
 
 @Injectable()
 export class MenuCrudService {
@@ -41,6 +42,22 @@ export class MenuCrudService {
       restaurant.forceTier ?? null,
     );
     return this.featureService.hasFeature(tier, FeatureFlag.DAYPARTING);
+  }
+
+  /** Strip branding fields from the public restaurant payload when the
+   *  EFFECTIVE tier lacks BRANDING_CUSTOM. Non-destructive — the DB keeps
+   *  the values so re-upgrade restores them instantly. Prevents stale
+   *  branding (logo/colors/fonts) from a downgraded restaurant continuing
+   *  to render on the public menu. Expects `restaurant.tier` to already be
+   *  the effective tier (forceTier resolved). Social URLs are not branding —
+   *  see branding-fields.ts — so the footer is unaffected. */
+  private applyBrandingEntitlement<T>(restaurant: T): T {
+    const r = restaurant as Record<string, unknown>;
+    const tier = (r.tier as string | undefined) ?? 'FREE';
+    if (this.featureService.hasFeature(tier, FeatureFlag.BRANDING_CUSTOM)) {
+      return restaurant;
+    }
+    return stripBrandingFields({ ...r }) as unknown as T;
   }
 
   async getPublicMenu(restaurantId: string, lang?: string) {
@@ -108,7 +125,7 @@ export class MenuCrudService {
       await this.menuTranslationService.applyLazyTranslations(filteredCategories, lang);
     }
 
-    return { restaurant, categories: filteredCategories };
+    return { restaurant: this.applyBrandingEntitlement(restaurant), categories: filteredCategories };
   }
 
   /** Returns restaurant branding + category metadata (no items).
@@ -177,7 +194,7 @@ export class MenuCrudService {
     const tier = (restaurant as any).tier as string | undefined;
     const filteredCategories = this.filterByAvailability(allCategories as any[], tz, tier);
 
-    return { restaurant, categories: filteredCategories };
+    return { restaurant: this.applyBrandingEntitlement(restaurant), categories: filteredCategories };
   }
 
   /** Returns items (with options + translation) for a single visible category. */

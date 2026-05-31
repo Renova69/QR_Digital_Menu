@@ -6,6 +6,18 @@ import { BRANDING_FONTS } from '../../lib/brandingFonts';
 // Single source of truth shared with the public menu's load allowlist (#12).
 const FONTS = BRANDING_FONTS;
 
+// Inject a Google Fonts stylesheet once per family, keyed by data-font so
+// repeated calls (value change, dropdown open) dedupe instead of thrashing
+// the document head with anonymous links that get added/removed each render.
+function ensureFontLoaded(name: string) {
+  if (!name || document.querySelector(`link[data-font="${name}"]`)) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.setAttribute('data-font', name);
+  link.href = `https://fonts.googleapis.com/css2?family=${name.replace(/ /g, '+')}:wght@400;700&display=swap`;
+  document.head.appendChild(link);
+}
+
 interface FontPickerProps {
   label: string;
   value: string;
@@ -27,23 +39,12 @@ export const FontPicker: React.FC<FontPickerProps> = ({
   const { t } = useTranslation();
 
   useEffect(() => {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = `https://fonts.googleapis.com/css2?family=${value.replace(/ /g, '+')}:wght@400;700&display=swap`;
-    document.head.appendChild(link);
-    return () => { document.head.removeChild(link); };
+    ensureFontLoaded(value);
   }, [value]);
 
   useEffect(() => {
     if (!isOpen) return;
-    FONTS.forEach((font) => {
-      if (document.querySelector(`link[data-font="${font.name}"]`)) return;
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.setAttribute('data-font', font.name);
-      link.href = `https://fonts.googleapis.com/css2?family=${font.name.replace(/ /g, '+')}:wght@400;700&display=swap`;
-      document.head.appendChild(link);
-    });
+    FONTS.forEach((font) => ensureFontLoaded(font.name));
   }, [isOpen]);
 
   useEffect(() => {

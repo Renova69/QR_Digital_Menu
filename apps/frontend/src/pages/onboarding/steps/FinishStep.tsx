@@ -24,7 +24,7 @@ export default function FinishStep({ restaurantName, onDone }: Props) {
       <div className="space-y-2">
         <h2 className="text-3xl font-display font-bold text-foreground">{t('onboarding.finish.title')}</h2>
         <p className="text-muted-foreground">
-          {t('onboarding.finish.subtitle', { restaurantName: <span className="font-semibold text-foreground">{restaurantName}</span> })}
+          {t('onboarding.finish.subtitle', { restaurantName })}
         </p>
       </div>
       <div className="space-y-2 text-sm text-muted-foreground">
