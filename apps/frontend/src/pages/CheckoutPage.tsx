@@ -215,6 +215,11 @@ const CheckoutPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Hard re-entry guard (#F7) — the disabled button covers normal use, but a
+    // double click within the same render frame could otherwise create two
+    // orders (the backend has no order idempotency).
+    if (submitting) return;
+
     if (!tableNumber) {
       setError(t("checkout.tableRequired"));
       return;
