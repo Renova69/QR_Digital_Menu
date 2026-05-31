@@ -88,13 +88,13 @@ describe('App provider scoping', () => {
     }).not.toThrow();
   });
 
-  it('PublicLayout provides OrderContext so children can call useOrders without throwing', () => {
+  it('AppLayout provides OrderContext so children can call useOrders without throwing', () => {
     expect(() => {
       render(
         <AuthProvider>
           <MemoryRouter initialEntries={['/test']}>
             <Routes>
-              <Route element={<PublicLayout />}>
+              <Route element={<AppLayout />}>
                 <Route path="/test" element={<OrderConsumer />} />
               </Route>
             </Routes>
@@ -105,13 +105,13 @@ describe('App provider scoping', () => {
     }).not.toThrow();
   });
 
-  it('PublicLayout provides AssistanceContext so children can call useAssistance without throwing', () => {
+  it('AppLayout provides AssistanceContext so children can call useAssistance without throwing', () => {
     expect(() => {
       render(
         <AuthProvider>
           <MemoryRouter initialEntries={['/test']}>
             <Routes>
-              <Route element={<PublicLayout />}>
+              <Route element={<AppLayout />}>
                 <Route path="/test" element={<AssistanceConsumer />} />
               </Route>
             </Routes>

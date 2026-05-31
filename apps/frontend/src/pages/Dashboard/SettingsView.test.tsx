@@ -1,5 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
+import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import SettingsView from "./SettingsView";
 import RestaurantContext from "../../context/RestaurantContext";
 
@@ -7,6 +9,23 @@ const mockT = vi.fn((key: string) => key);
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: mockT }),
+}));
+
+vi.mock("../../context/AuthContext", () => ({
+  useAuth: () => ({
+    user: { id: "u1", role: "OWNER", restaurantId: "rest-1", email: "owner@test.com" },
+    isAuthenticated: true,
+  }),
+}));
+
+// Non-free tier with staff roles so the Staff tab is visible.
+vi.mock("../../hooks/useFeature", () => ({
+  useFeature: () => true,
+  useTier: () => ({
+    tier: "PROFESSIONAL",
+    allowedStaffRoles: ["MANAGER", "WAITER", "KITCHEN", "STAFF"],
+  }),
+  hasTierFeature: () => true,
 }));
 
 vi.mock("@fortawesome/react-fontawesome", () => ({
@@ -57,13 +76,20 @@ const mockRestaurant = {
   paymentsEnabled: false,
 };
 
-const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <RestaurantContext.Provider
-    value={{ activeRestaurant: mockRestaurant, fetchRestaurants: vi.fn() } as any}
-  >
-    {children}
-  </RestaurantContext.Provider>
-);
+const wrapper = ({ children }: { children: React.ReactNode }) => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return (
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <RestaurantContext.Provider
+          value={{ activeRestaurant: mockRestaurant, fetchRestaurants: vi.fn() } as any}
+        >
+          {children}
+        </RestaurantContext.Provider>
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+};
 
 const store: Record<string, string> = {};
 
@@ -94,14 +120,15 @@ describe("SettingsView - Staff tab", () => {
   it("shows Enable Shared Device Mode button when mode is off", () => {
     render(<SettingsView />, { wrapper });
     fireEvent.click(screen.getByText("settings.tabs.staff"));
-    expect(screen.getByText("staff.enableSharedDevice")).toBeTruthy();
+    // Enable/Disable button uses the shared common.* label.
+    expect(screen.getByText("common.enable")).toBeTruthy();
   });
 
   it("toggles to Disable when Enable button clicked", () => {
     render(<SettingsView />, { wrapper });
     fireEvent.click(screen.getByText("settings.tabs.staff"));
-    fireEvent.click(screen.getByText("staff.enableSharedDevice"));
-    expect(screen.getByText("staff.disableSharedDevice")).toBeTruthy();
+    fireEvent.click(screen.getByText("common.enable"));
+    expect(screen.getByText("common.disable")).toBeTruthy();
   });
 
   it("shows off-warning when shared device mode is disabled", () => {
@@ -114,7 +141,8 @@ describe("SettingsView - Staff tab", () => {
     render(<SettingsView />, { wrapper });
     fireEvent.click(screen.getByText("settings.tabs.staff"));
     expect(screen.getByText("staff.bondDevice")).toBeTruthy();
-    expect(screen.getByText("staff.generateDeviceQr")).toBeTruthy();
+    // The generate-enrollment action button renders as "New".
+    expect(screen.getByText("New")).toBeTruthy();
   });
 
   it("shows QR code and copy link when enrollment URL is set", () => {
