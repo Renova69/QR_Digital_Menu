@@ -21,6 +21,21 @@ async function bootstrap() {
       );
     }
 
+    // Subscription webhook is verified with its own signing secret. Without it,
+    // signature verification fails closed and Stripe subscription events are
+    // dropped. Fail loud at boot in production (mirrors the payments-webhook
+    // guard in StripeProvider). STRIPE_SECRET_KEY/STRIPE_WEBHOOK_SECRET are
+    // already guarded there.
+    if (
+      process.env.NODE_ENV === 'production' &&
+      (!process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET ||
+        process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET === 'NONE')
+    ) {
+      throw new Error(
+        'STRIPE_SUBSCRIPTION_WEBHOOK_SECRET must be set in production. Refusing to start with unverifiable subscription webhooks.',
+      );
+    }
+
     const app = await NestFactory.create(AppModule, { bodyParser: false });
 
     app.useGlobalPipes(
