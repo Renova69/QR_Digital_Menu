@@ -38,6 +38,30 @@ describe('UpdateRestaurantDto validation', () => {
     });
   });
 
+  describe('branding fonts', () => {
+    it('accepts an allowlisted font', () => {
+      expect(validate({ fontHeading: 'Playfair Display', fontBody: 'Inter' })).toHaveLength(0);
+    });
+
+    it('rejects a font outside the allowlist (injection guard #12)', () => {
+      expect(keysFor({ fontHeading: 'Evil"; } body{}' }, 'fontHeading')).toContain('isIn');
+    });
+
+    it('rejects an over-long font name', () => {
+      expect(keysFor({ fontBody: 'x'.repeat(65) }, 'fontBody')).toContain('maxLength');
+    });
+  });
+
+  describe('logoUrl', () => {
+    it('accepts an https URL', () => {
+      expect(validate({ logoUrl: 'https://cdn.example.com/logo.png' })).toHaveLength(0);
+    });
+
+    it('rejects a non-URL string (must go through the upload pipeline)', () => {
+      expect(keysFor({ logoUrl: 'not-a-url' }, 'logoUrl')).toContain('isUrl');
+    });
+  });
+
   describe('defaultTheme', () => {
     it('rejects an unknown theme', () => {
       expect(keysFor({ defaultTheme: 'purple' }, 'defaultTheme')).toContain('isIn');

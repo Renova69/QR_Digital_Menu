@@ -240,6 +240,44 @@ describe('MenuCrudService', () => {
       expect(result).toHaveProperty('categories');
       expect(result.categories).toHaveLength(1);
     });
+
+    it('strips branding fields when effective tier lacks BRANDING_CUSTOM', async () => {
+      // BASE_RESTAURANT is FREE — branding must not render on the public menu
+      // even if stale columns persist from a prior paid tier (downgrade).
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.menuCategory.findMany.mockResolvedValue([]);
+
+      const { restaurant } = await service.getPublicMenuMeta('rest-1');
+
+      expect(restaurant).not.toHaveProperty('accentColor');
+      expect(restaurant).not.toHaveProperty('fontHeading');
+      expect(restaurant).not.toHaveProperty('themeBgColor');
+      expect(restaurant).not.toHaveProperty('logoUrl');
+      // Non-branding fields survive.
+      expect(restaurant).toMatchObject({ name: 'Test Restaurant' });
+    });
+
+    it('keeps branding fields when effective tier has BRANDING_CUSTOM', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ ...BASE_RESTAURANT, tier: 'PROFESSIONAL' });
+      mockPrisma.menuCategory.findMany.mockResolvedValue([]);
+
+      const { restaurant } = await service.getPublicMenuMeta('rest-1');
+
+      expect(restaurant).toMatchObject({ accentColor: '#FF0000', fontHeading: 'Inter' });
+    });
+
+    it('uses the forced tier when deciding branding entitlement', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'FREE',
+        forceTier: 'PROFESSIONAL',
+      });
+      mockPrisma.menuCategory.findMany.mockResolvedValue([]);
+
+      const { restaurant } = await service.getPublicMenuMeta('rest-1');
+
+      expect(restaurant).toMatchObject({ accentColor: '#FF0000' });
+    });
   });
 
   // ── getCategoryItems ──────────────────────────────────────────────────────

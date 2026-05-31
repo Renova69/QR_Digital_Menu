@@ -10,9 +10,11 @@ import {
   IsHexColor,
   IsIn,
   Matches,
+  MaxLength,
   Min,
   Max,
 } from 'class-validator';
+import { BRANDING_FONT_NAMES } from '../branding-fonts';
 import {
   HHMM_PATTERN,
   HAPPY_HOUR_WEEKDAY_MIN,
@@ -46,10 +48,14 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   trendingMode?: string;
 
   @IsString()
+  @MaxLength(64)
+  @IsIn([...BRANDING_FONT_NAMES])
   @IsOptional()
   fontHeading?: string;
 
   @IsString()
+  @MaxLength(64)
+  @IsIn([...BRANDING_FONT_NAMES])
   @IsOptional()
   fontBody?: string;
 

@@ -39,7 +39,8 @@ export class RestaurantsController {
 
   @Post()
   create(
-    @Body(ValidationPipe) createRestaurantDto: CreateRestaurantDto,
+    // Validation + whitelist handled by the global ValidationPipe (main.ts).
+    @Body() createRestaurantDto: CreateRestaurantDto,
     @Request() req: any,
   ) {
     return this.restaurantsService.create(createRestaurantDto, req.user.id);
@@ -58,7 +59,8 @@ export class RestaurantsController {
   @Patch(':id')
   update(
     @Param('id') id: string,
-    @Body(ValidationPipe) updateRestaurantDto: UpdateRestaurantDto,
+    // Validation + whitelist handled by the global ValidationPipe (main.ts).
+    @Body() updateRestaurantDto: UpdateRestaurantDto,
     @Request() req: any,
   ) {
     return this.restaurantsService.update(id, updateRestaurantDto, req.user.id);
