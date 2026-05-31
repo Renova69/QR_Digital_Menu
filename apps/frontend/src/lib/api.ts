@@ -1,11 +1,10 @@
 import axios from 'axios';
 
-// Module-level token store — AuthContext writes, interceptor reads.
-// Provides dual auth: httpOnly cookie (primary) + Bearer header (fallback for cross-origin POST).
-let authToken: string | null = null;
-export const setAuthToken = (token: string | null) => {
-  authToken = token;
-};
+// Auth transport is the httpOnly `token` cookie ONLY (#F1). Every token-issuing
+// endpoint (login/register/otp/google/pin-login) sets it server-side, and it is
+// sent cross-origin via SameSite=None. The backend rejects Bearer auth in
+// production, so the old in-memory Bearer fallback was dead weight + an XSS
+// surface — removed.
 
 // Dev: relative /api/v1 (Vite proxy). Production build: absolute backend URL from VITE_API_URL.
 // Use the build-time PROD flag, not hostname sniffing (#F3) — sniffing broke dev/QA over
@@ -340,10 +339,7 @@ const fetchCsrfToken = async (): Promise<void> => {
 };
 
 api.interceptors.request.use(async (config) => {
-  // Bearer token — dual auth alongside httpOnly cookie
-  if (authToken) {
-    config.headers['Authorization'] = `Bearer ${authToken}`;
-  }
+  // Auth rides the httpOnly cookie (sent automatically via withCredentials).
   // CSRF token — attach to state-changing requests
   if (config.method && ['post', 'patch', 'delete', 'put'].includes(config.method)) {
     if (!csrfToken) await fetchCsrfToken();

@@ -3,6 +3,7 @@ import {
   useContext,
   useState,
   useCallback,
+  useMemo,
   type ReactNode,
 } from "react";
 
@@ -162,7 +163,8 @@ export function PosProvider({ children }: { children: ReactNode }) {
       .join(" | ");
   }, [items]);
 
-  const value: PosContextType = {
+  // Memoized so POS consumers don't re-render on unrelated parent renders (#F4).
+  const value: PosContextType = useMemo(() => ({
     items,
     addItem,
     removeItem,
@@ -180,7 +182,7 @@ export function PosProvider({ children }: { children: ReactNode }) {
     activeSeat,
     setActiveSeat,
     buildSpecialRequests,
-  };
+  }), [items, addItem, removeItem, updateQuantity, updateNote, clearCart, resetCart, markAsSubmitted, setHistoryItems, session, setSession, clearSession, getTotal, getPendingTotal, activeSeat, buildSpecialRequests]);
 
   return <PosContext.Provider value={value}>{children}</PosContext.Provider>;
 }

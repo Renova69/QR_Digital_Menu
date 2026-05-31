@@ -70,9 +70,9 @@ export default function DeviceLoginPage() {
           pin: pinCode,
         });
         const user = res.data.user;
-        const token = res.data.token;
         const role = user?.role?.toUpperCase();
-        loginWithToken(user, token);
+        // pin-login sets the httpOnly cookie server-side (#F1) — no token to carry.
+        loginWithToken(user);
         const target = ROLE_REDIRECT[role] || "/dashboard";
         navigate(target, { replace: true });
       } catch (err: any) {

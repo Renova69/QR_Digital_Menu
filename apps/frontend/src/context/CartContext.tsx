@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback, useMemo, useRef } from 'react';
 
 export interface SelectedOption {
   optionId: string;
@@ -128,18 +128,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Calculate total number of items in cart
-  const getItemCount = () => {
+  const getItemCount = useCallback(() => {
     return items.reduce((sum, item) => sum + item.quantity, 0);
-  };
+  }, [items]);
 
   // Calculate total price of items in cart
-  const getTotal = () => {
+  const getTotal = useCallback(() => {
     return items.reduce((sum, item) => {
       const selectedOptions = item.selectedOptions || [];
       const optionsTotal = selectedOptions.reduce((optSum: number, opt: SelectedOption) => optSum + (opt.priceModifier || 0), 0);
       return sum + ((item.price + optionsTotal) * item.quantity);
     }, 0);
-  };
+  }, [items]);
 
   // Set the table number
   const setTableNumber = useCallback((table: string) => {
@@ -156,7 +156,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return removedCount;
   }, []);
 
-  const value = {
+  // Memoized so consumers don't re-render on unrelated parent renders (#F4).
+  const value = useMemo(() => ({
       items,
       addItem,
       updateItem,
@@ -167,7 +168,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       tableNumber,
       setTableNumber,
       pruneInvalidItems,
-  }
+  }), [items, addItem, updateItem, removeItem, clearCart, getItemCount, getTotal, tableNumber, setTableNumber, pruneInvalidItems]);
 
   // Provide the cart functionality to children
   return (
