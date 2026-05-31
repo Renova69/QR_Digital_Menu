@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { login as apiLogin, register as apiRegister, setAuthToken } from '../lib/api';
+import { login as apiLogin, register as apiRegister } from '../lib/api';
 import api from '../lib/api';
 
 interface User {
@@ -17,7 +17,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<any>;
   register: (email: string, password: string, name?: string) => Promise<any>;
-  loginWithToken: (user: User, token?: string) => void;
+  loginWithToken: (user: User) => void;
   updateUser: (user: User) => void;
   logout: () => Promise<void>;
   isLoading: boolean;
@@ -62,9 +62,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsError(false);
       setErrorMessage(null);
-      const { user, token } = await apiLogin(email, password);
+      const { user } = await apiLogin(email, password);
       queryClient.clear();
-      if (token) setAuthToken(token);
+      // Auth rides the httpOnly cookie set by the login response (#F1).
       // Clear stale prefetch from previous session before setting new user
       setPrefetchedRestaurants(null);
       setUser(user);
@@ -81,9 +81,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsError(false);
       setErrorMessage(null);
-      const { user, token } = await apiRegister(email, password, name);
+      const { user } = await apiRegister(email, password, name);
       queryClient.clear();
-      if (token) setAuthToken(token);
+      // Auth rides the httpOnly cookie set by the register response (#F1).
       // Clear stale prefetch from previous session before setting new user
       setPrefetchedRestaurants(null);
       setUser(user);
@@ -96,11 +96,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loginWithToken = (user: User, token?: string) => {
+  const loginWithToken = (user: User) => {
+    // Auth rides the httpOnly cookie set by the issuing endpoint (#F1);
+    // we only need to adopt the user into context here.
     queryClient.clear();
-    // Store the Bearer token for cross-origin contexts where the httpOnly
-    // cookie is not sent (prod Vercel→Cloud Run, LAN-IP dev). Mirrors login().
-    if (token) setAuthToken(token);
     setPrefetchedRestaurants(null);
     setUser(user);
   };
@@ -113,7 +112,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (_error) {
       // Cookie cleared server-side regardless
     }
-    setAuthToken(null);
     queryClient.clear();
     localStorage.removeItem('cartItems');
     localStorage.removeItem('tableNumber');

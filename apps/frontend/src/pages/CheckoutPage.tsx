@@ -12,54 +12,9 @@ import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { formatInlineDual, formatEuro, formatBgn } from "../lib/currency";
 import { Toggle } from "../components/ui/Toggle";
 import { hasTierFeature } from "../hooks/useFeature";
+import { isHappyHourActive } from "../lib/happyHour";
 
 const MAX_ORDER_DISCOUNT_RATE = 0.15;
-const DEFAULT_HAPPY_HOUR_DAYS = [1, 2, 3, 4, 5, 6, 7];
-const ISO_WEEKDAY_BY_SHORT_NAME: Record<string, number> = {
-  mon: 1,
-  tue: 2,
-  wed: 3,
-  thu: 4,
-  fri: 5,
-  sat: 6,
-  sun: 7,
-};
-
-const parseTimeToMinutes = (value?: string) => {
-  const match = value?.match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
-  const hour = Number(match[1]);
-  const minute = Number(match[2]);
-  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
-  return hour * 60 + minute;
-};
-
-const getZonedClockParts = (date: Date, timeZone: string) => {
-  try {
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone,
-      weekday: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    }).formatToParts(date);
-
-    const part = (type: Intl.DateTimeFormatPartTypes) =>
-      parts.find((p) => p.type === type)?.value;
-    const weekday = ISO_WEEKDAY_BY_SHORT_NAME[(part("weekday") || "").toLowerCase()];
-    const hour = Number(part("hour"));
-    const minute = Number(part("minute"));
-
-    if (!weekday || !Number.isFinite(hour) || !Number.isFinite(minute)) {
-      throw new Error("Invalid zoned clock parts");
-    }
-
-    return { weekday, minutes: (hour % 24) * 60 + minute };
-  } catch {
-    const localWeekday = date.getDay() === 0 ? 7 : date.getDay();
-    return { weekday: localWeekday, minutes: date.getHours() * 60 + date.getMinutes() };
-  }
-};
 
 const CheckoutPage = () => {
   const { user } = useAuth();
@@ -84,45 +39,14 @@ const CheckoutPage = () => {
   const [redeemedItemIds, setRedeemItemIds] = useState<string[]>([]);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [notEnoughPointsError, setNotEnoughPointsError] = useState(false);
+  const [loyaltyLoadFailed, setLoyaltyLoadFailed] = useState(false);
 
   // Gamification helpers — config comes from enroll() or getPublicConfig() API
   const restaurantConfig = loyaltyData?.restaurantConfig || loyaltyData;
   const exchangeRate = restaurantConfig?.loyaltyExchangeRate || 10;
   const effectiveRedeemRate = restaurantConfig?.loyaltyRedeemRate || 150;
 
-  const isHappyHourActive = () => {
-    if (
-      !restaurantConfig?.happyHourEnable ||
-      !restaurantConfig.happyHourStartTime ||
-      !restaurantConfig.happyHourEndTime
-    )
-      return false;
-    const activeDays = Array.isArray(restaurantConfig.happyHourDays)
-      ? restaurantConfig.happyHourDays
-      : DEFAULT_HAPPY_HOUR_DAYS;
-    if (activeDays.length === 0) return false;
-
-    const startMinutes = parseTimeToMinutes(restaurantConfig.happyHourStartTime);
-    const endMinutes = parseTimeToMinutes(restaurantConfig.happyHourEndTime);
-    if (startMinutes === null || endMinutes === null) return false;
-
-    const timeZone = restaurantConfig.timezone || "Europe/Sofia";
-    const now = new Date();
-    const current = getZonedClockParts(now, timeZone);
-    const previous = getZonedClockParts(new Date(now.getTime() - 24 * 60 * 60 * 1000), timeZone);
-    const inHappyHour =
-      startMinutes <= endMinutes
-        ? current.minutes >= startMinutes && current.minutes <= endMinutes
-        : current.minutes >= startMinutes || current.minutes <= endMinutes;
-    const effectiveWeekday =
-      startMinutes <= endMinutes || current.minutes >= startMinutes
-        ? current.weekday
-        : previous.weekday;
-
-    return inHappyHour && activeDays.includes(effectiveWeekday);
-  };
-
-  const hhMultiplier = isHappyHourActive()
+  const hhMultiplier = isHappyHourActive(restaurantConfig)
     ? restaurantConfig?.happyHourMultiplier || 2.0
     : 1;
 
@@ -177,12 +101,18 @@ const CheckoutPage = () => {
       ? api.post(`/loyalty/${restaurantId}/enroll`)
       : api.get(`/loyalty/${restaurantId}/config`);
 
+    setLoyaltyLoadFailed(false);
     request
       .then((res) => {
         setLoyaltyData(res.data);
         setLoyaltyPoints(res.data.points || 0);
       })
-      .catch(console.error);
+      .catch((err) => {
+        // Surface the failure (#F6) — otherwise the loyalty panel just silently
+        // vanishes and a logged-in customer thinks they have no points.
+        console.error("[CheckoutPage] Failed to load loyalty data:", err);
+        setLoyaltyLoadFailed(true);
+      });
   }, [user, restaurantId]);
 
   // Pre-fill name if user is logged in
@@ -425,6 +355,14 @@ const CheckoutPage = () => {
           </div>
         </div>
 
+        {user && restaurantId && loyaltyLoadFailed && (
+          <div className="mt-6 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-600 dark:text-amber-400">
+            {t('checkout.loyaltyLoadFailed', {
+              defaultValue: "Couldn't load your loyalty points right now — you can still place your order.",
+            })}
+          </div>
+        )}
+
         {user &&
           restaurantId &&
           restaurantConfig?.isLoyaltyEnabled && (
@@ -488,7 +426,7 @@ const CheckoutPage = () => {
                 </div>
               </div>
 
-              {isHappyHourActive() && (
+              {isHappyHourActive(restaurantConfig) && (
                 <div className="flex items-center gap-2 text-yellow-500 font-bold bg-yellow-500/10 border border-yellow-500/20 px-3 py-1.5 rounded-lg justify-end">
                   <Zap className="mr-1 h-3.5 w-3.5" />{t('checkout.happyHourBonus', { multiplier: hhMultiplier })}
                 </div>

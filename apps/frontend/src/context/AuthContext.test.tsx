@@ -2,7 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AuthProvider, useAuth } from './AuthContext';
-import React from 'react';
+import React, { type ReactNode } from 'react';
+
+// AuthProvider calls useQueryClient(); mock it so the test doesn't need a real
+// QueryClientProvider (which trips the monorepo's dual-React resolution in jsdom).
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({ clear: vi.fn() }),
+}));
+
+const renderWithProviders = (ui: ReactNode) =>
+  render(<AuthProvider>{ui}</AuthProvider>);
 
 vi.mock('../lib/api', () => ({
   default: {
@@ -45,11 +54,7 @@ describe('AuthContext', () => {
   });
 
   it('exposes isAuthenticated as false when no user is logged in', async () => {
-    render(
-      <AuthProvider>
-        <TestConsumer />
-      </AuthProvider>,
-    );
+    renderWithProviders(<TestConsumer />);
 
     const element = await screen.findByTestId('is-auth');
     expect(element.textContent).toBe('false');
@@ -58,11 +63,7 @@ describe('AuthContext', () => {
   it('exposes isAuthenticated as true when /auth/me returns a user', async () => {
     (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: mockUser });
 
-    render(
-      <AuthProvider>
-        <TestConsumer />
-      </AuthProvider>,
-    );
+    renderWithProviders(<TestConsumer />);
 
     await waitFor(() => {
       expect(screen.getByTestId('is-auth').textContent).toBe('true');
@@ -70,11 +71,7 @@ describe('AuthContext', () => {
   });
 
   it('sets user and isAuthenticated after loginWithToken is called', async () => {
-    render(
-      <AuthProvider>
-        <TestConsumerWithLogin />
-      </AuthProvider>,
-    );
+    renderWithProviders(<TestConsumerWithLogin />);
 
     // Initially not authenticated (mock returns null from /auth/me)
     await waitFor(() => {
