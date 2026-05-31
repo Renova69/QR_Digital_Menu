@@ -7,12 +7,12 @@ export const setAuthToken = (token: string | null) => {
   authToken = token;
 };
 
-// Dev: relative /api/v1 (Vite proxy). Production: absolute backend URL from VITE_API_URL.
-// httpOnly cookies won't work cross-origin — fallback to Bearer token (set via AuthContext).
+// Dev: relative /api/v1 (Vite proxy). Production build: absolute backend URL from VITE_API_URL.
+// Use the build-time PROD flag, not hostname sniffing (#F3) — sniffing broke dev/QA over
+// 127.0.0.1 or a LAN IP (e.g. testing the QR/POS flow on a phone), which was wrongly
+// treated as production and bypassed the Vite proxy.
 const API_URL =
-  typeof window !== 'undefined' &&
-  window.location.hostname !== 'localhost' &&
-  import.meta.env.VITE_API_URL
+  import.meta.env.PROD && import.meta.env.VITE_API_URL
     ? import.meta.env.VITE_API_URL + '/v1'
     : '/api/v1';
 
@@ -318,14 +318,25 @@ export const getFeedbackSummary = async (restaurantId: string) => {
 // Module-level CSRF token — fetched once from /auth/csrf-token endpoint.
 // Cannot use document.cookie cross-origin (backend on different host than frontend in dev).
 let csrfToken: string | null = null;
-const fetchCsrfToken = async () => {
-  try {
-    const res = await fetch(`${API_URL}/auth/csrf-token`, { credentials: 'include' });
-    const data = await res.json();
-    csrfToken = data?.csrfToken ?? null;
-  } catch {
-    csrfToken = null;
+// Dedupe concurrent first-time fetches (#F2): N parallel state-changing requests at
+// startup would each fire their own GET /auth/csrf-token. Share one in-flight promise.
+let csrfFetchPromise: Promise<void> | null = null;
+const fetchCsrfToken = async (): Promise<void> => {
+  if (csrfToken) return;
+  if (!csrfFetchPromise) {
+    csrfFetchPromise = (async () => {
+      try {
+        const res = await fetch(`${API_URL}/auth/csrf-token`, { credentials: 'include' });
+        const data = await res.json();
+        csrfToken = data?.csrfToken ?? null;
+      } catch {
+        csrfToken = null;
+      } finally {
+        csrfFetchPromise = null;
+      }
+    })();
   }
+  return csrfFetchPromise;
 };
 
 api.interceptors.request.use(async (config) => {
