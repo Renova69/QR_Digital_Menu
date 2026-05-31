@@ -38,7 +38,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; email: string }) {
+  async validate(payload: { sub: string; email: string; iat?: number }) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       include: {
@@ -53,6 +53,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     if (user.isActive === false || user.disabledAt) {
       throw new UnauthorizedException('ACCOUNT_DISABLED');
+    }
+
+    // Invalidate tokens issued before the last password change (e.g. super-admin
+    // reset). `iat` is in seconds; passwordChangedAt is a Date. Reject stale tokens.
+    if (
+      user.passwordChangedAt &&
+      payload.iat &&
+      payload.iat * 1000 < user.passwordChangedAt.getTime()
+    ) {
+      throw new UnauthorizedException('PASSWORD_CHANGED');
     }
 
     if (user.role !== 'SUPER_ADMIN') {

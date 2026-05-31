@@ -19,6 +19,9 @@ describe('SuperAdminService', () => {
     user: {
       count: jest.fn(),
       groupBy: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
     },
     order: {
       count: jest.fn(),
@@ -253,6 +256,137 @@ describe('SuperAdminService', () => {
       const result = await service.getTenantById('1');
 
       expect(result.paymentSummary.totalAmount).toBe(0);
+    });
+
+    it('does not leak the raw _count object in the response', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
+        id: '1', name: 'Test', tier: 'FREE', forceTier: null, isActive: true,
+        tierUpdatedAt: null, createdAt: new Date(), timezone: 'Europe/Sofia',
+        targetLanguages: [], paymentsEnabled: false, stripeOnboarded: false,
+        owner: { id: 'u1', email: 'o@test.com', name: 'Owner', createdAt: new Date() },
+        _count: { menuCategories: 2, orders: 7, tables: 3 },
+      });
+      mockPrisma.payment.aggregate.mockResolvedValueOnce({ _sum: { amount: null }, _count: 0 });
+
+      const result = await service.getTenantById('1') as Record<string, unknown>;
+
+      expect(result._count).toBeUndefined();
+      expect(result.orderCount).toBe(7);
+      expect(result.tableCount).toBe(3);
+      expect(result.menuCategoryCount).toBe(2);
+    });
+  });
+
+  describe('updateStatus', () => {
+    it('suspends a tenant and writes a SUSPEND audit log', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({ id: '1', isActive: true });
+      mockPrisma.$transaction.mockResolvedValueOnce([{ id: '1', name: 'Test', isActive: false }, {}]);
+
+      const result = await service.updateStatus('1', false, ACTOR_ID);
+
+      expect(result.isActive).toBe(false);
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException for a missing restaurant', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce(null);
+      await expect(service.updateStatus('missing', false, ACTOR_ID)).rejects.toThrow();
+    });
+  });
+
+  describe('resetOwnerPassword', () => {
+    it('hashes the password, stamps passwordChangedAt, and audits', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
+        id: '1', ownerId: 'owner-1', name: 'Test',
+      });
+      mockPrisma.$transaction.mockResolvedValueOnce([{}, {}]);
+
+      const result = await service.resetOwnerPassword('1', 'NewPass123', ACTOR_ID);
+
+      expect(result).toEqual({ success: true });
+      const userUpdate = mockPrisma.user.update.mock.calls[0][0];
+      expect(userUpdate.data.passwordChangedAt).toBeInstanceOf(Date);
+      expect(userUpdate.data.password).not.toBe('NewPass123');
+    });
+
+    it('throws NotFoundException for a missing restaurant', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce(null);
+      await expect(service.resetOwnerPassword('missing', 'NewPass123', ACTOR_ID)).rejects.toThrow();
+    });
+  });
+
+  describe('deleteRestaurant', () => {
+    it('soft-deletes an active restaurant', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({ id: '1', name: 'Test', deletedAt: null });
+      mockPrisma.$transaction.mockResolvedValueOnce([
+        { id: '1', name: 'Test', deletedAt: new Date(), isActive: false }, {},
+      ]);
+
+      const result = await service.deleteRestaurant('1', ACTOR_ID);
+
+      expect(result.deletedAt).toBeInstanceOf(Date);
+    });
+
+    it('throws ALREADY_DELETED when the restaurant is already soft-deleted', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({ id: '1', name: 'Test', deletedAt: new Date() });
+      await expect(service.deleteRestaurant('1', ACTOR_ID)).rejects.toThrow('Restaurant already deleted');
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('restoreRestaurant', () => {
+    it('restores a soft-deleted restaurant', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({ id: '1', name: 'Test', deletedAt: new Date() });
+      mockPrisma.$transaction.mockResolvedValueOnce([
+        { id: '1', name: 'Test', deletedAt: null, isActive: true }, {},
+      ]);
+
+      const result = await service.restoreRestaurant('1', ACTOR_ID);
+
+      expect(result.deletedAt).toBeNull();
+    });
+
+    it('throws NOT_DELETED when the restaurant is not deleted', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({ id: '1', name: 'Test', deletedAt: null });
+      await expect(service.restoreRestaurant('1', ACTOR_ID)).rejects.toThrow('Restaurant is not deleted');
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deleteStaff', () => {
+    it('deletes a WAITER scoped to the restaurant and audits', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        id: 's1', email: 'w@test.local', role: 'WAITER', restaurantId: 'r1',
+      });
+      mockPrisma.$transaction.mockResolvedValueOnce([{}, {}]);
+
+      const result = await service.deleteStaff('r1', 's1', ACTOR_ID);
+
+      expect(result).toEqual({ success: true });
+    });
+
+    it('throws USER_NOT_FOUND for a missing user', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(null);
+      await expect(service.deleteStaff('r1', 'missing', ACTOR_ID)).rejects.toThrow('User not found');
+    });
+
+    it('throws NOT_STAFF when the user belongs to another restaurant', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        id: 's1', email: 'w@test.local', role: 'WAITER', restaurantId: 'other',
+      });
+      await expect(service.deleteStaff('r1', 's1', ACTOR_ID)).rejects.toThrow(
+        'User is not staff of this restaurant',
+      );
+    });
+
+    it('refuses to delete an OWNER even when scoped to the restaurant', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        id: 'owner', email: 'o@test.com', role: 'OWNER', restaurantId: 'r1',
+      });
+      await expect(service.deleteStaff('r1', 'owner', ACTOR_ID)).rejects.toThrow(
+        'Cannot delete an OWNER or SUPER_ADMIN',
+      );
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
   });
 });
