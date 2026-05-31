@@ -1,3 +1,4 @@
+import { type ReactElement } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -8,7 +9,7 @@ const ROLE_DEFAULT_PATH: Record<string, string> = {
   KITCHEN: "/staff/kitchen",
 };
 
-export default function StaffRoute({ children }: { children: JSX.Element }) {
+export default function StaffRoute({ children }: { children: ReactElement }) {
   const { user, isLoading } = useAuth();
   const location = useLocation();
 
