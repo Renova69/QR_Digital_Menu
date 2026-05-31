@@ -28,6 +28,24 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: {
       include: ['react-qr-code']
     },
+    build: {
+      // Split heavy third-party libs out of the main bundle (#5) so the entry
+      // chunk shrinks and vendors cache independently across deploys.
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return undefined;
+            if (id.includes('recharts') || id.includes('/d3-') || id.includes('victory')) return 'charts';
+            if (id.includes('@stripe')) return 'stripe';
+            if (id.includes('xlsx')) return 'xlsx';
+            if (id.includes('@radix-ui')) return 'radix';
+            if (id.includes('react-router') || id.includes('@tanstack')) return 'router-query';
+            if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) return 'react';
+            return 'vendor';
+          },
+        },
+      },
+    },
     test: {
       globals: true,
       environment: 'jsdom',
