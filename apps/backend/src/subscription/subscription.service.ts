@@ -1,4 +1,5 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import Stripe from 'stripe';
 
@@ -6,33 +7,55 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder'
   apiVersion: '2026-05-27.dahlia',
 });
 
-const PRICE_MAP: Record<string, Record<'monthly' | 'yearly', string>> = {
-  STARTER: {
-    monthly: process.env.STRIPE_PRICE_STARTER_MONTHLY || '',
-    yearly: process.env.STRIPE_PRICE_STARTER_YEARLY || '',
-  },
-  PROFESSIONAL: {
-    monthly: process.env.STRIPE_PRICE_PROFESSIONAL_MONTHLY || '',
-    yearly: process.env.STRIPE_PRICE_PROFESSIONAL_YEARLY || '',
-  },
-  ENTERPRISE: {
-    monthly: process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY || '',
-    yearly: process.env.STRIPE_PRICE_ENTERPRISE_YEARLY || '',
-  },
-};
+type PriceMap = Record<string, Record<'monthly' | 'yearly', string>>;
 
-function getTierFromPrice(priceId: string): string {
-  for (const [tier, periods] of Object.entries(PRICE_MAP)) {
+/**
+ * Resolve a price id to its tier. Standalone so it stays pure and easily
+ * testable; the live map is built per-instance in the service constructor so
+ * env vars injected after module load are picked up (M-7).
+ */
+function getTierFromPrice(priceMap: PriceMap, priceId: string): string {
+  for (const [tier, periods] of Object.entries(priceMap)) {
     if (periods.monthly === priceId || periods.yearly === priceId) return tier;
   }
   return 'FREE';
 }
 
+const PAST_DUE_GRACE_MS = 7 * 24 * 60 * 60 * 1000; // 7-day grace window for past_due (C-1)
+const IMMEDIATE_DOWNGRADE_STATUSES = ['unpaid', 'canceled', 'paused', 'incomplete_expired'];
+
 @Injectable()
 export class SubscriptionService {
   private readonly logger = new Logger(SubscriptionService.name);
+  private readonly priceMap: PriceMap;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {
+    // Built here (not at module load) so env vars injected after import are
+    // reflected — critical for tests and runtime config injection (M-7).
+    this.priceMap = {
+      STARTER: {
+        monthly: this.configService.get<string>('STRIPE_PRICE_STARTER_MONTHLY', ''),
+        yearly: this.configService.get<string>('STRIPE_PRICE_STARTER_YEARLY', ''),
+      },
+      PROFESSIONAL: {
+        monthly: this.configService.get<string>('STRIPE_PRICE_PROFESSIONAL_MONTHLY', ''),
+        yearly: this.configService.get<string>('STRIPE_PRICE_PROFESSIONAL_YEARLY', ''),
+      },
+      ENTERPRISE: {
+        monthly: this.configService.get<string>('STRIPE_PRICE_ENTERPRISE_MONTHLY', ''),
+        yearly: this.configService.get<string>('STRIPE_PRICE_ENTERPRISE_YEARLY', ''),
+      },
+    };
+
+    // Boot-time guard: refuse to operate against Stripe in production without a
+    // secret key (M-8). Mirrors the webhook-secret guard in main.ts.
+    if (process.env.NODE_ENV === 'production' && !process.env.STRIPE_SECRET_KEY) {
+      throw new Error('[Startup] STRIPE_SECRET_KEY must be set in production');
+    }
+  }
 
   async createCheckoutSession(
     restaurantId: string,
@@ -41,7 +64,7 @@ export class SubscriptionService {
     ownerId: string,
     onboarding = false,
   ) {
-    const priceId = PRICE_MAP[tier]?.[billingPeriod];
+    const priceId = this.priceMap[tier]?.[billingPeriod];
     if (!priceId) {
       throw new BadRequestException(`No Stripe price configured for tier ${tier} (${billingPeriod})`);
     }
@@ -89,7 +112,7 @@ export class SubscriptionService {
     return { url: session.url };
   }
 
-  async confirmCheckoutSession(sessionId: string): Promise<{ tier: string }> {
+  async confirmCheckoutSession(sessionId: string, userId: string): Promise<{ tier: string }> {
     let session: any;
     try {
       session = await stripe.checkout.sessions.retrieve(sessionId);
@@ -100,6 +123,17 @@ export class SubscriptionService {
     if (session.status !== 'complete') return { tier: 'FREE' };
 
     const customerId = session.customer as string;
+
+    // Verify the caller owns the restaurant tied to this Stripe customer — a
+    // session id alone must not let a user activate another tenant's tier (C-2).
+    const restaurant = await this.prisma.restaurant.findFirst({
+      where: { stripeCustomerId: customerId },
+      select: { ownerId: true },
+    });
+    if (!restaurant || restaurant.ownerId !== userId) {
+      throw new ForbiddenException('Session does not belong to your restaurant');
+    }
+
     const tier = (session.metadata?.tier as string) ?? 'FREE';
     const subscriptionId = session.subscription as string;
     const eventTime = new Date(session.created * 1000);
@@ -155,7 +189,12 @@ export class SubscriptionService {
         status: sub.status as string,
         interval: (item?.price?.recurring?.interval as string) ?? null,
       };
-    } catch {
+    } catch (err: unknown) {
+      this.logger.warn(
+        `Failed to fetch Stripe subscription ${restaurant.stripeSubscriptionId}: ${
+          err instanceof Error ? err.message : err
+        }`,
+      );
       return null;
     }
   }
@@ -180,6 +219,16 @@ export class SubscriptionService {
       case 'customer.subscription.deleted':
         await this.applyCancellationFromEvent(event);
         break;
+      case 'invoice.payment_failed': {
+        // Do NOT downgrade here. Stripe will transition the subscription to
+        // `past_due`, which fires `customer.subscription.updated`; the 7-day
+        // grace window is enforced there via the status check (C-1).
+        const failedCustomer = (event.data.object as any)?.customer;
+        this.logger.warn(
+          `invoice.payment_failed: customer=${failedCustomer} — entering grace period, no immediate downgrade`,
+        );
+        break;
+      }
       default:
         this.logger.log(`Ignoring webhook event: ${event.type}`);
     }
@@ -203,8 +252,39 @@ export class SubscriptionService {
       subscriptionId = obj.subscription as string;
     } else {
       priceId = obj.items?.data?.[0]?.price?.id as string | undefined;
-      tier = priceId ? getTierFromPrice(priceId) : 'FREE';
+      tier = priceId ? getTierFromPrice(this.priceMap, priceId) : 'FREE';
       subscriptionId = obj.id as string;
+
+      // Subscription status gating (C-1). Only present on Subscription objects
+      // (customer.subscription.created/updated), not on checkout Sessions.
+      const subStatus = obj.status as string | undefined;
+      if (subStatus === 'past_due') {
+        // Keep paid tier during a 7-day grace window measured from the period
+        // end; downgrade to FREE only once that window has elapsed.
+        const periodEnd = obj.current_period_end as number | undefined;
+        const graceExpiry = periodEnd
+          ? new Date(periodEnd * 1000 + PAST_DUE_GRACE_MS)
+          : null;
+        if (graceExpiry && new Date() > graceExpiry) {
+          tier = 'FREE';
+          this.logger.warn(
+            `past_due grace expired for customer=${customerId} (graceEnd=${graceExpiry.toISOString()}) — downgrading to FREE`,
+          );
+        } else {
+          // No schema field for grace persistence; log the window for operators.
+          this.logger.warn(
+            `past_due within grace for customer=${customerId}: keeping ${tier} until ${
+              graceExpiry ? graceExpiry.toISOString() : 'unknown'
+            }`,
+          );
+        }
+      } else if (subStatus && IMMEDIATE_DOWNGRADE_STATUSES.includes(subStatus)) {
+        tier = 'FREE';
+        this.logger.warn(
+          `Subscription status=${subStatus} for customer=${customerId} — downgrading to FREE`,
+        );
+      }
+      // active/trialing (or absent): keep the computed tier as-is.
     }
 
     const result = await this.prisma.restaurant.updateMany({

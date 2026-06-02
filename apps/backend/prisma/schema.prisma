@@ -456,6 +456,7 @@ model Payment {
 enum TableSessionStatus {
   OPEN
   PAID
+  CLOSED_PAID
   CLOSED_NO_PAYMENT
 }
 

@@ -72,7 +72,7 @@ export class RestaurantsController {
   }
 
   @RequireFeature(FeatureFlag.BRANDING_CUSTOM)
-  @UseGuards(FeatureGuard)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
   @Post(':id/logo')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -114,7 +114,7 @@ export class RestaurantsController {
   }
 
   @RequireFeature(FeatureFlag.POS)
-  @UseGuards(FeatureGuard)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
   @Post(':id/device-enrollment')
   createDeviceEnrollment(
     @Param('id') id: string,
@@ -136,21 +136,21 @@ export class RestaurantsController {
   }
 
   @RequireFeature(FeatureFlag.POS)
-  @UseGuards(FeatureGuard)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
   @Get(':id/device-enrollments')
   listDeviceEnrollments(@Param('id') id: string, @Request() req: any) {
     return this.deviceEnrollment.listEnrollments(id, req.user.id);
   }
 
   @RequireFeature(FeatureFlag.LANGUAGES_MULTI)
-  @UseGuards(FeatureGuard)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
   @Post(':id/translate-all')
   translateAll(@Param('id') id: string, @Request() req: any) {
     return this.restaurantsService.translateAll(id, req.user.id);
   }
 
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
-  @UseGuards(FeatureGuard)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
   @Post(':id/stripe/connect')
   generateConnectLink(
     @Param('id') id: string,
@@ -162,14 +162,14 @@ export class RestaurantsController {
   }
 
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
-  @UseGuards(FeatureGuard)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
   @Get(':id/stripe/status')
   getStripeStatus(@Param('id') id: string, @Request() req: any) {
     return this.restaurantsService.getStripeStatus(id, req.user.id);
   }
 
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
-  @UseGuards(FeatureGuard)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
   @Post(':id/stripe/disconnect')
   disconnectStripe(@Param('id') id: string, @Request() req: any) {
     return this.restaurantsService.disconnectStripe(id, req.user.id);

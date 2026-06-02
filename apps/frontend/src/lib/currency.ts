@@ -4,10 +4,12 @@
 export const BGN_RATE = 1.95583;
 
 export function formatEuro(value: number): string {
+  if (!Number.isFinite(value)) return '— €';
   return `${value.toFixed(2)} €`;
 }
 
 export function formatBgn(value: number): string {
+  if (!Number.isFinite(value)) return '— лв';
   return `${(value * BGN_RATE).toFixed(2)} лв`;
 }
 

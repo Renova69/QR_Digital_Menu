@@ -131,7 +131,7 @@ export class PaymentService {
   ): Promise<{ session: any; token: string }> {
     if (token) {
       const existing = await this.prisma.tableSession.findFirst({
-        where: { token, status: 'OPEN' },
+        where: { token, restaurantId, status: 'OPEN' },
       });
       if (existing) return { session: existing, token };
     }
@@ -290,21 +290,30 @@ export class PaymentService {
       },
     });
 
-    const { clientSecret, paymentIntentId } = await this.stripe.createPaymentIntent({
-      amountCents: Math.round(total * 100),
-      currency: 'eur',
-      restaurantStripeAccountId: restaurant.stripeAccountId,
-      platformFeeCents,
-      idempotencyKey: payment.id,
-      metadata: { sessionId: session.id, paymentId: payment.id },
-    });
+    try {
+      const { clientSecret, paymentIntentId } = await this.stripe.createPaymentIntent({
+        amountCents: Math.round(total * 100),
+        currency: 'eur',
+        restaurantStripeAccountId: restaurant.stripeAccountId,
+        platformFeeCents,
+        idempotencyKey: payment.id,
+        metadata: { sessionId: session.id, paymentId: payment.id },
+      });
 
-    await this.prisma.payment.update({
-      where: { id: payment.id },
-      data: { stripePaymentIntentId: paymentIntentId },
-    });
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: { stripePaymentIntentId: paymentIntentId },
+      });
 
-    return { clientSecret, paymentId: payment.id, total, tipAmount };
+      return { clientSecret, paymentId: payment.id, total, tipAmount };
+    } catch (err) {
+      // Stripe failed after the PENDING record was created — mark it FAILED so
+      // it doesn't linger forever and block future intents for this session.
+      await this.prisma.payment
+        .update({ where: { id: payment.id }, data: { status: 'FAILED' } })
+        .catch(() => {});
+      throw err;
+    }
   }
 
   async handleWebhookEvent(payload: Buffer, signature: string): Promise<void> {
@@ -332,16 +341,27 @@ export class PaymentService {
       }
       if (!payment) return;
 
-      await this.prisma.$transaction([
-        this.prisma.payment.update({
-          where: { id: payment.id },
+      // Idempotent claim — double-delivered webhooks must be a no-op. Only the
+      // first delivery (status still PENDING) flips the record and proceeds to
+      // emit socket events; subsequent deliveries see count=0 and bail out.
+      const { count } = await this.prisma.payment.updateMany({
+        where: { stripePaymentIntentId: intent.id, status: 'PENDING' },
+        data: { status: 'SUCCEEDED' },
+      });
+      if (count === 0) {
+        // Record may not yet carry the intent id (created-before-Stripe race) —
+        // fall back to claiming by the payment row we already resolved.
+        const byId = await this.prisma.payment.updateMany({
+          where: { id: payment.id, status: 'PENDING' },
           data: { status: 'SUCCEEDED', stripePaymentIntentId: intent.id },
-        }),
-        this.prisma.tableSession.updateMany({
-          where: { id: payment.tableSessionId, status: 'OPEN' },
-          data: { status: 'PAID', paidAt: new Date() },
-        }),
-      ]);
+        });
+        if (byId.count === 0) return; // already processed — skip socket emission
+      }
+
+      await this.prisma.tableSession.updateMany({
+        where: { id: payment.tableSessionId, status: 'OPEN' },
+        data: { status: 'PAID', paidAt: new Date() },
+      });
 
       const tableNumber = payment.tableSession?.table?.name
         ?? (await this.prisma.restaurantTable.findUnique({
@@ -421,65 +441,28 @@ export class PaymentService {
     restaurantId: string,
     userId: string,
   ): Promise<{ amount: number }> {
-    await this.verifyPosOperatorAccess(restaurantId, userId);
-    const session = await this.prisma.tableSession.findFirst({
-      where: { token, restaurantId, status: 'OPEN' },
-      include: { orders: true },
-    });
-    if (!session) throw new NotFoundException('Session not found');
-
-    const amount = session.orders.reduce((sum, o) => sum + o.totalPrice, 0);
-    if (amount <= 0) throw new BadRequestException('Cannot close a session with no orders');
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.payment.create({
-        data: {
-          tableSessionId: session.id,
-          restaurantId,
-          amount,
-          tipAmount: 0,
-          platformFeeAmount: 0,
-          currency: 'eur',
-          status: 'SUCCEEDED',
-          provider: 'MYPOS',
-        },
-      });
-
-      const updated = await tx.tableSession.updateMany({
-        where: { id: session.id, status: 'OPEN' },
-        data: { status: 'PAID', paidAt: new Date() },
-      });
-      if (updated.count === 0) throw new Error('Session already closed');
-    });
-
-    this.events.emitTableStatusChanged(
-      restaurantId,
-      session.tableId,
-      session.id,
-    );
-
-    const tableNumber =
-      (
-        await this.prisma.restaurantTable.findUnique({
-          where: { id: session.tableId },
-          select: { name: true },
-        })
-      )?.name ?? null;
-
-    this.events.emitToRestaurant(restaurantId, 'payment:confirmed', {
-      tableSessionId: session.id,
-      amount,
-      tipAmount: 0,
-      tableNumber,
-    });
-
-    return { amount };
+    return this.closeSessionWithProvider(token, restaurantId, userId, 'MYPOS');
   }
 
   async closeSessionWithCash(
     token: string,
     restaurantId: string,
     userId: string,
+  ): Promise<{ amount: number }> {
+    return this.closeSessionWithProvider(token, restaurantId, userId, 'CASH');
+  }
+
+  /**
+   * Shared in-person settlement path for POS closes. MYPOS (card terminal) and
+   * CASH are structurally identical — the only difference is the recorded
+   * provider — so both delegate here (#L1). Records a SUCCEEDED payment, flips
+   * the session to PAID atomically, and emits status + confirmation events.
+   */
+  private async closeSessionWithProvider(
+    token: string,
+    restaurantId: string,
+    userId: string,
+    provider: 'MYPOS' | 'CASH',
   ): Promise<{ amount: number }> {
     await this.verifyPosOperatorAccess(restaurantId, userId);
     const session = await this.prisma.tableSession.findFirst({
@@ -501,7 +484,7 @@ export class PaymentService {
           platformFeeAmount: 0,
           currency: 'eur',
           status: 'SUCCEEDED',
-          provider: 'CASH',
+          provider,
         },
       });
 
@@ -547,7 +530,7 @@ export class PaymentService {
     });
     if (!table) throw new NotFoundException('Table not found for this restaurant');
 
-    const session = await this.prisma.$transaction(async (tx) => {
+    const { session, closedSession } = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.tableSession.findFirst({
         where: { tableId, restaurantId, status: 'OPEN' },
       });
@@ -556,13 +539,18 @@ export class PaymentService {
           where: { id: existing.id },
           data: { status: 'CLOSED_NO_PAYMENT' },
         });
-        this.events.emitTableStatusChanged(restaurantId, existing.tableId, existing.id);
       }
-      return tx.tableSession.create({
+      const created = await tx.tableSession.create({
         data: { tableId, restaurantId },
       });
+      return { session: created, closedSession: existing };
     });
 
+    // Emit socket events only after the transaction commits — emitting inside a
+    // transaction can fire for work that later rolls back (#H4).
+    if (closedSession) {
+      this.events.emitTableStatusChanged(restaurantId, closedSession.tableId, closedSession.id);
+    }
     this.events.emitTableStatusChanged(restaurantId, tableId, session.id);
     return { session, token: session.token };
   }
@@ -882,6 +870,12 @@ export class PaymentService {
       );
     }
 
+    if (payment.provider === 'CASH') {
+      throw new BadRequestException(
+        'Cash payment refunds must be processed manually at the restaurant',
+      );
+    }
+
     // Atomic claim — prevents duplicate refunds under concurrent requests.
     // updateMany with status condition acts as an optimistic lock: only one
     // request will get count=1; all others see count=0 and are rejected.
@@ -900,7 +894,7 @@ export class PaymentService {
     if (payment.provider === 'STRIPE') {
       if (!payment.stripePaymentIntentId) {
         await this.prisma.payment.updateMany({
-          where: { id: paymentId },
+          where: { id: paymentId, status: 'PENDING' },
           data: { status: 'SUCCEEDED' },
         }).catch(() => {});
         throw new BadRequestException('Stripe payment intent is missing');
@@ -913,8 +907,10 @@ export class PaymentService {
         });
       } catch (err) {
         // Best-effort rollback — restore succeeded so a retry is possible.
+        // Status guard avoids clobbering a record that genuinely reached
+        // REFUNDED through a concurrent path (#M1).
         await this.prisma.payment.updateMany({
-          where: { id: paymentId },
+          where: { id: paymentId, status: 'PENDING' },
           data: { status: 'SUCCEEDED' },
         }).catch(() => {});
         this.logger.error(`Stripe refund failed for ${paymentId}, status rolled back`, err);

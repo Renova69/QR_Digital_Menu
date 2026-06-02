@@ -3,26 +3,45 @@ const mockConstructEvent = jest.fn();
 const mockCheckoutCreate = jest.fn().mockResolvedValue({ url: 'https://checkout.stripe.com/pay/test' });
 const mockCustomersCreate = jest.fn().mockResolvedValue({ id: 'cus_new' });
 const mockPortalCreate = jest.fn().mockResolvedValue({ url: 'https://billing.stripe.com/portal/test' });
+const mockSessionRetrieve = jest.fn();
+const mockSubscriptionsList = jest.fn().mockResolvedValue({ data: [] });
 
 jest.mock('stripe', () =>
   jest.fn().mockImplementation(() => ({
     customers: { create: mockCustomersCreate },
-    checkout: { sessions: { create: mockCheckoutCreate } },
+    checkout: { sessions: { create: mockCheckoutCreate, retrieve: mockSessionRetrieve } },
     billingPortal: { sessions: { create: mockPortalCreate } },
+    subscriptions: { list: mockSubscriptionsList },
     webhooks: { constructEvent: mockConstructEvent },
   })),
 );
 
 jest.mock('../prisma/prisma.service', () => ({ PrismaService: jest.fn() }));
 
+import { ForbiddenException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { SubscriptionService } from './subscription.service';
 import { PrismaService } from '../prisma/prisma.service';
+
+// Price ids the mock ConfigService hands back. After the M-7 fix PRICE_MAP is
+// built in the constructor from ConfigService, so these are picked up per-test
+// instead of being frozen to '' at module load.
+const PRICE_IDS: Record<string, string> = {
+  STRIPE_PRICE_STARTER_MONTHLY: 'price_starter_m',
+  STRIPE_PRICE_STARTER_YEARLY: 'price_starter_y',
+  STRIPE_PRICE_PROFESSIONAL_MONTHLY: 'price_pro_m',
+  STRIPE_PRICE_PROFESSIONAL_YEARLY: 'price_pro_y',
+  STRIPE_PRICE_ENTERPRISE_MONTHLY: 'price_ent_m',
+  STRIPE_PRICE_ENTERPRISE_YEARLY: 'price_ent_y',
+};
 
 describe('SubscriptionService', () => {
   let service: SubscriptionService;
   let prisma: {
     restaurant: {
+      findUnique: jest.Mock;
+      findFirst: jest.Mock;
       findUniqueOrThrow: jest.Mock;
       update: jest.Mock;
       updateMany: jest.Mock;
@@ -30,11 +49,20 @@ describe('SubscriptionService', () => {
     user: { findUniqueOrThrow: jest.Mock };
   };
 
+  const configMock = {
+    get: jest.fn(
+      (key: string, fallback?: string) => PRICE_IDS[key] ?? fallback ?? '',
+    ),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockSubscriptionsList.mockResolvedValue({ data: [] });
 
     prisma = {
       restaurant: {
+        findUnique: jest.fn().mockResolvedValue({ stripeCustomerId: 'cus_test' }),
+        findFirst: jest.fn().mockResolvedValue({ ownerId: 'owner1' }),
         findUniqueOrThrow: jest.fn().mockResolvedValue({ stripeCustomerId: 'cus_test' }),
         update: jest.fn().mockResolvedValue({}),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -48,29 +76,189 @@ describe('SubscriptionService', () => {
       providers: [
         SubscriptionService,
         { provide: PrismaService, useValue: prisma },
+        { provide: ConfigService, useValue: configMock },
       ],
     }).compile();
 
     service = module.get<SubscriptionService>(SubscriptionService);
   });
 
-  // ─── createCheckoutSession ───────────────────────────────────────────────────
-  // NOTE: PRICE_MAP is evaluated at module load time from process.env.
-  // In test environment all STRIPE_PRICE_* vars are unset → all entries are ''.
-  // Consequently createCheckoutSession always throws for any tier in CI — we
-  // only test the guard branch here; success paths require module isolation.
+  // ─── createCheckoutSession (M-7) ─────────────────────────────────────────────
+  // PRICE_MAP is now built in the constructor from ConfigService, so the mock
+  // ConfigService above supplies real price ids and the success path is testable.
 
   describe('createCheckoutSession', () => {
-    it('throws when no Stripe price is configured for the tier', async () => {
-      await expect(
-        service.createCheckoutSession('rest1', 'STARTER', 'monthly', 'owner1'),
-      ).rejects.toThrow('No Stripe price configured for tier STARTER');
+    it('uses the configured STARTER monthly price and returns the checkout URL', async () => {
+      const result = await service.createCheckoutSession('rest1', 'STARTER', 'monthly', 'owner1');
+
+      expect(result.url).toBe('https://checkout.stripe.com/pay/test');
+      expect(mockCheckoutCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          line_items: [{ price: PRICE_IDS.STRIPE_PRICE_STARTER_MONTHLY, quantity: 1 }],
+          metadata: expect.objectContaining({ restaurantId: 'rest1', tier: 'STARTER' }),
+        }),
+      );
     });
 
-    it('throws for ENTERPRISE tier when price env var is absent', async () => {
+    it('uses the configured ENTERPRISE yearly price for yearly billing', async () => {
+      const result = await service.createCheckoutSession('rest1', 'ENTERPRISE', 'yearly', 'owner1');
+
+      expect(result.url).toBe('https://checkout.stripe.com/pay/test');
+      expect(mockCheckoutCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          line_items: [{ price: PRICE_IDS.STRIPE_PRICE_ENTERPRISE_YEARLY, quantity: 1 }],
+        }),
+      );
+    });
+
+    it('throws when no Stripe price is configured for an unknown tier', async () => {
       await expect(
-        service.createCheckoutSession('rest1', 'ENTERPRISE', 'monthly', 'owner1'),
-      ).rejects.toThrow('No Stripe price configured for tier ENTERPRISE');
+        service.createCheckoutSession('rest1', 'NONEXISTENT', 'monthly', 'owner1'),
+      ).rejects.toThrow('No Stripe price configured for tier NONEXISTENT');
+    });
+  });
+
+  // ─── getTierFromPrice via webhook (M-7) ──────────────────────────────────────
+  // The subscription.updated path maps a known price id back to its tier using
+  // the constructor-built PRICE_MAP. With ConfigService supplying ids, a known
+  // price now resolves to the correct tier instead of defaulting to FREE.
+
+  describe('price → tier resolution (subscription.updated)', () => {
+    it('maps a known PROFESSIONAL price id to PROFESSIONAL tier', async () => {
+      mockConstructEvent.mockReturnValue({
+        type: 'customer.subscription.updated',
+        created: Math.floor(Date.now() / 1000),
+        data: {
+          object: {
+            id: 'sub_pro',
+            customer: 'cus_test',
+            status: 'active',
+            items: { data: [{ price: { id: PRICE_IDS.STRIPE_PRICE_PROFESSIONAL_MONTHLY } }] },
+          },
+        },
+      });
+
+      await service.handleWebhook(Buffer.from('{}'), 'valid_sig');
+
+      expect(prisma.restaurant.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ tier: 'PROFESSIONAL' }),
+        }),
+      );
+    });
+
+    it('defaults an unrecognised price id to FREE', async () => {
+      mockConstructEvent.mockReturnValue({
+        type: 'customer.subscription.updated',
+        created: Math.floor(Date.now() / 1000),
+        data: {
+          object: {
+            id: 'sub_unknown',
+            customer: 'cus_test',
+            status: 'active',
+            items: { data: [{ price: { id: 'price_not_in_map' } }] },
+          },
+        },
+      });
+
+      await service.handleWebhook(Buffer.from('{}'), 'valid_sig');
+
+      expect(prisma.restaurant.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ tier: 'FREE' }),
+        }),
+      );
+    });
+  });
+
+  // ─── confirmCheckoutSession (M-11) ───────────────────────────────────────────
+
+  describe('confirmCheckoutSession', () => {
+    it('returns FREE when the Stripe session cannot be retrieved', async () => {
+      mockSessionRetrieve.mockRejectedValue(new Error('No such session'));
+
+      const result = await service.confirmCheckoutSession('cs_missing', 'owner1');
+
+      expect(result).toEqual({ tier: 'FREE' });
+      expect(prisma.restaurant.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('returns FREE when the session is not complete (payment not finished)', async () => {
+      mockSessionRetrieve.mockResolvedValue({
+        status: 'open',
+        customer: 'cus_test',
+        metadata: { tier: 'PROFESSIONAL' },
+      });
+
+      const result = await service.confirmCheckoutSession('cs_open', 'owner1');
+
+      expect(result).toEqual({ tier: 'FREE' });
+      expect(prisma.restaurant.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('updates the restaurant tier when the session is complete and owned by the caller', async () => {
+      prisma.restaurant.findFirst.mockResolvedValue({ ownerId: 'owner1' });
+      mockSessionRetrieve.mockResolvedValue({
+        status: 'complete',
+        customer: 'cus_test',
+        subscription: 'sub_done',
+        created: Math.floor(Date.now() / 1000),
+        metadata: { tier: 'PROFESSIONAL' },
+      });
+
+      const result = await service.confirmCheckoutSession('cs_done', 'owner1');
+
+      expect(result).toEqual({ tier: 'PROFESSIONAL' });
+      expect(prisma.restaurant.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ stripeCustomerId: 'cus_test' }),
+          data: expect.objectContaining({ tier: 'PROFESSIONAL', stripeSubscriptionId: 'sub_done' }),
+        }),
+      );
+    });
+
+    it('rejects when the session belongs to another tenant', async () => {
+      prisma.restaurant.findFirst.mockResolvedValue({ ownerId: 'someone-else' });
+      mockSessionRetrieve.mockResolvedValue({
+        status: 'complete',
+        customer: 'cus_test',
+        subscription: 'sub_done',
+        created: Math.floor(Date.now() / 1000),
+        metadata: { tier: 'PROFESSIONAL' },
+      });
+
+      await expect(
+        service.confirmCheckoutSession('cs_done', 'owner1'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.restaurant.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('is idempotent: the updateMany guard prevents a stale session downgrading a newer tier', async () => {
+      prisma.restaurant.findFirst.mockResolvedValue({ ownerId: 'owner1' });
+      const eventEpoch = Math.floor(Date.now() / 1000);
+      mockSessionRetrieve.mockResolvedValue({
+        status: 'complete',
+        customer: 'cus_test',
+        subscription: 'sub_done',
+        created: eventEpoch,
+        metadata: { tier: 'STARTER' },
+      });
+
+      await service.confirmCheckoutSession('cs_replay', 'owner1');
+
+      // The write is gated so it only applies when the stored tierUpdatedAt is
+      // null or older than this session's created time — a later tier survives a
+      // replayed older session.
+      expect(prisma.restaurant.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: expect.arrayContaining([
+              { tierUpdatedAt: null },
+              { tierUpdatedAt: expect.objectContaining({ lt: expect.any(Date) }) },
+            ]),
+          }),
+        }),
+      );
     });
   });
 
@@ -132,8 +320,8 @@ describe('SubscriptionService', () => {
     });
 
     it('processes customer.subscription.updated event and defaults unrecognised price to FREE', async () => {
-      // PRICE_MAP is evaluated at module load time; env vars set in tests have no effect.
-      // getTierFromPrice therefore returns 'FREE' for any price ID — that is the expected behaviour.
+      // 'price_starter_xyz' is not one of the ids supplied by the mock ConfigService,
+      // so getTierFromPrice falls through to FREE — the correct default behaviour.
       mockConstructEvent.mockReturnValue({
         type: 'customer.subscription.updated',
         created: Math.floor(Date.now() / 1000),

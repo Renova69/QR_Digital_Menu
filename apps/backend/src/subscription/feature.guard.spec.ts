@@ -93,7 +93,7 @@ describe('FeatureGuard', () => {
 
   // ── target-aware resolution (#2) ─────────────────────────────────────────
 
-  it('checks the TARGET restaurant (from params.id), not the first owned', async () => {
+  it('checks the TARGET restaurant (from params.restaurantId), not the first owned', async () => {
     (reflector.getAllAndOverride as jest.Mock).mockReturnValue([FeatureFlag.BRANDING_CUSTOM]);
     prismaMock.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'OWNER' });
     // Target restaurant rest-2 is PROFESSIONAL and owned by the caller.
@@ -103,7 +103,9 @@ describe('FeatureGuard', () => {
       forceTier: null,
       isActive: true,
     });
-    const ctx = makeCtxWithReq({ params: { id: 'rest-2' } });
+    // H-11: extractRestaurantId no longer honours the generic `:id` param — the
+    // target must arrive as `:restaurantId` (or query/body restaurantId).
+    const ctx = makeCtxWithReq({ params: { restaurantId: 'rest-2' } });
     expect(await guard.canActivate(ctx)).toBe(true);
     expect(prismaMock.restaurant.findUnique).toHaveBeenCalledWith({
       where: { id: 'rest-2' },
@@ -148,7 +150,35 @@ describe('FeatureGuard', () => {
       forceTier: 'PROFESSIONAL',
       isActive: true,
     });
-    const ctx = makeCtxWithReq({ params: { id: 'rest-2' } });
+    const ctx = makeCtxWithReq({ params: { restaurantId: 'rest-2' } });
     expect(await guard.canActivate(ctx)).toBe(true);
+  });
+
+  // ── suspension gate (M-10) ───────────────────────────────────────────────
+
+  it('throws ForbiddenException when restaurant is suspended (isActive: false)', async () => {
+    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([FeatureFlag.POS]);
+    // Staff resolves to a target restaurant whose tier WOULD include the feature,
+    // but the restaurant has been suspended — suspension must win over entitlement.
+    prismaMock.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1', role: 'WAITER' });
+    prismaMock.restaurant.findUnique.mockResolvedValue({
+      ownerId: 'owner-x',
+      tier: 'ENTERPRISE',
+      forceTier: null,
+      isActive: false,
+    });
+    const ctx = makeCtxWithReq({ body: { restaurantId: 'rest-1' } });
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('throws ForbiddenException when caller-owned restaurant (no target) is suspended', async () => {
+    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([FeatureFlag.POS]);
+    prismaMock.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1', role: 'OWNER' });
+    prismaMock.restaurant.findUnique.mockResolvedValue({
+      tier: 'ENTERPRISE',
+      forceTier: null,
+      isActive: false,
+    });
+    await expect(guard.canActivate(makeCtx())).rejects.toThrow(ForbiddenException);
   });
 });

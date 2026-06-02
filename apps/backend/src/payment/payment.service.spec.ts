@@ -86,6 +86,17 @@ describe('PaymentService', () => {
       expect(mockPrisma.tableSession.create).not.toHaveBeenCalled();
     });
 
+    it('scopes the token lookup by restaurantId (#H1)', async () => {
+      const existing = { id: 's1', token: 'tok1', status: 'OPEN' };
+      mockPrisma.tableSession.findFirst.mockResolvedValue(existing);
+
+      await service.getOrCreateSession('table1', 'rest1', 'tok1');
+
+      expect(mockPrisma.tableSession.findFirst).toHaveBeenCalledWith({
+        where: { token: 'tok1', restaurantId: 'rest1', status: 'OPEN' },
+      });
+    });
+
     it('creates a new session when no token is provided', async () => {
       const created = { id: 's2', token: 'tok2', status: 'OPEN' };
       mockPrisma.tableSession.create.mockResolvedValue(created);
@@ -200,6 +211,28 @@ describe('PaymentService', () => {
       expect(result.clientSecret).toBe('cs_test');
     });
 
+    it('marks the Payment FAILED and rethrows when Stripe createPaymentIntent fails (#H9)', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+        restaurant: {
+          paymentsEnabled: true, stripeOnboarded: true, stripeAccountId: 'acct_123',
+          platformFeePercent: 0.5, tipsEnabled: true, tipOptions: [], tier: 'PROFESSIONAL',
+        },
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.payment.create.mockResolvedValue({ id: 'pay-fail' });
+      mockStripeProvider.createPaymentIntent.mockRejectedValue(new Error('stripe down'));
+      mockPrisma.payment.update.mockResolvedValue({});
+
+      await expect(service.createPaymentIntent('tok1', 0)).rejects.toThrow('stripe down');
+      expect(mockPrisma.payment.update).toHaveBeenCalledWith({
+        where: { id: 'pay-fail' },
+        data: { status: 'FAILED' },
+      });
+    });
+
     it('rejects when the session already has a SUCCEEDED payment (#H1)', async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue({
         id: 's1',
@@ -309,16 +342,16 @@ describe('PaymentService', () => {
         },
       };
       mockPrisma.payment.findFirst.mockResolvedValue(payment);
-      mockPrisma.payment.update.mockResolvedValue({});
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.tableSession.update.mockResolvedValue({});
       mockPrisma.restaurantTable.findUnique = jest.fn().mockResolvedValue({ name: '3' });
       mockPrisma.order.findFirst = jest.fn().mockResolvedValue({ customerName: 'Marco' });
 
       await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
 
-      expect(mockPrisma.payment.update).toHaveBeenCalledWith({
-        where: { id: 'pay1' },
-        data: { status: 'SUCCEEDED', stripePaymentIntentId: 'pi_test' },
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
+        where: { stripePaymentIntentId: 'pi_test', status: 'PENDING' },
+        data: { status: 'SUCCEEDED' },
       });
       expect(mockPrisma.tableSession.updateMany).toHaveBeenCalledWith({
         where: { id: 's1', status: 'OPEN' },
@@ -334,6 +367,58 @@ describe('PaymentService', () => {
           tipAmount: expect.any(Number),
         }),
       );
+    });
+
+    it('is idempotent: a double-delivered succeeded event skips socket emission (#H3)', async () => {
+      mockStripeProvider.constructWebhookEvent.mockReturnValue({
+        type: 'payment_intent.succeeded',
+        data: { object: { id: 'pi_test' } },
+      });
+      const payment = {
+        id: 'pay1',
+        amount: 45.5,
+        tipAmount: 5,
+        tableSessionId: 's1',
+        tableSession: { restaurantId: 'rest1', tableId: 'table1', table: { name: '3' } },
+      };
+      mockPrisma.payment.findFirst.mockResolvedValue(payment);
+      // Both claim attempts report 0 rows changed → already processed.
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 0 });
+
+      await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+
+      expect(mockPrisma.tableSession.updateMany).not.toHaveBeenCalled();
+      expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
+      expect(mockEvents.emitTableStatusChanged).not.toHaveBeenCalled();
+    });
+
+    it('falls back to claiming by payment id when intent id not yet stored (#H3)', async () => {
+      mockStripeProvider.constructWebhookEvent.mockReturnValue({
+        type: 'payment_intent.succeeded',
+        data: { object: { id: 'pi_test' } },
+      });
+      const payment = {
+        id: 'pay1',
+        amount: 45.5,
+        tipAmount: 5,
+        tableSessionId: 's1',
+        tableSession: { restaurantId: 'rest1', tableId: 'table1', table: { name: '3' } },
+      };
+      mockPrisma.payment.findFirst.mockResolvedValue(payment);
+      mockPrisma.payment.updateMany
+        .mockResolvedValueOnce({ count: 0 }) // claim by intent id misses
+        .mockResolvedValueOnce({ count: 1 }); // claim by payment id succeeds
+      mockPrisma.restaurantTable.findUnique = jest.fn().mockResolvedValue({ name: '3' });
+      mockPrisma.order.findFirst = jest.fn().mockResolvedValue({ customerName: 'Marco' });
+
+      await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+
+      expect(mockPrisma.payment.updateMany).toHaveBeenNthCalledWith(2, {
+        where: { id: 'pay1', status: 'PENDING' },
+        data: { status: 'SUCCEEDED', stripePaymentIntentId: 'pi_test' },
+      });
+      expect(mockPrisma.tableSession.updateMany).toHaveBeenCalled();
+      expect(mockEvents.emitToRestaurant).toHaveBeenCalled();
     });
 
     it('on payment_intent.payment_failed: updates Payment status to FAILED', async () => {
@@ -361,7 +446,7 @@ describe('PaymentService', () => {
 
       await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
 
-      expect(mockPrisma.payment.update).not.toHaveBeenCalled();
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
       expect(mockPrisma.tableSession.updateMany).not.toHaveBeenCalled();
       expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
     });
@@ -641,6 +726,18 @@ describe('PaymentService', () => {
 
       await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(BadRequestException);
       expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects CASH refunds with BadRequestException (#C4)', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValueOnce({
+        ...succeededPayload,
+        provider: 'CASH',
+        stripePaymentIntentId: null,
+      });
+
+      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+      expect(mockStripeProvider.createRefund).not.toHaveBeenCalled();
     });
 
     it('rejects partial refunds', async () => {
