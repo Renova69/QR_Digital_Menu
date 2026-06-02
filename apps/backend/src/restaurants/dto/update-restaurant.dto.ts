@@ -9,6 +9,7 @@ import {
   IsHexColor,
   IsIn,
   IsString,
+  IsUrl,
   Matches,
   MaxLength,
   Min,
@@ -109,13 +110,10 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
 
   /** Thumbnail URL produced by the logo upload processor.  Persisted alongside
    *  logoUrl via the PATCH so both writes are atomic.  Null clears the thumbnail
-   *  when the owner removes the logo.  Accepts root-relative paths produced when
-   *  R2_PUBLIC_URL is unset, but rejects javascript:, data:, vbscript:, and
-   *  protocol-relative // schemes. */
-  @Matches(/^(?:\/(?!\/)[^\s]*|https?:\/\/[^\s]+)$/, {
-    message: 'logoThumbnailUrl must be a root-relative path or an http/https URL',
-  })
-  @MaxLength(2048)
+   *  when the owner removes the logo.  StorageService always emits fully-qualified
+   *  http/https URLs (falling back to localhost when R2_PUBLIC_URL is unset), so
+   *  @IsUrl is safe here. */
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true, require_valid_protocol: true })
   @IsOptional()
   logoThumbnailUrl?: string | null;
 
