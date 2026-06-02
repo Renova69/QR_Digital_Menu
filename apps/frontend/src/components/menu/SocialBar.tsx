@@ -1,7 +1,9 @@
 import { Globe, Youtube } from 'lucide-react';
+import { getDisplayUrl } from '../../lib/imageUrl';
 
 interface SocialBarProps {
   restaurantName: string;
+  logoUrl?: string | null;
   websiteUrl?: string;
   facebookUrl?: string;
   instagramUrl?: string;
@@ -43,7 +45,7 @@ function TikTokIcon() {
   );
 }
 
-export default function SocialBar({ restaurantName, websiteUrl, facebookUrl, instagramUrl, tiktokUrl, youtubeUrl }: SocialBarProps) {
+export default function SocialBar({ restaurantName, logoUrl, websiteUrl, facebookUrl, instagramUrl, tiktokUrl, youtubeUrl }: SocialBarProps) {
   const hasSocials = !!(websiteUrl || facebookUrl || instagramUrl || tiktokUrl || youtubeUrl);
 
   return (
@@ -54,10 +56,18 @@ export default function SocialBar({ restaurantName, websiteUrl, facebookUrl, ins
         WebkitMaskImage: 'linear-gradient(to right, transparent, black 1rem, black calc(100% - 1rem), transparent)',
       }}
     >
-      {/* Restaurant name — left */}
-      <h1 className="text-sm font-bold text-foreground/90 truncate max-w-[60%]">
-        {restaurantName}
-      </h1>
+      {/* Logo or restaurant name — left */}
+      {logoUrl ? (
+        <img
+          src={getDisplayUrl(logoUrl)}
+          alt={restaurantName}
+          className="h-7 max-w-[40%] object-contain"
+        />
+      ) : (
+        <h1 className="text-sm font-bold text-foreground/90 truncate max-w-[60%]">
+          {restaurantName}
+        </h1>
+      )}
       <div className="flex-1" />
       <div className="flex items-center justify-end gap-3">
         {websiteUrl && (

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { ImagePlus, X } from 'lucide-react';
+import { getDisplayUrl } from '../../lib/imageUrl';
 
 interface ImageUploadInputProps {
   currentImageUrl?: string | null;
@@ -52,13 +53,6 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
 
   // Show new preview first, then existing image unless user explicitly removed it.
   const displayImage = preview || (removed ? null : currentImageUrl);
-
-  const getDisplayUrl = (url: string) => {
-    if (url.startsWith('http') || url.startsWith('blob:')) return url;
-    const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000/api';
-    const baseUrl = apiUrl.replace('/api', '');
-    return `${baseUrl}/${url}`;
-  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

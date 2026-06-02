@@ -9,6 +9,7 @@ import {
   IsInt,
   IsHexColor,
   IsIn,
+  IsUrl,
   Matches,
   MaxLength,
   Min,
@@ -106,6 +107,13 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @IsIn(['light', 'dark'])
   @IsOptional()
   defaultTheme?: string;
+
+  /** Thumbnail URL produced by the logo upload processor.  Persisted alongside
+   *  logoUrl via the PATCH so both writes are atomic.  Null clears the thumbnail
+   *  when the owner removes the logo. */
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @IsOptional()
+  logoThumbnailUrl?: string | null;
 
   @IsOptional()
   @IsBoolean()

@@ -3,6 +3,7 @@ import { Smartphone, Monitor, Sun, Moon, ShoppingCart, List, Tag } from 'lucide-
 import { useTranslation } from 'react-i18next';
 import type { BrandPalette } from './ThemePresets';
 import { getReadableTextColor } from '../../utils/colors';
+import { getDisplayUrl } from '../../lib/imageUrl';
 
 interface BrandingPreviewProps {
   fontHeading: string;
@@ -209,7 +210,7 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
     >
       {logoUrl ? (
         <img
-          src={logoUrl}
+          src={getDisplayUrl(logoUrl)}
           alt={restaurantName}
           className={`object-contain ${compact ? 'h-6' : 'h-8'}`}
         />
