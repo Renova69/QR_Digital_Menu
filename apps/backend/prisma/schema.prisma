@@ -102,6 +102,7 @@ model Restaurant {
   stripeSubscriptionId      String?
   stripePriceId             String?
   tierUpdatedAt             DateTime?
+  pastDueGraceExpiry        DateTime?
   forceTier                 SubscriptionTier?
   isActive                  Boolean             @default(true)
   deletedAt                 DateTime?
