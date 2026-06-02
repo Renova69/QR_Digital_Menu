@@ -9,7 +9,6 @@ import {
   IsInt,
   IsHexColor,
   IsIn,
-  IsUrl,
   Matches,
   MaxLength,
   Min,
@@ -110,8 +109,11 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
 
   /** Thumbnail URL produced by the logo upload processor.  Persisted alongside
    *  logoUrl via the PATCH so both writes are atomic.  Null clears the thumbnail
-   *  when the owner removes the logo. */
-  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+   *  when the owner removes the logo.  Accepts relative paths so dev environments
+   *  without R2_PUBLIC_URL (which produce root-relative storage paths) don't fail
+   *  DTO validation before the row is written. */
+  @IsString()
+  @MaxLength(2048)
   @IsOptional()
   logoThumbnailUrl?: string | null;
 

@@ -57,8 +57,12 @@ describe('UpdateRestaurantDto validation', () => {
       expect(validate({ logoUrl: 'https://cdn.example.com/logo.png' })).toHaveLength(0);
     });
 
-    it('rejects a non-URL string (must go through the upload pipeline)', () => {
-      expect(keysFor({ logoUrl: 'not-a-url' }, 'logoUrl')).toContain('isUrl');
+    it('accepts a relative path (storage returns root-relative URLs when R2_PUBLIC_URL is unset)', () => {
+      expect(validate({ logoUrl: '/menu/logos/abc.webp' })).toHaveLength(0);
+    });
+
+    it('rejects a value exceeding 2048 characters', () => {
+      expect(keysFor({ logoUrl: 'a'.repeat(2049) }, 'logoUrl')).toContain('maxLength');
     });
   });
 
