@@ -46,7 +46,12 @@ export class StorageService {
       'R2_BUCKET_NAME',
       'qr-menu-uploads',
     );
-    this.publicUrl = this.configService.get<string>('R2_PUBLIC_URL', '');
+    // Fall back to the local backend origin so dev environments without
+    // R2_PUBLIC_URL still produce fully-qualified URLs (required by DTO
+    // @IsUrl validators and safe for <img src> rendering).
+    const r2Public = this.configService.get<string>('R2_PUBLIC_URL', '');
+    const port = this.configService.get<number>('PORT', 3000);
+    this.publicUrl = r2Public || `http://localhost:${port}`;
 
     this.s3 = new S3Client({
       region: 'auto',
