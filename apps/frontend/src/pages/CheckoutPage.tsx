@@ -153,24 +153,22 @@ const CheckoutPage = () => {
       return;
     }
 
-    // Fix C-3 — the backend expects menuItemIds. Map redeemed cart entries
-    // (keyed by cartId) back to their product id. If the same product is
-    // redeemed via two cart lines, its id intentionally appears twice.
-    const redeemItemIds = items
-      .filter((item) => redeemedCartIds.has(item.cartId))
-      .map((item) => item.id);
-
     const orderData: any = {
       customerName,
       customerPhone,
       tableId: tableNumber,
+      // cartId is included on each line so the backend can match redeemCartIds
+      // exactly — even when the same product appears twice with different options.
       items: items.map((item) => ({
         menuItemId: item.id,
+        cartId: item.cartId,
         quantity: item.quantity,
         selectedOptions: item.selectedOptions,
       })),
       specialRequests,
-      redeemItemIds,
+      // Send the stable cartId-keyed set so the backend comps the specific line
+      // the user chose, not just the first matching menuItemId.
+      redeemCartIds: Array.from(redeemedCartIds),
       sessionToken:
         restaurantId && tableNumber
           ? localStorage.getItem(`session-${restaurantId}-${tableNumber}`) || undefined

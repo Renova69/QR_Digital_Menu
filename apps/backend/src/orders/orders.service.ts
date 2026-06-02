@@ -221,14 +221,23 @@ export class OrdersService {
     let itemsPointsRedeemed = 0;
     const itemsData: { menuItemId: string; quantity: number; selectedOptions: any[] }[] = [];
 
-    // redeemItemIds is a per-cart-line list: it may contain the same menuItemId
-    // more than once when multiple lines of the same product are redeemed. Count
-    // how many redemptions each menuItemId is granted, then consume them one per
-    // matching cart line so we never comp more lines than were actually redeemed
-    // (H-6 — previously a duplicated menuItemId comped every matching line).
+    // Redemption matching strategy:
+    // Preferred path — redeemCartIds: exact match by the stable frontend cart
+    //   line id. Deterministic even when the same product appears twice with
+    //   different options; the backend comps exactly the line the user chose.
+    // Fallback path — redeemItemIds (legacy / old clients): count-based
+    //   consumption. Prevents unlimited comping but cannot guarantee the right
+    //   options line is comped when duplicates exist.
+    const redeemCartIdSet = createOrderDto.redeemCartIds
+      ? new Set(createOrderDto.redeemCartIds)
+      : null;
+
+    // Fallback: count how many redemptions each menuItemId is granted.
     const redeemCounts = new Map<string, number>();
-    for (const id of createOrderDto.redeemItemIds ?? []) {
-      redeemCounts.set(id, (redeemCounts.get(id) ?? 0) + 1);
+    if (!redeemCartIdSet) {
+      for (const id of createOrderDto.redeemItemIds ?? []) {
+        redeemCounts.set(id, (redeemCounts.get(id) ?? 0) + 1);
+      }
     }
     const usedCounts = new Map<string, number>();
 
@@ -239,13 +248,22 @@ export class OrdersService {
       }
       let itemPrice = dbItem.price;
 
-      const availableRedemptions = redeemCounts.get(item.menuItemId) ?? 0;
-      const usedRedemptions = usedCounts.get(item.menuItemId) ?? 0;
-      const isRedeemedFree =
-        availableRedemptions > usedRedemptions && !!dbItem.rewardPointsPrice;
+      let isRedeemedFree: boolean;
+      if (redeemCartIdSet) {
+        // Exact cartId match — always correct regardless of duplicate menuItemIds.
+        isRedeemedFree = !!(item.cartId && redeemCartIdSet.has(item.cartId) && dbItem.rewardPointsPrice);
+      } else {
+        // Legacy count-based fallback.
+        const availableRedemptions = redeemCounts.get(item.menuItemId) ?? 0;
+        const usedRedemptions = usedCounts.get(item.menuItemId) ?? 0;
+        isRedeemedFree = availableRedemptions > usedRedemptions && !!dbItem.rewardPointsPrice;
+      }
 
       if (isRedeemedFree) {
-        usedCounts.set(item.menuItemId, usedRedemptions + 1);
+        if (!redeemCartIdSet) {
+          // Advance the fallback counter so the next identical menuItemId isn't also comped.
+          usedCounts.set(item.menuItemId, (usedCounts.get(item.menuItemId) ?? 0) + 1);
+        }
         itemsPointsRedeemed += (dbItem.rewardPointsPrice ?? 0) * item.quantity;
         itemPrice = 0;
       }
