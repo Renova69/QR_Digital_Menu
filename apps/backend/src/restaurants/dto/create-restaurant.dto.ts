@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsUrl, IsHexColor, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsUrl, IsHexColor, MaxLength, Matches } from 'class-validator';
 
 export class CreateRestaurantDto {
   @IsString()
@@ -9,7 +9,9 @@ export class CreateRestaurantDto {
   @IsOptional()
   city?: string;
 
-  @IsString()
+  @Matches(/^(?:\/(?!\/)[^\s]*|https?:\/\/[^\s]+)$/, {
+    message: 'logoUrl must be a root-relative path or an http/https URL',
+  })
   @MaxLength(2048)
   @IsOptional()
   logoUrl?: string;

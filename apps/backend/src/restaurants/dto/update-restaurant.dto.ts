@@ -1,7 +1,6 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateRestaurantDto } from './create-restaurant.dto';
 import {
-  IsString,
   IsOptional,
   IsArray,
   IsBoolean,
@@ -9,6 +8,7 @@ import {
   IsInt,
   IsHexColor,
   IsIn,
+  IsString,
   Matches,
   MaxLength,
   Min,
@@ -109,10 +109,12 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
 
   /** Thumbnail URL produced by the logo upload processor.  Persisted alongside
    *  logoUrl via the PATCH so both writes are atomic.  Null clears the thumbnail
-   *  when the owner removes the logo.  Accepts relative paths so dev environments
-   *  without R2_PUBLIC_URL (which produce root-relative storage paths) don't fail
-   *  DTO validation before the row is written. */
-  @IsString()
+   *  when the owner removes the logo.  Accepts root-relative paths produced when
+   *  R2_PUBLIC_URL is unset, but rejects javascript:, data:, vbscript:, and
+   *  protocol-relative // schemes. */
+  @Matches(/^(?:\/(?!\/)[^\s]*|https?:\/\/[^\s]+)$/, {
+    message: 'logoThumbnailUrl must be a root-relative path or an http/https URL',
+  })
   @MaxLength(2048)
   @IsOptional()
   logoThumbnailUrl?: string | null;
