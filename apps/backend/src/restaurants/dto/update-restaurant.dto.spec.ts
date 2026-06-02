@@ -57,12 +57,24 @@ describe('UpdateRestaurantDto validation', () => {
       expect(validate({ logoUrl: 'https://cdn.example.com/logo.png' })).toHaveLength(0);
     });
 
-    it('accepts a relative path (storage returns root-relative URLs when R2_PUBLIC_URL is unset)', () => {
+    it('accepts a root-relative path (storage returns these when R2_PUBLIC_URL is unset)', () => {
       expect(validate({ logoUrl: '/menu/logos/abc.webp' })).toHaveLength(0);
     });
 
+    it('rejects javascript: scheme', () => {
+      expect(keysFor({ logoUrl: 'javascript:alert(1)' }, 'logoUrl')).toContain('matches');
+    });
+
+    it('rejects data: URI', () => {
+      expect(keysFor({ logoUrl: 'data:text/html,<h1>xss</h1>' }, 'logoUrl')).toContain('matches');
+    });
+
+    it('rejects protocol-relative // URL', () => {
+      expect(keysFor({ logoUrl: '//evil.com/logo.png' }, 'logoUrl')).toContain('matches');
+    });
+
     it('rejects a value exceeding 2048 characters', () => {
-      expect(keysFor({ logoUrl: 'a'.repeat(2049) }, 'logoUrl')).toContain('maxLength');
+      expect(keysFor({ logoUrl: 'https://x.com/' + 'a'.repeat(2048) }, 'logoUrl')).toContain('maxLength');
     });
   });
 
