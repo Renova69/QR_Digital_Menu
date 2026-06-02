@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsUrl, IsHexColor } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsUrl, IsHexColor, MaxLength } from 'class-validator';
 
 export class CreateRestaurantDto {
   @IsString()
@@ -9,7 +9,8 @@ export class CreateRestaurantDto {
   @IsOptional()
   city?: string;
 
-  @IsUrl({ protocols: ['http', 'https'], require_protocol: true, require_valid_protocol: true })
+  @IsString()
+  @MaxLength(2048)
   @IsOptional()
   logoUrl?: string;
 
