@@ -1,5 +1,6 @@
 import { Injectable, Logger, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import Stripe from 'stripe';
 
@@ -246,6 +247,9 @@ export class SubscriptionService {
     let tier: string;
     let subscriptionId: string;
     let priceId: string | undefined;
+    // Persisted to DB so the hourly cron enforces downgrade even without a
+    // follow-up Stripe webhook after grace expires (C-1 fix).
+    let pastDueGraceExpiry: Date | null = null;
 
     if (event.type === 'checkout.session.completed') {
       tier = (obj.metadata?.tier as string) ?? 'FREE';
@@ -258,9 +262,8 @@ export class SubscriptionService {
       // Subscription status gating (C-1). Only present on Subscription objects
       // (customer.subscription.created/updated), not on checkout Sessions.
       const subStatus = obj.status as string | undefined;
+
       if (subStatus === 'past_due') {
-        // Keep paid tier during a 7-day grace window measured from the period
-        // end; downgrade to FREE only once that window has elapsed.
         const periodEnd = obj.current_period_end as number | undefined;
         const graceExpiry = periodEnd
           ? new Date(periodEnd * 1000 + PAST_DUE_GRACE_MS)
@@ -270,8 +273,12 @@ export class SubscriptionService {
           this.logger.warn(
             `past_due grace expired for customer=${customerId} (graceEnd=${graceExpiry.toISOString()}) — downgrading to FREE`,
           );
+          // Grace already expired — no need to persist the expiry date.
+          pastDueGraceExpiry = null;
         } else {
-          // No schema field for grace persistence; log the window for operators.
+          // Within grace window: persist the expiry so the hourly cron can
+          // enforce the downgrade even without a subsequent Stripe webhook.
+          pastDueGraceExpiry = graceExpiry;
           this.logger.warn(
             `past_due within grace for customer=${customerId}: keeping ${tier} until ${
               graceExpiry ? graceExpiry.toISOString() : 'unknown'
@@ -280,11 +287,12 @@ export class SubscriptionService {
         }
       } else if (subStatus && IMMEDIATE_DOWNGRADE_STATUSES.includes(subStatus)) {
         tier = 'FREE';
+        pastDueGraceExpiry = null;
         this.logger.warn(
           `Subscription status=${subStatus} for customer=${customerId} — downgrading to FREE`,
         );
       }
-      // active/trialing (or absent): keep the computed tier as-is.
+      // active/trialing (or absent): keep computed tier, clear any stale grace expiry.
     }
 
     const result = await this.prisma.restaurant.updateMany({
@@ -300,6 +308,7 @@ export class SubscriptionService {
         stripeSubscriptionId: subscriptionId,
         stripePriceId: priceId ?? null,
         tierUpdatedAt: eventTime,
+        pastDueGraceExpiry: pastDueGraceExpiry,
       },
     });
 
@@ -326,9 +335,39 @@ export class SubscriptionService {
         stripeSubscriptionId: null,
         stripePriceId: null,
         tierUpdatedAt: eventTime,
+        pastDueGraceExpiry: null,
       },
     });
 
     this.logger.log(`Subscription cancelled: customer=${customerId}`);
+  }
+
+  /**
+   * Enforce the 7-day past_due grace period without relying on a follow-up
+   * Stripe webhook. Runs every hour; finds restaurants whose grace window has
+   * elapsed and downgrades them to FREE.  This is the safety net for the case
+   * where Stripe sends no further subscription lifecycle event after the initial
+   * past_due transition (e.g. if the dunning cycle completes silently).
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async enforceGraceExpiry(): Promise<void> {
+    const now = new Date();
+    const { count } = await this.prisma.restaurant.updateMany({
+      where: {
+        pastDueGraceExpiry: { lt: now, not: null },
+        tier: { not: 'FREE' as any },
+      },
+      data: {
+        tier: 'FREE' as any,
+        pastDueGraceExpiry: null,
+        tierUpdatedAt: now,
+      },
+    });
+
+    if (count > 0) {
+      this.logger.warn(
+        `enforceGraceExpiry: downgraded ${count} restaurant(s) to FREE — past_due grace period expired`,
+      );
+    }
   }
 }
