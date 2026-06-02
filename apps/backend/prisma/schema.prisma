@@ -120,6 +120,8 @@ model Restaurant {
   tableZones                TableZone[]
   payments                  Payment[]
 
+  @@index([stripeCustomerId])
+  @@index([pastDueGraceExpiry])
   @@map("restaurant")
 }
 

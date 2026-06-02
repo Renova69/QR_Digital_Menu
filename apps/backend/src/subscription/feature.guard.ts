@@ -38,10 +38,20 @@ export class FeatureGuard implements CanActivate {
       throw new ForbiddenException({ code: 'AUTH_REQUIRED' });
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { restaurantId: true, role: true },
-    });
+    if (!request._userCache) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { restaurantId: true, role: true },
+      });
+      if (!user) {
+        throw new ForbiddenException({
+          code: 'AUTH_REQUIRED',
+          message: 'User account not found',
+        });
+      }
+      request._userCache = user;
+    }
+    const user = request._userCache;
 
     // SUPER_ADMIN bypasses all tier and suspension checks
     if (user?.role === 'SUPER_ADMIN') {
@@ -52,20 +62,38 @@ export class FeatureGuard implements CanActivate {
     // params/query/body), not an arbitrary first-owned one (#2). Falls back to
     // the caller's own restaurant for routes with no restaurant in the request.
     const targetId = extractRestaurantId(request);
-    const restaurant = targetId
-      ? await this.prisma.restaurant.findUnique({
-          where: { id: targetId },
-          select: RESTAURANT_SELECT,
-        })
-      : user?.restaurantId
+    let restaurantId = targetId;
+
+    // YOURS H-4: payment routes carry only paymentId, lookup its restaurantId
+    if (!restaurantId && request.params?.paymentId) {
+      const payment = await this.prisma.payment.findUnique({
+        where: { id: request.params.paymentId },
+        select: { restaurantId: true },
+      });
+      if (payment) {
+        restaurantId = payment.restaurantId;
+      }
+    }
+
+    const cacheKey = `_restaurantCache_${restaurantId ?? 'default'}`;
+    if (!request[cacheKey]) {
+      const restaurant = restaurantId
         ? await this.prisma.restaurant.findUnique({
-            where: { id: user.restaurantId },
+            where: { id: restaurantId },
             select: RESTAURANT_SELECT,
           })
-        : await this.prisma.restaurant.findFirst({
-            where: { ownerId: userId },
-            select: RESTAURANT_SELECT,
-          });
+        : user?.restaurantId
+          ? await this.prisma.restaurant.findUnique({
+              where: { id: user.restaurantId },
+              select: RESTAURANT_SELECT,
+            })
+          : await this.prisma.restaurant.findFirst({
+              where: { ownerId: userId },
+              select: RESTAURANT_SELECT,
+            });
+      request[cacheKey] = restaurant;
+    }
+    const restaurant = request[cacheKey];
 
     if (!restaurant) {
       throw new ForbiddenException({
@@ -75,12 +103,13 @@ export class FeatureGuard implements CanActivate {
       });
     }
 
-    // When an explicit target was supplied, verify the caller is associated
-    // with it — otherwise a lower tier could pass another restaurant's id to
-    // dodge its own entitlement check.
-    if (targetId) {
+    // When an explicit target was supplied (or resolved via resource mapping),
+    // verify the caller is associated with it — otherwise a lower tier could
+    // pass another restaurant's id to dodge its own entitlement check.
+    const checkTargetId = restaurantId || targetId;
+    if (checkTargetId) {
       const isOwner = restaurant.ownerId === userId;
-      const isStaff = user?.restaurantId === targetId;
+      const isStaff = user?.restaurantId === checkTargetId;
       if (!isOwner && !isStaff) {
         throw new ForbiddenException({
           code: 'FORBIDDEN',

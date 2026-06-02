@@ -141,16 +141,35 @@ export class PaymentService {
     });
     if (!table) throw new NotFoundException('Table not found for this restaurant');
 
-    const session = await this.prisma.$transaction(async (tx) => {
-      const existing = await tx.tableSession.findFirst({
+    let session: any;
+    try {
+      session = await this.prisma.$transaction(async (tx) => {
+        const existing = await tx.tableSession.findFirst({
+          where: { tableId, restaurantId, status: 'OPEN' },
+        });
+        if (existing) return existing;
+        return tx.tableSession.create({
+          data: { tableId, restaurantId },
+        });
+      });
+    } catch (error) {
+      if (!this.isUniqueConstraintError(error)) throw error;
+
+      const existing = await this.prisma.tableSession.findFirst({
         where: { tableId, restaurantId, status: 'OPEN' },
       });
-      if (existing) return existing;
-      return tx.tableSession.create({
-        data: { tableId, restaurantId },
-      });
-    });
+      if (!existing) throw error;
+      session = existing;
+    }
     return { session, token: session.token };
+  }
+
+  private isUniqueConstraintError(error: unknown): boolean {
+    return !!(
+      error &&
+      typeof error === 'object' &&
+      (error as { code?: string }).code === 'P2002'
+    );
   }
 
   async getSessionBill(token: string): Promise<{ orders: any[]; subtotal: number; restaurantId: string; tipsEnabled: boolean; tipOptions: number[] }> {
@@ -894,7 +913,7 @@ export class PaymentService {
     if (payment.provider === 'STRIPE') {
       if (!payment.stripePaymentIntentId) {
         await this.prisma.payment.updateMany({
-          where: { id: paymentId, status: 'PENDING' },
+          where: { id: paymentId, status: 'REFUNDED' },
           data: { status: 'SUCCEEDED' },
         }).catch(() => {});
         throw new BadRequestException('Stripe payment intent is missing');
@@ -910,7 +929,7 @@ export class PaymentService {
         // Status guard avoids clobbering a record that genuinely reached
         // REFUNDED through a concurrent path (#M1).
         await this.prisma.payment.updateMany({
-          where: { id: paymentId, status: 'PENDING' },
+          where: { id: paymentId, status: 'REFUNDED' },
           data: { status: 'SUCCEEDED' },
         }).catch(() => {});
         this.logger.error(`Stripe refund failed for ${paymentId}, status rolled back`, err);

@@ -25,7 +25,6 @@ vi.mock("../../hooks/useFeature", () => ({
     tier: "PROFESSIONAL",
     allowedStaffRoles: ["MANAGER", "WAITER", "KITCHEN", "STAFF"],
   }),
-  hasTierFeature: () => true,
 }));
 
 vi.mock("@fortawesome/react-fontawesome", () => ({

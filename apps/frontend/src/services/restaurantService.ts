@@ -60,6 +60,7 @@ export interface Restaurant {
   tiktokUrl?: string;
   websiteUrl?: string;
   youtubeUrl?: string;
+  features?: string[];
 }
 
 export const getRestaurants = async (): Promise<Restaurant[]> => {

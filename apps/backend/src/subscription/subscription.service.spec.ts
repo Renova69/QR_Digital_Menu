@@ -5,13 +5,14 @@ const mockCustomersCreate = jest.fn().mockResolvedValue({ id: 'cus_new' });
 const mockPortalCreate = jest.fn().mockResolvedValue({ url: 'https://billing.stripe.com/portal/test' });
 const mockSessionRetrieve = jest.fn();
 const mockSubscriptionsList = jest.fn().mockResolvedValue({ data: [] });
+const mockSubscriptionRetrieve = jest.fn();
 
 jest.mock('stripe', () =>
   jest.fn().mockImplementation(() => ({
     customers: { create: mockCustomersCreate },
     checkout: { sessions: { create: mockCheckoutCreate, retrieve: mockSessionRetrieve } },
     billingPortal: { sessions: { create: mockPortalCreate } },
-    subscriptions: { list: mockSubscriptionsList },
+    subscriptions: { list: mockSubscriptionsList, retrieve: mockSubscriptionRetrieve },
     webhooks: { constructEvent: mockConstructEvent },
   })),
 );
@@ -58,12 +59,14 @@ describe('SubscriptionService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     mockSubscriptionsList.mockResolvedValue({ data: [] });
+    mockSubscriptionRetrieve.mockResolvedValue({ id: 'sub_abc', items: { data: [{ price: { id: 'price_pro_m' } }] } });
+    process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET = 'whsec_test';
 
     prisma = {
       restaurant: {
-        findUnique: jest.fn().mockResolvedValue({ stripeCustomerId: 'cus_test' }),
+        findUnique: jest.fn().mockResolvedValue({ stripeCustomerId: 'cus_test', ownerId: 'owner1' }),
         findFirst: jest.fn().mockResolvedValue({ ownerId: 'owner1' }),
-        findUniqueOrThrow: jest.fn().mockResolvedValue({ stripeCustomerId: 'cus_test' }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({ stripeCustomerId: 'cus_test', ownerId: 'owner1' }),
         update: jest.fn().mockResolvedValue({}),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
@@ -88,7 +91,16 @@ describe('SubscriptionService', () => {
   // ConfigService above supplies real price ids and the success path is testable.
 
   describe('createCheckoutSession', () => {
+    it('throws ForbiddenException when user does not own the restaurant', async () => {
+      prisma.restaurant.findUniqueOrThrow.mockResolvedValue({ stripeCustomerId: 'cus_test', ownerId: 'other_owner' });
+
+      await expect(
+        service.createCheckoutSession('rest1', 'STARTER', 'monthly', 'owner1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
     it('uses the configured STARTER monthly price and returns the checkout URL', async () => {
+      prisma.restaurant.findUniqueOrThrow.mockResolvedValue({ stripeCustomerId: 'cus_test', ownerId: 'owner1' });
       const result = await service.createCheckoutSession('rest1', 'STARTER', 'monthly', 'owner1');
 
       expect(result.url).toBe('https://checkout.stripe.com/pay/test');
@@ -265,16 +277,22 @@ describe('SubscriptionService', () => {
   // ─── createPortalSession ─────────────────────────────────────────────────────
 
   describe('createPortalSession', () => {
-    it('throws when restaurant has no Stripe customer', async () => {
-      prisma.restaurant.findUniqueOrThrow.mockResolvedValue({ stripeCustomerId: null });
+    it('throws ForbiddenException when user does not own the restaurant', async () => {
+      prisma.restaurant.findUniqueOrThrow.mockResolvedValue({ stripeCustomerId: 'cus_test', ownerId: 'other_owner' });
 
-      await expect(service.createPortalSession('rest1')).rejects.toThrow('No Stripe customer');
+      await expect(service.createPortalSession('rest1', 'owner1')).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws when restaurant has no Stripe customer', async () => {
+      prisma.restaurant.findUniqueOrThrow.mockResolvedValue({ stripeCustomerId: null, ownerId: 'owner1' });
+
+      await expect(service.createPortalSession('rest1', 'owner1')).rejects.toThrow('No Stripe customer');
     });
 
     it('returns portal URL for restaurant with Stripe customer', async () => {
-      prisma.restaurant.findUniqueOrThrow.mockResolvedValue({ stripeCustomerId: 'cus_test' });
+      prisma.restaurant.findUniqueOrThrow.mockResolvedValue({ stripeCustomerId: 'cus_test', ownerId: 'owner1' });
 
-      const result = await service.createPortalSession('rest1');
+      const result = await service.createPortalSession('rest1', 'owner1');
 
       expect(result.url).toBe('https://billing.stripe.com/portal/test');
       expect(mockPortalCreate).toHaveBeenCalledWith(
@@ -388,11 +406,134 @@ describe('SubscriptionService', () => {
           where: expect.objectContaining({
             OR: expect.arrayContaining([
               { tierUpdatedAt: null },
-              { tierUpdatedAt: expect.objectContaining({ lt: expect.any(Date) }) },
+              { tierUpdatedAt: expect.objectContaining({ lte: expect.any(Date) }) },
             ]),
           }),
         }),
       );
+    });
+
+    it('processes customer.subscription.paused and downgrades to FREE', async () => {
+      mockConstructEvent.mockReturnValue({
+        type: 'customer.subscription.paused',
+        created: Math.floor(Date.now() / 1000),
+        data: {
+          object: {
+            id: 'sub_paused',
+            customer: 'cus_test',
+            status: 'paused',
+            items: { data: [{ price: { id: PRICE_IDS.STRIPE_PRICE_PROFESSIONAL_MONTHLY } }] },
+          },
+        },
+      });
+
+      await service.handleWebhook(Buffer.from('{}'), 'valid_sig');
+
+      expect(prisma.restaurant.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ tier: 'FREE' }),
+        }),
+      );
+    });
+
+    it('processes customer.subscription.updated with past_due and active grace period', async () => {
+      const futureTime = Math.floor(Date.now() / 1000) + 24 * 3600; // end of period is tomorrow
+      mockConstructEvent.mockReturnValue({
+        type: 'customer.subscription.updated',
+        created: Math.floor(Date.now() / 1000),
+        data: {
+          object: {
+            id: 'sub_past_due_active',
+            customer: 'cus_test',
+            status: 'past_due',
+            current_period_end: futureTime,
+            items: { data: [{ price: { id: PRICE_IDS.STRIPE_PRICE_PROFESSIONAL_MONTHLY } }] },
+          },
+        },
+      });
+
+      await service.handleWebhook(Buffer.from('{}'), 'valid_sig');
+
+      expect(prisma.restaurant.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tier: 'PROFESSIONAL',
+            pastDueGraceExpiry: expect.any(Date),
+          }),
+        }),
+      );
+    });
+
+    it('processes customer.subscription.updated with past_due and expired grace period', async () => {
+      const pastTime = Math.floor(Date.now() / 1000) - 10 * 24 * 3600; // period ended 10 days ago
+      mockConstructEvent.mockReturnValue({
+        type: 'customer.subscription.updated',
+        created: Math.floor(Date.now() / 1000),
+        data: {
+          object: {
+            id: 'sub_past_due_expired',
+            customer: 'cus_test',
+            status: 'past_due',
+            current_period_end: pastTime,
+            items: { data: [{ price: { id: PRICE_IDS.STRIPE_PRICE_PROFESSIONAL_MONTHLY } }] },
+          },
+        },
+      });
+
+      await service.handleWebhook(Buffer.from('{}'), 'valid_sig');
+
+      expect(prisma.restaurant.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tier: 'FREE',
+            pastDueGraceExpiry: null,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('enforceGraceExpiry', () => {
+    it('downgrades restaurants with expired pastDueGraceExpiry to FREE', async () => {
+      await service.enforceGraceExpiry();
+
+      expect(prisma.restaurant.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            pastDueGraceExpiry: expect.objectContaining({ lt: expect.any(Date), not: null }),
+            tier: { not: 'FREE' },
+          },
+          data: {
+            tier: 'FREE',
+            pastDueGraceExpiry: null,
+            tierUpdatedAt: expect.any(Date),
+          },
+        }),
+      );
+    });
+  });
+
+  describe('confirmCheckoutSession Cache Idempotency', () => {
+    it('uses the session cache for confirmCheckoutSession idempotency', async () => {
+      prisma.restaurant.findFirst.mockResolvedValue({ ownerId: 'owner1', tier: 'PROFESSIONAL' });
+      mockSessionRetrieve.mockResolvedValue({
+        status: 'complete',
+        customer: 'cus_test',
+        subscription: 'sub_done',
+        created: Math.floor(Date.now() / 1000),
+        metadata: { tier: 'PROFESSIONAL' },
+      });
+
+      // First call (not cached)
+      const res1 = await service.confirmCheckoutSession('cs_cached', 'owner1');
+      expect(res1).toEqual({ tier: 'PROFESSIONAL' });
+      expect(mockSessionRetrieve).toHaveBeenCalledTimes(1);
+
+      // Second call (uses processedSessions cache)
+      const res2 = await service.confirmCheckoutSession('cs_cached', 'owner1');
+      expect(res2).toEqual({ tier: 'PROFESSIONAL' });
+      // Retrieve should not be called a second time
+      expect(mockSessionRetrieve).toHaveBeenCalledTimes(1);
     });
   });
 });

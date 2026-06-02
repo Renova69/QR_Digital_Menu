@@ -119,6 +119,19 @@ describe('PaymentService', () => {
       expect(mockPrisma.tableSession.create).toHaveBeenCalled();
       expect(result.token).toBe('tok3');
     });
+
+    it('returns the concurrently-created OPEN session when the unique index rejects duplicate create (#M2)', async () => {
+      const existing = { id: 's-race', token: 'tok-race', status: 'OPEN' };
+      mockPrisma.$transaction.mockRejectedValueOnce({ code: 'P2002' });
+      mockPrisma.tableSession.findFirst.mockResolvedValueOnce(existing);
+
+      const result = await service.getOrCreateSession('table1', 'rest1', undefined);
+
+      expect(result).toEqual({ session: existing, token: 'tok-race' });
+      expect(mockPrisma.tableSession.findFirst).toHaveBeenCalledWith({
+        where: { tableId: 'table1', restaurantId: 'rest1', status: 'OPEN' },
+      });
+    });
   });
 
   describe('getSessionBill', () => {
@@ -748,6 +761,42 @@ describe('PaymentService', () => {
 
       await expect(service.refundPayment('pay1', 'owner1', { amount: 10 })).rejects.toThrow(BadRequestException);
       expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('rolls back to SUCCEEDED when a Stripe payment has no payment intent after refund claim (#M1)', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValueOnce({
+        ...succeededPayload,
+        stripePaymentIntentId: null,
+      });
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+
+      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(BadRequestException);
+
+      expect(mockPrisma.payment.updateMany).toHaveBeenNthCalledWith(1, {
+        where: { id: 'pay1', status: 'SUCCEEDED' },
+        data: { status: 'REFUNDED' },
+      });
+      expect(mockPrisma.payment.updateMany).toHaveBeenNthCalledWith(2, {
+        where: { id: 'pay1', status: 'REFUNDED' },
+        data: { status: 'SUCCEEDED' },
+      });
+    });
+
+    it('rolls back to SUCCEEDED when Stripe refund creation fails (#M1)', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValueOnce(succeededPayload);
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+      mockStripeProvider.createRefund.mockRejectedValue(new Error('stripe refund failed'));
+
+      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow('stripe refund failed');
+
+      expect(mockPrisma.payment.updateMany).toHaveBeenNthCalledWith(1, {
+        where: { id: 'pay1', status: 'SUCCEEDED' },
+        data: { status: 'REFUNDED' },
+      });
+      expect(mockPrisma.payment.updateMany).toHaveBeenNthCalledWith(2, {
+        where: { id: 'pay1', status: 'REFUNDED' },
+        data: { status: 'SUCCEEDED' },
+      });
     });
   });
 

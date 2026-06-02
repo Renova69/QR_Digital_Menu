@@ -21,7 +21,7 @@ import { isLoyaltyAvailable } from './loyalty-availability.util';
 const MAX_SIGNUP_BONUS = 75;
 
 // Effective-tier fields needed to evaluate loyalty availability (#5).
-const LOYALTY_TIER_FIELDS = { tier: true, forceTier: true } as const;
+const LOYALTY_TIER_FIELDS = { tier: true, forceTier: true, isActive: true } as const;
 
 const TIER_FIELDS = {
   loyaltySilverThreshold: true,

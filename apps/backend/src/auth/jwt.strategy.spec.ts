@@ -2,6 +2,8 @@ import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './jwt.strategy';
 
+import { FeatureService } from '../subscription/feature.service';
+
 describe('JwtStrategy', () => {
   const prisma = {
     user: {
@@ -16,6 +18,10 @@ describe('JwtStrategy', () => {
     strategy = new JwtStrategy(
       prisma as any,
       { get: jest.fn().mockReturnValue('test-secret') } as unknown as ConfigService,
+      {
+        getEffectiveTier: jest.fn().mockImplementation((tier) => tier),
+        getAllowedStaffRoles: jest.fn().mockReturnValue(['STAFF', 'MANAGER', 'WAITER', 'KITCHEN']),
+      } as unknown as FeatureService,
     );
   });
 

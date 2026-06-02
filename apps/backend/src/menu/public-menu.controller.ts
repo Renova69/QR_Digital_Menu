@@ -44,6 +44,7 @@ export class PublicMenuController {
   }
 
   @Get('public/:restaurantId/trending')
+  @Throttle({ default: { limit: 120, ttl: 60000 } })
   async getTrendingItems(@Param('restaurantId') restaurantId: string) {
     await this.crud.checkRestaurantActive(restaurantId);
     return this.crud.getTrendingItems(restaurantId);

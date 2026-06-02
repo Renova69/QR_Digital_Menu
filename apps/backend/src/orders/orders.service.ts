@@ -355,24 +355,28 @@ export class OrdersService {
           where: { id: loyaltyAcc.id },
         });
 
-        // Cash discount redemption (capped at MAX_ORDER_DISCOUNT)
-        if (createOrderDto.redeemPoints && createOrderDto.redeemPoints > 0) {
-          const requestedDiscount = createOrderDto.redeemPoints / redeemRate;
+        // Cash discount redemption is server-authoritative: the client only
+        // sends intent, while DB prices and the DB loyalty balance decide the cap.
+        if (createOrderDto.usePoints) {
+          const remainingPoints = Math.max(
+            loyaltyAcc.points - pointsRedeemedForItems,
+            0,
+          );
           const maxDiscount = finalTotal * LOYALTY_CONFIG.MAX_ORDER_DISCOUNT;
-          const finalDiscount = Math.min(requestedDiscount, maxDiscount);
-          const pointsToRedeem = Math.floor(finalDiscount * redeemRate);
+          const maxDiscountPoints = Math.floor(maxDiscount * redeemRate);
+          const pointsToRedeem = Math.min(remainingPoints, maxDiscountPoints);
 
-          if (pointsToRedeem > 0 && loyaltyAcc.points < pointsToRedeem) {
-            throw new BadRequestException('Not enough loyalty points');
-          }
-          if (finalDiscount > finalTotal) {
-            throw new BadRequestException(
-              'Cannot redeem more points than total',
-            );
-          }
+          if (pointsToRedeem > 0) {
+            const finalDiscount = pointsToRedeem / redeemRate;
+            if (finalDiscount > finalTotal) {
+              throw new BadRequestException(
+                'Cannot redeem more points than total',
+              );
+            }
 
-          finalTotal -= finalDiscount;
-          pointsRedeemedForDiscount = pointsToRedeem;
+            finalTotal -= finalDiscount;
+            pointsRedeemedForDiscount = pointsToRedeem;
+          }
         }
 
         totalPointsRedeemed = pointsRedeemedForDiscount + pointsRedeemedForItems;
@@ -414,7 +418,7 @@ export class OrdersService {
             lifetimePoints: { increment: pointsEarned },
           },
         });
-      } else if (pointsRedeemedForItems > 0 || createOrderDto.redeemPoints) {
+      } else if (pointsRedeemedForItems > 0 || createOrderDto.usePoints) {
         throw new BadRequestException('Loyalty program is not available');
       }
 
