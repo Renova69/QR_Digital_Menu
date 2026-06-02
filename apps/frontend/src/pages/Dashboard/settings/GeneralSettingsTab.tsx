@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Globe, Plus, X } from "lucide-react";
+import { Globe, Plus, X, Star, CheckCircle2 } from "lucide-react";
 import { useRestaurantContext } from "../../../context/RestaurantContext";
 import { updateRestaurant, triggerTranslation } from "../../../lib/api";
 import { useFeature } from "../../../hooks/useFeature";
@@ -59,6 +59,7 @@ const GeneralSettingsTab: React.FC = () => {
   const [instagramUrl, setInstagramUrl] = useState("");
   const [tiktokUrl, setTiktokUrl] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [googleReviewUrl, setGoogleReviewUrl] = useState("");
   const [addedSocialFields, setAddedSocialFields] = useState<string[]>([]);
   const [timezone, setTimezone] = useState("Europe/Sofia");
   const [targetLanguages, setTargetLanguages] = useState<string[]>([]);
@@ -77,6 +78,7 @@ const GeneralSettingsTab: React.FC = () => {
       setInstagramUrl(activeRestaurant.instagramUrl || "");
       setTiktokUrl(activeRestaurant.tiktokUrl || "");
       setYoutubeUrl(activeRestaurant.youtubeUrl || "");
+      setGoogleReviewUrl(activeRestaurant.googleReviewUrl || "");
       setTimezone(activeRestaurant.timezone || "Europe/Sofia");
       setTargetLanguages(activeRestaurant.targetLanguages || []);
       setStatus({ loading: false, error: "", success: "" });
@@ -97,6 +99,7 @@ const GeneralSettingsTab: React.FC = () => {
         instagramUrl: instagramUrl || null,
         tiktokUrl: tiktokUrl || null,
         youtubeUrl: youtubeUrl || null,
+        googleReviewUrl: googleReviewUrl.trim() || null,
         timezone,
         targetLanguages,
       });
@@ -320,6 +323,35 @@ const GeneralSettingsTab: React.FC = () => {
         )}
       </div>
 
+
+      {/* ── Google Review CTA ── */}
+      <div className="border-b border-border pb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Star size={14} className="text-muted-foreground" />
+          <h3 className={sectionHeading}>{t("settings.googleReview", "Google Review CTA")}</h3>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4 ml-[22px]">
+          {t("settings.googleReviewDesc", "After checkout, customers with 4- or 5-star ratings are redirected to your Google review page.")}
+        </p>
+        <div className="max-w-sm ml-[22px]">
+          <label className="block text-sm font-medium text-foreground/80 mb-1">
+            {t("settings.googleReviewUrl", "Google Review URL")}
+          </label>
+          <input
+            type="url"
+            value={googleReviewUrl}
+            onChange={(e) => setGoogleReviewUrl(e.target.value)}
+            placeholder="https://g.page/r/YOUR_REVIEW_LINK"
+            className={inputCls}
+          />
+          {googleReviewUrl && (
+            <p className="text-xs text-green-600 dark:text-green-400 mt-1.5 flex items-center gap-1">
+              <CheckCircle2 size={12} className="flex-shrink-0" />
+              {t("settings.googleReviewActive", "Redirect active — customers will be sent to Google after checkout")}
+            </p>
+          )}
+        </div>
+      </div>
 
       {/* ── Localization & Translation ── */}
       {canLanguages && (

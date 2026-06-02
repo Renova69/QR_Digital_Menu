@@ -8,6 +8,7 @@ export interface Restaurant {
   dashboardLanguage?: string;
   accentColor?: string;
   logoUrl?: string;
+  logoThumbnailUrl?: string;
   googleReviewUrl?: string;
   address?: string;
   contactInfo?: string;

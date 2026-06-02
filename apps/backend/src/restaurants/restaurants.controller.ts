@@ -96,12 +96,18 @@ export class RestaurantsController {
       throw new BadRequestException('Only JPEG and PNG images are supported');
     }
     try {
+      // Verify ownership before processing the upload so we don't waste R2
+      // storage on unauthorised requests. The actual DB write happens in the
+      // subsequent PATCH /restaurants/:id so that logo + branding settings are
+      // persisted atomically in one transaction.
+      await this.restaurantsService.findOneForManagement(id, req.user.id);
+
       const { url, thumbnailUrl } = await this.storageService.uploadWithThumbnail(
         file.buffer,
         file.originalname,
         file.mimetype,
       );
-      return this.restaurantsService.updateLogo(id, url, thumbnailUrl, req.user.id);
+      return { logoUrl: url, logoThumbnailUrl: thumbnailUrl };
     } catch (error: any) {
       throw new BadRequestException(error.message || 'Failed to upload logo');
     }

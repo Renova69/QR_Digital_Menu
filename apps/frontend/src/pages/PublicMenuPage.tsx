@@ -506,6 +506,7 @@ const PublicMenuPage = () => {
         {/* Social Bar — restaurant name + social icons (top) */}
         <SocialBar
           restaurantName={menuMeta?.restaurant?.name ?? ''}
+          logoUrl={menuMeta?.restaurant?.logoUrl}
           websiteUrl={menuMeta?.restaurant?.websiteUrl}
           facebookUrl={menuMeta?.restaurant?.facebookUrl}
           instagramUrl={menuMeta?.restaurant?.instagramUrl}

@@ -4,7 +4,6 @@ import {
   Palette,
   Type,
   MonitorSmartphone,
-  Star,
   CheckCircle2,
   AlertCircle,
   Sun,
@@ -46,7 +45,6 @@ const DEFAULTS = {
   fontHeading: 'Playfair Display',
   fontBody: 'Outfit',
   defaultTheme: 'light' as BrandMode,
-  googleReviewUrl: '',
 };
 
 interface BrandSnapshot {
@@ -55,7 +53,6 @@ interface BrandSnapshot {
   fontHeading: string;
   fontBody: string;
   defaultTheme: BrandMode;
-  googleReviewUrl: string;
 }
 
 function savedVal<T>(restaurantVal: T | undefined | null, fallback: T): T {
@@ -79,7 +76,6 @@ function getRestaurantBrand(restaurant: Restaurant): BrandSnapshot {
     fontHeading: savedVal(restaurant.fontHeading, DEFAULTS.fontHeading),
     fontBody: savedVal(restaurant.fontBody, DEFAULTS.fontBody),
     defaultTheme: savedVal(restaurant.defaultTheme as BrandMode | undefined, DEFAULTS.defaultTheme),
-    googleReviewUrl: savedVal(restaurant.googleReviewUrl, DEFAULTS.googleReviewUrl),
   };
 }
 
@@ -93,8 +89,7 @@ function brandEqual(a: BrandSnapshot, b: BrandSnapshot) {
     paletteEqual(a.dark, b.dark) &&
     a.fontHeading === b.fontHeading &&
     a.fontBody === b.fontBody &&
-    a.defaultTheme === b.defaultTheme &&
-    a.googleReviewUrl === b.googleReviewUrl
+    a.defaultTheme === b.defaultTheme
   );
 }
 
@@ -127,8 +122,8 @@ export const BrandingEditor = ({
   const [logoRemoved, setLogoRemoved] = useState(false);
   const [logoResetKey, setLogoResetKey] = useState(0);
   const [savedLogoUrl, setSavedLogoUrl] = useState<string | null>(restaurant.logoUrl ?? null);
+  const [savedLogoThumbnailUrl, setSavedLogoThumbnailUrl] = useState<string | null>(restaurant.logoThumbnailUrl ?? null);
   const [previewLogoUrl, setPreviewLogoUrl] = useState<string | null>(restaurant.logoUrl ?? null);
-  const [googleReviewUrl, setGoogleReviewUrl] = useState(initialBrand.googleReviewUrl);
   const [isUpdating, setIsUpdating] = useState(false);
 
   const { t } = useTranslation();
@@ -154,9 +149,8 @@ export const BrandingEditor = ({
       fontHeading,
       fontBody,
       defaultTheme,
-      googleReviewUrl,
     }),
-    [lightPalette, darkPalette, fontHeading, fontBody, defaultTheme, googleReviewUrl],
+    [lightPalette, darkPalette, fontHeading, fontBody, defaultTheme],
   );
 
   const isDirty = useMemo(
@@ -171,7 +165,6 @@ export const BrandingEditor = ({
     setFontHeading(savedBrand.fontHeading);
     setFontBody(savedBrand.fontBody);
     setDefaultTheme(savedBrand.defaultTheme);
-    setGoogleReviewUrl(savedBrand.googleReviewUrl);
     setLogoFile(null);
     setLogoRemoved(false);
     setLogoResetKey((k) => k + 1);
@@ -184,7 +177,6 @@ export const BrandingEditor = ({
     setFontHeading(DEFAULTS.fontHeading);
     setFontBody(DEFAULTS.fontBody);
     setDefaultTheme(DEFAULTS.defaultTheme);
-    setGoogleReviewUrl('');
     setLogoFile(null);
     setLogoRemoved(false);
     setLogoResetKey((k) => k + 1);
@@ -207,14 +199,18 @@ export const BrandingEditor = ({
     if (!isDirty) return;
     setIsUpdating(true);
     let finalLogoUrl: string | null = logoRemoved ? null : savedLogoUrl;
+    let finalLogoThumbnailUrl: string | null = logoRemoved ? null : savedLogoThumbnailUrl;
     const defaultPalette = defaultTheme === 'dark' ? darkPalette : lightPalette;
 
     try {
       if (logoFile) {
         const formData = new FormData();
         formData.append('file', logoFile);
+        // Upload processes the image in R2 but does NOT write to the DB.
+        // Both logo URLs are persisted atomically in the PATCH below.
         const uploadRes = await api.post(`/restaurants/${restaurant.id}/logo`, formData);
         finalLogoUrl = uploadRes.data.logoUrl;
+        finalLogoThumbnailUrl = uploadRes.data.logoThumbnailUrl;
       }
 
       await api.patch(`/restaurants/${restaurant.id}`, {
@@ -234,7 +230,7 @@ export const BrandingEditor = ({
         themeDarkAccentColor: darkPalette.accent,
         defaultTheme,
         logoUrl: finalLogoUrl,
-        googleReviewUrl: googleReviewUrl.trim() || null,
+        logoThumbnailUrl: finalLogoThumbnailUrl,
       });
 
       const nextSaved = {
@@ -243,10 +239,10 @@ export const BrandingEditor = ({
         fontHeading,
         fontBody,
         defaultTheme,
-        googleReviewUrl,
       };
       setSavedBrand(nextSaved);
       setSavedLogoUrl(finalLogoUrl);
+      setSavedLogoThumbnailUrl(finalLogoThumbnailUrl);
       setPreviewLogoUrl(finalLogoUrl);
       setLogoFile(null);
       setLogoRemoved(false);
@@ -479,36 +475,6 @@ export const BrandingEditor = ({
                     {mode === 'light' ? t('branding.light', 'Light') : t('branding.dark', 'Dark')}
                   </button>
                 ))}
-              </div>
-            </div>
-
-            <div className="pb-6">
-              <div className="flex items-center gap-2 mb-1">
-                <Star size={14} className="text-muted-foreground" />
-                <h3 className={sectionHeading}>
-                  {t('branding.publicMenuCta', 'Public Menu CTA')}
-                </h3>
-              </div>
-              <p className="text-xs text-muted-foreground mb-4 ml-[22px]">
-                {t('branding.googleReviewDesc')}
-              </p>
-              <div className="max-w-sm ml-[22px]">
-                <label className="block text-sm font-medium text-foreground/80 mb-1">
-                  {t('branding.googleReview')}
-                </label>
-                <input
-                  type="url"
-                  value={googleReviewUrl}
-                  onChange={(e) => setGoogleReviewUrl(e.target.value)}
-                  placeholder="https://g.page/r/YOUR_REVIEW_LINK"
-                  className={inputCls}
-                />
-                {googleReviewUrl && (
-                  <p className="text-xs text-green-600 dark:text-green-400 mt-1.5 flex items-center gap-1">
-                    <CheckCircle2 size={12} className="flex-shrink-0" />
-                    {t('branding.redirectActive')}
-                  </p>
-                )}
               </div>
             </div>
 
