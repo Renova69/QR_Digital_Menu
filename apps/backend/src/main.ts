@@ -36,6 +36,13 @@ async function bootstrap() {
       );
     }
 
+    // Without a Stripe secret key, every Stripe API call (checkout, portal,
+    // subscription lookups) fails. Fail loud at boot in production rather than
+    // limping along with a placeholder key (M-8).
+    if (process.env.NODE_ENV === 'production' && !process.env.STRIPE_SECRET_KEY) {
+      throw new Error('[Startup] STRIPE_SECRET_KEY must be set in production');
+    }
+
     const app = await NestFactory.create(AppModule, { bodyParser: false });
 
     app.useGlobalPipes(

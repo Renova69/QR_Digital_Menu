@@ -36,9 +36,12 @@ const CheckoutPage = () => {
   const [loyaltyData, setLoyaltyData] = useState<any>(null);
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
   const [usePoints, setUsePoints] = useState(false);
-  const [redeemedItemIds, setRedeemItemIds] = useState<string[]>([]);
+  // Fix C-3 — track redemption per cart ENTRY (cartId), not per product (item.id).
+  // Two cart lines for the same product must be redeemable independently.
+  const [redeemedCartIds, setRedeemedCartIds] = useState<Set<string>>(new Set());
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [notEnoughPointsError, setNotEnoughPointsError] = useState(false);
+  // Fix M-4 — scope the "not enough points" message to the specific cart entry.
+  const [notEnoughPointsItemId, setNotEnoughPointsItemId] = useState<string | null>(null);
   const [loyaltyLoadFailed, setLoyaltyLoadFailed] = useState(false);
 
   // Gamification helpers — config comes from enroll() or getPublicConfig() API
@@ -57,7 +60,7 @@ const CheckoutPage = () => {
 
   const getItemsPointsCost = () => {
     return items.reduce((sum, item: any) => {
-      if (redeemedItemIds.includes(item.id) && item.rewardPointsPrice) {
+      if (redeemedCartIds.has(item.cartId) && item.rewardPointsPrice) {
         return sum + item.rewardPointsPrice * item.quantity;
       }
       return sum;
@@ -70,25 +73,18 @@ const CheckoutPage = () => {
   const getAvailableRewardValue = () =>
     getAvailableLoyaltyPoints() / effectiveRedeemRate;
 
-  const getCheckoutTotal = () => {
-    return items.reduce((sum, item: any) => {
-      if (redeemedItemIds.includes(item.id) && item.rewardPointsPrice)
-        return sum; // Free!
-      const selectedOptions = item.selectedOptions || [];
-      const optionsTotal = selectedOptions.reduce(
-        (optSum: number, opt: any) => optSum + (opt.priceModifier || 0),
-        0,
-      );
-      return sum + (item.price + optionsTotal) * item.quantity;
-    }, 0);
-  };
-
+  // Fix H-6 — this is an APPROXIMATE client-side preview only. The backend
+  // recalculates and caps the loyalty discount from DB prices; the value sent
+  // is additionally capped to the points the user actually holds.
+  // Fix H-10 — cart total comes from CartContext.getTotal, excluding
+  // fully-redeemed entries by cartId (no duplicated local calculation).
   const getDiscountPointsToRedeem = () => {
     if (!usePoints) return 0;
     const availablePoints = getAvailableLoyaltyPoints();
-    const maxDiscount = getCheckoutTotal() * MAX_ORDER_DISCOUNT_RATE;
+    const maxDiscount = getTotal(redeemedCartIds) * MAX_ORDER_DISCOUNT_RATE;
     const maxDiscountPoints = Math.floor(maxDiscount * effectiveRedeemRate);
-    return Math.min(availablePoints, maxDiscountPoints);
+    const computed = Math.min(availablePoints, maxDiscountPoints);
+    return Math.min(computed, loyaltyPoints);
   };
 
   const getPointsDiscount = () =>
@@ -113,7 +109,9 @@ const CheckoutPage = () => {
         console.error("[CheckoutPage] Failed to load loyalty data:", err);
         setLoyaltyLoadFailed(true);
       });
-  }, [user, restaurantId]);
+    // Fix M-6 — depend on the stable user id, not the user object reference,
+    // so the enrollment POST does not re-fire on unrelated AuthContext renders.
+  }, [user?.id, restaurantId]);
 
   // Pre-fill name if user is logged in
   useEffect(() => {
@@ -155,6 +153,13 @@ const CheckoutPage = () => {
       return;
     }
 
+    // Fix C-3 — the backend expects menuItemIds. Map redeemed cart entries
+    // (keyed by cartId) back to their product id. If the same product is
+    // redeemed via two cart lines, its id intentionally appears twice.
+    const redeemItemIds = items
+      .filter((item) => redeemedCartIds.has(item.cartId))
+      .map((item) => item.id);
+
     const orderData: any = {
       customerName,
       customerPhone,
@@ -165,7 +170,7 @@ const CheckoutPage = () => {
         selectedOptions: item.selectedOptions,
       })),
       specialRequests,
-      redeemItemIds: redeemedItemIds,
+      redeemItemIds,
       sessionToken:
         restaurantId && tableNumber
           ? localStorage.getItem(`session-${restaurantId}-${tableNumber}`) || undefined
@@ -206,6 +211,11 @@ const CheckoutPage = () => {
           restaurantId: newOrder.restaurantId,
           tableNumber,
           tier,
+          // Fix H-6 — the backend is authoritative for the loyalty discount.
+          // Forward the actual points it redeemed (if present) so downstream
+          // displays use the server value, not the client-side preview.
+          pointsRedeemedForDiscount:
+            newOrder.pointsRedeemedForDiscount ?? undefined,
         },
       });
     } catch (err: any) {
@@ -277,7 +287,7 @@ const CheckoutPage = () => {
         <ul className="space-y-4">
           {items.map((item) => (
             <li
-              key={item.id}
+              key={item.cartId}
               className="flex justify-between items-start pb-4 border-b border-border/40 last:border-0 last:pb-0"
             >
               <div>
@@ -307,40 +317,50 @@ const CheckoutPage = () => {
                   <>
                     <button
                       onClick={() => {
-                        if (redeemedItemIds.includes(item.id)) {
-                          setRedeemItemIds((prev) =>
-                            prev.filter((id) => id !== item.id),
-                          );
+                        if (redeemedCartIds.has(item.cartId)) {
+                          setRedeemedCartIds((prev) => {
+                            const next = new Set(prev);
+                            next.delete(item.cartId);
+                            return next;
+                          });
+                        } else if (
+                          loyaltyPoints - getItemsPointsCost() >=
+                          (item as any).rewardPointsPrice * item.quantity
+                        ) {
+                          setRedeemedCartIds((prev) => {
+                            const next = new Set(prev);
+                            next.add(item.cartId);
+                            return next;
+                          });
                         } else {
-                          if (
-                            loyaltyPoints - getItemsPointsCost() >=
-                            (item as any).rewardPointsPrice * item.quantity
-                          ) {
-                            setRedeemItemIds((prev) => [...prev, item.id]);
-                          } else {
-                            setNotEnoughPointsError(true);
-                            setTimeout(() => setNotEnoughPointsError(false), 3000);
-                          }
+                          setNotEnoughPointsItemId(item.cartId);
+                          setTimeout(
+                            () =>
+                              setNotEnoughPointsItemId((cur) =>
+                                cur === item.cartId ? null : cur,
+                              ),
+                            3000,
+                          );
                         }
                       }}
                       className={`mt-2 text-xs font-bold px-2 py-1 rounded-md transition-colors ${
-                        redeemedItemIds.includes(item.id)
+                        redeemedCartIds.has(item.cartId)
                           ? "bg-primary text-white"
                           : "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
                       }`}
                     >
-                      {redeemedItemIds.includes(item.id)
+                      {redeemedCartIds.has(item.cartId)
                         ? t('checkout.redeemedFree')
                         : t('checkout.redeemForPts', { pts: (item as any).rewardPointsPrice * item.quantity })}
                     </button>
-                    {notEnoughPointsError && (
+                    {notEnoughPointsItemId === item.cartId && (
                       <p className="text-red-500 text-xs mt-1">{t('checkout.notEnoughPoints')}</p>
                     )}
                   </>
                 )}
               </div>
               <p className="font-bold text-lg">
-                {redeemedItemIds.includes(item.id)
+                {redeemedCartIds.has(item.cartId)
                   ? t('checkout.free')
                   : formatInlineDual(item.price * item.quantity, 'EUR')}
               </p>
@@ -350,8 +370,8 @@ const CheckoutPage = () => {
         <div className="mt-6 pt-6 border-t border-border flex justify-between font-extrabold text-2xl text-foreground">
           <span>{t("cart.total")}:</span>
           <div className="text-right">
-            <div>{formatEuro(getCheckoutTotal())}</div>
-            <span className="text-xs text-muted-foreground">{formatBgn(getCheckoutTotal())}</span>
+            <div>{formatEuro(getTotal(redeemedCartIds))}</div>
+            <span className="text-xs text-muted-foreground">{formatBgn(getTotal(redeemedCartIds))}</span>
           </div>
         </div>
 
@@ -378,7 +398,7 @@ const CheckoutPage = () => {
                   </p>
                 </div>
                 {loyaltyPoints - getItemsPointsCost() > 0 &&
-                  getCheckoutTotal() > 0 && (
+                  getTotal(redeemedCartIds) > 0 && (
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-bold text-foreground">
                         {t('checkout.redeemForDiscount')}
@@ -421,8 +441,8 @@ const CheckoutPage = () => {
               <div className="flex justify-between font-extrabold text-3xl text-foreground">
                 <span>{t('checkout.finalTotal')}</span>
                 <div className="text-right">
-                  <div>{formatEuro(getCheckoutTotal() - getPointsDiscount())}</div>
-                  <span className="text-xs text-muted-foreground">{formatBgn(getCheckoutTotal() - getPointsDiscount())}</span>
+                  <div>{formatEuro(getTotal(redeemedCartIds) - getPointsDiscount())}</div>
+                  <span className="text-xs text-muted-foreground">{formatBgn(getTotal(redeemedCartIds) - getPointsDiscount())}</span>
                 </div>
               </div>
 
@@ -435,7 +455,7 @@ const CheckoutPage = () => {
               <p className="text-sm text-muted-foreground text-right font-medium">
                 {t('checkout.willEarn', {
                   pts: Math.floor(
-                    (getCheckoutTotal() - getPointsDiscount()) * exchangeRate * finalMultiplier
+                    (getTotal(redeemedCartIds) - getPointsDiscount()) * exchangeRate * finalMultiplier
                   )
                 })}
                 {finalMultiplier > 1 && (

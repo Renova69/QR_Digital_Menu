@@ -8,6 +8,21 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 import reportWebVitals from './reportWebVitals';
 import './i18n';
 
+// Fix C-6 — validate the Stripe publishable key at startup so a misconfigured
+// deploy surfaces loudly instead of silently breaking pay-at-table.
+const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+if (!stripeKey) {
+  const message =
+    '[Startup] VITE_STRIPE_PUBLISHABLE_KEY is not set — payment will not work';
+  if (import.meta.env.DEV) {
+    // In dev: throw a visible error so it cannot be missed during development.
+    throw new Error(message);
+  }
+  // In prod: log the error and continue (don't crash the whole app over a
+  // feature that not every page depends on).
+  console.error(message);
+}
+
 const queryClient = new QueryClient();
 const container = document.getElementById('root');
 

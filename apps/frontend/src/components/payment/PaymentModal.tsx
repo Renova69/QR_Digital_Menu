@@ -7,9 +7,22 @@ import { useTranslation } from 'react-i18next';
 import { CheckCircle2, X } from 'lucide-react';
 import { formatEuro, formatBgn } from '../../lib/currency';
 
-const stripePromise = loadStripe(
-  (import.meta as any).env.VITE_STRIPE_PUBLISHABLE_KEY || '',
-);
+const stripePublishableKey = (import.meta as any).env
+  .VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
+
+if (!stripePublishableKey) {
+  // Fix C-6 — do not silently fall back to an empty key; warn so the missing
+  // configuration is visible in the console and the component can show an error.
+  console.warn(
+    '[PaymentModal] VITE_STRIPE_PUBLISHABLE_KEY is missing — Stripe will not initialize and payment is disabled.',
+  );
+}
+
+// loadStripe(null) resolves to null, which the component handles with a visible
+// error state instead of a no-op submit.
+const stripePromise = stripePublishableKey
+  ? loadStripe(stripePublishableKey)
+  : Promise.resolve(null);
 
 interface PaymentModalProps {
   sessionToken: string;
@@ -77,7 +90,17 @@ function PaymentForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!stripe || !elements) return;
+    // Fix C-6 — if Stripe failed to initialize (missing key), surface a visible
+    // error instead of silently doing nothing.
+    if (!stripe || !elements) {
+      setError(
+        t(
+          'payment.stripeUnavailable',
+          'Payment is currently unavailable — please contact staff.',
+        ),
+      );
+      return;
+    }
 
     setProcessing(true);
     setError(null);
@@ -93,6 +116,13 @@ function PaymentForm({
       setProcessing(false);
     } else if (result.paymentIntent?.status === 'succeeded') {
       onSuccess();
+    } else {
+      // Fix H-5 — any other status (processing, requires_action, etc.) must not
+      // leave the form locked with no feedback.
+      setError(
+        t('payment.unexpectedStatus', 'Payment status unclear — please contact staff'),
+      );
+      setProcessing(false);
     }
   };
 
@@ -149,16 +179,34 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
   const [payment, setPayment] = useState<{ clientSecret: string; total: number; tipAmount: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Fix H-8 — a failed bill load must show an error with retry, not silently close.
+  const [billError, setBillError] = useState<string | null>(null);
+  const [billReloadKey, setBillReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    setBillError(null);
     getSessionBill(sessionToken)
       .then((data) => { if (!cancelled) setBill(data); })
-      .catch(() => { if (!cancelled) onClose(); });
+      .catch(() => {
+        if (!cancelled) {
+          setBillError(
+            t('payment.billLoadError', 'Could not load bill — please try again'),
+          );
+        }
+      });
     return () => { cancelled = true; };
-  }, [sessionToken]);
+  }, [sessionToken, billReloadKey, t]);
 
-  const activeTipPercent = customTip !== '' ? parseFloat(customTip) || 0 : selectedTip;
+  const retryBillFetch = () => {
+    setBill(null);
+    setBillError(null);
+    setBillReloadKey((k) => k + 1);
+  };
+
+  const rawTipPercent = customTip !== '' ? parseFloat(customTip) || 0 : selectedTip;
+  // Fix M-3 — clamp tip to a sane 0–100 range before it reaches the API.
+  const activeTipPercent = Math.max(0, Math.min(100, rawTipPercent));
 
   const handleContinueToPayment = async () => {
     setLoading(true);
@@ -188,6 +236,25 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
             <X size={20} />
           </button>
         </div>
+
+        {/* Fix H-8 — bill load failure: visible error + retry, modal stays open */}
+        {step === 'tip' && billError && (
+          <div className="space-y-4">
+            <p className="text-red-500 text-sm">{billError}</p>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={onClose}>
+                {t('common.cancel')}
+              </Button>
+              <Button type="button" className="flex-1" onClick={retryBillFetch}>
+                {t('common.retry', 'Retry')}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === 'tip' && !bill && !billError && (
+          <p className="text-sm text-muted-foreground py-4">{t('payment.loading')}</p>
+        )}
 
         {step === 'tip' && bill && (
           <div className="space-y-4">

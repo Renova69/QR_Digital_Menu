@@ -25,7 +25,7 @@ interface CartContextType {
   removeItem: (cartId: string) => void;
   clearCart: () => void;
   getItemCount: () => number;
-  getTotal: () => number;
+  getTotal: (excludeCartIds?: Set<string>) => number;
   tableNumber: string | null;
   setTableNumber: (table: string) => void;
   pruneInvalidItems: (validItemIds: string[]) => number;
@@ -67,7 +67,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     cartSaveTimerRef.current = setTimeout(() => {
       localStorage.setItem('cartItems', serialized);
       pendingCartRef.current = null;
-    }, 500);
+    }, 100);
   }, [items]);
 
   // Flush pending cart write immediately on unmount
@@ -132,9 +132,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return items.reduce((sum, item) => sum + item.quantity, 0);
   }, [items]);
 
-  // Calculate total price of items in cart
-  const getTotal = useCallback(() => {
+  // Calculate total price of items in cart. Optionally exclude cart entries
+  // (e.g. fully redeemed loyalty items) by their cartId.
+  const getTotal = useCallback((excludeCartIds?: Set<string>) => {
     return items.reduce((sum, item) => {
+      if (excludeCartIds?.has(item.cartId)) return sum;
       const selectedOptions = item.selectedOptions || [];
       const optionsTotal = selectedOptions.reduce((optSum: number, opt: SelectedOption) => optSum + (opt.priceModifier || 0), 0);
       return sum + ((item.price + optionsTotal) * item.quantity);

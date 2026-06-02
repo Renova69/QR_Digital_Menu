@@ -221,6 +221,17 @@ export class OrdersService {
     let itemsPointsRedeemed = 0;
     const itemsData: { menuItemId: string; quantity: number; selectedOptions: any[] }[] = [];
 
+    // redeemItemIds is a per-cart-line list: it may contain the same menuItemId
+    // more than once when multiple lines of the same product are redeemed. Count
+    // how many redemptions each menuItemId is granted, then consume them one per
+    // matching cart line so we never comp more lines than were actually redeemed
+    // (H-6 — previously a duplicated menuItemId comped every matching line).
+    const redeemCounts = new Map<string, number>();
+    for (const id of createOrderDto.redeemItemIds ?? []) {
+      redeemCounts.set(id, (redeemCounts.get(id) ?? 0) + 1);
+    }
+    const usedCounts = new Map<string, number>();
+
     for (const item of createOrderDto.items) {
       const dbItem = itemsMap.get(item.menuItemId);
       if (!dbItem) {
@@ -228,11 +239,13 @@ export class OrdersService {
       }
       let itemPrice = dbItem.price;
 
+      const availableRedemptions = redeemCounts.get(item.menuItemId) ?? 0;
+      const usedRedemptions = usedCounts.get(item.menuItemId) ?? 0;
       const isRedeemedFree =
-        createOrderDto.redeemItemIds?.includes(item.menuItemId) &&
-        dbItem.rewardPointsPrice;
+        availableRedemptions > usedRedemptions && !!dbItem.rewardPointsPrice;
 
       if (isRedeemedFree) {
+        usedCounts.set(item.menuItemId, usedRedemptions + 1);
         itemsPointsRedeemed += (dbItem.rewardPointsPrice ?? 0) * item.quantity;
         itemPrice = 0;
       }

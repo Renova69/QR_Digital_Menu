@@ -35,7 +35,7 @@ export class TablesService {
 
     await this.prisma.tableSession.updateMany({
       where: { id: { in: expired.map((s) => s.id) } },
-      data: { status: 'CLOSED_NO_PAYMENT' },
+      data: { status: 'CLOSED_PAID' },
     });
 
     // Emit per restaurant so dashboard refreshes

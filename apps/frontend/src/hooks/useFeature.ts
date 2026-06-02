@@ -33,6 +33,11 @@ export type FeatureFlag = (typeof ALL_FEATURE_FLAGS)[number];
 
 export type SubscriptionTier = 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
 
+// Fallback only — API response is authoritative.
+// This local map mirrors the backend tier→feature mapping and is used only
+// while the subscription-status query is loading (or when the user has no
+// restaurant). Once the API resolves, useTier()/useFeature() always prefer
+// the server-derived `features` array over this constant.
 const TIER_FEATURES: Record<SubscriptionTier, FeatureFlag[]> = {
   FREE: ['menu:view', 'menu:edit', 'menu:import', 'qr:manage'],
   STARTER: [
@@ -116,6 +121,7 @@ export function useTier(): {
     queryKey: ['subscription-status', userId, activeRestaurantId],
     queryFn: () => getSubscriptionStatus(activeRestaurantId ?? undefined),
     staleTime: 60_000,
+    refetchInterval: 30_000,
     enabled: hasRestaurant,
   });
 
@@ -153,6 +159,15 @@ export function useFeature(feature: FeatureFlag): boolean {
   return features.includes(feature);
 }
 
+/**
+ * Synchronous feature check against the LOCAL {@link TIER_FEATURES} constant.
+ *
+ * This does NOT consult the server-resolved effective tier (forceTier, live
+ * subscription status, etc.). It is a best-effort fallback for contexts where a
+ * tier string is already known but no hook is available (e.g. derived from
+ * route state). Callers that can use a hook should prefer {@link useFeature}
+ * (or {@link useTier}), which is authoritative because it reads the API response.
+ */
 export function hasTierFeature(tier: string | undefined | null, feature: FeatureFlag): boolean {
   const t = (tier as SubscriptionTier) ?? 'FREE';
   const feats = TIER_FEATURES[t] ?? TIER_FEATURES.FREE;

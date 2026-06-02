@@ -92,9 +92,10 @@ export class SubscriptionController {
 
   @Post('confirm-session')
   @UseGuards(JwtAuthGuard)
-  async confirmSession(@Body('sessionId') sessionId: string) {
+  async confirmSession(@Req() req: any, @Body('sessionId') sessionId: string) {
     if (!sessionId) return { tier: 'FREE' };
-    return this.subscriptionService.confirmCheckoutSession(sessionId);
+    const userId = req.user.id ?? req.user.sub;
+    return this.subscriptionService.confirmCheckoutSession(sessionId, userId);
   }
 
   @Post('portal')

@@ -23,6 +23,22 @@ describe('PaymentHistoryQueryDto', () => {
     expect(dto.status).toBe('SUCCEEDED');
   });
 
+  it('should reject a status value outside the allowed enum (#I1)', async () => {
+    const dto = plainToInstance(PaymentHistoryQueryDto, { status: 'BOGUS' });
+    const errors = await validate(dto);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].property).toBe('status');
+    expect(errors[0].constraints).toHaveProperty('isIn');
+  });
+
+  it('should accept each valid status enum value (#I1)', async () => {
+    for (const status of ['PENDING', 'SUCCEEDED', 'FAILED', 'REFUNDED']) {
+      const dto = plainToInstance(PaymentHistoryQueryDto, { status });
+      const errors = await validate(dto);
+      expect(errors).toHaveLength(0);
+    }
+  });
+
   it('should accept optional startDate and endDate query params', async () => {
     const dto = plainToInstance(PaymentHistoryQueryDto, {
       startDate: '2026-01-01',
