@@ -29,6 +29,13 @@ class OrderItemDto {
   @IsString()
   menuItemId: string;
 
+  /** Stable frontend cart line identifier.  When present, the backend uses it
+   *  to match redeemCartIds exactly so the right specific line (with its own
+   *  option set) is comped, not just any line sharing the same menuItemId. */
+  @IsString()
+  @IsOptional()
+  cartId?: string;
+
   @IsInt()
   @Min(1)
   @Max(999)
@@ -69,6 +76,14 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString({ each: true })
   redeemItemIds?: string[];
+
+  /** Preferred over redeemItemIds when present.  Contains the cartId values
+   *  of each cart line the customer wants to redeem as a free item.  Allows
+   *  exact matching when the same product appears twice with different options. */
+  @IsArray()
+  @IsOptional()
+  @IsString({ each: true })
+  redeemCartIds?: string[];
 
   @IsString()
   @IsOptional()

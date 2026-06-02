@@ -551,6 +551,83 @@ describe('OrdersService', () => {
       expect(createCall.data.totalPrice).toBe(0);
     });
 
+    it('redeemCartIds comps the exact cart line specified, not just the first matching menuItemId', async () => {
+      // Two lines for the same burger: cheap options ($2 total) and expensive options ($8 total).
+      // User redeems only the expensive line (cartId 'cart-b').
+      // Verify: expensive line is zeroed, cheap line is charged at full price.
+      const burger = makeMenuItem({ id: 'burger', price: 10, rewardPointsPrice: 50 });
+      prisma.menuItem.findMany.mockResolvedValue([burger]);
+      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ isLoyaltyEnabled: true }));
+      const tx = makeTx();
+      tx.loyaltyAccount.findUnique.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
+      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
+      tx.loyaltyPointLedger.findMany.mockResolvedValue([{ id: 'batch-1', remainingPoints: 500 }]);
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+
+      await service.create({
+        items: [
+          { menuItemId: 'burger', cartId: 'cart-a', quantity: 1, selectedOptions: [] },   // cheap — NOT redeemed
+          { menuItemId: 'burger', cartId: 'cart-b', quantity: 1, selectedOptions: [] },   // expensive — redeemed
+        ],
+        customerId: 'cust-1',
+        redeemCartIds: ['cart-b'],   // redeem only the second line
+      } as any);
+
+      const createCall = tx.order.create.mock.calls[0][0];
+      // Points cost = rewardPointsPrice (50) × quantity (1) for the one redeemed line.
+      expect(createCall.data.pointsRedeemedForItems).toBe(50);
+      // Total: cheap line at full price (10) + expensive line zeroed (0) = 10.
+      expect(createCall.data.totalPrice).toBe(10);
+    });
+
+    it('redeemCartIds: redeeming both duplicate lines charges points twice and zeroes both', async () => {
+      const burger = makeMenuItem({ id: 'burger', price: 10, rewardPointsPrice: 50 });
+      prisma.menuItem.findMany.mockResolvedValue([burger]);
+      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ isLoyaltyEnabled: true }));
+      const tx = makeTx();
+      tx.loyaltyAccount.findUnique.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
+      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
+      tx.loyaltyPointLedger.findMany.mockResolvedValue([{ id: 'batch-1', remainingPoints: 500 }]);
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+
+      await service.create({
+        items: [
+          { menuItemId: 'burger', cartId: 'cart-a', quantity: 1, selectedOptions: [] },
+          { menuItemId: 'burger', cartId: 'cart-b', quantity: 1, selectedOptions: [] },
+        ],
+        customerId: 'cust-1',
+        redeemCartIds: ['cart-a', 'cart-b'],
+      } as any);
+
+      const createCall = tx.order.create.mock.calls[0][0];
+      expect(createCall.data.pointsRedeemedForItems).toBe(100); // 50 × 2
+      expect(createCall.data.totalPrice).toBe(0);
+    });
+
+    it('falls back to count-based matching when redeemCartIds is absent (legacy redeemItemIds)', async () => {
+      const burger = makeMenuItem({ id: 'burger', price: 10, rewardPointsPrice: 50 });
+      prisma.menuItem.findMany.mockResolvedValue([burger]);
+      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ isLoyaltyEnabled: true }));
+      const tx = makeTx();
+      tx.loyaltyAccount.findUnique.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
+      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
+      tx.loyaltyPointLedger.findMany.mockResolvedValue([{ id: 'batch-1', remainingPoints: 500 }]);
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+
+      await service.create({
+        items: [
+          { menuItemId: 'burger', quantity: 1, selectedOptions: [] },
+          { menuItemId: 'burger', quantity: 1, selectedOptions: [] },
+        ],
+        customerId: 'cust-1',
+        redeemItemIds: ['burger'],  // one redemption of burger — only first line comped
+      } as any);
+
+      const createCall = tx.order.create.mock.calls[0][0];
+      expect(createCall.data.pointsRedeemedForItems).toBe(50);  // one line only
+      expect(createCall.data.totalPrice).toBe(10);              // second line at full price
+    });
+
     it('creates new loyalty account and awards points on first order', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ isLoyaltyEnabled: true }));
