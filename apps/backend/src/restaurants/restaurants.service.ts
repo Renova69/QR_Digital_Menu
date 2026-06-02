@@ -144,8 +144,13 @@ export class RestaurantsService {
       restaurant.forceTier,
     );
     const data = this.featureService.hasFeature(tier, FeatureFlag.BRANDING_CUSTOM)
-      ? updateRestaurantDto
+      ? { ...updateRestaurantDto }
       : stripBrandingFields({ ...updateRestaurantDto });
+
+    // Multi-language gating: strip targetLanguages if tier lacks multi-language feature
+    if (!this.featureService.hasFeature(tier, FeatureFlag.LANGUAGES_MULTI)) {
+      delete data.targetLanguages;
+    }
 
     return this.prisma.restaurant.update({
       where: { id },
@@ -174,6 +179,14 @@ export class RestaurantsService {
 
   async translateAll(id: string, userId: string) {
     const restaurant = await this.findOneForManagement(id, userId);
+
+    const tier = this.featureService.getEffectiveTier(
+      restaurant.tier ?? 'FREE',
+      restaurant.forceTier,
+    );
+    if (!this.featureService.hasFeature(tier, FeatureFlag.LANGUAGES_MULTI)) {
+      throw new ForbiddenException('Multi-language features are not available on this tier.');
+    }
 
     if (!process.env.DEEPL_API_KEY) {
       return {

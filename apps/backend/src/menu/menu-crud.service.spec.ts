@@ -199,7 +199,7 @@ describe('MenuCrudService', () => {
     it('calls applyLazyTranslations when lang in targetLanguages and DEEPL_API_KEY set', async () => {
       const prevKey = process.env.DEEPL_API_KEY;
       process.env.DEEPL_API_KEY = 'test-key';
-      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT); // targetLanguages: ['en','bg']
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ ...BASE_RESTAURANT, tier: 'PROFESSIONAL' }); // targetLanguages: ['en','bg']
       mockPrisma.menuCategory.findMany.mockResolvedValue([makeCategory()]);
 
       await service.getPublicMenu('rest-1', 'bg');

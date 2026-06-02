@@ -105,7 +105,7 @@ export class SubscriptionController {
     const userId = req.user.id ?? req.user.sub;
     const restaurant = await this.resolveRestaurant(userId, { id: true }, restaurantId);
     if (!restaurant) throw new NotFoundException('No restaurant found for user');
-    return this.subscriptionService.createPortalSession(restaurant.id);
+    return this.subscriptionService.createPortalSession(restaurant.id, userId);
   }
 
   @Post('webhook')

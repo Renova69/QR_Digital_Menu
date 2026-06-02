@@ -15,6 +15,8 @@ import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { PIN_LOGIN_ROLES } from '../users/staff-roles';
 import { PrismaService } from '../prisma/prisma.service';
+import { FeatureService } from '../subscription/feature.service';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
 
 @Injectable()
 export class AuthService {
@@ -24,6 +26,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
+    private readonly featureService: FeatureService,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
@@ -174,12 +177,19 @@ export class AuthService {
     if (!restaurantId) return;
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: { tier: true, forceTier: true },
+      select: { tier: true, forceTier: true, isActive: true },
     });
-    const rawTier = (restaurant?.tier ?? 'FREE') as string;
-    const tier = restaurant?.forceTier ? String(restaurant.forceTier) : rawTier;
-    const allowed = ['PROFESSIONAL', 'ENTERPRISE'];
-    if (!allowed.includes(tier)) {
+    if (!restaurant) {
+      throw new NotFoundException('Restaurant not found');
+    }
+    if (restaurant.isActive === false) {
+      throw new ForbiddenException('This restaurant has been suspended');
+    }
+    const tier = this.featureService.getEffectiveTier(
+      restaurant.tier ?? 'FREE',
+      restaurant.forceTier,
+    );
+    if (!this.featureService.hasFeature(tier, FeatureFlag.CUSTOMERS_AUTH)) {
       throw new ForbiddenException('Customer authentication is not available on this plan');
     }
   }

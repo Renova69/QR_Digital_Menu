@@ -4,6 +4,7 @@ import {
   IsArray,
   ValidateNested,
   IsNumber,
+  IsBoolean,
   IsInt,
   Min,
   Max,
@@ -67,10 +68,9 @@ export class CreateOrderDto {
   @IsOptional()
   customerId?: string;
 
-  @IsInt()
-  @Min(0)
+  @IsBoolean()
   @IsOptional()
-  redeemPoints?: number;
+  usePoints?: boolean;
 
   @IsArray()
   @IsOptional()

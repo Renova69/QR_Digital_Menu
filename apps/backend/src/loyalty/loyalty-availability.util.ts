@@ -16,12 +16,13 @@ import { FeatureFlag } from '../subscription/feature-flag.enum';
  */
 export function isLoyaltyAvailable(
   restaurant:
-    | { tier?: string | null; forceTier?: string | null; isLoyaltyEnabled?: boolean | null }
+    | { tier?: string | null; forceTier?: string | null; isLoyaltyEnabled?: boolean | null; isActive?: boolean | null }
     | null
     | undefined,
   featureService: FeatureService,
 ): boolean {
   if (!restaurant) return false;
+  if (restaurant.isActive === false) return false;
   const tier = featureService.getEffectiveTier(
     restaurant.tier ?? 'FREE',
     restaurant.forceTier ?? null,

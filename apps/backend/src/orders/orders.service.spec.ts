@@ -373,7 +373,7 @@ describe('OrdersService', () => {
       expect(createArgs.data.tableName).toBe('T9');
     });
 
-    it('throws BadRequestException when loyalty redeemPoints sent but loyalty disabled', async () => {
+    it('throws BadRequestException when loyalty discount requested but loyalty disabled', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ isLoyaltyEnabled: false }));
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(makeTx()));
@@ -381,7 +381,7 @@ describe('OrdersService', () => {
       await expect(
         service.create({
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
-          redeemPoints: 100,
+          usePoints: true,
         } as any),
       ).rejects.toThrow(BadRequestException);
     });
@@ -681,21 +681,25 @@ describe('OrdersService', () => {
       expect(tx.loyaltyPointLedger.create).toHaveBeenCalledTimes(2);
     });
 
-    it('throws BadRequestException when not enough loyalty points for discount', async () => {
+    it('calculates loyalty discount from DB points and ignores legacy redeemPoints input', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ isLoyaltyEnabled: true }));
       const tx = makeTx();
       tx.loyaltyAccount.findUnique.mockResolvedValue({ id: 'acc-1', points: 5, lifetimePoints: 100 });
       tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({ id: 'acc-1', points: 5, lifetimePoints: 100 });
+      tx.loyaltyPointLedger.findMany.mockResolvedValue([{ id: 'batch-1', remainingPoints: 5 }]);
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
 
-      await expect(
-        service.create({
-          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
-          customerId: 'cust-1',
-          redeemPoints: 10000,
-        } as any),
-      ).rejects.toThrow(BadRequestException);
+      await service.create({
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        customerId: 'cust-1',
+        usePoints: true,
+        redeemPoints: 10000,
+      } as any);
+
+      const createCall = tx.order.create.mock.calls[0][0];
+      expect(createCall.data.pointsRedeemedForDiscount).toBe(5);
+      expect(createCall.data.totalPrice).toBeCloseTo(10 - 5 / 150);
     });
   });
 

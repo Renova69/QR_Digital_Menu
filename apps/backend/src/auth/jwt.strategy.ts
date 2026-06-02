@@ -3,12 +3,14 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
+import { FeatureService } from '../subscription/feature.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly featureService: FeatureService,
   ) {
     const allowBearerAuth =
       process.env.NODE_ENV === 'test' ||
@@ -42,7 +44,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       include: {
-        staffRestaurant: { select: { isActive: true } },
+        staffRestaurant: { select: { isActive: true, tier: true, forceTier: true } },
         restaurants: { select: { isActive: true }, take: 1 },
       },
     });
@@ -70,6 +72,25 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         user.staffRestaurant?.isActive ?? user.restaurants[0]?.isActive;
       if (restaurantIsActive === false) {
         throw new UnauthorizedException('ACCOUNT_SUSPENDED');
+      }
+    }
+
+    if (user.role !== 'SUPER_ADMIN' && user.role !== 'OWNER' && user.role !== 'CUSTOMER') {
+      // It's a staff role: MANAGER, WAITER, KITCHEN, STAFF
+      const restaurant = user.staffRestaurant;
+      if (restaurant) {
+        const effectiveTier = this.featureService.getEffectiveTier(
+          restaurant.tier ?? 'FREE',
+          restaurant.forceTier,
+        );
+        const allowedRoles = this.featureService.getAllowedStaffRoles(effectiveTier);
+        if (!allowedRoles.includes(user.role)) {
+          if (allowedRoles.length > 0) {
+            user.role = allowedRoles[0] as any; // demote to first allowed role (e.g. 'STAFF')
+          } else {
+            throw new UnauthorizedException('STAFF_ACCESS_LOCKED');
+          }
+        }
       }
     }
 

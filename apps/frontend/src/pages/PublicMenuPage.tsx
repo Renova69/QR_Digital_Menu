@@ -22,7 +22,7 @@ import Footer from "../components/menu/Footer";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { useAuth } from "../context/AuthContext";
 import { getImageUrl } from "../lib/getImageUrl";
-import { hasTierFeature } from "../hooks/useFeature";
+import type { FeatureFlag } from "../hooks/useFeature";
 import type { BrandPalette, BrandMode } from "../components/branding/ThemePresets";
 import { getReadableTextColor } from "../utils/colors";
 
@@ -134,12 +134,16 @@ const PublicMenuPage = () => {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   const tier = menuMeta?.restaurant?.tier as string | undefined;
-  const ordersEnabled = tier !== 'FREE';
-  const paymentsEnabled = hasTierFeature(tier, 'payments:stripe');
-  const callWaiterEnabled = hasTierFeature(tier, 'orders:call-waiter');
-  const languagesEnabled = hasTierFeature(tier, 'languages:multi');
-  const upsellEnabled = hasTierFeature(tier, 'upselling');
-  const customersAuthEnabled = hasTierFeature(tier, 'customers:auth');
+  const features = Array.isArray(menuMeta?.restaurant?.features)
+    ? (menuMeta.restaurant.features as FeatureFlag[])
+    : [];
+  const hasFeature = (feature: FeatureFlag) => features.includes(feature);
+  const ordersEnabled = hasFeature('orders:receive');
+  const paymentsEnabled = hasFeature('payments:stripe');
+  const callWaiterEnabled = hasFeature('orders:call-waiter');
+  const languagesEnabled = hasFeature('languages:multi');
+  const upsellEnabled = hasFeature('upselling');
+  const customersAuthEnabled = hasFeature('customers:auth');
   const showActionBar = ordersEnabled || callWaiterEnabled || customersAuthEnabled;
   const [activeDietTags, setActiveDietTags] = useState<string[]>([]);
   const [excludedAllergens, setExcludedAllergens] = useState<string[]>([]);
@@ -837,6 +841,7 @@ const PublicMenuPage = () => {
                     restaurantId={restaurantId}
                     selectedLang={selectedLang}
                     tier={tier}
+                    features={features}
                   />
                 </div>
               )}

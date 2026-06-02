@@ -4,10 +4,6 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder', {
-  apiVersion: '2026-05-27.dahlia',
-});
-
 type PriceMap = Record<string, Record<'monthly' | 'yearly', string>>;
 
 /**
@@ -29,11 +25,18 @@ const IMMEDIATE_DOWNGRADE_STATUSES = ['unpaid', 'canceled', 'paused', 'incomplet
 export class SubscriptionService {
   private readonly logger = new Logger(SubscriptionService.name);
   private readonly priceMap: PriceMap;
+  private readonly stripe: InstanceType<typeof Stripe>;
+  private readonly processedSessions = new Set<string>();
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
   ) {
+    const stripeKey = this.configService.get<string>('STRIPE_SECRET_KEY') || process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder';
+    this.stripe = new Stripe(stripeKey, {
+      apiVersion: '2026-05-27.dahlia',
+    });
+
     // Built here (not at module load) so env vars injected after import are
     // reflected — critical for tests and runtime config injection (M-7).
     this.priceMap = {
@@ -53,7 +56,7 @@ export class SubscriptionService {
 
     // Boot-time guard: refuse to operate against Stripe in production without a
     // secret key (M-8). Mirrors the webhook-secret guard in main.ts.
-    if (process.env.NODE_ENV === 'production' && !process.env.STRIPE_SECRET_KEY) {
+    if (process.env.NODE_ENV === 'production' && stripeKey === 'sk_test_placeholder') {
       throw new Error('[Startup] STRIPE_SECRET_KEY must be set in production');
     }
   }
@@ -70,14 +73,20 @@ export class SubscriptionService {
       throw new BadRequestException(`No Stripe price configured for tier ${tier} (${billingPeriod})`);
     }
 
-    let { stripeCustomerId } = await this.prisma.restaurant.findUniqueOrThrow({
+    const restaurant = await this.prisma.restaurant.findUniqueOrThrow({
       where: { id: restaurantId },
-      select: { stripeCustomerId: true },
+      select: { stripeCustomerId: true, ownerId: true },
     });
+
+    if (restaurant.ownerId !== ownerId) {
+      throw new ForbiddenException('You do not own this restaurant');
+    }
+
+    let stripeCustomerId = restaurant.stripeCustomerId;
 
     if (!stripeCustomerId) {
       const user = await this.prisma.user.findUniqueOrThrow({ where: { id: ownerId } });
-      const customer = await stripe.customers.create({ email: user.email, metadata: { restaurantId } });
+      const customer = await this.stripe.customers.create({ email: user.email, metadata: { restaurantId } });
       stripeCustomerId = customer.id;
       await this.prisma.restaurant.update({
         where: { id: restaurantId },
@@ -85,19 +94,21 @@ export class SubscriptionService {
       });
     }
 
-    const existingSubs = await stripe.subscriptions.list({
+    const existingSubs = await this.stripe.subscriptions.list({
       customer: stripeCustomerId!,
-      status: 'active',
+      status: 'all',
       limit: 5,
     });
-    if (existingSubs.data.length > 0) {
+    const blockStatuses = ['active', 'past_due', 'unpaid', 'trialing'];
+    const activeSub = existingSubs.data.find((sub: any) => blockStatuses.includes(sub.status));
+    if (activeSub) {
       throw new BadRequestException({
         code: 'ALREADY_SUBSCRIBED',
-        message: 'Active subscription exists. Use the Billing Portal to change plans.',
+        message: 'Active/trialing subscription exists. Use the Billing Portal to change plans.',
       });
     }
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await this.stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
@@ -114,9 +125,20 @@ export class SubscriptionService {
   }
 
   async confirmCheckoutSession(sessionId: string, userId: string): Promise<{ tier: string }> {
+    if (this.processedSessions.has(sessionId)) {
+      const restaurant = await this.prisma.restaurant.findFirst({
+        where: { ownerId: userId },
+        select: { tier: true, forceTier: true },
+      });
+      const tier = restaurant?.forceTier ?? restaurant?.tier ?? 'FREE';
+      return { tier: String(tier) };
+    }
+
     let session: any;
     try {
-      session = await stripe.checkout.sessions.retrieve(sessionId);
+      session = await this.stripe.checkout.sessions.retrieve(sessionId, {
+        expand: ['line_items']
+      });
     } catch {
       return { tier: 'FREE' };
     }
@@ -135,8 +157,9 @@ export class SubscriptionService {
       throw new ForbiddenException('Session does not belong to your restaurant');
     }
 
-    const tier = (session.metadata?.tier as string) ?? 'FREE';
     const subscriptionId = session.subscription as string;
+    const priceId = session.line_items?.data?.[0]?.price?.id as string | undefined;
+    const tier = priceId ? getTierFromPrice(this.priceMap, priceId) : ((session.metadata?.tier as string) ?? 'FREE');
     const eventTime = new Date(session.created * 1000);
 
     await this.prisma.restaurant.updateMany({
@@ -147,22 +170,32 @@ export class SubscriptionService {
       data: {
         tier: tier as any,
         stripeSubscriptionId: subscriptionId,
+        stripePriceId: priceId ?? null,
         tierUpdatedAt: eventTime,
       },
     });
+
+    if (this.processedSessions.size > 10000) {
+      this.processedSessions.clear();
+    }
+    this.processedSessions.add(sessionId);
 
     this.logger.log(`Session confirmed: customer=${customerId} tier=${tier}`);
     return { tier };
   }
 
-  async createPortalSession(restaurantId: string) {
-    const { stripeCustomerId } = await this.prisma.restaurant.findUniqueOrThrow({
+  async createPortalSession(restaurantId: string, ownerId: string) {
+    const restaurant = await this.prisma.restaurant.findUniqueOrThrow({
       where: { id: restaurantId },
-      select: { stripeCustomerId: true },
+      select: { stripeCustomerId: true, ownerId: true },
     });
+    if (restaurant.ownerId !== ownerId) {
+      throw new ForbiddenException('You do not own this restaurant');
+    }
+    const stripeCustomerId = restaurant.stripeCustomerId;
     if (!stripeCustomerId) throw new BadRequestException('No Stripe customer associated with this restaurant');
 
-    const session = await stripe.billingPortal.sessions.create({
+    const session = await this.stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,
       return_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/dashboard/settings`,
     });
@@ -178,7 +211,7 @@ export class SubscriptionService {
     if (!restaurant?.stripeSubscriptionId) return null;
 
     try {
-      const sub = await stripe.subscriptions.retrieve(restaurant.stripeSubscriptionId) as any;
+      const sub = await this.stripe.subscriptions.retrieve(restaurant.stripeSubscriptionId) as any;
       const item = sub.items?.data?.[0];
       // Stripe API ≥2024-09-30 moved current_period_* from Subscription to SubscriptionItem
       const periodStart: number = sub.current_period_start ?? item?.current_period_start;
@@ -202,10 +235,14 @@ export class SubscriptionService {
 
   async handleWebhook(rawBody: Buffer, signature: string) {
     const secret = process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET || '';
+    if (!secret) {
+      this.logger.error('Webhook secret not configured');
+      throw new BadRequestException('Webhook secret not configured');
+    }
     let event: any;
 
     try {
-      event = stripe.webhooks.constructEvent(rawBody, signature, secret);
+      event = this.stripe.webhooks.constructEvent(rawBody, signature, secret);
     } catch (err) {
       this.logger.error('Webhook signature verification failed');
       throw err;
@@ -215,6 +252,7 @@ export class SubscriptionService {
       case 'checkout.session.completed':
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
+      case 'customer.subscription.paused':
         await this.applySubscriptionFromEvent(event);
         break;
       case 'customer.subscription.deleted':
@@ -252,8 +290,23 @@ export class SubscriptionService {
     let pastDueGraceExpiry: Date | null = null;
 
     if (event.type === 'checkout.session.completed') {
-      tier = (obj.metadata?.tier as string) ?? 'FREE';
       subscriptionId = obj.subscription as string;
+      if (subscriptionId) {
+        try {
+          const sub = await this.stripe.subscriptions.retrieve(subscriptionId);
+          priceId = sub.items?.data?.[0]?.price?.id as string | undefined;
+          tier = priceId ? getTierFromPrice(this.priceMap, priceId) : ((obj.metadata?.tier as string) ?? 'FREE');
+        } catch (err) {
+          this.logger.error(
+            `Failed to retrieve subscription ${subscriptionId} for checkout.session.completed: ${
+              err instanceof Error ? err.message : err
+            }`,
+          );
+          tier = (obj.metadata?.tier as string) ?? 'FREE';
+        }
+      } else {
+        tier = (obj.metadata?.tier as string) ?? 'FREE';
+      }
     } else {
       priceId = obj.items?.data?.[0]?.price?.id as string | undefined;
       tier = priceId ? getTierFromPrice(this.priceMap, priceId) : 'FREE';
@@ -300,7 +353,7 @@ export class SubscriptionService {
         stripeCustomerId: customerId,
         OR: [
           { tierUpdatedAt: null },
-          { tierUpdatedAt: { lt: eventTime } },
+          { tierUpdatedAt: { lte: eventTime } },
         ],
       },
       data: {
@@ -327,7 +380,7 @@ export class SubscriptionService {
         stripeCustomerId: customerId,
         OR: [
           { tierUpdatedAt: null },
-          { tierUpdatedAt: { lt: eventTime } },
+          { tierUpdatedAt: { lte: eventTime } },
         ],
       },
       data: {

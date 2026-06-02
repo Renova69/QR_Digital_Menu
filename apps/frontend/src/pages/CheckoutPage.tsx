@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { formatInlineDual, formatEuro, formatBgn } from "../lib/currency";
 import { Toggle } from "../components/ui/Toggle";
-import { hasTierFeature } from "../hooks/useFeature";
+import type { FeatureFlag } from "../hooks/useFeature";
 import { isHappyHourActive } from "../lib/happyHour";
 
 const MAX_ORDER_DISCOUNT_RATE = 0.15;
@@ -23,7 +23,10 @@ const CheckoutPage = () => {
   const location = useLocation();
   const restaurantId = location.state?.restaurantId;
   const tier = location.state?.tier as string | undefined;
-  const customersAuthEnabled = hasTierFeature(tier, 'customers:auth');
+  const features = Array.isArray(location.state?.features)
+    ? (location.state.features as FeatureFlag[])
+    : [];
+  const customersAuthEnabled = features.includes('customers:auth');
   const { t } = useTranslation();
 
   const [customerName, setCustomerName] = useState("");
@@ -74,11 +77,11 @@ const CheckoutPage = () => {
     getAvailableLoyaltyPoints() / effectiveRedeemRate;
 
   // Fix H-6 — this is an APPROXIMATE client-side preview only. The backend
-  // recalculates and caps the loyalty discount from DB prices; the value sent
-  // is additionally capped to the points the user actually holds.
+  // recalculates and caps the loyalty discount from DB prices and DB points.
+  // The frontend never sends a discount amount.
   // Fix H-10 — cart total comes from CartContext.getTotal, excluding
   // fully-redeemed entries by cartId (no duplicated local calculation).
-  const getDiscountPointsToRedeem = () => {
+  const getEstimatedDiscountPoints = () => {
     if (!usePoints) return 0;
     const availablePoints = getAvailableLoyaltyPoints();
     const maxDiscount = getTotal(redeemedCartIds) * MAX_ORDER_DISCOUNT_RATE;
@@ -87,8 +90,8 @@ const CheckoutPage = () => {
     return Math.min(computed, loyaltyPoints);
   };
 
-  const getPointsDiscount = () =>
-    getDiscountPointsToRedeem() / effectiveRedeemRate;
+  const getEstimatedPointsDiscount = () =>
+    getEstimatedDiscountPoints() / effectiveRedeemRate;
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -177,8 +180,8 @@ const CheckoutPage = () => {
 
     if (user) {
       orderData.customerId = user.id;
-      if (usePoints && loyaltyPoints > 0) {
-        orderData.redeemPoints = getDiscountPointsToRedeem();
+      if (usePoints) {
+        orderData.usePoints = true;
       }
     }
 
@@ -431,7 +434,7 @@ const CheckoutPage = () => {
                 <div className="flex justify-between font-bold text-lg text-green-600">
                   <span>{t('checkout.discountApplied')}</span>
                   <span>
-                    -{formatEuro(getPointsDiscount())}
+                    -{formatEuro(getEstimatedPointsDiscount())}
                   </span>
                 </div>
               )}
@@ -439,8 +442,8 @@ const CheckoutPage = () => {
               <div className="flex justify-between font-extrabold text-3xl text-foreground">
                 <span>{t('checkout.finalTotal')}</span>
                 <div className="text-right">
-                  <div>{formatEuro(getTotal(redeemedCartIds) - getPointsDiscount())}</div>
-                  <span className="text-xs text-muted-foreground">{formatBgn(getTotal(redeemedCartIds) - getPointsDiscount())}</span>
+                  <div>{formatEuro(getTotal(redeemedCartIds) - getEstimatedPointsDiscount())}</div>
+                  <span className="text-xs text-muted-foreground">{formatBgn(getTotal(redeemedCartIds) - getEstimatedPointsDiscount())}</span>
                 </div>
               </div>
 
@@ -453,7 +456,7 @@ const CheckoutPage = () => {
               <p className="text-sm text-muted-foreground text-right font-medium">
                 {t('checkout.willEarn', {
                   pts: Math.floor(
-                    (getTotal(redeemedCartIds) - getPointsDiscount()) * exchangeRate * finalMultiplier
+                    (getTotal(redeemedCartIds) - getEstimatedPointsDiscount()) * exchangeRate * finalMultiplier
                   )
                 })}
                 {finalMultiplier > 1 && (

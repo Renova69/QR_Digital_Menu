@@ -21,8 +21,16 @@ const SettingsView = () => {
   const canLoyalty = useFeature("loyalty");
   const canPayments = useFeature("payments:stripe");
   const canBranding = useFeature("branding:custom");
-  const { tier, allowedStaffRoles } = useTier();
+  const { tier, allowedStaffRoles, isLoading } = useTier();
   const isFree = tier === "FREE";
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
     const tab = searchParams.get("settingsTab") as SettingsTab | null;

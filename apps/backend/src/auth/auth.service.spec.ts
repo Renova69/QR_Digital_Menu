@@ -6,6 +6,7 @@ import {
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
+import { FeatureService } from '../subscription/feature.service';
 
 jest.mock('bcryptjs', () => {
   const real = jest.requireActual('bcryptjs');
@@ -57,6 +58,9 @@ describe('AuthService', () => {
         updateMany: jest.fn().mockResolvedValue({}),
         findMany: jest.fn().mockResolvedValue([]),
       },
+      restaurant: {
+        findUnique: jest.fn(),
+      },
     };
     mockUsersService = {
       findByEmail: jest.fn(),
@@ -69,6 +73,7 @@ describe('AuthService', () => {
       mockUsersService as any,
       mockJwt as JwtService,
       mockPrisma,
+      new FeatureService(),
     );
   });
 
@@ -368,6 +373,24 @@ describe('AuthService', () => {
 
       process.env.NODE_ENV = prevEnv;
       if (prevKey !== undefined) process.env.RESEND_API_KEY = prevKey;
+    });
+
+    it('throws ForbiddenException when customer auth is requested for a suspended restaurant', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ id: 'rest1', tier: 'PROFESSIONAL', isActive: false });
+      await expect(service.sendOtp('user@example.com', undefined, 'rest1')).rejects.toThrow('This restaurant has been suspended');
+    });
+
+    it('throws ForbiddenException when customer auth is requested for a tier lacking customers:auth feature', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ id: 'rest1', tier: 'FREE', isActive: true });
+      await expect(service.sendOtp('user@example.com', undefined, 'rest1')).rejects.toThrow('Customer authentication is not available on this plan');
+    });
+
+    it('allows sendOtp when restaurant has the customer auth feature and is active', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ id: 'rest1', tier: 'PROFESSIONAL', isActive: true });
+      mockPrisma.verificationToken.findFirst.mockResolvedValue(null);
+      mockHash.mockResolvedValue('hashed-code');
+      const result = await service.sendOtp('user@example.com', undefined, 'rest1');
+      expect(result.success).toBe(true);
     });
   });
 

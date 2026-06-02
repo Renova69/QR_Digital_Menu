@@ -96,7 +96,8 @@ function getAllowedStaffRoles(tier: SubscriptionTier): string[] {
 }
 
 export interface SubscriptionInfo {
-  currentPeriodEnd: string;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
   status: string;
   interval: string | null;

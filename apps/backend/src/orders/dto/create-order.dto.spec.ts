@@ -56,19 +56,25 @@ describe('CreateOrderDto validation', () => {
     });
   });
 
-  describe('redeemPoints', () => {
-    it('rejects negative', () => {
-      const errors = validate({ ...basePayload, redeemPoints: -10 });
-      expect(constraintKeys(errors)).toContain('min');
+  describe('usePoints', () => {
+    it('accepts a boolean loyalty-discount intent', () => {
+      expect(validate({ ...basePayload, usePoints: true })).toHaveLength(0);
+      expect(validate({ ...basePayload, usePoints: false })).toHaveLength(0);
     });
 
-    it('rejects fractional', () => {
-      const errors = validate({ ...basePayload, redeemPoints: 12.5 });
-      expect(constraintKeys(errors)).toContain('isInt');
+    it('rejects non-boolean values', () => {
+      const errors = validate({ ...basePayload, usePoints: 1 });
+      expect(constraintKeys(errors)).toContain('isBoolean');
     });
 
-    it('accepts zero', () => {
-      expect(validate({ ...basePayload, redeemPoints: 0 })).toHaveLength(0);
+    it('strips legacy redeemPoints payloads from the DTO', () => {
+      const dto = plainToInstance(CreateOrderDto, {
+        ...basePayload,
+        redeemPoints: 500,
+      });
+
+      expect(validateSync(dto, { whitelist: true, forbidNonWhitelisted: false })).toHaveLength(0);
+      expect((dto as any).redeemPoints).toBeUndefined();
     });
   });
 
