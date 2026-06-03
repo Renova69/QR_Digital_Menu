@@ -12,7 +12,6 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
-  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -23,7 +22,6 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { StorageService } from '../storage/storage.service';
 import { DeviceEnrollmentService } from './device-enrollment.service';
 import { CreateDeviceEnrollmentDto } from './dto/create-device-enrollment.dto';
-import { Request as ExpressRequest } from 'express';
 import { FeatureGuard } from '../subscription/feature.guard';
 import { RequireFeature } from '../subscription/require-feature.decorator';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
@@ -121,12 +119,11 @@ export class RestaurantsController {
     @Body(new ValidationPipe({ whitelist: true }))
     _dto: CreateDeviceEnrollmentDto,
     @Request() req: any,
-    @Req() expressReq: ExpressRequest,
   ) {
-    const frontendBaseUrl =
-      expressReq.headers.origin ||
-      process.env.FRONTEND_URL ||
-      'http://localhost:3001';
+    // Build the enrollment URL from server-side config only. The request
+    // `Origin` header is attacker-controlled (any authenticated caller can set
+    // it to a phishing host), so it must never feed a QR/link target.
+    const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
 
     return this.deviceEnrollment.createEnrollment(
       id,

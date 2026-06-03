@@ -104,6 +104,7 @@ model Restaurant {
   tierUpdatedAt             DateTime?
   pastDueGraceExpiry        DateTime?
   forceTier                 SubscriptionTier?
+  forceTierExpiresAt        DateTime?
   isActive                  Boolean             @default(true)
   deletedAt                 DateTime?
   assistanceRequests        AssistanceRequest[]
@@ -122,6 +123,7 @@ model Restaurant {
 
   @@index([stripeCustomerId])
   @@index([pastDueGraceExpiry])
+  @@index([forceTierExpiresAt])
   @@map("restaurant")
 }
 

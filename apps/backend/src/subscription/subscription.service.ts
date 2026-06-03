@@ -19,7 +19,13 @@ function getTierFromPrice(priceMap: PriceMap, priceId: string): string {
 }
 
 const PAST_DUE_GRACE_MS = 7 * 24 * 60 * 60 * 1000; // 7-day grace window for past_due (C-1)
-const IMMEDIATE_DOWNGRADE_STATUSES = ['unpaid', 'canceled', 'paused', 'incomplete_expired'];
+const PROCESSED_SESSIONS_CAP = 10000; // in-memory confirm-session dedup bound
+const IMMEDIATE_DOWNGRADE_STATUSES = [
+  'unpaid',
+  'canceled',
+  'paused',
+  'incomplete_expired',
+];
 
 @Injectable()
 export class SubscriptionService {
@@ -175,10 +181,17 @@ export class SubscriptionService {
       },
     });
 
-    if (this.processedSessions.size > 10000) {
-      this.processedSessions.clear();
-    }
+    // Bounded FIFO eviction: drop the oldest id once over the cap instead of
+    // wiping the whole Set. A full clear() across an `await` boundary can lose
+    // ids added by interleaved calls, re-admitting a just-processed session.
+    // (The DB tierUpdatedAt `lte` guard keeps replays idempotent regardless —
+    // this Set is only a fast-path to skip redundant Stripe API calls.)
     this.processedSessions.add(sessionId);
+    while (this.processedSessions.size > PROCESSED_SESSIONS_CAP) {
+      const oldest = this.processedSessions.values().next().value;
+      if (oldest === undefined) break;
+      this.processedSessions.delete(oldest);
+    }
 
     this.logger.log(`Session confirmed: customer=${customerId} tier=${tier}`);
     return { tier };
@@ -234,7 +247,10 @@ export class SubscriptionService {
   }
 
   async handleWebhook(rawBody: Buffer, signature: string) {
-    const secret = process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET || '';
+    const secret =
+      this.configService.get<string>('STRIPE_SUBSCRIPTION_WEBHOOK_SECRET') ||
+      process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET ||
+      '';
     if (!secret) {
       this.logger.error('Webhook secret not configured');
       throw new BadRequestException('Webhook secret not configured');
@@ -420,6 +436,33 @@ export class SubscriptionService {
     if (count > 0) {
       this.logger.warn(
         `enforceGraceExpiry: downgraded ${count} restaurant(s) to FREE — past_due grace period expired`,
+      );
+    }
+  }
+
+  /**
+   * Auto-expire super-admin tier overrides (M-2). A `forceTier` with a
+   * `forceTierExpiresAt` in the past is cleared so the restaurant falls back to
+   * its real (Stripe-derived) tier. Prevents a forgotten override from granting
+   * — or denying — a tier indefinitely. Runs hourly alongside grace enforcement.
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async enforceForceTierExpiry(): Promise<void> {
+    const now = new Date();
+    const { count } = await this.prisma.restaurant.updateMany({
+      where: {
+        forceTier: { not: null },
+        forceTierExpiresAt: { lt: now, not: null },
+      },
+      data: {
+        forceTier: null,
+        forceTierExpiresAt: null,
+      },
+    });
+
+    if (count > 0) {
+      this.logger.warn(
+        `enforceForceTierExpiry: cleared ${count} expired tier override(s)`,
       );
     }
   }

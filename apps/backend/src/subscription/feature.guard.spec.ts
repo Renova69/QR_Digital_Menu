@@ -172,13 +172,80 @@ describe('FeatureGuard', () => {
   });
 
   it('throws ForbiddenException when caller-owned restaurant (no target) is suspended', async () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([FeatureFlag.POS]);
-    prismaMock.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1', role: 'OWNER' });
+    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
+      FeatureFlag.POS,
+    ]);
+    prismaMock.user.findUnique.mockResolvedValue({
+      restaurantId: 'rest-1',
+      role: 'OWNER',
+    });
     prismaMock.restaurant.findUnique.mockResolvedValue({
       tier: 'ENTERPRISE',
       forceTier: null,
       isActive: false,
     });
-    await expect(guard.canActivate(makeCtx())).rejects.toThrow(ForbiddenException);
+    await expect(guard.canActivate(makeCtx())).rejects.toThrow(
+      ForbiddenException,
+    );
+  });
+
+  // ── SUPER_ADMIN bypass (L-1) ─────────────────────────────────────────────
+
+  it('allows SUPER_ADMIN regardless of tier, without any restaurant lookup', async () => {
+    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
+      FeatureFlag.POS,
+    ]);
+    prismaMock.user.findUnique.mockResolvedValue({
+      restaurantId: null,
+      role: 'SUPER_ADMIN',
+    });
+
+    expect(await guard.canActivate(makeCtx())).toBe(true);
+    // Bypass must short-circuit before resolving any restaurant.
+    expect(prismaMock.restaurant.findUnique).not.toHaveBeenCalled();
+    expect(prismaMock.restaurant.findFirst).not.toHaveBeenCalled();
+  });
+
+  // ── userId resolution from request.user.sub (L-4) ────────────────────────
+
+  it('resolves userId from request.user.sub when id is absent', async () => {
+    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
+      FeatureFlag.PAYMENTS_STRIPE,
+    ]);
+    prismaMock.user.findUnique.mockResolvedValue({
+      restaurantId: null,
+      role: 'OWNER',
+    });
+    prismaMock.restaurant.findFirst.mockResolvedValue({
+      ownerId: 'u-sub',
+      tier: 'PROFESSIONAL',
+      forceTier: null,
+      isActive: true,
+    });
+
+    const ctx = {
+      getHandler: () => ({}),
+      getClass: () => ({}),
+      switchToHttp: () => ({ getRequest: () => ({ user: { sub: 'u-sub' } }) }),
+    } as any;
+
+    expect(await guard.canActivate(ctx)).toBe(true);
+    expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
+      where: { id: 'u-sub' },
+      select: { restaurantId: true, role: true },
+    });
+  });
+
+  it('throws AUTH_REQUIRED when neither user.id nor user.sub is present', async () => {
+    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
+      FeatureFlag.POS,
+    ]);
+    const ctx = {
+      getHandler: () => ({}),
+      getClass: () => ({}),
+      switchToHttp: () => ({ getRequest: () => ({ user: {} }) }),
+    } as any;
+
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 });

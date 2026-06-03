@@ -158,7 +158,47 @@ describe('SuperAdminService', () => {
     it('throws NotFoundException for missing restaurant', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValueOnce(null);
 
-      await expect(service.updateTier('nonexistent', 'FREE', ACTOR_ID)).rejects.toThrow();
+      await expect(
+        service.updateTier('nonexistent', 'FREE', ACTOR_ID),
+      ).rejects.toThrow();
+    });
+
+    it('sets forceTierExpiresAt when expiry days provided (M-2)', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
+        id: '1',
+        tier: 'FREE',
+        forceTier: null,
+      });
+      mockPrisma.$transaction.mockResolvedValueOnce([{}, {}]);
+
+      const before = Date.now();
+      await service.updateTier('1', 'PROFESSIONAL', ACTOR_ID, 30);
+      const after = Date.now();
+
+      // First op in the transaction is restaurant.update — assert it carries an
+      // expiry ~30 days out.
+      const updateArg = mockPrisma.restaurant.update.mock.calls[0][0];
+      const expiry: Date = updateArg.data.forceTierExpiresAt;
+      expect(expiry).toBeInstanceOf(Date);
+      const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+      expect(expiry.getTime()).toBeGreaterThanOrEqual(before + THIRTY_DAYS);
+      expect(expiry.getTime()).toBeLessThanOrEqual(after + THIRTY_DAYS);
+    });
+
+    it('clears forceTierExpiresAt when override is cleared (M-2)', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
+        id: '1',
+        tier: 'FREE',
+        forceTier: 'PROFESSIONAL',
+      });
+      mockPrisma.$transaction.mockResolvedValueOnce([{}, {}]);
+
+      // forceTier=null even with days supplied → no expiry (nothing to expire).
+      await service.updateTier('1', null, ACTOR_ID, 30);
+
+      const updateArg = mockPrisma.restaurant.update.mock.calls[0][0];
+      expect(updateArg.data.forceTier).toBeNull();
+      expect(updateArg.data.forceTierExpiresAt).toBeNull();
     });
   });
 

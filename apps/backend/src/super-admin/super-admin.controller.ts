@@ -65,7 +65,12 @@ export class SuperAdminController {
     @Body() dto: UpdateTenantTierDto,
     @Request() req: any,
   ) {
-    return this.service.updateTier(id, dto.forceTier ?? null, req.user.id);
+    return this.service.updateTier(
+      id,
+      dto.forceTier ?? null,
+      req.user.id,
+      dto.forceTierExpiresInDays ?? null,
+    );
   }
 
   @ApiOperation({ summary: 'Suspend or reactivate a tenant' })

@@ -3,39 +3,40 @@ import { FeatureFlag } from './feature-flag.enum';
 
 type Tier = 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
 
+// Each paid tier is strictly additive over the one below it. Spreading the
+// lower tier (instead of re-listing every flag) means a flag added to FREE
+// automatically propagates upward — it can never silently go missing from a
+// higher tier, which was the M-1 maintenance hazard.
+const FREE_FEATURES: FeatureFlag[] = [
+  FeatureFlag.MENU_VIEW,
+  FeatureFlag.MENU_EDIT,
+  FeatureFlag.MENU_IMPORT,
+  FeatureFlag.QR_MANAGE,
+];
+
+const STARTER_FEATURES: FeatureFlag[] = [
+  ...FREE_FEATURES,
+  FeatureFlag.ORDERS_RECEIVE,
+  FeatureFlag.ORDERS_CALL_WAITER,
+  FeatureFlag.ANALYTICS_BASIC,
+];
+
+const PROFESSIONAL_FEATURES: FeatureFlag[] = [
+  ...STARTER_FEATURES,
+  FeatureFlag.ANALYTICS_FULL,
+  FeatureFlag.PAYMENTS_STRIPE,
+  FeatureFlag.LANGUAGES_MULTI,
+  FeatureFlag.BRANDING_CUSTOM,
+  FeatureFlag.LOYALTY,
+  FeatureFlag.CUSTOMERS_AUTH,
+  FeatureFlag.UPSELLING,
+  FeatureFlag.DAYPARTING,
+];
+
 const TIER_FEATURES: Record<Tier, FeatureFlag[]> = {
-  FREE: [
-    FeatureFlag.MENU_VIEW,
-    FeatureFlag.MENU_EDIT,
-    FeatureFlag.MENU_IMPORT,
-    FeatureFlag.QR_MANAGE,
-  ],
-  STARTER: [
-    FeatureFlag.MENU_VIEW,
-    FeatureFlag.MENU_EDIT,
-    FeatureFlag.MENU_IMPORT,
-    FeatureFlag.QR_MANAGE,
-    FeatureFlag.ORDERS_RECEIVE,
-    FeatureFlag.ORDERS_CALL_WAITER,
-    FeatureFlag.ANALYTICS_BASIC,
-  ],
-  PROFESSIONAL: [
-    FeatureFlag.MENU_VIEW,
-    FeatureFlag.MENU_EDIT,
-    FeatureFlag.MENU_IMPORT,
-    FeatureFlag.QR_MANAGE,
-    FeatureFlag.ORDERS_RECEIVE,
-    FeatureFlag.ORDERS_CALL_WAITER,
-    FeatureFlag.ANALYTICS_BASIC,
-    FeatureFlag.ANALYTICS_FULL,
-    FeatureFlag.PAYMENTS_STRIPE,
-    FeatureFlag.LANGUAGES_MULTI,
-    FeatureFlag.BRANDING_CUSTOM,
-    FeatureFlag.LOYALTY,
-    FeatureFlag.CUSTOMERS_AUTH,
-    FeatureFlag.UPSELLING,
-    FeatureFlag.DAYPARTING,
-  ],
+  FREE: FREE_FEATURES,
+  STARTER: STARTER_FEATURES,
+  PROFESSIONAL: PROFESSIONAL_FEATURES,
   ENTERPRISE: Object.values(FeatureFlag),
 };
 

@@ -321,22 +321,50 @@ export class SuperAdminService {
     };
   }
 
-  async updateTier(id: string, forceTier: string | null, actorUserId: string) {
+  async updateTier(
+    id: string,
+    forceTier: string | null,
+    actorUserId: string,
+    forceTierExpiresInDays?: number | null,
+  ) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id },
       select: { id: true, tier: true, forceTier: true },
     });
     if (!restaurant) {
-      throw new NotFoundException({ code: 'TENANT_NOT_FOUND', message: 'Restaurant not found' });
+      throw new NotFoundException({
+        code: 'TENANT_NOT_FOUND',
+        message: 'Restaurant not found',
+      });
     }
 
-    if (restaurant.forceTier === forceTier) return restaurant;
+    // Expiry only applies while an override is active (M-2). Clearing the
+    // override (forceTier=null) always nulls the expiry too.
+    const forceTierExpiresAt =
+      forceTier && forceTierExpiresInDays
+        ? new Date(Date.now() + forceTierExpiresInDays * 24 * 60 * 60 * 1000)
+        : null;
+
+    // Skip the write only when nothing changes — same tier AND no new expiry
+    // window requested (a fresh expiry on the same tier is still a real change).
+    if (restaurant.forceTier === forceTier && !forceTierExpiresAt) {
+      return restaurant;
+    }
 
     const results = await this.prisma.$transaction([
       this.prisma.restaurant.update({
         where: { id },
-        data: { forceTier: forceTier as SubscriptionTier | null },
-        select: { id: true, name: true, tier: true, forceTier: true },
+        data: {
+          forceTier: forceTier as SubscriptionTier | null,
+          forceTierExpiresAt,
+        },
+        select: {
+          id: true,
+          name: true,
+          tier: true,
+          forceTier: true,
+          forceTierExpiresAt: true,
+        },
       }),
       this.prisma.adminAuditLog.create({
         data: {
@@ -348,6 +376,7 @@ export class SuperAdminService {
             previousForceTier: restaurant.forceTier ?? null,
             newForceTier: forceTier,
             stripeTier: restaurant.tier,
+            forceTierExpiresAt: forceTierExpiresAt?.toISOString() ?? null,
           },
         },
       }),

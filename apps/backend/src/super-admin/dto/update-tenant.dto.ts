@@ -1,7 +1,23 @@
-import { IsIn, IsOptional, IsBoolean, IsString, MinLength, MaxLength, Matches } from 'class-validator';
+import {
+  IsIn,
+  IsOptional,
+  IsBoolean,
+  IsString,
+  IsInt,
+  Min,
+  Max,
+  MinLength,
+  MaxLength,
+  Matches,
+} from 'class-validator';
 import { SubscriptionTier } from '@prisma/client';
 
-const TIERS: SubscriptionTier[] = ['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'];
+const TIERS: SubscriptionTier[] = [
+  'FREE',
+  'STARTER',
+  'PROFESSIONAL',
+  'ENTERPRISE',
+];
 
 export class SuperAdminConfirmationDto {
   @IsString()
@@ -13,6 +29,16 @@ export class UpdateTenantTierDto {
   @IsOptional()
   @IsIn(TIERS, { message: 'forceTier must be a valid SubscriptionTier' })
   forceTier?: SubscriptionTier | null;
+
+  // Optional auto-expiry for the override (M-2). When set with a forceTier, the
+  // override is cleared automatically after this many days by the hourly cron,
+  // so a forgotten override can't grant (or deny) a tier forever. Omit for a
+  // permanent override (legacy behaviour).
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(365)
+  forceTierExpiresInDays?: number | null;
 
   @IsString()
   @Matches(/^CONFIRM$/, { message: 'confirmation must be exactly CONFIRM' })
