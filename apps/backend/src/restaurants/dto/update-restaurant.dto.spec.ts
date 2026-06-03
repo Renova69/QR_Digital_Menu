@@ -2,6 +2,10 @@ import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import { UpdateRestaurantDto } from './update-restaurant.dto';
+import {
+  MAX_TARGET_LANGUAGES,
+  SUPPORTED_TARGET_LANGUAGE_CODES,
+} from '../restaurant-languages';
 
 /** Phase 1 — restaurant branding/schedule input validation (#14). */
 function validate(payload: Record<string, unknown>) {
@@ -102,6 +106,41 @@ describe('UpdateRestaurantDto validation', () => {
     it('rejects an unknown mode', () => {
       expect(keysFor({ trendingMode: 'SOMETIMES' }, 'trendingMode')).toContain(
         'isIn',
+      );
+    });
+  });
+
+  describe('targetLanguages', () => {
+    it('accepts supported target language codes', () => {
+      expect(validate({ targetLanguages: ['en', 'bg', 'ro'] })).toHaveLength(0);
+    });
+
+    it('rejects unsupported target language codes', () => {
+      expect(keysFor({ targetLanguages: ['xx'] }, 'targetLanguages')).toContain(
+        'isIn',
+      );
+    });
+
+    it('rejects duplicate target language codes', () => {
+      expect(
+        keysFor({ targetLanguages: ['en', 'en'] }, 'targetLanguages'),
+      ).toContain('arrayUnique');
+    });
+
+    it('rejects more than the supported language count', () => {
+      expect(
+        keysFor(
+          {
+            targetLanguages: [
+              ...SUPPORTED_TARGET_LANGUAGE_CODES,
+              SUPPORTED_TARGET_LANGUAGE_CODES[0],
+            ],
+          },
+          'targetLanguages',
+        ),
+      ).toContain('arrayMaxSize');
+      expect(SUPPORTED_TARGET_LANGUAGE_CODES).toHaveLength(
+        MAX_TARGET_LANGUAGES,
       );
     });
   });

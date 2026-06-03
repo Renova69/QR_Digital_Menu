@@ -327,6 +327,7 @@ describe('MenuCrudService', () => {
 
   describe('getCategoryItems', () => {
     it('throws NotFoundException when category not found', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
       mockPrisma.menuCategory.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -335,6 +336,7 @@ describe('MenuCrudService', () => {
     });
 
     it('returns items for existing category', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
       mockPrisma.menuCategory.findFirst.mockResolvedValue(makeCategory());
       mockPrisma.menuItem.findMany.mockResolvedValue([makeItem()]);
 
@@ -342,6 +344,46 @@ describe('MenuCrudService', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe('item-1');
+    });
+
+    it('throws ForbiddenException for a hidden category', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.menuCategory.findFirst.mockResolvedValue(
+        makeCategory({ availabilityType: 'HIDDEN' }),
+      );
+
+      await expect(service.getCategoryItems('rest-1', 'cat-1')).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(mockPrisma.menuItem.findMany).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException for a scheduled category outside its availability window', async () => {
+      const spy = jest
+        .spyOn(DateTime, 'now')
+        .mockReturnValue(DateTime.fromISO('2026-01-14T18:00:00.000Z') as any);
+
+      try {
+        mockPrisma.restaurant.findUnique.mockResolvedValue({
+          ...BASE_RESTAURANT,
+          tier: 'PROFESSIONAL',
+        });
+        mockPrisma.menuCategory.findFirst.mockResolvedValue(
+          makeCategory({
+            availabilityType: 'SCHEDULED',
+            daysOfWeek: [],
+            startTime: '09:00',
+            endTime: '17:00',
+          }),
+        );
+
+        await expect(
+          service.getCategoryItems('rest-1', 'cat-1'),
+        ).rejects.toThrow(ForbiddenException);
+        expect(mockPrisma.menuItem.findMany).not.toHaveBeenCalled();
+      } finally {
+        spy.mockRestore();
+      }
     });
   });
 
@@ -410,10 +452,26 @@ describe('MenuCrudService', () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         trendingMode: 'AUTO',
         id: 'rest-1',
+        tier: 'PROFESSIONAL',
       });
       mockPrisma.orderItem.groupBy.mockResolvedValue([]);
 
       expect(await service.getTrendingItems('rest-1')).toEqual([]);
+    });
+
+    it('uses forceTier when deciding if trending is available', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        trendingMode: 'MANUAL',
+        id: 'rest-1',
+        tier: 'FREE',
+        forceTier: 'PROFESSIONAL',
+      });
+      mockPrisma.menuItem.findMany.mockResolvedValue([makeItem()]);
+
+      const result = await service.getTrendingItems('rest-1');
+
+      expect(mockPrisma.menuItem.findMany).toHaveBeenCalled();
+      expect(result).toHaveLength(1);
     });
   });
 

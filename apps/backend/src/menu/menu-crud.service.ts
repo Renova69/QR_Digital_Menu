@@ -395,8 +395,9 @@ export class MenuCrudService {
       daysOfWeek: number[];
     },
   >(categories: T[], timezone: string, tier?: string): T[] {
-    const daypartingEnabled = ['PROFESSIONAL', 'ENTERPRISE'].includes(
+    const daypartingEnabled = this.featureService.hasFeature(
       tier ?? 'FREE',
+      FeatureFlag.DAYPARTING,
     );
     const now = DateTime.now().setZone(timezone);
     const currentTimeStr = now.toFormat('HH:mm');
@@ -439,13 +440,17 @@ export class MenuCrudService {
       select: { trendingMode: true, id: true, tier: true, forceTier: true },
     });
 
-    const effectiveTier =
-      (restaurant as any)?.forceTier ?? (restaurant as any)?.tier ?? 'FREE';
-    if (!['PROFESSIONAL', 'ENTERPRISE'].includes(effectiveTier)) {
+    if (
+      !restaurant ||
+      !this.featureService.restaurantHasFeature(
+        restaurant,
+        FeatureFlag.UPSELLING,
+      )
+    ) {
       return [];
     }
 
-    if (!restaurant || restaurant.trendingMode === 'OFF') {
+    if (restaurant.trendingMode === 'OFF') {
       return [];
     }
 

@@ -3,6 +3,8 @@ import { CreateRestaurantDto } from './create-restaurant.dto';
 import {
   IsOptional,
   IsArray,
+  ArrayMaxSize,
+  ArrayUnique,
   IsBoolean,
   IsNumber,
   IsInt,
@@ -21,6 +23,10 @@ import {
   HAPPY_HOUR_WEEKDAY_MIN,
   HAPPY_HOUR_WEEKDAY_MAX,
 } from '../../common/weekday';
+import {
+  MAX_TARGET_LANGUAGES,
+  SUPPORTED_TARGET_LANGUAGE_CODES,
+} from '../restaurant-languages';
 
 export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @IsString()
@@ -32,7 +38,10 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   contactInfo?: string;
 
   @IsArray()
+  @ArrayMaxSize(MAX_TARGET_LANGUAGES)
+  @ArrayUnique()
   @IsString({ each: true })
+  @IsIn([...SUPPORTED_TARGET_LANGUAGE_CODES], { each: true })
   @IsOptional()
   targetLanguages?: string[];
 
