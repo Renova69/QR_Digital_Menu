@@ -3,6 +3,14 @@
     "mtime": 1779086612.2168102,
     "hash": "493815beafc600f794989da48f002166"
   },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\patch_i18n.py": {
+    "mtime": 1780512375.190306,
+    "hash": "73154483e29345a31a4fa7b86fdcc9c2"
+  },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\patch_jsx.py": {
+    "mtime": 1780512426.9476428,
+    "hash": "0b0e5b927ae83ce789fae824bed2efb2"
+  },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\_graphify_dirs.py": {
     "mtime": 1778602373.239319,
     "hash": "4e4682fb9dc2dd4d72567979b6f9111b"
@@ -1416,8 +1424,8 @@
     "hash": "76cd6113be41abd5f3430217571c5e93"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\HomePage.tsx": {
-    "mtime": 1780510573.3200626,
-    "hash": "2f4b75a721b606e10f2501b13195bb4b"
+    "mtime": 1780513359.071526,
+    "hash": "af173a938fe9a58420a84ede28111f44"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\LoginPage.tsx": {
     "mtime": 1779620421.5772111,

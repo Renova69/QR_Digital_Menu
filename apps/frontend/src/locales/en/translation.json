@@ -999,9 +999,9 @@
     "mostPopular": "Most Popular",
     "getStarted": "Get Started",
     "contactSales": "Contact Sales",
-    "bottomCtaTitle": "Ready to modernize your",
-    "bottomCtaWordAccent": "restaurant",
-    "bottomCtaSubtitle": "Join hundreds of restaurants already using QR Menu to serve faster, earn more, and delight customers.",
+    "bottomCtaTitle": "Make the first scan feel like your best service moment.",
+    "bottomCtaWordAccent": "",
+    "bottomCtaSubtitle": "Launch a stunning QR menu today, then grow into ordering, payments, loyalty, POS, kitchen display, and multi-location operations when the restaurant is ready.",
     "bottomCtaButton": "Get started free",
     "bottomCtaLogin": "Login to dashboard",
     "footerRights": "QR Menu. All rights reserved.",
@@ -1135,7 +1135,331 @@
         "question": "Can I try it before subscribing?",
         "answer": "Absolutely. Start with our free plan — it has no time limit and no credit card required. Build your digital menu, generate QR codes, and manage tables at no cost. When you are ready for advanced features like Stripe payments, loyalty programs, analytics, POS, and Kitchen Display, upgrade to a paid plan. You can upgrade or downgrade anytime."
       }
-    }
+    },
+    "announcementBar": {
+      "text": "Built for restaurants that want the menu, orders, payments, and service flow in one place.",
+      "cta": "Launch your QR menu"
+    },
+    "trustBar": {
+      "headline": "Trusted by modern restaurants, cafes, bars, hotels, and food halls"
+    },
+    "advantages": {
+      "badge": "Why QR Menu",
+      "title": "Four reasons restaurants choose us.",
+      "subtitle": "From day one to your busiest Friday — QR Menu handles the complexity so your team handles the guests.",
+      "items": {
+        "launchMenu": {
+          "label": "Launch a menu in minutes",
+          "text": "Import items via OCR or XLSX, organize categories with drag-and-drop, generate QR codes, and keep everything editable in real time."
+        },
+        "reduceFriction": {
+          "label": "Reduce ordering friction",
+          "text": "Guests order and pay from the table without waiting for the next waiter touch. No app download, no sign-up wall."
+        },
+        "knowGuests": {
+          "label": "Know what guests need",
+          "text": "Collect feedback, call-waiter requests, and customer signals in real time — before problems become complaints."
+        },
+        "moveFaster": {
+          "label": "Move faster every shift",
+          "text": "Live kitchen display, smart analytics, role-based staff tools, and zone-filtered POS keep teams aligned and efficient."
+        }
+      },
+      "viewAllFeatures": "View all features"
+    },
+    "featureSuite": {
+      "qrMenus": {
+        "title": "QR Code Menus",
+        "text": "Customers scan, browse, filter by allergens, and order from a polished menu that works beautifully on every phone — no app download required."
+      },
+      "onlineOrdering": {
+        "title": "Online Ordering & Checkout",
+        "text": "Turn menu views into orders with table context, persistent carts, option variations, special requests, and server-validated pricing."
+      },
+      "stripePayments": {
+        "title": "Stripe Connect Payments",
+        "text": "End-to-end pay-at-table with Stripe Connect. Tips, platform fees, real-time payment notifications, and full payment history."
+      },
+      "kitchenDisplay": {
+        "title": "Kitchen Display System",
+        "text": "Real-time kanban board for kitchen staff. Elapsed timers, urgency flags at 15 min, audio alerts, and a dark-only UI optimized for kitchen glare."
+      },
+      "waiterPos": {
+        "title": "Waiter POS",
+        "text": "Full-viewport mobile POS for tableside ordering. Seat assignment, item notes, split bill, QR bill, and complete isolation from customer carts."
+      },
+      "liveTable": {
+        "title": "Live Table Management",
+        "text": "Color-coded real-time table grid with zone/section grouping. Occupied, paid, empty status — updated instantly via WebSocket."
+      },
+      "loyaltyVip": {
+        "title": "Loyalty & VIP Tiers",
+        "text": "FIFO point ledger with configurable earn/redeem rates, timezone-aware happy hour multipliers, and Bronze/Silver/Gold VIP tiers."
+      },
+      "analytics": {
+        "title": "Analytics & Reporting",
+        "text": "Revenue trends, top dishes, peak hours, category breakdown, table performance, and customer feedback — exportable as CSV or XLSX."
+      },
+      "multiLanguage": {
+        "title": "Multi-Language Menus",
+        "text": "Platform-managed DeepL auto-translation with lazy caching. Serve locals and tourists with EN/BG/RO menus — no API key needed from owners."
+      },
+      "branding": {
+        "title": "Custom Branding",
+        "text": "Match the restaurant identity with custom colors, fonts, logo, dark mode, social links, and a branded public menu footer."
+      },
+      "staffManagement": {
+        "title": "Staff & Role Management",
+        "text": "RBAC with Owner, Manager, Waiter, Kitchen roles. Staff PINs, device enrollment, order attribution, and tier-aware role limits."
+      },
+      "menuImportExport": {
+        "title": "Menu Import/Export",
+        "text": "Import menus from OCR JSON or XLSX. Export as JSON, CSV, or XLSX for backup, migration, or bulk editing in Excel/Google Sheets."
+      },
+      "customerAccounts": {
+        "title": "Customer Accounts",
+        "text": "Frictionless customer login via email OTP or Google OAuth. Loyalty profile, order history, point balance, and VIP tier progress."
+      },
+      "smartUpselling": {
+        "title": "Smart Upselling",
+        "text": "Drink upsell suggestions at checkout, perfect pairing modals on add-to-cart, and trending carousel showing top dishes automatically."
+      },
+      "feedbackReviews": {
+        "title": "Feedback & Reviews",
+        "text": "Post-order star rating and comments. Positive reviews redirect to Google Reviews. Low ratings stay private for the owner to review."
+      },
+      "security": {
+        "title": "Security & Compliance",
+        "text": "GDPR module, CSRF protection, httpOnly JWT cookies, admin audit trail, brute-force lockout, rate limiting, and TypeScript strict mode."
+      }
+    },
+    "testimonials": {
+      "badge": "What restaurants say",
+      "title": "Real results from real restaurants.",
+      "subtitle": "From family-run cafes to multi-location brands — here’s what operators say after switching to QR Menu.",
+      "stats": {
+        "restaurants": "Restaurants",
+        "avgRating": "Avg. rating",
+        "avgOrderValue": "Avg. order value",
+        "avgSetupTime": "Avg. setup time"
+      },
+      "roles": {
+        "owner": "Owner",
+        "operationsManager": "Operations Manager",
+        "generalManager": "General Manager",
+        "restaurantManager": "Restaurant Manager",
+        "coOwner": "Co-owner"
+      },
+      "items": {
+        "t1": "We went from printed menus to live QR ordering in a single afternoon. Our Friday rush went from chaotic to smooth — the kitchen display alone paid for the subscription.",
+        "t2": "The loyalty program brought back customers I thought we’d lost. Points, VIP tiers, happy hour multipliers — it’s the kind of system we used to only see at big chains.",
+        "t3": "Multi-language menus with auto-translation was a game changer. Tourist traffic is up 30% since we stopped handing out confusing printed sheets.",
+        "t4": "Pay-at-table cut our checkout time by half. Customers love not flagging down a server, and we’re turning tables 15 minutes faster every weekend.",
+        "t5": "Analytics finally gave us data we can act on. We found our pasta dishes were highest-margin but lowest-promoted — fixed that and revenue went up within a month.",
+        "t6": "Setup was genuinely fast. Imported our PDF menu via OCR, organized categories, generated QR codes — we were live before dinner service the same day."
+      }
+    },
+    "opsCenter": {
+      "badge": "Operations command center",
+      "title": "One dashboard for menu health, orders, payments, loyalty, and staff.",
+      "body": "Managers see what is selling, what needs attention, how tables are moving, and where revenue is coming from — without switching systems.",
+      "checklist": {
+        "tableStatus": "Live table status with zones",
+        "orderHistory": "Order and payment history",
+        "topDishes": "Top dishes and demand trends",
+        "retention": "Customer retention signals",
+        "kitchenQueue": "Kitchen queue health",
+        "staffAttribution": "Staff attribution tracking"
+      },
+      "stats": {
+        "liveOrders": "Live orders",
+        "tablesActive": "Tables active",
+        "payments": "Payments",
+        "today": "today",
+        "preparing": "preparing",
+        "needService": "need service"
+      },
+      "kitchen": {
+        "title": "Kitchen queue",
+        "status": "Healthy",
+        "preparing": "Preparing",
+        "ready": "Ready",
+        "new": "New",
+        "items": "items",
+        "takeaway": "Takeaway"
+      }
+    },
+    "pricingSection": {
+      "badge": "All 4 tiers",
+      "title": "Start free, then grow into the tools your restaurant actually needs.",
+      "subtitle": "Clear plans for simple menus, ordering, revenue growth, and full restaurant operations. Save 15% with annual billing.",
+      "plans": {
+        "free": {
+          "name": "Free",
+          "period": "forever",
+          "description": "Start with a clean digital menu, QR codes, OCR import, and XLSX export — completely free.",
+          "cta": "Start free",
+          "b1": "Digital menu editor",
+          "b2": "QR code management",
+          "b3": "OCR & XLSX menu import",
+          "b4": "Menu export (JSON/CSV/XLSX)",
+          "b5": "1 staff member"
+        },
+        "starter": {
+          "name": "Starter",
+          "period": "per month",
+          "description": "Add online ordering and basic analytics for a small restaurant team.",
+          "cta": "Choose Starter",
+          "b1": "Everything in Free",
+          "b2": "Online ordering",
+          "b3": "Basic analytics & summary",
+          "b4": "Order status workflow",
+          "b5": "1 staff member"
+        },
+        "professional": {
+          "name": "Professional",
+          "period": "per month",
+          "description": "The strongest package for restaurants ready to grow revenue and customer retention.",
+          "badge": "Most popular",
+          "cta": "Choose Professional",
+          "b1": "Stripe pay-at-table",
+          "b2": "Full analytics & XLSX export",
+          "b3": "Loyalty & VIP tiers",
+          "b4": "Multi-language menus (DeepL)",
+          "b5": "Custom branding & themes",
+          "b6": "Customer accounts",
+          "b7": "Smart upselling & pairings",
+          "b8": "Call waiter & feedback",
+          "b9": "Up to 5 staff members"
+        },
+        "enterprise": {
+          "name": "Enterprise",
+          "period": "per month",
+          "description": "Advanced operations for multi-location brands, large teams, and full kitchen workflows.",
+          "cta": "Choose Enterprise",
+          "b1": "Everything in Professional",
+          "b2": "POS & kitchen display (KDS)",
+          "b3": "Table zones & sections",
+          "b4": "Staff attribution & itemized bills",
+          "b5": "Multi-location support",
+          "b6": "Thermal printer support",
+          "b7": "Advanced roles (RBAC)",
+          "b8": "Super-admin ops panel",
+          "b9": "Priority support",
+          "b10": "Unlimited staff"
+        }
+      }
+    },
+    "comparisonTable": {
+      "featureHeader": "Feature",
+      "rows": {
+        "digitalMenuBuilder": "Digital menu builder",
+        "qrCodeManagement": "QR code management",
+        "ocrMenuImport": "OCR / XLSX menu import",
+        "menuExport": "Menu export (JSON/CSV/XLSX)",
+        "onlineOrdering": "Online ordering",
+        "basicAnalytics": "Basic analytics & summary",
+        "stripePayments": "Stripe pay-at-table",
+        "callWaiter": "Call waiter button",
+        "multiLanguageMenus": "Multi-language menus (DeepL)",
+        "customBranding": "Custom branding & themes",
+        "loyaltyProgram": "Loyalty program & VIP tiers",
+        "customerAccounts": "Customer accounts & profiles",
+        "advancedAnalytics": "Advanced analytics & XLSX export",
+        "smartUpselling": "Smart upselling & pairings",
+        "feedbackReviews": "Feedback & Google Reviews",
+        "posKds": "POS & kitchen display (KDS)",
+        "tableZones": "Table zones & sections",
+        "staffAttribution": "Staff attribution & itemized bills",
+        "staffSeats": "Staff seats",
+        "multiLocation": "Multi-location support",
+        "prioritySupport": "Priority support",
+        "superAdmin": "Super-admin ops panel"
+      },
+      "badge": "Plan comparison",
+      "title": "Compare what each tier unlocks."
+    },
+    "homeFaq": {
+      "items": {
+        "q1": {
+          "question": "Can I use QR Menu without taking online payments?",
+          "answer": "Yes. You can start with the digital menu and QR code workflow, then add ordering, payments, loyalty, POS, or kitchen tools when the restaurant is ready. Each feature unlocks at the right tier."
+        },
+        "q2": {
+          "question": "Do guests need to download an app?",
+          "answer": "No. Guests open the menu from a QR scan in their phone browser — no app store, no sign-up wall. The experience is fast and familiar on both iPhone and Android."
+        },
+        "q3": {
+          "question": "Which plan is best for a growing restaurant?",
+          "answer": "Professional is the best fit for most restaurants because it includes payments, full analytics, loyalty programs, multi-language menus, custom branding, and up to 5 staff members."
+        },
+        "q4": {
+          "question": "Can I upgrade or downgrade later?",
+          "answer": "Yes. Plans are built to let restaurants start small and unlock more tools as the team grows. You can upgrade or downgrade anytime through the Stripe customer portal."
+        },
+        "q5": {
+          "question": "Does the platform support kitchen and staff workflows?",
+          "answer": "Yes. Enterprise includes a full Kitchen Display System (KDS), Waiter POS, table zones, staff attribution, itemized bills, multi-location support, and priority service features."
+        },
+        "q6": {
+          "question": "How does the loyalty program work?",
+          "answer": "Customers earn points on every order using a FIFO ledger system. Points can be redeemed for cash discounts or free items. The system supports VIP tiers (Bronze/Silver/Gold), happy hour multipliers, signup bonuses, and automated expiry reminders."
+        },
+        "q7": {
+          "question": "What languages are supported for menus?",
+          "answer": "The platform auto-translates menus into English, Bulgarian, and Romanian using DeepL. The restaurant owner never needs to supply an API key — translation is platform-managed with intelligent caching."
+        }
+      }
+    },
+    "finalCta": {
+      "title": "Make the first scan feel like your best service moment.",
+      "subtitle": "Launch a stunning QR menu today, then grow into ordering, payments, loyalty, POS, kitchen display, and multi-location operations when the restaurant is ready.",
+      "startFreeTrial": "Start Free Trial",
+      "viewPricing": "View Pricing"
+    },
+    "footer": {
+      "tagline": "The all-in-one digital restaurant platform. Menus, ordering, payments, loyalty, analytics, staff tools, POS, and kitchen display — all from a QR scan.",
+      "madeWith": "Made for restaurants, with care.",
+      "product": "Product",
+      "company": "Company",
+      "legal": "Legal",
+      "links": {
+        "features": "Features",
+        "pricing": "Pricing",
+        "integrations": "Integrations",
+        "changelog": "Changelog",
+        "helpCenter": "Help Center",
+        "about": "About",
+        "blog": "Blog",
+        "careers": "Careers",
+        "contact": "Contact",
+        "security": "Security",
+        "privacyPolicy": "Privacy Policy",
+        "termsOfService": "Terms of Service",
+        "cookiePolicy": "Cookie Policy",
+        "gdpr": "GDPR"
+      }
+    },
+    "heroPills": {
+      "noAppDownload": "No app\ndownload",
+      "worksFromQr": "Works from\nQR scan",
+      "realTimeUpdates": "Real-time\nupdates",
+      "lightDarkMode": "Light / Dark\nmode"
+    },
+    "heroTrustLine": {
+      "noCreditCard": "No credit card required",
+      "setupInMinutes": "Setup in minutes",
+      "cancelAnytime": "Cancel anytime"
+    },
+    "heroBadgeBuilt": "Built for restaurants. Loved by customers.",
+    "heroTitle": {
+      "accent": "Mobile-first",
+      "line2": "digital menus for",
+      "line3": "modern restaurants"
+    },
+    "heroSubtextAlt": "QR MENU helps restaurants streamline operations, boost sales, and deliver exceptional experiences — all from a scan.",
+    "heroStartFreeTrial": "Start Free Trial",
+    "heroWatchDemo": "Watch Demo"
   },
   "payments": {
     "title": "Payment History",

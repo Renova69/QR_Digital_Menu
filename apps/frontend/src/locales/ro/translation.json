@@ -1003,9 +1003,9 @@
     "mostPopular": "Cel mai popular",
     "getStarted": "Începeți",
     "contactSales": "Contactați vânzările",
-    "bottomCtaTitle": "Ești gata să modernizezi",
-    "bottomCtaWordAccent": "restaurantul",
-    "bottomCtaSubtitle": "Alătură-te sutelor de restaurante care folosesc deja QR Menu pentru a servi mai rapid, a câștiga mai mult și a încânta clienții.",
+    "bottomCtaTitle": "Fă ca prima scanare să se simtă ca cel mai bun moment de servire.",
+    "bottomCtaWordAccent": "",
+    "bottomCtaSubtitle": "Lansează un meniu QR uimitor astăzi, apoi extinde-te la comenzi, plăți, loialitate, POS, afișaj pentru bucătărie și operațiuni cu locații multiple când restaurantul este pregătit.",
     "bottomCtaButton": "Începeți gratuit",
     "bottomCtaLogin": "Autentificare în panou",
     "footerRights": "QR Menu. Toate drepturile rezervate.",
@@ -1138,6 +1138,220 @@
       "q8": {
         "question": "Pot să-l încerc înainte de a mă abona?",
         "answer": "Absolut. Începeți cu planul nostru gratuit — nu are limită de timp și nu necesită card de credit. Construiți meniul digital, generați coduri QR și gestionați mesele gratuit. Când sunteți pregătit pentru funcții avansate precum plăți Stripe, program de loialitate, analize, POS și afișaj de bucătărie, faceți upgrade la un plan plătit. Puteți face upgrade sau downgrade oricând."
+      }
+    },
+    "announcementBar": {
+      "text": "Construit pentru restaurantele care doresc ca meniul, comenzile, plățile și fluxul de servire să fie într-un singur loc.",
+      "cta": "Lansează-ți meniul QR"
+    },
+    "trustBar": {
+      "headline": "Încredere din partea restaurantelor moderne, cafenelelor, barurilor, hotelurilor și halelor de mâncare"
+    },
+    "advantages": {
+      "badge": "De ce QR Menu",
+      "title": "Patru motive pentru care restaurantele ne aleg.",
+      "subtitle": "Din prima zi până la cea mai aglomerată zi de vineri — QR Menu gestionează complexitatea, astfel încât echipa ta să se ocupe de oaspeți.",
+      "items": {
+        "launchMenu": {
+          "label": "Lansează un meniu în câteva minute",
+          "text": "Importă articole prin OCR sau XLSX, organizează categoriile cu funcția trage și plasează, generează coduri QR și păstrează totul editabil în timp real."
+        },
+        "reduceFriction": {
+          "label": "Redu frecvența comenzilor",
+          "text": "Oaspeții comandă și plătesc de la masă, fără a aștepta următorul contact cu ospătarul. Fără descărcare de aplicație, fără perete de înregistrare."
+        },
+        "knowGuests": {
+          "label": "Află de ce au nevoie oaspeții",
+          "text": "Colectează feedback, cereri de apelare a ospătarului și semnale ale clienților în timp real — înainte ca problemele să devină plângeri."
+        },
+        "moveFaster": {
+          "label": "Mișcă-te mai repede în fiecare tură",
+          "text": "Afișajul live pentru bucătărie, analizele inteligente, instrumentele bazate pe roluri pentru personal și sistemul POS filtrat pe zone mențin echipele aliniate și eficiente."
+        }
+      },
+      "viewAllFeatures": "Vezi toate funcțiile"
+    },
+    "featureSuite": {
+      "qrMenus": {
+        "title": "Meniuri cu cod QR",
+        "text": "Clienții scanează, navighează, filtrează după alergeni și comandă dintr-un meniu șlefuit care funcționează perfect pe fiecare telefon — nu este necesară descărcarea unei aplicații."
+      },
+      "onlineOrdering": {
+        "title": "Comenzi și plăți online",
+        "text": "Transformă vizualizările meniului în comenzi cu contextul mesei, coșuri persistente, variații de opțiuni, cereri speciale și prețuri validate de server."
+      },
+      "stripePayments": {
+        "title": "Plăți prin Stripe Connect",
+        "text": "Plăți complete la masă cu Stripe Connect. Bacșișuri, taxe de platformă, notificări de plată în timp real și istoric complet al plăților."
+      },
+      "kitchenDisplay": {
+        "title": "Sistem de afișare pentru bucătărie",
+        "text": "Panou kanban în timp real pentru personalul din bucătărie. Cronometre, semnalizatoare de urgență la 15 minute, alerte audio și o interfață întunecată optimizată pentru strălucirea din bucătărie."
+      },
+      "waiterPos": {
+        "title": "POS pentru ospătari",
+        "text": "POS mobil pe ecran complet pentru comenzile la masă. Atribuirea locurilor, note pentru articole, împărțirea notei de plată, notă de plată QR și izolare completă față de coșurile clienților."
+      },
+      "liveTable": {
+        "title": "Gestionarea meselor în timp real",
+        "text": "Grilă de mese în timp real, codificată pe culori, cu gruparea zonelor/secțiunilor. Stare ocupată, plătită, goală — actualizată instantaneu prin WebSocket."
+      },
+      "loyaltyVip": {
+        "title": "Loialitate și niveluri VIP",
+        "text": "Registru de puncte FIFO cu rate de câștig/răscumpărare configurabile, multiplicatori de happy hour care țin cont de fusul orar și niveluri VIP Bronz/Argint/Aur."
+      },
+      "analytics": {
+        "title": "Analize și rapoarte",
+        "text": "Tendințe de venituri, feluri de mâncare de top, ore de vârf, defalcarea categoriilor, performanța mesei și feedback-ul clienților — exportabile ca CSV sau XLSX."
+      },
+      "multiLanguage": {
+        "title": "Meniuri în mai multe limbi",
+        "text": "Traducere automată DeepL gestionată de platformă cu memorare în cache leneșă. Servește localnicii și turiștii cu meniuri EN/BG/RO — nu este nevoie de o cheie API de la proprietari."
+      },
+      "branding": {
+        "title": "Branding personalizat",
+        "text": "Potrivește identitatea restaurantului cu culori personalizate, fonturi, logo, mod întunecat, linkuri sociale și un subsol de meniu public cu marcă."
+      },
+      "staffManagement": {
+        "title": "Gestionarea personalului și a rolurilor",
+        "text": "RBAC cu roluri de Proprietar, Manager, Ospătar, Bucătărie. Coduri PIN pentru personal, înregistrarea dispozitivelor, atribuirea comenzilor și limite de rol în funcție de nivel."
+      },
+      "menuImportExport": {
+        "title": "Import/Export meniu",
+        "text": "Importă meniuri din OCR JSON sau XLSX. Exportă ca JSON, CSV sau XLSX pentru backup, migrare sau editare în masă în Excel/Google Sheets."
+      },
+      "customerAccounts": {
+        "title": "Conturi pentru clienți",
+        "text": "Conectare fără probleme a clienților prin e-mail OTP sau Google OAuth. Profil de loialitate, istoric al comenzilor, soldul punctelor și progresul nivelului VIP."
+      },
+      "smartUpselling": {
+        "title": "Vânzări adiționale inteligente",
+        "text": "Sugestii de vânzări adiționale pentru băuturi la finalizarea comenzii, module de asociere perfectă la adăugarea în coș și un carusel de tendințe care afișează automat preparatele de top."
+      },
+      "feedbackReviews": {
+        "title": "Feedback și recenzii",
+        "text": "Evaluare cu stele și comentarii după comandă. Recenziile pozitive redirecționează către Google Reviews. Evaluările scăzute rămân private pentru a fi revizuite de proprietar."
+      },
+      "security": {
+        "title": "Securitate și conformitate",
+        "text": "Modul GDPR, protecție CSRF, cookie-uri httpOnly JWT, traseu de audit pentru administratori, blocare a forței brute, limitare a vitezei și mod strict TypeScript."
+      }
+    },
+    "testimonials": {
+      "badge": "Ce spun restaurantele",
+      "title": "Rezultate reale de la restaurante reale.",
+      "subtitle": "De la cafenele de familie la mărci cu mai multe locații — iată ce spun operatorii după ce au trecut la QR Menu.",
+      "stats": {
+        "restaurants": "Restaurante",
+        "avgRating": "Evaluare medie",
+        "avgOrderValue": "Valoarea medie a comenzii",
+        "avgSetupTime": "Timpul mediu de configurare"
+      },
+      "roles": {
+        "owner": "Proprietar",
+        "operationsManager": "Director de Operațiuni",
+        "generalManager": "Manager General",
+        "restaurantManager": "Manager Restaurant",
+        "coOwner": "Coproprietar"
+      },
+      "items": {
+        "t1": "Am trecut de la meniuri tipărite la comenzi QR live într-o singură după-amiază. Fluxul nostru de vineri a trecut de la haotic la fluid — afișajul din bucătărie a plătit singur abonamentul.",
+        "t2": "Programul de loialitate a adus înapoi clienți pe care credeam că i-am pierdut. Puncte, niveluri VIP, multiplicatori pentru happy hour — este tipul de sistem pe care obișnuiam să-l vedem doar la marile lanțuri.",
+        "t3": "Meniurile în mai multe limbi cu traducere automată au schimbat regulile jocului. Traficul turistic a crescut cu 30% de când am încetat să împărțim foi tipărite confuze.",
+        "t4": "Plata la masă a redus timpul nostru de finalizare a comenzii la jumătate. Clienților le place să nu ceară un ospătar, iar noi eliberăm mesele cu 15 minute mai repede în fiecare weekend.",
+        "t5": "În cele din urmă, analizele ne-au oferit date pe baza cărora putem acționa. Am descoperit că mâncărurile noastre cu paste aveau cea mai mare marjă, dar erau cel mai puțin promovate — am remediat acest lucru, iar veniturile au crescut într-o lună.",
+        "t6": "Configurarea a fost cu adevărat rapidă. Am importat meniul nostru PDF prin OCR, am organizat categoriile, am generat coduri QR — am fost live înainte de servirea cinei în aceeași zi."
+      }
+    },
+    "opsCenter": {
+      "badge": "Centru de comandă a operațiunilor",
+      "title": "Un singur panou de control pentru starea meniului, comenzi, plăți, loialitate și personal.",
+      "body": "Managerii văd ce se vinde, ce necesită atenție, cum se mișcă mesele și de unde provin veniturile — fără a schimba sistemele.",
+      "checklist": {
+        "tableStatus": "Starea live a meselor cu zone",
+        "orderHistory": "Istoricul comenzilor și plăților",
+        "topDishes": "Preparate de top și tendințe de cerere",
+        "retention": "Semnale de retenție a clienților",
+        "kitchenQueue": "Sănătatea cozii din bucătărie",
+        "staffAttribution": "Urmărirea atribuirii personalului"
+      },
+      "stats": {
+        "liveOrders": "Comenzi live",
+        "tablesActive": "Mese active",
+        "payments": "Plăți",
+        "today": "astăzi",
+        "preparing": "în pregătire",
+        "needService": "necesită servire"
+      },
+      "kitchen": {
+        "title": "Coada din bucătărie",
+        "status": "Sănătos",
+        "preparing": "Preparare",
+        "ready": "Gata",
+        "new": "Nou",
+        "items": "articole",
+        "takeaway": "La pachet"
+      }
+    },
+    "comparisonTable": {
+      "featureHeader": "Caracteristică",
+      "rows": {
+        "digitalMenuBuilder": "Constructor de meniu digital",
+        "qrCodeManagement": "Managementul codurilor QR",
+        "ocrMenuImport": "Import meniu OCR / XLSX",
+        "menuExport": "Export meniu (JSON/CSV/XLSX)",
+        "onlineOrdering": "Comenzi online",
+        "basicAnalytics": "Analize de bază și rezumat",
+        "stripePayments": "Plată la masă Stripe",
+        "callWaiter": "Buton apelare ospătar",
+        "multiLanguageMenus": "Meniuri multilingve (DeepL)",
+        "customBranding": "Branding și teme personalizate",
+        "loyaltyProgram": "Program de loialitate și niveluri VIP",
+        "customerAccounts": "Conturi și profiluri de clienți",
+        "advancedAnalytics": "Analize avansate și export XLSX",
+        "smartUpselling": "Vânzări adiționale și asocieri inteligente",
+        "feedbackReviews": "Feedback și recenzii Google",
+        "posKds": "POS și afișaj bucătărie (KDS)",
+        "tableZones": "Zone și secțiuni de mese",
+        "staffAttribution": "Atribuire personal și note detaliate",
+        "staffSeats": "Locuri personal",
+        "multiLocation": "Suport pentru locații multiple",
+        "prioritySupport": "Suport prioritar",
+        "superAdmin": "Panou de operațiuni super-admin"
+      },
+      "badge": "Comparație planuri",
+      "title": "Compară ce deblochează fiecare plan."
+    },
+    "homeFaq": {
+      "items": {
+        "q1": {
+          "question": "Pot folosi QR Menu fără a accepta plăți online?",
+          "answer": "Da. Puteți începe cu meniul digital și fluxul de lucru cu coduri QR, apoi adăugați comenzi, plăți, loialitate, instrumente POS sau pentru bucătărie când restaurantul este pregătit. Fiecare caracteristică se deblochează la nivelul potrivit."
+        },
+        "q2": {
+          "question": "Oaspeții trebuie să descarce o aplicație?",
+          "answer": "Nu. Oaspeții deschid meniul scanând un cod QR în browserul telefonului lor — fără magazin de aplicații, fără a fi nevoie de înregistrare. Experiența este rapidă și familiară atât pe iPhone, cât și pe Android."
+        },
+        "q3": {
+          "question": "Care plan este cel mai bun pentru un restaurant în creștere?",
+          "answer": "Professional se potrivește cel mai bine pentru majoritatea restaurantelor deoarece include plăți, analize complete, programe de loialitate, meniuri în mai multe limbi, branding personalizat și până la 5 membri ai personalului."
+        },
+        "q4": {
+          "question": "Pot trece la un plan superior sau inferior mai târziu?",
+          "answer": "Da. Planurile sunt construite pentru a permite restaurantelor să înceapă cu pași mici și să deblocheze mai multe instrumente pe măsură ce echipa crește. Puteți schimba planul oricând prin intermediul portalului pentru clienți Stripe."
+        },
+        "q5": {
+          "question": "Platforma suportă fluxuri de lucru pentru bucătărie și personal?",
+          "answer": "Da. Enterprise include un Sistem de Afișare pentru Bucătărie (KDS) complet, POS pentru Ospătari, zone de mese, atribuirea personalului, note de plată detaliate, suport pentru locații multiple și funcții de asistență prioritară."
+        },
+        "q6": {
+          "question": "Cum funcționează programul de loialitate?",
+          "answer": "Clienții câștigă puncte la fiecare comandă utilizând un sistem contabil FIFO. Punctele pot fi preschimbate pentru reduceri în numerar sau articole gratuite. Sistemul suportă niveluri VIP (Bronz/Argint/Aur), multiplicatori pentru happy hour, bonusuri de înregistrare și memento-uri automate pentru expirare."
+        },
+        "q7": {
+          "question": "Ce limbi sunt suportate pentru meniuri?",
+          "answer": "Platforma traduce automat meniurile în engleză, bulgară și română folosind DeepL. Proprietarul restaurantului nu trebuie să furnizeze o cheie API — traducerea este gestionată de platformă cu memorare inteligentă în cache."
+        }
       }
     }
   },

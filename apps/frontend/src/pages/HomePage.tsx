@@ -65,143 +65,152 @@ type FeatureRow = {
 const featureCards = [
   {
     icon: QrCode,
-    title: "QR Code Menus",
-    text: "Customers scan, browse, filter by allergens, and order from a polished menu that works beautifully on every phone — no app download required.",
+    titleKey: "landing.featureSuite.qrMenus.title",
+    textKey: "landing.featureSuite.qrMenus.text",
     tone: "from-violet-500 to-purple-600",
     toneBg: "bg-violet-500/10 text-violet-500",
   },
   {
     icon: ShoppingCart,
-    title: "Online Ordering & Checkout",
-    text: "Turn menu views into orders with table context, persistent carts, option variations, special requests, and server-validated pricing.",
+    titleKey: "landing.featureSuite.onlineOrdering.title",
+    textKey: "landing.featureSuite.onlineOrdering.text",
     tone: "from-blue-500 to-indigo-600",
     toneBg: "bg-blue-500/10 text-blue-500",
   },
   {
     icon: CreditCard,
-    title: "Stripe Connect Payments",
-    text: "End-to-end pay-at-table with Stripe Connect. Tips, platform fees, real-time payment notifications, and full payment history.",
+    titleKey: "landing.featureSuite.stripePayments.title",
+    textKey: "landing.featureSuite.stripePayments.text",
     tone: "from-emerald-500 to-teal-600",
     toneBg: "bg-emerald-500/10 text-emerald-500",
   },
   {
     icon: ChefHat,
-    title: "Kitchen Display System",
-    text: "Real-time kanban board for kitchen staff. Elapsed timers, urgency flags at 15 min, audio alerts, and a dark-only UI optimized for kitchen glare.",
+    titleKey: "landing.featureSuite.kitchenDisplay.title",
+    textKey: "landing.featureSuite.kitchenDisplay.text",
     tone: "from-orange-500 to-red-500",
     toneBg: "bg-orange-500/10 text-orange-500",
   },
   {
     icon: MonitorSmartphone,
-    title: "Waiter POS",
-    text: "Full-viewport mobile POS for tableside ordering. Seat assignment, item notes, split bill, QR bill, and complete isolation from customer carts.",
+    titleKey: "landing.featureSuite.waiterPos.title",
+    textKey: "landing.featureSuite.waiterPos.text",
     tone: "from-pink-500 to-rose-600",
     toneBg: "bg-pink-500/10 text-pink-500",
   },
   {
     icon: LayoutDashboard,
-    title: "Live Table Management",
-    text: "Color-coded real-time table grid with zone/section grouping. Occupied, paid, empty status — updated instantly via WebSocket.",
+    titleKey: "landing.featureSuite.liveTable.title",
+    textKey: "landing.featureSuite.liveTable.text",
     tone: "from-cyan-500 to-blue-500",
     toneBg: "bg-cyan-500/10 text-cyan-500",
   },
   {
     icon: Gift,
-    title: "Loyalty & VIP Tiers",
-    text: "FIFO point ledger with configurable earn/redeem rates, timezone-aware happy hour multipliers, and Bronze/Silver/Gold VIP tiers.",
+    titleKey: "landing.featureSuite.loyaltyVip.title",
+    textKey: "landing.featureSuite.loyaltyVip.text",
     tone: "from-amber-500 to-yellow-600",
     toneBg: "bg-amber-500/10 text-amber-500",
   },
   {
     icon: BarChart2,
-    title: "Analytics & Reporting",
-    text: "Revenue trends, top dishes, peak hours, category breakdown, table performance, and customer feedback — exportable as CSV or XLSX.",
+    titleKey: "landing.featureSuite.analytics.title",
+    textKey: "landing.featureSuite.analytics.text",
     tone: "from-indigo-500 to-violet-600",
     toneBg: "bg-indigo-500/10 text-indigo-500",
   },
   {
     icon: Languages,
-    title: "Multi-Language Menus",
-    text: "Platform-managed DeepL auto-translation with lazy caching. Serve locals and tourists with EN/BG/RO menus — no API key needed from owners.",
+    titleKey: "landing.featureSuite.multiLanguage.title",
+    textKey: "landing.featureSuite.multiLanguage.text",
     tone: "from-teal-500 to-emerald-600",
     toneBg: "bg-teal-500/10 text-teal-500",
   },
   {
     icon: Palette,
-    title: "Custom Branding",
-    text: "Match the restaurant identity with custom colors, fonts, logo, dark mode, social links, and a branded public menu footer.",
+    titleKey: "landing.featureSuite.branding.title",
+    textKey: "landing.featureSuite.branding.text",
     tone: "from-fuchsia-500 to-pink-600",
     toneBg: "bg-fuchsia-500/10 text-fuchsia-500",
   },
   {
     icon: Users,
-    title: "Staff & Role Management",
-    text: "RBAC with Owner, Manager, Waiter, Kitchen roles. Staff PINs, device enrollment, order attribution, and tier-aware role limits.",
+    titleKey: "landing.featureSuite.staffManagement.title",
+    textKey: "landing.featureSuite.staffManagement.text",
     tone: "from-sky-500 to-blue-600",
     toneBg: "bg-sky-500/10 text-sky-500",
   },
   {
     icon: Upload,
-    title: "Menu Import/Export",
-    text: "Import menus from OCR JSON or XLSX. Export as JSON, CSV, or XLSX for backup, migration, or bulk editing in Excel/Google Sheets.",
+    titleKey: "landing.featureSuite.menuImportExport.title",
+    textKey: "landing.featureSuite.menuImportExport.text",
     tone: "from-lime-500 to-green-600",
     toneBg: "bg-lime-500/10 text-lime-500",
   },
   {
     icon: UserCheck,
-    title: "Customer Accounts",
-    text: "Frictionless customer login via email OTP or Google OAuth. Loyalty profile, order history, point balance, and VIP tier progress.",
+    titleKey: "landing.featureSuite.customerAccounts.title",
+    textKey: "landing.featureSuite.customerAccounts.text",
     tone: "from-rose-500 to-red-600",
     toneBg: "bg-rose-500/10 text-rose-500",
   },
   {
     icon: TrendingUp,
-    title: "Smart Upselling",
-    text: "Drink upsell suggestions at checkout, perfect pairing modals on add-to-cart, and trending carousel showing top dishes automatically.",
+    titleKey: "landing.featureSuite.smartUpselling.title",
+    textKey: "landing.featureSuite.smartUpselling.text",
     tone: "from-yellow-500 to-orange-500",
     toneBg: "bg-yellow-500/10 text-yellow-500",
   },
   {
     icon: MessageSquare,
-    title: "Feedback & Reviews",
-    text: "Post-order star rating and comments. Positive reviews redirect to Google Reviews. Low ratings stay private for the owner to review.",
+    titleKey: "landing.featureSuite.feedbackReviews.title",
+    textKey: "landing.featureSuite.feedbackReviews.text",
     tone: "from-purple-500 to-indigo-600",
     toneBg: "bg-purple-500/10 text-purple-500",
   },
   {
     icon: Shield,
-    title: "Security & Compliance",
-    text: "GDPR module, CSRF protection, httpOnly JWT cookies, admin audit trail, brute-force lockout, rate limiting, and TypeScript strict mode.",
+    titleKey: "landing.featureSuite.security.title",
+    textKey: "landing.featureSuite.security.text",
     tone: "from-slate-500 to-gray-700",
     toneBg: "bg-slate-500/10 text-slate-500",
   },
-] as const;
+];
 
 const advantageItems = [
   {
     icon: Clock,
+    labelKey: "landing.advantages.items.launchMenu.label",
+    textKey: "landing.advantages.items.launchMenu.text",
     label: "Launch a menu in minutes",
     text: "Import items via OCR or XLSX, organize categories with drag-and-drop, generate QR codes, and keep everything editable in real time.",
   },
   {
     icon: CreditCard,
+    labelKey: "landing.advantages.items.reduceFriction.label",
+    textKey: "landing.advantages.items.reduceFriction.text",
     label: "Reduce ordering friction",
     text: "Guests order and pay from the table without waiting for the next waiter touch. No app download, no sign-up wall.",
   },
   {
     icon: MessageSquare,
+    labelKey: "landing.advantages.items.knowGuests.label",
+    textKey: "landing.advantages.items.knowGuests.text",
     label: "Know what guests need",
     text: "Collect feedback, call-waiter requests, and customer signals in real time — before problems become complaints.",
   },
   {
     icon: Zap,
+    labelKey: "landing.advantages.items.moveFaster.label",
+    textKey: "landing.advantages.items.moveFaster.text",
     label: "Move faster every shift",
     text: "Live kitchen display, smart analytics, role-based staff tools, and zone-filtered POS keep teams aligned and efficient.",
   },
 ] as const;
 
-const comparisonRows: FeatureRow[] = [
+const comparisonRows: (FeatureRow & { labelKey?: string })[] = [
   {
+    labelKey: "landing.comparisonTable.rows.digitalMenuBuilder",
     label: "Digital menu builder",
     free: true,
     starter: true,
@@ -209,6 +218,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.qrCodeManagement",
     label: "QR code management",
     free: true,
     starter: true,
@@ -216,6 +226,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.ocrXlsxImport",
     label: "OCR / XLSX menu import",
     free: true,
     starter: true,
@@ -223,6 +234,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.menuExport",
     label: "Menu export (JSON/CSV/XLSX)",
     free: true,
     starter: true,
@@ -230,6 +242,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.onlineOrdering",
     label: "Online ordering",
     free: false,
     starter: true,
@@ -237,6 +250,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.basicAnalytics",
     label: "Basic analytics & summary",
     free: false,
     starter: true,
@@ -244,6 +258,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.stripePayAtTable",
     label: "Stripe pay-at-table",
     free: false,
     starter: false,
@@ -251,6 +266,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.callWaiter",
     label: "Call waiter button",
     free: false,
     starter: false,
@@ -258,6 +274,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.multiLanguage",
     label: "Multi-language menus (DeepL)",
     free: false,
     starter: false,
@@ -265,6 +282,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.customBranding",
     label: "Custom branding & themes",
     free: false,
     starter: false,
@@ -272,6 +290,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.loyaltyProgram",
     label: "Loyalty program & VIP tiers",
     free: false,
     starter: false,
@@ -279,6 +298,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.customerAccounts",
     label: "Customer accounts & profiles",
     free: false,
     starter: false,
@@ -286,6 +306,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.advancedAnalytics",
     label: "Advanced analytics & XLSX export",
     free: false,
     starter: false,
@@ -293,6 +314,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.smartUpselling",
     label: "Smart upselling & pairings",
     free: false,
     starter: false,
@@ -300,6 +322,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.feedbackReviews",
     label: "Feedback & Google Reviews",
     free: false,
     starter: false,
@@ -307,6 +330,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.posKds",
     label: "POS & kitchen display (KDS)",
     free: false,
     starter: false,
@@ -314,6 +338,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.tableZones",
     label: "Table zones & sections",
     free: false,
     starter: false,
@@ -321,6 +346,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.staffAttribution",
     label: "Staff attribution & itemized bills",
     free: false,
     starter: false,
@@ -328,6 +354,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.staffSeats",
     label: "Staff seats",
     free: "1",
     starter: "1",
@@ -335,6 +362,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: "Unlimited",
   },
   {
+    labelKey: "landing.comparisonTable.rows.multiLocation",
     label: "Multi-location support",
     free: false,
     starter: false,
@@ -342,6 +370,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.prioritySupport",
     label: "Priority support",
     free: false,
     starter: false,
@@ -349,6 +378,7 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.superAdmin",
     label: "Super-admin ops panel",
     free: false,
     starter: false,
@@ -359,36 +389,50 @@ const comparisonRows: FeatureRow[] = [
 
 const faqItems = [
   {
+    questionKey: "landing.homeFaq.items.q1.question",
+    answerKey: "landing.homeFaq.items.q1.answer",
     question: "Can I use QR Menu without taking online payments?",
     answer:
       "Yes. You can start with the digital menu and QR code workflow, then add ordering, payments, loyalty, POS, or kitchen tools when the restaurant is ready. Each feature unlocks at the right tier.",
   },
   {
+    questionKey: "landing.homeFaq.items.q2.question",
+    answerKey: "landing.homeFaq.items.q2.answer",
     question: "Do guests need to download an app?",
     answer:
       "No. Guests open the menu from a QR scan in their phone browser — no app store, no sign-up wall. The experience is fast and familiar on both iPhone and Android.",
   },
   {
+    questionKey: "landing.homeFaq.items.q3.question",
+    answerKey: "landing.homeFaq.items.q3.answer",
     question: "Which plan is best for a growing restaurant?",
     answer:
       "Professional is the best fit for most restaurants because it includes payments, full analytics, loyalty programs, multi-language menus, custom branding, and up to 5 staff members.",
   },
   {
+    questionKey: "landing.homeFaq.items.q4.question",
+    answerKey: "landing.homeFaq.items.q4.answer",
     question: "Can I upgrade or downgrade later?",
     answer:
       "Yes. Plans are built to let restaurants start small and unlock more tools as the team grows. You can upgrade or downgrade anytime through the Stripe customer portal.",
   },
   {
+    questionKey: "landing.homeFaq.items.q5.question",
+    answerKey: "landing.homeFaq.items.q5.answer",
     question: "Does the platform support kitchen and staff workflows?",
     answer:
       "Yes. Enterprise includes a full Kitchen Display System (KDS), Waiter POS, table zones, staff attribution, itemized bills, multi-location support, and priority service features.",
   },
   {
+    questionKey: "landing.homeFaq.items.q6.question",
+    answerKey: "landing.homeFaq.items.q6.answer",
     question: "How does the loyalty program work?",
     answer:
       "Customers earn points on every order using a FIFO ledger system. Points can be redeemed for cash discounts or free items. The system supports VIP tiers (Bronze/Silver/Gold), happy hour multipliers, signup bonuses, and automated expiry reminders.",
   },
   {
+    questionKey: "landing.homeFaq.items.q7.question",
+    answerKey: "landing.homeFaq.items.q7.answer",
     question: "What languages are supported for menus?",
     answer:
       "The platform auto-translates menus into English, Bulgarian, and Romanian using DeepL. The restaurant owner never needs to supply an API key — translation is platform-managed with intelligent caching.",
@@ -397,6 +441,8 @@ const faqItems = [
 
 const testimonials = [
   {
+    quoteKey: "landing.testimonials.items.t1.quote",
+    roleKey: "landing.testimonials.items.t1.role",
     quote:
       "We went from printed menus to live QR ordering in a single afternoon. Our Friday rush went from chaotic to smooth — the kitchen display alone paid for the subscription.",
     name: "Marco Rossi",
@@ -407,6 +453,8 @@ const testimonials = [
     tier: "Professional",
   },
   {
+    quoteKey: "landing.testimonials.items.t2.quote",
+    roleKey: "landing.testimonials.items.t2.role",
     quote:
       "The loyalty program brought back customers I thought we’d lost. Points, VIP tiers, happy hour multipliers — it’s the kind of system we used to only see at big chains.",
     name: "Sofia Andreeva",
@@ -417,6 +465,8 @@ const testimonials = [
     tier: "Professional",
   },
   {
+    quoteKey: "landing.testimonials.items.t3.quote",
+    roleKey: "landing.testimonials.items.t3.role",
     quote:
       "Multi-language menus with auto-translation was a game changer. Tourist traffic is up 30% since we stopped handing out confusing printed sheets.",
     name: "Andrei Popescu",
@@ -427,6 +477,8 @@ const testimonials = [
     tier: "Enterprise",
   },
   {
+    quoteKey: "landing.testimonials.items.t4.quote",
+    roleKey: "landing.testimonials.items.t4.role",
     quote:
       "Pay-at-table cut our checkout time by half. Customers love not flagging down a server, and we’re turning tables 15 minutes faster every weekend.",
     name: "Elena Vargas",
@@ -437,6 +489,8 @@ const testimonials = [
     tier: "Professional",
   },
   {
+    quoteKey: "landing.testimonials.items.t5.quote",
+    roleKey: "landing.testimonials.items.t5.role",
     quote:
       "Analytics finally gave us data we can act on. We found our pasta dishes were highest-margin but lowest-promoted — fixed that and revenue went up within a month.",
     name: "James Chen",
@@ -447,6 +501,8 @@ const testimonials = [
     tier: "Starter",
   },
   {
+    quoteKey: "landing.testimonials.items.t6.quote",
+    roleKey: "landing.testimonials.items.t6.role",
     quote:
       "Setup was genuinely fast. Imported our PDF menu via OCR, organized categories, generated QR codes — we were live before dinner service the same day.",
     name: "Yuki Tanaka",
@@ -1178,85 +1234,81 @@ const HomePage = () => {
   const plans: Plan[] = [
     {
       key: "FREE",
-      name: "Free",
+      name: t("pricingSection.plans.free.name"),
       price: "EUR 0",
-      period: "forever",
-      description:
-        "Start with a clean digital menu, QR codes, OCR import, and XLSX export — completely free.",
-      cta: "Start free",
+      period: t("pricingSection.plans.free.period"),
+      description: t("pricingSection.plans.free.description"),
+      cta: t("pricingSection.plans.free.cta"),
       href: "/register",
       accent: "border-border",
       bullets: [
-        "Digital menu editor",
-        "QR code management",
-        "OCR & XLSX menu import",
-        "Menu export (JSON/CSV/XLSX)",
-        "1 staff member",
+        t("pricingSection.plans.free.b1"),
+        t("pricingSection.plans.free.b2"),
+        t("pricingSection.plans.free.b3"),
+        t("pricingSection.plans.free.b4"),
+        t("pricingSection.plans.free.b5"),
       ],
     },
     {
       key: "STARTER",
-      name: "Starter",
+      name: t("pricingSection.plans.starter.name"),
       price: "EUR 15",
-      period: "per month",
-      description:
-        "Add online ordering and basic analytics for a small restaurant team.",
-      cta: "Choose Starter",
+      period: t("pricingSection.plans.starter.period"),
+      description: t("pricingSection.plans.starter.description"),
+      cta: t("pricingSection.plans.starter.cta"),
       href: "/register",
       accent: "border-blue-500/35",
       bullets: [
-        "Everything in Free",
-        "Online ordering",
-        "Basic analytics & summary",
-        "Order status workflow",
-        "1 staff member",
+        t("pricingSection.plans.starter.b1"),
+        t("pricingSection.plans.starter.b2"),
+        t("pricingSection.plans.starter.b3"),
+        t("pricingSection.plans.starter.b4"),
+        t("pricingSection.plans.starter.b5"),
       ],
     },
     {
       key: "PROFESSIONAL",
-      name: "Professional",
+      name: t("pricingSection.plans.professional.name"),
       price: "EUR 25",
-      period: "per month",
-      description:
-        "The strongest package for restaurants ready to grow revenue and customer retention.",
-      badge: "Most popular",
+      period: t("pricingSection.plans.professional.period"),
+      description: t("pricingSection.plans.professional.description"),
+      badge: t("pricingSection.plans.professional.badge"),
       highlight: true,
-      cta: "Choose Professional",
+      cta: t("pricingSection.plans.professional.cta"),
       href: "/register",
       accent: "border-primary",
       bullets: [
-        "Stripe pay-at-table",
-        "Full analytics & XLSX export",
-        "Loyalty & VIP tiers",
-        "Multi-language menus (DeepL)",
-        "Custom branding & themes",
-        "Customer accounts",
-        "Smart upselling & pairings",
-        "Call waiter & feedback",
-        "Up to 5 staff members",
+        t("pricingSection.plans.professional.b1"),
+        t("pricingSection.plans.professional.b2"),
+        t("pricingSection.plans.professional.b3"),
+        t("pricingSection.plans.professional.b4"),
+        t("pricingSection.plans.professional.b5"),
+        t("pricingSection.plans.professional.b6"),
+        t("pricingSection.plans.professional.b7"),
+        t("pricingSection.plans.professional.b8"),
+        t("pricingSection.plans.professional.b9"),
       ],
     },
     {
       key: "ENTERPRISE",
-      name: "Enterprise",
+      name: t("pricingSection.plans.enterprise.name"),
       price: "EUR 45",
-      period: "per month",
-      description:
-        "Advanced operations for multi-location brands, large teams, and full kitchen workflows.",
-      cta: "Choose Enterprise",
+      period: t("pricingSection.plans.enterprise.period"),
+      description: t("pricingSection.plans.enterprise.description"),
+      cta: t("pricingSection.plans.enterprise.cta"),
       href: "/register",
       accent: "border-emerald-500/35",
       bullets: [
-        "Everything in Professional",
-        "POS & kitchen display (KDS)",
-        "Table zones & sections",
-        "Staff attribution & itemized bills",
-        "Multi-location support",
-        "Thermal printer support",
-        "Advanced roles (RBAC)",
-        "Super-admin ops panel",
-        "Priority support",
-        "Unlimited staff",
+        t("pricingSection.plans.enterprise.b1"),
+        t("pricingSection.plans.enterprise.b2"),
+        t("pricingSection.plans.enterprise.b3"),
+        t("pricingSection.plans.enterprise.b4"),
+        t("pricingSection.plans.enterprise.b5"),
+        t("pricingSection.plans.enterprise.b6"),
+        t("pricingSection.plans.enterprise.b7"),
+        t("pricingSection.plans.enterprise.b8"),
+        t("pricingSection.plans.enterprise.b9"),
+        t("pricingSection.plans.enterprise.b10"),
       ],
     },
   ];
@@ -1267,14 +1319,13 @@ const HomePage = () => {
       <section className="border-b border-border bg-primary text-primary-foreground pt-[4.5rem]">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 py-3 text-center sm:flex-row sm:px-6 lg:px-8">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary-foreground/90">
-            Built for restaurants that want the menu, orders, payments, and
-            service flow in one place.
+            {t("landing.announcementBar.text")}
           </p>
           <Link
             to="/register"
             className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-primary-foreground px-4 py-2 text-xs font-black uppercase tracking-wider text-primary transition hover:opacity-90"
           >
-            Launch your QR menu
+            {t("landing.announcementBar.cta")}
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
@@ -1308,20 +1359,19 @@ const HomePage = () => {
                   <path d="M2 12l10-9 10 9-2 2-8-7-8 7z" />
                   <path d="M5 12v9h14v-9" />
                 </svg>
-                Built for restaurants. Loved by customers.
+                {t("landing.heroBadge")}
               </span>
               {/* title */}
               <h1 className="mb-6 text-[clamp(40px,5vw,60px)] font-extrabold leading-[1.05] tracking-[-0.035em] text-foreground">
-                <span className="text-primary">Mobile-first</span>
+                <span className="text-primary">{t("landing.heroWordAccent")}</span>
                 <br />
-                digital menus for
+                {t("landing.heroLine1")}
                 <br />
-                modern restaurants
+                {t("landing.heroLine2")}
               </h1>
               {/* subtitle */}
               <p className="mb-7 max-w-[480px] text-lg leading-[1.55] text-muted-foreground">
-                QR MENU helps restaurants streamline operations, boost sales,
-                and deliver exceptional experiences — all from a scan.
+                {t("landing.heroSubtext")}
               </p>
               {/* feature pills grid */}
               <div className="mb-8 grid max-w-[540px] grid-cols-4 gap-2.5">
@@ -1452,7 +1502,7 @@ const HomePage = () => {
       <section className="border-y border-border bg-muted py-10">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <p className="text-center text-xs font-black uppercase tracking-[0.24em] text-muted-foreground">
-            Trusted by modern restaurants, cafes, bars, hotels, and food halls
+            {t("landing.trustBar.headline")}
           </p>
           <div className="mt-7 grid grid-cols-2 gap-4 text-center text-sm font-black uppercase tracking-[0.12em] text-muted-foreground/70 sm:grid-cols-4 lg:grid-cols-8">
             {[
@@ -1481,15 +1531,13 @@ const HomePage = () => {
         <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.22em] text-primary">
-              Main advantages
+              {t("landing.advantages.badge")}
             </p>
             <h2 className="mt-4 text-4xl font-black tracking-tight text-foreground md:text-5xl">
-              A better guest experience with fewer moving parts.
+              {t("landing.advantages.title")}
             </h2>
             <p className="mt-5 text-base leading-8 text-muted-foreground">
-              QR Menu replaces scattered tools with one operational layer:
-              guests get a fast self-serve experience while staff get live
-              context and clean workflows.
+              {t("landing.advantages.subtitle")}
             </p>
             <div className="mt-8">
               <Button
@@ -1498,24 +1546,24 @@ const HomePage = () => {
                 className="h-12 cursor-pointer rounded-2xl px-6"
               >
                 <Link to="/register">
-                  Get started free
+                  {t("landing.getStarted")}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            {advantageItems.map(({ icon: Icon, label, text }) => (
+            {advantageItems.map(({ icon: Icon, labelKey, textKey }) => (
               <article
-                key={label}
+                key={labelKey}
                 className="group cursor-pointer rounded-2xl border border-border bg-card p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl"
               >
                 <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
                   <Icon className="h-5 w-5" />
                 </div>
-                <h3 className="text-lg font-black text-foreground">{label}</h3>
+                <h3 className="text-lg font-black text-foreground">{t(labelKey)}</h3>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {text}
+                  {t(textKey)}
                 </p>
               </article>
             ))}
@@ -1528,21 +1576,19 @@ const HomePage = () => {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-primary">
-              Feature suite
+              {t("landing.featuresBadge")}
             </p>
             <h2 className="mt-4 text-4xl font-black tracking-tight text-foreground md:text-5xl">
-              Every feature a serious restaurant SaaS should have.
+              {t("landing.featuresTitle")}
             </h2>
             <p className="mt-5 text-base leading-8 text-muted-foreground">
-              From the first QR scan to repeat visits — the platform covers
-              menus, ordering, payments, kitchen ops, loyalty, analytics, staff
-              management, and more.
+              {t("landing.featuresSubtitle")}
             </p>
           </div>
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {featureCards.map(({ icon: Icon, title, text, toneBg }) => (
+            {featureCards.map(({ icon: Icon, titleKey, textKey, toneBg }) => (
               <article
-                key={title}
+                key={titleKey}
                 className="group cursor-pointer rounded-2xl border border-border bg-card p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-primary/30 hover:bg-muted/40 hover:shadow-xl"
               >
                 <div
@@ -1551,10 +1597,10 @@ const HomePage = () => {
                   <Icon className="h-5 w-5" />
                 </div>
                 <h3 className="text-base font-black text-foreground">
-                  {title}
+                  {t(titleKey)}
                 </h3>
                 <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                  {text}
+                  {t(textKey)}
                 </p>
               </article>
             ))}
@@ -1568,31 +1614,30 @@ const HomePage = () => {
           {/* Header */}
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-primary">
-              What restaurants say
+              {t("landing.testimonials.badge")}
             </p>
             <h2 className="mt-4 text-4xl font-black tracking-tight text-foreground md:text-5xl">
-              Real results from real restaurants.
+              {t("landing.testimonials.title")}
             </h2>
             <p className="mt-5 text-base leading-8 text-muted-foreground">
-              From family-run cafes to multi-location brands — here’s what
-              operators say after switching to QR Menu.
+              {t("landing.testimonials.subtitle")}
             </p>
           </div>
 
           {/* Stat chips */}
           <div className="mt-10 flex flex-wrap justify-center gap-3">
             {[
-              { value: "2,000+", label: "Restaurants" },
-              { value: "4.9 ★", label: "Avg. rating" },
-              { value: "+28%", label: "Avg. order value" },
-              { value: "< 1 day", label: "Avg. setup time" },
-            ].map(({ value, label }) => (
+              { value: "2,000+", labelKey: "landing.testimonials.stats.restaurants" },
+              { value: "4.9 ★", labelKey: "landing.testimonials.stats.avgRating" },
+              { value: "+28%", labelKey: "landing.testimonials.stats.avgOrderValue" },
+              { value: "< 1 day", labelKey: "landing.testimonials.stats.avgSetupTime" },
+            ].map(({ value, labelKey }) => (
               <div
-                key={label}
+                key={labelKey}
                 className="flex items-center gap-2 rounded-full border border-border bg-card px-5 py-2.5 text-sm shadow-sm"
               >
                 <span className="font-black text-foreground">{value}</span>
-                <span className="text-muted-foreground">{label}</span>
+                <span className="text-muted-foreground">{t(labelKey)}</span>
               </div>
             ))}
           </div>
@@ -1620,7 +1665,7 @@ const HomePage = () => {
 
                 {/* Quote */}
                 <blockquote className="flex-1 text-[15px] leading-7 text-foreground">
-                  “{item.quote}”
+                  “{t(item.quoteKey)}”
                 </blockquote>
 
                 {/* Author */}
@@ -1635,7 +1680,7 @@ const HomePage = () => {
                       {item.name}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {item.role} · {item.restaurant}
+                      {t(item.roleKey)} · {item.restaurant}
                     </p>
                   </div>
                   <span className="ml-auto shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-primary">
@@ -1653,32 +1698,29 @@ const HomePage = () => {
         <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.92fr_1.08fr] lg:items-center lg:px-8">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.22em] text-primary">
-              Operations command center
+              {t("landing.opsCenter.badge")}
             </p>
             <h2 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">
-              One dashboard for menu health, orders, payments, loyalty, and
-              staff.
+              {t("landing.opsCenter.title")}
             </h2>
             <p className="mt-5 text-base leading-8 text-background/70">
-              Managers see what is selling, what needs attention, how tables are
-              moving, and where revenue is coming from — without switching
-              systems.
+              {t("landing.opsCenter.body")}
             </p>
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
               {[
-                "Live table status with zones",
-                "Order and payment history",
-                "Top dishes and demand trends",
-                "Customer retention signals",
-                "Kitchen queue health",
-                "Staff attribution tracking",
-              ].map((item) => (
+                "landing.opsCenter.checklist.tableStatus",
+                "landing.opsCenter.checklist.orderHistory",
+                "landing.opsCenter.checklist.topDishes",
+                "landing.opsCenter.checklist.retention",
+                "landing.opsCenter.checklist.kitchenQueue",
+                "landing.opsCenter.checklist.staffAttribution",
+              ].map((key) => (
                 <div
-                  key={item}
+                  key={key}
                   className="flex items-center gap-3 rounded-2xl border border-background/10 bg-background/[0.06] p-4 text-sm font-bold text-background/80"
                 >
                   <Check className="h-4 w-4 shrink-0 text-emerald-500 dark:text-emerald-400" />
-                  {item}
+                  {t(key)}
                 </div>
               ))}
             </div>
@@ -1686,12 +1728,12 @@ const HomePage = () => {
           <div className="rounded-[1.75rem] border border-background/10 bg-background/[0.06] p-4">
             <div className="grid gap-4 sm:grid-cols-3">
               {[
-                ["Live orders", "38", "12 preparing"],
-                ["Tables active", "21", "6 need service"],
-                ["Payments", "EUR 2.8k", "today"],
-              ].map(([label, value, meta]) => (
-                <div key={label} className="rounded-2xl bg-background/[0.07] p-5">
-                  <p className="text-xs font-bold text-background/45">{label}</p>
+                ["landing.opsCenter.stats.liveOrders", "38", "12 " + t("landing.opsCenter.stats.preparing")],
+                ["landing.opsCenter.stats.tablesActive", "21", "6 " + t("landing.opsCenter.stats.needService")],
+                ["landing.opsCenter.stats.payments", "EUR 2.8k", t("landing.opsCenter.stats.today")],
+              ].map(([labelKey, value, meta]) => (
+                <div key={labelKey} className="rounded-2xl bg-background/[0.07] p-5">
+                  <p className="text-xs font-bold text-background/45">{t(labelKey)}</p>
                   <p className="mt-2 text-3xl font-black">{value}</p>
                   <p className="mt-1 text-xs font-bold text-primary">
                     {meta}
@@ -1701,16 +1743,16 @@ const HomePage = () => {
             </div>
             <div className="mt-4 rounded-2xl bg-background/[0.07] p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm font-black">Kitchen queue</p>
+                <p className="text-sm font-black">{t("landing.opsCenter.kitchen.title")}</p>
                 <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-black text-emerald-600 dark:text-emerald-400">
-                  Healthy
+                  {t("landing.opsCenter.kitchen.status")}
                 </span>
               </div>
               <div className="mt-5 space-y-3">
                 {[
-                  ["#1254", "Table 12", "4 items", "Preparing"],
-                  ["#1255", "Table 5", "2 items", "Ready"],
-                  ["#1256", "Takeaway", "6 items", "New"],
+                  ["#1254", "Table 12", "4 " + t("landing.opsCenter.kitchen.items"), t("landing.opsCenter.kitchen.preparing")],
+                  ["#1255", "Table 5", "2 " + t("landing.opsCenter.kitchen.items"), t("landing.opsCenter.kitchen.ready")],
+                  ["#1256", t("landing.opsCenter.kitchen.takeaway"), "6 " + t("landing.opsCenter.kitchen.items"), t("landing.opsCenter.kitchen.new")],
                 ].map(([id, table, items, status]) => (
                   <div
                     key={id}
@@ -1735,15 +1777,13 @@ const HomePage = () => {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-primary">
-              All 4 tiers
+              {t("pricingSection.badge")}
             </p>
             <h2 className="mt-4 text-4xl font-black tracking-tight text-foreground md:text-5xl">
-              Start free, then grow into the tools your restaurant actually
-              needs.
+              {t("pricingSection.title")}
             </h2>
             <p className="mt-5 text-base leading-8 text-muted-foreground">
-              Clear plans for simple menus, ordering, revenue growth, and full
-              restaurant operations. Save 15% with annual billing.
+              {t("pricingSection.subtitle")}
             </p>
           </div>
           <div className="mt-12 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -1803,10 +1843,10 @@ const HomePage = () => {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-primary">
-              Plan comparison
+              {t("landing.comparisonTable.badge")}
             </p>
             <h2 className="mt-4 text-4xl font-black tracking-tight text-foreground md:text-5xl">
-              Compare what each tier unlocks.
+              {t("landing.comparisonTable.title")}
             </h2>
           </div>
           <div className="mt-10 overflow-x-auto rounded-2xl border border-border bg-card shadow-sm">
@@ -1814,7 +1854,7 @@ const HomePage = () => {
               <thead className="sticky top-0 z-10">
                 <tr className="border-b border-border bg-muted">
                   <th className="w-[34%] px-5 py-4 text-left text-xs font-black uppercase tracking-[0.18em] text-muted-foreground">
-                    Feature
+                    {t("landing.comparisonTable.featureHeader")}
                   </th>
                   {plans.map((plan) => (
                     <th
@@ -1829,11 +1869,11 @@ const HomePage = () => {
               <tbody>
                 {comparisonRows.map((row, index) => (
                   <tr
-                    key={row.label}
+                    key={row.labelKey || row.label}
                     className={`border-b border-border/70 ${index % 2 ? "bg-secondary/20" : "bg-card"}`}
                   >
                     <td className="px-5 py-4 text-sm font-bold text-foreground">
-                      {row.label}
+                      {row.labelKey ? t(row.labelKey) : row.label}
                     </td>
                     <td className="px-4 py-4 text-center">
                       <FeatureValue value={row.free} />
@@ -1860,27 +1900,26 @@ const HomePage = () => {
         <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:px-8">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.22em] text-primary">
-              FAQ
+              {t("landing.faq.badge")}
             </p>
             <h2 className="mt-4 text-4xl font-black tracking-tight text-foreground md:text-5xl">
-              Questions before launch?
+              {t("landing.faq.title")}
             </h2>
             <p className="mt-5 text-base leading-8 text-muted-foreground">
-              Here are the answers most restaurants need before replacing
-              printed menus or adding digital ordering.
+              {t("landing.faq.subtitle")}
             </p>
           </div>
           <div className="space-y-3">
             {faqItems.map((item, idx) => (
               <div
-                key={item.question}
+                key={item.questionKey}
                 className="rounded-2xl border border-border bg-card shadow-sm transition-all duration-300"
               >
                 <button
                   onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
                   className="flex w-full cursor-pointer items-center justify-between gap-4 p-5 text-left text-base font-black text-foreground"
                 >
-                  {item.question}
+                  {t(item.questionKey)}
                   <span
                     className={`grid h-8 w-8 shrink-0 place-items-center rounded-full bg-secondary text-primary transition-transform duration-300 ${openFaq === idx ? "rotate-45" : ""}`}
                   >
@@ -1892,7 +1931,7 @@ const HomePage = () => {
                 >
                   <div className="overflow-hidden">
                     <p className="px-5 pb-5 text-sm leading-7 text-muted-foreground">
-                      {item.answer}
+                      {t(item.answerKey)}
                     </p>
                   </div>
                 </div>
@@ -1913,26 +1952,24 @@ const HomePage = () => {
             <QrCode className="h-7 w-7" />
           </div>
           <h2 className="text-4xl font-black tracking-tight md:text-6xl">
-            Make the first scan feel like your best service moment.
+            {t("landing.bottomCtaTitle")}
           </h2>
           <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-background/68">
-            Launch a stunning QR menu today, then grow into ordering, payments,
-            loyalty, POS, kitchen display, and multi-location operations when
-            the restaurant is ready.
+            {t("landing.bottomCtaSubtitle")}
           </p>
           <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
             <Link
               to="/register"
               className="inline-flex h-14 cursor-pointer items-center justify-center rounded-2xl bg-background px-8 text-sm font-black uppercase tracking-wider text-foreground transition hover:opacity-90"
             >
-              Start Free Trial
+              {t("landing.startFreeTrial")}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
             <Link
               to="/pricing"
               className="inline-flex h-14 cursor-pointer items-center justify-center rounded-2xl border border-background/20 px-8 text-sm font-black uppercase tracking-wider text-background transition hover:bg-background/10"
             >
-              View Pricing
+              {t("landing.pricingBadge")}
             </Link>
           </div>
         </div>
@@ -1954,9 +1991,7 @@ const HomePage = () => {
                 </div>
               </div>
               <p className="mt-4 max-w-xs text-sm leading-6 text-muted-foreground">
-                The all-in-one digital restaurant platform. Menus, ordering,
-                payments, loyalty, analytics, staff tools, POS, and kitchen
-                display — all from a QR scan.
+                {t("landing.heroSubtext")}
               </p>
             </div>
             <div>
@@ -2036,7 +2071,7 @@ const HomePage = () => {
               © {new Date().getFullYear()} QR Menu. All rights reserved.
             </span>
             <span className="text-xs text-muted-foreground">
-              Made for restaurants, with care.
+              {t("landing.footerRights")}
             </span>
           </div>
         </div>
