@@ -65,7 +65,10 @@ const buildMockPrisma = () => ({
     findFirst: jest.fn(),
     findMany: jest.fn().mockResolvedValue([]),
   },
-  order: { findMany: jest.fn().mockResolvedValue([]), groupBy: jest.fn().mockResolvedValue([]) },
+  order: {
+    findMany: jest.fn().mockResolvedValue([]),
+    groupBy: jest.fn().mockResolvedValue([]),
+  },
   loyaltyPointBatch: {
     findMany: jest.fn().mockResolvedValue([]),
     updateMany: jest.fn(),
@@ -138,7 +141,11 @@ describe('LoyaltyService', () => {
     it('returns existing account without creating when already enrolled', async () => {
       mockPrisma.loyaltyAccount.findUnique.mockReset();
       mockPrisma.loyaltyAccount.findUnique
-        .mockResolvedValueOnce({ id: 'acc-1', points: 100, lifetimePoints: 100 })
+        .mockResolvedValueOnce({
+          id: 'acc-1',
+          points: 100,
+          lifetimePoints: 100,
+        })
         .mockResolvedValue({ id: 'acc-1', points: 100, lifetimePoints: 100 });
 
       await service.enroll('user-1', 'rest-1');
@@ -166,18 +173,28 @@ describe('LoyaltyService', () => {
       });
 
       let capturedSignupBonus = 0;
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => {
-        const tx = makeTx();
-        tx.loyaltyAccount.create = jest.fn().mockImplementation(({ data }: any) => {
-          capturedSignupBonus = data.points;
-          return { id: 'acc-new', ...data };
-        });
-        tx.loyaltyAccount.findUniqueOrThrow = jest.fn().mockResolvedValue({
-          id: 'acc-new', points: 75, lifetimePoints: 75, restaurant: BASE_RESTAURANT,
-        });
-        await fn(tx);
-        return { updatedAccount: { id: 'acc-new', points: 75, lifetimePoints: 75 }, batches: [] };
-      });
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (tx: any) => any) => {
+          const tx = makeTx();
+          tx.loyaltyAccount.create = jest
+            .fn()
+            .mockImplementation(({ data }: any) => {
+              capturedSignupBonus = data.points;
+              return { id: 'acc-new', ...data };
+            });
+          tx.loyaltyAccount.findUniqueOrThrow = jest.fn().mockResolvedValue({
+            id: 'acc-new',
+            points: 75,
+            lifetimePoints: 75,
+            restaurant: BASE_RESTAURANT,
+          });
+          await fn(tx);
+          return {
+            updatedAccount: { id: 'acc-new', points: 75, lifetimePoints: 75 },
+            batches: [],
+          };
+        },
+      );
 
       await service.enroll('user-1', 'rest-1');
 
@@ -199,7 +216,9 @@ describe('LoyaltyService', () => {
       connErr.code = 'P1001';
       mockPrisma.$transaction.mockRejectedValue(connErr);
 
-      await expect(service.enroll('user-1', 'rest-1')).rejects.toThrow('Connection timeout');
+      await expect(service.enroll('user-1', 'rest-1')).rejects.toThrow(
+        'Connection timeout',
+      );
     });
   });
 
@@ -254,12 +273,15 @@ describe('LoyaltyService', () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
 
       const tx = makeTx();
-      tx.loyaltyPointLedger.findMany = jest.fn()
+      tx.loyaltyPointLedger.findMany = jest
+        .fn()
         .mockResolvedValueOnce([]) // expireAccountPoints: no expired entries
         .mockResolvedValue([{ id: 'l-1', remainingPoints: 50, expiresAt }]);
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
-      const result = await service.getPoints('user-1', 'rest-1') as any;
+      const result = (await service.getPoints('user-1', 'rest-1')) as any;
 
       expect(result.expiringSoonPoints).toBe(50);
       expect(result.expiringSoon).toHaveLength(1);
@@ -271,16 +293,30 @@ describe('LoyaltyService', () => {
 
   describe('availability gating', () => {
     it('getPoints returns empty when the tier lacks LOYALTY', async () => {
-      mockPrisma.loyaltyAccount.findUnique.mockResolvedValue({ id: 'acc-1', points: 100, lifetimePoints: 500 });
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ ...BASE_RESTAURANT, tier: 'FREE' });
+      mockPrisma.loyaltyAccount.findUnique.mockResolvedValue({
+        id: 'acc-1',
+        points: 100,
+        lifetimePoints: 500,
+      });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'FREE',
+      });
 
       const result = await service.getPoints('user-1', 'rest-1');
 
-      expect(result).toEqual({ points: 0, lifetimePoints: 0, restaurantConfig: null });
+      expect(result).toEqual({
+        points: 0,
+        lifetimePoints: 0,
+        restaurantConfig: null,
+      });
     });
 
     it('getPublicConfig returns null when loyalty is disabled', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ ...BASE_RESTAURANT, isLoyaltyEnabled: false });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        isLoyaltyEnabled: false,
+      });
 
       const result = await service.getPublicConfig('rest-1');
 
@@ -333,12 +369,21 @@ describe('LoyaltyService', () => {
     });
 
     it('returns enriched accounts with summary fields', async () => {
-      const account = { id: 'acc-1', points: 100, lifetimePoints: 500, restaurant: BASE_RESTAURANT };
+      const account = {
+        id: 'acc-1',
+        points: 100,
+        lifetimePoints: 500,
+        restaurant: BASE_RESTAURANT,
+      };
       mockPrisma.loyaltyAccount.findMany.mockResolvedValue([account]);
 
       const tx = makeTx();
-      tx.loyaltyAccount.findUniqueOrThrow = jest.fn().mockResolvedValue(account);
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      tx.loyaltyAccount.findUniqueOrThrow = jest
+        .fn()
+        .mockResolvedValue(account);
+      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       const result = await service.getLoyaltyAccounts('user-1');
 
@@ -350,7 +395,9 @@ describe('LoyaltyService', () => {
 
     it('calls prisma.loyaltyAccount.findMany with userId filter', async () => {
       mockPrisma.loyaltyAccount.findMany.mockResolvedValue([]);
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(makeTx()));
+      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(makeTx()),
+      );
 
       await service.getLoyaltyAccounts('user-42');
 
@@ -366,7 +413,9 @@ describe('LoyaltyService', () => {
     it('throws Error when restaurant not found', async () => {
       mockPrisma.restaurant.findFirst.mockResolvedValue(null);
 
-      await expect(service.notifyExpiryReminders('rest-1', 'owner-1')).rejects.toThrow('Forbidden');
+      await expect(
+        service.notifyExpiryReminders('rest-1', 'owner-1'),
+      ).rejects.toThrow('Forbidden');
     });
 
     it('returns empty array when no expiring batches', async () => {
@@ -374,7 +423,9 @@ describe('LoyaltyService', () => {
 
       const tx = makeTx();
       tx.loyaltyAccount.findMany = jest.fn().mockResolvedValue([]);
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       const result = await service.notifyExpiryReminders('rest-1', 'owner-1');
 
@@ -391,12 +442,19 @@ describe('LoyaltyService', () => {
 
       const tx = makeTx();
       tx.loyaltyAccount.findMany = jest.fn().mockResolvedValue([candidate]);
-      tx.loyaltyPointLedger.findMany = jest.fn()
+      tx.loyaltyPointLedger.findMany = jest
+        .fn()
         .mockResolvedValueOnce([]) // expireAccountPoints: no expired entries
         .mockResolvedValue([
-          { id: 'batch-1', remainingPoints: 50, expiresAt: new Date(Date.now() + 86400000) },
+          {
+            id: 'batch-1',
+            remainingPoints: 50,
+            expiresAt: new Date(Date.now() + 86400000),
+          },
         ]); // getExpiringPointBatches: one batch
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       const prevKey = process.env.RESEND_API_KEY;
       delete process.env.RESEND_API_KEY;
@@ -419,12 +477,19 @@ describe('LoyaltyService', () => {
 
       const tx = makeTx();
       tx.loyaltyAccount.findMany = jest.fn().mockResolvedValue([candidate]);
-      tx.loyaltyPointLedger.findMany = jest.fn()
+      tx.loyaltyPointLedger.findMany = jest
+        .fn()
         .mockResolvedValueOnce([])
         .mockResolvedValue([
-          { id: 'batch-1', remainingPoints: 50, expiresAt: new Date(Date.now() + 86400000) },
+          {
+            id: 'batch-1',
+            remainingPoints: 50,
+            expiresAt: new Date(Date.now() + 86400000),
+          },
         ]);
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       const prevKey = process.env.RESEND_API_KEY;
       process.env.RESEND_API_KEY = 'test-resend-key';
@@ -450,7 +515,9 @@ describe('LoyaltyService', () => {
     it('throws Error when restaurant not found', async () => {
       mockPrisma.restaurant.findFirst.mockResolvedValue(null);
 
-      await expect(service.getExpiryReminderCandidates('rest-1', 'owner-1')).rejects.toThrow('Forbidden');
+      await expect(
+        service.getExpiryReminderCandidates('rest-1', 'owner-1'),
+      ).rejects.toThrow('Forbidden');
     });
 
     it('returns empty array when no accounts have expiring points', async () => {
@@ -458,9 +525,14 @@ describe('LoyaltyService', () => {
 
       const tx = makeTx();
       tx.loyaltyAccount.findMany = jest.fn().mockResolvedValue([]);
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
-      const result = await service.getExpiryReminderCandidates('rest-1', 'owner-1');
+      const result = await service.getExpiryReminderCandidates(
+        'rest-1',
+        'owner-1',
+      );
 
       expect(result).toEqual([]);
     });
@@ -468,18 +540,31 @@ describe('LoyaltyService', () => {
     it('returns candidates with points and value for accounts with expiring batches', async () => {
       mockPrisma.restaurant.findFirst.mockResolvedValue(BASE_RESTAURANT);
 
-      const account = { id: 'acc-1', user: { id: 'user-1', email: 'u@test.com', name: 'User' } };
+      const account = {
+        id: 'acc-1',
+        user: { id: 'user-1', email: 'u@test.com', name: 'User' },
+      };
 
       const tx = makeTx();
       tx.loyaltyAccount.findMany = jest.fn().mockResolvedValue([account]);
-      tx.loyaltyPointLedger.findMany = jest.fn()
+      tx.loyaltyPointLedger.findMany = jest
+        .fn()
         .mockResolvedValueOnce([]) // expireAccountPoints
         .mockResolvedValue([
-          { id: 'batch-1', remainingPoints: 75, expiresAt: new Date(Date.now() + 86400000) },
+          {
+            id: 'batch-1',
+            remainingPoints: 75,
+            expiresAt: new Date(Date.now() + 86400000),
+          },
         ]); // getExpiringPointBatches
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
-      const result = await service.getExpiryReminderCandidates('rest-1', 'owner-1');
+      const result = await service.getExpiryReminderCandidates(
+        'rest-1',
+        'owner-1',
+      );
 
       expect(result).toHaveLength(1);
       expect(result[0].points).toBe(75);
@@ -494,7 +579,9 @@ describe('LoyaltyService', () => {
     it('throws Error when restaurant not found', async () => {
       mockPrisma.restaurant.findFirst.mockResolvedValue(null);
 
-      await expect(service.getAnalytics('rest-1', 'owner-1')).rejects.toThrow('Forbidden');
+      await expect(service.getAnalytics('rest-1', 'owner-1')).rejects.toThrow(
+        'Forbidden',
+      );
     });
 
     it('returns correct totals', async () => {
@@ -506,10 +593,13 @@ describe('LoyaltyService', () => {
       ];
 
       const tx = makeTx();
-      tx.loyaltyAccount.findMany = jest.fn()
+      tx.loyaltyAccount.findMany = jest
+        .fn()
         .mockResolvedValueOnce(accounts) // initial findMany
-        .mockResolvedValue(accounts);    // second findMany (after expiry)
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+        .mockResolvedValue(accounts); // second findMany (after expiry)
+      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       mockPrisma.order.findMany.mockResolvedValue([
         { pointsRedeemed: 100 },
@@ -528,7 +618,9 @@ describe('LoyaltyService', () => {
 
       const tx = makeTx();
       tx.loyaltyAccount.findMany = jest.fn().mockResolvedValue([]);
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
       mockPrisma.order.findMany.mockResolvedValue([]);
 
       const result = await service.getAnalytics('rest-1', 'owner-1');
@@ -555,7 +647,9 @@ describe('LoyaltyService', () => {
 
       const tx = makeTx();
       tx.loyaltyAccount.findMany = jest.fn().mockResolvedValue([]);
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.runDailyExpiryReminders();
 
@@ -572,12 +666,19 @@ describe('LoyaltyService', () => {
 
       const tx = makeTx();
       tx.loyaltyAccount.findMany = jest.fn().mockResolvedValue([candidate]);
-      tx.loyaltyPointLedger.findMany = jest.fn()
+      tx.loyaltyPointLedger.findMany = jest
+        .fn()
         .mockResolvedValueOnce([]) // expireAccountPoints
         .mockResolvedValue([
-          { id: 'batch-1', remainingPoints: 50, expiresAt: new Date(Date.now() + 86400000) },
+          {
+            id: 'batch-1',
+            remainingPoints: 50,
+            expiresAt: new Date(Date.now() + 86400000),
+          },
         ]);
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       const prevKey = process.env.RESEND_API_KEY;
       process.env.RESEND_API_KEY = 'test-key';
@@ -594,14 +695,19 @@ describe('LoyaltyService', () => {
 
     it('continues processing other restaurants when one throws', async () => {
       const rest2 = { ...BASE_RESTAURANT, id: 'rest-2', name: 'Rest 2' };
-      mockPrisma.restaurant.findMany.mockResolvedValue([BASE_RESTAURANT, rest2]);
+      mockPrisma.restaurant.findMany.mockResolvedValue([
+        BASE_RESTAURANT,
+        rest2,
+      ]);
 
       let callCount = 0;
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => {
-        callCount++;
-        if (callCount === 1) throw new Error('DB error');
-        return fn(makeTx());
-      });
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (tx: any) => any) => {
+          callCount++;
+          if (callCount === 1) throw new Error('DB error');
+          return fn(makeTx());
+        },
+      );
 
       // Should not throw — errors are caught per restaurant
       await expect(service.runDailyExpiryReminders()).resolves.toBeUndefined();

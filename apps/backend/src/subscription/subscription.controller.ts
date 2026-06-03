@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Body, Req, Query, UseGuards, Headers, HttpCode, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Req,
+  Query,
+  UseGuards,
+  Headers,
+  HttpCode,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { SubscriptionService } from './subscription.service';
 import { CreateCheckoutDto } from './dto/checkout.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -35,7 +47,9 @@ export class SubscriptionController {
       const isOwner = restaurant.ownerId === userId;
       const isStaff = user?.restaurantId === restaurantId;
       if (!isSuperAdmin && !isOwner && !isStaff) {
-        throw new ForbiddenException('You do not have access to this restaurant');
+        throw new ForbiddenException(
+          'You do not have access to this restaurant',
+        );
       }
       return restaurant;
     }
@@ -43,14 +57,23 @@ export class SubscriptionController {
     // Fallback: caller's own restaurant. Staff via User.restaurantId; owners
     // via Restaurant.ownerId.
     if (user?.restaurantId) {
-      return this.prisma.restaurant.findUnique({ where: { id: user.restaurantId }, select });
+      return this.prisma.restaurant.findUnique({
+        where: { id: user.restaurantId },
+        select,
+      });
     }
-    return this.prisma.restaurant.findFirst({ where: { ownerId: userId }, select });
+    return this.prisma.restaurant.findFirst({
+      where: { ownerId: userId },
+      select,
+    });
   }
 
   @Get('status')
   @UseGuards(JwtAuthGuard)
-  async getStatus(@Req() req: any, @Query('restaurantId') restaurantId?: string) {
+  async getStatus(
+    @Req() req: any,
+    @Query('restaurantId') restaurantId?: string,
+  ) {
     const userId = req.user.id ?? req.user.sub;
     const restaurant = await this.resolveRestaurant(
       userId,
@@ -83,11 +106,23 @@ export class SubscriptionController {
   @Post('checkout')
   @UseGuards(JwtAuthGuard)
   async createCheckout(@Req() req: any, @Body() dto: CreateCheckoutDto) {
-    if (req.user.role !== 'OWNER') throw new ForbiddenException('Only restaurant owners can manage billing');
+    if (req.user.role !== 'OWNER')
+      throw new ForbiddenException('Only restaurant owners can manage billing');
     const userId = req.user.id ?? req.user.sub;
-    const restaurant = await this.resolveRestaurant(userId, { id: true }, dto.restaurantId);
-    if (!restaurant) throw new NotFoundException('No restaurant found for user');
-    return this.subscriptionService.createCheckoutSession(restaurant.id, dto.tier, dto.billingPeriod ?? 'monthly', userId, dto.onboarding ?? false);
+    const restaurant = await this.resolveRestaurant(
+      userId,
+      { id: true },
+      dto.restaurantId,
+    );
+    if (!restaurant)
+      throw new NotFoundException('No restaurant found for user');
+    return this.subscriptionService.createCheckoutSession(
+      restaurant.id,
+      dto.tier,
+      dto.billingPeriod ?? 'monthly',
+      userId,
+      dto.onboarding ?? false,
+    );
   }
 
   @Post('confirm-session')
@@ -100,11 +135,20 @@ export class SubscriptionController {
 
   @Post('portal')
   @UseGuards(JwtAuthGuard)
-  async createPortal(@Req() req: any, @Body('restaurantId') restaurantId?: string) {
-    if (req.user.role !== 'OWNER') throw new ForbiddenException('Only restaurant owners can manage billing');
+  async createPortal(
+    @Req() req: any,
+    @Body('restaurantId') restaurantId?: string,
+  ) {
+    if (req.user.role !== 'OWNER')
+      throw new ForbiddenException('Only restaurant owners can manage billing');
     const userId = req.user.id ?? req.user.sub;
-    const restaurant = await this.resolveRestaurant(userId, { id: true }, restaurantId);
-    if (!restaurant) throw new NotFoundException('No restaurant found for user');
+    const restaurant = await this.resolveRestaurant(
+      userId,
+      { id: true },
+      restaurantId,
+    );
+    if (!restaurant)
+      throw new NotFoundException('No restaurant found for user');
     return this.subscriptionService.createPortalSession(restaurant.id, userId);
   }
 

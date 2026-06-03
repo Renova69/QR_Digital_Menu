@@ -29,8 +29,13 @@ export class UsersDataController {
   @Delete('delete')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: { limit: 1, ttl: 3_600_000 } })
-  @ApiOperation({ summary: 'Erase account and all personal data (GDPR Art. 17)' })
-  async deleteAccount(@Req() req: any, @Res({ passthrough: true }) res: Response) {
+  @ApiOperation({
+    summary: 'Erase account and all personal data (GDPR Art. 17)',
+  })
+  async deleteAccount(
+    @Req() req: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     await this.usersDataService.eraseSelf(req.user.id);
     res.clearCookie('token');
   }

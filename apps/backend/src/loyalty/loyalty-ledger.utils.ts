@@ -44,14 +44,14 @@ export async function expireAccountPoints(
   });
 
   const expiredPoints = expiredEntries.reduce(
-    (sum, entry) => sum + entry.remainingPoints,
+    (sum: number, entry: { remainingPoints: number }) => sum + entry.remainingPoints,
     0,
   );
 
   if (expiredPoints <= 0) return 0;
 
   await tx.loyaltyPointLedger.updateMany({
-    where: { id: { in: expiredEntries.map((e) => e.id) } },
+    where: { id: { in: expiredEntries.map((e: { id: string }) => e.id) } },
     data: { remainingPoints: 0 },
   });
 

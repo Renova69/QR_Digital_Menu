@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdatePlatformSettingsDto } from './dto/update-platform-settings.dto';
-import { PlatformSettings } from '@prisma/client';
+import { PlatformSettings, Prisma } from '@prisma/client';
 
 @Injectable()
 export class PlatformSettingsService {
@@ -37,7 +37,7 @@ export class PlatformSettingsService {
     const changedKeys = Object.keys(dto);
     let settings!: PlatformSettings;
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       settings = await tx.platformSettings.upsert({
         where: { id: 'singleton' },
         create: { id: 'singleton', ...dto, updatedById },

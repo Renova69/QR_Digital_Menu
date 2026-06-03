@@ -1,4 +1,10 @@
-import { IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import {
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class RefundPaymentDto {

@@ -92,7 +92,9 @@ export class TablesService {
         zoneId,
       },
     });
-    this.events.emitToRestaurant(restaurantId, 'table:created', { tableId: table.id });
+    this.events.emitToRestaurant(restaurantId, 'table:created', {
+      tableId: table.id,
+    });
     this.events.emitZoneChanged(restaurantId);
     return table;
   }
@@ -102,7 +104,8 @@ export class TablesService {
       where: { id: restaurantId },
     });
     if (!restaurant) throw new NotFoundException('Restaurant not found');
-    if (restaurant.ownerId !== userId) throw new ForbiddenException('You do not own this restaurant');
+    if (restaurant.ownerId !== userId)
+      throw new ForbiddenException('You do not own this restaurant');
 
     const defaultZone = await this.prisma.tableZone.findFirst({
       where: { restaurantId },
@@ -179,7 +182,10 @@ export class TablesService {
     });
   }
 
-  private async verifyRestaurantAccess(restaurantId: string, user: any): Promise<void> {
+  private async verifyRestaurantAccess(
+    restaurantId: string,
+    user: any,
+  ): Promise<void> {
     if (!user) throw new ForbiddenException('Access denied');
     // Staff/Manager: restaurantId is embedded in JWT payload by jwt.strategy
     if (user.restaurantId === restaurantId) return;
@@ -190,7 +196,8 @@ export class TablesService {
       select: { ownerId: true },
     });
     if (!restaurant) throw new NotFoundException('Restaurant not found');
-    if (restaurant.ownerId !== user.id) throw new ForbiddenException('Access denied');
+    if (restaurant.ownerId !== user.id)
+      throw new ForbiddenException('Access denied');
   }
 
   async getTablesWithStatus(restaurantId: string, zoneId?: string, user?: any) {
@@ -271,7 +278,8 @@ export class TablesService {
                   if (!name) return 'Staff';
                   const first = String(name).split(/[ @]/)[0];
                   const role = o.staff?.role
-                    ? o.staff.role.charAt(0).toUpperCase() + o.staff.role.slice(1).toLowerCase()
+                    ? o.staff.role.charAt(0).toUpperCase() +
+                      o.staff.role.slice(1).toLowerCase()
                     : 'Staff';
                   return `${role}: ${first}`;
                 }
@@ -315,18 +323,25 @@ export class TablesService {
       specialRequests: order.specialRequests,
       createdAt: order.createdAt,
       source: order.source,
-      staffName: order.staff
-        ? (order.staff.name ?? order.staff.email)
-        : null,
+      staffName: order.staff ? (order.staff.name ?? order.staff.email) : null,
       staffRole: order.staff?.role ?? null,
-      items: order.items.map((oi) => ({
+      items: order.items.map((oi: any) => ({
         name: oi.menuItem?.name ?? 'Unknown item',
         quantity: oi.quantity,
-        totalPrice: ((oi.menuItem?.price ?? 0) + (Array.isArray(oi.selectedOptions)
-          ? (oi.selectedOptions as any[]).reduce((sum: number, option: any) => sum + Number(option?.priceModifier ?? 0), 0)
-          : 0)) * oi.quantity,
+        totalPrice:
+          ((oi.menuItem?.price ?? 0) +
+            (Array.isArray(oi.selectedOptions)
+              ? (oi.selectedOptions as any[]).reduce(
+                  (sum: number, option: any) =>
+                    sum + Number(option?.priceModifier ?? 0),
+                  0,
+                )
+              : 0)) *
+          oi.quantity,
         options: Array.isArray(oi.selectedOptions)
-          ? (oi.selectedOptions as any[]).map((option: any) => option?.choiceName).filter(Boolean)
+          ? (oi.selectedOptions as any[])
+              .map((option: any) => option?.choiceName)
+              .filter(Boolean)
           : [],
       })),
     }));
@@ -346,7 +361,9 @@ export class TablesService {
     const deleted = await this.prisma.restaurantTable.delete({
       where: { id },
     });
-    this.events.emitToRestaurant(deleted.restaurantId, 'table:deleted', { tableId: id });
+    this.events.emitToRestaurant(deleted.restaurantId, 'table:deleted', {
+      tableId: id,
+    });
     this.events.emitZoneChanged(deleted.restaurantId);
     return deleted;
   }

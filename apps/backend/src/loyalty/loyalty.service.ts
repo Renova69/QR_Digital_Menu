@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -21,7 +22,11 @@ import { isLoyaltyAvailable } from './loyalty-availability.util';
 const MAX_SIGNUP_BONUS = 75;
 
 // Effective-tier fields needed to evaluate loyalty availability (#5).
-const LOYALTY_TIER_FIELDS = { tier: true, forceTier: true, isActive: true } as const;
+const LOYALTY_TIER_FIELDS = {
+  tier: true,
+  forceTier: true,
+  isActive: true,
+} as const;
 
 const TIER_FIELDS = {
   loyaltySilverThreshold: true,
@@ -70,10 +75,7 @@ export class LoyaltyService {
   ) {
     const redeemRate = restaurant?.loyaltyRedeemRate ?? 150;
     const tierConfig = tierConfigFromRestaurant(restaurant ?? {});
-    const tierInfo: TierInfo = getTierInfo(
-      account.lifetimePoints,
-      tierConfig,
-    );
+    const tierInfo: TierInfo = getTierInfo(account.lifetimePoints, tierConfig);
     const progress = getFirstRewardProgress(account.points, redeemRate);
     const expiringSoonPoints = expiringBatches.reduce(
       (sum, b) => sum + b.remainingPoints,
@@ -96,7 +98,7 @@ export class LoyaltyService {
       expiringSoonPoints,
       expiringSoonValue: getRewardValue(expiringSoonPoints, redeemRate),
       nextExpirationAt: expiringBatches[0]?.expiresAt ?? null,
-      expiringSoon: expiringBatches.map((b) => ({
+      expiringSoon: expiringBatches.map((b: { remainingPoints: number; expiresAt: Date }) => ({
         points: b.remainingPoints,
         value: getRewardValue(b.remainingPoints, redeemRate),
         expiresAt: b.expiresAt,
@@ -137,7 +139,7 @@ export class LoyaltyService {
     }
 
     try {
-      await this.prisma.$transaction(async (tx) => {
+      await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const signupBonus = Math.min(
           MAX_SIGNUP_BONUS,
           restaurant.loyaltySignupBonus || 0,
@@ -185,7 +187,7 @@ export class LoyaltyService {
     let expiringSoon: any[] = [];
 
     if (acc && restaurant) {
-      const result = await this.prisma.$transaction(async (tx) => {
+      const result = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         await expireAccountPoints(tx, acc!.id);
         const updatedAccount = await tx.loyaltyAccount.findUniqueOrThrow({
           where: { id: acc!.id },
@@ -229,7 +231,7 @@ export class LoyaltyService {
       },
     });
 
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const enriched = [];
 
       for (const account of accounts) {
@@ -302,7 +304,7 @@ export class LoyaltyService {
 
     const restaurantName = restaurant.name;
 
-    const candidates = await this.prisma.$transaction(async (tx) => {
+    const candidates = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const accounts = await tx.loyaltyAccount.findMany({
         where: { restaurantId, points: { gt: 0 } },
         include: {
@@ -325,8 +327,11 @@ export class LoyaltyService {
 
         if (batches.length === 0) continue;
 
-        const points = batches.reduce((s, b) => s + b.remainingPoints, 0);
-        await markRemindersSent(tx, batches.map((b) => b.id));
+        const points = batches.reduce((s: number, b: { remainingPoints: number }) => s + b.remainingPoints, 0);
+        await markRemindersSent(
+          tx,
+          batches.map((b: { id: string }) => b.id),
+        );
 
         const redeemRate = restaurant.loyaltyRedeemRate || 150;
         results.push({
@@ -365,10 +370,15 @@ export class LoyaltyService {
             }),
           });
         } catch (emailErr) {
-          this.logger.error(`Failed to send expiry reminder to ${candidate.user.email}`, emailErr);
+          this.logger.error(
+            `Failed to send expiry reminder to ${candidate.user.email}`,
+            emailErr,
+          );
         }
       } else {
-        this.logger.log(`[DEV] Expiry reminder for ${candidate.user.email}: ${candidate.message}`);
+        this.logger.log(
+          `[DEV] Expiry reminder for ${candidate.user.email}: ${candidate.message}`,
+        );
       }
     }
 
@@ -388,7 +398,7 @@ export class LoyaltyService {
 
     if (!restaurant) throw new Error('Forbidden');
 
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const accounts = await tx.loyaltyAccount.findMany({
         where: { restaurantId, points: { gt: 0 } },
         include: {
@@ -434,7 +444,7 @@ export class LoyaltyService {
 
     if (!restaurant) throw new Error('Forbidden');
 
-    const accounts = await this.prisma.$transaction(async (tx) => {
+    const accounts = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const existing = await tx.loyaltyAccount.findMany({
         where: { restaurantId },
       });
@@ -446,35 +456,41 @@ export class LoyaltyService {
       return tx.loyaltyAccount.findMany({ where: { restaurantId } });
     });
 
-    const [ordersWithRedemptions, customerOrderCounts, topAccount] = await Promise.all([
-      this.prisma.order.findMany({
-        where: { restaurantId, pointsRedeemed: { gt: 0 } },
-      }),
-      this.prisma.order.groupBy({
-        by: ['customerPhone'],
-        _count: true,
-        where: {
-          restaurantId,
-          customerPhone: { not: '' },
-          status: { not: 'CANCELED' },
-        },
-      }),
-      this.prisma.loyaltyAccount.findFirst({
-        where: { restaurantId, points: { gt: 0 } },
-        orderBy: { points: 'desc' },
-        include: { user: { select: { name: true, email: true } } },
-      }),
-    ]);
+    const [ordersWithRedemptions, customerOrderCounts, topAccount] =
+      await Promise.all([
+        this.prisma.order.findMany({
+          where: { restaurantId, pointsRedeemed: { gt: 0 } },
+        }),
+        this.prisma.order.groupBy({
+          by: ['customerPhone'],
+          _count: true,
+          where: {
+            restaurantId,
+            customerPhone: { not: '' },
+            status: { not: 'CANCELED' },
+          },
+        }),
+        this.prisma.loyaltyAccount.findFirst({
+          where: { restaurantId, points: { gt: 0 } },
+          orderBy: { points: 'desc' },
+          include: { user: { select: { name: true, email: true } } },
+        }),
+      ]);
 
     const totalCustomers = customerOrderCounts.length;
-    const repeatCustomers = customerOrderCounts.filter((c) => c._count > 1).length;
-    const repeatRate = totalCustomers > 0 ? Math.round((repeatCustomers / totalCustomers) * 1000) / 10 : 0;
+    const repeatCustomers = customerOrderCounts.filter(
+      (c) => c._count > 1,
+    ).length;
+    const repeatRate =
+      totalCustomers > 0
+        ? Math.round((repeatCustomers / totalCustomers) * 1000) / 10
+        : 0;
 
     return {
       totalMembers: accounts.length,
-      totalPointsOutstanding: accounts.reduce((s, a) => s + a.points, 0),
+      totalPointsOutstanding: accounts.reduce((s: number, a: { points: number }) => s + a.points, 0),
       totalPointsRedeemed: ordersWithRedemptions.reduce(
-        (s, o) => s + o.pointsRedeemed,
+        (s: number, o: { pointsRedeemed: number }) => s + o.pointsRedeemed,
         0,
       ),
       repeatRate,
@@ -508,7 +524,7 @@ export class LoyaltyService {
 
     for (const restaurant of restaurants) {
       try {
-        const candidates = await this.prisma.$transaction(async (tx) => {
+        const candidates = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
           const accounts = await tx.loyaltyAccount.findMany({
             where: { restaurantId: restaurant.id, points: { gt: 0 } },
             include: {
@@ -531,10 +547,17 @@ export class LoyaltyService {
 
             if (batches.length === 0) continue;
 
-            const points = batches.reduce((s, b) => s + b.remainingPoints, 0);
-            await markRemindersSent(tx, batches.map((b) => b.id));
+            const points = batches.reduce((s: number, b: { remainingPoints: number }) => s + b.remainingPoints, 0);
+            await markRemindersSent(
+              tx,
+              batches.map((b: { id: string }) => b.id),
+            );
 
-            results.push({ user: account.user, points, restaurantName: restaurant.name });
+            results.push({
+              user: account.user,
+              points,
+              restaurantName: restaurant.name,
+            });
           }
 
           return results;
@@ -542,7 +565,8 @@ export class LoyaltyService {
 
         if (candidates.length > 0) {
           const resendKey = process.env.RESEND_API_KEY;
-          const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com';
+          const fromEmail =
+            process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com';
 
           for (const candidate of candidates) {
             if (!candidate.user.email) continue;

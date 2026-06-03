@@ -1,7 +1,10 @@
 import { SuperAdminGuard } from './super-admin.guard';
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 
-function mockContext(user?: { role?: string; isActive?: boolean }): ExecutionContext {
+function mockContext(user?: {
+  role?: string;
+  isActive?: boolean;
+}): ExecutionContext {
   return {
     switchToHttp: () => ({
       getRequest: () => ({ user: user ?? undefined }),

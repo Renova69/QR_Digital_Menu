@@ -81,7 +81,10 @@ describe('EventsGateway — room authorization', () => {
     });
 
     it('allows the owner', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ role: 'OWNER', restaurantId: null });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        role: 'OWNER',
+        restaurantId: null,
+      });
       mockPrisma.restaurant.findUnique.mockResolvedValue({ ownerId: 'user-1' });
       const client = makeClient({ userId: 'user-1' });
 
@@ -91,8 +94,13 @@ describe('EventsGateway — room authorization', () => {
     });
 
     it('allows assigned staff', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ role: 'WAITER', restaurantId: 'rest-1' });
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ ownerId: 'someone-else' });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        role: 'WAITER',
+        restaurantId: 'rest-1',
+      });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ownerId: 'someone-else',
+      });
       const client = makeClient({ userId: 'user-2' });
 
       await gateway.handleJoinRoom('rest-1', client as any);
@@ -101,8 +109,13 @@ describe('EventsGateway — room authorization', () => {
     });
 
     it('allows super-admin', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ role: 'SUPER_ADMIN', restaurantId: null });
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ ownerId: 'someone-else' });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        role: 'SUPER_ADMIN',
+        restaurantId: null,
+      });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ownerId: 'someone-else',
+      });
       const client = makeClient({ userId: 'admin-1' });
 
       await gateway.handleJoinRoom('rest-1', client as any);
@@ -111,8 +124,13 @@ describe('EventsGateway — room authorization', () => {
     });
 
     it('rejects an authenticated user from another restaurant', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ role: 'OWNER', restaurantId: null });
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ ownerId: 'someone-else' });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        role: 'OWNER',
+        restaurantId: null,
+      });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ownerId: 'someone-else',
+      });
       const client = makeClient({ userId: 'user-3' });
 
       await gateway.handleJoinRoom('rest-1', client as any);
@@ -130,7 +148,10 @@ describe('EventsGateway — room authorization', () => {
         restaurantId: null,
         isActive: false,
       });
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ ownerId: 'user-1', isActive: true });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ownerId: 'user-1',
+        isActive: true,
+      });
       const client = makeClient({ userId: 'user-1' });
 
       await gateway.handleJoinRoom('rest-1', client as any);
@@ -144,7 +165,10 @@ describe('EventsGateway — room authorization', () => {
         restaurantId: null,
         isActive: true,
       });
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ ownerId: 'user-1', isActive: false });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ownerId: 'user-1',
+        isActive: false,
+      });
       const client = makeClient({ userId: 'user-1' });
 
       await gateway.handleJoinRoom('rest-1', client as any);
@@ -157,29 +181,47 @@ describe('EventsGateway — room authorization', () => {
 
   describe('handleJoinOrderRoom', () => {
     it('joins when the token matches the orderId', () => {
-      mockJwt.verify.mockReturnValue({ scope: 'order-track', orderId: 'order-1' });
+      mockJwt.verify.mockReturnValue({
+        scope: 'order-track',
+        orderId: 'order-1',
+      });
       const client = makeClient();
 
-      gateway.handleJoinOrderRoom({ orderId: 'order-1', token: 't' }, client as any);
+      gateway.handleJoinOrderRoom(
+        { orderId: 'order-1', token: 't' },
+        client as any,
+      );
 
       expect(client.join).toHaveBeenCalledWith('order_order-1');
     });
 
     it('rejects when the token is for a different order', () => {
-      mockJwt.verify.mockReturnValue({ scope: 'order-track', orderId: 'order-OTHER' });
+      mockJwt.verify.mockReturnValue({
+        scope: 'order-track',
+        orderId: 'order-OTHER',
+      });
       const client = makeClient();
 
-      gateway.handleJoinOrderRoom({ orderId: 'order-1', token: 't' }, client as any);
+      gateway.handleJoinOrderRoom(
+        { orderId: 'order-1', token: 't' },
+        client as any,
+      );
 
       expect(client.join).not.toHaveBeenCalled();
-      expect(client.emit).toHaveBeenCalledWith('roomError', expect.objectContaining({ orderId: 'order-1' }));
+      expect(client.emit).toHaveBeenCalledWith(
+        'roomError',
+        expect.objectContaining({ orderId: 'order-1' }),
+      );
     });
 
     it('rejects a normal auth token (no order-track scope)', () => {
       mockJwt.verify.mockReturnValue({ sub: 'user-1', email: 'a@b.c' });
       const client = makeClient();
 
-      gateway.handleJoinOrderRoom({ orderId: 'order-1', token: 't' }, client as any);
+      gateway.handleJoinOrderRoom(
+        { orderId: 'order-1', token: 't' },
+        client as any,
+      );
 
       expect(client.join).not.toHaveBeenCalled();
     });
@@ -187,7 +229,10 @@ describe('EventsGateway — room authorization', () => {
     it('rejects when token is missing', () => {
       const client = makeClient();
 
-      gateway.handleJoinOrderRoom({ orderId: 'order-1', token: '' }, client as any);
+      gateway.handleJoinOrderRoom(
+        { orderId: 'order-1', token: '' },
+        client as any,
+      );
 
       expect(client.join).not.toHaveBeenCalled();
       expect(mockJwt.verify).not.toHaveBeenCalled();

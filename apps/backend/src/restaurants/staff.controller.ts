@@ -31,7 +31,10 @@ export class StaffController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  async listStaff(@Param('restaurantId') restaurantId: string, @Request() req: any) {
+  async listStaff(
+    @Param('restaurantId') restaurantId: string,
+    @Request() req: any,
+  ) {
     assertManagerOrOwner(req);
     await this.usersService.verifyRestaurantAccess(restaurantId, req.user.id);
     return this.usersService.listStaffMembers(restaurantId);
@@ -63,7 +66,12 @@ export class StaffController {
   ) {
     const callerRole = assertManagerOrOwner(req);
     await this.usersService.verifyRestaurantAccess(restaurantId, req.user.id);
-    return this.usersService.updateStaffMember(restaurantId, userId, dto, callerRole);
+    return this.usersService.updateStaffMember(
+      restaurantId,
+      userId,
+      dto,
+      callerRole,
+    );
   }
 
   @Post(':userId/reset-pin')
@@ -87,6 +95,10 @@ export class StaffController {
   ) {
     const callerRole = assertManagerOrOwner(req);
     await this.usersService.verifyRestaurantAccess(restaurantId, req.user.id);
-    return this.usersService.removeStaffMember(restaurantId, userId, callerRole);
+    return this.usersService.removeStaffMember(
+      restaurantId,
+      userId,
+      callerRole,
+    );
   }
 }

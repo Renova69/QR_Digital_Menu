@@ -100,11 +100,12 @@ export class RestaurantsController {
       // persisted atomically in one transaction.
       await this.restaurantsService.findOneForManagement(id, req.user.id);
 
-      const { url, thumbnailUrl } = await this.storageService.uploadWithThumbnail(
-        file.buffer,
-        file.originalname,
-        file.mimetype,
-      );
+      const { url, thumbnailUrl } =
+        await this.storageService.uploadWithThumbnail(
+          file.buffer,
+          file.originalname,
+          file.mimetype,
+        );
       return { logoUrl: url, logoThumbnailUrl: thumbnailUrl };
     } catch (error: any) {
       throw new BadRequestException(error.message || 'Failed to upload logo');
@@ -135,7 +136,10 @@ export class RestaurantsController {
   @RequireFeature(FeatureFlag.POS)
   @UseGuards(JwtAuthGuard, FeatureGuard)
   @Get(':restaurantId/device-enrollments')
-  listDeviceEnrollments(@Param('restaurantId') id: string, @Request() req: any) {
+  listDeviceEnrollments(
+    @Param('restaurantId') id: string,
+    @Request() req: any,
+  ) {
     return this.deviceEnrollment.listEnrollments(id, req.user.id);
   }
 
@@ -155,7 +159,12 @@ export class RestaurantsController {
     @Body('returnUrl') returnUrl?: string,
     @Body('refreshUrl') refreshUrl?: string,
   ) {
-    return this.restaurantsService.generateConnectLink(id, req.user.id, returnUrl, refreshUrl);
+    return this.restaurantsService.generateConnectLink(
+      id,
+      req.user.id,
+      returnUrl,
+      refreshUrl,
+    );
   }
 
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)

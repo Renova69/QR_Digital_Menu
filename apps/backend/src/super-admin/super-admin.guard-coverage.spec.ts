@@ -6,10 +6,12 @@ import { SuperAdminController } from './super-admin.controller';
 import { SuperAdminGuard } from './super-admin.guard';
 
 function guardNames(metadataTarget: object | Function): string[] {
-  return (Reflect.getMetadata(GUARDS_METADATA, metadataTarget) ?? []).map((guard: unknown) => {
-    if (typeof guard === 'function') return guard.name;
-    return (guard as { constructor?: { name?: string } })?.constructor?.name;
-  });
+  return (Reflect.getMetadata(GUARDS_METADATA, metadataTarget) ?? []).map(
+    (guard: unknown) => {
+      if (typeof guard === 'function') return guard.name;
+      return (guard as { constructor?: { name?: string } })?.constructor?.name;
+    },
+  );
 }
 
 function expectSuperAdminGuards(metadataTarget: object | Function) {

@@ -51,16 +51,25 @@ describe('RestaurantsService', () => {
 
     mockStripe = {
       createExpressAccount: jest.fn().mockResolvedValue('acct_new'),
-      createAccountLink: jest.fn().mockResolvedValue('https://connect.stripe.com'),
+      createAccountLink: jest
+        .fn()
+        .mockResolvedValue('https://connect.stripe.com'),
       retrieveAccount: jest.fn().mockResolvedValue(true),
     };
 
     mockFeature = {
-      getEffectiveTier: jest.fn((tier: string, force?: string | null) => force ?? tier),
+      getEffectiveTier: jest.fn(
+        (tier: string, force?: string | null) => force ?? tier,
+      ),
       hasFeature: jest.fn().mockReturnValue(true),
     };
 
-    service = new RestaurantsService(mockPrisma, mockTranslation, mockStripe, mockFeature);
+    service = new RestaurantsService(
+      mockPrisma,
+      mockTranslation,
+      mockStripe,
+      mockFeature,
+    );
   });
 
   // ─── create ──────────────────────────────────────────────────────────────────
@@ -71,7 +80,7 @@ describe('RestaurantsService', () => {
       const expected = makeRestaurant({ name: 'New Place' });
       mockPrisma.restaurant.create.mockResolvedValue(expected);
 
-      const result = await service.create(dto as any, 'user1');
+      const result = await service.create(dto, 'user1');
 
       expect(mockPrisma.restaurant.create).toHaveBeenCalledWith({
         data: expect.objectContaining({ ...dto, ownerId: 'user1' }),
@@ -80,10 +89,14 @@ describe('RestaurantsService', () => {
     });
 
     it('strips branding fields — new restaurants start on FREE', async () => {
-      const dto = { name: 'New Place', logoUrl: 'https://r2/logo.webp', accentColor: '#abc' };
+      const dto = {
+        name: 'New Place',
+        logoUrl: 'https://r2/logo.webp',
+        accentColor: '#abc',
+      };
       mockPrisma.restaurant.create.mockResolvedValue(makeRestaurant());
 
-      await service.create(dto as any, 'user1');
+      await service.create(dto, 'user1');
 
       const sentData = mockPrisma.restaurant.create.mock.calls[0][0].data;
       expect(sentData).not.toHaveProperty('logoUrl');
@@ -124,12 +137,18 @@ describe('RestaurantsService', () => {
   describe('findOne', () => {
     it('throws NotFoundException when restaurant not found', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(null);
-      await expect(service.findOne('rest1', 'user1')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne('rest1', 'user1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('throws ForbiddenException when user is not owner', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ ownerId: 'other' }));
-      await expect(service.findOne('rest1', 'user1')).rejects.toThrow(ForbiddenException);
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'other' }),
+      );
+      await expect(service.findOne('rest1', 'user1')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('returns restaurant when user is owner', async () => {
@@ -148,7 +167,9 @@ describe('RestaurantsService', () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(null);
       mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null });
 
-      await expect(service.findOneOrStaff('rest1', 'user1')).rejects.toThrow(NotFoundException);
+      await expect(service.findOneOrStaff('rest1', 'user1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('returns restaurant for owner', async () => {
@@ -170,10 +191,16 @@ describe('RestaurantsService', () => {
     });
 
     it('throws ForbiddenException when neither owner nor staff', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ ownerId: 'owner1' }));
-      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: 'other-rest' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner1' }),
+      );
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: 'other-rest',
+      });
 
-      await expect(service.findOneOrStaff('rest1', 'random')).rejects.toThrow(ForbiddenException);
+      await expect(service.findOneOrStaff('rest1', 'random')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
@@ -182,15 +209,23 @@ describe('RestaurantsService', () => {
   describe('findOneForManagement', () => {
     it('throws NotFoundException when restaurant not found', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(null);
-      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'WAITER' });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'WAITER',
+      });
 
-      await expect(service.findOneForManagement('rest1', 'user1')).rejects.toThrow(NotFoundException);
+      await expect(
+        service.findOneForManagement('rest1', 'user1'),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('returns restaurant for owner', async () => {
       const restaurant = makeRestaurant();
       mockPrisma.restaurant.findUnique.mockResolvedValue(restaurant);
-      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'OWNER' });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
 
       const result = await service.findOneForManagement('rest1', 'user1');
       expect(result).toBe(restaurant);
@@ -199,24 +234,41 @@ describe('RestaurantsService', () => {
     it('returns restaurant for MANAGER assigned to it', async () => {
       const restaurant = makeRestaurant({ ownerId: 'owner1' });
       mockPrisma.restaurant.findUnique.mockResolvedValue(restaurant);
-      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest1', role: 'MANAGER' });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: 'rest1',
+        role: 'MANAGER',
+      });
 
       const result = await service.findOneForManagement('rest1', 'manager1');
       expect(result).toBe(restaurant);
     });
 
     it('throws ForbiddenException for WAITER even if assigned', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ ownerId: 'owner1' }));
-      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest1', role: 'WAITER' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner1' }),
+      );
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: 'rest1',
+        role: 'WAITER',
+      });
 
-      await expect(service.findOneForManagement('rest1', 'waiter1')).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.findOneForManagement('rest1', 'waiter1'),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('throws ForbiddenException for MANAGER assigned to a different restaurant', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ ownerId: 'owner1' }));
-      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: 'other-rest', role: 'MANAGER' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner1' }),
+      );
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: 'other-rest',
+        role: 'MANAGER',
+      });
 
-      await expect(service.findOneForManagement('rest1', 'manager1')).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.findOneForManagement('rest1', 'manager1'),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -226,11 +278,18 @@ describe('RestaurantsService', () => {
     it('calls findOneForManagement then updates restaurant', async () => {
       const restaurant = makeRestaurant();
       mockPrisma.restaurant.findUnique.mockResolvedValue(restaurant);
-      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'OWNER' });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
       const updated = makeRestaurant({ name: 'Updated' });
       mockPrisma.restaurant.update.mockResolvedValue(updated);
 
-      const result = await service.update('rest1', { name: 'Updated' } as any, 'user1');
+      const result = await service.update(
+        'rest1',
+        { name: 'Updated' },
+        'user1',
+      );
 
       expect(mockPrisma.restaurant.update).toHaveBeenCalledWith({
         where: { id: 'rest1' },
@@ -240,10 +299,17 @@ describe('RestaurantsService', () => {
     });
 
     it('throws ForbiddenException when not owner or manager', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ ownerId: 'owner1' }));
-      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'WAITER' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner1' }),
+      );
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'WAITER',
+      });
 
-      await expect(service.update('rest1', {} as any, 'waiter1')).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.update('rest1', {} as any, 'waiter1'),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -261,13 +327,16 @@ describe('RestaurantsService', () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ tier: 'STARTER', forceTier: null }),
       );
-      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'OWNER' });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
     });
 
     it('strips branding fields when tier lacks BRANDING_CUSTOM', async () => {
       mockFeature.hasFeature.mockReturnValue(false);
 
-      await service.update('rest1', brandingDto as any, 'user1');
+      await service.update('rest1', brandingDto, 'user1');
 
       expect(mockPrisma.restaurant.update).toHaveBeenCalledWith({
         where: { id: 'rest1' },
@@ -282,7 +351,7 @@ describe('RestaurantsService', () => {
     it('keeps branding fields when tier has BRANDING_CUSTOM', async () => {
       mockFeature.hasFeature.mockReturnValue(true);
 
-      await service.update('rest1', brandingDto as any, 'user1');
+      await service.update('rest1', brandingDto, 'user1');
 
       expect(mockPrisma.restaurant.update).toHaveBeenCalledWith({
         where: { id: 'rest1' },
@@ -296,9 +365,12 @@ describe('RestaurantsService', () => {
       );
       mockFeature.hasFeature.mockReturnValue(true);
 
-      await service.update('rest1', brandingDto as any, 'user1');
+      await service.update('rest1', brandingDto, 'user1');
 
-      expect(mockFeature.getEffectiveTier).toHaveBeenCalledWith('FREE', 'PROFESSIONAL');
+      expect(mockFeature.getEffectiveTier).toHaveBeenCalledWith(
+        'FREE',
+        'PROFESSIONAL',
+      );
     });
   });
 
@@ -312,13 +384,19 @@ describe('RestaurantsService', () => {
 
       const result = await service.remove('rest1', 'user1');
 
-      expect(mockPrisma.restaurant.delete).toHaveBeenCalledWith({ where: { id: 'rest1' } });
+      expect(mockPrisma.restaurant.delete).toHaveBeenCalledWith({
+        where: { id: 'rest1' },
+      });
       expect(result).toBe(deleted);
     });
 
     it('throws ForbiddenException when not owner', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ ownerId: 'other' }));
-      await expect(service.remove('rest1', 'user1')).rejects.toThrow(ForbiddenException);
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'other' }),
+      );
+      await expect(service.remove('rest1', 'user1')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
@@ -327,19 +405,35 @@ describe('RestaurantsService', () => {
   describe('updateLogo', () => {
     it('updates logoUrl and logoThumbnailUrl', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(makeRestaurant());
-      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'OWNER' });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
 
-      await service.updateLogo('rest1', 'https://r2/logo.webp', 'https://r2/logo_thumb.webp', 'user1');
+      await service.updateLogo(
+        'rest1',
+        'https://r2/logo.webp',
+        'https://r2/logo_thumb.webp',
+        'user1',
+      );
 
       expect(mockPrisma.restaurant.update).toHaveBeenCalledWith({
         where: { id: 'rest1' },
-        data: { logoUrl: 'https://r2/logo.webp', logoThumbnailUrl: 'https://r2/logo_thumb.webp' },
+        data: {
+          logoUrl: 'https://r2/logo.webp',
+          logoThumbnailUrl: 'https://r2/logo_thumb.webp',
+        },
       });
     });
 
     it('throws ForbiddenException when not owner or manager', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ ownerId: 'other' }));
-      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'WAITER' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'other' }),
+      );
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'WAITER',
+      });
 
       await expect(
         service.updateLogo('rest1', 'url', 'thumb', 'waiter1'),
@@ -354,7 +448,10 @@ describe('RestaurantsService', () => {
 
     beforeEach(() => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(restaurant);
-      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'OWNER' });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
       // Prevent real 300ms delays in loops
       jest.spyOn(global, 'setTimeout').mockImplementation((fn: any) => {
         if (typeof fn === 'function') fn();
@@ -379,7 +476,9 @@ describe('RestaurantsService', () => {
     });
 
     it('returns error when targetLanguages is empty', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ targetLanguages: [] }));
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ targetLanguages: [] }),
+      );
       const prev = process.env.DEEPL_API_KEY;
       process.env.DEEPL_API_KEY = 'test-key';
 
@@ -400,13 +499,27 @@ describe('RestaurantsService', () => {
         { id: 'cat1', name: 'Starters', translations: {} },
       ]);
       mockPrisma.menuItem.findMany.mockResolvedValue([
-        { id: 'item1', name: 'Soup', description: 'Hot soup', allergens: [], dietaryTags: [], translations: {} },
+        {
+          id: 'item1',
+          name: 'Soup',
+          description: 'Hot soup',
+          allergens: [],
+          dietaryTags: [],
+          translations: {},
+        },
       ]);
       mockPrisma.menuOption.findMany.mockResolvedValue([
-        { id: 'opt1', name: 'Size', choices: [{ name: 'Large', priceModifier: 1 }], translations: {} },
+        {
+          id: 'opt1',
+          name: 'Size',
+          choices: [{ name: 'Large', priceModifier: 1 }],
+          translations: {},
+        },
       ]);
 
-      mockTranslation.translateObject.mockResolvedValue({ en: { name: 'Starters' } });
+      mockTranslation.translateObject.mockResolvedValue({
+        en: { name: 'Starters' },
+      });
 
       const result = await service.translateAll('rest1', 'user1');
 
@@ -440,10 +553,12 @@ describe('RestaurantsService', () => {
       ]);
 
       let capturedPayload: Record<string, string> = {};
-      mockTranslation.translateObject.mockImplementation((payload: Record<string, string>) => {
-        capturedPayload = payload;
-        return Promise.resolve({});
-      });
+      mockTranslation.translateObject.mockImplementation(
+        (payload: Record<string, string>) => {
+          capturedPayload = payload;
+          return Promise.resolve({});
+        },
+      );
 
       await service.translateAll('rest1', 'user1');
 
@@ -455,10 +570,17 @@ describe('RestaurantsService', () => {
     });
 
     it('throws ForbiddenException when not owner or manager', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ ownerId: 'other' }));
-      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'WAITER' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'other' }),
+      );
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'WAITER',
+      });
 
-      await expect(service.translateAll('rest1', 'waiter1')).rejects.toThrow(ForbiddenException);
+      await expect(service.translateAll('rest1', 'waiter1')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 });

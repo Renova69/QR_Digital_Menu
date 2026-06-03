@@ -26,7 +26,7 @@ async function fixPointsCalculation() {
     const exchangeRate = restaurant.loyaltyExchangeRate || 20;
 
     // Recalculate: (totalPrice * exchangeRate) + signup bonus if first order
-    let newPointsEarned = Math.floor(order.totalPrice * exchangeRate);
+    const newPointsEarned = Math.floor(order.totalPrice * exchangeRate);
 
     console.log(`Order ${order.id}:`);
     console.log(`  Before: ${order.pointsEarned} pts`);

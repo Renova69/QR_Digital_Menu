@@ -9,7 +9,10 @@ export class DashboardService {
   private readonly logger = new Logger(DashboardService.name);
 
   // In-memory analytics cache — per restaurantId+period key, 60-second TTL
-  private readonly analyticsCache = new Map<string, { data: unknown; expiresAt: number }>();
+  private readonly analyticsCache = new Map<
+    string,
+    { data: unknown; expiresAt: number }
+  >();
   private static readonly ANALYTICS_TTL_MS = 60_000;
 
   constructor(
@@ -128,7 +131,8 @@ export class DashboardService {
 
     const revenueChange =
       previousPeriodStats.totalRevenue > 0
-        ? ((currentPeriodStats.totalRevenue - previousPeriodStats.totalRevenue) /
+        ? ((currentPeriodStats.totalRevenue -
+            previousPeriodStats.totalRevenue) /
             previousPeriodStats.totalRevenue) *
           100
         : currentPeriodStats.totalRevenue > 0
@@ -162,7 +166,8 @@ export class DashboardService {
 
     const avgOrderValueChange =
       previousPeriodStats.avgOrderValue > 0
-        ? ((currentPeriodStats.avgOrderValue - previousPeriodStats.avgOrderValue) /
+        ? ((currentPeriodStats.avgOrderValue -
+            previousPeriodStats.avgOrderValue) /
             previousPeriodStats.avgOrderValue) *
           100
         : currentPeriodStats.avgOrderValue > 0
@@ -212,7 +217,10 @@ export class DashboardService {
       },
     };
 
-    this.analyticsCache.set(cacheKey, { data: result, expiresAt: Date.now() + DashboardService.ANALYTICS_TTL_MS });
+    this.analyticsCache.set(cacheKey, {
+      data: result,
+      expiresAt: Date.now() + DashboardService.ANALYTICS_TTL_MS,
+    });
     return result;
   }
 
@@ -249,7 +257,9 @@ export class DashboardService {
     }
 
     for (const order of orders) {
-      const dateKey = DateTime.fromJSDate(order.createdAt, { zone: tz }).toISODate()!;
+      const dateKey = DateTime.fromJSDate(order.createdAt, {
+        zone: tz,
+      }).toISODate()!;
       if (grouped[dateKey]) {
         grouped[dateKey].revenue += order.totalPrice;
         grouped[dateKey].orders += 1;
@@ -437,7 +447,10 @@ export class DashboardService {
       OrderStatus.SERVED,
       OrderStatus.CANCELED,
     ];
-    return statuses.map((status) => ({ status, count: countMap.get(status) ?? 0 }));
+    return statuses.map((status) => ({
+      status,
+      count: countMap.get(status) ?? 0,
+    }));
   }
 
   private async getCategoryBreakdown(
@@ -499,7 +512,10 @@ export class DashboardService {
       ORDER BY day_utc
     `;
 
-    const grouped: Record<string, { date: string; revenue: number; orders: number }> = {};
+    const grouped: Record<
+      string,
+      { date: string; revenue: number; orders: number }
+    > = {};
     let current = DateTime.fromJSDate(start, { zone: tz });
     const endDt = DateTime.fromJSDate(end, { zone: tz });
     while (current <= endDt) {
@@ -509,7 +525,9 @@ export class DashboardService {
     }
 
     for (const row of rows) {
-      const dateKey = DateTime.fromJSDate(row.day_utc, { zone: tz }).toISODate()!;
+      const dateKey = DateTime.fromJSDate(row.day_utc, {
+        zone: tz,
+      }).toISODate()!;
       if (grouped[dateKey]) {
         grouped[dateKey].revenue += Number(row.revenue);
         grouped[dateKey].orders += row.order_count;
@@ -541,18 +559,26 @@ export class DashboardService {
     const tzOffsetHours = Math.round(DateTime.now().setZone(tz).offset / 60);
     const hours: { hour: number; label: string; orders: number }[] = Array.from(
       { length: 24 },
-      (_, h) => ({ hour: h, label: `${h.toString().padStart(2, '0')}:00`, orders: 0 }),
+      (_, h) => ({
+        hour: h,
+        label: `${h.toString().padStart(2, '0')}:00`,
+        orders: 0,
+      }),
     );
 
     for (const row of rows) {
-      const localHour = ((row.hour_utc + tzOffsetHours) % 24 + 24) % 24;
+      const localHour = (((row.hour_utc + tzOffsetHours) % 24) + 24) % 24;
       hours[localHour].orders += row.total_orders;
     }
 
     return hours;
   }
 
-  private async getTopItemsFromView(restaurantId: string, start: Date, end: Date) {
+  private async getTopItemsFromView(
+    restaurantId: string,
+    start: Date,
+    end: Date,
+  ) {
     type Row = {
       menuItemId: string;
       item_name: string;

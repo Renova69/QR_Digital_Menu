@@ -26,9 +26,13 @@ export class RestaurantsService {
   ) {}
 
   async create(createRestaurantDto: CreateRestaurantDto, userId: string) {
-    const existing = await this.prisma.restaurant.count({ where: { ownerId: userId } });
+    const existing = await this.prisma.restaurant.count({
+      where: { ownerId: userId },
+    });
     if (existing > 0) {
-      throw new ConflictException('Owner already has a restaurant. Contact support to enable multi-location.');
+      throw new ConflictException(
+        'Owner already has a restaurant. Contact support to enable multi-location.',
+      );
     }
     // New restaurants start on FREE — no branding entitlement. Strip any
     // branding fields (logoUrl, accentColor) so creation can't seed them.
@@ -42,7 +46,9 @@ export class RestaurantsService {
     return restaurant;
   }
 
-  private applyEffectiveTier<T extends { tier: string; forceTier?: string | null }>(r: T): T {
+  private applyEffectiveTier<
+    T extends { tier: string; forceTier?: string | null },
+  >(r: T): T {
     return r.forceTier ? { ...r, tier: r.forceTier } : r;
   }
 
@@ -53,7 +59,9 @@ export class RestaurantsService {
     });
 
     const rows = user?.restaurantId
-      ? await this.prisma.restaurant.findMany({ where: { id: user.restaurantId } })
+      ? await this.prisma.restaurant.findMany({
+          where: { id: user.restaurantId },
+        })
       : await this.prisma.restaurant.findMany({ where: { ownerId: userId } });
 
     return rows.map((r) => this.applyEffectiveTier(r));
@@ -81,7 +89,10 @@ export class RestaurantsService {
   async findOneOrStaff(id: string, userId: string) {
     const [restaurant, user] = await Promise.all([
       this.prisma.restaurant.findUnique({ where: { id } }),
-      this.prisma.user.findUnique({ where: { id: userId }, select: { restaurantId: true } }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { restaurantId: true },
+      }),
     ]);
 
     if (!restaurant) {
@@ -143,7 +154,10 @@ export class RestaurantsService {
       restaurant.tier ?? 'FREE',
       restaurant.forceTier,
     );
-    const data = this.featureService.hasFeature(tier, FeatureFlag.BRANDING_CUSTOM)
+    const data = this.featureService.hasFeature(
+      tier,
+      FeatureFlag.BRANDING_CUSTOM,
+    )
       ? { ...updateRestaurantDto }
       : stripBrandingFields({ ...updateRestaurantDto });
 
@@ -167,7 +181,12 @@ export class RestaurantsService {
     });
   }
 
-  async updateLogo(id: string, logoUrl: string, logoThumbnailUrl: string, userId: string) {
+  async updateLogo(
+    id: string,
+    logoUrl: string,
+    logoThumbnailUrl: string,
+    userId: string,
+  ) {
     // First, ensure the restaurant exists and the user has permission
     await this.findOneForManagement(id, userId);
 
@@ -185,7 +204,9 @@ export class RestaurantsService {
       restaurant.forceTier,
     );
     if (!this.featureService.hasFeature(tier, FeatureFlag.LANGUAGES_MULTI)) {
-      throw new ForbiddenException('Multi-language features are not available on this tier.');
+      throw new ForbiddenException(
+        'Multi-language features are not available on this tier.',
+      );
     }
 
     if (!process.env.DEEPL_API_KEY) {
@@ -195,7 +216,10 @@ export class RestaurantsService {
       };
     }
 
-    if (!restaurant.targetLanguages || restaurant.targetLanguages.length === 0) {
+    if (
+      !restaurant.targetLanguages ||
+      restaurant.targetLanguages.length === 0
+    ) {
       return {
         success: false,
         message: 'No target languages configured.',
@@ -220,7 +244,7 @@ export class RestaurantsService {
         where: { id: cat.id },
         data: { translations: { ...parsedTranslations, ...newTranslations } },
       });
-      await new Promise((resolve) => setTimeout(resolve, 300)); // Prevent DeepL rate-limiting
+      await new Promise<void>((resolve) => setTimeout(resolve, 300)); // Prevent DeepL rate-limiting
     }
 
     // Process Items
@@ -239,12 +263,12 @@ export class RestaurantsService {
       if (item.description) textToTranslate.description = item.description;
 
       const allergens = item.allergens || [];
-      allergens.forEach((a) => {
+      allergens.forEach((a: string) => {
         textToTranslate[`allergen_${a}`] = a;
       });
 
       const dietaryTags = item.dietaryTags || [];
-      dietaryTags.forEach((t) => {
+      dietaryTags.forEach((t: string) => {
         textToTranslate[`tag_${t}`] = t;
       });
 
@@ -279,7 +303,7 @@ export class RestaurantsService {
         where: { id: item.id },
         data: { translations: { ...parsedTranslations, ...newTranslations } },
       });
-      await new Promise((resolve) => setTimeout(resolve, 300)); // Prevent DeepL rate-limiting
+      await new Promise<void>((resolve) => setTimeout(resolve, 300)); // Prevent DeepL rate-limiting
     }
 
     // Process Options
@@ -333,7 +357,7 @@ export class RestaurantsService {
               : undefined,
         } as any,
       });
-      await new Promise((resolve) => setTimeout(resolve, 300)); // Prevent DeepL rate-limiting
+      await new Promise<void>((resolve) => setTimeout(resolve, 300)); // Prevent DeepL rate-limiting
     }
 
     return {
@@ -342,7 +366,12 @@ export class RestaurantsService {
     };
   }
 
-  async generateConnectLink(restaurantId: string, userId: string, returnUrl?: string, refreshUrl?: string) {
+  async generateConnectLink(
+    restaurantId: string,
+    userId: string,
+    returnUrl?: string,
+    refreshUrl?: string,
+  ) {
     const restaurant = await this.findOne(restaurantId, userId);
 
     let accountId = restaurant.stripeAccountId;

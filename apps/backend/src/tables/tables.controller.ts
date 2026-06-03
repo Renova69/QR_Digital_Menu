@@ -52,7 +52,11 @@ export class TablesController {
     @Query('zoneId') zoneId: string | undefined,
     @Request() req: any,
   ) {
-    return this.tablesService.getTablesWithStatus(restaurantId, zoneId, req.user);
+    return this.tablesService.getTablesWithStatus(
+      restaurantId,
+      zoneId,
+      req.user,
+    );
   }
 
   @UseGuards(JwtAuthGuard)

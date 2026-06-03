@@ -15,7 +15,9 @@ export class MenuTranslationService {
   ) {}
 
   private asTransObj(raw: unknown): Record<string, any> {
-    return raw && typeof raw === 'object' ? { ...(raw as Record<string, any>) } : {};
+    return raw && typeof raw === 'object'
+      ? { ...(raw as Record<string, any>) }
+      : {};
   }
 
   async applyLazyTranslations(categories: any[], lang: string): Promise<void> {
@@ -45,8 +47,12 @@ export class MenuTranslationService {
         if (!existing[lang]?.name) {
           const textMap: Record<string, string> = { name: item.name };
           if (item.description) textMap.description = item.description;
-          (item.allergens || []).forEach((a: string) => { textMap[`allergen_${a}`] = a; });
-          (item.dietaryTags || []).forEach((t: string) => { textMap[`tag_${t}`] = t; });
+          (item.allergens || []).forEach((a: string) => {
+            textMap[`allergen_${a}`] = a;
+          });
+          (item.dietaryTags || []).forEach((t: string) => {
+            textMap[`tag_${t}`] = t;
+          });
           pending.push({ type: 'item', entity: item, existing, textMap });
         }
 
@@ -54,7 +60,7 @@ export class MenuTranslationService {
           const existing = this.asTransObj(option.translations);
           if (!existing[lang]?.name) {
             const textMap: Record<string, string> = { name: option.name };
-            (option.choices as any[] || []).forEach((c: any) => {
+            ((option.choices as any[]) || []).forEach((c: any) => {
               if (c.name) textMap[`choice_${c.name}`] = c.name;
             });
             pending.push({ type: 'option', entity: option, existing, textMap });
@@ -79,7 +85,10 @@ export class MenuTranslationService {
       const translated: string[] = [];
       for (let i = 0; i < allTexts.length; i += DEEPL_BATCH_LIMIT) {
         const chunk = allTexts.slice(i, i + DEEPL_BATCH_LIMIT);
-        const result = await this.translationService.translateTexts(chunk, lang);
+        const result = await this.translationService.translateTexts(
+          chunk,
+          lang,
+        );
         translated.push(...result);
       }
 
@@ -101,13 +110,22 @@ export class MenuTranslationService {
           entity.translations = merged;
           dbWrites.push(
             this.prisma.menuCategory
-              .update({ where: { id: entity.id }, data: { translations: merged } })
-              .catch((e: unknown) => this.logger.warn(`Category translation save failed: ${String(e)}`)),
+              .update({
+                where: { id: entity.id },
+                data: { translations: merged },
+              })
+              .catch((e: unknown) =>
+                this.logger.warn(
+                  `Category translation save failed: ${String(e)}`,
+                ),
+              ),
           );
-
         } else if (type === 'item') {
-          const langEntry: Record<string, unknown> = { name: langData.name ?? entity.name };
-          if (langData.description) langEntry.description = langData.description;
+          const langEntry: Record<string, unknown> = {
+            name: langData.name ?? entity.name,
+          };
+          if (langData.description)
+            langEntry.description = langData.description;
           const allergens: string[] = [];
           const tags: string[] = [];
           for (const [k, v] of Object.entries(langData)) {
@@ -120,10 +138,14 @@ export class MenuTranslationService {
           entity.translations = merged;
           dbWrites.push(
             this.prisma.menuItem
-              .update({ where: { id: entity.id }, data: { translations: merged } })
-              .catch((e: unknown) => this.logger.warn(`Item translation save failed: ${String(e)}`)),
+              .update({
+                where: { id: entity.id },
+                data: { translations: merged },
+              })
+              .catch((e: unknown) =>
+                this.logger.warn(`Item translation save failed: ${String(e)}`),
+              ),
           );
-
         } else {
           const optLang: Record<string, any> = {
             ...(existing[lang] ?? {}),
@@ -131,14 +153,22 @@ export class MenuTranslationService {
           };
           if (langData.name) optLang.name = langData.name;
           for (const [k, v] of Object.entries(langData)) {
-            if (k.startsWith('choice_')) optLang.choices[k.replace('choice_', '')] = v;
+            if (k.startsWith('choice_'))
+              optLang.choices[k.replace('choice_', '')] = v;
           }
           const merged = { ...existing, [lang]: optLang };
           entity.translations = merged;
           dbWrites.push(
             this.prisma.menuOption
-              .update({ where: { id: entity.id }, data: { translations: merged } as any })
-              .catch((e: unknown) => this.logger.warn(`Option translation save failed: ${String(e)}`)),
+              .update({
+                where: { id: entity.id },
+                data: { translations: merged } as any,
+              })
+              .catch((e: unknown) =>
+                this.logger.warn(
+                  `Option translation save failed: ${String(e)}`,
+                ),
+              ),
           );
         }
       }

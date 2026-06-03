@@ -48,7 +48,11 @@ describe('GoogleAuthGuard', () => {
       const result = await guard.canActivate(ctx);
 
       expect(result).toBe(true);
-      expect(res.cookie).toHaveBeenCalledWith('oauth_nonce', expect.any(String), expect.any(Object));
+      expect(res.cookie).toHaveBeenCalledWith(
+        'oauth_nonce',
+        expect.any(String),
+        expect.any(Object),
+      );
     });
 
     it('callback: valid nonce match returns true', async () => {
@@ -67,7 +71,9 @@ describe('GoogleAuthGuard', () => {
         { oauth_nonce: 'correct' },
       );
 
-      await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
+      await expect(guard.canActivate(ctx)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('callback: invalid JSON state throws UnauthorizedException', async () => {
@@ -76,7 +82,9 @@ describe('GoogleAuthGuard', () => {
         { oauth_nonce: 'some-nonce' },
       );
 
-      await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
+      await expect(guard.canActivate(ctx)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('callback: no nonce cookie skips nonce validation and proceeds', async () => {
@@ -105,13 +113,17 @@ describe('GoogleAuthGuard', () => {
     it('includes nonce in state when __oauthNonce is on the request', () => {
       const ctx = makeCtx({}, {}, 'my-nonce');
       const opts = guard.getAuthenticateOptions(ctx);
-      expect(JSON.parse(opts.state as string)).toMatchObject({ nonce: 'my-nonce' });
+      expect(JSON.parse(opts.state as string)).toMatchObject({
+        nonce: 'my-nonce',
+      });
     });
 
     it('includes returnTo in state when query param is present', () => {
       const ctx = makeCtx({ returnTo: '/dashboard' });
       const opts = guard.getAuthenticateOptions(ctx);
-      expect(JSON.parse(opts.state as string)).toMatchObject({ returnTo: '/dashboard' });
+      expect(JSON.parse(opts.state as string)).toMatchObject({
+        returnTo: '/dashboard',
+      });
     });
 
     it('returns empty object when no nonce and no returnTo on initiation', () => {

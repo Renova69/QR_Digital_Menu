@@ -1,4 +1,11 @@
-import { Controller, Get, Param, Post, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Post,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { LoyaltyService } from './loyalty.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FeatureGuard } from '../subscription/feature.guard';
@@ -26,7 +33,10 @@ export class LoyaltyController {
   @RequireFeature(FeatureFlag.LOYALTY)
   @UseGuards(JwtAuthGuard, FeatureGuard)
   @Get(':restaurantId/analytics')
-  getAnalytics(@Param('restaurantId') restaurantId: string, @Request() req: any) {
+  getAnalytics(
+    @Param('restaurantId') restaurantId: string,
+    @Request() req: any,
+  ) {
     return this.loyaltyService.getAnalytics(restaurantId, req.user.id);
   }
 
@@ -52,10 +62,7 @@ export class LoyaltyController {
     @Param('restaurantId') restaurantId: string,
     @Request() req: any,
   ) {
-    return this.loyaltyService.notifyExpiryReminders(
-      restaurantId,
-      req.user.id,
-    );
+    return this.loyaltyService.notifyExpiryReminders(restaurantId, req.user.id);
   }
 
   @Get(':restaurantId/config')

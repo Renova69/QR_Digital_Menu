@@ -30,7 +30,9 @@ describe('UpdateRestaurantDto validation', () => {
 
   describe('theme colors', () => {
     it('rejects a non-hex color', () => {
-      expect(keysFor({ themeBgColor: 'red; } body{display:none}' }, 'themeBgColor')).toContain('isHexColor');
+      expect(
+        keysFor({ themeBgColor: 'red; } body{display:none}' }, 'themeBgColor'),
+      ).toContain('isHexColor');
     });
 
     it('accepts a valid hex color', () => {
@@ -40,21 +42,29 @@ describe('UpdateRestaurantDto validation', () => {
 
   describe('branding fonts', () => {
     it('accepts an allowlisted font', () => {
-      expect(validate({ fontHeading: 'Playfair Display', fontBody: 'Inter' })).toHaveLength(0);
+      expect(
+        validate({ fontHeading: 'Playfair Display', fontBody: 'Inter' }),
+      ).toHaveLength(0);
     });
 
     it('rejects a font outside the allowlist (injection guard #12)', () => {
-      expect(keysFor({ fontHeading: 'Evil"; } body{}' }, 'fontHeading')).toContain('isIn');
+      expect(
+        keysFor({ fontHeading: 'Evil"; } body{}' }, 'fontHeading'),
+      ).toContain('isIn');
     });
 
     it('rejects an over-long font name', () => {
-      expect(keysFor({ fontBody: 'x'.repeat(65) }, 'fontBody')).toContain('maxLength');
+      expect(keysFor({ fontBody: 'x'.repeat(65) }, 'fontBody')).toContain(
+        'maxLength',
+      );
     });
   });
 
   describe('logoUrl', () => {
     it('accepts an https URL', () => {
-      expect(validate({ logoUrl: 'https://cdn.example.com/logo.png' })).toHaveLength(0);
+      expect(
+        validate({ logoUrl: 'https://cdn.example.com/logo.png' }),
+      ).toHaveLength(0);
     });
 
     it('rejects a non-URL string (must come from the upload pipeline which always emits http/https)', () => {
@@ -62,37 +72,51 @@ describe('UpdateRestaurantDto validation', () => {
     });
 
     it('rejects javascript: scheme', () => {
-      expect(keysFor({ logoUrl: 'javascript:alert(1)' }, 'logoUrl')).toContain('isUrl');
+      expect(keysFor({ logoUrl: 'javascript:alert(1)' }, 'logoUrl')).toContain(
+        'isUrl',
+      );
     });
 
     it('rejects data: URI', () => {
-      expect(keysFor({ logoUrl: 'data:text/html,<h1>xss</h1>' }, 'logoUrl')).toContain('isUrl');
+      expect(
+        keysFor({ logoUrl: 'data:text/html,<h1>xss</h1>' }, 'logoUrl'),
+      ).toContain('isUrl');
     });
 
     it('rejects protocol-relative // URL', () => {
-      expect(keysFor({ logoUrl: '//evil.com/logo.png' }, 'logoUrl')).toContain('isUrl');
+      expect(keysFor({ logoUrl: '//evil.com/logo.png' }, 'logoUrl')).toContain(
+        'isUrl',
+      );
     });
   });
 
   describe('defaultTheme', () => {
     it('rejects an unknown theme', () => {
-      expect(keysFor({ defaultTheme: 'purple' }, 'defaultTheme')).toContain('isIn');
+      expect(keysFor({ defaultTheme: 'purple' }, 'defaultTheme')).toContain(
+        'isIn',
+      );
     });
   });
 
   describe('trendingMode', () => {
     it('rejects an unknown mode', () => {
-      expect(keysFor({ trendingMode: 'SOMETIMES' }, 'trendingMode')).toContain('isIn');
+      expect(keysFor({ trendingMode: 'SOMETIMES' }, 'trendingMode')).toContain(
+        'isIn',
+      );
     });
   });
 
   describe('happy-hour times', () => {
     it('rejects an out-of-range time', () => {
-      expect(keysFor({ happyHourStartTime: '25:99' }, 'happyHourStartTime')).toContain('matches');
+      expect(
+        keysFor({ happyHourStartTime: '25:99' }, 'happyHourStartTime'),
+      ).toContain('matches');
     });
 
     it('rejects a non-time string', () => {
-      expect(keysFor({ happyHourEndTime: 'evening' }, 'happyHourEndTime')).toContain('matches');
+      expect(
+        keysFor({ happyHourEndTime: 'evening' }, 'happyHourEndTime'),
+      ).toContain('matches');
     });
   });
 

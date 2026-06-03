@@ -19,7 +19,10 @@ export class DashboardViewsService implements OnModuleInit {
       this.ready = true;
       this.logger.log('Analytics materialized views initialised');
     } catch (err) {
-      this.logger.warn('Materialized views unavailable — falling back to raw queries', err);
+      this.logger.warn(
+        'Materialized views unavailable — falling back to raw queries',
+        err,
+      );
     }
   }
 

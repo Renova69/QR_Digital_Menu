@@ -1,4 +1,13 @@
-import { IsString, IsOptional, IsNumber, IsArray, ValidateNested, IsObject, Min, ArrayMaxSize } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsArray,
+  ValidateNested,
+  IsObject,
+  Min,
+  ArrayMaxSize,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class ImportChoiceDto {

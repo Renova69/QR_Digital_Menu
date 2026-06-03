@@ -76,7 +76,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const token = parseCookie(client.handshake.headers?.cookie, 'token');
     if (token) {
       try {
-        const payload = this.jwt.verify(token) as { sub?: string };
+        const payload = this.jwt.verify(token);
         if (payload?.sub) {
           client.data.userId = payload.sub;
         }
@@ -100,7 +100,12 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const [user, restaurant] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: userId },
-        select: { role: true, restaurantId: true, isActive: true, disabledAt: true },
+        select: {
+          role: true,
+          restaurantId: true,
+          isActive: true,
+          disabledAt: true,
+        },
       }),
       this.prisma.restaurant.findUnique({
         where: { id: restaurantId },
@@ -131,11 +136,17 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.logger.warn(
         `Denied restaurant room join: client ${client.id} → restaurant_${restaurantId}`,
       );
-      client.emit('roomError', { room: 'restaurant', restaurantId, error: 'UNAUTHORIZED' });
+      client.emit('roomError', {
+        room: 'restaurant',
+        restaurantId,
+        error: 'UNAUTHORIZED',
+      });
       return { event: 'roomError', data: restaurantId };
     }
     client.join(`restaurant_${restaurantId}`);
-    this.logger.log(`Client ${client.id} joined room: restaurant_${restaurantId}`);
+    this.logger.log(
+      `Client ${client.id} joined room: restaurant_${restaurantId}`,
+    );
     return { event: 'joinedRoom', data: restaurantId };
   }
 
@@ -145,14 +156,18 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     client.leave(`restaurant_${restaurantId}`);
-    this.logger.log(`Client ${client.id} left room: restaurant_${restaurantId}`);
+    this.logger.log(
+      `Client ${client.id} left room: restaurant_${restaurantId}`,
+    );
     return { event: 'leftRoom', data: restaurantId };
   }
 
   private verifyOrderToken(token: string, orderId: string): boolean {
     try {
-      const payload = this.jwt.verify(token) as { scope?: string; orderId?: string };
-      return payload?.scope === ORDER_TRACK_SCOPE && payload?.orderId === orderId;
+      const payload = this.jwt.verify(token);
+      return (
+        payload?.scope === ORDER_TRACK_SCOPE && payload?.orderId === orderId
+      );
     } catch {
       return false;
     }
@@ -164,7 +179,10 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * order — over the socket without seeing the restaurant's event feed.
    */
   signOrderToken(orderId: string): string {
-    return this.jwt.sign({ scope: ORDER_TRACK_SCOPE, orderId }, { expiresIn: ORDER_TRACK_TTL });
+    return this.jwt.sign(
+      { scope: ORDER_TRACK_SCOPE, orderId },
+      { expiresIn: ORDER_TRACK_TTL },
+    );
   }
 
   /**
@@ -179,8 +197,14 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const orderId = body?.orderId;
     const token = body?.token;
     if (!orderId || !token || !this.verifyOrderToken(token, orderId)) {
-      this.logger.warn(`Denied order room join: client ${client.id} → order_${orderId}`);
-      client.emit('roomError', { room: 'order', orderId, error: 'UNAUTHORIZED' });
+      this.logger.warn(
+        `Denied order room join: client ${client.id} → order_${orderId}`,
+      );
+      client.emit('roomError', {
+        room: 'order',
+        orderId,
+        error: 'UNAUTHORIZED',
+      });
       return { event: 'roomError', data: orderId };
     }
     client.join(`order_${orderId}`);

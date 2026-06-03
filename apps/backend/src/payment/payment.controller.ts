@@ -28,7 +28,12 @@ export class PaymentController {
   @Post('session')
   @HttpCode(HttpStatus.OK)
   getOrCreateSession(
-    @Body() body: { tableId: string; restaurantId: string; sessionToken?: string },
+    @Body()
+    body: {
+      tableId: string;
+      restaurantId: string;
+      sessionToken?: string;
+    },
   ) {
     return this.paymentService.getOrCreateSession(
       body.tableId,
@@ -45,7 +50,11 @@ export class PaymentController {
     @Req() req: any,
     @Body() body: { tableId: string; restaurantId: string },
   ) {
-    return this.paymentService.forceOpenSession(body.tableId, body.restaurantId, req.user.id);
+    return this.paymentService.forceOpenSession(
+      body.tableId,
+      body.restaurantId,
+      req.user.id,
+    );
   }
 
   @Get('session/:token/bill')
@@ -71,7 +80,11 @@ export class PaymentController {
     @Param('token') token: string,
     @Body() body: { restaurantId: string },
   ) {
-    return this.paymentService.closeSession(token, body.restaurantId, req.user.id);
+    return this.paymentService.closeSession(
+      token,
+      body.restaurantId,
+      req.user.id,
+    );
   }
 
   @Post('session/:token/close-card')
@@ -83,7 +96,11 @@ export class PaymentController {
     @Param('token') token: string,
     @Body() body: { restaurantId: string },
   ) {
-    return this.paymentService.closeSessionWithCard(token, body.restaurantId, req.user.id);
+    return this.paymentService.closeSessionWithCard(
+      token,
+      body.restaurantId,
+      req.user.id,
+    );
   }
 
   @Post('session/:token/close-cash')
@@ -95,7 +112,11 @@ export class PaymentController {
     @Param('token') token: string,
     @Body() body: { restaurantId: string },
   ) {
-    return this.paymentService.closeSessionWithCash(token, body.restaurantId, req.user.id);
+    return this.paymentService.closeSessionWithCash(
+      token,
+      body.restaurantId,
+      req.user.id,
+    );
   }
 
   @Get('sessions/:restaurantId')
@@ -157,16 +178,17 @@ export class PaymentController {
     @Param('restaurantId') restaurantId: string,
     @Query() query: PaymentHistoryQueryDto,
   ) {
-    return this.paymentService.getPaymentHistory(restaurantId, query, req.user.id);
+    return this.paymentService.getPaymentHistory(
+      restaurantId,
+      query,
+      req.user.id,
+    );
   }
 
   @Get(':paymentId')
   @UseGuards(JwtAuthGuard, FeatureGuard)
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
-  getPaymentDetail(
-    @Req() req: any,
-    @Param('paymentId') paymentId: string,
-  ) {
+  getPaymentDetail(@Req() req: any, @Param('paymentId') paymentId: string) {
     return this.paymentService.getPaymentDetail(paymentId, req.user.id);
   }
 

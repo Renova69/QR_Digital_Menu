@@ -57,7 +57,11 @@ describe('TranslationService', () => {
       expect(mockPost).toHaveBeenCalledWith(
         expect.stringContaining('/v2/translate'),
         expect.objectContaining({ text: ['Hello'], target_lang: 'BG' }),
-        expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'DeepL-Auth-Key test-key' }) }),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'DeepL-Auth-Key test-key',
+          }),
+        }),
       );
       expect(result).toEqual(['Здравей']);
     });
@@ -110,7 +114,9 @@ describe('TranslationService', () => {
   describe('translateText', () => {
     it('delegates to translateTexts and returns first result', async () => {
       process.env.DEEPL_API_KEY = 'test-key';
-      mockPost.mockResolvedValue({ data: { translations: [{ text: 'Здравей' }] } });
+      mockPost.mockResolvedValue({
+        data: { translations: [{ text: 'Здравей' }] },
+      });
 
       const result = await service.translateText('Hello', 'BG');
       expect(result).toBe('Здравей');
@@ -139,7 +145,9 @@ describe('TranslationService', () => {
 
     it('skips null and empty values', async () => {
       process.env.DEEPL_API_KEY = 'test-key';
-      mockPost.mockResolvedValue({ data: { translations: [{ text: 'Бургер' }] } });
+      mockPost.mockResolvedValue({
+        data: { translations: [{ text: 'Бургер' }] },
+      });
 
       const result = await service.translateObject(
         { name: 'Burger', desc: null, empty: '' },
@@ -154,11 +162,19 @@ describe('TranslationService', () => {
       process.env.DEEPL_API_KEY = 'test-key';
       mockPost
         .mockResolvedValueOnce({ data: { translations: [{ text: 'Бургер' }] } })
-        .mockResolvedValueOnce({ data: { translations: [{ text: 'Burger RO' }] } });
+        .mockResolvedValueOnce({
+          data: { translations: [{ text: 'Burger RO' }] },
+        });
 
-      jest.spyOn(global, 'setTimeout').mockImplementation((fn: any) => { fn(); return 0 as any; });
+      jest.spyOn(global, 'setTimeout').mockImplementation((fn: any) => {
+        fn();
+        return 0 as any;
+      });
 
-      const result = await service.translateObject({ name: 'Burger' }, ['BG', 'RO']);
+      const result = await service.translateObject({ name: 'Burger' }, [
+        'BG',
+        'RO',
+      ]);
       expect(result).toHaveProperty('BG');
       expect(result).toHaveProperty('RO');
       expect(result.BG.name).toBe('Бургер');
@@ -167,7 +183,9 @@ describe('TranslationService', () => {
 
     it('returns empty object when all values are blank', async () => {
       process.env.DEEPL_API_KEY = 'test-key';
-      const result = await service.translateObject({ name: '', desc: null }, ['BG']);
+      const result = await service.translateObject({ name: '', desc: null }, [
+        'BG',
+      ]);
       expect(result).toEqual({});
       expect(mockPost).not.toHaveBeenCalled();
     });

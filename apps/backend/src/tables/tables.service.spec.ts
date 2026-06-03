@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { TablesService } from './tables.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
@@ -10,7 +14,12 @@ describe('TablesService', () => {
   let events: any;
 
   const mockRestaurant = { id: 'rest-1', ownerId: 'owner-1' };
-  const mockTable = { id: 'table-1', name: 'T1', restaurantId: 'rest-1', updatedAt: new Date() };
+  const mockTable = {
+    id: 'table-1',
+    name: 'T1',
+    restaurantId: 'rest-1',
+    updatedAt: new Date(),
+  };
   const mockOwner = { id: 'owner-1', role: 'OWNER' };
 
   beforeEach(async () => {
@@ -20,7 +29,9 @@ describe('TablesService', () => {
         create: jest.fn().mockResolvedValue(mockTable),
         findFirst: jest.fn().mockResolvedValue(null),
         findMany: jest.fn().mockResolvedValue([mockTable]),
-        findUnique: jest.fn().mockResolvedValue({ ...mockTable, restaurant: mockRestaurant }),
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ ...mockTable, restaurant: mockRestaurant }),
         delete: jest.fn().mockResolvedValue(mockTable),
       },
       tableSession: {
@@ -52,25 +63,39 @@ describe('TablesService', () => {
     it('creates table and emits event when owner', async () => {
       const result = await service.create('rest-1', { name: 'T1' }, 'owner-1');
       expect(prisma.restaurantTable.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ name: 'T1', restaurantId: 'rest-1' }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ name: 'T1', restaurantId: 'rest-1' }),
+        }),
       );
-      expect(events.emitToRestaurant).toHaveBeenCalledWith('rest-1', 'table:created', expect.any(Object));
+      expect(events.emitToRestaurant).toHaveBeenCalledWith(
+        'rest-1',
+        'table:created',
+        expect.any(Object),
+      );
       expect(result).toEqual(mockTable);
     });
 
     it('throws NotFoundException when restaurant does not exist', async () => {
       prisma.restaurant.findUnique.mockResolvedValue(null);
-      await expect(service.create('bad-id', { name: 'T1' }, 'owner-1')).rejects.toThrow(NotFoundException);
+      await expect(
+        service.create('bad-id', { name: 'T1' }, 'owner-1'),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('throws ForbiddenException when user is not owner', async () => {
-      await expect(service.create('rest-1', { name: 'T1' }, 'other-user')).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.create('rest-1', { name: 'T1' }, 'other-user'),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('throws ConflictException when table name already exists for restaurant', async () => {
-      prisma.restaurantTable.findFirst.mockResolvedValue({ id: 'existing-table' });
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'existing-table',
+      });
 
-      await expect(service.create('rest-1', { name: '  T1  ' }, 'owner-1')).rejects.toThrow(ConflictException);
+      await expect(
+        service.create('rest-1', { name: '  T1  ' }, 'owner-1'),
+      ).rejects.toThrow(ConflictException);
       expect(prisma.restaurantTable.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
@@ -87,7 +112,10 @@ describe('TablesService', () => {
     it('returns all tables ordered by name', async () => {
       const result = await service.findAll('rest-1');
       expect(prisma.restaurantTable.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { restaurantId: 'rest-1' }, orderBy: { name: 'asc' } }),
+        expect.objectContaining({
+          where: { restaurantId: 'rest-1' },
+          orderBy: { name: 'asc' },
+        }),
       );
       expect(result).toEqual([mockTable]);
     });
@@ -95,7 +123,11 @@ describe('TablesService', () => {
 
   describe('getTablesWithStatus', () => {
     it('returns empty status for tables with no session', async () => {
-      const result = await service.getTablesWithStatus('rest-1', undefined, mockOwner);
+      const result = await service.getTablesWithStatus(
+        'rest-1',
+        undefined,
+        mockOwner,
+      );
       expect(result).toHaveLength(1);
       expect(result[0].status).toBe('empty');
       expect(result[0].orderCount).toBe(0);
@@ -114,11 +146,17 @@ describe('TablesService', () => {
       };
       prisma.tableSession.findMany.mockResolvedValue([session]);
 
-      const result = await service.getTablesWithStatus('rest-1', undefined, mockOwner);
+      const result = await service.getTablesWithStatus(
+        'rest-1',
+        undefined,
+        mockOwner,
+      );
       expect(result[0].status).toBe('occupied');
       expect(result[0].orderCount).toBe(2);
       expect(result[0].totalAmount).toBe(30);
-      expect(result[0].customerNames).toEqual(expect.arrayContaining(['Alice', 'Bob']));
+      expect(result[0].customerNames).toEqual(
+        expect.arrayContaining(['Alice', 'Bob']),
+      );
     });
 
     it('returns waiting status for open session with no orders', async () => {
@@ -131,7 +169,11 @@ describe('TablesService', () => {
       };
       prisma.tableSession.findMany.mockResolvedValue([session]);
 
-      const result = await service.getTablesWithStatus('rest-1', undefined, mockOwner);
+      const result = await service.getTablesWithStatus(
+        'rest-1',
+        undefined,
+        mockOwner,
+      );
       expect(result[0].status).toBe('occupied');
     });
 
@@ -145,7 +187,11 @@ describe('TablesService', () => {
       };
       prisma.tableSession.findMany.mockResolvedValue([session]);
 
-      const result = await service.getTablesWithStatus('rest-1', undefined, mockOwner);
+      const result = await service.getTablesWithStatus(
+        'rest-1',
+        undefined,
+        mockOwner,
+      );
       expect(result[0].status).toBe('paid');
     });
 
@@ -162,14 +208,22 @@ describe('TablesService', () => {
       };
       prisma.tableSession.findMany.mockResolvedValue([session]);
 
-      const result = await service.getTablesWithStatus('rest-1', undefined, mockOwner);
+      const result = await service.getTablesWithStatus(
+        'rest-1',
+        undefined,
+        mockOwner,
+      );
       expect(result[0].customerNames).toEqual(['Alice']);
     });
   });
 
   describe('getTableOrders', () => {
     it('returns empty array when no open session', async () => {
-      const result = await service.getTableOrders('table-1', 'rest-1', mockOwner);
+      const result = await service.getTableOrders(
+        'table-1',
+        'rest-1',
+        mockOwner,
+      );
       expect(result).toEqual([]);
     });
 
@@ -184,16 +238,29 @@ describe('TablesService', () => {
           specialRequests: null,
           createdAt: new Date(),
           items: [
-            { quantity: 2, selectedOptions: [], menuItem: { name: 'Burger', price: 5 } },
+            {
+              quantity: 2,
+              selectedOptions: [],
+              menuItem: { name: 'Burger', price: 5 },
+            },
           ],
         },
       ];
       prisma.tableSession.findFirst.mockResolvedValue(session);
       prisma.order.findMany.mockResolvedValue(mockOrders);
 
-      const result = await service.getTableOrders('table-1', 'rest-1', mockOwner);
+      const result = await service.getTableOrders(
+        'table-1',
+        'rest-1',
+        mockOwner,
+      );
       expect(result).toHaveLength(1);
-      expect(result[0].items[0]).toEqual({ name: 'Burger', quantity: 2, totalPrice: 10, options: [] });
+      expect(result[0].items[0]).toEqual({
+        name: 'Burger',
+        quantity: 2,
+        totalPrice: 10,
+        options: [],
+      });
     });
 
     it('falls back to "Unknown item" when menuItem is null', async () => {
@@ -210,7 +277,11 @@ describe('TablesService', () => {
         },
       ]);
 
-      const result = await service.getTableOrders('table-1', 'rest-1', mockOwner);
+      const result = await service.getTableOrders(
+        'table-1',
+        'rest-1',
+        mockOwner,
+      );
       expect(result[0].items[0].name).toBe('Unknown item');
     });
   });
@@ -218,18 +289,28 @@ describe('TablesService', () => {
   describe('remove', () => {
     it('deletes table and emits event when owner', async () => {
       const result = await service.remove('table-1', 'owner-1');
-      expect(prisma.restaurantTable.delete).toHaveBeenCalledWith({ where: { id: 'table-1' } });
-      expect(events.emitToRestaurant).toHaveBeenCalledWith('rest-1', 'table:deleted', { tableId: 'table-1' });
+      expect(prisma.restaurantTable.delete).toHaveBeenCalledWith({
+        where: { id: 'table-1' },
+      });
+      expect(events.emitToRestaurant).toHaveBeenCalledWith(
+        'rest-1',
+        'table:deleted',
+        { tableId: 'table-1' },
+      );
       expect(result).toEqual(mockTable);
     });
 
     it('throws NotFoundException when table does not exist', async () => {
       prisma.restaurantTable.findUnique.mockResolvedValue(null);
-      await expect(service.remove('bad-id', 'owner-1')).rejects.toThrow(NotFoundException);
+      await expect(service.remove('bad-id', 'owner-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('throws ForbiddenException when user is not owner', async () => {
-      await expect(service.remove('table-1', 'other-user')).rejects.toThrow(ForbiddenException);
+      await expect(service.remove('table-1', 'other-user')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 });

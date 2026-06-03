@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { FeatureService } from './feature.service';
 import { REQUIRE_FEATURE_KEY } from './require-feature.decorator';
@@ -22,10 +27,10 @@ export class FeatureGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredFeatures = this.reflector.getAllAndOverride<FeatureFlag[]>(REQUIRE_FEATURE_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredFeatures = this.reflector.getAllAndOverride<FeatureFlag[]>(
+      REQUIRE_FEATURE_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     if (!requiredFeatures || requiredFeatures.length === 0) {
       return true;
@@ -130,7 +135,9 @@ export class FeatureGuard implements CanActivate {
       restaurant.forceTier,
     );
 
-    const missing = requiredFeatures.filter((f) => !this.featureService.hasFeature(tier, f));
+    const missing = requiredFeatures.filter(
+      (f) => !this.featureService.hasFeature(tier, f),
+    );
     if (missing.length > 0) {
       throw new ForbiddenException({
         code: 'FEATURE_LOCKED',

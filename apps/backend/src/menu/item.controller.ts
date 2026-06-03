@@ -96,11 +96,12 @@ export class ItemDetailController {
       throw new BadRequestException('Only JPEG and PNG images are supported');
     }
     try {
-      const { url, thumbnailUrl } = await this.storageService.uploadWithThumbnail(
-        file.buffer,
-        file.originalname,
-        file.mimetype,
-      );
+      const { url, thumbnailUrl } =
+        await this.storageService.uploadWithThumbnail(
+          file.buffer,
+          file.originalname,
+          file.mimetype,
+        );
       return this.crud.updateItemImage(id, url, thumbnailUrl, req.user.id);
     } catch (error: any) {
       throw new BadRequestException(error.message || 'Failed to upload image');

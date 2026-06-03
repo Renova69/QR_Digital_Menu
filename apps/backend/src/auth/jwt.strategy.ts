@@ -31,9 +31,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         if (process.env.NODE_ENV === 'test') return 'test-secret';
         const secret = configService.get<string>('JWT_SECRET');
         if (!secret) {
-          throw new Error(
-            'JWT_SECRET must be set in production environment',
-          );
+          throw new Error('JWT_SECRET must be set in production environment');
         }
         return secret;
       })(),
@@ -44,7 +42,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       include: {
-        staffRestaurant: { select: { isActive: true, tier: true, forceTier: true } },
+        staffRestaurant: {
+          select: { isActive: true, tier: true, forceTier: true },
+        },
         restaurants: { select: { isActive: true }, take: 1 },
       },
     });
@@ -75,7 +75,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
     }
 
-    if (user.role !== 'SUPER_ADMIN' && user.role !== 'OWNER' && user.role !== 'CUSTOMER') {
+    if (
+      user.role !== 'SUPER_ADMIN' &&
+      user.role !== 'OWNER' &&
+      user.role !== 'CUSTOMER'
+    ) {
       // It's a staff role: MANAGER, WAITER, KITCHEN, STAFF
       const restaurant = user.staffRestaurant;
       if (restaurant) {
@@ -83,7 +87,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
           restaurant.tier ?? 'FREE',
           restaurant.forceTier,
         );
-        const allowedRoles = this.featureService.getAllowedStaffRoles(effectiveTier);
+        const allowedRoles =
+          this.featureService.getAllowedStaffRoles(effectiveTier);
         if (!allowedRoles.includes(user.role)) {
           if (allowedRoles.length > 0) {
             user.role = allowedRoles[0] as any; // demote to first allowed role (e.g. 'STAFF')

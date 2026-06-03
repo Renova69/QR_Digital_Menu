@@ -13,7 +13,9 @@ export class MenuViewService {
     data: { table?: string; visitorId?: string },
   ): Promise<void> {
     try {
-      const exists = await this.prisma.restaurant.count({ where: { id: restaurantId } });
+      const exists = await this.prisma.restaurant.count({
+        where: { id: restaurantId },
+      });
       if (!exists) return;
 
       let tableId: string | null = null;
@@ -42,7 +44,11 @@ export class MenuViewService {
     totalViews: number;
     uniqueVisitors: number;
     todayViews: number;
-    perTable: Array<{ tableName: string; views: number; uniqueVisitors: number }>;
+    perTable: Array<{
+      tableName: string;
+      views: number;
+      uniqueVisitors: number;
+    }>;
   }> {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
@@ -55,25 +61,31 @@ export class MenuViewService {
 
     const today = DateTime.now().setZone(tz).startOf('day').toJSDate();
 
-    const [totalViews, todayViews, perTableRaw, uniqueRows] = await Promise.all([
-      this.prisma.menuView.count({
-        where: { restaurantId, createdAt: { gte: since } },
-      }),
-      this.prisma.menuView.count({
-        where: { restaurantId, createdAt: { gte: today } },
-      }),
-      this.prisma.menuView.groupBy({
-        by: ['tableId', 'tableName'],
-        where: { restaurantId, createdAt: { gte: since } },
-        _count: { id: true },
-      }),
-      this.prisma.menuView.findMany({
-        where: { restaurantId, createdAt: { gte: since }, visitorId: { not: null } },
-        select: { tableId: true, tableName: true, visitorId: true },
-      }),
-    ]);
+    const [totalViews, todayViews, perTableRaw, uniqueRows] = await Promise.all(
+      [
+        this.prisma.menuView.count({
+          where: { restaurantId, createdAt: { gte: since } },
+        }),
+        this.prisma.menuView.count({
+          where: { restaurantId, createdAt: { gte: today } },
+        }),
+        this.prisma.menuView.groupBy({
+          by: ['tableId', 'tableName'],
+          where: { restaurantId, createdAt: { gte: since } },
+          _count: { id: true },
+        }),
+        this.prisma.menuView.findMany({
+          where: {
+            restaurantId,
+            createdAt: { gte: since },
+            visitorId: { not: null },
+          },
+          select: { tableId: true, tableName: true, visitorId: true },
+        }),
+      ],
+    );
 
-    const uniqueTotal = new Set(uniqueRows.map((r) => r.visitorId)).size;
+    const uniqueTotal = new Set(uniqueRows.map((r: { visitorId: string | null }) => r.visitorId)).size;
 
     const perTableMap = new Map<
       string,

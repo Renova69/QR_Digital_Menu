@@ -1,5 +1,10 @@
 import { NestFactory } from '@nestjs/core';
-import { Logger, RequestMethod, ValidationPipe, VersioningType } from '@nestjs/common';
+import {
+  Logger,
+  RequestMethod,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import { AppModule } from './app.module';
 import { RedisIoAdapter } from './adapters/redis-io.adapter';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
@@ -39,7 +44,10 @@ async function bootstrap() {
     // Without a Stripe secret key, every Stripe API call (checkout, portal,
     // subscription lookups) fails. Fail loud at boot in production rather than
     // limping along with a placeholder key (M-8).
-    if (process.env.NODE_ENV === 'production' && !process.env.STRIPE_SECRET_KEY) {
+    if (
+      process.env.NODE_ENV === 'production' &&
+      !process.env.STRIPE_SECRET_KEY
+    ) {
       throw new Error('[Startup] STRIPE_SECRET_KEY must be set in production');
     }
 
@@ -91,7 +99,11 @@ async function bootstrap() {
           directives: {
             defaultSrc: ["'self'"],
             scriptSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+            styleSrc: [
+              "'self'",
+              "'unsafe-inline'",
+              'https://fonts.googleapis.com',
+            ],
             fontSrc: ["'self'", 'https://fonts.gstatic.com'],
             imgSrc: ["'self'", 'data:', 'https:'],
             connectSrc: ["'self'", 'ws:', 'wss:'],
@@ -122,9 +134,15 @@ async function bootstrap() {
       const isWebhook =
         req.path === '/api/v1/payments/webhook' ||
         req.path === '/api/v1/subscription/webhook';
-      const isCsrfExempt = CSRF_EXEMPT.includes(req.path) && ['POST'].includes(req.method);
+      const isCsrfExempt =
+        CSRF_EXEMPT.includes(req.path) && ['POST'].includes(req.method);
 
-      if (safeMethods.includes(req.method) || isWebhook || isCsrfExempt || process.env.NODE_ENV !== 'production') {
+      if (
+        safeMethods.includes(req.method) ||
+        isWebhook ||
+        isCsrfExempt ||
+        process.env.NODE_ENV !== 'production'
+      ) {
         if (!req.cookies?.['csrf-token']) {
           const csrfToken = crypto.randomUUID();
           res.cookie('csrf-token', csrfToken, {
@@ -150,8 +168,14 @@ async function bootstrap() {
       next();
     });
 
-    app.use('/api/v1/payments/webhook', express.raw({ type: 'application/json', limit: '5mb' }));
-    app.use('/api/v1/subscription/webhook', express.raw({ type: 'application/json', limit: '5mb' }));
+    app.use(
+      '/api/v1/payments/webhook',
+      express.raw({ type: 'application/json', limit: '5mb' }),
+    );
+    app.use(
+      '/api/v1/subscription/webhook',
+      express.raw({ type: 'application/json', limit: '5mb' }),
+    );
     app.use(express.json({ limit: '1mb' }));
     app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
@@ -186,7 +210,7 @@ async function bootstrap() {
     await app.listen(port, '0.0.0.0');
     logger.log(`✅ Application is running on port ${port}`);
   } catch (error) {
-    logger.error('❌ Application failed to start:', error as any);
+    logger.error('❌ Application failed to start:', error);
     process.exit(1);
   }
 }

@@ -60,16 +60,26 @@ describe('MenuImportService', () => {
   describe('checkOwnership', () => {
     it('throws NotFoundException when restaurant not found', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(null);
-      await expect(service.checkOwnership('rest-1', 'user-1')).rejects.toThrow(NotFoundException);
+      await expect(service.checkOwnership('rest-1', 'user-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('throws ForbiddenException when user is not owner', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ id: 'rest-1', ownerId: 'owner-99' });
-      await expect(service.checkOwnership('rest-1', 'user-1')).rejects.toThrow(ForbiddenException);
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest-1',
+        ownerId: 'owner-99',
+      });
+      await expect(service.checkOwnership('rest-1', 'user-1')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('returns restaurant when user is owner', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ id: 'rest-1', ownerId: 'user-1' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest-1',
+        ownerId: 'user-1',
+      });
       const result = await service.checkOwnership('rest-1', 'user-1');
       expect(result.id).toBe('rest-1');
     });
@@ -92,12 +102,21 @@ describe('MenuImportService', () => {
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
       const result = await service.upsertMenu('rest-1', {
-        categories: [{
-          name: 'Mains',
-          availabilityType: AvailabilityType.ALWAYS,
-          items: [{ name: 'Burger', price: 10, currency: Currency.EUR, options: [] }],
-        }],
-      } as any);
+        categories: [
+          {
+            name: 'Mains',
+            availabilityType: AvailabilityType.ALWAYS,
+            items: [
+              {
+                name: 'Burger',
+                price: 10,
+                currency: Currency.EUR,
+                options: [],
+              },
+            ],
+          },
+        ],
+      });
 
       expect(tx.menuCategory.create).toHaveBeenCalled();
       expect(tx.menuItem.create).toHaveBeenCalled();
@@ -112,12 +131,21 @@ describe('MenuImportService', () => {
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
       const result = await service.upsertMenu('rest-1', {
-        categories: [{
-          name: 'Mains',
-          availabilityType: AvailabilityType.ALWAYS,
-          items: [{ name: 'Burger', price: 10, currency: Currency.EUR, options: [] }],
-        }],
-      } as any);
+        categories: [
+          {
+            name: 'Mains',
+            availabilityType: AvailabilityType.ALWAYS,
+            items: [
+              {
+                name: 'Burger',
+                price: 10,
+                currency: Currency.EUR,
+                options: [],
+              },
+            ],
+          },
+        ],
+      });
 
       expect(tx.menuCategory.update).toHaveBeenCalled();
       expect(tx.menuItem.update).toHaveBeenCalled();
@@ -129,16 +157,20 @@ describe('MenuImportService', () => {
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
       await service.upsertMenu('rest-1', {
-        categories: [{
-          name: 'Drinks',
-          availabilityType: 'INVALID_TYPE',
-          items: [{ name: 'Water', price: 1, options: [] }],
-        }],
-      } as any);
+        categories: [
+          {
+            name: 'Drinks',
+            availabilityType: 'INVALID_TYPE',
+            items: [{ name: 'Water', price: 1, options: [] }],
+          },
+        ],
+      });
 
       expect(tx.menuCategory.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ availabilityType: AvailabilityType.ALWAYS }),
+          data: expect.objectContaining({
+            availabilityType: AvailabilityType.ALWAYS,
+          }),
         }),
       );
     });
@@ -148,12 +180,16 @@ describe('MenuImportService', () => {
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
       await service.upsertMenu('rest-1', {
-        categories: [{
-          name: 'BGN Menu',
-          availabilityType: AvailabilityType.ALWAYS,
-          items: [{ name: 'Item BGN', price: 2, currency: 'BGN', options: [] }],
-        }],
-      } as any);
+        categories: [
+          {
+            name: 'BGN Menu',
+            availabilityType: AvailabilityType.ALWAYS,
+            items: [
+              { name: 'Item BGN', price: 2, currency: 'BGN', options: [] },
+            ],
+          },
+        ],
+      });
 
       expect(tx.menuItem.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -167,12 +203,16 @@ describe('MenuImportService', () => {
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
       await service.upsertMenu('rest-1', {
-        categories: [{
-          name: 'EUR Menu',
-          availabilityType: AvailabilityType.ALWAYS,
-          items: [{ name: 'Item EUR', price: 5, currency: 'EUR', options: [] }],
-        }],
-      } as any);
+        categories: [
+          {
+            name: 'EUR Menu',
+            availabilityType: AvailabilityType.ALWAYS,
+            items: [
+              { name: 'Item EUR', price: 5, currency: 'EUR', options: [] },
+            ],
+          },
+        ],
+      });
 
       expect(tx.menuItem.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -186,20 +226,26 @@ describe('MenuImportService', () => {
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
       await service.upsertMenu('rest-1', {
-        categories: [{
-          name: 'Mains',
-          availabilityType: AvailabilityType.ALWAYS,
-          items: [{
-            name: 'Pizza',
-            price: 12,
-            options: [{
-              name: 'Size',
-              type: 'ADDON',
-              choices: [{ name: 'Large', price: 2, weight: '300g' }],
-            }],
-          }],
-        }],
-      } as any);
+        categories: [
+          {
+            name: 'Mains',
+            availabilityType: AvailabilityType.ALWAYS,
+            items: [
+              {
+                name: 'Pizza',
+                price: 12,
+                options: [
+                  {
+                    name: 'Size',
+                    type: 'ADDON',
+                    choices: [{ name: 'Large', price: 2, weight: '300g' }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
 
       expect(tx.menuOption.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -213,20 +259,26 @@ describe('MenuImportService', () => {
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
       await service.upsertMenu('rest-1', {
-        categories: [{
-          name: 'Mains',
-          availabilityType: AvailabilityType.ALWAYS,
-          items: [{
-            name: 'Steak',
-            price: 20,
-            options: [{
-              name: 'Doneness',
-              type: 'VARIATION',
-              choices: [{ name: 'Medium', price: 0 }],
-            }],
-          }],
-        }],
-      } as any);
+        categories: [
+          {
+            name: 'Mains',
+            availabilityType: AvailabilityType.ALWAYS,
+            items: [
+              {
+                name: 'Steak',
+                price: 20,
+                options: [
+                  {
+                    name: 'Doneness',
+                    type: 'VARIATION',
+                    choices: [{ name: 'Medium', price: 0 }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
 
       expect(tx.menuOption.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -240,16 +292,20 @@ describe('MenuImportService', () => {
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
       await service.upsertMenu('rest-1', {
-        categories: [{
-          name: 'Drinks',
-          availabilityType: AvailabilityType.ALWAYS,
-          items: [{
-            name: 'Water',
-            price: 1,
-            options: [{ name: 'Size', type: 'VARIATION', choices: [] }],
-          }],
-        }],
-      } as any);
+        categories: [
+          {
+            name: 'Drinks',
+            availabilityType: AvailabilityType.ALWAYS,
+            items: [
+              {
+                name: 'Water',
+                price: 1,
+                options: [{ name: 'Size', type: 'VARIATION', choices: [] }],
+              },
+            ],
+          },
+        ],
+      });
 
       expect(tx.menuOption.create).not.toHaveBeenCalled();
     });
@@ -259,21 +315,25 @@ describe('MenuImportService', () => {
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
       await service.upsertMenu('rest-1', {
-        categories: [{
-          name: 'Cat',
-          availabilityType: AvailabilityType.ALWAYS,
-          translations: { en: 'Cat' },
-          imageUrl: 'https://img.example.com/cat.webp',
-          thumbnailUrl: 'https://img.example.com/cat_thumb.webp',
-          items: [{
-            name: 'Item',
-            price: 5,
-            translations: { en: 'Item' },
-            imageUrl: 'https://img.example.com/item.webp',
-            thumbnailUrl: 'https://img.example.com/item_thumb.webp',
-            options: [],
-          }],
-        }],
+        categories: [
+          {
+            name: 'Cat',
+            availabilityType: AvailabilityType.ALWAYS,
+            translations: { en: 'Cat' },
+            imageUrl: 'https://img.example.com/cat.webp',
+            thumbnailUrl: 'https://img.example.com/cat_thumb.webp',
+            items: [
+              {
+                name: 'Item',
+                price: 5,
+                translations: { en: 'Item' },
+                imageUrl: 'https://img.example.com/item.webp',
+                thumbnailUrl: 'https://img.example.com/item_thumb.webp',
+                options: [],
+              },
+            ],
+          },
+        ],
       } as any);
 
       expect(tx.menuCategory.create).toHaveBeenCalledWith(
@@ -290,12 +350,14 @@ describe('MenuImportService', () => {
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
       const result = await service.upsertMenu('rest-1', {
-        categories: [{
-          name: 'Soups',
-          availabilityType: AvailabilityType.ALWAYS,
-          items: [{ name: 'Tomato', price: 6, options: [] }],
-        }],
-      } as any);
+        categories: [
+          {
+            name: 'Soups',
+            availabilityType: AvailabilityType.ALWAYS,
+            items: [{ name: 'Tomato', price: 6, options: [] }],
+          },
+        ],
+      });
 
       expect(result.created).toBe(1);
     });
@@ -305,36 +367,47 @@ describe('MenuImportService', () => {
 
   describe('exportMenu', () => {
     beforeEach(() => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ id: 'rest-1', ownerId: 'user-1' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest-1',
+        ownerId: 'user-1',
+      });
     });
 
     it('exports categories with full optional fields', async () => {
-      mockPrisma.menuCategory.findMany.mockResolvedValue([{
-        name: 'Mains',
-        order: 0,
-        availabilityType: AvailabilityType.ALWAYS,
-        imageUrl: 'https://img.example.com/mains.webp',
-        thumbnailUrl: 'https://img.example.com/mains_thumb.webp',
-        translations: { en: 'Mains' },
-        items: [{
-          name: 'Pizza',
-          description: 'Classic margherita',
-          price: 12,
-          currency: Currency.EUR,
-          weight: '400g',
-          allergens: ['Gluten'],
-          dietaryTags: ['Vegetarian'],
+      mockPrisma.menuCategory.findMany.mockResolvedValue([
+        {
+          name: 'Mains',
           order: 0,
-          imageUrl: 'https://img.example.com/pizza.webp',
-          thumbnailUrl: 'https://img.example.com/pizza_thumb.webp',
-          translations: { en: 'Pizza' },
-          options: [{
-            name: 'Size',
-            type: OptionType.VARIATION,
-            choices: [{ name: 'Large', priceModifier: 2, weight: '500g' }],
-          }],
-        }],
-      }]);
+          availabilityType: AvailabilityType.ALWAYS,
+          imageUrl: 'https://img.example.com/mains.webp',
+          thumbnailUrl: 'https://img.example.com/mains_thumb.webp',
+          translations: { en: 'Mains' },
+          items: [
+            {
+              name: 'Pizza',
+              description: 'Classic margherita',
+              price: 12,
+              currency: Currency.EUR,
+              weight: '400g',
+              allergens: ['Gluten'],
+              dietaryTags: ['Vegetarian'],
+              order: 0,
+              imageUrl: 'https://img.example.com/pizza.webp',
+              thumbnailUrl: 'https://img.example.com/pizza_thumb.webp',
+              translations: { en: 'Pizza' },
+              options: [
+                {
+                  name: 'Size',
+                  type: OptionType.VARIATION,
+                  choices: [
+                    { name: 'Large', priceModifier: 2, weight: '500g' },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ]);
 
       const result = await service.exportMenu('rest-1', 'user-1');
 
@@ -348,28 +421,32 @@ describe('MenuImportService', () => {
     });
 
     it('exports categories without optional fields when absent', async () => {
-      mockPrisma.menuCategory.findMany.mockResolvedValue([{
-        name: 'Drinks',
-        order: 1,
-        availabilityType: AvailabilityType.ALWAYS,
-        imageUrl: null,
-        thumbnailUrl: null,
-        translations: null,
-        items: [{
-          name: 'Water',
-          description: null,
-          price: 1,
-          currency: Currency.EUR,
-          weight: null,
-          allergens: [],
-          dietaryTags: [],
-          order: 0,
+      mockPrisma.menuCategory.findMany.mockResolvedValue([
+        {
+          name: 'Drinks',
+          order: 1,
+          availabilityType: AvailabilityType.ALWAYS,
           imageUrl: null,
           thumbnailUrl: null,
           translations: null,
-          options: [],
-        }],
-      }]);
+          items: [
+            {
+              name: 'Water',
+              description: null,
+              price: 1,
+              currency: Currency.EUR,
+              weight: null,
+              allergens: [],
+              dietaryTags: [],
+              order: 0,
+              imageUrl: null,
+              thumbnailUrl: null,
+              translations: null,
+              options: [],
+            },
+          ],
+        },
+      ]);
 
       const result = await service.exportMenu('rest-1', 'user-1');
       const cat = result.categories[0];
@@ -383,12 +460,16 @@ describe('MenuImportService', () => {
 
   describe('getOrCreateApiKey', () => {
     beforeEach(() => {
-      mockPrisma.restaurant.findUnique
-        .mockResolvedValueOnce({ id: 'rest-1', ownerId: 'user-1' }); // checkOwnership
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
+        id: 'rest-1',
+        ownerId: 'user-1',
+      }); // checkOwnership
     });
 
     it('reports configured without revealing the key when a hash exists', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({ importApiKeyHash: 'deadbeef' });
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
+        importApiKeyHash: 'deadbeef',
+      });
 
       const result = await service.getOrCreateApiKey('rest-1', 'user-1');
 
@@ -398,14 +479,17 @@ describe('MenuImportService', () => {
     });
 
     it('generates a key once and stores only its hash when none exists', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({ importApiKeyHash: null });
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
+        importApiKeyHash: null,
+      });
 
       const result = await service.getOrCreateApiKey('rest-1', 'user-1');
 
       expect(result.generated).toBe(true);
       expect(result.apiKey).toMatch(/^ocrk_/);
       // Stored value is the hash of the returned key, never the key itself.
-      const stored = mockPrisma.restaurant.update.mock.calls[0][0].data.importApiKeyHash;
+      const stored =
+        mockPrisma.restaurant.update.mock.calls[0][0].data.importApiKeyHash;
       expect(stored).toBe(service.hashKey(result.apiKey!));
       expect(stored).not.toBe(result.apiKey);
     });
@@ -415,12 +499,16 @@ describe('MenuImportService', () => {
 
   describe('regenerateApiKey', () => {
     it('returns a new key once and stores only its hash', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ id: 'rest-1', ownerId: 'user-1' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest-1',
+        ownerId: 'user-1',
+      });
 
       const result = await service.regenerateApiKey('rest-1', 'user-1');
 
       expect(result.apiKey).toMatch(/^ocrk_/);
-      const stored = mockPrisma.restaurant.update.mock.calls[0][0].data.importApiKeyHash;
+      const stored =
+        mockPrisma.restaurant.update.mock.calls[0][0].data.importApiKeyHash;
       expect(stored).toBe(service.hashKey(result.apiKey));
     });
   });

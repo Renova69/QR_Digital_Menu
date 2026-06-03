@@ -17,10 +17,14 @@ describe('JwtStrategy', () => {
     jest.clearAllMocks();
     strategy = new JwtStrategy(
       prisma as any,
-      { get: jest.fn().mockReturnValue('test-secret') } as unknown as ConfigService,
+      {
+        get: jest.fn().mockReturnValue('test-secret'),
+      } as unknown as ConfigService,
       {
         getEffectiveTier: jest.fn().mockImplementation((tier) => tier),
-        getAllowedStaffRoles: jest.fn().mockReturnValue(['STAFF', 'MANAGER', 'WAITER', 'KITCHEN']),
+        getAllowedStaffRoles: jest
+          .fn()
+          .mockReturnValue(['STAFF', 'MANAGER', 'WAITER', 'KITCHEN']),
       } as unknown as FeatureService,
     );
   });
@@ -37,9 +41,9 @@ describe('JwtStrategy', () => {
       restaurants: [],
     });
 
-    await expect(strategy.validate({ sub: 'admin-1', email: 'admin@test.com' })).rejects.toThrow(
-      UnauthorizedException,
-    );
+    await expect(
+      strategy.validate({ sub: 'admin-1', email: 'admin@test.com' }),
+    ).rejects.toThrow(UnauthorizedException);
   });
 
   it('rejects tokens issued before the last password change', async () => {
@@ -60,7 +64,11 @@ describe('JwtStrategy', () => {
     const staleIat = Math.floor(passwordChangedAt.getTime() / 1000) - 60;
 
     await expect(
-      strategy.validate({ sub: 'owner-1', email: 'owner@test.com', iat: staleIat }),
+      strategy.validate({
+        sub: 'owner-1',
+        email: 'owner@test.com',
+        iat: staleIat,
+      }),
     ).rejects.toThrow('PASSWORD_CHANGED');
   });
 
@@ -103,7 +111,10 @@ describe('JwtStrategy', () => {
       restaurants: [],
     });
 
-    const result = await strategy.validate({ sub: 'admin-1', email: 'admin@test.com' });
+    const result = await strategy.validate({
+      sub: 'admin-1',
+      email: 'admin@test.com',
+    });
 
     expect(result).toMatchObject({
       id: 'admin-1',

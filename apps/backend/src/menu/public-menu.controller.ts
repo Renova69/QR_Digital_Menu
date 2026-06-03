@@ -1,4 +1,11 @@
-import { Controller, Get, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Query,
+  UseGuards,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { MenuCrudService } from './menu-crud.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';

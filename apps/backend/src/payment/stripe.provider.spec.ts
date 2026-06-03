@@ -15,14 +15,18 @@ describe('StripeProvider', () => {
         }),
       },
       webhooks: {
-        constructEvent: jest.fn().mockReturnValue({ type: 'payment_intent.succeeded' }),
+        constructEvent: jest
+          .fn()
+          .mockReturnValue({ type: 'payment_intent.succeeded' }),
       },
       accounts: {
         create: jest.fn().mockResolvedValue({ id: 'acct_new' }),
         retrieve: jest.fn().mockResolvedValue({ charges_enabled: true }),
       },
       accountLinks: {
-        create: jest.fn().mockResolvedValue({ url: 'https://connect.stripe.com/onboard' }),
+        create: jest
+          .fn()
+          .mockResolvedValue({ url: 'https://connect.stripe.com/onboard' }),
       },
     };
     (provider as any).stripe = mockStripe;
@@ -39,17 +43,23 @@ describe('StripeProvider', () => {
         metadata: { sessionId: 's1', paymentId: 'p1' },
       });
 
-      expect(mockStripe.paymentIntents.create).toHaveBeenCalledWith({
-        amount: 2000,
-        currency: 'eur',
-        automatic_payment_methods: { enabled: true },
-        application_fee_amount: 100,
-        transfer_data: { destination: 'acct_123' },
-        metadata: { sessionId: 's1', paymentId: 'p1' },
-      }, {
-        idempotencyKey: 'pay1',
+      expect(mockStripe.paymentIntents.create).toHaveBeenCalledWith(
+        {
+          amount: 2000,
+          currency: 'eur',
+          automatic_payment_methods: { enabled: true },
+          application_fee_amount: 100,
+          transfer_data: { destination: 'acct_123' },
+          metadata: { sessionId: 's1', paymentId: 'p1' },
+        },
+        {
+          idempotencyKey: 'pay1',
+        },
+      );
+      expect(result).toEqual({
+        clientSecret: 'cs_test_secret',
+        paymentIntentId: 'pi_test_123',
       });
-      expect(result).toEqual({ clientSecret: 'cs_test_secret', paymentIntentId: 'pi_test_123' });
     });
   });
 
@@ -70,14 +80,20 @@ describe('StripeProvider', () => {
   describe('createExpressAccount', () => {
     it('creates a Stripe Express account and returns the id', async () => {
       const result = await provider.createExpressAccount();
-      expect(mockStripe.accounts.create).toHaveBeenCalledWith({ type: 'express' });
+      expect(mockStripe.accounts.create).toHaveBeenCalledWith({
+        type: 'express',
+      });
       expect(result).toBe('acct_new');
     });
   });
 
   describe('createAccountLink', () => {
     it('creates an account link and returns the url', async () => {
-      const result = await provider.createAccountLink('acct_123', 'https://refresh', 'https://return');
+      const result = await provider.createAccountLink(
+        'acct_123',
+        'https://refresh',
+        'https://return',
+      );
       expect(mockStripe.accountLinks.create).toHaveBeenCalledWith({
         account: 'acct_123',
         refresh_url: 'https://refresh',
@@ -101,9 +117,13 @@ describe('StripeProvider', () => {
       const saved = process.env.STRIPE_SECRET_KEY;
       delete process.env.STRIPE_SECRET_KEY;
       const p = new StripeProvider();
-      const warnSpy = jest.spyOn((p as any).logger, 'warn').mockImplementation(() => {});
+      const warnSpy = jest
+        .spyOn((p as any).logger, 'warn')
+        .mockImplementation(() => {});
       p.onModuleInit();
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('STRIPE_SECRET_KEY'));
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('STRIPE_SECRET_KEY'),
+      );
       process.env.STRIPE_SECRET_KEY = saved;
     });
 
@@ -111,18 +131,26 @@ describe('StripeProvider', () => {
       process.env.STRIPE_SECRET_KEY = 'sk_test_set';
       process.env.STRIPE_WEBHOOK_SECRET = 'NONE';
       const p = new StripeProvider();
-      const warnSpy = jest.spyOn((p as any).logger, 'warn').mockImplementation(() => {});
+      const warnSpy = jest
+        .spyOn((p as any).logger, 'warn')
+        .mockImplementation(() => {});
       p.onModuleInit();
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('STRIPE_WEBHOOK_SECRET'));
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('STRIPE_WEBHOOK_SECRET'),
+      );
     });
 
     it('warns when STRIPE_WEBHOOK_SECRET is empty', () => {
       process.env.STRIPE_SECRET_KEY = 'sk_test_set';
       process.env.STRIPE_WEBHOOK_SECRET = '';
       const p = new StripeProvider();
-      const warnSpy = jest.spyOn((p as any).logger, 'warn').mockImplementation(() => {});
+      const warnSpy = jest
+        .spyOn((p as any).logger, 'warn')
+        .mockImplementation(() => {});
       p.onModuleInit();
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('STRIPE_WEBHOOK_SECRET'));
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('STRIPE_WEBHOOK_SECRET'),
+      );
     });
   });
 
@@ -162,7 +190,9 @@ describe('StripeProvider', () => {
       process.env.NODE_ENV = 'production';
       process.env.STRIPE_WEBHOOK_SECRET = '';
       const p = new StripeProvider();
-      expect(() => p.constructWebhookEvent(Buffer.from('{}'), 'sig')).toThrow(/unverified/);
+      expect(() => p.constructWebhookEvent(Buffer.from('{}'), 'sig')).toThrow(
+        /unverified/,
+      );
     });
   });
 

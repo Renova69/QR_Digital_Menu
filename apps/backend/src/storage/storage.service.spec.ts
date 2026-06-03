@@ -38,7 +38,7 @@ describe('StorageService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Wire sharp mock to return our chain — must be done after jest.clearAllMocks
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     (require('sharp') as jest.Mock).mockReturnValue(mockSharpChain);
     mockSharpChain.toBuffer.mockResolvedValue(Buffer.from('img-data'));
     mockSharpChain.metadata.mockResolvedValue({ width: 800, height: 600 });
@@ -54,18 +54,30 @@ describe('StorageService', () => {
     });
 
     it('returns a .webp URL for JPEG upload', async () => {
-      const url = await service.upload(Buffer.from('data'), 'photo.jpg', 'image/jpeg');
+      const url = await service.upload(
+        Buffer.from('data'),
+        'photo.jpg',
+        'image/jpeg',
+      );
       expect(url).toMatch(/^https:\/\/cdn\.example\.com\//);
       expect(url).toMatch(/\.webp$/);
     });
 
     it('accepts PNG MIME type', async () => {
-      const url = await service.upload(Buffer.from('data'), 'photo.png', 'image/png');
+      const url = await service.upload(
+        Buffer.from('data'),
+        'photo.png',
+        'image/png',
+      );
       expect(url).toBeTruthy();
     });
 
     it('accepts WebP MIME type', async () => {
-      const url = await service.upload(Buffer.from('data'), 'photo.webp', 'image/webp');
+      const url = await service.upload(
+        Buffer.from('data'),
+        'photo.webp',
+        'image/webp',
+      );
       expect(url).toBeTruthy();
     });
 
@@ -78,7 +90,11 @@ describe('StorageService', () => {
   describe('uploadWithThumbnail', () => {
     it('throws for unsupported MIME type (bmp)', async () => {
       await expect(
-        service.uploadWithThumbnail(Buffer.from('data'), 'file.bmp', 'image/bmp'),
+        service.uploadWithThumbnail(
+          Buffer.from('data'),
+          'file.bmp',
+          'image/bmp',
+        ),
       ).rejects.toThrow('Unsupported image type');
     });
 
@@ -121,8 +137,15 @@ describe('StorageService', () => {
     });
 
     it('handles metadata with zero width/height', async () => {
-      mockSharpChain.metadata.mockResolvedValue({ width: undefined, height: undefined });
-      const url = await service.upload(Buffer.from('data'), 'photo.jpg', 'image/jpeg');
+      mockSharpChain.metadata.mockResolvedValue({
+        width: undefined,
+        height: undefined,
+      });
+      const url = await service.upload(
+        Buffer.from('data'),
+        'photo.jpg',
+        'image/jpeg',
+      );
       expect(url).toBeTruthy();
     });
   });

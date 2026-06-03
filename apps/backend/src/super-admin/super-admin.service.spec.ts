@@ -68,9 +68,7 @@ describe('SuperAdminService', () => {
         .mockResolvedValueOnce(1)
         .mockResolvedValueOnce(1)
         .mockResolvedValueOnce(1);
-      mockPrisma.user.count
-        .mockResolvedValueOnce(50)
-        .mockResolvedValueOnce(3);
+      mockPrisma.user.count.mockResolvedValueOnce(50).mockResolvedValueOnce(3);
       mockPrisma.restaurant.groupBy.mockResolvedValueOnce([
         { tier: 'FREE', _count: { _all: 5 } },
         { tier: 'STARTER', _count: { _all: 3 } },
@@ -96,14 +94,20 @@ describe('SuperAdminService', () => {
       // forcedTierList query
       mockPrisma.restaurant.findMany.mockResolvedValueOnce([
         {
-          id: 'r1', name: 'Free', tier: 'FREE', forceTier: 'ENTERPRISE',
+          id: 'r1',
+          name: 'Free',
+          tier: 'FREE',
+          forceTier: 'ENTERPRISE',
           owner: { email: 'owner@test.com' },
         },
       ]);
       // paymentsNotOnboarded (take:5)
       mockPrisma.restaurant.findMany.mockResolvedValueOnce([
         {
-          id: 'r1', name: 'Free', tier: 'FREE', forceTier: 'ENTERPRISE',
+          id: 'r1',
+          name: 'Free',
+          tier: 'FREE',
+          forceTier: 'ENTERPRISE',
           owner: { email: 'owner@test.com' },
         },
       ]);
@@ -143,9 +147,16 @@ describe('SuperAdminService', () => {
 
   describe('updateTier', () => {
     it('sets forceTier and writes audit log in transaction', async () => {
-      const updated = { id: '1', name: 'Test', tier: 'FREE', forceTier: 'PROFESSIONAL' };
+      const updated = {
+        id: '1',
+        name: 'Test',
+        tier: 'FREE',
+        forceTier: 'PROFESSIONAL',
+      };
       mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
-        id: '1', tier: 'FREE', forceTier: null,
+        id: '1',
+        tier: 'FREE',
+        forceTier: null,
       });
       mockPrisma.$transaction.mockResolvedValueOnce([updated, {}]);
 
@@ -215,12 +226,27 @@ describe('SuperAdminService', () => {
   });
 
   describe('updatePaymentsEnabled', () => {
-    const PROFESSIONAL_RESTAURANT = { id: '1', paymentsEnabled: false, tier: 'PROFESSIONAL', forceTier: null };
-    const FREE_RESTAURANT = { id: '2', paymentsEnabled: false, tier: 'FREE', forceTier: null };
+    const PROFESSIONAL_RESTAURANT = {
+      id: '1',
+      paymentsEnabled: false,
+      tier: 'PROFESSIONAL',
+      forceTier: null,
+    };
+    const FREE_RESTAURANT = {
+      id: '2',
+      paymentsEnabled: false,
+      tier: 'FREE',
+      forceTier: null,
+    };
 
     it('allows enabling on PROFESSIONAL tier', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValueOnce(PROFESSIONAL_RESTAURANT);
-      mockPrisma.$transaction.mockResolvedValueOnce([{ id: '1', name: 'Test', paymentsEnabled: true }, {}]);
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce(
+        PROFESSIONAL_RESTAURANT,
+      );
+      mockPrisma.$transaction.mockResolvedValueOnce([
+        { id: '1', name: 'Test', paymentsEnabled: true },
+        {},
+      ]);
 
       const result = await service.updatePaymentsEnabled('1', true, ACTOR_ID);
 
@@ -240,7 +266,10 @@ describe('SuperAdminService', () => {
         ...FREE_RESTAURANT,
         paymentsEnabled: true,
       });
-      mockPrisma.$transaction.mockResolvedValueOnce([{ id: '2', name: 'Test', paymentsEnabled: false }, {}]);
+      mockPrisma.$transaction.mockResolvedValueOnce([
+        { id: '2', name: 'Test', paymentsEnabled: false },
+        {},
+      ]);
 
       const result = await service.updatePaymentsEnabled('2', false, ACTOR_ID);
 
@@ -263,10 +292,23 @@ describe('SuperAdminService', () => {
   describe('getTenantById', () => {
     it('coerces Decimal payment amount to Number', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
-        id: '1', name: 'Test', tier: 'FREE', forceTier: null, isActive: true,
-        tierUpdatedAt: null, createdAt: new Date(), timezone: 'Europe/Sofia',
-        targetLanguages: [], paymentsEnabled: false, stripeOnboarded: false,
-        owner: { id: 'u1', email: 'o@test.com', name: 'Owner', createdAt: new Date() },
+        id: '1',
+        name: 'Test',
+        tier: 'FREE',
+        forceTier: null,
+        isActive: true,
+        tierUpdatedAt: null,
+        createdAt: new Date(),
+        timezone: 'Europe/Sofia',
+        targetLanguages: [],
+        paymentsEnabled: false,
+        stripeOnboarded: false,
+        owner: {
+          id: 'u1',
+          email: 'o@test.com',
+          name: 'Owner',
+          createdAt: new Date(),
+        },
         _count: { menuCategories: 3, orders: 10, tables: 5 },
       });
       mockPrisma.payment.aggregate.mockResolvedValueOnce({
@@ -282,10 +324,23 @@ describe('SuperAdminService', () => {
 
     it('handles null payment amount as 0', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
-        id: '1', name: 'Test', tier: 'FREE', forceTier: null, isActive: true,
-        tierUpdatedAt: null, createdAt: new Date(), timezone: 'Europe/Sofia',
-        targetLanguages: [], paymentsEnabled: false, stripeOnboarded: false,
-        owner: { id: 'u1', email: 'o@test.com', name: 'Owner', createdAt: new Date() },
+        id: '1',
+        name: 'Test',
+        tier: 'FREE',
+        forceTier: null,
+        isActive: true,
+        tierUpdatedAt: null,
+        createdAt: new Date(),
+        timezone: 'Europe/Sofia',
+        targetLanguages: [],
+        paymentsEnabled: false,
+        stripeOnboarded: false,
+        owner: {
+          id: 'u1',
+          email: 'o@test.com',
+          name: 'Owner',
+          createdAt: new Date(),
+        },
         _count: { menuCategories: 0, orders: 0, tables: 0 },
       });
       mockPrisma.payment.aggregate.mockResolvedValueOnce({
@@ -300,15 +355,34 @@ describe('SuperAdminService', () => {
 
     it('does not leak the raw _count object in the response', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
-        id: '1', name: 'Test', tier: 'FREE', forceTier: null, isActive: true,
-        tierUpdatedAt: null, createdAt: new Date(), timezone: 'Europe/Sofia',
-        targetLanguages: [], paymentsEnabled: false, stripeOnboarded: false,
-        owner: { id: 'u1', email: 'o@test.com', name: 'Owner', createdAt: new Date() },
+        id: '1',
+        name: 'Test',
+        tier: 'FREE',
+        forceTier: null,
+        isActive: true,
+        tierUpdatedAt: null,
+        createdAt: new Date(),
+        timezone: 'Europe/Sofia',
+        targetLanguages: [],
+        paymentsEnabled: false,
+        stripeOnboarded: false,
+        owner: {
+          id: 'u1',
+          email: 'o@test.com',
+          name: 'Owner',
+          createdAt: new Date(),
+        },
         _count: { menuCategories: 2, orders: 7, tables: 3 },
       });
-      mockPrisma.payment.aggregate.mockResolvedValueOnce({ _sum: { amount: null }, _count: 0 });
+      mockPrisma.payment.aggregate.mockResolvedValueOnce({
+        _sum: { amount: null },
+        _count: 0,
+      });
 
-      const result = await service.getTenantById('1') as Record<string, unknown>;
+      const result = (await service.getTenantById('1')) as Record<
+        string,
+        unknown
+      >;
 
       expect(result._count).toBeUndefined();
       expect(result.orderCount).toBe(7);
@@ -319,8 +393,14 @@ describe('SuperAdminService', () => {
 
   describe('updateStatus', () => {
     it('suspends a tenant and writes a SUSPEND audit log', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({ id: '1', isActive: true });
-      mockPrisma.$transaction.mockResolvedValueOnce([{ id: '1', name: 'Test', isActive: false }, {}]);
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
+        id: '1',
+        isActive: true,
+      });
+      mockPrisma.$transaction.mockResolvedValueOnce([
+        { id: '1', name: 'Test', isActive: false },
+        {},
+      ]);
 
       const result = await service.updateStatus('1', false, ACTOR_ID);
 
@@ -330,18 +410,26 @@ describe('SuperAdminService', () => {
 
     it('throws NotFoundException for a missing restaurant', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValueOnce(null);
-      await expect(service.updateStatus('missing', false, ACTOR_ID)).rejects.toThrow();
+      await expect(
+        service.updateStatus('missing', false, ACTOR_ID),
+      ).rejects.toThrow();
     });
   });
 
   describe('resetOwnerPassword', () => {
     it('hashes the password, stamps passwordChangedAt, and audits', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
-        id: '1', ownerId: 'owner-1', name: 'Test',
+        id: '1',
+        ownerId: 'owner-1',
+        name: 'Test',
       });
       mockPrisma.$transaction.mockResolvedValueOnce([{}, {}]);
 
-      const result = await service.resetOwnerPassword('1', 'NewPass123', ACTOR_ID);
+      const result = await service.resetOwnerPassword(
+        '1',
+        'NewPass123',
+        ACTOR_ID,
+      );
 
       expect(result).toEqual({ success: true });
       const userUpdate = mockPrisma.user.update.mock.calls[0][0];
@@ -351,15 +439,22 @@ describe('SuperAdminService', () => {
 
     it('throws NotFoundException for a missing restaurant', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValueOnce(null);
-      await expect(service.resetOwnerPassword('missing', 'NewPass123', ACTOR_ID)).rejects.toThrow();
+      await expect(
+        service.resetOwnerPassword('missing', 'NewPass123', ACTOR_ID),
+      ).rejects.toThrow();
     });
   });
 
   describe('deleteRestaurant', () => {
     it('soft-deletes an active restaurant', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({ id: '1', name: 'Test', deletedAt: null });
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
+        id: '1',
+        name: 'Test',
+        deletedAt: null,
+      });
       mockPrisma.$transaction.mockResolvedValueOnce([
-        { id: '1', name: 'Test', deletedAt: new Date(), isActive: false }, {},
+        { id: '1', name: 'Test', deletedAt: new Date(), isActive: false },
+        {},
       ]);
 
       const result = await service.deleteRestaurant('1', ACTOR_ID);
@@ -368,17 +463,28 @@ describe('SuperAdminService', () => {
     });
 
     it('throws ALREADY_DELETED when the restaurant is already soft-deleted', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({ id: '1', name: 'Test', deletedAt: new Date() });
-      await expect(service.deleteRestaurant('1', ACTOR_ID)).rejects.toThrow('Restaurant already deleted');
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
+        id: '1',
+        name: 'Test',
+        deletedAt: new Date(),
+      });
+      await expect(service.deleteRestaurant('1', ACTOR_ID)).rejects.toThrow(
+        'Restaurant already deleted',
+      );
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
   });
 
   describe('restoreRestaurant', () => {
     it('restores a soft-deleted restaurant', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({ id: '1', name: 'Test', deletedAt: new Date() });
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
+        id: '1',
+        name: 'Test',
+        deletedAt: new Date(),
+      });
       mockPrisma.$transaction.mockResolvedValueOnce([
-        { id: '1', name: 'Test', deletedAt: null, isActive: true }, {},
+        { id: '1', name: 'Test', deletedAt: null, isActive: true },
+        {},
       ]);
 
       const result = await service.restoreRestaurant('1', ACTOR_ID);
@@ -387,8 +493,14 @@ describe('SuperAdminService', () => {
     });
 
     it('throws NOT_DELETED when the restaurant is not deleted', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({ id: '1', name: 'Test', deletedAt: null });
-      await expect(service.restoreRestaurant('1', ACTOR_ID)).rejects.toThrow('Restaurant is not deleted');
+      mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
+        id: '1',
+        name: 'Test',
+        deletedAt: null,
+      });
+      await expect(service.restoreRestaurant('1', ACTOR_ID)).rejects.toThrow(
+        'Restaurant is not deleted',
+      );
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
   });
@@ -396,7 +508,10 @@ describe('SuperAdminService', () => {
   describe('deleteStaff', () => {
     it('deletes a WAITER scoped to the restaurant and audits', async () => {
       mockPrisma.user.findUnique.mockResolvedValueOnce({
-        id: 's1', email: 'w@test.local', role: 'WAITER', restaurantId: 'r1',
+        id: 's1',
+        email: 'w@test.local',
+        role: 'WAITER',
+        restaurantId: 'r1',
       });
       mockPrisma.$transaction.mockResolvedValueOnce([{}, {}]);
 
@@ -407,12 +522,17 @@ describe('SuperAdminService', () => {
 
     it('throws USER_NOT_FOUND for a missing user', async () => {
       mockPrisma.user.findUnique.mockResolvedValueOnce(null);
-      await expect(service.deleteStaff('r1', 'missing', ACTOR_ID)).rejects.toThrow('User not found');
+      await expect(
+        service.deleteStaff('r1', 'missing', ACTOR_ID),
+      ).rejects.toThrow('User not found');
     });
 
     it('throws NOT_STAFF when the user belongs to another restaurant', async () => {
       mockPrisma.user.findUnique.mockResolvedValueOnce({
-        id: 's1', email: 'w@test.local', role: 'WAITER', restaurantId: 'other',
+        id: 's1',
+        email: 'w@test.local',
+        role: 'WAITER',
+        restaurantId: 'other',
       });
       await expect(service.deleteStaff('r1', 's1', ACTOR_ID)).rejects.toThrow(
         'User is not staff of this restaurant',
@@ -421,11 +541,14 @@ describe('SuperAdminService', () => {
 
     it('refuses to delete an OWNER even when scoped to the restaurant', async () => {
       mockPrisma.user.findUnique.mockResolvedValueOnce({
-        id: 'owner', email: 'o@test.com', role: 'OWNER', restaurantId: 'r1',
+        id: 'owner',
+        email: 'o@test.com',
+        role: 'OWNER',
+        restaurantId: 'r1',
       });
-      await expect(service.deleteStaff('r1', 'owner', ACTOR_ID)).rejects.toThrow(
-        'Cannot delete an OWNER or SUPER_ADMIN',
-      );
+      await expect(
+        service.deleteStaff('r1', 'owner', ACTOR_ID),
+      ).rejects.toThrow('Cannot delete an OWNER or SUPER_ADMIN');
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
   });

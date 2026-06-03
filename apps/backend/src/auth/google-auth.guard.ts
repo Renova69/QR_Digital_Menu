@@ -1,4 +1,8 @@
-import { ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { randomBytes } from 'crypto';
 import { Request, Response } from 'express';
@@ -26,14 +30,22 @@ export class GoogleAuthGuard extends AuthGuard('google') {
       (req as any).__oauthNonce = nonce;
     } else {
       // Callback — validate nonce before Passport exchanges the code
-      const cookieNonce = (req.cookies as Record<string, string>)?.[NONCE_COOKIE];
-      res.clearCookie(NONCE_COOKIE, { httpOnly: true, sameSite: 'lax', path: '/' });
+      const cookieNonce = (req.cookies as Record<string, string>)?.[
+        NONCE_COOKIE
+      ];
+      res.clearCookie(NONCE_COOKIE, {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+      });
 
       if (cookieNonce) {
         const rawState = req.query['state'] as string | undefined;
         let stateNonce: string | undefined;
         try {
-          stateNonce = rawState ? (JSON.parse(rawState) as Record<string, string>).nonce : undefined;
+          stateNonce = rawState
+            ? (JSON.parse(rawState) as Record<string, string>).nonce
+            : undefined;
         } catch {
           throw new UnauthorizedException('Invalid OAuth state');
         }
@@ -54,8 +66,11 @@ export class GoogleAuthGuard extends AuthGuard('google') {
     const stateObj: Record<string, string> = {};
     const nonce = (req as any).__oauthNonce as string | undefined;
     if (nonce) stateObj.nonce = nonce;
-    if (req.query['returnTo']) stateObj.returnTo = req.query['returnTo'] as string;
+    if (req.query['returnTo'])
+      stateObj.returnTo = req.query['returnTo'] as string;
 
-    return Object.keys(stateObj).length ? { state: JSON.stringify(stateObj) } : {};
+    return Object.keys(stateObj).length
+      ? { state: JSON.stringify(stateObj) }
+      : {};
   }
 }

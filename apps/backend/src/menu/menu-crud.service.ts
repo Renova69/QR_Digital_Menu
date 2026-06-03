@@ -119,7 +119,11 @@ export class MenuCrudService {
 
     const restaurantTz = restaurantClone.timezone || 'Europe/Sofia';
     const restaurantTier = restaurantClone.tier as string | undefined;
-    const filteredCategories = this.filterByAvailability(allCategories, restaurantTz, restaurantTier);
+    const filteredCategories = this.filterByAvailability(
+      allCategories,
+      restaurantTz,
+      restaurantTier,
+    );
 
     const hasMultiLanguage = this.featureService.hasFeature(
       restaurantClone.tier ?? 'FREE',
@@ -130,14 +134,27 @@ export class MenuCrudService {
       restaurantClone.targetLanguages = [];
     }
 
-    const targetLangs = restaurantClone.targetLanguages as string[] || [];
-    if (hasMultiLanguage && lang && process.env.DEEPL_API_KEY && targetLangs.includes(lang)) {
-      await this.menuTranslationService.applyLazyTranslations(filteredCategories, lang);
+    const targetLangs = (restaurantClone.targetLanguages as string[]) || [];
+    if (
+      hasMultiLanguage &&
+      lang &&
+      process.env.DEEPL_API_KEY &&
+      targetLangs.includes(lang)
+    ) {
+      await this.menuTranslationService.applyLazyTranslations(
+        filteredCategories,
+        lang,
+      );
     }
 
-    restaurantClone.features = this.featureService.getFeatures(restaurantClone.tier ?? 'FREE');
+    restaurantClone.features = this.featureService.getFeatures(
+      restaurantClone.tier ?? 'FREE',
+    );
 
-    return { restaurant: this.applyBrandingEntitlement(restaurantClone), categories: filteredCategories };
+    return {
+      restaurant: this.applyBrandingEntitlement(restaurantClone),
+      categories: filteredCategories,
+    };
   }
 
   /** Returns restaurant branding + category metadata (no items).
@@ -178,7 +195,9 @@ export class MenuCrudService {
     });
 
     if (!restaurant) {
-      throw new NotFoundException(`Restaurant with ID "${restaurantId}" not found`);
+      throw new NotFoundException(
+        `Restaurant with ID "${restaurantId}" not found`,
+      );
     }
 
     const restaurantClone = { ...restaurant } as any;
@@ -205,7 +224,11 @@ export class MenuCrudService {
 
     const tz = restaurantClone.timezone || 'Europe/Sofia';
     const tier = restaurantClone.tier as string | undefined;
-    const filteredCategories = this.filterByAvailability(allCategories as any[], tz, tier);
+    const filteredCategories = this.filterByAvailability(
+      allCategories as any[],
+      tz,
+      tier,
+    );
 
     const hasMultiLanguage = this.featureService.hasFeature(
       tier ?? 'FREE',
@@ -216,13 +239,22 @@ export class MenuCrudService {
       restaurantClone.targetLanguages = [];
     }
 
-    restaurantClone.features = this.featureService.getFeatures(restaurantClone.tier ?? 'FREE');
+    restaurantClone.features = this.featureService.getFeatures(
+      restaurantClone.tier ?? 'FREE',
+    );
 
-    return { restaurant: this.applyBrandingEntitlement(restaurantClone), categories: filteredCategories };
+    return {
+      restaurant: this.applyBrandingEntitlement(restaurantClone),
+      categories: filteredCategories,
+    };
   }
 
   /** Returns items (with options + translation) for a single visible category. */
-  async getCategoryItems(restaurantId: string, categoryId: string, lang?: string) {
+  async getCategoryItems(
+    restaurantId: string,
+    categoryId: string,
+    lang?: string,
+  ) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
       select: {
@@ -234,7 +266,9 @@ export class MenuCrudService {
     });
 
     if (!restaurant) {
-      throw new NotFoundException(`Restaurant with ID "${restaurantId}" not found`);
+      throw new NotFoundException(
+        `Restaurant with ID "${restaurantId}" not found`,
+      );
     }
 
     const tier = restaurant.forceTier ?? restaurant.tier ?? 'FREE';
@@ -254,10 +288,16 @@ export class MenuCrudService {
     });
 
     if (!category) {
-      throw new NotFoundException(`Category not found or does not belong to restaurant`);
+      throw new NotFoundException(
+        `Category not found or does not belong to restaurant`,
+      );
     }
 
-    const filtered = this.filterByAvailability([category as any], timezone, tier);
+    const filtered = this.filterByAvailability(
+      [category as any],
+      timezone,
+      tier,
+    );
     if (filtered.length === 0) {
       throw new ForbiddenException('This category is currently unavailable');
     }
@@ -268,23 +308,38 @@ export class MenuCrudService {
       include: { options: true },
     });
 
-    const hasMultiLanguage = this.featureService.hasFeature(tier, FeatureFlag.LANGUAGES_MULTI);
-    if (hasMultiLanguage && lang && process.env.DEEPL_API_KEY && restaurant.targetLanguages.includes(lang)) {
+    const hasMultiLanguage = this.featureService.hasFeature(
+      tier,
+      FeatureFlag.LANGUAGES_MULTI,
+    );
+    if (
+      hasMultiLanguage &&
+      lang &&
+      process.env.DEEPL_API_KEY &&
+      restaurant.targetLanguages.includes(lang)
+    ) {
       const fakeCategory = { ...category, items };
-      await this.menuTranslationService.applyLazyTranslations([fakeCategory as any], lang);
+      await this.menuTranslationService.applyLazyTranslations(
+        [fakeCategory as any],
+        lang,
+      );
       return fakeCategory.items;
     }
 
     return items;
   }
 
-  private filterByAvailability<T extends {
-    availabilityType: string;
-    startTime: string | null;
-    endTime: string | null;
-    daysOfWeek: number[];
-  }>(categories: T[], timezone: string, tier?: string): T[] {
-    const daypartingEnabled = ['PROFESSIONAL', 'ENTERPRISE'].includes(tier ?? 'FREE');
+  private filterByAvailability<
+    T extends {
+      availabilityType: string;
+      startTime: string | null;
+      endTime: string | null;
+      daysOfWeek: number[];
+    },
+  >(categories: T[], timezone: string, tier?: string): T[] {
+    const daypartingEnabled = ['PROFESSIONAL', 'ENTERPRISE'].includes(
+      tier ?? 'FREE',
+    );
     const now = DateTime.now().setZone(timezone);
     const currentTimeStr = now.toFormat('HH:mm');
     const currentDay = now.weekday === 7 ? 0 : now.weekday;
@@ -300,12 +355,19 @@ export class MenuCrudService {
           Array.isArray(category.daysOfWeek) &&
           category.daysOfWeek.length > 0 &&
           !category.daysOfWeek.includes(currentDay)
-        ) return false;
+        )
+          return false;
         if (category.startTime && category.endTime) {
           if (category.startTime <= category.endTime) {
-            return currentTimeStr >= category.startTime && currentTimeStr <= category.endTime;
+            return (
+              currentTimeStr >= category.startTime &&
+              currentTimeStr <= category.endTime
+            );
           } else {
-            return currentTimeStr >= category.startTime || currentTimeStr <= category.endTime;
+            return (
+              currentTimeStr >= category.startTime ||
+              currentTimeStr <= category.endTime
+            );
           }
         }
       }
@@ -319,7 +381,8 @@ export class MenuCrudService {
       select: { trendingMode: true, id: true, tier: true, forceTier: true },
     });
 
-    const effectiveTier = (restaurant as any)?.forceTier ?? (restaurant as any)?.tier ?? 'FREE';
+    const effectiveTier =
+      (restaurant as any)?.forceTier ?? (restaurant as any)?.tier ?? 'FREE';
     if (!['PROFESSIONAL', 'ENTERPRISE'].includes(effectiveTier)) {
       return [];
     }
@@ -356,8 +419,8 @@ export class MenuCrudService {
     });
 
     const itemIds = mostOrdered
-      .map((mo) => mo.menuItemId)
-      .filter((id) => id !== null);
+      .map((mo: { menuItemId: string | null }) => mo.menuItemId)
+      .filter((id: string | null): id is string => id !== null);
     if (itemIds.length === 0) return [];
 
     const trendingItems = await this.prisma.menuItem.findMany({
@@ -372,7 +435,7 @@ export class MenuCrudService {
     });
 
     return itemIds
-      .map((id) => trendingItems.find((item) => item.id === id))
+      .map((id: string) => trendingItems.find((item: { id: string }) => item.id === id))
       .filter(Boolean);
   }
 
@@ -416,14 +479,25 @@ export class MenuCrudService {
     createCategoryDto: CreateCategoryDto,
     userId: string,
   ) {
-    const restaurant = await this.checkRestaurantOwnership(restaurantId, userId);
+    const restaurant = await this.checkRestaurantOwnership(
+      restaurantId,
+      userId,
+    );
 
     const daypartingEnabled = this.isDaypartingEnabled(restaurant);
     const sanitizedDto = daypartingEnabled
       ? createCategoryDto
-      : { ...createCategoryDto, availabilityType: AvailabilityType.ALWAYS, startTime: null, endTime: null, daysOfWeek: [] };
+      : {
+          ...createCategoryDto,
+          availabilityType: AvailabilityType.ALWAYS,
+          startTime: null,
+          endTime: null,
+          daysOfWeek: [],
+        };
 
-    const count = await this.prisma.menuCategory.count({ where: { restaurantId } });
+    const count = await this.prisma.menuCategory.count({
+      where: { restaurantId },
+    });
     const data: Prisma.MenuCategoryUncheckedCreateInput = {
       ...sanitizedDto,
       restaurantId,
@@ -431,9 +505,19 @@ export class MenuCrudService {
     };
     const category = await this.prisma.menuCategory.create({ data });
 
-    const effectiveTier = this.featureService.getEffectiveTier(restaurant.tier, restaurant.forceTier);
-    const hasMultiLanguage = this.featureService.hasFeature(effectiveTier, FeatureFlag.LANGUAGES_MULTI);
-    if (hasMultiLanguage && process.env.DEEPL_API_KEY && restaurant.targetLanguages.length > 0) {
+    const effectiveTier = this.featureService.getEffectiveTier(
+      restaurant.tier,
+      restaurant.forceTier,
+    );
+    const hasMultiLanguage = this.featureService.hasFeature(
+      effectiveTier,
+      FeatureFlag.LANGUAGES_MULTI,
+    );
+    if (
+      hasMultiLanguage &&
+      process.env.DEEPL_API_KEY &&
+      restaurant.targetLanguages.length > 0
+    ) {
       void (async () => {
         try {
           const newTranslations = await this.translationService.translateObject(
@@ -447,7 +531,9 @@ export class MenuCrudService {
             });
           }
         } catch (e: any) {
-          this.logger.error(`Pre-warm failed for category ${category.id}: ${e.message}`);
+          this.logger.error(
+            `Pre-warm failed for category ${category.id}: ${e.message}`,
+          );
         }
       })();
     }
@@ -477,20 +563,35 @@ export class MenuCrudService {
     if (!category) {
       throw new NotFoundException(`Category with ID "${categoryId}" not found`);
     }
-    const restaurant = await this.checkRestaurantOwnership(category.restaurantId, userId);
+    const restaurant = await this.checkRestaurantOwnership(
+      category.restaurantId,
+      userId,
+    );
 
     const daypartingEnabled = this.isDaypartingEnabled(restaurant);
     const sanitizedDto = daypartingEnabled
       ? updateCategoryDto
-      : { ...updateCategoryDto, availabilityType: AvailabilityType.ALWAYS, startTime: null, endTime: null, daysOfWeek: [] };
+      : {
+          ...updateCategoryDto,
+          availabilityType: AvailabilityType.ALWAYS,
+          startTime: null,
+          endTime: null,
+          daysOfWeek: [],
+        };
 
     const updated = await this.prisma.menuCategory.update({
       where: { id: categoryId },
       data: sanitizedDto,
     });
 
-    const effectiveTier = this.featureService.getEffectiveTier(restaurant.tier, restaurant.forceTier);
-    const hasMultiLanguage = this.featureService.hasFeature(effectiveTier, FeatureFlag.LANGUAGES_MULTI);
+    const effectiveTier = this.featureService.getEffectiveTier(
+      restaurant.tier,
+      restaurant.forceTier,
+    );
+    const hasMultiLanguage = this.featureService.hasFeature(
+      effectiveTier,
+      FeatureFlag.LANGUAGES_MULTI,
+    );
     if (
       hasMultiLanguage &&
       updateCategoryDto.name &&
@@ -513,7 +614,9 @@ export class MenuCrudService {
             data: { translations: { ...existing, ...newTranslations } },
           });
         } catch (e: any) {
-          this.logger.error(`Pre-warm failed for category ${categoryId}: ${e.message}`);
+          this.logger.error(
+            `Pre-warm failed for category ${categoryId}: ${e.message}`,
+          );
         }
       })();
     }
@@ -521,10 +624,14 @@ export class MenuCrudService {
     return updated;
   }
 
-  async updateCategoryOrder(restaurantId: string, orderedIds: string[], userId: string) {
+  async updateCategoryOrder(
+    restaurantId: string,
+    orderedIds: string[],
+    userId: string,
+  ) {
     await this.checkRestaurantOwnership(restaurantId, userId);
     await this.prisma.$transaction(
-      orderedIds.map((id, index) =>
+      orderedIds.map((id: string, index: number) =>
         this.prisma.menuCategory.updateMany({
           where: { id, restaurantId },
           data: { order: index },
@@ -583,7 +690,10 @@ export class MenuCrudService {
     if (!category) {
       throw new NotFoundException(`Category with ID "${categoryId}" not found`);
     }
-    const restaurant = await this.checkRestaurantOwnership(category.restaurantId, userId);
+    const restaurant = await this.checkRestaurantOwnership(
+      category.restaurantId,
+      userId,
+    );
 
     const count = await this.prisma.menuItem.count({ where: { categoryId } });
     const data: Prisma.MenuItemUncheckedCreateInput = {
@@ -593,13 +703,26 @@ export class MenuCrudService {
     };
     const item = await this.prisma.menuItem.create({ data });
 
-    const effectiveTier = this.featureService.getEffectiveTier(restaurant.tier, restaurant.forceTier);
-    const hasMultiLanguage = this.featureService.hasFeature(effectiveTier, FeatureFlag.LANGUAGES_MULTI);
-    if (hasMultiLanguage && process.env.DEEPL_API_KEY && restaurant.targetLanguages.length > 0) {
+    const effectiveTier = this.featureService.getEffectiveTier(
+      restaurant.tier,
+      restaurant.forceTier,
+    );
+    const hasMultiLanguage = this.featureService.hasFeature(
+      effectiveTier,
+      FeatureFlag.LANGUAGES_MULTI,
+    );
+    if (
+      hasMultiLanguage &&
+      process.env.DEEPL_API_KEY &&
+      restaurant.targetLanguages.length > 0
+    ) {
       void (async () => {
         try {
-          const textToTranslate: Record<string, string> = { name: createItemDto.name };
-          if (createItemDto.description) textToTranslate.description = createItemDto.description;
+          const textToTranslate: Record<string, string> = {
+            name: createItemDto.name,
+          };
+          if (createItemDto.description)
+            textToTranslate.description = createItemDto.description;
           (createItemDto.allergens || []).forEach((a: string) => {
             textToTranslate[`allergen_${a}`] = a;
           });
@@ -617,11 +740,18 @@ export class MenuCrudService {
             const translatedAllergens: string[] = [];
             const translatedTags: string[] = [];
             for (const key of Object.keys(langData)) {
-              if (key.startsWith('allergen_')) { translatedAllergens.push(langData[key]); delete langData[key]; }
-              else if (key.startsWith('tag_')) { translatedTags.push(langData[key]); delete langData[key]; }
+              if (key.startsWith('allergen_')) {
+                translatedAllergens.push(langData[key]);
+                delete langData[key];
+              } else if (key.startsWith('tag_')) {
+                translatedTags.push(langData[key]);
+                delete langData[key];
+              }
             }
-            if (translatedAllergens.length) (langData as any).allergens = translatedAllergens;
-            if (translatedTags.length) (langData as any).dietaryTags = translatedTags;
+            if (translatedAllergens.length)
+              (langData as any).allergens = translatedAllergens;
+            if (translatedTags.length)
+              (langData as any).dietaryTags = translatedTags;
           }
 
           if (Object.keys(newTranslations).length > 0) {
@@ -631,7 +761,9 @@ export class MenuCrudService {
             });
           }
         } catch (e: any) {
-          this.logger.error(`Pre-warm failed for item ${item.id}: ${e.message}`);
+          this.logger.error(
+            `Pre-warm failed for item ${item.id}: ${e.message}`,
+          );
         }
       })();
     }
@@ -676,7 +808,10 @@ export class MenuCrudService {
     if (!item) {
       throw new NotFoundException(`Menu item with ID "${itemId}" not found`);
     }
-    const restaurant = await this.checkRestaurantOwnership(item.category.restaurantId, userId);
+    const restaurant = await this.checkRestaurantOwnership(
+      item.category.restaurantId,
+      userId,
+    );
 
     const updated = await this.prisma.menuItem.update({
       where: { id: itemId },
@@ -685,10 +820,17 @@ export class MenuCrudService {
 
     const nameChanged = updateItemDto.name && updateItemDto.name !== item.name;
     const descriptionChanged =
-      updateItemDto.description !== undefined && updateItemDto.description !== item.description;
+      updateItemDto.description !== undefined &&
+      updateItemDto.description !== item.description;
 
-    const effectiveTier = this.featureService.getEffectiveTier(restaurant.tier, restaurant.forceTier);
-    const hasMultiLanguage = this.featureService.hasFeature(effectiveTier, FeatureFlag.LANGUAGES_MULTI);
+    const effectiveTier = this.featureService.getEffectiveTier(
+      restaurant.tier,
+      restaurant.forceTier,
+    );
+    const hasMultiLanguage = this.featureService.hasFeature(
+      effectiveTier,
+      FeatureFlag.LANGUAGES_MULTI,
+    );
     if (
       hasMultiLanguage &&
       (nameChanged || descriptionChanged) &&
@@ -698,12 +840,17 @@ export class MenuCrudService {
       void (async () => {
         try {
           const existing: any =
-            item.translations && typeof item.translations === 'object' ? item.translations : {};
+            item.translations && typeof item.translations === 'object'
+              ? item.translations
+              : {};
 
           const textToTranslate: Record<string, string> = {
             name: updateItemDto.name || item.name,
           };
-          const desc = updateItemDto.description !== undefined ? updateItemDto.description : item.description;
+          const desc =
+            updateItemDto.description !== undefined
+              ? updateItemDto.description
+              : item.description;
           if (desc) textToTranslate.description = desc;
 
           const newTranslations = await this.translationService.translateObject(
@@ -723,7 +870,12 @@ export class MenuCrudService {
     return updated;
   }
 
-  async updateItemImage(itemId: string, imageUrl: string, thumbnailUrl: string, userId: string) {
+  async updateItemImage(
+    itemId: string,
+    imageUrl: string,
+    thumbnailUrl: string,
+    userId: string,
+  ) {
     const item = await this.prisma.menuItem.findUnique({
       where: { id: itemId },
       select: { category: { select: { restaurantId: true } } },
@@ -739,7 +891,11 @@ export class MenuCrudService {
     });
   }
 
-  async updateItemOrder(categoryId: string, orderedIds: string[], userId: string) {
+  async updateItemOrder(
+    categoryId: string,
+    orderedIds: string[],
+    userId: string,
+  ) {
     const category = await this.prisma.menuCategory.findUnique({
       where: { id: categoryId },
       select: { restaurantId: true },
@@ -749,7 +905,7 @@ export class MenuCrudService {
     }
     await this.checkRestaurantOwnership(category.restaurantId, userId);
     await this.prisma.$transaction(
-      orderedIds.map((id, index) =>
+      orderedIds.map((id: string, index: number) =>
         this.prisma.menuItem.updateMany({
           where: { id, categoryId },
           data: { order: index },
@@ -806,7 +962,10 @@ export class MenuCrudService {
     if (!item) {
       throw new NotFoundException(`Menu item with ID "${itemId}" not found`);
     }
-    const restaurant = await this.checkRestaurantOwnership(item.category.restaurantId, userId);
+    const restaurant = await this.checkRestaurantOwnership(
+      item.category.restaurantId,
+      userId,
+    );
 
     const choices = JSON.parse(createMenuOptionDto.choices);
     if (!Array.isArray(choices)) {
@@ -819,12 +978,24 @@ export class MenuCrudService {
     };
     const option = await this.prisma.menuOption.create({ data });
 
-    const effectiveTier = this.featureService.getEffectiveTier(restaurant.tier, restaurant.forceTier);
-    const hasMultiLanguage = this.featureService.hasFeature(effectiveTier, FeatureFlag.LANGUAGES_MULTI);
-    if (hasMultiLanguage && process.env.DEEPL_API_KEY && restaurant.targetLanguages.length > 0) {
+    const effectiveTier = this.featureService.getEffectiveTier(
+      restaurant.tier,
+      restaurant.forceTier,
+    );
+    const hasMultiLanguage = this.featureService.hasFeature(
+      effectiveTier,
+      FeatureFlag.LANGUAGES_MULTI,
+    );
+    if (
+      hasMultiLanguage &&
+      process.env.DEEPL_API_KEY &&
+      restaurant.targetLanguages.length > 0
+    ) {
       void (async () => {
         try {
-          const textToTranslate: Record<string, string> = { name: createMenuOptionDto.name };
+          const textToTranslate: Record<string, string> = {
+            name: createMenuOptionDto.name,
+          };
           choices.forEach((c: any) => {
             if (c.name) textToTranslate[`choice_${c.name}`] = c.name;
           });
@@ -836,10 +1007,14 @@ export class MenuCrudService {
 
           const parsedTranslations: any = {};
           for (const lang of Object.keys(newTranslations)) {
-            parsedTranslations[lang] = { name: newTranslations[lang].name, choices: {} };
+            parsedTranslations[lang] = {
+              name: newTranslations[lang].name,
+              choices: {},
+            };
             for (const key of Object.keys(newTranslations[lang])) {
               if (key.startsWith('choice_')) {
-                parsedTranslations[lang].choices[key.replace('choice_', '')] = newTranslations[lang][key];
+                parsedTranslations[lang].choices[key.replace('choice_', '')] =
+                  newTranslations[lang][key];
               }
             }
           }
@@ -851,7 +1026,9 @@ export class MenuCrudService {
             });
           }
         } catch (e: any) {
-          this.logger.error(`Pre-warm failed for option ${option.id}: ${e.message}`);
+          this.logger.error(
+            `Pre-warm failed for option ${option.id}: ${e.message}`,
+          );
         }
       })();
     }
@@ -895,11 +1072,24 @@ export class MenuCrudService {
       ...updateMenuOptionDto,
       choices,
     };
-    const updated = await this.prisma.menuOption.update({ where: { id: optionId }, data });
+    const updated = await this.prisma.menuOption.update({
+      where: { id: optionId },
+      data,
+    });
 
-    const effectiveTier = this.featureService.getEffectiveTier(restaurant.tier, restaurant.forceTier);
-    const hasMultiLanguage = this.featureService.hasFeature(effectiveTier, FeatureFlag.LANGUAGES_MULTI);
-    if (hasMultiLanguage && process.env.DEEPL_API_KEY && restaurant.targetLanguages.length > 0) {
+    const effectiveTier = this.featureService.getEffectiveTier(
+      restaurant.tier,
+      restaurant.forceTier,
+    );
+    const hasMultiLanguage = this.featureService.hasFeature(
+      effectiveTier,
+      FeatureFlag.LANGUAGES_MULTI,
+    );
+    if (
+      hasMultiLanguage &&
+      process.env.DEEPL_API_KEY &&
+      restaurant.targetLanguages.length > 0
+    ) {
       void (async () => {
         try {
           const existingTrans: any =
@@ -907,7 +1097,8 @@ export class MenuCrudService {
               ? option.translations
               : {};
           const textToTranslate: Record<string, string> = {};
-          if (updateMenuOptionDto.name) textToTranslate.name = updateMenuOptionDto.name;
+          if (updateMenuOptionDto.name)
+            textToTranslate.name = updateMenuOptionDto.name;
           if (choices) {
             choices.forEach((c: any) => {
               if (c.name) textToTranslate[`choice_${c.name}`] = c.name;
@@ -923,10 +1114,12 @@ export class MenuCrudService {
           for (const lang of Object.keys(newTranslations)) {
             if (!existingTrans[lang]) existingTrans[lang] = { choices: {} };
             if (!existingTrans[lang].choices) existingTrans[lang].choices = {};
-            if (newTranslations[lang].name) existingTrans[lang].name = newTranslations[lang].name;
+            if (newTranslations[lang].name)
+              existingTrans[lang].name = newTranslations[lang].name;
             for (const key of Object.keys(newTranslations[lang])) {
               if (key.startsWith('choice_')) {
-                existingTrans[lang].choices[key.replace('choice_', '')] = newTranslations[lang][key];
+                existingTrans[lang].choices[key.replace('choice_', '')] =
+                  newTranslations[lang][key];
               }
             }
           }
@@ -936,7 +1129,9 @@ export class MenuCrudService {
             data: { translations: existingTrans } as any,
           });
         } catch (e: any) {
-          this.logger.error(`Pre-warm failed for option ${optionId}: ${e.message}`);
+          this.logger.error(
+            `Pre-warm failed for option ${optionId}: ${e.message}`,
+          );
         }
       })();
     }

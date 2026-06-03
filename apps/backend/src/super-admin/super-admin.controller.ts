@@ -48,7 +48,14 @@ export class SuperAdminController {
     @Query('status') status?: string,
     @Query('subscription') subscription?: string,
   ) {
-    return this.service.getTenants({ page, limit, search, tier, status, subscription });
+    return this.service.getTenants({
+      page,
+      limit,
+      search,
+      tier,
+      status,
+      subscription,
+    });
   }
 
   @ApiOperation({ summary: 'Get single tenant detail' })
@@ -103,7 +110,11 @@ export class SuperAdminController {
     @Body() dto: UpdatePaymentsEnabledDto,
     @Request() req: any,
   ) {
-    return this.service.updatePaymentsEnabled(id, dto.paymentsEnabled, req.user.id);
+    return this.service.updatePaymentsEnabled(
+      id,
+      dto.paymentsEnabled,
+      req.user.id,
+    );
   }
 
   @ApiOperation({ summary: 'Soft-delete a restaurant' })
@@ -161,6 +172,13 @@ export class SuperAdminController {
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
   ) {
-    return this.service.getAuditLog({ page, limit, targetId, action, dateFrom, dateTo });
+    return this.service.getAuditLog({
+      page,
+      limit,
+      targetId,
+      action,
+      dateFrom,
+      dateTo,
+    });
   }
 }

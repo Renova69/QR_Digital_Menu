@@ -16,7 +16,12 @@ import { FeatureFlag } from '../subscription/feature-flag.enum';
  */
 export function isLoyaltyAvailable(
   restaurant:
-    | { tier?: string | null; forceTier?: string | null; isLoyaltyEnabled?: boolean | null; isActive?: boolean | null }
+    | {
+        tier?: string | null;
+        forceTier?: string | null;
+        isLoyaltyEnabled?: boolean | null;
+        isActive?: boolean | null;
+      }
     | null
     | undefined,
   featureService: FeatureService,
@@ -28,6 +33,7 @@ export function isLoyaltyAvailable(
     restaurant.forceTier ?? null,
   );
   return (
-    featureService.hasFeature(tier, FeatureFlag.LOYALTY) && !!restaurant.isLoyaltyEnabled
+    featureService.hasFeature(tier, FeatureFlag.LOYALTY) &&
+    !!restaurant.isLoyaltyEnabled
   );
 }

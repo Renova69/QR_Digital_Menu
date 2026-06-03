@@ -35,7 +35,19 @@ describe('HelpContentService', () => {
   describe('findBySection', () => {
     it('should return items for a section sorted by sortOrder', async () => {
       const items = [
-        { id: '1', section: 'landing', categoryKey: 'general', itemKey: 'q1', sortOrder: 0, locale: 'en', title: 'What?', body: 'Answer', active: true, createdAt: new Date(), updatedAt: new Date() },
+        {
+          id: '1',
+          section: 'landing',
+          categoryKey: 'general',
+          itemKey: 'q1',
+          sortOrder: 0,
+          locale: 'en',
+          title: 'What?',
+          body: 'Answer',
+          active: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
       ];
       mockPrisma.helpContent.findMany.mockResolvedValue(items);
 
@@ -62,11 +74,25 @@ describe('HelpContentService', () => {
 
   describe('create', () => {
     it('should create a help content item', async () => {
-      const dto = { section: 'landing', categoryKey: 'general', itemKey: 'q9', locale: 'en', title: 'New?', body: 'New answer' };
-      const created = { id: 'new-id', ...dto, sortOrder: 0, active: true, createdAt: new Date(), updatedAt: new Date() };
+      const dto = {
+        section: 'landing',
+        categoryKey: 'general',
+        itemKey: 'q9',
+        locale: 'en',
+        title: 'New?',
+        body: 'New answer',
+      };
+      const created = {
+        id: 'new-id',
+        ...dto,
+        sortOrder: 0,
+        active: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
       mockPrisma.helpContent.create.mockResolvedValue(created);
 
-      const result = await service.create(dto as any);
+      const result = await service.create(dto);
 
       expect(result).toEqual(created);
     });
@@ -95,9 +121,15 @@ describe('HelpContentService', () => {
 
   describe('reorder', () => {
     it('should bulk update sortOrder in a transaction', async () => {
-      mockPrisma.helpContent.update.mockResolvedValue({ id: '1', sortOrder: 0 });
+      mockPrisma.helpContent.update.mockResolvedValue({
+        id: '1',
+        sortOrder: 0,
+      });
 
-      await service.reorder([{ id: '1', sortOrder: 0 }, { id: '2', sortOrder: 1 }]);
+      await service.reorder([
+        { id: '1', sortOrder: 0 },
+        { id: '2', sortOrder: 1 },
+      ]);
 
       expect(mockPrisma.helpContent.update).toHaveBeenCalledTimes(2);
     });

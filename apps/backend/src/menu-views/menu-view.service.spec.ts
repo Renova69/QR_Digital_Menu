@@ -41,10 +41,17 @@ describe('MenuViewService', () => {
       await service.recordView('rest1', { table: 'T1', visitorId: 'v-abc' });
 
       expect(mockPrisma.restaurantTable.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { name: 'T1', restaurantId: 'rest1' } }),
+        expect.objectContaining({
+          where: { name: 'T1', restaurantId: 'rest1' },
+        }),
       );
       expect(mockPrisma.menuView.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({ restaurantId: 'rest1', tableId: 'table1', tableName: 'T1', visitorId: 'v-abc' }),
+        data: expect.objectContaining({
+          restaurantId: 'rest1',
+          tableId: 'table1',
+          tableName: 'T1',
+          visitorId: 'v-abc',
+        }),
       });
     });
 
@@ -144,7 +151,9 @@ describe('MenuViewService', () => {
     });
 
     it('uses restaurant timezone to compute today start', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'America/New_York' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        timezone: 'America/New_York',
+      });
 
       await service.getScanStats('rest1');
 
