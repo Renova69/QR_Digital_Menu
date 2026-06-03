@@ -28,6 +28,12 @@ describe('RestaurantsService — Stripe Connect', () => {
         (tier: string, force?: string | null) => force ?? tier,
       ),
       hasFeature: jest.fn().mockReturnValue(true),
+      restaurantHasFeature: jest.fn(function (this: any, r: any, f: any) {
+        return this.hasFeature(
+          this.getEffectiveTier(r?.tier ?? 'FREE', r?.forceTier ?? null),
+          f,
+        );
+      }),
     };
 
     service = new RestaurantsService(

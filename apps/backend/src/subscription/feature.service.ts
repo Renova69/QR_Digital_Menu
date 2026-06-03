@@ -84,4 +84,20 @@ export class FeatureService {
     }
     return tier;
   }
+
+  /**
+   * Resolve a restaurant's effective tier (honoring super-admin forceTier) and
+   * test a single feature flag in one call. Collapses the repeated
+   * getEffectiveTier(...) + hasFeature(...) pattern across services.
+   */
+  restaurantHasFeature(
+    restaurant: { tier?: string | null; forceTier?: string | null } | null,
+    feature: FeatureFlag,
+  ): boolean {
+    const tier = this.getEffectiveTier(
+      restaurant?.tier ?? 'FREE',
+      restaurant?.forceTier ?? null,
+    );
+    return this.hasFeature(tier, feature);
+  }
 }

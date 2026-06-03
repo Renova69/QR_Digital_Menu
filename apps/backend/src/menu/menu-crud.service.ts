@@ -591,12 +591,8 @@ export class MenuCrudService {
     };
     const category = await this.prisma.menuCategory.create({ data });
 
-    const effectiveTier = this.featureService.getEffectiveTier(
-      restaurant.tier,
-      restaurant.forceTier,
-    );
-    const hasMultiLanguage = this.featureService.hasFeature(
-      effectiveTier,
+    const hasMultiLanguage = this.featureService.restaurantHasFeature(
+      restaurant,
       FeatureFlag.LANGUAGES_MULTI,
     );
     if (
@@ -686,12 +682,8 @@ export class MenuCrudService {
       );
     }
 
-    const effectiveTier = this.featureService.getEffectiveTier(
-      restaurant.tier,
-      restaurant.forceTier,
-    );
-    const hasMultiLanguage = this.featureService.hasFeature(
-      effectiveTier,
+    const hasMultiLanguage = this.featureService.restaurantHasFeature(
+      restaurant,
       FeatureFlag.LANGUAGES_MULTI,
     );
     if (
@@ -843,12 +835,8 @@ export class MenuCrudService {
     };
     const item = await this.prisma.menuItem.create({ data });
 
-    const effectiveTier = this.featureService.getEffectiveTier(
-      restaurant.tier,
-      restaurant.forceTier,
-    );
-    const hasMultiLanguage = this.featureService.hasFeature(
-      effectiveTier,
+    const hasMultiLanguage = this.featureService.restaurantHasFeature(
+      restaurant,
       FeatureFlag.LANGUAGES_MULTI,
     );
     if (
@@ -972,12 +960,8 @@ export class MenuCrudService {
       updateItemDto.description !== undefined &&
       updateItemDto.description !== item.description;
 
-    const effectiveTier = this.featureService.getEffectiveTier(
-      restaurant.tier,
-      restaurant.forceTier,
-    );
-    const hasMultiLanguage = this.featureService.hasFeature(
-      effectiveTier,
+    const hasMultiLanguage = this.featureService.restaurantHasFeature(
+      restaurant,
       FeatureFlag.LANGUAGES_MULTI,
     );
     if (
@@ -1159,12 +1143,8 @@ export class MenuCrudService {
     };
     const option = await this.prisma.menuOption.create({ data });
 
-    const effectiveTier = this.featureService.getEffectiveTier(
-      restaurant.tier,
-      restaurant.forceTier,
-    );
-    const hasMultiLanguage = this.featureService.hasFeature(
-      effectiveTier,
+    const hasMultiLanguage = this.featureService.restaurantHasFeature(
+      restaurant,
       FeatureFlag.LANGUAGES_MULTI,
     );
     if (
@@ -1254,12 +1234,8 @@ export class MenuCrudService {
       data,
     });
 
-    const effectiveTier = this.featureService.getEffectiveTier(
-      restaurant.tier,
-      restaurant.forceTier,
-    );
-    const hasMultiLanguage = this.featureService.hasFeature(
-      effectiveTier,
+    const hasMultiLanguage = this.featureService.restaurantHasFeature(
+      restaurant,
       FeatureFlag.LANGUAGES_MULTI,
     );
     if (

@@ -189,11 +189,12 @@ export class AuthService {
     if (restaurant.isActive === false) {
       throw new ForbiddenException('This restaurant has been suspended');
     }
-    const tier = this.featureService.getEffectiveTier(
-      restaurant.tier ?? 'FREE',
-      restaurant.forceTier,
-    );
-    if (!this.featureService.hasFeature(tier, FeatureFlag.CUSTOMERS_AUTH)) {
+    if (
+      !this.featureService.restaurantHasFeature(
+        restaurant,
+        FeatureFlag.CUSTOMERS_AUTH,
+      )
+    ) {
       throw new ForbiddenException(
         'Customer authentication is not available on this plan',
       );

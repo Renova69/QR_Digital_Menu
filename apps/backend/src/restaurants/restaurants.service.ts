@@ -199,11 +199,12 @@ export class RestaurantsService {
   async translateAll(id: string, userId: string) {
     const restaurant = await this.findOneForManagement(id, userId);
 
-    const tier = this.featureService.getEffectiveTier(
-      restaurant.tier ?? 'FREE',
-      restaurant.forceTier,
-    );
-    if (!this.featureService.hasFeature(tier, FeatureFlag.LANGUAGES_MULTI)) {
+    if (
+      !this.featureService.restaurantHasFeature(
+        restaurant,
+        FeatureFlag.LANGUAGES_MULTI,
+      )
+    ) {
       throw new ForbiddenException(
         'Multi-language features are not available on this tier.',
       );

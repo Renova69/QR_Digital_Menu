@@ -143,6 +143,12 @@ describe('OrdersService', () => {
     featureService = {
       hasFeature: jest.fn().mockReturnValue(true),
       getEffectiveTier: jest.fn().mockImplementation((tier: string) => tier),
+      restaurantHasFeature: jest.fn(function (this: any, r: any, f: any) {
+        return this.hasFeature(
+          this.getEffectiveTier(r?.tier ?? 'FREE', r?.forceTier ?? null),
+          f,
+        );
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({

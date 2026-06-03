@@ -79,6 +79,12 @@ describe('PaymentService', () => {
     const mockFeatureService = {
       hasFeature: jest.fn().mockReturnValue(true),
       getEffectiveTier: jest.fn().mockImplementation((tier: string) => tier),
+      restaurantHasFeature: jest.fn(function (this: any, r: any, f: any) {
+        return this.hasFeature(
+          this.getEffectiveTier(r?.tier ?? 'FREE', r?.forceTier ?? null),
+          f,
+        );
+      }),
     } as unknown as FeatureService;
     service = new PaymentService(
       mockPrisma,
@@ -434,6 +440,12 @@ describe('PaymentService', () => {
       const lockedFeatureService = {
         hasFeature: jest.fn().mockReturnValue(false),
         getEffectiveTier: jest.fn().mockImplementation((tier: string) => tier),
+        restaurantHasFeature: jest.fn(function (this: any, r: any, f: any) {
+          return this.hasFeature(
+            this.getEffectiveTier(r?.tier ?? 'FREE', r?.forceTier ?? null),
+            f,
+          );
+        }),
       } as unknown as FeatureService;
       const lockedService = new PaymentService(
         mockPrisma,

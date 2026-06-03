@@ -130,4 +130,44 @@ describe('FeatureService', () => {
       expect(service.getAllowedStaffRoles('UNKNOWN')).toEqual([]);
     });
   });
+
+  describe('restaurantHasFeature', () => {
+    it('honors forceTier when resolving the effective tier', () => {
+      // billing tier FREE but force-overridden to PROFESSIONAL
+      expect(
+        service.restaurantHasFeature(
+          { tier: 'FREE', forceTier: 'PROFESSIONAL' },
+          FeatureFlag.LOYALTY,
+        ),
+      ).toBe(true);
+    });
+
+    it('uses the billing tier when no forceTier is set', () => {
+      expect(
+        service.restaurantHasFeature(
+          { tier: 'FREE', forceTier: null },
+          FeatureFlag.PAYMENTS_STRIPE,
+        ),
+      ).toBe(false);
+    });
+
+    it('defaults a null restaurant / missing tier to FREE', () => {
+      expect(service.restaurantHasFeature(null, FeatureFlag.MENU_VIEW)).toBe(
+        true,
+      );
+      expect(service.restaurantHasFeature(null, FeatureFlag.POS)).toBe(false);
+      expect(service.restaurantHasFeature({}, FeatureFlag.LOYALTY)).toBe(false);
+    });
+
+    it('matches getEffectiveTier + hasFeature composed manually', () => {
+      const r = { tier: 'STARTER', forceTier: null };
+      const composed = service.hasFeature(
+        service.getEffectiveTier(r.tier, r.forceTier),
+        FeatureFlag.ORDERS_RECEIVE,
+      );
+      expect(service.restaurantHasFeature(r, FeatureFlag.ORDERS_RECEIVE)).toBe(
+        composed,
+      );
+    });
+  });
 });

@@ -34,6 +34,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
       try {
         await this.$connect();
         this.logger.log('Connected to database');
+        await this.ensureCriticalIndexes();
         return;
       } catch (error) {
         const delay = jitteredDelay(i, 1_000, 30_000);
@@ -48,6 +49,33 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
         }
         await sleep(delay);
       }
+    }
+  }
+
+  /**
+   * Ensure DB-level invariants that Prisma's schema cannot express. The
+   * one-OPEN-session-per-table partial unique index uses a `WHERE status =
+   * 'OPEN'` predicate, which `@@unique` does not support — so it lives only in
+   * raw migration SQL and would be missed by `prisma db push` deploys. The
+   * concurrent-session race guard in PaymentService relies on it (catches
+   * P2002), so we (re)create it idempotently at boot. `IF NOT EXISTS` matches by
+   * index name, making this a no-op wherever it already exists. A failure here
+   * (e.g. pre-existing duplicate OPEN rows block creation) is logged loudly but
+   * must not crash the service — the rest of the app stays available.
+   */
+  private async ensureCriticalIndexes(): Promise<void> {
+    try {
+      await this.$executeRawUnsafe(
+        `CREATE UNIQUE INDEX IF NOT EXISTS "table_session_one_open_per_table_restaurant_idx" ` +
+          `ON "table_session" ("restaurantId", "tableId") WHERE "status" = 'OPEN'`,
+      );
+    } catch (error) {
+      this.logger.error(
+        'Failed to ensure one-open-session-per-table unique index. ' +
+          'The concurrent-session race guard is NOT enforced until this is resolved ' +
+          '(likely duplicate OPEN sessions already exist).',
+        error instanceof Error ? error.stack : String(error),
+      );
     }
   }
 

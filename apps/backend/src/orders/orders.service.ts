@@ -128,12 +128,11 @@ export class OrdersService {
       });
     }
 
-    const effectiveTier = this.featureService.getEffectiveTier(
-      String(restaurant.tier),
-      restaurant.forceTier ?? null,
-    );
     if (
-      !this.featureService.hasFeature(effectiveTier, FeatureFlag.ORDERS_RECEIVE)
+      !this.featureService.restaurantHasFeature(
+        restaurant,
+        FeatureFlag.ORDERS_RECEIVE,
+      )
     ) {
       throw new ForbiddenException({
         code: 'FEATURE_LOCKED',

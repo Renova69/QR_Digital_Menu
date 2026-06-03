@@ -258,13 +258,9 @@ export class PaymentService {
       );
     }
 
-    const effectiveTier = this.featureService.getEffectiveTier(
-      String(restaurant.tier),
-      restaurant.forceTier ?? null,
-    );
     if (
-      !this.featureService.hasFeature(
-        effectiveTier,
+      !this.featureService.restaurantHasFeature(
+        restaurant,
         FeatureFlag.PAYMENTS_STRIPE,
       )
     ) {

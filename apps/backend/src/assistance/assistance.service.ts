@@ -62,14 +62,9 @@ export class AssistanceService {
       throw new NotFoundException('Restaurant not found');
     }
 
-    const effectiveTier = this.featureService.getEffectiveTier(
-      String(restaurant.tier),
-      restaurant.forceTier ?? null,
-    );
-
     if (
-      !this.featureService.hasFeature(
-        effectiveTier,
+      !this.featureService.restaurantHasFeature(
+        restaurant,
         FeatureFlag.ORDERS_CALL_WAITER,
       )
     ) {
