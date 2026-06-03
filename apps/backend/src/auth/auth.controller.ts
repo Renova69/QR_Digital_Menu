@@ -175,7 +175,11 @@ export class AuthController {
     @Body(new ValidationPipe({ whitelist: true })) dto: PinLoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.pinLogin(dto.restaurantId, dto.pin);
+    const result = await this.authService.pinLogin(
+      dto.restaurantId,
+      dto.pin,
+      dto.deviceToken,
+    );
     setTokenCookie(res, result.token);
     // Return the token in the body too — the frontend needs it as a Bearer
     // fallback for cross-origin contexts (prod Vercel→Cloud Run, LAN-IP dev)

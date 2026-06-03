@@ -32,6 +32,7 @@ export default function DeviceEnrollPage() {
             restaurantId: result.restaurantId,
             restaurantName: result.restaurantName,
             allowedModes: result.allowedModes,
+            deviceToken: token,
             bondedAt: new Date().toISOString(),
           }),
         );
@@ -62,7 +63,9 @@ export default function DeviceEnrollPage() {
       <div className="w-full max-w-sm text-center">
         <div
           className={`mx-auto mb-5 h-14 w-14 rounded-xl flex items-center justify-center text-2xl ${
-            state === "error" ? "bg-red-500/20 text-red-300" : "bg-indigo-600 text-white"
+            state === "error"
+              ? "bg-red-500/20 text-red-300"
+              : "bg-indigo-600 text-white"
           }`}
         >
           {state === "error" ? "!" : "OK"}
@@ -77,7 +80,9 @@ export default function DeviceEnrollPage() {
         </h1>
 
         {restaurantName && (
-          <p className="text-sm text-indigo-200 font-medium mb-2">{restaurantName}</p>
+          <p className="text-sm text-indigo-200 font-medium mb-2">
+            {restaurantName}
+          </p>
         )}
 
         <p className="text-sm text-slate-400">{message}</p>

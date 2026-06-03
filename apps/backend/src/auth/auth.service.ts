@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import * as bcrypt from 'bcryptjs';
-import { randomInt, randomBytes } from 'crypto';
+import { randomInt, randomBytes, createHash } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { PIN_LOGIN_ROLES } from '../users/staff-roles';
@@ -200,6 +200,31 @@ export class AuthService {
     }
   }
 
+  private hashDeviceToken(token: string) {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private async assertEnrolledDevice(
+    restaurantId: string,
+    deviceToken: string,
+  ): Promise<void> {
+    const tokenHash = this.hashDeviceToken(deviceToken);
+    const device = await this.prisma.deviceEnrollmentToken.findFirst({
+      where: {
+        restaurantId,
+        tokenHash,
+        usedAt: { not: null },
+      },
+      select: { id: true },
+    });
+
+    if (!device) {
+      throw new UnauthorizedException(
+        'This device is not enrolled for staff PIN login.',
+      );
+    }
+  }
+
   // ── public methods ────────────────────────────────────────────────────
   async sendOtp(
     email?: string,
@@ -298,13 +323,15 @@ export class AuthService {
     };
   }
 
-  async pinLogin(restaurantId: string, pin: string) {
+  async pinLogin(restaurantId: string, pin: string, deviceToken: string) {
     // Only device/floor roles authenticate by PIN. Dashboard roles
     // (OWNER/MANAGER/STAFF) are excluded so a 4-digit PIN can never mint a JWT
     // for a privileged dashboard account. Source of truth: users/staff-roles.ts.
     const staffRoles: string[] = [...PIN_LOGIN_ROLES];
     const MAX_ATTEMPTS = 5;
     const LOCKOUT_MINUTES = 15;
+
+    await this.assertEnrolledDevice(restaurantId, deviceToken);
 
     const candidates = await this.prisma.user.findMany({
       where: {
@@ -365,7 +392,9 @@ export class AuthService {
     // Shared-device context: PIN attempts are tracked restaurant-wide, not per-user.
     // Max current attempts is the source of truth (candidates are unordered).
     const currentAttempts = Math.max(
-      ...candidates.map((u: { pinAttempts: number | null }) => u.pinAttempts ?? 0),
+      ...candidates.map(
+        (u: { pinAttempts: number | null }) => u.pinAttempts ?? 0,
+      ),
     );
     const attempts = currentAttempts + 1;
 

@@ -21,8 +21,8 @@ export class TableZonesController {
 
   @UseGuards(JwtAuthGuard)
   @Get('restaurants/:restaurantId/zones')
-  findAll(@Param('restaurantId') restaurantId: string) {
-    return this.zonesService.findAll(restaurantId);
+  findAll(@Param('restaurantId') restaurantId: string, @Request() req: any) {
+    return this.zonesService.findAll(restaurantId, req.user);
   }
 
   @UseGuards(JwtAuthGuard)

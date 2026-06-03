@@ -131,6 +131,11 @@ describe('StorageService', () => {
       expect(mockS3Send).toHaveBeenCalled();
     });
 
+    it('does not delete external image URLs', async () => {
+      await service.delete('https://images.example.net/abc123.webp');
+      expect(mockS3Send).not.toHaveBeenCalled();
+    });
+
     it('swallows S3 errors on delete failure', async () => {
       mockS3Send.mockRejectedValueOnce(new Error('S3 error'));
       await expect(service.delete('missing.webp')).resolves.toBeUndefined();

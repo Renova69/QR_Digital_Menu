@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
   Logger,
   ConflictException,
 } from '@nestjs/common';
@@ -100,6 +101,10 @@ export class TablesService {
   }
 
   async bulkCreate(restaurantId: string, count: number, userId: string) {
+    if (!Number.isInteger(count) || count < 1 || count > 200) {
+      throw new BadRequestException('count must be between 1 and 200');
+    }
+
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
     });

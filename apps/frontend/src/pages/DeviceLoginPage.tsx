@@ -60,13 +60,14 @@ export default function DeviceLoginPage() {
 
   const submitPin = useCallback(
     async (pinCode: string) => {
-      if (!deviceConfig?.restaurantId) return;
+      if (!deviceConfig?.restaurantId || !deviceConfig?.deviceToken) return;
       setIsSubmitting(true);
       setError("");
 
       try {
         const res = await api.post("/auth/pin-login", {
           restaurantId: deviceConfig.restaurantId,
+          deviceToken: deviceConfig.deviceToken,
           pin: pinCode,
         });
         const user = res.data.user;
@@ -97,7 +98,7 @@ export default function DeviceLoginPage() {
         setIsSubmitting(false);
       }
     },
-    [deviceConfig, loginWithToken, navigate]
+    [deviceConfig, loginWithToken, navigate],
   );
 
   const handleKeyPress = useCallback(
@@ -117,17 +118,20 @@ export default function DeviceLoginPage() {
         submitPin(newPin);
       }
     },
-    [pin, isPreparing, isSubmitting, lockedUntil, submitPin]
+    [pin, isPreparing, isSubmitting, lockedUntil, submitPin],
   );
 
-  if (!deviceConfig?.restaurantId) {
+  if (!deviceConfig?.restaurantId || !deviceConfig?.deviceToken) {
     return (
       <div className="min-h-dvh flex items-center justify-center bg-[#0f172a] p-6">
         <div className="text-center">
           <div className="text-5xl mb-4">🍽</div>
-          <h1 className="text-white text-lg font-semibold mb-2">No Device Configured</h1>
+          <h1 className="text-white text-lg font-semibold mb-2">
+            No Device Configured
+          </h1>
           <p className="text-slate-400 text-sm">
-            Ask a manager to generate a Staff Device QR from Settings, then scan it on this device.
+            Ask a manager to generate a Staff Device QR from Settings, then scan
+            it on this device.
           </p>
         </div>
       </div>
@@ -140,7 +144,9 @@ export default function DeviceLoginPage() {
       <div className="min-h-dvh flex items-center justify-center bg-[#0f172a] p-6">
         <div className="text-center">
           <div className="text-5xl mb-4">🔒</div>
-          <h1 className="text-white text-lg font-semibold mb-2">Too Many Attempts</h1>
+          <h1 className="text-white text-lg font-semibold mb-2">
+            Too Many Attempts
+          </h1>
           <p className="text-slate-400 text-sm">
             Try again in {remainingMin} minute{remainingMin !== 1 ? "s" : ""}.
           </p>
@@ -177,16 +183,18 @@ export default function DeviceLoginPage() {
             className="w-4 h-4 rounded-full border-2 transition-colors duration-200"
             style={{
               borderColor: error ? "#ef4444" : filled ? "#6366f1" : "#475569",
-              backgroundColor: error ? "#ef4444" : filled ? "#6366f1" : "transparent",
+              backgroundColor: error
+                ? "#ef4444"
+                : filled
+                  ? "#6366f1"
+                  : "transparent",
             }}
           />
         ))}
       </div>
 
       {error && (
-        <div className="text-red-500 text-sm mb-6 text-center">
-          {error}
-        </div>
+        <div className="text-red-500 text-sm mb-6 text-center">{error}</div>
       )}
 
       {(isPreparing || isSubmitting) && (

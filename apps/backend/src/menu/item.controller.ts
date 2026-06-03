@@ -96,6 +96,7 @@ export class ItemDetailController {
       throw new BadRequestException('Only JPEG and PNG images are supported');
     }
     try {
+      await this.crud.verifyItemOwnership(id, req.user.id);
       const { url, thumbnailUrl } =
         await this.storageService.uploadWithThumbnail(
           file.buffer,

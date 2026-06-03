@@ -45,7 +45,7 @@ export class PaymentController {
   @Post('session/force-open')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, FeatureGuard)
-  @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
+  @RequireFeature(FeatureFlag.POS)
   forceOpenSession(
     @Req() req: any,
     @Body() body: { tableId: string; restaurantId: string },
@@ -74,7 +74,7 @@ export class PaymentController {
   @Post('session/:token/close')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, FeatureGuard)
-  @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
+  @RequireFeature(FeatureFlag.POS)
   closeSession(
     @Req() req: any,
     @Param('token') token: string,
@@ -90,7 +90,7 @@ export class PaymentController {
   @Post('session/:token/close-card')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, FeatureGuard)
-  @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
+  @RequireFeature(FeatureFlag.POS)
   closeSessionWithCard(
     @Req() req: any,
     @Param('token') token: string,
@@ -106,7 +106,7 @@ export class PaymentController {
   @Post('session/:token/close-cash')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, FeatureGuard)
-  @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
+  @RequireFeature(FeatureFlag.POS)
   closeSessionWithCash(
     @Req() req: any,
     @Param('token') token: string,

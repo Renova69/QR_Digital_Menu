@@ -100,6 +100,7 @@ export class CategoryDetailController {
       throw new BadRequestException('Only JPEG and PNG images are supported');
     }
     try {
+      await this.crud.verifyCategoryOwnership(id, req.user.id);
       const { url, thumbnailUrl } =
         await this.storageService.uploadWithThumbnail(
           file.buffer,

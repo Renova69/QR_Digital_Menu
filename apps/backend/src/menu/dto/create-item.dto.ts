@@ -6,6 +6,9 @@ import {
   IsOptional,
   IsEnum,
   IsArray,
+  IsBoolean,
+  IsInt,
+  Min,
   MaxLength,
 } from 'class-validator';
 
@@ -43,6 +46,7 @@ export class CreateItemDto {
   dietaryTags?: string[];
 
   @IsOptional()
+  @IsBoolean()
   isFeatured?: boolean;
 
   @IsArray()
@@ -50,7 +54,8 @@ export class CreateItemDto {
   @IsOptional()
   relatedItemIds?: string[];
 
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   @IsOptional()
   rewardPointsPrice?: number;
 }

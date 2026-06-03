@@ -17,7 +17,8 @@ export class TableZonesService {
     private readonly events: EventsGateway,
   ) {}
 
-  async findAll(restaurantId: string) {
+  async findAll(restaurantId: string, user?: any) {
+    await this.verifyRestaurantAccess(restaurantId, user);
     return this.prisma.tableZone.findMany({
       where: { restaurantId },
       include: { _count: { select: { tables: true } } },
@@ -174,6 +175,23 @@ export class TableZonesService {
     }
     if (restaurant.ownerId !== userId) {
       throw new ForbiddenException('You do not own this restaurant');
+    }
+  }
+
+  private async verifyRestaurantAccess(restaurantId: string, user: any) {
+    if (!user) throw new ForbiddenException('Access denied');
+    if (user.role?.toUpperCase() === 'SUPER_ADMIN') return;
+    if (user.restaurantId === restaurantId) return;
+
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { ownerId: true },
+    });
+    if (!restaurant) {
+      throw new NotFoundException('Restaurant not found');
+    }
+    if (restaurant.ownerId !== user.id) {
+      throw new ForbiddenException('Access denied');
     }
   }
 }

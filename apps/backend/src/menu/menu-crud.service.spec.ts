@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TranslationService } from '../translation/translation.service';
 import { MenuTranslationService } from './menu-translation.service';
 import { FeatureService } from '../subscription/feature.service';
+import { StorageService } from '../storage/storage.service';
 
 const mockPrisma = {
   restaurant: { findUnique: jest.fn() },
@@ -44,6 +45,7 @@ const mockPrisma = {
 
 const mockTranslation = { translateObject: jest.fn() };
 const mockMenuTranslation = { applyLazyTranslations: jest.fn() };
+const mockStorage = { delete: jest.fn().mockResolvedValue(undefined) };
 
 const BASE_RESTAURANT = {
   id: 'rest-1',
@@ -109,6 +111,7 @@ describe('MenuCrudService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: TranslationService, useValue: mockTranslation },
         { provide: MenuTranslationService, useValue: mockMenuTranslation },
+        { provide: StorageService, useValue: mockStorage },
         FeatureService,
       ],
     }).compile();
@@ -117,6 +120,7 @@ describe('MenuCrudService', () => {
     jest.clearAllMocks();
     mockMenuTranslation.applyLazyTranslations.mockResolvedValue(undefined);
     mockTranslation.translateObject.mockResolvedValue({});
+    mockStorage.delete.mockResolvedValue(undefined);
     mockPrisma.$transaction.mockResolvedValue([]);
   });
 
@@ -516,6 +520,10 @@ describe('MenuCrudService', () => {
   describe('updateCategoryOrder', () => {
     it('reorders via transaction and returns success', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.menuCategory.findMany.mockResolvedValue([
+        { id: 'cat-1' },
+        { id: 'cat-2' },
+      ]);
       mockPrisma.menuCategory.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.updateCategoryOrder(
@@ -541,6 +549,9 @@ describe('MenuCrudService', () => {
     it('deletes category', async () => {
       mockPrisma.menuCategory.findUnique.mockResolvedValue({
         restaurantId: 'rest-1',
+        imageUrl: null,
+        thumbnailUrl: null,
+        items: [],
       });
       mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
       mockPrisma.menuCategory.delete.mockResolvedValue(makeCategory());
@@ -565,6 +576,8 @@ describe('MenuCrudService', () => {
     it('updates imageUrl and thumbnailUrl', async () => {
       mockPrisma.menuCategory.findUnique.mockResolvedValue({
         restaurantId: 'rest-1',
+        imageUrl: null,
+        thumbnailUrl: null,
       });
       mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
       mockPrisma.menuCategory.update.mockResolvedValue(makeCategory());
@@ -718,6 +731,7 @@ describe('MenuCrudService', () => {
         restaurantId: 'rest-1',
       });
       mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.menuItem.findMany.mockResolvedValue([{ id: 'item-1' }]);
       mockPrisma.menuItem.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.updateItemOrder(
@@ -800,6 +814,19 @@ describe('MenuCrudService', () => {
         service.createMenuOption(
           'item-1',
           { name: 'Size', choices: '{"key":"val"}' } as any,
+          'user-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when choices is malformed JSON', async () => {
+      mockPrisma.menuItem.findUnique.mockResolvedValue(makeItem());
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+
+      await expect(
+        service.createMenuOption(
+          'item-1',
+          { name: 'Size', choices: '[bad json' } as any,
           'user-1',
         ),
       ).rejects.toThrow(BadRequestException);

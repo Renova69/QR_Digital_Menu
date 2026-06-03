@@ -150,6 +150,11 @@ export class OrdersService {
       restaurant.ownerId,
       restaurantId,
     );
+    if (createOrderDto.source === 'POS' && !resolvedStaffUserId) {
+      throw new UnauthorizedException(
+        'Only active staff assigned to this restaurant can create POS orders.',
+      );
+    }
 
     // 5. Resolve or create TableSession for pay-at-table.
     // The client sends the table NAME (e.g. "1"). We persist the real table
@@ -183,19 +188,21 @@ export class OrdersService {
       const tableCuid = table.id;
       resolvedTableCuid = tableCuid;
 
-      const newSession = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        const existing = await tx.tableSession.findFirst({
-          where: {
-            tableId: tableCuid,
-            restaurantId,
-            status: 'OPEN',
-          },
-        });
-        if (existing) return existing;
-        return tx.tableSession.create({
-          data: { tableId: tableCuid, restaurantId },
-        });
-      });
+      const newSession = await this.prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          const existing = await tx.tableSession.findFirst({
+            where: {
+              tableId: tableCuid,
+              restaurantId,
+              status: 'OPEN',
+            },
+          });
+          if (existing) return existing;
+          return tx.tableSession.create({
+            data: { tableId: tableCuid, restaurantId },
+          });
+        },
+      );
       tableSessionId = newSession.id;
       sessionToken = newSession.token;
     }
@@ -314,7 +321,9 @@ export class OrdersService {
         const itemOptions = optionsMap.get(item.menuItemId) || [];
 
         for (const selected of item.selectedOptions) {
-          const option = itemOptions.find((o: { id: string }) => o.id === selected.optionId);
+          const option = itemOptions.find(
+            (o: { id: string }) => o.id === selected.optionId,
+          );
           if (!option) {
             throw new BadRequestException({
               message: 'Invalid option selected',
@@ -326,7 +335,9 @@ export class OrdersService {
             name: string;
             priceModifier: number;
           }[];
-          const choice = choices.find((c: { name: string }) => c.name === selected.choiceName);
+          const choice = choices.find(
+            (c: { name: string }) => c.name === selected.choiceName,
+          );
           if (!choice) {
             throw new BadRequestException({
               message: 'Invalid choice selected',
@@ -352,170 +363,172 @@ export class OrdersService {
     }
 
     // 7. Main transaction — loyalty + order creation are atomic
-    const finalOrder = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      let finalTotal = computedTotal;
-      let pointsEarned = 0;
-      let pointsRedeemedForDiscount = 0;
-      const pointsRedeemedForItems = itemsPointsRedeemed;
-      let loyaltyAcc = null;
-      let totalPointsRedeemed = 0;
-      let purchasePointsEarned = 0;
-      let signupBonusPoints = 0;
+    const finalOrder = await this.prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        let finalTotal = computedTotal;
+        let pointsEarned = 0;
+        let pointsRedeemedForDiscount = 0;
+        const pointsRedeemedForItems = itemsPointsRedeemed;
+        let loyaltyAcc = null;
+        let totalPointsRedeemed = 0;
+        let purchasePointsEarned = 0;
+        let signupBonusPoints = 0;
 
-      if (
-        createOrderDto.customerId &&
-        isLoyaltyAvailable(restaurant, this.featureService)
-      ) {
-        const earnRate = restaurant.loyaltyExchangeRate || 10;
-        const redeemRate = restaurant.loyaltyRedeemRate || 150;
+        if (
+          createOrderDto.customerId &&
+          isLoyaltyAvailable(restaurant, this.featureService)
+        ) {
+          const earnRate = restaurant.loyaltyExchangeRate || 10;
+          const redeemRate = restaurant.loyaltyRedeemRate || 150;
 
-        loyaltyAcc = await tx.loyaltyAccount.findUnique({
-          where: {
-            userId_restaurantId: {
-              userId: createOrderDto.customerId,
-              restaurantId,
-            },
-          },
-        });
-
-        if (!loyaltyAcc) {
-          loyaltyAcc = await tx.loyaltyAccount.create({
-            data: {
-              userId: createOrderDto.customerId,
-              restaurantId,
-              points: 0,
-              lifetimePoints: 0,
+          loyaltyAcc = await tx.loyaltyAccount.findUnique({
+            where: {
+              userId_restaurantId: {
+                userId: createOrderDto.customerId,
+                restaurantId,
+              },
             },
           });
-        }
 
-        await expireAccountPoints(tx, loyaltyAcc.id);
-        loyaltyAcc = await tx.loyaltyAccount.findUniqueOrThrow({
-          where: { id: loyaltyAcc.id },
-        });
-
-        // Cash discount redemption is server-authoritative: the client only
-        // sends intent, while DB prices and the DB loyalty balance decide the cap.
-        if (createOrderDto.usePoints) {
-          const remainingPoints = Math.max(
-            loyaltyAcc.points - pointsRedeemedForItems,
-            0,
-          );
-          const maxDiscount = finalTotal * LOYALTY_CONFIG.MAX_ORDER_DISCOUNT;
-          const maxDiscountPoints = Math.floor(maxDiscount * redeemRate);
-          const pointsToRedeem = Math.min(remainingPoints, maxDiscountPoints);
-
-          if (pointsToRedeem > 0) {
-            const finalDiscount = pointsToRedeem / redeemRate;
-            if (finalDiscount > finalTotal) {
-              throw new BadRequestException(
-                'Cannot redeem more points than total',
-              );
-            }
-
-            finalTotal -= finalDiscount;
-            pointsRedeemedForDiscount = pointsToRedeem;
+          if (!loyaltyAcc) {
+            loyaltyAcc = await tx.loyaltyAccount.create({
+              data: {
+                userId: createOrderDto.customerId,
+                restaurantId,
+                points: 0,
+                lifetimePoints: 0,
+              },
+            });
           }
-        }
 
-        totalPointsRedeemed =
-          pointsRedeemedForDiscount + pointsRedeemedForItems;
+          await expireAccountPoints(tx, loyaltyAcc.id);
+          loyaltyAcc = await tx.loyaltyAccount.findUniqueOrThrow({
+            where: { id: loyaltyAcc.id },
+          });
 
-        if (loyaltyAcc.points < totalPointsRedeemed) {
-          throw new BadRequestException(
-            'Not enough points for items + discount',
+          // Cash discount redemption is server-authoritative: the client only
+          // sends intent, while DB prices and the DB loyalty balance decide the cap.
+          if (createOrderDto.usePoints) {
+            const remainingPoints = Math.max(
+              loyaltyAcc.points - pointsRedeemedForItems,
+              0,
+            );
+            const maxDiscount = finalTotal * LOYALTY_CONFIG.MAX_ORDER_DISCOUNT;
+            const maxDiscountPoints = Math.floor(maxDiscount * redeemRate);
+            const pointsToRedeem = Math.min(remainingPoints, maxDiscountPoints);
+
+            if (pointsToRedeem > 0) {
+              const finalDiscount = pointsToRedeem / redeemRate;
+              if (finalDiscount > finalTotal) {
+                throw new BadRequestException(
+                  'Cannot redeem more points than total',
+                );
+              }
+
+              finalTotal -= finalDiscount;
+              pointsRedeemedForDiscount = pointsToRedeem;
+            }
+          }
+
+          totalPointsRedeemed =
+            pointsRedeemedForDiscount + pointsRedeemedForItems;
+
+          if (loyaltyAcc.points < totalPointsRedeemed) {
+            throw new BadRequestException(
+              'Not enough points for items + discount',
+            );
+          }
+
+          // Dynamic VIP tier from restaurant config — single source of truth
+          const tierConfig = tierConfigFromRestaurant(restaurant);
+          const tierInfo = getTierInfo(loyaltyAcc.lifetimePoints, tierConfig);
+
+          // Take the highest multiplier (additive stacking silently discards bonuses)
+          const finalMultiplier = Math.max(
+            happyHourMultiplier,
+            tierInfo.multiplier,
           );
+
+          // Points earned on post-discount total (customer didn't pay the discounted amount)
+          const basePoints = finalTotal * earnRate;
+          pointsEarned = Math.floor(basePoints * finalMultiplier);
+          purchasePointsEarned = pointsEarned;
+
+          // Signup bonus — once per restaurant, checked before lifetimePoints is updated
+          if (loyaltyAcc.lifetimePoints === 0) {
+            signupBonusPoints = Math.min(
+              LOYALTY_CONFIG.MAX_SIGNUP_BONUS,
+              restaurant.loyaltySignupBonus || 0,
+            );
+            pointsEarned += signupBonusPoints;
+          }
+
+          await tx.loyaltyAccount.update({
+            where: { id: loyaltyAcc.id },
+            data: {
+              points: { increment: pointsEarned - totalPointsRedeemed },
+              lifetimePoints: { increment: pointsEarned },
+            },
+          });
+        } else if (pointsRedeemedForItems > 0 || createOrderDto.usePoints) {
+          throw new BadRequestException('Loyalty program is not available');
         }
 
-        // Dynamic VIP tier from restaurant config — single source of truth
-        const tierConfig = tierConfigFromRestaurant(restaurant);
-        const tierInfo = getTierInfo(loyaltyAcc.lifetimePoints, tierConfig);
-
-        // Take the highest multiplier (additive stacking silently discards bonuses)
-        const finalMultiplier = Math.max(
-          happyHourMultiplier,
-          tierInfo.multiplier,
-        );
-
-        // Points earned on post-discount total (customer didn't pay the discounted amount)
-        const basePoints = finalTotal * earnRate;
-        pointsEarned = Math.floor(basePoints * finalMultiplier);
-        purchasePointsEarned = pointsEarned;
-
-        // Signup bonus — once per restaurant, checked before lifetimePoints is updated
-        if (loyaltyAcc.lifetimePoints === 0) {
-          signupBonusPoints = Math.min(
-            LOYALTY_CONFIG.MAX_SIGNUP_BONUS,
-            restaurant.loyaltySignupBonus || 0,
-          );
-          pointsEarned += signupBonusPoints;
-        }
-
-        await tx.loyaltyAccount.update({
-          where: { id: loyaltyAcc.id },
+        const order = await tx.order.create({
           data: {
-            points: { increment: pointsEarned - totalPointsRedeemed },
-            lifetimePoints: { increment: pointsEarned },
+            customerName: createOrderDto.customerName,
+            customerPhone: createOrderDto.customerPhone,
+            customerId: createOrderDto.customerId,
+            tableId: resolvedTableCuid,
+            tableName: createOrderDto.tableId ?? null,
+            specialRequests: createOrderDto.specialRequests,
+            totalPrice: finalTotal,
+            pointsEarned,
+            pointsRedeemedForDiscount,
+            pointsRedeemedForItems,
+            pointsRedeemed: pointsRedeemedForDiscount + pointsRedeemedForItems,
+            restaurantId,
+            tableSessionId,
+            source: resolvedStaffUserId ? 'POS' : 'CUSTOMER',
+            staffUserId: resolvedStaffUserId ?? undefined,
+            items: { create: itemsData },
           },
+          include: { items: true },
         });
-      } else if (pointsRedeemedForItems > 0 || createOrderDto.usePoints) {
-        throw new BadRequestException('Loyalty program is not available');
-      }
 
-      const order = await tx.order.create({
-        data: {
-          customerName: createOrderDto.customerName,
-          customerPhone: createOrderDto.customerPhone,
-          customerId: createOrderDto.customerId,
-          tableId: resolvedTableCuid,
-          tableName: createOrderDto.tableId ?? null,
-          specialRequests: createOrderDto.specialRequests,
-          totalPrice: finalTotal,
-          pointsEarned,
-          pointsRedeemedForDiscount,
-          pointsRedeemedForItems,
-          pointsRedeemed: pointsRedeemedForDiscount + pointsRedeemedForItems,
-          restaurantId,
-          tableSessionId,
-          source: resolvedStaffUserId ? 'POS' : 'CUSTOMER',
-          staffUserId: resolvedStaffUserId ?? undefined,
-          items: { create: itemsData },
-        },
-        include: { items: true },
-      });
+        if (loyaltyAcc) {
+          const expiresAt = addDays(
+            new Date(),
+            restaurant.loyaltyPointExpiryDays || 90,
+          );
 
-      if (loyaltyAcc) {
-        const expiresAt = addDays(
-          new Date(),
-          restaurant.loyaltyPointExpiryDays || 90,
-        );
+          await redeemAccountPoints(
+            tx,
+            loyaltyAcc.id,
+            totalPointsRedeemed,
+            order.id,
+          );
+          await addEarnedPointBatch(
+            tx,
+            loyaltyAcc.id,
+            purchasePointsEarned,
+            'EARN',
+            expiresAt,
+            order.id,
+          );
+          await addEarnedPointBatch(
+            tx,
+            loyaltyAcc.id,
+            signupBonusPoints,
+            'SIGNUP',
+            expiresAt,
+            order.id,
+          );
+        }
 
-        await redeemAccountPoints(
-          tx,
-          loyaltyAcc.id,
-          totalPointsRedeemed,
-          order.id,
-        );
-        await addEarnedPointBatch(
-          tx,
-          loyaltyAcc.id,
-          purchasePointsEarned,
-          'EARN',
-          expiresAt,
-          order.id,
-        );
-        await addEarnedPointBatch(
-          tx,
-          loyaltyAcc.id,
-          signupBonusPoints,
-          'SIGNUP',
-          expiresAt,
-          order.id,
-        );
-      }
-
-      return order;
-    });
+        return order;
+      },
+    );
 
     this.eventsGateway.emitToRestaurant(
       finalOrder.restaurantId,
@@ -549,13 +562,21 @@ export class OrdersService {
     restaurantId: string,
   ): Promise<string | null> {
     if (!staffUserId) return null;
-    if (staffUserId === restaurantOwnerId) return staffUserId;
     const user = await this.prisma.user.findUnique({
       where: { id: staffUserId },
-      select: { restaurantId: true, role: true },
+      select: {
+        restaurantId: true,
+        role: true,
+        isActive: true,
+        disabledAt: true,
+      },
     });
+    if (!user || user.isActive === false || user.disabledAt) return null;
+    if (staffUserId === restaurantOwnerId && user.role === 'OWNER') {
+      return staffUserId;
+    }
     if (
-      user?.restaurantId === restaurantId &&
+      user.restaurantId === restaurantId &&
       user.role &&
       POS_STAFF_ROLES.has(user.role.toUpperCase())
     ) {

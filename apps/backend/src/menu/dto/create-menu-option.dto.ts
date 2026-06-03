@@ -1,4 +1,10 @@
-import { IsString, IsEnum, IsJSON, IsNotEmpty } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsJSON,
+  IsNotEmpty,
+  MaxLength,
+} from 'class-validator';
 import { OptionType } from '@prisma/client';
 
 export class CreateMenuOptionDto {
@@ -12,5 +18,6 @@ export class CreateMenuOptionDto {
 
   @IsJSON()
   @IsNotEmpty()
+  @MaxLength(20000)
   choices: string;
 }

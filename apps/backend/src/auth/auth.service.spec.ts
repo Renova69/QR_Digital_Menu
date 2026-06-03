@@ -61,6 +61,9 @@ describe('AuthService', () => {
       restaurant: {
         findUnique: jest.fn(),
       },
+      deviceEnrollmentToken: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'device-token-1' }),
+      },
     };
     mockUsersService = {
       findByEmail: jest.fn(),
@@ -197,18 +200,27 @@ describe('AuthService', () => {
   // ─── pinLogin ────────────────────────────────────────────────────────────────
 
   describe('pinLogin', () => {
+    const deviceToken = 'device-token-12345678901234567890123456789012';
+
+    it('throws UnauthorizedException when device is not enrolled', async () => {
+      mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValue(null);
+      await expect(
+        service.pinLogin('rest1', '1234', deviceToken),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
     it('throws UnauthorizedException when no staff candidates found', async () => {
       mockPrisma.user.findMany.mockResolvedValue([]);
-      await expect(service.pinLogin('rest1', '1234')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(
+        service.pinLogin('rest1', '1234', deviceToken),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('only considers device roles (WAITER/KITCHEN) — dashboard roles excluded', async () => {
       mockPrisma.user.findMany.mockResolvedValue([]);
-      await expect(service.pinLogin('rest1', '1234')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(
+        service.pinLogin('rest1', '1234', deviceToken),
+      ).rejects.toThrow(UnauthorizedException);
       const where = mockPrisma.user.findMany.mock.calls[0][0].where;
       expect(where.role.in).toEqual(['WAITER', 'KITCHEN']);
       expect(where.role.in).not.toContain('OWNER');
@@ -225,9 +237,9 @@ describe('AuthService', () => {
           pinLockedUntil: futureDate,
         }),
       ]);
-      await expect(service.pinLogin('rest1', '1234')).rejects.toThrow(
-        HttpException,
-      );
+      await expect(
+        service.pinLogin('rest1', '1234', deviceToken),
+      ).rejects.toThrow(HttpException);
     });
 
     it('returns JWT and resets attempts on valid PIN', async () => {
@@ -241,7 +253,7 @@ describe('AuthService', () => {
       });
       mockPrisma.user.findMany.mockResolvedValue([staff]);
 
-      const result = await service.pinLogin('rest1', '1234');
+      const result = await service.pinLogin('rest1', '1234', deviceToken);
 
       expect(result.token).toBe('test-jwt-token');
       expect(mockPrisma.user.updateMany).toHaveBeenCalledWith(
@@ -257,9 +269,9 @@ describe('AuthService', () => {
         makeUser({ pinHash: 'hash', pinAttempts: 0, pinLockedUntil: null }),
       ]);
 
-      await expect(service.pinLogin('rest1', 'wrong')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(
+        service.pinLogin('rest1', 'wrong', deviceToken),
+      ).rejects.toThrow(UnauthorizedException);
       expect(mockPrisma.user.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ pinAttempts: 1 }),
@@ -273,9 +285,9 @@ describe('AuthService', () => {
         makeUser({ pinHash: 'hash', pinAttempts: 4, pinLockedUntil: null }),
       ]);
 
-      await expect(service.pinLogin('rest1', 'wrong')).rejects.toThrow(
-        HttpException,
-      );
+      await expect(
+        service.pinLogin('rest1', 'wrong', deviceToken),
+      ).rejects.toThrow(HttpException);
       expect(mockPrisma.user.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ pinLockedUntil: expect.any(Date) }),

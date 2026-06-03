@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ImportMenuDto } from './dto/import-menu.dto';
@@ -35,7 +36,7 @@ export class MenuImportService {
       await this.prisma.$transaction(
         async (tx) => {
           if (!dto.categories?.length)
-            throw new Error('No categories in payload');
+            throw new BadRequestException('No categories in payload');
 
           const maxCatOrder = await tx.menuCategory.aggregate({
             where: { restaurantId },

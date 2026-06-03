@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsArray,
   IsInt,
+  IsBoolean,
   Min,
   Max,
   MaxLength,
@@ -49,9 +50,6 @@ export class CreateCategoryDto {
   daysOfWeek?: number[];
 
   @IsOptional()
+  @IsBoolean()
   isDrinkCategory?: boolean;
-
-  @IsString()
-  @IsOptional()
-  imageUrl?: string;
 }

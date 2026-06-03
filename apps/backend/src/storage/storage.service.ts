@@ -193,11 +193,35 @@ export class StorageService {
   /**
    * Delete a file from R2 by its key or full URL.
    */
+  private extractManagedKey(keyOrUrl: string): string | null {
+    if (!/^https?:\/\//i.test(keyOrUrl)) {
+      return keyOrUrl;
+    }
+
+    try {
+      const fileUrl = new URL(keyOrUrl);
+      const storageUrl = new URL(this.publicUrl);
+      const storagePath = storageUrl.pathname.replace(/\/$/, '');
+      const isManagedOrigin = fileUrl.origin === storageUrl.origin;
+      const isManagedPath =
+        !storagePath || fileUrl.pathname.startsWith(`${storagePath}/`);
+
+      if (!isManagedOrigin || !isManagedPath) {
+        return null;
+      }
+
+      return decodeURIComponent(fileUrl.pathname.split('/').pop() || '');
+    } catch {
+      return null;
+    }
+  }
+
   async delete(keyOrUrl: string): Promise<void> {
-    // Extract key from full URL if needed
-    const key = keyOrUrl.startsWith('http')
-      ? keyOrUrl.split('/').pop() || keyOrUrl
-      : keyOrUrl;
+    const key = this.extractManagedKey(keyOrUrl);
+    if (!key) {
+      this.logger.warn(`Skipping unmanaged image URL: ${keyOrUrl}`);
+      return;
+    }
 
     try {
       // Delete both main image and thumbnail

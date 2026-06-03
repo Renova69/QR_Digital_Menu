@@ -19,6 +19,7 @@ import { DateTime } from 'luxon';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { stripBrandingFields } from '../restaurants/branding-fields';
+import { StorageService } from '../storage/storage.service';
 
 @Injectable()
 export class MenuCrudService {
@@ -29,7 +30,64 @@ export class MenuCrudService {
     private readonly translationService: TranslationService,
     private readonly menuTranslationService: MenuTranslationService,
     private readonly featureService: FeatureService,
+    private readonly storageService: StorageService,
   ) {}
+
+  private async deleteStoredImagePair(
+    imageUrl?: string | null,
+    thumbnailUrl?: string | null,
+  ) {
+    const keyOrUrl = imageUrl ?? thumbnailUrl;
+    if (!keyOrUrl) return;
+    await this.storageService.delete(keyOrUrl);
+  }
+
+  private parseMenuOptionChoices(rawChoices: string) {
+    let choices: unknown;
+    try {
+      choices = JSON.parse(rawChoices);
+    } catch {
+      throw new BadRequestException('choices must be valid JSON');
+    }
+
+    if (!Array.isArray(choices)) {
+      throw new BadRequestException('choices must be a JSON array');
+    }
+    if (choices.length > 100) {
+      throw new BadRequestException(
+        'choices cannot contain more than 100 entries',
+      );
+    }
+
+    return choices.map((choice: any) => {
+      if (!choice || typeof choice !== 'object') {
+        throw new BadRequestException('each choice must be an object');
+      }
+      const name = typeof choice.name === 'string' ? choice.name.trim() : '';
+      if (!name) {
+        throw new BadRequestException('each choice must have a name');
+      }
+      if (name.length > 100) {
+        throw new BadRequestException(
+          'choice names cannot exceed 100 characters',
+        );
+      }
+      const priceModifier =
+        choice.priceModifier === undefined ? 0 : Number(choice.priceModifier);
+      if (!Number.isFinite(priceModifier) || priceModifier < 0) {
+        throw new BadRequestException(
+          'choice priceModifier must be a non-negative number',
+        );
+      }
+      return {
+        name,
+        priceModifier,
+        ...(typeof choice.weight === 'string' && choice.weight.trim()
+          ? { weight: choice.weight.trim() }
+          : {}),
+      };
+    });
+  }
 
   /** Dayparting requires the DAYPARTING feature on the restaurant's EFFECTIVE
    *  tier (honors super-admin forceTier) — not a hardcoded tier list (#11). */
@@ -435,7 +493,9 @@ export class MenuCrudService {
     });
 
     return itemIds
-      .map((id: string) => trendingItems.find((item: { id: string }) => item.id === id))
+      .map((id: string) =>
+        trendingItems.find((item: { id: string }) => item.id === id),
+      )
       .filter(Boolean);
   }
 
@@ -473,6 +533,32 @@ export class MenuCrudService {
   }
 
   // ── Category Methods ──
+
+  async verifyCategoryOwnership(categoryId: string, userId: string) {
+    const category = await this.prisma.menuCategory.findUnique({
+      where: { id: categoryId },
+      select: { restaurantId: true },
+    });
+
+    if (!category) {
+      throw new NotFoundException(`Category with ID "${categoryId}" not found`);
+    }
+
+    await this.checkRestaurantOwnership(category.restaurantId, userId);
+  }
+
+  async verifyItemOwnership(itemId: string, userId: string) {
+    const item = await this.prisma.menuItem.findUnique({
+      where: { id: itemId },
+      select: { category: { select: { restaurantId: true } } },
+    });
+
+    if (!item) {
+      throw new NotFoundException(`Menu item with ID "${itemId}" not found`);
+    }
+
+    await this.checkRestaurantOwnership(item.category.restaurantId, userId);
+  }
 
   async createCategory(
     restaurantId: string,
@@ -557,7 +643,13 @@ export class MenuCrudService {
   ) {
     const category = await this.prisma.menuCategory.findUnique({
       where: { id: categoryId },
-      select: { restaurantId: true, translations: true, name: true },
+      select: {
+        restaurantId: true,
+        translations: true,
+        name: true,
+        imageUrl: true,
+        thumbnailUrl: true,
+      },
     });
 
     if (!category) {
@@ -583,6 +675,16 @@ export class MenuCrudService {
       where: { id: categoryId },
       data: sanitizedDto,
     });
+
+    if (
+      updateCategoryDto.imageUrl === null ||
+      updateCategoryDto.thumbnailUrl === null
+    ) {
+      await this.deleteStoredImagePair(
+        category.imageUrl,
+        category.thumbnailUrl,
+      );
+    }
 
     const effectiveTier = this.featureService.getEffectiveTier(
       restaurant.tier,
@@ -630,6 +732,25 @@ export class MenuCrudService {
     userId: string,
   ) {
     await this.checkRestaurantOwnership(restaurantId, userId);
+    if (!Array.isArray(orderedIds)) {
+      throw new BadRequestException('orderedIds must be an array');
+    }
+    if (new Set(orderedIds).size !== orderedIds.length) {
+      throw new BadRequestException('orderedIds must not contain duplicates');
+    }
+    const categories = await this.prisma.menuCategory.findMany({
+      where: { restaurantId },
+      select: { id: true },
+    });
+    const existingIds = new Set(categories.map((category) => category.id));
+    if (
+      orderedIds.length !== categories.length ||
+      orderedIds.some((id) => !existingIds.has(id))
+    ) {
+      throw new BadRequestException(
+        'orderedIds must include every category exactly once',
+      );
+    }
     await this.prisma.$transaction(
       orderedIds.map((id: string, index: number) =>
         this.prisma.menuCategory.updateMany({
@@ -644,14 +765,26 @@ export class MenuCrudService {
   async removeCategory(categoryId: string, userId: string) {
     const category = await this.prisma.menuCategory.findUnique({
       where: { id: categoryId },
-      select: { restaurantId: true },
+      select: {
+        restaurantId: true,
+        imageUrl: true,
+        thumbnailUrl: true,
+        items: { select: { imageUrl: true, thumbnailUrl: true } },
+      },
     });
 
     if (!category) {
       throw new NotFoundException(`Category with ID "${categoryId}" not found`);
     }
     await this.checkRestaurantOwnership(category.restaurantId, userId);
-    return this.prisma.menuCategory.delete({ where: { id: categoryId } });
+    const deleted = await this.prisma.menuCategory.delete({
+      where: { id: categoryId },
+    });
+    await this.deleteStoredImagePair(category.imageUrl, category.thumbnailUrl);
+    for (const item of category.items) {
+      await this.deleteStoredImagePair(item.imageUrl, item.thumbnailUrl);
+    }
+    return deleted;
   }
 
   async updateCategoryImage(
@@ -662,17 +795,24 @@ export class MenuCrudService {
   ) {
     const category = await this.prisma.menuCategory.findUnique({
       where: { id: categoryId },
-      select: { restaurantId: true },
+      select: { restaurantId: true, imageUrl: true, thumbnailUrl: true },
     });
 
     if (!category) {
       throw new NotFoundException(`Category with ID "${categoryId}" not found`);
     }
     await this.checkRestaurantOwnership(category.restaurantId, userId);
-    return this.prisma.menuCategory.update({
+    const updated = await this.prisma.menuCategory.update({
       where: { id: categoryId },
       data: { imageUrl, thumbnailUrl } as any,
     });
+    if (category.imageUrl !== imageUrl) {
+      await this.deleteStoredImagePair(
+        category.imageUrl,
+        category.thumbnailUrl,
+      );
+    }
+    return updated;
   }
 
   // ── Item Methods ──
@@ -802,6 +942,8 @@ export class MenuCrudService {
         translations: true,
         allergens: true,
         dietaryTags: true,
+        imageUrl: true,
+        thumbnailUrl: true,
       },
     });
 
@@ -817,6 +959,13 @@ export class MenuCrudService {
       where: { id: itemId },
       data: updateItemDto,
     });
+
+    if (
+      updateItemDto.imageUrl === null ||
+      updateItemDto.thumbnailUrl === null
+    ) {
+      await this.deleteStoredImagePair(item.imageUrl, item.thumbnailUrl);
+    }
 
     const nameChanged = updateItemDto.name && updateItemDto.name !== item.name;
     const descriptionChanged =
@@ -878,17 +1027,25 @@ export class MenuCrudService {
   ) {
     const item = await this.prisma.menuItem.findUnique({
       where: { id: itemId },
-      select: { category: { select: { restaurantId: true } } },
+      select: {
+        imageUrl: true,
+        thumbnailUrl: true,
+        category: { select: { restaurantId: true } },
+      },
     });
 
     if (!item) {
       throw new NotFoundException(`Menu item with ID "${itemId}" not found`);
     }
     await this.checkRestaurantOwnership(item.category.restaurantId, userId);
-    return this.prisma.menuItem.update({
+    const updated = await this.prisma.menuItem.update({
       where: { id: itemId },
       data: { imageUrl, thumbnailUrl },
     });
+    if (item.imageUrl !== imageUrl) {
+      await this.deleteStoredImagePair(item.imageUrl, item.thumbnailUrl);
+    }
+    return updated;
   }
 
   async updateItemOrder(
@@ -904,6 +1061,25 @@ export class MenuCrudService {
       throw new NotFoundException(`Category with ID "${categoryId}" not found`);
     }
     await this.checkRestaurantOwnership(category.restaurantId, userId);
+    if (!Array.isArray(orderedIds)) {
+      throw new BadRequestException('orderedIds must be an array');
+    }
+    if (new Set(orderedIds).size !== orderedIds.length) {
+      throw new BadRequestException('orderedIds must not contain duplicates');
+    }
+    const items = await this.prisma.menuItem.findMany({
+      where: { categoryId },
+      select: { id: true },
+    });
+    const existingIds = new Set(items.map((item) => item.id));
+    if (
+      orderedIds.length !== items.length ||
+      orderedIds.some((id) => !existingIds.has(id))
+    ) {
+      throw new BadRequestException(
+        'orderedIds must include every item exactly once',
+      );
+    }
     await this.prisma.$transaction(
       orderedIds.map((id: string, index: number) =>
         this.prisma.menuItem.updateMany({
@@ -918,7 +1094,11 @@ export class MenuCrudService {
   async removeItem(itemId: string, userId: string) {
     const item = await this.prisma.menuItem.findUnique({
       where: { id: itemId },
-      select: { category: { select: { restaurantId: true } } },
+      select: {
+        imageUrl: true,
+        thumbnailUrl: true,
+        category: { select: { restaurantId: true } },
+      },
     });
 
     if (!item) {
@@ -944,7 +1124,11 @@ export class MenuCrudService {
       });
     }
 
-    return this.prisma.menuItem.delete({ where: { id: itemId } });
+    const deleted = await this.prisma.menuItem.delete({
+      where: { id: itemId },
+    });
+    await this.deleteStoredImagePair(item.imageUrl, item.thumbnailUrl);
+    return deleted;
   }
 
   // ── Menu Option Methods ──
@@ -967,10 +1151,7 @@ export class MenuCrudService {
       userId,
     );
 
-    const choices = JSON.parse(createMenuOptionDto.choices);
-    if (!Array.isArray(choices)) {
-      throw new BadRequestException('choices must be a JSON array');
-    }
+    const choices = this.parseMenuOptionChoices(createMenuOptionDto.choices);
     const data: Prisma.MenuOptionUncheckedCreateInput = {
       ...createMenuOptionDto,
       choices,
@@ -1061,11 +1242,7 @@ export class MenuCrudService {
 
     let choices: any[] | undefined;
     if (updateMenuOptionDto.choices) {
-      const parsed = JSON.parse(updateMenuOptionDto.choices);
-      if (!Array.isArray(parsed)) {
-        throw new BadRequestException('choices must be a JSON array');
-      }
-      choices = parsed;
+      choices = this.parseMenuOptionChoices(updateMenuOptionDto.choices);
     }
 
     const data: Prisma.MenuOptionUncheckedUpdateInput = {

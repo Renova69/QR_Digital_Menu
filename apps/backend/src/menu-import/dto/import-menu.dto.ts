@@ -7,11 +7,14 @@ import {
   IsObject,
   Min,
   ArrayMaxSize,
+  ArrayMinSize,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class ImportChoiceDto {
   @IsString()
+  @MaxLength(100)
   name: string;
 
   @IsNumber()
@@ -20,12 +23,14 @@ export class ImportChoiceDto {
   price?: number;
 
   @IsString()
+  @MaxLength(100)
   @IsOptional()
   weight?: string;
 }
 
 export class ImportOptionDto {
   @IsString()
+  @MaxLength(100)
   @IsOptional()
   name?: string;
 
@@ -42,10 +47,12 @@ export class ImportOptionDto {
 
 export class ImportItemDto {
   @IsString()
+  @MaxLength(100)
   name: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(1000)
   description?: string;
 
   @IsNumber()
@@ -54,6 +61,7 @@ export class ImportItemDto {
   price?: number;
 
   @IsString()
+  @MaxLength(100)
   @IsOptional()
   weight?: string;
 
@@ -83,10 +91,12 @@ export class ImportItemDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(2048)
   imageUrl?: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(2048)
   thumbnailUrl?: string;
 
   @IsArray()
@@ -99,6 +109,7 @@ export class ImportItemDto {
 
 export class ImportCategoryDto {
   @IsString()
+  @MaxLength(100)
   name: string;
 
   @IsNumber()
@@ -115,10 +126,12 @@ export class ImportCategoryDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(2048)
   imageUrl?: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(2048)
   thumbnailUrl?: string;
 
   @IsArray()
@@ -138,6 +151,7 @@ export class ImportMenuDto {
   restaurant_name?: string;
 
   @IsArray()
+  @ArrayMinSize(1)
   @ArrayMaxSize(200)
   @ValidateNested({ each: true })
   @Type(() => ImportCategoryDto)
