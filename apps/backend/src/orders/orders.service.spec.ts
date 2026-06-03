@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
@@ -61,8 +65,12 @@ const makeTx = (orderOverride: Record<string, any> = {}) => ({
   },
   loyaltyAccount: {
     findUnique: jest.fn().mockResolvedValue(null),
-    create: jest.fn().mockResolvedValue({ id: 'acc-1', points: 0, lifetimePoints: 0 }),
-    findUniqueOrThrow: jest.fn().mockResolvedValue({ id: 'acc-1', points: 0, lifetimePoints: 0 }),
+    create: jest
+      .fn()
+      .mockResolvedValue({ id: 'acc-1', points: 0, lifetimePoints: 0 }),
+    findUniqueOrThrow: jest
+      .fn()
+      .mockResolvedValue({ id: 'acc-1', points: 0, lifetimePoints: 0 }),
     update: jest.fn().mockResolvedValue({}),
   },
   loyaltyPointLedger: {
@@ -73,7 +81,11 @@ const makeTx = (orderOverride: Record<string, any> = {}) => ({
   },
   order: {
     create: jest.fn().mockImplementation((args: any) =>
-      Promise.resolve({ ...makeOrder(), totalPrice: args.data.totalPrice, ...orderOverride }),
+      Promise.resolve({
+        ...makeOrder(),
+        totalPrice: args.data.totalPrice,
+        ...orderOverride,
+      }),
     ),
   },
 });
@@ -149,7 +161,9 @@ describe('OrdersService', () => {
 
   describe('create', () => {
     it('rejects empty items array', async () => {
-      await expect(service.create({ items: [] } as any)).rejects.toThrow(BadRequestException);
+      await expect(service.create({ items: [] } as any)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('throws NotFoundException when menu items missing from DB', async () => {
@@ -186,14 +200,18 @@ describe('OrdersService', () => {
       featureService.hasFeature.mockReturnValue(false);
 
       await expect(
-        service.create({ items: [{ menuItemId: 'item-1', quantity: 1 }] } as any),
+        service.create({
+          items: [{ menuItemId: 'item-1', quantity: 1 }],
+        } as any),
       ).rejects.toThrow(ForbiddenException);
     });
 
     it('throws NotFoundException when tableId sent but table not found', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurantTable.findFirst.mockResolvedValue(null);
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(makeTx()));
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(makeTx()),
+      );
 
       await expect(
         service.create({
@@ -205,7 +223,9 @@ describe('OrdersService', () => {
 
     it('recalculates total from DB prices, ignores client price', async () => {
       const tx = makeTx();
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       const result = await service.create({
         items: [
@@ -222,12 +242,21 @@ describe('OrdersService', () => {
     it('attributes the order to CUSTOMER when the caller is not restaurant staff (#4)', async () => {
       const tx = makeTx();
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
-      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ ownerId: 'owner-1' }));
-      prisma.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'STAFF' }); // a logged-in customer
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner-1' }),
+      );
+      prisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'STAFF',
+      }); // a logged-in customer
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create(
-        { items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }] } as any,
+        {
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        } as any,
         'customer-user',
       );
 
@@ -239,12 +268,21 @@ describe('OrdersService', () => {
     it('attributes the order to POS for an assigned staff member (#4)', async () => {
       const tx = makeTx();
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
-      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ ownerId: 'owner-1' }));
-      prisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1', role: 'WAITER' });
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner-1' }),
+      );
+      prisma.user.findUnique.mockResolvedValue({
+        restaurantId: 'rest-1',
+        role: 'WAITER',
+      });
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create(
-        { items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }] } as any,
+        {
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        } as any,
         'waiter-1',
       );
 
@@ -256,13 +294,25 @@ describe('OrdersService', () => {
     it('adds option priceModifier to computed total', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.menuOption.findMany.mockResolvedValue([
-        { id: 'opt-1', menuItemId: 'item-1', choices: [{ name: 'Large', priceModifier: 3 }] },
+        {
+          id: 'opt-1',
+          menuItemId: 'item-1',
+          choices: [{ name: 'Large', priceModifier: 3 }],
+        },
       ]);
       const tx = makeTx();
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create({
-        items: [{ menuItemId: 'item-1', quantity: 2, selectedOptions: [{ optionId: 'opt-1', choiceName: 'Large' }] }],
+        items: [
+          {
+            menuItemId: 'item-1',
+            quantity: 2,
+            selectedOptions: [{ optionId: 'opt-1', choiceName: 'Large' }],
+          },
+        ],
       } as any);
 
       const createCall = tx.order.create.mock.calls[0][0];
@@ -272,12 +322,22 @@ describe('OrdersService', () => {
     it('throws BadRequestException for invalid choice name', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.menuOption.findMany.mockResolvedValue([
-        { id: 'opt-1', menuItemId: 'item-1', choices: [{ name: 'Small', priceModifier: 0 }] },
+        {
+          id: 'opt-1',
+          menuItemId: 'item-1',
+          choices: [{ name: 'Small', priceModifier: 0 }],
+        },
       ]);
 
       await expect(
         service.create({
-          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [{ optionId: 'opt-1', choiceName: 'XL' }] }],
+          items: [
+            {
+              menuItemId: 'item-1',
+              quantity: 1,
+              selectedOptions: [{ optionId: 'opt-1', choiceName: 'XL' }],
+            },
+          ],
         } as any),
       ).rejects.toThrow(BadRequestException);
     });
@@ -290,17 +350,30 @@ describe('OrdersService', () => {
 
       await expect(
         service.create({
-          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [{ optionId: 'nonexistent-opt', choiceName: 'X' }] }],
+          items: [
+            {
+              menuItemId: 'item-1',
+              quantity: 1,
+              selectedOptions: [
+                { optionId: 'nonexistent-opt', choiceName: 'X' },
+              ],
+            },
+          ],
         } as any),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('uses existing session when valid sessionToken provided', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
-      prisma.tableSession.findFirst.mockResolvedValue({ id: 'sess-exist', token: 'tok-exist' });
+      prisma.tableSession.findFirst.mockResolvedValue({
+        id: 'sess-exist',
+        token: 'tok-exist',
+      });
 
       const tx = makeTx();
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       const result = await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
@@ -312,9 +385,14 @@ describe('OrdersService', () => {
 
     it('emits table status changed when order has tableSessionId', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
-      prisma.restaurantTable.findFirst.mockResolvedValue({ id: 'table-cuid-1', name: 'T1' });
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-cuid-1',
+        name: 'T1',
+      });
       const tx = makeTx({ tableSessionId: 'sess-1', tableId: 'table-cuid-1' });
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
@@ -326,9 +404,14 @@ describe('OrdersService', () => {
 
     it('persists the table cuid in tableId and the name in tableName (#M1)', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
-      prisma.restaurantTable.findFirst.mockResolvedValue({ id: 'table-cuid-1', name: 'T1' });
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-cuid-1',
+        name: 'T1',
+      });
       const tx = makeTx();
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
@@ -342,9 +425,14 @@ describe('OrdersService', () => {
 
     it('emits table status with the table cuid, not the name (#M1)', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
-      prisma.restaurantTable.findFirst.mockResolvedValue({ id: 'table-cuid-1', name: 'T1' });
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-cuid-1',
+        name: 'T1',
+      });
       const tx = makeTx();
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
@@ -353,14 +441,24 @@ describe('OrdersService', () => {
 
       // makeOrder() returns tableSessionId 'sess-1'; the key assertion is the
       // second arg is the cuid 'table-cuid-1', never the name 'T1'.
-      expect(events.emitTableStatusChanged).toHaveBeenCalledWith('rest-1', 'table-cuid-1', 'sess-1');
+      expect(events.emitTableStatusChanged).toHaveBeenCalledWith(
+        'rest-1',
+        'table-cuid-1',
+        'sess-1',
+      );
     });
 
     it('resolves tableId from the existing session on the sessionToken path (#M1)', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
-      prisma.tableSession.findFirst.mockResolvedValue({ id: 'sess-exist', token: 'tok-exist', tableId: 'table-cuid-9' });
+      prisma.tableSession.findFirst.mockResolvedValue({
+        id: 'sess-exist',
+        token: 'tok-exist',
+        tableId: 'table-cuid-9',
+      });
       const tx = makeTx();
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
@@ -375,8 +473,12 @@ describe('OrdersService', () => {
 
     it('throws BadRequestException when loyalty discount requested but loyalty disabled', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
-      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ isLoyaltyEnabled: false }));
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(makeTx()));
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ isLoyaltyEnabled: false }),
+      );
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(makeTx()),
+      );
 
       await expect(
         service.create({
@@ -391,7 +493,9 @@ describe('OrdersService', () => {
       prisma.restaurant.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.create({ items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }] } as any),
+        service.create({
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        } as any),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -399,7 +503,9 @@ describe('OrdersService', () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.tableSession.findFirst.mockResolvedValue(null);
       const tx = makeTx();
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
@@ -413,9 +519,14 @@ describe('OrdersService', () => {
 
     it('creates new table session when table found but no existing OPEN session', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
-      prisma.restaurantTable.findFirst.mockResolvedValue({ id: 'table-cuid-1', name: 'T1' });
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-cuid-1',
+        name: 'T1',
+      });
       const tx = makeTx();
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
@@ -427,10 +538,18 @@ describe('OrdersService', () => {
 
     it('reuses existing OPEN session within table session transaction', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
-      prisma.restaurantTable.findFirst.mockResolvedValue({ id: 'table-cuid-1', name: 'T1' });
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-cuid-1',
+        name: 'T1',
+      });
       const tx = makeTx();
-      tx.tableSession.findFirst.mockResolvedValue({ id: 'sess-open', token: 'tok-open' });
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      tx.tableSession.findFirst.mockResolvedValue({
+        id: 'sess-open',
+        token: 'tok-open',
+      });
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
@@ -442,15 +561,19 @@ describe('OrdersService', () => {
 
     it('executes happy hour path (normal range 00:00-23:59)', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
-      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({
-        happyHourEnable: true,
-        happyHourStartTime: '00:00',
-        happyHourEndTime: '23:59',
-        happyHourMultiplier: 2,
-        isLoyaltyEnabled: true,
-      }));
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({
+          happyHourEnable: true,
+          happyHourStartTime: '00:00',
+          happyHourEndTime: '23:59',
+          happyHourMultiplier: 2,
+          isLoyaltyEnabled: true,
+        }),
+      );
       const tx = makeTx();
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
@@ -462,15 +585,19 @@ describe('OrdersService', () => {
 
     it('executes overnight happy hour branch (e.g. 22:00–02:00)', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
-      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({
-        happyHourEnable: true,
-        happyHourStartTime: '22:00',
-        happyHourEndTime: '02:00',
-        happyHourMultiplier: 1.5,
-        isLoyaltyEnabled: false,
-      }));
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({
+          happyHourEnable: true,
+          happyHourStartTime: '22:00',
+          happyHourEndTime: '02:00',
+          happyHourMultiplier: 1.5,
+          isLoyaltyEnabled: false,
+        }),
+      );
       const tx = makeTx();
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
@@ -488,7 +615,9 @@ describe('OrdersService', () => {
       const runAt = async (activeDays: number[]) => {
         jest.useFakeTimers();
         jest.setSystemTime(new Date('2026-01-10T01:00:00Z')); // Sat 01:00 UTC
-        prisma.menuItem.findMany.mockResolvedValue([makeMenuItem({ price: 10 })]);
+        prisma.menuItem.findMany.mockResolvedValue([
+          makeMenuItem({ price: 10 }),
+        ]);
         prisma.restaurant.findUnique.mockResolvedValue(
           makeRestaurant({
             timezone: 'UTC',
@@ -502,7 +631,9 @@ describe('OrdersService', () => {
           }),
         );
         const tx = makeTx();
-        prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+        prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+          fn(tx),
+        );
         await service.create({
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
           customerId: 'cust-1',
@@ -532,13 +663,29 @@ describe('OrdersService', () => {
     });
 
     it('zeroes price for items in redeemItemIds when rewardPointsPrice set', async () => {
-      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem({ rewardPointsPrice: 100 })]);
-      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ isLoyaltyEnabled: true }));
+      prisma.menuItem.findMany.mockResolvedValue([
+        makeMenuItem({ rewardPointsPrice: 100 }),
+      ]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ isLoyaltyEnabled: true }),
+      );
       const tx = makeTx();
-      tx.loyaltyAccount.findUnique.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
-      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
-      tx.loyaltyPointLedger.findMany.mockResolvedValue([{ id: 'batch-1', remainingPoints: 100 }]);
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      tx.loyaltyAccount.findUnique.mockResolvedValue({
+        id: 'acc-1',
+        points: 500,
+        lifetimePoints: 500,
+      });
+      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
+        id: 'acc-1',
+        points: 500,
+        lifetimePoints: 500,
+      });
+      tx.loyaltyPointLedger.findMany.mockResolvedValue([
+        { id: 'batch-1', remainingPoints: 100 },
+      ]);
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
@@ -555,22 +702,50 @@ describe('OrdersService', () => {
       // Two lines for the same burger: cheap options ($2 total) and expensive options ($8 total).
       // User redeems only the expensive line (cartId 'cart-b').
       // Verify: expensive line is zeroed, cheap line is charged at full price.
-      const burger = makeMenuItem({ id: 'burger', price: 10, rewardPointsPrice: 50 });
+      const burger = makeMenuItem({
+        id: 'burger',
+        price: 10,
+        rewardPointsPrice: 50,
+      });
       prisma.menuItem.findMany.mockResolvedValue([burger]);
-      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ isLoyaltyEnabled: true }));
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ isLoyaltyEnabled: true }),
+      );
       const tx = makeTx();
-      tx.loyaltyAccount.findUnique.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
-      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
-      tx.loyaltyPointLedger.findMany.mockResolvedValue([{ id: 'batch-1', remainingPoints: 500 }]);
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      tx.loyaltyAccount.findUnique.mockResolvedValue({
+        id: 'acc-1',
+        points: 500,
+        lifetimePoints: 500,
+      });
+      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
+        id: 'acc-1',
+        points: 500,
+        lifetimePoints: 500,
+      });
+      tx.loyaltyPointLedger.findMany.mockResolvedValue([
+        { id: 'batch-1', remainingPoints: 500 },
+      ]);
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create({
         items: [
-          { menuItemId: 'burger', cartId: 'cart-a', quantity: 1, selectedOptions: [] },   // cheap — NOT redeemed
-          { menuItemId: 'burger', cartId: 'cart-b', quantity: 1, selectedOptions: [] },   // expensive — redeemed
+          {
+            menuItemId: 'burger',
+            cartId: 'cart-a',
+            quantity: 1,
+            selectedOptions: [],
+          }, // cheap — NOT redeemed
+          {
+            menuItemId: 'burger',
+            cartId: 'cart-b',
+            quantity: 1,
+            selectedOptions: [],
+          }, // expensive — redeemed
         ],
         customerId: 'cust-1',
-        redeemCartIds: ['cart-b'],   // redeem only the second line
+        redeemCartIds: ['cart-b'], // redeem only the second line
       } as any);
 
       const createCall = tx.order.create.mock.calls[0][0];
@@ -581,19 +756,47 @@ describe('OrdersService', () => {
     });
 
     it('redeemCartIds: redeeming both duplicate lines charges points twice and zeroes both', async () => {
-      const burger = makeMenuItem({ id: 'burger', price: 10, rewardPointsPrice: 50 });
+      const burger = makeMenuItem({
+        id: 'burger',
+        price: 10,
+        rewardPointsPrice: 50,
+      });
       prisma.menuItem.findMany.mockResolvedValue([burger]);
-      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ isLoyaltyEnabled: true }));
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ isLoyaltyEnabled: true }),
+      );
       const tx = makeTx();
-      tx.loyaltyAccount.findUnique.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
-      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
-      tx.loyaltyPointLedger.findMany.mockResolvedValue([{ id: 'batch-1', remainingPoints: 500 }]);
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      tx.loyaltyAccount.findUnique.mockResolvedValue({
+        id: 'acc-1',
+        points: 500,
+        lifetimePoints: 500,
+      });
+      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
+        id: 'acc-1',
+        points: 500,
+        lifetimePoints: 500,
+      });
+      tx.loyaltyPointLedger.findMany.mockResolvedValue([
+        { id: 'batch-1', remainingPoints: 500 },
+      ]);
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create({
         items: [
-          { menuItemId: 'burger', cartId: 'cart-a', quantity: 1, selectedOptions: [] },
-          { menuItemId: 'burger', cartId: 'cart-b', quantity: 1, selectedOptions: [] },
+          {
+            menuItemId: 'burger',
+            cartId: 'cart-a',
+            quantity: 1,
+            selectedOptions: [],
+          },
+          {
+            menuItemId: 'burger',
+            cartId: 'cart-b',
+            quantity: 1,
+            selectedOptions: [],
+          },
         ],
         customerId: 'cust-1',
         redeemCartIds: ['cart-a', 'cart-b'],
@@ -605,14 +808,32 @@ describe('OrdersService', () => {
     });
 
     it('falls back to count-based matching when redeemCartIds is absent (legacy redeemItemIds)', async () => {
-      const burger = makeMenuItem({ id: 'burger', price: 10, rewardPointsPrice: 50 });
+      const burger = makeMenuItem({
+        id: 'burger',
+        price: 10,
+        rewardPointsPrice: 50,
+      });
       prisma.menuItem.findMany.mockResolvedValue([burger]);
-      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ isLoyaltyEnabled: true }));
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ isLoyaltyEnabled: true }),
+      );
       const tx = makeTx();
-      tx.loyaltyAccount.findUnique.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
-      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
-      tx.loyaltyPointLedger.findMany.mockResolvedValue([{ id: 'batch-1', remainingPoints: 500 }]);
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      tx.loyaltyAccount.findUnique.mockResolvedValue({
+        id: 'acc-1',
+        points: 500,
+        lifetimePoints: 500,
+      });
+      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
+        id: 'acc-1',
+        points: 500,
+        lifetimePoints: 500,
+      });
+      tx.loyaltyPointLedger.findMany.mockResolvedValue([
+        { id: 'batch-1', remainingPoints: 500 },
+      ]);
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create({
         items: [
@@ -620,20 +841,24 @@ describe('OrdersService', () => {
           { menuItemId: 'burger', quantity: 1, selectedOptions: [] },
         ],
         customerId: 'cust-1',
-        redeemItemIds: ['burger'],  // one redemption of burger — only first line comped
+        redeemItemIds: ['burger'], // one redemption of burger — only first line comped
       } as any);
 
       const createCall = tx.order.create.mock.calls[0][0];
-      expect(createCall.data.pointsRedeemedForItems).toBe(50);  // one line only
-      expect(createCall.data.totalPrice).toBe(10);              // second line at full price
+      expect(createCall.data.pointsRedeemedForItems).toBe(50); // one line only
+      expect(createCall.data.totalPrice).toBe(10); // second line at full price
     });
 
     it('creates new loyalty account and awards points on first order', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
-      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ isLoyaltyEnabled: true }));
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ isLoyaltyEnabled: true }),
+      );
       const tx = makeTx();
       // Default: loyaltyAccount.findUnique returns null → account created
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
@@ -646,12 +871,20 @@ describe('OrdersService', () => {
 
     it('reuses existing loyalty account (skips create) and still awards points', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
-      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ isLoyaltyEnabled: true }));
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ isLoyaltyEnabled: true }),
+      );
       const tx = makeTx();
-      const existingAcc = { id: 'acc-existing', points: 200, lifetimePoints: 500 };
+      const existingAcc = {
+        id: 'acc-existing',
+        points: 200,
+        lifetimePoints: 500,
+      };
       tx.loyaltyAccount.findUnique.mockResolvedValue(existingAcc);
       tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue(existingAcc);
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
@@ -664,13 +897,17 @@ describe('OrdersService', () => {
 
     it('awards signup bonus on first order (lifetimePoints === 0)', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
-      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({
-        isLoyaltyEnabled: true,
-        loyaltySignupBonus: 50,
-      }));
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({
+          isLoyaltyEnabled: true,
+          loyaltySignupBonus: 50,
+        }),
+      );
       const tx = makeTx();
       // Default account has lifetimePoints: 0
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
@@ -683,12 +920,26 @@ describe('OrdersService', () => {
 
     it('calculates loyalty discount from DB points and ignores legacy redeemPoints input', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
-      prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ isLoyaltyEnabled: true }));
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ isLoyaltyEnabled: true }),
+      );
       const tx = makeTx();
-      tx.loyaltyAccount.findUnique.mockResolvedValue({ id: 'acc-1', points: 5, lifetimePoints: 100 });
-      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({ id: 'acc-1', points: 5, lifetimePoints: 100 });
-      tx.loyaltyPointLedger.findMany.mockResolvedValue([{ id: 'batch-1', remainingPoints: 5 }]);
-      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) => fn(tx));
+      tx.loyaltyAccount.findUnique.mockResolvedValue({
+        id: 'acc-1',
+        points: 5,
+        lifetimePoints: 100,
+      });
+      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
+        id: 'acc-1',
+        points: 5,
+        lifetimePoints: 100,
+      });
+      tx.loyaltyPointLedger.findMany.mockResolvedValue([
+        { id: 'batch-1', remainingPoints: 5 },
+      ]);
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
 
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
@@ -714,7 +965,9 @@ describe('OrdersService', () => {
       const result = await service.findAll('user-1', { page: 1, limit: 10 });
 
       expect(prisma.order.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { restaurant: { ownerId: 'user-1' } } }),
+        expect.objectContaining({
+          where: { restaurant: { ownerId: 'user-1' } },
+        }),
       );
       expect(result.total).toBe(1);
       expect(result.data).toHaveLength(1);
@@ -737,7 +990,10 @@ describe('OrdersService', () => {
       prisma.order.findMany.mockResolvedValue([]);
       prisma.order.count.mockResolvedValue(0);
 
-      const result = await service.findAll('user-1', { page: NaN, limit: NaN } as any);
+      const result = await service.findAll('user-1', {
+        page: NaN,
+        limit: NaN,
+      });
 
       expect(result.page).toBe(1);
     });
@@ -760,7 +1016,9 @@ describe('OrdersService', () => {
       prisma.order.findUnique.mockResolvedValue(null);
       prisma.user.findUnique.mockResolvedValue({ restaurantId: null });
 
-      await expect(service.findOne('order-1', 'user-1')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne('order-1', 'user-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('returns order for restaurant owner', async () => {
@@ -786,7 +1044,9 @@ describe('OrdersService', () => {
       prisma.order.findUnique.mockResolvedValue(order);
       prisma.user.findUnique.mockResolvedValue({ restaurantId: 'other-rest' });
 
-      await expect(service.findOne('order-1', 'random-user')).rejects.toThrow(ForbiddenException);
+      await expect(service.findOne('order-1', 'random-user')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
@@ -801,10 +1061,18 @@ describe('OrdersService', () => {
       const updated = makeOrder({ status: 'READY' });
       prisma.order.update.mockResolvedValue(updated);
 
-      const result = await service.updateStatus('order-1', { status: 'READY' } as any, 'user-1');
+      const result = await service.updateStatus(
+        'order-1',
+        { status: 'READY' } as any,
+        'user-1',
+      );
 
       expect(result.status).toBe('READY');
-      expect(events.emitToOrder).toHaveBeenCalledWith('order-1', 'orderStatusChanged', updated);
+      expect(events.emitToOrder).toHaveBeenCalledWith(
+        'order-1',
+        'orderStatusChanged',
+        updated,
+      );
       expect(events.emitToRestaurant).toHaveBeenCalledWith(
         updated.restaurantId,
         'orderStatusChanged',
@@ -817,9 +1085,15 @@ describe('OrdersService', () => {
       const order = makeOrder({ tableSessionId: null });
       prisma.order.findUnique.mockResolvedValue(order);
       prisma.user.findUnique.mockResolvedValue({ restaurantId: null });
-      prisma.order.update.mockResolvedValue(makeOrder({ tableSessionId: null, status: 'SERVED' }));
+      prisma.order.update.mockResolvedValue(
+        makeOrder({ tableSessionId: null, status: 'SERVED' }),
+      );
 
-      await service.updateStatus('order-1', { status: 'SERVED' } as any, 'user-1');
+      await service.updateStatus(
+        'order-1',
+        { status: 'SERVED' } as any,
+        'user-1',
+      );
 
       expect(events.emitTableStatusChanged).not.toHaveBeenCalled();
     });

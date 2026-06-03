@@ -1,4 +1,8 @@
-import { getTierInfo, tierConfigFromRestaurant, TierConfig } from './loyalty-tiers.utils';
+import {
+  getTierInfo,
+  tierConfigFromRestaurant,
+  TierConfig,
+} from './loyalty-tiers.utils';
 
 describe('loyalty-tiers.utils', () => {
   const defaultConfig: TierConfig = {

@@ -41,17 +41,26 @@ describe('CreateOrderDto validation', () => {
 
   describe('quantity', () => {
     it('rejects zero', () => {
-      const errors = validate({ ...basePayload, items: [{ ...baseItem, quantity: 0 }] });
+      const errors = validate({
+        ...basePayload,
+        items: [{ ...baseItem, quantity: 0 }],
+      });
       expect(constraintKeys(errors)).toContain('min');
     });
 
     it('rejects negative', () => {
-      const errors = validate({ ...basePayload, items: [{ ...baseItem, quantity: -3 }] });
+      const errors = validate({
+        ...basePayload,
+        items: [{ ...baseItem, quantity: -3 }],
+      });
       expect(constraintKeys(errors)).toContain('min');
     });
 
     it('rejects fractional', () => {
-      const errors = validate({ ...basePayload, items: [{ ...baseItem, quantity: 1.5 }] });
+      const errors = validate({
+        ...basePayload,
+        items: [{ ...baseItem, quantity: 1.5 }],
+      });
       expect(constraintKeys(errors)).toContain('isInt');
     });
   });
@@ -73,7 +82,9 @@ describe('CreateOrderDto validation', () => {
         redeemPoints: 500,
       });
 
-      expect(validateSync(dto, { whitelist: true, forbidNonWhitelisted: false })).toHaveLength(0);
+      expect(
+        validateSync(dto, { whitelist: true, forbidNonWhitelisted: false }),
+      ).toHaveLength(0);
       expect((dto as any).redeemPoints).toBeUndefined();
     });
   });
@@ -85,7 +96,9 @@ describe('CreateOrderDto validation', () => {
         items: [
           {
             ...baseItem,
-            selectedOptions: [{ optionName: 'Size', choiceName: 'L', priceModifier: 1 }],
+            selectedOptions: [
+              { optionName: 'Size', choiceName: 'L', priceModifier: 1 },
+            ],
           },
         ],
       });
@@ -99,7 +112,12 @@ describe('CreateOrderDto validation', () => {
           {
             ...baseItem,
             selectedOptions: [
-              { optionId: 'o1', optionName: 'Size', choiceName: 'L', priceModifier: 1.5 },
+              {
+                optionId: 'o1',
+                optionName: 'Size',
+                choiceName: 'L',
+                priceModifier: 1.5,
+              },
             ],
           },
         ],

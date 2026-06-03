@@ -113,7 +113,11 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
    *  when the owner removes the logo.  StorageService always emits fully-qualified
    *  http/https URLs (falling back to localhost when R2_PUBLIC_URL is unset), so
    *  @IsUrl is safe here. */
-  @IsUrl({ protocols: ['http', 'https'], require_protocol: true, require_valid_protocol: true })
+  @IsUrl({
+    protocols: ['http', 'https'],
+    require_protocol: true,
+    require_valid_protocol: true,
+  })
   @IsOptional()
   logoThumbnailUrl?: string | null;
 
@@ -183,11 +187,15 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   happyHourDays?: number[];
 
   @IsOptional()
-  @Matches(HHMM_PATTERN, { message: 'happyHourStartTime must be HH:mm (00:00–23:59)' })
+  @Matches(HHMM_PATTERN, {
+    message: 'happyHourStartTime must be HH:mm (00:00–23:59)',
+  })
   happyHourStartTime?: string;
 
   @IsOptional()
-  @Matches(HHMM_PATTERN, { message: 'happyHourEndTime must be HH:mm (00:00–23:59)' })
+  @Matches(HHMM_PATTERN, {
+    message: 'happyHourEndTime must be HH:mm (00:00–23:59)',
+  })
   happyHourEndTime?: string;
 
   @IsOptional()
@@ -214,5 +222,4 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @IsOptional()
   @IsBoolean()
   notifyAllStaffOnPayment?: boolean;
-
 }

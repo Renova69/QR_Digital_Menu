@@ -1,4 +1,9 @@
-import { Injectable, Logger, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
@@ -38,7 +43,10 @@ export class SubscriptionService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
   ) {
-    const stripeKey = this.configService.get<string>('STRIPE_SECRET_KEY') || process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder';
+    const stripeKey =
+      this.configService.get<string>('STRIPE_SECRET_KEY') ||
+      process.env.STRIPE_SECRET_KEY ||
+      'sk_test_placeholder';
     this.stripe = new Stripe(stripeKey, {
       apiVersion: '2026-05-27.dahlia',
     });
@@ -47,22 +55,43 @@ export class SubscriptionService {
     // reflected — critical for tests and runtime config injection (M-7).
     this.priceMap = {
       STARTER: {
-        monthly: this.configService.get<string>('STRIPE_PRICE_STARTER_MONTHLY', ''),
-        yearly: this.configService.get<string>('STRIPE_PRICE_STARTER_YEARLY', ''),
+        monthly: this.configService.get<string>(
+          'STRIPE_PRICE_STARTER_MONTHLY',
+          '',
+        ),
+        yearly: this.configService.get<string>(
+          'STRIPE_PRICE_STARTER_YEARLY',
+          '',
+        ),
       },
       PROFESSIONAL: {
-        monthly: this.configService.get<string>('STRIPE_PRICE_PROFESSIONAL_MONTHLY', ''),
-        yearly: this.configService.get<string>('STRIPE_PRICE_PROFESSIONAL_YEARLY', ''),
+        monthly: this.configService.get<string>(
+          'STRIPE_PRICE_PROFESSIONAL_MONTHLY',
+          '',
+        ),
+        yearly: this.configService.get<string>(
+          'STRIPE_PRICE_PROFESSIONAL_YEARLY',
+          '',
+        ),
       },
       ENTERPRISE: {
-        monthly: this.configService.get<string>('STRIPE_PRICE_ENTERPRISE_MONTHLY', ''),
-        yearly: this.configService.get<string>('STRIPE_PRICE_ENTERPRISE_YEARLY', ''),
+        monthly: this.configService.get<string>(
+          'STRIPE_PRICE_ENTERPRISE_MONTHLY',
+          '',
+        ),
+        yearly: this.configService.get<string>(
+          'STRIPE_PRICE_ENTERPRISE_YEARLY',
+          '',
+        ),
       },
     };
 
     // Boot-time guard: refuse to operate against Stripe in production without a
     // secret key (M-8). Mirrors the webhook-secret guard in main.ts.
-    if (process.env.NODE_ENV === 'production' && stripeKey === 'sk_test_placeholder') {
+    if (
+      process.env.NODE_ENV === 'production' &&
+      stripeKey === 'sk_test_placeholder'
+    ) {
       throw new Error('[Startup] STRIPE_SECRET_KEY must be set in production');
     }
   }
@@ -76,7 +105,9 @@ export class SubscriptionService {
   ) {
     const priceId = this.priceMap[tier]?.[billingPeriod];
     if (!priceId) {
-      throw new BadRequestException(`No Stripe price configured for tier ${tier} (${billingPeriod})`);
+      throw new BadRequestException(
+        `No Stripe price configured for tier ${tier} (${billingPeriod})`,
+      );
     }
 
     const restaurant = await this.prisma.restaurant.findUniqueOrThrow({
@@ -91,8 +122,13 @@ export class SubscriptionService {
     let stripeCustomerId = restaurant.stripeCustomerId;
 
     if (!stripeCustomerId) {
-      const user = await this.prisma.user.findUniqueOrThrow({ where: { id: ownerId } });
-      const customer = await this.stripe.customers.create({ email: user.email, metadata: { restaurantId } });
+      const user = await this.prisma.user.findUniqueOrThrow({
+        where: { id: ownerId },
+      });
+      const customer = await this.stripe.customers.create({
+        email: user.email,
+        metadata: { restaurantId },
+      });
       stripeCustomerId = customer.id;
       await this.prisma.restaurant.update({
         where: { id: restaurantId },
@@ -101,16 +137,19 @@ export class SubscriptionService {
     }
 
     const existingSubs = await this.stripe.subscriptions.list({
-      customer: stripeCustomerId!,
+      customer: stripeCustomerId,
       status: 'all',
       limit: 5,
     });
     const blockStatuses = ['active', 'past_due', 'unpaid', 'trialing'];
-    const activeSub = existingSubs.data.find((sub: any) => blockStatuses.includes(sub.status));
+    const activeSub = existingSubs.data.find((sub: any) =>
+      blockStatuses.includes(sub.status),
+    );
     if (activeSub) {
       throw new BadRequestException({
         code: 'ALREADY_SUBSCRIBED',
-        message: 'Active/trialing subscription exists. Use the Billing Portal to change plans.',
+        message:
+          'Active/trialing subscription exists. Use the Billing Portal to change plans.',
       });
     }
 
@@ -130,7 +169,10 @@ export class SubscriptionService {
     return { url: session.url };
   }
 
-  async confirmCheckoutSession(sessionId: string, userId: string): Promise<{ tier: string }> {
+  async confirmCheckoutSession(
+    sessionId: string,
+    userId: string,
+  ): Promise<{ tier: string }> {
     if (this.processedSessions.has(sessionId)) {
       const restaurant = await this.prisma.restaurant.findFirst({
         where: { ownerId: userId },
@@ -143,7 +185,7 @@ export class SubscriptionService {
     let session: any;
     try {
       session = await this.stripe.checkout.sessions.retrieve(sessionId, {
-        expand: ['line_items']
+        expand: ['line_items'],
       });
     } catch {
       return { tier: 'FREE' };
@@ -160,12 +202,18 @@ export class SubscriptionService {
       select: { ownerId: true },
     });
     if (!restaurant || restaurant.ownerId !== userId) {
-      throw new ForbiddenException('Session does not belong to your restaurant');
+      throw new ForbiddenException(
+        'Session does not belong to your restaurant',
+      );
     }
 
     const subscriptionId = session.subscription as string;
-    const priceId = session.line_items?.data?.[0]?.price?.id as string | undefined;
-    const tier = priceId ? getTierFromPrice(this.priceMap, priceId) : ((session.metadata?.tier as string) ?? 'FREE');
+    const priceId = session.line_items?.data?.[0]?.price?.id as
+      | string
+      | undefined;
+    const tier = priceId
+      ? getTierFromPrice(this.priceMap, priceId)
+      : ((session.metadata?.tier as string) ?? 'FREE');
     const eventTime = new Date(session.created * 1000);
 
     await this.prisma.restaurant.updateMany({
@@ -206,7 +254,10 @@ export class SubscriptionService {
       throw new ForbiddenException('You do not own this restaurant');
     }
     const stripeCustomerId = restaurant.stripeCustomerId;
-    if (!stripeCustomerId) throw new BadRequestException('No Stripe customer associated with this restaurant');
+    if (!stripeCustomerId)
+      throw new BadRequestException(
+        'No Stripe customer associated with this restaurant',
+      );
 
     const session = await this.stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,
@@ -224,14 +275,22 @@ export class SubscriptionService {
     if (!restaurant?.stripeSubscriptionId) return null;
 
     try {
-      const sub = await this.stripe.subscriptions.retrieve(restaurant.stripeSubscriptionId) as any;
+      const sub = (await this.stripe.subscriptions.retrieve(
+        restaurant.stripeSubscriptionId,
+      )) as any;
       const item = sub.items?.data?.[0];
       // Stripe API ≥2024-09-30 moved current_period_* from Subscription to SubscriptionItem
-      const periodStart: number = sub.current_period_start ?? item?.current_period_start;
-      const periodEnd: number = sub.current_period_end ?? item?.current_period_end;
+      const periodStart: number =
+        sub.current_period_start ?? item?.current_period_start;
+      const periodEnd: number =
+        sub.current_period_end ?? item?.current_period_end;
       return {
-        currentPeriodStart: periodStart ? new Date(periodStart * 1000).toISOString() : null,
-        currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+        currentPeriodStart: periodStart
+          ? new Date(periodStart * 1000).toISOString()
+          : null,
+        currentPeriodEnd: periodEnd
+          ? new Date(periodEnd * 1000).toISOString()
+          : null,
         cancelAtPeriodEnd: sub.cancel_at_period_end as boolean,
         status: sub.status as string,
         interval: (item?.price?.recurring?.interval as string) ?? null,
@@ -278,7 +337,7 @@ export class SubscriptionService {
         // Do NOT downgrade here. Stripe will transition the subscription to
         // `past_due`, which fires `customer.subscription.updated`; the 7-day
         // grace window is enforced there via the status check (C-1).
-        const failedCustomer = (event.data.object as any)?.customer;
+        const failedCustomer = event.data.object?.customer;
         this.logger.warn(
           `invoice.payment_failed: customer=${failedCustomer} — entering grace period, no immediate downgrade`,
         );
@@ -292,7 +351,7 @@ export class SubscriptionService {
   }
 
   private async applySubscriptionFromEvent(event: any) {
-    const obj = event.data.object as any;
+    const obj = event.data.object;
     const customerId = obj.customer as string;
     const eventTime = new Date(event.created * 1000);
 
@@ -310,8 +369,10 @@ export class SubscriptionService {
       if (subscriptionId) {
         try {
           const sub = await this.stripe.subscriptions.retrieve(subscriptionId);
-          priceId = sub.items?.data?.[0]?.price?.id as string | undefined;
-          tier = priceId ? getTierFromPrice(this.priceMap, priceId) : ((obj.metadata?.tier as string) ?? 'FREE');
+          priceId = sub.items?.data?.[0]?.price?.id;
+          tier = priceId
+            ? getTierFromPrice(this.priceMap, priceId)
+            : ((obj.metadata?.tier as string) ?? 'FREE');
         } catch (err) {
           this.logger.error(
             `Failed to retrieve subscription ${subscriptionId} for checkout.session.completed: ${
@@ -354,7 +415,10 @@ export class SubscriptionService {
             }`,
           );
         }
-      } else if (subStatus && IMMEDIATE_DOWNGRADE_STATUSES.includes(subStatus)) {
+      } else if (
+        subStatus &&
+        IMMEDIATE_DOWNGRADE_STATUSES.includes(subStatus)
+      ) {
         tier = 'FREE';
         pastDueGraceExpiry = null;
         this.logger.warn(
@@ -367,10 +431,7 @@ export class SubscriptionService {
     const result = await this.prisma.restaurant.updateMany({
       where: {
         stripeCustomerId: customerId,
-        OR: [
-          { tierUpdatedAt: null },
-          { tierUpdatedAt: { lte: eventTime } },
-        ],
+        OR: [{ tierUpdatedAt: null }, { tierUpdatedAt: { lte: eventTime } }],
       },
       data: {
         tier: tier as any,
@@ -387,17 +448,14 @@ export class SubscriptionService {
   }
 
   private async applyCancellationFromEvent(event: any) {
-    const sub = event.data.object as any;
+    const sub = event.data.object;
     const customerId = sub.customer as string;
     const eventTime = new Date(event.created * 1000);
 
     await this.prisma.restaurant.updateMany({
       where: {
         stripeCustomerId: customerId,
-        OR: [
-          { tierUpdatedAt: null },
-          { tierUpdatedAt: { lte: eventTime } },
-        ],
+        OR: [{ tierUpdatedAt: null }, { tierUpdatedAt: { lte: eventTime } }],
       },
       data: {
         tier: 'FREE',

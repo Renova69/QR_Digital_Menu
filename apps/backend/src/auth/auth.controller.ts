@@ -55,10 +55,7 @@ export class AuthController {
   @UseGuards(LocalAuthGuard)
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  async login(
-    @Request() req: any,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async login(@Request() req: any, @Res({ passthrough: true }) res: Response) {
     const result = await this.authService.login(req.user);
     setTokenCookie(res, result.token);
     return result;
@@ -120,7 +117,9 @@ export class AuthController {
     }
 
     // Token already set via httpOnly cookie above — do NOT leak in URL
-    res.redirect(`${frontendUrl}/auth/callback${returnTo ? `?${returnTo.slice(1)}` : ''}`);
+    res.redirect(
+      `${frontendUrl}/auth/callback${returnTo ? `?${returnTo.slice(1)}` : ''}`,
+    );
   }
 
   @Post('otp/send')
@@ -143,7 +142,13 @@ export class AuthController {
     @Body('restaurantId') restaurantId: string | undefined,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.verifyOtp(email, code, phone, name, restaurantId);
+    const result = await this.authService.verifyOtp(
+      email,
+      code,
+      phone,
+      name,
+      restaurantId,
+    );
     setTokenCookie(res, result.token);
     return result;
   }

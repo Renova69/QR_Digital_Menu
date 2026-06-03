@@ -1,4 +1,11 @@
-import { IsString, IsIn, IsInt, IsBoolean, IsOptional, Min } from 'class-validator';
+import {
+  IsString,
+  IsIn,
+  IsInt,
+  IsBoolean,
+  IsOptional,
+  Min,
+} from 'class-validator';
 
 export class CreateHelpContentDto {
   @IsString()

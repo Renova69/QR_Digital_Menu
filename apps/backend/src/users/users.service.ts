@@ -1,4 +1,10 @@
-import { Injectable, Logger, ForbiddenException, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ForbiddenException,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
@@ -35,7 +41,11 @@ export class UsersService {
     restaurantId: string,
     data: { name: string; email?: string; role: string },
     callerRole: string = 'OWNER',
-  ): Promise<{ user: { id: string; email: string; name: string | null; role: string }; rawPin?: string; tempPassword?: string }> {
+  ): Promise<{
+    user: { id: string; email: string; name: string | null; role: string };
+    rawPin?: string;
+    tempPassword?: string;
+  }> {
     if (data.role === 'MANAGER' && callerRole !== 'OWNER') {
       throw new ForbiddenException('Only owners can create manager accounts');
     }
@@ -45,7 +55,7 @@ export class UsersService {
       select: { tier: true, forceTier: true },
     });
     const tier = this.featureService.getEffectiveTier(
-      (restaurant?.tier ?? 'FREE') as string,
+      restaurant?.tier ?? 'FREE',
       restaurant?.forceTier ?? null,
     );
 
@@ -64,7 +74,9 @@ export class UsersService {
     // not be able to mint a JWT for a dashboard account (see pinLogin scoping).
     const usePinCredential = isPinRole(data.role);
 
-    const rawPin = usePinCredential ? crypto.randomInt(1000, 10000).toString() : undefined;
+    const rawPin = usePinCredential
+      ? crypto.randomInt(1000, 10000).toString()
+      : undefined;
     const pinHash = rawPin ? await bcrypt.hash(rawPin, 10) : null;
 
     // `password` is non-nullable in the schema, so every user gets a hash. For
@@ -84,9 +96,15 @@ export class UsersService {
       restaurantId,
     };
 
-    const doCreate = async (tx: Prisma.TransactionClient, emailOverride?: string) => {
+    const doCreate = async (
+      tx: Prisma.TransactionClient,
+      emailOverride?: string,
+    ) => {
       const currentCount = await tx.user.count({
-        where: { restaurantId, role: { in: ['STAFF', 'WAITER', 'MANAGER', 'KITCHEN'] } },
+        where: {
+          restaurantId,
+          role: { in: ['STAFF', 'WAITER', 'MANAGER', 'KITCHEN'] },
+        },
       });
       if (currentCount >= staffLimit) {
         throw new ForbiddenException(
@@ -97,14 +115,23 @@ export class UsersService {
       return tx.user.create({ data: createData });
     };
 
-    const txOpts = { isolationLevel: Prisma.TransactionIsolationLevel.Serializable };
+    const txOpts = {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    };
 
     const runTx = async (emailOverride?: string): Promise<typeof user> => {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          return await this.prisma.$transaction((tx) => doCreate(tx, emailOverride), txOpts);
+          return await this.prisma.$transaction(
+            (tx: Prisma.TransactionClient) => doCreate(tx, emailOverride),
+            txOpts,
+          );
         } catch (err: any) {
-          if (err instanceof ForbiddenException || err instanceof ConflictException) throw err;
+          if (
+            err instanceof ForbiddenException ||
+            err instanceof ConflictException
+          )
+            throw err;
           if (err?.code === 'P2034' && attempt < 2) continue; // serialization conflict -- retry
           throw err;
         }
@@ -116,7 +143,8 @@ export class UsersService {
     try {
       user = await runTx();
     } catch (err: any) {
-      if (err instanceof ForbiddenException || err instanceof ConflictException) throw err;
+      if (err instanceof ForbiddenException || err instanceof ConflictException)
+        throw err;
       if (err?.code === 'P2002') {
         if (explicitEmail) {
           throw new ConflictException('A user with this email already exists');
@@ -129,7 +157,12 @@ export class UsersService {
     }
 
     return {
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
       ...(usePinCredential ? { rawPin } : { tempPassword }),
     };
   }
@@ -180,7 +213,7 @@ export class UsersService {
         select: { tier: true, forceTier: true },
       });
       const tier = this.featureService.getEffectiveTier(
-        (restaurant?.tier ?? 'FREE') as string,
+        restaurant?.tier ?? 'FREE',
         restaurant?.forceTier ?? null,
       );
       const allowedRoles = this.featureService.getAllowedStaffRoles(tier);
@@ -211,14 +244,22 @@ export class UsersService {
       data: {
         ...(data.role ? { role: data.role as any } : {}),
         ...(pinCredential
-          ? { pinHash: pinCredential.pinHash, pinAttempts: 0, pinLockedUntil: null }
+          ? {
+              pinHash: pinCredential.pinHash,
+              pinAttempts: 0,
+              pinLockedUntil: null,
+            }
           : {}),
-        ...(clearPin ? { pinHash: null, pinAttempts: 0, pinLockedUntil: null } : {}),
+        ...(clearPin
+          ? { pinHash: null, pinAttempts: 0, pinLockedUntil: null }
+          : {}),
         ...(typeof data.isActive === 'boolean'
           ? {
               isActive: data.isActive,
               disabledAt: data.isActive ? null : new Date(),
-              disabledReason: data.isActive ? null : 'Disabled by staff manager',
+              disabledReason: data.isActive
+                ? null
+                : 'Disabled by staff manager',
             }
           : {}),
       },
@@ -235,10 +276,16 @@ export class UsersService {
     });
 
     // Surface the freshly minted PIN so the dashboard can show it (WAITER/KITCHEN).
-    return pinCredential ? { ...updated, rawPin: pinCredential.rawPin } : updated;
+    return pinCredential
+      ? { ...updated, rawPin: pinCredential.rawPin }
+      : updated;
   }
 
-  async resetStaffPin(restaurantId: string, userId: string, callerRole: string = 'OWNER') {
+  async resetStaffPin(
+    restaurantId: string,
+    userId: string,
+    callerRole: string = 'OWNER',
+  ) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, restaurantId },
       select: { id: true, name: true, email: true, role: true },
@@ -270,7 +317,11 @@ export class UsersService {
     return { user, rawPin };
   }
 
-  async removeStaffMember(restaurantId: string, userId: string, callerRole: string = 'OWNER') {
+  async removeStaffMember(
+    restaurantId: string,
+    userId: string,
+    callerRole: string = 'OWNER',
+  ) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, restaurantId },
     });
@@ -287,7 +338,10 @@ export class UsersService {
     return { id: user.id, email: user.email, name: user.name, role: user.role };
   }
 
-  async verifyRestaurantAccess(restaurantId: string, userId: string): Promise<void> {
+  async verifyRestaurantAccess(
+    restaurantId: string,
+    userId: string,
+  ): Promise<void> {
     const [restaurant, user] = await Promise.all([
       this.prisma.restaurant.findUnique({
         where: { id: restaurantId },
@@ -300,13 +354,17 @@ export class UsersService {
     ]);
 
     if (!restaurant) {
-      throw new NotFoundException(`Restaurant with ID "${restaurantId}" not found`);
+      throw new NotFoundException(
+        `Restaurant with ID "${restaurantId}" not found`,
+      );
     }
 
     if (restaurant.ownerId === userId) return;
 
     if (!user || user.restaurantId !== restaurantId) {
-      throw new ForbiddenException('You do not have permission to access this resource');
+      throw new ForbiddenException(
+        'You do not have permission to access this resource',
+      );
     }
   }
 }

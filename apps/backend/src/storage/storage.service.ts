@@ -6,7 +6,7 @@ import {
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
 import { randomBytes } from 'crypto';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+
 const sharp = require('sharp');
 
 /** Processed image result with optional thumbnail */
@@ -33,7 +33,11 @@ export class StorageService {
   /** WebP quality for thumbnails */
   private static readonly QUALITY_THUMB = 75;
 
-  private static readonly ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+  private static readonly ALLOWED_TYPES = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+  ];
 
   constructor(private readonly configService: ConfigService) {
     const accountId = this.configService.get<string>('R2_ACCOUNT_ID');
@@ -130,7 +134,7 @@ export class StorageService {
       .resize({
         width: StorageService.MAX_DIMENSION,
         height: StorageService.MAX_DIMENSION,
-        fit: 'inside',            // preserve aspect ratio, fit within box
+        fit: 'inside', // preserve aspect ratio, fit within box
         withoutEnlargement: true, // don't upscale small images
       })
       .webp({ quality: StorageService.QUALITY_MAIN })

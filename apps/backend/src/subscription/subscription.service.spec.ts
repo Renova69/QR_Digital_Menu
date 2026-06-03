@@ -1,8 +1,12 @@
 // mock-prefixed variables are allowed in jest.mock factory closures (Jest hoisting exception)
 const mockConstructEvent = jest.fn();
-const mockCheckoutCreate = jest.fn().mockResolvedValue({ url: 'https://checkout.stripe.com/pay/test' });
+const mockCheckoutCreate = jest
+  .fn()
+  .mockResolvedValue({ url: 'https://checkout.stripe.com/pay/test' });
 const mockCustomersCreate = jest.fn().mockResolvedValue({ id: 'cus_new' });
-const mockPortalCreate = jest.fn().mockResolvedValue({ url: 'https://billing.stripe.com/portal/test' });
+const mockPortalCreate = jest
+  .fn()
+  .mockResolvedValue({ url: 'https://billing.stripe.com/portal/test' });
 const mockSessionRetrieve = jest.fn();
 const mockSubscriptionsList = jest.fn().mockResolvedValue({ data: [] });
 const mockSubscriptionRetrieve = jest.fn();
@@ -10,9 +14,14 @@ const mockSubscriptionRetrieve = jest.fn();
 jest.mock('stripe', () =>
   jest.fn().mockImplementation(() => ({
     customers: { create: mockCustomersCreate },
-    checkout: { sessions: { create: mockCheckoutCreate, retrieve: mockSessionRetrieve } },
+    checkout: {
+      sessions: { create: mockCheckoutCreate, retrieve: mockSessionRetrieve },
+    },
     billingPortal: { sessions: { create: mockPortalCreate } },
-    subscriptions: { list: mockSubscriptionsList, retrieve: mockSubscriptionRetrieve },
+    subscriptions: {
+      list: mockSubscriptionsList,
+      retrieve: mockSubscriptionRetrieve,
+    },
     webhooks: { constructEvent: mockConstructEvent },
   })),
 );
@@ -59,19 +68,30 @@ describe('SubscriptionService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     mockSubscriptionsList.mockResolvedValue({ data: [] });
-    mockSubscriptionRetrieve.mockResolvedValue({ id: 'sub_abc', items: { data: [{ price: { id: 'price_pro_m' } }] } });
+    mockSubscriptionRetrieve.mockResolvedValue({
+      id: 'sub_abc',
+      items: { data: [{ price: { id: 'price_pro_m' } }] },
+    });
     process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET = 'whsec_test';
 
     prisma = {
       restaurant: {
-        findUnique: jest.fn().mockResolvedValue({ stripeCustomerId: 'cus_test', ownerId: 'owner1' }),
+        findUnique: jest.fn().mockResolvedValue({
+          stripeCustomerId: 'cus_test',
+          ownerId: 'owner1',
+        }),
         findFirst: jest.fn().mockResolvedValue({ ownerId: 'owner1' }),
-        findUniqueOrThrow: jest.fn().mockResolvedValue({ stripeCustomerId: 'cus_test', ownerId: 'owner1' }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          stripeCustomerId: 'cus_test',
+          ownerId: 'owner1',
+        }),
         update: jest.fn().mockResolvedValue({}),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       user: {
-        findUniqueOrThrow: jest.fn().mockResolvedValue({ email: 'owner@test.com' }),
+        findUniqueOrThrow: jest
+          .fn()
+          .mockResolvedValue({ email: 'owner@test.com' }),
       },
     };
 
@@ -92,7 +112,10 @@ describe('SubscriptionService', () => {
 
   describe('createCheckoutSession', () => {
     it('throws ForbiddenException when user does not own the restaurant', async () => {
-      prisma.restaurant.findUniqueOrThrow.mockResolvedValue({ stripeCustomerId: 'cus_test', ownerId: 'other_owner' });
+      prisma.restaurant.findUniqueOrThrow.mockResolvedValue({
+        stripeCustomerId: 'cus_test',
+        ownerId: 'other_owner',
+      });
 
       await expect(
         service.createCheckoutSession('rest1', 'STARTER', 'monthly', 'owner1'),
@@ -100,32 +123,57 @@ describe('SubscriptionService', () => {
     });
 
     it('uses the configured STARTER monthly price and returns the checkout URL', async () => {
-      prisma.restaurant.findUniqueOrThrow.mockResolvedValue({ stripeCustomerId: 'cus_test', ownerId: 'owner1' });
-      const result = await service.createCheckoutSession('rest1', 'STARTER', 'monthly', 'owner1');
+      prisma.restaurant.findUniqueOrThrow.mockResolvedValue({
+        stripeCustomerId: 'cus_test',
+        ownerId: 'owner1',
+      });
+      const result = await service.createCheckoutSession(
+        'rest1',
+        'STARTER',
+        'monthly',
+        'owner1',
+      );
 
       expect(result.url).toBe('https://checkout.stripe.com/pay/test');
       expect(mockCheckoutCreate).toHaveBeenCalledWith(
         expect.objectContaining({
-          line_items: [{ price: PRICE_IDS.STRIPE_PRICE_STARTER_MONTHLY, quantity: 1 }],
-          metadata: expect.objectContaining({ restaurantId: 'rest1', tier: 'STARTER' }),
+          line_items: [
+            { price: PRICE_IDS.STRIPE_PRICE_STARTER_MONTHLY, quantity: 1 },
+          ],
+          metadata: expect.objectContaining({
+            restaurantId: 'rest1',
+            tier: 'STARTER',
+          }),
         }),
       );
     });
 
     it('uses the configured ENTERPRISE yearly price for yearly billing', async () => {
-      const result = await service.createCheckoutSession('rest1', 'ENTERPRISE', 'yearly', 'owner1');
+      const result = await service.createCheckoutSession(
+        'rest1',
+        'ENTERPRISE',
+        'yearly',
+        'owner1',
+      );
 
       expect(result.url).toBe('https://checkout.stripe.com/pay/test');
       expect(mockCheckoutCreate).toHaveBeenCalledWith(
         expect.objectContaining({
-          line_items: [{ price: PRICE_IDS.STRIPE_PRICE_ENTERPRISE_YEARLY, quantity: 1 }],
+          line_items: [
+            { price: PRICE_IDS.STRIPE_PRICE_ENTERPRISE_YEARLY, quantity: 1 },
+          ],
         }),
       );
     });
 
     it('throws when no Stripe price is configured for an unknown tier', async () => {
       await expect(
-        service.createCheckoutSession('rest1', 'NONEXISTENT', 'monthly', 'owner1'),
+        service.createCheckoutSession(
+          'rest1',
+          'NONEXISTENT',
+          'monthly',
+          'owner1',
+        ),
       ).rejects.toThrow('No Stripe price configured for tier NONEXISTENT');
     });
   });
@@ -145,7 +193,11 @@ describe('SubscriptionService', () => {
             id: 'sub_pro',
             customer: 'cus_test',
             status: 'active',
-            items: { data: [{ price: { id: PRICE_IDS.STRIPE_PRICE_PROFESSIONAL_MONTHLY } }] },
+            items: {
+              data: [
+                { price: { id: PRICE_IDS.STRIPE_PRICE_PROFESSIONAL_MONTHLY } },
+              ],
+            },
           },
         },
       });
@@ -189,7 +241,10 @@ describe('SubscriptionService', () => {
     it('returns FREE when the Stripe session cannot be retrieved', async () => {
       mockSessionRetrieve.mockRejectedValue(new Error('No such session'));
 
-      const result = await service.confirmCheckoutSession('cs_missing', 'owner1');
+      const result = await service.confirmCheckoutSession(
+        'cs_missing',
+        'owner1',
+      );
 
       expect(result).toEqual({ tier: 'FREE' });
       expect(prisma.restaurant.updateMany).not.toHaveBeenCalled();
@@ -224,13 +279,18 @@ describe('SubscriptionService', () => {
       expect(prisma.restaurant.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ stripeCustomerId: 'cus_test' }),
-          data: expect.objectContaining({ tier: 'PROFESSIONAL', stripeSubscriptionId: 'sub_done' }),
+          data: expect.objectContaining({
+            tier: 'PROFESSIONAL',
+            stripeSubscriptionId: 'sub_done',
+          }),
         }),
       );
     });
 
     it('rejects when the session belongs to another tenant', async () => {
-      prisma.restaurant.findFirst.mockResolvedValue({ ownerId: 'someone-else' });
+      prisma.restaurant.findFirst.mockResolvedValue({
+        ownerId: 'someone-else',
+      });
       mockSessionRetrieve.mockResolvedValue({
         status: 'complete',
         customer: 'cus_test',
@@ -266,7 +326,11 @@ describe('SubscriptionService', () => {
           where: expect.objectContaining({
             OR: expect.arrayContaining([
               { tierUpdatedAt: null },
-              { tierUpdatedAt: expect.objectContaining({ lt: expect.any(Date) }) },
+              {
+                tierUpdatedAt: expect.objectContaining({
+                  lt: expect.any(Date),
+                }),
+              },
             ]),
           }),
         }),
@@ -278,19 +342,32 @@ describe('SubscriptionService', () => {
 
   describe('createPortalSession', () => {
     it('throws ForbiddenException when user does not own the restaurant', async () => {
-      prisma.restaurant.findUniqueOrThrow.mockResolvedValue({ stripeCustomerId: 'cus_test', ownerId: 'other_owner' });
+      prisma.restaurant.findUniqueOrThrow.mockResolvedValue({
+        stripeCustomerId: 'cus_test',
+        ownerId: 'other_owner',
+      });
 
-      await expect(service.createPortalSession('rest1', 'owner1')).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.createPortalSession('rest1', 'owner1'),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('throws when restaurant has no Stripe customer', async () => {
-      prisma.restaurant.findUniqueOrThrow.mockResolvedValue({ stripeCustomerId: null, ownerId: 'owner1' });
+      prisma.restaurant.findUniqueOrThrow.mockResolvedValue({
+        stripeCustomerId: null,
+        ownerId: 'owner1',
+      });
 
-      await expect(service.createPortalSession('rest1', 'owner1')).rejects.toThrow('No Stripe customer');
+      await expect(
+        service.createPortalSession('rest1', 'owner1'),
+      ).rejects.toThrow('No Stripe customer');
     });
 
     it('returns portal URL for restaurant with Stripe customer', async () => {
-      prisma.restaurant.findUniqueOrThrow.mockResolvedValue({ stripeCustomerId: 'cus_test', ownerId: 'owner1' });
+      prisma.restaurant.findUniqueOrThrow.mockResolvedValue({
+        stripeCustomerId: 'cus_test',
+        ownerId: 'owner1',
+      });
 
       const result = await service.createPortalSession('rest1', 'owner1');
 
@@ -327,12 +404,18 @@ describe('SubscriptionService', () => {
         },
       });
 
-      const result = await service.handleWebhook(Buffer.from('{}'), 'valid_sig');
+      const result = await service.handleWebhook(
+        Buffer.from('{}'),
+        'valid_sig',
+      );
 
       expect(result).toEqual({ received: true });
       expect(prisma.restaurant.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ tier: 'PROFESSIONAL', stripeSubscriptionId: 'sub_abc' }),
+          data: expect.objectContaining({
+            tier: 'PROFESSIONAL',
+            stripeSubscriptionId: 'sub_abc',
+          }),
         }),
       );
     });
@@ -352,12 +435,18 @@ describe('SubscriptionService', () => {
         },
       });
 
-      const result = await service.handleWebhook(Buffer.from('{}'), 'valid_sig');
+      const result = await service.handleWebhook(
+        Buffer.from('{}'),
+        'valid_sig',
+      );
 
       expect(result).toEqual({ received: true });
       expect(prisma.restaurant.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ tier: 'FREE', stripeSubscriptionId: 'sub_updated' }),
+          data: expect.objectContaining({
+            tier: 'FREE',
+            stripeSubscriptionId: 'sub_updated',
+          }),
         }),
       );
     });
@@ -369,12 +458,18 @@ describe('SubscriptionService', () => {
         data: { object: { customer: 'cus_test' } },
       });
 
-      const result = await service.handleWebhook(Buffer.from('{}'), 'valid_sig');
+      const result = await service.handleWebhook(
+        Buffer.from('{}'),
+        'valid_sig',
+      );
 
       expect(result).toEqual({ received: true });
       expect(prisma.restaurant.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ tier: 'FREE', stripeSubscriptionId: null }),
+          data: expect.objectContaining({
+            tier: 'FREE',
+            stripeSubscriptionId: null,
+          }),
         }),
       );
     });
@@ -386,7 +481,10 @@ describe('SubscriptionService', () => {
         data: { object: {} },
       });
 
-      const result = await service.handleWebhook(Buffer.from('{}'), 'valid_sig');
+      const result = await service.handleWebhook(
+        Buffer.from('{}'),
+        'valid_sig',
+      );
 
       expect(result).toEqual({ received: true });
       expect(prisma.restaurant.updateMany).not.toHaveBeenCalled();
@@ -406,7 +504,11 @@ describe('SubscriptionService', () => {
           where: expect.objectContaining({
             OR: expect.arrayContaining([
               { tierUpdatedAt: null },
-              { tierUpdatedAt: expect.objectContaining({ lte: expect.any(Date) }) },
+              {
+                tierUpdatedAt: expect.objectContaining({
+                  lte: expect.any(Date),
+                }),
+              },
             ]),
           }),
         }),
@@ -422,7 +524,11 @@ describe('SubscriptionService', () => {
             id: 'sub_paused',
             customer: 'cus_test',
             status: 'paused',
-            items: { data: [{ price: { id: PRICE_IDS.STRIPE_PRICE_PROFESSIONAL_MONTHLY } }] },
+            items: {
+              data: [
+                { price: { id: PRICE_IDS.STRIPE_PRICE_PROFESSIONAL_MONTHLY } },
+              ],
+            },
           },
         },
       });
@@ -447,7 +553,11 @@ describe('SubscriptionService', () => {
             customer: 'cus_test',
             status: 'past_due',
             current_period_end: futureTime,
-            items: { data: [{ price: { id: PRICE_IDS.STRIPE_PRICE_PROFESSIONAL_MONTHLY } }] },
+            items: {
+              data: [
+                { price: { id: PRICE_IDS.STRIPE_PRICE_PROFESSIONAL_MONTHLY } },
+              ],
+            },
           },
         },
       });
@@ -475,7 +585,11 @@ describe('SubscriptionService', () => {
             customer: 'cus_test',
             status: 'past_due',
             current_period_end: pastTime,
-            items: { data: [{ price: { id: PRICE_IDS.STRIPE_PRICE_PROFESSIONAL_MONTHLY } }] },
+            items: {
+              data: [
+                { price: { id: PRICE_IDS.STRIPE_PRICE_PROFESSIONAL_MONTHLY } },
+              ],
+            },
           },
         },
       });
@@ -500,7 +614,10 @@ describe('SubscriptionService', () => {
       expect(prisma.restaurant.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
-            pastDueGraceExpiry: expect.objectContaining({ lt: expect.any(Date), not: null }),
+            pastDueGraceExpiry: expect.objectContaining({
+              lt: expect.any(Date),
+              not: null,
+            }),
             tier: { not: 'FREE' },
           },
           data: {
@@ -515,7 +632,10 @@ describe('SubscriptionService', () => {
 
   describe('confirmCheckoutSession Cache Idempotency', () => {
     it('uses the session cache for confirmCheckoutSession idempotency', async () => {
-      prisma.restaurant.findFirst.mockResolvedValue({ ownerId: 'owner1', tier: 'PROFESSIONAL' });
+      prisma.restaurant.findFirst.mockResolvedValue({
+        ownerId: 'owner1',
+        tier: 'PROFESSIONAL',
+      });
       mockSessionRetrieve.mockResolvedValue({
         status: 'complete',
         customer: 'cus_test',

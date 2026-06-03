@@ -20,14 +20,18 @@ export class RetentionService {
     const now = new Date();
 
     const tokenCutoff = new Date(now);
-    tokenCutoff.setDate(tokenCutoff.getDate() - settings.verificationTokenTtlDays);
+    tokenCutoff.setDate(
+      tokenCutoff.getDate() - settings.verificationTokenTtlDays,
+    );
     const { count: deletedVerificationTokens } =
       await this.prisma.verificationToken.deleteMany({
         where: { expiresAt: { lt: tokenCutoff } },
       });
 
     const orderCutoff = new Date(now);
-    orderCutoff.setFullYear(orderCutoff.getFullYear() - settings.orderPiiRetentionYears);
+    orderCutoff.setFullYear(
+      orderCutoff.getFullYear() - settings.orderPiiRetentionYears,
+    );
     const { count: anonymizedOrders } = await this.prisma.order.updateMany({
       where: {
         createdAt: { lt: orderCutoff },

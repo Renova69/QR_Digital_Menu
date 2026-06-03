@@ -140,7 +140,9 @@ export class AuthService {
   private async sendTwilioOtp(phone: string): Promise<void> {
     const channel = process.env.TWILIO_CHANNEL || 'sms'; // 'sms' | 'whatsapp'
     if (process.env.NODE_ENV !== 'production') {
-      this.logger.log(`[Twilio] sending OTP → Channel=${channel} ServiceSID=${process.env.TWILIO_VERIFY_SERVICE_SID}`);
+      this.logger.log(
+        `[Twilio] sending OTP → Channel=${channel} ServiceSID=${process.env.TWILIO_VERIFY_SERVICE_SID}`,
+      );
     }
     const res = await fetch(this.twilioVerifyUrl('/Verifications'), {
       method: 'POST',
@@ -154,7 +156,7 @@ export class AuthService {
       const body = await res.json().catch(() => ({}));
       this.logger.error('[Twilio] error response:', JSON.stringify(body));
       throw new HttpException(
-        (body as any).message || 'Failed to send verification code.',
+        body.message || 'Failed to send verification code.',
         HttpStatus.BAD_GATEWAY,
       );
     }
@@ -173,7 +175,9 @@ export class AuthService {
     return data.status === 'approved';
   }
 
-  private async checkCustomersAuthFeature(restaurantId?: string): Promise<void> {
+  private async checkCustomersAuthFeature(
+    restaurantId?: string,
+  ): Promise<void> {
     if (!restaurantId) return;
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
@@ -190,7 +194,9 @@ export class AuthService {
       restaurant.forceTier,
     );
     if (!this.featureService.hasFeature(tier, FeatureFlag.CUSTOMERS_AUTH)) {
-      throw new ForbiddenException('Customer authentication is not available on this plan');
+      throw new ForbiddenException(
+        'Customer authentication is not available on this plan',
+      );
     }
   }
 
@@ -199,10 +205,17 @@ export class AuthService {
     email?: string,
     phone?: string,
     restaurantId?: string,
-  ): Promise<{ success: boolean; devCode?: string; channel: 'email' | 'sms' | 'whatsapp' }> {
+  ): Promise<{
+    success: boolean;
+    devCode?: string;
+    channel: 'email' | 'sms' | 'whatsapp';
+  }> {
     await this.checkCustomersAuthFeature(restaurantId);
     if (!email && !phone) {
-      throw new HttpException('email or phone is required', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        'email or phone is required',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     // Phone-first flow via Twilio
@@ -278,7 +291,11 @@ export class AuthService {
       }
     }
 
-    return { success: true, ...(isDev ? { devCode: code } : {}), channel: 'email' };
+    return {
+      success: true,
+      ...(isDev ? { devCode: code } : {}),
+      channel: 'email',
+    };
   }
 
   async pinLogin(restaurantId: string, pin: string) {
@@ -347,7 +364,9 @@ export class AuthService {
     // Failed attempt — increment counter across all restaurant staff.
     // Shared-device context: PIN attempts are tracked restaurant-wide, not per-user.
     // Max current attempts is the source of truth (candidates are unordered).
-    const currentAttempts = Math.max(...candidates.map((u) => u.pinAttempts ?? 0));
+    const currentAttempts = Math.max(
+      ...candidates.map((u: { pinAttempts: number | null }) => u.pinAttempts ?? 0),
+    );
     const attempts = currentAttempts + 1;
 
     await this.prisma.user.updateMany({
@@ -355,7 +374,11 @@ export class AuthService {
       data: {
         pinAttempts: attempts,
         ...(attempts >= MAX_ATTEMPTS
-          ? { pinLockedUntil: new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000) }
+          ? {
+              pinLockedUntil: new Date(
+                Date.now() + LOCKOUT_MINUTES * 60 * 1000,
+              ),
+            }
           : {}),
       },
     });
@@ -407,7 +430,10 @@ export class AuthService {
     if (user.isActive === false || user.disabledAt) {
       throw new UnauthorizedException('This account has been disabled.');
     }
-    if (!user.password || !(await bcrypt.compare(currentPassword, user.password))) {
+    if (
+      !user.password ||
+      !(await bcrypt.compare(currentPassword, user.password))
+    ) {
       throw new UnauthorizedException('Current password is incorrect.');
     }
     if (await bcrypt.compare(newPassword, user.password)) {
@@ -433,7 +459,8 @@ export class AuthService {
     restaurantId?: string,
   ): Promise<{ token: string; user: any; isNew: boolean }> {
     await this.checkCustomersAuthFeature(restaurantId);
-    if (!code) throw new HttpException('code is required', HttpStatus.BAD_REQUEST);
+    if (!code)
+      throw new HttpException('code is required', HttpStatus.BAD_REQUEST);
 
     const cleanName = name?.trim() || undefined;
     let user: any;
@@ -442,10 +469,14 @@ export class AuthService {
     // Phone-first flow
     if (phone && !email) {
       if (!this.twilioConfigured) {
-        throw new HttpException('SMS verification not configured.', HttpStatus.NOT_IMPLEMENTED);
+        throw new HttpException(
+          'SMS verification not configured.',
+          HttpStatus.NOT_IMPLEMENTED,
+        );
       }
       const approved = await this.verifyTwilioOtp(phone, code);
-      if (!approved) throw new UnauthorizedException('Invalid or expired code.');
+      if (!approved)
+        throw new UnauthorizedException('Invalid or expired code.');
 
       user = await this.usersService.findByPhone(phone);
       isNew = !user;
@@ -455,24 +486,32 @@ export class AuthService {
         user = await this.usersService.create({
           email: placeholderEmail,
           password,
-          role: 'CUSTOMER' as any,
+          role: 'CUSTOMER',
           phone,
           ...(cleanName ? { name: cleanName } : {}),
         });
       } else if (cleanName && !user.name) {
-        user = await this.prisma.user.update({ where: { id: user.id }, data: { name: cleanName } });
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: { name: cleanName },
+        });
       }
     } else {
       // Email flow
-      if (!email) throw new HttpException('email is required', HttpStatus.BAD_REQUEST);
+      if (!email)
+        throw new HttpException('email is required', HttpStatus.BAD_REQUEST);
 
       const tokenRecord = await this.prisma.verificationToken.findFirst({
         where: { email, usedAt: null, expiresAt: { gt: new Date() } },
         orderBy: { createdAt: 'desc' },
       });
-      if (!tokenRecord) throw new UnauthorizedException('Invalid or expired code.');
+      if (!tokenRecord)
+        throw new UnauthorizedException('Invalid or expired code.');
 
-      if ((tokenRecord as any).lockedUntil && new Date((tokenRecord as any).lockedUntil) > new Date()) {
+      if (
+        (tokenRecord as any).lockedUntil &&
+        new Date((tokenRecord as any).lockedUntil) > new Date()
+      ) {
         throw new HttpException(
           'Too many attempts. Please try again later.',
           HttpStatus.TOO_MANY_REQUESTS,
@@ -489,7 +528,11 @@ export class AuthService {
           data: {
             attempts,
             ...(attempts >= MAX_ATTEMPTS
-              ? { lockedUntil: new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000) }
+              ? {
+                  lockedUntil: new Date(
+                    Date.now() + LOCKOUT_MINUTES * 60 * 1000,
+                  ),
+                }
               : {}),
           },
         });
@@ -508,16 +551,19 @@ export class AuthService {
         user = await this.usersService.create({
           email,
           password,
-          role: 'CUSTOMER' as any,
+          role: 'CUSTOMER',
           ...(phone ? { phone } : {}),
           ...(cleanName ? { name: cleanName } : {}),
         });
       } else {
         const updates: any = {};
-        if (phone && !(user as any).phone) updates.phone = phone;
+        if (phone && !user.phone) updates.phone = phone;
         if (cleanName && !user.name) updates.name = cleanName;
         if (Object.keys(updates).length) {
-          user = await this.prisma.user.update({ where: { id: user.id }, data: updates });
+          user = await this.prisma.user.update({
+            where: { id: user.id },
+            data: updates,
+          });
         }
       }
     }

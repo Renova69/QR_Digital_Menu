@@ -60,7 +60,9 @@ export class FeedbackService {
   // Get all feedback for a restaurant (owner-only)
   async findAll(restaurantId: string, pagination: PaginationDto) {
     const page = Number.isFinite(pagination.page) ? (pagination.page ?? 1) : 1;
-    const limit = Number.isFinite(pagination.limit) ? (pagination.limit ?? 50) : 50;
+    const limit = Number.isFinite(pagination.limit)
+      ? (pagination.limit ?? 50)
+      : 50;
     const skip = (page - 1) * limit;
 
     const [data, total] = await Promise.all([
@@ -112,9 +114,9 @@ export class FeedbackService {
 
     const totalFeedbacks = feedbacks.length;
     const avgRating =
-      feedbacks.reduce((sum, f) => sum + f.rating, 0) / totalFeedbacks;
+      feedbacks.reduce((sum: number, f: { rating: number }) => sum + f.rating, 0) / totalFeedbacks;
     const googleRedirects = feedbacks.filter(
-      (f) => f.redirectedToGoogle,
+      (f: { redirectedToGoogle: boolean }) => f.redirectedToGoogle,
     ).length;
 
     const ratingDistribution: Record<number, number> = {
@@ -128,7 +130,7 @@ export class FeedbackService {
       ratingDistribution[f.rating] = (ratingDistribution[f.rating] || 0) + 1;
     }
 
-    const positiveCount = feedbacks.filter((f) => f.rating >= 4).length;
+    const positiveCount = feedbacks.filter((f: { rating: number }) => f.rating >= 4).length;
 
     return {
       totalFeedbacks,

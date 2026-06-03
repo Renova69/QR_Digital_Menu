@@ -50,8 +50,7 @@ export class RedisIoAdapter extends IoAdapter {
   createIOServer(port: number, options?: ServerOptions): unknown {
     const server = super.createIOServer(port, options);
     if (this.adapterConstructor) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (server as any).adapter(this.adapterConstructor);
+      server.adapter(this.adapterConstructor);
     }
     return server;
   }

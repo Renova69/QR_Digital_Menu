@@ -17,19 +17,23 @@ describe('RestaurantsService — Stripe Connect', () => {
     mockTranslation = {};
     mockStripe = {
       createExpressAccount: jest.fn().mockResolvedValue('acct_new'),
-      createAccountLink: jest.fn().mockResolvedValue('https://connect.stripe.com/onboard'),
+      createAccountLink: jest
+        .fn()
+        .mockResolvedValue('https://connect.stripe.com/onboard'),
       retrieveAccount: jest.fn().mockResolvedValue(true),
     };
 
     const mockFeature = {
-      getEffectiveTier: jest.fn((tier: string, force?: string | null) => force ?? tier),
+      getEffectiveTier: jest.fn(
+        (tier: string, force?: string | null) => force ?? tier,
+      ),
       hasFeature: jest.fn().mockReturnValue(true),
     };
 
     service = new RestaurantsService(
       mockPrisma,
-      mockTranslation as any,
-      mockStripe as any,
+      mockTranslation,
+      mockStripe,
       mockFeature as any,
     );
   });
@@ -78,7 +82,9 @@ describe('RestaurantsService — Stripe Connect', () => {
         stripeAccountId: null,
       });
 
-      await expect(service.generateConnectLink('rest1', 'user1')).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.generateConnectLink('rest1', 'user1'),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 

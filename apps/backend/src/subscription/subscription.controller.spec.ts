@@ -15,7 +15,9 @@ describe('SubscriptionController.getStatus — target restaurant', () => {
       user: { findUnique: jest.fn() },
       restaurant: { findUnique: jest.fn(), findFirst: jest.fn() },
     };
-    subscriptionService = { getSubscriptionDetails: jest.fn().mockResolvedValue(null) };
+    subscriptionService = {
+      getSubscriptionDetails: jest.fn().mockResolvedValue(null),
+    };
     controller = new SubscriptionController(
       subscriptionService,
       new FeatureService(),
@@ -24,7 +26,10 @@ describe('SubscriptionController.getStatus — target restaurant', () => {
   });
 
   it('resolves the EXPLICIT restaurant when the caller owns it', async () => {
-    prisma.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'OWNER' });
+    prisma.user.findUnique.mockResolvedValue({
+      restaurantId: null,
+      role: 'OWNER',
+    });
     prisma.restaurant.findUnique.mockResolvedValue({
       id: 'rest-2',
       ownerId: 'u1',
@@ -43,7 +48,10 @@ describe('SubscriptionController.getStatus — target restaurant', () => {
   });
 
   it('honors forceTier on the explicit restaurant', async () => {
-    prisma.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'OWNER' });
+    prisma.user.findUnique.mockResolvedValue({
+      restaurantId: null,
+      role: 'OWNER',
+    });
     prisma.restaurant.findUnique.mockResolvedValue({
       id: 'rest-2',
       ownerId: 'u1',
@@ -57,7 +65,10 @@ describe('SubscriptionController.getStatus — target restaurant', () => {
   });
 
   it('rejects an explicit restaurant the caller does not own or staff', async () => {
-    prisma.user.findUnique.mockResolvedValue({ restaurantId: null, role: 'OWNER' });
+    prisma.user.findUnique.mockResolvedValue({
+      restaurantId: null,
+      role: 'OWNER',
+    });
     prisma.restaurant.findUnique.mockResolvedValue({
       id: 'rest-victim',
       ownerId: 'someone-else',
@@ -65,11 +76,16 @@ describe('SubscriptionController.getStatus — target restaurant', () => {
       forceTier: null,
     });
 
-    await expect(controller.getStatus(req(), 'rest-victim')).rejects.toThrow(ForbiddenException);
+    await expect(controller.getStatus(req(), 'rest-victim')).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 
   it('falls back to the caller restaurant when no id is supplied', async () => {
-    prisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest-own', role: 'OWNER' });
+    prisma.user.findUnique.mockResolvedValue({
+      restaurantId: 'rest-own',
+      role: 'OWNER',
+    });
     prisma.restaurant.findUnique.mockResolvedValue({
       id: 'rest-own',
       tier: 'STARTER',

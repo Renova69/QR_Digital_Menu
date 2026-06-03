@@ -62,9 +62,7 @@ export class DeviceEnrollmentService {
     await this.verifyManagerAccess(restaurantId, createdById);
 
     const rawToken = crypto.randomBytes(32).toString('base64url');
-    const expiresAt = new Date(
-      Date.now() + ENROLLMENT_TTL_MINUTES * 60 * 1000,
-    );
+    const expiresAt = new Date(Date.now() + ENROLLMENT_TTL_MINUTES * 60 * 1000);
 
     await this.tokenStore.create({
       data: {

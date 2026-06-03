@@ -1,11 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Patch,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Patch, Req, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { PlatformSettingsService } from './platform-settings.service';
@@ -21,7 +14,9 @@ export class PlatformSettingsController {
   ) {}
 
   @Get('platform-settings/public')
-  @ApiOperation({ summary: 'Get public GDPR / legal settings (unauthenticated)' })
+  @ApiOperation({
+    summary: 'Get public GDPR / legal settings (unauthenticated)',
+  })
   async getPublic() {
     const settings = await this.platformSettingsService.getSettings();
     return this.platformSettingsService.getPublicPayload(settings);
@@ -38,10 +33,7 @@ export class PlatformSettingsController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Patch('super-admin/platform-settings')
   @ApiOperation({ summary: 'Update platform settings (super-admin)' })
-  async updateAdmin(
-    @Body() dto: UpdatePlatformSettingsDto,
-    @Req() req: any,
-  ) {
+  async updateAdmin(@Body() dto: UpdatePlatformSettingsDto, @Req() req: any) {
     return this.platformSettingsService.updateSettings(dto, req.user.id);
   }
 }

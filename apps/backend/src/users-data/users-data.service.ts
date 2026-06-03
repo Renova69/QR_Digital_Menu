@@ -16,10 +16,14 @@ export class UsersDataService {
   async exportSelf(userId: string) {
     const settings = await this.platformSettings.getSettings();
     if (!settings.dataExportEndpointEnabled) {
-      throw new ForbiddenException('Data export is not enabled on this platform.');
+      throw new ForbiddenException(
+        'Data export is not enabled on this platform.',
+      );
     }
 
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
     const orders = await this.prisma.order.findMany({
       where: { customerId: userId },
       include: { items: true, feedback: true },
@@ -69,10 +73,14 @@ export class UsersDataService {
   async eraseSelf(userId: string) {
     const settings = await this.platformSettings.getSettings();
     if (!settings.erasureEndpointEnabled) {
-      throw new ForbiddenException('Account deletion is not enabled on this platform.');
+      throw new ForbiddenException(
+        'Account deletion is not enabled on this platform.',
+      );
     }
 
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
 
     const ownedRestaurants = await this.prisma.restaurant.count({
       where: { ownerId: userId },
@@ -102,8 +110,12 @@ export class UsersDataService {
         },
       }),
       this.prisma.loyaltyAccount.deleteMany({ where: { userId } }),
-      this.prisma.deviceEnrollmentToken.deleteMany({ where: { createdById: userId } }),
-      this.prisma.verificationToken.deleteMany({ where: { email: user.email } }),
+      this.prisma.deviceEnrollmentToken.deleteMany({
+        where: { createdById: userId },
+      }),
+      this.prisma.verificationToken.deleteMany({
+        where: { email: user.email },
+      }),
       this.prisma.user.delete({ where: { id: userId } }),
     ]);
   }

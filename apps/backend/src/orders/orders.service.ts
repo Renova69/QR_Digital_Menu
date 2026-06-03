@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { DateTime } from 'luxon';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -27,10 +28,16 @@ import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { isLoyaltyAvailable } from '../loyalty/loyalty-availability.util';
 
 /** Roles that may be attributed as POS staff on an order (#4). */
-const POS_STAFF_ROLES = new Set(['OWNER', 'MANAGER', 'WAITER', 'KITCHEN', 'STAFF']);
+const POS_STAFF_ROLES = new Set([
+  'OWNER',
+  'MANAGER',
+  'WAITER',
+  'KITCHEN',
+  'STAFF',
+]);
 
 const LOYALTY_CONFIG = {
-  MAX_SIGNUP_BONUS: 75,    // hard cap on signup bonus (= €0.50)
+  MAX_SIGNUP_BONUS: 75, // hard cap on signup bonus (= €0.50)
   MAX_ORDER_DISCOUNT: 0.15, // max 15% of order total redeemable
 } as const;
 
@@ -44,7 +51,10 @@ export class OrdersService {
     private readonly featureService: FeatureService,
   ) {}
 
-  async create(createOrderDto: CreateOrderDto, staffUserId: string | null = null) {
+  async create(
+    createOrderDto: CreateOrderDto,
+    staffUserId: string | null = null,
+  ) {
     // `createOrderDto.source` is the caller's INTENT only — used here to require
     // an authenticated staff identity for POS orders. The source actually
     // recorded on the Order is DERIVED from resolvePosStaff below (#L3); never
@@ -59,7 +69,9 @@ export class OrdersService {
 
     // 1. Fetch all menu items at once (no N+1). Deduplicate IDs —
     //    same item added twice (e.g. qty 1 + qty 1) sends duplicate menuItemIds.
-    const menuItemIds = [...new Set(createOrderDto.items.map((i) => i.menuItemId))];
+    const menuItemIds = [
+      ...new Set(createOrderDto.items.map((i) => i.menuItemId)),
+    ];
 
     const dbItems = await this.prisma.menuItem.findMany({
       where: { id: { in: menuItemIds } },
@@ -116,16 +128,28 @@ export class OrdersService {
       });
     }
 
-    const effectiveTier = this.featureService.getEffectiveTier(String(restaurant.tier), restaurant.forceTier ?? null);
-    if (!this.featureService.hasFeature(effectiveTier, FeatureFlag.ORDERS_RECEIVE)) {
-      throw new ForbiddenException({ code: 'FEATURE_LOCKED', message: 'Online ordering is not available on this plan' });
+    const effectiveTier = this.featureService.getEffectiveTier(
+      String(restaurant.tier),
+      restaurant.forceTier ?? null,
+    );
+    if (
+      !this.featureService.hasFeature(effectiveTier, FeatureFlag.ORDERS_RECEIVE)
+    ) {
+      throw new ForbiddenException({
+        code: 'FEATURE_LOCKED',
+        message: 'Online ordering is not available on this plan',
+      });
     }
 
     // Attribute the order to POS staff ONLY when the authenticated caller is a
     // staff member of THIS restaurant (or its owner). Otherwise — a logged-in
     // customer, or an owner browsing another restaurant — the order is a normal
     // customer order, not POS (#4). Prevents misclassifying customers as staff.
-    const resolvedStaffUserId = await this.resolvePosStaff(staffUserId, restaurant.ownerId, restaurantId);
+    const resolvedStaffUserId = await this.resolvePosStaff(
+      staffUserId,
+      restaurant.ownerId,
+      restaurantId,
+    );
 
     // 5. Resolve or create TableSession for pay-at-table.
     // The client sends the table NAME (e.g. "1"). We persist the real table
@@ -153,12 +177,13 @@ export class OrdersService {
       const table = await this.prisma.restaurantTable.findFirst({
         where: { name: createOrderDto.tableId, restaurantId },
       });
-      if (!table) throw new NotFoundException('Table not found for this restaurant');
+      if (!table)
+        throw new NotFoundException('Table not found for this restaurant');
 
       const tableCuid = table.id;
       resolvedTableCuid = tableCuid;
 
-      const newSession = await this.prisma.$transaction(async (tx) => {
+      const newSession = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const existing = await tx.tableSession.findFirst({
           where: {
             tableId: tableCuid,
@@ -219,7 +244,11 @@ export class OrdersService {
     // 6. Pre-calculate totals server-side (never trust client prices)
     let computedTotal = 0;
     let itemsPointsRedeemed = 0;
-    const itemsData: { menuItemId: string; quantity: number; selectedOptions: any[] }[] = [];
+    const itemsData: {
+      menuItemId: string;
+      quantity: number;
+      selectedOptions: any[];
+    }[] = [];
 
     // Redemption matching strategy:
     // Preferred path — redeemCartIds: exact match by the stable frontend cart
@@ -244,25 +273,35 @@ export class OrdersService {
     for (const item of createOrderDto.items) {
       const dbItem = itemsMap.get(item.menuItemId);
       if (!dbItem) {
-        throw new BadRequestException(`Menu item not found: ${item.menuItemId}`);
+        throw new BadRequestException(
+          `Menu item not found: ${item.menuItemId}`,
+        );
       }
       let itemPrice = dbItem.price;
 
       let isRedeemedFree: boolean;
       if (redeemCartIdSet) {
         // Exact cartId match — always correct regardless of duplicate menuItemIds.
-        isRedeemedFree = !!(item.cartId && redeemCartIdSet.has(item.cartId) && dbItem.rewardPointsPrice);
+        isRedeemedFree = !!(
+          item.cartId &&
+          redeemCartIdSet.has(item.cartId) &&
+          dbItem.rewardPointsPrice
+        );
       } else {
         // Legacy count-based fallback.
         const availableRedemptions = redeemCounts.get(item.menuItemId) ?? 0;
         const usedRedemptions = usedCounts.get(item.menuItemId) ?? 0;
-        isRedeemedFree = availableRedemptions > usedRedemptions && !!dbItem.rewardPointsPrice;
+        isRedeemedFree =
+          availableRedemptions > usedRedemptions && !!dbItem.rewardPointsPrice;
       }
 
       if (isRedeemedFree) {
         if (!redeemCartIdSet) {
           // Advance the fallback counter so the next identical menuItemId isn't also comped.
-          usedCounts.set(item.menuItemId, (usedCounts.get(item.menuItemId) ?? 0) + 1);
+          usedCounts.set(
+            item.menuItemId,
+            (usedCounts.get(item.menuItemId) ?? 0) + 1,
+          );
         }
         itemsPointsRedeemed += (dbItem.rewardPointsPrice ?? 0) * item.quantity;
         itemPrice = 0;
@@ -275,7 +314,7 @@ export class OrdersService {
         const itemOptions = optionsMap.get(item.menuItemId) || [];
 
         for (const selected of item.selectedOptions) {
-          const option = itemOptions.find((o) => o.id === selected.optionId);
+          const option = itemOptions.find((o: { id: string }) => o.id === selected.optionId);
           if (!option) {
             throw new BadRequestException({
               message: 'Invalid option selected',
@@ -287,7 +326,7 @@ export class OrdersService {
             name: string;
             priceModifier: number;
           }[];
-          const choice = choices.find((c) => c.name === selected.choiceName);
+          const choice = choices.find((c: { name: string }) => c.name === selected.choiceName);
           if (!choice) {
             throw new BadRequestException({
               message: 'Invalid choice selected',
@@ -313,11 +352,11 @@ export class OrdersService {
     }
 
     // 7. Main transaction — loyalty + order creation are atomic
-    const finalOrder = await this.prisma.$transaction(async (tx) => {
+    const finalOrder = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       let finalTotal = computedTotal;
       let pointsEarned = 0;
       let pointsRedeemedForDiscount = 0;
-      let pointsRedeemedForItems = itemsPointsRedeemed;
+      const pointsRedeemedForItems = itemsPointsRedeemed;
       let loyaltyAcc = null;
       let totalPointsRedeemed = 0;
       let purchasePointsEarned = 0;
@@ -379,7 +418,8 @@ export class OrdersService {
           }
         }
 
-        totalPointsRedeemed = pointsRedeemedForDiscount + pointsRedeemedForItems;
+        totalPointsRedeemed =
+          pointsRedeemedForDiscount + pointsRedeemedForItems;
 
         if (loyaltyAcc.points < totalPointsRedeemed) {
           throw new BadRequestException(
@@ -450,9 +490,28 @@ export class OrdersService {
           restaurant.loyaltyPointExpiryDays || 90,
         );
 
-        await redeemAccountPoints(tx, loyaltyAcc.id, totalPointsRedeemed, order.id);
-        await addEarnedPointBatch(tx, loyaltyAcc.id, purchasePointsEarned, 'EARN', expiresAt, order.id);
-        await addEarnedPointBatch(tx, loyaltyAcc.id, signupBonusPoints, 'SIGNUP', expiresAt, order.id);
+        await redeemAccountPoints(
+          tx,
+          loyaltyAcc.id,
+          totalPointsRedeemed,
+          order.id,
+        );
+        await addEarnedPointBatch(
+          tx,
+          loyaltyAcc.id,
+          purchasePointsEarned,
+          'EARN',
+          expiresAt,
+          order.id,
+        );
+        await addEarnedPointBatch(
+          tx,
+          loyaltyAcc.id,
+          signupBonusPoints,
+          'SIGNUP',
+          expiresAt,
+          order.id,
+        );
       }
 
       return order;
@@ -583,7 +642,11 @@ export class OrdersService {
     return order;
   }
 
-  async updateStatus(id: string, updateOrderDto: UpdateOrderDto, userId: string) {
+  async updateStatus(
+    id: string,
+    updateOrderDto: UpdateOrderDto,
+    userId: string,
+  ) {
     await this.findOne(id, userId);
 
     const updatedOrder = await this.prisma.order.update({

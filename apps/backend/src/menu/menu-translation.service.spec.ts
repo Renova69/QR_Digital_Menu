@@ -66,9 +66,7 @@ describe('MenuTranslationService', () => {
     it('makes no API calls when all translations are already cached', async () => {
       const category = makeCategory({
         translations: { en: { name: 'Starters' } },
-        items: [
-          makeItem({ translations: { en: { name: 'Soup' } } }),
-        ],
+        items: [makeItem({ translations: { en: { name: 'Soup' } } })],
       });
 
       await service.applyLazyTranslations([category], 'en');
@@ -89,7 +87,11 @@ describe('MenuTranslationService', () => {
       expect(mockPrisma.menuCategory.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'cat-1' },
-          data: expect.objectContaining({ translations: expect.objectContaining({ bg: { name: 'Starters BG' } }) }),
+          data: expect.objectContaining({
+            translations: expect.objectContaining({
+              bg: { name: 'Starters BG' },
+            }),
+          }),
         }),
       );
     });
@@ -104,7 +106,11 @@ describe('MenuTranslationService', () => {
     });
 
     it('translates item name and description in single batched call', async () => {
-      mockTranslation.translateTexts.mockResolvedValue(['Начала', 'Супа', 'Горещ']);
+      mockTranslation.translateTexts.mockResolvedValue([
+        'Начала',
+        'Супа',
+        'Горещ',
+      ]);
       const item = makeItem({ description: 'Hot' });
       const category = makeCategory({ items: [item] });
 
@@ -112,7 +118,10 @@ describe('MenuTranslationService', () => {
 
       // category name + item name + description = 3 texts, one call
       expect(mockTranslation.translateTexts).toHaveBeenCalledTimes(1);
-      const [texts] = mockTranslation.translateTexts.mock.calls[0] as [string[], string];
+      const [texts] = mockTranslation.translateTexts.mock.calls[0] as [
+        string[],
+        string,
+      ];
       expect(texts).toContain('Starters');
       expect(texts).toContain('Soup');
       expect(texts).toContain('Hot');
@@ -135,7 +144,10 @@ describe('MenuTranslationService', () => {
         translations: null,
         choices: [{ name: 'Small' }, { name: 'Large' }],
       };
-      const item = makeItem({ translations: { bg: { name: 'Soup' } }, options: [option] });
+      const item = makeItem({
+        translations: { bg: { name: 'Soup' } },
+        options: [option],
+      });
       const category = makeCategory({
         translations: { bg: { name: 'Starters' } },
         items: [item],
@@ -152,7 +164,9 @@ describe('MenuTranslationService', () => {
       mockPrisma.menuCategory.update.mockRejectedValue(new Error('DB error'));
       const category = makeCategory({ items: [] });
 
-      await expect(service.applyLazyTranslations([category], 'bg')).resolves.toBeUndefined();
+      await expect(
+        service.applyLazyTranslations([category], 'bg'),
+      ).resolves.toBeUndefined();
     });
 
     it('does not throw when item DB write fails — logs warning only', async () => {
@@ -161,11 +175,15 @@ describe('MenuTranslationService', () => {
       const item = makeItem({ description: 'Hot' });
       const category = makeCategory({ items: [item] });
 
-      await expect(service.applyLazyTranslations([category], 'ro')).resolves.toBeUndefined();
+      await expect(
+        service.applyLazyTranslations([category], 'ro'),
+      ).resolves.toBeUndefined();
     });
 
     it('does not throw when option DB write fails — logs warning only', async () => {
-      mockPrisma.menuOption.update.mockRejectedValue(new Error('Option DB error'));
+      mockPrisma.menuOption.update.mockRejectedValue(
+        new Error('Option DB error'),
+      );
       const option = {
         id: 'opt-1',
         name: 'Size',
@@ -181,7 +199,9 @@ describe('MenuTranslationService', () => {
         items: [item],
       });
 
-      await expect(service.applyLazyTranslations([category], 'ro')).resolves.toBeUndefined();
+      await expect(
+        service.applyLazyTranslations([category], 'ro'),
+      ).resolves.toBeUndefined();
     });
 
     it('chunks translations at DEEPL_BATCH_LIMIT (50) texts per call', async () => {
@@ -193,7 +213,10 @@ describe('MenuTranslationService', () => {
       await service.applyLazyTranslations(categories, 'ro');
 
       expect(mockTranslation.translateTexts).toHaveBeenCalledTimes(2);
-      const [firstChunk] = mockTranslation.translateTexts.mock.calls[0] as [string[], string];
+      const [firstChunk] = mockTranslation.translateTexts.mock.calls[0] as [
+        string[],
+        string,
+      ];
       expect(firstChunk).toHaveLength(50);
     });
 
@@ -206,7 +229,10 @@ describe('MenuTranslationService', () => {
 
       await service.applyLazyTranslations([category], 'ro');
 
-      const [texts] = mockTranslation.translateTexts.mock.calls[0] as [string[], string];
+      const [texts] = mockTranslation.translateTexts.mock.calls[0] as [
+        string[],
+        string,
+      ];
       expect(texts.some((t: string) => t === 'Milk')).toBe(true);
       expect(texts.some((t: string) => t === 'Vegan')).toBe(true);
     });
@@ -228,12 +254,20 @@ describe('MenuTranslationService', () => {
 
     it('handles item with null allergens, dietaryTags, options, and empty description', async () => {
       mockTranslation.translateTexts.mockResolvedValue(['Cat', 'Item']);
-      const item = makeItem({ description: '', allergens: null, dietaryTags: null, options: null });
+      const item = makeItem({
+        description: '',
+        allergens: null,
+        dietaryTags: null,
+        options: null,
+      });
       const category = makeCategory({ items: [item] });
 
       await service.applyLazyTranslations([category], 'ro');
 
-      const [texts] = mockTranslation.translateTexts.mock.calls[0] as [string[], string];
+      const [texts] = mockTranslation.translateTexts.mock.calls[0] as [
+        string[],
+        string,
+      ];
       expect(texts).toContain('Starters');
       expect(texts).toContain('Soup');
       // empty description and null arrays → only name + category name in batch
@@ -241,7 +275,10 @@ describe('MenuTranslationService', () => {
     });
 
     it('handles category with null items', async () => {
-      const category = makeCategory({ items: undefined, translations: { ro: { name: 'Starters' } } });
+      const category = makeCategory({
+        items: undefined,
+        translations: { ro: { name: 'Starters' } },
+      });
 
       await service.applyLazyTranslations([category], 'ro');
 

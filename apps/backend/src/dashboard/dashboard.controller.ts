@@ -63,7 +63,11 @@ export class DashboardController {
       throw new BadRequestException('restaurantId is required');
     }
     await this.verifyDashboardAccess(user, restaurantId);
-    return this.dashboardService.getPaymentsSummary(restaurantId, dateRange.startDate, dateRange.endDate);
+    return this.dashboardService.getPaymentsSummary(
+      restaurantId,
+      dateRange.startDate,
+      dateRange.endDate,
+    );
   }
 
   @UseGuards(JwtAuthGuard, FeatureGuard)

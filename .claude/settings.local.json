@@ -277,7 +277,10 @@
       "PowerShell(Get-CimInstance *)",
       "PowerShell(Stop-Process *)",
       "PowerShell(& \"F:\\\\PROGRAMING\\\\QR_Digital_Menu-main\\\\deploy.ps1\")",
-      "PowerShell(cd \"F:\\\\PROGRAMING\\\\QR_Digital_Menu-main\\\\apps\\\\backend\"; $env:PRISMA_SKIP_DATABASE_VERSION_CHECK=\"1\"; npx prisma migrate dev --name add_closed_paid_status --create-only 2>&1)"
+      "PowerShell(cd \"F:\\\\PROGRAMING\\\\QR_Digital_Menu-main\\\\apps\\\\backend\"; $env:PRISMA_SKIP_DATABASE_VERSION_CHECK=\"1\"; npx prisma migrate dev --name add_closed_paid_status --create-only 2>&1)",
+      "Bash(awk '/^@@/{h=$0} /forceTierExpiresAt|updateTier|forceTierExpiresInDays/{if\\(h\\){print h; h=\"\"} print}')",
+      "Bash(awk '/^@@ -172,13/{p=1} p&&/^@@/&&!/-172,13/{if\\(seen\\)p=0} {if\\(p\\)print} /^@@ -172,13/{seen=1}')",
+      "Bash(awk '{print $2}')"
     ]
   }
 }

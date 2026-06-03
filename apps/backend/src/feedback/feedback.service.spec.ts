@@ -34,7 +34,12 @@ describe('FeedbackService', () => {
   });
 
   describe('create', () => {
-    const dto = { orderId: 'order-1', restaurantId: 'rest-1', rating: 5, comment: 'Great!' };
+    const dto = {
+      orderId: 'order-1',
+      restaurantId: 'rest-1',
+      rating: 5,
+      comment: 'Great!',
+    };
 
     it('creates feedback when no existing entry and order exists', async () => {
       mockPrisma.feedback.findUnique.mockResolvedValue(null);
@@ -78,7 +83,9 @@ describe('FeedbackService', () => {
       await service.create(dtoWithRedirect);
 
       expect(mockPrisma.feedback.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ redirectedToGoogle: true }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ redirectedToGoogle: true }),
+        }),
       );
     });
   });
@@ -99,7 +106,9 @@ describe('FeedbackService', () => {
     it('throws NotFoundException when restaurant not found', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(null);
 
-      await expect(service.getGoogleReviewUrl('bad-id')).rejects.toThrow(NotFoundException);
+      await expect(service.getGoogleReviewUrl('bad-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

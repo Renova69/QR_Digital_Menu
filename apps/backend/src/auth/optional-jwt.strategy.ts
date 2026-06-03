@@ -4,7 +4,10 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
-export class OptionalJwtStrategy extends PassportStrategy(Strategy, 'jwt-optional') {
+export class OptionalJwtStrategy extends PassportStrategy(
+  Strategy,
+  'jwt-optional',
+) {
   constructor(private readonly configService: ConfigService) {
     const allowBearerAuth =
       process.env.NODE_ENV === 'test' ||

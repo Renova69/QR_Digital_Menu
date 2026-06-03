@@ -27,7 +27,8 @@ export class MenuImportController {
   @UseGuards(ApiKeyGuard)
   importFromOcr(
     @Param('id') id: string,
-    @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: ImportMenuDto,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    dto: ImportMenuDto,
   ) {
     return this.menuImportService.upsertMenu(id, dto);
   }
@@ -40,12 +41,13 @@ export class MenuImportController {
   @UseGuards(JwtAuthGuard)
   importConfirm(
     @Param('id') id: string,
-    @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: ImportMenuDto,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    dto: ImportMenuDto,
     @Request() req: any,
   ) {
-    return this.menuImportService.checkOwnership(id, req.user.id).then(() =>
-      this.menuImportService.upsertMenu(id, dto),
-    );
+    return this.menuImportService
+      .checkOwnership(id, req.user.id)
+      .then(() => this.menuImportService.upsertMenu(id, dto));
   }
 
   /**

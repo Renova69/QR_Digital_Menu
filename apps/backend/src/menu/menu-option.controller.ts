@@ -25,11 +25,7 @@ export class MenuOptionController {
     @Body(ValidationPipe) createMenuOptionDto: CreateMenuOptionDto,
     @Request() req: any,
   ) {
-    return this.crud.createMenuOption(
-      itemId,
-      createMenuOptionDto,
-      req.user.id,
-    );
+    return this.crud.createMenuOption(itemId, createMenuOptionDto, req.user.id);
   }
 }
 
@@ -44,11 +40,7 @@ export class MenuOptionDetailController {
     @Body(ValidationPipe) updateMenuOptionDto: UpdateMenuOptionDto,
     @Request() req: any,
   ) {
-    return this.crud.updateMenuOption(
-      id,
-      updateMenuOptionDto,
-      req.user.id,
-    );
+    return this.crud.updateMenuOption(id, updateMenuOptionDto, req.user.id);
   }
 
   @Delete(':id')

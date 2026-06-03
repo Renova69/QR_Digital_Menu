@@ -19,7 +19,6 @@ const mockPrisma: Record<string, any> = {
 
 const mockViews = { isReady: jest.fn().mockReturnValue(false) };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnalyticsResult = Record<string, any>;
 
 describe('DashboardService', () => {
@@ -40,9 +39,13 @@ describe('DashboardService', () => {
 
   describe('getSummary', () => {
     beforeEach(() => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'Europe/Sofia' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        timezone: 'Europe/Sofia',
+      });
       mockPrisma.order.count.mockResolvedValue(5);
-      mockPrisma.order.aggregate.mockResolvedValue({ _sum: { totalPrice: 250 } });
+      mockPrisma.order.aggregate.mockResolvedValue({
+        _sum: { totalPrice: 250 },
+      });
       mockPrisma.assistanceRequest.count.mockResolvedValue(2);
       mockPrisma.order.findMany.mockResolvedValue([]);
     });
@@ -57,7 +60,9 @@ describe('DashboardService', () => {
     });
 
     it('returns 0 totalRevenue when no orders', async () => {
-      mockPrisma.order.aggregate.mockResolvedValue({ _sum: { totalPrice: null } });
+      mockPrisma.order.aggregate.mockResolvedValue({
+        _sum: { totalPrice: null },
+      });
 
       const result = await service.getSummary('rest-1');
 
@@ -81,10 +86,16 @@ describe('DashboardService', () => {
   });
 
   describe('getAnalytics', () => {
-    const defaultAggregate = { _sum: { totalPrice: 100 }, _count: 3, _avg: { totalPrice: 33.33 } };
+    const defaultAggregate = {
+      _sum: { totalPrice: 100 },
+      _count: 3,
+      _avg: { totalPrice: 33.33 },
+    };
 
     beforeEach(() => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'Europe/Sofia' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        timezone: 'Europe/Sofia',
+      });
       mockPrisma.order.findMany.mockResolvedValue([]);
       mockPrisma.order.aggregate.mockResolvedValue(defaultAggregate);
       mockPrisma.order.groupBy.mockResolvedValue([]);
@@ -92,7 +103,10 @@ describe('DashboardService', () => {
     });
 
     it('returns analytics result with expected shape', async () => {
-      const result = (await service.getAnalytics('rest-1', 7)) as AnalyticsResult;
+      const result = (await service.getAnalytics(
+        'rest-1',
+        7,
+      )) as AnalyticsResult;
 
       expect(result).toHaveProperty('period', 7);
       expect(result).toHaveProperty('revenueTrend');
@@ -120,7 +134,12 @@ describe('DashboardService', () => {
     });
 
     it('uses date range when startDate and endDate provided', async () => {
-      const result = (await service.getAnalytics('rest-1', 7, '2026-01-01', '2026-01-07')) as AnalyticsResult;
+      const result = (await service.getAnalytics(
+        'rest-1',
+        7,
+        '2026-01-01',
+        '2026-01-07',
+      )) as AnalyticsResult;
 
       expect(result).toBeDefined();
       expect(result['period']).toBe(7);
@@ -128,10 +147,21 @@ describe('DashboardService', () => {
 
     it('calculates 100% revenueChange when previous period had 0 revenue', async () => {
       mockPrisma.order.aggregate
-        .mockResolvedValueOnce({ _sum: { totalPrice: 500 }, _count: 10, _avg: { totalPrice: 50 } }) // current
-        .mockResolvedValueOnce({ _sum: { totalPrice: 0 }, _count: 0, _avg: { totalPrice: 0 } });    // previous
+        .mockResolvedValueOnce({
+          _sum: { totalPrice: 500 },
+          _count: 10,
+          _avg: { totalPrice: 50 },
+        }) // current
+        .mockResolvedValueOnce({
+          _sum: { totalPrice: 0 },
+          _count: 0,
+          _avg: { totalPrice: 0 },
+        }); // previous
 
-      const result = (await service.getAnalytics('rest-2', 7)) as AnalyticsResult;
+      const result = (await service.getAnalytics(
+        'rest-2',
+        7,
+      )) as AnalyticsResult;
 
       expect(result['comparison']['revenueChange']).toBe(100);
     });
@@ -143,7 +173,10 @@ describe('DashboardService', () => {
         _avg: { totalPrice: 0 },
       });
 
-      const result = (await service.getAnalytics('rest-3', 7)) as AnalyticsResult;
+      const result = (await service.getAnalytics(
+        'rest-3',
+        7,
+      )) as AnalyticsResult;
 
       expect(result['comparison']['revenueChange']).toBe(0);
     });
@@ -151,7 +184,9 @@ describe('DashboardService', () => {
 
   describe('getOrdersByStatus (via getAnalytics)', () => {
     beforeEach(() => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'Europe/Sofia' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        timezone: 'Europe/Sofia',
+      });
       mockPrisma.order.findMany.mockResolvedValue([]);
       mockPrisma.order.aggregate.mockResolvedValue({
         _sum: { totalPrice: 0 },
@@ -164,15 +199,22 @@ describe('DashboardService', () => {
     it('returns all 4 statuses with 0 count when groupBy returns empty', async () => {
       mockPrisma.order.groupBy.mockResolvedValue([]);
 
-      const result = (await service.getAnalytics('rest-1', 7)) as AnalyticsResult;
-      const statuses = result['ordersByStatus'].map((s: { status: string }) => s.status);
+      const result = (await service.getAnalytics(
+        'rest-1',
+        7,
+      )) as AnalyticsResult;
+      const statuses = result['ordersByStatus'].map(
+        (s: { status: string }) => s.status,
+      );
 
       expect(statuses).toContain(OrderStatus.NEW);
       expect(statuses).toContain(OrderStatus.IN_PROGRESS);
       expect(statuses).toContain(OrderStatus.SERVED);
       expect(statuses).toContain(OrderStatus.CANCELED);
       expect(result['ordersByStatus']).toHaveLength(4);
-      result['ordersByStatus'].forEach((s: { count: number }) => expect(s.count).toBe(0));
+      result['ordersByStatus'].forEach((s: { count: number }) =>
+        expect(s.count).toBe(0),
+      );
     });
 
     it('maps groupBy counts to correct statuses', async () => {
@@ -181,10 +223,19 @@ describe('DashboardService', () => {
         { status: OrderStatus.SERVED, _count: 7 },
       ]);
 
-      const result = (await service.getAnalytics('rest-1', 7)) as AnalyticsResult;
-      const newEntry = result['ordersByStatus'].find((s: { status: string }) => s.status === OrderStatus.NEW);
-      const servedEntry = result['ordersByStatus'].find((s: { status: string }) => s.status === OrderStatus.SERVED);
-      const canceledEntry = result['ordersByStatus'].find((s: { status: string }) => s.status === OrderStatus.CANCELED);
+      const result = (await service.getAnalytics(
+        'rest-1',
+        7,
+      )) as AnalyticsResult;
+      const newEntry = result['ordersByStatus'].find(
+        (s: { status: string }) => s.status === OrderStatus.NEW,
+      );
+      const servedEntry = result['ordersByStatus'].find(
+        (s: { status: string }) => s.status === OrderStatus.SERVED,
+      );
+      const canceledEntry = result['ordersByStatus'].find(
+        (s: { status: string }) => s.status === OrderStatus.CANCELED,
+      );
 
       expect(newEntry?.count).toBe(3);
       expect(servedEntry?.count).toBe(7);
@@ -194,13 +245,22 @@ describe('DashboardService', () => {
 
   describe('servedRate calculation', () => {
     it('returns 0 servedRate when no orders', async () => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'Europe/Sofia' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        timezone: 'Europe/Sofia',
+      });
       mockPrisma.order.findMany.mockResolvedValue([]);
-      mockPrisma.order.aggregate.mockResolvedValue({ _sum: { totalPrice: 0 }, _count: 0, _avg: { totalPrice: 0 } });
+      mockPrisma.order.aggregate.mockResolvedValue({
+        _sum: { totalPrice: 0 },
+        _count: 0,
+        _avg: { totalPrice: 0 },
+      });
       mockPrisma.order.groupBy.mockResolvedValue([]);
       mockPrisma.orderItem.findMany.mockResolvedValue([]);
 
-      const result = (await service.getAnalytics('rest-1', 7)) as AnalyticsResult;
+      const result = (await service.getAnalytics(
+        'rest-1',
+        7,
+      )) as AnalyticsResult;
 
       expect(result['servedRate']).toBe(0);
     });
@@ -208,9 +268,13 @@ describe('DashboardService', () => {
 
   describe('getAnalytics with non-empty data (loop body coverage)', () => {
     beforeEach(() => {
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'Europe/Sofia' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        timezone: 'Europe/Sofia',
+      });
       mockPrisma.order.aggregate.mockResolvedValue({
-        _sum: { totalPrice: 50 }, _count: 1, _avg: { totalPrice: 50 },
+        _sum: { totalPrice: 50 },
+        _count: 1,
+        _avg: { totalPrice: 50 },
       });
       mockPrisma.order.groupBy.mockResolvedValue([]);
       // Return an order so revenueTrend, peakHours and ordersByTable loop bodies run
@@ -228,7 +292,10 @@ describe('DashboardService', () => {
     });
 
     it('populates topItems when orderItems exist', async () => {
-      const result = (await service.getAnalytics('rest-1', 7)) as AnalyticsResult;
+      const result = (await service.getAnalytics(
+        'rest-1',
+        7,
+      )) as AnalyticsResult;
 
       expect(result['topItems']).toHaveLength(1);
       expect(result['topItems'][0].name).toBe('Pizza');
@@ -236,21 +303,30 @@ describe('DashboardService', () => {
     });
 
     it('populates categoryBreakdown when orderItems with categories exist', async () => {
-      const result = (await service.getAnalytics('rest-1', 7)) as AnalyticsResult;
+      const result = (await service.getAnalytics(
+        'rest-1',
+        7,
+      )) as AnalyticsResult;
 
       expect(result['categoryBreakdown']).toHaveLength(1);
       expect(result['categoryBreakdown'][0].category).toBe('Food');
     });
 
     it('populates ordersByTable when orders with tableId exist', async () => {
-      const result = (await service.getAnalytics('rest-1', 7)) as AnalyticsResult;
+      const result = (await service.getAnalytics(
+        'rest-1',
+        7,
+      )) as AnalyticsResult;
 
       expect(result['ordersByTable']).toHaveLength(1);
       expect(result['ordersByTable'][0].table).toBe('table-1');
     });
 
     it('calls order.findMany and returns non-empty revenueTrend array', async () => {
-      const result = (await service.getAnalytics('rest-1', 7)) as AnalyticsResult;
+      const result = (await service.getAnalytics(
+        'rest-1',
+        7,
+      )) as AnalyticsResult;
 
       expect(mockPrisma.order.findMany).toHaveBeenCalled();
       expect(Array.isArray(result['revenueTrend'])).toBe(true);
@@ -261,10 +337,14 @@ describe('DashboardService', () => {
   describe('getAnalytics via materialized views (isReady = true)', () => {
     beforeEach(() => {
       mockViews.isReady.mockReturnValue(true);
-      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'Europe/Sofia' });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        timezone: 'Europe/Sofia',
+      });
       mockPrisma.$queryRaw.mockResolvedValue([]);
       mockPrisma.order.aggregate.mockResolvedValue({
-        _sum: { totalPrice: 0 }, _count: 0, _avg: { totalPrice: 0 },
+        _sum: { totalPrice: 0 },
+        _count: 0,
+        _avg: { totalPrice: 0 },
       });
       mockPrisma.order.groupBy.mockResolvedValue([]);
       mockPrisma.order.findMany.mockResolvedValue([]);
@@ -284,13 +364,25 @@ describe('DashboardService', () => {
     it('maps revenue view rows to revenueTrend entries', async () => {
       const yesterday = new Date(Date.now() - 86_400_000);
       mockPrisma.$queryRaw
-        .mockResolvedValueOnce([{ day_utc: yesterday, order_count: 3, revenue: 75.5 }]) // 1: revenueTrend
-        .mockResolvedValueOnce([                                                          // 2: topItems
-          { menuItemId: 'item-1', item_name: 'Burger', item_price: 8, quantity: 4, revenue: 32 },
+        .mockResolvedValueOnce([
+          { day_utc: yesterday, order_count: 3, revenue: 75.5 },
+        ]) // 1: revenueTrend
+        .mockResolvedValueOnce([
+          // 2: topItems
+          {
+            menuItemId: 'item-1',
+            item_name: 'Burger',
+            item_price: 8,
+            quantity: 4,
+            revenue: 32,
+          },
         ])
-        .mockResolvedValueOnce([{ hour_utc: 12, total_orders: 5 }]);                    // 3: peakHours
+        .mockResolvedValueOnce([{ hour_utc: 12, total_orders: 5 }]); // 3: peakHours
 
-      const result = (await service.getAnalytics('rest-2', 7)) as AnalyticsResult;
+      const result = (await service.getAnalytics(
+        'rest-2',
+        7,
+      )) as AnalyticsResult;
 
       expect(result['topItems']).toHaveLength(1);
       expect(result['topItems'][0].name).toBe('Burger');
@@ -298,11 +390,14 @@ describe('DashboardService', () => {
 
     it('maps peak hours view rows — shifts UTC hour to local', async () => {
       mockPrisma.$queryRaw
-        .mockResolvedValueOnce([])                                    // 1: revenueTrend
-        .mockResolvedValueOnce([])                                    // 2: topItems
+        .mockResolvedValueOnce([]) // 1: revenueTrend
+        .mockResolvedValueOnce([]) // 2: topItems
         .mockResolvedValueOnce([{ hour_utc: 10, total_orders: 7 }]); // 3: peakHours
 
-      const result = (await service.getAnalytics('rest-3', 7)) as AnalyticsResult;
+      const result = (await service.getAnalytics(
+        'rest-3',
+        7,
+      )) as AnalyticsResult;
 
       const totalOrders = result['peakHours'].reduce(
         (sum: number, h: { orders: number }) => sum + h.orders,

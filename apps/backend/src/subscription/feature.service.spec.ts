@@ -56,8 +56,12 @@ describe('FeatureService', () => {
   describe('hasFeature', () => {
     it('returns true when tier has the feature', () => {
       expect(service.hasFeature('ENTERPRISE', FeatureFlag.POS)).toBe(true);
-      expect(service.hasFeature('PROFESSIONAL', FeatureFlag.PAYMENTS_STRIPE)).toBe(true);
-      expect(service.hasFeature('STARTER', FeatureFlag.ORDERS_RECEIVE)).toBe(true);
+      expect(
+        service.hasFeature('PROFESSIONAL', FeatureFlag.PAYMENTS_STRIPE),
+      ).toBe(true);
+      expect(service.hasFeature('STARTER', FeatureFlag.ORDERS_RECEIVE)).toBe(
+        true,
+      );
     });
 
     it('returns false when tier lacks the feature', () => {
@@ -107,11 +111,19 @@ describe('FeatureService', () => {
     });
 
     it('returns [STAFF, MANAGER] for PROFESSIONAL tier', () => {
-      expect(service.getAllowedStaffRoles('PROFESSIONAL')).toEqual(['STAFF', 'MANAGER']);
+      expect(service.getAllowedStaffRoles('PROFESSIONAL')).toEqual([
+        'STAFF',
+        'MANAGER',
+      ]);
     });
 
     it('returns [STAFF, MANAGER, WAITER, KITCHEN] for ENTERPRISE tier', () => {
-      expect(service.getAllowedStaffRoles('ENTERPRISE')).toEqual(['STAFF', 'MANAGER', 'WAITER', 'KITCHEN']);
+      expect(service.getAllowedStaffRoles('ENTERPRISE')).toEqual([
+        'STAFF',
+        'MANAGER',
+        'WAITER',
+        'KITCHEN',
+      ]);
     });
 
     it('returns [] for unknown tier', () => {

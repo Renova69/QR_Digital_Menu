@@ -19,9 +19,7 @@ describe('HelpContentController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [HelpContentController],
-      providers: [
-        { provide: HelpContentService, useValue: mockService },
-      ],
+      providers: [{ provide: HelpContentService, useValue: mockService }],
     }).compile();
 
     controller = module.get<HelpContentController>(HelpContentController);
@@ -30,18 +28,26 @@ describe('HelpContentController', () => {
 
   describe('GET /help-content/:section', () => {
     it('should return items for section filtered by locale query param', async () => {
-      mockService.findBySectionAndLocale.mockResolvedValue([{ id: '1', title: 'Test' }]);
+      mockService.findBySectionAndLocale.mockResolvedValue([
+        { id: '1', title: 'Test' },
+      ]);
 
       const result = await controller.getPublic('landing', 'en');
 
-      expect(mockService.findBySectionAndLocale).toHaveBeenCalledWith('landing', 'en');
+      expect(mockService.findBySectionAndLocale).toHaveBeenCalledWith(
+        'landing',
+        'en',
+      );
       expect(result).toEqual([{ id: '1', title: 'Test' }]);
     });
 
     it('should default locale to en when not provided', async () => {
       await controller.getPublic('dashboard');
 
-      expect(mockService.findBySectionAndLocale).toHaveBeenCalledWith('dashboard', 'en');
+      expect(mockService.findBySectionAndLocale).toHaveBeenCalledWith(
+        'dashboard',
+        'en',
+      );
     });
   });
 
@@ -57,10 +63,17 @@ describe('HelpContentController', () => {
 
   describe('POST /super-admin/help-content', () => {
     it('should create an item', async () => {
-      const dto = { section: 'landing', categoryKey: 'general', itemKey: 'q1', locale: 'en', title: 'Q', body: 'A' };
+      const dto = {
+        section: 'landing',
+        categoryKey: 'general',
+        itemKey: 'q1',
+        locale: 'en',
+        title: 'Q',
+        body: 'A',
+      };
       mockService.create.mockResolvedValue({ id: '1', ...dto });
 
-      const result = await controller.create(dto as any);
+      const result = await controller.create(dto);
 
       expect(result).toHaveProperty('id', '1');
     });
@@ -90,7 +103,9 @@ describe('HelpContentController', () => {
     it('should reorder items', async () => {
       await controller.reorder({ items: [{ id: '1', sortOrder: 0 }] });
 
-      expect(mockService.reorder).toHaveBeenCalledWith([{ id: '1', sortOrder: 0 }]);
+      expect(mockService.reorder).toHaveBeenCalledWith([
+        { id: '1', sortOrder: 0 },
+      ]);
     });
   });
 });

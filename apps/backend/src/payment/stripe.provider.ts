@@ -9,9 +9,12 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
   private readonly logger = new Logger(StripeProvider.name);
 
   constructor() {
-    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder', {
-      apiVersion: '2026-05-27.dahlia',
-    });
+    this.stripe = new Stripe(
+      process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder',
+      {
+        apiVersion: '2026-05-27.dahlia',
+      },
+    );
     this.webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
   }
 
@@ -39,7 +42,9 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
           'STRIPE_WEBHOOK_SECRET must be set in production. Refusing to start with unverified webhooks.',
         );
       }
-      this.logger.warn('STRIPE_WEBHOOK_SECRET is not set — webhook signature verification will fail');
+      this.logger.warn(
+        'STRIPE_WEBHOOK_SECRET is not set — webhook signature verification will fail',
+      );
     }
   }
 
@@ -51,16 +56,19 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
     idempotencyKey: string;
     metadata: Record<string, string>;
   }): Promise<{ clientSecret: string; paymentIntentId: string }> {
-    const intent = await this.stripe.paymentIntents.create({
-      amount: params.amountCents,
-      currency: params.currency,
-      automatic_payment_methods: { enabled: true },
-      application_fee_amount: params.platformFeeCents,
-      transfer_data: { destination: params.restaurantStripeAccountId },
-      metadata: params.metadata,
-    }, {
-      idempotencyKey: params.idempotencyKey,
-    });
+    const intent = await this.stripe.paymentIntents.create(
+      {
+        amount: params.amountCents,
+        currency: params.currency,
+        automatic_payment_methods: { enabled: true },
+        application_fee_amount: params.platformFeeCents,
+        transfer_data: { destination: params.restaurantStripeAccountId },
+        metadata: params.metadata,
+      },
+      {
+        idempotencyKey: params.idempotencyKey,
+      },
+    );
     return { clientSecret: intent.client_secret!, paymentIntentId: intent.id };
   }
 
@@ -74,7 +82,9 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
       // so this unverified branch can only run in dev/test. Never trust an
       // unsigned webhook in production.
       if (process.env.NODE_ENV === 'production') {
-        throw new Error('Refusing to process unverified Stripe webhook in production');
+        throw new Error(
+          'Refusing to process unverified Stripe webhook in production',
+        );
       }
       // Dev mode: no signature verification — set STRIPE_WEBHOOK_SECRET via Stripe CLI for production
       return JSON.parse(payload.toString());

@@ -116,17 +116,17 @@ describe('loyalty-ledger.utils', () => {
     it('should throw when insufficient points', async () => {
       const tx = {
         loyaltyPointLedger: {
-          findMany: jest.fn().mockResolvedValue([
-            { id: 'only', remainingPoints: 10 },
-          ]),
+          findMany: jest
+            .fn()
+            .mockResolvedValue([{ id: 'only', remainingPoints: 10 }]),
           update: jest.fn(),
           create: jest.fn(),
         },
       } as any;
 
-      await expect(
-        redeemAccountPoints(tx, 'acc-1', 100),
-      ).rejects.toThrow('Loyalty point ledger does not match account balance');
+      await expect(redeemAccountPoints(tx, 'acc-1', 100)).rejects.toThrow(
+        'Loyalty point ledger does not match account balance',
+      );
     });
 
     it('should do nothing when pointsToRedeem <= 0', async () => {
@@ -145,9 +145,9 @@ describe('loyalty-ledger.utils', () => {
     it('should create a REDEEM transaction record', async () => {
       const tx = {
         loyaltyPointLedger: {
-          findMany: jest.fn().mockResolvedValue([
-            { id: 'b1', remainingPoints: 200 },
-          ]),
+          findMany: jest
+            .fn()
+            .mockResolvedValue([{ id: 'b1', remainingPoints: 200 }]),
           update: jest.fn(),
           create: jest.fn(),
         },

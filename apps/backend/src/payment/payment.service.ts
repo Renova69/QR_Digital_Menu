@@ -64,7 +64,9 @@ export class PaymentService {
       return restaurant;
     }
 
-    throw new ForbiddenException('You do not have permission to access these payments');
+    throw new ForbiddenException(
+      'You do not have permission to access these payments',
+    );
   }
 
   /**
@@ -95,7 +97,9 @@ export class PaymentService {
     ) {
       return;
     }
-    throw new ForbiddenException('You do not have permission to manage this table session');
+    throw new ForbiddenException(
+      'You do not have permission to manage this table session',
+    );
   }
 
   private paymentStatusLabel(status: string) {
@@ -139,7 +143,8 @@ export class PaymentService {
     const table = await this.prisma.restaurantTable.findFirst({
       where: { id: tableId, restaurantId },
     });
-    if (!table) throw new NotFoundException('Table not found for this restaurant');
+    if (!table)
+      throw new NotFoundException('Table not found for this restaurant');
 
     let session: any;
     try {
@@ -172,7 +177,13 @@ export class PaymentService {
     );
   }
 
-  async getSessionBill(token: string): Promise<{ orders: any[]; subtotal: number; restaurantId: string; tipsEnabled: boolean; tipOptions: number[] }> {
+  async getSessionBill(token: string): Promise<{
+    orders: any[];
+    subtotal: number;
+    restaurantId: string;
+    tipsEnabled: boolean;
+    tipOptions: number[];
+  }> {
     const session = await this.prisma.tableSession.findFirst({
       where: { token, status: 'OPEN' },
       include: { restaurant: true },
@@ -192,21 +203,21 @@ export class PaymentService {
       },
     });
 
-    const subtotal = orders.reduce((sum, o) => sum + o.totalPrice, 0);
+    const subtotal = orders.reduce((sum: number, o: any) => sum + o.totalPrice, 0);
 
     const enrichedOrders = orders.map((order) => ({
       id: order.id,
       source: order.source,
-      staffName: order.staff
-        ? (order.staff.name ?? order.staff.email)
-        : null,
+      staffName: order.staff ? (order.staff.name ?? order.staff.email) : null,
       staffRole: order.staff?.role ?? null,
       totalPrice: order.totalPrice,
-      items: order.items.map((oi) => ({
+      items: order.items.map((oi: any) => ({
         name: oi.menuItem?.name ?? 'Unknown item',
         quantity: oi.quantity,
         unitPrice: oi.menuItem?.price ?? 0,
-        selectedOptions: Array.isArray(oi.selectedOptions) ? oi.selectedOptions : [],
+        selectedOptions: Array.isArray(oi.selectedOptions)
+          ? oi.selectedOptions
+          : [],
       })),
     }));
 
@@ -219,7 +230,15 @@ export class PaymentService {
     };
   }
 
-  async createPaymentIntent(token: string, tipPercent: number): Promise<{ clientSecret: string; paymentId: string; total: number; tipAmount: number }> {
+  async createPaymentIntent(
+    token: string,
+    tipPercent: number,
+  ): Promise<{
+    clientSecret: string;
+    paymentId: string;
+    total: number;
+    tipAmount: number;
+  }> {
     const session = await this.prisma.tableSession.findFirst({
       where: { token, status: 'OPEN' },
       include: { restaurant: true },
@@ -234,12 +253,25 @@ export class PaymentService {
     const { restaurant } = session;
 
     if (!restaurant.paymentsEnabled) {
-      throw new ForbiddenException('Payments are not enabled for this restaurant');
+      throw new ForbiddenException(
+        'Payments are not enabled for this restaurant',
+      );
     }
 
-    const effectiveTier = this.featureService.getEffectiveTier(String(restaurant.tier), restaurant.forceTier ?? null);
-    if (!this.featureService.hasFeature(effectiveTier, FeatureFlag.PAYMENTS_STRIPE)) {
-      throw new ForbiddenException({ code: 'FEATURE_LOCKED', message: 'Stripe payments require a Professional plan or above' });
+    const effectiveTier = this.featureService.getEffectiveTier(
+      String(restaurant.tier),
+      restaurant.forceTier ?? null,
+    );
+    if (
+      !this.featureService.hasFeature(
+        effectiveTier,
+        FeatureFlag.PAYMENTS_STRIPE,
+      )
+    ) {
+      throw new ForbiddenException({
+        code: 'FEATURE_LOCKED',
+        message: 'Stripe payments require a Professional plan or above',
+      });
     }
 
     if (!restaurant.stripeOnboarded || !restaurant.stripeAccountId) {
@@ -251,7 +283,10 @@ export class PaymentService {
     });
 
     const subtotal = orders.reduce((sum, o) => sum + o.totalPrice, 0);
-    if (subtotal <= 0) throw new BadRequestException('Cannot create payment for an empty session');
+    if (subtotal <= 0)
+      throw new BadRequestException(
+        'Cannot create payment for an empty session',
+      );
 
     // Guard against double capture (#H1). A session can accumulate multiple
     // intents (double-click, retried tab) and all could be confirmed. Reject if
@@ -260,7 +295,10 @@ export class PaymentService {
     // intents after the webhook flips the session to PAID; this closes the
     // remaining window where two intents exist before either confirms.
     const existingPayments = await this.prisma.payment.findMany({
-      where: { tableSessionId: session.id, status: { in: ['PENDING', 'SUCCEEDED'] } },
+      where: {
+        tableSessionId: session.id,
+        status: { in: ['PENDING', 'SUCCEEDED'] },
+      },
     });
     if (existingPayments.some((p) => p.status === 'SUCCEEDED')) {
       throw new ConflictException('This session has already been paid');
@@ -275,7 +313,9 @@ export class PaymentService {
           this.logger.warn(
             `Could not cancel stale PaymentIntent ${stale.stripePaymentIntentId} for session ${session.id}`,
           );
-          throw new ConflictException('A payment for this session is already being processed');
+          throw new ConflictException(
+            'A payment for this session is already being processed',
+          );
         }
       }
       await this.prisma.payment.updateMany({
@@ -310,14 +350,15 @@ export class PaymentService {
     });
 
     try {
-      const { clientSecret, paymentIntentId } = await this.stripe.createPaymentIntent({
-        amountCents: Math.round(total * 100),
-        currency: 'eur',
-        restaurantStripeAccountId: restaurant.stripeAccountId,
-        platformFeeCents,
-        idempotencyKey: payment.id,
-        metadata: { sessionId: session.id, paymentId: payment.id },
-      });
+      const { clientSecret, paymentIntentId } =
+        await this.stripe.createPaymentIntent({
+          amountCents: Math.round(total * 100),
+          currency: 'eur',
+          restaurantStripeAccountId: restaurant.stripeAccountId,
+          platformFeeCents,
+          idempotencyKey: payment.id,
+          metadata: { sessionId: session.id, paymentId: payment.id },
+        });
 
       await this.prisma.payment.update({
         where: { id: payment.id },
@@ -339,7 +380,7 @@ export class PaymentService {
     const event = this.stripe.constructWebhookEvent(payload, signature);
 
     if (event.type === 'payment_intent.succeeded') {
-      const intent = event.data.object as any;
+      const intent = event.data.object;
       let payment = await this.prisma.payment.findFirst({
         where: { stripePaymentIntentId: intent.id },
         include: {
@@ -382,20 +423,24 @@ export class PaymentService {
         data: { status: 'PAID', paidAt: new Date() },
       });
 
-      const tableNumber = payment.tableSession?.table?.name
-        ?? (await this.prisma.restaurantTable.findUnique({
-          where: { id: payment.tableSession.tableId },
-          select: { name: true },
-        }))?.name
-        ?? null;
+      const tableNumber =
+        payment.tableSession?.table?.name ??
+        (
+          await this.prisma.restaurantTable.findUnique({
+            where: { id: payment.tableSession.tableId },
+            select: { name: true },
+          })
+        )?.name ??
+        null;
 
-      const customerName = (
-        await this.prisma.order.findFirst({
-          where: { tableSessionId: payment.tableSessionId },
-          orderBy: { createdAt: 'desc' },
-          select: { customerName: true },
-        })
-      )?.customerName ?? null;
+      const customerName =
+        (
+          await this.prisma.order.findFirst({
+            where: { tableSessionId: payment.tableSessionId },
+            orderBy: { createdAt: 'desc' },
+            select: { customerName: true },
+          })
+        )?.customerName ?? null;
 
       this.events.emitToRestaurant(
         payment.tableSession.restaurantId,
@@ -418,7 +463,7 @@ export class PaymentService {
     }
 
     if (event.type === 'payment_intent.payment_failed') {
-      const intent = event.data.object as any;
+      const intent = event.data.object;
       let payment = await this.prisma.payment.findFirst({
         where: { stripePaymentIntentId: intent.id },
       });
@@ -436,7 +481,11 @@ export class PaymentService {
     }
   }
 
-  async closeSession(token: string, restaurantId: string, userId: string): Promise<void> {
+  async closeSession(
+    token: string,
+    restaurantId: string,
+    userId: string,
+  ): Promise<void> {
     await this.verifyPosOperatorAccess(restaurantId, userId);
     const session = await this.prisma.tableSession.findFirst({
       where: { token, restaurantId, status: 'OPEN' },
@@ -491,7 +540,8 @@ export class PaymentService {
     if (!session) throw new NotFoundException('Session not found');
 
     const amount = session.orders.reduce((sum, o) => sum + o.totalPrice, 0);
-    if (amount <= 0) throw new BadRequestException('Cannot close a session with no orders');
+    if (amount <= 0)
+      throw new BadRequestException('Cannot close a session with no orders');
 
     await this.prisma.$transaction(async (tx) => {
       await tx.payment.create({
@@ -547,28 +597,35 @@ export class PaymentService {
     const table = await this.prisma.restaurantTable.findFirst({
       where: { id: tableId, restaurantId },
     });
-    if (!table) throw new NotFoundException('Table not found for this restaurant');
+    if (!table)
+      throw new NotFoundException('Table not found for this restaurant');
 
-    const { session, closedSession } = await this.prisma.$transaction(async (tx) => {
-      const existing = await tx.tableSession.findFirst({
-        where: { tableId, restaurantId, status: 'OPEN' },
-      });
-      if (existing) {
-        await tx.tableSession.update({
-          where: { id: existing.id },
-          data: { status: 'CLOSED_NO_PAYMENT' },
+    const { session, closedSession } = await this.prisma.$transaction(
+      async (tx) => {
+        const existing = await tx.tableSession.findFirst({
+          where: { tableId, restaurantId, status: 'OPEN' },
         });
-      }
-      const created = await tx.tableSession.create({
-        data: { tableId, restaurantId },
-      });
-      return { session: created, closedSession: existing };
-    });
+        if (existing) {
+          await tx.tableSession.update({
+            where: { id: existing.id },
+            data: { status: 'CLOSED_NO_PAYMENT' },
+          });
+        }
+        const created = await tx.tableSession.create({
+          data: { tableId, restaurantId },
+        });
+        return { session: created, closedSession: existing };
+      },
+    );
 
     // Emit socket events only after the transaction commits — emitting inside a
     // transaction can fire for work that later rolls back (#H4).
     if (closedSession) {
-      this.events.emitTableStatusChanged(restaurantId, closedSession.tableId, closedSession.id);
+      this.events.emitTableStatusChanged(
+        restaurantId,
+        closedSession.tableId,
+        closedSession.id,
+      );
     }
     this.events.emitTableStatusChanged(restaurantId, tableId, session.id);
     return { session, token: session.token };
@@ -579,7 +636,10 @@ export class PaymentService {
     page: number | undefined,
     limit: number | undefined,
     userId: string,
-  ): Promise<{ data: any[]; meta: { total: number; page: number; limit: number } }> {
+  ): Promise<{
+    data: any[];
+    meta: { total: number; page: number; limit: number };
+  }> {
     // Access check is mandatory — the guard belongs to the method, not the
     // caller, so a future internal caller can't accidentally skip it (#L2).
     await this.verifyRestaurantAccess(restaurantId, userId);
@@ -614,7 +674,10 @@ export class PaymentService {
       limit?: number;
     },
     userId: string,
-  ): Promise<{ data: any[]; meta: { total: number; page: number; limit: number } }> {
+  ): Promise<{
+    data: any[];
+    meta: { total: number; page: number; limit: number };
+  }> {
     // Mandatory access check (#L2) — see getTableSessions.
     await this.verifyRestaurantAccess(restaurantId, userId);
 
@@ -738,7 +801,9 @@ export class PaymentService {
       },
       metrics: {
         totalCollected,
-        averageTransaction: successfulCount ? this.roundMoney(totalCollected / successfulCount) : 0,
+        averageTransaction: successfulCount
+          ? this.roundMoney(totalCollected / successfulCount)
+          : 0,
         tipsCollected: this.roundMoney(tips._sum.tipAmount ?? 0),
         platformFees,
         refundsIssued: this.roundMoney(refunds._sum.amount ?? 0),
@@ -746,16 +811,22 @@ export class PaymentService {
         successfulTransactions: successfulCount,
         refundsCount: refundCount,
       },
-      statusCounts: statusCounts.map((item) => ({
+      statusCounts: statusCounts.map((item: { status: string; _count: number }) => ({
         status: item.status,
         count: item._count,
       })),
-      methodTotals: methodTotals.map((item) => ({
-        method: item.provider,
-        amount: this.roundMoney(item._sum.amount ?? 0),
-        fees: this.roundMoney(item._sum.platformFeeAmount ?? 0),
-        count: item._count,
-      })),
+      methodTotals: methodTotals.map(
+        (item: {
+          provider: string;
+          _sum: { amount: number | null; platformFeeAmount: number | null };
+          _count: number;
+        }) => ({
+          method: item.provider,
+          amount: this.roundMoney(item._sum.amount ?? 0),
+          fees: this.roundMoney(item._sum.platformFeeAmount ?? 0),
+          count: item._count,
+        }),
+      ),
       currency: latestPayment?.currency ?? 'eur',
       latestPaymentAt: latestPayment?.createdAt ?? null,
     };
@@ -802,12 +873,14 @@ export class PaymentService {
       source: order.source,
       staffName: order.staff ? (order.staff.name ?? order.staff.email) : null,
       staffRole: order.staff?.role ?? null,
-      items: order.items.map((item) => ({
+      items: order.items.map((item: any) => ({
         name: item.menuItem?.name ?? 'Unknown item',
         quantity: item.quantity,
         unitPrice: item.menuItem?.price ?? 0,
         options: Array.isArray(item.selectedOptions)
-          ? (item.selectedOptions as any[]).map((option: any) => option?.choiceName).filter(Boolean)
+          ? (item.selectedOptions as any[])
+              .map((option: any) => option?.choiceName)
+              .filter(Boolean)
           : [],
       })),
     }));
@@ -824,10 +897,18 @@ export class PaymentService {
         net: mapped.netAmount,
       },
       timeline: [
-        { label: `Payment ${mapped.statusLabel.toLowerCase()}`, at: payment.updatedAt },
+        {
+          label: `Payment ${mapped.statusLabel.toLowerCase()}`,
+          at: payment.updatedAt,
+        },
         { label: 'Payment record created', at: payment.createdAt },
         ...(payment.tableSession?.createdAt
-          ? [{ label: 'Table session opened', at: payment.tableSession.createdAt }]
+          ? [
+              {
+                label: 'Table session opened',
+                at: payment.tableSession.createdAt,
+              },
+            ]
           : []),
       ],
     };
@@ -912,10 +993,12 @@ export class PaymentService {
     let refund: { refundId: string; status: string | null } | null = null;
     if (payment.provider === 'STRIPE') {
       if (!payment.stripePaymentIntentId) {
-        await this.prisma.payment.updateMany({
-          where: { id: paymentId, status: 'REFUNDED' },
-          data: { status: 'SUCCEEDED' },
-        }).catch(() => {});
+        await this.prisma.payment
+          .updateMany({
+            where: { id: paymentId, status: 'REFUNDED' },
+            data: { status: 'SUCCEEDED' },
+          })
+          .catch(() => {});
         throw new BadRequestException('Stripe payment intent is missing');
       }
       try {
@@ -928,11 +1011,16 @@ export class PaymentService {
         // Best-effort rollback — restore succeeded so a retry is possible.
         // Status guard avoids clobbering a record that genuinely reached
         // REFUNDED through a concurrent path (#M1).
-        await this.prisma.payment.updateMany({
-          where: { id: paymentId, status: 'REFUNDED' },
-          data: { status: 'SUCCEEDED' },
-        }).catch(() => {});
-        this.logger.error(`Stripe refund failed for ${paymentId}, status rolled back`, err);
+        await this.prisma.payment
+          .updateMany({
+            where: { id: paymentId, status: 'REFUNDED' },
+            data: { status: 'SUCCEEDED' },
+          })
+          .catch(() => {});
+        this.logger.error(
+          `Stripe refund failed for ${paymentId}, status rolled back`,
+          err,
+        );
         throw err;
       }
     }

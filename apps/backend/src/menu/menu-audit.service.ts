@@ -37,7 +37,7 @@ export class MenuAuditService {
 
       if (targetLanguages.length > 0) {
         const translations = (category as any).translations || {};
-        targetLanguages.forEach((lang) => {
+        targetLanguages.forEach((lang: string) => {
           if (!translations[lang] || !translations[lang].name) {
             issues.push({
               type: 'warning',
@@ -87,7 +87,7 @@ export class MenuAuditService {
 
         if (targetLanguages.length > 0) {
           const translations = (item.translations as any) || {};
-          targetLanguages.forEach((lang) => {
+          targetLanguages.forEach((lang: string) => {
             if (!translations[lang] || !translations[lang].name) {
               issues.push({
                 type: 'warning',

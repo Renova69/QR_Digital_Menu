@@ -11,7 +11,11 @@ import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [PrismaModule, TranslationModule, PaymentModule, UsersModule],
-  controllers: [RestaurantsController, DeviceEnrollmentController, StaffController],
+  controllers: [
+    RestaurantsController,
+    DeviceEnrollmentController,
+    StaffController,
+  ],
   providers: [RestaurantsService, DeviceEnrollmentService],
   exports: [RestaurantsService, DeviceEnrollmentService],
 })

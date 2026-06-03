@@ -49,13 +49,17 @@ describe('MenuAuditService', () => {
   it('throws when restaurant not found', async () => {
     mockPrisma.restaurant.findUnique.mockResolvedValue(null);
 
-    await expect(service.auditMenu('missing')).rejects.toThrow('Restaurant not found');
+    await expect(service.auditMenu('missing')).rejects.toThrow(
+      'Restaurant not found',
+    );
   });
 
   it('returns empty issues for a fully complete menu', async () => {
     const item = makeItem();
     const category = makeCategory({ items: [item] });
-    mockPrisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ menuCategories: [category] }));
+    mockPrisma.restaurant.findUnique.mockResolvedValue(
+      makeRestaurant({ menuCategories: [category] }),
+    );
 
     const issues = await service.auditMenu('rest-1');
 
@@ -64,11 +68,15 @@ describe('MenuAuditService', () => {
 
   it('adds error issue for empty category', async () => {
     const category = makeCategory({ items: [] });
-    mockPrisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ menuCategories: [category] }));
+    mockPrisma.restaurant.findUnique.mockResolvedValue(
+      makeRestaurant({ menuCategories: [category] }),
+    );
 
     const issues = await service.auditMenu('rest-1');
 
-    const errorIssues = issues.filter((i: any) => i.type === 'error' && i.field === 'items');
+    const errorIssues = issues.filter(
+      (i: any) => i.type === 'error' && i.field === 'items',
+    );
     expect(errorIssues).toHaveLength(1);
     expect(errorIssues[0].categoryId).toBe('cat-1');
   });
@@ -76,11 +84,15 @@ describe('MenuAuditService', () => {
   it('adds error issue for item with price 0', async () => {
     const item = makeItem({ price: 0 });
     const category = makeCategory({ items: [item] });
-    mockPrisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ menuCategories: [category] }));
+    mockPrisma.restaurant.findUnique.mockResolvedValue(
+      makeRestaurant({ menuCategories: [category] }),
+    );
 
     const issues = await service.auditMenu('rest-1');
 
-    const priceError = issues.find((i: any) => i.type === 'error' && i.field === 'price');
+    const priceError = issues.find(
+      (i: any) => i.type === 'error' && i.field === 'price',
+    );
     expect(priceError).toBeDefined();
     expect(priceError.itemId).toBe('item-1');
   });
@@ -88,22 +100,30 @@ describe('MenuAuditService', () => {
   it('adds warning issue for item with no description', async () => {
     const item = makeItem({ description: '' });
     const category = makeCategory({ items: [item] });
-    mockPrisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ menuCategories: [category] }));
+    mockPrisma.restaurant.findUnique.mockResolvedValue(
+      makeRestaurant({ menuCategories: [category] }),
+    );
 
     const issues = await service.auditMenu('rest-1');
 
-    const warn = issues.find((i: any) => i.type === 'warning' && i.field === 'description');
+    const warn = issues.find(
+      (i: any) => i.type === 'warning' && i.field === 'description',
+    );
     expect(warn).toBeDefined();
   });
 
   it('adds info issue for item with no image', async () => {
     const item = makeItem({ imageUrl: null });
     const category = makeCategory({ items: [item] });
-    mockPrisma.restaurant.findUnique.mockResolvedValue(makeRestaurant({ menuCategories: [category] }));
+    mockPrisma.restaurant.findUnique.mockResolvedValue(
+      makeRestaurant({ menuCategories: [category] }),
+    );
 
     const issues = await service.auditMenu('rest-1');
 
-    const info = issues.find((i: any) => i.type === 'info' && i.field === 'imageUrl');
+    const info = issues.find(
+      (i: any) => i.type === 'info' && i.field === 'imageUrl',
+    );
     expect(info).toBeDefined();
   });
 
@@ -116,7 +136,8 @@ describe('MenuAuditService', () => {
     const issues = await service.auditMenu('rest-1');
 
     const transWarn = issues.find(
-      (i: any) => i.type === 'warning' && i.field === 'translations' && !i.itemId,
+      (i: any) =>
+        i.type === 'warning' && i.field === 'translations' && !i.itemId,
     );
     expect(transWarn).toBeDefined();
     expect(transWarn.categoryId).toBe('cat-1');
@@ -132,7 +153,10 @@ describe('MenuAuditService', () => {
     const issues = await service.auditMenu('rest-1');
 
     const transWarn = issues.find(
-      (i: any) => i.type === 'warning' && i.field === 'translations' && i.itemId === 'item-1',
+      (i: any) =>
+        i.type === 'warning' &&
+        i.field === 'translations' &&
+        i.itemId === 'item-1',
     );
     expect(transWarn).toBeDefined();
   });
@@ -169,7 +193,10 @@ describe('MenuAuditService', () => {
     const cat1 = makeCategory({ id: 'cat-1', items: [] });
     const cat2 = makeCategory({
       id: 'cat-2',
-      items: [makeItem({ price: 0 }), makeItem({ id: 'item-2', description: '' })],
+      items: [
+        makeItem({ price: 0 }),
+        makeItem({ id: 'item-2', description: '' }),
+      ],
     });
     mockPrisma.restaurant.findUnique.mockResolvedValue(
       makeRestaurant({ menuCategories: [cat1, cat2] }),
