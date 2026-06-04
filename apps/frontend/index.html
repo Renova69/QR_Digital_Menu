@@ -20,11 +20,13 @@
     <script>
       (function () {
         try {
-          var t = localStorage.getItem('theme');
-          if (!t) {
-            var m = location.pathname.match(/\/menu\/public\/([^/?#]+)/);
-            if (m) t = localStorage.getItem('theme-' + m[1]);
+          var t;
+          var m = location.pathname.match(/\/menu\/public\/([^/?#]+)/);
+          if (m) {
+            // Public menu: per-restaurant preference takes priority over global
+            t = localStorage.getItem('theme-' + m[1]);
           }
+          if (!t) t = localStorage.getItem('theme');
           if (t === 'dark') document.documentElement.classList.add('dark');
         } catch (e) {}
       })();
