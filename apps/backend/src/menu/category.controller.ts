@@ -15,6 +15,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { memoryStorage } from 'multer';
 import { MenuCrudService } from './menu-crud.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -77,6 +78,7 @@ export class CategoryDetailController {
     return this.crud.removeCategory(id, req.user.id);
   }
 
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post(':id/image')
   @UseInterceptors(
     FileInterceptor('file', {

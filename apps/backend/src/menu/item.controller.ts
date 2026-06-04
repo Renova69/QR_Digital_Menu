@@ -15,6 +15,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { memoryStorage } from 'multer';
 import { MenuCrudService } from './menu-crud.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -73,6 +74,10 @@ export class ItemDetailController {
     return this.crud.removeItem(id, req.user.id);
   }
 
+  // Tighter per-route throttle: 5MB buffered in memory before ownership check
+  // means a valid-JWT non-owner can force allocations at the global 100/60s rate.
+  // 20/60s limits the blast radius without blocking legitimate use (L1.1).
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post(':id/image')
   @UseInterceptors(
     FileInterceptor('file', {

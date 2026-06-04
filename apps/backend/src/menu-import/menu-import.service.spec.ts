@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { MenuImportService } from './menu-import.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
@@ -9,19 +9,22 @@ import { AvailabilityType, Currency, OptionType } from '@prisma/client';
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
 /** Minimal transaction mock — only the write operations needed by upsertMenu.
- *  No findFirst/aggregate since the new implementation preloads before tx. */
+ *  No findFirst/aggregate since the new implementation preloads before tx.
+ *  deleteMany is tracked on categories/items to assert additive-only contract. */
 const makeTx = () => ({
   menuCategory: {
     create: jest.fn().mockResolvedValue({ id: 'cat-1' }),
     update: jest.fn().mockResolvedValue({}),
+    deleteMany: jest.fn(), // must NOT be called (L3.2)
   },
   menuItem: {
     create: jest.fn().mockResolvedValue({ id: 'item-1' }),
     update: jest.fn().mockResolvedValue({}),
+    deleteMany: jest.fn(), // must NOT be called (L3.2)
   },
   menuOption: {
     create: jest.fn().mockResolvedValue({}),
-    deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    deleteMany: jest.fn().mockResolvedValue({ count: 0 }), // options ARE wiped per item
   },
 });
 
@@ -457,6 +460,69 @@ describe('MenuImportService', () => {
       expect(tx.menuCategory.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ order: 3 }) }),
       );
+    });
+
+    // L3.2 — Additive-only contract: import never deletes categories or items
+    it('never deletes categories or items — only options are wiped-and-rebuilt', async () => {
+      const tx = makeTx();
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      await service.upsertMenu('rest-1', {
+        categories: [
+          {
+            name: 'Mains',
+            availabilityType: AvailabilityType.ALWAYS,
+            items: [
+              {
+                name: 'Burger',
+                price: 10,
+                options: [
+                  {
+                    name: 'Size',
+                    type: 'VARIATION',
+                    choices: [{ name: 'Large', price: 1 }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(tx.menuCategory.deleteMany).not.toHaveBeenCalled();
+      expect(tx.menuItem.deleteMany).not.toHaveBeenCalled();
+      expect(tx.menuOption.deleteMany).toHaveBeenCalled(); // options DO get wiped
+    });
+
+    // L3.1 — Duplicate name detection
+    it('throws BadRequestException on duplicate category names (case-insensitive)', async () => {
+      await expect(
+        service.upsertMenu('rest-1', {
+          categories: [
+            { name: 'Mains', availabilityType: AvailabilityType.ALWAYS, items: [] },
+            { name: 'mains', availabilityType: AvailabilityType.ALWAYS, items: [] },
+          ],
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException on duplicate item names within a category', async () => {
+      await expect(
+        service.upsertMenu('rest-1', {
+          categories: [
+            {
+              name: 'Mains',
+              availabilityType: AvailabilityType.ALWAYS,
+              items: [
+                { name: 'Burger', price: 10, options: [] },
+                { name: 'BURGER', price: 12, options: [] }, // duplicate, case-insensitive
+              ],
+            },
+          ],
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
   });
 

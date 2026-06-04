@@ -42,6 +42,26 @@ export class MenuImportService {
     if (!dto.categories?.length)
       throw new BadRequestException('No categories in payload');
 
+    // L3.1 — Detect duplicate names in the payload early. Case-insensitive
+    // matching mirrors the upsert logic; two same-name cats/items in one payload
+    // would silently drop one (last-wins). Fail fast with a clear message instead.
+    const catKeys = dto.categories.map((c) => c.name.toLowerCase().trim());
+    const dupCat = catKeys.find((k, i) => catKeys.indexOf(k) !== i);
+    if (dupCat) {
+      throw new BadRequestException(
+        `Duplicate category name in payload: "${dupCat}"`,
+      );
+    }
+    for (const cat of dto.categories) {
+      const itemKeys = cat.items.map((item) => item.name.toLowerCase().trim());
+      const dupItem = itemKeys.find((k, i) => itemKeys.indexOf(k) !== i);
+      if (dupItem) {
+        throw new BadRequestException(
+          `Duplicate item name "${dupItem}" in category "${cat.name}"`,
+        );
+      }
+    }
+
     // --- Preload all existing data BEFORE the transaction to avoid N+1 ---
     const existingCategories = await this.prisma.menuCategory.findMany({
       where: { restaurantId },

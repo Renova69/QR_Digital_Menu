@@ -1115,8 +1115,12 @@ export class MenuCrudService {
     }
     await this.checkRestaurantOwnership(item.category.restaurantId, userId);
 
+    // Scope the scan to the same restaurant so we only read rows we own.
+    // The global scan was functionally safe (cuid is unique) but forced a
+    // full-table array-contains check across all restaurants (L1.5).
     const itemsHoldingOrphan = await this.prisma.menuItem.findMany({
       where: {
+        category: { restaurantId: item.category.restaurantId },
         relatedItemIds: { has: itemId },
       },
       select: { id: true, relatedItemIds: true },
