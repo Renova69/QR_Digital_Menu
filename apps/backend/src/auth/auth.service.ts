@@ -13,7 +13,7 @@ import * as bcrypt from 'bcryptjs';
 import { randomInt, randomBytes, createHash } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
-import { PIN_LOGIN_ROLES } from '../users/staff-roles';
+import { isPinRole, PIN_LOGIN_ROLES } from '../users/staff-roles';
 import { PrismaService } from '../prisma/prisma.service';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
@@ -39,6 +39,9 @@ export class AuthService {
     }
     if (user.isActive === false || user.disabledAt) {
       throw new UnauthorizedException('This account has been disabled.');
+    }
+    if (isPinRole(user.role)) {
+      throw new UnauthorizedException(INVALID);
     }
     if (user.password && (await bcrypt.compare(pass, user.password))) {
       const { password, ...result } = user;
@@ -475,7 +478,10 @@ export class AuthService {
 
     await this.prisma.user.update({
       where: { id: userId },
-      data: { password: await bcrypt.hash(newPassword, 10) },
+      data: {
+        password: await bcrypt.hash(newPassword, 10),
+        passwordChangedAt: new Date(),
+      },
     });
 
     return { success: true };
@@ -520,6 +526,8 @@ export class AuthService {
           phone,
           ...(cleanName ? { name: cleanName } : {}),
         });
+      } else if (user.isActive === false || user.disabledAt) {
+        throw new UnauthorizedException('This account has been disabled.');
       } else if (cleanName && !user.name) {
         user = await this.prisma.user.update({
           where: { id: user.id },
@@ -585,6 +593,8 @@ export class AuthService {
           ...(phone ? { phone } : {}),
           ...(cleanName ? { name: cleanName } : {}),
         });
+      } else if (user.isActive === false || user.disabledAt) {
+        throw new UnauthorizedException('This account has been disabled.');
       } else {
         const updates: any = {};
         if (phone && !user.phone) updates.phone = phone;

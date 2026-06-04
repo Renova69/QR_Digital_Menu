@@ -53,13 +53,13 @@ export class OrdersService {
 
   async create(
     createOrderDto: CreateOrderDto,
-    staffUserId: string | null = null,
+    authenticatedUserId: string | null = null,
   ) {
     // `createOrderDto.source` is the caller's INTENT only — used here to require
     // an authenticated staff identity for POS orders. The source actually
     // recorded on the Order is DERIVED from resolvePosStaff below (#L3); never
     // trust the client to label an order as staff-created.
-    if (createOrderDto.source === 'POS' && !staffUserId) {
+    if (createOrderDto.source === 'POS' && !authenticatedUserId) {
       throw new UnauthorizedException('Session expired. Please log in again.');
     }
 
@@ -145,13 +145,26 @@ export class OrdersService {
     // customer, or an owner browsing another restaurant — the order is a normal
     // customer order, not POS (#4). Prevents misclassifying customers as staff.
     const resolvedStaffUserId = await this.resolvePosStaff(
-      staffUserId,
+      authenticatedUserId,
       restaurant.ownerId,
       restaurantId,
     );
     if (createOrderDto.source === 'POS' && !resolvedStaffUserId) {
       throw new UnauthorizedException(
         'Only active staff assigned to this restaurant can create POS orders.',
+      );
+    }
+
+    const authenticatedCustomerId = await this.resolveCustomerUserId(
+      authenticatedUserId,
+      resolvedStaffUserId,
+    );
+    if (
+      createOrderDto.customerId &&
+      createOrderDto.customerId !== authenticatedCustomerId
+    ) {
+      throw new UnauthorizedException(
+        'Customer identity is derived from the authenticated session.',
       );
     }
 
@@ -374,7 +387,7 @@ export class OrdersService {
         let signupBonusPoints = 0;
 
         if (
-          createOrderDto.customerId &&
+          authenticatedCustomerId &&
           isLoyaltyAvailable(restaurant, this.featureService)
         ) {
           const earnRate = restaurant.loyaltyExchangeRate || 10;
@@ -383,7 +396,7 @@ export class OrdersService {
           loyaltyAcc = await tx.loyaltyAccount.findUnique({
             where: {
               userId_restaurantId: {
-                userId: createOrderDto.customerId,
+                userId: authenticatedCustomerId,
                 restaurantId,
               },
             },
@@ -392,7 +405,7 @@ export class OrdersService {
           if (!loyaltyAcc) {
             loyaltyAcc = await tx.loyaltyAccount.create({
               data: {
-                userId: createOrderDto.customerId,
+                userId: authenticatedCustomerId,
                 restaurantId,
                 points: 0,
                 lifetimePoints: 0,
@@ -477,7 +490,7 @@ export class OrdersService {
           data: {
             customerName: createOrderDto.customerName,
             customerPhone: createOrderDto.customerPhone,
-            customerId: createOrderDto.customerId,
+            customerId: authenticatedCustomerId,
             tableId: resolvedTableCuid,
             tableName: createOrderDto.tableId ?? null,
             specialRequests: createOrderDto.specialRequests,
@@ -582,6 +595,19 @@ export class OrdersService {
       return staffUserId;
     }
     return null;
+  }
+
+  private async resolveCustomerUserId(
+    authenticatedUserId: string | null,
+    resolvedStaffUserId: string | null,
+  ): Promise<string | null> {
+    if (!authenticatedUserId || resolvedStaffUserId) return null;
+    const user = await this.prisma.user.findUnique({
+      where: { id: authenticatedUserId },
+      select: { id: true, isActive: true, disabledAt: true },
+    });
+    if (!user || user.isActive === false || user.disabledAt) return null;
+    return user.id;
   }
 
   async findAll(userId: string, query: OrderQueryDto) {

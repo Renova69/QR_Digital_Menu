@@ -14,6 +14,82 @@ import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { stripBrandingFields } from './branding-fields';
 
+const RESTAURANT_READ_SELECT = {
+  id: true,
+  name: true,
+  country: true,
+  city: true,
+  logoUrl: true,
+  logoThumbnailUrl: true,
+  accentColor: true,
+  googleReviewUrl: true,
+  facebookUrl: true,
+  instagramUrl: true,
+  tiktokUrl: true,
+  websiteUrl: true,
+  youtubeUrl: true,
+  address: true,
+  contactInfo: true,
+  targetLanguages: true,
+  dashboardLanguage: true,
+  timezone: true,
+  ownerId: true,
+  createdAt: true,
+  updatedAt: true,
+  fontBody: true,
+  fontHeading: true,
+  themeBgColor: true,
+  themeCardColor: true,
+  themeTextColor: true,
+  themeLightBgColor: true,
+  themeLightTextColor: true,
+  themeLightCardColor: true,
+  themeLightAccentColor: true,
+  themeDarkBgColor: true,
+  themeDarkTextColor: true,
+  themeDarkCardColor: true,
+  themeDarkAccentColor: true,
+  trendingMode: true,
+  happyHourEnable: true,
+  happyHourDays: true,
+  happyHourStartTime: true,
+  happyHourEndTime: true,
+  happyHourMultiplier: true,
+  isLoyaltyEnabled: true,
+  loyaltyExchangeRate: true,
+  loyaltySignupBonus: true,
+  loyaltyRedeemRate: true,
+  loyaltyExpiryReminderDays: true,
+  loyaltyGoldMultiplier: true,
+  loyaltyGoldThreshold: true,
+  loyaltyPointExpiryDays: true,
+  loyaltySilverMultiplier: true,
+  loyaltySilverThreshold: true,
+  defaultTheme: true,
+  stripeOnboarded: true,
+  paymentsEnabled: true,
+  notifyAllStaffOnPayment: true,
+  tipsEnabled: true,
+  tipOptions: true,
+  platformFeePercent: true,
+  tier: true,
+  forceTier: true,
+  tierUpdatedAt: true,
+  isActive: true,
+};
+
+const RESTAURANT_PRIVATE_FIELDS = [
+  'forceTier',
+  'importApiKeyHash',
+  'stripeAccountId',
+  'stripeCustomerId',
+  'stripeSubscriptionId',
+  'stripePriceId',
+  'pastDueGraceExpiry',
+  'forceTierExpiresAt',
+  'deletedAt',
+] as const;
+
 @Injectable()
 export class RestaurantsService {
   private readonly logger = new Logger(RestaurantsService.name);
@@ -52,6 +128,17 @@ export class RestaurantsService {
     return r.forceTier ? { ...r, tier: r.forceTier } : r;
   }
 
+  private toRestaurantReadDto<
+    T extends { tier: string; forceTier?: string | null },
+  >(restaurant: T) {
+    const dto = { ...this.applyEffectiveTier(restaurant) } as T &
+      Record<string, unknown>;
+    for (const field of RESTAURANT_PRIVATE_FIELDS) {
+      delete dto[field];
+    }
+    return dto;
+  }
+
   async findAll(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -61,10 +148,14 @@ export class RestaurantsService {
     const rows = user?.restaurantId
       ? await this.prisma.restaurant.findMany({
           where: { id: user.restaurantId },
+          select: RESTAURANT_READ_SELECT,
         })
-      : await this.prisma.restaurant.findMany({ where: { ownerId: userId } });
+      : await this.prisma.restaurant.findMany({
+          where: { ownerId: userId },
+          select: RESTAURANT_READ_SELECT,
+        });
 
-    return rows.map((r) => this.applyEffectiveTier(r));
+    return rows.map((r) => this.toRestaurantReadDto(r));
   }
 
   async findOne(id: string, userId: string) {
@@ -88,7 +179,10 @@ export class RestaurantsService {
   // Allows owner OR staff member to read the restaurant
   async findOneOrStaff(id: string, userId: string) {
     const [restaurant, user] = await Promise.all([
-      this.prisma.restaurant.findUnique({ where: { id } }),
+      this.prisma.restaurant.findUnique({
+        where: { id },
+        select: RESTAURANT_READ_SELECT,
+      }),
       this.prisma.user.findUnique({
         where: { id: userId },
         select: { restaurantId: true },
@@ -108,7 +202,7 @@ export class RestaurantsService {
       );
     }
 
-    return this.applyEffectiveTier(restaurant);
+    return this.toRestaurantReadDto(restaurant);
   }
 
   // Allows owner OR assigned manager to manage non-billing settings.

@@ -1,13 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ForbiddenException } from '@nestjs/common';
 import { MenuAuditService } from './menu-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 const mockPrisma = {
   restaurant: { findUnique: jest.fn() },
+  user: { findUnique: jest.fn() },
 };
 
 const makeRestaurant = (overrides: object = {}) => ({
   id: 'rest-1',
+  ownerId: 'owner-1',
   targetLanguages: [],
   menuCategories: [],
   ...overrides,
@@ -44,13 +47,23 @@ describe('MenuAuditService', () => {
 
     service = module.get<MenuAuditService>(MenuAuditService);
     jest.clearAllMocks();
+    mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null });
   });
 
   it('throws when restaurant not found', async () => {
     mockPrisma.restaurant.findUnique.mockResolvedValue(null);
 
-    await expect(service.auditMenu('missing')).rejects.toThrow(
+    await expect(service.auditMenu('missing', 'owner-1')).rejects.toThrow(
       'Restaurant not found',
+    );
+  });
+
+  it('throws ForbiddenException when caller does not own or staff the restaurant', async () => {
+    mockPrisma.restaurant.findUnique.mockResolvedValue(makeRestaurant());
+    mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest-2' });
+
+    await expect(service.auditMenu('rest-1', 'staff-2')).rejects.toThrow(
+      ForbiddenException,
     );
   });
 
@@ -61,7 +74,7 @@ describe('MenuAuditService', () => {
       makeRestaurant({ menuCategories: [category] }),
     );
 
-    const issues = await service.auditMenu('rest-1');
+    const issues = await service.auditMenu('rest-1', 'owner-1');
 
     expect(issues).toHaveLength(0);
   });
@@ -72,7 +85,7 @@ describe('MenuAuditService', () => {
       makeRestaurant({ menuCategories: [category] }),
     );
 
-    const issues = await service.auditMenu('rest-1');
+    const issues = await service.auditMenu('rest-1', 'owner-1');
 
     const errorIssues = issues.filter(
       (i: any) => i.type === 'error' && i.field === 'items',
@@ -88,7 +101,7 @@ describe('MenuAuditService', () => {
       makeRestaurant({ menuCategories: [category] }),
     );
 
-    const issues = await service.auditMenu('rest-1');
+    const issues = await service.auditMenu('rest-1', 'owner-1');
 
     const priceError = issues.find(
       (i: any) => i.type === 'error' && i.field === 'price',
@@ -104,7 +117,7 @@ describe('MenuAuditService', () => {
       makeRestaurant({ menuCategories: [category] }),
     );
 
-    const issues = await service.auditMenu('rest-1');
+    const issues = await service.auditMenu('rest-1', 'owner-1');
 
     const warn = issues.find(
       (i: any) => i.type === 'warning' && i.field === 'description',
@@ -119,7 +132,7 @@ describe('MenuAuditService', () => {
       makeRestaurant({ menuCategories: [category] }),
     );
 
-    const issues = await service.auditMenu('rest-1');
+    const issues = await service.auditMenu('rest-1', 'owner-1');
 
     const info = issues.find(
       (i: any) => i.type === 'info' && i.field === 'imageUrl',
@@ -133,7 +146,7 @@ describe('MenuAuditService', () => {
       makeRestaurant({ targetLanguages: ['ro'], menuCategories: [category] }),
     );
 
-    const issues = await service.auditMenu('rest-1');
+    const issues = await service.auditMenu('rest-1', 'owner-1');
 
     const transWarn = issues.find(
       (i: any) =>
@@ -150,7 +163,7 @@ describe('MenuAuditService', () => {
       makeRestaurant({ targetLanguages: ['en'], menuCategories: [category] }),
     );
 
-    const issues = await service.auditMenu('rest-1');
+    const issues = await service.auditMenu('rest-1', 'owner-1');
 
     const transWarn = issues.find(
       (i: any) =>
@@ -168,7 +181,7 @@ describe('MenuAuditService', () => {
       makeRestaurant({ targetLanguages: [], menuCategories: [category] }),
     );
 
-    const issues = await service.auditMenu('rest-1');
+    const issues = await service.auditMenu('rest-1', 'owner-1');
 
     const transWarnings = issues.filter((i: any) => i.field === 'translations');
     expect(transWarnings).toHaveLength(0);
@@ -184,7 +197,7 @@ describe('MenuAuditService', () => {
       makeRestaurant({ targetLanguages: ['ro'], menuCategories: [category] }),
     );
 
-    const issues = await service.auditMenu('rest-1');
+    const issues = await service.auditMenu('rest-1', 'owner-1');
 
     expect(issues).toHaveLength(0);
   });
@@ -202,7 +215,7 @@ describe('MenuAuditService', () => {
       makeRestaurant({ menuCategories: [cat1, cat2] }),
     );
 
-    const issues = await service.auditMenu('rest-1');
+    const issues = await service.auditMenu('rest-1', 'owner-1');
 
     expect(issues.length).toBeGreaterThanOrEqual(3);
   });

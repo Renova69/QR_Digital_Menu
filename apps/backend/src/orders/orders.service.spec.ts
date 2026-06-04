@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ForbiddenException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -89,6 +90,16 @@ const makeTx = (orderOverride: Record<string, any> = {}) => ({
     ),
   },
 });
+
+const mockAuthenticatedCustomer = (prisma: any, id = 'cust-1') => {
+  prisma.user.findUnique.mockResolvedValue({
+    id,
+    restaurantId: null,
+    role: 'CUSTOMER',
+    isActive: true,
+    disabledAt: null,
+  });
+};
 
 // ─── Suite ───────────────────────────────────────────────────────────────────
 
@@ -252,8 +263,11 @@ describe('OrdersService', () => {
         makeRestaurant({ ownerId: 'owner-1' }),
       );
       prisma.user.findUnique.mockResolvedValue({
+        id: 'customer-user',
         restaurantId: null,
-        role: 'STAFF',
+        role: 'CUSTOMER',
+        isActive: true,
+        disabledAt: null,
       }); // a logged-in customer
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
@@ -269,6 +283,21 @@ describe('OrdersService', () => {
       const data = tx.order.create.mock.calls[0][0].data;
       expect(data.source).toBe('CUSTOMER');
       expect(data.staffUserId).toBeUndefined();
+    });
+
+    it('rejects customerId spoofing from the request body', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      mockAuthenticatedCustomer(prisma, 'cust-1');
+
+      await expect(
+        service.create(
+          {
+            items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+            customerId: 'other-customer',
+          } as any,
+          'cust-1',
+        ),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('attributes the order to POS for an assigned staff member (#4)', async () => {
@@ -577,14 +606,18 @@ describe('OrdersService', () => {
         }),
       );
       const tx = makeTx();
+      mockAuthenticatedCustomer(prisma);
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
       );
 
-      await service.create({
-        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
-        customerId: 'cust-1',
-      } as any);
+      await service.create(
+        {
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          customerId: 'cust-1',
+        } as any,
+        'cust-1',
+      );
 
       expect(tx.order.create).toHaveBeenCalled();
     });
@@ -637,13 +670,17 @@ describe('OrdersService', () => {
           }),
         );
         const tx = makeTx();
+        mockAuthenticatedCustomer(prisma);
         prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
           fn(tx),
         );
-        await service.create({
-          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
-          customerId: 'cust-1',
-        } as any);
+        await service.create(
+          {
+            items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+            customerId: 'cust-1',
+          } as any,
+          'cust-1',
+        );
         return tx;
       };
 
@@ -692,12 +729,16 @@ describe('OrdersService', () => {
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
       );
+      mockAuthenticatedCustomer(prisma);
 
-      await service.create({
-        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
-        customerId: 'cust-1',
-        redeemItemIds: ['item-1'],
-      } as any);
+      await service.create(
+        {
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          customerId: 'cust-1',
+          redeemItemIds: ['item-1'],
+        } as any,
+        'cust-1',
+      );
 
       const createCall = tx.order.create.mock.calls[0][0];
       expect(createCall.data.pointsRedeemedForItems).toBe(100);
@@ -734,25 +775,29 @@ describe('OrdersService', () => {
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
       );
+      mockAuthenticatedCustomer(prisma);
 
-      await service.create({
-        items: [
-          {
-            menuItemId: 'burger',
-            cartId: 'cart-a',
-            quantity: 1,
-            selectedOptions: [],
-          }, // cheap — NOT redeemed
-          {
-            menuItemId: 'burger',
-            cartId: 'cart-b',
-            quantity: 1,
-            selectedOptions: [],
-          }, // expensive — redeemed
-        ],
-        customerId: 'cust-1',
-        redeemCartIds: ['cart-b'], // redeem only the second line
-      } as any);
+      await service.create(
+        {
+          items: [
+            {
+              menuItemId: 'burger',
+              cartId: 'cart-a',
+              quantity: 1,
+              selectedOptions: [],
+            }, // cheap — NOT redeemed
+            {
+              menuItemId: 'burger',
+              cartId: 'cart-b',
+              quantity: 1,
+              selectedOptions: [],
+            }, // expensive — redeemed
+          ],
+          customerId: 'cust-1',
+          redeemCartIds: ['cart-b'], // redeem only the second line
+        } as any,
+        'cust-1',
+      );
 
       const createCall = tx.order.create.mock.calls[0][0];
       // Points cost = rewardPointsPrice (50) × quantity (1) for the one redeemed line.
@@ -788,25 +833,29 @@ describe('OrdersService', () => {
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
       );
+      mockAuthenticatedCustomer(prisma);
 
-      await service.create({
-        items: [
-          {
-            menuItemId: 'burger',
-            cartId: 'cart-a',
-            quantity: 1,
-            selectedOptions: [],
-          },
-          {
-            menuItemId: 'burger',
-            cartId: 'cart-b',
-            quantity: 1,
-            selectedOptions: [],
-          },
-        ],
-        customerId: 'cust-1',
-        redeemCartIds: ['cart-a', 'cart-b'],
-      } as any);
+      await service.create(
+        {
+          items: [
+            {
+              menuItemId: 'burger',
+              cartId: 'cart-a',
+              quantity: 1,
+              selectedOptions: [],
+            },
+            {
+              menuItemId: 'burger',
+              cartId: 'cart-b',
+              quantity: 1,
+              selectedOptions: [],
+            },
+          ],
+          customerId: 'cust-1',
+          redeemCartIds: ['cart-a', 'cart-b'],
+        } as any,
+        'cust-1',
+      );
 
       const createCall = tx.order.create.mock.calls[0][0];
       expect(createCall.data.pointsRedeemedForItems).toBe(100); // 50 × 2
@@ -840,15 +889,19 @@ describe('OrdersService', () => {
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
       );
+      mockAuthenticatedCustomer(prisma);
 
-      await service.create({
-        items: [
-          { menuItemId: 'burger', quantity: 1, selectedOptions: [] },
-          { menuItemId: 'burger', quantity: 1, selectedOptions: [] },
-        ],
-        customerId: 'cust-1',
-        redeemItemIds: ['burger'], // one redemption of burger — only first line comped
-      } as any);
+      await service.create(
+        {
+          items: [
+            { menuItemId: 'burger', quantity: 1, selectedOptions: [] },
+            { menuItemId: 'burger', quantity: 1, selectedOptions: [] },
+          ],
+          customerId: 'cust-1',
+          redeemItemIds: ['burger'], // one redemption of burger — only first line comped
+        } as any,
+        'cust-1',
+      );
 
       const createCall = tx.order.create.mock.calls[0][0];
       expect(createCall.data.pointsRedeemedForItems).toBe(50); // one line only
@@ -865,11 +918,15 @@ describe('OrdersService', () => {
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
       );
+      mockAuthenticatedCustomer(prisma);
 
-      await service.create({
-        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
-        customerId: 'cust-1',
-      } as any);
+      await service.create(
+        {
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          customerId: 'cust-1',
+        } as any,
+        'cust-1',
+      );
 
       expect(tx.loyaltyAccount.create).toHaveBeenCalled();
       expect(tx.loyaltyAccount.update).toHaveBeenCalled();
@@ -891,11 +948,15 @@ describe('OrdersService', () => {
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
       );
+      mockAuthenticatedCustomer(prisma);
 
-      await service.create({
-        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
-        customerId: 'cust-1',
-      } as any);
+      await service.create(
+        {
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          customerId: 'cust-1',
+        } as any,
+        'cust-1',
+      );
 
       expect(tx.loyaltyAccount.create).not.toHaveBeenCalled();
       expect(tx.loyaltyAccount.update).toHaveBeenCalled();
@@ -914,11 +975,15 @@ describe('OrdersService', () => {
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
       );
+      mockAuthenticatedCustomer(prisma);
 
-      await service.create({
-        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
-        customerId: 'cust-1',
-      } as any);
+      await service.create(
+        {
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          customerId: 'cust-1',
+        } as any,
+        'cust-1',
+      );
 
       // Both EARN and SIGNUP batches created (purchasePoints > 0 and signupBonus > 0)
       expect(tx.loyaltyPointLedger.create).toHaveBeenCalledTimes(2);
@@ -946,13 +1011,17 @@ describe('OrdersService', () => {
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
       );
+      mockAuthenticatedCustomer(prisma);
 
-      await service.create({
-        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
-        customerId: 'cust-1',
-        usePoints: true,
-        redeemPoints: 10000,
-      } as any);
+      await service.create(
+        {
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          customerId: 'cust-1',
+          usePoints: true,
+          redeemPoints: 10000,
+        } as any,
+        'cust-1',
+      );
 
       const createCall = tx.order.create.mock.calls[0][0];
       expect(createCall.data.pointsRedeemedForDiscount).toBe(5);

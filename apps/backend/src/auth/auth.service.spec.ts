@@ -104,6 +104,18 @@ describe('AuthService', () => {
       ).rejects.toThrow(UnauthorizedException);
     });
 
+    it('rejects PIN-only device roles from dashboard password login', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(
+        makeUser({ password: 'hashed', role: 'WAITER' }),
+      );
+      mockCompare.mockClear();
+
+      await expect(
+        service.validateUser('waiter@example.com', 'correct'),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockCompare).not.toHaveBeenCalled();
+    });
+
     it('returns user without password when credentials are valid', async () => {
       mockUsersService.findByEmail.mockResolvedValue(
         makeUser({ password: 'hashed' }),
@@ -332,7 +344,7 @@ describe('AuthService', () => {
 
       expect(mockPrisma.user.update).toHaveBeenCalledWith({
         where: { id: 'usr1' },
-        data: { password: 'new-hash' },
+        data: { password: 'new-hash', passwordChangedAt: expect.any(Date) },
       });
       expect(result).toEqual({ success: true });
     });
@@ -582,6 +594,27 @@ describe('AuthService', () => {
 
       expect(result.isNew).toBe(false);
       expect(mockUsersService.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects an existing disabled email user', async () => {
+      const plainCode = '111222';
+      const hashedCode = await jest
+        .requireActual<typeof bcrypt>('bcryptjs')
+        .hash(plainCode, 10);
+      mockCompare.mockImplementation(jest.requireActual('bcryptjs').compare);
+
+      mockPrisma.verificationToken.findFirst.mockResolvedValue({
+        id: 'tok-disabled',
+        code: hashedCode,
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      mockUsersService.findByEmail.mockResolvedValue(
+        makeUser({ isActive: false, disabledAt: new Date() }),
+      );
+
+      await expect(
+        service.verifyOtp('disabled@example.com', plainCode),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('updates existing user phone and name when provided in email flow', async () => {

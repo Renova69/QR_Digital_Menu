@@ -26,6 +26,26 @@ function emptyTierCounts(): Record<string, number> {
   return { FREE: 0, STARTER: 0, PROFESSIONAL: 0, ENTERPRISE: 0 };
 }
 
+function clampPage(value?: number): number {
+  return Math.max(1, value ?? 1);
+}
+
+function clampLimit(value?: number): number {
+  return Math.max(1, Math.min(value ?? 20, 100));
+}
+
+function parseOptionalDate(value: string | undefined, field: string) {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new BadRequestException({
+      code: 'INVALID_DATE',
+      message: `${field} must be a valid date`,
+    });
+  }
+  return date;
+}
+
 @Injectable()
 export class SuperAdminService {
   constructor(
@@ -294,8 +314,8 @@ export class SuperAdminService {
     status?: string;
     subscription?: string;
   }) {
-    const page = Math.max(1, params.page ?? 1);
-    const limit = Math.min(params.limit ?? 20, 100);
+    const page = clampPage(params.page);
+    const limit = clampLimit(params.limit);
     const skip = (page - 1) * limit;
 
     const where: Prisma.RestaurantWhereInput = {};
@@ -752,8 +772,8 @@ export class SuperAdminService {
     dateTo?: string;
   }) {
     const { targetId, action, dateFrom, dateTo } = params;
-    const page = Math.max(1, params.page);
-    const limit = Math.min(params.limit, 100);
+    const page = clampPage(params.page);
+    const limit = clampLimit(params.limit);
     const skip = (page - 1) * limit;
     const where: Prisma.AdminAuditLogWhereInput = {};
 
@@ -761,8 +781,10 @@ export class SuperAdminService {
     if (action) where.action = action;
     if (dateFrom || dateTo) {
       where.createdAt = {};
-      if (dateFrom) where.createdAt.gte = new Date(dateFrom);
-      if (dateTo) where.createdAt.lte = new Date(dateTo);
+      const parsedFrom = parseOptionalDate(dateFrom, 'dateFrom');
+      const parsedTo = parseOptionalDate(dateTo, 'dateTo');
+      if (parsedFrom) where.createdAt.gte = parsedFrom;
+      if (parsedTo) where.createdAt.lte = parsedTo;
     }
 
     const [data, total] = await Promise.all([

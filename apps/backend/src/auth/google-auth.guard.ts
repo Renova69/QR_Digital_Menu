@@ -39,19 +39,21 @@ export class GoogleAuthGuard extends AuthGuard('google') {
         path: '/',
       });
 
-      if (cookieNonce) {
-        const rawState = req.query['state'] as string | undefined;
-        let stateNonce: string | undefined;
-        try {
-          stateNonce = rawState
-            ? (JSON.parse(rawState) as Record<string, string>).nonce
-            : undefined;
-        } catch {
-          throw new UnauthorizedException('Invalid OAuth state');
-        }
-        if (!stateNonce || stateNonce !== cookieNonce) {
-          throw new UnauthorizedException('OAuth state nonce mismatch');
-        }
+      if (!cookieNonce) {
+        throw new UnauthorizedException('OAuth state nonce missing');
+      }
+
+      const rawState = req.query['state'] as string | undefined;
+      let stateNonce: string | undefined;
+      try {
+        stateNonce = rawState
+          ? (JSON.parse(rawState) as Record<string, string>).nonce
+          : undefined;
+      } catch {
+        throw new UnauthorizedException('Invalid OAuth state');
+      }
+      if (!stateNonce || stateNonce !== cookieNonce) {
+        throw new UnauthorizedException('OAuth state nonce mismatch');
       }
     }
 

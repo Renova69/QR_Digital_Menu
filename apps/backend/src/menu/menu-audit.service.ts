@@ -1,11 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class MenuAuditService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async auditMenu(restaurantId: string) {
+  async auditMenu(restaurantId: string, userId: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
       include: {
@@ -18,7 +22,15 @@ export class MenuAuditService {
     });
 
     if (!restaurant) {
-      throw new Error('Restaurant not found');
+      throw new NotFoundException('Restaurant not found');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { restaurantId: true },
+    });
+    if (restaurant.ownerId !== userId && user?.restaurantId !== restaurantId) {
+      throw new ForbiddenException('Forbidden access');
     }
 
     const issues: any[] = [];

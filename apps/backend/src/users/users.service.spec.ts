@@ -376,7 +376,11 @@ describe('UsersService', () => {
       expect((result as any).rawPin).toMatch(/^\d{4}$/);
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ pinHash: expect.any(String) }),
+          data: expect.objectContaining({
+            pinHash: expect.any(String),
+            password: expect.any(String),
+            passwordChangedAt: expect.any(Date),
+          }),
         }),
       );
     });

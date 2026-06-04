@@ -87,17 +87,23 @@ describe('GoogleAuthGuard', () => {
       );
     });
 
-    it('callback: no nonce cookie skips nonce validation and proceeds', async () => {
+    it('callback: no nonce cookie throws UnauthorizedException', async () => {
       const ctx = makeCtx(
         { code: 'auth-code', state: JSON.stringify({ nonce: 'n' }) },
         {}, // no oauth_nonce cookie
       );
 
-      expect(await guard.canActivate(ctx)).toBe(true);
+      await expect(guard.canActivate(ctx)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('callback: error query param triggers callback path', async () => {
-      const ctx = makeCtx({ error: 'access_denied' }, {});
+      const nonce = 'err-nonce';
+      const ctx = makeCtx(
+        { error: 'access_denied', state: JSON.stringify({ nonce }) },
+        { oauth_nonce: nonce },
+      );
       expect(await guard.canActivate(ctx)).toBe(true);
     });
   });

@@ -248,6 +248,11 @@ export class UsersService {
               pinHash: pinCredential.pinHash,
               pinAttempts: 0,
               pinLockedUntil: null,
+              password: await bcrypt.hash(
+                crypto.randomBytes(24).toString('hex'),
+                10,
+              ),
+              passwordChangedAt: new Date(),
             }
           : {}),
         ...(clearPin

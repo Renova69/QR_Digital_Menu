@@ -120,9 +120,12 @@ describe('RestaurantsService', () => {
 
       const result = await service.findAll('user1');
 
-      expect(mockPrisma.restaurant.findMany).toHaveBeenCalledWith({
-        where: { ownerId: 'user1' },
-      });
+      expect(mockPrisma.restaurant.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { ownerId: 'user1' },
+          select: expect.objectContaining({ id: true, tier: true }),
+        }),
+      );
       expect(result).toHaveLength(1);
     });
 
@@ -132,9 +135,12 @@ describe('RestaurantsService', () => {
 
       await service.findAll('staff1');
 
-      expect(mockPrisma.restaurant.findMany).toHaveBeenCalledWith({
-        where: { id: 'rest1' },
-      });
+      expect(mockPrisma.restaurant.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'rest1' },
+          select: expect.objectContaining({ id: true, tier: true }),
+        }),
+      );
     });
   });
 
@@ -184,7 +190,8 @@ describe('RestaurantsService', () => {
       mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null });
 
       const result = await service.findOneOrStaff('rest1', 'user1');
-      expect(result).toBe(restaurant);
+      expect(result).toMatchObject({ id: 'rest1', name: 'Test Restaurant' });
+      expect(result).not.toHaveProperty('stripeAccountId');
     });
 
     it('returns restaurant for staff member assigned to it', async () => {
@@ -193,7 +200,8 @@ describe('RestaurantsService', () => {
       mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest1' });
 
       const result = await service.findOneOrStaff('rest1', 'staff1');
-      expect(result).toBe(restaurant);
+      expect(result).toMatchObject({ id: 'rest1', name: 'Test Restaurant' });
+      expect(result).not.toHaveProperty('stripeAccountId');
     });
 
     it('throws ForbiddenException when neither owner nor staff', async () => {

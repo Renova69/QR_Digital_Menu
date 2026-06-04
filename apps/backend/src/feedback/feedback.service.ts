@@ -3,6 +3,8 @@ import {
   NotFoundException,
   ConflictException,
   Logger,
+  BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
@@ -13,6 +15,25 @@ export class FeedbackService {
   private readonly logger = new Logger(FeedbackService.name);
 
   constructor(private readonly prisma: PrismaService) {}
+
+  private async verifyRestaurantAccess(restaurantId: string, userId: string) {
+    const [restaurant, user] = await Promise.all([
+      this.prisma.restaurant.findUnique({
+        where: { id: restaurantId },
+        select: { ownerId: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { restaurantId: true },
+      }),
+    ]);
+
+    if (!restaurant) throw new NotFoundException('Restaurant not found');
+    if (restaurant.ownerId === userId || user?.restaurantId === restaurantId) {
+      return;
+    }
+    throw new ForbiddenException('Forbidden access');
+  }
 
   async create(createFeedbackDto: CreateFeedbackDto) {
     // Check if feedback already exists for this order
@@ -26,9 +47,16 @@ export class FeedbackService {
     // Verify the order exists
     const order = await this.prisma.order.findUnique({
       where: { id: createFeedbackDto.orderId },
+      select: { id: true, restaurantId: true },
     });
     if (!order) {
       throw new NotFoundException('Order not found');
+    }
+    if (
+      createFeedbackDto.restaurantId &&
+      createFeedbackDto.restaurantId !== order.restaurantId
+    ) {
+      throw new BadRequestException('Feedback restaurant does not match order');
     }
 
     return this.prisma.feedback.create({
@@ -37,7 +65,7 @@ export class FeedbackService {
         comment: createFeedbackDto.comment,
         redirectedToGoogle: createFeedbackDto.redirectedToGoogle || false,
         orderId: createFeedbackDto.orderId,
-        restaurantId: createFeedbackDto.restaurantId,
+        restaurantId: order.restaurantId,
       },
     });
   }
@@ -58,7 +86,12 @@ export class FeedbackService {
   }
 
   // Get all feedback for a restaurant (owner-only)
-  async findAll(restaurantId: string, pagination: PaginationDto) {
+  async findAll(
+    restaurantId: string,
+    pagination: PaginationDto,
+    userId: string,
+  ) {
+    await this.verifyRestaurantAccess(restaurantId, userId);
     const page = Number.isFinite(pagination.page) ? (pagination.page ?? 1) : 1;
     const limit = Number.isFinite(pagination.limit)
       ? (pagination.limit ?? 50)
@@ -96,7 +129,8 @@ export class FeedbackService {
   }
 
   // Get feedback summary stats (owner-only)
-  async getSummary(restaurantId: string) {
+  async getSummary(restaurantId: string, userId: string) {
+    await this.verifyRestaurantAccess(restaurantId, userId);
     const feedbacks = await this.prisma.feedback.findMany({
       where: { restaurantId },
       select: { rating: true, redirectedToGoogle: true },
@@ -114,7 +148,10 @@ export class FeedbackService {
 
     const totalFeedbacks = feedbacks.length;
     const avgRating =
-      feedbacks.reduce((sum: number, f: { rating: number }) => sum + f.rating, 0) / totalFeedbacks;
+      feedbacks.reduce(
+        (sum: number, f: { rating: number }) => sum + f.rating,
+        0,
+      ) / totalFeedbacks;
     const googleRedirects = feedbacks.filter(
       (f: { redirectedToGoogle: boolean }) => f.redirectedToGoogle,
     ).length;
@@ -130,7 +167,9 @@ export class FeedbackService {
       ratingDistribution[f.rating] = (ratingDistribution[f.rating] || 0) + 1;
     }
 
-    const positiveCount = feedbacks.filter((f: { rating: number }) => f.rating >= 4).length;
+    const positiveCount = feedbacks.filter(
+      (f: { rating: number }) => f.rating >= 4,
+    ).length;
 
     return {
       totalFeedbacks,

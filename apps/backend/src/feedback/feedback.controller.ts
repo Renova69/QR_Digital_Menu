@@ -36,14 +36,15 @@ export class FeedbackController {
   findAll(
     @Query('restaurantId') restaurantId: string,
     @Query() pagination: PaginationDto,
+    @Request() req: any,
   ) {
-    return this.feedbackService.findAll(restaurantId, pagination);
+    return this.feedbackService.findAll(restaurantId, pagination, req.user.id);
   }
 
   // Protected — owner views feedback summary/stats
   @UseGuards(JwtAuthGuard)
   @Get('summary')
-  getSummary(@Query('restaurantId') restaurantId: string) {
-    return this.feedbackService.getSummary(restaurantId);
+  getSummary(@Query('restaurantId') restaurantId: string, @Request() req: any) {
+    return this.feedbackService.getSummary(restaurantId, req.user.id);
   }
 }
