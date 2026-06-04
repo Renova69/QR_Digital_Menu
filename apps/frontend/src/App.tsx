@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom";
+import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext";
 import { OrderProvider } from "./context/OrderContext";
@@ -86,6 +87,7 @@ export const PublicLayout = () => (
 
 function App() {
   return (
+    <ThemeProvider>
     <ErrorBoundary>
       <Router>
         <AuthProvider>
@@ -237,6 +239,7 @@ function App() {
         </AuthProvider>
       </Router>
     </ErrorBoundary>
+    </ThemeProvider>
   );
 }
 

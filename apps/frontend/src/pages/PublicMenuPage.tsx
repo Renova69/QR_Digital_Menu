@@ -153,6 +153,7 @@ const PublicMenuPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [publicThemeMode, setPublicThemeMode] = useState<BrandMode>(() => getStoredPublicTheme(restaurantId, 'light'));
+  const themeInitialized = useRef(false);
   const langFetchId = useRef(0);
   const langFetchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -410,10 +411,21 @@ const PublicMenuPage = () => {
   const restaurantTheme = menuMeta?.restaurant;
   const activeBrandPalette = resolvePublicPalette(restaurantTheme, publicThemeMode);
 
+  // Seed the theme from the restaurant's defaultTheme exactly once, on first load.
+  // After that, the user's localStorage choice or in-session toggle takes precedence.
+  // Re-runs if the restaurantId changes (navigation to a different restaurant).
   useEffect(() => {
-    const fallback = (restaurantTheme?.defaultTheme as BrandMode | undefined) ?? 'light';
+    if (!restaurantTheme?.defaultTheme) return;
+    if (themeInitialized.current) return;
+    themeInitialized.current = true;
+    const fallback = (restaurantTheme.defaultTheme as BrandMode | undefined) ?? 'light';
     setPublicThemeMode(getStoredPublicTheme(restaurantId, fallback));
   }, [restaurantId, restaurantTheme?.defaultTheme]);
+
+  // Reset initialization flag when navigating to a different restaurant.
+  useEffect(() => {
+    themeInitialized.current = false;
+  }, [restaurantId]);
 
   // Dietary/allergen tags derived from all currently loaded items
   const dietTags: { tag: string; count: number }[] = (() => {

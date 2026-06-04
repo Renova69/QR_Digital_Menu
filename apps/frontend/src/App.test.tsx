@@ -10,6 +10,7 @@ import { useAssistance } from './context/AssistanceContext';
 import { AuthProvider } from './context/AuthContext';
 import RestaurantContext from './context/RestaurantContext';
 import { useNotifications } from './context/NotificationContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
@@ -42,7 +43,11 @@ const queryClient = new QueryClient({
 });
 
 function wrapper({ children }: { children: React.ReactNode }) {
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </ThemeProvider>
+  );
 }
 
 function CartConsumer() {

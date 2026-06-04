@@ -81,14 +81,14 @@
 
 .dark {
   color-scheme: dark;
-  --color-background: #0B0A14 !important;
-  --color-foreground: #F5F4FA !important;
+  --color-background: #0B0A14;
+  --color-foreground: #F5F4FA;
 
-  --color-card: #15131F !important;
-  --color-card-foreground: #F5F4FA !important;
+  --color-card: #15131F;
+  --color-card-foreground: #F5F4FA;
 
-  --color-popover: #15131F !important;
-  --color-popover-foreground: #F5F4FA !important;
+  --color-popover: #15131F;
+  --color-popover-foreground: #F5F4FA;
 
   --color-primary: #8B6FFF;
   --color-primary-foreground: #FFFFFF;
@@ -105,8 +105,8 @@
   --color-destructive: #EF4444;
   --color-destructive-foreground: #FFFFFF;
 
-  --color-border: #25223A !important;
-  --color-input: #25223A !important;
+  --color-border: #25223A;
+  --color-input: #25223A;
   --color-ring: #8B6FFF;
 
   --glass-opacity: 0.85;

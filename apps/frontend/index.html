@@ -13,6 +13,18 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
     <title>QR Menu</title>
+    <!-- Blocking theme script: must run before React mounts to prevent FOUC.
+         Reads the stored preference and adds the 'dark' class synchronously so
+         the page never flashes light when the user has saved a dark preference. -->
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

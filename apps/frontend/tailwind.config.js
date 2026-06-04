@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: ["class"],
+  // Dark mode is configured via @custom-variant in index.css (Tailwind v4 style).
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
