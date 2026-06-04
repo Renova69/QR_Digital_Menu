@@ -639,6 +639,27 @@ describe('AuthService', () => {
       expect(mockUsersService.create).not.toHaveBeenCalled();
     });
 
+    it('rejects a PIN-role user (KITCHEN) in the email OTP flow', async () => {
+      const plainCode = '555666';
+      const hashedCode = await jest
+        .requireActual<typeof bcrypt>('bcryptjs')
+        .hash(plainCode, 10);
+      mockCompare.mockImplementation(jest.requireActual('bcryptjs').compare);
+
+      mockPrisma.verificationToken.findFirst.mockResolvedValue({
+        id: 'tok-kitchen',
+        code: hashedCode,
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      mockUsersService.findByEmail.mockResolvedValue(
+        makeUser({ role: 'KITCHEN' }),
+      );
+
+      await expect(
+        service.verifyOtp('kitchen@example.com', plainCode),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
     it('updates existing user phone and name when provided in email flow', async () => {
       const plainCode = '999777';
       const hashedCode = await jest
@@ -674,6 +695,30 @@ describe('AuthService', () => {
           }),
         }),
       );
+    });
+
+    describe('phone flow — PIN-role rejection', () => {
+      beforeEach(() => {
+        jest.spyOn(service as any, 'twilioConfigured', 'get').mockReturnValue(true);
+        jest.spyOn(service as any, 'verifyTwilioOtp').mockResolvedValue(true);
+      });
+
+      it('rejects a PIN-role user (WAITER) in the phone OTP flow', async () => {
+        mockUsersService.findByPhone.mockResolvedValue(makeUser({ role: 'WAITER' }));
+
+        await expect(
+          service.verifyOtp(undefined, '123456', '+15550001111'),
+        ).rejects.toThrow(UnauthorizedException);
+        expect(mockUsersService.create).not.toHaveBeenCalled();
+      });
+
+      it('rejects a PIN-role user (KITCHEN) in the phone OTP flow', async () => {
+        mockUsersService.findByPhone.mockResolvedValue(makeUser({ role: 'KITCHEN' }));
+
+        await expect(
+          service.verifyOtp(undefined, '123456', '+15550002222'),
+        ).rejects.toThrow(UnauthorizedException);
+      });
     });
   });
 });

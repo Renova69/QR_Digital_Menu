@@ -223,6 +223,17 @@ describe('SuperAdminService', () => {
       const call = mockPrisma.restaurant.findMany.mock.calls[0][0];
       expect(call.where.tier).toBeUndefined();
     });
+
+    it('clamps NaN page and limit to safe defaults', async () => {
+      mockPrisma.restaurant.findMany.mockResolvedValueOnce([]);
+      mockPrisma.restaurant.count.mockResolvedValueOnce(0);
+
+      await service.getTenants({ page: NaN as any, limit: NaN as any });
+
+      const call = mockPrisma.restaurant.findMany.mock.calls[0][0];
+      expect(call.skip).toBe(0);  // page 1 → skip 0
+      expect(call.take).toBe(20); // default limit
+    });
   });
 
   describe('updatePaymentsEnabled', () => {

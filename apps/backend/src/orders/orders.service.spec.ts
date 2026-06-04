@@ -300,17 +300,24 @@ describe('OrdersService', () => {
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('allows POS staff to pass a customerId for loyalty association', async () => {
+    it('allows POS staff to pass a valid customerId for loyalty association', async () => {
       const tx = makeTx();
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ ownerId: 'owner-1' }),
       );
-      // Staff user (WAITER) assigned to the restaurant
-      prisma.user.findUnique.mockResolvedValue({
+      // resolvePosStaff call — waiter
+      prisma.user.findUnique.mockResolvedValueOnce({
         id: 'waiter-1',
         restaurantId: 'rest-1',
         role: 'WAITER',
+        isActive: true,
+        disabledAt: null,
+      });
+      // resolveStaffAssertedCustomerId call — valid customer
+      prisma.user.findUnique.mockResolvedValueOnce({
+        id: 'some-customer-id',
+        role: 'CUSTOMER',
         isActive: true,
         disabledAt: null,
       });
@@ -330,6 +337,94 @@ describe('OrdersService', () => {
 
       const data = tx.order.create.mock.calls[0][0].data;
       expect(data.customerId).toBe('some-customer-id');
+    });
+
+    it('rejects POS staff customerId that does not exist', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner-1' }),
+      );
+      prisma.user.findUnique
+        .mockResolvedValueOnce({
+          id: 'waiter-1',
+          restaurantId: 'rest-1',
+          role: 'WAITER',
+          isActive: true,
+          disabledAt: null,
+        })
+        .mockResolvedValueOnce(null); // customer not found
+
+      await expect(
+        service.create(
+          {
+            items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+            customerId: 'ghost-id',
+          } as any,
+          'waiter-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects POS staff customerId for a disabled customer', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner-1' }),
+      );
+      prisma.user.findUnique
+        .mockResolvedValueOnce({
+          id: 'waiter-1',
+          restaurantId: 'rest-1',
+          role: 'WAITER',
+          isActive: true,
+          disabledAt: null,
+        })
+        .mockResolvedValueOnce({
+          id: 'disabled-cust',
+          role: 'CUSTOMER',
+          isActive: false,
+          disabledAt: new Date(),
+        });
+
+      await expect(
+        service.create(
+          {
+            items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+            customerId: 'disabled-cust',
+          } as any,
+          'waiter-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects POS staff customerId pointing to a non-CUSTOMER role', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner-1' }),
+      );
+      prisma.user.findUnique
+        .mockResolvedValueOnce({
+          id: 'waiter-1',
+          restaurantId: 'rest-1',
+          role: 'WAITER',
+          isActive: true,
+          disabledAt: null,
+        })
+        .mockResolvedValueOnce({
+          id: 'manager-id',
+          role: 'MANAGER',
+          isActive: true,
+          disabledAt: null,
+        });
+
+      await expect(
+        service.create(
+          {
+            items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+            customerId: 'manager-id',
+          } as any,
+          'waiter-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('throws UnauthorizedException when a disabled customer places an order', async () => {
@@ -353,6 +448,24 @@ describe('OrdersService', () => {
             items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
           } as any,
           'disabled-cust',
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('throws UnauthorizedException when a deleted user has a stale token', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner-1' }),
+      );
+      // Both resolvePosStaff and resolveCustomerUserId get null (user deleted)
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.create(
+          {
+            items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          } as any,
+          'deleted-user-id',
         ),
       ).rejects.toThrow(UnauthorizedException);
     });

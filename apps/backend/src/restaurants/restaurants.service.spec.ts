@@ -306,11 +306,14 @@ describe('RestaurantsService', () => {
         'user1',
       );
 
-      expect(mockPrisma.restaurant.update).toHaveBeenCalledWith({
-        where: { id: 'rest1' },
-        data: { name: 'Updated' },
-      });
-      expect(result).toBe(updated);
+      expect(mockPrisma.restaurant.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'rest1' },
+          data: { name: 'Updated' },
+        }),
+      );
+      expect(result).toMatchObject({ id: 'rest1', name: 'Updated' });
+      expect(result).not.toHaveProperty('stripeAccountId');
     });
 
     it('throws ForbiddenException when not owner or manager', async () => {
@@ -353,10 +356,12 @@ describe('RestaurantsService', () => {
 
       await service.update('rest1', brandingDto, 'user1');
 
-      expect(mockPrisma.restaurant.update).toHaveBeenCalledWith({
-        where: { id: 'rest1' },
-        data: { name: 'Updated' },
-      });
+      expect(mockPrisma.restaurant.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'rest1' },
+          data: { name: 'Updated' },
+        }),
+      );
       const sentData = mockPrisma.restaurant.update.mock.calls[0][0].data;
       expect(sentData).not.toHaveProperty('fontHeading');
       expect(sentData).not.toHaveProperty('themeDarkAccentColor');
@@ -368,10 +373,12 @@ describe('RestaurantsService', () => {
 
       await service.update('rest1', brandingDto, 'user1');
 
-      expect(mockPrisma.restaurant.update).toHaveBeenCalledWith({
-        where: { id: 'rest1' },
-        data: brandingDto,
-      });
+      expect(mockPrisma.restaurant.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'rest1' },
+          data: brandingDto,
+        }),
+      );
     });
 
     it('resolves the effective (forced) tier before checking the feature', async () => {

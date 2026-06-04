@@ -283,10 +283,12 @@ export class RestaurantsService {
       delete data.targetLanguages;
     }
 
-    return this.prisma.restaurant.update({
+    const updated = await this.prisma.restaurant.update({
       where: { id },
+      select: RESTAURANT_READ_SELECT,
       data,
     });
+    return this.toRestaurantReadDto(updated);
   }
 
   async remove(id: string, userId: string) {

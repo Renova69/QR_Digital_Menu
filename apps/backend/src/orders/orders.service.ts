@@ -172,9 +172,12 @@ export class OrdersService {
       );
     }
 
-    const effectiveCustomerId = resolvedStaffUserId
-      ? (createOrderDto.customerId ?? null)
-      : authenticatedCustomerId;
+    const effectiveCustomerId =
+      resolvedStaffUserId && createOrderDto.customerId
+        ? await this.resolveStaffAssertedCustomerId(createOrderDto.customerId)
+        : resolvedStaffUserId
+          ? null
+          : authenticatedCustomerId;
 
     // 5. Resolve or create TableSession for pay-at-table.
     // The client sends the table NAME (e.g. "1"). We persist the real table
@@ -614,11 +617,29 @@ export class OrdersService {
       where: { id: authenticatedUserId },
       select: { id: true, isActive: true, disabledAt: true },
     });
-    if (!user) return null;
-    if (user.isActive === false || user.disabledAt) {
+    if (!user || user.isActive === false || user.disabledAt) {
       throw new UnauthorizedException('ACCOUNT_DISABLED');
     }
     return user.id;
+  }
+
+  private async resolveStaffAssertedCustomerId(
+    customerId: string,
+  ): Promise<string> {
+    const customer = await this.prisma.user.findUnique({
+      where: { id: customerId },
+      select: { id: true, role: true, isActive: true, disabledAt: true },
+    });
+    if (!customer) {
+      throw new BadRequestException('Customer not found');
+    }
+    if (customer.role !== 'CUSTOMER') {
+      throw new BadRequestException('Provided customerId does not refer to a customer account');
+    }
+    if (customer.isActive === false || customer.disabledAt) {
+      throw new BadRequestException('Customer account is disabled');
+    }
+    return customer.id;
   }
 
   async findAll(userId: string, query: OrderQueryDto) {
