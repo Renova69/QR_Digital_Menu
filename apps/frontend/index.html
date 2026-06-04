@@ -14,14 +14,18 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
     <title>QR Menu</title>
     <!-- Blocking theme script: must run before React mounts to prevent FOUC.
-         Reads the stored preference and adds the 'dark' class synchronously so
-         the page never flashes light when the user has saved a dark preference. -->
+         Checks the global 'theme' key first; falls back to per-restaurant
+         'theme-{restaurantId}' for public menu pages so returning visitors
+         never see a flash of light before React hydrates. -->
     <script>
       (function () {
         try {
-          if (localStorage.getItem('theme') === 'dark') {
-            document.documentElement.classList.add('dark');
+          var t = localStorage.getItem('theme');
+          if (!t) {
+            var m = location.pathname.match(/\/menu\/public\/([^/?#]+)/);
+            if (m) t = localStorage.getItem('theme-' + m[1]);
           }
+          if (t === 'dark') document.documentElement.classList.add('dark');
         } catch (e) {}
       })();
     </script>

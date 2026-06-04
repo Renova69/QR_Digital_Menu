@@ -49,24 +49,24 @@ function PublicThemeToggle({
   const onThemeChangeRef = useRef(onThemeChange);
   onThemeChangeRef.current = onThemeChange;
 
-  // Apply dark class to <html> and notify parent — only re-runs when theme changes.
+  // Notify parent when theme changes so it can update CSS custom properties
+  // on the wrapper div. DO NOT touch document.documentElement here — that is
+  // ThemeProvider's responsibility. Public-menu dark mode is driven entirely
+  // by CSS vars (resolvePublicPalette), not by the .dark class on <html>.
   useEffect(() => {
-    const root = window.document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
     onThemeChangeRef.current?.(theme);
   }, [theme]);
 
-  // Re-seed from localStorage when the restaurant changes (different storageKey).
-  // Does NOT re-run when defaultTheme changes after a user toggle — once the user
-  // has an opinion in localStorage we honour it, not the restaurant default.
+  // Re-seed when:
+  //   a) storageKey changes (user navigated to a different restaurant), or
+  //   b) defaultTheme changes (API data arrived with the restaurant's default)
+  //      but ONLY when the user has not stored a preference yet — once they have
+  //      an opinion in localStorage we never override it.
   useEffect(() => {
-    setTheme(getInitialPublicTheme(storageKey, defaultTheme));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storageKey]);
+    if (localStorage.getItem(storageKey) === null) {
+      setTheme(defaultTheme ?? 'light');
+    }
+  }, [storageKey, defaultTheme]);
 
   const toggleTheme = () => {
     setTheme(prev => {
