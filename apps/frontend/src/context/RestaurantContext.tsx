@@ -27,7 +27,7 @@ export const useRestaurantContext = () => {
 };
 
 export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user, prefetchedRestaurants } = useAuth();
+  const { user, prefetchedRestaurants, clearPrefetch } = useAuth();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [activeRestaurant, setActiveRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -108,6 +108,9 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({ children
     if (user) {
       // Pass prefetched restaurants from AuthContext (set in parallel with /auth/me)
       _fetchRestaurants(prefetchedRestaurants);
+      if (prefetchedRestaurants !== null && clearPrefetch) {
+        clearPrefetch();
+      }
     } else {
       setRestaurants([]);
       setActiveRestaurant(null);

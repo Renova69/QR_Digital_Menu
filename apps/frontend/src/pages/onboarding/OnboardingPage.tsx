@@ -149,8 +149,8 @@ export default function OnboardingPage() {
         window.location.href = url;
       } catch (_) {
         setLoading(false);
-        const next: Step = PAYMENT_TIERS.includes(selectedTier) ? 'payment' : 'done';
-        setStep(next);
+        alert(t('onboarding.checkoutError') || 'Failed to initialize checkout. Please check Stripe configuration or select the FREE plan for now.');
+        setStep('plan');
       }
     } else {
       const next: Step = PAYMENT_TIERS.includes(selectedTier) ? 'payment' : 'done';

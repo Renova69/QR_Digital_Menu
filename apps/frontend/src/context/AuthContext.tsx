@@ -24,6 +24,7 @@ interface AuthContextType {
   isError: boolean;
   errorMessage: string | null;
   prefetchedRestaurants: any[] | null;
+  clearPrefetch: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,9 +32,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isError, setIsError] = useState(false);
+  const [isError, setIsError] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [prefetchedRestaurants, setPrefetchedRestaurants] = useState<any[] | null>(null);
+
+  const clearPrefetch = () => setPrefetchedRestaurants(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -132,6 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isError,
     errorMessage,
     prefetchedRestaurants,
+    clearPrefetch,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
