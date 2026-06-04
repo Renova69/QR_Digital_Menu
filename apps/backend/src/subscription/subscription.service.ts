@@ -261,7 +261,7 @@ export class SubscriptionService {
 
     const session = await this.stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,
-      return_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/dashboard/settings`,
+      return_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/dashboard?tab=settings`,
     });
 
     return { url: session.url };
