@@ -89,13 +89,45 @@ export class DeviceEnrollmentService {
         createdAt: true,
         expiresAt: true,
         usedAt: true,
+        revokedAt: true,
         createdBy: {
           select: { id: true, name: true, email: true },
         },
       },
       orderBy: { createdAt: 'desc' },
-      take: 5,
+      take: 50,
     });
+  }
+
+  /** Revoke an enrolled device so it can no longer authenticate via PIN login.
+   *  Only owners and managers of the restaurant can revoke tokens. */
+  async revokeEnrollment(
+    tokenId: string,
+    restaurantId: string,
+    userId: string,
+  ) {
+    await this.verifyManagerAccess(restaurantId, userId);
+
+    const token = await this.tokenStore.findFirst({
+      where: { id: tokenId, restaurantId },
+      select: { id: true, revokedAt: true },
+    });
+
+    if (!token) {
+      throw new NotFoundException(
+        `Enrollment token "${tokenId}" not found for this restaurant`,
+      );
+    }
+    if (token.revokedAt) {
+      throw new ForbiddenException('This enrollment has already been revoked');
+    }
+
+    await this.tokenStore.update({
+      where: { id: tokenId },
+      data: { revokedAt: new Date() },
+    });
+
+    return { success: true, revokedAt: new Date() };
   }
 
   async verifyEnrollment(token: string) {

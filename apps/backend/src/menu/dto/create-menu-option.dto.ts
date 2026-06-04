@@ -10,6 +10,7 @@ import { OptionType } from '@prisma/client';
 export class CreateMenuOptionDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   name: string;
 
   @IsEnum(OptionType)

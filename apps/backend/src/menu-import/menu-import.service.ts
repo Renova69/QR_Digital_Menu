@@ -6,6 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { ImportMenuDto } from './dto/import-menu.dto';
 import { randomBytes, createHash } from 'crypto';
 import { AvailabilityType, Currency, OptionType } from '@prisma/client';
@@ -16,7 +17,10 @@ const VALID_AVAILABILITY = new Set(Object.values(AvailabilityType));
 export class MenuImportService {
   private readonly logger = new Logger(MenuImportService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storageService: StorageService,
+  ) {}
 
   async checkOwnership(restaurantId: string, userId: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
@@ -32,27 +36,51 @@ export class MenuImportService {
   async upsertMenu(restaurantId: string, dto: ImportMenuDto) {
     const stats = { created: 0, updated: 0, categories: 0 };
 
+    if (!dto.categories?.length)
+      throw new BadRequestException('No categories in payload');
+
+    // --- Preload all existing data BEFORE the transaction to avoid N+1 ---
+    const existingCategories = await this.prisma.menuCategory.findMany({
+      where: { restaurantId },
+      select: {
+        id: true,
+        name: true,
+        order: true,
+        imageUrl: true,
+        thumbnailUrl: true,
+        items: {
+          select: {
+            id: true,
+            name: true,
+            order: true,
+            imageUrl: true,
+            thumbnailUrl: true,
+          },
+        },
+      },
+    });
+
+    const catMap = new Map<
+      string,
+      (typeof existingCategories)[0]
+    >();
+    for (const ec of existingCategories) {
+      catMap.set(ec.name.toLowerCase(), ec);
+    }
+
+    const maxCatOrder =
+      existingCategories.length > 0
+        ? Math.max(...existingCategories.map((c) => c.order))
+        : -1;
+    let nextCatOrder = maxCatOrder + 1;
+
     try {
       await this.prisma.$transaction(
         async (tx) => {
-          if (!dto.categories?.length)
-            throw new BadRequestException('No categories in payload');
-
-          const maxCatOrder = await tx.menuCategory.aggregate({
-            where: { restaurantId },
-            _max: { order: true },
-          });
-          let nextCatOrder = (maxCatOrder._max.order ?? -1) + 1;
-
           for (const cat of dto.categories) {
             const catName = cat.name.trim();
 
-            let category = await tx.menuCategory.findFirst({
-              where: {
-                restaurantId,
-                name: { equals: catName, mode: 'insensitive' },
-              },
-            });
+            const existingCat = catMap.get(catName.toLowerCase());
 
             const availabilityType = VALID_AVAILABILITY.has(
               cat.availabilityType as AvailabilityType,
@@ -60,8 +88,10 @@ export class MenuImportService {
               ? (cat.availabilityType as AvailabilityType)
               : AvailabilityType.ALWAYS;
 
-            if (!category) {
-              category = await tx.menuCategory.create({
+            let categoryId: string;
+
+            if (!existingCat) {
+              const created = await tx.menuCategory.create({
                 data: {
                   restaurantId,
                   name: catName,
@@ -79,10 +109,31 @@ export class MenuImportService {
                     : {}),
                 },
               });
+              categoryId = created.id;
               stats.categories++;
             } else {
+              // Delete old R2 objects if images are being replaced
+              if (
+                existingCat.imageUrl &&
+                cat.imageUrl !== undefined &&
+                existingCat.imageUrl !== cat.imageUrl
+              ) {
+                await this.storageService
+                  .delete(existingCat.imageUrl)
+                  .catch(() => {});
+              }
+              if (
+                existingCat.thumbnailUrl &&
+                cat.thumbnailUrl !== undefined &&
+                existingCat.thumbnailUrl !== cat.thumbnailUrl
+              ) {
+                await this.storageService
+                  .delete(existingCat.thumbnailUrl)
+                  .catch(() => {});
+              }
+
               await tx.menuCategory.update({
-                where: { id: category.id },
+                where: { id: existingCat.id },
                 data: {
                   availabilityType,
                   ...(cat.translations
@@ -96,13 +147,24 @@ export class MenuImportService {
                     : {}),
                 },
               });
+              categoryId = existingCat.id;
             }
 
-            const maxItemOrder = await tx.menuItem.aggregate({
-              where: { categoryId: category.id },
-              _max: { order: true },
-            });
-            let nextItemOrder = (maxItemOrder._max.order ?? -1) + 1;
+            // Build item lookup map from preloaded data
+            const itemMap = new Map<
+              string,
+              { id: string; imageUrl: string | null; thumbnailUrl: string | null }
+            >();
+            if (existingCat) {
+              for (const ei of existingCat.items) {
+                itemMap.set(ei.name.toLowerCase(), ei);
+              }
+            }
+
+            const nextItemOrderBase = existingCat
+              ? Math.max(-1, ...existingCat.items.map((i) => i.order)) + 1
+              : 0;
+            let nextItemOrder = nextItemOrderBase;
 
             for (const item of cat.items) {
               const itemName = item.name.trim();
@@ -128,15 +190,30 @@ export class MenuImportService {
                   : {}),
               };
 
-              const existing = await tx.menuItem.findFirst({
-                where: {
-                  categoryId: category.id,
-                  name: { equals: itemName, mode: 'insensitive' },
-                },
-              });
+              const existing = itemMap.get(itemName.toLowerCase());
 
               let menuItemId: string;
               if (existing) {
+                // Delete old R2 objects if images are being replaced
+                if (
+                  existing.imageUrl &&
+                  item.imageUrl !== undefined &&
+                  existing.imageUrl !== item.imageUrl
+                ) {
+                  await this.storageService
+                    .delete(existing.imageUrl)
+                    .catch(() => {});
+                }
+                if (
+                  existing.thumbnailUrl &&
+                  item.thumbnailUrl !== undefined &&
+                  existing.thumbnailUrl !== item.thumbnailUrl
+                ) {
+                  await this.storageService
+                    .delete(existing.thumbnailUrl)
+                    .catch(() => {});
+                }
+
                 await tx.menuItem.update({
                   where: { id: existing.id },
                   data: itemData,
@@ -147,7 +224,7 @@ export class MenuImportService {
                 const created = await tx.menuItem.create({
                   data: {
                     ...itemData,
-                    categoryId: category.id,
+                    categoryId,
                     order: item.order ?? nextItemOrder++,
                   },
                 });

@@ -218,6 +218,7 @@ export class AuthService {
         restaurantId,
         tokenHash,
         usedAt: { not: null },
+        revokedAt: null,
       },
       select: { id: true },
     });
@@ -334,6 +335,25 @@ export class AuthService {
     const staffRoles: string[] = [...PIN_LOGIN_ROLES];
     const MAX_ATTEMPTS = 5;
     const LOCKOUT_MINUTES = 15;
+
+    // H2.2 — Gate pinLogin on POS tier before device check.
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { id: true, tier: true, forceTier: true, isActive: true },
+    });
+    if (!restaurant) {
+      throw new NotFoundException('Restaurant not found');
+    }
+    if (!this.featureService.restaurantHasFeature(restaurant, FeatureFlag.POS)) {
+      throw new ForbiddenException('POS is not available on this plan.');
+    }
+    // M2.2 — Suspended restaurants cannot use the POS.
+    if (restaurant.isActive === false) {
+      throw new ForbiddenException({
+        code: 'RESTAURANT_SUSPENDED',
+        message: 'This restaurant has been suspended',
+      });
+    }
 
     await this.assertEnrolledDevice(restaurantId, deviceToken);
 

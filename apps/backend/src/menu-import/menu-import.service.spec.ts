@@ -2,20 +2,19 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { MenuImportService } from './menu-import.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { AvailabilityType, Currency, OptionType } from '@prisma/client';
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
+/** Minimal transaction mock — only the write operations needed by upsertMenu.
+ *  No findFirst/aggregate since the new implementation preloads before tx. */
 const makeTx = () => ({
   menuCategory: {
-    aggregate: jest.fn().mockResolvedValue({ _max: { order: 2 } }),
-    findFirst: jest.fn().mockResolvedValue(null),
     create: jest.fn().mockResolvedValue({ id: 'cat-1' }),
     update: jest.fn().mockResolvedValue({}),
   },
   menuItem: {
-    aggregate: jest.fn().mockResolvedValue({ _max: { order: 1 } }),
-    findFirst: jest.fn().mockResolvedValue(null),
     create: jest.fn().mockResolvedValue({ id: 'item-1' }),
     update: jest.fn().mockResolvedValue({}),
   },
@@ -25,12 +24,17 @@ const makeTx = () => ({
   },
 });
 
+const mockStorageService = {
+  delete: jest.fn().mockResolvedValue(undefined),
+};
+
 const mockPrisma = {
   restaurant: {
     findUnique: jest.fn(),
     update: jest.fn().mockResolvedValue({}),
   },
   menuCategory: {
+    // Preload — returns [] (no existing cats) by default
     findMany: jest.fn().mockResolvedValue([]),
   },
   $transaction: jest.fn(),
@@ -46,12 +50,14 @@ describe('MenuImportService', () => {
       providers: [
         MenuImportService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: StorageService, useValue: mockStorageService },
       ],
     }).compile();
 
     service = module.get<MenuImportService>(MenuImportService);
     jest.clearAllMocks();
     mockPrisma.restaurant.update.mockResolvedValue({});
+    // Default: no existing categories (all creates)
     mockPrisma.menuCategory.findMany.mockResolvedValue([]);
   });
 
@@ -88,13 +94,12 @@ describe('MenuImportService', () => {
   // ── upsertMenu ────────────────────────────────────────────────────────────
 
   describe('upsertMenu', () => {
-    it('throws when dto.categories is empty', async () => {
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => {
-        await fn(makeTx());
-      });
+    it('throws immediately (before transaction) when dto.categories is empty', async () => {
+      // BadRequestException is thrown before the $transaction call in the new impl
       await expect(
         service.upsertMenu('rest-1', { categories: [] } as any),
       ).rejects.toThrow('No categories in payload');
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
 
     it('creates category and item when neither exists', async () => {
@@ -124,10 +129,27 @@ describe('MenuImportService', () => {
       expect(result.categories).toBe(1);
     });
 
-    it('updates category and item when both already exist', async () => {
+    it('updates category and item when both already exist (preloaded)', async () => {
       const tx = makeTx();
-      tx.menuCategory.findFirst.mockResolvedValue({ id: 'cat-existing' });
-      tx.menuItem.findFirst.mockResolvedValue({ id: 'item-existing' });
+      // Preload returns an existing category with an existing item
+      mockPrisma.menuCategory.findMany.mockResolvedValue([
+        {
+          id: 'cat-existing',
+          name: 'Mains',
+          order: 0,
+          imageUrl: null,
+          thumbnailUrl: null,
+          items: [
+            {
+              id: 'item-existing',
+              name: 'Burger',
+              order: 0,
+              imageUrl: null,
+              thumbnailUrl: null,
+            },
+          ],
+        },
+      ]);
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
       const result = await service.upsertMenu('rest-1', {
@@ -147,9 +169,12 @@ describe('MenuImportService', () => {
         ],
       });
 
+      expect(tx.menuCategory.create).not.toHaveBeenCalled();
       expect(tx.menuCategory.update).toHaveBeenCalled();
+      expect(tx.menuItem.create).not.toHaveBeenCalled();
       expect(tx.menuItem.update).toHaveBeenCalled();
       expect(result.updated).toBe(1);
+      expect(result.categories).toBe(0);
     });
 
     it('defaults to ALWAYS when availabilityType is invalid', async () => {
@@ -343,23 +368,85 @@ describe('MenuImportService', () => {
       );
     });
 
-    it('uses null order (_max.order = null) and increments from 0', async () => {
+    it('deletes old R2 objects (H1.1) when image is replaced on existing category', async () => {
       const tx = makeTx();
-      tx.menuCategory.aggregate.mockResolvedValue({ _max: { order: null } });
-      tx.menuItem.aggregate.mockResolvedValue({ _max: { order: null } });
+      const OLD_URL = 'https://r2.example.com/old-cat.webp';
+      mockPrisma.menuCategory.findMany.mockResolvedValue([
+        {
+          id: 'cat-existing',
+          name: 'Mains',
+          order: 0,
+          imageUrl: OLD_URL,
+          thumbnailUrl: null,
+          items: [],
+        },
+      ]);
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
-      const result = await service.upsertMenu('rest-1', {
+      await service.upsertMenu('rest-1', {
         categories: [
           {
-            name: 'Soups',
+            name: 'Mains',
             availabilityType: AvailabilityType.ALWAYS,
-            items: [{ name: 'Tomato', price: 6, options: [] }],
+            imageUrl: 'https://r2.example.com/new-cat.webp',
+            items: [],
+          },
+        ],
+      } as any);
+
+      expect(mockStorageService.delete).toHaveBeenCalledWith(OLD_URL);
+    });
+
+    it('does NOT delete old image when same URL is re-sent', async () => {
+      const tx = makeTx();
+      const SAME_URL = 'https://r2.example.com/cat.webp';
+      mockPrisma.menuCategory.findMany.mockResolvedValue([
+        {
+          id: 'cat-existing',
+          name: 'Mains',
+          order: 0,
+          imageUrl: SAME_URL,
+          thumbnailUrl: null,
+          items: [],
+        },
+      ]);
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      await service.upsertMenu('rest-1', {
+        categories: [
+          {
+            name: 'Mains',
+            availabilityType: AvailabilityType.ALWAYS,
+            imageUrl: SAME_URL,
+            items: [],
+          },
+        ],
+      } as any);
+
+      expect(mockStorageService.delete).not.toHaveBeenCalled();
+    });
+
+    it('increments nextCatOrder from max existing order', async () => {
+      const tx = makeTx();
+      // Preload shows cats with orders 0,1,2 so next should be 3
+      mockPrisma.menuCategory.findMany.mockResolvedValue([
+        { id: 'c0', name: 'Existing', order: 2, imageUrl: null, thumbnailUrl: null, items: [] },
+      ]);
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      await service.upsertMenu('rest-1', {
+        categories: [
+          {
+            name: 'NewCat',
+            availabilityType: AvailabilityType.ALWAYS,
+            items: [{ name: 'Item', price: 5, options: [] }],
           },
         ],
       });
 
-      expect(result.created).toBe(1);
+      expect(tx.menuCategory.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ order: 3 }) }),
+      );
     });
   });
 

@@ -37,9 +37,12 @@ export class MenuCrudService {
     imageUrl?: string | null,
     thumbnailUrl?: string | null,
   ) {
-    const keyOrUrl = imageUrl ?? thumbnailUrl;
-    if (!keyOrUrl) return;
-    await this.storageService.delete(keyOrUrl);
+    // Delete each URL independently. Using `imageUrl ?? thumbnailUrl` previously
+    // caused `_thumb_thumb.webp` if only thumbnailUrl was non-null (L1.3).
+    const deletes: Promise<void>[] = [];
+    if (imageUrl) deletes.push(this.storageService.delete(imageUrl));
+    if (thumbnailUrl) deletes.push(this.storageService.delete(thumbnailUrl));
+    await Promise.all(deletes);
   }
 
   private parseMenuOptionChoices(rawChoices: string) {

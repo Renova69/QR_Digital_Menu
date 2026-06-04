@@ -300,6 +300,7 @@ model DeviceEnrollmentToken {
   createdById  String
   expiresAt    DateTime
   usedAt       DateTime?
+  revokedAt    DateTime?
   createdAt    DateTime   @default(now())
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   createdBy    User       @relation(fields: [createdById], references: [id], onDelete: Cascade)

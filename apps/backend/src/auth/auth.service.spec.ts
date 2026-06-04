@@ -59,7 +59,12 @@ describe('AuthService', () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
       restaurant: {
-        findUnique: jest.fn(),
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'rest1',
+          tier: 'ENTERPRISE',
+          forceTier: null,
+          isActive: true,
+        }),
       },
       deviceEnrollmentToken: {
         findFirst: jest.fn().mockResolvedValue({ id: 'device-token-1' }),
@@ -305,6 +310,36 @@ describe('AuthService', () => {
           data: expect.objectContaining({ pinLockedUntil: expect.any(Date) }),
         }),
       );
+    });
+
+    it('throws ForbiddenException when restaurant lacks POS feature (H2.2)', async () => {
+      // ENTERPRISE has POS; FREE does not — use FREE tier to trigger the guard.
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest1',
+        tier: 'FREE',
+        forceTier: null,
+        isActive: true,
+      });
+      const { ForbiddenException } = await import('@nestjs/common');
+      await expect(
+        service.pinLogin('rest1', '1234', deviceToken),
+      ).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.pinLogin('rest1', '1234', deviceToken),
+      ).rejects.toThrow('POS is not available on this plan.');
+    });
+
+    it('throws ForbiddenException when restaurant is suspended (M2.2)', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest1',
+        tier: 'ENTERPRISE',
+        forceTier: null,
+        isActive: false,
+      });
+      const { ForbiddenException } = await import('@nestjs/common');
+      await expect(
+        service.pinLogin('rest1', '1234', deviceToken),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 

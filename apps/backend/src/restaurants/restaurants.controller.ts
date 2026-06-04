@@ -143,6 +143,24 @@ export class RestaurantsController {
     return this.deviceEnrollment.listEnrollments(id, req.user.id);
   }
 
+  /** Revoke a specific enrolled device token so it can no longer be used for
+   *  PIN login. The device will be rejected at next login attempt.
+   *  DELETE /api/restaurants/:restaurantId/device-enrollments/:tokenId */
+  @RequireFeature(FeatureFlag.POS)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @Delete(':restaurantId/device-enrollments/:tokenId')
+  revokeDeviceEnrollment(
+    @Param('restaurantId') restaurantId: string,
+    @Param('tokenId') tokenId: string,
+    @Request() req: any,
+  ) {
+    return this.deviceEnrollment.revokeEnrollment(
+      tokenId,
+      restaurantId,
+      req.user.id,
+    );
+  }
+
   @RequireFeature(FeatureFlag.LANGUAGES_MULTI)
   @UseGuards(JwtAuthGuard, FeatureGuard)
   @Post(':restaurantId/translate-all')

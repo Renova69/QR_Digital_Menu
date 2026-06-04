@@ -5,6 +5,7 @@ import {
   IsArray,
   ValidateNested,
   IsObject,
+  IsUrl,
   Min,
   ArrayMaxSize,
   ArrayMinSize,
@@ -89,14 +90,16 @@ export class ImportItemDto {
   @IsOptional()
   translations?: Record<string, { name?: string; description?: string }>;
 
-  @IsString()
   @IsOptional()
+  @IsString()
   @MaxLength(2048)
+  @IsUrl({ require_tld: true, protocols: ['https', 'http'] })
   imageUrl?: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
   @MaxLength(2048)
+  @IsUrl({ require_tld: true, protocols: ['https', 'http'] })
   thumbnailUrl?: string;
 
   @IsArray()
@@ -124,14 +127,16 @@ export class ImportCategoryDto {
   @IsOptional()
   translations?: Record<string, { name?: string }>;
 
-  @IsString()
   @IsOptional()
+  @IsString()
   @MaxLength(2048)
+  @IsUrl({ require_tld: true, protocols: ['https', 'http'] })
   imageUrl?: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
   @MaxLength(2048)
+  @IsUrl({ require_tld: true, protocols: ['https', 'http'] })
   thumbnailUrl?: string;
 
   @IsArray()
