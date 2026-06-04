@@ -35,7 +35,7 @@ const KNOWN_ALLERGENS = [
   'shellfish',
   'egg',
 ];
-const MAX_IMPORT_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_IMPORT_FILE_SIZE = 1 * 1024 * 1024; // 1MB — matches server body-parser limit
 
 function splitTags(tags: string[]) {
   const allergens = tags.filter((t) =>
@@ -426,7 +426,7 @@ function FileImporter({
           filename: file.name,
           format: 'json',
           totalItems: 0,
-          error: 'Import files must be 5MB or smaller',
+          error: 'Import files must be 1MB or smaller',
         });
         return;
       }

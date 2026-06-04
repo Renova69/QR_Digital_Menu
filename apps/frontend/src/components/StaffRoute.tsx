@@ -1,8 +1,13 @@
 import { type ReactElement } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useRestaurantContext } from "../context/RestaurantContext";
 
 const ALLOWED_ROLES = ["OWNER", "MANAGER", "WAITER", "KITCHEN", "STAFF"];
+
+/** Device roles that require the POS feature to be enabled. OWNER/MANAGER/STAFF
+ *  reach the dashboard via a different layout and are not POS-gated here. */
+const POS_REQUIRED_ROLES = ["WAITER", "KITCHEN"];
 
 const ROLE_DEFAULT_PATH: Record<string, string> = {
   WAITER: "/staff/pos",
@@ -11,6 +16,7 @@ const ROLE_DEFAULT_PATH: Record<string, string> = {
 
 export default function StaffRoute({ children }: { children: ReactElement }) {
   const { user, isLoading } = useAuth();
+  const { activeRestaurant } = useRestaurantContext();
   const location = useLocation();
 
   if (isLoading) {
@@ -29,6 +35,18 @@ export default function StaffRoute({ children }: { children: ReactElement }) {
 
   if (!ALLOWED_ROLES.includes(role)) {
     return <Navigate to="/profile" replace />;
+  }
+
+  // L2.5 — If the restaurant's effective tier no longer includes POS, device
+  // roles (WAITER/KITCHEN) should not reach the POS/KDS pages. The backend
+  // already blocks pinLogin on downgrade (H2.2); this prevents a stale session
+  // from landing on the POS page with all API calls failing silently.
+  if (
+    POS_REQUIRED_ROLES.includes(role) &&
+    activeRestaurant &&
+    !activeRestaurant.features?.includes("POS")
+  ) {
+    return <Navigate to="/login" replace />;
   }
 
   const defaultPath = ROLE_DEFAULT_PATH[role];

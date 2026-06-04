@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { FeatureService } from '../subscription/feature.service';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { ImportMenuDto } from './dto/import-menu.dto';
 import { randomBytes, createHash } from 'crypto';
 import { AvailabilityType, Currency, OptionType } from '@prisma/client';
@@ -20,6 +22,7 @@ export class MenuImportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
+    private readonly featureService: FeatureService,
   ) {}
 
   async checkOwnership(restaurantId: string, userId: string) {
@@ -74,6 +77,15 @@ export class MenuImportService {
         : -1;
     let nextCatOrder = maxCatOrder + 1;
 
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { tier: true, forceTier: true },
+    });
+    const daypartingEnabled = this.featureService.restaurantHasFeature(
+      restaurant,
+      FeatureFlag.DAYPARTING,
+    );
+
     try {
       await this.prisma.$transaction(
         async (tx) => {
@@ -82,11 +94,16 @@ export class MenuImportService {
 
             const existingCat = catMap.get(catName.toLowerCase());
 
-            const availabilityType = VALID_AVAILABILITY.has(
+            const rawAvailability = VALID_AVAILABILITY.has(
               cat.availabilityType as AvailabilityType,
             )
               ? (cat.availabilityType as AvailabilityType)
               : AvailabilityType.ALWAYS;
+            // Strip SCHEDULED if the tier doesn't support DAYPARTING (mirrors CRUD behavior)
+            const availabilityType =
+              !daypartingEnabled && rawAvailability === AvailabilityType.SCHEDULED
+                ? AvailabilityType.ALWAYS
+                : rawAvailability;
 
             let categoryId: string;
 

@@ -3,6 +3,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { MenuImportService } from './menu-import.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { FeatureService } from '../subscription/feature.service';
 import { AvailabilityType, Currency, OptionType } from '@prisma/client';
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
@@ -28,9 +29,17 @@ const mockStorageService = {
   delete: jest.fn().mockResolvedValue(undefined),
 };
 
+// Default: dayparting enabled (ENTERPRISE tier) so SCHEDULED is preserved in tests
+const mockFeatureService = {
+  hasFeature: jest.fn().mockReturnValue(true),
+  getEffectiveTier: jest.fn().mockReturnValue('ENTERPRISE'),
+  restaurantHasFeature: jest.fn().mockReturnValue(true),
+};
+
 const mockPrisma = {
   restaurant: {
-    findUnique: jest.fn(),
+    // Used by checkOwnership AND by upsertMenu tier fetch
+    findUnique: jest.fn().mockResolvedValue({ tier: 'ENTERPRISE', forceTier: null }),
     update: jest.fn().mockResolvedValue({}),
   },
   menuCategory: {
@@ -51,6 +60,7 @@ describe('MenuImportService', () => {
         MenuImportService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: StorageService, useValue: mockStorageService },
+        { provide: FeatureService, useValue: mockFeatureService },
       ],
     }).compile();
 

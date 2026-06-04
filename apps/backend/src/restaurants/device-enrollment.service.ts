@@ -61,6 +61,25 @@ export class DeviceEnrollmentService {
   ) {
     await this.verifyManagerAccess(restaurantId, createdById);
 
+    // L2.3 — Cap active (unused, non-expired, non-revoked) tokens to prevent
+    // unbounded accumulation. If the limit is reached the caller must wait for
+    // tokens to expire or revoke an existing one.
+    const MAX_ACTIVE_TOKENS = 10;
+    const activeCount = await this.tokenStore.count({
+      where: {
+        restaurantId,
+        usedAt: null,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+    });
+    if (activeCount >= MAX_ACTIVE_TOKENS) {
+      throw new ForbiddenException(
+        `Maximum of ${MAX_ACTIVE_TOKENS} active enrollment links reached. ` +
+          'Wait for existing links to expire or revoke one first.',
+      );
+    }
+
     const rawToken = crypto.randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + ENROLLMENT_TTL_MINUTES * 60 * 1000);
 

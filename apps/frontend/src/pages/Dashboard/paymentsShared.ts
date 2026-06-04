@@ -78,6 +78,14 @@ export function shortId(value?: string | null) {
   return value.length > 12 ? `${value.slice(0, 7)}...${value.slice(-4)}` : value;
 }
 
+/** Neutralise CSV formula injection: cells starting with = + - @ tab or CR
+ *  would be evaluated by spreadsheet apps as formulas. Prefix with a single
+ *  quote so the value is treated as a literal string.
+ *  See OWASP: CSV Injection. */
+function csvSafeCell(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+}
+
 export function exportPaymentsCsv(payments: PaymentRecord[]) {
   const header = ['id', 'date', 'customer', 'table', 'method', 'amount', 'tip', 'fee', 'net', 'status'];
   const rows = payments.map((payment) => [
@@ -93,7 +101,11 @@ export function exportPaymentsCsv(payments: PaymentRecord[]) {
     payment.status,
   ]);
   const csv = [header, ...rows]
-    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    .map((row) =>
+      row
+        .map((cell) => `"${csvSafeCell(String(cell)).replace(/"/g, '""')}"`)
+        .join(','),
+    )
     .join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);

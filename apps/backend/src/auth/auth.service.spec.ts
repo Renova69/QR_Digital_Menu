@@ -67,7 +67,13 @@ describe('AuthService', () => {
         }),
       },
       deviceEnrollmentToken: {
-        findFirst: jest.fn().mockResolvedValue({ id: 'device-token-1' }),
+        // Per-device lockout: findFirst returns device with attempt counters
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'device-token-1',
+          pinAttempts: 0,
+          pinLockedUntil: null,
+        }),
+        update: jest.fn().mockResolvedValue({}),
       },
     };
     mockUsersService = {
@@ -245,26 +251,23 @@ describe('AuthService', () => {
       expect(where.role.in).not.toContain('STAFF');
     });
 
-    it('throws HttpException(429) when a candidate is locked', async () => {
+    it('throws HttpException(429) when device is locked (M2.1 per-device lockout)', async () => {
       const futureDate = new Date(Date.now() + 60 * 60 * 1000);
-      mockPrisma.user.findMany.mockResolvedValue([
-        makeUser({
-          pinHash: 'hash',
-          pinAttempts: 5,
-          pinLockedUntil: futureDate,
-        }),
-      ]);
+      // Lockout is now on the device token, not on the user
+      mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValue({
+        id: 'device-token-1',
+        pinAttempts: 5,
+        pinLockedUntil: futureDate,
+      });
       await expect(
         service.pinLogin('rest1', '1234', deviceToken),
       ).rejects.toThrow(HttpException);
     });
 
-    it('returns JWT and resets attempts on valid PIN', async () => {
+    it('returns JWT and resets device attempt counter on valid PIN', async () => {
       mockCompare.mockResolvedValue(true);
       const staff = makeUser({
         pinHash: 'hashed-pin',
-        pinAttempts: 2,
-        pinLockedUntil: null,
         role: 'WAITER',
         restaurantId: 'rest1',
       });
@@ -273,39 +276,47 @@ describe('AuthService', () => {
       const result = await service.pinLogin('rest1', '1234', deviceToken);
 
       expect(result.token).toBe('test-jwt-token');
-      expect(mockPrisma.user.updateMany).toHaveBeenCalledWith(
+      // Attempts reset on the device token, not via user.updateMany
+      expect(mockPrisma.deviceEnrollmentToken.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: { pinAttempts: 0, pinLockedUntil: null },
         }),
       );
+      expect(mockPrisma.user.updateMany).not.toHaveBeenCalled();
     });
 
-    it('increments attempts and throws UnauthorizedException on wrong PIN', async () => {
+    it('increments device attempt counter and throws UnauthorizedException on wrong PIN', async () => {
       mockCompare.mockResolvedValue(false);
       mockPrisma.user.findMany.mockResolvedValue([
-        makeUser({ pinHash: 'hash', pinAttempts: 0, pinLockedUntil: null }),
+        makeUser({ pinHash: 'hash' }),
       ]);
 
       await expect(
         service.pinLogin('rest1', 'wrong', deviceToken),
       ).rejects.toThrow(UnauthorizedException);
-      expect(mockPrisma.user.updateMany).toHaveBeenCalledWith(
+      expect(mockPrisma.deviceEnrollmentToken.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ pinAttempts: 1 }),
         }),
       );
+      expect(mockPrisma.user.updateMany).not.toHaveBeenCalled();
     });
 
-    it('locks account and throws HttpException(429) after MAX_ATTEMPTS', async () => {
+    it('sets pinLockedUntil on device token and throws HttpException(429) after MAX_ATTEMPTS', async () => {
       mockCompare.mockResolvedValue(false);
+      mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValue({
+        id: 'device-token-1',
+        pinAttempts: 4,
+        pinLockedUntil: null,
+      });
       mockPrisma.user.findMany.mockResolvedValue([
-        makeUser({ pinHash: 'hash', pinAttempts: 4, pinLockedUntil: null }),
+        makeUser({ pinHash: 'hash' }),
       ]);
 
       await expect(
         service.pinLogin('rest1', 'wrong', deviceToken),
       ).rejects.toThrow(HttpException);
-      expect(mockPrisma.user.updateMany).toHaveBeenCalledWith(
+      expect(mockPrisma.deviceEnrollmentToken.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ pinLockedUntil: expect.any(Date) }),
         }),

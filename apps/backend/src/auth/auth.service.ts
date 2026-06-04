@@ -208,27 +208,6 @@ export class AuthService {
     return createHash('sha256').update(token).digest('hex');
   }
 
-  private async assertEnrolledDevice(
-    restaurantId: string,
-    deviceToken: string,
-  ): Promise<void> {
-    const tokenHash = this.hashDeviceToken(deviceToken);
-    const device = await this.prisma.deviceEnrollmentToken.findFirst({
-      where: {
-        restaurantId,
-        tokenHash,
-        usedAt: { not: null },
-        revokedAt: null,
-      },
-      select: { id: true },
-    });
-
-    if (!device) {
-      throw new UnauthorizedException(
-        'This device is not enrolled for staff PIN login.',
-      );
-    }
-  }
 
   // ── public methods ────────────────────────────────────────────────────
   async sendOtp(
@@ -355,7 +334,37 @@ export class AuthService {
       });
     }
 
-    await this.assertEnrolledDevice(restaurantId, deviceToken);
+    // M2.1 — Per-device lockout: attempts tracked on the enrolled token itself so
+    // a bad actor on one device cannot lock all devices for the restaurant.
+    const deviceTokenHash = this.hashDeviceToken(deviceToken);
+    const enrolledDevice = await this.prisma.deviceEnrollmentToken.findFirst({
+      where: {
+        restaurantId,
+        tokenHash: deviceTokenHash,
+        usedAt: { not: null },
+        revokedAt: null,
+      },
+      select: { id: true, pinAttempts: true, pinLockedUntil: true },
+    });
+
+    if (!enrolledDevice) {
+      throw new UnauthorizedException(
+        'This device is not enrolled for staff PIN login.',
+      );
+    }
+
+    if (
+      enrolledDevice.pinLockedUntil &&
+      enrolledDevice.pinLockedUntil > new Date()
+    ) {
+      const minutes = Math.ceil(
+        (enrolledDevice.pinLockedUntil.getTime() - Date.now()) / 60000,
+      );
+      throw new HttpException(
+        `Too many attempts. Try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
 
     const candidates = await this.prisma.user.findMany({
       where: {
@@ -370,20 +379,6 @@ export class AuthService {
       throw new UnauthorizedException('Invalid PIN.');
     }
 
-    // Check global lockout — all staff share the same device, so any lockout blocks everyone
-    const lockedUser = candidates.find(
-      (u) => u.pinLockedUntil && new Date(u.pinLockedUntil) > new Date(),
-    );
-    if (lockedUser) {
-      const minutes = Math.ceil(
-        (new Date(lockedUser.pinLockedUntil!).getTime() - Date.now()) / 60000,
-      );
-      throw new HttpException(
-        `Too many attempts. Try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`,
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
     // Try matching PIN against any staff user
     for (const user of candidates) {
       const valid = await bcrypt.compare(pin, user.pinHash!);
@@ -393,9 +388,9 @@ export class AuthService {
         throw new UnauthorizedException('This account has been disabled.');
       }
 
-      // Successful login — reset attempts for all restaurant staff
-      await this.prisma.user.updateMany({
-        where: { restaurantId, pinHash: { not: null } },
+      // Successful login — reset device attempt counter
+      await this.prisma.deviceEnrollmentToken.update({
+        where: { id: enrolledDevice.id },
         data: { pinAttempts: 0, pinLockedUntil: null },
       });
 
@@ -412,18 +407,10 @@ export class AuthService {
       };
     }
 
-    // Failed attempt — increment counter across all restaurant staff.
-    // Shared-device context: PIN attempts are tracked restaurant-wide, not per-user.
-    // Max current attempts is the source of truth (candidates are unordered).
-    const currentAttempts = Math.max(
-      ...candidates.map(
-        (u: { pinAttempts: number | null }) => u.pinAttempts ?? 0,
-      ),
-    );
-    const attempts = currentAttempts + 1;
-
-    await this.prisma.user.updateMany({
-      where: { restaurantId, pinHash: { not: null } },
+    // Failed attempt — increment per-device counter only.
+    const attempts = (enrolledDevice.pinAttempts ?? 0) + 1;
+    await this.prisma.deviceEnrollmentToken.update({
+      where: { id: enrolledDevice.id },
       data: {
         pinAttempts: attempts,
         ...(attempts >= MAX_ATTEMPTS

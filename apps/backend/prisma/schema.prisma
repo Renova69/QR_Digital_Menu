@@ -294,16 +294,18 @@ model AssistanceRequest {
 }
 
 model DeviceEnrollmentToken {
-  id           String     @id @default(cuid())
-  tokenHash    String     @unique
-  restaurantId String
-  createdById  String
-  expiresAt    DateTime
-  usedAt       DateTime?
-  revokedAt    DateTime?
-  createdAt    DateTime   @default(now())
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  createdBy    User       @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  id             String     @id @default(cuid())
+  tokenHash      String     @unique
+  restaurantId   String
+  createdById    String
+  expiresAt      DateTime
+  usedAt         DateTime?
+  revokedAt      DateTime?
+  pinAttempts    Int        @default(0)
+  pinLockedUntil DateTime?
+  createdAt      DateTime   @default(now())
+  restaurant     Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdBy      User       @relation(fields: [createdById], references: [id], onDelete: Cascade)
 
   @@index([restaurantId])
   @@index([expiresAt])
