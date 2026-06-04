@@ -15,8 +15,12 @@ describe('DeviceEnrollmentService', () => {
     mockTokenStore = {
       create: jest.fn().mockResolvedValue({}),
       findUnique: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue(null),
       update: jest.fn().mockResolvedValue({}),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      // L2.3 — token cap: default to 0 active tokens so creates succeed
+      count: jest.fn().mockResolvedValue(0),
     };
     mockPrisma = {
       restaurant: { findUnique: jest.fn() },
