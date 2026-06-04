@@ -226,7 +226,7 @@ const comparisonRows: (FeatureRow & { labelKey?: string })[] = [
     enterprise: true,
   },
   {
-    labelKey: "landing.comparisonTable.rows.ocrXlsxImport",
+    labelKey: "landing.comparisonTable.rows.ocrMenuImport",
     label: "OCR / XLSX menu import",
     free: true,
     starter: true,
@@ -258,7 +258,7 @@ const comparisonRows: (FeatureRow & { labelKey?: string })[] = [
     enterprise: true,
   },
   {
-    labelKey: "landing.comparisonTable.rows.stripePayAtTable",
+    labelKey: "landing.comparisonTable.rows.stripePayments",
     label: "Stripe pay-at-table",
     free: false,
     starter: false,
@@ -274,7 +274,7 @@ const comparisonRows: (FeatureRow & { labelKey?: string })[] = [
     enterprise: true,
   },
   {
-    labelKey: "landing.comparisonTable.rows.multiLanguage",
+    labelKey: "landing.comparisonTable.rows.multiLanguageMenus",
     label: "Multi-language menus (DeepL)",
     free: false,
     starter: false,
@@ -441,8 +441,8 @@ const faqItems = [
 
 const testimonials = [
   {
-    quoteKey: "landing.testimonials.items.t1.quote",
-    roleKey: "landing.testimonials.items.t1.role",
+    quoteKey: "landing.testimonials.items.t1",
+    roleKey: "landing.testimonials.roles.owner",
     quote:
       "We went from printed menus to live QR ordering in a single afternoon. Our Friday rush went from chaotic to smooth — the kitchen display alone paid for the subscription.",
     name: "Marco Rossi",
@@ -453,8 +453,8 @@ const testimonials = [
     tier: "Professional",
   },
   {
-    quoteKey: "landing.testimonials.items.t2.quote",
-    roleKey: "landing.testimonials.items.t2.role",
+    quoteKey: "landing.testimonials.items.t2",
+    roleKey: "landing.testimonials.roles.operationsManager",
     quote:
       "The loyalty program brought back customers I thought we’d lost. Points, VIP tiers, happy hour multipliers — it’s the kind of system we used to only see at big chains.",
     name: "Sofia Andreeva",
@@ -465,8 +465,8 @@ const testimonials = [
     tier: "Professional",
   },
   {
-    quoteKey: "landing.testimonials.items.t3.quote",
-    roleKey: "landing.testimonials.items.t3.role",
+    quoteKey: "landing.testimonials.items.t3",
+    roleKey: "landing.testimonials.roles.generalManager",
     quote:
       "Multi-language menus with auto-translation was a game changer. Tourist traffic is up 30% since we stopped handing out confusing printed sheets.",
     name: "Andrei Popescu",
@@ -477,8 +477,8 @@ const testimonials = [
     tier: "Enterprise",
   },
   {
-    quoteKey: "landing.testimonials.items.t4.quote",
-    roleKey: "landing.testimonials.items.t4.role",
+    quoteKey: "landing.testimonials.items.t4",
+    roleKey: "landing.testimonials.roles.restaurantManager",
     quote:
       "Pay-at-table cut our checkout time by half. Customers love not flagging down a server, and we’re turning tables 15 minutes faster every weekend.",
     name: "Elena Vargas",
@@ -489,8 +489,8 @@ const testimonials = [
     tier: "Professional",
   },
   {
-    quoteKey: "landing.testimonials.items.t5.quote",
-    roleKey: "landing.testimonials.items.t5.role",
+    quoteKey: "landing.testimonials.items.t5",
+    roleKey: "landing.testimonials.roles.coOwner",
     quote:
       "Analytics finally gave us data we can act on. We found our pasta dishes were highest-margin but lowest-promoted — fixed that and revenue went up within a month.",
     name: "James Chen",
@@ -501,8 +501,8 @@ const testimonials = [
     tier: "Starter",
   },
   {
-    quoteKey: "landing.testimonials.items.t6.quote",
-    roleKey: "landing.testimonials.items.t6.role",
+    quoteKey: "landing.testimonials.items.t6",
+    roleKey: "landing.testimonials.roles.owner",
     quote:
       "Setup was genuinely fast. Imported our PDF menu via OCR, organized categories, generated QR codes — we were live before dinner service the same day.",
     name: "Yuki Tanaka",
@@ -1234,81 +1234,81 @@ const HomePage = () => {
   const plans: Plan[] = [
     {
       key: "FREE",
-      name: t("pricingSection.plans.free.name"),
+      name: t("landing.pricingSection.plans.free.name"),
       price: "EUR 0",
-      period: t("pricingSection.plans.free.period"),
-      description: t("pricingSection.plans.free.description"),
-      cta: t("pricingSection.plans.free.cta"),
+      period: t("landing.pricingSection.plans.free.period"),
+      description: t("landing.pricingSection.plans.free.description"),
+      cta: t("landing.pricingSection.plans.free.cta"),
       href: "/register",
       accent: "border-border",
       bullets: [
-        t("pricingSection.plans.free.b1"),
-        t("pricingSection.plans.free.b2"),
-        t("pricingSection.plans.free.b3"),
-        t("pricingSection.plans.free.b4"),
-        t("pricingSection.plans.free.b5"),
+        t("landing.pricingSection.plans.free.b1"),
+        t("landing.pricingSection.plans.free.b2"),
+        t("landing.pricingSection.plans.free.b3"),
+        t("landing.pricingSection.plans.free.b4"),
+        t("landing.pricingSection.plans.free.b5"),
       ],
     },
     {
       key: "STARTER",
-      name: t("pricingSection.plans.starter.name"),
+      name: t("landing.pricingSection.plans.starter.name"),
       price: "EUR 15",
-      period: t("pricingSection.plans.starter.period"),
-      description: t("pricingSection.plans.starter.description"),
-      cta: t("pricingSection.plans.starter.cta"),
+      period: t("landing.pricingSection.plans.starter.period"),
+      description: t("landing.pricingSection.plans.starter.description"),
+      cta: t("landing.pricingSection.plans.starter.cta"),
       href: "/register",
       accent: "border-blue-500/35",
       bullets: [
-        t("pricingSection.plans.starter.b1"),
-        t("pricingSection.plans.starter.b2"),
-        t("pricingSection.plans.starter.b3"),
-        t("pricingSection.plans.starter.b4"),
-        t("pricingSection.plans.starter.b5"),
+        t("landing.pricingSection.plans.starter.b1"),
+        t("landing.pricingSection.plans.starter.b2"),
+        t("landing.pricingSection.plans.starter.b3"),
+        t("landing.pricingSection.plans.starter.b4"),
+        t("landing.pricingSection.plans.starter.b5"),
       ],
     },
     {
       key: "PROFESSIONAL",
-      name: t("pricingSection.plans.professional.name"),
+      name: t("landing.pricingSection.plans.professional.name"),
       price: "EUR 25",
-      period: t("pricingSection.plans.professional.period"),
-      description: t("pricingSection.plans.professional.description"),
-      badge: t("pricingSection.plans.professional.badge"),
+      period: t("landing.pricingSection.plans.professional.period"),
+      description: t("landing.pricingSection.plans.professional.description"),
+      badge: t("landing.pricingSection.plans.professional.badge"),
       highlight: true,
-      cta: t("pricingSection.plans.professional.cta"),
+      cta: t("landing.pricingSection.plans.professional.cta"),
       href: "/register",
       accent: "border-primary",
       bullets: [
-        t("pricingSection.plans.professional.b1"),
-        t("pricingSection.plans.professional.b2"),
-        t("pricingSection.plans.professional.b3"),
-        t("pricingSection.plans.professional.b4"),
-        t("pricingSection.plans.professional.b5"),
-        t("pricingSection.plans.professional.b6"),
-        t("pricingSection.plans.professional.b7"),
-        t("pricingSection.plans.professional.b8"),
-        t("pricingSection.plans.professional.b9"),
+        t("landing.pricingSection.plans.professional.b1"),
+        t("landing.pricingSection.plans.professional.b2"),
+        t("landing.pricingSection.plans.professional.b3"),
+        t("landing.pricingSection.plans.professional.b4"),
+        t("landing.pricingSection.plans.professional.b5"),
+        t("landing.pricingSection.plans.professional.b6"),
+        t("landing.pricingSection.plans.professional.b7"),
+        t("landing.pricingSection.plans.professional.b8"),
+        t("landing.pricingSection.plans.professional.b9"),
       ],
     },
     {
       key: "ENTERPRISE",
-      name: t("pricingSection.plans.enterprise.name"),
+      name: t("landing.pricingSection.plans.enterprise.name"),
       price: "EUR 45",
-      period: t("pricingSection.plans.enterprise.period"),
-      description: t("pricingSection.plans.enterprise.description"),
-      cta: t("pricingSection.plans.enterprise.cta"),
+      period: t("landing.pricingSection.plans.enterprise.period"),
+      description: t("landing.pricingSection.plans.enterprise.description"),
+      cta: t("landing.pricingSection.plans.enterprise.cta"),
       href: "/register",
       accent: "border-emerald-500/35",
       bullets: [
-        t("pricingSection.plans.enterprise.b1"),
-        t("pricingSection.plans.enterprise.b2"),
-        t("pricingSection.plans.enterprise.b3"),
-        t("pricingSection.plans.enterprise.b4"),
-        t("pricingSection.plans.enterprise.b5"),
-        t("pricingSection.plans.enterprise.b6"),
-        t("pricingSection.plans.enterprise.b7"),
-        t("pricingSection.plans.enterprise.b8"),
-        t("pricingSection.plans.enterprise.b9"),
-        t("pricingSection.plans.enterprise.b10"),
+        t("landing.pricingSection.plans.enterprise.b1"),
+        t("landing.pricingSection.plans.enterprise.b2"),
+        t("landing.pricingSection.plans.enterprise.b3"),
+        t("landing.pricingSection.plans.enterprise.b4"),
+        t("landing.pricingSection.plans.enterprise.b5"),
+        t("landing.pricingSection.plans.enterprise.b6"),
+        t("landing.pricingSection.plans.enterprise.b7"),
+        t("landing.pricingSection.plans.enterprise.b8"),
+        t("landing.pricingSection.plans.enterprise.b9"),
+        t("landing.pricingSection.plans.enterprise.b10"),
       ],
     },
   ];
@@ -1777,13 +1777,13 @@ const HomePage = () => {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-primary">
-              {t("pricingSection.badge")}
+              {t("landing.pricingSection.badge")}
             </p>
             <h2 className="mt-4 text-4xl font-black tracking-tight text-foreground md:text-5xl">
-              {t("pricingSection.title")}
+              {t("landing.pricingSection.title")}
             </h2>
             <p className="mt-5 text-base leading-8 text-muted-foreground">
-              {t("pricingSection.subtitle")}
+              {t("landing.pricingSection.subtitle")}
             </p>
           </div>
           <div className="mt-12 grid gap-5 md:grid-cols-2 xl:grid-cols-4">

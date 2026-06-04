@@ -1353,6 +1353,67 @@
           "answer": "Platforma traduce automat meniurile în engleză, bulgară și română folosind DeepL. Proprietarul restaurantului nu trebuie să furnizeze o cheie API — traducerea este gestionată de platformă cu memorare inteligentă în cache."
         }
       }
+    },
+    "pricingSection": {
+      "badge": "Toate cele 4 pachete",
+      "title": "Începeți gratuit, apoi creșteți cu instrumentele de care restaurantul dvs. are nevoie.",
+      "subtitle": "Planuri clare pentru meniuri simple, comenzi, creșterea veniturilor și operațiuni complete de restaurant. Economisiți 15% la facturarea anuală.",
+      "plans": {
+        "free": {
+          "name": "Gratuit",
+          "period": "pe viață",
+          "description": "Începeți cu un meniu digital simplu, coduri QR, import OCR și export XLSX — complet gratuit.",
+          "cta": "Începeți gratuit",
+          "b1": "Editor de meniu digital",
+          "b2": "Gestionare coduri QR",
+          "b3": "Import meniu OCR și XLSX",
+          "b4": "Export meniu (JSON/CSV/XLSX)",
+          "b5": "1 membru personal"
+        },
+        "starter": {
+          "name": "Starter",
+          "period": "pe lună",
+          "description": "Adăugați comenzi online și analize de bază pentru o echipă mică de restaurant.",
+          "cta": "Alegeți Starter",
+          "b1": "Totul din Gratuit",
+          "b2": "Comenzi online",
+          "b3": "Analize de bază și sumar",
+          "b4": "Flux status comenzi",
+          "b5": "1 membru personal"
+        },
+        "professional": {
+          "name": "Profesional",
+          "period": "pe lună",
+          "description": "Cel mai puternic pachet pentru restaurantele pregătite să crească veniturile și reținerea clienților.",
+          "badge": "Cel mai popular",
+          "cta": "Alegeți Profesional",
+          "b1": "Plăți la masă prin Stripe",
+          "b2": "Analize complete și export XLSX",
+          "b3": "Loialitate și niveluri VIP",
+          "b4": "Meniuri multilingve (DeepL)",
+          "b5": "Branding și teme personalizate",
+          "b6": "Conturi de clienți",
+          "b7": "Upselling inteligent",
+          "b8": "Cheamă ospătarul și recenzii",
+          "b9": "Până la 5 membri personal"
+        },
+        "enterprise": {
+          "name": "Enterprise",
+          "period": "pe lună",
+          "description": "Operațiuni avansate pentru locații multiple, echipe mari și fluxuri complete de bucătărie.",
+          "cta": "Alegeți Enterprise",
+          "b1": "Totul din Profesional",
+          "b2": "POS și afișaj bucătărie (KDS)",
+          "b3": "Zone și secțiuni de mese",
+          "b4": "Atribuire personal și note detaliate",
+          "b5": "Suport locații multiple",
+          "b6": "Suport imprimantă termică",
+          "b7": "Roluri avansate (RBAC)",
+          "b8": "Panou operațiuni super-admin",
+          "b9": "Suport prioritar",
+          "b10": "Personal nelimitat"
+        }
+      }
     }
   },
   "payments": {
