@@ -28,6 +28,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate Prisma Client
+        working-directory: apps/backend
+        run: npx prisma generate
+
       - name: Backend unit tests
         working-directory: apps/backend
         run: npx jest --reporters=default --ci
