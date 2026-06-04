@@ -13,6 +13,7 @@ model User {
   password           String
   name               String?
   phone              String?
+  googleId           String?          @unique
   pinHash            String?
   pinAttempts        Int               @default(0)
   pinLockedUntil     DateTime?

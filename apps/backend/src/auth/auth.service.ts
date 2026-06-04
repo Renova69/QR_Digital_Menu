@@ -66,28 +66,60 @@ export class AuthService {
   }
 
   async validateGoogleUser(profile: any) {
-    const { email, firstName, lastName } = profile;
-    let user = await this.usersService.findByEmail(email);
+    const { googleId, email, firstName, lastName } = profile;
 
-    if (!user) {
-      const generatedPassword = await bcrypt.hash(
-        randomBytes(24).toString('hex'),
-        10,
-      );
-      user = await this.usersService.create({
-        email,
-        name: `${firstName} ${lastName}`,
-        password: generatedPassword,
-        role: 'OWNER',
+    // 1. Find by stable Google ID first (safest — immune to email changes)
+    if (googleId) {
+      const byGoogleId = await this.prisma.user.findUnique({
+        where: { googleId },
+      });
+      if (byGoogleId) {
+        if (byGoogleId.isActive === false || byGoogleId.disabledAt) {
+          throw new UnauthorizedException('This account has been disabled.');
+        }
+        return byGoogleId;
+      }
+    }
+
+    // 2. Find by email — link the googleId to this existing account
+    const byEmail = await this.usersService.findByEmail(email);
+    if (byEmail) {
+      if (byEmail.isActive === false || byEmail.disabledAt) {
+        throw new UnauthorizedException('This account has been disabled.');
+      }
+      // Link googleId so future logins skip the email lookup
+      if (googleId && !byEmail.googleId) {
+        await this.prisma.user.update({
+          where: { id: byEmail.id },
+          data: { googleId },
+        });
+      }
+      return byEmail;
+    }
+
+    // 3. Brand new user — create with a random password (Google is the auth provider)
+    const generatedPassword = await bcrypt.hash(
+      randomBytes(24).toString('hex'),
+      10,
+    );
+    const newUser = await this.usersService.create({
+      email,
+      name: `${firstName ?? ''} ${lastName ?? ''}`.trim() || undefined,
+      password: generatedPassword,
+      role: 'OWNER',
+    });
+
+    // Link googleId immediately
+    if (googleId) {
+      await this.prisma.user.update({
+        where: { id: newUser.id },
+        data: { googleId },
       });
     }
 
-    if (user.isActive === false || user.disabledAt) {
-      throw new UnauthorizedException('This account has been disabled.');
-    }
-
-    return user;
+    return newUser;
   }
+
 
   async register(createAuthDto: CreateAuthDto) {
     const { email, password } = createAuthDto;

@@ -102,7 +102,8 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
   async googleAuthRedirect(@Request() req: any, @Res() res: Response) {
-    const { token } = await this.authService.login(req.user);
+    const user = await this.authService.validateGoogleUser(req.user);
+    const { token } = await this.authService.login(user);
     setTokenCookie(res, token);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
 
