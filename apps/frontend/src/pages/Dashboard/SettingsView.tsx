@@ -24,14 +24,6 @@ const SettingsView = () => {
   const { tier, allowedStaffRoles, isLoading } = useTier();
   const isFree = tier === "FREE";
 
-  if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
     const tab = searchParams.get("settingsTab") as SettingsTab | null;
     return tab && ["general", "loyalty", "payments", "staff", "branding", "subscription"].includes(tab)
@@ -59,6 +51,14 @@ const SettingsView = () => {
       setActiveTab(tab);
     }
   }, [searchParams]);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full space-y-6">
