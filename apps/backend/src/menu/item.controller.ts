@@ -95,16 +95,31 @@ export class ItemDetailController {
     if (!file) {
       throw new BadRequestException('Only JPEG and PNG images are supported');
     }
+    // Track uploaded URLs so we can delete them if the subsequent DB write fails.
+    // `uploaded` is null until R2 upload succeeds — ownership/upload failures leave
+    // nothing to clean up. If the DB write throws, the R2 objects are orphaned
+    // without this guard (M1.1).
+    let uploaded: { url: string; thumbnailUrl: string } | null = null;
     try {
       await this.crud.verifyItemOwnership(id, req.user.id);
-      const { url, thumbnailUrl } =
-        await this.storageService.uploadWithThumbnail(
-          file.buffer,
-          file.originalname,
-          file.mimetype,
-        );
-      return this.crud.updateItemImage(id, url, thumbnailUrl, req.user.id);
+      uploaded = await this.storageService.uploadWithThumbnail(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+      );
+      return await this.crud.updateItemImage(
+        id,
+        uploaded.url,
+        uploaded.thumbnailUrl,
+        req.user.id,
+      );
     } catch (error: any) {
+      if (uploaded) {
+        await Promise.allSettled([
+          this.storageService.delete(uploaded.url),
+          this.storageService.delete(uploaded.thumbnailUrl),
+        ]);
+      }
       throw new BadRequestException(error.message || 'Failed to upload image');
     }
   }

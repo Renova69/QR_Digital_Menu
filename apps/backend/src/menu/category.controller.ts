@@ -99,16 +99,27 @@ export class CategoryDetailController {
     if (!file) {
       throw new BadRequestException('Only JPEG and PNG images are supported');
     }
+    let uploaded: { url: string; thumbnailUrl: string } | null = null;
     try {
       await this.crud.verifyCategoryOwnership(id, req.user.id);
-      const { url, thumbnailUrl } =
-        await this.storageService.uploadWithThumbnail(
-          file.buffer,
-          file.originalname,
-          file.mimetype,
-        );
-      return this.crud.updateCategoryImage(id, url, thumbnailUrl, req.user.id);
+      uploaded = await this.storageService.uploadWithThumbnail(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+      );
+      return await this.crud.updateCategoryImage(
+        id,
+        uploaded.url,
+        uploaded.thumbnailUrl,
+        req.user.id,
+      );
     } catch (error: any) {
+      if (uploaded) {
+        await Promise.allSettled([
+          this.storageService.delete(uploaded.url),
+          this.storageService.delete(uploaded.thumbnailUrl),
+        ]);
+      }
       throw new BadRequestException(error.message || 'Failed to upload image');
     }
   }

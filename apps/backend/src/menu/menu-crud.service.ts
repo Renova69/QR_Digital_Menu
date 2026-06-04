@@ -680,14 +680,22 @@ export class MenuCrudService {
       data: sanitizedDto,
     });
 
+    // Delete old R2 objects when the URL is explicitly removed (null) OR replaced
+    // with a different URL. "undefined" means the field was not sent — leave as-is.
+    // Previously only null was handled, orphaning objects on non-null replacements (M1.2).
     if (
-      updateCategoryDto.imageUrl === null ||
-      updateCategoryDto.thumbnailUrl === null
+      updateCategoryDto.imageUrl !== undefined &&
+      updateCategoryDto.imageUrl !== category.imageUrl &&
+      category.imageUrl
     ) {
-      await this.deleteStoredImagePair(
-        category.imageUrl,
-        category.thumbnailUrl,
-      );
+      await this.storageService.delete(category.imageUrl);
+    }
+    if (
+      updateCategoryDto.thumbnailUrl !== undefined &&
+      updateCategoryDto.thumbnailUrl !== category.thumbnailUrl &&
+      category.thumbnailUrl
+    ) {
+      await this.storageService.delete(category.thumbnailUrl);
     }
 
     const hasMultiLanguage = this.featureService.restaurantHasFeature(
@@ -956,11 +964,20 @@ export class MenuCrudService {
       data: updateItemDto,
     });
 
+    // Same logic as updateCategory: delete on null OR non-null replacement (M1.2).
     if (
-      updateItemDto.imageUrl === null ||
-      updateItemDto.thumbnailUrl === null
+      updateItemDto.imageUrl !== undefined &&
+      updateItemDto.imageUrl !== item.imageUrl &&
+      item.imageUrl
     ) {
-      await this.deleteStoredImagePair(item.imageUrl, item.thumbnailUrl);
+      await this.storageService.delete(item.imageUrl);
+    }
+    if (
+      updateItemDto.thumbnailUrl !== undefined &&
+      updateItemDto.thumbnailUrl !== item.thumbnailUrl &&
+      item.thumbnailUrl
+    ) {
+      await this.storageService.delete(item.thumbnailUrl);
     }
 
     const nameChanged = updateItemDto.name && updateItemDto.name !== item.name;
