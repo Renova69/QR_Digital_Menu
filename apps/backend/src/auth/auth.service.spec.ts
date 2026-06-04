@@ -617,6 +617,28 @@ describe('AuthService', () => {
       ).rejects.toThrow(UnauthorizedException);
     });
 
+    it('rejects a PIN-role user (WAITER) in the email OTP flow', async () => {
+      const plainCode = '333444';
+      const hashedCode = await jest
+        .requireActual<typeof bcrypt>('bcryptjs')
+        .hash(plainCode, 10);
+      mockCompare.mockImplementation(jest.requireActual('bcryptjs').compare);
+
+      mockPrisma.verificationToken.findFirst.mockResolvedValue({
+        id: 'tok-pin',
+        code: hashedCode,
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      mockUsersService.findByEmail.mockResolvedValue(
+        makeUser({ role: 'WAITER' }),
+      );
+
+      await expect(
+        service.verifyOtp('waiter@example.com', plainCode),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockUsersService.create).not.toHaveBeenCalled();
+    });
+
     it('updates existing user phone and name when provided in email flow', async () => {
       const plainCode = '999777';
       const hashedCode = await jest

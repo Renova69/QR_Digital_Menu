@@ -159,7 +159,11 @@ export class OrdersService {
       authenticatedUserId,
       resolvedStaffUserId,
     );
+
+    // Non-staff orders: reject if caller tries to claim a different customer ID.
+    // POS staff orders: allow passing a customerId to associate with a loyalty customer.
     if (
+      !resolvedStaffUserId &&
       createOrderDto.customerId &&
       createOrderDto.customerId !== authenticatedCustomerId
     ) {
@@ -167,6 +171,10 @@ export class OrdersService {
         'Customer identity is derived from the authenticated session.',
       );
     }
+
+    const effectiveCustomerId = resolvedStaffUserId
+      ? (createOrderDto.customerId ?? null)
+      : authenticatedCustomerId;
 
     // 5. Resolve or create TableSession for pay-at-table.
     // The client sends the table NAME (e.g. "1"). We persist the real table
@@ -387,7 +395,7 @@ export class OrdersService {
         let signupBonusPoints = 0;
 
         if (
-          authenticatedCustomerId &&
+          effectiveCustomerId &&
           isLoyaltyAvailable(restaurant, this.featureService)
         ) {
           const earnRate = restaurant.loyaltyExchangeRate || 10;
@@ -396,7 +404,7 @@ export class OrdersService {
           loyaltyAcc = await tx.loyaltyAccount.findUnique({
             where: {
               userId_restaurantId: {
-                userId: authenticatedCustomerId,
+                userId: effectiveCustomerId,
                 restaurantId,
               },
             },
@@ -405,7 +413,7 @@ export class OrdersService {
           if (!loyaltyAcc) {
             loyaltyAcc = await tx.loyaltyAccount.create({
               data: {
-                userId: authenticatedCustomerId,
+                userId: effectiveCustomerId,
                 restaurantId,
                 points: 0,
                 lifetimePoints: 0,
@@ -490,7 +498,7 @@ export class OrdersService {
           data: {
             customerName: createOrderDto.customerName,
             customerPhone: createOrderDto.customerPhone,
-            customerId: authenticatedCustomerId,
+            customerId: effectiveCustomerId,
             tableId: resolvedTableCuid,
             tableName: createOrderDto.tableId ?? null,
             specialRequests: createOrderDto.specialRequests,
@@ -606,7 +614,10 @@ export class OrdersService {
       where: { id: authenticatedUserId },
       select: { id: true, isActive: true, disabledAt: true },
     });
-    if (!user || user.isActive === false || user.disabledAt) return null;
+    if (!user) return null;
+    if (user.isActive === false || user.disabledAt) {
+      throw new UnauthorizedException('ACCOUNT_DISABLED');
+    }
     return user.id;
   }
 

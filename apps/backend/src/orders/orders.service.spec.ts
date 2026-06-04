@@ -300,6 +300,63 @@ describe('OrdersService', () => {
       ).rejects.toThrow(UnauthorizedException);
     });
 
+    it('allows POS staff to pass a customerId for loyalty association', async () => {
+      const tx = makeTx();
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner-1' }),
+      );
+      // Staff user (WAITER) assigned to the restaurant
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'waiter-1',
+        restaurantId: 'rest-1',
+        role: 'WAITER',
+        isActive: true,
+        disabledAt: null,
+      });
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
+
+      await expect(
+        service.create(
+          {
+            items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+            customerId: 'some-customer-id',
+          } as any,
+          'waiter-1',
+        ),
+      ).resolves.toBeDefined();
+
+      const data = tx.order.create.mock.calls[0][0].data;
+      expect(data.customerId).toBe('some-customer-id');
+    });
+
+    it('throws UnauthorizedException when a disabled customer places an order', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ ownerId: 'owner-1' }),
+      );
+      // resolvePosStaff fetches user: isActive false → returns null (not staff)
+      // resolveCustomerUserId fetches same user: isActive false → throws
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'disabled-cust',
+        restaurantId: null,
+        role: 'CUSTOMER',
+        isActive: false,
+        disabledAt: new Date(),
+      });
+
+      await expect(
+        service.create(
+          {
+            items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          } as any,
+          'disabled-cust',
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
     it('attributes the order to POS for an assigned staff member (#4)', async () => {
       const tx = makeTx();
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);

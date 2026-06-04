@@ -27,11 +27,13 @@ function emptyTierCounts(): Record<string, number> {
 }
 
 function clampPage(value?: number): number {
-  return Math.max(1, value ?? 1);
+  const n = Number.isFinite(value) ? (value as number) : 1;
+  return Math.max(1, n);
 }
 
 function clampLimit(value?: number): number {
-  return Math.max(1, Math.min(value ?? 20, 100));
+  const n = Number.isFinite(value) ? (value as number) : 20;
+  return Math.max(1, Math.min(n, 100));
 }
 
 function parseOptionalDate(value: string | undefined, field: string) {

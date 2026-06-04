@@ -10,25 +10,27 @@ export class MenuAuditService {
   constructor(private readonly prisma: PrismaService) {}
 
   async auditMenu(restaurantId: string, userId: string) {
-    const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
-      include: {
-        menuCategories: {
-          include: {
-            items: true,
+    const [restaurant, user] = await Promise.all([
+      this.prisma.restaurant.findUnique({
+        where: { id: restaurantId },
+        include: {
+          menuCategories: {
+            include: {
+              items: true,
+            },
           },
         },
-      },
-    });
+      }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { restaurantId: true },
+      }),
+    ]);
 
     if (!restaurant) {
       throw new NotFoundException('Restaurant not found');
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { restaurantId: true },
-    });
     if (restaurant.ownerId !== userId && user?.restaurantId !== restaurantId) {
       throw new ForbiddenException('Forbidden access');
     }

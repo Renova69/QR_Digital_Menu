@@ -168,7 +168,8 @@ describe('RestaurantsService', () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(restaurant);
 
       const result = await service.findOne('rest1', 'user1');
-      expect(result).toBe(restaurant);
+      expect(result).toMatchObject({ id: 'rest1', name: 'Test Restaurant' });
+      expect(result).not.toHaveProperty('stripeAccountId');
     });
   });
 

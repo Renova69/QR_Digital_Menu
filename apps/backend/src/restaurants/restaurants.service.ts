@@ -78,13 +78,19 @@ const RESTAURANT_READ_SELECT = {
   isActive: true,
 };
 
+// Fields stripped from every public-facing restaurant read.
+// Most are already excluded by RESTAURANT_READ_SELECT at the query level, so the deletes
+// below are no-ops in production. They are kept here as defense-in-depth: if a future
+// query accidentally omits the select, sensitive fields are still stripped at the DTO
+// boundary. forceTier IS in RESTAURANT_READ_SELECT (needed by applyEffectiveTier) and
+// must always be deleted here.
 const RESTAURANT_PRIVATE_FIELDS = [
   'forceTier',
-  'importApiKeyHash',
   'stripeAccountId',
   'stripeCustomerId',
   'stripeSubscriptionId',
   'stripePriceId',
+  'importApiKeyHash',
   'pastDueGraceExpiry',
   'forceTierExpiresAt',
   'deletedAt',
@@ -161,6 +167,7 @@ export class RestaurantsService {
   async findOne(id: string, userId: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id },
+      select: RESTAURANT_READ_SELECT,
     });
 
     if (!restaurant) {
@@ -173,7 +180,23 @@ export class RestaurantsService {
       );
     }
 
-    return this.applyEffectiveTier(restaurant);
+    return this.toRestaurantReadDto(restaurant);
+  }
+
+  // Internal use only: verify ownership and return raw row with Stripe billing fields
+  private async findOneForBilling(id: string, userId: string) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id },
+    });
+    if (!restaurant) {
+      throw new NotFoundException(`Restaurant with ID "${id}" not found`);
+    }
+    if (restaurant.ownerId !== userId) {
+      throw new ForbiddenException(
+        'You do not have permission to access this resource',
+      );
+    }
+    return restaurant;
   }
 
   // Allows owner OR staff member to read the restaurant
@@ -467,7 +490,7 @@ export class RestaurantsService {
     returnUrl?: string,
     refreshUrl?: string,
   ) {
-    const restaurant = await this.findOne(restaurantId, userId);
+    const restaurant = await this.findOneForBilling(restaurantId, userId);
 
     let accountId = restaurant.stripeAccountId;
     if (!accountId) {
@@ -489,7 +512,7 @@ export class RestaurantsService {
   }
 
   async getStripeStatus(restaurantId: string, userId: string) {
-    const restaurant = await this.findOne(restaurantId, userId);
+    const restaurant = await this.findOneForBilling(restaurantId, userId);
 
     if (!restaurant.stripeAccountId) {
       return { stripeOnboarded: false };
@@ -510,7 +533,7 @@ export class RestaurantsService {
   }
 
   async disconnectStripe(restaurantId: string, userId: string) {
-    await this.findOne(restaurantId, userId);
+    await this.findOneForBilling(restaurantId, userId);
 
     return this.prisma.restaurant.update({
       where: { id: restaurantId },

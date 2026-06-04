@@ -526,6 +526,8 @@ export class AuthService {
           phone,
           ...(cleanName ? { name: cleanName } : {}),
         });
+      } else if (isPinRole(user.role)) {
+        throw new UnauthorizedException('Invalid or expired code.');
       } else if (user.isActive === false || user.disabledAt) {
         throw new UnauthorizedException('This account has been disabled.');
       } else if (cleanName && !user.name) {
@@ -593,6 +595,8 @@ export class AuthService {
           ...(phone ? { phone } : {}),
           ...(cleanName ? { name: cleanName } : {}),
         });
+      } else if (isPinRole(user.role)) {
+        throw new UnauthorizedException('Invalid or expired code.');
       } else if (user.isActive === false || user.disabledAt) {
         throw new UnauthorizedException('This account has been disabled.');
       } else {
