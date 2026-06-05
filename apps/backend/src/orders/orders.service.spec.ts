@@ -741,6 +741,47 @@ describe('OrdersService', () => {
       expect(tx.tableSession.create).toHaveBeenCalled();
     });
 
+    it('recovers from P2002 concurrent session creation race on table-id path (#F1)', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-cuid-1',
+        name: 'T1',
+      });
+
+      const racedSession = { id: 'sess-raced', token: 'tok-raced' };
+      const tx = makeTx();
+
+      // First $transaction (getOrCreateOpenSession) loses the race → P2002.
+      // Second $transaction (loyalty + order) succeeds normally.
+      prisma.$transaction
+        .mockRejectedValueOnce({ code: 'P2002' })
+        .mockImplementationOnce(async (fn: (tx: any) => any) => fn(tx));
+
+      // Fallback re-reads the OPEN session created by the concurrent winner.
+      prisma.tableSession.findFirst.mockResolvedValueOnce(racedSession);
+
+      const result = await service.create({
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        tableId: 'T1',
+      } as any);
+
+      // Result carries the winner's session token.
+      expect(result.sessionToken).toBe('tok-raced');
+      // Order is attached to the raced session, not a phantom new one.
+      expect(tx.order.create.mock.calls[0][0].data.tableSessionId).toBe(
+        'sess-raced',
+      );
+      // Fallback re-read scoped correctly (tenant-isolation assertion).
+      const fallbackCall =
+        prisma.tableSession.findFirst.mock.calls[
+          prisma.tableSession.findFirst.mock.calls.length - 1
+        ][0];
+      expect(fallbackCall.where).toMatchObject({
+        tableId: 'table-cuid-1',
+        status: 'OPEN',
+      });
+    });
+
     it('reuses existing OPEN session within table session transaction', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurantTable.findFirst.mockResolvedValue({

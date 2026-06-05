@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   UnauthorizedException,
   Logger,
@@ -211,20 +212,9 @@ export class OrdersService {
       const tableCuid = table.id;
       resolvedTableCuid = tableCuid;
 
-      const newSession = await this.prisma.$transaction(
-        async (tx: Prisma.TransactionClient) => {
-          const existing = await tx.tableSession.findFirst({
-            where: {
-              tableId: tableCuid,
-              restaurantId,
-              status: 'OPEN',
-            },
-          });
-          if (existing) return existing;
-          return tx.tableSession.create({
-            data: { tableId: tableCuid, restaurantId },
-          });
-        },
+      const newSession = await this.getOrCreateOpenSession(
+        tableCuid,
+        restaurantId,
       );
       tableSessionId = newSession.id;
       sessionToken = newSession.token;
@@ -718,6 +708,57 @@ export class OrdersService {
     }
 
     return order;
+  }
+
+  /**
+   * Idempotent find-or-create for an OPEN table session on the order path.
+   * Mirrors the same pattern used by PaymentService.getOrCreateSession.
+   *
+   * When two concurrent first-orders arrive for the same empty table
+   * simultaneously, the DB partial unique index
+   * `table_session_one_open_per_table_restaurant_idx` allows only one INSERT
+   * to succeed. The loser gets a P2002; rather than surfacing a 500, we
+   * re-read the winner's session and attach the order to it (#F1).
+   */
+  private async getOrCreateOpenSession(
+    tableCuid: string,
+    restaurantId: string,
+  ): Promise<{ id: string; token: string }> {
+    try {
+      return await this.prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          const existing = await tx.tableSession.findFirst({
+            where: { tableId: tableCuid, restaurantId, status: 'OPEN' },
+            select: { id: true, token: true },
+          });
+          if (existing) return existing;
+          return tx.tableSession.create({
+            data: { tableId: tableCuid, restaurantId },
+            select: { id: true, token: true },
+          });
+        },
+      );
+    } catch (e) {
+      if (!this.isUniqueConstraintError(e)) throw e;
+      // Concurrent request already created the OPEN session — re-read it.
+      const raced = await this.prisma.tableSession.findFirst({
+        where: { tableId: tableCuid, restaurantId, status: 'OPEN' },
+        select: { id: true, token: true },
+      });
+      if (!raced)
+        throw new ConflictException(
+          'Session could not be established; please retry.',
+        );
+      return raced;
+    }
+  }
+
+  private isUniqueConstraintError(error: unknown): boolean {
+    return !!(
+      error &&
+      typeof error === 'object' &&
+      (error as { code?: string }).code === 'P2002'
+    );
   }
 
   async updateStatus(
