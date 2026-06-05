@@ -255,6 +255,8 @@ export class PaymentService {
       restaurant.epayClientId &&
       restaurant.epayMerchantEmail &&
       restaurant.epaySecretEncrypted &&
+      // ePay and Stripe share the same Professional+ tier requirement — reuse
+      // PAYMENTS_STRIPE until a dedicated PAYMENTS_EPAY flag is introduced.
       this.featureService.restaurantHasFeature(
         restaurant,
         FeatureFlag.PAYMENTS_STRIPE,
@@ -570,13 +572,26 @@ export class PaymentService {
       throw new ConflictException('This session has already been paid');
     }
 
-    const pendingEpay = existingPayments.find((p) => p.provider === 'EPAY');
+    // Block if a non-ePay (e.g. Stripe) intent is still pending for this session.
+    if (existingPayments.some((p) => p.status === 'PENDING' && p.provider !== 'EPAY')) {
+      throw new ConflictException(
+        'A payment for this session is already being processed',
+      );
+    }
+
+    const pendingEpay = existingPayments.find(
+      (p) => p.provider === 'EPAY' && p.status === 'PENDING',
+    );
     if (pendingEpay) {
       const checkoutForm = (pendingEpay.providerPayload as any)?.checkoutForm;
+      const storedExpiry: string | undefined =
+        (pendingEpay.providerPayload as any)?.expiresAt;
+      const notExpired = storedExpiry ? new Date(storedExpiry) > new Date() : false;
       const sameAmount =
         Math.abs((pendingEpay.amount ?? 0) - total) < 0.001 &&
         Math.abs((pendingEpay.tipAmount ?? 0) - tipAmount) < 0.001;
-      if (checkoutForm && sameAmount) {
+
+      if (checkoutForm && sameAmount && notExpired) {
         return {
           provider: 'EPAY' as const,
           paymentId: pendingEpay.id,
@@ -587,80 +602,74 @@ export class PaymentService {
           fields: checkoutForm.fields,
         };
       }
-      throw new ConflictException(
-        'A payment for this session is already being processed',
-      );
-    }
 
-    if (existingPayments.some((p) => p.status === 'PENDING')) {
-      throw new ConflictException(
-        'A payment for this session is already being processed',
-      );
+      if (sameAmount && !notExpired) {
+        // Invoice EXP_TIME has passed — mark stale record FAILED and create a fresh checkout.
+        await this.prisma.payment.updateMany({
+          where: { id: pendingEpay.id, status: 'PENDING' },
+          data: { status: 'FAILED', providerStatus: 'EXPIRED' },
+        });
+      } else {
+        throw new ConflictException(
+          'A payment for this session is already being processed',
+        );
+      }
     }
 
     const secret = decryptSecret(restaurant.epaySecretEncrypted!);
     const expiresAt = this.getEpayExpirationDate();
+    const invoice = this.createEpayInvoice();
 
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const invoice = this.createEpayInvoice();
-      try {
-        const payment = await this.prisma.payment.create({
-          data: {
-            tableSessionId: session.id,
-            restaurantId: session.restaurantId,
-            amount: total,
-            tipAmount,
-            platformFeeAmount,
-            currency: 'eur',
-            status: 'PENDING',
-            provider: 'EPAY',
-            providerReference: invoice,
-            providerStatus: 'PENDING',
-          },
-        });
+    const payment = await this.prisma.payment.create({
+      data: {
+        tableSessionId: session.id,
+        restaurantId: session.restaurantId,
+        amount: total,
+        tipAmount,
+        platformFeeAmount,
+        currency: 'eur',
+        status: 'PENDING',
+        provider: 'EPAY',
+        providerReference: invoice,
+        providerStatus: 'PENDING',
+      },
+    });
 
-        const checkoutForm = this.epay.createCheckoutForm({
-          mode: restaurant.epayMode === 'LIVE' ? 'LIVE' : 'DEMO',
-          page: (restaurant.epayPage || 'credit_paydirect') as EpayPage,
-          min: restaurant.epayClientId!,
-          email: restaurant.epayMerchantEmail!,
-          secret,
-          invoice,
-          amount: total,
-          currency: 'EUR',
-          expiresAt,
-          description: `QR Menu bill ${session.table?.name ?? ''}`.trim(),
-          urlOk: this.buildPublicMenuReturnUrl(session, 'epay-ok'),
-          urlCancel: this.buildPublicMenuReturnUrl(session, 'epay-cancel'),
-          lang: 'bg',
-        });
+    const checkoutForm = this.epay.createCheckoutForm({
+      mode: restaurant.epayMode === 'LIVE' ? 'LIVE' : 'DEMO',
+      page: (restaurant.epayPage || 'credit_paydirect') as EpayPage,
+      min: restaurant.epayClientId!,
+      email: restaurant.epayMerchantEmail!,
+      secret,
+      invoice,
+      amount: total,
+      currency: 'EUR',
+      expiresAt,
+      description: `QR Menu bill ${session.table?.name ?? ''}`.trim(),
+      urlOk: this.buildPublicMenuReturnUrl(session, 'epay-ok'),
+      urlCancel: this.buildPublicMenuReturnUrl(session, 'epay-cancel'),
+      lang: 'bg',
+    });
 
-        await this.prisma.payment.update({
-          where: { id: payment.id },
-          data: {
-            providerPayload: {
-              checkoutForm,
-              expiresAt: expiresAt.toISOString(),
-            } as any,
-          },
-        });
+    await this.prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        providerPayload: {
+          checkoutForm,
+          expiresAt: expiresAt.toISOString(),
+        } as any,
+      },
+    });
 
-        return {
-          provider: 'EPAY' as const,
-          paymentId: payment.id,
-          total,
-          tipAmount,
-          action: checkoutForm.action,
-          method: checkoutForm.method,
-          fields: checkoutForm.fields,
-        };
-      } catch (error) {
-        if (this.isUniqueConstraintError(error)) continue;
-        throw error;
-      }
-    }
-
-    throw new ConflictException('Could not generate a unique ePay invoice');
+    return {
+      provider: 'EPAY' as const,
+      paymentId: payment.id,
+      total,
+      tipAmount,
+      action: checkoutForm.action,
+      method: checkoutForm.method,
+      fields: checkoutForm.fields,
+    };
   }
 
   async handleEpayNotification(body: {

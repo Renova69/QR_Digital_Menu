@@ -58,8 +58,12 @@ describe('EpayProvider', () => {
       'INVOICE=1402:STATUS=PAID:PAY_TIME=20220629145257:STAN=000000:BCODE=000000',
       'utf8',
     ).toString('base64');
-    const multiple = Buffer.from(
+    const multipleSpace = Buffer.from(
       'INVOICE=123456:STATUS=DENIED INVOICE=123457:STATUS=EXPIRED',
+      'utf8',
+    ).toString('base64');
+    const multipleNewline = Buffer.from(
+      'INVOICE=123456:STATUS=DENIED\nINVOICE=123457:STATUS=EXPIRED',
       'utf8',
     ).toString('base64');
 
@@ -72,7 +76,11 @@ describe('EpayProvider', () => {
         bcode: '000000',
       },
     ]);
-    expect(provider.parseNotifications(multiple)).toEqual([
+    expect(provider.parseNotifications(multipleSpace)).toEqual([
+      { invoice: '123456', status: 'DENIED' },
+      { invoice: '123457', status: 'EXPIRED' },
+    ]);
+    expect(provider.parseNotifications(multipleNewline)).toEqual([
       { invoice: '123456', status: 'DENIED' },
       { invoice: '123457', status: 'EXPIRED' },
     ]);
