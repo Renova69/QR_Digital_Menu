@@ -229,7 +229,7 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @IsOptional()
   @IsString()
   @MaxLength(32)
-  @Matches(/^\d+$/, { message: 'epayClientId must contain digits only' })
+  @Matches(/^[A-Za-z0-9]+$/, { message: 'epayClientId must contain only letters and numbers' })
   epayClientId?: string | null;
 
   @IsOptional()

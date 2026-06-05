@@ -366,10 +366,9 @@ const PaymentSettingsTab: React.FC = () => {
                 </span>
                 <input
                   value={epayClientId}
-                  onChange={(e) => setEpayClientId(e.target.value.replace(/\D/g, ""))}
-                  inputMode="numeric"
+                  onChange={(e) => setEpayClientId(e.target.value.trim())}
                   className={inputCls}
-                  placeholder="1000000000"
+                  placeholder="e.g. D123456789"
                 />
               </label>
 
