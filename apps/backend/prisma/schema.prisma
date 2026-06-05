@@ -94,6 +94,12 @@ model Restaurant {
   stripeAccountId           String?
   stripeOnboarded           Boolean             @default(false)
   paymentsEnabled           Boolean             @default(false)
+  epayEnabled               Boolean             @default(false)
+  epayMode                  String              @default("DEMO")
+  epayClientId              String?
+  epayMerchantEmail         String?
+  epaySecretEncrypted       String?
+  epayPage                  String              @default("credit_paydirect")
   notifyAllStaffOnPayment   Boolean             @default(true)
   tipsEnabled               Boolean             @default(false)
   tipOptions                Int[]               @default([2, 4, 5])
@@ -447,6 +453,9 @@ model Payment {
   tableSessionId        String
   restaurantId          String
   stripePaymentIntentId String?         @unique
+  providerReference     String?         @unique
+  providerStatus        String?
+  providerPayload       Json?
   amount                Float
   tipAmount             Float           @default(0)
   platformFeeAmount     Float           @default(0)
@@ -479,6 +488,7 @@ enum PaymentStatus {
 enum PaymentProvider {
   STRIPE
   MYPOS
+  EPAY
   CASH
 }
 

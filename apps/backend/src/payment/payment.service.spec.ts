@@ -11,6 +11,7 @@ describe('PaymentService', () => {
   let service: PaymentService;
   let mockPrisma: any;
   let mockStripeProvider: any;
+  let mockEpayProvider: any;
   let mockEvents: any;
 
   beforeEach(() => {
@@ -59,6 +60,7 @@ describe('PaymentService', () => {
       },
       order: {
         findMany: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue(null),
       },
       $transaction: jest.fn((arg: any) => {
         if (typeof arg === 'function') return arg(mockPrisma);
@@ -70,6 +72,16 @@ describe('PaymentService', () => {
       createRefund: jest.fn(),
       cancelPaymentIntent: jest.fn().mockResolvedValue(undefined),
       constructWebhookEvent: jest.fn(),
+    };
+    mockEpayProvider = {
+      createCheckoutForm: jest.fn(),
+      parseNotifications: jest.fn(),
+      verifyChecksum: jest.fn(),
+      formatNotificationResponses: jest.fn((responses) =>
+        responses
+          .map((response: any) => `INVOICE=${response.invoice}:STATUS=${response.status}`)
+          .join('\n'),
+      ),
     };
     mockEvents = {
       emitToRestaurant: jest.fn(),
@@ -89,6 +101,7 @@ describe('PaymentService', () => {
     service = new PaymentService(
       mockPrisma,
       mockStripeProvider,
+      mockEpayProvider,
       mockEvents,
       mockFeatureService,
     );
@@ -450,6 +463,7 @@ describe('PaymentService', () => {
       const lockedService = new PaymentService(
         mockPrisma,
         mockStripeProvider,
+        mockEpayProvider,
         mockEvents,
         lockedFeatureService,
       );
@@ -457,6 +471,181 @@ describe('PaymentService', () => {
       await expect(
         lockedService.createPaymentIntent('tok1', 0),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('createCheckout with ePay.bg', () => {
+    const epayRestaurant = {
+      paymentsEnabled: true,
+      stripeOnboarded: false,
+      stripeAccountId: null,
+      platformFeePercent: 0.5,
+      tipsEnabled: true,
+      tipOptions: [5, 10],
+      tier: 'PROFESSIONAL',
+      epayEnabled: true,
+      epayMode: 'DEMO',
+      epayClientId: '1000000000',
+      epayMerchantEmail: 'merchant@example.com',
+      epaySecretEncrypted: 'secret-word',
+      epayPage: 'credit_paydirect',
+    };
+
+    it('creates a pending EPAY payment and returns hosted form fields', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+        table: { name: '7' },
+        restaurant: epayRestaurant,
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.payment.create.mockResolvedValue({ id: 'pay-epay' });
+      mockPrisma.payment.update.mockResolvedValue({});
+      mockEpayProvider.createCheckoutForm.mockReturnValue({
+        action: 'https://demo.epay.bg/',
+        method: 'POST',
+        fields: {
+          PAGE: 'credit_paydirect',
+          LANG: 'bg',
+          ENCODED: 'encoded',
+          CHECKSUM: 'checksum',
+          URL_OK: 'http://localhost:3001/menu/public/rest1?payment=epay-ok',
+          URL_CANCEL:
+            'http://localhost:3001/menu/public/rest1?payment=epay-cancel',
+        },
+      });
+
+      const result = await service.createCheckout('tok1', 'EPAY', 10);
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          provider: 'EPAY',
+          paymentId: 'pay-epay',
+          total: 22,
+          tipAmount: 2,
+          action: 'https://demo.epay.bg/',
+        }),
+      );
+      expect(mockPrisma.payment.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          provider: 'EPAY',
+          providerStatus: 'PENDING',
+          providerReference: expect.any(String),
+          amount: 22,
+          tipAmount: 2,
+        }),
+      });
+      expect(mockEpayProvider.createCheckoutForm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          min: '1000000000',
+          email: 'merchant@example.com',
+          secret: 'secret-word',
+          amount: 22,
+          currency: 'EUR',
+          page: 'credit_paydirect',
+        }),
+      );
+    });
+  });
+
+  describe('handleEpayNotification', () => {
+    const notification = { invoice: '123456', status: 'PAID' as const };
+    const epayPayment = {
+      id: 'pay-epay',
+      restaurantId: 'rest1',
+      tableSessionId: 's1',
+      amount: 22,
+      tipAmount: 2,
+      providerReference: '123456',
+      providerPayload: {},
+      restaurant: { epaySecretEncrypted: 'secret-word' },
+      tableSession: {
+        id: 's1',
+        restaurantId: 'rest1',
+        tableId: 'table1',
+        table: { name: '7' },
+      },
+    };
+
+    beforeEach(() => {
+      mockEpayProvider.parseNotifications.mockReturnValue([notification]);
+      mockEpayProvider.verifyChecksum.mockReturnValue(true);
+    });
+
+    it('returns ERR when checksum verification fails', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([epayPayment]);
+      mockEpayProvider.verifyChecksum.mockReturnValue(false);
+
+      const result = await service.handleEpayNotification({
+        ENCODED: 'encoded',
+        CHECKSUM: 'bad',
+      });
+
+      expect(result).toBe('ERR=invalid CHECKSUM');
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('returns STATUS=NO for unknown invoices', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+
+      const result = await service.handleEpayNotification({
+        ENCODED: 'encoded',
+        CHECKSUM: 'checksum',
+      });
+
+      expect(result).toBe('INVOICE=123456:STATUS=NO');
+    });
+
+    it('marks PAID notifications succeeded and emits once', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([epayPayment]);
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.tableSession.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.order.findFirst.mockResolvedValue({ customerName: 'Maria' });
+
+      const result = await service.handleEpayNotification({
+        ENCODED: 'encoded',
+        CHECKSUM: 'checksum',
+      });
+
+      expect(result).toBe('INVOICE=123456:STATUS=OK');
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
+        where: { id: 'pay-epay', status: 'PENDING' },
+        data: expect.objectContaining({
+          status: 'SUCCEEDED',
+          providerStatus: 'PAID',
+        }),
+      });
+      expect(mockPrisma.tableSession.updateMany).toHaveBeenCalledWith({
+        where: { id: 's1', status: 'OPEN' },
+        data: { status: 'PAID', paidAt: expect.any(Date) },
+      });
+      expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
+        'rest1',
+        'payment:confirmed',
+        expect.objectContaining({
+          paymentId: 'pay-epay',
+          tableSessionId: 's1',
+          amount: 22,
+          tipAmount: 2,
+          customerName: 'Maria',
+        }),
+      );
+    });
+
+    it('treats duplicate PAID notifications as OK without double-emitting', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([epayPayment]);
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 0 });
+
+      const result = await service.handleEpayNotification({
+        ENCODED: 'encoded',
+        CHECKSUM: 'checksum',
+      });
+
+      expect(result).toBe('INVOICE=123456:STATUS=OK');
+      expect(mockPrisma.tableSession.updateMany).not.toHaveBeenCalled();
+      expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
+      expect(mockEvents.emitTableStatusChanged).not.toHaveBeenCalled();
     });
   });
 
@@ -977,6 +1166,20 @@ describe('PaymentService', () => {
       mockPrisma.payment.findUnique.mockResolvedValueOnce({
         ...succeededPayload,
         provider: 'CASH',
+        stripePaymentIntentId: null,
+      });
+
+      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+      expect(mockStripeProvider.createRefund).not.toHaveBeenCalled();
+    });
+
+    it('rejects EPAY refunds with BadRequestException', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValueOnce({
+        ...succeededPayload,
+        provider: 'EPAY',
         stripePaymentIntentId: null,
       });
 

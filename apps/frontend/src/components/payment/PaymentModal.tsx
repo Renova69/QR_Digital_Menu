@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { getSessionBill, createPaymentIntent } from '../../lib/api';
+import { getSessionBill, createCheckout, type CheckoutProvider } from '../../lib/api';
 import { Button } from '../ui/button';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, X } from 'lucide-react';
@@ -30,7 +30,7 @@ interface PaymentModalProps {
   onSuccess: () => void;
 }
 
-type Step = 'tip' | 'pay' | 'done';
+type Step = 'tip' | 'pay' | 'redirect' | 'done';
 
 interface BillItem {
   name: string;
@@ -53,8 +53,28 @@ interface BillData {
   subtotal: number;
   tipsEnabled: boolean;
   tipOptions: number[];
+  paymentProviders: CheckoutProvider[];
   restaurantId?: string;
 }
+
+type StripePaymentState = {
+  provider: 'STRIPE';
+  clientSecret: string;
+  total: number;
+  tipAmount: number;
+};
+
+type EpayPaymentState = {
+  provider: 'EPAY';
+  paymentId: string;
+  total: number;
+  tipAmount: number;
+  action: string;
+  method: 'POST';
+  fields: Record<string, string>;
+};
+
+type PaymentState = StripePaymentState | EpayPaymentState;
 
 function getSourceLabel(order: BillOrder): string {
   if (order.source === 'CUSTOMER') return 'You';
@@ -176,12 +196,14 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
   const [bill, setBill] = useState<BillData | null>(null);
   const [selectedTip, setSelectedTip] = useState(0);
   const [customTip, setCustomTip] = useState('');
-  const [payment, setPayment] = useState<{ clientSecret: string; total: number; tipAmount: number } | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<CheckoutProvider>('STRIPE');
+  const [payment, setPayment] = useState<PaymentState | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Fix H-8 — a failed bill load must show an error with retry, not silently close.
   const [billError, setBillError] = useState<string | null>(null);
   const [billReloadKey, setBillReloadKey] = useState(0);
+  const epayFormRef = useRef<HTMLFormElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -198,6 +220,20 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
     return () => { cancelled = true; };
   }, [sessionToken, billReloadKey, t]);
 
+  useEffect(() => {
+    if (!bill) return;
+    const providers = bill.paymentProviders ?? [];
+    if (providers.length > 0 && !providers.includes(selectedProvider)) {
+      setSelectedProvider(providers[0]);
+    }
+  }, [bill, selectedProvider]);
+
+  useEffect(() => {
+    if (step !== 'redirect' || payment?.provider !== 'EPAY') return;
+    const timer = window.setTimeout(() => epayFormRef.current?.submit(), 150);
+    return () => window.clearTimeout(timer);
+  }, [payment, step]);
+
   const retryBillFetch = () => {
     setBill(null);
     setBillError(null);
@@ -207,14 +243,23 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
   const rawTipPercent = customTip !== '' ? parseFloat(customTip) || 0 : selectedTip;
   // Fix M-3 — clamp tip to a sane 0–100 range before it reaches the API.
   const activeTipPercent = Math.max(0, Math.min(100, rawTipPercent));
+  const availableProviders = bill?.paymentProviders ?? [];
+  const hasPaymentProvider = availableProviders.length > 0;
+  const effectiveProvider: CheckoutProvider =
+    hasPaymentProvider && availableProviders.includes(selectedProvider)
+      ? selectedProvider
+      : availableProviders[0] ?? selectedProvider;
 
   const handleContinueToPayment = async () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await createPaymentIntent(sessionToken, activeTipPercent);
-      setPayment({ clientSecret: result.clientSecret, total: result.total, tipAmount: result.tipAmount });
-      setStep('pay');
+      const result = await createCheckout(sessionToken, {
+        provider: effectiveProvider,
+        tipPercent: activeTipPercent,
+      });
+      setPayment(result);
+      setStep(result.provider === 'EPAY' ? 'redirect' : 'pay');
     } catch (e: any) {
       setError(e.response?.data?.message || t('payment.failedToLoad'));
     } finally {
@@ -229,6 +274,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
           <h2 className="text-lg font-semibold">
             {step === 'tip' && t('payment.yourBill')}
             {step === 'pay' && t('payment.payment')}
+            {step === 'redirect' && t('payment.redirecting', 'Redirecting')}
             {step === 'done' && t('payment.thankYou')}
           </h2>
           {/* When payment is done, X clears the session (same as "Back to Menu") */}
@@ -337,15 +383,47 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
               </div>
             )}
 
+            {availableProviders.length > 1 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">{t('payment.paymentMethod', 'Payment method')}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {availableProviders.map((provider) => (
+                    <button
+                      key={provider}
+                      type="button"
+                      onClick={() => setSelectedProvider(provider)}
+                      className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                        selectedProvider === provider
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border bg-background hover:bg-muted'
+                      }`}
+                    >
+                      {provider === 'EPAY' ? 'ePay.bg' : t('payment.cardOnline', 'Card online')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!hasPaymentProvider && (
+              <p className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-950 px-3 py-2 rounded-lg">
+                {t('payment.noProviders', 'Online payment is not configured for this restaurant.')}
+              </p>
+            )}
+
             {error && <p className="text-red-500 text-sm">{error}</p>}
 
-            <Button className="w-full" onClick={handleContinueToPayment} disabled={loading}>
-              {loading ? t('payment.loading') : t('payment.continue')}
+            <Button className="w-full" onClick={handleContinueToPayment} disabled={loading || !hasPaymentProvider}>
+              {loading
+                ? t('payment.loading')
+                : effectiveProvider === 'EPAY'
+                  ? t('payment.continueToEpay', 'Continue to ePay.bg')
+                  : t('payment.continue')}
             </Button>
           </div>
         )}
 
-        {step === 'pay' && payment && (
+        {step === 'pay' && payment?.provider === 'STRIPE' && (
           <Elements
             stripe={stripePromise}
             options={{ clientSecret: payment.clientSecret, appearance: { theme: 'stripe' } }}
@@ -358,6 +436,31 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
               onClose={onClose}
             />
           </Elements>
+        )}
+
+        {step === 'redirect' && payment?.provider === 'EPAY' && (
+          <div className="space-y-4 py-4">
+            <div className="text-sm text-muted-foreground space-y-1">
+              <div className="flex justify-between font-semibold text-foreground">
+                <span>{t('payment.total')}</span>
+                <div className="text-right">
+                  <div>{formatEuro(payment.total)}</div>
+                  <span className="text-xs text-muted-foreground">{formatBgn(payment.total)}</span>
+                </div>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {t('payment.redirectingToEpay', 'Opening ePay.bg secure checkout...')}
+            </p>
+            <form ref={epayFormRef} action={payment.action} method={payment.method}>
+              {Object.entries(payment.fields).map(([name, value]) => (
+                <input key={name} type="hidden" name={name} value={value} />
+              ))}
+              <Button type="submit" className="w-full">
+                {t('payment.openEpay', 'Open ePay.bg')}
+              </Button>
+            </form>
+          </div>
         )}
 
         {step === 'done' && (

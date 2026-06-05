@@ -15,6 +15,7 @@ interface PaymentsSummaryCardProps {
 
 const COLORS: Record<string, string> = {
   STRIPE: '#6E56F8',
+  EPAY: '#06B6D4',
   MYPOS: '#38BDF8',
   CASH: '#34D399',
 };
@@ -24,6 +25,7 @@ const PaymentsSummaryCard = ({ data }: PaymentsSummaryCardProps) => {
 
   const METHOD_LABELS: Record<string, string> = {
     STRIPE: t('dashboard.card'),
+    EPAY: 'ePay.bg',
     MYPOS: t('dashboard.terminal'),
     CASH: t('dashboard.cash'),
   };

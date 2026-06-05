@@ -33,6 +33,14 @@ function openStripeAccount(accountId?: string | null) {
   window.open(`https://dashboard.stripe.com/connect/accounts/${accountId}`, '_blank', 'noopener,noreferrer');
 }
 
+function getMethodLabel(method: string, t: (key: string, options?: any) => string) {
+  if (method === 'STRIPE') return t('payments.stripeMethod');
+  if (method === 'EPAY') return 'ePay.bg';
+  if (method === 'MYPOS') return t('payments.cardMethod');
+  if (method === 'CASH') return t('payments.cashMethod');
+  return method;
+}
+
 const PaymentsView = () => {
   const { activeRestaurant } = useContext(RestaurantContext) as any;
   const queryClient = useQueryClient();
@@ -106,6 +114,7 @@ const PaymentsView = () => {
         [
           payment.id,
           payment.stripePaymentIntentId,
+          payment.providerReference,
           payment.customerName,
           payment.tableNumber,
           payment.tableSessionId,
@@ -153,7 +162,13 @@ const PaymentsView = () => {
   }, [overview, payments]);
 
   const account = overview?.account ?? activeRestaurant;
-  const stripeMissing = account?.paymentsEnabled && !account?.stripeOnboarded;
+  const epayReady = !!(
+    account?.epayEnabled &&
+    account?.epayClientId &&
+    account?.epayMerchantEmail &&
+    account?.epaySecretConfigured
+  );
+  const hostedProviderMissing = account?.paymentsEnabled && !account?.stripeOnboarded && !epayReady;
   const feePercent = Number(account?.platformFeePercent ?? 0);
 
   const statusOptions: Array<{ value: '' | PaymentStatus; label: string }> = [
@@ -167,6 +182,7 @@ const PaymentsView = () => {
   const methodOptions: Array<{ value: '' | PaymentMethod; label: string }> = [
     { value: '', label: t('payments.allMethods') },
     { value: 'STRIPE', label: t('payments.stripeMethod') },
+    { value: 'EPAY', label: 'ePay.bg' },
     { value: 'MYPOS', label: t('payments.cardMethod') },
     { value: 'CASH', label: t('payments.cashMethod') },
   ];
@@ -235,7 +251,7 @@ const PaymentsView = () => {
         </div>
       </div>
 
-      {stripeMissing && (
+      {hostedProviderMissing && (
         <div className="mb-5 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-400/20 dark:bg-amber-400/10">
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-200" />
           <div>
@@ -458,9 +474,7 @@ function PaymentTable({
           <tbody className="divide-y divide-border">
             {payments.map((payment) => {
               const method = methodStyles[payment.provider] ?? methodStyles.STRIPE;
-              const methodLabel = payment.provider === 'STRIPE' ? t('payments.stripeMethod') :
-                                   payment.provider === 'MYPOS' ? t('payments.cardMethod') :
-                                   t('payments.cashMethod');
+              const methodLabel = getMethodLabel(payment.provider, t);
               const net = payment.amount - payment.platformFeeAmount;
               return (
                 <tr
@@ -469,7 +483,7 @@ function PaymentTable({
                   className="cursor-pointer transition hover:bg-muted/35"
                 >
                   <td className="px-4 py-4">
-                    <p className="font-mono text-sm font-black text-foreground">{shortId(payment.stripePaymentIntentId ?? payment.id)}</p>
+                    <p className="font-mono text-sm font-black text-foreground">{shortId(payment.stripePaymentIntentId ?? payment.providerReference ?? payment.id)}</p>
                     <p className="mt-0.5 text-xs font-medium text-muted-foreground">
                       {payment.tableNumber ?? t('payments.noTable')} . {formatDateTime(payment.createdAt)}
                     </p>
@@ -532,7 +546,7 @@ function PayoutsPanel({
             methodTotals.map((item) => (
               <div key={item.method} className="flex items-center justify-between rounded-lg border border-border bg-muted/25 p-3">
                 <div>
-                  <span className="text-sm font-black text-foreground">{item.method === 'STRIPE' ? t('payments.stripeMethod') : item.method === 'MYPOS' ? t('payments.cardMethod') : item.method === 'CASH' ? t('payments.cashMethod') : item.method}</span>
+                  <span className="text-sm font-black text-foreground">{getMethodLabel(item.method, t)}</span>
                   <p className="mt-0.5 text-xs font-medium text-muted-foreground">
                     {item.count ?? 0} {t('payments.txLabel')}{item.fees ? ` . ${formatMoney(item.fees)} ${t('payments.feesLabel')}` : ''}
                   </p>
@@ -556,10 +570,17 @@ function PayoutsPanel({
 
 function SettingsPanel({ restaurant, feePercent }: { restaurant: any; feePercent: number }) {
   const { t } = useTranslation();
+  const epayReady = !!(
+    restaurant?.epayEnabled &&
+    restaurant?.epayClientId &&
+    restaurant?.epayMerchantEmail &&
+    restaurant?.epaySecretConfigured
+  );
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
+    <div className="grid gap-4 lg:grid-cols-4">
       <SettingCard label={t('payments.paymentCollection')} value={restaurant?.paymentsEnabled ? t('payments.enabled') : t('payments.disabled')} detail={t('payments.paymentCollectionDetail')} active={restaurant?.paymentsEnabled} />
       <SettingCard label={t('payments.stripeConnect')} value={restaurant?.stripeOnboarded ? t('payments.connected') : t('payments.incomplete')} detail={restaurant?.stripeAccountId ?? t('payments.noStripeAccount')} active={restaurant?.stripeOnboarded} />
+      <SettingCard label="ePay.bg" value={epayReady ? t('payments.configured', 'Configured') : t('payments.incomplete')} detail={restaurant?.epayClientId ?? t('payments.notConfigured', 'Not configured')} active={epayReady} />
       <SettingCard label={t('payments.platformFee')} value={feePercent ? `${feePercent}%` : t('payments.notSet')} detail={t('payments.platformFeeDetail')} active={feePercent > 0} />
     </div>
   );

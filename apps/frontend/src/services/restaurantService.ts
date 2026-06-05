@@ -47,6 +47,12 @@ export interface Restaurant {
   paymentsEnabled?: boolean;
   stripeOnboarded?: boolean;
   stripeAccountId?: string;
+  epayEnabled?: boolean;
+  epayMode?: 'DEMO' | 'LIVE';
+  epayClientId?: string | null;
+  epayMerchantEmail?: string | null;
+  epaySecretConfigured?: boolean;
+  epayPage?: 'credit_paydirect' | 'paylogin';
   tipsEnabled?: boolean;
   tipOptions?: number[];
   platformFeePercent?: number;

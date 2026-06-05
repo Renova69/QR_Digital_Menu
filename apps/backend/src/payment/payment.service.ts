@@ -8,9 +8,17 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StripeProvider } from './stripe.provider';
+import {
+  EpayNotification,
+  EpayPage,
+  EpayProvider,
+} from './epay.provider';
+import { decryptSecret } from './secret-crypto';
 import { EventsGateway } from '../events/events.gateway';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
+
+type CheckoutProvider = 'STRIPE' | 'EPAY';
 
 @Injectable()
 export class PaymentService {
@@ -19,6 +27,7 @@ export class PaymentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly stripe: StripeProvider,
+    private readonly epay: EpayProvider,
     private readonly events: EventsGateway,
     private readonly featureService: FeatureService,
   ) {}
@@ -36,6 +45,12 @@ export class PaymentService {
         paymentsEnabled: true,
         stripeOnboarded: true,
         stripeAccountId: true,
+        epayEnabled: true,
+        epayMode: true,
+        epayClientId: true,
+        epayMerchantEmail: true,
+        epaySecretEncrypted: true,
+        epayPage: true,
         platformFeePercent: true,
         tipsEnabled: true,
         tipOptions: true,
@@ -118,6 +133,8 @@ export class PaymentService {
       status: payment.status,
       statusLabel: this.paymentStatusLabel(payment.status),
       stripePaymentIntentId: payment.stripePaymentIntentId,
+      providerReference: payment.providerReference,
+      providerStatus: payment.providerStatus,
       provider: payment.provider,
       createdAt: payment.createdAt,
       updatedAt: payment.updatedAt,
@@ -177,12 +194,123 @@ export class PaymentService {
     );
   }
 
+  private normalizeTipPercent(tipPercent: number | undefined): number {
+    const normalized = Number(tipPercent ?? 0);
+    if (
+      !Number.isFinite(normalized) ||
+      normalized < 0 ||
+      normalized > 100
+    ) {
+      throw new BadRequestException('tipPercent must be between 0 and 100');
+    }
+    return normalized;
+  }
+
+  private calculateTotals(
+    orders: Array<{ totalPrice: number }>,
+    tipPercent: number,
+    platformFeePercent: number,
+  ) {
+    const subtotal = orders.reduce((sum, order) => sum + order.totalPrice, 0);
+    if (subtotal <= 0) {
+      throw new BadRequestException(
+        'Cannot create payment for an empty session',
+      );
+    }
+
+    const feePercent = platformFeePercent ?? 0;
+    if (feePercent < 0 || feePercent > 100) {
+      throw new BadRequestException('Invalid platform fee configuration');
+    }
+
+    const tipAmount = Math.round(subtotal * tipPercent) / 100;
+    const total = subtotal + tipAmount;
+    const platformFeeCents = Math.round(total * feePercent);
+
+    return {
+      subtotal,
+      tipAmount,
+      total,
+      platformFeeCents,
+      platformFeeAmount: platformFeeCents / 100,
+    };
+  }
+
+  private isStripeConfigured(restaurant: any): boolean {
+    return !!(
+      restaurant.paymentsEnabled &&
+      restaurant.stripeOnboarded &&
+      restaurant.stripeAccountId &&
+      this.featureService.restaurantHasFeature(
+        restaurant,
+        FeatureFlag.PAYMENTS_STRIPE,
+      )
+    );
+  }
+
+  private isEpayConfigured(restaurant: any): boolean {
+    return !!(
+      restaurant.paymentsEnabled &&
+      restaurant.epayEnabled &&
+      restaurant.epayClientId &&
+      restaurant.epayMerchantEmail &&
+      restaurant.epaySecretEncrypted &&
+      this.featureService.restaurantHasFeature(
+        restaurant,
+        FeatureFlag.PAYMENTS_STRIPE,
+      )
+    );
+  }
+
+  private getFrontendBaseUrl(): string {
+    return (process.env.FRONTEND_URL || 'http://localhost:3001').replace(
+      /\/+$/,
+      '',
+    );
+  }
+
+  private buildPublicMenuReturnUrl(
+    session: { restaurantId: string; table?: { name?: string | null } | null },
+    outcome: string,
+  ): string {
+    const url = new URL(
+      `${this.getFrontendBaseUrl()}/menu/public/${session.restaurantId}`,
+    );
+    if (session.table?.name) url.searchParams.set('table', session.table.name);
+    url.searchParams.set('payment', outcome);
+    return url.toString();
+  }
+
+  private createEpayInvoice(): string {
+    const suffix = Math.floor(Math.random() * 1_000_000)
+      .toString()
+      .padStart(6, '0');
+    return `${Date.now()}${suffix}`;
+  }
+
+  private getEpayExpirationDate(): Date {
+    const minutes = Math.max(
+      5,
+      Math.min(24 * 60, Number(process.env.EPAY_EXPIRATION_MINUTES || 30)),
+    );
+    return new Date(Date.now() + minutes * 60 * 1000);
+  }
+
+  private mergeProviderPayload(payload: unknown, patch: Record<string, unknown>) {
+    const base =
+      payload && typeof payload === 'object' && !Array.isArray(payload)
+        ? (payload as Record<string, unknown>)
+        : {};
+    return { ...base, ...patch };
+  }
+
   async getSessionBill(token: string): Promise<{
     orders: any[];
     subtotal: number;
     restaurantId: string;
     tipsEnabled: boolean;
     tipOptions: number[];
+    paymentProviders: CheckoutProvider[];
   }> {
     const session = await this.prisma.tableSession.findFirst({
       where: { token, status: 'OPEN' },
@@ -227,7 +355,28 @@ export class PaymentService {
       restaurantId: session.restaurantId,
       tipsEnabled: session.restaurant.tipsEnabled,
       tipOptions: session.restaurant.tipOptions,
+      paymentProviders: [
+        ...(this.isStripeConfigured(session.restaurant) ? ['STRIPE' as const] : []),
+        ...(this.isEpayConfigured(session.restaurant) ? ['EPAY' as const] : []),
+      ],
     };
+  }
+
+  async createCheckout(
+    token: string,
+    provider: CheckoutProvider,
+    tipPercent: number,
+  ) {
+    if (provider === 'STRIPE') {
+      const stripeCheckout = await this.createPaymentIntent(token, tipPercent);
+      return { provider: 'STRIPE', ...stripeCheckout };
+    }
+
+    if (provider === 'EPAY') {
+      return this.createEpayCheckout(token, tipPercent);
+    }
+
+    throw new BadRequestException('Unsupported payment provider');
   }
 
   async createPaymentIntent(
@@ -246,9 +395,7 @@ export class PaymentService {
 
     if (!session) throw new NotFoundException('Session not found');
 
-    if (tipPercent < 0 || tipPercent > 100) {
-      throw new BadRequestException('tipPercent must be between 0 and 100');
-    }
+    const normalizedTipPercent = this.normalizeTipPercent(tipPercent);
 
     const { restaurant } = session;
 
@@ -278,12 +425,6 @@ export class PaymentService {
       where: { tableSessionId: session.id },
     });
 
-    const subtotal = orders.reduce((sum, o) => sum + o.totalPrice, 0);
-    if (subtotal <= 0)
-      throw new BadRequestException(
-        'Cannot create payment for an empty session',
-      );
-
     // Guard against double capture (#H1). A session can accumulate multiple
     // intents (double-click, retried tab) and all could be confirmed. Reject if
     // already paid, and cancel any stale PENDING intent so only the newest one
@@ -300,6 +441,11 @@ export class PaymentService {
       throw new ConflictException('This session has already been paid');
     }
     for (const stale of existingPayments) {
+      if (stale.provider === 'EPAY') {
+        throw new ConflictException(
+          'A payment for this session is already being processed',
+        );
+      }
       if (stale.stripePaymentIntentId) {
         try {
           await this.stripe.cancelPaymentIntent(stale.stripePaymentIntentId);
@@ -320,18 +466,16 @@ export class PaymentService {
       });
     }
 
-    const tipAmount = Math.round(subtotal * tipPercent) / 100;
-    const total = subtotal + tipAmount;
     // platformFeePercent is a WHOLE-NUMBER percent (e.g. 5 = 5%), not a fraction
     // (#L1). fee_in_cents = total_euros × percent works only under that unit:
     //   €20 × 5 = 100 cents = €1.00 = 5% of €20.
     // If this is ever stored as a fraction (0.05), fees become 100× too small.
-    const feePercent = restaurant.platformFeePercent ?? 0;
-    if (feePercent < 0 || feePercent > 100) {
-      throw new BadRequestException('Invalid platform fee configuration');
-    }
-    const platformFeeCents = Math.round(total * feePercent);
-    const platformFeeAmount = platformFeeCents / 100;
+    const { tipAmount, total, platformFeeCents, platformFeeAmount } =
+      this.calculateTotals(
+        orders,
+        normalizedTipPercent,
+        restaurant.platformFeePercent ?? 0,
+      );
 
     const payment = await this.prisma.payment.create({
       data: {
@@ -370,6 +514,311 @@ export class PaymentService {
         .catch(() => {});
       throw err;
     }
+  }
+
+  private async createEpayCheckout(token: string, tipPercent: number) {
+    const normalizedTipPercent = this.normalizeTipPercent(tipPercent);
+    const session = await this.prisma.tableSession.findFirst({
+      where: { token, status: 'OPEN' },
+      include: {
+        restaurant: true,
+        table: { select: { name: true } },
+      },
+    });
+
+    if (!session) throw new NotFoundException('Session not found');
+
+    const { restaurant } = session;
+    if (!restaurant.paymentsEnabled) {
+      throw new ForbiddenException(
+        'Payments are not enabled for this restaurant',
+      );
+    }
+
+    if (
+      !this.featureService.restaurantHasFeature(
+        restaurant,
+        FeatureFlag.PAYMENTS_STRIPE,
+      )
+    ) {
+      throw new ForbiddenException({
+        code: 'FEATURE_LOCKED',
+        message: 'Hosted payments require a Professional plan or above',
+      });
+    }
+
+    if (!this.isEpayConfigured(restaurant)) {
+      throw new BadRequestException('ePay.bg is not configured');
+    }
+
+    const orders = await this.prisma.order.findMany({
+      where: { tableSessionId: session.id },
+    });
+    const { tipAmount, total, platformFeeAmount } = this.calculateTotals(
+      orders,
+      normalizedTipPercent,
+      restaurant.platformFeePercent ?? 0,
+    );
+
+    const existingPayments = await this.prisma.payment.findMany({
+      where: {
+        tableSessionId: session.id,
+        status: { in: ['PENDING', 'SUCCEEDED'] },
+      },
+    });
+    if (existingPayments.some((p) => p.status === 'SUCCEEDED')) {
+      throw new ConflictException('This session has already been paid');
+    }
+
+    const pendingEpay = existingPayments.find((p) => p.provider === 'EPAY');
+    if (pendingEpay) {
+      const checkoutForm = (pendingEpay.providerPayload as any)?.checkoutForm;
+      const sameAmount =
+        Math.abs((pendingEpay.amount ?? 0) - total) < 0.001 &&
+        Math.abs((pendingEpay.tipAmount ?? 0) - tipAmount) < 0.001;
+      if (checkoutForm && sameAmount) {
+        return {
+          provider: 'EPAY' as const,
+          paymentId: pendingEpay.id,
+          total: pendingEpay.amount,
+          tipAmount: pendingEpay.tipAmount,
+          action: checkoutForm.action,
+          method: checkoutForm.method,
+          fields: checkoutForm.fields,
+        };
+      }
+      throw new ConflictException(
+        'A payment for this session is already being processed',
+      );
+    }
+
+    if (existingPayments.some((p) => p.status === 'PENDING')) {
+      throw new ConflictException(
+        'A payment for this session is already being processed',
+      );
+    }
+
+    const secret = decryptSecret(restaurant.epaySecretEncrypted!);
+    const expiresAt = this.getEpayExpirationDate();
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const invoice = this.createEpayInvoice();
+      try {
+        const payment = await this.prisma.payment.create({
+          data: {
+            tableSessionId: session.id,
+            restaurantId: session.restaurantId,
+            amount: total,
+            tipAmount,
+            platformFeeAmount,
+            currency: 'eur',
+            status: 'PENDING',
+            provider: 'EPAY',
+            providerReference: invoice,
+            providerStatus: 'PENDING',
+          },
+        });
+
+        const checkoutForm = this.epay.createCheckoutForm({
+          mode: restaurant.epayMode === 'LIVE' ? 'LIVE' : 'DEMO',
+          page: (restaurant.epayPage || 'credit_paydirect') as EpayPage,
+          min: restaurant.epayClientId!,
+          email: restaurant.epayMerchantEmail!,
+          secret,
+          invoice,
+          amount: total,
+          currency: 'EUR',
+          expiresAt,
+          description: `QR Menu bill ${session.table?.name ?? ''}`.trim(),
+          urlOk: this.buildPublicMenuReturnUrl(session, 'epay-ok'),
+          urlCancel: this.buildPublicMenuReturnUrl(session, 'epay-cancel'),
+          lang: 'bg',
+        });
+
+        await this.prisma.payment.update({
+          where: { id: payment.id },
+          data: {
+            providerPayload: {
+              checkoutForm,
+              expiresAt: expiresAt.toISOString(),
+            } as any,
+          },
+        });
+
+        return {
+          provider: 'EPAY' as const,
+          paymentId: payment.id,
+          total,
+          tipAmount,
+          action: checkoutForm.action,
+          method: checkoutForm.method,
+          fields: checkoutForm.fields,
+        };
+      } catch (error) {
+        if (this.isUniqueConstraintError(error)) continue;
+        throw error;
+      }
+    }
+
+    throw new ConflictException('Could not generate a unique ePay invoice');
+  }
+
+  async handleEpayNotification(body: {
+    ENCODED?: string;
+    CHECKSUM?: string;
+    encoded?: string;
+    checksum?: string;
+  }): Promise<string> {
+    const encoded = body.ENCODED ?? body.encoded;
+    const checksum = body.CHECKSUM ?? body.checksum;
+    if (!encoded || !checksum) {
+      return 'ERR=missing ENCODED or CHECKSUM';
+    }
+
+    let notifications: EpayNotification[];
+    try {
+      notifications = this.epay.parseNotifications(encoded);
+    } catch {
+      return 'ERR=invalid ENCODED';
+    }
+    if (notifications.length === 0) return 'ERR=invalid ENCODED';
+
+    const invoices = notifications.map((notification) => notification.invoice);
+    const payments = await this.prisma.payment.findMany({
+      where: { providerReference: { in: invoices } },
+      include: {
+        restaurant: { select: { epaySecretEncrypted: true } },
+        tableSession: {
+          include: { table: { select: { name: true } } },
+        },
+      },
+    });
+
+    const paymentsByInvoice = new Map(
+      payments.map((payment) => [payment.providerReference, payment]),
+    );
+    const knownPayment = payments[0];
+    if (!knownPayment) {
+      return this.epay.formatNotificationResponses(
+        notifications.map((notification) => ({
+          invoice: notification.invoice,
+          status: 'NO',
+        })),
+      );
+    }
+
+    if (payments.some((p) => p.restaurantId !== knownPayment.restaurantId)) {
+      return 'ERR=mixed merchant notification';
+    }
+
+    const encryptedSecret = knownPayment.restaurant?.epaySecretEncrypted;
+    if (!encryptedSecret) return 'ERR=missing ePay secret';
+
+    const secret = decryptSecret(encryptedSecret);
+    if (!this.epay.verifyChecksum(encoded, checksum, secret)) {
+      return 'ERR=invalid CHECKSUM';
+    }
+
+    const responses: Array<{ invoice: string; status: 'OK' | 'NO' }> = [];
+    for (const notification of notifications) {
+      const payment = paymentsByInvoice.get(notification.invoice);
+      if (!payment) {
+        responses.push({ invoice: notification.invoice, status: 'NO' });
+        continue;
+      }
+
+      await this.applyEpayNotification(payment, notification);
+      responses.push({ invoice: notification.invoice, status: 'OK' });
+    }
+
+    return this.epay.formatNotificationResponses(responses);
+  }
+
+  private async applyEpayNotification(payment: any, notification: EpayNotification) {
+    const providerPayload = this.mergeProviderPayload(payment.providerPayload, {
+      notification,
+      notifiedAt: new Date().toISOString(),
+    });
+
+    if (notification.status === 'PAID') {
+      const claimed = await this.prisma.$transaction(async (tx) => {
+        const paymentUpdate = await tx.payment.updateMany({
+          where: { id: payment.id, status: 'PENDING' },
+          data: {
+            status: 'SUCCEEDED',
+            providerStatus: 'PAID',
+            providerPayload: providerPayload as any,
+          },
+        });
+        if (paymentUpdate.count === 0) return false;
+
+        await tx.tableSession.updateMany({
+          where: { id: payment.tableSessionId, status: 'OPEN' },
+          data: { status: 'PAID', paidAt: new Date() },
+        });
+        return true;
+      });
+
+      if (claimed) await this.emitPaymentConfirmed(payment);
+      return;
+    }
+
+    await this.prisma.payment.updateMany({
+      where: { id: payment.id, status: 'PENDING' },
+      data: {
+        status: 'FAILED',
+        providerStatus: notification.status,
+        providerPayload: providerPayload as any,
+      },
+    });
+  }
+
+  private async emitPaymentConfirmed(payment: any) {
+    const tableSession =
+      payment.tableSession ??
+      (await this.prisma.tableSession.findFirst({
+        where: { id: payment.tableSessionId },
+        include: { table: { select: { name: true } } },
+      }));
+    if (!tableSession) return;
+
+    const tableNumber =
+      tableSession.table?.name ??
+      (
+        await this.prisma.restaurantTable.findUnique({
+          where: { id: tableSession.tableId },
+          select: { name: true },
+        })
+      )?.name ??
+      null;
+
+    const customerName =
+      (
+        await this.prisma.order.findFirst({
+          where: { tableSessionId: payment.tableSessionId },
+          orderBy: { createdAt: 'desc' },
+          select: { customerName: true },
+        })
+      )?.customerName ?? null;
+
+    this.events.emitToRestaurant(
+      tableSession.restaurantId,
+      'payment:confirmed',
+      {
+        paymentId: payment.id,
+        tableSessionId: payment.tableSessionId,
+        amount: payment.amount,
+        tipAmount: payment.tipAmount,
+        tableNumber,
+        customerName,
+      },
+    );
+
+    this.events.emitTableStatusChanged(
+      tableSession.restaurantId,
+      tableSession.tableId,
+      payment.tableSessionId,
+    );
   }
 
   async handleWebhookEvent(payload: Buffer, signature: string): Promise<void> {
@@ -791,6 +1240,12 @@ export class PaymentService {
         paymentsEnabled: restaurant.paymentsEnabled,
         stripeOnboarded: restaurant.stripeOnboarded,
         stripeAccountId: restaurant.stripeAccountId,
+        epayEnabled: restaurant.epayEnabled,
+        epayMode: restaurant.epayMode,
+        epayClientId: restaurant.epayClientId,
+        epayMerchantEmail: restaurant.epayMerchantEmail,
+        epayPage: restaurant.epayPage,
+        epaySecretConfigured: !!restaurant.epaySecretEncrypted,
         platformFeePercent: restaurant.platformFeePercent,
         tipsEnabled: restaurant.tipsEnabled,
         tipOptions: restaurant.tipOptions,
@@ -919,7 +1374,7 @@ export class PaymentService {
       methodTotals: overview.methodTotals,
       stripeAccountId: overview.account.stripeAccountId,
       stripeOnboarded: overview.account.stripeOnboarded,
-      note: 'Live payout timing and bank account details are managed in Stripe Connect.',
+      note: 'Live payout timing and bank account details are managed by the selected payment provider.',
     };
   }
 
@@ -929,6 +1384,12 @@ export class PaymentService {
       paymentsEnabled: restaurant.paymentsEnabled,
       stripeOnboarded: restaurant.stripeOnboarded,
       stripeAccountId: restaurant.stripeAccountId,
+      epayEnabled: restaurant.epayEnabled,
+      epayMode: restaurant.epayMode,
+      epayClientId: restaurant.epayClientId,
+      epayMerchantEmail: restaurant.epayMerchantEmail,
+      epayPage: restaurant.epayPage,
+      epaySecretConfigured: !!restaurant.epaySecretEncrypted,
       platformFeePercent: restaurant.platformFeePercent,
       tipsEnabled: restaurant.tipsEnabled,
       tipOptions: restaurant.tipOptions,
@@ -969,6 +1430,12 @@ export class PaymentService {
     if (payment.provider === 'CASH') {
       throw new BadRequestException(
         'Cash payment refunds must be processed manually at the restaurant',
+      );
+    }
+
+    if (payment.provider === 'EPAY') {
+      throw new BadRequestException(
+        'ePay.bg refunds must be processed in the ePay.bg merchant account',
       );
     }
 

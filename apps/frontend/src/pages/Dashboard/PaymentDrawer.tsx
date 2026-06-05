@@ -14,6 +14,14 @@ import {
   openStripePayment,
 } from './paymentsShared';
 
+function getMethodLabel(method: string, t: (key: string, options?: any) => string) {
+  if (method === 'STRIPE') return t('payments.stripeMethod');
+  if (method === 'EPAY') return 'ePay.bg';
+  if (method === 'MYPOS') return t('payments.cardMethod');
+  if (method === 'CASH') return t('payments.cashMethod');
+  return method;
+}
+
 export function PaymentDrawer({
   payment,
   loading,
@@ -36,9 +44,7 @@ export function PaymentDrawer({
 
   if (!payment) return null;
   const method = methodStyles[payment.provider] ?? methodStyles.STRIPE;
-  const methodLabel = payment.provider === 'STRIPE' ? t('payments.stripeMethod') :
-                       payment.provider === 'MYPOS' ? t('payments.cardMethod') :
-                       t('payments.cashMethod');
+  const methodLabel = getMethodLabel(payment.provider, t);
   const subtotal = payment.breakdown?.subtotal ?? Math.max(payment.amount - payment.tipAmount, 0);
   const net = payment.breakdown?.net ?? payment.amount - payment.platformFeeAmount;
   const statusKey = `payments.${payment.status.toLowerCase()}` as const;
@@ -71,7 +77,7 @@ export function PaymentDrawer({
             <span className={cn('inline-flex rounded-full px-2.5 py-1 text-xs font-black', statusStyles[payment.status])}>
               {t(`payments.${payment.status.toLowerCase()}` as any)}
             </span>
-            <span className="font-mono text-sm font-medium text-muted-foreground">{shortId(payment.stripePaymentIntentId ?? payment.id)}</span>
+            <span className="font-mono text-sm font-medium text-muted-foreground">{shortId(payment.stripePaymentIntentId ?? payment.providerReference ?? payment.id)}</span>
           </div>
         </div>
 
@@ -207,15 +213,17 @@ export function PaymentDrawer({
             </>
           ) : (
             <>
-              <button
-                type="button"
-                onClick={() => openStripePayment(payment.stripePaymentIntentId)}
-                disabled={!payment.stripePaymentIntentId}
-                className="flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <ExternalLink className="h-4 w-4" />
-                {t('payments.viewOnStripe')}
-              </button>
+              {payment.provider === 'STRIPE' && (
+                <button
+                  type="button"
+                  onClick={() => openStripePayment(payment.stripePaymentIntentId)}
+                  disabled={!payment.stripePaymentIntentId}
+                  className="flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  {t('payments.viewOnStripe')}
+                </button>
+              )}
               <button type="button" onClick={() => exportPaymentsCsv([payment])} className="flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground transition hover:bg-muted">
                 <Download className="h-4 w-4" />
                 {t('payments.receipt')}

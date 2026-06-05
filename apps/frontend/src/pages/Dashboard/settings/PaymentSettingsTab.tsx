@@ -22,6 +22,13 @@ const PaymentSettingsTab: React.FC = () => {
   const [tipsEnabled, setTipsEnabled] = useState(false);
   const [tipOptions, setTipOptions] = useState<number[]>(DEFAULT_TIP_OPTIONS);
   const [stripeOnboarded, setStripeOnboarded] = useState(false);
+  const [epayEnabled, setEpayEnabled] = useState(false);
+  const [epayMode, setEpayMode] = useState<"DEMO" | "LIVE">("DEMO");
+  const [epayClientId, setEpayClientId] = useState("");
+  const [epayMerchantEmail, setEpayMerchantEmail] = useState("");
+  const [epaySecret, setEpaySecret] = useState("");
+  const [epaySecretConfigured, setEpaySecretConfigured] = useState(false);
+  const [epayPage, setEpayPage] = useState<"credit_paydirect" | "paylogin">("credit_paydirect");
   const [notifyAllStaffOnPayment, setNotifyAllStaffOnPayment] = useState(true);
   const [newTipOption, setNewTipOption] = useState("");
   const [tipError, setTipError] = useState("");
@@ -40,6 +47,13 @@ const PaymentSettingsTab: React.FC = () => {
       setTipsEnabled(activeRestaurant.tipsEnabled ?? false);
       setTipOptions(activeRestaurant.tipOptions ?? DEFAULT_TIP_OPTIONS);
       setStripeOnboarded(activeRestaurant.stripeOnboarded ?? false);
+      setEpayEnabled(activeRestaurant.epayEnabled ?? false);
+      setEpayMode(activeRestaurant.epayMode ?? "DEMO");
+      setEpayClientId(activeRestaurant.epayClientId ?? "");
+      setEpayMerchantEmail(activeRestaurant.epayMerchantEmail ?? "");
+      setEpaySecret("");
+      setEpaySecretConfigured(activeRestaurant.epaySecretConfigured ?? false);
+      setEpayPage(activeRestaurant.epayPage ?? "credit_paydirect");
       setNotifyAllStaffOnPayment(activeRestaurant.notifyAllStaffOnPayment ?? true);
       setDisconnectConfirming(false);
       setStripeError("");
@@ -64,13 +78,24 @@ const PaymentSettingsTab: React.FC = () => {
     if (!activeRestaurant) return;
     setStatus({ loading: true, error: "", success: "" });
     try {
+      const trimmedSecret = epaySecret.trim();
       await updateRestaurant(activeRestaurant.id, {
         paymentsEnabled,
         tipsEnabled,
         tipOptions,
         notifyAllStaffOnPayment,
+        epayEnabled,
+        epayMode,
+        epayClientId: epayClientId.trim() || null,
+        epayMerchantEmail: epayMerchantEmail.trim() || null,
+        epayPage,
+        ...(trimmedSecret ? { epaySecret: trimmedSecret } : {}),
       });
       await fetchRestaurants();
+      if (trimmedSecret) {
+        setEpaySecretConfigured(true);
+        setEpaySecret("");
+      }
       setStatus({ loading: false, error: "", success: t("settings.updatedSuccess") });
       setTimeout(() => setStatus((s) => ({ ...s, success: "" })), 3000);
     } catch (err: any) {
@@ -133,6 +158,13 @@ const PaymentSettingsTab: React.FC = () => {
     }
   };
 
+  const epayConfigured = !!(
+    epayEnabled &&
+    epayClientId.trim() &&
+    epayMerchantEmail.trim() &&
+    (epaySecretConfigured || epaySecret.trim())
+  );
+
   // Status summary pills
   const pills = [
     {
@@ -148,6 +180,12 @@ const PaymentSettingsTab: React.FC = () => {
               ? t("payment.settings.statusStripeConnected", { defaultValue: "Stripe connected" })
               : t("payment.settings.statusStripeNotConnected", { defaultValue: "Stripe not connected" }),
             active: stripeOnboarded,
+          },
+          {
+            label: epayConfigured
+              ? t("payment.settings.statusEpayConfigured", { defaultValue: "ePay.bg configured" })
+              : t("payment.settings.statusEpayNotConfigured", { defaultValue: "ePay.bg not configured" }),
+            active: epayConfigured,
           },
           {
             label: tipsEnabled
@@ -200,10 +238,10 @@ const PaymentSettingsTab: React.FC = () => {
             aria-label={t("payment.settings.acceptPayments")}
           />
         </div>
-        {paymentsEnabled && !stripeOnboarded && (
+        {paymentsEnabled && !stripeOnboarded && !epayConfigured && (
           <p className="mt-3 text-sm text-amber-600 bg-amber-50 dark:bg-amber-950 px-3 py-2 rounded-lg flex items-center gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-            {t("payment.settings.connectStripeWarning")}
+            {t("payment.settings.configureProviderWarning", { defaultValue: "Connect Stripe or configure ePay.bg before accepting online payments." })}
           </p>
         )}
       </div>
@@ -266,6 +304,106 @@ const PaymentSettingsTab: React.FC = () => {
               {stripeError && (
                 <p className="text-xs text-red-500">{stripeError}</p>
               )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── ePay.bg ── */}
+      {paymentsEnabled && isStripeFeature && (
+        <div className="border-b border-border pb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className={sectionHeading}>ePay.bg</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                {t("payment.settings.epayDesc", { defaultValue: "Hosted checkout credentials for Bulgarian card payments." })}
+              </p>
+            </div>
+            <ToggleSwitch
+              checked={epayEnabled}
+              onChange={setEpayEnabled}
+              aria-label="ePay.bg"
+            />
+          </div>
+
+          {epayEnabled && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {t("payment.settings.epayMode", { defaultValue: "Mode" })}
+                </span>
+                <select
+                  value={epayMode}
+                  onChange={(e) => setEpayMode(e.target.value as "DEMO" | "LIVE")}
+                  className={inputCls}
+                >
+                  <option value="DEMO">{t("payment.settings.epayDemo", { defaultValue: "Demo" })}</option>
+                  <option value="LIVE">{t("payment.settings.epayLive", { defaultValue: "Live" })}</option>
+                </select>
+              </label>
+
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {t("payment.settings.epayPage", { defaultValue: "Payment page" })}
+                </span>
+                <select
+                  value={epayPage}
+                  onChange={(e) => setEpayPage(e.target.value as "credit_paydirect" | "paylogin")}
+                  className={inputCls}
+                >
+                  <option value="credit_paydirect">
+                    {t("payment.settings.epayDirectCard", { defaultValue: "Direct card" })}
+                  </option>
+                  <option value="paylogin">
+                    {t("payment.settings.epayLogin", { defaultValue: "ePay.bg account" })}
+                  </option>
+                </select>
+              </label>
+
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {t("payment.settings.epayClientId", { defaultValue: "Merchant CIN/MIN" })}
+                </span>
+                <input
+                  value={epayClientId}
+                  onChange={(e) => setEpayClientId(e.target.value.replace(/\D/g, ""))}
+                  inputMode="numeric"
+                  className={inputCls}
+                  placeholder="1000000000"
+                />
+              </label>
+
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {t("payment.settings.epayEmail", { defaultValue: "Merchant email" })}
+                </span>
+                <input
+                  type="email"
+                  value={epayMerchantEmail}
+                  onChange={(e) => setEpayMerchantEmail(e.target.value)}
+                  className={inputCls}
+                  placeholder="merchant@example.com"
+                />
+              </label>
+
+              <label className="space-y-1 sm:col-span-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {t("payment.settings.epaySecret", { defaultValue: "Secret word" })}
+                </span>
+                <input
+                  type="password"
+                  value={epaySecret}
+                  onChange={(e) => setEpaySecret(e.target.value)}
+                  className={inputCls}
+                  placeholder={epaySecretConfigured ? "••••••••" : ""}
+                  autoComplete="new-password"
+                />
+                {epaySecretConfigured && (
+                  <p className="text-xs text-muted-foreground">
+                    {t("payment.settings.epaySecretConfigured", { defaultValue: "Secret saved. Leave blank to keep it unchanged." })}
+                  </p>
+                )}
+              </label>
             </div>
           )}
         </div>

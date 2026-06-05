@@ -13,6 +13,7 @@ import { StripeProvider } from '../payment/stripe.provider';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { stripBrandingFields } from './branding-fields';
+import { encryptSecret } from '../payment/secret-crypto';
 
 const RESTAURANT_READ_SELECT = {
   id: true,
@@ -68,6 +69,12 @@ const RESTAURANT_READ_SELECT = {
   defaultTheme: true,
   stripeOnboarded: true,
   paymentsEnabled: true,
+  epayEnabled: true,
+  epayMode: true,
+  epayClientId: true,
+  epayMerchantEmail: true,
+  epaySecretEncrypted: true,
+  epayPage: true,
   notifyAllStaffOnPayment: true,
   tipsEnabled: true,
   tipOptions: true,
@@ -90,6 +97,7 @@ const RESTAURANT_PRIVATE_FIELDS = [
   'stripeCustomerId',
   'stripeSubscriptionId',
   'stripePriceId',
+  'epaySecretEncrypted',
   'importApiKeyHash',
   'pastDueGraceExpiry',
   'forceTierExpiresAt',
@@ -137,8 +145,11 @@ export class RestaurantsService {
   private toRestaurantReadDto<
     T extends { tier: string; forceTier?: string | null },
   >(restaurant: T) {
-    const dto = { ...this.applyEffectiveTier(restaurant) } as T &
-      Record<string, unknown>;
+    const dto = { ...this.applyEffectiveTier(restaurant) } as Record<
+      string,
+      unknown
+    >;
+    dto['epaySecretConfigured'] = !!dto['epaySecretEncrypted'];
     for (const field of RESTAURANT_PRIVATE_FIELDS) {
       delete dto[field];
     }
@@ -271,7 +282,7 @@ export class RestaurantsService {
       restaurant.tier ?? 'FREE',
       restaurant.forceTier,
     );
-    const data = this.featureService.hasFeature(
+    const data: Record<string, any> = this.featureService.hasFeature(
       tier,
       FeatureFlag.BRANDING_CUSTOM,
     )
@@ -281,6 +292,23 @@ export class RestaurantsService {
     // Multi-language gating: strip targetLanguages if tier lacks multi-language feature
     if (!this.featureService.hasFeature(tier, FeatureFlag.LANGUAGES_MULTI)) {
       delete data.targetLanguages;
+    }
+
+    if ('epaySecret' in data) {
+      const rawSecret = data.epaySecret;
+      delete data.epaySecret;
+      if (typeof rawSecret === 'string' && rawSecret.trim()) {
+        data.epaySecretEncrypted = encryptSecret(rawSecret.trim());
+      } else if (rawSecret === null) {
+        data.epaySecretEncrypted = null;
+      }
+    }
+
+    for (const key of ['epayClientId', 'epayMerchantEmail'] as const) {
+      if (typeof data[key] === 'string') {
+        const trimmed = data[key].trim();
+        data[key] = trimmed === '' ? null : trimmed;
+      }
     }
 
     const updated = await this.prisma.restaurant.update({

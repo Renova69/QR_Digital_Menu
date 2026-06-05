@@ -7,6 +7,7 @@ import {
   Param,
   Req,
   Headers,
+  Header,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -69,6 +70,22 @@ export class PaymentController {
     @Body() body: { tipPercent: number },
   ) {
     return this.paymentService.createPaymentIntent(token, body.tipPercent ?? 0);
+  }
+
+  @Post('session/:token/checkout')
+  @HttpCode(HttpStatus.OK)
+  createCheckout(
+    @Param('token') token: string,
+    @Body() body: { provider?: 'STRIPE' | 'EPAY'; tipPercent?: number },
+  ) {
+    const provider = (body.provider ?? 'STRIPE').toUpperCase() as
+      | 'STRIPE'
+      | 'EPAY';
+    return this.paymentService.createCheckout(
+      token,
+      provider,
+      body.tipPercent ?? 0,
+    );
   }
 
   @Post('session/:token/close')
@@ -212,5 +229,13 @@ export class PaymentController {
     @Headers('stripe-signature') signature: string,
   ) {
     return this.paymentService.handleWebhookEvent(req.body, signature);
+  }
+
+  @Post('epay/notify')
+  @HttpCode(HttpStatus.OK)
+  @Header('Content-Type', 'text/plain; charset=utf-8')
+  @SkipThrottle()
+  handleEpayNotify(@Body() body: any) {
+    return this.paymentService.handleEpayNotification(body);
   }
 }

@@ -11,6 +11,7 @@ import {
   IsHexColor,
   IsIn,
   IsString,
+  IsEmail,
   IsUrl,
   Matches,
   MaxLength,
@@ -216,6 +217,34 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @IsOptional()
   @IsBoolean()
   paymentsEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  epayEnabled?: boolean;
+
+  @IsOptional()
+  @IsIn(['DEMO', 'LIVE'])
+  epayMode?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  @Matches(/^\d+$/, { message: 'epayClientId must contain digits only' })
+  epayClientId?: string | null;
+
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(255)
+  epayMerchantEmail?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(256)
+  epaySecret?: string | null;
+
+  @IsOptional()
+  @IsIn(['credit_paydirect', 'paylogin'])
+  epayPage?: string;
 
   @IsOptional()
   @IsBoolean()

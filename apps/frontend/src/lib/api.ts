@@ -242,6 +242,12 @@ export const getPaymentOverview = (
         paymentsEnabled: boolean;
         stripeOnboarded: boolean;
         stripeAccountId: string | null;
+        epayEnabled: boolean;
+        epayMode: 'DEMO' | 'LIVE';
+        epayClientId: string | null;
+        epayMerchantEmail: string | null;
+        epayPage: 'credit_paydirect' | 'paylogin';
+        epaySecretConfigured: boolean;
         platformFeePercent: number;
         tipsEnabled: boolean;
         tipOptions: number[];
@@ -393,6 +399,7 @@ export const getSessionBill = async (token: string) => {
     restaurantId: string;
     tipsEnabled: boolean;
     tipOptions: number[];
+    paymentProviders: Array<'STRIPE' | 'EPAY'>;
   };
 };
 
@@ -404,6 +411,36 @@ export const createPaymentIntent = async (token: string, tipPercent: number) => 
     total: number;
     tipAmount: number;
   };
+};
+
+export type CheckoutProvider = 'STRIPE' | 'EPAY';
+
+export type StripeCheckoutResponse = {
+  provider: 'STRIPE';
+  clientSecret: string;
+  paymentId: string;
+  total: number;
+  tipAmount: number;
+};
+
+export type EpayCheckoutResponse = {
+  provider: 'EPAY';
+  paymentId: string;
+  total: number;
+  tipAmount: number;
+  action: string;
+  method: 'POST';
+  fields: Record<string, string>;
+};
+
+export type CheckoutResponse = StripeCheckoutResponse | EpayCheckoutResponse;
+
+export const createCheckout = async (
+  token: string,
+  data: { provider: CheckoutProvider; tipPercent?: number },
+) => {
+  const response = await api.post(`/payments/session/${token}/checkout`, data);
+  return response.data as CheckoutResponse;
 };
 
 export const closeSession = async (token: string, restaurantId: string) => {
