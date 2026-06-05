@@ -150,6 +150,10 @@ export default function PricingPage() {
       a: t('pricing.faq.a2', 'Yes. Cancel via the Billing portal at any time. You keep access until the end of the current billing period.'),
     },
     {
+      q: t('pricing.faq.q4', 'Do you offer refunds?'),
+      a: t('pricing.faq.a4', 'We do not offer prorated refunds for canceled subscriptions. If you made a mistake during checkout, please contact our support team.'),
+    },
+    {
       q: t('pricing.faq.q3', 'What happens when I downgrade?'),
       a: t('pricing.faq.a3', "You move to the new plan's features immediately. Stripe applies a prorated credit for unused time toward your next invoice."),
     },
