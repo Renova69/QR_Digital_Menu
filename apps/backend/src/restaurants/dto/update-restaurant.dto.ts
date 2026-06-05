@@ -248,6 +248,43 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
 
   @IsOptional()
   @IsBoolean()
+  boricaEnabled?: boolean;
+
+  @IsOptional()
+  @IsIn(['DEMO', 'LIVE'])
+  boricaMode?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  @Matches(/^[A-Za-z0-9]+$/, { message: 'boricaTerminalId must contain only letters and numbers' })
+  boricaTerminalId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  @Matches(/^[0-9]+$/, { message: 'boricaMerchantId must contain only digits' })
+  boricaMerchantId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(25)
+  boricaMerchantName?: string | null;
+
+  @IsOptional()
+  @IsString()
+  boricaPrivateKey?: string | null;
+
+  @IsOptional()
+  @IsString()
+  boricaPublicCert?: string | null;
+
+  @IsOptional()
+  @IsIn(['EUR', 'BGN'])
+  boricaCurrency?: string;
+
+  @IsOptional()
+  @IsBoolean()
   tipsEnabled?: boolean;
 
   @IsOptional()

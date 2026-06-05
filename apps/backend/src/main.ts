@@ -134,6 +134,7 @@ async function bootstrap() {
       const isWebhook =
         req.path === '/api/v1/payments/webhook' ||
         req.path === '/api/v1/payments/epay/notify' ||
+        req.path === '/api/v1/payments/borica/callback' ||
         req.path === '/api/v1/subscription/webhook';
       const isCsrfExempt =
         CSRF_EXEMPT.includes(req.path) && ['POST'].includes(req.method);

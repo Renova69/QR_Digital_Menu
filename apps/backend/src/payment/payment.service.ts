@@ -13,12 +13,13 @@ import {
   EpayPage,
   EpayProvider,
 } from './epay.provider';
-import { decryptSecret } from './secret-crypto';
+import { BoricaProvider } from './borica.provider';
+import { decryptSecret, encryptSecret } from './secret-crypto';
 import { EventsGateway } from '../events/events.gateway';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 
-type CheckoutProvider = 'STRIPE' | 'EPAY';
+type CheckoutProvider = 'STRIPE' | 'EPAY' | 'BORICA';
 
 @Injectable()
 export class PaymentService {
@@ -28,6 +29,7 @@ export class PaymentService {
     private readonly prisma: PrismaService,
     private readonly stripe: StripeProvider,
     private readonly epay: EpayProvider,
+    private readonly borica: BoricaProvider,
     private readonly events: EventsGateway,
     private readonly featureService: FeatureService,
   ) {}
@@ -51,6 +53,14 @@ export class PaymentService {
         epayMerchantEmail: true,
         epaySecretEncrypted: true,
         epayPage: true,
+        boricaEnabled: true,
+        boricaMode: true,
+        boricaTerminalId: true,
+        boricaMerchantId: true,
+        boricaMerchantName: true,
+        boricaPrivateKeyEncrypted: true,
+        boricaPublicCert: true,
+        boricaCurrency: true,
         platformFeePercent: true,
         tipsEnabled: true,
         tipOptions: true,
@@ -264,6 +274,64 @@ export class PaymentService {
     );
   }
 
+  private isBoricaConfigured(restaurant: any): boolean {
+    if (
+      !restaurant.paymentsEnabled ||
+      !restaurant.boricaEnabled ||
+      // BORICA and Stripe share the same Professional+ tier requirement — reuse
+      // PAYMENTS_STRIPE until a dedicated PAYMENTS_BORICA flag is introduced.
+      !this.featureService.restaurantHasFeature(
+        restaurant,
+        FeatureFlag.PAYMENTS_STRIPE,
+      )
+    ) {
+      return false;
+    }
+
+    if (restaurant.boricaMode === 'LIVE') {
+      return !!(
+        restaurant.boricaTerminalId &&
+        restaurant.boricaMerchantId &&
+        restaurant.boricaPrivateKeyEncrypted &&
+        restaurant.boricaPublicCert
+      );
+    }
+
+    // DEMO mode: fall back to platform-level sandbox keypair from env
+    return !!(
+      process.env.BORICA_TEST_TID &&
+      process.env.BORICA_TEST_MID &&
+      process.env.BORICA_TEST_PRIVATE_KEY &&
+      process.env.BORICA_TEST_CERT
+    );
+  }
+
+  private resolveBoricaKeypair(restaurant: any): {
+    terminal: string;
+    merchant: string;
+    merchantName: string;
+    privateKeyPem: string;
+    certPem: string;
+  } {
+    if (restaurant.boricaMode === 'LIVE') {
+      return {
+        terminal: restaurant.boricaTerminalId!,
+        merchant: restaurant.boricaMerchantId!,
+        merchantName: restaurant.boricaMerchantName ?? restaurant.name ?? '',
+        privateKeyPem: decryptSecret(restaurant.boricaPrivateKeyEncrypted!),
+        certPem: restaurant.boricaPublicCert!,
+      };
+    }
+    // DEMO: use platform-level bundled sandbox keypair
+    return {
+      terminal: process.env.BORICA_TEST_TID || 'V1800001',
+      merchant: process.env.BORICA_TEST_MID || '1600000001',
+      merchantName: restaurant.boricaMerchantName ?? restaurant.name ?? 'Test',
+      privateKeyPem: process.env.BORICA_TEST_PRIVATE_KEY!,
+      certPem: process.env.BORICA_TEST_CERT!,
+    };
+  }
+
   private getFrontendBaseUrl(): string {
     return (process.env.FRONTEND_URL || 'http://localhost:3001').replace(
       /\/+$/,
@@ -360,6 +428,7 @@ export class PaymentService {
       paymentProviders: [
         ...(this.isStripeConfigured(session.restaurant) ? ['STRIPE' as const] : []),
         ...(this.isEpayConfigured(session.restaurant) ? ['EPAY' as const] : []),
+        ...(this.isBoricaConfigured(session.restaurant) ? ['BORICA' as const] : []),
       ],
     };
   }
@@ -376,6 +445,10 @@ export class PaymentService {
 
     if (provider === 'EPAY') {
       return this.createEpayCheckout(token, tipPercent);
+    }
+
+    if (provider === 'BORICA') {
+      return this.createBoricaCheckout(token, tipPercent);
     }
 
     throw new BadRequestException('Unsupported payment provider');
@@ -670,6 +743,250 @@ export class PaymentService {
       method: checkoutForm.method,
       fields: checkoutForm.fields,
     };
+  }
+
+  private async createBoricaCheckout(token: string, tipPercent: number) {
+    const normalizedTipPercent = this.normalizeTipPercent(tipPercent);
+    const session = await this.prisma.tableSession.findFirst({
+      where: { token, status: 'OPEN' },
+      include: {
+        restaurant: true,
+        table: { select: { name: true } },
+      },
+    });
+
+    if (!session) throw new NotFoundException('Session not found');
+
+    const { restaurant } = session;
+    if (!restaurant.paymentsEnabled) {
+      throw new ForbiddenException(
+        'Payments are not enabled for this restaurant',
+      );
+    }
+
+    if (
+      !this.featureService.restaurantHasFeature(
+        restaurant,
+        FeatureFlag.PAYMENTS_STRIPE,
+      )
+    ) {
+      throw new ForbiddenException({
+        code: 'FEATURE_LOCKED',
+        message: 'Hosted payments require a Professional plan or above',
+      });
+    }
+
+    if (!this.isBoricaConfigured(restaurant)) {
+      throw new BadRequestException('BORICA is not configured');
+    }
+
+    const orders = await this.prisma.order.findMany({
+      where: { tableSessionId: session.id },
+    });
+    const { tipAmount, total, platformFeeAmount } = this.calculateTotals(
+      orders,
+      normalizedTipPercent,
+      restaurant.platformFeePercent ?? 0,
+    );
+
+    const existingPayments = await this.prisma.payment.findMany({
+      where: {
+        tableSessionId: session.id,
+        status: { in: ['PENDING', 'SUCCEEDED'] },
+      },
+    });
+    if (existingPayments.some((p) => p.status === 'SUCCEEDED')) {
+      throw new ConflictException('This session has already been paid');
+    }
+
+    if (existingPayments.some((p) => p.status === 'PENDING' && p.provider !== 'BORICA')) {
+      throw new ConflictException(
+        'A payment for this session is already being processed',
+      );
+    }
+
+    const pendingBorica = existingPayments.find(
+      (p) => p.provider === 'BORICA' && p.status === 'PENDING',
+    );
+    if (pendingBorica) {
+      const checkoutForm = (pendingBorica.providerPayload as any)?.checkoutForm;
+      const sameAmount =
+        Math.abs((pendingBorica.amount ?? 0) - total) < 0.001 &&
+        Math.abs((pendingBorica.tipAmount ?? 0) - tipAmount) < 0.001;
+      if (checkoutForm && sameAmount) {
+        return {
+          provider: 'BORICA' as const,
+          paymentId: pendingBorica.id,
+          total: pendingBorica.amount,
+          tipAmount: pendingBorica.tipAmount,
+          action: checkoutForm.action,
+          method: checkoutForm.method,
+          fields: checkoutForm.fields,
+        };
+      }
+      if (!sameAmount) {
+        throw new ConflictException(
+          'A payment for this session is already being processed',
+        );
+      }
+    }
+
+    const keypair = this.resolveBoricaKeypair(restaurant);
+    const order = this.createEpayInvoice().slice(-6).padStart(6, '0');
+    const currency = (restaurant.boricaCurrency ?? 'EUR').toUpperCase();
+
+    const frontendBase = this.getFrontendBaseUrl();
+    const backendBase = (process.env.BACKEND_URL || '').replace(/\/+$/, '');
+    const callbackUrl = `${backendBase}/api/v1/payments/borica/callback`;
+
+    const payment = await this.prisma.payment.create({
+      data: {
+        tableSessionId: session.id,
+        restaurantId: session.restaurantId,
+        amount: total,
+        tipAmount,
+        platformFeeAmount,
+        currency: currency.toLowerCase(),
+        status: 'PENDING',
+        provider: 'BORICA',
+        providerReference: order,
+        providerStatus: 'PENDING',
+      },
+    });
+
+    const checkoutForm = this.borica.buildSaleForm({
+      mode: restaurant.boricaMode === 'LIVE' ? 'LIVE' : 'DEMO',
+      terminal: keypair.terminal,
+      merchant: keypair.merchant,
+      merchantName: keypair.merchantName,
+      email: null,
+      order,
+      amount: total,
+      currency,
+      description: `QR Menu bill ${session.table?.name ?? ''}`.trim(),
+      backref: callbackUrl,
+      lang: 'BG',
+      privateKeyPem: keypair.privateKeyPem,
+    });
+
+    // Store session token so the callback can redirect back to the correct table
+    await this.prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        providerPayload: {
+          checkoutForm,
+          sessionToken: token,
+          restaurantId: session.restaurantId,
+          tableName: session.table?.name ?? null,
+        } as any,
+      },
+    });
+
+    return {
+      provider: 'BORICA' as const,
+      paymentId: payment.id,
+      total,
+      tipAmount,
+      action: checkoutForm.action,
+      method: checkoutForm.method,
+      fields: checkoutForm.fields,
+    };
+  }
+
+  async handleBoricaCallback(body: Record<string, string>): Promise<string> {
+    const order = body.ORDER ?? body.order ?? '';
+    if (!order) {
+      return this.buildPublicMenuReturnUrl(
+        { restaurantId: '' },
+        'borica-cancel',
+      );
+    }
+
+    const payment = await this.prisma.payment.findFirst({
+      where: { providerReference: order, provider: 'BORICA' },
+      include: {
+        restaurant: {
+          select: {
+            boricaMode: true,
+            boricaPrivateKeyEncrypted: true,
+            boricaPublicCert: true,
+            boricaTerminalId: true,
+            boricaMerchantId: true,
+            boricaMerchantName: true,
+          },
+        },
+        tableSession: { include: { table: { select: { name: true } } } },
+      },
+    });
+
+    if (!payment) {
+      return `${this.getFrontendBaseUrl()}/?payment=borica-cancel`;
+    }
+
+    const sessionMeta = payment.providerPayload as any;
+    const certPem =
+      payment.restaurant?.boricaMode === 'LIVE'
+        ? payment.restaurant.boricaPublicCert ?? ''
+        : process.env.BORICA_TEST_CERT ?? '';
+
+    const result = this.borica.verifyResult(body, certPem);
+
+    if (!result.verified || result.rc !== '00' || result.action !== '0') {
+      await this.prisma.payment.updateMany({
+        where: { id: payment.id, status: 'PENDING' },
+        data: {
+          status: 'FAILED',
+          providerStatus: result.rc || 'FAILED',
+          providerPayload: this.mergeProviderPayload(payment.providerPayload, {
+            callbackBody: body,
+            verifiedAt: new Date().toISOString(),
+            verified: result.verified,
+          }) as any,
+        },
+      });
+      return this.buildPublicMenuReturnUrl(
+        {
+          restaurantId: payment.restaurantId,
+          table: payment.tableSession?.table,
+        },
+        'borica-cancel',
+      );
+    }
+
+    const claimed = await this.prisma.$transaction(async (tx) => {
+      const paymentUpdate = await tx.payment.updateMany({
+        where: { id: payment.id, status: 'PENDING' },
+        data: {
+          status: 'SUCCEEDED',
+          providerStatus: 'PAID',
+          providerPayload: this.mergeProviderPayload(payment.providerPayload, {
+            callbackBody: body,
+            verifiedAt: new Date().toISOString(),
+            verified: true,
+            rrn: result.rrn,
+            intRef: result.intRef,
+            approval: result.approval,
+          }) as any,
+        },
+      });
+      if (paymentUpdate.count === 0) return false;
+
+      await tx.tableSession.updateMany({
+        where: { id: payment.tableSessionId, status: 'OPEN' },
+        data: { status: 'PAID', paidAt: new Date() },
+      });
+      return true;
+    });
+
+    if (claimed) await this.emitPaymentConfirmed(payment);
+
+    return this.buildPublicMenuReturnUrl(
+      {
+        restaurantId: payment.restaurantId,
+        table: payment.tableSession?.table,
+      },
+      'borica-ok',
+    );
   }
 
   async handleEpayNotification(body: {
@@ -1255,6 +1572,14 @@ export class PaymentService {
         epayMerchantEmail: restaurant.epayMerchantEmail,
         epayPage: restaurant.epayPage,
         epaySecretConfigured: !!restaurant.epaySecretEncrypted,
+        boricaEnabled: restaurant.boricaEnabled,
+        boricaMode: restaurant.boricaMode,
+        boricaTerminalId: restaurant.boricaTerminalId,
+        boricaMerchantId: restaurant.boricaMerchantId,
+        boricaMerchantName: restaurant.boricaMerchantName,
+        boricaPublicCert: restaurant.boricaPublicCert,
+        boricaCurrency: restaurant.boricaCurrency,
+        boricaPrivateKeyConfigured: !!restaurant.boricaPrivateKeyEncrypted,
         platformFeePercent: restaurant.platformFeePercent,
         tipsEnabled: restaurant.tipsEnabled,
         tipOptions: restaurant.tipOptions,
@@ -1399,6 +1724,14 @@ export class PaymentService {
       epayMerchantEmail: restaurant.epayMerchantEmail,
       epayPage: restaurant.epayPage,
       epaySecretConfigured: !!restaurant.epaySecretEncrypted,
+      boricaEnabled: restaurant.boricaEnabled,
+      boricaMode: restaurant.boricaMode,
+      boricaTerminalId: restaurant.boricaTerminalId,
+      boricaMerchantId: restaurant.boricaMerchantId,
+      boricaMerchantName: restaurant.boricaMerchantName,
+      boricaPublicCert: restaurant.boricaPublicCert,
+      boricaCurrency: restaurant.boricaCurrency,
+      boricaPrivateKeyConfigured: !!restaurant.boricaPrivateKeyEncrypted,
       platformFeePercent: restaurant.platformFeePercent,
       tipsEnabled: restaurant.tipsEnabled,
       tipOptions: restaurant.tipOptions,
@@ -1445,6 +1778,12 @@ export class PaymentService {
     if (payment.provider === 'EPAY') {
       throw new BadRequestException(
         'ePay.bg refunds must be processed in the ePay.bg merchant account',
+      );
+    }
+
+    if (payment.provider === 'BORICA') {
+      throw new BadRequestException(
+        'BORICA refunds must be processed in the BORICA merchant portal',
       );
     }
 

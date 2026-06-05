@@ -75,6 +75,14 @@ const RESTAURANT_READ_SELECT = {
   epayMerchantEmail: true,
   epaySecretEncrypted: true,
   epayPage: true,
+  boricaEnabled: true,
+  boricaMode: true,
+  boricaTerminalId: true,
+  boricaMerchantId: true,
+  boricaMerchantName: true,
+  boricaPrivateKeyEncrypted: true,
+  boricaPublicCert: true,
+  boricaCurrency: true,
   notifyAllStaffOnPayment: true,
   tipsEnabled: true,
   tipOptions: true,
@@ -98,6 +106,7 @@ const RESTAURANT_PRIVATE_FIELDS = [
   'stripeSubscriptionId',
   'stripePriceId',
   'epaySecretEncrypted',
+  'boricaPrivateKeyEncrypted',
   'importApiKeyHash',
   'pastDueGraceExpiry',
   'forceTierExpiresAt',
@@ -150,6 +159,7 @@ export class RestaurantsService {
       unknown
     >;
     dto['epaySecretConfigured'] = !!dto['epaySecretEncrypted'];
+    dto['boricaPrivateKeyConfigured'] = !!dto['boricaPrivateKeyEncrypted'];
     for (const field of RESTAURANT_PRIVATE_FIELDS) {
       delete dto[field];
     }
@@ -301,6 +311,16 @@ export class RestaurantsService {
         data.epaySecretEncrypted = encryptSecret(rawSecret.trim());
       } else if (rawSecret === null) {
         data.epaySecretEncrypted = null;
+      }
+    }
+
+    if ('boricaPrivateKey' in data) {
+      const rawKey = data.boricaPrivateKey;
+      delete data.boricaPrivateKey;
+      if (typeof rawKey === 'string' && rawKey.trim()) {
+        data.boricaPrivateKeyEncrypted = encryptSecret(rawKey.trim());
+      } else if (rawKey === null) {
+        data.boricaPrivateKeyEncrypted = null;
       }
     }
 

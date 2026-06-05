@@ -100,6 +100,14 @@ model Restaurant {
   epayMerchantEmail         String?
   epaySecretEncrypted       String?
   epayPage                  String              @default("credit_paydirect")
+  boricaEnabled             Boolean             @default(false)
+  boricaMode                String              @default("DEMO")
+  boricaTerminalId          String?
+  boricaMerchantId          String?
+  boricaMerchantName        String?
+  boricaPrivateKeyEncrypted String?
+  boricaPublicCert          String?
+  boricaCurrency            String              @default("EUR")
   notifyAllStaffOnPayment   Boolean             @default(true)
   tipsEnabled               Boolean             @default(false)
   tipOptions                Int[]               @default([2, 4, 5])
@@ -490,6 +498,7 @@ enum PaymentProvider {
   MYPOS
   EPAY
   CASH
+  BORICA
 }
 
 enum SubscriptionTier {

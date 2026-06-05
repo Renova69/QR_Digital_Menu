@@ -413,7 +413,7 @@ export const createPaymentIntent = async (token: string, tipPercent: number) => 
   };
 };
 
-export type CheckoutProvider = 'STRIPE' | 'EPAY';
+export type CheckoutProvider = 'STRIPE' | 'EPAY' | 'BORICA';
 
 export type StripeCheckoutResponse = {
   provider: 'STRIPE';
@@ -433,7 +433,17 @@ export type EpayCheckoutResponse = {
   fields: Record<string, string>;
 };
 
-export type CheckoutResponse = StripeCheckoutResponse | EpayCheckoutResponse;
+export type BoricaCheckoutResponse = {
+  provider: 'BORICA';
+  paymentId: string;
+  total: number;
+  tipAmount: number;
+  action: string;
+  method: 'POST';
+  fields: Record<string, string>;
+};
+
+export type CheckoutResponse = StripeCheckoutResponse | EpayCheckoutResponse | BoricaCheckoutResponse;
 
 export const createCheckout = async (
   token: string,

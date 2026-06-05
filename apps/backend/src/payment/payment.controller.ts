@@ -6,6 +6,7 @@ import {
   Body,
   Param,
   Req,
+  Res,
   Headers,
   Header,
   HttpCode,
@@ -76,11 +77,12 @@ export class PaymentController {
   @HttpCode(HttpStatus.OK)
   createCheckout(
     @Param('token') token: string,
-    @Body() body: { provider?: 'STRIPE' | 'EPAY'; tipPercent?: number },
+    @Body() body: { provider?: 'STRIPE' | 'EPAY' | 'BORICA'; tipPercent?: number },
   ) {
     const provider = (body.provider ?? 'STRIPE').toUpperCase() as
       | 'STRIPE'
-      | 'EPAY';
+      | 'EPAY'
+      | 'BORICA';
     return this.paymentService.createCheckout(
       token,
       provider,
@@ -237,5 +239,14 @@ export class PaymentController {
   @SkipThrottle()
   handleEpayNotify(@Body() body: any) {
     return this.paymentService.handleEpayNotification(body);
+  }
+
+  @Post('borica/callback')
+  @SkipThrottle()
+  async handleBoricaCallback(@Body() body: any, @Res() res: any) {
+    const redirectUrl = await this.paymentService.handleBoricaCallback(
+      body as Record<string, string>,
+    );
+    return res.redirect(302, redirectUrl);
   }
 }

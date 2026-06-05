@@ -229,7 +229,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
   }, [bill, selectedProvider]);
 
   useEffect(() => {
-    if (step !== 'redirect' || payment?.provider !== 'EPAY') return;
+    if (step !== 'redirect' || (payment?.provider !== 'EPAY' && payment?.provider !== 'BORICA')) return;
     const timer = window.setTimeout(() => epayFormRef.current?.submit(), 150);
     return () => window.clearTimeout(timer);
   }, [payment, step]);
@@ -259,7 +259,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
         tipPercent: activeTipPercent,
       });
       setPayment(result);
-      setStep(result.provider === 'EPAY' ? 'redirect' : 'pay');
+      setStep(result.provider === 'EPAY' || result.provider === 'BORICA' ? 'redirect' : 'pay');
     } catch (e: any) {
       setError(e.response?.data?.message || t('payment.failedToLoad'));
     } finally {
@@ -398,7 +398,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
                           : 'border-border bg-background hover:bg-muted'
                       }`}
                     >
-                      {provider === 'EPAY' ? 'ePay.bg' : t('payment.cardOnline', 'Card online')}
+                      {provider === 'EPAY' ? 'ePay.bg' : provider === 'BORICA' ? t('payment.cardBorica', 'Card (BORICA)') : t('payment.cardOnline', 'Card online')}
                     </button>
                   ))}
                 </div>
@@ -418,7 +418,9 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
                 ? t('payment.loading')
                 : effectiveProvider === 'EPAY'
                   ? t('payment.continueToEpay', 'Continue to ePay.bg')
-                  : t('payment.continue')}
+                  : effectiveProvider === 'BORICA'
+                    ? t('payment.continueToBorica', 'Pay by card (BORICA)')
+                    : t('payment.continue')}
             </Button>
           </div>
         )}
@@ -438,7 +440,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
           </Elements>
         )}
 
-        {step === 'redirect' && payment?.provider === 'EPAY' && (
+        {step === 'redirect' && (payment?.provider === 'EPAY' || payment?.provider === 'BORICA') && (
           <div className="space-y-4 py-4">
             <div className="text-sm text-muted-foreground space-y-1">
               <div className="flex justify-between font-semibold text-foreground">
@@ -450,14 +452,18 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              {t('payment.redirectingToEpay', 'Opening ePay.bg secure checkout...')}
+              {payment.provider === 'BORICA'
+                ? t('payment.redirectingToBorica', 'Opening BORICA secure checkout...')
+                : t('payment.redirectingToEpay', 'Opening ePay.bg secure checkout...')}
             </p>
             <form ref={epayFormRef} action={payment.action} method={payment.method}>
               {Object.entries(payment.fields).map(([name, value]) => (
                 <input key={name} type="hidden" name={name} value={value} />
               ))}
               <Button type="submit" className="w-full">
-                {t('payment.openEpay', 'Open ePay.bg')}
+                {payment.provider === 'BORICA'
+                  ? t('payment.openBorica', 'Open BORICA checkout')
+                  : t('payment.openEpay', 'Open ePay.bg')}
               </Button>
             </form>
           </div>

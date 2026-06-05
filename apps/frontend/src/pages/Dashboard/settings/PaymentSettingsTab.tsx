@@ -29,6 +29,15 @@ const PaymentSettingsTab: React.FC = () => {
   const [epaySecret, setEpaySecret] = useState("");
   const [epaySecretConfigured, setEpaySecretConfigured] = useState(false);
   const [epayPage, setEpayPage] = useState<"credit_paydirect" | "paylogin">("credit_paydirect");
+  const [boricaEnabled, setBoricaEnabled] = useState(false);
+  const [boricaMode, setBoricaMode] = useState<"DEMO" | "LIVE">("DEMO");
+  const [boricaTerminalId, setBoricaTerminalId] = useState("");
+  const [boricaMerchantId, setBoricaMerchantId] = useState("");
+  const [boricaMerchantName, setBoricaMerchantName] = useState("");
+  const [boricaPrivateKey, setBoricaPrivateKey] = useState("");
+  const [boricaPrivateKeyConfigured, setBoricaPrivateKeyConfigured] = useState(false);
+  const [boricaPublicCert, setBoricaPublicCert] = useState("");
+  const [boricaCurrency, setBoricaCurrency] = useState<"EUR" | "BGN">("EUR");
   const [notifyAllStaffOnPayment, setNotifyAllStaffOnPayment] = useState(true);
   const [newTipOption, setNewTipOption] = useState("");
   const [tipError, setTipError] = useState("");
@@ -54,6 +63,15 @@ const PaymentSettingsTab: React.FC = () => {
       setEpaySecret("");
       setEpaySecretConfigured(activeRestaurant.epaySecretConfigured ?? false);
       setEpayPage(activeRestaurant.epayPage ?? "credit_paydirect");
+      setBoricaEnabled((activeRestaurant as any).boricaEnabled ?? false);
+      setBoricaMode(((activeRestaurant as any).boricaMode ?? "DEMO") as "DEMO" | "LIVE");
+      setBoricaTerminalId((activeRestaurant as any).boricaTerminalId ?? "");
+      setBoricaMerchantId((activeRestaurant as any).boricaMerchantId ?? "");
+      setBoricaMerchantName((activeRestaurant as any).boricaMerchantName ?? "");
+      setBoricaPrivateKey("");
+      setBoricaPrivateKeyConfigured((activeRestaurant as any).boricaPrivateKeyConfigured ?? false);
+      setBoricaPublicCert((activeRestaurant as any).boricaPublicCert ?? "");
+      setBoricaCurrency((((activeRestaurant as any).boricaCurrency) ?? "EUR") as "EUR" | "BGN");
       setNotifyAllStaffOnPayment(activeRestaurant.notifyAllStaffOnPayment ?? true);
       setDisconnectConfirming(false);
       setStripeError("");
@@ -79,6 +97,7 @@ const PaymentSettingsTab: React.FC = () => {
     setStatus({ loading: true, error: "", success: "" });
     try {
       const trimmedSecret = epaySecret.trim();
+      const trimmedBoricaKey = boricaPrivateKey.trim();
       await updateRestaurant(activeRestaurant.id, {
         paymentsEnabled,
         tipsEnabled,
@@ -90,11 +109,23 @@ const PaymentSettingsTab: React.FC = () => {
         epayMerchantEmail: epayMerchantEmail.trim() || null,
         epayPage,
         ...(trimmedSecret ? { epaySecret: trimmedSecret } : {}),
-      });
+        boricaEnabled,
+        boricaMode,
+        boricaTerminalId: boricaTerminalId.trim() || null,
+        boricaMerchantId: boricaMerchantId.trim() || null,
+        boricaMerchantName: boricaMerchantName.trim() || null,
+        boricaPublicCert: boricaPublicCert.trim() || null,
+        boricaCurrency,
+        ...(trimmedBoricaKey ? { boricaPrivateKey: trimmedBoricaKey } : {}),
+      } as any);
       await fetchRestaurants();
       if (trimmedSecret) {
         setEpaySecretConfigured(true);
         setEpaySecret("");
+      }
+      if (trimmedBoricaKey) {
+        setBoricaPrivateKeyConfigured(true);
+        setBoricaPrivateKey("");
       }
       setStatus({ loading: false, error: "", success: t("settings.updatedSuccess") });
       setTimeout(() => setStatus((s) => ({ ...s, success: "" })), 3000);
@@ -403,6 +434,135 @@ const PaymentSettingsTab: React.FC = () => {
                   </p>
                 )}
               </label>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── BORICA ── */}
+      {paymentsEnabled && isStripeFeature && (
+        <div className="border-b border-border pb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className={sectionHeading}>BORICA</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                {t("payment.settings.boricaDesc", { defaultValue: "Direct card payments via BORICA EMV 3DS. Use DEMO mode with the public sandbox for testing — no company account required." })}
+              </p>
+            </div>
+            <ToggleSwitch
+              checked={boricaEnabled}
+              onChange={setBoricaEnabled}
+              aria-label="BORICA"
+            />
+          </div>
+
+          {boricaEnabled && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {t("payment.settings.boricaMode", { defaultValue: "Mode" })}
+                </span>
+                <select
+                  value={boricaMode}
+                  onChange={(e) => setBoricaMode(e.target.value as "DEMO" | "LIVE")}
+                  className={inputCls}
+                >
+                  <option value="DEMO">{t("payment.settings.boricaDemo", { defaultValue: "Demo (sandbox)" })}</option>
+                  <option value="LIVE">{t("payment.settings.boricaLive", { defaultValue: "Live" })}</option>
+                </select>
+              </label>
+
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {t("payment.settings.boricaCurrency", { defaultValue: "Currency" })}
+                </span>
+                <select
+                  value={boricaCurrency}
+                  onChange={(e) => setBoricaCurrency(e.target.value as "EUR" | "BGN")}
+                  className={inputCls}
+                >
+                  <option value="EUR">EUR</option>
+                  <option value="BGN">BGN</option>
+                </select>
+              </label>
+
+              {boricaMode === "LIVE" && (
+                <>
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t("payment.settings.boricaTerminalId", { defaultValue: "Terminal ID" })}
+                    </span>
+                    <input
+                      value={boricaTerminalId}
+                      onChange={(e) => setBoricaTerminalId(e.target.value.trim())}
+                      className={inputCls}
+                      placeholder="e.g. V1800001"
+                    />
+                  </label>
+
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t("payment.settings.boricaMerchantId", { defaultValue: "Merchant ID" })}
+                    </span>
+                    <input
+                      value={boricaMerchantId}
+                      onChange={(e) => setBoricaMerchantId(e.target.value.trim())}
+                      className={inputCls}
+                      placeholder="e.g. 1600000001"
+                    />
+                  </label>
+
+                  <label className="space-y-1 sm:col-span-2">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t("payment.settings.boricaMerchantName", { defaultValue: "Merchant name (shown on BORICA page)" })}
+                    </span>
+                    <input
+                      value={boricaMerchantName}
+                      onChange={(e) => setBoricaMerchantName(e.target.value)}
+                      className={inputCls}
+                      placeholder="e.g. My Restaurant"
+                      maxLength={25}
+                    />
+                  </label>
+
+                  <label className="space-y-1 sm:col-span-2">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t("payment.settings.boricaPrivateKey", { defaultValue: "Merchant private key (PEM)" })}
+                    </span>
+                    <textarea
+                      value={boricaPrivateKey}
+                      onChange={(e) => setBoricaPrivateKey(e.target.value)}
+                      className={inputCls + " min-h-[80px] font-mono text-xs"}
+                      placeholder={boricaPrivateKeyConfigured ? "••••••••" : "-----BEGIN PRIVATE KEY-----\n..."}
+                      autoComplete="off"
+                    />
+                    {boricaPrivateKeyConfigured && (
+                      <p className="text-xs text-muted-foreground">
+                        {t("payment.settings.boricaKeyConfigured", { defaultValue: "Key saved. Leave blank to keep it unchanged." })}
+                      </p>
+                    )}
+                  </label>
+
+                  <label className="space-y-1 sm:col-span-2">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t("payment.settings.boricaPublicCert", { defaultValue: "BORICA public certificate (PEM)" })}
+                    </span>
+                    <textarea
+                      value={boricaPublicCert}
+                      onChange={(e) => setBoricaPublicCert(e.target.value)}
+                      className={inputCls + " min-h-[80px] font-mono text-xs"}
+                      placeholder="-----BEGIN CERTIFICATE-----\n..."
+                      autoComplete="off"
+                    />
+                  </label>
+                </>
+              )}
+
+              {boricaMode === "DEMO" && (
+                <p className="text-xs text-muted-foreground sm:col-span-2">
+                  {t("payment.settings.boricaDemoNote", { defaultValue: "DEMO mode uses the platform's public sandbox terminal. No keys required. Test with cards 5100770000000022 (Mastercard) or 4341792000000044 (Visa)." })}
+                </p>
+              )}
             </div>
           )}
         </div>
