@@ -805,15 +805,27 @@ export class PaymentService {
       );
     }
 
+    // #10 — BACKEND_URL must be absolute so BORICA can POST back to our callback.
+    const backendBase = (process.env.BACKEND_URL || '').replace(/\/+$/, '');
+    if (!backendBase || !/^https?:\/\//i.test(backendBase)) {
+      throw new BadRequestException(
+        'BORICA is not configured correctly: BACKEND_URL must be an absolute https URL',
+      );
+    }
+    const callbackUrl = `${backendBase}/api/v1/payments/borica/callback`;
+
+    // #7 — Stale pending TTL: reuse only if same amount AND created within the last 15 min.
+    const BORICA_PENDING_TTL_MS = 15 * 60 * 1000;
     const pendingBorica = existingPayments.find(
       (p) => p.provider === 'BORICA' && p.status === 'PENDING',
     );
     if (pendingBorica) {
+      const age = Date.now() - new Date((pendingBorica as any).createdAt ?? 0).getTime();
       const checkoutForm = (pendingBorica.providerPayload as any)?.checkoutForm;
       const sameAmount =
         Math.abs((pendingBorica.amount ?? 0) - total) < 0.001 &&
         Math.abs((pendingBorica.tipAmount ?? 0) - tipAmount) < 0.001;
-      if (checkoutForm && sameAmount) {
+      if (checkoutForm && sameAmount && age < BORICA_PENDING_TTL_MS) {
         return {
           provider: 'BORICA' as const,
           paymentId: pendingBorica.id,
@@ -824,67 +836,114 @@ export class PaymentService {
           fields: checkoutForm.fields,
         };
       }
-      if (!sameAmount) {
-        throw new ConflictException(
-          'A payment for this session is already being processed',
-        );
-      }
+      // Stale or amount changed — expire the old row and create a fresh checkout.
+      await this.prisma.payment.updateMany({
+        where: { id: pendingBorica.id, status: 'PENDING' },
+        data: { status: 'FAILED', providerStatus: 'EXPIRED' },
+      });
     }
 
     const keypair = this.resolveBoricaKeypair(restaurant);
+    // #9 — Always charge in EUR; the app totals are EUR and no FX conversion is implemented.
+    const currency = 'EUR';
+    const tableName = session.table?.name ?? '';
+    const rawDesc = `QR Menu bill ${tableName}`.trim();
+    // BORICA requires DESC 8–50 chars; pad to 8 if too short.
+    const description = rawDesc.length >= 8 ? rawDesc : rawDesc.padEnd(8, ' ');
+
+    // #8 — Sign BEFORE creating a DB row so a bad key never leaves an orphan PENDING row.
+    // Also validates required fields at the API level before any DB write.
     const order = this.createEpayInvoice().slice(-6).padStart(6, '0');
-    const currency = (restaurant.boricaCurrency ?? 'EUR').toUpperCase();
-
-    const frontendBase = this.getFrontendBaseUrl();
-    const backendBase = (process.env.BACKEND_URL || '').replace(/\/+$/, '');
-    const callbackUrl = `${backendBase}/api/v1/payments/borica/callback`;
-
-    const payment = await this.prisma.payment.create({
-      data: {
-        tableSessionId: session.id,
-        restaurantId: session.restaurantId,
+    let checkoutForm: ReturnType<BoricaProvider['buildSaleForm']>;
+    try {
+      checkoutForm = this.borica.buildSaleForm({
+        mode: restaurant.boricaMode === 'LIVE' ? 'LIVE' : 'DEMO',
+        terminal: keypair.terminal,
+        merchant: keypair.merchant,
+        merchantName: keypair.merchantName,
+        email: null,
+        order,
         amount: total,
-        tipAmount,
-        platformFeeAmount,
-        currency: currency.toLowerCase(),
-        status: 'PENDING',
-        provider: 'BORICA',
-        providerReference: order,
-        providerStatus: 'PENDING',
-      },
-    });
+        currency,
+        description,
+        backref: callbackUrl,
+        lang: 'BG',
+        privateKeyPem: keypair.privateKeyPem,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new BadRequestException(
+        `BORICA is not configured correctly: ${msg}`,
+      );
+    }
 
-    const checkoutForm = this.borica.buildSaleForm({
-      mode: restaurant.boricaMode === 'LIVE' ? 'LIVE' : 'DEMO',
-      terminal: keypair.terminal,
-      merchant: keypair.merchant,
-      merchantName: keypair.merchantName,
-      email: null,
-      order,
-      amount: total,
-      currency,
-      description: `QR Menu bill ${session.table?.name ?? ''}`.trim(),
-      backref: callbackUrl,
-      lang: 'BG',
-      privateKeyPem: keypair.privateKeyPem,
-    });
+    // #5 — ORDER is a 6-digit string under a global unique index; retry on P2002 collision.
+    let payment: Awaited<ReturnType<typeof this.prisma.payment.create>>;
+    const MAX_ORDER_RETRIES = 5;
+    for (let attempt = 0; attempt <= MAX_ORDER_RETRIES; attempt++) {
+      const attemptOrder = attempt === 0
+        ? order
+        : this.createEpayInvoice().slice(-6).padStart(6, '0');
 
-    // Store session token so the callback can redirect back to the correct table
-    await this.prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        providerPayload: {
-          checkoutForm,
-          sessionToken: token,
-          restaurantId: session.restaurantId,
-          tableName: session.table?.name ?? null,
-        } as any,
-      },
-    });
+      // For retries we must rebuild the form with the new ORDER so P_SIGN stays valid.
+      let attemptForm = attempt === 0 ? checkoutForm : null as any;
+      if (attempt > 0) {
+        try {
+          attemptForm = this.borica.buildSaleForm({
+            mode: restaurant.boricaMode === 'LIVE' ? 'LIVE' : 'DEMO',
+            terminal: keypair.terminal,
+            merchant: keypair.merchant,
+            merchantName: keypair.merchantName,
+            email: null,
+            order: attemptOrder,
+            amount: total,
+            currency,
+            description,
+            backref: callbackUrl,
+            lang: 'BG',
+            privateKeyPem: keypair.privateKeyPem,
+          });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          throw new BadRequestException(`BORICA signing error on retry: ${msg}`);
+        }
+      }
+
+      try {
+        payment = await this.prisma.payment.create({
+          data: {
+            tableSessionId: session.id,
+            restaurantId: session.restaurantId,
+            amount: total,
+            tipAmount,
+            platformFeeAmount,
+            currency: currency.toLowerCase(),
+            status: 'PENDING',
+            provider: 'BORICA',
+            providerReference: attemptOrder,
+            providerStatus: 'PENDING',
+            providerPayload: {
+              checkoutForm: attemptForm,
+              sessionToken: token,
+              restaurantId: session.restaurantId,
+              tableName: session.table?.name ?? null,
+            } as any,
+          },
+        });
+        if (attempt > 0) checkoutForm = attemptForm;
+        break;
+      } catch (dbErr: unknown) {
+        if (attempt < MAX_ORDER_RETRIES && (dbErr as any)?.code === 'P2002') {
+          this.logger.warn(`BORICA ORDER collision on attempt ${attempt + 1}, retrying`);
+          continue;
+        }
+        throw dbErr;
+      }
+    }
 
     return {
       provider: 'BORICA' as const,
-      paymentId: payment.id,
+      paymentId: payment!.id,
       total,
       tipAmount,
       action: checkoutForm.action,
@@ -923,7 +982,6 @@ export class PaymentService {
       return `${this.getFrontendBaseUrl()}/?payment=borica-cancel`;
     }
 
-    const sessionMeta = payment.providerPayload as any;
     const certPem =
       payment.restaurant?.boricaMode === 'LIVE'
         ? payment.restaurant.boricaPublicCert ?? ''
@@ -931,26 +989,71 @@ export class PaymentService {
 
     const result = this.borica.verifyResult(body, certPem);
 
-    if (!result.verified || result.rc !== '00' || result.action !== '0') {
+    const cancelUrl = this.buildPublicMenuReturnUrl(
+      { restaurantId: payment.restaurantId, table: payment.tableSession?.table },
+      'borica-cancel',
+    );
+
+    // #4 — Never mutate payment state for an unverified callback.
+    // An invalid signature could be a replay/DoS; leaving the row PENDING is safe.
+    if (!result.verified) {
+      this.logger.warn('BORICA callback: P_SIGN verification failed', {
+        order,
+        paymentId: payment.id,
+      });
+      return cancelUrl;
+    }
+
+    // Verified but BORICA reports a decline or cancellation → mark FAILED.
+    if (result.rc !== '00' || result.action !== '0') {
       await this.prisma.payment.updateMany({
         where: { id: payment.id, status: 'PENDING' },
         data: {
           status: 'FAILED',
-          providerStatus: result.rc || 'FAILED',
+          providerStatus: result.rc || 'DECLINED',
           providerPayload: this.mergeProviderPayload(payment.providerPayload, {
             callbackBody: body,
             verifiedAt: new Date().toISOString(),
-            verified: result.verified,
+            verified: true,
+            rc: result.rc,
+            action: result.action,
           }) as any,
         },
       });
-      return this.buildPublicMenuReturnUrl(
-        {
-          restaurantId: payment.restaurantId,
-          table: payment.tableSession?.table,
-        },
-        'borica-cancel',
-      );
+      return cancelUrl;
+    }
+
+    // #6 — Reconcile callback fields against stored payment before marking PAID.
+    // This prevents a replayed or tampered callback from crediting the wrong amount.
+    const callbackAmount = parseFloat(body.AMOUNT ?? body.amount ?? '0');
+    const callbackCurrency = (body.CURRENCY ?? body.currency ?? '').toUpperCase();
+    const callbackTerminal = body.TERMINAL ?? body.terminal ?? '';
+    const callbackOrder = body.ORDER ?? body.order ?? '';
+    const resolvedTerminal =
+      payment.restaurant?.boricaMode === 'LIVE'
+        ? (payment.restaurant.boricaTerminalId ?? '')
+        : (process.env.BORICA_TEST_TID ?? 'V1800001');
+    const amountOk = Math.abs(callbackAmount - (payment.amount ?? 0)) < 0.01;
+    const currencyOk = callbackCurrency === (payment.currency ?? 'eur').toUpperCase();
+    const terminalOk = callbackTerminal === resolvedTerminal;
+    const orderOk = callbackOrder === payment.providerReference;
+    if (!amountOk || !currencyOk || !terminalOk || !orderOk) {
+      this.logger.warn('BORICA callback: reconciliation mismatch', {
+        paymentId: payment.id,
+        amountOk,
+        currencyOk,
+        terminalOk,
+        orderOk,
+        callbackAmount,
+        storedAmount: payment.amount,
+        callbackCurrency,
+        storedCurrency: payment.currency,
+        callbackTerminal,
+        resolvedTerminal,
+        callbackOrder,
+        storedOrder: payment.providerReference,
+      });
+      return cancelUrl;
     }
 
     const claimed = await this.prisma.$transaction(async (tx) => {
@@ -963,6 +1066,8 @@ export class PaymentService {
             callbackBody: body,
             verifiedAt: new Date().toISOString(),
             verified: true,
+            rc: result.rc,
+            action: result.action,
             rrn: result.rrn,
             intRef: result.intRef,
             approval: result.approval,

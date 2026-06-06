@@ -64,8 +64,7 @@ type StripePaymentState = {
   tipAmount: number;
 };
 
-type EpayPaymentState = {
-  provider: 'EPAY';
+type HostedFormPaymentState = {
   paymentId: string;
   total: number;
   tipAmount: number;
@@ -74,7 +73,11 @@ type EpayPaymentState = {
   fields: Record<string, string>;
 };
 
-type PaymentState = StripePaymentState | EpayPaymentState;
+type EpayPaymentState = HostedFormPaymentState & { provider: 'EPAY' };
+
+type BoricaPaymentState = HostedFormPaymentState & { provider: 'BORICA' };
+
+type PaymentState = StripePaymentState | EpayPaymentState | BoricaPaymentState;
 
 function getSourceLabel(order: BillOrder): string {
   if (order.source === 'CUSTOMER') return 'You';

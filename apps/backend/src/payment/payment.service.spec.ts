@@ -12,6 +12,7 @@ describe('PaymentService', () => {
   let mockPrisma: any;
   let mockStripeProvider: any;
   let mockEpayProvider: any;
+  let mockBoricaProvider: any;
   let mockEvents: any;
 
   beforeEach(() => {
@@ -83,6 +84,22 @@ describe('PaymentService', () => {
           .join('\n'),
       ),
     };
+    mockBoricaProvider = {
+      buildSaleForm: jest.fn().mockReturnValue({
+        action: 'https://3dsgate-dev.borica.bg/cgi-bin/cgi_link',
+        method: 'POST' as const,
+        fields: { TERMINAL: 'V1800001', ORDER: '000001', P_SIGN: 'abc123' },
+      }),
+      verifyResult: jest.fn().mockReturnValue({
+        verified: true,
+        rc: '00',
+        action: '0',
+        rrn: '123456789012',
+        intRef: 'INT001',
+        approval: 'A12345',
+      }),
+      getActionUrl: jest.fn().mockReturnValue('https://3dsgate-dev.borica.bg/cgi-bin/cgi_link'),
+    };
     mockEvents = {
       emitToRestaurant: jest.fn(),
       emitTableStatusChanged: jest.fn(),
@@ -102,6 +119,7 @@ describe('PaymentService', () => {
       mockPrisma,
       mockStripeProvider,
       mockEpayProvider,
+      mockBoricaProvider,
       mockEvents,
       mockFeatureService,
     );
@@ -464,6 +482,7 @@ describe('PaymentService', () => {
         mockPrisma,
         mockStripeProvider,
         mockEpayProvider,
+        mockBoricaProvider,
         mockEvents,
         lockedFeatureService,
       );
@@ -1363,6 +1382,353 @@ describe('PaymentService', () => {
         'payment:confirmed',
         expect.objectContaining({ amount: 15 }),
       );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // BORICA checkout
+  // ---------------------------------------------------------------------------
+  describe('createCheckout with BORICA', () => {
+    const boricaRestaurant = {
+      paymentsEnabled: true,
+      stripeOnboarded: false,
+      stripeAccountId: null,
+      platformFeePercent: 0,
+      tipsEnabled: false,
+      tipOptions: [],
+      tier: 'PROFESSIONAL',
+      boricaEnabled: true,
+      boricaMode: 'DEMO',
+      boricaTerminalId: null,
+      boricaMerchantId: null,
+      boricaMerchantName: 'Test',
+      boricaPrivateKeyEncrypted: null,
+      boricaPublicCert: null,
+      boricaCurrency: 'EUR',
+    };
+
+    beforeEach(() => {
+      process.env.BORICA_TEST_TID = 'V1800001';
+      process.env.BORICA_TEST_MID = '1600000001';
+      process.env.BORICA_TEST_PRIVATE_KEY = 'test-pem';
+      process.env.BORICA_TEST_CERT = 'test-cert';
+      process.env.BACKEND_URL = 'https://api.example.com';
+    });
+
+    afterEach(() => {
+      delete process.env.BORICA_TEST_TID;
+      delete process.env.BORICA_TEST_MID;
+      delete process.env.BORICA_TEST_PRIVATE_KEY;
+      delete process.env.BORICA_TEST_CERT;
+      delete process.env.BACKEND_URL;
+    });
+
+    it('creates a pending BORICA payment and returns hosted form fields', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+        table: { name: '5' },
+        restaurant: boricaRestaurant,
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.payment.create.mockResolvedValue({ id: 'pay-borica' });
+
+      const result = await service.createCheckout('tok1', 'BORICA', 0);
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          provider: 'BORICA',
+          paymentId: 'pay-borica',
+          total: 20,
+          action: 'https://3dsgate-dev.borica.bg/cgi-bin/cgi_link',
+        }),
+      );
+      expect(mockBoricaProvider.buildSaleForm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          currency: 'EUR',
+          amount: 20,
+          backref: 'https://api.example.com/api/v1/payments/borica/callback',
+        }),
+      );
+      expect(mockPrisma.payment.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          provider: 'BORICA',
+          status: 'PENDING',
+          currency: 'eur',
+          amount: 20,
+        }),
+      });
+    });
+
+    it('always sends currency EUR regardless of boricaCurrency setting (#9)', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+        table: null,
+        restaurant: { ...boricaRestaurant, boricaCurrency: 'BGN' },
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 10 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.payment.create.mockResolvedValue({ id: 'pay-bgn' });
+
+      await service.createCheckout('tok1', 'BORICA', 0);
+
+      expect(mockBoricaProvider.buildSaleForm).toHaveBeenCalledWith(
+        expect.objectContaining({ currency: 'EUR' }),
+      );
+    });
+
+    it('throws BadRequestException when BACKEND_URL is missing (#10)', async () => {
+      delete process.env.BACKEND_URL;
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+        table: null,
+        restaurant: boricaRestaurant,
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 10 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+
+      await expect(service.createCheckout('tok1', 'BORICA', 0)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException and creates no row when buildSaleForm throws (#8)', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+        table: null,
+        restaurant: boricaRestaurant,
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 10 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockBoricaProvider.buildSaleForm.mockImplementationOnce(() => {
+        throw new Error('invalid private key');
+      });
+
+      await expect(service.createCheckout('tok1', 'BORICA', 0)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+    });
+
+    it('retries on P2002 ORDER collision and succeeds on second attempt (#5)', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+        table: null,
+        restaurant: boricaRestaurant,
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 10 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.payment.create
+        .mockRejectedValueOnce({ code: 'P2002' })
+        .mockResolvedValueOnce({ id: 'pay-retry' });
+
+      const result = await service.createCheckout('tok1', 'BORICA', 0);
+
+      expect(result.paymentId).toBe('pay-retry');
+      expect(mockPrisma.payment.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('reuses fresh pending BORICA payment with same amount within TTL (#7)', async () => {
+      const freshPending = {
+        id: 'pay-pending',
+        provider: 'BORICA',
+        status: 'PENDING',
+        amount: 20,
+        tipAmount: 0,
+        createdAt: new Date(Date.now() - 5 * 60 * 1000), // 5 min ago
+        providerPayload: {
+          checkoutForm: {
+            action: 'https://3dsgate-dev.borica.bg/cgi-bin/cgi_link',
+            method: 'POST',
+            fields: { ORDER: '000001' },
+          },
+        },
+      };
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+        table: null,
+        restaurant: boricaRestaurant,
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([freshPending]);
+
+      const result = await service.createCheckout('tok1', 'BORICA', 0);
+
+      expect(result.paymentId).toBe('pay-pending');
+      expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+    });
+
+    it('expires stale pending BORICA and creates a fresh checkout (#7)', async () => {
+      const stalePending = {
+        id: 'pay-stale',
+        provider: 'BORICA',
+        status: 'PENDING',
+        amount: 20,
+        tipAmount: 0,
+        createdAt: new Date(Date.now() - 20 * 60 * 1000), // 20 min ago = stale
+        providerPayload: { checkoutForm: { action: 'x', method: 'POST', fields: {} } },
+      };
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+        table: null,
+        restaurant: boricaRestaurant,
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([stalePending]);
+      mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
+
+      const result = await service.createCheckout('tok1', 'BORICA', 0);
+
+      expect(result.paymentId).toBe('pay-new');
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'pay-stale', status: 'PENDING' } }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // BORICA callback
+  // ---------------------------------------------------------------------------
+  describe('handleBoricaCallback', () => {
+    const boricaPayment = {
+      id: 'pay-borica',
+      restaurantId: 'rest1',
+      tableSessionId: 's1',
+      amount: 20,
+      tipAmount: 0,
+      currency: 'eur',
+      providerReference: '000001',
+      providerPayload: {},
+      restaurant: {
+        boricaMode: 'DEMO',
+        boricaTerminalId: null,
+        boricaMerchantId: null,
+        boricaMerchantName: 'Test',
+        boricaPrivateKeyEncrypted: null,
+        boricaPublicCert: null,
+      },
+      tableSession: {
+        id: 's1',
+        restaurantId: 'rest1',
+        table: { name: '5' },
+      },
+    };
+
+    const validBody = {
+      ORDER: '000001',
+      AMOUNT: '20.00',
+      CURRENCY: 'EUR',
+      TERMINAL: 'V1800001',
+      TRTYPE: '1',
+      ACTION: '0',
+      RC: '00',
+    };
+
+    beforeEach(() => {
+      process.env.BORICA_TEST_TID = 'V1800001';
+      process.env.BORICA_TEST_CERT = 'test-cert';
+      mockPrisma.payment.findFirst.mockResolvedValue(boricaPayment);
+      mockBoricaProvider.verifyResult.mockReturnValue({
+        verified: true,
+        rc: '00',
+        action: '0',
+        rrn: '123456789012',
+        intRef: 'INT001',
+        approval: 'A12345',
+      });
+    });
+
+    afterEach(() => {
+      delete process.env.BORICA_TEST_TID;
+      delete process.env.BORICA_TEST_CERT;
+    });
+
+    it('does NOT mark FAILED when signature is invalid (#4)', async () => {
+      mockBoricaProvider.verifyResult.mockReturnValueOnce({ verified: false });
+
+      const url = await service.handleBoricaCallback(validBody);
+
+      expect(url).toContain('borica-cancel');
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('marks FAILED and redirects cancel when BORICA reports decline (rc != 00) (#4)', async () => {
+      mockBoricaProvider.verifyResult.mockReturnValueOnce({
+        verified: true,
+        rc: '17',
+        action: '0',
+      });
+
+      const url = await service.handleBoricaCallback(validBody);
+
+      expect(url).toContain('borica-cancel');
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'pay-borica', status: 'PENDING' },
+          data: expect.objectContaining({ status: 'FAILED' }),
+        }),
+      );
+    });
+
+    it('marks SUCCEEDED and redirects ok on valid verified callback (#4, #6)', async () => {
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.tableSession.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.order.findFirst.mockResolvedValue({ customerName: 'Ana' });
+
+      const url = await service.handleBoricaCallback(validBody);
+
+      expect(url).toContain('borica-ok');
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'pay-borica', status: 'PENDING' },
+          data: expect.objectContaining({ status: 'SUCCEEDED' }),
+        }),
+      );
+    });
+
+    it('rejects callback with mismatched AMOUNT (#6)', async () => {
+      const url = await service.handleBoricaCallback({
+        ...validBody,
+        AMOUNT: '99.99', // wrong amount
+      });
+
+      expect(url).toContain('borica-cancel');
+      // Must NOT mark SUCCEEDED
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: 'SUCCEEDED' }) }),
+      );
+    });
+
+    it('rejects callback with mismatched TERMINAL (#6)', async () => {
+      const url = await service.handleBoricaCallback({
+        ...validBody,
+        TERMINAL: 'WRONGTER',
+      });
+
+      expect(url).toContain('borica-cancel');
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: 'SUCCEEDED' }) }),
+      );
+    });
+
+    it('rejects callback with mismatched ORDER (#6)', async () => {
+      const url = await service.handleBoricaCallback({
+        ...validBody,
+        ORDER: '999999', // different order ref
+      });
+
+      // Lookup returns null since providerReference doesn't match
+      mockPrisma.payment.findFirst.mockResolvedValue(null);
+
+      expect(url).toContain('borica-cancel');
     });
   });
 

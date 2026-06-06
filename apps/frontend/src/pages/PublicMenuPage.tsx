@@ -217,6 +217,36 @@ const PublicMenuPage = () => {
     });
   };
 
+  // Handle hosted-checkout return params (ePay / BORICA redirect back to menu).
+  // Runs once on mount and on URL change.  Strips the param to keep the URL clean.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const paymentOutcome = params.get('payment');
+    if (!paymentOutcome) return;
+
+    const tableParam = params.get('table');
+    const sessionKey = restaurantId && tableParam
+      ? `session-${restaurantId}-${tableParam}`
+      : null;
+
+    if (paymentOutcome === 'borica-ok' || paymentOutcome === 'epay-ok') {
+      // Clear the stored session token so a new one is created on the next order.
+      if (sessionKey) localStorage.removeItem(sessionKey);
+      setSessionToken(null);
+      setIsPaymentModalOpen(false);
+      // Strip the outcome param from the URL without triggering a navigation.
+      params.delete('payment');
+      const next = params.toString() ? `?${params.toString()}` : location.pathname;
+      navigate(next, { replace: true });
+    } else if (paymentOutcome === 'borica-cancel' || paymentOutcome === 'epay-cancel') {
+      // Payment was cancelled — just strip the param; session stays open.
+      params.delete('payment');
+      const next = params.toString() ? `?${params.toString()}` : location.pathname;
+      navigate(next, { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
+
   // Main fetch effect: meta first, then parallel category items
   useEffect(() => {
     const params = new URLSearchParams(location.search);

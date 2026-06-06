@@ -399,7 +399,7 @@ export const getSessionBill = async (token: string) => {
     restaurantId: string;
     tipsEnabled: boolean;
     tipOptions: number[];
-    paymentProviders: Array<'STRIPE' | 'EPAY'>;
+    paymentProviders: Array<CheckoutProvider>;
   };
 };
 
