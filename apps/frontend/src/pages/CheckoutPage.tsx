@@ -178,7 +178,7 @@ const CheckoutPage = () => {
           : undefined,
     };
 
-    if (user) {
+    if (user && user.role === 'CUSTOMER') {
       orderData.customerId = user.id;
       if (usePoints) {
         orderData.usePoints = true;

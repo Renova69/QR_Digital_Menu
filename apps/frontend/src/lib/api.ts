@@ -6,14 +6,11 @@ import axios from 'axios';
 // production, so the old in-memory Bearer fallback was dead weight + an XSS
 // surface — removed.
 
-// Dev: relative /api/v1 (Vite proxy). Production build: absolute backend URL from VITE_API_URL.
-// Use the build-time PROD flag, not hostname sniffing (#F3) — sniffing broke dev/QA over
-// 127.0.0.1 or a LAN IP (e.g. testing the QR/POS flow on a phone), which was wrongly
-// treated as production and bypassed the Vite proxy.
-const API_URL =
-  import.meta.env.PROD && import.meta.env.VITE_API_URL
-    ? import.meta.env.VITE_API_URL + '/v1'
-    : '/api/v1';
+// Use relative /api/v1 for all environments.
+// - Local Dev: Vite proxy catches it and forwards to backend.
+// - Vercel Prod: vercel.json rewrite catches it and forwards to Cloud Run.
+// This ensures requests are always same-origin, bypassing Safari/Edge CSRF blocks.
+const API_URL = '/api/v1';
 
 const api = axios.create({
   baseURL: API_URL,
