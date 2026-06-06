@@ -67,14 +67,17 @@ export function formatMoney(value = 0, currency = 'EUR') {
   }).format(value);
 }
 
-export function formatDateTime(value: string, locale: string = 'en-US') {
+export function formatDateTime(value?: string | null, locale: string = 'en-US') {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
   return new Intl.DateTimeFormat(locale, {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
-  }).format(new Date(value));
+  }).format(date);
 }
 
 export function shortId(value?: string | null) {
@@ -94,7 +97,10 @@ export function exportPaymentsCsv(payments: PaymentRecord[]) {
   const header = ['id', 'date', 'customer', 'table', 'method', 'amount', 'tip', 'fee', 'net', 'status'];
   const rows = payments.map((payment) => [
     payment.id,
-    new Date(payment.createdAt).toISOString(),
+    (() => {
+      const date = new Date(payment.createdAt);
+      return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+    })(),
     payment.customerName ?? '',
     payment.tableNumber ?? '',
     payment.provider,

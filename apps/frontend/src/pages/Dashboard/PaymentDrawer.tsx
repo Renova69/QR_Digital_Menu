@@ -59,7 +59,6 @@ export function PaymentDrawer({
   const statusKey = `payments.${payment.status.toLowerCase()}` as const;
   const timeline = payment.timeline ?? [
     { label: t('payments.paymentStatus', { status: t(statusKey as any) }), at: payment.createdAt },
-    { label: t('payments.sessionAttached'), at: payment.tableSessionId },
   ];
 
   return (
