@@ -280,7 +280,7 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   boricaPublicCert?: string | null;
 
   @IsOptional()
-  @IsIn(['EUR', 'BGN'])
+  @IsIn(['EUR'])
   boricaCurrency?: string;
 
   @IsOptional()
