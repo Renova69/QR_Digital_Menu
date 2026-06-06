@@ -399,7 +399,7 @@ const PaymentSettingsTab: React.FC = () => {
                   value={epayClientId}
                   onChange={(e) => setEpayClientId(e.target.value.trim())}
                   className={inputCls}
-                  placeholder="e.g. D123456789"
+                  placeholder={t('auto.eGD123456789', 'e.g. D123456789')}
                 />
               </label>
 
@@ -412,7 +412,7 @@ const PaymentSettingsTab: React.FC = () => {
                   value={epayMerchantEmail}
                   onChange={(e) => setEpayMerchantEmail(e.target.value)}
                   className={inputCls}
-                  placeholder="merchant@example.com"
+                  placeholder={t('auto.merchantExampleCom', 'merchant@example.com')}
                 />
               </label>
 
@@ -477,7 +477,7 @@ const PaymentSettingsTab: React.FC = () => {
                   {t("payment.settings.boricaCurrency", { defaultValue: "Currency" })}
                 </span>
                 <p className="text-sm text-foreground px-3 py-2 border border-border rounded-lg bg-muted/40">
-                  EUR {t("payment.settings.boricaCurrencyNote", { defaultValue: "(only EUR is supported)" })}
+                  {t('auto.eUR', 'EUR')}{t("payment.settings.boricaCurrencyNote", { defaultValue: "(only EUR is supported)" })}
                 </p>
               </div>
 
@@ -491,7 +491,7 @@ const PaymentSettingsTab: React.FC = () => {
                       value={boricaTerminalId}
                       onChange={(e) => setBoricaTerminalId(e.target.value.trim())}
                       className={inputCls}
-                      placeholder="e.g. V1800001"
+                      placeholder={t('auto.eGV1800001', 'e.g. V1800001')}
                     />
                   </label>
 
@@ -503,7 +503,7 @@ const PaymentSettingsTab: React.FC = () => {
                       value={boricaMerchantId}
                       onChange={(e) => setBoricaMerchantId(e.target.value.trim())}
                       className={inputCls}
-                      placeholder="e.g. 1600000001"
+                      placeholder={t('auto.eG1600000001', 'e.g. 1600000001')}
                     />
                   </label>
 
@@ -515,7 +515,7 @@ const PaymentSettingsTab: React.FC = () => {
                       value={boricaMerchantName}
                       onChange={(e) => setBoricaMerchantName(e.target.value)}
                       className={inputCls}
-                      placeholder="e.g. My Restaurant"
+                      placeholder={t('auto.eGMyRestaurant', 'e.g. My Restaurant')}
                       maxLength={25}
                     />
                   </label>
@@ -546,7 +546,7 @@ const PaymentSettingsTab: React.FC = () => {
                       value={boricaPublicCert}
                       onChange={(e) => setBoricaPublicCert(e.target.value)}
                       className={inputCls + " min-h-[80px] font-mono text-xs"}
-                      placeholder="-----BEGIN CERTIFICATE-----\n..."
+                      placeholder={t('auto.BEGINCERTIFICATEN', '-----BEGIN CERTIFICATE-----\n...')}
                       autoComplete="off"
                     />
                   </label>
@@ -608,7 +608,7 @@ const PaymentSettingsTab: React.FC = () => {
                   value={newTipOption}
                   onChange={(e) => { setNewTipOption(e.target.value); setTipError(""); }}
                   onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddTip())}
-                  placeholder="e.g. 15"
+                  placeholder={t('auto.eG15', 'e.g. 15')}
                   className="w-24 px-2 py-1.5 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
                 <button

@@ -845,8 +845,6 @@ export class PaymentService {
             {
               terminal: staleKeypair.terminal,
               order: pendingBorica.providerReference,
-              amount: (pendingBorica.amount ?? 0).toFixed(2),
-              currency: 'EUR',
               privateKeyPem: staleKeypair.privateKeyPem,
               certPem: staleKeypair.certPem,
             },

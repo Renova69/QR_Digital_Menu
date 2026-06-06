@@ -208,12 +208,37 @@ describe('BoricaProvider', () => {
     });
   });
 
+  describe('signStatusCheck', () => {
+    it('produces a non-empty uppercase-hex P_SIGN over TERMINAL+TRTYPE+ORDER+NONCE', () => {
+      const psign = provider.signStatusCheck(
+        { TERMINAL, TRTYPE: '90', ORDER: '000099', NONCE: 'ABCDEF01234567890123456789ABCDEF' },
+        PRIVATE_KEY_PEM,
+      );
+      expect(psign).toBeTruthy();
+      expect(psign).toMatch(/^[0-9A-F]+$/);
+    });
+
+    it('self-verifies with extracted public key (excludes AMOUNT/CURRENCY/TIMESTAMP)', () => {
+      const { createPublicKey, createVerify } = require('crypto');
+      const fields = { TERMINAL, TRTYPE: '90', ORDER: '000099', NONCE: 'ABCDEF01234567890123456789ABCDEF' };
+      const psign = provider.signStatusCheck(fields, PRIVATE_KEY_PEM);
+      const msg =
+        `${TERMINAL.length}${TERMINAL}` +
+        `${'90'.length}90` +
+        `${'000099'.length}000099` +
+        `${'ABCDEF01234567890123456789ABCDEF'.length}ABCDEF01234567890123456789ABCDEF` +
+        '-';
+      const pubKey = createPublicKey(PRIVATE_KEY_PEM);
+      const ok = createVerify('RSA-SHA256').update(msg).verify(pubKey, Buffer.from(psign, 'hex'));
+      expect(ok).toBe(true);
+    });
+  });
+
   describe('queryTransactionStatus', () => {
+    // Params no longer include amount/currency — TRTYPE=90 request omits them.
     const statusParams = {
       terminal: TERMINAL,
       order: '000099',
-      amount: '10.00',
-      currency: 'EUR',
       privateKeyPem: PRIVATE_KEY_PEM,
       certPem: CERT_PEM,
     };
@@ -228,32 +253,38 @@ describe('BoricaProvider', () => {
       expect(result).toBeNull();
     });
 
-    it('returns null when response lacks P_SIGN (HTML page)', async () => {
+    it('returns null when response is not an object (non-JSON / HTML)', async () => {
       mockedAxios.post.mockResolvedValueOnce({ data: '<html>Error page</html>' } as any);
       const result = await provider.queryTransactionStatus(statusParams, 'DEMO');
       expect(result).toBeNull();
     });
 
-    it('returns null on timeout (axios throws on timeout)', async () => {
+    it('returns null on timeout', async () => {
       const timeoutErr = Object.assign(new Error('timeout'), { code: 'ECONNABORTED' });
       mockedAxios.post.mockRejectedValueOnce(timeoutErr);
       const result = await provider.queryTransactionStatus(statusParams, 'DEMO');
       expect(result).toBeNull();
     });
 
-    it('posts to DEMO gateway with TRTYPE=90 and correct Content-Type', async () => {
+    it('posts TRTYPE=90, TRAN_TRTYPE=1 to DEMO gateway — no AMOUNT/CURRENCY/TIMESTAMP', async () => {
       mockedAxios.post.mockRejectedValueOnce(new Error('no-op'));
       await provider.queryTransactionStatus(statusParams, 'DEMO');
       expect(mockedAxios.post).toHaveBeenCalledWith(
         expect.stringContaining('3dsgate-dev.borica.bg'),
-        expect.stringContaining('TRTYPE=90'),
+        expect.stringMatching(/TRTYPE=90/),
         expect.objectContaining({
           headers: expect.objectContaining({ 'Content-Type': 'application/x-www-form-urlencoded' }),
+          responseType: 'json',
         }),
       );
+      const body: string = mockedAxios.post.mock.calls[0][1] as string;
+      expect(body).toContain('TRAN_TRTYPE=1');
+      expect(body).not.toContain('AMOUNT');
+      expect(body).not.toContain('CURRENCY');
+      expect(body).not.toContain('TIMESTAMP');
     });
 
-    it('parses a valid form-encoded BORICA status response', async () => {
+    it('parses a valid JSON BORICA status response and verifies signature', async () => {
       const { createSign, createPublicKey } = require('crypto');
       const pubKeyPem = createPublicKey(PRIVATE_KEY_PEM).export({ type: 'spki', format: 'pem' }) as string;
 
@@ -267,9 +298,9 @@ describe('BoricaProvider', () => {
         'ORDER','RRN','INT_REF','PARES_STATUS','ECI','TIMESTAMP','NONCE'];
       const msg = macFields.map((k) => `${base[k].length}${base[k]}`).join('') + '-';
       base.P_SIGN = createSign('RSA-SHA256').update(msg).sign(PRIVATE_KEY_PEM, 'hex').toUpperCase();
-      const responseBody = new URLSearchParams(base).toString();
 
-      mockedAxios.post.mockResolvedValueOnce({ data: responseBody } as any);
+      // BORICA returns JSON for status-check responses
+      mockedAxios.post.mockResolvedValueOnce({ data: base } as any);
 
       const result = await provider.queryTransactionStatus({ ...statusParams, certPem: pubKeyPem }, 'DEMO');
       expect(result).not.toBeNull();
@@ -279,16 +310,16 @@ describe('BoricaProvider', () => {
       expect(result!.order).toBe('000099');
     });
 
-    it('returns result with verified=false for a tampered response', async () => {
-      const base: Record<string, string> = {
-        ACTION: '0', RC: '00', APPROVAL: '123456', TERMINAL,
-        TRTYPE: '1', AMOUNT: '10.00', CURRENCY: 'EUR', ORDER: '000099',
-        RRN: '123456789012', INT_REF: 'ABCDEF123456', PARES_STATUS: 'Y',
-        ECI: '05', TIMESTAMP: '20260605120000', NONCE: 'ABCDEF01234567890123456789ABCDEF',
-        P_SIGN: 'DEADBEEF',
-      };
-      const responseBody = new URLSearchParams(base).toString();
-      mockedAxios.post.mockResolvedValueOnce({ data: responseBody } as any);
+    it('returns verified=false for a response with a bad P_SIGN', async () => {
+      mockedAxios.post.mockResolvedValueOnce({
+        data: {
+          ACTION: '0', RC: '00', APPROVAL: '123456', TERMINAL,
+          TRTYPE: '1', AMOUNT: '10.00', CURRENCY: 'EUR', ORDER: '000099',
+          RRN: '123456789012', INT_REF: 'ABCDEF123456', PARES_STATUS: 'Y',
+          ECI: '05', TIMESTAMP: '20260605120000', NONCE: 'ABCDEF01234567890123456789ABCDEF',
+          P_SIGN: 'DEADBEEF',
+        },
+      } as any);
 
       const result = await provider.queryTransactionStatus(statusParams, 'DEMO');
       expect(result).not.toBeNull();

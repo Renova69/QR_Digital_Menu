@@ -134,8 +134,31 @@ export class BoricaProvider {
   }
 
   /**
+   * TRTYPE=90 MAC_GENERAL signature.
+   * Field order: TERMINAL, TRTYPE, ORDER, NONCE, RFU.
+   * (Differs from the Sale signature which includes AMOUNT, CURRENCY, TIMESTAMP.)
+   */
+  signStatusCheck(
+    fields: { TERMINAL: string; TRTYPE: string; ORDER: string; NONCE: string },
+    privateKeyPem: string,
+  ): string {
+    const msg =
+      lenPrefix(fields.TERMINAL) +
+      lenPrefix(fields.TRTYPE) +
+      lenPrefix(fields.ORDER) +
+      lenPrefix(fields.NONCE) +
+      '-'; // RFU
+    return crypto
+      .createSign('RSA-SHA256')
+      .update(msg)
+      .sign(privateKeyPem, 'hex')
+      .toUpperCase();
+  }
+
+  /**
    * TRTYPE=90 server-to-server status inquiry.
-   * Used to recover stale PENDING payments when the BACKREF callback was lost.
+   * Request fields: TERMINAL, TRTYPE=90, ORDER, TRAN_TRTYPE=1, NONCE, P_SIGN.
+   * BORICA returns JSON; verifyResult handles the P_SIGN verification.
    * Returns null on any network error, timeout, or unparseable response — caller
    * must treat null as "status unknown, not confirmed succeeded".
    */
@@ -143,54 +166,43 @@ export class BoricaProvider {
     params: {
       terminal: string;
       order: string;
-      amount: string;
-      currency: string;
       privateKeyPem: string;
       certPem: string;
     },
     mode: BoricaMode,
   ): Promise<BoricaCallbackResult | null> {
-    const ts = utcTimestamp();
     const n = nonce();
 
-    const psign = this.signSale(
-      {
-        TERMINAL: params.terminal,
-        TRTYPE: '90',
-        AMOUNT: params.amount,
-        CURRENCY: params.currency,
-        ORDER: params.order,
-        TIMESTAMP: ts,
-        NONCE: n,
-      },
+    const psign = this.signStatusCheck(
+      { TERMINAL: params.terminal, TRTYPE: '90', ORDER: params.order, NONCE: n },
       params.privateKeyPem,
     );
 
     const postBody = new URLSearchParams({
       TERMINAL: params.terminal,
       TRTYPE: '90',
-      AMOUNT: params.amount,
-      CURRENCY: params.currency,
       ORDER: params.order,
-      TIMESTAMP: ts,
+      TRAN_TRTYPE: '1',
       NONCE: n,
       P_SIGN: psign,
     }).toString();
 
     try {
-      const { data } = await axios.post<string>(
+      const { data } = await axios.post<unknown>(
         this.getActionUrl(mode),
         postBody,
         {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           timeout: 8000,
-          responseType: 'text',
+          responseType: 'json',
         },
       );
-      if (typeof data !== 'string' || !data.includes('P_SIGN')) return null;
-      const parsed: Record<string, string> = {};
-      new URLSearchParams(data).forEach((v, k) => { parsed[k] = v; });
-      return this.verifyResult(parsed, params.certPem);
+      if (typeof data !== 'object' || data === null) return null;
+      const asRecord: Record<string, string> = {};
+      for (const [k, v] of Object.entries(data as Record<string, unknown>)) {
+        asRecord[k] = String(v ?? '');
+      }
+      return this.verifyResult(asRecord, params.certPem);
     } catch {
       return null;
     }
