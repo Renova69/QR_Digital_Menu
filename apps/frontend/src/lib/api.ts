@@ -461,6 +461,10 @@ export const createCheckout = async (
   return response.data as CheckoutResponse;
 };
 
+export const abandonCheckout = async (token: string): Promise<void> => {
+  await api.post(`/payments/session/${token}/abandon`);
+};
+
 export const closeSession = async (token: string, restaurantId: string) => {
   const response = await api.post(`/payments/session/${token}/close`, { restaurantId });
   return response.data;

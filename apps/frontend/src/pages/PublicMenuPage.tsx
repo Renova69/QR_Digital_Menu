@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import type { Restaurant } from "../services/restaurantService";
-import { getMenuMeta, getCategoryItems, createAssistanceRequest, getSessionBill, recordMenuView } from "../lib/api";
+import { getMenuMeta, getCategoryItems, createAssistanceRequest, getSessionBill, recordMenuView, abandonCheckout } from "../lib/api";
 import { getVisitorId } from "../lib/visitorId";
 import { BRANDING_FONT_NAMES } from "../lib/brandingFonts";
 import { PaymentModal } from "../components/payment/PaymentModal";
@@ -39,6 +39,24 @@ const DEFAULT_PUBLIC_DARK: BrandPalette = {
   card: '#15131F',
   accent: '#8B6FFF',
 };
+
+const hostedCheckoutStorageKey = (token: string) => `hosted-checkout:${token}`;
+
+function hasHostedCheckoutMarker(token: string | null | undefined) {
+  if (!token) return false;
+  try {
+    return !!sessionStorage.getItem(hostedCheckoutStorageKey(token));
+  } catch {
+    return false;
+  }
+}
+
+function clearHostedCheckoutMarker(token: string | null | undefined) {
+  if (!token) return;
+  try {
+    sessionStorage.removeItem(hostedCheckoutStorageKey(token));
+  } catch {}
+}
 
 function resolvePublicPalette(restaurant: Restaurant | undefined, mode: BrandMode): BrandPalette | null {
   if (!restaurant) return null;
@@ -228,9 +246,11 @@ const PublicMenuPage = () => {
     const sessionKey = restaurantId && tableParam
       ? `session-${restaurantId}-${tableParam}`
       : null;
+    const storedToken = sessionKey ? localStorage.getItem(sessionKey) : null;
 
     if (paymentOutcome === 'borica-ok' || paymentOutcome === 'epay-ok') {
       // Clear the stored session token so a new one is created on the next order.
+      clearHostedCheckoutMarker(storedToken);
       if (sessionKey) localStorage.removeItem(sessionKey);
       setSessionToken(null);
       setIsPaymentModalOpen(false);
@@ -239,13 +259,40 @@ const PublicMenuPage = () => {
       const next = params.toString() ? `?${params.toString()}` : location.pathname;
       navigate(next, { replace: true });
     } else if (paymentOutcome === 'borica-cancel' || paymentOutcome === 'epay-cancel') {
-      // Payment was cancelled — just strip the param; session stays open.
+      // Payment was cancelled — abandon any PENDING payment row so the customer
+      // can choose a different provider without hitting the "already processing" guard.
+      if (storedToken) {
+        abandonCheckout(storedToken).catch(() => {});
+      }
+      clearHostedCheckoutMarker(storedToken);
       params.delete('payment');
       const next = params.toString() ? `?${params.toString()}` : location.pathname;
       navigate(next, { replace: true });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
+
+  useEffect(() => {
+    const abandonHostedCheckoutIfReturned = () => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('payment')) return;
+
+      const tableParam = params.get('table');
+      const storedToken = restaurantId && tableParam
+        ? localStorage.getItem(`session-${restaurantId}-${tableParam}`)
+        : sessionToken;
+
+      if (!storedToken || !hasHostedCheckoutMarker(storedToken)) return;
+
+      clearHostedCheckoutMarker(storedToken);
+      setIsPaymentModalOpen(false);
+      abandonCheckout(storedToken).catch(() => {});
+    };
+
+    abandonHostedCheckoutIfReturned();
+    window.addEventListener('pageshow', abandonHostedCheckoutIfReturned);
+    return () => window.removeEventListener('pageshow', abandonHostedCheckoutIfReturned);
+  }, [restaurantId, sessionToken, location.search]);
 
   // Main fetch effect: meta first, then parallel category items
   useEffect(() => {

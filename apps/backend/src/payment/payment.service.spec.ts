@@ -404,7 +404,7 @@ describe('PaymentService', () => {
       );
       expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
         where: { id: 'stale', status: 'PENDING' },
-        data: { status: 'FAILED' },
+        data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
       });
       expect(mockStripeProvider.createPaymentIntent).toHaveBeenCalled();
     });
@@ -632,7 +632,7 @@ describe('PaymentService', () => {
 
       expect(result).toBe('INVOICE=123456:STATUS=OK');
       expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
-        where: { id: 'pay-epay', status: 'PENDING' },
+        where: { id: 'pay-epay', status: { in: ['PENDING', 'ABANDONED'] } },
         data: expect.objectContaining({
           status: 'SUCCEEDED',
           providerStatus: 'PAID',
@@ -701,7 +701,10 @@ describe('PaymentService', () => {
       await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
 
       expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
-        where: { stripePaymentIntentId: 'pi_test', status: 'PENDING' },
+        where: {
+          stripePaymentIntentId: 'pi_test',
+          status: { in: ['PENDING', 'ABANDONED'] },
+        },
         data: { status: 'SUCCEEDED' },
       });
       expect(mockPrisma.tableSession.updateMany).toHaveBeenCalledWith({
@@ -777,7 +780,7 @@ describe('PaymentService', () => {
       await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
 
       expect(mockPrisma.payment.updateMany).toHaveBeenNthCalledWith(2, {
-        where: { id: 'pay1', status: 'PENDING' },
+        where: { id: 'pay1', status: { in: ['PENDING', 'ABANDONED'] } },
         data: { status: 'SUCCEEDED', stripePaymentIntentId: 'pi_test' },
       });
       expect(mockPrisma.tableSession.updateMany).toHaveBeenCalled();
@@ -1046,6 +1049,17 @@ describe('PaymentService', () => {
         fees: 4,
         count: 4,
       });
+      expect(mockPrisma.payment.groupBy).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          where: { restaurantId: 'rest1', status: { not: 'ABANDONED' } },
+        }),
+      );
+      expect(mockPrisma.payment.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { restaurantId: 'rest1', status: { not: 'ABANDONED' } },
+        }),
+      );
     });
   });
 
@@ -1847,7 +1861,7 @@ describe('PaymentService', () => {
       expect(url).toContain('borica-ok');
       expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'pay-borica', status: 'PENDING' },
+          where: { id: 'pay-borica', status: { in: ['PENDING', 'ABANDONED'] } },
           data: expect.objectContaining({ status: 'SUCCEEDED' }),
         }),
       );

@@ -4,7 +4,7 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 export class PaymentHistoryQueryDto extends PaginationDto {
   @IsOptional()
   @IsString()
-  @IsIn(['PENDING', 'SUCCEEDED', 'FAILED', 'REFUNDED'])
+  @IsIn(['PENDING', 'SUCCEEDED', 'FAILED', 'REFUNDED', 'ABANDONED'])
   status?: string;
 
   @IsOptional()

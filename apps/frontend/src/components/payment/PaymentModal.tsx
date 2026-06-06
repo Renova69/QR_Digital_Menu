@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { getSessionBill, createCheckout, type BoricaCardholderDetails, type CheckoutProvider } from '../../lib/api';
+import { getSessionBill, createCheckout, abandonCheckout, type BoricaCardholderDetails, type CheckoutProvider } from '../../lib/api';
 import { Button } from '../ui/button';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, X } from 'lucide-react';
@@ -31,6 +31,8 @@ interface PaymentModalProps {
 }
 
 type Step = 'tip' | 'pay' | 'redirect' | 'done';
+
+const hostedCheckoutStorageKey = (token: string) => `hosted-checkout:${token}`;
 
 interface BillItem {
   name: string;
@@ -207,6 +209,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
   const [boricaBillingAddress, setBoricaBillingAddress] = useState('');
   const [selectedProvider, setSelectedProvider] = useState<CheckoutProvider>('STRIPE');
   const [payment, setPayment] = useState<PaymentState | null>(null);
+  const [paymentInitiated, setPaymentInitiated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Fix H-8 — a failed bill load must show an error with retry, not silently close.
@@ -250,9 +253,22 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
 
   useEffect(() => {
     if (step !== 'redirect' || (payment?.provider !== 'EPAY' && payment?.provider !== 'BORICA')) return;
-    const timer = window.setTimeout(() => epayFormRef.current?.submit(), 150);
+    const timer = window.setTimeout(() => {
+      try {
+        sessionStorage.setItem(
+          hostedCheckoutStorageKey(sessionToken),
+          JSON.stringify({
+            token: sessionToken,
+            provider: payment.provider,
+            paymentId: payment.paymentId,
+            startedAt: Date.now(),
+          }),
+        );
+      } catch {}
+      epayFormRef.current?.submit();
+    }, 150);
     return () => window.clearTimeout(timer);
-  }, [payment, step]);
+  }, [payment, sessionToken, step]);
 
   const retryBillFetch = () => {
     setBill(null);
@@ -310,12 +326,23 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
         ...(boricaCardholder ? { boricaCardholder } : {}),
       });
       setPayment(result);
+      setPaymentInitiated(true);
       setStep(result.provider === 'EPAY' || result.provider === 'BORICA' ? 'redirect' : 'pay');
     } catch (e: any) {
       setError(e.response?.data?.message || t('payment.failedToLoad'));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleClose = () => {
+    if (paymentInitiated) {
+      abandonCheckout(sessionToken).catch(() => {});
+    }
+    try {
+      sessionStorage.removeItem(hostedCheckoutStorageKey(sessionToken));
+    } catch {}
+    onClose();
   };
 
   return (
@@ -329,7 +356,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
             {step === 'done' && t('payment.thankYou')}
           </h2>
           {/* When payment is done, X clears the session (same as "Back to Menu") */}
-          <button onClick={step === 'done' ? onSuccess : onClose} className="text-muted-foreground hover:text-foreground">
+          <button onClick={step === 'done' ? onSuccess : handleClose} className="text-muted-foreground hover:text-foreground">
             <X size={20} />
           </button>
         </div>
@@ -547,7 +574,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
               total={payment.total}
               tipAmount={payment.tipAmount}
               onSuccess={() => setStep('done')}
-              onClose={onClose}
+              onClose={handleClose}
             />
           </Elements>
         )}
@@ -568,7 +595,24 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
                 ? t('payment.redirectingToBorica', 'Opening BORICA secure checkout...')
                 : t('payment.redirectingToEpay', 'Opening ePay.bg secure checkout...')}
             </p>
-            <form ref={epayFormRef} action={payment.action} method={payment.method}>
+            <form
+              ref={epayFormRef}
+              action={payment.action}
+              method={payment.method}
+              onSubmit={() => {
+                try {
+                  sessionStorage.setItem(
+                    hostedCheckoutStorageKey(sessionToken),
+                    JSON.stringify({
+                      token: sessionToken,
+                      provider: payment.provider,
+                      paymentId: payment.paymentId,
+                      startedAt: Date.now(),
+                    }),
+                  );
+                } catch {}
+              }}
+            >
               {Object.entries(payment.fields).map(([name, value]) => (
                 <input key={name} type="hidden" name={name} value={value} />
               ))}

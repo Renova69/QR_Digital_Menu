@@ -100,6 +100,12 @@ export class PaymentController {
     );
   }
 
+  @Post('session/:token/abandon')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  abandonCheckout(@Param('token') token: string) {
+    return this.paymentService.abandonCheckout(token);
+  }
+
   @Post('session/:token/close')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, FeatureGuard)

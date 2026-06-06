@@ -491,6 +491,7 @@ enum PaymentStatus {
   SUCCEEDED
   FAILED
   REFUNDED
+  ABANDONED
 }
 
 enum PaymentProvider {

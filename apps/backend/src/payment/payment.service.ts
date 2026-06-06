@@ -19,6 +19,7 @@ import { decryptSecret, encryptSecret } from './secret-crypto';
 import { EventsGateway } from '../events/events.gateway';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
+import { PaymentStatus } from '@prisma/client';
 
 type CheckoutProvider = 'STRIPE' | 'EPAY' | 'BORICA';
 
@@ -491,6 +492,34 @@ export class PaymentService {
     };
   }
 
+  async abandonCheckout(token: string): Promise<void> {
+    const session = await this.prisma.tableSession.findFirst({
+      where: { token },
+    });
+    if (!session) return;
+    const pendingPayments = await this.prisma.payment.findMany({
+      where: { tableSessionId: session.id, status: 'PENDING' },
+    });
+
+    for (const payment of pendingPayments) {
+      if (payment.provider === 'STRIPE' && payment.stripePaymentIntentId) {
+        try {
+          await this.stripe.cancelPaymentIntent(payment.stripePaymentIntentId);
+        } catch {
+          this.logger.warn(
+            `Could not cancel abandoned PaymentIntent ${payment.stripePaymentIntentId} for session ${session.id}`,
+          );
+          continue;
+        }
+      }
+
+      await this.prisma.payment.updateMany({
+        where: { id: payment.id, status: 'PENDING' },
+        data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
+      });
+    }
+  }
+
   async createCheckout(
     token: string,
     provider: CheckoutProvider,
@@ -575,10 +604,15 @@ export class PaymentService {
       throw new ConflictException('This session has already been paid');
     }
     for (const stale of existingPayments) {
-      if (stale.provider === 'EPAY') {
-        throw new ConflictException(
-          'A payment for this session is already being processed',
-        );
+      if (stale.provider === 'EPAY' || stale.provider === 'BORICA') {
+        // Hosted-redirect providers have no server-side cancel API. A processed
+        // payment would have triggered a callback and moved out of PENDING before
+        // the customer returned to the menu — still PENDING means abandoned.
+        await this.prisma.payment.updateMany({
+          where: { id: stale.id, status: 'PENDING' },
+          data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
+        });
+        continue;
       }
       if (stale.stripePaymentIntentId) {
         try {
@@ -596,7 +630,7 @@ export class PaymentService {
       }
       await this.prisma.payment.updateMany({
         where: { id: stale.id, status: 'PENDING' },
-        data: { status: 'FAILED' },
+        data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
       });
     }
 
@@ -692,11 +726,20 @@ export class PaymentService {
       throw new ConflictException('This session has already been paid');
     }
 
-    // Block if a non-ePay (e.g. Stripe) intent is still pending for this session.
-    if (existingPayments.some((p) => p.status === 'PENDING' && p.provider !== 'EPAY')) {
-      throw new ConflictException(
-        'A payment for this session is already being processed',
-      );
+    // Abandon stale non-ePay PENDING payments — customer switched provider.
+    // A payment that reached the gateway would have triggered a callback before
+    // the customer returned to the menu, moving it out of PENDING. Still PENDING
+    // here means the redirect was abandoned.
+    for (const stale of existingPayments.filter(
+      (p) => p.status === 'PENDING' && p.provider !== 'EPAY',
+    )) {
+      if (stale.stripePaymentIntentId) {
+        await this.stripe.cancelPaymentIntent(stale.stripePaymentIntentId).catch(() => {});
+      }
+      await this.prisma.payment.updateMany({
+        where: { id: stale.id, status: 'PENDING' },
+        data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
+      });
     }
 
     const pendingEpay = existingPayments.find(
@@ -730,9 +773,11 @@ export class PaymentService {
           data: { status: 'FAILED', providerStatus: 'EXPIRED' },
         });
       } else {
-        throw new ConflictException(
-          'A payment for this session is already being processed',
-        );
+        // Amount changed (order updated) — abandon stale checkout and create fresh one.
+        await this.prisma.payment.updateMany({
+          where: { id: pendingEpay.id, status: 'PENDING' },
+          data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
+        });
       }
     }
 
@@ -838,10 +883,17 @@ export class PaymentService {
       throw new ConflictException('This session has already been paid');
     }
 
-    if (existingPayments.some((p) => p.status === 'PENDING' && p.provider !== 'BORICA')) {
-      throw new ConflictException(
-        'A payment for this session is already being processed',
-      );
+    // Abandon stale non-BORICA PENDING payments — customer switched provider.
+    for (const stale of existingPayments.filter(
+      (p) => p.status === 'PENDING' && p.provider !== 'BORICA',
+    )) {
+      if (stale.stripePaymentIntentId) {
+        await this.stripe.cancelPaymentIntent(stale.stripePaymentIntentId).catch(() => {});
+      }
+      await this.prisma.payment.updateMany({
+        where: { id: stale.id, status: 'PENDING' },
+        data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
+      });
     }
 
     // #10 — BACKEND_URL must be absolute. LIVE requires HTTPS; http://localhost allowed for DEMO only.
@@ -1178,7 +1230,7 @@ export class PaymentService {
 
     const claimed = await this.prisma.$transaction(async (tx) => {
       const paymentUpdate = await tx.payment.updateMany({
-        where: { id: payment.id, status: 'PENDING' },
+        where: { id: payment.id, status: { in: ['PENDING', 'ABANDONED'] } },
         data: {
           status: 'SUCCEEDED',
           providerStatus: 'PAID',
@@ -1294,7 +1346,7 @@ export class PaymentService {
     if (notification.status === 'PAID') {
       const claimed = await this.prisma.$transaction(async (tx) => {
         const paymentUpdate = await tx.payment.updateMany({
-          where: { id: payment.id, status: 'PENDING' },
+          where: { id: payment.id, status: { in: ['PENDING', 'ABANDONED'] } },
           data: {
             status: 'SUCCEEDED',
             providerStatus: 'PAID',
@@ -1401,14 +1453,17 @@ export class PaymentService {
       // first delivery (status still PENDING) flips the record and proceeds to
       // emit socket events; subsequent deliveries see count=0 and bail out.
       const { count } = await this.prisma.payment.updateMany({
-        where: { stripePaymentIntentId: intent.id, status: 'PENDING' },
+        where: {
+          stripePaymentIntentId: intent.id,
+          status: { in: ['PENDING', 'ABANDONED'] },
+        },
         data: { status: 'SUCCEEDED' },
       });
       if (count === 0) {
         // Record may not yet carry the intent id (created-before-Stripe race) —
         // fall back to claiming by the payment row we already resolved.
         const byId = await this.prisma.payment.updateMany({
-          where: { id: payment.id, status: 'PENDING' },
+          where: { id: payment.id, status: { in: ['PENDING', 'ABANDONED'] } },
           data: { status: 'SUCCEEDED', stripePaymentIntentId: intent.id },
         });
         if (byId.count === 0) return; // already processed — skip socket emission
@@ -1682,7 +1737,11 @@ export class PaymentService {
     const skip = (page - 1) * limit;
 
     const where: any = { restaurantId };
-    if (filters.status) where.status = filters.status;
+    if (filters.status) {
+      where.status = filters.status;
+    } else {
+      where.status = { not: 'ABANDONED' };
+    }
     if (filters.startDate || filters.endDate) {
       where.createdAt = {};
       if (filters.startDate) where.createdAt.gte = new Date(filters.startDate);
@@ -1735,6 +1794,7 @@ export class PaymentService {
       restaurantId,
       ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}),
     };
+    const visibleWhere = { ...where, status: { not: PaymentStatus.ABANDONED } };
 
     const [
       collected,
@@ -1768,7 +1828,7 @@ export class PaymentService {
       this.prisma.payment.groupBy({
         by: ['status'],
         _count: true,
-        where,
+        where: visibleWhere,
       }),
       this.prisma.payment.groupBy({
         by: ['provider'],
@@ -1777,7 +1837,7 @@ export class PaymentService {
         where: { ...where, status: 'SUCCEEDED' },
       }),
       this.prisma.payment.findFirst({
-        where,
+        where: visibleWhere,
         orderBy: { createdAt: 'desc' },
         select: { createdAt: true, currency: true },
       }),
@@ -1821,7 +1881,7 @@ export class PaymentService {
         successfulTransactions: successfulCount,
         refundsCount: refundCount,
       },
-      statusCounts: statusCounts.map((item: { status: string; _count: number }) => ({
+      statusCounts: (statusCounts as Array<{ status: string; _count: number }>).map((item) => ({
         status: item.status,
         count: item._count,
       })),
