@@ -122,7 +122,11 @@ describe('BoricaProvider', () => {
         'CURRENCY', 'ORDER', 'RRN', 'INT_REF', 'PARES_STATUS', 'ECI',
         'TIMESTAMP', 'NONCE',
       ];
-      const msg = macFields.map((k) => `${base[k].length}${base[k]}`).join('') + '-';
+      // Mirror macField: empty → '-', otherwise length-prefix (matches verifyResult).
+      const msg = macFields.map((k) => {
+        const v = base[k] ?? '';
+        return v === '' ? '-' : `${v.length}${v}`;
+      }).join('') + '-';
       base.P_SIGN = createSign('RSA-SHA256').update(msg).sign(privateKeyPem, 'hex').toUpperCase();
       return base;
     }
@@ -152,6 +156,22 @@ describe('BoricaProvider', () => {
 
       const result = provider.verifyResult(tamperedBody, pubKeyPem);
       expect(result.verified).toBe(false);
+    });
+
+    it('verifies callback with empty optional fields (APPROVAL, PARES_STATUS, ECI → "-")', () => {
+      const { createPublicKey } = require('crypto');
+      const pubKeyPem = createPublicKey(PRIVATE_KEY_PEM).export({ type: 'spki', format: 'pem' }) as string;
+
+      const body = buildSignedCallback(PRIVATE_KEY_PEM, {
+        APPROVAL: '',
+        PARES_STATUS: '',
+        ECI: '',
+      });
+      const result = provider.verifyResult(body, pubKeyPem);
+      expect(result.verified).toBe(true);
+      expect(result.approval).toBe('');
+      expect(result.paresStat).toBe('');
+      expect(result.eci).toBe('');
     });
 
     it('rejects invalid P_SIGN', () => {
@@ -185,6 +205,12 @@ describe('BoricaProvider', () => {
         merchant: MERCHANT,
         merchantName: 'My Restaurant',
         email: 'owner@restaurant.bg',
+        cardholder: {
+          cardholderName: 'Maria Petrova',
+          email: 'maria@example.com',
+          phone: '+359893999888',
+          billingAddress: '1 Vitosha Blvd',
+        },
         order: '000007',
         amount: 49.99,
         currency: 'BGN',
@@ -202,8 +228,19 @@ describe('BoricaProvider', () => {
       expect(form.fields.AMOUNT).toBe('49.99');
       expect(form.fields.CURRENCY).toBe('BGN');
       expect(form.fields.TRTYPE).toBe('1');
-      expect(form.fields.ADDENDUM).toBe('AD');
+      expect(form.fields.ADDENDUM).toBe('AD,TD');
       expect(form.fields['AD.CUST_BOR_ORDER_ID']).toBe('000007');
+      const mInfo = JSON.parse(Buffer.from(form.fields.M_INFO, 'base64').toString('utf8'));
+      expect(mInfo).toEqual(
+        expect.objectContaining({
+          threeDSRequestorChallengeInd: '04',
+          cardholderName: 'Maria Petrova',
+          email: 'maria@example.com',
+          billAddrLine1: '1 Vitosha Blvd',
+          shipAddrLine1: '1 Vitosha Blvd',
+        }),
+      );
+      expect(mInfo.mobilePhone).toEqual({ cc: '359', subscriber: '893999888' });
       expect(form.fields.P_SIGN).toMatch(/^[0-9A-F]+$/);
     });
   });
@@ -296,7 +333,10 @@ describe('BoricaProvider', () => {
       };
       const macFields = ['ACTION','RC','APPROVAL','TERMINAL','TRTYPE','AMOUNT','CURRENCY',
         'ORDER','RRN','INT_REF','PARES_STATUS','ECI','TIMESTAMP','NONCE'];
-      const msg = macFields.map((k) => `${base[k].length}${base[k]}`).join('') + '-';
+      const msg = macFields.map((k) => {
+        const v = base[k] ?? '';
+        return v === '' ? '-' : `${v.length}${v}`;
+      }).join('') + '-';
       base.P_SIGN = createSign('RSA-SHA256').update(msg).sign(PRIVATE_KEY_PEM, 'hex').toUpperCase();
 
       // BORICA returns JSON for status-check responses

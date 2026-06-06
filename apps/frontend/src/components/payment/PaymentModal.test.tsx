@@ -36,12 +36,14 @@ vi.mock('@stripe/react-stripe-js', () => ({
   useElements: () => null,
 }));
 
-function billWithProviders(paymentProviders: Array<'STRIPE' | 'EPAY'>) {
+function billWithProviders(paymentProviders: Array<'STRIPE' | 'EPAY' | 'BORICA'>) {
   return {
     orders: [
       {
         id: 'order1',
         source: 'CUSTOMER',
+        customerName: 'Maria Petrova',
+        customerPhone: '+359893999888',
         staffName: null,
         staffRole: null,
         totalPrice: 20,
@@ -128,6 +130,59 @@ describe('PaymentModal hosted provider choices', () => {
     await screen.findByText('Opening ePay.bg secure checkout...');
     expect(screen.getByDisplayValue('encoded')).toBeTruthy();
     expect(screen.getByDisplayValue('checksum')).toBeTruthy();
+
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    expect(submitSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends BORICA cardholder details and auto-submits returned BORICA form fields', async () => {
+    vi.useFakeTimers();
+    const submitSpy = vi
+      .spyOn(HTMLFormElement.prototype, 'submit')
+      .mockImplementation(() => undefined);
+    apiMocks.getSessionBill.mockResolvedValueOnce(billWithProviders(['BORICA']));
+    apiMocks.createCheckout.mockResolvedValueOnce({
+      provider: 'BORICA',
+      paymentId: 'pay-borica',
+      total: 20,
+      tipAmount: 0,
+      action: 'https://3dsgate-dev.borica.bg/cgi-bin/cgi_link',
+      method: 'POST',
+      fields: {
+        TERMINAL: 'V1800001',
+        ORDER: '000001',
+        P_SIGN: 'abc123',
+      },
+    });
+
+    render(<PaymentModal sessionToken="tok1" onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+    expect(await screen.findByDisplayValue('Maria Petrova')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'maria@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('Billing address'), {
+      target: { value: '1 Vitosha Blvd' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Pay by card (BORICA)' }));
+
+    await waitFor(() =>
+      expect(apiMocks.createCheckout).toHaveBeenCalledWith('tok1', {
+        provider: 'BORICA',
+        tipPercent: 0,
+        boricaCardholder: {
+          cardholderName: 'Maria Petrova',
+          email: 'maria@example.com',
+          phone: '+359893999888',
+          billingAddress: '1 Vitosha Blvd',
+        },
+      }),
+    );
+    await screen.findByText('Opening BORICA secure checkout...');
+    expect(screen.getByDisplayValue('V1800001')).toBeTruthy();
 
     act(() => {
       vi.advanceTimersByTime(200);

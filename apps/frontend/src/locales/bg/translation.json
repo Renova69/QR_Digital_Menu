@@ -967,7 +967,9 @@
       "notifyStaffDesc": "Когато е включено, целият персонал вижда известия за плащания. Когато е изключено, само собственикът ги вижда.",
       "statusEpayConfigured": "ePay.bg конфигуриран",
       "statusEpayNotConfigured": "ePay.bg не е конфигуриран",
-      "configureProviderWarning": "Свържете Stripe или конфигурирайте ePay.bg преди да приемате онлайн плащания.",
+      "statusBoricaConfigured": "BORICA конфигурирана",
+      "statusBoricaNotConfigured": "BORICA не е конфигурирана",
+      "configureProviderWarning": "Свържете Stripe или конфигурирайте ePay.bg/BORICA преди да приемате онлайн плащания.",
       "epayDesc": "Хостирани данни за плащане с ePay.bg за карти в България.",
       "epayMode": "Режим",
       "epayDemo": "Демо",
@@ -1006,7 +1008,15 @@
     "redirectingToBorica": "Отваряне на защитено плащане БОРИКА...",
     "redirectingToEpay": "Отваряне на защитено плащане ePay.bg...",
     "openBorica": "Отвори плащане БОРИКА",
-    "openEpay": "Отвори ePay.bg"
+    "openEpay": "Отвори ePay.bg",
+    "boricaDetails": "Данни на картодържателя",
+    "boricaDetailsHelp": "BORICA изисква данни на латиница за 3-D Secure.",
+    "boricaName": "Име на картодържателя (латиница)",
+    "boricaEmail": "Имейл",
+    "boricaPhoneOptional": "Телефон (по избор)",
+    "boricaBillingAddress": "Адрес за фактуриране",
+    "boricaDetailsRequired": "Въведете име на картодържател, имейл и адрес за фактуриране.",
+    "boricaNameInvalid": "Използвайте латински букви за името на картодържателя."
   },
   "summary": {
     "statusSnapshot": "Моментна снимка",
@@ -2441,7 +2451,7 @@
     "noTablesFoundCreateTables": "Няма намерени маси. Създайте маси в таблото първо.",
     "email": "Имейл:",
     "Mo": "/мес",
-    "Euro": "&euro;",
+    "Euro": "€",
     "sessionStatus": "Статус на сесия",
     "sessionTotal": "Общо за сесия",
     "trackTableSessionsManageQ": "Проследявайте сесии на маси, управлявайте QR кодове и принтирайте материали.",
@@ -2761,7 +2771,12 @@
     "eG15": "e.g. 15",
     "ddMmYy": "dd/mm/yy",
     "eGKirilPetrov": "e.g. Kiril Petrov",
-    "eGLaPiazza": "e.g. La Piazza"
+    "eGLaPiazza": "e.g. La Piazza",
+    "justNow": "току-що",
+    "1MinAgo": "преди 1 мин",
+    "minAgo": "преди {{min}} мин",
+    "1HourAgo": "преди 1 час",
+    "hoursAgo": "преди {{hours}} часа"
   },
   "upgrade": {
     "premiumFeature": "Премиум функция",

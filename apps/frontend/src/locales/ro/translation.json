@@ -911,7 +911,9 @@
       "notifyStaffDesc": "Când este activat, tot personalul vede notificările de plată. Când este dezactivat, doar proprietarul le vede.",
       "statusEpayConfigured": "ePay.bg configurat",
       "statusEpayNotConfigured": "ePay.bg neconfigurat",
-      "configureProviderWarning": "Conectați Stripe sau configurați ePay.bg înainte de a accepta plăți online.",
+      "statusBoricaConfigured": "BORICA configurat",
+      "statusBoricaNotConfigured": "BORICA neconfigurat",
+      "configureProviderWarning": "Conectați Stripe sau configurați ePay.bg/BORICA înainte de a accepta plăți online.",
       "epayDesc": "Date de autentificare pentru plăți online ePay.bg pentru carduri bulgărești.",
       "epayMode": "Mod",
       "epayDemo": "Demo",
@@ -950,7 +952,15 @@
     "redirectingToBorica": "Deschidere plată securizată BORICA...",
     "redirectingToEpay": "Deschidere plată securizată ePay.bg...",
     "openBorica": "Deschide plată BORICA",
-    "openEpay": "Deschide ePay.bg"
+    "openEpay": "Deschide ePay.bg",
+    "boricaDetails": "Datele titularului cardului",
+    "boricaDetailsHelp": "BORICA necesită date cu caractere latine pentru 3-D Secure.",
+    "boricaName": "Numele titularului cardului (latin)",
+    "boricaEmail": "Email",
+    "boricaPhoneOptional": "Telefon (opțional)",
+    "boricaBillingAddress": "Adresa de facturare",
+    "boricaDetailsRequired": "Introdu numele titularului cardului, emailul și adresa de facturare.",
+    "boricaNameInvalid": "Folosește litere latine pentru numele titularului cardului BORICA."
   },
   "summary": {
     "statusSnapshot": "Instantaneu Status",
@@ -2336,7 +2346,7 @@
     "noTablesFoundCreateTables": "Nu s-au găsit mese. Creează mese în panou mai întâi.",
     "email": "Email:",
     "Mo": "/lună",
-    "Euro": "&euro;",
+    "Euro": "€",
     "sessionStatus": "Status sesiune",
     "sessionTotal": "Total sesiune",
     "trackTableSessionsManageQ": "Urmărește sesiunile meselor, gestionează coduri QR și printează materiale.",
@@ -2656,7 +2666,12 @@
     "eG15": "e.g. 15",
     "ddMmYy": "dd/mm/yy",
     "eGKirilPetrov": "e.g. Kiril Petrov",
-    "eGLaPiazza": "e.g. La Piazza"
+    "eGLaPiazza": "e.g. La Piazza",
+    "justNow": "chiar acum",
+    "1MinAgo": "acum 1 min",
+    "minAgo": "acum {{min}} min",
+    "1HourAgo": "acum 1 oră",
+    "hoursAgo": "acum {{hours}} ore"
   },
   "pos": {
     "failedSubmitOrder": "Failed to submit order. Try again.",

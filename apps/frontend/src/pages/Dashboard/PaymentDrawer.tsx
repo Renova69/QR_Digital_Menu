@@ -22,6 +22,15 @@ function getMethodLabel(method: string, t: (key: string, options?: any) => strin
   return method;
 }
 
+function translateTimelineLabel(label: string, t: any) {
+  if (label === 'Payment record created' || label === 'Записът за плащане е създаден') return t('payments.recordCreated', 'Payment record created');
+  if (label === 'Payment failed') return t('payments.failedEvent', 'Payment failed');
+  if (label === 'Payment succeeded') return t('payments.succeededEvent', 'Payment succeeded');
+  if (label === 'Table session opened' || label === 'Сесията на масата е отворена') return t('payments.sessionOpened', 'Table session opened');
+  if (label === 'Table session closed') return t('payments.sessionClosed', 'Table session closed');
+  return label;
+}
+
 export function PaymentDrawer({
   payment,
   loading,
@@ -36,7 +45,7 @@ export function PaymentDrawer({
   onClose: () => void;
 }) {
   const [confirmingRefund, setConfirmingRefund] = useState(false);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   useEffect(() => {
     setConfirmingRefund(false);
@@ -73,6 +82,7 @@ export function PaymentDrawer({
           </button>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">{t('payments.transaction')}</p>
           <p className="mt-1 text-3xl font-black tracking-tight text-foreground">{formatMoney(payment.amount, payment.currency)}</p>
+          <p className="text-sm font-black tracking-tight text-foreground">{formatDateTime(payment.createdAt, i18n.language)}</p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className={cn('inline-flex rounded-full px-2.5 py-1 text-xs font-black', statusStyles[payment.status])}>
               {t(`payments.${payment.status.toLowerCase()}` as any)}
@@ -178,11 +188,11 @@ export function PaymentDrawer({
                   key={`${item.label}-${index}`}
                   active={index === 0}
                   icon={index === 0 ? <ShieldCheck className="h-3.5 w-3.5" /> : <Receipt className="h-3.5 w-3.5" />}
-                  title={item.label}
-                  time={Number.isNaN(new Date(item.at).getTime()) ? item.at : formatDateTime(item.at)}
+                  title={translateTimelineLabel(item.label, t)}
+                  time={formatDateTime(item.at, i18n.language)}
                 />
               ))}
-              {payment.status === 'REFUNDED' && <TimelineItem icon={<RefreshCcw className="h-3.5 w-3.5" />} title={t('payments.refundRecorded')} time={formatDateTime(payment.createdAt)} />}
+              {payment.status === 'REFUNDED' && <TimelineItem icon={<RefreshCcw className="h-3.5 w-3.5" />} title={t('payments.refundRecorded')} time={formatDateTime(payment.createdAt, i18n.language)} />}
             </div>
           </section>
         </div>

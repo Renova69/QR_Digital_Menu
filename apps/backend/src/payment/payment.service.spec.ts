@@ -4,6 +4,7 @@ import {
   ConflictException,
   ForbiddenException,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { FeatureService } from '../subscription/feature.service';
 
@@ -99,7 +100,7 @@ describe('PaymentService', () => {
         approval: 'A12345',
       }),
       getActionUrl: jest.fn().mockReturnValue('https://3dsgate-dev.borica.bg/cgi-bin/cgi_link'),
-      // Default: status check unavailable (null = don't know, safe to expire)
+      // Default: status check unavailable (null = outcome unknown, keep pending)
       queryTransactionStatus: jest.fn().mockResolvedValue(null),
     };
     mockEvents = {
@@ -1408,6 +1409,12 @@ describe('PaymentService', () => {
       boricaPublicCert: null,
       boricaCurrency: 'EUR',
     };
+    const boricaCardholder = {
+      cardholderName: 'Maria Petrova',
+      email: 'maria@example.com',
+      phone: '+359893999888',
+      billingAddress: '1 Vitosha Blvd',
+    };
 
     beforeEach(() => {
       process.env.BORICA_TEST_TID = 'V1800001';
@@ -1436,7 +1443,7 @@ describe('PaymentService', () => {
       mockPrisma.payment.findMany.mockResolvedValue([]);
       mockPrisma.payment.create.mockResolvedValue({ id: 'pay-borica' });
 
-      const result = await service.createCheckout('tok1', 'BORICA', 0);
+      const result = await service.createCheckout('tok1', 'BORICA', 0, boricaCardholder);
 
       expect(result).toEqual(
         expect.objectContaining({
@@ -1451,6 +1458,8 @@ describe('PaymentService', () => {
           currency: 'EUR',
           amount: 20,
           backref: 'https://api.example.com/api/v1/payments/borica/callback',
+          email: 'maria@example.com',
+          cardholder: boricaCardholder,
         }),
       );
       expect(mockPrisma.payment.create).toHaveBeenCalledWith({
@@ -1474,7 +1483,7 @@ describe('PaymentService', () => {
       mockPrisma.payment.findMany.mockResolvedValue([]);
       mockPrisma.payment.create.mockResolvedValue({ id: 'pay-bgn' });
 
-      await service.createCheckout('tok1', 'BORICA', 0);
+      await service.createCheckout('tok1', 'BORICA', 0, boricaCardholder);
 
       expect(mockBoricaProvider.buildSaleForm).toHaveBeenCalledWith(
         expect.objectContaining({ currency: 'EUR' }),
@@ -1492,7 +1501,7 @@ describe('PaymentService', () => {
       mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 10 }]);
       mockPrisma.payment.findMany.mockResolvedValue([]);
 
-      await expect(service.createCheckout('tok1', 'BORICA', 0)).rejects.toThrow(
+      await expect(service.createCheckout('tok1', 'BORICA', 0, boricaCardholder)).rejects.toThrow(
         BadRequestException,
       );
       expect(mockPrisma.payment.create).not.toHaveBeenCalled();
@@ -1511,7 +1520,7 @@ describe('PaymentService', () => {
         throw new Error('invalid private key');
       });
 
-      await expect(service.createCheckout('tok1', 'BORICA', 0)).rejects.toThrow(
+      await expect(service.createCheckout('tok1', 'BORICA', 0, boricaCardholder)).rejects.toThrow(
         BadRequestException,
       );
       expect(mockPrisma.payment.create).not.toHaveBeenCalled();
@@ -1530,7 +1539,7 @@ describe('PaymentService', () => {
         .mockRejectedValueOnce({ code: 'P2002' })
         .mockResolvedValueOnce({ id: 'pay-retry' });
 
-      const result = await service.createCheckout('tok1', 'BORICA', 0);
+      const result = await service.createCheckout('tok1', 'BORICA', 0, boricaCardholder);
 
       expect(result.paymentId).toBe('pay-retry');
       expect(mockPrisma.payment.create).toHaveBeenCalledTimes(2);
@@ -1561,7 +1570,7 @@ describe('PaymentService', () => {
       mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
       mockPrisma.payment.findMany.mockResolvedValue([freshPending]);
 
-      const result = await service.createCheckout('tok1', 'BORICA', 0);
+      const result = await service.createCheckout('tok1', 'BORICA', 0, boricaCardholder);
 
       expect(result.paymentId).toBe('pay-pending');
       expect(mockPrisma.payment.create).not.toHaveBeenCalled();
@@ -1587,7 +1596,7 @@ describe('PaymentService', () => {
       mockPrisma.payment.findMany.mockResolvedValue([stalePending]);
       mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
 
-      const result = await service.createCheckout('tok1', 'BORICA', 0);
+      const result = await service.createCheckout('tok1', 'BORICA', 0, boricaCardholder);
 
       expect(result.paymentId).toBe('pay-new');
       expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith(
@@ -1625,7 +1634,7 @@ describe('PaymentService', () => {
       mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.tableSession.updateMany.mockResolvedValue({ count: 1 });
 
-      await expect(service.createCheckout('tok1', 'BORICA', 0)).rejects.toMatchObject({
+      await expect(service.createCheckout('tok1', 'BORICA', 0, boricaCardholder)).rejects.toMatchObject({
         message: 'ALREADY_PAID',
       });
       expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith(
@@ -1642,7 +1651,7 @@ describe('PaymentService', () => {
       );
     });
 
-    it('TRTYPE=90: expires stale BORICA payment when status check returns null (#2)', async () => {
+    it('TRTYPE=90: marks STATUS_UNKNOWN when status check returns null — blocks new checkout', async () => {
       const stalePending = {
         id: 'pay-stale',
         provider: 'BORICA',
@@ -1660,9 +1669,79 @@ describe('PaymentService', () => {
       mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
       mockPrisma.payment.findMany.mockResolvedValue([stalePending]);
       mockBoricaProvider.queryTransactionStatus.mockResolvedValueOnce(null);
+
+      await expect(service.createCheckout('tok1', 'BORICA', 0, boricaCardholder)).rejects.toThrow(ServiceUnavailableException);
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'pay-stale', status: 'PENDING' },
+          data: expect.objectContaining({ providerStatus: 'STATUS_UNKNOWN' }),
+        }),
+      );
+      expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+    });
+
+    it('TRTYPE=90: marks STATUS_UNKNOWN when reconciliation mismatches', async () => {
+      const stalePending = {
+        id: 'pay-stale',
+        provider: 'BORICA',
+        status: 'PENDING',
+        amount: 20,
+        tipAmount: 0,
+        tableSessionId: 's1',
+        providerReference: '000099',
+        createdAt: new Date(Date.now() - 20 * 60 * 1000),
+        providerPayload: { checkoutForm: { action: 'x', method: 'POST', fields: {} } },
+      };
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1', restaurantId: 'rest1', table: null, restaurant: boricaRestaurant,
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([stalePending]);
+      mockBoricaProvider.queryTransactionStatus.mockResolvedValueOnce({
+        verified: true, rc: '00', action: '0',
+        order: '000099', terminal: 'V1800001',
+        amount: '99.99', // mismatched amount — must not recover
+        currency: 'EUR',
+        rrn: '', intRef: '', approval: '', paresStat: '', eci: '',
+      });
+      await expect(service.createCheckout('tok1', 'BORICA', 0, boricaCardholder)).rejects.toThrow(
+        ServiceUnavailableException,
+      );
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'pay-stale', status: 'PENDING' },
+          data: expect.objectContaining({ providerStatus: 'STATUS_UNKNOWN' }),
+        }),
+      );
+      expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+    });
+
+    it('TRTYPE=90: expires stale BORICA payment when BORICA returns a verified final decline', async () => {
+      const stalePending = {
+        id: 'pay-stale',
+        provider: 'BORICA',
+        status: 'PENDING',
+        amount: 20,
+        tipAmount: 0,
+        tableSessionId: 's1',
+        providerReference: '000099',
+        createdAt: new Date(Date.now() - 20 * 60 * 1000),
+        providerPayload: { checkoutForm: { action: 'x', method: 'POST', fields: {} } },
+      };
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1', restaurantId: 'rest1', table: null, restaurant: boricaRestaurant,
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([stalePending]);
+      mockBoricaProvider.queryTransactionStatus.mockResolvedValueOnce({
+        verified: true, rc: '05', action: '2',
+        order: '000099', terminal: 'V1800001',
+        amount: '20.00', currency: 'EUR',
+        rrn: '', intRef: '', approval: '', paresStat: '', eci: '',
+      });
       mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
 
-      const result = await service.createCheckout('tok1', 'BORICA', 0);
+      const result = await service.createCheckout('tok1', 'BORICA', 0, boricaCardholder);
 
       expect(result.paymentId).toBe('pay-new');
       expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith(

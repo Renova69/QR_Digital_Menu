@@ -196,6 +196,16 @@ const PaymentSettingsTab: React.FC = () => {
     (epaySecretConfigured || epaySecret.trim())
   );
 
+  const boricaConfigured = !!(
+    boricaEnabled &&
+    (boricaMode === 'DEMO' ||
+      (boricaTerminalId.trim() &&
+       boricaMerchantId.trim() &&
+       boricaMerchantName.trim() &&
+       (boricaPrivateKeyConfigured || boricaPrivateKey.trim()) &&
+       boricaPublicCert.trim()))
+  );
+
   // Status summary pills
   const pills = [
     {
@@ -217,6 +227,12 @@ const PaymentSettingsTab: React.FC = () => {
               ? t("payment.settings.statusEpayConfigured", { defaultValue: "ePay.bg configured" })
               : t("payment.settings.statusEpayNotConfigured", { defaultValue: "ePay.bg not configured" }),
             active: epayConfigured,
+          },
+          {
+            label: boricaConfigured
+              ? t("payment.settings.statusBoricaConfigured", { defaultValue: "BORICA configured" })
+              : t("payment.settings.statusBoricaNotConfigured", { defaultValue: "BORICA not configured" }),
+            active: boricaConfigured,
           },
           {
             label: tipsEnabled
@@ -269,10 +285,10 @@ const PaymentSettingsTab: React.FC = () => {
             aria-label={t("payment.settings.acceptPayments")}
           />
         </div>
-        {paymentsEnabled && !stripeOnboarded && !epayConfigured && (
+        {paymentsEnabled && !stripeOnboarded && !epayConfigured && !boricaConfigured && (
           <p className="mt-3 text-sm text-amber-600 bg-amber-50 dark:bg-amber-950 px-3 py-2 rounded-lg flex items-center gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-            {t("payment.settings.configureProviderWarning", { defaultValue: "Connect Stripe or configure ePay.bg before accepting online payments." })}
+            {t("payment.settings.configureProviderWarning", { defaultValue: "Connect Stripe or configure ePay.bg/BORICA before accepting online payments." })}
           </p>
         )}
       </div>

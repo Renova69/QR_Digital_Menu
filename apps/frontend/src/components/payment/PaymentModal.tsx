@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { getSessionBill, createCheckout, type CheckoutProvider } from '../../lib/api';
+import { getSessionBill, createCheckout, type BoricaCardholderDetails, type CheckoutProvider } from '../../lib/api';
 import { Button } from '../ui/button';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, X } from 'lucide-react';
@@ -42,6 +42,8 @@ interface BillItem {
 interface BillOrder {
   id: string;
   source: 'CUSTOMER' | 'POS';
+  customerName?: string | null;
+  customerPhone?: string | null;
   staffName: string | null;
   staffRole: string | null;
   totalPrice: number;
@@ -199,6 +201,10 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
   const [bill, setBill] = useState<BillData | null>(null);
   const [selectedTip, setSelectedTip] = useState(0);
   const [customTip, setCustomTip] = useState('');
+  const [boricaCardholderName, setBoricaCardholderName] = useState('');
+  const [boricaEmail, setBoricaEmail] = useState('');
+  const [boricaPhone, setBoricaPhone] = useState('');
+  const [boricaBillingAddress, setBoricaBillingAddress] = useState('');
   const [selectedProvider, setSelectedProvider] = useState<CheckoutProvider>('STRIPE');
   const [payment, setPayment] = useState<PaymentState | null>(null);
   const [loading, setLoading] = useState(false);
@@ -232,6 +238,17 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
   }, [bill, selectedProvider]);
 
   useEffect(() => {
+    if (!bill) return;
+    const customerOrder = bill.orders.find((order) => order.source === 'CUSTOMER' && order.customerName);
+    if (customerOrder?.customerName) {
+      setBoricaCardholderName((current) => current || customerOrder.customerName || '');
+    }
+    if (customerOrder?.customerPhone) {
+      setBoricaPhone((current) => current || customerOrder.customerPhone || '');
+    }
+  }, [bill]);
+
+  useEffect(() => {
     if (step !== 'redirect' || (payment?.provider !== 'EPAY' && payment?.provider !== 'BORICA')) return;
     const timer = window.setTimeout(() => epayFormRef.current?.submit(), 150);
     return () => window.clearTimeout(timer);
@@ -252,14 +269,45 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
     hasPaymentProvider && availableProviders.includes(selectedProvider)
       ? selectedProvider
       : availableProviders[0] ?? selectedProvider;
+  const boricaNamePattern = /^[A-Za-z0-9 .,'-]{1,45}$/;
 
   const handleContinueToPayment = async () => {
     setLoading(true);
     setError(null);
     try {
+      let boricaCardholder: BoricaCardholderDetails | undefined;
+      if (effectiveProvider === 'BORICA') {
+        const cardholderName = boricaCardholderName.trim();
+        const email = boricaEmail.trim();
+        const phone = boricaPhone.trim();
+        const billingAddress = boricaBillingAddress.trim();
+
+        if (!cardholderName || !email || !billingAddress) {
+          setError(
+            t('payment.boricaDetailsRequired', 'Enter cardholder name, email, and billing address.'),
+          );
+          return;
+        }
+
+        if (!boricaNamePattern.test(cardholderName)) {
+          setError(
+            t('payment.boricaNameInvalid', 'Use Latin letters for the BORICA cardholder name.'),
+          );
+          return;
+        }
+
+        boricaCardholder = {
+          cardholderName,
+          email,
+          phone,
+          billingAddress,
+        };
+      }
+
       const result = await createCheckout(sessionToken, {
         provider: effectiveProvider,
         tipPercent: activeTipPercent,
+        ...(boricaCardholder ? { boricaCardholder } : {}),
       });
       setPayment(result);
       setStep(result.provider === 'EPAY' || result.provider === 'BORICA' ? 'redirect' : 'pay');
@@ -412,6 +460,67 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
               <p className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-950 px-3 py-2 rounded-lg">
                 {t('payment.noProviders', 'Online payment is not configured for this restaurant.')}
               </p>
+            )}
+
+            {effectiveProvider === 'BORICA' && (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-medium">
+                    {t('payment.boricaDetails', 'Cardholder details')}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {t('payment.boricaDetailsHelp', 'BORICA requires Latin cardholder details for 3-D Secure.')}
+                  </p>
+                </div>
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {t('payment.boricaName', 'Cardholder name (Latin)')}
+                  </span>
+                  <input
+                    type="text"
+                    value={boricaCardholderName}
+                    onChange={(e) => setBoricaCardholderName(e.target.value)}
+                    maxLength={45}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  />
+                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t('payment.boricaEmail', 'Email')}
+                    </span>
+                    <input
+                      type="email"
+                      value={boricaEmail}
+                      onChange={(e) => setBoricaEmail(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                    />
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t('payment.boricaPhoneOptional', 'Phone (optional)')}
+                    </span>
+                    <input
+                      type="tel"
+                      value={boricaPhone}
+                      onChange={(e) => setBoricaPhone(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                    />
+                  </label>
+                </div>
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {t('payment.boricaBillingAddress', 'Billing address')}
+                  </span>
+                  <input
+                    type="text"
+                    value={boricaBillingAddress}
+                    onChange={(e) => setBoricaBillingAddress(e.target.value)}
+                    maxLength={50}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  />
+                </label>
+              </div>
             )}
 
             {error && <p className="text-red-500 text-sm">{error}</p>}

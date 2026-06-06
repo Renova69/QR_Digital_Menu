@@ -11,6 +11,7 @@ export interface BoricaCheckoutParams {
   merchantName: string;
   merchantUrl?: string;
   email?: string | null;
+  cardholder: BoricaCardholderInfo;
   order: string;
   amount: number;
   currency: string;
@@ -19,6 +20,14 @@ export interface BoricaCheckoutParams {
   lang?: 'BG' | 'EN';
   country?: string;
   privateKeyPem: string;
+}
+
+export interface BoricaCardholderInfo {
+  cardholderName: string;
+  email: string;
+  phone?: string | null;
+  billingAddress: string;
+  shippingAddress?: string | null;
 }
 
 export interface BoricaCheckoutForm {
@@ -77,9 +86,9 @@ export class BoricaProvider {
       NONCE: n,
       LANG: params.lang ?? 'BG',
       COUNTRY: params.country ?? 'BG',
-      M_INFO: buildMInfo(params.email),
+      M_INFO: buildMInfo(params.cardholder),
       BACKREF: params.backref,
-      ADDENDUM: 'AD',
+      ADDENDUM: 'AD,TD',
       'AD.CUST_BOR_ORDER_ID': params.order,
       P_SIGN: '',
     };
@@ -231,20 +240,20 @@ export class BoricaProvider {
     const P_SIGN = get('P_SIGN');
 
     const msg =
-      lenPrefix(ACTION) +
-      lenPrefix(RC) +
-      lenPrefix(APPROVAL) +
-      lenPrefix(TERMINAL) +
-      lenPrefix(TRTYPE) +
-      lenPrefix(AMOUNT) +
-      lenPrefix(CURRENCY) +
-      lenPrefix(ORDER) +
-      lenPrefix(RRN) +
-      lenPrefix(INT_REF) +
-      lenPrefix(PARES_STATUS) +
-      lenPrefix(ECI) +
-      lenPrefix(TIMESTAMP) +
-      lenPrefix(NONCE) +
+      macField(ACTION) +
+      macField(RC) +
+      macField(APPROVAL) +
+      macField(TERMINAL) +
+      macField(TRTYPE) +
+      macField(AMOUNT) +
+      macField(CURRENCY) +
+      macField(ORDER) +
+      macField(RRN) +
+      macField(INT_REF) +
+      macField(PARES_STATUS) +
+      macField(ECI) +
+      macField(TIMESTAMP) +
+      macField(NONCE) +
       '-'; // RFU
 
     let verified = false;
@@ -281,6 +290,15 @@ function lenPrefix(value: string): string {
   return String(s.length) + s;
 }
 
+/**
+ * Response-MAC field per BORICA v7.0: empty/absent → '-'; otherwise length-prefix.
+ * Used in verifyResult — differs from the Sale request MAC where fields are always present.
+ */
+function macField(value: string): string {
+  const s = value ?? '';
+  return s === '' ? '-' : String(s.length) + s;
+}
+
 function nonce(): string {
   return crypto.randomBytes(16).toString('hex').toUpperCase();
 }
@@ -298,10 +316,35 @@ function utcTimestamp(): string {
   );
 }
 
-function buildMInfo(email?: string | null): string {
-  const info: Record<string, string> = {
+function buildMInfo(cardholder: BoricaCardholderInfo): string {
+  const info: Record<string, unknown> = {
     threeDSRequestorChallengeInd: '04',
+    cardholderName: cardholder.cardholderName.slice(0, 45),
+    email: cardholder.email,
+    billAddrLine1: cardholder.billingAddress.slice(0, 50),
+    shipAddrLine1: (cardholder.shippingAddress || cardholder.billingAddress).slice(0, 50),
   };
-  if (email) info.email = email;
+
+  const mobilePhone = buildMobilePhone(cardholder.phone);
+  if (mobilePhone) info.mobilePhone = mobilePhone;
+
   return Buffer.from(JSON.stringify(info)).toString('base64');
+}
+
+function buildMobilePhone(
+  phone?: string | null,
+): { cc: string; subscriber: string } | null {
+  const digits = (phone || '').replace(/\D/g, '');
+  if (!digits) return null;
+
+  let normalized = digits;
+  if (normalized.startsWith('00')) normalized = normalized.slice(2);
+  if (normalized.startsWith('0')) normalized = `359${normalized.slice(1)}`;
+
+  if (normalized.length < 8) return null;
+
+  const subscriberLength = Math.min(9, normalized.length);
+  const subscriber = normalized.slice(-subscriberLength);
+  const cc = normalized.slice(0, -subscriberLength) || '359';
+  return { cc, subscriber };
 }

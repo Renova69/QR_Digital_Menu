@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   BadRequestException,
   ConflictException,
+  ServiceUnavailableException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -13,13 +14,20 @@ import {
   EpayPage,
   EpayProvider,
 } from './epay.provider';
-import { BoricaProvider } from './borica.provider';
+import { BoricaCardholderInfo, BoricaProvider } from './borica.provider';
 import { decryptSecret, encryptSecret } from './secret-crypto';
 import { EventsGateway } from '../events/events.gateway';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 
 type CheckoutProvider = 'STRIPE' | 'EPAY' | 'BORICA';
+
+type BoricaCardholderInput = {
+  cardholderName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  billingAddress?: string | null;
+};
 
 @Injectable()
 export class PaymentService {
@@ -374,6 +382,58 @@ export class PaymentService {
     return { ...base, ...patch };
   }
 
+  private resolveBoricaCardholder(
+    orders: Array<{ customerName?: string | null; customerPhone?: string | null }>,
+    input?: BoricaCardholderInput,
+  ): BoricaCardholderInfo {
+    const fallbackOrder = orders.find((order) => order.customerName?.trim());
+    const cardholderName =
+      (input?.cardholderName?.trim() || fallbackOrder?.customerName?.trim() || '').slice(0, 45);
+    const email = (input?.email ?? '').trim();
+    const phone = (input?.phone?.trim() || fallbackOrder?.customerPhone?.trim() || '').slice(0, 32);
+    const billingAddress = (input?.billingAddress ?? '').trim().slice(0, 50);
+
+    if (!cardholderName || !email || !billingAddress) {
+      throw new BadRequestException(
+        'BORICA requires cardholder name, email, and billing address',
+      );
+    }
+
+    if (!/^[A-Za-z0-9 .,'-]{1,45}$/.test(cardholderName)) {
+      throw new BadRequestException(
+        'BORICA cardholder name must use Latin letters',
+      );
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new BadRequestException('BORICA cardholder email is invalid');
+    }
+
+    return {
+      cardholderName,
+      email,
+      phone,
+      billingAddress,
+    };
+  }
+
+  private async markBoricaStatusUnknown(
+    paymentId: string,
+    reason: string,
+    details?: Record<string, unknown>,
+  ): Promise<never> {
+    this.logger.warn(reason, { paymentId, ...(details ?? {}) });
+    await this.prisma.payment.updateMany({
+      where: { id: paymentId, status: 'PENDING' },
+      data: { providerStatus: 'STATUS_UNKNOWN' },
+    });
+    throw new ServiceUnavailableException('BORICA_STATUS_UNKNOWN');
+  }
+
+  private isBoricaNonFinalStatus(result: { rc?: string | null }): boolean {
+    return ['-17', '-25', '-31'].includes((result.rc ?? '').trim());
+  }
+
   async getSessionBill(token: string): Promise<{
     orders: any[];
     subtotal: number;
@@ -406,6 +466,8 @@ export class PaymentService {
     const enrichedOrders = orders.map((order) => ({
       id: order.id,
       source: order.source,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
       staffName: order.staff ? (order.staff.name ?? order.staff.email) : null,
       staffRole: order.staff?.role ?? null,
       totalPrice: order.totalPrice,
@@ -437,6 +499,7 @@ export class PaymentService {
     token: string,
     provider: CheckoutProvider,
     tipPercent: number,
+    boricaCardholder?: BoricaCardholderInput,
   ) {
     if (provider === 'STRIPE') {
       const stripeCheckout = await this.createPaymentIntent(token, tipPercent);
@@ -448,7 +511,7 @@ export class PaymentService {
     }
 
     if (provider === 'BORICA') {
-      return this.createBoricaCheckout(token, tipPercent);
+      return this.createBoricaCheckout(token, tipPercent, boricaCardholder);
     }
 
     throw new BadRequestException('Unsupported payment provider');
@@ -745,7 +808,11 @@ export class PaymentService {
     };
   }
 
-  private async createBoricaCheckout(token: string, tipPercent: number) {
+  private async createBoricaCheckout(
+    token: string,
+    tipPercent: number,
+    cardholderInput?: BoricaCardholderInput,
+  ) {
     const normalizedTipPercent = this.normalizeTipPercent(tipPercent);
     const session = await this.prisma.tableSession.findFirst({
       where: { token, status: 'OPEN' },
@@ -805,11 +872,14 @@ export class PaymentService {
       );
     }
 
-    // #10 — BACKEND_URL must be absolute so BORICA can POST back to our callback.
+    // #10 — BACKEND_URL must be absolute. LIVE requires HTTPS; http://localhost allowed for DEMO only.
     const backendBase = (process.env.BACKEND_URL || '').replace(/\/+$/, '');
-    if (!backendBase || !/^https?:\/\//i.test(backendBase)) {
+    const isLiveBorica = restaurant.boricaMode === 'LIVE';
+    const backendIsHttps = /^https:\/\//i.test(backendBase);
+    const backendIsLocalHttp = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(backendBase);
+    if (!backendBase || (!backendIsHttps && !(backendIsLocalHttp && !isLiveBorica))) {
       throw new BadRequestException(
-        'BORICA is not configured correctly: BACKEND_URL must be an absolute https URL',
+        'BORICA is not configured correctly: BACKEND_URL must be an absolute HTTPS URL',
       );
     }
     const callbackUrl = `${backendBase}/api/v1/payments/borica/callback`;
@@ -837,7 +907,6 @@ export class PaymentService {
         };
       }
       // Stale or amount changed — check BORICA via TRTYPE=90 before expiring.
-      // If BORICA confirms the payment went through (lost callback scenario), recover it.
       if (pendingBorica.providerReference) {
         try {
           const staleKeypair = this.resolveBoricaKeypair(restaurant);
@@ -850,25 +919,66 @@ export class PaymentService {
             },
             restaurant.boricaMode === 'LIVE' ? 'LIVE' : 'DEMO',
           );
-          if (statusResult?.verified && statusResult.rc === '00' && statusResult.action === '0') {
-            await this.prisma.$transaction(async (tx) => {
-              await tx.payment.updateMany({
-                where: { id: pendingBorica.id, status: 'PENDING' },
-                data: { status: 'SUCCEEDED', providerStatus: 'RECOVERED_VIA_STATUS_CHECK' },
+          if (statusResult === null) {
+            await this.markBoricaStatusUnknown(
+              pendingBorica.id,
+              'BORICA TRTYPE=90 returned unknown status',
+            );
+          }
+          const checkedStatus = statusResult as NonNullable<typeof statusResult>;
+          if (!checkedStatus.verified) {
+            await this.markBoricaStatusUnknown(
+              pendingBorica.id,
+              'BORICA TRTYPE=90 response signature could not be verified',
+            );
+          }
+          if (checkedStatus.verified && checkedStatus.rc === '00' && checkedStatus.action === '0') {
+            const reconcileOk =
+              checkedStatus.order === pendingBorica.providerReference &&
+              checkedStatus.terminal === staleKeypair.terminal &&
+              Math.abs(parseFloat(checkedStatus.amount || '0') - (pendingBorica.amount ?? 0)) < 0.01 &&
+              (checkedStatus.currency || '').toUpperCase() === 'EUR';
+            if (!reconcileOk) {
+              await this.markBoricaStatusUnknown(
+                pendingBorica.id,
+                'BORICA TRTYPE=90 recovery: reconciliation mismatch',
+                {
+                  statusOrder: checkedStatus.order,
+                  expectedOrder: pendingBorica.providerReference,
+                  statusTerminal: checkedStatus.terminal,
+                  expectedTerminal: staleKeypair.terminal,
+                  statusAmount: checkedStatus.amount,
+                  statusCurrency: checkedStatus.currency,
+                },
+              );
+            } else {
+              await this.prisma.$transaction(async (tx) => {
+                await tx.payment.updateMany({
+                  where: { id: pendingBorica.id, status: 'PENDING' },
+                  data: { status: 'SUCCEEDED', providerStatus: 'RECOVERED_VIA_STATUS_CHECK' },
+                });
+                await tx.tableSession.updateMany({
+                  where: { id: pendingBorica.tableSessionId, status: 'OPEN' },
+                  data: { status: 'PAID', paidAt: new Date() },
+                });
               });
-              await tx.tableSession.updateMany({
-                where: { id: pendingBorica.tableSessionId, status: 'OPEN' },
-                data: { status: 'PAID', paidAt: new Date() },
-              });
-            });
-            await this.emitPaymentConfirmed(pendingBorica as any);
-            throw new ConflictException('ALREADY_PAID');
+              await this.emitPaymentConfirmed(pendingBorica as any);
+              throw new ConflictException('ALREADY_PAID');
+            }
+          }
+          if (this.isBoricaNonFinalStatus(checkedStatus)) {
+            await this.markBoricaStatusUnknown(
+              pendingBorica.id,
+              'BORICA TRTYPE=90 returned non-final status',
+              { rc: checkedStatus.rc, action: checkedStatus.action },
+            );
           }
         } catch (e: unknown) {
-          if ((e as any)?.status === 409) throw e;
-          this.logger.warn('BORICA TRTYPE=90 status check failed, expiring stale payment', {
-            paymentId: pendingBorica.id,
-          });
+          if ((e as any)?.status === 409 || (e as any)?.status === 503) throw e;
+          await this.markBoricaStatusUnknown(
+            pendingBorica.id,
+            'BORICA TRTYPE=90 status check failed',
+          );
         }
       }
 
@@ -885,6 +995,7 @@ export class PaymentService {
     const rawDesc = `QR Menu bill ${tableName}`.trim();
     // BORICA requires DESC 8–50 chars; pad to 8 if too short.
     const description = rawDesc.length >= 8 ? rawDesc : rawDesc.padEnd(8, ' ');
+    const cardholder = this.resolveBoricaCardholder(orders, cardholderInput);
 
     // #8 — Sign BEFORE creating a DB row so a bad key never leaves an orphan PENDING row.
     // Also validates required fields at the API level before any DB write.
@@ -896,7 +1007,8 @@ export class PaymentService {
         terminal: keypair.terminal,
         merchant: keypair.merchant,
         merchantName: keypair.merchantName,
-        email: null,
+        email: cardholder.email,
+        cardholder,
         order,
         amount: total,
         currency,
@@ -929,7 +1041,8 @@ export class PaymentService {
             terminal: keypair.terminal,
             merchant: keypair.merchant,
             merchantName: keypair.merchantName,
-            email: null,
+            email: cardholder.email,
+            cardholder,
             order: attemptOrder,
             amount: total,
             currency,

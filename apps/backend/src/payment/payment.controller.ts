@@ -77,7 +77,16 @@ export class PaymentController {
   @HttpCode(HttpStatus.OK)
   createCheckout(
     @Param('token') token: string,
-    @Body() body: { provider?: 'STRIPE' | 'EPAY' | 'BORICA'; tipPercent?: number },
+    @Body() body: {
+      provider?: 'STRIPE' | 'EPAY' | 'BORICA';
+      tipPercent?: number;
+      boricaCardholder?: {
+        cardholderName?: string;
+        email?: string;
+        phone?: string;
+        billingAddress?: string;
+      };
+    },
   ) {
     const provider = (body.provider ?? 'STRIPE').toUpperCase() as
       | 'STRIPE'
@@ -87,6 +96,7 @@ export class PaymentController {
       token,
       provider,
       body.tipPercent ?? 0,
+      body.boricaCardholder,
     );
   }
 

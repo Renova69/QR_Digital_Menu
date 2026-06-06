@@ -911,7 +911,9 @@
       "notifyStaffDesc": "When enabled, all staff see payment notifications. When disabled, only the owner sees them.",
       "statusEpayConfigured": "ePay.bg configured",
       "statusEpayNotConfigured": "ePay.bg not configured",
-      "configureProviderWarning": "Connect Stripe or configure ePay.bg before accepting online payments.",
+      "statusBoricaConfigured": "BORICA configured",
+      "statusBoricaNotConfigured": "BORICA not configured",
+      "configureProviderWarning": "Connect Stripe or configure ePay.bg/BORICA before accepting online payments.",
       "epayDesc": "Hosted checkout credentials for Bulgarian card payments.",
       "epayMode": "Mode",
       "epayDemo": "Demo",
@@ -950,7 +952,15 @@
     "redirectingToBorica": "Opening BORICA secure checkout...",
     "redirectingToEpay": "Opening ePay.bg secure checkout...",
     "openBorica": "Open BORICA checkout",
-    "openEpay": "Open ePay.bg"
+    "openEpay": "Open ePay.bg",
+    "boricaDetails": "Cardholder details",
+    "boricaDetailsHelp": "BORICA requires Latin cardholder details for 3-D Secure.",
+    "boricaName": "Cardholder name (Latin)",
+    "boricaEmail": "Email",
+    "boricaPhoneOptional": "Phone (optional)",
+    "boricaBillingAddress": "Billing address",
+    "boricaDetailsRequired": "Enter cardholder name, email, and billing address.",
+    "boricaNameInvalid": "Use Latin letters for the BORICA cardholder name."
   },
   "summary": {
     "statusSnapshot": "Status Snapshot",
@@ -2382,7 +2392,7 @@
     "noTablesFoundCreateTables": "No tables found. Create tables in the dashboard first.",
     "email": "Email:",
     "Mo": "/mo",
-    "Euro": "&euro;",
+    "Euro": "€",
     "sessionStatus": "Session status",
     "sessionTotal": "Session total",
     "trackTableSessionsManageQ": "Track table sessions, manage QR codes, and print table-ready assets.",
@@ -2702,7 +2712,12 @@
     "eG15": "e.g. 15",
     "ddMmYy": "dd/mm/yy",
     "eGKirilPetrov": "e.g. Kiril Petrov",
-    "eGLaPiazza": "e.g. La Piazza"
+    "eGLaPiazza": "e.g. La Piazza",
+    "justNow": "just now",
+    "1MinAgo": "1 min ago",
+    "minAgo": "{{min}} min ago",
+    "1HourAgo": "1 hour ago",
+    "hoursAgo": "{{hours}} hours ago"
   },
   "pos": {
     "failedSubmitOrder": "Failed to submit order. Try again.",

@@ -415,6 +415,13 @@ export const createPaymentIntent = async (token: string, tipPercent: number) => 
 
 export type CheckoutProvider = 'STRIPE' | 'EPAY' | 'BORICA';
 
+export type BoricaCardholderDetails = {
+  cardholderName: string;
+  email: string;
+  phone?: string;
+  billingAddress: string;
+};
+
 export type StripeCheckoutResponse = {
   provider: 'STRIPE';
   clientSecret: string;
@@ -447,7 +454,11 @@ export type CheckoutResponse = StripeCheckoutResponse | EpayCheckoutResponse | B
 
 export const createCheckout = async (
   token: string,
-  data: { provider: CheckoutProvider; tipPercent?: number },
+  data: {
+    provider: CheckoutProvider;
+    tipPercent?: number;
+    boricaCardholder?: BoricaCardholderDetails;
+  },
 ) => {
   const response = await api.post(`/payments/session/${token}/checkout`, data);
   return response.data as CheckoutResponse;
