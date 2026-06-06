@@ -345,7 +345,7 @@ const PaymentSettingsTab: React.FC = () => {
         <div className="border-b border-border pb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className={sectionHeading}>ePay.bg</h3>
+              <h3 className={sectionHeading}>{t('auto.ePayBg', 'ePay.bg')}</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 {t("payment.settings.epayDesc", { defaultValue: "Hosted checkout credentials for Bulgarian card payments." })}
               </p>
@@ -444,7 +444,7 @@ const PaymentSettingsTab: React.FC = () => {
         <div className="border-b border-border pb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className={sectionHeading}>BORICA</h3>
+              <h3 className={sectionHeading}>{t('auto.bORICA', 'BORICA')}</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 {t("payment.settings.boricaDesc", { defaultValue: "Direct card payments via BORICA EMV 3DS. Use DEMO mode with the public sandbox for testing — no company account required." })}
               </p>
@@ -472,19 +472,14 @@ const PaymentSettingsTab: React.FC = () => {
                 </select>
               </label>
 
-              <label className="space-y-1">
+              <div className="space-y-1">
                 <span className="text-xs font-medium text-muted-foreground">
                   {t("payment.settings.boricaCurrency", { defaultValue: "Currency" })}
                 </span>
-                <select
-                  value={boricaCurrency}
-                  onChange={(e) => setBoricaCurrency(e.target.value as "EUR" | "BGN")}
-                  className={inputCls}
-                >
-                  <option value="EUR">EUR</option>
-                  <option value="BGN">BGN</option>
-                </select>
-              </label>
+                <p className="text-sm text-foreground px-3 py-2 border border-border rounded-lg bg-muted/40">
+                  EUR {t("payment.settings.boricaCurrencyNote", { defaultValue: "(only EUR is supported)" })}
+                </p>
+              </div>
 
               {boricaMode === "LIVE" && (
                 <>

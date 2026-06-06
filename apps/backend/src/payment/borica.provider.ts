@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import * as crypto from 'crypto';
+import axios from 'axios';
 
 export type BoricaMode = 'DEMO' | 'LIVE';
 
@@ -78,6 +79,7 @@ export class BoricaProvider {
       COUNTRY: params.country ?? 'BG',
       M_INFO: buildMInfo(params.email),
       BACKREF: params.backref,
+      ADDENDUM: 'AD',
       'AD.CUST_BOR_ORDER_ID': params.order,
       P_SIGN: '',
     };
@@ -129,6 +131,69 @@ export class BoricaProvider {
       .update(msg)
       .sign(privateKeyPem, 'hex')
       .toUpperCase();
+  }
+
+  /**
+   * TRTYPE=90 server-to-server status inquiry.
+   * Used to recover stale PENDING payments when the BACKREF callback was lost.
+   * Returns null on any network error, timeout, or unparseable response — caller
+   * must treat null as "status unknown, not confirmed succeeded".
+   */
+  async queryTransactionStatus(
+    params: {
+      terminal: string;
+      order: string;
+      amount: string;
+      currency: string;
+      privateKeyPem: string;
+      certPem: string;
+    },
+    mode: BoricaMode,
+  ): Promise<BoricaCallbackResult | null> {
+    const ts = utcTimestamp();
+    const n = nonce();
+
+    const psign = this.signSale(
+      {
+        TERMINAL: params.terminal,
+        TRTYPE: '90',
+        AMOUNT: params.amount,
+        CURRENCY: params.currency,
+        ORDER: params.order,
+        TIMESTAMP: ts,
+        NONCE: n,
+      },
+      params.privateKeyPem,
+    );
+
+    const postBody = new URLSearchParams({
+      TERMINAL: params.terminal,
+      TRTYPE: '90',
+      AMOUNT: params.amount,
+      CURRENCY: params.currency,
+      ORDER: params.order,
+      TIMESTAMP: ts,
+      NONCE: n,
+      P_SIGN: psign,
+    }).toString();
+
+    try {
+      const { data } = await axios.post<string>(
+        this.getActionUrl(mode),
+        postBody,
+        {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          timeout: 8000,
+          responseType: 'text',
+        },
+      );
+      if (typeof data !== 'string' || !data.includes('P_SIGN')) return null;
+      const parsed: Record<string, string> = {};
+      new URLSearchParams(data).forEach((v, k) => { parsed[k] = v; });
+      return this.verifyResult(parsed, params.certPem);
+    } catch {
+      return null;
+    }
   }
 
   verifyResult(

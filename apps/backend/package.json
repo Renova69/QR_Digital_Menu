@@ -8,6 +8,7 @@
   "scripts": {
     "clean": "if exist dist rmdir /s /q dist",
     "build": "npx prisma generate && nest build",
+    "build:safe": "node scripts/prisma-generate-safe.js && nest build",
     "dev": "npm run start:dev",
     "seed": "npm run build && npx ts-node prisma/seed.ts",
     "migrate:dev": "npx prisma migrate dev",

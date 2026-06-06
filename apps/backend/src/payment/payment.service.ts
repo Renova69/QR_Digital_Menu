@@ -836,7 +836,44 @@ export class PaymentService {
           fields: checkoutForm.fields,
         };
       }
-      // Stale or amount changed — expire the old row and create a fresh checkout.
+      // Stale or amount changed — check BORICA via TRTYPE=90 before expiring.
+      // If BORICA confirms the payment went through (lost callback scenario), recover it.
+      if (pendingBorica.providerReference) {
+        try {
+          const staleKeypair = this.resolveBoricaKeypair(restaurant);
+          const statusResult = await this.borica.queryTransactionStatus(
+            {
+              terminal: staleKeypair.terminal,
+              order: pendingBorica.providerReference,
+              amount: (pendingBorica.amount ?? 0).toFixed(2),
+              currency: 'EUR',
+              privateKeyPem: staleKeypair.privateKeyPem,
+              certPem: staleKeypair.certPem,
+            },
+            restaurant.boricaMode === 'LIVE' ? 'LIVE' : 'DEMO',
+          );
+          if (statusResult?.verified && statusResult.rc === '00' && statusResult.action === '0') {
+            await this.prisma.$transaction(async (tx) => {
+              await tx.payment.updateMany({
+                where: { id: pendingBorica.id, status: 'PENDING' },
+                data: { status: 'SUCCEEDED', providerStatus: 'RECOVERED_VIA_STATUS_CHECK' },
+              });
+              await tx.tableSession.updateMany({
+                where: { id: pendingBorica.tableSessionId, status: 'OPEN' },
+                data: { status: 'PAID', paidAt: new Date() },
+              });
+            });
+            await this.emitPaymentConfirmed(pendingBorica as any);
+            throw new ConflictException('ALREADY_PAID');
+          }
+        } catch (e: unknown) {
+          if ((e as any)?.status === 409) throw e;
+          this.logger.warn('BORICA TRTYPE=90 status check failed, expiring stale payment', {
+            paymentId: pendingBorica.id,
+          });
+        }
+      }
+
       await this.prisma.payment.updateMany({
         where: { id: pendingBorica.id, status: 'PENDING' },
         data: { status: 'FAILED', providerStatus: 'EXPIRED' },
