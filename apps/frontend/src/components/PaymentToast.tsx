@@ -1,8 +1,10 @@
 import { useEffect } from 'react';
 import { CheckCircle2, X } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
+import { useTranslation } from "react-i18next";
 
 const PaymentToast = () => {
+    const { t } = useTranslation();
   const { showToast, dismissToast } = useNotifications();
 
   useEffect(() => {
@@ -28,8 +30,7 @@ const PaymentToast = () => {
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-black text-xs uppercase tracking-widest text-emerald-400 mb-0.5">
-              Payment Received
-            </p>
+              {t('auto.paymentReceived', 'Payment Received')}</p>
             <p className="text-sm font-bold text-foreground">
               {tableLabel}{customerLabel}
             </p>
@@ -37,8 +38,7 @@ const PaymentToast = () => {
               €{showToast.amount.toFixed(2)}
               {showToast.tipAmount > 0 && (
                 <span className="text-xs text-muted-foreground font-normal ml-1">
-                  + €{showToast.tipAmount.toFixed(2)} tip
-                </span>
+                  + €{showToast.tipAmount.toFixed(2)} {t('auto.tip', 'tip')}</span>
               )}
             </p>
           </div>

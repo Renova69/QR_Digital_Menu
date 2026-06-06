@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from "react-i18next";
 
 interface ImageLightboxProps {
     src: string;
@@ -8,6 +9,7 @@ interface ImageLightboxProps {
 }
 
 export const ImageLightbox: React.FC<ImageLightboxProps> = ({ src, alt, onClose }) => {
+    const { t } = useTranslation();
     const [scale, setScale] = useState(1);
     const [dragY, setDragY] = useState(0);
     const isDragging = useRef(false);
@@ -119,8 +121,7 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({ src, alt, onClose 
             <div className="absolute bottom-8 left-0 right-0 text-center z-10 space-y-1 pointer-events-none">
                 {scale <= 1 && dragY === 0 && (
                     <p className="text-white/30 text-[9px] font-bold uppercase tracking-[0.2em] md:hidden">
-                        Swipe down to close · Pinch to zoom
-                    </p>
+                        {t('auto.swipeDownToClosePinchToZoom', 'Swipe down to close · Pinch to zoom')}</p>
                 )}
                 <p className="text-white/50 text-[11px] font-bold uppercase tracking-[0.2em]">{alt}</p>
             </div>

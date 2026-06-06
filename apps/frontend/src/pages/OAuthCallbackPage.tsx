@@ -2,8 +2,10 @@ import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { useTranslation } from "react-i18next";
 
 const OAuthCallbackPage: React.FC = () => {
+    const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { loginWithToken } = useAuth();
@@ -32,7 +34,7 @@ const OAuthCallbackPage: React.FC = () => {
 
   return (
     <div className="flex items-center justify-center min-h-screen">
-      <p className="text-muted-foreground">Completing sign-in...</p>
+      <p className="text-muted-foreground">{t('auto.completingSignIn', 'Completing sign-in...')}</p>
     </div>
   );
 };

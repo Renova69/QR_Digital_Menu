@@ -841,7 +841,11 @@
     "printScanPrompt": "Сканирайте за меню и поръчка",
     "printTableLabel": "Маса",
     "tableDetailLabel": "Детайли за масата",
-    "activeOrders": "Активни поръчки"
+    "activeOrders": "Активни поръчки",
+    "guest": "гост",
+    "guests": "гости",
+    "order": "поръчка",
+    "orders": "поръчки"
   },
   "pos": {
     "searchItems": "Търсене на артикули...",
@@ -2817,5 +2821,24 @@
   "language.ar": "Арабски",
   "tables.occupied": "Заета",
   "tables.paid": "Платена",
-  "tables.available": "Свободна"
+  "tables.available": "Свободна",
+  "menu": {
+    "options": "Опции:",
+    "quickTemplates": "Бързи шаблони",
+    "sizeTemplate": "Шаблон за размер",
+    "donenessTemplate": "Шаблон за изпичане",
+    "quantityTemplate": "Шаблон за количество",
+    "size": "Размер",
+    "doneness": "Изпичане",
+    "quantity": "Количество",
+    "createCustomOption": "Създай персонализирана опция"
+  },
+  "roles": {
+    "owner": "Собственик",
+    "manager": "Мениджър",
+    "staff": "Персонал",
+    "waiter": "Сервитьор",
+    "kitchen": "Кухня",
+    "super_admin": "Супер администратор"
+  }
 }

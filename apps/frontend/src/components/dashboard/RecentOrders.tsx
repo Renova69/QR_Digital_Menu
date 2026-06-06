@@ -8,22 +8,24 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useTranslation } from "react-i18next";
 
 interface RecentOrdersProps {
   orders: Order[];
 }
 
 export const RecentOrders: React.FC<RecentOrdersProps> = ({ orders }) => {
+    const { t } = useTranslation();
   return (
     <div>
-      <h3 className="text-lg font-medium">Recent Orders</h3>
+      <h3 className="text-lg font-medium">{t('auto.recentOrders', 'Recent Orders')}</h3>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Customer</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Total</TableHead>
-            <TableHead>Date</TableHead>
+            <TableHead>{t('auto.customer', 'Customer')}</TableHead>
+            <TableHead>{t('auto.status', 'Status')}</TableHead>
+            <TableHead>{t('auto.total', 'Total')}</TableHead>
+            <TableHead>{t('auto.date', 'Date')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

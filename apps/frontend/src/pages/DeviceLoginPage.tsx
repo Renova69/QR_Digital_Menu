@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../lib/api";
+import { useTranslation } from "react-i18next";
 
 const PIN_LENGTH = 4;
 const MAX_ATTEMPTS = 5;
@@ -12,6 +13,7 @@ const ROLE_REDIRECT: Record<string, string> = {
 };
 
 export default function DeviceLoginPage() {
+    const { t } = useTranslation();
   const navigate = useNavigate();
   const { loginWithToken, logout } = useAuth();
   const clearedExistingSession = useRef(false);
@@ -127,8 +129,7 @@ export default function DeviceLoginPage() {
         <div className="text-center">
           <div className="text-5xl mb-4">🍽</div>
           <h1 className="text-white text-lg font-semibold mb-2">
-            No Device Configured
-          </h1>
+            {t('auto.noDeviceConfigured', 'No Device Configured')}</h1>
           <p className="text-slate-400 text-sm">
             Ask a manager to generate a Staff Device QR from Settings, then scan
             it on this device.
@@ -145,10 +146,9 @@ export default function DeviceLoginPage() {
         <div className="text-center">
           <div className="text-5xl mb-4">🔒</div>
           <h1 className="text-white text-lg font-semibold mb-2">
-            Too Many Attempts
-          </h1>
+            {t('auto.tooManyAttempts', 'Too Many Attempts')}</h1>
           <p className="text-slate-400 text-sm">
-            Try again in {remainingMin} minute{remainingMin !== 1 ? "s" : ""}.
+            {t('auto.tryAgainIn', 'Try again in')}{remainingMin} {t('auto.minute', 'minute')}{remainingMin !== 1 ? "s" : ""}.
           </p>
         </div>
       </div>
@@ -167,8 +167,7 @@ export default function DeviceLoginPage() {
           🍽
         </div>
         <div className="text-slate-400 text-xs uppercase tracking-widest mb-1">
-          Shared Device
-        </div>
+          {t('auto.sharedDevice', 'Shared Device')}</div>
         <div className="text-slate-100 text-lg font-semibold">
           {restaurantName || "Restaurant"}
         </div>

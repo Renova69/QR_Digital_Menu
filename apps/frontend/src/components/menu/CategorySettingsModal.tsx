@@ -9,6 +9,7 @@ import { useMenuContext } from '../../context/MenuContext';
 import { uploadCategoryImage } from '../../services/menuService';
 import { Clock, Calendar, Eye, EyeOff, Timer, Lock } from 'lucide-react';
 import { useFeature } from '../../hooks/useFeature';
+import { useTranslation } from "react-i18next";
 
 interface CategorySettingsModalProps {
   category: Category;
@@ -19,6 +20,7 @@ interface CategorySettingsModalProps {
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({ category, isOpen, onClose }) => {
+    const { t } = useTranslation();
   const { updateCategory } = useMenuContext();
   const daypartingEnabled = useFeature('dayparting');
   const [availabilityType, setAvailabilityType] = useState<AvailabilityType>(category.availabilityType || 'ALWAYS');
@@ -77,7 +79,7 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({ ca
               setImageRemoved(true);
               setImageFile(null);
             }}
-            label="Category Image"
+            label={t('auto.categoryImage', 'Category Image')}
             aspectRatio="banner"
           />
 
@@ -94,7 +96,7 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({ ca
               }`}
             >
               <Eye className="h-6 w-6 mb-2" />
-              <span className="text-xs font-bold uppercase tracking-tight">Always</span>
+              <span className="text-xs font-bold uppercase tracking-tight">{t('auto.always', 'Always')}</span>
             </button>
 
             {daypartingEnabled ? (
@@ -107,12 +109,12 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({ ca
                 }`}
               >
                 <Timer className="h-6 w-6 mb-2" />
-                <span className="text-xs font-bold uppercase tracking-tight">Schedule</span>
+                <span className="text-xs font-bold uppercase tracking-tight">{t('auto.schedule', 'Schedule')}</span>
               </button>
             ) : (
               <div className="flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-dashed border-border text-muted-foreground/40 cursor-not-allowed select-none">
                 <Lock className="h-6 w-6 mb-2" />
-                <span className="text-xs font-bold uppercase tracking-tight">Schedule</span>
+                <span className="text-xs font-bold uppercase tracking-tight">{t('auto.schedule', 'Schedule')}</span>
               </div>
             )}
 
@@ -125,14 +127,14 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({ ca
               }`}
             >
               <EyeOff className="h-6 w-6 mb-2" />
-              <span className="text-xs font-bold uppercase tracking-tight">Hidden</span>
+              <span className="text-xs font-bold uppercase tracking-tight">{t('auto.hidden', 'Hidden')}</span>
             </button>
           </div>
 
           {availabilityType === 'SCHEDULED' && !daypartingEnabled && (
             <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-3">
               <Lock className="h-4 w-4 text-amber-600 flex-shrink-0" />
-              <p className="text-sm text-amber-700 font-medium">Schedules are disabled on this plan. <a href="/pricing" className="underline">Upgrade to Professional</a> to use dayparting.</p>
+              <p className="text-sm text-amber-700 font-medium">{t('auto.schedulesAreDisabledOnThisPlan', 'Schedules are disabled on this plan.')}<a href="/pricing" className="underline">{t('auto.upgradeToProfessional', 'Upgrade to Professional')}</a> {t('auto.toUseDayparting', 'to use dayparting.')}</p>
             </div>
           )}
 
@@ -142,8 +144,7 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({ ca
               <div className="space-y-3">
                 <label className="text-sm font-bold text-foreground flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
-                  Active Days
-                </label>
+                  {t('auto.activeDays', 'Active Days')}</label>
                 <div className="flex justify-between gap-1">
                   {DAYS.map((day, index) => (
                     <button
@@ -166,8 +167,7 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({ ca
                 <div className="space-y-3">
                   <label className="text-sm font-bold text-foreground flex items-center gap-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
-                    Start Time
-                  </label>
+                    {t('auto.startTime', 'Start Time')}</label>
                   <Input
                     type="time"
                     value={startTime}
@@ -178,8 +178,7 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({ ca
                 <div className="space-y-3">
                   <label className="text-sm font-bold text-foreground flex items-center gap-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
-                    End Time
-                  </label>
+                    {t('auto.endTime', 'End Time')}</label>
                   <Input
                     type="time"
                     value={endTime}
@@ -191,28 +190,26 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({ ca
 
               <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
                 <p className="text-[10px] text-indigo-600 font-medium leading-relaxed">
-                  * Category will be automatically hidden from the public menu outside these hours.
-                </p>
+                  {t('auto.CategoryWillBeAutomaticallyHidden', '* Category will be automatically hidden from the public menu outside these hours.')}</p>
               </div>
             </div>
           )}
 
           {availabilityType === 'ALWAYS' && (
               <div className="p-4 bg-muted/30 rounded-2xl border border-dashed border-border text-center">
-                  <p className="text-sm text-muted-foreground">Category is visible 24/7 on the public menu.</p>
+                  <p className="text-sm text-muted-foreground">{t('auto.categoryIsVisible247OnThePublicM', 'Category is visible 24/7 on the public menu.')}</p>
               </div>
           )}
 
           {availabilityType === 'HIDDEN' && (
               <div className="p-4 bg-red-50 rounded-2xl border border-dashed border-red-100 text-center">
-                  <p className="text-sm text-red-600 font-medium">Category is manually hidden and won't appear on the menu.</p>
+                  <p className="text-sm text-red-600 font-medium">{t('auto.categoryIsManuallyHiddenAndWonTAp', 'Category is manually hidden and won\'t appear on the menu.')}</p>
               </div>
           )}
 
           <div className="flex gap-3 pt-4">
             <Button variant="outline" onClick={onClose} className="flex-1 rounded-xl h-11">
-              Cancel
-            </Button>
+              {t('auto.cancel', 'Cancel')}</Button>
             <Button
               onClick={handleSave}
               disabled={isSaving}

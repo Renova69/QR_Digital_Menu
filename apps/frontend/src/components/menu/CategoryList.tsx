@@ -84,6 +84,7 @@ export const CategoryList: React.FC = () => {
               onCancelEdit={handleCancelEdit}
               onDelete={handleDelete}
               onOpenSettings={(e: React.MouseEvent) => handleOpenSettings(e, category)}
+              t={t}
             />
           </SortableItem>
         ))}
@@ -131,7 +132,7 @@ export const CategoryList: React.FC = () => {
 };
 
 // Extracted to receive dragHandleProps from SortableItem
-const CategoryRow = ({ category, isSelected, isEditing, editName, onSelect, onEditNameChange, onStartEdit, onSaveEdit, onCancelEdit, onDelete, onOpenSettings, dragHandleProps }: any) => {
+const CategoryRow = ({ category, isSelected, isEditing, editName, onSelect, onEditNameChange, onStartEdit, onSaveEdit, onCancelEdit, onDelete, onOpenSettings, dragHandleProps, t }: any) => {
   return (
     <li
       onClick={onSelect}
@@ -171,13 +172,11 @@ const CategoryRow = ({ category, isSelected, isEditing, editName, onSelect, onEd
                 </span>
                 {category.availabilityType === 'HIDDEN' && (
                   <span className="bg-red-100 text-red-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                    <EyeOff className="h-2 w-2" /> HIDDEN
-                  </span>
+                    <EyeOff className="h-2 w-2" /> {t('auto.hIDDEN', 'HIDDEN')}</span>
                 )}
                 {category.availabilityType === 'SCHEDULED' && (
                   <span className="bg-indigo-100 text-indigo-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                    <Timer className="h-2 w-2" /> SCHEDULED
-                  </span>
+                    <Timer className="h-2 w-2" /> {t('auto.sCHEDULED', 'SCHEDULED')}</span>
                 )}
             </div>
             

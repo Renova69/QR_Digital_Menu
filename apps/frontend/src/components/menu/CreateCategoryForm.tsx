@@ -45,8 +45,7 @@ export const CreateCategoryForm: React.FC = () => {
             className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
           />
           <label htmlFor="isDrinkCategory" className="text-[12px] font-bold text-foreground">
-            This is a Beverage Category
-          </label>
+            {t('auto.thisIsABeverageCategory', 'This is a Beverage Category')}</label>
         </div>
         <Button type="submit">{t('forms.create', 'Create')}</Button>
       </form>

@@ -544,9 +544,9 @@ function FileImporter({
           </p>
           <p className="text-xs text-muted-foreground mt-1">
             {t('importExport.acceptsFormats', 'Accepts')}{' '}
-            <code className="bg-secondary px-1 rounded">.json</code>{' '}
-            <code className="bg-secondary px-1 rounded">.csv</code>{' '}
-            <code className="bg-secondary px-1 rounded">.xlsx</code>
+            <code className="bg-secondary px-1 rounded">{t('auto.Json', '.json')}</code>{' '}
+            <code className="bg-secondary px-1 rounded">{t('auto.Csv', '.csv')}</code>{' '}
+            <code className="bg-secondary px-1 rounded">{t('auto.Xlsx', '.xlsx')}</code>
           </p>
         </div>
         <div className="flex gap-4 mt-2">

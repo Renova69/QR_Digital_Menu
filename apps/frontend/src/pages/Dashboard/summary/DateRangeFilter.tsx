@@ -15,6 +15,7 @@ interface DateRangeFilterProps {
 }
 
 const isoToDisplayDate = (value?: string) => {
+  const { t } = useTranslation();
   if (!value) return '';
   const [year, month, day] = value.split('-');
   if (!year || !month || !day) return '';
@@ -34,6 +35,7 @@ const CustomDateInput = ({
   onChange: (val: string) => void;
   isCustomActive: boolean;
 }) => {
+  const { t } = useTranslation();
   const dateInputRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -41,7 +43,7 @@ const CustomDateInput = ({
       <input
         type="text"
         value={value ? isoToDisplayDate(value) : ''}
-        placeholder="dd/mm/yy"
+        placeholder={t('auto.ddMmYy', 'dd/mm/yy')}
         readOnly
         onClick={() => {
           try {

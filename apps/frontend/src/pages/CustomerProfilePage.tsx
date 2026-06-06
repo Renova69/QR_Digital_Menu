@@ -128,10 +128,9 @@ export const CustomerProfilePage: React.FC = () => {
                         {t("profile.currentBalance")}
                       </p>
                       <p className={`text-3xl font-black ${textColor}`}>
-                        {acc.points} pts
-                      </p>
+                        {acc.points} {t('auto.pts', 'pts')}</p>
                       <p className="text-sm font-bold text-muted-foreground mt-1">
-                        Value: EUR {rewardValue.toFixed(2)}
+                        {t('auto.valueEUR', 'Value: EUR')}{rewardValue.toFixed(2)}
                       </p>
                     </div>
                     <div className="text-right">
@@ -255,11 +254,10 @@ export const CustomerProfilePage: React.FC = () => {
                     €{order.totalPrice.toFixed(2)}
                   </p>
                   <div className="mt-2 inline-flex items-center gap-2 bg-green-500/10 text-green-600 px-3 py-1 rounded-full text-xs font-bold">
-                    <span>+{order.pointsEarned} Pts</span>
+                    <span>+{order.pointsEarned} {t('auto.pts', 'Pts')}</span>
                     {order.pointsRedeemed > 0 && (
                       <span className="text-red-500 ml-1">
-                        (-{order.pointsRedeemed} Pts)
-                      </span>
+                        (-{order.pointsRedeemed} {t('auto.pts', 'Pts)')}</span>
                     )}
                   </div>
                 </div>

@@ -277,8 +277,7 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
         <div className="w-2 h-2 rounded-full bg-yellow-400/80" />
         <div className="w-2 h-2 rounded-full bg-green-400/80" />
         <div className="flex-1 mx-2 h-4 bg-background rounded text-[8px] flex items-center px-2 text-muted-foreground font-mono overflow-hidden">
-          {restaurantName.toLowerCase().replace(/\s+/g, '')}.menu
-        </div>
+          {restaurantName.toLowerCase().replace(/\s+/g, '')}{t('auto.Menu', '.menu')}</div>
       </div>
       {menuHeader(false)}
       {sceneContent[scene]}

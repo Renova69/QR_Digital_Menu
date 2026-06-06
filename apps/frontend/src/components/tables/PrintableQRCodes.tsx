@@ -46,7 +46,7 @@ function ClassicCard({ restaurant, table, logoUrl, t }: { restaurant: any; table
       }}
     >
       {logoUrl && (
-        <img src={logoUrl} alt="logo" style={{ height: 28, objectFit: 'contain', marginBottom: 6 }} />
+        <img src={logoUrl} alt={t('auto.logo', 'logo')} style={{ height: 28, objectFit: 'contain', marginBottom: 6 }} />
       )}
       <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 13, fontWeight: 900, color: accent, textAlign: 'center', margin: '0 0 2px', lineHeight: 1.2 }}>
         {restaurant.name}
@@ -93,7 +93,7 @@ function PremiumCard({ restaurant, table, logoUrl, t }: { restaurant: any; table
       <div style={{ position: 'absolute', bottom: 8, right: 8, width: 14, height: 14, borderBottom: `2px solid ${accent}`, borderRight: `2px solid ${accent}`, borderRadius: '0 0 3px 0' }} />
 
       {logoUrl && (
-        <img src={logoUrl} alt="logo" style={{ height: 24, objectFit: 'contain', marginBottom: 6, filter: 'brightness(0) invert(1)' }} />
+        <img src={logoUrl} alt={t('auto.logo', 'logo')} style={{ height: 24, objectFit: 'contain', marginBottom: 6, filter: 'brightness(0) invert(1)' }} />
       )}
       <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 12, fontWeight: 900, color: '#ffffff', textAlign: 'center', margin: '0 0 2px', letterSpacing: '0.02em', lineHeight: 1.2 }}>
         {restaurant.name}

@@ -489,7 +489,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                                 className="w-full py-3.5 rounded-[1.25rem] font-black uppercase text-xs tracking-[0.15em] transition-all active:scale-[0.98] shadow-xl"
                                 style={{ background: 'var(--gradient-brand)', color: 'var(--brand-contrast, #fff)' }}
                             >
-                                {t('publicMenu.addToCart', 'Add to Cart')} &mdash; {formatEuro(
+                                {t('publicMenu.addToCart', 'Add to Cart')} {t('auto.Mdash', '&mdash;')}{formatEuro(
                                     item.price +
                                     Object.values(selectedOptions).reduce((sum, c) => sum + (c.priceModifier || 0), 0),
                                 )}

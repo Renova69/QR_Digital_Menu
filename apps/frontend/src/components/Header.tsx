@@ -46,8 +46,7 @@ const Header: React.FC = () => {
               <QrCode className="w-4 h-4 text-white" />
             </div>
             <span className="text-sm font-display font-bold tracking-tight brand-gradient-text">
-              QR MENU
-            </span>
+              {t('auto.qRMENU', 'QR MENU')}</span>
           </Link>
 
           {/* Center nav (desktop) */}

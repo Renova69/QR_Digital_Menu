@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getAdminLegalSettings, updateAdminLegalSettings } from "../../lib/api";
 import * as Switch from "@radix-ui/react-switch";
 import { ShieldCheck, ToggleLeft, Clock, FileText, User, CheckCircle2, AlertCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 type LocaleKey = "en" | "bg" | "ro";
 const LOCALES: { key: LocaleKey; label: string }[] = [
@@ -12,6 +13,7 @@ const LOCALES: { key: LocaleKey; label: string }[] = [
 ];
 
 function SectionCard({ title, icon: Icon, children, faded }: { title: string; icon: React.ElementType; children: React.ReactNode; faded?: boolean }) {
+    const { t } = useTranslation();
   return (
     <div className={`bg-slate-900 border border-slate-800 rounded-xl overflow-hidden transition-opacity ${faded ? "opacity-50 pointer-events-none" : ""}`}>
       <div className="px-5 py-4 border-b border-slate-800 flex items-center gap-2.5">
@@ -34,6 +36,7 @@ function LocaleTextEditor({
   onChange: (val: Record<string, string>) => void;
   disabled: boolean;
 }) {
+    const { t } = useTranslation();
   const [activeLocale, setActiveLocale] = useState<LocaleKey>("en");
   const current = value ?? {};
 
@@ -81,6 +84,7 @@ function ToggleRow({
   onChange: (v: boolean) => void;
   disabled?: boolean;
 }) {
+    const { t } = useTranslation();
   return (
     <div className="flex items-center justify-between py-3.5 border-b border-slate-800/60 last:border-0 gap-4">
       <div className="min-w-0">
@@ -102,6 +106,7 @@ function ToggleRow({
 }
 
 export default function LegalSettingsPage() {
+    const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -159,28 +164,26 @@ export default function LegalSettingsPage() {
     <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
       {/* Page header */}
       <div>
-        <h2 className="text-2xl font-bold text-white tracking-tight">Legal & GDPR</h2>
+        <h2 className="text-2xl font-bold text-white tracking-tight">{t('auto.legalGDPR', 'Legal & GDPR')}</h2>
         <p className="text-slate-500 text-sm mt-1">
-          Control GDPR features and manage all legal copy — no redeployment needed.
-        </p>
+          {t('auto.controlGDPRFeaturesAndManageAllLeg', 'Control GDPR features and manage all legal copy — no redeployment needed.')}</p>
       </div>
 
       {/* Master switch */}
       <div className="bg-slate-900 border border-emerald-500/15 rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-800 flex items-center gap-2.5">
           <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <h3 className="text-sm font-semibold text-slate-200">Master Switch</h3>
+          <h3 className="text-sm font-semibold text-slate-200">{t('auto.masterSwitch', 'Master Switch')}</h3>
           {gdprOn && (
             <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-              Active
-            </span>
+              {t('auto.active', 'Active')}</span>
           )}
         </div>
         <div className="px-5 pt-1 pb-1">
           <ToggleRow
-            label="GDPR Enabled"
-            description="Master kill-switch. Disabling this hides all GDPR features from users."
+            label={t('auto.gDPREnabled', 'GDPR Enabled')}
+            description={t('auto.masterKillSwitchDisablingThisHides', 'Master kill-switch. Disabling this hides all GDPR features from users.')}
             checked={!!merged.gdprEnabled}
             onChange={(v) => set("gdprEnabled", v)}
           />
@@ -188,49 +191,49 @@ export default function LegalSettingsPage() {
       </div>
 
       {/* Feature toggles */}
-      <SectionCard title="Feature Toggles" icon={ToggleLeft} faded={!gdprOn}>
+      <SectionCard title={t('auto.featureToggles', 'Feature Toggles')} icon={ToggleLeft} faded={!gdprOn}>
         <ToggleRow
-          label="Cookie Banner"
-          description="Shows the cookie consent notice to visitors."
+          label={t('auto.cookieBanner', 'Cookie Banner')}
+          description={t('auto.showsTheCookieConsentNoticeToVisit', 'Shows the cookie consent notice to visitors.')}
           checked={!!merged.cookieBannerEnabled}
           onChange={(v) => set("cookieBannerEnabled", v)}
           disabled={!gdprOn}
         />
         <ToggleRow
-          label="Privacy Policy page (/privacy)"
+          label={t('auto.privacyPolicyPagePrivacy', 'Privacy Policy page (/privacy)')}
           checked={!!merged.privacyPolicyEnabled}
           onChange={(v) => set("privacyPolicyEnabled", v)}
           disabled={!gdprOn}
         />
         <ToggleRow
-          label="Terms of Service page (/terms)"
+          label={t('auto.termsOfServicePageTerms', 'Terms of Service page (/terms)')}
           checked={!!merged.termsEnabled}
           onChange={(v) => set("termsEnabled", v)}
           disabled={!gdprOn}
         />
         <ToggleRow
-          label="Cookie Policy page (/cookies)"
+          label={t('auto.cookiePolicyPageCookies', 'Cookie Policy page (/cookies)')}
           checked={!!merged.cookiePolicyEnabled}
           onChange={(v) => set("cookiePolicyEnabled", v)}
           disabled={!gdprOn}
         />
         <ToggleRow
-          label="Account Deletion endpoint (Art. 17)"
-          description="Lets users permanently delete their account and data."
+          label={t('auto.accountDeletionEndpointArt17', 'Account Deletion endpoint (Art. 17)')}
+          description={t('auto.letsUsersPermanentlyDeleteTheirAcco', 'Lets users permanently delete their account and data.')}
           checked={!!merged.erasureEndpointEnabled}
           onChange={(v) => set("erasureEndpointEnabled", v)}
           disabled={!gdprOn}
         />
         <ToggleRow
-          label="Data Export endpoint (Art. 20)"
-          description="Lets users download all their personal data as JSON."
+          label={t('auto.dataExportEndpointArt20', 'Data Export endpoint (Art. 20)')}
+          description={t('auto.letsUsersDownloadAllTheirPersonalD', 'Lets users download all their personal data as JSON.')}
           checked={!!merged.dataExportEndpointEnabled}
           onChange={(v) => set("dataExportEndpointEnabled", v)}
           disabled={!gdprOn}
         />
         <ToggleRow
-          label="Automated Retention Cleanup"
-          description="Daily cron that anonymises expired PII based on retention windows below."
+          label={t('auto.automatedRetentionCleanup', 'Automated Retention Cleanup')}
+          description={t('auto.dailyCronThatAnonymisesExpiredPIIB', 'Daily cron that anonymises expired PII based on retention windows below.')}
           checked={!!merged.retentionCronEnabled}
           onChange={(v) => set("retentionCronEnabled", v)}
           disabled={!gdprOn}
@@ -238,12 +241,11 @@ export default function LegalSettingsPage() {
       </SectionCard>
 
       {/* Retention windows */}
-      <SectionCard title="Retention Windows" icon={Clock}>
+      <SectionCard title={t('auto.retentionWindows', 'Retention Windows')} icon={Clock}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2">
-              Order PII retention (years, 0–50)
-            </label>
+              {t('auto.orderPIIRetentionYears050', 'Order PII retention (years, 0–50)')}</label>
             <input
               type="number"
               min={0}
@@ -255,8 +257,7 @@ export default function LegalSettingsPage() {
           </div>
           <div>
             <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2">
-              Verification token TTL (days, 1–365)
-            </label>
+              {t('auto.verificationTokenTTLDays1365', 'Verification token TTL (days, 1–365)')}</label>
             <input
               type="number"
               min={1}
@@ -270,31 +271,30 @@ export default function LegalSettingsPage() {
       </SectionCard>
 
       {/* Localised content */}
-      <SectionCard title="Localised Content" icon={FileText} faded={!gdprOn}>
+      <SectionCard title={t('auto.localisedContent', 'Localised Content')} icon={FileText} faded={!gdprOn}>
         <p className="text-xs text-slate-500 mb-5">
-          Plain text or Markdown. Public pages render Markdown. Tabs switch between EN / BG / RO locales.
-        </p>
+          {t('auto.plainTextOrMarkdownPublicPagesRen', 'Plain text or Markdown. Public pages render Markdown. Tabs switch between EN / BG / RO locales.')}</p>
         <div className="space-y-6">
           <LocaleTextEditor
-            label="Cookie Banner Text"
+            label={t('auto.cookieBannerText', 'Cookie Banner Text')}
             value={merged.cookieBannerText as Record<string, string>}
             onChange={(v) => set("cookieBannerText", v)}
             disabled={!gdprOn}
           />
           <LocaleTextEditor
-            label="Privacy Policy Content"
+            label={t('auto.privacyPolicyContent', 'Privacy Policy Content')}
             value={merged.privacyPolicyContent as Record<string, string>}
             onChange={(v) => set("privacyPolicyContent", v)}
             disabled={!gdprOn}
           />
           <LocaleTextEditor
-            label="Terms of Service Content"
+            label={t('auto.termsOfServiceContent', 'Terms of Service Content')}
             value={merged.termsContent as Record<string, string>}
             onChange={(v) => set("termsContent", v)}
             disabled={!gdprOn}
           />
           <LocaleTextEditor
-            label="Cookie Policy Content"
+            label={t('auto.cookiePolicyContent', 'Cookie Policy Content')}
             value={merged.cookiePolicyContent as Record<string, string>}
             onChange={(v) => set("cookiePolicyContent", v)}
             disabled={!gdprOn}
@@ -303,7 +303,7 @@ export default function LegalSettingsPage() {
       </SectionCard>
 
       {/* Data controller */}
-      <SectionCard title="Data Controller" icon={User}>
+      <SectionCard title={t('auto.dataController', 'Data Controller')} icon={User}>
         <div className="space-y-4">
           {(
             [
@@ -338,7 +338,7 @@ export default function LegalSettingsPage() {
         </button>
 
         {!hasChanges && !successMsg && !errorMsg && (
-          <span className="text-xs text-slate-600">No unsaved changes</span>
+          <span className="text-xs text-slate-600">{t('auto.noUnsavedChanges', 'No unsaved changes')}</span>
         )}
 
         {successMsg && (

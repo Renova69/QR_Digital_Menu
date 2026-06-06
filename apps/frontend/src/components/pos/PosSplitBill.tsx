@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface PosSplitBillProps {
   total: number;
 }
 
 export default function PosSplitBill({ total }: PosSplitBillProps) {
+    const { t } = useTranslation();
   const [splitCount, setSplitCount] = useState(1);
 
   const perPerson =
@@ -13,7 +15,7 @@ export default function PosSplitBill({ total }: PosSplitBillProps) {
   return (
     <div className="p-4 border-t border-border">
       <div className="flex items-center gap-3">
-        <span className="text-sm font-medium text-foreground">Split:</span>
+        <span className="text-sm font-medium text-foreground">{t('auto.split', 'Split:')}</span>
         <button
           type="button"
           onClick={() => setSplitCount(Math.max(1, splitCount - 1))}
@@ -32,8 +34,7 @@ export default function PosSplitBill({ total }: PosSplitBillProps) {
           +
         </button>
         <span className="ml-auto text-lg font-bold text-primary">
-          €{perPerson.toFixed(2)} / person
-        </span>
+          €{perPerson.toFixed(2)} {t('auto.Person', '/ person')}</span>
       </div>
     </div>
   );

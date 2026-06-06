@@ -187,7 +187,7 @@ export default function UpgradeModal({ feature, onClose }: Props) {
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">{key}</p>
                 <div className="flex items-end gap-1 mb-3">
                   <span className="text-2xl font-black text-foreground">€{price.toFixed(2)}</span>
-                  <span className="text-xs text-muted-foreground pb-1">/mo</span>
+                  <span className="text-xs text-muted-foreground pb-1">{t('auto.Mo', '/mo')}</span>
                 </div>
 
                 <ul className="flex-1 space-y-1.5 mb-4">

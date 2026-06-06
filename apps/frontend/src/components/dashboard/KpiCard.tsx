@@ -1,4 +1,5 @@
 import { TrendingUp, TrendingDown, Minus, LucideIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface KpiCardProps {
   label: string;
@@ -10,11 +11,13 @@ interface KpiCardProps {
   locked?: boolean;
 }
 
-const KpiCard = ({ label, value, Icon, change, comparisonLabel, detail, locked }: KpiCardProps) => (
+const KpiCard = ({ label, value, Icon, change, comparisonLabel, detail, locked }: KpiCardProps) => {
+  const { t } = useTranslation();
+  return (
   <div className="kpi-tile group hover:shadow-[0_12px_40px_-8px_hsl(265_95%_70%/0.3)] hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden">
     {locked && (
       <div className="absolute inset-0 z-20 bg-background/60 backdrop-blur-[2px] flex items-center justify-center rounded-[1.2rem]">
-        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Upgrade</span>
+        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t('auto.upgrade', 'Upgrade')}</span>
       </div>
     )}
     <div className="relative z-10">
@@ -40,16 +43,17 @@ const KpiCard = ({ label, value, Icon, change, comparisonLabel, detail, locked }
             </span>
           </div>
           {comparisonLabel && (
-            <p className="text-[10px] text-muted-foreground pl-[18px]">vs {comparisonLabel}</p>
+            <p className="text-[10px] text-muted-foreground pl-[18px]">{t('auto.vs', 'vs')} {comparisonLabel}</p>
           )}
         </div>
       ) : comparisonLabel ? (
-        <p className="text-[10px] text-muted-foreground">vs {comparisonLabel}</p>
+        <p className="text-[10px] text-muted-foreground">{t('auto.vs', 'vs')} {comparisonLabel}</p>
       ) : detail ? (
         <p className="text-[10px] text-muted-foreground">{detail}</p>
       ) : null}
     </div>
   </div>
 );
+};
 
 export default KpiCard;

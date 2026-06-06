@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal } from '../ui/modal';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -50,6 +51,7 @@ const PRESETS = {
 };
 
 export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, open, onOpenChange }) => {
+    const { t } = useTranslation();
     const [options, setOptions] = useState<MenuOption[]>(item.options || []);
     
     // New Option State
@@ -150,31 +152,31 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
     };
 
     return (
-        <Modal open={open} onOpenChange={onOpenChange} title={`Options: ${item.name}`}>
+        <Modal open={open} onOpenChange={onOpenChange} title={`${t('menu.options', 'Options:')} ${item.name}`}>
             <div className="max-w-2xl w-full">
-                <h2 className="text-2xl font-display font-bold mb-6">Options: <span className="text-primary">{item.name}</span></h2>
+                <h2 className="text-2xl font-display font-bold mb-6">{t('menu.options', 'Options:')} <span className="text-primary">{item.name}</span></h2>
                 
                 {/* Existing Options */}
                 <div className="space-y-4 mb-8">
                     {options.length === 0 && !isAdding && (
                         <div className="text-center p-8 bg-secondary/30 rounded-xl border border-dashed border-border">
-                            <p className="text-muted-foreground mb-5">No options configured for this item yet.</p>
+                            <p className="text-muted-foreground mb-5">{t('auto.noOptionsConfiguredForThisItemYet', 'No options configured for this item yet.')}</p>
                             <div className="flex items-center justify-center mb-3">
-                                <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Quick Templates</h3>
+                                <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">{t('menu.quickTemplates', 'Quick Templates')}</h3>
                             </div>
                             <div className="flex flex-wrap justify-center gap-3 mb-5">
                                 <Button variant="outline" size="sm" onClick={() => handleApplyPreset('SIZE')} className="gap-2 border-primary/30 hover:border-primary">
-                                    <Wand2 className="w-3 h-3 text-primary" /> Size
+                                    <Wand2 className="w-3 h-3 text-primary" /> {t('menu.size', 'Size')}
                                 </Button>
                                 <Button variant="outline" size="sm" onClick={() => handleApplyPreset('DONENESS')} className="gap-2 border-primary/30 hover:border-primary">
-                                    <Wand2 className="w-3 h-3 text-primary" /> Doneness
+                                    <Wand2 className="w-3 h-3 text-primary" /> {t('menu.doneness', 'Doneness')}
                                 </Button>
                                 <Button variant="outline" size="sm" onClick={() => handleApplyPreset('QUANTITY')} className="gap-2 border-primary/30 hover:border-primary">
-                                    <Wand2 className="w-3 h-3 text-primary" /> Quantity
+                                    <Wand2 className="w-3 h-3 text-primary" /> {t('menu.quantity', 'Quantity')}
                                 </Button>
                             </div>
                             <Button onClick={() => { setIsAdding(true); setEditingId(null); }} variant="outline" className="gap-2">
-                                <Plus className="w-4 h-4" /> Create Custom Option
+                                <Plus className="w-4 h-4" /> {t('menu.createCustomOption', 'Create Custom Option')}
                             </Button>
                         </div>
                     )}
@@ -228,34 +230,34 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
 
                         <div className="grid grid-cols-2 gap-4 mb-6">
                             <div>
-                                <label className="block text-sm font-medium text-muted-foreground mb-1">Option Name</label>
-                                <Input placeholder="e.g., Size, Doneness, Extras" value={newOptionName} onChange={e => setNewOptionName(e.target.value)} />
+                                <label className="block text-sm font-medium text-muted-foreground mb-1">{t('auto.optionName', 'Option Name')}</label>
+                                <Input placeholder={t('auto.eGSizeDonenessExtras', 'e.g., Size, Doneness, Extras')} value={newOptionName} onChange={e => setNewOptionName(e.target.value)} />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-muted-foreground mb-1">Type</label>
+                                <label className="block text-sm font-medium text-muted-foreground mb-1">{t('auto.type', 'Type')}</label>
                                 <select 
                                     value={newOptionType} 
                                     onChange={e => setNewOptionType(e.target.value as OptionType)} 
                                     className="w-full h-10 px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
                                 >
-                                    <option value="VARIATION">Variation (Customer chooses one)</option>
-                                    <option value="ADDON">Add-on (Customer can choose multiple)</option>
+                                    <option value="VARIATION">{t('auto.variationCustomerChoosesOne', 'Variation (Customer chooses one)')}</option>
+                                    <option value="ADDON">{t('auto.addOnCustomerCanChooseMultiple', 'Add-on (Customer can choose multiple)')}</option>
                                 </select>
                             </div>
                         </div>
 
                         <div className="space-y-3 mb-6">
                             <div className="flex items-center justify-between">
-                                <label className="block text-sm font-medium text-muted-foreground">Choices</label>
+                                <label className="block text-sm font-medium text-muted-foreground">{t('auto.choices', 'Choices')}</label>
                             </div>
                             
                             {choices.map((choice, index) => (
                                 <div key={index} className="flex items-center gap-3">
                                     <div className="flex-1">
-                                        <Input 
-                                            placeholder="Choice name (e.g., Small, Rare)" 
-                                            value={choice.name} 
-                                            onChange={e => handleChoiceChange(index, 'name', e.target.value)} 
+                                        <Input
+                                            placeholder={t('auto.choiceNameEGSmallRare', 'Choice name (e.g., Small, Rare)')}
+                                            value={choice.name}
+                                            onChange={e => handleChoiceChange(index, 'name', e.target.value)}
                                         />
                                     </div>
                                     <div className="w-32 relative">
@@ -281,8 +283,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
                             ))}
 
                             <Button type="button" variant="outline" size="sm" onClick={handleAddChoiceRow} className="mt-2 text-xs gap-1">
-                                <Plus className="w-3 h-3" /> Add Choice
-                            </Button>
+                                <Plus className="w-3 h-3" /> {t('auto.addChoice', 'Add Choice')}</Button>
                         </div>
 
                         <div className="flex flex-col gap-3 pt-4 border-t border-border">
@@ -292,7 +293,7 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
                                 </div>
                             )}
                             <div className="flex justify-end gap-3">
-                                <Button variant="ghost" onClick={() => { setIsAdding(false); setEditingId(null); }}>Cancel</Button>
+                                <Button variant="ghost" onClick={() => { setIsAdding(false); setEditingId(null); }}>{t('auto.cancel', 'Cancel')}</Button>
                                 <Button onClick={handleSaveOption} disabled={isSaving || !newOptionName.trim()}>
                                     {isSaving ? 'Saving...' : editingId ? 'Update Option' : 'Save Option'}
                                 </Button>
@@ -302,21 +303,21 @@ export const ManageOptionsModal: React.FC<ManageOptionsModalProps> = ({ item, op
                 ) : options.length > 0 && (
                     <div>
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Quick Templates</h3>
+                            <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">{t('menu.quickTemplates', 'Quick Templates')}</h3>
                         </div>
                         <div className="flex flex-wrap gap-3 mb-6">
                             <Button variant="outline" size="sm" onClick={() => handleApplyPreset('SIZE')} className="gap-2 border-primary/30 hover:border-primary">
-                                <Wand2 className="w-3 h-3 text-primary" /> Size Template
+                                <Wand2 className="w-3 h-3 text-primary" /> {t('menu.sizeTemplate', 'Size Template')}
                             </Button>
                             <Button variant="outline" size="sm" onClick={() => handleApplyPreset('DONENESS')} className="gap-2 border-primary/30 hover:border-primary">
-                                <Wand2 className="w-3 h-3 text-primary" /> Doneness Template
+                                <Wand2 className="w-3 h-3 text-primary" /> {t('menu.donenessTemplate', 'Doneness Template')}
                             </Button>
                             <Button variant="outline" size="sm" onClick={() => handleApplyPreset('QUANTITY')} className="gap-2 border-primary/30 hover:border-primary">
-                                <Wand2 className="w-3 h-3 text-primary" /> Quantity Template
+                                <Wand2 className="w-3 h-3 text-primary" /> {t('menu.quantityTemplate', 'Quantity Template')}
                             </Button>
                         </div>
                         <Button onClick={() => { setIsAdding(true); setEditingId(null); }} className="w-full gap-2">
-                            <Plus className="w-4 h-4" /> Create Custom Option
+                            <Plus className="w-4 h-4" /> {t('menu.createCustomOption', 'Create Custom Option')}
                         </Button>
                     </div>
                 )}

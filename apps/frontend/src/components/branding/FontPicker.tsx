@@ -169,8 +169,7 @@ export const FontPicker: React.FC<FontPickerProps> = ({
                             {font.name}
                           </span>
                           <span style={{ fontFamily: font.name }} className="text-xs opacity-50 block">
-                            Aa Bb 123
-                          </span>
+                            {t('auto.aaBb123', 'Aa Bb 123')}</span>
                         </div>
                         <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
                           {isPair && isHeading && (

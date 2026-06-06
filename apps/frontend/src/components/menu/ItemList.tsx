@@ -173,7 +173,7 @@ const ItemRow = ({ item, onDelete, onOpenOptions, onToggleFeatured, isConfirming
               variant="ghost"
               size="icon"
               className={`h-8 w-8 ${item.isFeatured ? 'text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50' : 'text-muted-foreground hover:text-yellow-500'}`}
-              title="Feature Item"
+              title={t('auto.featureItem', 'Feature Item')}
               onClick={() => onToggleFeatured(item)}
             >
               <Star className="h-4 w-4" fill={item.isFeatured ? 'currentColor' : 'none'} />

@@ -15,6 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import { getSuperAdminStats } from "../../lib/api";
+import { useTranslation } from "react-i18next";
 
 const TIER_ORDER = ["FREE", "STARTER", "PROFESSIONAL", "ENTERPRISE"] as const;
 
@@ -56,6 +57,7 @@ function StatCard({
   tone: string;
   helper?: string;
 }) {
+    const { t } = useTranslation();
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
       <div className="flex items-start gap-3">
@@ -73,6 +75,7 @@ function StatCard({
 }
 
 function TierBadge({ tier }: { tier: string }) {
+    const { t } = useTranslation();
   return (
     <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-bold ${TIER_STYLES[tier] ?? TIER_STYLES.FREE}`}>
       {tier}
@@ -81,14 +84,15 @@ function TierBadge({ tier }: { tier: string }) {
 }
 
 function TierComparison({ billing, effective }: { billing: TierCounts; effective: TierCounts }) {
+    const { t } = useTranslation();
   const max = maxTierCount(billing, effective);
 
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900 p-5">
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-white">Billing vs Effective Tier</h3>
-          <p className="mt-1 text-xs text-slate-500">Billing is Stripe/base tier. Effective is force tier applied.</p>
+          <h3 className="text-sm font-semibold text-white">{t('auto.billingVsEffectiveTier', 'Billing vs Effective Tier')}</h3>
+          <p className="mt-1 text-xs text-slate-500">{t('auto.billingIsStripeBaseTierEffectiveI', 'Billing is Stripe/base tier. Effective is force tier applied.')}</p>
         </div>
         <CreditCard className="h-4 w-4 shrink-0 text-slate-500" />
       </div>
@@ -106,14 +110,14 @@ function TierComparison({ billing, effective }: { billing: TierCounts; effective
                   style={{ width: `${Math.max(4, (billingCount / max) * 100)}%` }}
                 />
               </div>
-              <span className="text-xs text-slate-400 tabular-nums md:text-right">Billing {billingCount}</span>
+              <span className="text-xs text-slate-400 tabular-nums md:text-right">{t('auto.billing', 'Billing')}{billingCount}</span>
               <div className="h-2 rounded-full bg-slate-800">
                 <div
                   className="h-2 rounded-full bg-emerald-400"
                   style={{ width: `${Math.max(4, (effectiveCount / max) * 100)}%` }}
                 />
               </div>
-              <span className="text-xs text-slate-400 tabular-nums md:text-right">Live {effectiveCount}</span>
+              <span className="text-xs text-slate-400 tabular-nums md:text-right">{t('auto.live', 'Live')}{effectiveCount}</span>
             </div>
           );
         })}
@@ -131,42 +135,42 @@ function OverrideSummary({
   upgrades: number;
   downgrades: number;
 }) {
+    const { t } = useTranslation();
   const neutral = Math.max(0, total - upgrades - downgrades);
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900 p-5">
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-white">Force Tier Overrides</h3>
-          <p className="mt-1 text-xs text-slate-500">Manual access changes that bypass billing tier.</p>
+          <h3 className="text-sm font-semibold text-white">{t('auto.forceTierOverrides', 'Force Tier Overrides')}</h3>
+          <p className="mt-1 text-xs text-slate-500">{t('auto.manualAccessChangesThatBypassBillin', 'Manual access changes that bypass billing tier.')}</p>
         </div>
         <ShieldAlert className="h-4 w-4 shrink-0 text-amber-400" />
       </div>
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
-          <p className="text-xs text-slate-500">Total</p>
+          <p className="text-xs text-slate-500">{t('auto.total', 'Total')}</p>
           <p className="mt-1 text-2xl font-bold text-white tabular-nums">{total}</p>
         </div>
         <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
           <div className="flex items-center gap-1 text-xs text-emerald-300">
             <ArrowUpRight className="h-3.5 w-3.5" />
-            Upgrades
-          </div>
+            {t('auto.upgrades', 'Upgrades')}</div>
           <p className="mt-1 text-2xl font-bold text-white tabular-nums">{upgrades}</p>
         </div>
         <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3">
           <div className="flex items-center gap-1 text-xs text-red-300">
             <ArrowDownRight className="h-3.5 w-3.5" />
-            Downgrades
-          </div>
+            {t('auto.downgrades', 'Downgrades')}</div>
           <p className="mt-1 text-2xl font-bold text-white tabular-nums">{downgrades}</p>
         </div>
       </div>
-      {neutral > 0 && <p className="mt-3 text-xs text-slate-500">{neutral} override keeps the same effective tier.</p>}
+      {neutral > 0 && <p className="mt-3 text-xs text-slate-500">{neutral} {t('auto.overrideKeepsTheSameEffectiveTier', 'override keeps the same effective tier.')}</p>}
     </div>
   );
 }
 
 function AttentionPanel({ stats }: { stats: NonNullable<Awaited<ReturnType<typeof getSuperAdminStats>>["attentionNeeded"]> }) {
+    const { t } = useTranslation();
   const rows = [
     { key: "forcedOverrides", label: "Forced tier overrides", tone: "text-amber-300" },
     { key: "paymentsNotOnboarded", label: "Payments enabled, Stripe missing", tone: "text-red-300" },
@@ -179,8 +183,8 @@ function AttentionPanel({ stats }: { stats: NonNullable<Awaited<ReturnType<typeo
     <div className="rounded-lg border border-slate-800 bg-slate-900 p-5">
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-white">Attention Needed</h3>
-          <p className="mt-1 text-xs text-slate-500">Tenants worth checking before they become support work.</p>
+          <h3 className="text-sm font-semibold text-white">{t('auto.attentionNeeded', 'Attention Needed')}</h3>
+          <p className="mt-1 text-xs text-slate-500">{t('auto.tenantsWorthCheckingBeforeTheyBecom', 'Tenants worth checking before they become support work.')}</p>
         </div>
         <ListChecks className="h-4 w-4 shrink-0 text-slate-500" />
       </div>
@@ -214,7 +218,7 @@ function AttentionPanel({ stats }: { stats: NonNullable<Awaited<ReturnType<typeo
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-slate-600">All clear</p>
+                <p className="text-xs text-slate-600">{t('auto.allClear', 'All clear')}</p>
               )}
             </div>
           );
@@ -225,6 +229,7 @@ function AttentionPanel({ stats }: { stats: NonNullable<Awaited<ReturnType<typeo
 }
 
 export default function OverviewPage() {
+    const { t } = useTranslation();
   const { data, isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: ["super-admin", "stats"],
     queryFn: getSuperAdminStats,
@@ -252,8 +257,8 @@ export default function OverviewPage() {
     return (
       <div className="flex flex-col items-center justify-center py-24">
         <AlertTriangle className="mb-3 h-10 w-10 text-slate-700" />
-        <p className="font-medium text-slate-400">Failed to load platform stats</p>
-        <p className="mt-1 text-sm text-slate-600">Check your connection and try again</p>
+        <p className="font-medium text-slate-400">{t('auto.failedToLoadPlatformStats', 'Failed to load platform stats')}</p>
+        <p className="mt-1 text-sm text-slate-600">{t('auto.checkYourConnectionAndTryAgain', 'Check your connection and try again')}</p>
       </div>
     );
   }
@@ -272,8 +277,8 @@ export default function OverviewPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white">Overview</h2>
-          <p className="mt-1 text-sm text-slate-500">Platform health, tier access, and tenant risks</p>
+          <h2 className="text-2xl font-bold text-white">{t('auto.overview', 'Overview')}</h2>
+          <p className="mt-1 text-sm text-slate-500">{t('auto.platformHealthTierAccessAndTenant', 'Platform health, tier access, and tenant risks')}</p>
         </div>
         <button
           onClick={() => refetch()}
@@ -287,28 +292,28 @@ export default function OverviewPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Restaurants"
+          label={t('auto.restaurants', 'Restaurants')}
           value={data.totalRestaurants}
           icon={Building2}
           tone="border-blue-500/20 bg-blue-500/10 text-blue-300"
           helper={`${data.activeRestaurants} active, ${data.deletedRestaurants} deleted`}
         />
         <StatCard
-          label="Users"
+          label={t('auto.users', 'Users')}
           value={data.totalUsers}
           icon={Users}
           tone="border-violet-500/20 bg-violet-500/10 text-violet-300"
           helper={`${ownerCount} owners, ${staffCount} staff, ${customerCount} customers`}
         />
         <StatCard
-          label="Paid Plan Tenants"
+          label={t('auto.paidPlanTenants', 'Paid Plan Tenants')}
           value={data.paidPlanTenants}
           icon={CreditCard}
           tone="border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
           helper={`${data.stripeLinkedSubscriptions} Stripe subscriptions linked`}
         />
         <StatCard
-          label="Suspended"
+          label={t('auto.suspended', 'Suspended')}
           value={data.suspendedCount}
           icon={AlertTriangle}
           tone="border-amber-500/20 bg-amber-500/10 text-amber-300"
@@ -327,28 +332,28 @@ export default function OverviewPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="New Restaurants"
+          label={t('auto.newRestaurants', 'New Restaurants')}
           value={data.recent.restaurants7d}
           icon={DoorOpen}
           tone="border-cyan-500/20 bg-cyan-500/10 text-cyan-300"
           helper="Last 7 days"
         />
         <StatCard
-          label="New Users"
+          label={t('auto.newUsers', 'New Users')}
           value={data.recent.users7d}
           icon={Users}
           tone="border-indigo-500/20 bg-indigo-500/10 text-indigo-300"
           helper="Last 7 days"
         />
         <StatCard
-          label="Orders"
+          label={t('auto.orders', 'Orders')}
           value={data.recent.orders7d}
           icon={CheckCircle2}
           tone="border-lime-500/20 bg-lime-500/10 text-lime-300"
           helper={`${data.recent.orders24h} in the last 24h`}
         />
         <StatCard
-          label="Payment Volume"
+          label={t('auto.paymentVolume', 'Payment Volume')}
           value={formatMoney(data.recent.payments7d.amount)}
           icon={CreditCard}
           tone="border-pink-500/20 bg-pink-500/10 text-pink-300"

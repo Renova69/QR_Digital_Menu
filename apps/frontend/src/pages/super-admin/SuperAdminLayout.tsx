@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet, NavLink } from "react-router-dom";
 import { LayoutDashboard, Building2, LogOut, Menu, X, ShieldCheck, Shield, MessageCircleQuestion } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useTranslation } from "react-i18next";
 
 const NAV_ITEMS = [
   { to: "/super-admin", icon: LayoutDashboard, label: "Overview", end: true },
@@ -11,6 +12,7 @@ const NAV_ITEMS = [
 ];
 
 function SidebarContent({ onClose }: { onClose: () => void }) {
+    const { t } = useTranslation();
   const { user, logout } = useAuth();
 
   return (
@@ -26,8 +28,8 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
             <Shield className="w-4 h-4 text-red-400" />
           </div>
           <div>
-            <p className="text-sm font-bold text-white leading-none tracking-tight">QR Menu Admin</p>
-            <p className="text-[10px] text-white/40 mt-0.5 uppercase tracking-widest font-medium">Platform Control</p>
+            <p className="text-sm font-bold text-white leading-none tracking-tight">{t('auto.qRMenuAdmin', 'QR Menu Admin')}</p>
+            <p className="text-[10px] text-white/40 mt-0.5 uppercase tracking-widest font-medium">{t('auto.platformControl', 'Platform Control')}</p>
           </div>
         </div>
         <button
@@ -87,14 +89,14 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
           className="flex items-center gap-2 text-xs text-white/40 hover:text-white/70 transition-colors"
         >
           <LogOut className="w-3.5 h-3.5" />
-          Sign out
-        </button>
+          {t('auto.signOut', 'Sign out')}</button>
       </div>
     </aside>
   );
 }
 
 export default function SuperAdminLayout() {
+    const { t } = useTranslation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -130,7 +132,7 @@ export default function SuperAdminLayout() {
           </button>
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-red-400" />
-            <span className="text-sm font-bold text-white">QR Menu Admin</span>
+            <span className="text-sm font-bold text-white">{t('auto.qRMenuAdmin', 'QR Menu Admin')}</span>
           </div>
         </div>
 

@@ -80,24 +80,24 @@ function formatOrderCode(id: string) {
   return `#${id.slice(-6).toUpperCase()}`;
 }
 
-function formatTime(value?: string) {
+function formatTime(value?: string, locale: string = 'en-US') {
   if (!value) return null;
-  return new Date(value).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return new Date(value).toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
 }
 
-function formatDate(value?: string) {
+function formatDate(value?: string, locale: string = 'en-US') {
   if (!value) return null;
-  return new Date(value).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(value).toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function getElapsedLabel(value?: string) {
+function getElapsedLabel(value: string | undefined, t: any) {
   if (!value) return null;
   const diffMinutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
-  if (diffMinutes < 1) return 'just now';
-  if (diffMinutes === 1) return '1 min ago';
-  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+  if (diffMinutes < 1) return t('auto.justNow', 'just now');
+  if (diffMinutes === 1) return t('auto.1MinAgo', '1 min ago');
+  if (diffMinutes < 60) return t('auto.minAgo', '{{min}} min ago', { min: diffMinutes });
   const hours = Math.floor(diffMinutes / 60);
-  return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+  return hours === 1 ? t('auto.1HourAgo', '1 hour ago') : t('auto.hoursAgo', '{{hours}} hours ago', { hours });
 }
 
 function getSpecialRequestRows(requests?: string | null) {
@@ -125,12 +125,12 @@ function SourceBadge({
   staffName?: string | null;
   staffRole?: string | null;
 }) {
+  const { t, i18n } = useTranslation();
   if (!source) return null;
   if (source === 'CUSTOMER') {
     return (
       <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
-        QR
-      </span>
+        {t('auto.qR', 'QR')}</span>
     );
   }
 
@@ -138,12 +138,13 @@ function SourceBadge({
   // flattened staffName/staffRole fields.
   const roleStr = staff?.role ? String(staff.role) : (staffRole ? String(staffRole) : '');
   const roleName = roleStr ? roleStr.charAt(0).toUpperCase() + roleStr.slice(1).toLowerCase() : 'Staff';
+  const translatedRole = roleStr ? t(`roles.${roleStr.toLowerCase()}`, roleName) : t('roles.staff', 'Staff');
   const rawName = staff?.name ?? staff?.email ?? staffName ?? '';
   const name = rawName ? String(rawName).split(/[ @]/)[0] : 'Staff';
 
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
-      {roleName}: {name}
+      {translatedRole}: {name}
     </span>
   );
 }
@@ -156,7 +157,7 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
   ordersLoading,
   paymentInfo,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   if (!table) return null;
 
@@ -192,14 +193,14 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
                   <span aria-hidden="true">·</span>
                   <span className="flex items-center gap-1.5">
                     <Users className="h-3.5 w-3.5" />
-                    {guestCount || 0} {guestCount === 1 ? 'guest' : 'guests'}
+                    {guestCount || 0} {guestCount === 1 ? t('tables.guest', 'guest') : t('tables.guests', 'guests')}
                   </span>
                   {openedAt && (
                     <>
                       <span aria-hidden="true">·</span>
                       <span className="flex items-center gap-1.5">
                         <Clock className="h-3.5 w-3.5" />
-                        {getElapsedLabel(openedAt)}
+                        {getElapsedLabel(openedAt, t)}
                       </span>
                     </>
                   )}
@@ -224,16 +225,16 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
                   <span className="truncate">{table.customerNames.join(', ')}</span>
                 </div>
               )}
-              {formatDate(firstOrderDate) && (
+              {formatDate(firstOrderDate, i18n.language) && (
                 <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
                   <CalendarDays className="h-4 w-4 text-primary" />
-                  <span>{formatDate(firstOrderDate)}</span>
+                  <span>{formatDate(firstOrderDate, i18n.language)}</span>
                 </div>
               )}
-              {formatTime(firstOrderDate) && (
+              {formatTime(firstOrderDate, i18n.language) && (
                 <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
                   <Clock className="h-4 w-4 text-primary" />
-                  <span>{formatTime(firstOrderDate)}</span>
+                  <span>{formatTime(firstOrderDate, i18n.language)}</span>
                 </div>
               )}
             </div>
@@ -242,8 +243,7 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
           <div className="flex-1 overflow-y-auto px-6 py-5">
             <div className="mb-5">
               <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">
-                Session status
-              </p>
+                {t('auto.sessionStatus', 'Session status')}</p>
               <div className="flex flex-wrap gap-2">
                 {sessionStates.map((state) => {
                   const active = state.value === table.status;
@@ -309,11 +309,11 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
                         </div>
                         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs font-medium text-muted-foreground">
                           {order.customerName && order.source === 'CUSTOMER' && <span>{order.customerName}</span>}
-                          {formatTime(order.createdAt) && <span>{formatTime(order.createdAt)}</span>}
+                          {formatTime(order.createdAt, i18n.language) && <span>{formatTime(order.createdAt, i18n.language)}</span>}
                         </div>
                       </div>
                       <span className="whitespace-nowrap text-xs font-bold text-muted-foreground">
-                        {getElapsedLabel(order.createdAt)}
+                        {getElapsedLabel(order.createdAt, t)}
                       </span>
                     </div>
 
@@ -328,7 +328,7 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
                             )}
                           </div>
                           {typeof item.totalPrice === 'number' && (
-                            <span className="font-bold text-muted-foreground">&euro;{item.totalPrice.toFixed(2)}</span>
+                            <span className="font-bold text-muted-foreground">{t('auto.Euro', '€')}{item.totalPrice.toFixed(2)}</span>
                           )}
                         </div>
                       ))}
@@ -356,7 +356,7 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
 
                     <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
                       <span className="text-sm font-medium text-muted-foreground">{t('orders.total')}</span>
-                      <span className="text-lg font-black text-foreground">&euro;{order.totalPrice.toFixed(2)}</span>
+                      <span className="text-lg font-black text-foreground">{t('auto.Euro', '€')}{order.totalPrice.toFixed(2)}</span>
                     </div>
                   </section>
                 );
@@ -367,8 +367,8 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
           <div className="border-t border-border bg-card px-6 py-4">
             <div className="rounded-xl border border-primary/25 bg-primary/10 px-4 py-3">
               <div className="flex items-center justify-between gap-4">
-                <span className="text-sm font-medium text-muted-foreground">Session total</span>
-                <span className="text-2xl font-black text-primary">&euro;{(table.totalAmount || orders.reduce((sum, order) => sum + order.totalPrice, 0)).toFixed(2)}</span>
+                <span className="text-sm font-medium text-muted-foreground">{t('auto.sessionTotal', 'Session total')}</span>
+                <span className="text-2xl font-black text-primary">{t('auto.Euro', '€')}{(table.totalAmount || orders.reduce((sum, order) => sum + order.totalPrice, 0)).toFixed(2)}</span>
               </div>
             </div>
 
@@ -378,8 +378,8 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
                 <div>
                   <p className="text-xs font-bold text-muted-foreground">{t('payments.paymentReceived')}</p>
                   <p className="text-sm font-black text-foreground">
-                    &euro;{paymentInfo.amount.toFixed(2)}
-                    {paymentInfo.tipAmount ? <span className="ml-1 text-xs font-medium text-muted-foreground">+ &euro;{paymentInfo.tipAmount.toFixed(2)} {t('payments.tip')}</span> : null}
+                    {t('auto.Euro', '€')}{paymentInfo.amount.toFixed(2)}
+                    {paymentInfo.tipAmount ? <span className="ml-1 text-xs font-medium text-muted-foreground">{t('auto.Euro', '+ €')}{paymentInfo.tipAmount.toFixed(2)} {t('payments.tip')}</span> : null}
                   </p>
                 </div>
               </div>

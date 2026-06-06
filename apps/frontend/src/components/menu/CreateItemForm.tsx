@@ -104,7 +104,7 @@ export const CreateItemForm: React.FC = () => {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Greek Salad"
+              placeholder={t('auto.eGGreekSalad', 'e.g. Greek Salad')}
               required
             />
           </div>
@@ -116,7 +116,7 @@ export const CreateItemForm: React.FC = () => {
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Fresh ingredients, olives, feta..."
+              placeholder={t('auto.freshIngredientsOlivesFeta', 'Fresh ingredients, olives, feta...')}
             />
           </div>
 
@@ -136,25 +136,23 @@ export const CreateItemForm: React.FC = () => {
 
           <div className="space-y-2">
             <label className="text-sm font-medium">
-              {t("forms.allergens", "Allergens")} (comma separated)
-            </label>
+              {t("forms.allergens", "Allergens")} {t('auto.CommaSeparated', '(comma separated)')}</label>
             <Input
               type="text"
               value={allergens}
               onChange={(e) => setAllergens(e.target.value)}
-              placeholder="e.g. Nuts, Dairy, Gluten"
+              placeholder={t('auto.eGNutsDairyGluten', 'e.g. Nuts, Dairy, Gluten')}
             />
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium">
-              {t("forms.dietaryTags", "Dietary Tags")} (comma separated)
-            </label>
+              {t("forms.dietaryTags", "Dietary Tags")} {t('auto.CommaSeparated', '(comma separated)')}</label>
             <Input
               type="text"
               value={dietaryTags}
               onChange={(e) => setDietaryTags(e.target.value)}
-              placeholder="e.g. Vegan, Vegetarian, Spicy"
+              placeholder={t('auto.eGVeganVegetarianSpicy', 'e.g. Vegan, Vegetarian, Spicy')}
             />
           </div>
 
@@ -170,29 +168,25 @@ export const CreateItemForm: React.FC = () => {
               htmlFor={`isFeatured-new`}
               className="text-sm font-bold text-foreground"
             >
-              ⭐ Feature Item (Trending Now)
-            </label>
+              {t('auto.FeatureItemTrendingNow', '⭐ Feature Item (Trending Now)')}</label>
           </div>
 
           <div className="space-y-2 border-b border-border/50 pb-4">
             <label className="text-sm font-medium block">
-              Loyalty Points Cost (Freebie)
-            </label>
+              {t('auto.loyaltyPointsCostFreebie', 'Loyalty Points Cost (Freebie)')}</label>
             <Input
               type="number"
               value={rewardPointsPrice}
               onChange={(e) => setRewardPointsPrice(e.target.value)}
-              placeholder="e.g. 100"
+              placeholder={t('auto.eG100', 'e.g. 100')}
             />
             <p className="text-xs text-muted-foreground">
-              Leave blank if this item cannot be redeemed for points.
-            </p>
+              {t('auto.leaveBlankIfThisItemCanno', 'Leave blank if this item cannot be redeemed for points.')}</p>
           </div>
 
           <div className="space-y-2 pb-4">
             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-              Perfect Pairings
-            </label>
+              {t('auto.perfectPairings', 'Perfect Pairings')}</label>
             <div className="flex flex-col gap-1 max-h-32 overflow-y-auto p-2 border border-border/50 rounded bg-secondary/20">
               {allItems.length > 0 ? (
                 (allItems as any[]).map((otherItem: any) => (
@@ -220,13 +214,11 @@ export const CreateItemForm: React.FC = () => {
                 ))
               ) : (
                 <span className="text-xs text-muted-foreground px-1">
-                  No other items available.
-                </span>
+                  {t('auto.noOtherItemsAvailable', 'No other items available.')}</span>
               )}
             </div>
             <p className="text-[10px] text-muted-foreground">
-              Select items that go well with this.
-            </p>
+              {t('auto.selectItemsThatGoWellWith', 'Select items that go well with this.')}</p>
           </div>
 
           <ImageUploadInput

@@ -82,7 +82,7 @@ const TableCard: React.FC<TableCardProps> = ({
   const customerLabel = customerNames.length > 0
     ? customerNames.join(', ')
     : hasCustomers
-      ? `${customerCount} ${customerCount === 1 ? 'guest' : 'guests'}`
+      ? `${customerCount} ${customerCount === 1 ? t('tables.guest', 'guest') : t('tables.guests', 'guests')}`
       : null;
 
   return (
@@ -134,10 +134,10 @@ const TableCard: React.FC<TableCardProps> = ({
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
           <ShoppingBag className="h-3.5 w-3.5" />
-          {orderCount} {orderCount === 1 ? 'order' : 'orders'}
+          {orderCount} {orderCount === 1 ? t('tables.order', 'order') : t('tables.orders', 'orders')}
         </span>
         <span className="text-base font-black tracking-tight text-foreground">
-          &euro;{totalAmount.toFixed(2)}
+          {t('auto.Euro', '€')}{totalAmount.toFixed(2)}
         </span>
       </div>
     </button>

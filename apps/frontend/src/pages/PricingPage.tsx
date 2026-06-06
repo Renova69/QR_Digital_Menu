@@ -307,8 +307,7 @@ export default function PricingPage() {
                   </div>
                   {billing === 'yearly' && tier.monthly > 0 && (
                     <p className="text-xs text-primary mt-1 font-semibold">
-                      {t('pricing.billing.saveAnnual', 'Save 15%')} vs monthly
-                    </p>
+                      {t('pricing.billing.saveAnnual', 'Save 15%')} {t('auto.vsMonthly', 'vs monthly')}</p>
                   )}
                 </div>
 
@@ -366,8 +365,7 @@ export default function PricingPage() {
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left py-4 px-5 text-xs font-black uppercase tracking-widest text-muted-foreground w-2/5">
-                    Feature
-                  </th>
+                    {t('auto.feature', 'Feature')}</th>
                   {['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'].map((col) => (
                     <th key={col} className="py-4 px-3 text-center text-[10px] font-black uppercase tracking-widest text-foreground">
                       {col}

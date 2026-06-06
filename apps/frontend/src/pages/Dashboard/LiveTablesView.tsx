@@ -162,7 +162,7 @@ const LiveTablesView: React.FC = () => {
         </div>
         <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 shadow-sm dark:border-blue-400/20 dark:bg-blue-400/10">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700 dark:text-blue-200">{t('tables.openValue')}</p>
-          <p className="mt-1 text-2xl font-black text-blue-700 dark:text-blue-200">&euro;{stats.revenue.toFixed(2)}</p>
+          <p className="mt-1 text-2xl font-black text-blue-700 dark:text-blue-200">{t('auto.Euro', '€')}{stats.revenue.toFixed(2)}</p>
         </div>
       </div>
 

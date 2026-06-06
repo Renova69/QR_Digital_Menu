@@ -841,7 +841,11 @@
     "printScanPrompt": "Scanați pentru meniu și comandă",
     "printTableLabel": "Masa",
     "tableDetailLabel": "Detalii masă",
-    "activeOrders": "Comenzi active"
+    "activeOrders": "Comenzi active",
+    "guest": "oaspete",
+    "guests": "oaspeți",
+    "order": "comandă",
+    "orders": "comenzi"
   },
   "common": {
     "pleaseLogin": "Vă rugăm să vă conectați",
@@ -2757,5 +2761,24 @@
   "language.ar": "Arabă",
   "tables.occupied": "Ocupată",
   "tables.paid": "Plătită",
-  "tables.available": "Disponibilă"
+  "tables.available": "Disponibilă",
+  "menu": {
+    "options": "Opțiuni:",
+    "quickTemplates": "Șabloane rapide",
+    "sizeTemplate": "Șablon de mărime",
+    "donenessTemplate": "Șablon de coacere",
+    "quantityTemplate": "Șablon de cantitate",
+    "size": "Mărime",
+    "doneness": "Coacere",
+    "quantity": "Cantitate",
+    "createCustomOption": "Creați opțiune personalizată"
+  },
+  "roles": {
+    "owner": "Proprietar",
+    "manager": "Manager",
+    "staff": "Personal",
+    "waiter": "Ospătar",
+    "kitchen": "Bucătărie",
+    "super_admin": "Super administrator"
+  }
 }

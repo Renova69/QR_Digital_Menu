@@ -9,21 +9,21 @@ interface KpiRowProps {
   showTrends: boolean;
 }
 
-const formatDateShort = (iso: string) => {
+const formatDateShort = (iso: string, locale: string) => {
   const d = new Date(iso);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 };
 
-const formatComparisonLabel = (data: AnalyticsData, fallback: string) => {
+const formatComparisonLabel = (data: AnalyticsData, fallback: string, locale: string) => {
   if (data.prevPeriodStart && data.prevPeriodEnd) {
-    return `${formatDateShort(data.prevPeriodStart)} – ${formatDateShort(data.prevPeriodEnd)}`;
+    return `${formatDateShort(data.prevPeriodStart, locale)} – ${formatDateShort(data.prevPeriodEnd, locale)}`;
   }
   return fallback;
 };
 
 const KpiRow = ({ data, showTrends }: KpiRowProps) => {
-  const { t } = useTranslation();
-  const comparisonLabel = showTrends ? formatComparisonLabel(data, t('dashboard.prevPeriod')) : undefined;
+  const { t, i18n } = useTranslation();
+  const comparisonLabel = showTrends ? formatComparisonLabel(data, t('dashboard.prevPeriod'), i18n.language) : undefined;
 
   const peakHour = data.peakHours.length > 0
     ? data.peakHours.reduce((max, h) => h.orders > max.orders ? h : max)
@@ -32,7 +32,7 @@ const KpiRow = ({ data, showTrends }: KpiRowProps) => {
   const kpis = [
     {
       label: t('dashboard.totalOrders'),
-      value: data.totalOrders.toLocaleString('en-US'),
+      value: data.totalOrders.toLocaleString(i18n.language),
       Icon: ShoppingCart,
       change: showTrends ? data.comparison.ordersChange : null,
       detail: undefined as string | undefined,
@@ -53,7 +53,7 @@ const KpiRow = ({ data, showTrends }: KpiRowProps) => {
     },
     {
       label: t('dashboard.activeCustomers'),
-      value: data.newCustomers.toLocaleString('en-US'),
+      value: data.newCustomers.toLocaleString(i18n.language),
       Icon: Users,
       change: showTrends ? data.comparison.newCustomersChange : null,
       detail: undefined as string | undefined,

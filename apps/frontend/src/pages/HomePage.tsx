@@ -758,20 +758,19 @@ function PhoneMockup() {
 }
 
 function DashboardPreview() {
+  const { t } = useTranslation();
   return (
     <div className="relative self-start pt-2">
       <div className="rounded-[22px] border border-border bg-card p-[22px] shadow-lg">
         {/* header */}
         <div className="mb-[18px] flex items-center justify-between">
           <div>
-            <div className="text-lg font-bold text-foreground">Dashboard</div>
+            <div className="text-lg font-bold text-foreground">{t('auto.dashboard', 'Dashboard')}</div>
             <div className="mt-0.5 text-xs text-muted-foreground">
-              Overview of your restaurant
-            </div>
+              {t('auto.overviewOfYourRestaurant', 'Overview of your restaurant')}</div>
           </div>
           <div className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs text-muted-foreground">
-            May 1 – May 22, 2025
-            <svg width="10" height="10" viewBox="0 0 10 10">
+            {t('auto.may1May222025', 'May 1 – May 22, 2025')}<svg width="10" height="10" viewBox="0 0 10 10">
               <path
                 d="M2 4l3 3 3-3"
                 stroke="currentColor"
@@ -804,8 +803,7 @@ function DashboardPreview() {
                 </span>
               </div>
               <div className="mt-1 text-[10px] text-muted-foreground">
-                vs Apr 1 – Apr 22
-              </div>
+                {t('auto.vsApr1Apr22', 'vs Apr 1 – Apr 22')}</div>
             </div>
           ))}
         </div>
@@ -815,14 +813,12 @@ function DashboardPreview() {
           <div className="rounded-[14px] border border-border bg-secondary p-3.5">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-[13px] font-bold text-foreground">
-                Orders Overview
-              </span>
+                {t('auto.ordersOverview', 'Orders Overview')}</span>
               <div className="inline-flex gap-0.5 text-[11px] text-muted-foreground">
-                <span className="rounded-md px-2 py-1">Day</span>
-                <span className="rounded-md px-2 py-1">Week</span>
+                <span className="rounded-md px-2 py-1">{t('auto.day', 'Day')}</span>
+                <span className="rounded-md px-2 py-1">{t('auto.week', 'Week')}</span>
                 <span className="rounded-md bg-primary/10 px-2 py-1 font-semibold text-primary">
-                  Month
-                </span>
+                  {t('auto.month', 'Month')}</span>
               </div>
             </div>
             <svg
@@ -848,11 +844,9 @@ function DashboardPreview() {
               </g>
               <g className="fill-muted-foreground text-[9px]">
                 <text x="6" y="18" fill="currentColor">
-                  1.5K
-                </text>
+                  {t('auto.15K', '1.5K')}</text>
                 <text x="6" y="58" fill="currentColor">
-                  1K
-                </text>
+                  {t('auto.1K', '1K')}</text>
                 <text x="6" y="93" fill="currentColor">
                   500
                 </text>
@@ -881,20 +875,15 @@ function DashboardPreview() {
               </g>
               <g className="fill-muted-foreground text-[8px]">
                 <text x="20" y="128" fill="currentColor">
-                  May 1
-                </text>
+                  {t('auto.may1', 'May 1')}</text>
                 <text x="75" y="128" fill="currentColor">
-                  May 6
-                </text>
+                  {t('auto.may6', 'May 6')}</text>
                 <text x="135" y="128" fill="currentColor">
-                  May 11
-                </text>
+                  {t('auto.may11', 'May 11')}</text>
                 <text x="200" y="128" fill="currentColor">
-                  May 16
-                </text>
+                  {t('auto.may16', 'May 16')}</text>
                 <text x="260" y="128" fill="currentColor">
-                  May 22
-                </text>
+                  {t('auto.may22', 'May 22')}</text>
               </g>
             </svg>
           </div>
@@ -902,11 +891,9 @@ function DashboardPreview() {
           <div className="rounded-[14px] border border-border bg-secondary p-3.5">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-[13px] font-bold text-foreground">
-                Top Dishes
-              </span>
+                {t('auto.topDishes', 'Top Dishes')}</span>
               <span className="text-[11px] font-semibold text-primary">
-                View all
-              </span>
+                {t('auto.viewAll', 'View all')}</span>
             </div>
             <div className="flex flex-col gap-1.5">
               {[
@@ -966,8 +953,7 @@ function DashboardPreview() {
           {/* donut */}
           <div className="rounded-[14px] border border-border bg-secondary p-3.5">
             <div className="mb-2.5 text-xs font-bold text-foreground">
-              Sales by Channel
-            </div>
+              {t('auto.salesByChannel', 'Sales by Channel')}</div>
             <div className="grid grid-cols-[100px_1fr] items-center gap-2.5">
               <div className="relative">
                 <svg viewBox="0 0 100 100" className="h-[100px] w-[100px]">
@@ -1019,7 +1005,7 @@ function DashboardPreview() {
                   <div className="text-[13px] font-bold text-foreground">
                     €12,430
                   </div>
-                  <div className="text-[9px] text-muted-foreground">Total</div>
+                  <div className="text-[9px] text-muted-foreground">{t('auto.total', 'Total')}</div>
                 </div>
               </div>
               <div className="flex flex-col gap-1 text-[10px]">
@@ -1049,8 +1035,7 @@ function DashboardPreview() {
           {/* live orders */}
           <div className="rounded-[14px] border border-border bg-secondary p-3.5">
             <div className="mb-2.5 text-xs font-bold text-foreground">
-              Live Orders
-            </div>
+              {t('auto.liveOrders', 'Live Orders')}</div>
             <table className="w-full border-collapse text-[10.5px]">
               <tbody>
                 {[
@@ -1115,8 +1100,7 @@ function DashboardPreview() {
               </tbody>
             </table>
             <div className="mt-1.5 text-right text-[11px] font-semibold text-primary">
-              View all orders
-            </div>
+              {t('auto.viewAllOrders', 'View all orders')}</div>
           </div>
         </div>
       </div>
@@ -1128,10 +1112,8 @@ function DashboardPreview() {
         }}
       >
         <div className="mb-2.5 text-[11px] font-semibold leading-tight">
-          Scan to view
-          <br />
-          our menu
-        </div>
+          {t('auto.scanToView', 'Scan to view')}<br />
+          {t('auto.ourMenu', 'our menu')}</div>
         <div className="rounded-lg bg-white p-1.5">
           <svg viewBox="0 0 100 100" width="100%" height="100%">
             <rect x="0" y="0" width="100" height="100" fill="#fff" />
@@ -1217,7 +1199,7 @@ function DashboardPreview() {
             </g>
           </svg>
         </div>
-        <div className="mt-2 text-xs font-bold">Table 12</div>
+        <div className="mt-2 text-xs font-bold">{t('auto.table12', 'Table 12')}</div>
       </div>
     </div>
   );
@@ -1433,8 +1415,7 @@ const HomePage = () => {
                   className="h-[52px] cursor-pointer rounded-[14px] px-[26px] text-base"
                 >
                   <Link to="/register">
-                    Start Free Trial
-                    <ArrowRight className="ml-2 h-[18px] w-[18px]" />
+                    {t('auto.startFreeTrial', 'Start Free Trial')}<ArrowRight className="ml-2 h-[18px] w-[18px]" />
                   </Link>
                 </Button>
                 <Button
@@ -1461,8 +1442,7 @@ const HomePage = () => {
                       />
                       <polygon points="10,8 16,12 10,16" fill="currentColor" />
                     </svg>
-                    Watch Demo
-                  </Link>
+                    {t('auto.watchDemo', 'Watch Demo')}</Link>
                 </Button>
               </div>
               {/* trust line */}
@@ -1986,8 +1966,7 @@ const HomePage = () => {
                 </div>
                 <div>
                   <p className="text-sm font-black uppercase tracking-[0.18em] text-foreground">
-                    QR Menu
-                  </p>
+                    {t('auto.qRMenu', 'QR Menu')}</p>
                 </div>
               </div>
               <p className="mt-4 max-w-xs text-sm leading-6 text-muted-foreground">
@@ -1996,8 +1975,7 @@ const HomePage = () => {
             </div>
             <div>
               <h5 className="mb-4 text-xs font-black uppercase tracking-[0.18em] text-foreground">
-                Product
-              </h5>
+                {t('auto.product', 'Product')}</h5>
               <div className="space-y-3">
                 {[
                   "Features",
@@ -2018,8 +1996,7 @@ const HomePage = () => {
             </div>
             <div>
               <h5 className="mb-4 text-xs font-black uppercase tracking-[0.18em] text-foreground">
-                Company
-              </h5>
+                {t('auto.company', 'Company')}</h5>
               <div className="space-y-3">
                 {["About", "Blog", "Careers", "Contact", "Security"].map(
                   (item) => (
@@ -2036,40 +2013,34 @@ const HomePage = () => {
             </div>
             <div>
               <h5 className="mb-4 text-xs font-black uppercase tracking-[0.18em] text-foreground">
-                Legal
-              </h5>
+                {t('auto.legal', 'Legal')}</h5>
               <div className="space-y-3">
                 <Link
                   to="/privacy"
                   className="block text-sm text-muted-foreground transition-colors hover:text-primary"
                 >
-                  Privacy Policy
-                </Link>
+                  {t('auto.privacyPolicy', 'Privacy Policy')}</Link>
                 <Link
                   to="/terms"
                   className="block text-sm text-muted-foreground transition-colors hover:text-primary"
                 >
-                  Terms of Service
-                </Link>
+                  {t('auto.termsOfService', 'Terms of Service')}</Link>
                 <Link
                   to="/cookies"
                   className="block text-sm text-muted-foreground transition-colors hover:text-primary"
                 >
-                  Cookie Policy
-                </Link>
+                  {t('auto.cookiePolicy', 'Cookie Policy')}</Link>
                 <Link
                   to="#"
                   className="block text-sm text-muted-foreground transition-colors hover:text-primary"
                 >
-                  GDPR
-                </Link>
+                  {t('auto.gDPR', 'GDPR')}</Link>
               </div>
             </div>
           </div>
           <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 md:flex-row">
             <span className="text-xs text-muted-foreground">
-              © {new Date().getFullYear()} QR Menu. All rights reserved.
-            </span>
+              © {new Date().getFullYear()} {t('auto.qRMenuAllRightsReserved', 'QR Menu. All rights reserved.')}</span>
             <span className="text-xs text-muted-foreground">
               {t("landing.footerRights")}
             </span>

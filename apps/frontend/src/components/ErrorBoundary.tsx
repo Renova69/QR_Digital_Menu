@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { withTranslation, WithTranslation } from "react-i18next";
 
-interface Props {
+interface Props extends WithTranslation {
   children: ReactNode;
 }
 
@@ -37,8 +38,8 @@ class ErrorBoundary extends Component<Props, State> {
             </svg>
           </div>
           <div>
-            <h2 className="text-base font-display font-bold text-foreground">Something went wrong</h2>
-            <p className="mt-1 text-sm text-muted-foreground">An unexpected error occurred in this panel.</p>
+            <h2 className="text-base font-display font-bold text-foreground">{this.props.t('auto.somethingWentWrong', 'Something went wrong')}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{this.props.t('auto.anUnexpectedErrorOccurredInThisPan', 'An unexpected error occurred in this panel.')}</p>
             {this.state.error && (
               <p className="mt-2 text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg font-mono">
                 {this.state.error.message}
@@ -49,8 +50,7 @@ class ErrorBoundary extends Component<Props, State> {
             onClick={this.handleRetry}
             className="brand-cta text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-opacity hover:opacity-90"
           >
-            Try Again
-          </button>
+            {this.props.t('auto.tryAgain', 'Try Again')}</button>
         </div>
       );
     }
@@ -59,4 +59,4 @@ class ErrorBoundary extends Component<Props, State> {
   }
 }
 
-export default ErrorBoundary;
+export default withTranslation()(ErrorBoundary);

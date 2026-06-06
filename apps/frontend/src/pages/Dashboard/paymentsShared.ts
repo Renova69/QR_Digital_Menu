@@ -67,8 +67,8 @@ export function formatMoney(value = 0, currency = 'EUR') {
   }).format(value);
 }
 
-export function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
+export function formatDateTime(value: string, locale: string = 'en-US') {
+  return new Intl.DateTimeFormat(locale, {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',

@@ -12,6 +12,7 @@ import {
   reorderHelpContent,
   type HelpContentItem,
 } from '../../lib/api';
+import { useTranslation } from "react-i18next";
 
 type Tab = 'landing' | 'dashboard';
 type Locale = 'en' | 'bg' | 'ro';
@@ -43,6 +44,7 @@ function groupBy<T>(items: T[], key: keyof T): Map<string, T[]> {
 
 /* ─── Locale tabs reusable component ─── */
 function LocaleTabs({ active, onChange }: { active: Locale; onChange: (l: Locale) => void }) {
+    const { t } = useTranslation();
   return (
     <div className="flex gap-1">
       {LOCALES.map(({ key, label }) => (
@@ -64,6 +66,7 @@ function LocaleTabs({ active, onChange }: { active: Locale; onChange: (l: Locale
 
 /* ─── Item type badge (for dashboard expanded view) ─── */
 function ItemTypeBadge({ itemKey }: { itemKey: string }) {
+    const { t } = useTranslation();
   let label = '';
   let cls = 'bg-slate-800 text-slate-500';
   if (itemKey === 'guide-title') { label = 'TITLE'; cls = 'bg-emerald-500/15 text-emerald-400'; }
@@ -78,6 +81,7 @@ function ItemTypeBadge({ itemKey }: { itemKey: string }) {
 
 /* ─── Sortable row wrapper (uses @dnd-kit like the menu editor) ─── */
 function SortableRow({ id, children }: { id: string; children: (props: { dragHandleProps: any; isDragging: boolean }) => React.ReactNode }) {
+    const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -105,6 +109,7 @@ interface EditDialogProps {
 }
 
 function EditDialog({ item, defaultSection, defaultCategoryKey, onClose }: EditDialogProps) {
+    const { t } = useTranslation();
   const queryClient = useQueryClient();
   const isCreate = item === null;
   const [locale, setLocale] = useState<Locale>('en');
@@ -199,28 +204,28 @@ function EditDialog({ item, defaultSection, defaultCategoryKey, onClose }: EditD
 
         <div className="p-5 flex flex-col gap-4">
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Title</label>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.title', 'Title')}</label>
             <input
               value={forms[locale].title}
               onChange={(e) => setForms((prev) => ({ ...prev, [locale]: { ...prev[locale], title: e.target.value } }))}
               className="w-full bg-[#0d1117] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50"
-              placeholder="Question or section title"
+              placeholder={t('auto.questionOrSectionTitle', 'Question or section title')}
             />
           </div>
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Body</label>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.body', 'Body')}</label>
             <textarea
               value={forms[locale].body}
               onChange={(e) => setForms((prev) => ({ ...prev, [locale]: { ...prev[locale], body: e.target.value } }))}
               rows={4}
               className="w-full bg-[#0d1117] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50 resize-none"
-              placeholder="Answer or help content"
+              placeholder={t('auto.answerOrHelpContent', 'Answer or help content')}
             />
           </div>
         </div>
 
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-slate-800">
-          <button onClick={onClose} className="px-4 py-2 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition-colors">Cancel</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition-colors">{t('auto.cancel', 'Cancel')}</button>
           <button
             onClick={handleSave}
             disabled={isLoading}
@@ -242,6 +247,7 @@ interface DashboardCategoryDialogProps {
 }
 
 function DashboardCategoryDialog({ onClose }: DashboardCategoryDialogProps) {
+    const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [locale, setLocale] = useState<Locale>('en');
   const [categoryId, setCategoryId] = useState('');
@@ -351,29 +357,29 @@ function DashboardCategoryDialog({ onClose }: DashboardCategoryDialogProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
       <div className="bg-[#020617] border border-slate-800 rounded-xl w-full max-w-2xl mx-4 max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
-          <h3 className="font-bold text-sm text-white">Create Dashboard Category</h3>
+          <h3 className="font-bold text-sm text-white">{t('auto.createDashboardCategory', 'Create Dashboard Category')}</h3>
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">✕</button>
         </div>
 
         <div className="px-5 py-3 border-b border-slate-800 flex items-center justify-between">
           <LocaleTabs active={locale} onChange={setLocale} />
-          <span className="text-[10px] text-slate-600">Fill content per language</span>
+          <span className="text-[10px] text-slate-600">{t('auto.fillContentPerLanguage', 'Fill content per language')}</span>
         </div>
 
         <div className="p-5 space-y-4">
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Category ID</label>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.categoryID', 'Category ID')}</label>
             <input
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
               className="w-full bg-[#0d1117] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50"
-              placeholder="e.g. integrations"
+              placeholder={t('auto.eGIntegrations', 'e.g. integrations')}
             />
-            <p className="text-[10px] text-slate-600 mt-1">Lowercase, hyphens only. This becomes the category key.</p>
+            <p className="text-[10px] text-slate-600 mt-1">{t('auto.lowercaseHyphensOnlyThisBecomesTh', 'Lowercase, hyphens only. This becomes the category key.')}</p>
           </div>
 
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Category Icon</label>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.categoryIcon', 'Category Icon')}</label>
             <div className="flex gap-2 flex-wrap">
               {AVAILABLE_ICONS.map(({ name, icon: Icon }) => (
                 <button
@@ -394,39 +400,39 @@ function DashboardCategoryDialog({ onClose }: DashboardCategoryDialogProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Tab Name (Sidebar)</label>
+              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.tabNameSidebar', 'Tab Name (Sidebar)')}</label>
               <input
                 value={forms[locale].tabName}
                 onChange={(e) => setForms((prev) => ({ ...prev, [locale]: { ...prev[locale], tabName: e.target.value } }))}
                 className="w-full bg-[#0d1117] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50"
-                placeholder="e.g. Privacy & GDPR"
+                placeholder={t('auto.eGPrivacyGDPR', 'e.g. Privacy & GDPR')}
               />
             </div>
             <div>
-              <label className="block text-[10px] font-semibold text-emerald-400 uppercase tracking-wider mb-1.5">📖 Guide Title</label>
+              <label className="block text-[10px] font-semibold text-emerald-400 uppercase tracking-wider mb-1.5">{t('auto.GuideTitle', '📖 Guide Title')}</label>
               <input
                 value={forms[locale].title}
                 onChange={(e) => setForms((prev) => ({ ...prev, [locale]: { ...prev[locale], title: e.target.value } }))}
                 className="w-full bg-[#0d1117] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50"
-                placeholder="e.g. GDPR Compliance"
+                placeholder={t('auto.eGGDPRCompliance', 'e.g. GDPR Compliance')}
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Description</label>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.description', 'Description')}</label>
             <textarea
               value={forms[locale].desc}
               onChange={(e) => setForms((prev) => ({ ...prev, [locale]: { ...prev[locale], desc: e.target.value } }))}
               rows={2}
               className="w-full bg-[#0d1117] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50 resize-none"
-              placeholder="Brief description of this help category"
+              placeholder={t('auto.briefDescriptionOfThisHelpCategory', 'Brief description of this help category')}
             />
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">📋 Step-by-step Guide</label>
+              <label className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">{t('auto.StepByStepGuide', '📋 Step-by-step Guide')}</label>
             </div>
             <div className="space-y-2">
               {forms[locale].steps.map((step, i) => (
@@ -451,41 +457,40 @@ function DashboardCategoryDialog({ onClose }: DashboardCategoryDialogProps) {
                   onClick={addStep} 
                   className="bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 px-3 py-1.5 rounded-md text-[10px] text-emerald-400 hover:text-emerald-300 transition-colors font-semibold flex items-center gap-1"
                 >
-                  <Plus className="w-3 h-3" /> Add Step
-                </button>
+                  <Plus className="w-3 h-3" /> {t('auto.addStep', 'Add Step')}</button>
               </div>
             </div>
           </div>
 
           <div>
             <label className="block text-[10px] font-semibold text-amber-400 uppercase tracking-wider mb-1.5">
-              💡 Tip <span className="text-slate-600 normal-case font-normal">(optional — renders as green callout)</span>
+              {t('auto.Tip', '💡 Tip')}<span className="text-slate-600 normal-case font-normal">{t('auto.OptionalRendersAsGreenCallout', '(optional — renders as green callout)')}</span>
             </label>
             <textarea
               value={forms[locale].tip}
               onChange={(e) => setForms((prev) => ({ ...prev, [locale]: { ...prev[locale], tip: e.target.value } }))}
               rows={2}
               className="w-full bg-[#0d1117] border border-amber-900/30 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-500/50 resize-none"
-              placeholder="Helpful tip for users..."
+              placeholder={t('auto.helpfulTipForUsers', 'Helpful tip for users...')}
             />
           </div>
 
           <div>
             <label className="block text-[10px] font-semibold text-orange-400 uppercase tracking-wider mb-1.5">
-              ⚠️ Warning <span className="text-slate-600 normal-case font-normal">(optional — renders as orange callout)</span>
+              {t('auto.Warning', '⚠️ Warning')}<span className="text-slate-600 normal-case font-normal">{t('auto.OptionalRendersAsOrangeCallout', '(optional — renders as orange callout)')}</span>
             </label>
             <textarea
               value={forms[locale].warning}
               onChange={(e) => setForms((prev) => ({ ...prev, [locale]: { ...prev[locale], warning: e.target.value } }))}
               rows={2}
               className="w-full bg-[#0d1117] border border-orange-900/30 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-orange-500/50 resize-none"
-              placeholder="Important warning for users..."
+              placeholder={t('auto.importantWarningForUsers', 'Important warning for users...')}
             />
           </div>
         </div>
 
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-slate-800">
-          <button onClick={onClose} className="px-4 py-2 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition-colors">Cancel</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition-colors">{t('auto.cancel', 'Cancel')}</button>
           <button
             onClick={() => createMutation.mutate()}
             disabled={!categoryId || !forms.en.title || createMutation.isPending}
@@ -509,6 +514,7 @@ interface DashboardItemDialogProps {
 }
 
 function DashboardItemDialog({ categoryKey, existingItems, onClose }: DashboardItemDialogProps) {
+    const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [locale, setLocale] = useState<Locale>('en');
   const [itemType, setItemType] = useState<DashboardItemType>('faq');
@@ -569,7 +575,7 @@ function DashboardItemDialog({ categoryKey, existingItems, onClose }: DashboardI
       <div className="bg-[#020617] border border-slate-800 rounded-xl w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
           <h3 className="font-bold text-sm text-white">
-            Add Item to <span className="text-emerald-400">"{categoryKey}"</span>
+            {t('auto.addItemTo', 'Add Item to')}<span className="text-emerald-400">"{categoryKey}"</span>
           </h3>
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">✕</button>
         </div>
@@ -580,7 +586,7 @@ function DashboardItemDialog({ categoryKey, existingItems, onClose }: DashboardI
 
         <div className="p-5 space-y-4">
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Item Type</label>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.itemType', 'Item Type')}</label>
             <div className="flex gap-1.5 flex-wrap">
               {ITEM_TYPE_META.map(({ key, label, emoji }) => {
                 const disabled = (key === 'guide-tip' && hasTip) || (key === 'guide-warning' && hasWarning);
@@ -606,12 +612,12 @@ function DashboardItemDialog({ categoryKey, existingItems, onClose }: DashboardI
 
           {itemType === 'faq' && (
             <div>
-              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Question</label>
+              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.question', 'Question')}</label>
               <input
                 value={forms[locale].title}
                 onChange={(e) => setForms((prev) => ({ ...prev, [locale]: { ...prev[locale], title: e.target.value } }))}
                 className="w-full bg-[#0d1117] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50"
-                placeholder="FAQ question..."
+                placeholder={t('auto.fAQQuestion', 'FAQ question...')}
               />
             </div>
           )}
@@ -645,7 +651,7 @@ function DashboardItemDialog({ categoryKey, existingItems, onClose }: DashboardI
         </div>
 
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-slate-800">
-          <button onClick={onClose} className="px-4 py-2 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition-colors">Cancel</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition-colors">{t('auto.cancel', 'Cancel')}</button>
           <button
             onClick={() => createMutation.mutate()}
             disabled={createMutation.isPending || (!forms[locale].title && !forms[locale].body)}
@@ -663,6 +669,7 @@ function DashboardItemDialog({ categoryKey, existingItems, onClose }: DashboardI
    Main Page
    ══════════════════════════════════════════════════════════ */
 export default function HelpCenterPage() {
+    const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('landing');
   const [editItem, setEditItem] = useState<HelpContentItem | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -830,10 +837,9 @@ export default function HelpCenterPage() {
   return (
     <div>
       <div className="mb-2">
-        <h1 className="text-xl font-bold text-white">Help Center</h1>
+        <h1 className="text-xl font-bold text-white">{t('auto.helpCenter', 'Help Center')}</h1>
         <p className="text-xs text-slate-500 mt-1">
-          Manage all help and FAQ content across the platform — no redeployment needed.
-        </p>
+          {t('auto.manageAllHelpAndFAQContentAcrossT', 'Manage all help and FAQ content across the platform — no redeployment needed.')}</p>
       </div>
 
       {/* Sub-tabs */}
@@ -857,24 +863,22 @@ export default function HelpCenterPage() {
       </div>
 
       {isLoading ? (
-        <div className="text-slate-500 text-sm py-12 text-center">Loading...</div>
+        <div className="text-slate-500 text-sm py-12 text-center">{t('auto.loading', 'Loading...')}</div>
       ) : (
         <>
           {/* ─── Landing FAQ tab ─── */}
           {tab === 'landing' && (
             <div className="bg-[#020617] border border-slate-800 rounded-xl p-5">
               <div className="flex items-center gap-2 mb-4">
-                <h2 className="text-sm font-semibold text-white">FAQ Items</h2>
+                <h2 className="text-sm font-semibold text-white">{t('auto.fAQItems', 'FAQ Items')}</h2>
                 <span className="text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">
-                  {landingItems.size} items
-                </span>
-                <span className="text-[10px] text-slate-600 ml-1">⠿ Drag to reorder</span>
+                  {landingItems.size} {t('auto.items', 'items')}</span>
+                <span className="text-[10px] text-slate-600 ml-1">{t('auto.DragToReorder', '⠿ Drag to reorder')}</span>
                 <button
                   onClick={() => setCreateOpen(true)}
                   className="ml-auto px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-md text-[11px] font-bold text-white transition-colors flex items-center gap-1"
                 >
-                  <Plus className="w-3 h-3" /> Add Item
-                </button>
+                  <Plus className="w-3 h-3" /> {t('auto.addItem', 'Add Item')}</button>
               </div>
 
               <DndContext collisionDetection={closestCenter} onDragEnd={handleLandingDragEnd}>
@@ -963,14 +967,13 @@ export default function HelpCenterPage() {
           {tab === 'dashboard' && (
             <div className="bg-[#020617] border border-slate-800 rounded-xl p-5">
               <div className="flex items-center gap-2 mb-4">
-                <h2 className="text-sm font-semibold text-white">Dashboard Help Categories</h2>
-                <span className="text-[10px] text-slate-600 ml-1">⠿ Drag to reorder</span>
+                <h2 className="text-sm font-semibold text-white">{t('auto.dashboardHelpCategories', 'Dashboard Help Categories')}</h2>
+                <span className="text-[10px] text-slate-600 ml-1">{t('auto.DragToReorder', '⠿ Drag to reorder')}</span>
                 <button
                   onClick={() => setDashCategoryOpen(true)}
                   className="ml-auto px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-md text-[11px] font-bold text-white transition-colors flex items-center gap-1"
                 >
-                  <Plus className="w-3 h-3" /> Add Category
-                </button>
+                  <Plus className="w-3 h-3" /> {t('auto.addCategory', 'Add Category')}</button>
               </div>
 
               <DndContext collisionDetection={closestCenter} onDragEnd={handleDashDragEnd}>
@@ -1022,8 +1025,7 @@ export default function HelpCenterPage() {
                                     <span className="text-[10px] text-slate-500 font-mono">({categoryKey})</span>
                                   </div>
                                   <span className="text-[10px] text-slate-600 bg-slate-800 px-1.5 py-0.5 rounded">
-                                    {groupedItems.size} items
-                                  </span>
+                                    {groupedItems.size} {t('auto.items', 'items')}</span>
                                 </button>
                                 <div className="flex gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                                   <button
@@ -1033,7 +1035,7 @@ export default function HelpCenterPage() {
                                       titleItems: groupedItems.get('guide-title') || []
                                     })}
                                     className="text-slate-500 hover:text-emerald-400 transition-colors p-0.5"
-                                    title="Category Settings"
+                                    title={t('auto.categorySettings', 'Category Settings')}
                                   >
                                     <Settings className="w-3 h-3" />
                                   </button>
@@ -1084,8 +1086,7 @@ export default function HelpCenterPage() {
                                     onClick={() => setDashAddItemCategory(categoryKey)}
                                     className="w-full text-left px-4 py-2 text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
                                   >
-                                    + Add help item
-                                  </button>
+                                    {t('auto.AddHelpItem', '+ Add help item')}</button>
                                 </div>
                               )}
                             </div>
@@ -1147,6 +1148,7 @@ function DashboardCategorySettingsDialog({
   titleItems: HelpContentItem[],
   onClose: () => void 
 }) {
+    const { t } = useTranslation();
   const queryClient = useQueryClient();
   const currentIcon = metaItems.find(i => i.locale === 'en')?.title || 'BookOpen';
   const currentTabName = metaItems.find(i => i.locale === 'en')?.body || '';
@@ -1251,7 +1253,7 @@ function DashboardCategorySettingsDialog({
       <div className="bg-[#020617] border border-slate-800 rounded-xl w-full max-w-2xl mx-4">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
           <div className="flex items-center gap-3">
-            <h3 className="font-bold text-sm text-white">Settings for <span className="text-emerald-400">"{categoryKey}"</span></h3>
+            <h3 className="font-bold text-sm text-white">{t('auto.settingsFor', 'Settings for')}<span className="text-emerald-400">"{categoryKey}"</span></h3>
             {errorMsg && <span className="text-xs text-red-400 bg-red-400/10 px-2 py-1 rounded font-semibold">{errorMsg}</span>}
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">✕</button>
@@ -1260,27 +1262,27 @@ function DashboardCategorySettingsDialog({
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Tab Name (Sidebar)</label>
+              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.tabNameSidebar', 'Tab Name (Sidebar)')}</label>
               <input
                 value={tabName}
                 onChange={(e) => setTabName(e.target.value)}
                 className="w-full bg-[#0d1117] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50"
-                placeholder="e.g. Privacy & GDPR"
+                placeholder={t('auto.eGPrivacyGDPR', 'e.g. Privacy & GDPR')}
               />
             </div>
             <div>
-              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Guide Title (H1)</label>
+              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.guideTitleH1', 'Guide Title (H1)')}</label>
               <input
                 value={guideTitle}
                 onChange={(e) => setGuideTitle(e.target.value)}
                 className="w-full bg-[#0d1117] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50"
-                placeholder="e.g. GDPR Compliance"
+                placeholder={t('auto.eGGDPRCompliance', 'e.g. GDPR Compliance')}
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Category Icon</label>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.categoryIcon', 'Category Icon')}</label>
             <div className="flex gap-2 flex-wrap max-h-[40vh] overflow-y-auto pr-2">
               {AVAILABLE_ICONS.map(({ name, icon: Icon }) => (
                 <button
@@ -1301,7 +1303,7 @@ function DashboardCategorySettingsDialog({
         </div>
 
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-slate-800">
-          <button onClick={onClose} className="px-4 py-2 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition-colors">Cancel</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition-colors">{t('auto.cancel', 'Cancel')}</button>
           <button
             onClick={() => updateMutation.mutate()}
             disabled={updateMutation.isPending || (selectedIcon === currentIcon && tabName === currentTabName && guideTitle === currentGuideTitle)}

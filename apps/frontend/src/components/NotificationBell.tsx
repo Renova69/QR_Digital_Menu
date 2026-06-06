@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { Bell, CreditCard } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
+import { useTranslation } from "react-i18next";
 
 const NotificationBell = () => {
+    const { t } = useTranslation();
   const { notifications, unreadCount, markAllRead } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -53,17 +55,15 @@ const NotificationBell = () => {
         <div className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto glass-panel border border-white/10 rounded-2xl shadow-2xl z-50">
           <div className="p-4 border-b border-border/40 flex items-center justify-between">
             <h3 className="font-black text-xs uppercase tracking-widest text-foreground">
-              Payment Notifications
-            </h3>
+              {t('auto.paymentNotifications', 'Payment Notifications')}</h3>
             <span className="text-[10px] text-muted-foreground font-bold">
-              {notifications.length} total
-            </span>
+              {notifications.length} {t('auto.total', 'total')}</span>
           </div>
 
           {notifications.length === 0 ? (
             <div className="p-8 text-center">
               <CreditCard className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground font-bold">No payments yet</p>
+              <p className="text-sm text-muted-foreground font-bold">{t('auto.noPaymentsYet', 'No payments yet')}</p>
             </div>
           ) : (
             <div className="divide-y divide-border/20">
@@ -75,7 +75,7 @@ const NotificationBell = () => {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-foreground">
-                        Table {n.tableNumber ?? '?'}
+                        {t('auto.table', 'Table')}{n.tableNumber ?? '?'}
                         {n.customerName && (
                           <span className="text-muted-foreground font-normal">
                             {' '}— {n.customerName}

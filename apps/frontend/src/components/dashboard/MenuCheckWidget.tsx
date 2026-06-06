@@ -164,7 +164,7 @@ export const MenuCheckWidget = () => {
                       {issue.code ? t(`menuCheck.issues.${issue.code}`, { ...issue.args, defaultValue: issue.message }) : issue.message}
                     </p>
                     <p className="text-[10px] opacity-60 mt-0.5 capitalize">
-                      {issue.itemId ? t('menuCheck.itemIssue') : t('menuCheck.categoryIssue')} &middot; {t('menuCheck.fieldLabel', { field: issue.field })}
+                      {issue.itemId ? t('menuCheck.itemIssue') : t('menuCheck.categoryIssue')} {t('auto.Middot', '&middot;')}{t('menuCheck.fieldLabel', { field: issue.field })}
                     </p>
                   </div>
                 </div>

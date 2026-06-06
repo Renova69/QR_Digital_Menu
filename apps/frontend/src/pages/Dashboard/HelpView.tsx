@@ -293,7 +293,7 @@ const HelpView = () => {
           {/* Search results notice */}
           {searchQuery && (
             <div className="text-sm text-muted-foreground pl-1">
-              Found {filteredFaqs.length} FAQs matching "{searchQuery}"
+              {t('auto.found', 'Found')}{filteredFaqs.length} {t('auto.fAQsMatching', 'FAQs matching "')}{searchQuery}"
             </div>
           )}
 

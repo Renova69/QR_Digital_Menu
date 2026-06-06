@@ -234,7 +234,7 @@ const GeneralSettingsTab: React.FC = () => {
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="123 Main St, New York"
+              placeholder={t('auto.123MainStNewYork', '123 Main St, New York')}
               className={inputCls}
             />
           </div>
@@ -375,7 +375,7 @@ const GeneralSettingsTab: React.FC = () => {
                         : "bg-secondary text-foreground border-border hover:bg-secondary/80"
                     }`}
                   >
-                    {lang.name}
+                    {t(`language.${lang.code}`, lang.name)}
                   </button>
                 ))}
               </div>

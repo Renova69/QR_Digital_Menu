@@ -580,7 +580,7 @@ function SettingsPanel({ restaurant, feePercent }: { restaurant: any; feePercent
     <div className="grid gap-4 lg:grid-cols-4">
       <SettingCard label={t('payments.paymentCollection')} value={restaurant?.paymentsEnabled ? t('payments.enabled') : t('payments.disabled')} detail={t('payments.paymentCollectionDetail')} active={restaurant?.paymentsEnabled} />
       <SettingCard label={t('payments.stripeConnect')} value={restaurant?.stripeOnboarded ? t('payments.connected') : t('payments.incomplete')} detail={restaurant?.stripeAccountId ?? t('payments.noStripeAccount')} active={restaurant?.stripeOnboarded} />
-      <SettingCard label="ePay.bg" value={epayReady ? t('payments.configured', 'Configured') : t('payments.incomplete')} detail={restaurant?.epayClientId ?? t('payments.notConfigured', 'Not configured')} active={epayReady} />
+      <SettingCard label={t('auto.ePayBg', 'ePay.bg')} value={epayReady ? t('payments.configured', 'Configured') : t('payments.incomplete')} detail={restaurant?.epayClientId ?? t('payments.notConfigured', 'Not configured')} active={epayReady} />
       <SettingCard label={t('payments.platformFee')} value={feePercent ? `${feePercent}%` : t('payments.notSet')} detail={t('payments.platformFeeDetail')} active={feePercent > 0} />
     </div>
   );

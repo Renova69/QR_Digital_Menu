@@ -80,7 +80,7 @@ export default function RestaurantBasicsStep({ onCreated, existingRestaurantId, 
             type="text"
             value={ownerName}
             onChange={(e) => setOwnerName(e.target.value)}
-            placeholder="e.g. Kiril Petrov"
+            placeholder={t('auto.eGKirilPetrov', 'e.g. Kiril Petrov')}
             className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 placeholder:text-muted-foreground"
           />
         </div>
@@ -91,7 +91,7 @@ export default function RestaurantBasicsStep({ onCreated, existingRestaurantId, 
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. La Piazza"
+            placeholder={t('auto.eGLaPiazza', 'e.g. La Piazza')}
             className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 placeholder:text-muted-foreground"
             required
           />
@@ -103,7 +103,7 @@ export default function RestaurantBasicsStep({ onCreated, existingRestaurantId, 
             type="text"
             value={city}
             onChange={(e) => setCity(e.target.value)}
-            placeholder="e.g. Sofia"
+            placeholder={t('auto.eGSofia', 'e.g. Sofia')}
             className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 placeholder:text-muted-foreground"
           />
         </div>

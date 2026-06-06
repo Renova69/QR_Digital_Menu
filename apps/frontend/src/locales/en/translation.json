@@ -841,7 +841,11 @@
     "printScanPrompt": "Scan to view menu & order",
     "printTableLabel": "Table",
     "tableDetailLabel": "Table Detail",
-    "activeOrders": "Active Orders"
+    "activeOrders": "Active Orders",
+    "guest": "guest",
+    "guests": "guests",
+    "order": "order",
+    "orders": "orders"
   },
   "common": {
     "pleaseLogin": "Please log in to continue",
@@ -2803,5 +2807,24 @@
   "language.ar": "Arabic",
   "tables.occupied": "Occupied",
   "tables.paid": "Paid",
-  "tables.available": "Available"
+  "tables.available": "Available",
+  "menu": {
+    "options": "Options:",
+    "quickTemplates": "Quick Templates",
+    "sizeTemplate": "Size Template",
+    "donenessTemplate": "Doneness Template",
+    "quantityTemplate": "Quantity Template",
+    "size": "Size",
+    "doneness": "Doneness",
+    "quantity": "Quantity",
+    "createCustomOption": "Create Custom Option"
+  },
+  "roles": {
+    "owner": "Owner",
+    "manager": "Manager",
+    "staff": "Staff",
+    "waiter": "Waiter",
+    "kitchen": "Kitchen",
+    "super_admin": "Super Admin"
+  }
 }

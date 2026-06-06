@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { ImagePlus, X } from 'lucide-react';
 import { getDisplayUrl } from '../../lib/imageUrl';
+import { useTranslation } from "react-i18next";
 
 interface ImageUploadInputProps {
   currentImageUrl?: string | null;
@@ -39,6 +40,7 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
   invalidTypeMessage = 'Please upload a JPEG or PNG image.',
   maxSizeMessage = 'Image must be 5MB or smaller.',
 }) => {
+    const { t } = useTranslation();
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +117,7 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
         >
           <img
             src={getDisplayUrl(displayImage)}
-            alt="Preview"
+            alt={t('auto.preview', 'Preview')}
             className={`w-full h-full ${aspectRatio === 'wide' ? 'object-contain' : 'object-cover'}`}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />

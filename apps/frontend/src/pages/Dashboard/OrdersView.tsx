@@ -48,8 +48,8 @@ function getOrderCode(id: string) {
   return `#${id.slice(-6).toUpperCase()}`;
 }
 
-function formatOrderTime(createdAt: string) {
-  return new Date(createdAt).toLocaleTimeString([], {
+function formatOrderTime(createdAt: string, locale: string = 'en-US') {
+  return new Date(createdAt).toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -57,18 +57,19 @@ function formatOrderTime(createdAt: string) {
   });
 }
 
-function getElapsedLabel(createdAt: string) {
+function getElapsedLabel(createdAt: string | undefined, t: any) {
+  if (!createdAt) return null;
   const diffMinutes = Math.max(
     0,
     Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000),
   );
 
-  if (diffMinutes < 1) return 'just now';
-  if (diffMinutes === 1) return '1 min ago';
-  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+  if (diffMinutes < 1) return t('auto.justNow', 'just now');
+  if (diffMinutes === 1) return t('auto.1MinAgo', '1 min ago');
+  if (diffMinutes < 60) return t('auto.minAgo', '{{min}} min ago', { min: diffMinutes });
 
   const hours = Math.floor(diffMinutes / 60);
-  return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+  return hours === 1 ? t('auto.1HourAgo', '1 hour ago') : t('auto.hoursAgo', '{{hours}} hours ago', { hours });
 }
 
 function getItemTotal(item: DashboardOrderItem) {
@@ -101,32 +102,33 @@ function stripTrailingColon(value: string) {
 }
 
 function SourceBadge({ source, staff }: { source?: 'CUSTOMER' | 'POS'; staff?: any }) {
+  const { t, i18n } = useTranslation();
   if (!source) return null;
   if (source === 'CUSTOMER') {
     return (
       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
-        QR
-      </span>
+        {t('auto.qR', 'QR')}</span>
     );
   }
   
   const roleStr = staff?.role ? String(staff.role) : '';
   const roleName = roleStr ? roleStr.charAt(0).toUpperCase() + roleStr.slice(1).toLowerCase() : 'Staff';
+  const translatedRole = roleStr ? t(`roles.${roleStr.toLowerCase()}`, roleName) : t('roles.staff', 'Staff');
   const name = staff?.name ? staff.name.split(' ')[0] : (staff?.email ? staff.email.split('@')[0] : 'Staff');
   
   return (
     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
-      {roleName}: {name}
+      {translatedRole}: {name}
     </span>
   );
 }
 
 const OrdersView = () => {
+  const { t, i18n } = useTranslation();
   const { orders, updateOrderStatus, batchUpdateOrderStatus } = useOrders();
   const [activeTab, setActiveTab] = useState<OrderStatus>('NEW');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(null);
-  const { t } = useTranslation();
 
   const counts = useMemo(() => {
     return ORDER_STATUSES.reduce<Record<OrderStatus, number>>((acc, { status }) => {
@@ -309,7 +311,7 @@ const OrdersView = () => {
               className="flex items-center gap-2 h-10 px-4 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm font-bold hover:bg-primary/15 transition-colors"
             >
               <Play className="w-4 h-4" />
-              Mark all as In Progress ({filteredOrders.length})
+              {t('auto.markAllAsInProgress', 'Mark all as In Progress (')}{filteredOrders.length})
             </button>
           )}
           {activeTab === 'IN_PROGRESS' && (
@@ -319,7 +321,7 @@ const OrdersView = () => {
               className="flex items-center gap-2 h-10 px-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm font-bold hover:bg-emerald-500/15 transition-colors"
             >
               <Utensils className="w-4 h-4" />
-              Mark all as Served ({filteredOrders.length})
+              {t('auto.markAllAsServed', 'Mark all as Served (')}{filteredOrders.length})
             </button>
           )}
           {activeTab === 'SERVED' && (
@@ -329,7 +331,7 @@ const OrdersView = () => {
               className="flex items-center gap-2 h-10 px-4 rounded-lg bg-slate-500/10 border border-slate-500/20 text-slate-400 text-sm font-bold hover:bg-slate-500/15 transition-colors"
             >
               <Check className="w-4 h-4" />
-              Mark all as Completed ({filteredOrders.length})
+              {t('auto.markAllAsCompleted', 'Mark all as Completed (')}{filteredOrders.length})
             </button>
           )}
         </div>
@@ -368,12 +370,11 @@ const OrdersView = () => {
                       {specialRequests.length > 0 && (
                         <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full bg-[#F97316] px-2 text-[10px] font-black uppercase text-white">
                           <ClipboardList className="h-3 w-3" />
-                          Note
-                        </span>
+                          {t('auto.note', 'Note')}</span>
                       )}
                     </div>
                     <span className="whitespace-nowrap text-xs font-bold text-muted-foreground">
-                      {getElapsedLabel(order.createdAt)}
+                      {getElapsedLabel(order.createdAt, t)}
                     </span>
                   </div>
 
@@ -383,7 +384,7 @@ const OrdersView = () => {
                       </span>
                       <span className="flex min-w-0 items-center gap-1.5 truncate">
                         <Clock className="h-3.5 w-3.5" />
-                        {t('orders.pluckedAt', { time: formatOrderTime(order.createdAt) })}
+                        {t('orders.pluckedAt', { time: formatOrderTime(order.createdAt, i18n.language) })}
                       </span>
                   </div>
                 </div>
@@ -424,8 +425,7 @@ const OrdersView = () => {
                     ))}
                     {order.items.length > 6 && (
                       <li className="text-xs font-black text-muted-foreground">
-                        +{order.items.length - 6} more
-                      </li>
+                        +{order.items.length - 6} {t('auto.more', 'more')}</li>
                     )}
                   </ul>
 

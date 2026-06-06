@@ -152,7 +152,7 @@ export default function StaffCreatedModal({
               {t("staff.created.passwordFor", { name: staffName, defaultValue: `Dashboard Password for ${staffName}` })}
             </p>
             <p className="text-xs text-muted-foreground mb-2">
-              Email: <span className="font-semibold text-foreground">{staffEmail}</span>
+              {t('auto.email', 'Email:')}<span className="font-semibold text-foreground">{staffEmail}</span>
             </p>
             <p className="text-2xl font-mono font-bold text-foreground tracking-widest select-all">
               {tempPassword}

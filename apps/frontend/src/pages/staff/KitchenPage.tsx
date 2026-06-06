@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useOrders, OrderStatus } from '../../context/OrderContext';
 import { useSocket } from '../../context/SocketContext';
 import { useFeature } from '../../hooks/useFeature';
+import { useTranslation } from "react-i18next";
 
 function elapsedMinutes(createdAt: string): number {
   const diff = Date.now() - new Date(createdAt).getTime();
@@ -18,6 +19,7 @@ const COLUMNS: { status: OrderStatus; label: string; color: string }[] = [
 const HISTORY_HOURS = 24;
 
 export default function KitchenPage() {
+    const { t } = useTranslation();
   const { orders, updateOrderStatus } = useOrders();
   const { socket } = useSocket();
   const navigate = useNavigate();
@@ -103,7 +105,7 @@ export default function KitchenPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6 px-2">
         <h1 className="text-3xl font-black tracking-tight">
-          KITCHEN <span className="text-blue-400">DISPLAY</span>
+          {t('auto.kITCHEN', 'KITCHEN')}<span className="text-blue-400">{t('auto.dISPLAY', 'DISPLAY')}</span>
         </h1>
         <div className="flex items-center gap-4">
           <div className="text-sm text-gray-500">
@@ -117,8 +119,7 @@ export default function KitchenPage() {
                 : 'bg-gray-800 text-gray-500 border-gray-700 hover:text-gray-300'
             }`}
           >
-            History
-            {completedOrders.length > 0 && (
+            {t('auto.history', 'History')}{completedOrders.length > 0 && (
               <span className="ml-2 px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-400 text-[10px]">
                 {completedOrders.length}
               </span>
@@ -132,20 +133,18 @@ export default function KitchenPage() {
         <div className="mb-4 bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
           <div className="px-4 py-3 border-t-4 border-t-gray-500 bg-gray-900/80 backdrop-blur flex items-center justify-between">
             <span className="text-sm font-bold uppercase tracking-widest text-gray-400">
-              History — Last {HISTORY_HOURS}h
+              {t('auto.historyLast', 'History — Last')}{HISTORY_HOURS}h
             </span>
             <button
               onClick={() => setShowHistory(false)}
               className="text-gray-600 hover:text-gray-400 text-lg leading-none"
             >
-              &times;
-            </button>
+              {t('auto.Times', '&times;')}</button>
           </div>
           <div className="max-h-64 overflow-y-auto p-3">
             {completedOrders.length === 0 ? (
               <div className="flex items-center justify-center h-20 text-gray-700 text-xs uppercase tracking-widest">
-                No completed orders
-              </div>
+                {t('auto.noCompletedOrders', 'No completed orders')}</div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {completedOrders.map((order) => {
@@ -173,7 +172,7 @@ export default function KitchenPage() {
                         ))}
                       </ul>
                       <p className="text-[10px] text-gray-600">
-                        Table {order.tableName || order.tableId || '—'}
+                        {t('auto.table', 'Table')}{order.tableName || order.tableId || '—'}
                         {order.customerName ? ` — ${order.customerName}` : ''}
                       </p>
                     </div>
@@ -231,7 +230,7 @@ export default function KitchenPage() {
                             #{order.id.slice(-8)}
                           </span>
                           <span className="text-sm font-bold text-gray-300">
-                            Table {tableNum}
+                            {t('auto.table', 'Table')}{tableNum}
                           </span>
                         </div>
                         <span
@@ -273,8 +272,7 @@ export default function KitchenPage() {
 
                 {colOrders.length === 0 && (
                   <div className="flex items-center justify-center h-32 text-gray-700 text-xs uppercase tracking-widest">
-                    No orders
-                  </div>
+                    {t('auto.noOrders', 'No orders')}</div>
                 )}
               </div>
             </div>

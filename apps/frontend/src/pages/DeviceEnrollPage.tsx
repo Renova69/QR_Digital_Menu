@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { verifyDeviceEnrollment } from "../lib/api";
+import { useTranslation } from "react-i18next";
 
 type EnrollState = "verifying" | "ready" | "error";
 
 export default function DeviceEnrollPage() {
+    const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [state, setState] = useState<EnrollState>("verifying");
@@ -90,14 +92,12 @@ export default function DeviceEnrollPage() {
         {state === "error" && (
           <div className="mt-6 space-y-3">
             <p className="text-xs text-slate-500">
-              Ask a manager to generate a fresh staff device QR from Settings.
-            </p>
+              {t('auto.askAManagerToGenerateAFreshStaff', 'Ask a manager to generate a fresh staff device QR from Settings.')}</p>
             <Link
               to="/login"
               className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-950"
             >
-              Manager Login
-            </Link>
+              {t('auto.managerLogin', 'Manager Login')}</Link>
           </div>
         )}
       </div>

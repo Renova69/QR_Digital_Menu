@@ -32,7 +32,7 @@ const UpgradeBanner = ({ feature }: { feature: string }) => {
 
 const SummaryView = () => {
   const { activeRestaurant } = useContext(RestaurantContext) as any;
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const restaurantId = activeRestaurant?.id;
   const canBasic = useFeature("analytics:basic");
   const canFull = useFeature("analytics:full");
@@ -114,7 +114,7 @@ const SummaryView = () => {
                 </div>
               </div>
               <p className="text-[1.65rem] font-display font-bold text-foreground leading-none">
-                {scanLoading ? "..." : (scanStats?.totalViews ?? 0).toLocaleString('en-US')}
+                {scanLoading ? "..." : (scanStats?.totalViews ?? 0).toLocaleString(i18n.language)}
               </p>
             </div>
             <div className="kpi-tile p-4 md:p-5 group hover:shadow-[0_12px_40px_-8px_hsl(265_95%_70%/0.3)] hover:-translate-y-0.5 transition-all duration-300">
@@ -125,7 +125,7 @@ const SummaryView = () => {
                 </div>
               </div>
               <p className="text-[1.65rem] font-display font-bold text-foreground leading-none">
-                {scanLoading ? "..." : (scanStats?.uniqueVisitors ?? 0).toLocaleString('en-US')}
+                {scanLoading ? "..." : (scanStats?.uniqueVisitors ?? 0).toLocaleString(i18n.language)}
               </p>
             </div>
             {hasPerTable && (

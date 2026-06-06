@@ -7,6 +7,7 @@ import { ImageUploadInput } from "../ui/ImageUploadInput";
 import { Modal } from "../ui/modal";
 import { useToast } from "../ui/toast";
 import { Item } from "../../types";
+import { useTranslation } from "react-i18next";
 
 interface EditItemFormProps {
   item: Item;
@@ -17,6 +18,7 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
   item,
   trigger,
 }) => {
+    const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const { updateItem, categories } = useMenuContext();
 
@@ -82,13 +84,12 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
       <Modal
         open={open}
         onOpenChange={setOpen}
-        title="Edit Item"
+        title={t('auto.editItem', 'Edit Item')}
         description={`Update the details for "${item.name}".`}
         trigger={
           trigger || (
             <Button variant="outline" size="sm">
-              Edit
-            </Button>
+              {t('auto.edit', 'Edit')}</Button>
           )
         }
       >
@@ -97,27 +98,27 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
           className="space-y-4 max-h-[80vh] overflow-y-auto pr-2"
         >
           <div className="space-y-2">
-            <label className="text-sm font-medium">Item Name *</label>
+            <label className="text-sm font-medium">{t('auto.itemName', 'Item Name *')}</label>
             <Input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Greek Salad"
+              placeholder={t('auto.eGGreekSalad', 'e.g. Greek Salad')}
               required
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Description</label>
+            <label className="text-sm font-medium">{t('auto.description', 'Description')}</label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Item description"
+              placeholder={t('auto.itemDescription', 'Item description')}
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Price (€) *</label>
+            <label className="text-sm font-medium">{t('auto.price', 'Price (€) *')}</label>
             <Input
               type="number"
               value={price}
@@ -140,29 +141,25 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
               htmlFor={`isFeatured-${item.id}`}
               className="text-sm font-bold text-foreground"
             >
-              ⭐ Feature Item (Trending Now)
-            </label>
+              {t('auto.FeatureItemTrendingNow', '⭐ Feature Item (Trending Now)')}</label>
           </div>
 
           <div className="space-y-2 border-b border-border/50 pb-4">
             <label className="text-sm font-medium block">
-              Loyalty Points Cost (Freebie)
-            </label>
+              {t('auto.loyaltyPointsCostFreebie', 'Loyalty Points Cost (Freebie)')}</label>
             <Input
               type="number"
               value={rewardPointsPrice}
               onChange={(e) => setRewardPointsPrice(e.target.value)}
-              placeholder="e.g. 100"
+              placeholder={t('auto.eG100', 'e.g. 100')}
             />
             <p className="text-xs text-muted-foreground">
-              Leave blank if this item cannot be redeemed for points.
-            </p>
+              {t('auto.leaveBlankIfThisItemCannotBeRedee', 'Leave blank if this item cannot be redeemed for points.')}</p>
           </div>
 
           <div className="space-y-2 pb-4">
             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-              Perfect Pairings
-            </label>
+              {t('auto.perfectPairings', 'Perfect Pairings')}</label>
             <div className="flex flex-col gap-1 max-h-32 overflow-y-auto p-2 border border-border/50 rounded bg-secondary/20">
               {otherItems.length > 0 ? (
                 otherItems.map((otherItem) => (
@@ -190,36 +187,32 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
                 ))
               ) : (
                 <span className="text-xs text-muted-foreground px-1">
-                  No other items available.
-                </span>
+                  {t('auto.noOtherItemsAvailable', 'No other items available.')}</span>
               )}
             </div>
             <p className="text-[10px] text-muted-foreground">
-              Select items that go well with this.
-            </p>
+              {t('auto.selectItemsThatGoWellWithThis', 'Select items that go well with this.')}</p>
           </div>
 
           <div className="space-y-2 border-t border-border/50 pt-4">
             <label className="text-sm font-medium">
-              Allergens (comma separated)
-            </label>
+              {t('auto.allergensCommaSeparated', 'Allergens (comma separated)')}</label>
             <Input
               type="text"
               value={allergens}
               onChange={(e) => setAllergens(e.target.value)}
-              placeholder="e.g. Nuts, Dairy"
+              placeholder={t('auto.eGNutsDairy', 'e.g. Nuts, Dairy')}
             />
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium">
-              Dietary Tags (comma separated)
-            </label>
+              {t('auto.dietaryTagsCommaSeparated', 'Dietary Tags (comma separated)')}</label>
             <Input
               type="text"
               value={dietaryTags}
               onChange={(e) => setDietaryTags(e.target.value)}
-              placeholder="e.g. Vegan, Spicy"
+              placeholder={t('auto.eGVeganSpicy', 'e.g. Vegan, Spicy')}
             />
           </div>
 
@@ -233,7 +226,7 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
               setImageRemoved(true);
               setImageFile(null);
             }}
-            label="Update Image (optional)"
+            label={t('auto.updateImageOptional', 'Update Image (optional)')}
             aspectRatio="wide"
           />
 

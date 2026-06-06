@@ -213,11 +213,9 @@ export default function PosTableModal() {
         <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
         <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 w-full max-h-[85dvh] overflow-y-auto rounded-t-xl bg-background p-6 pt-safe md:inset-auto md:top-1/2 md:left-1/2 md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:bottom-auto">
           <Dialog.Title className="text-lg font-semibold mb-1">
-            Select Table
-          </Dialog.Title>
+            {t('auto.selectTable', 'Select Table')}</Dialog.Title>
           <Dialog.Description className="text-sm text-muted-foreground mb-3">
-            Choose a table to start taking orders.
-          </Dialog.Description>
+            {t('auto.chooseATableToStartTaking', 'Choose a table to start taking orders.')}</Dialog.Description>
 
           <ZoneSelector
             zones={zones}
@@ -231,7 +229,7 @@ export default function PosTableModal() {
               className="w-full mb-4 py-2 px-4 rounded-lg brand-cta text-white font-medium min-h-[44px]"
               onClick={() => setOpen(false)}
             >
-              Back to POS — {session.tableName}
+              {t('auto.backToPOS', 'Back to POS —')}{session.tableName}
             </button>
           )}
 
@@ -260,8 +258,7 @@ export default function PosTableModal() {
                 }}
                 className="px-4 py-2 rounded-lg brand-cta text-white text-sm min-h-[44px]"
               >
-                Retry
-              </button>
+                {t('auto.retry', 'Retry')}</button>
             </div>
           ) : (
             <>
@@ -285,16 +282,14 @@ export default function PosTableModal() {
                         }}
                         className="mt-2 text-xs underline opacity-70 hover:opacity-100 min-h-[44px] flex items-center"
                       >
-                        Force Open
-                      </button>
+                        {t('auto.forceOpen', 'Force Open')}</button>
                     )}
                   </button>
                 ))}
               </div>
               {tables.length === 0 && (
                 <p className="text-center text-muted-foreground py-8">
-                  No tables found. Create tables in the dashboard first.
-                </p>
+                  {t('auto.noTablesFoundCreateTables', 'No tables found. Create tables in the dashboard first.')}</p>
               )}
             </div>
             </>

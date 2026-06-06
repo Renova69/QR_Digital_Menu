@@ -25,18 +25,18 @@ const statusClass = (status: string) => {
   }
 };
 
-const formatDateTime = (dateStr: string) =>
-  new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+const formatDateTime = (dateStr: string, locale: string) =>
+  new Date(dateStr).toLocaleDateString(locale, { month: 'short', day: 'numeric' }) +
   ' · ' +
-  new Date(dateStr).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  new Date(dateStr).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 
 const RecentOrdersTable = ({ orders }: RecentOrdersTableProps) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   return (
     <div className="glass-panel rounded-[1.5rem] p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-display font-bold text-foreground">Last 50 orders</h3>
+        <h3 className="text-sm font-display font-bold text-foreground">{t('auto.last50Orders', 'Last 50 orders')}</h3>
       </div>
         <div className="max-h-[420px] overflow-y-auto pr-1 space-y-2">
           {orders.length === 0 ? (
@@ -46,10 +46,10 @@ const RecentOrdersTable = ({ orders }: RecentOrdersTableProps) => {
             <div key={order.id} className="flex items-center gap-3 py-2 px-3 rounded-xl hover:bg-secondary/50 transition-colors">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-foreground">
-                  #{order.id.slice(-6).toUpperCase()} — Table {order.tableName || order.tableId || '—'}
+                  #{order.id.slice(-6).toUpperCase()} {t('auto.Table', '— Table')}{order.tableName || order.tableId || '—'}
                 </p>
                 <p className="text-[10px] text-muted-foreground">
-                  {order.customerPhone ? `${order.customerPhone} · ` : ''}{formatDateTime(order.createdAt)}
+                  {order.customerPhone ? `${order.customerPhone} · ` : ''}{formatDateTime(order.createdAt, i18n.language)}
                 </p>
               </div>
               <div className="text-right shrink-0">
@@ -57,7 +57,7 @@ const RecentOrdersTable = ({ orders }: RecentOrdersTableProps) => {
                 <p className="text-[10px] text-muted-foreground">{t('dashboard.itemsCount', { count: order.items?.length ?? 0 })}</p>
               </div>
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${statusClass(order.status)}`}>
-                {order.status}
+                {t(`orders.tabs.${order.status === 'IN_PROGRESS' ? 'inProgress' : order.status.toLowerCase()}`, order.status)}
               </span>
             </div>
           ))

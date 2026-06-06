@@ -293,21 +293,20 @@ const TableView: React.FC = () => {
             {t('dashboard.tabs.tables', 'Tables & QR')}
           </h1>
           <p className="mt-1 text-sm font-medium text-muted-foreground">
-            Track table sessions, manage QR codes, and print table-ready assets.
-          </p>
+            {t('auto.trackTableSessionsManageQ', 'Track table sessions, manage QR codes, and print table-ready assets.')}</p>
         </div>
 
         <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center">
           <div className="rounded-lg border border-border bg-card px-3 py-2 shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Tables</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{t('auto.tables', 'Tables')}</p>
             <p className="mt-0.5 text-xl font-black text-foreground">{tableStats.tableCount}</p>
           </div>
           <div className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary">Open</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary">{t('auto.open', 'Open')}</p>
             <p className="mt-0.5 text-xl font-black text-primary">{tableStats.activeSessions}</p>
           </div>
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 shadow-sm dark:border-emerald-400/20 dark:bg-emerald-400/10">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-200">Paid</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-200">{t('auto.paid', 'Paid')}</p>
             <p className="mt-0.5 text-xl font-black text-emerald-700 dark:text-emerald-200">{tableStats.paidSessions}</p>
           </div>
         </div>
@@ -356,8 +355,7 @@ const TableView: React.FC = () => {
                 )}
               >
                 <MapPin className="h-4 w-4" />
-                Zones
-              </button>
+                {t('auto.zones', 'Zones')}</button>
             </>
           )}
         </div>
@@ -373,10 +371,9 @@ const TableView: React.FC = () => {
                 <MapPin className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-base font-black text-foreground">Table Zones</h2>
+                <h2 className="text-base font-black text-foreground">{t('auto.tableZones', 'Table Zones')}</h2>
                 <p className="mt-0.5 text-sm font-medium text-muted-foreground">
-                  Organize tables into zones (Restaurant, Garden, Terrace, etc.)
-                </p>
+                  {t('auto.organizeTablesIntoZonesRe', 'Organize tables into zones (Restaurant, Garden, Terrace, etc.)')}</p>
               </div>
             </div>
 
@@ -385,7 +382,7 @@ const TableView: React.FC = () => {
                 type="text"
                 value={newZoneName}
                 onChange={(e) => setNewZoneName(e.target.value)}
-                placeholder="Zone name..."
+                placeholder={t('auto.zoneName', 'Zone name...')}
                 className="h-11 flex-1 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
               />
               <button
@@ -394,19 +391,18 @@ const TableView: React.FC = () => {
                 className="flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Plus className="h-4 w-4" />
-                Add Zone
-              </button>
+                {t('auto.addZone', 'Add Zone')}</button>
             </div>
           </form>
 
           <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
             <div className="mb-4 flex items-center gap-2">
               <LayoutGrid className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">Zone list</h2>
+              <h2 className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">{t('auto.zoneList', 'Zone list')}</h2>
             </div>
 
             {!zones || zones.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">No zones created yet.</p>
+              <p className="py-4 text-center text-sm text-muted-foreground">{t('auto.noZonesCreatedYet', 'No zones created yet.')}</p>
             ) : (
               <div className="space-y-2">
                 {[...zones]
@@ -454,7 +450,7 @@ const TableView: React.FC = () => {
                       ) : (
                         <>
                           <span className="flex-1 text-sm font-bold text-foreground">{zone.name}</span>
-                          <span className="text-xs text-muted-foreground">{zone._count?.tables ?? 0} tables</span>
+                          <span className="text-xs text-muted-foreground">{zone._count?.tables ?? 0} {t('auto.tables', 'tables')}</span>
                           <button
                             type="button"
                             onClick={() => moveZoneUp(index)}
@@ -516,8 +512,7 @@ const TableView: React.FC = () => {
                 <div>
                   <h2 className="text-base font-black text-foreground">{t('tables.title')}</h2>
                   <p className="mt-0.5 text-sm font-medium text-muted-foreground">
-                    Add table names exactly as guests should see them in QR links.
-                  </p>
+                    {t('auto.addTableNamesExactlyAsGuestsShould', 'Add table names exactly as guests should see them in QR links.')}</p>
                 </div>
               </div>
 
@@ -553,8 +548,7 @@ const TableView: React.FC = () => {
               </div>
               {duplicateTable && (
                 <p className="mt-2 text-xs font-bold text-red-600">
-                  A table with this name already exists.
-                </p>
+                  {t('auto.aTableWithThisNameAlready', 'A table with this name already exists.')}</p>
               )}
             </form>
 
@@ -564,8 +558,8 @@ const TableView: React.FC = () => {
                   <Printer className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-black text-foreground">Print setup</h2>
-                  <p className="mt-0.5 text-sm font-medium text-muted-foreground">Choose a QR layout before printing all tables.</p>
+                  <h2 className="text-base font-black text-foreground">{t('auto.printSetup', 'Print setup')}</h2>
+                  <p className="mt-0.5 text-sm font-medium text-muted-foreground">{t('auto.chooseAQRLayoutBeforePrin', 'Choose a QR layout before printing all tables.')}</p>
                 </div>
               </div>
 
@@ -607,14 +601,14 @@ const TableView: React.FC = () => {
           <div className="flex flex-col gap-3 border-b border-border pb-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-2">
               <LayoutGrid className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">QR table grid</h2>
+              <h2 className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">{t('auto.qRTableGrid', 'QR table grid')}</h2>
             </div>
             <div className="relative lg:w-80">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={tableSearch}
                 onChange={(event) => setTableSearch(event.target.value)}
-                placeholder="Search table..."
+                placeholder={t('auto.searchTable', 'Search table...')}
                 className="h-10 w-full rounded-lg border border-border bg-card pl-10 pr-3 text-sm font-medium text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
               />
             </div>
@@ -640,8 +634,7 @@ const TableView: React.FC = () => {
                     <div className="flex items-center justify-between gap-2">
                       <span className="inline-flex h-5 items-center gap-1 rounded-full bg-primary/10 px-1.5 text-[10px] font-black uppercase text-primary">
                         <QrCode className="h-3 w-3" />
-                        QR ready
-                      </span>
+                        {t('auto.qRReady', 'QR ready')}</span>
                       {session && (
                         <span className={cn(
                           'rounded-full px-2 py-0.5 text-[10px] font-black uppercase',
@@ -665,8 +658,7 @@ const TableView: React.FC = () => {
                         title={publicUrl}
                       >
                         <Copy className="h-3 w-3" />
-                        Copy URL
-                      </button>
+                        {t('auto.copyURL', 'Copy URL')}</button>
                     </div>
 
                     {zones && zones.length > 0 && (
@@ -678,7 +670,7 @@ const TableView: React.FC = () => {
                         }}
                         className="h-7 w-full rounded border border-border bg-background px-1.5 text-[11px] font-medium text-foreground outline-none focus:border-primary"
                       >
-                        <option value="">No zone</option>
+                        <option value="">{t('auto.noZone', 'No zone')}</option>
                         {zones.map((z: TableZone) => (
                           <option key={z.id} value={z.id}>{z.name}</option>
                         ))}
@@ -691,8 +683,7 @@ const TableView: React.FC = () => {
                         onClick={() => closeSessionMutation.mutate({ token: session.token, restaurantId })}
                         className="text-[10px] font-black text-red-600 transition hover:text-red-500"
                       >
-                        Close Session
-                      </button>
+                        {t('auto.closeSession', 'Close Session')}</button>
                     )}
 
                     <div className="flex items-center gap-2">
@@ -702,8 +693,7 @@ const TableView: React.FC = () => {
                         className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-xs font-black text-white shadow-[0_8px_16px_-10px_rgba(110,86,248,0.8)] transition hover:bg-accent"
                       >
                         <QrCode className="h-3.5 w-3.5" />
-                        Generate QR
-                      </button>
+                        {t('auto.generateQR', 'Generate QR')}</button>
                       <button
                         type="button"
                         onClick={() => deleteMutation.mutate(table.id)}

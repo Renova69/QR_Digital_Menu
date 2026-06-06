@@ -3,6 +3,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { Cross2Icon } from "@radix-ui/react-icons";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 interface LoginDialogProps {
   open?: boolean;
@@ -17,6 +18,7 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
   children,
   defaultIsLogin = true,
 }) => {
+    const { t } = useTranslation();
   const [isLogin, setIsLogin] = useState(defaultIsLogin);
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -73,8 +75,7 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
               onClick={handleGoogleLogin}
               className="w-full inline-flex justify-center py-2.5 px-4 border border-border rounded-xl shadow-sm bg-secondary text-sm font-medium text-foreground hover:bg-secondary/80 transition-colors"
             >
-              Sign in with Google
-            </button>
+              {t('auto.signInWithGoogle', 'Sign in with Google')}</button>
           </div>
 
           <div className="mt-4 relative">
@@ -83,8 +84,7 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
             </div>
             <div className="relative flex justify-center text-sm">
               <span className="px-2 bg-background text-muted-foreground">
-                Or continue with
-              </span>
+                {t('auto.orContinueWith', 'Or continue with')}</span>
             </div>
           </div>
 
@@ -112,28 +112,26 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
           <form onSubmit={handleSubmit} className="mt-4 space-y-4">
             <div>
               <label htmlFor="email" className="sr-only">
-                Email
-              </label>
+                {t('auto.email', 'Email')}</label>
               <input
                 type="email"
                 id="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email"
+                placeholder={t('auto.email', 'Email')}
                 required
                 className="w-full px-3 py-2.5 border border-border rounded-xl shadow-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
               />
             </div>
             <div>
               <label htmlFor="password" className="sr-only">
-                Password
-              </label>
+                {t('auto.password', 'Password')}</label>
               <input
                 type="password"
                 id="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
+                placeholder={t('auto.password', 'Password')}
                 required
                 minLength={8}
                 className="w-full px-3 py-2.5 border border-border rounded-xl shadow-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"

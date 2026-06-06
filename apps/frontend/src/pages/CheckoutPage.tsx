@@ -461,8 +461,7 @@ const CheckoutPage = () => {
                 })}
                 {finalMultiplier > 1 && (
                   <span className="ml-1 text-xs text-primary/70">
-                    ({finalMultiplier}x)
-                  </span>
+                    ({finalMultiplier}{t('auto.x', 'x)')}</span>
                 )}
               </p>
             </div>

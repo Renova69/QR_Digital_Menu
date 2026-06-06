@@ -201,8 +201,7 @@ const DashboardPage = () => {
   if (restaurantsError) {
     return (
       <div className="p-8 text-muted-foreground">
-        Error loading restaurants.
-      </div>
+        {t('auto.errorLoadingRestaurants', 'Error loading restaurants.')}</div>
     );
   }
 
@@ -298,8 +297,7 @@ const DashboardPage = () => {
               <QrCode className="w-4 h-4 text-white" />
             </div>
             <span className="text-sm font-display font-bold brand-gradient-text tracking-tight">
-              QR MENU
-            </span>
+              {t('auto.qRMENU', 'QR MENU')}</span>
           </Link>
         </div>
 
@@ -546,8 +544,7 @@ const DashboardPage = () => {
               <QrCode className="w-3.5 h-3.5 text-white" />
             </div>
             <span className="text-sm font-display font-bold brand-gradient-text">
-              QR MENU
-            </span>
+              {t('auto.qRMENU', 'QR MENU')}</span>
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle size="sm" />
