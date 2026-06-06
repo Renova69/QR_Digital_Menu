@@ -80,11 +80,14 @@ async function bootstrap() {
                 'http://127.0.0.1:3002',
               ]),
         ]);
-        // In production restrict to explicit origin list only; no wildcard *.vercel.app
+        // In production restrict CORS headers to explicit origins only; no
+        // wildcard *.vercel.app. Returning false for unknown origins keeps
+        // browser XHR blocked by CORS without failing normal form POST callbacks
+        // from payment providers before webhook/callback handlers can run.
         if (!origin || allowed.has(origin)) {
           callback(null, true);
         } else {
-          callback(new Error(`CORS: ${origin} not allowed`));
+          callback(null, false);
         }
       },
       credentials: true,
