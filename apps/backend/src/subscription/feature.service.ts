@@ -24,6 +24,8 @@ const STARTER_FEATURES: FeatureFlag[] = [
 const PROFESSIONAL_FEATURES: FeatureFlag[] = [
   ...STARTER_FEATURES,
   FeatureFlag.ANALYTICS_FULL,
+  FeatureFlag.PAYMENTS_EPAY,
+  FeatureFlag.PAYMENTS_BORICA,
   FeatureFlag.PAYMENTS_STRIPE,
   FeatureFlag.LANGUAGES_MULTI,
   FeatureFlag.BRANDING_CUSTOM,

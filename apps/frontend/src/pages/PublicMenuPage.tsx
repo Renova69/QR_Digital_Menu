@@ -139,7 +139,7 @@ const PublicMenuPage = () => {
     : [];
   const hasFeature = (feature: FeatureFlag) => features.includes(feature);
   const ordersEnabled = hasFeature('orders:receive');
-  const paymentsEnabled = hasFeature('payments:stripe');
+  const paymentsEnabled = !!(menuMeta?.restaurant?.paymentsEnabled);
   const callWaiterEnabled = hasFeature('orders:call-waiter');
   const languagesEnabled = hasFeature('languages:multi');
   const upsellEnabled = hasFeature('upselling');

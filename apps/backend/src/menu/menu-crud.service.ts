@@ -252,6 +252,7 @@ export class MenuCrudService {
         youtubeUrl: true,
         address: true,
         contactInfo: true,
+        paymentsEnabled: true,
       } as any,
     });
 

@@ -7,6 +7,8 @@ export enum FeatureFlag {
   ORDERS_CALL_WAITER = 'orders:call-waiter',
   ANALYTICS_BASIC = 'analytics:basic',
   ANALYTICS_FULL = 'analytics:full',
+  PAYMENTS_EPAY = 'payments:epay',
+  PAYMENTS_BORICA = 'payments:borica',
   PAYMENTS_STRIPE = 'payments:stripe',
   LANGUAGES_MULTI = 'languages:multi',
   BRANDING_CUSTOM = 'branding:custom',

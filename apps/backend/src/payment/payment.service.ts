@@ -256,42 +256,38 @@ export class PaymentService {
 
   private isStripeConfigured(restaurant: any): boolean {
     return !!(
-      restaurant.paymentsEnabled &&
-      restaurant.stripeOnboarded &&
-      restaurant.stripeAccountId &&
       this.featureService.restaurantHasFeature(
         restaurant,
         FeatureFlag.PAYMENTS_STRIPE,
-      )
+      ) &&
+      restaurant.paymentsEnabled &&
+      restaurant.stripeOnboarded &&
+      restaurant.stripeAccountId
     );
   }
 
   private isEpayConfigured(restaurant: any): boolean {
     return !!(
+      this.featureService.restaurantHasFeature(
+        restaurant,
+        FeatureFlag.PAYMENTS_EPAY,
+      ) &&
       restaurant.paymentsEnabled &&
       restaurant.epayEnabled &&
       restaurant.epayClientId &&
       restaurant.epayMerchantEmail &&
-      restaurant.epaySecretEncrypted &&
-      // ePay and Stripe share the same Professional+ tier requirement — reuse
-      // PAYMENTS_STRIPE until a dedicated PAYMENTS_EPAY flag is introduced.
-      this.featureService.restaurantHasFeature(
-        restaurant,
-        FeatureFlag.PAYMENTS_STRIPE,
-      )
+      restaurant.epaySecretEncrypted
     );
   }
 
   private isBoricaConfigured(restaurant: any): boolean {
     if (
-      !restaurant.paymentsEnabled ||
-      !restaurant.boricaEnabled ||
-      // BORICA and Stripe share the same Professional+ tier requirement — reuse
-      // PAYMENTS_STRIPE until a dedicated PAYMENTS_BORICA flag is introduced.
       !this.featureService.restaurantHasFeature(
         restaurant,
-        FeatureFlag.PAYMENTS_STRIPE,
-      )
+        FeatureFlag.PAYMENTS_BORICA,
+      ) ||
+      !restaurant.paymentsEnabled ||
+      !restaurant.boricaEnabled
     ) {
       return false;
     }
@@ -673,18 +669,6 @@ export class PaymentService {
       );
     }
 
-    if (
-      !this.featureService.restaurantHasFeature(
-        restaurant,
-        FeatureFlag.PAYMENTS_STRIPE,
-      )
-    ) {
-      throw new ForbiddenException({
-        code: 'FEATURE_LOCKED',
-        message: 'Hosted payments require a Professional plan or above',
-      });
-    }
-
     if (!this.isEpayConfigured(restaurant)) {
       throw new BadRequestException('ePay.bg is not configured');
     }
@@ -829,18 +813,6 @@ export class PaymentService {
       throw new ForbiddenException(
         'Payments are not enabled for this restaurant',
       );
-    }
-
-    if (
-      !this.featureService.restaurantHasFeature(
-        restaurant,
-        FeatureFlag.PAYMENTS_STRIPE,
-      )
-    ) {
-      throw new ForbiddenException({
-        code: 'FEATURE_LOCKED',
-        message: 'Hosted payments require a Professional plan or above',
-      });
     }
 
     if (!this.isBoricaConfigured(restaurant)) {
