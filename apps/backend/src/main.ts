@@ -128,6 +128,7 @@ async function bootstrap() {
       '/api/v1/auth/otp/verify',
       '/api/v1/auth/google',
       '/api/v1/auth/google/callback',
+      '/api/v1/orders',
     ];
     app.use((req: any, res: any, next: any) => {
       const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
