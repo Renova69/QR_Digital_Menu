@@ -852,7 +852,11 @@
       "new": "New",
       "open": "Open",
       "paid": "Paid",
-      "closed": "Closed"
+      "closed": "Closed",
+      "in_progress": "In Progress",
+      "served": "Served",
+      "completed": "Completed",
+      "canceled": "Canceled"
     }
   },
   "common": {
@@ -2270,26 +2274,15 @@
     "xlsxSheetOptions": "Options & Choices"
   },
   "menu": {
-    "export.sheetCategories": "Categories",
-    "export.sheetItems": "Items",
-    "export.sheetOptions": "Options & Choices",
-    "export.colSortOrder": "Sort Order",
-    "export.colCategoryName": "Category Name",
-    "export.colItemCount": "Items",
-    "export.colAvailable": "Available",
-    "export.colCategory": "Category",
-    "export.colItemName": "Item Name",
-    "export.colDescription": "Description",
-    "export.colPriceEur": "Price EUR",
-    "export.colPriceBgn": "Price BGN",
-    "export.colWeight": "Weight",
-    "export.colAllergens": "Allergens",
-    "export.colDietaryTags": "Dietary Tags",
-    "export.colOption": "Option",
-    "export.colChoice": "Choice",
-    "export.colModifierEur": "Modifier EUR",
-    "export.colModifierBgn": "Modifier BGN",
-    "export.noData": "No data"
+    "options": "Options:",
+    "quickTemplates": "Quick Templates",
+    "sizeTemplate": "Size Template",
+    "donenessTemplate": "Doneness Template",
+    "quantityTemplate": "Quantity Template",
+    "size": "Size",
+    "doneness": "Doneness",
+    "quantity": "Quantity",
+    "createCustomOption": "Create Custom Option"
   },
   "onboarding": {
     "brand": "QR Menu",
@@ -2903,17 +2896,6 @@
   "tables.occupied": "Occupied",
   "tables.paid": "Paid",
   "tables.available": "Available",
-  "menu": {
-    "options": "Options:",
-    "quickTemplates": "Quick Templates",
-    "sizeTemplate": "Size Template",
-    "donenessTemplate": "Doneness Template",
-    "quantityTemplate": "Quantity Template",
-    "size": "Size",
-    "doneness": "Doneness",
-    "quantity": "Quantity",
-    "createCustomOption": "Create Custom Option"
-  },
   "roles": {
     "owner": "Owner",
     "manager": "Manager",

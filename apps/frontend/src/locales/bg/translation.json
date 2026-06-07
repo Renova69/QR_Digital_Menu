@@ -852,7 +852,11 @@
       "new": "Нова",
       "open": "Отворена",
       "paid": "Платена",
-      "closed": "Затворена"
+      "closed": "Затворена",
+      "in_progress": "В процес",
+      "served": "Сервирани",
+      "completed": "Завършени",
+      "canceled": "Отказани"
     }
   },
   "pos": {
@@ -2326,26 +2330,15 @@
     "keyConfigured": "Ключът е конфигуриран. Не може да бъде показан отново — генерирайте нов, за да издадете нов."
   },
   "menu": {
-    "export.sheetCategories": "Категории",
-    "export.sheetItems": "Артикули",
-    "export.sheetOptions": "Опции и избори",
-    "export.colSortOrder": "Ред",
-    "export.colCategoryName": "Категория",
-    "export.colItemCount": "Артикули",
-    "export.colAvailable": "Наличен",
-    "export.colCategory": "Категория",
-    "export.colItemName": "Артикул",
-    "export.colDescription": "Описание",
-    "export.colPriceEur": "Цена EUR",
-    "export.colPriceBgn": "Цена BGN",
-    "export.colWeight": "Тегло",
-    "export.colAllergens": "Алергени",
-    "export.colDietaryTags": "Диета",
-    "export.colOption": "Опция",
-    "export.colChoice": "Избор",
-    "export.colModifierEur": "Добавка EUR",
-    "export.colModifierBgn": "Добавка BGN",
-    "export.noData": "Няма данни"
+    "options": "Опции:",
+    "quickTemplates": "Бързи шаблони",
+    "sizeTemplate": "Шаблон за размер",
+    "donenessTemplate": "Шаблон за изпичане",
+    "quantityTemplate": "Шаблон за количество",
+    "size": "Размер",
+    "doneness": "Изпичане",
+    "quantity": "Количество",
+    "createCustomOption": "Създай персонализирана опция"
   },
   "onboarding": {
     "brand": "QR Меню",
@@ -2914,17 +2907,6 @@
   "tables.occupied": "Заета",
   "tables.paid": "Платена",
   "tables.available": "Свободна",
-  "menu": {
-    "options": "Опции:",
-    "quickTemplates": "Бързи шаблони",
-    "sizeTemplate": "Шаблон за размер",
-    "donenessTemplate": "Шаблон за изпичане",
-    "quantityTemplate": "Шаблон за количество",
-    "size": "Размер",
-    "doneness": "Изпичане",
-    "quantity": "Количество",
-    "createCustomOption": "Създай персонализирана опция"
-  },
   "roles": {
     "owner": "Собственик",
     "manager": "Мениджър",

@@ -852,7 +852,11 @@
       "new": "Nouă",
       "open": "Deschisă",
       "paid": "Plătită",
-      "closed": "Închisă"
+      "closed": "Închisă",
+      "in_progress": "În curs",
+      "served": "Servit",
+      "completed": "Finalizat",
+      "canceled": "Anulat"
     }
   },
   "common": {
@@ -2221,26 +2225,15 @@
     "keyConfigured": "A fost configurată o cheie. Nu poate fi afișată din nou — generează pentru a emite una nouă."
   },
   "menu": {
-    "export.sheetCategories": "Categorii",
-    "export.sheetItems": "Articole",
-    "export.sheetOptions": "Opțiuni și variante",
-    "export.colSortOrder": "Ordine",
-    "export.colCategoryName": "Categorie",
-    "export.colItemCount": "Articole",
-    "export.colAvailable": "Disponibil",
-    "export.colCategory": "Categorie",
-    "export.colItemName": "Articol",
-    "export.colDescription": "Descriere",
-    "export.colPriceEur": "Preț EUR",
-    "export.colPriceBgn": "Preț BGN",
-    "export.colWeight": "Greutate",
-    "export.colAllergens": "Alergeni",
-    "export.colDietaryTags": "Diet",
-    "export.colOption": "Opțiune",
-    "export.colChoice": "Variantă",
-    "export.colModifierEur": "Modificator EUR",
-    "export.colModifierBgn": "Modificator BGN",
-    "export.noData": "Fără date"
+    "options": "Opțiuni:",
+    "quickTemplates": "Șabloane rapide",
+    "sizeTemplate": "Șablon de mărime",
+    "donenessTemplate": "Șablon de coacere",
+    "quantityTemplate": "Șablon de cantitate",
+    "size": "Mărime",
+    "doneness": "Coacere",
+    "quantity": "Cantitate",
+    "createCustomOption": "Creați opțiune personalizată"
   },
   "onboarding": {
     "brand": "Meniu QR",
@@ -2854,17 +2847,6 @@
   "tables.occupied": "Ocupată",
   "tables.paid": "Plătită",
   "tables.available": "Disponibilă",
-  "menu": {
-    "options": "Opțiuni:",
-    "quickTemplates": "Șabloane rapide",
-    "sizeTemplate": "Șablon de mărime",
-    "donenessTemplate": "Șablon de coacere",
-    "quantityTemplate": "Șablon de cantitate",
-    "size": "Mărime",
-    "doneness": "Coacere",
-    "quantity": "Cantitate",
-    "createCustomOption": "Creați opțiune personalizată"
-  },
   "roles": {
     "owner": "Proprietar",
     "manager": "Manager",
