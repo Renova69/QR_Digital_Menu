@@ -261,17 +261,22 @@ export class PrintStationService {
         name: true,
         isActive: true,
         agentTokens: { select: { lastSeenAt: true } },
+        _count: {
+          select: {
+            printJobs: { where: { status: 'PENDING' } },
+          },
+        },
         printJobs: {
-          where: { status: { in: ['PENDING', 'FAILED', 'PRINTED'] } },
+          where: { status: { in: ['FAILED', 'PRINTED'] } },
           select: { status: true, createdAt: true },
           orderBy: { createdAt: 'desc' },
-          take: 50,
+          take: 20,
         },
       },
     });
 
     return stations.map((s) => {
-      const pending = s.printJobs.filter((j) => j.status === 'PENDING').length;
+      const pending = s._count.printJobs;
       const failed = s.printJobs.filter((j) => j.status === 'FAILED').length;
       const lastPrinted =
         s.printJobs.find((j) => j.status === 'PRINTED')?.createdAt ?? null;
