@@ -9,6 +9,7 @@ import { OrdersService } from './orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
 import { FeatureService } from '../subscription/feature.service';
+import { PrintStationService } from '../print-station/print-station.service';
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -168,6 +169,10 @@ describe('OrdersService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: EventsGateway, useValue: events },
         { provide: FeatureService, useValue: featureService },
+        {
+          provide: PrintStationService,
+          useValue: { routeOrderToPrinters: jest.fn().mockResolvedValue(undefined) },
+        },
       ],
     }).compile();
 
