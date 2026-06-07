@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { IsString, IsOptional } from 'class-validator';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PrintStationService } from './print-station.service';
 import { CreatePrintStationDto } from './dto/create-print-station.dto';
 import { UpdatePrintStationDto } from './dto/update-print-station.dto';
