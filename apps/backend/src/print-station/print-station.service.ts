@@ -163,11 +163,7 @@ export class PrintStationService {
         },
       });
 
-      const eventsAny = this.events as any;
-      const emitted =
-        typeof eventsAny.emitPrintJob === 'function'
-          ? (eventsAny.emitPrintJob(order.restaurantId, stationId, job.id, ticketBase64) as boolean)
-          : false;
+      const emitted = this.events.emitPrintJob(order.restaurantId, stationId, job.id, ticketBase64);
 
       if (emitted) {
         await this.prisma.printJob.update({
@@ -205,11 +201,8 @@ export class PrintStationService {
 
     this.logger.log(`Retrying ${jobs.length} pending job(s) for station ${stationId}`);
 
-    const eventsAny = this.events as any;
     for (const job of jobs) {
-      if (typeof eventsAny.emitPrintJob === 'function') {
-        eventsAny.emitPrintJob(restaurantId, stationId, job.id, job.ticketBase64);
-      }
+      this.events.emitPrintJob(restaurantId, stationId, job.id, job.ticketBase64);
 
       await this.prisma.printJob.update({
         where: { id: job.id },
