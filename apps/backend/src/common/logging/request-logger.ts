@@ -8,8 +8,18 @@ function getClientIp(req: any): string | undefined {
   return req.ip || req.socket?.remoteAddress;
 }
 
-function getRequestPath(req: any): string {
-  return req.originalUrl || req.url || req.path || '';
+function isProductionRequestLog(): boolean {
+  return process.env.NODE_ENV === 'production' || !!process.env.K_SERVICE;
+}
+
+function stripQueryString(path: string): string {
+  const queryIndex = path.search(/[?#]/);
+  return queryIndex === -1 ? path : path.slice(0, queryIndex);
+}
+
+function getRequestPath(req: any, includeQueryString = true): string {
+  const path = req.originalUrl || req.url || req.path || '';
+  return includeQueryString ? path : stripQueryString(path);
 }
 
 function shouldSkipRequestLog(req: any): boolean {
@@ -37,19 +47,26 @@ export function requestLogger(req: any, res: any, next: () => void) {
     const statusCode = res.statusCode;
     const user = req.user ?? {};
     const level = getLevel(statusCode);
+    const isProduction = isProductionRequestLog();
+    const includeDebugIdentityFields = !isProduction || statusCode >= 400;
 
-    writeAppLog(level, 'HTTP request', 'HttpRequest', {
+    const fields: Record<string, unknown> = {
       requestId,
       method: req.method,
-      path: getRequestPath(req),
+      path: getRequestPath(req, !isProduction),
       statusCode,
       durationMs,
-      userId: user.id,
       role: user.role,
       restaurantId: user.restaurantId,
-      ip: getClientIp(req),
-      userAgent: req.headers?.['user-agent'],
-    });
+    };
+
+    if (includeDebugIdentityFields) {
+      fields.userId = user.id;
+      fields.ip = getClientIp(req);
+      fields.userAgent = req.headers?.['user-agent'];
+    }
+
+    writeAppLog(level, 'HTTP request', 'HttpRequest', fields);
   });
 
   next();
