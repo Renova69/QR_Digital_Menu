@@ -135,6 +135,9 @@ model Restaurant {
   tableSessions             TableSession[]
   tableZones                TableZone[]
   payments                  Payment[]
+  printStations             PrintStation[]
+  printAgentTokens          PrintAgentToken[]
+  printJobs                 PrintJob[]
 
   @@index([stripeCustomerId])
   @@index([pastDueGraceExpiry])
@@ -172,6 +175,63 @@ model TableZone {
   @@map("table_zone")
 }
 
+model PrintStation {
+  id           String            @id @default(cuid())
+  restaurantId String
+  name         String
+  printerIp    String
+  printerPort  Int               @default(9100)
+  isActive     Boolean           @default(true)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  restaurant   Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  categories   MenuCategory[]
+  agentTokens  PrintAgentToken[]
+  printJobs    PrintJob[]
+
+  @@unique([restaurantId, name])
+  @@index([restaurantId])
+  @@map("print_station")
+}
+
+model PrintAgentToken {
+  id             String       @id @default(cuid())
+  token          String       @unique @default(cuid())
+  printStationId String
+  restaurantId   String
+  label          String?
+  lastSeenAt     DateTime?
+  createdAt      DateTime     @default(now())
+  printStation   PrintStation @relation(fields: [printStationId], references: [id], onDelete: Cascade)
+  restaurant     Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([restaurantId])
+  @@map("print_agent_token")
+}
+
+model PrintJob {
+  id             String         @id @default(cuid())
+  restaurantId   String
+  printStationId String
+  orderId        String
+  ticketBase64   String
+  status         PrintJobStatus @default(PENDING)
+  attempts       Int            @default(0)
+  errorMessage   String?
+  lastAttemptAt  DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  restaurant     Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  printStation   PrintStation   @relation(fields: [printStationId], references: [id], onDelete: Cascade)
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([printStationId, status])
+  @@index([restaurantId, status])
+  @@index([status, createdAt])
+  @@map("print_job")
+}
+
 model RestaurantTable {
   id           String          @id @default(cuid())
   name         String
@@ -202,6 +262,8 @@ model MenuCategory {
   imageUrl         String?
   thumbnailUrl     String?
   isDrinkCategory  Boolean          @default(false)
+  printStationId   String?
+  printStation     PrintStation?    @relation(fields: [printStationId], references: [id], onDelete: SetNull)
   restaurant       Restaurant       @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   items            MenuItem[]
 
@@ -277,6 +339,7 @@ model Order {
   source                    OrderSource          @default(CUSTOMER)
   staffUserId               String?
   staff                     User?                @relation("StaffOrders", fields: [staffUserId], references: [id])
+  printJobs                 PrintJob[]
 
   @@index([restaurantId, status, createdAt])
   @@map("customer_order")
@@ -507,6 +570,13 @@ enum SubscriptionTier {
   STARTER
   PROFESSIONAL
   ENTERPRISE
+}
+
+enum PrintJobStatus {
+  PENDING
+  SENT
+  PRINTED
+  FAILED
 }
 
 model AdminAuditLog {
