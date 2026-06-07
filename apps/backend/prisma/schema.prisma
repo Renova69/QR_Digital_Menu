@@ -205,7 +205,6 @@ model PrintAgentToken {
   printStation   PrintStation @relation(fields: [printStationId], references: [id], onDelete: Cascade)
   restaurant     Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
-  @@index([token])
   @@index([restaurantId])
   @@map("print_agent_token")
 }
