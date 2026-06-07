@@ -8,9 +8,10 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import { Logger, forwardRef, Inject } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { PrintStationService } from '../print-station/print-station.service';
 
 const wsOrigin = (
   origin: string | undefined,
@@ -63,6 +64,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly jwt: JwtService,
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => PrintStationService))
+    private readonly printStationService: PrintStationService,
   ) {}
 
   /**
@@ -72,7 +75,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * customers tracking an order connect without a dashboard JWT and are
    * authorized per-room via an order-scoped token instead.
    */
-  handleConnection(client: Socket) {
+  async handleConnection(client: Socket) {
     const token = parseCookie(client.handshake.headers?.cookie, 'token');
     if (token) {
       try {
@@ -84,6 +87,33 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         // invalid/expired — stay anonymous
       }
     }
+
+    // Print agent auth — agents pass agentToken in socket.auth (no Origin header from React Native)
+    const agentToken = client.handshake.auth?.agentToken as string | undefined;
+    if (agentToken && !client.data.userId) {
+      const record = await this.printStationService.validateAgentToken(agentToken);
+      if (!record) {
+        this.logger.warn(`Invalid agent token from ${client.id} — disconnecting`);
+        client.disconnect();
+        return;
+      }
+      client.data.agentRestaurantId = record.restaurantId;
+      client.data.agentStationId = record.printStationId;
+      client.join(`print:${record.restaurantId}:${record.printStationId}`);
+
+      void this.printStationService.touchLastSeen(agentToken);
+      void this.printStationService
+        .retryPendingJobs(record.restaurantId, record.printStationId)
+        .catch((err: Error) =>
+          this.logger.error(`Retry failed for station ${record.printStationId}: ${err.message}`),
+        );
+
+      this.logger.log(
+        `Print agent connected: ${record.printStation.name} socket=${client.id}`,
+      );
+      return;
+    }
+
     this.logger.log(
       `Client connected: ${client.id}${client.data.userId ? ` (user ${client.data.userId})` : ' (anon)'}`,
     );
@@ -232,6 +262,39 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   emitZoneChanged(restaurantId: string) {
     this.emitToRestaurant(restaurantId, 'zone:changed', {});
+  }
+
+  /**
+   * Emit a print job to the station room.
+   * Returns true if at least one agent socket is present (job delivered),
+   * false if room is empty (job stays PENDING for retry on reconnect).
+   */
+  emitPrintJob(
+    restaurantId: string,
+    stationId: string,
+    jobId: string,
+    ticketBase64: string,
+  ): boolean {
+    const room = `print:${restaurantId}:${stationId}`;
+    const sockets = this.server.sockets.adapter.rooms.get(room);
+    const hasAgents = sockets !== undefined && sockets.size > 0;
+    if (hasAgents) {
+      this.server.to(room).emit('print:job', { jobId, ticket: ticketBase64 });
+    }
+    return hasAgents;
+  }
+
+  @SubscribeMessage('print:ack')
+  async handlePrintAck(
+    @MessageBody() body: { jobId: string; success: boolean; error?: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    if (!client.data.agentStationId) return;
+    await this.printStationService
+      .handlePrintAck(body.jobId, body.success, body.error)
+      .catch((err: Error) =>
+        this.logger.error(`handlePrintAck failed for job ${body.jobId}: ${err.message}`),
+      );
   }
 
   /**
