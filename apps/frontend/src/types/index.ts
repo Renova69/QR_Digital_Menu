@@ -62,6 +62,7 @@ export interface Category {
   daysOfWeek: number[];
   isDrinkCategory?: boolean;
   translations?: any;
+  printStationId?: string | null;
 }
 
 // Super Admin

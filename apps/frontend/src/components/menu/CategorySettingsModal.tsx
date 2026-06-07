@@ -10,6 +10,8 @@ import { uploadCategoryImage } from '../../services/menuService';
 import { Clock, Calendar, Eye, EyeOff, Timer, Lock } from 'lucide-react';
 import { useFeature } from '../../hooks/useFeature';
 import { useTranslation } from "react-i18next";
+import { useQuery } from '@tanstack/react-query';
+import { getPrintStations } from '../../lib/api';
 
 interface CategorySettingsModalProps {
   category: Category;
@@ -30,7 +32,13 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({ ca
   const [isSaving, setIsSaving] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageRemoved, setImageRemoved] = useState(false);
+  const [printStationId, setPrintStationId] = useState<string | null>(category.printStationId ?? null);
   const { showToast, ToastComponent } = useToast();
+
+  const { data: printStations = [] } = useQuery<{ id: string; name: string; printerIp: string }[]>({
+    queryKey: ['print-stations'],
+    queryFn: getPrintStations,
+  });
 
   const toggleDay = (day: number) => {
     setDaysOfWeek(prev =>
@@ -51,6 +59,7 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({ ca
         startTime: availabilityType === 'SCHEDULED' ? startTime : null,
         endTime: availabilityType === 'SCHEDULED' ? endTime : null,
         daysOfWeek: availabilityType === 'SCHEDULED' ? daysOfWeek : [],
+        printStationId: printStationId,
         ...(imageRemoved && { imageUrl: null, thumbnailUrl: null }),
       });
 
@@ -205,6 +214,26 @@ export const CategorySettingsModal: React.FC<CategorySettingsModalProps> = ({ ca
               <div className="p-4 bg-red-50 rounded-2xl border border-dashed border-red-100 text-center">
                   <p className="text-sm text-red-600 font-medium">{t('auto.categoryIsManuallyHiddenAndWonTAp', 'Category is manually hidden and won\'t appear on the menu.')}</p>
               </div>
+          )}
+
+          {printStations.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-foreground">
+                {t('printStations.title', 'Print Station')}
+              </label>
+              <select
+                value={printStationId ?? ''}
+                onChange={(e) => setPrintStationId(e.target.value || null)}
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">None (no printing)</option>
+                {printStations.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} — {s.printerIp}
+                  </option>
+                ))}
+              </select>
+            </div>
           )}
 
           <div className="flex gap-3 pt-4">
