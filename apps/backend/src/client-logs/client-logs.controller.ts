@@ -55,7 +55,7 @@ export class ClientLogsController {
       appVersion: asString(body?.appVersion, 120),
       buildMode: asString(body?.buildMode, 40),
       stack: asString(body?.stack, 4_000),
-      context: safeContext(body?.context),
+      clientContext: safeContext(body?.context),
     });
 
     return { ok: true, requestId: req?.requestId };

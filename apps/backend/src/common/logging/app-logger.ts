@@ -95,12 +95,12 @@ export function writeAppLog(
 ) {
   const safeFields = safeLogValue(fields) as Record<string, unknown>;
   const entry = {
+    ...safeFields,
     severity: severityFor(level),
     level,
     message: messageToString(message),
     context,
     timestamp: new Date().toISOString(),
-    ...safeFields,
   };
 
   if (shouldUseJsonLogs()) {
