@@ -2,15 +2,17 @@ import { useContext, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, ChevronRight, CreditCard, Download, ExternalLink, Search, ShieldCheck } from 'lucide-react';
+import { AlertCircle, ChevronRight, CreditCard, Download, ExternalLink, FileSpreadsheet, Search, ShieldCheck } from 'lucide-react';
 import {
   getPaymentDetail,
   getPaymentHistory,
   getPaymentOverview,
   getPaymentPayouts,
   getPaymentSettings,
+  getPaymentsExport,
   refundPayment,
 } from '../../lib/api';
+import { downloadPaymentsExport } from '../../lib/paymentsExport';
 import RestaurantContext from '../../context/RestaurantContext';
 import { cn } from '../../lib/utils';
 import {
@@ -53,6 +55,7 @@ const PaymentsView = () => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [selectedPayment, setSelectedPayment] = useState<PaymentRecord | null>(null);
+  const [isExportingXlsx, setIsExportingXlsx] = useState(false);
   const limit = 20;
 
   const effectiveStatus = activeTab === 'refunds' ? 'REFUNDED' : statusFilter || undefined;
@@ -164,6 +167,21 @@ const PaymentsView = () => {
   }, [overview, payments]);
 
   const account = overview?.account ?? activeRestaurant;
+
+  const handleExportXlsx = async () => {
+    if (!activeRestaurant?.id || isExportingXlsx) return;
+    setIsExportingXlsx(true);
+    try {
+      const allPayments = await getPaymentsExport(activeRestaurant.id);
+      await downloadPaymentsExport(
+        allPayments,
+        { restaurantName: activeRestaurant.name ?? activeRestaurant.id },
+        t,
+      );
+    } finally {
+      setIsExportingXlsx(false);
+    }
+  };
   const epayReady = !!(
     account?.epayEnabled &&
     account?.epayClientId &&
@@ -402,6 +420,15 @@ const PaymentsView = () => {
             >
               <Download className="h-4 w-4" />
               {t('payments.exportCsv')}
+            </button>
+            <button
+              type="button"
+              onClick={handleExportXlsx}
+              disabled={isExportingXlsx}
+              className="flex h-11 items-center justify-center gap-2 rounded-lg border border-border bg-muted px-4 text-sm font-black text-foreground shadow-sm transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              {isExportingXlsx ? t('payments.exporting', 'Exporting…') : t('payments.exportXlsx', 'Export XLSX')}
             </button>
           </div>
 

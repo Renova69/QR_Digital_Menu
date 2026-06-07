@@ -30,7 +30,7 @@ export default function DataPrivacyTab() {
       URL.revokeObjectURL(url);
       setExportError(null);
     },
-    onError: () => setExportError("Export failed. Please try again."),
+    onError: () => setExportError(t('gdpr.exportError', { defaultValue: 'Export failed. Please try again.' })),
   });
 
   const deleteMutation = useMutation({

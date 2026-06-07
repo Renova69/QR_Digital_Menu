@@ -229,6 +229,14 @@ export const getPaymentHistory = (
     .get(`/payments/history/${restaurantId}`, { params })
     .then((res) => res.data);
 
+export const getPaymentsExport = (
+  restaurantId: string,
+  params?: { from?: string; to?: string },
+) =>
+  api
+    .get(`/payments/export/${restaurantId}`, { params })
+    .then((res) => res.data as any[]);
+
 export const getPaymentOverview = (
   restaurantId: string,
   params?: { startDate?: string; endDate?: string },

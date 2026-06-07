@@ -1789,6 +1789,40 @@ export class PaymentService {
     };
   }
 
+  async exportPayments(
+    restaurantId: string,
+    userId: string,
+    filters: { from?: string; to?: string },
+  ): Promise<any[]> {
+    await this.verifyRestaurantAccess(restaurantId, userId);
+
+    const where: any = { restaurantId, status: { not: 'ABANDONED' } };
+    if (filters.from || filters.to) {
+      where.createdAt = {};
+      if (filters.from) where.createdAt.gte = new Date(filters.from);
+      if (filters.to) where.createdAt.lte = new Date(filters.to);
+    }
+
+    const data = await this.prisma.payment.findMany({
+      where,
+      include: {
+        tableSession: {
+          include: {
+            table: { select: { name: true } },
+            orders: {
+              select: { customerName: true },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return data.map((payment) => this.mapPayment(payment));
+  }
+
   async getPaymentsOverview(
     restaurantId: string,
     userId: string,

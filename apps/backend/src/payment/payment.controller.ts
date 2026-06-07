@@ -220,6 +220,18 @@ export class PaymentController {
     );
   }
 
+  @Get('export/:restaurantId')
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
+  exportPayments(
+    @Req() req: any,
+    @Param('restaurantId') restaurantId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.paymentService.exportPayments(restaurantId, req.user.id, { from, to });
+  }
+
   @Get(':paymentId')
   @UseGuards(JwtAuthGuard, FeatureGuard)
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)

@@ -12,8 +12,8 @@ import {
   Download,
   Loader2,
 } from 'lucide-react';
-import writeXlsxFile from 'write-excel-file/browser';
 import { readSheet as readXlsxSheet } from 'read-excel-file/browser';
+import { downloadMenuExport } from '../../lib/menuExport';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import RestaurantContext from '../../context/RestaurantContext';
@@ -818,76 +818,9 @@ function ImportTab({ restaurantId }: { restaurantId: string }) {
 
 // ── Export Tab ─────────────────────────────────────────────────────────────────
 
-async function downloadMenuXLSX(
-  data: { restaurantId: string; categories: any[] },
-  restaurantId: string,
-) {
-  const h = (value: string) => ({
-    value,
-    fontWeight: 'bold' as const,
-    backgroundColor: '#1e3a5f',
-    textColor: '#ffffff',
-  });
-
-  const rows: any[][] = [
-    [
-      h('Category'),
-      h('Item Name'),
-      h('Description'),
-      h('Price'),
-      h('Weight'),
-      h('Currency'),
-      h('Tags'),
-      h('Variants'),
-    ],
-  ];
-
-  for (const cat of data.categories) {
-    for (const item of cat.items || []) {
-      const tags = [
-        ...(item.allergens || []),
-        ...(item.dietaryTags || []),
-      ].join(', ');
-      const variants = (item.options?.[0]?.choices || [])
-        .map(
-          (v: any) =>
-            `${v.name}:${v.priceModifier ?? v.price}${v.weight ? `:${v.weight}` : ''}`,
-        )
-        .join('; ');
-      rows.push([
-        { value: cat.name },
-        { value: item.name },
-        { value: item.description || '' },
-        { value: item.price ?? 0, type: Number },
-        { value: item.weight || '' },
-        { value: item.currency || 'BGN' },
-        { value: tags },
-        { value: variants },
-      ]);
-    }
-  }
-
-  const wb = writeXlsxFile([
-    {
-      sheet: 'Menu',
-      columns: [
-        { width: 20 },
-        { width: 30 },
-        { width: 45 },
-        { width: 10 },
-        { width: 12 },
-        { width: 10 },
-        { width: 30 },
-        { width: 40 },
-      ],
-      data: rows,
-    },
-  ]);
-  await wb.toFile(`menu-export-${restaurantId}.xlsx`);
-}
-
 function ExportTab({ restaurantId }: { restaurantId: string }) {
   const { t } = useTranslation();
+  const { activeRestaurant } = useContext(RestaurantContext) as any;
   const [copied, setCopied] = useState(false);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -930,7 +863,7 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
   const handleExportXLSX = async () => {
     const result = await refetch();
     if (result.data) {
-      await downloadMenuXLSX(result.data, restaurantId);
+      await downloadMenuExport(result.data, t, activeRestaurant?.name);
     }
   };
 
