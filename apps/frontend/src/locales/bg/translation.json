@@ -166,10 +166,12 @@
     "featureNotAvailable": "Тази функция не е достъпна в текущия ви план.",
     "loyaltyLocked": "Лоялността е част от плана Professional",
     "loyaltyLockedDesc": "Надградете, за да активирате отново програмата си за лоялност. Съществуващите ви настройки и баланси на точки на клиенти са запазени.",
-    "googleReview": "Google Review CTA",
-    "googleReviewDesc": "След плащане, клиентите с 4 или 5 звезди се пренасочват към вашата Google страница.",
-    "googleReviewUrl": "Google Review URL",
-    "googleReviewActive": "Пренасочването е активно — клиентите ще бъдат изпратени към Google след плащане"
+    "googleReview": "Google отзив бутон",
+    "googleReviewDesc": "След плащане, клиентите с 4 или 5 звезди се пренасочват към вашата страница за Google отзиви.",
+    "googleReviewUrl": "Линк за Google отзив",
+    "googleReviewActive": "Пренасочването е активно — клиентите ще бъдат изпратени към Google след плащане",
+    "googleReviewPlaceholder": "https://g.page/r/ВАШИЯТ_ЛИНК",
+    "addressPlaceholder": "бул. Витоша 123, София"
   },
   "staff": {
     "sharedDeviceMode": "Режим споделено устройство",
@@ -845,7 +847,13 @@
     "guest": "гост",
     "guests": "гости",
     "order": "поръчка",
-    "orders": "поръчки"
+    "orders": "поръчки",
+    "sessionStatus": {
+      "new": "Нова",
+      "open": "Отворена",
+      "paid": "Платена",
+      "closed": "Затворена"
+    }
   },
   "pos": {
     "searchItems": "Търсене на артикули...",
@@ -1020,7 +1028,9 @@
     "boricaPhoneOptional": "Телефон (по избор)",
     "boricaBillingAddress": "Адрес за фактуриране",
     "boricaDetailsRequired": "Въведете име на картодържател, имейл и адрес за фактуриране.",
-    "boricaNameInvalid": "Използвайте латински букви за името на картодържателя."
+    "boricaNameInvalid": "Използвайте латински букви за името на картодържателя.",
+    "sourceYou": "Вие",
+    "sourceStaff": "Персонал"
   },
   "summary": {
     "statusSnapshot": "Моментна снимка",
@@ -1744,7 +1754,15 @@
     "closeDetail": "Затвори детайл за транзакция",
     "close": "Затвори",
     "configured": "Конфигуриран",
-    "notConfigured": "Не е конфигуриран"
+    "notConfigured": "Не е конфигуриран",
+    "recordCreated": "Записът за плащане е създаден",
+    "failedEvent": "Плащането е неуспешно",
+    "succeededEvent": "Плащането е успешно",
+    "pendingEvent": "Плащането е в очакване",
+    "refundedEvent": "Възстановено плащане",
+    "abandonedEvent": "Изоставено плащане",
+    "sessionOpened": "Сесията на масата е отворена",
+    "sessionClosed": "Сесията на масата е затворена"
   },
   "subscription": {
     "currentPlan": "Текущ план",

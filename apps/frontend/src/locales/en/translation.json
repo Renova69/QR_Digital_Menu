@@ -169,7 +169,9 @@
     "googleReview": "Google Review CTA",
     "googleReviewDesc": "After checkout, customers with 4- or 5-star ratings are redirected to your Google review page.",
     "googleReviewUrl": "Google Review URL",
-    "googleReviewActive": "Redirect active — customers will be sent to Google after checkout"
+    "googleReviewActive": "Redirect active — customers will be sent to Google after checkout",
+    "googleReviewPlaceholder": "https://g.page/r/YOUR_REVIEW_LINK",
+    "addressPlaceholder": "123 Vitosha Blvd, Sofia"
   },
   "staff": {
     "sharedDeviceMode": "Shared Device Mode",
@@ -845,7 +847,13 @@
     "guest": "guest",
     "guests": "guests",
     "order": "order",
-    "orders": "orders"
+    "orders": "orders",
+    "sessionStatus": {
+      "new": "New",
+      "open": "Open",
+      "paid": "Paid",
+      "closed": "Closed"
+    }
   },
   "common": {
     "pleaseLogin": "Please log in to continue",
@@ -964,7 +972,9 @@
     "boricaPhoneOptional": "Phone (optional)",
     "boricaBillingAddress": "Billing address",
     "boricaDetailsRequired": "Enter cardholder name, email, and billing address.",
-    "boricaNameInvalid": "Use Latin letters for the BORICA cardholder name."
+    "boricaNameInvalid": "Use Latin letters for the BORICA cardholder name.",
+    "sourceYou": "You",
+    "sourceStaff": "Staff"
   },
   "summary": {
     "statusSnapshot": "Status Snapshot",
@@ -1685,7 +1695,15 @@
     "closeDetail": "Close transaction detail",
     "close": "Close",
     "configured": "Configured",
-    "notConfigured": "Not configured"
+    "notConfigured": "Not configured",
+    "recordCreated": "Payment record created",
+    "failedEvent": "Payment failed",
+    "succeededEvent": "Payment succeeded",
+    "pendingEvent": "Payment pending",
+    "refundedEvent": "Payment refunded",
+    "abandonedEvent": "Payment abandoned",
+    "sessionOpened": "Table session opened",
+    "sessionClosed": "Table session closed"
   },
   "subscription": {
     "currentPlan": "Current Plan",

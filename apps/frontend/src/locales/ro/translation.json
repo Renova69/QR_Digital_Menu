@@ -166,10 +166,12 @@
     "featureNotAvailable": "Această funcție nu este disponibilă în planul dvs. curent.",
     "loyaltyLocked": "Loialitatea este parte a planului Professional",
     "loyaltyLockedDesc": "Actualizează pentru a reactiva programul de loialitate. Setările tale și soldurile punctelor clienților sunt păstrate.",
-    "googleReview": "Google Review CTA",
-    "googleReviewDesc": "După plată, clienții cu recenzii de 4 sau 5 stele sunt redirecționați către pagina ta de Google.",
-    "googleReviewUrl": "Google Review URL",
-    "googleReviewActive": "Redirecționare activă — clienții vor fi trimiși către Google după plată"
+    "googleReview": "Buton recenzie Google",
+    "googleReviewDesc": "După finalizarea comenzii, clienții cu recenzii de 4 sau 5 stele sunt redirecționați către pagina dvs. de recenzii Google.",
+    "googleReviewUrl": "Link recenzie Google",
+    "googleReviewActive": "Redirecționare activă — clienții vor fi trimiși la Google după finalizarea comenzii",
+    "googleReviewPlaceholder": "https://g.page/r/LINKUL_TAU",
+    "addressPlaceholder": "Bulevardul Vitosha 123, Sofia"
   },
   "staff": {
     "sharedDeviceMode": "Mod dispozitiv partajat",
@@ -845,7 +847,13 @@
     "guest": "oaspete",
     "guests": "oaspeți",
     "order": "comandă",
-    "orders": "comenzi"
+    "orders": "comenzi",
+    "sessionStatus": {
+      "new": "Nouă",
+      "open": "Deschisă",
+      "paid": "Plătită",
+      "closed": "Închisă"
+    }
   },
   "common": {
     "pleaseLogin": "Vă rugăm să vă conectați",
@@ -964,7 +972,9 @@
     "boricaPhoneOptional": "Telefon (opțional)",
     "boricaBillingAddress": "Adresa de facturare",
     "boricaDetailsRequired": "Introdu numele titularului cardului, emailul și adresa de facturare.",
-    "boricaNameInvalid": "Folosește litere latine pentru numele titularului cardului BORICA."
+    "boricaNameInvalid": "Folosește litere latine pentru numele titularului cardului BORICA.",
+    "sourceYou": "Tu",
+    "sourceStaff": "Personal"
   },
   "summary": {
     "statusSnapshot": "Instantaneu Status",
@@ -1639,7 +1649,15 @@
     "closeDetail": "Închide detaliul tranzacției",
     "close": "Închide",
     "configured": "Configurat",
-    "notConfigured": "Neconfigurat"
+    "notConfigured": "Neconfigurat",
+    "recordCreated": "Înregistrarea plății a fost creată",
+    "failedEvent": "Plata a eșuat",
+    "succeededEvent": "Plata a reușit",
+    "pendingEvent": "Plată în așteptare",
+    "refundedEvent": "Plată rambursată",
+    "abandonedEvent": "Plată abandonată",
+    "sessionOpened": "Sesiunea mesei a fost deschisă",
+    "sessionClosed": "Sesiunea mesei a fost închisă"
   },
   "subscription": {
     "currentPlan": "Plan curent",

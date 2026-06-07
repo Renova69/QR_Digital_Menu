@@ -83,12 +83,12 @@ type BoricaPaymentState = HostedFormPaymentState & { provider: 'BORICA' };
 
 type PaymentState = StripePaymentState | EpayPaymentState | BoricaPaymentState;
 
-function getSourceLabel(order: BillOrder): string {
-  if (order.source === 'CUSTOMER') return 'You';
+function getSourceLabel(order: BillOrder, t: any): string {
+  if (order.source === 'CUSTOMER') return t('payment.sourceYou', 'You');
   const rawName = order.staffName ?? '';
-  const name = rawName.split(' ')[0] || rawName || 'Staff';
+  const name = rawName.split(' ')[0] || rawName || t('payment.sourceStaff', 'Staff');
   const role = order.staffRole ? String(order.staffRole) : '';
-  const roleName = role ? role.charAt(0).toUpperCase() + role.slice(1).toLowerCase() : 'Staff';
+  const roleName = role ? role.charAt(0).toUpperCase() + role.slice(1).toLowerCase() : t('payment.sourceStaff', 'Staff');
   return `${roleName}: ${name}`;
 }
 
@@ -139,7 +139,7 @@ function PaymentForm({
     });
 
     if (result.error) {
-      setError(result.error.message || t('payment.paymentFailed'));
+      setError(result.error.message || t('payment.paymentFailed', 'Payment failed'));
       setProcessing(false);
     } else if (result.paymentIntent?.status === 'succeeded') {
       onSuccess();
@@ -154,43 +154,45 @@ function PaymentForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="text-sm text-muted-foreground space-y-1">
-        <div className="flex justify-between">
-          <span>{t('payment.subtotal')}</span>
-          <div className="text-right">
-            <div>{formatEuro(total - tipAmount)}</div>
-            <span className="text-xs text-muted-foreground">{formatBgn(total - tipAmount)}</span>
-          </div>
-        </div>
-        {tipAmount > 0 && (
+    <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 gap-4">
+      <div className="overflow-y-auto overflow-x-hidden flex-1 min-h-0 space-y-4">
+        <div className="text-sm text-muted-foreground space-y-1">
           <div className="flex justify-between">
-            <span>{t('payment.tip')}</span>
+            <span>{t('payment.subtotal', 'Subtotal')}</span>
             <div className="text-right">
-              <div>{formatEuro(tipAmount)}</div>
-              <span className="text-xs text-muted-foreground">{formatBgn(tipAmount)}</span>
+              <div>{formatEuro(total - tipAmount)}</div>
+              <span className="text-xs text-muted-foreground">{formatBgn(total - tipAmount)}</span>
             </div>
           </div>
-        )}
-        <div className="flex justify-between font-semibold text-foreground border-t pt-1">
-          <span>{t('payment.total')}</span>
-          <div className="text-right">
-            <div>{formatEuro(total)}</div>
-            <span className="text-xs text-muted-foreground">{formatBgn(total)}</span>
+          {tipAmount > 0 && (
+            <div className="flex justify-between">
+              <span>{t('payment.tip', 'Tip')}</span>
+              <div className="text-right">
+                <div>{formatEuro(tipAmount)}</div>
+                <span className="text-xs text-muted-foreground">{formatBgn(tipAmount)}</span>
+              </div>
+            </div>
+          )}
+          <div className="flex justify-between font-semibold text-foreground border-t pt-1">
+            <span>{t('payment.total', 'Total')}</span>
+            <div className="text-right">
+              <div>{formatEuro(total)}</div>
+              <span className="text-xs text-muted-foreground">{formatBgn(total)}</span>
+            </div>
           </div>
         </div>
+
+        <PaymentElement />
+
+        {error && <p className="text-red-500 text-sm">{error}</p>}
       </div>
 
-      <PaymentElement />
-
-      {error && <p className="text-red-500 text-sm">{error}</p>}
-
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-shrink-0">
         <Button type="button" variant="outline" onClick={onClose} disabled={processing}>
-          {t('common.cancel')}
+          {t('common.cancel', 'Cancel')}
         </Button>
         <Button type="submit" className="flex-1" disabled={processing || !stripe}>
-          {processing ? t('payment.processing') : `${t('payment.pay')} ${formatEuro(total)}`}
+          {processing ? t('payment.processing', 'Processing...') : `${t('payment.pay', 'Pay')} ${formatEuro(total)}`}
         </Button>
       </div>
     </form>
@@ -329,7 +331,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
       setPaymentInitiated(true);
       setStep(result.provider === 'EPAY' || result.provider === 'BORICA' ? 'redirect' : 'pay');
     } catch (e: any) {
-      setError(e.response?.data?.message || t('payment.failedToLoad'));
+      setError(e.response?.data?.message || t('payment.failedToLoad', 'Failed to load payment options'));
     } finally {
       setLoading(false);
     }
@@ -346,14 +348,14 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50">
-      <div className="bg-card text-card-foreground rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-6 space-y-4 shadow-2xl">
-        <div className="flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 overflow-hidden">
+      <div className="bg-card text-card-foreground rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-6 shadow-2xl flex flex-col gap-4 max-h-[90dvh] overflow-x-hidden">
+        <div className="flex items-center justify-between flex-shrink-0">
           <h2 className="text-lg font-semibold">
-            {step === 'tip' && t('payment.yourBill')}
-            {step === 'pay' && t('payment.payment')}
+            {step === 'tip' && t('payment.yourBill', 'Your Bill')}
+            {step === 'pay' && t('payment.payment', 'Payment')}
             {step === 'redirect' && t('payment.redirecting', 'Redirecting')}
-            {step === 'done' && t('payment.thankYou')}
+            {step === 'done' && t('payment.thankYou', 'Thank You')}
           </h2>
           {/* When payment is done, X clears the session (same as "Back to Menu") */}
           <button onClick={step === 'done' ? onSuccess : handleClose} className="text-muted-foreground hover:text-foreground">
@@ -367,7 +369,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
             <p className="text-red-500 text-sm">{billError}</p>
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={onClose}>
-                {t('common.cancel')}
+                {t('common.cancel', 'Cancel')}
               </Button>
               <Button type="button" className="flex-1" onClick={retryBillFetch}>
                 {t('common.retry', 'Retry')}
@@ -377,23 +379,24 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
         )}
 
         {step === 'tip' && !bill && !billError && (
-          <p className="text-sm text-muted-foreground py-4">{t('payment.loading')}</p>
+          <p className="text-sm text-muted-foreground py-4">{t('payment.loading', 'Loading...')}</p>
         )}
 
         {step === 'tip' && bill && (
-          <div className="space-y-4">
+          <>
+          <div className="space-y-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0">
             {/* Itemized order breakdown */}
             {bill.orders && showGroupHeaders(bill.orders) ? (
               <div className="mb-4 space-y-3">
                 {bill.orders.map((order) => (
                   <div key={order.id}>
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                      {getSourceLabel(order) === 'You' ? '👤 You' : `👤 ${getSourceLabel(order)}`}
+                      👤 {getSourceLabel(order, t)}
                     </p>
                     {order.items.map((item, i) => (
-                      <div key={i} className="flex justify-between text-sm py-0.5">
-                        <span className="text-gray-700">{item.name} ×{item.quantity}</span>
-                        <span className="text-gray-700">
+                      <div key={i} className="flex justify-between text-xs py-0.5">
+                        <span className="text-gray-700 min-w-0 mr-2">{item.name} ×{item.quantity}</span>
+                        <span className="text-gray-700 shrink-0 whitespace-nowrap">
                           {formatEuro(item.unitPrice * item.quantity)}
                         </span>
                       </div>
@@ -406,9 +409,9 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
               <div className="mb-4 space-y-1">
                 {bill.orders.flatMap((order) =>
                   order.items.map((item, i) => (
-                    <div key={`${order.id}-${i}`} className="flex justify-between text-sm py-0.5">
-                      <span className="text-gray-700">{item.name} ×{item.quantity}</span>
-                      <span className="text-gray-700">{formatEuro(item.unitPrice * item.quantity)}</span>
+                    <div key={`${order.id}-${i}`} className="flex justify-between text-xs py-0.5">
+                      <span className="text-gray-700 min-w-0 mr-2">{item.name} ×{item.quantity}</span>
+                      <span className="text-gray-700 shrink-0 whitespace-nowrap">{formatEuro(item.unitPrice * item.quantity)}</span>
                     </div>
                   ))
                 )}
@@ -422,13 +425,13 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
 
             {bill.tipsEnabled && (
               <div className="space-y-2">
-                <p className="text-sm font-medium">{t('payment.addTip')}</p>
+                <p className="text-sm font-medium">{t('payment.addTip', 'Add a tip')}</p>
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => { setSelectedTip(0); setCustomTip(''); }}
                     className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${selectedTip === 0 && customTip === '' ? 'bg-primary text-primary-foreground border-primary' : 'border-border'}`}
                   >
-                    {t('payment.noTip')}
+                    {t('payment.noTip', 'No tip')}
                   </button>
                   {bill.tipOptions.map((pct) => (
                     <button
@@ -441,7 +444,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
                   ))}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm">{t('payment.custom')}</span>
+                  <span className="text-sm">{t('payment.custom', 'Custom')}</span>
                   <input
                     type="number"
                     min="0"
@@ -455,7 +458,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
                 </div>
                 {activeTipPercent > 0 && (
                   <p className="text-sm text-muted-foreground">
-                    {t('payment.tipAmount')}: {formatEuro(bill.subtotal * activeTipPercent / 100)}
+                    {t('payment.tipAmount', 'Tip amount')}: {formatEuro(bill.subtotal * activeTipPercent / 100)}
                   </p>
                 )}
               </div>
@@ -551,17 +554,18 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
             )}
 
             {error && <p className="text-red-500 text-sm">{error}</p>}
+          </div>
 
-            <Button className="w-full" onClick={handleContinueToPayment} disabled={loading || !hasPaymentProvider}>
+            <Button className="w-full flex-shrink-0" onClick={handleContinueToPayment} disabled={loading || !hasPaymentProvider}>
               {loading
-                ? t('payment.loading')
+                ? t('payment.loading', 'Loading...')
                 : effectiveProvider === 'EPAY'
                   ? t('payment.continueToEpay', 'Continue to ePay.bg')
                   : effectiveProvider === 'BORICA'
                     ? t('payment.continueToBorica', 'Pay by card (BORICA)')
-                    : t('payment.continue')}
+                    : t('payment.continue', 'Continue')}
             </Button>
-          </div>
+          </>
         )}
 
         {step === 'pay' && payment?.provider === 'STRIPE' && (
@@ -583,7 +587,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
           <div className="space-y-4 py-4">
             <div className="text-sm text-muted-foreground space-y-1">
               <div className="flex justify-between font-semibold text-foreground">
-                <span>{t('payment.total')}</span>
+                <span>{t('payment.total', 'Total')}</span>
                 <div className="text-right">
                   <div>{formatEuro(payment.total)}</div>
                   <span className="text-xs text-muted-foreground">{formatBgn(payment.total)}</span>
@@ -628,13 +632,13 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
         {step === 'done' && (
           <div className="flex flex-col items-center gap-4 py-4">
             <CheckCircle2 size={48} className="text-green-500" />
-            <p className="text-lg font-medium">{t('payment.paymentReceived')}</p>
+            <p className="text-lg font-medium">{t('payment.paymentReceived', 'Payment received successfully')}</p>
             <div>
               <p className="text-2xl font-bold">{formatEuro(payment?.total ?? 0)}</p>
               <span className="text-xs text-muted-foreground">{formatBgn(payment?.total ?? 0)}</span>
             </div>
             <Button className="w-full" onClick={onSuccess}>
-              {t('payment.backToMenu')}
+              {t('payment.backToMenu', 'Back to Menu')}
             </Button>
           </div>
         )}

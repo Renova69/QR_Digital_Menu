@@ -271,7 +271,7 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
               </p>
               {table.sessionStatus && (
                 <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-muted-foreground">
-                  {table.sessionStatus}
+                  {t(`tables.sessionStatus.${table.sessionStatus.toLowerCase()}`, table.sessionStatus)}
                 </span>
               )}
             </div>
@@ -298,7 +298,7 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-black text-sm text-foreground">{formatOrderCode(order.id)}</span>
                           <span className={cn('rounded-md px-2 py-1 text-[10px] font-black uppercase', orderStatusStyles[order.status])}>
-                            {t(statusLabels[order.status] || 'orders.tabs.new')}
+                            {t(`orders.tabs.${order.status === 'IN_PROGRESS' ? 'inProgress' : order.status.toLowerCase()}`, order.status)}
                           </span>
                           <SourceBadge
                             source={order.source}

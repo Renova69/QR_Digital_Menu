@@ -234,7 +234,7 @@ const GeneralSettingsTab: React.FC = () => {
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder={t('auto.123MainStNewYork', '123 Main St, New York')}
+              placeholder={t('settings.addressPlaceholder', '123 Main St, New York')}
               className={inputCls}
             />
           </div>
@@ -341,7 +341,7 @@ const GeneralSettingsTab: React.FC = () => {
             type="url"
             value={googleReviewUrl}
             onChange={(e) => setGoogleReviewUrl(e.target.value)}
-            placeholder="https://g.page/r/YOUR_REVIEW_LINK"
+            placeholder={t("settings.googleReviewPlaceholder", "https://g.page/r/YOUR_REVIEW_LINK")}
             className={inputCls}
           />
           {googleReviewUrl && (
