@@ -28,6 +28,7 @@ import { PlatformSettingsModule } from './platform-settings/platform-settings.mo
 import { UsersDataModule } from './users-data/users-data.module';
 import { HelpContentModule } from './help-content/help-content.module';
 import { MenuViewModule } from './menu-views/menu-view.module';
+import { ClientLogsModule } from './client-logs/client-logs.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { MenuViewModule } from './menu-views/menu-view.module';
     PaymentModule,
     MenuImportModule,
     MenuViewModule,
+    ClientLogsModule,
   ],
   controllers: [AppController],
   providers: [

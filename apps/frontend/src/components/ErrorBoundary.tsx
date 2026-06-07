@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { withTranslation, WithTranslation } from "react-i18next";
+import { logClientError } from '../lib/clientLogger';
 
 interface Props extends WithTranslation {
   children: ReactNode;
@@ -22,6 +23,10 @@ class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+    logClientError(error, {
+      type: 'react_error_boundary',
+      componentStack: errorInfo.componentStack,
+    });
   }
 
   private handleRetry = () => {

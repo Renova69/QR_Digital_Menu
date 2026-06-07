@@ -10,6 +10,10 @@
     "build": "turbo build",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "logs:errors": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/logs.ps1 -Kind errors",
+    "logs:payments": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/logs.ps1 -Kind payments",
+    "logs:client": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/logs.ps1 -Kind client",
+    "logs:all": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/logs.ps1 -Kind all",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down"
   },

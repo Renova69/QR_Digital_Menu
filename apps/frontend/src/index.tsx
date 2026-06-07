@@ -7,6 +7,9 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import reportWebVitals from './reportWebVitals';
 import './i18n';
+import { installGlobalErrorLogging } from './lib/clientLogger';
+
+installGlobalErrorLogging();
 
 // Fix C-6 — validate the Stripe publishable key at startup so a misconfigured
 // deploy surfaces loudly instead of silently breaking pay-at-table.

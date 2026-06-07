@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { logApiError } from './clientLogger';
 
 // Auth transport is the httpOnly `token` cookie ONLY (#F1). Every token-issuing
 // endpoint (login/register/otp/google/pin-login) sets it server-side, and it is
@@ -357,6 +358,8 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    logApiError(error);
+
     if (error.response?.status === 401) {
       // Never redirect for /auth/me — AuthContext handles auth check failures itself
       const requestUrl = error.config?.url || '';

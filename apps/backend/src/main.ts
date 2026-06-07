@@ -12,8 +12,12 @@ import * as express from 'express';
 import helmet from 'helmet';
 import * as crypto from 'crypto';
 import cookieParser from 'cookie-parser';
+import { AppLogger } from './common/logging/app-logger';
+import { requestLogger } from './common/logging/request-logger';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
+  const appLogger = new AppLogger();
   const logger = new Logger('Bootstrap');
   try {
     const requiresProductionNodeEnv =
@@ -51,16 +55,22 @@ async function bootstrap() {
       throw new Error('[Startup] STRIPE_SECRET_KEY must be set in production');
     }
 
-    const app = await NestFactory.create(AppModule, { bodyParser: false });
+    const app = await NestFactory.create(AppModule, {
+      bodyParser: false,
+      logger: appLogger,
+    });
+    app.useLogger(appLogger);
 
     app.useGlobalPipes(
       new ValidationPipe({ transform: true, whitelist: true }),
     );
+    app.useGlobalFilters(new AllExceptionsFilter());
 
     app.use((req: any, _res: any, next: any) => {
       req['requestId'] = crypto.randomUUID();
       next();
     });
+    app.use(requestLogger);
 
     // CORS must run first so ALL responses (including CSRF 403s) include CORS headers
     app.enableCors({
@@ -91,6 +101,7 @@ async function bootstrap() {
         }
       },
       credentials: true,
+      exposedHeaders: ['X-Request-Id'],
     });
 
     app.use(cookieParser());
@@ -132,6 +143,7 @@ async function bootstrap() {
       '/api/v1/auth/google',
       '/api/v1/auth/google/callback',
       '/api/v1/orders',
+      '/api/v1/client-logs',
     ];
     app.use((req: any, res: any, next: any) => {
       const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
