@@ -359,7 +359,7 @@ const PaymentSettingsTab: React.FC = () => {
       {/* ── ePay.bg ── */}
       {paymentsEnabled && isStripeFeature && (
         <div className="border-b border-border pb-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-2">
             <div>
               <h3 className={sectionHeading}>{t('auto.ePayBg', 'ePay.bg')}</h3>
               <p className="text-sm text-muted-foreground mt-1">
@@ -372,6 +372,14 @@ const PaymentSettingsTab: React.FC = () => {
               aria-label="ePay.bg"
             />
           </div>
+          {epayEnabled && (
+            <span className={`inline-flex items-center gap-1.5 text-sm font-medium mb-3 ${epayConfigured ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+              <CheckCircle2 className="w-4 h-4" />
+              {epayConfigured
+                ? t("payment.settings.epayConfigured", { defaultValue: "ePay.bg Configured" })
+                : t("payment.settings.epayIncomplete", { defaultValue: "ePay.bg — credentials incomplete" })}
+            </span>
+          )}
 
           {epayEnabled && (
             <div className="grid gap-3 sm:grid-cols-2">
@@ -458,7 +466,7 @@ const PaymentSettingsTab: React.FC = () => {
       {/* ── BORICA ── */}
       {paymentsEnabled && isStripeFeature && (
         <div className="border-b border-border pb-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-2">
             <div>
               <h3 className={sectionHeading}>{t('auto.bORICA', 'BORICA')}</h3>
               <p className="text-sm text-muted-foreground mt-1">
@@ -471,6 +479,14 @@ const PaymentSettingsTab: React.FC = () => {
               aria-label="BORICA"
             />
           </div>
+          {boricaEnabled && (
+            <span className={`inline-flex items-center gap-1.5 text-sm font-medium mb-3 ${boricaConfigured ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+              <CheckCircle2 className="w-4 h-4" />
+              {boricaConfigured
+                ? t("payment.settings.boricaConfigured", { defaultValue: "BORICA Configured" })
+                : t("payment.settings.boricaIncomplete", { defaultValue: "BORICA — credentials incomplete" })}
+            </span>
+          )}
 
           {boricaEnabled && (
             <div className="grid gap-3 sm:grid-cols-2">

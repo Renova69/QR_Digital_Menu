@@ -949,7 +949,11 @@
       "boricaPrivateKey": "Cheia privată a comerciantului (PEM)",
       "boricaKeyConfigured": "Cheie salvată. Lăsați gol pentru a nu o modifica.",
       "boricaPublicCert": "Certificatul public BORICA (PEM)",
-      "boricaDemoNote": "Modul DEMO folosește terminalul sandbox public al platformei. Nu sunt necesare chei. Testați cu carduri 5100770000000022 (Mastercard) sau 4341792000000044 (Visa)."
+      "boricaDemoNote": "Modul DEMO folosește terminalul sandbox public al platformei. Nu sunt necesare chei. Testați cu carduri 5100770000000022 (Mastercard) sau 4341792000000044 (Visa).",
+      "epayConfigured": "ePay.bg configurat",
+      "epayIncomplete": "ePay.bg — credențiale incomplete",
+      "boricaConfigured": "BORICA configurată",
+      "boricaIncomplete": "BORICA — credențiale incomplete"
     },
     "stripeUnavailable": "Plata este momentan indisponibilă — te rugăm să contactezi personalul.",
     "unexpectedStatus": "Stadiul plății este neclar — te rugăm să contactezi personalul",
@@ -1650,6 +1654,9 @@
     "close": "Închide",
     "configured": "Configurat",
     "notConfigured": "Neconfigurat",
+    "configure": "Configurare",
+    "mode": "Mod",
+    "merchantId": "Comerciant",
     "recordCreated": "Înregistrarea plății a fost creată",
     "failedEvent": "Plata a eșuat",
     "succeededEvent": "Plata a reușit",

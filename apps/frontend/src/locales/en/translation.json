@@ -949,7 +949,11 @@
       "boricaPrivateKey": "Merchant private key (PEM)",
       "boricaKeyConfigured": "Key saved. Leave blank to keep it unchanged.",
       "boricaPublicCert": "BORICA public certificate (PEM)",
-      "boricaDemoNote": "DEMO mode uses the platform's public sandbox terminal. No keys required. Test with cards 5100770000000022 (Mastercard) or 4341792000000044 (Visa)."
+      "boricaDemoNote": "DEMO mode uses the platform's public sandbox terminal. No keys required. Test with cards 5100770000000022 (Mastercard) or 4341792000000044 (Visa).",
+      "epayConfigured": "ePay.bg Configured",
+      "epayIncomplete": "ePay.bg — credentials incomplete",
+      "boricaConfigured": "BORICA Configured",
+      "boricaIncomplete": "BORICA — credentials incomplete"
     },
     "stripeUnavailable": "Payment is currently unavailable — please contact staff.",
     "unexpectedStatus": "Payment status unclear — please contact staff",
@@ -1696,6 +1700,9 @@
     "close": "Close",
     "configured": "Configured",
     "notConfigured": "Not configured",
+    "configure": "Configure",
+    "mode": "Mode",
+    "merchantId": "Merchant",
     "recordCreated": "Payment record created",
     "failedEvent": "Payment failed",
     "succeededEvent": "Payment succeeded",

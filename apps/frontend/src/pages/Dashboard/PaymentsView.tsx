@@ -1,4 +1,5 @@
 import { useContext, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, ChevronRight, CreditCard, Download, ExternalLink, Search, ShieldCheck } from 'lucide-react';
@@ -43,6 +44,7 @@ function getMethodLabel(method: string, t: (key: string, options?: any) => strin
 
 const PaymentsView = () => {
   const { activeRestaurant } = useContext(RestaurantContext) as any;
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<PaymentTab>('transactions');
@@ -168,6 +170,13 @@ const PaymentsView = () => {
     account?.epayMerchantEmail &&
     account?.epaySecretConfigured
   );
+  const boricaReady = !!(
+    account?.boricaEnabled &&
+    (account?.boricaMode === 'DEMO' ||
+      (account?.boricaTerminalId &&
+       account?.boricaMerchantId &&
+       account?.boricaPrivateKeyConfigured))
+  );
   const hostedProviderMissing = account?.paymentsEnabled && !account?.stripeOnboarded && !epayReady;
   const feePercent = Number(account?.platformFeePercent ?? 0);
 
@@ -205,48 +214,105 @@ const PaymentsView = () => {
         </div>
       </div>
 
-      <div className="mb-5 flex flex-col gap-4 rounded-lg border border-border bg-primary/5 p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary text-white shadow-[0_12px_24px_-14px_rgba(110,86,248,0.9)]">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-black text-primary">{t('payments.stripe')}</p>
-              <span
-                className={cn(
-                  'rounded-full px-2.5 py-1 text-xs font-black',
-                  account?.stripeOnboarded
-                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200'
-                    : 'bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200',
-                )}
-              >
-                {account?.stripeOnboarded ? t('payments.connected') : t('payments.needsSetup')}
-              </span>
+      <div className="mb-5 grid gap-3 md:grid-cols-3">
+        {/* Stripe */}
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-primary/5 p-4 shadow-sm">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white shadow-[0_12px_24px_-14px_rgba(110,86,248,0.9)]">
+              <ShieldCheck className="h-4 w-4" />
             </div>
-            <p className="mt-1 truncate text-sm font-medium text-muted-foreground">
-              {t('payments.account')} <span className="font-bold text-foreground">{account?.stripeAccountId ?? t('payments.notConnected')}</span>
-              <span className="mx-1">.</span>
-              {t('payments.platformFee')} <span className="font-bold text-foreground">{feePercent ? `${feePercent}%` : t('payments.notSet')}</span>
-            </p>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-black text-primary">{t('payments.stripe')}</p>
+                <span className={cn('rounded-full px-2 py-0.5 text-xs font-black', account?.stripeOnboarded ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200' : 'bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200')}>
+                  {account?.stripeOnboarded ? t('payments.connected') : t('payments.needsSetup')}
+                </span>
+              </div>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                {account?.stripeAccountId ?? t('payments.notConnected')}
+              </p>
+              {feePercent > 0 && (
+                <p className="text-xs text-muted-foreground">{t('payments.platformFee')} <span className="font-bold text-foreground">{feePercent}%</span></p>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => openStripeAccount(account?.stripeAccountId)}
+              disabled={!account?.stripeAccountId}
+              className="flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-bold text-foreground shadow-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {t('payments.viewOnStripe')}
+              <ExternalLink className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('payouts')}
+              className="flex h-8 items-center rounded-lg border border-border bg-card px-3 text-xs font-bold text-foreground shadow-sm transition hover:bg-muted"
+            >
+              {t('payments.managePayouts')}
+            </button>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+
+        {/* ePay.bg */}
+        <div className={cn('flex flex-col gap-3 rounded-lg border p-4 shadow-sm', epayReady ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-400/20 dark:bg-emerald-400/10' : account?.epayEnabled ? 'border-amber-200 bg-amber-50 dark:border-amber-400/20 dark:bg-amber-400/10' : 'border-border bg-card')}>
+          <div className="flex min-w-0 items-center gap-3">
+            <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', epayReady ? 'bg-emerald-600' : account?.epayEnabled ? 'bg-amber-500' : 'bg-muted')}>
+              <CreditCard className="h-4 w-4 text-white" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className={cn('text-sm font-black', epayReady ? 'text-emerald-700 dark:text-emerald-300' : account?.epayEnabled ? 'text-amber-700 dark:text-amber-300' : 'text-foreground')}>ePay.bg</p>
+                <span className={cn('rounded-full px-2 py-0.5 text-xs font-black', epayReady ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200' : account?.epayEnabled ? 'bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200' : 'bg-muted text-muted-foreground')}>
+                  {epayReady ? t('payments.connected') : account?.epayEnabled ? t('payments.needsSetup') : t('payments.disabled', 'Disabled')}
+                </span>
+              </div>
+              {account?.epayEnabled && (
+                <>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{account?.epayMerchantEmail ?? ''}</p>
+                  <p className="text-xs text-muted-foreground">{t('payments.mode', 'Mode')}: <span className="font-bold text-foreground">{account?.epayMode ?? 'DEMO'}</span></p>
+                </>
+              )}
+            </div>
+          </div>
           <button
             type="button"
-            onClick={() => openStripeAccount(account?.stripeAccountId)}
-            disabled={!account?.stripeAccountId}
-            className="flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground shadow-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => navigate('?tab=settings&settingsTab=payments')}
+            className="mt-auto flex h-8 items-center rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground shadow-sm transition hover:bg-muted"
           >
-            {t('payments.viewOnStripe')}
-            <ExternalLink className="h-4 w-4" />
+            {t('payments.configure', 'Configure')}
           </button>
+        </div>
+
+        {/* BORICA */}
+        <div className={cn('flex flex-col gap-3 rounded-lg border p-4 shadow-sm', boricaReady ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-400/20 dark:bg-emerald-400/10' : account?.boricaEnabled ? 'border-amber-200 bg-amber-50 dark:border-amber-400/20 dark:bg-amber-400/10' : 'border-border bg-card')}>
+          <div className="flex min-w-0 items-center gap-3">
+            <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', boricaReady ? 'bg-emerald-600' : account?.boricaEnabled ? 'bg-amber-500' : 'bg-muted')}>
+              <CreditCard className="h-4 w-4 text-white" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className={cn('text-sm font-black', boricaReady ? 'text-emerald-700 dark:text-emerald-300' : account?.boricaEnabled ? 'text-amber-700 dark:text-amber-300' : 'text-foreground')}>BORICA</p>
+                <span className={cn('rounded-full px-2 py-0.5 text-xs font-black', boricaReady ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200' : account?.boricaEnabled ? 'bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200' : 'bg-muted text-muted-foreground')}>
+                  {boricaReady ? t('payments.connected') : account?.boricaEnabled ? t('payments.needsSetup') : t('payments.disabled', 'Disabled')}
+                </span>
+              </div>
+              {account?.boricaEnabled && (
+                <>
+                  {account?.boricaMerchantId && <p className="mt-0.5 truncate text-xs text-muted-foreground">{t('payments.merchantId', 'Merchant')}: {account.boricaMerchantId}</p>}
+                  <p className="text-xs text-muted-foreground">{t('payments.mode', 'Mode')}: <span className="font-bold text-foreground">{account?.boricaMode ?? 'DEMO'}</span></p>
+                </>
+              )}
+            </div>
+          </div>
           <button
             type="button"
-            onClick={() => setActiveTab('payouts')}
-            className="flex h-10 items-center rounded-lg border border-border bg-card px-4 text-sm font-bold text-foreground shadow-sm transition hover:bg-muted"
+            onClick={() => navigate('?tab=settings&settingsTab=payments')}
+            className="mt-auto flex h-8 items-center rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground shadow-sm transition hover:bg-muted"
           >
-            {t('payments.managePayouts')}
+            {t('payments.configure', 'Configure')}
           </button>
         </div>
       </div>
@@ -576,11 +642,19 @@ function SettingsPanel({ restaurant, feePercent }: { restaurant: any; feePercent
     restaurant?.epayMerchantEmail &&
     restaurant?.epaySecretConfigured
   );
+  const boricaReady = !!(
+    restaurant?.boricaEnabled &&
+    (restaurant?.boricaMode === 'DEMO' ||
+      (restaurant?.boricaTerminalId &&
+       restaurant?.boricaMerchantId &&
+       restaurant?.boricaPrivateKeyConfigured))
+  );
   return (
-    <div className="grid gap-4 lg:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
       <SettingCard label={t('payments.paymentCollection')} value={restaurant?.paymentsEnabled ? t('payments.enabled') : t('payments.disabled')} detail={t('payments.paymentCollectionDetail')} active={restaurant?.paymentsEnabled} />
       <SettingCard label={t('payments.stripeConnect')} value={restaurant?.stripeOnboarded ? t('payments.connected') : t('payments.incomplete')} detail={restaurant?.stripeAccountId ?? t('payments.noStripeAccount')} active={restaurant?.stripeOnboarded} />
       <SettingCard label={t('auto.ePayBg', 'ePay.bg')} value={epayReady ? t('payments.configured', 'Configured') : t('payments.incomplete')} detail={restaurant?.epayClientId ?? t('payments.notConfigured', 'Not configured')} active={epayReady} />
+      <SettingCard label="BORICA" value={boricaReady ? t('payments.configured', 'Configured') : restaurant?.boricaEnabled ? t('payments.incomplete') : t('payments.disabled', 'Disabled')} detail={restaurant?.boricaEnabled ? `${restaurant?.boricaMode ?? 'DEMO'}${restaurant?.boricaMerchantId ? ` · ${restaurant.boricaMerchantId}` : ''}` : t('payments.notConfigured', 'Not configured')} active={boricaReady} />
       <SettingCard label={t('payments.platformFee')} value={feePercent ? `${feePercent}%` : t('payments.notSet')} detail={t('payments.platformFeeDetail')} active={feePercent > 0} />
     </div>
   );
@@ -591,8 +665,8 @@ function SettingCard({ label, value, detail, active }: { label: string; value: s
     <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
       <p className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
       <div className="mt-3 flex items-center gap-2">
-        <span className={cn('h-2.5 w-2.5 rounded-full', active ? 'bg-emerald-500' : 'bg-amber-500')} />
-        <p className="text-xl font-black text-foreground">{value}</p>
+        <span className={cn('h-2.5 w-2.5 rounded-full shrink-0', active ? 'bg-emerald-500' : 'bg-red-500')} />
+        <p className={cn('text-xl font-black', active ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400')}>{value}</p>
       </div>
       <p className="mt-2 text-sm font-medium text-muted-foreground">{detail}</p>
     </div>
