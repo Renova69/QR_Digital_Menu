@@ -255,6 +255,56 @@ export class PaymentService {
     };
   }
 
+  private isPaymentClaimable(payment: any): boolean {
+    return (
+      payment.status === undefined ||
+      ['PENDING', 'ABANDONED'].includes(payment.status)
+    );
+  }
+
+  private async claimSuccessfulPaymentForOpenSession(
+    tx: any,
+    payment: any,
+    data: Record<string, any>,
+  ): Promise<boolean> {
+    if (!this.isPaymentClaimable(payment)) return false;
+
+    const sessionUpdate = await tx.tableSession.updateMany({
+      where: {
+        id: payment.tableSessionId,
+        status: 'OPEN',
+        payments: {
+          some: {
+            id: payment.id,
+            status: { in: ['PENDING', 'ABANDONED'] },
+          },
+        },
+      },
+      data: { status: 'PAID', paidAt: new Date() },
+    });
+    if (sessionUpdate.count === 0) {
+      this.logger.warn(
+        'Ignoring successful payment callback because session is already closed',
+        {
+          paymentId: payment.id,
+          tableSessionId: payment.tableSessionId,
+          provider: payment.provider,
+        },
+      );
+      return false;
+    }
+
+    const paymentUpdate = await tx.payment.updateMany({
+      where: { id: payment.id, status: { in: ['PENDING', 'ABANDONED'] } },
+      data,
+    });
+    if (paymentUpdate.count === 0) {
+      throw new Error('Payment success claim lost race after session claim');
+    }
+
+    return true;
+  }
+
   private isStripeConfigured(restaurant: any): boolean {
     return !!(
       this.featureService.restaurantHasFeature(
@@ -976,17 +1026,13 @@ export class PaymentService {
                 },
               );
             } else {
-              await this.prisma.$transaction(async (tx) => {
-                await tx.payment.updateMany({
-                  where: { id: pendingBorica.id, status: 'PENDING' },
-                  data: { status: 'SUCCEEDED', providerStatus: 'RECOVERED_VIA_STATUS_CHECK' },
-                });
-                await tx.tableSession.updateMany({
-                  where: { id: pendingBorica.tableSessionId, status: 'OPEN' },
-                  data: { status: 'PAID', paidAt: new Date() },
-                });
-              });
-              await this.emitPaymentConfirmed(pendingBorica as any);
+              const claimed = await this.prisma.$transaction((tx) =>
+                this.claimSuccessfulPaymentForOpenSession(tx, pendingBorica, {
+                  status: 'SUCCEEDED',
+                  providerStatus: 'RECOVERED_VIA_STATUS_CHECK',
+                }),
+              );
+              if (claimed) await this.emitPaymentConfirmed(pendingBorica as any);
               throw new ConflictException('ALREADY_PAID');
             }
           }
@@ -1228,32 +1274,22 @@ export class PaymentService {
       return cancelUrl;
     }
 
-    const claimed = await this.prisma.$transaction(async (tx) => {
-      const paymentUpdate = await tx.payment.updateMany({
-        where: { id: payment.id, status: { in: ['PENDING', 'ABANDONED'] } },
-        data: {
-          status: 'SUCCEEDED',
-          providerStatus: 'PAID',
-          providerPayload: this.mergeProviderPayload(payment.providerPayload, {
-            callbackBody: body,
-            verifiedAt: new Date().toISOString(),
-            verified: true,
-            rc: result.rc,
-            action: result.action,
-            rrn: result.rrn,
-            intRef: result.intRef,
-            approval: result.approval,
-          }) as any,
-        },
-      });
-      if (paymentUpdate.count === 0) return false;
-
-      await tx.tableSession.updateMany({
-        where: { id: payment.tableSessionId, status: 'OPEN' },
-        data: { status: 'PAID', paidAt: new Date() },
-      });
-      return true;
-    });
+    const claimed = await this.prisma.$transaction((tx) =>
+      this.claimSuccessfulPaymentForOpenSession(tx, payment, {
+        status: 'SUCCEEDED',
+        providerStatus: 'PAID',
+        providerPayload: this.mergeProviderPayload(payment.providerPayload, {
+          callbackBody: body,
+          verifiedAt: new Date().toISOString(),
+          verified: true,
+          rc: result.rc,
+          action: result.action,
+          rrn: result.rrn,
+          intRef: result.intRef,
+          approval: result.approval,
+        }) as any,
+      }),
+    );
 
     if (claimed) await this.emitPaymentConfirmed(payment);
 
@@ -1262,7 +1298,9 @@ export class PaymentService {
         restaurantId: payment.restaurantId,
         table: payment.tableSession?.table,
       },
-      'borica-ok',
+      claimed || payment.status === 'SUCCEEDED'
+        ? 'borica-ok'
+        : 'borica-cancel',
     );
   }
 
@@ -1344,23 +1382,13 @@ export class PaymentService {
     });
 
     if (notification.status === 'PAID') {
-      const claimed = await this.prisma.$transaction(async (tx) => {
-        const paymentUpdate = await tx.payment.updateMany({
-          where: { id: payment.id, status: { in: ['PENDING', 'ABANDONED'] } },
-          data: {
-            status: 'SUCCEEDED',
-            providerStatus: 'PAID',
-            providerPayload: providerPayload as any,
-          },
-        });
-        if (paymentUpdate.count === 0) return false;
-
-        await tx.tableSession.updateMany({
-          where: { id: payment.tableSessionId, status: 'OPEN' },
-          data: { status: 'PAID', paidAt: new Date() },
-        });
-        return true;
-      });
+      const claimed = await this.prisma.$transaction((tx) =>
+        this.claimSuccessfulPaymentForOpenSession(tx, payment, {
+          status: 'SUCCEEDED',
+          providerStatus: 'PAID',
+          providerPayload: providerPayload as any,
+        }),
+      );
 
       if (claimed) await this.emitPaymentConfirmed(payment);
       return;
@@ -1449,30 +1477,15 @@ export class PaymentService {
       }
       if (!payment) return;
 
-      // Idempotent claim — double-delivered webhooks must be a no-op. Only the
-      // first delivery (status still PENDING) flips the record and proceeds to
-      // emit socket events; subsequent deliveries see count=0 and bail out.
-      const { count } = await this.prisma.payment.updateMany({
-        where: {
+      // Idempotent claim: a provider callback can only win while the session is
+      // still OPEN and the exact payment row is still pending/abandoned.
+      const claimed = await this.prisma.$transaction((tx) =>
+        this.claimSuccessfulPaymentForOpenSession(tx, payment, {
+          status: 'SUCCEEDED',
           stripePaymentIntentId: intent.id,
-          status: { in: ['PENDING', 'ABANDONED'] },
-        },
-        data: { status: 'SUCCEEDED' },
-      });
-      if (count === 0) {
-        // Record may not yet carry the intent id (created-before-Stripe race) —
-        // fall back to claiming by the payment row we already resolved.
-        const byId = await this.prisma.payment.updateMany({
-          where: { id: payment.id, status: { in: ['PENDING', 'ABANDONED'] } },
-          data: { status: 'SUCCEEDED', stripePaymentIntentId: intent.id },
-        });
-        if (byId.count === 0) return; // already processed — skip socket emission
-      }
-
-      await this.prisma.tableSession.updateMany({
-        where: { id: payment.tableSessionId, status: 'OPEN' },
-        data: { status: 'PAID', paidAt: new Date() },
-      });
+        }),
+      );
+      if (!claimed) return;
 
       const tableNumber =
         payment.tableSession?.table?.name ??

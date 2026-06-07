@@ -579,6 +579,7 @@ describe('PaymentService', () => {
       tableSessionId: 's1',
       amount: 22,
       tipAmount: 2,
+      status: 'PENDING',
       providerReference: '123456',
       providerPayload: {},
       restaurant: { epaySecretEncrypted: 'secret-word' },
@@ -639,7 +640,16 @@ describe('PaymentService', () => {
         }),
       });
       expect(mockPrisma.tableSession.updateMany).toHaveBeenCalledWith({
-        where: { id: 's1', status: 'OPEN' },
+        where: {
+          id: 's1',
+          status: 'OPEN',
+          payments: {
+            some: {
+              id: 'pay-epay',
+              status: { in: ['PENDING', 'ABANDONED'] },
+            },
+          },
+        },
         data: { status: 'PAID', paidAt: expect.any(Date) },
       });
       expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
@@ -656,8 +666,9 @@ describe('PaymentService', () => {
     });
 
     it('treats duplicate PAID notifications as OK without double-emitting', async () => {
-      mockPrisma.payment.findMany.mockResolvedValue([epayPayment]);
-      mockPrisma.payment.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.payment.findMany.mockResolvedValue([
+        { ...epayPayment, status: 'SUCCEEDED' },
+      ]);
 
       const result = await service.handleEpayNotification({
         ENCODED: 'encoded',
@@ -665,7 +676,23 @@ describe('PaymentService', () => {
       });
 
       expect(result).toBe('INVOICE=123456:STATUS=OK');
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
       expect(mockPrisma.tableSession.updateMany).not.toHaveBeenCalled();
+      expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
+      expect(mockEvents.emitTableStatusChanged).not.toHaveBeenCalled();
+    });
+
+    it('ignores a stale PAID notification when the session is already paid by another provider', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([epayPayment]);
+      mockPrisma.tableSession.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      const result = await service.handleEpayNotification({
+        ENCODED: 'encoded',
+        CHECKSUM: 'checksum',
+      });
+
+      expect(result).toBe('INVOICE=123456:STATUS=OK');
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
       expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
       expect(mockEvents.emitTableStatusChanged).not.toHaveBeenCalled();
     });
@@ -681,6 +708,7 @@ describe('PaymentService', () => {
         id: 'pay1',
         amount: 45.5,
         tipAmount: 5.0,
+        status: 'PENDING',
         tableSessionId: 's1',
         tableSession: {
           restaurantId: 'rest1',
@@ -701,14 +729,20 @@ describe('PaymentService', () => {
       await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
 
       expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
-        where: {
-          stripePaymentIntentId: 'pi_test',
-          status: { in: ['PENDING', 'ABANDONED'] },
-        },
-        data: { status: 'SUCCEEDED' },
+        where: { id: 'pay1', status: { in: ['PENDING', 'ABANDONED'] } },
+        data: { status: 'SUCCEEDED', stripePaymentIntentId: 'pi_test' },
       });
       expect(mockPrisma.tableSession.updateMany).toHaveBeenCalledWith({
-        where: { id: 's1', status: 'OPEN' },
+        where: {
+          id: 's1',
+          status: 'OPEN',
+          payments: {
+            some: {
+              id: 'pay1',
+              status: { in: ['PENDING', 'ABANDONED'] },
+            },
+          },
+        },
         data: { status: 'PAID', paidAt: expect.any(Date) },
       });
       expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
@@ -732,6 +766,7 @@ describe('PaymentService', () => {
         id: 'pay1',
         amount: 45.5,
         tipAmount: 5,
+        status: 'SUCCEEDED',
         tableSessionId: 's1',
         tableSession: {
           restaurantId: 'rest1',
@@ -740,11 +775,9 @@ describe('PaymentService', () => {
         },
       };
       mockPrisma.payment.findFirst.mockResolvedValue(payment);
-      // Both claim attempts report 0 rows changed → already processed.
-      mockPrisma.payment.updateMany.mockResolvedValue({ count: 0 });
-
       await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
 
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
       expect(mockPrisma.tableSession.updateMany).not.toHaveBeenCalled();
       expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
       expect(mockEvents.emitTableStatusChanged).not.toHaveBeenCalled();
@@ -753,12 +786,13 @@ describe('PaymentService', () => {
     it('falls back to claiming by payment id when intent id not yet stored (#H3)', async () => {
       mockStripeProvider.constructWebhookEvent.mockReturnValue({
         type: 'payment_intent.succeeded',
-        data: { object: { id: 'pi_test' } },
+        data: { object: { id: 'pi_test', metadata: { paymentId: 'pay1' } } },
       });
       const payment = {
         id: 'pay1',
         amount: 45.5,
         tipAmount: 5,
+        status: 'PENDING',
         tableSessionId: 's1',
         tableSession: {
           restaurantId: 'rest1',
@@ -766,10 +800,10 @@ describe('PaymentService', () => {
           table: { name: '3' },
         },
       };
-      mockPrisma.payment.findFirst.mockResolvedValue(payment);
-      mockPrisma.payment.updateMany
-        .mockResolvedValueOnce({ count: 0 }) // claim by intent id misses
-        .mockResolvedValueOnce({ count: 1 }); // claim by payment id succeeds
+      mockPrisma.payment.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(payment);
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.restaurantTable.findUnique = jest
         .fn()
         .mockResolvedValue({ name: '3' });
@@ -779,12 +813,39 @@ describe('PaymentService', () => {
 
       await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
 
-      expect(mockPrisma.payment.updateMany).toHaveBeenNthCalledWith(2, {
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
         where: { id: 'pay1', status: { in: ['PENDING', 'ABANDONED'] } },
         data: { status: 'SUCCEEDED', stripePaymentIntentId: 'pi_test' },
       });
       expect(mockPrisma.tableSession.updateMany).toHaveBeenCalled();
       expect(mockEvents.emitToRestaurant).toHaveBeenCalled();
+    });
+
+    it('ignores a stale succeeded event when another provider already paid the session', async () => {
+      mockStripeProvider.constructWebhookEvent.mockReturnValue({
+        type: 'payment_intent.succeeded',
+        data: { object: { id: 'pi_old' } },
+      });
+      const payment = {
+        id: 'pay-old',
+        amount: 45.5,
+        tipAmount: 5,
+        status: 'PENDING',
+        tableSessionId: 's1',
+        tableSession: {
+          restaurantId: 'rest1',
+          tableId: 'table1',
+          table: { name: '3' },
+        },
+      };
+      mockPrisma.payment.findFirst.mockResolvedValue(payment);
+      mockPrisma.tableSession.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+      expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
+      expect(mockEvents.emitTableStatusChanged).not.toHaveBeenCalled();
     });
 
     it('on payment_intent.payment_failed: updates Payment status to FAILED', async () => {
@@ -1653,16 +1714,67 @@ describe('PaymentService', () => {
       });
       expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'pay-stale', status: 'PENDING' },
+          where: { id: 'pay-stale', status: { in: ['PENDING', 'ABANDONED'] } },
           data: expect.objectContaining({ status: 'SUCCEEDED' }),
         }),
       );
       expect(mockPrisma.tableSession.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 's1', status: 'OPEN' },
+          where: {
+            id: 's1',
+            status: 'OPEN',
+            payments: {
+              some: {
+                id: 'pay-stale',
+                status: { in: ['PENDING', 'ABANDONED'] },
+              },
+            },
+          },
           data: expect.objectContaining({ status: 'PAID' }),
         }),
       );
+    });
+
+    it('TRTYPE=90: does not complete a stale BORICA payment after another provider paid the session', async () => {
+      const stalePending = {
+        id: 'pay-stale',
+        provider: 'BORICA',
+        status: 'PENDING',
+        amount: 20,
+        tipAmount: 0,
+        tableSessionId: 's1',
+        providerReference: '000099',
+        createdAt: new Date(Date.now() - 20 * 60 * 1000),
+        providerPayload: { checkoutForm: { action: 'x', method: 'POST', fields: {} } },
+      };
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+        table: null,
+        restaurant: boricaRestaurant,
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([stalePending]);
+      mockBoricaProvider.queryTransactionStatus.mockResolvedValueOnce({
+        verified: true, rc: '00', action: '0',
+        order: '000099', rrn: '', intRef: '', approval: '',
+        terminal: 'V1800001', amount: '20.00', currency: 'EUR',
+        paresStat: 'Y', eci: '05',
+      });
+      mockPrisma.$transaction.mockImplementation((fn: any) => fn(mockPrisma));
+      mockPrisma.tableSession.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      await expect(service.createCheckout('tok1', 'BORICA', 0, boricaCardholder)).rejects.toMatchObject({
+        message: 'ALREADY_PAID',
+      });
+
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'SUCCEEDED' }),
+        }),
+      );
+      expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
+      expect(mockEvents.emitTableStatusChanged).not.toHaveBeenCalled();
     });
 
     it('TRTYPE=90: marks STATUS_UNKNOWN when status check returns null — blocks new checkout', async () => {
@@ -1777,6 +1889,7 @@ describe('PaymentService', () => {
       tableSessionId: 's1',
       amount: 20,
       tipAmount: 0,
+      status: 'PENDING',
       currency: 'eur',
       providerReference: '000001',
       providerPayload: {},
@@ -1865,6 +1978,36 @@ describe('PaymentService', () => {
           data: expect.objectContaining({ status: 'SUCCEEDED' }),
         }),
       );
+      expect(mockPrisma.tableSession.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: 's1',
+            status: 'OPEN',
+            payments: {
+              some: {
+                id: 'pay-borica',
+                status: { in: ['PENDING', 'ABANDONED'] },
+              },
+            },
+          },
+          data: expect.objectContaining({ status: 'PAID' }),
+        }),
+      );
+    });
+
+    it('does not complete an old BORICA callback after another provider paid the session', async () => {
+      mockPrisma.tableSession.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      const url = await service.handleBoricaCallback(validBody);
+
+      expect(url).toContain('borica-cancel');
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'SUCCEEDED' }),
+        }),
+      );
+      expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
+      expect(mockEvents.emitTableStatusChanged).not.toHaveBeenCalled();
     });
 
     it('rejects callback with mismatched AMOUNT (#6)', async () => {
