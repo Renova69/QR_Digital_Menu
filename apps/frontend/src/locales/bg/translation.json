@@ -2914,5 +2914,27 @@
     "waiter": "Сервитьор",
     "kitchen": "Кухня",
     "super_admin": "Супер администратор"
+  },
+  "printStations": {
+    "title": "Принтерни станции",
+    "description": "Конфигурирайте кухненски и барови принтери. Артикулите се насочват към станции по категория от менюто.",
+    "addStation": "Добави станция",
+    "stationName": "Име на станция",
+    "printerIp": "IP на принтера",
+    "printerPort": "Порт",
+    "namePlaceholder": "Кухня / Бар / Expo",
+    "ipPlaceholder": "192.168.1.50",
+    "generateToken": "Генерирай агентски токен",
+    "tokenLabel": "Етикет на устройство",
+    "tokenLabelPlaceholder": "Кухненски таблет",
+    "tokenCopied": "Токенът е копиран!",
+    "revokeToken": "Отмени",
+    "noStations": "Няма конфигурирани принтерни станции.",
+    "agentTokens": "Агентски токени",
+    "lastSeen": "Последно видян",
+    "neverConnected": "Никога не е свързвал",
+    "pendingJobs": "{{count}} чакащи",
+    "failedJobs": "{{count}} неуспешни",
+    "healthy": "Нормален"
   }
 }

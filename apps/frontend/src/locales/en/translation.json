@@ -2903,5 +2903,27 @@
     "waiter": "Waiter",
     "kitchen": "Kitchen",
     "super_admin": "Super Admin"
+  },
+  "printStations": {
+    "title": "Print Stations",
+    "description": "Configure kitchen and bar printers. Items route to stations by menu category.",
+    "addStation": "Add Station",
+    "stationName": "Station Name",
+    "printerIp": "Printer IP",
+    "printerPort": "Port",
+    "namePlaceholder": "Kitchen / Bar / Expo",
+    "ipPlaceholder": "192.168.1.50",
+    "generateToken": "Generate Agent Token",
+    "tokenLabel": "Device Label",
+    "tokenLabelPlaceholder": "Kitchen Tablet",
+    "tokenCopied": "Token copied!",
+    "revokeToken": "Revoke",
+    "noStations": "No print stations configured.",
+    "agentTokens": "Agent Tokens",
+    "lastSeen": "Last seen",
+    "neverConnected": "Never connected",
+    "pendingJobs": "{{count}} pending",
+    "failedJobs": "{{count}} failed",
+    "healthy": "Healthy"
   }
 }
