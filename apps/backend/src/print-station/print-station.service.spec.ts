@@ -21,6 +21,7 @@ const mockPrisma = {
   },
   printJob: {
     create: jest.fn(),
+    findFirst: jest.fn(),
     findUnique: jest.fn(),
     findMany: jest.fn(),
     update: jest.fn(),
@@ -155,10 +156,10 @@ describe('PrintStationService', () => {
 
   describe('handlePrintAck', () => {
     it('sets status to PRINTED on success', async () => {
-      mockPrisma.printJob.findUnique.mockResolvedValue({ id: 'j1', attempts: 1 });
+      mockPrisma.printJob.findFirst.mockResolvedValue({ id: 'j1', attempts: 1 });
       mockPrisma.printJob.update.mockResolvedValue({});
 
-      await service.handlePrintAck('j1', true);
+      await service.handlePrintAck('j1', true, undefined, 'station-1', 'rest-1');
 
       expect(mockPrisma.printJob.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -168,10 +169,10 @@ describe('PrintStationService', () => {
     });
 
     it('sets status to FAILED when max attempts reached', async () => {
-      mockPrisma.printJob.findUnique.mockResolvedValue({ id: 'j2', attempts: 3 });
+      mockPrisma.printJob.findFirst.mockResolvedValue({ id: 'j2', attempts: 3 });
       mockPrisma.printJob.update.mockResolvedValue({});
 
-      await service.handlePrintAck('j2', false, 'connection refused');
+      await service.handlePrintAck('j2', false, 'connection refused', 'station-1', 'rest-1');
 
       expect(mockPrisma.printJob.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -181,16 +182,24 @@ describe('PrintStationService', () => {
     });
 
     it('sets status back to PENDING for retry when under max attempts', async () => {
-      mockPrisma.printJob.findUnique.mockResolvedValue({ id: 'j3', attempts: 1 });
+      mockPrisma.printJob.findFirst.mockResolvedValue({ id: 'j3', attempts: 1 });
       mockPrisma.printJob.update.mockResolvedValue({});
 
-      await service.handlePrintAck('j3', false, 'timeout');
+      await service.handlePrintAck('j3', false, 'timeout', 'station-1', 'rest-1');
 
       expect(mockPrisma.printJob.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ status: 'PENDING' }),
         }),
       );
+    });
+
+    it('silently ignores ack for a job that does not belong to the station (IDOR guard)', async () => {
+      mockPrisma.printJob.findFirst.mockResolvedValue(null);
+
+      await service.handlePrintAck('j-other', true, undefined, 'station-1', 'rest-1');
+
+      expect(mockPrisma.printJob.update).not.toHaveBeenCalled();
     });
   });
 

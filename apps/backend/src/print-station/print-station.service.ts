@@ -217,8 +217,20 @@ export class PrintStationService {
 
   // ─── Acknowledgement ──────────────────────────────────────────────────────
 
-  async handlePrintAck(jobId: string, success: boolean, error?: string): Promise<void> {
-    const job = await this.prisma.printJob.findUnique({ where: { id: jobId } });
+  async handlePrintAck(
+    jobId: string,
+    success: boolean,
+    error?: string,
+    printStationId?: string,
+    restaurantId?: string,
+  ): Promise<void> {
+    const job = await this.prisma.printJob.findFirst({
+      where: {
+        id: jobId,
+        ...(printStationId && { printStationId }),
+        ...(restaurantId && { restaurantId }),
+      },
+    });
     if (!job) return;
 
     if (success) {

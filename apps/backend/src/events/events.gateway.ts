@@ -97,6 +97,20 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.disconnect();
         return;
       }
+
+      // Reject suspended restaurants and inactive stations
+      const restaurant = await this.prisma.restaurant.findUnique({
+        where: { id: record.restaurantId },
+        select: { isActive: true },
+      });
+      if (!restaurant || restaurant.isActive === false || !record.printStation.isActive) {
+        this.logger.warn(
+          `Agent token rejected — suspended/inactive: station=${record.printStationId} socket=${client.id}`,
+        );
+        client.disconnect();
+        return;
+      }
+
       client.data.agentRestaurantId = record.restaurantId;
       client.data.agentStationId = record.printStationId;
       client.join(`print:${record.restaurantId}:${record.printStationId}`);
@@ -289,9 +303,12 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() body: { jobId: string; success: boolean; error?: string },
     @ConnectedSocket() client: Socket,
   ) {
-    if (!client.data.agentStationId) return;
+    const stationId = client.data.agentStationId as string | undefined;
+    const restaurantId = client.data.agentRestaurantId as string | undefined;
+    if (!stationId || !restaurantId) return;
+    if (typeof body?.jobId !== 'string' || !body.jobId) return;
     await this.printStationService
-      .handlePrintAck(body.jobId, body.success, body.error)
+      .handlePrintAck(body.jobId, body.success, body.error, stationId, restaurantId)
       .catch((err: Error) =>
         this.logger.error(`handlePrintAck failed for job ${body.jobId}: ${err.message}`),
       );
