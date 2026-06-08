@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Wifi, WifiOff, AlertTriangle, Copy, Check } from 'lucide-react';
 import { useToast } from '../../components/ui/toast';
 import {
   getPrintStations,
@@ -98,6 +98,8 @@ export default function PrintStationsView() {
   const [newName, setNewName] = useState('');
   const [newIp, setNewIp] = useState('');
   const [newPort, setNewPort] = useState('9100');
+  const [generatedToken, setGeneratedToken] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const { data: stations = [], isLoading } = useQuery<PrintStation[]>({
     queryKey: ['print-stations'],
@@ -134,11 +136,23 @@ export default function PrintStationsView() {
     mutationFn: (stationId: string) => generateAgentToken(stationId),
     onSuccess: (data: { token: string }) => {
       qc.invalidateQueries({ queryKey: ['print-stations'] });
-      navigator.clipboard.writeText(data.token).catch(() => undefined);
-      showToast(t('printStations.tokenCopied'), 'success');
+      setGeneratedToken(data.token);
+      setCopied(false);
     },
     onError: () => showToast('Failed to generate token', 'error'),
   });
+
+  function copyToken() {
+    if (!generatedToken) return;
+    navigator.clipboard.writeText(generatedToken).catch(() => undefined);
+    const el = document.createElement('textarea');
+    el.value = generatedToken;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+    setCopied(true);
+  }
 
   const revokeTokenMutation = useMutation({
     mutationFn: (tokenId: string) => revokeAgentToken(tokenId),
@@ -151,6 +165,34 @@ export default function PrintStationsView() {
   return (
     <div className="space-y-6">
       {ToastComponent}
+
+      {generatedToken && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-background border rounded-lg shadow-xl p-6 w-full max-w-md mx-4 space-y-4">
+            <h3 className="text-lg font-semibold">Agent Token</h3>
+            <p className="text-sm text-muted-foreground">
+              Copy this token now — it won't be shown again. Paste it into the printer agent app.
+            </p>
+            <div className="flex items-center gap-2 rounded border bg-muted px-3 py-2">
+              <code className="flex-1 text-xs break-all select-all">{generatedToken}</code>
+              <button
+                onClick={copyToken}
+                className="shrink-0 p-1 rounded hover:bg-accent"
+                title="Copy"
+              >
+                {copied ? (
+                  <Check className="w-4 h-4 text-green-500" />
+                ) : (
+                  <Copy className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={() => setGeneratedToken(null)}>Done</Button>
+            </div>
+          </div>
+        </div>
+      )}
       <div>
         <h2 className="text-xl font-semibold">{t('printStations.title')}</h2>
         <p className="text-sm text-muted-foreground mt-1">{t('printStations.description')}</p>
