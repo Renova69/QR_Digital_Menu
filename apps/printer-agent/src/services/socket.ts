@@ -1,14 +1,10 @@
 import { io, Socket } from 'socket.io-client';
 import { AgentConfig } from '../store/config';
-import { printJob } from './printer';
+import { sendToPrinter } from './printer';
 
 interface PrintJobPayload {
   jobId: string;
-  orderId: string;
-  tableNumber: number | string;
-  items: Array<{ name: string; quantity: number; notes?: string }>;
-  specialRequests?: string;
-  stationName?: string;
+  ticket: string; // base64-encoded ESC/POS bytes built by backend
 }
 
 type StatusListener = (status: string, detail?: string) => void;
@@ -53,24 +49,20 @@ export function startSocketService(
   });
 
   socket.on('print:job', async (payload: PrintJobPayload) => {
-    setStatus('printing', `Order ${payload.orderId.slice(-8).toUpperCase()}`);
+    const jobId = payload?.jobId;
+    const ticket = payload?.ticket;
+    if (!jobId || !ticket) return;
+
+    setStatus('printing', `Job ${jobId.slice(-8).toUpperCase()}`);
+
     try {
-      await printJob(config.printerIp, config.printerPort, {
-        orderId: payload.orderId,
-        tableNumber: payload.tableNumber,
-        items: payload.items,
-        specialRequests: payload.specialRequests,
-        stationName: payload.stationName ?? config.stationName,
-      });
-      socket?.emit('print:ack', { jobId: payload.jobId, success: true });
-      setStatus('connected', 'Last print OK');
+      const bytes = new Uint8Array(Buffer.from(ticket, 'base64'));
+      await sendToPrinter(config.printerIp, config.printerPort, bytes);
+      socket?.emit('print:ack', { jobId, success: true });
+      setStatus('connected', `Last print OK — job ${jobId.slice(-8).toUpperCase()}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      socket?.emit('print:ack', {
-        jobId: payload.jobId,
-        success: false,
-        error: message,
-      });
+      socket?.emit('print:ack', { jobId, success: false, error: message });
       setStatus('connected', `Print failed: ${message}`);
     }
   });
