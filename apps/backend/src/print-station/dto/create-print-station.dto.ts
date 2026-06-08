@@ -1,10 +1,10 @@
-import { IsString, IsInt, IsOptional, Min, Max } from 'class-validator';
+import { IsString, IsInt, IsOptional, Min, Max, IsIP } from 'class-validator';
 
 export class CreatePrintStationDto {
   @IsString()
   name: string;
 
-  @IsString()
+  @IsIP()
   printerIp: string;
 
   @IsOptional()

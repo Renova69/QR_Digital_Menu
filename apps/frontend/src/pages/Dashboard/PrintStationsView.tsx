@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, Wifi, WifiOff, AlertTriangle, Copy, Check } from 'lucide-react';
+import { Plus, Trash2, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '../../components/ui/toast';
 import {
   getPrintStations,
@@ -43,7 +44,7 @@ interface PrintStation {
 
 function timeAgo(iso: string | null): string {
   if (!iso) return '';
-  const diff = Date.now() - new Date(iso).getTime();
+  const diff = Math.max(0, Date.now() - new Date(iso).getTime()); // M-2: guard clock skew
   const seconds = Math.floor(diff / 1000);
   if (seconds < 60) return `${seconds}s ago`;
   const minutes = Math.floor(seconds / 60);
@@ -56,8 +57,9 @@ function timeAgo(iso: string | null): string {
 function HealthBadge({ health }: { health: StationHealth | undefined }) {
   if (!health) return null;
 
+  // M-1: 5-minute threshold — agent only updates lastSeen on connect + successful print:ack
   const agentOnline = health.lastSeen
-    ? Date.now() - new Date(health.lastSeen).getTime() < 60_000
+    ? Date.now() - new Date(health.lastSeen).getTime() < 300_000
     : false;
 
   const base = 'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium';
@@ -98,8 +100,7 @@ export default function PrintStationsView() {
   const [newName, setNewName] = useState('');
   const [newIp, setNewIp] = useState('');
   const [newPort, setNewPort] = useState('9100');
-  const [generatedToken, setGeneratedToken] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [tokenModal, setTokenModal] = useState<{ token: string; station: PrintStation } | null>(null);
 
   const { data: stations = [], isLoading } = useQuery<PrintStation[]>({
     queryKey: ['print-stations'],
@@ -133,26 +134,14 @@ export default function PrintStationsView() {
   });
 
   const generateTokenMutation = useMutation({
-    mutationFn: (stationId: string) => generateAgentToken(stationId),
-    onSuccess: (data: { token: string }) => {
+    mutationFn: ({ stationId }: { stationId: string; station: PrintStation }) =>
+      generateAgentToken(stationId),
+    onSuccess: (data: { token: string }, { station }) => {
       qc.invalidateQueries({ queryKey: ['print-stations'] });
-      setGeneratedToken(data.token);
-      setCopied(false);
+      setTokenModal({ token: data.token, station });
     },
     onError: () => showToast('Failed to generate token', 'error'),
   });
-
-  function copyToken() {
-    if (!generatedToken) return;
-    navigator.clipboard.writeText(generatedToken).catch(() => undefined);
-    const el = document.createElement('textarea');
-    el.value = generatedToken;
-    document.body.appendChild(el);
-    el.select();
-    document.execCommand('copy');
-    document.body.removeChild(el);
-    setCopied(true);
-  }
 
   const revokeTokenMutation = useMutation({
     mutationFn: (tokenId: string) => revokeAgentToken(tokenId),
@@ -166,33 +155,43 @@ export default function PrintStationsView() {
     <div className="space-y-6">
       {ToastComponent}
 
-      {generatedToken && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-background border rounded-lg shadow-xl p-6 w-full max-w-md mx-4 space-y-4">
-            <h3 className="text-lg font-semibold">Agent Token</h3>
-            <p className="text-sm text-muted-foreground">
-              Copy this token now — it won't be shown again. Paste it into the printer agent app.
-            </p>
-            <div className="flex items-center gap-2 rounded border bg-muted px-3 py-2">
-              <code className="flex-1 text-xs break-all select-all">{generatedToken}</code>
-              <button
-                onClick={copyToken}
-                className="shrink-0 p-1 rounded hover:bg-accent"
-                title="Copy"
-              >
-                {copied ? (
-                  <Check className="w-4 h-4 text-green-500" />
-                ) : (
-                  <Copy className="w-4 h-4" />
-                )}
-              </button>
-            </div>
-            <div className="flex justify-end">
-              <Button onClick={() => setGeneratedToken(null)}>Done</Button>
+      {tokenModal && (() => {
+        const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
+        const serverUrl = apiUrl
+          ? apiUrl.replace(/\/api\/?$/, '')
+          : `${window.location.protocol}//${window.location.hostname}:3000`;
+        const params = new URLSearchParams({
+          serverUrl,
+          token: tokenModal.token,
+          printerIp: tokenModal.station.printerIp,
+          printerPort: String(tokenModal.station.printerPort),
+          stationName: tokenModal.station.name,
+        });
+        const qrPayload = `printagent://setup?${params.toString()}`;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-background border rounded-lg shadow-xl p-6 w-full max-w-sm mx-4 space-y-4">
+              <h3 className="text-lg font-semibold">{tokenModal.station.name} — Agent Setup</h3>
+              <p className="text-sm text-muted-foreground">
+                Scan from the printer agent app to auto-fill all fields.
+              </p>
+              <div className="flex justify-center p-4 bg-white rounded-lg">
+                <QRCodeSVG value={qrPayload} size={220} />
+              </div>
+              <div className="rounded border bg-muted px-3 py-2 space-y-1">
+                <p className="text-xs text-muted-foreground">Server: {serverUrl}</p>
+                <p className="text-xs text-muted-foreground">
+                  Printer: {tokenModal.station.printerIp}:{tokenModal.station.printerPort}
+                </p>
+                <code className="text-xs break-all select-all block">{tokenModal.token}</code>
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={() => setTokenModal(null)}>Done</Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
       <div>
         <h2 className="text-xl font-semibold">{t('printStations.title')}</h2>
         <p className="text-sm text-muted-foreground mt-1">{t('printStations.description')}</p>
@@ -222,7 +221,14 @@ export default function PrintStationsView() {
             />
           </div>
           <Button
-            onClick={() => createMutation.mutate()}
+            onClick={() => {
+              const port = parseInt(newPort, 10);
+              if (!newPort || isNaN(port) || port < 1 || port > 65535) {
+                showToast('Port must be 1–65535', 'error');
+                return;
+              }
+              createMutation.mutate();
+            }}
             disabled={!newName || !newIp || createMutation.isPending}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -249,7 +255,10 @@ export default function PrintStationsView() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => deleteMutation.mutate(station.id)}
+                onClick={() => {
+                  if (!window.confirm(`Delete "${station.name}"? Active print jobs will be cancelled.`)) return;
+                  deleteMutation.mutate(station.id);
+                }}
                 disabled={deleteMutation.isPending}
               >
                 <Trash2 className="w-4 h-4 text-destructive" />
@@ -260,7 +269,7 @@ export default function PrintStationsView() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => generateTokenMutation.mutate(station.id)}
+              onClick={() => generateTokenMutation.mutate({ stationId: station.id, station })}
               disabled={generateTokenMutation.isPending}
             >
               <Plus className="w-3 h-3 mr-1" />

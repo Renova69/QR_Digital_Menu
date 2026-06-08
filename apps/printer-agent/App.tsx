@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, StatusBar, StyleSheet } from 'react-native';
+import { SafeAreaView, StatusBar, StyleSheet, ActivityIndicator, View } from 'react-native';
 import { AgentConfig, loadConfig } from './src/store/config';
 import SetupScreen from './src/screens/SetupScreen';
 import StatusScreen from './src/screens/StatusScreen';
@@ -14,7 +14,11 @@ export default function App() {
   }, []);
 
   if (config === undefined) {
-    return null;
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0f0f23', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#6366f1" />
+      </View>
+    );
   }
 
   return (

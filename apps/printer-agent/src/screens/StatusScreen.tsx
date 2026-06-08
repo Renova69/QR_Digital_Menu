@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import ForegroundService from '@supersami/rn-foreground-service';
 import { AgentConfig, clearConfig } from '../store/config';
-import { startSocketService, stopSocketService } from '../services/socket';
+import { startSocketService, stopSocketService, StatusUpdate } from '../services/socket';
 
 interface Props {
   config: AgentConfig;
@@ -17,18 +17,19 @@ interface Props {
 }
 
 interface LogEntry {
+  id: number;
   ts: number;
   text: string;
 }
 
 export default function StatusScreen({ config, onReset }: Props) {
-  const [connectionStatus, setConnectionStatus] = useState('connecting');
-  const [detail, setDetail] = useState('');
+  const [statusUpdate, setStatusUpdate] = useState<StatusUpdate>({ status: 'connecting', message: 'Connecting…' });
   const [log, setLog] = useState<LogEntry[]>([]);
   const logRef = useRef<LogEntry[]>([]);
+  const logSeqRef = useRef(0);
 
   const addLog = (text: string) => {
-    const entry: LogEntry = { ts: Date.now(), text };
+    const entry: LogEntry = { id: logSeqRef.current++, ts: Date.now(), text };
     logRef.current = [entry, ...logRef.current].slice(0, 50);
     setLog([...logRef.current]);
   };
@@ -44,10 +45,9 @@ export default function StatusScreen({ config, onReset }: Props) {
       }).catch(() => {});
     }
 
-    startSocketService(config, (status, statusDetail) => {
-      setConnectionStatus(status);
-      setDetail(statusDetail ?? '');
-      addLog(`[${status}] ${statusDetail ?? ''}`);
+    startSocketService(config, (update) => {
+      setStatusUpdate(update);
+      addLog(`[${update.status}] ${update.message}${update.hint ? ' — ' + update.hint : ''}`);
     });
 
     return () => {
@@ -67,13 +67,14 @@ export default function StatusScreen({ config, onReset }: Props) {
     onReset();
   };
 
+  const { status, message, hint } = statusUpdate;
   const statusColor = {
     connected: '#22c55e',
     connecting: '#f59e0b',
     printing: '#6366f1',
-    disconnected: '#ef4444',
+    disconnected: '#f59e0b',
     error: '#ef4444',
-  }[connectionStatus] ?? '#888';
+  }[status] ?? '#888';
 
   return (
     <View style={styles.container}>
@@ -85,9 +86,13 @@ export default function StatusScreen({ config, onReset }: Props) {
       <View style={styles.card}>
         <Text style={styles.statusLabel}>Status</Text>
         <Text style={[styles.statusValue, { color: statusColor }]}>
-          {connectionStatus.toUpperCase()}
+          {message}
         </Text>
-        {detail ? <Text style={styles.detail}>{detail}</Text> : null}
+        {hint ? (
+          <Text style={[styles.hint, status === 'error' ? styles.hintError : null]}>
+            {hint}
+          </Text>
+        ) : null}
       </View>
 
       <View style={styles.card}>
@@ -103,7 +108,7 @@ export default function StatusScreen({ config, onReset }: Props) {
       <Text style={styles.logTitle}>Event Log</Text>
       <ScrollView style={styles.logBox}>
         {log.map((entry) => (
-          <Text key={entry.ts} style={styles.logLine}>
+          <Text key={entry.id} style={styles.logLine}>
             {new Date(entry.ts).toLocaleTimeString()} {entry.text}
           </Text>
         ))}
@@ -142,7 +147,8 @@ const styles = StyleSheet.create({
   },
   statusLabel: { fontSize: 11, color: '#666', marginBottom: 4 },
   statusValue: { fontSize: 24, fontWeight: '700' },
-  detail: { fontSize: 13, color: '#aaa', marginTop: 4 },
+  hint: { fontSize: 13, color: '#aaa', marginTop: 6, lineHeight: 18 },
+  hintError: { color: '#fca5a5' },
   detailMono: { fontSize: 14, color: '#e2e8f0', fontFamily: 'monospace' },
   logTitle: { fontSize: 12, color: '#666', marginBottom: 8, marginTop: 4 },
   logBox: {

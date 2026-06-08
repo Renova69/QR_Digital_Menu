@@ -7,6 +7,8 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
+import { randomBytes } from 'crypto';
+import type { PrintJobStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePrintStationDto } from './dto/create-print-station.dto';
 import { UpdatePrintStationDto } from './dto/update-print-station.dto';
@@ -68,6 +70,14 @@ export class PrintStationService {
 
   async remove(restaurantId: string, stationId: string) {
     await this.assertOwnership(restaurantId, stationId);
+    const activeJobs = await this.prisma.printJob.count({
+      where: { printStationId: stationId, status: { in: ['PENDING', 'SENT'] } },
+    });
+    if (activeJobs > 0) {
+      throw new ConflictException(
+        `Station has ${activeJobs} active print job(s). Wait for them to complete or disconnect the agent first.`,
+      );
+    }
     await this.prisma.printStation.delete({ where: { id: stationId } });
   }
 
@@ -75,8 +85,10 @@ export class PrintStationService {
 
   async generateToken(restaurantId: string, stationId: string, label?: string) {
     await this.assertOwnership(restaurantId, stationId);
+    // C-1: cryptographically random token — not guessable
+    const token = randomBytes(32).toString('hex');
     return this.prisma.printAgentToken.create({
-      data: { restaurantId, printStationId: stationId, label },
+      data: { restaurantId, printStationId: stationId, label, token },
     });
   }
 
@@ -86,6 +98,8 @@ export class PrintStationService {
     });
     if (!record) throw new NotFoundException('Token not found');
     await this.prisma.printAgentToken.delete({ where: { id: tokenId } });
+    // M-4: Disconnect any live agent sessions still using this token
+    this.events.disconnectAgentByTokenId(record.restaurantId, record.printStationId, tokenId);
   }
 
   async validateAgentToken(token: string) {
@@ -98,6 +112,12 @@ export class PrintStationService {
   async touchLastSeen(token: string) {
     await this.prisma.printAgentToken
       .update({ where: { token }, data: { lastSeenAt: new Date() } })
+      .catch(() => undefined);
+  }
+
+  async touchLastSeenById(tokenId: string) {
+    await this.prisma.printAgentToken
+      .update({ where: { id: tokenId }, data: { lastSeenAt: new Date() } })
       .catch(() => undefined);
   }
 
@@ -152,10 +172,12 @@ export class PrintStationService {
         customerName: order.customerName,
         items,
         timestamp: new Date(),
+        specialRequests: (order as any).specialRequests ?? null,
       });
 
       const ticketBase64 = ticket.toString('base64');
 
+      // H-1+H-3: Create with attempts:0, only increment on confirmed emit
       const job = await this.prisma.printJob.create({
         data: {
           restaurantId: order.restaurantId,
@@ -163,6 +185,7 @@ export class PrintStationService {
           orderId,
           ticketBase64,
           status: 'PENDING',
+          attempts: 0,
         },
       });
 
@@ -171,7 +194,7 @@ export class PrintStationService {
       if (emitted) {
         await this.prisma.printJob.update({
           where: { id: job.id },
-          data: { status: 'SENT', attempts: 1, lastAttemptAt: new Date() },
+          data: { status: 'SENT', attempts: { increment: 1 }, lastAttemptAt: new Date() },
         });
         this.logger.log(`Print job ${job.id} sent to station ${station.name}`);
       } else {
@@ -205,16 +228,14 @@ export class PrintStationService {
     this.logger.log(`Retrying ${jobs.length} pending job(s) for station ${stationId}`);
 
     for (const job of jobs) {
-      this.events.emitPrintJob(restaurantId, stationId, job.id, job.ticketBase64);
-
-      await this.prisma.printJob.update({
-        where: { id: job.id },
-        data: {
-          status: 'SENT',
-          attempts: { increment: 1 },
-          lastAttemptAt: new Date(),
-        },
-      });
+      // H-2: only mark SENT when emit actually reached a socket
+      const emitted = this.events.emitPrintJob(restaurantId, stationId, job.id, job.ticketBase64);
+      if (emitted) {
+        await this.prisma.printJob.update({
+          where: { id: job.id },
+          data: { status: 'SENT', attempts: { increment: 1 }, lastAttemptAt: new Date() },
+        });
+      }
     }
   }
 
@@ -226,6 +247,7 @@ export class PrintStationService {
     error?: string,
     printStationId?: string,
     restaurantId?: string,
+    agentTokenId?: string,
   ): Promise<void> {
     const job = await this.prisma.printJob.findFirst({
       where: {
@@ -241,6 +263,10 @@ export class PrintStationService {
         where: { id: jobId },
         data: { status: 'PRINTED', errorMessage: null },
       });
+      // M-1: Touch lastSeen on successful print — agent is alive and printing
+      if (agentTokenId) {
+        void this.touchLastSeenById(agentTokenId);
+      }
     } else {
       const permanentlyFailed = job.attempts >= MAX_PRINT_ATTEMPTS;
       await this.prisma.printJob.update({
@@ -257,6 +283,30 @@ export class PrintStationService {
         );
       }
     }
+  }
+
+  // ─── Print Job History ────────────────────────────────────────────────────
+
+  async getJobs(restaurantId: string, stationId: string, status?: string) {
+    await this.assertOwnership(restaurantId, stationId);
+    return this.prisma.printJob.findMany({
+      where: {
+        restaurantId,
+        printStationId: stationId,
+        ...(status && { status: status as PrintJobStatus }),
+      },
+      select: {
+        id: true,
+        orderId: true,
+        status: true,
+        attempts: true,
+        errorMessage: true,
+        lastAttemptAt: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
   }
 
   // ─── Dashboard Health ─────────────────────────────────────────────────────
@@ -288,11 +338,12 @@ export class PrintStationService {
       const failed = s.printJobs.filter((j) => j.status === 'FAILED').length;
       const lastPrinted =
         s.printJobs.find((j) => j.status === 'PRINTED')?.createdAt ?? null;
+      // H-7: sort Date objects by time value, not string
       const lastSeen =
         s.agentTokens
           .map((t) => t.lastSeenAt)
-          .filter(Boolean)
-          .sort()
+          .filter((d): d is Date => d !== null)
+          .sort((a, b) => a.getTime() - b.getTime())
           .at(-1) ?? null;
 
       return {

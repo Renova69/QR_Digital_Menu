@@ -35,6 +35,7 @@ export interface PrintTicket {
   customerName: string;
   items: PrintItem[];
   timestamp: Date;
+  specialRequests?: string | null;
 }
 
 export function buildEscPosTicket(ticket: PrintTicket): Buffer {
@@ -54,6 +55,10 @@ export function buildEscPosTicket(ticket: PrintTicket): Buffer {
   }
 
   parts.push(text(ticket.customerName), CMD.ALIGN_LEFT, divider());
+
+  if (ticket.specialRequests) {
+    parts.push(CMD.BOLD_ON, text(`NOTE: ${ticket.specialRequests}`), CMD.BOLD_OFF, divider());
+  }
 
   for (const item of ticket.items) {
     parts.push(CMD.BOLD_ON, text(`${item.quantity}x  ${item.name}`), CMD.BOLD_OFF);
