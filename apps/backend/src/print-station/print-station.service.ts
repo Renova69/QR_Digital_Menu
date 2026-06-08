@@ -4,6 +4,8 @@ import {
   ConflictException,
   ForbiddenException,
   Logger,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePrintStationDto } from './dto/create-print-station.dto';
@@ -20,6 +22,7 @@ export class PrintStationService {
 
   constructor(
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => EventsGateway))
     private readonly events: EventsGateway,
   ) {}
 
