@@ -33,7 +33,9 @@ const wsOrigin = (
     ...additional,
   ]);
 
-  if (!origin || allowed.has(origin)) {
+  // "null" origin is sent by React Native / OkHttp WebSocket and some native
+  // HTTP clients that don't set a real origin. Treat it as no-origin (allowed).
+  if (!origin || origin === 'null' || allowed.has(origin)) {
     callback(null, true);
   } else {
     callback(new Error(`Socket.IO CORS: ${origin} not allowed`));

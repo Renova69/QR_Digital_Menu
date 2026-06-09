@@ -13,8 +13,6 @@
         "WAKE_LOCK"
       ]
     },
-    "plugins": [
-      "@supersami/rn-foreground-service"
-    ]
+    "plugins": []
   }
 }

@@ -40,10 +40,17 @@ function clearConnectTimeout() {
   }
 }
 
-function classifyConnectError(err: Error): StatusUpdate {
+function isPrivateServerUrl(url: string): boolean {
+  return /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|localhost|127\.)/i.test(url);
+}
+
+function classifyConnectError(err: Error, serverUrl: string): StatusUpdate {
   const msg = (err.message ?? '').toLowerCase();
+  const raw = err.message || 'unknown error';
+  const isLocal = isPrivateServerUrl(serverUrl);
+
   if (__DEV__) {
-    console.log(`${TAG} connect_error raw="${err.message}"`);
+    console.log(`${TAG} connect_error raw="${raw}" local=${isLocal}`);
   }
 
   if (
@@ -54,7 +61,7 @@ function classifyConnectError(err: Error): StatusUpdate {
     return {
       status: 'error',
       message: 'Server not running',
-      hint: `Cannot reach server. Check the backend is running and the Server URL is correct.`,
+      hint: `Port is closed — check the backend is running.\n(${raw})`,
     };
   }
 
@@ -66,7 +73,9 @@ function classifyConnectError(err: Error): StatusUpdate {
     return {
       status: 'error',
       message: 'Connection timed out',
-      hint: 'Server unreachable — make sure the Android device is on the same Wi-Fi network as the backend.',
+      hint: isLocal
+        ? `Local server unreachable. Make sure your phone is on the same Wi-Fi as ${serverUrl}.\n(${raw})`
+        : `Server not responding. Check the Server URL and your network.\n(${raw})`,
     };
   }
 
@@ -74,7 +83,7 @@ function classifyConnectError(err: Error): StatusUpdate {
     return {
       status: 'error',
       message: 'CORS rejected',
-      hint: 'Server refused the connection. Contact support.',
+      hint: `Server refused the connection origin.\n(${raw})`,
     };
   }
 
@@ -86,7 +95,9 @@ function classifyConnectError(err: Error): StatusUpdate {
     return {
       status: 'error',
       message: 'WebSocket error',
-      hint: 'Cannot establish WebSocket connection. If using http://, ensure the device is on the local network. If using https://, verify the server URL.',
+      hint: isLocal
+        ? `Cannot reach local server. Ensure phone is on the same Wi-Fi as ${serverUrl}.\n(${raw})`
+        : `WebSocket connection failed. If using https://, verify the server URL is correct.\n(${raw})`,
     };
   }
 
@@ -94,14 +105,14 @@ function classifyConnectError(err: Error): StatusUpdate {
     return {
       status: 'error',
       message: 'Network error',
-      hint: 'No network connection. Check Wi-Fi or mobile data.',
+      hint: `No network connection. Check Wi-Fi or mobile data.\n(${raw})`,
     };
   }
 
   return {
     status: 'error',
     message: 'Connection failed',
-    hint: `Error: ${err.message}. Check Server URL and network.`,
+    hint: `${raw}\nCheck Server URL and network.`,
   };
 }
 
@@ -153,6 +164,20 @@ function classifyDisconnect(reason: string, authRejected: boolean): StatusUpdate
   }
 }
 
+async function pingServer(serverUrl: string): Promise<'ok' | 'unreachable' | 'running'> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(`${serverUrl}/api/v1/health`, {
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timer));
+    // Any HTTP response means the server is up (even 404/403)
+    return res.status < 500 ? 'ok' : 'running';
+  } catch {
+    return 'unreachable';
+  }
+}
+
 export function startSocketService(config: AgentConfig, listener: StatusListener): void {
   if (socket) {
     socket.disconnect();
@@ -165,6 +190,7 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
   // H-5: capture this generation so stale callbacks from the previous socket are ignored
   const myGeneration = ++generation;
   let authRejected = false;
+  let healthChecked = false;
 
   if (__DEV__) {
     console.log(`${TAG} connecting to ${config.serverUrl} station="${config.stationName}"`);
@@ -183,7 +209,10 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
     reconnectionDelayMax: 30_000,
     reconnectionAttempts: Infinity,
     timeout: 10_000,
-    transports: ['websocket'],
+    // Use polling→websocket (standard socket.io order): polling establishes the
+    // session over HTTP first, then upgrades. If WebSocket upgrade is blocked,
+    // it stays on polling — still functional for print jobs.
+    transports: ['polling', 'websocket'],
   });
 
   // Timeout guard — if no connect within 12s, surface a helpful message
@@ -233,7 +262,31 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
   socket.on('connect_error', (err: Error) => {
     if (myGeneration !== generation) return;
     clearConnectTimeout();
-    emit(classifyConnectError(err));
+
+    if (!healthChecked) {
+      // engine.io always emits the generic "websocket error" / "xhr poll error"
+      // regardless of the actual cause (ECONNREFUSED, 403 CORS, unreachable host).
+      // Ping the health endpoint once to distinguish "server down" from
+      // "server up but connection rejected".
+      healthChecked = true;
+      void pingServer(config.serverUrl).then((reachability) => {
+        if (myGeneration !== generation) return;
+        if (reachability === 'unreachable') {
+          emit({
+            status: 'error',
+            message: 'Server unreachable',
+            hint: isPrivateServerUrl(config.serverUrl)
+              ? `Cannot reach ${config.serverUrl}.\n• Is your phone on the same Wi-Fi?\n• Is the backend (npm run dev) running?`
+              : `Cannot reach ${config.serverUrl}. Check the Server URL and your network.`,
+          });
+        } else {
+          // Server is up — something rejected the socket connection (CORS, auth, etc.)
+          emit(classifyConnectError(err, config.serverUrl));
+        }
+      });
+    } else {
+      emit(classifyConnectError(err, config.serverUrl));
+    }
   });
 
   socket.on('reconnect_attempt', (attempt: number) => {
@@ -260,43 +313,51 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
     });
   });
 
-  socket.on('print:job', async (payload: PrintJobPayload) => {
-    if (myGeneration !== generation) return;
-    const jobId = payload?.jobId;
-    const ticket = payload?.ticket;
-    if (!jobId || !ticket) {
-      if (__DEV__) {
-        console.warn(`${TAG} print:job received with missing fields`, payload);
-      }
-      return;
-    }
+  socket.on('print:job', (payload: PrintJobPayload) => {
+    // Intentionally NOT async at the handler level — unhandled async rejections
+    // crash Hermes in production builds. All async work is inside a caught promise.
+    void (async () => {
+      try {
+        if (myGeneration !== generation) return;
+        const jobId = payload?.jobId;
+        const ticket = payload?.ticket;
+        if (!jobId || !ticket) {
+          if (__DEV__) {
+            console.warn(`${TAG} print:job received with missing fields`, payload);
+          }
+          return;
+        }
 
-    const shortId = jobId.slice(-8).toUpperCase();
-    if (__DEV__) {
-      console.log(`${TAG} print:job jobId=${shortId} ticketBytes=${ticket.length}`);
-    }
-    emit({ status: 'printing', message: `Printing…`, hint: `Job ${shortId}` });
+        const shortId = jobId.slice(-8).toUpperCase();
+        if (__DEV__) {
+          console.log(`${TAG} print:job jobId=${shortId} ticketBytes=${ticket.length}`);
+        }
+        emit({ status: 'printing', message: `Printing…`, hint: `Job ${shortId}` });
 
-    try {
-      const bytes = new Uint8Array(Buffer.from(ticket, 'base64'));
-      if (__DEV__) {
-        console.log(`${TAG} sending ${bytes.length} bytes to ${config.printerIp}:${config.printerPort}`);
+        // atob gives a binary string (each char = one byte 0-255) — pass directly
+        // to sendToPrinter which writes with 'binary' encoding; no Buffer polyfill touched
+        const binary = atob(ticket);
+        if (__DEV__) {
+          console.log(`${TAG} sending ${binary.length} bytes to ${config.printerIp}:${config.printerPort}`);
+        }
+        await sendToPrinter(config.printerIp, config.printerPort, binary);
+        socket?.emit('print:ack', { jobId, success: true });
+        emit({ status: 'connected', message: 'Online', hint: `Last print OK — job ${shortId}` });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (__DEV__) {
+          console.error(`${TAG} printer error:`, message);
+        }
+        try {
+          socket?.emit('print:ack', { jobId: payload?.jobId, success: false, error: message });
+        } catch {}
+        emit({
+          status: 'connected',
+          message: 'Print failed',
+          hint: `${message}. Check printer IP ${config.printerIp}:${config.printerPort}.`,
+        });
       }
-      await sendToPrinter(config.printerIp, config.printerPort, bytes);
-      socket?.emit('print:ack', { jobId, success: true });
-      emit({ status: 'connected', message: 'Online', hint: `Last print OK — job ${shortId}` });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (__DEV__) {
-        console.error(`${TAG} printer error jobId=${shortId}:`, message);
-      }
-      socket?.emit('print:ack', { jobId, success: false, error: message });
-      emit({
-        status: 'connected',
-        message: 'Print failed',
-        hint: `Job ${shortId} — ${message}. Check printer is powered on and IP ${config.printerIp}:${config.printerPort} is correct.`,
-      });
-    }
+    })();
   });
 }
 
