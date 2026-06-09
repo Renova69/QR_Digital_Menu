@@ -799,4 +799,32 @@ export interface ScanStats {
 export const getScanStats = (restaurantId: string): Promise<ScanStats> =>
   api.get(`/dashboard/scan-stats/${restaurantId}`).then((r) => r.data as ScanStats);
 
+// ─── Print Stations ───────────────────────────────────────────────────────────
+
+export const getPrintStations = () =>
+  api.get('/print-stations').then((r) => r.data);
+
+export const getPrintStationHealth = () =>
+  api.get('/print-stations/health').then((r) => r.data);
+
+export const createPrintStation = (data: {
+  name: string;
+  printerIp: string;
+  printerPort?: number;
+}) => api.post('/print-stations', data).then((r) => r.data);
+
+export const updatePrintStation = (
+  id: string,
+  data: Partial<{ name: string; printerIp: string; printerPort: number; isActive: boolean }>,
+) => api.patch(`/print-stations/${id}`, data).then((r) => r.data);
+
+export const deletePrintStation = (id: string) =>
+  api.delete(`/print-stations/${id}`).then((r) => r.data);
+
+export const generateAgentToken = (stationId: string, label?: string) =>
+  api.post(`/print-stations/${stationId}/tokens`, { label }).then((r) => r.data);
+
+export const revokeAgentToken = (tokenId: string) =>
+  api.delete(`/print-stations/tokens/${tokenId}`).then((r) => r.data);
+
 export default api;

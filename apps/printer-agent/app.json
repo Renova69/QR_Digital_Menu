@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "QR Menu Print Agent",
+    "slug": "qr-menu-print-agent",
+    "version": "1.0.0",
+    "platforms": ["android"],
+    "android": {
+      "package": "com.qrmenu.printagent",
+      "permissions": [
+        "INTERNET",
+        "FOREGROUND_SERVICE",
+        "RECEIVE_BOOT_COMPLETED",
+        "WAKE_LOCK"
+      ]
+    },
+    "plugins": []
+  }
+}

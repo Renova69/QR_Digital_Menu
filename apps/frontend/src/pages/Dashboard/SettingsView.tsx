@@ -11,8 +11,9 @@ import {
   PaymentSettingsTab,
   StaffSettingsTab,
 } from "./settings";
+import PrintStationsView from "./PrintStationsView";
 
-type SettingsTab = "general" | "loyalty" | "payments" | "staff" | "branding" | "subscription";
+type SettingsTab = "general" | "loyalty" | "payments" | "staff" | "branding" | "subscription" | "printers";
 
 const SettingsView = () => {
   const { activeRestaurant, fetchRestaurants } = useRestaurantContext();
@@ -26,7 +27,7 @@ const SettingsView = () => {
 
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
     const tab = searchParams.get("settingsTab") as SettingsTab | null;
-    return tab && ["general", "loyalty", "payments", "staff", "branding", "subscription"].includes(tab)
+    return tab && ["general", "loyalty", "payments", "staff", "branding", "subscription", "printers"].includes(tab)
       ? tab
       : "general";
   });
@@ -41,13 +42,14 @@ const SettingsView = () => {
     // Visible to all non-free tiers as an upsell; content shows locked state when canBranding is false
     { id: "branding", label: t("settings.tabs.branding", "Branding"), visible: !isFree },
     { id: "subscription", label: t("settings.tabs.subscription"), visible: true },
+    { id: "printers", label: t("printStations.title", "Printers"), visible: !isFree },
   ];
 
   const visibleTabs = tabs.filter((t) => t.visible);
 
   useEffect(() => {
     const tab = searchParams.get("settingsTab") as SettingsTab | null;
-    if (tab && tabs.some((item) => item.id === tab && item.visible)) {
+    if (tab && tabs.some((t) => t.id === tab && t.visible)) {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -125,6 +127,7 @@ const SettingsView = () => {
             </div>
           )}
           {activeTab === "subscription" && <BillingView />}
+          {activeTab === "printers" && <PrintStationsView />}
         </div>
       </div>
     </div>

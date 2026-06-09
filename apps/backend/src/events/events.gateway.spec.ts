@@ -19,6 +19,8 @@ describe('EventsGateway — room authorization', () => {
     emit: jest.fn(),
   });
 
+  let mockPrintStationService: any;
+
   beforeEach(() => {
     mockJwt = {
       verify: jest.fn(),
@@ -28,7 +30,13 @@ describe('EventsGateway — room authorization', () => {
       user: { findUnique: jest.fn() },
       restaurant: { findUnique: jest.fn() },
     };
-    gateway = new EventsGateway(mockJwt, mockPrisma);
+    mockPrintStationService = {
+      validateAgentToken: jest.fn(),
+      touchLastSeen: jest.fn(),
+      retryPendingJobs: jest.fn().mockResolvedValue(undefined),
+      handlePrintAck: jest.fn(),
+    };
+    gateway = new EventsGateway(mockJwt, mockPrisma, mockPrintStationService);
   });
 
   // ─── handleConnection: handshake auth ────────────────────────────────────

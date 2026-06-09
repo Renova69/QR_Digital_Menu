@@ -2854,5 +2854,27 @@
     "waiter": "Ospătar",
     "kitchen": "Bucătărie",
     "super_admin": "Super administrator"
+  },
+  "printStations": {
+    "title": "Stații de printare",
+    "description": "Configurați imprimantele pentru bucătărie și bar. Articolele sunt dirijate la stații după categoria din meniu.",
+    "addStation": "Adaugă stație",
+    "stationName": "Numele stației",
+    "printerIp": "IP imprimantă",
+    "printerPort": "Port",
+    "namePlaceholder": "Bucătărie / Bar / Expo",
+    "ipPlaceholder": "192.168.1.50",
+    "generateToken": "Generează token agent",
+    "tokenLabel": "Eticheta dispozitivului",
+    "tokenLabelPlaceholder": "Tabletă bucătărie",
+    "tokenCopied": "Token copiat!",
+    "revokeToken": "Revocă",
+    "noStations": "Nicio stație de printare configurată.",
+    "agentTokens": "Token-uri agent",
+    "lastSeen": "Văzut ultima dată",
+    "neverConnected": "Niciodată conectat",
+    "pendingJobs": "{{count}} în așteptare",
+    "failedJobs": "{{count}} eșuate",
+    "healthy": "Funcțional"
   }
 }

@@ -166,6 +166,10 @@ export class RestaurantsService {
     return dto;
   }
 
+  async findByOwner(ownerId: string) {
+    return this.prisma.restaurant.findFirst({ where: { ownerId } });
+  }
+
   async findAll(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },

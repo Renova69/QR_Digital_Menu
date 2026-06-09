@@ -27,6 +27,7 @@ import {
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { isLoyaltyAvailable } from '../loyalty/loyalty-availability.util';
+import { PrintStationService } from '../print-station/print-station.service';
 
 /** Roles that may be attributed as POS staff on an order (#4). */
 const POS_STAFF_ROLES = new Set([
@@ -50,6 +51,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly eventsGateway: EventsGateway,
     private readonly featureService: FeatureService,
+    private readonly printStationService: PrintStationService,
   ) {}
 
   async create(
@@ -556,6 +558,10 @@ export class OrdersService {
         finalOrder.tableSessionId,
       );
     }
+
+    void this.printStationService.routeOrderToPrinters(finalOrder.id).catch(
+      (err: Error) => this.logger.error(`Print routing failed for order ${finalOrder.id}: ${err.message}`),
+    );
 
     // Order-scoped token so the customer can track THIS order over the socket
     // without access to the restaurant's live event feed (see EventsGateway).

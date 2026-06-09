@@ -8,26 +8,34 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import { Logger, forwardRef, Inject } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { PrintStationService } from '../print-station/print-station.service';
 
+// C-2: pin to explicit origins — no wildcard CDN domains
 const wsOrigin = (
   origin: string | undefined,
   callback: (err: Error | null, allow?: boolean) => void,
 ) => {
-  const allowed = [
-    process.env.FRONTEND_URL || 'http://localhost:3001',
+  const primary = process.env.FRONTEND_URL || 'http://localhost:3001';
+  const additional = (process.env.ADDITIONAL_CORS_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const allowed = new Set([
+    primary,
     'http://localhost:3001',
     'http://127.0.0.1:3001',
     'http://localhost:3002',
     'http://127.0.0.1:3002',
-  ];
-  if (
-    !origin ||
-    allowed.includes(origin) ||
-    (typeof origin === 'string' && origin.endsWith('.vercel.app'))
-  ) {
+    ...additional,
+  ]);
+
+  // "null" origin is sent by React Native / OkHttp WebSocket and some native
+  // HTTP clients that don't set a real origin. Treat it as no-origin (allowed).
+  if (!origin || origin === 'null' || allowed.has(origin)) {
     callback(null, true);
   } else {
     callback(new Error(`Socket.IO CORS: ${origin} not allowed`));
@@ -60,10 +68,27 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private logger = new Logger('EventsGateway');
 
+  // M-5: per-IP rate limit for WebSocket connections (30/min)
+  private readonly wsConnectAttempts = new Map<string, { count: number; resetAt: number }>();
+
   constructor(
     private readonly jwt: JwtService,
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => PrintStationService))
+    private readonly printStationService: PrintStationService,
   ) {}
+
+  private isWsRateLimited(ip: string): boolean {
+    const now = Date.now();
+    const entry = this.wsConnectAttempts.get(ip);
+    if (!entry || now > entry.resetAt) {
+      this.wsConnectAttempts.set(ip, { count: 1, resetAt: now + 60_000 });
+      return false;
+    }
+    if (entry.count >= 30) return true;
+    entry.count++;
+    return false;
+  }
 
   /**
    * Authenticate the handshake from the `token` cookie. A valid JWT marks the
@@ -72,7 +97,15 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * customers tracking an order connect without a dashboard JWT and are
    * authorized per-room via an order-scoped token instead.
    */
-  handleConnection(client: Socket) {
+  async handleConnection(client: Socket) {
+    // M-5: rate limit before any expensive validation
+    const ip = client.handshake.address;
+    if (this.isWsRateLimited(ip)) {
+      this.logger.warn(`WebSocket rate limit exceeded for IP: ${ip}`);
+      client.disconnect();
+      return;
+    }
+
     const token = parseCookie(client.handshake.headers?.cookie, 'token');
     if (token) {
       try {
@@ -84,6 +117,50 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         // invalid/expired — stay anonymous
       }
     }
+
+    // Print agent auth — agents pass agentToken in socket.auth (no Origin header from React Native)
+    const agentToken = client.handshake.auth?.agentToken as string | undefined;
+    if (agentToken && !client.data.userId) {
+      const record = await this.printStationService.validateAgentToken(agentToken);
+      if (!record) {
+        this.logger.warn(`Invalid agent token from ${client.id} — disconnecting`);
+        client.emit('agent:rejected', 'invalid_token');
+        client.disconnect();
+        return;
+      }
+
+      // Reject suspended restaurants and inactive stations
+      const restaurant = await this.prisma.restaurant.findUnique({
+        where: { id: record.restaurantId },
+        select: { isActive: true },
+      });
+      if (!restaurant || restaurant.isActive === false || !record.printStation.isActive) {
+        this.logger.warn(
+          `Agent token rejected — suspended/inactive: station=${record.printStationId} socket=${client.id}`,
+        );
+        client.emit('agent:rejected', 'station_inactive');
+        client.disconnect();
+        return;
+      }
+
+      client.data.agentRestaurantId = record.restaurantId;
+      client.data.agentStationId = record.printStationId;
+      client.data.agentTokenId = record.id; // M-4: needed for revoke disconnect + M-1 lastSeen
+      client.join(`print:${record.restaurantId}:${record.printStationId}`);
+
+      void this.printStationService.touchLastSeen(agentToken);
+      void this.printStationService
+        .retryPendingJobs(record.restaurantId, record.printStationId)
+        .catch((err: Error) =>
+          this.logger.error(`Retry failed for station ${record.printStationId}: ${err.message}`),
+        );
+
+      this.logger.log(
+        `Print agent connected: ${record.printStation.name} socket=${client.id}`,
+      );
+      return;
+    }
+
     this.logger.log(
       `Client connected: ${client.id}${client.data.userId ? ` (user ${client.data.userId})` : ' (anon)'}`,
     );
@@ -232,6 +309,60 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   emitZoneChanged(restaurantId: string) {
     this.emitToRestaurant(restaurantId, 'zone:changed', {});
+  }
+
+  /**
+   * Emit a print job to the station room.
+   * Returns true if at least one agent socket is present (job delivered),
+   * false if room is empty (job stays PENDING for retry on reconnect).
+   */
+  emitPrintJob(
+    restaurantId: string,
+    stationId: string,
+    jobId: string,
+    ticketBase64: string,
+  ): boolean {
+    const room = `print:${restaurantId}:${stationId}`;
+    const sockets = this.server.sockets.adapter.rooms.get(room);
+    const hasAgents = sockets !== undefined && sockets.size > 0;
+    if (hasAgents) {
+      this.server.to(room).emit('print:job', { jobId, ticket: ticketBase64 });
+    }
+    return hasAgents;
+  }
+
+  /**
+   * M-4: Disconnect any agent sockets in a station room that were authenticated
+   * with the given tokenId. Called after token revocation.
+   */
+  disconnectAgentByTokenId(restaurantId: string, stationId: string, tokenId: string): void {
+    const room = `print:${restaurantId}:${stationId}`;
+    const roomSockets = this.server.sockets.adapter.rooms.get(room);
+    if (!roomSockets) return;
+    for (const socketId of roomSockets) {
+      const sock = this.server.sockets.sockets.get(socketId);
+      if (sock && sock.data.agentTokenId === tokenId) {
+        sock.emit('agent:rejected', 'token_revoked');
+        sock.disconnect();
+      }
+    }
+  }
+
+  @SubscribeMessage('print:ack')
+  async handlePrintAck(
+    @MessageBody() body: { jobId: string; success: boolean; error?: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const stationId = client.data.agentStationId as string | undefined;
+    const restaurantId = client.data.agentRestaurantId as string | undefined;
+    const agentTokenId = client.data.agentTokenId as string | undefined;
+    if (!stationId || !restaurantId) return;
+    if (typeof body?.jobId !== 'string' || !body.jobId) return;
+    await this.printStationService
+      .handlePrintAck(body.jobId, body.success, body.error, stationId, restaurantId, agentTokenId)
+      .catch((err: Error) =>
+        this.logger.error(`handlePrintAck failed for job ${body.jobId}: ${err.message}`),
+      );
   }
 
   /**

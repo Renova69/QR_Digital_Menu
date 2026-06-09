@@ -1,13 +1,15 @@
-import { Global, Module } from '@nestjs/common';
+import { Global, Module, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EventsGateway } from './events.gateway';
 import { PrismaModule } from '../prisma/prisma.module';
+import { PrintStationModule } from '../print-station/print-station.module';
 
 @Global()
 @Module({
   imports: [
     PrismaModule,
+    forwardRef(() => PrintStationModule),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
