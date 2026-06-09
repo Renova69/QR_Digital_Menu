@@ -106,7 +106,16 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    const token = parseCookie(client.handshake.headers?.cookie, 'token');
+    // CSWSH guard: when the literal string "null" is sent as Origin (React Native /
+    // OkHttp pattern), skip cookie-based JWT auth. Agenttoken auth below is still
+    // allowed. This prevents a CSWSH attack via sandboxed iframes in production
+    // where cookies are sameSite=none.
+    const originHeader = client.handshake.headers?.origin;
+    const cookieAuthAllowed = originHeader !== 'null';
+
+    const token = cookieAuthAllowed
+      ? parseCookie(client.handshake.headers?.cookie, 'token')
+      : null;
     if (token) {
       try {
         const payload = this.jwt.verify(token);
