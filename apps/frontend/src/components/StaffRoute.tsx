@@ -2,6 +2,7 @@ import { type ReactElement } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useRestaurantContext } from "../context/RestaurantContext";
+import { useFeature } from "../hooks/useFeature";
 
 const ALLOWED_ROLES = ["OWNER", "MANAGER", "WAITER", "KITCHEN", "STAFF"];
 
@@ -18,6 +19,7 @@ export default function StaffRoute({ children }: { children: ReactElement }) {
   const { user, isLoading } = useAuth();
   const { activeRestaurant } = useRestaurantContext();
   const location = useLocation();
+  const canPos = useFeature('pos');
 
   if (isLoading) {
     return (
@@ -41,11 +43,7 @@ export default function StaffRoute({ children }: { children: ReactElement }) {
   // roles (WAITER/KITCHEN) should not reach the POS/KDS pages. The backend
   // already blocks pinLogin on downgrade (H2.2); this prevents a stale session
   // from landing on the POS page with all API calls failing silently.
-  if (
-    POS_REQUIRED_ROLES.includes(role) &&
-    activeRestaurant &&
-    !activeRestaurant.features?.includes("POS")
-  ) {
+  if (POS_REQUIRED_ROLES.includes(role) && activeRestaurant && !canPos) {
     return <Navigate to="/login" replace />;
   }
 

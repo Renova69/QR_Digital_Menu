@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { login as apiLogin, register as apiRegister } from '../lib/api';
 import api from '../lib/api';
@@ -39,6 +39,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clearPrefetch = () => setPrefetchedRestaurants(null);
   const queryClient = useQueryClient();
 
+  // Prevents initializeAuth from overwriting a user set by loginWithToken or logout
+  // when the /auth/me request was in-flight before the manual auth action completed.
+  const manualAuthRef = useRef(false);
+
   useEffect(() => {
     const initializeAuth = async () => {
       // Fetch /auth/me and /restaurants in parallel — eliminates the sequential waterfall
@@ -47,6 +51,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         api.get('/auth/me'),
         api.get('/restaurants'),
       ]);
+
+      // A login or logout occurred while /auth/me was in-flight — don't overwrite.
+      if (manualAuthRef.current) {
+        setIsLoading(false);
+        return;
+      }
 
       const userData = meResult.status === 'fulfilled' ? meResult.value.data : null;
       const restaurantsData =
@@ -102,6 +112,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithToken = (user: User) => {
     // Auth rides the httpOnly cookie set by the issuing endpoint (#F1);
     // we only need to adopt the user into context here.
+    manualAuthRef.current = true;
+    setIsLoading(false);
     queryClient.clear();
     setPrefetchedRestaurants(null);
     setUser(user);
@@ -110,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUser = (user: User) => setUser(user);
 
   const logout = async () => {
+    manualAuthRef.current = true;
     try {
       await api.post('/auth/logout');
     } catch (_error) {
