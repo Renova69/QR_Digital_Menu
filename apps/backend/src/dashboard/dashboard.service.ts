@@ -14,6 +14,18 @@ export class DashboardService {
     { data: unknown; expiresAt: number }
   >();
   private static readonly ANALYTICS_TTL_MS = 60_000;
+  private static readonly ANALYTICS_CACHE_MAX = 100;
+
+  private sweepCache() {
+    const now = Date.now();
+    for (const [key, entry] of this.analyticsCache) {
+      if (entry.expiresAt <= now) this.analyticsCache.delete(key);
+    }
+    // Evict oldest entries (Map preserves insertion order) when over cap
+    while (this.analyticsCache.size > DashboardService.ANALYTICS_CACHE_MAX) {
+      this.analyticsCache.delete(this.analyticsCache.keys().next().value!);
+    }
+  }
 
   constructor(
     private readonly prisma: PrismaService,
@@ -70,6 +82,7 @@ export class DashboardService {
     startDateStr?: string,
     endDateStr?: string,
   ) {
+    this.sweepCache();
     const cacheKey = `${restaurantId}:${period}:${startDateStr ?? ''}:${endDateStr ?? ''}`;
     const cached = this.analyticsCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.data;
@@ -273,46 +286,28 @@ export class DashboardService {
   }
 
   private async getTopItems(restaurantId: string, start: Date, end: Date) {
-    const orderItems = await this.prisma.orderItem.findMany({
-      take: 10000,
-      where: {
-        order: {
-          restaurantId,
-          status: { not: OrderStatus.CANCELED },
-          createdAt: { gte: start, lte: end },
-        },
-        menuItem: { isNot: null },
-      },
-      include: {
-        menuItem: {
-          select: { name: true, price: true },
-        },
-      },
-    });
-
-    // Aggregate by menu item
-    const itemMap: Record<
-      string,
-      { name: string; quantity: number; revenue: number }
-    > = {};
-
-    for (const oi of orderItems) {
-      if (!oi.menuItem) continue;
-      const key = oi.menuItemId || 'unknown';
-      if (!itemMap[key]) {
-        itemMap[key] = { name: oi.menuItem.name, quantity: 0, revenue: 0 };
-      }
-      itemMap[key].quantity += oi.quantity;
-      itemMap[key].revenue += oi.menuItem.price * oi.quantity;
-    }
-
-    return Object.values(itemMap)
-      .sort((a, b) => b.quantity - a.quantity)
-      .slice(0, 10)
-      .map((item) => ({
-        ...item,
-        revenue: Math.round(item.revenue * 100) / 100,
-      }));
+    type Row = { name: string; quantity: number; revenue: number };
+    const rows = await this.prisma.$queryRaw<Row[]>`
+      SELECT mi.name,
+             SUM(oi.quantity)::int                        AS quantity,
+             COALESCE(SUM(mi.price * oi.quantity), 0)::float AS revenue
+      FROM order_item oi
+      JOIN customer_order o ON oi."orderId"    = o.id
+      JOIN menu_item     mi ON oi."menuItemId" = mi.id
+      WHERE o."restaurantId" = ${restaurantId}
+        AND o.status         != 'CANCELED'
+        AND o."createdAt"   >= ${start}
+        AND o."createdAt"   <= ${end}
+        AND oi."menuItemId" IS NOT NULL
+      GROUP BY oi."menuItemId", mi.name
+      ORDER BY SUM(oi.quantity) DESC
+      LIMIT 10
+    `;
+    return rows.map((r) => ({
+      name: r.name,
+      quantity: r.quantity,
+      revenue: Math.round(Number(r.revenue) * 100) / 100,
+    }));
   }
 
   private async getPeakHours(
@@ -321,30 +316,27 @@ export class DashboardService {
     end: Date,
     tz: string,
   ) {
-    const orders = await this.prisma.order.findMany({
-      take: 10000,
-      where: {
-        restaurantId,
-        status: { not: OrderStatus.CANCELED },
-        createdAt: { gte: start, lte: end },
-      },
-      select: { createdAt: true },
-    });
+    type Row = { hour: number; orders: number };
+    const rows = await this.prisma.$queryRaw<Row[]>`
+      SELECT EXTRACT(HOUR FROM "createdAt" AT TIME ZONE ${tz})::int AS hour,
+             COUNT(*)::int AS orders
+      FROM customer_order
+      WHERE "restaurantId" = ${restaurantId}
+        AND status         != 'CANCELED'
+        AND "createdAt"   >= ${start}
+        AND "createdAt"   <= ${end}
+      GROUP BY hour
+      ORDER BY hour
+    `;
 
-    const hours: { hour: number; label: string; orders: number }[] = [];
-    for (let h = 0; h < 24; h++) {
-      hours.push({
-        hour: h,
-        label: `${h.toString().padStart(2, '0')}:00`,
-        orders: 0,
-      });
+    const hours: { hour: number; label: string; orders: number }[] = Array.from(
+      { length: 24 },
+      (_, h) => ({ hour: h, label: `${h.toString().padStart(2, '0')}:00`, orders: 0 }),
+    );
+    for (const row of rows) {
+      const h = row.hour;
+      if (h >= 0 && h < 24) hours[h].orders += row.orders;
     }
-
-    for (const order of orders) {
-      const hour = DateTime.fromJSDate(order.createdAt, { zone: tz }).hour;
-      hours[hour].orders += 1;
-    }
-
     return hours;
   }
 
@@ -458,41 +450,26 @@ export class DashboardService {
     start: Date,
     end: Date,
   ) {
-    const orderItems = await this.prisma.orderItem.findMany({
-      take: 10000,
-      where: {
-        order: {
-          restaurantId,
-          status: { not: OrderStatus.CANCELED },
-          createdAt: { gte: start, lte: end },
-        },
-        menuItem: { isNot: null },
-      },
-      include: {
-        menuItem: {
-          include: { category: true },
-        },
-      },
-    });
-
-    const categoryMap: Record<string, { category: string; revenue: number }> =
-      {};
-
-    for (const oi of orderItems) {
-      if (!oi.menuItem || !oi.menuItem.category) continue;
-      const key = oi.menuItem.category.name || 'Uncategorized';
-      if (!categoryMap[key]) {
-        categoryMap[key] = { category: key, revenue: 0 };
-      }
-      categoryMap[key].revenue += oi.menuItem.price * oi.quantity;
-    }
-
-    return Object.values(categoryMap)
-      .sort((a, b) => b.revenue - a.revenue)
-      .map((item) => ({
-        ...item,
-        revenue: Math.round(item.revenue * 100) / 100,
-      }));
+    type Row = { category: string; revenue: number };
+    const rows = await this.prisma.$queryRaw<Row[]>`
+      SELECT COALESCE(mc.name, 'Uncategorized')              AS category,
+             COALESCE(SUM(mi.price * oi.quantity), 0)::float AS revenue
+      FROM order_item oi
+      JOIN customer_order  o  ON oi."orderId"    = o.id
+      JOIN menu_item       mi ON oi."menuItemId" = mi.id
+      LEFT JOIN menu_category mc ON mi."categoryId" = mc.id
+      WHERE o."restaurantId" = ${restaurantId}
+        AND o.status         != 'CANCELED'
+        AND o."createdAt"   >= ${start}
+        AND o."createdAt"   <= ${end}
+        AND oi."menuItemId" IS NOT NULL
+      GROUP BY mc.name
+      ORDER BY SUM(mi.price * oi.quantity) DESC
+    `;
+    return rows.map((r) => ({
+      category: r.category,
+      revenue: Math.round(Number(r.revenue) * 100) / 100,
+    }));
   }
 
   // ── View-backed fast paths ────────────────────────────────────────────────
@@ -546,17 +523,19 @@ export class DashboardService {
     end: Date,
     tz: string,
   ) {
-    type Row = { hour_utc: number; total_orders: number };
+    // Use AT TIME ZONE so PostgreSQL resolves DST at each historical timestamp,
+    // rather than applying the current UTC offset (Issue 46)
+    type Row = { local_hour: number; total_orders: number };
     const rows = await this.prisma.$queryRaw<Row[]>`
-      SELECT hour_utc, SUM(order_count)::int AS total_orders
+      SELECT EXTRACT(HOUR FROM (day_utc + (hour_utc * INTERVAL '1 hour')) AT TIME ZONE ${tz})::int AS local_hour,
+             SUM(order_count)::int AS total_orders
       FROM mv_peak_hours
       WHERE "restaurantId" = ${restaurantId}
         AND day_utc >= ${start} AND day_utc <= ${end}
-      GROUP BY hour_utc
-      ORDER BY hour_utc
+      GROUP BY local_hour
+      ORDER BY local_hour
     `;
 
-    const tzOffsetHours = Math.round(DateTime.now().setZone(tz).offset / 60);
     const hours: { hour: number; label: string; orders: number }[] = Array.from(
       { length: 24 },
       (_, h) => ({
@@ -567,8 +546,8 @@ export class DashboardService {
     );
 
     for (const row of rows) {
-      const localHour = (((row.hour_utc + tzOffsetHours) % 24) + 24) % 24;
-      hours[localHour].orders += row.total_orders;
+      const h = row.local_hour;
+      if (h >= 0 && h < 24) hours[h].orders += row.total_orders;
     }
 
     return hours;
@@ -607,36 +586,25 @@ export class DashboardService {
   }
 
   private async getOrdersByTable(restaurantId: string, start: Date, end: Date) {
-    const orders = await this.prisma.order.findMany({
-      take: 10000,
-      where: {
-        restaurantId,
-        status: { not: OrderStatus.CANCELED },
-        createdAt: { gte: start, lte: end },
-        tableId: { not: '' },
-      },
-    });
-
-    const tableMap: Record<
-      string,
-      { table: string; orders: number; revenue: number }
-    > = {};
-
-    for (const order of orders) {
-      const key = order.tableId || 'Unknown Table';
-      if (!tableMap[key]) {
-        tableMap[key] = { table: key, orders: 0, revenue: 0 };
-      }
-      tableMap[key].orders += 1;
-      tableMap[key].revenue += order.totalPrice;
-    }
-
-    return Object.values(tableMap)
-      .sort((a, b) => b.orders - a.orders)
-      .slice(0, 10)
-      .map((item) => ({
-        ...item,
-        revenue: Math.round(item.revenue * 100) / 100,
-      }));
+    type Row = { table_id: string; orders: number; revenue: number };
+    const rows = await this.prisma.$queryRaw<Row[]>`
+      SELECT "tableId"                                    AS table_id,
+             COUNT(*)::int                               AS orders,
+             COALESCE(SUM("totalPrice"), 0)::float       AS revenue
+      FROM customer_order
+      WHERE "restaurantId" = ${restaurantId}
+        AND status         != 'CANCELED'
+        AND "createdAt"   >= ${start}
+        AND "createdAt"   <= ${end}
+        AND "tableId"     != ''
+      GROUP BY "tableId"
+      ORDER BY COUNT(*) DESC
+      LIMIT 10
+    `;
+    return rows.map((r) => ({
+      table: r.table_id || 'Unknown Table',
+      orders: r.orders,
+      revenue: Math.round(Number(r.revenue) * 100) / 100,
+    }));
   }
 }

@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class DashboardViewsService implements OnModuleInit {
   private readonly logger = new Logger(DashboardViewsService.name);
   private ready = false;
+  private refreshing = false;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -28,7 +29,10 @@ export class DashboardViewsService implements OnModuleInit {
 
   @Cron(CronExpression.EVERY_HOUR)
   async refreshViews(): Promise<void> {
-    if (!this.ready) return;
+    // In-process guard prevents concurrent refresh on the same pod (Issue 45).
+    // Cross-pod safety is guaranteed by CONCURRENTLY (no data corruption).
+    if (!this.ready || this.refreshing) return;
+    this.refreshing = true;
     try {
       await this.prisma.$executeRawUnsafe(
         'REFRESH MATERIALIZED VIEW CONCURRENTLY mv_daily_stats',
@@ -42,6 +46,8 @@ export class DashboardViewsService implements OnModuleInit {
       this.logger.log('Analytics views refreshed');
     } catch (err) {
       this.logger.warn('View refresh failed', err);
+    } finally {
+      this.refreshing = false;
     }
   }
 
