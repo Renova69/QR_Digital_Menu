@@ -270,6 +270,5 @@ export async function downloadPaymentsExport(
     },
   ];
 
-  const wb = await writeXlsxFile(sheets);
-  await wb.toFile(fileName);
+  await writeXlsxFile(sheets).toFile(fileName);
 }

@@ -56,17 +56,22 @@ export class TranslationService {
       );
 
       return response.data?.translations?.map((t: any) => t.text) || texts;
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.logger.error(
-        `Failed to translate texts to ${targetLanguage}: ${error.message}`,
+        `Failed to translate texts to ${targetLanguage}: ${error instanceof Error ? error.message : String(error)}`,
       );
-      return texts;
+      // Re-throw so callers can choose not to write untranslated content to DB.
+      throw error;
     }
   }
 
   async translateText(text: string, targetLanguage: string): Promise<string> {
-    const results = await this.translateTexts([text], targetLanguage);
-    return results[0] || text;
+    try {
+      const results = await this.translateTexts([text], targetLanguage);
+      return results[0] || text;
+    } catch {
+      return text;
+    }
   }
 
   async translateObject(

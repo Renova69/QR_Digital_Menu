@@ -290,9 +290,33 @@ export class OrdersService {
         redeemCounts.set(id, (redeemCounts.get(id) ?? 0) + 1);
       }
     }
-    const usedCounts = new Map<string, number>();
+    // Issue 34: Pre-compute cheapest-item comp set for legacy redeemItemIds fallback.
+    // Prevents a client from passing a cheap item ID and getting an expensive item comped.
+    const compedItemIndices = new Set<number>();
+    if (!redeemCartIdSet && redeemCounts.size > 0) {
+      const candidatesByMenuId = new Map<
+        string,
+        Array<{ index: number; price: number }>
+      >();
+      createOrderDto.items.forEach((ci, idx) => {
+        const dbItem = itemsMap.get(ci.menuItemId);
+        if (!dbItem?.rewardPointsPrice) return;
+        if (!(redeemCounts.get(ci.menuItemId) ?? 0)) return;
+        const list = candidatesByMenuId.get(ci.menuItemId) ?? [];
+        list.push({ index: idx, price: dbItem.price });
+        candidatesByMenuId.set(ci.menuItemId, list);
+      });
+      for (const [menuItemId, entries] of candidatesByMenuId) {
+        const allowed = redeemCounts.get(menuItemId) ?? 0;
+        entries.sort((a, b) => a.price - b.price);
+        for (let ci = 0; ci < Math.min(allowed, entries.length); ci++) {
+          compedItemIndices.add(entries[ci].index);
+        }
+      }
+    }
 
-    for (const item of createOrderDto.items) {
+    for (let itemIdx = 0; itemIdx < createOrderDto.items.length; itemIdx++) {
+      const item = createOrderDto.items[itemIdx];
       const dbItem = itemsMap.get(item.menuItemId);
       if (!dbItem) {
         throw new BadRequestException(
@@ -310,21 +334,11 @@ export class OrdersService {
           dbItem.rewardPointsPrice
         );
       } else {
-        // Legacy count-based fallback.
-        const availableRedemptions = redeemCounts.get(item.menuItemId) ?? 0;
-        const usedRedemptions = usedCounts.get(item.menuItemId) ?? 0;
-        isRedeemedFree =
-          availableRedemptions > usedRedemptions && !!dbItem.rewardPointsPrice;
+        // Issue 34: Legacy fallback uses pre-computed cheapest-item set.
+        isRedeemedFree = compedItemIndices.has(itemIdx) && !!dbItem.rewardPointsPrice;
       }
 
       if (isRedeemedFree) {
-        if (!redeemCartIdSet) {
-          // Advance the fallback counter so the next identical menuItemId isn't also comped.
-          usedCounts.set(
-            item.menuItemId,
-            (usedCounts.get(item.menuItemId) ?? 0) + 1,
-          );
-        }
         itemsPointsRedeemed += (dbItem.rewardPointsPrice ?? 0) * item.quantity;
         itemPrice = 0;
       }
@@ -334,6 +348,8 @@ export class OrdersService {
 
       if (!isRedeemedFree && item.selectedOptions?.length) {
         const itemOptions = optionsMap.get(item.menuItemId) || [];
+        // Issue 2: track (optionId, choiceName) pairs to reject duplicates in same item
+        const seenChoicesForItem = new Set<string>();
 
         for (const selected of item.selectedOptions) {
           const option = itemOptions.find(
@@ -360,7 +376,34 @@ export class OrdersService {
               choiceName: selected.choiceName,
             });
           }
+
+          // Issue 2: reject duplicate (optionId, choiceName) pairs
+          const choiceKey = `${selected.optionId}::${selected.choiceName}`;
+          if (seenChoicesForItem.has(choiceKey)) {
+            throw new BadRequestException('Duplicate choice selection');
+          }
+          seenChoicesForItem.add(choiceKey);
+
           optionsTotal += choice.priceModifier || 0;
+        }
+
+        // Issue 2: VARIATION options allow at most 1 choice per option
+        const selectionCountByOption = new Map<string, number>();
+        for (const selected of item.selectedOptions) {
+          selectionCountByOption.set(
+            selected.optionId,
+            (selectionCountByOption.get(selected.optionId) ?? 0) + 1,
+          );
+        }
+        for (const [optionId, count] of selectionCountByOption) {
+          const option = itemOptions.find(
+            (o: { id: string; type: string }) => o.id === optionId,
+          );
+          if (option?.type === 'VARIATION' && count > 1) {
+            throw new BadRequestException(
+              `Option "${option.name}" allows at most one choice`,
+            );
+          }
         }
       }
 
@@ -415,6 +458,10 @@ export class OrdersService {
               },
             });
           }
+
+          // Issue 15: Lock the row before reading balance to prevent double-spend
+          // when two concurrent orders for the same customer both try to redeem.
+          await tx.$queryRaw`SELECT id FROM "loyalty_account" WHERE id = ${loyaltyAcc.id} FOR UPDATE`;
 
           await expireAccountPoints(tx, loyaltyAcc.id);
           loyaltyAcc = await tx.loyaltyAccount.findUniqueOrThrow({

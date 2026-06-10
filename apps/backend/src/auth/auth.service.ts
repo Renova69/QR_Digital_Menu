@@ -87,11 +87,24 @@ export class AuthService {
       if (byEmail.isActive === false || byEmail.disabledAt) {
         throw new UnauthorizedException('This account has been disabled.');
       }
-      // Link googleId so future logins skip the email lookup
+      // Issue 40b: When a Google identity is linked to an existing
+      // email+password account, invalidate the stored password so the old
+      // credential can no longer be used to access the account. Google becomes
+      // the sole auth provider for this account from this point forward.
+      // The `password` column is non-nullable (schema constraint), so we replace
+      // it with a random bcrypt hash that can never be guessed or reverse-engineered.
       if (googleId && !byEmail.googleId) {
+        const invalidatedPassword = await bcrypt.hash(
+          randomBytes(32).toString('hex'),
+          10,
+        );
         await this.prisma.user.update({
           where: { id: byEmail.id },
-          data: { googleId },
+          data: {
+            googleId,
+            password: invalidatedPassword,
+            passwordChangedAt: new Date(),
+          },
         });
       }
       return byEmail;
@@ -138,6 +151,15 @@ export class AuthService {
       role: 'OWNER',
     });
 
+    // Issue 40a: Email verification before JWT issuance would belong here.
+    // This registration path (OWNER onboarding) does not currently have an
+    // email-verification flow: no `emailVerified` field on User, no
+    // verification email is sent, and `REQUIRE_EMAIL_VERIFICATION` is not
+    // configured.  Until a verification flow is added to the schema and
+    // email-send path, JWT is issued immediately.  If email verification is
+    // added in the future, replace the block below with a
+    // "please verify your email" response and defer token issuance to the
+    // verification callback.
     const { password: _, ...result } = user;
     const payload = { email: result.email, sub: result.id };
     return {
@@ -267,7 +289,33 @@ export class AuthService {
           HttpStatus.NOT_IMPLEMENTED,
         );
       }
+
+      // Issue 42: per-phone 60s cooldown via VerificationToken (phone stored as
+      // `email` field since there is no separate `identifier` column).
+      const recentPhoneToken = await this.prisma.verificationToken.findFirst({
+        where: {
+          email: phone,
+          usedAt: null,
+          createdAt: { gte: new Date(Date.now() - 60_000) },
+        },
+      });
+      if (recentPhoneToken) {
+        throw new HttpException(
+          'Please wait before requesting another code.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      // Send first — only record the sentinel if Twilio succeeds.
+      // Creating the sentinel before the send would lock the user out for 60s
+      // even when the OTP was never delivered.
       await this.sendTwilioOtp(phone);
+      await this.prisma.verificationToken.create({
+        data: {
+          email: phone,
+          code: randomBytes(8).toString('hex'),
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        },
+      });
       const channel = (process.env.TWILIO_CHANNEL as any) || 'sms';
       return { success: true, channel };
     }

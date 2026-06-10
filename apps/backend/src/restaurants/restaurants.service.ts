@@ -167,7 +167,11 @@ export class RestaurantsService {
   }
 
   async findByOwner(ownerId: string) {
-    return this.prisma.restaurant.findFirst({ where: { ownerId } });
+    // D-6: filter deleted rows and order deterministically.
+    return this.prisma.restaurant.findFirst({
+      where: { ownerId, deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+    });
   }
 
   async findAll(userId: string) {
@@ -572,9 +576,33 @@ export class RestaurantsService {
       return { stripeOnboarded: false };
     }
 
-    const chargesEnabled = await this.stripeProvider.retrieveAccount(
-      restaurant.stripeAccountId,
-    );
+    let chargesEnabled: boolean;
+    try {
+      chargesEnabled = await this.stripeProvider.retrieveAccount(
+        restaurant.stripeAccountId,
+      );
+    } catch (err: unknown) {
+      const stripeErr = err as { code?: string; type?: string };
+      if (stripeErr?.code === 'resource_missing' && stripeErr?.type === 'invalid_request_error') {
+        // The Stripe Connect account was hard-deleted. Clear our reference.
+        // Only clear paymentsEnabled when no other provider (ePay/BORICA) is active.
+        this.logger.warn(
+          `Stripe account deleted for restaurant ${restaurantId} — clearing stripeAccountId`,
+        );
+        const hasOtherProvider =
+          restaurant.epayEnabled || restaurant.boricaEnabled;
+        await this.prisma.restaurant.update({
+          where: { id: restaurantId },
+          data: {
+            stripeAccountId: null,
+            stripeOnboarded: false,
+            ...(!hasOtherProvider && { paymentsEnabled: false }),
+          },
+        });
+        return { stripeOnboarded: false };
+      }
+      throw err;
+    }
 
     if (chargesEnabled && !restaurant.stripeOnboarded) {
       await this.prisma.restaurant.update({

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
@@ -300,7 +300,7 @@ export class LoyaltyService {
       },
     });
 
-    if (!restaurant) throw new Error('Forbidden');
+    if (!restaurant) throw new ForbiddenException('Forbidden');
 
     const restaurantName = restaurant.name;
 
@@ -396,7 +396,7 @@ export class LoyaltyService {
       },
     });
 
-    if (!restaurant) throw new Error('Forbidden');
+    if (!restaurant) throw new ForbiddenException('Forbidden');
 
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const accounts = await tx.loyaltyAccount.findMany({
@@ -442,7 +442,7 @@ export class LoyaltyService {
       where: { id: restaurantId, ownerId },
     });
 
-    if (!restaurant) throw new Error('Forbidden');
+    if (!restaurant) throw new ForbiddenException('Forbidden');
 
     const accounts = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const existing = await tx.loyaltyAccount.findMany({

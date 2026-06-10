@@ -12,6 +12,10 @@ export interface IPaymentProvider {
 
   cancelPaymentIntent(paymentIntentId: string): Promise<void>;
 
+  retrievePaymentIntent(
+    paymentIntentId: string,
+  ): Promise<{ clientSecret: string | null } | null>;
+
   constructWebhookEvent(payload: Buffer, signature: string): any;
 
   createExpressAccount(): Promise<string>;

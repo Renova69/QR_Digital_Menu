@@ -3,6 +3,7 @@ import {
   NotFoundException,
   Logger,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAssistanceDto } from './dto/create-assistance.dto';
@@ -72,6 +73,31 @@ export class AssistanceService {
         code: 'FEATURE_LOCKED',
         message: 'Call waiter is not available on this plan',
       });
+    }
+
+    // Issue 4: validate table exists for this restaurant.
+    const table = await this.prisma.restaurantTable.findFirst({
+      where: {
+        name: createAssistanceDto.tableId,
+        restaurantId: createAssistanceDto.restaurantId,
+      },
+    });
+    if (!table) {
+      throw new NotFoundException('Table not found');
+    }
+
+    // Issue 54: prevent duplicate pending requests per table (at most 1 unresolved).
+    const pendingCount = await this.prisma.assistanceRequest.count({
+      where: {
+        tableId: createAssistanceDto.tableId,
+        restaurantId: createAssistanceDto.restaurantId,
+        isResolved: false,
+      },
+    });
+    if (pendingCount >= 1) {
+      throw new ConflictException(
+        'A pending assistance request already exists for this table',
+      );
     }
 
     const newRequest = await this.prisma.assistanceRequest.create({

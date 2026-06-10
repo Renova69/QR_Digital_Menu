@@ -74,6 +74,7 @@ describe('PaymentService', () => {
       createRefund: jest.fn(),
       cancelPaymentIntent: jest.fn().mockResolvedValue(undefined),
       constructWebhookEvent: jest.fn(),
+      retrievePaymentIntent: jest.fn().mockResolvedValue(null),
     };
     mockEpayProvider = {
       createCheckoutForm: jest.fn(),
@@ -880,6 +881,67 @@ describe('PaymentService', () => {
       expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
       expect(mockPrisma.tableSession.updateMany).not.toHaveBeenCalled();
       expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createPaymentIntent — idempotency (Issue 35)', () => {
+    const makeSession = () => ({
+      id: 'sess-1',
+      restaurantId: 'rest1',
+      status: 'OPEN',
+      restaurant: {
+        paymentsEnabled: true,
+        stripeOnboarded: true,
+        stripeAccountId: 'acct_123',
+        platformFeePercent: 0,
+        tipsEnabled: false,
+        tipOptions: [],
+        tier: 'PROFESSIONAL',
+        forceTier: null,
+      },
+    });
+
+    beforeEach(() => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue(makeSession());
+      mockPrisma.order.findMany.mockResolvedValue([
+        { totalPrice: 20, tipAmount: 0, platformFeeAmount: 0 },
+      ]);
+    });
+
+    it('returns existing PENDING Stripe intent when amount matches (no new Stripe call)', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([
+        {
+          id: 'pay-existing',
+          provider: 'STRIPE',
+          status: 'PENDING',
+          stripePaymentIntentId: 'pi_existing',
+          amount: 20,
+        },
+      ]);
+      mockStripeProvider.retrievePaymentIntent.mockResolvedValue({
+        clientSecret: 'cs_existing',
+      });
+
+      const result = await service.createPaymentIntent('tok1', 0);
+
+      expect(result.clientSecret).toBe('cs_existing');
+      expect(result.paymentId).toBe('pay-existing');
+      expect(mockStripeProvider.createPaymentIntent).not.toHaveBeenCalled();
+    });
+
+    it('creates new intent when no PENDING Stripe intent exists', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
+      mockStripeProvider.createPaymentIntent.mockResolvedValue({
+        clientSecret: 'cs_new',
+        paymentIntentId: 'pi_new',
+      });
+      mockPrisma.payment.update.mockResolvedValue({});
+
+      const result = await service.createPaymentIntent('tok1', 0);
+
+      expect(mockStripeProvider.createPaymentIntent).toHaveBeenCalledTimes(1);
+      expect(result.clientSecret).toBe('cs_new');
     });
   });
 

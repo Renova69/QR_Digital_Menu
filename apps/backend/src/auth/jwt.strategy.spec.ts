@@ -99,6 +99,7 @@ describe('JwtStrategy', () => {
   });
 
   it('returns a DB-loaded user without sensitive fields when active', async () => {
+    // Issue 21: restaurants[] is no longer fetched by the query; mock omits it.
     prisma.user.findUnique.mockResolvedValueOnce({
       id: 'admin-1',
       email: 'admin@test.com',
@@ -108,7 +109,6 @@ describe('JwtStrategy', () => {
       disabledAt: null,
       disabledReason: null,
       staffRestaurant: null,
-      restaurants: [],
     });
 
     const result = await strategy.validate({

@@ -445,6 +445,5 @@ export async function downloadAnalyticsExport(
     },
   ];
 
-  const wb = await writeXlsxFile(sheets);
-  await wb.toFile(fileName);
+  await writeXlsxFile(sheets).toFile(fileName);
 }

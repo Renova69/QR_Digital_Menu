@@ -45,7 +45,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         staffRestaurant: {
           select: { isActive: true, tier: true, forceTier: true },
         },
-        restaurants: { select: { isActive: true }, take: 1 },
+        // Issue 21: do NOT fetch restaurants[] — OWNER suspension deferred
+        // to verifyDashboardAccess to avoid arbitrary restaurants[0] selection.
       },
     });
 
@@ -68,9 +69,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     if (user.role !== 'SUPER_ADMIN') {
-      const restaurantIsActive =
-        user.staffRestaurant?.isActive ?? user.restaurants[0]?.isActive;
-      if (restaurantIsActive === false) {
+      // Issue 21: only check staffRestaurant (staff roles). OWNER restaurant
+      // suspension is deferred to verifyDashboardAccess — this avoids blocking
+      // an OWNER who has one active and one suspended restaurant via a
+      // non-deterministic restaurants[0] pick.
+      if (user.staffRestaurant?.isActive === false) {
         throw new UnauthorizedException('ACCOUNT_SUSPENDED');
       }
     }
@@ -99,7 +102,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
     }
 
-    const { password, staffRestaurant, restaurants, ...result } = user;
+    const { password, staffRestaurant, ...result } = user;
     return {
       ...result,
     };

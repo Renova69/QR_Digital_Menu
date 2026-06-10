@@ -282,6 +282,7 @@ describe('SubscriptionService', () => {
           data: expect.objectContaining({
             tier: 'PROFESSIONAL',
             stripeSubscriptionId: 'sub_done',
+            pastDueGraceExpiry: null, // Issue 11: cleared on upgrade
           }),
         }),
       );
@@ -632,9 +633,16 @@ describe('SubscriptionService', () => {
 
   describe('confirmCheckoutSession Cache Idempotency', () => {
     it('uses the session cache for confirmCheckoutSession idempotency', async () => {
+      // Issue 7: findFirst now needs `id` so the Map stores the correct restaurantId.
       prisma.restaurant.findFirst.mockResolvedValue({
+        id: 'rest-cached',
         ownerId: 'owner1',
         tier: 'PROFESSIONAL',
+      });
+      // The fast path on the second call uses findUnique with the stored restaurantId.
+      prisma.restaurant.findUnique.mockResolvedValue({
+        tier: 'PROFESSIONAL',
+        forceTier: null,
       });
       mockSessionRetrieve.mockResolvedValue({
         status: 'complete',

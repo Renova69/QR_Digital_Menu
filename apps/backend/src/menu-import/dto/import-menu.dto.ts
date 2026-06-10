@@ -140,7 +140,7 @@ export class ImportCategoryDto {
   thumbnailUrl?: string;
 
   @IsArray()
-  @ArrayMaxSize(500)
+  @ArrayMaxSize(100)
   @ValidateNested({ each: true })
   @Type(() => ImportItemDto)
   items: ImportItemDto[];
@@ -157,7 +157,7 @@ export class ImportMenuDto {
 
   @IsArray()
   @ArrayMinSize(1)
-  @ArrayMaxSize(200)
+  @ArrayMaxSize(50)
   @ValidateNested({ each: true })
   @Type(() => ImportCategoryDto)
   categories: ImportCategoryDto[];

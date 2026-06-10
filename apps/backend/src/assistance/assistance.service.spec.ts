@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { AssistanceService } from './assistance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
@@ -16,6 +20,9 @@ const mockPrisma = {
   },
   restaurant: {
     findUnique: jest.fn(),
+  },
+  restaurantTable: {
+    findFirst: jest.fn(),
   },
   user: {
     findUnique: jest.fn(),
@@ -63,6 +70,11 @@ describe('AssistanceService', () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         tier: 'PROFESSIONAL',
       });
+      mockPrisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'tbl-1',
+        name: 't-1',
+      });
+      mockPrisma.assistanceRequest.count.mockResolvedValue(0);
       mockPrisma.assistanceRequest.create.mockResolvedValue(req);
     });
 
@@ -87,6 +99,18 @@ describe('AssistanceService', () => {
       mockFeatureService.hasFeature.mockReturnValue(false);
 
       await expect(service.create(dto)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws NotFoundException when table not found (Issue 4)', async () => {
+      mockPrisma.restaurantTable.findFirst.mockResolvedValue(null);
+
+      await expect(service.create(dto)).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ConflictException when pending request already exists (Issue 54)', async () => {
+      mockPrisma.assistanceRequest.count.mockResolvedValue(1);
+
+      await expect(service.create(dto)).rejects.toThrow(ConflictException);
     });
   });
 

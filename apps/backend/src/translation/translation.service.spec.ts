@@ -90,12 +90,21 @@ describe('TranslationService', () => {
       );
     });
 
-    it('returns original texts on API error (graceful fallback)', async () => {
+    it('throws on API error so callers can skip DB writes (Issue 17)', async () => {
       process.env.DEEPL_API_KEY = 'test-key';
       mockPost.mockRejectedValue(new Error('network error'));
 
-      const result = await service.translateTexts(['hello'], 'BG');
-      expect(result).toEqual(['hello']);
+      await expect(service.translateTexts(['hello'], 'BG')).rejects.toThrow(
+        'network error',
+      );
+    });
+
+    it('translateText returns original text when DeepL throws (Issue 17)', async () => {
+      process.env.DEEPL_API_KEY = 'test-key';
+      mockPost.mockRejectedValue(new Error('network error'));
+
+      const result = await service.translateText('hello', 'BG');
+      expect(result).toBe('hello');
     });
 
     it('uppercases the target language code', async () => {

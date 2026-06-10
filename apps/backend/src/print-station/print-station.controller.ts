@@ -18,32 +18,59 @@ export class PrintStationController {
     private readonly restaurantsService: RestaurantsService,
   ) {}
 
-  // H-4: explicit OWNER gate — print-station management is owner-only
-  private async getRestaurantId(userId: string, userRole: string): Promise<string> {
+  // H-4: explicit OWNER gate — print-station management is owner-only.
+  // Issue 28: accept explicit restaurantId for multi-restaurant support;
+  // verify ownership when provided; fall back to findByOwner otherwise.
+  private async getRestaurantId(
+    userId: string,
+    userRole: string,
+    restaurantIdParam?: string,
+  ): Promise<string> {
     if (userRole !== 'OWNER') {
       throw new ForbiddenException('Print station management requires OWNER role');
     }
+    if (restaurantIdParam) {
+      // findOne verifies existence and ownership; throws on failure.
+      const restaurant = await this.restaurantsService.findOne(restaurantIdParam, userId);
+      if (!restaurant.isActive) {
+        throw new ForbiddenException('Restaurant is suspended');
+      }
+      return restaurantIdParam;
+    }
     const restaurant = await this.restaurantsService.findByOwner(userId);
     if (!restaurant) throw new NotFoundException('Restaurant not found');
+    if (!restaurant.isActive) {
+      throw new ForbiddenException('Restaurant is suspended');
+    }
     return restaurant.id;
   }
 
   @Get()
-  async list(@Request() req: any) {
-    const restaurantId = await this.getRestaurantId(req.user.id, req.user.role);
-    return this.service.list(restaurantId);
+  async list(
+    @Request() req: any,
+    @Query('restaurantId') restaurantId?: string,
+  ) {
+    const id = await this.getRestaurantId(req.user.id, req.user.role, restaurantId);
+    return this.service.list(id);
   }
 
   @Get('health')
-  async health(@Request() req: any) {
-    const restaurantId = await this.getRestaurantId(req.user.id, req.user.role);
-    return this.service.getStationHealth(restaurantId);
+  async health(
+    @Request() req: any,
+    @Query('restaurantId') restaurantId?: string,
+  ) {
+    const id = await this.getRestaurantId(req.user.id, req.user.role, restaurantId);
+    return this.service.getStationHealth(id);
   }
 
   @Post()
-  async create(@Request() req: any, @Body() dto: CreatePrintStationDto) {
-    const restaurantId = await this.getRestaurantId(req.user.id, req.user.role);
-    return this.service.create(restaurantId, dto);
+  async create(
+    @Request() req: any,
+    @Body() dto: CreatePrintStationDto,
+    @Query('restaurantId') restaurantId?: string,
+  ) {
+    const id = await this.getRestaurantId(req.user.id, req.user.role, restaurantId);
+    return this.service.create(id, dto);
   }
 
   @Patch(':id')
@@ -51,15 +78,20 @@ export class PrintStationController {
     @Request() req: any,
     @Param('id') id: string,
     @Body() dto: UpdatePrintStationDto,
+    @Query('restaurantId') restaurantId?: string,
   ) {
-    const restaurantId = await this.getRestaurantId(req.user.id, req.user.role);
-    return this.service.update(restaurantId, id, dto);
+    const resolvedId = await this.getRestaurantId(req.user.id, req.user.role, restaurantId);
+    return this.service.update(resolvedId, id, dto);
   }
 
   @Delete(':id')
-  async remove(@Request() req: any, @Param('id') id: string) {
-    const restaurantId = await this.getRestaurantId(req.user.id, req.user.role);
-    await this.service.remove(restaurantId, id);
+  async remove(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Query('restaurantId') restaurantId?: string,
+  ) {
+    const resolvedId = await this.getRestaurantId(req.user.id, req.user.role, restaurantId);
+    await this.service.remove(resolvedId, id);
     return { success: true };
   }
 
@@ -68,9 +100,10 @@ export class PrintStationController {
     @Request() req: any,
     @Param('id') id: string,
     @Query('status') status?: string,
+    @Query('restaurantId') restaurantId?: string,
   ) {
-    const restaurantId = await this.getRestaurantId(req.user.id, req.user.role);
-    return this.service.getJobs(restaurantId, id, status);
+    const resolvedId = await this.getRestaurantId(req.user.id, req.user.role, restaurantId);
+    return this.service.getJobs(resolvedId, id, status);
   }
 
   @Post(':id/tokens')
@@ -78,15 +111,20 @@ export class PrintStationController {
     @Request() req: any,
     @Param('id') id: string,
     @Body() dto: GenerateTokenDto,
+    @Query('restaurantId') restaurantId?: string,
   ) {
-    const restaurantId = await this.getRestaurantId(req.user.id, req.user.role);
-    return this.service.generateToken(restaurantId, id, dto.label);
+    const resolvedId = await this.getRestaurantId(req.user.id, req.user.role, restaurantId);
+    return this.service.generateToken(resolvedId, id, dto.label);
   }
 
   @Delete('tokens/:tokenId')
-  async revokeToken(@Request() req: any, @Param('tokenId') tokenId: string) {
-    const restaurantId = await this.getRestaurantId(req.user.id, req.user.role);
-    await this.service.revokeToken(restaurantId, tokenId);
+  async revokeToken(
+    @Request() req: any,
+    @Param('tokenId') tokenId: string,
+    @Query('restaurantId') restaurantId?: string,
+  ) {
+    const resolvedId = await this.getRestaurantId(req.user.id, req.user.role, restaurantId);
+    await this.service.revokeToken(resolvedId, tokenId);
     return { success: true };
   }
 }

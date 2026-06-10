@@ -13,6 +13,7 @@ import {
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { RestaurantsService } from './restaurants.service';
@@ -161,6 +162,8 @@ export class RestaurantsController {
     );
   }
 
+  // Throttle (Issue 52): DeepL cost protection — 2 full-menu translations per minute.
+  @Throttle({ default: { limit: 2, ttl: 60000 } })
   @RequireFeature(FeatureFlag.LANGUAGES_MULTI)
   @UseGuards(JwtAuthGuard, FeatureGuard)
   @Post(':restaurantId/translate-all')

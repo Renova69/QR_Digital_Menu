@@ -189,7 +189,7 @@ export class PrintStationService {
         },
       });
 
-      const emitted = this.events.emitPrintJob(order.restaurantId, stationId, job.id, ticketBase64);
+      const emitted = await this.events.emitPrintJob(order.restaurantId, stationId, job.id, ticketBase64);
 
       if (emitted) {
         await this.prisma.printJob.update({
@@ -229,7 +229,7 @@ export class PrintStationService {
 
     for (const job of jobs) {
       // H-2: only mark SENT when emit actually reached a socket
-      const emitted = this.events.emitPrintJob(restaurantId, stationId, job.id, job.ticketBase64);
+      const emitted = await this.events.emitPrintJob(restaurantId, stationId, job.id, job.ticketBase64);
       if (emitted) {
         await this.prisma.printJob.update({
           where: { id: job.id },
@@ -257,6 +257,8 @@ export class PrintStationService {
       },
     });
     if (!job) return;
+    // Issue 30: ignore duplicate ACKs for terminal-state jobs.
+    if (job.status === 'PRINTED' || job.status === 'FAILED') return;
 
     if (success) {
       await this.prisma.printJob.update({

@@ -76,6 +76,17 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
     await this.stripe.paymentIntents.cancel(paymentIntentId);
   }
 
+  async retrievePaymentIntent(
+    paymentIntentId: string,
+  ): Promise<{ clientSecret: string | null } | null> {
+    try {
+      const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+      return { clientSecret: intent.client_secret ?? null };
+    } catch {
+      return null;
+    }
+  }
+
   constructWebhookEvent(payload: Buffer, signature: string): any {
     if (!this.hasWebhookSecret) {
       // Production boot is blocked when the secret is missing (see onModuleInit),
