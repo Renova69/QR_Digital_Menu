@@ -1,8 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { FeatureService } from '../subscription/feature.service';
+
+jest.mock('bcryptjs', () => {
+  const real = jest.requireActual('bcryptjs');
+  return { ...real, compare: jest.fn(real.compare), hash: jest.fn(real.hash) };
+});
+
+const mockBcryptCompare = bcrypt.compare as jest.Mock;
+const mockBcryptHash = bcrypt.hash as jest.Mock;
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -19,6 +28,11 @@ describe('UsersService', () => {
   };
 
   beforeEach(async () => {
+    // Reset bcrypt mocks to real implementations between tests
+    const real = jest.requireActual('bcryptjs');
+    mockBcryptCompare.mockImplementation(real.compare);
+    mockBcryptHash.mockImplementation(real.hash);
+
     prisma = {
       user: {
         findUnique: jest.fn().mockResolvedValue(mockUser),
@@ -271,6 +285,90 @@ describe('UsersService', () => {
           }),
         }),
       );
+    });
+  });
+
+  // Issue 56 — PIN entropy: padStart ensures 4-digit format including leading zeros
+  describe('PIN entropy — Issue 56', () => {
+    beforeEach(() => {
+      prisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest-1',
+        ownerId: 'owner-1',
+        tier: 'ENTERPRISE',
+      });
+      prisma.user.findMany.mockResolvedValue([]); // no existing PINs
+    });
+
+    it('always generates a 4-character string (including PINs with leading zeros)', async () => {
+      // Run 20 iterations to sample a spread of random values
+      for (let i = 0; i < 20; i++) {
+        prisma.user.create.mockResolvedValue({
+          ...mockUser,
+          role: 'WAITER',
+        });
+        const result = await service.createStaffMember('rest-1', {
+          name: `Waiter${i}`,
+          role: 'WAITER',
+        });
+        expect(result.rawPin).toMatch(/^\d{4}$/);
+      }
+    });
+
+    it('PIN can start with 0 (full 10 000-space entropy)', async () => {
+      // Force Math.random to return a value that produces "0042"
+      const spy = jest.spyOn(Math, 'random').mockReturnValue(0.0042);
+      prisma.user.create.mockResolvedValue({ ...mockUser, role: 'WAITER' });
+      const result = await service.createStaffMember('rest-1', {
+        name: 'Bob',
+        role: 'WAITER',
+      });
+      // 0.0042 * 10000 = 42 → padStart(4,'0') = '0042'
+      expect(result.rawPin).toBe('0042');
+      spy.mockRestore();
+    });
+  });
+
+  // Issue 41 — PIN uniqueness per restaurant
+  describe('PIN uniqueness — Issue 41', () => {
+    beforeEach(() => {
+      prisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest-1',
+        ownerId: 'owner-1',
+        tier: 'ENTERPRISE',
+      });
+      prisma.user.create.mockResolvedValue({ ...mockUser, role: 'WAITER' });
+    });
+
+    it('regenerates PIN when first candidate collides with an existing hash', async () => {
+      // Simulate collision on first compare, no collision on second
+      let compareCallCount = 0;
+      mockBcryptCompare.mockImplementation(async () => {
+        compareCallCount++;
+        return compareCallCount === 1; // true = collision on first, false on subsequent
+      });
+      // Return one existing hash so the collision path is triggered
+      prisma.user.findMany.mockResolvedValue([{ pinHash: 'some-existing-hash' }]);
+
+      const result = await service.createStaffMember('rest-1', {
+        name: 'Waiter',
+        role: 'WAITER',
+      });
+
+      // Should have succeeded with a 4-digit PIN on the second attempt
+      expect(result.rawPin).toMatch(/^\d{4}$/);
+      // bcrypt.compare must have been called at least twice (one collision + success)
+      expect(mockBcryptCompare).toHaveBeenCalledTimes(2);
+    });
+
+    it('throws ConflictException when all 20 attempts produce collisions', async () => {
+      // Make every bcrypt.compare return true — every candidate PIN is a "duplicate"
+      mockBcryptCompare.mockResolvedValue(true as never);
+      // Return one existing hash so the uniqueness check runs
+      prisma.user.findMany.mockResolvedValue([{ pinHash: 'some-existing-hash' }]);
+
+      await expect(
+        service.createStaffMember('rest-1', { name: 'Unlucky', role: 'WAITER' }),
+      ).rejects.toThrow(ConflictException);
     });
   });
 

@@ -74,9 +74,37 @@ export class UsersService {
     // not be able to mint a JWT for a dashboard account (see pinLogin scoping).
     const usePinCredential = isPinRole(data.role);
 
-    const rawPin = usePinCredential
-      ? crypto.randomInt(1000, 10000).toString()
-      : undefined;
+    // Issue 56: full 10 000-space entropy, padStart preserves leading zeros.
+    // Issue 41: regenerate until the PIN is unique within this restaurant (max 20 tries).
+    let rawPin: string | undefined;
+    if (usePinCredential) {
+      // Fetch all existing PIN hashes for active staff in this restaurant once,
+      // then compare cheaply without re-querying on each attempt.
+      const existingPinHashes = await this.prisma.user.findMany({
+        where: { restaurantId, pinHash: { not: null }, isActive: true },
+        select: { pinHash: true },
+      });
+
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const candidate = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+        let isDuplicate = false;
+        for (const existing of existingPinHashes) {
+          if (existing.pinHash && await bcrypt.compare(candidate, existing.pinHash)) {
+            isDuplicate = true;
+            break;
+          }
+        }
+        if (!isDuplicate) {
+          rawPin = candidate;
+          break;
+        }
+      }
+      if (!rawPin) {
+        throw new ConflictException(
+          'Could not generate a unique PIN after 20 attempts. Please try again.',
+        );
+      }
+    }
     const pinHash = rawPin ? await bcrypt.hash(rawPin, 10) : null;
 
     // `password` is non-nullable in the schema, so every user gets a hash. For
@@ -232,8 +260,33 @@ export class UsersService {
     let clearPin = false;
     if (data.role && data.role !== user.role) {
       if (isPinRole(data.role)) {
-        const rawPin = crypto.randomInt(1000, 10000).toString();
-        pinCredential = { rawPin, pinHash: await bcrypt.hash(rawPin, 10) };
+        // Issue 56: full 10 000-space entropy + padStart for leading zeros.
+        // Issue 41: ensure PIN is unique within the restaurant.
+        const existingPinHashes = await this.prisma.user.findMany({
+          where: { restaurantId, pinHash: { not: null }, isActive: true },
+          select: { pinHash: true },
+        });
+        let generatedPin: string | undefined;
+        for (let attempt = 0; attempt < 20; attempt++) {
+          const candidate = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+          let isDuplicate = false;
+          for (const existing of existingPinHashes) {
+            if (existing.pinHash && await bcrypt.compare(candidate, existing.pinHash)) {
+              isDuplicate = true;
+              break;
+            }
+          }
+          if (!isDuplicate) {
+            generatedPin = candidate;
+            break;
+          }
+        }
+        if (!generatedPin) {
+          throw new ConflictException(
+            'Could not generate a unique PIN after 20 attempts. Please try again.',
+          );
+        }
+        pinCredential = { rawPin: generatedPin, pinHash: await bcrypt.hash(generatedPin, 10) };
       } else {
         clearPin = true;
       }
@@ -312,7 +365,37 @@ export class UsersService {
       );
     }
 
-    const rawPin = crypto.randomInt(1000, 10000).toString();
+    // Issue 56: full 10 000-space entropy + padStart for leading zeros.
+    // Issue 41: ensure PIN is unique within the restaurant.
+    const existingPinHashes = await this.prisma.user.findMany({
+      where: {
+        restaurantId,
+        pinHash: { not: null },
+        isActive: true,
+        id: { not: userId }, // exclude the user being reset
+      },
+      select: { pinHash: true },
+    });
+    let rawPin: string | undefined;
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const candidate = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+      let isDuplicate = false;
+      for (const existing of existingPinHashes) {
+        if (existing.pinHash && await bcrypt.compare(candidate, existing.pinHash)) {
+          isDuplicate = true;
+          break;
+        }
+      }
+      if (!isDuplicate) {
+        rawPin = candidate;
+        break;
+      }
+    }
+    if (!rawPin) {
+      throw new ConflictException(
+        'Could not generate a unique PIN after 20 attempts. Please try again.',
+      );
+    }
     const pinHash = await bcrypt.hash(rawPin, 10);
     await this.prisma.user.update({
       where: { id: userId },

@@ -190,6 +190,49 @@ describe('AuthService', () => {
       );
       expect(result).toBe(newUser);
     });
+
+    // Issue 40b — Google-link invalidates stored password
+    it('invalidates stored password when Google account is linked to existing email account (Issue 40b)', async () => {
+      const existingUser = makeUser({ password: 'old-bcrypt-hash', googleId: null });
+      mockUsersService.findByEmail.mockResolvedValue(existingUser);
+      mockPrisma.user.findUnique.mockResolvedValue(null); // no existing googleId match
+      mockHash.mockResolvedValue('invalidated-hash');
+
+      await service.validateGoogleUser({
+        googleId: 'google-id-123',
+        email: 'user@example.com',
+        firstName: 'Test',
+        lastName: 'User',
+      });
+
+      // Must update the user with both googleId AND a new randomized password
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: existingUser.id },
+          data: expect.objectContaining({
+            googleId: 'google-id-123',
+            password: expect.any(String),
+            passwordChangedAt: expect.any(Date),
+          }),
+        }),
+      );
+    });
+
+    it('does NOT update password when user already has googleId linked', async () => {
+      const existingUser = makeUser({ password: 'existing-hash', googleId: 'google-id-123' });
+      mockPrisma.user.findUnique.mockResolvedValue(existingUser); // found by googleId lookup
+      mockUsersService.findByEmail.mockResolvedValue(existingUser);
+
+      await service.validateGoogleUser({
+        googleId: 'google-id-123',
+        email: 'user@example.com',
+        firstName: 'Test',
+        lastName: 'User',
+      });
+
+      // Should return the user directly without any update (found by googleId)
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
   });
 
   // ─── register ────────────────────────────────────────────────────────────────
@@ -502,6 +545,38 @@ describe('AuthService', () => {
 
       process.env.NODE_ENV = prevEnv;
       if (prevKey !== undefined) process.env.RESEND_API_KEY = prevKey;
+    });
+
+    // Issue 42 — per-phone OTP cooldown
+    it('throws HttpException(429) when phone OTP requested within 60s of last request (Issue 42)', async () => {
+      jest.spyOn(service as any, 'twilioConfigured', 'get').mockReturnValue(true);
+      // Simulate a recent token stored against the phone number
+      mockPrisma.verificationToken.findFirst.mockResolvedValue({
+        id: 'phone-tok1',
+        email: '+15550001234',
+        createdAt: new Date(),
+      });
+
+      await expect(
+        service.sendOtp(undefined, '+15550001234'),
+      ).rejects.toThrow(HttpException);
+      // Should NOT have called Twilio
+      expect(mockPrisma.verificationToken.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a sentinel VerificationToken for phone cooldown and calls Twilio when no recent token (Issue 42)', async () => {
+      jest.spyOn(service as any, 'twilioConfigured', 'get').mockReturnValue(true);
+      jest.spyOn(service as any, 'sendTwilioOtp').mockResolvedValue(undefined);
+      mockPrisma.verificationToken.findFirst.mockResolvedValue(null); // no recent token
+
+      const result = await service.sendOtp(undefined, '+15550005678');
+
+      expect(mockPrisma.verificationToken.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ email: '+15550005678' }),
+        }),
+      );
+      expect(result.success).toBe(true);
     });
 
     it('throws ForbiddenException when customer auth is requested for a suspended restaurant', async () => {
