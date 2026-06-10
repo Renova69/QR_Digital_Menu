@@ -86,7 +86,7 @@ export class UsersService {
       });
 
       for (let attempt = 0; attempt < 20; attempt++) {
-        const candidate = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+        const candidate = crypto.randomInt(0, 10000).toString().padStart(4, '0');
         let isDuplicate = false;
         for (const existing of existingPinHashes) {
           if (existing.pinHash && await bcrypt.compare(candidate, existing.pinHash)) {
@@ -268,7 +268,7 @@ export class UsersService {
         });
         let generatedPin: string | undefined;
         for (let attempt = 0; attempt < 20; attempt++) {
-          const candidate = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+          const candidate = crypto.randomInt(0, 10000).toString().padStart(4, '0');
           let isDuplicate = false;
           for (const existing of existingPinHashes) {
             if (existing.pinHash && await bcrypt.compare(candidate, existing.pinHash)) {
@@ -378,7 +378,7 @@ export class UsersService {
     });
     let rawPin: string | undefined;
     for (let attempt = 0; attempt < 20; attempt++) {
-      const candidate = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+      const candidate = crypto.randomInt(0, 10000).toString().padStart(4, '0');
       let isDuplicate = false;
       for (const existing of existingPinHashes) {
         if (existing.pinHash && await bcrypt.compare(candidate, existing.pinHash)) {
