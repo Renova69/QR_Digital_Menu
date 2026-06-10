@@ -148,6 +148,7 @@ describe('RestaurantsService — Stripe Connect', () => {
   describe('getStripeStatus — resource_missing (Issue 10)', () => {
     const resourceMissingError = Object.assign(new Error('No such account'), {
       code: 'resource_missing',
+      type: 'invalid_request_error',
     });
 
     it('clears stripeAccountId and stripeOnboarded when Stripe account is deleted', async () => {

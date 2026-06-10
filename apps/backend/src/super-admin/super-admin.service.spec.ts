@@ -581,6 +581,12 @@ describe('SuperAdminService', () => {
         },
         data: { staffUserId: null, customerId: null },
       });
+      // Verify updateMany is inside the $transaction array, not called standalone
+      const txArgs = mockPrisma.$transaction.mock.calls[
+        mockPrisma.$transaction.mock.calls.length - 1
+      ][0] as unknown[];
+      expect(Array.isArray(txArgs)).toBe(true);
+      expect(txArgs).toHaveLength(3);
     });
   });
 });

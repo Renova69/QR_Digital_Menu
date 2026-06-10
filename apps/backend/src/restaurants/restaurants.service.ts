@@ -577,10 +577,14 @@ export class RestaurantsService {
       chargesEnabled = await this.stripeProvider.retrieveAccount(
         restaurant.stripeAccountId,
       );
-    } catch (err: any) {
-      if (err?.code === 'resource_missing') {
-        // The Stripe account was deleted — clear our reference to it.
-        // Only disable paymentsEnabled when no other provider is active.
+    } catch (err: unknown) {
+      const stripeErr = err as { code?: string; type?: string };
+      if (stripeErr?.code === 'resource_missing' && stripeErr?.type === 'invalid_request_error') {
+        // The Stripe Connect account was hard-deleted. Clear our reference.
+        // Only clear paymentsEnabled when no other provider (ePay/BORICA) is active.
+        this.logger.warn(
+          `Stripe account deleted for restaurant ${restaurantId} — clearing stripeAccountId`,
+        );
         const hasOtherProvider =
           restaurant.epayEnabled || restaurant.boricaEnabled;
         await this.prisma.restaurant.update({
