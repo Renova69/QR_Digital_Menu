@@ -167,7 +167,11 @@ export class RestaurantsService {
   }
 
   async findByOwner(ownerId: string) {
-    return this.prisma.restaurant.findFirst({ where: { ownerId } });
+    // D-6: filter deleted rows and order deterministically.
+    return this.prisma.restaurant.findFirst({
+      where: { ownerId, deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+    });
   }
 
   async findAll(userId: string) {

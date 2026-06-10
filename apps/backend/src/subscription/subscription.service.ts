@@ -37,7 +37,9 @@ export class SubscriptionService {
   private readonly logger = new Logger(SubscriptionService.name);
   private readonly priceMap: PriceMap;
   private readonly stripe: InstanceType<typeof Stripe>;
-  private readonly processedSessions = new Set<string>();
+  // Issue 7: Map<sessionId, restaurantId> so the fast-path returns the exact
+  // restaurant tied to the session rather than an arbitrary first-match.
+  private readonly processedSessions = new Map<string, string>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -174,10 +176,15 @@ export class SubscriptionService {
     userId: string,
   ): Promise<{ tier: string }> {
     if (this.processedSessions.has(sessionId)) {
-      const restaurant = await this.prisma.restaurant.findFirst({
-        where: { ownerId: userId },
-        select: { tier: true, forceTier: true },
-      });
+      // Issue 7: look up the exact restaurant stored for this session, not an
+      // arbitrary first-match by ownerId (wrong for multi-restaurant owners).
+      const cachedRestaurantId = this.processedSessions.get(sessionId);
+      const restaurant = cachedRestaurantId
+        ? await this.prisma.restaurant.findUnique({
+            where: { id: cachedRestaurantId },
+            select: { tier: true, forceTier: true },
+          })
+        : null;
       const tier = restaurant?.forceTier ?? restaurant?.tier ?? 'FREE';
       return { tier: String(tier) };
     }
@@ -199,7 +206,7 @@ export class SubscriptionService {
     // session id alone must not let a user activate another tenant's tier (C-2).
     const restaurant = await this.prisma.restaurant.findFirst({
       where: { stripeCustomerId: customerId },
-      select: { ownerId: true },
+      select: { id: true, ownerId: true },
     });
     if (!restaurant || restaurant.ownerId !== userId) {
       throw new ForbiddenException(
@@ -231,13 +238,14 @@ export class SubscriptionService {
     });
 
     // Bounded FIFO eviction: drop the oldest id once over the cap instead of
-    // wiping the whole Set. A full clear() across an `await` boundary can lose
+    // wiping the whole Map. A full clear() across an `await` boundary can lose
     // ids added by interleaved calls, re-admitting a just-processed session.
     // (The DB tierUpdatedAt `lte` guard keeps replays idempotent regardless —
-    // this Set is only a fast-path to skip redundant Stripe API calls.)
-    this.processedSessions.add(sessionId);
+    // this Map is only a fast-path to skip redundant Stripe API calls.)
+    // Issue 7: store restaurantId so the fast path can do an exact lookup.
+    this.processedSessions.set(sessionId, restaurant.id);
     while (this.processedSessions.size > PROCESSED_SESSIONS_CAP) {
-      const oldest = this.processedSessions.values().next().value;
+      const oldest = this.processedSessions.keys().next().value;
       if (oldest === undefined) break;
       this.processedSessions.delete(oldest);
     }

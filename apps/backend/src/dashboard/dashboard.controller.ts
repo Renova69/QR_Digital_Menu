@@ -25,15 +25,24 @@ export class DashboardController {
   private async verifyDashboardAccess(user: any, restaurantId: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: { ownerId: true },
+      // Issue 27: also check suspension and soft-delete status.
+      select: { ownerId: true, isActive: true, deletedAt: true },
     });
+
+    if (!restaurant || restaurant.deletedAt) {
+      throw new ForbiddenException('Restaurant not found');
+    }
+
+    if (!restaurant.isActive) {
+      throw new ForbiddenException('Restaurant is suspended');
+    }
 
     const role = user?.role?.toUpperCase();
     const hasAccess =
       restaurant?.ownerId === user?.id ||
       (role === 'MANAGER' && user?.restaurantId === restaurantId);
 
-    if (!restaurant || !hasAccess) {
+    if (!hasAccess) {
       throw new ForbiddenException(
         "You do not have permission to access this restaurant's dashboard",
       );
