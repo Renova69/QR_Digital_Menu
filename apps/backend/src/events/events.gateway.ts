@@ -8,7 +8,7 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger, forwardRef, Inject } from '@nestjs/common';
+import { Logger, forwardRef, Inject, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { PrintStationService } from '../print-station/print-station.service';
@@ -62,7 +62,9 @@ function parseCookie(header: string | undefined, name: string): string | null {
 @WebSocketGateway({
   cors: { origin: wsOrigin, credentials: true },
 })
-export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class EventsGateway
+  implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit, OnModuleDestroy
+{
   @WebSocketServer()
   server: Server;
 
@@ -70,6 +72,23 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // M-5: per-IP rate limit for WebSocket connections (30/min)
   private readonly wsConnectAttempts = new Map<string, { count: number; resetAt: number }>();
+  private sweepInterval: ReturnType<typeof setInterval> | undefined;
+
+  onModuleInit() {
+    // Sweep expired IP rate-limit entries every 5 minutes (Issue 38)
+    this.sweepInterval = setInterval(() => this.sweepConnectAttempts(), 5 * 60_000);
+  }
+
+  onModuleDestroy() {
+    if (this.sweepInterval) clearInterval(this.sweepInterval);
+  }
+
+  private sweepConnectAttempts() {
+    const now = Date.now();
+    for (const [ip, entry] of this.wsConnectAttempts) {
+      if (now > entry.resetAt) this.wsConnectAttempts.delete(ip);
+    }
+  }
 
   constructor(
     private readonly jwt: JwtService,
@@ -383,5 +402,20 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
    */
   emitToOrder(orderId: string, eventName: string, payload: any) {
     this.server.to(`order_${orderId}`).emit(eventName, payload);
+  }
+
+  /**
+   * Disconnect all sockets authenticated as userId.
+   * Uses fetchSockets() which is cluster-aware when a distributed adapter
+   * (e.g. Redis) is configured (Issue 39).
+   */
+  async evictUser(userId: string): Promise<void> {
+    const all = await this.server.fetchSockets();
+    for (const socket of all) {
+      if (socket.data.userId === userId) {
+        socket.emit('auth:evicted', 'account_disabled');
+        socket.disconnect();
+      }
+    }
   }
 }

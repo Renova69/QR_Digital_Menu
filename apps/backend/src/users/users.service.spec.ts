@@ -4,6 +4,7 @@ import * as bcrypt from 'bcryptjs';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { FeatureService } from '../subscription/feature.service';
+import { EventsGateway } from '../events/events.gateway';
 
 jest.mock('bcryptjs', () => {
   const real = jest.requireActual('bcryptjs');
@@ -60,6 +61,7 @@ describe('UsersService', () => {
         UsersService,
         { provide: PrismaService, useValue: prisma },
         FeatureService,
+        { provide: EventsGateway, useValue: { evictUser: jest.fn().mockResolvedValue(undefined) } },
       ],
     }).compile();
 
