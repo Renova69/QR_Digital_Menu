@@ -609,17 +609,33 @@ export class RestaurantsService {
         where: { id: restaurantId },
         data: { stripeOnboarded: true, paymentsEnabled: true },
       });
+    } else if (!chargesEnabled && restaurant.stripeOnboarded) {
+      // Persist downgrade when Stripe restricts the account after onboarding (Issue 9)
+      const hasOtherProvider = restaurant.epayEnabled || restaurant.boricaEnabled;
+      await this.prisma.restaurant.update({
+        where: { id: restaurantId },
+        data: {
+          stripeOnboarded: false,
+          ...(!hasOtherProvider && { paymentsEnabled: false }),
+        },
+      });
     }
 
     return { stripeOnboarded: chargesEnabled };
   }
 
   async disconnectStripe(restaurantId: string, userId: string) {
-    await this.findOneForBilling(restaurantId, userId);
+    const restaurant = await this.findOneForBilling(restaurantId, userId);
+    const hasOtherProvider = restaurant.epayEnabled || restaurant.boricaEnabled;
 
     return this.prisma.restaurant.update({
       where: { id: restaurantId },
-      data: { stripeAccountId: null, stripeOnboarded: false },
+      data: {
+        stripeAccountId: null,
+        stripeOnboarded: false,
+        // Clear paymentsEnabled unless another payment provider is active (Issue 8)
+        ...(!hasOtherProvider && { paymentsEnabled: false }),
+      },
     });
   }
 }
