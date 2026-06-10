@@ -305,9 +305,10 @@ export class AuthService {
           HttpStatus.TOO_MANY_REQUESTS,
         );
       }
-      // Record a sentinel token so the cooldown is enforced even though the
-      // actual OTP is verified by Twilio (not by us). expiresAt mirrors the
-      // 10-minute Twilio window; code is a random placeholder never compared.
+      // Send first — only record the sentinel if Twilio succeeds.
+      // Creating the sentinel before the send would lock the user out for 60s
+      // even when the OTP was never delivered.
+      await this.sendTwilioOtp(phone);
       await this.prisma.verificationToken.create({
         data: {
           email: phone,
@@ -315,8 +316,6 @@ export class AuthService {
           expiresAt: new Date(Date.now() + 10 * 60 * 1000),
         },
       });
-
-      await this.sendTwilioOtp(phone);
       const channel = (process.env.TWILIO_CHANNEL as any) || 'sms';
       return { success: true, channel };
     }

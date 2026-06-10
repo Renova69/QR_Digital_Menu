@@ -21,6 +21,23 @@ export class UsersService {
     private featureService: FeatureService,
   ) {}
 
+  /** Generates a PIN that doesn't collide with any existing hash in the list.
+   *  Compares in parallel per attempt so wall time stays ~100ms regardless of staff count. */
+  private async generateUniquePin(
+    existingHashes: { pinHash: string | null }[],
+    maxAttempts = 20,
+  ): Promise<string> {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const candidate = crypto.randomInt(0, 10000).toString().padStart(4, '0');
+      const hashes = existingHashes.map((e) => e.pinHash).filter(Boolean) as string[];
+      const results = await Promise.all(hashes.map((h) => bcrypt.compare(candidate, h)));
+      if (!results.some(Boolean)) return candidate;
+    }
+    throw new ConflictException(
+      `Could not generate a unique PIN after ${maxAttempts} attempts. Please try again.`,
+    );
+  }
+
   async findByEmail(email: string): Promise<User | null> {
     const normalizedEmail = email.toLowerCase().trim();
     return this.prisma.user.findUnique({ where: { email: normalizedEmail } });
@@ -85,25 +102,7 @@ export class UsersService {
         select: { pinHash: true },
       });
 
-      for (let attempt = 0; attempt < 20; attempt++) {
-        const candidate = crypto.randomInt(0, 10000).toString().padStart(4, '0');
-        let isDuplicate = false;
-        for (const existing of existingPinHashes) {
-          if (existing.pinHash && await bcrypt.compare(candidate, existing.pinHash)) {
-            isDuplicate = true;
-            break;
-          }
-        }
-        if (!isDuplicate) {
-          rawPin = candidate;
-          break;
-        }
-      }
-      if (!rawPin) {
-        throw new ConflictException(
-          'Could not generate a unique PIN after 20 attempts. Please try again.',
-        );
-      }
+      rawPin = await this.generateUniquePin(existingPinHashes);
     }
     const pinHash = rawPin ? await bcrypt.hash(rawPin, 10) : null;
 
@@ -266,26 +265,7 @@ export class UsersService {
           where: { restaurantId, pinHash: { not: null }, isActive: true },
           select: { pinHash: true },
         });
-        let generatedPin: string | undefined;
-        for (let attempt = 0; attempt < 20; attempt++) {
-          const candidate = crypto.randomInt(0, 10000).toString().padStart(4, '0');
-          let isDuplicate = false;
-          for (const existing of existingPinHashes) {
-            if (existing.pinHash && await bcrypt.compare(candidate, existing.pinHash)) {
-              isDuplicate = true;
-              break;
-            }
-          }
-          if (!isDuplicate) {
-            generatedPin = candidate;
-            break;
-          }
-        }
-        if (!generatedPin) {
-          throw new ConflictException(
-            'Could not generate a unique PIN after 20 attempts. Please try again.',
-          );
-        }
+        const generatedPin = await this.generateUniquePin(existingPinHashes);
         pinCredential = { rawPin: generatedPin, pinHash: await bcrypt.hash(generatedPin, 10) };
       } else {
         clearPin = true;
@@ -376,26 +356,7 @@ export class UsersService {
       },
       select: { pinHash: true },
     });
-    let rawPin: string | undefined;
-    for (let attempt = 0; attempt < 20; attempt++) {
-      const candidate = crypto.randomInt(0, 10000).toString().padStart(4, '0');
-      let isDuplicate = false;
-      for (const existing of existingPinHashes) {
-        if (existing.pinHash && await bcrypt.compare(candidate, existing.pinHash)) {
-          isDuplicate = true;
-          break;
-        }
-      }
-      if (!isDuplicate) {
-        rawPin = candidate;
-        break;
-      }
-    }
-    if (!rawPin) {
-      throw new ConflictException(
-        'Could not generate a unique PIN after 20 attempts. Please try again.',
-      );
-    }
+    const rawPin = await this.generateUniquePin(existingPinHashes);
     const pinHash = await bcrypt.hash(rawPin, 10);
     await this.prisma.user.update({
       where: { id: userId },
