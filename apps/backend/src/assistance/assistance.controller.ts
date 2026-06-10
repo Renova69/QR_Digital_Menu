@@ -11,6 +11,7 @@ import {
   Request,
   ValidationPipe,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AssistanceService } from './assistance.service';
 import { CreateAssistanceDto } from './dto/create-assistance.dto';
 import { UpdateAssistanceDto } from './dto/update-assistance.dto';
@@ -21,7 +22,9 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 export class AssistanceController {
   constructor(private readonly assistanceService: AssistanceService) {}
 
-  // Public — customers can create assistance requests without auth
+  // Public — customers can create assistance requests without auth.
+  // Strict throttle (Issue 54): 3 requests per minute per IP to prevent spam.
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post()
   create(@Body(ValidationPipe) createAssistanceDto: CreateAssistanceDto) {
     return this.assistanceService.create(createAssistanceDto);

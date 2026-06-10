@@ -9,6 +9,7 @@ import {
   ValidationPipe,
   Param,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FeedbackService } from './feedback.service';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -18,7 +19,9 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 export class FeedbackController {
   constructor(private readonly feedbackService: FeedbackService) {}
 
-  // Public — customers submit feedback without auth
+  // Public — customers submit feedback without auth.
+  // Strict throttle (Issue 5): 5 submissions per minute per IP.
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post()
   create(@Body(ValidationPipe) createFeedbackDto: CreateFeedbackDto) {
     return this.feedbackService.create(createFeedbackDto);
