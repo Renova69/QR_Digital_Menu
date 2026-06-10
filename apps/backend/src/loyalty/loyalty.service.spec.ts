@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ForbiddenException } from '@nestjs/common';
 import { LoyaltyService } from './loyalty.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { FeatureService } from '../subscription/feature.service';
@@ -410,12 +411,12 @@ describe('LoyaltyService', () => {
   // ── notifyExpiryReminders ────────────────────────────────────────────────
 
   describe('notifyExpiryReminders', () => {
-    it('throws Error when restaurant not found', async () => {
+    it('throws ForbiddenException (not 500) when restaurant not found (Issue 16)', async () => {
       mockPrisma.restaurant.findFirst.mockResolvedValue(null);
 
       await expect(
         service.notifyExpiryReminders('rest-1', 'owner-1'),
-      ).rejects.toThrow('Forbidden');
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('returns empty array when no expiring batches', async () => {
@@ -512,12 +513,12 @@ describe('LoyaltyService', () => {
   // ── getExpiryReminderCandidates ──────────────────────────────────────────
 
   describe('getExpiryReminderCandidates', () => {
-    it('throws Error when restaurant not found', async () => {
+    it('throws ForbiddenException (not 500) when restaurant not found (Issue 16)', async () => {
       mockPrisma.restaurant.findFirst.mockResolvedValue(null);
 
       await expect(
         service.getExpiryReminderCandidates('rest-1', 'owner-1'),
-      ).rejects.toThrow('Forbidden');
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('returns empty array when no accounts have expiring points', async () => {
@@ -576,11 +577,11 @@ describe('LoyaltyService', () => {
   // ── getAnalytics ─────────────────────────────────────────────────────────
 
   describe('getAnalytics', () => {
-    it('throws Error when restaurant not found', async () => {
+    it('throws ForbiddenException (not 500) when restaurant not found (Issue 16)', async () => {
       mockPrisma.restaurant.findFirst.mockResolvedValue(null);
 
       await expect(service.getAnalytics('rest-1', 'owner-1')).rejects.toThrow(
-        'Forbidden',
+        ForbiddenException,
       );
     });
 

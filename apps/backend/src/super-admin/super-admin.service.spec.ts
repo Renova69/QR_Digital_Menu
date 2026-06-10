@@ -25,6 +25,7 @@ describe('SuperAdminService', () => {
     },
     order: {
       count: jest.fn(),
+      updateMany: jest.fn(),
     },
     payment: {
       aggregate: jest.fn(),
@@ -561,6 +562,25 @@ describe('SuperAdminService', () => {
         service.deleteStaff('r1', 'owner', ACTOR_ID),
       ).rejects.toThrow('Cannot delete an OWNER or SUPER_ADMIN');
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('nulls staffUserId and customerId on orders before deletion (Issue 22+D-1)', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        id: 's1',
+        email: 'w@test.local',
+        role: 'WAITER',
+        restaurantId: 'r1',
+      });
+      mockPrisma.$transaction.mockResolvedValueOnce([{}, {}, {}]);
+
+      await service.deleteStaff('r1', 's1', ACTOR_ID);
+
+      expect(mockPrisma.order.updateMany).toHaveBeenCalledWith({
+        where: {
+          OR: [{ staffUserId: 's1' }, { customerId: 's1' }],
+        },
+        data: { staffUserId: null, customerId: null },
+      });
     });
   });
 });

@@ -144,4 +144,86 @@ describe('RestaurantsService — Stripe Connect', () => {
       });
     });
   });
+
+  describe('getStripeStatus — resource_missing (Issue 10)', () => {
+    const resourceMissingError = Object.assign(new Error('No such account'), {
+      code: 'resource_missing',
+    });
+
+    it('clears stripeAccountId and stripeOnboarded when Stripe account is deleted', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest1',
+        ownerId: 'user1',
+        stripeAccountId: 'acct_deleted',
+        stripeOnboarded: true,
+        epayEnabled: false,
+        boricaEnabled: false,
+      });
+      mockStripe.retrieveAccount.mockRejectedValue(resourceMissingError);
+
+      const result = await service.getStripeStatus('rest1', 'user1');
+
+      expect(result.stripeOnboarded).toBe(false);
+      expect(mockPrisma.restaurant.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'rest1' },
+          data: expect.objectContaining({
+            stripeAccountId: null,
+            stripeOnboarded: false,
+          }),
+        }),
+      );
+    });
+
+    it('also clears paymentsEnabled when no other provider is active', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest1',
+        ownerId: 'user1',
+        stripeAccountId: 'acct_deleted',
+        stripeOnboarded: true,
+        epayEnabled: false,
+        boricaEnabled: false,
+      });
+      mockStripe.retrieveAccount.mockRejectedValue(resourceMissingError);
+
+      await service.getStripeStatus('rest1', 'user1');
+
+      const updateCall = mockPrisma.restaurant.update.mock.calls[0][0];
+      expect(updateCall.data.paymentsEnabled).toBe(false);
+    });
+
+    it('preserves paymentsEnabled when epayEnabled is true', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest1',
+        ownerId: 'user1',
+        stripeAccountId: 'acct_deleted',
+        stripeOnboarded: true,
+        epayEnabled: true,
+        boricaEnabled: false,
+      });
+      mockStripe.retrieveAccount.mockRejectedValue(resourceMissingError);
+
+      await service.getStripeStatus('rest1', 'user1');
+
+      const updateCall = mockPrisma.restaurant.update.mock.calls[0][0];
+      expect(updateCall.data.paymentsEnabled).toBeUndefined();
+    });
+
+    it('rethrows non-resource_missing Stripe errors', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest1',
+        ownerId: 'user1',
+        stripeAccountId: 'acct_123',
+        stripeOnboarded: true,
+        epayEnabled: false,
+        boricaEnabled: false,
+      });
+      const networkErr = new Error('Network error');
+      mockStripe.retrieveAccount.mockRejectedValue(networkErr);
+
+      await expect(service.getStripeStatus('rest1', 'user1')).rejects.toThrow(
+        'Network error',
+      );
+    });
+  });
 });

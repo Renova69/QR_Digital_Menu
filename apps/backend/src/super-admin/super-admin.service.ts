@@ -719,6 +719,12 @@ export class SuperAdminService {
     }
 
     await this.prisma.$transaction([
+      this.prisma.order.updateMany({
+        where: {
+          OR: [{ staffUserId: staffId }, { customerId: staffId }],
+        },
+        data: { staffUserId: null, customerId: null },
+      }),
       this.prisma.user.delete({ where: { id: staffId } }),
       this.prisma.adminAuditLog.create({
         data: {

@@ -572,9 +572,29 @@ export class RestaurantsService {
       return { stripeOnboarded: false };
     }
 
-    const chargesEnabled = await this.stripeProvider.retrieveAccount(
-      restaurant.stripeAccountId,
-    );
+    let chargesEnabled: boolean;
+    try {
+      chargesEnabled = await this.stripeProvider.retrieveAccount(
+        restaurant.stripeAccountId,
+      );
+    } catch (err: any) {
+      if (err?.code === 'resource_missing') {
+        // The Stripe account was deleted — clear our reference to it.
+        // Only disable paymentsEnabled when no other provider is active.
+        const hasOtherProvider =
+          restaurant.epayEnabled || restaurant.boricaEnabled;
+        await this.prisma.restaurant.update({
+          where: { id: restaurantId },
+          data: {
+            stripeAccountId: null,
+            stripeOnboarded: false,
+            ...(!hasOtherProvider && { paymentsEnabled: false }),
+          },
+        });
+        return { stripeOnboarded: false };
+      }
+      throw err;
+    }
 
     if (chargesEnabled && !restaurant.stripeOnboarded) {
       await this.prisma.restaurant.update({
