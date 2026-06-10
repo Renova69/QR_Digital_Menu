@@ -282,6 +282,7 @@ describe('SubscriptionService', () => {
           data: expect.objectContaining({
             tier: 'PROFESSIONAL',
             stripeSubscriptionId: 'sub_done',
+            pastDueGraceExpiry: null, // Issue 11: cleared on upgrade
           }),
         }),
       );

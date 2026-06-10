@@ -226,6 +226,7 @@ export class SubscriptionService {
         stripeSubscriptionId: subscriptionId,
         stripePriceId: priceId ?? null,
         tierUpdatedAt: eventTime,
+        pastDueGraceExpiry: null,
       },
     });
 

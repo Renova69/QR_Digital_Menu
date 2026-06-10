@@ -638,6 +638,17 @@ export class PaymentService {
       where: { tableSessionId: session.id },
     });
 
+    // platformFeePercent is a WHOLE-NUMBER percent (e.g. 5 = 5%), not a fraction
+    // (#L1). fee_in_cents = total_euros × percent works only under that unit:
+    //   €20 × 5 = 100 cents = €1.00 = 5% of €20.
+    // If this is ever stored as a fraction (0.05), fees become 100× too small.
+    const { tipAmount, total, platformFeeCents, platformFeeAmount } =
+      this.calculateTotals(
+        orders,
+        normalizedTipPercent,
+        restaurant.platformFeePercent ?? 0,
+      );
+
     // Guard against double capture (#H1). A session can accumulate multiple
     // intents (double-click, retried tab) and all could be confirmed. Reject if
     // already paid, and cancel any stale PENDING intent so only the newest one
@@ -653,6 +664,34 @@ export class PaymentService {
     if (existingPayments.some((p) => p.status === 'SUCCEEDED')) {
       throw new ConflictException('This session has already been paid');
     }
+
+    // Issue 35: Idempotency — reuse an existing PENDING Stripe intent when the
+    // cart amount hasn't changed. Prevents orphaned authorized holds on double-tap.
+    const matchingIntent = existingPayments.find(
+      (p) =>
+        p.provider === 'STRIPE' &&
+        p.status === 'PENDING' &&
+        p.stripePaymentIntentId &&
+        Math.abs((p.amount ?? 0) - total) < 0.001,
+    );
+    if (matchingIntent?.stripePaymentIntentId) {
+      try {
+        const existing = await this.stripe.retrievePaymentIntent(
+          matchingIntent.stripePaymentIntentId,
+        );
+        if (existing?.clientSecret) {
+          return {
+            clientSecret: existing.clientSecret,
+            paymentId: matchingIntent.id,
+            total,
+            tipAmount,
+          };
+        }
+      } catch {
+        // Intent no longer retrievable — fall through to cancel + create new one.
+      }
+    }
+
     for (const stale of existingPayments) {
       if (stale.provider === 'EPAY' || stale.provider === 'BORICA') {
         // Hosted-redirect providers have no server-side cancel API. A processed
@@ -683,17 +722,6 @@ export class PaymentService {
         data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
       });
     }
-
-    // platformFeePercent is a WHOLE-NUMBER percent (e.g. 5 = 5%), not a fraction
-    // (#L1). fee_in_cents = total_euros × percent works only under that unit:
-    //   €20 × 5 = 100 cents = €1.00 = 5% of €20.
-    // If this is ever stored as a fraction (0.05), fees become 100× too small.
-    const { tipAmount, total, platformFeeCents, platformFeeAmount } =
-      this.calculateTotals(
-        orders,
-        normalizedTipPercent,
-        restaurant.platformFeePercent ?? 0,
-      );
 
     const payment = await this.prisma.payment.create({
       data: {

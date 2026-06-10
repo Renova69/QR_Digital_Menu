@@ -83,13 +83,21 @@ export class MenuTranslationService {
       }
 
       const translated: string[] = [];
-      for (let i = 0; i < allTexts.length; i += DEEPL_BATCH_LIMIT) {
-        const chunk = allTexts.slice(i, i + DEEPL_BATCH_LIMIT);
-        const result = await this.translationService.translateTexts(
-          chunk,
-          lang,
+      try {
+        for (let i = 0; i < allTexts.length; i += DEEPL_BATCH_LIMIT) {
+          const chunk = allTexts.slice(i, i + DEEPL_BATCH_LIMIT);
+          const result = await this.translationService.translateTexts(
+            chunk,
+            lang,
+          );
+          translated.push(...result);
+        }
+      } catch (err: unknown) {
+        // Issue 17: DeepL failure must not overwrite cached valid translations.
+        this.logger.error(
+          `DeepL batch failed for lang=${lang}: ${err instanceof Error ? err.message : String(err)} — skipping DB writes`,
         );
-        translated.push(...result);
+        return;
       }
 
       // Phase 3: distribute results, update entity.translations, write DB in parallel
