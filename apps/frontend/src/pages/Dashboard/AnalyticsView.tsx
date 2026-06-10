@@ -112,7 +112,6 @@ const AnalyticsView = () => {
     dateRange.period,
     dateRange.startDate,
     dateRange.endDate,
-    canFullAnalytics,
   );
 
   const { data: feedbackData } = useQuery({
@@ -215,30 +214,6 @@ const AnalyticsView = () => {
       <div className="glass-panel border-destructive/20 text-destructive p-8 rounded-lg text-center">
         <p className="font-display font-bold text-xl mb-2">{t('analytics.loadingFailed')}</p>
         <p className="text-sm opacity-70">{t('analytics.checkConnection')}</p>
-      </div>
-    );
-  }
-
-  if (!canFullAnalytics) {
-    return (
-      <div className="glass-panel p-6 rounded-lg border-primary/20 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Lock className="w-5 h-5 text-primary flex-shrink-0" />
-          <div>
-            <p className="text-sm font-black uppercase tracking-widest text-foreground">
-              {t('tierLocked.analyticsTitle', 'Full Analytics locked')}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {t('tierLocked.analyticsDesc', 'Deep menu, table, demand, and guest analytics require Professional plan.')}
-            </p>
-          </div>
-        </div>
-        <a
-          href="/pricing"
-          className="px-4 py-2 brand-cta text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap flex-shrink-0"
-        >
-          {t('tierLocked.upgrade', 'Upgrade')}
-        </a>
       </div>
     );
   }
@@ -391,68 +366,98 @@ const AnalyticsView = () => {
         </Panel>
       </section>
 
-      <section className="grid grid-cols-1 gap-5">
-        <Panel
-          title={t('analytics.demandMap', 'Demand map')}
-          eyebrow={t('analytics.peakHours', 'Peak hours')}
-          action={insights.peakHour ? `${t('analytics.peakHour', 'Peak')} ${insights.peakHour.label}` : undefined}
-        >
-          <HourlyDemand hours={insights.peakHours} />
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
-            {insights.dayPartTotals.map((part) => (
-              <div key={part.label} className="rounded-lg border border-border bg-secondary/20 p-3">
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t(dayPartKeyMap[part.id])}</p>
-                <p className="text-lg font-display font-black text-foreground mt-1">{numberFormat.format(part.orders)}</p>
-                <div className="mt-2 h-1.5 rounded-full bg-border overflow-hidden">
-                  <div className="h-full bg-primary" style={{ width: `${Math.min(100, part.share)}%` }} />
-                </div>
-              </div>
-            ))}
+      {!canFullAnalytics && (
+        <div className="glass-panel p-6 rounded-lg border-primary/20 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Lock className="w-5 h-5 text-primary flex-shrink-0" />
+            <div>
+              <p className="text-sm font-black uppercase tracking-widest text-foreground">
+                {t('tierLocked.analyticsTitle', 'Full Analytics locked')}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {t('tierLocked.analyticsDesc', 'Deep menu, table, demand, and guest analytics require Professional plan.')}
+              </p>
+            </div>
           </div>
-        </Panel>
-      </section>
+          <a
+            href="/pricing"
+            className="px-4 py-2 brand-cta text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap flex-shrink-0"
+          >
+            {t('tierLocked.upgrade', 'Upgrade')}
+          </a>
+        </div>
+      )}
 
-      <section className="grid grid-cols-1 gap-5">
-        <Panel
-          title={t('analytics.menuEngineering', 'Menu engineering')}
-          eyebrow={t('analytics.popularSelections', 'Popular selections')}
-          action={`${t('analytics.topRevenueTracked', 'Tracked top items')} ${formatEuro(insights.topItemRevenue)}`}
-        >
-          <MenuEngineering items={insights.topItems} totalRevenue={data.totalRevenue} />
-        </Panel>
-      </section>
+      {canFullAnalytics && (
+        <section className="grid grid-cols-1 gap-5">
+          <Panel
+            title={t('analytics.demandMap', 'Demand map')}
+            eyebrow={t('analytics.peakHours', 'Peak hours')}
+            action={insights.peakHour ? `${t('analytics.peakHour', 'Peak')} ${insights.peakHour.label}` : undefined}
+          >
+            <HourlyDemand hours={insights.peakHours} />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
+              {insights.dayPartTotals.map((part) => (
+                <div key={part.label} className="rounded-lg border border-border bg-secondary/20 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t(dayPartKeyMap[part.id])}</p>
+                  <p className="text-lg font-display font-black text-foreground mt-1">{numberFormat.format(part.orders)}</p>
+                  <div className="mt-2 h-1.5 rounded-full bg-border overflow-hidden">
+                    <div className="h-full bg-primary" style={{ width: `${Math.min(100, part.share)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </section>
+      )}
 
-      <section className="grid grid-cols-1 xl:grid-cols-[1fr_1fr] gap-5">
-        <Panel
-          title={t('analytics.categoryMix', 'Category mix')}
-          eyebrow={t('analytics.categoryBreakdown', 'Category breakdown')}
-        >
-          <CategoryMix categories={data.categoryBreakdown ?? []} />
-        </Panel>
+      {canFullAnalytics && (
+        <section className="grid grid-cols-1 gap-5">
+          <Panel
+            title={t('analytics.menuEngineering', 'Menu engineering')}
+            eyebrow={t('analytics.popularSelections', 'Popular selections')}
+            action={`${t('analytics.topRevenueTracked', 'Tracked top items')} ${formatEuro(insights.topItemRevenue)}`}
+          >
+            <MenuEngineering items={insights.topItems} totalRevenue={data.totalRevenue} />
+          </Panel>
+        </section>
+      )}
 
-        <Panel
-          title={t('analytics.tableYield', 'Table yield')}
-          eyebrow={t('analytics.topTables', 'Top tables by revenue')}
-        >
-          <TableYield tables={insights.tables} />
-        </Panel>
-      </section>
+      {canFullAnalytics && (
+        <section className="grid grid-cols-1 xl:grid-cols-[1fr_1fr] gap-5">
+          <Panel
+            title={t('analytics.categoryMix', 'Category mix')}
+            eyebrow={t('analytics.categoryBreakdown', 'Category breakdown')}
+          >
+            <CategoryMix categories={data.categoryBreakdown ?? []} />
+          </Panel>
 
-      <section className="grid grid-cols-1 xl:grid-cols-[1fr_1fr] gap-5">
-        <Panel
-          title={t('analytics.orderFlow', 'Order flow')}
-          eyebrow={t('analytics.operations', 'Operations')}
-        >
-          <OrderFlow statuses={insights.statuses} totalOrders={data.totalOrders} />
-        </Panel>
+          <Panel
+            title={t('analytics.tableYield', 'Table yield')}
+            eyebrow={t('analytics.topTables', 'Top tables by revenue')}
+          >
+            <TableYield tables={insights.tables} />
+          </Panel>
+        </section>
+      )}
 
-        <Panel
-          title={t('analytics.guestVoice', 'Guest voice')}
-          eyebrow={t('analytics.guestSatisfaction', 'Guest satisfaction')}
-        >
-          <GuestSatisfaction feedbackData={feedbackData} />
-        </Panel>
-      </section>
+      {canFullAnalytics && (
+        <section className="grid grid-cols-1 xl:grid-cols-[1fr_1fr] gap-5">
+          <Panel
+            title={t('analytics.orderFlow', 'Order flow')}
+            eyebrow={t('analytics.operations', 'Operations')}
+          >
+            <OrderFlow statuses={insights.statuses} totalOrders={data.totalOrders} />
+          </Panel>
+
+          <Panel
+            title={t('analytics.guestVoice', 'Guest voice')}
+            eyebrow={t('analytics.guestSatisfaction', 'Guest satisfaction')}
+          >
+            <GuestSatisfaction feedbackData={feedbackData} />
+          </Panel>
+        </section>
+      )}
     </div>
   );
 };

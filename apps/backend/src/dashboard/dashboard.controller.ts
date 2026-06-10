@@ -71,7 +71,7 @@ export class DashboardController {
   }
 
   @UseGuards(JwtAuthGuard, FeatureGuard)
-  @RequireFeature(FeatureFlag.ANALYTICS_FULL)
+  @RequireFeature(FeatureFlag.ANALYTICS_BASIC)
   @Get('analytics')
   async getAnalytics(
     @AuthUser() user: any,
