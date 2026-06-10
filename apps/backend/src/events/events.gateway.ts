@@ -324,16 +324,20 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * Emit a print job to the station room.
    * Returns true if at least one agent socket is present (job delivered),
    * false if room is empty (job stays PENDING for retry on reconnect).
+   *
+   * Issue 37+D-8: use fetchSockets() which is cluster-aware when a
+   * distributed adapter (e.g. Redis) is configured; adapter.rooms.get()
+   * is local-only and misses agents on other Cloud Run replicas.
    */
-  emitPrintJob(
+  async emitPrintJob(
     restaurantId: string,
     stationId: string,
     jobId: string,
     ticketBase64: string,
-  ): boolean {
+  ): Promise<boolean> {
     const room = `print:${restaurantId}:${stationId}`;
-    const sockets = this.server.sockets.adapter.rooms.get(room);
-    const hasAgents = sockets !== undefined && sockets.size > 0;
+    const sockets = await this.server.in(room).fetchSockets();
+    const hasAgents = sockets.length > 0;
     if (hasAgents) {
       this.server.to(room).emit('print:job', { jobId, ticket: ticketBase64 });
     }
