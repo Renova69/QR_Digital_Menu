@@ -31,11 +31,17 @@ export class PrintStationController {
     }
     if (restaurantIdParam) {
       // findOne verifies existence and ownership; throws on failure.
-      await this.restaurantsService.findOne(restaurantIdParam, userId);
+      const restaurant = await this.restaurantsService.findOne(restaurantIdParam, userId);
+      if (!restaurant.isActive) {
+        throw new ForbiddenException('Restaurant is suspended');
+      }
       return restaurantIdParam;
     }
     const restaurant = await this.restaurantsService.findByOwner(userId);
     if (!restaurant) throw new NotFoundException('Restaurant not found');
+    if (!restaurant.isActive) {
+      throw new ForbiddenException('Restaurant is suspended');
+    }
     return restaurant.id;
   }
 
