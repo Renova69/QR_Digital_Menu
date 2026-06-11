@@ -11,6 +11,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AuthUser } from '../auth/auth-user.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 import { FeatureGuard } from '../subscription/feature.guard';
+import { FeatureService } from '../subscription/feature.service';
 import { RequireFeature } from '../subscription/require-feature.decorator';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { DateRangeQueryDto } from '../common/dto/date-range-query.dto';
@@ -20,13 +21,17 @@ export class DashboardController {
   constructor(
     private readonly dashboardService: DashboardService,
     private readonly prisma: PrismaService,
+    private readonly featureService: FeatureService,
   ) {}
 
-  private async verifyDashboardAccess(user: any, restaurantId: string) {
+  private async verifyDashboardAccess(
+    user: any,
+    restaurantId: string,
+  ): Promise<{ tier: string; forceTier: string | null }> {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
       // Issue 27: also check suspension and soft-delete status.
-      select: { ownerId: true, isActive: true, deletedAt: true },
+      select: { ownerId: true, isActive: true, deletedAt: true, tier: true, forceTier: true },
     });
 
     if (!restaurant || restaurant.deletedAt) {
@@ -47,6 +52,8 @@ export class DashboardController {
         "You do not have permission to access this restaurant's dashboard",
       );
     }
+
+    return { tier: restaurant.tier ?? 'FREE', forceTier: restaurant.forceTier ?? null };
   }
 
   @UseGuards(JwtAuthGuard, FeatureGuard)
@@ -100,12 +107,23 @@ export class DashboardController {
       }
     }
 
-    await this.verifyDashboardAccess(user, restaurantId);
-    return this.dashboardService.getAnalytics(
+    const { tier, forceTier } = await this.verifyDashboardAccess(user, restaurantId);
+    const result = await this.dashboardService.getAnalytics(
       restaurantId,
       period,
       dateRange?.startDate,
       dateRange?.endDate,
     );
+
+    // STARTER has ANALYTICS_BASIC but not ANALYTICS_FULL — strip premium-only fields
+    // so the endpoint gate downgrade doesn't expose Pro data to lower tiers.
+    const effectiveTier = this.featureService.getEffectiveTier(tier, forceTier);
+    if (!this.featureService.hasFeature(effectiveTier, FeatureFlag.ANALYTICS_FULL)) {
+      const full = result as Record<string, unknown>;
+      const { topItems: _t, peakHours: _p, categoryBreakdown: _c, ordersByTable: _o, ...basicResult } = full;
+      return basicResult;
+    }
+
+    return result;
   }
 }
