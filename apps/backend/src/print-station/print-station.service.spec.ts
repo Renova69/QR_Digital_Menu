@@ -29,7 +29,10 @@ const mockPrisma = {
   order: { findUnique: jest.fn() },
 };
 
-const mockEvents = { emitPrintJob: jest.fn().mockReturnValue(true) };
+const mockEvents = {
+  emitPrintJob: jest.fn().mockReturnValue(true),
+  disconnectAgentByTokenId: jest.fn().mockResolvedValue(undefined),
+};
 
 describe('PrintStationService', () => {
   let service: PrintStationService;
@@ -208,6 +211,26 @@ describe('PrintStationService', () => {
       mockPrisma.printAgentToken.findFirst.mockResolvedValue(null);
       await expect(service.revokeToken('r1', 'bad-id')).rejects.toThrow(
         NotFoundException,
+      );
+    });
+
+    it('awaits live agent eviction after deleting a token', async () => {
+      mockPrisma.printAgentToken.findFirst.mockResolvedValue({
+        id: 'token-1',
+        restaurantId: 'r1',
+        printStationId: 'station-1',
+      });
+      mockPrisma.printAgentToken.delete.mockResolvedValue({});
+
+      await service.revokeToken('r1', 'token-1');
+
+      expect(mockPrisma.printAgentToken.delete).toHaveBeenCalledWith({
+        where: { id: 'token-1' },
+      });
+      expect(mockEvents.disconnectAgentByTokenId).toHaveBeenCalledWith(
+        'r1',
+        'station-1',
+        'token-1',
       );
     });
   });

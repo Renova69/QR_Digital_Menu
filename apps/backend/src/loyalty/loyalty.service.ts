@@ -403,6 +403,8 @@ export class LoyaltyService {
     const redeemRate = restaurant.loyaltyRedeemRate || 150;
 
     for (const account of accounts) {
+      if (!account.user?.email) continue;
+
       const batches = await this.prisma.$transaction(async (tx) => {
         await expireAccountPoints(tx, account.id);
         return getExpiringPointBatches(tx, account.id, reminderDays, new Date(), true);

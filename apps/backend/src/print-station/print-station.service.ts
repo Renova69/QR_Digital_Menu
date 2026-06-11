@@ -99,7 +99,7 @@ export class PrintStationService {
     if (!record) throw new NotFoundException('Token not found');
     await this.prisma.printAgentToken.delete({ where: { id: tokenId } });
     // M-4: Disconnect any live agent sessions still using this token
-    this.events.disconnectAgentByTokenId(record.restaurantId, record.printStationId, tokenId);
+    await this.events.disconnectAgentByTokenId(record.restaurantId, record.printStationId, tokenId);
   }
 
   async validateAgentToken(token: string) {

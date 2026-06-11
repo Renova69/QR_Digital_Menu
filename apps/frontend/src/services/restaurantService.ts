@@ -58,6 +58,7 @@ export interface Restaurant {
   platformFeePercent?: number;
   notifyAllStaffOnPayment?: boolean;
   tier?: 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
+  features?: string[];
   forceTier?: 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE' | null;
   tierUpdatedAt?: string;
   stripeSubscriptionId?: string;

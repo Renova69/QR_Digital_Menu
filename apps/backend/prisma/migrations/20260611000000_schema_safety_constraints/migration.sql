@@ -28,22 +28,36 @@ ALTER TABLE "print_job"
 
 -- Issue 55: Unique (restaurantId, name) on RestaurantTable
 -- De-dup existing rows before adding constraint.
--- Keeps the earliest-created row; appends " (N)" suffix to duplicates.
+-- Keeps the earliest-created row; duplicate rows get their own id suffix.
+-- The loop handles collisions with already-existing suffixed names.
+DO $$
+DECLARE
+  changed_rows integer;
+BEGIN
+  LOOP
+    WITH ranked AS (
+      SELECT
+        id,
+        ROW_NUMBER() OVER (
+          PARTITION BY "restaurantId", name
+          ORDER BY "createdAt", id
+        ) AS rn
+      FROM "restaurant_table"
+    )
+    UPDATE "restaurant_table" t
+    SET name =
+      LEFT(
+        regexp_replace(t.name, ' \[[^]]+\]$', ''),
+        GREATEST(1, 190 - LENGTH(t.id))
+      ) || ' [' || t.id || ']'
+    FROM ranked
+    WHERE ranked.id = t.id
+      AND ranked.rn > 1;
 
-WITH ranked AS (
-  SELECT
-    id,
-    ROW_NUMBER() OVER (
-      PARTITION BY "restaurantId", name
-      ORDER BY "createdAt"
-    ) AS rn
-  FROM "restaurant_table"
-)
-UPDATE "restaurant_table" t
-SET name = t.name || ' (' || ranked.rn::text || ')'
-FROM ranked
-WHERE ranked.id = t.id
-  AND ranked.rn > 1;
+    GET DIAGNOSTICS changed_rows = ROW_COUNT;
+    EXIT WHEN changed_rows = 0;
+  END LOOP;
+END $$;
 
 ALTER TABLE "restaurant_table"
   ADD CONSTRAINT "restaurant_table_restaurantId_name_key"

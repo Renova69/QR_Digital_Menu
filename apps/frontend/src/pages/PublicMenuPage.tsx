@@ -337,6 +337,7 @@ const PublicMenuPage = () => {
           const langs: string[] = data.restaurant.targetLanguages;
           initialLang = langs[0];
           setSelectedLang(initialLang);
+          void i18n.changeLanguage(initialLang);
         }
 
         loadAllCategoryItems(data.categories, initialLang, cancelled);
@@ -469,7 +470,7 @@ const PublicMenuPage = () => {
   const handleLanguageChange = (code: string) => {
     // Immediate: update UI language + translated item names from embedded translations
     setSelectedLang(code);
-    i18n.changeLanguage(code);
+    void i18n.changeLanguage(code);
     // Debounced: only fire API fetch after 350ms of no further switches
     // This prevents N×categories requests on rapid switching
     if (langFetchDebounce.current) clearTimeout(langFetchDebounce.current);
@@ -480,6 +481,12 @@ const PublicMenuPage = () => {
       }
     }, 350);
   };
+
+  useEffect(() => {
+    return () => {
+      if (langFetchDebounce.current) clearTimeout(langFetchDebounce.current);
+    };
+  }, []);
 
   const scrollToCategory = (id: string) => {
     categoryRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" });

@@ -58,6 +58,7 @@ describe('SubscriptionService', () => {
       updateMany: jest.Mock;
     };
     adminAuditLog: { create: jest.Mock };
+    $queryRaw: jest.Mock;
     $transaction: jest.Mock;
     user: { findUniqueOrThrow: jest.Mock };
   };
@@ -93,9 +94,11 @@ describe('SubscriptionService', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       adminAuditLog: { create: jest.fn().mockResolvedValue({}) },
-      $transaction: jest.fn().mockImplementation((ops: unknown[]) =>
-        Promise.all(ops),
-      ),
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      $transaction: jest.fn().mockImplementation((arg: unknown) => {
+        if (typeof arg === 'function') return (arg as any)(prisma);
+        return Promise.all(arg as unknown[]);
+      }),
       user: {
         findUniqueOrThrow: jest
           .fn()
@@ -618,29 +621,23 @@ describe('SubscriptionService', () => {
 
   describe('enforceGraceExpiry', () => {
     it('downgrades restaurants with expired pastDueGraceExpiry to FREE', async () => {
-      prisma.restaurant.findMany.mockResolvedValue([
-        { id: 'rest-1', tier: 'STARTER' },
+      prisma.$queryRaw.mockResolvedValue([
+        { id: 'rest-1', previousTier: 'STARTER' },
       ]);
 
       await service.enforceGraceExpiry();
 
       expect(prisma.$transaction).toHaveBeenCalled();
-      expect(prisma.restaurant.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: { in: ['rest-1'] } },
-          data: expect.objectContaining({
-            tier: 'FREE',
-            pastDueGraceExpiry: null,
-            tierUpdatedAt: expect.any(Date),
-          }),
-        }),
-      );
+      expect(prisma.restaurant.updateMany).not.toHaveBeenCalled();
       expect(prisma.adminAuditLog.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            actorUserId: 'SYSTEM',
             action: 'TIER_DOWNGRADE',
             targetId: 'rest-1',
+            metadata: expect.objectContaining({
+              actor: 'SYSTEM',
+              previousTier: 'STARTER',
+            }),
           }),
         }),
       );
@@ -652,7 +649,32 @@ describe('SubscriptionService', () => {
       await service.enforceGraceExpiry();
 
       expect(prisma.restaurant.updateMany).not.toHaveBeenCalled();
-      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.adminAuditLog.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('enforceForceTierExpiry', () => {
+    it('clears only rows returned by the guarded update and writes system audit rows', async () => {
+      prisma.$queryRaw.mockResolvedValue([
+        { id: 'rest-2', expiredForceTier: 'ENTERPRISE' },
+      ]);
+
+      await service.enforceForceTierExpiry();
+
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.restaurant.updateMany).not.toHaveBeenCalled();
+      expect(prisma.adminAuditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: 'TIER_CLEAR',
+            targetId: 'rest-2',
+            metadata: expect.objectContaining({
+              actor: 'SYSTEM',
+              expiredForceTier: 'ENTERPRISE',
+            }),
+          }),
+        }),
+      );
     });
   });
 

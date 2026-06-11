@@ -42,32 +42,32 @@ describe('EventsGateway — room authorization', () => {
   // ─── handleConnection: handshake auth ────────────────────────────────────
 
   describe('handleConnection', () => {
-    it('attaches userId when a valid token cookie is present', () => {
+    it('attaches userId when a valid token cookie is present', async () => {
       mockJwt.verify.mockReturnValue({ sub: 'user-1', email: 'a@b.c' });
       const client = makeClient();
       client.handshake.headers.cookie = 'foo=bar; token=valid.jwt.here';
 
-      gateway.handleConnection(client as any);
+      await gateway.handleConnection(client as any);
 
       expect(client.data.userId).toBe('user-1');
     });
 
-    it('stays anonymous when no cookie is present (public order tracking)', () => {
+    it('stays anonymous when no cookie is present (public order tracking)', async () => {
       const client = makeClient();
 
-      gateway.handleConnection(client as any);
+      await gateway.handleConnection(client as any);
 
       expect(client.data.userId).toBeUndefined();
     });
 
-    it('stays anonymous when the token is invalid', () => {
+    it('stays anonymous when the token is invalid', async () => {
       mockJwt.verify.mockImplementation(() => {
         throw new Error('bad token');
       });
       const client = makeClient();
       client.handshake.headers.cookie = 'token=garbage';
 
-      gateway.handleConnection(client as any);
+      await gateway.handleConnection(client as any);
 
       expect(client.data.userId).toBeUndefined();
     });
@@ -258,6 +258,37 @@ describe('EventsGateway — room authorization', () => {
         { scope: 'order-track', orderId: 'order-9' },
         expect.objectContaining({ expiresIn: expect.any(String) }),
       );
+    });
+  });
+
+  describe('disconnectAgentByTokenId', () => {
+    it('uses cluster-aware fetchSockets and disconnects only sockets with the revoked token', async () => {
+      const revokedSocket = {
+        data: { agentTokenId: 'token-1' },
+        emit: jest.fn(),
+        disconnect: jest.fn(),
+      };
+      const otherSocket = {
+        data: { agentTokenId: 'token-2' },
+        emit: jest.fn(),
+        disconnect: jest.fn(),
+      };
+      const fetchSockets = jest
+        .fn()
+        .mockResolvedValue([revokedSocket, otherSocket]);
+      const inRoom = jest.fn().mockReturnValue({ fetchSockets });
+      (gateway as any).server = { in: inRoom };
+
+      await gateway.disconnectAgentByTokenId('rest-1', 'station-1', 'token-1');
+
+      expect(inRoom).toHaveBeenCalledWith('print:rest-1:station-1');
+      expect(fetchSockets).toHaveBeenCalledTimes(1);
+      expect(revokedSocket.emit).toHaveBeenCalledWith(
+        'agent:rejected',
+        'token_revoked',
+      );
+      expect(revokedSocket.disconnect).toHaveBeenCalled();
+      expect(otherSocket.disconnect).not.toHaveBeenCalled();
     });
   });
 });

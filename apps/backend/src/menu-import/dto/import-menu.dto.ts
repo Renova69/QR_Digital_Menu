@@ -40,7 +40,7 @@ export class ImportOptionDto {
   type?: string;
 
   @IsArray()
-  @ArrayMaxSize(100)
+  @ArrayMaxSize(30)
   @ValidateNested({ each: true })
   @Type(() => ImportChoiceDto)
   choices: ImportChoiceDto[];
@@ -103,7 +103,7 @@ export class ImportItemDto {
   thumbnailUrl?: string;
 
   @IsArray()
-  @ArrayMaxSize(50)
+  @ArrayMaxSize(20)
   @ValidateNested({ each: true })
   @Type(() => ImportOptionDto)
   @IsOptional()

@@ -137,6 +137,30 @@ describe('LoyaltyService', () => {
       // Preview only — must NOT call markRemindersSent
       expect(mockTx.loyaltyPointLedger.updateMany).not.toHaveBeenCalled();
     });
+
+    it('skips accounts without an email in preview mode', async () => {
+      mockPrisma.restaurant.findFirst.mockResolvedValue({
+        id: 'r1',
+        loyaltyRedeemRate: 150,
+        loyaltyExpiryReminderDays: 15,
+      });
+      const expiresAt = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
+      mockPrisma.loyaltyAccount.findMany.mockResolvedValue([
+        { id: 'a1', points: 100, user: { id: 'u1', email: null, name: 'No Email' } },
+        { id: 'a2', points: 100, user: { id: 'u2', email: 'has@email.test', name: 'Has Email' } },
+      ]);
+      mockTx.loyaltyPointLedger.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          { id: 'b1', remainingPoints: 100, expiresAt, reminderSentAt: null, type: 'EARN' },
+        ]);
+
+      const result = await service.getExpiryReminderCandidates('r1', 'owner1');
+
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(result).toHaveLength(1);
+      expect(result[0].user.email).toBe('has@email.test');
+    });
   });
 
   // ─── Issue 14: send-then-mark ─────────────────────────────────────────────

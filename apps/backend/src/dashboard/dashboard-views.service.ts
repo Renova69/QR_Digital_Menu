@@ -29,21 +29,29 @@ export class DashboardViewsService implements OnModuleInit {
 
   @Cron(CronExpression.EVERY_HOUR)
   async refreshViews(): Promise<void> {
-    // In-process guard prevents concurrent refresh on the same pod (Issue 45).
-    // Cross-pod safety is guaranteed by CONCURRENTLY (no data corruption).
+    // In-process guard avoids duplicate refreshes inside one pod; the advisory
+    // transaction lock below coordinates all pods sharing the same Postgres DB.
     if (!this.ready || this.refreshing) return;
     this.refreshing = true;
     try {
-      await this.prisma.$executeRawUnsafe(
-        'REFRESH MATERIALIZED VIEW CONCURRENTLY mv_daily_stats',
-      );
-      await this.prisma.$executeRawUnsafe(
-        'REFRESH MATERIALIZED VIEW CONCURRENTLY mv_peak_hours',
-      );
-      await this.prisma.$executeRawUnsafe(
-        'REFRESH MATERIALIZED VIEW CONCURRENTLY mv_item_stats',
-      );
-      this.logger.log('Analytics views refreshed');
+      const refreshed = await this.prisma.$transaction(async (tx) => {
+        const [lock] = await tx.$queryRaw<{ locked: boolean }[]>`
+          SELECT pg_try_advisory_xact_lock(hashtext('dashboard_views_refresh')) AS locked
+        `;
+        if (!lock?.locked) return false;
+
+        await tx.$executeRawUnsafe(
+          'REFRESH MATERIALIZED VIEW CONCURRENTLY mv_daily_stats',
+        );
+        await tx.$executeRawUnsafe(
+          'REFRESH MATERIALIZED VIEW CONCURRENTLY mv_peak_hours',
+        );
+        await tx.$executeRawUnsafe(
+          'REFRESH MATERIALIZED VIEW CONCURRENTLY mv_item_stats',
+        );
+        return true;
+      });
+      if (refreshed) this.logger.log('Analytics views refreshed');
     } catch (err) {
       this.logger.warn('View refresh failed', err);
     } finally {

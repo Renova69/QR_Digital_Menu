@@ -115,6 +115,22 @@ describe('MenuImportService', () => {
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
 
+    it('rejects aggregate imports that exceed the total item cap before opening a transaction', async () => {
+      const categories = Array.from({ length: 11 }, (_, catIndex) => ({
+        name: `Category ${catIndex}`,
+        items: Array.from({ length: 100 }, (_, itemIndex) => ({
+          name: `Item ${catIndex}-${itemIndex}`,
+          price: 1,
+          options: [],
+        })),
+      }));
+
+      await expect(
+        service.upsertMenu('rest-1', { categories } as any),
+      ).rejects.toThrow('exceeds the 1000 item limit');
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
     it('creates category and item when neither exists', async () => {
       const tx = makeTx();
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
@@ -357,14 +373,14 @@ describe('MenuImportService', () => {
           {
             name: 'Cat',
             availabilityType: AvailabilityType.ALWAYS,
-            translations: { en: 'Cat' },
+            translations: { en: { name: 'Cat' } },
             imageUrl: 'https://img.example.com/cat.webp',
             thumbnailUrl: 'https://img.example.com/cat_thumb.webp',
             items: [
               {
                 name: 'Item',
                 price: 5,
-                translations: { en: 'Item' },
+                translations: { en: { name: 'Item' } },
                 imageUrl: 'https://img.example.com/item.webp',
                 thumbnailUrl: 'https://img.example.com/item_thumb.webp',
                 options: [],
@@ -372,11 +388,11 @@ describe('MenuImportService', () => {
             ],
           },
         ],
-      } as any);
+      });
 
       expect(tx.menuCategory.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ translations: { en: 'Cat' } }),
+          data: expect.objectContaining({ translations: { en: { name: 'Cat' } } }),
         }),
       );
     });
@@ -405,7 +421,7 @@ describe('MenuImportService', () => {
             items: [],
           },
         ],
-      } as any);
+      });
 
       expect(mockStorageService.delete).toHaveBeenCalledWith(OLD_URL);
     });
@@ -434,7 +450,7 @@ describe('MenuImportService', () => {
             items: [],
           },
         ],
-      } as any);
+      });
 
       expect(mockStorageService.delete).not.toHaveBeenCalled();
     });

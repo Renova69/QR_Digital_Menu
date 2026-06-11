@@ -42,6 +42,8 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
     const priceEuro = item.currency === 'BGN' ? item.price / BGN_RATE : item.price;
     const itemName = getTranslatedField(item, currentLang, 'name') || item.name;
     const itemDesc = getTranslatedField(item, currentLang, 'description') || item.description;
+    const getChoiceLabel = (option: MenuOption, choice: OptionChoice) =>
+        (option.translations as any)?.[currentLang]?.choices?.[choice.name] || choice.name;
 
     const showToast = (itemName: string) => {
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -131,7 +133,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
             return;
         }
         addItem(mainCartItem);
-        showToast(item.name);
+        showToast(itemName);
         preserveScrollPosition();
     };
 
@@ -146,7 +148,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
             return;
         }
         addItem(mainCartItem);
-        showToast(item.name);
+        showToast(itemName);
         preserveScrollPosition();
     };
 
@@ -442,6 +444,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                                         </div>
                                         <div className="space-y-1.5">
                                             {choices.map((choice, idx) => {
+                                                const choiceLabel = getChoiceLabel(option, choice);
                                                 const isSelected =
                                                     selectedOptions[option.id]?.choiceName === choice.name;
                                                 return (
@@ -465,7 +468,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                                                             )}>
                                                                 {isSelected && <Check className="h-3 w-3 text-white" />}
                                                             </span>
-                                                            <span className="text-sm font-bold">{choice.name}</span>
+                                                            <span className="text-sm font-bold">{choiceLabel}</span>
                                                         </span>
                                                         {choice.priceModifier > 0 && (
                                                             <span className="text-xs font-bold text-primary">

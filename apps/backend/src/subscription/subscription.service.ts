@@ -32,6 +32,9 @@ const IMMEDIATE_DOWNGRADE_STATUSES = [
   'incomplete_expired',
 ];
 
+type GraceExpiryRow = { id: string; previousTier: string };
+type ForceTierExpiryRow = { id: string; expiredForceTier: string };
+
 @Injectable()
 export class SubscriptionService {
   private readonly logger = new Logger(SubscriptionService.name);
@@ -307,7 +310,7 @@ export class SubscriptionService {
     } catch (err: unknown) {
       this.logger.warn(
         `Failed to fetch Stripe subscription ${restaurant.stripeSubscriptionId}: ${
-          err instanceof Error ? err.message : err
+          err instanceof Error ? err.message : String(err)
         }`,
       );
       return null;
@@ -488,33 +491,50 @@ export class SubscriptionService {
   @Cron(CronExpression.EVERY_HOUR)
   async enforceGraceExpiry(): Promise<void> {
     const now = new Date();
-    const targets = await this.prisma.restaurant.findMany({
-      where: {
-        pastDueGraceExpiry: { lt: now, not: null },
-        tier: { not: 'FREE' as any },
-      },
-      select: { id: true, tier: true },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<GraceExpiryRow[]>`
+        WITH candidates AS (
+          SELECT id, tier::text AS "previousTier"
+          FROM "restaurant"
+          WHERE "pastDueGraceExpiry" IS NOT NULL
+            AND "pastDueGraceExpiry" < ${now}
+            AND tier <> 'FREE'
+          FOR UPDATE SKIP LOCKED
+        ),
+        updated AS (
+          UPDATE "restaurant" r
+          SET tier = 'FREE',
+              "pastDueGraceExpiry" = NULL,
+              "tierUpdatedAt" = ${now}
+          FROM candidates c
+          WHERE r.id = c.id
+          RETURNING r.id, c."previousTier"
+        )
+        SELECT id, "previousTier" FROM updated
+      `;
+
+      await Promise.all(
+        rows.map((r) =>
+          tx.adminAuditLog.create({
+            data: {
+              action: 'TIER_DOWNGRADE',
+              targetType: 'RESTAURANT',
+              targetId: r.id,
+              metadata: {
+                actor: 'SYSTEM',
+                reason: 'grace_expiry',
+                previousTier: r.previousTier,
+              },
+            },
+          }),
+        ),
+      );
+
+      return rows;
     });
 
-    if (targets.length === 0) return;
-
-    await this.prisma.$transaction([
-      this.prisma.restaurant.updateMany({
-        where: { id: { in: targets.map((r) => r.id) } },
-        data: { tier: 'FREE' as any, pastDueGraceExpiry: null, tierUpdatedAt: now },
-      }),
-      ...targets.map((r) =>
-        this.prisma.adminAuditLog.create({
-          data: {
-            actorUserId: 'SYSTEM',
-            action: 'TIER_DOWNGRADE',
-            targetType: 'RESTAURANT',
-            targetId: r.id,
-            metadata: { reason: 'grace_expiry', previousTier: r.tier },
-          },
-        }),
-      ),
-    ]);
+    if (updated.length === 0) return;
+    const targets = updated;
 
     this.logger.warn(
       `enforceGraceExpiry: downgraded ${targets.length} restaurant(s) to FREE — past_due grace period expired`,
@@ -530,33 +550,49 @@ export class SubscriptionService {
   @Cron(CronExpression.EVERY_HOUR)
   async enforceForceTierExpiry(): Promise<void> {
     const now = new Date();
-    const targets = await this.prisma.restaurant.findMany({
-      where: {
-        forceTier: { not: null },
-        forceTierExpiresAt: { lt: now, not: null },
-      },
-      select: { id: true, forceTier: true },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<ForceTierExpiryRow[]>`
+        WITH candidates AS (
+          SELECT id, "forceTier"::text AS "expiredForceTier"
+          FROM "restaurant"
+          WHERE "forceTier" IS NOT NULL
+            AND "forceTierExpiresAt" IS NOT NULL
+            AND "forceTierExpiresAt" < ${now}
+          FOR UPDATE SKIP LOCKED
+        ),
+        updated AS (
+          UPDATE "restaurant" r
+          SET "forceTier" = NULL,
+              "forceTierExpiresAt" = NULL
+          FROM candidates c
+          WHERE r.id = c.id
+          RETURNING r.id, c."expiredForceTier"
+        )
+        SELECT id, "expiredForceTier" FROM updated
+      `;
+
+      await Promise.all(
+        rows.map((r) =>
+          tx.adminAuditLog.create({
+            data: {
+              action: 'TIER_CLEAR',
+              targetType: 'RESTAURANT',
+              targetId: r.id,
+              metadata: {
+                actor: 'SYSTEM',
+                reason: 'force_tier_expiry',
+                expiredForceTier: r.expiredForceTier,
+              },
+            },
+          }),
+        ),
+      );
+
+      return rows;
     });
 
-    if (targets.length === 0) return;
-
-    await this.prisma.$transaction([
-      this.prisma.restaurant.updateMany({
-        where: { id: { in: targets.map((r) => r.id) } },
-        data: { forceTier: null, forceTierExpiresAt: null },
-      }),
-      ...targets.map((r) =>
-        this.prisma.adminAuditLog.create({
-          data: {
-            actorUserId: 'SYSTEM',
-            action: 'TIER_CLEAR',
-            targetType: 'RESTAURANT',
-            targetId: r.id,
-            metadata: { reason: 'force_tier_expiry', expiredForceTier: r.forceTier },
-          },
-        }),
-      ),
-    ]);
+    if (updated.length === 0) return;
+    const targets = updated;
 
     this.logger.warn(
       `enforceForceTierExpiry: cleared ${targets.length} expired tier override(s)`,

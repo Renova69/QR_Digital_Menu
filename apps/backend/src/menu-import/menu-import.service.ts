@@ -14,6 +14,9 @@ import { randomBytes, createHash } from 'crypto';
 import { AvailabilityType, Currency, OptionType } from '@prisma/client';
 
 const VALID_AVAILABILITY = new Set(Object.values(AvailabilityType));
+const MAX_IMPORT_TOTAL_ITEMS = 1_000;
+const MAX_IMPORT_TOTAL_OPTIONS = 2_000;
+const MAX_IMPORT_TOTAL_CHOICES = 5_000;
 
 @Injectable()
 export class MenuImportService {
@@ -41,6 +44,7 @@ export class MenuImportService {
 
     if (!dto.categories?.length)
       throw new BadRequestException('No categories in payload');
+    this.assertImportSize(dto);
 
     // L3.1 — Detect duplicate names in the payload early. Case-insensitive
     // matching mirrors the upsert logic; two same-name cats/items in one payload
@@ -59,9 +63,8 @@ export class MenuImportService {
         throw new BadRequestException(
           `Duplicate item name "${dupItem}" in category "${cat.name}"`,
         );
-      }
     }
-
+  }
     // --- Preload all existing data BEFORE the transaction to avoid N+1 ---
     const existingCategories = await this.prisma.menuCategory.findMany({
       where: { restaurantId },
@@ -324,6 +327,38 @@ export class MenuImportService {
     }
 
     return { success: true, ...stats };
+  }
+
+  private assertImportSize(dto: ImportMenuDto) {
+    let totalItems = 0;
+    let totalOptions = 0;
+    let totalChoices = 0;
+
+    for (const category of dto.categories ?? []) {
+      totalItems += category.items?.length ?? 0;
+      for (const item of category.items ?? []) {
+        totalOptions += item.options?.length ?? 0;
+        for (const option of item.options ?? []) {
+          totalChoices += option.choices?.length ?? 0;
+        }
+      }
+    }
+
+    if (totalItems > MAX_IMPORT_TOTAL_ITEMS) {
+      throw new BadRequestException(
+        `Menu import is too large: ${totalItems} items exceeds the ${MAX_IMPORT_TOTAL_ITEMS} item limit`,
+      );
+    }
+    if (totalOptions > MAX_IMPORT_TOTAL_OPTIONS) {
+      throw new BadRequestException(
+        `Menu import is too large: ${totalOptions} options exceeds the ${MAX_IMPORT_TOTAL_OPTIONS} option limit`,
+      );
+    }
+    if (totalChoices > MAX_IMPORT_TOTAL_CHOICES) {
+      throw new BadRequestException(
+        `Menu import is too large: ${totalChoices} choices exceeds the ${MAX_IMPORT_TOTAL_CHOICES} choice limit`,
+      );
+    }
   }
 
   async exportMenu(restaurantId: string, userId: string) {

@@ -174,7 +174,7 @@ export class EventsGateway
       client.data.agentRestaurantId = record.restaurantId;
       client.data.agentStationId = record.printStationId;
       client.data.agentTokenId = record.id; // M-4: needed for revoke disconnect + M-1 lastSeen
-      client.join(`print:${record.restaurantId}:${record.printStationId}`);
+      void client.join(`print:${record.restaurantId}:${record.printStationId}`);
 
       void this.printStationService.touchLastSeen(agentToken);
       void this.printStationService
@@ -248,7 +248,7 @@ export class EventsGateway
       });
       return { event: 'roomError', data: restaurantId };
     }
-    client.join(`restaurant_${restaurantId}`);
+    void client.join(`restaurant_${restaurantId}`);
     this.logger.log(
       `Client ${client.id} joined room: restaurant_${restaurantId}`,
     );
@@ -260,7 +260,7 @@ export class EventsGateway
     @MessageBody() restaurantId: string,
     @ConnectedSocket() client: Socket,
   ) {
-    client.leave(`restaurant_${restaurantId}`);
+    void client.leave(`restaurant_${restaurantId}`);
     this.logger.log(
       `Client ${client.id} left room: restaurant_${restaurantId}`,
     );
@@ -312,7 +312,7 @@ export class EventsGateway
       });
       return { event: 'roomError', data: orderId };
     }
-    client.join(`order_${orderId}`);
+    void client.join(`order_${orderId}`);
     this.logger.log(`Client ${client.id} joined order room: order_${orderId}`);
     return { event: 'joinedOrderRoom', data: orderId };
   }
@@ -367,13 +367,15 @@ export class EventsGateway
    * M-4: Disconnect any agent sockets in a station room that were authenticated
    * with the given tokenId. Called after token revocation.
    */
-  disconnectAgentByTokenId(restaurantId: string, stationId: string, tokenId: string): void {
+  async disconnectAgentByTokenId(
+    restaurantId: string,
+    stationId: string,
+    tokenId: string,
+  ): Promise<void> {
     const room = `print:${restaurantId}:${stationId}`;
-    const roomSockets = this.server.sockets.adapter.rooms.get(room);
-    if (!roomSockets) return;
-    for (const socketId of roomSockets) {
-      const sock = this.server.sockets.sockets.get(socketId);
-      if (sock && sock.data.agentTokenId === tokenId) {
+    const sockets = await this.server.in(room).fetchSockets();
+    for (const sock of sockets) {
+      if (sock.data.agentTokenId === tokenId) {
         sock.emit('agent:rejected', 'token_revoked');
         sock.disconnect();
       }

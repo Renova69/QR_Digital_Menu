@@ -213,6 +213,14 @@ export class PaymentService {
     );
   }
 
+  private buildStripeCheckoutKey(
+    sessionId: string,
+    amountCents: number,
+    platformFeeCents: number,
+  ): string {
+    return `stripe:${sessionId}:${amountCents}:${platformFeeCents}:eur`;
+  }
+
   private normalizeTipPercent(tipPercent: number | undefined): number {
     const normalized = Number(tipPercent ?? 0);
     if (
@@ -373,7 +381,7 @@ export class PaymentService {
         terminal: restaurant.boricaTerminalId!,
         merchant: restaurant.boricaMerchantId!,
         merchantName: restaurant.boricaMerchantName ?? restaurant.name ?? '',
-        privateKeyPem: decryptSecret(restaurant.boricaPrivateKeyEncrypted!),
+        privateKeyPem: decryptSecret(restaurant.boricaPrivateKeyEncrypted),
         certPem: restaurant.boricaPublicCert!,
       };
     }
@@ -648,6 +656,12 @@ export class PaymentService {
         normalizedTipPercent,
         restaurant.platformFeePercent ?? 0,
       );
+    const amountCents = Math.round(total * 100);
+    const stripeCheckoutKey = this.buildStripeCheckoutKey(
+      session.id,
+      amountCents,
+      platformFeeCents,
+    );
 
     // Guard against double capture (#H1). A session can accumulate multiple
     // intents (double-click, retried tab) and all could be confirmed. Reject if
@@ -672,6 +686,7 @@ export class PaymentService {
         p.provider === 'STRIPE' &&
         p.status === 'PENDING' &&
         p.stripePaymentIntentId &&
+        (!p.providerReference || p.providerReference === stripeCheckoutKey) &&
         Math.abs((p.amount ?? 0) - total) < 0.001,
     );
     if (matchingIntent?.stripePaymentIntentId) {
@@ -719,30 +734,63 @@ export class PaymentService {
       }
       await this.prisma.payment.updateMany({
         where: { id: stale.id, status: 'PENDING' },
-        data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
+        data: {
+          status: 'ABANDONED',
+          providerStatus: 'ABANDONED',
+          providerReference: null,
+        },
       });
     }
 
-    const payment = await this.prisma.payment.create({
-      data: {
-        tableSessionId: session.id,
-        restaurantId: session.restaurantId,
-        amount: total,
-        tipAmount,
-        platformFeeAmount,
-        currency: 'eur',
-        status: 'PENDING',
-      },
-    });
+    let payment: { id: string };
+    try {
+      payment = await this.prisma.payment.create({
+        data: {
+          tableSessionId: session.id,
+          restaurantId: session.restaurantId,
+          amount: total,
+          tipAmount,
+          platformFeeAmount,
+          currency: 'eur',
+          status: 'PENDING',
+          provider: 'STRIPE',
+          providerReference: stripeCheckoutKey,
+        },
+      });
+    } catch (error) {
+      if (!this.isUniqueConstraintError(error)) throw error;
+      const existing = await this.prisma.payment.findFirst({
+        where: { provider: 'STRIPE', providerReference: stripeCheckoutKey },
+      });
+      if (existing?.status === 'SUCCEEDED') {
+        throw new ConflictException('This session has already been paid');
+      }
+      if (existing?.status === 'PENDING' && existing.stripePaymentIntentId) {
+        const intent = await this.stripe.retrievePaymentIntent(
+          existing.stripePaymentIntentId,
+        );
+        if (intent?.clientSecret) {
+          return {
+            clientSecret: intent.clientSecret,
+            paymentId: existing.id,
+            total,
+            tipAmount,
+          };
+        }
+      }
+      throw new ConflictException(
+        'A payment for this session is already being prepared',
+      );
+    }
 
     try {
       const { clientSecret, paymentIntentId } =
         await this.stripe.createPaymentIntent({
-          amountCents: Math.round(total * 100),
+          amountCents,
           currency: 'eur',
           restaurantStripeAccountId: restaurant.stripeAccountId,
           platformFeeCents,
-          idempotencyKey: payment.id,
+          idempotencyKey: stripeCheckoutKey,
           metadata: { sessionId: session.id, paymentId: payment.id },
         });
 
@@ -756,7 +804,10 @@ export class PaymentService {
       // Stripe failed after the PENDING record was created — mark it FAILED so
       // it doesn't linger forever and block future intents for this session.
       await this.prisma.payment
-        .update({ where: { id: payment.id }, data: { status: 'FAILED' } })
+        .update({
+          where: { id: payment.id },
+          data: { status: 'FAILED', providerReference: null },
+        })
         .catch(() => {});
       throw err;
     }

@@ -311,7 +311,15 @@ describe('PaymentService', () => {
           currency: 'eur',
           restaurantStripeAccountId: 'acct_123',
           platformFeeCents: 11,
-          idempotencyKey: 'pay1',
+          idempotencyKey: 'stripe:s1:2200:11:eur',
+        }),
+      );
+      expect(mockPrisma.payment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            provider: 'STRIPE',
+            providerReference: 'stripe:s1:2200:11:eur',
+          }),
         }),
       );
       expect(result.clientSecret).toBe('cs_test');
@@ -344,7 +352,7 @@ describe('PaymentService', () => {
       );
       expect(mockPrisma.payment.update).toHaveBeenCalledWith({
         where: { id: 'pay-fail' },
-        data: { status: 'FAILED' },
+        data: { status: 'FAILED', providerReference: null },
       });
     });
 
@@ -405,7 +413,11 @@ describe('PaymentService', () => {
       );
       expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
         where: { id: 'stale', status: 'PENDING' },
-        data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
+        data: {
+          status: 'ABANDONED',
+          providerStatus: 'ABANDONED',
+          providerReference: null,
+        },
       });
       expect(mockStripeProvider.createPaymentIntent).toHaveBeenCalled();
     });
@@ -886,14 +898,14 @@ describe('PaymentService', () => {
     // Issue 36 regression: req.body must be a raw Buffer so Stripe signature
     // verification (constructEvent) can compare against the original bytes.
     // DO NOT change to @Body() or req.rawBody — that breaks HMAC verification.
-    it('passes raw Buffer payload to constructWebhookEvent (Issue 36 regression)', () => {
+    it('passes raw Buffer payload to constructWebhookEvent (Issue 36 regression)', async () => {
       const rawPayload = Buffer.from('{"type":"test"}');
       mockStripeProvider.constructWebhookEvent.mockReturnValue({
         type: 'unknown.event',
         data: { object: {} },
       });
 
-      service.handleWebhookEvent(rawPayload, 'sig');
+      await service.handleWebhookEvent(rawPayload, 'sig');
 
       const [capturedPayload] = mockStripeProvider.constructWebhookEvent.mock.calls[0] as [Buffer, string];
       expect(Buffer.isBuffer(capturedPayload)).toBe(true);
@@ -958,7 +970,54 @@ describe('PaymentService', () => {
       const result = await service.createPaymentIntent('tok1', 0);
 
       expect(mockStripeProvider.createPaymentIntent).toHaveBeenCalledTimes(1);
+      expect(mockStripeProvider.createPaymentIntent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idempotencyKey: 'stripe:sess-1:2000:0:eur',
+        }),
+      );
       expect(result.clientSecret).toBe('cs_new');
+    });
+
+    it('reuses the existing intent when a concurrent create hits the checkout key unique constraint', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.payment.create.mockRejectedValue({ code: 'P2002' });
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: 'pay-existing',
+        provider: 'STRIPE',
+        providerReference: 'stripe:sess-1:2000:0:eur',
+        status: 'PENDING',
+        stripePaymentIntentId: 'pi_existing',
+      });
+      mockStripeProvider.retrievePaymentIntent.mockResolvedValue({
+        clientSecret: 'cs_existing',
+      });
+
+      const result = await service.createPaymentIntent('tok1', 0);
+
+      expect(result).toEqual({
+        clientSecret: 'cs_existing',
+        paymentId: 'pay-existing',
+        total: 20,
+        tipAmount: 0,
+      });
+      expect(mockStripeProvider.createPaymentIntent).not.toHaveBeenCalled();
+    });
+
+    it('rejects a concurrent create while the first request is still preparing the intent', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.payment.create.mockRejectedValue({ code: 'P2002' });
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: 'pay-existing',
+        provider: 'STRIPE',
+        providerReference: 'stripe:sess-1:2000:0:eur',
+        status: 'PENDING',
+        stripePaymentIntentId: null,
+      });
+
+      await expect(service.createPaymentIntent('tok1', 0)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockStripeProvider.createPaymentIntent).not.toHaveBeenCalled();
     });
   });
 

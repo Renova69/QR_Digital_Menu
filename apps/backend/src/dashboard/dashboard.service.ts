@@ -1,11 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DashboardViewsService } from './dashboard-views.service';
 import { OrderStatus } from '@prisma/client';
 import { DateTime } from 'luxon';
 
 @Injectable()
-export class DashboardService {
+export class DashboardService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DashboardService.name);
 
   // In-memory analytics cache — per restaurantId+period key, 60-second TTL
@@ -15,15 +15,31 @@ export class DashboardService {
   >();
   private static readonly ANALYTICS_TTL_MS = 60_000;
   private static readonly ANALYTICS_CACHE_MAX = 100;
+  private cacheSweepInterval?: ReturnType<typeof setInterval>;
 
-  private sweepCache() {
+  onModuleInit(): void {
+    this.cacheSweepInterval = setInterval(
+      () => this.sweepExpiredCache(),
+      DashboardService.ANALYTICS_TTL_MS,
+    );
+    this.cacheSweepInterval.unref?.();
+  }
+
+  onModuleDestroy(): void {
+    if (this.cacheSweepInterval) clearInterval(this.cacheSweepInterval);
+  }
+
+  private sweepExpiredCache() {
     const now = Date.now();
     for (const [key, entry] of this.analyticsCache) {
       if (entry.expiresAt <= now) this.analyticsCache.delete(key);
     }
+  }
+
+  private enforceCacheMax() {
     // Evict oldest entries (Map preserves insertion order) when over cap
     while (this.analyticsCache.size > DashboardService.ANALYTICS_CACHE_MAX) {
-      this.analyticsCache.delete(this.analyticsCache.keys().next().value!);
+      this.analyticsCache.delete(this.analyticsCache.keys().next().value);
     }
   }
 
@@ -82,7 +98,6 @@ export class DashboardService {
     startDateStr?: string,
     endDateStr?: string,
   ) {
-    this.sweepCache();
     const cacheKey = `${restaurantId}:${period}:${startDateStr ?? ''}:${endDateStr ?? ''}`;
     const cached = this.analyticsCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.data;
@@ -234,6 +249,7 @@ export class DashboardService {
       data: result,
       expiresAt: Date.now() + DashboardService.ANALYTICS_TTL_MS,
     });
+    this.enforceCacheMax();
     return result;
   }
 

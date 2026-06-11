@@ -42,7 +42,9 @@ EXPOSE 3000
 
 # Run pending migrations before starting the server (Issue 48).
 # Requires DATABASE_URL to be set via Secret Manager at runtime.
+# Fail fast if the migration command blocks during DB cold start/network issues.
+ENV PRISMA_MIGRATE_TIMEOUT_SECONDS=60
 # NOTE: Before first use, baseline the prod DB:
 #   npx prisma migrate resolve --applied 20260611000000_schema_safety_constraints
 # Then verify clean: npx prisma migrate status
-CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && node dist/src/main"]
+CMD ["sh", "-c", "timeout --foreground \"${PRISMA_MIGRATE_TIMEOUT_SECONDS:-60}s\" node_modules/.bin/prisma migrate deploy && node dist/src/main"]

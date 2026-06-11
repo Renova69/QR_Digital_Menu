@@ -85,6 +85,20 @@ describe('DashboardService', () => {
     });
   });
 
+  describe('cache lifecycle', () => {
+    it('sweeps expired analytics cache entries on the module interval', () => {
+      jest.useFakeTimers();
+      const sweepSpy = jest.spyOn(service as any, 'sweepExpiredCache');
+
+      service.onModuleInit();
+      jest.advanceTimersByTime(60_000);
+      service.onModuleDestroy();
+
+      expect(sweepSpy).toHaveBeenCalledTimes(1);
+      jest.useRealTimers();
+    });
+  });
+
   describe('getAnalytics', () => {
     const defaultAggregate = {
       _sum: { totalPrice: 100 },
