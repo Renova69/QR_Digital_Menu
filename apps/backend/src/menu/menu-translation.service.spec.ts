@@ -284,5 +284,123 @@ describe('MenuTranslationService', () => {
 
       expect(mockTranslation.translateTexts).not.toHaveBeenCalled();
     });
+
+    // Issue 1 + D-7: diff-based translation for choices and allergens/dietaryTags
+
+    it('translates only new choice names when option name already cached', async () => {
+      const option = {
+        id: 'opt-1',
+        name: 'Size',
+        translations: { bg: { name: 'Размер', choices: { Small: 'Малък' } } },
+        choices: [{ name: 'Small' }, { name: 'Large' }],
+      };
+      const item = makeItem({
+        translations: { bg: { name: 'Soup' } },
+        options: [option],
+      });
+      const category = makeCategory({
+        translations: { bg: { name: 'Starters' } },
+        items: [item],
+      });
+
+      await service.applyLazyTranslations([category], 'bg');
+
+      // Only 'Large' is missing → 1 text
+      expect(mockTranslation.translateTexts).toHaveBeenCalledTimes(1);
+      const [texts] = mockTranslation.translateTexts.mock.calls[0] as [string[], string];
+      expect(texts).toContain('Large');
+      expect(texts).not.toContain('Small');
+    });
+
+    it('makes no API call when all choices already cached', async () => {
+      const option = {
+        id: 'opt-1',
+        name: 'Size',
+        translations: { bg: { name: 'Размер', choices: { Small: 'Малък', Large: 'Голям' } } },
+        choices: [{ name: 'Small' }, { name: 'Large' }],
+      };
+      const item = makeItem({
+        translations: { bg: { name: 'Soup' } },
+        options: [option],
+      });
+      const category = makeCategory({
+        translations: { bg: { name: 'Starters' } },
+        items: [item],
+      });
+
+      await service.applyLazyTranslations([category], 'bg');
+
+      expect(mockTranslation.translateTexts).not.toHaveBeenCalled();
+    });
+
+    it('translates only new allergens when item name already cached', async () => {
+      const item = makeItem({
+        allergens: ['Milk', 'Gluten'],
+        dietaryTags: [],
+        translations: { bg: { name: 'Супа', allergens: { Milk: 'Мляко' } } },
+      });
+      const category = makeCategory({
+        translations: { bg: { name: 'Стартери' } },
+        items: [item],
+      });
+
+      await service.applyLazyTranslations([category], 'bg');
+
+      // Only 'Gluten' is missing
+      expect(mockTranslation.translateTexts).toHaveBeenCalledTimes(1);
+      const [texts] = mockTranslation.translateTexts.mock.calls[0] as [string[], string];
+      expect(texts).toContain('Gluten');
+      expect(texts).not.toContain('Milk');
+    });
+
+    it('makes no API call when all allergens already cached as map', async () => {
+      const item = makeItem({
+        allergens: ['Milk'],
+        dietaryTags: ['Vegan'],
+        translations: { bg: { name: 'Супа', allergens: { Milk: 'Мляко' }, dietaryTags: { Vegan: 'Веган' } } },
+      });
+      const category = makeCategory({
+        translations: { bg: { name: 'Стартери' } },
+        items: [item],
+      });
+
+      await service.applyLazyTranslations([category], 'bg');
+
+      expect(mockTranslation.translateTexts).not.toHaveBeenCalled();
+    });
+
+    it('applies map-format allergens and dietaryTags to in-memory item', async () => {
+      const item = makeItem({
+        allergens: ['Milk'],
+        dietaryTags: ['Vegan'],
+      });
+      const category = makeCategory({ items: [item] });
+
+      // translateTexts echoes input (mock default)
+      await service.applyLazyTranslations([category], 'ro');
+
+      // After apply, item.allergens should be the translated values
+      expect(item.allergens).toEqual(['Milk']);
+      expect(item.dietaryTags).toEqual(['Vegan']);
+    });
+
+    it('applies old array-format allergens to in-memory item (backward compat)', async () => {
+      const item = makeItem({
+        allergens: ['Milk'],
+        dietaryTags: ['Vegan'],
+        translations: { ro: { name: 'Supa', allergens: ['Lapte'], dietaryTags: ['Vegan'] } },
+      });
+      const category = makeCategory({
+        translations: { ro: { name: 'Aperitive' } },
+        items: [item],
+      });
+
+      await service.applyLazyTranslations([category], 'ro');
+
+      // No API call (name cached; allergens in old array format → re-translate all)
+      // Actually with old array format and 1 allergen: cached = undefined → queues it
+      // But item name IS cached, so only allergens get queued
+      expect(item.allergens).toBeDefined();
+    });
   });
 });

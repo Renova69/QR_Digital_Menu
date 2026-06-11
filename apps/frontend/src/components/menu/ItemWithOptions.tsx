@@ -423,8 +423,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                         <div className="overflow-y-auto px-6 py-2 space-y-5">
                             {item.options.map((option) => {
                                 const translatedOptName = getTranslatedField(option, currentLang, 'name') || option.name;
-                                const translatedChoices = getTranslatedArray(option, currentLang, 'choices');
-                                const choices: OptionChoice[] = (translatedChoices?.length ? translatedChoices : option.choices) as any;
+                                const choices: OptionChoice[] = option.choices as any;
 
                                 return (
                                     <div key={option.id}>

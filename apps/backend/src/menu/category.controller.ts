@@ -85,7 +85,7 @@ export class CategoryDetailController {
       storage: memoryStorage(),
       limits: { fileSize: 5 * 1024 * 1024 },
       fileFilter: (req, file, cb) => {
-        const allowedTypes = ['image/jpeg', 'image/png'];
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
         if (!allowedTypes.includes(file.mimetype)) {
           return cb(null, false);
         }

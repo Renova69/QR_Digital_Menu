@@ -586,9 +586,15 @@ export class DashboardService {
   }
 
   private async getOrdersByTable(restaurantId: string, start: Date, end: Date) {
-    type Row = { table_id: string; orders: number; revenue: number };
+    type Row = {
+      table_id: string;
+      table_name: string | null;
+      orders: number;
+      revenue: number;
+    };
     const rows = await this.prisma.$queryRaw<Row[]>`
       SELECT "tableId"                                    AS table_id,
+             MIN("tableName")                            AS table_name,
              COUNT(*)::int                               AS orders,
              COALESCE(SUM("totalPrice"), 0)::float       AS revenue
       FROM customer_order
@@ -596,13 +602,14 @@ export class DashboardService {
         AND status         != 'CANCELED'
         AND "createdAt"   >= ${start}
         AND "createdAt"   <= ${end}
+        AND "tableId"     IS NOT NULL
         AND "tableId"     != ''
       GROUP BY "tableId"
       ORDER BY COUNT(*) DESC
       LIMIT 10
     `;
     return rows.map((r) => ({
-      table: r.table_id || 'Unknown Table',
+      table: r.table_name || r.table_id || 'Unknown Table',
       orders: r.orders,
       revenue: Math.round(Number(r.revenue) * 100) / 100,
     }));

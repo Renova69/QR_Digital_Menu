@@ -44,27 +44,39 @@ export class MenuTranslationService {
 
       for (const item of category.items ?? []) {
         const existing = this.asTransObj(item.translations);
+        const itemTextMap: Record<string, string> = {};
         if (!existing[lang]?.name) {
-          const textMap: Record<string, string> = { name: item.name };
-          if (item.description) textMap.description = item.description;
-          (item.allergens || []).forEach((a: string) => {
-            textMap[`allergen_${a}`] = a;
-          });
-          (item.dietaryTags || []).forEach((t: string) => {
-            textMap[`tag_${t}`] = t;
-          });
-          pending.push({ type: 'item', entity: item, existing, textMap });
+          itemTextMap.name = item.name;
+          if (item.description) itemTextMap.description = item.description;
         }
+        // Diff allergens/dietaryTags: allergens stored as map { orig: translated };
+        // old array format = cannot diff → re-translate all entries
+        (item.allergens || []).forEach((a: string) => {
+          const cached = Array.isArray(existing[lang]?.allergens)
+            ? undefined
+            : existing[lang]?.allergens?.[a];
+          if (!cached) itemTextMap[`allergen_${a}`] = a;
+        });
+        (item.dietaryTags || []).forEach((t: string) => {
+          const cached = Array.isArray(existing[lang]?.dietaryTags)
+            ? undefined
+            : existing[lang]?.dietaryTags?.[t];
+          if (!cached) itemTextMap[`tag_${t}`] = t;
+        });
+        if (Object.keys(itemTextMap).length > 0)
+          pending.push({ type: 'item', entity: item, existing, textMap: itemTextMap });
 
         for (const option of item.options ?? []) {
           const existing = this.asTransObj(option.translations);
-          if (!existing[lang]?.name) {
-            const textMap: Record<string, string> = { name: option.name };
-            ((option.choices as any[]) || []).forEach((c: any) => {
-              if (c.name) textMap[`choice_${c.name}`] = c.name;
-            });
-            pending.push({ type: 'option', entity: option, existing, textMap });
-          }
+          const optTextMap: Record<string, string> = {};
+          if (!existing[lang]?.name) optTextMap.name = option.name;
+          // Diff choices: translate only choice names not yet in cached choices map
+          ((option.choices as any[]) || []).forEach((c: any) => {
+            if (c.name && !existing[lang]?.choices?.[c.name])
+              optTextMap[`choice_${c.name}`] = c.name;
+          });
+          if (Object.keys(optTextMap).length > 0)
+            pending.push({ type: 'option', entity: option, existing, textMap: optTextMap });
         }
       }
     }
@@ -129,19 +141,26 @@ export class MenuTranslationService {
               ),
           );
         } else if (type === 'item') {
-          const langEntry: Record<string, unknown> = {
-            name: langData.name ?? entity.name,
-          };
-          if (langData.description)
-            langEntry.description = langData.description;
-          const allergens: string[] = [];
-          const tags: string[] = [];
+          // Start from existing lang entry so partial updates preserve cached fields
+          const langEntry: Record<string, unknown> = { ...(existing[lang] ?? {}) };
+          if (langData.name) langEntry.name = langData.name;
+          if (langData.description) langEntry.description = langData.description;
+          // Allergens/tags stored as maps { original: translated } for diffing
+          // Old array format is discarded on first update (apply phase handles both)
+          const prevAllergens: Record<string, string> = Array.isArray(langEntry.allergens)
+            ? {}
+            : ((langEntry.allergens as Record<string, string> | undefined) ?? {});
+          const prevTags: Record<string, string> = Array.isArray(langEntry.dietaryTags)
+            ? {}
+            : ((langEntry.dietaryTags as Record<string, string> | undefined) ?? {});
+          const allergenMap = { ...prevAllergens };
+          const tagMap = { ...prevTags };
           for (const [k, v] of Object.entries(langData)) {
-            if (k.startsWith('allergen_')) allergens.push(v);
-            else if (k.startsWith('tag_')) tags.push(v);
+            if (k.startsWith('allergen_')) allergenMap[k.replace('allergen_', '')] = v;
+            else if (k.startsWith('tag_')) tagMap[k.replace('tag_', '')] = v;
           }
-          if (allergens.length) langEntry.allergens = allergens;
-          if (tags.length) langEntry.dietaryTags = tags;
+          if (Object.keys(allergenMap).length) langEntry.allergens = allergenMap;
+          if (Object.keys(tagMap).length) langEntry.dietaryTags = tagMap;
           const merged = { ...existing, [lang]: langEntry };
           entity.translations = merged;
           dbWrites.push(
@@ -193,8 +212,16 @@ export class MenuTranslationService {
         const t = item.translations as Record<string, any> | null;
         if (t?.[lang]?.name) item.name = t[lang].name;
         if (t?.[lang]?.description) item.description = t[lang].description;
-        if (t?.[lang]?.allergens) item.allergens = t[lang].allergens;
-        if (t?.[lang]?.dietaryTags) item.dietaryTags = t[lang].dietaryTags;
+        if (t?.[lang]?.allergens) {
+          item.allergens = Array.isArray(t[lang].allergens)
+            ? t[lang].allergens
+            : Object.values(t[lang].allergens);
+        }
+        if (t?.[lang]?.dietaryTags) {
+          item.dietaryTags = Array.isArray(t[lang].dietaryTags)
+            ? t[lang].dietaryTags
+            : Object.values(t[lang].dietaryTags);
+        }
 
         for (const option of item.options ?? []) {
           const t = option.translations as Record<string, any> | null;

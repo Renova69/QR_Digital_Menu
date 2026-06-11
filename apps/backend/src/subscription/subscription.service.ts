@@ -488,23 +488,37 @@ export class SubscriptionService {
   @Cron(CronExpression.EVERY_HOUR)
   async enforceGraceExpiry(): Promise<void> {
     const now = new Date();
-    const { count } = await this.prisma.restaurant.updateMany({
+    const targets = await this.prisma.restaurant.findMany({
       where: {
         pastDueGraceExpiry: { lt: now, not: null },
         tier: { not: 'FREE' as any },
       },
-      data: {
-        tier: 'FREE' as any,
-        pastDueGraceExpiry: null,
-        tierUpdatedAt: now,
-      },
+      select: { id: true, tier: true },
     });
 
-    if (count > 0) {
-      this.logger.warn(
-        `enforceGraceExpiry: downgraded ${count} restaurant(s) to FREE — past_due grace period expired`,
-      );
-    }
+    if (targets.length === 0) return;
+
+    await this.prisma.$transaction([
+      this.prisma.restaurant.updateMany({
+        where: { id: { in: targets.map((r) => r.id) } },
+        data: { tier: 'FREE' as any, pastDueGraceExpiry: null, tierUpdatedAt: now },
+      }),
+      ...targets.map((r) =>
+        this.prisma.adminAuditLog.create({
+          data: {
+            actorUserId: 'SYSTEM',
+            action: 'TIER_DOWNGRADE',
+            targetType: 'RESTAURANT',
+            targetId: r.id,
+            metadata: { reason: 'grace_expiry', previousTier: r.tier },
+          },
+        }),
+      ),
+    ]);
+
+    this.logger.warn(
+      `enforceGraceExpiry: downgraded ${targets.length} restaurant(s) to FREE — past_due grace period expired`,
+    );
   }
 
   /**
@@ -516,21 +530,36 @@ export class SubscriptionService {
   @Cron(CronExpression.EVERY_HOUR)
   async enforceForceTierExpiry(): Promise<void> {
     const now = new Date();
-    const { count } = await this.prisma.restaurant.updateMany({
+    const targets = await this.prisma.restaurant.findMany({
       where: {
         forceTier: { not: null },
         forceTierExpiresAt: { lt: now, not: null },
       },
-      data: {
-        forceTier: null,
-        forceTierExpiresAt: null,
-      },
+      select: { id: true, forceTier: true },
     });
 
-    if (count > 0) {
-      this.logger.warn(
-        `enforceForceTierExpiry: cleared ${count} expired tier override(s)`,
-      );
-    }
+    if (targets.length === 0) return;
+
+    await this.prisma.$transaction([
+      this.prisma.restaurant.updateMany({
+        where: { id: { in: targets.map((r) => r.id) } },
+        data: { forceTier: null, forceTierExpiresAt: null },
+      }),
+      ...targets.map((r) =>
+        this.prisma.adminAuditLog.create({
+          data: {
+            actorUserId: 'SYSTEM',
+            action: 'TIER_CLEAR',
+            targetType: 'RESTAURANT',
+            targetId: r.id,
+            metadata: { reason: 'force_tier_expiry', expiredForceTier: r.forceTier },
+          },
+        }),
+      ),
+    ]);
+
+    this.logger.warn(
+      `enforceForceTierExpiry: cleared ${targets.length} expired tier override(s)`,
+    );
   }
 }

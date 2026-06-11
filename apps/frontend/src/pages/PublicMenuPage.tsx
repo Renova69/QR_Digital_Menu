@@ -112,16 +112,16 @@ const PublicMenuPage = () => {
 
   const { setTableNumber, pruneInvalidItems, clearCart } = useCart();
 
-  // Clear cart immediately when navigating to a different restaurant's menu.
-  // sessionStorage scopes this to the current tab — a new tab or incognito always starts clean.
+  // Clear cart when navigating to a different restaurant's menu.
+  // localStorage keeps this in sync with cartItems (both same storage tier).
   useEffect(() => {
     const CART_RESTAURANT_KEY = 'cartRestaurantId';
-    const prev = sessionStorage.getItem(CART_RESTAURANT_KEY);
+    const prev = localStorage.getItem(CART_RESTAURANT_KEY);
     if (prev && prev !== restaurantId) {
       clearCart();
     }
     if (restaurantId) {
-      sessionStorage.setItem(CART_RESTAURANT_KEY, restaurantId);
+      localStorage.setItem(CART_RESTAURANT_KEY, restaurantId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantId]);
