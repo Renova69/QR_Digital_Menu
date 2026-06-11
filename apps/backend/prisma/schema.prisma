@@ -8,60 +8,60 @@ datasource db {
 }
 
 model User {
-  id                 String           @id @default(cuid())
-  email              String           @unique
-  password           String
-  name               String?
-  phone              String?
-  googleId           String?          @unique
-  pinHash            String?
-  pinAttempts        Int               @default(0)
-  pinLockedUntil     DateTime?
-  isActive           Boolean           @default(true)
-  disabledAt         DateTime?
-  disabledReason     String?
-  passwordChangedAt  DateTime?
-  role               UserRole         @default(STAFF)
-  restaurantId       String?
-  onboardingComplete Boolean          @default(false)
-  onboardingStep     String?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-  orders          Order[]
-  staffOrders     Order[]      @relation("StaffOrders")
+  id                            String                  @id @default(cuid())
+  email                         String                  @unique
+  password                      String
+  name                          String?
+  phone                         String?
+  googleId                      String?                 @unique
+  pinHash                       String?
+  pinAttempts                   Int                     @default(0)
+  pinLockedUntil                DateTime?
+  isActive                      Boolean                 @default(true)
+  disabledAt                    DateTime?
+  disabledReason                String?
+  passwordChangedAt             DateTime?
+  role                          UserRole                @default(STAFF)
+  restaurantId                  String?
+  onboardingComplete            Boolean                 @default(false)
+  onboardingStep                String?
+  createdAt                     DateTime                @default(now())
+  updatedAt                     DateTime                @updatedAt
+  orders                        Order[]
+  staffOrders                   Order[]                 @relation("StaffOrders")
   createdDeviceEnrollmentTokens DeviceEnrollmentToken[]
-  loyaltyAccounts LoyaltyAccount[]
-  restaurants     Restaurant[]     @relation("OwnedRestaurants")
-  staffRestaurant Restaurant?       @relation("StaffRestaurant", fields: [restaurantId], references: [id])
-  adminAuditLogs  AdminAuditLog[]
+  loyaltyAccounts               LoyaltyAccount[]
+  restaurants                   Restaurant[]            @relation("OwnedRestaurants")
+  staffRestaurant               Restaurant?             @relation("StaffRestaurant", fields: [restaurantId], references: [id])
+  adminAuditLogs                AdminAuditLog[]
 
   @@map("app_user")
 }
 
 model Restaurant {
-  id                        String              @id @default(cuid())
+  id                        String                  @id @default(cuid())
   name                      String
-  country                   String              @default("Bulgaria")
+  country                   String                  @default("Bulgaria")
   city                      String?
   logoUrl                   String?
-  logoThumbnailUrl           String?
-  accentColor               String?             @default("#4F46E5")
+  logoThumbnailUrl          String?
+  accentColor               String?                 @default("#4F46E5")
   googleReviewUrl           String?
   facebookUrl               String?
-  instagramUrl               String?
+  instagramUrl              String?
   tiktokUrl                 String?
   websiteUrl                String?
   youtubeUrl                String?
   address                   String?
   contactInfo               String?
-  targetLanguages           String[]            @default([])
-  dashboardLanguage         String?             @default("en")
-  timezone                  String?             @default("Europe/Sofia")
+  targetLanguages           String[]                @default([])
+  dashboardLanguage         String?                 @default("en")
+  timezone                  String?                 @default("Europe/Sofia")
   ownerId                   String
-  createdAt                 DateTime            @default(now())
-  updatedAt                 DateTime            @updatedAt
-  fontBody                  String?             @default("Outfit")
-  fontHeading               String?             @default("Playfair Display")
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
+  fontBody                  String?                 @default("Outfit")
+  fontHeading               String?                 @default("Playfair Display")
   themeBgColor              String?
   themeCardColor            String?
   themeTextColor            String?
@@ -73,46 +73,46 @@ model Restaurant {
   themeDarkTextColor        String?
   themeDarkCardColor        String?
   themeDarkAccentColor      String?
-  trendingMode              String              @default("AUTO")
-  happyHourEnable           Boolean             @default(false)
-  happyHourDays             Int[]               @default([1,2,3,4,5,6,7])
+  trendingMode              String                  @default("AUTO")
+  happyHourEnable           Boolean                 @default(false)
+  happyHourDays             Int[]                   @default([1, 2, 3, 4, 5, 6, 7])
   happyHourEndTime          String?
-  happyHourMultiplier       Float               @default(2.0)
+  happyHourMultiplier       Float                   @default(2.0)
   happyHourStartTime        String?
-  isLoyaltyEnabled          Boolean             @default(true)
-  loyaltyExchangeRate       Int                 @default(10)
-  loyaltySignupBonus        Int                 @default(50)
-  loyaltyRedeemRate         Int                 @default(150)
-  loyaltyExpiryReminderDays Int                 @default(15)
-  loyaltyGoldMultiplier     Float               @default(1.5)
-  loyaltyGoldThreshold      Int                 @default(2000)
-  loyaltyPointExpiryDays    Int                 @default(90)
-  loyaltySilverMultiplier   Float               @default(1.2)
-  loyaltySilverThreshold    Int                 @default(500)
-  defaultTheme              String?             @default("light")
-  importApiKeyHash          String?             @unique
+  isLoyaltyEnabled          Boolean                 @default(true)
+  loyaltyExchangeRate       Int                     @default(10)
+  loyaltySignupBonus        Int                     @default(50)
+  loyaltyRedeemRate         Int                     @default(150)
+  loyaltyExpiryReminderDays Int                     @default(15)
+  loyaltyGoldMultiplier     Float                   @default(1.5)
+  loyaltyGoldThreshold      Int                     @default(2000)
+  loyaltyPointExpiryDays    Int                     @default(90)
+  loyaltySilverMultiplier   Float                   @default(1.2)
+  loyaltySilverThreshold    Int                     @default(500)
+  defaultTheme              String?                 @default("light")
+  importApiKeyHash          String?                 @unique
   stripeAccountId           String?
-  stripeOnboarded           Boolean             @default(false)
-  paymentsEnabled           Boolean             @default(false)
-  epayEnabled               Boolean             @default(false)
-  epayMode                  String              @default("DEMO")
+  stripeOnboarded           Boolean                 @default(false)
+  paymentsEnabled           Boolean                 @default(false)
+  epayEnabled               Boolean                 @default(false)
+  epayMode                  String                  @default("DEMO")
   epayClientId              String?
   epayMerchantEmail         String?
   epaySecretEncrypted       String?
-  epayPage                  String              @default("credit_paydirect")
-  boricaEnabled             Boolean             @default(false)
-  boricaMode                String              @default("DEMO")
+  epayPage                  String                  @default("credit_paydirect")
+  boricaEnabled             Boolean                 @default(false)
+  boricaMode                String                  @default("DEMO")
   boricaTerminalId          String?
   boricaMerchantId          String?
   boricaMerchantName        String?
   boricaPrivateKeyEncrypted String?
   boricaPublicCert          String?
-  boricaCurrency            String              @default("EUR")
-  notifyAllStaffOnPayment   Boolean             @default(true)
-  tipsEnabled               Boolean             @default(false)
-  tipOptions                Int[]               @default([2, 4, 5])
-  platformFeePercent        Float               @default(0.5)
-  tier                      SubscriptionTier    @default(FREE)
+  boricaCurrency            String                  @default("EUR")
+  notifyAllStaffOnPayment   Boolean                 @default(true)
+  tipsEnabled               Boolean                 @default(false)
+  tipOptions                Int[]                   @default([2, 4, 5])
+  platformFeePercent        Float                   @default(0.5)
+  tier                      SubscriptionTier        @default(FREE)
   stripeCustomerId          String?
   stripeSubscriptionId      String?
   stripePriceId             String?
@@ -120,7 +120,7 @@ model Restaurant {
   pastDueGraceExpiry        DateTime?
   forceTier                 SubscriptionTier?
   forceTierExpiresAt        DateTime?
-  isActive                  Boolean             @default(true)
+  isActive                  Boolean                 @default(true)
   deletedAt                 DateTime?
   assistanceRequests        AssistanceRequest[]
   deviceEnrollmentTokens    DeviceEnrollmentToken[]
@@ -129,8 +129,8 @@ model Restaurant {
   loyaltyAccounts           LoyaltyAccount[]
   menuCategories            MenuCategory[]
   menuViews                 MenuView[]
-  owner                     User                @relation("OwnedRestaurants", fields: [ownerId], references: [id], onDelete: Cascade)
-  staffMembers              User[]              @relation("StaffRestaurant")
+  owner                     User                    @relation("OwnedRestaurants", fields: [ownerId], references: [id], onDelete: Cascade)
+  staffMembers              User[]                  @relation("StaffRestaurant")
   tables                    RestaurantTable[]
   tableSessions             TableSession[]
   tableZones                TableZone[]
@@ -212,7 +212,7 @@ model PrintAgentToken {
 model PrintJob {
   id             String         @id @default(cuid())
   restaurantId   String
-  printStationId String
+  printStationId String?
   orderId        String
   ticketBase64   String
   status         PrintJobStatus @default(PENDING)
@@ -222,7 +222,7 @@ model PrintJob {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   restaurant     Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  printStation   PrintStation   @relation(fields: [printStationId], references: [id], onDelete: Cascade)
+  printStation   PrintStation?  @relation(fields: [printStationId], references: [id], onDelete: SetNull)
   order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([printStationId, status])
@@ -232,16 +232,17 @@ model PrintJob {
 }
 
 model RestaurantTable {
-  id           String          @id @default(cuid())
+  id           String         @id @default(cuid())
   name         String
   restaurantId String
   zoneId       String?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  restaurant   Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  zone         TableZone?      @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  restaurant   Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  zone         TableZone?     @relation(fields: [zoneId], references: [id], onDelete: SetNull)
   sessions     TableSession[]
 
+  @@unique([restaurantId, name])
   @@index([restaurantId, zoneId])
   @@map("restaurant_table")
 }
@@ -330,14 +331,14 @@ model Order {
   pointsRedeemed            Int                  @default(0)
   pointsRedeemedForDiscount Int                  @default(0)
   pointsRedeemedForItems    Int                  @default(0)
-  customer                  User?                @relation(fields: [customerId], references: [id])
+  customer                  User?                @relation(fields: [customerId], references: [id], onDelete: SetNull)
   restaurant                Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   feedback                  Feedback?
   loyaltyPointTransactions  LoyaltyPointLedger[]
   items                     OrderItem[]
   source                    OrderSource          @default(CUSTOMER)
   staffUserId               String?
-  staff                     User?                @relation("StaffOrders", fields: [staffUserId], references: [id])
+  staff                     User?                @relation("StaffOrders", fields: [staffUserId], references: [id], onDelete: SetNull)
   printJobs                 PrintJob[]
 
   @@index([restaurantId, status, createdAt])
@@ -487,14 +488,14 @@ enum LoyaltyPointTransactionType {
 }
 
 model VerificationToken {
-  id         String    @id @default(cuid())
-  email      String
-  code       String
-  expiresAt  DateTime
-  usedAt     DateTime?
-  attempts   Int       @default(0)
+  id          String    @id @default(cuid())
+  email       String
+  code        String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  attempts    Int       @default(0)
   lockedUntil DateTime?
-  createdAt  DateTime  @default(now())
+  createdAt   DateTime  @default(now())
 
   @@index([email])
 }
@@ -620,13 +621,13 @@ model PlatformSettings {
 
 model HelpContent {
   id          String   @id @default(uuid())
-  section     String   // 'landing' | 'dashboard'
-  categoryKey String   // e.g. 'getting-started', 'menu', 'general'
-  itemKey     String   // unique key per item within its section+category
+  section     String // 'landing' | 'dashboard'
+  categoryKey String // e.g. 'getting-started', 'menu', 'general'
+  itemKey     String // unique key per item within its section+category
   sortOrder   Int      @default(0)
-  locale      String   // 'en' | 'bg' | 'ro'
-  title       String   // FAQ question or help section title
-  body        String   // FAQ answer or help content (plain text or Markdown)
+  locale      String // 'en' | 'bg' | 'ro'
+  title       String // FAQ question or help section title
+  body        String // FAQ answer or help content (plain text or Markdown)
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
