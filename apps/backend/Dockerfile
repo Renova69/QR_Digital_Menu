@@ -22,13 +22,10 @@ COPY package*.json ./
 # Production deps only (excludes devDependencies, reduces image size)
 RUN npm ci --omit=dev
 
-# Copy Prisma tooling and engine binaries from builder.
-# .prisma/  — generated client; @prisma/ — engines+client packages (not in prod deps);
-# prisma/   — CLI; .bin/prisma — CLI shim.
+# Copy generated Prisma client from builder (created by prisma generate in npm run build).
+# prisma and @prisma/client are prod deps so npm ci --omit=dev installs them;
+# only the generated .prisma/ directory needs copying from builder.
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 
 # Copy compiled application
 COPY --from=builder /app/dist ./dist
