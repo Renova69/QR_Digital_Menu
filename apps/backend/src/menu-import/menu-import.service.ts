@@ -78,6 +78,7 @@ export class MenuImportService {
             order: true,
             imageUrl: true,
             thumbnailUrl: true,
+            options: { select: { name: true, translations: true } },
           },
         },
       },
@@ -190,7 +191,12 @@ export class MenuImportService {
             // Build item lookup map from preloaded data
             const itemMap = new Map<
               string,
-              { id: string; imageUrl: string | null; thumbnailUrl: string | null }
+              {
+                id: string;
+                imageUrl: string | null;
+                thumbnailUrl: string | null;
+                options: Array<{ name: string; translations: unknown }>;
+              }
             >();
             if (existingCat) {
               for (const ei of existingCat.items) {
@@ -269,7 +275,15 @@ export class MenuImportService {
                 stats.created++;
               }
 
-              // Wipe and rebuild options — cleaner than diffing
+              // Rebuild options; preserve existing translations when payload has none.
+              const existingOptMap = new Map<
+                string,
+                { translations: unknown }
+              >();
+              for (const eo of existing?.options ?? []) {
+                existingOptMap.set(eo.name.toLowerCase(), eo);
+              }
+
               await tx.menuOption.deleteMany({ where: { menuItemId } });
 
               for (const opt of item.options ?? []) {
@@ -283,12 +297,16 @@ export class MenuImportService {
                   opt.type === 'ADDON'
                     ? OptionType.ADDON
                     : OptionType.VARIATION;
+                const optName = opt.name || 'Size / Variant';
+                const existingOpt = existingOptMap.get(optName.toLowerCase());
+                const translations = existingOpt?.translations ?? undefined;
                 await tx.menuOption.create({
                   data: {
                     menuItemId,
-                    name: opt.name || 'Size / Variant',
+                    name: optName,
                     type: optType,
                     choices,
+                    ...(translations ? { translations } : {}),
                   },
                 });
               }

@@ -644,7 +644,7 @@ export default function TenantDetailPage() {
       </div>
 
       {/* Staff delete dialog */}
-      <Dialog.Root open={!!staffToDelete} onOpenChange={(open) => !open && setStaffToDelete(null)}>
+      <Dialog.Root open={!!staffToDelete} onOpenChange={(open) => { if (!open) { setStaffToDelete(null); setConfirmationText(""); } }}>
         <DialogShell>
           <Dialog.Title className="text-base font-bold text-white mb-1">{t('auto.deleteStaffMember', 'Delete Staff Member?')}</Dialog.Title>
           <Dialog.Description className="text-sm text-slate-400 mb-5">

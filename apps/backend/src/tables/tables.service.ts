@@ -117,11 +117,21 @@ export class TablesService {
       orderBy: { displayOrder: 'asc' },
     });
 
+    // Find the highest existing "Table N" number to avoid unique-constraint collisions.
+    const existing = await this.prisma.restaurantTable.findMany({
+      where: { restaurantId, name: { startsWith: 'Table ' } },
+      select: { name: true },
+    });
+    const maxN = existing.reduce((max, { name }) => {
+      const n = parseInt(name.replace('Table ', ''), 10);
+      return Number.isFinite(n) ? Math.max(max, n) : max;
+    }, 0);
+
     const tables = await this.prisma.$transaction(
       Array.from({ length: count }, (_, i) =>
         this.prisma.restaurantTable.create({
           data: {
-            name: `Table ${i + 1}`,
+            name: `Table ${maxN + i + 1}`,
             restaurantId,
             zoneId: defaultZone?.id ?? null,
           },

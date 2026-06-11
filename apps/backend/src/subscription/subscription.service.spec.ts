@@ -52,10 +52,13 @@ describe('SubscriptionService', () => {
     restaurant: {
       findUnique: jest.Mock;
       findFirst: jest.Mock;
+      findMany: jest.Mock;
       findUniqueOrThrow: jest.Mock;
       update: jest.Mock;
       updateMany: jest.Mock;
     };
+    adminAuditLog: { create: jest.Mock };
+    $transaction: jest.Mock;
     user: { findUniqueOrThrow: jest.Mock };
   };
 
@@ -81,6 +84,7 @@ describe('SubscriptionService', () => {
           ownerId: 'owner1',
         }),
         findFirst: jest.fn().mockResolvedValue({ ownerId: 'owner1' }),
+        findMany: jest.fn().mockResolvedValue([]),
         findUniqueOrThrow: jest.fn().mockResolvedValue({
           stripeCustomerId: 'cus_test',
           ownerId: 'owner1',
@@ -88,6 +92,10 @@ describe('SubscriptionService', () => {
         update: jest.fn().mockResolvedValue({}),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
+      adminAuditLog: { create: jest.fn().mockResolvedValue({}) },
+      $transaction: jest.fn().mockImplementation((ops: unknown[]) =>
+        Promise.all(ops),
+      ),
       user: {
         findUniqueOrThrow: jest
           .fn()
@@ -610,24 +618,41 @@ describe('SubscriptionService', () => {
 
   describe('enforceGraceExpiry', () => {
     it('downgrades restaurants with expired pastDueGraceExpiry to FREE', async () => {
+      prisma.restaurant.findMany.mockResolvedValue([
+        { id: 'rest-1', tier: 'STARTER' },
+      ]);
+
       await service.enforceGraceExpiry();
 
+      expect(prisma.$transaction).toHaveBeenCalled();
       expect(prisma.restaurant.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: {
-            pastDueGraceExpiry: expect.objectContaining({
-              lt: expect.any(Date),
-              not: null,
-            }),
-            tier: { not: 'FREE' },
-          },
-          data: {
+          where: { id: { in: ['rest-1'] } },
+          data: expect.objectContaining({
             tier: 'FREE',
             pastDueGraceExpiry: null,
             tierUpdatedAt: expect.any(Date),
-          },
+          }),
         }),
       );
+      expect(prisma.adminAuditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            actorUserId: 'SYSTEM',
+            action: 'TIER_DOWNGRADE',
+            targetId: 'rest-1',
+          }),
+        }),
+      );
+    });
+
+    it('does nothing when no restaurants have expired grace period', async () => {
+      prisma.restaurant.findMany.mockResolvedValue([]);
+
+      await service.enforceGraceExpiry();
+
+      expect(prisma.restaurant.updateMany).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
   });
 

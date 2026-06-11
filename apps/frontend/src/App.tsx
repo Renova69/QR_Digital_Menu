@@ -169,7 +169,7 @@ function App() {
             <Route path="/device-login" element={<DeviceLoginPage />} />
 
             {/* Super Admin — dark sidebar, platform-wide access */}
-            <Route element={<SuperAdminLayout />}>
+            <Route element={<SuperAdminRoute><SuperAdminLayout /></SuperAdminRoute>}>
               <Route
                 path="/super-admin"
                 element={

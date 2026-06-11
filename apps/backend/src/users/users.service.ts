@@ -9,6 +9,7 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { FeatureService } from '../subscription/feature.service';
+import { EventsGateway } from '../events/events.gateway';
 import { isPinRole } from './staff-roles';
 import { User, Prisma } from '@prisma/client';
 
@@ -19,6 +20,7 @@ export class UsersService {
   constructor(
     private prisma: PrismaService,
     private featureService: FeatureService,
+    private events: EventsGateway,
   ) {}
 
   /** Generates a PIN that doesn't collide with any existing hash in the list.
@@ -312,6 +314,11 @@ export class UsersService {
         updatedAt: true,
       },
     });
+
+    // Evict live WebSocket sessions when a staff member is disabled (Issue 39)
+    if (data.isActive === false) {
+      void this.events.evictUser(updated.id);
+    }
 
     // Surface the freshly minted PIN so the dashboard can show it (WAITER/KITCHEN).
     return pinCredential

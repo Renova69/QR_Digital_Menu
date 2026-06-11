@@ -129,19 +129,36 @@ describe('RestaurantsService — Stripe Connect', () => {
   });
 
   describe('disconnectStripe', () => {
-    it('clears stripeAccountId and sets stripeOnboarded=false', async () => {
+    it('clears stripeAccountId and sets stripeOnboarded=false (and paymentsEnabled when no other provider)', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         id: 'rest1',
         ownerId: 'user1',
         stripeAccountId: 'acct_123',
+        epayEnabled: false,
+        boricaEnabled: false,
       });
 
       await service.disconnectStripe('rest1', 'user1');
 
       expect(mockPrisma.restaurant.update).toHaveBeenCalledWith({
         where: { id: 'rest1' },
-        data: { stripeAccountId: null, stripeOnboarded: false },
+        data: { stripeAccountId: null, stripeOnboarded: false, paymentsEnabled: false },
       });
+    });
+
+    it('preserves paymentsEnabled when another provider is active', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest1',
+        ownerId: 'user1',
+        stripeAccountId: 'acct_123',
+        epayEnabled: true,
+        boricaEnabled: false,
+      });
+
+      await service.disconnectStripe('rest1', 'user1');
+
+      const updateCall = mockPrisma.restaurant.update.mock.calls[0][0];
+      expect(updateCall.data.paymentsEnabled).toBeUndefined();
     });
   });
 

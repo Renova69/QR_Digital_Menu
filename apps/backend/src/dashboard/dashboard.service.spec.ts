@@ -277,18 +277,16 @@ describe('DashboardService', () => {
         _avg: { totalPrice: 50 },
       });
       mockPrisma.order.groupBy.mockResolvedValue([]);
-      // Return an order so revenueTrend, peakHours and ordersByTable loop bodies run
+      // Return an order so revenueTrend loop body runs (getRevenueTrend still uses findMany)
       mockPrisma.order.findMany.mockResolvedValue([
         { createdAt: new Date(), totalPrice: 50, tableId: 'table-1' },
       ]);
-      // Return an orderItem so getTopItems and getCategoryBreakdown loop bodies run
-      mockPrisma.orderItem.findMany.mockResolvedValue([
-        {
-          menuItemId: 'item-1',
-          quantity: 2,
-          menuItem: { name: 'Pizza', price: 10, category: { name: 'Food' } },
-        },
-      ]);
+      // getTopItems, getPeakHours, getCategoryBreakdown, getOrdersByTable now use $queryRaw (Issue 44)
+      mockPrisma.$queryRaw
+        .mockResolvedValueOnce([{ name: 'Pizza', quantity: 2, revenue: 20.0 }]) // getTopItems
+        .mockResolvedValueOnce([]) // getPeakHours
+        .mockResolvedValueOnce([{ category: 'Food', revenue: 20.0 }]) // getCategoryBreakdown
+        .mockResolvedValueOnce([{ table_id: 'table-1', orders: 1, revenue: 50.0 }]); // getOrdersByTable
     });
 
     it('populates topItems when orderItems exist', async () => {
@@ -355,10 +353,10 @@ describe('DashboardService', () => {
       mockViews.isReady.mockReturnValue(false);
     });
 
-    it('calls $queryRaw three times (revenueTrend, peakHours, topItems views)', async () => {
+    it('calls $queryRaw five times (3 view + 2 non-view: categoryBreakdown, ordersByTable)', async () => {
       await service.getAnalytics('rest-1', 7);
 
-      expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(3);
+      expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(5);
     });
 
     it('maps revenue view rows to revenueTrend entries', async () => {
@@ -389,10 +387,11 @@ describe('DashboardService', () => {
     });
 
     it('maps peak hours view rows — shifts UTC hour to local', async () => {
+      // Views path: $queryRaw called 5 times (3 view + categoryBreakdown + ordersByTable)
       mockPrisma.$queryRaw
-        .mockResolvedValueOnce([]) // 1: revenueTrend
-        .mockResolvedValueOnce([]) // 2: topItems
-        .mockResolvedValueOnce([{ hour_utc: 10, total_orders: 7 }]); // 3: peakHours
+        .mockResolvedValueOnce([]) // 1: revenueTrend view
+        .mockResolvedValueOnce([]) // 2: topItems view
+        .mockResolvedValueOnce([{ local_hour: 10, total_orders: 7 }]); // 3: peakHours view (SQL AT TIME ZONE → local_hour)
 
       const result = (await service.getAnalytics(
         'rest-3',

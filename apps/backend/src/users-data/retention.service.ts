@@ -19,13 +19,9 @@ export class RetentionService {
 
     const now = new Date();
 
-    const tokenCutoff = new Date(now);
-    tokenCutoff.setDate(
-      tokenCutoff.getDate() - settings.verificationTokenTtlDays,
-    );
     const { count: deletedVerificationTokens } =
       await this.prisma.verificationToken.deleteMany({
-        where: { expiresAt: { lt: tokenCutoff } },
+        where: { expiresAt: { lt: now } },
       });
 
     const orderCutoff = new Date(now);

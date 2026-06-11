@@ -882,6 +882,23 @@ describe('PaymentService', () => {
       expect(mockPrisma.tableSession.updateMany).not.toHaveBeenCalled();
       expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
     });
+
+    // Issue 36 regression: req.body must be a raw Buffer so Stripe signature
+    // verification (constructEvent) can compare against the original bytes.
+    // DO NOT change to @Body() or req.rawBody — that breaks HMAC verification.
+    it('passes raw Buffer payload to constructWebhookEvent (Issue 36 regression)', () => {
+      const rawPayload = Buffer.from('{"type":"test"}');
+      mockStripeProvider.constructWebhookEvent.mockReturnValue({
+        type: 'unknown.event',
+        data: { object: {} },
+      });
+
+      service.handleWebhookEvent(rawPayload, 'sig');
+
+      const [capturedPayload] = mockStripeProvider.constructWebhookEvent.mock.calls[0] as [Buffer, string];
+      expect(Buffer.isBuffer(capturedPayload)).toBe(true);
+      expect(capturedPayload).toBe(rawPayload);
+    });
   });
 
   describe('createPaymentIntent — idempotency (Issue 35)', () => {
