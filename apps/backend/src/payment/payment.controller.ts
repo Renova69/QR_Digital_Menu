@@ -258,6 +258,9 @@ export class PaymentController {
     @Req() req: any,
     @Headers('stripe-signature') signature: string,
   ) {
+    // req.body is a raw Buffer here — main.ts applies express.raw() on this path
+    // BEFORE express.json(). DO NOT switch to @Body() or use req.rawBody; Stripe
+    // signature verification (constructEvent) requires the original byte sequence.
     return this.paymentService.handleWebhookEvent(req.body, signature);
   }
 
