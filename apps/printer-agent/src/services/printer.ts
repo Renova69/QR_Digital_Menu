@@ -13,6 +13,7 @@ export function sendToPrinter(
     const done = (err?: Error) => {
       if (resolved) return;
       resolved = true;
+      clearTimeout(timer);
       try {
         client?.destroy();
       } catch {}
@@ -23,7 +24,6 @@ export function sendToPrinter(
     const timer = setTimeout(() => done(new Error('Print timeout')), timeoutMs);
 
     client = TcpSocket.createConnection({ host: ip, port }, () => {
-      clearTimeout(timer);
       // 'binary' encoding maps each char code directly to a byte — no Buffer
       // polyfill needed, avoiding the .buffer (ArrayBuffer) crash in Hermes
       client!.write(data, 'binary', (writeErr?: Error | null) => {
@@ -36,9 +36,6 @@ export function sendToPrinter(
       });
     });
 
-    client.on('error', (err: Error) => {
-      clearTimeout(timer);
-      done(err);
-    });
+    client.on('error', done);
   });
 }
