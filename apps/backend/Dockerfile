@@ -1,21 +1,48 @@
-FROM node:24-slim
+# ─── Stage 1: Build ────────────────────────────────────────────────────────
+FROM node:24-slim AS builder
 
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy package files first (for better caching)
 COPY package*.json ./
+RUN npm ci
 
-# Install app dependencies
-RUN npm install
-
-# Copy the rest of the application source code
 COPY . .
-
-# Build the app including Prisma generate
 RUN npm run build
 
+# ─── Stage 2: Production ───────────────────────────────────────────────────
+FROM node:24-slim AS runner
+
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY package*.json ./
+# Production deps only (excludes devDependencies, reduces image size)
+RUN npm ci --omit=dev
+
+# Copy Prisma-generated engine and CLI from builder
+# (@prisma/client is installed above; .prisma/ holds the compiled engine binary)
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+
+# Copy compiled application
+COPY --from=builder /app/dist ./dist
+
+# Copy Prisma schema/migrations for migrate deploy
+COPY prisma ./prisma
+
+RUN mkdir -p uploads && chown -R node:node /app
+
+USER node
+
 EXPOSE 3000
-RUN mkdir -p /app/uploads
-CMD ["npm", "run", "start:prod"]
+
+# Run pending migrations before starting the server (Issue 48).
+# Requires DATABASE_URL to be set via Secret Manager at runtime.
+# NOTE: Before first use, baseline the prod DB:
+#   npx prisma migrate resolve --applied 20260611000000_schema_safety_constraints
+# Then verify clean: npx prisma migrate status
+CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && node dist/src/main"]

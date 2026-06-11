@@ -32,6 +32,7 @@ Write-Host "==> Deploying to Cloud Run..."
     --image=$IMAGE `
     --region=$REGION `
     --platform=managed `
+    --session-affinity `
     2>&1
 if ($LASTEXITCODE -ne 0) { Write-Error "Deploy failed"; exit 1 }
 
