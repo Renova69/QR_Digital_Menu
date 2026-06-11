@@ -1,0 +1,998 @@
+[
+  {
+    "key": "nav.features",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/Header.tsx",
+    "line": 56,
+    "defaultText": "Features"
+  },
+  {
+    "key": "nav.pricing",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/Header.tsx",
+    "line": 57,
+    "defaultText": "Pricing"
+  },
+  {
+    "key": "nav.features",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/Header.tsx",
+    "line": 133,
+    "defaultText": "Features"
+  },
+  {
+    "key": "nav.pricing",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/Header.tsx",
+    "line": 136,
+    "defaultText": "Pricing"
+  },
+  {
+    "key": "checkout.itemNotFound",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/CheckoutPage.tsx",
+    "line": 231,
+    "defaultText": null
+  },
+  {
+    "key": "checkout.clearCartAndReturn",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/CheckoutPage.tsx",
+    "line": 276,
+    "defaultText": null
+  },
+  {
+    "key": "checkout.loyaltyLoadFailed",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/CheckoutPage.tsx",
+    "line": 381,
+    "defaultText": null
+  },
+  {
+    "key": "checkout.nameOptional",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/CheckoutPage.tsx",
+    "line": 510,
+    "defaultText": "optional"
+  },
+  {
+    "key": "dashboard.enterpriseCard",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/DashboardPage.tsx",
+    "line": 445,
+    "defaultText": "Custom SLA, white-label & priority support"
+  },
+  {
+    "key": "dashboard.proCard",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/DashboardPage.tsx",
+    "line": 446,
+    "defaultText": "Unlock analytics, loyalty & more"
+  },
+  {
+    "key": "dashboard.upgrade",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/DashboardPage.tsx",
+    "line": 453,
+    "defaultText": "Upgrade Plan"
+  },
+  {
+    "key": "dashboard.welcomeBack",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/DashboardPage.tsx",
+    "line": 500,
+    "defaultText": "Welcome back"
+  },
+  {
+    "key": "dashboard.happeningAt",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/DashboardPage.tsx",
+    "line": 505,
+    "defaultText": "Here's what's happening at"
+  },
+  {
+    "key": "dashboard.more",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/DashboardPage.tsx",
+    "line": 684,
+    "defaultText": "More"
+  },
+  {
+    "key": "dashboard.more",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/DashboardPage.tsx",
+    "line": 696,
+    "defaultText": "More"
+  },
+  {
+    "key": "menuAdmin.backToDashboard",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/MenuEditorPage.tsx",
+    "line": 115,
+    "defaultText": "Back to dashboard"
+  },
+  {
+    "key": "menuAdmin.editorForRestaurant",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/MenuEditorPage.tsx",
+    "line": 122,
+    "defaultText": "Editing menu for {{restaurantName}}"
+  },
+  {
+    "key": "dashboard.welcomeBack",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/MenuEditorPage.tsx",
+    "line": 128,
+    "defaultText": "Welcome back"
+  },
+  {
+    "key": "menuAdmin.editorSubtitle",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/MenuEditorPage.tsx",
+    "line": 129,
+    "defaultText": "Manage your menu."
+  },
+  {
+    "key": "menuAdmin.editorSections",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/MenuEditorPage.tsx",
+    "line": 155,
+    "defaultText": "Menu editor sections"
+  },
+  {
+    "key": "menuAdmin.itemsTab",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/MenuEditorPage.tsx",
+    "line": 160,
+    "defaultText": "Items"
+  },
+  {
+    "key": "pricing.billing.recurringNote",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/PricingPage.tsx",
+    "line": 267,
+    "defaultText": "All paid plans auto-renew via Stripe. Cancel anytime from the Billing Portal."
+  },
+  {
+    "key": "pricing.currentPlan",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/PricingPage.tsx",
+    "line": 332,
+    "defaultText": "Current Plan"
+  },
+  {
+    "key": "pricing.manageBilling",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/PricingPage.tsx",
+    "line": 334,
+    "defaultText": "Manage in Billing Portal"
+  },
+  {
+    "key": "publicMenu.noItemsMatchFilter",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/PublicMenuPage.tsx",
+    "line": 741,
+    "defaultText": "No items match this filter"
+  },
+  {
+    "key": "publicMenu.howCanWeHelp",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/PublicMenuPage.tsx",
+    "line": 904,
+    "defaultText": "How can we help?"
+  },
+  {
+    "key": "publicMenu.selectAssistanceType",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/PublicMenuPage.tsx",
+    "line": 907,
+    "defaultText": "Choose the type of help you need"
+  },
+  {
+    "key": "publicMenu.callWaiterDesc",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/PublicMenuPage.tsx",
+    "line": 918,
+    "defaultText": "I'd like to order or ask a question"
+  },
+  {
+    "key": "publicMenu.needHelp",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/PublicMenuPage.tsx",
+    "line": 928,
+    "defaultText": "Need Urgent Help"
+  },
+  {
+    "key": "publicMenu.needHelpDesc",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/PublicMenuPage.tsx",
+    "line": 929,
+    "defaultText": "I need immediate assistance"
+  },
+  {
+    "key": "auth.otp.invalidEmail",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/auth/CustomerLoginModal.tsx",
+    "line": 92,
+    "defaultText": "Enter a valid email address."
+  },
+  {
+    "key": "auth.otp.invalidPhone",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/auth/CustomerLoginModal.tsx",
+    "line": 94,
+    "defaultText": "Enter your phone number."
+  },
+  {
+    "key": "auth.otp.sentViaWhatsApp",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/auth/CustomerLoginModal.tsx",
+    "line": 159,
+    "defaultText": "Sent via WhatsApp to"
+  },
+  {
+    "key": "auth.otp.sentViaSms",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/auth/CustomerLoginModal.tsx",
+    "line": 161,
+    "defaultText": "Sent via SMS to"
+  },
+  {
+    "key": "auth.otp.tabEmail",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/auth/CustomerLoginModal.tsx",
+    "line": 207,
+    "defaultText": "Email"
+  },
+  {
+    "key": "auth.otp.tabPhone",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/auth/CustomerLoginModal.tsx",
+    "line": 212,
+    "defaultText": "Phone"
+  },
+  {
+    "key": "auth.otp.changePhone",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/auth/CustomerLoginModal.tsx",
+    "line": 295,
+    "defaultText": "Change number"
+  },
+  {
+    "key": "menuCheck.all",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/dashboard/MenuCheckWidget.tsx",
+    "line": 99,
+    "defaultText": "All"
+  },
+  {
+    "key": "menuAdmin.addCategoryDesc",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/menu/CreateCategoryForm.tsx",
+    "line": 28,
+    "defaultText": "Add a new category to your menu."
+  },
+  {
+    "key": "menuAdmin.categoryNamePlaceholder",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/menu/CreateCategoryForm.tsx",
+    "line": 36,
+    "defaultText": "Category name"
+  },
+  {
+    "key": "common.close",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/menu/FilterPanel.tsx",
+    "line": 76,
+    "defaultText": "Close"
+  },
+  {
+    "key": "publicMenu.clearFilters",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/menu/FilterPanel.tsx",
+    "line": 154,
+    "defaultText": "Clear filters"
+  },
+  {
+    "key": "payment.stripeUnavailable",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/payment/PaymentModal.tsx",
+    "line": 120,
+    "defaultText": "Payment is currently unavailable — please contact staff."
+  },
+  {
+    "key": "payment.unexpectedStatus",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/payment/PaymentModal.tsx",
+    "line": 146,
+    "defaultText": "Payment status unclear — please contact staff"
+  },
+  {
+    "key": "payment.billLoadError",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/payment/PaymentModal.tsx",
+    "line": 219,
+    "defaultText": "Could not load bill — please try again"
+  },
+  {
+    "key": "payment.redirecting",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/payment/PaymentModal.tsx",
+    "line": 280,
+    "defaultText": "Redirecting"
+  },
+  {
+    "key": "common.retry",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/payment/PaymentModal.tsx",
+    "line": 298,
+    "defaultText": "Retry"
+  },
+  {
+    "key": "payment.paymentMethod",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/payment/PaymentModal.tsx",
+    "line": 391,
+    "defaultText": "Payment method"
+  },
+  {
+    "key": "payment.cardBorica",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/payment/PaymentModal.tsx",
+    "line": 404,
+    "defaultText": "Card (BORICA)"
+  },
+  {
+    "key": "payment.cardOnline",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/payment/PaymentModal.tsx",
+    "line": 404,
+    "defaultText": "Card online"
+  },
+  {
+    "key": "payment.noProviders",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/payment/PaymentModal.tsx",
+    "line": 413,
+    "defaultText": "Online payment is not configured for this restaurant."
+  },
+  {
+    "key": "payment.continueToEpay",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/payment/PaymentModal.tsx",
+    "line": 423,
+    "defaultText": "Continue to ePay.bg"
+  },
+  {
+    "key": "payment.continueToBorica",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/payment/PaymentModal.tsx",
+    "line": 425,
+    "defaultText": "Pay by card (BORICA)"
+  },
+  {
+    "key": "payment.redirectingToBorica",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/payment/PaymentModal.tsx",
+    "line": 459,
+    "defaultText": "Opening BORICA secure checkout..."
+  },
+  {
+    "key": "payment.redirectingToEpay",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/payment/PaymentModal.tsx",
+    "line": 460,
+    "defaultText": "Opening ePay.bg secure checkout..."
+  },
+  {
+    "key": "payment.openBorica",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/payment/PaymentModal.tsx",
+    "line": 468,
+    "defaultText": "Open BORICA checkout"
+  },
+  {
+    "key": "payment.openEpay",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/payment/PaymentModal.tsx",
+    "line": 469,
+    "defaultText": "Open ePay.bg"
+  },
+  {
+    "key": "subscription.freePrice",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 115,
+    "defaultText": "Free"
+  },
+  {
+    "key": "subscription.status.canceling",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 186,
+    "defaultText": "Canceling"
+  },
+  {
+    "key": "subscription.status.active",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 188,
+    "defaultText": "Active"
+  },
+  {
+    "key": "subscription.status.free",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 190,
+    "defaultText": "Free"
+  },
+  {
+    "key": "subscription.status.manual",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 191,
+    "defaultText": "Manual access"
+  },
+  {
+    "key": "subscription.billingStatus",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 223,
+    "defaultText": "Billing status"
+  },
+  {
+    "key": "subscription.cancelsOn",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 227,
+    "defaultText": "Cancels {{date}}"
+  },
+  {
+    "key": "subscription.renewsOn",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 229,
+    "defaultText": "Renews {{date}}"
+  },
+  {
+    "key": "subscription.noRenewalDate",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 230,
+    "defaultText": "No renewal date"
+  },
+  {
+    "key": "subscription.staffSeats",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 237,
+    "defaultText": "Staff seats"
+  },
+  {
+    "key": "subscription.staffUsageUnavailable",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 245,
+    "defaultText": "Could not load current usage"
+  },
+  {
+    "key": "subscription.activeStaff",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 246,
+    "defaultText": "{{count}} active staff"
+  },
+  {
+    "key": "subscription.planAccess",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 251,
+    "defaultText": "Plan access"
+  },
+  {
+    "key": "subscription.featuresCount",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 252,
+    "defaultText": "{{count}} features"
+  },
+  {
+    "key": "subscription.nextPlan",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 255,
+    "defaultText": "Next: {{tier}}"
+  },
+  {
+    "key": "subscription.highestPlan",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 256,
+    "defaultText": "Highest plan"
+  },
+  {
+    "key": "subscription.usageTitle",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 267,
+    "defaultText": "Plan usage"
+  },
+  {
+    "key": "subscription.usageDesc",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 270,
+    "defaultText": "Track limits that affect access inside this restaurant."
+  },
+  {
+    "key": "subscription.manageStaff",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 279,
+    "defaultText": "Manage staff"
+  },
+  {
+    "key": "subscription.staffSeats",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 287,
+    "defaultText": "Staff seats"
+  },
+  {
+    "key": "subscription.unlimitedStaffDesc",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 303,
+    "defaultText": "This plan does not limit staff seats."
+  },
+  {
+    "key": "subscription.staffUsageDesc",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 304,
+    "defaultText": "{{remaining}} seats remaining"
+  },
+  {
+    "key": "subscription.includedFeaturesDesc",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 317,
+    "defaultText": "Grouped by the parts of the product they unlock."
+  },
+  {
+    "key": "subscription.billingActions",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 365,
+    "defaultText": "Billing actions"
+  },
+  {
+    "key": "subscription.billingActionsDesc",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 368,
+    "defaultText": "Manage your SaaS plan and invoices separately from restaurant payments."
+  },
+  {
+    "key": "subscription.freePlanHelp",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 390,
+    "defaultText": "Upgrade when you are ready to unlock paid features."
+  },
+  {
+    "key": "subscription.manualPlanHelp",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 391,
+    "defaultText": "This restaurant has plan access without an active Stripe subscription."
+  },
+  {
+    "key": "subscription.comparePlans",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 402,
+    "defaultText": "Compare plans"
+  },
+  {
+    "key": "subscription.recommendedNext",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 410,
+    "defaultText": "Recommended next"
+  },
+  {
+    "key": "subscription.upgradeToTier",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 413,
+    "defaultText": "Upgrade to {{tier}}"
+  },
+  {
+    "key": "subscription.unlocks",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 416,
+    "defaultText": "Unlocks {{count}} more capabilities for this restaurant."
+  },
+  {
+    "key": "subscription.startUpgrade",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/BillingView.tsx",
+    "line": 438,
+    "defaultText": "Start upgrade"
+  },
+  {
+    "key": "upgrade.premiumFeature",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/UpgradeModal.tsx",
+    "line": 151,
+    "defaultText": "Premium Feature"
+  },
+  {
+    "key": "upgrade.unlockTitle",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/UpgradeModal.tsx",
+    "line": 157,
+    "defaultText": "Unlock {{feature}}"
+  },
+  {
+    "key": "upgrade.subtitle",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/UpgradeModal.tsx",
+    "line": 160,
+    "defaultText": "Available from the {{tier}} plan. Upgrade to unlock this and more."
+  },
+  {
+    "key": "upgrade.recommended",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/UpgradeModal.tsx",
+    "line": 182,
+    "defaultText": "Recommended"
+  },
+  {
+    "key": "upgrade.cta",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/UpgradeModal.tsx",
+    "line": 213,
+    "defaultText": "Upgrade to {{tier}}"
+  },
+  {
+    "key": "upgrade.maybeLater",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/subscription/UpgradeModal.tsx",
+    "line": 229,
+    "defaultText": "Maybe later"
+  },
+  {
+    "key": "tables.tableDetailLabel",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/tables/TableDetailModal.tsx",
+    "line": 177,
+    "defaultText": "Table Detail"
+  },
+  {
+    "key": "tables.activeOrders",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/components/tables/TableDetailModal.tsx",
+    "line": 270,
+    "defaultText": "Active Orders"
+  },
+  {
+    "key": "common.menu",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/AssistanceView.tsx",
+    "line": 159,
+    "defaultText": "Menu"
+  },
+  {
+    "key": "orders.previewSound",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/AssistanceView.tsx",
+    "line": 187,
+    "defaultText": "Preview request sound"
+  },
+  {
+    "key": "importExport.keyHidden",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/MenuImportExportView.tsx",
+    "line": 317,
+    "defaultText": "key hidden"
+  },
+  {
+    "key": "importExport.saveKeyNow",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/MenuImportExportView.tsx",
+    "line": 336,
+    "defaultText": "Copy this key now — for security it is not stored in readable form and cannot be shown again."
+  },
+  {
+    "key": "importExport.keyConfigured",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/MenuImportExportView.tsx",
+    "line": 344,
+    "defaultText": "A key is configured. It cannot be displayed again — regenerate to issue a new one."
+  },
+  {
+    "key": "orders.unknownItem",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/OrdersView.tsx",
+    "line": 216,
+    "defaultText": "Item"
+  },
+  {
+    "key": "common.menu",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/OrdersView.tsx",
+    "line": 234,
+    "defaultText": "Menu"
+  },
+  {
+    "key": "orders.subtitle",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/OrdersView.tsx",
+    "line": 243,
+    "defaultText": "Track and route every order in real-time."
+  },
+  {
+    "key": "orders.searchPlaceholder",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/OrdersView.tsx",
+    "line": 254,
+    "defaultText": "Search by order # or table..."
+  },
+  {
+    "key": "orders.previewSound",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/OrdersView.tsx",
+    "line": 262,
+    "defaultText": "Preview order sound"
+  },
+  {
+    "key": "orders.unknownItem",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/OrdersView.tsx",
+    "line": 405,
+    "defaultText": "Item"
+  },
+  {
+    "key": "orders.noSearchResults",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/OrdersView.tsx",
+    "line": 574,
+    "defaultText": "Try a different order number, table, or dish."
+  },
+  {
+    "key": "orders.clearKitchen",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/OrdersView.tsx",
+    "line": 575,
+    "defaultText": "The kitchen is clear for now."
+  },
+  {
+    "key": "dashboard.staff",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/PaymentDrawer.tsx",
+    "line": 112,
+    "defaultText": "Staff"
+  },
+  {
+    "key": "dashboard.staff",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/PaymentDrawer.tsx",
+    "line": 117,
+    "defaultText": "Staff"
+  },
+  {
+    "key": "orders.selfOrder",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/PaymentDrawer.tsx",
+    "line": 121,
+    "defaultText": "Self"
+  },
+  {
+    "key": "payments.configured",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/PaymentsView.tsx",
+    "line": 583,
+    "defaultText": "Configured"
+  },
+  {
+    "key": "payments.notConfigured",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/PaymentsView.tsx",
+    "line": 583,
+    "defaultText": "Not configured"
+  },
+  {
+    "key": "settings.loyaltyLocked",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/SettingsView.tsx",
+    "line": 96,
+    "defaultText": "Loyalty is part of the Professional plan"
+  },
+  {
+    "key": "settings.loyaltyLockedDesc",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/SettingsView.tsx",
+    "line": 99,
+    "defaultText": "Upgrade to re-enable your loyalty program. Your existing settings and customer point balances are preserved and resume automatically."
+  },
+  {
+    "key": "dashboard.noLoyaltyData",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/SummaryView.tsx",
+    "line": 234,
+    "defaultText": "No loyalty data yet"
+  },
+  {
+    "key": "dashboard.loyaltyDisabled",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/SummaryView.tsx",
+    "line": 235,
+    "defaultText": "Loyalty program is disabled — enable it in Settings"
+  },
+  {
+    "key": "onboarding.checkoutError",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/onboarding/OnboardingPage.tsx",
+    "line": 152,
+    "defaultText": null
+  },
+  {
+    "key": "settings.googleReview",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/GeneralSettingsTab.tsx",
+    "line": 331,
+    "defaultText": "Google Review CTA"
+  },
+  {
+    "key": "settings.googleReviewDesc",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/GeneralSettingsTab.tsx",
+    "line": 334,
+    "defaultText": "After checkout, customers with 4- or 5-star ratings are redirected to your Google review page."
+  },
+  {
+    "key": "settings.googleReviewUrl",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/GeneralSettingsTab.tsx",
+    "line": 338,
+    "defaultText": "Google Review URL"
+  },
+  {
+    "key": "settings.googleReviewActive",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/GeneralSettingsTab.tsx",
+    "line": 350,
+    "defaultText": "Redirect active — customers will be sent to Google after checkout"
+  },
+  {
+    "key": "payment.settings.statusEpayConfigured",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 217,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.statusEpayNotConfigured",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 218,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.configureProviderWarning",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 275,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.epayDesc",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 350,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.epayMode",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 364,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.epayDemo",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 371,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.epayLive",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 372,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.epayPage",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 378,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.epayDirectCard",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 386,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.epayLogin",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 389,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.epayClientId",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 396,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.epayEmail",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 408,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.epaySecret",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 421,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.epaySecretConfigured",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 433,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.boricaDesc",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 449,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.boricaMode",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 463,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.boricaDemo",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 470,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.boricaLive",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 471,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.boricaCurrency",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 477,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.boricaTerminalId",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 493,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.boricaMerchantId",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 505,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.boricaMerchantName",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 517,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.boricaPrivateKey",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 530,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.boricaKeyConfigured",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 541,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.boricaPublicCert",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 548,
+    "defaultText": null
+  },
+  {
+    "key": "payment.settings.boricaDemoNote",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/PaymentSettingsTab.tsx",
+    "line": 563,
+    "defaultText": null
+  },
+  {
+    "key": "common.disable",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/StaffSettingsTab.tsx",
+    "line": 774,
+    "defaultText": "Disable"
+  },
+  {
+    "key": "common.enable",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/StaffSettingsTab.tsx",
+    "line": 774,
+    "defaultText": "Enable"
+  },
+  {
+    "key": "staff.inviteNewStaffDesc",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/StaffSettingsTab.tsx",
+    "line": 901,
+    "defaultText": "Create a staff account. Waiter and kitchen roles get a PIN; manager and staff roles get a temporary password."
+  },
+  {
+    "key": "staff.inviteHintPin",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/StaffSettingsTab.tsx",
+    "line": 942,
+    "defaultText": "The account is created now with a one-time PIN. Sending a direct email invitation can be added in v2."
+  },
+  {
+    "key": "staff.inviteHintPassword",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/settings/StaffSettingsTab.tsx",
+    "line": 946,
+    "defaultText": "The account is created now with a temporary password. Sending a direct email invitation can be added in v2."
+  },
+  {
+    "key": "dashboard.viewMenu",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/summary/QuickActionsRow.tsx",
+    "line": 24,
+    "defaultText": "View Menu"
+  },
+  {
+    "key": "dashboard.viewMenuDesc",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/summary/QuickActionsRow.tsx",
+    "line": 25,
+    "defaultText": "Public digital menu"
+  },
+  {
+    "key": "dashboard.addItem",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/summary/QuickActionsRow.tsx",
+    "line": 33,
+    "defaultText": "Add Item"
+  },
+  {
+    "key": "dashboard.addItemDesc",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/summary/QuickActionsRow.tsx",
+    "line": 34,
+    "defaultText": "Update your catalog"
+  },
+  {
+    "key": "dashboard.openPos",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/summary/QuickActionsRow.tsx",
+    "line": 41,
+    "defaultText": "Open POS"
+  },
+  {
+    "key": "dashboard.openPosDesc",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/summary/QuickActionsRow.tsx",
+    "line": 42,
+    "defaultText": "Manage live orders"
+  },
+  {
+    "key": "dashboard.translateMenu",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/summary/QuickActionsRow.tsx",
+    "line": 49,
+    "defaultText": "Translate"
+  },
+  {
+    "key": "dashboard.translateDesc",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/summary/QuickActionsRow.tsx",
+    "line": 50,
+    "defaultText": "Manage languages"
+  },
+  {
+    "key": "dashboard.quickActions",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/Dashboard/summary/QuickActionsRow.tsx",
+    "line": 61,
+    "defaultText": "Quick Actions"
+  },
+  {
+    "key": "onboarding.basics.alreadyCreated",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/onboarding/steps/RestaurantBasicsStep.tsx",
+    "line": 34,
+    "defaultText": null
+  },
+  {
+    "key": "onboarding.basics.alreadyCreatedGeneric",
+    "file": "F:/PROGRAMING/QR_Digital_Menu-main/apps/frontend/src/pages/onboarding/steps/RestaurantBasicsStep.tsx",
+    "line": 35,
+    "defaultText": null
+  }
+]

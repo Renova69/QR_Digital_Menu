@@ -1,0 +1,159 @@
+1. 🍽️ Customer-Facing (Public Menu & Ordering)
+Branded Digital Menu: A responsive, mobile-first web menu loaded via table QR codes (/menu/public/:restaurantId?table=:name). Injects custom brand colors, typography, and default themes from the restaurant profile.
+Smart Filter & Search: Full-text menu search, dietary filters (Vegan, Spicy, New, etc.), and allergen exclusion pills.
+Pinch-to-Zoom Lightbox: Integrated gesture-driven image viewer for high-res menu items.
+Variation & Add-on Modifiers: Supports complex choices (e.g., sizing, doneness, extra toppings) with dynamic price modifiers.
+Multi-Currency Pricing: Displays prices in both EUR and BGN concurrently using the Bulgarian National Bank (BNB) fixed conversion rate.
+Upselling Engine ("Perfect Pairings"): Deterministic upsells at item-level (pairings) and checkout-level (suggesting drinks if none are present in the cart).
+Call Waiter & Assistance: Standard or urgent assistance requests sent to staff with a call cooldown system.
+Customer Feedback Loop: Star-rating and comments collection; ratings ≥4 redirect users directly to Google Reviews.
+2. 💳 SaaS Subscription Tiers & Stripe Payments
+4-Tier SaaS Model: Features are dynamically locked or unlocked via 
+feature.service.ts
+ across four subscription plans: FREE, STARTER, PROFESSIONAL, and ENTERPRISE.
+Stripe Connect Integration: Connects restaurant Stripe accounts to collect payments directly from the table, charging a platform fee on each transaction.
+Dynamic Feature Guarding: Frontend and backend endpoints are guarded by plan checks utilizing 
+useFeature.ts
+.
+3. 🎁 Loyalty & Retention Engine
+FIFO Point Ledger: Advanced point management system defined in 
+loyalty.service.ts
+. Points are handled as discrete batches with expiry dates to prevent concurrent database transactional lockups.
+Timezone-Aware Happy Hour: Integrates timezone-aware happy hour windows with multipliers on points earned.
+VIP Tiers: Automates progress tracking (Bronze, Silver, Gold) with spend multipliers.
+Daily Expiry Reminders: Midnight UTC cron job alerts users of points expiring soon.
+4. 🧑‍🍳 Staff POS & Kitchen Display System (KDS)
+Waiter POS Layout: A dedicated interface (/staff/pos) that uses an ephemeral, in-memory shopping cart enabling waiters to take orders directly at tables.
+Kitchen Display System (KDS): Full-screen live view (/staff/kitchen) showing real-time active order cards, statuses, and special requests.
+Real-time Synchronization: Utilizes WebSocket push notifications via 
+events.gateway.ts
+ to push new orders, status changes, and waiter call alerts instantly.
+Device Enrollment & PIN Login: Scanned QR codes enroll devices to staff-only PIN login screens, requiring a 4-digit PIN instead of a password.
+5. 🛠️ Restaurant Operations (Owner Dashboard)
+Drag-and-Drop Menu Builder: Visually sort menu categories and items via @dnd-kit/sortable with real-time database updates.
+Lazy Menu Translations: Connects to the DeepL API to automatically translate category names, descriptions, and choices on-demand (and caches translations to PostgreSQL JSON columns).
+Menu Health Audit: Scans menus for issues like zero-priced items, missing descriptions, or lack of pictures, offering direct quick-fix navigations.
+Live Table Management: Real-time grid dashboard showing tables as colored cards (empty, occupied, or paid).
+Bulk QR Code Exporter: Print-ready A4 templates and PNG downloads for table QR codes.
+Analytics XLSX Exporter: Downloads platform sales and metrics into spreadsheets.
+6. 👑 Platform Super-Admin Panel
+Operational Dashboard: Located at /super-admin, platform administrators can view aggregated system metrics, suspend/reactivate tenants, perform soft deletes/restores, and override active subscription tiers with automatic local cache invalidation.
+
+
+
+
+
+========= PROMPTS========
+You are in REVIEW/AUDIT MODE.
+
+Do not modify any files.
+Do not refactor anything.
+Do not create new files.
+Do not apply fixes yet.
+Only inspect, reason, and report.
+
+
+I want you to audit one feature at a time, not the entire codebase.
+
+Feature to review:
+kitchen printer integration
+
+Example feature:
+Standalone apk build 
+websockets
+prod workflow 
+Dev workflow
+
+
+
+Your task:
+
+First understand the project structure only enough to locate this feature.
+Identify all files involved in this feature:
+frontend components/pages
+backend routes/controllers
+services/helpers
+database models/tables
+API calls
+validation logic
+state management
+authentication/permissions
+external services
+tests, if any
+Trace the feature end-to-end:
+entry point
+user action
+frontend state changes
+API request
+backend logic
+database read/write
+response handling
+UI result
+error states
+Look specifically for:
+logic bugs
+missing validation
+broken edge cases
+security problems
+permission/auth issues
+bad assumptions
+async/race-condition problems
+database consistency issues
+duplicated or dead code
+missing tests
+places where the UI and backend can get out of sync
+Do not suggest huge rewrites unless absolutely necessary.
+Prefer small, safe improvements.
+Return a structured audit report with:
+
+A. Feature summary
+Explain how this feature currently works.
+
+B. Files involved
+List each important file and what role it plays.
+
+C. Logic trace
+Show the step-by-step flow from user action to final result.
+
+D. Issues found
+For each issue include:
+
+file name
+function/component name
+severity: critical / high / medium / low
+what is wrong
+why it matters
+suggested fix
+whether it is safe to fix now
+
+E. Missing tests
+Tell me what tests should exist for this feature.
+
+F. Questions before fixing
+List anything you need clarified before making changes.
+
+
+When reviewing code:
+- Look for logic errors, security issues, broken edge cases, missing validation, async/state bugs, database/API problems, and missing tests.
+- Always include file names and severity.
+- Prefer small, safe changes over large rewrites.
+- Do not change unrelated files.
+
+
+I want a full code review focused on:
+1. Logic errors
+2. Broken or missing edge cases
+3. Security issues
+4. Performance problems
+5. Bad architecture or over-complicated code
+6. Duplicated/dead code
+7. Missing tests
+8. Incorrect assumptions
+9. Possible bugs in async/state/database/API logic
+10. Things that may work now but will become a problem later
+
+
+
+Important:
+After the report, stop.
+Do not edit code until I approve a fix plan. Whenever you find an issue , wirte it down in TO_CHECK_AND_FIX.md in root. If missing - create it. Always add issues in TO_CHECK_AND_FIX.md, also make sure you include in the file the Questions & Decisions.
