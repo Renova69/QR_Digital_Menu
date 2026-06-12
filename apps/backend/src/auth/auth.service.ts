@@ -474,7 +474,11 @@ export class AuthService {
         data: { pinAttempts: 0, pinLockedUntil: null },
       });
 
-      const payload = { email: user.email, sub: user.id };
+      const payload = {
+        email: user.email,
+        sub: user.id,
+        deviceTokenId: enrolledDevice.id,
+      };
       return {
         token: this.jwtService.sign(payload),
         user: {

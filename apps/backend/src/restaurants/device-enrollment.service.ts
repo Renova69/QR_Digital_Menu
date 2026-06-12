@@ -7,12 +7,16 @@ import {
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventsGateway } from '../events/events.gateway';
 
 const ENROLLMENT_TTL_MINUTES = 10;
 
 @Injectable()
 export class DeviceEnrollmentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventsGateway: EventsGateway,
+  ) {}
 
   private get tokenStore() {
     return this.prisma.deviceEnrollmentToken;
@@ -141,12 +145,16 @@ export class DeviceEnrollmentService {
       throw new ForbiddenException('This enrollment has already been revoked');
     }
 
+    const revokedAt = new Date();
+
     await this.tokenStore.update({
       where: { id: tokenId },
-      data: { revokedAt: new Date() },
+      data: { revokedAt },
     });
 
-    return { success: true, revokedAt: new Date() };
+    await this.eventsGateway.evictDeviceToken(token.id, 'device_revoked');
+
+    return { success: true, revokedAt };
   }
 
   async verifyEnrollment(token: string) {

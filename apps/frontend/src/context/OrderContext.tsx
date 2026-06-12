@@ -10,6 +10,7 @@ import { getOrders, updateOrderStatus as apiUpdateOrderStatus } from '../lib/api
 import { useSocket } from './SocketContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './AuthContext';
+import { useRestaurantContext } from './RestaurantContext';
 
 // Define order status types
 export type OrderStatus = 'NEW' | 'IN_PROGRESS' | 'SERVED' | 'CANCELED' | 'COMPLETED';
@@ -67,6 +68,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const { socket, isConnected } = useSocket();
   const { user, isAuthenticated } = useAuth();
+  const { activeRestaurant } = useRestaurantContext();
   const queryClient = useQueryClient();
   const role = user?.role?.toUpperCase();
   const canAccessOrders =
@@ -117,7 +119,9 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
   // Socket listeners only refresh in response to order events.
   useEffect(() => {
-    if (!canAccessOrders || !socket || !isConnected) return;
+    const restaurantId = activeRestaurant?.id;
+    if (!canAccessOrders || !socket || !isConnected || !restaurantId) return;
+    socket.emit('joinRestaurantOrdersRoom', restaurantId);
 
     const handleNewOrder = () => {
       // Small chime for new UI event
@@ -141,8 +145,16 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     return () => {
       socket.off('newOrder', handleNewOrder);
       socket.off('orderStatusChanged', handleOrderStatusChanged);
+      socket.emit('leaveRestaurantOrdersRoom', restaurantId);
     };
-  }, [canAccessOrders, socket, isConnected, refreshOrders, queryClient]);
+  }, [
+    activeRestaurant?.id,
+    canAccessOrders,
+    socket,
+    isConnected,
+    refreshOrders,
+    queryClient,
+  ]);
 
   const value = {
       orders,

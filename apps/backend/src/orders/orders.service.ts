@@ -637,7 +637,7 @@ export class OrdersService {
       },
     );
 
-    this.eventsGateway.emitToRestaurant(
+    this.eventsGateway.emitOrderEventToRestaurant(
       finalOrder.restaurantId,
       'newOrder',
       finalOrder,
@@ -888,7 +888,7 @@ export class OrdersService {
     );
 
     this.eventsGateway.emitToOrder(id, 'orderStatusChanged', updatedOrder);
-    this.eventsGateway.emitToRestaurant(
+    this.eventsGateway.emitOrderEventToRestaurant(
       updatedOrder.restaurantId,
       'orderStatusChanged',
       updatedOrder,

@@ -319,6 +319,13 @@ describe('AuthService', () => {
       const result = await service.pinLogin('rest1', '1234', deviceToken);
 
       expect(result.token).toBe('test-jwt-token');
+      expect(mockJwt.sign).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: staff.email,
+          sub: staff.id,
+          deviceTokenId: 'device-token-1',
+        }),
+      );
       // Attempts reset on the device token, not via user.updateMany
       expect(mockPrisma.deviceEnrollmentToken.update).toHaveBeenCalledWith(
         expect.objectContaining({

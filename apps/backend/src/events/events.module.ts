@@ -4,12 +4,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EventsGateway } from './events.gateway';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrintStationModule } from '../print-station/print-station.module';
+import { SubscriptionModule } from '../subscription/subscription.module';
 
 @Global()
 @Module({
   imports: [
     PrismaModule,
     forwardRef(() => PrintStationModule),
+    SubscriptionModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

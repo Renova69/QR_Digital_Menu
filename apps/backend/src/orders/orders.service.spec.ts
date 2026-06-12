@@ -153,6 +153,7 @@ describe('OrdersService', () => {
 
     events = {
       emitToRestaurant: jest.fn(),
+      emitOrderEventToRestaurant: jest.fn(),
       emitTableStatusChanged: jest.fn(),
       emitToOrder: jest.fn(),
       signOrderToken: jest.fn().mockReturnValue('order-track-token'),
@@ -265,6 +266,16 @@ describe('OrdersService', () => {
       // price computed inside tx.order.create arg; we check the call arg
       const createCall = tx.order.create.mock.calls[0][0];
       expect(createCall.data.totalPrice).toBe(25); // 10*2 + 5*1
+      expect(events.emitOrderEventToRestaurant).toHaveBeenCalledWith(
+        result.restaurantId,
+        'newOrder',
+        expect.objectContaining({ id: result.id, totalPrice: 25 }),
+      );
+      expect(events.emitToRestaurant).not.toHaveBeenCalledWith(
+        result.restaurantId,
+        'newOrder',
+        expect.anything(),
+      );
     });
 
     it('attributes the order to CUSTOMER when the caller is not restaurant staff (#4)', async () => {
@@ -1370,7 +1381,12 @@ describe('OrdersService', () => {
         'orderStatusChanged',
         updated,
       );
-      expect(events.emitToRestaurant).toHaveBeenCalledWith(
+      expect(events.emitOrderEventToRestaurant).toHaveBeenCalledWith(
+        updated.restaurantId,
+        'orderStatusChanged',
+        updated,
+      );
+      expect(events.emitToRestaurant).not.toHaveBeenCalledWith(
         updated.restaurantId,
         'orderStatusChanged',
         updated,

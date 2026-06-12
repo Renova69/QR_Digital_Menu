@@ -10,6 +10,7 @@ describe('DeviceEnrollmentService', () => {
   let service: DeviceEnrollmentService;
   let mockPrisma: any;
   let mockTokenStore: any;
+  let mockEvents: any;
 
   beforeEach(() => {
     mockTokenStore = {
@@ -27,7 +28,10 @@ describe('DeviceEnrollmentService', () => {
       user: { findUnique: jest.fn() },
       deviceEnrollmentToken: mockTokenStore,
     };
-    service = new DeviceEnrollmentService(mockPrisma);
+    mockEvents = {
+      evictDeviceToken: jest.fn().mockResolvedValue(undefined),
+    };
+    service = new DeviceEnrollmentService(mockPrisma, mockEvents);
   });
 
   // ─── createEnrollment ────────────────────────────────────────────────────────
@@ -210,6 +214,40 @@ describe('DeviceEnrollmentService', () => {
       await expect(service.verifyEnrollment('valid-token')).rejects.toThrow(
         GoneException,
       );
+    });
+  });
+
+  describe('revokeEnrollment', () => {
+    it('revokes the token and evicts sockets authenticated by that device', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest1',
+        name: 'Test',
+        ownerId: 'user1',
+      });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        role: 'OWNER',
+        restaurantId: null,
+      });
+      mockTokenStore.findFirst.mockResolvedValue({
+        id: 'tok1',
+        revokedAt: null,
+      });
+
+      const result = await service.revokeEnrollment('tok1', 'rest1', 'user1');
+      const updateArgs = mockTokenStore.update.mock.calls[0][0];
+
+      expect(updateArgs).toEqual({
+        where: { id: 'tok1' },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(mockEvents.evictDeviceToken).toHaveBeenCalledWith(
+        'tok1',
+        'device_revoked',
+      );
+      expect(result).toEqual({
+        success: true,
+        revokedAt: updateArgs.data.revokedAt,
+      });
     });
   });
 });

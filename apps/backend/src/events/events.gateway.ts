@@ -12,6 +12,8 @@ import { Logger, forwardRef, Inject, OnModuleInit, OnModuleDestroy } from '@nest
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { PrintStationService } from '../print-station/print-station.service';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
+import { FeatureService } from '../subscription/feature.service';
 
 // C-2: pin to explicit origins — no wildcard CDN domains
 const wsOrigin = (
@@ -95,6 +97,7 @@ export class EventsGateway
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => PrintStationService))
     private readonly printStationService: PrintStationService,
+    private readonly featureService: FeatureService,
   ) {}
 
   private isWsRateLimited(ip: string): boolean {
@@ -140,6 +143,9 @@ export class EventsGateway
         const payload = this.jwt.verify(token);
         if (payload?.sub) {
           client.data.userId = payload.sub;
+          if (typeof payload.deviceTokenId === 'string') {
+            client.data.deviceTokenId = payload.deviceTokenId;
+          }
         }
       } catch {
         // invalid/expired — stay anonymous
@@ -226,6 +232,43 @@ export class EventsGateway
     return restaurant.ownerId === userId || user.restaurantId === restaurantId;
   }
 
+  private async canReceiveOrderEvents(
+    userId: string,
+    restaurantId: string,
+  ): Promise<{ allowed: boolean; error?: 'UNAUTHORIZED' | 'FEATURE_LOCKED' }> {
+    if (!(await this.canAccessRestaurant(userId, restaurantId))) {
+      return { allowed: false, error: 'UNAUTHORIZED' };
+    }
+
+    const [user, restaurant] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      }),
+      this.prisma.restaurant.findUnique({
+        where: { id: restaurantId },
+        select: { tier: true, forceTier: true },
+      }),
+    ]);
+
+    if (!user || !restaurant) {
+      return { allowed: false, error: 'UNAUTHORIZED' };
+    }
+    if (user.role === 'SUPER_ADMIN') {
+      return { allowed: true };
+    }
+    if (
+      !this.featureService.restaurantHasFeature(
+        restaurant,
+        FeatureFlag.ORDERS_RECEIVE,
+      )
+    ) {
+      return { allowed: false, error: 'FEATURE_LOCKED' };
+    }
+
+    return { allowed: true };
+  }
+
   /**
    * Join a restaurant's live event room. Requires an authenticated owner,
    * assigned staff, or super-admin for that restaurant — restaurant IDs are
@@ -265,6 +308,47 @@ export class EventsGateway
       `Client ${client.id} left room: restaurant_${restaurantId}`,
     );
     return { event: 'leftRoom', data: restaurantId };
+  }
+
+  @SubscribeMessage('joinRestaurantOrdersRoom')
+  async handleJoinRestaurantOrdersRoom(
+    @MessageBody() restaurantId: string,
+    @ConnectedSocket() client: Socket,
+  ) {
+    const userId = client.data.userId as string | undefined;
+    const access = userId
+      ? await this.canReceiveOrderEvents(userId, restaurantId)
+      : { allowed: false, error: 'UNAUTHORIZED' as const };
+
+    if (!access.allowed) {
+      this.logger.warn(
+        `Denied restaurant orders room join: client ${client.id} -> restaurant_orders_${restaurantId}`,
+      );
+      client.emit('roomError', {
+        room: 'restaurant-orders',
+        restaurantId,
+        error: access.error ?? 'UNAUTHORIZED',
+      });
+      return { event: 'roomError', data: restaurantId };
+    }
+
+    void client.join(`restaurant_orders_${restaurantId}`);
+    this.logger.log(
+      `Client ${client.id} joined room: restaurant_orders_${restaurantId}`,
+    );
+    return { event: 'joinedRestaurantOrdersRoom', data: restaurantId };
+  }
+
+  @SubscribeMessage('leaveRestaurantOrdersRoom')
+  handleLeaveRestaurantOrdersRoom(
+    @MessageBody() restaurantId: string,
+    @ConnectedSocket() client: Socket,
+  ) {
+    void client.leave(`restaurant_orders_${restaurantId}`);
+    this.logger.log(
+      `Client ${client.id} left room: restaurant_orders_${restaurantId}`,
+    );
+    return { event: 'leftRestaurantOrdersRoom', data: restaurantId };
   }
 
   private verifyOrderToken(token: string, orderId: string): boolean {
@@ -322,6 +406,14 @@ export class EventsGateway
    */
   emitToRestaurant(restaurantId: string, eventName: string, payload: any) {
     this.server.to(`restaurant_${restaurantId}`).emit(eventName, payload);
+  }
+
+  emitOrderEventToRestaurant(
+    restaurantId: string,
+    eventName: string,
+    payload: any,
+  ) {
+    this.server.to(`restaurant_orders_${restaurantId}`).emit(eventName, payload);
   }
 
   emitTableStatusChanged(
@@ -411,11 +503,29 @@ export class EventsGateway
    * Uses fetchSockets() which is cluster-aware when a distributed adapter
    * (e.g. Redis) is configured (Issue 39).
    */
-  async evictUser(userId: string): Promise<void> {
+  async evictUser(userId: string, reason = 'account_disabled'): Promise<void> {
     const all = await this.server.fetchSockets();
     for (const socket of all) {
       if (socket.data.userId === userId) {
-        socket.emit('auth:evicted', 'account_disabled');
+        socket.emit('auth:evicted', reason);
+        socket.disconnect();
+      }
+    }
+  }
+
+  /**
+   * Disconnect all sockets authenticated by a revoked device enrollment token.
+   * Dashboard sessions do not carry this claim, so revoking one staff device
+   * leaves unrelated browser sessions untouched.
+   */
+  async evictDeviceToken(
+    deviceTokenId: string,
+    reason = 'device_revoked',
+  ): Promise<void> {
+    const all = await this.server.fetchSockets();
+    for (const socket of all) {
+      if (socket.data.deviceTokenId === deviceTokenId) {
+        socket.emit('auth:evicted', reason);
         socket.disconnect();
       }
     }

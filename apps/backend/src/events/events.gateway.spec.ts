@@ -9,6 +9,7 @@ describe('EventsGateway — room authorization', () => {
   let gateway: EventsGateway;
   let mockJwt: any;
   let mockPrisma: any;
+  let mockFeatureService: any;
 
   const makeClient = (data: Record<string, any> = {}) => ({
     id: 'sock-1',
@@ -36,7 +37,15 @@ describe('EventsGateway — room authorization', () => {
       retryPendingJobs: jest.fn().mockResolvedValue(undefined),
       handlePrintAck: jest.fn(),
     };
-    gateway = new EventsGateway(mockJwt, mockPrisma, mockPrintStationService);
+    mockFeatureService = {
+      restaurantHasFeature: jest.fn().mockReturnValue(true),
+    };
+    gateway = new EventsGateway(
+      mockJwt,
+      mockPrisma,
+      mockPrintStationService,
+      mockFeatureService,
+    );
   });
 
   // ─── handleConnection: handshake auth ────────────────────────────────────
@@ -50,6 +59,21 @@ describe('EventsGateway — room authorization', () => {
       await gateway.handleConnection(client as any);
 
       expect(client.data.userId).toBe('user-1');
+    });
+
+    it('attaches deviceTokenId when a PIN-login token carries it', async () => {
+      mockJwt.verify.mockReturnValue({
+        sub: 'user-1',
+        email: 'a@b.c',
+        deviceTokenId: 'device-token-1',
+      });
+      const client = makeClient();
+      client.handshake.headers.cookie = 'token=valid.jwt.here';
+
+      await gateway.handleConnection(client as any);
+
+      expect(client.data.userId).toBe('user-1');
+      expect(client.data.deviceTokenId).toBe('device-token-1');
     });
 
     it('stays anonymous when no cookie is present (public order tracking)', async () => {
@@ -187,6 +211,80 @@ describe('EventsGateway — room authorization', () => {
 
   // ─── joinOrderRoom: order-scoped token ───────────────────────────────────
 
+  describe('handleJoinRestaurantOrdersRoom', () => {
+    it('allows an authorized paid-tier owner into the live orders room', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        role: 'OWNER',
+        restaurantId: null,
+        isActive: true,
+        disabledAt: null,
+      });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ownerId: 'user-1',
+        isActive: true,
+        tier: 'STARTER',
+        forceTier: null,
+      });
+      const client = makeClient({ userId: 'user-1' });
+
+      await gateway.handleJoinRestaurantOrdersRoom('rest-1', client as any);
+
+      expect(client.join).toHaveBeenCalledWith('restaurant_orders_rest-1');
+      expect(mockFeatureService.restaurantHasFeature).toHaveBeenCalled();
+    });
+
+    it('rejects authorized users when the restaurant lacks orders:receive', async () => {
+      mockFeatureService.restaurantHasFeature.mockReturnValue(false);
+      mockPrisma.user.findUnique.mockResolvedValue({
+        role: 'OWNER',
+        restaurantId: null,
+        isActive: true,
+        disabledAt: null,
+      });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ownerId: 'user-1',
+        isActive: true,
+        tier: 'FREE',
+        forceTier: null,
+      });
+      const client = makeClient({ userId: 'user-1' });
+
+      await gateway.handleJoinRestaurantOrdersRoom('rest-1', client as any);
+
+      expect(client.join).not.toHaveBeenCalled();
+      expect(client.emit).toHaveBeenCalledWith(
+        'roomError',
+        expect.objectContaining({
+          room: 'restaurant-orders',
+          restaurantId: 'rest-1',
+          error: 'FEATURE_LOCKED',
+        }),
+      );
+    });
+
+    it('keeps the super-admin bypass for support access', async () => {
+      mockFeatureService.restaurantHasFeature.mockReturnValue(false);
+      mockPrisma.user.findUnique.mockResolvedValue({
+        role: 'SUPER_ADMIN',
+        restaurantId: null,
+        isActive: true,
+        disabledAt: null,
+      });
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ownerId: 'someone-else',
+        isActive: true,
+        tier: 'FREE',
+        forceTier: null,
+      });
+      const client = makeClient({ userId: 'admin-1' });
+
+      await gateway.handleJoinRestaurantOrdersRoom('rest-1', client as any);
+
+      expect(client.join).toHaveBeenCalledWith('restaurant_orders_rest-1');
+      expect(mockFeatureService.restaurantHasFeature).not.toHaveBeenCalled();
+    });
+  });
+
   describe('handleJoinOrderRoom', () => {
     it('joins when the token matches the orderId', () => {
       mockJwt.verify.mockReturnValue({
@@ -286,6 +384,33 @@ describe('EventsGateway — room authorization', () => {
       expect(revokedSocket.emit).toHaveBeenCalledWith(
         'agent:rejected',
         'token_revoked',
+      );
+      expect(revokedSocket.disconnect).toHaveBeenCalled();
+      expect(otherSocket.disconnect).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('evictDeviceToken', () => {
+    it('disconnects only sockets authenticated with the revoked device token', async () => {
+      const revokedSocket = {
+        data: { deviceTokenId: 'device-token-1' },
+        emit: jest.fn(),
+        disconnect: jest.fn(),
+      };
+      const otherSocket = {
+        data: { deviceTokenId: 'device-token-2' },
+        emit: jest.fn(),
+        disconnect: jest.fn(),
+      };
+      (gateway as any).server = {
+        fetchSockets: jest.fn().mockResolvedValue([revokedSocket, otherSocket]),
+      };
+
+      await gateway.evictDeviceToken('device-token-1');
+
+      expect(revokedSocket.emit).toHaveBeenCalledWith(
+        'auth:evicted',
+        'device_revoked',
       );
       expect(revokedSocket.disconnect).toHaveBeenCalled();
       expect(otherSocket.disconnect).not.toHaveBeenCalled();

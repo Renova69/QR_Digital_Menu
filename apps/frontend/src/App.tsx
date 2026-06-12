@@ -57,18 +57,18 @@ const PageLoader = () => (
 // App routes: header + container padding
 export const AppLayout = () => (
   <SocketProvider>
-    <OrderProvider>
-      <AssistanceProvider>
-        <RestaurantProvider>
+    <RestaurantProvider>
+      <OrderProvider>
+        <AssistanceProvider>
           <NotificationProvider>
             <Header />
             <main className="container mx-auto p-4">
               <Outlet />
             </main>
           </NotificationProvider>
-        </RestaurantProvider>
-      </AssistanceProvider>
-    </OrderProvider>
+        </AssistanceProvider>
+      </OrderProvider>
+    </RestaurantProvider>
   </SocketProvider>
 );
 
@@ -132,13 +132,13 @@ function App() {
             <Route
               element={
                 <SocketProvider>
-                  <NotificationProvider>
+                  <RestaurantProvider>
                     <OrderProvider>
-                      <RestaurantProvider>
+                      <NotificationProvider>
                         <PosLayout />
-                      </RestaurantProvider>
+                      </NotificationProvider>
                     </OrderProvider>
-                  </NotificationProvider>
+                  </RestaurantProvider>
                 </SocketProvider>
               }
             >
