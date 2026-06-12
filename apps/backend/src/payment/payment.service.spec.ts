@@ -61,7 +61,10 @@ describe('PaymentService', () => {
         count: jest.fn(),
       },
       order: {
-        findMany: jest.fn(),
+        // Default empty so the #2 underpay guard in the claim path
+        // (sums session order totals) sees subtotal 0 ≤ any paid amount.
+        // Individual tests override with explicit totals where relevant.
+        findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn().mockResolvedValue(null),
       },
       $transaction: jest.fn((arg: any) => {
@@ -768,6 +771,34 @@ describe('PaymentService', () => {
           tipAmount: expect.any(Number),
         }),
       );
+    });
+
+    it('does NOT mark the session PAID when the payment underpays the current bill (#2)', async () => {
+      mockStripeProvider.constructWebhookEvent.mockReturnValue({
+        type: 'payment_intent.succeeded',
+        data: { object: { id: 'pi_test' } },
+      });
+      const payment = {
+        id: 'pay1',
+        amount: 10, // stale low intent
+        tipAmount: 0,
+        status: 'PENDING',
+        tableSessionId: 's1',
+        tableSession: {
+          restaurantId: 'rest1',
+          tableId: 'table1',
+          table: { name: '3' },
+        },
+      };
+      mockPrisma.payment.findFirst.mockResolvedValue(payment);
+      // Bill grew to 110 after the intent was created (e.g. pricey item added).
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 110 }]);
+
+      await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+
+      // Session is NOT released, and no "confirmed" event is emitted.
+      expect(mockPrisma.tableSession.updateMany).not.toHaveBeenCalled();
+      expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
     });
 
     it('is idempotent: a double-delivered succeeded event skips socket emission (#H3)', async () => {

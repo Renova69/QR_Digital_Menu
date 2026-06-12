@@ -28,10 +28,24 @@ export class RetentionService {
     orderCutoff.setFullYear(
       orderCutoff.getFullYear() - settings.orderPiiRetentionYears,
     );
+    // Anonymize ALL old orders, not just registered-customer ones. Guest orders
+    // (customerId null) still collect customerName/customerPhone, so excluding
+    // them left guest PII in the DB indefinitely — a GDPR retention violation
+    // (#3). The `customerName not [REDACTED]` guard keeps the run idempotent so
+    // already-anonymized rows aren't re-touched and the count stays meaningful.
     const { count: anonymizedOrders } = await this.prisma.order.updateMany({
       where: {
         createdAt: { lt: orderCutoff },
-        customerId: { not: null },
+        // Any row still holding redactable PII. Idempotent: already-anonymized
+        // rows (name '[REDACTED]', phone/customerId/specialRequests null) match
+        // none of these and are skipped. Null-safe — a null-name guest whose
+        // phone is set is still caught via the customerPhone clause.
+        OR: [
+          { customerName: { not: '[REDACTED]' } },
+          { customerPhone: { not: null } },
+          { customerId: { not: null } },
+          { specialRequests: { not: null } },
+        ],
       },
       data: {
         customerName: '[REDACTED]',

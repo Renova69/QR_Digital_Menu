@@ -1,3 +1,4 @@
+import { InternalServerErrorException } from '@nestjs/common';
 import * as crypto from 'crypto';
 
 const PREFIX = 'v1';
@@ -42,15 +43,25 @@ export function decryptSecret(value: string): string {
   }
 
   const [, iv, tag, ciphertext] = parts;
-  const decipher = crypto.createDecipheriv(
-    'aes-256-gcm',
-    getEncryptionKey(),
-    Buffer.from(iv, 'base64'),
-  );
-  decipher.setAuthTag(Buffer.from(tag, 'base64'));
+  // A v1-prefixed value with a bad IV/tag/ciphertext (truncation, key rotation,
+  // corrupt row) makes decipher.final() throw a raw GCM auth error. Uncaught,
+  // that surfaces as an opaque 500 on the request that touched the secret (#1).
+  // Wrap it so callers get a deterministic, handled error instead.
+  try {
+    const decipher = crypto.createDecipheriv(
+      'aes-256-gcm',
+      getEncryptionKey(),
+      Buffer.from(iv, 'base64'),
+    );
+    decipher.setAuthTag(Buffer.from(tag, 'base64'));
 
-  return Buffer.concat([
-    decipher.update(Buffer.from(ciphertext, 'base64')),
-    decipher.final(),
-  ]).toString('utf8');
+    return Buffer.concat([
+      decipher.update(Buffer.from(ciphertext, 'base64')),
+      decipher.final(),
+    ]).toString('utf8');
+  } catch {
+    throw new InternalServerErrorException(
+      'Stored payment secret could not be decrypted',
+    );
+  }
 }

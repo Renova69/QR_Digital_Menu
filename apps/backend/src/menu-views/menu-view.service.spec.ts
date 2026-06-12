@@ -29,6 +29,9 @@ describe('MenuViewService', () => {
         groupBy: jest.fn().mockResolvedValue([]),
         findMany: jest.fn().mockResolvedValue([]),
       },
+      // Unique-visitor counts now come from COUNT(DISTINCT) raw queries (#18).
+      // Call order: 1) total distinct → [{ count }], 2) per-table distinct.
+      $queryRaw: jest.fn().mockResolvedValue([]),
     };
 
     service = new MenuViewService(mockPrisma);
@@ -106,11 +109,8 @@ describe('MenuViewService', () => {
       mockPrisma.menuView.count
         .mockResolvedValueOnce(5)
         .mockResolvedValueOnce(2);
-      mockPrisma.menuView.findMany.mockResolvedValue([
-        makeView({ visitorId: 'v-a' }),
-        makeView({ visitorId: 'v-a' }), // duplicate
-        makeView({ visitorId: 'v-b' }),
-      ]);
+      // 1st $queryRaw = total distinct visitors.
+      mockPrisma.$queryRaw.mockResolvedValueOnce([{ count: 2 }]);
 
       const result = await service.getScanStats('rest1');
 
@@ -122,11 +122,14 @@ describe('MenuViewService', () => {
         { tableId: 'table1', tableName: 'Table 1', _count: { id: 3 } },
         { tableId: 'table2', tableName: 'Table 2', _count: { id: 1 } },
       ]);
-      mockPrisma.menuView.findMany.mockResolvedValue([
-        makeView({ tableId: 'table1', tableName: 'Table 1', visitorId: 'v-a' }),
-        makeView({ tableId: 'table1', tableName: 'Table 1', visitorId: 'v-b' }),
-        makeView({ tableId: 'table2', tableName: 'Table 2', visitorId: 'v-a' }),
-      ]);
+      mockPrisma.$queryRaw
+        // 1st call: total distinct visitors
+        .mockResolvedValueOnce([{ count: 2 }])
+        // 2nd call: per-table distinct visitors
+        .mockResolvedValueOnce([
+          { tableId: 'table1', tableName: 'Table 1', unique_visitors: 2 },
+          { tableId: 'table2', tableName: 'Table 2', unique_visitors: 1 },
+        ]);
 
       const result = await service.getScanStats('rest1');
       const t1 = result.perTable.find((r) => r.tableName === 'Table 1')!;

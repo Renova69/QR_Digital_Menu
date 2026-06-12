@@ -70,6 +70,10 @@ export class RestaurantsController {
     return this.restaurantsService.remove(id, req.user.id);
   }
 
+  // Per-route throttle: each call buffers up to 5MB in memory before the
+  // ownership check, so the global 100/60s is too loose for a valid-JWT abuser.
+  // 20/60s caps the blast radius without blocking legitimate branding edits (#7).
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @RequireFeature(FeatureFlag.BRANDING_CUSTOM)
   @UseGuards(JwtAuthGuard, FeatureGuard)
   @Post(':restaurantId/logo')

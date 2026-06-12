@@ -28,6 +28,9 @@ import { StorageService } from '../storage/storage.service';
 export class CategoryController {
   constructor(private readonly crud: MenuCrudService) {}
 
+  // Category name is pre-warmed to DeepL on create — throttle to cap
+  // translation cost abuse, mirroring item create/update (#30).
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Post()
   create(
     @Param('restaurantId') restaurantId: string,
@@ -64,6 +67,8 @@ export class CategoryDetailController {
     private readonly storageService: StorageService,
   ) {}
 
+  // Same DeepL cost guard as category create (#30).
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Patch(':id')
   update(
     @Param('id') id: string,

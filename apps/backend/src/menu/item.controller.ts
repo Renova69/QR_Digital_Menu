@@ -28,6 +28,11 @@ import { StorageService } from '../storage/storage.service';
 export class ItemController {
   constructor(private readonly crud: MenuCrudService) {}
 
+  // Item create/update fan out to DeepL for every target language (name +
+  // description + allergens + tags). Left on the global 100/60s, scripted edits
+  // could push hundreds of thousands of characters/min at the platform's DeepL
+  // key. 30/60s still covers manual menu setup but caps cost abuse (#30).
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Post()
   create(
     @Param('categoryId') categoryId: string,
@@ -60,6 +65,8 @@ export class ItemDetailController {
     private readonly storageService: StorageService,
   ) {}
 
+  // Same DeepL cost guard as item create (#30).
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Patch(':id')
   update(
     @Param('id') id: string,

@@ -14,6 +14,8 @@ const mockPrisma = {
     create: jest.fn(),
     findMany: jest.fn(),
     count: jest.fn(),
+    aggregate: jest.fn(),
+    groupBy: jest.fn(),
   },
   order: {
     findUnique: jest.fn(),
@@ -181,6 +183,27 @@ describe('FeedbackService', () => {
   });
 
   describe('getSummary', () => {
+    // getSummary now aggregates at the DB layer (aggregate + groupBy + count)
+    // instead of pulling all rows into memory (#17). These helpers wire the
+    // mock to return DB-shaped results.
+    const mockAgg = (total: number, avg: number | null) =>
+      mockPrisma.feedback.aggregate.mockResolvedValue({
+        _count: { _all: total },
+        _avg: { rating: avg },
+      });
+    const mockGroupBy = (dist: Array<{ rating: number; count: number }>) =>
+      mockPrisma.feedback.groupBy.mockResolvedValue(
+        dist.map((d) => ({ rating: d.rating, _count: { _all: d.count } })),
+      );
+    const mockCounts = (googleRedirects: number, positive: number) =>
+      mockPrisma.feedback.count.mockImplementation(
+        ({ where }: { where: Record<string, unknown> }) => {
+          if (where.redirectedToGoogle) return Promise.resolve(googleRedirects);
+          if (where.rating) return Promise.resolve(positive);
+          return Promise.resolve(0);
+        },
+      );
+
     beforeEach(() => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ownerId: 'owner-1',
@@ -189,7 +212,9 @@ describe('FeedbackService', () => {
     });
 
     it('returns zero stats when no feedback exists', async () => {
-      mockPrisma.feedback.findMany.mockResolvedValue([]);
+      mockAgg(0, null);
+      mockGroupBy([]);
+      mockCounts(0, 0);
 
       const result = await service.getSummary('rest-1', 'owner-1');
 
@@ -200,11 +225,13 @@ describe('FeedbackService', () => {
     });
 
     it('calculates correct average rating', async () => {
-      mockPrisma.feedback.findMany.mockResolvedValue([
-        { rating: 4, redirectedToGoogle: false },
-        { rating: 5, redirectedToGoogle: true },
-        { rating: 3, redirectedToGoogle: false },
+      mockAgg(3, 4);
+      mockGroupBy([
+        { rating: 4, count: 1 },
+        { rating: 5, count: 1 },
+        { rating: 3, count: 1 },
       ]);
+      mockCounts(1, 2);
 
       const result = await service.getSummary('rest-1', 'owner-1');
 
@@ -214,12 +241,14 @@ describe('FeedbackService', () => {
     });
 
     it('calculates positiveRate as % of ratings >= 4', async () => {
-      mockPrisma.feedback.findMany.mockResolvedValue([
-        { rating: 5, redirectedToGoogle: false },
-        { rating: 4, redirectedToGoogle: false },
-        { rating: 2, redirectedToGoogle: false },
-        { rating: 1, redirectedToGoogle: false },
+      mockAgg(4, 3);
+      mockGroupBy([
+        { rating: 5, count: 1 },
+        { rating: 4, count: 1 },
+        { rating: 2, count: 1 },
+        { rating: 1, count: 1 },
       ]);
+      mockCounts(0, 2);
 
       const result = await service.getSummary('rest-1', 'owner-1');
 
@@ -227,11 +256,12 @@ describe('FeedbackService', () => {
     });
 
     it('populates ratingDistribution for all 5 rating levels', async () => {
-      mockPrisma.feedback.findMany.mockResolvedValue([
-        { rating: 5, redirectedToGoogle: false },
-        { rating: 5, redirectedToGoogle: false },
-        { rating: 3, redirectedToGoogle: false },
+      mockAgg(3, 13 / 3);
+      mockGroupBy([
+        { rating: 5, count: 2 },
+        { rating: 3, count: 1 },
       ]);
+      mockCounts(0, 2);
 
       const result = await service.getSummary('rest-1', 'owner-1');
 

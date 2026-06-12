@@ -131,12 +131,31 @@ export class FeedbackService {
   // Get feedback summary stats (owner-only)
   async getSummary(restaurantId: string, userId: string) {
     await this.verifyRestaurantAccess(restaurantId, userId);
-    const feedbacks = await this.prisma.feedback.findMany({
-      where: { restaurantId },
-      select: { rating: true, redirectedToGoogle: true },
-    });
 
-    if (feedbacks.length === 0) {
+    // DB-level aggregation — never pull every feedback row into Node memory.
+    // The previous findMany + in-memory reduce loaded the whole table and would
+    // spike memory / block the event loop for high-volume restaurants (#17).
+    const [agg, byRating, googleRedirects, positiveCount] = await Promise.all([
+      this.prisma.feedback.aggregate({
+        where: { restaurantId },
+        _count: { _all: true },
+        _avg: { rating: true },
+      }),
+      this.prisma.feedback.groupBy({
+        by: ['rating'],
+        where: { restaurantId },
+        _count: { _all: true },
+      }),
+      this.prisma.feedback.count({
+        where: { restaurantId, redirectedToGoogle: true },
+      }),
+      this.prisma.feedback.count({
+        where: { restaurantId, rating: { gte: 4 } },
+      }),
+    ]);
+
+    const totalFeedbacks = agg._count._all;
+    if (totalFeedbacks === 0) {
       return {
         totalFeedbacks: 0,
         averageRating: 0,
@@ -146,16 +165,6 @@ export class FeedbackService {
       };
     }
 
-    const totalFeedbacks = feedbacks.length;
-    const avgRating =
-      feedbacks.reduce(
-        (sum: number, f: { rating: number }) => sum + f.rating,
-        0,
-      ) / totalFeedbacks;
-    const googleRedirects = feedbacks.filter(
-      (f: { redirectedToGoogle: boolean }) => f.redirectedToGoogle,
-    ).length;
-
     const ratingDistribution: Record<number, number> = {
       1: 0,
       2: 0,
@@ -163,17 +172,15 @@ export class FeedbackService {
       4: 0,
       5: 0,
     };
-    for (const f of feedbacks) {
-      ratingDistribution[f.rating] = (ratingDistribution[f.rating] || 0) + 1;
+    for (const row of byRating) {
+      if (row.rating >= 1 && row.rating <= 5) {
+        ratingDistribution[row.rating] = row._count._all;
+      }
     }
-
-    const positiveCount = feedbacks.filter(
-      (f: { rating: number }) => f.rating >= 4,
-    ).length;
 
     return {
       totalFeedbacks,
-      averageRating: Math.round(avgRating * 10) / 10,
+      averageRating: Math.round((agg._avg.rating ?? 0) * 10) / 10,
       ratingDistribution,
       googleRedirects,
       positiveRate: Math.round((positiveCount / totalFeedbacks) * 100),

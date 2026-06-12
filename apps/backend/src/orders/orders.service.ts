@@ -8,7 +8,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { DateTime } from 'luxon';
-import { Prisma } from '@prisma/client';
+import { Prisma, LoyaltyPointTransactionType, OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -222,6 +222,23 @@ export class OrdersService {
       sessionToken = newSession.token;
     }
 
+    // #2: refuse to grow a session's bill while a payment is in flight. If a
+    // PENDING payment exists, the customer is mid-checkout against a fixed total;
+    // letting them add a pricey item now and then pay the stale low intent would
+    // mark the larger session PAID for a fraction (underpay). They must complete
+    // or cancel checkout first (cancelling abandons + voids the intent).
+    if (tableSessionId) {
+      const pendingPayment = await this.prisma.payment.findFirst({
+        where: { tableSessionId, status: 'PENDING' },
+        select: { id: true },
+      });
+      if (pendingPayment) {
+        throw new ConflictException(
+          'A payment is in progress for this table. Complete or cancel it before ordering more.',
+        );
+      }
+    }
+
     // 6. Happy hour — use restaurant's local timezone via luxon so the window
     //    fires at the correct wall-clock time regardless of server timezone.
     let happyHourMultiplier = 1;
@@ -346,12 +363,26 @@ export class OrdersService {
       // Options on redeemed items are also free (item is fully comped)
       let optionsTotal = 0;
 
-      if (!isRedeemedFree && item.selectedOptions?.length) {
-        const itemOptions = optionsMap.get(item.menuItemId) || [];
+      const itemOptions = optionsMap.get(item.menuItemId) || [];
+      const selectedOptions = item.selectedOptions ?? [];
+      const selectionCountByOption = new Map<string, number>();
+      // Server-authoritative option snapshot persisted with the order. The
+      // client's submitted priceModifier is never stored — a tampered payload
+      // (e.g. priceModifier: -10) would otherwise drive fake line totals on the
+      // staff bill and printed receipt even though checkout charged correctly,
+      // because tables.service derives item totals from this stored JSON (#24).
+      const normalizedSelectedOptions: {
+        optionId: string;
+        optionName: string;
+        choiceName: string;
+        priceModifier: number;
+      }[] = [];
+
+      if (selectedOptions.length) {
         // Issue 2: track (optionId, choiceName) pairs to reject duplicates in same item
         const seenChoicesForItem = new Set<string>();
 
-        for (const selected of item.selectedOptions) {
+        for (const selected of selectedOptions) {
           const option = itemOptions.find(
             (o: { id: string }) => o.id === selected.optionId,
           );
@@ -362,10 +393,12 @@ export class OrdersService {
             });
           }
 
-          const choices = option.choices as {
-            name: string;
-            priceModifier: number;
-          }[];
+          const choices = Array.isArray(option.choices)
+            ? (option.choices as {
+                name: string;
+                priceModifier: number;
+              }[])
+            : [];
           const choice = choices.find(
             (c: { name: string }) => c.name === selected.choiceName,
           );
@@ -383,27 +416,39 @@ export class OrdersService {
             throw new BadRequestException('Duplicate choice selection');
           }
           seenChoicesForItem.add(choiceKey);
-
-          optionsTotal += choice.priceModifier || 0;
-        }
-
-        // Issue 2: VARIATION options allow at most 1 choice per option
-        const selectionCountByOption = new Map<string, number>();
-        for (const selected of item.selectedOptions) {
           selectionCountByOption.set(
             selected.optionId,
             (selectionCountByOption.get(selected.optionId) ?? 0) + 1,
           );
-        }
-        for (const [optionId, count] of selectionCountByOption) {
-          const option = itemOptions.find(
-            (o: { id: string; type: string }) => o.id === optionId,
-          );
-          if (option?.type === 'VARIATION' && count > 1) {
-            throw new BadRequestException(
-              `Option "${option.name}" allows at most one choice`,
-            );
+
+          normalizedSelectedOptions.push({
+            optionId: option.id,
+            optionName: option.name,
+            choiceName: choice.name,
+            priceModifier: choice.priceModifier || 0,
+          });
+
+          if (!isRedeemedFree) {
+            optionsTotal += choice.priceModifier || 0;
           }
+        }
+      }
+
+      // Issue 2: VARIATION options are required single-select options.
+      for (const option of itemOptions) {
+        const choices = Array.isArray(option.choices) ? option.choices : [];
+        if (option.type !== 'VARIATION' || choices.length === 0) continue;
+
+        const count = selectionCountByOption.get(option.id) ?? 0;
+        if (count === 0) {
+          throw new BadRequestException(
+            `Option "${option.name}" requires one choice`,
+          );
+        }
+        if (count > 1) {
+          throw new BadRequestException(
+            `Option "${option.name}" allows at most one choice`,
+          );
         }
       }
 
@@ -412,7 +457,7 @@ export class OrdersService {
       itemsData.push({
         menuItemId: item.menuItemId,
         quantity: item.quantity,
-        selectedOptions: item.selectedOptions || [],
+        selectedOptions: normalizedSelectedOptions,
       });
     }
 
@@ -819,12 +864,28 @@ export class OrdersService {
     updateOrderDto: UpdateOrderDto,
     userId: string,
   ) {
-    await this.findOne(id, userId);
+    const order = await this.findOne(id, userId);
 
-    const updatedOrder = await this.prisma.order.update({
-      where: { id },
-      data: { status: updateOrderDto.status },
-    });
+    // #12: cancelling an order must claw back the loyalty points it earned and
+    // refund the points it consumed — otherwise a customer farms points by
+    // ordering and cancelling on repeat. Reversal runs in the same transaction
+    // as the status flip so the two can't diverge.
+    const isCanceling =
+      updateOrderDto.status === OrderStatus.CANCELED &&
+      order.status !== OrderStatus.CANCELED;
+
+    const updatedOrder = await this.prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const updated = await tx.order.update({
+          where: { id },
+          data: { status: updateOrderDto.status },
+        });
+        if (isCanceling && order.customerId) {
+          await this.reverseLoyaltyForCanceledOrder(tx, order);
+        }
+        return updated;
+      },
+    );
 
     this.eventsGateway.emitToOrder(id, 'orderStatusChanged', updatedOrder);
     this.eventsGateway.emitToRestaurant(
@@ -842,5 +903,101 @@ export class OrdersService {
     }
 
     return updatedOrder;
+  }
+
+  /**
+   * Reverse the loyalty effects of a cancelled order (#12): zero out the EARN /
+   * SIGNUP batches this order created, refund the points it redeemed as a fresh
+   * spendable batch, and reconcile the account. Balances are clamped at 0 — if
+   * the earned points were already spent we don't drive the account negative,
+   * which is safer for ledger integrity than tracking debt (the audit's own
+   * recommendation). Ledger stays consistent: account.points == sum of
+   * remaining batch points after the adjustment.
+   */
+  private async reverseLoyaltyForCanceledOrder(
+    tx: Prisma.TransactionClient,
+    order: {
+      id: string;
+      customerId: string | null;
+      restaurantId: string;
+      pointsEarned: number;
+      pointsRedeemedForDiscount: number;
+      pointsRedeemedForItems: number;
+      restaurant?: { loyaltyPointExpiryDays?: number | null } | null;
+    },
+  ): Promise<void> {
+    if (!order.customerId) return;
+
+    const account = await tx.loyaltyAccount.findUnique({
+      where: {
+        userId_restaurantId: {
+          userId: order.customerId,
+          restaurantId: order.restaurantId,
+        },
+      },
+    });
+    if (!account) return;
+
+    // Claw back this order's earned points — only what's still unspent.
+    const earnedBatches = await tx.loyaltyPointLedger.findMany({
+      where: {
+        loyaltyAccountId: account.id,
+        orderId: order.id,
+        type: {
+          in: [
+            LoyaltyPointTransactionType.EARN,
+            LoyaltyPointTransactionType.SIGNUP,
+          ],
+        },
+      },
+    });
+    const clawback = earnedBatches.reduce(
+      (sum, b) => sum + b.remainingPoints,
+      0,
+    );
+    const originalEarned = earnedBatches.reduce((sum, b) => sum + b.points, 0);
+
+    if (earnedBatches.length > 0) {
+      await tx.loyaltyPointLedger.updateMany({
+        where: { id: { in: earnedBatches.map((b) => b.id) } },
+        data: { remainingPoints: 0 },
+      });
+      if (clawback > 0) {
+        await tx.loyaltyPointLedger.create({
+          data: {
+            loyaltyAccountId: account.id,
+            orderId: order.id,
+            type: LoyaltyPointTransactionType.ADJUSTMENT,
+            points: -clawback,
+            remainingPoints: 0,
+          },
+        });
+      }
+    }
+
+    // Refund the points this order consumed as a fresh spendable batch.
+    const refund =
+      order.pointsRedeemedForDiscount + order.pointsRedeemedForItems;
+    if (refund > 0) {
+      const expiryDays = order.restaurant?.loyaltyPointExpiryDays || 90;
+      await tx.loyaltyPointLedger.create({
+        data: {
+          loyaltyAccountId: account.id,
+          orderId: order.id,
+          type: LoyaltyPointTransactionType.ADJUSTMENT,
+          points: refund,
+          remainingPoints: refund,
+          expiresAt: addDays(new Date(), expiryDays),
+        },
+      });
+    }
+
+    await tx.loyaltyAccount.update({
+      where: { id: account.id },
+      data: {
+        points: Math.max(0, account.points - clawback + refund),
+        lifetimePoints: Math.max(0, account.lifetimePoints - originalEarned),
+      },
+    });
   }
 }

@@ -56,8 +56,16 @@ function bgn(eurValue: number): Cell {
   return { value: eurValue * BGN_RATE, type: Number, format: BGN_FORMAT };
 }
 
+// Excel / Google Sheets interpret a cell whose text starts with = + - @ (or a
+// leading tab/CR) as a formula. An attacker who set a menu name to
+// `=cmd|'/C calc'!A0` could trigger code execution when the owner opens the
+// export. Prefixing with an apostrophe forces literal-text rendering (#29).
+function sanitizeFormula(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+}
+
 function text(value?: string | number | null): Cell {
-  return { value: value == null ? '' : String(value) };
+  return { value: value == null ? '' : sanitizeFormula(String(value)) };
 }
 
 function int(value: number): Cell {

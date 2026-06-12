@@ -81,8 +81,15 @@ function pct(value: number): Cell {
   return { value, type: Number, format: PCT_FORMAT };
 }
 
+// Force literal-text rendering for any cell whose value would otherwise be
+// parsed as a formula by Excel/Sheets (leading = + - @ / tab / CR). Menu item
+// names flow into this export, so the same CSV-injection guard applies (#29).
+function sanitizeFormula(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+}
+
 function text(value?: string | number | null): Cell {
-  return { value: value == null ? '' : String(value) };
+  return { value: value == null ? '' : sanitizeFormula(String(value)) };
 }
 
 function empty(): Cell {

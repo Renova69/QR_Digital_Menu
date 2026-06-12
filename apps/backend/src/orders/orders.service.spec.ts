@@ -142,8 +142,13 @@ describe('OrdersService', () => {
         update: jest.fn(),
         create: jest.fn().mockResolvedValue(makeOrder()),
       },
+      // #2: create() now checks for an in-flight payment before adding orders.
+      payment: { findFirst: jest.fn().mockResolvedValue(null) },
       user: { findUnique: jest.fn() },
-      $transaction: jest.fn(),
+      // Default: run the callback with the prisma mock as the tx. updateStatus
+      // (#12) now wraps its update in a transaction; create() overrides this
+      // per-test with a purpose-built tx (makeTx).
+      $transaction: jest.fn().mockImplementation((fn: any) => fn(prisma)),
     };
 
     events = {
@@ -1398,6 +1403,123 @@ describe('OrdersService', () => {
         service.updateStatus('order-1', { status: 'READY' } as any, 'user-1'),
       ).rejects.toThrow(NotFoundException);
     });
+
+    // #12: cancelling reverses loyalty so points can't be farmed.
+    it('reverses loyalty points when an order is canceled', async () => {
+      const order = makeOrder({
+        customerId: 'cust-1',
+        pointsEarned: 100,
+        pointsRedeemedForDiscount: 0,
+        pointsRedeemedForItems: 0,
+        restaurant: { ownerId: 'user-1', loyaltyPointExpiryDays: 90 },
+      });
+      prisma.order.findUnique.mockResolvedValue(order);
+      prisma.user.findUnique.mockResolvedValue({ restaurantId: null });
+      prisma.order.update.mockResolvedValue(
+        makeOrder({ status: 'CANCELED', customerId: 'cust-1' }),
+      );
+      prisma.loyaltyAccount.findUnique.mockResolvedValue({
+        id: 'acc-1',
+        points: 150,
+        lifetimePoints: 150,
+      });
+      prisma.loyaltyPointLedger.findMany.mockResolvedValue([
+        { id: 'batch-1', remainingPoints: 100, points: 100 },
+      ]);
+
+      await service.updateStatus(
+        'order-1',
+        { status: 'CANCELED' } as any,
+        'user-1',
+      );
+
+      // earned batch zeroed
+      expect(prisma.loyaltyPointLedger.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['batch-1'] } },
+        data: { remainingPoints: 0 },
+      });
+      // account reconciled: 150 - 100 earned + 0 refund = 50; lifetime 150 - 100 = 50
+      expect(prisma.loyaltyAccount.update).toHaveBeenCalledWith({
+        where: { id: 'acc-1' },
+        data: { points: 50, lifetimePoints: 50 },
+      });
+    });
+
+    it('does not reverse loyalty for a non-cancel status change', async () => {
+      const order = makeOrder({ customerId: 'cust-1', pointsEarned: 100 });
+      prisma.order.findUnique.mockResolvedValue(order);
+      prisma.user.findUnique.mockResolvedValue({ restaurantId: null });
+      prisma.order.update.mockResolvedValue(makeOrder({ status: 'SERVED' }));
+
+      await service.updateStatus(
+        'order-1',
+        { status: 'SERVED' } as any,
+        'user-1',
+      );
+
+      expect(prisma.loyaltyAccount.update).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── #2 underpay protection + #24 option normalization ─────────────────────
+  describe('create — payment-in-flight + option integrity', () => {
+    it('rejects a new order while a PENDING payment is in flight (#2)', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.tableSession.findFirst.mockResolvedValue({
+        id: 'sess-open',
+        tableId: 'table-cuid-1',
+        status: 'OPEN',
+      });
+      prisma.payment.findFirst.mockResolvedValue({ id: 'pay-pending' });
+
+      await expect(
+        service.create({
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          sessionToken: 'tok-open',
+        } as any),
+      ).rejects.toThrow(/payment is in progress/i);
+    });
+
+    it('persists the DB price modifier, not the client-submitted one (#24)', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem({ id: 'item-1' })]);
+      prisma.menuOption.findMany.mockResolvedValue([
+        {
+          id: 'opt-1',
+          menuItemId: 'item-1',
+          name: 'Size',
+          type: 'OPTIONAL',
+          choices: [{ name: 'Large', priceModifier: 2 }],
+        },
+      ]);
+      const tx = makeTx();
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
+
+      await service.create({
+        items: [
+          {
+            menuItemId: 'item-1',
+            quantity: 1,
+            // Client lies about the modifier; backend must ignore it.
+            selectedOptions: [
+              {
+                optionId: 'opt-1',
+                optionName: 'tampered',
+                choiceName: 'Large',
+                priceModifier: -10,
+              },
+            ],
+          },
+        ],
+      } as any);
+
+      const persisted =
+        tx.order.create.mock.calls[0][0].data.items.create[0].selectedOptions[0];
+      expect(persisted.priceModifier).toBe(2);
+      expect(persisted.optionName).toBe('Size');
+      expect(persisted.choiceName).toBe('Large');
+    });
   });
 
   // ─── Issue 2: choice dedup + VARIATION validation ────────────────────────────
@@ -1464,6 +1586,25 @@ describe('OrdersService', () => {
           null,
         ),
       ).rejects.toThrow('allows at most one choice');
+    });
+
+    it('rejects a VARIATION option when no choice is selected', async () => {
+      await expect(
+        service.create(
+          {
+            restaurantId: 'rest-1',
+            tableId: 'table-1',
+            items: [
+              {
+                menuItemId: 'item-1',
+                quantity: 1,
+                selectedOptions: [],
+              },
+            ],
+          } as any,
+          null,
+        ),
+      ).rejects.toThrow('requires one choice');
     });
   });
 

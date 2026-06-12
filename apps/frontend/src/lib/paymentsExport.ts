@@ -54,8 +54,15 @@ function pct(value: number): Cell {
   return { value, type: Number, format: PCT_FORMAT };
 }
 
+// Customer names / table labels / provider references are user- or
+// external-controlled and flow into this export; force literal-text rendering
+// for any value Excel/Sheets would treat as a formula (#29).
+function sanitizeFormula(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+}
+
 function text(value?: string | number | null): Cell {
-  return { value: value == null ? '' : String(value) };
+  return { value: value == null ? '' : sanitizeFormula(String(value)) };
 }
 
 function empty(): Cell {

@@ -62,9 +62,7 @@ export class TablesService {
     if (!restaurant) {
       throw new NotFoundException('Restaurant not found');
     }
-    if (restaurant.ownerId !== userId) {
-      throw new ForbiddenException('You do not own this restaurant');
-    }
+    await this.assertOwnerOrManager(restaurant.ownerId, restaurantId, userId);
 
     const existingTable = await this.prisma.restaurantTable.findFirst({
       where: {
@@ -109,8 +107,7 @@ export class TablesService {
       where: { id: restaurantId },
     });
     if (!restaurant) throw new NotFoundException('Restaurant not found');
-    if (restaurant.ownerId !== userId)
-      throw new ForbiddenException('You do not own this restaurant');
+    await this.assertOwnerOrManager(restaurant.ownerId, restaurantId, userId);
 
     const defaultZone = await this.prisma.tableZone.findFirst({
       where: { restaurantId },
@@ -149,8 +146,11 @@ export class TablesService {
       include: { restaurant: true },
     });
     if (!table) throw new NotFoundException('Table not found');
-    if (table.restaurant.ownerId !== userId)
-      throw new ForbiddenException('You do not own this restaurant');
+    await this.assertOwnerOrManager(
+      table.restaurant.ownerId,
+      table.restaurantId,
+      userId,
+    );
 
     if (dto.zoneId !== undefined) {
       if (dto.zoneId !== null) {
@@ -195,6 +195,22 @@ export class TablesService {
       orderBy: { name: 'asc' },
       include: { zone: { select: { id: true, name: true } } },
     });
+  }
+
+  /** Owner OR an assigned MANAGER may manage this restaurant's tables. Mirrors
+   *  the access granted on menu, zones, payments, and dashboard (#19). */
+  private async assertOwnerOrManager(
+    ownerId: string,
+    restaurantId: string,
+    userId: string,
+  ): Promise<void> {
+    if (ownerId === userId) return;
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, restaurantId: true },
+    });
+    if (user?.role === 'MANAGER' && user.restaurantId === restaurantId) return;
+    throw new ForbiddenException('You do not own this restaurant');
   }
 
   private async verifyRestaurantAccess(
@@ -370,9 +386,11 @@ export class TablesService {
     if (!table) {
       throw new NotFoundException('Table not found');
     }
-    if (table.restaurant.ownerId !== userId) {
-      throw new ForbiddenException('You do not own this restaurant');
-    }
+    await this.assertOwnerOrManager(
+      table.restaurant.ownerId,
+      table.restaurantId,
+      userId,
+    );
     const deleted = await this.prisma.restaurantTable.delete({
       where: { id },
     });

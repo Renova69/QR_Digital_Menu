@@ -14,6 +14,9 @@ import { StorageService } from '../storage/storage.service';
 
 const mockPrisma = {
   restaurant: { findUnique: jest.fn() },
+  // Non-owner ownership checks now look up the user to allow assigned MANAGERs
+  // (#15). Default null → not a manager → ForbiddenException as before.
+  user: { findUnique: jest.fn().mockResolvedValue(null) },
   menuCategory: {
     findMany: jest.fn(),
     findFirst: jest.fn(),
@@ -118,6 +121,9 @@ describe('MenuCrudService', () => {
 
     service = module.get<MenuCrudService>(MenuCrudService);
     jest.clearAllMocks();
+    // clearAllMocks wipes call data but NOT implementations — re-assert the
+    // non-manager default so a manager override in one test can't leak forward.
+    mockPrisma.user.findUnique.mockResolvedValue(null);
     mockMenuTranslation.applyLazyTranslations.mockResolvedValue(undefined);
     mockTranslation.translateObject.mockResolvedValue({});
     mockStorage.delete.mockResolvedValue(undefined);
@@ -517,6 +523,25 @@ describe('MenuCrudService', () => {
         }),
       );
       expect(result.id).toBe('cat-1');
+    });
+
+    it('allows an assigned MANAGER to create a category (#15)', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.user.findUnique.mockResolvedValue({
+        role: 'MANAGER',
+        restaurantId: 'rest-1',
+      });
+      mockPrisma.menuCategory.count.mockResolvedValue(0);
+      mockPrisma.menuCategory.create.mockResolvedValue(makeCategory({ order: 0 }));
+
+      const result = await service.createCategory(
+        'rest-1',
+        { name: 'Starters' },
+        'manager-1',
+      );
+
+      expect(result.id).toBe('cat-1');
+      expect(mockPrisma.menuCategory.create).toHaveBeenCalled();
     });
   });
 

@@ -277,6 +277,38 @@ export class PaymentService {
   ): Promise<boolean> {
     if (!this.isPaymentClaimable(payment)) return false;
 
+    // Underpay guard (#2): never release a session for a payment that no longer
+    // covers its CURRENT bill. Orders can be added after a low PaymentIntent was
+    // created; confirming that stale intent must not flip the whole (now larger)
+    // session to PAID for a fraction of what's owed. payment.amount includes any
+    // tip, so a normal full payment always covers the subtotal — only an
+    // added-items / tampered-amount case falls short. When it does, we leave the
+    // session OPEN (and the payment unclaimed) so staff collect the real total.
+    const sessionOrders = await tx.order.findMany({
+      where: { tableSessionId: payment.tableSessionId },
+      select: { totalPrice: true },
+    });
+    const currentSubtotal = sessionOrders.reduce(
+      (sum: number, o: { totalPrice: number }) => sum + o.totalPrice,
+      0,
+    );
+    if (
+      this.roundMoney(payment.amount ?? 0) + 0.01 <
+      this.roundMoney(currentSubtotal)
+    ) {
+      this.logger.warn(
+        'Refusing to mark session PAID: payment does not cover current bill',
+        {
+          paymentId: payment.id,
+          tableSessionId: payment.tableSessionId,
+          paidAmount: payment.amount,
+          currentSubtotal,
+          provider: payment.provider,
+        },
+      );
+      return false;
+    }
+
     const sessionUpdate = await tx.tableSession.updateMany({
       where: {
         id: payment.tableSessionId,

@@ -6,10 +6,31 @@ type ClientLogLevel = 'info' | 'warn' | 'error';
 
 const ALLOWED_LEVELS = new Set<ClientLogLevel>(['info', 'warn', 'error']);
 
+// Keys whose values must never reach the logs. Broadened beyond the original
+// password/token/secret/cookie/authorization/card/pan/cvv set to cover the
+// financial + credential identifiers an attacker could otherwise smuggle into
+// server logs via the client context object (#16).
+const SENSITIVE_KEY_PATTERN =
+  /password|token|secret|cookie|authorization|auth|card|pan|cvv|cvc|routing|account|iban|apikey|api_key|ssn|\bpin\b/i;
+
+// Matches C0 control chars (incl. CR/LF/TAB) and DEL. Defined with String.raw
+// so the source stays printable (no literal control bytes in the file).
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHAR_PATTERN = new RegExp(String.raw`[\x00-\x1f\x7f]`, 'g');
+
+// Strip control chars so a client-supplied field can't forge extra log lines
+// when the app runs in plain-text log mode (#16). Production uses JSON logs
+// which already escape newlines, but dev/self-hosted plain-text deployments
+// are vulnerable to log-injection without this.
+function stripControlChars(value: string): string {
+  return value.replace(CONTROL_CHAR_PATTERN, ' ');
+}
+
 function asString(value: unknown, maxLength = 1_000): string | undefined {
   if (typeof value !== 'string') return undefined;
-  if (value.length <= maxLength) return value;
-  return `${value.slice(0, maxLength)}...[truncated]`;
+  const cleaned = stripControlChars(value);
+  if (cleaned.length <= maxLength) return cleaned;
+  return `${cleaned.slice(0, maxLength)}...[truncated]`;
 }
 
 function asLevel(value: unknown): ClientLogLevel {
@@ -24,9 +45,7 @@ function safeContext(value: unknown): Record<string, unknown> | undefined {
   }
   const output: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value).slice(0, 30)) {
-    if (
-      /password|token|secret|cookie|authorization|card|pan|cvv/i.test(key)
-    ) {
+    if (SENSITIVE_KEY_PATTERN.test(key)) {
       continue;
     }
     output[key] =

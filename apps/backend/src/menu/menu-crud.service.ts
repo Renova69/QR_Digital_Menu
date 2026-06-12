@@ -533,12 +533,31 @@ export class MenuCrudService {
     }
 
     if (restaurant.ownerId !== userId) {
-      throw new ForbiddenException(
-        'You do not have permission to access this resource',
-      );
+      // Assigned MANAGERs manage their own restaurant's menu. This mirrors the
+      // access already granted on payments, dashboard analytics, and device
+      // enrollment — without it managers were locked out of menu CRUD entirely
+      // (#15). A MANAGER's userId never equals ownerId, so the owner check alone
+      // blocked them; the assignment (user.restaurantId === id) is the boundary.
+      const isManager = await this.isAssignedManager(userId, restaurantId);
+      if (!isManager) {
+        throw new ForbiddenException(
+          'You do not have permission to access this resource',
+        );
+      }
     }
 
     return restaurant;
+  }
+
+  private async isAssignedManager(
+    userId: string,
+    restaurantId: string,
+  ): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, restaurantId: true },
+    });
+    return user?.role === 'MANAGER' && user.restaurantId === restaurantId;
   }
 
   // ── Category Methods ──

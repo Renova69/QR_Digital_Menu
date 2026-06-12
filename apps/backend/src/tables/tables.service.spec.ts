@@ -40,6 +40,9 @@ describe('TablesService', () => {
       },
       order: { findMany: jest.fn().mockResolvedValue([]) },
       tableZone: { findFirst: jest.fn().mockResolvedValue({ id: 'zone-1' }) },
+      // Non-owner table ops now look up the user to allow assigned MANAGERs
+      // (#19). Default null → not a manager → ForbiddenException as before.
+      user: { findUnique: jest.fn().mockResolvedValue(null) },
     };
 
     events = {
@@ -73,6 +76,27 @@ describe('TablesService', () => {
         expect.any(Object),
       );
       expect(result).toEqual(mockTable);
+    });
+
+    it('allows an assigned MANAGER to create a table (#19)', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        role: 'MANAGER',
+        restaurantId: 'rest-1',
+      });
+      await expect(
+        service.create('rest-1', { name: 'T9' }, 'manager-1'),
+      ).resolves.toBeDefined();
+      expect(prisma.restaurantTable.create).toHaveBeenCalled();
+    });
+
+    it('rejects a MANAGER assigned to a different restaurant (#19)', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        role: 'MANAGER',
+        restaurantId: 'other-rest',
+      });
+      await expect(
+        service.create('rest-1', { name: 'T9' }, 'manager-x'),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('throws NotFoundException when restaurant does not exist', async () => {

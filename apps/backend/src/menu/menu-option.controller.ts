@@ -9,6 +9,7 @@ import {
   Patch,
   Delete,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { MenuCrudService } from './menu-crud.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateMenuOptionDto } from './dto/create-menu-option.dto';
@@ -19,6 +20,8 @@ import { UpdateMenuOptionDto } from './dto/update-menu-option.dto';
 export class MenuOptionController {
   constructor(private readonly crud: MenuCrudService) {}
 
+  // Option name + choice names are pre-warmed to DeepL — throttle for cost (#30).
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Post()
   create(
     @Param('itemId') itemId: string,
@@ -34,6 +37,8 @@ export class MenuOptionController {
 export class MenuOptionDetailController {
   constructor(private readonly crud: MenuCrudService) {}
 
+  // Same DeepL cost guard as option create (#30).
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Patch(':id')
   update(
     @Param('id') id: string,

@@ -16,6 +16,12 @@ import { RequireFeature } from '../subscription/require-feature.decorator';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { DateRangeQueryDto } from '../common/dto/date-range-query.dto';
 
+// Cap the analytics window so a caller can't request year 0001→9999 and force
+// the day-by-day revenue-trend loop (+ unbounded order fetch) to exhaust CPU /
+// memory (#28). 366 days covers the largest UI-selectable range with headroom.
+const MAX_ANALYTICS_RANGE_DAYS = 366;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 @Controller('dashboard')
 export class DashboardController {
   constructor(
@@ -23,6 +29,25 @@ export class DashboardController {
     private readonly prisma: PrismaService,
     private readonly featureService: FeatureService,
   ) {}
+
+  /** Reject inverted or excessively wide date ranges before they reach the
+   *  query layer. No-op when either bound is missing (period-based requests). */
+  private assertDateRange(startDate?: string, endDate?: string): void {
+    if (!startDate || !endDate) return;
+    const start = new Date(startDate).getTime();
+    const end = new Date(endDate).getTime();
+    if (Number.isNaN(start) || Number.isNaN(end)) {
+      throw new BadRequestException('Invalid startDate or endDate');
+    }
+    if (end < start) {
+      throw new BadRequestException('endDate must not be before startDate');
+    }
+    if (end - start > MAX_ANALYTICS_RANGE_DAYS * MS_PER_DAY) {
+      throw new BadRequestException(
+        `Date range cannot exceed ${MAX_ANALYTICS_RANGE_DAYS} days`,
+      );
+    }
+  }
 
   private async verifyDashboardAccess(
     user: any,
@@ -78,6 +103,7 @@ export class DashboardController {
     if (!restaurantId) {
       throw new BadRequestException('restaurantId is required');
     }
+    this.assertDateRange(dateRange.startDate, dateRange.endDate);
     await this.verifyDashboardAccess(user, restaurantId);
     return this.dashboardService.getPaymentsSummary(
       restaurantId,
@@ -106,6 +132,8 @@ export class DashboardController {
         throw new BadRequestException('period must be 7, 14, or 30');
       }
     }
+
+    this.assertDateRange(dateRange?.startDate, dateRange?.endDate);
 
     const { tier, forceTier } = await this.verifyDashboardAccess(user, restaurantId);
     const result = await this.dashboardService.getAnalytics(

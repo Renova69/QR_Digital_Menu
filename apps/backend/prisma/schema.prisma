@@ -432,7 +432,11 @@ model LoyaltyPointLedger {
   reminderSentAt   DateTime?
   createdAt        DateTime                    @default(now())
   loyaltyAccount   LoyaltyAccount              @relation(fields: [loyaltyAccountId], references: [id], onDelete: Cascade)
-  order            Order?                      @relation(fields: [orderId], references: [id])
+  // #21: SetNull (not the default RESTRICT) so deleting an order — or a
+  // restaurant that cascade-deletes its orders — never fails on a referencing
+  // ledger row. orderId is already nullable; the ledger is retained as an audit
+  // trail with a null orderId rather than blocking the delete.
+  order            Order?                      @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   @@index([loyaltyAccountId, expiresAt])
   @@index([expiresAt, reminderSentAt])

@@ -174,7 +174,17 @@ export class TableZonesService {
       throw new NotFoundException('Restaurant not found');
     }
     if (restaurant.ownerId !== userId) {
-      throw new ForbiddenException('You do not own this restaurant');
+      // Assigned MANAGERs configure their own restaurant's zones — consistent
+      // with menu, tables, payments, and dashboard access (#19).
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true, restaurantId: true },
+      });
+      const isManager =
+        user?.role === 'MANAGER' && user.restaurantId === restaurantId;
+      if (!isManager) {
+        throw new ForbiddenException('You do not own this restaurant');
+      }
     }
   }
 

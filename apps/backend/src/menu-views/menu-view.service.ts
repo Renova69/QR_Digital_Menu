@@ -61,8 +61,19 @@ export class MenuViewService {
 
     const today = DateTime.now().setZone(tz).startOf('day').toJSDate();
 
-    const [totalViews, todayViews, perTableRaw, uniqueRows] = await Promise.all(
-      [
+    // Unique-visitor counts are computed with COUNT(DISTINCT) at the DB layer.
+    // The previous implementation pulled every row in the 7-day window into
+    // memory just to de-dup visitorIds — an OOM / event-loop-lockup vector for
+    // popular restaurants or a MenuView flood (#18).
+    type UniqueTotalRow = { count: bigint | number };
+    type PerTableUniqueRow = {
+      tableId: string | null;
+      tableName: string | null;
+      unique_visitors: bigint | number;
+    };
+
+    const [totalViews, todayViews, perTableRaw, uniqueTotalRows, perTableUnique] =
+      await Promise.all([
         this.prisma.menuView.count({
           where: { restaurantId, createdAt: { gte: since } },
         }),
@@ -74,22 +85,39 @@ export class MenuViewService {
           where: { restaurantId, createdAt: { gte: since } },
           _count: { id: true },
         }),
-        this.prisma.menuView.findMany({
-          where: {
-            restaurantId,
-            createdAt: { gte: since },
-            visitorId: { not: null },
-          },
-          select: { tableId: true, tableName: true, visitorId: true },
-        }),
-      ],
-    );
+        this.prisma.$queryRaw<UniqueTotalRow[]>`
+          SELECT COUNT(DISTINCT "visitorId")::int AS count
+          FROM menu_view
+          WHERE "restaurantId" = ${restaurantId}
+            AND "createdAt" >= ${since}
+            AND "visitorId" IS NOT NULL
+        `,
+        this.prisma.$queryRaw<PerTableUniqueRow[]>`
+          SELECT "tableId",
+                 "tableName",
+                 COUNT(DISTINCT "visitorId")::int AS unique_visitors
+          FROM menu_view
+          WHERE "restaurantId" = ${restaurantId}
+            AND "createdAt" >= ${since}
+            AND "visitorId" IS NOT NULL
+          GROUP BY "tableId", "tableName"
+        `,
+      ]);
 
-    const uniqueTotal = new Set(uniqueRows.map((r: { visitorId: string | null }) => r.visitorId)).size;
+    const uniqueTotal = Number(uniqueTotalRows[0]?.count ?? 0);
+
+    const uniqueByKey = new Map<string, number>();
+    for (const row of perTableUnique) {
+      const key = row.tableId ?? row.tableName ?? 'unknown';
+      uniqueByKey.set(
+        key,
+        (uniqueByKey.get(key) ?? 0) + Number(row.unique_visitors),
+      );
+    }
 
     const perTableMap = new Map<
       string,
-      { tableName: string; views: number; visitorIds: Set<string> }
+      { tableName: string; views: number; uniqueVisitors: number }
     >();
 
     for (const row of perTableRaw) {
@@ -98,25 +126,17 @@ export class MenuViewService {
       const existing = perTableMap.get(key) ?? {
         tableName: label,
         views: 0,
-        visitorIds: new Set(),
+        uniqueVisitors: uniqueByKey.get(key) ?? 0,
       };
       existing.views += row._count.id;
       perTableMap.set(key, existing);
     }
 
-    for (const row of uniqueRows) {
-      const key = row.tableId ?? row.tableName ?? 'unknown';
-      const entry = perTableMap.get(key);
-      if (entry && row.visitorId) {
-        entry.visitorIds.add(row.visitorId);
-      }
-    }
-
     const perTable = Array.from(perTableMap.values())
-      .map(({ tableName, views, visitorIds }) => ({
+      .map(({ tableName, views, uniqueVisitors }) => ({
         tableName,
         views,
-        uniqueVisitors: visitorIds.size,
+        uniqueVisitors,
       }))
       .sort((a, b) => b.views - a.views);
 
