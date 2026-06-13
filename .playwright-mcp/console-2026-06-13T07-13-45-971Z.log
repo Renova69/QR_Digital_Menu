@@ -1,0 +1,24 @@
+[     902ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://qr-digital-menu-ivory.vercel.app/api/v1/auth/me:0
+[     904ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://qr-digital-menu-ivory.vercel.app/api/v1/restaurants:0
+[     904ms] [WARNING] [client-log:api_error] GET /restaurants failed with 401 {method: GET, url: /restaurants, status: 401, backendRequestId: 9b6b3b7c-b53c-4162-b5b0-274076430cc2, responseMessage: Unauthorized} @ https://qr-digital-menu-ivory.vercel.app/assets/index-FtPWAH2b.js:1
+[    1189ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://qr-digital-menu-ivory.vercel.app/api/v1/restaurants:0
+[    1189ms] [WARNING] [client-log:api_error] GET /restaurants failed with 401 {method: GET, url: /restaurants, status: 401, backendRequestId: 7cba1bee-75e5-4f07-a8cc-7f1f440315af, responseMessage: Unauthorized} @ https://qr-digital-menu-ivory.vercel.app/assets/index-FtPWAH2b.js:1
+[    1190ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://qr-digital-menu-ivory.vercel.app/api/v1/auth/me:0
+[    1197ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ https://qr-digital-menu-ivory.vercel.app/login:0
+[    1346ms] [LOG] Socket connected: 8jP2yvry-UbT_cKrAAAP @ https://qr-digital-menu-ivory.vercel.app/assets/index-FtPWAH2b.js:1
+[    1627ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ https://qr-digital-menu-ivory.vercel.app/login:0
+[    9483ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ https://qr-digital-menu-ivory.vercel.app/login:0
+[   33807ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ https://qr-digital-menu-ivory.vercel.app/register:0
+[   82222ms] [ERROR] Failed to load resource: the server responded with a status of 502 () @ https://qr-digital-menu-ivory.vercel.app/api/v1/auth/register:0
+[   82223ms] [ERROR] [client-log:api_error] POST /auth/register failed with 502 {method: POST, url: /auth/register, status: 502, backendRequestId: aeaf3c85-bd14-4e80-a7e3-d5f10135a8f1, responseMessage: Failed to send verification code.} @ https://qr-digital-menu-ivory.vercel.app/assets/index-FtPWAH2b.js:1
+[  273112ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ https://qr-digital-menu-ivory.vercel.app/login:0
+[  274426ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://qr-digital-menu-ivory.vercel.app/api/v1/auth/login:0
+[  274429ms] [WARNING] [client-log:api_error] POST /auth/login failed with 401 {method: POST, url: /auth/login, status: 401, backendRequestId: 6ed4f50a-3c54-44bf-94b4-fc35fa3b9490, responseMessage: Invalid email or password.} @ https://qr-digital-menu-ivory.vercel.app/assets/index-FtPWAH2b.js:1
+[  302380ms] [LOG] Socket disconnected @ https://qr-digital-menu-ivory.vercel.app/assets/index-FtPWAH2b.js:1
+[  303811ms] [LOG] Socket connected: xhhITZ81j7BQ60udAAAV @ https://qr-digital-menu-ivory.vercel.app/assets/index-FtPWAH2b.js:1
+[  604791ms] [LOG] Socket disconnected @ https://qr-digital-menu-ivory.vercel.app/assets/index-FtPWAH2b.js:1
+[  606225ms] [LOG] Socket connected: Q5HDBHvyYcm5DjegAAAl @ https://qr-digital-menu-ivory.vercel.app/assets/index-FtPWAH2b.js:1
+[  848016ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://qr-digital-menu-ivory.vercel.app/api/v1/auth/login:0
+[  848017ms] [WARNING] [client-log:api_error] POST /auth/login failed with 401 {method: POST, url: /auth/login, status: 401, backendRequestId: ddbcd1b4-ef1a-476e-8cd2-c1ee9c279047, responseMessage: Invalid email or password.} @ https://qr-digital-menu-ivory.vercel.app/assets/index-FtPWAH2b.js:1
+[  907195ms] [LOG] Socket disconnected @ https://qr-digital-menu-ivory.vercel.app/assets/index-FtPWAH2b.js:1
+[  908274ms] [LOG] Socket connected: cdivjNUKXGXRFkLsAAAt @ https://qr-digital-menu-ivory.vercel.app/assets/index-FtPWAH2b.js:1

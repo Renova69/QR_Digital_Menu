@@ -91,7 +91,7 @@ describe('PaymentModal hosted provider choices', () => {
 
     render(<PaymentModal sessionToken="tok1" onClose={vi.fn()} onSuccess={vi.fn()} />);
 
-    await screen.findByRole('button', { name: 'Continue' });
+    await screen.findByTestId('payment-continue-button');
     expect(screen.queryByRole('button', { name: 'ePay.bg' })).toBeNull();
   });
 

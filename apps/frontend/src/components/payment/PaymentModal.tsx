@@ -556,7 +556,12 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
             {error && <p className="text-red-500 text-sm">{error}</p>}
           </div>
 
-            <Button className="w-full flex-shrink-0" onClick={handleContinueToPayment} disabled={loading || !hasPaymentProvider}>
+            <Button
+              data-testid="payment-continue-button"
+              className="w-full flex-shrink-0"
+              onClick={handleContinueToPayment}
+              disabled={loading || !hasPaymentProvider}
+            >
               {loading
                 ? t('payment.loading', 'Loading...')
                 : effectiveProvider === 'EPAY'

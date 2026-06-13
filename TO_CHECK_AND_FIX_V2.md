@@ -1,3 +1,95 @@
+This file contains Audit/report 
+
+Use `superpowers:brainstorm` for this task.
+
+I have a full report/audit file that lists issues in this codebase. Your job is **not** to blindly trust the report. Treat every audit finding as a hypothesis until you independently verify it.
+
+
+Project goal:
+Fix all real issues from the audit using the best, safest, most maintainable solutions.
+
+Strict workflow:
+
+1. **Start with brainstorming only**
+
+   * Use the Superpowers brainstorming workflow properly.
+   * Do not edit files or implement fixes yet.
+   * First understand the project structure, tech stack, test setup, build process, and the audit report.
+   * Ask only truly blocking clarification questions. Otherwise make reasonable assumptions and clearly label them.
+
+2. **Verify before trusting**
+
+   * For every audit finding, independently verify whether it is real.
+   * Use code inspection, tests, build/lint/typecheck output, runtime reproduction, dependency checks, logs, or minimal proof scripts where appropriate.
+   * Do not mark anything as confirmed unless you have evidence.
+   * If a finding cannot be verified, mark it as “Needs more evidence” and explain exactly what is missing.
+
+3. **Classify each audit item**
+   For every issue in the report, produce a table with:
+
+   * Audit item / ID
+   * Claimed problem
+   * Verification status: `Verified`, `False positive`, `Already fixed`, `Duplicate`, `Needs more evidence`, or `Won’t fix`
+   * Evidence used
+   * Severity
+   * Root cause
+   * Recommended fix
+   * Risk of the fix
+   * Tests or validation needed
+
+4. **Find related issues**
+
+   * Do not only fix the exact lines mentioned in the audit.
+   * Search the codebase for the same pattern, related bugs, insecure assumptions, duplicated logic, missing validation, bad error handling, or similar architectural problems.
+   * Add any newly discovered issues to the table, clearly marked as “Discovered during verification.”
+
+5. **Choose the best solution**
+
+   * Prefer root-cause fixes over superficial patches.
+   * Avoid unnecessary rewrites.
+   * Preserve existing behavior unless the behavior is clearly wrong or unsafe.
+   * Consider security, correctness, maintainability, performance, backward compatibility, and testability.
+   * If there are multiple solution options, compare them and recommend the best one.
+
+6. **Create an implementation plan before coding**
+   Before making any changes, present a phased plan:
+
+   * Phase 1: safest/highest-priority fixes
+   * Phase 2: medium-risk fixes
+   * Phase 3: cleanup/refactors only if justified
+     For each phase include:
+   * Files likely to change
+   * Tests to add/update
+   * Commands to run for validation
+   * Rollback/risk notes
+
+7. **Approval gate**
+
+   * Stop after the verification summary and implementation plan.
+   * Do not modify files until I approve the plan.
+
+8. **When implementation is approved later**
+
+   * Work in small, reviewable batches.
+   * Add or update tests before/alongside fixes where practical.
+   * Run relevant tests, linting, type checks, and build commands.
+   * After each batch, summarize exactly what changed and what evidence proves it works.
+   * Never hide failing tests. If something fails, diagnose it honestly.
+
+Important rules:
+
+* Do not assume the audit is correct.
+* Do not claim an issue is fixed unless you verified it.
+* Do not make broad refactors unless they directly support a verified fix.
+* Do not remove functionality without explaining why.
+* Do not silence errors, warnings, or tests just to make the report clean.
+* If you are unsure, say what you are unsure about and how you would verify it.
+
+
+
+
+
+
 # TO_CHECK_AND_FIX_V2.md
 
 This document contains a comprehensive 15-point deep-dive code review and audit of the entire Phase 2 feature set, structured strictly according to the requested audit template.

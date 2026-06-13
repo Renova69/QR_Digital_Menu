@@ -1,0 +1,51 @@
+- generic:
+  - generic:
+    - banner [ref=e1]:
+      - navigation [ref=e2]:
+        - link [ref=e3] [cursor=pointer]:
+          - /url: /
+          - img [ref=e5]
+          - generic [ref=e11]: QR MENU
+        - generic [ref=e12]:
+          - link [ref=e13] [cursor=pointer]:
+            - /url: /#features
+            - text: Features
+          - link [ref=e14] [cursor=pointer]:
+            - /url: /pricing
+            - text: Pricing
+        - generic [ref=e15]:
+          - button [ref=e16] [cursor=pointer]:
+            - generic [ref=e17]:
+              - img [ref=e18]
+              - img [ref=e24]
+          - combobox [ref=e26] [cursor=pointer]
+          - link [ref=e27] [cursor=pointer]:
+            - /url: /login
+            - text: Login
+          - link [ref=e28] [cursor=pointer]:
+            - /url: /register
+            - text: Get Started
+    - main
+    - dialog:
+      - paragraph: We use cookies to ensure you get the best experience on our website. By continuing to use this site, you agree to our use of cookies as described in our Cookie Policy.
+      - generic:
+        - button: Accept
+        - link:
+          - /url: /cookies
+          - text: Cookie settings
+  - dialog "Login" [ref=e30]:
+    - heading "Login" [level=2] [ref=e31]
+    - paragraph [ref=e32]: Access your dashboard.
+    - button "Sign in with Google" [active] [ref=e34]
+    - generic [ref=e39]: Or continue with
+    - generic [ref=e40]:
+      - generic [ref=e41]:
+        - generic [ref=e42]: "Email:"
+        - textbox "Email:" [ref=e43]
+      - generic [ref=e44]:
+        - generic [ref=e45]: Password
+        - textbox "Password" [ref=e46]
+      - button "Login" [ref=e47]
+    - button "Don't have an account? Sign up" [ref=e49]
+    - button "Close" [ref=e50]:
+      - img [ref=e51]

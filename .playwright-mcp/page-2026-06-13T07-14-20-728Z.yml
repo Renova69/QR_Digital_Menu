@@ -1,0 +1,51 @@
+- generic:
+  - generic:
+    - banner [ref=e1]:
+      - navigation [ref=e2]:
+        - link [ref=e3] [cursor=pointer]:
+          - /url: /
+          - img [ref=e5]
+          - generic [ref=e11]: QR MENU
+        - generic [ref=e12]:
+          - link [ref=e13] [cursor=pointer]:
+            - /url: /#features
+            - text: Features
+          - link [ref=e14] [cursor=pointer]:
+            - /url: /pricing
+            - text: Pricing
+        - generic [ref=e15]:
+          - button [ref=e16] [cursor=pointer]:
+            - generic [ref=e17]:
+              - img [ref=e18]
+              - img [ref=e24]
+          - combobox [ref=e26] [cursor=pointer]
+          - link [ref=e27] [cursor=pointer]:
+            - /url: /login
+            - text: Login
+          - link [ref=e28] [cursor=pointer]:
+            - /url: /register
+            - text: Get Started
+    - main
+    - dialog:
+      - paragraph: We use cookies to ensure you get the best experience on our website. By continuing to use this site, you agree to our use of cookies as described in our Cookie Policy.
+      - generic:
+        - button: Accept
+        - link:
+          - /url: /cookies
+          - text: Cookie settings
+  - dialog "Create an account" [ref=e78]:
+    - heading "Create an account" [level=2] [ref=e79]
+    - paragraph [ref=e80]: Get started with your own QR menu.
+    - button "Sign in with Google" [active] [ref=e82]
+    - generic [ref=e87]: Or continue with
+    - generic [ref=e88]:
+      - generic [ref=e89]:
+        - generic [ref=e90]: "Email:"
+        - textbox "Email:" [ref=e91]
+      - generic [ref=e92]:
+        - generic [ref=e93]: Password
+        - textbox "Password" [ref=e94]
+      - button "Create account" [ref=e95]
+    - button "Already have an account? Login" [ref=e97]
+    - button "Close" [ref=e98]:
+      - img [ref=e99]
