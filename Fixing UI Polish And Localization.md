@@ -4,7 +4,7 @@ Note: _This is purely the output of the chat conversation and does not contain a
 
 ### User Input
 
-search for all md files and read them , so you would know where we are at with the project as we done some major adjustmets with css and the arhitecture. We have tried to setup *Turborepo with db runing on postgresql://neondb_owner:npg_tIu4LPA7oSsm@ep-shiny-flower-al0icrn9-pooler.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+search for all md files and read them , so you would know where we are at with the project as we done some major adjustmets with css and the arhitecture. We have tried to setup *Turborepo with db runing on postgresql://neondb_owner:REDACTED@ep-shiny-flower-al0icrn9-pooler.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
 
 Also we had major work on the css but i beleive its not done at 100% 
 

@@ -97,7 +97,7 @@ Review the [architecture_proposal.md](file:///e:/Programing/codespaces-react/arc
 
 yes i got the neon tech database url 
 
-postgresql://neondb_owner:npg_tIu4LPA7oSsm@ep-shiny-flower-al0icrn9.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require
+postgresql://neondb_owner:REDACTED@ep-shiny-flower-al0icrn9.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require
 
 *Viewed [package.json](file:///e:/Programing/codespaces-react/package.json) *
 
@@ -161,7 +161,7 @@ Please review the [implementation_plan.md](file:///C:/Users/Elysian%20Canvas/.ge
 
 *Checked command status*
 
-*User accepted the command `cmd /c "set DATABASE_URL=postgresql://neondb_owner:npg_tIu4LPA7oSsm@ep-shiny-flower-al0icrn9.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require && npx prisma db push"`*
+*User accepted the command `cmd /c "set DATABASE_URL=postgresql://neondb_owner:REDACTED@ep-shiny-flower-al0icrn9.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require && npx prisma db push"`*
 
 *Checked command status*
 
