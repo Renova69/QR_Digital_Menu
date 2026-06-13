@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => {
   const backendOrigin = (env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/api\/?$/, '');
 
   return {
-    plugins: [react(), tsconfigPaths()],
+    plugins: [react(), tsconfigPaths({ root: '.' })],
     server: {
       host: true,
       strictPort: true,
