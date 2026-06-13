@@ -172,43 +172,23 @@ function App() {
             <Route element={<SuperAdminRoute><SuperAdminLayout /></SuperAdminRoute>}>
               <Route
                 path="/super-admin"
-                element={
-                  <SuperAdminRoute>
-                    <OverviewPage />
-                  </SuperAdminRoute>
-                }
+                element={<OverviewPage />}
               />
               <Route
                 path="/super-admin/tenants"
-                element={
-                  <SuperAdminRoute>
-                    <TenantsPage />
-                  </SuperAdminRoute>
-                }
+                element={<TenantsPage />}
               />
               <Route
                 path="/super-admin/tenants/:id"
-                element={
-                  <SuperAdminRoute>
-                    <TenantDetailPage />
-                  </SuperAdminRoute>
-                }
+                element={<TenantDetailPage />}
               />
               <Route
                 path="/super-admin/legal"
-                element={
-                  <SuperAdminRoute>
-                    <LegalSettingsPage />
-                  </SuperAdminRoute>
-                }
+                element={<LegalSettingsPage />}
               />
               <Route
                 path="/super-admin/help"
-                element={
-                  <SuperAdminRoute>
-                    <HelpCenterPage />
-                  </SuperAdminRoute>
-                }
+                element={<HelpCenterPage />}
               />
             </Route>
 

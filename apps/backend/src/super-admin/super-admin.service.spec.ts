@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SuperAdminService } from './super-admin.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MenuImportService } from '../menu-import/menu-import.service';
+import { EventsGateway } from '../events/events.gateway';
 
 const ACTOR_ID = 'actor-user-id';
 
@@ -20,6 +21,7 @@ describe('SuperAdminService', () => {
       count: jest.fn(),
       groupBy: jest.fn(),
       findUnique: jest.fn(),
+      findMany: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
     },
@@ -40,6 +42,9 @@ describe('SuperAdminService', () => {
   const mockMenuImport = {
     upsertMenu: jest.fn(),
   };
+  const mockEvents = {
+    evictUser: jest.fn().mockResolvedValue(undefined),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -48,6 +53,7 @@ describe('SuperAdminService', () => {
         SuperAdminService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: MenuImportService, useValue: mockMenuImport },
+        { provide: EventsGateway, useValue: mockEvents },
       ],
     }).compile();
 
@@ -408,7 +414,12 @@ describe('SuperAdminService', () => {
       mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
         id: '1',
         isActive: true,
+        ownerId: 'owner-1',
       });
+      mockPrisma.user.findMany.mockResolvedValueOnce([
+        { id: 'owner-1' },
+        { id: 'staff-1' },
+      ]);
       mockPrisma.$transaction.mockResolvedValueOnce([
         { id: '1', name: 'Test', isActive: false },
         {},
@@ -418,6 +429,14 @@ describe('SuperAdminService', () => {
 
       expect(result.isActive).toBe(false);
       expect(mockPrisma.$transaction).toHaveBeenCalled();
+      expect(mockEvents.evictUser).toHaveBeenCalledWith(
+        'owner-1',
+        'restaurant_suspended',
+      );
+      expect(mockEvents.evictUser).toHaveBeenCalledWith(
+        'staff-1',
+        'restaurant_suspended',
+      );
     });
 
     it('throws NotFoundException for a missing restaurant', async () => {

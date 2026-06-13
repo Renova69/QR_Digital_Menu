@@ -20,6 +20,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { GoogleAuthGuard } from './google-auth.guard';
 import { PinLoginDto } from './dto/pin-login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { VerifyRegistrationDto } from './dto/verify-registration.dto';
 
 const COOKIE_SAMESITE: 'lax' | 'strict' | 'none' =
   (process.env.COOKIE_SAMESITE as any) ||
@@ -48,6 +49,19 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.register(createAuthDto);
+    return result;
+  }
+
+  @Post('register/verify')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @UsePipes(new ValidationPipe({ whitelist: true }))
+  async verifyRegistration(
+    @Body() verifyRegistrationDto: VerifyRegistrationDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.verifyRegistration(
+      verifyRegistrationDto,
+    );
     setTokenCookie(res, result.token);
     return result;
   }

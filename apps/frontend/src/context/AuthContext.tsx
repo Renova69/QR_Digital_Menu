@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { login as apiLogin, register as apiRegister } from '../lib/api';
+import { login as apiLogin, register as apiRegister, verifyRegistration as apiVerifyRegistration } from '../lib/api';
 import api from '../lib/api';
 
 interface User {
@@ -17,6 +17,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<any>;
   register: (email: string, password: string, name?: string) => Promise<any>;
+  verifyRegistration: (email: string, password: string, code: string) => Promise<any>;
   loginWithToken: (user: User) => void;
   updateUser: (user: User) => void;
   logout: () => Promise<void>;
@@ -94,7 +95,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsError(false);
       setErrorMessage(null);
-      const { user } = await apiRegister(email, password, name);
+      const result = await apiRegister(email, password, name);
+      if (result.requiresVerification) {
+        return result;
+      }
+      const { user } = result;
       queryClient.clear();
       // Auth rides the httpOnly cookie set by the register response (#F1).
       // Clear stale prefetch from previous session before setting new user
@@ -104,6 +109,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       setIsError(true);
       const msg = error.response?.data?.message || 'Registration failed. Please try again.';
+      setErrorMessage(msg);
+      throw error;
+    }
+  };
+
+  const verifyRegistration = async (email: string, password: string, code: string) => {
+    try {
+      setIsError(false);
+      setErrorMessage(null);
+      const { user } = await apiVerifyRegistration(email, password, code);
+      queryClient.clear();
+      setPrefetchedRestaurants(null);
+      setUser(user);
+      return { user };
+    } catch (error: any) {
+      setIsError(true);
+      const msg = error.response?.data?.message || 'Verification failed. Please check the code.';
       setErrorMessage(msg);
       throw error;
     }
@@ -141,6 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: !!user,
     login,
     register,
+    verifyRegistration,
     loginWithToken,
     updateUser,
     logout,

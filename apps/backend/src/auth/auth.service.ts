@@ -29,6 +29,10 @@ export class AuthService {
     private readonly featureService: FeatureService,
   ) {}
 
+  private normalizeEmail(email: string) {
+    return email.toLowerCase().trim();
+  }
+
   async validateUser(email: string, pass: string): Promise<any> {
     const user = await this.usersService.findByEmail(email);
     // Generic message for both unknown-email and wrong-password so the
@@ -135,31 +139,47 @@ export class AuthService {
 
 
   async register(createAuthDto: CreateAuthDto) {
-    const { email, password } = createAuthDto;
+    const { email } = createAuthDto;
+    const normalizedEmail = this.normalizeEmail(email);
 
-    const existingUser = await this.usersService.findByEmail(email);
+    const existingUser = await this.usersService.findByEmail(normalizedEmail);
 
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
 
+    const issued = await this.issueEmailVerificationCode(
+      normalizedEmail,
+      'Verify your QR Menu account',
+    );
+
+    return {
+      success: true,
+      requiresVerification: true,
+      email: normalizedEmail,
+      ...issued,
+    };
+  }
+
+  async verifyRegistration(createAuthDto: CreateAuthDto & { code: string }) {
+    const { email, password, code } = createAuthDto;
+    const normalizedEmail = this.normalizeEmail(email);
+
+    const existingUser = await this.usersService.findByEmail(normalizedEmail);
+    if (existingUser) {
+      throw new ConflictException('User with this email already exists');
+    }
+
+    await this.consumeEmailVerificationCode(normalizedEmail, code);
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await this.usersService.create({
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       role: 'OWNER',
     });
 
-    // Issue 40a: Email verification before JWT issuance would belong here.
-    // This registration path (OWNER onboarding) does not currently have an
-    // email-verification flow: no `emailVerified` field on User, no
-    // verification email is sent, and `REQUIRE_EMAIL_VERIFICATION` is not
-    // configured.  Until a verification flow is added to the schema and
-    // email-send path, JWT is issued immediately.  If email verification is
-    // added in the future, replace the block below with a
-    // "please verify your email" response and defer token issuance to the
-    // verification callback.
     const { password: _, ...result } = user;
     const payload = { email: result.email, sub: result.id };
     return {
@@ -262,6 +282,133 @@ export class AuthService {
     return createHash('sha256').update(token).digest('hex');
   }
 
+  private async issueEmailVerificationCode(
+    email: string,
+    subject = 'Your verification code',
+  ): Promise<{ devCode?: string }> {
+    const normalizedEmail = this.normalizeEmail(email);
+    const recentToken = await this.prisma.verificationToken.findFirst({
+      where: {
+        email: normalizedEmail,
+        usedAt: null,
+        createdAt: { gte: new Date(Date.now() - 60_000) },
+      },
+    });
+    if (recentToken) {
+      throw new HttpException(
+        'Please wait before requesting another code.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    await this.prisma.verificationToken.deleteMany({
+      where: { email: normalizedEmail, usedAt: null },
+    });
+
+    // OTP is an auth factor - use a CSPRNG, not Math.random.
+    const code = randomInt(100000, 1000000).toString();
+    const hashedCode = await bcrypt.hash(code, 10);
+
+    await this.prisma.verificationToken.create({
+      data: {
+        email: normalizedEmail,
+        code: hashedCode,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
+    });
+
+    const isDev = process.env.NODE_ENV !== 'production';
+    try {
+      if (!isDev) {
+        if (!process.env.RESEND_API_KEY) {
+          throw new HttpException(
+            'Email delivery not configured.',
+            HttpStatus.SERVICE_UNAVAILABLE,
+          );
+        }
+        const res = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com',
+            to: [normalizedEmail],
+            subject,
+            text: `Your verification code: ${code}\n\nExpires in 10 minutes.`,
+            html: `<p style="font-family:sans-serif;font-size:16px;">Your verification code:</p><p style="font-family:monospace;font-size:32px;font-weight:bold;letter-spacing:8px;">${code}</p><p style="font-family:sans-serif;color:#666;">Expires in 10 minutes. If you did not request this, ignore this email.</p>`,
+          }),
+        });
+        if (!res.ok) {
+          throw new HttpException(
+            'Failed to send verification code.',
+            HttpStatus.BAD_GATEWAY,
+          );
+        }
+      } else {
+        this.logger.log(`OTP for ${normalizedEmail}: ${code}`);
+      }
+    } catch (error) {
+      await this.prisma.verificationToken.deleteMany({
+        where: { email: normalizedEmail, code: hashedCode, usedAt: null },
+      });
+      throw error;
+    }
+
+    return isDev ? { devCode: code } : {};
+  }
+
+  private async consumeEmailVerificationCode(
+    email: string,
+    code: string,
+  ): Promise<void> {
+    const normalizedEmail = this.normalizeEmail(email);
+    const tokenRecord = await this.prisma.verificationToken.findFirst({
+      where: { email: normalizedEmail, usedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!tokenRecord) {
+      throw new UnauthorizedException('Invalid or expired code.');
+    }
+
+    if (
+      (tokenRecord as any).lockedUntil &&
+      new Date((tokenRecord as any).lockedUntil) > new Date()
+    ) {
+      throw new HttpException(
+        'Too many attempts. Please try again later.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const valid = await bcrypt.compare(code, tokenRecord.code);
+    if (!valid) {
+      const attempts = ((tokenRecord as any).attempts || 0) + 1;
+      const MAX_ATTEMPTS = 5;
+      const LOCKOUT_MINUTES = 10;
+      await this.prisma.verificationToken.update({
+        where: { id: tokenRecord.id },
+        data: {
+          attempts,
+          ...(attempts >= MAX_ATTEMPTS
+            ? {
+                lockedUntil: new Date(
+                  Date.now() + LOCKOUT_MINUTES * 60 * 1000,
+                ),
+              }
+            : {}),
+        },
+      });
+      throw new UnauthorizedException('Invalid or expired code.');
+    }
+
+    await this.prisma.verificationToken.update({
+      where: { id: tokenRecord.id },
+      data: { usedAt: new Date(), attempts: 0 },
+    });
+  }
+
 
   // ── public methods ────────────────────────────────────────────────────
   async sendOtp(
@@ -321,70 +468,15 @@ export class AuthService {
     }
 
     // Email flow (existing)
-    const recentToken = await this.prisma.verificationToken.findFirst({
-      where: {
-        email: email!,
-        usedAt: null,
-        createdAt: { gte: new Date(Date.now() - 60_000) },
-      },
-    });
-    if (recentToken) {
-      throw new HttpException(
-        'Please wait before requesting another code.',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
-    await this.prisma.verificationToken.deleteMany({
-      where: { email: email!, usedAt: null },
-    });
-
-    // OTP is an auth factor — must use a CSPRNG, not Math.random (#9).
-    const code = randomInt(100000, 1000000).toString();
-    const hashedCode = await bcrypt.hash(code, 10);
-
-    await this.prisma.verificationToken.create({
-      data: {
-        email: email!,
-        code: hashedCode,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-      },
-    });
-
-    const isDev = process.env.NODE_ENV !== 'production';
-
-    if (!isDev) {
-      if (!process.env.RESEND_API_KEY) {
-        throw new HttpException(
-          'Email delivery not configured.',
-          HttpStatus.SERVICE_UNAVAILABLE,
-        );
-      }
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com',
-          to: [email!],
-          subject: 'Your verification code',
-          text: `Your verification code: ${code}\n\nExpires in 10 minutes.`,
-          html: `<p style="font-family:sans-serif;font-size:16px;">Your verification code:</p><p style="font-family:monospace;font-size:32px;font-weight:bold;letter-spacing:8px;">${code}</p><p style="font-family:sans-serif;color:#666;">Expires in 10 minutes. If you did not request this, ignore this email.</p>`,
-        }),
-      });
-    } else {
-      if (process.env.NODE_ENV !== 'production') {
-        this.logger.log(`OTP for ${email}: ${code}`);
-      }
-    }
+    const issued = await this.issueEmailVerificationCode(email!);
 
     return {
       success: true,
-      ...(isDev ? { devCode: code } : {}),
+      ...issued,
       channel: 'email',
     };
+
+    // OTP is an auth factor — must use a CSPRNG, not Math.random (#9).
   }
 
   async pinLogin(restaurantId: string, pin: string, deviceToken: string) {

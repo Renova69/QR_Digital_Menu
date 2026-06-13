@@ -315,9 +315,12 @@ export class UsersService {
       },
     });
 
-    // Evict live WebSocket sessions when a staff member is disabled (Issue 39)
-    if (data.isActive === false) {
-      void this.events.evictUser(updated.id);
+    // Evict live WebSocket sessions when access changes (Issue 39)
+    if (data.isActive === false || (data.role && data.role !== user.role)) {
+      void this.events.evictUser(
+        updated.id,
+        data.isActive === false ? 'account_disabled' : 'role_changed',
+      );
     }
 
     // Surface the freshly minted PIN so the dashboard can show it (WAITER/KITCHEN).
