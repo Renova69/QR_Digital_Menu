@@ -8,6 +8,7 @@ import { MenuImportService } from '../menu-import/menu-import.service';
 import { ImportMenuDto } from '../menu-import/dto/import-menu.dto';
 import { Prisma, SubscriptionTier } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { EventsGateway } from '../events/events.gateway';
 
 const VALID_TIERS: readonly string[] = [
   'FREE',
@@ -53,6 +54,7 @@ export class SuperAdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly menuImport: MenuImportService,
+    private readonly events: EventsGateway,
   ) {}
 
   async getStats() {
@@ -500,7 +502,7 @@ export class SuperAdminService {
   async updateStatus(id: string, isActive: boolean, actorUserId: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id },
-      select: { id: true, isActive: true },
+      select: { id: true, isActive: true, ownerId: true },
     });
     if (!restaurant) {
       throw new NotFoundException({
@@ -525,6 +527,18 @@ export class SuperAdminService {
         },
       }),
     ]);
+
+    if (!isActive) {
+      const users = await this.prisma.user.findMany({
+        where: {
+          OR: [{ id: restaurant.ownerId }, { restaurantId: id }],
+        },
+        select: { id: true },
+      });
+      for (const user of users) {
+        void this.events.evictUser(user.id, 'restaurant_suspended');
+      }
+    }
 
     return results[0];
   }

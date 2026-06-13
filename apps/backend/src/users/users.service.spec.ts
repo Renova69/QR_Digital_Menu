@@ -17,6 +17,7 @@ const mockBcryptHash = bcrypt.hash as jest.Mock;
 describe('UsersService', () => {
   let service: UsersService;
   let prisma: any;
+  let events: any;
 
   const mockUser = {
     id: 'user-1',
@@ -56,12 +57,14 @@ describe('UsersService', () => {
         .mockImplementation((fn: (tx: any) => Promise<any>) => fn(prisma)),
     };
 
+    events = { evictUser: jest.fn().mockResolvedValue(undefined) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
         { provide: PrismaService, useValue: prisma },
         FeatureService,
-        { provide: EventsGateway, useValue: { evictUser: jest.fn().mockResolvedValue(undefined) } },
+        { provide: EventsGateway, useValue: events },
       ],
     }).compile();
 
@@ -478,6 +481,42 @@ describe('UsersService', () => {
           }),
         }),
       );
+    });
+
+    it('evicts live sockets when a staff role changes', async () => {
+      prisma.user.findFirst.mockResolvedValue({
+        id: 'u',
+        email: 'w@x',
+        name: 'W',
+        role: 'WAITER',
+      });
+      prisma.user.update.mockResolvedValue({
+        ...mockUser,
+        id: 'u',
+        role: 'STAFF',
+      });
+
+      await service.updateStaffMember('rest-1', 'u', { role: 'STAFF' });
+
+      expect(events.evictUser).toHaveBeenCalledWith('u', 'role_changed');
+    });
+
+    it('evicts live sockets when a staff account is disabled', async () => {
+      prisma.user.findFirst.mockResolvedValue({
+        id: 'u',
+        email: 'w@x',
+        name: 'W',
+        role: 'WAITER',
+      });
+      prisma.user.update.mockResolvedValue({
+        ...mockUser,
+        id: 'u',
+        isActive: false,
+      });
+
+      await service.updateStaffMember('rest-1', 'u', { isActive: false });
+
+      expect(events.evictUser).toHaveBeenCalledWith('u', 'account_disabled');
     });
   });
 

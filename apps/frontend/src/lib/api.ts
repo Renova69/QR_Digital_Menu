@@ -50,6 +50,11 @@ export const register = async (email: string, password: string, name?: string) =
     return response.data;
 }
 
+export const verifyRegistration = async (email: string, password: string, code: string) => {
+    const response = await api.post('/auth/register/verify', { email, password, code });
+    return response.data;
+}
+
 export const getCurrentUser = async () => {
     const response = await api.get('/auth/me');
     return response.data;

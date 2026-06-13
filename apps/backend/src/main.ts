@@ -138,6 +138,7 @@ async function bootstrap() {
     const CSRF_EXEMPT = [
       '/api/v1/auth/login',
       '/api/v1/auth/register',
+      '/api/v1/auth/register/verify',
       '/api/v1/auth/otp/send',
       '/api/v1/auth/otp/verify',
       '/api/v1/auth/google',

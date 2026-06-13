@@ -245,21 +245,71 @@ describe('AuthService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('creates user and returns JWT + user on success', async () => {
+    it('issues a verification code without creating a user or JWT', async () => {
       mockUsersService.findByEmail.mockResolvedValue(null);
-      mockUsersService.create.mockResolvedValue(
-        makeUser({ password: 'hashed' }),
-      );
-      mockHash.mockResolvedValue('hashed');
+      mockHash.mockResolvedValue('hashed-code');
 
       const result = await service.register({
-        email: 'new@example.com',
-        password: 'pass123',
+        email: 'NEW@example.com ',
+        password: 'pass12345',
       });
 
+      expect(result).toMatchObject({
+        success: true,
+        requiresVerification: true,
+        email: 'new@example.com',
+      });
+      expect(mockPrisma.verificationToken.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            email: 'new@example.com',
+            code: 'hashed-code',
+          }),
+        }),
+      );
+      expect(mockUsersService.create).not.toHaveBeenCalled();
+      expect(mockJwt.sign).not.toHaveBeenCalled();
+    });
+
+    it('creates the owner and returns JWT only after registration code verification', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(null);
+      mockPrisma.verificationToken.findFirst.mockResolvedValue({
+        id: 'tok-1',
+        email: 'new@example.com',
+        code: 'hashed-code',
+        attempts: 0,
+        lockedUntil: null,
+      });
+      mockCompare.mockResolvedValue(true);
+      mockHash.mockResolvedValue('hashed-password');
+      mockUsersService.create.mockResolvedValue(
+        makeUser({ email: 'new@example.com', password: 'hashed-password' }),
+      );
+
+      const result = await service.verifyRegistration({
+        email: 'NEW@example.com ',
+        password: 'pass12345',
+        code: '123456',
+      });
+
+      expect(mockPrisma.verificationToken.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'tok-1' },
+          data: expect.objectContaining({
+            usedAt: expect.any(Date),
+            attempts: 0,
+          }),
+        }),
+      );
+      expect(mockUsersService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'new@example.com',
+          password: 'hashed-password',
+          role: 'OWNER',
+        }),
+      );
       expect(result.token).toBe('test-jwt-token');
       expect(result.user).not.toHaveProperty('password');
-      expect(mockUsersService.create).toHaveBeenCalled();
     });
   });
 

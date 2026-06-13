@@ -3,9 +3,10 @@ import { SuperAdminController } from './super-admin.controller';
 import { SuperAdminService } from './super-admin.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MenuImportModule } from '../menu-import/menu-import.module';
+import { EventsModule } from '../events/events.module';
 
 @Module({
-  imports: [PrismaModule, MenuImportModule],
+  imports: [PrismaModule, MenuImportModule, EventsModule],
   controllers: [SuperAdminController],
   providers: [SuperAdminService],
 })
