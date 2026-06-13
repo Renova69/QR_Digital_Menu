@@ -232,8 +232,17 @@ export class AuthService {
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       this.logger.error('[Twilio] error response:', JSON.stringify(body));
+      // Twilio 4xx (e.g. invalid 'To' number) is a client error, not a gateway
+      // failure; only 5xx / network should be 502 (#9). Use a generic message
+      // rather than leaking Twilio's raw error text to the client.
+      if (res.status >= 400 && res.status < 500) {
+        throw new HttpException(
+          'Could not send a code to that phone number. Please check it is correct.',
+          HttpStatus.UNPROCESSABLE_ENTITY,
+        );
+      }
       throw new HttpException(
-        body.message || 'Failed to send verification code.',
+        'SMS service temporarily unavailable. Please try again shortly.',
         HttpStatus.BAD_GATEWAY,
       );
     }
@@ -341,8 +350,22 @@ export class AuthService {
           }),
         });
         if (!res.ok) {
+          const detail = await res.text().catch(() => '');
+          this.logger.error(
+            `Resend send failed (${res.status}) for ${normalizedEmail}: ${detail.slice(0, 300)}`,
+          );
+          // Resend returns 4xx for a bad/undeliverable recipient — that's a
+          // client error (the email is wrong), not a gateway failure. Surface
+          // it as 4xx so a typo'd address gets a clear message; reserve 502 for
+          // a genuine Resend outage / 5xx / network error (#9).
+          if (res.status >= 400 && res.status < 500) {
+            throw new HttpException(
+              'We could not send a verification code to that email address. Please check it is correct.',
+              HttpStatus.UNPROCESSABLE_ENTITY,
+            );
+          }
           throw new HttpException(
-            'Failed to send verification code.',
+            'Email service temporarily unavailable. Please try again shortly.',
             HttpStatus.BAD_GATEWAY,
           );
         }

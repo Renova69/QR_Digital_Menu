@@ -588,6 +588,60 @@ describe('AuthService', () => {
       else delete process.env.RESEND_API_KEY;
     });
 
+    it('maps a Resend 4xx (bad recipient) to 422, not 502 (#9)', async () => {
+      const prevEnv = process.env.NODE_ENV;
+      const prevKey = process.env.RESEND_API_KEY;
+      process.env.NODE_ENV = 'production';
+      process.env.RESEND_API_KEY = 'test-resend-key';
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 422,
+        text: async () => 'Invalid `to` field',
+      }) as any;
+      mockPrisma.verificationToken.findFirst.mockResolvedValue(null);
+      mockHash.mockResolvedValue('hashed-code');
+
+      let status: number | undefined;
+      try {
+        await service.sendOtp('bad-recipient@example.com');
+      } catch (e) {
+        status = (e as HttpException).getStatus();
+      }
+      expect(status).toBe(422);
+      // the just-created token row is rolled back on send failure
+      expect(mockPrisma.verificationToken.deleteMany).toHaveBeenCalled();
+
+      process.env.NODE_ENV = prevEnv;
+      if (prevKey !== undefined) process.env.RESEND_API_KEY = prevKey;
+      else delete process.env.RESEND_API_KEY;
+    });
+
+    it('maps a Resend 5xx outage to 502 (#9)', async () => {
+      const prevEnv = process.env.NODE_ENV;
+      const prevKey = process.env.RESEND_API_KEY;
+      process.env.NODE_ENV = 'production';
+      process.env.RESEND_API_KEY = 'test-resend-key';
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        text: async () => '',
+      }) as any;
+      mockPrisma.verificationToken.findFirst.mockResolvedValue(null);
+      mockHash.mockResolvedValue('hashed-code');
+
+      let status: number | undefined;
+      try {
+        await service.sendOtp('user@example.com');
+      } catch (e) {
+        status = (e as HttpException).getStatus();
+      }
+      expect(status).toBe(502);
+
+      process.env.NODE_ENV = prevEnv;
+      if (prevKey !== undefined) process.env.RESEND_API_KEY = prevKey;
+      else delete process.env.RESEND_API_KEY;
+    });
+
     it('throws HttpException(503) in production when RESEND_API_KEY is missing', async () => {
       const prevEnv = process.env.NODE_ENV;
       const prevKey = process.env.RESEND_API_KEY;
