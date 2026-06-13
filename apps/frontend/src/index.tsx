@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import './index.css';
@@ -29,15 +29,27 @@ if (!stripeKey) {
 const queryClient = new QueryClient();
 const container = document.getElementById('root');
 
+// Shown while the active language's translation chunk loads on first paint.
+// react-i18next suspends until resources are ready (see i18n.ts); this root
+// boundary covers components rendered outside App's route-level <Suspense>
+// (e.g. CookieConsentBanner).
+const RootLoader = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+  </div>
+);
+
 if (container) {
   const root = ReactDOM.createRoot(container);
   root.render(
     <React.StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <App />
-        <Analytics />
-        <SpeedInsights />
-      </QueryClientProvider>
+      <Suspense fallback={<RootLoader />}>
+        <QueryClientProvider client={queryClient}>
+          <App />
+          <Analytics />
+          <SpeedInsights />
+        </QueryClientProvider>
+      </Suspense>
     </React.StrictMode>
   );
 }
