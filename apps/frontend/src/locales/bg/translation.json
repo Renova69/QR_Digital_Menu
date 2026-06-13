@@ -2161,7 +2161,11 @@
       "payments": "Плащания със Stripe",
       "loyalty": "Програма за лоялност",
       "staff": "POS и KDS системи",
-      "legal": "Поверителност и GDPR"
+      "legal": "Поверителност и GDPR",
+      "analytics": "Анализи и отчети",
+      "branding": "Брандиране и теми",
+      "importExportHelp": "Импорт и експорт",
+      "feedback": "Обратна връзка и отзиви"
     },
     "guides": {
       "gettingStarted": {

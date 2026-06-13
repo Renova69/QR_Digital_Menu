@@ -2056,7 +2056,11 @@
       "payments": "Plăți prin Stripe",
       "loyalty": "Program de loialitate",
       "staff": "Sisteme POS & KDS",
-      "legal": "Confidențialitate & GDPR"
+      "legal": "Confidențialitate & GDPR",
+      "analytics": "Analize și rapoarte",
+      "branding": "Branding și teme",
+      "importExportHelp": "Import și export",
+      "feedback": "Feedback și recenzii"
     },
     "guides": {
       "gettingStarted": {

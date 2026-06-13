@@ -2102,7 +2102,11 @@
       "payments": "Stripe Payments",
       "loyalty": "Loyalty Program",
       "staff": "POS & KDS Systems",
-      "legal": "Privacy & GDPR"
+      "legal": "Privacy & GDPR",
+      "analytics": "Analytics & Reports",
+      "branding": "Branding & Theming",
+      "importExportHelp": "Import & Export",
+      "feedback": "Feedback & Reviews"
     },
     "guides": {
       "gettingStarted": {
