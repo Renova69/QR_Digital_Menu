@@ -137,6 +137,7 @@ const PublicMenuPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [assistanceSent, setAssistanceSent] = useState(false);
   const [assistanceLoading, setAssistanceLoading] = useState(false);
+  const [assistanceError, setAssistanceError] = useState(false);
   const [noTableNotice, setNoTableNotice] = useState(false);
   const ASSIST_COOLDOWN_MS = 60000;
   const assistCooldownKey =
@@ -452,16 +453,33 @@ const PublicMenuPage = () => {
       return;
     }
     if (!restaurantId || assistanceSent || assistanceLoading) return;
-    try {
-      setAssistanceLoading(true);
-      await createAssistanceRequest(tableNumber, restaurantId, type);
+
+    // Start the 60s anti-spam cooldown and show the "staff notified" confirmation.
+    const startCooldown = () => {
       try {
         if (assistCooldownKey) localStorage.setItem(assistCooldownKey, String(Date.now()));
       } catch { /* ignore */ }
       setAssistanceSent(true);
       setTimeout(() => setAssistanceSent(false), ASSIST_COOLDOWN_MS);
+    };
+
+    try {
+      setAssistanceLoading(true);
+      await createAssistanceRequest(tableNumber, restaurantId, type);
+      startCooldown();
     } catch (err) {
-      console.error("Assistance Request Error:", err);
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      // 409 = a recent request of this type already exists; 429 = rate-limited.
+      // In both cases the table's call is effectively already registered, so we
+      // confirm to the guest and apply the cooldown — this stops the button from
+      // re-firing and prevents the retry storm that produced the 429s.
+      if (status === 409 || status === 429) {
+        startCooldown();
+      } else {
+        console.error("Assistance Request Error:", err);
+        setAssistanceError(true);
+        setTimeout(() => setAssistanceError(false), 4000);
+      }
     } finally {
       setAssistanceLoading(false);
     }
@@ -632,6 +650,12 @@ const PublicMenuPage = () => {
         {assistanceSent && (
           <div className="glass-panel border-l-4 border-emerald-500 text-emerald-600 dark:text-emerald-400 p-4 mb-8 rounded-2xl shadow-xl animate-in zoom-in-95 duration-300">
             <p className="font-bold"><FontAwesomeIcon icon={faCircleCheck} className="mr-1" />{t("publicMenu.staffNotified")}</p>
+          </div>
+        )}
+
+        {assistanceError && (
+          <div className="glass-panel border-l-4 border-destructive text-destructive p-4 mb-8 rounded-2xl shadow-xl animate-in zoom-in-95 duration-300">
+            <p className="font-bold">{t("publicMenu.assistanceError", "Couldn't reach staff. Please try again or ask a waiter.")}</p>
           </div>
         )}
 

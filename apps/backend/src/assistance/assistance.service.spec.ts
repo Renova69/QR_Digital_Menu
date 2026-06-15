@@ -12,6 +12,7 @@ import { FeatureService } from '../subscription/feature.service';
 const mockPrisma = {
   assistanceRequest: {
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     create: jest.fn(),
     findMany: jest.fn(),
     count: jest.fn(),
@@ -75,6 +76,7 @@ describe('AssistanceService', () => {
         name: 't-1',
       });
       mockPrisma.assistanceRequest.count.mockResolvedValue(0);
+      mockPrisma.assistanceRequest.findFirst.mockResolvedValue(null);
       mockPrisma.assistanceRequest.create.mockResolvedValue(req);
     });
 
@@ -107,10 +109,41 @@ describe('AssistanceService', () => {
       await expect(service.create(dto)).rejects.toThrow(NotFoundException);
     });
 
-    it('throws ConflictException when pending request already exists (Issue 54)', async () => {
-      mockPrisma.assistanceRequest.count.mockResolvedValue(1);
+    it('throws ConflictException when a recent same-type request exists (Issue 54)', async () => {
+      mockPrisma.assistanceRequest.findFirst.mockResolvedValue({ id: 'dup' });
 
       await expect(service.create(dto)).rejects.toThrow(ConflictException);
+    });
+
+    it('scopes the dedupe query to the request type and a recent time window', async () => {
+      await service.create({ ...dto, type: 'URGENT' });
+
+      expect(mockPrisma.assistanceRequest.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tableId: 't-1',
+            restaurantId: 'rest-1',
+            isResolved: false,
+            type: 'URGENT',
+            createdAt: expect.objectContaining({ gte: expect.any(Date) }),
+          }),
+        }),
+      );
+    });
+
+    it('allows URGENT escalation while a STANDARD request is pending (Bug 3)', async () => {
+      // findFirst is scoped to the requested type, so an URGENT create never matches
+      // a pending STANDARD request and is therefore allowed through.
+      mockPrisma.assistanceRequest.findFirst.mockResolvedValue(null);
+
+      const result = await service.create({ ...dto, type: 'URGENT' });
+
+      expect(result).toEqual(req);
+      expect(mockPrisma.assistanceRequest.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ type: 'URGENT' }),
+        }),
+      );
     });
   });
 

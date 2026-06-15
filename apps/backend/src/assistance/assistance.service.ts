@@ -13,6 +13,11 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 
+// Dedupe window for call-waiter requests. Matches the 60s client-side anti-spam
+// cooldown so the two gates agree; a request older than this no longer blocks the
+// table (prevents permanent lockout when staff are slow to resolve).
+const ASSIST_DEDUPE_WINDOW_MS = 60_000;
+
 @Injectable()
 export class AssistanceService {
   private readonly logger = new Logger(AssistanceService.name);
@@ -86,17 +91,25 @@ export class AssistanceService {
       throw new NotFoundException('Table not found');
     }
 
-    // Issue 54: prevent duplicate pending requests per table (at most 1 unresolved).
-    const pendingCount = await this.prisma.assistanceRequest.count({
+    // Dedupe (Issue 54, refined): reject only a *recent* unresolved request of the
+    // SAME type for this table. Time-scoping the window to the client cooldown means
+    // a stale unresolved request can no longer permanently block the table, and an
+    // URGENT escalation is allowed even while an earlier STANDARD request is still open.
+    const requestType = createAssistanceDto.type ?? 'STANDARD';
+    const since = new Date(Date.now() - ASSIST_DEDUPE_WINDOW_MS);
+    const duplicate = await this.prisma.assistanceRequest.findFirst({
       where: {
         tableId: createAssistanceDto.tableId,
         restaurantId: createAssistanceDto.restaurantId,
         isResolved: false,
+        type: requestType,
+        createdAt: { gte: since },
       },
+      select: { id: true },
     });
-    if (pendingCount >= 1) {
+    if (duplicate) {
       throw new ConflictException(
-        'A pending assistance request already exists for this table',
+        'A recent assistance request of this type already exists for this table',
       );
     }
 
@@ -104,7 +117,7 @@ export class AssistanceService {
       data: {
         tableId: createAssistanceDto.tableId,
         restaurantId: createAssistanceDto.restaurantId,
-        type: createAssistanceDto.type ?? 'STANDARD',
+        type: requestType,
       },
     });
 
