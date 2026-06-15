@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  closeSession,
   createTable,
   deleteTable,
   getTables,
@@ -136,15 +135,6 @@ const TableView: React.FC = () => {
     const paidSessions = (sessions || []).filter((session: any) => session.status === 'PAID').length;
     return { tableCount, activeSessions, paidSessions };
   }, [sessions, tables]);
-
-  const closeSessionMutation = useMutation({
-    mutationFn: ({ token, restaurantId: rid }: { token: string; restaurantId: string }) =>
-      closeSession(token, rid),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tableSessions', restaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['tableStatuses', restaurantId] });
-    },
-  });
 
   // ── Zone state ──────────────────────────────────────────────────────────
   const [newZoneName, setNewZoneName] = useState('');
@@ -675,15 +665,6 @@ const TableView: React.FC = () => {
                           <option key={z.id} value={z.id}>{z.name}</option>
                         ))}
                       </select>
-                    )}
-
-                    {session?.status === 'OPEN' && (
-                      <button
-                        type="button"
-                        onClick={() => closeSessionMutation.mutate({ token: session.token, restaurantId })}
-                        className="text-[10px] font-black text-red-600 transition hover:text-red-500"
-                      >
-                        {t('auto.closeSession', 'Close Session')}</button>
                     )}
 
                     <div className="flex items-center gap-2">

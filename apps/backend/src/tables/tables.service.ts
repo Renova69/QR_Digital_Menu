@@ -279,6 +279,7 @@ export class TablesService {
           zoneName: table.zone?.name ?? null,
           status: 'empty' as const,
           sessionId: null,
+          sessionToken: null,
           orderCount: 0,
           totalAmount: 0,
           customerNames: [],
@@ -296,6 +297,7 @@ export class TablesService {
         zoneName: table.zone?.name ?? null,
         status,
         sessionId: session.id,
+        sessionToken: session.token,
         orderCount: session.orders.length,
         totalAmount: session.orders.reduce((sum, o) => sum + o.totalPrice, 0),
         customerNames: [

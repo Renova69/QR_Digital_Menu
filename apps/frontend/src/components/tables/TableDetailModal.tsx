@@ -35,6 +35,7 @@ interface TableDetailModalProps {
     name: string;
     status: string;
     sessionId: string | null;
+    sessionToken?: string | null;
     orderCount: number;
     totalAmount: number;
     customerNames: string[];
@@ -44,6 +45,9 @@ interface TableDetailModalProps {
   orders: OrderDetail[];
   ordersLoading?: boolean;
   paymentInfo?: { amount: number; tipAmount?: number } | null;
+  /** Force-close the open session (no payment). Shown only for OPEN sessions. */
+  onCloseSession?: () => void;
+  closing?: boolean;
 }
 
 const statusLabels: Record<string, string> = {
@@ -156,6 +160,8 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
   orders,
   ordersLoading,
   paymentInfo,
+  onCloseSession,
+  closing,
 }) => {
   const { t, i18n } = useTranslation();
 
@@ -371,6 +377,16 @@ const TableDetailModal: React.FC<TableDetailModalProps> = ({
                 <span className="text-2xl font-black text-primary">{t('auto.Euro', '€')}{(table.totalAmount || orders.reduce((sum, order) => sum + order.totalPrice, 0)).toFixed(2)}</span>
               </div>
             </div>
+
+            {table.sessionStatus === 'OPEN' && onCloseSession && (
+              <button
+                type="button"
+                onClick={onCloseSession}
+                disabled={closing}
+                className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-300 bg-red-50 text-sm font-black text-red-600 transition hover:bg-red-100 disabled:opacity-50 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
+              >
+                {t('auto.closeSession', 'Close Session')}</button>
+            )}
 
             {paymentInfo && (
               <div className="mt-3 flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3">

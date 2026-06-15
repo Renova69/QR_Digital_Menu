@@ -1,6 +1,6 @@
 import React, { useContext, useMemo, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getTableOrders, getTableStatuses } from '../../lib/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getTableOrders, getTableStatuses, closeSession } from '../../lib/api';
 import { useTranslation } from 'react-i18next';
 import RestaurantContext from '../../context/RestaurantContext';
 import { useSocket } from '../../context/SocketContext';
@@ -110,6 +110,29 @@ const LiveTablesView: React.FC = () => {
     } finally {
       setOrdersLoading(false);
     }
+  };
+
+  const closeSessionMutation = useMutation({
+    mutationFn: (token: string) => closeSession(token, restaurantId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tableStatuses', restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['tableSessions', restaurantId] });
+      setModalOpen(false);
+    },
+  });
+
+  // Force-close an open session (no payment) from the live table detail. Guarded
+  // by a confirm that surfaces the table + the open bill being discarded.
+  const handleCloseSession = () => {
+    if (!selectedTable?.sessionToken) return;
+    const confirmed = window.confirm(
+      t(
+        'auto.closeSessionConfirm',
+        'Close the session for table {{table}}? The open bill of €{{amount}} will be discarded with no payment recorded.',
+        { table: selectedTable.name, amount: Number(selectedTable.totalAmount ?? 0).toFixed(2) },
+      ),
+    );
+    if (confirmed) closeSessionMutation.mutate(selectedTable.sessionToken);
   };
 
   if (isLoading) {
@@ -235,6 +258,8 @@ const LiveTablesView: React.FC = () => {
         orders={tableOrders}
         ordersLoading={ordersLoading}
         paymentInfo={selectedTable?.status === 'paid' ? { amount: selectedTable.totalAmount } : null}
+        onCloseSession={handleCloseSession}
+        closing={closeSessionMutation.isPending}
       />
     </section>
   );
