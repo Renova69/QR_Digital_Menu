@@ -219,7 +219,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
             >
                 {/* Image — left side */}
                 <div
-                    className="w-[30%] aspect-square rounded-2xl overflow-hidden shrink-0 cursor-zoom-in"
+                    className="w-[34%] aspect-square self-center rounded-2xl overflow-hidden shrink-0 cursor-zoom-in"
                     onClick={() => item.imageUrl && setLightboxOpen(true)}
                 >
                     {item.imageUrl ? (
@@ -248,8 +248,13 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                         {itemName}
                     </h3>
 
-                    <p className="text-sm text-muted-foreground font-medium leading-relaxed mt-1 line-clamp-2">
-                      {itemDesc}
+                    <p className="text-sm text-muted-foreground font-medium leading-relaxed mt-1 line-clamp-2 break-words">
+                      {/* Add a <wbr> break opportunity after each comma/semicolon/slash
+                          so a spaceless list ("tomato,cucumber,cheese") wraps whole
+                          words to the next line instead of splitting mid-word. */}
+                      {(itemDesc || '').split(/(?<=[,;/])/).map((seg, i) => (
+                        <React.Fragment key={i}>{seg}<wbr /></React.Fragment>
+                      ))}
                     </p>
 
                     {/* Dietary & Allergens */}
@@ -257,14 +262,14 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectP
                       const translatedAllergens = getTranslatedArray(item, currentLang, 'allergens') || item.allergens || [];
                       const translatedTags = getTranslatedArray(item, currentLang, 'dietaryTags') || item.dietaryTags || [];
                       return (
-                      <div className="flex flex-wrap gap-1 mt-2">
+                      <div className="flex flex-wrap gap-1 mt-1.5">
                         {translatedTags.map((tag: string, idx: number) => (
-                          <span key={idx} className="px-2 py-0.5 rounded-full border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[9px] uppercase font-black tracking-widest bg-emerald-500/5">
+                          <span key={idx} className="px-1.5 py-0 rounded-full border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[8px] uppercase font-black tracking-wide bg-emerald-500/5 leading-[1.4]">
                             {tag}
                           </span>
                         ))}
                         {translatedAllergens.map((allergen: string, idx: number) => (
-                          <span key={idx} className="px-2 py-0.5 rounded-full border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[9px] uppercase font-black tracking-widest bg-amber-500/5">
+                          <span key={idx} className="px-1.5 py-0 rounded-full border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[8px] uppercase font-black tracking-wide bg-amber-500/5 leading-[1.4]">
                             {allergen}
                           </span>
                         ))}
