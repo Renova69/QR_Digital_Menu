@@ -79,7 +79,7 @@ export default function DeviceLoginPage() {
         const target = ROLE_REDIRECT[role] || "/dashboard";
         navigate(target, { replace: true });
       } catch (err: any) {
-        const msg = err.response?.data?.message || "Invalid PIN";
+        const msg = err.response?.data?.message || t('auto.invalidPin', 'Invalid PIN');
         setError(msg);
 
         const match = msg.match(/(\d+)\s+attempts?\s+remaining/i);
@@ -131,8 +131,10 @@ export default function DeviceLoginPage() {
           <h1 className="text-white text-lg font-semibold mb-2">
             {t('auto.noDeviceConfigured', 'No Device Configured')}</h1>
           <p className="text-slate-400 text-sm">
-            Ask a manager to generate a Staff Device QR from Settings, then scan
-            it on this device.
+            {t(
+              'auto.askManagerStaffDevice',
+              'Ask a manager to generate a Staff Device QR from Settings, then scan it on this device.',
+            )}
           </p>
         </div>
       </div>
@@ -148,7 +150,9 @@ export default function DeviceLoginPage() {
           <h1 className="text-white text-lg font-semibold mb-2">
             {t('auto.tooManyAttempts', 'Too Many Attempts')}</h1>
           <p className="text-slate-400 text-sm">
-            {t('auto.tryAgainIn', 'Try again in')}{remainingMin} {t('auto.minute', 'minute')}{remainingMin !== 1 ? "s" : ""}.
+            {t('auto.tryAgainInMinutes', 'Try again in {{count}} minutes.', {
+              count: remainingMin,
+            })}
           </p>
         </div>
       </div>
@@ -169,7 +173,7 @@ export default function DeviceLoginPage() {
         <div className="text-slate-400 text-xs uppercase tracking-widest mb-1">
           {t('auto.sharedDevice', 'Shared Device')}</div>
         <div className="text-slate-100 text-lg font-semibold">
-          {restaurantName || "Restaurant"}
+          {restaurantName || t('auto.restaurant', 'Restaurant')}
         </div>
       </div>
 
@@ -198,7 +202,9 @@ export default function DeviceLoginPage() {
 
       {(isPreparing || isSubmitting) && (
         <div className="text-slate-400 text-sm mb-6">
-          {isPreparing ? "Preparing device..." : "Verifying..."}
+          {isPreparing
+            ? t('auto.preparingDevice', 'Preparing device...')
+            : t('auto.verifying', 'Verifying...')}
         </div>
       )}
 

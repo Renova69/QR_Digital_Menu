@@ -382,7 +382,10 @@
     "noRequestsHere": "Nicio cerere aici",
     "allGuestsAssisted": "Toți clienții sunt asistați.",
     "tryAnotherFilter": "Încercați alt filtru sau număr de masă.",
-    "searchPlaceholder": "Căutare după masă..."
+    "searchPlaceholder": "Căutare după masă...",
+    "justNow": "acum",
+    "minutesShort": "{{count}} min",
+    "hoursShort": "{{count}} h"
   },
   "orders": {
     "tabs": {
@@ -514,7 +517,8 @@
     "callWaiterDesc": "Aș dori să comand sau să pun o întrebare",
     "needHelp": "Nevoie de asistență urgentă",
     "needHelpDesc": "Am nevoie de asistență imediată",
-    "clearFilters": "Șterge filtrele"
+    "clearFilters": "Șterge filtrele",
+    "assistanceError": "Nu am putut contacta personalul. Încercați din nou sau întrebați un ospătar."
   },
   "cart": {
     "yourOrder": "Comanda ta",
@@ -1556,7 +1560,56 @@
           "b10": "Personal nelimitat"
         }
       }
-    }
+    },
+    "finalCta": {
+      "startFreeTrial": "Începe perioada gratuită",
+      "subtitle": "Lansează astăzi un meniu QR spectaculos, apoi extinde-te către comenzi, plăți, loialitate, POS, afișaj de bucătărie și operațiuni multi-locație atunci când restaurantul este pregătit.",
+      "title": "Fă ca prima scanare să fie cel mai bun moment al serviciului tău.",
+      "viewPricing": "Vezi prețurile"
+    },
+    "footer": {
+      "company": "Companie",
+      "legal": "Informații legale",
+      "links": {
+        "about": "Despre",
+        "blog": "Blog",
+        "careers": "Cariere",
+        "changelog": "Jurnal de modificări",
+        "contact": "Contact",
+        "cookiePolicy": "Politica de cookie-uri",
+        "features": "Funcționalități",
+        "gdpr": "GDPR",
+        "helpCenter": "Centru de ajutor",
+        "integrations": "Integrări",
+        "pricing": "Prețuri",
+        "privacyPolicy": "Politica de confidențialitate",
+        "security": "Securitate",
+        "termsOfService": "Termeni și condiții"
+      },
+      "madeWith": "Creat pentru restaurante, cu grijă.",
+      "product": "Produs",
+      "tagline": "Platforma digitală all-in-one pentru restaurante. Meniuri, comenzi, plăți, loialitate, analize, instrumente pentru personal, POS și afișaj de bucătărie — totul dintr-o scanare QR."
+    },
+    "heroBadgeBuilt": "Creat pentru restaurante. Iubit de clienți.",
+    "heroPills": {
+      "lightDarkMode": "Mod luminos /\nîntunecat",
+      "noAppDownload": "Fără descărcare\nde aplicație",
+      "realTimeUpdates": "Actualizări\nîn timp real",
+      "worksFromQr": "Funcționează din\nscanare QR"
+    },
+    "heroStartFreeTrial": "Începe perioada gratuită",
+    "heroSubtextAlt": "QR MENU ajută restaurantele să își optimizeze operațiunile, să crească vânzările și să ofere experiențe excepționale — totul dintr-o scanare.",
+    "heroTitle": {
+      "accent": "Mobile-first",
+      "line2": "meniuri digitale pentru",
+      "line3": "restaurante moderne"
+    },
+    "heroTrustLine": {
+      "cancelAnytime": "Anulează oricând",
+      "noCreditCard": "Fără card de credit",
+      "setupInMinutes": "Configurare în câteva minute"
+    },
+    "heroWatchDemo": "Vezi demo"
   },
   "payments": {
     "title": "Istoric Plăți",
@@ -2226,7 +2279,10 @@
     "xlsxImport": "XLSX (meniu exportat)",
     "keyHidden": "cheie ascunsă",
     "saveKeyNow": "Copiază această cheie acum — din motive de securitate nu este stocată în format lizibil și nu poate fi afișată din nou.",
-    "keyConfigured": "A fost configurată o cheie. Nu poate fi afișată din nou — generează pentru a emite una nouă."
+    "keyConfigured": "A fost configurată o cheie. Nu poate fi afișată din nou — generează pentru a emite una nouă.",
+    "xlsxSheetCategories": "Categorii",
+    "xlsxSheetItems": "Articole",
+    "xlsxSheetOptions": "Opțiuni și alegeri"
   },
   "menu": {
     "options": "Opțiuni:",
@@ -2504,13 +2560,13 @@
     "x": "x)",
     "askAManagerToGenerateAFreshStaff": "Ask a manager to generate a fresh staff device QR from Settings.",
     "managerLogin": "Manager Login",
-    "noDeviceConfigured": "No Device Configured",
-    "tooManyAttempts": "Too Many Attempts",
+    "noDeviceConfigured": "Niciun dispozitiv configurat",
+    "tooManyAttempts": "Prea multe încercări",
     "tryAgainIn": "Try again in",
     "minute": "minute",
-    "sharedDevice": "Shared Device",
+    "sharedDevice": "Dispozitiv partajat",
     "1K": "1K",
-    "completingSignIn": "Completing sign-in...",
+    "completingSignIn": "Se finalizează conectarea...",
     "upgrade": "Upgrade",
     "vs": "vs",
     "recentOrders": "Recent Orders",
@@ -2574,9 +2630,9 @@
     "zoneName": "Zone name...",
     "searchTable": "Search table...",
     "preview": "Preview",
-    "signInWithGoogle": "Sign in with Google",
-    "orContinueWith": "Or continue with",
-    "password": "Password",
+    "signInWithGoogle": "Conectare cu Google",
+    "orContinueWith": "Sau continuă cu",
+    "password": "Parolă",
     "allCookiesListedAreStrictlyNecessar": "All cookies listed are strictly necessary. No tracking or advertising cookies are used.",
     "dataController": "Data Controller:",
     "kITCHEN": "KITCHEN",
@@ -2764,7 +2820,29 @@
     "1MinAgo": "acum 1 min",
     "minAgo": "acum {{min}} min",
     "1HourAgo": "acum 1 oră",
-    "hoursAgo": "acum {{hours}} ore"
+    "hoursAgo": "acum {{hours}} ore",
+    "verificationCode": "Cod de verificare",
+    "login": "Autentificare",
+    "verifyYourEmail": "Verifică-ți emailul",
+    "createAnAccount": "Creează un cont",
+    "accessYourDashboard": "Accesează-ți panoul.",
+    "enterCodeSentTo": "Introdu codul din 6 cifre trimis la {{email}}.",
+    "getStartedWithYourOwnQrMenu": "Începe cu propriul meniu QR.",
+    "verifyEmail": "Verifică emailul",
+    "createAccount": "Creează cont",
+    "dontHaveAccountSignUp": "Nu ai cont? Înregistrează-te",
+    "alreadyHaveAccountLogin": "Ai deja cont? Autentificare",
+    "close": "Închide",
+    "loginFailed": "Autentificare eșuată. Verifică-ți datele de conectare.",
+    "registrationFailed": "Înregistrare eșuată. Te rugăm să încerci din nou.",
+    "verificationFailed": "Verificare eșuată. Te rugăm să verifici codul.",
+    "invalidPin": "PIN invalid",
+    "askManagerStaffDevice": "Roagă un manager să genereze un cod QR pentru dispozitivul personalului din Setări, apoi scanează-l pe acest dispozitiv.",
+    "preparingDevice": "Se pregătește dispozitivul...",
+    "verifying": "Se verifică...",
+    "tryAgainInMinutes_one": "Încearcă din nou peste {{count}} minut.",
+    "tryAgainInMinutes_other": "Încearcă din nou peste {{count}} de minute.",
+    "closeSessionConfirm": "Închizi sesiunea pentru masa {{table}}? Nota curentă de €{{amount}} va fi anulată fără a înregistra o plată."
   },
   "pos": {
     "failedSubmitOrder": "Failed to submit order. Try again.",
@@ -2809,7 +2887,18 @@
     "loadingRestaurant": "Loading restaurant...",
     "noRestaurant": "No restaurant selected.",
     "searchItems": "Search items...",
-    "selectTable": "Select Table"
+    "selectTable": "Select Table",
+    "backToPos": "Înapoi la POS — {{name}}",
+    "forceCloseConfirm": "Închidere forțată — Fără plată",
+    "noTables": "Nu s-au găsit mese. Creați mai întâi mese în panou.",
+    "retry": "Reîncearcă",
+    "searchPlaceholder": "Caută...",
+    "seat1": "Loc 1",
+    "seat2": "Loc 2",
+    "seat3": "Loc 3",
+    "seatShared": "Comun",
+    "selectTableDesc": "Selectați o masă pentru a începe să luați comenzi.",
+    "selectTableTitle": "Selectați o masă"
   },
   "upgrade": {
     "premiumFeature": "Funcționalitate Premium",

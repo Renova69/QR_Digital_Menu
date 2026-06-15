@@ -13,6 +13,7 @@ import {
   Volume2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useAssistance } from '../../context/AssistanceContext';
 import { cn } from '../../lib/utils';
 
@@ -33,13 +34,12 @@ function getElapsedMinutes(value: string) {
   return Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
 }
 
-function getElapsedLabel(value: string) {
+function getElapsedLabel(value: string, t: TFunction) {
   const minutes = getElapsedMinutes(value);
-  if (minutes < 1) return 'just now';
-  if (minutes === 1) return '1 min';
-  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 1) return t('assistance.justNow', 'just now');
+  if (minutes < 60) return t('assistance.minutesShort', '{{count}} min', { count: minutes });
   const hours = Math.floor(minutes / 60);
-  return hours === 1 ? '1 hour' : `${hours} hours`;
+  return t('assistance.hoursShort', '{{count}} h', { count: hours });
 }
 
 function getUrgencyStyle(request: AssistanceRequest) {
@@ -289,7 +289,7 @@ const AssistanceView = () => {
                     </p>
                     <p className="mt-1 flex items-center justify-end gap-1.5 text-sm font-black text-foreground">
                       <Timer className="h-3.5 w-3.5 text-primary" />
-                      {getElapsedLabel(elapsedSource)}
+                      {getElapsedLabel(elapsedSource, t)}
                     </p>
                   </div>
                 </div>

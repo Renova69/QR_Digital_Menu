@@ -382,7 +382,10 @@
     "noRequestsHere": "No requests here",
     "allGuestsAssisted": "All guests are currently assisted.",
     "tryAnotherFilter": "Try another filter or table number.",
-    "searchPlaceholder": "Search by table..."
+    "searchPlaceholder": "Search by table...",
+    "justNow": "just now",
+    "minutesShort": "{{count}} min",
+    "hoursShort": "{{count}} h"
   },
   "orders": {
     "tabs": {
@@ -514,7 +517,8 @@
     "selectAssistanceType": "Choose the type of help you need",
     "callWaiterDesc": "I'd like to order or ask a question",
     "needHelp": "Need Urgent Help",
-    "needHelpDesc": "I need immediate assistance"
+    "needHelpDesc": "I need immediate assistance",
+    "assistanceError": "Couldn't reach staff. Please try again or ask a waiter."
   },
   "cart": {
     "yourOrder": "Your Order",
@@ -1123,7 +1127,10 @@
     "noItems": "No items",
     "pleaseLogin": "Please sign in to view your profile.",
     "loginButton": "Sign In",
-    "welcomeBack": "Welcome back!"
+    "welcomeBack": "Welcome back!",
+    "namePlaceholder": "Your name",
+    "nameSaved": "Saved!",
+    "saveName": "Save"
   },
   "landing": {
     "heroBadge": "The all-in-one restaurant platform",
@@ -2813,7 +2820,29 @@
     "1MinAgo": "1 min ago",
     "minAgo": "{{min}} min ago",
     "1HourAgo": "1 hour ago",
-    "hoursAgo": "{{hours}} hours ago"
+    "hoursAgo": "{{hours}} hours ago",
+    "verificationCode": "Verification code",
+    "login": "Login",
+    "verifyYourEmail": "Verify your email",
+    "createAnAccount": "Create an account",
+    "accessYourDashboard": "Access your dashboard.",
+    "enterCodeSentTo": "Enter the 6-digit code sent to {{email}}.",
+    "getStartedWithYourOwnQrMenu": "Get started with your own QR menu.",
+    "verifyEmail": "Verify email",
+    "createAccount": "Create account",
+    "dontHaveAccountSignUp": "Don't have an account? Sign up",
+    "alreadyHaveAccountLogin": "Already have an account? Login",
+    "close": "Close",
+    "loginFailed": "Login failed. Please check your credentials.",
+    "registrationFailed": "Registration failed. Please try again.",
+    "verificationFailed": "Verification failed. Please check the code.",
+    "invalidPin": "Invalid PIN",
+    "askManagerStaffDevice": "Ask a manager to generate a Staff Device QR from Settings, then scan it on this device.",
+    "preparingDevice": "Preparing device...",
+    "verifying": "Verifying...",
+    "tryAgainInMinutes_one": "Try again in {{count}} minute.",
+    "tryAgainInMinutes_other": "Try again in {{count}} minutes.",
+    "closeSessionConfirm": "Close the session for table {{table}}? The open bill of €{{amount}} will be discarded with no payment recorded."
   },
   "pos": {
     "failedSubmitOrder": "Failed to submit order. Try again.",
@@ -2858,7 +2887,18 @@
     "loadingRestaurant": "Loading restaurant...",
     "noRestaurant": "No restaurant selected.",
     "searchItems": "Search items...",
-    "selectTable": "Select Table"
+    "selectTable": "Select Table",
+    "backToPos": "Back to POS — {{name}}",
+    "forceCloseConfirm": "Force Close — No Payment",
+    "noTables": "No tables found. Create tables in the dashboard first.",
+    "retry": "Retry",
+    "searchPlaceholder": "Search...",
+    "seat1": "Seat 1",
+    "seat2": "Seat 2",
+    "seat3": "Seat 3",
+    "seatShared": "Shared",
+    "selectTableDesc": "Select a table to start taking orders.",
+    "selectTableTitle": "Select a table"
   },
   "upgrade": {
     "premiumFeature": "Premium Feature",

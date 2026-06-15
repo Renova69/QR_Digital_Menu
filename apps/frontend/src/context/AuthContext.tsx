@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { login as apiLogin, register as apiRegister, verifyRegistration as apiVerifyRegistration } from '../lib/api';
 import api from '../lib/api';
 
@@ -31,6 +32,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState<boolean>(false);
@@ -85,7 +87,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { user };
     } catch (error: any) {
       setIsError(true);
-      const msg = error.response?.data?.message || 'Login failed. Please check your credentials.';
+      const msg =
+        error.response?.data?.message ||
+        t('auto.loginFailed', 'Login failed. Please check your credentials.');
       setErrorMessage(msg);
       throw error;
     }
@@ -108,7 +112,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { user };
     } catch (error: any) {
       setIsError(true);
-      const msg = error.response?.data?.message || 'Registration failed. Please try again.';
+      const msg =
+        error.response?.data?.message ||
+        t('auto.registrationFailed', 'Registration failed. Please try again.');
       setErrorMessage(msg);
       throw error;
     }
@@ -125,7 +131,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { user };
     } catch (error: any) {
       setIsError(true);
-      const msg = error.response?.data?.message || 'Verification failed. Please check the code.';
+      const msg =
+        error.response?.data?.message ||
+        t('auto.verificationFailed', 'Verification failed. Please check the code.');
       setErrorMessage(msg);
       throw error;
     }

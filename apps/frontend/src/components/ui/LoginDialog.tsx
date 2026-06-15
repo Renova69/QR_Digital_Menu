@@ -72,14 +72,18 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
         <Dialog.Overlay className="bg-black/50 backdrop-blur-sm fixed inset-0" />
         <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-md bg-background p-6 rounded-2xl shadow-2xl border border-border/60">
           <Dialog.Title className="text-lg font-bold text-foreground">
-            {isLogin ? "Login" : verificationPending ? "Verify your email" : "Create an account"}
+            {isLogin
+              ? t('auto.login', 'Login')
+              : verificationPending
+                ? t('auto.verifyYourEmail', 'Verify your email')
+                : t('auto.createAnAccount', 'Create an account')}
           </Dialog.Title>
           <Dialog.Description className="mt-2 text-sm text-muted-foreground">
             {isLogin
-              ? "Access your dashboard."
+              ? t('auto.accessYourDashboard', 'Access your dashboard.')
               : verificationPending
-                ? `Enter the 6-digit code sent to ${email}.`
-                : "Get started with your own QR menu."}
+                ? t('auto.enterCodeSentTo', 'Enter the 6-digit code sent to {{email}}.', { email })
+                : t('auto.getStartedWithYourOwnQrMenu', 'Get started with your own QR menu.')}
           </Dialog.Description>
 
           {!verificationPending && (
@@ -179,7 +183,13 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
               disabled={isLoading}
               className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white brand-cta focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
             >
-              {isLoading ? "..." : isLogin ? "Login" : verificationPending ? "Verify email" : "Create account"}
+              {isLoading
+                ? '...'
+                : isLogin
+                  ? t('auto.login', 'Login')
+                  : verificationPending
+                    ? t('auto.verifyEmail', 'Verify email')
+                    : t('auto.createAccount', 'Create account')}
             </button>
           </form>
 
@@ -190,15 +200,15 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
               className="font-medium text-primary hover:text-primary/80 transition-colors"
             >
               {isLogin
-                ? "Don't have an account? Sign up"
-                : "Already have an account? Login"}
+                ? t('auto.dontHaveAccountSignUp', "Don't have an account? Sign up")
+                : t('auto.alreadyHaveAccountLogin', 'Already have an account? Login')}
             </button>
           </div>
 
           <Dialog.Close asChild>
             <button
               className="absolute top-3 right-3 p-1.5 rounded-full text-muted-foreground hover:bg-secondary transition-colors"
-              aria-label="Close"
+              aria-label={t('auto.close', 'Close')}
             >
               <Cross2Icon />
             </button>
