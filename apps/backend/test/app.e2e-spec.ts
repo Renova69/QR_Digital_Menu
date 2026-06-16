@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import {
+  INestApplication,
+  RequestMethod,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 
@@ -12,7 +16,16 @@ describe('AppController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
+    // Mirror main.ts so the test exercises the real route mapping: the root
+    // GET is excluded from the 'api' prefix (302 redirect), everything else is
+    // served under /api/v1/*. Without this the spec hit the redirect at /api.
+    app.setGlobalPrefix('api', {
+      exclude: [{ path: '/', method: RequestMethod.GET }],
+    });
+    app.enableVersioning({
+      type: VersioningType.URI,
+      defaultVersion: '1',
+    });
     await app.init();
   });
 
@@ -20,9 +33,9 @@ describe('AppController (e2e)', () => {
     await app.close();
   });
 
-  it('/api (GET)', () => {
+  it('GET /api/v1/api returns API information', () => {
     return request(app.getHttpServer())
-      .get('/api')
+      .get('/api/v1/api')
       .expect(200)
       .expect((res: any) => {
         expect(res.body.message).toBe('QR Menu API');
