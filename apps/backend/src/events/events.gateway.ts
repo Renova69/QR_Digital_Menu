@@ -9,6 +9,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger, forwardRef, Inject, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import type { WrapperType } from '../common/wrapper-type';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { PrintStationService } from '../print-station/print-station.service';
@@ -96,7 +97,7 @@ export class EventsGateway
     private readonly jwt: JwtService,
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => PrintStationService))
-    private readonly printStationService: PrintStationService,
+    private readonly printStationService: WrapperType<PrintStationService>,
     private readonly featureService: FeatureService,
   ) {}
 

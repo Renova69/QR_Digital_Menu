@@ -46,4 +46,4 @@ ENV PRISMA_MIGRATE_TIMEOUT_SECONDS=60
 # NOTE: Before first use, baseline the prod DB:
 #   npx prisma migrate resolve --applied 20260611000000_schema_safety_constraints
 # Then verify clean: npx prisma migrate status
-CMD ["sh", "-c", "timeout --foreground \"${PRISMA_MIGRATE_TIMEOUT_SECONDS:-60}s\" node_modules/.bin/prisma migrate deploy && node dist/src/main"]
+CMD ["sh", "-c", "timeout --foreground \"${PRISMA_MIGRATE_TIMEOUT_SECONDS:-60}s\" node_modules/.bin/prisma migrate deploy && node dist/main"]

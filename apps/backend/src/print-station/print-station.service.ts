@@ -7,6 +7,7 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
+import type { WrapperType } from '../common/wrapper-type';
 import { randomBytes } from 'crypto';
 import type { PrintJobStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -25,7 +26,7 @@ export class PrintStationService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => EventsGateway))
-    private readonly events: EventsGateway,
+    private readonly events: WrapperType<EventsGateway>,
   ) {}
 
   // ─── Station CRUD ─────────────────────────────────────────────────────────
