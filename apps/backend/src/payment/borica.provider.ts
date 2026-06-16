@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import * as crypto from 'crypto';
 import axios from 'axios';
+import { DateTime } from 'luxon';
 
 export type BoricaMode = 'DEMO' | 'LIVE';
 
@@ -80,7 +81,7 @@ export class BoricaProvider {
       MERCHANT: params.merchant,
       MERCH_NAME: (params.merchantName || '').slice(0, 25),
       MERCH_URL: params.merchantUrl || '',
-      MERCH_GMT: '+03',
+      MERCH_GMT: merchGmt(),
       EMAIL: params.email || '',
       TIMESTAMP: ts,
       NONCE: n,
@@ -239,6 +240,11 @@ export class BoricaProvider {
     const NONCE = get('NONCE');
     const P_SIGN = get('P_SIGN');
 
+    // BORICA omits CURRENCY in TRTYPE=90 status responses and computes the MAC
+    // with 'USD' substituted for the empty CURRENCY in that case (P-OM-41 §5.2).
+    const currencyForMac =
+      TRTYPE === '90' && CURRENCY === '' ? 'USD' : CURRENCY;
+
     const msg =
       macField(ACTION) +
       macField(RC) +
@@ -246,7 +252,7 @@ export class BoricaProvider {
       macField(TERMINAL) +
       macField(TRTYPE) +
       macField(AMOUNT) +
-      macField(CURRENCY) +
+      macField(currencyForMac) +
       macField(ORDER) +
       macField(RRN) +
       macField(INT_REF) +
@@ -297,6 +303,14 @@ function lenPrefix(value: string): string {
 function macField(value: string): string {
   const s = value ?? '';
   return s === '' ? '-' : String(s.length) + s;
+}
+
+function merchGmt(): string {
+  // Informational only (not part of the signed MAC), but should reflect the
+  // merchant's real offset: Europe/Sofia is +02 (winter) / +03 (summer).
+  const hours = Math.trunc(DateTime.now().setZone('Europe/Sofia').offset / 60);
+  const sign = hours >= 0 ? '+' : '-';
+  return sign + String(Math.abs(hours)).padStart(2, '0');
 }
 
 function nonce(): string {

@@ -580,7 +580,9 @@ export class AuthService {
       if (!valid) continue;
 
       if (user.isActive === false || user.disabledAt) {
-        throw new UnauthorizedException('This account has been disabled.');
+        // Generic message — a distinct "disabled" error after a correct PIN
+        // match would let an attacker confirm a valid PIN via enumeration.
+        throw new UnauthorizedException('Invalid PIN.');
       }
 
       // Successful login — reset device attempt counter

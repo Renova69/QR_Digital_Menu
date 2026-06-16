@@ -385,6 +385,25 @@ describe('AuthService', () => {
       expect(mockPrisma.user.updateMany).not.toHaveBeenCalled();
     });
 
+    it('returns the generic "Invalid PIN." message for a disabled staff account (#D)', async () => {
+      mockCompare.mockResolvedValue(true);
+      mockPrisma.user.findMany.mockResolvedValue([
+        makeUser({
+          pinHash: 'hashed-pin',
+          role: 'WAITER',
+          restaurantId: 'rest1',
+          isActive: false,
+          disabledAt: new Date(),
+        }),
+      ]);
+
+      // A distinct "disabled" error after a correct PIN match would let an
+      // attacker confirm a valid PIN — the message must stay generic.
+      await expect(
+        service.pinLogin('rest1', '1234', deviceToken),
+      ).rejects.toThrow('Invalid PIN.');
+    });
+
     it('increments device attempt counter and throws UnauthorizedException on wrong PIN', async () => {
       mockCompare.mockResolvedValue(false);
       mockPrisma.user.findMany.mockResolvedValue([

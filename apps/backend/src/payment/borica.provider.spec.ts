@@ -195,6 +195,42 @@ describe('BoricaProvider', () => {
       const result = provider.verifyResult(body, CERT_PEM);
       expect(result.verified).toBe(false);
     });
+
+    it('verifies a TRTYPE=90 status response with empty CURRENCY via USD substitution (#B)', () => {
+      const { createSign, createPublicKey } = require('crypto');
+      const pubKeyPem = createPublicKey(PRIVATE_KEY_PEM).export({
+        type: 'spki',
+        format: 'pem',
+      }) as string;
+
+      const fields: Record<string, string> = {
+        ACTION: '0', RC: '00', APPROVAL: '123456', TERMINAL, TRTYPE: '90',
+        AMOUNT: '10.00', CURRENCY: '', ORDER: '000099', RRN: '123456789012',
+        INT_REF: 'ABCDEF123456', PARES_STATUS: 'Y', ECI: '05',
+        TIMESTAMP: '20260605120000', NONCE: 'ABCDEF01234567890123456789ABCDEF',
+      };
+      // BORICA signs a TRTYPE=90 status response with 'USD' substituted for the
+      // empty CURRENCY; verifyResult must mirror that to validate the MAC.
+      const macOrder = [
+        'ACTION', 'RC', 'APPROVAL', 'TERMINAL', 'TRTYPE', 'AMOUNT',
+        'CURRENCY', 'ORDER', 'RRN', 'INT_REF', 'PARES_STATUS', 'ECI',
+        'TIMESTAMP', 'NONCE',
+      ];
+      const msg =
+        macOrder
+          .map((k) => {
+            const v = k === 'CURRENCY' ? 'USD' : (fields[k] ?? '');
+            return v === '' ? '-' : `${v.length}${v}`;
+          })
+          .join('') + '-';
+      const P_SIGN = createSign('RSA-SHA256')
+        .update(msg)
+        .sign(PRIVATE_KEY_PEM, 'hex')
+        .toUpperCase();
+
+      const result = provider.verifyResult({ ...fields, P_SIGN }, pubKeyPem);
+      expect(result.verified).toBe(true);
+    });
   });
 
   describe('buildSaleForm', () => {
@@ -242,6 +278,10 @@ describe('BoricaProvider', () => {
       );
       expect(mInfo.mobilePhone).toEqual({ cc: '359', subscriber: '893999888' });
       expect(form.fields.P_SIGN).toMatch(/^[0-9A-F]+$/);
+      // #A: MERCH_GMT reflects the real Europe/Sofia offset (+02 or +03),
+      // not a hardcoded value.
+      expect(form.fields.MERCH_GMT).toMatch(/^[+-]\d{2}$/);
+      expect(['+02', '+03']).toContain(form.fields.MERCH_GMT);
     });
   });
 

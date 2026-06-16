@@ -500,6 +500,8 @@ export class LoyaltyService {
         name: true,
         loyaltyExpiryReminderDays: true,
         loyaltyRedeemRate: true,
+        isLoyaltyEnabled: true,
+        ...LOYALTY_TIER_FIELDS,
       },
     });
 
@@ -507,6 +509,9 @@ export class LoyaltyService {
     const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com';
 
     for (const restaurant of restaurants) {
+      // #5: a downgraded tenant keeps isLoyaltyEnabled=true but loses the
+      // LOYALTY feature — don't email reminders for an unentitled restaurant.
+      if (!isLoyaltyAvailable(restaurant, this.featureService)) continue;
       try {
         let cursor: string | undefined;
         let totalSent = 0;

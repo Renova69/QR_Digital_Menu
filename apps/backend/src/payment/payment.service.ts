@@ -1122,7 +1122,7 @@ export class PaymentService {
               checkedStatus.order === pendingBorica.providerReference &&
               checkedStatus.terminal === staleKeypair.terminal &&
               Math.abs(parseFloat(checkedStatus.amount || '0') - (pendingBorica.amount ?? 0)) < 0.01 &&
-              (checkedStatus.currency || '').toUpperCase() === 'EUR';
+              (checkedStatus.currency || 'EUR').toUpperCase() === 'EUR';
             if (!reconcileOk) {
               await this.markBoricaStatusUnknown(
                 pendingBorica.id,
