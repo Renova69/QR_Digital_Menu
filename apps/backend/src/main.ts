@@ -146,6 +146,12 @@ async function bootstrap() {
       '/api/v1/orders',
       '/api/v1/client-logs',
     ];
+    // #4: bypass CSRF only for explicit local dev/test. Previously ANY
+    // NODE_ENV !== 'production' (staging, preview, or unset on a deployed box)
+    // disabled CSRF entirely; those environments now enforce the double-submit
+    // check. The frontend always sends the token, so local dev still works.
+    const csrfBypassEnv =
+      process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
     app.use((req: any, res: any, next: any) => {
       const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
       const isWebhook =
@@ -160,7 +166,7 @@ async function bootstrap() {
         safeMethods.includes(req.method) ||
         isWebhook ||
         isCsrfExempt ||
-        process.env.NODE_ENV !== 'production'
+        csrfBypassEnv
       ) {
         if (!req.cookies?.['csrf-token']) {
           const csrfToken = crypto.randomUUID();

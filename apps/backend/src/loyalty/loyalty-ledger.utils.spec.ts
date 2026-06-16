@@ -24,6 +24,13 @@ describe('loyalty-ledger.utils', () => {
       expect(getRewardValue(100, 0)).toBe(0);
       expect(getRewardValue(100, -1)).toBe(0);
     });
+
+    it('rounds non-terminating quotients to cents (#3)', () => {
+      // 100 / 150 = 0.6666… must surface as 0.67, not a long float, so the
+      // displayed reward matches the money applied to the order.
+      expect(getRewardValue(100, 150)).toBe(0.67);
+      expect(getRewardValue(50, 150)).toBe(0.33);
+    });
   });
 
   describe('expireAccountPoints', () => {

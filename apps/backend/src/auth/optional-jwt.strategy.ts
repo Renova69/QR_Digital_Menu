@@ -1,14 +1,18 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class OptionalJwtStrategy extends PassportStrategy(
   Strategy,
   'jwt-optional',
 ) {
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {
     const allowBearerAuth =
       process.env.NODE_ENV === 'test' ||
       process.env.NODE_ENV === 'development' ||
@@ -34,7 +38,36 @@ export class OptionalJwtStrategy extends PassportStrategy(
     });
   }
 
-  async validate(payload: { sub: string; email: string }) {
-    return { id: payload.sub, email: payload.email };
+  // Identity is optional on the endpoints using this strategy, but when a token
+  // IS present it must be honored exactly like the mandatory JwtStrategy: a
+  // disabled/revoked account, or a token issued before a password change, must
+  // be rejected — not silently attributed to the order. (#1)
+  async validate(payload: { sub: string; email: string; iat?: number }) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: {
+        id: true,
+        email: true,
+        isActive: true,
+        disabledAt: true,
+        passwordChangedAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException();
+    }
+    if (user.isActive === false || user.disabledAt) {
+      throw new UnauthorizedException('ACCOUNT_DISABLED');
+    }
+    if (
+      user.passwordChangedAt &&
+      payload.iat &&
+      payload.iat * 1000 < user.passwordChangedAt.getTime()
+    ) {
+      throw new UnauthorizedException('PASSWORD_CHANGED');
+    }
+
+    return { id: user.id, email: user.email };
   }
 }

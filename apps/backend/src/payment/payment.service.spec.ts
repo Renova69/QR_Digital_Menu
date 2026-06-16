@@ -1538,6 +1538,12 @@ describe('PaymentService', () => {
         restaurantId: 'rest1',
         orders: [{ totalPrice: 20 }, { totalPrice: 5 }],
       });
+      // #2: bill is summed from a fresh in-transaction order read, not the
+      // session snapshot taken before the transaction.
+      mockPrisma.order.findMany.mockResolvedValue([
+        { totalPrice: 20 },
+        { totalPrice: 5 },
+      ]);
       mockPrisma.payment.create.mockResolvedValue({ id: 'pay1' });
 
       const result = await service.closeSessionWithCard(
@@ -1547,6 +1553,10 @@ describe('PaymentService', () => {
       );
 
       expect(result.amount).toBeCloseTo(25);
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith({
+        where: { tableSessionId: 's1' },
+        select: { totalPrice: true },
+      });
       expect(mockPrisma.payment.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -1571,6 +1581,7 @@ describe('PaymentService', () => {
         restaurantId: 'rest1',
         orders: [{ totalPrice: 30 }],
       });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 30 }]);
       mockPrisma.tableSession.updateMany.mockResolvedValueOnce({ count: 0 });
 
       await expect(
@@ -1606,6 +1617,7 @@ describe('PaymentService', () => {
         restaurantId: 'rest1',
         orders: [{ totalPrice: 15 }],
       });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 15 }]);
       mockPrisma.payment.create.mockResolvedValue({ id: 'pay1' });
 
       const result = await service.closeSessionWithCash(

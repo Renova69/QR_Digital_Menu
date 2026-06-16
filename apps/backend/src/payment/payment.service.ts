@@ -1710,20 +1710,28 @@ export class PaymentService {
     await this.verifyPosOperatorAccess(restaurantId, userId);
     const session = await this.prisma.tableSession.findFirst({
       where: { token, restaurantId, status: 'OPEN' },
-      include: { orders: true },
     });
     if (!session) throw new NotFoundException('Session not found');
 
-    const amount = session.orders.reduce((sum, o) => sum + o.totalPrice, 0);
-    if (amount <= 0)
-      throw new BadRequestException('Cannot close a session with no orders');
+    // #2: sum the bill INSIDE the same transaction that flips the session to
+    // PAID. Reading orders before the transaction let a QR order placed during
+    // the close window slip through unbilled (TOCTOU on the total).
+    const amount = await this.prisma.$transaction(async (tx) => {
+      const orders = await tx.order.findMany({
+        where: { tableSessionId: session.id },
+        select: { totalPrice: true },
+      });
+      const billed = this.roundMoney(
+        orders.reduce((sum, o) => sum + o.totalPrice, 0),
+      );
+      if (billed <= 0)
+        throw new BadRequestException('Cannot close a session with no orders');
 
-    await this.prisma.$transaction(async (tx) => {
       await tx.payment.create({
         data: {
           tableSessionId: session.id,
           restaurantId,
-          amount,
+          amount: billed,
           tipAmount: 0,
           platformFeeAmount: 0,
           currency: 'eur',
@@ -1737,6 +1745,7 @@ export class PaymentService {
         data: { status: 'PAID', paidAt: new Date() },
       });
       if (updated.count === 0) throw new Error('Session already closed');
+      return billed;
     });
 
     this.events.emitTableStatusChanged(

@@ -14,7 +14,9 @@ export function addDays(date: Date, days: number) {
 
 export function getRewardValue(points: number, redeemRate: number) {
   if (redeemRate <= 0) return 0;
-  return points / redeemRate;
+  // #3: round to cents so the displayed/redeemed value matches the money
+  // actually applied — points / redeemRate is frequently non-terminating.
+  return Math.round((points / redeemRate) * 100) / 100;
 }
 
 export function getFirstRewardProgress(points: number, redeemRate: number) {

@@ -468,7 +468,7 @@ export class OrdersService {
     // 7. Main transaction — loyalty + order creation are atomic
     const finalOrder = await this.prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
-        let finalTotal = computedTotal;
+        let finalTotal = Math.round(computedTotal * 100) / 100; // #3: cents-precise money, not raw float
         let pointsEarned = 0;
         let pointsRedeemedForDiscount = 0;
         const pointsRedeemedForItems = itemsPointsRedeemed;
@@ -532,7 +532,7 @@ export class OrdersService {
                 );
               }
 
-              finalTotal -= finalDiscount;
+              finalTotal = Math.round((finalTotal - finalDiscount) * 100) / 100; // #3
               pointsRedeemedForDiscount = pointsToRedeem;
             }
           }
