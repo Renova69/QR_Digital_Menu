@@ -351,6 +351,7 @@ model OrderItem {
   menuItemId      String?
   quantity        Int
   selectedOptions Json
+  notes           String?   @db.VarChar(500)
   menuItem        MenuItem? @relation(fields: [menuItemId], references: [id])
   order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
 

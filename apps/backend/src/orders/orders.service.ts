@@ -287,6 +287,7 @@ export class OrdersService {
       menuItemId: string;
       quantity: number;
       selectedOptions: any[];
+      notes?: string;
     }[] = [];
 
     // Redemption matching strategy:
@@ -458,6 +459,7 @@ export class OrdersService {
         menuItemId: item.menuItemId,
         quantity: item.quantity,
         selectedOptions: normalizedSelectedOptions,
+        notes: item.notes?.trim() || undefined,
       });
     }
 

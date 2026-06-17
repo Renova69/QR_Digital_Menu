@@ -47,6 +47,11 @@ class OrderItemDto {
   @ValidateNested({ each: true })
   @Type(() => OrderItemOptionDto)
   selectedOptions?: OrderItemOptionDto[];
+
+  /** Per-item note (e.g. "no onions"). Printed on kitchen tickets (Issue 33). */
+  @IsString()
+  @IsOptional()
+  notes?: string;
 }
 
 export class CreateOrderDto {

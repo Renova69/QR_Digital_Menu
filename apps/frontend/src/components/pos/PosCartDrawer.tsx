@@ -68,6 +68,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
           menuItemId: item.menuItemId,
           quantity: item.quantity,
           selectedOptions: item.selectedOptions,
+          notes: item.itemNote || undefined,
         })),
       });
       markAsSubmitted();

@@ -156,10 +156,11 @@ export default function PrintStationsView() {
       {ToastComponent}
 
       {tokenModal && (() => {
-        const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
-        const serverUrl = apiUrl
-          ? apiUrl.replace(/\/api\/?$/, '')
-          : `${window.location.protocol}//${window.location.hostname}:3000`;
+        // Use the hostname the user typed to reach the dashboard so the
+        // printer-agent (on a separate device) can reach the server on the
+        // same LAN. VITE_API_URL may be http://127.0.0.1:3000/api which is
+        // unreachable from another device.
+        const serverUrl = `${window.location.protocol}//${window.location.hostname}:3000`;
         const params = new URLSearchParams({
           serverUrl,
           token: tokenModal.token,

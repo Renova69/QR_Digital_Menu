@@ -161,7 +161,7 @@ export class PrintStationService {
         quantity: item.quantity,
         name: item.menuItem?.name ?? 'Unknown item',
         options,
-        notes: null,
+        notes: (item as any).notes || null,
       });
     }
 
