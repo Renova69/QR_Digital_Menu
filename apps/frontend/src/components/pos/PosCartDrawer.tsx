@@ -40,6 +40,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
   const [closing, setClosing] = useState(false);
+  const [customerName, setCustomerName] = useState("");
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
 
   const pendingItems = items.filter((i) => !i.submitted);
@@ -58,7 +59,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
     try {
       const specialRequests = buildSpecialRequests();
       await createOrder({
-        customerName: "Staff",
+        customerName: customerName.trim() || t("pos.defaultGuest", "Guest"),
         source: "POS",
         tableId: session.tableName,
         restaurantId: activeRestaurant.id,
@@ -302,6 +303,16 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
           <PosQRBill />
 
           <div className="p-4 flex flex-col gap-2">
+            {/* Customer name */}
+            <input
+              type="text"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder={t("pos.guestNamePlaceholder", "Guest name (optional)")}
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm placeholder:text-muted-foreground"
+              maxLength={100}
+            />
+
             {/* Submit Order — only pending items */}
             <button
               type="button"

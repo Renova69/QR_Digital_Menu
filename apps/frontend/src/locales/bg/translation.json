@@ -900,6 +900,8 @@
     "submitOrderTotal": "Изпрати поръчка · €{{total}}",
     "closeCardTotal": "Затваряне - Плащане с карта · €{{total}}",
     "closeCashTotal": "Затваряне - Плащане в брой · €{{total}}",
+    "defaultGuest": "Гост",
+    "guestNamePlaceholder": "Име на гост (по избор)",
     "submitPendingFirst": "Първо изпратете чакащите артикули",
     "confirmSubmitTitle": "Изпрати поръчка",
     "confirmCardTitle": "Затваряне на маса — Платено с карта",

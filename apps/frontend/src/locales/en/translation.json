@@ -2863,6 +2863,8 @@
     "closing": "Closing...",
     "closeCardTotal": "closeCardTotal",
     "closeCashTotal": "closeCashTotal",
+    "defaultGuest": "Guest",
+    "guestNamePlaceholder": "Guest name (optional)",
     "forceCloseNoPayment": "Force Close · No Payment",
     "confirmSubmitTitle": "Submit Order",
     "confirmCardTitle": "Close Table — Paid by Card",
