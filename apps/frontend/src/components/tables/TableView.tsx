@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
+import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createTable,
@@ -12,6 +12,7 @@ import {
   deleteZone,
   reorderZones,
   updateTable,
+  getLogoBase64,
 } from '../../lib/api';
 import type { TableZone } from '../../lib/api';
 import { Button } from '../ui/button';
@@ -56,6 +57,30 @@ function normalizeTableName(name: string) {
   return name.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch { /* fall through to fallback */ }
+
+  // Fallback for non-HTTPS / older browsers
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 const TableView: React.FC = () => {
   const { activeRestaurant: restaurant } = React.useContext(RestaurantContext) as any;
   const restaurantId = restaurant?.id;
@@ -65,7 +90,10 @@ const TableView: React.FC = () => {
   const [tableSearch, setTableSearch] = useState('');
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [selectedTable, setSelectedTable] = useState<{ id: string; name: string } | null>(null);
+  const [copiedTableId, setCopiedTableId] = useState<string | null>(null);
   const qrCodeRef = useRef<HTMLDivElement>(null);
+  const qrCanvasRef = useRef<HTMLDivElement>(null);
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const { t } = useTranslation();
   const { tier } = useTier();
   const { user } = useAuth();
@@ -234,34 +262,55 @@ const TableView: React.FC = () => {
   };
 
   const handleDownloadQR = () => {
-    const qrCodeElement = qrCodeRef.current;
-    if (!qrCodeElement) return;
+    const container = qrCanvasRef.current;
+    if (!container) return;
+    const sourceCanvas = container.querySelector('canvas');
+    if (!sourceCanvas) return;
 
-    const svg = qrCodeElement.querySelector('svg');
-    if (!svg) return;
+    // 4-module quiet zone required by QR spec. 512 px / ~29 modules ≈ 17.7 px/module
+    // for version-5 QR; 4 × 17.7 ≈ 71 px. Use 72 px for clean integer.
+    const QUIET_ZONE = 72;
+    const srcW = sourceCanvas.width;
+    const outW = srcW + QUIET_ZONE * 2;
+    const out = document.createElement('canvas');
+    out.width = outW;
+    out.height = outW;
+    const ctx = out.getContext('2d')!;
 
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
+    // White background (quiet zone)
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, outW, outW);
 
-    img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      if (ctx) {
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
-        const pngFile = canvas.toDataURL('image/png');
+    // Draw QR centered with pixel-snapping
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(sourceCanvas, QUIET_ZONE, QUIET_ZONE);
 
-        const downloadLink = document.createElement('a');
-        downloadLink.download = `qr-menu-table-${selectedTable?.name || 'unknown'}.png`;
-        downloadLink.href = pngFile;
-        downloadLink.click();
-      }
+    const finish = () => {
+      const pngFile = out.toDataURL('image/png');
+      const downloadLink = document.createElement('a');
+      downloadLink.download = `qr-menu-table-${selectedTable?.name || 'unknown'}.png`;
+      downloadLink.href = pngFile;
+      downloadLink.click();
     };
 
-    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+    if (logoDataUrl) {
+      const logoImg = new Image();
+      logoImg.onload = () => {
+        const logoPx = Math.round(srcW * 0.138);
+        const x = QUIET_ZONE + Math.round((srcW - logoPx) / 2);
+        const y = QUIET_ZONE + Math.round((srcW - logoPx) / 2);
+        const pad = Math.max(2, Math.round(srcW * 0.008));
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(x - pad, y - pad, logoPx + pad * 2, logoPx + pad * 2);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(logoImg, x, y, logoPx, logoPx);
+        finish();
+      };
+      logoImg.onerror = finish;
+      logoImg.src = logoDataUrl;
+    } else {
+      finish();
+    }
   };
 
   const getQrCodeUrl = () => {
@@ -274,6 +323,31 @@ const TableView: React.FC = () => {
     : restaurant.logoUrl
       ? `${(import.meta as any).env.VITE_API_URL || 'http://localhost:3000/api'}`.replace('/api', '') + `/${restaurant.logoUrl}`
       : null;
+
+  // Fetch logo as base64 data URL via the backend proxy so embedding it in
+  // the QR SVG doesn't taint the canvas used for PNG download (Issue 18).
+  // Direct browser fetch() fails on cross-origin R2 URLs without CORS;
+  // the backend fetches server-side (no CORS) and returns the data URL.
+  useEffect(() => {
+    if (!restaurantId || !logoUrl) {
+      setLogoDataUrl(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await getLogoBase64(restaurantId);
+        if (!cancelled && result?.dataUrl) {
+          setLogoDataUrl(result.dataUrl);
+        } else if (!cancelled) {
+          setLogoDataUrl(null);
+        }
+      } catch {
+        if (!cancelled) setLogoDataUrl(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [logoUrl, restaurantId]);
 
   return (
     <section className="min-h-full bg-background text-foreground">
@@ -641,14 +715,24 @@ const TableView: React.FC = () => {
                       <span className="text-2xl font-black tracking-tight text-foreground">{table.name}</span>
                       <button
                         type="button"
-                        onClick={() => {
-                          navigator.clipboard.writeText(publicUrl).catch(() => {});
+                        onClick={async () => {
+                          const ok = await copyToClipboard(publicUrl);
+                          if (ok) {
+                            setCopiedTableId(table.id);
+                            setTimeout(() => setCopiedTableId(null), 2000);
+                          }
                         }}
                         className="flex h-7 shrink-0 items-center gap-1 rounded px-2 text-[10px] font-black text-muted-foreground transition hover:bg-muted hover:text-foreground"
                         title={publicUrl}
                       >
-                        <Copy className="h-3 w-3" />
-                        {t('auto.copyURL', 'Copy URL')}</button>
+                        {copiedTableId === table.id ? (
+                          <Check className="h-3 w-3 text-green-500" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                        {copiedTableId === table.id
+                          ? t('auto.copied', 'Copied!')
+                          : t('auto.copyURL', 'Copy URL')}</button>
                     </div>
 
                     {zones && zones.length > 0 && (
@@ -706,12 +790,24 @@ const TableView: React.FC = () => {
                     fgColor={restaurant.accentColor || '#000000'}
                     bgColor="#ffffff"
                     level="H"
-                    imageSettings={logoUrl ? {
-                      src: logoUrl,
-                      height: 50,
-                      width: 50,
+                    imageSettings={logoDataUrl ? {
+                      src: logoDataUrl,
+                      height: 38,
+                      width: 38,
                       excavate: true,
                     } : undefined}
+                  />
+                </div>
+                {/* Hidden canvas QR used for PNG download — renders clean QR without
+                    logo; we draw the logo manually on top to avoid anti-aliasing and
+                    nested data-URI corruption (Issue 18). */}
+                <div ref={qrCanvasRef} style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+                  <QRCodeCanvas
+                    value={getQrCodeUrl()}
+                    size={512}
+                    fgColor={restaurant.accentColor || '#000000'}
+                    bgColor="#ffffff"
+                    level="H"
                   />
                 </div>
                 <Button className="w-full gap-2" onClick={handleDownloadQR}>

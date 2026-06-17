@@ -1,1 +1,0 @@
-{"nodes": [], "edges": [{"source": "menu_audit_service_covered", "target": "menu_audit_service_source", "relation": "semantically_similar_to", "confidence": "INFERRED", "confidence_score": 0.55, "source_file": "apps/backend/coverage/lcov-report/menu/menu-audit.service.ts.html", "source_location": null, "weight": 1.0}], "hyperedges": []}

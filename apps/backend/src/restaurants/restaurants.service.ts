@@ -638,4 +638,28 @@ export class RestaurantsService {
       },
     });
   }
+
+  /**
+   * Fetch the restaurant logo and return it as a base64 data URL so the
+   * frontend can embed it inline in QR SVGs without cross-origin canvas taint
+   * (Issue 18).
+   */
+  async getLogoBase64(restaurantId: string): Promise<{ dataUrl: string } | null> {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { logoUrl: true },
+    });
+    if (!restaurant?.logoUrl) return null;
+
+    try {
+      const res = await fetch(restaurant.logoUrl);
+      if (!res.ok) return null;
+      const buffer = Buffer.from(await res.arrayBuffer());
+      const mime = res.headers.get('content-type') ?? 'image/webp';
+      const b64 = buffer.toString('base64');
+      return { dataUrl: `data:${mime};base64,${b64}` };
+    } catch {
+      return null;
+    }
+  }
 }

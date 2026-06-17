@@ -96,6 +96,11 @@ export const updateRestaurant = async (restaurantId: string, data: any) => {
   return response.data;
 };
 
+export const getLogoBase64 = async (restaurantId: string): Promise<{ dataUrl: string } | null> => {
+  const response = await api.get(`/restaurants/${restaurantId}/logo-base64`);
+  return response.data;
+};
+
 export const triggerTranslation = async (restaurantId: string) => {
   const response = await api.post(`/restaurants/${restaurantId}/translate-all`);
   return response.data;

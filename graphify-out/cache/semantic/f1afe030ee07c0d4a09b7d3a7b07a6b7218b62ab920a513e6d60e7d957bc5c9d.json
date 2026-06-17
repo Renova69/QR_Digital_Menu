@@ -1,1 +1,0 @@
-{"nodes": [{"id": "cov_api_key_guard", "label": "ApiKeyGuard: 0% Statement Coverage (0/18)", "file_type": "rationale", "source_file": "apps/backend/coverage/lcov-report/src/menu-import/guards/api-key.guard.ts.html", "source_location": "line 28", "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}

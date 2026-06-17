@@ -192,6 +192,14 @@ export class RestaurantsController {
     );
   }
 
+  /** Return the restaurant logo as a base64 data URL so the QR PNG download
+   *  can embed it inline without cross-origin canvas taint (Issue 18). */
+  @UseGuards(JwtAuthGuard)
+  @Get(':restaurantId/logo-base64')
+  getLogoBase64(@Param('restaurantId') id: string, @Request() req: any) {
+    return this.restaurantsService.getLogoBase64(id);
+  }
+
   @RequireFeature(FeatureFlag.PAYMENTS_STRIPE)
   @UseGuards(JwtAuthGuard, FeatureGuard)
   @Get(':restaurantId/stripe/status')

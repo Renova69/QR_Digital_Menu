@@ -1,1 +1,0 @@
-{"nodes": [{"id": "google_strategy", "label": "GoogleStrategy \u0432\u0402\u201d Passport Google OAuth Strategy", "file_type": "code", "source_file": "apps/backend/src/auth/google.strategy.ts", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}
