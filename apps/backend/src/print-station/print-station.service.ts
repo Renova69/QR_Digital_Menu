@@ -8,6 +8,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import type { WrapperType } from '../common/wrapper-type';
+import type { ReceiptTemplate } from './escpos.util';
 import { randomBytes } from 'crypto';
 import type { PrintJobStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -66,7 +67,7 @@ export class PrintStationService {
 
   async update(restaurantId: string, stationId: string, dto: UpdatePrintStationDto) {
     await this.assertOwnership(restaurantId, stationId);
-    return this.prisma.printStation.update({ where: { id: stationId }, data: dto });
+    return this.prisma.printStation.update({ where: { id: stationId }, data: dto as any });
   }
 
   async remove(restaurantId: string, stationId: string) {
@@ -128,6 +129,8 @@ export class PrintStationService {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: {
+        staff: { select: { name: true } },
+        tableSession: { select: { createdAt: true } },
         items: {
           include: {
             menuItem: {
@@ -160,20 +163,27 @@ export class PrintStationService {
       stationMap.get(station.id)!.items.push({
         quantity: item.quantity,
         name: item.menuItem?.name ?? 'Unknown item',
+        price: item.menuItem?.price ?? 0,
         options,
         notes: (item as any).notes || null,
       });
     }
 
     for (const [stationId, { station, items }] of stationMap) {
+      const template = (station.receiptTemplate as ReceiptTemplate) ?? {};
       const ticket = buildEscPosTicket({
         stationName: station.name,
         orderShortId: order.id.slice(-6).toUpperCase(),
         tableName: order.tableName,
         customerName: order.customerName,
+        staffName: order.staff?.name ?? null,
+        sessionOpened: order.tableSession?.createdAt ?? null,
+        orderCreatedAt: order.createdAt,
+        source: order.source,
         items,
         timestamp: new Date(),
         specialRequests: (order as any).specialRequests ?? null,
+        template,
       });
 
       const ticketBase64 = ticket.toString('base64');

@@ -176,18 +176,19 @@ model TableZone {
 }
 
 model PrintStation {
-  id           String            @id @default(cuid())
-  restaurantId String
-  name         String
-  printerIp    String
-  printerPort  Int               @default(9100)
-  isActive     Boolean           @default(true)
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-  restaurant   Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  categories   MenuCategory[]
-  agentTokens  PrintAgentToken[]
-  printJobs    PrintJob[]
+  id               String            @id @default(cuid())
+  restaurantId     String
+  name             String
+  printerIp        String
+  printerPort      Int               @default(9100)
+  isActive         Boolean           @default(true)
+  receiptTemplate  Json?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  restaurant       Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  categories       MenuCategory[]
+  agentTokens      PrintAgentToken[]
+  printJobs        PrintJob[]
 
   @@unique([restaurantId, name])
   @@index([restaurantId])

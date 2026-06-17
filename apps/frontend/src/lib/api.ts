@@ -825,7 +825,7 @@ export const createPrintStation = (data: {
 
 export const updatePrintStation = (
   id: string,
-  data: Partial<{ name: string; printerIp: string; printerPort: number; isActive: boolean }>,
+  data: Partial<{ name: string; printerIp: string; printerPort: number; isActive: boolean; receiptTemplate?: Record<string, unknown> }>,
 ) => api.patch(`/print-stations/${id}`, data).then((r) => r.data);
 
 export const deletePrintStation = (id: string) =>

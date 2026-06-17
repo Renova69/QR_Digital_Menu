@@ -508,6 +508,7 @@ describe('OrdersService', () => {
 
       await service.create(
         {
+          source: 'POS',
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
         } as any,
         'waiter-1',

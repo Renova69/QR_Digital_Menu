@@ -598,7 +598,10 @@ export class OrdersService {
             pointsRedeemed: pointsRedeemedForDiscount + pointsRedeemedForItems,
             restaurantId,
             tableSessionId,
-            source: resolvedStaffUserId ? 'POS' : 'CUSTOMER',
+            source:
+              createOrderDto.source === 'POS' && resolvedStaffUserId
+                ? 'POS'
+                : 'CUSTOMER',
             staffUserId: resolvedStaffUserId ?? undefined,
             items: { create: itemsData },
           },

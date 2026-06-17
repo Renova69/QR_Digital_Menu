@@ -1,4 +1,4 @@
-import { IsString, IsInt, IsOptional, Min, Max, IsBoolean, IsIP } from 'class-validator';
+import { IsString, IsInt, IsOptional, Min, Max, IsBoolean, IsIP, IsObject } from 'class-validator';
 
 export class UpdatePrintStationDto {
   @IsOptional()
@@ -18,4 +18,8 @@ export class UpdatePrintStationDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsObject()
+  receiptTemplate?: Record<string, unknown>;
 }
