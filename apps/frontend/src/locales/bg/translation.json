@@ -2968,6 +2968,22 @@
     "neverConnected": "Никога не е свързвал",
     "pendingJobs": "{{count}} чакащи",
     "failedJobs": "{{count}} неуспешни",
-    "healthy": "Нормален"
+    "healthy": "Нормален",
+    "templateTitle": "Шаблон на касова бележка",
+    "templateDescription": "Изберете какво да се отпечатва на кухненските бележки.",
+    "templatePreview": "Преглед",
+    "showTable": "Номер на маса",
+    "showOrderId": "Номер на поръчка",
+    "showStaffName": "Име на сервитьор",
+    "showSessionOpened": "Час на отваряне на маса",
+    "showOrderTime": "Час на поръчка",
+    "showPrintedAt": "Час на отпечатване",
+    "showPrices": "Цени на артикулите",
+    "showCustomerName": "Име на клиент",
+    "showSource": "Източник [POS] / [QR]",
+    "headerTextLabel": "Текст заглавие",
+    "headerTextHint": "по подразбиране името на станцията",
+    "footerTextLabel": "Текст долен колонтитул",
+    "footerTextHint": "отпечатва се преди отрязване"
   }
 }

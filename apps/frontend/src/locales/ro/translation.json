@@ -2968,6 +2968,22 @@
     "neverConnected": "Niciodată conectat",
     "pendingJobs": "{{count}} în așteptare",
     "failedJobs": "{{count}} eșuate",
-    "healthy": "Funcțional"
+    "healthy": "Funcțional",
+    "templateTitle": "Șablon bon",
+    "templateDescription": "Alegeți ce se tipărește pe bonurile de bucătărie.",
+    "templatePreview": "Previzualizare",
+    "showTable": "Număr masă",
+    "showOrderId": "Număr comandă",
+    "showStaffName": "Nume ospătar",
+    "showSessionOpened": "Ora deschiderii mesei",
+    "showOrderTime": "Ora comenzii",
+    "showPrintedAt": "Ora tipăririi",
+    "showPrices": "Prețuri articole",
+    "showCustomerName": "Nume client",
+    "showSource": "Sursă [POS] / [QR]",
+    "headerTextLabel": "Text antet",
+    "headerTextHint": "implicit numele stației",
+    "footerTextLabel": "Text subsol",
+    "footerTextHint": "tipărit înainte de tăiere"
   }
 }

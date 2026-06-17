@@ -2968,6 +2968,22 @@
     "neverConnected": "Never connected",
     "pendingJobs": "{{count}} pending",
     "failedJobs": "{{count}} failed",
-    "healthy": "Healthy"
+    "healthy": "Healthy",
+    "templateTitle": "Receipt Template",
+    "templateDescription": "Choose what prints on kitchen tickets.",
+    "templatePreview": "Preview",
+    "showTable": "Table number",
+    "showOrderId": "Order number",
+    "showStaffName": "Staff / waiter name",
+    "showSessionOpened": "Session opened time",
+    "showOrderTime": "Order placed time",
+    "showPrintedAt": "Printed-at timestamp",
+    "showPrices": "Item prices",
+    "showCustomerName": "Customer name",
+    "showSource": "Source badge [POS] / [QR]",
+    "headerTextLabel": "Header text",
+    "headerTextHint": "defaults to station name",
+    "footerTextLabel": "Footer text",
+    "footerTextHint": "printed before paper cut"
   }
 }

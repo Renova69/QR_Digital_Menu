@@ -242,33 +242,33 @@ export default function PrintStationsView() {
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="bg-background border rounded-lg shadow-xl p-6 w-full max-w-sm mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
-              <h3 className="text-lg font-semibold">{templateModal.name} — Receipt Template</h3>
-              <p className="text-xs text-muted-foreground">Choose what prints on kitchen tickets.</p>
+              <h3 className="text-lg font-semibold">{templateModal.name} — {t('printStations.templateTitle')}</h3>
+              <p className="text-xs text-muted-foreground">{t('printStations.templateDescription')}</p>
 
               <div className="space-y-1 divide-y divide-border">
                 <div className="space-y-1 pb-2">
-                  <Toggle label="Table number" checked={tpl.showTable !== false} onChange={(v) => set('showTable', v)} />
-                  <Toggle label="Order number" checked={tpl.showOrderId !== false} onChange={(v) => set('showOrderId', v)} />
-                  <Toggle label="Staff / waiter name" checked={tpl.showStaff !== false} onChange={(v) => set('showStaff', v)} />
-                  <Toggle label="Session opened time" checked={tpl.showSessionOpened === true} onChange={(v) => set('showSessionOpened', v)} />
-                  <Toggle label="Order placed time" checked={tpl.showOrderTime === true} onChange={(v) => set('showOrderTime', v)} />
-                  <Toggle label="Printed-at timestamp" checked={tpl.showPrintedAt !== false} onChange={(v) => set('showPrintedAt', v)} />
-                  <Toggle label="Item prices" checked={tpl.showPrices === true} onChange={(v) => set('showPrices', v)} />
-                  <Toggle label="Customer name" checked={tpl.showCustomerName === true} onChange={(v) => set('showCustomerName', v)} />
-                  <Toggle label="Source badge [POS] / [QR]" checked={tpl.showSource === true} onChange={(v) => set('showSource', v)} />
+                  <Toggle label={t('printStations.showTable')} checked={tpl.showTable !== false} onChange={(v) => set('showTable', v)} />
+                  <Toggle label={t('printStations.showOrderId')} checked={tpl.showOrderId !== false} onChange={(v) => set('showOrderId', v)} />
+                  <Toggle label={t('printStations.showStaffName')} checked={tpl.showStaff !== false} onChange={(v) => set('showStaff', v)} />
+                  <Toggle label={t('printStations.showSessionOpened')} checked={tpl.showSessionOpened === true} onChange={(v) => set('showSessionOpened', v)} />
+                  <Toggle label={t('printStations.showOrderTime')} checked={tpl.showOrderTime === true} onChange={(v) => set('showOrderTime', v)} />
+                  <Toggle label={t('printStations.showPrintedAt')} checked={tpl.showPrintedAt !== false} onChange={(v) => set('showPrintedAt', v)} />
+                  <Toggle label={t('printStations.showPrices')} checked={tpl.showPrices === true} onChange={(v) => set('showPrices', v)} />
+                  <Toggle label={t('printStations.showCustomerName')} checked={tpl.showCustomerName === true} onChange={(v) => set('showCustomerName', v)} />
+                  <Toggle label={t('printStations.showSource')} checked={tpl.showSource === true} onChange={(v) => set('showSource', v)} />
                 </div>
 
                 <div className="space-y-2 pt-2">
-                  <label className="block text-xs font-medium">Header text <span className="text-muted-foreground">(defaults to station name)</span></label>
+                  <label className="block text-xs font-medium">{t('printStations.headerTextLabel')} <span className="text-muted-foreground">({t('printStations.headerTextHint')})</span></label>
                   <Input placeholder={templateModal.name} value={tpl.headerText ?? ''} onChange={(e) => set('headerText', e.target.value)} />
 
-                  <label className="block text-xs font-medium">Footer text <span className="text-muted-foreground">(printed before paper cut)</span></label>
+                  <label className="block text-xs font-medium">{t('printStations.footerTextLabel')} <span className="text-muted-foreground">({t('printStations.footerTextHint')})</span></label>
                   <Input placeholder="Thank you!" value={tpl.footerText ?? ''} onChange={(e) => set('footerText', e.target.value)} />
                 </div>
 
                 {/* Live preview */}
                 <div className="pt-2">
-                  <p className="text-xs font-medium mb-1">Preview</p>
+                  <p className="text-xs font-medium mb-1">{t('printStations.templatePreview')}</p>
                   <pre className="text-[10px] leading-tight bg-muted rounded px-2 py-2 overflow-x-auto font-mono whitespace-pre">
 {[
   (tpl.headerText || templateModal.name).toUpperCase(),
@@ -291,10 +291,10 @@ export default function PrintStationsView() {
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => setTemplateModal(null)}>Cancel</Button>
+                <Button variant="ghost" onClick={() => setTemplateModal(null)}>{t('auto.cancel')}</Button>
                 <Button onClick={() => updateTemplateMutation.mutate({ id: templateModal.id, template: draftTemplate })}
                         disabled={updateTemplateMutation.isPending}>
-                  Save
+                  {t('auto.save')}
                 </Button>
               </div>
             </div>
