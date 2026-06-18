@@ -6,10 +6,12 @@ import {
   StyleSheet,
   ScrollView,
   Platform,
+  PermissionsAndroid,
 } from 'react-native';
 import ForegroundService from '@supersami/rn-foreground-service';
 import { AgentConfig, clearConfig } from '../store/config';
 import { startSocketService, stopSocketService, StatusUpdate } from '../services/socket';
+import { isIgnoringBatteryOptimizations, requestBatteryOptimizationExemption } from '../services/wakeLock';
 
 interface Props {
   config: AgentConfig;
@@ -22,11 +24,41 @@ interface LogEntry {
   text: string;
 }
 
+function getAndroidApiVersion() {
+  return typeof Platform.Version === 'number' ? Platform.Version : Number(Platform.Version);
+}
+
+async function requestAndroidNotificationPermission() {
+  if (Platform.OS !== 'android' || getAndroidApiVersion() < 33) {
+    return true;
+  }
+
+  const permission = PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS;
+  const alreadyGranted = await PermissionsAndroid.check(permission);
+  if (alreadyGranted) {
+    return true;
+  }
+
+  const result = await PermissionsAndroid.request(permission);
+  return result === PermissionsAndroid.RESULTS.GRANTED;
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  if (typeof error === 'string' && error.length > 0) {
+    return error;
+  }
+  return 'unknown Android service error';
+}
+
 export default function StatusScreen({ config, onReset }: Props) {
   const [statusUpdate, setStatusUpdate] = useState<StatusUpdate>({ status: 'connecting', message: 'Connecting…' });
   const [log, setLog] = useState<LogEntry[]>([]);
   const logRef = useRef<LogEntry[]>([]);
   const logSeqRef = useRef(0);
+  const [batteryOptDisabled, setBatteryOptDisabled] = useState<boolean | null>(null);
 
   const addLog = (text: string) => {
     const entry: LogEntry = { id: logSeqRef.current++, ts: Date.now(), text };
@@ -35,15 +67,50 @@ export default function StatusScreen({ config, onReset }: Props) {
   };
 
   useEffect(() => {
-    if (Platform.OS === 'android') {
-      ForegroundService.start({
+    isIgnoringBatteryOptimizations()
+      .then(setBatteryOptDisabled)
+      .catch(() => setBatteryOptDisabled(null));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const startForegroundService = async () => {
+      if (Platform.OS !== 'android') {
+        return;
+      }
+
+      const androidApi = getAndroidApiVersion();
+      const foregroundServiceType = androidApi >= 34 ? 'specialUse' : 'dataSync';
+      const notificationPermissionGranted = await requestAndroidNotificationPermission();
+      if (cancelled) {
+        return;
+      }
+
+      if (!notificationPermissionGranted) {
+        addLog('[warning] Notification permission was not granted. Android may limit background printing.');
+      }
+
+      const notificationConfig = {
         id: 1001,
         title: 'Print Agent',
         message: `Connected to ${config.stationName}`,
-        icon: 'ic_launcher',
-        importance: 'min',
-      }).catch(() => {});
-    }
+        ServiceType: foregroundServiceType,
+        icon: 'ic_notification',
+        largeIcon: 'ic_launcher',
+        importance: 'low',
+        visibility: 'public',
+        ongoing: true,
+      };
+
+      try {
+        await ForegroundService.start(notificationConfig);
+      } catch (error) {
+        addLog(`[warning] Foreground service failed: ${getErrorMessage(error)}`);
+      }
+    };
+
+    void startForegroundService();
 
     startSocketService(config, (update) => {
       setStatusUpdate(update);
@@ -51,6 +118,7 @@ export default function StatusScreen({ config, onReset }: Props) {
     });
 
     return () => {
+      cancelled = true;
       stopSocketService();
       if (Platform.OS === 'android') {
         ForegroundService.stop().catch(() => {});
@@ -104,6 +172,27 @@ export default function StatusScreen({ config, onReset }: Props) {
           {config.serverUrl}
         </Text>
       </View>
+
+      {batteryOptDisabled === false && (
+        <TouchableOpacity
+          style={styles.batteryWarning}
+          onPress={() => {
+            requestBatteryOptimizationExemption();
+            // Recheck after a delay (user may have granted it)
+            setTimeout(() => {
+              isIgnoringBatteryOptimizations()
+                .then(setBatteryOptDisabled)
+                .catch(() => setBatteryOptDisabled(null));
+            }, 3000);
+          }}
+        >
+          <Text style={styles.batteryWarningTitle}>Battery exemption not confirmed</Text>
+          <Text style={styles.batteryWarningText}>
+            Android has not confirmed this app is exempt from Doze battery optimization.{' '}
+            Tap here to request the exemption.
+          </Text>
+        </TouchableOpacity>
+      )}
 
       <Text style={styles.logTitle}>Event Log</Text>
       <ScrollView style={styles.logBox}>
@@ -172,4 +261,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   resetText: { color: '#ef4444', fontWeight: '600' },
+  batteryWarning: {
+    backgroundColor: '#422006',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+    padding: 14,
+    marginBottom: 14,
+  },
+  batteryWarningTitle: {
+    color: '#fbbf24',
+    fontWeight: '700',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  batteryWarningText: {
+    color: '#fde68a',
+    fontSize: 12,
+    lineHeight: 18,
+  },
 });

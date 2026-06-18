@@ -2,17 +2,26 @@
   "expo": {
     "name": "QR Menu Print Agent",
     "slug": "qr-menu-print-agent",
+    "scheme": ["qrmenuprintagent", "printagent"],
     "version": "1.0.0",
     "platforms": ["android"],
     "android": {
       "package": "com.qrmenu.printagent",
+      "usesCleartextTraffic": true,
       "permissions": [
         "INTERNET",
         "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_DATA_SYNC",
+        "FOREGROUND_SERVICE_SPECIAL_USE",
+        "POST_NOTIFICATIONS",
+        "WAKE_LOCK",
         "RECEIVE_BOOT_COMPLETED",
-        "WAKE_LOCK"
+        "ACCESS_NETWORK_STATE",
+        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
       ]
     },
-    "plugins": []
+    "plugins": [
+      "./plugins/withPrintAgentService"
+    ]
   }
 }

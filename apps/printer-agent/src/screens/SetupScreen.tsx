@@ -13,12 +13,15 @@ import { saveConfig, AgentConfig } from '../store/config';
 
 interface Props {
   onComplete: (config: AgentConfig) => void;
+  initialSetupConfig?: Partial<AgentConfig> | null;
 }
 
-function parseSetupUrl(url: string): Partial<AgentConfig> | null {
+export function parseSetupUrl(url: string): Partial<AgentConfig> | null {
   try {
     const parsed = new URL(url);
-    if (parsed.protocol !== 'printagent:' || parsed.hostname !== 'setup') return null;
+    const isSetupProtocol =
+      parsed.protocol === 'printagent:' || parsed.protocol === 'qrmenuprintagent:';
+    if (!isSetupProtocol || parsed.hostname !== 'setup') return null;
     const get = (key: string) => parsed.searchParams.get(key) ?? '';
     return {
       serverUrl: get('serverUrl'),
@@ -32,7 +35,7 @@ function parseSetupUrl(url: string): Partial<AgentConfig> | null {
   }
 }
 
-export default function SetupScreen({ onComplete }: Props) {
+export default function SetupScreen({ onComplete, initialSetupConfig }: Props) {
   const [serverUrl, setServerUrl] = useState('https://');
   const [agentToken, setAgentToken] = useState('');
   const [printerIp, setPrinterIp] = useState('');
@@ -46,6 +49,12 @@ export default function SetupScreen({ onComplete }: Props) {
     if (cfg.printerPort) setPrinterPort(String(cfg.printerPort));
     if (cfg.stationName) setStationName(cfg.stationName);
   };
+
+  useEffect(() => {
+    if (initialSetupConfig) {
+      applyConfig(initialSetupConfig);
+    }
+  }, [initialSetupConfig]);
 
   useEffect(() => {
     // Handle deep link that launched the app

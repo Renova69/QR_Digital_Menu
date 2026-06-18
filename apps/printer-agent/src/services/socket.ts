@@ -1,6 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import { AgentConfig } from '../store/config';
 import { sendToPrinter } from './printer';
+import { acquireWakeLock, releaseWakeLock } from './wakeLock';
 
 interface PrintJobPayload {
   jobId: string;
@@ -243,6 +244,10 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
       message: 'Online',
       hint: `${config.stationName} ready to print`,
     });
+    // Ensure clean wake-lock state on reconnect, then hold a wake lock
+    // so Android doesn't suspend the CPU while the agent is active.
+    releaseWakeLock();
+    acquireWakeLock();
   });
 
   socket.on('agent:rejected', (reason: string) => {
@@ -256,6 +261,7 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
   socket.on('disconnect', (reason: string) => {
     if (myGeneration !== generation) return;
     clearConnectTimeout();
+    releaseWakeLock();
     emit(classifyDisconnect(reason, authRejected));
   });
 
@@ -363,6 +369,7 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
 
 export function stopSocketService(): void {
   clearConnectTimeout();
+  releaseWakeLock();
   generation++; // H-5: invalidate all callbacks from the previous socket
   socket?.disconnect();
   socket = null;

@@ -27,6 +27,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     });
   }
 
+  private keepAliveTimer: ReturnType<typeof setInterval> | null = null;
+
   async onModuleInit() {
     const maxRetries = 15;
 
@@ -34,6 +36,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
       try {
         await this.$connect();
         this.logger.log('Connected to database');
+        this.startKeepAlive();
         await this.ensureCriticalIndexes();
         return;
       } catch (error) {
@@ -50,6 +53,25 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
         await sleep(delay);
       }
     }
+  }
+
+  /**
+   * Ping Neon every 4 minutes to prevent scale-to-zero cold starts.
+   * Neon suspends compute after 5 min of inactivity on free tier.
+   * Silent failure — keep-alive is best-effort, not critical.
+   */
+  private startKeepAlive(): void {
+    const INTERVAL_MS = 4 * 60 * 1000; // 4 min (Neon suspends at 5 min)
+    this.keepAliveTimer = setInterval(async () => {
+      try {
+        await this.$executeRawUnsafe('SELECT 1');
+      } catch {
+        // best-effort — silence failures
+      }
+    }, INTERVAL_MS);
+    this.logger.log(
+      `Neon keep-alive started (ping every ${INTERVAL_MS / 60_000}min)`,
+    );
   }
 
   /**
@@ -80,6 +102,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   }
 
   async onModuleDestroy() {
+    if (this.keepAliveTimer) {
+      clearInterval(this.keepAliveTimer);
+      this.keepAliveTimer = null;
+    }
     await this.$disconnect();
     this.logger.log('Database disconnected');
   }

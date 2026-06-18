@@ -208,27 +208,62 @@ export default function PrintStationsView() {
 
       {/* ── Token setup modal ──────────────────────────────────────── */}
       {tokenModal && (() => {
-        const serverUrl = `${window.location.protocol}//${window.location.hostname}:3000`;
+        const dashboardHost = window.location.hostname;
+        const isLoopbackDashboard = /^(localhost|127\.0\.0\.1|\[::1\]|::1)$/i.test(dashboardHost);
+        const configuredApiUrl = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '');
+        let configuredApiHost = '';
+        try {
+          configuredApiHost = configuredApiUrl
+            ? new URL(configuredApiUrl, window.location.origin).hostname
+            : '';
+        } catch {
+          configuredApiHost = '';
+        }
+        const isLoopbackApi =
+          !configuredApiHost ||
+          /^(localhost|127\.0\.0\.1|\[::1\]|::1)$/i.test(configuredApiHost);
+        const serverUrl =
+          configuredApiUrl && !isLoopbackApi
+            ? configuredApiUrl
+            : `${window.location.protocol}//${dashboardHost}:3000`;
         const params = new URLSearchParams({
           serverUrl, token: tokenModal.token,
           printerIp: tokenModal.station.printerIp,
           printerPort: String(tokenModal.station.printerPort),
           stationName: tokenModal.station.name,
         });
-        const qrPayload = `printagent://setup?${params.toString()}`;
+        const setupQuery = params.toString();
+        const qrPayload = `qrmenuprintagent://setup?${setupQuery}`;
+        const legacySetupUrl = `printagent://setup?${setupQuery}`;
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="bg-background border rounded-lg shadow-xl p-6 w-full max-w-sm mx-4 space-y-4">
+            <div className="bg-background border rounded-lg shadow-xl p-6 w-full max-w-sm mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
               <h3 className="text-lg font-semibold">{tokenModal.station.name} — Agent Setup</h3>
-              <p className="text-sm text-muted-foreground">Scan from the printer agent app to auto-fill all fields.</p>
+              <p className="text-sm text-muted-foreground">Scan with the QR Menu Print Agent app to auto-fill all fields.</p>
               <div className="flex justify-center p-4 bg-white rounded-lg">
                 <QRCodeSVG value={qrPayload} size={220} />
               </div>
               <div className="rounded border bg-muted px-3 py-2 space-y-1">
                 <p className="text-xs text-muted-foreground">Server: {serverUrl}</p>
+                {isLoopbackDashboard && (
+                  <p className="text-xs text-amber-600">
+                    Phone cannot reach localhost. Open this dashboard with your computer LAN IP before scanning.
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground">Printer: {tokenModal.station.printerIp}:{tokenModal.station.printerPort}</p>
                 <code className="text-xs break-all select-all block">{tokenModal.token}</code>
               </div>
+              <details className="rounded border bg-muted px-3 py-2">
+                <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
+                  Legacy printer-agent fallback
+                </summary>
+                <div className="mt-3 flex justify-center p-3 bg-white rounded">
+                  <QRCodeSVG value={legacySetupUrl} size={160} />
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Use this only for the old printer-agent app.
+                </p>
+              </details>
               <div className="flex justify-end"><Button onClick={() => setTokenModal(null)}>Done</Button></div>
             </div>
           </div>

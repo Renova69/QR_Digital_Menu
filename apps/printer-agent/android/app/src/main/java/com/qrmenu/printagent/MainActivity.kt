@@ -1,4 +1,4 @@
-package com.printeragent
+package com.qrmenu.printagent
 
 import android.os.Build
 import android.os.Bundle
