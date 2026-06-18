@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { usePos } from "../../context/PosContext";
 import PosItemCard from "./PosItemCard";
 
 interface MenuItem {
@@ -24,29 +25,12 @@ interface PosItemGridProps {
 
 export default function PosItemGrid({ items, loading, error }: PosItemGridProps) {
   const { t } = useTranslation();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const { searchQuery, categoryFilter, setSearchQuery } = usePos();
 
-  // Clear filters when items change (restaurant switched)
+  // Clear search when items change (restaurant switched)
   useEffect(() => {
     setSearchQuery("");
-    setCategoryFilter(null);
-  }, [items]);
-
-  useEffect(() => {
-    const onSearch = (e: Event) => {
-      setSearchQuery((e as CustomEvent).detail ?? "");
-    };
-    const onCategory = (e: Event) => {
-      setCategoryFilter((e as CustomEvent).detail ?? null);
-    };
-    window.addEventListener("pos:search", onSearch);
-    window.addEventListener("pos:category-filter", onCategory);
-    return () => {
-      window.removeEventListener("pos:search", onSearch);
-      window.removeEventListener("pos:category-filter", onCategory);
-    };
-  }, []);
+  }, [items, setSearchQuery]);
 
   const filtered = items.filter((item) => {
     if (categoryFilter && item.categoryId !== categoryFilter) return false;

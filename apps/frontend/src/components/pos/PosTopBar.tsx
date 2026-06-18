@@ -1,18 +1,9 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { usePos } from "../../context/PosContext";
 
 export default function PosTopBar() {
   const { t } = useTranslation();
-  const { session } = usePos();
-  const [search, setSearch] = useState("");
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearch(e.target.value);
-    window.dispatchEvent(
-      new CustomEvent("pos:search", { detail: e.target.value })
-    );
-  };
+  const { session, searchQuery, setSearchQuery } = usePos();
 
   const handleOpenTableModal = () => {
     window.dispatchEvent(new CustomEvent("pos:open-table-modal"));
@@ -37,8 +28,8 @@ export default function PosTopBar() {
         </svg>
         <input
           type="text"
-          value={search}
-          onChange={handleSearchChange}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={t("pos.searchItems", "Search items...")}
           className="w-full pl-10 pr-4 py-2 rounded-lg bg-card border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
         />

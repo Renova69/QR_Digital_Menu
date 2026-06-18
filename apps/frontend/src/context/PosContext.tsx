@@ -3,9 +3,12 @@ import {
   useContext,
   useState,
   useCallback,
+  useEffect,
   useMemo,
   type ReactNode,
 } from "react";
+
+const STORAGE_KEY = "posCartDraft";
 
 function generateId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -16,6 +19,36 @@ function generateId(): string {
     const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+}
+
+function loadDraft(): {
+  items: PosCartItem[];
+  session: PosSession | null;
+  activeSeat: string;
+} | null {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const draft = JSON.parse(raw);
+    if (draft && Array.isArray(draft.items)) return draft;
+    return null;
+  } catch {
+    sessionStorage.removeItem(STORAGE_KEY);
+    return null;
+  }
+}
+
+function saveDraft(items: PosCartItem[], session: PosSession | null, activeSeat: string) {
+  try {
+    sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ items, session, activeSeat }),
+    );
+  } catch { /* quota exceeded — non-critical */ }
+}
+
+function clearDraft() {
+  sessionStorage.removeItem(STORAGE_KEY);
 }
 
 interface PosCartItem {
@@ -60,14 +93,45 @@ interface PosContextType {
   activeSeat: string;
   setActiveSeat: (seat: string) => void;
   buildSpecialRequests: () => string;
+  historyLoading: boolean;
+  setHistoryLoading: (v: boolean) => void;
+  historyError: string | null;
+  setHistoryError: (v: string | null) => void;
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  categoryFilter: string | null;
+  setCategoryFilter: (v: string | null) => void;
 }
 
 const PosContext = createContext<PosContextType | undefined>(undefined);
 
+const draft = loadDraft();
+
 export function PosProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<PosCartItem[]>([]);
-  const [session, setSessionState] = useState<PosSession | null>(null);
-  const [activeSeat, setActiveSeat] = useState("Seat 1");
+  const [items, setItems] = useState<PosCartItem[]>(draft?.items ?? []);
+  const [session, setSessionState] = useState<PosSession | null>(draft?.session ?? null);
+  const [activeSeat, setActiveSeat] = useState(draft?.activeSeat ?? "Seat 1");
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+
+  // Persist cart draft to sessionStorage so a refresh / idle-timeout
+  // doesn't lose the waiter's work.
+  useEffect(() => {
+    if (items.length > 0 || session) {
+      saveDraft(items, session, activeSeat);
+    }
+  }, [items, session, activeSeat]);
+
+  const clearSession = useCallback(() => {
+    setSessionState(null);
+    setItems([]);
+    setActiveSeat("Seat 1");
+    setHistoryLoading(false);
+    setHistoryError(null);
+    clearDraft();
+  }, []);
 
   const addItem = useCallback((item: Omit<PosCartItem, "cartId" | "submitted">) => {
     const cartId = generateId();
@@ -117,12 +181,6 @@ export function PosProvider({ children }: { children: ReactNode }) {
 
   const setSession = useCallback((s: PosSession) => {
     setSessionState(s);
-  }, []);
-
-  const clearSession = useCallback(() => {
-    setSessionState(null);
-    setItems([]);
-    setActiveSeat("Seat 1");
   }, []);
 
   const getTotal = useCallback(() => {
@@ -182,7 +240,15 @@ export function PosProvider({ children }: { children: ReactNode }) {
     activeSeat,
     setActiveSeat,
     buildSpecialRequests,
-  }), [items, addItem, removeItem, updateQuantity, updateNote, clearCart, resetCart, markAsSubmitted, setHistoryItems, session, setSession, clearSession, getTotal, getPendingTotal, activeSeat, buildSpecialRequests]);
+    historyLoading,
+    setHistoryLoading,
+    historyError,
+    setHistoryError,
+    searchQuery,
+    setSearchQuery,
+    categoryFilter,
+    setCategoryFilter,
+  }), [items, addItem, removeItem, updateQuantity, updateNote, clearCart, resetCart, markAsSubmitted, setHistoryItems, session, setSession, clearSession, getTotal, getPendingTotal, activeSeat, buildSpecialRequests, historyLoading, historyError, searchQuery, categoryFilter]);
 
   return <PosContext.Provider value={value}>{children}</PosContext.Provider>;
 }

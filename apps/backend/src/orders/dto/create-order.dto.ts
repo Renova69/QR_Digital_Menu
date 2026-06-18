@@ -8,6 +8,7 @@ import {
   IsInt,
   Min,
   Max,
+  MaxLength,
 } from 'class-validator';
 
 import { Type } from 'class-transformer';
@@ -67,6 +68,7 @@ export class CreateOrderDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(2000)
   specialRequests?: string;
 
   @IsString()

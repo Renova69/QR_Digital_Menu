@@ -48,10 +48,10 @@ export default function PosPage() {
   }, [activeRestaurant, canPos, navigate]);
 
   useIdleTimer(() => {
+    // Cart is persisted to sessionStorage — restored on next login
     logout();
-    resetCart();
     navigate("/device-login", { replace: true });
-  });
+  }, 10 * 60 * 1000); // 10 min — longer for POS context
 
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);

@@ -33,6 +33,8 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
     clearSession,
     getPendingTotal,
     buildSpecialRequests,
+    historyLoading,
+    historyError,
   } = usePos();
   const [expanded, setExpanded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -299,6 +301,26 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
             </div>
           )}
 
+          {historyError && (
+            <div className="px-4 py-2 text-sm text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 flex items-center justify-between">
+              <span>{historyError}</span>
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent("pos:open-table-modal"))}
+                className="underline text-xs font-medium ml-2 shrink-0 min-h-[32px]"
+              >
+                {t("pos.retryHistory", "Retry")}
+              </button>
+            </div>
+          )}
+
+          {historyLoading && (
+            <div className="px-4 py-2 text-sm text-muted-foreground flex items-center gap-2">
+              <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+              {t("pos.loadingHistory", "Loading order history...")}
+            </div>
+          )}
+
           <PosSplitBill total={total} />
           <PosQRBill />
 
@@ -317,7 +339,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
             <button
               type="button"
               onClick={() => setConfirmAction({ type: "submit", total: pendingTotal })}
-              disabled={submitting || pendingItems.length === 0}
+              disabled={submitting || pendingItems.length === 0 || historyLoading}
               className="w-full py-3 rounded-lg brand-cta text-white font-semibold disabled:opacity-50 min-h-[44px]"
             >
               {submitting

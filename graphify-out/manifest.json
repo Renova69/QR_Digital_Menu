@@ -155,6 +155,10 @@
     "mtime": 1781799480.5656507,
     "hash": "c300022b09dcbe5c4f5fb7c5cac74284"
   },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\prisma\\migrations\\20260618202000_add_device_session_version\\migration.sql": {
+    "mtime": 1781803207.1820848,
+    "hash": "34300358d15e1b156de135c2e8bfe5e5"
+  },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\prisma\\sql\\2026-05-30-hash-import-api-key.sql": {
     "mtime": 1780116711.169479,
     "hash": "f1e90e469b8ef2c832fc7b139e5c3866"
@@ -232,12 +236,12 @@
     "hash": "66866de5fd90aa0ec30e681f2952f2ff"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\auth\\auth.service.spec.ts": {
-    "mtime": 1781801154.1688983,
-    "hash": "ecf5145021afcbb2c89a99fa2f3a9223"
+    "mtime": 1781803296.5137308,
+    "hash": "7751fe1153e5fef017a0e8b4124b7d46"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\auth\\auth.service.ts": {
-    "mtime": 1781801219.5415888,
-    "hash": "700a80940e55aebaa43f5d57890fea7f"
+    "mtime": 1781803237.859166,
+    "hash": "9104f344509b58de3e5a38387da5bff8"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\auth\\google-auth.guard.spec.ts": {
     "mtime": 1780510146.1987414,
@@ -256,12 +260,12 @@
     "hash": "184c5bd056e5657c27ecdd69e1e40701"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\auth\\jwt.strategy.spec.ts": {
-    "mtime": 1781799701.7288167,
-    "hash": "3d09d41a70d56d20e9547d82f6fda82a"
+    "mtime": 1781803331.1255817,
+    "hash": "ff92e21e6072023f37e49ff02e71ef3e"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\auth\\jwt.strategy.ts": {
-    "mtime": 1781799744.1812646,
-    "hash": "8a583150e6359711c5e7d9f143ed9a83"
+    "mtime": 1781803256.2780988,
+    "hash": "f1b6e0f3a99b52ab073a830371f71cfd"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\auth\\local-auth.guard.ts": {
     "mtime": 1777720453.0,
@@ -768,12 +772,12 @@
     "hash": "eade74e839baa0a1fc751aa0fc7388e9"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\restaurants\\device-enrollment.service.spec.ts": {
-    "mtime": 1781803052.4448028,
-    "hash": "54a84f5d556bc7e8ddca5f00431859dd"
+    "mtime": 1781803338.2568705,
+    "hash": "96924033cbe171fd50a07c6724e58716"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\restaurants\\device-enrollment.service.ts": {
-    "mtime": 1781802902.8228016,
-    "hash": "2ea3118d91eeae09f9ab16a7163f4a89"
+    "mtime": 1781803225.390823,
+    "hash": "5bbf287aff791ca4166aaef728ae993d"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\restaurants\\restaurant-languages.ts": {
     "mtime": 1780504215.500121,
@@ -1152,8 +1156,8 @@
     "hash": "da4a42d01dee7885aa0c2e0cca68e0bc"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\dashboard\\KpiCard.tsx": {
-    "mtime": 1780742840.2564902,
-    "hash": "6ac683c2caed9cd23ab66cc031f7fa58"
+    "mtime": 1781804256.2421157,
+    "hash": "5f5a55f7f0a408ef5dc23683f04952a2"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\dashboard\\MenuCheckWidget.tsx": {
     "mtime": 1780740938.183924,
@@ -1628,8 +1632,8 @@
     "hash": "6df75946baf2e8596b25abc75ae02b33"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\AssistanceView.tsx": {
-    "mtime": 1781505903.8968768,
-    "hash": "ca03b887eed3446958f243509aaf87fc"
+    "mtime": 1781804262.310812,
+    "hash": "911935fe78c99280af1d4e7e29b0fe49"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\HelpView.tsx": {
     "mtime": 1780740939.0794134,
@@ -1648,8 +1652,8 @@
     "hash": "0078798f7adf9d690de1025a8922ebe4"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\OrdersView.tsx": {
-    "mtime": 1780746428.9740243,
-    "hash": "b10dd9f595a2ae64830b34c18407c253"
+    "mtime": 1781804263.656463,
+    "hash": "4a9899312c528cbb3e42614d6892dc12"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\PaymentDrawer.tsx": {
     "mtime": 1780893102.5800145,
@@ -1676,8 +1680,8 @@
     "hash": "e405656758d215fa364c9a2312e95dce"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\SummaryView.tsx": {
-    "mtime": 1781672408.5374048,
-    "hash": "9a6e11065e05753db3661b485651e6a2"
+    "mtime": 1781804251.1387725,
+    "hash": "ccb01b02b6b476354a5a8604c779d580"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\settings\\GeneralSettingsTab.tsx": {
     "mtime": 1780809486.0507786,
@@ -1816,8 +1820,8 @@
     "hash": "fec35391e62250f458c565fbf1ff7e42"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\services\\restaurantService.ts": {
-    "mtime": 1781763803.1756244,
-    "hash": "715ec198ee4680521852f1d97379a1f1"
+    "mtime": 1781803949.8383198,
+    "hash": "7e6a07bfbdc299724e782f8dbbf7a2a9"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\types\\index.ts": {
     "mtime": 1780977010.2121427,

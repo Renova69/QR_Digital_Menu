@@ -16,7 +16,7 @@ import {
 import { PaymentHistoryQueryDto } from './dto/payment-history-query.dto';
 import { RefundPaymentDto } from './dto/refund-payment.dto';
 import { DateRangeQueryDto } from '../common/dto/date-range-query.dto';
-import { SkipThrottle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PaymentService } from './payment.service';
 import { FeatureGuard } from '../subscription/feature.guard';
@@ -29,6 +29,7 @@ export class PaymentController {
 
   @Post('session')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   getOrCreateSession(
     @Body()
     body: {

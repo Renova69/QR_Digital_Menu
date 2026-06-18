@@ -31,7 +31,7 @@ export default function PosTableModal() {
   const restaurantCtx = useContext(RestaurantContext);
   const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
   const restaurantLoading = restaurantCtx?.loading ?? false;
-  const { session, setSession, setHistoryItems, resetCart } = usePos();
+  const { session, setSession, setHistoryItems, resetCart, setHistoryLoading, setHistoryError } = usePos();
   const { socket } = useSocket();
 
   const [tables, setTables] = useState<TableStatus[]>([]);
@@ -41,6 +41,7 @@ export default function PosTableModal() {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [forceOpenTarget, setForceOpenTarget] = useState<TableStatus | null>(null);
 
   const fetchTables = useCallback(
     (zoneId?: string | null) => {
@@ -139,6 +140,8 @@ export default function PosTableModal() {
 
       // Always load existing orders as history — don't trust orderCount
       // from getTableStatuses (can be stale or mismatched session)
+      setHistoryLoading(true);
+      setHistoryError(null);
       try {
         const bill = await getSessionBill(result.token);
         const historyItems = bill.orders.flatMap((order: any) =>
@@ -163,7 +166,9 @@ export default function PosTableModal() {
           setHistoryItems(historyItems);
         }
       } catch {
-        // History load is best-effort; don't block session open
+        setHistoryError("Could not load previous orders. Check connection and refresh.");
+      } finally {
+        setHistoryLoading(false);
       }
 
       setOpen(false);
@@ -239,6 +244,40 @@ export default function PosTableModal() {
             </p>
           )}
 
+          {forceOpenTarget && (
+            <div className="mb-4 p-4 rounded-lg border border-destructive/30 bg-destructive/10">
+              <p className="text-sm font-semibold text-foreground mb-2">
+                {t('auto.forceOpenConfirmTitle', 'Force open table {{name}}?', { name: forceOpenTarget.name })}
+              </p>
+              <p className="text-xs text-muted-foreground mb-3">
+                {t(
+                  'auto.forceOpenConfirmDesc',
+                  'The current session will be closed without payment. This cannot be undone.',
+                )}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const target = forceOpenTarget;
+                    setForceOpenTarget(null);
+                    await handleForceOpen(target);
+                  }}
+                  className="flex-1 py-2.5 rounded-lg bg-destructive text-white font-semibold text-sm min-h-[44px]"
+                >
+                  {t('auto.confirmForceOpen', 'Yes, Force Open')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForceOpenTarget(null)}
+                  className="flex-1 py-2.5 rounded-lg bg-card border border-border text-foreground font-medium text-sm min-h-[44px]"
+                >
+                  {t('auto.cancel', 'Cancel')}
+                </button>
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <div className="flex justify-center py-8">
               <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
@@ -278,7 +317,7 @@ export default function PosTableModal() {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleForceOpen(table);
+                          setForceOpenTarget(table);
                         }}
                         className="mt-2 text-xs underline opacity-70 hover:opacity-100 min-h-[44px] flex items-center"
                       >
