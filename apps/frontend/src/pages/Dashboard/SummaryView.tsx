@@ -106,7 +106,7 @@ const SummaryView = () => {
                 : "grid grid-cols-1 sm:grid-cols-2 gap-4"
             }
           >
-            <div className="kpi-tile p-4 md:p-5 group hover:shadow-[0_12px_40px_-8px_hsl(265_95%_70%/0.3)] hover:-translate-y-0.5 transition-all duration-300">
+            <div className="kpi-tile p-4 md:p-5 transition-all duration-300">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[11px] font-semibold text-muted-foreground">{t("dashboard.menuViews")}</p>
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-primary/10 border border-primary/15">
@@ -117,7 +117,7 @@ const SummaryView = () => {
                 {scanLoading ? "..." : (scanStats?.totalViews ?? 0).toLocaleString(i18n.language)}
               </p>
             </div>
-            <div className="kpi-tile p-4 md:p-5 group hover:shadow-[0_12px_40px_-8px_hsl(265_95%_70%/0.3)] hover:-translate-y-0.5 transition-all duration-300">
+            <div className="kpi-tile p-4 md:p-5 transition-all duration-300">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[11px] font-semibold text-muted-foreground">{t("dashboard.uniqueVisitors")}</p>
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-primary/10 border border-primary/15">
@@ -133,15 +133,30 @@ const SummaryView = () => {
                 <p className="text-sm font-display font-bold text-foreground mb-3">
                   {t("dashboard.perTableViews")}
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">
                   {scanStats!.perTable.slice(0, 12).map((row) => (
                     <div
                       key={row.tableName}
-                      className="flex items-center justify-between gap-3 border-b border-border/30 pb-1.5"
+                      className="flex items-center justify-between gap-3 sm:grid sm:grid-cols-[auto_1fr] sm:items-center sm:gap-x-4 sm:gap-y-1 border-b border-border/20 last:border-b-0 py-2.5 sm:py-3"
                     >
-                      <span className="text-sm text-muted-foreground truncate">{row.tableName}</span>
-                      <span className="text-xs font-semibold text-foreground whitespace-nowrap">
-                        {t("dashboard.perTableViewsCount", { views: row.views, unique: row.uniqueVisitors })}
+                      {/* Tablet+: large table number */}
+                      <span className="text-sm text-muted-foreground font-medium tabular-nums shrink-0 min-w-[1.5rem] sm:text-xl sm:font-display sm:font-bold sm:text-foreground sm:min-w-[2.5rem] sm:text-center sm:leading-none sm:row-span-2">
+                        {row.tableName}
+                      </span>
+
+                      {/* Tablet+: stacked stats */}
+                      <div className="hidden sm:flex sm:flex-col sm:gap-1">
+                        <span className="text-xs text-foreground font-semibold tabular-nums leading-tight">
+                          {t("dashboard.perTableViewsViews", { count: row.views })}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground tabular-nums leading-tight">
+                          {t("dashboard.perTableViewsUnique", { count: row.uniqueVisitors })}
+                        </span>
+                      </div>
+
+                      {/* Mobile: single line */}
+                      <span className="text-xs font-semibold text-foreground tabular-nums sm:hidden">
+                        {t("dashboard.perTableViewsViews", { count: row.views })} · {t("dashboard.perTableViewsUnique", { count: row.uniqueVisitors })}
                       </span>
                     </div>
                   ))}

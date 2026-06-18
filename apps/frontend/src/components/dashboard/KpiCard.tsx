@@ -14,7 +14,7 @@ interface KpiCardProps {
 const KpiCard = ({ label, value, Icon, change, comparisonLabel, detail, locked }: KpiCardProps) => {
   const { t } = useTranslation();
   return (
-  <div className="kpi-tile group hover:shadow-[0_12px_40px_-8px_hsl(265_95%_70%/0.3)] hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden">
+  <div className="kpi-tile transition-all duration-300 relative overflow-hidden">
     {locked && (
       <div className="absolute inset-0 z-20 bg-background/60 backdrop-blur-[2px] flex items-center justify-center rounded-[1.2rem]">
         <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t('auto.upgrade', 'Upgrade')}</span>

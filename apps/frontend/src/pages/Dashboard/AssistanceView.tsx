@@ -253,7 +253,7 @@ const AssistanceView = () => {
               <article
                 key={request.id}
                 className={cn(
-                  'relative flex aspect-[1.08/1] flex-col overflow-hidden rounded-lg border bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md',
+                  'relative flex aspect-[1.08/1] flex-col overflow-hidden rounded-lg border bg-card p-4 shadow-sm transition',
                   'before:absolute before:bottom-0 before:left-0 before:top-0 before:w-1',
                   urgency.card,
                   urgency.ring,

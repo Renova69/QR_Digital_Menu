@@ -53,7 +53,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     socketInstance.on('auth:evicted', (reason: string) => {
       console.warn('Socket auth evicted:', reason);
-      if (reason === 'device_revoked' || reason === 'shared_device_mode_disabled') {
+      if (reason === 'device_revoked') {
         localStorage.removeItem('sharedDevice');
       }
       void logoutRef.current().finally(() => {

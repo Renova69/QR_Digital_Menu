@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import SettingsView from "./SettingsView";
 import RestaurantContext from "../../context/RestaurantContext";
-import { updateRestaurant } from "../../lib/api";
+import { createStaff, updateRestaurant } from "../../lib/api";
 
 const mockT = vi.fn((key: string) => key);
 const mockAuthState = vi.hoisted(() => ({ role: "OWNER" }));
@@ -177,5 +177,26 @@ describe("SettingsView - Staff tab", () => {
     expect(bondSection).toBeTruthy();
     // QR is not shown when no URL
     expect(container.querySelector('[role="img"]')).toBeFalsy();
+  });
+
+  it("blocks waiter creation while Shared Device Mode is off", async () => {
+    render(<SettingsView />, { wrapper });
+    fireEvent.click(screen.getByText("settings.tabs.staff"));
+    fireEvent.click(screen.getAllByText("staff.createStaffAccount")[0]);
+
+    fireEvent.change(screen.getByPlaceholderText("staff.displayName"), {
+      target: { value: "Waiter One" },
+    });
+    fireEvent.change(screen.getByDisplayValue("staff.roleManager"), {
+      target: { value: "WAITER" },
+    });
+
+    expect(screen.getByText("staff.enableSharedDeviceBeforePinStaff")).toBeTruthy();
+    const disabledCreateButton = screen
+      .getAllByText("staff.createStaffAccount")
+      .map((node) => node.closest("button"))
+      .find((button) => button?.hasAttribute("disabled"));
+    expect(disabledCreateButton).toBeTruthy();
+    expect(createStaff).not.toHaveBeenCalled();
   });
 });

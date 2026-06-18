@@ -667,7 +667,12 @@ export class AuthService {
         usedAt: { not: null },
         revokedAt: null,
       },
-      select: { id: true, pinAttempts: true, pinLockedUntil: true },
+      select: {
+        id: true,
+        pinAttempts: true,
+        pinLockedUntil: true,
+        sessionVersion: true,
+      },
     });
 
     if (!enrolledDevice) {
@@ -730,6 +735,7 @@ export class AuthService {
         email: user.email,
         sub: user.id,
         deviceTokenId: enrolledDevice.id,
+        deviceSessionVersion: enrolledDevice.sessionVersion ?? 0,
       };
       return {
         token: this.jwtService.sign(payload),

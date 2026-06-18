@@ -230,6 +230,9 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
     'staff.sharedDeviceModeOffEnrollment',
     'Shared Device Mode is off. Enable it before generating staff device QR links or staff PIN login.',
   );
+  const inviteRequiresSharedDeviceMode = canPos && isPinRole(inviteRole);
+  const inviteBlockedBySharedDeviceMode =
+    inviteRequiresSharedDeviceMode && !sharedDeviceEnabled;
 
   const staffOnlyMembers = useMemo(
     () => staffMembers.filter((member) => member.role !== 'OWNER'),
@@ -342,6 +345,10 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
 
   const handleInviteStaff = async () => {
     if (!activeRestaurant || !inviteName.trim() || allowedRoles.length === 0) return;
+    if (inviteBlockedBySharedDeviceMode) {
+      setStaffError(sharedDeviceModeOffMessage);
+      return;
+    }
     setStaffError('');
     try {
       const result = await createStaff(activeRestaurant.id, {
@@ -600,14 +607,10 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
           ),
         );
       } else {
-        if (thisDeviceBonded) {
-          localStorage.removeItem('sharedDevice');
-          setSharedDeviceConfig(null);
-        }
         setSharedDeviceMessage(
           t(
             'staff.sharedDeviceModeDisabledMessage',
-            'Shared Device Mode is off. Staff QR enrollment and PIN login are blocked.',
+            'Shared Device Mode is off. Staff PIN login is paused until it is enabled again.',
           ),
         );
         setDeviceEnrollmentUrl('');
@@ -935,7 +938,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                         )
                     : t(
                         'staff.sharedDeviceModeDisabledMessage',
-                        'Shared Device Mode is off. Staff QR enrollment and PIN login are blocked.',
+                        'Shared Device Mode is off. Staff PIN login is paused until it is enabled again.',
                       ))}
               </p>
             </section>
@@ -1117,6 +1120,38 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
             </select>
           </div>
 
+          {inviteBlockedBySharedDeviceMode && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+              <div className="flex items-start gap-3">
+                <Smartphone className="mt-0.5 h-4 w-4 text-amber-600 dark:text-amber-300" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-amber-800 dark:text-amber-100">
+                    {t('staff.enableSharedDeviceBeforePinStaff', 'Enable Staff PIN Login first')}
+                  </p>
+                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-200">
+                    {t(
+                      'staff.enableSharedDeviceBeforePinStaffDesc',
+                      'Waiter and kitchen accounts need Staff Device Mode so the PIN and QR can be issued together.',
+                    )}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    onClick={handleSharedDeviceToggle}
+                    disabled={sharedDeviceUpdating}
+                  >
+                    <Smartphone className="mr-2 h-4 w-4" />
+                    {sharedDeviceUpdating
+                      ? t('common.saving', 'Saving')
+                      : t('staff.enableStaffPinLogin', 'Enable Staff PIN Login')}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="rounded-lg border border-border bg-muted/30 p-3">
             <div className="flex items-start gap-3">
               <Mail className="mt-0.5 h-4 w-4 text-muted-foreground" />
@@ -1138,7 +1173,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
             type="button"
             className="w-full"
             onClick={handleInviteStaff}
-            disabled={!inviteName.trim() || allowedRoles.length === 0 || limitReached}
+            disabled={!inviteName.trim() || allowedRoles.length === 0 || limitReached || inviteBlockedBySharedDeviceMode}
           >
             <UserPlus className="mr-2 h-4 w-4" />
             {t('staff.createStaffAccount')}

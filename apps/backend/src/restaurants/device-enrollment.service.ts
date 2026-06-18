@@ -196,6 +196,66 @@ export class DeviceEnrollmentService {
     return { success: true, revokedAt, count: tokens.length };
   }
 
+  async evictRestaurantDevices(
+    restaurantId: string,
+    reason = 'shared_device_mode_disabled',
+  ) {
+    const tokens = await this.tokenStore.findMany({
+      where: {
+        restaurantId,
+        revokedAt: null,
+        usedAt: { not: null },
+      },
+      select: { id: true },
+    });
+
+    if (tokens.length > 0) {
+      await this.tokenStore.updateMany({
+        where: {
+          restaurantId,
+          revokedAt: null,
+          usedAt: { not: null },
+        },
+        data: { sessionVersion: { increment: 1 } },
+      });
+    }
+
+    await Promise.all(
+      tokens.map((token) => this.eventsGateway.evictDeviceToken(token.id, reason)),
+    );
+
+    return { success: true, count: tokens.length };
+  }
+
+  async getDeviceStatus(token: string) {
+    const tokenHash = this.hashToken(token);
+    const tokenRecord = await this.tokenStore.findUnique({
+      where: { tokenHash },
+      include: {
+        restaurant: {
+          select: { id: true, name: true, sharedDeviceModeEnabled: true },
+        },
+      },
+    });
+
+    if (!tokenRecord || !tokenRecord.usedAt) {
+      throw new UnauthorizedException(
+        'This device is not enrolled for staff PIN login.',
+      );
+    }
+    if (tokenRecord.revokedAt) {
+      throw new GoneException('Device enrollment link has been revoked');
+    }
+
+    return {
+      restaurantId: tokenRecord.restaurant.id,
+      restaurantName: tokenRecord.restaurant.name,
+      sharedDeviceModeEnabled: tokenRecord.restaurant.sharedDeviceModeEnabled,
+      enrolled: true,
+      revoked: false,
+    };
+  }
+
   async verifyEnrollment(token: string) {
     const tokenHash = this.hashToken(token);
     const now = new Date();

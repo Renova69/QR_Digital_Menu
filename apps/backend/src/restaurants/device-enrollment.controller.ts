@@ -15,4 +15,13 @@ export class DeviceEnrollmentController {
   ) {
     return this.deviceEnrollment.verifyEnrollment(dto.token);
   }
+
+  @Post('status')
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
+  status(
+    @Body(new ValidationPipe({ whitelist: true }))
+    dto: VerifyDeviceEnrollmentDto,
+  ) {
+    return this.deviceEnrollment.getDeviceStatus(dto.token);
+  }
 }

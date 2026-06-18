@@ -80,7 +80,8 @@
     "uniqueVisitors": "Unique Visitors",
     "viewsThisWeek": "Views this week",
     "perTableViews": "Per table (this week)",
-    "perTableViewsCount": "{{views}} views · {{unique}} unique",
+    "perTableViewsViews": "{{count}} views",
+    "perTableViewsUnique": "{{count}} unique",
     "scanUpsellTitle": "People are finding you — let them order",
     "scanUpsellBody": "You had {{count}} menu views this week. Upgrade to STARTER to let customers order directly from their phones.",
     "tabs": {

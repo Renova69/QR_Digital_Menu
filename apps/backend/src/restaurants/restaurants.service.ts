@@ -342,7 +342,7 @@ export class RestaurantsService {
       }
     }
 
-    const shouldRevokeSharedDevices =
+    const shouldEvictSharedDevices =
       data.sharedDeviceModeEnabled === false &&
       restaurant.sharedDeviceModeEnabled !== false;
 
@@ -352,8 +352,8 @@ export class RestaurantsService {
       data,
     });
 
-    if (shouldRevokeSharedDevices) {
-      await this.deviceEnrollmentService.revokeRestaurantDevices(id);
+    if (shouldEvictSharedDevices) {
+      await this.deviceEnrollmentService.evictRestaurantDevices(id);
     }
 
     return this.toRestaurantReadDto(updated);

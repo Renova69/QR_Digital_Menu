@@ -80,7 +80,10 @@
     "uniqueVisitors": "Уникални посетители",
     "viewsThisWeek": "Прегледи тази седмица",
     "perTableViews": "По маса (тази седмица)",
-    "perTableViewsCount": "{{views}} прегледа · {{unique}} уникални",
+    "perTableViewsViews": "{{count}} прегледа",
+    "perTableViewsViews_one": "{{count}} преглед",
+    "perTableViewsUnique": "{{count}} уникални",
+    "perTableViewsUnique_one": "{{count}} уникален",
     "scanUpsellTitle": "Хората ви намират — позволете им да поръчват",
     "scanUpsellBody": "Имахте {{count}} прегледа на менюто тази седмица. Надстройте към STARTER, за да позволите на клиентите да поръчват директно от телефоните си.",
     "tabs": {

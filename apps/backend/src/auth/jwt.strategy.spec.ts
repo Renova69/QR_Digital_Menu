@@ -151,6 +151,7 @@ describe('JwtStrategy', () => {
       restaurantId: 'rest-1',
       usedAt: new Date(),
       revokedAt: null,
+      sessionVersion: 2,
       restaurant: {
         isActive: true,
         sharedDeviceModeEnabled: true,
@@ -161,6 +162,7 @@ describe('JwtStrategy', () => {
       sub: 'staff-1',
       email: 'staff@test.com',
       deviceTokenId: 'token-1',
+      deviceSessionVersion: 2,
     });
 
     expect(result).toMatchObject({ id: 'staff-1', role: 'WAITER' });
@@ -188,6 +190,7 @@ describe('JwtStrategy', () => {
       restaurantId: 'rest-1',
       usedAt: new Date(),
       revokedAt: new Date(),
+      sessionVersion: 0,
       restaurant: {
         isActive: true,
         sharedDeviceModeEnabled: true,
@@ -222,6 +225,7 @@ describe('JwtStrategy', () => {
       restaurantId: 'rest-1',
       usedAt: new Date(),
       revokedAt: null,
+      sessionVersion: 0,
       restaurant: {
         isActive: true,
         sharedDeviceModeEnabled: false,
@@ -235,5 +239,41 @@ describe('JwtStrategy', () => {
         deviceTokenId: 'token-1',
       }),
     ).rejects.toThrow('SHARED_DEVICE_MODE_DISABLED');
+  });
+
+  it('rejects stale staff device sessions after Shared Device Mode was paused', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce({
+      id: 'staff-1',
+      email: 'staff@test.com',
+      password: 'hash',
+      role: 'WAITER',
+      restaurantId: 'rest-1',
+      isActive: true,
+      disabledAt: null,
+      staffRestaurant: {
+        isActive: true,
+        tier: 'ENTERPRISE',
+        forceTier: null,
+      },
+    });
+    prisma.deviceEnrollmentToken.findUnique.mockResolvedValueOnce({
+      restaurantId: 'rest-1',
+      usedAt: new Date(),
+      revokedAt: null,
+      sessionVersion: 3,
+      restaurant: {
+        isActive: true,
+        sharedDeviceModeEnabled: true,
+      },
+    });
+
+    await expect(
+      strategy.validate({
+        sub: 'staff-1',
+        email: 'staff@test.com',
+        deviceTokenId: 'token-1',
+        deviceSessionVersion: 2,
+      }),
+    ).rejects.toThrow('DEVICE_SESSION_EXPIRED');
   });
 });

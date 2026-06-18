@@ -323,4 +323,84 @@ describe('DeviceEnrollmentService', () => {
       });
     });
   });
+
+  describe('evictRestaurantDevices', () => {
+    it('expires active sessions and evicts used non-revoked device tokens without revoking them', async () => {
+      mockTokenStore.findMany.mockResolvedValue([{ id: 'tok1' }, { id: 'tok2' }]);
+
+      const result = await service.evictRestaurantDevices(
+        'rest1',
+        'shared_device_mode_disabled',
+      );
+
+      expect(mockTokenStore.findMany).toHaveBeenCalledWith({
+        where: {
+          restaurantId: 'rest1',
+          revokedAt: null,
+          usedAt: { not: null },
+        },
+        select: { id: true },
+      });
+      expect(mockTokenStore.updateMany).toHaveBeenCalledWith({
+        where: {
+          restaurantId: 'rest1',
+          revokedAt: null,
+          usedAt: { not: null },
+        },
+        data: { sessionVersion: { increment: 1 } },
+      });
+      expect(mockEvents.evictDeviceToken).toHaveBeenCalledWith(
+        'tok1',
+        'shared_device_mode_disabled',
+      );
+      expect(mockEvents.evictDeviceToken).toHaveBeenCalledWith(
+        'tok2',
+        'shared_device_mode_disabled',
+      );
+      expect(result).toEqual({ success: true, count: 2 });
+    });
+  });
+
+  describe('getDeviceStatus', () => {
+    it('returns shared-device status for an enrolled device without consuming it', async () => {
+      mockTokenStore.findUnique.mockResolvedValue({
+        id: 'tok1',
+        usedAt: new Date(),
+        revokedAt: null,
+        restaurant: {
+          id: 'rest1',
+          name: 'Test Restaurant',
+          sharedDeviceModeEnabled: false,
+        },
+      });
+
+      const result = await service.getDeviceStatus('device-token');
+
+      expect(mockTokenStore.updateMany).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        restaurantId: 'rest1',
+        restaurantName: 'Test Restaurant',
+        sharedDeviceModeEnabled: false,
+        enrolled: true,
+        revoked: false,
+      });
+    });
+
+    it('rejects revoked device tokens', async () => {
+      mockTokenStore.findUnique.mockResolvedValue({
+        id: 'tok1',
+        usedAt: new Date(),
+        revokedAt: new Date(),
+        restaurant: {
+          id: 'rest1',
+          name: 'Test Restaurant',
+          sharedDeviceModeEnabled: true,
+        },
+      });
+
+      await expect(service.getDeviceStatus('device-token')).rejects.toThrow(
+        GoneException,
+      );
+    });
+  });
 });

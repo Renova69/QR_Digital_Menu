@@ -764,16 +764,16 @@
     "hash": "2861c0d8986d5ba505fdc12e17b252bb"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\restaurants\\device-enrollment.controller.ts": {
-    "mtime": 1781798199.256622,
-    "hash": "5ae8fca9732183c671fce91f3c2dd2f6"
+    "mtime": 1781802907.8031137,
+    "hash": "eade74e839baa0a1fc751aa0fc7388e9"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\restaurants\\device-enrollment.service.spec.ts": {
-    "mtime": 1781798524.7121546,
-    "hash": "99eb5ef75d6743d49f675da4ef5effaa"
+    "mtime": 1781803052.4448028,
+    "hash": "54a84f5d556bc7e8ddca5f00431859dd"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\restaurants\\device-enrollment.service.ts": {
-    "mtime": 1781798199.320549,
-    "hash": "a92fa6a5b8ec65a22356a350b36f67fb"
+    "mtime": 1781802902.8228016,
+    "hash": "2ea3118d91eeae09f9ab16a7163f4a89"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\restaurants\\restaurant-languages.ts": {
     "mtime": 1780504215.500121,
@@ -792,12 +792,12 @@
     "hash": "5688f24c363c69268964e12a21e15f83"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\restaurants\\restaurants.service.spec.ts": {
-    "mtime": 1781798472.2281146,
-    "hash": "53d0734c757babced002796fa56a6646"
+    "mtime": 1781803037.2518668,
+    "hash": "33e75f13bd0ed5587400fe4cf65ce0bd"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\restaurants\\restaurants.service.ts": {
-    "mtime": 1781798199.3865504,
-    "hash": "313529a0d1a9a7a2ce63f4deb60a0cca"
+    "mtime": 1781802912.9265602,
+    "hash": "4339717253fbfbf99688dcacc37939be"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\restaurants\\staff.controller.ts": {
     "mtime": 1781799785.9385676,
@@ -1440,8 +1440,8 @@
     "hash": "2cf8ad39ba30120e3c3afce0d8ce3d78"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\context\\SocketContext.tsx": {
-    "mtime": 1781798349.4076548,
-    "hash": "7fb3d26869d124182dcd20da8dc606c2"
+    "mtime": 1781802930.5195036,
+    "hash": "55e2eb966e6c44b091ff93c918c8a6cb"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\context\\ThemeContext.test.tsx": {
     "mtime": 1780551869.048561,
@@ -1500,8 +1500,8 @@
     "hash": "94c1b7a1f86d72c5b21262065cb26361"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\api.ts": {
-    "mtime": 1781799568.333238,
-    "hash": "be63a8782aead00ee3f8578edb668fc8"
+    "mtime": 1781802919.364008,
+    "hash": "cae90b500a91e75935e1b461ec593cce"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\brandingFonts.ts": {
     "mtime": 1780129356.9439356,
@@ -1580,8 +1580,8 @@
     "hash": "c14d517ba132126f0671b6c3d8168639"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\DeviceLoginPage.tsx": {
-    "mtime": 1781798898.2869556,
-    "hash": "bcf6ae6a7ef366c63207cf8b112601a1"
+    "mtime": 1781802976.8190022,
+    "hash": "e47406ec39008a4aa540b02f2b467f2c"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\FeedbackPage.tsx": {
     "mtime": 1779597337.363168,
@@ -1668,8 +1668,8 @@
     "hash": "f3952c05df83bdfda101968665638234"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\SettingsView.test.tsx": {
-    "mtime": 1781798811.6638405,
-    "hash": "b71238a634c1a89ab5113e4f8f7646da"
+    "mtime": 1781803105.7900882,
+    "hash": "df1b2c7a78032d7f14fe5b64db1a84a5"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\SettingsView.tsx": {
     "mtime": 1781798786.8585496,
@@ -1696,8 +1696,8 @@
     "hash": "ee19530603535459632531edea98dead"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\settings\\StaffSettingsTab.tsx": {
-    "mtime": 1781799586.439937,
-    "hash": "fcb4440ccf1ab2109a5db887aed91c57"
+    "mtime": 1781803020.6552086,
+    "hash": "a48d473daa2e209ca06b4951f7e2884b"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\summary\\DateRangeFilter.tsx": {
     "mtime": 1780742505.2171736,

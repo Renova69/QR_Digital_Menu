@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import api from "../lib/api";
+import api, { getDeviceEnrollmentStatus } from "../lib/api";
 import { useTranslation } from "react-i18next";
 
 const PIN_LENGTH = 4;
@@ -36,14 +36,23 @@ function getApiMessage(error: any) {
   return "";
 }
 
+function isSharedDeviceDisabledError(error: any) {
+  const status = error?.response?.status;
+  const code = error?.response?.data?.code;
+  const message = getApiMessage(error).toLowerCase();
+  return (
+    status === 403 &&
+    (code === "SHARED_DEVICE_MODE_DISABLED" ||
+      message.includes("shared device mode"))
+  );
+}
+
 function isDeviceBondInvalidError(error: any) {
   const status = error?.response?.status;
   const code = error?.response?.data?.code;
   const message = getApiMessage(error).toLowerCase();
   return (
-    code === "SHARED_DEVICE_MODE_DISABLED" ||
     code === "DEVICE_REVOKED" ||
-    message.includes("shared device mode") ||
     message.includes("device is not enrolled") ||
     message.includes("device enrollment link has been revoked") ||
     (status === 401 && message.includes("device"))
@@ -62,6 +71,8 @@ export default function DeviceLoginPage() {
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPreparing, setIsPreparing] = useState(true);
+  const [isCheckingDeviceStatus, setIsCheckingDeviceStatus] = useState(false);
+  const [sharedDeviceModeDisabled, setSharedDeviceModeDisabled] = useState(false);
   const [restaurantName, setRestaurantName] = useState("");
   const [deviceConfig, setDeviceConfig] = useState<SharedDeviceConfig | null>(
     () => readSharedDeviceConfig(),
@@ -72,6 +83,45 @@ export default function DeviceLoginPage() {
     setDeviceConfig(null);
     setRestaurantName("");
   }, []);
+
+  const refreshDeviceStatus = useCallback(async () => {
+    if (!deviceConfig?.deviceToken) {
+      setSharedDeviceModeDisabled(false);
+      return;
+    }
+
+    setIsCheckingDeviceStatus(true);
+    try {
+      const status = await getDeviceEnrollmentStatus(deviceConfig.deviceToken);
+      if (
+        status.restaurantId &&
+        deviceConfig.restaurantId &&
+        status.restaurantId !== deviceConfig.restaurantId
+      ) {
+        clearDeviceConfig();
+        setError("This device is not linked to this restaurant anymore.");
+        return;
+      }
+
+      setRestaurantName(status.restaurantName || deviceConfig.restaurantName || "");
+      setSharedDeviceModeDisabled(status.sharedDeviceModeEnabled === false);
+      if (status.sharedDeviceModeEnabled) {
+        setError("");
+      }
+    } catch (err: any) {
+      if (isSharedDeviceDisabledError(err)) {
+        setSharedDeviceModeDisabled(true);
+        setError("");
+        return;
+      }
+      if (isDeviceBondInvalidError(err)) {
+        clearDeviceConfig();
+        setError(getApiMessage(err));
+      }
+    } finally {
+      setIsCheckingDeviceStatus(false);
+    }
+  }, [clearDeviceConfig, deviceConfig]);
 
   useEffect(() => {
     if (clearedExistingSession.current) return;
@@ -84,6 +134,20 @@ export default function DeviceLoginPage() {
       setRestaurantName(deviceConfig.restaurantName);
     }
   }, [deviceConfig]);
+
+  useEffect(() => {
+    if (!deviceConfig?.deviceToken) {
+      setSharedDeviceModeDisabled(false);
+      return;
+    }
+
+    void refreshDeviceStatus();
+    const interval = setInterval(
+      () => void refreshDeviceStatus(),
+      sharedDeviceModeDisabled ? 5000 : 30000,
+    );
+    return () => clearInterval(interval);
+  }, [deviceConfig?.deviceToken, refreshDeviceStatus, sharedDeviceModeDisabled]);
 
   useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
@@ -112,6 +176,7 @@ export default function DeviceLoginPage() {
   const submitPin = useCallback(
     async (pinCode: string) => {
       if (!deviceConfig?.restaurantId || !deviceConfig?.deviceToken) return;
+      if (sharedDeviceModeDisabled) return;
       setIsSubmitting(true);
       setError("");
 
@@ -130,6 +195,12 @@ export default function DeviceLoginPage() {
       } catch (err: any) {
         const responseData = err.response?.data;
         const msg = getApiMessage(err) || t('auto.invalidPin', 'Invalid PIN');
+        if (isSharedDeviceDisabledError(err)) {
+          setSharedDeviceModeDisabled(true);
+          setError(msg);
+          setPin("");
+          return;
+        }
         if (isDeviceBondInvalidError(err)) {
           clearDeviceConfig();
           setError(msg);
@@ -168,12 +239,12 @@ export default function DeviceLoginPage() {
         setIsSubmitting(false);
       }
     },
-    [clearDeviceConfig, deviceConfig, loginWithToken, navigate, t],
+    [clearDeviceConfig, deviceConfig, loginWithToken, navigate, sharedDeviceModeDisabled, t],
   );
 
   const handleKeyPress = useCallback(
     (digit: string) => {
-      if (isPreparing || isSubmitting || lockedUntil) return;
+      if (isPreparing || isSubmitting || lockedUntil || sharedDeviceModeDisabled) return;
       setError("");
 
       if (digit === "backspace") {
@@ -188,7 +259,7 @@ export default function DeviceLoginPage() {
         submitPin(newPin);
       }
     },
-    [pin, isPreparing, isSubmitting, lockedUntil, submitPin],
+    [pin, isPreparing, isSubmitting, lockedUntil, sharedDeviceModeDisabled, submitPin],
   );
 
   if (!deviceConfig?.restaurantId || !deviceConfig?.deviceToken) {
@@ -222,6 +293,40 @@ export default function DeviceLoginPage() {
               count: remainingMin,
             })}
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (sharedDeviceModeDisabled) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center bg-[#0f172a] p-6">
+        <div className="w-full max-w-sm text-center">
+          <div className="w-12 h-12 rounded-xl bg-slate-800 mx-auto mb-4 flex items-center justify-center text-xl text-slate-200">
+            ||
+          </div>
+          <h1 className="text-white text-lg font-semibold mb-2">
+            {t('auto.staffPinLoginPaused', 'Staff PIN Login Paused')}
+          </h1>
+          <p className="text-slate-300 text-sm font-medium mb-2">
+            {restaurantName || t('auto.restaurant', 'Restaurant')}
+          </p>
+          <p className="text-slate-400 text-sm">
+            {t(
+              'auto.sharedDeviceModePaused',
+              'Shared Device Mode is off. This device will return to PIN login when a manager enables it again.',
+            )}
+          </p>
+          <button
+            type="button"
+            onClick={() => void refreshDeviceStatus()}
+            disabled={isCheckingDeviceStatus}
+            className="mt-6 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-60"
+          >
+            {isCheckingDeviceStatus
+              ? t('auto.checking', 'Checking...')
+              : t('auto.checkAgain', 'Check again')}
+          </button>
         </div>
       </div>
     );

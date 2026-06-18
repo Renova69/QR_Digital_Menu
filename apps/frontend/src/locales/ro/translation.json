@@ -80,7 +80,8 @@
     "uniqueVisitors": "Vizitatori unici",
     "viewsThisWeek": "Vizualizări săptămâna aceasta",
     "perTableViews": "Pe masă (săptămâna aceasta)",
-    "perTableViewsCount": "{{views}} vizualizări · {{unique}} unici",
+    "perTableViewsViews": "{{count}} vizualizări",
+    "perTableViewsUnique": "{{count}} unici",
     "scanUpsellTitle": "Oamenii vă găsesc — lăsați-i să comande",
     "scanUpsellBody": "Ați avut {{count}} vizualizări ale meniului săptămâna aceasta. Faceți upgrade la STARTER pentru a permite clienților să comande direct de pe telefon.",
     "tabs": {

@@ -355,7 +355,7 @@ const OrdersView = () => {
                   }
                 }}
                 className={cn(
-                  'relative flex aspect-[1/1.05] cursor-pointer flex-col overflow-hidden rounded-lg border border-border bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40',
+                  'relative flex aspect-[1/1.05] cursor-pointer flex-col overflow-hidden rounded-lg border border-border bg-card p-4 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-primary/40',
                   'before:absolute before:bottom-0 before:left-0 before:top-0 before:w-1',
                   statusAccent[order.status],
                 )}

@@ -386,6 +386,7 @@ model DeviceEnrollmentToken {
   expiresAt      DateTime
   usedAt         DateTime?
   revokedAt      DateTime?
+  sessionVersion Int        @default(0)
   pinAttempts    Int        @default(0)
   pinLockedUntil DateTime?
   createdAt      DateTime   @default(now())

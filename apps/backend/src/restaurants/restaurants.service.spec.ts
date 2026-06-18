@@ -73,6 +73,7 @@ describe('RestaurantsService', () => {
 
     mockDeviceEnrollment = {
       revokeRestaurantDevices: jest.fn().mockResolvedValue({ success: true, count: 0 }),
+      evictRestaurantDevices: jest.fn().mockResolvedValue({ success: true, count: 0 }),
     };
 
     service = new RestaurantsService(
@@ -336,7 +337,7 @@ describe('RestaurantsService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('revokes shared-device tokens when Shared Device Mode is disabled', async () => {
+    it('evicts shared-device sessions without revoking tokens when Shared Device Mode is disabled', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ sharedDeviceModeEnabled: true }),
       );
@@ -354,7 +355,8 @@ describe('RestaurantsService', () => {
         'user1',
       );
 
-      expect(mockDeviceEnrollment.revokeRestaurantDevices).toHaveBeenCalledWith('rest1');
+      expect(mockDeviceEnrollment.evictRestaurantDevices).toHaveBeenCalledWith('rest1');
+      expect(mockDeviceEnrollment.revokeRestaurantDevices).not.toHaveBeenCalled();
     });
   });
 

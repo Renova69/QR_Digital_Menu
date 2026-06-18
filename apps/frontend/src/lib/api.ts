@@ -636,6 +636,17 @@ export const verifyDeviceEnrollment = async (token: string) => {
   };
 };
 
+export const getDeviceEnrollmentStatus = async (token: string) => {
+  const response = await api.post('/device-enrollment/status', { token });
+  return response.data as {
+    restaurantId: string;
+    restaurantName: string;
+    sharedDeviceModeEnabled: boolean;
+    enrolled: boolean;
+    revoked: boolean;
+  };
+};
+
 // Subscription / SaaS billing
 export interface SubscriptionDetails {
   currentPeriodStart: string;

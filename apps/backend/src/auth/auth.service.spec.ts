@@ -74,6 +74,7 @@ describe('AuthService', () => {
           id: 'device-token-1',
           pinAttempts: 0,
           pinLockedUntil: null,
+          sessionVersion: 0,
         }),
         update: jest.fn().mockResolvedValue({}),
       },
@@ -370,6 +371,7 @@ describe('AuthService', () => {
         id: 'device-token-1',
         pinAttempts: 5,
         pinLockedUntil: futureDate,
+        sessionVersion: 0,
       });
       await expect(
         service.pinLogin('rest1', '1234', deviceToken),
@@ -393,6 +395,7 @@ describe('AuthService', () => {
           email: staff.email,
           sub: staff.id,
           deviceTokenId: 'device-token-1',
+          deviceSessionVersion: 0,
         }),
       );
       // Attempts reset on the device token, not via user.updateMany
@@ -532,6 +535,7 @@ describe('AuthService', () => {
         id: 'device-token-1',
         pinAttempts: 4,
         pinLockedUntil: null,
+        sessionVersion: 0,
       });
       mockPrisma.user.findMany.mockResolvedValue([
         makeUser({ pinHash: 'hash' }),

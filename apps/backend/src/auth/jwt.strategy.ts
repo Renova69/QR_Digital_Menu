@@ -43,6 +43,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     email: string;
     iat?: number;
     deviceTokenId?: string;
+    deviceSessionVersion?: number;
   }) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
@@ -70,6 +71,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
           restaurantId: true,
           usedAt: true,
           revokedAt: true,
+          sessionVersion: true,
           restaurant: {
             select: {
               sharedDeviceModeEnabled: true,
@@ -86,6 +88,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         deviceToken.restaurantId !== user.restaurantId
       ) {
         throw new UnauthorizedException('DEVICE_REVOKED');
+      }
+
+      const payloadDeviceSessionVersion =
+        typeof payload.deviceSessionVersion === 'number'
+          ? payload.deviceSessionVersion
+          : 0;
+
+      if (payloadDeviceSessionVersion !== deviceToken.sessionVersion) {
+        throw new UnauthorizedException('DEVICE_SESSION_EXPIRED');
       }
 
       if (deviceToken.restaurant.isActive === false) {
