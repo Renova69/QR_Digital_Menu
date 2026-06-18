@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
-import api, { createOrder } from "../lib/api";
+import api, { createOrder, getSessionBill } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { Zap } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
+import { PaymentModal } from "../components/payment/PaymentModal";
 import { formatInlineDual, formatEuro, formatBgn } from "../lib/currency";
 import { Toggle } from "../components/ui/Toggle";
 import type { FeatureFlag } from "../hooks/useFeature";
@@ -21,6 +22,7 @@ const CheckoutPage = () => {
   const { items, tableNumber, getTotal, clearCart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const restaurantId = location.state?.restaurantId;
   const tier = location.state?.tier as string | undefined;
   const features = Array.isArray(location.state?.features)
@@ -28,6 +30,30 @@ const CheckoutPage = () => {
     : [];
   const customersAuthEnabled = features.includes('customers:auth');
   const { t } = useTranslation();
+
+  // ── Session-based checkout (POS Payment QR) ──
+  const sessionToken = searchParams.get("session");
+  const isSessionFlow = !!sessionToken;
+  const [sessionBill, setSessionBill] = useState<any>(null);
+  const [sessionBillLoading, setSessionBillLoading] = useState(false);
+  const [sessionBillError, setSessionBillError] = useState<string | null>(null);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!sessionToken) return;
+    setSessionBillLoading(true);
+    setSessionBillError(null);
+    getSessionBill(sessionToken)
+      .then((bill) => setSessionBill(bill))
+      .catch((err) =>
+        setSessionBillError(
+          err?.response?.data?.message ?? "Failed to load bill. The session may have expired.",
+        ),
+      )
+      .finally(() => setSessionBillLoading(false));
+  }, [sessionToken]);
+
+  const openPayment = () => setPaymentModalOpen(true);
 
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -135,13 +161,15 @@ const CheckoutPage = () => {
     namePrefilledRef.current = true;
   }, [user, restaurantId, tableNumber]);
 
-  // Redirect if no items in cart — skip when order was just submitted
+  // Redirect if no items in cart — skip when order was just submitted,
+  // or when viewing a POS session bill (Payment QR flow).
   const orderPlaced = useRef(false);
   useEffect(() => {
+    if (isSessionFlow) return;
     if (items.length === 0 && !orderPlaced.current) {
       navigate(-1); // Go back to the menu
     }
-  }, [items, navigate]);
+  }, [items, navigate, isSessionFlow]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -245,6 +273,87 @@ const CheckoutPage = () => {
       setSubmitting(false);
     }
   };
+
+  // ── Session bill view (POS Payment QR) ──────────────────────────────────
+  if (isSessionFlow) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 pt-10 pb-24" style={{ paddingBottom: 'max(6rem, calc(env(safe-area-inset-bottom, 0px) + 4rem))' }}>
+        <h1 className="text-4xl font-extrabold text-foreground mb-8 tracking-tight">
+          {t("checkout.yourBill", "Your Bill")}
+        </h1>
+
+        {sessionBillLoading && (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin h-8 w-8 border-3 border-primary border-t-transparent rounded-full" />
+          </div>
+        )}
+
+        {sessionBillError && (
+          <div className="glass-panel border-l-4 border-red-500 text-red-700 p-4 rounded-2xl mb-8">
+            {sessionBillError}
+          </div>
+        )}
+
+        {sessionBill && !sessionBillLoading && (
+          <>
+            <div className="glass-panel rounded-2xl p-5 mb-6">
+              <h2 className="text-sm font-semibold text-muted-foreground mb-3">
+                {t("checkout.orderSummary", "Order Summary")}
+              </h2>
+              {sessionBill.orders?.map((order: any, oi: number) => (
+                <div key={order.id ?? oi} className="mb-4 last:mb-0">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-muted-foreground">
+                      {t("checkout.orderN", { n: oi + 1 })}
+                      {order.customerName ? ` · ${order.customerName}` : ""}
+                    </span>
+                  </div>
+                  {(order.items ?? []).map((oi: any, ii: number) => (
+                    <div key={ii} className="flex justify-between text-sm py-1.5 border-b border-border/20 last:border-b-0">
+                      <span className="text-foreground">
+                        {oi.name}
+                        {oi.quantity > 1 && <span className="text-muted-foreground"> ×{oi.quantity}</span>}
+                      </span>
+                      <span className="font-semibold text-foreground tabular-nums">
+                        {formatEuro((oi.unitPrice ?? 0) * (oi.quantity ?? 1))}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+              <div className="flex justify-between items-center mt-4 pt-3 border-t border-border">
+                <span className="text-lg font-bold text-foreground">{t("checkout.total", "Total")}</span>
+                <span className="text-2xl font-display font-bold text-foreground tabular-nums">
+                  {formatEuro(sessionBill.subtotal)}
+                </span>
+              </div>
+            </div>
+
+            {sessionBill.paymentProviders && sessionBill.paymentProviders.length > 0 && (
+              <button
+                type="button"
+                onClick={openPayment}
+                className="w-full py-4 rounded-xl bg-brand-cta text-white font-bold text-lg min-h-[52px]"
+              >
+                {t("checkout.payNow", "Pay Now")} · {formatEuro(sessionBill.subtotal)}
+              </button>
+            )}
+          </>
+        )}
+
+        {paymentModalOpen && sessionToken && (
+          <PaymentModal
+            sessionToken={sessionToken}
+            onClose={() => setPaymentModalOpen(false)}
+            onSuccess={() => {
+              setPaymentModalOpen(false);
+              window.location.reload();
+            }}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto px-4 pt-10 pb-24" style={{ paddingBottom: 'max(6rem, calc(env(safe-area-inset-bottom, 0px) + 4rem))' }}>

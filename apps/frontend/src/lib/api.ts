@@ -387,7 +387,7 @@ api.interceptors.response.use(
       ) {
         return Promise.reject(error);
       }
-      const publicPaths = ['/login', '/register', '/auth/callback', '/menu/public', '/device-enroll', '/device-login'];
+      const publicPaths = ['/login', '/register', '/auth/callback', '/menu/public', '/device-enroll', '/device-login', '/checkout'];
       const currentPath = window.location.pathname;
       if (!publicPaths.some(p => currentPath.startsWith(p))) {
         window.location.href = '/login';
