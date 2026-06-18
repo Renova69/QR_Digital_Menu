@@ -30,7 +30,12 @@ export class DeviceEnrollmentService {
     const [restaurant, user] = await Promise.all([
       this.prisma.restaurant.findUnique({
         where: { id: restaurantId },
-        select: { id: true, name: true, ownerId: true },
+        select: {
+          id: true,
+          name: true,
+          ownerId: true,
+          sharedDeviceModeEnabled: true,
+        },
       }),
       this.prisma.user.findUnique({
         where: { id: userId },
@@ -63,7 +68,15 @@ export class DeviceEnrollmentService {
     createdById: string,
     frontendBaseUrl: string,
   ) {
-    await this.verifyManagerAccess(restaurantId, createdById);
+    const restaurant = await this.verifyManagerAccess(restaurantId, createdById);
+
+    if (restaurant.sharedDeviceModeEnabled === false) {
+      throw new ForbiddenException({
+        code: 'SHARED_DEVICE_MODE_DISABLED',
+        message:
+          'Shared Device Mode is off. Enable it before generating staff device QR links.',
+      });
+    }
 
     // L2.3 — Cap active (unused, non-expired, non-revoked) tokens to prevent
     // unbounded accumulation. If the limit is reached the caller must wait for
@@ -159,12 +172,47 @@ export class DeviceEnrollmentService {
 
   async verifyEnrollment(token: string) {
     const tokenHash = this.hashToken(token);
+    const now = new Date();
+
+    const tokenRecord = await this.tokenStore.findUnique({
+      where: { tokenHash },
+      include: {
+        restaurant: {
+          select: { id: true, name: true, sharedDeviceModeEnabled: true },
+        },
+      },
+    });
+
+    if (!tokenRecord) {
+      throw new UnauthorizedException('Invalid device enrollment link');
+    }
+    if (tokenRecord.revokedAt) {
+      throw new GoneException('Device enrollment link has been revoked');
+    }
+    if (tokenRecord.usedAt) {
+      throw new GoneException('Device enrollment link has already been used');
+    }
+    if (tokenRecord.expiresAt <= now) {
+      throw new GoneException('Device enrollment link has expired');
+    }
+    if (tokenRecord.restaurant.sharedDeviceModeEnabled === false) {
+      throw new ForbiddenException({
+        code: 'SHARED_DEVICE_MODE_DISABLED',
+        message:
+          'Shared Device Mode is off. Ask a manager to enable it before enrolling this device.',
+      });
+    }
 
     // Atomic single-use claim (#M4). Marking usedAt in a guarded updateMany
     // means only one of N concurrent requests can win — a find→check→update
     // sequence let two requests both pass the usedAt check and consume the link.
     const claim = await this.tokenStore.updateMany({
-      where: { tokenHash, usedAt: null, expiresAt: { gt: new Date() } },
+      where: {
+        tokenHash,
+        usedAt: null,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
       data: { usedAt: new Date() },
     });
 
@@ -172,10 +220,13 @@ export class DeviceEnrollmentService {
       // Claim failed — disambiguate the reason for a useful error.
       const existing = await this.tokenStore.findUnique({
         where: { tokenHash },
-        select: { usedAt: true, expiresAt: true },
+        select: { usedAt: true, expiresAt: true, revokedAt: true },
       });
       if (!existing) {
         throw new UnauthorizedException('Invalid device enrollment link');
+      }
+      if (existing.revokedAt) {
+        throw new GoneException('Device enrollment link has been revoked');
       }
       if (existing.usedAt) {
         throw new GoneException('Device enrollment link has already been used');
@@ -183,18 +234,9 @@ export class DeviceEnrollmentService {
       throw new GoneException('Device enrollment link has expired');
     }
 
-    const tokenRecord = await this.tokenStore.findUnique({
-      where: { tokenHash },
-      include: {
-        restaurant: {
-          select: { id: true, name: true },
-        },
-      },
-    });
-
     return {
-      restaurantId: tokenRecord!.restaurant.id,
-      restaurantName: tokenRecord!.restaurant.name,
+      restaurantId: tokenRecord.restaurant.id,
+      restaurantName: tokenRecord.restaurant.name,
       allowedModes: ['POS', 'KDS'],
     };
   }

@@ -1,9 +1,10 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import SettingsView from "./SettingsView";
 import RestaurantContext from "../../context/RestaurantContext";
+import { updateRestaurant } from "../../lib/api";
 
 const mockT = vi.fn((key: string) => key);
 
@@ -46,8 +47,11 @@ vi.mock("../../lib/api", () => ({
   getStripeStatus: vi.fn(),
   disconnectStripe: vi.fn(),
   listStaff: vi.fn().mockResolvedValue([]),
+  listDeviceEnrollments: vi.fn().mockResolvedValue([]),
   createStaff: vi.fn(),
   removeStaff: vi.fn(),
+  resetStaffPin: vi.fn(),
+  updateStaff: vi.fn(),
   createDeviceEnrollment: vi.fn(),
 }));
 
@@ -73,6 +77,7 @@ const mockRestaurant = {
   loyaltyPointExpiryDays: 90,
   loyaltyExpiryReminderDays: 15,
   paymentsEnabled: false,
+  sharedDeviceModeEnabled: false,
 };
 
 const wrapper = ({ children }: { children: React.ReactNode }) => {
@@ -103,6 +108,11 @@ beforeAll(() => {
 
 beforeEach(() => {
   for (const k of Object.keys(store)) delete store[k];
+  vi.clearAllMocks();
+  vi.mocked(updateRestaurant).mockResolvedValue({
+    ...mockRestaurant,
+    sharedDeviceModeEnabled: true,
+  } as any);
 });
 
 afterAll(() => {
@@ -123,11 +133,18 @@ describe("SettingsView - Staff tab", () => {
     expect(screen.getByText("common.enable")).toBeTruthy();
   });
 
-  it("toggles to Disable when Enable button clicked", () => {
+  it("persists Shared Device Mode when Enable is clicked", async () => {
     render(<SettingsView />, { wrapper });
     fireEvent.click(screen.getByText("settings.tabs.staff"));
     fireEvent.click(screen.getByText("common.enable"));
-    expect(screen.getByText("common.disable")).toBeTruthy();
+    await waitFor(() => {
+      expect(updateRestaurant).toHaveBeenCalledWith("rest-1", {
+        sharedDeviceModeEnabled: true,
+      });
+    });
+    await waitFor(() => {
+      expect(screen.getByText("common.disable")).toBeTruthy();
+    });
   });
 
   it("shows off-warning when shared device mode is disabled", () => {

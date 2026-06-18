@@ -83,6 +83,7 @@ const RESTAURANT_READ_SELECT = {
   boricaPrivateKeyEncrypted: true,
   boricaPublicCert: true,
   boricaCurrency: true,
+  sharedDeviceModeEnabled: true,
   notifyAllStaffOnPayment: true,
   tipsEnabled: true,
   tipOptions: true,

@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   HttpException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -64,6 +65,7 @@ describe('AuthService', () => {
           tier: 'ENTERPRISE',
           forceTier: null,
           isActive: true,
+          sharedDeviceModeEnabled: true,
         }),
       },
       deviceEnrollmentToken: {
@@ -465,11 +467,27 @@ describe('AuthService', () => {
         tier: 'ENTERPRISE',
         forceTier: null,
         isActive: false,
+        sharedDeviceModeEnabled: true,
       });
       const { ForbiddenException } = await import('@nestjs/common');
       await expect(
         service.pinLogin('rest1', '1234', deviceToken),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws ForbiddenException when Shared Device Mode is off', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest1',
+        tier: 'ENTERPRISE',
+        forceTier: null,
+        isActive: true,
+        sharedDeviceModeEnabled: false,
+      });
+
+      await expect(
+        service.pinLogin('rest1', '1234', deviceToken),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.deviceEnrollmentToken.findFirst).not.toHaveBeenCalled();
     });
   });
 

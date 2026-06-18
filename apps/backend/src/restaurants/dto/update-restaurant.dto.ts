@@ -296,5 +296,9 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
 
   @IsOptional()
   @IsBoolean()
+  sharedDeviceModeEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   notifyAllStaffOnPayment?: boolean;
 }

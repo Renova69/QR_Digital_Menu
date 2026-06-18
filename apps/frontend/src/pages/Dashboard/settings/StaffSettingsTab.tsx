@@ -28,9 +28,11 @@ import {
   listStaff,
   removeStaff,
   resetStaffPin,
+  updateRestaurant,
   updateStaff,
   type StaffMember,
 } from '../../../lib/api';
+import { useRestaurantContext } from '../../../context/RestaurantContext';
 import { useFeature, useTier } from '../../../hooks/useFeature';
 
 const inputCls =
@@ -47,6 +49,7 @@ type DeviceEnrollment = {
 interface Restaurant {
   id: string;
   name: string;
+  sharedDeviceModeEnabled?: boolean;
 }
 
 interface StaffSettingsTabProps {
@@ -107,6 +110,7 @@ const displayEmail = (email: string) => (email?.endsWith('.local') ? '-' : email
 
 const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant }) => {
   const { t } = useTranslation();
+  const { fetchRestaurants } = useRestaurantContext();
   const canPos = useFeature('pos');
   const { staffLimit, allowedStaffRoles } = useTier();
 
@@ -148,6 +152,8 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
     }
   });
   const [sharedDeviceMessage, setSharedDeviceMessage] = useState('');
+  const [sharedDeviceUpdating, setSharedDeviceUpdating] = useState(false);
+  const [sharedDeviceOverride, setSharedDeviceOverride] = useState<boolean | null>(null);
 
   const [deviceEnrollmentUrl, setDeviceEnrollmentUrl] = useState('');
   const [deviceEnrollmentExpiresAt, setDeviceEnrollmentExpiresAt] = useState('');
@@ -168,8 +174,18 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
     enrollmentError: string;
   }>({ open: false, staffName: '', staffEmail: '', rawPin: '', enrollmentUrl: '', expiresAt: '', enrollmentError: '' });
 
+  useEffect(() => {
+    setSharedDeviceOverride(null);
+  }, [activeRestaurant?.id, activeRestaurant?.sharedDeviceModeEnabled]);
+
   const sharedDeviceEnabled =
+    sharedDeviceOverride ?? activeRestaurant?.sharedDeviceModeEnabled === true;
+  const thisDeviceBonded =
     !!activeRestaurant && sharedDeviceConfig?.restaurantId === activeRestaurant.id;
+  const sharedDeviceModeOffMessage = t(
+    'staff.sharedDeviceModeOffEnrollment',
+    'Shared Device Mode is off. Enable it before generating staff device QR links or staff PIN login.',
+  );
 
   const staffOnlyMembers = useMemo(
     () => staffMembers.filter((member) => member.role !== 'OWNER'),
@@ -297,12 +313,16 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
       // that sign in at a shared POS/KDS tablet. Dashboard roles (STAFF/MANAGER)
       // use email + password, so no enrollment link is generated for them.
       if (canPos && isPinRole(inviteRole)) {
-        try {
-          const enrollment = await createDeviceEnrollment(activeRestaurant.id);
-          enrollmentUrl = enrollment.enrollmentUrl;
-          expiresAt = enrollment.expiresAt;
-        } catch (err: any) {
-          enrollmentError = err.response?.data?.message || err.message || t('staff.failedGenerateQr');
+        if (!sharedDeviceEnabled) {
+          enrollmentError = sharedDeviceModeOffMessage;
+        } else {
+          try {
+            const enrollment = await createDeviceEnrollment(activeRestaurant.id);
+            enrollmentUrl = enrollment.enrollmentUrl;
+            expiresAt = enrollment.expiresAt;
+          } catch (err: any) {
+            enrollmentError = err.response?.data?.message || err.message || t('staff.failedGenerateQr');
+          }
         }
       }
 
@@ -384,12 +404,16 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
       let expiresAt = '';
       let enrollmentError = '';
       if (canPos && isPinRole(member.role)) {
-        try {
-          const enrollment = await createDeviceEnrollment(activeRestaurant.id);
-          enrollmentUrl = enrollment.enrollmentUrl;
-          expiresAt = enrollment.expiresAt;
-        } catch (err: any) {
-          enrollmentError = err.response?.data?.message || err.message || t('staff.failedGenerateQr');
+        if (!sharedDeviceEnabled) {
+          enrollmentError = sharedDeviceModeOffMessage;
+        } else {
+          try {
+            const enrollment = await createDeviceEnrollment(activeRestaurant.id);
+            enrollmentUrl = enrollment.enrollmentUrl;
+            expiresAt = enrollment.expiresAt;
+          } catch (err: any) {
+            enrollmentError = err.response?.data?.message || err.message || t('staff.failedGenerateQr');
+          }
         }
       }
       setStaffCreatedModal({
@@ -428,6 +452,11 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
 
   const handleRebondStaff = async (member: StaffMember) => {
     if (!activeRestaurant) return;
+    if (!sharedDeviceEnabled) {
+      setDeviceEnrollmentError(sharedDeviceModeOffMessage);
+      setOpenActionId(null);
+      return;
+    }
     setBusyStaffId(member.id);
     setDeviceEnrollmentError('');
     try {
@@ -452,6 +481,12 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
 
   const handleGenerateDeviceEnrollment = async () => {
     if (!activeRestaurant) return;
+    if (!sharedDeviceEnabled) {
+      setDeviceEnrollmentError(sharedDeviceModeOffMessage);
+      setDeviceEnrollmentUrl('');
+      setDeviceEnrollmentExpiresAt('');
+      return;
+    }
     setDeviceEnrollmentLoading(true);
     setDeviceEnrollmentError('');
     setDeviceEnrollmentUrl('');
@@ -469,24 +504,48 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
     }
   };
 
-  const handleSharedDeviceToggle = () => {
-    if (sharedDeviceEnabled) {
-      localStorage.removeItem('sharedDevice');
-      setSharedDeviceConfig(null);
-      setSharedDeviceMessage('');
-      setDeviceEnrollmentUrl('');
-      setDeviceEnrollmentExpiresAt('');
-      return;
-    }
+  const handleSharedDeviceToggle = async () => {
+    if (!activeRestaurant || sharedDeviceUpdating) return;
 
-    if (!activeRestaurant) return;
-    const config = {
-      restaurantId: activeRestaurant.id,
-      restaurantName: activeRestaurant.name,
-    };
-    localStorage.setItem('sharedDevice', JSON.stringify(config));
-    setSharedDeviceConfig(config);
-    setSharedDeviceMessage(t('staff.sharedDeviceBonded', { name: activeRestaurant.name }));
+    const nextEnabled = !sharedDeviceEnabled;
+    setSharedDeviceUpdating(true);
+    setDeviceEnrollmentError('');
+    try {
+      await updateRestaurant(activeRestaurant.id, {
+        sharedDeviceModeEnabled: nextEnabled,
+      });
+      setSharedDeviceOverride(nextEnabled);
+
+      if (nextEnabled) {
+        setSharedDeviceMessage(
+          t(
+            'staff.sharedDeviceModeEnabledMessage',
+            'Shared Device Mode is on. Generate a fresh Staff Device QR to enroll a phone.',
+          ),
+        );
+      } else {
+        if (thisDeviceBonded) {
+          localStorage.removeItem('sharedDevice');
+          setSharedDeviceConfig(null);
+        }
+        setSharedDeviceMessage(
+          t(
+            'staff.sharedDeviceModeDisabledMessage',
+            'Shared Device Mode is off. Staff QR enrollment and PIN login are blocked.',
+          ),
+        );
+        setDeviceEnrollmentUrl('');
+        setDeviceEnrollmentExpiresAt('');
+      }
+
+      await fetchRestaurants();
+    } catch (err: any) {
+      setDeviceEnrollmentError(
+        err.response?.data?.message || err.message || t('staff.failedUpdateSharedDeviceMode', 'Failed to update Shared Device Mode.'),
+      );
+    } finally {
+      setSharedDeviceUpdating(false);
+    }
   };
 
   const copyEnrollmentLink = async () => {
@@ -539,7 +598,9 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
           <div className="rounded-lg border border-border bg-muted/20 p-4">
             <p className="text-xs font-bold uppercase text-muted-foreground">{t('staff.statsLabelSharedDevice')}</p>
             <p className="mt-2 text-sm font-semibold text-foreground">
-              {sharedDeviceEnabled ? t('staff.statsSharedEnabled') : t('staff.statsSharedNotBonded')}
+              {sharedDeviceEnabled
+                ? t('staff.statsSharedEnabled')
+                : t('staff.statsSharedDisabled', 'Disabled')}
             </p>
             <p className="text-xs text-muted-foreground">{t('staff.statsSharedPinSupport')}</p>
           </div>
@@ -702,7 +763,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                                   <button
                                     type="button"
                                     onClick={() => handleRebondStaff(member)}
-                                    disabled={isBusy}
+                                    disabled={isBusy || !sharedDeviceEnabled}
                                     className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-muted disabled:opacity-50"
                                   >
                                     <QrCode className="h-4 w-4" />
@@ -769,16 +830,35 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                   <p className="text-sm font-semibold text-foreground">{t('staff.sharedDeviceMode')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{t('staff.sharedDeviceOffWarning')}</p>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={handleSharedDeviceToggle}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSharedDeviceToggle}
+                  disabled={sharedDeviceUpdating}
+                >
                   <Smartphone className="mr-2 h-4 w-4" />
-                  {sharedDeviceEnabled ? t('common.disable', 'Disable') : t('common.enable', 'Enable')}
+                  {sharedDeviceUpdating
+                    ? t('common.saving', 'Saving')
+                    : sharedDeviceEnabled
+                    ? t('common.disable', 'Disable')
+                    : t('common.enable', 'Enable')}
                 </Button>
               </div>
-              {(sharedDeviceMessage || sharedDeviceEnabled) && (
-                <p className="mt-3 rounded-lg bg-muted p-3 text-xs text-muted-foreground">
-                  {sharedDeviceMessage || t('staff.sharedDeviceBonded', { name: activeRestaurant?.name })}
-                </p>
-              )}
+              <p className="mt-3 rounded-lg bg-muted p-3 text-xs text-muted-foreground">
+                {sharedDeviceMessage ||
+                  (sharedDeviceEnabled
+                    ? thisDeviceBonded
+                      ? t('staff.sharedDeviceBonded', { name: activeRestaurant?.name })
+                      : t(
+                          'staff.sharedDeviceModeEnabledMessage',
+                          'Shared Device Mode is on. Generate a fresh Staff Device QR to enroll a phone.',
+                        )
+                    : t(
+                        'staff.sharedDeviceModeDisabledMessage',
+                        'Shared Device Mode is off. Staff QR enrollment and PIN login are blocked.',
+                      ))}
+              </p>
             </section>
             )}
 
@@ -793,7 +873,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                   variant="outline"
                   size="sm"
                   onClick={handleGenerateDeviceEnrollment}
-                  disabled={deviceEnrollmentLoading || !activeRestaurant}
+                  disabled={deviceEnrollmentLoading || !activeRestaurant || !sharedDeviceEnabled}
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
                   {deviceEnrollmentLoading ? t('staff.generating') : 'New'}

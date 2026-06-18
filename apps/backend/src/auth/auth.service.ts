@@ -513,7 +513,13 @@ export class AuthService {
     // H2.2 — Gate pinLogin on POS tier before device check.
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: { id: true, tier: true, forceTier: true, isActive: true },
+      select: {
+        id: true,
+        tier: true,
+        forceTier: true,
+        isActive: true,
+        sharedDeviceModeEnabled: true,
+      },
     });
     if (!restaurant) {
       throw new NotFoundException('Restaurant not found');
@@ -526,6 +532,13 @@ export class AuthService {
       throw new ForbiddenException({
         code: 'RESTAURANT_SUSPENDED',
         message: 'This restaurant has been suspended',
+      });
+    }
+    if (restaurant.sharedDeviceModeEnabled === false) {
+      throw new ForbiddenException({
+        code: 'SHARED_DEVICE_MODE_DISABLED',
+        message:
+          'Shared Device Mode is off. Ask a manager to enable it before staff PIN login.',
       });
     }
 

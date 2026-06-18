@@ -83,6 +83,7 @@ describe('DeviceEnrollmentService', () => {
         id: 'rest1',
         name: 'Test',
         ownerId: 'user1',
+        sharedDeviceModeEnabled: true,
       });
       mockPrisma.user.findUnique.mockResolvedValue({
         role: 'OWNER',
@@ -102,11 +103,30 @@ describe('DeviceEnrollmentService', () => {
       expect(mockTokenStore.create).toHaveBeenCalled();
     });
 
+    it('throws ForbiddenException when Shared Device Mode is off', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest1',
+        name: 'Test',
+        ownerId: 'user1',
+        sharedDeviceModeEnabled: false,
+      });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        role: 'OWNER',
+        restaurantId: null,
+      });
+
+      await expect(
+        service.createEnrollment('rest1', 'user1', 'http://localhost:3001'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockTokenStore.create).not.toHaveBeenCalled();
+    });
+
     it('creates token for an assigned MANAGER', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         id: 'rest1',
         name: 'Test',
         ownerId: 'owner1',
+        sharedDeviceModeEnabled: true,
       });
       mockPrisma.user.findUnique.mockResolvedValue({
         role: 'MANAGER',
@@ -185,9 +205,14 @@ describe('DeviceEnrollmentService', () => {
       mockTokenStore.updateMany.mockResolvedValue({ count: 1 });
       mockTokenStore.findUnique.mockResolvedValue({
         id: 'tok1',
-        usedAt: new Date(),
+        usedAt: null,
         expiresAt: new Date(Date.now() + 60_000),
-        restaurant: { id: 'rest1', name: 'Test Restaurant' },
+        revokedAt: null,
+        restaurant: {
+          id: 'rest1',
+          name: 'Test Restaurant',
+          sharedDeviceModeEnabled: true,
+        },
       });
 
       const result = await service.verifyEnrollment('valid-token');
@@ -214,6 +239,25 @@ describe('DeviceEnrollmentService', () => {
       await expect(service.verifyEnrollment('valid-token')).rejects.toThrow(
         GoneException,
       );
+    });
+
+    it('throws ForbiddenException without consuming token when Shared Device Mode is off', async () => {
+      mockTokenStore.findUnique.mockResolvedValue({
+        id: 'tok1',
+        usedAt: null,
+        expiresAt: new Date(Date.now() + 60_000),
+        revokedAt: null,
+        restaurant: {
+          id: 'rest1',
+          name: 'Test Restaurant',
+          sharedDeviceModeEnabled: false,
+        },
+      });
+
+      await expect(service.verifyEnrollment('valid-token')).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(mockTokenStore.updateMany).not.toHaveBeenCalled();
     });
   });
 
