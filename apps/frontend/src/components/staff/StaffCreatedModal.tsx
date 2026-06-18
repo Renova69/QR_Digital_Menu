@@ -30,7 +30,15 @@ export default function StaffCreatedModal({
   const { t } = useTranslation();
   const [pinCopied, setPinCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [pinVisible, setPinVisible] = useState(true);
   const [timeLeft, setTimeLeft] = useState("");
+
+  useEffect(() => {
+    if (!open || !rawPin) return;
+    setPinVisible(true);
+    const timer = setTimeout(() => setPinVisible(false), 30000);
+    return () => clearTimeout(timer);
+  }, [open, rawPin]);
 
   useEffect(() => {
     if (!open || !expiresAt) return;
@@ -168,18 +176,22 @@ export default function StaffCreatedModal({
             <p className="text-sm text-muted-foreground mb-1">
               {t("staff.created.pinFor", { name: staffName })}
             </p>
-            <p className="text-3xl font-mono font-bold text-foreground tracking-widest select-all">
-              {rawPin}
+            <p className={`text-3xl font-mono font-bold text-foreground tracking-widest ${pinVisible ? "select-all" : ""}`}>
+              {pinVisible ? rawPin : "****"}
             </p>
             <p className="text-xs text-muted-foreground mt-2">
               {t("staff.created.copyPinWarning")}
             </p>
             <button
-              onClick={handleCopyPin}
+              onClick={pinVisible ? handleCopyPin : () => setPinVisible(true)}
               className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline"
             >
               <FontAwesomeIcon icon={pinCopied ? faCheck : faCopy} />
-              {pinCopied ? t("staff.created.copied") : t("staff.created.copyPin")}
+              {pinVisible
+                ? pinCopied
+                  ? t("staff.created.copied")
+                  : t("staff.created.copyPin")
+                : t("staff.created.revealPin", "Reveal PIN")}
             </button>
           </div>
         )}

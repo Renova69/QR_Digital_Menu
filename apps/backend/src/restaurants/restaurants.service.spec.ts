@@ -17,6 +17,7 @@ describe('RestaurantsService', () => {
   let mockTranslation: any;
   let mockStripe: any;
   let mockFeature: any;
+  let mockDeviceEnrollment: any;
 
   beforeEach(() => {
     mockPrisma = {
@@ -70,11 +71,16 @@ describe('RestaurantsService', () => {
       }),
     };
 
+    mockDeviceEnrollment = {
+      revokeRestaurantDevices: jest.fn().mockResolvedValue({ success: true, count: 0 }),
+    };
+
     service = new RestaurantsService(
       mockPrisma,
       mockTranslation,
       mockStripe,
       mockFeature,
+      mockDeviceEnrollment,
     );
   });
 
@@ -328,6 +334,27 @@ describe('RestaurantsService', () => {
       await expect(
         service.update('rest1', {} as any, 'waiter1'),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('revokes shared-device tokens when Shared Device Mode is disabled', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ sharedDeviceModeEnabled: true }),
+      );
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
+      mockPrisma.restaurant.update.mockResolvedValue(
+        makeRestaurant({ sharedDeviceModeEnabled: false }),
+      );
+
+      await service.update(
+        'rest1',
+        { sharedDeviceModeEnabled: false } as any,
+        'user1',
+      );
+
+      expect(mockDeviceEnrollment.revokeRestaurantDevices).toHaveBeenCalledWith('rest1');
     });
   });
 

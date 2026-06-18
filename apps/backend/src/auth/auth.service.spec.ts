@@ -77,6 +77,18 @@ describe('AuthService', () => {
         }),
         update: jest.fn().mockResolvedValue({}),
       },
+      staffDeviceBinding: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        count: jest.fn().mockResolvedValue(0),
+        create: jest.fn().mockResolvedValue({}),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      staffPinLoginAudit: {
+        create: jest.fn().mockResolvedValue({}),
+      },
+      $transaction: jest
+        .fn()
+        .mockImplementation((fn: (tx: any) => Promise<any>) => fn(mockPrisma)),
     };
     mockUsersService = {
       findByEmail: jest.fn(),
@@ -344,6 +356,10 @@ describe('AuthService', () => {
       expect(where.role.in).not.toContain('OWNER');
       expect(where.role.in).not.toContain('MANAGER');
       expect(where.role.in).not.toContain('STAFF');
+      expect(where.isActive).toBe(true);
+      expect(mockPrisma.user.findMany.mock.calls[0][0].orderBy).toEqual({
+        createdAt: 'asc',
+      });
     });
 
     it('throws HttpException(429) when device is locked (M2.1 per-device lockout)', async () => {
@@ -384,7 +400,53 @@ describe('AuthService', () => {
           data: { pinAttempts: 0, pinLockedUntil: null },
         }),
       );
+      expect(mockPrisma.staffDeviceBinding.create).toHaveBeenCalledWith({
+        data: {
+          userId: staff.id,
+          deviceTokenId: 'device-token-1',
+          restaurantId: 'rest1',
+          lastSeenAt: expect.any(Date),
+        },
+      });
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: staff.id },
+        data: { lastLoginDeviceTokenId: 'device-token-1' },
+      });
+      expect(mockPrisma.staffPinLoginAudit.create).toHaveBeenCalledWith({
+        data: {
+          userId: staff.id,
+          deviceTokenId: 'device-token-1',
+          restaurantId: 'rest1',
+          status: 'SUCCESS',
+        },
+      });
       expect(mockPrisma.user.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects a new device when the staff member is already bound to the device limit', async () => {
+      mockCompare.mockResolvedValue(true);
+      const staff = makeUser({
+        id: 'staff-1',
+        pinHash: 'hashed-pin',
+        role: 'WAITER',
+        restaurantId: 'rest1',
+      });
+      mockPrisma.user.findMany.mockResolvedValue([staff]);
+      mockPrisma.staffDeviceBinding.count.mockResolvedValue(3);
+
+      await expect(
+        service.pinLogin('rest1', '1234', deviceToken),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.staffPinLoginAudit.create).toHaveBeenCalledWith({
+        data: {
+          userId: 'staff-1',
+          deviceTokenId: 'device-token-1',
+          restaurantId: 'rest1',
+          status: 'DENIED_DEVICE_LIMIT',
+        },
+      });
+      expect(mockJwt.sign).not.toHaveBeenCalled();
     });
 
     it('returns the generic "Invalid PIN." message for a disabled staff account (#D)', async () => {
@@ -420,6 +482,13 @@ describe('AuthService', () => {
           data: expect.objectContaining({ pinAttempts: 1 }),
         }),
       );
+      expect(mockPrisma.staffPinLoginAudit.create).toHaveBeenCalledWith({
+        data: {
+          deviceTokenId: 'device-token-1',
+          restaurantId: 'rest1',
+          status: 'INVALID_PIN',
+        },
+      });
       expect(mockPrisma.user.updateMany).not.toHaveBeenCalled();
     });
 

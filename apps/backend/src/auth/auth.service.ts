@@ -18,6 +18,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 
+const STAFF_DEVICE_LIMIT = 3;
+
+type PinLoginMeta = {
+  ipAddress?: string;
+  userAgent?: string;
+};
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -291,6 +298,97 @@ export class AuthService {
     return createHash('sha256').update(token).digest('hex');
   }
 
+  private async recordPinLoginAudit(data: {
+    userId?: string;
+    deviceTokenId: string;
+    restaurantId: string;
+    status: string;
+    ipAddress?: string;
+    userAgent?: string;
+  }) {
+    await (this.prisma as any).staffPinLoginAudit.create({ data });
+  }
+
+  private async recordSuccessfulStaffDeviceLogin(
+    user: { id: string },
+    restaurantId: string,
+    deviceTokenId: string,
+    meta: PinLoginMeta,
+  ) {
+    const bindingStore = (this.prisma as any).staffDeviceBinding;
+    const bindingKey = {
+      userId_deviceTokenId: { userId: user.id, deviceTokenId },
+    };
+    const existingBinding = await bindingStore.findUnique({
+      where: bindingKey,
+      select: { id: true },
+    });
+
+    if (!existingBinding) {
+      const activeDeviceCount = await bindingStore.count({
+        where: {
+          userId: user.id,
+          restaurantId,
+          deviceToken: {
+            usedAt: { not: null },
+            revokedAt: null,
+          },
+        },
+      });
+
+      if (activeDeviceCount >= STAFF_DEVICE_LIMIT) {
+        await this.recordPinLoginAudit({
+          userId: user.id,
+          deviceTokenId,
+          restaurantId,
+          status: 'DENIED_DEVICE_LIMIT',
+          ...meta,
+        });
+        throw new ForbiddenException({
+          code: 'STAFF_DEVICE_LIMIT_REACHED',
+          message: `This staff member is already linked to ${STAFF_DEVICE_LIMIT} devices. Ask a manager to revoke an old device before logging in here.`,
+        });
+      }
+    }
+
+    const now = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      const txAny = tx as any;
+      await tx.deviceEnrollmentToken.update({
+        where: { id: deviceTokenId },
+        data: { pinAttempts: 0, pinLockedUntil: null },
+      });
+      if (existingBinding) {
+        await txAny.staffDeviceBinding.update({
+          where: bindingKey,
+          data: { lastSeenAt: now },
+        });
+      } else {
+        await txAny.staffDeviceBinding.create({
+          data: {
+            userId: user.id,
+            deviceTokenId,
+            restaurantId,
+            lastSeenAt: now,
+          },
+        });
+      }
+      await txAny.user.update({
+        where: { id: user.id },
+        data: { lastLoginDeviceTokenId: deviceTokenId },
+      });
+      await txAny.staffPinLoginAudit.create({
+        data: {
+          userId: user.id,
+          deviceTokenId,
+          restaurantId,
+          status: 'SUCCESS',
+          ...meta,
+        },
+      });
+    });
+  }
+
   private async issueEmailVerificationCode(
     email: string,
     subject = 'Your verification code',
@@ -502,7 +600,12 @@ export class AuthService {
     // OTP is an auth factor — must use a CSPRNG, not Math.random (#9).
   }
 
-  async pinLogin(restaurantId: string, pin: string, deviceToken: string) {
+  async pinLogin(
+    restaurantId: string,
+    pin: string,
+    deviceToken: string,
+    meta: PinLoginMeta = {},
+  ) {
     // Only device/floor roles authenticate by PIN. Dashboard roles
     // (OWNER/MANAGER/STAFF) are excluded so a 4-digit PIN can never mint a JWT
     // for a privileged dashboard account. Source of truth: users/staff-roles.ts.
@@ -569,7 +672,11 @@ export class AuthService {
         (enrolledDevice.pinLockedUntil.getTime() - Date.now()) / 60000,
       );
       throw new HttpException(
-        `Too many attempts. Try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`,
+        {
+          message: `Too many attempts. Try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`,
+          attemptsRemaining: 0,
+          lockedUntil: enrolledDevice.pinLockedUntil.toISOString(),
+        },
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
@@ -579,7 +686,9 @@ export class AuthService {
         role: { in: staffRoles as any },
         restaurantId,
         pinHash: { not: null },
+        isActive: true,
       },
+      orderBy: { createdAt: 'asc' },
     });
 
     if (candidates.length === 0) {
@@ -592,17 +701,18 @@ export class AuthService {
       const valid = await bcrypt.compare(pin, user.pinHash!);
       if (!valid) continue;
 
-      if (user.isActive === false || user.disabledAt) {
+      if (user.disabledAt) {
         // Generic message — a distinct "disabled" error after a correct PIN
         // match would let an attacker confirm a valid PIN via enumeration.
         throw new UnauthorizedException('Invalid PIN.');
       }
 
-      // Successful login — reset device attempt counter
-      await this.prisma.deviceEnrollmentToken.update({
-        where: { id: enrolledDevice.id },
-        data: { pinAttempts: 0, pinLockedUntil: null },
-      });
+      await this.recordSuccessfulStaffDeviceLogin(
+        user,
+        restaurantId,
+        enrolledDevice.id,
+        meta,
+      );
 
       const payload = {
         email: user.email,
@@ -623,28 +733,39 @@ export class AuthService {
 
     // Failed attempt — increment per-device counter only.
     const attempts = (enrolledDevice.pinAttempts ?? 0) + 1;
+    const lockedUntil =
+      attempts >= MAX_ATTEMPTS
+        ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000)
+        : null;
     await this.prisma.deviceEnrollmentToken.update({
       where: { id: enrolledDevice.id },
       data: {
         pinAttempts: attempts,
         ...(attempts >= MAX_ATTEMPTS
-          ? {
-              pinLockedUntil: new Date(
-                Date.now() + LOCKOUT_MINUTES * 60 * 1000,
-              ),
-            }
+          ? { pinLockedUntil: lockedUntil }
           : {}),
       },
+    });
+    await this.recordPinLoginAudit({
+      deviceTokenId: enrolledDevice.id,
+      restaurantId,
+      status: attempts >= MAX_ATTEMPTS ? 'LOCKED' : 'INVALID_PIN',
+      ...meta,
     });
 
     const remaining = MAX_ATTEMPTS - attempts;
     if (remaining > 0) {
-      throw new UnauthorizedException(
-        `Invalid PIN. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`,
-      );
+      throw new UnauthorizedException({
+        message: `Invalid PIN. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`,
+        attemptsRemaining: remaining,
+      });
     }
     throw new HttpException(
-      `Too many attempts. Try again in ${LOCKOUT_MINUTES} minutes.`,
+      {
+        message: `Too many attempts. Try again in ${LOCKOUT_MINUTES} minutes.`,
+        attemptsRemaining: 0,
+        lockedUntil: lockedUntil?.toISOString(),
+      },
       HttpStatus.TOO_MANY_REQUESTS,
     );
   }

@@ -28,6 +28,7 @@ import {
   listStaff,
   removeStaff,
   resetStaffPin,
+  revokeDeviceEnrollment,
   updateRestaurant,
   updateStaff,
   type StaffMember,
@@ -43,12 +44,14 @@ type DeviceEnrollment = {
   createdAt: string;
   expiresAt: string;
   usedAt: string | null;
+  revokedAt: string | null;
   createdBy: { id: string; name: string | null; email: string };
 };
 
 interface Restaurant {
   id: string;
   name: string;
+  timezone?: string | null;
   sharedDeviceModeEnabled?: boolean;
 }
 
@@ -94,19 +97,45 @@ const rolePermissions: Record<string, { key: string; label: string }[]> = {
   ],
 };
 
-const formatDateTime = (value?: string | null) => {
+const formatDateTime = (value?: string | null, timeZone?: string | null) => {
   if (!value) return '—';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleString([], {
+  const options: Intl.DateTimeFormatOptions = {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-  });
+    ...(timeZone ? { timeZone } : {}),
+  };
+  try {
+    return date.toLocaleString([], options);
+  } catch {
+    const { timeZone: _timeZone, ...fallbackOptions } = options;
+    return date.toLocaleString([], fallbackOptions);
+  }
 };
 
-const displayEmail = (email: string) => (email?.endsWith('.local') ? '-' : email);
+const displayEmail = (email: string) => {
+  const domain = email?.split('@')[1] ?? '';
+  return domain.endsWith('.local') ? '-' : email;
+};
+
+type DeviceEnrollmentStatus = 'pending' | 'used' | 'expired' | 'revoked';
+
+const getEnrollmentStatus = (enrollment: DeviceEnrollment): DeviceEnrollmentStatus => {
+  if (enrollment.revokedAt) return 'revoked';
+  if (enrollment.usedAt) return 'used';
+  if (new Date(enrollment.expiresAt).getTime() <= Date.now()) return 'expired';
+  return 'pending';
+};
+
+const enrollmentStatusClasses: Record<DeviceEnrollmentStatus, string> = {
+  pending: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+  used: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  expired: 'bg-slate-500/10 text-slate-600 dark:text-slate-400',
+  revoked: 'bg-destructive/10 text-destructive',
+};
 
 const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant }) => {
   const { t } = useTranslation();
@@ -162,6 +191,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
   const [deviceEnrollmentCopied, setDeviceEnrollmentCopied] = useState(false);
   const [deviceEnrollments, setDeviceEnrollments] = useState<DeviceEnrollment[]>([]);
   const [deviceEnrollmentsLoading, setDeviceEnrollmentsLoading] = useState(false);
+  const [revokingEnrollmentId, setRevokingEnrollmentId] = useState<string | null>(null);
 
   const [staffCreatedModal, setStaffCreatedModal] = useState<{
     open: boolean;
@@ -177,6 +207,20 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
   useEffect(() => {
     setSharedDeviceOverride(null);
   }, [activeRestaurant?.id, activeRestaurant?.sharedDeviceModeEnabled]);
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== 'sharedDevice') return;
+      try {
+        setSharedDeviceConfig(event.newValue ? JSON.parse(event.newValue) : null);
+      } catch {
+        localStorage.removeItem('sharedDevice');
+        setSharedDeviceConfig(null);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   const sharedDeviceEnabled =
     sharedDeviceOverride ?? activeRestaurant?.sharedDeviceModeEnabled === true;
@@ -356,6 +400,22 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
       setStaffMembers((prev) =>
         prev.map((item) => (item.id === member.id ? { ...item, ...updated } : item)),
       );
+      let enrollmentUrl = '';
+      let expiresAt = '';
+      let enrollmentError = '';
+      if (updated.rawPin && canPos && isPinRole(nextRole)) {
+        if (!sharedDeviceEnabled) {
+          enrollmentError = sharedDeviceModeOffMessage;
+        } else {
+          try {
+            const enrollment = await createDeviceEnrollment(activeRestaurant.id);
+            enrollmentUrl = enrollment.enrollmentUrl;
+            expiresAt = enrollment.expiresAt;
+          } catch (err: any) {
+            enrollmentError = err.response?.data?.message || err.message || t('staff.failedGenerateQr');
+          }
+        }
+      }
       // Changing to a device role (WAITER/KITCHEN) mints a new PIN — surface it.
       if (updated.rawPin) {
         setStaffCreatedModal({
@@ -363,11 +423,12 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
           staffName: updated.name || member.name || 'Staff',
           staffEmail: updated.email || member.email || '',
           rawPin: updated.rawPin,
-          enrollmentUrl: '',
-          expiresAt: '',
-          enrollmentError: '',
+          enrollmentUrl,
+          expiresAt,
+          enrollmentError,
         });
       }
+      if (canPos) await fetchDeviceEnrollments();
     } catch (err: any) {
       setStaffError(err.response?.data?.message || t('staff.failedUpdate'));
       await fetchStaff();
@@ -439,7 +500,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
     setBusyStaffId(member.id);
     setStaffError('');
     try {
-      await removeStaff(activeRestaurant.id, member.id);
+      await removeStaff(activeRestaurant.id, member.id, { hard: true });
       setStaffMembers((prev) => prev.filter((item) => item.id !== member.id));
     } catch (err: any) {
       setStaffError(err.response?.data?.message || t('staff.failedRemove'));
@@ -460,17 +521,18 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
     setBusyStaffId(member.id);
     setDeviceEnrollmentError('');
     try {
-      const result = await createDeviceEnrollment(activeRestaurant.id);
+      const reset = await resetStaffPin(activeRestaurant.id, member.id);
+      const enrollment = await createDeviceEnrollment(activeRestaurant.id);
       setStaffCreatedModal({
         open: true,
-        staffName: member.name || 'Staff',
-        staffEmail: member.email,
-        rawPin: '',
-        enrollmentUrl: result.enrollmentUrl,
-        expiresAt: result.expiresAt,
+        staffName: reset.user.name || member.name || 'Staff',
+        staffEmail: reset.user.email || member.email,
+        rawPin: reset.rawPin,
+        enrollmentUrl: enrollment.enrollmentUrl,
+        expiresAt: enrollment.expiresAt,
         enrollmentError: '',
       });
-      await fetchDeviceEnrollments();
+      await Promise.all([fetchStaff(), fetchDeviceEnrollments()]);
     } catch (err: any) {
       setDeviceEnrollmentError(err.response?.data?.message || t('staff.failedRebond'));
     } finally {
@@ -501,6 +563,20 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
       setDeviceEnrollmentError(err.response?.data?.message || t('staff.failedGenerateQr'));
     } finally {
       setDeviceEnrollmentLoading(false);
+    }
+  };
+
+  const handleRevokeDeviceEnrollment = async (enrollment: DeviceEnrollment) => {
+    if (!activeRestaurant || enrollment.revokedAt) return;
+    setRevokingEnrollmentId(enrollment.id);
+    setDeviceEnrollmentError('');
+    try {
+      await revokeDeviceEnrollment(activeRestaurant.id, enrollment.id);
+      await fetchDeviceEnrollments();
+    } catch (err: any) {
+      setDeviceEnrollmentError(err.response?.data?.message || t('staff.failedRevokeDevice', 'Failed to revoke device session.'));
+    } finally {
+      setRevokingEnrollmentId(null);
     }
   };
 
@@ -538,7 +614,10 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
         setDeviceEnrollmentExpiresAt('');
       }
 
-      await fetchRestaurants();
+      await Promise.all([
+        fetchRestaurants(),
+        ...(canPos ? [fetchDeviceEnrollments()] : []),
+      ]);
     } catch (err: any) {
       setDeviceEnrollmentError(
         err.response?.data?.message || err.message || t('staff.failedUpdateSharedDeviceMode', 'Failed to update Shared Device Mode.'),
@@ -703,7 +782,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                         <tr key={member.id} className="border-t border-border">
                           <td className="px-4 py-3">
                             <p className="font-medium text-foreground">{member.name || t('staff.unnamedStaff')}</p>
-                            <p className="text-xs text-muted-foreground">{t('staff.createdAt', { date: formatDateTime(member.createdAt) })}</p>
+                            <p className="text-xs text-muted-foreground">{t('staff.createdAt', { date: formatDateTime(member.createdAt, activeRestaurant.timezone) })}</p>
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">{displayEmail(member.email)}</td>
                           <td className="px-4 py-3">
@@ -731,7 +810,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                               {isInactive ? 'Inactive' : 'Active'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">{formatDateTime(member.updatedAt)}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{formatDateTime(member.updatedAt, activeRestaurant.timezone)}</td>
                           <td className="relative px-4 py-3 text-right">
                             <button
                               type="button"
@@ -759,7 +838,7 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                                     {t('staff.actionResetPin')}
                                   </button>
                                 )}
-                                {canPos && (
+                                {canPos && isPinRole(member.role) && (
                                   <button
                                     type="button"
                                     onClick={() => handleRebondStaff(member)}
@@ -913,21 +992,45 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                 ) : deviceEnrollments.length === 0 ? (
                   <p className="text-sm text-muted-foreground">{t('staff.deviceSessionsEmpty')}</p>
                 ) : (
-                  deviceEnrollments.slice(0, 5).map((enrollment) => (
-                    <div key={enrollment.id} className="rounded-lg bg-muted/40 p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-xs font-semibold text-foreground">
-                          {enrollment.usedAt ? t('staff.deviceStatusUsed') : t('staff.deviceStatusPending')}
+                  deviceEnrollments.slice(0, 5).map((enrollment) => {
+                    const status = getEnrollmentStatus(enrollment);
+                    const statusLabel =
+                      status === 'revoked'
+                        ? t('staff.deviceStatusRevoked', 'Revoked')
+                        : status === 'expired'
+                        ? t('staff.deviceStatusExpired', 'Expired')
+                        : status === 'used'
+                        ? t('staff.deviceStatusUsed')
+                        : t('staff.deviceStatusPending');
+                    return (
+                      <div key={enrollment.id} className="rounded-lg bg-muted/40 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${enrollmentStatusClasses[status]}`}>
+                            {statusLabel}
+                          </span>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDateTime(enrollment.revokedAt || enrollment.usedAt || enrollment.createdAt, activeRestaurant.timezone)}
+                          </p>
+                        </div>
+                        <p className="mt-2 truncate text-xs text-muted-foreground">
+                          {t('staff.deviceSessionBy', { name: enrollment.createdBy.name || displayEmail(enrollment.createdBy.email) })}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDateTime(enrollment.usedAt || enrollment.createdAt)}
-                        </p>
+                        {!enrollment.revokedAt && (
+                          <button
+                            type="button"
+                            onClick={() => handleRevokeDeviceEnrollment(enrollment)}
+                            disabled={revokingEnrollmentId === enrollment.id}
+                            className="mt-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                          >
+                            <UserX className="h-3.5 w-3.5" />
+                            {revokingEnrollmentId === enrollment.id
+                              ? t('common.saving', 'Saving')
+                              : t('staff.actionRevokeDevice', 'Revoke')}
+                          </button>
+                        )}
                       </div>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {t('staff.deviceSessionBy', { name: enrollment.createdBy.name || displayEmail(enrollment.createdBy.email) })}
-                      </p>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </section>}

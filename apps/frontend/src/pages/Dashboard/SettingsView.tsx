@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { useFeature, useTier } from "../../hooks/useFeature";
 import BillingView from "../../components/subscription/BillingView";
 import { BrandingEditor } from "../../components/ui/BrandingEditor";
+import { useAuth } from "../../context/AuthContext";
 import { useRestaurantContext } from "../../context/RestaurantContext";
 import {
   GeneralSettingsTab,
@@ -17,6 +18,7 @@ type SettingsTab = "general" | "loyalty" | "payments" | "staff" | "branding" | "
 
 const SettingsView = () => {
   const { activeRestaurant, fetchRestaurants } = useRestaurantContext();
+  const { user } = useAuth();
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const canLoyalty = useFeature("loyalty");
@@ -24,6 +26,7 @@ const SettingsView = () => {
   const canBranding = useFeature("branding:custom");
   const { tier, allowedStaffRoles, isLoading } = useTier();
   const isFree = tier === "FREE";
+  const canManageStaff = user?.role === "OWNER" || user?.role === "MANAGER";
 
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
     const tab = searchParams.get("settingsTab") as SettingsTab | null;
@@ -38,7 +41,7 @@ const SettingsView = () => {
     // (with "settings preserved") when canLoyalty is false (#5).
     { id: "loyalty", label: t("settings.tabs.loyalty"), visible: !isFree },
     { id: "payments", label: t("settings.tabs.payments"), visible: canPayments },
-    { id: "staff", label: t("settings.tabs.staff"), visible: allowedStaffRoles.length > 0 },
+    { id: "staff", label: t("settings.tabs.staff"), visible: canManageStaff && allowedStaffRoles.length > 0 },
     // Visible to all non-free tiers as an upsell; content shows locked state when canBranding is false
     { id: "branding", label: t("settings.tabs.branding", "Branding"), visible: !isFree },
     { id: "subscription", label: t("settings.tabs.subscription"), visible: true },
@@ -53,6 +56,12 @@ const SettingsView = () => {
       setActiveTab(tab);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!tabs.some((tab) => tab.id === activeTab && tab.visible)) {
+      setActiveTab("general");
+    }
+  }, [activeTab, tabs]);
 
   if (isLoading) {
     return (

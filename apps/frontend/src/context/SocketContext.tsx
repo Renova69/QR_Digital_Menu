@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 
@@ -16,8 +16,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isConnected, setIsConnected] = useState(false);
   // Reconnect when auth identity changes so the handshake re-runs with the
   // current `token` cookie — dashboard room joins require an authed handshake.
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const logoutRef = useRef(logout);
   const userId = user?.id ?? null;
+
+  useEffect(() => {
+    logoutRef.current = logout;
+  }, [logout]);
 
   useEffect(() => {
     // Dev: same-origin via Vite proxy. Production: connect directly to backend.
@@ -44,6 +49,20 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socketInstance.on('disconnect', () => {
       console.log('Socket disconnected');
       setIsConnected(false);
+    });
+
+    socketInstance.on('auth:evicted', (reason: string) => {
+      console.warn('Socket auth evicted:', reason);
+      if (reason === 'device_revoked' || reason === 'shared_device_mode_disabled') {
+        localStorage.removeItem('sharedDevice');
+      }
+      void logoutRef.current().finally(() => {
+        window.location.assign(
+          reason === 'device_revoked' || reason === 'shared_device_mode_disabled'
+            ? '/device-login'
+            : '/login',
+        );
+      });
     });
 
     setSocket(socketInstance);

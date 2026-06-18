@@ -7,6 +7,7 @@ import RestaurantContext from "../../context/RestaurantContext";
 import { updateRestaurant } from "../../lib/api";
 
 const mockT = vi.fn((key: string) => key);
+const mockAuthState = vi.hoisted(() => ({ role: "OWNER" }));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: mockT }),
@@ -14,7 +15,7 @@ vi.mock("react-i18next", () => ({
 
 vi.mock("../../context/AuthContext", () => ({
   useAuth: () => ({
-    user: { id: "u1", role: "OWNER", restaurantId: "rest-1", email: "owner@test.com" },
+    user: { id: "u1", role: mockAuthState.role, restaurantId: "rest-1", email: "owner@test.com" },
     isAuthenticated: true,
   }),
 }));
@@ -53,6 +54,7 @@ vi.mock("../../lib/api", () => ({
   resetStaffPin: vi.fn(),
   updateStaff: vi.fn(),
   createDeviceEnrollment: vi.fn(),
+  revokeDeviceEnrollment: vi.fn(),
 }));
 
 vi.mock("../../components/ui/BrandingEditor", () => ({
@@ -108,6 +110,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   for (const k of Object.keys(store)) delete store[k];
+  mockAuthState.role = "OWNER";
   vi.clearAllMocks();
   vi.mocked(updateRestaurant).mockResolvedValue({
     ...mockRestaurant,
@@ -124,6 +127,12 @@ describe("SettingsView - Staff tab", () => {
     render(<SettingsView />, { wrapper });
     fireEvent.click(screen.getByText("settings.tabs.staff"));
     expect(screen.queryByText("staff.sharedDeviceMode")).toBeTruthy();
+  });
+
+  it("hides the Staff tab for STAFF users", () => {
+    mockAuthState.role = "STAFF";
+    render(<SettingsView />, { wrapper });
+    expect(screen.queryByText("settings.tabs.staff")).toBeNull();
   });
 
   it("shows Enable Shared Device Mode button when mode is off", () => {

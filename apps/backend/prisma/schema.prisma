@@ -23,6 +23,7 @@ model User {
   passwordChangedAt             DateTime?
   role                          UserRole                @default(STAFF)
   restaurantId                  String?
+  lastLoginDeviceTokenId        String?
   onboardingComplete            Boolean                 @default(false)
   onboardingStep                String?
   createdAt                     DateTime                @default(now())
@@ -30,6 +31,8 @@ model User {
   orders                        Order[]
   staffOrders                   Order[]                 @relation("StaffOrders")
   createdDeviceEnrollmentTokens DeviceEnrollmentToken[]
+  staffDeviceBindings           StaffDeviceBinding[]
+  lastLoginDeviceToken          DeviceEnrollmentToken?   @relation("LastStaffDeviceLogin", fields: [lastLoginDeviceTokenId], references: [id], onDelete: SetNull)
   loyaltyAccounts               LoyaltyAccount[]
   restaurants                   Restaurant[]            @relation("OwnedRestaurants")
   staffRestaurant               Restaurant?             @relation("StaffRestaurant", fields: [restaurantId], references: [id])
@@ -125,6 +128,7 @@ model Restaurant {
   deletedAt                 DateTime?
   assistanceRequests        AssistanceRequest[]
   deviceEnrollmentTokens    DeviceEnrollmentToken[]
+  staffDeviceBindings       StaffDeviceBinding[]
   orders                    Order[]
   feedbacks                 Feedback[]
   loyaltyAccounts           LoyaltyAccount[]
@@ -387,10 +391,45 @@ model DeviceEnrollmentToken {
   createdAt      DateTime   @default(now())
   restaurant     Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   createdBy      User       @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  staffBindings  StaffDeviceBinding[]
+  lastLoginUsers User[]     @relation("LastStaffDeviceLogin")
 
   @@index([restaurantId])
   @@index([expiresAt])
   @@map("device_enrollment_token")
+}
+
+model StaffDeviceBinding {
+  id            String                @id @default(cuid())
+  userId        String
+  deviceTokenId String
+  restaurantId  String
+  firstSeenAt   DateTime              @default(now())
+  lastSeenAt    DateTime              @default(now())
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceToken   DeviceEnrollmentToken @relation(fields: [deviceTokenId], references: [id], onDelete: Cascade)
+  restaurant    Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceTokenId])
+  @@index([restaurantId, userId])
+  @@index([deviceTokenId])
+  @@map("staff_device_binding")
+}
+
+model StaffPinLoginAudit {
+  id            String   @id @default(cuid())
+  userId        String?
+  deviceTokenId String
+  restaurantId  String
+  status        String
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  @@index([restaurantId, createdAt])
+  @@index([userId, createdAt])
+  @@index([deviceTokenId, createdAt])
+  @@map("staff_pin_login_audit")
 }
 
 model Feedback {

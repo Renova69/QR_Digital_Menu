@@ -14,6 +14,7 @@ import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { stripBrandingFields } from './branding-fields';
 import { encryptSecret } from '../payment/secret-crypto';
+import { DeviceEnrollmentService } from './device-enrollment.service';
 
 const RESTAURANT_READ_SELECT = {
   id: true,
@@ -123,6 +124,7 @@ export class RestaurantsService {
     private readonly translationService: TranslationService,
     private readonly stripeProvider: StripeProvider,
     private readonly featureService: FeatureService,
+    private readonly deviceEnrollmentService: DeviceEnrollmentService,
   ) {}
 
   async create(createRestaurantDto: CreateRestaurantDto, userId: string) {
@@ -340,11 +342,20 @@ export class RestaurantsService {
       }
     }
 
+    const shouldRevokeSharedDevices =
+      data.sharedDeviceModeEnabled === false &&
+      restaurant.sharedDeviceModeEnabled !== false;
+
     const updated = await this.prisma.restaurant.update({
       where: { id },
       select: RESTAURANT_READ_SELECT,
       data,
     });
+
+    if (shouldRevokeSharedDevices) {
+      await this.deviceEnrollmentService.revokeRestaurantDevices(id);
+    }
+
     return this.toRestaurantReadDto(updated);
   }
 

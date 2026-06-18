@@ -40,6 +40,20 @@ export class UsersService {
     );
   }
 
+  private async getExistingPinHashes(
+    restaurantId: string,
+    excludeUserId?: string,
+  ) {
+    return this.prisma.user.findMany({
+      where: {
+        restaurantId,
+        pinHash: { not: null },
+        ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
+      },
+      select: { pinHash: true },
+    });
+  }
+
   async findByEmail(email: string): Promise<User | null> {
     const normalizedEmail = email.toLowerCase().trim();
     return this.prisma.user.findUnique({ where: { email: normalizedEmail } });
@@ -97,14 +111,11 @@ export class UsersService {
     // Issue 41: regenerate until the PIN is unique within this restaurant (max 20 tries).
     let rawPin: string | undefined;
     if (usePinCredential) {
-      // Fetch all existing PIN hashes for active staff in this restaurant once,
+      // Fetch all existing PIN hashes in this restaurant once,
       // then compare cheaply without re-querying on each attempt.
-      const existingPinHashes = await this.prisma.user.findMany({
-        where: { restaurantId, pinHash: { not: null }, isActive: true },
-        select: { pinHash: true },
-      });
-
-      rawPin = await this.generateUniquePin(existingPinHashes);
+      rawPin = await this.generateUniquePin(
+        await this.getExistingPinHashes(restaurantId),
+      );
     }
     const pinHash = rawPin ? await bcrypt.hash(rawPin, 10) : null;
 
@@ -114,7 +125,9 @@ export class UsersService {
     const tempPassword = crypto.randomBytes(6).toString('hex'); // 12-character random string
 
     const explicitEmail = !!data.email;
-    const baseEmail = data.email || `staff-${Date.now()}@${restaurantId}.local`;
+    const baseEmail =
+      data.email ||
+      `staff-${Date.now()}-${crypto.randomBytes(3).toString('hex')}@${restaurantId}.local`;
 
     const createData: Prisma.UserUncheckedCreateInput = {
       email: baseEmail.toLowerCase().trim(),
@@ -263,11 +276,9 @@ export class UsersService {
       if (isPinRole(data.role)) {
         // Issue 56: full 10 000-space entropy + padStart for leading zeros.
         // Issue 41: ensure PIN is unique within the restaurant.
-        const existingPinHashes = await this.prisma.user.findMany({
-          where: { restaurantId, pinHash: { not: null }, isActive: true },
-          select: { pinHash: true },
-        });
-        const generatedPin = await this.generateUniquePin(existingPinHashes);
+        const generatedPin = await this.generateUniquePin(
+          await this.getExistingPinHashes(restaurantId, userId),
+        );
         pinCredential = { rawPin: generatedPin, pinHash: await bcrypt.hash(generatedPin, 10) };
       } else {
         clearPin = true;
@@ -333,6 +344,7 @@ export class UsersService {
     restaurantId: string,
     userId: string,
     callerRole: string = 'OWNER',
+    callerUserId?: string,
   ) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, restaurantId },
@@ -357,21 +369,37 @@ export class UsersService {
 
     // Issue 56: full 10 000-space entropy + padStart for leading zeros.
     // Issue 41: ensure PIN is unique within the restaurant.
-    const existingPinHashes = await this.prisma.user.findMany({
-      where: {
-        restaurantId,
-        pinHash: { not: null },
-        isActive: true,
-        id: { not: userId }, // exclude the user being reset
-      },
-      select: { pinHash: true },
-    });
-    const rawPin = await this.generateUniquePin(existingPinHashes);
+    const rawPin = await this.generateUniquePin(
+      await this.getExistingPinHashes(restaurantId, userId),
+    );
     const pinHash = await bcrypt.hash(rawPin, 10);
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { pinHash, pinAttempts: 0, pinLockedUntil: null },
+    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          pinHash,
+          pinAttempts: 0,
+          pinLockedUntil: null,
+          passwordChangedAt: new Date(),
+        },
+      });
+
+      if (callerUserId) {
+        await tx.adminAuditLog.create({
+          data: {
+            actorUserId: callerUserId,
+            action: 'STAFF_PIN_RESET',
+            targetType: 'USER',
+            targetId: userId,
+            metadata: {
+              restaurantId,
+              targetRole: user.role,
+            },
+          },
+        });
+      }
     });
+    void this.events.evictUser(userId, 'pin_reset');
 
     return { user, rawPin };
   }
@@ -380,6 +408,8 @@ export class UsersService {
     restaurantId: string,
     userId: string,
     callerRole: string = 'OWNER',
+    callerUserId?: string,
+    hardDelete = false,
   ) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, restaurantId },
@@ -393,8 +423,51 @@ export class UsersService {
     if (user.role === 'MANAGER' && callerRole !== 'OWNER') {
       throw new ForbiddenException('Only owners can remove managers');
     }
-    await this.prisma.user.delete({ where: { id: userId } });
-    return { id: user.id, email: user.email, name: user.name, role: user.role };
+    const action = hardDelete ? 'STAFF_HARD_DELETE' : 'STAFF_SOFT_REMOVE';
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updatedOrDeleted = hardDelete
+        ? await tx.user.delete({ where: { id: userId } })
+        : await tx.user.update({
+            where: { id: userId },
+            data: {
+              isActive: false,
+              disabledAt: new Date(),
+              disabledReason: 'Removed by staff manager',
+              pinAttempts: 0,
+              pinLockedUntil: null,
+            },
+          });
+
+      if (callerUserId) {
+        await tx.adminAuditLog.create({
+          data: {
+            actorUserId: callerUserId,
+            action,
+            targetType: 'USER',
+            targetId: userId,
+            metadata: {
+              restaurantId,
+              targetRole: user.role,
+              hardDelete,
+            },
+          },
+        });
+      }
+
+      return updatedOrDeleted;
+    });
+
+    void this.events.evictUser(
+      userId,
+      hardDelete ? 'account_deleted' : 'account_removed',
+    );
+    return {
+      id: result.id,
+      email: result.email,
+      name: result.name,
+      role: result.role,
+      isActive: result.isActive,
+    };
   }
 
   async verifyRestaurantAccess(

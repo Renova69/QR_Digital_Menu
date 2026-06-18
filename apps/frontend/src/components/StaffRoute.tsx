@@ -39,6 +39,10 @@ export default function StaffRoute({ children }: { children: ReactElement }) {
     return <Navigate to="/profile" replace />;
   }
 
+  if (activeRestaurant?.isActive === false) {
+    return <Navigate to="/login" replace />;
+  }
+
   // L2.5 — If the restaurant's effective tier no longer includes POS, device
   // roles (WAITER/KITCHEN) should not reach the POS/KDS pages. The backend
   // already blocks pinLogin on downgrade (H2.2); this prevents a stale session

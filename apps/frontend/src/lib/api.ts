@@ -574,8 +574,14 @@ export const createStaff = async (
   };
 };
 
-export const removeStaff = async (restaurantId: string, userId: string) => {
-  const response = await api.delete(`/restaurants/${restaurantId}/staff/${userId}`);
+export const removeStaff = async (
+  restaurantId: string,
+  userId: string,
+  options: { hard?: boolean } = {},
+) => {
+  const response = await api.delete(`/restaurants/${restaurantId}/staff/${userId}`, {
+    params: options.hard ? { hard: true } : undefined,
+  });
   return response.data;
 };
 
@@ -611,8 +617,14 @@ export const listDeviceEnrollments = async (restaurantId: string) => {
     createdAt: string;
     expiresAt: string;
     usedAt: string | null;
+    revokedAt: string | null;
     createdBy: { id: string; name: string | null; email: string };
   }>;
+};
+
+export const revokeDeviceEnrollment = async (restaurantId: string, tokenId: string) => {
+  const response = await api.delete(`/restaurants/${restaurantId}/device-enrollments/${tokenId}`);
+  return response.data as { success: boolean; revokedAt: string };
 };
 
 export const verifyDeviceEnrollment = async (token: string) => {

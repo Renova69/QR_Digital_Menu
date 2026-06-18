@@ -170,6 +170,32 @@ export class DeviceEnrollmentService {
     return { success: true, revokedAt };
   }
 
+  async revokeRestaurantDevices(
+    restaurantId: string,
+    reason = 'shared_device_mode_disabled',
+  ) {
+    const revokedAt = new Date();
+    const tokens = await this.tokenStore.findMany({
+      where: { restaurantId, revokedAt: null },
+      select: { id: true },
+    });
+
+    if (tokens.length === 0) {
+      return { success: true, revokedAt, count: 0 };
+    }
+
+    await this.tokenStore.updateMany({
+      where: { restaurantId, revokedAt: null },
+      data: { revokedAt },
+    });
+
+    await Promise.all(
+      tokens.map((token) => this.eventsGateway.evictDeviceToken(token.id, reason)),
+    );
+
+    return { success: true, revokedAt, count: tokens.length };
+  }
+
   async verifyEnrollment(token: string) {
     const tokenHash = this.hashToken(token);
     const now = new Date();

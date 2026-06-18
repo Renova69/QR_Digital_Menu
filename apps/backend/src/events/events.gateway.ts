@@ -507,7 +507,7 @@ export class EventsGateway
   async evictUser(userId: string, reason = 'account_disabled'): Promise<void> {
     const all = await this.server.fetchSockets();
     for (const socket of all) {
-      if (socket.data.userId === userId) {
+      if (String(socket.data.userId) === String(userId)) {
         socket.emit('auth:evicted', reason);
         socket.disconnect();
       }
@@ -525,7 +525,7 @@ export class EventsGateway
   ): Promise<void> {
     const all = await this.server.fetchSockets();
     for (const socket of all) {
-      if (socket.data.deviceTokenId === deviceTokenId) {
+      if (String(socket.data.deviceTokenId) === String(deviceTokenId)) {
         socket.emit('auth:evicted', reason);
         socket.disconnect();
       }

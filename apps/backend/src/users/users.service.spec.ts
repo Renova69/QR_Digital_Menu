@@ -52,6 +52,9 @@ describe('UsersService', () => {
           tier: 'FREE',
         }),
       },
+      adminAuditLog: {
+        create: jest.fn().mockResolvedValue({}),
+      },
       $transaction: jest
         .fn()
         .mockImplementation((fn: (tx: any) => Promise<any>) => fn(prisma)),
@@ -360,6 +363,24 @@ describe('UsersService', () => {
       expect(mockBcryptCompare).toHaveBeenCalledTimes(2);
     });
 
+    it('checks inactive staff PIN hashes when generating a new PIN', async () => {
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.createStaffMember('rest-1', {
+        name: 'Waiter',
+        role: 'WAITER',
+      });
+
+      const pinLookupArgs = prisma.user.findMany.mock.calls.find(
+        ([args]: [any]) => args?.select?.pinHash,
+      )?.[0];
+      expect(pinLookupArgs.where).toMatchObject({
+        restaurantId: 'rest-1',
+        pinHash: { not: null },
+      });
+      expect(pinLookupArgs.where).not.toHaveProperty('isActive');
+    });
+
     it('throws ConflictException when all 20 attempts produce collisions', async () => {
       // Make every bcrypt.compare return true — every candidate PIN is a "duplicate"
       mockBcryptCompare.mockResolvedValue(true as never);
@@ -404,9 +425,13 @@ describe('UsersService', () => {
       expect(result.rawPin).toMatch(/^\d{4}$/);
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ pinHash: expect.any(String) }),
+          data: expect.objectContaining({
+            pinHash: expect.any(String),
+            passwordChangedAt: expect.any(Date),
+          }),
         }),
       );
+      expect(events.evictUser).toHaveBeenCalledWith('u', 'pin_reset');
     });
 
     it('refuses to set a PIN for a dashboard role (STAFF)', async () => {
@@ -431,6 +456,30 @@ describe('UsersService', () => {
       await expect(service.resetStaffPin('rest-1', 'u')).rejects.toThrow(
         ForbiddenException,
       );
+    });
+
+    it('writes an admin audit log when an actor resets a staff PIN', async () => {
+      prisma.user.findFirst.mockResolvedValue({
+        id: 'u',
+        name: 'W',
+        email: 'w@x',
+        role: 'WAITER',
+      });
+
+      await service.resetStaffPin('rest-1', 'u', 'OWNER', 'owner-1');
+
+      expect(prisma.adminAuditLog.create).toHaveBeenCalledWith({
+        data: {
+          actorUserId: 'owner-1',
+          action: 'STAFF_PIN_RESET',
+          targetType: 'USER',
+          targetId: 'u',
+          metadata: {
+            restaurantId: 'rest-1',
+            targetRole: 'WAITER',
+          },
+        },
+      });
     });
   });
 
@@ -521,12 +570,47 @@ describe('UsersService', () => {
   });
 
   describe('removeStaffMember', () => {
-    it('removes staff member and returns info', async () => {
+    it('soft-removes staff member by default and returns info', async () => {
       prisma.user.findFirst.mockResolvedValue(mockUser);
       const result = await service.removeStaffMember('rest-1', 'user-1');
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: expect.objectContaining({
+          isActive: false,
+          disabledAt: expect.any(Date),
+          disabledReason: 'Removed by staff manager',
+        }),
+      });
+      expect(result).toHaveProperty('id', 'user-1');
+      expect(events.evictUser).toHaveBeenCalledWith('user-1', 'account_removed');
+    });
+
+    it('hard-deletes staff member when requested and writes audit log', async () => {
+      prisma.user.findFirst.mockResolvedValue(mockUser);
+      const result = await service.removeStaffMember(
+        'rest-1',
+        'user-1',
+        'OWNER',
+        'owner-1',
+        true,
+      );
       expect(prisma.user.delete).toHaveBeenCalledWith({
         where: { id: 'user-1' },
       });
+      expect(prisma.adminAuditLog.create).toHaveBeenCalledWith({
+        data: {
+          actorUserId: 'owner-1',
+          action: 'STAFF_HARD_DELETE',
+          targetType: 'USER',
+          targetId: 'user-1',
+          metadata: {
+            restaurantId: 'rest-1',
+            targetRole: mockUser.role,
+            hardDelete: true,
+          },
+        },
+      });
+      expect(events.evictUser).toHaveBeenCalledWith('user-1', 'account_deleted');
       expect(result).toHaveProperty('id', 'user-1');
     });
 

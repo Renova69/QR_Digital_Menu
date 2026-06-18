@@ -16,6 +16,34 @@ import { AppLogger } from './common/logging/app-logger';
 import { requestLogger } from './common/logging/request-logger';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
+function validateFrontendUrl(logger: Logger) {
+  const rawFrontendUrl = process.env.FRONTEND_URL?.trim();
+  const frontendUrl = rawFrontendUrl || 'http://localhost:3001';
+
+  let parsed: URL;
+  try {
+    parsed = new URL(frontendUrl);
+  } catch {
+    throw new Error(
+      `FRONTEND_URL must be a valid http(s) URL. Received: ${frontendUrl}`,
+    );
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(
+      `FRONTEND_URL must use http or https. Received protocol: ${parsed.protocol}`,
+    );
+  }
+
+  if (process.env.NODE_ENV === 'production' && !rawFrontendUrl) {
+    logger.warn(
+      'FRONTEND_URL is not set in production; device enrollment links will fall back to http://localhost:3001.',
+    );
+  }
+
+  process.env.FRONTEND_URL = frontendUrl.replace(/\/+$/, '');
+}
+
 async function bootstrap() {
   const appLogger = new AppLogger();
   const logger = new Logger('Bootstrap');
@@ -54,6 +82,8 @@ async function bootstrap() {
     ) {
       throw new Error('[Startup] STRIPE_SECRET_KEY must be set in production');
     }
+
+    validateFrontendUrl(logger);
 
     const app = await NestFactory.create(AppModule, {
       bodyParser: false,

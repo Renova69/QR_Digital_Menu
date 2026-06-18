@@ -294,4 +294,33 @@ describe('DeviceEnrollmentService', () => {
       });
     });
   });
+
+  describe('revokeRestaurantDevices', () => {
+    it('revokes all restaurant device tokens and evicts their sockets', async () => {
+      mockTokenStore.findMany.mockResolvedValue([{ id: 'tok1' }, { id: 'tok2' }]);
+
+      const result = await service.revokeRestaurantDevices(
+        'rest1',
+        'shared_device_mode_disabled',
+      );
+
+      expect(mockTokenStore.updateMany).toHaveBeenCalledWith({
+        where: { restaurantId: 'rest1', revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(mockEvents.evictDeviceToken).toHaveBeenCalledWith(
+        'tok1',
+        'shared_device_mode_disabled',
+      );
+      expect(mockEvents.evictDeviceToken).toHaveBeenCalledWith(
+        'tok2',
+        'shared_device_mode_disabled',
+      );
+      expect(result).toEqual({
+        success: true,
+        revokedAt: expect.any(Date),
+        count: 2,
+      });
+    });
+  });
 });

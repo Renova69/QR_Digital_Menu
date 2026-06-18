@@ -41,6 +41,7 @@ describe('RestaurantsService — Stripe Connect', () => {
       mockTranslation,
       mockStripe,
       mockFeature as any,
+      { revokeRestaurantDevices: jest.fn() } as any,
     );
   });
 

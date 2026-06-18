@@ -1,4 +1,4 @@
-import { IsString, Length, MinLength } from 'class-validator';
+import { IsString, Length, Matches, MinLength } from 'class-validator';
 
 export class PinLoginDto {
   @IsString()
@@ -10,5 +10,6 @@ export class PinLoginDto {
 
   @IsString()
   @Length(4, 4)
+  @Matches(/^\d{4}$/)
   pin: string;
 }

@@ -38,7 +38,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; email: string; iat?: number }) {
+  async validate(payload: {
+    sub: string;
+    email: string;
+    iat?: number;
+    deviceTokenId?: string;
+  }) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       include: {
@@ -56,6 +61,40 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     if (user.isActive === false || user.disabledAt) {
       throw new UnauthorizedException('ACCOUNT_DISABLED');
+    }
+
+    if (payload.deviceTokenId) {
+      const deviceToken = await this.prisma.deviceEnrollmentToken.findUnique({
+        where: { id: payload.deviceTokenId },
+        select: {
+          restaurantId: true,
+          usedAt: true,
+          revokedAt: true,
+          restaurant: {
+            select: {
+              sharedDeviceModeEnabled: true,
+              isActive: true,
+            },
+          },
+        },
+      });
+
+      if (
+        !deviceToken ||
+        !deviceToken.usedAt ||
+        deviceToken.revokedAt ||
+        deviceToken.restaurantId !== user.restaurantId
+      ) {
+        throw new UnauthorizedException('DEVICE_REVOKED');
+      }
+
+      if (deviceToken.restaurant.isActive === false) {
+        throw new UnauthorizedException('ACCOUNT_SUSPENDED');
+      }
+
+      if (deviceToken.restaurant.sharedDeviceModeEnabled === false) {
+        throw new UnauthorizedException('SHARED_DEVICE_MODE_DISABLED');
+      }
     }
 
     // Invalidate tokens issued before the last password change (e.g. super-admin
@@ -102,7 +141,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
     }
 
-    const { password, staffRestaurant, ...result } = user;
+    const { password, staffRestaurant, lastLoginDeviceTokenId, ...result } =
+      user as any;
     return {
       ...result,
     };

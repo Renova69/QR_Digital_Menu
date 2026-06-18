@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../lib/api";
@@ -12,8 +12,46 @@ const ROLE_REDIRECT: Record<string, string> = {
   KITCHEN: "/staff/kitchen",
 };
 
+type SharedDeviceConfig = {
+  restaurantId?: string;
+  restaurantName?: string;
+  deviceToken?: string;
+};
+
+function readSharedDeviceConfig(): SharedDeviceConfig | null {
+  try {
+    const raw = localStorage.getItem("sharedDevice");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    localStorage.removeItem("sharedDevice");
+    return null;
+  }
+}
+
+function getApiMessage(error: any) {
+  const message = error?.response?.data?.message;
+  if (Array.isArray(message)) return message.join(" ");
+  if (typeof message === "string") return message;
+  if (typeof error?.message === "string") return error.message;
+  return "";
+}
+
+function isDeviceBondInvalidError(error: any) {
+  const status = error?.response?.status;
+  const code = error?.response?.data?.code;
+  const message = getApiMessage(error).toLowerCase();
+  return (
+    code === "SHARED_DEVICE_MODE_DISABLED" ||
+    code === "DEVICE_REVOKED" ||
+    message.includes("shared device mode") ||
+    message.includes("device is not enrolled") ||
+    message.includes("device enrollment link has been revoked") ||
+    (status === 401 && message.includes("device"))
+  );
+}
+
 export default function DeviceLoginPage() {
-    const { t } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { loginWithToken, logout } = useAuth();
   const clearedExistingSession = useRef(false);
@@ -25,14 +63,14 @@ export default function DeviceLoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPreparing, setIsPreparing] = useState(true);
   const [restaurantName, setRestaurantName] = useState("");
+  const [deviceConfig, setDeviceConfig] = useState<SharedDeviceConfig | null>(
+    () => readSharedDeviceConfig(),
+  );
 
-  const deviceConfig = useMemo(() => {
-    try {
-      const raw = localStorage.getItem("sharedDevice");
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
+  const clearDeviceConfig = useCallback(() => {
+    localStorage.removeItem("sharedDevice");
+    setDeviceConfig(null);
+    setRestaurantName("");
   }, []);
 
   useEffect(() => {
@@ -46,6 +84,17 @@ export default function DeviceLoginPage() {
       setRestaurantName(deviceConfig.restaurantName);
     }
   }, [deviceConfig]);
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== "sharedDevice") return;
+      const nextConfig = readSharedDeviceConfig();
+      setDeviceConfig(nextConfig);
+      setRestaurantName(nextConfig?.restaurantName || "");
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
 
   useEffect(() => {
     if (!lockedUntil) return;
@@ -79,20 +128,39 @@ export default function DeviceLoginPage() {
         const target = ROLE_REDIRECT[role] || "/dashboard";
         navigate(target, { replace: true });
       } catch (err: any) {
-        const msg = err.response?.data?.message || t('auto.invalidPin', 'Invalid PIN');
-        setError(msg);
-
-        const match = msg.match(/(\d+)\s+attempts?\s+remaining/i);
-        if (match) {
-          setAttemptsLeft(parseInt(match[1], 10));
-        } else {
-          setAttemptsLeft((prev) => Math.max(0, prev - 1));
+        const responseData = err.response?.data;
+        const msg = getApiMessage(err) || t('auto.invalidPin', 'Invalid PIN');
+        if (isDeviceBondInvalidError(err)) {
+          clearDeviceConfig();
+          setError(msg);
+          setPin("");
+          return;
         }
 
-        const lockoutMatch = msg.match(/try again in (\d+)\s+minutes/i);
-        if (lockoutMatch) {
-          const minutes = parseInt(lockoutMatch[1], 10);
-          setLockedUntil(Date.now() + minutes * 60 * 1000);
+        setError(msg);
+
+        if (typeof responseData?.attemptsRemaining === "number") {
+          setAttemptsLeft(responseData.attemptsRemaining);
+        } else {
+          const match = msg.match(/(\d+)\s+attempts?\s+remaining/i);
+          if (match) {
+            setAttemptsLeft(parseInt(match[1], 10));
+          } else {
+            setAttemptsLeft((prev) => Math.max(0, prev - 1));
+          }
+        }
+
+        if (responseData?.lockedUntil) {
+          const lockoutTime = new Date(responseData.lockedUntil).getTime();
+          if (!Number.isNaN(lockoutTime)) {
+            setLockedUntil(lockoutTime);
+          }
+        } else {
+          const lockoutMatch = msg.match(/try again in (\d+)\s+minutes/i);
+          if (lockoutMatch) {
+            const minutes = parseInt(lockoutMatch[1], 10);
+            setLockedUntil(Date.now() + minutes * 60 * 1000);
+          }
         }
 
         setPin("");
@@ -100,7 +168,7 @@ export default function DeviceLoginPage() {
         setIsSubmitting(false);
       }
     },
-    [deviceConfig, loginWithToken, navigate],
+    [clearDeviceConfig, deviceConfig, loginWithToken, navigate, t],
   );
 
   const handleKeyPress = useCallback(

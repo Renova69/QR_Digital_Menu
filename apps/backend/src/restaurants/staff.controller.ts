@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   Request,
   UseGuards,
   ValidationPipe,
@@ -83,7 +84,12 @@ export class StaffController {
   ) {
     const callerRole = assertManagerOrOwner(req);
     await this.usersService.verifyRestaurantAccess(restaurantId, req.user.id);
-    return this.usersService.resetStaffPin(restaurantId, userId, callerRole);
+    return this.usersService.resetStaffPin(
+      restaurantId,
+      userId,
+      callerRole,
+      req.user.id,
+    );
   }
 
   @Delete(':userId')
@@ -92,6 +98,7 @@ export class StaffController {
     @Param('restaurantId') restaurantId: string,
     @Param('userId') userId: string,
     @Request() req: any,
+    @Query('hard') hard = '',
   ) {
     const callerRole = assertManagerOrOwner(req);
     await this.usersService.verifyRestaurantAccess(restaurantId, req.user.id);
@@ -99,6 +106,8 @@ export class StaffController {
       restaurantId,
       userId,
       callerRole,
+      req.user.id,
+      hard === 'true',
     );
   }
 }

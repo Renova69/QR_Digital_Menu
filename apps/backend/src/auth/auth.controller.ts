@@ -189,11 +189,16 @@ export class AuthController {
   async pinLogin(
     @Body(new ValidationPipe({ whitelist: true })) dto: PinLoginDto,
     @Res({ passthrough: true }) res: Response,
+    @Req() req: ExpressRequest,
   ) {
     const result = await this.authService.pinLogin(
       dto.restaurantId,
       dto.pin,
       dto.deviceToken,
+      {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      },
     );
     setTokenCookie(res, result.token);
     return { user: result.user };

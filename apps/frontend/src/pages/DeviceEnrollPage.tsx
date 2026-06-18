@@ -18,9 +18,8 @@ const verificationRequests = new Map<string, Promise<DeviceEnrollmentResult>>();
 function verifyDeviceEnrollmentOnce(token: string) {
   let request = verificationRequests.get(token);
   if (!request) {
-    request = verifyDeviceEnrollment(token).catch((error) => {
+    request = verifyDeviceEnrollment(token).finally(() => {
       verificationRequests.delete(token);
-      throw error;
     });
     verificationRequests.set(token, request);
   }

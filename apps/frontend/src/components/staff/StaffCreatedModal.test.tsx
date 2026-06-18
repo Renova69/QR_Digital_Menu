@@ -18,6 +18,7 @@ const mockT = vi.fn((key: string, opts?: any) => {
     "staff.created.expired": "Expired",
     "staff.created.copyPinWarning": "Copy this PIN now — it won't be shown again.",
     "staff.created.copyPin": "Copy PIN",
+    "staff.created.revealPin": "Reveal PIN",
     "staff.created.copied": "Copied!",
     "staff.created.copyLink": "Copy Enrollment Link",
     "staff.created.linkCopied": "Link Copied!",
@@ -74,6 +75,15 @@ describe("StaffCreatedModal", () => {
 
   it("displays the PIN when rawPin is provided", () => {
     render(<StaffCreatedModal {...defaultProps} rawPin="654321" />);
+    expect(screen.getByText("654321")).toBeTruthy();
+  });
+
+  it("masks the PIN after 30 seconds and allows explicit reveal", async () => {
+    render(<StaffCreatedModal {...defaultProps} rawPin="654321" />);
+    await vi.advanceTimersByTimeAsync(30000);
+    expect(screen.queryByText("654321")).toBeNull();
+    expect(screen.getByText("****")).toBeTruthy();
+    fireEvent.click(screen.getByText("Reveal PIN"));
     expect(screen.getByText("654321")).toBeTruthy();
   });
 
