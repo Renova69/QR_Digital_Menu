@@ -86,6 +86,7 @@ describe('AuthService', () => {
       staffPinLoginAudit: {
         create: jest.fn().mockResolvedValue({}),
       },
+      $queryRaw: jest.fn().mockResolvedValue([{ id: 'usr1' }]),
       $transaction: jest
         .fn()
         .mockImplementation((fn: (tx: any) => Promise<any>) => fn(mockPrisma)),
@@ -400,6 +401,26 @@ describe('AuthService', () => {
           data: { pinAttempts: 0, pinLockedUntil: null },
         }),
       );
+      expect(mockPrisma.$queryRaw).toHaveBeenCalled();
+      expect(mockPrisma.$queryRaw.mock.calls[0][0].join('')).toContain(
+        'FOR UPDATE',
+      );
+      expect(mockPrisma.$queryRaw.mock.calls[0][1]).toBe(staff.id);
+      expect(
+        mockPrisma.$transaction.mock.invocationCallOrder[0],
+      ).toBeLessThan(
+        mockPrisma.staffDeviceBinding.findUnique.mock.invocationCallOrder[0],
+      );
+      expect(
+        mockPrisma.$queryRaw.mock.invocationCallOrder[0],
+      ).toBeLessThan(
+        mockPrisma.staffDeviceBinding.count.mock.invocationCallOrder[0],
+      );
+      expect(
+        mockPrisma.staffDeviceBinding.count.mock.invocationCallOrder[0],
+      ).toBeLessThan(
+        mockPrisma.staffDeviceBinding.create.mock.invocationCallOrder[0],
+      );
       expect(mockPrisma.staffDeviceBinding.create).toHaveBeenCalledWith({
         data: {
           userId: staff.id,
@@ -438,6 +459,17 @@ describe('AuthService', () => {
         service.pinLogin('rest1', '1234', deviceToken),
       ).rejects.toThrow(ForbiddenException);
 
+      expect(mockPrisma.$queryRaw).toHaveBeenCalled();
+      expect(
+        mockPrisma.$transaction.mock.invocationCallOrder[0],
+      ).toBeLessThan(
+        mockPrisma.staffDeviceBinding.findUnique.mock.invocationCallOrder[0],
+      );
+      expect(
+        mockPrisma.$queryRaw.mock.invocationCallOrder[0],
+      ).toBeLessThan(
+        mockPrisma.staffDeviceBinding.count.mock.invocationCallOrder[0],
+      );
       expect(mockPrisma.staffPinLoginAudit.create).toHaveBeenCalledWith({
         data: {
           userId: 'staff-1',
@@ -446,6 +478,8 @@ describe('AuthService', () => {
           status: 'DENIED_DEVICE_LIMIT',
         },
       });
+      expect(mockPrisma.deviceEnrollmentToken.update).not.toHaveBeenCalled();
+      expect(mockPrisma.staffDeviceBinding.create).not.toHaveBeenCalled();
       expect(mockJwt.sign).not.toHaveBeenCalled();
     });
 

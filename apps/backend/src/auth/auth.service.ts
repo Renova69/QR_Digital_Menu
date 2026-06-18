@@ -306,7 +306,7 @@ export class AuthService {
     ipAddress?: string;
     userAgent?: string;
   }) {
-    await (this.prisma as any).staffPinLoginAudit.create({ data });
+    await this.prisma.staffPinLoginAudit.create({ data });
   }
 
   private async recordSuccessfulStaffDeviceLogin(
@@ -315,56 +315,60 @@ export class AuthService {
     deviceTokenId: string,
     meta: PinLoginMeta,
   ) {
-    const bindingStore = (this.prisma as any).staffDeviceBinding;
     const bindingKey = {
       userId_deviceTokenId: { userId: user.id, deviceTokenId },
     };
-    const existingBinding = await bindingStore.findUnique({
-      where: bindingKey,
-      select: { id: true },
-    });
+    const now = new Date();
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT id
+        FROM "app_user"
+        WHERE id = ${user.id}
+        FOR UPDATE
+      `;
 
-    if (!existingBinding) {
-      const activeDeviceCount = await bindingStore.count({
-        where: {
-          userId: user.id,
-          restaurantId,
-          deviceToken: {
-            usedAt: { not: null },
-            revokedAt: null,
-          },
-        },
+      const existingBinding = await tx.staffDeviceBinding.findUnique({
+        where: bindingKey,
+        select: { id: true },
       });
 
-      if (activeDeviceCount >= STAFF_DEVICE_LIMIT) {
-        await this.recordPinLoginAudit({
-          userId: user.id,
-          deviceTokenId,
-          restaurantId,
-          status: 'DENIED_DEVICE_LIMIT',
-          ...meta,
+      if (!existingBinding) {
+        const activeDeviceCount = await tx.staffDeviceBinding.count({
+          where: {
+            userId: user.id,
+            restaurantId,
+            deviceToken: {
+              usedAt: { not: null },
+              revokedAt: null,
+            },
+          },
         });
-        throw new ForbiddenException({
-          code: 'STAFF_DEVICE_LIMIT_REACHED',
-          message: `This staff member is already linked to ${STAFF_DEVICE_LIMIT} devices. Ask a manager to revoke an old device before logging in here.`,
-        });
-      }
-    }
 
-    const now = new Date();
-    await this.prisma.$transaction(async (tx) => {
-      const txAny = tx as any;
+        if (activeDeviceCount >= STAFF_DEVICE_LIMIT) {
+          await tx.staffPinLoginAudit.create({
+            data: {
+              userId: user.id,
+              deviceTokenId,
+              restaurantId,
+              status: 'DENIED_DEVICE_LIMIT',
+              ...meta,
+            },
+          });
+          return { deniedDeviceLimit: true };
+        }
+      }
+
       await tx.deviceEnrollmentToken.update({
         where: { id: deviceTokenId },
         data: { pinAttempts: 0, pinLockedUntil: null },
       });
       if (existingBinding) {
-        await txAny.staffDeviceBinding.update({
+        await tx.staffDeviceBinding.update({
           where: bindingKey,
           data: { lastSeenAt: now },
         });
       } else {
-        await txAny.staffDeviceBinding.create({
+        await tx.staffDeviceBinding.create({
           data: {
             userId: user.id,
             deviceTokenId,
@@ -373,11 +377,11 @@ export class AuthService {
           },
         });
       }
-      await txAny.user.update({
+      await tx.user.update({
         where: { id: user.id },
         data: { lastLoginDeviceTokenId: deviceTokenId },
       });
-      await txAny.staffPinLoginAudit.create({
+      await tx.staffPinLoginAudit.create({
         data: {
           userId: user.id,
           deviceTokenId,
@@ -386,7 +390,15 @@ export class AuthService {
           ...meta,
         },
       });
+      return { deniedDeviceLimit: false };
     });
+
+    if (result.deniedDeviceLimit) {
+      throw new ForbiddenException({
+        code: 'STAFF_DEVICE_LIMIT_REACHED',
+        message: `This staff member is already linked to ${STAFF_DEVICE_LIMIT} devices. Ask a manager to revoke an old device before logging in here.`,
+      });
+    }
   }
 
   private async issueEmailVerificationCode(
