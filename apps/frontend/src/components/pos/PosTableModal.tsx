@@ -85,9 +85,6 @@ export default function PosTableModal() {
         .then(([tableData, zoneData]) => {
           setTables(tableData);
           setZones(zoneData);
-          if (zoneData.length > 1 && !selectedZoneId) {
-            setSelectedZoneId(zoneData[0].id);
-          }
         })
         .catch(() =>
           setError(t("pos.failedLoadTables", "Failed to load tables. Check your connection.")),
@@ -96,12 +93,20 @@ export default function PosTableModal() {
     }
   }, [open, activeRestaurant]);
 
-  // Refetch tables when zone changes
+  // Refetch tables when zone changes. Ignore-flag prevents stale
+  // responses from overwriting newer data during rapid zone switches.
   useEffect(() => {
-    if (open && activeRestaurant) {
-      fetchTables(selectedZoneId);
-    }
-  }, [selectedZoneId, open, activeRestaurant, fetchTables]);
+    if (!open || !activeRestaurant) return;
+    let ignore = false;
+    setError(null);
+    getTableStatuses(activeRestaurant.id, selectedZoneId ?? undefined)
+      .then((data) => { if (!ignore) setTables(data); })
+      .catch((err) => {
+        if (ignore) return;
+        setError(t("pos.failedLoadTables", "Failed to load tables. Check your connection."));
+      });
+    return () => { ignore = true; };
+  }, [selectedZoneId, open, activeRestaurant, t]);
 
   // Auto-refresh when table status, creation, deletion, or zone changes
   useEffect(() => {

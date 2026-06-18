@@ -15,6 +15,17 @@ export default function ZoneSelector({
 
   return (
     <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-none">
+      <button
+        type="button"
+        onClick={() => onSelectZone(null)}
+        className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors min-h-[40px] ${
+          selectedZoneId === null
+            ? "bg-primary text-white"
+            : "bg-muted text-muted-foreground hover:bg-muted/80"
+        }`}
+      >
+        All
+      </button>
       {zones.map((zone) => (
         <button
           key={zone.id}
@@ -22,7 +33,7 @@ export default function ZoneSelector({
           onClick={() => onSelectZone(zone.id)}
           className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors min-h-[40px] ${
             selectedZoneId === zone.id
-              ? "bg-brand-cta text-white"
+              ? "bg-primary text-white"
               : "bg-muted text-muted-foreground hover:bg-muted/80"
           }`}
         >
