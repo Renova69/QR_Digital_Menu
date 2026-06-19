@@ -352,16 +352,39 @@ model Order {
 }
 
 model OrderItem {
-  id              String    @id @default(cuid())
+  id              String              @id @default(cuid())
   orderId         String
   menuItemId      String?
   quantity        Int
+  // Units of this line already settled by a split payment. Split-bill remaining
+  // is computed from (quantity - paidQuantity); see PaymentService.settlePartial.
+  paidQuantity    Int                 @default(0)
   selectedOptions Json
-  notes           String?   @db.VarChar(500)
-  menuItem        MenuItem? @relation(fields: [menuItemId], references: [id])
-  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  notes           String?             @db.VarChar(500)
+  menuItem        MenuItem?           @relation(fields: [menuItemId], references: [id])
+  order           Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  allocations     PaymentAllocation[]
 
   @@map("order_item")
+}
+
+// Records exactly which order-item units a by-item split payment covered.
+// Enables hiding paid units in the picker, itemized per-payer receipts, and
+// reversing paidQuantity on refund. Even/custom split payments create no rows
+// here — they only reduce the session's amount-based remaining balance.
+model PaymentAllocation {
+  id          String    @id @default(cuid())
+  paymentId   String
+  orderItemId String
+  quantity    Int
+  amount      Float
+  createdAt   DateTime  @default(now())
+  payment     Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([orderItemId])
+  @@map("payment_allocation")
 }
 
 model AssistanceRequest {
@@ -580,10 +603,14 @@ model Payment {
   currency              String          @default("EUR")
   status                PaymentStatus   @default(PENDING)
   provider              PaymentProvider @default(STRIPE)
+  // Marks how a partial/split payment was settled (ITEM/EVEN/CUSTOM). Null for a
+  // full-bill payment. Reporting/audit only — the PAID gate is amount-based.
+  splitMode             String?
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
-  tableSession          TableSession    @relation(fields: [tableSessionId], references: [id], onDelete: Cascade)
-  restaurant            Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  tableSession          TableSession        @relation(fields: [tableSessionId], references: [id], onDelete: Cascade)
+  restaurant            Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  allocations           PaymentAllocation[]
 
   @@index([tableSessionId])
   @@map("payment")

@@ -15,6 +15,7 @@ import {
 } from '@nestjs/common';
 import { PaymentHistoryQueryDto } from './dto/payment-history-query.dto';
 import { RefundPaymentDto } from './dto/refund-payment.dto';
+import { SettlePartialDto } from './dto/settle-partial.dto';
 import { DateRangeQueryDto } from '../common/dto/date-range-query.dto';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -152,6 +153,23 @@ export class PaymentController {
       token,
       body.restaurantId,
       req.user.id,
+    );
+  }
+
+  @Post('session/:token/settle-partial')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @RequireFeature(FeatureFlag.POS)
+  settlePartial(
+    @Req() req: any,
+    @Param('token') token: string,
+    @Body() body: SettlePartialDto,
+  ) {
+    return this.paymentService.settlePartial(
+      token,
+      body.restaurantId,
+      req.user.id,
+      body,
     );
   }
 

@@ -67,6 +67,12 @@ describe('PaymentService', () => {
         findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn().mockResolvedValue(null),
       },
+      orderItem: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      paymentAllocation: {
+        createMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
       $transaction: jest.fn((arg: any) => {
         if (typeof arg === 'function') return arg(mockPrisma);
         return Promise.all(arg);
@@ -374,8 +380,9 @@ describe('PaymentService', () => {
         },
       });
       mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
+      // A succeeded payment that covers the bill leaves remaining 0 → reject.
       mockPrisma.payment.findMany.mockResolvedValue([
-        { id: 'old', status: 'SUCCEEDED' },
+        { id: 'old', status: 'SUCCEEDED', amount: 20, tipAmount: 0 },
       ]);
 
       await expect(service.createPaymentIntent('tok1', 0)).rejects.toThrow(
@@ -1553,10 +1560,11 @@ describe('PaymentService', () => {
       );
 
       expect(result.amount).toBeCloseTo(25);
-      expect(mockPrisma.order.findMany).toHaveBeenCalledWith({
-        where: { tableSessionId: 's1' },
-        select: { totalPrice: true },
-      });
+      // Bill is computed in-transaction via computeSessionBalance (remaining
+      // balance); it reads the session's orders for the current session id.
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { tableSessionId: 's1' } }),
+      );
       expect(mockPrisma.payment.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -2226,6 +2234,211 @@ describe('PaymentService', () => {
       mockPrisma.payment.findFirst.mockResolvedValue(null);
 
       expect(url).toContain('borica-cancel');
+    });
+  });
+
+  describe('settlePartial (split bill)', () => {
+    const openSession = {
+      id: 's1',
+      tableId: 'table1',
+      restaurantId: 'rest1',
+      status: 'OPEN',
+    };
+    // Bill: Beer €5 + Salad €8 + Steak €17 = €30, nothing paid yet.
+    const billOrders = [
+      {
+        totalPrice: 30,
+        pointsRedeemedForDiscount: 0,
+        pointsRedeemedForItems: 0,
+        items: [
+          { id: 'oi-drink', quantity: 1, paidQuantity: 0, selectedOptions: [], menuItem: { name: 'Beer', price: 5 } },
+          { id: 'oi-salad', quantity: 1, paidQuantity: 0, selectedOptions: [], menuItem: { name: 'Salad', price: 8 } },
+          { id: 'oi-main', quantity: 1, paidQuantity: 0, selectedOptions: [], menuItem: { name: 'Steak', price: 17 } },
+        ],
+      },
+    ];
+
+    beforeEach(() => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue(openSession);
+      mockPrisma.order.findMany.mockResolvedValue(billOrders);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.payment.create.mockResolvedValue({ id: 'pay1' });
+    });
+
+    it('ITEM mode: settles only selected units and leaves the session OPEN with the remaining balance', async () => {
+      const result = await service.settlePartial('tok1', 'rest1', 'owner1', {
+        restaurantId: 'rest1',
+        mode: 'ITEM' as any,
+        provider: 'CASH' as any,
+        allocations: [{ orderItemId: 'oi-drink', quantity: 1 }],
+      });
+
+      expect(result.amount).toBeCloseTo(5);
+      expect(result.remaining).toBeCloseTo(25);
+      expect(result.sessionPaid).toBe(false);
+      expect(mockPrisma.payment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            amount: 5,
+            status: 'SUCCEEDED',
+            provider: 'CASH',
+            splitMode: 'ITEM',
+          }),
+        }),
+      );
+      expect(mockPrisma.orderItem.updateMany).toHaveBeenCalledWith({
+        where: { id: 'oi-drink', paidQuantity: 0 },
+        data: { paidQuantity: { increment: 1 } },
+      });
+      expect(mockPrisma.paymentAllocation.createMany).toHaveBeenCalledWith({
+        data: [{ paymentId: 'pay1', orderItemId: 'oi-drink', quantity: 1, amount: 5 }],
+      });
+      // Not fully paid → no PAID flip, no payment:confirmed broadcast.
+      expect(mockEvents.emitTableStatusChanged).toHaveBeenCalled();
+      expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
+    });
+
+    it('ITEM mode: flips the session to PAID and emits when the last items are settled', async () => {
+      const result = await service.settlePartial('tok1', 'rest1', 'owner1', {
+        restaurantId: 'rest1',
+        mode: 'ITEM' as any,
+        provider: 'MYPOS' as any,
+        allocations: [
+          { orderItemId: 'oi-drink', quantity: 1 },
+          { orderItemId: 'oi-salad', quantity: 1 },
+          { orderItemId: 'oi-main', quantity: 1 },
+        ],
+      });
+
+      expect(result.amount).toBeCloseTo(30);
+      expect(result.remaining).toBe(0);
+      expect(result.sessionPaid).toBe(true);
+      expect(mockPrisma.tableSession.updateMany).toHaveBeenCalledWith({
+        where: { id: 's1', status: 'OPEN' },
+        data: expect.objectContaining({ status: 'PAID' }),
+      });
+      expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
+        'rest1',
+        'payment:confirmed',
+        expect.objectContaining({ tableSessionId: 's1' }),
+      );
+    });
+
+    it('ITEM mode: adds a tip on the selected subtotal only', async () => {
+      const result = await service.settlePartial('tok1', 'rest1', 'owner1', {
+        restaurantId: 'rest1',
+        mode: 'ITEM' as any,
+        provider: 'CASH' as any,
+        allocations: [{ orderItemId: 'oi-salad', quantity: 1 }],
+        tipPercent: 10,
+      });
+      // 8 + 10% = 8.80 charged; remaining counts subtotal only (30 − 8 = 22).
+      expect(result.amount).toBeCloseTo(8.8);
+      expect(result.remaining).toBeCloseTo(22);
+      expect(mockPrisma.payment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ amount: 8.8, tipAmount: 0.8 }),
+        }),
+      );
+    });
+
+    it('ITEM mode: rejects when loyalty discounts are present', async () => {
+      mockPrisma.order.findMany.mockResolvedValue([
+        { ...billOrders[0], pointsRedeemedForDiscount: 50 },
+      ]);
+      await expect(
+        service.settlePartial('tok1', 'rest1', 'owner1', {
+          restaurantId: 'rest1',
+          mode: 'ITEM' as any,
+          provider: 'CASH' as any,
+          allocations: [{ orderItemId: 'oi-drink', quantity: 1 }],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('ITEM mode: rejects when selected quantity exceeds the unpaid units', async () => {
+      await expect(
+        service.settlePartial('tok1', 'rest1', 'owner1', {
+          restaurantId: 'rest1',
+          mode: 'ITEM' as any,
+          provider: 'CASH' as any,
+          allocations: [{ orderItemId: 'oi-drink', quantity: 3 }],
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('ITEM mode: aborts when a concurrent settlement already took the units (optimistic lock)', async () => {
+      mockPrisma.orderItem.updateMany.mockResolvedValueOnce({ count: 0 });
+      await expect(
+        service.settlePartial('tok1', 'rest1', 'owner1', {
+          restaurantId: 'rest1',
+          mode: 'ITEM' as any,
+          provider: 'CASH' as any,
+          allocations: [{ orderItemId: 'oi-drink', quantity: 1 }],
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('EVEN mode: charges one share of the remaining balance', async () => {
+      const result = await service.settlePartial('tok1', 'rest1', 'owner1', {
+        restaurantId: 'rest1',
+        mode: 'EVEN' as any,
+        provider: 'CASH' as any,
+        splitCount: 3,
+      });
+      expect(result.amount).toBeCloseTo(10);
+      expect(result.remaining).toBeCloseTo(20);
+      expect(mockPrisma.paymentAllocation.createMany).not.toHaveBeenCalled();
+    });
+
+    it('CUSTOM mode: charges the given amount and reduces the balance', async () => {
+      const result = await service.settlePartial('tok1', 'rest1', 'owner1', {
+        restaurantId: 'rest1',
+        mode: 'CUSTOM' as any,
+        provider: 'CASH' as any,
+        amount: 12,
+      });
+      expect(result.amount).toBeCloseTo(12);
+      expect(result.remaining).toBeCloseTo(18);
+    });
+
+    it('CUSTOM mode: never collects more than the outstanding balance', async () => {
+      const result = await service.settlePartial('tok1', 'rest1', 'owner1', {
+        restaurantId: 'rest1',
+        mode: 'CUSTOM' as any,
+        provider: 'CASH' as any,
+        amount: 100,
+      });
+      expect(result.amount).toBeCloseTo(30);
+      expect(result.remaining).toBe(0);
+      expect(result.sessionPaid).toBe(true);
+    });
+
+    it('rejects when the session is already fully paid', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([
+        { status: 'SUCCEEDED', amount: 30, tipAmount: 0 },
+      ]);
+      await expect(
+        service.settlePartial('tok1', 'rest1', 'owner1', {
+          restaurantId: 'rest1',
+          mode: 'CUSTOM' as any,
+          provider: 'CASH' as any,
+          amount: 5,
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('rejects a caller without POS operator access (KITCHEN)', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ ownerId: 'someone-else' });
+      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest1', role: 'KITCHEN' });
+      await expect(
+        service.settlePartial('tok1', 'rest1', 'kitchen-user', {
+          restaurantId: 'rest1',
+          mode: 'CUSTOM' as any,
+          provider: 'CASH' as any,
+          amount: 5,
+        }),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 

@@ -416,16 +416,63 @@ export const forceOpenSession = async (tableId: string, restaurantId: string) =>
   return response.data as { session: any; token: string };
 };
 
+export interface SessionBillItem {
+  orderItemId: string;
+  name: string;
+  quantity: number;
+  paidQuantity: number;
+  unitPrice: number;
+  unitPriceWithOptions: number;
+  selectedOptions: any[];
+}
+
+export interface SessionBillOrder {
+  id: string;
+  source: 'CUSTOMER' | 'POS';
+  customerName?: string | null;
+  customerPhone?: string | null;
+  staffName: string | null;
+  staffRole: string | null;
+  totalPrice: number;
+  items: SessionBillItem[];
+}
+
+export interface SessionBill {
+  orders: SessionBillOrder[];
+  subtotal: number;
+  paidSubtotal: number;
+  remaining: number;
+  splitItemsAvailable: boolean;
+  restaurantId: string;
+  tipsEnabled: boolean;
+  tipOptions: number[];
+  paymentProviders: Array<CheckoutProvider>;
+}
+
 export const getSessionBill = async (token: string) => {
   const response = await api.get(`/payments/session/${token}/bill`);
-  return response.data as {
-    orders: any[];
-    subtotal: number;
-    restaurantId: string;
-    tipsEnabled: boolean;
-    tipOptions: number[];
-    paymentProviders: Array<CheckoutProvider>;
-  };
+  return response.data as SessionBill;
+};
+
+export type SplitMode = 'ITEM' | 'EVEN' | 'CUSTOM';
+export type SplitProvider = 'CASH' | 'MYPOS';
+
+export interface SettlePartialRequest {
+  restaurantId: string;
+  mode: SplitMode;
+  provider: SplitProvider;
+  // ITEM mode only — which order-item units this payment covers.
+  allocations?: Array<{ orderItemId: string; quantity: number }>;
+  // CUSTOM mode only.
+  amount?: number;
+  // EVEN mode only — settle remaining / splitCount.
+  splitCount?: number;
+  tipPercent?: number;
+}
+
+export const settlePartial = async (token: string, data: SettlePartialRequest) => {
+  const response = await api.post(`/payments/session/${token}/settle-partial`, data);
+  return response.data as { amount: number; remaining: number; sessionPaid: boolean };
 };
 
 export const createPaymentIntent = async (token: string, tipPercent: number) => {

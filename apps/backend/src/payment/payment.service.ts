@@ -19,7 +19,8 @@ import { decryptSecret, encryptSecret } from './secret-crypto';
 import { EventsGateway } from '../events/events.gateway';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
-import { PaymentStatus } from '@prisma/client';
+import { PaymentStatus, PaymentProvider } from '@prisma/client';
+import { SettlePartialDto, SplitMode } from './dto/settle-partial.dto';
 
 type CheckoutProvider = 'STRIPE' | 'EPAY' | 'BORICA';
 
@@ -239,6 +240,19 @@ export class PaymentService {
     platformFeePercent: number,
   ) {
     const subtotal = orders.reduce((sum, order) => sum + order.totalPrice, 0);
+    return this.calculatePartialTotals(subtotal, tipPercent, platformFeePercent);
+  }
+
+  /**
+   * Totals for an arbitrary chargeable subtotal — used by full-bill checkout
+   * (subtotal = remaining balance) and split settlement. tipAmount and the
+   * platform fee are derived from this subtotal only, never the whole bill.
+   */
+  private calculatePartialTotals(
+    subtotal: number,
+    tipPercent: number,
+    platformFeePercent: number,
+  ) {
     if (subtotal <= 0) {
       throw new BadRequestException(
         'Cannot create payment for an empty session',
@@ -263,6 +277,105 @@ export class PaymentService {
     };
   }
 
+  /**
+   * Single source of truth for split-bill state. The PAID gate is amount-based:
+   *   paidSubtotal = Σ (succeeded payment.amount − tipAmount)
+   *   remaining    = billSubtotal − paidSubtotal
+   * Per-unit `paidQuantity` is advisory (drives the by-item picker + receipts +
+   * refund reversal). `hasLoyaltyDiscount` disables by-item split, where line
+   * values can't sum to a loyalty-discounted Order.totalPrice.
+   */
+  private async computeSessionBalance(
+    tx: {
+      order: { findMany: (args: any) => Promise<any[]> };
+      payment: { findMany: (args: any) => Promise<any[]> };
+    },
+    sessionId: string,
+  ): Promise<{
+    billSubtotal: number;
+    paidSubtotal: number;
+    remaining: number;
+    hasLoyaltyDiscount: boolean;
+    items: Array<{
+      orderItemId: string;
+      name: string;
+      unitPrice: number;
+      quantity: number;
+      paidQuantity: number;
+      remainingQuantity: number;
+    }>;
+  }> {
+    const orders = await tx.order.findMany({
+      where: { tableSessionId: sessionId },
+      select: {
+        totalPrice: true,
+        pointsRedeemedForDiscount: true,
+        pointsRedeemedForItems: true,
+        items: {
+          select: {
+            id: true,
+            quantity: true,
+            paidQuantity: true,
+            selectedOptions: true,
+            menuItem: { select: { name: true, price: true } },
+          },
+        },
+      },
+    });
+
+    const billSubtotal = this.roundMoney(
+      orders.reduce((sum, o) => sum + o.totalPrice, 0),
+    );
+
+    const payments = await tx.payment.findMany({
+      where: { tableSessionId: sessionId, status: 'SUCCEEDED' },
+      select: { amount: true, tipAmount: true, status: true },
+    });
+    // Defensive re-filter: the DB query already scopes to SUCCEEDED, but unit-test
+    // mocks ignore the where-clause — only succeeded payments reduce the balance.
+    const paidSubtotal = this.roundMoney(
+      payments
+        .filter((p) => p.status === 'SUCCEEDED')
+        .reduce((sum, p) => sum + (p.amount - (p.tipAmount ?? 0)), 0),
+    );
+
+    const hasLoyaltyDiscount = orders.some(
+      (o) =>
+        (o.pointsRedeemedForDiscount ?? 0) > 0 ||
+        (o.pointsRedeemedForItems ?? 0) > 0,
+    );
+
+    const items = orders.flatMap((o) =>
+      (((o.items as any[]) ?? []) as any[]).map((it) => {
+        const optionsTotal = Array.isArray(it.selectedOptions)
+          ? (it.selectedOptions as any[]).reduce(
+              (s, x) => s + (x?.priceModifier || 0),
+              0,
+            )
+          : 0;
+        const unitPrice = this.roundMoney(
+          (it.menuItem?.price ?? 0) + optionsTotal,
+        );
+        return {
+          orderItemId: it.id as string,
+          name: (it.menuItem?.name as string) ?? 'Item',
+          unitPrice,
+          quantity: it.quantity as number,
+          paidQuantity: (it.paidQuantity as number) ?? 0,
+          remainingQuantity: (it.quantity as number) - ((it.paidQuantity as number) ?? 0),
+        };
+      }),
+    );
+
+    return {
+      billSubtotal,
+      paidSubtotal,
+      remaining: this.roundMoney(billSubtotal - paidSubtotal),
+      hasLoyaltyDiscount,
+      items,
+    };
+  }
+
   private isPaymentClaimable(payment: any): boolean {
     return (
       payment.status === undefined ||
@@ -278,31 +391,27 @@ export class PaymentService {
     if (!this.isPaymentClaimable(payment)) return false;
 
     // Underpay guard (#2): never release a session for a payment that no longer
-    // covers its CURRENT bill. Orders can be added after a low PaymentIntent was
-    // created; confirming that stale intent must not flip the whole (now larger)
-    // session to PAID for a fraction of what's owed. payment.amount includes any
-    // tip, so a normal full payment always covers the subtotal — only an
-    // added-items / tampered-amount case falls short. When it does, we leave the
-    // session OPEN (and the payment unclaimed) so staff collect the real total.
-    const sessionOrders = await tx.order.findMany({
-      where: { tableSessionId: payment.tableSessionId },
-      select: { totalPrice: true },
-    });
-    const currentSubtotal = sessionOrders.reduce(
-      (sum: number, o: { totalPrice: number }) => sum + o.totalPrice,
-      0,
+    // covers the REMAINING balance. Orders can be added after a low PaymentIntent
+    // was created, and POS split settlements may have already paid part of the
+    // bill — confirming a stale/short intent must not flip the session to PAID
+    // for a fraction of what's still owed. The remaining excludes this payment
+    // (still PENDING here, so not counted as succeeded); the net compared is
+    // amount − tip, since tips never reduce what's owed. Online checkout charges
+    // the full remaining, so a normal full payment always clears it; only an
+    // added-items / tampered / partial-online case falls short and we leave the
+    // session OPEN (payment unclaimed) so staff collect the rest.
+    const balance = await this.computeSessionBalance(tx, payment.tableSessionId);
+    const paymentNet = this.roundMoney(
+      (payment.amount ?? 0) - (payment.tipAmount ?? 0),
     );
-    if (
-      this.roundMoney(payment.amount ?? 0) + 0.01 <
-      this.roundMoney(currentSubtotal)
-    ) {
+    if (paymentNet + 0.01 < balance.remaining) {
       this.logger.warn(
-        'Refusing to mark session PAID: payment does not cover current bill',
+        'Refusing to mark session PAID: payment does not cover remaining bill',
         {
           paymentId: payment.id,
           tableSessionId: payment.tableSessionId,
-          paidAmount: payment.amount,
-          currentSubtotal,
+          paymentNet,
+          remaining: balance.remaining,
           provider: payment.provider,
         },
       );
@@ -524,6 +633,9 @@ export class PaymentService {
   async getSessionBill(token: string): Promise<{
     orders: any[];
     subtotal: number;
+    paidSubtotal: number;
+    remaining: number;
+    splitItemsAvailable: boolean;
     restaurantId: string;
     tipsEnabled: boolean;
     tipOptions: number[];
@@ -549,6 +661,7 @@ export class PaymentService {
     });
 
     const subtotal = orders.reduce((sum: number, o: any) => sum + o.totalPrice, 0);
+    const balance = await this.computeSessionBalance(this.prisma, session.id);
 
     const enrichedOrders = orders.map((order) => ({
       id: order.id,
@@ -558,19 +671,38 @@ export class PaymentService {
       staffName: order.staff ? (order.staff.name ?? order.staff.email) : null,
       staffRole: order.staff?.role ?? null,
       totalPrice: order.totalPrice,
-      items: order.items.map((oi: any) => ({
-        name: oi.menuItem?.name ?? 'Unknown item',
-        quantity: oi.quantity,
-        unitPrice: oi.menuItem?.price ?? 0,
-        selectedOptions: Array.isArray(oi.selectedOptions)
-          ? oi.selectedOptions
-          : [],
-      })),
+      items: order.items.map((oi: any) => {
+        const optionsTotal = Array.isArray(oi.selectedOptions)
+          ? (oi.selectedOptions as any[]).reduce(
+              (s, x) => s + (x?.priceModifier || 0),
+              0,
+            )
+          : 0;
+        return {
+          // orderItemId + paidQuantity drive the by-item split picker.
+          orderItemId: oi.id,
+          name: oi.menuItem?.name ?? 'Unknown item',
+          quantity: oi.quantity,
+          paidQuantity: oi.paidQuantity ?? 0,
+          unitPrice: oi.menuItem?.price ?? 0,
+          unitPriceWithOptions: this.roundMoney(
+            (oi.menuItem?.price ?? 0) + optionsTotal,
+          ),
+          selectedOptions: Array.isArray(oi.selectedOptions)
+            ? oi.selectedOptions
+            : [],
+        };
+      }),
     }));
 
     return {
       orders: enrichedOrders,
       subtotal,
+      paidSubtotal: balance.paidSubtotal,
+      remaining: balance.remaining,
+      // By-item split can't reconcile against a loyalty-discounted total — the UI
+      // falls back to even/custom split in that case.
+      splitItemsAvailable: !balance.hasLoyaltyDiscount,
       restaurantId: session.restaurantId,
       tipsEnabled: session.restaurant.tipsEnabled,
       tipOptions: session.restaurant.tipOptions,
@@ -674,17 +806,20 @@ export class PaymentService {
       throw new BadRequestException('Stripe not connected');
     }
 
-    const orders = await this.prisma.order.findMany({
-      where: { tableSessionId: session.id },
-    });
+    // Charge the REMAINING balance, not the full bill — POS split settlements may
+    // already have paid part of it. With no partials, remaining == full subtotal.
+    const balance = await this.computeSessionBalance(this.prisma, session.id);
+    if (balance.remaining <= 0) {
+      throw new ConflictException('This session has already been paid');
+    }
 
     // platformFeePercent is a WHOLE-NUMBER percent (e.g. 5 = 5%), not a fraction
     // (#L1). fee_in_cents = total_euros × percent works only under that unit:
     //   €20 × 5 = 100 cents = €1.00 = 5% of €20.
     // If this is ever stored as a fraction (0.05), fees become 100× too small.
     const { tipAmount, total, platformFeeCents, platformFeeAmount } =
-      this.calculateTotals(
-        orders,
+      this.calculatePartialTotals(
+        balance.remaining,
         normalizedTipPercent,
         restaurant.platformFeePercent ?? 0,
       );
@@ -696,20 +831,17 @@ export class PaymentService {
     );
 
     // Guard against double capture (#H1). A session can accumulate multiple
-    // intents (double-click, retried tab) and all could be confirmed. Reject if
-    // already paid, and cancel any stale PENDING intent so only the newest one
-    // is capturable. The session-status=OPEN guard above already blocks new
-    // intents after the webhook flips the session to PAID; this closes the
-    // remaining window where two intents exist before either confirms.
+    // intents (double-click, retried tab) and all could be confirmed. A fully
+    // paid session is already rejected by the remaining<=0 check above; here we
+    // only deal with stale PENDING intents so the newest one is capturable.
+    // SUCCEEDED partials (POS split settlements) must be left untouched — they
+    // already reduced `remaining`, which this intent now charges.
     const existingPayments = await this.prisma.payment.findMany({
       where: {
         tableSessionId: session.id,
-        status: { in: ['PENDING', 'SUCCEEDED'] },
+        status: { in: ['PENDING'] },
       },
     });
-    if (existingPayments.some((p) => p.status === 'SUCCEEDED')) {
-      throw new ConflictException('This session has already been paid');
-    }
 
     // Issue 35: Idempotency — reuse an existing PENDING Stripe intent when the
     // cart amount hasn't changed. Prevents orphaned authorized holds on double-tap.
@@ -868,11 +1000,13 @@ export class PaymentService {
       throw new BadRequestException('ePay.bg is not configured');
     }
 
-    const orders = await this.prisma.order.findMany({
-      where: { tableSessionId: session.id },
-    });
-    const { tipAmount, total, platformFeeAmount } = this.calculateTotals(
-      orders,
+    // Charge the REMAINING balance (POS partials may have settled some already).
+    const balance = await this.computeSessionBalance(this.prisma, session.id);
+    if (balance.remaining <= 0) {
+      throw new ConflictException('This session has already been paid');
+    }
+    const { tipAmount, total, platformFeeAmount } = this.calculatePartialTotals(
+      balance.remaining,
       normalizedTipPercent,
       restaurant.platformFeePercent ?? 0,
     );
@@ -880,12 +1014,9 @@ export class PaymentService {
     const existingPayments = await this.prisma.payment.findMany({
       where: {
         tableSessionId: session.id,
-        status: { in: ['PENDING', 'SUCCEEDED'] },
+        status: { in: ['PENDING'] },
       },
     });
-    if (existingPayments.some((p) => p.status === 'SUCCEEDED')) {
-      throw new ConflictException('This session has already been paid');
-    }
 
     // Abandon stale non-ePay PENDING payments — customer switched provider.
     // A payment that reached the gateway would have triggered a callback before
@@ -1028,8 +1159,13 @@ export class PaymentService {
     const orders = await this.prisma.order.findMany({
       where: { tableSessionId: session.id },
     });
-    const { tipAmount, total, platformFeeAmount } = this.calculateTotals(
-      orders,
+    // Charge the REMAINING balance (POS partials may have settled some already).
+    const balance = await this.computeSessionBalance(this.prisma, session.id);
+    if (balance.remaining <= 0) {
+      throw new ConflictException('This session has already been paid');
+    }
+    const { tipAmount, total, platformFeeAmount } = this.calculatePartialTotals(
+      balance.remaining,
       normalizedTipPercent,
       restaurant.platformFeePercent ?? 0,
     );
@@ -1037,12 +1173,9 @@ export class PaymentService {
     const existingPayments = await this.prisma.payment.findMany({
       where: {
         tableSessionId: session.id,
-        status: { in: ['PENDING', 'SUCCEEDED'] },
+        status: { in: ['PENDING'] },
       },
     });
-    if (existingPayments.some((p) => p.status === 'SUCCEEDED')) {
-      throw new ConflictException('This session has already been paid');
-    }
 
     // Abandon stale non-BORICA PENDING payments — customer switched provider.
     for (const stale of existingPayments.filter(
@@ -1713,19 +1846,18 @@ export class PaymentService {
     });
     if (!session) throw new NotFoundException('Session not found');
 
-    // #2: sum the bill INSIDE the same transaction that flips the session to
+    // #2: compute the bill INSIDE the same transaction that flips the session to
     // PAID. Reading orders before the transaction let a QR order placed during
-    // the close window slip through unbilled (TOCTOU on the total).
+    // the close window slip through unbilled (TOCTOU on the total). Bill only the
+    // REMAINING balance so a full close after a partial split collects what's
+    // left, not the whole bill again.
     const amount = await this.prisma.$transaction(async (tx) => {
-      const orders = await tx.order.findMany({
-        where: { tableSessionId: session.id },
-        select: { totalPrice: true },
-      });
-      const billed = this.roundMoney(
-        orders.reduce((sum, o) => sum + o.totalPrice, 0),
-      );
+      const balance = await this.computeSessionBalance(tx, session.id);
+      const billed = balance.remaining;
       if (billed <= 0)
-        throw new BadRequestException('Cannot close a session with no orders');
+        throw new BadRequestException(
+          'Cannot close a session with no outstanding balance',
+        );
 
       await tx.payment.create({
         data: {
@@ -1770,6 +1902,188 @@ export class PaymentService {
     });
 
     return { amount };
+  }
+
+  /**
+   * Split-bill partial settlement from the POS (in-person, CASH/MYPOS only).
+   * Records a SUCCEEDED partial payment for a subset of the bill and leaves the
+   * session OPEN until the running remaining balance reaches zero, at which point
+   * it flips to PAID. Three modes:
+   *   ITEM   — pay for selected order-item units (tags paidQuantity + allocations)
+   *   EVEN   — pay one share of remaining / splitCount
+   *   CUSTOM — pay an arbitrary amount (clamped to remaining)
+   * The PAID gate is amount-based; allocations are advisory (picker + receipts +
+   * refund reversal). Online providers are intentionally excluded here — public
+   * self-pay split (with item reservation/locking) is Phase 2.
+   */
+  async settlePartial(
+    token: string,
+    restaurantId: string,
+    userId: string,
+    dto: SettlePartialDto,
+  ): Promise<{ amount: number; remaining: number; sessionPaid: boolean }> {
+    await this.verifyPosOperatorAccess(restaurantId, userId);
+    const tipPercent = this.normalizeTipPercent(dto.tipPercent);
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const session = await tx.tableSession.findFirst({
+        where: { token, restaurantId, status: 'OPEN' },
+      });
+      if (!session) throw new NotFoundException('Session not found');
+
+      const balance = await this.computeSessionBalance(tx, session.id);
+      if (balance.remaining <= 0) {
+        throw new ConflictException('This session is already fully paid');
+      }
+
+      let chargeSubtotal: number;
+      const allocations: Array<{
+        orderItemId: string;
+        quantity: number;
+        amount: number;
+        snapshotPaid: number;
+      }> = [];
+
+      if (dto.mode === SplitMode.ITEM) {
+        if (!dto.allocations?.length) {
+          throw new BadRequestException('Select at least one item to split');
+        }
+        if (balance.hasLoyaltyDiscount) {
+          throw new BadRequestException(
+            'Item split is unavailable when loyalty discounts apply — use even or custom split',
+          );
+        }
+        const itemById = new Map(balance.items.map((i) => [i.orderItemId, i]));
+        // Collapse duplicate orderItemId entries so availability is checked once.
+        const requested = new Map<string, number>();
+        for (const a of dto.allocations) {
+          requested.set(
+            a.orderItemId,
+            (requested.get(a.orderItemId) ?? 0) + a.quantity,
+          );
+        }
+        let sum = 0;
+        for (const [orderItemId, quantity] of requested) {
+          const it = itemById.get(orderItemId);
+          if (!it) throw new BadRequestException('Unknown item in selection');
+          if (quantity > it.remainingQuantity) {
+            throw new ConflictException('Some selected items are already settled');
+          }
+          const amount = this.roundMoney(it.unitPrice * quantity);
+          allocations.push({
+            orderItemId,
+            quantity,
+            amount,
+            snapshotPaid: it.paidQuantity,
+          });
+          sum += amount;
+        }
+        chargeSubtotal = this.roundMoney(sum);
+      } else if (dto.mode === SplitMode.EVEN) {
+        const splitCount = dto.splitCount ?? 1;
+        chargeSubtotal = this.roundMoney(balance.remaining / splitCount);
+      } else {
+        if (!dto.amount || dto.amount <= 0) {
+          throw new BadRequestException('Enter an amount to settle');
+        }
+        chargeSubtotal = this.roundMoney(dto.amount);
+      }
+
+      // Never collect more than the outstanding balance.
+      chargeSubtotal = Math.min(chargeSubtotal, balance.remaining);
+      if (chargeSubtotal <= 0) {
+        throw new BadRequestException('Nothing left to settle');
+      }
+
+      const tipAmount = this.roundMoney((chargeSubtotal * tipPercent) / 100);
+      const total = this.roundMoney(chargeSubtotal + tipAmount);
+
+      const payment = await tx.payment.create({
+        data: {
+          tableSessionId: session.id,
+          restaurantId,
+          amount: total,
+          tipAmount,
+          // In-person CASH/MYPOS — no platform fee, matching the full-close path.
+          platformFeeAmount: 0,
+          currency: 'eur',
+          status: 'SUCCEEDED',
+          provider: dto.provider as PaymentProvider,
+          splitMode: dto.mode,
+        },
+      });
+
+      if (allocations.length > 0) {
+        for (const a of allocations) {
+          // Optimistic per-unit lock: increment only if paidQuantity is unchanged
+          // since the snapshot. A concurrent settlement of the same units changes
+          // it, count===0, and we abort the whole transaction (no double-pay).
+          const upd = await tx.orderItem.updateMany({
+            where: { id: a.orderItemId, paidQuantity: a.snapshotPaid },
+            data: { paidQuantity: { increment: a.quantity } },
+          });
+          if (upd.count === 0) {
+            throw new ConflictException(
+              'Items changed during settlement — please retry',
+            );
+          }
+        }
+        await tx.paymentAllocation.createMany({
+          data: allocations.map((a) => ({
+            paymentId: payment.id,
+            orderItemId: a.orderItemId,
+            quantity: a.quantity,
+            amount: a.amount,
+          })),
+        });
+      }
+
+      const newRemaining = this.roundMoney(balance.remaining - chargeSubtotal);
+      let sessionPaid = false;
+      if (newRemaining <= 0.001) {
+        const flip = await tx.tableSession.updateMany({
+          where: { id: session.id, status: 'OPEN' },
+          data: { status: 'PAID', paidAt: new Date() },
+        });
+        sessionPaid = flip.count > 0;
+      }
+
+      return {
+        sessionId: session.id,
+        tableId: session.tableId,
+        amount: total,
+        remaining: Math.max(0, newRemaining),
+        sessionPaid,
+      };
+    });
+
+    // Emit after commit so rolled-back work never fires socket events (#H4).
+    this.events.emitTableStatusChanged(
+      restaurantId,
+      result.tableId,
+      result.sessionId,
+    );
+    if (result.sessionPaid) {
+      const tableNumber =
+        (
+          await this.prisma.restaurantTable.findUnique({
+            where: { id: result.tableId },
+            select: { name: true },
+          })
+        )?.name ?? null;
+      this.events.emitToRestaurant(restaurantId, 'payment:confirmed', {
+        tableSessionId: result.sessionId,
+        amount: result.amount,
+        tipAmount: 0,
+        tableNumber,
+      });
+    }
+
+    return {
+      amount: result.amount,
+      remaining: result.remaining,
+      sessionPaid: result.sessionPaid,
+    };
   }
 
   async forceOpenSession(

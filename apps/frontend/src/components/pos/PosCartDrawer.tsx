@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { usePos } from "../../context/PosContext";
 import { createOrder, closeSession, closeSessionWithCard, closeSessionWithCash, getOrCreateSession } from "../../lib/api";
 import RestaurantContext from "../../context/RestaurantContext";
-import PosSplitBill from "./PosSplitBill";
+import PosSplitDrawer from "./PosSplitDrawer";
 import PosQRBill from "./PosQRBill";
 
 interface PosCartDrawerProps {
@@ -52,6 +52,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
   const [closing, setClosing] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
+  const [splitOpen, setSplitOpen] = useState(false);
 
   const pendingItems = items.filter((i) => !i.submitted);
   const pendingTotal = getPendingTotal();
@@ -355,7 +356,6 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
             </div>
           )}
 
-          <PosSplitBill total={total} />
           <PosQRBill />
 
           <div className="p-4 flex flex-col gap-2">
@@ -405,6 +405,23 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
               className="w-full py-3 rounded-lg bg-success text-success-foreground font-semibold disabled:opacity-50 min-h-[44px]"
             >
               {closing ? t("pos.closing", "Closing...") : t("pos.closeCashTotal", { total: submittedTotal.toFixed(2) })}
+            </button>
+
+            {/* Split bill — settle the table in parts (by item / even / custom).
+                Requires submitted orders; pending items must be submitted first. */}
+            <button
+              type="button"
+              onClick={() => setSplitOpen(true)}
+              disabled={
+                closing ||
+                !session?.sessionToken ||
+                submittedTotal <= 0 ||
+                hasPending
+              }
+              title={hasPending ? t("pos.submitPendingFirst", "Submit pending items first") : undefined}
+              className="w-full py-3 rounded-lg bg-card border border-border text-foreground font-semibold disabled:opacity-50 min-h-[44px]"
+            >
+              {t("pos.split.splitBill", "Split bill")}
             </button>
 
             {/* Force Close */}
@@ -497,6 +514,19 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
+
+      {session?.sessionToken && activeRestaurant && (
+        <PosSplitDrawer
+          open={splitOpen}
+          onOpenChange={setSplitOpen}
+          sessionToken={session.sessionToken}
+          restaurantId={activeRestaurant.id}
+          onFullyPaid={() => {
+            clearSession();
+            setExpanded(false);
+          }}
+        />
+      )}
     </div>
   );
 }
