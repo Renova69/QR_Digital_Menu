@@ -250,13 +250,30 @@ export default function PosSplitDrawer({
                     ) : (
                       unpaidUnits.map((u) => {
                         const qty = selection[u.orderItemId] ?? 0;
+                        const isSelected = qty > 0;
+                        const atMax = qty >= u.remainingQuantity;
                         return (
                           <div
                             key={u.orderItemId}
-                            className="flex items-center gap-2 rounded-lg border border-border px-3 py-2"
+                            className={`flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors ${
+                              isSelected
+                                ? "border-primary bg-primary/10"
+                                : "border-border"
+                            }`}
                           >
+                            {/* Selected-state dot so a long list is scannable at a glance. */}
+                            <span
+                              className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                                isSelected ? "bg-primary" : "bg-muted"
+                              }`}
+                              aria-hidden
+                            />
                             <div className="min-w-0 flex-1">
-                              <div className="truncate text-sm font-medium text-foreground">
+                              <div
+                                className={`truncate text-sm font-medium ${
+                                  isSelected ? "text-primary" : "text-foreground"
+                                }`}
+                              >
                                 {u.name}
                               </div>
                               <div className="text-xs text-muted-foreground">
@@ -272,15 +289,33 @@ export default function PosSplitDrawer({
                               <button
                                 type="button"
                                 onClick={() => setUnitQty(u, qty - 1)}
-                                className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground"
+                                disabled={!isSelected}
+                                aria-label={`Remove one ${u.name}`}
+                                className={`flex h-9 w-9 items-center justify-center rounded-full border text-lg leading-none transition-colors ${
+                                  isSelected
+                                    ? "border-destructive bg-destructive/10 text-destructive"
+                                    : "border-border text-muted-foreground opacity-40"
+                                }`}
                               >
                                 −
                               </button>
-                              <span className="w-6 text-center text-sm">{qty}</span>
+                              <span
+                                className={`w-6 text-center text-sm ${
+                                  isSelected ? "font-bold text-primary" : "text-muted-foreground"
+                                }`}
+                              >
+                                {qty}
+                              </span>
                               <button
                                 type="button"
                                 onClick={() => setUnitQty(u, qty + 1)}
-                                className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground"
+                                disabled={atMax}
+                                aria-label={`Add one ${u.name}`}
+                                className={`flex h-9 w-9 items-center justify-center rounded-full border text-lg leading-none transition-colors ${
+                                  atMax
+                                    ? "border-border text-muted-foreground opacity-40"
+                                    : "border-primary bg-primary text-primary-foreground"
+                                }`}
                               >
                                 +
                               </button>
