@@ -261,8 +261,10 @@ export default function PosSplitDrawer({
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 {eur(u.unitPrice)} ·{" "}
+                                {/* Deduct what's selected for this payment so the
+                                    waiter sees the line draw down as they add. */}
                                 {t("pos.split.unitsLeft", "{{count}} left", {
-                                  count: u.remainingQuantity,
+                                  count: u.remainingQuantity - qty,
                                 })}
                               </div>
                             </div>

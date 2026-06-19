@@ -83,8 +83,13 @@ describe("PosSplitDrawer", () => {
     // Bill loads and shows the unpaid units.
     expect(await screen.findByText("Beer")).toBeTruthy();
 
+    // Each line starts at "1 left" (text is "€x · 1 left", so match by regex).
+    expect(screen.getAllByText(/1 left/).length).toBe(3);
     // Select 1 × Beer (first "+" belongs to the first unit row).
     fireEvent.click(screen.getAllByRole("button", { name: "+" })[0]);
+    // The Beer line draws down to "0 left" (Bug 1: selection deducts displayed count).
+    expect(screen.getByText(/0 left/)).toBeTruthy();
+    expect(screen.getAllByText(/1 left/).length).toBe(2);
     fireEvent.click(screen.getByRole("button", { name: "Cash" }));
 
     await waitFor(() => expect(apiMock.settlePartial).toHaveBeenCalledTimes(1));

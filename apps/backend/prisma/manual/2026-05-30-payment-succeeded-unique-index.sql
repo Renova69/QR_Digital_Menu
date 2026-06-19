@@ -1,3 +1,7 @@
+-- DEPRECATED 2026-06-19 by 2026-06-19-drop-payment-succeeded-unique-index.sql.
+-- Split bill allows multiple SUCCEEDED payments per session. Do NOT apply this
+-- file on new databases — it is kept only for history.
+--
 -- #H1 backstop: at most one SUCCEEDED payment per table session.
 -- Prevents double-capture under true concurrency (the app-level guard in
 -- PaymentService.createPaymentIntent handles the common double-submit case;
