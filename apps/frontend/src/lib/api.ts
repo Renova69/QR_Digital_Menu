@@ -619,6 +619,11 @@ export const listDeviceEnrollments = async (restaurantId: string) => {
     usedAt: string | null;
     revokedAt: string | null;
     createdBy: { id: string; name: string | null; email: string };
+    staffBindings: Array<{
+      firstSeenAt: string;
+      lastSeenAt: string;
+      user: { id: string; name: string | null; email: string; role: string };
+    }>;
   }>;
 };
 

@@ -261,6 +261,44 @@ describe('DeviceEnrollmentService', () => {
     });
   });
 
+  describe('listEnrollments', () => {
+    it('includes recent staff users who authenticated on each device', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest1',
+        name: 'Test',
+        ownerId: 'user1',
+      });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        role: 'OWNER',
+        restaurantId: null,
+      });
+      mockTokenStore.findMany.mockResolvedValue([]);
+
+      await service.listEnrollments('rest1', 'user1');
+
+      expect(mockTokenStore.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: expect.objectContaining({
+            createdBy: {
+              select: { id: true, name: true, email: true },
+            },
+            staffBindings: {
+              orderBy: { lastSeenAt: 'desc' },
+              take: 5,
+              select: {
+                firstSeenAt: true,
+                lastSeenAt: true,
+                user: {
+                  select: { id: true, name: true, email: true, role: true },
+                },
+              },
+            },
+          }),
+        }),
+      );
+    });
+  });
+
   describe('revokeEnrollment', () => {
     it('revokes the token and evicts sockets authenticated by that device', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({

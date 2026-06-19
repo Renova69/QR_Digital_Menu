@@ -129,6 +129,17 @@ export class DeviceEnrollmentService {
         createdBy: {
           select: { id: true, name: true, email: true },
         },
+        staffBindings: {
+          orderBy: { lastSeenAt: 'desc' },
+          take: 5,
+          select: {
+            firstSeenAt: true,
+            lastSeenAt: true,
+            user: {
+              select: { id: true, name: true, email: true, role: true },
+            },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
       take: 50,

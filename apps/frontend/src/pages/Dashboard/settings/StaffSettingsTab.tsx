@@ -46,6 +46,11 @@ type DeviceEnrollment = {
   usedAt: string | null;
   revokedAt: string | null;
   createdBy: { id: string; name: string | null; email: string };
+  staffBindings?: Array<{
+    firstSeenAt: string;
+    lastSeenAt: string;
+    user: { id: string; name: string | null; email: string; role: string };
+  }>;
 };
 
 interface Restaurant {
@@ -997,6 +1002,14 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                 ) : (
                   deviceEnrollments.slice(0, 5).map((enrollment) => {
                     const status = getEnrollmentStatus(enrollment);
+                    const lastStaffBinding = enrollment.staffBindings?.[0];
+                    const lastStaffName = lastStaffBinding?.user.name
+                      || (lastStaffBinding ? displayEmail(lastStaffBinding.user.email) : '');
+                    const otherStaffBindings = enrollment.staffBindings?.slice(1) ?? [];
+                    const otherStaffNames = otherStaffBindings
+                      .map((binding) => binding.user.name || displayEmail(binding.user.email))
+                      .filter(Boolean)
+                      .slice(0, 2);
                     const statusLabel =
                       status === 'revoked'
                         ? t('staff.deviceStatusRevoked', 'Revoked')
@@ -1016,8 +1029,41 @@ const StaffSettingsTab: React.FC<StaffSettingsTabProps> = ({ activeRestaurant })
                           </p>
                         </div>
                         <p className="mt-2 truncate text-xs text-muted-foreground">
-                          {t('staff.deviceSessionBy', { name: enrollment.createdBy.name || displayEmail(enrollment.createdBy.email) })}
+                          {t('staff.deviceSessionCreatedBy', {
+                            name: enrollment.createdBy.name || displayEmail(enrollment.createdBy.email),
+                            defaultValue: 'QR created by {{name}}',
+                          })}
                         </p>
+                        {lastStaffBinding ? (
+                          <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                            <p className="truncate text-foreground">
+                              {t('staff.deviceSessionLastUsedBy', {
+                                name: lastStaffName,
+                                role: lastStaffBinding.user.role,
+                                defaultValue: 'Last used by {{name}} ({{role}})',
+                              })}
+                            </p>
+                            <p>
+                              {t('staff.deviceSessionLastSeen', {
+                                time: formatDateTime(lastStaffBinding.lastSeenAt, activeRestaurant.timezone),
+                                defaultValue: 'Last PIN login {{time}}',
+                              })}
+                            </p>
+                            {otherStaffNames.length > 0 && (
+                              <p className="truncate">
+                                {t('staff.deviceSessionAlsoUsedBy', {
+                                  names: otherStaffNames.join(', '),
+                                  count: otherStaffBindings.length,
+                                  defaultValue: 'Also used by {{names}}',
+                                })}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {t('staff.deviceSessionNoStaffLogin', 'No staff PIN login recorded yet')}
+                          </p>
+                        )}
                         {!enrollment.revokedAt && (
                           <button
                             type="button"
