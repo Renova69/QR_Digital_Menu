@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext, useCallback } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useTranslation } from "react-i18next";
-import { getTableStatuses, getZones, getOrCreateSession, forceOpenSession, getSessionBill } from "../../lib/api";
+import { getTableStatuses, getZones, forceOpenSession, getSessionBill } from "../../lib/api";
 import type { TableZone } from "../../lib/api";
 import { usePos } from "../../context/PosContext";
 import RestaurantContext from "../../context/RestaurantContext";
@@ -13,6 +13,7 @@ interface TableStatus {
   name: string;
   status: "empty" | "occupied" | "paid";
   sessionId: string | null;
+  sessionToken: string | null;
   orderCount: number;
   totalAmount: number;
   customerNames: string[];
@@ -128,59 +129,70 @@ export default function PosTableModal() {
   const handleSelect = async (table: TableStatus) => {
     if (!activeRestaurant) return;
     setActionError(null);
-    try {
-      const result = await getOrCreateSession(table.id, activeRestaurant.id);
-      // Clear previous table's cart before loading new session
-      resetCart();
+
+    // Clear previous table's cart before switching.
+    resetCart();
+
+    // Empty/paid table: select client-side ONLY. No session is created here, so a
+    // mis-tap leaves no orphan open table. The session is minted lazily on the
+    // first order submit (PosCartDrawer.handleSubmit) — that's when the table
+    // actually becomes "occupied".
+    if (table.status !== "occupied" || !table.sessionToken) {
       setSession({
         tableId: table.id,
         tableName: table.name,
-        sessionToken: result.token,
-        sessionId: result.session.id,
+        sessionToken: null,
+        sessionId: null,
       });
-
-      // Always load existing orders as history — don't trust orderCount
-      // from getTableStatuses (can be stale or mismatched session)
-      setHistoryLoading(true);
-      setHistoryError(null);
-      try {
-        const bill = await getSessionBill(result.token);
-        const historyItems = bill.orders.flatMap((order: any) =>
-          (order.items ?? []).map((oi: any, idx: number) => ({
-            cartId: `${order.id}-${idx}`,
-            menuItemId: "",
-            name: oi.name ?? "Unknown item",
-            price: oi.unitPrice ?? 0,
-            quantity: oi.quantity,
-            selectedOptions: (oi.selectedOptions ?? []) as Array<{
-              optionId: string;
-              optionName: string;
-              choiceName: string;
-              priceModifier: number;
-            }>,
-            seatNumber: "Shared",
-            itemNote: "",
-            submitted: true,
-          }))
-        );
-        if (historyItems.length > 0) {
-          setHistoryItems(historyItems);
-        }
-      } catch {
-        setHistoryError(
-          t(
-            "pos.failedLoadHistory",
-            "Could not load previous orders. Check connection and refresh.",
-          ),
-        );
-      } finally {
-        setHistoryLoading(false);
-      }
-
       setOpen(false);
-    } catch {
-      setActionError(t("pos.failedOpenSession", "Failed to open session. Try again or use Force Open."));
+      return;
     }
+
+    // Occupied table: adopt the existing OPEN session and load its history.
+    setSession({
+      tableId: table.id,
+      tableName: table.name,
+      sessionToken: table.sessionToken,
+      sessionId: table.sessionId,
+    });
+
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const bill = await getSessionBill(table.sessionToken);
+      const historyItems = bill.orders.flatMap((order: any) =>
+        (order.items ?? []).map((oi: any, idx: number) => ({
+          cartId: `${order.id}-${idx}`,
+          menuItemId: "",
+          name: oi.name ?? "Unknown item",
+          price: oi.unitPrice ?? 0,
+          quantity: oi.quantity,
+          selectedOptions: (oi.selectedOptions ?? []) as Array<{
+            optionId: string;
+            optionName: string;
+            choiceName: string;
+            priceModifier: number;
+          }>,
+          seatNumber: "Shared",
+          itemNote: "",
+          submitted: true,
+        }))
+      );
+      if (historyItems.length > 0) {
+        setHistoryItems(historyItems);
+      }
+    } catch {
+      setHistoryError(
+        t(
+          "pos.failedLoadHistory",
+          "Could not load previous orders. Check connection and refresh.",
+        ),
+      );
+    } finally {
+      setHistoryLoading(false);
+    }
+
+    setOpen(false);
   };
 
   const handleForceOpen = async (table: TableStatus) => {

@@ -149,6 +149,7 @@ export const getTableStatuses = async (restaurantId: string, zoneId?: string) =>
     name: string;
     status: 'empty' | 'occupied' | 'paid';
     sessionId: string | null;
+    sessionToken: string | null;
     orderCount: number;
     totalAmount: number;
     customerNames: string[];

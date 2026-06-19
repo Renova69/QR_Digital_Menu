@@ -2,7 +2,7 @@ import { useState, useContext } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useTranslation } from "react-i18next";
 import { usePos } from "../../context/PosContext";
-import { createOrder, closeSession, closeSessionWithCard, closeSessionWithCash } from "../../lib/api";
+import { createOrder, closeSession, closeSessionWithCard, closeSessionWithCash, getOrCreateSession } from "../../lib/api";
 import RestaurantContext from "../../context/RestaurantContext";
 import PosSplitBill from "./PosSplitBill";
 import PosQRBill from "./PosQRBill";
@@ -26,6 +26,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
   const {
     items,
     session,
+    setSession,
     removeItem,
     updateQuantity,
     updateNote,
@@ -59,6 +60,20 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
     setSubmitError(null);
 
     try {
+      // Lazily create the table session on the first order. The table only
+      // becomes "occupied" now — not when the waiter tapped it — so mis-taps
+      // never leave orphan open tables.
+      let sessionToken = session.sessionToken;
+      if (!sessionToken) {
+        const result = await getOrCreateSession(session.tableId, activeRestaurant.id);
+        sessionToken = result.token;
+        setSession({
+          ...session,
+          sessionToken: result.token,
+          sessionId: result.session.id,
+        });
+      }
+
       const specialRequests = buildSpecialRequests();
       await createOrder({
         customerName: customerName.trim() || t("pos.defaultGuest", "Guest"),
@@ -66,7 +81,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
         tableId: session.tableName,
         restaurantId: activeRestaurant.id,
         specialRequests,
-        sessionToken: session.sessionToken,
+        sessionToken,
         items: pendingItems.map((item) => ({
           menuItemId: item.menuItemId,
           quantity: item.quantity,
@@ -122,8 +137,15 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
   };
 
   const handleForceClose = async () => {
-    if (!session?.sessionToken || !activeRestaurant) return;
+    if (!activeRestaurant) return;
     setConfirmAction(null);
+    // No session yet (table selected but no order submitted) — nothing exists
+    // server-side to close; just drop the local selection.
+    if (!session?.sessionToken) {
+      clearSession();
+      setExpanded(false);
+      return;
+    }
     setClosing(true);
     setSubmitError(null);
     try {
