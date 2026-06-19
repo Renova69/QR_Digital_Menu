@@ -6,6 +6,7 @@ import { Button } from '../ui/button';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, X } from 'lucide-react';
 import { formatEuro, formatBgn } from '../../lib/currency';
+import { getCustomerFacingOrderSourceLabel } from '../../lib/orderSourceLabel';
 
 const stripePublishableKey = (import.meta as any).env
   .VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
@@ -82,15 +83,6 @@ type EpayPaymentState = HostedFormPaymentState & { provider: 'EPAY' };
 type BoricaPaymentState = HostedFormPaymentState & { provider: 'BORICA' };
 
 type PaymentState = StripePaymentState | EpayPaymentState | BoricaPaymentState;
-
-function getSourceLabel(order: BillOrder, t: any): string {
-  if (order.source === 'CUSTOMER') return t('payment.sourceYou', 'You');
-  const rawName = order.staffName ?? '';
-  const name = rawName.split(' ')[0] || rawName || t('payment.sourceStaff', 'Staff');
-  const role = order.staffRole ? String(order.staffRole) : '';
-  const roleName = role ? role.charAt(0).toUpperCase() + role.slice(1).toLowerCase() : t('payment.sourceStaff', 'Staff');
-  return `${roleName}: ${name}`;
-}
 
 function showGroupHeaders(orders: BillOrder[]): boolean {
   return orders.some((o) => o.source === 'POS');
@@ -391,7 +383,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
                 {bill.orders.map((order) => (
                   <div key={order.id}>
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                      👤 {getSourceLabel(order, t)}
+                      👤 {getCustomerFacingOrderSourceLabel(order, t)}
                     </p>
                     {order.items.map((item, i) => (
                       <div key={i} className="flex justify-between text-xs py-0.5">

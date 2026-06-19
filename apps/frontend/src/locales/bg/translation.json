@@ -535,6 +535,7 @@
     "title": "Вашата поръчка",
     "back": "← Обратно към менюто",
     "orderSummary": "Резюме на поръчката",
+    "orderN": "Поръчка {{n}}",
     "payAtCounter": "Онлайн плащането не е налично — моля, платете на сервитьора или на касата.",
     "paymentComplete": "Плащането е завършено",
     "paymentThanks": "Благодарим! Плащането ви е получено.",
@@ -1054,7 +1055,8 @@
     "boricaDetailsRequired": "Въведете име на картодържател, имейл и адрес за фактуриране.",
     "boricaNameInvalid": "Използвайте латински букви за името на картодържателя.",
     "sourceYou": "Вие",
-    "sourceStaff": "Персонал"
+    "sourceStaff": "Персонал",
+    "sourceStaffWithName": "Персонал: {{name}}"
   },
   "summary": {
     "statusSnapshot": "Моментна снимка",
@@ -2691,6 +2693,9 @@
     "eGSizeDonenessExtras": "e.g., Size, Doneness, Extras",
     "choiceNameEGSmallRare": "Choice name (e.g., Small, Rare)",
     "paymentQR": "Payment QR —",
+    "requestPaymentQR": "Покажи QR за плащане",
+    "paymentQRTitle": "QR за плащане за {{table}}",
+    "paymentQRDescription": "Помолете клиента да сканира този QR код, за да прегледа и плати сметката си.",
     "split": "Split:",
     "Person": "/ person",
     "logo": "logo",

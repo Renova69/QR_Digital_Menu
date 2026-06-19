@@ -1244,16 +1244,16 @@
     "hash": "eed21cb08379aa0bc298fab0f878e9b0"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\payment\\PaymentModal.test.tsx": {
-    "mtime": 1781349411.814546,
-    "hash": "d7a0040c0ad2ffd8b1830fe14752c274"
+    "mtime": 1781848619.9758623,
+    "hash": "093029c54381cfae9e11d4f05dc2f0af"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\payment\\PaymentModal.tsx": {
-    "mtime": 1781349411.814546,
-    "hash": "6da0303566d8a9e170acae5d9710e166"
+    "mtime": 1781848538.159843,
+    "hash": "62cffadd3033cf1cf12de3a0b3c080bb"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\pos\\PosCartDrawer.tsx": {
-    "mtime": 1781805822.8358517,
-    "hash": "82b807b3d633a17f8a0b12857dd2765a"
+    "mtime": 1781847997.140248,
+    "hash": "c12a9f1805a8cb420ad82af5f12cd270"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\pos\\PosCategoryFilter.tsx": {
     "mtime": 1781805918.652196,
@@ -1271,9 +1271,13 @@
     "mtime": 1779633946.5018806,
     "hash": "5066277d030f30a13763d5185d115016"
   },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\pos\\PosQRBill.test.tsx": {
+    "mtime": 1781848795.1374266,
+    "hash": "c5f76c9dacae13ed8258e28c3ecb9b64"
+  },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\pos\\PosQRBill.tsx": {
-    "mtime": 1780742321.1549568,
-    "hash": "fb716ef7173582fc89a3a0accb71dddd"
+    "mtime": 1781848795.0594313,
+    "hash": "6cc7afe3cec48cedac7ac5ae53a03f05"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\pos\\PosSeatSelector.tsx": {
     "mtime": 1779634114.622432,
@@ -1284,12 +1288,12 @@
     "hash": "04c46fab49f7ff270bf39f9bf50170da"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\pos\\PosTableModal.tsx": {
-    "mtime": 1781806176.74143,
-    "hash": "344b6e666de51e4bd3aeb3266e358656"
+    "mtime": 1781847967.0828295,
+    "hash": "0174db328fe40f5da97fcef4970952f9"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\pos\\PosTopBar.tsx": {
-    "mtime": 1781806632.4356902,
-    "hash": "80c2b35e1be0f04690e1e3f072175fb5"
+    "mtime": 1781846376.9123473,
+    "hash": "902d37da7d7c7fc2f9e16c36b9de2ad3"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\pos\\ZoneSelector.tsx": {
     "mtime": 1781806385.6544118,
@@ -1412,8 +1416,8 @@
     "hash": "39b40188045c677d0d311af4c77c1da2"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\context\\AuthContext.tsx": {
-    "mtime": 1781505903.8948758,
-    "hash": "3b3912666d32d41265805b702fb2929c"
+    "mtime": 1781846269.1051695,
+    "hash": "6d9e05622d5d24ff0b2af6a4494e908e"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\context\\CartContext.tsx": {
     "mtime": 1780416694.7826965,
@@ -1436,8 +1440,8 @@
     "hash": "b08b86ca3deeffc91bf9a33f841bda2e"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\context\\PosContext.tsx": {
-    "mtime": 1781806005.6430206,
-    "hash": "bb40037d7321a69c5be06ce2f8282594"
+    "mtime": 1781846390.0021582,
+    "hash": "3620b2985b4e18abb3997b2f396e2e04"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\context\\RestaurantContext.tsx": {
     "mtime": 1780597574.997857,
@@ -1504,8 +1508,8 @@
     "hash": "94c1b7a1f86d72c5b21262065cb26361"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\api.ts": {
-    "mtime": 1781845777.5006218,
-    "hash": "9a50c04d9f73ba82f72c7adb5904f734"
+    "mtime": 1781847936.3724377,
+    "hash": "832b51282ad5e58509bc7683ed579d6d"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\brandingFonts.ts": {
     "mtime": 1780129356.9439356,
@@ -1539,6 +1543,10 @@
     "mtime": 1781283958.8603292,
     "hash": "9b69be963c824774259ac416389a4505"
   },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\orderSourceLabel.ts": {
+    "mtime": 1781848530.2982845,
+    "hash": "4c42d7afff943587a2ff33814e2a5087"
+  },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\paymentsExport.ts": {
     "mtime": 1781289613.8530078,
     "hash": "add51088db7f57ce10a57f720944f631"
@@ -1564,8 +1572,8 @@
     "hash": "3ed8f78687569d8f0901fd13ee21a8d3"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\CheckoutPage.tsx": {
-    "mtime": 1781807393.5482306,
-    "hash": "39468c93e511f81c6f559821010aa2be"
+    "mtime": 1781848565.1092544,
+    "hash": "6eaa69c23125c3927a7f77680cf5a70d"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\CustomerProfilePage.tsx": {
     "mtime": 1780740936.8921192,
@@ -1584,8 +1592,8 @@
     "hash": "c14d517ba132126f0671b6c3d8168639"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\DeviceLoginPage.tsx": {
-    "mtime": 1781802976.8190022,
-    "hash": "e47406ec39008a4aa540b02f2b467f2c"
+    "mtime": 1781846461.347388,
+    "hash": "3bcfe7fb6401b84f0d53c3b35cd0fb21"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\FeedbackPage.tsx": {
     "mtime": 1779597337.363168,
@@ -1620,8 +1628,8 @@
     "hash": "1ca36acc0b9d0568af0b70ee563b8e08"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\PublicMenuPage.tsx": {
-    "mtime": 1781505903.898877,
-    "hash": "2a311d89a7f7e705d7620948cefde85b"
+    "mtime": 1781847469.2115626,
+    "hash": "ecaf6af89107ffa34d3bad4270512793"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\RegisterPage.tsx": {
     "mtime": 1779620416.2068026,
@@ -1780,8 +1788,8 @@
     "hash": "34bc70ce849672be83736de7c1245c14"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\pos\\PosPage.tsx": {
-    "mtime": 1781805886.296235,
-    "hash": "fb2de9bff7b5e17120107a6a418aad34"
+    "mtime": 1781847165.7820363,
+    "hash": "64894c45756ba05d5b3ce41843160bf0"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\profile\\DataPrivacyTab.tsx": {
     "mtime": 1780814179.6477764,

@@ -533,6 +533,7 @@
     "title": "Your Order",
     "back": "← Back to Menu",
     "orderSummary": "Order Summary",
+    "orderN": "Order {{n}}",
     "payAtCounter": "Online payment isn't available — please pay your server or at the counter.",
     "paymentComplete": "Payment Complete",
     "paymentThanks": "Thank you! Your payment was received.",
@@ -992,7 +993,8 @@
     "boricaDetailsRequired": "Enter cardholder name, email, and billing address.",
     "boricaNameInvalid": "Use Latin letters for the BORICA cardholder name.",
     "sourceYou": "You",
-    "sourceStaff": "Staff"
+    "sourceStaff": "Staff",
+    "sourceStaffWithName": "Staff: {{name}}"
   },
   "summary": {
     "statusSnapshot": "Status Snapshot",
@@ -2629,6 +2631,9 @@
     "eGSizeDonenessExtras": "e.g., Size, Doneness, Extras",
     "choiceNameEGSmallRare": "Choice name (e.g., Small, Rare)",
     "paymentQR": "Payment QR —",
+    "requestPaymentQR": "Request QR for payment",
+    "paymentQRTitle": "Payment QR for {{table}}",
+    "paymentQRDescription": "Ask the customer to scan this QR to review and pay their bill.",
     "split": "Split:",
     "Person": "/ person",
     "logo": "logo",

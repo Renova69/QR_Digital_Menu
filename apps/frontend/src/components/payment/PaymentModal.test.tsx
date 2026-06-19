@@ -8,10 +8,24 @@ const apiMocks = vi.hoisted(() => ({
   createCheckout: vi.fn(),
 }));
 const i18nMocks = vi.hoisted(() => ({
-  t: (key: string, fallbackOrOptions?: string | { defaultValue?: string }) =>
-    typeof fallbackOrOptions === 'string'
+  t: (key: string, fallbackOrOptions?: string | { defaultValue?: string; name?: string; n?: number }) => {
+    const value = typeof fallbackOrOptions === 'string'
       ? fallbackOrOptions
-      : fallbackOrOptions?.defaultValue ?? key,
+      : fallbackOrOptions?.defaultValue ?? key;
+    return value
+      .replace(
+        /\{\{\s*name\s*\}\}/g,
+        fallbackOrOptions && typeof fallbackOrOptions !== 'string' && fallbackOrOptions.name
+          ? fallbackOrOptions.name
+          : '',
+      )
+      .replace(
+        /\{\{\s*n\s*\}\}/g,
+        fallbackOrOptions && typeof fallbackOrOptions !== 'string' && fallbackOrOptions.n
+          ? String(fallbackOrOptions.n)
+          : '',
+      );
+  },
 }));
 
 vi.mock('../../lib/api', () => ({
@@ -93,6 +107,55 @@ describe('PaymentModal hosted provider choices', () => {
 
     await screen.findByTestId('payment-continue-button');
     expect(screen.queryByRole('button', { name: 'ePay.bg' })).toBeNull();
+  });
+
+  it('uses customer-facing source labels instead of exposing staff roles', async () => {
+    apiMocks.getSessionBill.mockResolvedValueOnce({
+      ...billWithProviders(['STRIPE']),
+      orders: [
+        {
+          id: 'pos-order',
+          source: 'POS',
+          customerName: 'Table',
+          customerPhone: null,
+          staffName: '666',
+          staffRole: 'OWNER',
+          totalPrice: 12,
+          items: [
+            {
+              name: 'Salad',
+              quantity: 1,
+              unitPrice: 12,
+              selectedOptions: [],
+            },
+          ],
+        },
+        {
+          id: 'customer-order',
+          source: 'CUSTOMER',
+          customerName: 'Johny',
+          customerPhone: null,
+          staffName: null,
+          staffRole: null,
+          totalPrice: 8,
+          items: [
+            {
+              name: 'Soup',
+              quantity: 1,
+              unitPrice: 8,
+              selectedOptions: [],
+            },
+          ],
+        },
+      ],
+      subtotal: 20,
+    });
+
+    render(<PaymentModal sessionToken="tok1" onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+    expect(await screen.findByText(/Staff: 666/)).toBeTruthy();
+    expect(screen.getByText(/You$/)).toBeTruthy();
+    expect(screen.queryByText(/Owner/i)).toBeNull();
   });
 
   it('auto-submits returned ePay form fields', async () => {

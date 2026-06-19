@@ -533,6 +533,7 @@
     "title": "Comanda dvs.",
     "back": "← Înapoi la meniu",
     "orderSummary": "Rezumat Comandă",
+    "orderN": "Comanda {{n}}",
     "payAtCounter": "Plata online nu este disponibilă — vă rugăm să plătiți ospătarului sau la casă.",
     "paymentComplete": "Plată finalizată",
     "paymentThanks": "Mulțumim! Plata dvs. a fost primită.",
@@ -992,7 +993,8 @@
     "boricaDetailsRequired": "Introdu numele titularului cardului, emailul și adresa de facturare.",
     "boricaNameInvalid": "Folosește litere latine pentru numele titularului cardului BORICA.",
     "sourceYou": "Tu",
-    "sourceStaff": "Personal"
+    "sourceStaff": "Personal",
+    "sourceStaffWithName": "Personal: {{name}}"
   },
   "summary": {
     "statusSnapshot": "Instantaneu Status",
@@ -2629,6 +2631,9 @@
     "eGSizeDonenessExtras": "e.g., Size, Doneness, Extras",
     "choiceNameEGSmallRare": "Choice name (e.g., Small, Rare)",
     "paymentQR": "Payment QR —",
+    "requestPaymentQR": "Solicită QR pentru plată",
+    "paymentQRTitle": "QR de plată pentru {{table}}",
+    "paymentQRDescription": "Rugați clientul să scaneze acest cod QR pentru a verifica și plăti nota.",
     "split": "Split:",
     "Person": "/ person",
     "logo": "logo",

@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { PaymentModal } from "../components/payment/PaymentModal";
 import { formatInlineDual, formatEuro, formatBgn } from "../lib/currency";
+import { getCustomerFacingOrderSourceLabel } from "../lib/orderSourceLabel";
 import { Toggle } from "../components/ui/Toggle";
 import type { FeatureFlag } from "../hooks/useFeature";
 import { isHappyHourActive } from "../lib/happyHour";
@@ -331,8 +332,9 @@ const CheckoutPage = () => {
                 <div key={order.id ?? oi} className="mb-4 last:mb-0">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs text-muted-foreground">
-                      {t("checkout.orderN", { n: oi + 1 })}
-                      {order.customerName ? ` · ${order.customerName}` : ""}
+                      {t("checkout.orderN", { n: oi + 1, defaultValue: "Order {{n}}" })}
+                      {" · "}
+                      {getCustomerFacingOrderSourceLabel(order, t)}
                     </span>
                   </div>
                   {(order.items ?? []).map((it: any, ii: number) => (
