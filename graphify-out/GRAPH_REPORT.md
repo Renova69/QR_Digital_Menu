@@ -5,12 +5,12 @@
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 7642 nodes · 10119 edges · 578 communities (510 shown, 68 thin omitted)
+- 7642 nodes · 10119 edges · 578 communities (511 shown, 67 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 188 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `5083cb24`
+- Built from commit: `29b44960`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -156,9 +156,10 @@
 - [[_COMMUNITY_Community 139|Community 139]]
 - [[_COMMUNITY_Community 140|Community 140]]
 - [[_COMMUNITY_Community 141|Community 141]]
+- [[_COMMUNITY_Community 142|Community 142]]
 - [[_COMMUNITY_Community 143|Community 143]]
 - [[_COMMUNITY_Community 144|Community 144]]
-- [[_COMMUNITY_Community 145|Community 145]]
+- [[_COMMUNITY_Community 146|Community 146]]
 - [[_COMMUNITY_Community 147|Community 147]]
 - [[_COMMUNITY_Community 148|Community 148]]
 - [[_COMMUNITY_Community 149|Community 149]]
@@ -301,7 +302,6 @@
 - [[_COMMUNITY_Community 286|Community 286]]
 - [[_COMMUNITY_Community 287|Community 287]]
 - [[_COMMUNITY_Community 288|Community 288]]
-- [[_COMMUNITY_Community 289|Community 289]]
 - [[_COMMUNITY_Community 290|Community 290]]
 - [[_COMMUNITY_Community 291|Community 291]]
 - [[_COMMUNITY_Community 292|Community 292]]
@@ -435,7 +435,6 @@
 - [[_COMMUNITY_Community 420|Community 420]]
 - [[_COMMUNITY_Community 421|Community 421]]
 - [[_COMMUNITY_Community 422|Community 422]]
-- [[_COMMUNITY_Community 423|Community 423]]
 - [[_COMMUNITY_Community 424|Community 424]]
 - [[_COMMUNITY_Community 425|Community 425]]
 - [[_COMMUNITY_Community 426|Community 426]]
@@ -583,14 +582,14 @@
   index.js → apps/backend/coverage/lcov-report/prettify.js
 - `ht()` --calls--> `o()`  [INFERRED]
   index.js → apps/backend/coverage/lcov-report/prettify.js
+- `a()` --calls--> `Aa()`  [INFERRED]
+  apps/backend/coverage/lcov-report/prettify.js → index.js
 - `ei()` --calls--> `B()`  [INFERRED]
   index.js → apps/backend/coverage/lcov-report/prettify.js
 - `ai()` --calls--> `t`  [INFERRED]
   index.js → apps/frontend/src/lib/exportSmoke.test.ts
-- `ri` --calls--> `t`  [INFERRED]
-  index.js → apps/frontend/src/lib/exportSmoke.test.ts
 
-## Communities (578 total, 68 thin omitted)
+## Communities (578 total, 67 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.01
@@ -610,219 +609,219 @@ Nodes (106): 1. Missing "Perfect Pairings" Rendering (High Priority), 1. "Perfec
 
 ### Community 4 - "Community 4"
 Cohesion: 0.03
-Nodes (37): JwtAuthGuard, BillingPeriod, CheckoutTier, CreateCheckoutDto, AvailabilityType, CreateCategoryDto, CreateItemDto, Currency (+29 more)
+Nodes (73): filterConfig, FilterMode, LiveTablesView(), useDebouncedValue(), CookieConsentBanner(), CookiePolicyPage(), SITE_COOKIES, PrivacyPolicyPage() (+65 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.03
-Nodes (71): filterConfig, FilterMode, LiveTablesView(), useDebouncedValue(), CookieConsentBanner(), CookiePolicyPage(), SITE_COOKIES, PrivacyPolicyPage() (+63 more)
+Cohesion: 0.04
+Nodes (34): JwtAuthGuard, AvailabilityType, CreateCategoryDto, CreateItemDto, Currency, CreateMenuOptionDto, UpdateCategoryDto, UpdateItemDto (+26 more)
 
 ### Community 6 - "Community 6"
-Cohesion: 0.05
-Nodes (38): AuthUser, JwtStrategy, passwordChangedAt, prisma, CreateDeviceEnrollmentDto, CreateRestaurantDto, DateRangeQueryDto, RefundPaymentDto (+30 more)
+Cohesion: 0.04
+Nodes (64): AnalyticsView(), CategoryMix(), CHART_COLORS, dayPartKeyMap, dayParts, EmptyState(), formatDate(), formatPercent() (+56 more)
 
 ### Community 7 - "Community 7"
-Cohesion: 0.04
-Nodes (65): AnalyticsView(), CategoryMix(), CHART_COLORS, CustomTooltip(), dayPartKeyMap, dayParts, EmptyState(), formatDate() (+57 more)
-
-### Community 8 - "Community 8"
 Cohesion: 0.03
 Nodes (75): ✅ Accomplishments:, 🛠️ Audit & Final Polishes Applied:, Chat Conversation, 📊 Comparison at a Glance, 🛠️ Debugging Strategy, 🔑 Demo Credentials, ✨ Final Fixes & Polishing:, 🏁 Final State (+67 more)
+
+### Community 8 - "Community 8"
+Cohesion: 0.04
+Nodes (54): CreateRestaurantForm(), NotificationBell(), PaymentToast(), useAssistance(), NotificationContext, NotificationContextType, NotificationProvider(), PaymentNotification (+46 more)
 
 ### Community 9 - "Community 9"
 Cohesion: 0.04
 Nodes (30): ImportCategoryDto, ImportChoiceDto, ImportItemDto, ImportMenuDto, ImportOptionDto, categories, items, payload (+22 more)
 
 ### Community 10 - "Community 10"
-Cohesion: 0.05
-Nodes (53): CartDrawer(), CartIcon(), CartIconProps, CartContext, CartContextType, CartItem, CartProvider(), SelectedOption (+45 more)
-
-### Community 11 - "Community 11"
 Cohesion: 0.07
 Nodes (49): MenuContext, MenuContextType, MenuProvider(), useMenuContext(), DashboardProfileModal(), DashboardProfileModalProps, DashboardUser, AuditIssue (+41 more)
 
-### Community 12 - "Community 12"
-Cohesion: 0.04
-Nodes (28): WrapperType, CreatePrintStationDto, UpdatePrintStationDto, EventsGateway, parseCookie(), client, fetchSockets, inRoom (+20 more)
-
-### Community 13 - "Community 13"
+### Community 11 - "Community 11"
 Cohesion: 0.05
 Nodes (30): OptionalJwtStrategy, passwordChangedAt, prisma, AnalyticsResult, canceledEntry, defaultAggregate, mockPrisma, mockViews (+22 more)
 
-### Community 14 - "Community 14"
-Cohesion: 0.05
-Nodes (21): AssistanceController, AssistanceService, dto, mockEvents, mockFeatureService, mockPrisma, req, updated (+13 more)
-
-### Community 15 - "Community 15"
+### Community 12 - "Community 12"
 Cohesion: 0.05
 Nodes (39): draft, PosCartItem, PosContext, PosContextType, PosProvider(), PosSession, names, { result } (+31 more)
 
+### Community 13 - "Community 13"
+Cohesion: 0.05
+Nodes (46): ALLOWED_ROLES, POS_REQUIRED_ROLES, ROLE_DEFAULT_PATH, StaffRoute(), useRestaurantContext(), SettingsTab, SettingsView(), bondSection (+38 more)
+
+### Community 14 - "Community 14"
+Cohesion: 0.07
+Nodes (26): AuthUser, JwtStrategy, passwordChangedAt, prisma, BillingPeriod, CheckoutTier, CreateCheckoutDto, DateRangeQueryDto (+18 more)
+
+### Community 15 - "Community 15"
+Cohesion: 0.09
+Nodes (26): AssistanceModule, AuthModule, GoogleStrategy, DashboardModule, EventsModule, FeedbackModule, HealthController, HealthModule (+18 more)
+
 ### Community 16 - "Community 16"
-Cohesion: 0.08
-Nodes (26): AssistanceModule, AuthModule, GoogleStrategy, LocalStrategy, DashboardModule, EventsModule, HealthController, HealthModule (+18 more)
+Cohesion: 0.05
+Nodes (20): AssistanceController, AssistanceService, dto, mockEvents, mockFeatureService, mockPrisma, req, updated (+12 more)
 
 ### Community 17 - "Community 17"
-Cohesion: 0.05
-Nodes (45): ALLOWED_ROLES, POS_REQUIRED_ROLES, ROLE_DEFAULT_PATH, StaffRoute(), useRestaurantContext(), SettingsTab, SettingsView(), bondSection (+37 more)
+Cohesion: 0.06
+Nodes (43): CustomTooltip(), abandonCheckout(), BoricaCardholderDetails, CheckoutProvider, createCheckout(), createPaymentIntent(), formatBgn(), formatDualCurrency() (+35 more)
 
 ### Community 18 - "Community 18"
 Cohesion: 0.07
 Nodes (30): RedisIoAdapter, ALLOWED_LEVELS, asLevel(), asString(), ClientLogLevel, ClientLogsController, CONTROL_CHAR_PATTERN, safeContext() (+22 more)
 
 ### Community 19 - "Community 19"
-Cohesion: 0.05
-Nodes (38): AssistanceContext, AssistanceContextType, AssistanceProvider(), AssistanceRequest, useAssistance(), useOrders(), AssistanceContextValue, AssistanceRequest (+30 more)
+Cohesion: 0.06
+Nodes (14): WrapperType, CreatePrintStationDto, UpdatePrintStationDto, EventsGateway, parseCookie(), client, fetchSockets, inRoom (+6 more)
 
 ### Community 20 - "Community 20"
 Cohesion: 0.04
 Nodes (49): 3.10 Translation System, 3.11 Analytics Dashboard, 3.12 Customer Feedback System, 3.13 Branding & Theming, 3.14 Menu Scheduling (Dayparting), 3.15 Upselling Engine, 3.16 Stripe Connect Payments, 3.17 Live Table View (+41 more)
 
 ### Community 21 - "Community 21"
+Cohesion: 0.06
+Nodes (34): CartDrawer(), CartIcon(), CartIconProps, CartContext, CartContextType, CartItem, CartProvider(), SelectedOption (+26 more)
+
+### Community 22 - "Community 22"
+Cohesion: 0.07
+Nodes (40): BrandingPreview(), BrandingPreviewProps, Device, Scene, SCENE_KEYS, ColorSchemeEditor(), ColorSchemeEditorProps, ColorSwatch() (+32 more)
+
+### Community 23 - "Community 23"
 Cohesion: 0.07
 Nodes (34): DASHBOARD_BLOCKED_ROLES, ProtectedRoute(), SuperAdminRoute(), AuthContext, AuthContextType, AuthProvider(), mockUser, TestConsumer() (+26 more)
 
-### Community 22 - "Community 22"
+### Community 24 - "Community 24"
 Cohesion: 0.04
 Nodes (45): 10. Shipped vs Planned, 11. Risks & Debt, 12. Open Questions (UNVERIFIED), 1. Repo Map, 2. Backend Architecture, 3. Frontend Architecture, 4. Data Model, 5. Critical Data Flows (+37 more)
 
-### Community 23 - "Community 23"
-Cohesion: 0.05
-Nodes (36): NotificationBell(), PaymentToast(), NotificationContext, NotificationContextType, NotificationProvider(), PaymentNotification, useNotifications(), AppLayout() (+28 more)
-
-### Community 24 - "Community 24"
+### Community 25 - "Community 25"
 Cohesion: 0.06
 Nodes (35): BoricaCallbackResult, BoricaCardholderInfo, BoricaCheckoutForm, BoricaCheckoutParams, BoricaMode, BoricaProvider, buildMInfo(), buildMobilePhone() (+27 more)
 
-### Community 25 - "Community 25"
+### Community 26 - "Community 26"
 Cohesion: 0.07
 Nodes (30): styles, io, parseSetupUrl(), Props, styles, getAndroidApiVersion(), LogEntry, Props (+22 more)
 
-### Community 26 - "Community 26"
+### Community 27 - "Community 27"
 Cohesion: 0.11
 Nodes (21): ok, Alignment, AppState, EscPosRenderer, handle_client(), main(), PaperSize, PrinterState (+13 more)
 
-### Community 27 - "Community 27"
+### Community 28 - "Community 28"
 Cohesion: 0.07
 Nodes (35): ALL_FEATURE_FLAGS, FeatureFlag, getAllowedStaffRoles(), getStaffLimit(), SubscriptionInfo, SubscriptionTier, TIER_FEATURES, useTier() (+27 more)
 
-### Community 28 - "Community 28"
+### Community 29 - "Community 29"
 Cohesion: 0.05
 Nodes (39): Backend Design, code:txt (/device-enroll?token=<short-lived-token>), code:txt (This device is not linked to a restaurant.), code:json ({), code:prisma (model DeviceEnrollmentToken {), code:json ({), code:json ({), code:json ({) (+31 more)
 
-### Community 29 - "Community 29"
+### Community 30 - "Community 30"
 Cohesion: 0.05
 Nodes (40): code:bash (mkdir -p "apps/frontend/src/components/landing"), code:bash (git add apps/frontend/src/pages/HomePage.tsx), code:tsx ({ id: 'help'       as TabId, Icon: HelpCircle,       label: ), code:tsx (import { type LucideIcon, LayoutDashboard, ShoppingBag, Bell), code:tsx ({/* Divider + external tool links (always visible, regardles), code:tsx ({/* Divider + external tool links (always visible, regardles), code:bash (cd apps/frontend && npx tsc --noEmit --pretty src/pages/Dash), code:bash (git add apps/frontend/src/pages/DashboardPage.tsx) (+32 more)
 
-### Community 30 - "Community 30"
+### Community 31 - "Community 31"
 Cohesion: 0.05
 Nodes (40): 10. Component Changes Summary, 11. Design Constraints, 1. Top Bar — All-in-One Glass Panel, 2. Filter Panel — Dropdown from ☰ Button, 2a. Dietary Preference Toggles (Include Filter), 2b. Divider, 2c. Allergen Exclusion Pills (Exclude Filter), 2d. Footer (+32 more)
 
-### Community 31 - "Community 31"
+### Community 32 - "Community 32"
 Cohesion: 0.05
 Nodes (40): API client additions, Backend Architecture, code:prisma (enum UserRole {), code:typescript (getSuperAdminStats()), code:block11 (SuperAdminPage → useQuery(api.getSuperAdminStats)), code:prisma (model Restaurant {), code:block3 (super-admin/), code:typescript ({) (+32 more)
 
-### Community 32 - "Community 32"
+### Community 33 - "Community 33"
+Cohesion: 0.08
+Nodes (29): createAssistanceRequest(), getCategoryItems(), getMenuMeta(), getTrendingItems(), recordMenuView(), getImageUrl(), getTranslatedArray(), getTranslatedField() (+21 more)
+
+### Community 34 - "Community 34"
 Cohesion: 0.05
 Nodes (39): 🚀 10 V2 Features proposed (ordered by selling power):, Chat Conversation, code:typescript (// THIS IS NestJS SCAFFOLD CODE — returns hardcoded strings,), code:typescript (// TODO: Add validation to ensure the user owns the restaura), ✅ CODING_ROADMAP.md — Fully Rewritten, 📋 CODING_ROADMAP.md — **Severely outdated**, ⚠️ Dashboard Summary — **PARTIAL GAP**, ✅ Phase 1: Project Setup — **DONE** (+31 more)
 
-### Community 33 - "Community 33"
+### Community 35 - "Community 35"
 Cohesion: 0.08
 Nodes (12): AuthService, existingUser, futureDate, hashedCode, mockCompare, mockHash, newUser, real (+4 more)
 
-### Community 34 - "Community 34"
-Cohesion: 0.09
-Nodes (34): BrandingPreview(), BrandingPreviewProps, Device, Scene, SCENE_KEYS, ColorSchemeEditor(), ColorSchemeEditorProps, ColorSwatch() (+26 more)
-
-### Community 35 - "Community 35"
+### Community 36 - "Community 36"
 Cohesion: 0.05
 Nodes (38): code:ts (// apps/frontend/src/lib/currency.ts), code:tsx ({/* Filter Panel */}), code:tsx (const filteredItems = (() => {), code:tsx (import { FilterPanel } from "../components/menu/FilterPanel"), code:bash (git add apps/frontend/src/components/menu/FilterPanel.tsx ap), code:tsx (// apps/frontend/src/components/menu/ItemWithOptions.tsx), code:bash (git add apps/frontend/src/components/menu/ItemWithOptions.ts), code:tsx (// apps/frontend/src/components/menu/CategoryPills.tsx) (+30 more)
-
-### Community 36 - "Community 36"
-Cohesion: 0.07
-Nodes (28): Channel, COUNTRIES, CustomerLoginModal(), CustomerLoginModalProps, Step, FontPicker(), FontPickerProps, createAssistanceRequest() (+20 more)
 
 ### Community 37 - "Community 37"
 Cohesion: 0.05
 Nodes (37): 2a Cart Language Sync, 2b Options Pre-selection, 2c QR Print Layout, 2d Analytics Dark Mode, 2e Menu Health — Remove Category Image Check, Area 1 — Customer Auth (Email OTP + Profile), Area 2 — UI Bugs, Area 3 — Translation Gaps (+29 more)
 
 ### Community 38 - "Community 38"
+Cohesion: 0.08
+Nodes (28): RestaurantList(), OrderProvider(), RestaurantContext, RestaurantContextType, RestaurantProvider(), SocketContext, SocketContextData, SocketProvider() (+20 more)
+
+### Community 39 - "Community 39"
 Cohesion: 0.09
 Nodes (31): getMethodLabel(), PaymentDrawer(), TimelineItem(), translateTimelineLabel(), exportPaymentsCsv(), formatDateTime(), formatMoney(), methodStyles (+23 more)
 
-### Community 39 - "Community 39"
+### Community 40 - "Community 40"
 Cohesion: 0.07
 Nodes (18): BASE_RESTAURANT, mockMenuTranslation, mockPrisma, mockStorage, mockTranslation, option, spy, MenuTranslationService (+10 more)
 
-### Community 40 - "Community 40"
+### Community 41 - "Community 41"
 Cohesion: 0.06
 Nodes (35): **1\. Engineer a Hybrid Canvas/SVG Accessibility Engine**, **2\. Migrate Core Topography to a Native Graph Database**, **3\. Deploy NLP-Driven Labor Market Synchronization**, **4\. Overhaul Gamification via Flow Theory and Intrinsic Pedagogy**, **5\. Programmatically Enforce Peer Review and Mentorship Constraints**, **Accessibility (A11y) Standards in Highly Interactive Ecosystems**, **AI-Driven Personalization and Knowledge Tracing**, **Algorithmic Mentorship Matching** (+27 more)
 
-### Community 41 - "Community 41"
+### Community 42 - "Community 42"
 Cohesion: 0.06
 Nodes (35): Architecture, Backend Module: `SubscriptionModule`, code:typescript (enum FeatureFlag {), code:prisma (enum SubscriptionTier {), code:block3 (STRIPE_SUBSCRIPTION_WEBHOOK_SECRET=whsec_...   # separate fr), code:typescript (async applySubscriptionEvent(customerId: string, event: Stri), code:typescript (@RequireFeature(FeatureFlag.POS)), code:typescript (getFeatures(tier: SubscriptionTier): FeatureFlag[]) (+27 more)
 
-### Community 42 - "Community 42"
+### Community 43 - "Community 43"
 Cohesion: 0.06
 Nodes (34): 1. API Key panel, 2. File uploader, 3. Preview table, 4. Import result, Authentication, Canonical JSON Schema (what the OCR tool exports), code:json ({), code:json ({ "success": true, "created": 3, "updated": 12, "categories") (+26 more)
 
-### Community 43 - "Community 43"
+### Community 44 - "Community 44"
 Cohesion: 0.06
 Nodes (34): 18. MenuView Scan Stats Performance/OOM, 21. Database Constraint Blockage on Order/Restaurant Deletion due to LoyaltyPointLedger, 24. Unsanitized Option Price Modifiers Saved to Database, A. Feature summary, A. Feature summary, A. Feature summary, A. Feature summary, A. Feature summary (+26 more)
 
-### Community 44 - "Community 44"
+### Community 45 - "Community 45"
 Cohesion: 0.06
 Nodes (33): Architecture Overview, Backend, code:prisma (model TableSession {), code:block10 (Customer browser                Backend                    S), code:prisma (model Payment {), code:prisma (tableSessionId String?), code:prisma (stripeAccountId      String?), code:prisma (sessions TableSession[]) (+25 more)
 
-### Community 45 - "Community 45"
+### Community 46 - "Community 46"
 Cohesion: 0.06
 Nodes (33): 1. Routing & Auth, 2. PosContext, 3. Component Tree, 4. Backend Additions, 5. Data Flow, 6. Styling Rules, 7. Files to Create / Modify, `App.tsx` addition (+25 more)
 
-### Community 46 - "Community 46"
+### Community 47 - "Community 47"
 Cohesion: 0.1
 Nodes (11): RestaurantsService, brandingDto, capturedPayload, deleted, dto, expected, restaurant, updated (+3 more)
 
-### Community 47 - "Community 47"
-Cohesion: 0.06
-Nodes (31): Backend — `SuperAdminModule`, Branding: Public Menu Theme Application (May 25, 2026), Core Stability & Checkout, CSS / Design System (May 4, 2026), Database Performance Indexes (May 7, 2026), Files Changed, Files Changed, Fix (+23 more)
-
 ### Community 48 - "Community 48"
 Cohesion: 0.06
-Nodes (31): Architecture, BG / RO locale coverage, Bugs fixed in this phase, code:block1 (language        — "Language"), code:block10 (sectionTitle        — "Loyalty & Rewards Program"), code:block11 (typography      — "Typography"), code:block12 (dashboard   — "Dashboard"), code:block13 (tabs.home       — "Home") (+23 more)
+Nodes (28): AssistanceContext, AssistanceContextType, AssistanceProvider(), AssistanceRequest, getAssistanceRequests(), updateAssistanceRequest(), CheckoutPage, CookiePolicyPage (+20 more)
 
 ### Community 49 - "Community 49"
 Cohesion: 0.06
-Nodes (31): About, Build from source, Code Structure, code:bash (cargo install escpresso), code:bash (cargo test), code:bash (cat tests/raw/test1_format.raw | nc -w 1 localhost 9100), code:bash (# Debian/Ubuntu), code:bash (git clone https://github.com/jflaflamme/escpresso.git) (+23 more)
+Nodes (31): Backend — `SuperAdminModule`, Branding: Public Menu Theme Application (May 25, 2026), Core Stability & Checkout, CSS / Design System (May 4, 2026), Database Performance Indexes (May 7, 2026), Files Changed, Files Changed, Fixed Issues & Bug Resolutions Log (+23 more)
+
+### Community 50 - "Community 50"
+Cohesion: 0.06
+Nodes (31): Architecture, BG / RO locale coverage, Bugs fixed in this phase, code:block1 (language        — "Language"), code:block10 (sectionTitle        — "Loyalty & Rewards Program"), code:block11 (typography      — "Typography"), code:block12 (dashboard   — "Dashboard"), code:block13 (tabs.home       — "Home") (+23 more)
 
 ### Community 51 - "Community 51"
-Cohesion: 0.09
-Nodes (22): DashboardSummary, getTrendingItems(), getTranslatedArray(), getTranslatedField(), Translatable, CategoryPills(), CategoryPillsProps, ImageLightbox() (+14 more)
+Cohesion: 0.06
+Nodes (31): About, Build from source, Code Structure, code:bash (cargo install escpresso), code:bash (cargo test), code:bash (cat tests/raw/test1_format.raw | nc -w 1 localhost 9100), code:bash (# Debian/Ubuntu), code:bash (git clone https://github.com/jflaflamme/escpresso.git) (+23 more)
 
-### Community 52 - "Community 52"
+### Community 53 - "Community 53"
 Cohesion: 0.06
 Nodes (30): Auth Architecture — httpOnly Cookies + Vite Proxy (Dev) / Cross-Origin (Prod), CI Gate, code:bash (# Install all dependencies for both apps at once), code:bash (cd apps/backend), code:bash (cd apps/backend), code:bash (FORCE_SEED_WIPE=true npm run seed), code:bash (npm run seed:help), code:bash (npm run dev) (+22 more)
 
-### Community 53 - "Community 53"
+### Community 54 - "Community 54"
 Cohesion: 0.11
 Nodes (12): buildEscPosTicket(), CMD, DEFAULTS, divider(), fmtTime(), PrintItem, PrintTicket, ReceiptTemplate (+4 more)
 
-### Community 54 - "Community 54"
+### Community 55 - "Community 55"
 Cohesion: 0.1
 Nodes (20): ErrorBoundary, Props, State, renderWithProviders(), ClientLogLevel, ClientLogPayload, getClientSessionId(), installGlobalErrorLogging() (+12 more)
 
-### Community 55 - "Community 55"
+### Community 56 - "Community 56"
 Cohesion: 0.07
 Nodes (29): All UI States, Backend Lazy Translation, Branding / CSS Custom Properties, CartDrawer — Cart Overlay, code:block1 (App.tsx), code:block2 (SocketProvider → RestaurantProvider → NotificationProvider →), code:block3 (PublicLayout (App.tsx:51-61)), code:block4 (QR Code Scan) (+21 more)
 
-### Community 56 - "Community 56"
+### Community 57 - "Community 57"
 Cohesion: 0.1
 Nodes (13): OptionalJwtAuthGuard, CreateOrderDto, OrderItemDto, OrderItemOptionDto, baseItem, basePayload, dto, errors (+5 more)
 
-### Community 57 - "Community 57"
+### Community 58 - "Community 58"
 Cohesion: 0.12
 Nodes (6): CreateZoneDto, ReorderZonesDto, ZoneOrderItem, UpdateZoneDto, TableZonesController, TableZonesService
-
-### Community 58 - "Community 58"
-Cohesion: 0.1
-Nodes (22): Order, OrderContext, OrderContextType, OrderProvider(), OrderStatus, RestaurantProvider(), SocketContext, SocketContextData (+14 more)
 
 ### Community 59 - "Community 59"
 Cohesion: 0.09
@@ -849,152 +848,152 @@ Cohesion: 0.07
 Nodes (27): code:block1 (Create: apps/frontend/src/components/staff/StaffCreatedModal), code:tsx (const handleInviteStaff = async () => {), code:tsx (// REMOVE these state declarations (lines 97-98):), code:tsx (<StaffCreatedModal), code:bash (git add apps/frontend/src/pages/Dashboard/SettingsView.tsx), code:tsx (const handleRebondStaff = async (staffName: string) => {), code:tsx (<td className="px-4 py-2">), code:tsx (import { faTriangleExclamation, faMedal, faTrash, faCopy, fa) (+19 more)
 
 ### Community 65 - "Community 65"
+Cohesion: 0.11
+Nodes (12): COOKIE_OPTIONS, PinLoginMeta, LocalAuthGuard, LocalStrategy, CreateAuthDto, CreateStaffDto, PinLoginDto, UpdateAuthDto (+4 more)
+
+### Community 66 - "Community 66"
+Cohesion: 0.12
+Nodes (14): CreateDeviceEnrollmentDto, CreateRestaurantDto, errors, keysFor(), validate(), UpdateRestaurantDto, BRANDING_FIELD_SET, BRANDING_FIELDS (+6 more)
+
+### Community 67 - "Community 67"
 Cohesion: 0.08
 Nodes (19): Footer(), FooterProps, linkifyPhones(), LANG_CODES, TopBar(), TopBarProps, advantageItems, comparisonRows (+11 more)
 
-### Community 66 - "Community 66"
+### Community 68 - "Community 68"
 Cohesion: 0.07
 Nodes (26): **Advanced Pipeline Features and Future Scalability**, **Comparative Analysis of Generative Inference Engines**, **Conclusion**, **Confidence Scoring and Anomaly Detection**, **Connection Pooling with Serverless PostgreSQL**, **Contract Validation with DTOs**, **Currency Formatting and Regex Normalization**, **Drag-and-Drop Row Reordering Mechanics** (+18 more)
 
-### Community 67 - "Community 67"
+### Community 69 - "Community 69"
 Cohesion: 0.07
 Nodes (26): BrandingEditor, code:block1 (App.tsx), code:block2 (SocketProvider → OrderProvider → AssistanceProvider → Restau), code:block3 (┌─────────────────────────────────────────────────┐), code:block4 ([Summary] [Orders] [Payments*] [Assistance] [Tables] [Settin), Context Providers Active on Dashboard, Current UI/UX — Dashboard Layout Map, DashboardPage Shell (+18 more)
 
-### Community 68 - "Community 68"
+### Community 70 - "Community 70"
 Cohesion: 0.07
 Nodes (26): Backend Architecture, code:prisma (enum SubscriptionTier {), code:typescript (@TierRequired(SubscriptionTier.STARTER)), code:block3 (STRIPE_SECRET_KEY=sk_live_...), code:typescript (const { hasAccess, isTrialing, daysLeft } = useTierAccess(Su), Context update — `RestaurantContext`, Controller — `SubscriptionController`, Create (+18 more)
 
-### Community 69 - "Community 69"
+### Community 71 - "Community 71"
 Cohesion: 0.1
 Nodes (15): EpayCheckoutForm, EpayCheckoutParams, EpayMode, EpayNotification, EpayNotificationStatus, EpayPage, EpayProvider, checksum (+7 more)
 
-### Community 70 - "Community 70"
+### Community 72 - "Community 72"
 Cohesion: 0.1
 Nodes (19): AgentToken, PrintStation, PrintStationsView(), ReceiptTemplate, StationHealth, SummaryCardProps, createPrintStation(), deletePrintStation() (+11 more)
 
-### Community 71 - "Community 71"
+### Community 73 - "Community 73"
 Cohesion: 0.08
 Nodes (25): Backend (`apps/backend`), Backend architecture, CLAUDE.md, code:bash (npm run dev      # runs both apps (backend :3000, frontend :), code:bash (npm run start:dev      # NestJS watch mode), code:bash (npm run dev      # vite --host (strictPort, fails fast on co), code:json ([{ "name": "Medium Well", "priceModifier": 0.00 }, ...]), Common commands (+17 more)
 
-### Community 72 - "Community 72"
+### Community 74 - "Community 74"
 Cohesion: 0.08
 Nodes (26): Components — Auth, Components — Branding, Components — Cart, Components — Dashboard, Components — Menu, Components — Payment, Components — POS, Components — Shared (+18 more)
 
-### Community 73 - "Community 73"
+### Community 75 - "Community 75"
 Cohesion: 0.08
 Nodes (25): 0. Why / when, 10. Rollback, 11. Effort estimate, 1. Current state (snapshot), 2. Go/no-go risk gates (read before starting), 3. Prerequisites, 4. Phase 1 — workspace config (local), 5. Phase 2 — fix strict-install fallout (+17 more)
 
-### Community 74 - "Community 74"
+### Community 76 - "Community 76"
 Cohesion: 0.08
 Nodes (26): code:json ("summary": {), code:json ("pluckedAt": "Placed {{time}}"), code:json ("resolvedAt": "Resolved {{time}}"), code:json ("printAllQr": "Print All QR Codes"), code:json ("export": "Export",), code:json ("menuCheck": {), code:json ("loyaltySettings": {), code:json ("typography": "Typography",) (+18 more)
 
-### Community 75 - "Community 75"
+### Community 77 - "Community 77"
 Cohesion: 0.08
 Nodes (25): 2.1 Consolidate Auth, 2.2 Provider Splitting, 3.1 Verify Split Services, 3.2 Update Controllers, 3.3 Delete Monolith, 4.1 Schema Changes, 4.2 Permission Matrix, 4.3 New Endpoints (+17 more)
 
-### Community 76 - "Community 76"
+### Community 78 - "Community 78"
 Cohesion: 0.08
 Nodes (23): boricaCardholder, boricaPayment, boricaRestaurant, [capturedPayload], created, epayPayment, epayRestaurant, existing (+15 more)
 
-### Community 77 - "Community 77"
+### Community 79 - "Community 79"
 Cohesion: 0.08
 Nodes (24): Backend (`apps/backend`), Backend architecture, CLAUDE.md, code:bash (npm run dev      # runs both apps (backend :3000, frontend :), code:bash (npm run start:dev      # NestJS watch mode), code:bash (npm run dev      # vite --host (strictPort, fails fast on co), code:json ([{ "name": "Medium Well", "priceModifier": 0.00 }, ...]), Common commands (+16 more)
 
-### Community 78 - "Community 78"
+### Community 80 - "Community 80"
 Cohesion: 0.08
 Nodes (23): Backend (`apps/backend`), Backend architecture, code:bash (npm run dev      # runs both apps (backend :3000, frontend :), code:bash (npm run start:dev      # NestJS watch mode), code:bash (npm run dev      # vite --host (strictPort, fails fast on co), code:json ([{ "name": "Medium Well", "priceModifier": 0.00 }, ...]), Conventions & gotchas, Deplotyment (+15 more)
 
-### Community 79 - "Community 79"
+### Community 81 - "Community 81"
 Cohesion: 0.08
 Nodes (25): 23. N+1 Database Performance Disaster in Loyalty Analytics, 26. Cross-Restaurant Table Spoofing in Assistance, A. Feature summary, A. Feature summary, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved (+17 more)
 
-### Community 80 - "Community 80"
+### Community 82 - "Community 82"
 Cohesion: 0.08
 Nodes (24): code:tsx (const [notEnoughPointsError, setNotEnoughPointsError] = useS), code:tsx (} else {), code:tsx (} else {), code:tsx ({redeemedItemIds.includes(item.id)), code:tsx ({redeemedItemIds.includes(item.id)), code:tsx (? "FREE"), code:tsx (? t('checkout.free')), code:tsx (<p className="font-bold text-accent">Loyalty Points</p>) (+16 more)
 
-### Community 81 - "Community 81"
+### Community 83 - "Community 83"
 Cohesion: 0.11
 Nodes (5): UpdatePlatformSettingsDto, PlatformSettingsService, RetentionService, UsersDataController, UsersDataService
 
-### Community 82 - "Community 82"
-Cohesion: 0.09
-Nodes (20): confirmCheckoutSession(), generateStripeConnectLink(), getStripeStatus(), updateOnboardingStep(), Billing, getVisibleSteps(), OnboardingPage(), PAID_TIERS (+12 more)
-
-### Community 83 - "Community 83"
+### Community 85 - "Community 85"
 Cohesion: 0.13
 Nodes (20): PaymentRecord, analyticsData, paymentRecord, sheets, xlsxMocks, aggregateByMethod(), bgn(), Cell (+12 more)
 
-### Community 84 - "Community 84"
+### Community 86 - "Community 86"
 Cohesion: 0.09
 Nodes (24): 22. Database Constraint Blockage on Staff Member Deletion due to POS Orders Reference, 25. Unauthenticated Assistance (Call Waiter) Spam, A. Feature summary, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, B. Files involved (+16 more)
 
-### Community 85 - "Community 85"
+### Community 87 - "Community 87"
 Cohesion: 0.11
 Nodes (12): categories, mockFeatureService, mockPrisma, mockStorageService, tx, StorageModule, ProcessedUpload, sharp (+4 more)
 
-### Community 86 - "Community 86"
-Cohesion: 0.14
-Nodes (11): COOKIE_OPTIONS, PinLoginMeta, LocalAuthGuard, CreateAuthDto, CreateStaffDto, PinLoginDto, UpdateAuthDto, UpdateStaffDto (+3 more)
-
-### Community 87 - "Community 87"
-Cohesion: 0.09
-Nodes (19): createHelpContent(), deleteHelpContent(), getAdminHelpContent(), reorderHelpContent(), updateHelpContent(), DashboardCategoryDialog(), DashboardCategoryDialogProps, DashboardCategorySettingsDialog() (+11 more)
-
 ### Community 88 - "Community 88"
 Cohesion: 0.09
-Nodes (23): 3.10 Translation System, 3.11 Analytics Dashboard, 3.12 Customer Feedback System, 3.13 Branding & Theming, 3.14 Menu Scheduling (Dayparting), 3.15 Upselling Engine, 3.16 Stripe Connect Payments, 3.17 Live Table View (+15 more)
+Nodes (19): confirmCheckoutSession(), generateStripeConnectLink(), updateOnboardingStep(), Billing, getVisibleSteps(), OnboardingPage(), PAID_TIERS, PAYMENT_TIERS (+11 more)
 
 ### Community 89 - "Community 89"
 Cohesion: 0.09
-Nodes (23): Authentication & Authorization Questions & Decisions Needed, code:typescript (private async getRestaurantId(userId: string, userRole: stri), code:typescript (client = TcpSocket.createConnection({ host: ip, port }, () =), code:typescript (if (success) {), Issue 28: Multi-Restaurant Owner Settings Collision, Issue 29: TCP Write/End Timeout Gaps, Issue 30: Unhandled State Transition in Print Ack (ACK Race Condition), Issue 31: Missing App-Level Task Registration for Android Foreground Service (+15 more)
+Nodes (19): createHelpContent(), deleteHelpContent(), getAdminHelpContent(), reorderHelpContent(), updateHelpContent(), DashboardCategoryDialog(), DashboardCategoryDialogProps, DashboardCategorySettingsDialog() (+11 more)
 
 ### Community 90 - "Community 90"
 Cohesion: 0.09
-Nodes (23): 17. Feedback Summary Stats Performance/OOM, 20. Twilio SMS OTP Spam/Pumping Vulnerability, A. Feature summary, A. Feature summary, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved (+15 more)
+Nodes (23): 3.10 Translation System, 3.11 Analytics Dashboard, 3.12 Customer Feedback System, 3.13 Branding & Theming, 3.14 Menu Scheduling (Dayparting), 3.15 Upselling Engine, 3.16 Stripe Connect Payments, 3.17 Live Table View (+15 more)
 
 ### Community 91 - "Community 91"
 Cohesion: 0.09
-Nodes (22): CI/CD Integration, code:block1 (tests/), code:bash (cargo test), code:bash (# Terminal 1: Start virtualesc), code:bash (cargo test test_tcp_connection -- --ignored), code:bash (cargo test -- --include-ignored), code:bash (./test/run_all.sh), code:rust (#[tokio::test]) (+14 more)
+Nodes (23): Authentication & Authorization Questions & Decisions Needed, code:typescript (private async getRestaurantId(userId: string, userRole: stri), code:typescript (client = TcpSocket.createConnection({ host: ip, port }, () =), code:typescript (if (success) {), Issue 28: Multi-Restaurant Owner Settings Collision, Issue 29: TCP Write/End Timeout Gaps, Issue 30: Unhandled State Transition in Print Ack (ACK Race Condition), Issue 31: Missing App-Level Task Registration for Android Foreground Service (+15 more)
+
+### Community 92 - "Community 92"
+Cohesion: 0.09
+Nodes (23): 17. Feedback Summary Stats Performance/OOM, 20. Twilio SMS OTP Spam/Pumping Vulnerability, A. Feature summary, A. Feature summary, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved (+15 more)
 
 ### Community 93 - "Community 93"
-Cohesion: 0.1
-Nodes (21): arrowFuncs, body, camelCase(), comps, fs, fullText, funcDecls, hasImport (+13 more)
+Cohesion: 0.09
+Nodes (22): CI/CD Integration, code:block1 (tests/), code:bash (cargo test), code:bash (# Terminal 1: Start virtualesc), code:bash (cargo test test_tcp_connection -- --ignored), code:bash (cargo test -- --include-ignored), code:bash (./test/run_all.sh), code:rust (#[tokio::test]) (+14 more)
 
 ### Community 94 - "Community 94"
 Cohesion: 0.1
-Nodes (22): 27. Physical Denial of Service (Print Station Abuse), 30. Translation API Abuse (Cost Exhaustion), A. Feature summary, A. Feature summary, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved (+14 more)
-
-### Community 95 - "Community 95"
-Cohesion: 0.09
-Nodes (21): Additional Forbidden Patterns, Anti-Patterns (Do NOT Use), Buttons, Cards, code:css (@import url('https://fonts.googleapis.com/css2?family=Karla:), code:css (/* Primary Button */), code:css (.card {), code:css (.input {) (+13 more)
+Nodes (8): IPaymentProvider, devProvider, p, payload, result, savedEnv, warnSpy, StripeProvider
 
 ### Community 96 - "Community 96"
 Cohesion: 0.1
-Nodes (18): account, accounts, BASE_RESTAURANT, candidate, connErr, expiresAt, mockAccount, mockFeatureService (+10 more)
+Nodes (21): arrowFuncs, body, camelCase(), comps, fs, fullText, funcDecls, hasImport (+13 more)
 
 ### Community 97 - "Community 97"
-Cohesion: 0.15
-Nodes (17): addDays(), addEarnedPointBatch(), expireAccountPoints(), getExpiringPointBatches(), getFirstRewardProgress(), markRemindersSent(), redeemAccountPoints(), batches (+9 more)
+Cohesion: 0.1
+Nodes (22): 27. Physical Denial of Service (Print Station Abuse), 30. Translation API Abuse (Cost Exhaustion), A. Feature summary, A. Feature summary, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved (+14 more)
+
+### Community 98 - "Community 98"
+Cohesion: 0.09
+Nodes (21): Additional Forbidden Patterns, Anti-Patterns (Do NOT Use), Buttons, Cards, code:css (@import url('https://fonts.googleapis.com/css2?family=Karla:), code:css (/* Primary Button */), code:css (.card {), code:css (.input {) (+13 more)
 
 ### Community 99 - "Community 99"
+Cohesion: 0.1
+Nodes (18): account, accounts, BASE_RESTAURANT, candidate, connErr, expiresAt, mockAccount, mockFeatureService (+10 more)
+
+### Community 100 - "Community 100"
 Cohesion: 0.12
 Nodes (19): ApiKeyPanel(), csvToPayload(), downloadMenuXLSX(), ExportTab(), FileImporter(), ImportTab(), KNOWN_ALLERGENS, MenuImportExportView() (+11 more)
 
-### Community 100 - "Community 100"
+### Community 101 - "Community 101"
 Cohesion: 0.1
 Nodes (21): 3. GDPR, Data Export & Platform Settings, 6. Order State Machine Integrity, A. Feature summary, A. Feature summary, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved (+13 more)
 
-### Community 101 - "Community 101"
+### Community 102 - "Community 102"
 Cohesion: 0.1
 Nodes (20): API Endpoints, Architecture, Backend Files, code:prisma (model HelpContent {), code:ts ({ to: "/super-admin/help", icon: MessageCircleQuestion, labe), code:block3 (┌─────────────────────────────────────────────────────┐), Component Design, Data Flow (+12 more)
 
-### Community 103 - "Community 103"
+### Community 104 - "Community 104"
 Cohesion: 0.14
 Nodes (3): VerifyDeviceEnrollmentDto, DeviceEnrollmentController, DeviceEnrollmentService
-
-### Community 104 - "Community 104"
-Cohesion: 0.13
-Nodes (14): CreateRestaurantForm(), RestaurantList(), RestaurantContext, RestaurantContextType, getScanStats(), ScanStats, createRestaurant(), getRestaurantById() (+6 more)
 
 ### Community 105 - "Community 105"
 Cohesion: 0.1
@@ -1005,8 +1004,8 @@ Cohesion: 0.1
 Nodes (19): 1. Scope, 2.1 Problems, 2.2 Frontend changes, 2.3 Backend changes, 2. Analytics, 3.1 Core principle, 3.2 Platform-managed DeepL key, 3.3 "Translate All" — owner-triggered (+11 more)
 
 ### Community 107 - "Community 107"
-Cohesion: 0.11
-Nodes (7): devProvider, p, payload, result, savedEnv, warnSpy, StripeProvider
+Cohesion: 0.16
+Nodes (15): addDays(), addEarnedPointBatch(), expireAccountPoints(), getExpiringPointBatches(), markRemindersSent(), redeemAccountPoints(), batches, date (+7 more)
 
 ### Community 108 - "Community 108"
 Cohesion: 0.11
@@ -1017,44 +1016,44 @@ Cohesion: 0.11
 Nodes (19): code:tsx (<label className="block text-sm font-medium text-foreground/), code:tsx (Effective cashback rate:{" "}), code:tsx ({t('loyaltySettings.cashbackInfo', { pct: ((loyaltyExchangeR), code:tsx (<span className="ml-2 text-yellow-500">⚠ High — check earn r), code:tsx (<span className="ml-2 text-yellow-500">{t('loyaltySettings.c), code:tsx (Point Expiry (days)  →  {t('loyaltySettings.expiryDays')}), code:tsx (VIP Tiers  →  {t('loyaltySettings.vipTiers')}), code:tsx (Happy Hour (Gamification)  →  {t('loyaltySettings.happyHour') (+11 more)
 
 ### Community 110 - "Community 110"
-Cohesion: 0.18
-Nodes (13): createCategory(), createItem(), deleteCategory(), deleteItem(), getCategories(), getItems(), updateCategory(), updateCategoryOrder() (+5 more)
-
-### Community 111 - "Community 111"
 Cohesion: 0.11
 Nodes (18): 10. Ledger Integration, 1. Batch Fetching (N+1 Fix), 2. Restaurant Validation, 3. Secure Options Pricing, 4. Happy Hour Logic (Overnight Fix), 5. Transaction Wrapper, 6. Multiplier Logic (Fixed), 7. Discount Cap (15% Max) (+10 more)
 
-### Community 112 - "Community 112"
+### Community 111 - "Community 111"
 Cohesion: 0.11
 Nodes (16): 1. Schema, 2. Producer change, 3. Emit change, 4. Data backfill migration, 5. Consumer audit checklist (verify each before/after), 6. Tests, code:ts (// apps/backend/src/orders/orders.service.ts  (~line 384)), code:prisma (model Order {) (+8 more)
 
-### Community 113 - "Community 113"
+### Community 112 - "Community 112"
 Cohesion: 0.11
 Nodes (18): code:tsx (<h3 className="text-xl font-serif font-black text-foreground), code:tsx (<h3 className="text-xl font-serif font-black text-foreground), code:tsx (Rescan), code:tsx ({t('menuCheck.rescan')}), code:tsx (<h4 className="text-lg font-bold text-green-600 dark:text-gr), code:tsx (<h4 className="text-lg font-bold text-green-600 dark:text-gr), code:tsx ({errors.length} Critical), code:tsx ({t('menuCheck.critical', { count: errors.length })}) (+10 more)
 
 ### Community 114 - "Community 114"
-Cohesion: 0.15
-Nodes (17): ai(), bt(), _e(), ea(), ft(), je(), jn(), ka() (+9 more)
-
-### Community 116 - "Community 116"
 Cohesion: 0.12
 Nodes (17): 🔴 Issue 1: Dark Mode Contrast — 5 components affected, 🔴 Issue 2: Translation Gaps — 2 views with zero i18n, 🟢 Issue 3: Premium Features — Good news, Planner Response, Planner Response, Planner Response, Planner Response, Planner Response (+9 more)
 
-### Community 117 - "Community 117"
+### Community 115 - "Community 115"
 Cohesion: 0.12
 Nodes (17): Auth Module, Backend (`apps/backend`), Configuration, Dashboard Module, E2E Tests, Loyalty Module, Menu Import Module, Menu Module (+9 more)
 
-### Community 118 - "Community 118"
+### Community 116 - "Community 116"
 Cohesion: 0.12
 Nodes (16): 10. Realtime System (Socket.io), 14. Accessibility, 15. API Summary, 18. Environment Variables, 19. Key Architectural Decisions, 1. Executive Summary, 20. Known Technical Debt & Constraints, 21. File Index — Key Locations (+8 more)
 
-### Community 119 - "Community 119"
+### Community 117 - "Community 117"
 Cohesion: 0.12
 Nodes (17): 5.10 Assistance — `/api/assistance-requests/*`, 5.11 Feedback — `/api/feedback/*`, 5.12 Loyalty — `/api/loyalty/*`, 5.13 Health — `/api/health/*`, 5.14 Payment — `/api/payment/*`, 5.15 Table Status — `/api/tables/*`, 5.16 Stripe Connect — `/api/restaurants/:id/stripe/*`, 5.1 Authentication — `/api/auth/*` (+9 more)
 
-### Community 120 - "Community 120"
+### Community 118 - "Community 118"
 Cohesion: 0.12
 Nodes (16): 1. App Overview, 2. Tech Stack, 3. Features, 4. Quick Start (Monorepo Workflow), 5. Directory Structure (Monorepo), 6. Database Schema, 7. Scaling Plan, 8. API Endpoints (+8 more)
+
+### Community 119 - "Community 119"
+Cohesion: 0.15
+Nodes (16): ai(), bt(), _e(), ea(), ft(), je(), ka(), la() (+8 more)
+
+### Community 120 - "Community 120"
+Cohesion: 0.16
+Nodes (14): burger, call, existingAcc, makeMenuItem(), makeRestaurant(), makeTx(), mockAuthenticatedCustomer(), order (+6 more)
 
 ### Community 122 - "Community 122"
 Cohesion: 0.16
@@ -1078,7 +1077,7 @@ Nodes (15): Assistance Requests, code:json ({), code:bash (npm.cmd --workspace f
 
 ### Community 127 - "Community 127"
 Cohesion: 0.12
-Nodes (14): 1. Alternative Payment Gateways (ePay, Borica, MyPos), 9. Timezone & "Happy Hour" Manipulation, A. Feature summary, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, B. Files involved (+6 more)
+Nodes (14): 10. Negative Tipping & Price Underflows, 1. Alternative Payment Gateways (ePay, Borica, MyPos), A. Feature summary, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, B. Files involved (+6 more)
 
 ### Community 128 - "Community 128"
 Cohesion: 0.12
@@ -1089,8 +1088,8 @@ Cohesion: 0.12
 Nodes (16): code:tsx (Status Snapshot), code:tsx ({t('summary.statusSnapshot')}), code:tsx (Loyalty Program Performance), code:tsx ({t('summary.loyaltyProgramPerformance')}), code:tsx (Total VIP Members), code:tsx ({t('summary.totalVipMembers')}), code:tsx (Points Redeemed), code:tsx ({t('summary.pointsRedeemed')}) (+8 more)
 
 ### Community 130 - "Community 130"
-Cohesion: 0.23
-Nodes (14): a(), B(), c(), D(), g(), i(), k(), Q() (+6 more)
+Cohesion: 0.17
+Nodes (15): o(), be(), De(), dn(), ht(), ie(), In(), jn() (+7 more)
 
 ### Community 132 - "Community 132"
 Cohesion: 0.13
@@ -1114,47 +1113,51 @@ Nodes (14): Feature: File Uploads & Cloud Storage (R2 / Image Processing), Featu
 
 ### Community 137 - "Community 137"
 Cohesion: 0.13
-Nodes (14): code:bash (git add CODING_ROADMAP.md CLAUDE.md), code:typescript (import { PaymentModule } from './payment/payment.module';), code:typescript (LoyaltyModule,), code:bash (cd apps/backend && npm test -- --no-coverage), code:bash (git add apps/backend/src/app.module.ts), code:typescript (// Payment / TableSession), code:bash (git add apps/frontend/src/lib/api.ts), code:bash (stripe listen --forward-to localhost:3000/api/payments/webho) (+6 more)
+Nodes (15): code:typescript (// apps/printer-agent/src/store/config.ts), code:tsx (// apps/printer-agent/src/screens/SetupScreen.tsx), code:bash (git add apps/printer-agent/src/), code:typescript (// apps/printer-agent/src/services/printer.service.ts), code:bash (git add apps/printer-agent/src/services/printer.service.ts), code:typescript (// apps/printer-agent/src/services/socket.service.ts), code:bash (git add apps/printer-agent/src/services/socket.service.ts), code:tsx (// apps/printer-agent/src/screens/StatusScreen.tsx) (+7 more)
 
 ### Community 138 - "Community 138"
 Cohesion: 0.13
-Nodes (15): code:typescript (// apps/printer-agent/src/store/config.ts), code:tsx (// apps/printer-agent/src/screens/SetupScreen.tsx), code:bash (git add apps/printer-agent/src/), code:typescript (// apps/printer-agent/src/services/printer.service.ts), code:bash (git add apps/printer-agent/src/services/printer.service.ts), code:typescript (// apps/printer-agent/src/services/socket.service.ts), code:bash (git add apps/printer-agent/src/services/socket.service.ts), code:tsx (// apps/printer-agent/src/screens/StatusScreen.tsx) (+7 more)
-
-### Community 139 - "Community 139"
-Cohesion: 0.13
 Nodes (14): Architecture, code:ts (interface StaffCreatedModalProps {), Create Staff Account Flow, Edge Cases, Files Changed, Items Moved Out of General Tab, New Component: StaffCreatedModal, Problem (+6 more)
 
-### Community 140 - "Community 140"
-Cohesion: 0.19
-Nodes (14): o(), be(), De(), dn(), ht(), ie(), In(), Ke() (+6 more)
+### Community 139 - "Community 139"
+Cohesion: 0.25
+Nodes (13): a(), B(), c(), D(), g(), i(), k(), Q() (+5 more)
 
-### Community 141 - "Community 141"
+### Community 140 - "Community 140"
 Cohesion: 0.27
 Nodes (11): addSortIndicators(), enableUI(), getNthColumn(), getTable(), getTableBody(), getTableHeader(), loadColumns(), loadData() (+3 more)
 
-### Community 144 - "Community 144"
+### Community 142 - "Community 142"
 Cohesion: 0.16
 Nodes (10): getSuperAdminStats(), AttentionPanel(), formatMoney(), maxTierCount(), OverrideSummary(), OverviewPage(), TIER_ORDER, TIER_STYLES (+2 more)
 
-### Community 145 - "Community 145"
+### Community 143 - "Community 143"
+Cohesion: 0.18
+Nodes (6): Channel, COUNTRIES, CustomerLoginModal(), CustomerLoginModalProps, Step, SubscriptionController
+
+### Community 144 - "Community 144"
 Cohesion: 0.18
 Nodes (11): formatDate(), formatTime(), getElapsedLabel(), OrderDetail, orderStatusStyles, sessionStates, SourceBadge(), statusLabels (+3 more)
 
-### Community 147 - "Community 147"
+### Community 146 - "Community 146"
 Cohesion: 0.14
 Nodes (13): 🔷 Analytics XLSX Export ✅ (May 19, 2026), 🔷 Dashboard Vertical Sidebar ✅ (May 18, 2026), 🔷 GDPR / Legal Module ✅ (May 18, 2026), 🔷 Help Center CMS ✅ (May 22, 2026), 🔷 Landing FAQ on Home Page ✅ (May 21, 2026), 🔷 Menu Import/Export — Combined Dashboard Tab ✅ (May 16, 2026), 🔷 Prisma PgBouncer Connection Pool Fix ✅ (May 21, 2026), 🔷 QR Code Print Layout Fixes ✅ (May 19, 2026) (+5 more)
 
-### Community 148 - "Community 148"
+### Community 147 - "Community 147"
 Cohesion: 0.14
 Nodes (13): Chat Conversation, Planner Response, Planner Response, Planner Response, Planner Response, Planner Response, Planner Response, Planner Response (+5 more)
 
-### Community 149 - "Community 149"
+### Community 148 - "Community 148"
 Cohesion: 0.14
 Nodes (13): code:bash ($ npm install), code:bash (# development), code:bash (# unit tests), code:bash ($ npm install -g @nestjs/mau), Compile and run the project, Deployment, Description, License (+5 more)
 
-### Community 150 - "Community 150"
+### Community 149 - "Community 149"
 Cohesion: 0.14
 Nodes (14): code:typescript (// Pre-select first choice for each VARIATION option when it), code:jsx (<span className="text-[10px] font-black uppercase tracking-[), code:jsx (<span className="text-[10px] font-black uppercase tracking-[), code:jsx (<h3 className="text-4xl sm:text-5xl font-serif font-black te), code:jsx (<h3 className="text-4xl sm:text-5xl font-serif font-black te), code:jsx (Exquisite additions selected by our chef to elevate your exp), code:jsx ({t('publicMenu.pairing.chefDescription')}), code:jsx (No thanks, continue) (+6 more)
+
+### Community 150 - "Community 150"
+Cohesion: 0.14
+Nodes (13): code:bash (git add CODING_ROADMAP.md CLAUDE.md), code:typescript (// Payment / TableSession), code:bash (git add apps/frontend/src/lib/api.ts), code:tsx (import { useState, useEffect } from 'react';), code:bash (cd apps/frontend && npm run build 2>&1 | head -50), code:bash (git add apps/frontend/src/components/payment/PaymentModal.ts), code:bash (stripe listen --forward-to localhost:3000/api/payments/webho), Dev Webhook Setup (after all tasks complete) (+5 more)
 
 ### Community 151 - "Community 151"
 Cohesion: 0.22
@@ -1178,55 +1181,55 @@ Nodes (13): 1. Fully Configurable VIP Tiers (Per Restaurant), 3. Frontend — AP
 
 ### Community 157 - "Community 157"
 Cohesion: 0.15
-Nodes (13): 28. Dashboard CPU & Memory Exhaustion (ReDoS-like), A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
+Nodes (13): 14. Menu Views & Analytics DoS, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
 
 ### Community 158 - "Community 158"
 Cohesion: 0.15
-Nodes (13): 29. CSV/Excel Formula Injection on Menu Export, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
+Nodes (13): 8. Admin Audit Log Tampering (AdminAuditLog), A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
 
 ### Community 159 - "Community 159"
 Cohesion: 0.15
-Nodes (13): 12. Loyalty Point Earning Loopholes, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
+Nodes (13): 16. Client Error Logging & Harvesting Engine (client-logs), A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
 
 ### Community 160 - "Community 160"
 Cohesion: 0.15
-Nodes (13): 13. WebSocket Subscription Bypasses, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
+Nodes (13): 2. Table Sessions & Payment Orchestration, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
 
 ### Community 161 - "Community 161"
 Cohesion: 0.15
-Nodes (13): 15. Cross-Tenant Data Leaks (Multi-location), A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
+Nodes (13): 19. RBAC Manager Lockout in Table Zones & Tables Management, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
 
 ### Community 162 - "Community 162"
 Cohesion: 0.15
-Nodes (13): 8. Admin Audit Log Tampering (AdminAuditLog), A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
+Nodes (13): 5. Help Content & Public Injection (HelpContent), A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
 
 ### Community 163 - "Community 163"
 Cohesion: 0.15
-Nodes (13): 14. Menu Views & Analytics DoS, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
+Nodes (13): 29. CSV/Excel Formula Injection on Menu Export, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
 
 ### Community 164 - "Community 164"
 Cohesion: 0.15
-Nodes (13): 5. Help Content & Public Injection (HelpContent), A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
+Nodes (13): 13. WebSocket Subscription Bypasses, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
 
 ### Community 165 - "Community 165"
 Cohesion: 0.15
-Nodes (13): 16. Client Error Logging & Harvesting Engine (client-logs), A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
+Nodes (13): 28. Dashboard CPU & Memory Exhaustion (ReDoS-like), A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
 
 ### Community 166 - "Community 166"
 Cohesion: 0.15
-Nodes (13): 4. Kiosk / Device Enrollment (DeviceEnrollmentToken), A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
+Nodes (13): 12. Loyalty Point Earning Loopholes, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
 
 ### Community 167 - "Community 167"
 Cohesion: 0.15
-Nodes (13): 7. File Uploads & Object Storage, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
+Nodes (13): 4. Kiosk / Device Enrollment (DeviceEnrollmentToken), A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
 
 ### Community 168 - "Community 168"
 Cohesion: 0.15
-Nodes (13): 19. RBAC Manager Lockout in Table Zones & Tables Management, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
+Nodes (13): 7. File Uploads & Object Storage, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
 
 ### Community 169 - "Community 169"
 Cohesion: 0.15
-Nodes (13): 2. Table Sessions & Payment Orchestration, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
+Nodes (13): 15. Cross-Tenant Data Leaks (Multi-location), A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, C. Logic trace, C. Logic trace, D. Issues found (+5 more)
 
 ### Community 170 - "Community 170"
 Cohesion: 0.15
@@ -1234,15 +1237,15 @@ Nodes (13): code:typescript (const [deeplApiKey, setDeeplApiKey] = useState("");
 
 ### Community 171 - "Community 171"
 Cohesion: 0.15
-Nodes (10): code:typescript (import { DateTime } from 'luxon';), code:bash (git add apps/frontend/src/hooks/useAnalytics.ts), code:typescript (async getSummary(restaurantId: string) {), code:bash (npx tsc --noEmit), code:bash (git add apps/backend/src/dashboard/dashboard.service.ts), code:typescript (staleTime: 5 * 60 * 1000, // 5 minutes — analytics don't nee), code:typescript (staleTime: 0,), PART A — ANALYTICS (+2 more)
+Nodes (13): code:typescript (// apps/backend/src/print-station/dto/update-print-station.d), code:bash (git add apps/backend/src/print-station/dto/), code:typescript (// apps/backend/src/print-station/escpos.util.ts), code:typescript (// apps/backend/src/print-station/escpos.util.spec.ts), code:bash (cd apps/backend), code:bash (git add apps/backend/src/print-station/escpos.util.ts apps/b), code:typescript (// apps/backend/src/print-station/print-station.controller.t), code:bash (git add apps/backend/src/print-station/print-station.control) (+5 more)
 
 ### Community 172 - "Community 172"
 Cohesion: 0.15
-Nodes (13): code:typescript (// apps/backend/src/print-station/dto/update-print-station.d), code:bash (git add apps/backend/src/print-station/dto/), code:typescript (// apps/backend/src/print-station/print-station.service.ts), code:typescript (// apps/backend/src/print-station/print-station.service.spec), code:bash (cd apps/backend), code:bash (git add apps/backend/src/print-station/), code:typescript (// apps/backend/src/print-station/print-station.controller.t), code:bash (git add apps/backend/src/print-station/print-station.control) (+5 more)
-
-### Community 173 - "Community 173"
-Cohesion: 0.15
 Nodes (10): Backend — 1 file, 1 line, Changes, code:diff (- @RequireFeature(FeatureFlag.ANALYTICS_FULL)), Context, Files to modify, Frontend — 1 file, 4 changes, Out of scope, Resulting render tree by tier (+2 more)
+
+### Community 174 - "Community 174"
+Cohesion: 0.23
+Nodes (9): getFirstRewardProgress(), getTierInfo(), config, defaultConfig, info, TierConfig, tierConfigFromRestaurant(), TierInfo (+1 more)
 
 ### Community 176 - "Community 176"
 Cohesion: 0.26
@@ -1274,11 +1277,11 @@ Nodes (12): code:typescript (for (const option of item.options ?? []) {), code:t
 
 ### Community 183 - "Community 183"
 Cohesion: 0.17
-Nodes (12): code:tsx (import { useTranslation } from 'react-i18next';), code:tsx (const { t } = useTranslation();), code:tsx (<h2 className="text-sm font-black uppercase tracking-widest ), code:tsx (<h2 className="text-sm font-black uppercase tracking-widest ), code:tsx (<label className="block text-[11px] font-black uppercase tra), code:tsx (<label className="block text-[11px] font-black uppercase tra), code:tsx (<option value="AUTO">🤖 Auto (Algorithm)</option>), code:tsx (<option value="AUTO">🤖 {t('menuAdmin.trendingModeAuto')}</op) (+4 more)
+Nodes (12): code:tsx (const { i18n } = useTranslation();), code:tsx (const { i18n, t } = useTranslation();), code:tsx (Dashboard), code:tsx ({t('nav.dashboard')}), code:tsx (Logout), code:tsx ({t('nav.logout')}), code:tsx (Login), code:tsx ({t('nav.login')}) (+4 more)
 
 ### Community 184 - "Community 184"
 Cohesion: 0.17
-Nodes (12): code:tsx (const { i18n } = useTranslation();), code:tsx (const { i18n, t } = useTranslation();), code:tsx (Dashboard), code:tsx ({t('nav.dashboard')}), code:tsx (Logout), code:tsx ({t('nav.logout')}), code:tsx (Login), code:tsx ({t('nav.login')}) (+4 more)
+Nodes (12): code:tsx (import { useTranslation } from 'react-i18next';), code:tsx (const { t } = useTranslation();), code:tsx (<h2 className="text-sm font-black uppercase tracking-widest ), code:tsx (<h2 className="text-sm font-black uppercase tracking-widest ), code:tsx (<label className="block text-[11px] font-black uppercase tra), code:tsx (<label className="block text-[11px] font-black uppercase tra), code:tsx (<option value="AUTO">🤖 Auto (Algorithm)</option>), code:tsx (<option value="AUTO">🤖 {t('menuAdmin.trendingModeAuto')}</op) (+4 more)
 
 ### Community 185 - "Community 185"
 Cohesion: 0.17
@@ -1286,11 +1289,11 @@ Nodes (12): code:tsx (const BOTTOM_NAV_TABS: { id: TabId; Icon: LucideIcon; shor
 
 ### Community 186 - "Community 186"
 Cohesion: 0.17
-Nodes (12): code:json ("signIn": "Sign In",), code:json ("auth": {), code:json ("profile": {), code:json ("signIn": "Вход",), code:json ("auth": {), code:json ("profile": {), code:json ("signIn": "Autentificare",), code:json ("auth": {) (+4 more)
+Nodes (10): code:typescript (import { useParams, useLocation } from "react-router-dom";), code:typescript (import { useParams, useLocation, useNavigate } from "react-r), code:typescript (import { Bell, Globe } from "lucide-react";), code:typescript (import { Bell, Globe, LogOut } from "lucide-react";), code:typescript (const navigate = useNavigate();), code:jsx (<CartIcon), code:jsx (<CartIcon), code:bash (cd apps/frontend && npx tsc --noEmit) (+2 more)
 
 ### Community 187 - "Community 187"
 Cohesion: 0.17
-Nodes (10): code:typescript (import { useParams, useLocation } from "react-router-dom";), code:typescript (import { useParams, useLocation, useNavigate } from "react-r), code:typescript (import { Bell, Globe } from "lucide-react";), code:typescript (import { Bell, Globe, LogOut } from "lucide-react";), code:typescript (const navigate = useNavigate();), code:jsx (<CartIcon), code:jsx (<CartIcon), code:bash (cd apps/frontend && npx tsc --noEmit) (+2 more)
+Nodes (12): code:json ("signIn": "Sign In",), code:json ("auth": {), code:json ("profile": {), code:json ("signIn": "Вход",), code:json ("auth": {), code:json ("profile": {), code:json ("signIn": "Autentificare",), code:json ("auth": {) (+4 more)
 
 ### Community 188 - "Community 188"
 Cohesion: 0.17
@@ -1334,11 +1337,11 @@ Nodes (10): 2. Backend Implementation, 4. Files Modified, 5. Pending / Known Iss
 
 ### Community 200 - "Community 200"
 Cohesion: 0.18
-Nodes (11): 2. Dark/Light Theme: How World-Class Products Actually Solve This, code:block1 (bg-white, bg-black, bg-gray-*, bg-zinc-*, bg-slate-*), code:css (/* Instead of defining tokens twice: */), How Apple, Linear, Vercel, and Stripe handle theming:, Planner Response, Planner Response, 🏆 The "Entrepreneurship" Answer (Tobi Lütke / Shopify approach):, ✅ The Golden Rule: **Zero hardcoded colors in components** (+3 more)
+Nodes (11): Do you need Supabase?, Image Uploads: Current State & Your Options, 🏆 My recommendation:, Planner Response, Planner Response, Planner Response, So before we start coding — here's the priority order I'd suggest:, User Input (+3 more)
 
 ### Community 201 - "Community 201"
 Cohesion: 0.18
-Nodes (11): Do you need Supabase?, Image Uploads: Current State & Your Options, 🏆 My recommendation:, Planner Response, Planner Response, Planner Response, So before we start coding — here's the priority order I'd suggest:, User Input (+3 more)
+Nodes (11): 2. Dark/Light Theme: How World-Class Products Actually Solve This, code:block1 (bg-white, bg-black, bg-gray-*, bg-zinc-*, bg-slate-*), code:css (/* Instead of defining tokens twice: */), How Apple, Linear, Vercel, and Stripe handle theming:, Planner Response, Planner Response, 🏆 The "Entrepreneurship" Answer (Tobi Lütke / Shopify approach):, ✅ The Golden Rule: **Zero hardcoded colors in components** (+3 more)
 
 ### Community 202 - "Community 202"
 Cohesion: 0.18
@@ -1362,43 +1365,43 @@ Nodes (10): code:json ("failedSave": "Failed to save settings. Please try again.
 
 ### Community 207 - "Community 207"
 Cohesion: 0.18
-Nodes (11): code:json ("nav": {), code:json ("home": "Home",), code:json ("storefrontUpselling": "Storefront Upselling",), code:json ("nav": {), code:json ("home": "Начало",), code:json ("storefrontUpselling": "Витрина за допълнителни продажби",), code:json ("nav": {), code:json ("home": "Acasă",) (+3 more)
+Nodes (11): code:json ("language": "Language",), code:bash (git add apps/frontend/src/locales/en/translation.json apps/f), code:json ("checkout": {), code:json ("common": {), code:json ("language": "Език",), code:json ("checkout": {), code:json ("common": {), code:json ("language": "Limbă",) (+3 more)
 
 ### Community 208 - "Community 208"
 Cohesion: 0.18
-Nodes (11): code:json ("language": "Language",), code:bash (git add apps/frontend/src/locales/en/translation.json apps/f), code:json ("checkout": {), code:json ("common": {), code:json ("language": "Език",), code:json ("checkout": {), code:json ("common": {), code:json ("language": "Limbă",) (+3 more)
+Nodes (11): code:json ("nav": {), code:json ("home": "Home",), code:json ("storefrontUpselling": "Storefront Upselling",), code:json ("nav": {), code:json ("home": "Начало",), code:json ("storefrontUpselling": "Витрина за допълнителни продажби",), code:json ("nav": {), code:json ("home": "Acasă",) (+3 more)
 
 ### Community 209 - "Community 209"
 Cohesion: 0.18
-Nodes (10): code:typescript (import React, { useEffect, useState } from "react";), code:bash (cd apps/frontend && npx tsc --noEmit), code:bash (git add apps/frontend/src/pages/CustomerProfilePage.tsx), code:typescript (// Rule: Category has no image), code:bash (cd apps/backend && npm test), code:bash (git add apps/backend/src/menu/menu.service.ts), File Map, Remaining Fixes + Customer Auth Implementation Plan (+2 more)
+Nodes (10): code:typescript (import React, { useState, useEffect, useRef } from "react";), code:bash (cd apps/frontend && npx tsc --noEmit), code:bash (git add apps/frontend/src/components/auth/CustomerLoginModal), code:typescript (import React, { useEffect, useState } from "react";), code:bash (cd apps/frontend && npx tsc --noEmit), code:bash (git add apps/frontend/src/pages/CustomerProfilePage.tsx), File Map, Remaining Fixes + Customer Auth Implementation Plan (+2 more)
 
 ### Community 210 - "Community 210"
 Cohesion: 0.18
-Nodes (9): code:typescript (const [sessionToken, setSessionToken] = useState<string | nu), code:typescript (import { PaymentModal } from '../components/payment/PaymentM), code:typescript (if (table) {), code:typescript (if (orderResponse.sessionToken) {), code:typescript (useEffect(() => {), code:typescript (const orderData = await createOrder({ ...payload, sessionTok), code:bash (cd apps/frontend && npm run build 2>&1 | head -50), code:bash (git add apps/frontend/src/pages/PublicMenuPage.tsx apps/fron) (+1 more)
+Nodes (11): code:json ("payment": {), code:json ("payments": "Payments",), code:json ("common": {), code:json ("payment": {), code:json ("payments": "Плащания",), code:json ("payment": {), code:json ("payments": "Plăți",), code:bash (cd apps/frontend && npm run build 2>&1 | head -50) (+3 more)
 
 ### Community 211 - "Community 211"
 Cohesion: 0.18
-Nodes (11): code:json ("payment": {), code:json ("payments": "Payments",), code:json ("common": {), code:json ("payment": {), code:json ("payments": "Плащания",), code:json ("payment": {), code:json ("payments": "Plăți",), code:bash (cd apps/frontend && npm run build 2>&1 | head -50) (+3 more)
+Nodes (9): code:typescript (const [sessionToken, setSessionToken] = useState<string | nu), code:typescript (import { PaymentModal } from '../components/payment/PaymentM), code:typescript (if (table) {), code:typescript (if (orderResponse.sessionToken) {), code:typescript (useEffect(() => {), code:typescript (const orderData = await createOrder({ ...payload, sessionTok), code:bash (cd apps/frontend && npm run build 2>&1 | head -50), code:bash (git add apps/frontend/src/pages/PublicMenuPage.tsx apps/fron) (+1 more)
 
 ### Community 212 - "Community 212"
 Cohesion: 0.18
-Nodes (10): code:block1 (Phase 2 (Frontend):), code:typescript (// Add to UsersService class in apps/backend/src/users/users), code:bash (git add apps/backend/src/users/users.service.ts), code:typescript (// Add these imports at top of menu-crud.service.ts (alongsi), code:bash (git add apps/backend/src/menu/menu-crud.service.ts), File Structure, RBAC Sprint Implementation Plan, Self-Review (+2 more)
+Nodes (11): code:block1 (Create:), code:tsx (import { QRCodeSVG } from "qrcode.react";), code:bash (git add apps/frontend/src/components/pos/PosQRBill.tsx), code:tsx (import { Navigate, useLocation } from "react-router-dom";), code:bash (git add apps/frontend/src/components/StaffRoute.tsx), code:tsx (import {), code:bash (git add apps/frontend/src/context/PosContext.tsx), File Structure (+3 more)
 
 ### Community 213 - "Community 213"
 Cohesion: 0.18
-Nodes (10): code:typescript (import { PrintStationService } from '../print-station/print-), code:typescript (// Print agent auth — agents send agentToken in socket.auth,), code:typescript (/**), code:typescript (@SubscribeMessage('print:ack')), code:typescript (import { PrintStationModule } from '../print-station/print-s), code:typescript (imports: [JwtModule, forwardRef(() => PrintStationModule)],), code:typescript (imports: [RestaurantsModule, forwardRef(() => EventsModule)]), code:bash (cd apps/backend) (+2 more)
+Nodes (11): code:block1 (Phase 2 (Frontend):), code:typescript (// Add to UsersService class in apps/backend/src/users/users), code:bash (git add apps/backend/src/users/users.service.ts), code:typescript (// Add to AuthController in apps/backend/src/auth/auth.contr), code:bash (git add apps/backend/src/auth/auth.controller.ts), code:tsx (// apps/frontend/src/pages/DeviceLoginPage.tsx), code:bash (git add apps/frontend/src/pages/DeviceLoginPage.tsx), File Structure (+3 more)
 
 ### Community 214 - "Community 214"
 Cohesion: 0.18
-Nodes (10): 1. New: Landing Page FAQ Section, 2. Modified: Dashboard Sidebar, 3. Unchanged, Changes, code:block1 (NEW  apps/frontend/src/components/landing/LandingFAQ.tsx), FAQ Questions (Landing Page), Files Touched, Goal (+2 more)
+Nodes (10): code:typescript (import { PrintStationService } from '../print-station/print-), code:typescript (// Print agent auth — agents send agentToken in socket.auth,), code:typescript (/**), code:typescript (@SubscribeMessage('print:ack')), code:typescript (import { PrintStationModule } from '../print-station/print-s), code:typescript (imports: [JwtModule, forwardRef(() => PrintStationModule)],), code:typescript (imports: [RestaurantsModule, forwardRef(() => EventsModule)]), code:bash (cd apps/backend) (+2 more)
 
 ### Community 215 - "Community 215"
+Cohesion: 0.18
+Nodes (10): 1. New: Landing Page FAQ Section, 2. Modified: Dashboard Sidebar, 3. Unchanged, Changes, code:block1 (NEW  apps/frontend/src/components/landing/LandingFAQ.tsx), FAQ Questions (Landing Page), Files Touched, Goal (+2 more)
+
+### Community 216 - "Community 216"
 Cohesion: 0.29
 Nodes (7): DASHBOARD_HELP, LANDING_FAQ, seedHelpContent(), main(), prisma, main(), prisma
-
-### Community 217 - "Community 217"
-Cohesion: 0.29
-Nodes (7): getTierInfo(), config, defaultConfig, info, TierConfig, tierConfigFromRestaurant(), TierName
 
 ### Community 218 - "Community 218"
 Cohesion: 0.2
@@ -1426,27 +1429,27 @@ Nodes (9): Color Overrides, Component Overrides, Home Page Overrides, Layout Ove
 
 ### Community 224 - "Community 224"
 Cohesion: 0.2
-Nodes (9): code:typescript (import { generateStripeConnectLink, getStripeStatus, disconn), code:typescript (// Payment settings), code:typescript (setPaymentsEnabled(activeRestaurant.paymentsEnabled ?? false), code:typescript (const params = new URLSearchParams(window.location.search);), code:typescript (paymentsEnabled,), code:tsx ({/* Tab nav */}), code:bash (cd apps/frontend && npm run build 2>&1 | head -50), code:bash (git add apps/frontend/src/pages/Dashboard/SettingsView.tsx) (+1 more)
+Nodes (10): code:block18 (DEEPL_API_KEY=your-deepl-key-here), code:typescript (import { Injectable, Logger } from '@nestjs/common';), code:bash (cd apps/backend && npx tsc --noEmit), code:bash (git add apps/backend/src/translation/translation.service.ts ), code:typescript (@IsString()), code:bash (cd apps/backend && npx tsc --noEmit), code:bash (git add apps/backend/src/restaurants/dto/update-restaurant.d), PART B — TRANSLATION (+2 more)
 
 ### Community 225 - "Community 225"
 Cohesion: 0.2
-Nodes (9): Audit Summary — What's Already Done (verified against actual files), code:block35 (| Socket.io CORS wildcard | Low | **Resolved** — `EventsGate), code:bash (git add MAIN_FEATURES.md), Execution Order, File Map, Fix Outstanding Issues — Implementation Plan, Self-Review, Task 5: Enable TypeScript Strict Mode (Backend) (+1 more)
+Nodes (9): code:typescript (import { generateStripeConnectLink, getStripeStatus, disconn), code:typescript (// Payment settings), code:typescript (setPaymentsEnabled(activeRestaurant.paymentsEnabled ?? false), code:typescript (const params = new URLSearchParams(window.location.search);), code:typescript (paymentsEnabled,), code:tsx ({/* Tab nav */}), code:bash (cd apps/frontend && npm run build 2>&1 | head -50), code:bash (git add apps/frontend/src/pages/Dashboard/SettingsView.tsx) (+1 more)
 
 ### Community 226 - "Community 226"
 Cohesion: 0.2
-Nodes (10): code:json ("strictNullChecks": false,), code:json ("strictNullChecks": true,), code:bash (cd apps/backend && npx tsc --noEmit 2>&1 | tee /tmp/ts-error), code:typescript (// Error: Object is possibly 'null'), code:typescript (// Error: 'restaurant.timezone' is possibly undefined), code:typescript (// Error: req.user possibly undefined), code:typescript (// Error: 'order.customerId' is possibly null), code:bash (cd apps/backend && npm test) (+2 more)
+Nodes (9): Audit Summary — What's Already Done (verified against actual files), code:block35 (| Socket.io CORS wildcard | Low | **Resolved** — `EventsGate), code:bash (git add MAIN_FEATURES.md), Execution Order, File Map, Fix Outstanding Issues — Implementation Plan, Self-Review, Task 5: Enable TypeScript Strict Mode (Backend) (+1 more)
 
 ### Community 227 - "Community 227"
 Cohesion: 0.2
-Nodes (10): code:typescript (// apps/backend/src/subscription/dto/checkout.dto.ts), code:typescript (// apps/backend/src/subscription/subscription.service.ts), code:typescript (// apps/backend/src/subscription/subscription.controller.ts), code:typescript (import { SubscriptionController } from './subscription.contr), code:typescript (// Ensure raw body is available for BOTH webhook endpoints), code:typescript (function rawBodyMiddleware() {), code:block20 (STRIPE_PRICE_STARTER=price_...), code:typescript (// apps/backend/src/subscription/subscription.service.spec.t) (+2 more)
+Nodes (10): code:json ("strictNullChecks": false,), code:json ("strictNullChecks": true,), code:bash (cd apps/backend && npx tsc --noEmit 2>&1 | tee /tmp/ts-error), code:typescript (// Error: Object is possibly 'null'), code:typescript (// Error: 'restaurant.timezone' is possibly undefined), code:typescript (// Error: req.user possibly undefined), code:typescript (// Error: 'order.customerId' is possibly null), code:bash (cd apps/backend && npm test) (+2 more)
 
 ### Community 228 - "Community 228"
 Cohesion: 0.2
-Nodes (10): code:prisma (enum SubscriptionTier {), code:prisma (tier                  SubscriptionTier  @default(FREE)), code:bash (git add apps/backend/prisma/schema.prisma), code:typescript (// apps/backend/prisma/seed-demo-restaurants.ts), code:bash (git add apps/backend/prisma/seed-demo-restaurants.ts), code:bash (git add -A), Implementation Tasks, Task 10: Seed 4 demo restaurants (+2 more)
+Nodes (10): code:typescript (// apps/backend/src/subscription/dto/checkout.dto.ts), code:typescript (// apps/backend/src/subscription/subscription.service.ts), code:typescript (// apps/backend/src/subscription/subscription.controller.ts), code:typescript (import { SubscriptionController } from './subscription.contr), code:typescript (// Ensure raw body is available for BOTH webhook endpoints), code:typescript (function rawBodyMiddleware() {), code:block20 (STRIPE_PRICE_STARTER=price_...), code:typescript (// apps/backend/src/subscription/subscription.service.spec.t) (+2 more)
 
 ### Community 229 - "Community 229"
 Cohesion: 0.2
-Nodes (9): code:tsx (import { Outlet, NavLink } from "react-router-dom";), code:bash (git add apps/frontend/src/pages/super-admin/SuperAdminLayout), code:json ("superAdmin": {), code:bash (git add apps/frontend/src/locales/en/translation.json), Self-Review Notes, Super-Admin Dashboard Implementation Plan, Task 11: SuperAdminLayout — dark sidebar layout, Task 16: i18n — add EN translation keys (+1 more)
+Nodes (9): code:typescript (import { IsIn, IsOptional, IsBoolean } from 'class-validator), code:bash (git add apps/backend/src/super-admin/dto/update-tenant.dto.t), code:tsx (import { useState } from "react";), code:bash (git add apps/frontend/src/pages/super-admin/TenantDetailPage), Self-Review Notes, Super-Admin Dashboard Implementation Plan, Task 15: TenantDetailPage — tier override + suspend, Task 18: Build verification (+1 more)
 
 ### Community 230 - "Community 230"
 Cohesion: 0.2
@@ -1466,19 +1469,19 @@ Nodes (9): Planner Response, Planner Response, Planner Response, Planner Respons
 
 ### Community 236 - "Community 236"
 Cohesion: 0.22
-Nodes (9): 2. Automated Expiry Reminder System (Cron + Manual Endpoint), `apps/backend/src/loyalty/loyalty.controller.ts`, `apps/backend/src/loyalty/loyalty-ledger.utils.ts`, `apps/backend/src/loyalty/loyalty.module.ts`, `apps/backend/src/loyalty/loyalty.service.ts`, code:typescript (@Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)), code:typescript (tier: tierInfo.tier,), code:block21 (POST /loyalty/:restaurantId/expiry-reminders/notify   → noti) (+1 more)
+Nodes (9): Bug 1 — Happy Hour Ignored Timezone, Bug 2 — VIP Tiers Were Hardcoded (Ignored Dashboard Settings), Bug 3 — Free Item Redemption Still Charged Options, Bug 4 — `reminderSentAt` Was Never Written (Reminder System Inoperative), Bug 5 — `Promise.all` Inside Prisma Transaction (Potential Deadlock), Bugs Found and Fixed, code:typescript (import { DateTime } from 'luxon';), code:typescript (const isRedeemedFree =) (+1 more)
 
 ### Community 237 - "Community 237"
 Cohesion: 0.22
-Nodes (9): Bug 1 — Happy Hour Ignored Timezone, Bug 2 — VIP Tiers Were Hardcoded (Ignored Dashboard Settings), Bug 3 — Free Item Redemption Still Charged Options, Bug 4 — `reminderSentAt` Was Never Written (Reminder System Inoperative), Bug 5 — `Promise.all` Inside Prisma Transaction (Potential Deadlock), Bugs Found and Fixed, code:typescript (import { DateTime } from 'luxon';), code:typescript (const isRedeemedFree =) (+1 more)
+Nodes (9): 2. New Backend Utilities, `addDays(date, days)`, `addEarnedPointBatch(tx, loyaltyAccountId, points, type, expiresAt, orderId)`, `apps/backend/src/loyalty/loyalty-ledger.utils.ts`, `expireAccountPoints(tx, loyaltyAccountId)`, `getExpiringPointBatches(tx, loyaltyAccountId, reminderDays, now)`, `getFirstRewardProgress(points, redeemRate)`, `getRewardValue(points, redeemRate)` (+1 more)
 
 ### Community 238 - "Community 238"
 Cohesion: 0.22
-Nodes (9): 1. New Database Schema, `apps/backend/prisma/schema.prisma` - Updated Restaurant Model, code:prisma (isLoyaltyEnabled         Boolean  @default(true)), code:prisma (pointsRedeemedForDiscount Int  @default(0)  // Points used f), code:prisma (model LoyaltyPointLedger {), code:prisma (enum LoyaltyPointTransactionType {), New LoyaltyPointLedger Model, New Order Fields (+1 more)
+Nodes (9): 2. Automated Expiry Reminder System (Cron + Manual Endpoint), `apps/backend/src/loyalty/loyalty.controller.ts`, `apps/backend/src/loyalty/loyalty-ledger.utils.ts`, `apps/backend/src/loyalty/loyalty.module.ts`, `apps/backend/src/loyalty/loyalty.service.ts`, code:typescript (@Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)), code:typescript (tier: tierInfo.tier,), code:block21 (POST /loyalty/:restaurantId/expiry-reminders/notify   → noti) (+1 more)
 
 ### Community 239 - "Community 239"
 Cohesion: 0.22
-Nodes (9): 2. New Backend Utilities, `addDays(date, days)`, `addEarnedPointBatch(tx, loyaltyAccountId, points, type, expiresAt, orderId)`, `apps/backend/src/loyalty/loyalty-ledger.utils.ts`, `expireAccountPoints(tx, loyaltyAccountId)`, `getExpiringPointBatches(tx, loyaltyAccountId, reminderDays, now)`, `getFirstRewardProgress(points, redeemRate)`, `getRewardValue(points, redeemRate)` (+1 more)
+Nodes (9): 1. New Database Schema, `apps/backend/prisma/schema.prisma` - Updated Restaurant Model, code:prisma (isLoyaltyEnabled         Boolean  @default(true)), code:prisma (pointsRedeemedForDiscount Int  @default(0)  // Points used f), code:prisma (model LoyaltyPointLedger {), code:prisma (enum LoyaltyPointTransactionType {), New LoyaltyPointLedger Model, New Order Fields (+1 more)
 
 ### Community 240 - "Community 240"
 Cohesion: 0.22
@@ -1486,7 +1489,7 @@ Nodes (9): Phase 1: Project Setup ✅, Phase 2: Authentication ✅, Phase 3: Res
 
 ### Community 241 - "Community 241"
 Cohesion: 0.22
-Nodes (9): Attention Needed Panel (5 Categories), Billing vs Effective Tier Separation, Files Changed, Key Improvements, Performance, Recent Activity Feed, Richer KPI Cards, Summary (+1 more)
+Nodes (9): code:bash (cd apps/frontend), code:block5 (68c939e feat: add shared currency utility — dual EUR/BGN for), Commits, Components Created/Modified, Dead Code Removed, Design Decisions, Public Menu Mobile UX Redesign (May 15, 2026), Summary (+1 more)
 
 ### Community 242 - "Community 242"
 Cohesion: 0.22
@@ -1494,11 +1497,11 @@ Nodes (9): CheckoutPage.tsx — Sr-Only Checkbox Hack, code:bash (cd apps/fronte
 
 ### Community 243 - "Community 243"
 Cohesion: 0.22
-Nodes (9): code:bash (cd apps/frontend), code:block5 (68c939e feat: add shared currency utility — dual EUR/BGN for), Commits, Components Created/Modified, Dead Code Removed, Design Decisions, Public Menu Mobile UX Redesign (May 15, 2026), Summary (+1 more)
+Nodes (9): Account Disable (User Model), AdminAuditLog Model, CONFIRM-typing DTOs, Files Changed, Guard Coverage Verification, NODE_ENV=production Startup Enforcement, Per-Mutation Rate Limiting, Security Hardening Round 2 — Account Disable, Audit Trail, Rate Limiting (May 22, 2026) (+1 more)
 
 ### Community 244 - "Community 244"
 Cohesion: 0.22
-Nodes (9): Account Disable (User Model), AdminAuditLog Model, CONFIRM-typing DTOs, Files Changed, Guard Coverage Verification, NODE_ENV=production Startup Enforcement, Per-Mutation Rate Limiting, Security Hardening Round 2 — Account Disable, Audit Trail, Rate Limiting (May 22, 2026) (+1 more)
+Nodes (9): Attention Needed Panel (5 Categories), Billing vs Effective Tier Separation, Files Changed, Key Improvements, Performance, Recent Activity Feed, Richer KPI Cards, Summary (+1 more)
 
 ### Community 245 - "Community 245"
 Cohesion: 0.22
@@ -1510,27 +1513,27 @@ Nodes (9): code:typescript (await markRemindersSent(tx, batches.map(b => b.id));
 
 ### Community 247 - "Community 247"
 Cohesion: 0.22
-Nodes (9): 3. Phase 2 — Navigation Consolidation, Before vs After, code:block3 (OperationsView), code:typescript (const LEGACY_TAB_MAP: Record<string, TabId> = {), `DashboardPage.tsx` Changes, Legacy URL Compatibility, Mobile Bottom Navigation, New File: `OperationsView.tsx` (+1 more)
+Nodes (9): 5. Phase 4 — Reusable UI Primitives, code:tsx (<GlassCard className="p-8" radius="2rem" onClick={handleClic), code:tsx (<StatCard), code:tsx (<StatusBadge status="NEW" dot />), code:tsx (<Toggle), `GlassCard.tsx`, `StatCard.tsx`, `StatusBadge.tsx` (+1 more)
 
 ### Community 248 - "Community 248"
 Cohesion: 0.22
-Nodes (9): 5. Phase 4 — Reusable UI Primitives, code:tsx (<GlassCard className="p-8" radius="2rem" onClick={handleClic), code:tsx (<StatCard), code:tsx (<StatusBadge status="NEW" dot />), code:tsx (<Toggle), `GlassCard.tsx`, `StatCard.tsx`, `StatusBadge.tsx` (+1 more)
+Nodes (9): 3. Phase 2 — Navigation Consolidation, Before vs After, code:block3 (OperationsView), code:typescript (const LEGACY_TAB_MAP: Record<string, TabId> = {), `DashboardPage.tsx` Changes, Legacy URL Compatibility, Mobile Bottom Navigation, New File: `OperationsView.tsx` (+1 more)
 
 ### Community 249 - "Community 249"
 Cohesion: 0.22
-Nodes (8): 10. Known Issues, 11. Future Work — Phase 5, 1. Why This Was Done, 8. File Inventory, Dashboard UI/UX Architecture Overhaul — Changelog, Modified Files (9), New Files Created (12), Table of Contents
+Nodes (8): 10. Known Issues, 11. Future Work — Phase 5, 1. Why This Was Done, 6. Dependency Changes, code:diff (- "@fortawesome/fontawesome-svg-core": "^7.2.0",), Dashboard UI/UX Architecture Overhaul — Changelog, Removed from `package.json`, Table of Contents
 
 ### Community 250 - "Community 250"
 Cohesion: 0.22
-Nodes (8): Analytics Fix + Translation Overhaul — Implementation Plan, code:typescript (@IsString()), code:bash (cd apps/backend && npx tsc --noEmit), code:bash (git add apps/backend/src/restaurants/dto/update-restaurant.d), File Map, PART B — TRANSLATION, Self-Review, Task 5: Backend — remove deeplApiKey from UpdateRestaurantDto
+Nodes (8): Analytics Fix + Translation Overhaul — Implementation Plan, code:bash (git add apps/frontend/src/hooks/useAnalytics.ts), code:typescript (staleTime: 5 * 60 * 1000, // 5 minutes — analytics don't nee), code:typescript (staleTime: 0,), File Map, PART A — ANALYTICS, Self-Review, Task 2: Frontend — staleTime=0 in useAnalytics
 
 ### Community 251 - "Community 251"
 Cohesion: 0.22
-Nodes (3): code:bash (cd apps/backend && npx tsc --noEmit), code:bash (git add apps/backend/src/menu/menu.service.ts), Task 7: Backend — MenuService fire-and-forget pre-warm on create/update
+Nodes (9): code:typescript (import { Controller, Get, Param, Query, UseGuards } from '@n), code:typescript (async getPublicMenu(restaurantId: string) {), code:typescript (async getPublicMenu(restaurantId: string, lang?: string) {), code:typescript (return { restaurant, categories: filteredCategories };), code:typescript (if (lang && process.env.DEEPL_API_KEY) {), code:bash (cd apps/backend && npx tsc --noEmit), code:block45 (GET http://localhost:3000/api/menu/public/<restaurantId>?lan), code:bash (git add apps/backend/src/menu/menu.service.ts apps/backend/s) (+1 more)
 
 ### Community 252 - "Community 252"
 Cohesion: 0.22
-Nodes (9): code:typescript (import { Controller, Get, Param, Query, UseGuards } from '@n), code:typescript (async getPublicMenu(restaurantId: string) {), code:typescript (async getPublicMenu(restaurantId: string, lang?: string) {), code:typescript (return { restaurant, categories: filteredCategories };), code:typescript (if (lang && process.env.DEEPL_API_KEY) {), code:bash (cd apps/backend && npx tsc --noEmit), code:block45 (GET http://localhost:3000/api/menu/public/<restaurantId>?lan), code:bash (git add apps/backend/src/menu/menu.service.ts apps/backend/s) (+1 more)
+Nodes (3): code:bash (cd apps/backend && npx tsc --noEmit), code:bash (git add apps/backend/src/menu/menu.service.ts), Task 7: Backend — MenuService fire-and-forget pre-warm on create/update
 
 ### Community 253 - "Community 253"
 Cohesion: 0.22
@@ -1546,19 +1549,19 @@ Nodes (9): Bug Fix: Duplicate menuItemId crash (commit `e69b20c`), code:typescri
 
 ### Community 256 - "Community 256"
 Cohesion: 0.22
-Nodes (9): code:block1 (Create:), code:tsx (import { useState, useEffect } from "react";), code:bash (git add apps/frontend/src/components/pos/PosOptionsDrawer.ts), code:tsx (import PosSplitBill from "./PosSplitBill";), code:tsx (<PosSplitBill total={total} />), code:bash (git add apps/frontend/src/components/pos/PosCartDrawer.tsx), File Structure, Task 11: PosOptionsDrawer — modifier selection sheet (+1 more)
+Nodes (9): code:json ("noImplicitAny": false,), code:json ("noImplicitAny": true,), code:bash (cd apps/backend && npx tsc --noEmit 2>&1 | tee /tmp/ts-error), code:typescript (// Error: Parameter 'x' implicitly has an 'any' type), code:typescript (// Error: Variable 'err' implicitly has type 'any' in some u), code:typescript (// Error: Binding element 'id' implicitly has an 'any' type), code:bash (cd apps/backend && npm test), code:bash (git add apps/backend/tsconfig.json apps/backend/src) (+1 more)
 
 ### Community 257 - "Community 257"
 Cohesion: 0.22
-Nodes (9): code:json ("noImplicitAny": false,), code:json ("noImplicitAny": true,), code:bash (cd apps/backend && npx tsc --noEmit 2>&1 | tee /tmp/ts-error), code:typescript (// Error: Parameter 'x' implicitly has an 'any' type), code:typescript (// Error: Variable 'err' implicitly has type 'any' in some u), code:typescript (// Error: Binding element 'id' implicitly has an 'any' type), code:bash (cd apps/backend && npm test), code:bash (git add apps/backend/tsconfig.json apps/backend/src) (+1 more)
+Nodes (9): code:typescript (import PricingPage from './pages/PricingPage';), code:typescript (// apps/frontend/src/pages/PricingPage.tsx), code:typescript (// apps/frontend/src/components/subscription/SubscriptionBan), code:typescript (// apps/frontend/src/components/subscription/UpgradeModal.ts), code:typescript (// In apps/frontend/src/lib/api.ts, add:), code:typescript (// apps/frontend/src/components/subscription/BillingView.tsx), code:json ("pricing": {), code:bash (git add apps/frontend/src/pages/PricingPage.tsx apps/fronten) (+1 more)
 
 ### Community 258 - "Community 258"
 Cohesion: 0.22
-Nodes (9): code:typescript (import PricingPage from './pages/PricingPage';), code:typescript (// apps/frontend/src/pages/PricingPage.tsx), code:typescript (// apps/frontend/src/components/subscription/SubscriptionBan), code:typescript (// apps/frontend/src/components/subscription/UpgradeModal.ts), code:typescript (// In apps/frontend/src/lib/api.ts, add:), code:typescript (// apps/frontend/src/components/subscription/BillingView.tsx), code:json ("pricing": {), code:bash (git add apps/frontend/src/pages/PricingPage.tsx apps/fronten) (+1 more)
+Nodes (9): code:prisma (enum PrintJobStatus {), code:prisma (model PrintStation {), code:prisma (printStationId String?), code:prisma (printStations    PrintStation[]), code:prisma (printJobs PrintJob[]), code:bash (cd apps/backend), code:bash (npx prisma generate), code:bash (git add apps/backend/prisma/) (+1 more)
 
 ### Community 259 - "Community 259"
-Cohesion: 0.22
-Nodes (9): code:prisma (enum PrintJobStatus {), code:prisma (model PrintStation {), code:prisma (printStationId String?), code:prisma (printStations    PrintStation[]), code:prisma (printJobs PrintJob[]), code:bash (cd apps/backend), code:bash (npx prisma generate), code:bash (git add apps/backend/prisma/) (+1 more)
+Cohesion: 0.25
+Nodes (8): Aa(), ei(), it(), lt(), Ra(), rd(), se(), zn()
 
 ### Community 261 - "Community 261"
 Cohesion: 0.43
@@ -1568,21 +1571,25 @@ Nodes (6): ResetOwnerPasswordDto, SuperAdminConfirmationDto, TIERS, UpdatePaymen
 Cohesion: 0.32
 Nodes (3): getDisplayUrl(), SocialBar(), SocialBarProps
 
-### Community 264 - "Community 264"
+### Community 263 - "Community 263"
 Cohesion: 0.32
 Nodes (4): ExpoAppDelegate, ExpoReactNativeFactoryDelegate, AppDelegate, ReactNativeDelegate
 
-### Community 265 - "Community 265"
+### Community 264 - "Community 264"
 Cohesion: 0.25
 Nodes (8): 3. Frontend Implementation, Checkout Page, Customer Auth, Customer Profile, Menu Editor, Owner Dashboard: Analytics, Owner Dashboard: Settings, Public Menu
 
-### Community 266 - "Community 266"
+### Community 265 - "Community 265"
 Cohesion: 0.25
 Nodes (8): Bug Fixes & Translation Gaps ✅ — May 6, 2026, Mobile UX Overhaul ✅, Phase 15: Image Experience Upgrade ✅, Phase 16: Advanced Branding & Theming ✅, Phase 17: Menu Check (Smart Assistant) ✅, Planned: Translation — Platform-Managed API, UI/UX Audit & Theme Polish ✅ — May 4, 2026, 🔷 V2.5 — Visual Polish, Branding & Menu Intelligence ✅
 
+### Community 266 - "Community 266"
+Cohesion: 0.25
+Nodes (8): AnalyticsView CSV Field Names, API Versioning — All Routes at `/api/v1/*`, Customer Split Bill, Infrastructure & Polish Sprint (May 15, 2026), Order Progress Stepper, Prisma Retry / Circuit Breaker, QR Table Tent Print Templates, Service Test Coverage — 122 Tests (up from 77)
+
 ### Community 267 - "Community 267"
 Cohesion: 0.25
-Nodes (8): Commit Reference, Dead Code Removal, Deduplication — emitTableStatusChanged Helper, Live Table View — Code Review Fixes (May 8, 2026), Overfetch Prevention — Fetch Only Active Sessions, Performance — Sequential Awaits → Parallel Queries, Query Guard — Missing `enabled` on useQuery, Unnecessary Existence Check Removed
+Nodes (8): Analytics CSV Export Missing Sections, CategoryPills Auto-Scroll, ItemWithOptions BGN Double-Conversion, Loyalty Expiry Emails Not Sent, Magic-Link Endpoint Removal, Security & Bug Fixes (May 15, 2026), Socket.io CORS Wildcard, TypeScript Strict Mode Enabled
 
 ### Community 268 - "Community 268"
 Cohesion: 0.25
@@ -1594,31 +1601,31 @@ Nodes (8): Bug 1 — Stripe Connect Onboarding Not Shown for FREE→Starter, Bug
 
 ### Community 270 - "Community 270"
 Cohesion: 0.25
-Nodes (8): AnalyticsView CSV Field Names, API Versioning — All Routes at `/api/v1/*`, Customer Split Bill, Infrastructure & Polish Sprint (May 15, 2026), Order Progress Stepper, Prisma Retry / Circuit Breaker, QR Table Tent Print Templates, Service Test Coverage — 122 Tests (up from 77)
+Nodes (8): Commit Reference, Dead Code Removal, Deduplication — emitTableStatusChanged Helper, Live Table View — Code Review Fixes (May 8, 2026), Overfetch Prevention — Fetch Only Active Sessions, Performance — Sequential Awaits → Parallel Queries, Query Guard — Missing `enabled` on useQuery, Unnecessary Existence Check Removed
 
 ### Community 271 - "Community 271"
 Cohesion: 0.25
-Nodes (8): Analytics CSV Export Missing Sections, CategoryPills Auto-Scroll, ItemWithOptions BGN Double-Conversion, Loyalty Expiry Emails Not Sent, Magic-Link Endpoint Removal, Security & Bug Fixes (May 15, 2026), Socket.io CORS Wildcard, TypeScript Strict Mode Enabled
+Nodes (7): 1. Create Live Stripe Products, 2. Update Google Secret Manager, 3. Configure the Live Customer Portal, 4. Run the API Proration Fix Script, 5. Deploy Cloud Run, code:bash (node fix-portal.js), Go-Live Checklist for Stripe Billing
 
 ### Community 272 - "Community 272"
 Cohesion: 0.25
-Nodes (7): 1. Create Live Stripe Products, 2. Update Google Secret Manager, 3. Configure the Live Customer Portal, 4. Run the API Proration Fix Script, 5. Deploy Cloud Run, code:bash (node fix-portal.js), Go-Live Checklist for Stripe Billing
+Nodes (8): 10.1 Quick Wins (Low Effort, High Impact), 10.2 Architecture Improvements, 10.3 Missing Features That Competitors Have, 10.4 Modern Tech Opportunities, 10.5 Security Hardening — ALL RESOLVED (Phase 21, May 10-11, 2026), 10.6 Performance & Scale, 10.7 Monetization & Business Model Enhancements, 10. Strategic Improvement Opportunities
 
 ### Community 273 - "Community 273"
 Cohesion: 0.25
-Nodes (8): 10.1 Quick Wins (Low Effort, High Impact), 10.2 Architecture Improvements, 10.3 Missing Features That Competitors Have, 10.4 Modern Tech Opportunities, 10.5 Security Hardening — ALL RESOLVED (Phase 21, May 10-11, 2026), 10.6 Performance & Scale, 10.7 Monetization & Business Model Enhancements, 10. Strategic Improvement Opportunities
+Nodes (8): 10.1 Quick Wins (Low Effort, High Impact), 10.2 Architecture Improvements, 10.3 Missing Features That Competitors Have, 10.4 Modern Tech Opportunities, 10.5 Security Hardening, 10.6 Performance & Scale, 10.7 Monetization & Business Model Enhancements, 10. Strategic Improvement Opportunities
 
 ### Community 274 - "Community 274"
 Cohesion: 0.25
-Nodes (8): 10.1 Quick Wins (Low Effort, High Impact), 10.2 Architecture Improvements, 10.3 Missing Features That Competitors Have, 10.4 Modern Tech Opportunities, 10.5 Security Hardening, 10.6 Performance & Scale, 10.7 Monetization & Business Model Enhancements, 10. Strategic Improvement Opportunities
+Nodes (7): 11. File Inventory, 13. Remaining Items, 1. Context, Modified Files (10), New Files Created (1), Public Menu UX/UI Fixes — Changelog, Table of Contents
 
 ### Community 275 - "Community 275"
 Cohesion: 0.25
-Nodes (7): 13. Remaining Items, 1. Context, 7. Allergen Filter Pills (User-Reported), Problem, Public Menu UX/UI Fixes — Changelog, Table of Contents, What Changed
+Nodes (8): code:typescript (import { createContext, useContext, useState, useEffect, Rea), code:typescript (import { createContext, useContext, useState, useEffect, Rea), code:typescript (import { useQueryClient } from '@tanstack/react-query';), code:typescript (const queryClient = useQueryClient();), code:typescript (const handleNewOrder = () => {), code:typescript (const handleNewOrder = () => {), code:bash (git add apps/frontend/src/context/OrderContext.tsx), Task 3: Frontend — analytics cache invalidation on order socket events
 
 ### Community 276 - "Community 276"
 Cohesion: 0.25
-Nodes (8): code:typescript (import { createContext, useContext, useState, useEffect, Rea), code:typescript (import { createContext, useContext, useState, useEffect, Rea), code:typescript (import { useQueryClient } from '@tanstack/react-query';), code:typescript (const queryClient = useQueryClient();), code:typescript (const handleNewOrder = () => {), code:typescript (const handleNewOrder = () => {), code:bash (git add apps/frontend/src/context/OrderContext.tsx), Task 3: Frontend — analytics cache invalidation on order socket events
+Nodes (5): code:typescript (import { DateTime } from 'luxon';), code:typescript (async getSummary(restaurantId: string) {), code:bash (npx tsc --noEmit), code:bash (git add apps/backend/src/dashboard/dashboard.service.ts), Task 1: Backend — timezone-aware analytics in DashboardService
 
 ### Community 277 - "Community 277"
 Cohesion: 0.25
@@ -1626,11 +1633,11 @@ Nodes (8): code:tsx (Print All QR Codes), code:tsx ({t('tables.printAllQr')}), c
 
 ### Community 278 - "Community 278"
 Cohesion: 0.25
-Nodes (8): code:prisma (model User {), code:prisma (model VerificationToken {), code:block3 (RESEND_API_KEY=re_your_key_here), code:block4 (RESEND_API_KEY=re_...), code:bash (npx prisma db push), code:block6 (Your database is now in sync with your Prisma schema.), code:bash (git add apps/backend/prisma/schema.prisma apps/backend/.env.), Task 1: DB Schema + Env Vars
+Nodes (8): code:jsx (tick={{ fontSize: 10, fontWeight: 900, fill: 'hsl(var(--colo), code:jsx (tick={{ fontSize: 10, fontWeight: 900, fill: 'hsl(var(--colo), code:jsx (tick={{ fontSize: 10, fontWeight: 800, fill: 'hsl(var(--colo), code:jsx (tick={{ fontSize: 9, fontWeight: 800, fill: 'hsl(var(--color), code:jsx (tick={{ fontSize: 10, fontWeight: 800, fill: 'hsl(var(--colo), code:bash (cd apps/frontend && npx tsc --noEmit), code:bash (git add apps/frontend/src/pages/Dashboard/AnalyticsView.tsx), Task 12: AnalyticsView — Fix Axis Labels in Dark Mode
 
 ### Community 279 - "Community 279"
 Cohesion: 0.25
-Nodes (8): code:jsx (tick={{ fontSize: 10, fontWeight: 900, fill: 'hsl(var(--colo), code:jsx (tick={{ fontSize: 10, fontWeight: 900, fill: 'hsl(var(--colo), code:jsx (tick={{ fontSize: 10, fontWeight: 800, fill: 'hsl(var(--colo), code:jsx (tick={{ fontSize: 9, fontWeight: 800, fill: 'hsl(var(--color), code:jsx (tick={{ fontSize: 10, fontWeight: 800, fill: 'hsl(var(--colo), code:bash (cd apps/frontend && npx tsc --noEmit), code:bash (git add apps/frontend/src/pages/Dashboard/AnalyticsView.tsx), Task 12: AnalyticsView — Fix Axis Labels in Dark Mode
+Nodes (8): code:prisma (model User {), code:prisma (model VerificationToken {), code:block3 (RESEND_API_KEY=re_your_key_here), code:block4 (RESEND_API_KEY=re_...), code:bash (npx prisma db push), code:block6 (Your database is now in sync with your Prisma schema.), code:bash (git add apps/backend/prisma/schema.prisma apps/backend/.env.), Task 1: DB Schema + Env Vars
 
 ### Community 280 - "Community 280"
 Cohesion: 0.25
@@ -1660,10 +1667,6 @@ Nodes (6): fs, jsonContent, keysInTsx, locales, missingKeys, tsxContent
 Cohesion: 0.29
 Nodes (6): data, filePath, fs, locales, localesDir, path
 
-### Community 287 - "Community 287"
-Cohesion: 0.29
-Nodes (7): ei(), it(), lt(), Ra(), rd(), se(), zn()
-
 ### Community 290 - "Community 290"
 Cohesion: 0.29
 Nodes (6): Chat Conversation, Planner Response, Planner Response, Planner Response, User Input, Your App vs. Competitors — Feature Comparison
@@ -1678,11 +1681,11 @@ Nodes (7): Phase 10: Customer Feedback & Google Review Redirect ✅, Phase 11: A
 
 ### Community 293 - "Community 293"
 Cohesion: 0.29
-Nodes (7): 401 Interceptor Logout Loop Fix, Auth Context — Token Null on Refresh, Category Type — Missing `translations` Field, CSRF Double-Submit Cookie Protection, JWT → httpOnly Cookie Migration, Same-Origin Vite Proxy (Cross-Origin Cookie Fix), Security Hardening — httpOnly Cookies, CSRF, Same-Origin Proxy (May 10-11, 2026)
+Nodes (7): code:block9 (Test Suites: 29 passed, 29 total), Context, Files Changed, `menu-crud.service.spec.ts` — Two Root Causes, Result, Tier Enforcement Sweep Round 2 — Test Fixes (May 17, 2026), `users.service.spec.ts` — Two Root Causes
 
 ### Community 294 - "Community 294"
 Cohesion: 0.29
-Nodes (7): code:block9 (Test Suites: 29 passed, 29 total), Context, Files Changed, `menu-crud.service.spec.ts` — Two Root Causes, Result, Tier Enforcement Sweep Round 2 — Test Fixes (May 17, 2026), `users.service.spec.ts` — Two Root Causes
+Nodes (7): 401 Interceptor Logout Loop Fix, Auth Context — Token Null on Refresh, Category Type — Missing `translations` Field, CSRF Double-Submit Cookie Protection, JWT → httpOnly Cookie Migration, Same-Origin Vite Proxy (Cross-Origin Cookie Fix), Security Hardening — httpOnly Cookies, CSRF, Same-Origin Proxy (May 10-11, 2026)
 
 ### Community 295 - "Community 295"
 Cohesion: 0.29
@@ -1690,15 +1693,15 @@ Nodes (7): 13. Mobile UX, code:html (<meta name="viewport" content="width=device
 
 ### Community 296 - "Community 296"
 Cohesion: 0.29
-Nodes (7): 8. Ordering System, Cart System, code:block7 (Scan QR → Public Menu → Browse → Add to Cart (with options)), code:block8 (NEW → IN_PROGRESS → SERVED → CANCELED), Customer Flow, Order Status Workflow, Upselling Flows
+Nodes (7): 7. Menu System — Deep Dive, Category Management, code:json (// Choices schema — CRITICAL: no id field, price is priceMod), Item Management, Menu Check (Smart Audit), Menu Options System, Translation Architecture
 
 ### Community 297 - "Community 297"
 Cohesion: 0.29
-Nodes (7): 5. Design System, Anti-Patterns (Prohibited), Color Palette (HSL-based, warm restaurant tones), Mobile-First Patterns, Spacing Scale, Style: Glassmorphism, Typography
+Nodes (7): 8. Ordering System, Cart System, code:block7 (Scan QR → Public Menu → Browse → Add to Cart (with options)), code:block8 (NEW → IN_PROGRESS → SERVED → CANCELED), Customer Flow, Order Status Workflow, Upselling Flows
 
 ### Community 298 - "Community 298"
 Cohesion: 0.29
-Nodes (7): 7. Menu System — Deep Dive, Category Management, code:json (// Choices schema — CRITICAL: no id field, price is priceMod), Item Management, Menu Check (Smart Audit), Menu Options System, Translation Architecture
+Nodes (7): 5. Design System, Anti-Patterns (Prohibited), Color Palette (HSL-based, warm restaurant tones), Mobile-First Patterns, Spacing Scale, Style: Glassmorphism, Typography
 
 ### Community 299 - "Community 299"
 Cohesion: 0.29
@@ -1722,11 +1725,11 @@ Nodes (7): Feature: Reporting, Analytics & Data Export, Issue 43: Analytics Cach
 
 ### Community 304 - "Community 304"
 Cohesion: 0.29
-Nodes (7): 11. Role-Based Access Control (RBAC) Bypasses, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, D. Issues found, D. Issues found
+Nodes (7): 9. Timezone & "Happy Hour" Manipulation, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, D. Issues found, D. Issues found
 
 ### Community 305 - "Community 305"
 Cohesion: 0.29
-Nodes (7): 10. Negative Tipping & Price Underflows, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, D. Issues found, D. Issues found
+Nodes (7): 11. Role-Based Access Control (RBAC) Bypasses, A. Feature summary, A. Feature summary, B. Files involved, B. Files involved, D. Issues found, D. Issues found
 
 ### Community 306 - "Community 306"
 Cohesion: 0.29
@@ -1746,19 +1749,19 @@ Nodes (7): code:typescript (import {), code:bash (cd apps/backend && npx jest au
 
 ### Community 310 - "Community 310"
 Cohesion: 0.29
-Nodes (7): code:typescript (import { getTables, createTable, deleteTable, getTableSessio), code:typescript (const { data: sessions } = useQuery({), code:typescript (const closeSessionMutation = useMutation({), code:tsx ({/* Session status indicator */}), code:bash (cd apps/frontend && npm run build 2>&1 | head -50), code:bash (git add apps/frontend/src/components/tables/TableView.tsx), Task 16: Frontend TableView — session status indicators
+Nodes (7): code:typescript (import { PaymentService } from './payment.service';), code:bash (cd apps/backend && npx jest src/payment/payment.service.spec), code:typescript (import {), code:bash (cd apps/backend && npx jest src/payment/payment.service.spec), code:bash (cd apps/backend && npm test -- --no-coverage), code:bash (git add apps/backend/src/payment/payment.service.ts apps/bac), Task 4: PaymentService
 
 ### Community 311 - "Community 311"
 Cohesion: 0.29
-Nodes (7): code:typescript (import { PaymentService } from './payment.service';), code:bash (cd apps/backend && npx jest src/payment/payment.service.spec), code:typescript (import {), code:bash (cd apps/backend && npx jest src/payment/payment.service.spec), code:bash (cd apps/backend && npm test -- --no-coverage), code:bash (git add apps/backend/src/payment/payment.service.ts apps/bac), Task 4: PaymentService
+Nodes (7): code:typescript (import { getTables, createTable, deleteTable, getTableSessio), code:typescript (const { data: sessions } = useQuery({), code:typescript (const closeSessionMutation = useMutation({), code:tsx ({/* Session status indicator */}), code:bash (cd apps/frontend && npm run build 2>&1 | head -50), code:bash (git add apps/frontend/src/components/tables/TableView.tsx), Task 16: Frontend TableView — session status indicators
 
 ### Community 312 - "Community 312"
 Cohesion: 0.29
-Nodes (7): code:typescript (// Change imports:), code:typescript (// Change import:), code:typescript (// Change import:), code:bash (git add apps/backend/src/menu/category.controller.ts apps/ba), code:typescript (// Change import:), code:typescript (// Change import:), Task 3.2: Update Controllers to Use Split Services
+Nodes (7): code:typescript (// apps/frontend/src/hooks/useIdleTimer.ts), code:tsx (// apps/frontend/src/pages/pos/PosLayout.tsx), code:tsx (// apps/frontend/src/pages/pos/PosLayout.tsx (revised)), code:tsx (<Route), code:tsx (import { useIdleTimer } from "../../hooks/useIdleTimer";), code:bash (git add apps/frontend/src/hooks/useIdleTimer.ts apps/fronten), Task 5.4: Add Auto-Lock to PosLayout
 
 ### Community 313 - "Community 313"
 Cohesion: 0.29
-Nodes (7): code:typescript (// apps/frontend/src/hooks/useIdleTimer.ts), code:tsx (// apps/frontend/src/pages/pos/PosLayout.tsx), code:tsx (// apps/frontend/src/pages/pos/PosLayout.tsx (revised)), code:tsx (<Route), code:tsx (import { useIdleTimer } from "../../hooks/useIdleTimer";), code:bash (git add apps/frontend/src/hooks/useIdleTimer.ts apps/fronten), Task 5.4: Add Auto-Lock to PosLayout
+Nodes (7): code:typescript (// Change imports:), code:typescript (// Change import:), code:typescript (// Change import:), code:bash (git add apps/backend/src/menu/category.controller.ts apps/ba), code:typescript (// Change import:), code:typescript (// Change import:), Task 3.2: Update Controllers to Use Split Services
 
 ### Community 314 - "Community 314"
 Cohesion: 0.29
@@ -1778,7 +1781,7 @@ Nodes (7): code:typescript (import { LayoutDashboard, Building2, LogOut, Menu, X
 
 ### Community 318 - "Community 318"
 Cohesion: 0.29
-Nodes (7): code:prisma (enum OrderSource {), code:prisma (source      OrderSource  @default(CUSTOMER)), code:prisma (staffOrders Order[]      @relation("StaffOrders")), code:bash (cd apps/backend), code:bash (npx prisma generate), code:bash (git add apps/backend/prisma/schema.prisma apps/backend/prism), Task 1: Prisma Schema — Add OrderSource enum and fields to Order
+Nodes (7): code:typescript (type OrdersContextValue = ReturnType<typeof useOrders>;), code:typescript (function SourceBadge({ source, staffName }: { source?: 'CUST), code:tsx (<span className="font-mono text-sm font-black">{getOrderCode), code:tsx (<SourceBadge source={order.source} staffName={order.staffNam), code:bash (cd apps/frontend), code:bash (git add apps/frontend/src/pages/Dashboard/OrdersView.tsx), Task 10: OrdersView — Source Badge in Order Cards
 
 ### Community 319 - "Community 319"
 Cohesion: 0.29
@@ -1786,15 +1789,15 @@ Nodes (7): code:typescript (interface OrderDetail {), code:typescript (function 
 
 ### Community 320 - "Community 320"
 Cohesion: 0.29
-Nodes (7): code:typescript (include: {), code:typescript (include: {), code:typescript (return {), code:typescript (const enrichedOrders = orders.map((order) => ({), code:bash (cd apps/backend), code:bash (git add apps/backend/src/payment/payment.service.ts), Task 5: Payment Service — Expand getSessionBill Response
+Nodes (6): code:typescript (interface BillItem {), code:typescript (function getSourceLabel(order: BillOrder): string {), code:typescript (// Show headers whenever any POS order exists — covers mixed), code:bash (cd apps/frontend), code:bash (git add apps/frontend/src/components/payment/PaymentModal.ts), Task 8: PaymentModal — Itemized Bill Grouped by Source
 
 ### Community 321 - "Community 321"
 Cohesion: 0.29
-Nodes (6): code:typescript (interface BillItem {), code:typescript (function getSourceLabel(order: BillOrder): string {), code:typescript (// Show headers whenever any POS order exists — covers mixed), code:bash (cd apps/frontend), code:bash (git add apps/frontend/src/components/payment/PaymentModal.ts), Task 8: PaymentModal — Itemized Bill Grouped by Source
+Nodes (7): code:prisma (enum OrderSource {), code:prisma (source      OrderSource  @default(CUSTOMER)), code:prisma (staffOrders Order[]      @relation("StaffOrders")), code:bash (cd apps/backend), code:bash (npx prisma generate), code:bash (git add apps/backend/prisma/schema.prisma apps/backend/prism), Task 1: Prisma Schema — Add OrderSource enum and fields to Order
 
 ### Community 322 - "Community 322"
 Cohesion: 0.29
-Nodes (7): code:typescript (type OrdersContextValue = ReturnType<typeof useOrders>;), code:typescript (function SourceBadge({ source, staffName }: { source?: 'CUST), code:tsx (<span className="font-mono text-sm font-black">{getOrderCode), code:tsx (<SourceBadge source={order.source} staffName={order.staffNam), code:bash (cd apps/frontend), code:bash (git add apps/frontend/src/pages/Dashboard/OrdersView.tsx), Task 10: OrdersView — Source Badge in Order Cards
+Nodes (7): code:typescript (include: {), code:typescript (include: {), code:typescript (return {), code:typescript (const enrichedOrders = orders.map((order) => ({), code:bash (cd apps/backend), code:bash (git add apps/backend/src/payment/payment.service.ts), Task 5: Payment Service — Expand getSessionBill Response
 
 ### Community 323 - "Community 323"
 Cohesion: 0.29
@@ -1830,7 +1833,7 @@ Nodes (6): 1. Database Schema Updates (Prisma), `apps/backend/prisma/schema.pris
 
 ### Community 332 - "Community 332"
 Cohesion: 0.33
-Nodes (6): CheckoutPage Screen Hang Fix, Cross-Origin Cookie Fix (COOKIE_SAMESITE), Missing orderId in Navigate State, Production Auth Architecture, 🌐 Production Deployment & Cross-Origin Fixes ✅ (May 16, 2026), Production Infrastructure
+Nodes (6): CheckoutPage.tsx, Code Review Fixes, 🟢 Code Review & PR#3 Findings Fixes (Complete — May 15, 2026), HomePage.tsx (4 fixes), Payments "Not Enabled" Investigation, RestaurantContext.tsx
 
 ### Community 333 - "Community 333"
 Cohesion: 0.33
@@ -1838,7 +1841,7 @@ Nodes (6): Backend Additions (4 new endpoints, zero schema changes), Bug Fixes (
 
 ### Community 334 - "Community 334"
 Cohesion: 0.33
-Nodes (6): CheckoutPage.tsx, Code Review Fixes, 🟢 Code Review & PR#3 Findings Fixes (Complete — May 15, 2026), HomePage.tsx (4 fixes), Payments "Not Enabled" Investigation, RestaurantContext.tsx
+Nodes (6): CheckoutPage Screen Hang Fix, Cross-Origin Cookie Fix (COOKIE_SAMESITE), Missing orderId in Navigate State, Production Auth Architecture, 🌐 Production Deployment & Cross-Origin Fixes ✅ (May 16, 2026), Production Infrastructure
 
 ### Community 335 - "Community 335"
 Cohesion: 0.33
@@ -1846,11 +1849,11 @@ Nodes (6): Backend — HelpContentModule, Files Changed, Frontend — HelpCenter
 
 ### Community 336 - "Community 336"
 Cohesion: 0.33
-Nodes (6): Code Review Findings Fixes (May 15, 2026), i18n Gaps, Shared Utils Deduplication, Toggle Component Adoption, Typed Translations (MEDIUM), Verification
+Nodes (6): Dashboard Live View — Real Order Data (commit `7faa918`), Duplicate MenuItemId in Order Creation (commit `e69b20c`), Paid by Card + Confirmation Dialogs (commit `4e1bf4e`), POS Cart Reset on Table Switch (commit `99915c0`), Session Order History — submitted/pending Tracking (commit `96d08f3`), Waiter POS — Bug Fixes & Feature Round (May 10, 2026)
 
 ### Community 337 - "Community 337"
 Cohesion: 0.33
-Nodes (6): Dashboard Live View — Real Order Data (commit `7faa918`), Duplicate MenuItemId in Order Creation (commit `e69b20c`), Paid by Card + Confirmation Dialogs (commit `4e1bf4e`), POS Cart Reset on Table Switch (commit `99915c0`), Session Order History — submitted/pending Tracking (commit `96d08f3`), Waiter POS — Bug Fixes & Feature Round (May 10, 2026)
+Nodes (6): Code Review Findings Fixes (May 15, 2026), i18n Gaps, Shared Utils Deduplication, Toggle Component Adoption, Typed Translations (MEDIUM), Verification
 
 ### Community 338 - "Community 338"
 Cohesion: 0.33
@@ -1866,7 +1869,7 @@ Nodes (6): 6. TrendingCarousel Skeleton Loader (P1), code:tsx (if (loading || tr
 
 ### Community 341 - "Community 341"
 Cohesion: 0.33
-Nodes (6): 5. Focus Trap & Accessibility (P1), code:tsx (// Usage:), Components Updated, New File: `apps/frontend/src/hooks/useFocusTrap.ts`, Problem, What Changed
+Nodes (6): 12. How to Verify, Accessibility Audit, code:bash (cd apps/frontend), code:bash (# Check all dialog elements have proper ARIA attributes), TypeScript Compilation, Visual Verification
 
 ### Community 342 - "Community 342"
 Cohesion: 0.33
@@ -1874,7 +1877,7 @@ Nodes (6): 2. OrderConfirmationPage i18n (P0), code:tsx (const STATUS_CONFIG = {
 
 ### Community 343 - "Community 343"
 Cohesion: 0.33
-Nodes (6): 12. How to Verify, Accessibility Audit, code:bash (cd apps/frontend), code:bash (# Check all dialog elements have proper ARIA attributes), TypeScript Compilation, Visual Verification
+Nodes (6): 5. Focus Trap & Accessibility (P1), code:tsx (// Usage:), Components Updated, New File: `apps/frontend/src/hooks/useFocusTrap.ts`, Problem, What Changed
 
 ### Community 344 - "Community 344"
 Cohesion: 0.33
@@ -1902,19 +1905,19 @@ Nodes (6): code:typescript (import { RequireFeature } from '../subscription/requ
 
 ### Community 350 - "Community 350"
 Cohesion: 0.33
-Nodes (6): code:tsx (useEffect(() => {), code:tsx (const SuperAdminLayout = lazy(() => import("./pages/super-ad), code:tsx (import SuperAdminRoute from "./components/SuperAdminRoute";), code:tsx ({/* Super Admin — dark sidebar, platform-wide access */}), code:bash (git add apps/frontend/src/App.tsx apps/frontend/src/pages/Lo), Task 12: Frontend routing — App.tsx + LoginPage
+Nodes (6): code:typescript (// apps/backend/prisma/seed-demo-restaurants.ts), code:bash (git add apps/backend/prisma/seed-demo-restaurants.ts), code:bash (git add -A), Implementation Tasks, Task 10: Seed 4 demo restaurants, Task 12: Integration testing + final verification
 
 ### Community 351 - "Community 351"
 Cohesion: 0.33
-Nodes (5): code:bash (git add apps/backend/src/subscription/feature.service.ts app), code:typescript (getEffectiveTier(tier: string, forceTier?: string | null): s), code:typescript (const tier = restaurant?.tier ?? 'FREE';), code:typescript (const restaurant = user?.restaurantId), Task 2: FeatureService — respect forceTier override
+Nodes (6): code:prisma (enum UserRole {), code:prisma (enum UserRole {), code:prisma (forceTier   SubscriptionTier?), code:prisma (tier                      SubscriptionTier    @default(FREE)), code:bash (git add apps/backend/prisma/schema.prisma), Task 1: Schema — Add SUPER_ADMIN role, forceTier, isActive
 
 ### Community 352 - "Community 352"
 Cohesion: 0.33
-Nodes (6): code:prisma (enum UserRole {), code:prisma (enum UserRole {), code:prisma (forceTier   SubscriptionTier?), code:prisma (tier                      SubscriptionTier    @default(FREE)), code:bash (git add apps/backend/prisma/schema.prisma), Task 1: Schema — Add SUPER_ADMIN role, forceTier, isActive
+Nodes (6): code:tsx (useEffect(() => {), code:tsx (const SuperAdminLayout = lazy(() => import("./pages/super-ad), code:tsx (import SuperAdminRoute from "./components/SuperAdminRoute";), code:tsx ({/* Super Admin — dark sidebar, platform-wide access */}), code:bash (git add apps/frontend/src/App.tsx apps/frontend/src/pages/Lo), Task 12: Frontend routing — App.tsx + LoginPage
 
 ### Community 353 - "Community 353"
 Cohesion: 0.33
-Nodes (6): code:typescript (// apps/backend/src/help-content/help-content.service.spec.t), code:bash (cd apps/backend && npx jest src/help-content/help-content.se), code:typescript (// apps/backend/src/help-content/help-content.service.ts), code:bash (cd apps/backend && npx jest src/help-content/help-content.se), code:bash (git add apps/backend/src/help-content/help-content.service.t), Task 3: Backend HelpContentService
+Nodes (5): code:bash (git add apps/backend/src/subscription/feature.service.ts app), code:typescript (getEffectiveTier(tier: string, forceTier?: string | null): s), code:typescript (const tier = restaurant?.tier ?? 'FREE';), code:typescript (const restaurant = user?.restaurantId), Task 2: FeatureService — respect forceTier override
 
 ### Community 354 - "Community 354"
 Cohesion: 0.33
@@ -1922,115 +1925,115 @@ Nodes (6): code:typescript (// apps/backend/src/help-content/help-content.contro
 
 ### Community 355 - "Community 355"
 Cohesion: 0.33
-Nodes (5): code:tsx (// apps/frontend/src/pages/super-admin/HelpCenterPage.tsx), code:bash (cd apps/frontend && npx tsc --noEmit --pretty), code:bash (git add apps/frontend/src/pages/super-admin/HelpCenterPage.t), Help Center CMS — Implementation Plan, Task 8: Frontend HelpCenterPage.tsx — CMS UI
+Nodes (6): code:typescript (// apps/backend/src/help-content/help-content.module.ts), code:typescript (import { HelpContentModule } from './help-content/help-conte), code:typescript (UsersDataModule,), code:bash (cd apps/backend && npm run build), code:bash (git add apps/backend/src/help-content/help-content.module.ts), Task 5: Backend Module registration
 
 ### Community 356 - "Community 356"
 Cohesion: 0.33
-Nodes (6): code:bash (mkdir -p apps/backend/src/help-content/dto), code:typescript (// apps/backend/src/help-content/dto/create-help-content.dto), code:typescript (// apps/backend/src/help-content/dto/update-help-content.dto), code:typescript (// apps/backend/src/help-content/dto/reorder-help-content.dt), code:bash (git add apps/backend/src/help-content/), Task 2: Backend DTOs
+Nodes (6): code:typescript (// apps/backend/src/help-content/help-content.service.spec.t), code:bash (cd apps/backend && npx jest src/help-content/help-content.se), code:typescript (// apps/backend/src/help-content/help-content.service.ts), code:bash (cd apps/backend && npx jest src/help-content/help-content.se), code:bash (git add apps/backend/src/help-content/help-content.service.t), Task 3: Backend HelpContentService
 
 ### Community 357 - "Community 357"
 Cohesion: 0.33
-Nodes (6): code:typescript (// apps/backend/src/help-content/help-content.module.ts), code:typescript (import { HelpContentModule } from './help-content/help-conte), code:typescript (UsersDataModule,), code:bash (cd apps/backend && npm run build), code:bash (git add apps/backend/src/help-content/help-content.module.ts), Task 5: Backend Module registration
+Nodes (6): code:bash (mkdir -p apps/backend/src/help-content/dto), code:typescript (// apps/backend/src/help-content/dto/create-help-content.dto), code:typescript (// apps/backend/src/help-content/dto/update-help-content.dto), code:typescript (// apps/backend/src/help-content/dto/reorder-help-content.dt), code:bash (git add apps/backend/src/help-content/), Task 2: Backend DTOs
 
 ### Community 358 - "Community 358"
 Cohesion: 0.33
+Nodes (5): code:tsx (import { useState } from 'react';), code:bash (cd apps/frontend && npx tsc --noEmit --pretty), code:bash (git add apps/frontend/src/pages/Dashboard/HelpView.tsx), Help Center CMS — Implementation Plan, Task 11: Migrate HelpView.tsx to API consumer
+
+### Community 359 - "Community 359"
+Cohesion: 0.33
 Nodes (6): code:bash (cd apps/backend), code:bash (git add apps/backend/src/auth/optional-jwt.strategy.ts \), code:typescript (import { Injectable } from '@nestjs/common';), code:typescript (import { Injectable, ExecutionContext } from '@nestjs/common), code:typescript (import { OptionalJwtStrategy } from './optional-jwt.strategy), Task 2: Optional JWT Strategy + Guard
 
-### Community 360 - "Community 360"
+### Community 361 - "Community 361"
 Cohesion: 0.4
 Nodes (3): bcrypt, prisma, { PrismaClient }
 
-### Community 361 - "Community 361"
+### Community 362 - "Community 362"
 Cohesion: 0.7
 Nodes (4): goToNext(), goToPrevious(), makeCurrent(), toggleClass()
 
-### Community 363 - "Community 363"
+### Community 364 - "Community 364"
 Cohesion: 0.4
 Nodes (3): PRICE_MAP, prisma, stripe
 
-### Community 365 - "Community 365"
+### Community 366 - "Community 366"
 Cohesion: 0.4
 Nodes (3): FinishStep(), Props, mockT
 
-### Community 366 - "Community 366"
+### Community 367 - "Community 367"
 Cohesion: 0.4
 Nodes (3): DEFAULT_COLORS, STATUS_COLORS, StatusBadgeProps
 
-### Community 367 - "Community 367"
+### Community 368 - "Community 368"
 Cohesion: 0.4
 Nodes (5): Current State vs. Roadmap, Planner Response, Planner Response, 🔥 Top 3 Candidates for the Next Big Feature, User Input
 
-### Community 368 - "Community 368"
+### Community 369 - "Community 369"
 Cohesion: 0.4
 Nodes (5): 6. System Architecture, code:block11 (┌─────────────────┐), code:block12 (┌─────────────────┐), Expiry Flow, Point Flow
 
-### Community 369 - "Community 369"
+### Community 370 - "Community 370"
 Cohesion: 0.4
 Nodes (4): 1) Automatic stale-cart cleanup, 2) Menu jump after Add to Cart, Markdown file issue outline, Verification
 
-### Community 370 - "Community 370"
+### Community 371 - "Community 371"
 Cohesion: 0.4
 Nodes (5): Backend — Subscription module, Frontend — Error surfacing, Frontend — PricingPage.tsx (full rewrite), i18n (EN/BG/RO), 🔷 Pricing Page Redesign + Subscription Checkout Fix ✅ (May 19, 2026)
 
-### Community 371 - "Community 371"
-Cohesion: 0.4
-Nodes (5): Design Decisions, Files Changed, Implementation, Menu Import/Export — Combined Dashboard Tab (May 16, 2026), Summary
-
 ### Community 372 - "Community 372"
 Cohesion: 0.4
-Nodes (5): code:sql (UPDATE "Restaurant" SET "paymentsEnabled" = true WHERE id = ), Files Affected, Investigation Chain, Payments "Not Enabled" Investigation (May 15, 2026), Summary
+Nodes (5): Design Decisions, Files Changed, Implementation, Menu Import/Export — Combined Dashboard Tab (May 16, 2026), Summary
 
 ### Community 373 - "Community 373"
 Cohesion: 0.4
-Nodes (5): Files Changed, Fix, Problem, Root Cause, Stale Test Mocks After Staff Attribution (May 24, 2026)
+Nodes (5): Backend — Active Subscription Guard, BillingView — Upgrade Routing & Subscription Details, Pricing Page — Re-Checkout Guard & Current Plan Badge, Subscription UX, Duplicate Prevention & Password Reset (May 19, 2026), TenantDetailPage — Password Reset Error Handling
 
 ### Community 374 - "Community 374"
 Cohesion: 0.4
-Nodes (5): Files Changed, Fixes, Problem, Root causes (3 layers), Tier Override Live Propagation (May 17, 2026)
+Nodes (5): Files Changed, Fix, Google OAuth URL Versioning Fix (May 18, 2026), Problem, Root Cause
 
 ### Community 375 - "Community 375"
 Cohesion: 0.4
-Nodes (5): Files Changed, Fix, Google OAuth URL Versioning Fix (May 18, 2026), Problem, Root Cause
+Nodes (5): Design Decisions, Files Changed, Implementation, Menu Import/Export — Combined Dashboard Tab (May 16, 2026), Summary
 
 ### Community 376 - "Community 376"
 Cohesion: 0.4
-Nodes (5): Backend — Active Subscription Guard, BillingView — Upgrade Routing & Subscription Details, Pricing Page — Re-Checkout Guard & Current Plan Badge, Subscription UX, Duplicate Prevention & Password Reset (May 19, 2026), TenantDetailPage — Password Reset Error Handling
+Nodes (5): Files Changed, Fix, OptionalJwtAuthGuard — JWT Error Rethrow (May 24, 2026), Problem, Root Cause
 
 ### Community 377 - "Community 377"
 Cohesion: 0.4
-Nodes (5): Design Decisions, Files Changed, Implementation, Menu Import/Export — Combined Dashboard Tab (May 16, 2026), Summary
+Nodes (5): Files Changed, Fixes, Problem, Root causes (3 layers), Tier Override Live Propagation (May 17, 2026)
 
 ### Community 378 - "Community 378"
 Cohesion: 0.4
-Nodes (5): Files Changed, Fix, OptionalJwtAuthGuard — JWT Error Rethrow (May 24, 2026), Problem, Root Cause
+Nodes (5): Files Changed, Fix, Problem, Root Cause, Stale Test Mocks After Staff Attribution (May 24, 2026)
 
 ### Community 379 - "Community 379"
 Cohesion: 0.4
-Nodes (5): Files Changed, Fix, POS Bill History — Flat Shape Mapping Fix (May 24, 2026), Problem, Root Cause
+Nodes (5): code:sql (UPDATE "Restaurant" SET "paymentsEnabled" = true WHERE id = ), Files Affected, Investigation Chain, Payments "Not Enabled" Investigation (May 15, 2026), Summary
 
 ### Community 380 - "Community 380"
 Cohesion: 0.4
-Nodes (5): Step 1: Create an R2 Bucket, Step 2: Enable Public Access, Step 3: Create an API Token, Step 4: Give me these 4 values, What You Need to Provide for Cloudflare R2
+Nodes (5): Files Changed, Fix, POS Bill History — Flat Shape Mapping Fix (May 24, 2026), Problem, Root Cause
 
 ### Community 381 - "Community 381"
 Cohesion: 0.4
-Nodes (5): 12. Branding & Theming, code:css (--color-background, --color-foreground, --color-card, --colo), CSS Custom Properties, Owner Controls (`BrandingEditor.tsx`), Per-Restaurant Theme Scoping
+Nodes (5): Step 1: Create an R2 Bucket, Step 2: Enable Public Access, Step 3: Create an API Token, Step 4: Give me these 4 values, What You Need to Provide for Cloudflare R2
 
 ### Community 382 - "Community 382"
 Cohesion: 0.4
-Nodes (5): 9. Loyalty Program, Core Concepts, FIFO Point Ledger, Happy Hour, VIP Tiers
+Nodes (5): 22. Tier Enforcement Sweep Round 2 (May 17, 2026), Backend Changes, Frontend Changes, i18n (EN/BG/RO), Test Count: 454 passing (up from 122)
 
 ### Community 383 - "Community 383"
 Cohesion: 0.4
-Nodes (5): 22. Tier Enforcement Sweep Round 2 (May 17, 2026), Backend Changes, Frontend Changes, i18n (EN/BG/RO), Test Count: 454 passing (up from 122)
+Nodes (5): 12. Branding & Theming, code:css (--color-background, --color-foreground, --color-card, --colo), CSS Custom Properties, Owner Controls (`BrandingEditor.tsx`), Per-Restaurant Theme Scoping
 
 ### Community 384 - "Community 384"
 Cohesion: 0.4
-Nodes (5): 11. Analytics System, Data Freshness, Export, Metrics, Timezone Correctness
+Nodes (5): 9. Loyalty Program, Core Concepts, FIFO Point Ledger, Happy Hour, VIP Tiers
 
 ### Community 385 - "Community 385"
 Cohesion: 0.4
-Nodes (5): 4.1 Entity Relationship Diagram, 4.2 Model Descriptions, 4.3 Enumerations, 4. Data Model, code:mermaid (erDiagram)
+Nodes (5): 11. Analytics System, Data Freshness, Export, Metrics, Timezone Correctness
 
 ### Community 386 - "Community 386"
 Cohesion: 0.4
@@ -2042,11 +2045,11 @@ Nodes (5): 4.1 Entity Relationship Diagram, 4.2 Model Descriptions, 4.3 Enumerat
 
 ### Community 388 - "Community 388"
 Cohesion: 0.4
-Nodes (5): 6.1 Authentication Flow, 6.2 Security Measures Found in Code, 6.3 Security Gaps Identified, 6. Security & Authentication, code:block5 (Registration/Login)
+Nodes (5): 4.1 Entity Relationship Diagram, 4.2 Model Descriptions, 4.3 Enumerations, 4. Data Model, code:mermaid (erDiagram)
 
 ### Community 389 - "Community 389"
 Cohesion: 0.4
-Nodes (5): Issue 17: Severe Logic Bug - Poisoned Translation Cache on DeepL API Failures, Issue 18: Logic / Security Edge Case - Broken PNG Downloads for QR Codes with Cross-Origin Logos (Tainted Canvas), Issue 19: UI/UX Bug - Table Performance Charts and XLSX Exports Display Database CUIDs instead of Table Names, Restaurant Operations (Owner Dashboard) Feature Audit Issues, Restaurant Operations Questions & Decisions Needed
+Nodes (5): 6.1 Authentication Flow, 6.2 Security Measures Found in Code, 6.3 Security Gaps Identified, 6. Security & Authentication, code:block5 (Registration/Login)
 
 ### Community 390 - "Community 390"
 Cohesion: 0.4
@@ -2054,11 +2057,11 @@ Nodes (5): Feature: Production & Deployment Workflow, Issue 48: Missing Database
 
 ### Community 391 - "Community 391"
 Cohesion: 0.4
-Nodes (5): 4. Phase 3 — Icon Library Unification, Migration Map, Test File Cleanup, Verification, What Changed
+Nodes (5): Issue 17: Severe Logic Bug - Poisoned Translation Cache on DeepL API Failures, Issue 18: Logic / Security Edge Case - Broken PNG Downloads for QR Codes with Cross-Origin Logos (Tainted Canvas), Issue 19: UI/UX Bug - Table Performance Charts and XLSX Exports Display Database CUIDs instead of Table Names, Restaurant Operations (Owner Dashboard) Feature Audit Issues, Restaurant Operations Questions & Decisions Needed
 
 ### Community 392 - "Community 392"
 Cohesion: 0.4
-Nodes (4): 4. Cart Line-Item Pricing (P1), code:tsx (€{(item.price * item.quantity).toFixed(2)}), Problem, What Changed
+Nodes (5): 4. Phase 3 — Icon Library Unification, Migration Map, Test File Cleanup, Verification, What Changed
 
 ### Community 393 - "Community 393"
 Cohesion: 0.4
@@ -2066,7 +2069,7 @@ Nodes (5): 9. Inline SVGs → Lucide Icons (P2), CartDrawer (`components/cart/Ca
 
 ### Community 394 - "Community 394"
 Cohesion: 0.4
-Nodes (5): code:block18 (DEEPL_API_KEY=your-deepl-key-here), code:typescript (import { Injectable, Logger } from '@nestjs/common';), code:bash (cd apps/backend && npx tsc --noEmit), code:bash (git add apps/backend/src/translation/translation.service.ts ), Task 4: Backend — TranslationService reads DeepL key from env
+Nodes (4): 4. Cart Line-Item Pricing (P1), code:tsx (€{(item.price * item.quantity).toFixed(2)}), Problem, What Changed
 
 ### Community 395 - "Community 395"
 Cohesion: 0.4
@@ -2078,19 +2081,19 @@ Nodes (5): code:typescript (import { useState } from "react";), code:typescript 
 
 ### Community 397 - "Community 397"
 Cohesion: 0.4
-Nodes (5): code:typescript (import {), code:typescript (@IsOptional()), code:bash (cd apps/backend && npm test -- --no-coverage), code:bash (git add apps/backend/src/restaurants/dto/update-restaurant.d), Task 10: update-restaurant.dto.ts — payment fields
+Nodes (5): code:typescript (import { PaymentModule } from './payment/payment.module';), code:typescript (LoyaltyModule,), code:bash (cd apps/backend && npm test -- --no-coverage), code:bash (git add apps/backend/src/app.module.ts), Task 7: app.module.ts — register PaymentModule
 
 ### Community 398 - "Community 398"
 Cohesion: 0.4
-Nodes (5): code:typescript (@Post(':id/stripe/connect')), code:typescript (import { Module } from '@nestjs/common';), code:bash (cd apps/backend && npm test -- --no-coverage), code:bash (git add apps/backend/src/restaurants/restaurants.controller.), Task 9: RestaurantsController + RestaurantsModule — connect routes
+Nodes (5): code:typescript (import {), code:typescript (import { Module } from '@nestjs/common';), code:bash (cd apps/backend && npm test -- --no-coverage), code:bash (git add apps/backend/src/payment/payment.controller.ts apps/), Task 5: PaymentController + PaymentModule
 
 ### Community 399 - "Community 399"
 Cohesion: 0.4
-Nodes (5): code:typescript (import {), code:typescript (import { Module } from '@nestjs/common';), code:bash (cd apps/backend && npm test -- --no-coverage), code:bash (git add apps/backend/src/payment/payment.controller.ts apps/), Task 5: PaymentController + PaymentModule
+Nodes (5): code:typescript (import {), code:typescript (@IsOptional()), code:bash (cd apps/backend && npm test -- --no-coverage), code:bash (git add apps/backend/src/restaurants/dto/update-restaurant.d), Task 10: update-restaurant.dto.ts — payment fields
 
 ### Community 400 - "Community 400"
 Cohesion: 0.4
-Nodes (4): code:typescript (@Post('session/force-open')), code:typescript (export const forceOpenSession = async (tableId: string, rest), code:bash (git add apps/backend/src/payment/payment.service.ts apps/bac), Task 1: Backend — force-open session endpoint
+Nodes (5): code:typescript (@Post(':id/stripe/connect')), code:typescript (import { Module } from '@nestjs/common';), code:bash (cd apps/backend && npm test -- --no-coverage), code:bash (git add apps/backend/src/restaurants/restaurants.controller.), Task 9: RestaurantsController + RestaurantsModule — connect routes
 
 ### Community 401 - "Community 401"
 Cohesion: 0.4
@@ -2098,19 +2101,19 @@ Nodes (5): code:tsx (import PosLayout from "./pages/pos/PosLayout";), code:tsx (
 
 ### Community 402 - "Community 402"
 Cohesion: 0.4
-Nodes (5): code:bash (cd apps/backend && npm test), code:bash (cd apps/frontend && npm run build), code:bash (npm run dev), code:bash (git add -A), Task 5.5: Final Integration Test + Polish
+Nodes (4): code:typescript (@Post('session/force-open')), code:typescript (export const forceOpenSession = async (tableId: string, rest), code:bash (git add apps/backend/src/payment/payment.service.ts apps/bac), Task 1: Backend — force-open session endpoint
 
 ### Community 403 - "Community 403"
 Cohesion: 0.4
-Nodes (5): code:prisma (// In apps/backend/prisma/schema.prisma, update the UserRole), code:bash (cd apps/backend && npx prisma migrate dev --name add_staff_r), code:bash (cd apps/backend && npx prisma generate), code:bash (git add apps/backend/prisma/schema.prisma apps/backend/prism), Task 4.1: Update Prisma Schema + Migrate
+Nodes (5): code:typescript (// Add to AuthService class in apps/backend/src/auth/auth.se), code:prisma (model User {), code:typescript (async pinLogin(restaurantId: string, pin: string) {), code:bash (git add apps/backend/src/auth/auth.service.ts), Task 4.5: Add pinLogin to AuthService
 
 ### Community 404 - "Community 404"
 Cohesion: 0.4
-Nodes (5): code:typescript (// Add to AuthService class in apps/backend/src/auth/auth.se), code:prisma (model User {), code:typescript (async pinLogin(restaurantId: string, pin: string) {), code:bash (git add apps/backend/src/auth/auth.service.ts), Task 4.5: Add pinLogin to AuthService
+Nodes (5): code:prisma (// In apps/backend/prisma/schema.prisma, update the UserRole), code:bash (cd apps/backend && npx prisma migrate dev --name add_staff_r), code:bash (cd apps/backend && npx prisma generate), code:bash (git add apps/backend/prisma/schema.prisma apps/backend/prism), Task 4.1: Update Prisma Schema + Migrate
 
 ### Community 405 - "Community 405"
 Cohesion: 0.4
-Nodes (5): code:typescript (// apps/backend/src/subscription/feature-flag.enum.ts), code:typescript (// apps/backend/src/subscription/feature.service.spec.ts), code:typescript (// apps/backend/src/subscription/feature.service.ts), code:bash (git add apps/backend/src/subscription/), Task 2: FeatureFlag enum + FeatureService
+Nodes (5): code:bash (cd apps/backend && npm test), code:bash (cd apps/frontend && npm run build), code:bash (npm run dev), code:bash (git add -A), Task 5.5: Final Integration Test + Polish
 
 ### Community 406 - "Community 406"
 Cohesion: 0.4
@@ -2122,19 +2125,19 @@ Nodes (5): code:typescript ((['general', 'loyalty', 'payments', 'staff'] as cons
 
 ### Community 408 - "Community 408"
 Cohesion: 0.4
-Nodes (5): code:typescript (import { Module } from '@nestjs/common';), code:typescript (import { SuperAdminModule } from './super-admin/super-admin.), code:typescript (SubscriptionModule,), code:bash (git add apps/backend/src/super-admin/super-admin.module.ts a), Task 7: SuperAdminModule — register module
+Nodes (5): code:typescript (// apps/backend/src/subscription/feature-flag.enum.ts), code:typescript (// apps/backend/src/subscription/feature.service.spec.ts), code:typescript (// apps/backend/src/subscription/feature.service.ts), code:bash (git add apps/backend/src/subscription/), Task 2: FeatureFlag enum + FeatureService
 
 ### Community 409 - "Community 409"
 Cohesion: 0.4
-Nodes (5): code:typescript (// apps/backend/prisma/seed-help-content.ts), code:typescript (import { seedHelpContent } from './seed-help-content';), code:bash (cd apps/backend && npm run seed), code:bash (git add apps/backend/prisma/seed-help-content.ts apps/backen), Task 6: Seed script
+Nodes (5): code:typescript (import { Module } from '@nestjs/common';), code:typescript (import { SuperAdminModule } from './super-admin/super-admin.), code:typescript (SubscriptionModule,), code:bash (git add apps/backend/src/super-admin/super-admin.module.ts a), Task 7: SuperAdminModule — register module
 
 ### Community 410 - "Community 410"
 Cohesion: 0.4
-Nodes (5): code:prisma (model HelpContent {), code:bash (cd apps/backend && npx prisma migrate dev --name add_help_co), code:bash (cd apps/backend && npx prisma db push --help > $null; npx pr), code:bash (git add apps/backend/prisma/schema.prisma apps/backend/prism), Task 1: Prisma model + migration
+Nodes (5): code:typescript (// apps/backend/prisma/seed-help-content.ts), code:typescript (import { seedHelpContent } from './seed-help-content';), code:bash (cd apps/backend && npm run seed), code:bash (git add apps/backend/prisma/seed-help-content.ts apps/backen), Task 6: Seed script
 
 ### Community 411 - "Community 411"
 Cohesion: 0.4
-Nodes (5): code:typescript (import { OptionalJwtAuthGuard } from '../auth/optional-jwt-a), code:bash (cd apps/backend), code:bash (curl -s -X POST http://localhost:3000/api/orders \), code:bash (git add apps/backend/src/orders/orders.controller.ts), Task 3: Orders Controller — Wire Optional Guard
+Nodes (5): code:prisma (model HelpContent {), code:bash (cd apps/backend && npx prisma migrate dev --name add_help_co), code:bash (cd apps/backend && npx prisma db push --help > $null; npx pr), code:bash (git add apps/backend/prisma/schema.prisma apps/backend/prism), Task 1: Prisma model + migration
 
 ### Community 412 - "Community 412"
 Cohesion: 0.4
@@ -2142,31 +2145,27 @@ Nodes (5): code:typescript (const orders = await this.prisma.order.findMany({), 
 
 ### Community 413 - "Community 413"
 Cohesion: 0.4
-Nodes (5): code:typescript (// apps/backend/src/print-station/print-station.module.ts), code:typescript (import { PrintStationModule } from './print-station/print-st), code:bash (cd apps/backend), code:bash (git add apps/backend/src/print-station/print-station.module.), Task 6: PrintStation Module + App Registration
+Nodes (5): code:typescript (import { OptionalJwtAuthGuard } from '../auth/optional-jwt-a), code:bash (cd apps/backend), code:bash (curl -s -X POST http://localhost:3000/api/orders \), code:bash (git add apps/backend/src/orders/orders.controller.ts), Task 3: Orders Controller — Wire Optional Guard
 
 ### Community 414 - "Community 414"
 Cohesion: 0.4
-Nodes (5): code:bash (npm install -g eas-cli), code:bash (cd apps/printer-agent), code:block68 (On Android device:), code:bash (git add apps/printer-agent/eas.json), Task 16: Build APK
+Nodes (5): code:typescript (// apps/backend/src/print-station/print-station.module.ts), code:typescript (import { PrintStationModule } from './print-station/print-st), code:bash (cd apps/backend), code:bash (git add apps/backend/src/print-station/print-station.module.), Task 6: PrintStation Module + App Registration
 
 ### Community 415 - "Community 415"
 Cohesion: 0.4
-Nodes (5): code:typescript (// apps/backend/src/print-station/escpos.util.ts), code:typescript (// apps/backend/src/print-station/escpos.util.spec.ts), code:bash (cd apps/backend), code:bash (git add apps/backend/src/print-station/escpos.util.ts apps/b), Task 3: ESC/POS Ticket Builder Utility
+Nodes (5): code:bash (npm install -g eas-cli), code:bash (cd apps/printer-agent), code:block68 (On Android device:), code:bash (git add apps/printer-agent/eas.json), Task 16: Build APK
 
-### Community 421 - "Community 421"
+### Community 416 - "Community 416"
+Cohesion: 0.4
+Nodes (5): code:typescript (// apps/backend/src/print-station/print-station.service.ts), code:typescript (// apps/backend/src/print-station/print-station.service.spec), code:bash (cd apps/backend), code:bash (git add apps/backend/src/print-station/), Task 4: PrintStation Service (with PrintJob persistence + retry)
+
+### Community 422 - "Community 422"
 Cohesion: 0.5
 Nodes (3): result, { spawnSync }, stderr
 
-### Community 425 - "Community 425"
-Cohesion: 0.5
-Nodes (4): ✅ Corrected Feature Status, Planner Response, Planner Response, User Input
-
-### Community 426 - "Community 426"
-Cohesion: 0.5
-Nodes (4): Duplicate Subscription Prevention, Password Reset Error Handling, Subscription Details in BillingView, 🔷 Subscription UX Fixes ✅ (May 19, 2026)
-
 ### Community 427 - "Community 427"
 Cohesion: 0.5
-Nodes (4): End-to-End Flow, 🟤 OCR Import Integration ✅ (May 9, 2026), OCR Schema Alignment, Prisma Transaction Timeout Fix
+Nodes (4): ✅ Corrected Feature Status, Planner Response, Planner Response, User Input
 
 ### Community 428 - "Community 428"
 Cohesion: 0.5
@@ -2178,147 +2177,147 @@ Nodes (4): Phase 18: Staff Role Management & Permissions ✅ COMPLETE (May 12-14
 
 ### Community 430 - "Community 430"
 Cohesion: 0.5
-Nodes (4): Files Changed, FREE Tier Restrictions (May 23, 2026), Implementation, Summary
+Nodes (4): End-to-End Flow, 🟤 OCR Import Integration ✅ (May 9, 2026), OCR Schema Alignment, Prisma Transaction Timeout Fix
 
 ### Community 431 - "Community 431"
 Cohesion: 0.5
-Nodes (4): Files Changed, Fix, Pricing Page i18n + Badge Wrap Fix (May 19, 2026), Problem
+Nodes (4): Duplicate Subscription Prevention, Password Reset Error Handling, Subscription Details in BillingView, 🔷 Subscription UX Fixes ✅ (May 19, 2026)
 
 ### Community 432 - "Community 432"
 Cohesion: 0.5
-Nodes (4): Files Changed, Key Changes, Summary, Table Zones/Sections (May 24, 2026)
+Nodes (4): Files Changed, Fix, Printable QR Codes — Layout & i18n Improvements (May 19, 2026), Problem
 
 ### Community 433 - "Community 433"
 Cohesion: 0.5
-Nodes (4): Files Changed, Key Changes, Subscription/SaaS Polish (May 23, 2026), Summary
+Nodes (4): Analytics Deep-Dive Full i18n (May 24, 2026), Files Changed, Key Changes, Summary
 
 ### Community 434 - "Community 434"
 Cohesion: 0.5
-Nodes (4): COOKIE_SAMESITE Default Changed from 'lax' to 'none' in Production, Cross-Origin Cookie & CSRF Fix — Production Deployment (May 16, 2026), CSRF Cross-Origin Compatibility, Frontend API Base URL — Production Cross-Origin Mode
+Nodes (4): Files Changed, Fix, Prisma Connection Pool — Neon PgBouncer Compatibility (May 21, 2026), Problem
 
 ### Community 435 - "Community 435"
 Cohesion: 0.5
-Nodes (4): Atomic Refund — Race Condition Fix (May 23, 2026), Files Changed, Fix, Problem
+Nodes (4): Files Changed, Key Changes, Summary, Table Zones/Sections (May 24, 2026)
 
 ### Community 436 - "Community 436"
 Cohesion: 0.5
-Nodes (4): Auth Log Scrubbing (May 18, 2026), Files Changed, Fix, Problem
+Nodes (4): Custom Date Filter Heading — Analytics Deep-Dive (May 24, 2026), Files Changed, Fix, Problem
 
 ### Community 437 - "Community 437"
 Cohesion: 0.5
-Nodes (4): Date Range Validation — Analytics (May 23, 2026), Files Changed, Fix, Problem
+Nodes (4): Files Changed, Fix, Problem, Stripe Webhook — Raw Body Handling (May 19, 2026)
 
 ### Community 438 - "Community 438"
 Cohesion: 0.5
-Nodes (4): Files Changed, Key Changes, Summary, Table Status Simplification (May 24, 2026)
+Nodes (4): CartContext `updateItem` Type Fix (May 18, 2026), Files Changed, Fix, Problem
 
 ### Community 439 - "Community 439"
 Cohesion: 0.5
-Nodes (4): Files Changed, Key Changes, Staff Credential Model Hardening (May 29, 2026), Summary
+Nodes (4): Auth Log Scrubbing (May 18, 2026), Files Changed, Fix, Problem
 
 ### Community 440 - "Community 440"
 Cohesion: 0.5
-Nodes (4): Files Changed, Key Changes, Staff Creation Race & Duplicate Handling (May 25, 2026), Summary
+Nodes (4): Call-Waiter Cooldown Bypass on Reload (May 29, 2026), Files Changed, Key Changes, Summary
 
 ### Community 441 - "Community 441"
 Cohesion: 0.5
-Nodes (4): Files Changed, Fix, Problem, Stripe Subscription Type Cast Fix (May 19, 2026)
+Nodes (4): Dashboard Purple/Violet Luxury Redesign (May 24, 2026), Files Changed, Key Changes, Summary
 
 ### Community 442 - "Community 442"
 Cohesion: 0.5
-Nodes (4): Files Changed, Key Changes, Staff Attribution & Itemized Bills (May 24, 2026), Summary
+Nodes (4): CheckoutPage Screen Hang After Order Submission (May 16, 2026), code:typescript (const orderPlaced = useRef(false);), Missing orderId in Navigate State, useEffect Redirect Race Condition
 
 ### Community 443 - "Community 443"
 Cohesion: 0.5
-Nodes (4): Files Changed, Implementation, Public Menu Footer + Social Icons (May 23, 2026), Summary
+Nodes (4): CI Gate Added (May 18, 2026), Files Changed, Fix, Problem
 
 ### Community 444 - "Community 444"
 Cohesion: 0.5
-Nodes (4): Files Changed, Implementation, Summary, XLSX Import/Export Roundtrip (May 23, 2026)
+Nodes (4): Files Changed, Implementation, Public Menu Footer + Social Icons (May 23, 2026), Summary
 
 ### Community 445 - "Community 445"
 Cohesion: 0.5
-Nodes (4): Call-Waiter Cooldown Bypass on Reload (May 29, 2026), Files Changed, Key Changes, Summary
+Nodes (4): Files Changed, Fix, PrismaService Pool Exhaustion Logging (May 18, 2026), Problem
 
 ### Community 446 - "Community 446"
 Cohesion: 0.5
-Nodes (4): CI Gate Added (May 18, 2026), Files Changed, Fix, Problem
+Nodes (4): Files Changed, Fix, Problem, Stripe Subscription Type Cast Fix (May 19, 2026)
 
 ### Community 447 - "Community 447"
 Cohesion: 0.5
-Nodes (4): Dashboard Purple/Violet Luxury Redesign (May 24, 2026), Files Changed, Key Changes, Summary
+Nodes (4): Files Changed, Key Changes, Stripe API Version Drift (May 29, 2026), Summary
 
 ### Community 448 - "Community 448"
 Cohesion: 0.5
-Nodes (4): Files Changed, Fix, PrismaService Pool Exhaustion Logging (May 18, 2026), Problem
+Nodes (4): Files Changed, Fix, Problem, Seed Safety — Data Wipe Prevention (May 22, 2026)
 
 ### Community 449 - "Community 449"
 Cohesion: 0.5
-Nodes (4): Files Changed, Key Changes, Stripe API Version Drift (May 29, 2026), Summary
+Nodes (4): Date Range Validation — Analytics (May 23, 2026), Files Changed, Fix, Problem
 
 ### Community 450 - "Community 450"
 Cohesion: 0.5
-Nodes (4): Files Changed, Fix, Problem, TableCard Redesign — Compact Layout + Live Timer (May 24, 2026)
+Nodes (4): Files Changed, Key Changes, Staff Attribution & Itemized Bills (May 24, 2026), Summary
 
 ### Community 451 - "Community 451"
 Cohesion: 0.5
-Nodes (4): Files Changed, Fix, Prisma Connection Pool — Neon PgBouncer Compatibility (May 21, 2026), Problem
+Nodes (4): Files Changed, Fix, Problem, TableCard Redesign — Compact Layout + Live Timer (May 24, 2026)
 
 ### Community 452 - "Community 452"
 Cohesion: 0.5
-Nodes (4): Analytics Deep-Dive Full i18n (May 24, 2026), Files Changed, Key Changes, Summary
+Nodes (4): Files Changed, Implementation, Summary, XLSX Import/Export Roundtrip (May 23, 2026)
 
 ### Community 453 - "Community 453"
 Cohesion: 0.5
-Nodes (4): CartContext `updateItem` Type Fix (May 18, 2026), Files Changed, Fix, Problem
+Nodes (4): Files Changed, FREE Tier Restrictions (May 23, 2026), Implementation, Summary
 
 ### Community 454 - "Community 454"
 Cohesion: 0.5
-Nodes (4): Files Changed, Fix, Problem, Seed Safety — Data Wipe Prevention (May 22, 2026)
+Nodes (4): COOKIE_SAMESITE Default Changed from 'lax' to 'none' in Production, Cross-Origin Cookie & CSRF Fix — Production Deployment (May 16, 2026), CSRF Cross-Origin Compatibility, Frontend API Base URL — Production Cross-Origin Mode
 
 ### Community 455 - "Community 455"
 Cohesion: 0.5
-Nodes (4): Custom Date Filter Heading — Analytics Deep-Dive (May 24, 2026), Files Changed, Fix, Problem
+Nodes (4): Files Changed, Fix, Pricing Page i18n + Badge Wrap Fix (May 19, 2026), Problem
 
 ### Community 456 - "Community 456"
 Cohesion: 0.5
-Nodes (4): CheckoutPage Screen Hang After Order Submission (May 16, 2026), code:typescript (const orderPlaced = useRef(false);), Missing orderId in Navigate State, useEffect Redirect Race Condition
+Nodes (4): Files Changed, Key Changes, Summary, Table Status Simplification (May 24, 2026)
 
 ### Community 457 - "Community 457"
 Cohesion: 0.5
-Nodes (4): 1. Translation: Better Alternatives to Google Translate API, Problem A: Static UI strings (dashboard labels, buttons, error messages), Problem B: Dynamic menu content (food names, descriptions), 🏆 What I'd recommend for your SaaS:
+Nodes (4): Atomic Refund — Race Condition Fix (May 23, 2026), Files Changed, Fix, Problem
 
 ### Community 458 - "Community 458"
 Cohesion: 0.5
-Nodes (4): 6. Authentication System, Customer OTP Flow, JWT Strategy, Three Auth Methods
+Nodes (4): Files Changed, Key Changes, Subscription/SaaS Polish (May 23, 2026), Summary
 
 ### Community 459 - "Community 459"
 Cohesion: 0.5
-Nodes (4): 17. Production Deployment, Auth Flow (Production), Cross-Origin Architecture, Infrastructure
+Nodes (4): 1. Translation: Better Alternatives to Google Translate API, Problem A: Static UI strings (dashboard labels, buttons, error messages), Problem B: Dynamic menu content (food names, descriptions), 🏆 What I'd recommend for your SaaS:
 
 ### Community 460 - "Community 460"
 Cohesion: 0.5
-Nodes (4): Appendix: File Index, Critical Backend Files, Critical Frontend Files, Planning & Design
+Nodes (4): 17. Production Deployment, Auth Flow (Production), Cross-Origin Architecture, Infrastructure
 
 ### Community 461 - "Community 461"
 Cohesion: 0.5
-Nodes (4): 1. 📂 Rich Demo Dataset, 2. 🎨 Unified Design System (Light/Dark), 📈 Enhanced Analytics & Operations, 🌟 Project Milestone: Premium Demo Ready
+Nodes (4): 6. Authentication System, Customer OTP Flow, JWT Strategy, Three Auth Methods
 
 ### Community 462 - "Community 462"
 Cohesion: 0.5
-Nodes (3): 1. Architectural Guidelines, 2. Feature Specification to Implement, Execution Instructions
+Nodes (4): Appendix: File Index, Critical Backend Files, Critical Frontend Files, Planning & Design
 
 ### Community 463 - "Community 463"
 Cohesion: 0.5
-Nodes (4): 7. Translation Changes, Files Modified, New Keys Added, Pre-existing Keys Used
+Nodes (4): 1. 📂 Rich Demo Dataset, 2. 🎨 Unified Design System (Light/Dark), 📈 Enhanced Analytics & Operations, 🌟 Project Milestone: Premium Demo Ready
 
 ### Community 464 - "Community 464"
 Cohesion: 0.5
-Nodes (4): 10. Toggle Component Adoption, code:tsx (<label className="flex items-center gap-3 cursor-pointer">), code:tsx (<Toggle), What Changed
+Nodes (3): 1. Architectural Guidelines, 2. Feature Specification to Implement, Execution Instructions
 
 ### Community 465 - "Community 465"
 Cohesion: 0.5
-Nodes (4): 8. Image Lazy Loading (P2), code:tsx (<img), Problem, What Changed
+Nodes (4): 7. Translation Changes, Files Modified, New Keys Added, Pre-existing Keys Used
 
 ### Community 466 - "Community 466"
 Cohesion: 0.5
@@ -2326,131 +2325,135 @@ Nodes (4): 3. Checkout Back Navigation (P0), code:tsx (// NEW: Explicit back-to-
 
 ### Community 467 - "Community 467"
 Cohesion: 0.5
-Nodes (4): code:typescript (import React from 'react';), code:bash (cd apps/frontend && npx tsc --noEmit), code:bash (git add apps/frontend/src/components/tables/PrintableQRCodes), Task 11: PrintableQRCodes — Single-Column A4 Layout
+Nodes (4): 10. Toggle Component Adoption, code:tsx (<label className="flex items-center gap-3 cursor-pointer">), code:tsx (<Toggle), What Changed
 
 ### Community 468 - "Community 468"
 Cohesion: 0.5
-Nodes (4): code:typescript (import React, { useState, useEffect, useRef } from "react";), code:bash (cd apps/frontend && npx tsc --noEmit), code:bash (git add apps/frontend/src/components/auth/CustomerLoginModal), Task 6: CustomerLoginModal — 3-Step OTP Rewrite
+Nodes (4): 8. Image Lazy Loading (P2), code:tsx (<img), Problem, What Changed
 
 ### Community 469 - "Community 469"
 Cohesion: 0.5
-Nodes (4): code:typescript (import { NestFactory } from '@nestjs/core';), code:bash (cd apps/backend && npm run build), code:bash (git add apps/backend/src/main.ts), Task 6: main.ts — raw body for webhook
+Nodes (4): code:typescript (// Rule: Category has no image), code:bash (cd apps/backend && npm test), code:bash (git add apps/backend/src/menu/menu.service.ts), Task 13: MenuService — Remove Category Image Audit Rule
 
 ### Community 470 - "Community 470"
 Cohesion: 0.5
-Nodes (4): code:bash (git add apps/backend/package.json apps/backend/package-lock.), code:bash (cd apps/backend && npm install stripe), code:bash (cd apps/frontend && npm install @stripe/stripe-js @stripe/re), Task 2: Install Stripe packages
+Nodes (4): code:typescript (import React from 'react';), code:bash (cd apps/frontend && npx tsc --noEmit), code:bash (git add apps/frontend/src/components/tables/PrintableQRCodes), Task 11: PrintableQRCodes — Single-Column A4 Layout
 
 ### Community 471 - "Community 471"
 Cohesion: 0.5
-Nodes (4): code:tsx (import { useState, useEffect } from 'react';), code:bash (cd apps/frontend && npm run build 2>&1 | head -50), code:bash (git add apps/frontend/src/components/payment/PaymentModal.ts), Task 14: Frontend PaymentModal.tsx
+Nodes (4): code:typescript (import { NestFactory } from '@nestjs/core';), code:bash (cd apps/backend && npm run build), code:bash (git add apps/backend/src/main.ts), Task 6: main.ts — raw body for webhook
 
 ### Community 472 - "Community 472"
 Cohesion: 0.5
-Nodes (4): code:bash (cd apps/backend && npx tsc --noEmit && npm test -- --passWit), code:bash (cd apps/frontend && npx tsc --noEmit && npm run build), code:bash (git add -A), Task 18: Final verification — full build + POS smoke test
+Nodes (4): code:bash (git add apps/backend/package.json apps/backend/package-lock.), code:bash (cd apps/backend && npm install stripe), code:bash (cd apps/frontend && npm install @stripe/stripe-js @stripe/re), Task 2: Install Stripe packages
 
 ### Community 473 - "Community 473"
 Cohesion: 0.5
-Nodes (4): code:bash (cd apps/backend && ls src/users/), code:typescript (// Add to apps/backend/src/auth/auth.controller.ts:), code:bash (git add apps/backend/src/auth/auth.controller.ts), Task 4.4: Add Staff Creation Endpoint
+Nodes (4): code:tsx (import PosSplitBill from "./PosSplitBill";), code:tsx (<PosSplitBill total={total} />), code:bash (git add apps/frontend/src/components/pos/PosCartDrawer.tsx), Task 17: Integration — wire Phase D components into PosCartDrawer
 
 ### Community 474 - "Community 474"
 Cohesion: 0.5
-Nodes (4): code:tsx (// apps/frontend/src/components/StaffRoute.tsx), code:tsx (// apps/frontend/src/components/ProtectedRoute.tsx), code:bash (git add apps/frontend/src/components/StaffRoute.tsx apps/fro), Task 4.7: Update Frontend Route Guards
+Nodes (4): code:bash (cd apps/backend && npx tsc --noEmit && npm test -- --passWit), code:bash (cd apps/frontend && npx tsc --noEmit && npm run build), code:bash (git add -A), Task 18: Final verification — full build + POS smoke test
 
 ### Community 475 - "Community 475"
 Cohesion: 0.5
-Nodes (4): code:typescript (// apps/backend/src/auth/dto/pin-login.dto.ts), code:typescript (// apps/backend/src/users/dto/create-staff.dto.ts), code:bash (git add apps/backend/src/auth/dto/pin-login.dto.ts apps/back), Task 4.2: Create Validation DTOs
+Nodes (4): code:bash (cd apps/backend && ls src/users/), code:typescript (// Add to apps/backend/src/auth/auth.controller.ts:), code:bash (git add apps/backend/src/auth/auth.controller.ts), Task 4.4: Add Staff Creation Endpoint
 
 ### Community 476 - "Community 476"
 Cohesion: 0.5
-Nodes (4): code:tsx (import DeviceLoginPage from "./pages/DeviceLoginPage";), code:tsx ({/* Inside <Route element={<PublicLayout />}> */}), code:bash (git add apps/frontend/src/App.tsx), Task 5.2: Add /device-login Route
+Nodes (4): code:typescript (// apps/backend/src/auth/dto/pin-login.dto.ts), code:typescript (// apps/backend/src/users/dto/create-staff.dto.ts), code:bash (git add apps/backend/src/auth/dto/pin-login.dto.ts apps/back), Task 4.2: Create Validation DTOs
 
 ### Community 477 - "Community 477"
 Cohesion: 0.5
-Nodes (4): code:typescript (// BEFORE), code:bash (npm run dev), code:bash (git add apps/backend/src/events/events.gateway.ts), Task 1: Fix Socket.io CORS Wildcard
+Nodes (4): code:tsx (import DeviceLoginPage from "./pages/DeviceLoginPage";), code:tsx ({/* Inside <Route element={<PublicLayout />}> */}), code:bash (git add apps/frontend/src/App.tsx), Task 5.2: Add /device-login Route
 
 ### Community 478 - "Community 478"
 Cohesion: 0.5
-Nodes (4): code:typescript (// Peak hours), code:bash (npm run dev), code:bash (git add apps/frontend/src/pages/Dashboard/AnalyticsView.tsx), Task 4: Full CSV Export — Peak Hours + Category Breakdown
+Nodes (4): code:tsx (// apps/frontend/src/components/StaffRoute.tsx), code:tsx (// apps/frontend/src/components/ProtectedRoute.tsx), code:bash (git add apps/frontend/src/components/StaffRoute.tsx apps/fro), Task 4.7: Update Frontend Route Guards
 
 ### Community 479 - "Community 479"
 Cohesion: 0.5
-Nodes (4): code:typescript (import { useFeature } from '../hooks/useFeature';), code:typescript (import { useFeature } from '../../hooks/useFeature';), code:bash (git add apps/frontend/src/pages/PublicMenuPage.tsx apps/fron), Task 8: FREE tier — hide cart from PublicMenuPage
+Nodes (4): code:typescript (// BEFORE), code:bash (npm run dev), code:bash (git add apps/backend/src/events/events.gateway.ts), Task 1: Fix Socket.io CORS Wildcard
 
 ### Community 480 - "Community 480"
 Cohesion: 0.5
-Nodes (4): code:typescript (import SubscriptionBanner from '../components/subscription/S), code:typescript (import { useFeature } from './hooks/useFeature';), code:bash (git add apps/frontend/src/pages/DashboardPage.tsx apps/front), Task 11: Dashboard — tier-gated sidebar + SubscriptionBanner
+Nodes (4): code:typescript (// Peak hours), code:bash (npm run dev), code:bash (git add apps/frontend/src/pages/Dashboard/AnalyticsView.tsx), Task 4: Full CSV Export — Peak Hours + Category Breakdown
 
 ### Community 481 - "Community 481"
 Cohesion: 0.5
-Nodes (4): code:typescript (import { Test, TestingModule } from '@nestjs/testing';), code:typescript (import { Injectable, NotFoundException } from '@nestjs/commo), code:bash (git add apps/backend/src/super-admin/super-admin.service.ts ), Task 5: SuperAdminService — stats and tenant queries
+Nodes (4): code:typescript (import { useFeature } from '../hooks/useFeature';), code:typescript (import { useFeature } from '../../hooks/useFeature';), code:bash (git add apps/frontend/src/pages/PublicMenuPage.tsx apps/fron), Task 8: FREE tier — hide cart from PublicMenuPage
 
 ### Community 482 - "Community 482"
 Cohesion: 0.5
-Nodes (4): code:typescript (// Super Admin), code:typescript (// Super Admin), code:bash (git add apps/frontend/src/lib/api.ts apps/frontend/src/types), Task 9: Frontend — API client additions
+Nodes (4): code:prisma (enum SubscriptionTier {), code:prisma (tier                  SubscriptionTier  @default(FREE)), code:bash (git add apps/backend/prisma/schema.prisma), Task 1: Schema changes — SubscriptionTier enum + Restaurant fields
 
 ### Community 483 - "Community 483"
 Cohesion: 0.5
-Nodes (4): code:typescript (import { SuperAdminGuard } from './super-admin.guard';), code:typescript (import { Injectable, CanActivate, ExecutionContext, Forbidde), code:bash (git add apps/backend/src/super-admin/super-admin.guard.ts ap), Task 3: SuperAdminGuard — create role guard
+Nodes (4): code:typescript (import SubscriptionBanner from '../components/subscription/S), code:typescript (import { useFeature } from './hooks/useFeature';), code:bash (git add apps/frontend/src/pages/DashboardPage.tsx apps/front), Task 11: Dashboard — tier-gated sidebar + SubscriptionBanner
 
 ### Community 484 - "Community 484"
 Cohesion: 0.5
-Nodes (4): code:typescript (// ── Help Content ─────────────────────────────────────────), code:bash (cd apps/frontend && npx tsc --noEmit --pretty), code:bash (git add apps/frontend/src/lib/api.ts), Task 7: Frontend API functions
+Nodes (4): code:typescript (import { Test, TestingModule } from '@nestjs/testing';), code:typescript (import { Injectable, NotFoundException } from '@nestjs/commo), code:bash (git add apps/backend/src/super-admin/super-admin.service.ts ), Task 5: SuperAdminService — stats and tenant queries
 
 ### Community 485 - "Community 485"
 Cohesion: 0.5
-Nodes (4): code:tsx (import { useState, useRef, useEffect } from 'react';), code:bash (cd apps/frontend && npx tsc --noEmit --pretty), code:bash (git add apps/frontend/src/components/landing/LandingFAQ.tsx), Task 10: Migrate LandingFAQ.tsx to API consumer
+Nodes (4): code:typescript (// Super Admin), code:typescript (// Super Admin), code:bash (git add apps/frontend/src/lib/api.ts apps/frontend/src/types), Task 9: Frontend — API client additions
 
 ### Community 486 - "Community 486"
 Cohesion: 0.5
-Nodes (4): code:tsx (import { useState } from 'react';), code:bash (cd apps/frontend && npx tsc --noEmit --pretty), code:bash (git add apps/frontend/src/pages/Dashboard/HelpView.tsx), Task 11: Migrate HelpView.tsx to API consumer
+Nodes (4): code:typescript (import { SuperAdminGuard } from './super-admin.guard';), code:typescript (import { Injectable, CanActivate, ExecutionContext, Forbidde), code:bash (git add apps/backend/src/super-admin/super-admin.guard.ts ap), Task 3: SuperAdminGuard — create role guard
 
 ### Community 487 - "Community 487"
 Cohesion: 0.5
-Nodes (4): 1. Spec Coverage, 2. Placeholder Scan, 3. Type Consistency, Self-Review
+Nodes (4): code:typescript (// ── Help Content ─────────────────────────────────────────), code:bash (cd apps/frontend && npx tsc --noEmit --pretty), code:bash (git add apps/frontend/src/lib/api.ts), Task 7: Frontend API functions
 
 ### Community 488 - "Community 488"
 Cohesion: 0.5
+Nodes (4): code:tsx (// apps/frontend/src/pages/super-admin/HelpCenterPage.tsx), code:bash (cd apps/frontend && npx tsc --noEmit --pretty), code:bash (git add apps/frontend/src/pages/super-admin/HelpCenterPage.t), Task 8: Frontend HelpCenterPage.tsx — CMS UI
+
+### Community 489 - "Community 489"
+Cohesion: 0.5
+Nodes (4): 1. Spec Coverage, 2. Placeholder Scan, 3. Type Consistency, Self-Review
+
+### Community 490 - "Community 490"
+Cohesion: 0.5
+Nodes (4): code:tsx (import { useState, useRef, useEffect } from 'react';), code:bash (cd apps/frontend && npx tsc --noEmit --pretty), code:bash (git add apps/frontend/src/components/landing/LandingFAQ.tsx), Task 10: Migrate LandingFAQ.tsx to API consumer
+
+### Community 491 - "Community 491"
+Cohesion: 0.5
 Nodes (4): code:bash (# Root), code:bash (# Or query DB directly), code:bash (git add -A), Task 11: End-to-End Smoke Test
-
-### Community 503 - "Community 503"
-Cohesion: 0.67
-Nodes (3): 6. Dependency Changes, code:diff (- "@fortawesome/fontawesome-svg-core": "^7.2.0",), Removed from `package.json`
-
-### Community 504 - "Community 504"
-Cohesion: 0.67
-Nodes (3): 11. File Inventory, Modified Files (10), New Files Created (1)
 
 ### Community 505 - "Community 505"
 Cohesion: 0.67
-Nodes (3): code:tsx (import { QRCodeSVG } from "qrcode.react";), code:bash (git add apps/frontend/src/components/pos/PosQRBill.tsx), Task 16: PosQRBill — QR code for session bill
+Nodes (3): 8. File Inventory, Modified Files (9), New Files Created (12)
 
 ### Community 506 - "Community 506"
 Cohesion: 0.67
-Nodes (3): code:tsx (import { usePos } from "../../context/PosContext";), code:bash (git add apps/frontend/src/components/pos/PosSeatSelector.tsx), Task 12: PosSeatSelector — seat pill row
+Nodes (3): 7. Allergen Filter Pills (User-Reported), Problem, What Changed
 
 ### Community 507 - "Community 507"
 Cohesion: 0.67
-Nodes (3): code:tsx (import { Outlet } from "react-router-dom";), code:bash (git add apps/frontend/src/pages/pos/PosLayout.tsx), Task 4: PosLayout — full-viewport shell
+Nodes (3): code:tsx (import { useState, useContext } from "react";), code:bash (git add apps/frontend/src/components/pos/PosTopBar.tsx), Task 7: PosTopBar — search + active table
 
 ### Community 508 - "Community 508"
 Cohesion: 0.67
-Nodes (3): code:tsx (import { useState, useEffect, useContext } from "react";), code:bash (git add apps/frontend/src/components/pos/PosTableModal.tsx), Task 6: PosTableModal — table selection
+Nodes (3): code:tsx (import { usePos } from "../../context/PosContext";), code:bash (git add apps/frontend/src/pages/pos/PosPage.tsx), Task 5: PosPage — component composition
 
 ### Community 509 - "Community 509"
 Cohesion: 0.67
-Nodes (3): code:tsx (import { usePos } from "../../context/PosContext";), code:bash (git add apps/frontend/src/pages/pos/PosPage.tsx), Task 5: PosPage — component composition
+Nodes (3): code:tsx (import { useState, useEffect, useContext } from "react";), code:bash (git add apps/frontend/src/components/pos/PosTableModal.tsx), Task 6: PosTableModal — table selection
 
 ### Community 510 - "Community 510"
 Cohesion: 0.67
-Nodes (3): code:tsx (import { useState, useContext } from "react";), code:bash (git add apps/frontend/src/components/pos/PosTopBar.tsx), Task 7: PosTopBar — search + active table
+Nodes (3): code:tsx (import { usePos } from "../../context/PosContext";), code:bash (git add apps/frontend/src/components/pos/PosSeatSelector.tsx), Task 12: PosSeatSelector — seat pill row
 
 ### Community 511 - "Community 511"
 Cohesion: 0.67
-Nodes (3): code:tsx (import { useState } from "react";), code:bash (git add apps/frontend/src/components/pos/PosSplitBill.tsx), Task 15: PosSplitBill — split bill calculator
+Nodes (3): code:tsx (import { useState, useEffect, useContext } from "react";), code:bash (git add apps/frontend/src/components/pos/PosItemGrid.tsx), Task 10: PosItemGrid — 2-column item grid
 
 ### Community 512 - "Community 512"
 Cohesion: 0.67
-Nodes (3): code:tsx (import {), code:bash (git add apps/frontend/src/context/PosContext.tsx), Task 3: PosContext — isolated cart state
+Nodes (3): code:tsx (import { Outlet } from "react-router-dom";), code:bash (git add apps/frontend/src/pages/pos/PosLayout.tsx), Task 4: PosLayout — full-viewport shell
 
 ### Community 513 - "Community 513"
 Cohesion: 0.67
@@ -2462,77 +2465,73 @@ Nodes (3): code:tsx (import { usePos } from "../../context/PosContext";), code:b
 
 ### Community 515 - "Community 515"
 Cohesion: 0.67
-Nodes (3): code:tsx (import { useState, useEffect, useContext } from "react";), code:bash (git add apps/frontend/src/components/pos/PosItemGrid.tsx), Task 10: PosItemGrid — 2-column item grid
+Nodes (3): code:tsx (import { useState } from "react";), code:bash (git add apps/frontend/src/components/pos/PosSplitBill.tsx), Task 15: PosSplitBill — split bill calculator
 
 ### Community 516 - "Community 516"
 Cohesion: 0.67
-Nodes (3): code:tsx (import { useState, useContext } from "react";), code:bash (git add apps/frontend/src/components/pos/PosCartDrawer.tsx), Task 13: PosCartDrawer — cart panel + submit
+Nodes (3): code:tsx (import { useState, useEffect } from "react";), code:bash (git add apps/frontend/src/components/pos/PosOptionsDrawer.ts), Task 11: PosOptionsDrawer — modifier selection sheet
 
 ### Community 517 - "Community 517"
 Cohesion: 0.67
-Nodes (3): code:tsx (import { Navigate, useLocation } from "react-router-dom";), code:bash (git add apps/frontend/src/components/StaffRoute.tsx), Task 2: StaffRoute auth guard
+Nodes (3): code:tsx (import { useState, useContext } from "react";), code:bash (git add apps/frontend/src/components/pos/PosCartDrawer.tsx), Task 13: PosCartDrawer — cart panel + submit
 
 ### Community 518 - "Community 518"
 Cohesion: 0.67
-Nodes (3): code:tsx (import { BrowserRouter as Router, Routes, Route, Outlet } fr), code:bash (git add apps/frontend/src/App.tsx), Task 2.2: Split Providers Per Layout
-
-### Community 519 - "Community 519"
-Cohesion: 0.67
-Nodes (3): code:tsx (// apps/frontend/src/pages/DeviceLoginPage.tsx), code:bash (git add apps/frontend/src/pages/DeviceLoginPage.tsx), Task 5.1: Create DeviceLoginPage (PIN Keypad UI)
+Nodes (3): code:tsx (// apps/frontend/src/context/AuthContext.tsx), code:bash (git add apps/frontend/src/context/AuthContext.tsx apps/front), Task 2.1: Clean Up AuthContext
 
 ### Community 520 - "Community 520"
 Cohesion: 0.67
-Nodes (3): code:tsx (// apps/frontend/src/context/AuthContext.tsx), code:bash (git add apps/frontend/src/context/AuthContext.tsx apps/front), Task 2.1: Clean Up AuthContext
+Nodes (3): code:tsx ({/* Shared Device Mode */}), code:bash (git add apps/frontend/src/pages/Dashboard/SettingsView.tsx), Task 5.3: Add Shared Device Toggle to SettingsView
 
 ### Community 521 - "Community 521"
 Cohesion: 0.67
-Nodes (3): code:tsx ({/* Shared Device Mode */}), code:bash (git add apps/frontend/src/pages/Dashboard/SettingsView.tsx), Task 5.3: Add Shared Device Toggle to SettingsView
+Nodes (3): code:typescript (// Add these imports at top of menu-crud.service.ts (alongsi), code:bash (git add apps/backend/src/menu/menu-crud.service.ts), Task 3.1: Move getPublicMenu + getTrendingItems into MenuCrudService
 
 ### Community 522 - "Community 522"
 Cohesion: 0.67
-Nodes (3): code:typescript (// Add to AuthController in apps/backend/src/auth/auth.contr), code:bash (git add apps/backend/src/auth/auth.controller.ts), Task 4.6: Add PIN Login Endpoint
+Nodes (3): code:tsx (import { BrowserRouter as Router, Routes, Route, Outlet } fr), code:bash (git add apps/frontend/src/App.tsx), Task 2.2: Split Providers Per Layout
 
 ### Community 523 - "Community 523"
 Cohesion: 0.67
-Nodes (3): code:tsx (import { Navigate, useLocation } from "react-router-dom";), code:bash (git add apps/frontend/src/components/SuperAdminRoute.tsx), Task 10: SuperAdminRoute — frontend guard
+Nodes (3): code:typescript (import { Test, TestingModule } from '@nestjs/testing';), code:bash (git add apps/backend/test/super-admin.e2e-spec.ts), Task 17: Backend e2e smoke test
 
 ### Community 524 - "Community 524"
 Cohesion: 0.67
-Nodes (3): code:tsx (import { useQuery } from "@tanstack/react-query";), code:bash (git add apps/frontend/src/pages/super-admin/OverviewPage.tsx), Task 13: OverviewPage — platform stats
+Nodes (3): code:tsx (import { useState } from "react";), code:bash (git add apps/frontend/src/pages/super-admin/TenantsPage.tsx), Task 14: TenantsPage — searchable tenant table
 
 ### Community 525 - "Community 525"
 Cohesion: 0.67
-Nodes (3): code:typescript (import { Test, TestingModule } from '@nestjs/testing';), code:bash (git add apps/backend/test/super-admin.e2e-spec.ts), Task 17: Backend e2e smoke test
+Nodes (3): code:tsx (import { Outlet, NavLink } from "react-router-dom";), code:bash (git add apps/frontend/src/pages/super-admin/SuperAdminLayout), Task 11: SuperAdminLayout — dark sidebar layout
 
 ### Community 526 - "Community 526"
 Cohesion: 0.67
-Nodes (3): code:typescript (import {), code:bash (git add apps/backend/src/super-admin/super-admin.controller.), Task 6: SuperAdminController — wire API endpoints
+Nodes (3): code:tsx (import { useQuery } from "@tanstack/react-query";), code:bash (git add apps/frontend/src/pages/super-admin/OverviewPage.tsx), Task 13: OverviewPage — platform stats
 
 ### Community 527 - "Community 527"
 Cohesion: 0.67
-Nodes (3): code:typescript (import { IsIn, IsOptional, IsBoolean } from 'class-validator), code:bash (git add apps/backend/src/super-admin/dto/update-tenant.dto.t), Task 4: DTOs — create update-tenant DTO
+Nodes (3): code:typescript (import {), code:bash (git add apps/backend/src/super-admin/super-admin.controller.), Task 6: SuperAdminController — wire API endpoints
 
 ### Community 528 - "Community 528"
 Cohesion: 0.67
-Nodes (3): code:tsx (import { useState } from "react";), code:bash (git add apps/frontend/src/pages/super-admin/TenantsPage.tsx), Task 14: TenantsPage — searchable tenant table
+Nodes (3): code:tsx (import { Navigate, useLocation } from "react-router-dom";), code:bash (git add apps/frontend/src/components/SuperAdminRoute.tsx), Task 10: SuperAdminRoute — frontend guard
 
 ### Community 529 - "Community 529"
 Cohesion: 0.67
-Nodes (3): code:tsx (import { useState } from "react";), code:bash (git add apps/frontend/src/pages/super-admin/TenantDetailPage), Task 15: TenantDetailPage — tier override + suspend
+Nodes (3): code:json ("superAdmin": {), code:bash (git add apps/frontend/src/locales/en/translation.json), Task 16: i18n — add EN translation keys
 
 ## Knowledge Gaps
 - **4339 isolated node(s):** `Kt`, `ya`, `p`, `Ca`, `wa` (+4334 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **68 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **67 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `FeatureService` connect `Community 6` to `Community 96`, `Community 33`, `Community 97`, `Community 4`, `Community 39`, `Community 9`, `Community 12`, `Community 76`, `Community 14`, `Community 13`, `Community 16`, `Community 85`, `Community 86`, `Community 56`?**
+- **Why does `FeatureService` connect `Community 14` to `Community 65`, `Community 66`, `Community 35`, `Community 99`, `Community 5`, `Community 40`, `Community 9`, `Community 107`, `Community 11`, `Community 78`, `Community 15`, `Community 16`, `Community 19`, `Community 87`, `Community 120`, `Community 57`?**
   _High betweenness centrality (0.076) - this node is a cross-community bridge._
-- **Why does `PublicMenuPage()` connect `Community 36` to `Community 34`, `Community 6`, `Community 7`, `Community 10`, `Community 21`?**
+- **Why does `PublicMenuPage()` connect `Community 33` to `Community 6`, `Community 14`, `Community 21`, `Community 22`, `Community 23`?**
   _High betweenness centrality (0.074) - this node is a cross-community bridge._
-- **Why does `t` connect `Community 7` to `Community 5`, `Community 10`, `Community 11`, `Community 15`, `Community 144`, `Community 145`, `Community 17`, `Community 19`, `Community 21`, `Community 23`, `Community 153`, `Community 27`, `Community 34`, `Community 36`, `Community 38`, `Community 176`, `Community 177`, `Community 51`, `Community 58`, `Community 59`, `Community 60`, `Community 65`, `Community 194`, `Community 70`, `Community 327`, `Community 82`, `Community 83`, `Community 87`, `Community 219`, `Community 99`, `Community 104`, `Community 365`, `Community 114`, `Community 499`, `Community 122`?**
+- **Why does `t` connect `Community 6` to `Community 4`, `Community 8`, `Community 10`, `Community 12`, `Community 13`, `Community 142`, `Community 143`, `Community 144`, `Community 17`, `Community 21`, `Community 22`, `Community 23`, `Community 153`, `Community 28`, `Community 33`, `Community 38`, `Community 39`, `Community 176`, `Community 177`, `Community 59`, `Community 60`, `Community 194`, `Community 67`, `Community 327`, `Community 72`, `Community 85`, `Community 88`, `Community 89`, `Community 219`, `Community 100`, `Community 366`, `Community 119`, `Community 122`?**
   _High betweenness centrality (0.053) - this node is a cross-community bridge._
 - **Are the 155 inferred relationships involving `t` (e.g. with `ri` and `ai()`) actually correct?**
   _`t` has 155 INFERRED edges - model-reasoned connections that need verification._
