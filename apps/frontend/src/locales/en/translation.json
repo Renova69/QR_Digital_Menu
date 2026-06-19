@@ -533,6 +533,7 @@
     "title": "Your Order",
     "back": "← Back to Menu",
     "orderSummary": "Order Summary",
+    "payAtCounter": "Online payment isn't available — please pay your server or at the counter.",
     "name": "Name",
     "phone": "Phone Number",
     "phoneOptional": "Optional",
@@ -2404,6 +2405,7 @@
   },
   "auto": {
     "qRMENU": "QR MENU",
+    "deviceNotLinked": "This device is not linked to this restaurant anymore.",
     "pts": "pts",
     "valueEUR": "Value: EUR",
     "errorLoadingRestaurants": "Error loading restaurants.",
@@ -2885,6 +2887,7 @@
     "itemNote": "Item Note",
     "addToCart": "addToCart",
     "failedLoadTables": "Failed to load tables. Check your connection.",
+    "failedLoadHistory": "Could not load previous orders. Check connection and refresh.",
     "failedOpenSession": "Failed to open session. Try again or use Force Open.",
     "failedForceOpen": "Failed to force open session. Check your connection.",
     "loadingRestaurant": "Loading restaurant...",

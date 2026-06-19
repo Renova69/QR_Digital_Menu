@@ -533,6 +533,7 @@
     "title": "Comanda dvs.",
     "back": "← Înapoi la meniu",
     "orderSummary": "Rezumat Comandă",
+    "payAtCounter": "Plata online nu este disponibilă — vă rugăm să plătiți ospătarului sau la casă.",
     "name": "Nume",
     "phone": "Număr Telefon",
     "phoneOptional": "Opțional",
@@ -2404,6 +2405,7 @@
   },
   "auto": {
     "qRMENU": "MENIU QR",
+    "deviceNotLinked": "Acest dispozitiv nu mai este asociat cu acest restaurant.",
     "pts": "pct",
     "valueEUR": "Valoare: EUR",
     "errorLoadingRestaurants": "Eroare la încărcarea restaurantelor.",
@@ -2885,6 +2887,7 @@
     "itemNote": "Item Note",
     "addToCart": "addToCart",
     "failedLoadTables": "Failed to load tables. Check your connection.",
+    "failedLoadHistory": "Comenzile anterioare nu au putut fi încărcate. Verificați conexiunea și reîmprospătați.",
     "failedOpenSession": "Failed to open session. Try again or use Force Open.",
     "failedForceOpen": "Failed to force open session. Check your connection.",
     "loadingRestaurant": "Loading restaurant...",

@@ -162,6 +162,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('cartItems');
     localStorage.removeItem('tableNumber');
     sessionStorage.removeItem('cartRestaurantId');
+    // Clear POS draft so a different staff member on a shared device cannot
+    // inherit the previous waiter's open-table session/items (H2).
+    sessionStorage.removeItem('posCartDraft');
     setUser(null);
     setPrefetchedRestaurants(null);
   };

@@ -2,14 +2,13 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { usePos } from "../../context/PosContext";
 
-function isDark() {
-  return document.documentElement.classList.contains("dark");
-}
-
 export default function PosTopBar() {
   const { t } = useTranslation();
   const { session, searchQuery, setSearchQuery } = usePos();
-  const [dark, setDark] = useState(isDark);
+  // POS is dark-first: PosLayout forces the `dark` class on mount. Default the
+  // toggle to true so the icon/state match without reading the DOM at child
+  // render time (which raced PosLayout's mount effect — M3).
+  const [dark, setDark] = useState(true);
 
   useEffect(() => {
     const root = document.documentElement;

@@ -99,7 +99,12 @@ export default function DeviceLoginPage() {
         status.restaurantId !== deviceConfig.restaurantId
       ) {
         clearDeviceConfig();
-        setError("This device is not linked to this restaurant anymore.");
+        setError(
+          t(
+            "auto.deviceNotLinked",
+            "This device is not linked to this restaurant anymore.",
+          ),
+        );
         return;
       }
 
@@ -121,7 +126,7 @@ export default function DeviceLoginPage() {
     } finally {
       setIsCheckingDeviceStatus(false);
     }
-  }, [clearDeviceConfig, deviceConfig]);
+  }, [clearDeviceConfig, deviceConfig, t]);
 
   useEffect(() => {
     if (clearedExistingSession.current) return;
@@ -143,10 +148,17 @@ export default function DeviceLoginPage() {
 
     void refreshDeviceStatus();
     const interval = setInterval(
-      () => void refreshDeviceStatus(),
+      // Skip the poll while the tab is backgrounded — saves battery/network on
+      // an always-on POS tablet (L3). refreshDeviceStatus runs again on resume.
+      () => { if (!document.hidden) void refreshDeviceStatus(); },
       sharedDeviceModeDisabled ? 5000 : 30000,
     );
-    return () => clearInterval(interval);
+    const onVisible = () => { if (!document.hidden) void refreshDeviceStatus(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [deviceConfig?.deviceToken, refreshDeviceStatus, sharedDeviceModeDisabled]);
 
   useEffect(() => {

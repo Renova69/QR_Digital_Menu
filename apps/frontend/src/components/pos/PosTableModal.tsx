@@ -75,17 +75,13 @@ export default function PosTableModal() {
     return () => window.removeEventListener("pos:open-table-modal", handler);
   }, []);
 
+  // Load zones on open. Tables are owned by the selectedZoneId effect below
+  // (which also fires on open) — avoids the double table fetch (M4).
   useEffect(() => {
     if (open && activeRestaurant) {
       setLoading(true);
-      Promise.all([
-        getTableStatuses(activeRestaurant.id),
-        getZones(activeRestaurant.id),
-      ])
-        .then(([tableData, zoneData]) => {
-          setTables(tableData);
-          setZones(zoneData);
-        })
+      getZones(activeRestaurant.id)
+        .then((zoneData) => setZones(zoneData))
         .catch(() =>
           setError(t("pos.failedLoadTables", "Failed to load tables. Check your connection.")),
         )
@@ -171,7 +167,12 @@ export default function PosTableModal() {
           setHistoryItems(historyItems);
         }
       } catch {
-        setHistoryError("Could not load previous orders. Check connection and refresh.");
+        setHistoryError(
+          t(
+            "pos.failedLoadHistory",
+            "Could not load previous orders. Check connection and refresh.",
+          ),
+        );
       } finally {
         setHistoryLoading(false);
       }

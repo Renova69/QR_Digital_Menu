@@ -387,9 +387,15 @@ api.interceptors.response.use(
       ) {
         return Promise.reject(error);
       }
-      const publicPaths = ['/login', '/register', '/auth/callback', '/menu/public', '/device-enroll', '/device-login', '/checkout'];
+      const publicPaths = ['/login', '/register', '/auth/callback', '/menu/public', '/device-enroll', '/device-login'];
       const currentPath = window.location.pathname;
-      if (!publicPaths.some(p => currentPath.startsWith(p))) {
+      // POS payment-QR bill is viewed unauthenticated at /checkout?session=...
+      // Only that variant bypasses the login redirect — authenticated customer
+      // checkout still redirects on 401 (M2).
+      const isPublicCheckout =
+        currentPath.startsWith('/checkout') &&
+        new URLSearchParams(window.location.search).has('session');
+      if (!isPublicCheckout && !publicPaths.some(p => currentPath.startsWith(p))) {
         window.location.href = '/login';
       }
     }

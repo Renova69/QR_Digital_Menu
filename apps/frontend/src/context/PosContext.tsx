@@ -9,6 +9,7 @@ import {
 } from "react";
 
 const STORAGE_KEY = "posCartDraft";
+const MAX_SPECIAL_REQUESTS_LEN = 2000;
 
 function generateId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -105,12 +106,13 @@ interface PosContextType {
 
 const PosContext = createContext<PosContextType | undefined>(undefined);
 
-const draft = loadDraft();
-
 export function PosProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<PosCartItem[]>(draft?.items ?? []);
-  const [session, setSessionState] = useState<PosSession | null>(draft?.session ?? null);
-  const [activeSeat, setActiveSeat] = useState(draft?.activeSeat ?? "Seat 1");
+  // Lazy init reads sessionStorage on every mount — NOT a module-level const.
+  // A frozen module snapshot meant SPA re-login never restored the draft and
+  // refresh-restore was inconsistent (H2).
+  const [items, setItems] = useState<PosCartItem[]>(() => loadDraft()?.items ?? []);
+  const [session, setSessionState] = useState<PosSession | null>(() => loadDraft()?.session ?? null);
+  const [activeSeat, setActiveSeat] = useState(() => loadDraft()?.activeSeat ?? "Seat 1");
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -216,9 +218,14 @@ export function PosProvider({ children }: { children: ReactNode }) {
       if (item.quantity > 1) entry += ` x${item.quantity}`;
       grouped.get(seat)!.push(entry);
     }
-    return Array.from(grouped.entries())
+    const out = Array.from(grouped.entries())
       .map(([seat, entries]) => `[${seat}] ${entries.join(", ")}`)
       .join(" | ");
+    // Backend enforces @MaxLength(2000) on specialRequests. A large table can
+    // overflow the auto-generated string — clamp so the order doesn't 400 (M1).
+    return out.length > MAX_SPECIAL_REQUESTS_LEN
+      ? out.slice(0, MAX_SPECIAL_REQUESTS_LEN)
+      : out;
   }, [items]);
 
   // Memoized so POS consumers don't re-render on unrelated parent renders (#F4).

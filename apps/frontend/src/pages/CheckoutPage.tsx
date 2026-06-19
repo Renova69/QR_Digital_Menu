@@ -308,14 +308,14 @@ const CheckoutPage = () => {
                       {order.customerName ? ` · ${order.customerName}` : ""}
                     </span>
                   </div>
-                  {(order.items ?? []).map((oi: any, ii: number) => (
+                  {(order.items ?? []).map((it: any, ii: number) => (
                     <div key={ii} className="flex justify-between text-sm py-1.5 border-b border-border/20 last:border-b-0">
                       <span className="text-foreground">
-                        {oi.name}
-                        {oi.quantity > 1 && <span className="text-muted-foreground"> ×{oi.quantity}</span>}
+                        {it.name}
+                        {it.quantity > 1 && <span className="text-muted-foreground"> ×{it.quantity}</span>}
                       </span>
                       <span className="font-semibold text-foreground tabular-nums">
-                        {formatEuro((oi.unitPrice ?? 0) * (oi.quantity ?? 1))}
+                        {formatEuro((it.unitPrice ?? 0) * (it.quantity ?? 1))}
                       </span>
                     </div>
                   ))}
@@ -324,19 +324,23 @@ const CheckoutPage = () => {
               <div className="flex justify-between items-center mt-4 pt-3 border-t border-border">
                 <span className="text-lg font-bold text-foreground">{t("checkout.total", "Total")}</span>
                 <span className="text-2xl font-display font-bold text-foreground tabular-nums">
-                  {formatEuro(sessionBill.subtotal)}
+                  {formatEuro(sessionBill.subtotal ?? 0)}
                 </span>
               </div>
             </div>
 
-            {sessionBill.paymentProviders && sessionBill.paymentProviders.length > 0 && (
+            {sessionBill.paymentProviders && sessionBill.paymentProviders.length > 0 ? (
               <button
                 type="button"
                 onClick={openPayment}
-                className="w-full py-4 rounded-xl bg-brand-cta text-white font-bold text-lg min-h-[52px]"
+                className="w-full py-4 rounded-xl brand-cta text-white font-bold text-lg min-h-[52px]"
               >
-                {t("checkout.payNow", "Pay Now")} · {formatEuro(sessionBill.subtotal)}
+                {t("checkout.payNow", "Pay Now")} · {formatEuro(sessionBill.subtotal ?? 0)}
               </button>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center">
+                {t("checkout.payAtCounter", "Online payment isn't available — please pay your server or at the counter.")}
+              </p>
             )}
           </>
         )}
