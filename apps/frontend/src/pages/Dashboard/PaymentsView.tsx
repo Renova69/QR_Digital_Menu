@@ -1,4 +1,4 @@
-import { useContext, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,7 @@ import {
 } from '../../lib/api';
 import { downloadPaymentsExport } from '../../lib/paymentsExport';
 import RestaurantContext from '../../context/RestaurantContext';
+import { useSocket } from '../../context/SocketContext';
 import { cn } from '../../lib/utils';
 import {
   type PaymentDetail,
@@ -39,7 +40,8 @@ function openStripeAccount(accountId?: string | null) {
 function getMethodLabel(method: string, t: (key: string, options?: any) => string) {
   if (method === 'STRIPE') return t('payments.stripeMethod');
   if (method === 'EPAY') return 'ePay.bg';
-  if (method === 'MYPOS') return t('payments.cardMethod');
+  if (method === 'BORICA') return 'BORICA';
+  if (method === 'MYPOS') return 'myPOS';
   if (method === 'CASH') return t('payments.cashMethod');
   return method;
 }
@@ -49,6 +51,7 @@ const PaymentsView = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const { socket } = useSocket();
   const [activeTab, setActiveTab] = useState<PaymentTab>('transactions');
   const [statusFilter, setStatusFilter] = useState<'' | PaymentStatus>('');
   const [methodFilter, setMethodFilter] = useState<'' | PaymentMethod>('');
@@ -57,6 +60,18 @@ const PaymentsView = () => {
   const [selectedPayment, setSelectedPayment] = useState<PaymentRecord | null>(null);
   const [isExportingXlsx, setIsExportingXlsx] = useState(false);
   const limit = 20;
+
+  // Invalidate payment queries when a refund is processed so the dashboard
+  // reflects the change without a manual refresh (#socket-C2).
+  useEffect(() => {
+    if (!socket || !activeRestaurant?.id) return;
+    const onRefund = () => {
+      queryClient.invalidateQueries({ queryKey: ['paymentHistory', activeRestaurant.id] });
+      queryClient.invalidateQueries({ queryKey: ['paymentOverview', activeRestaurant.id] });
+    };
+    socket.on('payment:refunded', onRefund);
+    return () => { socket.off('payment:refunded', onRefund); };
+  }, [socket, activeRestaurant?.id, queryClient]);
 
   const effectiveStatus = activeTab === 'refunds' ? 'REFUNDED' : statusFilter || undefined;
 
@@ -195,7 +210,21 @@ const PaymentsView = () => {
        account?.boricaMerchantId &&
        account?.boricaPrivateKeyConfigured))
   );
-  const hostedProviderMissing = account?.paymentsEnabled && !account?.stripeOnboarded && !epayReady;
+  const myposReady = !!(
+    account?.myposEnabled &&
+    (account?.myposMode === 'DEMO' ||
+      (account?.myposClientNumber &&
+       account?.myposStoreId &&
+       account?.myposKeyIndex &&
+       account?.myposPrivateKeyConfigured &&
+       account?.myposPublicCert))
+  );
+  const hostedProviderMissing =
+    account?.paymentsEnabled &&
+    !account?.stripeOnboarded &&
+    !epayReady &&
+    !boricaReady &&
+    !myposReady;
   const feePercent = Number(account?.platformFeePercent ?? 0);
 
   const statusOptions: Array<{ value: '' | PaymentStatus; label: string }> = [
@@ -210,7 +239,8 @@ const PaymentsView = () => {
     { value: '', label: t('payments.allMethods') },
     { value: 'STRIPE', label: t('payments.stripeMethod') },
     { value: 'EPAY', label: 'ePay.bg' },
-    { value: 'MYPOS', label: t('payments.cardMethod') },
+    { value: 'BORICA', label: 'BORICA' },
+    { value: 'MYPOS', label: 'myPOS' },
     { value: 'CASH', label: t('payments.cashMethod') },
   ];
 
@@ -232,7 +262,7 @@ const PaymentsView = () => {
         </div>
       </div>
 
-      <div className="mb-5 grid gap-3 md:grid-cols-3">
+      <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {/* Stripe */}
         <div className="flex flex-col gap-3 rounded-lg border border-border bg-primary/5 p-4 shadow-sm">
           <div className="flex min-w-0 items-center gap-3">
@@ -321,6 +351,36 @@ const PaymentsView = () => {
                 <>
                   {account?.boricaMerchantId && <p className="mt-0.5 truncate text-xs text-muted-foreground">{t('payments.merchantId', 'Merchant')}: {account.boricaMerchantId}</p>}
                   <p className="text-xs text-muted-foreground">{t('payments.mode', 'Mode')}: <span className="font-bold text-foreground">{account?.boricaMode ?? 'DEMO'}</span></p>
+                </>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('?tab=settings&settingsTab=payments')}
+            className="mt-auto flex h-8 items-center rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground shadow-sm transition hover:bg-muted"
+          >
+            {t('payments.configure', 'Configure')}
+          </button>
+        </div>
+
+        {/* myPOS */}
+        <div className={cn('flex flex-col gap-3 rounded-lg border p-4 shadow-sm', myposReady ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-400/20 dark:bg-emerald-400/10' : account?.myposEnabled ? 'border-amber-200 bg-amber-50 dark:border-amber-400/20 dark:bg-amber-400/10' : 'border-border bg-card')}>
+          <div className="flex min-w-0 items-center gap-3">
+            <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', myposReady ? 'bg-emerald-600' : account?.myposEnabled ? 'bg-amber-500' : 'bg-muted')}>
+              <CreditCard className="h-4 w-4 text-white" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className={cn('text-sm font-black', myposReady ? 'text-emerald-700 dark:text-emerald-300' : account?.myposEnabled ? 'text-amber-700 dark:text-amber-300' : 'text-foreground')}>myPOS</p>
+                <span className={cn('rounded-full px-2 py-0.5 text-xs font-black', myposReady ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200' : account?.myposEnabled ? 'bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200' : 'bg-muted text-muted-foreground')}>
+                  {myposReady ? t('payments.connected') : account?.myposEnabled ? t('payments.needsSetup') : t('payments.disabled', 'Disabled')}
+                </span>
+              </div>
+              {account?.myposEnabled && (
+                <>
+                  {account?.myposStoreId && <p className="mt-0.5 truncate text-xs text-muted-foreground">{t('payments.storeId', 'Store')}: {account.myposStoreId}</p>}
+                  <p className="text-xs text-muted-foreground">{t('payments.mode', 'Mode')}: <span className="font-bold text-foreground">{account?.myposMode ?? 'DEMO'}</span></p>
                 </>
               )}
             </div>
@@ -676,12 +736,22 @@ function SettingsPanel({ restaurant, feePercent }: { restaurant: any; feePercent
        restaurant?.boricaMerchantId &&
        restaurant?.boricaPrivateKeyConfigured))
   );
+  const myposReady = !!(
+    restaurant?.myposEnabled &&
+    (restaurant?.myposMode === 'DEMO' ||
+      (restaurant?.myposClientNumber &&
+       restaurant?.myposStoreId &&
+       restaurant?.myposKeyIndex &&
+       restaurant?.myposPrivateKeyConfigured &&
+       restaurant?.myposPublicCert))
+  );
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
       <SettingCard label={t('payments.paymentCollection')} value={restaurant?.paymentsEnabled ? t('payments.enabled') : t('payments.disabled')} detail={t('payments.paymentCollectionDetail')} active={restaurant?.paymentsEnabled} />
       <SettingCard label={t('payments.stripeConnect')} value={restaurant?.stripeOnboarded ? t('payments.connected') : t('payments.incomplete')} detail={restaurant?.stripeAccountId ?? t('payments.noStripeAccount')} active={restaurant?.stripeOnboarded} />
       <SettingCard label={t('auto.ePayBg', 'ePay.bg')} value={epayReady ? t('payments.configured', 'Configured') : t('payments.incomplete')} detail={restaurant?.epayClientId ?? t('payments.notConfigured', 'Not configured')} active={epayReady} />
       <SettingCard label="BORICA" value={boricaReady ? t('payments.configured', 'Configured') : restaurant?.boricaEnabled ? t('payments.incomplete') : t('payments.disabled', 'Disabled')} detail={restaurant?.boricaEnabled ? `${restaurant?.boricaMode ?? 'DEMO'}${restaurant?.boricaMerchantId ? ` · ${restaurant.boricaMerchantId}` : ''}` : t('payments.notConfigured', 'Not configured')} active={boricaReady} />
+      <SettingCard label="myPOS" value={myposReady ? t('payments.configured', 'Configured') : restaurant?.myposEnabled ? t('payments.incomplete') : t('payments.disabled', 'Disabled')} detail={restaurant?.myposEnabled ? `${restaurant?.myposMode ?? 'DEMO'}${restaurant?.myposStoreId ? ` - ${restaurant.myposStoreId}` : ''}` : t('payments.notConfigured', 'Not configured')} active={myposReady} />
       <SettingCard label={t('payments.platformFee')} value={feePercent ? `${feePercent}%` : t('payments.notSet')} detail={t('payments.platformFeeDetail')} active={feePercent > 0} />
     </div>
   );

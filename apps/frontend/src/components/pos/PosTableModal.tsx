@@ -117,6 +117,7 @@ export default function PosTableModal() {
     socket.on("table:status-changed", refresh);
     socket.on("table:created", refresh);
     socket.on("table:deleted", refresh);
+    socket.on("table:updated", refresh);
     const onZoneChanged = () => {
       refreshZones();
       refresh();
@@ -126,6 +127,7 @@ export default function PosTableModal() {
       socket.off("table:status-changed", refresh);
       socket.off("table:created", refresh);
       socket.off("table:deleted", refresh);
+      socket.off("table:updated", refresh);
       socket.off("zone:changed", onZoneChanged);
     };
   }, [socket, open, fetchTables, fetchZones, selectedZoneId]);

@@ -77,5 +77,9 @@ export class CreateRestaurantDto {
 
   @IsString()
   @IsOptional()
+  country?: string;
+
+  @IsString()
+  @IsOptional()
   dashboardLanguage?: string;
 }

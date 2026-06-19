@@ -81,7 +81,34 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     };
 
     socket.on('payment:confirmed', handlePaymentConfirmed);
-    return () => { socket.off('payment:confirmed', handlePaymentConfirmed); };
+
+    const handlePaymentRefunded = (data: {
+      paymentId: string;
+      tableSessionId: string;
+      amount: number;
+      tableNumber: string | null;
+      refundId: string;
+    }) => {
+      const notification: PaymentNotification = {
+        id: `rf_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        paymentId: data.refundId,
+        tableSessionId: data.tableSessionId,
+        amount: data.amount,
+        tipAmount: 0,
+        tableNumber: data.tableNumber,
+        customerName: null,
+        timestamp: Date.now(),
+        read: false,
+      };
+      setNotifications((prev) => [notification, ...prev].slice(0, 20));
+      setShowToast(notification);
+    };
+
+    socket.on('payment:refunded', handlePaymentRefunded);
+    return () => {
+      socket.off('payment:confirmed', handlePaymentConfirmed);
+      socket.off('payment:refunded', handlePaymentRefunded);
+    };
   }, [socket, isConnected, activeRestaurant]);
 
   const dismissToast = useCallback(() => setShowToast(null), []);

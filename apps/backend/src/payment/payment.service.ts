@@ -15,6 +15,14 @@ import {
   EpayProvider,
 } from './epay.provider';
 import { BoricaCardholderInfo, BoricaProvider } from './borica.provider';
+import {
+  MYPOS_TEST_CLIENT_NUMBER,
+  MYPOS_TEST_KEY_INDEX,
+  MYPOS_TEST_PRIVATE_KEY,
+  MYPOS_TEST_PUBLIC_CERT,
+  MYPOS_TEST_STORE_ID,
+  MyposProvider,
+} from './mypos.provider';
 import { decryptSecret, encryptSecret } from './secret-crypto';
 import { EventsGateway } from '../events/events.gateway';
 import { FeatureService } from '../subscription/feature.service';
@@ -22,13 +30,23 @@ import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { PaymentStatus, PaymentProvider } from '@prisma/client';
 import { SettlePartialDto, SplitMode } from './dto/settle-partial.dto';
 
-type CheckoutProvider = 'STRIPE' | 'EPAY' | 'BORICA';
+type CheckoutProvider = 'STRIPE' | 'EPAY' | 'BORICA' | 'MYPOS';
 
 type BoricaCardholderInput = {
   cardholderName?: string | null;
   email?: string | null;
   phone?: string | null;
   billingAddress?: string | null;
+};
+
+type MyposConfig = {
+  mode: 'DEMO' | 'LIVE';
+  clientNumber: string;
+  storeId: string;
+  keyIndex: string;
+  privateKeyPem: string;
+  publicCertPem: string;
+  currency: string;
 };
 
 @Injectable()
@@ -40,6 +58,7 @@ export class PaymentService {
     private readonly stripe: StripeProvider,
     private readonly epay: EpayProvider,
     private readonly borica: BoricaProvider,
+    private readonly mypos: MyposProvider,
     private readonly events: EventsGateway,
     private readonly featureService: FeatureService,
   ) {}
@@ -71,6 +90,14 @@ export class PaymentService {
         boricaPrivateKeyEncrypted: true,
         boricaPublicCert: true,
         boricaCurrency: true,
+        myposEnabled: true,
+        myposMode: true,
+        myposClientNumber: true,
+        myposStoreId: true,
+        myposKeyIndex: true,
+        myposPrivateKeyEncrypted: true,
+        myposPublicCert: true,
+        myposCurrency: true,
         platformFeePercent: true,
         tipsEnabled: true,
         tipOptions: true,
@@ -510,6 +537,31 @@ export class PaymentService {
     );
   }
 
+  private isMyposConfigured(restaurant: any): boolean {
+    if (
+      !this.featureService.restaurantHasFeature(
+        restaurant,
+        FeatureFlag.PAYMENTS_MYPOS,
+      ) ||
+      !restaurant.paymentsEnabled ||
+      !restaurant.myposEnabled
+    ) {
+      return false;
+    }
+
+    if (restaurant.myposMode === 'LIVE') {
+      return !!(
+        restaurant.myposClientNumber &&
+        restaurant.myposStoreId &&
+        restaurant.myposKeyIndex &&
+        restaurant.myposPrivateKeyEncrypted &&
+        restaurant.myposPublicCert
+      );
+    }
+
+    return true;
+  }
+
   private resolveBoricaKeypair(restaurant: any): {
     terminal: string;
     merchant: string;
@@ -533,6 +585,46 @@ export class PaymentService {
       merchantName: restaurant.boricaMerchantName ?? restaurant.name ?? 'Test',
       privateKeyPem: process.env.BORICA_TEST_PRIVATE_KEY!,
       certPem: process.env.BORICA_TEST_CERT!,
+    };
+  }
+
+  private resolveMyposConfig(restaurant: any): MyposConfig {
+    const mode = restaurant.myposMode === 'LIVE' ? 'LIVE' : 'DEMO';
+
+    if (mode === 'LIVE') {
+      return {
+        mode,
+        clientNumber: restaurant.myposClientNumber!,
+        storeId: restaurant.myposStoreId!,
+        keyIndex: restaurant.myposKeyIndex!,
+        privateKeyPem: decryptSecret(restaurant.myposPrivateKeyEncrypted),
+        publicCertPem: restaurant.myposPublicCert!,
+        currency: (restaurant.myposCurrency || 'EUR').toUpperCase(),
+      };
+    }
+
+    return {
+      mode,
+      clientNumber:
+        restaurant.myposClientNumber ||
+        process.env.MYPOS_TEST_CLIENT_NUMBER ||
+        MYPOS_TEST_CLIENT_NUMBER,
+      storeId:
+        restaurant.myposStoreId ||
+        process.env.MYPOS_TEST_STORE_ID ||
+        MYPOS_TEST_STORE_ID,
+      keyIndex:
+        restaurant.myposKeyIndex ||
+        process.env.MYPOS_TEST_KEY_INDEX ||
+        MYPOS_TEST_KEY_INDEX,
+      privateKeyPem: restaurant.myposPrivateKeyEncrypted
+        ? decryptSecret(restaurant.myposPrivateKeyEncrypted)
+        : process.env.MYPOS_TEST_PRIVATE_KEY || MYPOS_TEST_PRIVATE_KEY,
+      publicCertPem:
+        restaurant.myposPublicCert ||
+        process.env.MYPOS_TEST_PUBLIC_CERT ||
+        MYPOS_TEST_PUBLIC_CERT,
+      currency: (restaurant.myposCurrency || 'EUR').toUpperCase(),
     };
   }
 
@@ -710,6 +802,7 @@ export class PaymentService {
         ...(this.isStripeConfigured(session.restaurant) ? ['STRIPE' as const] : []),
         ...(this.isEpayConfigured(session.restaurant) ? ['EPAY' as const] : []),
         ...(this.isBoricaConfigured(session.restaurant) ? ['BORICA' as const] : []),
+        ...(this.isMyposConfigured(session.restaurant) ? ['MYPOS' as const] : []),
       ],
     };
   }
@@ -722,21 +815,43 @@ export class PaymentService {
     const pendingPayments = await this.prisma.payment.findMany({
       where: { tableSessionId: session.id, status: 'PENDING' },
     });
+    if (pendingPayments.length === 0) return;
 
-    for (const payment of pendingPayments) {
-      if (payment.provider === 'STRIPE' && payment.stripePaymentIntentId) {
-        try {
-          await this.stripe.cancelPaymentIntent(payment.stripePaymentIntentId);
-        } catch {
+    // Separate Stripe payments (need external API cancellation) from others.
+    const stripePayments = pendingPayments.filter(
+      (p) => p.provider === 'STRIPE' && p.stripePaymentIntentId,
+    );
+    const nonStripePayments = pendingPayments.filter(
+      (p) => p.provider !== 'STRIPE' || !p.stripePaymentIntentId,
+    );
+
+    // Cancel Stripe PaymentIntents in parallel — each call is an independent
+    // HTTP request, no point waiting sequentially (#N+1-C2).
+    const abandonedIds: string[] = [...nonStripePayments.map((p) => p.id)];
+    if (stripePayments.length > 0) {
+      const cancelResults = await Promise.allSettled(
+        stripePayments.map((p) =>
+          this.stripe.cancelPaymentIntent(p.stripePaymentIntentId!),
+        ),
+      );
+      cancelResults.forEach((result, i) => {
+        if (result.status === 'fulfilled') {
+          abandonedIds.push(stripePayments[i].id);
+        } else {
           this.logger.warn(
-            `Could not cancel abandoned PaymentIntent ${payment.stripePaymentIntentId} for session ${session.id}`,
+            `Could not cancel abandoned PaymentIntent ${stripePayments[i].stripePaymentIntentId} for session ${session.id}`,
           );
-          continue;
+          // Payment stays PENDING — safe default; if Stripe can't cancel it,
+          // the intent may still succeed and the system should acknowledge it.
         }
-      }
+      });
+    }
 
+    // Batch update all payments whose cancellation succeeded (or didn't need
+    // an external API call) in a single query.
+    if (abandonedIds.length > 0) {
       await this.prisma.payment.updateMany({
-        where: { id: payment.id, status: 'PENDING' },
+        where: { id: { in: abandonedIds }, status: 'PENDING' },
         data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
       });
     }
@@ -759,6 +874,10 @@ export class PaymentService {
 
     if (provider === 'BORICA') {
       return this.createBoricaCheckout(token, tipPercent, boricaCardholder);
+    }
+
+    if (provider === 'MYPOS') {
+      return this.createMyposCheckout(token, tipPercent);
     }
 
     throw new BadRequestException('Unsupported payment provider');
@@ -872,7 +991,11 @@ export class PaymentService {
     }
 
     for (const stale of existingPayments) {
-      if (stale.provider === 'EPAY' || stale.provider === 'BORICA') {
+      if (
+        stale.provider === 'EPAY' ||
+        stale.provider === 'BORICA' ||
+        stale.provider === 'MYPOS'
+      ) {
         // Hosted-redirect providers have no server-side cancel API. A processed
         // payment would have triggered a callback and moved out of PENDING before
         // the customer returned to the menu — still PENDING means abandoned.
@@ -1126,6 +1249,202 @@ export class PaymentService {
       action: checkoutForm.action,
       method: checkoutForm.method,
       fields: checkoutForm.fields,
+    };
+  }
+
+  private async createMyposCheckout(token: string, tipPercent: number) {
+    const normalizedTipPercent = this.normalizeTipPercent(tipPercent);
+    const session = await this.prisma.tableSession.findFirst({
+      where: { token, status: 'OPEN' },
+      include: {
+        restaurant: true,
+        table: { select: { name: true } },
+      },
+    });
+
+    if (!session) throw new NotFoundException('Session not found');
+
+    const { restaurant } = session;
+    if (!restaurant.paymentsEnabled) {
+      throw new ForbiddenException(
+        'Payments are not enabled for this restaurant',
+      );
+    }
+
+    if (!this.isMyposConfigured(restaurant)) {
+      throw new BadRequestException('myPOS is not configured');
+    }
+
+    const balance = await this.computeSessionBalance(this.prisma, session.id);
+    if (balance.remaining <= 0) {
+      throw new ConflictException('This session has already been paid');
+    }
+
+    const { tipAmount, total, platformFeeAmount } = this.calculatePartialTotals(
+      balance.remaining,
+      normalizedTipPercent,
+      restaurant.platformFeePercent ?? 0,
+    );
+
+    const existingPayments = await this.prisma.payment.findMany({
+      where: {
+        tableSessionId: session.id,
+        status: { in: ['PENDING'] },
+      },
+    });
+
+    for (const stale of existingPayments.filter(
+      (p) => p.status === 'PENDING' && p.provider !== 'MYPOS',
+    )) {
+      if (stale.stripePaymentIntentId) {
+        await this.stripe
+          .cancelPaymentIntent(stale.stripePaymentIntentId)
+          .catch(() => {});
+      }
+      await this.prisma.payment.updateMany({
+        where: { id: stale.id, status: 'PENDING' },
+        data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
+      });
+    }
+
+    const MYPOS_PENDING_TTL_MS = 15 * 60 * 1000;
+    const pendingMypos = existingPayments.find(
+      (p) => p.provider === 'MYPOS' && p.status === 'PENDING',
+    );
+    if (pendingMypos) {
+      const age =
+        Date.now() - new Date((pendingMypos as any).createdAt ?? 0).getTime();
+      const checkoutForm = (pendingMypos.providerPayload as any)?.checkoutForm;
+      const sameAmount =
+        Math.abs((pendingMypos.amount ?? 0) - total) < 0.001 &&
+        Math.abs((pendingMypos.tipAmount ?? 0) - tipAmount) < 0.001;
+      if (checkoutForm && sameAmount && age < MYPOS_PENDING_TTL_MS) {
+        return {
+          provider: 'MYPOS' as const,
+          paymentId: pendingMypos.id,
+          total: pendingMypos.amount,
+          tipAmount: pendingMypos.tipAmount,
+          action: checkoutForm.action,
+          method: checkoutForm.method,
+          fields: checkoutForm.fields,
+        };
+      }
+
+      await this.prisma.payment.updateMany({
+        where: { id: pendingMypos.id, status: 'PENDING' },
+        data: {
+          status: sameAmount ? 'FAILED' : 'ABANDONED',
+          providerStatus: sameAmount ? 'EXPIRED' : 'ABANDONED',
+        },
+      });
+    }
+
+    const backendBase = (process.env.BACKEND_URL || '').replace(/\/+$/, '');
+    const isLiveMypos = restaurant.myposMode === 'LIVE';
+    const backendIsHttps = /^https:\/\//i.test(backendBase);
+    const backendIsLocalHttp =
+      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(backendBase);
+    if (
+      !backendBase ||
+      (!backendIsHttps && !(backendIsLocalHttp && !isLiveMypos))
+    ) {
+      throw new BadRequestException(
+        'myPOS is not configured correctly: BACKEND_URL must be an absolute HTTPS URL',
+      );
+    }
+    if (isLiveMypos) {
+      try {
+        const parsed = new URL(backendBase);
+        if (parsed.port) {
+          throw new Error('port not allowed');
+        }
+      } catch {
+        throw new BadRequestException(
+          'myPOS is not configured correctly: URL_Notify must be HTTPS and must not include a port',
+        );
+      }
+    }
+
+    const config = this.resolveMyposConfig(restaurant);
+    const currency = 'EUR';
+    const tableName = session.table?.name ?? '';
+    const description = `QR Menu bill ${tableName}`.trim() || 'QR Menu bill';
+    const notifyUrl = `${backendBase}/api/v1/payments/mypos/notify`;
+    const orderPrefix = 'MP';
+    let checkoutForm: ReturnType<MyposProvider['createCheckoutForm']> | null =
+      null;
+    let payment: Awaited<ReturnType<typeof this.prisma.payment.create>> | null =
+      null;
+    const MAX_ORDER_RETRIES = 5;
+
+    for (let attempt = 0; attempt <= MAX_ORDER_RETRIES; attempt++) {
+      const orderId = `${orderPrefix}${this.createEpayInvoice()}`;
+      try {
+        checkoutForm = this.mypos.createCheckoutForm({
+          mode: config.mode,
+          clientNumber: config.clientNumber,
+          storeId: config.storeId,
+          keyIndex: config.keyIndex,
+          privateKeyPem: config.privateKeyPem,
+          orderId,
+          amount: total,
+          currency,
+          description,
+          urlOk: this.buildPublicMenuReturnUrl(session, 'mypos-ok'),
+          urlCancel: this.buildPublicMenuReturnUrl(session, 'mypos-cancel'),
+          urlNotify: notifyUrl,
+          language: 'BG',
+        });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        throw new BadRequestException(
+          `myPOS is not configured correctly: ${message}`,
+        );
+      }
+
+      try {
+        payment = await this.prisma.payment.create({
+          data: {
+            tableSessionId: session.id,
+            restaurantId: session.restaurantId,
+            amount: total,
+            tipAmount,
+            platformFeeAmount,
+            currency: currency.toLowerCase(),
+            status: 'PENDING',
+            provider: 'MYPOS',
+            providerReference: orderId,
+            providerStatus: 'PENDING',
+            providerPayload: {
+              checkoutForm,
+              sessionToken: token,
+              restaurantId: session.restaurantId,
+              tableName: session.table?.name ?? null,
+              notifyUrl,
+              mode: config.mode,
+            } as any,
+          },
+        });
+        break;
+      } catch (err: unknown) {
+        if (attempt < MAX_ORDER_RETRIES && (err as any)?.code === 'P2002') {
+          this.logger.warn(
+            `myPOS OrderID collision on attempt ${attempt + 1}, retrying`,
+          );
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    return {
+      provider: 'MYPOS' as const,
+      paymentId: payment!.id,
+      total,
+      tipAmount,
+      action: checkoutForm!.action,
+      method: checkoutForm!.method,
+      fields: checkoutForm!.fields,
     };
   }
 
@@ -1619,6 +1938,99 @@ export class PaymentService {
     return this.epay.formatNotificationResponses(responses);
   }
 
+  async handleMyposNotification(body: Record<string, unknown>): Promise<string> {
+    const payload: Record<string, string> = {};
+    for (const [key, value] of Object.entries(body ?? {})) {
+      payload[key] = Array.isArray(value)
+        ? String(value[0] ?? '')
+        : String(value ?? '');
+    }
+
+    const orderId = payload.OrderID ?? payload.orderid ?? payload.orderId ?? '';
+    if (!orderId) return 'ERR=missing OrderID';
+
+    const payment = await this.prisma.payment.findFirst({
+      where: { providerReference: orderId, provider: 'MYPOS' },
+      include: {
+        restaurant: {
+          select: {
+            myposMode: true,
+            myposClientNumber: true,
+            myposStoreId: true,
+            myposKeyIndex: true,
+            myposPrivateKeyEncrypted: true,
+            myposPublicCert: true,
+            myposCurrency: true,
+          },
+        },
+        tableSession: { include: { table: { select: { name: true } } } },
+      },
+    });
+
+    if (!payment) return 'ERR=unknown OrderID';
+
+    const config = this.resolveMyposConfig(payment.restaurant);
+    const result = this.mypos.verifyNotification(payload, config.publicCertPem);
+
+    if (!result.verified) {
+      this.logger.warn('myPOS notify: signature verification failed', {
+        orderId,
+        paymentId: payment.id,
+      });
+      return 'ERR=invalid Signature';
+    }
+
+    if (result.method && result.method !== 'IPCPurchaseNotify') {
+      return 'ERR=invalid IPCmethod';
+    }
+
+    const notificationAmount = parseFloat(result.amount || '0');
+    const amountOk = Math.abs(notificationAmount - (payment.amount ?? 0)) < 0.01;
+    const currencyOk =
+      (result.currency || '').toUpperCase() ===
+      (payment.currency ?? 'eur').toUpperCase();
+    const storeOk = result.storeId === config.storeId;
+    const orderOk = result.orderId === payment.providerReference;
+    if (!amountOk || !currencyOk || !storeOk || !orderOk) {
+      this.logger.warn('myPOS notify: reconciliation mismatch', {
+        paymentId: payment.id,
+        amountOk,
+        currencyOk,
+        storeOk,
+        orderOk,
+        notificationAmount,
+        storedAmount: payment.amount,
+        notificationCurrency: result.currency,
+        storedCurrency: payment.currency,
+        notificationStoreId: result.storeId,
+        expectedStoreId: config.storeId,
+        notificationOrderId: result.orderId,
+        storedOrderId: payment.providerReference,
+      });
+      return 'ERR=reconciliation';
+    }
+
+    const providerPayload = this.mergeProviderPayload(payment.providerPayload, {
+      notification: payload,
+      notifiedAt: new Date().toISOString(),
+      transactionRef: result.transactionRef || null,
+      requestStan: result.requestStan || null,
+      requestDateTime: result.requestDateTime || null,
+    });
+
+    const claimed = await this.prisma.$transaction((tx) =>
+      this.claimSuccessfulPaymentForOpenSession(tx, payment, {
+        status: 'SUCCEEDED',
+        providerStatus: 'PAID',
+        providerPayload: providerPayload as any,
+      }),
+    );
+
+    if (claimed) await this.emitPaymentConfirmed(payment);
+
+    return 'OK';
+  }
+
   private async applyEpayNotification(payment: any, notification: EpayNotification) {
     const providerPayload = this.mergeProviderPayload(payment.providerPayload, {
       notification,
@@ -1799,6 +2211,12 @@ export class PaymentService {
       where: { token, restaurantId, status: 'OPEN' },
     });
     if (!session) throw new NotFoundException('Session not found');
+
+    // Cancel any pending online payments before closing the session.
+    // Without this, a customer who started a Stripe checkout while the waiter
+    // force-closes would still be charged, but the system would never
+    // acknowledge the payment — money stuck in limbo (#C1).
+    await this.abandonCheckout(token);
 
     await this.prisma.tableSession.update({
       where: { id: session.id },
@@ -2102,21 +2520,32 @@ export class PaymentService {
     if (!table)
       throw new NotFoundException('Table not found for this restaurant');
 
+    // Cancel any pending online payments on the existing session before
+    // force-opening a new one. Without this, a customer who started a Stripe
+    // checkout on the old session would still be charged after the session is
+    // closed, but the system would never acknowledge the payment (#C3).
+    const existing = await this.prisma.tableSession.findFirst({
+      where: { tableId, restaurantId, status: 'OPEN' },
+    });
+    if (existing) {
+      await this.abandonCheckout(existing.token);
+    }
+
     const { session, closedSession } = await this.prisma.$transaction(
       async (tx) => {
-        const existing = await tx.tableSession.findFirst({
+        const existingInTx = await tx.tableSession.findFirst({
           where: { tableId, restaurantId, status: 'OPEN' },
         });
-        if (existing) {
+        if (existingInTx) {
           await tx.tableSession.update({
-            where: { id: existing.id },
+            where: { id: existingInTx.id },
             data: { status: 'CLOSED_NO_PAYMENT' },
           });
         }
         const created = await tx.tableSession.create({
           data: { tableId, restaurantId },
         });
-        return { session: created, closedSession: existing };
+        return { session: created, closedSession: existingInTx };
       },
     );
 
@@ -2350,6 +2779,14 @@ export class PaymentService {
         boricaPublicCert: restaurant.boricaPublicCert,
         boricaCurrency: restaurant.boricaCurrency,
         boricaPrivateKeyConfigured: !!restaurant.boricaPrivateKeyEncrypted,
+        myposEnabled: restaurant.myposEnabled,
+        myposMode: restaurant.myposMode,
+        myposClientNumber: restaurant.myposClientNumber,
+        myposStoreId: restaurant.myposStoreId,
+        myposKeyIndex: restaurant.myposKeyIndex,
+        myposPublicCert: restaurant.myposPublicCert,
+        myposCurrency: restaurant.myposCurrency,
+        myposPrivateKeyConfigured: !!restaurant.myposPrivateKeyEncrypted,
         platformFeePercent: restaurant.platformFeePercent,
         tipsEnabled: restaurant.tipsEnabled,
         tipOptions: restaurant.tipOptions,
@@ -2502,6 +2939,14 @@ export class PaymentService {
       boricaPublicCert: restaurant.boricaPublicCert,
       boricaCurrency: restaurant.boricaCurrency,
       boricaPrivateKeyConfigured: !!restaurant.boricaPrivateKeyEncrypted,
+      myposEnabled: restaurant.myposEnabled,
+      myposMode: restaurant.myposMode,
+      myposClientNumber: restaurant.myposClientNumber,
+      myposStoreId: restaurant.myposStoreId,
+      myposKeyIndex: restaurant.myposKeyIndex,
+      myposPublicCert: restaurant.myposPublicCert,
+      myposCurrency: restaurant.myposCurrency,
+      myposPrivateKeyConfigured: !!restaurant.myposPrivateKeyEncrypted,
       platformFeePercent: restaurant.platformFeePercent,
       tipsEnabled: restaurant.tipsEnabled,
       tipOptions: restaurant.tipOptions,

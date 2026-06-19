@@ -45,13 +45,15 @@ const LiveTablesView: React.FC = () => {
   React.useEffect(() => {
     if (!socket || !restaurantId) return;
 
-    const handleTableStatusChanged = () => {
+    const handleTableInvalidation = () => {
       queryClient.invalidateQueries({ queryKey: ['tableStatuses', restaurantId] });
     };
 
-    socket.on('table:status-changed', handleTableStatusChanged);
+    socket.on('table:status-changed', handleTableInvalidation);
+    socket.on('table:updated', handleTableInvalidation);
     return () => {
-      socket.off('table:status-changed', handleTableStatusChanged);
+      socket.off('table:status-changed', handleTableInvalidation);
+      socket.off('table:updated', handleTableInvalidation);
     };
   }, [socket, restaurantId, queryClient]);
 

@@ -84,6 +84,14 @@ const RESTAURANT_READ_SELECT = {
   boricaPrivateKeyEncrypted: true,
   boricaPublicCert: true,
   boricaCurrency: true,
+  myposEnabled: true,
+  myposMode: true,
+  myposClientNumber: true,
+  myposStoreId: true,
+  myposKeyIndex: true,
+  myposPrivateKeyEncrypted: true,
+  myposPublicCert: true,
+  myposCurrency: true,
   sharedDeviceModeEnabled: true,
   notifyAllStaffOnPayment: true,
   tipsEnabled: true,
@@ -109,6 +117,7 @@ const RESTAURANT_PRIVATE_FIELDS = [
   'stripePriceId',
   'epaySecretEncrypted',
   'boricaPrivateKeyEncrypted',
+  'myposPrivateKeyEncrypted',
   'importApiKeyHash',
   'pastDueGraceExpiry',
   'forceTierExpiresAt',
@@ -163,6 +172,7 @@ export class RestaurantsService {
     >;
     dto['epaySecretConfigured'] = !!dto['epaySecretEncrypted'];
     dto['boricaPrivateKeyConfigured'] = !!dto['boricaPrivateKeyEncrypted'];
+    dto['myposPrivateKeyConfigured'] = !!dto['myposPrivateKeyEncrypted'];
     for (const field of RESTAURANT_PRIVATE_FIELDS) {
       delete dto[field];
     }
@@ -335,7 +345,23 @@ export class RestaurantsService {
       }
     }
 
-    for (const key of ['epayClientId', 'epayMerchantEmail'] as const) {
+    if ('myposPrivateKey' in data) {
+      const rawKey = data.myposPrivateKey;
+      delete data.myposPrivateKey;
+      if (typeof rawKey === 'string' && rawKey.trim()) {
+        data.myposPrivateKeyEncrypted = encryptSecret(rawKey.trim());
+      } else if (rawKey === null) {
+        data.myposPrivateKeyEncrypted = null;
+      }
+    }
+
+    for (const key of [
+      'epayClientId',
+      'epayMerchantEmail',
+      'myposClientNumber',
+      'myposStoreId',
+      'myposKeyIndex',
+    ] as const) {
       if (typeof data[key] === 'string') {
         const trimmed = data[key].trim();
         data[key] = trimmed === '' ? null : trimmed;
@@ -419,7 +445,7 @@ export class RestaurantsService {
       where: { restaurantId: id },
     });
 
-    for (const cat of categories) {
+    await this.processTranslateBatch(categories, 5, async (cat) => {
       const parsedTranslations: any =
         cat.translations && typeof cat.translations === 'object'
           ? cat.translations
@@ -432,15 +458,14 @@ export class RestaurantsService {
         where: { id: cat.id },
         data: { translations: { ...parsedTranslations, ...newTranslations } },
       });
-      await new Promise<void>((resolve) => setTimeout(resolve, 300)); // Prevent DeepL rate-limiting
-    }
+    });
 
     // Process Items
     const items = await this.prisma.menuItem.findMany({
       where: { category: { restaurantId: id } },
     });
 
-    for (const item of items) {
+    await this.processTranslateBatch(items, 5, async (item) => {
       const parsedTranslations: any =
         item.translations && typeof item.translations === 'object'
           ? item.translations
@@ -491,15 +516,14 @@ export class RestaurantsService {
         where: { id: item.id },
         data: { translations: { ...parsedTranslations, ...newTranslations } },
       });
-      await new Promise<void>((resolve) => setTimeout(resolve, 300)); // Prevent DeepL rate-limiting
-    }
+    });
 
     // Process Options
     const options = await this.prisma.menuOption.findMany({
       where: { menuItem: { category: { restaurantId: id } } },
     });
 
-    for (const option of options) {
+    await this.processTranslateBatch(options, 5, async (option) => {
       const parsedTranslations: any =
         (option as any).translations &&
         typeof (option as any).translations === 'object'
@@ -545,13 +569,29 @@ export class RestaurantsService {
               : undefined,
         } as any,
       });
-      await new Promise<void>((resolve) => setTimeout(resolve, 300)); // Prevent DeepL rate-limiting
-    }
+    });
 
     return {
       success: true,
       message: `Translated ${categories.length} categories, ${items.length} items, and ${options.length} options.`,
     };
+  }
+
+  /**
+   * Process items in concurrent batches to respect DeepL rate limits while
+   * avoiding the 48+ second wall-clock penalty of a purely sequential loop
+   * with 300ms delays (#N+1-C1). Each batch runs {@link concurrency} items
+   * in parallel; the next batch waits for all items in the current batch.
+   */
+  private async processTranslateBatch<T>(
+    items: T[],
+    concurrency: number,
+    fn: (item: T) => Promise<void>,
+  ): Promise<void> {
+    for (let i = 0; i < items.length; i += concurrency) {
+      const batch = items.slice(i, i + concurrency);
+      await Promise.all(batch.map(fn));
+    }
   }
 
   async generateConnectLink(
@@ -597,12 +637,14 @@ export class RestaurantsService {
       const stripeErr = err as { code?: string; type?: string };
       if (stripeErr?.code === 'resource_missing' && stripeErr?.type === 'invalid_request_error') {
         // The Stripe Connect account was hard-deleted. Clear our reference.
-        // Only clear paymentsEnabled when no other provider (ePay/BORICA) is active.
+        // Only clear paymentsEnabled when no other provider is active.
         this.logger.warn(
           `Stripe account deleted for restaurant ${restaurantId} — clearing stripeAccountId`,
         );
         const hasOtherProvider =
-          restaurant.epayEnabled || restaurant.boricaEnabled;
+          restaurant.epayEnabled ||
+          restaurant.boricaEnabled ||
+          restaurant.myposEnabled;
         await this.prisma.restaurant.update({
           where: { id: restaurantId },
           data: {
@@ -623,7 +665,10 @@ export class RestaurantsService {
       });
     } else if (!chargesEnabled && restaurant.stripeOnboarded) {
       // Persist downgrade when Stripe restricts the account after onboarding (Issue 9)
-      const hasOtherProvider = restaurant.epayEnabled || restaurant.boricaEnabled;
+      const hasOtherProvider =
+        restaurant.epayEnabled ||
+        restaurant.boricaEnabled ||
+        restaurant.myposEnabled;
       await this.prisma.restaurant.update({
         where: { id: restaurantId },
         data: {
@@ -638,7 +683,10 @@ export class RestaurantsService {
 
   async disconnectStripe(restaurantId: string, userId: string) {
     const restaurant = await this.findOneForBilling(restaurantId, userId);
-    const hasOtherProvider = restaurant.epayEnabled || restaurant.boricaEnabled;
+    const hasOtherProvider =
+      restaurant.epayEnabled ||
+      restaurant.boricaEnabled ||
+      restaurant.myposEnabled;
 
     return this.prisma.restaurant.update({
       where: { id: restaurantId },
