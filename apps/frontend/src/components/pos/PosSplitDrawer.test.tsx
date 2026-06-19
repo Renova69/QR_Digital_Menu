@@ -29,6 +29,10 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => stableTranslation,
 }));
 
+vi.mock("../../context/PosThemeContext", () => ({
+  usePosTheme: () => ({ theme: "light" }),
+}));
+
 const bill = {
   orders: [
     {

@@ -7,6 +7,7 @@ import {
   type SessionBill,
   type SplitProvider,
 } from "../../lib/api";
+import { usePosTheme } from "../../context/PosThemeContext";
 
 interface PosSplitDrawerProps {
   open: boolean;
@@ -36,6 +37,9 @@ export default function PosSplitDrawer({
   onFullyPaid,
 }: PosSplitDrawerProps) {
   const { t } = useTranslation();
+  // The POS theme is a scoped `.dark` class on the layout shell; this Dialog
+  // portals to <body> and would otherwise fall back to the light :root tokens.
+  const { theme } = usePosTheme();
   const [bill, setBill] = useState<SessionBill | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -177,7 +181,9 @@ export default function PosSplitDrawer({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
-        <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-2xl bg-background p-4 pb-safe sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:-translate-y-1/2 sm:rounded-2xl">
+        <Dialog.Content
+          className={`fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-2xl bg-background p-4 text-foreground [padding-bottom:calc(env(safe-area-inset-bottom)+1rem)] sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:-translate-y-1/2 sm:rounded-2xl sm:[padding-bottom:1rem] ${theme === "dark" ? "dark" : ""}`}
+        >
           <div className="mb-3 flex items-center justify-between">
             <Dialog.Title className="text-lg font-semibold text-foreground">
               {t("pos.split.title", "Split bill")}
