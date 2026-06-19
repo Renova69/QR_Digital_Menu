@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { beforeEach, afterEach, describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { PosProvider, usePos } from './PosContext';
 import type { ReactNode } from 'react';
@@ -19,6 +19,14 @@ const makeItem = (over: Partial<Parameters<ReturnType<typeof usePos>['addItem']>
 });
 
 describe('PosContext', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
+  afterEach(() => {
+    sessionStorage.clear();
+  });
+
   it('addItem appends a non-submitted item with a generated cartId', () => {
     const { result } = renderHook(() => usePos(), { wrapper });
 
@@ -85,6 +93,21 @@ describe('PosContext', () => {
     act(() => result.current.resetCart());
 
     expect(result.current.items).toHaveLength(0);
+  });
+
+  it('does not resurrect a stale persisted draft after the cart becomes empty', () => {
+    const first = renderHook(() => usePos(), { wrapper });
+
+    act(() => first.result.current.addItem(makeItem()));
+    expect(first.result.current.items).toHaveLength(1);
+
+    act(() => first.result.current.resetCart());
+    expect(first.result.current.items).toHaveLength(0);
+
+    first.unmount();
+
+    const second = renderHook(() => usePos(), { wrapper });
+    expect(second.result.current.items).toHaveLength(0);
   });
 
   it('setHistoryItems replaces submitted items and keeps pending ones', () => {

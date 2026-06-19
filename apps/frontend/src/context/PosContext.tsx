@@ -123,6 +123,8 @@ export function PosProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (items.length > 0 || session) {
       saveDraft(items, session, activeSeat);
+    } else {
+      clearDraft();
     }
   }, [items, session, activeSeat]);
 
