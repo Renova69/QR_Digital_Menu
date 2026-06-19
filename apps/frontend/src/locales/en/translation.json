@@ -903,6 +903,7 @@
     "pay": "Pay",
     "processing": "Processing...",
     "paymentReceived": "Payment received",
+    "paymentCancelled": "Payment cancelled — you can try again.",
     "backToMenu": "Back to Menu",
     "loading": "Loading...",
     "paymentFailed": "Payment failed. Please try again.",

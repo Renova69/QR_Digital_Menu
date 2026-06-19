@@ -58,6 +58,22 @@ function clearHostedCheckoutMarker(token: string | null | undefined) {
   } catch {}
 }
 
+// POS Payment QR opens /checkout?session=<token>; that token is never written
+// to localStorage (only normal table ordering does that). On a hosted-checkout
+// return we may therefore have no table-based token — recover it from the marker
+// so cancel can still abandon the PENDING payment and the marker is cleaned up.
+function findHostedCheckoutToken(): string | null {
+  try {
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith("hosted-checkout:")) {
+        return key.slice("hosted-checkout:".length);
+      }
+    }
+  } catch {}
+  return null;
+}
+
 function resolvePublicPalette(restaurant: Restaurant | undefined, mode: BrandMode): BrandPalette | null {
   if (!restaurant) return null;
   const hasPairedBrand =
@@ -146,6 +162,7 @@ const PublicMenuPage = () => {
 
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentBanner, setPaymentBanner] = useState<{ ok: boolean; text: string } | null>(null);
   const [isAssistanceDialogOpen, setIsAssistanceDialogOpen] = useState(false);
 
   const { t, i18n } = useTranslation();
@@ -247,7 +264,11 @@ const PublicMenuPage = () => {
     const sessionKey = restaurantId && tableParam
       ? `session-${restaurantId}-${tableParam}`
       : null;
-    const storedToken = sessionKey ? localStorage.getItem(sessionKey) : null;
+    // Fall back to the marker token so the POS Payment QR flow (token only in the
+    // /checkout URL, never in localStorage) is cleaned up correctly too.
+    const storedToken =
+      (sessionKey ? localStorage.getItem(sessionKey) : null) ??
+      findHostedCheckoutToken();
 
     if (paymentOutcome === 'borica-ok' || paymentOutcome === 'epay-ok') {
       // Clear the stored session token so a new one is created on the next order.
@@ -255,6 +276,10 @@ const PublicMenuPage = () => {
       if (sessionKey) localStorage.removeItem(sessionKey);
       setSessionToken(null);
       setIsPaymentModalOpen(false);
+      setPaymentBanner({
+        ok: true,
+        text: t('payment.paymentReceived', 'Payment received successfully'),
+      });
       // Strip the outcome param from the URL without triggering a navigation.
       params.delete('payment');
       const next = params.toString() ? `?${params.toString()}` : location.pathname;
@@ -266,6 +291,11 @@ const PublicMenuPage = () => {
         abandonCheckout(storedToken).catch(() => {});
       }
       clearHostedCheckoutMarker(storedToken);
+      setIsPaymentModalOpen(false);
+      setPaymentBanner({
+        ok: false,
+        text: t('payment.paymentCancelled', 'Payment cancelled — you can try again.'),
+      });
       params.delete('payment');
       const next = params.toString() ? `?${params.toString()}` : location.pathname;
       navigate(next, { replace: true });
@@ -274,14 +304,21 @@ const PublicMenuPage = () => {
   }, [location.search]);
 
   useEffect(() => {
+    if (!paymentBanner) return;
+    const timer = setTimeout(() => setPaymentBanner(null), 8000);
+    return () => clearTimeout(timer);
+  }, [paymentBanner]);
+
+  useEffect(() => {
     const abandonHostedCheckoutIfReturned = () => {
       const params = new URLSearchParams(window.location.search);
       if (params.get('payment')) return;
 
       const tableParam = params.get('table');
-      const storedToken = restaurantId && tableParam
-        ? localStorage.getItem(`session-${restaurantId}-${tableParam}`)
-        : sessionToken;
+      const storedToken =
+        (restaurantId && tableParam
+          ? localStorage.getItem(`session-${restaurantId}-${tableParam}`)
+          : sessionToken) ?? findHostedCheckoutToken();
 
       if (!storedToken || !hasHostedCheckoutMarker(storedToken)) return;
 
@@ -608,6 +645,24 @@ const PublicMenuPage = () => {
         paddingBottom: showActionBar ? 'max(8rem, calc(5rem + env(safe-area-inset-bottom, 0px)))' : '2rem',
       }}
     >
+      {paymentBanner && (
+        <div
+          className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl px-4 py-3 text-white shadow-lg max-w-[92vw] ${
+            paymentBanner.ok ? "bg-green-600" : "bg-amber-600"
+          }`}
+        >
+          <span className="text-sm font-semibold">{paymentBanner.text}</span>
+          <button
+            type="button"
+            onClick={() => setPaymentBanner(null)}
+            className="text-white/80 hover:text-white text-lg leading-none"
+            aria-label={t("common.close", "Close")}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Ambient Depth Background */}
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
         <div

@@ -903,6 +903,7 @@
     "pay": "Plătește",
     "processing": "Se procesează...",
     "paymentReceived": "Plată primită",
+    "paymentCancelled": "Plata a fost anulată — puteți încerca din nou.",
     "backToMenu": "Înapoi la meniu",
     "loading": "Se încarcă...",
     "paymentFailed": "Plata a eșuat. Încearcă din nou.",
