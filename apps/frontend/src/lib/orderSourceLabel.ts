@@ -1,7 +1,4 @@
-type Translate = (
-  key: string,
-  optionsOrDefault?: string | ({ defaultValue?: string } & Record<string, unknown>),
-) => string;
+import type { TFunction } from "i18next";
 
 export type CustomerFacingOrderSource = {
   source?: 'CUSTOMER' | 'POS' | string | null;
@@ -13,21 +10,21 @@ const interpolateNameFallback = (value: string, name: string) =>
 
 export function getCustomerFacingOrderSourceLabel(
   order: CustomerFacingOrderSource,
-  t: Translate,
+  t: TFunction,
 ) {
   if (order.source === 'CUSTOMER') {
-    return t('payment.sourceYou', 'You');
+    return String(t('payment.sourceYou', { defaultValue: 'You' }));
   }
 
   const staffName = order.staffName?.trim();
   if (!staffName) {
-    return t('payment.sourceStaff', 'Staff');
+    return String(t('payment.sourceStaff', { defaultValue: 'Staff' }));
   }
 
-  const label = t('payment.sourceStaffWithName', {
+  const label = String(t('payment.sourceStaffWithName', {
     name: staffName,
     defaultValue: 'Staff: {{name}}',
-  });
+  }));
 
   return interpolateNameFallback(label, staffName);
 }

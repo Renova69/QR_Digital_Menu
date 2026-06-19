@@ -1,4 +1,5 @@
 import type { TableZone } from "../../lib/api";
+import { useTranslation } from "react-i18next";
 
 interface ZoneSelectorProps {
   zones: TableZone[];
@@ -11,6 +12,8 @@ export default function ZoneSelector({
   selectedZoneId,
   onSelectZone,
 }: ZoneSelectorProps) {
+  const { t } = useTranslation();
+
   if (zones.length <= 1) return null;
 
   return (
@@ -20,11 +23,11 @@ export default function ZoneSelector({
         onClick={() => onSelectZone(null)}
         className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors min-h-[40px] ${
           selectedZoneId === null
-            ? "bg-primary text-white"
+            ? "bg-primary text-primary-foreground"
             : "bg-muted text-muted-foreground hover:bg-muted/80"
         }`}
       >
-        All
+        {t("pos.allZones", "All zones")}
       </button>
       {zones.map((zone) => (
         <button
@@ -33,7 +36,7 @@ export default function ZoneSelector({
           onClick={() => onSelectZone(zone.id)}
           className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors min-h-[40px] ${
             selectedZoneId === zone.id
-              ? "bg-primary text-white"
+              ? "bg-primary text-primary-foreground"
               : "bg-muted text-muted-foreground hover:bg-muted/80"
           }`}
         >

@@ -29,6 +29,11 @@
   --color-accent: #8B6FFF;
   --color-accent-foreground: #FFFFFF;
 
+  --color-success: #059669;
+  --color-success-foreground: #FFFFFF;
+  --color-warning: #D97706;
+  --color-warning-foreground: #FFFFFF;
+
   --color-destructive: #DC2626;
   --color-destructive-foreground: #FFFFFF;
 
@@ -101,6 +106,11 @@
 
   --color-accent: #C4B5FD;
   --color-accent-foreground: #FFFFFF;
+
+  --color-success: #10B981;
+  --color-success-foreground: #03150F;
+  --color-warning: #F59E0B;
+  --color-warning-foreground: #1F1300;
 
   --color-destructive: #EF4444;
   --color-destructive-foreground: #FFFFFF;

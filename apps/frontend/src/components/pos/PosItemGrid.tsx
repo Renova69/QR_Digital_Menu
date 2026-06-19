@@ -44,7 +44,7 @@ export default function PosItemGrid({ items, loading, error }: PosItemGridProps)
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4">
-        <p className="text-sm text-red-600 dark:text-red-400 mb-2">{error}</p>
+        <p className="mb-2 text-sm text-destructive">{error}</p>
       </div>
     );
   }

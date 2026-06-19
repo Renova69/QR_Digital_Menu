@@ -51,7 +51,7 @@ export default function PosCategoryFilter({ categories, menuError }: PosCategory
         ))}
       </div>
       {menuError && (
-        <p className="text-xs text-red-500 px-4 pb-1">{t("pos.failedCategories", "Failed to load categories")}</p>
+        <p className="px-4 pb-1 text-xs text-destructive">{t("pos.failedCategories", "Failed to load categories")}</p>
       )}
     </>
   );

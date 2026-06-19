@@ -22,9 +22,15 @@ interface TableStatus {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  empty: "bg-[rgba(52,211,153,0.08)] border-emerald-300/40 text-[#7C7892]",
-  occupied: "bg-[rgba(239,68,68,0.11)] border-red-300/40 text-[#7C7892]",
-  paid: "bg-[rgba(167,139,250,0.1)] border-violet-300/40 text-[#7C7892]",
+  empty: "bg-success/10 border-success/40 text-foreground",
+  occupied: "bg-destructive/10 border-destructive/40 text-foreground",
+  paid: "bg-primary/10 border-primary/40 text-foreground",
+};
+
+const STATUS_LABEL_KEYS: Record<TableStatus["status"], string> = {
+  empty: "pos.tableStatus.empty",
+  occupied: "pos.tableStatus.occupied",
+  paid: "pos.tableStatus.paid",
 };
 
 export default function PosTableModal() {
@@ -164,7 +170,7 @@ export default function PosTableModal() {
         (order.items ?? []).map((oi: any, idx: number) => ({
           cartId: `${order.id}-${idx}`,
           menuItemId: "",
-          name: oi.name ?? "Unknown item",
+          name: oi.name ?? t("pos.unknownItem", "Unknown item"),
           price: oi.unitPrice ?? 0,
           quantity: oi.quantity,
           selectedOptions: (oi.selectedOptions ?? []) as Array<{
@@ -236,9 +242,9 @@ export default function PosTableModal() {
         <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
         <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 w-full max-h-[85dvh] overflow-y-auto rounded-t-xl bg-background p-6 pt-safe md:inset-auto md:top-1/2 md:left-1/2 md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:bottom-auto">
           <Dialog.Title className="text-lg font-semibold mb-1">
-            {t('auto.selectTable', 'Select Table')}</Dialog.Title>
+            {t('pos.selectTable', 'Select Table')}</Dialog.Title>
           <Dialog.Description className="text-sm text-muted-foreground mb-3">
-            {t('auto.chooseATableToStartTaking', 'Choose a table to start taking orders.')}</Dialog.Description>
+            {t('pos.selectTableDesc', 'Choose a table to start taking orders.')}</Dialog.Description>
 
           <ZoneSelector
             zones={zones}
@@ -249,15 +255,15 @@ export default function PosTableModal() {
           {session && (
             <button
               type="button"
-              className="w-full mb-4 py-2 px-4 rounded-lg brand-cta text-white font-medium min-h-[44px]"
+              className="w-full mb-4 py-2 px-4 rounded-lg brand-cta font-medium min-h-[44px]"
               onClick={() => setOpen(false)}
             >
-              {t('auto.backToPOS', 'Back to POS —')}{session.tableName}
+              {t('pos.backToPos', 'Back to POS — {{name}}', { name: session.tableName })}
             </button>
           )}
 
           {actionError && (
-            <p className="text-sm text-red-600 dark:text-red-400 mb-3 p-2 rounded bg-red-50 dark:bg-red-900/20">
+            <p className="mb-3 rounded bg-destructive/10 p-2 text-sm text-destructive">
               {actionError}
             </p>
           )}
@@ -265,11 +271,11 @@ export default function PosTableModal() {
           {forceOpenTarget && (
             <div className="mb-4 p-4 rounded-lg border border-destructive/30 bg-destructive/10">
               <p className="text-sm font-semibold text-foreground mb-2">
-                {t('auto.forceOpenConfirmTitle', 'Force open table {{name}}?', { name: forceOpenTarget.name })}
+                {t('pos.forceOpenConfirmTitle', 'Force open table {{name}}?', { name: forceOpenTarget.name })}
               </p>
               <p className="text-xs text-muted-foreground mb-3">
                 {t(
-                  'auto.forceOpenConfirmDesc',
+                  'pos.forceOpenConfirmDesc',
                   'The current session will be closed without payment. This cannot be undone.',
                 )}
               </p>
@@ -281,16 +287,16 @@ export default function PosTableModal() {
                     setForceOpenTarget(null);
                     await handleForceOpen(target);
                   }}
-                  className="flex-1 py-2.5 rounded-lg bg-destructive text-white font-semibold text-sm min-h-[44px]"
+                  className="flex-1 py-2.5 rounded-lg bg-destructive text-destructive-foreground font-semibold text-sm min-h-[44px]"
                 >
-                  {t('auto.confirmForceOpen', 'Yes, Force Open')}
+                  {t('pos.confirmForceOpen', 'Yes, force open')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setForceOpenTarget(null)}
                   className="flex-1 py-2.5 rounded-lg bg-card border border-border text-foreground font-medium text-sm min-h-[44px]"
                 >
-                  {t('auto.cancel', 'Cancel')}
+                  {t('common.cancel', 'Cancel')}
                 </button>
               </div>
             </div>
@@ -302,7 +308,7 @@ export default function PosTableModal() {
             </div>
           ) : error ? (
             <div className="flex flex-col items-center py-8">
-              <p className="text-center text-red-600 dark:text-red-400 text-sm mb-3">{error}</p>
+              <p className="mb-3 text-center text-sm text-destructive">{error}</p>
               <button
                 type="button"
                 onClick={() => {
@@ -313,9 +319,9 @@ export default function PosTableModal() {
                     .catch(() => setError(t("pos.failedLoadTables", "Failed to load tables. Check your connection.")))
                     .finally(() => setLoading(false));
                 }}
-                className="px-4 py-2 rounded-lg brand-cta text-white text-sm min-h-[44px]"
+                className="px-4 py-2 rounded-lg brand-cta text-sm min-h-[44px]"
               >
-                {t('auto.retry', 'Retry')}</button>
+                {t('pos.retry', 'Retry')}</button>
             </div>
           ) : (
             <>
@@ -329,7 +335,9 @@ export default function PosTableModal() {
                     className={`relative flex flex-col items-center justify-center p-4 rounded-lg border-2 min-h-[80px] transition-none ${STATUS_COLORS[table.status]}`}
                   >
                     <span className="text-lg font-extrabold">{table.name}</span>
-                    <span className="text-sm font-semibold capitalize">{table.status}</span>
+                    <span className="text-sm font-semibold">
+                      {t(STATUS_LABEL_KEYS[table.status], table.status)}
+                    </span>
                     {table.sessionStatus === "OPEN" && (
                       <button
                         type="button"
@@ -339,14 +347,14 @@ export default function PosTableModal() {
                         }}
                         className="mt-2 text-xs underline opacity-70 hover:opacity-100 min-h-[44px] flex items-center"
                       >
-                        {t('auto.forceOpen', 'Force Open')}</button>
+                        {t('pos.forceOpen', 'Force Open')}</button>
                     )}
                   </button>
                 ))}
               </div>
               {tables.length === 0 && (
                 <p className="text-center text-muted-foreground py-8">
-                  {t('auto.noTablesFoundCreateTables', 'No tables found. Create tables in the dashboard first.')}</p>
+                  {t('pos.noTables', 'No tables found. Create tables in the dashboard first.')}</p>
               )}
             </div>
             </>

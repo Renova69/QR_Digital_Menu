@@ -15,7 +15,7 @@ export default function PosSplitBill({ total }: PosSplitBillProps) {
   return (
     <div className="p-4 border-t border-border">
       <div className="flex items-center gap-3">
-        <span className="text-sm font-medium text-foreground">{t('auto.split', 'Split:')}</span>
+        <span className="text-sm font-medium text-foreground">{t('pos.split', 'Split:')}</span>
         <button
           type="button"
           onClick={() => setSplitCount(Math.max(1, splitCount - 1))}
@@ -34,7 +34,7 @@ export default function PosSplitBill({ total }: PosSplitBillProps) {
           +
         </button>
         <span className="ml-auto text-lg font-bold text-primary">
-          €{perPerson.toFixed(2)} {t('auto.Person', '/ person')}</span>
+          €{perPerson.toFixed(2)} {t('pos.perPerson', '/ person')}</span>
       </div>
     </div>
   );

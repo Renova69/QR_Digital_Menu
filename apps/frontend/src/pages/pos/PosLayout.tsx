@@ -1,31 +1,24 @@
-import { useEffect } from "react";
 import { Outlet } from "react-router-dom";
-import { useTranslation } from "react-i18next";
+import { PosThemeProvider, usePosTheme } from "../../context/PosThemeContext";
 
-export default function PosLayout() {
-  const { i18n } = useTranslation();
-
-  useEffect(() => {
-    const prev = i18n.language;
-    i18n.changeLanguage("bg");
-    return () => { i18n.changeLanguage(prev); };
-  }, [i18n]);
-
-  // Force dark class on html element while POS is mounted. POS uses a dark
-  // background (hsl(245 40% 7%)) — components must render dark variant to be
-  // readable. The user can toggle with the theme button in PosTopBar.
-  useEffect(() => {
-    const root = document.documentElement;
-    const hadDark = root.classList.contains("dark");
-    if (!hadDark) root.classList.add("dark");
-    return () => {
-      if (!hadDark) root.classList.remove("dark");
-    };
-  }, []);
+function PosThemeShell() {
+  const { theme } = usePosTheme();
 
   return (
-    <div className="h-dvh flex flex-col text-foreground bg-[hsl(245_40%_7%)]">
+    <div
+      className={`h-dvh flex flex-col bg-background text-foreground ${theme === "dark" ? "dark" : ""}`}
+      data-pos-theme={theme}
+      data-testid="pos-theme-shell"
+    >
       <Outlet />
     </div>
+  );
+}
+
+export default function PosLayout() {
+  return (
+    <PosThemeProvider>
+      <PosThemeShell />
+    </PosThemeProvider>
   );
 }

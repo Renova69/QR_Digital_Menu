@@ -19,6 +19,13 @@ type ConfirmAction =
   | { type: "force" }
   | null;
 
+const SEAT_LABEL_KEYS: Record<string, string> = {
+  "Seat 1": "pos.seat1",
+  "Seat 2": "pos.seat2",
+  "Seat 3": "pos.seat3",
+  Shared: "pos.seatShared",
+};
+
 export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) {
   const { t } = useTranslation();
   const restaurantCtx = useContext(RestaurantContext);
@@ -184,13 +191,18 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
     return acc;
   }, {});
 
+  const getSeatLabel = (seat: string) => {
+    const key = SEAT_LABEL_KEYS[seat];
+    return key ? t(key, seat) : seat;
+  };
+
   return (
     <div className="px-4 py-3">
       {/* Collapsed bar */}
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between py-3 px-4 rounded-lg brand-cta text-white font-semibold min-h-[44px]"
+        className="w-full flex items-center justify-between py-3 px-4 rounded-lg brand-cta font-semibold min-h-[44px]"
       >
         <span>
           {itemCount} {itemCount === 1 ? t("pos.item", "item") : t("pos.items", "items")} · €{total.toFixed(2)}
@@ -204,7 +216,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
           {Object.entries(itemsBySeat).map(([seat, seatItems]) => (
             <div key={seat} className="px-4 py-2 border-b border-border last:border-b-0">
               <div className="text-xs font-semibold text-muted-foreground mb-2">
-                [{seat}]
+                [{getSeatLabel(seat)}]
               </div>
               {seatItems.map((item) => {
                 const isSubmitted = item.submitted;
@@ -219,7 +231,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                       <div className="text-sm font-medium truncate flex items-center gap-1.5">
                         {item.name}
                         {isSubmitted && (
-                          <span className="text-xs text-green-600 dark:text-green-400 shrink-0">
+                          <span className="shrink-0 text-xs text-success">
                             ✓
                           </span>
                         )}
@@ -301,7 +313,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                         <button
                           type="button"
                           onClick={() => removeItem(item.cartId)}
-                          className="h-11 w-11 rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 flex items-center justify-center text-sm ml-2"
+                          className="ml-2 flex h-11 w-11 items-center justify-center rounded-full bg-destructive/10 text-sm text-destructive"
                         >
                           ✕
                         </button>
@@ -318,13 +330,13 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
           ))}
 
           {submitError && (
-            <div className="px-4 py-2 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400">
+            <div className="bg-destructive/10 px-4 py-2 text-sm text-destructive">
               {submitError}
             </div>
           )}
 
           {historyError && (
-            <div className="px-4 py-2 text-sm text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 flex items-center justify-between">
+            <div className="flex items-center justify-between bg-warning/10 px-4 py-2 text-sm text-warning">
               <span>{historyError}</span>
               <button
                 type="button"
@@ -362,7 +374,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
               type="button"
               onClick={() => setConfirmAction({ type: "submit", total: pendingTotal })}
               disabled={submitting || pendingItems.length === 0 || historyLoading}
-              className="w-full py-3 rounded-lg brand-cta text-white font-semibold disabled:opacity-50 min-h-[44px]"
+              className="w-full py-3 rounded-lg brand-cta font-semibold disabled:opacity-50 min-h-[44px]"
             >
               {submitting
                 ? t("pos.submitting", "Submitting...")
@@ -378,7 +390,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                 onClick={() => setConfirmAction({ type: "card", total: submittedTotal })}
                 disabled={closing || !hasAnyItems || hasPending}
                 title={hasPending ? t("pos.submitPendingFirst", "Submit pending items first") : undefined}
-                className="w-full py-3 rounded-lg bg-amber-500 text-white font-semibold disabled:opacity-50 min-h-[44px]"
+                className="w-full py-3 rounded-lg bg-warning text-warning-foreground font-semibold disabled:opacity-50 min-h-[44px]"
               >
                 {closing ? t("pos.closing", "Closing...") : t("pos.closeCardTotal", { total: submittedTotal.toFixed(2) })}
               </button>
@@ -390,7 +402,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
               onClick={() => setConfirmAction({ type: "cash", total: submittedTotal })}
               disabled={closing || !hasAnyItems || hasPending}
               title={hasPending ? t("pos.submitPendingFirst", "Submit pending items first") : undefined}
-              className="w-full py-3 rounded-lg bg-emerald-600 text-white font-semibold disabled:opacity-50 min-h-[44px]"
+              className="w-full py-3 rounded-lg bg-success text-success-foreground font-semibold disabled:opacity-50 min-h-[44px]"
             >
               {closing ? t("pos.closing", "Closing...") : t("pos.closeCashTotal", { total: submittedTotal.toFixed(2) })}
             </button>
@@ -466,20 +478,20 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                   else if (confirmAction?.type === "cash") handleCashPayment();
                   else if (confirmAction?.type === "force") handleForceClose();
                 }}
-                className={`flex-1 py-3 rounded-lg text-white font-semibold min-h-[44px] ${
+                className={`flex-1 py-3 rounded-lg font-semibold min-h-[44px] ${
                   confirmAction?.type === "force"
-                    ? "bg-destructive"
+                    ? "bg-destructive text-destructive-foreground"
                     : confirmAction?.type === "card"
-                      ? "bg-amber-500"
+                      ? "bg-warning text-warning-foreground"
                       : confirmAction?.type === "cash"
-                        ? "bg-emerald-600"
+                        ? "bg-success text-success-foreground"
                         : "brand-cta"
                 }`}
               >
                 {confirmAction?.type === "submit" && t("pos.submit", "Submit")}
                 {confirmAction?.type === "card" && t("pos.confirmPaid", "Confirm Paid")}
                 {confirmAction?.type === "cash" && t("pos.confirmCash", "Confirm Cash")}
-                {confirmAction?.type === "force" && t("pos.forceOpen", "Force Close")}
+                {confirmAction?.type === "force" && t("pos.forceClose", "Force Close")}
               </button>
             </div>
           </Dialog.Content>

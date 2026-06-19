@@ -117,7 +117,7 @@ export default function PosOptionsDrawer() {
                   <label className="text-sm font-medium text-foreground mb-2 block">
                     {opt.name}
                     {opt.required && (
-                      <span className="text-red-500 ml-1">*</span>
+                      <span className="ml-1 text-destructive">*</span>
                     )}
                   </label>
                   {opt.type === "VARIATION" ? (
@@ -139,7 +139,7 @@ export default function PosOptionsDrawer() {
                             }
                             className={`px-3 py-2 rounded-lg text-sm min-h-[44px] transition-none ${
                               isSelected
-                                ? "bg-primary text-white"
+                                ? "bg-primary text-primary-foreground"
                                 : "bg-card border border-border text-foreground"
                             }`}
                           >
@@ -177,7 +177,7 @@ export default function PosOptionsDrawer() {
                             }}
                             className={`px-3 py-2 rounded-lg text-sm min-h-[44px] transition-none ${
                               isSelected
-                                ? "bg-primary text-white"
+                                ? "bg-primary text-primary-foreground"
                                 : "bg-card border border-border text-foreground"
                             }`}
                           >
@@ -208,7 +208,7 @@ export default function PosOptionsDrawer() {
               <button
                 type="button"
                 onClick={handleAddToCart}
-                className="w-full py-3 rounded-lg brand-cta text-white font-semibold text-sm min-h-[44px]"
+                className="w-full py-3 rounded-lg brand-cta font-semibold text-sm min-h-[44px]"
               >
                 {t("pos.addToCart", { total: (item.price + optionsPrice).toFixed(2) })}
               </button>

@@ -131,14 +131,14 @@ export default function PosPage() {
   return (
     <>
       {paidNotice && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl bg-green-600 px-4 py-3 text-white shadow-lg max-w-[92vw]">
+        <div className="fixed top-4 left-1/2 z-50 flex max-w-[92vw] -translate-x-1/2 items-center gap-3 rounded-xl bg-success px-4 py-3 text-success-foreground shadow-lg">
           <span className="text-sm font-semibold">
             {t("pos.tablePaid", "Table {{name}} paid — bill cleared", { name: paidNotice })}
           </span>
           <button
             type="button"
             onClick={() => setPaidNotice(null)}
-            className="text-white/80 hover:text-white text-lg leading-none"
+            className="text-lg leading-none text-success-foreground/80 hover:text-success-foreground"
             aria-label={t("common.close", "Close")}
           >
             ×
