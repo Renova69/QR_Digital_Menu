@@ -6,7 +6,7 @@ import api, { createOrder, getSessionBill } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
-import { Zap } from "lucide-react";
+import { Zap, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CustomerLoginModal } from "../components/auth/CustomerLoginModal";
 import { PaymentModal } from "../components/payment/PaymentModal";
@@ -38,6 +38,7 @@ const CheckoutPage = () => {
   const [sessionBillLoading, setSessionBillLoading] = useState(false);
   const [sessionBillError, setSessionBillError] = useState<string | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [paymentComplete, setPaymentComplete] = useState(false);
 
   useEffect(() => {
     if (!sessionToken) return;
@@ -279,22 +280,48 @@ const CheckoutPage = () => {
     return (
       <div className="max-w-2xl mx-auto px-4 pt-10 pb-24" style={{ paddingBottom: 'max(6rem, calc(env(safe-area-inset-bottom, 0px) + 4rem))' }}>
         <h1 className="text-4xl font-extrabold text-foreground mb-8 tracking-tight">
-          {t("checkout.yourBill", "Your Bill")}
+          {paymentComplete
+            ? t("checkout.paymentComplete", "Payment Complete")
+            : t("checkout.yourBill", "Your Bill")}
         </h1>
 
-        {sessionBillLoading && (
+        {/* After a successful payment the session is PAID/closed — do NOT refetch
+            the bill (it would 404 "Session not found"). Show a thank-you state. */}
+        {paymentComplete && (
+          <div className="glass-panel rounded-2xl p-8 text-center flex flex-col items-center gap-4">
+            <CheckCircle2 className="h-14 w-14 text-green-500" />
+            <p className="text-lg font-semibold text-foreground">
+              {t("checkout.paymentThanks", "Thank you! Your payment was received.")}
+            </p>
+            <button
+              type="button"
+              onClick={() =>
+                navigate(
+                  sessionBill?.restaurantId
+                    ? `/menu/public/${sessionBill.restaurantId}`
+                    : "/",
+                )
+              }
+              className="w-full py-4 rounded-xl brand-cta text-white font-bold text-lg min-h-[52px]"
+            >
+              {t("checkout.backToMenu", "Back to Menu")}
+            </button>
+          </div>
+        )}
+
+        {!paymentComplete && sessionBillLoading && (
           <div className="flex justify-center py-12">
             <div className="animate-spin h-8 w-8 border-3 border-primary border-t-transparent rounded-full" />
           </div>
         )}
 
-        {sessionBillError && (
+        {!paymentComplete && sessionBillError && (
           <div className="glass-panel border-l-4 border-red-500 text-red-700 p-4 rounded-2xl mb-8">
             {sessionBillError}
           </div>
         )}
 
-        {sessionBill && !sessionBillLoading && (
+        {!paymentComplete && sessionBill && !sessionBillLoading && (
           <>
             <div className="glass-panel rounded-2xl p-5 mb-6">
               <h2 className="text-sm font-semibold text-muted-foreground mb-3">
@@ -350,8 +377,10 @@ const CheckoutPage = () => {
             sessionToken={sessionToken}
             onClose={() => setPaymentModalOpen(false)}
             onSuccess={() => {
+              // Session is now PAID — switch to the local success state instead
+              // of reloading (a refetch would 404 the closed session). Bug 2.
               setPaymentModalOpen(false);
-              window.location.reload();
+              setPaymentComplete(true);
             }}
           />
         )}

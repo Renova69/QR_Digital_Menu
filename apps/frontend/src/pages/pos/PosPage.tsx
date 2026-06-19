@@ -1,8 +1,10 @@
 import { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import api from "../../lib/api";
 import { usePos } from "../../context/PosContext";
 import { useAuth } from "../../context/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 import { useIdleTimer } from "../../hooks/useIdleTimer";
 import RestaurantContext from "../../context/RestaurantContext";
 import { useFeature } from "../../hooks/useFeature";
@@ -36,10 +38,41 @@ interface Category {
 export default function PosPage() {
   const restaurantCtx = useContext(RestaurantContext);
   const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
-  const { session, items, getTotal, resetCart } = usePos();
+  const { session, items, getTotal, clearSession } = usePos();
   const { logout } = useAuth();
+  const { socket } = useSocket();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const canPos = useFeature('pos');
+  const [paidNotice, setPaidNotice] = useState<string | null>(null);
+
+  // When the customer pays via the Payment QR, the backend emits
+  // `payment:confirmed`. If it's for the table this waiter currently has open,
+  // clear the bill and surface a notice — otherwise the POS hangs on a stale
+  // open table (Bug 1).
+  useEffect(() => {
+    if (!socket) return;
+    const onPaid = (data: { tableSessionId?: string; tableNumber?: string }) => {
+      if (
+        data?.tableSessionId &&
+        session?.sessionId &&
+        data.tableSessionId === session.sessionId
+      ) {
+        setPaidNotice(data.tableNumber ?? session.tableName ?? "");
+        clearSession();
+      }
+    };
+    socket.on("payment:confirmed", onPaid);
+    return () => {
+      socket.off("payment:confirmed", onPaid);
+    };
+  }, [socket, session?.sessionId, session?.tableName, clearSession]);
+
+  useEffect(() => {
+    if (!paidNotice) return;
+    const timer = setTimeout(() => setPaidNotice(null), 8000);
+    return () => clearTimeout(timer);
+  }, [paidNotice]);
 
   useEffect(() => {
     if (activeRestaurant && !canPos) {
@@ -97,6 +130,22 @@ export default function PosPage() {
 
   return (
     <>
+      {paidNotice && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl bg-green-600 px-4 py-3 text-white shadow-lg max-w-[92vw]">
+          <span className="text-sm font-semibold">
+            {t("pos.tablePaid", "Table {{name}} paid — bill cleared", { name: paidNotice })}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPaidNotice(null)}
+            className="text-white/80 hover:text-white text-lg leading-none"
+            aria-label={t("common.close", "Close")}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {session && (
         <div className="sticky top-0 z-10 bg-background pt-safe">
           <PosTopBar />
