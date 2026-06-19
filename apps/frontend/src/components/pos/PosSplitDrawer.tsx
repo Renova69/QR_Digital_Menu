@@ -101,7 +101,10 @@ export default function PosSplitDrawer({
     [unpaidUnits, selection],
   );
 
-  const evenShare = splitCount > 0 ? remaining / splitCount : remaining;
+  // One equal share of the WHOLE bill (not the remaining), so paying share 1 of N
+  // leaves the rest as the remaining shares — not a fresh re-split of the leftover.
+  const billSubtotal = bill?.subtotal ?? 0;
+  const evenShare = splitCount > 0 ? billSubtotal / splitCount : remaining;
   const parsedCustom = parseFloat(customAmount) || 0;
 
   const baseSubtotal =

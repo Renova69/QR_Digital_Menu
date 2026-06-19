@@ -1980,8 +1980,12 @@ export class PaymentService {
         }
         chargeSubtotal = this.roundMoney(sum);
       } else if (dto.mode === SplitMode.EVEN) {
+        // "Split into N" = N equal shares of the WHOLE bill, not of the current
+        // remaining. Each even payment collects one fixed share (billSubtotal/N);
+        // the final share is capped to remaining below so rounding lands exactly.
+        // Dividing `remaining` instead would re-halve the leftover every payment.
         const splitCount = dto.splitCount ?? 1;
-        chargeSubtotal = this.roundMoney(balance.remaining / splitCount);
+        chargeSubtotal = this.roundMoney(balance.billSubtotal / splitCount);
       } else {
         if (!dto.amount || dto.amount <= 0) {
           throw new BadRequestException('Enter an amount to settle');

@@ -2391,6 +2391,29 @@ describe('PaymentService', () => {
       expect(mockPrisma.paymentAllocation.createMany).not.toHaveBeenCalled();
     });
 
+    it('EVEN mode: share is a fixed slice of the ORIGINAL bill, not a re-split of the remainder', async () => {
+      // €87.87 split in 2; person 1 already paid one €43.94 share → remaining 43.93.
+      mockPrisma.order.findMany.mockResolvedValue([
+        { totalPrice: 87.87, pointsRedeemedForDiscount: 0, pointsRedeemedForItems: 0, items: [] },
+      ]);
+      mockPrisma.payment.findMany.mockResolvedValue([
+        { status: 'SUCCEEDED', amount: 43.94, tipAmount: 0 },
+      ]);
+
+      const result = await service.settlePartial('tok1', 'rest1', 'owner1', {
+        restaurantId: 'rest1',
+        mode: 'EVEN' as any,
+        provider: 'CASH' as any,
+        splitCount: 2,
+      });
+
+      // share = 87.87/2 = 43.94, capped to remaining 43.93 → second person clears
+      // the bill (NOT 43.93/2 = 21.96).
+      expect(result.amount).toBeCloseTo(43.93);
+      expect(result.remaining).toBe(0);
+      expect(result.sessionPaid).toBe(true);
+    });
+
     it('CUSTOM mode: charges the given amount and reduces the balance', async () => {
       const result = await service.settlePartial('tok1', 'rest1', 'owner1', {
         restaurantId: 'rest1',
