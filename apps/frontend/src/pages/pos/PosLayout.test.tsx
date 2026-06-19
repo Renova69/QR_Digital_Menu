@@ -31,14 +31,14 @@ describe("PosLayout", () => {
     document.documentElement.classList.remove("dark");
   });
 
-  it("keeps the default dark POS theme scoped to the POS shell", () => {
+  it("keeps the default light POS theme scoped to the POS shell", () => {
     document.documentElement.classList.remove("dark");
 
     renderPosLayout();
 
     const shell = screen.getByTestId("pos-theme-shell");
-    expect(shell.getAttribute("data-pos-theme")).toBe("dark");
-    expect(shell.classList.contains("dark")).toBe(true);
+    expect(shell.getAttribute("data-pos-theme")).toBe("light");
+    expect(shell.classList.contains("dark")).toBe(false);
     expect(document.documentElement.classList.contains("dark")).toBe(false);
   });
 
@@ -48,10 +48,10 @@ describe("PosLayout", () => {
     const { unmount } = renderPosLayout();
     const shell = screen.getByTestId("pos-theme-shell");
 
-    fireEvent.click(screen.getByRole("button", { name: "theme:dark" }));
+    fireEvent.click(screen.getByRole("button", { name: "theme:light" }));
 
-    expect(shell.getAttribute("data-pos-theme")).toBe("light");
-    expect(shell.classList.contains("dark")).toBe(false);
+    expect(shell.getAttribute("data-pos-theme")).toBe("dark");
+    expect(shell.classList.contains("dark")).toBe(true);
     expect(document.documentElement.classList.contains("dark")).toBe(true);
 
     unmount();

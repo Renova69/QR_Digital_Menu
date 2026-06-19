@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext, useCallback } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useTranslation } from "react-i18next";
-import { getTableStatuses, getZones, forceOpenSession, getSessionBill } from "../../lib/api";
+import { getTableStatuses, getZones, getSessionBill } from "../../lib/api";
 import type { TableZone } from "../../lib/api";
 import { usePos } from "../../context/PosContext";
 import RestaurantContext from "../../context/RestaurantContext";
@@ -46,9 +46,7 @@ export default function PosTableModal() {
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
-  const [forceOpenTarget, setForceOpenTarget] = useState<TableStatus | null>(null);
 
   const fetchTables = useCallback(
     (zoneId?: string | null) => {
@@ -134,7 +132,6 @@ export default function PosTableModal() {
 
   const handleSelect = async (table: TableStatus) => {
     if (!activeRestaurant) return;
-    setActionError(null);
 
     // Clear previous table's cart before switching.
     resetCart();
@@ -201,24 +198,6 @@ export default function PosTableModal() {
     setOpen(false);
   };
 
-  const handleForceOpen = async (table: TableStatus) => {
-    if (!activeRestaurant) return;
-    setActionError(null);
-    try {
-      const result = await forceOpenSession(table.id, activeRestaurant.id);
-      resetCart();
-      setSession({
-        tableId: table.id,
-        tableName: table.name,
-        sessionToken: result.token,
-        sessionId: result.session.id,
-      });
-      setOpen(false);
-    } catch {
-      setActionError(t("pos.failedForceOpen", "Failed to force open session. Check your connection."));
-    }
-  };
-
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen && !session) {
       setOpen(true);
@@ -262,46 +241,6 @@ export default function PosTableModal() {
             </button>
           )}
 
-          {actionError && (
-            <p className="mb-3 rounded bg-destructive/10 p-2 text-sm text-destructive">
-              {actionError}
-            </p>
-          )}
-
-          {forceOpenTarget && (
-            <div className="mb-4 p-4 rounded-lg border border-destructive/30 bg-destructive/10">
-              <p className="text-sm font-semibold text-foreground mb-2">
-                {t('pos.forceOpenConfirmTitle', 'Force open table {{name}}?', { name: forceOpenTarget.name })}
-              </p>
-              <p className="text-xs text-muted-foreground mb-3">
-                {t(
-                  'pos.forceOpenConfirmDesc',
-                  'The current session will be closed without payment. This cannot be undone.',
-                )}
-              </p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const target = forceOpenTarget;
-                    setForceOpenTarget(null);
-                    await handleForceOpen(target);
-                  }}
-                  className="flex-1 py-2.5 rounded-lg bg-destructive text-destructive-foreground font-semibold text-sm min-h-[44px]"
-                >
-                  {t('pos.confirmForceOpen', 'Yes, force open')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setForceOpenTarget(null)}
-                  className="flex-1 py-2.5 rounded-lg bg-card border border-border text-foreground font-medium text-sm min-h-[44px]"
-                >
-                  {t('common.cancel', 'Cancel')}
-                </button>
-              </div>
-            </div>
-          )}
-
           {loading ? (
             <div className="flex justify-center py-8">
               <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
@@ -338,17 +277,6 @@ export default function PosTableModal() {
                     <span className="text-sm font-semibold">
                       {t(STATUS_LABEL_KEYS[table.status], table.status)}
                     </span>
-                    {table.sessionStatus === "OPEN" && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setForceOpenTarget(table);
-                        }}
-                        className="mt-2 text-xs underline opacity-70 hover:opacity-100 min-h-[44px] flex items-center"
-                      >
-                        {t('pos.forceOpen', 'Force Open')}</button>
-                    )}
                   </button>
                 ))}
               </div>

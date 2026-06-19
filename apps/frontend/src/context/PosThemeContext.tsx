@@ -11,7 +11,7 @@ interface PosThemeContextValue {
 const PosThemeContext = createContext<PosThemeContextValue | null>(null);
 
 export function PosThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<PosTheme>("dark");
+  const [theme, setTheme] = useState<PosTheme>("light");
 
   const toggleTheme = useCallback(() => {
     setTheme((current) => (current === "dark" ? "light" : "dark"));
