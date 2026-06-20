@@ -43,6 +43,16 @@ Independent re-check of the `[FIXED by CODEX]` / `[FIXED]` claims against actual
 - SUPER-ADMIN M2 — `SuperAdminImportMenuDto` requires exact `CONFIRM`; used by controller.
 - ANALYTICS H2 — period boundaries use Luxon in restaurant IANA tz (no raw `new Date()`).
 
+**Second batch — functional low-risk, all verified TRUE (no fix needed):**
+- PRINT H2 — `retryStuckPrintJobs` EVERY_MINUTE cron: PENDING or stale-SENT jobs, `attempts < MAX`, distinct station, `Promise.allSettled`.
+- PRINT M1 — `cleanupOldPrintJobs` daily cron deletes PRINTED >30d + FAILED >90d in one `$transaction`.
+- SUPER-ADMIN L1 — `importMenu` runs `menuImport.upsertMenu(…, tx)` + `adminAuditLog.create` in one interactive `$transaction` (60s timeout) — atomic.
+- SOCKET M2 — `OrderContext` emits `joinRestaurantOrdersRoom`, plays chime on `newOrder`, leaves room + off-listeners on cleanup; gateway `@SubscribeMessage` handlers exist (314/343).
+- SOCKET M4 — `RestaurantContext` owns `joinRestaurantRoom`/`leaveRestaurantRoom` lifecycle (cleanup on restaurant switch); gateway handlers exist (278/302).
+- N+1 H3/H4/H5 — menu-crud public query has `include: { options }`; order listing has `skip`/`take` + `items.menuItem` include; dashboard recent-orders `take: 5`.
+
+**Audit status: CLOSED.** All CRITICAL/HIGH/key-MEDIUM claims verified true or completed. Only remaining row is **i18n M1** (43 `{{count}}` keys missing `_one` plural — cosmetic, owner deferred). `[WONT FIX]` rows are by-design/historical.
+
 ---
 
 ## 1. rbac-guard (Role-Based Access Control)
