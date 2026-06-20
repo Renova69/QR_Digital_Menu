@@ -67,7 +67,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       _sum: { totalPrice: true },
       where: {
         restaurantId,
-        status: OrderStatus.SERVED,
+        status: { not: OrderStatus.CANCELED },
       },
     });
 
@@ -260,7 +260,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     const orders = await this.prisma.order.findMany({
       where: {
         restaurantId,
-        status: OrderStatus.SERVED,
+        status: { not: OrderStatus.CANCELED },
         createdAt: { gte: start, lte: end },
       },
       select: {
@@ -310,7 +310,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       JOIN customer_order o ON oi."orderId"    = o.id
       JOIN menu_item     mi ON oi."menuItemId" = mi.id
       WHERE o."restaurantId" = ${restaurantId}
-        AND o.status         = 'SERVED'
+        AND o.status         != 'CANCELED'
         AND o."createdAt"   >= ${start}
         AND o."createdAt"   <= ${end}
         AND oi."menuItemId" IS NOT NULL
@@ -362,7 +362,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       _avg: { totalPrice: true },
       where: {
         restaurantId,
-        status: OrderStatus.SERVED,
+        status: { not: OrderStatus.CANCELED },
         createdAt: { gte: start, lte: end },
       },
     });
@@ -474,7 +474,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       JOIN menu_item       mi ON oi."menuItemId" = mi.id
       LEFT JOIN menu_category mc ON mi."categoryId" = mc.id
       WHERE o."restaurantId" = ${restaurantId}
-        AND o.status         = 'SERVED'
+        AND o.status         != 'CANCELED'
         AND o."createdAt"   >= ${start}
         AND o."createdAt"   <= ${end}
         AND oi."menuItemId" IS NOT NULL
@@ -608,23 +608,24 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       revenue: number;
     };
     const rows = await this.prisma.$queryRaw<Row[]>`
-      SELECT "tableId"                                    AS table_id,
-             MIN("tableName")                            AS table_name,
-             COUNT(*)::int                               AS orders,
-             COALESCE(SUM("totalPrice"), 0)::float       AS revenue
-      FROM customer_order
-      WHERE "restaurantId" = ${restaurantId}
-        AND status         != 'CANCELED'
-        AND "createdAt"   >= ${start}
-        AND "createdAt"   <= ${end}
-        AND "tableId"     IS NOT NULL
-        AND "tableId"     != ''
-      GROUP BY "tableId"
+      SELECT co."tableId"                                                  AS table_id,
+             COALESCE(MIN(co."tableName"), MIN(rt.name))                  AS table_name,
+             COUNT(*)::int                                                AS orders,
+             COALESCE(SUM(co."totalPrice"), 0)::float                     AS revenue
+      FROM customer_order co
+      LEFT JOIN restaurant_table rt ON co."tableId" = rt.id
+      WHERE co."restaurantId" = ${restaurantId}
+        AND co.status         != 'CANCELED'
+        AND co."createdAt"   >= ${start}
+        AND co."createdAt"   <= ${end}
+        AND co."tableId"     IS NOT NULL
+        AND co."tableId"     != ''
+      GROUP BY co."tableId"
       ORDER BY COUNT(*) DESC
       LIMIT 10
     `;
     return rows.map((r) => ({
-      table: r.table_name || r.table_id || 'Unknown Table',
+      table: r.table_name || 'Unknown Table',
       orders: r.orders,
       revenue: Math.round(Number(r.revenue) * 100) / 100,
     }));

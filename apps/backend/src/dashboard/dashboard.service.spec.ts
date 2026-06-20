@@ -311,7 +311,7 @@ describe('DashboardService', () => {
         .mockResolvedValueOnce([{ name: 'Pizza', quantity: 2, revenue: 20.0 }]) // getTopItems
         .mockResolvedValueOnce([]) // getPeakHours
         .mockResolvedValueOnce([{ category: 'Food', revenue: 20.0 }]) // getCategoryBreakdown
-        .mockResolvedValueOnce([{ table_id: 'table-1', orders: 1, revenue: 50.0 }]); // getOrdersByTable
+        .mockResolvedValueOnce([{ table_id: 'table-1', table_name: 'Table 1', orders: 1, revenue: 50.0 }]); // getOrdersByTable
     });
 
     it('populates topItems when orderItems exist', async () => {
@@ -342,7 +342,25 @@ describe('DashboardService', () => {
       )) as AnalyticsResult;
 
       expect(result['ordersByTable']).toHaveLength(1);
-      expect(result['ordersByTable'][0].table).toBe('table-1');
+      expect(result['ordersByTable'][0].table).toBe('Table 1');
+    });
+
+    it('falls back to "Unknown Table" when table_name is null and no restaurant_table match', async () => {
+      // Re-mock getOrdersByTable query: null table_name
+      mockPrisma.$queryRaw.mockReset();
+      mockPrisma.$queryRaw
+        .mockResolvedValueOnce([{ name: 'Pizza', quantity: 2, revenue: 20.0 }])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ category: 'Food', revenue: 20.0 }])
+        .mockResolvedValueOnce([{ table_id: 'orphan-id', table_name: null, orders: 1, revenue: 20.0 }]);
+
+      const result = (await service.getAnalytics(
+        'rest-1',
+        7,
+      )) as AnalyticsResult;
+
+      expect(result['ordersByTable']).toHaveLength(1);
+      expect(result['ordersByTable'][0].table).toBe('Unknown Table');
     });
 
     it('calls order.findMany and returns non-empty revenueTrend array', async () => {

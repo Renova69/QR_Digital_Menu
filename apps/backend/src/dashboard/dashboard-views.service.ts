@@ -60,16 +60,20 @@ export class DashboardViewsService implements OnModuleInit {
   }
 
   private async createViews(): Promise<void> {
-    // Revenue + order count per restaurant per UTC day
+    // Revenue + order count per restaurant per UTC day.
+    // Drop first so the WHERE clause can be altered across deploys.
+    await this.prisma.$executeRawUnsafe(
+      `DROP MATERIALIZED VIEW IF EXISTS mv_daily_stats CASCADE`,
+    );
     await this.prisma.$executeRawUnsafe(`
-      CREATE MATERIALIZED VIEW IF NOT EXISTS mv_daily_stats AS
+      CREATE MATERIALIZED VIEW mv_daily_stats AS
       SELECT
         o."restaurantId",
         DATE_TRUNC('day', o."createdAt") AS day_utc,
         COUNT(*)::int                    AS order_count,
         COALESCE(SUM(o."totalPrice"), 0) AS revenue
       FROM customer_order o
-      WHERE o.status = 'SERVED'
+      WHERE o.status != 'CANCELED'
       GROUP BY o."restaurantId", DATE_TRUNC('day', o."createdAt")
     `);
 
@@ -78,9 +82,12 @@ export class DashboardViewsService implements OnModuleInit {
         ON mv_daily_stats ("restaurantId", day_utc)
     `);
 
-    // Order count per restaurant per UTC day × UTC hour (for timezone-aware reshaping at read time)
+    // Order count per restaurant per UTC day × UTC hour (for timezone-aware reshaping at read time).
+    await this.prisma.$executeRawUnsafe(
+      `DROP MATERIALIZED VIEW IF EXISTS mv_peak_hours CASCADE`,
+    );
     await this.prisma.$executeRawUnsafe(`
-      CREATE MATERIALIZED VIEW IF NOT EXISTS mv_peak_hours AS
+      CREATE MATERIALIZED VIEW mv_peak_hours AS
       SELECT
         o."restaurantId",
         DATE_TRUNC('day', o."createdAt")        AS day_utc,
@@ -96,9 +103,12 @@ export class DashboardViewsService implements OnModuleInit {
         ON mv_peak_hours ("restaurantId", day_utc, hour_utc)
     `);
 
-    // Item-level stats per restaurant per UTC day
+    // Item-level stats per restaurant per UTC day.
+    await this.prisma.$executeRawUnsafe(
+      `DROP MATERIALIZED VIEW IF EXISTS mv_item_stats CASCADE`,
+    );
     await this.prisma.$executeRawUnsafe(`
-      CREATE MATERIALIZED VIEW IF NOT EXISTS mv_item_stats AS
+      CREATE MATERIALIZED VIEW mv_item_stats AS
       SELECT
         o."restaurantId",
         oi."menuItemId",
@@ -110,7 +120,7 @@ export class DashboardViewsService implements OnModuleInit {
       FROM order_item oi
       JOIN customer_order o  ON oi."orderId"    = o.id
       JOIN menu_item     mi  ON oi."menuItemId" = mi.id
-      WHERE o.status = 'SERVED'
+      WHERE o.status != 'CANCELED'
         AND oi."menuItemId" IS NOT NULL
       GROUP BY o."restaurantId", oi."menuItemId", mi.name, mi.price, DATE_TRUNC('day', o."createdAt")
     `);

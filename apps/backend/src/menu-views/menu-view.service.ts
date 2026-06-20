@@ -82,7 +82,7 @@ export class MenuViewService {
         }),
         this.prisma.menuView.groupBy({
           by: ['tableId', 'tableName'],
-          where: { restaurantId, createdAt: { gte: since } },
+          where: { restaurantId, createdAt: { gte: since }, tableId: { not: null } },
           _count: { id: true },
         }),
         this.prisma.$queryRaw<UniqueTotalRow[]>`
@@ -100,6 +100,7 @@ export class MenuViewService {
           WHERE "restaurantId" = ${restaurantId}
             AND "createdAt" >= ${since}
             AND "visitorId" IS NOT NULL
+            AND "tableId" IS NOT NULL
           GROUP BY "tableId", "tableName"
         `,
       ]);

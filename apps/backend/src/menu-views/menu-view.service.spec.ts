@@ -169,5 +169,22 @@ describe('MenuViewService', () => {
 
       await expect(service.getScanStats('rest1')).resolves.toBeDefined();
     });
+
+    it('filters out rows with null tableId from per-table stats', async () => {
+      mockPrisma.menuView.groupBy.mockResolvedValue([
+        { tableId: 'table1', tableName: 'Table 1', _count: { id: 3 } },
+      ]);
+      mockPrisma.$queryRaw
+        .mockResolvedValueOnce([{ count: 4 }])
+        .mockResolvedValueOnce([
+          { tableId: 'table1', tableName: 'Table 1', unique_visitors: 2 },
+        ]);
+
+      const result = await service.getScanStats('rest1');
+
+      // Only the non-null tableId rows appear
+      expect(result.perTable).toHaveLength(1);
+      expect(result.perTable[0].tableName).toBe('Table 1');
+    });
   });
 });

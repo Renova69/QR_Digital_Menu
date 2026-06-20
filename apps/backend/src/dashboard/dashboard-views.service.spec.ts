@@ -20,11 +20,11 @@ describe('DashboardViewsService', () => {
   });
 
   describe('onModuleInit', () => {
-    it('runs 6 SQL statements and sets ready to true', async () => {
+    it('runs 9 SQL statements (3 DROP + 3 CREATE + 3 INDEX) and sets ready to true', async () => {
       await service.onModuleInit();
 
       expect(service.isReady()).toBe(true);
-      expect(mockPrisma.$executeRawUnsafe).toHaveBeenCalledTimes(6);
+      expect(mockPrisma.$executeRawUnsafe).toHaveBeenCalledTimes(9);
     });
 
     it('leaves ready false and swallows error when view creation fails', async () => {

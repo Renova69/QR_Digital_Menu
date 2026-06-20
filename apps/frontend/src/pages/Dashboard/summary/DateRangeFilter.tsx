@@ -15,7 +15,6 @@ interface DateRangeFilterProps {
 }
 
 const isoToDisplayDate = (value?: string) => {
-  const { t } = useTranslation();
   if (!value) return '';
   const [year, month, day] = value.split('-');
   if (!year || !month || !day) return '';
