@@ -9,6 +9,7 @@ export enum FeatureFlag {
   ANALYTICS_FULL = 'analytics:full',
   PAYMENTS_EPAY = 'payments:epay',
   PAYMENTS_BORICA = 'payments:borica',
+  PAYMENTS_MYPOS = 'payments:mypos',
   PAYMENTS_STRIPE = 'payments:stripe',
   LANGUAGES_MULTI = 'languages:multi',
   BRANDING_CUSTOM = 'branding:custom',

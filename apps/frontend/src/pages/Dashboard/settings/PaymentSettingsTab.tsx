@@ -17,6 +17,9 @@ const PaymentSettingsTab: React.FC = () => {
   const { activeRestaurant, fetchRestaurants } = useRestaurantContext();
   const { t } = useTranslation();
   const isStripeFeature = useFeature("payments:stripe");
+  const isEpayFeature = useFeature("payments:epay");
+  const isBoricaFeature = useFeature("payments:borica");
+  const isMyposFeature = useFeature("payments:mypos");
 
   const [paymentsEnabled, setPaymentsEnabled] = useState(false);
   const [tipsEnabled, setTipsEnabled] = useState(false);
@@ -38,6 +41,15 @@ const PaymentSettingsTab: React.FC = () => {
   const [boricaPrivateKeyConfigured, setBoricaPrivateKeyConfigured] = useState(false);
   const [boricaPublicCert, setBoricaPublicCert] = useState("");
   const [boricaCurrency, setBoricaCurrency] = useState<"EUR" | "BGN">("EUR");
+  const [myposEnabled, setMyposEnabled] = useState(false);
+  const [myposMode, setMyposMode] = useState<"DEMO" | "LIVE">("DEMO");
+  const [myposClientNumber, setMyposClientNumber] = useState("");
+  const [myposStoreId, setMyposStoreId] = useState("");
+  const [myposKeyIndex, setMyposKeyIndex] = useState("");
+  const [myposPrivateKey, setMyposPrivateKey] = useState("");
+  const [myposPrivateKeyConfigured, setMyposPrivateKeyConfigured] = useState(false);
+  const [myposPublicCert, setMyposPublicCert] = useState("");
+  const [myposCurrency, setMyposCurrency] = useState<"EUR">("EUR");
   const [notifyAllStaffOnPayment, setNotifyAllStaffOnPayment] = useState(true);
   const [newTipOption, setNewTipOption] = useState("");
   const [tipError, setTipError] = useState("");
@@ -72,6 +84,15 @@ const PaymentSettingsTab: React.FC = () => {
       setBoricaPrivateKeyConfigured((activeRestaurant as any).boricaPrivateKeyConfigured ?? false);
       setBoricaPublicCert((activeRestaurant as any).boricaPublicCert ?? "");
       setBoricaCurrency((((activeRestaurant as any).boricaCurrency) ?? "EUR") as "EUR" | "BGN");
+      setMyposEnabled((activeRestaurant as any).myposEnabled ?? false);
+      setMyposMode(((activeRestaurant as any).myposMode ?? "DEMO") as "DEMO" | "LIVE");
+      setMyposClientNumber((activeRestaurant as any).myposClientNumber ?? "");
+      setMyposStoreId((activeRestaurant as any).myposStoreId ?? "");
+      setMyposKeyIndex((activeRestaurant as any).myposKeyIndex ?? "");
+      setMyposPrivateKey("");
+      setMyposPrivateKeyConfigured((activeRestaurant as any).myposPrivateKeyConfigured ?? false);
+      setMyposPublicCert((activeRestaurant as any).myposPublicCert ?? "");
+      setMyposCurrency((((activeRestaurant as any).myposCurrency) ?? "EUR") as "EUR");
       setNotifyAllStaffOnPayment(activeRestaurant.notifyAllStaffOnPayment ?? true);
       setDisconnectConfirming(false);
       setStripeError("");
@@ -98,6 +119,7 @@ const PaymentSettingsTab: React.FC = () => {
     try {
       const trimmedSecret = epaySecret.trim();
       const trimmedBoricaKey = boricaPrivateKey.trim();
+      const trimmedMyposKey = myposPrivateKey.trim();
       await updateRestaurant(activeRestaurant.id, {
         paymentsEnabled,
         tipsEnabled,
@@ -117,6 +139,14 @@ const PaymentSettingsTab: React.FC = () => {
         boricaPublicCert: boricaPublicCert.trim() || null,
         boricaCurrency,
         ...(trimmedBoricaKey ? { boricaPrivateKey: trimmedBoricaKey } : {}),
+        myposEnabled,
+        myposMode,
+        myposClientNumber: myposClientNumber.trim() || null,
+        myposStoreId: myposStoreId.trim() || null,
+        myposKeyIndex: myposKeyIndex.trim() || null,
+        myposPublicCert: myposPublicCert.trim() || null,
+        myposCurrency,
+        ...(trimmedMyposKey ? { myposPrivateKey: trimmedMyposKey } : {}),
       } as any);
       await fetchRestaurants();
       if (trimmedSecret) {
@@ -126,6 +156,10 @@ const PaymentSettingsTab: React.FC = () => {
       if (trimmedBoricaKey) {
         setBoricaPrivateKeyConfigured(true);
         setBoricaPrivateKey("");
+      }
+      if (trimmedMyposKey) {
+        setMyposPrivateKeyConfigured(true);
+        setMyposPrivateKey("");
       }
       setStatus({ loading: false, error: "", success: t("settings.updatedSuccess") });
       setTimeout(() => setStatus((s) => ({ ...s, success: "" })), 3000);
@@ -206,6 +240,16 @@ const PaymentSettingsTab: React.FC = () => {
        boricaPublicCert.trim()))
   );
 
+  const myposConfigured = !!(
+    myposEnabled &&
+    (myposMode === "DEMO" ||
+      (myposClientNumber.trim() &&
+       myposStoreId.trim() &&
+       myposKeyIndex.trim() &&
+       (myposPrivateKeyConfigured || myposPrivateKey.trim()) &&
+       myposPublicCert.trim()))
+  );
+
   // Status summary pills
   const pills = [
     {
@@ -233,6 +277,12 @@ const PaymentSettingsTab: React.FC = () => {
               ? t("payment.settings.statusBoricaConfigured", { defaultValue: "BORICA configured" })
               : t("payment.settings.statusBoricaNotConfigured", { defaultValue: "BORICA not configured" }),
             active: boricaConfigured,
+          },
+          {
+            label: myposConfigured
+              ? t("payment.settings.statusMyposConfigured", { defaultValue: "myPOS configured" })
+              : t("payment.settings.statusMyposNotConfigured", { defaultValue: "myPOS not configured" }),
+            active: myposConfigured,
           },
           {
             label: tipsEnabled
@@ -285,16 +335,16 @@ const PaymentSettingsTab: React.FC = () => {
             aria-label={t("payment.settings.acceptPayments")}
           />
         </div>
-        {paymentsEnabled && !stripeOnboarded && !epayConfigured && !boricaConfigured && (
+        {paymentsEnabled && !stripeOnboarded && !epayConfigured && !boricaConfigured && !myposConfigured && (
           <p className="mt-3 text-sm text-amber-600 bg-amber-50 dark:bg-amber-950 px-3 py-2 rounded-lg flex items-center gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-            {t("payment.settings.configureProviderWarning", { defaultValue: "Connect Stripe or configure ePay.bg/BORICA before accepting online payments." })}
+            {t("payment.settings.configureProviderWarning", { defaultValue: "Connect Stripe or configure ePay.bg/BORICA/myPOS before accepting online payments." })}
           </p>
         )}
       </div>
 
       {/* ── Stripe Connect ── */}
-      {paymentsEnabled && isStripeFeature && (
+      {paymentsEnabled && isEpayFeature && (
         <div className="border-b border-border pb-6">
           <h3 className={`${sectionHeading} mb-4`}>{t("payment.settings.stripeConnect")}</h3>
           {stripeOnboarded ? (
@@ -357,7 +407,7 @@ const PaymentSettingsTab: React.FC = () => {
       )}
 
       {/* ── ePay.bg ── */}
-      {paymentsEnabled && isStripeFeature && (
+      {paymentsEnabled && isBoricaFeature && (
         <div className="border-b border-border pb-6">
           <div className="flex items-center justify-between mb-2">
             <div>
@@ -588,6 +638,127 @@ const PaymentSettingsTab: React.FC = () => {
               {boricaMode === "DEMO" && (
                 <p className="text-xs text-muted-foreground sm:col-span-2">
                   {t("payment.settings.boricaDemoNote", { defaultValue: "DEMO mode uses the platform's public sandbox terminal. No keys required. Test with cards 5100770000000022 (Mastercard) or 4341792000000044 (Visa)." })}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* -- myPOS -- */}
+      {paymentsEnabled && isMyposFeature && (
+        <div className="border-b border-border pb-6">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h3 className={sectionHeading}>myPOS</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                {t("payment.settings.myposDesc", { defaultValue: "Hosted card payments via myPOS Checkout. Demo uses sandbox credentials; Live requires a verified myPOS merchant account and Checkout store keys." })}
+              </p>
+            </div>
+            <ToggleSwitch checked={myposEnabled} onChange={setMyposEnabled} aria-label="myPOS" />
+          </div>
+          {myposEnabled && (
+            <span className={`inline-flex items-center gap-1.5 text-sm font-medium mb-3 ${myposConfigured ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+              <CheckCircle2 className="w-4 h-4" />
+              {myposConfigured
+                ? t("payment.settings.myposConfigured", { defaultValue: "myPOS Configured" })
+                : t("payment.settings.myposIncomplete", { defaultValue: "myPOS credentials incomplete" })}
+            </span>
+          )}
+
+          {myposEnabled && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {t("payment.settings.myposMode", { defaultValue: "Mode" })}
+                </span>
+                <select
+                  value={myposMode}
+                  onChange={(e) => setMyposMode(e.target.value as "DEMO" | "LIVE")}
+                  className={inputCls}
+                >
+                  <option value="DEMO">{t("payment.settings.myposDemo", { defaultValue: "Demo (sandbox)" })}</option>
+                  <option value="LIVE">{t("payment.settings.myposLive", { defaultValue: "Live" })}</option>
+                </select>
+              </label>
+
+              <div className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {t("payment.settings.myposCurrency", { defaultValue: "Currency" })}
+                </span>
+                <p className="text-sm text-foreground px-3 py-2 border border-border rounded-lg bg-muted/40">
+                  {t('auto.eUR', 'EUR')}{t("payment.settings.myposCurrencyNote", { defaultValue: "(only EUR is supported)" })}
+                </p>
+              </div>
+
+              {myposMode === "LIVE" && (
+                <>
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t("payment.settings.myposClientNumber", { defaultValue: "Client number / Wallet number" })}
+                    </span>
+                    <input value={myposClientNumber} onChange={(e) => setMyposClientNumber(e.target.value.trim())} className={inputCls} placeholder={t('auto.eG61938166610', 'e.g. 61938166610')} />
+                  </label>
+
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t("payment.settings.myposStoreId", { defaultValue: "Store ID" })}
+                    </span>
+                    <input value={myposStoreId} onChange={(e) => setMyposStoreId(e.target.value.trim())} className={inputCls} placeholder={t('auto.eG000000000000010', 'e.g. 000000000000010')} />
+                  </label>
+
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t("payment.settings.myposKeyIndex", { defaultValue: "Key index" })}
+                    </span>
+                    <input value={myposKeyIndex} onChange={(e) => setMyposKeyIndex(e.target.value.trim())} className={inputCls} placeholder="1" />
+                  </label>
+
+                  <div className="space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t("payment.settings.myposNotifyUrl", { defaultValue: "Notify URL" })}
+                    </span>
+                    <p className="text-xs text-muted-foreground px-3 py-2 border border-border rounded-lg bg-muted/40">
+                      {t("payment.settings.myposNotifyNote", { defaultValue: "Uses BACKEND_URL + /api/v1/payments/mypos/notify. For Live, myPOS requires HTTPS without a custom port." })}
+                    </p>
+                  </div>
+
+                  <label className="space-y-1 sm:col-span-2">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t("payment.settings.myposPrivateKey", { defaultValue: "Merchant private key (PEM)" })}
+                    </span>
+                    <textarea
+                      value={myposPrivateKey}
+                      onChange={(e) => setMyposPrivateKey(e.target.value)}
+                      className={inputCls + " min-h-[80px] font-mono text-xs"}
+                      placeholder={myposPrivateKeyConfigured ? "••••••••" : "-----BEGIN RSA PRIVATE KEY-----\n..."}
+                      autoComplete="off"
+                    />
+                    {myposPrivateKeyConfigured && (
+                      <p className="text-xs text-muted-foreground">
+                        {t("payment.settings.myposKeyConfigured", { defaultValue: "Key saved. Leave blank to keep it unchanged." })}
+                      </p>
+                    )}
+                  </label>
+
+                  <label className="space-y-1 sm:col-span-2">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t("payment.settings.myposPublicCert", { defaultValue: "myPOS public certificate (PEM)" })}
+                    </span>
+                    <textarea
+                      value={myposPublicCert}
+                      onChange={(e) => setMyposPublicCert(e.target.value)}
+                      className={inputCls + " min-h-[80px] font-mono text-xs"}
+                      placeholder={t('auto.BEGINCERTIFICATEN', '-----BEGIN CERTIFICATE-----\n...')}
+                      autoComplete="off"
+                    />
+                  </label>
+                </>
+              )}
+
+              {myposMode === "DEMO" && (
+                <p className="text-xs text-muted-foreground sm:col-span-2">
+                  {t("payment.settings.myposDemoNote", { defaultValue: "DEMO mode uses the official myPOS sandbox data. No myPOS merchant account or registered company is required for sandbox testing, but the notify URL still needs to be reachable by myPOS." })}
                 </p>
               )}
             </div>

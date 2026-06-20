@@ -50,7 +50,7 @@ vi.mock('@stripe/react-stripe-js', () => ({
   useElements: () => null,
 }));
 
-function billWithProviders(paymentProviders: Array<'STRIPE' | 'EPAY' | 'BORICA'>) {
+function billWithProviders(paymentProviders: Array<'STRIPE' | 'EPAY' | 'BORICA' | 'MYPOS'>) {
   return {
     orders: [
       {
@@ -246,6 +246,47 @@ describe('PaymentModal hosted provider choices', () => {
     );
     await screen.findByText('Opening BORICA secure checkout...');
     expect(screen.getByDisplayValue('V1800001')).toBeTruthy();
+
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    expect(submitSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('auto-submits returned myPOS form fields', async () => {
+    vi.useFakeTimers();
+    const submitSpy = vi
+      .spyOn(HTMLFormElement.prototype, 'submit')
+      .mockImplementation(() => undefined);
+    apiMocks.getSessionBill.mockResolvedValueOnce(billWithProviders(['MYPOS']));
+    apiMocks.createCheckout.mockResolvedValueOnce({
+      provider: 'MYPOS',
+      paymentId: 'pay-mypos',
+      total: 20,
+      tipAmount: 0,
+      action: 'https://www.mypos.com/vmp/checkout-test',
+      method: 'POST',
+      fields: {
+        IPCmethod: 'IPCPurchase',
+        OrderID: 'MP123',
+        Signature: 'signed',
+      },
+    });
+
+    render(<PaymentModal sessionToken="tok1" onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Pay by card (myPOS)' }));
+
+    await waitFor(() =>
+      expect(apiMocks.createCheckout).toHaveBeenCalledWith('tok1', {
+        provider: 'MYPOS',
+        tipPercent: 0,
+      }),
+    );
+    await screen.findByText('Opening myPOS secure checkout...');
+    expect(screen.getByDisplayValue('IPCPurchase')).toBeTruthy();
+    expect(screen.getByDisplayValue('MP123')).toBeTruthy();
 
     act(() => {
       vi.advanceTimersByTime(200);

@@ -1,7 +1,7 @@
 import { ConflictException } from '@nestjs/common';
 import { PaymentService } from './payment.service';
 
-type Provider = 'STRIPE' | 'EPAY' | 'BORICA';
+type Provider = 'STRIPE' | 'EPAY' | 'BORICA' | 'MYPOS';
 
 const cardholder = {
   cardholderName: 'Maria Petrova',
@@ -51,6 +51,14 @@ function createHarness() {
     boricaPrivateKeyEncrypted: null,
     boricaPublicCert: null,
     boricaCurrency: 'EUR',
+    myposEnabled: true,
+    myposMode: 'DEMO',
+    myposClientNumber: null,
+    myposStoreId: null,
+    myposKeyIndex: null,
+    myposPrivateKeyEncrypted: null,
+    myposPublicCert: null,
+    myposCurrency: 'EUR',
   };
   const session = {
     id: 's1',
@@ -181,6 +189,14 @@ function createHarness() {
     getActionUrl: jest.fn(),
     queryTransactionStatus: jest.fn(async () => null),
   };
+  const mypos = {
+    createCheckoutForm: jest.fn(({ orderId }: any) => ({
+      action: 'https://www.mypos.com/vmp/checkout-test',
+      method: 'POST' as const,
+      fields: { OrderID: orderId, Signature: 'signed' },
+    })),
+    verifyNotification: jest.fn(),
+  };
   const events = {
     emitToRestaurant: jest.fn(),
     emitTableStatusChanged: jest.fn(),
@@ -193,6 +209,7 @@ function createHarness() {
     stripe as any,
     epay as any,
     borica as any,
+    mypos as any,
     events as any,
     features as any,
   );
@@ -258,8 +275,13 @@ describe('Payment abandonment behavior proof', () => {
       ['EPAY', 'BORICA'],
       ['BORICA', 'STRIPE'],
       ['BORICA', 'EPAY'],
+      ['BORICA', 'MYPOS'],
       ['STRIPE', 'EPAY'],
       ['STRIPE', 'BORICA'],
+      ['STRIPE', 'MYPOS'],
+      ['MYPOS', 'STRIPE'],
+      ['MYPOS', 'EPAY'],
+      ['MYPOS', 'BORICA'],
     ];
 
     for (const [from, to] of pairs) {
@@ -293,6 +315,7 @@ describe('Payment abandonment behavior proof', () => {
     await expect(checkout(service, 'STRIPE')).rejects.toBeInstanceOf(ConflictException);
     await expect(checkout(service, 'EPAY')).rejects.toBeInstanceOf(ConflictException);
     await expect(checkout(service, 'BORICA')).rejects.toBeInstanceOf(ConflictException);
+    await expect(checkout(service, 'MYPOS')).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('browser-back abandon signal hides the pending hosted checkout from dashboard history', async () => {

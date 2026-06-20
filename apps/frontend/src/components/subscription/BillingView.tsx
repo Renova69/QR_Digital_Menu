@@ -57,7 +57,7 @@ const FEATURE_GROUPS: Array<{ key: string; features: FeatureFlag[] }> = [
   },
   {
     key: 'payments',
-    features: ['payments:stripe'],
+    features: ['payments:stripe', 'payments:epay', 'payments:borica', 'payments:mypos'],
   },
   {
     key: 'growth',
@@ -79,6 +79,9 @@ const FEATURE_LABELS: Record<FeatureFlag, { key: string; fallback: string }> = {
   'analytics:basic': { key: 'subscription.features.analyticsBasic', fallback: 'Basic analytics' },
   'analytics:full': { key: 'subscription.features.analyticsFull', fallback: 'Full analytics' },
   'payments:stripe': { key: 'subscription.features.stripePayments', fallback: 'Stripe payments' },
+  'payments:epay': { key: 'subscription.features.epayPayments', fallback: 'ePay.bg payments' },
+  'payments:borica': { key: 'subscription.features.boricaPayments', fallback: 'BORICA payments' },
+  'payments:mypos': { key: 'subscription.features.myposPayments', fallback: 'myPOS payments' },
   'languages:multi': { key: 'subscription.features.multiLanguage', fallback: 'Multi-language menu' },
   'branding:custom': { key: 'subscription.features.customBranding', fallback: 'Custom branding' },
   loyalty: { key: 'subscription.features.loyalty', fallback: 'Loyalty program' },

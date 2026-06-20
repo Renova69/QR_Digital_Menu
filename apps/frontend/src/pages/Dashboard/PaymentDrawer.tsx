@@ -17,7 +17,8 @@ import {
 function getMethodLabel(method: string, t: (key: string, options?: any) => string) {
   if (method === 'STRIPE') return t('payments.stripeMethod');
   if (method === 'EPAY') return 'ePay.bg';
-  if (method === 'MYPOS') return t('payments.cardMethod');
+  if (method === 'BORICA') return 'BORICA';
+  if (method === 'MYPOS') return 'myPOS';
   if (method === 'CASH') return t('payments.cashMethod');
   return method;
 }

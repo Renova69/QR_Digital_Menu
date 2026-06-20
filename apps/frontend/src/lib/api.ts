@@ -265,6 +265,22 @@ export const getPaymentOverview = (
         epayMerchantEmail: string | null;
         epayPage: 'credit_paydirect' | 'paylogin';
         epaySecretConfigured: boolean;
+        boricaEnabled?: boolean;
+        boricaMode?: 'DEMO' | 'LIVE';
+        boricaTerminalId?: string | null;
+        boricaMerchantId?: string | null;
+        boricaMerchantName?: string | null;
+        boricaPublicCert?: string | null;
+        boricaCurrency?: 'EUR';
+        boricaPrivateKeyConfigured?: boolean;
+        myposEnabled?: boolean;
+        myposMode?: 'DEMO' | 'LIVE';
+        myposClientNumber?: string | null;
+        myposStoreId?: string | null;
+        myposKeyIndex?: string | null;
+        myposPublicCert?: string | null;
+        myposCurrency?: 'EUR';
+        myposPrivateKeyConfigured?: boolean;
         platformFeePercent: number;
         tipsEnabled: boolean;
         tipOptions: number[];
@@ -485,7 +501,7 @@ export const createPaymentIntent = async (token: string, tipPercent: number) => 
   };
 };
 
-export type CheckoutProvider = 'STRIPE' | 'EPAY' | 'BORICA';
+export type CheckoutProvider = 'STRIPE' | 'EPAY' | 'BORICA' | 'MYPOS';
 
 export type BoricaCardholderDetails = {
   cardholderName: string;
@@ -522,7 +538,21 @@ export type BoricaCheckoutResponse = {
   fields: Record<string, string>;
 };
 
-export type CheckoutResponse = StripeCheckoutResponse | EpayCheckoutResponse | BoricaCheckoutResponse;
+export type MyposCheckoutResponse = {
+  provider: 'MYPOS';
+  paymentId: string;
+  total: number;
+  tipAmount: number;
+  action: string;
+  method: 'POST';
+  fields: Record<string, string>;
+};
+
+export type CheckoutResponse =
+  | StripeCheckoutResponse
+  | EpayCheckoutResponse
+  | BoricaCheckoutResponse
+  | MyposCheckoutResponse;
 
 export const createCheckout = async (
   token: string,

@@ -253,7 +253,7 @@ const PublicMenuPage = () => {
     });
   };
 
-  // Handle hosted-checkout return params (ePay / BORICA redirect back to menu).
+  // Handle hosted-checkout return params (ePay / BORICA / myPOS redirect back to menu).
   // Runs once on mount and on URL change.  Strips the param to keep the URL clean.
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -270,7 +270,11 @@ const PublicMenuPage = () => {
       (sessionKey ? localStorage.getItem(sessionKey) : null) ??
       findHostedCheckoutToken();
 
-    if (paymentOutcome === 'borica-ok' || paymentOutcome === 'epay-ok') {
+    if (
+      paymentOutcome === 'borica-ok' ||
+      paymentOutcome === 'epay-ok' ||
+      paymentOutcome === 'mypos-ok'
+    ) {
       // Clear the stored session token so a new one is created on the next order.
       clearHostedCheckoutMarker(storedToken);
       if (sessionKey) localStorage.removeItem(sessionKey);
@@ -284,7 +288,11 @@ const PublicMenuPage = () => {
       params.delete('payment');
       const next = params.toString() ? `?${params.toString()}` : location.pathname;
       navigate(next, { replace: true });
-    } else if (paymentOutcome === 'borica-cancel' || paymentOutcome === 'epay-cancel') {
+    } else if (
+      paymentOutcome === 'borica-cancel' ||
+      paymentOutcome === 'epay-cancel' ||
+      paymentOutcome === 'mypos-cancel'
+    ) {
       // Payment was cancelled — abandon any PENDING payment row so the customer
       // can choose a different provider without hitting the "already processing" guard.
       if (storedToken) {

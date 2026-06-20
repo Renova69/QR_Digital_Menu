@@ -26,6 +26,7 @@ const PROFESSIONAL_FEATURES: FeatureFlag[] = [
   FeatureFlag.ANALYTICS_FULL,
   FeatureFlag.PAYMENTS_EPAY,
   FeatureFlag.PAYMENTS_BORICA,
+  FeatureFlag.PAYMENTS_MYPOS,
   FeatureFlag.PAYMENTS_STRIPE,
   FeatureFlag.LANGUAGES_MULTI,
   FeatureFlag.BRANDING_CUSTOM,

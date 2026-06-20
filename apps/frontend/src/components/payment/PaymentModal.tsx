@@ -82,7 +82,13 @@ type EpayPaymentState = HostedFormPaymentState & { provider: 'EPAY' };
 
 type BoricaPaymentState = HostedFormPaymentState & { provider: 'BORICA' };
 
-type PaymentState = StripePaymentState | EpayPaymentState | BoricaPaymentState;
+type MyposPaymentState = HostedFormPaymentState & { provider: 'MYPOS' };
+
+type PaymentState =
+  | StripePaymentState
+  | EpayPaymentState
+  | BoricaPaymentState
+  | MyposPaymentState;
 
 function showGroupHeaders(orders: BillOrder[]): boolean {
   return orders.some((o) => o.source === 'POS');
@@ -246,7 +252,12 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
   }, [bill]);
 
   useEffect(() => {
-    if (step !== 'redirect' || (payment?.provider !== 'EPAY' && payment?.provider !== 'BORICA')) return;
+    if (
+      step !== 'redirect' ||
+      (payment?.provider !== 'EPAY' &&
+        payment?.provider !== 'BORICA' &&
+        payment?.provider !== 'MYPOS')
+    ) return;
     const timer = window.setTimeout(() => {
       try {
         sessionStorage.setItem(
@@ -321,7 +332,13 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
       });
       setPayment(result);
       setPaymentInitiated(true);
-      setStep(result.provider === 'EPAY' || result.provider === 'BORICA' ? 'redirect' : 'pay');
+      setStep(
+        result.provider === 'EPAY' ||
+          result.provider === 'BORICA' ||
+          result.provider === 'MYPOS'
+          ? 'redirect'
+          : 'pay',
+      );
     } catch (e: any) {
       setError(e.response?.data?.message || t('payment.failedToLoad', 'Failed to load payment options'));
     } finally {
@@ -471,7 +488,13 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
                           : 'border-border bg-background hover:bg-muted'
                       }`}
                     >
-                      {provider === 'EPAY' ? 'ePay.bg' : provider === 'BORICA' ? t('payment.cardBorica', 'Card (BORICA)') : t('payment.cardOnline', 'Card online')}
+                      {provider === 'EPAY'
+                        ? 'ePay.bg'
+                        : provider === 'BORICA'
+                          ? t('payment.cardBorica', 'Card (BORICA)')
+                          : provider === 'MYPOS'
+                            ? t('payment.cardMypos', 'Card (myPOS)')
+                            : t('payment.cardOnline', 'Card online')}
                     </button>
                   ))}
                 </div>
@@ -560,7 +583,9 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
                   ? t('payment.continueToEpay', 'Continue to ePay.bg')
                   : effectiveProvider === 'BORICA'
                     ? t('payment.continueToBorica', 'Pay by card (BORICA)')
-                    : t('payment.continue', 'Continue')}
+                    : effectiveProvider === 'MYPOS'
+                      ? t('payment.continueToMypos', 'Pay by card (myPOS)')
+                      : t('payment.continue', 'Continue')}
             </Button>
           </>
         )}
@@ -580,7 +605,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
           </Elements>
         )}
 
-        {step === 'redirect' && (payment?.provider === 'EPAY' || payment?.provider === 'BORICA') && (
+        {step === 'redirect' && (payment?.provider === 'EPAY' || payment?.provider === 'BORICA' || payment?.provider === 'MYPOS') && (
           <div className="space-y-4 py-4">
             <div className="text-sm text-muted-foreground space-y-1">
               <div className="flex justify-between font-semibold text-foreground">
@@ -594,6 +619,8 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
             <p className="text-sm text-muted-foreground">
               {payment.provider === 'BORICA'
                 ? t('payment.redirectingToBorica', 'Opening BORICA secure checkout...')
+                : payment.provider === 'MYPOS'
+                  ? t('payment.redirectingToMypos', 'Opening myPOS secure checkout...')
                 : t('payment.redirectingToEpay', 'Opening ePay.bg secure checkout...')}
             </p>
             <form
@@ -620,6 +647,8 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
               <Button type="submit" className="w-full">
                 {payment.provider === 'BORICA'
                   ? t('payment.openBorica', 'Open BORICA checkout')
+                  : payment.provider === 'MYPOS'
+                    ? t('payment.openMypos', 'Open myPOS checkout')
                   : t('payment.openEpay', 'Open ePay.bg')}
               </Button>
             </form>

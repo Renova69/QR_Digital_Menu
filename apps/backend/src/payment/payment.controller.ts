@@ -80,7 +80,7 @@ export class PaymentController {
   createCheckout(
     @Param('token') token: string,
     @Body() body: {
-      provider?: 'STRIPE' | 'EPAY' | 'BORICA';
+      provider?: 'STRIPE' | 'EPAY' | 'BORICA' | 'MYPOS';
       tipPercent?: number;
       boricaCardholder?: {
         cardholderName?: string;
@@ -93,7 +93,8 @@ export class PaymentController {
     const provider = (body.provider ?? 'STRIPE').toUpperCase() as
       | 'STRIPE'
       | 'EPAY'
-      | 'BORICA';
+      | 'BORICA'
+      | 'MYPOS';
     return this.paymentService.createCheckout(
       token,
       provider,
@@ -289,6 +290,14 @@ export class PaymentController {
   @SkipThrottle()
   handleEpayNotify(@Body() body: any) {
     return this.paymentService.handleEpayNotification(body);
+  }
+
+  @Post('mypos/notify')
+  @HttpCode(HttpStatus.OK)
+  @Header('Content-Type', 'text/plain; charset=utf-8')
+  @SkipThrottle()
+  handleMyposNotify(@Body() body: any) {
+    return this.paymentService.handleMyposNotification(body);
   }
 
   @Post('borica/callback')
