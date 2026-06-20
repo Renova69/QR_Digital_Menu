@@ -52,9 +52,9 @@ _None found._
 ### CRITICAL
 | # | Finding | File:Line | Status |
 |---|---------|-----------|--------|
-| C1 | `forceOpenSession` does not abandon PENDING payments before closing old session — customer charged via Stripe, system never acknowledges | `payment.service.ts:2501-2510` | **[FIXED by CODEX]** — Abandons checkout, then blocks force-open if any payment remains PENDING after cancellation |
-| C2 | `closeSessionWithProvider` does not abandon PENDING payments — concurrent Stripe checkout + waiter card/cash close = double-charge | `payment.service.ts:2255-2272` | **[FIXED by CODEX]** — Abandons checkout, then blocks POS close if any payment remains PENDING after cancellation |
-| C3 | `settlePartial` does not check for PENDING payments — concurrent Stripe checkout + waiter settle = over-payment | `payment.service.ts:2343` | **[FIXED by CODEX]** — Abandons checkout, then blocks partial settlement if any payment remains PENDING after cancellation |
+| C1 | `forceOpenSession` does not abandon PENDING payments before closing old session — customer charged via Stripe, system never acknowledges | `payment.service.ts:2848` | **[FIXED by CODEX]** **[VERIFIED by CLAUDE]** — `forceOpenSession` calls `abandonCheckoutOrThrowIfPending(existing.token, existing.id)` at 2848; helper (987) abandons then throws CONFLICT if any PENDING remains. Confirmed. |
+| C2 | `closeSessionWithProvider` does not abandon PENDING payments — concurrent Stripe checkout + waiter card/cash close = double-charge | `payment.service.ts:2540` | **[FIXED by CODEX]** **[VERIFIED by CLAUDE]** — `closeSessionWithProvider` calls `abandonCheckoutOrThrowIfPending` at 2540. Confirmed. |
+| C3 | `settlePartial` does not check for PENDING payments — concurrent Stripe checkout + waiter settle = over-payment | `payment.service.ts:2639` | **[FIXED by CODEX]** **[VERIFIED by CLAUDE]** — `settlePartial` calls `abandonCheckoutOrThrowIfPending` at 2639, plus per-unit optimistic lock + `Math.min(charge, remaining)` overpay clamp inside the txn. Confirmed. |
 
 ### HIGH
 | # | Finding | File:Line | Status |
@@ -109,7 +109,7 @@ _None found._
 ### CRITICAL
 | # | Finding | File:Line | Status |
 |---|---------|-----------|--------|
-| C1 | `retrievePaymentIntent` silently catches ALL errors — transient Stripe API errors indistinguishable from "not found" | `stripe.provider.ts:85-87` | **[FIXED by CODEX]** — Returns null only for Stripe `resource_missing`/404 and rethrows transient retrieve failures |
+| C1 | `retrievePaymentIntent` silently catches ALL errors — transient Stripe API errors indistinguishable from "not found" | `stripe.provider.ts:93-114` | **[FIXED by CODEX]** **[VERIFIED by CLAUDE]** — `isResourceMissingError()` (79) checks code/statusCode + `.raw`; returns null only for resource_missing/404, `throw err` for everything else (line 112). Confirmed. |
 
 ### HIGH
 | # | Finding | File:Line | Status |
@@ -419,8 +419,8 @@ _None found._
 ### CRITICAL
 | # | Finding | File:Line | Status |
 |---|---------|-----------|--------|
-| C1 | Revenue mismatch: `getSummary()` counts `SERVED` only, `getPeriodStats()` counted non-CANCELED (NEW/IN_PROGRESS included) — summary and analytics show different revenue | `dashboard.service.ts:70 vs 366` | **[FIXED]** **[VERIFIED by CODEX]** — `getPeriodStats()` uses `status: OrderStatus.SERVED`, matching `getSummary()` |
-| C2 | Materialized views (`mv_daily_stats`, `mv_item_stats`) also used `status != 'CANCELED'` — same revenue inflation as C1 | `dashboard-views.service.ts:72,113` | **[FIXED]** — SQL filters changed to `o.status = 'SERVED'`; existing production views need manual DROP+RECREATE |
+| C1 | Revenue mismatch: `getSummary()` counts `SERVED` only, `getPeriodStats()` counted non-CANCELED (NEW/IN_PROGRESS included) — summary and analytics show different revenue | `dashboard.service.ts:70 vs 365` | **[VERIFIED by CLAUDE]** — Audit row is STALE. Owner deliberately standardized ALL revenue on `status != CANCELED` (SERVED showed 0 revenue in the real workflow). Actual HEAD: `getSummary` (70) AND `getPeriodStats` (365) BOTH use `{ not: CANCELED }` — they MATCH. No mismatch. The only `SERVED` use is the servedRate numerator (line 187), which is correct. |
+| C2 | Materialized views (`mv_daily_stats`, `mv_item_stats`) also used `status != 'CANCELED'` — same revenue inflation as C1 | `dashboard-views.service.ts:76,123` | **[VERIFIED by CLAUDE]** — Audit row is STALE. Views intentionally keep `o.status != 'CANCELED'` (76/97/123) to match the fallback queries (getTopItems 313, getRevenueTrend 263, getCategoryBreakdown 477). View↔fallback are consistent. `createViews()` now runs `DROP MATERIALIZED VIEW IF EXISTS … CASCADE` before each `CREATE`, so stale defs rebuild on boot — no manual DROP needed. |
 
 ### HIGH
 | # | Finding | File:Line | Status |
@@ -431,7 +431,7 @@ _None found._
 ### MEDIUM
 | # | Finding | File:Line | Status |
 |---|---------|-----------|--------|
-| M1 | Top items revenue uses current `menu_item.price` multiplied by historical quantity, not price-at-order-time | `dashboard.service.ts:309` | **[FIXED by CODEX]** — Added order-item price snapshots and updated fallback/materialized-view revenue to use `unitPriceWithOptions` with migration backfill |
+| M1 | Top items revenue uses current `menu_item.price` multiplied by historical quantity, not price-at-order-time | `dashboard.service.ts:308,471,482` + `dashboard-views.service.ts:119` | **[FIXED by CLAUDE]** — Codex claim was PARTIAL: the `OrderItem.unitPriceWithOptions` snapshot column + migration backfill were added, but the analytics queries (getTopItems, getCategoryBreakdown, mv_item_stats) STILL multiplied by current `mi.price`, so the bug persisted in analytics. Switched all three to `COALESCE(NULLIF(oi."unitPriceWithOptions",0), mi.price) * oi.quantity` — uses the at-order snapshot (incl. option modifiers) when present, falls back to current price for any unbackfilled/free rows (never worse than before). View rebuilds via existing `DROP…CASCADE` on boot. 29/29 dashboard tests + tsc green. |
 
 ### LOW
 _None found._

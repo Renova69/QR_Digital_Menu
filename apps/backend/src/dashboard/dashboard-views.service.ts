@@ -116,7 +116,7 @@ export class DashboardViewsService implements OnModuleInit {
         mi.price                                       AS item_price,
         DATE_TRUNC('day', o."createdAt")               AS day_utc,
         SUM(oi.quantity)::int                          AS total_quantity,
-        COALESCE(SUM(mi.price * oi.quantity), 0)       AS total_revenue
+        COALESCE(SUM(COALESCE(NULLIF(oi."unitPriceWithOptions", 0), mi.price) * oi.quantity), 0)       AS total_revenue
       FROM order_item oi
       JOIN customer_order o  ON oi."orderId"    = o.id
       JOIN menu_item     mi  ON oi."menuItemId" = mi.id

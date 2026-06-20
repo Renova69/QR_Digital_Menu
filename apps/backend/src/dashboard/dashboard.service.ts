@@ -305,7 +305,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     const rows = await this.prisma.$queryRaw<Row[]>`
       SELECT mi.name,
              SUM(oi.quantity)::int                        AS quantity,
-             COALESCE(SUM(mi.price * oi.quantity), 0)::float AS revenue
+             COALESCE(SUM(COALESCE(NULLIF(oi."unitPriceWithOptions", 0), mi.price) * oi.quantity), 0)::float AS revenue
       FROM order_item oi
       JOIN customer_order o ON oi."orderId"    = o.id
       JOIN menu_item     mi ON oi."menuItemId" = mi.id
@@ -468,7 +468,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     type Row = { category: string; revenue: number };
     const rows = await this.prisma.$queryRaw<Row[]>`
       SELECT COALESCE(mc.name, 'Uncategorized')              AS category,
-             COALESCE(SUM(mi.price * oi.quantity), 0)::float AS revenue
+             COALESCE(SUM(COALESCE(NULLIF(oi."unitPriceWithOptions", 0), mi.price) * oi.quantity), 0)::float AS revenue
       FROM order_item oi
       JOIN customer_order  o  ON oi."orderId"    = o.id
       JOIN menu_item       mi ON oi."menuItemId" = mi.id
@@ -479,7 +479,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         AND o."createdAt"   <= ${end}
         AND oi."menuItemId" IS NOT NULL
       GROUP BY mc.name
-      ORDER BY SUM(mi.price * oi.quantity) DESC
+      ORDER BY SUM(COALESCE(NULLIF(oi."unitPriceWithOptions", 0), mi.price) * oi.quantity) DESC
     `;
     return rows.map((r) => ({
       category: r.category,
