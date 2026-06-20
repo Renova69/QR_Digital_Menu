@@ -11,7 +11,7 @@ import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { ImportMenuDto } from './dto/import-menu.dto';
 import { randomBytes, createHash } from 'crypto';
-import { AvailabilityType, Currency, OptionType } from '@prisma/client';
+import { AvailabilityType, Currency, OptionType, Prisma } from '@prisma/client';
 
 const VALID_AVAILABILITY = new Set(Object.values(AvailabilityType));
 const MAX_IMPORT_TOTAL_ITEMS = 1_000;
@@ -39,8 +39,13 @@ export class MenuImportService {
     return restaurant;
   }
 
-  async upsertMenu(restaurantId: string, dto: ImportMenuDto) {
+  async upsertMenu(
+    restaurantId: string,
+    dto: ImportMenuDto,
+    txClient?: Prisma.TransactionClient,
+  ) {
     const stats = { created: 0, updated: 0, categories: 0 };
+    const db = txClient ?? this.prisma;
 
     if (!dto.categories?.length)
       throw new BadRequestException('No categories in payload');
@@ -66,7 +71,7 @@ export class MenuImportService {
     }
   }
     // --- Preload all existing data BEFORE the transaction to avoid N+1 ---
-    const existingCategories = await this.prisma.menuCategory.findMany({
+    const existingCategories = await db.menuCategory.findMany({
       where: { restaurantId },
       select: {
         id: true,
@@ -101,7 +106,7 @@ export class MenuImportService {
         : -1;
     let nextCatOrder = maxCatOrder + 1;
 
-    const restaurant = await this.prisma.restaurant.findUnique({
+    const restaurant = await db.restaurant.findUnique({
       where: { id: restaurantId },
       select: { tier: true, forceTier: true },
     });
@@ -110,214 +115,219 @@ export class MenuImportService {
       FeatureFlag.DAYPARTING,
     );
 
-    try {
-      await this.prisma.$transaction(
-        async (tx) => {
-          for (const cat of dto.categories) {
-            const catName = cat.name.trim();
+    const writeMenu = async (tx: Prisma.TransactionClient) => {
+      for (const cat of dto.categories) {
+        const catName = cat.name.trim();
 
-            const existingCat = catMap.get(catName.toLowerCase());
+        const existingCat = catMap.get(catName.toLowerCase());
 
-            const rawAvailability = VALID_AVAILABILITY.has(
-              cat.availabilityType as AvailabilityType,
-            )
-              ? (cat.availabilityType as AvailabilityType)
-              : AvailabilityType.ALWAYS;
-            // Strip SCHEDULED if the tier doesn't support DAYPARTING (mirrors CRUD behavior)
-            const availabilityType =
-              !daypartingEnabled && rawAvailability === AvailabilityType.SCHEDULED
-                ? AvailabilityType.ALWAYS
-                : rawAvailability;
+        const rawAvailability = VALID_AVAILABILITY.has(
+          cat.availabilityType as AvailabilityType,
+        )
+          ? (cat.availabilityType as AvailabilityType)
+          : AvailabilityType.ALWAYS;
+        // Strip SCHEDULED if the tier doesn't support DAYPARTING (mirrors CRUD behavior)
+        const availabilityType =
+          !daypartingEnabled && rawAvailability === AvailabilityType.SCHEDULED
+            ? AvailabilityType.ALWAYS
+            : rawAvailability;
 
-            let categoryId: string;
+        let categoryId: string;
 
-            if (!existingCat) {
-              const created = await tx.menuCategory.create({
-                data: {
-                  restaurantId,
-                  name: catName,
-                  order: cat.order ?? nextCatOrder++,
-                  availabilityType,
-                  daysOfWeek: [],
-                  ...(cat.translations
-                    ? { translations: cat.translations }
-                    : {}),
-                  ...(cat.imageUrl !== undefined
-                    ? { imageUrl: cat.imageUrl }
-                    : {}),
-                  ...(cat.thumbnailUrl !== undefined
-                    ? { thumbnailUrl: cat.thumbnailUrl }
-                    : {}),
-                },
-              });
-              categoryId = created.id;
-              stats.categories++;
-            } else {
-              // Delete old R2 objects if images are being replaced
-              if (
-                existingCat.imageUrl &&
-                cat.imageUrl !== undefined &&
-                existingCat.imageUrl !== cat.imageUrl
-              ) {
-                await this.storageService
-                  .delete(existingCat.imageUrl)
-                  .catch(() => {});
-              }
-              if (
-                existingCat.thumbnailUrl &&
-                cat.thumbnailUrl !== undefined &&
-                existingCat.thumbnailUrl !== cat.thumbnailUrl
-              ) {
-                await this.storageService
-                  .delete(existingCat.thumbnailUrl)
-                  .catch(() => {});
-              }
-
-              await tx.menuCategory.update({
-                where: { id: existingCat.id },
-                data: {
-                  availabilityType,
-                  ...(cat.translations
-                    ? { translations: cat.translations }
-                    : {}),
-                  ...(cat.imageUrl !== undefined
-                    ? { imageUrl: cat.imageUrl }
-                    : {}),
-                  ...(cat.thumbnailUrl !== undefined
-                    ? { thumbnailUrl: cat.thumbnailUrl }
-                    : {}),
-                },
-              });
-              categoryId = existingCat.id;
-            }
-
-            // Build item lookup map from preloaded data
-            const itemMap = new Map<
-              string,
-              {
-                id: string;
-                imageUrl: string | null;
-                thumbnailUrl: string | null;
-                options: Array<{ name: string; translations: unknown }>;
-              }
-            >();
-            if (existingCat) {
-              for (const ei of existingCat.items) {
-                itemMap.set(ei.name.toLowerCase(), ei);
-              }
-            }
-
-            const nextItemOrderBase = existingCat
-              ? Math.max(-1, ...existingCat.items.map((i) => i.order)) + 1
-              : 0;
-            let nextItemOrder = nextItemOrderBase;
-
-            for (const item of cat.items) {
-              const itemName = item.name.trim();
-              const currency: Currency =
-                item.currency === 'BGN' ? Currency.BGN : Currency.EUR;
-
-              const itemData = {
-                name: itemName,
-                description: item.description || null,
-                price: item.price ?? 0,
-                weight: item.weight || null,
-                currency,
-                allergens: item.allergens ?? [],
-                dietaryTags: item.dietaryTags ?? [],
-                ...(item.translations
-                  ? { translations: item.translations }
-                  : {}),
-                ...(item.imageUrl !== undefined
-                  ? { imageUrl: item.imageUrl }
-                  : {}),
-                ...(item.thumbnailUrl !== undefined
-                  ? { thumbnailUrl: item.thumbnailUrl }
-                  : {}),
-              };
-
-              const existing = itemMap.get(itemName.toLowerCase());
-
-              let menuItemId: string;
-              if (existing) {
-                // Delete old R2 objects if images are being replaced
-                if (
-                  existing.imageUrl &&
-                  item.imageUrl !== undefined &&
-                  existing.imageUrl !== item.imageUrl
-                ) {
-                  await this.storageService
-                    .delete(existing.imageUrl)
-                    .catch(() => {});
-                }
-                if (
-                  existing.thumbnailUrl &&
-                  item.thumbnailUrl !== undefined &&
-                  existing.thumbnailUrl !== item.thumbnailUrl
-                ) {
-                  await this.storageService
-                    .delete(existing.thumbnailUrl)
-                    .catch(() => {});
-                }
-
-                await tx.menuItem.update({
-                  where: { id: existing.id },
-                  data: itemData,
-                });
-                menuItemId = existing.id;
-                stats.updated++;
-              } else {
-                const created = await tx.menuItem.create({
-                  data: {
-                    ...itemData,
-                    categoryId,
-                    order: item.order ?? nextItemOrder++,
-                  },
-                });
-                menuItemId = created.id;
-                stats.created++;
-              }
-
-              // Rebuild options; preserve existing translations when payload has none.
-              const existingOptMap = new Map<
-                string,
-                { translations: unknown }
-              >();
-              for (const eo of existing?.options ?? []) {
-                existingOptMap.set(eo.name.toLowerCase(), eo);
-              }
-
-              await tx.menuOption.deleteMany({ where: { menuItemId } });
-
-              for (const opt of item.options ?? []) {
-                if (!opt.choices?.length) continue;
-                const choices = opt.choices.map((c: any) => ({
-                  name: c.name,
-                  priceModifier: c.price ?? 0,
-                  ...(c.weight ? { weight: c.weight } : {}),
-                }));
-                const optType =
-                  opt.type === 'ADDON'
-                    ? OptionType.ADDON
-                    : OptionType.VARIATION;
-                const optName = opt.name || 'Size / Variant';
-                const existingOpt = existingOptMap.get(optName.toLowerCase());
-                const translations = existingOpt?.translations ?? undefined;
-                await tx.menuOption.create({
-                  data: {
-                    menuItemId,
-                    name: optName,
-                    type: optType,
-                    choices,
-                    ...(translations ? { translations } : {}),
-                  },
-                });
-              }
-            }
+        if (!existingCat) {
+          const created = await tx.menuCategory.create({
+            data: {
+              restaurantId,
+              name: catName,
+              order: cat.order ?? nextCatOrder++,
+              availabilityType,
+              daysOfWeek: [],
+              ...(cat.translations
+                ? { translations: cat.translations }
+                : {}),
+              ...(cat.imageUrl !== undefined
+                ? { imageUrl: cat.imageUrl }
+                : {}),
+              ...(cat.thumbnailUrl !== undefined
+                ? { thumbnailUrl: cat.thumbnailUrl }
+                : {}),
+            },
+          });
+          categoryId = created.id;
+          stats.categories++;
+        } else {
+          // Delete old R2 objects if images are being replaced
+          if (
+            existingCat.imageUrl &&
+            cat.imageUrl !== undefined &&
+            existingCat.imageUrl !== cat.imageUrl
+          ) {
+            await this.storageService
+              .delete(existingCat.imageUrl)
+              .catch(() => {});
           }
-        },
-        { timeout: 60000 },
-      );
+          if (
+            existingCat.thumbnailUrl &&
+            cat.thumbnailUrl !== undefined &&
+            existingCat.thumbnailUrl !== cat.thumbnailUrl
+          ) {
+            await this.storageService
+              .delete(existingCat.thumbnailUrl)
+              .catch(() => {});
+          }
+
+          await tx.menuCategory.update({
+            where: { id: existingCat.id },
+            data: {
+              availabilityType,
+              ...(cat.translations
+                ? { translations: cat.translations }
+                : {}),
+              ...(cat.imageUrl !== undefined
+                ? { imageUrl: cat.imageUrl }
+                : {}),
+              ...(cat.thumbnailUrl !== undefined
+                ? { thumbnailUrl: cat.thumbnailUrl }
+                : {}),
+            },
+          });
+          categoryId = existingCat.id;
+        }
+
+        // Build item lookup map from preloaded data
+        const itemMap = new Map<
+          string,
+          {
+            id: string;
+            imageUrl: string | null;
+            thumbnailUrl: string | null;
+            options: Array<{ name: string; translations: unknown }>;
+          }
+        >();
+        if (existingCat) {
+          for (const ei of existingCat.items) {
+            itemMap.set(ei.name.toLowerCase(), ei);
+          }
+        }
+
+        const nextItemOrderBase = existingCat
+          ? Math.max(-1, ...existingCat.items.map((i) => i.order)) + 1
+          : 0;
+        let nextItemOrder = nextItemOrderBase;
+
+        for (const item of cat.items) {
+          const itemName = item.name.trim();
+          const currency: Currency =
+            item.currency === 'BGN' ? Currency.BGN : Currency.EUR;
+
+          const itemData = {
+            name: itemName,
+            description: item.description || null,
+            price: item.price ?? 0,
+            weight: item.weight || null,
+            currency,
+            allergens: item.allergens ?? [],
+            dietaryTags: item.dietaryTags ?? [],
+            ...(item.translations
+              ? { translations: item.translations }
+              : {}),
+            ...(item.imageUrl !== undefined
+              ? { imageUrl: item.imageUrl }
+              : {}),
+            ...(item.thumbnailUrl !== undefined
+              ? { thumbnailUrl: item.thumbnailUrl }
+              : {}),
+          };
+
+          const existing = itemMap.get(itemName.toLowerCase());
+
+          let menuItemId: string;
+          if (existing) {
+            // Delete old R2 objects if images are being replaced
+            if (
+              existing.imageUrl &&
+              item.imageUrl !== undefined &&
+              existing.imageUrl !== item.imageUrl
+            ) {
+              await this.storageService
+                .delete(existing.imageUrl)
+                .catch(() => {});
+            }
+            if (
+              existing.thumbnailUrl &&
+              item.thumbnailUrl !== undefined &&
+              existing.thumbnailUrl !== item.thumbnailUrl
+            ) {
+              await this.storageService
+                .delete(existing.thumbnailUrl)
+                .catch(() => {});
+            }
+
+            await tx.menuItem.update({
+              where: { id: existing.id },
+              data: itemData,
+            });
+            menuItemId = existing.id;
+            stats.updated++;
+          } else {
+            const created = await tx.menuItem.create({
+              data: {
+                ...itemData,
+                categoryId,
+                order: item.order ?? nextItemOrder++,
+              },
+            });
+            menuItemId = created.id;
+            stats.created++;
+          }
+
+          // Rebuild options; preserve existing translations when payload has none.
+          const existingOptMap = new Map<
+            string,
+            { translations: unknown }
+          >();
+          for (const eo of existing?.options ?? []) {
+            existingOptMap.set(eo.name.toLowerCase(), eo);
+          }
+
+          await tx.menuOption.deleteMany({ where: { menuItemId } });
+
+          for (const opt of item.options ?? []) {
+            if (!opt.choices?.length) continue;
+            const choices = opt.choices.map((c: any) => ({
+              name: c.name,
+              priceModifier: c.price ?? 0,
+              ...(c.weight ? { weight: c.weight } : {}),
+            }));
+            const optType =
+              opt.type === 'ADDON'
+                ? OptionType.ADDON
+                : OptionType.VARIATION;
+            const optName = opt.name || 'Size / Variant';
+            const existingOpt = existingOptMap.get(optName.toLowerCase());
+            const translations = existingOpt?.translations ?? undefined;
+            await tx.menuOption.create({
+              data: {
+                menuItemId,
+                name: optName,
+                type: optType,
+                choices,
+                ...(translations ? { translations } : {}),
+              },
+            });
+          }
+        }
+      }
+    };
+
+    try {
+      if (txClient) {
+        await writeMenu(txClient);
+      } else {
+        await this.prisma.$transaction((tx) => writeMenu(tx), {
+          timeout: 60000,
+        });
+      }
     } catch (err) {
       this.logger.error(
         'upsertMenu failed',

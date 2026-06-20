@@ -454,6 +454,8 @@ export interface SessionBillOrder {
 }
 
 export interface SessionBill {
+  sessionId: string;
+  tableId: string;
   orders: SessionBillOrder[];
   subtotal: number;
   paidSubtotal: number;

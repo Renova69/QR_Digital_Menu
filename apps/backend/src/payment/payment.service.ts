@@ -7,6 +7,7 @@ import {
   ServiceUnavailableException,
   Logger,
 } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { StripeProvider } from './stripe.provider';
 import {
@@ -27,10 +28,14 @@ import { decryptSecret, encryptSecret } from './secret-crypto';
 import { EventsGateway } from '../events/events.gateway';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
-import { PaymentStatus, PaymentProvider } from '@prisma/client';
+import { PaymentStatus, PaymentProvider, Prisma } from '@prisma/client';
 import { SettlePartialDto, SplitMode } from './dto/settle-partial.dto';
 
 type CheckoutProvider = 'STRIPE' | 'EPAY' | 'BORICA' | 'MYPOS';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const ABANDONED_PAYMENT_RETENTION_DAYS = 90;
+const STALE_OPEN_SESSION_HOURS = 36;
 
 type BoricaCardholderInput = {
   cardholderName?: string | null;
@@ -65,6 +70,83 @@ export class PaymentService {
 
   private roundMoney(value: number) {
     return Math.round(value * 100) / 100;
+  }
+
+  @Cron('0 20 3 * * *', {
+    name: 'paymentSessionRetentionCleanup',
+    waitForCompletion: true,
+  })
+  async cleanupAbandonedPaymentsAndStaleSessions(): Promise<void> {
+    const abandonedCutoff = new Date(
+      Date.now() - ABANDONED_PAYMENT_RETENTION_DAYS * DAY_MS,
+    );
+    const staleSessionCutoff = new Date(
+      Date.now() - STALE_OPEN_SESSION_HOURS * 60 * 60 * 1000,
+    );
+
+    const abandoned = await this.prisma.payment.deleteMany({
+      where: {
+        status: PaymentStatus.ABANDONED,
+        updatedAt: { lt: abandonedCutoff },
+      },
+    });
+
+    const staleSessions = await this.prisma.tableSession.findMany({
+      where: {
+        status: 'OPEN',
+        createdAt: { lt: staleSessionCutoff },
+        payments: { none: { status: PaymentStatus.PENDING } },
+      },
+      select: { id: true, restaurantId: true, tableId: true },
+      orderBy: { createdAt: 'asc' },
+      take: 100,
+    });
+
+    let closedNoPayment = 0;
+    let markedPaid = 0;
+    let partialLeftOpen = 0;
+
+    for (const session of staleSessions) {
+      const balance = await this.computeSessionBalance(this.prisma, session.id);
+      if (balance.paidSubtotal > 0 && balance.remaining > 0.01) {
+        partialLeftOpen++;
+        continue;
+      }
+
+      const status =
+        balance.billSubtotal > 0 && balance.remaining <= 0.01
+          ? 'PAID'
+          : 'CLOSED_NO_PAYMENT';
+
+      const updated = await this.prisma.tableSession.updateMany({
+        where: { id: session.id, status: 'OPEN' },
+        data: {
+          status,
+          ...(status === 'PAID' ? { paidAt: new Date() } : {}),
+        },
+      });
+      if (updated.count === 0) continue;
+
+      if (status === 'PAID') markedPaid++;
+      else closedNoPayment++;
+
+      this.events.emitTableStatusChanged(
+        session.restaurantId,
+        session.tableId,
+        session.id,
+      );
+    }
+
+    if (
+      abandoned.count > 0 ||
+      closedNoPayment > 0 ||
+      markedPaid > 0 ||
+      partialLeftOpen > 0
+    ) {
+      this.logger.log(
+        `Payment retention cleanup: abandoned=${abandoned.count}, closedNoPayment=${closedNoPayment}, markedPaid=${markedPaid}, partialLeftOpen=${partialLeftOpen}`,
+      );
+    }
   }
 
   private async verifyRestaurantAccess(restaurantId: string, userId: string) {
@@ -342,6 +424,8 @@ export class PaymentService {
           select: {
             id: true,
             quantity: true,
+            unitPrice: true,
+            unitPriceWithOptions: true,
             paidQuantity: true,
             selectedOptions: true,
             menuItem: { select: { name: true, price: true } },
@@ -380,8 +464,13 @@ export class PaymentService {
               0,
             )
           : 0;
+        const snapshotUnitPrice =
+          typeof it.unitPriceWithOptions === 'number' &&
+          it.unitPriceWithOptions > 0
+            ? it.unitPriceWithOptions
+            : undefined;
         const unitPrice = this.roundMoney(
-          (it.menuItem?.price ?? 0) + optionsTotal,
+          snapshotUnitPrice ?? (it.menuItem?.price ?? 0) + optionsTotal,
         );
         return {
           orderItemId: it.id as string,
@@ -670,6 +759,35 @@ export class PaymentService {
     return { ...base, ...patch };
   }
 
+  private async recordProviderEvent(
+    tx: Prisma.TransactionClient,
+    provider: PaymentProvider,
+    eventKey: string,
+    data: {
+      paymentId?: string | null;
+      restaurantId?: string | null;
+      payload?: Record<string, unknown>;
+    } = {},
+  ): Promise<boolean> {
+    try {
+      await tx.paymentProviderEvent.create({
+        data: {
+          provider,
+          eventKey,
+          paymentId: data.paymentId ?? null,
+          restaurantId: data.restaurantId ?? null,
+          payload: data.payload as Prisma.InputJsonValue,
+        },
+      });
+      return true;
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2002') {
+        return false;
+      }
+      throw error;
+    }
+  }
+
   private resolveBoricaCardholder(
     orders: Array<{ customerName?: string | null; customerPhone?: string | null }>,
     input?: BoricaCardholderInput,
@@ -723,6 +841,8 @@ export class PaymentService {
   }
 
   async getSessionBill(token: string): Promise<{
+    sessionId: string;
+    tableId: string;
     orders: any[];
     subtotal: number;
     paidSubtotal: number;
@@ -776,10 +896,15 @@ export class PaymentService {
           name: oi.menuItem?.name ?? 'Unknown item',
           quantity: oi.quantity,
           paidQuantity: oi.paidQuantity ?? 0,
-          unitPrice: oi.menuItem?.price ?? 0,
-          unitPriceWithOptions: this.roundMoney(
-            (oi.menuItem?.price ?? 0) + optionsTotal,
-          ),
+          unitPrice:
+            typeof oi.unitPrice === 'number' && oi.unitPrice > 0
+              ? oi.unitPrice
+              : oi.menuItem?.price ?? 0,
+          unitPriceWithOptions:
+            typeof oi.unitPriceWithOptions === 'number' &&
+            oi.unitPriceWithOptions > 0
+              ? oi.unitPriceWithOptions
+              : this.roundMoney((oi.menuItem?.price ?? 0) + optionsTotal),
           selectedOptions: Array.isArray(oi.selectedOptions)
             ? oi.selectedOptions
             : [],
@@ -788,6 +913,8 @@ export class PaymentService {
     }));
 
     return {
+      sessionId: session.id,
+      tableId: session.tableId,
       orders: enrichedOrders,
       subtotal,
       paidSubtotal: balance.paidSubtotal,
@@ -1806,20 +1933,43 @@ export class PaymentService {
     }
 
     // Verified but BORICA reports a decline or cancellation → mark FAILED.
+    const boricaEventKey = [
+      order,
+      result.rc || '',
+      result.action || '',
+      result.rrn || '',
+      result.intRef || '',
+      result.approval || '',
+    ].join(':');
+
     if (result.rc !== '00' || result.action !== '0') {
-      await this.prisma.payment.updateMany({
-        where: { id: payment.id, status: 'PENDING' },
-        data: {
-          status: 'FAILED',
-          providerStatus: result.rc || 'DECLINED',
-          providerPayload: this.mergeProviderPayload(payment.providerPayload, {
-            callbackBody: body,
-            verifiedAt: new Date().toISOString(),
-            verified: true,
-            rc: result.rc,
-            action: result.action,
-          }) as any,
-        },
+      await this.prisma.$transaction(async (tx) => {
+        const recorded = await this.recordProviderEvent(
+          tx,
+          PaymentProvider.BORICA,
+          boricaEventKey,
+          {
+            paymentId: payment.id,
+            restaurantId: payment.restaurantId,
+            payload: { order, rc: result.rc, action: result.action },
+          },
+        );
+        if (!recorded) return;
+
+        await tx.payment.updateMany({
+          where: { id: payment.id, status: 'PENDING' },
+          data: {
+            status: 'FAILED',
+            providerStatus: result.rc || 'DECLINED',
+            providerPayload: this.mergeProviderPayload(payment.providerPayload, {
+              callbackBody: body,
+              verifiedAt: new Date().toISOString(),
+              verified: true,
+              rc: result.rc,
+              action: result.action,
+            }) as any,
+          },
+        });
       });
       return cancelUrl;
     }
@@ -1857,8 +2007,26 @@ export class PaymentService {
       return cancelUrl;
     }
 
-    const claimed = await this.prisma.$transaction((tx) =>
-      this.claimSuccessfulPaymentForOpenSession(tx, payment, {
+    const claimed = await this.prisma.$transaction(async (tx) => {
+      const recorded = await this.recordProviderEvent(
+        tx,
+        PaymentProvider.BORICA,
+        boricaEventKey,
+        {
+          paymentId: payment.id,
+          restaurantId: payment.restaurantId,
+          payload: {
+            order,
+            rc: result.rc,
+            action: result.action,
+            rrn: result.rrn || null,
+            intRef: result.intRef || null,
+          },
+        },
+      );
+      if (!recorded) return false;
+
+      return this.claimSuccessfulPaymentForOpenSession(tx, payment, {
         status: 'SUCCEEDED',
         providerStatus: 'PAID',
         providerPayload: this.mergeProviderPayload(payment.providerPayload, {
@@ -1871,8 +2039,8 @@ export class PaymentService {
           intRef: result.intRef,
           approval: result.approval,
         }) as any,
-      }),
-    );
+      });
+    });
 
     if (claimed) await this.emitPaymentConfirmed(payment);
 
@@ -2038,13 +2206,36 @@ export class PaymentService {
       requestDateTime: result.requestDateTime || null,
     });
 
-    const claimed = await this.prisma.$transaction((tx) =>
-      this.claimSuccessfulPaymentForOpenSession(tx, payment, {
+    const eventKey = [
+      orderId,
+      result.transactionRef || '',
+      result.requestStan || '',
+      result.requestDateTime || '',
+    ].join(':');
+
+    const claimed = await this.prisma.$transaction(async (tx) => {
+      const recorded = await this.recordProviderEvent(
+        tx,
+        PaymentProvider.MYPOS,
+        eventKey,
+        {
+          paymentId: payment.id,
+          restaurantId: payment.restaurantId,
+          payload: {
+            orderId,
+            transactionRef: result.transactionRef || null,
+            requestStan: result.requestStan || null,
+          },
+        },
+      );
+      if (!recorded) return false;
+
+      return this.claimSuccessfulPaymentForOpenSession(tx, payment, {
         status: 'SUCCEEDED',
         providerStatus: 'PAID',
         providerPayload: providerPayload as any,
-      }),
-    );
+      });
+    });
 
     if (claimed) await this.emitPaymentConfirmed(payment);
 
@@ -2052,31 +2243,63 @@ export class PaymentService {
   }
 
   private async applyEpayNotification(payment: any, notification: EpayNotification) {
+    const eventKey = [
+      notification.invoice,
+      notification.status,
+      notification.stan ?? '',
+      notification.bcode ?? '',
+    ].join(':');
     const providerPayload = this.mergeProviderPayload(payment.providerPayload, {
       notification,
       notifiedAt: new Date().toISOString(),
     });
 
     if (notification.status === 'PAID') {
-      const claimed = await this.prisma.$transaction((tx) =>
-        this.claimSuccessfulPaymentForOpenSession(tx, payment, {
+      const claimed = await this.prisma.$transaction(async (tx) => {
+        const recorded = await this.recordProviderEvent(
+          tx,
+          PaymentProvider.EPAY,
+          eventKey,
+          {
+            paymentId: payment.id,
+            restaurantId: payment.restaurantId,
+            payload: { status: notification.status, invoice: notification.invoice },
+          },
+        );
+        if (!recorded) return false;
+
+        return this.claimSuccessfulPaymentForOpenSession(tx, payment, {
           status: 'SUCCEEDED',
           providerStatus: 'PAID',
           providerPayload: providerPayload as any,
-        }),
-      );
+        });
+      });
 
       if (claimed) await this.emitPaymentConfirmed(payment);
       return;
     }
 
-    await this.prisma.payment.updateMany({
-      where: { id: payment.id, status: 'PENDING' },
-      data: {
-        status: 'FAILED',
-        providerStatus: notification.status,
-        providerPayload: providerPayload as any,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      const recorded = await this.recordProviderEvent(
+        tx,
+        PaymentProvider.EPAY,
+        eventKey,
+        {
+          paymentId: payment.id,
+          restaurantId: payment.restaurantId,
+          payload: { status: notification.status, invoice: notification.invoice },
+        },
+      );
+      if (!recorded) return;
+
+      await tx.payment.updateMany({
+        where: { id: payment.id, status: 'PENDING' },
+        data: {
+          status: 'FAILED',
+          providerStatus: notification.status,
+          providerPayload: providerPayload as any,
+        },
+      });
     });
   }
 
@@ -2155,12 +2378,24 @@ export class PaymentService {
 
       // Idempotent claim: a provider callback can only win while the session is
       // still OPEN and the exact payment row is still pending/abandoned.
-      const claimed = await this.prisma.$transaction((tx) =>
-        this.claimSuccessfulPaymentForOpenSession(tx, payment, {
+      const claimed = await this.prisma.$transaction(async (tx) => {
+        const recorded = await this.recordProviderEvent(
+          tx,
+          PaymentProvider.STRIPE,
+          event.id,
+          {
+            paymentId: payment.id,
+            restaurantId: payment.restaurantId,
+            payload: { type: event.type, paymentIntentId: intent.id },
+          },
+        );
+        if (!recorded) return false;
+
+        return this.claimSuccessfulPaymentForOpenSession(tx, payment, {
           status: 'SUCCEEDED',
           stripePaymentIntentId: intent.id,
-        }),
-      );
+        });
+      });
       if (!claimed) return;
 
       const tableNumber =
@@ -2214,9 +2449,23 @@ export class PaymentService {
       }
       if (!payment) return;
 
-      await this.prisma.payment.updateMany({
-        where: { id: payment.id, status: 'PENDING' },
-        data: { status: 'FAILED' },
+      await this.prisma.$transaction(async (tx) => {
+        const recorded = await this.recordProviderEvent(
+          tx,
+          PaymentProvider.STRIPE,
+          event.id,
+          {
+            paymentId: payment.id,
+            restaurantId: payment.restaurantId,
+            payload: { type: event.type, paymentIntentId: intent.id },
+          },
+        );
+        if (!recorded) return;
+
+        await tx.payment.updateMany({
+          where: { id: payment.id, status: 'PENDING' },
+          data: { status: 'FAILED' },
+        });
       });
     }
   }
@@ -2525,6 +2774,7 @@ export class PaymentService {
         remaining: Math.max(0, newRemaining),
         sessionPaid,
         paymentId: payment.id,
+        splitMode: dto.mode,
       };
     });
 
@@ -2534,6 +2784,14 @@ export class PaymentService {
       result.tableId,
       result.sessionId,
     );
+    this.events.emitToRestaurant(restaurantId, 'bill:updated', {
+      tableSessionId: result.sessionId,
+      tableId: result.tableId,
+      paymentId: result.paymentId,
+      splitMode: result.splitMode,
+      remaining: result.remaining,
+      sessionPaid: result.sessionPaid,
+    });
     if (result.sessionPaid) {
       const tableNumber =
         (

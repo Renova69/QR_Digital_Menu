@@ -61,6 +61,9 @@ describe('PaymentService', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         count: jest.fn(),
       },
+      paymentProviderEvent: {
+        create: jest.fn().mockResolvedValue({ id: 'provider-event-1' }),
+      },
       order: {
         // Default empty so the #2 underpay guard in the claim path
         // (sums session order totals) sees subtotal 0 ≤ any paid amount.
@@ -2604,9 +2607,24 @@ describe('PaymentService', () => {
       expect(mockPrisma.paymentAllocation.createMany).toHaveBeenCalledWith({
         data: [{ paymentId: 'pay1', orderItemId: 'oi-drink', quantity: 1, amount: 5 }],
       });
-      // Not fully paid → no PAID flip, no payment:confirmed broadcast.
+      // Not fully paid -> invalidate bill views, but no payment:confirmed broadcast.
       expect(mockEvents.emitTableStatusChanged).toHaveBeenCalled();
-      expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
+      expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
+        'rest1',
+        'bill:updated',
+        expect.objectContaining({
+          tableSessionId: 's1',
+          paymentId: 'pay1',
+          splitMode: 'ITEM',
+          remaining: 25,
+          sessionPaid: false,
+        }),
+      );
+      expect(mockEvents.emitToRestaurant).not.toHaveBeenCalledWith(
+        'rest1',
+        'payment:confirmed',
+        expect.anything(),
+      );
     });
 
     it('ITEM mode: flips the session to PAID and emits when the last items are settled', async () => {

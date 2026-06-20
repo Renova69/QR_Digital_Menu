@@ -11,6 +11,7 @@ import {
   Matches,
 } from 'class-validator';
 import { SubscriptionTier } from '@prisma/client';
+import { ImportMenuDto } from '../../menu-import/dto/import-menu.dto';
 
 const TIERS: SubscriptionTier[] = [
   'FREE',
@@ -73,6 +74,12 @@ export class UpdatePaymentsEnabledDto {
   @IsBoolean()
   paymentsEnabled: boolean;
 
+  @IsString()
+  @Matches(/^CONFIRM$/, { message: 'confirmation must be exactly CONFIRM' })
+  confirmation: string;
+}
+
+export class SuperAdminImportMenuDto extends ImportMenuDto {
   @IsString()
   @Matches(/^CONFIRM$/, { message: 'confirmation must be exactly CONFIRM' })
   confirmation: string;

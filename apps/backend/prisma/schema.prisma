@@ -148,6 +148,7 @@ model Restaurant {
   tableSessions             TableSession[]
   tableZones                TableZone[]
   payments                  Payment[]
+  paymentProviderEvents     PaymentProviderEvent[]
   printStations             PrintStation[]
   printAgentTokens          PrintAgentToken[]
   printJobs                 PrintJob[]
@@ -210,7 +211,8 @@ model PrintStation {
 
 model PrintAgentToken {
   id             String       @id @default(cuid())
-  token          String       @unique @default(cuid())
+  token          String?      @unique
+  tokenHash      String       @unique
   printStationId String
   restaurantId   String
   label          String?
@@ -368,6 +370,8 @@ model OrderItem {
   orderId         String
   menuItemId      String?
   quantity        Int
+  unitPrice       Float               @default(0)
+  unitPriceWithOptions Float          @default(0)
   // Units of this line already settled by a split payment. Split-bill remaining
   // is computed from (quantity - paidQuantity); see PaymentService.settlePartial.
   paidQuantity    Int                 @default(0)
@@ -624,10 +628,29 @@ model Payment {
   tableSession          TableSession        @relation(fields: [tableSessionId], references: [id], onDelete: Cascade)
   restaurant            Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   allocations           PaymentAllocation[]
+  providerEvents        PaymentProviderEvent[]
 
   @@index([tableSessionId])
   @@index([restaurantId])
   @@map("payment")
+}
+
+model PaymentProviderEvent {
+  id           String          @id @default(cuid())
+  provider     PaymentProvider
+  eventKey     String
+  paymentId    String?
+  restaurantId String?
+  payload      Json?
+  createdAt    DateTime        @default(now())
+
+  payment    Payment?    @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  restaurant Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, eventKey])
+  @@index([paymentId])
+  @@index([restaurantId, createdAt])
+  @@map("payment_provider_event")
 }
 
 enum TableSessionStatus {

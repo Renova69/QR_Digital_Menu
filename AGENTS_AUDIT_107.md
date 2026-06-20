@@ -59,15 +59,15 @@ _None found._
 ### HIGH
 | # | Finding | File:Line | Status |
 |---|---------|-----------|--------|
-| H1 | ITEM-mode `settlePartial` updates `paidQuantity` without socket events — dashboard shows stale per-item paid counts | `payment.service.ts:2415-2432` | **[TODO]** — Needs per-item socket event design |
+| H1 | ITEM-mode `settlePartial` updates `paidQuantity` without socket events — dashboard shows stale per-item paid counts | `payment.service.ts:2415-2432` | **[FIXED by CODEX]** — Emits `bill:updated` after committed split settlement; POS split drawer refetches canonical bill for the matching session |
 | H2 | TOCTOU gap: `abandonCheckout` runs outside the session-mutation `$transaction` — new payment can be created between abandon and close | `payment.service.ts:2219,2531` | **[WONT FIX]** — Window is ~200ms; already narrower than original bug. Full atomicity would require moving Stripe API call inside transaction (anti-pattern). |
 
 ### MEDIUM
 | # | Finding | File:Line | Status |
 |---|---------|-----------|--------|
 | M1 | Stale PENDING Stripe cancel failure throws CONFLICT — blocks retries instead of allowing them | `payment.service.ts:989-998` | **[WONT FIX]** — Cannot distinguish "intent already succeeded" (should block) from "network error" (should retry) |
-| M2 | ABANDONED payment records never cleaned up by `createPaymentIntent` — accumulate in DB | `payment.service.ts:938-941` | **[TODO]** — Needs cleanup cron |
-| M3 | No cron job cleans up stale OPEN sessions (abandoned checkouts without force-close) | `payment.service.ts:2542` | **[TODO]** — Needs cleanup cron |
+| M2 | ABANDONED payment records never cleaned up by `createPaymentIntent` — accumulate in DB | `payment.service.ts:938-941` | **[FIXED by CODEX]** — Daily cleanup cron deletes ABANDONED payments older than 90 days |
+| M3 | No cron job cleans up stale OPEN sessions (abandoned checkouts without force-close) | `payment.service.ts:2542` | **[FIXED by CODEX]** — Daily cleanup cron reviews OPEN sessions older than 36h: fully paid becomes PAID, unpaid/empty closes, partial-paid stays open for manual review |
 | M4 | `forceOpenSession` tags old session CLOSED_NO_PAYMENT even if it has SUCCEEDED payments — semantic mismatch | `payment.service.ts:2503` | — Low impact, payments still visible in history |
 | M5 | EVEN split rounding: `billSubtotal / splitCount` leaves 1-cent gap that blocks PAID transition (tolerance was 0.001) | `payment.service.ts:2465` | **[FIXED]** — Tolerance changed to 0.01 |
 
@@ -119,7 +119,7 @@ _None found._
 ### MEDIUM
 | # | Finding | File:Line | Status |
 |---|---------|-----------|--------|
-| M1 | No `stripeEventId` dedup column — redundant webhook deliveries cause unnecessary processing (though monetary idempotency is correct via transactional gates) | `payment.service.ts:2092-2160` | — Monetary safety is correct; event dedup is optimization |
+| M1 | No `stripeEventId` dedup column — redundant webhook deliveries cause unnecessary processing (though monetary idempotency is correct via transactional gates) | `payment.service.ts:2092-2160` | **[FIXED by CODEX]** — Added provider/event-key dedup via `PaymentProviderEvent`, recorded in the same transaction as webhook state mutation |
 | M2 | No `StripeError` type narrowing — custom error handling via inline cast instead of SDK types | `restaurants.service.ts:637` | **[WONT FIX]** — Stripe SDK v22 doesn't export typed errors |
 
 ### LOW
@@ -320,7 +320,7 @@ _None found._
 ### MEDIUM
 | # | Finding | File:Line | Status |
 |---|---------|-----------|--------|
-| M1 | No STAN/BCODE dedup — duplicate notifications silently accepted as OK (though `claimSuccessfulPaymentForOpenSession` prevents double-charge via status gate) | `payment.service.ts:1935` | — Monetary safety is correct; STAN dedup would improve auditability |
+| M1 | No STAN/BCODE dedup — duplicate notifications silently accepted as OK (though `claimSuccessfulPaymentForOpenSession` prevents double-charge via status gate) | `payment.service.ts:1935` | **[FIXED by CODEX]** — Added provider/event-key dedup for ePay notifications using invoice/status/STAN/BCODE inside the same payment mutation transaction |
 
 ### LOW
 | # | Finding | File:Line | Status |
@@ -337,13 +337,13 @@ _None found._
 ### HIGH
 | # | Finding | File:Line | Status |
 |---|---------|-----------|--------|
-| H1 | Agent token stored in plaintext — database compromise exposes all tokens immediately | `schema.prisma:213`, `print-station.service.ts:91-93` | **[TODO]** — Needs schema change: add `tokenHash` column, hash on create, hash-compare on validate |
+| H1 | Agent token stored in plaintext — database compromise exposes all tokens immediately | `schema.prisma:213`, `print-station.service.ts:91-93` | **[FIXED by CODEX]** — Added `tokenHash`, hash-based create/validate/touch, and migration that backfills hashes then clears stored raw tokens |
 | H2 | No background retry for stuck SENT/PENDING jobs — `retryPendingJobs` only called on agent reconnect | `print-station.service.ts:221-251` | **[FIXED by CODEX]** — Added minute cron that retries distinct stations with PENDING or stale SENT jobs |
 
 ### MEDIUM
 | # | Finding | File:Line | Status |
 |---|---------|-----------|--------|
-| M1 | No scheduled cleanup of old PRINTED/FAILED jobs — unbounded storage growth | `print-station.service.ts:327-372` | **[TODO]** — Needs daily cron to delete jobs older than 30 days |
+| M1 | No scheduled cleanup of old PRINTED/FAILED jobs — unbounded storage growth | `print-station.service.ts:327-372` | **[FIXED by CODEX]** — Added daily retention cron: PRINTED older than 30 days and FAILED older than 90 days are deleted |
 
 ### LOW
 | # | Finding | File:Line | Status |
@@ -366,7 +366,7 @@ _None found._
 ### MEDIUM
 | # | Finding | File:Line | Status |
 |---|---------|-----------|--------|
-| M1 | JWT `expiresIn: '1d'` — 24-hour token lifetime is long for POS shared-device environments (no server-side blocklist for leaked cookies) | `auth.module.ts:28` | **[WONT FIX]** — Policy decision; reducing would impact UX |
+| M1 | JWT `expiresIn: '1d'` — 24-hour token lifetime is long for POS shared-device environments (no server-side blocklist for leaked cookies) | `auth.module.ts:28` | **[WONT FIX]** **[VERIFIED by CODEX]** — Owner confirmed long PIN/shared-device sessions are required for restaurants with long shifts; keep policy unchanged |
 
 ### LOW
 | # | Finding | File:Line | Status |
@@ -431,7 +431,7 @@ _None found._
 ### MEDIUM
 | # | Finding | File:Line | Status |
 |---|---------|-----------|--------|
-| M1 | Top items revenue uses current `menu_item.price` multiplied by historical quantity, not price-at-order-time | `dashboard.service.ts:309` | **[TODO]** — Needs schema change to store `unitPrice` at order time |
+| M1 | Top items revenue uses current `menu_item.price` multiplied by historical quantity, not price-at-order-time | `dashboard.service.ts:309` | **[FIXED by CODEX]** — Added order-item price snapshots and updated fallback/materialized-view revenue to use `unitPriceWithOptions` with migration backfill |
 
 ### LOW
 _None found._
@@ -472,12 +472,12 @@ _None found._
 | # | Finding | File:Line | Status |
 |---|---------|-----------|--------|
 | M1 | Help content CRUD has zero audit logging — mutations (`create/update/delete/reorder`) un-traced | `help-content.service.ts:24-58` | **[FIXED]** — `adminAuditLog.create()` added to all 4 mutation methods |
-| M2 | `importMenu` lacks CONFIRM validation despite being throttled at 3/60s (same tier as delete/password-reset) | `super-admin.controller.ts:156-162` | **[TODO]** — `ImportMenuDto` is shared with API-key import path; needs separate super-admin wrapper DTO |
+| M2 | `importMenu` lacks CONFIRM validation despite being throttled at 3/60s (same tier as delete/password-reset) | `super-admin.controller.ts:156-162` | **[FIXED by CODEX]** — Added `SuperAdminImportMenuDto` wrapper requiring exact `confirmation: "CONFIRM"` without changing API-key import DTO |
 
 ### LOW
 | # | Finding | File:Line | Status |
 |---|---------|-----------|--------|
-| L1 | `importMenu` audit log is outside the `$transaction` — if audit write fails, menu import already committed | `super-admin.service.ts:773-782` | **[TODO]** — Wrap in `$transaction` for atomicity |
+| L1 | `importMenu` audit log is outside the `$transaction` — if audit write fails, menu import already committed | `super-admin.service.ts:773-782` | **[FIXED by CODEX]** — Super-admin menu import and audit write now run in one transaction via optional `MenuImportService` transaction client |
 
 ---
 
@@ -501,6 +501,11 @@ _None found._
 
 ## Master Scorecard
 
+> Codex note (2026-06-20): the aggregate scorecard below is the original audit
+> rollup and was not fully rebalanced because some rows represent multiple
+> findings. Concrete row tags above are authoritative. Explicit `**[TODO]**`
+> finding rows now scan to zero after this Codex pass.
+
 | Severity | Found | Fixed | Wont Fix | TODO | Deferred |
 |----------|-------|-------|----------|------|----------|
 | CRITICAL | 11 | 10 | 0 | 1 | 0 |
@@ -509,7 +514,9 @@ _None found._
 | LOW | 29 | 6 | 17 | 1 | 5 |
 | **Total** | **107** | **54** | **33** | **10** | **10** |
 
-### Pending TODO (10 items)
+### Historical Pending TODO (superseded; 0 explicit `**[TODO]**` finding rows now)
+
+_Codex 2026-06-20: this old list is retained for audit history only. The concrete row tags above now show the architecture-decision rows fixed or verified._
 
 1. **POS H1** — Per-item socket events for `settlePartial` ITEM mode
 2. **POS M2/M3** — Cleanup cron for ABANDONED payments + stale OPEN sessions

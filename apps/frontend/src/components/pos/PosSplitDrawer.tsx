@@ -8,6 +8,7 @@ import {
   type SplitProvider,
 } from "../../lib/api";
 import { usePosTheme } from "../../context/PosThemeContext";
+import { useSocket } from "../../context/SocketContext";
 
 interface PosSplitDrawerProps {
   open: boolean;
@@ -37,6 +38,7 @@ export default function PosSplitDrawer({
   onFullyPaid,
 }: PosSplitDrawerProps) {
   const { t } = useTranslation();
+  const { socket } = useSocket();
   // The POS theme is a scoped `.dark` class on the layout shell; this Dialog
   // portals to <body> and would otherwise fall back to the light :root tokens.
   const { theme } = usePosTheme();
@@ -83,6 +85,21 @@ export default function PosSplitDrawer({
     setPaidThisSession(false);
     loadBill();
   }, [open, loadBill]);
+
+  useEffect(() => {
+    if (!open || !socket || !bill?.sessionId) return;
+
+    const handleBillUpdated = (payload: { tableSessionId?: string }) => {
+      if (payload?.tableSessionId !== bill.sessionId) return;
+      setSelection({});
+      loadBill();
+    };
+
+    socket.on("bill:updated", handleBillUpdated);
+    return () => {
+      socket.off("bill:updated", handleBillUpdated);
+    };
+  }, [open, socket, bill?.sessionId, loadBill]);
 
   const remaining = bill?.remaining ?? 0;
 

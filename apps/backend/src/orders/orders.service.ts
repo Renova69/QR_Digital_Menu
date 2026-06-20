@@ -286,6 +286,8 @@ export class OrdersService {
     const itemsData: {
       menuItemId: string;
       quantity: number;
+      unitPrice: number;
+      unitPriceWithOptions: number;
       selectedOptions: any[];
       notes?: string;
     }[] = [];
@@ -453,11 +455,17 @@ export class OrdersService {
         }
       }
 
-      computedTotal += (itemPrice + optionsTotal) * item.quantity;
+      const unitPrice = Math.round(itemPrice * 100) / 100;
+      const unitPriceWithOptions =
+        Math.round((itemPrice + optionsTotal) * 100) / 100;
+
+      computedTotal += unitPriceWithOptions * item.quantity;
 
       itemsData.push({
         menuItemId: item.menuItemId,
         quantity: item.quantity,
+        unitPrice,
+        unitPriceWithOptions,
         selectedOptions: normalizedSelectedOptions,
         notes: item.notes?.trim() || undefined,
       });

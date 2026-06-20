@@ -759,30 +759,35 @@ export class SuperAdminService {
     dto: ImportMenuDto,
     actorUserId: string,
   ) {
-    const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
-      select: { id: true },
-    });
-    if (!restaurant) {
-      throw new NotFoundException({
-        code: 'TENANT_NOT_FOUND',
-        message: 'Restaurant not found',
-      });
-    }
+    return this.prisma.$transaction(
+      async (tx) => {
+        const restaurant = await tx.restaurant.findUnique({
+          where: { id: restaurantId },
+          select: { id: true },
+        });
+        if (!restaurant) {
+          throw new NotFoundException({
+            code: 'TENANT_NOT_FOUND',
+            message: 'Restaurant not found',
+          });
+        }
 
-    const stats = await this.menuImport.upsertMenu(restaurantId, dto);
+        const stats = await this.menuImport.upsertMenu(restaurantId, dto, tx);
 
-    await this.prisma.adminAuditLog.create({
-      data: {
-        actorUserId,
-        action: 'MENU_IMPORT',
-        targetType: 'RESTAURANT',
-        targetId: restaurantId,
-        metadata: { stats },
+        await tx.adminAuditLog.create({
+          data: {
+            actorUserId,
+            action: 'MENU_IMPORT',
+            targetType: 'RESTAURANT',
+            targetId: restaurantId,
+            metadata: { stats },
+          },
+        });
+
+        return stats;
       },
-    });
-
-    return stats;
+      { timeout: 60000 },
+    );
   }
 
   async getAuditLog(params: {

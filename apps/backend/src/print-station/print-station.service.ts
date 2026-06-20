@@ -10,7 +10,7 @@ import {
 import { Cron, CronExpression } from '@nestjs/schedule';
 import type { WrapperType } from '../common/wrapper-type';
 import type { ReceiptTemplate } from './escpos.util';
-import { randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import type { PrintJobStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePrintStationDto } from './dto/create-print-station.dto';
@@ -20,6 +20,9 @@ import { EventsGateway } from '../events/events.gateway';
 
 const MAX_PRINT_ATTEMPTS = 3;
 const STALE_SENT_MS = 30_000;
+const PRINTED_JOB_RETENTION_DAYS = 30;
+const FAILED_JOB_RETENTION_DAYS = 90;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class PrintStationService {
@@ -30,6 +33,10 @@ export class PrintStationService {
     @Inject(forwardRef(() => EventsGateway))
     private readonly events: WrapperType<EventsGateway>,
   ) {}
+
+  private hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
 
   // ─── Station CRUD ─────────────────────────────────────────────────────────
 
@@ -90,9 +97,23 @@ export class PrintStationService {
     await this.assertOwnership(restaurantId, stationId);
     // C-1: cryptographically random token — not guessable
     const token = randomBytes(32).toString('hex');
-    return this.prisma.printAgentToken.create({
-      data: { restaurantId, printStationId: stationId, label, token },
+    const record = await this.prisma.printAgentToken.create({
+      data: {
+        restaurantId,
+        printStationId: stationId,
+        label,
+        tokenHash: this.hashToken(token),
+      },
+      select: {
+        id: true,
+        restaurantId: true,
+        printStationId: true,
+        label: true,
+        lastSeenAt: true,
+        createdAt: true,
+      },
     });
+    return { ...record, token };
   }
 
   async revokeToken(restaurantId: string, tokenId: string) {
@@ -107,14 +128,17 @@ export class PrintStationService {
 
   async validateAgentToken(token: string) {
     return this.prisma.printAgentToken.findUnique({
-      where: { token },
+      where: { tokenHash: this.hashToken(token) },
       include: { printStation: true },
     });
   }
 
   async touchLastSeen(token: string) {
     await this.prisma.printAgentToken
-      .update({ where: { token }, data: { lastSeenAt: new Date() } })
+      .update({
+        where: { tokenHash: this.hashToken(token) },
+        data: { lastSeenAt: new Date() },
+      })
       .catch(() => undefined);
   }
 
@@ -330,6 +354,34 @@ export class PrintStationService {
   }
 
   // ─── Print Job History ────────────────────────────────────────────────────
+
+  @Cron('0 35 3 * * *', {
+    name: 'printJobRetentionCleanup',
+    waitForCompletion: true,
+  })
+  async cleanupOldPrintJobs(): Promise<void> {
+    const printedCutoff = new Date(
+      Date.now() - PRINTED_JOB_RETENTION_DAYS * DAY_MS,
+    );
+    const failedCutoff = new Date(
+      Date.now() - FAILED_JOB_RETENTION_DAYS * DAY_MS,
+    );
+
+    const [printed, failed] = await this.prisma.$transaction([
+      this.prisma.printJob.deleteMany({
+        where: { status: 'PRINTED', createdAt: { lt: printedCutoff } },
+      }),
+      this.prisma.printJob.deleteMany({
+        where: { status: 'FAILED', createdAt: { lt: failedCutoff } },
+      }),
+    ]);
+
+    if (printed.count > 0 || failed.count > 0) {
+      this.logger.log(
+        `Print retention cleanup: printed=${printed.count}, failed=${failed.count}`,
+      );
+    }
+  }
 
   async getJobs(restaurantId: string, stationId: string, status?: string) {
     await this.assertOwnership(restaurantId, stationId);

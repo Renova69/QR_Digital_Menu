@@ -20,11 +20,11 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import {
   ResetOwnerPasswordDto,
   SuperAdminConfirmationDto,
+  SuperAdminImportMenuDto,
   UpdatePaymentsEnabledDto,
   UpdateTenantStatusDto,
   UpdateTenantTierDto,
 } from './dto/update-tenant.dto';
-import { ImportMenuDto } from '../menu-import/dto/import-menu.dto';
 
 @ApiTags('Super Admin')
 @Controller('super-admin')
@@ -156,7 +156,7 @@ export class SuperAdminController {
   @Post('tenants/:id/menu/import')
   importMenu(
     @Param('id') id: string,
-    @Body() dto: ImportMenuDto,
+    @Body() dto: SuperAdminImportMenuDto,
     @Request() req: any,
   ) {
     return this.service.importMenu(id, dto, req.user.id);
