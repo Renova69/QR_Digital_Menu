@@ -312,7 +312,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       JOIN customer_order o ON oi."orderId"    = o.id
       JOIN menu_item     mi ON oi."menuItemId" = mi.id
       WHERE o."restaurantId" = ${restaurantId}
-        AND o.status         != 'CANCELED'
+        AND o.status         = 'SERVED'
         AND o."createdAt"   >= ${start}
         AND o."createdAt"   <= ${end}
         AND oi."menuItemId" IS NOT NULL

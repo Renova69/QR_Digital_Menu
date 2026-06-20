@@ -150,7 +150,7 @@ export class RestaurantsService {
     const restaurant = await this.prisma.restaurant.create({
       data: {
         ...stripBrandingFields({ ...createRestaurantDto }),
-        country: 'Bulgaria',
+        country: createRestaurantDto.country ?? 'Bulgaria',
         ownerId: userId,
       },
     });
