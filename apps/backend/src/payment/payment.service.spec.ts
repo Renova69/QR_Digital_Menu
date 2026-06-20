@@ -14,6 +14,7 @@ describe('PaymentService', () => {
   let mockStripeProvider: any;
   let mockEpayProvider: any;
   let mockBoricaProvider: any;
+  let mockMyposProvider: any;
   let mockEvents: any;
 
   beforeEach(() => {
@@ -113,6 +114,28 @@ describe('PaymentService', () => {
       // Default: status check unavailable (null = outcome unknown, keep pending)
       queryTransactionStatus: jest.fn().mockResolvedValue(null),
     };
+    mockMyposProvider = {
+      createCheckoutForm: jest.fn(({ orderId }: any) => ({
+        action: 'https://www.mypos.com/vmp/checkout-test',
+        method: 'POST' as const,
+        fields: {
+          IPCmethod: 'IPCPurchase',
+          OrderID: orderId,
+          Signature: 'signed',
+        },
+      })),
+      verifyNotification: jest.fn().mockReturnValue({
+        verified: true,
+        method: 'IPCPurchaseNotify',
+        orderId: 'MP123',
+        amount: '20.00',
+        currency: 'EUR',
+        storeId: '000000000000010',
+        transactionRef: '813705',
+        requestStan: '000006',
+        requestDateTime: '2015-08-21 10:39:37',
+      }),
+    };
     mockEvents = {
       emitToRestaurant: jest.fn(),
       emitTableStatusChanged: jest.fn(),
@@ -133,6 +156,7 @@ describe('PaymentService', () => {
       mockStripeProvider,
       mockEpayProvider,
       mockBoricaProvider,
+      mockMyposProvider,
       mockEvents,
       mockFeatureService,
     );
@@ -509,6 +533,7 @@ describe('PaymentService', () => {
         mockStripeProvider,
         mockEpayProvider,
         mockBoricaProvider,
+        mockMyposProvider,
         mockEvents,
         lockedFeatureService,
       );
@@ -718,6 +743,192 @@ describe('PaymentService', () => {
       expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
       expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
       expect(mockEvents.emitTableStatusChanged).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createCheckout with myPOS', () => {
+    const myposRestaurant = {
+      paymentsEnabled: true,
+      stripeOnboarded: false,
+      stripeAccountId: null,
+      platformFeePercent: 0,
+      tipsEnabled: false,
+      tipOptions: [],
+      tier: 'PROFESSIONAL',
+      myposEnabled: true,
+      myposMode: 'DEMO',
+      myposClientNumber: null,
+      myposStoreId: null,
+      myposKeyIndex: null,
+      myposPrivateKeyEncrypted: null,
+      myposPublicCert: null,
+      myposCurrency: 'EUR',
+    };
+
+    beforeEach(() => {
+      process.env.BACKEND_URL = 'https://api.example.com';
+    });
+
+    afterEach(() => {
+      delete process.env.BACKEND_URL;
+    });
+
+    it('creates a pending MYPOS payment and returns hosted form fields', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+        table: { name: '7' },
+        restaurant: myposRestaurant,
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.payment.create.mockResolvedValue({ id: 'pay-mypos' });
+
+      const result = await service.createCheckout('tok1', 'MYPOS', 0);
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          provider: 'MYPOS',
+          paymentId: 'pay-mypos',
+          total: 20,
+          action: 'https://www.mypos.com/vmp/checkout-test',
+        }),
+      );
+      expect(mockMyposProvider.createCheckoutForm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: 20,
+          currency: 'EUR',
+          urlNotify: 'https://api.example.com/api/v1/payments/mypos/notify',
+          urlOk: expect.stringContaining('payment=mypos-ok'),
+          urlCancel: expect.stringContaining('payment=mypos-cancel'),
+        }),
+      );
+      expect(mockPrisma.payment.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          provider: 'MYPOS',
+          status: 'PENDING',
+          providerStatus: 'PENDING',
+          providerReference: expect.stringMatching(/^MP/),
+          currency: 'eur',
+        }),
+      });
+    });
+
+    it('throws when BACKEND_URL is missing because myPOS needs URL_Notify', async () => {
+      delete process.env.BACKEND_URL;
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+        table: null,
+        restaurant: myposRestaurant,
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+
+      await expect(service.createCheckout('tok1', 'MYPOS', 0)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleMyposNotification', () => {
+    const myposPayment = {
+      id: 'pay-mypos',
+      restaurantId: 'rest1',
+      tableSessionId: 's1',
+      amount: 20,
+      tipAmount: 0,
+      status: 'PENDING',
+      currency: 'eur',
+      providerReference: 'MP123',
+      providerPayload: {},
+      restaurant: {
+        myposMode: 'DEMO',
+        myposClientNumber: null,
+        myposStoreId: null,
+        myposKeyIndex: null,
+        myposPrivateKeyEncrypted: null,
+        myposPublicCert: null,
+        myposCurrency: 'EUR',
+      },
+      tableSession: {
+        id: 's1',
+        restaurantId: 'rest1',
+        tableId: 'table1',
+        table: { name: '7' },
+      },
+    };
+
+    const validBody = {
+      IPCmethod: 'IPCPurchaseNotify',
+      SID: '000000000000010',
+      Amount: '20.00',
+      Currency: 'EUR',
+      OrderID: 'MP123',
+      Signature: 'signed',
+    };
+
+    beforeEach(() => {
+      mockPrisma.payment.findFirst.mockResolvedValue(myposPayment);
+      mockMyposProvider.verifyNotification.mockReturnValue({
+        verified: true,
+        method: 'IPCPurchaseNotify',
+        orderId: 'MP123',
+        amount: '20.00',
+        currency: 'EUR',
+        storeId: '000000000000010',
+        transactionRef: '813705',
+        requestStan: '000006',
+        requestDateTime: '2015-08-21 10:39:37',
+      });
+    });
+
+    it('returns ERR and does not mutate state when signature is invalid', async () => {
+      mockMyposProvider.verifyNotification.mockReturnValueOnce({
+        verified: false,
+        method: 'IPCPurchaseNotify',
+        orderId: 'MP123',
+        amount: '20.00',
+        currency: 'EUR',
+        storeId: '000000000000010',
+        transactionRef: '',
+        requestStan: '',
+        requestDateTime: '',
+      });
+
+      const result = await service.handleMyposNotification(validBody);
+
+      expect(result).toBe('ERR=invalid Signature');
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('marks a verified myPOS notification succeeded and replies OK', async () => {
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.tableSession.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.order.findFirst.mockResolvedValue({ customerName: 'Maria' });
+
+      const result = await service.handleMyposNotification(validBody);
+
+      expect(result).toBe('OK');
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
+        where: { id: 'pay-mypos', status: { in: ['PENDING', 'ABANDONED'] } },
+        data: expect.objectContaining({
+          status: 'SUCCEEDED',
+          providerStatus: 'PAID',
+        }),
+      });
+      expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
+        'rest1',
+        'payment:confirmed',
+        expect.objectContaining({
+          paymentId: 'pay-mypos',
+          tableSessionId: 's1',
+          amount: 20,
+          tipAmount: 0,
+          customerName: 'Maria',
+        }),
+      );
     });
   });
 
@@ -2391,8 +2602,10 @@ describe('PaymentService', () => {
       expect(mockPrisma.paymentAllocation.createMany).not.toHaveBeenCalled();
     });
 
-    it('EVEN mode: share is a fixed slice of the ORIGINAL bill, not a re-split of the remainder', async () => {
-      // €87.87 split in 2; person 1 already paid one €43.94 share → remaining 43.93.
+    it('EVEN mode: the last person pays the exact remaining (remaining / peopleLeft)', async () => {
+      // €87.87 split 2 ways; person 1 already paid 43.94 → remaining 43.93. The POS
+      // decrements peopleLeft to 1 for the last person, so remaining / 1 = 43.93
+      // clears the bill exactly (no rounding dust, not 43.93/2 = 21.96).
       mockPrisma.order.findMany.mockResolvedValue([
         { totalPrice: 87.87, pointsRedeemedForDiscount: 0, pointsRedeemedForItems: 0, items: [] },
       ]);
@@ -2404,11 +2617,9 @@ describe('PaymentService', () => {
         restaurantId: 'rest1',
         mode: 'EVEN' as any,
         provider: 'CASH' as any,
-        splitCount: 2,
+        splitCount: 1,
       });
 
-      // share = 87.87/2 = 43.94, capped to remaining 43.93 → second person clears
-      // the bill (NOT 43.93/2 = 21.96).
       expect(result.amount).toBeCloseTo(43.93);
       expect(result.remaining).toBe(0);
       expect(result.sessionPaid).toBe(true);

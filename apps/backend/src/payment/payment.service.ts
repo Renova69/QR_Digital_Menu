@@ -2264,12 +2264,18 @@ export class PaymentService {
     });
     if (!session) throw new NotFoundException('Session not found');
 
+    // Cancel any pending online payments before recording a POS settlement.
+    // Without this, a concurrent Stripe checkout that succeeds after the waiter
+    // closes would charge the customer twice — once via the terminal/cash and
+    // once via the online payment (#POS-C2).
+    await this.abandonCheckout(token);
+
     // #2: compute the bill INSIDE the same transaction that flips the session to
     // PAID. Reading orders before the transaction let a QR order placed during
     // the close window slip through unbilled (TOCTOU on the total). Bill only the
     // REMAINING balance so a full close after a partial split collects what's
     // left, not the whole bill again.
-    const amount = await this.prisma.$transaction(async (tx) => {
+    const { amount, paymentId } = await this.prisma.$transaction(async (tx) => {
       const balance = await this.computeSessionBalance(tx, session.id);
       const billed = balance.remaining;
       if (billed <= 0)
@@ -2277,7 +2283,7 @@ export class PaymentService {
           'Cannot close a session with no outstanding balance',
         );
 
-      await tx.payment.create({
+      const payment = await tx.payment.create({
         data: {
           tableSessionId: session.id,
           restaurantId,
@@ -2295,7 +2301,7 @@ export class PaymentService {
         data: { status: 'PAID', paidAt: new Date() },
       });
       if (updated.count === 0) throw new Error('Session already closed');
-      return billed;
+      return { amount: billed, paymentId: payment.id };
     });
 
     this.events.emitTableStatusChanged(
@@ -2313,6 +2319,7 @@ export class PaymentService {
       )?.name ?? null;
 
     this.events.emitToRestaurant(restaurantId, 'payment:confirmed', {
+      paymentId,
       tableSessionId: session.id,
       amount,
       tipAmount: 0,
@@ -2341,6 +2348,12 @@ export class PaymentService {
     dto: SettlePartialDto,
   ): Promise<{ amount: number; remaining: number; sessionPaid: boolean }> {
     await this.verifyPosOperatorAccess(restaurantId, userId);
+
+    // Cancel any pending online payments before recording a POS settlement.
+    // Without this, a concurrent Stripe checkout could succeed after the waiter
+    // settles, collecting more than the bill total (#POS-C3).
+    await this.abandonCheckout(token);
+
     const tipPercent = this.normalizeTipPercent(dto.tipPercent);
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -2398,12 +2411,12 @@ export class PaymentService {
         }
         chargeSubtotal = this.roundMoney(sum);
       } else if (dto.mode === SplitMode.EVEN) {
-        // "Split into N" = N equal shares of the WHOLE bill, not of the current
-        // remaining. Each even payment collects one fixed share (billSubtotal/N);
-        // the final share is capped to remaining below so rounding lands exactly.
-        // Dividing `remaining` instead would re-halve the leftover every payment.
+        // One share of the REMAINING balance: remaining / peopleLeft. The POS
+        // sends `splitCount` = people still to pay and decrements it after each
+        // even payment, so shares stay equal AND the final payment lands exactly
+        // (remaining / 1), leaving no rounding dust. Clamped to remaining below.
         const splitCount = dto.splitCount ?? 1;
-        chargeSubtotal = this.roundMoney(balance.billSubtotal / splitCount);
+        chargeSubtotal = this.roundMoney(balance.remaining / splitCount);
       } else {
         if (!dto.amount || dto.amount <= 0) {
           throw new BadRequestException('Enter an amount to settle');
@@ -2462,7 +2475,7 @@ export class PaymentService {
 
       const newRemaining = this.roundMoney(balance.remaining - chargeSubtotal);
       let sessionPaid = false;
-      if (newRemaining <= 0.001) {
+      if (newRemaining <= 0.01) {
         const flip = await tx.tableSession.updateMany({
           where: { id: session.id, status: 'OPEN' },
           data: { status: 'PAID', paidAt: new Date() },
@@ -2476,6 +2489,7 @@ export class PaymentService {
         amount: total,
         remaining: Math.max(0, newRemaining),
         sessionPaid,
+        paymentId: payment.id,
       };
     });
 
@@ -2494,6 +2508,7 @@ export class PaymentService {
           })
         )?.name ?? null;
       this.events.emitToRestaurant(restaurantId, 'payment:confirmed', {
+        paymentId: result.paymentId,
         tableSessionId: result.sessionId,
         amount: result.amount,
         tipAmount: 0,

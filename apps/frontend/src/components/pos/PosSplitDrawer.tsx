@@ -46,7 +46,12 @@ export default function PosSplitDrawer({
   const [mode, setMode] = useState<Mode>("ITEM");
   // orderItemId -> quantity selected for this payment
   const [selection, setSelection] = useState<Record<string, number>>({});
-  const [splitCount, setSplitCount] = useState(2);
+  // Even split: how many people still have to pay. Each even payment charges
+  // remaining/peopleLeft and auto-decrements this, so shares stay equal and the
+  // last person clears the bill exactly. Locked after the first payment so the
+  // waiter can't accidentally re-split mid-flow.
+  const [peopleLeft, setPeopleLeft] = useState(2);
+  const [paidThisSession, setPaidThisSession] = useState(false);
   const [customAmount, setCustomAmount] = useState("");
   const [tipPercent, setTipPercent] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -74,6 +79,8 @@ export default function PosSplitDrawer({
     setSelection({});
     setCustomAmount("");
     setTipPercent(0);
+    setPeopleLeft(2);
+    setPaidThisSession(false);
     loadBill();
   }, [open, loadBill]);
 
@@ -101,10 +108,10 @@ export default function PosSplitDrawer({
     [unpaidUnits, selection],
   );
 
-  // One equal share of the WHOLE bill (not the remaining), so paying share 1 of N
-  // leaves the rest as the remaining shares — not a fresh re-split of the leftover.
-  const billSubtotal = bill?.subtotal ?? 0;
-  const evenShare = splitCount > 0 ? billSubtotal / splitCount : remaining;
+  // Share = remaining split across the people still to pay. peopleLeft steps down
+  // after each even payment, so the final person pays exactly remaining/1 — no
+  // rounding dust and no re-split of the leftover.
+  const evenShare = peopleLeft > 0 ? remaining / peopleLeft : remaining;
   const parsedCustom = parseFloat(customAmount) || 0;
 
   const baseSubtotal =
@@ -146,7 +153,7 @@ export default function PosSplitDrawer({
         provider,
         allocations,
         amount: mode === "CUSTOM" ? parsedCustom : undefined,
-        splitCount: mode === "EVEN" ? splitCount : undefined,
+        splitCount: mode === "EVEN" ? peopleLeft : undefined,
         tipPercent: tipPercent || undefined,
       });
 
@@ -155,7 +162,10 @@ export default function PosSplitDrawer({
         onOpenChange(false);
         return;
       }
-      // Partial settled — reset the selection and refresh the running balance.
+      // Partial settled. Lock the even split going forward and step down the
+      // people-left count so the next share is remaining / (people who still owe).
+      setPaidThisSession(true);
+      if (mode === "EVEN") setPeopleLeft((n) => Math.max(1, n - 1));
       setSelection({});
       setCustomAmount("");
       setTipPercent(0);
@@ -336,32 +346,46 @@ export default function PosSplitDrawer({
                   </div>
                 )}
 
-                {/* Even split */}
+                {/* Even split — number of people still to pay. Locked once the
+                    first payment is taken so it can't be re-split by mistake; it
+                    counts down automatically as each person pays. */}
                 {mode === "EVEN" && (
-                  <div className="flex items-center gap-3 py-2">
-                    <span className="text-sm font-medium text-foreground">
-                      {t("pos.split.ways", "Split into")}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setSplitCount(Math.max(1, splitCount - 1))}
-                      className="flex h-10 w-10 items-center justify-center rounded-full border border-border text-foreground"
-                    >
-                      −
-                    </button>
-                    <span className="w-8 text-center text-lg font-bold text-foreground">
-                      {splitCount}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setSplitCount(Math.min(20, splitCount + 1))}
-                      className="flex h-10 w-10 items-center justify-center rounded-full border border-border text-foreground"
-                    >
-                      +
-                    </button>
-                    <span className="ml-auto text-sm text-muted-foreground">
-                      {eur(Math.min(evenShare, remaining))} {t("pos.perPerson", "/ person")}
-                    </span>
+                  <div className="py-2">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-foreground">
+                        {t("pos.split.peopleToPay", "People to pay")}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={paidThisSession || peopleLeft <= 1}
+                        onClick={() => setPeopleLeft(Math.max(1, peopleLeft - 1))}
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-border text-foreground disabled:opacity-40"
+                      >
+                        −
+                      </button>
+                      <span className="w-8 text-center text-lg font-bold text-foreground">
+                        {peopleLeft}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={paidThisSession || peopleLeft >= 20}
+                        onClick={() => setPeopleLeft(Math.min(20, peopleLeft + 1))}
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-border text-foreground disabled:opacity-40"
+                      >
+                        +
+                      </button>
+                      <span className="ml-auto text-sm text-muted-foreground">
+                        {eur(Math.min(evenShare, remaining))} {t("pos.perPerson", "/ person")}
+                      </span>
+                    </div>
+                    {paidThisSession && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {t(
+                          "pos.split.evenLocked",
+                          "Locked after the first payment — counts down as each person pays.",
+                        )}
+                      </p>
+                    )}
                   </div>
                 )}
 

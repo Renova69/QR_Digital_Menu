@@ -2932,6 +2932,8 @@
       "remaining": "Rămas",
       "thisPayment": "Această plată",
       "ways": "Împarte în",
+      "peopleToPay": "Persoane de plată",
+      "evenLocked": "Blocat după prima plată — scade pe măsură ce fiecare plătește.",
       "amount": "Sumă",
       "unitsLeft": "{{count}} rămase",
       "allItemsPaid": "Toate produsele sunt deja plătite.",

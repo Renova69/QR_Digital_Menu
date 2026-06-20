@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useTranslation } from "react-i18next";
 import { usePos } from "../../context/PosContext";
+import { usePosTheme } from "../../context/PosThemeContext";
 
 interface MenuOption {
   id: string;
@@ -20,6 +21,8 @@ interface ItemWithOptions {
 
 export default function PosOptionsDrawer() {
   const { t } = useTranslation();
+  // Carry the POS scoped theme onto the portalled dialog (see PosSplitDrawer).
+  const { theme } = usePosTheme();
   const { addItem, activeSeat } = usePos();
   const [item, setItem] = useState<ItemWithOptions | null>(null);
   const [open, setOpen] = useState(false);
@@ -104,7 +107,7 @@ export default function PosOptionsDrawer() {
         {item && (
           <>
             <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-            <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 max-h-[70dvh] overflow-y-auto rounded-t-xl bg-background p-6 pb-safe">
+            <Dialog.Content className={`fixed inset-x-0 bottom-0 z-50 max-h-[70dvh] overflow-y-auto rounded-t-xl bg-background p-6 pb-safe text-foreground ${theme === "dark" ? "dark" : ""}`}>
               <Dialog.Title className="text-lg font-semibold mb-1">
                 {item.name}
               </Dialog.Title>

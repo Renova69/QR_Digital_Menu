@@ -2932,6 +2932,8 @@
       "remaining": "Remaining",
       "thisPayment": "This payment",
       "ways": "Split into",
+      "peopleToPay": "People to pay",
+      "evenLocked": "Locked after the first payment — counts down as each person pays.",
       "amount": "Amount",
       "unitsLeft": "{{count}} left",
       "allItemsPaid": "All items are already paid.",

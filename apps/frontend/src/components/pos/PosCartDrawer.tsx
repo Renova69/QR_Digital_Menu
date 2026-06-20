@@ -6,6 +6,7 @@ import { createOrder, closeSession, closeSessionWithCard, closeSessionWithCash, 
 import RestaurantContext from "../../context/RestaurantContext";
 import PosSplitDrawer from "./PosSplitDrawer";
 import PosQRBill from "./PosQRBill";
+import { usePosTheme } from "../../context/PosThemeContext";
 
 interface PosCartDrawerProps {
   itemCount: number;
@@ -28,6 +29,8 @@ const SEAT_LABEL_KEYS: Record<string, string> = {
 
 export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) {
   const { t } = useTranslation();
+  // Confirm dialog portals to <body>, outside the POS scoped `.dark` shell.
+  const { theme } = usePosTheme();
   const restaurantCtx = useContext(RestaurantContext);
   const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
   const {
@@ -446,7 +449,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
       >
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-          <Dialog.Content className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-md mx-auto rounded-xl bg-background p-6">
+          <Dialog.Content className={`fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-md mx-auto rounded-xl bg-background p-6 text-foreground ${theme === "dark" ? "dark" : ""}`}>
             <Dialog.Title className="text-lg font-semibold mb-2">
               {confirmAction?.type === "submit" && t("pos.confirmSubmitTitle", "Submit Order")}
               {confirmAction?.type === "card" && t("pos.confirmCardTitle", "Close Table — Paid by Card")}

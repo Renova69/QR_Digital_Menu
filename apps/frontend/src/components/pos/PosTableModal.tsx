@@ -6,6 +6,7 @@ import type { TableZone } from "../../lib/api";
 import { usePos } from "../../context/PosContext";
 import RestaurantContext from "../../context/RestaurantContext";
 import { useSocket } from "../../context/SocketContext";
+import { usePosTheme } from "../../context/PosThemeContext";
 import ZoneSelector from "./ZoneSelector";
 
 interface TableStatus {
@@ -35,6 +36,9 @@ const STATUS_LABEL_KEYS: Record<TableStatus["status"], string> = {
 
 export default function PosTableModal() {
   const { t } = useTranslation();
+  // Dialog portals to <body>, outside the POS scoped `.dark` shell — carry the
+  // theme onto the content so it isn't always light.
+  const { theme } = usePosTheme();
   const restaurantCtx = useContext(RestaurantContext);
   const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
   const restaurantLoading = restaurantCtx?.loading ?? false;
@@ -221,7 +225,7 @@ export default function PosTableModal() {
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-        <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 w-full max-h-[85dvh] overflow-y-auto rounded-t-xl bg-background p-6 pt-safe md:inset-auto md:top-1/2 md:left-1/2 md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:bottom-auto">
+        <Dialog.Content className={`fixed inset-x-0 bottom-0 z-50 w-full max-h-[85dvh] overflow-y-auto rounded-t-xl bg-background p-6 pt-safe text-foreground md:inset-auto md:top-1/2 md:left-1/2 md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:bottom-auto ${theme === "dark" ? "dark" : ""}`}>
           <Dialog.Title className="text-lg font-semibold mb-1">
             {t('pos.selectTable', 'Select Table')}</Dialog.Title>
           <Dialog.Description className="text-sm text-muted-foreground mb-3">
