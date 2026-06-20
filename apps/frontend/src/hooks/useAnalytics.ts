@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { getAnalytics } from '../lib/api';
+import { useQuery } from "@tanstack/react-query";
+import { getAnalytics } from "../lib/api";
 
 export interface RevenueTrendPoint {
   date: string;
@@ -44,7 +44,7 @@ export interface AnalyticsData {
   totalOrders: number;
   newCustomers: number;
   avgOrderValue: number;
-  servedRate: number;
+  completionRate: number;
   ordersByStatus: OrderStatusBreakdown[];
   categoryBreakdown: CategoryBreakdown[];
   ordersByTable: TableMetric[];
@@ -66,7 +66,7 @@ export const useAnalytics = (
   enabled = true,
 ) => {
   return useQuery<AnalyticsData>({
-    queryKey: ['analytics', restaurantId, period, startDate, endDate],
+    queryKey: ["analytics", restaurantId, period, startDate, endDate],
     queryFn: () => getAnalytics(restaurantId!, period, startDate, endDate),
     enabled: !!restaurantId && enabled,
     staleTime: 30_000,

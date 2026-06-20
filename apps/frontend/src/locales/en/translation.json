@@ -577,6 +577,7 @@
     "totalOrders": "Total Orders",
     "avgOrderValue": "Avg Order Value",
     "servedRate": "Served Rate",
+    "completionRate": "Completion Rate",
     "financialTrend": "Financial Trend",
     "popularSelections": "Popular Selections",
     "peakHours": "Dynamic Peak Hours",
@@ -670,6 +671,7 @@
     "statusPreparing": "Preparing",
     "statusReady": "Ready",
     "statusServed": "Served",
+    "statusCompleted": "Completed",
     "statusDelivered": "Delivered",
     "statusCanceled": "Canceled",
     "statusRejected": "Rejected",
@@ -743,6 +745,7 @@
         "totalOrders": "Total Orders",
         "avgOrderValue": "Avg Order Value",
         "servedRate": "Served Rate",
+        "completionRate": "Completion Rate",
         "revenueChange": "Revenue vs Prev Period",
         "ordersChange": "Orders vs Prev Period"
       },

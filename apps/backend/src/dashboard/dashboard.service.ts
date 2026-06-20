@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DashboardViewsService } from './dashboard-views.service';
 import { OrderStatus } from '@prisma/client';
@@ -109,7 +114,9 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     const tz = restaurant?.timezone || 'Europe/Sofia';
 
     let nowDateTime = DateTime.now().setZone(tz);
-    let periodStartDateTime = nowDateTime.minus({ days: period }).startOf('day');
+    let periodStartDateTime = nowDateTime
+      .minus({ days: period })
+      .startOf('day');
 
     if (startDateStr && endDateStr) {
       periodStartDateTime = DateTime.fromISO(startDateStr, {
@@ -183,11 +190,14 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
           ? 100
           : 0;
 
-    const servedOrders =
-      ordersByStatus.find((s) => s.status === 'SERVED')?.count || 0;
-    const servedRate =
+    // Orders flow NEW -> IN_PROGRESS -> SERVED -> COMPLETED (batch-advanced).
+    // SERVED is transient; fulfilled orders settle in COMPLETED, so completion
+    // rate (not the near-empty SERVED snapshot) is the real fulfillment KPI.
+    const completedOrders =
+      ordersByStatus.find((s) => s.status === 'COMPLETED')?.count || 0;
+    const completionRate =
       currentPeriodStats.totalOrders > 0
-        ? (servedOrders / currentPeriodStats.totalOrders) * 100
+        ? (completedOrders / currentPeriodStats.totalOrders) * 100
         : 0;
 
     const avgOrderValueChange =
@@ -211,7 +221,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       totalOrders: currentPeriodStats.totalOrders,
       newCustomers: currentNewCustomers,
       avgOrderValue: currentPeriodStats.avgOrderValue,
-      servedRate: Math.round(servedRate * 10) / 10,
+      completionRate: Math.round(completionRate * 10) / 10,
       ordersByStatus,
       prevPeriodStart: prevPeriodStart.toISOString(),
       prevPeriodEnd: prevPeriodEnd.toISOString(),
@@ -346,7 +356,11 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
 
     const hours: { hour: number; label: string; orders: number }[] = Array.from(
       { length: 24 },
-      (_, h) => ({ hour: h, label: `${h.toString().padStart(2, '0')}:00`, orders: 0 }),
+      (_, h) => ({
+        hour: h,
+        label: `${h.toString().padStart(2, '0')}:00`,
+        orders: 0,
+      }),
     );
     for (const row of rows) {
       const h = row.hour;
@@ -452,6 +466,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       OrderStatus.NEW,
       OrderStatus.IN_PROGRESS,
       OrderStatus.SERVED,
+      OrderStatus.COMPLETED,
       OrderStatus.CANCELED,
     ];
     return statuses.map((status) => ({

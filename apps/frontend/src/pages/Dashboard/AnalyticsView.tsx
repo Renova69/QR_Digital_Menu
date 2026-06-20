@@ -1,5 +1,5 @@
-import { useContext, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useContext, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Area,
   AreaChart,
@@ -13,7 +13,7 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-} from 'recharts';
+} from "recharts";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -35,76 +35,78 @@ import {
   Users,
   Utensils,
   Wallet,
-} from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import RestaurantContext from '../../context/RestaurantContext';
-import { useAnalytics } from '../../hooks/useAnalytics';
-import { useFeature } from '../../hooks/useFeature';
-import { useSummaryDateRange } from '../../hooks/useSummaryDateRange';
-import { getFeedbackSummary } from '../../lib/api';
-import { downloadAnalyticsExport } from '../../lib/analyticsExport';
-import { formatEuro } from '../../lib/currency';
-import DateRangeFilter from './summary/DateRangeFilter';
+} from "lucide-react";
+import { useTranslation } from "react-i18next";
+import RestaurantContext from "../../context/RestaurantContext";
+import { useAnalytics } from "../../hooks/useAnalytics";
+import { useFeature } from "../../hooks/useFeature";
+import { useSummaryDateRange } from "../../hooks/useSummaryDateRange";
+import { getFeedbackSummary } from "../../lib/api";
+import { downloadAnalyticsExport } from "../../lib/analyticsExport";
+import { formatEuro } from "../../lib/currency";
+import DateRangeFilter from "./summary/DateRangeFilter";
 
 const CHART_COLORS = [
-  'hsl(var(--color-primary))',
-  '#10b981',
-  '#f59e0b',
-  '#38bdf8',
-  '#ef4444',
-  '#a78bfa',
+  "hsl(var(--color-primary))",
+  "#10b981",
+  "#f59e0b",
+  "#38bdf8",
+  "#ef4444",
+  "#a78bfa",
 ];
 
 const dayParts = [
-  { id: 'morning', label: 'Morning', range: [6, 7, 8, 9, 10, 11] },
-  { id: 'lunch', label: 'Lunch', range: [12, 13, 14, 15] },
-  { id: 'dinner', label: 'Dinner', range: [16, 17, 18, 19, 20, 21] },
-  { id: 'late', label: 'Late', range: [22, 23, 0, 1, 2, 3, 4, 5] },
+  { id: "morning", label: "Morning", range: [6, 7, 8, 9, 10, 11] },
+  { id: "lunch", label: "Lunch", range: [12, 13, 14, 15] },
+  { id: "dinner", label: "Dinner", range: [16, 17, 18, 19, 20, 21] },
+  { id: "late", label: "Late", range: [22, 23, 0, 1, 2, 3, 4, 5] },
 ];
 
 const dayPartKeyMap: Record<string, string> = {
-  morning: 'analytics.dayPartMorning',
-  lunch: 'analytics.dayPartLunch',
-  dinner: 'analytics.dayPartDinner',
-  late: 'analytics.dayPartLate',
+  morning: "analytics.dayPartMorning",
+  lunch: "analytics.dayPartLunch",
+  dinner: "analytics.dayPartDinner",
+  late: "analytics.dayPartLate",
 };
 
 const orderStatusKeyMap: Record<string, string> = {
-  PENDING: 'analytics.statusPending',
-  CONFIRMED: 'analytics.statusConfirmed',
-  PREPARING: 'analytics.statusPreparing',
-  READY: 'analytics.statusReady',
-  SERVED: 'analytics.statusServed',
-  DELIVERED: 'analytics.statusDelivered',
-  CANCELED: 'analytics.statusCanceled',
-  REJECTED: 'analytics.statusRejected',
+  PENDING: "analytics.statusPending",
+  CONFIRMED: "analytics.statusConfirmed",
+  PREPARING: "analytics.statusPreparing",
+  READY: "analytics.statusReady",
+  SERVED: "analytics.statusServed",
+  COMPLETED: "analytics.statusCompleted",
+  DELIVERED: "analytics.statusDelivered",
+  CANCELED: "analytics.statusCanceled",
+  REJECTED: "analytics.statusRejected",
 };
 
-const numberFormat = new Intl.NumberFormat('en-GB');
+const numberFormat = new Intl.NumberFormat("en-GB");
 
 const formatDate = (dateStr: string) => {
-  const [year, month, day] = dateStr.split('-').map(Number);
+  const [year, month, day] = dateStr.split("-").map(Number);
   const date = new Date(year, month - 1, day);
-  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
 };
 
 const formatPercent = (value: number) => `${Math.round(value * 10) / 10}%`;
 
-const safePercent = (value: number, total: number) => (total > 0 ? (value / total) * 100 : 0);
+const safePercent = (value: number, total: number) =>
+  total > 0 ? (value / total) * 100 : 0;
 
 const getChangeCopy = (change?: number) => {
   if (change === undefined) return null;
   const isUp = change >= 0;
   return {
     isUp,
-    label: `${isUp ? '+' : '-'}${formatPercent(Math.abs(change))}`,
+    label: `${isUp ? "+" : "-"}${formatPercent(Math.abs(change))}`,
   };
 };
 
 const AnalyticsView = () => {
   const { activeRestaurant }: any = useContext(RestaurantContext);
   const { t } = useTranslation();
-  const canFullAnalytics = useFeature('analytics:full');
+  const canFullAnalytics = useFeature("analytics:full");
   const dateRange = useSummaryDateRange();
 
   const { data, isLoading, error } = useAnalytics(
@@ -115,7 +117,7 @@ const AnalyticsView = () => {
   );
 
   const { data: feedbackData } = useQuery({
-    queryKey: ['feedbackSummary', activeRestaurant?.id],
+    queryKey: ["feedbackSummary", activeRestaurant?.id],
     queryFn: () => getFeedbackSummary(activeRestaurant!.id),
     enabled: !!activeRestaurant?.id && canFullAnalytics,
     staleTime: 5 * 60 * 1000,
@@ -131,10 +133,20 @@ const AnalyticsView = () => {
     const tables = data.ordersByTable ?? [];
     const statuses = data.ordersByStatus ?? [];
 
-    const bestDay = trend.reduce((best, point) => (point.revenue > best.revenue ? point : best), trend[0]);
-    const quietDay = trend.reduce((quiet, point) => (point.orders < quiet.orders ? point : quiet), trend[0]);
-    const averageDailyRevenue = trend.length > 0 ? data.totalRevenue / trend.length : 0;
-    const peakHour = peakHours.reduce((max, hour) => (hour.orders > max.orders ? hour : max), peakHours[0]);
+    const bestDay = trend.reduce(
+      (best, point) => (point.revenue > best.revenue ? point : best),
+      trend[0],
+    );
+    const quietDay = trend.reduce(
+      (quiet, point) => (point.orders < quiet.orders ? point : quiet),
+      trend[0],
+    );
+    const averageDailyRevenue =
+      trend.length > 0 ? data.totalRevenue / trend.length : 0;
+    const peakHour = peakHours.reduce(
+      (max, hour) => (hour.orders > max.orders ? hour : max),
+      peakHours[0],
+    );
 
     const windowScores = peakHours.map((hour, index) => {
       const next = peakHours[(index + 1) % peakHours.length];
@@ -146,20 +158,34 @@ const AnalyticsView = () => {
         orders: hour.orders + (next?.orders ?? 0) + (third?.orders ?? 0),
       };
     });
-    const busiestWindow = windowScores.reduce((max, current) => (current.orders > max.orders ? current : max), windowScores[0]);
+    const busiestWindow = windowScores.reduce(
+      (max, current) => (current.orders > max.orders ? current : max),
+      windowScores[0],
+    );
 
-    const topItemRevenue = topItems.reduce((sum, item) => sum + item.revenue, 0);
-    const topThreeRevenue = topItems.slice(0, 3).reduce((sum, item) => sum + item.revenue, 0);
+    const topItemRevenue = topItems.reduce(
+      (sum, item) => sum + item.revenue,
+      0,
+    );
+    const topThreeRevenue = topItems
+      .slice(0, 3)
+      .reduce((sum, item) => sum + item.revenue, 0);
     const heroItem = topItems[0];
     const bestTable = tables[0];
-    const served = statuses.find((status) => status.status === 'SERVED')?.count ?? 0;
-    const canceled = statuses.find((status) => status.status === 'CANCELED')?.count ?? 0;
+    const completed =
+      statuses.find((status) => status.status === "COMPLETED")?.count ?? 0;
+    const canceled =
+      statuses.find((status) => status.status === "CANCELED")?.count ?? 0;
     const cancelRate = safePercent(canceled, data.totalOrders);
     const topThreeShare = safePercent(topThreeRevenue, data.totalRevenue);
     const topItemShare = safePercent(heroItem?.revenue ?? 0, data.totalRevenue);
 
     const dayPartTotals = dayParts.map((part) => {
-      const orders = part.range.reduce((sum, hour) => sum + (peakHours.find((h) => h.hour === hour)?.orders ?? 0), 0);
+      const orders = part.range.reduce(
+        (sum, hour) =>
+          sum + (peakHours.find((h) => h.hour === hour)?.orders ?? 0),
+        0,
+      );
       return { ...part, orders, share: safePercent(orders, data.totalOrders) };
     });
 
@@ -177,7 +203,7 @@ const AnalyticsView = () => {
       topItemRevenue,
       heroItem,
       bestTable,
-      served,
+      completed,
       canceled,
       cancelRate,
       topThreeShare,
@@ -191,7 +217,7 @@ const AnalyticsView = () => {
     await downloadAnalyticsExport(
       data,
       {
-        restaurantName: activeRestaurant?.name ?? 'restaurant',
+        restaurantName: activeRestaurant?.name ?? "restaurant",
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
         period: dateRange.period,
@@ -212,17 +238,20 @@ const AnalyticsView = () => {
   if (error) {
     return (
       <div className="glass-panel border-destructive/20 text-destructive p-8 rounded-lg text-center">
-        <p className="font-display font-bold text-xl mb-2">{t('analytics.loadingFailed')}</p>
-        <p className="text-sm opacity-70">{t('analytics.checkConnection')}</p>
+        <p className="font-display font-bold text-xl mb-2">
+          {t("analytics.loadingFailed")}
+        </p>
+        <p className="text-sm opacity-70">{t("analytics.checkConnection")}</p>
       </div>
     );
   }
 
   if (!data || !insights) return null;
 
-  const comparisonLabel = data.prevPeriodStart && data.prevPeriodEnd
-    ? `${formatDate(data.prevPeriodStart.slice(0, 10))} - ${formatDate(data.prevPeriodEnd.slice(0, 10))}`
-    : t('analytics.vsLastPeriod', 'vs previous period');
+  const comparisonLabel =
+    data.prevPeriodStart && data.prevPeriodEnd
+      ? `${formatDate(data.prevPeriodStart.slice(0, 10))} - ${formatDate(data.prevPeriodEnd.slice(0, 10))}`
+      : t("analytics.vsLastPeriod", "vs previous period");
 
   return (
     <div className="space-y-6">
@@ -232,8 +261,8 @@ const AnalyticsView = () => {
           startDate={dateRange.startDate}
           endDate={dateRange.endDate}
           label={dateRange.label}
-          title={t('analytics.deepTitle', 'Performance Analytics')}
-          subtitle={`${dateRange.label} - ${t('analytics.deepSubtitle', 'Deep revenue, demand, menu, table, and guest intelligence')}`}
+          title={t("analytics.deepTitle", "Performance Analytics")}
+          subtitle={`${dateRange.label} - ${t("analytics.deepSubtitle", "Deep revenue, demand, menu, table, and guest intelligence")}`}
           onPeriodChange={dateRange.setPeriod}
           onCustomRange={dateRange.setCustomRange}
         />
@@ -242,125 +271,224 @@ const AnalyticsView = () => {
           className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-foreground text-background text-xs font-bold shadow-sm hover:opacity-90 transition-opacity"
         >
           <Download className="w-4 h-4" />
-          {t('analytics.exportLabel', 'Export')}
+          {t("analytics.exportLabel", "Export")}
         </button>
       </div>
 
       <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
         <MetricCard
-          label={t('analytics.totalRevenue', 'Revenue')}
+          label={t("analytics.totalRevenue", "Revenue")}
           value={formatEuro(data.totalRevenue)}
           change={data.comparison.revenueChange}
           comparisonLabel={comparisonLabel}
           Icon={Wallet}
         />
         <MetricCard
-          label={t('analytics.totalOrders', 'Orders')}
+          label={t("analytics.totalOrders", "Orders")}
           value={numberFormat.format(data.totalOrders)}
           change={data.comparison.ordersChange}
           comparisonLabel={comparisonLabel}
           Icon={ReceiptText}
         />
         <MetricCard
-          label={t('analytics.avgOrderValue', 'Avg. order')}
+          label={t("analytics.avgOrderValue", "Avg. order")}
           value={formatEuro(data.avgOrderValue)}
           change={data.comparison.avgOrderValueChange}
           comparisonLabel={comparisonLabel}
           Icon={Target}
         />
         <MetricCard
-          label={t('analytics.activeCustomers', 'Active customers')}
+          label={t("analytics.activeCustomers", "Active customers")}
           value={numberFormat.format(data.newCustomers)}
           change={data.comparison.newCustomersChange}
           comparisonLabel={comparisonLabel}
           Icon={Users}
         />
         <MetricCard
-          label={t('analytics.servedRate', 'Served rate')}
-          value={formatPercent(data.servedRate)}
-          detail={t('analytics.servedCompleted', { count: insights.served })}
+          label={t("analytics.completionRate", "Completion rate")}
+          value={formatPercent(data.completionRate)}
+          detail={t("analytics.servedCompleted", { count: insights.completed })}
           Icon={CheckCircle2}
         />
       </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         <InsightCard
-          label={t('analytics.revenueLeader', 'Revenue leader')}
-          value={insights.bestDay ? formatDate(insights.bestDay.date) : '-'}
-          detail={insights.bestDay ? t('analytics.revenueLeaderDetail', { revenue: formatEuro(insights.bestDay.revenue), orders: insights.bestDay.orders }) : t('analytics.noData')}
+          label={t("analytics.revenueLeader", "Revenue leader")}
+          value={insights.bestDay ? formatDate(insights.bestDay.date) : "-"}
+          detail={
+            insights.bestDay
+              ? t("analytics.revenueLeaderDetail", {
+                  revenue: formatEuro(insights.bestDay.revenue),
+                  orders: insights.bestDay.orders,
+                })
+              : t("analytics.noData")
+          }
           Icon={TrendingUp}
         />
         <InsightCard
-          label={t('analytics.peakWindow', 'Peak window')}
-          value={insights.busiestWindow?.label ?? '-'}
-          detail={t('analytics.peakWindowDetail', { orders: insights.busiestWindow?.orders ?? 0 })}
+          label={t("analytics.peakWindow", "Peak window")}
+          value={insights.busiestWindow?.label ?? "-"}
+          detail={t("analytics.peakWindowDetail", {
+            orders: insights.busiestWindow?.orders ?? 0,
+          })}
           Icon={Clock3}
         />
         <InsightCard
-          label={t('analytics.menuConcentration', 'Top 3 menu share')}
+          label={t("analytics.menuConcentration", "Top 3 menu share")}
           value={formatPercent(insights.topThreeShare)}
-          detail={insights.heroItem ? t('analytics.menuConcentrationDetail', { name: insights.heroItem.name, share: formatPercent(insights.topItemShare) }) : t('analytics.noItemData')}
+          detail={
+            insights.heroItem
+              ? t("analytics.menuConcentrationDetail", {
+                  name: insights.heroItem.name,
+                  share: formatPercent(insights.topItemShare),
+                })
+              : t("analytics.noItemData")
+          }
           Icon={Utensils}
         />
         <InsightCard
-          label={t('analytics.tableChampion', 'Best table')}
-          value={insights.bestTable?.table ?? '-'}
-          detail={insights.bestTable ? t('analytics.tableChampionDetail', { revenue: formatEuro(insights.bestTable.revenue), orders: insights.bestTable.orders }) : t('analytics.noTableData')}
+          label={t("analytics.tableChampion", "Best table")}
+          value={insights.bestTable?.table ?? "-"}
+          detail={
+            insights.bestTable
+              ? t("analytics.tableChampionDetail", {
+                  revenue: formatEuro(insights.bestTable.revenue),
+                  orders: insights.bestTable.orders,
+                })
+              : t("analytics.noTableData")
+          }
           Icon={Table2}
         />
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-[1.55fr_1fr] gap-5">
         <Panel
-          title={t('analytics.revenueCommand', 'Revenue command center')}
-          eyebrow={t('analytics.financialTrend', 'Financial trend')}
-          action={`${t('analytics.dailyAverage', 'Daily avg')} ${formatEuro(insights.averageDailyRevenue)}`}
+          title={t("analytics.revenueCommand", "Revenue command center")}
+          eyebrow={t("analytics.financialTrend", "Financial trend")}
+          action={`${t("analytics.dailyAverage", "Daily avg")} ${formatEuro(insights.averageDailyRevenue)}`}
         >
           {data.revenueTrend.length > 0 ? (
             <ResponsiveContainer width="100%" height={330}>
-              <AreaChart data={data.revenueTrend} margin={{ top: 10, right: 12, bottom: 0, left: 0 }}>
+              <AreaChart
+                data={data.revenueTrend}
+                margin={{ top: 10, right: 12, bottom: 0, left: 0 }}
+              >
                 <defs>
-                  <linearGradient id="analyticsRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--color-primary))" stopOpacity={0.32} />
-                    <stop offset="95%" stopColor="hsl(var(--color-primary))" stopOpacity={0} />
+                  <linearGradient
+                    id="analyticsRevenue"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop
+                      offset="5%"
+                      stopColor="hsl(var(--color-primary))"
+                      stopOpacity={0.32}
+                    />
+                    <stop
+                      offset="95%"
+                      stopColor="hsl(var(--color-primary))"
+                      stopOpacity={0}
+                    />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border" vertical={false} opacity={0.45} />
-                <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11, fill: 'hsl(var(--color-muted-foreground))' }} axisLine={false} tickLine={false} dy={10} />
-                <YAxis tickFormatter={(value) => formatEuro(Number(value))} tick={{ fontSize: 11, fill: 'hsl(var(--color-muted-foreground))' }} axisLine={false} tickLine={false} width={68} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="currentColor"
+                  className="text-border"
+                  vertical={false}
+                  opacity={0.45}
+                />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={formatDate}
+                  tick={{
+                    fontSize: 11,
+                    fill: "hsl(var(--color-muted-foreground))",
+                  }}
+                  axisLine={false}
+                  tickLine={false}
+                  dy={10}
+                />
+                <YAxis
+                  tickFormatter={(value) => formatEuro(Number(value))}
+                  tick={{
+                    fontSize: 11,
+                    fill: "hsl(var(--color-muted-foreground))",
+                  }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={68}
+                />
                 <Tooltip content={<CustomTooltip currency />} />
-                <Area type="monotone" dataKey="revenue" name={t('analytics.revenue', 'Revenue')} stroke="hsl(var(--color-primary))" strokeWidth={3} fill="url(#analyticsRevenue)" />
+                <Area
+                  type="monotone"
+                  dataKey="revenue"
+                  name={t("analytics.revenue", "Revenue")}
+                  stroke="hsl(var(--color-primary))"
+                  strokeWidth={3}
+                  fill="url(#analyticsRevenue)"
+                />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <EmptyState message={t('analytics.noRevenue', 'No revenue data for this period')} />
+            <EmptyState
+              message={t(
+                "analytics.noRevenue",
+                "No revenue data for this period",
+              )}
+            />
           )}
         </Panel>
 
         <Panel
-          title={t('analytics.actionableSignals', 'Actionable signals')}
-          eyebrow={t('analytics.operatorNotes', 'Operator notes')}
+          title={t("analytics.actionableSignals", "Actionable signals")}
+          eyebrow={t("analytics.operatorNotes", "Operator notes")}
         >
           <div className="space-y-3">
             <SignalRow
               Icon={Sparkles}
-              label={t('analytics.protectRush', 'Protect the rush')}
-              value={insights.busiestWindow ? t('analytics.protectRushDetail', { window: insights.busiestWindow.label }) : t('analytics.noRushYet')}
+              label={t("analytics.protectRush", "Protect the rush")}
+              value={
+                insights.busiestWindow
+                  ? t("analytics.protectRushDetail", {
+                      window: insights.busiestWindow.label,
+                    })
+                  : t("analytics.noRushYet")
+              }
             />
             <SignalRow
               Icon={Award}
-              label={t('analytics.pushHero', 'Push the hero')}
-              value={insights.heroItem ? t('analytics.pushHeroDetail', { name: insights.heroItem.name }) : t('analytics.noItemData')}
+              label={t("analytics.pushHero", "Push the hero")}
+              value={
+                insights.heroItem
+                  ? t("analytics.pushHeroDetail", {
+                      name: insights.heroItem.name,
+                    })
+                  : t("analytics.noItemData")
+              }
             />
             <SignalRow
               Icon={TrendingDown}
-              label={t('analytics.watchCancellations', 'Watch cancellations')}
-              value={t('analytics.watchCancellationsDetail', { rate: formatPercent(insights.cancelRate), count: insights.canceled })}
+              label={t("analytics.watchCancellations", "Watch cancellations")}
+              value={t("analytics.watchCancellationsDetail", {
+                rate: formatPercent(insights.cancelRate),
+                count: insights.canceled,
+              })}
             />
             <SignalRow
               Icon={Lightbulb}
-              label={t('analytics.lowDemand', 'Lift quiet days')}
-              value={insights.quietDay ? t('analytics.lowDemandDetail', { date: formatDate(insights.quietDay.date), orders: insights.quietDay.orders }) : t('analytics.noData')}
+              label={t("analytics.lowDemand", "Lift quiet days")}
+              value={
+                insights.quietDay
+                  ? t("analytics.lowDemandDetail", {
+                      date: formatDate(insights.quietDay.date),
+                      orders: insights.quietDay.orders,
+                    })
+                  : t("analytics.noData")
+              }
             />
           </div>
         </Panel>
@@ -372,10 +500,13 @@ const AnalyticsView = () => {
             <Lock className="w-5 h-5 text-primary flex-shrink-0" />
             <div>
               <p className="text-sm font-black uppercase tracking-widest text-foreground">
-                {t('tierLocked.analyticsTitle', 'Full Analytics locked')}
+                {t("tierLocked.analyticsTitle", "Full Analytics locked")}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                {t('tierLocked.analyticsDesc', 'Deep menu, table, demand, and guest analytics require Professional plan.')}
+                {t(
+                  "tierLocked.analyticsDesc",
+                  "Deep menu, table, demand, and guest analytics require Professional plan.",
+                )}
               </p>
             </div>
           </div>
@@ -383,7 +514,7 @@ const AnalyticsView = () => {
             href="/pricing"
             className="px-4 py-2 brand-cta text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap flex-shrink-0"
           >
-            {t('tierLocked.upgrade', 'Upgrade')}
+            {t("tierLocked.upgrade", "Upgrade")}
           </a>
         </div>
       )}
@@ -391,18 +522,32 @@ const AnalyticsView = () => {
       {canFullAnalytics && (
         <section className="grid grid-cols-1 gap-5">
           <Panel
-            title={t('analytics.demandMap', 'Demand map')}
-            eyebrow={t('analytics.peakHours', 'Peak hours')}
-            action={insights.peakHour ? `${t('analytics.peakHour', 'Peak')} ${insights.peakHour.label}` : undefined}
+            title={t("analytics.demandMap", "Demand map")}
+            eyebrow={t("analytics.peakHours", "Peak hours")}
+            action={
+              insights.peakHour
+                ? `${t("analytics.peakHour", "Peak")} ${insights.peakHour.label}`
+                : undefined
+            }
           >
             <HourlyDemand hours={insights.peakHours} />
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
               {insights.dayPartTotals.map((part) => (
-                <div key={part.label} className="rounded-lg border border-border bg-secondary/20 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t(dayPartKeyMap[part.id])}</p>
-                  <p className="text-lg font-display font-black text-foreground mt-1">{numberFormat.format(part.orders)}</p>
+                <div
+                  key={part.label}
+                  className="rounded-lg border border-border bg-secondary/20 p-3"
+                >
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                    {t(dayPartKeyMap[part.id])}
+                  </p>
+                  <p className="text-lg font-display font-black text-foreground mt-1">
+                    {numberFormat.format(part.orders)}
+                  </p>
                   <div className="mt-2 h-1.5 rounded-full bg-border overflow-hidden">
-                    <div className="h-full bg-primary" style={{ width: `${Math.min(100, part.share)}%` }} />
+                    <div
+                      className="h-full bg-primary"
+                      style={{ width: `${Math.min(100, part.share)}%` }}
+                    />
                   </div>
                 </div>
               ))}
@@ -414,11 +559,14 @@ const AnalyticsView = () => {
       {canFullAnalytics && (
         <section className="grid grid-cols-1 gap-5">
           <Panel
-            title={t('analytics.menuEngineering', 'Menu engineering')}
-            eyebrow={t('analytics.popularSelections', 'Popular selections')}
-            action={`${t('analytics.topRevenueTracked', 'Tracked top items')} ${formatEuro(insights.topItemRevenue)}`}
+            title={t("analytics.menuEngineering", "Menu engineering")}
+            eyebrow={t("analytics.popularSelections", "Popular selections")}
+            action={`${t("analytics.topRevenueTracked", "Tracked top items")} ${formatEuro(insights.topItemRevenue)}`}
           >
-            <MenuEngineering items={insights.topItems} totalRevenue={data.totalRevenue} />
+            <MenuEngineering
+              items={insights.topItems}
+              totalRevenue={data.totalRevenue}
+            />
           </Panel>
         </section>
       )}
@@ -426,15 +574,15 @@ const AnalyticsView = () => {
       {canFullAnalytics && (
         <section className="grid grid-cols-1 xl:grid-cols-[1fr_1fr] gap-5">
           <Panel
-            title={t('analytics.categoryMix', 'Category mix')}
-            eyebrow={t('analytics.categoryBreakdown', 'Category breakdown')}
+            title={t("analytics.categoryMix", "Category mix")}
+            eyebrow={t("analytics.categoryBreakdown", "Category breakdown")}
           >
             <CategoryMix categories={data.categoryBreakdown ?? []} />
           </Panel>
 
           <Panel
-            title={t('analytics.tableYield', 'Table yield')}
-            eyebrow={t('analytics.topTables', 'Top tables by revenue')}
+            title={t("analytics.tableYield", "Table yield")}
+            eyebrow={t("analytics.topTables", "Top tables by revenue")}
           >
             <TableYield tables={insights.tables} />
           </Panel>
@@ -444,15 +592,18 @@ const AnalyticsView = () => {
       {canFullAnalytics && (
         <section className="grid grid-cols-1 xl:grid-cols-[1fr_1fr] gap-5">
           <Panel
-            title={t('analytics.orderFlow', 'Order flow')}
-            eyebrow={t('analytics.operations', 'Operations')}
+            title={t("analytics.orderFlow", "Order flow")}
+            eyebrow={t("analytics.operations", "Operations")}
           >
-            <OrderFlow statuses={insights.statuses} totalOrders={data.totalOrders} />
+            <OrderFlow
+              statuses={insights.statuses}
+              totalOrders={data.totalOrders}
+            />
           </Panel>
 
           <Panel
-            title={t('analytics.guestVoice', 'Guest voice')}
-            eyebrow={t('analytics.guestSatisfaction', 'Guest satisfaction')}
+            title={t("analytics.guestVoice", "Guest voice")}
+            eyebrow={t("analytics.guestSatisfaction", "Guest satisfaction")}
           >
             <GuestSatisfaction feedbackData={feedbackData} />
           </Panel>
@@ -482,20 +633,34 @@ const MetricCard = ({
   return (
     <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{label}</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+          {label}
+        </p>
         <Icon className="w-4 h-4 text-primary" />
       </div>
-      <p className="mt-4 text-2xl font-display font-black text-foreground">{value}</p>
+      <p className="mt-4 text-2xl font-display font-black text-foreground">
+        {value}
+      </p>
       {changeCopy ? (
         <div className="mt-3 flex items-center gap-2 text-[11px] font-bold">
-          <span className={`inline-flex items-center gap-1 rounded-md px-2 py-1 ${changeCopy.isUp ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'}`}>
-            {changeCopy.isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+          <span
+            className={`inline-flex items-center gap-1 rounded-md px-2 py-1 ${changeCopy.isUp ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600"}`}
+          >
+            {changeCopy.isUp ? (
+              <ArrowUpRight className="w-3 h-3" />
+            ) : (
+              <ArrowDownRight className="w-3 h-3" />
+            )}
             {changeCopy.label}
           </span>
-          <span className="text-muted-foreground truncate">{comparisonLabel}</span>
+          <span className="text-muted-foreground truncate">
+            {comparisonLabel}
+          </span>
         </div>
       ) : (
-        <p className="mt-3 text-[11px] font-bold text-muted-foreground">{detail}</p>
+        <p className="mt-3 text-[11px] font-bold text-muted-foreground">
+          {detail}
+        </p>
       )}
     </div>
   );
@@ -515,10 +680,16 @@ const InsightCard = ({
   <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
     <div className="flex items-center gap-2 text-primary">
       <Icon className="w-4 h-4" />
-      <p className="text-[10px] font-black uppercase tracking-widest">{label}</p>
+      <p className="text-[10px] font-black uppercase tracking-widest">
+        {label}
+      </p>
     </div>
-    <p className="mt-3 text-xl font-display font-black text-foreground">{value}</p>
-    <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{detail}</p>
+    <p className="mt-3 text-xl font-display font-black text-foreground">
+      {value}
+    </p>
+    <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+      {detail}
+    </p>
   </div>
 );
 
@@ -536,8 +707,12 @@ const Panel = ({
   <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
     <div className="mb-5 flex flex-col sm:flex-row sm:items-start justify-between gap-2">
       <div>
-        <p className="text-[10px] font-black uppercase tracking-widest text-primary">{eyebrow}</p>
-        <h3 className="mt-1 text-lg font-display font-black text-foreground">{title}</h3>
+        <p className="text-[10px] font-black uppercase tracking-widest text-primary">
+          {eyebrow}
+        </p>
+        <h3 className="mt-1 text-lg font-display font-black text-foreground">
+          {title}
+        </h3>
       </div>
       {action && (
         <span className="rounded-md bg-secondary px-3 py-1.5 text-[11px] font-bold text-muted-foreground">
@@ -561,35 +736,61 @@ const SignalRow = ({
   <div className="rounded-lg border border-border bg-secondary/20 p-3">
     <div className="flex items-center gap-2">
       <Icon className="w-4 h-4 text-primary" />
-      <p className="text-xs font-black uppercase tracking-widest text-foreground">{label}</p>
+      <p className="text-xs font-black uppercase tracking-widest text-foreground">
+        {label}
+      </p>
     </div>
-    <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{value}</p>
+    <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+      {value}
+    </p>
   </div>
 );
 
-const HourlyDemand = ({ hours }: { hours: Array<{ hour: number; label: string; orders: number }> }) => {
+const HourlyDemand = ({
+  hours,
+}: {
+  hours: Array<{ hour: number; label: string; orders: number }>;
+}) => {
   const { t } = useTranslation();
-  const [hoveredHour, setHoveredHour] = useState<{ hour: number; label: string; orders: number } | null>(null);
+  const [hoveredHour, setHoveredHour] = useState<{
+    hour: number;
+    label: string;
+    orders: number;
+  } | null>(null);
   const maxOrders = Math.max(1, ...hours.map((hour) => hour.orders));
   const displayHours = hours;
-  const peak = hours.reduce((max, hour) => (hour.orders > max.orders ? hour : max), hours[0]);
+  const peak = hours.reduce(
+    (max, hour) => (hour.orders > max.orders ? hour : max),
+    hours[0],
+  );
   const activeHour = hoveredHour ?? peak;
-  const activeShare = activeHour && maxOrders > 0 ? Math.round((activeHour.orders / maxOrders) * 100) : 0;
-  const averageOrders = displayHours.length > 0
-    ? displayHours.reduce((sum, hour) => sum + hour.orders, 0) / displayHours.length
-    : 0;
+  const activeShare =
+    activeHour && maxOrders > 0
+      ? Math.round((activeHour.orders / maxOrders) * 100)
+      : 0;
+  const averageOrders =
+    displayHours.length > 0
+      ? displayHours.reduce((sum, hour) => sum + hour.orders, 0) /
+        displayHours.length
+      : 0;
 
   return (
     <div className="rounded-lg border border-border bg-secondary/20 p-4">
       <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-black text-foreground">{t('analytics.popularTimes')}</p>
+          <p className="text-sm font-black text-foreground">
+            {t("analytics.popularTimes")}
+          </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {t('analytics.hourlyPressureDesc')}
+            {t("analytics.hourlyPressureDesc")}
           </p>
         </div>
         <div className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 text-xs font-black text-primary">
-          {hoveredHour ? t('analytics.selectedLabel') : t('analytics.peakLabel')} {activeHour?.label ?? t('analytics.noTimeSelected')} - {t('analytics.peakOrdersCount', { count: activeHour?.orders ?? 0 })}
+          {hoveredHour
+            ? t("analytics.selectedLabel")
+            : t("analytics.peakLabel")}{" "}
+          {activeHour?.label ?? t("analytics.noTimeSelected")} -{" "}
+          {t("analytics.peakOrdersCount", { count: activeHour?.orders ?? 0 })}
         </div>
       </div>
 
@@ -600,11 +801,17 @@ const HourlyDemand = ({ hours }: { hours: Array<{ hour: number; label: string; o
           ))}
         </div>
 
-        <div className="relative flex h-full items-end gap-1.5 overflow-x-auto pb-10 sm:gap-2" onMouseLeave={() => setHoveredHour(null)}>
+        <div
+          className="relative flex h-full items-end gap-1.5 overflow-x-auto pb-10 sm:gap-2"
+          onMouseLeave={() => setHoveredHour(null)}
+        >
           {displayHours.map((hour) => {
             const isPeak = hour.hour === peak?.hour && hour.orders > 0;
             const isBusy = hour.orders >= averageOrders && hour.orders > 0;
-            const height = hour.orders > 0 ? Math.max(18, (hour.orders / maxOrders) * 150) : 8;
+            const height =
+              hour.orders > 0
+                ? Math.max(18, (hour.orders / maxOrders) * 150)
+                : 8;
             const isActive = hour.hour === activeHour?.hour;
 
             return (
@@ -612,9 +819,14 @@ const HourlyDemand = ({ hours }: { hours: Array<{ hour: number; label: string; o
                 key={hour.hour}
                 role="button"
                 tabIndex={0}
-                aria-label={t('analytics.hourBarLabel', { label: hour.label, orders: hour.orders })}
+                aria-label={t("analytics.hourBarLabel", {
+                  label: hour.label,
+                  orders: hour.orders,
+                })}
                 className={`relative flex h-full min-w-[34px] flex-1 cursor-pointer flex-col items-center justify-end rounded-md px-0.5 outline-none transition ${
-                  isActive ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-secondary'
+                  isActive
+                    ? "bg-primary/10 ring-1 ring-primary/20"
+                    : "hover:bg-secondary"
                 }`}
                 onMouseEnter={() => setHoveredHour(hour)}
                 onMouseMove={() => setHoveredHour(hour)}
@@ -624,15 +836,20 @@ const HourlyDemand = ({ hours }: { hours: Array<{ hour: number; label: string; o
                 <div
                   className={`w-full max-w-[34px] rounded-t-lg transition-all duration-300 ${
                     isPeak
-                      ? 'bg-rose-500 shadow-lg shadow-rose-500/25'
+                      ? "bg-rose-500 shadow-lg shadow-rose-500/25"
                       : isBusy
-                        ? 'bg-primary'
-                        : 'bg-primary/35'
+                        ? "bg-primary"
+                        : "bg-primary/35"
                   }`}
                   style={{ height }}
-                  title={t('analytics.hourBarTooltip', { label: hour.label, orders: hour.orders })}
+                  title={t("analytics.hourBarTooltip", {
+                    label: hour.label,
+                    orders: hour.orders,
+                  })}
                 />
-                <span className={`mt-2 text-[10px] font-bold ${isPeak ? 'text-rose-500' : isActive ? 'text-primary' : 'text-muted-foreground'}`}>
+                <span
+                  className={`mt-2 text-[10px] font-bold ${isPeak ? "text-rose-500" : isActive ? "text-primary" : "text-muted-foreground"}`}
+                >
                   {hour.hour}
                 </span>
               </div>
@@ -644,10 +861,11 @@ const HourlyDemand = ({ hours }: { hours: Array<{ hour: number; label: string; o
       <div className="mt-3 rounded-lg border border-border bg-card px-3 py-2">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-black text-foreground">
-            {activeHour?.label ?? t('analytics.noTimeSelected')}: {t('analytics.peakOrdersCount', { count: activeHour?.orders ?? 0 })}
+            {activeHour?.label ?? t("analytics.noTimeSelected")}:{" "}
+            {t("analytics.peakOrdersCount", { count: activeHour?.orders ?? 0 })}
           </p>
           <p className="text-xs font-bold text-muted-foreground">
-            {t('analytics.percentOfPeakDemand', { percent: activeShare })}
+            {t("analytics.percentOfPeakDemand", { percent: activeShare })}
           </p>
         </div>
       </div>
@@ -655,15 +873,15 @@ const HourlyDemand = ({ hours }: { hours: Array<{ hour: number; label: string; o
       <div className="mt-3 flex items-center gap-4 text-[11px] font-bold text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-sm bg-primary/35" />
-          {t('analytics.quiet')}
+          {t("analytics.quiet")}
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-sm bg-primary" />
-          {t('analytics.busy')}
+          {t("analytics.busy")}
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-sm bg-rose-500" />
-          {t('analytics.peakLabel')}
+          {t("analytics.peakLabel")}
         </span>
       </div>
     </div>
@@ -678,28 +896,42 @@ const MenuEngineering = ({
   totalRevenue: number;
 }) => {
   const { t } = useTranslation();
-  if (items.length === 0) return <EmptyState message={t('analytics.noMenuPerformance')} />;
+  if (items.length === 0)
+    return <EmptyState message={t("analytics.noMenuPerformance")} />;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       {items.slice(0, 8).map((item, index) => {
         const share = safePercent(item.revenue, totalRevenue);
-        const averageItemYield = item.quantity > 0 ? item.revenue / item.quantity : 0;
+        const averageItemYield =
+          item.quantity > 0 ? item.revenue / item.quantity : 0;
         return (
-          <div key={item.name} className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-lg border border-border bg-secondary/20 p-3">
+          <div
+            key={item.name}
+            className="grid grid-cols-[40px_1fr_auto] items-center gap-3 rounded-lg border border-border bg-secondary/20 p-3"
+          >
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-xs font-black text-primary">
               {index + 1}
             </span>
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-foreground">{item.name}</p>
+              <p className="truncate text-sm font-bold text-foreground">
+                {item.name}
+              </p>
               <p className="text-[11px] text-muted-foreground">
-                {numberFormat.format(item.quantity)} {t('analytics.soldLabel')} - {formatEuro(averageItemYield)} {t('analytics.avgYield')} - {formatPercent(share)} {t('analytics.ofRevenue')}
+                {numberFormat.format(item.quantity)} {t("analytics.soldLabel")}{" "}
+                - {formatEuro(averageItemYield)} {t("analytics.avgYield")} -{" "}
+                {formatPercent(share)} {t("analytics.ofRevenue")}
               </p>
               <div className="mt-2 h-1.5 rounded-full bg-border overflow-hidden">
-                <div className="h-full bg-primary" style={{ width: `${Math.min(100, share)}%` }} />
+                <div
+                  className="h-full bg-primary"
+                  style={{ width: `${Math.min(100, share)}%` }}
+                />
               </div>
             </div>
-            <p className="text-sm font-black text-foreground">{formatEuro(item.revenue)}</p>
+            <p className="text-sm font-black text-foreground">
+              {formatEuro(item.revenue)}
+            </p>
           </div>
         );
       })}
@@ -707,19 +939,35 @@ const MenuEngineering = ({
   );
 };
 
-const CategoryMix = ({ categories }: { categories: Array<{ category: string; revenue: number }> }) => {
+const CategoryMix = ({
+  categories,
+}: {
+  categories: Array<{ category: string; revenue: number }>;
+}) => {
   const { t } = useTranslation();
   const total = categories.reduce((sum, category) => sum + category.revenue, 0);
 
-  if (categories.length === 0) return <EmptyState message={t('analytics.noCategoryData')} />;
+  if (categories.length === 0)
+    return <EmptyState message={t("analytics.noCategoryData")} />;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-[210px_1fr] gap-5 items-center">
       <ResponsiveContainer width="100%" height={220}>
         <PieChart>
-          <Pie data={categories} dataKey="revenue" nameKey="category" innerRadius={58} outerRadius={92} paddingAngle={3} stroke="none">
+          <Pie
+            data={categories}
+            dataKey="revenue"
+            nameKey="category"
+            innerRadius={58}
+            outerRadius={92}
+            paddingAngle={3}
+            stroke="none"
+          >
             {categories.map((_, index) => (
-              <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+              <Cell
+                key={index}
+                fill={CHART_COLORS[index % CHART_COLORS.length]}
+              />
             ))}
           </Pie>
           <Tooltip content={<CustomTooltip currency />} />
@@ -727,12 +975,24 @@ const CategoryMix = ({ categories }: { categories: Array<{ category: string; rev
       </ResponsiveContainer>
       <div className="space-y-2">
         {categories.slice(0, 6).map((category, index) => (
-          <div key={category.category} className="flex items-center justify-between gap-3 rounded-lg bg-secondary/20 px-3 py-2">
+          <div
+            key={category.category}
+            className="flex items-center justify-between gap-3 rounded-lg bg-secondary/20 px-3 py-2"
+          >
             <div className="flex items-center gap-2 min-w-0">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
-              <p className="truncate text-sm font-bold text-foreground">{category.category}</p>
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{
+                  backgroundColor: CHART_COLORS[index % CHART_COLORS.length],
+                }}
+              />
+              <p className="truncate text-sm font-bold text-foreground">
+                {category.category}
+              </p>
             </div>
-            <p className="text-xs font-black text-muted-foreground">{formatPercent(safePercent(category.revenue, total))}</p>
+            <p className="text-xs font-black text-muted-foreground">
+              {formatPercent(safePercent(category.revenue, total))}
+            </p>
           </div>
         ))}
       </div>
@@ -740,18 +1000,50 @@ const CategoryMix = ({ categories }: { categories: Array<{ category: string; rev
   );
 };
 
-const TableYield = ({ tables }: { tables: Array<{ table: string; orders: number; revenue: number }> }) => {
+const TableYield = ({
+  tables,
+}: {
+  tables: Array<{ table: string; orders: number; revenue: number }>;
+}) => {
   const { t } = useTranslation();
-  if (tables.length === 0) return <EmptyState message={t('analytics.noTableYieldData')} />;
+  if (tables.length === 0)
+    return <EmptyState message={t("analytics.noTableYieldData")} />;
 
   return (
     <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={tables.slice(0, 10)} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border" vertical={false} opacity={0.45} />
-        <XAxis dataKey="table" tick={{ fontSize: 11, fill: 'hsl(var(--color-muted-foreground))' }} axisLine={false} tickLine={false} dy={10} />
-        <YAxis tickFormatter={(value) => formatEuro(Number(value))} tick={{ fontSize: 11, fill: 'hsl(var(--color-muted-foreground))' }} axisLine={false} tickLine={false} width={68} />
+      <BarChart
+        data={tables.slice(0, 10)}
+        margin={{ top: 4, right: 16, bottom: 0, left: 0 }}
+      >
+        <CartesianGrid
+          strokeDasharray="3 3"
+          stroke="currentColor"
+          className="text-border"
+          vertical={false}
+          opacity={0.45}
+        />
+        <XAxis
+          dataKey="table"
+          tick={{ fontSize: 11, fill: "hsl(var(--color-muted-foreground))" }}
+          axisLine={false}
+          tickLine={false}
+          dy={10}
+        />
+        <YAxis
+          tickFormatter={(value) => formatEuro(Number(value))}
+          tick={{ fontSize: 11, fill: "hsl(var(--color-muted-foreground))" }}
+          axisLine={false}
+          tickLine={false}
+          width={68}
+        />
         <Tooltip content={<CustomTooltip currency />} />
-        <Bar dataKey="revenue" name={t('analytics.revenue')} fill="hsl(var(--color-primary))" radius={[6, 6, 0, 0]} barSize={26} />
+        <Bar
+          dataKey="revenue"
+          name={t("analytics.revenue")}
+          fill="hsl(var(--color-primary))"
+          radius={[6, 6, 0, 0]}
+          barSize={26}
+        />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -765,22 +1057,36 @@ const OrderFlow = ({
   totalOrders: number;
 }) => {
   const { t } = useTranslation();
-  if (statuses.length === 0) return <EmptyState message={t('analytics.noOrderStatusData')} />;
+  if (statuses.length === 0)
+    return <EmptyState message={t("analytics.noOrderStatusData")} />;
 
   return (
     <div className="space-y-3">
       {statuses.map((status) => {
         const share = safePercent(status.count, totalOrders);
         return (
-          <div key={status.status} className="rounded-lg border border-border bg-secondary/20 p-3">
+          <div
+            key={status.status}
+            className="rounded-lg border border-border bg-secondary/20 p-3"
+          >
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-black uppercase tracking-widest text-foreground">{t(orderStatusKeyMap[status.status]) || status.status.replace('_', ' ')}</p>
-              <p className="text-sm font-black text-foreground">{numberFormat.format(status.count)}</p>
+              <p className="text-xs font-black uppercase tracking-widest text-foreground">
+                {t(orderStatusKeyMap[status.status]) ||
+                  status.status.replace("_", " ")}
+              </p>
+              <p className="text-sm font-black text-foreground">
+                {numberFormat.format(status.count)}
+              </p>
             </div>
             <div className="mt-3 h-2 rounded-full bg-border overflow-hidden">
-              <div className="h-full bg-primary" style={{ width: `${Math.min(100, share)}%` }} />
+              <div
+                className="h-full bg-primary"
+                style={{ width: `${Math.min(100, share)}%` }}
+              />
             </div>
-            <p className="mt-1 text-[11px] text-muted-foreground">{formatPercent(share)} {t('analytics.ofSelectedOrders')}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {formatPercent(share)} {t("analytics.ofSelectedOrders")}
+            </p>
           </div>
         );
       })}
@@ -791,19 +1097,27 @@ const OrderFlow = ({
 const GuestSatisfaction = ({ feedbackData }: { feedbackData: any }) => {
   const { t } = useTranslation();
   if (!feedbackData || feedbackData.totalFeedbacks === 0) {
-    return <EmptyState message={t('analytics.noGuestFeedback')} />;
+    return <EmptyState message={t("analytics.noGuestFeedback")} />;
   }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-5">
       <div className="rounded-lg border border-primary/20 bg-primary/5 p-5 text-center">
-        <p className="text-5xl font-display font-black text-primary">{feedbackData.averageRating}</p>
+        <p className="text-5xl font-display font-black text-primary">
+          {feedbackData.averageRating}
+        </p>
         <div className="mt-3 flex justify-center gap-1">
           {[1, 2, 3, 4, 5].map((star) => (
-            <Star key={star} className={`w-4 h-4 ${star <= Math.round(feedbackData.averageRating) ? 'fill-primary text-primary' : 'text-muted-foreground/30'}`} />
+            <Star
+              key={star}
+              className={`w-4 h-4 ${star <= Math.round(feedbackData.averageRating) ? "fill-primary text-primary" : "text-muted-foreground/30"}`}
+            />
           ))}
         </div>
-        <p className="mt-3 text-[11px] font-bold text-muted-foreground">{numberFormat.format(feedbackData.totalFeedbacks)} {t('analytics.reviewsLabel')}</p>
+        <p className="mt-3 text-[11px] font-bold text-muted-foreground">
+          {numberFormat.format(feedbackData.totalFeedbacks)}{" "}
+          {t("analytics.reviewsLabel")}
+        </p>
       </div>
       <div className="space-y-3">
         {[5, 4, 3, 2, 1].map((rating) => {
@@ -811,23 +1125,37 @@ const GuestSatisfaction = ({ feedbackData }: { feedbackData: any }) => {
           const share = safePercent(count, feedbackData.totalFeedbacks);
           return (
             <div key={rating} className="flex items-center gap-3">
-              <span className="w-12 text-xs font-black text-foreground">{rating} {t('analytics.starLabel')}</span>
+              <span className="w-12 text-xs font-black text-foreground">
+                {rating} {t("analytics.starLabel")}
+              </span>
               <div className="flex-1 h-2 rounded-full bg-border overflow-hidden">
-                <div className="h-full bg-primary" style={{ width: `${Math.min(100, share)}%` }} />
+                <div
+                  className="h-full bg-primary"
+                  style={{ width: `${Math.min(100, share)}%` }}
+                />
               </div>
-              <span className="w-10 text-right text-xs font-bold text-muted-foreground">{count}</span>
+              <span className="w-10 text-right text-xs font-bold text-muted-foreground">
+                {count}
+              </span>
             </div>
           );
         })}
         <div className="grid grid-cols-2 gap-3 pt-2">
           <div className="rounded-lg bg-emerald-500/10 p-3">
-            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">{t('analytics.positive')}</p>
-            <p className="text-xl font-display font-black text-emerald-600">{feedbackData.positiveRate}%</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">
+              {t("analytics.positive")}
+            </p>
+            <p className="text-xl font-display font-black text-emerald-600">
+              {feedbackData.positiveRate}%
+            </p>
           </div>
           <div className="rounded-lg bg-sky-500/10 p-3">
-            <p className="text-[10px] font-black uppercase tracking-widest text-sky-600">{t('analytics.googleImpact')}</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-sky-600">
+              {t("analytics.googleImpact")}
+            </p>
             <p className="text-xl font-display font-black text-sky-600 flex items-center gap-2">
-              {feedbackData.googleRedirects} <ExternalLink className="w-4 h-4" />
+              {feedbackData.googleRedirects}{" "}
+              <ExternalLink className="w-4 h-4" />
             </p>
           </div>
         </div>
@@ -842,7 +1170,9 @@ const CustomTooltip = ({ active, payload, label, currency = false }: any) => {
 
   return (
     <div className="rounded-lg border border-border bg-popover p-3 shadow-xl">
-      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{label}</p>
+      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+        {label}
+      </p>
       <p className="mt-1 text-base font-display font-black text-foreground">
         {currency ? formatEuro(value) : numberFormat.format(value)}
       </p>
@@ -856,7 +1186,9 @@ const EmptyState = ({ message }: { message: string }) => {
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <BarChart3 className="h-10 w-10 text-muted-foreground/45 mb-4" />
       <p className="text-sm font-bold text-foreground">{message}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{t('analytics.dataAppearsHere')}</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {t("analytics.dataAppearsHere")}
+      </p>
     </div>
   );
 };

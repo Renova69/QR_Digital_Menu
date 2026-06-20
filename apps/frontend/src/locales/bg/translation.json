@@ -579,6 +579,7 @@
     "totalOrders": "Общо Поръчки",
     "avgOrderValue": "Средна Стойност на Поръчка",
     "servedRate": "Процент Сервирани",
+    "completionRate": "Процент Завършени",
     "financialTrend": "Финансова Тенденция",
     "popularSelections": "Популярни Избори",
     "peakHours": "Пикови Часове",
@@ -672,6 +673,7 @@
     "statusPreparing": "Приготвя се",
     "statusReady": "Готова",
     "statusServed": "Сервирана",
+    "statusCompleted": "Завършена",
     "statusDelivered": "Доставена",
     "statusCanceled": "Отказана",
     "statusRejected": "Отхвърлена",
@@ -745,6 +747,7 @@
         "totalOrders": "Общо поръчки",
         "avgOrderValue": "Средна поръчка",
         "servedRate": "% сервирани",
+        "completionRate": "% завършени",
         "revenueChange": "Приход спрямо предходен",
         "ordersChange": "Поръчки спрямо предходен"
       },

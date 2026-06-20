@@ -221,7 +221,7 @@ describe('DashboardService', () => {
       mockPrisma.orderItem.findMany.mockResolvedValue([]);
     });
 
-    it('returns all 4 statuses with 0 count when groupBy returns empty', async () => {
+    it('returns all 5 statuses with 0 count when groupBy returns empty', async () => {
       mockPrisma.order.groupBy.mockResolvedValue([]);
 
       const result = (await service.getAnalytics(
@@ -235,8 +235,9 @@ describe('DashboardService', () => {
       expect(statuses).toContain(OrderStatus.NEW);
       expect(statuses).toContain(OrderStatus.IN_PROGRESS);
       expect(statuses).toContain(OrderStatus.SERVED);
+      expect(statuses).toContain(OrderStatus.COMPLETED);
       expect(statuses).toContain(OrderStatus.CANCELED);
-      expect(result['ordersByStatus']).toHaveLength(4);
+      expect(result['ordersByStatus']).toHaveLength(5);
       result['ordersByStatus'].forEach((s: { count: number }) =>
         expect(s.count).toBe(0),
       );
@@ -268,8 +269,8 @@ describe('DashboardService', () => {
     });
   });
 
-  describe('servedRate calculation', () => {
-    it('returns 0 servedRate when no orders', async () => {
+  describe('completionRate calculation', () => {
+    it('returns 0 completionRate when no orders', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         timezone: 'Europe/Sofia',
       });
@@ -287,7 +288,7 @@ describe('DashboardService', () => {
         7,
       )) as AnalyticsResult;
 
-      expect(result['servedRate']).toBe(0);
+      expect(result['completionRate']).toBe(0);
     });
   });
 
@@ -311,7 +312,14 @@ describe('DashboardService', () => {
         .mockResolvedValueOnce([{ name: 'Pizza', quantity: 2, revenue: 20.0 }]) // getTopItems
         .mockResolvedValueOnce([]) // getPeakHours
         .mockResolvedValueOnce([{ category: 'Food', revenue: 20.0 }]) // getCategoryBreakdown
-        .mockResolvedValueOnce([{ table_id: 'table-1', table_name: 'Table 1', orders: 1, revenue: 50.0 }]); // getOrdersByTable
+        .mockResolvedValueOnce([
+          {
+            table_id: 'table-1',
+            table_name: 'Table 1',
+            orders: 1,
+            revenue: 50.0,
+          },
+        ]); // getOrdersByTable
     });
 
     it('populates topItems when orderItems exist', async () => {
@@ -352,7 +360,9 @@ describe('DashboardService', () => {
         .mockResolvedValueOnce([{ name: 'Pizza', quantity: 2, revenue: 20.0 }])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([{ category: 'Food', revenue: 20.0 }])
-        .mockResolvedValueOnce([{ table_id: 'orphan-id', table_name: null, orders: 1, revenue: 20.0 }]);
+        .mockResolvedValueOnce([
+          { table_id: 'orphan-id', table_name: null, orders: 1, revenue: 20.0 },
+        ]);
 
       const result = (await service.getAnalytics(
         'rest-1',
