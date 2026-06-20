@@ -92,7 +92,8 @@ export class DashboardViewsService implements OnModuleInit {
         o."restaurantId",
         DATE_TRUNC('day', o."createdAt")        AS day_utc,
         EXTRACT(HOUR FROM o."createdAt")::int   AS hour_utc,
-        COUNT(*)::int                           AS order_count
+        COUNT(*)::int                           AS order_count,
+        COALESCE(SUM(o."totalPrice"), 0)        AS revenue
       FROM customer_order o
       WHERE o.status != 'CANCELED'
       GROUP BY o."restaurantId", DATE_TRUNC('day', o."createdAt"), EXTRACT(HOUR FROM o."createdAt")

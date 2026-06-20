@@ -147,6 +147,10 @@ const AnalyticsView = () => {
       (max, hour) => (hour.orders > max.orders ? hour : max),
       peakHours[0],
     );
+    const peakRevenueHour = peakHours.reduce(
+      (max, hour) => ((hour.revenue ?? 0) > (max?.revenue ?? 0) ? hour : max),
+      peakHours[0],
+    );
 
     const windowScores = peakHours.map((hour, index) => {
       const next = peakHours[(index + 1) % peakHours.length];
@@ -199,6 +203,7 @@ const AnalyticsView = () => {
       quietDay,
       averageDailyRevenue,
       peakHour,
+      peakRevenueHour,
       busiestWindow,
       topItemRevenue,
       heroItem,
@@ -312,13 +317,19 @@ const AnalyticsView = () => {
         />
       </section>
 
-      <RevenueReconciliation
-        ordered={data.totalRevenue}
-        collected={data.collectedRevenue}
-        refunded={data.refundedAmount}
-      />
+      <section className="grid grid-cols-1 xl:grid-cols-[1.5fr_1fr] gap-5">
+        <RevenueReconciliation
+          ordered={data.totalRevenue}
+          collected={data.collectedRevenue}
+          refunded={data.refundedAmount}
+        />
+        <PaymentMethods
+          methods={data.paymentsByMethod ?? []}
+          collected={data.collectedRevenue}
+        />
+      </section>
 
-      <section className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <InsightCard
           label={t("analytics.revenueLeader", "Revenue leader")}
           value={insights.bestDay ? formatDate(insights.bestDay.date) : "-"}
@@ -365,6 +376,15 @@ const AnalyticsView = () => {
               : t("analytics.noTableData")
           }
           Icon={Table2}
+        />
+        <InsightCard
+          label={t("analytics.repeatCustomers", "Repeat guests")}
+          value={formatPercent(data.repeatCustomerRate)}
+          detail={t(
+            "analytics.repeatCustomersDetail",
+            "Share of guests with 2+ orders",
+          )}
+          Icon={Users}
         />
       </section>
 
@@ -537,6 +557,16 @@ const AnalyticsView = () => {
             }
           >
             <HourlyDemand hours={insights.peakHours} />
+            {insights.peakRevenueHour &&
+              (insights.peakRevenueHour.revenue ?? 0) > 0 && (
+                <p className="mt-3 text-[11px] text-muted-foreground">
+                  {t("analytics.peakRevenueHour", "Top revenue hour")}:{" "}
+                  <span className="font-bold text-foreground">
+                    {insights.peakRevenueHour.label}
+                  </span>{" "}
+                  ({formatEuro(insights.peakRevenueHour.revenue)})
+                </p>
+              )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
               {insights.dayPartTotals.map((part) => (
                 <div
@@ -631,6 +661,7 @@ const RevenueReconciliation = ({
   const { t } = useTranslation();
   const net = Math.round((collected - refunded) * 100) / 100;
   const uncollected = Math.round(Math.max(0, ordered - collected) * 100) / 100;
+  const refundRate = collected > 0 ? (refunded / collected) * 100 : 0;
 
   const steps = [
     {
@@ -649,7 +680,10 @@ const RevenueReconciliation = ({
       key: "refunded",
       label: t("analytics.recoRefunded", "Refunded"),
       value: refunded,
-      hint: t("analytics.recoRefundedHint", "Reversed to guests"),
+      hint:
+        refunded > 0
+          ? `${formatPercent(refundRate)} ${t("analytics.ofCollected", "of collected")}`
+          : t("analytics.recoRefundedHint", "Reversed to guests"),
       tone: "text-red-600 dark:text-red-400",
     },
     {
@@ -703,6 +737,64 @@ const RevenueReconciliation = ({
           "Ordered counts every placed order; collected counts recorded payments. They differ for cash orders not closed through the POS and for refunds.",
         )}
       </p>
+    </Panel>
+  );
+};
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  STRIPE: "Card · Stripe",
+  MYPOS: "Card · myPOS",
+  BORICA: "Card · BORICA",
+  EPAY: "ePay.bg",
+  CASH: "Cash",
+};
+
+const PaymentMethods = ({
+  methods,
+  collected,
+}: {
+  methods: { method: string; amount: number }[];
+  collected: number;
+}) => {
+  const { t } = useTranslation();
+  return (
+    <Panel
+      title={t("analytics.paymentMethods", "Payment methods")}
+      eyebrow={t("analytics.howGuestsPay", "How guests pay")}
+    >
+      {!methods || methods.length === 0 ? (
+        <EmptyState
+          message={t("analytics.noPaymentData", "No payments in this period")}
+        />
+      ) : (
+        <div className="space-y-4">
+          {methods.map((m) => {
+            const share = collected > 0 ? (m.amount / collected) * 100 : 0;
+            return (
+              <div key={m.method}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-black uppercase tracking-widest text-foreground">
+                    {PAYMENT_METHOD_LABELS[m.method] ?? m.method}
+                  </p>
+                  <p className="text-sm font-black text-foreground">
+                    {formatEuro(m.amount)}
+                  </p>
+                </div>
+                <div className="mt-2 h-2 rounded-full bg-border overflow-hidden">
+                  <div
+                    className="h-full bg-primary"
+                    style={{ width: `${Math.min(100, share)}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {formatPercent(share)}{" "}
+                  {t("analytics.ofCollected", "of collected")}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </Panel>
   );
 };
@@ -843,13 +935,19 @@ const SignalRow = ({
 const HourlyDemand = ({
   hours,
 }: {
-  hours: Array<{ hour: number; label: string; orders: number }>;
+  hours: Array<{
+    hour: number;
+    label: string;
+    orders: number;
+    revenue: number;
+  }>;
 }) => {
   const { t } = useTranslation();
   const [hoveredHour, setHoveredHour] = useState<{
     hour: number;
     label: string;
     orders: number;
+    revenue: number;
   } | null>(null);
   const maxOrders = Math.max(1, ...hours.map((hour) => hour.orders));
   const displayHours = hours;
@@ -885,6 +983,9 @@ const HourlyDemand = ({
             : t("analytics.peakLabel")}{" "}
           {activeHour?.label ?? t("analytics.noTimeSelected")} -{" "}
           {t("analytics.peakOrdersCount", { count: activeHour?.orders ?? 0 })}
+          {activeHour && (activeHour.revenue ?? 0) > 0
+            ? ` · ${formatEuro(activeHour.revenue)}`
+            : ""}
         </div>
       </div>
 

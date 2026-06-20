@@ -144,6 +144,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       currentNewCustomers,
       previousNewCustomers,
       paymentTotals,
+      repeatCustomerRate,
     ] = await Promise.all([
       useViews
         ? this.getRevenueTrendFromView(restaurantId, periodStart, now, tz)
@@ -162,6 +163,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       this.getNewCustomers(restaurantId, periodStart, now),
       this.getNewCustomers(restaurantId, prevPeriodStart, prevPeriodEnd),
       this.getPaymentTotals(restaurantId, periodStart, now),
+      this.getRepeatCustomerRate(restaurantId, periodStart, now),
     ]);
 
     const revenueChange =
@@ -222,8 +224,10 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       totalRevenue: currentPeriodStats.totalRevenue,
       collectedRevenue: paymentTotals.collectedRevenue,
       refundedAmount: paymentTotals.refundedAmount,
+      paymentsByMethod: paymentTotals.paymentsByMethod,
       totalOrders: currentPeriodStats.totalOrders,
       newCustomers: currentNewCustomers,
+      repeatCustomerRate,
       avgOrderValue: currentPeriodStats.avgOrderValue,
       completionRate: Math.round(completionRate * 10) / 10,
       ordersByStatus,
@@ -345,10 +349,11 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     end: Date,
     tz: string,
   ) {
-    type Row = { hour: number; orders: number };
+    type Row = { hour: number; orders: number; revenue: number };
     const rows = await this.prisma.$queryRaw<Row[]>`
       SELECT EXTRACT(HOUR FROM "createdAt" AT TIME ZONE ${tz})::int AS hour,
-             COUNT(*)::int AS orders
+             COUNT(*)::int AS orders,
+             COALESCE(SUM("totalPrice"), 0)::float AS revenue
       FROM customer_order
       WHERE "restaurantId" = ${restaurantId}
         AND status         != 'CANCELED'
@@ -358,19 +363,28 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       ORDER BY hour
     `;
 
-    const hours: { hour: number; label: string; orders: number }[] = Array.from(
-      { length: 24 },
-      (_, h) => ({
-        hour: h,
-        label: `${h.toString().padStart(2, '0')}:00`,
-        orders: 0,
-      }),
-    );
+    const hours: {
+      hour: number;
+      label: string;
+      orders: number;
+      revenue: number;
+    }[] = Array.from({ length: 24 }, (_, h) => ({
+      hour: h,
+      label: `${h.toString().padStart(2, '0')}:00`,
+      orders: 0,
+      revenue: 0,
+    }));
     for (const row of rows) {
       const h = row.hour;
-      if (h >= 0 && h < 24) hours[h].orders += row.orders;
+      if (h >= 0 && h < 24) {
+        hours[h].orders += row.orders;
+        hours[h].revenue += row.revenue;
+      }
     }
-    return hours;
+    return hours.map((d) => ({
+      ...d,
+      revenue: Math.round(d.revenue * 100) / 100,
+    }));
   }
 
   private async getPeriodStats(restaurantId: string, start: Date, end: Date) {
@@ -410,12 +424,35 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     return result.length;
   }
 
+  // % of identifiable guests in the window who placed more than one order.
+  // Keyed on customerPhone (the identity we reliably capture). A high rate is
+  // the strongest signal of loyalty/return behaviour for an owner.
+  private async getRepeatCustomerRate(
+    restaurantId: string,
+    start: Date,
+    end: Date,
+  ) {
+    const grouped = await this.prisma.order.groupBy({
+      by: ['customerPhone'],
+      _count: true,
+      where: {
+        restaurantId,
+        customerPhone: { not: '' },
+        status: { not: OrderStatus.CANCELED },
+        createdAt: { gte: start, lte: end },
+      },
+    });
+    const distinct = grouped.length;
+    const repeat = grouped.filter((g) => g._count >= 2).length;
+    return distinct > 0 ? Math.round((repeat / distinct) * 1000) / 10 : 0;
+  }
+
   // Money actually collected vs reversed in the SAME window as ordered revenue,
   // so the analytics page can reconcile "ordered" (order rows) against
   // "collected" (payment rows). The two legitimately differ — unpaid/cash
   // orders, refunds — and surfacing both prevents owner confusion.
   private async getPaymentTotals(restaurantId: string, start: Date, end: Date) {
-    const [collected, refunded] = await Promise.all([
+    const [collected, refunded, byMethod] = await Promise.all([
       this.prisma.payment.aggregate({
         _sum: { amount: true },
         where: {
@@ -432,10 +469,25 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
           createdAt: { gte: start, lte: end },
         },
       }),
+      this.prisma.payment.groupBy({
+        by: ['provider'],
+        _sum: { amount: true },
+        where: {
+          restaurantId,
+          status: 'SUCCEEDED',
+          createdAt: { gte: start, lte: end },
+        },
+      }),
     ]);
     return {
       collectedRevenue: Math.round((collected._sum.amount || 0) * 100) / 100,
       refundedAmount: Math.round((refunded._sum.amount || 0) * 100) / 100,
+      paymentsByMethod: byMethod
+        .map((m) => ({
+          method: m.provider,
+          amount: Math.round((m._sum.amount || 0) * 100) / 100,
+        }))
+        .sort((a, b) => b.amount - a.amount),
     };
   }
 
@@ -588,10 +640,15 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
   ) {
     // Use AT TIME ZONE so PostgreSQL resolves DST at each historical timestamp,
     // rather than applying the current UTC offset (Issue 46)
-    type Row = { local_hour: number; total_orders: number };
+    type Row = {
+      local_hour: number;
+      total_orders: number;
+      total_revenue: number;
+    };
     const rows = await this.prisma.$queryRaw<Row[]>`
       SELECT EXTRACT(HOUR FROM (day_utc + (hour_utc * INTERVAL '1 hour')) AT TIME ZONE ${tz})::int AS local_hour,
-             SUM(order_count)::int AS total_orders
+             SUM(order_count)::int AS total_orders,
+             SUM(revenue)::float AS total_revenue
       FROM mv_peak_hours
       WHERE "restaurantId" = ${restaurantId}
         AND day_utc >= ${start} AND day_utc <= ${end}
@@ -599,21 +656,30 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       ORDER BY local_hour
     `;
 
-    const hours: { hour: number; label: string; orders: number }[] = Array.from(
-      { length: 24 },
-      (_, h) => ({
-        hour: h,
-        label: `${h.toString().padStart(2, '0')}:00`,
-        orders: 0,
-      }),
-    );
+    const hours: {
+      hour: number;
+      label: string;
+      orders: number;
+      revenue: number;
+    }[] = Array.from({ length: 24 }, (_, h) => ({
+      hour: h,
+      label: `${h.toString().padStart(2, '0')}:00`,
+      orders: 0,
+      revenue: 0,
+    }));
 
     for (const row of rows) {
       const h = row.local_hour;
-      if (h >= 0 && h < 24) hours[h].orders += row.total_orders;
+      if (h >= 0 && h < 24) {
+        hours[h].orders += row.total_orders;
+        hours[h].revenue += Number(row.total_revenue);
+      }
     }
 
-    return hours;
+    return hours.map((d) => ({
+      ...d,
+      revenue: Math.round(d.revenue * 100) / 100,
+    }));
   }
 
   private async getTopItemsFromView(

@@ -14,7 +14,7 @@ const mockPrisma: Record<string, any> = {
   },
   assistanceRequest: { count: jest.fn() },
   orderItem: { findMany: jest.fn() },
-  payment: { aggregate: jest.fn() },
+  payment: { aggregate: jest.fn(), groupBy: jest.fn() },
   $queryRaw: jest.fn().mockResolvedValue([]),
 };
 
@@ -37,6 +37,7 @@ describe('DashboardService', () => {
     service = module.get<DashboardService>(DashboardService);
     jest.clearAllMocks();
     mockPrisma.payment.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
+    mockPrisma.payment.groupBy.mockResolvedValue([]);
   });
 
   describe('getSummary', () => {

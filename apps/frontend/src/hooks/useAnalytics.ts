@@ -17,6 +17,12 @@ export interface PeakHour {
   hour: number;
   label: string;
   orders: number;
+  revenue: number;
+}
+
+export interface PaymentMethodTotal {
+  method: string;
+  amount: number;
 }
 
 export interface OrderStatusBreakdown {
@@ -43,10 +49,12 @@ export interface AnalyticsData {
   totalRevenue: number;
   collectedRevenue: number;
   refundedAmount: number;
+  paymentsByMethod: PaymentMethodTotal[];
   totalOrders: number;
   newCustomers: number;
   avgOrderValue: number;
   completionRate: number;
+  repeatCustomerRate: number;
   ordersByStatus: OrderStatusBreakdown[];
   categoryBreakdown: CategoryBreakdown[];
   ordersByTable: TableMetric[];
