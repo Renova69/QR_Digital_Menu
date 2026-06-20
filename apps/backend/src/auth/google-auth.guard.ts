@@ -70,15 +70,28 @@ export class GoogleAuthGuard extends AuthGuard('google') {
     if (nonce) stateObj.nonce = nonce;
     if (req.query['returnTo']) {
       const returnTo = req.query['returnTo'] as string;
-      // Only permit relative paths (starting with /) or absolute URLs whose
-      // origin matches FRONTEND_URL. Blocking cross-origin returnTo values
-      // prevents an open redirect that would send an authenticated user to an
+      // Only permit same-origin destinations. Blocking cross-origin returnTo
+      // prevents an open redirect that sends an authenticated user to an
       // attacker-controlled domain with their session cookie alive (#AUTH-C1).
       const frontendOrigin = process.env.FRONTEND_URL || 'http://localhost:3001';
-      if (
-        returnTo.startsWith('/') ||
-        returnTo.startsWith(frontendOrigin)
-      ) {
+      let allowed = false;
+      if (returnTo.startsWith('/') && !returnTo.startsWith('//')) {
+        // Relative path (e.g. /dashboard) — safe. Reject protocol-relative
+        // URLs (//evil.com) which would bypass the origin check.
+        allowed = true;
+      } else {
+        try {
+          const parsed = new URL(returnTo);
+          const allowedOrigin = new URL(frontendOrigin);
+          allowed =
+            parsed.hostname === allowedOrigin.hostname &&
+            parsed.port === allowedOrigin.port &&
+            parsed.protocol === allowedOrigin.protocol;
+        } catch {
+          // Malformed URL — reject.
+        }
+      }
+      if (allowed) {
         stateObj.returnTo = returnTo;
       }
     }
