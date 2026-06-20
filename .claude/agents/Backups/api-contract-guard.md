@@ -1,6 +1,6 @@
 ---
 name: api-contract-guard
-description: DTO/schema consistency checker — verifies class-validator decorators match Prisma types, flags missing @Min/@Max/@IsOptional on new Restaurant fields
+description: DTO/schema consistency checker — verifies class-validator decorators match Prisma types, flags missing @Min/@Max/@IsOptional on new Restaurant fields, strict nested validation
 tools:
   - Read
   - Grep
@@ -45,7 +45,7 @@ For each field in `schema.prisma` Restaurant model:
 ### 3. Type consistency
 | Prisma type | Expected class-validator decorator |
 |-------------|----------------------------------|
-| `String` | `@IsString()` |
+| `String` | `@IsString()` (Use `@MaxLength(X)` for `@db.VarChar(X)`) |
 | `Int` | `@IsInt()` |
 | `Float` / `Decimal` | `@IsNumber()` |
 | `Boolean` | `@IsBoolean()` |
@@ -53,7 +53,7 @@ For each field in `schema.prisma` Restaurant model:
 | `Json` | `@IsObject()` or custom |
 | `EnumName` | `@IsEnum()` or `@IsIn([...])` |
 | `String?` / `Int?` | `@IsOptional()` |
-| `String[]` / `Int[]` | `@IsArray()` |
+| `String[]` / `Int[]` | `@IsArray()` (Add `each: true` on validators) |
 
 ### 4. Default value alignment
 ```bash
@@ -84,13 +84,21 @@ done
 - Verify `paidQuantity` field has `@Min(1)`
 - Verify `amount` has `@IsNumber()` and `@Min(0.01)`
 
+### 8. Restricted Fields & Nested Validation
+```bash
+grep -n "stripeAccountId\|subscriptionTier\|tier" apps/backend/src/restaurants/dto/update-restaurant.dto.ts
+grep -n "class.*Dto" apps/backend/src/ -A 5 | grep "each: true"
+```
+Check: Verify `UpdateRestaurantDto` explicitly omits restricted fields like `tier`, `stripeAccountId`, or `id`. Verify all nested object arrays use `@ValidateNested()` and `@Type(() => NestedDto)`.
+
 ## Severity
 
-- **CRITICAL**: Field in schema.prisma but missing from DTO — unvalidated input enters system
-- **HIGH**: Required schema field marked `@IsOptional` in DTO — null/undefined accepted, DB rejects
-- **HIGH**: Missing `@Max` on numeric field that has DB constraint — validation passes, DB fails
-- **MEDIUM**: Type decorator mismatch (e.g., `@IsString` on Int column) — coercible but incorrect
-- **LOW**: Missing `@IsOptional` on field with DB default — functionally fine but semantically wrong
+- **CRITICAL**: Field in schema.prisma but missing from DTO — unvalidated input enters system.
+- **CRITICAL**: DTO allows injection of restricted fields (e.g., `role`, `tier`, `stripeAccountId`).
+- **HIGH**: Required schema field marked `@IsOptional` in DTO — null/undefined accepted, DB rejects.
+- **HIGH**: Missing `@Type` or `@ValidateNested` on nested array DTOs.
+- **MEDIUM**: Type decorator mismatch (e.g., `@IsString` on Int column) — coercible but incorrect. Length validators do not match `VarChar` limits.
+- **LOW**: Missing `@IsOptional` on field with DB default.
 
 ## Output format
 
@@ -110,6 +118,9 @@ done
 
 ### Constraint gaps (N)
 - `file:line` — `loyaltyExchangeRate` has `@Max(100)` in schema but missing in DTO
+
+### Restricted fields (N)
+- `file:line` — `tier` found in Update DTO.
 
 ### Summary
 - Models scanned: N

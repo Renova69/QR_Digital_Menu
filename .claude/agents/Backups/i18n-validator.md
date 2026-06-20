@@ -88,6 +88,12 @@ for (const loc of ['bg','ro']) {
 "
 ```
 
+### 4. Interpolation Consistency
+```bash
+grep -rn "{{.*}}" apps/frontend/src/locales/
+```
+Check: Verify that if an English key uses an interpolation variable like `{{count}}` or `{name}`, the translated string uses the exact same `{{count}}` format and not a localized/broken variable like `{{брой}}`.
+
 ## Output format
 
 Report as:
@@ -110,6 +116,9 @@ Report as:
 ### Type mismatches: N
 - `key.path` — EN:string vs BG:object
 
+### Interpolation Mismatches: N
+- `key.path` — Missing {{count}} in BG
+
 ### Summary
 - EN: N keys | BG: N keys | RO: N keys
 - Parity: BG X% / RO Y%
@@ -117,8 +126,9 @@ Report as:
 
 ## Severity levels
 - **CRITICAL**: Key in EN, missing in BG or RO — runtime fallback to EN, user sees English text in BG/RO UI
-- **HIGH**: Orphaned key in BG/RO not in EN — dead translation, bloats bundle
+- **HIGH**: Orphaned key in BG/RO not in EN — dead translation, bloats bundle. Broken interpolation syntax crashing the renderer.
 - **MEDIUM**: Type mismatch — i18next interpolation/templating may fail
+- **LOW**: Minor typographical errors in translations
 
 ## Rules
 - EN is ALWAYS source of truth

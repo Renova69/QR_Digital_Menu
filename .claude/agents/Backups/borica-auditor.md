@@ -44,7 +44,7 @@ Check: P_SIGN is computed as RSA-SHA256 of the concatenated form fields in the c
 ```bash
 grep -n "boricaPublicCert\|BEGIN CERTIFICATE\|publicCert\|boricaPrivateKeyEncrypted" apps/backend/src/payment/borica.provider.ts apps/backend/src/payment/payment.service.ts apps/backend/src/restaurants/dto/update-restaurant.dto.ts
 ```
-Check: Private key stored encrypted (`boricaPrivateKeyEncrypted`), public cert stored in plaintext. decryption happens at use time via `secret-crypto.ts`.
+Check: Private key stored encrypted (`boricaPrivateKeyEncrypted`), public cert stored in plaintext. decryption happens at use time via `secret-crypto.ts` (using AES-256-GCM).
 
 ### 3. Callback verification
 ```bash
@@ -70,10 +70,23 @@ grep -n "cardholderName\|cardholderEmail\|P_CARD\|P_EMAIL\|cardholder" apps/back
 ```
 Check: Cardholder info (name, email, phone, billing address) must not be logged. P_CARD must never contain full PAN.
 
+### 7. EMV-3DS Form Building
+```bash
+grep -n "boricaForm\|hidden\|auto-submit" apps/backend/src/payment/borica.provider.ts
+```
+Check: Verify the backend returns a precisely formatted HTML form or required hidden inputs for the frontend to auto-submit the POST request for 3D Secure verification.
+
 ## Known issues from audit
 
 - Borica callback signature verification fails silently in dev (no production cert to verify against) — intentional but risky
 - `boricaCurrency` validated in DTO but Borica only supports BGN/EUR — check validation
+
+## Severity
+
+- **CRITICAL**: Storing private keys in plaintext. Incorrect RSA-SHA256 signature logic.
+- **HIGH**: Failing to include 3D Secure required fields in the form builder.
+- **MEDIUM**: Misordered payload string for signature generation.
+- **LOW**: Suboptimal logging of Borica webhook responses.
 
 ## Output format
 

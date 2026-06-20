@@ -48,7 +48,7 @@ Check: JWT secret from env only. Token stored in httpOnly cookie, NOT localStora
 ```bash
 grep -n "PIN_LOGIN_ROLES\|pinLogin\|pinHash\|isPinRole" apps/backend/src/auth/auth.service.ts apps/backend/src/users/staff-roles.ts
 ```
-Check: `pinLogin` scoped to `PIN_LOGIN_ROLES` only. OWNER/MANAGER/STAFF must never authenticate via 4-digit PIN. New roles added must not automatically become PIN-capable.
+Check: `pinLogin` scoped to `PIN_LOGIN_ROLES` only (strictly `WAITER` and `KITCHEN`). `OWNER`, `MANAGER`, or `SUPER_ADMIN` must never authenticate via 4-digit PIN.
 
 ### 3. CSRF protection
 ```bash
@@ -80,12 +80,18 @@ grep -n "isActive\|disabledAt\|disabledReason\|ACCOUNT_DISABLED" apps/backend/sr
 ```
 Check: JWT strategy rejects disabled users (including SUPER_ADMIN) with `UnauthorizedException('ACCOUNT_DISABLED')`. Login rejects disabled accounts before token issuance.
 
+### 8. Optional Guard Usage
+```bash
+grep -n "@UseGuards(OptionalJwtAuthGuard)" apps/backend/src/**/*.controller.ts
+```
+Check: `OptionalJwtAuthGuard` MUST NOT be used on state-changing endpoints (POST/PUT/DELETE) that mutate secure data.
+
 ## Severity
 
-- **CRITICAL**: PIN login roles expanded, JWT in localStorage, CSRF bypass, open redirect in OAuth, bearer auth in production
-- **HIGH**: Missing rate limiting on magic link/OTP, long TTL, cookie not httpOnly/secure in production
-- **MEDIUM**: Missing device fingerprint on PIN login, stale token not revoked on password change
-- **LOW**: OAuth state reuse, CSRF token not rotated
+- **CRITICAL**: PIN login roles expanded (e.g. OWNER allowed PIN), JWT in localStorage, CSRF bypass, open redirect in OAuth, bearer auth in production.
+- **HIGH**: Missing rate limiting on magic link/OTP, long TTL, cookie not httpOnly/secure in production, State-changing endpoints using OptionalJwtAuthGuard.
+- **MEDIUM**: Missing device fingerprint on PIN login, stale token not revoked on password change.
+- **LOW**: OAuth state reuse, CSRF token not rotated.
 
 ## Output format
 

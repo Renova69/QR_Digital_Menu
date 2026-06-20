@@ -69,10 +69,11 @@ grep -rn "emit.*{" apps/backend/src/events/events.gateway.ts
 grep -A2 "\.on(" apps/frontend/src/context/SocketContext.tsx
 ```
 
-### 5. Room join/leave balance
+### 5. Room join/leave balance & Scope
 ```bash
 grep -rn "\.join\|\.leave\|socket\.join\|socket\.leave" apps/backend/src/events/ apps/frontend/src/context/
 ```
+Check: Verify that events are sent to the correct room vs broadcast to everyone (e.g. `client.broadcast.emit` vs `this.server.to(room).emit`). Verify room names format string consistency across files.
 
 ## Severity
 

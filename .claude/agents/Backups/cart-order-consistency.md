@@ -67,7 +67,7 @@ Check: Options created with `{ name, priceModifier }` — no `id`, no `price` fi
 ```bash
 grep -n "PosContext\|CartContext\|posCart\|customerCart" apps/frontend/src/context/PosContext.tsx apps/frontend/src/context/CartContext.tsx
 ```
-Check: PosContext and CartContext are completely isolated. PosContext uses `sessionStorage` + in-memory. CartContext uses session-level state. No cross-contamination.
+Check: PosContext and CartContext are completely isolated. PosContext uses `sessionStorage` + in-memory. CartContext uses session-level state (`localStorage`). No cross-contamination.
 
 ### 7. Currency and formatting
 ```bash
@@ -75,12 +75,18 @@ grep -n "formatEuro\|formatBgn\|roundMoney\|round\|toFixed\|Math\.round.*100" ap
 ```
 Check: Cart totals rounded to 2 decimal places. Server `roundMoney()` = `Math.round(value * 100) / 100`. Both must be identical for cart/server consistency.
 
+### 8. Backend Trust Verification
+```bash
+grep -n "price:" apps/backend/src/orders/dto/create-order.dto.ts
+```
+Check: `OrdersService` MUST re-fetch `basePrice` and `priceModifier` from the database. It MUST NOT trust or accept a raw `price` property from the frontend DTO for total calculations.
+
 ## Severity
 
-- **CRITICAL**: `id` field used on choice object, `price` used instead of `priceModifier`, server validation bypassed
-- **HIGH**: Cart total rounding mismatch, PosContext leaks into CartContext, option total excludes quantity
-- **MEDIUM**: Missing negative price modifier guard, option with zero choices accepted
-- **LOW**: Decimal precision edge case on cent rounding
+- **CRITICAL**: Backend `OrdersService` trusts the frontend pricing payload (leads to arbitrary price exploitation). `id` field used on choice object, `price` used instead of `priceModifier`, server validation bypassed.
+- **HIGH**: Cart total rounding mismatch, PosContext leaks into CartContext, option total excludes quantity.
+- **MEDIUM**: Missing negative price modifier guard, option with zero choices accepted.
+- **LOW**: Decimal precision edge case on cent rounding.
 
 ## Output format
 
@@ -92,6 +98,7 @@ Check: Cart totals rounded to 2 decimal places. Server `roundMoney()` = `Math.ro
 ### Order DTO (N issues)
 ### Server validation (N issues)
 ### Context isolation (N issues)
+### Backend Trust (N issues)
 
 ### Summary
 - Choice fields: priceModifier ✓/price ✗

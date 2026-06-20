@@ -39,7 +39,7 @@ You audit Stripe integration for security, correctness, and provider abstraction
 ```bash
 grep -n "webhookSecret\|constructEvent\|webhooks\.constructEvent\|rawBody\|raw\.body\|req\.body" apps/backend/src/payment/stripe.provider.ts apps/backend/src/payment/payment.controller.ts
 ```
-Critical: webhook must verify signature BEFORE processing. Fixed in May 2026: use `req.body` not `req.rawBody`.
+Critical: webhook must verify signature BEFORE processing. Fixed in May 2026: use `req.body` not `req.rawBody` due to NestJS body-parser configuration.
 
 ### 2. Idempotency check
 Each webhook event should be idempotent — check for `stripeEventId` dedup:

@@ -39,13 +39,13 @@ You audit the staff device enrollment and shared device mode system. Recent comm
 ```bash
 grep -n "createEnrollmentToken\|issueEnrollment\|generateToken\|shortTtl\|MAX_AGE\|expiresAt\|delete.*token\|revoke.*token" apps/backend/src/restaurants/device-enrollment.service.ts
 ```
-Check: Token must be short-lived, single-use, and invalidated after use. TTL must be < 10 minutes.
+Check: Token must be short-lived, single-use, and invalidated after use. TTL must be strictly <= 10 minutes.
 
 ### 2. Session version enforcement
 ```bash
 grep -n "sessionVersion\|version.*increment\|version.*check\|staleToken\|deviceTokenId.*version" apps/backend/src/restaurants/device-enrollment.service.ts apps/backend/src/auth/auth.service.ts apps/backend/src/events/events.gateway.ts
 ```
-Check: When a staff member's role changes, `sessionVersion` increments → existing device sessions are evicted via `auth:evicted` socket event.
+Check: When a staff member's role changes, `sessionVersion` increments → existing device sessions are evicted via `auth:evicted` socket event. Also verify that the `JwtStrategy` payload explicitly validates the session version against the database.
 
 ### 3. PIN login audit trail
 ```bash
@@ -74,7 +74,7 @@ Check: `POST /verify` has 30/min, `POST /status` has 60/min. Verify these limits
 ## Severity
 
 - **CRITICAL**: PIN login roles expanded beyond WAITER/KITCHEN, session version not incremented on role change, shared device mode bypass
-- **HIGH**: Token TTL too long, missing audit log entry, device binding count unlimited
+- **HIGH**: Token TTL > 10 mins or multi-use, missing audit log entry, device binding count unlimited
 - **MEDIUM**: Stale device bindings not pruned, rate limits too tight for large restaurants
 - **LOW**: Missing token cleanup cron, inconsistent audit log IP capture
 

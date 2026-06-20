@@ -40,7 +40,7 @@ You audit ePay.bg hosted checkout integration for security and correctness. ePay
 ```bash
 grep -n "createCheckoutForm\|CHECKSUM\|createHmac\|HMAC\|SHA1\|encrypt\|encodeRequest\|ENCODED" apps/backend/src/payment/epay.provider.ts
 ```
-Check: CHECKSUM must be computed as HMAC-SHA1 of the ENCODED string using the merchant secret key. Secret must NOT be logged. Encoding must use the correct ePay field order.
+Check: CHECKSUM must be computed as HMAC-SHA1 of the ENCODED string using the merchant secret key. Secret must NOT be hardcoded or logged. Encoding must use the correct ePay field order.
 
 ### 2. Callback/notification verification
 ```bash
@@ -52,7 +52,7 @@ Check: ePay sends server-to-server POST notification when payment completes. The
 ```bash
 grep -n "epay.*idempotent\|epay.*duplicate\|epay.*already\|stan\|bcode" apps/backend/src/payment/payment.service.ts
 ```
-Check: ePay notifications can arrive multiple times. `stan` (transaction reference) or `bcode` must be used as idempotency key.
+Check: ePay notifications can arrive multiple times. `stan` (transaction reference) or `bcode` must be used as an idempotency key. Verify a DB transaction ensures `Payment` status is updated atomically.
 
 ### 4. Secret encryption
 ```bash
@@ -74,7 +74,7 @@ Check: `epayPage` must be `credit_paydirect` or `paylogin` per ePay spec.
 
 ## Severity
 
-- **CRITICAL**: HMAC secret logged or stored plaintext, callback notification unverified, missing idempotency
+- **CRITICAL**: HMAC secret logged or stored plaintext, callback notification unverified, missing DB transaction idempotency leading to double crediting.
 - **HIGH**: Wrong HMAC algorithm, demo mode leak to production, notification parsing error swallowed
 - **MEDIUM**: Missing expiry handling, stale pending payments not cleaned up
 - **LOW**: Merchant email validation, page type validation

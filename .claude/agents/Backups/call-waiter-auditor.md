@@ -1,6 +1,6 @@
 ---
 name: call-waiter-auditor
-description: Call-waiter / assistance request auditor — 60s cooldown, URGENT escalation, notification delivery, 409/429 handling
+description: Call-waiter / assistance request auditor — 60s cooldown, URGENT escalation, notification delivery, 409/429 handling, room routing
 tools:
   - Read
   - Grep
@@ -52,11 +52,11 @@ grep -n "409\|429\|Conflict\|Throttle\|cooldown.*active\|already.*request" apps/
 ```
 Check: Backend returns 409 on cooldown (Conflict), 429 on rate limit (Too Many Requests). Frontend handles both gracefully — 409 shows "wait X seconds", 429 shows "too many requests".
 
-### 4. Socket notification
+### 4. Socket notification & Room Routing
 ```bash
 grep -n "newAssistanceRequest\|assistanceStatusChanged\|emitToRestaurant.*assistance" apps/backend/src/assistance/assistance.service.ts apps/backend/src/events/events.gateway.ts
 ```
-Check: `newAssistanceRequest` emitted to `restaurant_{id}` room. `assistanceStatusChanged` emitted on status change.
+Check: `newAssistanceRequest` emitted to `restaurant_{id}` room. `assistanceStatusChanged` emitted on status change. It MUST NOT be broadcast globally (`server.emit()`).
 
 ### 5. Frontend socket listener
 ```bash
@@ -72,10 +72,10 @@ Check: Public POST endpoint rate-limited. Standard: 3/min (cooldown is 60s, so t
 
 ## Severity
 
-- **CRITICAL**: Cooldown bypass (in-memory-only), URGENT type lost in transit, socket notification dropped
-- **HIGH**: 429 crashes frontend, cooldown key collision across restaurants, notification not received by dashboard
-- **MEDIUM**: Stale cooldown after logout, missing sound/vibration for URGENT on dashboard
-- **LOW**: No cooldown reset on waiter acknowledge
+- **CRITICAL**: Emitting call waiter events globally. Cooldown bypass (in-memory-only), URGENT type lost in transit, socket notification dropped.
+- **HIGH**: 429 crashes frontend, cooldown key collision across restaurants, notification not received by dashboard.
+- **MEDIUM**: Stale cooldown after logout, missing sound/vibration for URGENT on dashboard.
+- **LOW**: No cooldown reset on waiter acknowledge.
 
 ## Output format
 

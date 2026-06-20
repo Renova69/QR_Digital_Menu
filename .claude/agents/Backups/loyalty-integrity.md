@@ -59,7 +59,7 @@ Check `loyalty-ledger.utils.ts` for:
 - `redeemAccountPoints`: redeems from oldest unspent entries first
 - `addEarnedPointBatch`: creates new entries with future expiry
 - `getExpiringPointBatches(..., onlyUnnotified)`: filters correctly
-- **NEVER** use `Promise.all` over Prisma writes inside `$transaction` — use `updateMany` instead
+- **NEVER** use `Promise.all` over Prisma writes inside `$transaction` — use `updateMany` instead.
 
 ### 3. Earn rate math
 ```bash
@@ -83,10 +83,10 @@ grep -n "loyaltyRedeemRate\|redeemRate\|rewardValue\|getRewardValue" apps/backen
 
 ## Severity
 
-- **CRITICAL**: Points formula wrong (customers get wrong points/money), hardcoded threshold
-- **HIGH**: Multiplier additive instead of max, timezone-less date math, `Promise.all` inside `$transaction`
-- **MEDIUM**: Rounding inconsistency, missing `onlyUnnotified` filter, stale tier cache
-- **LOW**: Cron timing precision, log verbosity
+- **CRITICAL**: Points formula wrong (customers get wrong points/money), hardcoded threshold, `Promise.all` inside `$transaction`.
+- **HIGH**: Multiplier additive instead of max, timezone-less date math.
+- **MEDIUM**: Rounding inconsistency, missing `onlyUnnotified` filter, stale tier cache.
+- **LOW**: Cron timing precision, log verbosity.
 
 ## Output format
 

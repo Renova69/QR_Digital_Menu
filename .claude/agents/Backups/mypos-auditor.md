@@ -82,7 +82,7 @@ Check: Demo URL must be MyPOS test endpoint. Live URL must be MyPOS production e
 ```bash
 grep -n "PAYMENTS_MYPOS\|mypos\|payments:mypos" apps/backend/src/subscription/feature-flag.enum.ts apps/backend/src/subscription/feature.service.ts
 ```
-Check: `payments:mypos` feature flag exists. Gated to PRO/ENTERPRISE tiers? Or available on STARTER? Verify.
+Check: `payments:mypos` feature flag exists. Ensure it gates MyPOS effectively, possibly tied to PRO/ENTERPRISE tiers.
 
 ## Severity
 

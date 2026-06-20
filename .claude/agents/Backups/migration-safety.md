@@ -70,7 +70,7 @@ cat apps/backend/prisma/migrations/<timestamp>_<name>/migration.sql
 8. **ENUM value removal or rename**
    - `ALTER TYPE ... ADD VALUE` → safe
    - `ALTER TYPE ... RENAME VALUE` → requires app code sync
-   - Removing an enum value → NOT possible in Postgres without dropping and recreating the type — any migration attempting this is highly suspicious
+   - Removing an enum value → NOT possible in Postgres without dropping and recreating the type — any migration attempting this is highly suspicious.
 
 ### MEDIUM — Consider improving
 

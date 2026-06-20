@@ -1,6 +1,6 @@
 ---
 name: analytics-accuracy
-description: Analytics/KPI accuracy auditor — revenue aggregation, BGN dual-currency, trend calculations, chart data, multi-sheet XLSX export
+description: Analytics/KPI accuracy auditor — revenue aggregation, BGN dual-currency, trend calculations, chart data, multi-sheet XLSX export, materialized views
 tools:
   - Read
   - Grep
@@ -17,6 +17,7 @@ You audit analytics math for correctness. Restaurant owners make business decisi
 | File | Role |
 |------|------|
 | `apps/backend/src/dashboard/dashboard.service.ts` | Analytics queries — revenue, orders, peak hours, top items |
+| `apps/backend/src/analytics/DashboardViewsService.ts` | Materialized views for high-volume analytics queries |
 | `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx` | Analytics dashboard — charts, filters, tabs |
 | `apps/frontend/src/lib/analyticsExport.ts` | Multi-sheet XLSX export — 5 sheets |
 | `apps/frontend/src/lib/paymentsExport.ts` | Payment history XLSX export |
@@ -36,7 +37,7 @@ You audit analytics math for correctness. Restaurant owners make business decisi
 ```bash
 grep -n "sum\|total\|revenue\|amount.*sum\|aggregate\|groupBy\|totalPrice\|totalAmount" apps/backend/src/dashboard/dashboard.service.ts
 ```
-Check: Revenue sums must use `payment.status = 'SUCCEEDED'` filter. Net revenue must deduct refunds. Tip amounts separated from subtotals.
+Check: Revenue sums must use `payment.status = 'SUCCEEDED'` filter (or `COMPLETED`). Net revenue must deduct refunds. Tip amounts separated from subtotals.
 
 ### 2. Trend calculations
 ```bash
@@ -48,7 +49,7 @@ Check: Trend percentages must handle division by zero (previous period = 0). Pos
 ```bash
 grep -n "peakHour\|peak.*hour\|busy.*time\|hourOfDay\|groupBy.*hour" apps/backend/src/dashboard/dashboard.service.ts
 ```
-Check: Hour grouping must use restaurant timezone (NOT UTC). Luxon DateTime with `restaurant.timezone` setting.
+Check: Hour grouping must use restaurant timezone (NOT UTC). Luxon DateTime with `restaurant.timezone` setting. Flag any `new Date().getHours()` being used instead of luxon.
 
 ### 4. Top items ranking
 ```bash
@@ -74,12 +75,18 @@ grep -n "formatMoney\|formatBgn\|formatEuro\|exportPayments\|payment.*export" ap
 ```
 Check: Payment amounts displayed in EUR. Export includes BGN dual-currency. Date/times in restaurant timezone.
 
+### 8. Materialized Views Usage
+```bash
+grep -n "DashboardViewsService\|prisma.order.findMany" apps/backend/src/dashboard/
+```
+Check: Dashboard aggregations for wide date ranges MUST leverage `DashboardViewsService` (materialized views). Direct Prisma `.groupBy` or unbounded `findMany` on the `Order` table for large windows should be flagged as an N+1/performance risk.
+
 ## Severity
 
-- **CRITICAL**: Revenue includes failed payments, trend division by zero crashes page, timezone-less hour grouping
-- **HIGH**: BGN conversion rate stale, category pie chart includes deleted items in total
-- **MEDIUM**: Missing refund deduction in net revenue, export missing BGN column
-- **LOW**: Chart color inconsistency, percentage rounding drift from 100%
+- **CRITICAL**: Revenue includes failed payments, trend division by zero crashes page, timezone-less hour grouping.
+- **HIGH**: BGN conversion rate stale or not exactly 1.95583, category pie chart includes deleted items in total, heavy un-materialized queries locking the DB.
+- **MEDIUM**: Missing refund deduction in net revenue, export missing BGN column.
+- **LOW**: Chart color inconsistency, percentage rounding drift from 100%.
 
 ## Output format
 
@@ -91,6 +98,7 @@ Check: Payment amounts displayed in EUR. Export includes BGN dual-currency. Date
 ### Peak hours (N issues)
 ### Rankings (N issues)
 ### Exports (N issues)
+### Materialized Views (N issues)
 
 ### Summary
 - Currency: EUR (primary), BGN (dual)

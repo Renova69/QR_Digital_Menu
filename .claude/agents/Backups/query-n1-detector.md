@@ -119,7 +119,7 @@ grep -rn "\$transaction.*Promise\.all\|Promise\.all.*inside.*transaction" apps/b
 
 ## Severity
 
-- **CRITICAL**: N+1 on `customer_order`/`order_item` endpoin — multiplies queries by table row count, can hit DB connection limits
+- **CRITICAL**: N+1 on `customer_order`/`order_item` endpoint — multiplies queries by table row count, can hit DB connection limits
 - **HIGH**: Unbounded `findMany` on large table — memory exhaustion, request timeout
 - **MEDIUM**: Missing `select` on wide tables (Restaurant has 60+ columns) — wasted bandwidth
 - **LOW**: `Promise.all` with queries in non-hot path (admin-only endpoints)

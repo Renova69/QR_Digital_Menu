@@ -66,7 +66,7 @@ done
 ```
 
 ### 3. Flag public endpoints missing OptionalJwtAuthGuard
-Public endpoints that should capture staff attribution need `OptionalJwtAuthGuard`. Example: order creation captures `staffUserId` for POS vs QR attribution.
+Public endpoints that should capture staff attribution need `OptionalJwtAuthGuard`. Example: order creation captures `staffUserId` for POS vs QR attribution. Public endpoints (especially POST/PUT/DELETE) that do not require JWT MUST be audited to ensure they do not accidentally expose internal state, mutate data without tracking, or allow unauthenticated access to secure operations.
 
 ### 4. Verify SuperAdminGuard coverage
 All `/super-admin/*` endpoints must have `@UseGuards(JwtAuthGuard, SuperAdminGuard)`.
