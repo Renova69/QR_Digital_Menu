@@ -16,7 +16,32 @@
 | **[VERIFIED by CODEX]** | Explicitly re-checked by Codex; no code change needed for this row |
 | **[WONT FIX]** | By design, historical, or infrastructure — not fixable with code |
 | **[TODO]** | Needs work — actionable but requires architectural change / design decision |
+| **[VERIFIED by CLAUDE]** | Re-checked against actual HEAD code by Claude (2026-06-20); claim confirmed true |
+| **[FIXED by CLAUDE]** | A prior [FIXED]/[FIXED by CODEX] claim was false or partial; Claude completed it |
 | — | Deferred — minor, cosmetic, or requires schema migration |
+
+---
+
+## CLAUDE Verification Pass — 2026-06-20
+
+Independent re-check of the `[FIXED by CODEX]` / `[FIXED]` claims against actual HEAD code (do not trust tags blindly).
+
+**Outstanding issue found + fixed:**
+- **ANALYTICS M1** — Codex claim was **PARTIAL**. The `OrderItem.unitPriceWithOptions` snapshot column + backfill were real, but `getTopItems` / `getCategoryBreakdown` / `mv_item_stats` still multiplied by current `mi.price`, so the price-at-order bug persisted in analytics. **Fixed by Claude** — switched all three to `COALESCE(NULLIF(oi."unitPriceWithOptions",0), mi.price) * oi.quantity`. Commit `7a4dfa04`.
+
+**Stale audit rows corrected:**
+- **ANALYTICS C1/C2** — audit says "changed to SERVED"; actual code uses `!= CANCELED` everywhere (owner's deliberate decision — SERVED gave 0 revenue). View↔fallback consistent. Rows updated.
+
+**Deep-verified TRUE against code:**
+- POS C1/C2/C3/L2 — all 4 POS mutations call `abandonCheckoutOrThrowIfPending` (abandon → throw if PENDING remains). Money-safe.
+- POS M2/M3 — `cleanupAbandonedPaymentsAndStaleSessions` cron correct (90d ABANDONED delete, 36h stale-OPEN review, partial→left open).
+- POS H1 — `bill:updated` emitted after commit; `PosSplitDrawer` filters by sessionId + refetches canonical bill.
+- STRIPE C1 — `retrievePaymentIntent` returns null only for resource_missing/404, rethrows transient.
+- STRIPE M1 / EPAY M1 — `PaymentProviderEvent` dedup (`@@unique([provider,eventKey])`) wired into all 4 providers in-transaction; callers skip on `!recorded`.
+- PRINT H1 — runtime `sha256` hex hash matches migration backfill; `pgcrypto` enabled; raw token nulled; unique index.
+- MIGRATION M2 — 6 FK indexes in migration match 6 schema `@@index` (no drift).
+- SUPER-ADMIN M2 — `SuperAdminImportMenuDto` requires exact `CONFIRM`; used by controller.
+- ANALYTICS H2 — period boundaries use Luxon in restaurant IANA tz (no raw `new Date()`).
 
 ---
 
