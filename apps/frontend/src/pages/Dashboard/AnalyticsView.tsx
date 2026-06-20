@@ -312,6 +312,12 @@ const AnalyticsView = () => {
         />
       </section>
 
+      <RevenueReconciliation
+        ordered={data.totalRevenue}
+        collected={data.collectedRevenue}
+        refunded={data.refundedAmount}
+      />
+
       <section className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         <InsightCard
           label={t("analytics.revenueLeader", "Revenue leader")}
@@ -610,6 +616,94 @@ const AnalyticsView = () => {
         </section>
       )}
     </div>
+  );
+};
+
+const RevenueReconciliation = ({
+  ordered,
+  collected,
+  refunded,
+}: {
+  ordered: number;
+  collected: number;
+  refunded: number;
+}) => {
+  const { t } = useTranslation();
+  const net = Math.round((collected - refunded) * 100) / 100;
+  const uncollected = Math.round(Math.max(0, ordered - collected) * 100) / 100;
+
+  const steps = [
+    {
+      key: "ordered",
+      label: t("analytics.recoOrdered", "Ordered"),
+      value: ordered,
+      hint: t("analytics.recoOrderedHint", "All non-cancelled orders"),
+    },
+    {
+      key: "collected",
+      label: t("analytics.recoCollected", "Collected"),
+      value: collected,
+      hint: t("analytics.recoCollectedHint", "Payments received"),
+    },
+    {
+      key: "refunded",
+      label: t("analytics.recoRefunded", "Refunded"),
+      value: refunded,
+      hint: t("analytics.recoRefundedHint", "Reversed to guests"),
+      tone: "text-red-600 dark:text-red-400",
+    },
+    {
+      key: "net",
+      label: t("analytics.recoNet", "Net collected"),
+      value: net,
+      hint: t("analytics.recoNetHint", "Collected − refunded"),
+      emphasis: true,
+    },
+  ];
+
+  return (
+    <Panel
+      title={t("analytics.revenueReconciliation", "Revenue reconciliation")}
+      eyebrow={t("analytics.moneyFlow", "Money flow")}
+      action={
+        uncollected > 0
+          ? `${t("analytics.recoUncollected", "Uncollected")} ${formatEuro(uncollected)}`
+          : undefined
+      }
+    >
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {steps.map((s) => (
+          <div
+            key={s.key}
+            className={`rounded-lg border p-3 ${
+              s.emphasis
+                ? "border-primary/30 bg-primary/5"
+                : "border-border bg-secondary/20"
+            }`}
+          >
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+              {s.label}
+            </p>
+            <p
+              className={`mt-1 text-lg font-display font-black ${
+                s.tone ?? "text-foreground"
+              }`}
+            >
+              {s.tone ? `−${formatEuro(s.value)}` : formatEuro(s.value)}
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground leading-snug">
+              {s.hint}
+            </p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-[11px] text-muted-foreground leading-relaxed">
+        {t(
+          "analytics.recoExplainer",
+          "Ordered counts every placed order; collected counts recorded payments. They differ for cash orders not closed through the POS and for refunds.",
+        )}
+      </p>
+    </Panel>
   );
 };
 

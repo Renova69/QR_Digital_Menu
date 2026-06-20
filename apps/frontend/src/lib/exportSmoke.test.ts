@@ -29,6 +29,8 @@ const analyticsData: AnalyticsData = {
   topItems: [{ name: "Soup", quantity: 3, revenue: 42 }],
   peakHours: [{ hour: 12, label: "12:00", orders: 3 }],
   totalRevenue: 42,
+  collectedRevenue: 40,
+  refundedAmount: 0,
   totalOrders: 3,
   newCustomers: 2,
   avgOrderValue: 14,

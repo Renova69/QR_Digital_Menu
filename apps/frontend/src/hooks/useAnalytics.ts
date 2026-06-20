@@ -41,6 +41,8 @@ export interface AnalyticsData {
   topItems: TopItem[];
   peakHours: PeakHour[];
   totalRevenue: number;
+  collectedRevenue: number;
+  refundedAmount: number;
   totalOrders: number;
   newCustomers: number;
   avgOrderValue: number;

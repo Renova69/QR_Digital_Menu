@@ -143,6 +143,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       ordersByTable,
       currentNewCustomers,
       previousNewCustomers,
+      paymentTotals,
     ] = await Promise.all([
       useViews
         ? this.getRevenueTrendFromView(restaurantId, periodStart, now, tz)
@@ -160,6 +161,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       this.getOrdersByTable(restaurantId, periodStart, now),
       this.getNewCustomers(restaurantId, periodStart, now),
       this.getNewCustomers(restaurantId, prevPeriodStart, prevPeriodEnd),
+      this.getPaymentTotals(restaurantId, periodStart, now),
     ]);
 
     const revenueChange =
@@ -218,6 +220,8 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       categoryBreakdown,
       ordersByTable,
       totalRevenue: currentPeriodStats.totalRevenue,
+      collectedRevenue: paymentTotals.collectedRevenue,
+      refundedAmount: paymentTotals.refundedAmount,
       totalOrders: currentPeriodStats.totalOrders,
       newCustomers: currentNewCustomers,
       avgOrderValue: currentPeriodStats.avgOrderValue,
@@ -404,6 +408,35 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       },
     });
     return result.length;
+  }
+
+  // Money actually collected vs reversed in the SAME window as ordered revenue,
+  // so the analytics page can reconcile "ordered" (order rows) against
+  // "collected" (payment rows). The two legitimately differ — unpaid/cash
+  // orders, refunds — and surfacing both prevents owner confusion.
+  private async getPaymentTotals(restaurantId: string, start: Date, end: Date) {
+    const [collected, refunded] = await Promise.all([
+      this.prisma.payment.aggregate({
+        _sum: { amount: true },
+        where: {
+          restaurantId,
+          status: 'SUCCEEDED',
+          createdAt: { gte: start, lte: end },
+        },
+      }),
+      this.prisma.payment.aggregate({
+        _sum: { amount: true },
+        where: {
+          restaurantId,
+          status: 'REFUNDED',
+          createdAt: { gte: start, lte: end },
+        },
+      }),
+    ]);
+    return {
+      collectedRevenue: Math.round((collected._sum.amount || 0) * 100) / 100,
+      refundedAmount: Math.round((refunded._sum.amount || 0) * 100) / 100,
+    };
   }
 
   async getPaymentsSummary(
