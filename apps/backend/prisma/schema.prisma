@@ -362,6 +362,7 @@ model Order {
   @@index([restaurantId, status, createdAt])
   @@index([customerId])
   @@index([staffUserId])
+  @@index([tableSessionId])
   @@map("customer_order")
 }
 
@@ -399,6 +400,7 @@ model PaymentAllocation {
   payment     Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
   orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
 
+  @@unique([paymentId, orderItemId])
   @@index([paymentId])
   @@index([orderItemId])
   @@map("payment_allocation")

@@ -788,6 +788,22 @@ export class PaymentService {
     }
   }
 
+  private async lockOpenSessionForSettlement(
+    tx: Prisma.TransactionClient,
+    sessionId: string,
+  ): Promise<void> {
+    const rows = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM "table_session"
+      WHERE id = ${sessionId}
+        AND status = 'OPEN'::"TableSessionStatus"
+      FOR UPDATE
+    `;
+    if (rows.length === 0) {
+      throw new ConflictException('Session is no longer open');
+    }
+  }
+
   private resolveBoricaCardholder(
     orders: Array<{ customerName?: string | null; customerPhone?: string | null }>,
     input?: BoricaCardholderInput,
@@ -2645,6 +2661,17 @@ export class PaymentService {
         where: { token, restaurantId, status: 'OPEN' },
       });
       if (!session) throw new NotFoundException('Session not found');
+      await this.lockOpenSessionForSettlement(tx, session.id);
+
+      const pendingPayment = await tx.payment.findFirst({
+        where: { tableSessionId: session.id, status: 'PENDING' },
+        select: { id: true },
+      });
+      if (pendingPayment) {
+        throw new ConflictException(
+          'A payment for this session is still being processed. Please wait or retry.',
+        );
+      }
 
       const balance = await this.computeSessionBalance(tx, session.id);
       if (balance.remaining <= 0) {
@@ -2774,6 +2801,7 @@ export class PaymentService {
         remaining: Math.max(0, newRemaining),
         sessionPaid,
         paymentId: payment.id,
+        tipAmount,
         splitMode: dto.mode,
       };
     });
@@ -2812,7 +2840,7 @@ export class PaymentService {
         paymentId: result.paymentId,
         tableSessionId: result.sessionId,
         amount: result.amount,
-        tipAmount: 0,
+        tipAmount: result.tipAmount,
         tableNumber,
         customerName,
       });
@@ -3281,6 +3309,9 @@ export class PaymentService {
         tableSession: {
           include: { table: { select: { name: true } } },
         },
+        allocations: {
+          select: { orderItemId: true, quantity: true },
+        },
       },
     });
 
@@ -3366,6 +3397,30 @@ export class PaymentService {
         );
         throw err;
       }
+    }
+
+    const allocations = payment.allocations ?? [];
+    if (allocations.length > 0) {
+      await this.prisma.$transaction(async (tx) => {
+        for (const allocation of allocations) {
+          const restored = await tx.orderItem.updateMany({
+            where: {
+              id: allocation.orderItemId,
+              paidQuantity: { gte: allocation.quantity },
+            },
+            data: { paidQuantity: { decrement: allocation.quantity } },
+          });
+          if (restored.count === 0) {
+            throw new Error(
+              `Could not reverse split allocation for order item ${allocation.orderItemId}`,
+            );
+          }
+        }
+
+        await tx.paymentAllocation.deleteMany({
+          where: { paymentId: payment.id },
+        });
+      });
     }
 
     const updated = await this.prisma.payment.findUnique({

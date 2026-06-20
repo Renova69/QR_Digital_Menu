@@ -534,6 +534,37 @@ _None found._
 
 ---
 
+## Codex Follow-up Verification (2026-06-20)
+
+| Severity | # | Finding | Status |
+|----------|---|---------|--------|
+| CRITICAL | 1 | `OrderItem.paidQuantity` existed in Prisma schema but had no deploy migration | **[FIXED by CODEX]** - Added additive migration `20260620133000_split_bill_deploy_safety` with guarded `ALTER TABLE "order_item" ADD COLUMN IF NOT EXISTS "paidQuantity"` |
+| CRITICAL | 2 | `PaymentAllocation` existed in Prisma schema but had no deploy migration | **[FIXED by CODEX]** - Added guarded `CREATE TABLE IF NOT EXISTS "payment_allocation"` plus indexes and FKs |
+| CRITICAL | 3 | `Payment.splitMode` existed in Prisma schema but had no deploy migration | **[FIXED by CODEX]** - Added guarded `ALTER TABLE "payment" ADD COLUMN IF NOT EXISTS "splitMode"` |
+| HIGH | 4 | `customer_order.tableSessionId` lacked a hot-path index | **[FIXED by CODEX]** - Added `@@index([tableSessionId])` and guarded migration index `customer_order_tableSessionId_idx` |
+| MEDIUM | 5 | Final split settlement emitted `payment:confirmed` with hardcoded `tipAmount: 0` | **[FIXED by CODEX]** - Transaction result now returns `tipAmount`, and final split confirmation emits the actual tip |
+| MEDIUM | 6 | Concurrent EVEN/CUSTOM `settlePartial` calls could overpay from the same remaining snapshot | **[FIXED by CODEX]** - Added `SELECT ... FOR UPDATE` on the open table session before computing split balance |
+| MEDIUM | 7 | POS abandon-before-transaction TOCTOU gap can miss a checkout created in the gap | **[VERIFIED by CODEX]** - Confirmed residual architecture risk; not fully fixed in this pass because robust closure requires locking/rechecking checkout creation across provider checkout paths, not only POS settlement |
+| MEDIUM | 8 | `closeSessionWithProvider` payment-confirmed amount semantics looked inconsistent | **[VERIFIED by CODEX]** - No code change needed: this path has no tip input, so emitted `amount` equals total paid and `tipAmount` is correctly zero |
+| MEDIUM | 9 | `Payment.splitMode` had no DB-level allowed-value guard | **[FIXED by CODEX]** - Added guarded DB CHECK constraint allowing only `ITEM`, `EVEN`, `CUSTOM`, or NULL |
+| MEDIUM | 10 | `refundPayment()` did not reverse `paidQuantity` or clean allocation rows | **[FIXED by CODEX]** - Successful full refunds now decrement allocated item `paidQuantity` and delete `payment_allocation` rows transactionally |
+| MEDIUM | 11 | ITEM-mode optimistic lock needed verification | **[VERIFIED by CODEX]** - Confirmed `updateMany` with `paidQuantity` snapshot guard aborts concurrent item settlement; focused tests cover it |
+| LOW | 12 | `PaymentAllocation` lacked `@@unique([paymentId, orderItemId])` | **[FIXED by CODEX]** - Added Prisma unique constraint and guarded unique migration index |
+| LOW | 13 | MYPOS split POS payments leave `providerReference` NULL | **[VERIFIED by CODEX]** - Confirmed current physical-terminal POS flow has no transaction reference input; fixing this needs a product/UI decision to collect terminal receipt/reference |
+| LOW | 14 | `tipPercent` allows sub-percent precision | **[VERIFIED by CODEX]** - Harmless; amount calculation rounds to cents server-side |
+| LOW | 15 | `ArrayMaxSize(200)` on split allocations is generous | **[VERIFIED by CODEX]** - Acceptable cap; allocation payload is still bounded and validated |
+
+Verified correct by Codex:
+- **[VERIFIED by CODEX]** Provider webhook/notification dedup records provider events in the same transaction and skips duplicates.
+- **[VERIFIED by CODEX]** Socket emits for payment/split flows happen after transaction commit.
+- **[VERIFIED by CODEX]** Existing close-session abandon-before-mutate pattern is present; residual checkout-creation gap is tracked above.
+- **[VERIFIED by CODEX]** `claimSuccessfulPaymentForOpenSession` keeps the underpay guard.
+- **[VERIFIED by CODEX]** `roundMoney` is used consistently in split-bill totals.
+- **[VERIFIED by CODEX]** Provider-specific protocol logic remains in provider classes.
+- **[VERIFIED by CODEX]** `settlePartial` Prisma writes are sequential and avoid `Promise.all` inside the transaction.
+
+---
+
 ## Master Scorecard
 
 > Codex note (2026-06-20): the aggregate scorecard below is the original audit

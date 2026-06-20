@@ -76,7 +76,9 @@ describe('PaymentService', () => {
       },
       paymentAllocation: {
         createMany: jest.fn().mockResolvedValue({ count: 1 }),
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
+      $queryRaw: jest.fn().mockResolvedValue([{ id: 's1' }]),
       $transaction: jest.fn((arg: any) => {
         if (typeof arg === 'function') return arg(mockPrisma);
         return Promise.all(arg);
@@ -1706,6 +1708,31 @@ describe('PaymentService', () => {
       );
     });
 
+    it('reverses split item allocations after a successful refund', async () => {
+      mockPrisma.payment.findUnique
+        .mockResolvedValueOnce({
+          ...succeededPayload,
+          allocations: [{ orderItemId: 'oi-1', quantity: 2 }],
+        })
+        .mockResolvedValueOnce(refundedPayload);
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.orderItem.updateMany.mockResolvedValue({ count: 1 });
+      mockStripeProvider.createRefund.mockResolvedValue({
+        refundId: 're_123',
+        status: 'succeeded',
+      });
+
+      await service.refundPayment('pay1', 'owner1', {});
+
+      expect(mockPrisma.orderItem.updateMany).toHaveBeenCalledWith({
+        where: { id: 'oi-1', paidQuantity: { gte: 2 } },
+        data: { paidQuantity: { decrement: 2 } },
+      });
+      expect(mockPrisma.paymentAllocation.deleteMany).toHaveBeenCalledWith({
+        where: { paymentId: 'pay1' },
+      });
+    });
+
     it('throws ConflictException when payment is already refunded (race condition)', async () => {
       mockPrisma.payment.findUnique.mockResolvedValueOnce(succeededPayload);
       mockPrisma.payment.updateMany.mockResolvedValue({ count: 0 });
@@ -2634,6 +2661,7 @@ describe('PaymentService', () => {
         restaurantId: 'rest1',
         mode: 'ITEM' as any,
         provider: 'MYPOS' as any,
+        tipPercent: 10,
         allocations: [
           { orderItemId: 'oi-drink', quantity: 1 },
           { orderItemId: 'oi-salad', quantity: 1 },
@@ -2641,7 +2669,7 @@ describe('PaymentService', () => {
         ],
       });
 
-      expect(result.amount).toBeCloseTo(30);
+      expect(result.amount).toBeCloseTo(33);
       expect(result.remaining).toBe(0);
       expect(result.sessionPaid).toBe(true);
       expect(mockPrisma.tableSession.updateMany).toHaveBeenCalledWith({
@@ -2651,7 +2679,12 @@ describe('PaymentService', () => {
       expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
         'rest1',
         'payment:confirmed',
-        expect.objectContaining({ tableSessionId: 's1', customerName: 'Maria' }),
+        expect.objectContaining({
+          tableSessionId: 's1',
+          customerName: 'Maria',
+          amount: 33,
+          tipAmount: 3,
+        }),
       );
     });
 
@@ -2754,6 +2787,21 @@ describe('PaymentService', () => {
       });
       expect(result.amount).toBeCloseTo(12);
       expect(result.remaining).toBeCloseTo(18);
+    });
+
+    it('CUSTOM mode: aborts when the session row is no longer open after locking', async () => {
+      mockPrisma.$queryRaw.mockResolvedValueOnce([]);
+
+      await expect(
+        service.settlePartial('tok1', 'rest1', 'owner1', {
+          restaurantId: 'rest1',
+          mode: 'CUSTOM' as any,
+          provider: 'CASH' as any,
+          amount: 12,
+        }),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.payment.create).not.toHaveBeenCalled();
     });
 
     it('blocks partial settlement when checkout payment remains pending after abandon', async () => {
