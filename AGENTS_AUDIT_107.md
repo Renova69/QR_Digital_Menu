@@ -103,7 +103,7 @@ _None found._
 | M1 | Stale PENDING Stripe cancel failure throws CONFLICT — blocks retries instead of allowing them | `payment.service.ts:989-998` | **[WONT FIX]** — Cannot distinguish "intent already succeeded" (should block) from "network error" (should retry) |
 | M2 | ABANDONED payment records never cleaned up by `createPaymentIntent` — accumulate in DB | `payment.service.ts:938-941` | **[FIXED by CODEX]** — Daily cleanup cron deletes ABANDONED payments older than 90 days |
 | M3 | No cron job cleans up stale OPEN sessions (abandoned checkouts without force-close) | `payment.service.ts:2542` | **[FIXED by CODEX]** — Daily cleanup cron reviews OPEN sessions older than 36h: fully paid becomes PAID, unpaid/empty closes, partial-paid stays open for manual review |
-| M4 | `forceOpenSession` tags old session CLOSED_NO_PAYMENT even if it has SUCCEEDED payments — semantic mismatch | `payment.service.ts:2503` | — Low impact, payments still visible in history |
+| M4 | `forceOpenSession` tags old session CLOSED_NO_PAYMENT even if it has SUCCEEDED payments — semantic mismatch | `payment.service.ts:2857-2860` | **[VERIFIED by CLAUDE — left as-is]** Real mislabel confirmed (unconditional `CLOSED_NO_PAYMENT`). NOT fixed: correct status for a *partially*-paid force-close is ambiguous — no clean enum state (`CLOSED_PAID` implies fully paid). Solution not 100% certain; payments remain visible in history. Low impact. |
 | M5 | EVEN split rounding: `billSubtotal / splitCount` leaves 1-cent gap that blocks PAID transition (tolerance was 0.001) | `payment.service.ts:2465` | **[FIXED]** — Tolerance changed to 0.01 |
 
 ### LOW
@@ -256,7 +256,7 @@ _None found._
 ### LOW
 | # | Finding | File:Line | Status |
 |---|---------|-----------|--------|
-| L1 | `logoThumbnailUrl` nullable type but may fail `@IsUrl()` on explicit null — depends on ValidationPipe config | `update-restaurant.dto.ts:130-132` | — Check ValidationPipe `skipNullProperties` in `main.ts` |
+| L1 | `logoThumbnailUrl` nullable type but may fail `@IsUrl()` on explicit null — depends on ValidationPipe config | `update-restaurant.dto.ts:131-132` | **[VERIFIED by CLAUDE — non-issue]** `@IsOptional()` (131) precedes `@IsUrl` — class-validator skips ALL validators when value is null/undefined, so `null` clears the thumbnail and passes (comment at :122 confirms intent). No bug. |
 
 ---
 
