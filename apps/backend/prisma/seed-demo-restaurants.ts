@@ -20,7 +20,11 @@ const DEMOS: { email: string; name: string; restaurantName: string; tier: Subscr
 ];
 
 async function main() {
-  // ── 3-layer safety guard (mirrors seed.ts) ──────────────────────────────
+  // ── Safety guards ─────────────────────────────────────────────────────────
+  // Non-destructive: this seeder only does idempotent upserts of demo accounts
+  // and restaurants — it NEVER wipes data. So there is no userCount/
+  // FORCE_SEED_WIPE gate (running it against a populated DB is fine). Guards
+  // below just prevent accidentally writing to the wrong database.
   if (process.env.NODE_ENV === 'production') {
     console.error('❌ Seed aborted: NODE_ENV=production. Never seed against a production database.');
     process.exit(1);
@@ -28,18 +32,9 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL ?? '';
   if (!dbUrl.includes('localhost') && !dbUrl.includes('127.0.0.1') && dbUrl !== '') {
     console.error('❌ Seed aborted: DATABASE_URL points to a remote database.');
-    console.error('   Seeds wipe ALL data. Connect to a local/dev database only.');
-    console.error('   To override (e.g. intentional dev cloud DB), set ALLOW_REMOTE_SEED=true');
+    console.error('   Connect to a local/dev database, or set ALLOW_REMOTE_SEED=true to override.');
     if (process.env.ALLOW_REMOTE_SEED !== 'true') process.exit(1);
     console.warn('⚠️  ALLOW_REMOTE_SEED=true — proceeding with remote seed.');
-  }
-  const userCount = await prisma.user.count();
-  if (userCount > 5) {
-    console.error(`❌ Seed aborted: ${userCount} users exist. Refusing to wipe a populated database.`);
-    console.error('   Seeds are for fresh/dev databases only.');
-    console.error('   To force (DESTRUCTIVE), set FORCE_SEED_WIPE=true');
-    if (process.env.FORCE_SEED_WIPE !== 'true') process.exit(1);
-    console.warn('⚠️  FORCE_SEED_WIPE=true — proceeding despite populated database.');
   }
   // ─────────────────────────────────────────────────────────────────────────
 
