@@ -2,6 +2,10 @@ import { LoyaltyPointTransactionType, Prisma } from '@prisma/client';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+/** Hard cap on signup bonus points. Single source of truth shared between
+ *  enrollment (LoyaltyService) and first-order flows (OrdersService). */
+export const MAX_SIGNUP_BONUS = 75;
+
 const SPENDABLE_ENTRY_TYPES: LoyaltyPointTransactionType[] = [
   LoyaltyPointTransactionType.EARN,
   LoyaltyPointTransactionType.SIGNUP,

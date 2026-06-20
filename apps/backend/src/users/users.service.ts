@@ -302,7 +302,7 @@ export class UsersService {
             }
           : {}),
         ...(clearPin
-          ? { pinHash: null, pinAttempts: 0, pinLockedUntil: null }
+          ? { pinHash: null, pinAttempts: 0, pinLockedUntil: null, passwordChangedAt: new Date() }
           : {}),
         ...(typeof data.isActive === 'boolean'
           ? {

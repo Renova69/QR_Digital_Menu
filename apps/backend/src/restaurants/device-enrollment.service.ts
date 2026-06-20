@@ -173,7 +173,7 @@ export class DeviceEnrollmentService {
 
     await this.tokenStore.update({
       where: { id: tokenId },
-      data: { revokedAt },
+      data: { revokedAt, sessionVersion: { increment: 1 } },
     });
 
     await this.eventsGateway.evictDeviceToken(token.id, 'device_revoked');

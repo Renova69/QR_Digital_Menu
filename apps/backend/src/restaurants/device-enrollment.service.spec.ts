@@ -320,7 +320,7 @@ describe('DeviceEnrollmentService', () => {
 
       expect(updateArgs).toEqual({
         where: { id: 'tok1' },
-        data: { revokedAt: expect.any(Date) },
+        data: { revokedAt: expect.any(Date), sessionVersion: { increment: 1 } },
       });
       expect(mockEvents.evictDeviceToken).toHaveBeenCalledWith(
         'tok1',

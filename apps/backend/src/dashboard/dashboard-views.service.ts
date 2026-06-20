@@ -69,7 +69,7 @@ export class DashboardViewsService implements OnModuleInit {
         COUNT(*)::int                    AS order_count,
         COALESCE(SUM(o."totalPrice"), 0) AS revenue
       FROM customer_order o
-      WHERE o.status != 'CANCELED'
+      WHERE o.status = 'SERVED'
       GROUP BY o."restaurantId", DATE_TRUNC('day', o."createdAt")
     `);
 
@@ -110,7 +110,7 @@ export class DashboardViewsService implements OnModuleInit {
       FROM order_item oi
       JOIN customer_order o  ON oi."orderId"    = o.id
       JOIN menu_item     mi  ON oi."menuItemId" = mi.id
-      WHERE o.status != 'CANCELED'
+      WHERE o.status = 'SERVED'
         AND oi."menuItemId" IS NOT NULL
       GROUP BY o."restaurantId", oi."menuItemId", mi.name, mi.price, DATE_TRUNC('day', o."createdAt")
     `);

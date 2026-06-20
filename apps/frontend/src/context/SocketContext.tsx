@@ -51,6 +51,14 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsConnected(false);
     });
 
+    socketInstance.on('roomError', (data: { room: string; error: string; restaurantId?: string; orderId?: string }) => {
+      console.warn('Socket room join denied:', data.room, data.error);
+      // A denied room join means the dashboard won't receive live events for
+      // that room. The user sees the dashboard but updates never arrive (#SOCKET-C2).
+      // In most cases this is transient (auth token just expired) — the socket
+      // reconnects on the next auth state change and retries the room join.
+    });
+
     socketInstance.on('auth:evicted', (reason: string) => {
       console.warn('Socket auth evicted:', reason);
       if (reason === 'device_revoked') {

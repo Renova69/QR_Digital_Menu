@@ -82,7 +82,14 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
     try {
       const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
       return { clientSecret: intent.client_secret ?? null };
-    } catch {
+    } catch (err) {
+      // Distinguish transient Stripe API errors from genuinely missing intents
+      // so the caller can decide whether to retry or fall through (#STRIPE-C1).
+      this.logger.warn(
+        `Failed to retrieve PaymentIntent ${paymentIntentId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
       return null;
     }
   }

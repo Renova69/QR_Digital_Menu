@@ -262,7 +262,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     const orders = await this.prisma.order.findMany({
       where: {
         restaurantId,
-        status: { not: OrderStatus.CANCELED },
+        status: OrderStatus.SERVED,
         createdAt: { gte: start, lte: end },
       },
       select: {
@@ -270,6 +270,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         createdAt: true,
       },
       orderBy: { createdAt: 'asc' },
+      take: 50000,
     });
 
     const grouped: Record<
@@ -363,7 +364,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       _avg: { totalPrice: true },
       where: {
         restaurantId,
-        status: { not: OrderStatus.CANCELED },
+        status: OrderStatus.SERVED,
         createdAt: { gte: start, lte: end },
       },
     });
@@ -475,7 +476,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       JOIN menu_item       mi ON oi."menuItemId" = mi.id
       LEFT JOIN menu_category mc ON mi."categoryId" = mc.id
       WHERE o."restaurantId" = ${restaurantId}
-        AND o.status         != 'CANCELED'
+        AND o.status         = 'SERVED'
         AND o."createdAt"   >= ${start}
         AND o."createdAt"   <= ${end}
         AND oi."menuItemId" IS NOT NULL

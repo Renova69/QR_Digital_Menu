@@ -14,9 +14,15 @@ describe('HelpContentService', () => {
       delete: jest.fn(),
       deleteMany: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
+    },
+    adminAuditLog: {
+      create: jest.fn(),
     },
     $transaction: jest.fn(),
   };
+
+  const ACTOR = 'test-actor-id';
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -92,7 +98,7 @@ describe('HelpContentService', () => {
       };
       mockPrisma.helpContent.create.mockResolvedValue(created);
 
-      const result = await service.create(dto);
+      const result = await service.create(dto, ACTOR);
 
       expect(result).toEqual(created);
     });
@@ -103,7 +109,7 @@ describe('HelpContentService', () => {
       const updated = { id: '1', title: 'Updated' };
       mockPrisma.helpContent.update.mockResolvedValue(updated);
 
-      const result = await service.update('1', { title: 'Updated' });
+      const result = await service.update('1', { title: 'Updated' }, ACTOR);
 
       expect(result).toEqual(updated);
     });
@@ -113,9 +119,10 @@ describe('HelpContentService', () => {
     it('should delete a help content item', async () => {
       mockPrisma.helpContent.delete.mockResolvedValue({ id: '1' });
 
-      const result = await service.delete('1');
+      mockPrisma.helpContent.findUnique.mockResolvedValue({ section: 'landing', locale: 'en' });
+      const result = await service.delete('1', ACTOR);
 
-      expect(result).toEqual({ id: '1' });
+      expect(result).toEqual({ deleted: true });
     });
   });
 
@@ -129,7 +136,7 @@ describe('HelpContentService', () => {
       await service.reorder([
         { id: '1', sortOrder: 0 },
         { id: '2', sortOrder: 1 },
-      ]);
+      ], ACTOR);
 
       expect(mockPrisma.helpContent.update).toHaveBeenCalledTimes(2);
     });

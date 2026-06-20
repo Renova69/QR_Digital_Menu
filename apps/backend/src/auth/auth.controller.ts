@@ -43,6 +43,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @UsePipes(new ValidationPipe({ whitelist: true }))
   async register(
     @Body() createAuthDto: CreateAuthDto,

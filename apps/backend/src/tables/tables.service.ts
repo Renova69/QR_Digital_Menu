@@ -39,14 +39,14 @@ export class TablesService {
       data: { status: 'CLOSED_PAID' },
     });
 
-    // Emit per restaurant so dashboard refreshes
-    const restaurantIds = [...new Set(expired.map((s) => s.restaurantId))];
-    for (const rid of restaurantIds) {
-      this.events.emitToRestaurant(rid, 'table:status-changed', {});
+    // Emit per session so dashboard receives the full { tableId, sessionId }
+    // payload, consistent with every other caller of emitTableStatusChanged.
+    for (const s of expired) {
+      this.events.emitTableStatusChanged(s.restaurantId, s.tableId, s.id);
     }
 
     this.logger.log(
-      `Auto-closed ${expired.length} paid session(s) across ${restaurantIds.length} restaurant(s)`,
+      `Auto-closed ${expired.length} paid session(s) across ${new Set(expired.map((s) => s.restaurantId)).size} restaurant(s)`,
     );
   }
 
@@ -135,7 +135,9 @@ export class TablesService {
         }),
       ),
     );
-    this.events.emitToRestaurant(restaurantId, 'table:created', {});
+    this.events.emitToRestaurant(restaurantId, 'table:created', {
+      tableIds: tables.map((t) => t.id),
+    });
     this.events.emitZoneChanged(restaurantId);
     return tables;
   }

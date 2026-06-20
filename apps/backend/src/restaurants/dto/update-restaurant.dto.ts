@@ -136,39 +136,39 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   isLoyaltyEnabled?: boolean;
 
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(0)
   loyaltySignupBonus?: number;
 
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(1)
   @Max(100)
   loyaltyExchangeRate?: number;
 
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(1)
   @Max(10000)
   loyaltyRedeemRate?: number;
 
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(1)
   loyaltyPointExpiryDays?: number;
 
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(1)
   loyaltyExpiryReminderDays?: number;
 
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(1)
   loyaltySilverThreshold?: number;
 
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(2)
   loyaltyGoldThreshold?: number;
 
@@ -237,6 +237,7 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @MaxLength(255)
   epayMerchantEmail?: string | null;
 
+  /** Raw ePay secret from the admin form. Encrypted to {@code epaySecretEncrypted} before storage. */
   @IsOptional()
   @IsString()
   @MaxLength(256)
@@ -271,6 +272,7 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @MaxLength(25)
   boricaMerchantName?: string | null;
 
+  /** Raw BORICA private key from the admin form. Encrypted to {@code boricaPrivateKeyEncrypted} before storage. */
   @IsOptional()
   @IsString()
   boricaPrivateKey?: string | null;
@@ -282,6 +284,49 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @IsOptional()
   @IsIn(['EUR'])
   boricaCurrency?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  myposEnabled?: boolean;
+
+  @IsOptional()
+  @IsIn(['DEMO', 'LIVE'])
+  myposMode?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  @Matches(/^[0-9]+$/, {
+    message: 'myposClientNumber must contain only digits',
+  })
+  myposClientNumber?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  @Matches(/^[A-Za-z0-9]+$/, {
+    message: 'myposStoreId must contain only letters and numbers',
+  })
+  myposStoreId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  @Matches(/^[0-9]+$/, { message: 'myposKeyIndex must contain only digits' })
+  myposKeyIndex?: string | null;
+
+  /** Raw MyPOS private key from the admin form. Encrypted to {@code myposPrivateKeyEncrypted} before storage. */
+  @IsOptional()
+  @IsString()
+  myposPrivateKey?: string | null;
+
+  @IsOptional()
+  @IsString()
+  myposPublicCert?: string | null;
+
+  @IsOptional()
+  @IsIn(['EUR'])
+  myposCurrency?: string;
 
   @IsOptional()
   @IsBoolean()

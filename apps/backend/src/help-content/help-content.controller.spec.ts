@@ -61,6 +61,9 @@ describe('HelpContentController', () => {
     });
   });
 
+  const ACTOR = 'test-actor-id';
+  const mockReq = { user: { id: ACTOR } };
+
   describe('POST /super-admin/help-content', () => {
     it('should create an item', async () => {
       const dto = {
@@ -73,7 +76,7 @@ describe('HelpContentController', () => {
       };
       mockService.create.mockResolvedValue({ id: '1', ...dto });
 
-      const result = await controller.create(dto);
+      const result = await controller.create(dto, mockReq);
 
       expect(result).toHaveProperty('id', '1');
     });
@@ -83,7 +86,7 @@ describe('HelpContentController', () => {
     it('should update an item', async () => {
       mockService.update.mockResolvedValue({ id: '1', title: 'Updated' });
 
-      const result = await controller.update('1', { title: 'Updated' });
+      const result = await controller.update('1', { title: 'Updated' }, mockReq);
 
       expect(result).toHaveProperty('title', 'Updated');
     });
@@ -91,21 +94,21 @@ describe('HelpContentController', () => {
 
   describe('DELETE /super-admin/help-content/:id', () => {
     it('should delete an item', async () => {
-      mockService.delete.mockResolvedValue({ id: '1' });
+      mockService.delete.mockResolvedValue({ deleted: true });
 
-      const result = await controller.delete('1');
+      const result = await controller.delete('1', mockReq);
 
-      expect(result).toEqual({ id: '1' });
+      expect(result).toEqual({ deleted: true });
     });
   });
 
   describe('PATCH /super-admin/help-content/reorder', () => {
     it('should reorder items', async () => {
-      await controller.reorder({ items: [{ id: '1', sortOrder: 0 }] });
+      await controller.reorder({ items: [{ id: '1', sortOrder: 0 }] }, mockReq);
 
       expect(mockService.reorder).toHaveBeenCalledWith([
         { id: '1', sortOrder: 0 },
-      ]);
+      ], ACTOR);
     });
   });
 });

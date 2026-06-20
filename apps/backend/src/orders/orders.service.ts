@@ -19,6 +19,7 @@ import {
   addEarnedPointBatch,
   expireAccountPoints,
   redeemAccountPoints,
+  MAX_SIGNUP_BONUS,
 } from '../loyalty/loyalty-ledger.utils';
 import {
   getTierInfo,
@@ -39,7 +40,6 @@ const POS_STAFF_ROLES = new Set([
 ]);
 
 const LOYALTY_CONFIG = {
-  MAX_SIGNUP_BONUS: 75, // hard cap on signup bonus (= €0.50)
   MAX_ORDER_DISCOUNT: 0.15, // max 15% of order total redeemable
 } as const;
 
@@ -566,7 +566,7 @@ export class OrdersService {
           // Signup bonus — once per restaurant, checked before lifetimePoints is updated
           if (loyaltyAcc.lifetimePoints === 0) {
             signupBonusPoints = Math.min(
-              LOYALTY_CONFIG.MAX_SIGNUP_BONUS,
+              MAX_SIGNUP_BONUS,
               restaurant.loyaltySignupBonus || 0,
             );
             pointsEarned += signupBonusPoints;

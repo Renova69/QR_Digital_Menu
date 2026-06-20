@@ -1,3 +1,4 @@
+import { isPinRole } from '../users/staff-roles';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
@@ -105,6 +106,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
       if (deviceToken.restaurant.sharedDeviceModeEnabled === false) {
         throw new UnauthorizedException('SHARED_DEVICE_MODE_DISABLED');
+      }
+
+      // Device-bound JWT must only authenticate PIN-role users (WAITER/KITCHEN).
+      // Role promotion without re-auth would let a 4-digit PIN mint dashboard
+      // JWTs — this is the last line of defense after passwordChangedAt (#DEVICE-M1).
+      if (!isPinRole(user.role)) {
+        throw new UnauthorizedException('DEVICE_SESSION_EXPIRED');
       }
     }
 

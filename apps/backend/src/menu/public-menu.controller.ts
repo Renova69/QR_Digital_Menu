@@ -57,8 +57,4 @@ export class PublicMenuController {
     return this.crud.getTrendingItems(restaurantId);
   }
 
-  @Get('test')
-  testRoute() {
-    return { message: 'PublicMenuController is working!' };
   }
-}

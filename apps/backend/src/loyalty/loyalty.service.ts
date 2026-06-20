@@ -10,6 +10,7 @@ import {
   getFirstRewardProgress,
   getRewardValue,
   markRemindersSent,
+  MAX_SIGNUP_BONUS,
 } from './loyalty-ledger.utils';
 import {
   getTierInfo,
@@ -19,7 +20,6 @@ import {
 import { FeatureService } from '../subscription/feature.service';
 import { isLoyaltyAvailable } from './loyalty-availability.util';
 
-const MAX_SIGNUP_BONUS = 75;
 const EXPIRY_BATCH_SIZE = 50;
 
 // Effective-tier fields needed to evaluate loyalty availability (#5).
@@ -232,25 +232,33 @@ export class LoyaltyService {
       },
     });
 
-    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const enriched = [];
+    // Process each account independently in parallel with its own mini-transaction.
+    // Per-account atomicity is preserved; one account failing does not roll back
+    // others (fault isolation); and the outer connection is not held for N
+    // sequential round-trips (#N+1-C1).
+    const enriched = await Promise.all(
+      accounts.map(async (account) => {
+        const { updated, expiringBatches } = await this.prisma.$transaction(
+          async (tx: Prisma.TransactionClient) => {
+            await expireAccountPoints(tx, account.id);
 
-      for (const account of accounts) {
-        await expireAccountPoints(tx, account.id);
+            const updated = await tx.loyaltyAccount.findUniqueOrThrow({
+              where: { id: account.id },
+              include: {
+                restaurant: {
+                  select: { name: true, ...LOYALTY_CONFIG_FIELDS },
+                },
+              },
+            });
 
-        const updated = await tx.loyaltyAccount.findUniqueOrThrow({
-          where: { id: account.id },
-          include: {
-            restaurant: {
-              select: { name: true, ...LOYALTY_CONFIG_FIELDS },
-            },
+            const expiringBatches = await getExpiringPointBatches(
+              tx,
+              account.id,
+              updated.restaurant.loyaltyExpiryReminderDays || 15,
+            );
+
+            return { updated, expiringBatches };
           },
-        });
-
-        const expiringBatches = await getExpiringPointBatches(
-          tx,
-          account.id,
-          updated.restaurant.loyaltyExpiryReminderDays || 15,
         );
 
         const summary = this.buildRewardSummary(
@@ -259,17 +267,17 @@ export class LoyaltyService {
           expiringBatches,
         );
 
-        enriched.push({
+        return {
           id: updated.id,
           points: updated.points,
           lifetimePoints: updated.lifetimePoints,
           restaurant: updated.restaurant,
           ...summary,
-        });
-      }
+        };
+      }),
+    );
 
-      return enriched;
-    });
+    return enriched;
   }
 
   async getHistory(userId: string) {

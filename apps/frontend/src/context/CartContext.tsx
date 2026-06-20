@@ -135,12 +135,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // Calculate total price of items in cart. Optionally exclude cart entries
   // (e.g. fully redeemed loyalty items) by their cartId.
   const getTotal = useCallback((excludeCartIds?: Set<string>) => {
-    return items.reduce((sum, item) => {
+    const raw = items.reduce((sum, item) => {
       if (excludeCartIds?.has(item.cartId)) return sum;
       const selectedOptions = item.selectedOptions || [];
       const optionsTotal = selectedOptions.reduce((optSum: number, opt: SelectedOption) => optSum + (opt.priceModifier || 0), 0);
       return sum + ((item.price + optionsTotal) * item.quantity);
     }, 0);
+    return Math.round(raw * 100) / 100;
   }, [items]);
 
   // Set the table number
