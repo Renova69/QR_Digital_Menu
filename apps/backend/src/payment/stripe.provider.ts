@@ -76,6 +76,20 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
     await this.stripe.paymentIntents.cancel(paymentIntentId);
   }
 
+  private isResourceMissingError(err: unknown): boolean {
+    const stripeError = err as {
+      code?: string;
+      statusCode?: number;
+      raw?: { code?: string; statusCode?: number };
+    };
+    return (
+      stripeError?.code === 'resource_missing' ||
+      stripeError?.raw?.code === 'resource_missing' ||
+      stripeError?.statusCode === 404 ||
+      stripeError?.raw?.statusCode === 404
+    );
+  }
+
   async retrievePaymentIntent(
     paymentIntentId: string,
   ): Promise<{ clientSecret: string | null } | null> {
@@ -83,14 +97,19 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
       const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
       return { clientSecret: intent.client_secret ?? null };
     } catch (err) {
-      // Distinguish transient Stripe API errors from genuinely missing intents
-      // so the caller can decide whether to retry or fall through (#STRIPE-C1).
+      if (this.isResourceMissingError(err)) {
+        this.logger.warn(
+          `PaymentIntent ${paymentIntentId} was not found in Stripe`,
+        );
+        return null;
+      }
+
       this.logger.warn(
         `Failed to retrieve PaymentIntent ${paymentIntentId}: ${
           err instanceof Error ? err.message : String(err)
         }`,
       );
-      return null;
+      throw err;
     }
   }
 

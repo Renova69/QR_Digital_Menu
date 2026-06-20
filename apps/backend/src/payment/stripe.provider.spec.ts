@@ -13,6 +13,9 @@ describe('StripeProvider', () => {
           client_secret: 'cs_test_secret',
           id: 'pi_test_123',
         }),
+        retrieve: jest.fn().mockResolvedValue({
+          client_secret: 'cs_reused_secret',
+        }),
       },
       webhooks: {
         constructEvent: jest
@@ -60,6 +63,37 @@ describe('StripeProvider', () => {
         clientSecret: 'cs_test_secret',
         paymentIntentId: 'pi_test_123',
       });
+    });
+  });
+
+  describe('retrievePaymentIntent', () => {
+    it('returns the client secret when Stripe returns the intent', async () => {
+      const result = await provider.retrievePaymentIntent('pi_existing');
+
+      expect(mockStripe.paymentIntents.retrieve).toHaveBeenCalledWith(
+        'pi_existing',
+      );
+      expect(result).toEqual({ clientSecret: 'cs_reused_secret' });
+    });
+
+    it('returns null only when Stripe reports the intent is missing', async () => {
+      mockStripe.paymentIntents.retrieve.mockRejectedValue({
+        code: 'resource_missing',
+        statusCode: 404,
+      });
+
+      await expect(
+        provider.retrievePaymentIntent('pi_missing'),
+      ).resolves.toBeNull();
+    });
+
+    it('rethrows transient Stripe retrieve errors', async () => {
+      const stripeError = new Error('stripe timeout');
+      mockStripe.paymentIntents.retrieve.mockRejectedValue(stripeError);
+
+      await expect(
+        provider.retrievePaymentIntent('pi_existing'),
+      ).rejects.toThrow('stripe timeout');
     });
   });
 

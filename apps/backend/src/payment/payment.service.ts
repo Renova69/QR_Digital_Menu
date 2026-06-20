@@ -857,6 +857,26 @@ export class PaymentService {
     }
   }
 
+  private async abandonCheckoutOrThrowIfPending(
+    token: string,
+    sessionId: string,
+  ): Promise<void> {
+    await this.abandonCheckout(token);
+
+    const pendingPayment = await this.prisma.payment.findFirst({
+      where: { tableSessionId: sessionId, status: 'PENDING' },
+      select: { id: true, provider: true, stripePaymentIntentId: true },
+    });
+    if (!pendingPayment) return;
+
+    this.logger.warn(
+      `Refusing POS mutation for session ${sessionId}: payment ${pendingPayment.id} is still pending`,
+    );
+    throw new ConflictException(
+      'A payment for this session is still being processed. Please wait or retry.',
+    );
+  }
+
   async createCheckout(
     token: string,
     provider: CheckoutProvider,
@@ -972,22 +992,20 @@ export class PaymentService {
         (!p.providerReference || p.providerReference === stripeCheckoutKey) &&
         Math.abs((p.amount ?? 0) - total) < 0.001,
     );
+    const missingStripeIntentIds = new Set<string>();
     if (matchingIntent?.stripePaymentIntentId) {
-      try {
-        const existing = await this.stripe.retrievePaymentIntent(
-          matchingIntent.stripePaymentIntentId,
-        );
-        if (existing?.clientSecret) {
-          return {
-            clientSecret: existing.clientSecret,
-            paymentId: matchingIntent.id,
-            total,
-            tipAmount,
-          };
-        }
-      } catch {
-        // Intent no longer retrievable — fall through to cancel + create new one.
+      const existing = await this.stripe.retrievePaymentIntent(
+        matchingIntent.stripePaymentIntentId,
+      );
+      if (existing?.clientSecret) {
+        return {
+          clientSecret: existing.clientSecret,
+          paymentId: matchingIntent.id,
+          total,
+          tipAmount,
+        };
       }
+      missingStripeIntentIds.add(matchingIntent.stripePaymentIntentId);
     }
 
     for (const stale of existingPayments) {
@@ -1006,17 +1024,19 @@ export class PaymentService {
         continue;
       }
       if (stale.stripePaymentIntentId) {
-        try {
-          await this.stripe.cancelPaymentIntent(stale.stripePaymentIntentId);
-        } catch (err) {
-          // Cancel fails if the intent already succeeded — treat as paid to
-          // avoid a second charge rather than racing to create a new intent.
-          this.logger.warn(
-            `Could not cancel stale PaymentIntent ${stale.stripePaymentIntentId} for session ${session.id}`,
-          );
-          throw new ConflictException(
-            'A payment for this session is already being processed',
-          );
+        if (!missingStripeIntentIds.has(stale.stripePaymentIntentId)) {
+          try {
+            await this.stripe.cancelPaymentIntent(stale.stripePaymentIntentId);
+          } catch (err) {
+            // Cancel fails if the intent already succeeded — treat as paid to
+            // avoid a second charge rather than racing to create a new intent.
+            this.logger.warn(
+              `Could not cancel stale PaymentIntent ${stale.stripePaymentIntentId} for session ${session.id}`,
+            );
+            throw new ConflictException(
+              'A payment for this session is already being processed',
+            );
+          }
         }
       }
       await this.prisma.payment.updateMany({
@@ -2216,7 +2236,7 @@ export class PaymentService {
     // Without this, a customer who started a Stripe checkout while the waiter
     // force-closes would still be charged, but the system would never
     // acknowledge the payment — money stuck in limbo (#C1).
-    await this.abandonCheckout(token);
+    await this.abandonCheckoutOrThrowIfPending(token, session.id);
 
     await this.prisma.tableSession.update({
       where: { id: session.id },
@@ -2268,7 +2288,7 @@ export class PaymentService {
     // Without this, a concurrent Stripe checkout that succeeds after the waiter
     // closes would charge the customer twice — once via the terminal/cash and
     // once via the online payment (#POS-C2).
-    await this.abandonCheckout(token);
+    await this.abandonCheckoutOrThrowIfPending(token, session.id);
 
     // #2: compute the bill INSIDE the same transaction that flips the session to
     // PAID. Reading orders before the transaction let a QR order placed during
@@ -2317,6 +2337,14 @@ export class PaymentService {
           select: { name: true },
         })
       )?.name ?? null;
+    const customerName =
+      (
+        await this.prisma.order.findFirst({
+          where: { tableSessionId: session.id },
+          orderBy: { createdAt: 'desc' },
+          select: { customerName: true },
+        })
+      )?.customerName ?? null;
 
     this.events.emitToRestaurant(restaurantId, 'payment:confirmed', {
       paymentId,
@@ -2324,6 +2352,7 @@ export class PaymentService {
       amount,
       tipAmount: 0,
       tableNumber,
+      customerName,
     });
 
     return { amount };
@@ -2349,10 +2378,16 @@ export class PaymentService {
   ): Promise<{ amount: number; remaining: number; sessionPaid: boolean }> {
     await this.verifyPosOperatorAccess(restaurantId, userId);
 
+    const openSession = await this.prisma.tableSession.findFirst({
+      where: { token, restaurantId, status: 'OPEN' },
+      select: { id: true },
+    });
+    if (!openSession) throw new NotFoundException('Session not found');
+
     // Cancel any pending online payments before recording a POS settlement.
     // Without this, a concurrent Stripe checkout could succeed after the waiter
     // settles, collecting more than the bill total (#POS-C3).
-    await this.abandonCheckout(token);
+    await this.abandonCheckoutOrThrowIfPending(token, openSession.id);
 
     const tipPercent = this.normalizeTipPercent(dto.tipPercent);
 
@@ -2507,12 +2542,21 @@ export class PaymentService {
             select: { name: true },
           })
         )?.name ?? null;
+      const customerName =
+        (
+          await this.prisma.order.findFirst({
+            where: { tableSessionId: result.sessionId },
+            orderBy: { createdAt: 'desc' },
+            select: { customerName: true },
+          })
+        )?.customerName ?? null;
       this.events.emitToRestaurant(restaurantId, 'payment:confirmed', {
         paymentId: result.paymentId,
         tableSessionId: result.sessionId,
         amount: result.amount,
         tipAmount: 0,
         tableNumber,
+        customerName,
       });
     }
 
@@ -2543,7 +2587,7 @@ export class PaymentService {
       where: { tableId, restaurantId, status: 'OPEN' },
     });
     if (existing) {
-      await this.abandonCheckout(existing.token);
+      await this.abandonCheckoutOrThrowIfPending(existing.token, existing.id);
     }
 
     const { session, closedSession } = await this.prisma.$transaction(

@@ -7,6 +7,7 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import type { WrapperType } from '../common/wrapper-type';
 import type { ReceiptTemplate } from './escpos.util';
 import { randomBytes } from 'crypto';
@@ -248,6 +249,36 @@ export class PrintStationService {
         });
       }
     }
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async retryStuckPrintJobs(): Promise<void> {
+    const staleThreshold = new Date(Date.now() - STALE_SENT_MS);
+    const stations = await this.prisma.printJob.findMany({
+      where: {
+        printStationId: { not: null },
+        attempts: { lt: MAX_PRINT_ATTEMPTS },
+        OR: [
+          { status: 'PENDING' },
+          { status: 'SENT', lastAttemptAt: { lt: staleThreshold } },
+        ],
+      },
+      select: { restaurantId: true, printStationId: true },
+      distinct: ['restaurantId', 'printStationId'],
+    });
+
+    const retries = stations
+      .filter((station) => station.printStationId)
+      .map((station) =>
+        this.retryPendingJobs(station.restaurantId, station.printStationId!),
+      );
+
+    const results = await Promise.allSettled(retries);
+    results.forEach((result) => {
+      if (result.status === 'rejected') {
+        this.logger.warn('Scheduled print retry failed', result.reason);
+      }
+    });
   }
 
   // ─── Acknowledgement ──────────────────────────────────────────────────────

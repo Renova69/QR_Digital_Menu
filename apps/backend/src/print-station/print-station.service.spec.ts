@@ -206,6 +206,37 @@ describe('PrintStationService', () => {
     });
   });
 
+  describe('retryStuckPrintJobs', () => {
+    it('retries distinct stations with pending or stale sent jobs', async () => {
+      mockPrisma.printJob.findMany.mockResolvedValue([
+        { restaurantId: 'r1', printStationId: 'station-1' },
+        { restaurantId: 'r2', printStationId: 'station-2' },
+      ]);
+      const retrySpy = jest
+        .spyOn(service, 'retryPendingJobs')
+        .mockResolvedValue(undefined);
+
+      await service.retryStuckPrintJobs();
+
+      expect(mockPrisma.printJob.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            printStationId: { not: null },
+            attempts: { lt: 3 },
+            OR: [
+              { status: 'PENDING' },
+              { status: 'SENT', lastAttemptAt: { lt: expect.any(Date) } },
+            ],
+          }),
+          select: { restaurantId: true, printStationId: true },
+          distinct: ['restaurantId', 'printStationId'],
+        }),
+      );
+      expect(retrySpy).toHaveBeenCalledWith('r1', 'station-1');
+      expect(retrySpy).toHaveBeenCalledWith('r2', 'station-2');
+    });
+  });
+
   describe('revokeToken', () => {
     it('throws NotFoundException when token not in restaurant', async () => {
       mockPrisma.printAgentToken.findFirst.mockResolvedValue(null);

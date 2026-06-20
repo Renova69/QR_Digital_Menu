@@ -157,6 +157,17 @@ describe('DashboardService', () => {
 
       expect(result).toBeDefined();
       expect(result['period']).toBe(7);
+      expect(mockPrisma.order.aggregate).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          where: expect.objectContaining({
+            createdAt: {
+              gte: new Date('2025-12-31T22:00:00.000Z'),
+              lte: new Date('2026-01-07T21:59:59.999Z'),
+            },
+          }),
+        }),
+      );
     });
 
     it('calculates 100% revenueChange when previous period had 0 revenue', async () => {

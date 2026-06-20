@@ -111,6 +111,14 @@ model Restaurant {
   boricaPrivateKeyEncrypted String?
   boricaPublicCert          String?
   boricaCurrency            String                  @default("EUR")
+  myposEnabled              Boolean                 @default(false)
+  myposMode                 String                  @default("DEMO")
+  myposClientNumber         String?
+  myposStoreId              String?
+  myposKeyIndex             String?
+  myposPrivateKeyEncrypted  String?
+  myposPublicCert           String?
+  myposCurrency             String                  @default("EUR")
   sharedDeviceModeEnabled   Boolean                 @default(false)
   notifyAllStaffOnPayment   Boolean                 @default(true)
   tipsEnabled               Boolean                 @default(false)
@@ -273,6 +281,7 @@ model MenuCategory {
   restaurant       Restaurant       @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   items            MenuItem[]
 
+  @@index([restaurantId])
   @@map("menu_category")
 }
 
@@ -315,6 +324,7 @@ model MenuOption {
   translations Json?
   menuItem     MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
 
+  @@index([menuItemId])
   @@map("menu_option")
 }
 
@@ -348,6 +358,8 @@ model Order {
   printJobs                 PrintJob[]
 
   @@index([restaurantId, status, createdAt])
+  @@index([customerId])
+  @@index([staffUserId])
   @@map("customer_order")
 }
 
@@ -365,6 +377,7 @@ model OrderItem {
   order           Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
   allocations     PaymentAllocation[]
 
+  @@index([orderId])
   @@map("order_item")
 }
 
@@ -613,6 +626,7 @@ model Payment {
   allocations           PaymentAllocation[]
 
   @@index([tableSessionId])
+  @@index([restaurantId])
   @@map("payment")
 }
 

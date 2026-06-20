@@ -53,7 +53,7 @@ describe('PaymentService', () => {
       payment: {
         aggregate: jest.fn(),
         create: jest.fn(),
-        findFirst: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue(null),
         findUnique: jest.fn(),
         findMany: jest.fn().mockResolvedValue([]),
         groupBy: jest.fn(),
@@ -1207,6 +1207,67 @@ describe('PaymentService', () => {
       expect(mockStripeProvider.createPaymentIntent).not.toHaveBeenCalled();
     });
 
+    it('abandons a matching DB row when Stripe says its intent is missing', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([
+        {
+          id: 'pay-missing',
+          provider: 'STRIPE',
+          status: 'PENDING',
+          stripePaymentIntentId: 'pi_missing',
+          providerReference: 'stripe:sess-1:2000:0:eur',
+          amount: 20,
+        },
+      ]);
+      mockStripeProvider.retrievePaymentIntent.mockResolvedValue(null);
+      mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
+      mockStripeProvider.createPaymentIntent.mockResolvedValue({
+        clientSecret: 'cs_new',
+        paymentIntentId: 'pi_new',
+      });
+      mockPrisma.payment.update.mockResolvedValue({});
+
+      const result = await service.createPaymentIntent('tok1', 0);
+
+      expect(mockStripeProvider.cancelPaymentIntent).not.toHaveBeenCalled();
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
+        where: { id: 'pay-missing', status: 'PENDING' },
+        data: {
+          status: 'ABANDONED',
+          providerStatus: 'ABANDONED',
+          providerReference: null,
+        },
+      });
+      expect(result).toEqual({
+        clientSecret: 'cs_new',
+        paymentId: 'pay-new',
+        total: 20,
+        tipAmount: 0,
+      });
+    });
+
+    it('does not create a replacement intent when Stripe retrieval fails transiently', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([
+        {
+          id: 'pay-existing',
+          provider: 'STRIPE',
+          status: 'PENDING',
+          stripePaymentIntentId: 'pi_existing',
+          providerReference: 'stripe:sess-1:2000:0:eur',
+          amount: 20,
+        },
+      ]);
+      mockStripeProvider.retrievePaymentIntent.mockRejectedValue(
+        new Error('stripe timeout'),
+      );
+
+      await expect(service.createPaymentIntent('tok1', 0)).rejects.toThrow(
+        'stripe timeout',
+      );
+      expect(mockStripeProvider.cancelPaymentIntent).not.toHaveBeenCalled();
+      expect(mockStripeProvider.createPaymentIntent).not.toHaveBeenCalled();
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+    });
+
     it('creates new intent when no PENDING Stripe intent exists', async () => {
       mockPrisma.payment.findMany.mockResolvedValue([]);
       mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
@@ -1290,6 +1351,25 @@ describe('PaymentService', () => {
         undefined,
         's1',
       );
+    });
+
+    it('blocks close when checkout payment remains pending after abandon', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        status: 'OPEN',
+        restaurantId: 'rest1',
+      });
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: 'pay-pending',
+        provider: 'STRIPE',
+        stripePaymentIntentId: 'pi_pending',
+      });
+
+      await expect(
+        service.closeSession('tok1', 'rest1', 'owner1'),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException when session not found', async () => {
@@ -1762,6 +1842,7 @@ describe('PaymentService', () => {
         { totalPrice: 20 },
         { totalPrice: 5 },
       ]);
+      mockPrisma.order.findFirst.mockResolvedValue({ customerName: 'Maria' });
       mockPrisma.payment.create.mockResolvedValue({ id: 'pay1' });
 
       const result = await service.closeSessionWithCard(
@@ -1789,8 +1870,27 @@ describe('PaymentService', () => {
       expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
         'rest1',
         'payment:confirmed',
-        expect.objectContaining({ amount: 25 }),
+        expect.objectContaining({ amount: 25, customerName: 'Maria' }),
       );
+    });
+
+    it('blocks POS card close when checkout payment remains pending after abandon', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        tableId: 'table1',
+        restaurantId: 'rest1',
+      });
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: 'pay-pending',
+        provider: 'STRIPE',
+        stripePaymentIntentId: 'pi_pending',
+      });
+
+      await expect(
+        service.closeSessionWithCard('tok1', 'rest1', 'owner1'),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.payment.create).not.toHaveBeenCalled();
     });
 
     it('throws when session is already closed (race condition)', async () => {
@@ -2510,6 +2610,8 @@ describe('PaymentService', () => {
     });
 
     it('ITEM mode: flips the session to PAID and emits when the last items are settled', async () => {
+      mockPrisma.order.findFirst.mockResolvedValue({ customerName: 'Maria' });
+
       const result = await service.settlePartial('tok1', 'rest1', 'owner1', {
         restaurantId: 'rest1',
         mode: 'ITEM' as any,
@@ -2531,7 +2633,7 @@ describe('PaymentService', () => {
       expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
         'rest1',
         'payment:confirmed',
-        expect.objectContaining({ tableSessionId: 's1' }),
+        expect.objectContaining({ tableSessionId: 's1', customerName: 'Maria' }),
       );
     });
 
@@ -2636,6 +2738,25 @@ describe('PaymentService', () => {
       expect(result.remaining).toBeCloseTo(18);
     });
 
+    it('blocks partial settlement when checkout payment remains pending after abandon', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: 'pay-pending',
+        provider: 'STRIPE',
+        stripePaymentIntentId: 'pi_pending',
+      });
+
+      await expect(
+        service.settlePartial('tok1', 'rest1', 'owner1', {
+          restaurantId: 'rest1',
+          mode: 'CUSTOM' as any,
+          provider: 'CASH' as any,
+          amount: 5,
+        }),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+    });
+
     it('CUSTOM mode: never collects more than the outstanding balance', async () => {
       const result = await service.settlePartial('tok1', 'rest1', 'owner1', {
         restaurantId: 'rest1',
@@ -2689,7 +2810,11 @@ describe('PaymentService', () => {
         id: 'table-1',
         restaurantId: 'rest1',
       });
-      const existingSession = { id: 'old-session', tableId: 'table-1' };
+      const existingSession = {
+        id: 'old-session',
+        token: 'old-token',
+        tableId: 'table-1',
+      };
       const newSession = {
         id: 'new-session',
         token: 'new-token',
@@ -2711,6 +2836,30 @@ describe('PaymentService', () => {
       });
       expect(result.token).toBe('new-token');
       expect(mockEvents.emitTableStatusChanged).toHaveBeenCalledTimes(2);
+    });
+
+    it('blocks force-open when old session still has a pending checkout payment', async () => {
+      mockPrisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-1',
+        restaurantId: 'rest1',
+      });
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 'old-session',
+        token: 'old-token',
+        tableId: 'table-1',
+      });
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: 'pay-pending',
+        provider: 'STRIPE',
+        stripePaymentIntentId: 'pi_pending',
+      });
+
+      await expect(
+        service.forceOpenSession('table-1', 'rest1', 'owner1'),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
+      expect(mockPrisma.tableSession.create).not.toHaveBeenCalled();
     });
 
     it('creates new session when no existing OPEN session', async () => {

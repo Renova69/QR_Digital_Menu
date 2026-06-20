@@ -108,20 +108,18 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     });
     const tz = restaurant?.timezone || 'Europe/Sofia';
 
-    let now = new Date();
-    let periodStart = new Date(now);
+    let nowDateTime = DateTime.now().setZone(tz);
+    let periodStartDateTime = nowDateTime.minus({ days: period }).startOf('day');
 
     if (startDateStr && endDateStr) {
-      periodStart = new Date(startDateStr);
-      periodStart.setHours(0, 0, 0, 0);
-
-      now = new Date(endDateStr);
-      now.setHours(23, 59, 59, 999);
-    } else {
-      periodStart.setDate(periodStart.getDate() - period);
-      periodStart.setHours(0, 0, 0, 0);
+      periodStartDateTime = DateTime.fromISO(startDateStr, {
+        zone: tz,
+      }).startOf('day');
+      nowDateTime = DateTime.fromISO(endDateStr, { zone: tz }).endOf('day');
     }
 
+    const now = nowDateTime.toJSDate();
+    const periodStart = periodStartDateTime.toJSDate();
     const timeDeltaMs = now.getTime() - periodStart.getTime();
     const prevPeriodStart = new Date(periodStart.getTime() - timeDeltaMs);
     const prevPeriodEnd = new Date(periodStart.getTime() - 1);
