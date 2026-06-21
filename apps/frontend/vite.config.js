@@ -44,9 +44,17 @@ export default defineConfig(({ mode }) => {
             )
               return "charts";
             if (id.includes("@stripe")) return "stripe";
-            if (id.includes("xlsx")) {
+            // Match the whole excel packages, NOT their internal `modules/xlsx/`
+            // subdir. A bare `id.includes('xlsx')` grabbed only those files and
+            // left the rest of each package in `vendor`, splitting one package
+            // across two chunks → circular `xlsx -> vendor -> xlsx`. The only
+            // importers of these libs are app route chunks (never vendor), so a
+            // one-way `xlsx -> vendor` edge for shared deps is fine.
+            if (
+              id.includes("write-excel-file") ||
+              id.includes("read-excel-file")
+            )
               return "xlsx";
-            }
             if (id.includes("@radix-ui")) return "radix";
             if (id.includes("react-router") || id.includes("@tanstack"))
               return "router-query";
