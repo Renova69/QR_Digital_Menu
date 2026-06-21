@@ -20,8 +20,8 @@ export enum SplitMode {
   CUSTOM = 'CUSTOM',
 }
 
-// Only in-person POS providers settle a partial — online providers (Stripe/
-// ePay/BORICA) come in Phase 2 with item reservation/locking.
+// Only in-person POS providers use settlePartial. Online self-pay split uses
+// checkout scope metadata on the provider payment instead.
 export enum SplitProvider {
   CASH = 'CASH',
   MYPOS = 'MYPOS',

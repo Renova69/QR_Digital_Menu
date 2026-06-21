@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { getSessionBill, createCheckout, abandonCheckout, type BoricaCardholderDetails, type CheckoutProvider } from '../../lib/api';
+import { getSessionBill, createCheckout, abandonCheckout, createAssistanceRequest, type BoricaCardholderDetails, type CheckoutProvider } from '../../lib/api';
 import { Button } from '../ui/button';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, X } from 'lucide-react';
+import { Banknote, CheckCircle2, ReceiptText, Users, X } from 'lucide-react';
 import { formatEuro, formatBgn } from '../../lib/currency';
 import { getCustomerFacingOrderSourceLabel } from '../../lib/orderSourceLabel';
 
@@ -27,6 +27,7 @@ const stripePromise = stripePublishableKey
 
 interface PaymentModalProps {
   sessionToken: string;
+  ownedOrderIds?: string[];
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -36,9 +37,12 @@ type Step = 'tip' | 'pay' | 'redirect' | 'done';
 const hostedCheckoutStorageKey = (token: string) => `hosted-checkout:${token}`;
 
 interface BillItem {
+  orderItemId: string;
   name: string;
   quantity: number;
+  paidQuantity: number;
   unitPrice: number;
+  unitPriceWithOptions: number;
   selectedOptions: any[];
 }
 
@@ -54,8 +58,11 @@ interface BillOrder {
 }
 
 interface BillData {
+  tableName?: string | null;
   orders: BillOrder[];
   subtotal: number;
+  remaining: number;
+  splitItemsAvailable: boolean;
   tipsEnabled: boolean;
   tipOptions: number[];
   paymentProviders: CheckoutProvider[];
@@ -92,6 +99,22 @@ type PaymentState =
 
 function showGroupHeaders(orders: BillOrder[]): boolean {
   return orders.some((o) => o.source === 'POS');
+}
+
+function getBillItemUnitPrice(item: BillItem): number {
+  return typeof item.unitPriceWithOptions === 'number' && item.unitPriceWithOptions > 0
+    ? item.unitPriceWithOptions
+    : item.unitPrice;
+}
+
+function getBillItemRemainingQuantity(item: BillItem): number {
+  return Math.max(0, item.quantity - (item.paidQuantity ?? 0));
+}
+
+function getOrderRemainingSubtotal(order: BillOrder): number {
+  return order.items.reduce((sum, item) => {
+    return sum + getBillItemUnitPrice(item) * getBillItemRemainingQuantity(item);
+  }, 0);
 }
 
 function PaymentForm({
@@ -197,7 +220,12 @@ function PaymentForm({
   );
 }
 
-export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalProps) {
+export function PaymentModal({
+  sessionToken,
+  ownedOrderIds = [],
+  onClose,
+  onSuccess,
+}: PaymentModalProps) {
   const { t } = useTranslation();
   const [step, setStep] = useState<Step>('tip');
   const [bill, setBill] = useState<BillData | null>(null);
@@ -208,10 +236,14 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
   const [boricaPhone, setBoricaPhone] = useState('');
   const [boricaBillingAddress, setBoricaBillingAddress] = useState('');
   const [selectedProvider, setSelectedProvider] = useState<CheckoutProvider>('STRIPE');
+  const [paymentScope, setPaymentScope] = useState<'MY_ORDERS' | 'FULL_TABLE'>('MY_ORDERS');
   const [payment, setPayment] = useState<PaymentState | null>(null);
   const [paymentInitiated, setPaymentInitiated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cashRequesting, setCashRequesting] = useState(false);
+  const [cashRequested, setCashRequested] = useState(false);
+  const [cashError, setCashError] = useState<string | null>(null);
   // Fix H-8 — a failed bill load must show an error with retry, not silently close.
   const [billError, setBillError] = useState<string | null>(null);
   const [billReloadKey, setBillReloadKey] = useState(0);
@@ -291,6 +323,39 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
       ? selectedProvider
       : availableProviders[0] ?? selectedProvider;
   const boricaNamePattern = /^[A-Za-z0-9 .,'-]{1,45}$/;
+  const ownedOrderKey = ownedOrderIds.join('|');
+  const ownedOrderIdSet = useMemo(
+    () => new Set(ownedOrderIds.filter(Boolean)),
+    [ownedOrderKey],
+  );
+  const ownedOrders = useMemo(
+    () => (bill?.orders ?? []).filter((order) => ownedOrderIdSet.has(order.id)),
+    [bill?.orders, ownedOrderIdSet],
+  );
+  const ownedRemainingSubtotal = useMemo(
+    () =>
+      Math.round(
+        ownedOrders.reduce((sum, order) => sum + getOrderRemainingSubtotal(order), 0) *
+          100,
+      ) / 100,
+    [ownedOrders],
+  );
+  const billRemaining = bill?.remaining ?? bill?.subtotal ?? 0;
+  const canPayOwnedOrders =
+    ownedOrders.length > 0 &&
+    ownedRemainingSubtotal > 0 &&
+    !!bill?.splitItemsAvailable;
+  const activePaymentScope = canPayOwnedOrders ? paymentScope : 'FULL_TABLE';
+  const displayedOrders =
+    activePaymentScope === 'MY_ORDERS' ? ownedOrders : bill?.orders ?? [];
+  const activeSubtotal =
+    activePaymentScope === 'MY_ORDERS' ? ownedRemainingSubtotal : billRemaining;
+  const activeCheckoutOrderIds =
+    activePaymentScope === 'MY_ORDERS' ? ownedOrders.map((order) => order.id) : undefined;
+
+  useEffect(() => {
+    setPaymentScope('MY_ORDERS');
+  }, [sessionToken, ownedOrderKey]);
 
   const handleContinueToPayment = async () => {
     setLoading(true);
@@ -329,6 +394,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
         provider: effectiveProvider,
         tipPercent: activeTipPercent,
         ...(boricaCardholder ? { boricaCardholder } : {}),
+        ...(activeCheckoutOrderIds?.length ? { orderIds: activeCheckoutOrderIds } : {}),
       });
       setPayment(result);
       setPaymentInitiated(true);
@@ -343,6 +409,32 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
       setError(e.response?.data?.message || t('payment.failedToLoad', 'Failed to load payment options'));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCashPaymentRequest = async () => {
+    if (!bill) return;
+    if (!bill.restaurantId || !bill.tableName) {
+      setCashError(t('payment.cashRequestUnavailable', 'Cash request is unavailable for this bill.'));
+      return;
+    }
+
+    setCashRequesting(true);
+    setCashError(null);
+    try {
+      await createAssistanceRequest(bill.tableName, bill.restaurantId, 'CASH_PAYMENT');
+      setCashRequested(true);
+    } catch (e: any) {
+      if (e?.response?.status === 409) {
+        setCashRequested(true);
+      } else {
+        setCashError(
+          e?.response?.data?.message ||
+            t('payment.cashRequestFailed', 'Could not ask staff for cash payment.'),
+        );
+      }
+    } finally {
+      setCashRequesting(false);
     }
   };
 
@@ -394,19 +486,48 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
         {step === 'tip' && bill && (
           <>
           <div className="space-y-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0">
+            {canPayOwnedOrders && (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentScope('MY_ORDERS')}
+                  className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    activePaymentScope === 'MY_ORDERS'
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background hover:bg-muted'
+                  }`}
+                >
+                  <ReceiptText className="h-4 w-4" />
+                  {t('payment.myOrders', 'My orders')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentScope('FULL_TABLE')}
+                  className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    activePaymentScope === 'FULL_TABLE'
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background hover:bg-muted'
+                  }`}
+                >
+                  <Users className="h-4 w-4" />
+                  {t('payment.fullTable', 'Full table')}
+                </button>
+              </div>
+            )}
+
             {/* Itemized order breakdown */}
-            {bill.orders && showGroupHeaders(bill.orders) ? (
+            {displayedOrders && showGroupHeaders(displayedOrders) ? (
               <div className="mb-4 space-y-3">
-                {bill.orders.map((order) => (
+                {displayedOrders.map((order) => (
                   <div key={order.id}>
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
                       👤 {getCustomerFacingOrderSourceLabel(order, t)}
                     </p>
-                    {order.items.map((item, i) => (
+                    {order.items.filter((item) => getBillItemRemainingQuantity(item) > 0).map((item, i) => (
                       <div key={i} className="flex justify-between text-xs py-0.5">
-                        <span className="text-gray-700 min-w-0 mr-2">{item.name} ×{item.quantity}</span>
+                        <span className="text-gray-700 min-w-0 mr-2">{item.name} ×{getBillItemRemainingQuantity(item)}</span>
                         <span className="text-gray-700 shrink-0 whitespace-nowrap">
-                          {formatEuro(item.unitPrice * item.quantity)}
+                          {formatEuro(getBillItemUnitPrice(item) * getBillItemRemainingQuantity(item))}
                         </span>
                       </div>
                     ))}
@@ -414,13 +535,13 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
                 ))}
                 <hr className="border-gray-200" />
               </div>
-            ) : bill.orders && bill.orders.length > 0 ? (
+            ) : displayedOrders && displayedOrders.length > 0 ? (
               <div className="mb-4 space-y-1">
-                {bill.orders.flatMap((order) =>
-                  order.items.map((item, i) => (
+                {displayedOrders.flatMap((order) =>
+                  order.items.filter((item) => getBillItemRemainingQuantity(item) > 0).map((item, i) => (
                     <div key={`${order.id}-${i}`} className="flex justify-between text-xs py-0.5">
-                      <span className="text-gray-700 min-w-0 mr-2">{item.name} ×{item.quantity}</span>
-                      <span className="text-gray-700 shrink-0 whitespace-nowrap">{formatEuro(item.unitPrice * item.quantity)}</span>
+                      <span className="text-gray-700 min-w-0 mr-2">{item.name} ×{getBillItemRemainingQuantity(item)}</span>
+                      <span className="text-gray-700 shrink-0 whitespace-nowrap">{formatEuro(getBillItemUnitPrice(item) * getBillItemRemainingQuantity(item))}</span>
                     </div>
                   ))
                 )}
@@ -428,8 +549,8 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
               </div>
             ) : null}
             <div>
-              <p className="text-2xl font-bold">{formatEuro(bill.subtotal)}</p>
-              <span className="text-xs text-muted-foreground">{formatBgn(bill.subtotal)}</span>
+              <p className="text-2xl font-bold">{formatEuro(activeSubtotal)}</p>
+              <span className="text-xs text-muted-foreground">{formatBgn(activeSubtotal)}</span>
             </div>
 
             {bill.tipsEnabled && (
@@ -467,7 +588,7 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
                 </div>
                 {activeTipPercent > 0 && (
                   <p className="text-sm text-muted-foreground">
-                    {t('payment.tipAmount', 'Tip amount')}: {formatEuro(bill.subtotal * activeTipPercent / 100)}
+                    {t('payment.tipAmount', 'Tip amount')}: {formatEuro(activeSubtotal * activeTipPercent / 100)}
                   </p>
                 )}
               </div>
@@ -569,8 +690,15 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
             )}
 
             {error && <p className="text-red-500 text-sm">{error}</p>}
+            {cashError && <p className="text-red-500 text-sm">{cashError}</p>}
+            {cashRequested && (
+              <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200">
+                {t('payment.cashRequestSent', 'Staff has been asked to collect cash at your table.')}
+              </p>
+            )}
           </div>
 
+          <div className="flex flex-shrink-0 flex-col gap-2">
             <Button
               data-testid="payment-continue-button"
               className="w-full flex-shrink-0"
@@ -587,6 +715,21 @@ export function PaymentModal({ sessionToken, onClose, onSuccess }: PaymentModalP
                       ? t('payment.continueToMypos', 'Pay by card (myPOS)')
                       : t('payment.continue', 'Continue')}
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full flex-shrink-0 gap-2"
+              onClick={handleCashPaymentRequest}
+              disabled={cashRequesting || cashRequested}
+            >
+              <Banknote className="h-4 w-4" />
+              {cashRequesting
+                ? t('payment.requestingCash', 'Asking staff...')
+                : cashRequested
+                  ? t('payment.cashRequested', 'Cash request sent')
+                  : t('payment.payCashToWaiter', 'Pay cash to waiter')}
+            </Button>
+          </div>
           </>
         )}
 

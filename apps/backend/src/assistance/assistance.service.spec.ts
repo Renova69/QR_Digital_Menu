@@ -145,6 +145,16 @@ describe('AssistanceService', () => {
         }),
       );
     });
+
+    it('creates a cash payment request type for waiter collection', async () => {
+      await service.create({ ...dto, type: 'CASH_PAYMENT' });
+
+      expect(mockPrisma.assistanceRequest.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ type: 'CASH_PAYMENT' }),
+        }),
+      );
+    });
   });
 
   describe('findAll', () => {

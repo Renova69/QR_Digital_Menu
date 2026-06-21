@@ -251,6 +251,7 @@ describe('PaymentService', () => {
         restaurantId: 'rest1',
         status: 'OPEN',
         restaurant: { tipsEnabled: true, tipOptions: [5, 10, 15] },
+        table: { name: '6' },
       };
       mockPrisma.tableSession.findFirst.mockResolvedValue(session);
       mockPrisma.order.findMany.mockResolvedValue([
@@ -261,6 +262,7 @@ describe('PaymentService', () => {
       const result = await service.getSessionBill('tok1');
 
       expect(result.subtotal).toBeCloseTo(23.5);
+      expect(result.tableName).toBe('6');
       expect(result.tipsEnabled).toBe(true);
       expect(result.tipOptions).toEqual([5, 10, 15]);
     });
@@ -361,6 +363,104 @@ describe('PaymentService', () => {
         }),
       );
       expect(result.clientSecret).toBe('cs_test');
+    });
+
+    it('creates a scoped Stripe checkout for unpaid units on selected orders', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+        restaurant: {
+          paymentsEnabled: true,
+          stripeOnboarded: true,
+          stripeAccountId: 'acct_123',
+          platformFeePercent: 0,
+          tipsEnabled: true,
+          tipOptions: [10],
+          tier: 'PROFESSIONAL',
+        },
+      });
+      const ownedOrder = {
+        id: 'order-owned',
+        totalPrice: 20,
+        pointsRedeemedForDiscount: 0,
+        pointsRedeemedForItems: 0,
+        items: [
+          {
+            id: 'oi-soup',
+            quantity: 2,
+            paidQuantity: 1,
+            unitPriceWithOptions: 10,
+            selectedOptions: [],
+            menuItem: { name: 'Soup', price: 10 },
+          },
+        ],
+      };
+      const otherOrder = {
+        id: 'order-other',
+        totalPrice: 15,
+        pointsRedeemedForDiscount: 0,
+        pointsRedeemedForItems: 0,
+        items: [
+          {
+            id: 'oi-salad',
+            quantity: 1,
+            paidQuantity: 0,
+            unitPriceWithOptions: 15,
+            selectedOptions: [],
+            menuItem: { name: 'Salad', price: 15 },
+          },
+        ],
+      };
+      mockPrisma.order.findMany
+        .mockResolvedValueOnce([ownedOrder, otherOrder])
+        .mockResolvedValueOnce([ownedOrder]);
+      mockPrisma.payment.findMany.mockResolvedValue([
+        { id: 'paid-old', status: 'SUCCEEDED', amount: 10, tipAmount: 0 },
+      ]);
+      mockPrisma.payment.create.mockResolvedValue({ id: 'pay-owned' });
+      mockStripeProvider.createPaymentIntent.mockResolvedValue({
+        clientSecret: 'cs_owned',
+        paymentIntentId: 'pi_owned',
+      });
+      mockPrisma.payment.update.mockResolvedValue({});
+
+      const result = await service.createPaymentIntent('tok1', 10, {
+        orderIds: ['order-owned'],
+      });
+
+      expect(result.total).toBeCloseTo(11);
+      expect(result.tipAmount).toBeCloseTo(1);
+      expect(mockStripeProvider.createPaymentIntent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amountCents: 1100,
+          metadata: expect.objectContaining({ checkoutScopeKey: expect.any(String) }),
+        }),
+      );
+      expect(mockPrisma.payment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            amount: 11,
+            tipAmount: 1,
+            splitMode: 'ITEM',
+            providerPayload: expect.objectContaining({
+              checkoutScope: expect.objectContaining({
+                kind: 'ORDER_ITEMS',
+                orderIds: ['order-owned'],
+                chargeSubtotal: 10,
+                allocations: [
+                  {
+                    orderItemId: 'oi-soup',
+                    quantity: 1,
+                    amount: 10,
+                    snapshotPaid: 1,
+                  },
+                ],
+              }),
+            }),
+          }),
+        }),
+      );
+      expect(result.clientSecret).toBe('cs_owned');
     });
 
     it('marks the Payment FAILED and rethrows when Stripe createPaymentIntent fails (#H9)', async () => {
@@ -993,6 +1093,119 @@ describe('PaymentService', () => {
           amount: expect.any(Number),
           tipAmount: expect.any(Number),
         }),
+      );
+    });
+
+    it('on scoped payment_intent.succeeded: settles selected items and leaves the session open when balance remains', async () => {
+      mockStripeProvider.constructWebhookEvent.mockReturnValue({
+        type: 'payment_intent.succeeded',
+        id: 'evt_scoped',
+        data: { object: { id: 'pi_scoped' } },
+      });
+      const payment = {
+        id: 'pay-scoped',
+        amount: 10,
+        tipAmount: 0,
+        status: 'PENDING',
+        tableSessionId: 's1',
+        restaurantId: 'rest1',
+        providerPayload: {
+          checkoutScope: {
+            kind: 'ORDER_ITEMS',
+            orderIds: ['order-owned'],
+            chargeSubtotal: 10,
+            allocations: [
+              {
+                orderItemId: 'oi-soup',
+                quantity: 1,
+                amount: 10,
+                snapshotPaid: 0,
+              },
+            ],
+          },
+        },
+        tableSession: {
+          id: 's1',
+          restaurantId: 'rest1',
+          tableId: 'table1',
+          table: { name: '3' },
+        },
+      };
+      mockPrisma.payment.findFirst.mockResolvedValue(payment);
+      mockPrisma.tableSession.findFirst.mockResolvedValue({ id: 's1' });
+      mockPrisma.order.findMany.mockResolvedValue([
+        {
+          totalPrice: 30,
+          pointsRedeemedForDiscount: 0,
+          pointsRedeemedForItems: 0,
+          items: [
+            {
+              id: 'oi-soup',
+              quantity: 1,
+              paidQuantity: 1,
+              unitPriceWithOptions: 10,
+              selectedOptions: [],
+              menuItem: { name: 'Soup', price: 10 },
+            },
+            {
+              id: 'oi-steak',
+              quantity: 1,
+              paidQuantity: 0,
+              unitPriceWithOptions: 20,
+              selectedOptions: [],
+              menuItem: { name: 'Steak', price: 20 },
+            },
+          ],
+        },
+      ]);
+      mockPrisma.payment.findMany.mockResolvedValue([
+        { id: 'pay-scoped', status: 'SUCCEEDED', amount: 10, tipAmount: 0 },
+      ]);
+
+      await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+
+      expect(mockPrisma.orderItem.updateMany).toHaveBeenCalledWith({
+        where: { id: 'oi-soup', paidQuantity: 0 },
+        data: { paidQuantity: { increment: 1 } },
+      });
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
+        where: { id: 'pay-scoped', status: { in: ['PENDING', 'ABANDONED'] } },
+        data: {
+          status: 'SUCCEEDED',
+          stripePaymentIntentId: 'pi_scoped',
+          splitMode: 'ITEM',
+        },
+      });
+      expect(mockPrisma.paymentAllocation.createMany).toHaveBeenCalledWith({
+        data: [
+          {
+            paymentId: 'pay-scoped',
+            orderItemId: 'oi-soup',
+            quantity: 1,
+            amount: 10,
+          },
+        ],
+      });
+      expect(mockPrisma.tableSession.updateMany).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'PAID' }),
+        }),
+      );
+      expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
+        'rest1',
+        'bill:updated',
+        expect.objectContaining({
+          tableSessionId: 's1',
+          paymentId: 'pay-scoped',
+          splitMode: 'ITEM',
+          remaining: 20,
+          sessionPaid: false,
+        }),
+      );
+      expect(mockEvents.emitToRestaurant).not.toHaveBeenCalledWith(
+        'rest1',
+        'payment:confirmed',
+        expect.anything(),
       );
     });
 

@@ -8,6 +8,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { StripeProvider } from './stripe.provider';
 import {
@@ -32,6 +33,41 @@ import { PaymentStatus, PaymentProvider, Prisma } from '@prisma/client';
 import { SettlePartialDto, SplitMode } from './dto/settle-partial.dto';
 
 type CheckoutProvider = 'STRIPE' | 'EPAY' | 'BORICA' | 'MYPOS';
+
+type CheckoutScopeInput = {
+  orderIds?: string[];
+};
+
+type CheckoutScopeAllocation = {
+  orderItemId: string;
+  quantity: number;
+  amount: number;
+  snapshotPaid: number;
+};
+
+type CheckoutScope = {
+  kind: 'ORDER_ITEMS';
+  orderIds: string[];
+  allocations: CheckoutScopeAllocation[];
+  chargeSubtotal: number;
+};
+
+type CheckoutCharge = {
+  subtotal: number;
+  tipAmount: number;
+  total: number;
+  platformFeeCents: number;
+  platformFeeAmount: number;
+  checkoutScope: CheckoutScope | null;
+  checkoutScopeKey: string | null;
+};
+
+type PaymentClaimResult = {
+  claimed: boolean;
+  sessionPaid: boolean;
+  remaining?: number;
+  splitMode?: SplitMode;
+};
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ABANDONED_PAYMENT_RETENTION_DAYS = 90;
@@ -327,8 +363,10 @@ export class PaymentService {
     sessionId: string,
     amountCents: number,
     platformFeeCents: number,
+    checkoutScopeKey?: string | null,
   ): string {
-    return `stripe:${sessionId}:${amountCents}:${platformFeeCents}:eur`;
+    const base = `stripe:${sessionId}:${amountCents}:${platformFeeCents}:eur`;
+    return checkoutScopeKey ? `${base}:${checkoutScopeKey}` : base;
   }
 
   private normalizeTipPercent(tipPercent: number | undefined): number {
@@ -492,6 +530,253 @@ export class PaymentService {
     };
   }
 
+  private normalizeCheckoutScope(
+    scope?: CheckoutScopeInput,
+  ): { orderIds: string[] } | null {
+    if (!scope?.orderIds) return null;
+    if (!Array.isArray(scope.orderIds)) {
+      throw new BadRequestException('orderIds must be an array');
+    }
+
+    const orderIds = Array.from(
+      new Set(
+        scope.orderIds
+          .map((id) => (typeof id === 'string' ? id.trim() : ''))
+          .filter(Boolean),
+      ),
+    );
+
+    if (orderIds.length === 0) {
+      throw new BadRequestException('Select at least one order to pay');
+    }
+    if (orderIds.length > 50) {
+      throw new BadRequestException('Too many orders selected');
+    }
+
+    return { orderIds };
+  }
+
+  private getCheckoutScopeKey(scope: CheckoutScope | null): string | null {
+    if (!scope) return null;
+    return createHash('sha256')
+      .update(JSON.stringify({
+        kind: scope.kind,
+        orderIds: scope.orderIds,
+        allocations: scope.allocations.map((a) => ({
+          orderItemId: a.orderItemId,
+          quantity: a.quantity,
+          amount: a.amount,
+          snapshotPaid: a.snapshotPaid,
+        })),
+        chargeSubtotal: scope.chargeSubtotal,
+      }))
+      .digest('hex')
+      .slice(0, 16);
+  }
+
+  private getCheckoutScopeFromPayload(payload: unknown): CheckoutScope | null {
+    const base =
+      payload && typeof payload === 'object' && !Array.isArray(payload)
+        ? (payload as Record<string, any>)
+        : null;
+    const scope = base?.checkoutScope;
+    if (
+      !scope ||
+      scope.kind !== 'ORDER_ITEMS' ||
+      !Array.isArray(scope.orderIds) ||
+      !Array.isArray(scope.allocations)
+    ) {
+      return null;
+    }
+
+    const allocations = scope.allocations
+      .map((a: any) => ({
+        orderItemId: typeof a.orderItemId === 'string' ? a.orderItemId : '',
+        quantity: Number(a.quantity),
+        amount: Number(a.amount),
+        snapshotPaid: Number(a.snapshotPaid),
+      }))
+      .filter(
+        (a: CheckoutScopeAllocation) =>
+          a.orderItemId &&
+          Number.isInteger(a.quantity) &&
+          a.quantity > 0 &&
+          Number.isFinite(a.amount) &&
+          a.amount > 0 &&
+          Number.isInteger(a.snapshotPaid) &&
+          a.snapshotPaid >= 0,
+      );
+
+    if (allocations.length === 0) return null;
+
+    return {
+      kind: 'ORDER_ITEMS',
+      orderIds: scope.orderIds
+        .filter((id: unknown) => typeof id === 'string' && id.trim())
+        .map((id: string) => id.trim()),
+      allocations,
+      chargeSubtotal: this.roundMoney(Number(scope.chargeSubtotal) || 0),
+    };
+  }
+
+  private paymentScopeMatches(payment: any, scope: CheckoutScope | null): boolean {
+    const stored = this.getCheckoutScopeFromPayload(payment.providerPayload);
+    if (!stored && !scope) return true;
+    if (!stored || !scope) return false;
+    return this.getCheckoutScopeKey(stored) === this.getCheckoutScopeKey(scope);
+  }
+
+  private checkoutScopePayload(scope: CheckoutScope | null) {
+    return scope ? ({ checkoutScope: scope } as Record<string, unknown>) : undefined;
+  }
+
+  private getOrderItemUnitPrice(item: any): number {
+    if (typeof item.unitPriceWithOptions === 'number' && item.unitPriceWithOptions > 0) {
+      return this.roundMoney(item.unitPriceWithOptions);
+    }
+
+    const optionsTotal = Array.isArray(item.selectedOptions)
+      ? (item.selectedOptions as any[]).reduce(
+          (sum, option) => sum + (option?.priceModifier || 0),
+          0,
+        )
+      : 0;
+    return this.roundMoney((item.menuItem?.price ?? item.unitPrice ?? 0) + optionsTotal);
+  }
+
+  private async resolveCheckoutCharge(
+    tx: {
+      order: { findMany: (args: any) => Promise<any[]> };
+      payment: { findMany: (args: any) => Promise<any[]> };
+    },
+    session: { id: string },
+    tipPercent: number,
+    platformFeePercent: number,
+    scopeInput?: CheckoutScopeInput,
+  ): Promise<CheckoutCharge> {
+    const normalizedScope = this.normalizeCheckoutScope(scopeInput);
+
+    const balance = await this.computeSessionBalance(tx, session.id);
+    if (balance.remaining <= 0) {
+      throw new ConflictException('This session has already been paid');
+    }
+
+    if (!normalizedScope) {
+      return {
+        ...this.calculatePartialTotals(
+          balance.remaining,
+          tipPercent,
+          platformFeePercent,
+        ),
+        checkoutScope: null,
+        checkoutScopeKey: null,
+      };
+    }
+
+    if (balance.hasLoyaltyDiscount) {
+      throw new BadRequestException(
+        'Pay my orders is unavailable when loyalty discounts apply',
+      );
+    }
+
+    const unpaidByItems = this.roundMoney(
+      balance.items.reduce(
+        (sum, item) => sum + item.unitPrice * item.remainingQuantity,
+        0,
+      ),
+    );
+    if (Math.abs(unpaidByItems - balance.remaining) > 0.01) {
+      throw new BadRequestException(
+        'Pay my orders is unavailable after partial amount payments',
+      );
+    }
+
+    const orders = await tx.order.findMany({
+      where: {
+        tableSessionId: session.id,
+        id: { in: normalizedScope.orderIds },
+      },
+      select: {
+        id: true,
+        pointsRedeemedForDiscount: true,
+        pointsRedeemedForItems: true,
+        items: {
+          select: {
+            id: true,
+            quantity: true,
+            unitPrice: true,
+            unitPriceWithOptions: true,
+            paidQuantity: true,
+            selectedOptions: true,
+            menuItem: { select: { price: true } },
+          },
+        },
+      },
+    });
+
+    if (orders.length !== normalizedScope.orderIds.length) {
+      throw new BadRequestException('Selected orders are no longer available');
+    }
+
+    if (
+      orders.some(
+        (order) =>
+          (order.pointsRedeemedForDiscount ?? 0) > 0 ||
+          (order.pointsRedeemedForItems ?? 0) > 0,
+      )
+    ) {
+      throw new BadRequestException(
+        'Pay my orders is unavailable when loyalty discounts apply',
+      );
+    }
+
+    const allocations: CheckoutScopeAllocation[] = [];
+    let chargeSubtotal = 0;
+    for (const order of orders) {
+      for (const item of order.items ?? []) {
+        const paidQuantity = item.paidQuantity ?? 0;
+        const remainingQuantity = item.quantity - paidQuantity;
+        if (remainingQuantity <= 0) continue;
+
+        const amount = this.roundMoney(
+          this.getOrderItemUnitPrice(item) * remainingQuantity,
+        );
+        allocations.push({
+          orderItemId: item.id,
+          quantity: remainingQuantity,
+          amount,
+          snapshotPaid: paidQuantity,
+        });
+        chargeSubtotal += amount;
+      }
+    }
+
+    chargeSubtotal = this.roundMoney(chargeSubtotal);
+    if (chargeSubtotal <= 0) {
+      throw new ConflictException('Selected orders are already paid');
+    }
+    if (chargeSubtotal > balance.remaining + 0.01) {
+      throw new ConflictException('Selected orders exceed the outstanding balance');
+    }
+
+    const checkoutScope: CheckoutScope = {
+      kind: 'ORDER_ITEMS',
+      orderIds: normalizedScope.orderIds,
+      allocations,
+      chargeSubtotal,
+    };
+
+    return {
+      ...this.calculatePartialTotals(
+        chargeSubtotal,
+        tipPercent,
+        platformFeePercent,
+      ),
+      checkoutScope,
+      checkoutScopeKey: this.getCheckoutScopeKey(checkoutScope),
+    };
+  }
+
   private isPaymentClaimable(payment: any): boolean {
     return (
       payment.status === undefined ||
@@ -568,6 +853,129 @@ export class PaymentService {
     }
 
     return true;
+  }
+
+  private async claimSuccessfulPayment(
+    tx: any,
+    payment: any,
+    data: Record<string, any>,
+  ): Promise<PaymentClaimResult> {
+    const checkoutScope = this.getCheckoutScopeFromPayload(payment.providerPayload);
+    if (checkoutScope) {
+      return this.claimSuccessfulScopedCheckoutPayment(
+        tx,
+        payment,
+        data,
+        checkoutScope,
+      );
+    }
+
+    const claimed = await this.claimSuccessfulPaymentForOpenSession(
+      tx,
+      payment,
+      data,
+    );
+    return { claimed, sessionPaid: claimed };
+  }
+
+  private async claimSuccessfulScopedCheckoutPayment(
+    tx: any,
+    payment: any,
+    data: Record<string, any>,
+    checkoutScope: CheckoutScope,
+  ): Promise<PaymentClaimResult> {
+    if (!this.isPaymentClaimable(payment)) {
+      return { claimed: false, sessionPaid: false };
+    }
+
+    const paymentNet = this.roundMoney(
+      (payment.amount ?? 0) - (payment.tipAmount ?? 0),
+    );
+    if (Math.abs(paymentNet - checkoutScope.chargeSubtotal) > 0.01) {
+      this.logger.warn('Refusing scoped payment claim: scope amount mismatch', {
+        paymentId: payment.id,
+        tableSessionId: payment.tableSessionId,
+        paymentNet,
+        scopeSubtotal: checkoutScope.chargeSubtotal,
+      });
+      return { claimed: false, sessionPaid: false };
+    }
+
+    const openSession = await tx.tableSession.findFirst({
+      where: { id: payment.tableSessionId, status: 'OPEN' },
+      select: { id: true },
+    });
+    if (!openSession) {
+      this.logger.warn(
+        'Ignoring scoped payment callback because session is already closed',
+        {
+          paymentId: payment.id,
+          tableSessionId: payment.tableSessionId,
+          provider: payment.provider,
+        },
+      );
+      return { claimed: false, sessionPaid: false };
+    }
+
+    await this.lockOpenSessionForSettlement(tx, payment.tableSessionId);
+
+    for (const allocation of checkoutScope.allocations) {
+      const updated = await tx.orderItem.updateMany({
+        where: {
+          id: allocation.orderItemId,
+          paidQuantity: allocation.snapshotPaid,
+        },
+        data: { paidQuantity: { increment: allocation.quantity } },
+      });
+      if (updated.count === 0) {
+        this.logger.warn(
+          'Refusing scoped payment claim: selected item units changed',
+          {
+            paymentId: payment.id,
+            tableSessionId: payment.tableSessionId,
+            orderItemId: allocation.orderItemId,
+          },
+        );
+        throw new ConflictException('Selected items are already settled');
+      }
+    }
+
+    const paymentUpdate = await tx.payment.updateMany({
+      where: { id: payment.id, status: { in: ['PENDING', 'ABANDONED'] } },
+      data: {
+        ...data,
+        splitMode: data.splitMode ?? SplitMode.ITEM,
+      },
+    });
+    if (paymentUpdate.count === 0) {
+      throw new Error('Payment success claim lost race after item claim');
+    }
+
+    await tx.paymentAllocation.createMany({
+      data: checkoutScope.allocations.map((allocation) => ({
+        paymentId: payment.id,
+        orderItemId: allocation.orderItemId,
+        quantity: allocation.quantity,
+        amount: allocation.amount,
+      })),
+    });
+
+    const balance = await this.computeSessionBalance(tx, payment.tableSessionId);
+    let sessionPaid = false;
+    if (balance.remaining <= 0.01) {
+      const flip = await tx.tableSession.updateMany({
+        where: { id: payment.tableSessionId, status: 'OPEN' },
+        data: { status: 'PAID', paidAt: new Date() },
+      });
+      sessionPaid = flip.count > 0;
+    }
+
+    return {
+      claimed: true,
+      sessionPaid,
+      remaining: Math.max(0, balance.remaining),
+      splitMode: SplitMode.ITEM,
+    };
   }
 
   private isStripeConfigured(restaurant: any): boolean {
@@ -859,6 +1267,7 @@ export class PaymentService {
   async getSessionBill(token: string): Promise<{
     sessionId: string;
     tableId: string;
+    tableName: string | null;
     orders: any[];
     subtotal: number;
     paidSubtotal: number;
@@ -871,7 +1280,10 @@ export class PaymentService {
   }> {
     const session = await this.prisma.tableSession.findFirst({
       where: { token, status: 'OPEN' },
-      include: { restaurant: true },
+      include: {
+        restaurant: true,
+        table: { select: { name: true } },
+      },
     });
 
     if (!session) throw new NotFoundException('Session not found');
@@ -931,6 +1343,7 @@ export class PaymentService {
     return {
       sessionId: session.id,
       tableId: session.tableId,
+      tableName: session.table?.name ?? null,
       orders: enrichedOrders,
       subtotal,
       paidSubtotal: balance.paidSubtotal,
@@ -1025,22 +1438,32 @@ export class PaymentService {
     provider: CheckoutProvider,
     tipPercent: number,
     boricaCardholder?: BoricaCardholderInput,
+    checkoutScope?: CheckoutScopeInput,
   ) {
     if (provider === 'STRIPE') {
-      const stripeCheckout = await this.createPaymentIntent(token, tipPercent);
+      const stripeCheckout = await this.createPaymentIntent(
+        token,
+        tipPercent,
+        checkoutScope,
+      );
       return { provider: 'STRIPE', ...stripeCheckout };
     }
 
     if (provider === 'EPAY') {
-      return this.createEpayCheckout(token, tipPercent);
+      return this.createEpayCheckout(token, tipPercent, checkoutScope);
     }
 
     if (provider === 'BORICA') {
-      return this.createBoricaCheckout(token, tipPercent, boricaCardholder);
+      return this.createBoricaCheckout(
+        token,
+        tipPercent,
+        boricaCardholder,
+        checkoutScope,
+      );
     }
 
     if (provider === 'MYPOS') {
-      return this.createMyposCheckout(token, tipPercent);
+      return this.createMyposCheckout(token, tipPercent, checkoutScope);
     }
 
     throw new BadRequestException('Unsupported payment provider');
@@ -1049,6 +1472,7 @@ export class PaymentService {
   async createPaymentIntent(
     token: string,
     tipPercent: number,
+    checkoutScope?: CheckoutScopeInput,
   ): Promise<{
     clientSecret: string;
     paymentId: string;
@@ -1090,26 +1514,31 @@ export class PaymentService {
 
     // Charge the REMAINING balance, not the full bill — POS split settlements may
     // already have paid part of it. With no partials, remaining == full subtotal.
-    const balance = await this.computeSessionBalance(this.prisma, session.id);
-    if (balance.remaining <= 0) {
-      throw new ConflictException('This session has already been paid');
-    }
+    const {
+      tipAmount,
+      total,
+      platformFeeCents,
+      platformFeeAmount,
+      checkoutScope: resolvedCheckoutScope,
+      checkoutScopeKey,
+    } = await this.resolveCheckoutCharge(
+      this.prisma,
+      session,
+      normalizedTipPercent,
+      restaurant.platformFeePercent ?? 0,
+      checkoutScope,
+    );
 
     // platformFeePercent is a WHOLE-NUMBER percent (e.g. 5 = 5%), not a fraction
     // (#L1). fee_in_cents = total_euros × percent works only under that unit:
     //   €20 × 5 = 100 cents = €1.00 = 5% of €20.
     // If this is ever stored as a fraction (0.05), fees become 100× too small.
-    const { tipAmount, total, platformFeeCents, platformFeeAmount } =
-      this.calculatePartialTotals(
-        balance.remaining,
-        normalizedTipPercent,
-        restaurant.platformFeePercent ?? 0,
-      );
     const amountCents = Math.round(total * 100);
     const stripeCheckoutKey = this.buildStripeCheckoutKey(
       session.id,
       amountCents,
       platformFeeCents,
+      checkoutScopeKey,
     );
 
     // Guard against double capture (#H1). A session can accumulate multiple
@@ -1132,6 +1561,7 @@ export class PaymentService {
         p.provider === 'STRIPE' &&
         p.status === 'PENDING' &&
         p.stripePaymentIntentId &&
+        this.paymentScopeMatches(p, resolvedCheckoutScope) &&
         (!p.providerReference || p.providerReference === stripeCheckoutKey) &&
         Math.abs((p.amount ?? 0) - total) < 0.001,
     );
@@ -1205,6 +1635,8 @@ export class PaymentService {
           status: 'PENDING',
           provider: 'STRIPE',
           providerReference: stripeCheckoutKey,
+          providerPayload: this.checkoutScopePayload(resolvedCheckoutScope) as any,
+          splitMode: resolvedCheckoutScope ? SplitMode.ITEM : undefined,
         },
       });
     } catch (error) {
@@ -1241,7 +1673,11 @@ export class PaymentService {
           restaurantStripeAccountId: restaurant.stripeAccountId,
           platformFeeCents,
           idempotencyKey: stripeCheckoutKey,
-          metadata: { sessionId: session.id, paymentId: payment.id },
+          metadata: {
+            sessionId: session.id,
+            paymentId: payment.id,
+            ...(checkoutScopeKey ? { checkoutScopeKey } : {}),
+          },
         });
 
       await this.prisma.payment.update({
@@ -1263,7 +1699,11 @@ export class PaymentService {
     }
   }
 
-  private async createEpayCheckout(token: string, tipPercent: number) {
+  private async createEpayCheckout(
+    token: string,
+    tipPercent: number,
+    checkoutScope?: CheckoutScopeInput,
+  ) {
     const normalizedTipPercent = this.normalizeTipPercent(tipPercent);
     const session = await this.prisma.tableSession.findFirst({
       where: { token, status: 'OPEN' },
@@ -1287,14 +1727,17 @@ export class PaymentService {
     }
 
     // Charge the REMAINING balance (POS partials may have settled some already).
-    const balance = await this.computeSessionBalance(this.prisma, session.id);
-    if (balance.remaining <= 0) {
-      throw new ConflictException('This session has already been paid');
-    }
-    const { tipAmount, total, platformFeeAmount } = this.calculatePartialTotals(
-      balance.remaining,
+    const {
+      tipAmount,
+      total,
+      platformFeeAmount,
+      checkoutScope: resolvedCheckoutScope,
+    } = await this.resolveCheckoutCharge(
+      this.prisma,
+      session,
       normalizedTipPercent,
       restaurant.platformFeePercent ?? 0,
+      checkoutScope,
     );
 
     const existingPayments = await this.prisma.payment.findMany({
@@ -1331,8 +1774,12 @@ export class PaymentService {
       const sameAmount =
         Math.abs((pendingEpay.amount ?? 0) - total) < 0.001 &&
         Math.abs((pendingEpay.tipAmount ?? 0) - tipAmount) < 0.001;
+      const sameScope = this.paymentScopeMatches(
+        pendingEpay,
+        resolvedCheckoutScope,
+      );
 
-      if (checkoutForm && sameAmount && notExpired) {
+      if (checkoutForm && sameAmount && sameScope && notExpired) {
         return {
           provider: 'EPAY' as const,
           paymentId: pendingEpay.id,
@@ -1344,7 +1791,7 @@ export class PaymentService {
         };
       }
 
-      if (sameAmount && !notExpired) {
+      if (sameAmount && sameScope && !notExpired) {
         // Invoice EXP_TIME has passed — mark stale record FAILED and create a fresh checkout.
         await this.prisma.payment.updateMany({
           where: { id: pendingEpay.id, status: 'PENDING' },
@@ -1375,6 +1822,8 @@ export class PaymentService {
         provider: 'EPAY',
         providerReference: invoice,
         providerStatus: 'PENDING',
+        providerPayload: this.checkoutScopePayload(resolvedCheckoutScope) as any,
+        splitMode: resolvedCheckoutScope ? SplitMode.ITEM : undefined,
       },
     });
 
@@ -1397,10 +1846,13 @@ export class PaymentService {
     await this.prisma.payment.update({
       where: { id: payment.id },
       data: {
-        providerPayload: {
-          checkoutForm,
-          expiresAt: expiresAt.toISOString(),
-        } as any,
+        providerPayload: this.mergeProviderPayload(
+          this.checkoutScopePayload(resolvedCheckoutScope),
+          {
+            checkoutForm,
+            expiresAt: expiresAt.toISOString(),
+          },
+        ) as any,
       },
     });
 
@@ -1415,7 +1867,11 @@ export class PaymentService {
     };
   }
 
-  private async createMyposCheckout(token: string, tipPercent: number) {
+  private async createMyposCheckout(
+    token: string,
+    tipPercent: number,
+    checkoutScope?: CheckoutScopeInput,
+  ) {
     const normalizedTipPercent = this.normalizeTipPercent(tipPercent);
     const session = await this.prisma.tableSession.findFirst({
       where: { token, status: 'OPEN' },
@@ -1438,15 +1894,17 @@ export class PaymentService {
       throw new BadRequestException('myPOS is not configured');
     }
 
-    const balance = await this.computeSessionBalance(this.prisma, session.id);
-    if (balance.remaining <= 0) {
-      throw new ConflictException('This session has already been paid');
-    }
-
-    const { tipAmount, total, platformFeeAmount } = this.calculatePartialTotals(
-      balance.remaining,
+    const {
+      tipAmount,
+      total,
+      platformFeeAmount,
+      checkoutScope: resolvedCheckoutScope,
+    } = await this.resolveCheckoutCharge(
+      this.prisma,
+      session,
       normalizedTipPercent,
       restaurant.platformFeePercent ?? 0,
+      checkoutScope,
     );
 
     const existingPayments = await this.prisma.payment.findMany({
@@ -1481,7 +1939,11 @@ export class PaymentService {
       const sameAmount =
         Math.abs((pendingMypos.amount ?? 0) - total) < 0.001 &&
         Math.abs((pendingMypos.tipAmount ?? 0) - tipAmount) < 0.001;
-      if (checkoutForm && sameAmount && age < MYPOS_PENDING_TTL_MS) {
+      const sameScope = this.paymentScopeMatches(
+        pendingMypos,
+        resolvedCheckoutScope,
+      );
+      if (checkoutForm && sameAmount && sameScope && age < MYPOS_PENDING_TTL_MS) {
         return {
           provider: 'MYPOS' as const,
           paymentId: pendingMypos.id,
@@ -1496,8 +1958,8 @@ export class PaymentService {
       await this.prisma.payment.updateMany({
         where: { id: pendingMypos.id, status: 'PENDING' },
         data: {
-          status: sameAmount ? 'FAILED' : 'ABANDONED',
-          providerStatus: sameAmount ? 'EXPIRED' : 'ABANDONED',
+          status: sameAmount && sameScope ? 'FAILED' : 'ABANDONED',
+          providerStatus: sameAmount && sameScope ? 'EXPIRED' : 'ABANDONED',
         },
       });
     }
@@ -1578,14 +2040,18 @@ export class PaymentService {
             provider: 'MYPOS',
             providerReference: orderId,
             providerStatus: 'PENDING',
-            providerPayload: {
-              checkoutForm,
-              sessionToken: token,
-              restaurantId: session.restaurantId,
-              tableName: session.table?.name ?? null,
-              notifyUrl,
-              mode: config.mode,
-            } as any,
+            providerPayload: this.mergeProviderPayload(
+              this.checkoutScopePayload(resolvedCheckoutScope),
+              {
+                checkoutForm,
+                sessionToken: token,
+                restaurantId: session.restaurantId,
+                tableName: session.table?.name ?? null,
+                notifyUrl,
+                mode: config.mode,
+              },
+            ) as any,
+            splitMode: resolvedCheckoutScope ? SplitMode.ITEM : undefined,
           },
         });
         break;
@@ -1615,6 +2081,7 @@ export class PaymentService {
     token: string,
     tipPercent: number,
     cardholderInput?: BoricaCardholderInput,
+    checkoutScope?: CheckoutScopeInput,
   ) {
     const normalizedTipPercent = this.normalizeTipPercent(tipPercent);
     const session = await this.prisma.tableSession.findFirst({
@@ -1641,15 +2108,17 @@ export class PaymentService {
     const orders = await this.prisma.order.findMany({
       where: { tableSessionId: session.id },
     });
-    // Charge the REMAINING balance (POS partials may have settled some already).
-    const balance = await this.computeSessionBalance(this.prisma, session.id);
-    if (balance.remaining <= 0) {
-      throw new ConflictException('This session has already been paid');
-    }
-    const { tipAmount, total, platformFeeAmount } = this.calculatePartialTotals(
-      balance.remaining,
+    const {
+      tipAmount,
+      total,
+      platformFeeAmount,
+      checkoutScope: resolvedCheckoutScope,
+    } = await this.resolveCheckoutCharge(
+      this.prisma,
+      session,
       normalizedTipPercent,
       restaurant.platformFeePercent ?? 0,
+      checkoutScope,
     );
 
     const existingPayments = await this.prisma.payment.findMany({
@@ -1695,7 +2164,11 @@ export class PaymentService {
       const sameAmount =
         Math.abs((pendingBorica.amount ?? 0) - total) < 0.001 &&
         Math.abs((pendingBorica.tipAmount ?? 0) - tipAmount) < 0.001;
-      if (checkoutForm && sameAmount && age < BORICA_PENDING_TTL_MS) {
+      const sameScope = this.paymentScopeMatches(
+        pendingBorica,
+        resolvedCheckoutScope,
+      );
+      if (checkoutForm && sameAmount && sameScope && age < BORICA_PENDING_TTL_MS) {
         return {
           provider: 'BORICA' as const,
           paymentId: pendingBorica.id,
@@ -1752,13 +2225,13 @@ export class PaymentService {
                 },
               );
             } else {
-              const claimed = await this.prisma.$transaction((tx) =>
-                this.claimSuccessfulPaymentForOpenSession(tx, pendingBorica, {
+              const claim = await this.prisma.$transaction((tx) =>
+                this.claimSuccessfulPayment(tx, pendingBorica, {
                   status: 'SUCCEEDED',
                   providerStatus: 'RECOVERED_VIA_STATUS_CHECK',
                 }),
               );
-              if (claimed) await this.emitPaymentConfirmed(pendingBorica as any);
+              await this.emitPaymentClaimEvents(pendingBorica as any, claim);
               throw new ConflictException('ALREADY_PAID');
             }
           }
@@ -1866,12 +2339,16 @@ export class PaymentService {
             provider: 'BORICA',
             providerReference: attemptOrder,
             providerStatus: 'PENDING',
-            providerPayload: {
-              checkoutForm: attemptForm,
-              sessionToken: token,
-              restaurantId: session.restaurantId,
-              tableName: session.table?.name ?? null,
-            } as any,
+            providerPayload: this.mergeProviderPayload(
+              this.checkoutScopePayload(resolvedCheckoutScope),
+              {
+                checkoutForm: attemptForm,
+                sessionToken: token,
+                restaurantId: session.restaurantId,
+                tableName: session.table?.name ?? null,
+              },
+            ) as any,
+            splitMode: resolvedCheckoutScope ? SplitMode.ITEM : undefined,
           },
         });
         if (attempt > 0) checkoutForm = attemptForm;
@@ -2023,7 +2500,7 @@ export class PaymentService {
       return cancelUrl;
     }
 
-    const claimed = await this.prisma.$transaction(async (tx) => {
+    const claim = await this.prisma.$transaction(async (tx) => {
       const recorded = await this.recordProviderEvent(
         tx,
         PaymentProvider.BORICA,
@@ -2040,9 +2517,9 @@ export class PaymentService {
           },
         },
       );
-      if (!recorded) return false;
+      if (!recorded) return { claimed: false, sessionPaid: false };
 
-      return this.claimSuccessfulPaymentForOpenSession(tx, payment, {
+      return this.claimSuccessfulPayment(tx, payment, {
         status: 'SUCCEEDED',
         providerStatus: 'PAID',
         providerPayload: this.mergeProviderPayload(payment.providerPayload, {
@@ -2058,14 +2535,14 @@ export class PaymentService {
       });
     });
 
-    if (claimed) await this.emitPaymentConfirmed(payment);
+    await this.emitPaymentClaimEvents(payment, claim);
 
     return this.buildPublicMenuReturnUrl(
       {
         restaurantId: payment.restaurantId,
         table: payment.tableSession?.table,
       },
-      claimed || payment.status === 'SUCCEEDED'
+      claim.claimed || payment.status === 'SUCCEEDED'
         ? 'borica-ok'
         : 'borica-cancel',
     );
@@ -2229,7 +2706,7 @@ export class PaymentService {
       result.requestDateTime || '',
     ].join(':');
 
-    const claimed = await this.prisma.$transaction(async (tx) => {
+    const claim = await this.prisma.$transaction(async (tx) => {
       const recorded = await this.recordProviderEvent(
         tx,
         PaymentProvider.MYPOS,
@@ -2244,16 +2721,16 @@ export class PaymentService {
           },
         },
       );
-      if (!recorded) return false;
+      if (!recorded) return { claimed: false, sessionPaid: false };
 
-      return this.claimSuccessfulPaymentForOpenSession(tx, payment, {
+      return this.claimSuccessfulPayment(tx, payment, {
         status: 'SUCCEEDED',
         providerStatus: 'PAID',
         providerPayload: providerPayload as any,
       });
     });
 
-    if (claimed) await this.emitPaymentConfirmed(payment);
+    await this.emitPaymentClaimEvents(payment, claim);
 
     return 'OK';
   }
@@ -2271,7 +2748,7 @@ export class PaymentService {
     });
 
     if (notification.status === 'PAID') {
-      const claimed = await this.prisma.$transaction(async (tx) => {
+      const claim = await this.prisma.$transaction(async (tx) => {
         const recorded = await this.recordProviderEvent(
           tx,
           PaymentProvider.EPAY,
@@ -2282,16 +2759,16 @@ export class PaymentService {
             payload: { status: notification.status, invoice: notification.invoice },
           },
         );
-        if (!recorded) return false;
+        if (!recorded) return { claimed: false, sessionPaid: false };
 
-        return this.claimSuccessfulPaymentForOpenSession(tx, payment, {
+        return this.claimSuccessfulPayment(tx, payment, {
           status: 'SUCCEEDED',
           providerStatus: 'PAID',
           providerPayload: providerPayload as any,
         });
       });
 
-      if (claimed) await this.emitPaymentConfirmed(payment);
+      await this.emitPaymentClaimEvents(payment, claim);
       return;
     }
 
@@ -2367,6 +2844,44 @@ export class PaymentService {
     );
   }
 
+  private async emitPaymentClaimEvents(
+    payment: any,
+    claim: PaymentClaimResult,
+  ) {
+    if (!claim.claimed) return;
+
+    if (!claim.splitMode) {
+      await this.emitPaymentConfirmed(payment);
+      return;
+    }
+
+    const tableSession =
+      payment.tableSession ??
+      (await this.prisma.tableSession.findFirst({
+        where: { id: payment.tableSessionId },
+        include: { table: { select: { name: true } } },
+      }));
+    if (!tableSession) return;
+
+    this.events.emitTableStatusChanged(
+      tableSession.restaurantId,
+      tableSession.tableId,
+      payment.tableSessionId,
+    );
+    this.events.emitToRestaurant(tableSession.restaurantId, 'bill:updated', {
+      tableSessionId: payment.tableSessionId,
+      tableId: tableSession.tableId,
+      paymentId: payment.id,
+      splitMode: claim.splitMode,
+      remaining: Math.max(0, claim.remaining ?? 0),
+      sessionPaid: claim.sessionPaid,
+    });
+
+    if (claim.sessionPaid) {
+      await this.emitPaymentConfirmed(payment);
+    }
+  }
+
   async handleWebhookEvent(payload: Buffer, signature: string): Promise<void> {
     const event = this.stripe.constructWebhookEvent(payload, signature);
 
@@ -2394,7 +2909,7 @@ export class PaymentService {
 
       // Idempotent claim: a provider callback can only win while the session is
       // still OPEN and the exact payment row is still pending/abandoned.
-      const claimed = await this.prisma.$transaction(async (tx) => {
+      const claim = await this.prisma.$transaction(async (tx) => {
         const recorded = await this.recordProviderEvent(
           tx,
           PaymentProvider.STRIPE,
@@ -2405,52 +2920,14 @@ export class PaymentService {
             payload: { type: event.type, paymentIntentId: intent.id },
           },
         );
-        if (!recorded) return false;
+        if (!recorded) return { claimed: false, sessionPaid: false };
 
-        return this.claimSuccessfulPaymentForOpenSession(tx, payment, {
+        return this.claimSuccessfulPayment(tx, payment, {
           status: 'SUCCEEDED',
           stripePaymentIntentId: intent.id,
         });
       });
-      if (!claimed) return;
-
-      const tableNumber =
-        payment.tableSession?.table?.name ??
-        (
-          await this.prisma.restaurantTable.findUnique({
-            where: { id: payment.tableSession.tableId },
-            select: { name: true },
-          })
-        )?.name ??
-        null;
-
-      const customerName =
-        (
-          await this.prisma.order.findFirst({
-            where: { tableSessionId: payment.tableSessionId },
-            orderBy: { createdAt: 'desc' },
-            select: { customerName: true },
-          })
-        )?.customerName ?? null;
-
-      this.events.emitToRestaurant(
-        payment.tableSession.restaurantId,
-        'payment:confirmed',
-        {
-          paymentId: payment.id,
-          tableSessionId: payment.tableSessionId,
-          amount: payment.amount,
-          tipAmount: payment.tipAmount,
-          tableNumber,
-          customerName,
-        },
-      );
-
-      this.events.emitTableStatusChanged(
-        payment.tableSession.restaurantId,
-        payment.tableSession.tableId,
-        payment.tableSessionId,
-      );
+      await this.emitPaymentClaimEvents(payment, claim);
     }
 
     if (event.type === 'payment_intent.payment_failed') {
@@ -2632,8 +3109,8 @@ export class PaymentService {
    *   EVEN   — pay one share of remaining / splitCount
    *   CUSTOM — pay an arbitrary amount (clamped to remaining)
    * The PAID gate is amount-based; allocations are advisory (picker + receipts +
-   * refund reversal). Online providers are intentionally excluded here — public
-   * self-pay split (with item reservation/locking) is Phase 2.
+   * refund reversal). Online self-pay split uses scoped provider checkout
+   * metadata; this endpoint remains POS-only.
    */
   async settlePartial(
     token: string,

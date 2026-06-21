@@ -6,6 +6,7 @@ import { PaymentModal } from './PaymentModal';
 const apiMocks = vi.hoisted(() => ({
   getSessionBill: vi.fn(),
   createCheckout: vi.fn(),
+  createAssistanceRequest: vi.fn(),
 }));
 const i18nMocks = vi.hoisted(() => ({
   t: (key: string, fallbackOrOptions?: string | { defaultValue?: string; name?: string; n?: number }) => {
@@ -31,6 +32,7 @@ const i18nMocks = vi.hoisted(() => ({
 vi.mock('../../lib/api', () => ({
   getSessionBill: apiMocks.getSessionBill,
   createCheckout: apiMocks.createCheckout,
+  createAssistanceRequest: apiMocks.createAssistanceRequest,
 }));
 
 vi.mock('react-i18next', () => ({
@@ -63,15 +65,23 @@ function billWithProviders(paymentProviders: Array<'STRIPE' | 'EPAY' | 'BORICA' 
         totalPrice: 20,
         items: [
           {
+            orderItemId: 'oi-soup',
             name: 'Soup',
             quantity: 1,
+            paidQuantity: 0,
             unitPrice: 20,
+            unitPriceWithOptions: 20,
             selectedOptions: [],
           },
         ],
       },
     ],
     subtotal: 20,
+    paidSubtotal: 0,
+    remaining: 20,
+    splitItemsAvailable: true,
+    restaurantId: 'rest1',
+    tableName: '6',
     tipsEnabled: false,
     tipOptions: [],
     paymentProviders,
@@ -82,6 +92,7 @@ describe('PaymentModal hosted provider choices', () => {
   beforeEach(() => {
     apiMocks.getSessionBill.mockReset();
     apiMocks.createCheckout.mockReset();
+    apiMocks.createAssistanceRequest.mockReset();
   });
 
   afterEach(() => {
@@ -109,6 +120,52 @@ describe('PaymentModal hosted provider choices', () => {
     expect(screen.queryByRole('button', { name: 'ePay.bg' })).toBeNull();
   });
 
+  it('creates a cash payment assistance request without marking the bill paid', async () => {
+    apiMocks.getSessionBill.mockResolvedValueOnce(billWithProviders(['STRIPE']));
+    apiMocks.createAssistanceRequest.mockResolvedValueOnce({ id: 'cash-1' });
+
+    render(<PaymentModal sessionToken="tok1" onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Pay cash to waiter/i }));
+
+    await waitFor(() => {
+      expect(apiMocks.createAssistanceRequest).toHaveBeenCalledWith('6', 'rest1', 'CASH_PAYMENT');
+    });
+    expect(await screen.findByText('Cash request sent')).toBeTruthy();
+    expect(apiMocks.createCheckout).not.toHaveBeenCalled();
+  });
+
+  it('passes owned order ids when paying my orders online', async () => {
+    apiMocks.getSessionBill.mockResolvedValueOnce(billWithProviders(['STRIPE']));
+    apiMocks.createCheckout.mockResolvedValueOnce({
+      provider: 'STRIPE',
+      clientSecret: 'cs_test',
+      paymentId: 'pay-owned',
+      total: 20,
+      tipAmount: 0,
+    });
+
+    render(
+      <PaymentModal
+        sessionToken="tok1"
+        ownedOrderIds={['order1']}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByRole('button', { name: 'My orders' })).toBeTruthy();
+    fireEvent.click(screen.getByTestId('payment-continue-button'));
+
+    await waitFor(() =>
+      expect(apiMocks.createCheckout).toHaveBeenCalledWith('tok1', {
+        provider: 'STRIPE',
+        tipPercent: 0,
+        orderIds: ['order1'],
+      }),
+    );
+  });
+
   it('uses customer-facing source labels instead of exposing staff roles', async () => {
     apiMocks.getSessionBill.mockResolvedValueOnce({
       ...billWithProviders(['STRIPE']),
@@ -123,9 +180,12 @@ describe('PaymentModal hosted provider choices', () => {
           totalPrice: 12,
           items: [
             {
+              orderItemId: 'oi-salad',
               name: 'Salad',
               quantity: 1,
+              paidQuantity: 0,
               unitPrice: 12,
+              unitPriceWithOptions: 12,
               selectedOptions: [],
             },
           ],
@@ -140,9 +200,12 @@ describe('PaymentModal hosted provider choices', () => {
           totalPrice: 8,
           items: [
             {
+              orderItemId: 'oi-soup',
               name: 'Soup',
               quantity: 1,
+              paidQuantity: 0,
               unitPrice: 8,
+              unitPriceWithOptions: 8,
               selectedOptions: [],
             },
           ],

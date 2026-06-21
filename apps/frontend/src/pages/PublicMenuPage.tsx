@@ -25,6 +25,7 @@ import { getImageUrl } from "../lib/getImageUrl";
 import type { FeatureFlag } from "../hooks/useFeature";
 import type { BrandPalette, BrandMode } from "../components/branding/ThemePresets";
 import { getReadableTextColor } from "../utils/colors";
+import { clearOwnedOrderIds, getOwnedOrderIds } from "../lib/publicOrderOwnership";
 
 const DEFAULT_PUBLIC_LIGHT: BrandPalette = {
   bg: '#FFFFFF',
@@ -161,6 +162,7 @@ const PublicMenuPage = () => {
   const [selectedLang, setSelectedLang] = useState<string>("");
 
   const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [ownedOrderIds, setOwnedOrderIds] = useState<string[]>([]);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentBanner, setPaymentBanner] = useState<{ ok: boolean; text: string } | null>(null);
   const [isAssistanceDialogOpen, setIsAssistanceDialogOpen] = useState(false);
@@ -277,6 +279,9 @@ const PublicMenuPage = () => {
     ) {
       // Clear the stored session token so a new one is created on the next order.
       clearHostedCheckoutMarker(storedToken);
+      if (restaurantId && tableParam && storedToken) {
+        clearOwnedOrderIds(restaurantId, tableParam, storedToken);
+      }
       if (sessionKey) localStorage.removeItem(sessionKey);
       setSessionToken(null);
       setIsPaymentModalOpen(false);
@@ -453,6 +458,10 @@ const PublicMenuPage = () => {
       setSessionToken(stored);
     }
   }, [restaurantId, tableNumber]);
+
+  useEffect(() => {
+    setOwnedOrderIds(getOwnedOrderIds(restaurantId, tableNumber, sessionToken));
+  }, [restaurantId, tableNumber, sessionToken, isPaymentModalOpen]);
 
   // Restore call-waiter cooldown across reloads — the 60s anti-spam window is
   // persisted per restaurant+table so reloading the page can't bypass it.
@@ -1093,11 +1102,16 @@ const PublicMenuPage = () => {
       {isPaymentModalOpen && sessionToken && restaurantId && paymentsEnabled && (
         <PaymentModal
           sessionToken={sessionToken}
+          ownedOrderIds={ownedOrderIds}
           onClose={() => setIsPaymentModalOpen(false)}
           onSuccess={() => {
             setIsPaymentModalOpen(false);
+            if (tableNumber) {
+              clearOwnedOrderIds(restaurantId, tableNumber, sessionToken);
+              localStorage.removeItem(`session-${restaurantId}-${tableNumber}`);
+            }
             setSessionToken(null);
-            if (tableNumber) localStorage.removeItem(`session-${restaurantId}-${tableNumber}`);
+            setOwnedOrderIds([]);
           }}
         />
       )}

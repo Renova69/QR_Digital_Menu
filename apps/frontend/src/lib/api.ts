@@ -85,7 +85,9 @@ export const updateAssistanceRequest = async (requestId: string, updates: { isRe
     return response.data;
 }
 
-export const createAssistanceRequest = async (tableId: string, restaurantId: string, type: 'STANDARD' | 'URGENT' = 'STANDARD') => {
+export type AssistanceRequestType = 'STANDARD' | 'URGENT' | 'CASH_PAYMENT';
+
+export const createAssistanceRequest = async (tableId: string, restaurantId: string, type: AssistanceRequestType = 'STANDARD') => {
     const response = await api.post('/assistance-requests', { tableId, restaurantId, type });
     return response.data;
 }
@@ -456,6 +458,7 @@ export interface SessionBillOrder {
 export interface SessionBill {
   sessionId: string;
   tableId: string;
+  tableName?: string | null;
   orders: SessionBillOrder[];
   subtotal: number;
   paidSubtotal: number;
@@ -562,6 +565,7 @@ export const createCheckout = async (
     provider: CheckoutProvider;
     tipPercent?: number;
     boricaCardholder?: BoricaCardholderDetails;
+    orderIds?: string[];
   },
 ) => {
   const response = await api.post(`/payments/session/${token}/checkout`, data);

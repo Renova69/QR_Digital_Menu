@@ -15,6 +15,7 @@ import { getCustomerFacingOrderSourceLabel } from "../lib/orderSourceLabel";
 import { Toggle } from "../components/ui/Toggle";
 import type { FeatureFlag } from "../hooks/useFeature";
 import { isHappyHourActive } from "../lib/happyHour";
+import { rememberOwnedOrder } from "../lib/publicOrderOwnership";
 
 const MAX_ORDER_DISCOUNT_RATE = 0.15;
 
@@ -223,6 +224,12 @@ const CheckoutPage = () => {
 
       if (newOrder.sessionToken && tableNumber) {
         localStorage.setItem(`session-${restaurantId}-${tableNumber}`, newOrder.sessionToken);
+        rememberOwnedOrder(
+          restaurantId,
+          tableNumber,
+          newOrder.sessionToken,
+          newOrder.id,
+        );
       }
 
       // Remember the name so a returning customer on this table is pre-filled.

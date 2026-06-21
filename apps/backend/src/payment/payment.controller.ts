@@ -88,6 +88,7 @@ export class PaymentController {
         phone?: string;
         billingAddress?: string;
       };
+      orderIds?: string[];
     },
   ) {
     const provider = (body.provider ?? 'STRIPE').toUpperCase() as
@@ -100,6 +101,7 @@ export class PaymentController {
       provider,
       body.tipPercent ?? 0,
       body.boricaCardholder,
+      { orderIds: body.orderIds },
     );
   }
 

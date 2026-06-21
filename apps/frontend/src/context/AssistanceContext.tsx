@@ -18,7 +18,7 @@ interface AssistanceRequest {
   id: string;
   tableId: string;
   isResolved: boolean;
-  type?: 'STANDARD' | 'URGENT';
+  type?: 'STANDARD' | 'URGENT' | 'CASH_PAYMENT';
   createdAt: string;
   updatedAt: string;
 }

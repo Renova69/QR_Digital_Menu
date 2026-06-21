@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   AlertTriangle,
+  Banknote,
   BellRing,
   Check,
   Clock,
@@ -51,6 +52,14 @@ function getUrgencyStyle(request: AssistanceRequest) {
     };
   }
 
+  if (request.type === 'CASH_PAYMENT') {
+    return {
+      card: 'before:bg-emerald-500',
+      badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200',
+      ring: 'border-emerald-300 shadow-[0_0_0_3px_rgba(16,185,129,0.08)] dark:border-emerald-500/40',
+    };
+  }
+
   const minutes = getElapsedMinutes(request.createdAt);
   if (minutes >= 10) {
     return {
@@ -73,6 +82,15 @@ function getUrgencyStyle(request: AssistanceRequest) {
     badge: 'bg-primary/10 text-primary',
     ring: 'border-border',
   };
+}
+
+function getRequestTitle(request: AssistanceRequest, t: TFunction) {
+  if (request.type === 'CASH_PAYMENT') {
+    return t('assistance.cashPaymentRequested', 'Cash payment requested');
+  }
+  return request.isResolved
+    ? t('assistance.requestCompleted')
+    : t('assistance.guestNeedsStaff');
 }
 
 const AssistanceView = () => {
@@ -271,6 +289,12 @@ const AssistanceView = () => {
                           {t('assistance.urgent', 'Urgent')}
                         </span>
                       )}
+                      {request.type === 'CASH_PAYMENT' && (
+                        <span className="inline-flex h-6 items-center gap-1 rounded-full bg-emerald-500 px-2 text-[10px] font-black uppercase text-white shadow-sm">
+                          <Banknote className="h-3 w-3" />
+                          {t('assistance.cash', 'Cash')}
+                        </span>
+                      )}
                       {!request.isResolved && (
                         <span className="flex h-2 w-2 rounded-full bg-red-500 shadow-[0_0_0_4px_rgba(239,68,68,0.12)]" />
                       )}
@@ -304,11 +328,11 @@ const AssistanceView = () => {
 
                   <div className="flex items-start gap-2">
                     <div className={cn('mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', request.isResolved ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200' : 'bg-primary/10 text-primary')}>
-                      {request.isResolved ? <Check className="h-4 w-4" /> : <BellRing className="h-4 w-4" />}
+                      {request.isResolved ? <Check className="h-4 w-4" /> : request.type === 'CASH_PAYMENT' ? <Banknote className="h-4 w-4" /> : <BellRing className="h-4 w-4" />}
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-black text-foreground">
-                        {request.isResolved ? t('assistance.requestCompleted') : t('assistance.guestNeedsStaff')}
+                        {getRequestTitle(request, t)}
                       </p>
                     </div>
                   </div>

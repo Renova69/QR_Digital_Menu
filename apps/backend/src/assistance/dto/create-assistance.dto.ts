@@ -11,6 +11,6 @@ export class CreateAssistanceDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(['STANDARD', 'URGENT'])
+  @IsIn(['STANDARD', 'URGENT', 'CASH_PAYMENT'])
   type?: string;
 }
