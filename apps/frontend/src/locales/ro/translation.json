@@ -899,6 +899,7 @@
         "noTableData": "Nu există date despre sesiunile meselor în această perioadă",
         "noCostData": "Nu există date de cost — setați costurile articolelor în setările meniului",
         "collectedRevenue": "Venit încasat",
+        "netSales": "Vânzări nete (fără bacșiș)",
         "estimatedCOGS": "Cost estimat",
         "grossProfit": "Profit brut"
       },
@@ -975,6 +976,7 @@
     "grossProfit": "Profit brut",
     "grossMargin": "Marjă brută",
     "collectedRevenue": "Încasat",
+    "netSales": "Vânzări nete",
     "estimatedCOGS": "Cost estimat",
     "closeoutReport": "Raport de închidere",
     "accountantTools": "Instrumente contabile",

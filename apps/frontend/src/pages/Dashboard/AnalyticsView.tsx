@@ -44,6 +44,8 @@ import { useSummaryDateRange } from "../../hooks/useSummaryDateRange";
 import { getFeedbackSummary } from "../../lib/api";
 import { downloadAnalyticsExport } from "../../lib/analyticsExport";
 import { formatEuro } from "../../lib/currency";
+import { Panel } from "./analytics/Panel";
+import MenuProfitabilityPanel from "./analytics/MenuProfitabilityPanel";
 import DateRangeFilter from "./summary/DateRangeFilter";
 
 const CHART_COLORS = [
@@ -1040,94 +1042,7 @@ const AnalyticsView = () => {
       {canFullAnalytics &&
         data.menuProfitability &&
         data.menuProfitability.items.length > 0 && (
-          <section>
-            <Panel
-              title={t("analytics.menuProfitability", "Menu Profitability")}
-              eyebrow={t("analytics.menuEngineering", "Menu engineering")}
-            >
-              <div className="flex items-center gap-3 text-[10px] font-mono mb-4">
-                <span className="text-muted-foreground">
-                  {t("analytics.totalCost", "Cost")}:{" "}
-                  {formatEuro(data.menuProfitability.summary.totalCost)}
-                </span>
-                <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                  {t("analytics.totalProfit", "Profit")}:{" "}
-                  {formatEuro(data.menuProfitability.summary.totalProfit)}
-                </span>
-                <span className="font-black">
-                  {data.menuProfitability.summary.overallMargin}%
-                </span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                {(["Star", "Plowhorse", "Puzzle", "Dog"] as const).map((q) => {
-                  const quadrantItems = data.menuProfitability!.items.filter(
-                    (i) => i.quadrant === q,
-                  );
-                  return (
-                    <div key={q} className="rounded-lg bg-muted/40 p-3">
-                      <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
-                        {t(`analytics.${q.toLowerCase()}`, q)} (
-                        {quadrantItems.length})
-                      </div>
-                      <div className="text-[10px] text-muted-foreground mb-2">
-                        {t(`analytics.${q.toLowerCase()}Desc`, "")}
-                      </div>
-                      {quadrantItems.slice(0, 3).map((item) => (
-                        <div
-                          key={item.menuItemId}
-                          className="text-[10px] truncate"
-                        >
-                          <span className="font-semibold">{item.name}</span>
-                          <span className="text-muted-foreground ml-1">
-                            {item.margin}%
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="space-y-1">
-                {data.menuProfitability.items.slice(0, 8).map((item) => (
-                  <div
-                    key={item.menuItemId}
-                    className="flex items-center gap-2 text-xs"
-                  >
-                    <span className="w-28 truncate font-semibold">
-                      {item.name}
-                    </span>
-                    <span className="w-8 text-right text-muted-foreground">
-                      {item.quantity}×
-                    </span>
-                    <div className="flex-1 h-4 bg-muted rounded-full overflow-hidden flex">
-                      <div
-                        className="h-full bg-emerald-400/60 rounded-l-full"
-                        style={{ width: `${Math.max(0, item.margin)}%` }}
-                      />
-                      <div
-                        className="h-full bg-red-300/40 rounded-r-full"
-                        style={{ width: `${Math.max(0, 100 - item.margin)}%` }}
-                      />
-                    </div>
-                    <span className="w-12 text-right font-mono tabular-nums font-bold">
-                      {item.margin}%
-                    </span>
-                    <span className="w-16 text-right font-mono tabular-nums">
-                      {formatEuro(item.profit)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              {data.menuProfitability.summary.overallMargin === 0 && (
-                <div className="mt-3 text-xs text-muted-foreground italic">
-                  {t(
-                    "analytics.noCostData",
-                    "Add item costs in Menu settings to see profitability.",
-                  )}
-                </div>
-              )}
-            </Panel>
-          </section>
+          <MenuProfitabilityPanel data={data.menuProfitability} />
         )}
 
       {/* ── Gross Profit ───────────────────────────────────────────────── */}
@@ -1151,7 +1066,7 @@ const AnalyticsView = () => {
           </div>
           <div className="rounded-xl bg-surface p-4 border border-border/60">
             <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
-              {t("analytics.collectedRevenue", "Collected")}
+              {t("analytics.netSales", "Net Sales")}
             </div>
             <div className="text-xl font-display font-black text-foreground font-mono">
               {formatEuro(data.grossProfit.collectedRevenue)}
@@ -1441,37 +1356,6 @@ const InsightCard = ({
     <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
       {detail}
     </p>
-  </div>
-);
-
-const Panel = ({
-  title,
-  eyebrow,
-  action,
-  children,
-}: {
-  title: string;
-  eyebrow: string;
-  action?: string;
-  children: React.ReactNode;
-}) => (
-  <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
-    <div className="mb-5 flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-      <div>
-        <p className="text-[10px] font-black uppercase tracking-widest text-primary">
-          {eyebrow}
-        </p>
-        <h3 className="mt-1 text-lg font-display font-black text-foreground">
-          {title}
-        </h3>
-      </div>
-      {action && (
-        <span className="rounded-md bg-secondary px-3 py-1.5 text-[11px] font-bold text-muted-foreground">
-          {action}
-        </span>
-      )}
-    </div>
-    {children}
   </div>
 );
 

@@ -1085,7 +1085,7 @@ export async function downloadAnalyticsExport(
           h(ex("columns.percentage", "Percentage")),
         ],
         [
-          text(ex("labels.collectedRevenue", "Collected Revenue")),
+          text(ex("labels.netSales", "Net Sales (excl. tips)")),
           eur(data.grossProfit.collectedRevenue),
           bgn(data.grossProfit.collectedRevenue),
           empty(),

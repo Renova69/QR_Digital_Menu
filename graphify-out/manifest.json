@@ -400,8 +400,8 @@
     "hash": "872367ad7df0c64e172c6a9641866057"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\dashboard\\dashboard.service.ts": {
-    "mtime": 1782059140.186962,
-    "hash": "ff76e6f67bcc9b8ec31c0c6085056df9"
+    "mtime": 1782060226.6198251,
+    "hash": "103419874e83f9369681b72e6b63412a"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\events\\events.gateway.spec.ts": {
     "mtime": 1782038911.658507,
@@ -1556,8 +1556,8 @@
     "hash": "ac7975de6c088970ddd978543c5a9807"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\analyticsExport.ts": {
-    "mtime": 1782055417.2641368,
-    "hash": "964bc4dea94a8b39b091cdba021499eb"
+    "mtime": 1782060363.660401,
+    "hash": "85d7c568bd4c6d45be2960b796e302a7"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\api.csrf.test.ts": {
     "mtime": 1782043052.0579617,
@@ -1696,8 +1696,8 @@
     "hash": "bd05063f9703382640d820adcd1bb3b1"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\AnalyticsView.tsx": {
-    "mtime": 1782056608.578256,
-    "hash": "cf853f8339385f9ccf095ee61fdb2e78"
+    "mtime": 1782062466.2138224,
+    "hash": "8c189aadd63f52027f43304beef5c6df"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\AssistanceView.tsx": {
     "mtime": 1782026284.9829853,
@@ -1751,6 +1751,18 @@
     "mtime": 1782057931.747874,
     "hash": "8b13ecfc360d77a9bfe03679a1caaabf"
   },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\analytics\\MenuProfitabilityPanel.test.tsx": {
+    "mtime": 1782062644.8749824,
+    "hash": "2ed50ca0794d6058fe9be85fa15e5c5f"
+  },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\analytics\\MenuProfitabilityPanel.tsx": {
+    "mtime": 1782062378.9743173,
+    "hash": "1ca5a6bc7622d754f9978f18ada43aa6"
+  },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\analytics\\Panel.tsx": {
+    "mtime": 1782062360.4768898,
+    "hash": "abda9030314f48865bff67a0e10224c9"
+  },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\settings\\GeneralSettingsTab.tsx": {
     "mtime": 1780809486.0507786,
     "hash": "90f4f373a925a4a3754b562bc5aa78ed"
@@ -1770,6 +1782,10 @@
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\settings\\StaffSettingsTab.tsx": {
     "mtime": 1781845777.5670047,
     "hash": "1118bb0c8d21155cafea84bd82f5da07"
+  },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\summary\\DailyTargetCard.test.tsx": {
+    "mtime": 1782062668.5983663,
+    "hash": "b28f9e89c52431719a98d927aab3ed53"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\summary\\DailyTargetCard.tsx": {
     "mtime": 1782059195.2667587,

@@ -9,6 +9,10 @@ import { DashboardViewsService } from './dashboard-views.service';
 import { OrderStatus } from '@prisma/client';
 import { DateTime } from 'luxon';
 
+// Upper bound for the createdAt→updatedAt prep-time estimate (kitchen efficiency).
+// Orders idle past this are treated as stale/edited, not real prep time.
+const MAX_PREP_MINUTES = 180;
+
 @Injectable()
 export class DashboardService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DashboardService.name);
@@ -843,77 +847,66 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     start: Date,
     end: Date,
   ) {
-    const periodOrders = await this.prisma.order.findMany({
-      where: {
-        restaurantId,
-        customerPhone: { not: '' },
-        status: { not: OrderStatus.CANCELED },
-        createdAt: { gte: start, lte: end },
-      },
-      select: {
-        customerPhone: true,
-        customerName: true,
-        totalPrice: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const periodMap = new Map<
-      string,
-      { name: string; spend: number; visits: number; lastVisit: Date }
-    >();
-    for (const o of periodOrders) {
-      const existing = periodMap.get(o.customerPhone!) ?? {
-        name: o.customerName,
-        spend: 0,
-        visits: 0,
-        lastVisit: o.createdAt,
-      };
-      existing.spend += o.totalPrice;
-      existing.visits += 1;
-      if (o.createdAt > existing.lastVisit) existing.lastVisit = o.createdAt;
-      periodMap.set(o.customerPhone!, existing);
-    }
+    // Aggregate per customer in SQL (one row per phone, not one per order) so a
+    // busy restaurant's full-range order history never lands in Node memory.
+    type Row = {
+      phone: string;
+      name: string | null;
+      spend: number;
+      visits: number;
+      lastVisit: Date;
+    };
+    const rows = await this.prisma.$queryRaw<Row[]>`
+      SELECT
+        "customerPhone" AS phone,
+        MAX("customerName") AS name,
+        COALESCE(SUM("totalPrice"), 0)::float AS spend,
+        COUNT(*)::int AS visits,
+        MAX("createdAt") AS "lastVisit"
+      FROM customer_order
+      WHERE "restaurantId" = ${restaurantId}
+        AND "customerPhone" IS NOT NULL
+        AND "customerPhone" <> ''
+        AND status != 'CANCELED'
+        AND "createdAt" >= ${start}
+        AND "createdAt" <= ${end}
+      GROUP BY "customerPhone"
+      ORDER BY spend DESC
+    `;
 
     const now = new Date();
-    const topCustomers = [...periodMap.entries()]
-      .map(([phone, data]) => ({
-        customerPhone: phone,
-        customerName: data.name || '',
-        totalSpend: Math.round(data.spend * 100) / 100,
-        visitCount: data.visits,
+    const all = rows.map((r) => {
+      const spend = Number(r.spend);
+      return {
+        customerPhone: r.phone,
+        customerName: r.name || '',
+        totalSpend: Math.round(spend * 100) / 100,
+        visitCount: r.visits,
         avgSpendPerVisit:
-          data.visits > 0
-            ? Math.round((data.spend / data.visits) * 100) / 100
-            : 0,
+          r.visits > 0 ? Math.round((spend / r.visits) * 100) / 100 : 0,
         daysSinceLastVisit: Math.floor(
-          (now.getTime() - data.lastVisit.getTime()) / 86400000,
+          (now.getTime() - new Date(r.lastVisit).getTime()) / 86400000,
         ),
-      }))
-      .sort((a, b) => b.totalSpend - a.totalSpend)
-      .slice(0, 20);
+      };
+    });
 
-    const churn30 = topCustomers.filter(
+    // Churn is measured across the whole customer base, not just top spenders.
+    const churn30 = all.filter(
       (c) => c.daysSinceLastVisit >= 30 && c.daysSinceLastVisit < 60,
     ).length;
-    const churn60 = topCustomers.filter(
+    const churn60 = all.filter(
       (c) => c.daysSinceLastVisit >= 60 && c.daysSinceLastVisit < 90,
     ).length;
-    const churn90 = topCustomers.filter(
-      (c) => c.daysSinceLastVisit >= 90,
-    ).length;
+    const churn90 = all.filter((c) => c.daysSinceLastVisit >= 90).length;
 
     return {
-      topCustomers,
+      topCustomers: all.slice(0, 20),
       churnRiskCount: churn30 + churn60 + churn90,
       churnRiskBreakdown: { '30d': churn30, '60d': churn60, '90d+': churn90 },
       averageClv:
-        topCustomers.length > 0
+        all.length > 0
           ? Math.round(
-              (topCustomers.reduce((s, c) => s + c.totalSpend, 0) /
-                topCustomers.length) *
-                100,
+              (all.reduce((s, c) => s + c.totalSpend, 0) / all.length) * 100,
             ) / 100
           : 0,
     };
@@ -945,6 +938,10 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         AND o."createdAt" >= ${start}
         AND o."createdAt" <= ${end}
         AND o."updatedAt" > o."createdAt"
+        -- Prep time is estimated as createdAt → updatedAt (no completedAt column).
+        -- Drop orders whose last update is hours later (stale/edited sessions) so a
+        -- single multi-day order can't blow up the average.
+        AND EXTRACT(EPOCH FROM (o."updatedAt" - o."createdAt")) / 60 <= ${MAX_PREP_MINUTES}
     `;
 
     const prepTimes = rows.map((r) => Number(r.prepMinutes));
@@ -1218,7 +1215,9 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
   private async getGrossProfit(restaurantId: string, start: Date, end: Date) {
     const [collected, cogsResult] = await Promise.all([
       this.prisma.payment.aggregate({
-        _sum: { amount: true },
+        // payment.amount INCLUDES the tip — net out tipAmount so gross profit
+        // reflects sales, not tips (which are pass-through to staff).
+        _sum: { amount: true, tipAmount: true },
         where: {
           restaurantId,
           status: 'SUCCEEDED',
@@ -1238,8 +1237,11 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       `,
     ]);
 
+    // Net sales = gross collected − tips. This is the revenue base for profit.
     const collectedRevenue =
-      Math.round((collected._sum.amount ?? 0) * 100) / 100;
+      Math.round(
+        ((collected._sum.amount ?? 0) - (collected._sum.tipAmount ?? 0)) * 100,
+      ) / 100;
     const estimatedCOGS =
       cogsResult.length > 0
         ? Math.round(Number(cogsResult[0].totalCost) * 100) / 100
@@ -1417,7 +1419,13 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       pointsDiscount,
       refundedAmount,
       canceledRevenue,
-      netRevenue: Math.round((collectedRevenue - refundedAmount) * 100) / 100,
+      // Net revenue belongs to the restaurant, so tips (pass-through to staff)
+      // are excluded. payment.amount INCLUDES the tip (see computeSessionBalance:
+      // paidSubtotal = Σ amount − tipAmount), so collectedRevenue is gross.
+      // collected (SUCCEEDED) and refunded (REFUNDED) are disjoint status sets and
+      // totalTips covers SUCCEEDED only — no double subtraction.
+      netRevenue:
+        Math.round((collectedRevenue - totalTips - refundedAmount) * 100) / 100,
       totalOrderCount: orderCount,
       canceledOrderCount: canceledCount,
     };
