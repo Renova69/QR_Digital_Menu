@@ -32,6 +32,11 @@ export class CreateItemDto {
   @IsPositive()
   price: number;
 
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  costPrice?: number;
+
   @IsEnum(Currency)
   currency: Currency;
 

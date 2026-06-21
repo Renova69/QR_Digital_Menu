@@ -32,6 +32,7 @@ interface MenuContextType {
     allergens: string[];
     dietaryTags: string[];
     isFeatured?: boolean;
+    costPrice?: number;
     rewardPointsPrice?: number;
     relatedItemIds?: string[];
     imageFile?: File | null;
@@ -46,6 +47,7 @@ interface MenuContextType {
       allergens?: string[];
       dietaryTags?: string[];
       isFeatured?: boolean;
+      costPrice?: number;
       rewardPointsPrice?: number;
       relatedItemIds?: string[];
       imageFile?: File | null;
@@ -130,7 +132,9 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({
       try {
         await uploadImage({ itemId: newItem.id, file: imageFile });
       } catch (error) {
-        throw new Error('Item created but image upload failed. Please try uploading the image again in edit mode.');
+        throw new Error(
+          "Item created but image upload failed. Please try uploading the image again in edit mode.",
+        );
       }
     }
   };

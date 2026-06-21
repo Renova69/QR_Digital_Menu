@@ -111,6 +111,67 @@ function billWithProviders(paymentProviders: Array<'STRIPE' | 'EPAY' | 'BORICA' 
     tipsEnabled: false,
     tipOptions: [],
     paymentProviders,
+    pendingPayment: null,
+  };
+}
+
+function fullTablePendingPayment() {
+  return {
+    id: 'pending-full',
+    tableSessionId: 's1',
+    source: 'ONLINE_PAYMENT',
+    provider: 'STRIPE',
+    status: 'PENDING',
+    scope: 'FULL_TABLE',
+    orderIds: [],
+    amount: 20,
+    createdAt: '2026-06-21T08:00:00.000Z',
+  };
+}
+
+function scopedPendingPayment(orderIds: string[]) {
+  return {
+    id: 'pending-scoped',
+    tableSessionId: 's1',
+    source: 'CASH_REQUEST',
+    provider: 'CASH',
+    status: 'PENDING',
+    scope: 'ORDER_ITEMS',
+    orderIds,
+    amount: 20,
+    createdAt: '2026-06-21T08:00:00.000Z',
+  };
+}
+
+function twoOrderBill() {
+  return {
+    ...billWithProviders(['STRIPE']),
+    sessionId: 's1',
+    orders: [
+      ...billWithProviders(['STRIPE']).orders,
+      {
+        id: 'order2',
+        source: 'CUSTOMER',
+        customerName: 'Ivan',
+        customerPhone: null,
+        staffName: null,
+        staffRole: null,
+        totalPrice: 12,
+        items: [
+          {
+            orderItemId: 'oi-salad',
+            name: 'Salad',
+            quantity: 1,
+            paidQuantity: 0,
+            unitPrice: 12,
+            unitPriceWithOptions: 12,
+            selectedOptions: [],
+          },
+        ],
+      },
+    ],
+    subtotal: 32,
+    remaining: 32,
   };
 }
 
@@ -208,6 +269,101 @@ describe('PaymentModal hosted provider choices', () => {
     expect(socketMocks.socket.emit).toHaveBeenCalledWith('joinTableSessionRoom', {
       token: 'tok1',
     });
+  });
+
+  it('blocks payment actions when the loaded bill already has a full-table payment pending', async () => {
+    apiMocks.getSessionBill.mockResolvedValueOnce({
+      ...billWithProviders(['STRIPE']),
+      pendingPayment: fullTablePendingPayment(),
+    });
+
+    render(<PaymentModal sessionToken="tok1" onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+    expect(await screen.findByText(/Someone else is already paying the full table bill/i)).toBeTruthy();
+    expect((screen.getByTestId('payment-continue-button') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: /Pay cash to waiter/i }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('blocks an already-open modal when a full-table pending payment arrives over the socket', async () => {
+    socketMocks.state.socket = socketMocks.socket;
+    socketMocks.state.isConnected = true;
+    apiMocks.getSessionBill.mockResolvedValueOnce({
+      ...billWithProviders(['STRIPE']),
+      sessionId: 's1',
+    });
+
+    render(<PaymentModal sessionToken="tok1" onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+    await screen.findByTestId('payment-continue-button');
+    await waitFor(() => {
+      expect(socketMocks.handlers['billPayment:pending']?.length).toBe(1);
+    });
+
+    act(() => {
+      socketMocks.handlers['billPayment:pending'][0](fullTablePendingPayment());
+    });
+
+    expect(await screen.findByText(/Someone else is already paying the full table bill/i)).toBeTruthy();
+    expect((screen.getByTestId('payment-continue-button') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('disables full-table payment while allowing non-overlapping owned orders', async () => {
+    apiMocks.getSessionBill.mockResolvedValueOnce({
+      ...twoOrderBill(),
+      pendingPayment: scopedPendingPayment(['order1']),
+    });
+    apiMocks.createCheckout.mockResolvedValueOnce({
+      provider: 'STRIPE',
+      clientSecret: 'cs_test',
+      paymentId: 'pay-owned',
+      total: 12,
+      tipAmount: 0,
+    });
+
+    render(
+      <PaymentModal
+        sessionToken="tok1"
+        ownedOrderIds={['order2']}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText(/Part of this table bill is already being paid/i)).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'My orders' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('button', { name: 'Full table' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('payment-continue-button') as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(screen.getByTestId('payment-continue-button'));
+
+    await waitFor(() =>
+      expect(apiMocks.createCheckout).toHaveBeenCalledWith('tok1', {
+        provider: 'STRIPE',
+        tipPercent: 0,
+        orderIds: ['order2'],
+      }),
+    );
+  });
+
+  it('blocks owned-order payment when the pending scoped payment overlaps', async () => {
+    apiMocks.getSessionBill.mockResolvedValueOnce({
+      ...twoOrderBill(),
+      pendingPayment: scopedPendingPayment(['order1']),
+    });
+
+    render(
+      <PaymentModal
+        sessionToken="tok1"
+        ownedOrderIds={['order1']}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText(/Part of this table bill is already being paid/i)).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Full table' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('payment-continue-button') as HTMLButtonElement).disabled).toBe(true);
+    expect(apiMocks.createCheckout).not.toHaveBeenCalled();
   });
 
   it('passes owned order ids when paying my orders online', async () => {

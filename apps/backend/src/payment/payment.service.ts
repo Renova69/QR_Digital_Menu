@@ -58,6 +58,10 @@ type CheckoutScope = {
   chargeSubtotal: number;
 };
 
+type BillPaymentScope =
+  | { kind: 'FULL_TABLE' }
+  | { kind: 'ORDER_ITEMS'; orderIds: string[] };
+
 type CheckoutCharge = {
   subtotal: number;
   tipAmount: number;
@@ -91,6 +95,18 @@ type CashPaymentRequestDto = {
   resolvedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+};
+
+type PendingBillPaymentDto = {
+  id: string;
+  tableSessionId: string;
+  source: 'ONLINE_PAYMENT' | 'CASH_REQUEST';
+  provider: CheckoutProvider | 'CASH';
+  status: 'PENDING';
+  scope: 'FULL_TABLE' | 'ORDER_ITEMS';
+  orderIds: string[];
+  amount: number;
+  createdAt: Date;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -694,6 +710,142 @@ export class PaymentService {
     return scope ? ({ checkoutScope: scope } as Record<string, unknown>) : undefined;
   }
 
+  private billScopeFromCheckoutScope(scope: CheckoutScope | null): BillPaymentScope {
+    return scope
+      ? { kind: 'ORDER_ITEMS', orderIds: this.normalizeScopeOrderIds(scope.orderIds) }
+      : { kind: 'FULL_TABLE' };
+  }
+
+  private billScopeFromCashRequest(request: {
+    scope: CashPaymentRequestScope;
+    orderIds?: string[] | null;
+  }): BillPaymentScope {
+    return request.scope === CashPaymentRequestScope.ORDER_ITEMS
+      ? {
+          kind: 'ORDER_ITEMS',
+          orderIds: this.normalizeScopeOrderIds(request.orderIds ?? []),
+        }
+      : { kind: 'FULL_TABLE' };
+  }
+
+  private billScopeFromPayment(payment: any): BillPaymentScope {
+    return this.billScopeFromCheckoutScope(
+      this.getCheckoutScopeFromPayload(payment.providerPayload),
+    );
+  }
+
+  private normalizeScopeOrderIds(orderIds: string[]): string[] {
+    return Array.from(
+      new Set(
+        orderIds
+          .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+          .map((id) => id.trim()),
+      ),
+    ).sort();
+  }
+
+  private billScopesEqual(a: BillPaymentScope, b: BillPaymentScope): boolean {
+    if (a.kind !== b.kind) return false;
+    if (a.kind === 'FULL_TABLE') return true;
+    if (b.kind === 'FULL_TABLE') return true;
+    const aIds = this.normalizeScopeOrderIds(a.orderIds);
+    const bIds = this.normalizeScopeOrderIds(b.orderIds);
+    return aIds.length === bIds.length && aIds.every((id, index) => id === bIds[index]);
+  }
+
+  private billScopesOverlap(a: BillPaymentScope, b: BillPaymentScope): boolean {
+    if (a.kind === 'FULL_TABLE' || b.kind === 'FULL_TABLE') return true;
+    const bIds = new Set(this.normalizeScopeOrderIds(b.orderIds));
+    return this.normalizeScopeOrderIds(a.orderIds).some((id) => bIds.has(id));
+  }
+
+  private paymentBillScopeEquals(payment: any, scope: BillPaymentScope): boolean {
+    return this.billScopesEqual(this.billScopeFromPayment(payment), scope);
+  }
+
+  private async assertNoPendingBillScopeConflict(
+    tx: Prisma.TransactionClient,
+    sessionId: string,
+    candidateScope: BillPaymentScope,
+    options: {
+      ignorePaymentIds?: string[];
+      ignoreCashRequestIds?: string[];
+    } = {},
+  ): Promise<void> {
+    const ignorePaymentIds = new Set(options.ignorePaymentIds ?? []);
+    const ignoreCashRequestIds = new Set(options.ignoreCashRequestIds ?? []);
+
+    const pendingPayments = await tx.payment.findMany({
+      where: {
+        tableSessionId: sessionId,
+        status: PaymentStatus.PENDING,
+        ...(ignorePaymentIds.size > 0 ? { id: { notIn: [...ignorePaymentIds] } } : {}),
+      },
+      select: {
+        id: true,
+        provider: true,
+        status: true,
+        providerPayload: true,
+      },
+    });
+
+    for (const payment of pendingPayments) {
+      if (ignorePaymentIds.has(payment.id)) continue;
+      if (payment.status !== PaymentStatus.PENDING) continue;
+      const pendingScope = this.billScopeFromPayment(payment);
+      if (this.billScopesOverlap(candidateScope, pendingScope)) {
+        throw new ConflictException(
+          'Another payment for this bill is already pending. Please wait for it to finish or cancel it before starting a new one.',
+        );
+      }
+    }
+
+    const pendingCashRequests = await tx.cashPaymentRequest.findMany({
+      where: {
+        tableSessionId: sessionId,
+        status: CashPaymentRequestStatus.PENDING,
+        ...(ignoreCashRequestIds.size > 0 ? { id: { notIn: [...ignoreCashRequestIds] } } : {}),
+      },
+      select: {
+        id: true,
+        status: true,
+        scope: true,
+        orderIds: true,
+      },
+    });
+
+    for (const request of pendingCashRequests) {
+      if (ignoreCashRequestIds.has(request.id)) continue;
+      if (request.status !== CashPaymentRequestStatus.PENDING) continue;
+      const pendingScope = this.billScopeFromCashRequest(request);
+      if (this.billScopesOverlap(candidateScope, pendingScope)) {
+        throw new ConflictException(
+          'Another payment for this bill is already pending. Please wait for it to finish or cancel it before starting a new one.',
+        );
+      }
+    }
+  }
+
+  private async createPendingPaymentAfterScopeGuard(
+    sessionId: string,
+    scope: CheckoutScope | null,
+    data: Prisma.PaymentUncheckedCreateInput,
+    options: {
+      ignorePaymentIds?: string[];
+    } = {},
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      await this.lockOpenSessionForSettlement(tx, sessionId);
+      await this.assertNoPendingBillScopeConflict(
+        tx,
+        sessionId,
+        this.billScopeFromCheckoutScope(scope),
+        options,
+      );
+      return tx.payment.create({ data });
+    });
+  }
+
   private getCashPaymentRequestScopeKey(
     scope: CashPaymentRequestScope,
     orderIds: string[],
@@ -736,6 +888,118 @@ export class PaymentService {
       payload,
     );
     this.events.emitToTableSession(request.tableSessionId, eventName, payload);
+
+    if (request.status === CashPaymentRequestStatus.PENDING) {
+      this.emitPendingBillPayment(this.formatPendingCashRequest(request));
+    } else {
+      this.emitBillPaymentCleared(
+        request.tableSessionId,
+        request.id,
+        'CASH_REQUEST',
+      );
+    }
+  }
+
+  private billScopeToPayload(scope: BillPaymentScope): {
+    scope: 'FULL_TABLE' | 'ORDER_ITEMS';
+    orderIds: string[];
+  } {
+    return scope.kind === 'FULL_TABLE'
+      ? { scope: 'FULL_TABLE', orderIds: [] }
+      : { scope: 'ORDER_ITEMS', orderIds: this.normalizeScopeOrderIds(scope.orderIds) };
+  }
+
+  private formatPendingPayment(payment: any): PendingBillPaymentDto {
+    const scope = this.billScopeToPayload(this.billScopeFromPayment(payment));
+    return {
+      id: payment.id,
+      tableSessionId: payment.tableSessionId,
+      source: 'ONLINE_PAYMENT',
+      provider: payment.provider as CheckoutProvider,
+      status: PaymentStatus.PENDING,
+      scope: scope.scope,
+      orderIds: scope.orderIds,
+      amount: this.roundMoney(payment.amount ?? 0),
+      createdAt: payment.createdAt ?? new Date(),
+    };
+  }
+
+  private formatPendingCashRequest(request: any): PendingBillPaymentDto {
+    return {
+      id: request.id,
+      tableSessionId: request.tableSessionId,
+      source: 'CASH_REQUEST',
+      provider: 'CASH',
+      status: CashPaymentRequestStatus.PENDING,
+      scope:
+        request.scope === CashPaymentRequestScope.ORDER_ITEMS
+          ? 'ORDER_ITEMS'
+          : 'FULL_TABLE',
+      orderIds: this.normalizeScopeOrderIds(request.orderIds ?? []),
+      amount: this.roundMoney(request.requestedAmount ?? 0),
+      createdAt: request.createdAt ?? new Date(),
+    };
+  }
+
+  private emitPendingBillPayment(payment: PendingBillPaymentDto) {
+    this.events.emitToTableSession(
+      payment.tableSessionId,
+      'billPayment:pending',
+      payment,
+    );
+  }
+
+  private emitBillPaymentCleared(
+    tableSessionId: string,
+    id: string,
+    source: PendingBillPaymentDto['source'],
+  ) {
+    this.events.emitToTableSession(tableSessionId, 'billPayment:cleared', {
+      id,
+      tableSessionId,
+      source,
+    });
+  }
+
+  private async getPendingBillPayment(
+    sessionId: string,
+  ): Promise<PendingBillPaymentDto | null> {
+    const [payments, cashRequests] = await Promise.all([
+      this.prisma.payment.findMany({
+        where: { tableSessionId: sessionId, status: PaymentStatus.PENDING },
+        select: {
+          id: true,
+          tableSessionId: true,
+          provider: true,
+          providerPayload: true,
+          amount: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.cashPaymentRequest.findMany({
+        where: {
+          tableSessionId: sessionId,
+          status: CashPaymentRequestStatus.PENDING,
+        },
+        select: {
+          id: true,
+          tableSessionId: true,
+          scope: true,
+          orderIds: true,
+          requestedAmount: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    const pending = [
+      ...payments.map((payment) => this.formatPendingPayment(payment)),
+      ...cashRequests.map((request) => this.formatPendingCashRequest(request)),
+    ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    return pending.find((payment) => payment.scope === 'FULL_TABLE') ?? pending[0] ?? null;
   }
 
   private getOrderItemUnitPrice(item: any): number {
@@ -1401,6 +1665,7 @@ export class PaymentService {
     tipsEnabled: boolean;
     tipOptions: number[];
     paymentProviders: CheckoutProvider[];
+    pendingPayment: PendingBillPaymentDto | null;
   }> {
     const session = await this.prisma.tableSession.findFirst({
       where: { token, status: 'OPEN' },
@@ -1426,6 +1691,7 @@ export class PaymentService {
 
     const subtotal = orders.reduce((sum: number, o: any) => sum + o.totalPrice, 0);
     const balance = await this.computeSessionBalance(this.prisma, session.id);
+    const pendingPayment = await this.getPendingBillPayment(session.id);
 
     const enrichedOrders = orders.map((order) => ({
       id: order.id,
@@ -1484,6 +1750,7 @@ export class PaymentService {
         ...(this.isBoricaConfigured(session.restaurant) ? ['BORICA' as const] : []),
         ...(this.isMyposConfigured(session.restaurant) ? ['MYPOS' as const] : []),
       ],
+      pendingPayment,
     };
   }
 
@@ -1513,60 +1780,78 @@ export class PaymentService {
       });
     }
 
-    const normalizedScope = this.normalizeCheckoutScope(scopeInput);
-    const charge = await this.resolveCheckoutCharge(
-      this.prisma,
-      session,
-      0,
-      0,
-      normalizedScope ?? undefined,
-    );
-    const scope = normalizedScope
-      ? CashPaymentRequestScope.ORDER_ITEMS
-      : CashPaymentRequestScope.FULL_TABLE;
-    const orderIds = normalizedScope?.orderIds ?? [];
-    const scopeKey = this.getCashPaymentRequestScopeKey(scope, orderIds);
+    const result = await this.prisma.$transaction(async (tx) => {
+      await this.lockOpenSessionForSettlement(tx, session.id);
 
-    const existing = await this.prisma.cashPaymentRequest.findFirst({
-      where: {
-        tableSessionId: session.id,
-        status: CashPaymentRequestStatus.PENDING,
-        scopeKey,
-      },
-      include: { table: { select: { name: true } } },
-      orderBy: { createdAt: 'desc' },
-    });
+      const normalizedScope = this.normalizeCheckoutScope(scopeInput);
+      const charge = await this.resolveCheckoutCharge(
+        tx,
+        session,
+        0,
+        0,
+        normalizedScope ?? undefined,
+      );
+      const scope = normalizedScope
+        ? CashPaymentRequestScope.ORDER_ITEMS
+        : CashPaymentRequestScope.FULL_TABLE;
+      const orderIds = normalizedScope?.orderIds ?? [];
+      const scopeKey = this.getCashPaymentRequestScopeKey(scope, orderIds);
+      const billScope =
+        scope === CashPaymentRequestScope.ORDER_ITEMS
+          ? ({ kind: 'ORDER_ITEMS', orderIds } as BillPaymentScope)
+          : ({ kind: 'FULL_TABLE' } as BillPaymentScope);
 
-    if (existing) {
-      const updated = await this.prisma.cashPaymentRequest.update({
-        where: { id: existing.id },
+      const existing = await tx.cashPaymentRequest.findFirst({
+        where: {
+          tableSessionId: session.id,
+          status: CashPaymentRequestStatus.PENDING,
+          scopeKey,
+        },
+        include: { table: { select: { name: true } } },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      await this.assertNoPendingBillScopeConflict(tx, session.id, billScope, {
+        ignoreCashRequestIds: existing ? [existing.id] : [],
+      });
+
+      if (existing) {
+        const request = await tx.cashPaymentRequest.update({
+          where: { id: existing.id },
+          data: {
+            requestedAmount: charge.subtotal,
+            orderIds,
+            scope,
+          },
+          include: { table: { select: { name: true } } },
+        });
+        return {
+          eventName: 'cashPaymentRequest:updated' as const,
+          request,
+        };
+      }
+
+      const request = await tx.cashPaymentRequest.create({
         data: {
-          requestedAmount: charge.subtotal,
-          orderIds,
+          restaurantId,
+          tableSessionId: session.id,
+          tableId: session.tableId,
           scope,
+          scopeKey,
+          orderIds,
+          requestedAmount: charge.subtotal,
+          currency: 'EUR',
         },
         include: { table: { select: { name: true } } },
       });
-      this.emitCashPaymentRequestEvent('cashPaymentRequest:updated', updated);
-      return this.formatCashPaymentRequest(updated);
-    }
-
-    const request = await this.prisma.cashPaymentRequest.create({
-      data: {
-        restaurantId,
-        tableSessionId: session.id,
-        tableId: session.tableId,
-        scope,
-        scopeKey,
-        orderIds,
-        requestedAmount: charge.subtotal,
-        currency: 'EUR',
-      },
-      include: { table: { select: { name: true } } },
+      return {
+        eventName: 'cashPaymentRequest:created' as const,
+        request,
+      };
     });
 
-    this.emitCashPaymentRequestEvent('cashPaymentRequest:created', request);
-    return this.formatCashPaymentRequest(request);
+    this.emitCashPaymentRequestEvent(result.eventName, result.request);
+    return this.formatCashPaymentRequest(result.request);
   }
 
   async listCashPaymentRequests(
@@ -1860,6 +2145,13 @@ export class PaymentService {
         where: { id: { in: abandonedIds }, status: 'PENDING' },
         data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
       });
+      for (const paymentId of abandonedIds) {
+        this.emitBillPaymentCleared(
+          session.id,
+          paymentId,
+          'ONLINE_PAYMENT',
+        );
+      }
     }
   }
 
@@ -2015,12 +2307,18 @@ export class PaymentService {
         (!p.providerReference || p.providerReference === stripeCheckoutKey) &&
         Math.abs((p.amount ?? 0) - total) < 0.001,
     );
-    const missingStripeIntentIds = new Set<string>();
+    const ignoredPendingPaymentIds: string[] = [];
     if (matchingIntent?.stripePaymentIntentId) {
       const existing = await this.stripe.retrievePaymentIntent(
         matchingIntent.stripePaymentIntentId,
       );
       if (existing?.clientSecret) {
+        this.emitPendingBillPayment(
+          this.formatPendingPayment({
+            ...matchingIntent,
+            tableSessionId: session.id,
+          }),
+        );
         return {
           clientSecret: existing.clientSecret,
           paymentId: matchingIntent.id,
@@ -2028,54 +2326,28 @@ export class PaymentService {
           tipAmount,
         };
       }
-      missingStripeIntentIds.add(matchingIntent.stripePaymentIntentId);
-    }
-
-    for (const stale of existingPayments) {
-      if (
-        stale.provider === 'EPAY' ||
-        stale.provider === 'BORICA' ||
-        stale.provider === 'MYPOS'
-      ) {
-        // Hosted-redirect providers have no server-side cancel API. A processed
-        // payment would have triggered a callback and moved out of PENDING before
-        // the customer returned to the menu — still PENDING means abandoned.
-        await this.prisma.payment.updateMany({
-          where: { id: stale.id, status: 'PENDING' },
-          data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
-        });
-        continue;
-      }
-      if (stale.stripePaymentIntentId) {
-        if (!missingStripeIntentIds.has(stale.stripePaymentIntentId)) {
-          try {
-            await this.stripe.cancelPaymentIntent(stale.stripePaymentIntentId);
-          } catch (err) {
-            // Cancel fails if the intent already succeeded — treat as paid to
-            // avoid a second charge rather than racing to create a new intent.
-            this.logger.warn(
-              `Could not cancel stale PaymentIntent ${stale.stripePaymentIntentId} for session ${session.id}`,
-            );
-            throw new ConflictException(
-              'A payment for this session is already being processed',
-            );
-          }
-        }
-      }
       await this.prisma.payment.updateMany({
-        where: { id: stale.id, status: 'PENDING' },
+        where: { id: matchingIntent.id, status: 'PENDING' },
         data: {
           status: 'ABANDONED',
           providerStatus: 'ABANDONED',
           providerReference: null,
         },
       });
+      this.emitBillPaymentCleared(
+        session.id,
+        matchingIntent.id,
+        'ONLINE_PAYMENT',
+      );
+      ignoredPendingPaymentIds.push(matchingIntent.id);
     }
 
     let payment: { id: string };
     try {
-      payment = await this.prisma.payment.create({
-        data: {
+      payment = await this.createPendingPaymentAfterScopeGuard(
+        session.id,
+        resolvedCheckoutScope,
+        {
           tableSessionId: session.id,
           restaurantId: session.restaurantId,
           amount: total,
@@ -2088,7 +2360,8 @@ export class PaymentService {
           providerPayload: this.checkoutScopePayload(resolvedCheckoutScope) as any,
           splitMode: resolvedCheckoutScope ? SplitMode.ITEM : undefined,
         },
-      });
+        { ignorePaymentIds: ignoredPendingPaymentIds },
+      );
     } catch (error) {
       if (!this.isUniqueConstraintError(error)) throw error;
       const existing = await this.prisma.payment.findFirst({
@@ -2134,6 +2407,17 @@ export class PaymentService {
         where: { id: payment.id },
         data: { stripePaymentIntentId: paymentIntentId },
       });
+
+      this.emitPendingBillPayment(
+        this.formatPendingPayment({
+          id: payment.id,
+          tableSessionId: session.id,
+          provider: 'STRIPE',
+          providerPayload: this.checkoutScopePayload(resolvedCheckoutScope),
+          amount: total,
+          createdAt: new Date(),
+        }),
+      );
 
       return { clientSecret, paymentId: payment.id, total, tipAmount };
     } catch (err) {
@@ -2196,25 +2480,16 @@ export class PaymentService {
         status: { in: ['PENDING'] },
       },
     });
-
-    // Abandon stale non-ePay PENDING payments — customer switched provider.
-    // A payment that reached the gateway would have triggered a callback before
-    // the customer returned to the menu, moving it out of PENDING. Still PENDING
-    // here means the redirect was abandoned.
-    for (const stale of existingPayments.filter(
-      (p) => p.status === 'PENDING' && p.provider !== 'EPAY',
-    )) {
-      if (stale.stripePaymentIntentId) {
-        await this.stripe.cancelPaymentIntent(stale.stripePaymentIntentId).catch(() => {});
-      }
-      await this.prisma.payment.updateMany({
-        where: { id: stale.id, status: 'PENDING' },
-        data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
-      });
-    }
+    const candidateBillScope = this.billScopeFromCheckoutScope(
+      resolvedCheckoutScope,
+    );
+    const ignoredPendingPaymentIds: string[] = [];
 
     const pendingEpay = existingPayments.find(
-      (p) => p.provider === 'EPAY' && p.status === 'PENDING',
+      (p) =>
+        p.provider === 'EPAY' &&
+        p.status === 'PENDING' &&
+        this.paymentBillScopeEquals(p, candidateBillScope),
     );
     if (pendingEpay) {
       const checkoutForm = (pendingEpay.providerPayload as any)?.checkoutForm;
@@ -2230,6 +2505,12 @@ export class PaymentService {
       );
 
       if (checkoutForm && sameAmount && sameScope && notExpired) {
+        this.emitPendingBillPayment(
+          this.formatPendingPayment({
+            ...pendingEpay,
+            tableSessionId: session.id,
+          }),
+        );
         return {
           provider: 'EPAY' as const,
           paymentId: pendingEpay.id,
@@ -2241,18 +2522,22 @@ export class PaymentService {
         };
       }
 
-      if (sameAmount && sameScope && !notExpired) {
+      if (!notExpired) {
         // Invoice EXP_TIME has passed — mark stale record FAILED and create a fresh checkout.
         await this.prisma.payment.updateMany({
           where: { id: pendingEpay.id, status: 'PENDING' },
           data: { status: 'FAILED', providerStatus: 'EXPIRED' },
         });
+        this.emitBillPaymentCleared(
+          session.id,
+          pendingEpay.id,
+          'ONLINE_PAYMENT',
+        );
+        ignoredPendingPaymentIds.push(pendingEpay.id);
       } else {
-        // Amount changed (order updated) — abandon stale checkout and create fresh one.
-        await this.prisma.payment.updateMany({
-          where: { id: pendingEpay.id, status: 'PENDING' },
-          data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
-        });
+        throw new ConflictException(
+          'Another payment for this bill is already pending. Please wait for it to finish or cancel it before starting a new one.',
+        );
       }
     }
 
@@ -2260,8 +2545,10 @@ export class PaymentService {
     const expiresAt = this.getEpayExpirationDate();
     const invoice = this.createEpayInvoice();
 
-    const payment = await this.prisma.payment.create({
-      data: {
+    const payment = await this.createPendingPaymentAfterScopeGuard(
+      session.id,
+      resolvedCheckoutScope,
+      {
         tableSessionId: session.id,
         restaurantId: session.restaurantId,
         amount: total,
@@ -2275,7 +2562,8 @@ export class PaymentService {
         providerPayload: this.checkoutScopePayload(resolvedCheckoutScope) as any,
         splitMode: resolvedCheckoutScope ? SplitMode.ITEM : undefined,
       },
-    });
+      { ignorePaymentIds: ignoredPendingPaymentIds },
+    );
 
     const checkoutForm = this.epay.createCheckoutForm({
       mode: restaurant.epayMode === 'LIVE' ? 'LIVE' : 'DEMO',
@@ -2305,6 +2593,17 @@ export class PaymentService {
         ) as any,
       },
     });
+
+    this.emitPendingBillPayment(
+      this.formatPendingPayment({
+        id: payment.id,
+        tableSessionId: session.id,
+        provider: 'EPAY',
+        providerPayload: this.checkoutScopePayload(resolvedCheckoutScope),
+        amount: total,
+        createdAt: new Date(),
+      }),
+    );
 
     return {
       provider: 'EPAY' as const,
@@ -2363,24 +2662,17 @@ export class PaymentService {
         status: { in: ['PENDING'] },
       },
     });
-
-    for (const stale of existingPayments.filter(
-      (p) => p.status === 'PENDING' && p.provider !== 'MYPOS',
-    )) {
-      if (stale.stripePaymentIntentId) {
-        await this.stripe
-          .cancelPaymentIntent(stale.stripePaymentIntentId)
-          .catch(() => {});
-      }
-      await this.prisma.payment.updateMany({
-        where: { id: stale.id, status: 'PENDING' },
-        data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
-      });
-    }
+    const candidateBillScope = this.billScopeFromCheckoutScope(
+      resolvedCheckoutScope,
+    );
+    const ignoredPendingPaymentIds: string[] = [];
 
     const MYPOS_PENDING_TTL_MS = 15 * 60 * 1000;
     const pendingMypos = existingPayments.find(
-      (p) => p.provider === 'MYPOS' && p.status === 'PENDING',
+      (p) =>
+        p.provider === 'MYPOS' &&
+        p.status === 'PENDING' &&
+        this.paymentBillScopeEquals(p, candidateBillScope),
     );
     if (pendingMypos) {
       const age =
@@ -2394,6 +2686,12 @@ export class PaymentService {
         resolvedCheckoutScope,
       );
       if (checkoutForm && sameAmount && sameScope && age < MYPOS_PENDING_TTL_MS) {
+        this.emitPendingBillPayment(
+          this.formatPendingPayment({
+            ...pendingMypos,
+            tableSessionId: session.id,
+          }),
+        );
         return {
           provider: 'MYPOS' as const,
           paymentId: pendingMypos.id,
@@ -2405,13 +2703,22 @@ export class PaymentService {
         };
       }
 
-      await this.prisma.payment.updateMany({
-        where: { id: pendingMypos.id, status: 'PENDING' },
-        data: {
-          status: sameAmount && sameScope ? 'FAILED' : 'ABANDONED',
-          providerStatus: sameAmount && sameScope ? 'EXPIRED' : 'ABANDONED',
-        },
-      });
+      if (!checkoutForm || age >= MYPOS_PENDING_TTL_MS) {
+        await this.prisma.payment.updateMany({
+          where: { id: pendingMypos.id, status: 'PENDING' },
+          data: { status: 'FAILED', providerStatus: 'EXPIRED' },
+        });
+        this.emitBillPaymentCleared(
+          session.id,
+          pendingMypos.id,
+          'ONLINE_PAYMENT',
+        );
+        ignoredPendingPaymentIds.push(pendingMypos.id);
+      } else {
+        throw new ConflictException(
+          'Another payment for this bill is already pending. Please wait for it to finish or cancel it before starting a new one.',
+        );
+      }
     }
 
     const backendBase = (process.env.BACKEND_URL || '').replace(/\/+$/, '');
@@ -2478,8 +2785,10 @@ export class PaymentService {
       }
 
       try {
-        payment = await this.prisma.payment.create({
-          data: {
+        payment = await this.createPendingPaymentAfterScopeGuard(
+          session.id,
+          resolvedCheckoutScope,
+          {
             tableSessionId: session.id,
             restaurantId: session.restaurantId,
             amount: total,
@@ -2503,7 +2812,8 @@ export class PaymentService {
             ) as any,
             splitMode: resolvedCheckoutScope ? SplitMode.ITEM : undefined,
           },
-        });
+          { ignorePaymentIds: ignoredPendingPaymentIds },
+        );
         break;
       } catch (err: unknown) {
         if (attempt < MAX_ORDER_RETRIES && (err as any)?.code === 'P2002') {
@@ -2515,6 +2825,17 @@ export class PaymentService {
         throw err;
       }
     }
+
+    this.emitPendingBillPayment(
+      this.formatPendingPayment({
+        id: payment!.id,
+        tableSessionId: session.id,
+        provider: 'MYPOS',
+        providerPayload: this.checkoutScopePayload(resolvedCheckoutScope),
+        amount: total,
+        createdAt: new Date(),
+      }),
+    );
 
     return {
       provider: 'MYPOS' as const,
@@ -2577,19 +2898,10 @@ export class PaymentService {
         status: { in: ['PENDING'] },
       },
     });
-
-    // Abandon stale non-BORICA PENDING payments — customer switched provider.
-    for (const stale of existingPayments.filter(
-      (p) => p.status === 'PENDING' && p.provider !== 'BORICA',
-    )) {
-      if (stale.stripePaymentIntentId) {
-        await this.stripe.cancelPaymentIntent(stale.stripePaymentIntentId).catch(() => {});
-      }
-      await this.prisma.payment.updateMany({
-        where: { id: stale.id, status: 'PENDING' },
-        data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
-      });
-    }
+    const candidateBillScope = this.billScopeFromCheckoutScope(
+      resolvedCheckoutScope,
+    );
+    const ignoredPendingPaymentIds: string[] = [];
 
     // #10 — BACKEND_URL must be absolute. LIVE requires HTTPS; http://localhost allowed for DEMO only.
     const backendBase = (process.env.BACKEND_URL || '').replace(/\/+$/, '');
@@ -2606,7 +2918,10 @@ export class PaymentService {
     // #7 — Stale pending TTL: reuse only if same amount AND created within the last 15 min.
     const BORICA_PENDING_TTL_MS = 15 * 60 * 1000;
     const pendingBorica = existingPayments.find(
-      (p) => p.provider === 'BORICA' && p.status === 'PENDING',
+      (p) =>
+        p.provider === 'BORICA' &&
+        p.status === 'PENDING' &&
+        this.paymentBillScopeEquals(p, candidateBillScope),
     );
     if (pendingBorica) {
       const age = Date.now() - new Date((pendingBorica as any).createdAt ?? 0).getTime();
@@ -2619,6 +2934,12 @@ export class PaymentService {
         resolvedCheckoutScope,
       );
       if (checkoutForm && sameAmount && sameScope && age < BORICA_PENDING_TTL_MS) {
+        this.emitPendingBillPayment(
+          this.formatPendingPayment({
+            ...pendingBorica,
+            tableSessionId: session.id,
+          }),
+        );
         return {
           provider: 'BORICA' as const,
           paymentId: pendingBorica.id,
@@ -2705,6 +3026,12 @@ export class PaymentService {
         where: { id: pendingBorica.id, status: 'PENDING' },
         data: { status: 'FAILED', providerStatus: 'EXPIRED' },
       });
+      this.emitBillPaymentCleared(
+        session.id,
+        pendingBorica.id,
+        'ONLINE_PAYMENT',
+      );
+      ignoredPendingPaymentIds.push(pendingBorica.id);
     }
 
     const keypair = this.resolveBoricaKeypair(restaurant);
@@ -2777,8 +3104,10 @@ export class PaymentService {
       }
 
       try {
-        payment = await this.prisma.payment.create({
-          data: {
+        payment = await this.createPendingPaymentAfterScopeGuard(
+          session.id,
+          resolvedCheckoutScope,
+          {
             tableSessionId: session.id,
             restaurantId: session.restaurantId,
             amount: total,
@@ -2800,7 +3129,8 @@ export class PaymentService {
             ) as any,
             splitMode: resolvedCheckoutScope ? SplitMode.ITEM : undefined,
           },
-        });
+          { ignorePaymentIds: ignoredPendingPaymentIds },
+        );
         if (attempt > 0) checkoutForm = attemptForm;
         break;
       } catch (dbErr: unknown) {
@@ -2811,6 +3141,17 @@ export class PaymentService {
         throw dbErr;
       }
     }
+
+    this.emitPendingBillPayment(
+      this.formatPendingPayment({
+        id: payment!.id,
+        tableSessionId: session.id,
+        provider: 'BORICA',
+        providerPayload: this.checkoutScopePayload(resolvedCheckoutScope),
+        amount: total,
+        createdAt: new Date(),
+      }),
+    );
 
     return {
       provider: 'BORICA' as const,

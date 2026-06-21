@@ -16,6 +16,7 @@ export const CreateItemForm: React.FC = () => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
+  const [costPrice, setCostPrice] = useState("");
   const [allergens, setAllergens] = useState("");
   const [dietaryTags, setDietaryTags] = useState("");
   const [isFeatured, setIsFeatured] = useState(false);
@@ -30,6 +31,7 @@ export const CreateItemForm: React.FC = () => {
     setName("");
     setDescription("");
     setPrice("");
+    setCostPrice("");
     setAllergens("");
     setDietaryTags("");
     setIsFeatured(false);
@@ -58,18 +60,22 @@ export const CreateItemForm: React.FC = () => {
           .map((s) => s.trim())
           .filter((s) => s !== ""),
         isFeatured,
+        costPrice: costPrice ? parseFloat(costPrice) : undefined,
         rewardPointsPrice: rewardPointsPrice
           ? parseInt(rewardPointsPrice)
           : undefined,
         relatedItemIds,
         imageFile,
       });
-      showToast('Item created successfully', 'success');
+      showToast("Item created successfully", "success");
       resetForm();
       setOpen(false);
     } catch (error: any) {
-      const message = error?.response?.data?.message || error?.message || 'Failed to create item';
-      showToast(message, 'error');
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to create item";
+      showToast(message, "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -104,7 +110,7 @@ export const CreateItemForm: React.FC = () => {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={t('auto.eGGreekSalad', 'e.g. Greek Salad')}
+              placeholder={t("auto.eGGreekSalad", "e.g. Greek Salad")}
               required
             />
           </div>
@@ -116,7 +122,10 @@ export const CreateItemForm: React.FC = () => {
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder={t('auto.freshIngredientsOlivesFeta', 'Fresh ingredients, olives, feta...')}
+              placeholder={t(
+                "auto.freshIngredientsOlivesFeta",
+                "Fresh ingredients, olives, feta...",
+              )}
             />
           </div>
 
@@ -136,23 +145,53 @@ export const CreateItemForm: React.FC = () => {
 
           <div className="space-y-2">
             <label className="text-sm font-medium">
-              {t("forms.allergens", "Allergens")} {t('auto.CommaSeparated', '(comma separated)')}</label>
+              {t("forms.costPrice", "Item Cost")} (€)
+            </label>
+            <Input
+              type="number"
+              value={costPrice}
+              onChange={(e) => setCostPrice(e.target.value)}
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+            />
+            <p className="text-xs text-muted-foreground">
+              {t(
+                "forms.costPriceHint",
+                "What this item costs you to make. Used for profit analytics.",
+              )}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {t("forms.allergens", "Allergens")}{" "}
+              {t("auto.CommaSeparated", "(comma separated)")}
+            </label>
             <Input
               type="text"
               value={allergens}
               onChange={(e) => setAllergens(e.target.value)}
-              placeholder={t('auto.eGNutsDairyGluten', 'e.g. Nuts, Dairy, Gluten')}
+              placeholder={t(
+                "auto.eGNutsDairyGluten",
+                "e.g. Nuts, Dairy, Gluten",
+              )}
             />
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium">
-              {t("forms.dietaryTags", "Dietary Tags")} {t('auto.CommaSeparated', '(comma separated)')}</label>
+              {t("forms.dietaryTags", "Dietary Tags")}{" "}
+              {t("auto.CommaSeparated", "(comma separated)")}
+            </label>
             <Input
               type="text"
               value={dietaryTags}
               onChange={(e) => setDietaryTags(e.target.value)}
-              placeholder={t('auto.eGVeganVegetarianSpicy', 'e.g. Vegan, Vegetarian, Spicy')}
+              placeholder={t(
+                "auto.eGVeganVegetarianSpicy",
+                "e.g. Vegan, Vegetarian, Spicy",
+              )}
             />
           </div>
 
@@ -168,25 +207,38 @@ export const CreateItemForm: React.FC = () => {
               htmlFor={`isFeatured-new`}
               className="text-sm font-bold text-foreground"
             >
-              {t('auto.FeatureItemTrendingNow', '⭐ Feature Item (Trending Now)')}</label>
+              {t(
+                "auto.FeatureItemTrendingNow",
+                "⭐ Feature Item (Trending Now)",
+              )}
+            </label>
           </div>
 
           <div className="space-y-2 border-b border-border/50 pb-4">
             <label className="text-sm font-medium block">
-              {t('auto.loyaltyPointsCostFreebie', 'Loyalty Points Cost (Freebie)')}</label>
+              {t(
+                "auto.loyaltyPointsCostFreebie",
+                "Loyalty Points Cost (Freebie)",
+              )}
+            </label>
             <Input
               type="number"
               value={rewardPointsPrice}
               onChange={(e) => setRewardPointsPrice(e.target.value)}
-              placeholder={t('auto.eG100', 'e.g. 100')}
+              placeholder={t("auto.eG100", "e.g. 100")}
             />
             <p className="text-xs text-muted-foreground">
-              {t('auto.leaveBlankIfThisItemCanno', 'Leave blank if this item cannot be redeemed for points.')}</p>
+              {t(
+                "auto.leaveBlankIfThisItemCanno",
+                "Leave blank if this item cannot be redeemed for points.",
+              )}
+            </p>
           </div>
 
           <div className="space-y-2 pb-4">
             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-              {t('auto.perfectPairings', 'Perfect Pairings')}</label>
+              {t("auto.perfectPairings", "Perfect Pairings")}
+            </label>
             <div className="flex flex-col gap-1 max-h-32 overflow-y-auto p-2 border border-border/50 rounded bg-secondary/20">
               {allItems.length > 0 ? (
                 (allItems as any[]).map((otherItem: any) => (
@@ -214,11 +266,16 @@ export const CreateItemForm: React.FC = () => {
                 ))
               ) : (
                 <span className="text-xs text-muted-foreground px-1">
-                  {t('auto.noOtherItemsAvailable', 'No other items available.')}</span>
+                  {t("auto.noOtherItemsAvailable", "No other items available.")}
+                </span>
               )}
             </div>
             <p className="text-[10px] text-muted-foreground">
-              {t('auto.selectItemsThatGoWellWith', 'Select items that go well with this.')}</p>
+              {t(
+                "auto.selectItemsThatGoWellWith",
+                "Select items that go well with this.",
+              )}
+            </p>
           </div>
 
           <ImageUploadInput
@@ -229,7 +286,7 @@ export const CreateItemForm: React.FC = () => {
           />
 
           <Button type="submit" disabled={isSubmitting} className="w-full">
-            {isSubmitting ? 'Creating...' : t("forms.create", "Create Item")}
+            {isSubmitting ? "Creating..." : t("forms.create", "Create Item")}
           </Button>
         </form>
       </Modal>

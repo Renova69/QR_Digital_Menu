@@ -1,7 +1,7 @@
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { getSessionBill, createCheckout, createCashPaymentRequest, abandonCheckout, type BoricaCardholderDetails, type CheckoutProvider } from '../../lib/api';
+import { getSessionBill, createCheckout, createCashPaymentRequest, abandonCheckout, type BoricaCardholderDetails, type CheckoutProvider, type PendingBillPayment } from '../../lib/api';
 import { Button } from '../ui/button';
 import { useTranslation } from 'react-i18next';
 import { Banknote, CheckCircle2, ReceiptText, Users, X } from 'lucide-react';
@@ -70,6 +70,7 @@ interface BillData {
   tipOptions: number[];
   paymentProviders: CheckoutProvider[];
   restaurantId?: string;
+  pendingPayment?: PendingBillPayment | null;
 }
 
 type StripePaymentState = {
@@ -118,6 +119,19 @@ function getOrderRemainingSubtotal(order: BillOrder): number {
   return order.items.reduce((sum, item) => {
     return sum + getBillItemUnitPrice(item) * getBillItemRemainingQuantity(item);
   }, 0);
+}
+
+function pendingPaymentOverlapsScope(
+  pendingPayment: PendingBillPayment | null,
+  scope: 'MY_ORDERS' | 'FULL_TABLE',
+  orderIds?: string[],
+): boolean {
+  if (!pendingPayment) return false;
+  if (pendingPayment.scope === 'FULL_TABLE' || scope === 'FULL_TABLE') {
+    return true;
+  }
+  const activeOrderIds = new Set(orderIds ?? []);
+  return pendingPayment.orderIds.some((id) => activeOrderIds.has(id));
 }
 
 function PaymentForm({
@@ -250,6 +264,7 @@ export function PaymentModal({
   const [cashRequested, setCashRequested] = useState(false);
   const [cashRequestId, setCashRequestId] = useState<string | null>(null);
   const [cashError, setCashError] = useState<string | null>(null);
+  const [pendingBillPayment, setPendingBillPayment] = useState<PendingBillPayment | null>(null);
   // Fix H-8 — a failed bill load must show an error with retry, not silently close.
   const [billError, setBillError] = useState<string | null>(null);
   const [billReloadKey, setBillReloadKey] = useState(0);
@@ -259,6 +274,7 @@ export function PaymentModal({
   useEffect(() => {
     liveCompletionHandledRef.current = false;
     setCashRequestId(null);
+    setPendingBillPayment(null);
   }, [sessionToken]);
 
   const completeFromLiveSettlement = useCallback(() => {
@@ -305,17 +321,36 @@ export function PaymentModal({
       }
     };
 
+    const handlePendingBillPayment = (payment: PendingBillPayment) => {
+      if (payment?.tableSessionId && bill?.sessionId && payment.tableSessionId !== bill.sessionId) return;
+      setPendingBillPayment(payment);
+    };
+
+    const handleBillPaymentCleared = (payload: { id?: string; tableSessionId?: string }) => {
+      if (payload?.tableSessionId && bill?.sessionId && payload.tableSessionId !== bill.sessionId) return;
+      setPendingBillPayment((current) => {
+        if (!current) return current;
+        return !payload?.id || payload.id === current.id ? null : current;
+      });
+      setBillReloadKey((k) => k + 1);
+    };
+
     socket.on('payment:confirmed', handlePaymentConfirmed);
     socket.on('bill:updated', handleBillUpdated);
     socket.on('cashPaymentRequest:updated', handleCashRequestUpdated);
+    socket.on('billPayment:pending', handlePendingBillPayment);
+    socket.on('billPayment:cleared', handleBillPaymentCleared);
 
     return () => {
       socket.off('payment:confirmed', handlePaymentConfirmed);
       socket.off('bill:updated', handleBillUpdated);
       socket.off('cashPaymentRequest:updated', handleCashRequestUpdated);
+      socket.off('billPayment:pending', handlePendingBillPayment);
+      socket.off('billPayment:cleared', handleBillPaymentCleared);
       socket.emit('leaveTableSessionRoom', { token: sessionToken });
     };
   }, [
+    bill?.sessionId,
     cashRequestId,
     completeFromLiveSettlement,
     isConnected,
@@ -328,7 +363,12 @@ export function PaymentModal({
     let cancelled = false;
     setBillError(null);
     getSessionBill(sessionToken)
-      .then((data) => { if (!cancelled) setBill(data); })
+      .then((data) => {
+        if (!cancelled) {
+          setBill(data);
+          setPendingBillPayment(data.pendingPayment ?? null);
+        }
+      })
       .catch(() => {
         if (!cancelled) {
           setBillError(
@@ -437,12 +477,59 @@ export function PaymentModal({
     activePaymentScope === 'MY_ORDERS' ? ownedRemainingSubtotal : billRemaining;
   const activeCheckoutOrderIds =
     activePaymentScope === 'MY_ORDERS' ? ownedOrders.map((order) => order.id) : undefined;
-
+  const ownPendingCashRequest =
+    pendingBillPayment?.source === 'CASH_REQUEST' &&
+    !!cashRequestId &&
+    pendingBillPayment.id === cashRequestId;
+  const pendingBillMessage =
+    pendingBillPayment?.scope === 'FULL_TABLE'
+      ? t(
+          'payment.fullTablePaymentPending',
+          'Someone else is already paying the full table bill. This screen will update automatically once it is finished or cancelled.',
+        )
+      : t(
+          'payment.partialPaymentPending',
+          'Part of this table bill is already being paid. You can pay your own unpaid orders, or wait until it is finished or cancelled to pay the full table.',
+        );
+  const activePaymentScopeLocked =
+    !paymentInitiated &&
+    pendingPaymentOverlapsScope(
+      pendingBillPayment,
+      activePaymentScope,
+      activeCheckoutOrderIds,
+    );
+  const fullTableOptionLocked = !paymentInitiated && !!pendingBillPayment;
+  const myOrdersOptionLocked =
+    !paymentInitiated && pendingBillPayment?.scope === 'FULL_TABLE';
   useEffect(() => {
     setPaymentScope('MY_ORDERS');
   }, [sessionToken, ownedOrderKey]);
 
+  useEffect(() => {
+    if (
+      canPayOwnedOrders &&
+      paymentScope === 'FULL_TABLE' &&
+      fullTableOptionLocked &&
+      !myOrdersOptionLocked
+    ) {
+      setPaymentScope('MY_ORDERS');
+    }
+  }, [
+    canPayOwnedOrders,
+    fullTableOptionLocked,
+    myOrdersOptionLocked,
+    paymentScope,
+  ]);
+
   const handleContinueToPayment = async () => {
+    if (activePaymentScopeLocked) {
+      setError(ownPendingCashRequest ? t(
+        'payment.cashRequestAlreadyPending',
+        'Your cash request is already waiting for staff.',
+      ) : pendingBillMessage);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -499,6 +586,13 @@ export function PaymentModal({
 
   const handleCashPaymentRequest = async () => {
     if (!bill) return;
+    if (activePaymentScopeLocked) {
+      setCashError(ownPendingCashRequest ? t(
+        'payment.cashRequestAlreadyPending',
+        'Your cash request is already waiting for staff.',
+      ) : pendingBillMessage);
+      return;
+    }
     if (!bill.restaurantId) {
       setCashError(t('payment.cashRequestUnavailable', 'Cash request is unavailable for this bill.'));
       return;
@@ -577,11 +671,12 @@ export function PaymentModal({
                 <button
                   type="button"
                   onClick={() => setPaymentScope('MY_ORDERS')}
+                  disabled={myOrdersOptionLocked}
                   className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                     activePaymentScope === 'MY_ORDERS'
                       ? 'border-primary bg-primary text-primary-foreground'
                       : 'border-border bg-background hover:bg-muted'
-                  }`}
+                  } disabled:cursor-not-allowed disabled:opacity-60`}
                 >
                   <ReceiptText className="h-4 w-4" />
                   {t('payment.myOrders', 'My orders')}
@@ -589,16 +684,23 @@ export function PaymentModal({
                 <button
                   type="button"
                   onClick={() => setPaymentScope('FULL_TABLE')}
+                  disabled={fullTableOptionLocked}
                   className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                     activePaymentScope === 'FULL_TABLE'
                       ? 'border-primary bg-primary text-primary-foreground'
                       : 'border-border bg-background hover:bg-muted'
-                  }`}
+                  } disabled:cursor-not-allowed disabled:opacity-60`}
                 >
                   <Users className="h-4 w-4" />
                   {t('payment.fullTable', 'Full table')}
                 </button>
               </div>
+            )}
+
+            {pendingBillPayment && !ownPendingCashRequest && !paymentInitiated && (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
+                {pendingBillMessage}
+              </p>
             )}
 
             {/* Itemized order breakdown */}
@@ -689,11 +791,12 @@ export function PaymentModal({
                       key={provider}
                       type="button"
                       onClick={() => setSelectedProvider(provider)}
+                      disabled={activePaymentScopeLocked}
                       className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                         selectedProvider === provider
                           ? 'border-primary bg-primary text-primary-foreground'
                           : 'border-border bg-background hover:bg-muted'
-                      }`}
+                      } disabled:cursor-not-allowed disabled:opacity-60`}
                     >
                       {provider === 'EPAY'
                         ? 'ePay.bg'
@@ -789,7 +892,7 @@ export function PaymentModal({
               data-testid="payment-continue-button"
               className="w-full flex-shrink-0"
               onClick={handleContinueToPayment}
-              disabled={loading || !hasPaymentProvider}
+              disabled={loading || !hasPaymentProvider || activePaymentScopeLocked}
             >
               {loading
                 ? t('payment.loading', 'Loading...')
@@ -806,7 +909,7 @@ export function PaymentModal({
               variant="outline"
               className="w-full flex-shrink-0 gap-2"
               onClick={handleCashPaymentRequest}
-              disabled={cashRequesting || cashRequested}
+              disabled={cashRequesting || cashRequested || activePaymentScopeLocked}
             >
               <Banknote className="h-4 w-4" />
               {cashRequesting

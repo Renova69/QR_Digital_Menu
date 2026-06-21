@@ -154,6 +154,7 @@ model Restaurant {
   printStations             PrintStation[]
   printAgentTokens          PrintAgentToken[]
   printJobs                 PrintJob[]
+  dailyTargets              DailyTarget[]
 
   @@index([stripeCustomerId])
   @@index([pastDueGraceExpiry])
@@ -295,6 +296,7 @@ model MenuItem {
   name              String
   description       String?
   price             Float
+  costPrice         Float?      @default(0)
   weight            String?
   currency          Currency
   allergens         String[]
@@ -687,6 +689,19 @@ model PaymentProviderEvent {
   @@index([paymentId])
   @@index([restaurantId, createdAt])
   @@map("payment_provider_event")
+}
+
+model DailyTarget {
+  id           String     @id @default(cuid())
+  restaurantId String
+  targetDate   DateTime
+  dailyRevenue Float      @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, targetDate])
+  @@map("daily_target")
 }
 
 enum TableSessionStatus {

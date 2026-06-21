@@ -1,4 +1,9 @@
-export type OrderStatus = "NEW" | "IN_PROGRESS" | "SERVED" | "CANCELED" | "COMPLETED";
+export type OrderStatus =
+  | "NEW"
+  | "IN_PROGRESS"
+  | "SERVED"
+  | "CANCELED"
+  | "COMPLETED";
 
 export interface Order {
   id: string;
@@ -42,6 +47,7 @@ export interface Item {
   dietaryTags?: string[];
   isFeatured?: boolean;
   rewardPointsPrice?: number;
+  costPrice?: number;
   relatedItemIds?: string[];
   options?: MenuOption[];
   translations?: any;
@@ -92,17 +98,20 @@ export interface SuperAdminStats {
       amount: number;
     };
   };
-  attentionNeeded: Record<string, {
-    count: number;
-    items: Array<{
-      id: string;
-      name: string;
-      ownerEmail: string;
-      billingTier?: string;
-      effectiveTier?: string;
-      direction?: string;
-    }>;
-  }>;
+  attentionNeeded: Record<
+    string,
+    {
+      count: number;
+      items: Array<{
+        id: string;
+        name: string;
+        ownerEmail: string;
+        billingTier?: string;
+        effectiveTier?: string;
+        direction?: string;
+      }>;
+    }
+  >;
 }
 
 export interface TenantSummary {

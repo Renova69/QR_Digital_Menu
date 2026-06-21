@@ -310,6 +310,37 @@ describe('DashboardService', () => {
       mockPrisma.order.findMany.mockResolvedValue([
         { createdAt: new Date(), totalPrice: 50, tableId: 'table-1' },
       ]);
+      // Phase B: spy on new private methods to prevent $queryRaw chaining races
+      jest.spyOn(service as any, 'getStaffPerformance').mockResolvedValue([]);
+      jest.spyOn(service as any, 'getCustomerMetrics').mockResolvedValue({
+        topCustomers: [],
+        churnRiskCount: 0,
+        churnRiskBreakdown: { '30d': 0, '60d': 0, '90d+': 0 },
+        averageClv: 0,
+      });
+      jest.spyOn(service as any, 'getKitchenEfficiency').mockResolvedValue({
+        overallAvgPrepMinutes: 0,
+        totalCompletedOrders: 0,
+        hourlyAverages: [],
+        zoneAverages: [],
+      });
+      jest.spyOn(service as any, 'getCancelAnalytics').mockResolvedValue({
+        totalCanceledOrders: 0,
+        revenueLost: 0,
+        cancelRateByItem: [],
+        cancelRateByHour: [],
+      });
+      jest.spyOn(service as any, 'getTableTurnover').mockResolvedValue([]);
+      jest.spyOn(service as any, 'getMenuProfitability').mockResolvedValue({
+        items: [],
+        summary: { totalCost: 0, totalProfit: 0, overallMargin: 0 },
+      });
+      jest.spyOn(service as any, 'getGrossProfit').mockResolvedValue({
+        collectedRevenue: 0,
+        estimatedCOGS: 0,
+        grossProfit: 0,
+        grossMargin: 0,
+      });
       // getTopItems, getPeakHours, getCategoryBreakdown, getOrdersByTable now use $queryRaw (Issue 44)
       mockPrisma.$queryRaw
         .mockResolvedValueOnce([{ name: 'Pizza', quantity: 2, revenue: 20.0 }]) // getTopItems
@@ -403,6 +434,51 @@ describe('DashboardService', () => {
       mockPrisma.order.groupBy.mockResolvedValue([]);
       mockPrisma.order.findMany.mockResolvedValue([]);
       mockPrisma.orderItem.findMany.mockResolvedValue([]);
+      mockPrisma.payment.aggregate.mockResolvedValue({
+        _sum: { amount: 0, tipAmount: 0 },
+      });
+      mockPrisma.payment.groupBy.mockResolvedValue([]);
+      // Spy Phase B methods to avoid $queryRaw chaining races from Promise.all
+      jest.spyOn(service as any, 'getStaffPerformance').mockResolvedValue([]);
+      jest
+        .spyOn(service as any, 'getCustomerMetrics')
+        .mockResolvedValue({
+          topCustomers: [],
+          churnRiskCount: 0,
+          churnRiskBreakdown: { '30d': 0, '60d': 0, '90d+': 0 },
+          averageClv: 0,
+        });
+      jest
+        .spyOn(service as any, 'getKitchenEfficiency')
+        .mockResolvedValue({
+          overallAvgPrepMinutes: 0,
+          totalCompletedOrders: 0,
+          hourlyAverages: [],
+          zoneAverages: [],
+        });
+      jest
+        .spyOn(service as any, 'getCancelAnalytics')
+        .mockResolvedValue({
+          totalCanceledOrders: 0,
+          revenueLost: 0,
+          cancelRateByItem: [],
+          cancelRateByHour: [],
+        });
+      jest.spyOn(service as any, 'getTableTurnover').mockResolvedValue([]);
+      jest
+        .spyOn(service as any, 'getMenuProfitability')
+        .mockResolvedValue({
+          items: [],
+          summary: { totalCost: 0, totalProfit: 0, overallMargin: 0 },
+        });
+      jest
+        .spyOn(service as any, 'getGrossProfit')
+        .mockResolvedValue({
+          collectedRevenue: 0,
+          estimatedCOGS: 0,
+          grossProfit: 0,
+          grossMargin: 0,
+        });
     });
 
     afterEach(() => {
@@ -443,6 +519,37 @@ describe('DashboardService', () => {
     });
 
     it('maps peak hours view rows — shifts UTC hour to local', async () => {
+      // Phase B: spy on new methods
+      jest.spyOn(service as any, 'getStaffPerformance').mockResolvedValue([]);
+      jest.spyOn(service as any, 'getCustomerMetrics').mockResolvedValue({
+        topCustomers: [],
+        churnRiskCount: 0,
+        churnRiskBreakdown: { '30d': 0, '60d': 0, '90d+': 0 },
+        averageClv: 0,
+      });
+      jest.spyOn(service as any, 'getKitchenEfficiency').mockResolvedValue({
+        overallAvgPrepMinutes: 0,
+        totalCompletedOrders: 0,
+        hourlyAverages: [],
+        zoneAverages: [],
+      });
+      jest.spyOn(service as any, 'getCancelAnalytics').mockResolvedValue({
+        totalCanceledOrders: 0,
+        revenueLost: 0,
+        cancelRateByItem: [],
+        cancelRateByHour: [],
+      });
+      jest.spyOn(service as any, 'getTableTurnover').mockResolvedValue([]);
+      jest.spyOn(service as any, 'getMenuProfitability').mockResolvedValue({
+        items: [],
+        summary: { totalCost: 0, totalProfit: 0, overallMargin: 0 },
+      });
+      jest.spyOn(service as any, 'getGrossProfit').mockResolvedValue({
+        collectedRevenue: 0,
+        estimatedCOGS: 0,
+        grossProfit: 0,
+        grossMargin: 0,
+      });
       // Views path: $queryRaw called 5 times (3 view + categoryBreakdown + ordersByTable)
       mockPrisma.$queryRaw
         .mockResolvedValueOnce([]) // 1: revenueTrend view

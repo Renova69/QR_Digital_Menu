@@ -15,6 +15,7 @@ function matchesWhere(payment: any, where: any = {}) {
     const actual = payment[key];
     if (expected && typeof expected === 'object' && !Array.isArray(expected)) {
       if ('in' in expected && !(expected as any).in.includes(actual)) return false;
+      if ('notIn' in expected && (expected as any).notIn.includes(actual)) return false;
       if ('not' in expected && actual === (expected as any).not) return false;
       if ('gte' in expected && !(actual >= (expected as any).gte)) return false;
       if ('lte' in expected && !(actual <= (expected as any).lte)) return false;
@@ -150,6 +151,10 @@ function createHarness() {
         payments.filter((payment) => matchesWhere(payment, args.where)).length,
       ),
     },
+    cashPaymentRequest: {
+      findMany: jest.fn(async () => []),
+    },
+    $queryRaw: jest.fn(async () => [{ id: session.id }]),
     $transaction: jest.fn((arg: any) => {
       if (typeof arg === 'function') return arg(prisma);
       return Promise.all(arg);
@@ -199,6 +204,7 @@ function createHarness() {
   };
   const events = {
     emitToRestaurant: jest.fn(),
+    emitToTableSession: jest.fn(),
     emitTableStatusChanged: jest.fn(),
   };
   const features = {
@@ -256,12 +262,18 @@ describe('Payment abandonment behavior proof', () => {
     expect(history.data).toHaveLength(0);
   });
 
-  it('ePay pending after raw back no longer blocks switching to Stripe', async () => {
+  it('ePay pending after raw back blocks switching to Stripe until explicitly abandoned', async () => {
     const { service, payments } = createHarness();
 
     await checkout(service, 'EPAY');
-    const result = await checkout(service, 'STRIPE');
+    await expect(checkout(service, 'STRIPE')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
 
+    expect(payments).toMatchObject([{ provider: 'EPAY', status: 'PENDING' }]);
+
+    await service.abandonCheckout('tok1');
+    const result = await checkout(service, 'STRIPE');
     expect(result.provider).toBe('STRIPE');
     expect(payments).toMatchObject([
       { provider: 'EPAY', status: 'ABANDONED' },
@@ -269,7 +281,7 @@ describe('Payment abandonment behavior proof', () => {
     ]);
   });
 
-  it('all cross-provider raw-back switches create the new checkout without the processing conflict', async () => {
+  it('all cross-provider raw-back switches require explicit abandon before a new checkout', async () => {
     const pairs: Array<[Provider, Provider]> = [
       ['EPAY', 'STRIPE'],
       ['EPAY', 'BORICA'],
@@ -288,11 +300,16 @@ describe('Payment abandonment behavior proof', () => {
       const { service, payments } = createHarness();
 
       await checkout(service, from);
-      await expect(checkout(service, to)).resolves.toMatchObject({ provider: to });
+      await expect(checkout(service, to)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
 
       const pending = payments.filter((payment) => payment.status === 'PENDING');
       expect(pending).toHaveLength(1);
-      expect(pending[0].provider).toBe(to);
+      expect(pending[0].provider).toBe(from);
+
+      await service.abandonCheckout('tok1');
+      await expect(checkout(service, to)).resolves.toMatchObject({ provider: to });
     }
   });
 

@@ -221,6 +221,8 @@ export async function downloadAnalyticsExport(
   feedback?: FeedbackExportData | null,
 ): Promise<void> {
   const range = resolveRange(meta, t);
+  const num = (v: number): Cell => ({ value: v, type: Number });
+
   const ex = (
     key: string,
     fallback: string,
@@ -790,7 +792,7 @@ export async function downloadAnalyticsExport(
         ],
       ];
 
-  const sheets = [
+  const sheets: { sheet: string; columns: { width: number }[]; data: any }[] = [
     {
       sheet: ex("sheets.summary", "Summary"),
       columns: [
@@ -874,5 +876,356 @@ export async function downloadAnalyticsExport(
     },
   ];
 
+  // ── Phase B: new analytics sheets (conditional) ──────────────────────
+  if (data.staffPerformance && data.staffPerformance.length > 0) {
+    sheets.push({
+      sheet: ex("sheets.staffPerformance", "Staff Performance"),
+      columns: [
+        { width: 22 },
+        { width: 10 },
+        { width: 14 },
+        { width: 14 },
+        { width: 10 },
+        { width: 10 },
+        { width: 12 },
+      ],
+      data: [
+        [
+          h(ex("columns.staffName", "Staff")),
+          h(ex("columns.orders", "Orders")),
+          h(ex("columns.revenueEur", "Revenue EUR")),
+          h(ex("columns.revenueBgn", "Revenue BGN")),
+          h(ex("columns.pos", "POS")),
+          h(ex("columns.qr", "QR")),
+          h(ex("columns.tips", "Tips")),
+        ],
+        ...data.staffPerformance.map((s) => [
+          text(s.staffName),
+          num(s.totalOrders),
+          eur(s.totalRevenue),
+          bgn(s.totalRevenue),
+          num(s.posOrders),
+          num(s.qrOrders),
+          eur(s.totalTips),
+        ]),
+      ] as any,
+    });
+  }
+
+  if (data.customerMetrics && data.customerMetrics.topCustomers.length > 0) {
+    sheets.push({
+      sheet: ex("sheets.customerInsights", "Customer Insights"),
+      columns: [
+        { width: 22 },
+        { width: 16 },
+        { width: 14 },
+        { width: 10 },
+        { width: 14 },
+        { width: 14 },
+        { width: 14 },
+      ],
+      data: [
+        [
+          h(ex("columns.customerName", "Customer")),
+          h(ex("columns.phone", "Phone")),
+          h(ex("columns.totalSpend", "Total Spend")),
+          h(ex("columns.visits", "Visits")),
+          h(ex("columns.avgPerVisit", "Avg/Visit")),
+          h(ex("columns.clv", "CLV")),
+          h(ex("columns.daysSinceLast", "Days Since")),
+        ],
+        ...data.customerMetrics.topCustomers.map((c) => [
+          text(c.customerName || c.customerPhone),
+          text(c.customerPhone),
+          eur(c.totalSpend),
+          num(c.visitCount),
+          eur(c.avgSpendPerVisit),
+          text("-"),
+          num(c.daysSinceLastVisit),
+        ]),
+      ] as any,
+    });
+  }
+
+  if (
+    data.kitchenEfficiency &&
+    data.kitchenEfficiency.hourlyAverages.length > 0
+  ) {
+    sheets.push({
+      sheet: ex("sheets.kitchenEfficiency", "Kitchen Efficiency"),
+      columns: [{ width: 14 }, { width: 12 }, { width: 14 }, { width: 14 }],
+      data: [
+        [
+          h(ex("columns.hour", "Hour")),
+          h(ex("columns.orders", "Orders")),
+          h(ex("columns.avgPrep", "Avg Prep (min)")),
+          h(ex("columns.zone", "Zone")),
+        ],
+        ...data.kitchenEfficiency.hourlyAverages.map((h) => [
+          text(h.label),
+          num(h.orderCount),
+          num(h.avgPrepMinutes),
+          text(
+            data.kitchenEfficiency!.zoneAverages.find(
+              (z) => z.orderCount === h.orderCount,
+            )?.zone ?? "",
+          ),
+        ]),
+      ] as any,
+    });
+  }
+
+  if (
+    data.cancelAnalytics &&
+    data.cancelAnalytics.cancelRateByItem.length > 0
+  ) {
+    sheets.push({
+      sheet: ex("sheets.cancelAnalysis", "Cancel Analysis"),
+      columns: [{ width: 28 }, { width: 12 }, { width: 12 }, { width: 12 }],
+      data: [
+        [
+          h(ex("columns.item", "Item")),
+          h(ex("columns.totalQty", "Total Qty")),
+          h(ex("columns.canceledQty", "Canceled Qty")),
+          h(ex("columns.cancelRate", "Cancel Rate")),
+        ],
+        ...data.cancelAnalytics.cancelRateByItem.map((c) => [
+          text(c.itemName),
+          num(c.totalQty),
+          num(c.canceledQty),
+          pct(c.cancelRate),
+        ]),
+        [empty(), empty(), empty(), empty()],
+        [
+          h(ex("columns.revenueLost", "Revenue Lost")),
+          eur(data.cancelAnalytics!.revenueLost),
+          bgn(data.cancelAnalytics!.revenueLost),
+          empty(),
+        ],
+      ] as any,
+    });
+  }
+
+  if (data.tableTurnover && data.tableTurnover.length > 0) {
+    sheets.push({
+      sheet: ex("sheets.tableTurnover", "Table Turnover"),
+      columns: [
+        { width: 18 },
+        { width: 12 },
+        { width: 14 },
+        { width: 14 },
+        { width: 14 },
+        { width: 12 },
+      ],
+      data: [
+        [
+          h(ex("columns.table", "Table")),
+          h(ex("columns.sessions", "Sessions")),
+          h(ex("columns.avgDuration", "Avg Duration")),
+          h(ex("columns.turnsPerDay", "Est. Turns/Day")),
+          h(ex("columns.revenue", "Revenue")),
+          h(ex("columns.revPASH", "RevPASH")),
+        ],
+        ...data.tableTurnover.map((tbl) => [
+          text(tbl.tableName),
+          num(tbl.sessionCount),
+          text(`${tbl.avgDurationMinutes}m`),
+          num(tbl.estimatedTurnsPerDay),
+          eur(tbl.totalRevenue),
+          eur(tbl.revPASH),
+        ]),
+      ] as any,
+    });
+  }
+
+  if (data.menuProfitability && data.menuProfitability.items.length > 0) {
+    sheets.push({
+      sheet: ex("sheets.menuProfitability", "Menu Profitability"),
+      columns: [
+        { width: 24 },
+        { width: 10 },
+        { width: 14 },
+        { width: 14 },
+        { width: 14 },
+        { width: 12 },
+        { width: 16 },
+      ],
+      data: [
+        [
+          h(ex("columns.item", "Item")),
+          h(ex("columns.qty", "Qty")),
+          h(ex("columns.revenue", "Revenue")),
+          h(ex("columns.cost", "Cost")),
+          h(ex("columns.profit", "Profit")),
+          h(ex("columns.margin", "Margin %")),
+          h(ex("columns.quadrant", "Quadrant")),
+        ],
+        ...data.menuProfitability.items.map((i) => [
+          text(i.name),
+          num(i.quantity),
+          eur(i.revenue),
+          eur(i.cost),
+          eur(i.profit),
+          pct(i.margin),
+          text(i.quadrant),
+        ]),
+      ] as any,
+    });
+  }
+
+  if (data.grossProfit) {
+    sheets.push({
+      sheet: ex("sheets.grossProfit", "Gross Profit"),
+      columns: [{ width: 22 }, { width: 16 }, { width: 16 }, { width: 16 }],
+      data: [
+        [
+          h(ex("columns.metric", "Metric")),
+          h(ex("columns.eur", "EUR")),
+          h(ex("columns.bgn", "BGN")),
+          h(ex("columns.percentage", "Percentage")),
+        ],
+        [
+          text(ex("labels.collectedRevenue", "Collected Revenue")),
+          eur(data.grossProfit.collectedRevenue),
+          bgn(data.grossProfit.collectedRevenue),
+          empty(),
+        ],
+        [
+          text(ex("labels.estimatedCOGS", "Est. COGS")),
+          eur(data.grossProfit.estimatedCOGS),
+          bgn(data.grossProfit.estimatedCOGS),
+          text(
+            `${safePercent(data.grossProfit.estimatedCOGS, data.grossProfit.collectedRevenue)}%`,
+          ),
+        ],
+        [
+          text(ex("labels.grossProfit", "Gross Profit")),
+          eur(data.grossProfit.grossProfit),
+          bgn(data.grossProfit.grossProfit),
+          pct(data.grossProfit.grossMargin),
+        ],
+      ] as any,
+    });
+  }
+
   await writeXlsxFile(sheets).toFile(fileName);
+}
+
+// ── Closeout report export (standalone, single-day) ────────────────────────
+
+interface CloseoutReport {
+  date: string;
+  revenueByMethod: { method: string; amount: number }[];
+  totalCollected: number;
+  totalTips: number;
+  orderedRevenue: number;
+  pointsDiscount: number;
+  refundedAmount: number;
+  canceledRevenue: number;
+  netRevenue: number;
+  totalOrderCount: number;
+  canceledOrderCount: number;
+}
+
+export async function exportCloseoutXlsx(
+  closeout: CloseoutReport,
+  t: TFunction,
+): Promise<void> {
+  const ex = (key: string, fallback: string) =>
+    t(`analytics.export.${key}`, { defaultValue: fallback });
+  const h = (label: string): Cell => ({
+    value: label,
+    fontWeight: "bold",
+    fontSize: 10,
+    backgroundColor: HEADER_BG,
+    textColor: HEADER_FG,
+  });
+  const eur = (v: number): Cell => ({
+    value: v,
+    type: Number,
+    format: EUR_FORMAT,
+  });
+  const bgn = (v: number): Cell => ({
+    value: v * BGN_RATE,
+    type: Number,
+    format: BGN_FORMAT,
+  });
+  const text = (v: string): Cell => ({ value: v, type: String });
+  const bold = (v: string): Cell => ({
+    value: v,
+    type: String,
+    fontWeight: "bold",
+  });
+  const num = (v: number): Cell => ({ value: v, type: Number });
+  const empty = () => ({ value: null });
+
+  const dateStr = closeout.date;
+  const sheets = [
+    {
+      sheet: ex("closeout.sheetName", "Daily Closeout"),
+      columns: [{ width: 34 }, { width: 16 }, { width: 16 }],
+      data: [
+        [bold(ex("closeout.date", "Date")), text(dateStr), empty()],
+        [empty(), empty(), empty()],
+        [bold(ex("closeout.revenue", "Revenue by Method"))],
+        ...closeout.revenueByMethod.map((m) => [
+          text(m.method),
+          eur(m.amount),
+          bgn(m.amount),
+        ]),
+        [empty(), empty(), empty()],
+        [bold(ex("closeout.totals", "Totals"))],
+        [
+          text(ex("closeout.totalCollected", "Total Collected")),
+          eur(closeout.totalCollected),
+          bgn(closeout.totalCollected),
+        ],
+        [
+          text(ex("closeout.totalTips", "Tips")),
+          eur(closeout.totalTips),
+          bgn(closeout.totalTips),
+        ],
+        [
+          text(ex("closeout.orderedRevenue", "Ordered Revenue")),
+          eur(closeout.orderedRevenue),
+          bgn(closeout.orderedRevenue),
+        ],
+        [
+          text(ex("closeout.pointsDiscount", "Loyalty Discounts")),
+          eur(closeout.pointsDiscount),
+          bgn(closeout.pointsDiscount),
+        ],
+        [
+          text(ex("closeout.refundedAmount", "Refunded")),
+          eur(closeout.refundedAmount),
+          bgn(closeout.refundedAmount),
+        ],
+        [
+          text(ex("closeout.canceledRevenue", "Canceled Revenue")),
+          eur(closeout.canceledRevenue),
+          bgn(closeout.canceledRevenue),
+        ],
+        [empty(), empty(), empty()],
+        [
+          bold(ex("closeout.netRevenue", "Net Revenue")),
+          eur(closeout.netRevenue),
+          bgn(closeout.netRevenue),
+        ],
+        [empty(), empty(), empty()],
+        [
+          text(ex("closeout.totalOrders", "Completed Orders")),
+          num(closeout.totalOrderCount),
+          empty(),
+        ],
+        [
+          text(ex("closeout.canceledOrders", "Canceled Orders")),
+          num(closeout.canceledOrderCount),
+          empty(),
+        ],
+      ] as any,
+    },
+  ];
+
+  const slug = `closeout-${dateStr}`;
+  await writeXlsxFile(sheets).toFile(`${slug}.xlsx`);
 }

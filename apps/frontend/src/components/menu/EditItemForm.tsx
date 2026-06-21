@@ -18,7 +18,7 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
   item,
   trigger,
 }) => {
-    const { t } = useTranslation();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const { updateItem, categories } = useMenuContext();
 
@@ -27,6 +27,7 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
   const [name, setName] = useState(item.name);
   const [description, setDescription] = useState(item.description || "");
   const [price, setPrice] = useState(item.price.toString());
+  const [costPrice, setCostPrice] = useState(item.costPrice?.toString() || "");
   const [allergens, setAllergens] = useState(item.allergens?.join(", ") || "");
   const [dietaryTags, setDietaryTags] = useState(
     item.dietaryTags?.join(", ") || "",
@@ -61,6 +62,7 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
           .map((s) => s.trim())
           .filter((s) => s !== ""),
         isFeatured,
+        costPrice: costPrice ? parseFloat(costPrice) : undefined,
         rewardPointsPrice: rewardPointsPrice
           ? parseInt(rewardPointsPrice)
           : undefined,
@@ -68,11 +70,14 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
         imageFile,
         imageRemoved,
       });
-      showToast('Item updated successfully', 'success');
+      showToast("Item updated successfully", "success");
       setOpen(false);
     } catch (error: any) {
-      const message = error?.response?.data?.message || error?.message || 'Failed to update item';
-      showToast(message, 'error');
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to update item";
+      showToast(message, "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -84,12 +89,13 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
       <Modal
         open={open}
         onOpenChange={setOpen}
-        title={t('auto.editItem', 'Edit Item')}
+        title={t("auto.editItem", "Edit Item")}
         description={`Update the details for "${item.name}".`}
         trigger={
           trigger || (
             <Button variant="outline" size="sm">
-              {t('auto.edit', 'Edit')}</Button>
+              {t("auto.edit", "Edit")}
+            </Button>
           )
         }
       >
@@ -98,27 +104,33 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
           className="space-y-4 max-h-[80vh] overflow-y-auto pr-2"
         >
           <div className="space-y-2">
-            <label className="text-sm font-medium">{t('auto.itemName', 'Item Name *')}</label>
+            <label className="text-sm font-medium">
+              {t("auto.itemName", "Item Name *")}
+            </label>
             <Input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={t('auto.eGGreekSalad', 'e.g. Greek Salad')}
+              placeholder={t("auto.eGGreekSalad", "e.g. Greek Salad")}
               required
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">{t('auto.description', 'Description')}</label>
+            <label className="text-sm font-medium">
+              {t("auto.description", "Description")}
+            </label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder={t('auto.itemDescription', 'Item description')}
+              placeholder={t("auto.itemDescription", "Item description")}
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">{t('auto.price', 'Price (€) *')}</label>
+            <label className="text-sm font-medium">
+              {t("auto.price", "Price (€) *")}
+            </label>
             <Input
               type="number"
               value={price}
@@ -127,6 +139,26 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
               required
               step="0.01"
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {t("forms.costPrice", "Item Cost")} (€)
+            </label>
+            <Input
+              type="number"
+              value={costPrice}
+              onChange={(e) => setCostPrice(e.target.value)}
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+            />
+            <p className="text-xs text-muted-foreground">
+              {t(
+                "forms.costPriceHint",
+                "What this item costs you to make. Used for profit analytics.",
+              )}
+            </p>
           </div>
 
           <div className="flex items-center space-x-2 pt-2 border-t mt-4 border-border/50">
@@ -141,25 +173,38 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
               htmlFor={`isFeatured-${item.id}`}
               className="text-sm font-bold text-foreground"
             >
-              {t('auto.FeatureItemTrendingNow', '⭐ Feature Item (Trending Now)')}</label>
+              {t(
+                "auto.FeatureItemTrendingNow",
+                "⭐ Feature Item (Trending Now)",
+              )}
+            </label>
           </div>
 
           <div className="space-y-2 border-b border-border/50 pb-4">
             <label className="text-sm font-medium block">
-              {t('auto.loyaltyPointsCostFreebie', 'Loyalty Points Cost (Freebie)')}</label>
+              {t(
+                "auto.loyaltyPointsCostFreebie",
+                "Loyalty Points Cost (Freebie)",
+              )}
+            </label>
             <Input
               type="number"
               value={rewardPointsPrice}
               onChange={(e) => setRewardPointsPrice(e.target.value)}
-              placeholder={t('auto.eG100', 'e.g. 100')}
+              placeholder={t("auto.eG100", "e.g. 100")}
             />
             <p className="text-xs text-muted-foreground">
-              {t('auto.leaveBlankIfThisItemCannotBeRedee', 'Leave blank if this item cannot be redeemed for points.')}</p>
+              {t(
+                "auto.leaveBlankIfThisItemCannotBeRedee",
+                "Leave blank if this item cannot be redeemed for points.",
+              )}
+            </p>
           </div>
 
           <div className="space-y-2 pb-4">
             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-              {t('auto.perfectPairings', 'Perfect Pairings')}</label>
+              {t("auto.perfectPairings", "Perfect Pairings")}
+            </label>
             <div className="flex flex-col gap-1 max-h-32 overflow-y-auto p-2 border border-border/50 rounded bg-secondary/20">
               {otherItems.length > 0 ? (
                 otherItems.map((otherItem) => (
@@ -187,32 +232,42 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
                 ))
               ) : (
                 <span className="text-xs text-muted-foreground px-1">
-                  {t('auto.noOtherItemsAvailable', 'No other items available.')}</span>
+                  {t("auto.noOtherItemsAvailable", "No other items available.")}
+                </span>
               )}
             </div>
             <p className="text-[10px] text-muted-foreground">
-              {t('auto.selectItemsThatGoWellWithThis', 'Select items that go well with this.')}</p>
+              {t(
+                "auto.selectItemsThatGoWellWithThis",
+                "Select items that go well with this.",
+              )}
+            </p>
           </div>
 
           <div className="space-y-2 border-t border-border/50 pt-4">
             <label className="text-sm font-medium">
-              {t('auto.allergensCommaSeparated', 'Allergens (comma separated)')}</label>
+              {t("auto.allergensCommaSeparated", "Allergens (comma separated)")}
+            </label>
             <Input
               type="text"
               value={allergens}
               onChange={(e) => setAllergens(e.target.value)}
-              placeholder={t('auto.eGNutsDairy', 'e.g. Nuts, Dairy')}
+              placeholder={t("auto.eGNutsDairy", "e.g. Nuts, Dairy")}
             />
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium">
-              {t('auto.dietaryTagsCommaSeparated', 'Dietary Tags (comma separated)')}</label>
+              {t(
+                "auto.dietaryTagsCommaSeparated",
+                "Dietary Tags (comma separated)",
+              )}
+            </label>
             <Input
               type="text"
               value={dietaryTags}
               onChange={(e) => setDietaryTags(e.target.value)}
-              placeholder={t('auto.eGVeganSpicy', 'e.g. Vegan, Spicy')}
+              placeholder={t("auto.eGVeganSpicy", "e.g. Vegan, Spicy")}
             />
           </div>
 
@@ -226,12 +281,12 @@ export const EditItemForm: React.FC<EditItemFormProps> = ({
               setImageRemoved(true);
               setImageFile(null);
             }}
-            label={t('auto.updateImageOptional', 'Update Image (optional)')}
+            label={t("auto.updateImageOptional", "Update Image (optional)")}
             aspectRatio="wide"
           />
 
           <Button type="submit" disabled={isSubmitting} className="w-full">
-            {isSubmitting ? 'Saving...' : 'Save Changes'}
+            {isSubmitting ? "Saving..." : "Save Changes"}
           </Button>
         </form>
       </Modal>

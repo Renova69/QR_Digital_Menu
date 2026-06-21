@@ -1,6 +1,10 @@
 import {
   Controller,
   Get,
+  Post,
+  Put,
+  Body,
+  Param,
   Query,
   UseGuards,
   ForbiddenException,
@@ -148,12 +152,6 @@ export class DashboardController {
       user,
       restaurantId,
     );
-    const result = await this.dashboardService.getAnalytics(
-      restaurantId,
-      period,
-      dateRange?.startDate,
-      dateRange?.endDate,
-    );
 
     // STARTER has ANALYTICS_BASIC but not ANALYTICS_FULL — strip premium-only fields
     // so the endpoint gate downgrade doesn't expose Pro data to lower tiers.
@@ -162,9 +160,22 @@ export class DashboardController {
     // revenue-reconciliation pair mirror the PAYMENTS_STRIPE gate on the
     // dedicated /payments endpoints, so they must not leak through analytics.
     const effectiveTier = this.featureService.getEffectiveTier(tier, forceTier);
-    if (
-      !this.featureService.hasFeature(effectiveTier, FeatureFlag.ANALYTICS_FULL)
-    ) {
+    const hasFullAnalytics = this.featureService.hasFeature(
+      effectiveTier,
+      FeatureFlag.ANALYTICS_FULL,
+    );
+
+    const result = await this.dashboardService.getAnalytics(
+      restaurantId,
+      period,
+      dateRange?.startDate,
+      dateRange?.endDate,
+      // Skip computing the 7 premium metrics for non-FULL tiers — they're
+      // stripped below anyway, so computing them only wastes DB work.
+      hasFullAnalytics,
+    );
+
+    if (!hasFullAnalytics) {
       const full = result as Record<string, unknown>;
       const {
         topItems: _t,
@@ -175,11 +186,69 @@ export class DashboardController {
         refundedAmount: _ra,
         paymentsByMethod: _pm,
         repeatCustomerRate: _rcr,
+        staffPerformance: _sp,
+        customerMetrics: _cm,
+        kitchenEfficiency: _ke,
+        cancelAnalytics: _ca,
+        tableTurnover: _tt,
+        menuProfitability: _mp,
+        grossProfit: _gp,
         ...basicResult
       } = full;
       return basicResult;
     }
 
     return result;
+  }
+
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @RequireFeature(FeatureFlag.ANALYTICS_BASIC)
+  @Get('target')
+  async getDailyTarget(
+    @AuthUser() user: any,
+    @Query('restaurantId') restaurantId: string,
+    @Query('date') date?: string,
+  ) {
+    if (!restaurantId)
+      throw new BadRequestException('restaurantId is required');
+    await this.verifyDashboardAccess(user, restaurantId);
+    return this.dashboardService.getDailyTarget(restaurantId, date);
+  }
+
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @RequireFeature(FeatureFlag.ANALYTICS_BASIC)
+  @Put('target')
+  async setDailyTarget(
+    @AuthUser() user: any,
+    @Query('restaurantId') restaurantId: string,
+    @Body() body: { date?: string; dailyRevenue: number },
+  ) {
+    if (!restaurantId)
+      throw new BadRequestException('restaurantId is required');
+    if (typeof body.dailyRevenue !== 'number' || body.dailyRevenue < 0)
+      throw new BadRequestException(
+        'dailyRevenue must be a non-negative number',
+      );
+    await this.verifyDashboardAccess(user, restaurantId);
+    return this.dashboardService.setDailyTarget(
+      restaurantId,
+      body.date ?? new Date().toISOString().split('T')[0],
+      body.dailyRevenue,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @RequireFeature(FeatureFlag.ANALYTICS_FULL)
+  @Get('closeout/:restaurantId')
+  async getDailyCloseout(
+    @AuthUser() user: any,
+    @Param('restaurantId') restaurantId: string,
+    @Query('date') date: string,
+  ) {
+    if (!restaurantId)
+      throw new BadRequestException('restaurantId is required');
+    if (!date) throw new BadRequestException('date (YYYY-MM-DD) is required');
+    await this.verifyDashboardAccess(user, restaurantId);
+    return this.dashboardService.getDailyCloseout(restaurantId, date);
   }
 }

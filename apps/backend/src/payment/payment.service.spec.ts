@@ -81,7 +81,7 @@ describe('PaymentService', () => {
       cashPaymentRequest: {
         create: jest.fn(),
         findFirst: jest.fn(),
-        findMany: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn(),
         update: jest.fn(),
       },
@@ -273,6 +273,42 @@ describe('PaymentService', () => {
       expect(result.tableName).toBe('6');
       expect(result.tipsEnabled).toBe(true);
       expect(result.tipOptions).toEqual([5, 10, 15]);
+      expect(result.pendingPayment).toBeNull();
+    });
+
+    it('returns a pending full-table cash request with the bill', async () => {
+      const session = {
+        id: 's1',
+        token: 'tok1',
+        restaurantId: 'rest1',
+        tableId: 'table1',
+        status: 'OPEN',
+        restaurant: { tipsEnabled: false, tipOptions: [] },
+        table: { name: '6' },
+      };
+      mockPrisma.tableSession.findFirst.mockResolvedValue(session);
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20, items: [] }]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.cashPaymentRequest.findMany.mockResolvedValue([
+        {
+          id: 'cash-full',
+          tableSessionId: 's1',
+          scope: 'FULL_TABLE',
+          orderIds: [],
+          requestedAmount: 20,
+          createdAt: new Date('2026-06-21T08:00:00.000Z'),
+        },
+      ]);
+
+      const result = await service.getSessionBill('tok1');
+
+      expect(result.pendingPayment).toMatchObject({
+        id: 'cash-full',
+        source: 'CASH_REQUEST',
+        provider: 'CASH',
+        scope: 'FULL_TABLE',
+        amount: 20,
+      });
     });
 
     it('throws NotFoundException when session not found', async () => {
@@ -371,6 +407,17 @@ describe('PaymentService', () => {
         }),
       );
       expect(result.clientSecret).toBe('cs_test');
+      expect(mockEvents.emitToTableSession).toHaveBeenCalledWith(
+        's1',
+        'billPayment:pending',
+        expect.objectContaining({
+          id: 'pay1',
+          source: 'ONLINE_PAYMENT',
+          provider: 'STRIPE',
+          scope: 'FULL_TABLE',
+          amount: 22,
+        }),
+      );
     });
 
     it('creates a scoped Stripe checkout for unpaid units on selected orders', async () => {
@@ -471,6 +518,39 @@ describe('PaymentService', () => {
       expect(result.clientSecret).toBe('cs_owned');
     });
 
+    it('blocks a full-table Stripe checkout while a scoped cash request is pending', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        restaurantId: 'rest1',
+        restaurant: {
+          paymentsEnabled: true,
+          stripeOnboarded: true,
+          stripeAccountId: 'acct_123',
+          platformFeePercent: 0,
+          tipsEnabled: true,
+          tipOptions: [],
+          tier: 'PROFESSIONAL',
+        },
+      });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 30 }]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.cashPaymentRequest.findMany.mockResolvedValue([
+        {
+          id: 'cash-salad',
+          status: 'PENDING',
+          scope: 'ORDER_ITEMS',
+          orderIds: ['order-salad'],
+        },
+      ]);
+
+      await expect(service.createPaymentIntent('tok1', 0)).rejects.toThrow(
+        ConflictException,
+      );
+
+      expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+      expect(mockStripeProvider.createPaymentIntent).not.toHaveBeenCalled();
+    });
+
     it('marks the Payment FAILED and rethrows when Stripe createPaymentIntent fails (#H9)', async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue({
         id: 's1',
@@ -528,7 +608,7 @@ describe('PaymentService', () => {
       expect(mockStripeProvider.createPaymentIntent).not.toHaveBeenCalled();
     });
 
-    it('cancels a stale PENDING intent before creating a new one (#H1)', async () => {
+    it('blocks an unmatched PENDING intent instead of starting an overlapping checkout (#H1)', async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue({
         id: 's1',
         restaurantId: 'rest1',
@@ -546,30 +626,16 @@ describe('PaymentService', () => {
       mockPrisma.payment.findMany.mockResolvedValue([
         { id: 'stale', status: 'PENDING', stripePaymentIntentId: 'pi_stale' },
       ]);
-      mockPrisma.payment.create.mockResolvedValue({ id: 'pay2' });
-      mockStripeProvider.createPaymentIntent.mockResolvedValue({
-        clientSecret: 'cs',
-        paymentIntentId: 'pi_new',
-      });
-      mockPrisma.payment.update.mockResolvedValue({});
 
-      await service.createPaymentIntent('tok1', 0);
-
-      expect(mockStripeProvider.cancelPaymentIntent).toHaveBeenCalledWith(
-        'pi_stale',
+      await expect(service.createPaymentIntent('tok1', 0)).rejects.toThrow(
+        ConflictException,
       );
-      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
-        where: { id: 'stale', status: 'PENDING' },
-        data: {
-          status: 'ABANDONED',
-          providerStatus: 'ABANDONED',
-          providerReference: null,
-        },
-      });
-      expect(mockStripeProvider.createPaymentIntent).toHaveBeenCalled();
+      expect(mockStripeProvider.cancelPaymentIntent).not.toHaveBeenCalled();
+      expect(mockStripeProvider.createPaymentIntent).not.toHaveBeenCalled();
+      expect(mockPrisma.payment.create).not.toHaveBeenCalled();
     });
 
-    it('refuses to create a new intent when cancelling the stale one fails (#H1)', async () => {
+    it('does not try to cancel an unmatched pending intent while blocking a new one (#H1)', async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue({
         id: 's1',
         restaurantId: 'rest1',
@@ -594,6 +660,7 @@ describe('PaymentService', () => {
       await expect(service.createPaymentIntent('tok1', 0)).rejects.toThrow(
         ConflictException,
       );
+      expect(mockStripeProvider.cancelPaymentIntent).not.toHaveBeenCalled();
       expect(mockStripeProvider.createPaymentIntent).not.toHaveBeenCalled();
     });
 
@@ -1463,6 +1530,15 @@ describe('PaymentService', () => {
           providerReference: null,
         },
       });
+      expect(mockEvents.emitToTableSession).toHaveBeenCalledWith(
+        'sess-1',
+        'billPayment:cleared',
+        {
+          id: 'pay-missing',
+          tableSessionId: 'sess-1',
+          source: 'ONLINE_PAYMENT',
+        },
+      );
       expect(result).toEqual({
         clientSecret: 'cs_new',
         paymentId: 'pay-new',
@@ -2226,17 +2302,26 @@ describe('PaymentService', () => {
     };
     const billOrders = [
       {
-        totalPrice: 30,
+        id: 'order-salad',
+        totalPrice: 5,
         pointsRedeemedForDiscount: 0,
         pointsRedeemedForItems: 0,
         items: [
           {
-            id: 'oi-drink',
+            id: 'oi-salad',
             quantity: 1,
             paidQuantity: 0,
             selectedOptions: [],
-            menuItem: { name: 'Beer', price: 5 },
+            menuItem: { name: 'Salad', price: 5 },
           },
+        ],
+      },
+      {
+        id: 'order-main',
+        totalPrice: 25,
+        pointsRedeemedForDiscount: 0,
+        pointsRedeemedForItems: 0,
+        items: [
           {
             id: 'oi-main',
             quantity: 1,
@@ -2301,6 +2386,78 @@ describe('PaymentService', () => {
           tableName: '6',
         }),
       );
+      expect(mockEvents.emitToTableSession).toHaveBeenCalledWith(
+        's1',
+        'billPayment:pending',
+        expect.objectContaining({
+          id: 'cash-req-1',
+          source: 'CASH_REQUEST',
+          provider: 'CASH',
+          scope: 'FULL_TABLE',
+          amount: 30,
+        }),
+      );
+    });
+
+    it('blocks a full-table cash request while a scoped cash request is pending', async () => {
+      mockPrisma.cashPaymentRequest.findFirst.mockResolvedValue(null);
+      mockPrisma.cashPaymentRequest.findMany.mockResolvedValue([
+        {
+          id: 'cash-salad',
+          status: 'PENDING',
+          scope: 'ORDER_ITEMS',
+          orderIds: ['order-salad'],
+        },
+      ]);
+
+      await expect(
+        service.createCashPaymentRequest('tok1', 'rest1'),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.cashPaymentRequest.create).not.toHaveBeenCalled();
+      expect(mockEvents.emitToRestaurant).not.toHaveBeenCalled();
+    });
+
+    it('allows a scoped cash request when an existing pending request covers different orders', async () => {
+      mockPrisma.order.findMany
+        .mockResolvedValueOnce(billOrders)
+        .mockResolvedValueOnce([billOrders[1]]);
+      mockPrisma.cashPaymentRequest.findFirst.mockResolvedValue(null);
+      mockPrisma.cashPaymentRequest.findMany.mockResolvedValue([
+        {
+          id: 'cash-salad',
+          status: 'PENDING',
+          scope: 'ORDER_ITEMS',
+          orderIds: ['order-salad'],
+        },
+      ]);
+      mockPrisma.cashPaymentRequest.create.mockResolvedValue({
+        id: 'cash-main',
+        restaurantId: 'rest1',
+        tableSessionId: 's1',
+        tableId: 'table1',
+        status: 'PENDING',
+        scope: 'ORDER_ITEMS',
+        scopeKey: 'main-scope',
+        orderIds: ['order-main'],
+        requestedAmount: 25,
+        currency: 'EUR',
+        paymentId: null,
+        resolvedById: null,
+        resolvedAt: null,
+        createdAt: new Date('2026-06-21T07:00:00.000Z'),
+        updatedAt: new Date('2026-06-21T07:00:00.000Z'),
+        table: { name: '6' },
+      });
+
+      const result = await service.createCashPaymentRequest('tok1', 'rest1', {
+        orderIds: ['order-main'],
+      });
+
+      expect(result.requestedAmount).toBe(25);
+      expect(result.scope).toBe('ORDER_ITEMS');
+      expect(result.orderIds).toEqual(['order-main']);
+      expect(mockPrisma.cashPaymentRequest.create).toHaveBeenCalled();
     });
 
     it('confirms a full-table cash request by recording a CASH payment and marking the session paid', async () => {
