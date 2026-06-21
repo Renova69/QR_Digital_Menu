@@ -6,7 +6,8 @@ import { PaymentModal } from './PaymentModal';
 const apiMocks = vi.hoisted(() => ({
   getSessionBill: vi.fn(),
   createCheckout: vi.fn(),
-  createAssistanceRequest: vi.fn(),
+  createCashPaymentRequest: vi.fn(),
+  abandonCheckout: vi.fn(),
 }));
 const i18nMocks = vi.hoisted(() => ({
   t: (key: string, fallbackOrOptions?: string | { defaultValue?: string; name?: string; n?: number }) => {
@@ -28,17 +29,42 @@ const i18nMocks = vi.hoisted(() => ({
       );
   },
 }));
+const socketMocks = vi.hoisted(() => {
+  const handlers: Record<string, Array<(payload?: unknown) => void>> = {};
+  const socket: any = {
+    emit: vi.fn(),
+    on: vi.fn((event: string, handler: (payload?: unknown) => void) => {
+      handlers[event] = [...(handlers[event] ?? []), handler];
+      return socket;
+    }),
+    off: vi.fn((event: string, handler: (payload?: unknown) => void) => {
+      handlers[event] = (handlers[event] ?? []).filter((h) => h !== handler);
+      return socket;
+    }),
+  };
+
+  return {
+    handlers,
+    socket,
+    state: { socket: null as any, isConnected: false },
+  };
+});
 
 vi.mock('../../lib/api', () => ({
   getSessionBill: apiMocks.getSessionBill,
   createCheckout: apiMocks.createCheckout,
-  createAssistanceRequest: apiMocks.createAssistanceRequest,
+  createCashPaymentRequest: apiMocks.createCashPaymentRequest,
+  abandonCheckout: apiMocks.abandonCheckout,
 }));
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: i18nMocks.t,
   }),
+}));
+
+vi.mock('../../context/SocketContext', () => ({
+  useSocket: () => socketMocks.state,
 }));
 
 vi.mock('@stripe/stripe-js', () => ({
@@ -92,7 +118,16 @@ describe('PaymentModal hosted provider choices', () => {
   beforeEach(() => {
     apiMocks.getSessionBill.mockReset();
     apiMocks.createCheckout.mockReset();
-    apiMocks.createAssistanceRequest.mockReset();
+    apiMocks.createCashPaymentRequest.mockReset();
+    apiMocks.abandonCheckout.mockReset();
+    Object.keys(socketMocks.handlers).forEach((event) => {
+      delete socketMocks.handlers[event];
+    });
+    socketMocks.socket.emit.mockClear();
+    socketMocks.socket.on.mockClear();
+    socketMocks.socket.off.mockClear();
+    socketMocks.state.socket = null;
+    socketMocks.state.isConnected = false;
   });
 
   afterEach(() => {
@@ -120,23 +155,90 @@ describe('PaymentModal hosted provider choices', () => {
     expect(screen.queryByRole('button', { name: 'ePay.bg' })).toBeNull();
   });
 
-  it('creates a cash payment assistance request without marking the bill paid', async () => {
+  it('creates a formal cash payment request without starting online checkout', async () => {
     apiMocks.getSessionBill.mockResolvedValueOnce(billWithProviders(['STRIPE']));
-    apiMocks.createAssistanceRequest.mockResolvedValueOnce({ id: 'cash-1' });
+    apiMocks.createCashPaymentRequest.mockResolvedValueOnce({ id: 'cash-1' });
+    const onCashRequestCreated = vi.fn();
 
-    render(<PaymentModal sessionToken="tok1" onClose={vi.fn()} onSuccess={vi.fn()} />);
+    render(
+      <PaymentModal
+        sessionToken="tok1"
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+        onCashRequestCreated={onCashRequestCreated}
+      />,
+    );
 
     fireEvent.click(await screen.findByRole('button', { name: /Pay cash to waiter/i }));
 
     await waitFor(() => {
-      expect(apiMocks.createAssistanceRequest).toHaveBeenCalledWith('6', 'rest1', 'CASH_PAYMENT');
+      expect(apiMocks.createCashPaymentRequest).toHaveBeenCalledWith('tok1', {
+        restaurantId: 'rest1',
+      });
     });
     expect(await screen.findByText('Cash request sent')).toBeTruthy();
+    expect(onCashRequestCreated).toHaveBeenCalledWith('cash-1');
     expect(apiMocks.createCheckout).not.toHaveBeenCalled();
   });
 
-  it('passes owned order ids when paying my orders online', async () => {
+  it('completes the modal when staff marks its cash request paid over the session socket', async () => {
+    socketMocks.state.socket = socketMocks.socket;
+    socketMocks.state.isConnected = true;
     apiMocks.getSessionBill.mockResolvedValueOnce(billWithProviders(['STRIPE']));
+    apiMocks.createCashPaymentRequest.mockResolvedValueOnce({ id: 'cash-1' });
+    const onSuccess = vi.fn();
+
+    render(<PaymentModal sessionToken="tok1" onClose={vi.fn()} onSuccess={onSuccess} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Pay cash to waiter/i }));
+    await screen.findByText('Cash request sent');
+
+    await waitFor(() => {
+      expect(socketMocks.handlers['cashPaymentRequest:updated']?.length).toBe(1);
+    });
+
+    act(() => {
+      socketMocks.handlers['cashPaymentRequest:updated'][0]({
+        id: 'cash-1',
+        status: 'PAID',
+      });
+    });
+
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(socketMocks.socket.emit).toHaveBeenCalledWith('joinTableSessionRoom', {
+      token: 'tok1',
+    });
+  });
+
+  it('passes owned order ids when paying my orders online', async () => {
+    apiMocks.getSessionBill.mockResolvedValueOnce({
+      ...billWithProviders(['STRIPE']),
+      orders: [
+        ...billWithProviders(['STRIPE']).orders,
+        {
+          id: 'order2',
+          source: 'CUSTOMER',
+          customerName: 'Ivan',
+          customerPhone: null,
+          staffName: null,
+          staffRole: null,
+          totalPrice: 12,
+          items: [
+            {
+              orderItemId: 'oi-salad',
+              name: 'Salad',
+              quantity: 1,
+              paidQuantity: 0,
+              unitPrice: 12,
+              unitPriceWithOptions: 12,
+              selectedOptions: [],
+            },
+          ],
+        },
+      ],
+      subtotal: 32,
+      remaining: 32,
+    });
     apiMocks.createCheckout.mockResolvedValueOnce({
       provider: 'STRIPE',
       clientSecret: 'cs_test',
@@ -164,6 +266,23 @@ describe('PaymentModal hosted provider choices', () => {
         orderIds: ['order1'],
       }),
     );
+  });
+
+  it('does not show My orders tabs for the first customer on a table', async () => {
+    apiMocks.getSessionBill.mockResolvedValueOnce(billWithProviders(['STRIPE']));
+
+    render(
+      <PaymentModal
+        sessionToken="tok1"
+        ownedOrderIds={['order1']}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    await screen.findByTestId('payment-continue-button');
+    expect(screen.queryByRole('button', { name: 'My orders' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Full table' })).toBeNull();
   });
 
   it('uses customer-facing source labels instead of exposing staff roles', async () => {

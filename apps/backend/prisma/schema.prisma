@@ -37,6 +37,7 @@ model User {
   restaurants                   Restaurant[]            @relation("OwnedRestaurants")
   staffRestaurant               Restaurant?             @relation("StaffRestaurant", fields: [restaurantId], references: [id])
   adminAuditLogs                AdminAuditLog[]
+  cashPaymentRequestsResolved   CashPaymentRequest[]    @relation("CashPaymentRequestResolvedBy")
 
   @@map("app_user")
 }
@@ -135,6 +136,7 @@ model Restaurant {
   isActive                  Boolean                 @default(true)
   deletedAt                 DateTime?
   assistanceRequests        AssistanceRequest[]
+  cashPaymentRequests       CashPaymentRequest[]
   deviceEnrollmentTokens    DeviceEnrollmentToken[]
   staffDeviceBindings       StaffDeviceBinding[]
   orders                    Order[]
@@ -257,6 +259,7 @@ model RestaurantTable {
   restaurant   Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   zone         TableZone?     @relation(fields: [zoneId], references: [id], onDelete: SetNull)
   sessions     TableSession[]
+  cashPaymentRequests CashPaymentRequest[]
 
   @@unique([restaurantId, name])
   @@index([restaurantId, zoneId])
@@ -418,6 +421,35 @@ model AssistanceRequest {
 
   @@index([restaurantId, isResolved])
   @@map("assistance_request")
+}
+
+model CashPaymentRequest {
+  id             String                   @id @default(cuid())
+  restaurantId   String
+  tableSessionId String
+  tableId        String
+  status         CashPaymentRequestStatus @default(PENDING)
+  scope          CashPaymentRequestScope  @default(FULL_TABLE)
+  scopeKey       String
+  orderIds       String[]                 @default([])
+  requestedAmount Float
+  currency       String                   @default("EUR")
+  paymentId      String?                  @unique
+  resolvedById   String?
+  resolvedAt     DateTime?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  restaurant     Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  tableSession   TableSession             @relation(fields: [tableSessionId], references: [id], onDelete: Cascade)
+  table          RestaurantTable          @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  payment        Payment?                 @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  resolvedBy     User?                    @relation("CashPaymentRequestResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([restaurantId, status, createdAt])
+  @@index([tableSessionId, status])
+  @@index([tableId, status])
+  @@index([resolvedById])
+  @@map("cash_payment_request")
 }
 
 model DeviceEnrollmentToken {
@@ -599,6 +631,7 @@ model TableSession {
   paidAt       DateTime?
   orders       Order[]
   payments     Payment[]
+  cashPaymentRequests CashPaymentRequest[]
   restaurant   Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   table        RestaurantTable    @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
@@ -631,6 +664,7 @@ model Payment {
   restaurant            Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   allocations           PaymentAllocation[]
   providerEvents        PaymentProviderEvent[]
+  cashPaymentRequest    CashPaymentRequest?
 
   @@index([tableSessionId])
   @@index([restaurantId])
@@ -676,6 +710,17 @@ enum PaymentProvider {
   EPAY
   CASH
   BORICA
+}
+
+enum CashPaymentRequestStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum CashPaymentRequestScope {
+  FULL_TABLE
+  ORDER_ITEMS
 }
 
 enum SubscriptionTier {

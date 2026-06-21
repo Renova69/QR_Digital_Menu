@@ -470,6 +470,27 @@ export interface SessionBill {
   paymentProviders: Array<CheckoutProvider>;
 }
 
+export type CashPaymentRequestStatus = 'PENDING' | 'PAID' | 'CANCELLED';
+export type CashPaymentRequestScope = 'FULL_TABLE' | 'ORDER_ITEMS';
+
+export interface CashPaymentRequest {
+  id: string;
+  restaurantId: string;
+  tableSessionId: string;
+  tableId: string;
+  tableName: string | null;
+  status: CashPaymentRequestStatus;
+  scope: CashPaymentRequestScope;
+  orderIds: string[];
+  requestedAmount: number;
+  currency: string;
+  paymentId: string | null;
+  resolvedById: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const getSessionBill = async (token: string) => {
   const response = await api.get(`/payments/session/${token}/bill`);
   return response.data as SessionBill;
@@ -572,6 +593,14 @@ export const createCheckout = async (
   return response.data as CheckoutResponse;
 };
 
+export const createCashPaymentRequest = async (
+  token: string,
+  data: { restaurantId: string; orderIds?: string[] },
+) => {
+  const response = await api.post(`/payments/session/${token}/cash-request`, data);
+  return response.data as CashPaymentRequest;
+};
+
 export const abandonCheckout = async (token: string): Promise<void> => {
   await api.post(`/payments/session/${token}/abandon`);
 };
@@ -589,6 +618,26 @@ export const closeSessionWithCard = async (token: string, restaurantId: string) 
 export const closeSessionWithCash = async (token: string, restaurantId: string) => {
   const response = await api.post(`/payments/session/${token}/close-cash`, { restaurantId });
   return response.data as { amount: number };
+};
+
+export const getCashPaymentRequests = async (
+  restaurantId: string,
+  status: 'ALL' | CashPaymentRequestStatus = 'ALL',
+) => {
+  const response = await api.get(`/payments/cash-requests/${restaurantId}`, {
+    params: { status },
+  });
+  return response.data as CashPaymentRequest[];
+};
+
+export const confirmCashPaymentRequest = async (requestId: string) => {
+  const response = await api.post(`/payments/cash-requests/${requestId}/confirm`);
+  return response.data as CashPaymentRequest;
+};
+
+export const cancelCashPaymentRequest = async (requestId: string) => {
+  const response = await api.post(`/payments/cash-requests/${requestId}/cancel`);
+  return response.data as CashPaymentRequest;
 };
 
 export const getTableSessions = async (restaurantId: string) => {

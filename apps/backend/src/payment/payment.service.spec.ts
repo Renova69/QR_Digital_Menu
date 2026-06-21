@@ -78,6 +78,13 @@ describe('PaymentService', () => {
         createMany: jest.fn().mockResolvedValue({ count: 1 }),
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
+      cashPaymentRequest: {
+        create: jest.fn(),
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        update: jest.fn(),
+      },
       $queryRaw: jest.fn().mockResolvedValue([{ id: 's1' }]),
       $transaction: jest.fn((arg: any) => {
         if (typeof arg === 'function') return arg(mockPrisma);
@@ -143,6 +150,7 @@ describe('PaymentService', () => {
     };
     mockEvents = {
       emitToRestaurant: jest.fn(),
+      emitToTableSession: jest.fn(),
       emitTableStatusChanged: jest.fn(),
     };
 
@@ -2202,6 +2210,180 @@ describe('PaymentService', () => {
         'rest1',
         'payment:confirmed',
         expect.objectContaining({ amount: 15 }),
+      );
+    });
+  });
+
+  describe('cash payment requests', () => {
+    const openSession = {
+      id: 's1',
+      token: 'tok1',
+      tableId: 'table1',
+      restaurantId: 'rest1',
+      status: 'OPEN',
+      restaurant: { tier: 'PROFESSIONAL', forceTier: null },
+      table: { name: '6' },
+    };
+    const billOrders = [
+      {
+        totalPrice: 30,
+        pointsRedeemedForDiscount: 0,
+        pointsRedeemedForItems: 0,
+        items: [
+          {
+            id: 'oi-drink',
+            quantity: 1,
+            paidQuantity: 0,
+            selectedOptions: [],
+            menuItem: { name: 'Beer', price: 5 },
+          },
+          {
+            id: 'oi-main',
+            quantity: 1,
+            paidQuantity: 0,
+            selectedOptions: [],
+            menuItem: { name: 'Steak', price: 25 },
+          },
+        ],
+      },
+    ];
+
+    beforeEach(() => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue(openSession);
+      mockPrisma.order.findMany.mockResolvedValue(billOrders);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.payment.findFirst.mockResolvedValue(null);
+    });
+
+    it('creates a deduped full-table cash request with the current remaining amount', async () => {
+      mockPrisma.cashPaymentRequest.findFirst.mockResolvedValue(null);
+      mockPrisma.cashPaymentRequest.create.mockResolvedValue({
+        id: 'cash-req-1',
+        restaurantId: 'rest1',
+        tableSessionId: 's1',
+        tableId: 'table1',
+        status: 'PENDING',
+        scope: 'FULL_TABLE',
+        scopeKey: 'FULL_TABLE',
+        orderIds: [],
+        requestedAmount: 30,
+        currency: 'EUR',
+        paymentId: null,
+        resolvedById: null,
+        resolvedAt: null,
+        createdAt: new Date('2026-06-21T07:00:00.000Z'),
+        updatedAt: new Date('2026-06-21T07:00:00.000Z'),
+        table: { name: '6' },
+      });
+
+      const result = await service.createCashPaymentRequest('tok1', 'rest1');
+
+      expect(result.requestedAmount).toBe(30);
+      expect(result.scope).toBe('FULL_TABLE');
+      expect(mockPrisma.cashPaymentRequest.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            restaurantId: 'rest1',
+            tableSessionId: 's1',
+            tableId: 'table1',
+            scope: 'FULL_TABLE',
+            scopeKey: 'FULL_TABLE',
+            requestedAmount: 30,
+          }),
+        }),
+      );
+      expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
+        'rest1',
+        'cashPaymentRequest:created',
+        expect.objectContaining({
+          id: 'cash-req-1',
+          requestedAmount: 30,
+          tableName: '6',
+        }),
+      );
+    });
+
+    it('confirms a full-table cash request by recording a CASH payment and marking the session paid', async () => {
+      const existingRequest = {
+        id: 'cash-req-1',
+        restaurantId: 'rest1',
+        tableSessionId: 's1',
+        status: 'PENDING',
+        tableSession: { token: 'tok1' },
+      };
+      const requestInTransaction = {
+        ...existingRequest,
+        tableId: 'table1',
+        scope: 'FULL_TABLE',
+        scopeKey: 'FULL_TABLE',
+        orderIds: [],
+        requestedAmount: 30,
+        currency: 'EUR',
+        paymentId: null,
+        resolvedById: null,
+        resolvedAt: null,
+        createdAt: new Date('2026-06-21T07:00:00.000Z'),
+        updatedAt: new Date('2026-06-21T07:00:00.000Z'),
+        table: { name: '6' },
+        tableSession: openSession,
+      };
+      const updatedRequest = {
+        ...requestInTransaction,
+        status: 'PAID',
+        paymentId: 'pay-cash-1',
+        resolvedById: 'manager1',
+        resolvedAt: new Date('2026-06-21T07:05:00.000Z'),
+      };
+      mockPrisma.cashPaymentRequest.findUnique
+        .mockResolvedValueOnce(existingRequest)
+        .mockResolvedValueOnce(requestInTransaction);
+      mockPrisma.cashPaymentRequest.update.mockResolvedValue(updatedRequest);
+      mockPrisma.payment.create.mockResolvedValue({ id: 'pay-cash-1' });
+      mockPrisma.payment.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          { status: 'SUCCEEDED', amount: 30, tipAmount: 0 },
+        ]);
+      mockPrisma.order.findFirst.mockResolvedValue({ customerName: 'Maria' });
+
+      const result = await service.confirmCashPaymentRequest(
+        'cash-req-1',
+        'manager1',
+      );
+
+      expect(result.status).toBe('PAID');
+      expect(result.paymentId).toBe('pay-cash-1');
+      expect(mockPrisma.payment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            amount: 30,
+            tipAmount: 0,
+            platformFeeAmount: 0,
+            provider: 'CASH',
+            status: 'SUCCEEDED',
+          }),
+        }),
+      );
+      expect(mockPrisma.tableSession.updateMany).toHaveBeenCalledWith({
+        where: { id: 's1', status: 'OPEN' },
+        data: expect.objectContaining({ status: 'PAID' }),
+      });
+      expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
+        'rest1',
+        'cashPaymentRequest:updated',
+        expect.objectContaining({ id: 'cash-req-1', status: 'PAID' }),
+      );
+      expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
+        'rest1',
+        'payment:confirmed',
+        expect.objectContaining({
+          paymentId: 'pay-cash-1',
+          tableSessionId: 's1',
+          amount: 30,
+          tipAmount: 0,
+          customerName: 'Maria',
+        }),
       );
     });
   });

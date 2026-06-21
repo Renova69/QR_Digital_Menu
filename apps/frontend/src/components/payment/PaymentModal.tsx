@@ -1,12 +1,13 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { getSessionBill, createCheckout, abandonCheckout, createAssistanceRequest, type BoricaCardholderDetails, type CheckoutProvider } from '../../lib/api';
+import { getSessionBill, createCheckout, createCashPaymentRequest, abandonCheckout, type BoricaCardholderDetails, type CheckoutProvider } from '../../lib/api';
 import { Button } from '../ui/button';
 import { useTranslation } from 'react-i18next';
 import { Banknote, CheckCircle2, ReceiptText, Users, X } from 'lucide-react';
 import { formatEuro, formatBgn } from '../../lib/currency';
 import { getCustomerFacingOrderSourceLabel } from '../../lib/orderSourceLabel';
+import { useSocket } from '../../context/SocketContext';
 
 const stripePublishableKey = (import.meta as any).env
   .VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
@@ -30,6 +31,7 @@ interface PaymentModalProps {
   ownedOrderIds?: string[];
   onClose: () => void;
   onSuccess: () => void;
+  onCashRequestCreated?: (requestId: string) => void;
 }
 
 type Step = 'tip' | 'pay' | 'redirect' | 'done';
@@ -58,6 +60,7 @@ interface BillOrder {
 }
 
 interface BillData {
+  sessionId?: string;
   tableName?: string | null;
   orders: BillOrder[];
   subtotal: number;
@@ -225,8 +228,10 @@ export function PaymentModal({
   ownedOrderIds = [],
   onClose,
   onSuccess,
+  onCashRequestCreated,
 }: PaymentModalProps) {
   const { t } = useTranslation();
+  const { socket, isConnected } = useSocket();
   const [step, setStep] = useState<Step>('tip');
   const [bill, setBill] = useState<BillData | null>(null);
   const [selectedTip, setSelectedTip] = useState(0);
@@ -243,11 +248,81 @@ export function PaymentModal({
   const [error, setError] = useState<string | null>(null);
   const [cashRequesting, setCashRequesting] = useState(false);
   const [cashRequested, setCashRequested] = useState(false);
+  const [cashRequestId, setCashRequestId] = useState<string | null>(null);
   const [cashError, setCashError] = useState<string | null>(null);
   // Fix H-8 — a failed bill load must show an error with retry, not silently close.
   const [billError, setBillError] = useState<string | null>(null);
   const [billReloadKey, setBillReloadKey] = useState(0);
   const epayFormRef = useRef<HTMLFormElement | null>(null);
+  const liveCompletionHandledRef = useRef(false);
+
+  useEffect(() => {
+    liveCompletionHandledRef.current = false;
+    setCashRequestId(null);
+  }, [sessionToken]);
+
+  const completeFromLiveSettlement = useCallback(() => {
+    if (liveCompletionHandledRef.current) return;
+    liveCompletionHandledRef.current = true;
+    try {
+      sessionStorage.removeItem(hostedCheckoutStorageKey(sessionToken));
+    } catch {}
+    onSuccess();
+  }, [onSuccess, sessionToken]);
+
+  useEffect(() => {
+    if (!socket || !isConnected || !sessionToken) return;
+
+    socket.emit('joinTableSessionRoom', { token: sessionToken });
+
+    const handlePaymentConfirmed = () => {
+      completeFromLiveSettlement();
+    };
+
+    const handleBillUpdated = (payload: { sessionPaid?: boolean }) => {
+      if (payload?.sessionPaid) {
+        completeFromLiveSettlement();
+      } else {
+        setBillReloadKey((k) => k + 1);
+      }
+    };
+
+    const handleCashRequestUpdated = (request: { id?: string; status?: string }) => {
+      if (!cashRequestId || request?.id !== cashRequestId) return;
+      if (request.status === 'PAID') {
+        completeFromLiveSettlement();
+        return;
+      }
+      if (request.status === 'CANCELLED') {
+        setCashRequested(false);
+        setCashRequestId(null);
+        setCashError(
+          t(
+            'payment.cashRequestCancelled',
+            'Staff cancelled this cash request. Please ask your waiter or try again.',
+          ),
+        );
+      }
+    };
+
+    socket.on('payment:confirmed', handlePaymentConfirmed);
+    socket.on('bill:updated', handleBillUpdated);
+    socket.on('cashPaymentRequest:updated', handleCashRequestUpdated);
+
+    return () => {
+      socket.off('payment:confirmed', handlePaymentConfirmed);
+      socket.off('bill:updated', handleBillUpdated);
+      socket.off('cashPaymentRequest:updated', handleCashRequestUpdated);
+      socket.emit('leaveTableSessionRoom', { token: sessionToken });
+    };
+  }, [
+    cashRequestId,
+    completeFromLiveSettlement,
+    isConnected,
+    sessionToken,
+    socket,
+    t,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -341,10 +416,20 @@ export function PaymentModal({
     [ownedOrders],
   );
   const billRemaining = bill?.remaining ?? bill?.subtotal ?? 0;
+  const hasOtherUnpaidOrders = useMemo(
+    () =>
+      (bill?.orders ?? []).some(
+        (order) =>
+          !ownedOrderIdSet.has(order.id) &&
+          getOrderRemainingSubtotal(order) > 0,
+      ),
+    [bill?.orders, ownedOrderIdSet],
+  );
   const canPayOwnedOrders =
     ownedOrders.length > 0 &&
     ownedRemainingSubtotal > 0 &&
-    !!bill?.splitItemsAvailable;
+    !!bill?.splitItemsAvailable &&
+    hasOtherUnpaidOrders;
   const activePaymentScope = canPayOwnedOrders ? paymentScope : 'FULL_TABLE';
   const displayedOrders =
     activePaymentScope === 'MY_ORDERS' ? ownedOrders : bill?.orders ?? [];
@@ -414,7 +499,7 @@ export function PaymentModal({
 
   const handleCashPaymentRequest = async () => {
     if (!bill) return;
-    if (!bill.restaurantId || !bill.tableName) {
+    if (!bill.restaurantId) {
       setCashError(t('payment.cashRequestUnavailable', 'Cash request is unavailable for this bill.'));
       return;
     }
@@ -422,17 +507,18 @@ export function PaymentModal({
     setCashRequesting(true);
     setCashError(null);
     try {
-      await createAssistanceRequest(bill.tableName, bill.restaurantId, 'CASH_PAYMENT');
+      const request = await createCashPaymentRequest(sessionToken, {
+        restaurantId: bill.restaurantId,
+        ...(activeCheckoutOrderIds?.length ? { orderIds: activeCheckoutOrderIds } : {}),
+      });
+      setCashRequestId(request.id);
+      onCashRequestCreated?.(request.id);
       setCashRequested(true);
     } catch (e: any) {
-      if (e?.response?.status === 409) {
-        setCashRequested(true);
-      } else {
-        setCashError(
-          e?.response?.data?.message ||
-            t('payment.cashRequestFailed', 'Could not ask staff for cash payment.'),
-        );
-      }
+      setCashError(
+        e?.response?.data?.message ||
+          t('payment.cashRequestFailed', 'Could not ask staff for cash payment.'),
+      );
     } finally {
       setCashRequesting(false);
     }

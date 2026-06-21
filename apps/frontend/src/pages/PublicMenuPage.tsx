@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import type { Restaurant } from "../services/restaurantService";
 import { getMenuMeta, getCategoryItems, createAssistanceRequest, getSessionBill, recordMenuView, abandonCheckout } from "../lib/api";
@@ -26,6 +26,7 @@ import type { FeatureFlag } from "../hooks/useFeature";
 import type { BrandPalette, BrandMode } from "../components/branding/ThemePresets";
 import { getReadableTextColor } from "../utils/colors";
 import { clearOwnedOrderIds, getOwnedOrderIds } from "../lib/publicOrderOwnership";
+import { useSocket } from "../context/SocketContext";
 
 const DEFAULT_PUBLIC_LIGHT: BrandPalette = {
   bg: '#FFFFFF',
@@ -164,11 +165,13 @@ const PublicMenuPage = () => {
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [ownedOrderIds, setOwnedOrderIds] = useState<string[]>([]);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [pendingCashRequestId, setPendingCashRequestId] = useState<string | null>(null);
   const [paymentBanner, setPaymentBanner] = useState<{ ok: boolean; text: string } | null>(null);
   const [isAssistanceDialogOpen, setIsAssistanceDialogOpen] = useState(false);
 
   const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
+  const { socket, isConnected } = useSocket();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   const tier = menuMeta?.restaurant?.tier as string | undefined;
@@ -196,6 +199,22 @@ const PublicMenuPage = () => {
   const langFetchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasActiveFilters = activeDietTags.length > 0 || excludedAllergens.length > 0;
+
+  const clearPaidSession = useCallback((message?: string) => {
+    const tokenToClear = sessionToken;
+    setIsPaymentModalOpen(false);
+    if (restaurantId && tableNumber && tokenToClear) {
+      clearOwnedOrderIds(restaurantId, tableNumber, tokenToClear);
+      localStorage.removeItem(`session-${restaurantId}-${tableNumber}`);
+    }
+    setSessionToken(null);
+    setOwnedOrderIds([]);
+    setPendingCashRequestId(null);
+    setPaymentBanner({
+      ok: true,
+      text: message ?? t('payment.paymentReceived', 'Payment received successfully'),
+    });
+  }, [restaurantId, sessionToken, tableNumber, t]);
 
   const toggleDietTag = (tag: string) => {
     setActiveDietTags((prev) =>
@@ -321,6 +340,57 @@ const PublicMenuPage = () => {
     const timer = setTimeout(() => setPaymentBanner(null), 8000);
     return () => clearTimeout(timer);
   }, [paymentBanner]);
+
+  useEffect(() => {
+    if (!socket || !isConnected || !sessionToken) return;
+
+    socket.emit('joinTableSessionRoom', { token: sessionToken });
+
+    const handlePaymentConfirmed = () => {
+      clearPaidSession();
+    };
+
+    const handleBillUpdated = (payload: { sessionPaid?: boolean }) => {
+      if (payload?.sessionPaid) clearPaidSession();
+    };
+
+    const handleCashRequestUpdated = (request: { id?: string; status?: string }) => {
+      if (!pendingCashRequestId || request?.id !== pendingCashRequestId) return;
+      if (request.status === 'PAID') {
+        clearPaidSession();
+        return;
+      }
+      if (request.status === 'CANCELLED') {
+        setPendingCashRequestId(null);
+        setIsPaymentModalOpen(false);
+        setPaymentBanner({
+          ok: false,
+          text: t(
+            'payment.cashRequestCancelled',
+            'Staff cancelled this cash request. Please ask your waiter or try again.',
+          ),
+        });
+      }
+    };
+
+    socket.on('payment:confirmed', handlePaymentConfirmed);
+    socket.on('bill:updated', handleBillUpdated);
+    socket.on('cashPaymentRequest:updated', handleCashRequestUpdated);
+
+    return () => {
+      socket.off('payment:confirmed', handlePaymentConfirmed);
+      socket.off('bill:updated', handleBillUpdated);
+      socket.off('cashPaymentRequest:updated', handleCashRequestUpdated);
+      socket.emit('leaveTableSessionRoom', { token: sessionToken });
+    };
+  }, [
+    clearPaidSession,
+    isConnected,
+    pendingCashRequestId,
+    sessionToken,
+    socket,
+    t,
+  ]);
 
   useEffect(() => {
     const abandonHostedCheckoutIfReturned = () => {
@@ -1104,15 +1174,8 @@ const PublicMenuPage = () => {
           sessionToken={sessionToken}
           ownedOrderIds={ownedOrderIds}
           onClose={() => setIsPaymentModalOpen(false)}
-          onSuccess={() => {
-            setIsPaymentModalOpen(false);
-            if (tableNumber) {
-              clearOwnedOrderIds(restaurantId, tableNumber, sessionToken);
-              localStorage.removeItem(`session-${restaurantId}-${tableNumber}`);
-            }
-            setSessionToken(null);
-            setOwnedOrderIds([]);
-          }}
+          onSuccess={() => clearPaidSession()}
+          onCashRequestCreated={setPendingCashRequestId}
         />
       )}
 

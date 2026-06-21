@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Banknote,
   BellRing,
+  Ban,
   Check,
   Clock,
   History,
   Menu,
+  ReceiptText,
   RotateCcw,
   Search,
   Sparkles,
@@ -16,6 +18,16 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { useAssistance } from '../../context/AssistanceContext';
+import { useAuth } from '../../context/AuthContext';
+import { useRestaurantContext } from '../../context/RestaurantContext';
+import { useSocket } from '../../context/SocketContext';
+import {
+  cancelCashPaymentRequest,
+  confirmCashPaymentRequest,
+  getCashPaymentRequests,
+  type CashPaymentRequest,
+} from '../../lib/api';
+import { formatEuro } from '../../lib/currency';
 import { cn } from '../../lib/utils';
 
 type AssistanceContextValue = ReturnType<typeof useAssistance>;
@@ -93,11 +105,66 @@ function getRequestTitle(request: AssistanceRequest, t: TFunction) {
     : t('assistance.guestNeedsStaff');
 }
 
+function getCashRequestScopeLabel(request: CashPaymentRequest, t: TFunction) {
+  return request.scope === 'ORDER_ITEMS'
+    ? t('assistance.cashScopeMyOrders', 'My orders')
+    : t('assistance.cashScopeFullTable', 'Full table');
+}
+
+function getCashRequestStatusLabel(request: CashPaymentRequest, t: TFunction) {
+  if (request.status === 'PAID') return t('payments.paid', 'Paid');
+  if (request.status === 'CANCELLED') return t('common.cancelled', 'Cancelled');
+  return t('assistance.waiting', 'Waiting');
+}
+
 const AssistanceView = () => {
   const { requests, markAsResolved, markAsUnresolved } = useAssistance();
+  const { activeRestaurant } = useRestaurantContext();
+  const { socket, isConnected } = useSocket();
+  const { user } = useAuth();
   const { t } = useTranslation();
   const [filter, setFilter] = useState<RequestFilter>('active');
   const [searchTerm, setSearchTerm] = useState('');
+  const [cashRequests, setCashRequests] = useState<CashPaymentRequest[]>([]);
+  const [cashActionId, setCashActionId] = useState<string | null>(null);
+  const [cashError, setCashError] = useState<string | null>(null);
+  const userRole = user?.role?.toUpperCase();
+  const canManageCashPayments =
+    !!userRole && ['OWNER', 'MANAGER', 'WAITER', 'STAFF', 'SUPER_ADMIN'].includes(userRole);
+
+  const refreshCashRequests = useCallback(async () => {
+    if (!activeRestaurant?.id) {
+      setCashRequests([]);
+      return;
+    }
+
+    try {
+      const data = await getCashPaymentRequests(activeRestaurant.id);
+      setCashRequests(data);
+    } catch (error) {
+      console.error('Failed to fetch cash payment requests:', error);
+    }
+  }, [activeRestaurant?.id]);
+
+  useEffect(() => {
+    void refreshCashRequests();
+  }, [refreshCashRequests]);
+
+  useEffect(() => {
+    if (!socket || !isConnected || !activeRestaurant?.id) return;
+
+    const handleCashRequestChanged = () => {
+      void refreshCashRequests();
+    };
+
+    socket.on('cashPaymentRequest:created', handleCashRequestChanged);
+    socket.on('cashPaymentRequest:updated', handleCashRequestChanged);
+
+    return () => {
+      socket.off('cashPaymentRequest:created', handleCashRequestChanged);
+      socket.off('cashPaymentRequest:updated', handleCashRequestChanged);
+    };
+  }, [activeRestaurant?.id, isConnected, refreshCashRequests, socket]);
 
   const activeRequests = useMemo(
     () =>
@@ -136,6 +203,50 @@ const AssistanceView = () => {
       });
   }, [activeRequests, filter, requests, resolvedRequests, searchTerm]);
 
+  const activeCashRequests = useMemo(
+    () =>
+      cashRequests
+        .filter((request) => request.status === 'PENDING')
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
+    [cashRequests],
+  );
+
+  const resolvedCashRequests = useMemo(
+    () =>
+      cashRequests
+        .filter((request) => request.status !== 'PENDING')
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
+    [cashRequests],
+  );
+
+  const visibleCashRequests = useMemo(() => {
+    const source =
+      filter === 'active'
+        ? activeCashRequests
+        : filter === 'resolved'
+          ? resolvedCashRequests
+          : cashRequests;
+    const query = searchTerm.trim().toLowerCase();
+
+    return source
+      .filter((request) => {
+        if (!query) return true;
+        return (
+          String(request.tableName ?? request.tableId ?? '').toLowerCase().includes(query) ||
+          String(request.tableId ?? '').toLowerCase().includes(query)
+        );
+      })
+      .sort((a, b) => {
+        if (filter === 'resolved') {
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        }
+        if (filter === 'all' && a.status !== b.status) {
+          return a.status === 'PENDING' ? -1 : 1;
+        }
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      });
+  }, [activeCashRequests, cashRequests, filter, resolvedCashRequests, searchTerm]);
+
   const handleResolve = async (requestId: string) => {
     try {
       await markAsResolved(requestId);
@@ -152,6 +263,38 @@ const AssistanceView = () => {
     }
   };
 
+  const handleConfirmCash = async (requestId: string) => {
+    setCashActionId(requestId);
+    setCashError(null);
+    try {
+      await confirmCashPaymentRequest(requestId);
+      await refreshCashRequests();
+    } catch (error: any) {
+      setCashError(
+        error?.response?.data?.message ||
+          t('assistance.cashConfirmFailed', 'Could not confirm cash payment.'),
+      );
+    } finally {
+      setCashActionId(null);
+    }
+  };
+
+  const handleCancelCash = async (requestId: string) => {
+    setCashActionId(requestId);
+    setCashError(null);
+    try {
+      await cancelCashPaymentRequest(requestId);
+      await refreshCashRequests();
+    } catch (error: any) {
+      setCashError(
+        error?.response?.data?.message ||
+          t('assistance.cashCancelFailed', 'Could not cancel cash request.'),
+      );
+    } finally {
+      setCashActionId(null);
+    }
+  };
+
   const handleSoundPreview = () => {
     new Audio('/notification.mp3').play().catch(() => {});
   };
@@ -162,9 +305,9 @@ const AssistanceView = () => {
     count: number;
     Icon: typeof BellRing;
   }> = [
-    { id: 'active', label: t('assistance.active', 'Active'), count: activeRequests.length, Icon: BellRing },
-    { id: 'resolved', label: t('assistance.resolved', 'Resolved'), count: resolvedRequests.length, Icon: Check },
-    { id: 'all', label: t('tables.allTables', 'All'), count: requests.length, Icon: History },
+    { id: 'active', label: t('assistance.active', 'Active'), count: activeRequests.length + activeCashRequests.length, Icon: BellRing },
+    { id: 'resolved', label: t('assistance.resolved', 'Resolved'), count: resolvedRequests.length + resolvedCashRequests.length, Icon: Check },
+    { id: 'all', label: t('tables.allTables', 'All'), count: requests.length + cashRequests.length, Icon: History },
   ];
 
   return (
@@ -248,7 +391,7 @@ const AssistanceView = () => {
               {t('assistance.waiting')}
             </p>
             <p className="mt-0.5 text-xl font-black text-red-700 dark:text-red-200">
-              {activeRequests.length}
+              {activeRequests.length + activeCashRequests.length}
             </p>
           </div>
           <div className="rounded-lg border border-border bg-card px-3 py-2">
@@ -256,11 +399,132 @@ const AssistanceView = () => {
               {t('assistance.cleared')}
             </p>
             <p className="mt-0.5 text-xl font-black text-foreground">
-              {resolvedRequests.length}
+              {resolvedRequests.length + resolvedCashRequests.length}
             </p>
           </div>
         </div>
       </div>
+
+      {cashError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-200">
+          {cashError}
+        </div>
+      )}
+
+      {visibleCashRequests.length > 0 && (
+        <div className="mb-6">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em] text-foreground">
+                <Banknote className="h-4 w-4 text-emerald-600" />
+                {t('assistance.cashCollection', 'Cash collection')}
+              </h2>
+              <p className="mt-1 text-xs font-medium text-muted-foreground">
+                {t('assistance.cashCollectionHint', 'Confirm only after staff has physically collected the cash.')}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {visibleCashRequests.map((request) => {
+              const isPending = request.status === 'PENDING';
+              const isBusy = cashActionId === request.id;
+              const elapsedSource = isPending ? request.createdAt : request.updatedAt;
+              return (
+                <article
+                  key={request.id}
+                  className={cn(
+                    'relative flex min-h-[220px] flex-col overflow-hidden rounded-lg border bg-card p-4 shadow-sm transition',
+                    'before:absolute before:bottom-0 before:left-0 before:top-0 before:w-1',
+                    isPending ? 'before:bg-emerald-500 border-emerald-300 dark:border-emerald-500/40' : 'before:bg-muted-foreground/40 border-border',
+                  )}
+                >
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        <span className={cn(
+                          'inline-flex h-6 items-center rounded-full px-2 text-[10px] font-black uppercase',
+                          isPending
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200'
+                            : 'bg-muted text-muted-foreground',
+                        )}>
+                          {getCashRequestStatusLabel(request, t)}
+                        </span>
+                        <span className="inline-flex h-6 items-center gap-1 rounded-full bg-primary/10 px-2 text-[10px] font-black uppercase text-primary">
+                          <ReceiptText className="h-3 w-3" />
+                          {getCashRequestScopeLabel(request, t)}
+                        </span>
+                      </div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                        {t('orders.table', { id: '' }).trim() || 'Table'}
+                      </p>
+                      <h3 className="mt-1 truncate text-4xl font-black tracking-tight text-foreground">
+                        {request.tableName ?? request.tableId}
+                      </h3>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                        {isPending ? t('assistance.waiting') : t('assistance.cleared')}
+                      </p>
+                      <p className="mt-1 flex items-center justify-end gap-1.5 text-sm font-black text-foreground">
+                        <Timer className="h-3.5 w-3.5 text-primary" />
+                        {getElapsedLabel(elapsedSource, t)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mb-4 rounded-lg border border-border bg-muted/35 p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                      {t('payments.amount', 'Amount')}
+                    </p>
+                    <p className="mt-1 text-2xl font-black text-foreground">
+                      {formatEuro(request.requestedAmount)}
+                    </p>
+                    <p className="mt-2 flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5" />
+                      {isPending
+                        ? t('assistance.requested', { time: formatRequestTime(request.createdAt) })
+                        : t('assistance.resolvedAt', { time: formatRequestTime(request.updatedAt) })}
+                    </p>
+                  </div>
+
+                  {isPending ? (
+                    <div className="mt-auto grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => handleConfirmCash(request.id)}
+                        disabled={isBusy || !canManageCashPayments}
+                        className="flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(5,150,105,0.9)] transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98]"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        {isBusy
+                          ? t('common.saving', 'Saving...')
+                          : t('assistance.confirmCashCollected', 'Confirm cash collected')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCancelCash(request.id)}
+                        disabled={isBusy || !canManageCashPayments}
+                        className="flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-muted px-3 text-xs font-black text-foreground transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98]"
+                      >
+                        <Ban className="h-3.5 w-3.5" />
+                        {t('common.cancel', 'Cancel')}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-auto rounded-lg border border-border bg-muted/35 px-3 py-2 text-xs font-bold text-muted-foreground">
+                      {request.status === 'PAID'
+                        ? t('assistance.cashRecorded', 'Cash payment recorded')
+                        : t('assistance.cashCancelled', 'Cash request cancelled')}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {visibleRequests.length > 0 ? (
         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
@@ -363,7 +627,7 @@ const AssistanceView = () => {
             );
           })}
         </div>
-      ) : (
+      ) : visibleCashRequests.length === 0 ? (
         <div className="flex min-h-[360px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center shadow-sm">
           <div>
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-muted text-muted-foreground">
@@ -381,7 +645,7 @@ const AssistanceView = () => {
             </p>
           </div>
         </div>
-      )}
+      ) : null}
     </section>
   );
 };

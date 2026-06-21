@@ -30,6 +30,7 @@ describe('EventsGateway — room authorization', () => {
     mockPrisma = {
       user: { findUnique: jest.fn() },
       restaurant: { findUnique: jest.fn() },
+      tableSession: { findUnique: jest.fn() },
     };
     mockPrintStationService = {
       validateAgentToken: jest.fn(),
@@ -282,6 +283,48 @@ describe('EventsGateway — room authorization', () => {
 
       expect(client.join).toHaveBeenCalledWith('restaurant_orders_rest-1');
       expect(mockFeatureService.restaurantHasFeature).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleJoinTableSessionRoom', () => {
+    it('joins a public table-session room when the session token exists', async () => {
+      mockPrisma.tableSession.findUnique.mockResolvedValue({ id: 'session-1' });
+      const client = makeClient();
+
+      const result = await gateway.handleJoinTableSessionRoom(
+        { token: 'session-token' },
+        client as any,
+      );
+
+      expect(mockPrisma.tableSession.findUnique).toHaveBeenCalledWith({
+        where: { token: 'session-token' },
+        select: { id: true },
+      });
+      expect(client.join).toHaveBeenCalledWith('table_session_session-1');
+      expect(result).toEqual({
+        event: 'joinedTableSessionRoom',
+        data: 'session-1',
+      });
+    });
+
+    it('rejects missing or unknown table-session tokens', async () => {
+      mockPrisma.tableSession.findUnique.mockResolvedValue(null);
+      const client = makeClient();
+
+      const result = await gateway.handleJoinTableSessionRoom(
+        { token: 'missing-token' },
+        client as any,
+      );
+
+      expect(client.join).not.toHaveBeenCalled();
+      expect(client.emit).toHaveBeenCalledWith(
+        'roomError',
+        expect.objectContaining({
+          room: 'table-session',
+          error: 'UNAUTHORIZED',
+        }),
+      );
+      expect(result).toEqual({ event: 'roomError', data: 'table-session' });
     });
   });
 

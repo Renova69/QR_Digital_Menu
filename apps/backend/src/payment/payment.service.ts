@@ -29,7 +29,13 @@ import { decryptSecret, encryptSecret } from './secret-crypto';
 import { EventsGateway } from '../events/events.gateway';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
-import { PaymentStatus, PaymentProvider, Prisma } from '@prisma/client';
+import {
+  CashPaymentRequestScope,
+  CashPaymentRequestStatus,
+  PaymentStatus,
+  PaymentProvider,
+  Prisma,
+} from '@prisma/client';
 import { SettlePartialDto, SplitMode } from './dto/settle-partial.dto';
 
 type CheckoutProvider = 'STRIPE' | 'EPAY' | 'BORICA' | 'MYPOS';
@@ -67,6 +73,24 @@ type PaymentClaimResult = {
   sessionPaid: boolean;
   remaining?: number;
   splitMode?: SplitMode;
+};
+
+type CashPaymentRequestDto = {
+  id: string;
+  restaurantId: string;
+  tableSessionId: string;
+  tableId: string;
+  tableName: string | null;
+  status: CashPaymentRequestStatus;
+  scope: CashPaymentRequestScope;
+  orderIds: string[];
+  requestedAmount: number;
+  currency: string;
+  paymentId: string | null;
+  resolvedById: string | null;
+  resolvedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -279,6 +303,46 @@ export class PaymentService {
     }
     throw new ForbiddenException(
       'You do not have permission to manage this table session',
+    );
+  }
+
+  private async verifyRestaurantStaffAccess(restaurantId: string, userId: string) {
+    const [restaurant, user] = await Promise.all([
+      this.prisma.restaurant.findUnique({
+        where: { id: restaurantId },
+        select: { id: true, ownerId: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { restaurantId: true, role: true },
+      }),
+    ]);
+
+    if (!restaurant) throw new NotFoundException('Restaurant not found');
+    if (user?.role === 'SUPER_ADMIN') return { restaurant, user };
+    if (restaurant.ownerId === userId) return { restaurant, user };
+    if (user?.restaurantId === restaurantId) return { restaurant, user };
+
+    throw new ForbiddenException(
+      'You do not have permission to access these requests',
+    );
+  }
+
+  private async verifyCashPaymentOperatorAccess(
+    restaurantId: string,
+    userId: string,
+  ) {
+    const context = await this.verifyRestaurantStaffAccess(restaurantId, userId);
+    if (
+      context.user?.role === 'SUPER_ADMIN' ||
+      context.restaurant.ownerId === userId ||
+      ['OWNER', 'MANAGER', 'WAITER', 'STAFF'].includes(context.user?.role ?? '')
+    ) {
+      return context;
+    }
+
+    throw new ForbiddenException(
+      'You do not have permission to confirm cash payments',
     );
   }
 
@@ -628,6 +692,50 @@ export class PaymentService {
 
   private checkoutScopePayload(scope: CheckoutScope | null) {
     return scope ? ({ checkoutScope: scope } as Record<string, unknown>) : undefined;
+  }
+
+  private getCashPaymentRequestScopeKey(
+    scope: CashPaymentRequestScope,
+    orderIds: string[],
+  ): string {
+    if (scope === CashPaymentRequestScope.FULL_TABLE) return 'FULL_TABLE';
+    return createHash('sha256')
+      .update(JSON.stringify([...orderIds].sort()))
+      .digest('hex')
+      .slice(0, 16);
+  }
+
+  private formatCashPaymentRequest(request: any): CashPaymentRequestDto {
+    return {
+      id: request.id,
+      restaurantId: request.restaurantId,
+      tableSessionId: request.tableSessionId,
+      tableId: request.tableId,
+      tableName: request.table?.name ?? null,
+      status: request.status,
+      scope: request.scope,
+      orderIds: request.orderIds ?? [],
+      requestedAmount: this.roundMoney(request.requestedAmount ?? 0),
+      currency: request.currency ?? 'EUR',
+      paymentId: request.paymentId ?? null,
+      resolvedById: request.resolvedById ?? null,
+      resolvedAt: request.resolvedAt ?? null,
+      createdAt: request.createdAt,
+      updatedAt: request.updatedAt,
+    };
+  }
+
+  private emitCashPaymentRequestEvent(
+    eventName: 'cashPaymentRequest:created' | 'cashPaymentRequest:updated',
+    request: any,
+  ) {
+    const payload = this.formatCashPaymentRequest(request);
+    this.events.emitToRestaurant(
+      request.restaurantId,
+      eventName,
+      payload,
+    );
+    this.events.emitToTableSession(request.tableSessionId, eventName, payload);
   }
 
   private getOrderItemUnitPrice(item: any): number {
@@ -1212,6 +1320,22 @@ export class PaymentService {
     }
   }
 
+  private async lockPendingCashPaymentRequest(
+    tx: Prisma.TransactionClient,
+    requestId: string,
+  ): Promise<void> {
+    const rows = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM "cash_payment_request"
+      WHERE id = ${requestId}
+        AND status = 'PENDING'::"CashPaymentRequestStatus"
+      FOR UPDATE
+    `;
+    if (rows.length === 0) {
+      throw new ConflictException('Cash payment request is already handled');
+    }
+  }
+
   private resolveBoricaCardholder(
     orders: Array<{ customerName?: string | null; customerPhone?: string | null }>,
     input?: BoricaCardholderInput,
@@ -1361,6 +1485,332 @@ export class PaymentService {
         ...(this.isMyposConfigured(session.restaurant) ? ['MYPOS' as const] : []),
       ],
     };
+  }
+
+  async createCashPaymentRequest(
+    token: string,
+    restaurantId: string,
+    scopeInput?: CheckoutScopeInput,
+  ): Promise<CashPaymentRequestDto> {
+    const session = await this.prisma.tableSession.findFirst({
+      where: { token, restaurantId, status: 'OPEN' },
+      include: {
+        restaurant: { select: { tier: true, forceTier: true } },
+        table: { select: { name: true } },
+      },
+    });
+    if (!session) throw new NotFoundException('Session not found');
+
+    if (
+      !this.featureService.restaurantHasFeature(
+        session.restaurant,
+        FeatureFlag.ORDERS_CALL_WAITER,
+      )
+    ) {
+      throw new ForbiddenException({
+        code: 'FEATURE_LOCKED',
+        message: 'Cash collection requests are not available on this plan',
+      });
+    }
+
+    const normalizedScope = this.normalizeCheckoutScope(scopeInput);
+    const charge = await this.resolveCheckoutCharge(
+      this.prisma,
+      session,
+      0,
+      0,
+      normalizedScope ?? undefined,
+    );
+    const scope = normalizedScope
+      ? CashPaymentRequestScope.ORDER_ITEMS
+      : CashPaymentRequestScope.FULL_TABLE;
+    const orderIds = normalizedScope?.orderIds ?? [];
+    const scopeKey = this.getCashPaymentRequestScopeKey(scope, orderIds);
+
+    const existing = await this.prisma.cashPaymentRequest.findFirst({
+      where: {
+        tableSessionId: session.id,
+        status: CashPaymentRequestStatus.PENDING,
+        scopeKey,
+      },
+      include: { table: { select: { name: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (existing) {
+      const updated = await this.prisma.cashPaymentRequest.update({
+        where: { id: existing.id },
+        data: {
+          requestedAmount: charge.subtotal,
+          orderIds,
+          scope,
+        },
+        include: { table: { select: { name: true } } },
+      });
+      this.emitCashPaymentRequestEvent('cashPaymentRequest:updated', updated);
+      return this.formatCashPaymentRequest(updated);
+    }
+
+    const request = await this.prisma.cashPaymentRequest.create({
+      data: {
+        restaurantId,
+        tableSessionId: session.id,
+        tableId: session.tableId,
+        scope,
+        scopeKey,
+        orderIds,
+        requestedAmount: charge.subtotal,
+        currency: 'EUR',
+      },
+      include: { table: { select: { name: true } } },
+    });
+
+    this.emitCashPaymentRequestEvent('cashPaymentRequest:created', request);
+    return this.formatCashPaymentRequest(request);
+  }
+
+  async listCashPaymentRequests(
+    restaurantId: string,
+    userId: string,
+    status?: string,
+  ): Promise<CashPaymentRequestDto[]> {
+    await this.verifyRestaurantStaffAccess(restaurantId, userId);
+
+    const normalizedStatus = status?.trim().toUpperCase();
+    const whereStatus =
+      normalizedStatus && normalizedStatus !== 'ALL'
+        ? (normalizedStatus as CashPaymentRequestStatus)
+        : undefined;
+    if (
+      whereStatus &&
+      !Object.values(CashPaymentRequestStatus).includes(whereStatus)
+    ) {
+      throw new BadRequestException('Unknown cash payment request status');
+    }
+
+    const requests = await this.prisma.cashPaymentRequest.findMany({
+      where: {
+        restaurantId,
+        ...(whereStatus ? { status: whereStatus } : {}),
+      },
+      include: { table: { select: { name: true } } },
+      orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+      take: 100,
+    });
+
+    return requests.map((request) => this.formatCashPaymentRequest(request));
+  }
+
+  async confirmCashPaymentRequest(
+    requestId: string,
+    userId: string,
+  ): Promise<CashPaymentRequestDto> {
+    const existing = await this.prisma.cashPaymentRequest.findUnique({
+      where: { id: requestId },
+      select: {
+        id: true,
+        restaurantId: true,
+        tableSessionId: true,
+        status: true,
+        tableSession: { select: { token: true } },
+      },
+    });
+    if (!existing) throw new NotFoundException('Cash payment request not found');
+    await this.verifyCashPaymentOperatorAccess(existing.restaurantId, userId);
+    if (existing.status !== CashPaymentRequestStatus.PENDING) {
+      throw new ConflictException('Cash payment request is already handled');
+    }
+
+    await this.abandonCheckoutOrThrowIfPending(
+      existing.tableSession.token,
+      existing.tableSessionId,
+    );
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      await this.lockPendingCashPaymentRequest(tx, requestId);
+      const request = await tx.cashPaymentRequest.findUnique({
+        where: { id: requestId },
+        include: {
+          table: { select: { name: true } },
+          tableSession: true,
+        },
+      });
+      if (!request) throw new NotFoundException('Cash payment request not found');
+      if (request.status !== CashPaymentRequestStatus.PENDING) {
+        throw new ConflictException('Cash payment request is already handled');
+      }
+
+      const session = await tx.tableSession.findFirst({
+        where: { id: request.tableSessionId, status: 'OPEN' },
+      });
+      if (!session) throw new ConflictException('Session is no longer open');
+      await this.lockOpenSessionForSettlement(tx, session.id);
+
+      const pendingPayment = await tx.payment.findFirst({
+        where: { tableSessionId: session.id, status: 'PENDING' },
+        select: { id: true },
+      });
+      if (pendingPayment) {
+        throw new ConflictException(
+          'A payment for this session is still being processed. Please wait or retry.',
+        );
+      }
+
+      let chargeSubtotal: number;
+      let checkoutScope: CheckoutScope | null = null;
+      if (request.scope === CashPaymentRequestScope.ORDER_ITEMS) {
+        const charge = await this.resolveCheckoutCharge(tx, session, 0, 0, {
+          orderIds: request.orderIds,
+        });
+        chargeSubtotal = charge.subtotal;
+        checkoutScope = charge.checkoutScope;
+      } else {
+        const balance = await this.computeSessionBalance(tx, session.id);
+        if (balance.remaining <= 0) {
+          throw new ConflictException('This session has already been paid');
+        }
+        chargeSubtotal = balance.remaining;
+      }
+
+      const payment = await tx.payment.create({
+        data: {
+          tableSessionId: session.id,
+          restaurantId: request.restaurantId,
+          amount: chargeSubtotal,
+          tipAmount: 0,
+          platformFeeAmount: 0,
+          currency: 'eur',
+          status: 'SUCCEEDED',
+          provider: PaymentProvider.CASH,
+          splitMode: checkoutScope ? SplitMode.ITEM : undefined,
+          providerPayload: {
+            cashPaymentRequestId: request.id,
+            cashPaymentScope: request.scope,
+          } as Prisma.InputJsonValue,
+        },
+      });
+
+      if (checkoutScope) {
+        for (const allocation of checkoutScope.allocations) {
+          const updated = await tx.orderItem.updateMany({
+            where: {
+              id: allocation.orderItemId,
+              paidQuantity: allocation.snapshotPaid,
+            },
+            data: { paidQuantity: { increment: allocation.quantity } },
+          });
+          if (updated.count === 0) {
+            throw new ConflictException(
+              'Items changed during settlement - please retry',
+            );
+          }
+        }
+        await tx.paymentAllocation.createMany({
+          data: checkoutScope.allocations.map((allocation) => ({
+            paymentId: payment.id,
+            orderItemId: allocation.orderItemId,
+            quantity: allocation.quantity,
+            amount: allocation.amount,
+          })),
+        });
+      }
+
+      const balanceAfter = await this.computeSessionBalance(tx, session.id);
+      let sessionPaid = false;
+      if (balanceAfter.remaining <= 0.01) {
+        const flip = await tx.tableSession.updateMany({
+          where: { id: session.id, status: 'OPEN' },
+          data: { status: 'PAID', paidAt: new Date() },
+        });
+        sessionPaid = flip.count > 0;
+      }
+
+      const updatedRequest = await tx.cashPaymentRequest.update({
+        where: { id: request.id },
+        data: {
+          status: CashPaymentRequestStatus.PAID,
+          requestedAmount: chargeSubtotal,
+          paymentId: payment.id,
+          resolvedById: userId,
+          resolvedAt: new Date(),
+        },
+        include: { table: { select: { name: true } } },
+      });
+
+      return {
+        request: updatedRequest,
+        tableId: session.tableId,
+        sessionId: session.id,
+        paymentId: payment.id,
+        amount: chargeSubtotal,
+        remaining: Math.max(0, balanceAfter.remaining),
+        sessionPaid,
+        splitMode: checkoutScope ? SplitMode.ITEM : null,
+      };
+    });
+
+    this.emitCashPaymentRequestEvent(
+      'cashPaymentRequest:updated',
+      result.request,
+    );
+    this.events.emitTableStatusChanged(
+      result.request.restaurantId,
+      result.tableId,
+      result.sessionId,
+    );
+    this.events.emitToRestaurant(result.request.restaurantId, 'bill:updated', {
+      tableSessionId: result.sessionId,
+      tableId: result.tableId,
+      paymentId: result.paymentId,
+      splitMode: result.splitMode,
+      remaining: result.remaining,
+      sessionPaid: result.sessionPaid,
+    });
+    this.events.emitToTableSession(result.sessionId, 'bill:updated', {
+      tableSessionId: result.sessionId,
+      tableId: result.tableId,
+      paymentId: result.paymentId,
+      splitMode: result.splitMode,
+      remaining: result.remaining,
+      sessionPaid: result.sessionPaid,
+    });
+    if (result.sessionPaid) {
+      await this.emitPaymentConfirmed({
+        id: result.paymentId,
+        tableSessionId: result.sessionId,
+        amount: result.amount,
+        tipAmount: 0,
+      });
+    }
+
+    return this.formatCashPaymentRequest(result.request);
+  }
+
+  async cancelCashPaymentRequest(
+    requestId: string,
+    userId: string,
+  ): Promise<CashPaymentRequestDto> {
+    const existing = await this.prisma.cashPaymentRequest.findUnique({
+      where: { id: requestId },
+      select: { restaurantId: true, status: true },
+    });
+    if (!existing) throw new NotFoundException('Cash payment request not found');
+    await this.verifyCashPaymentOperatorAccess(existing.restaurantId, userId);
+    if (existing.status !== CashPaymentRequestStatus.PENDING) {
+      throw new ConflictException('Cash payment request is already handled');
+    }
+
+    const request = await this.prisma.cashPaymentRequest.update({
+      where: { id: requestId },
+      data: {
+        status: CashPaymentRequestStatus.CANCELLED,
+        resolvedById: userId,
+        resolvedAt: new Date(),
+      },
+      include: { table: { select: { name: true } } },
+    });
+    this.emitCashPaymentRequestEvent('cashPaymentRequest:updated', request);
+    return this.formatCashPaymentRequest(request);
   }
 
   async abandonCheckout(token: string): Promise<void> {
@@ -2824,17 +3274,24 @@ export class PaymentService {
         })
       )?.customerName ?? null;
 
+    const payload = {
+      paymentId: payment.id,
+      tableSessionId: payment.tableSessionId,
+      amount: payment.amount,
+      tipAmount: payment.tipAmount,
+      tableNumber,
+      customerName,
+    };
+
     this.events.emitToRestaurant(
       tableSession.restaurantId,
       'payment:confirmed',
-      {
-        paymentId: payment.id,
-        tableSessionId: payment.tableSessionId,
-        amount: payment.amount,
-        tipAmount: payment.tipAmount,
-        tableNumber,
-        customerName,
-      },
+      payload,
+    );
+    this.events.emitToTableSession(
+      payment.tableSessionId,
+      'payment:confirmed',
+      payload,
     );
 
     this.events.emitTableStatusChanged(
@@ -2868,14 +3325,24 @@ export class PaymentService {
       tableSession.tableId,
       payment.tableSessionId,
     );
-    this.events.emitToRestaurant(tableSession.restaurantId, 'bill:updated', {
+    const billUpdatedPayload = {
       tableSessionId: payment.tableSessionId,
       tableId: tableSession.tableId,
       paymentId: payment.id,
       splitMode: claim.splitMode,
       remaining: Math.max(0, claim.remaining ?? 0),
       sessionPaid: claim.sessionPaid,
-    });
+    };
+    this.events.emitToRestaurant(
+      tableSession.restaurantId,
+      'bill:updated',
+      billUpdatedPayload,
+    );
+    this.events.emitToTableSession(
+      payment.tableSessionId,
+      'bill:updated',
+      billUpdatedPayload,
+    );
 
     if (claim.sessionPaid) {
       await this.emitPaymentConfirmed(payment);
@@ -3088,14 +3555,24 @@ export class PaymentService {
         })
       )?.customerName ?? null;
 
-    this.events.emitToRestaurant(restaurantId, 'payment:confirmed', {
+    const paymentConfirmedPayload = {
       paymentId,
       tableSessionId: session.id,
       amount,
       tipAmount: 0,
       tableNumber,
       customerName,
-    });
+    };
+    this.events.emitToRestaurant(
+      restaurantId,
+      'payment:confirmed',
+      paymentConfirmedPayload,
+    );
+    this.events.emitToTableSession(
+      session.id,
+      'payment:confirmed',
+      paymentConfirmedPayload,
+    );
 
     return { amount };
   }
@@ -3289,14 +3766,24 @@ export class PaymentService {
       result.tableId,
       result.sessionId,
     );
-    this.events.emitToRestaurant(restaurantId, 'bill:updated', {
+    const billUpdatedPayload = {
       tableSessionId: result.sessionId,
       tableId: result.tableId,
       paymentId: result.paymentId,
       splitMode: result.splitMode,
       remaining: result.remaining,
       sessionPaid: result.sessionPaid,
-    });
+    };
+    this.events.emitToRestaurant(
+      restaurantId,
+      'bill:updated',
+      billUpdatedPayload,
+    );
+    this.events.emitToTableSession(
+      result.sessionId,
+      'bill:updated',
+      billUpdatedPayload,
+    );
     if (result.sessionPaid) {
       const tableNumber =
         (
@@ -3313,14 +3800,24 @@ export class PaymentService {
             select: { customerName: true },
           })
         )?.customerName ?? null;
-      this.events.emitToRestaurant(restaurantId, 'payment:confirmed', {
+      const paymentConfirmedPayload = {
         paymentId: result.paymentId,
         tableSessionId: result.sessionId,
         amount: result.amount,
         tipAmount: result.tipAmount,
         tableNumber,
         customerName,
-      });
+      };
+      this.events.emitToRestaurant(
+        restaurantId,
+        'payment:confirmed',
+        paymentConfirmedPayload,
+      );
+      this.events.emitToTableSession(
+        result.sessionId,
+        'payment:confirmed',
+        paymentConfirmedPayload,
+      );
     }
 
     return {

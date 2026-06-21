@@ -352,6 +352,51 @@ export class EventsGateway
     return { event: 'leftRestaurantOrdersRoom', data: restaurantId };
   }
 
+  private async resolveTableSessionRoom(token: string | undefined) {
+    if (!token || typeof token !== 'string') return null;
+    return this.prisma.tableSession.findUnique({
+      where: { token },
+      select: { id: true },
+    });
+  }
+
+  /**
+   * Public customers may listen to events for the table session whose token they
+   * already hold. This is intentionally narrower than the restaurant dashboard
+   * room: it exposes only updates emitted to `table_session_<id>`.
+   */
+  @SubscribeMessage('joinTableSessionRoom')
+  async handleJoinTableSessionRoom(
+    @MessageBody() body: { token?: string } | string,
+    @ConnectedSocket() client: Socket,
+  ) {
+    const token = typeof body === 'string' ? body : body?.token;
+    const session = await this.resolveTableSessionRoom(token);
+    if (!session) {
+      client.emit('roomError', {
+        room: 'table-session',
+        error: 'UNAUTHORIZED',
+      });
+      return { event: 'roomError', data: 'table-session' };
+    }
+
+    void client.join(`table_session_${session.id}`);
+    return { event: 'joinedTableSessionRoom', data: session.id };
+  }
+
+  @SubscribeMessage('leaveTableSessionRoom')
+  async handleLeaveTableSessionRoom(
+    @MessageBody() body: { token?: string } | string,
+    @ConnectedSocket() client: Socket,
+  ) {
+    const token = typeof body === 'string' ? body : body?.token;
+    const session = await this.resolveTableSessionRoom(token);
+    if (!session) return { event: 'leftTableSessionRoom', data: null };
+
+    void client.leave(`table_session_${session.id}`);
+    return { event: 'leftTableSessionRoom', data: session.id };
+  }
+
   private verifyOrderToken(token: string, orderId: string): boolean {
     try {
       const payload = this.jwt.verify(token);
@@ -415,6 +460,10 @@ export class EventsGateway
     payload: any,
   ) {
     this.server.to(`restaurant_orders_${restaurantId}`).emit(eventName, payload);
+  }
+
+  emitToTableSession(sessionId: string, eventName: string, payload: any) {
+    this.server.to(`table_session_${sessionId}`).emit(eventName, payload);
   }
 
   emitTableStatusChanged(

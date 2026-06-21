@@ -105,6 +105,20 @@ export class PaymentController {
     );
   }
 
+  @Post('session/:token/cash-request')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  createCashPaymentRequest(
+    @Param('token') token: string,
+    @Body() body: { restaurantId: string; orderIds?: string[] },
+  ) {
+    return this.paymentService.createCashPaymentRequest(
+      token,
+      body.restaurantId,
+      { orderIds: body.orderIds },
+    );
+  }
+
   @Post('session/:token/abandon')
   @HttpCode(HttpStatus.NO_CONTENT)
   abandonCheckout(@Param('token') token: string) {
@@ -240,6 +254,34 @@ export class PaymentController {
       query,
       req.user.id,
     );
+  }
+
+  @Get('cash-requests/:restaurantId')
+  @UseGuards(JwtAuthGuard)
+  getCashPaymentRequests(
+    @Req() req: any,
+    @Param('restaurantId') restaurantId: string,
+    @Query('status') status?: string,
+  ) {
+    return this.paymentService.listCashPaymentRequests(
+      restaurantId,
+      req.user.id,
+      status,
+    );
+  }
+
+  @Post('cash-requests/:id/confirm')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  confirmCashPaymentRequest(@Req() req: any, @Param('id') id: string) {
+    return this.paymentService.confirmCashPaymentRequest(id, req.user.id);
+  }
+
+  @Post('cash-requests/:id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  cancelCashPaymentRequest(@Req() req: any, @Param('id') id: string) {
+    return this.paymentService.cancelCashPaymentRequest(id, req.user.id);
   }
 
   @Get('export/:restaurantId')

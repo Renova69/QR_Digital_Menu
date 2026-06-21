@@ -105,10 +105,14 @@ export function AssistanceProvider({ children }: { children: ReactNode }) {
 
     socket.on('newAssistanceRequest', handleNewRequest);
     socket.on('assistanceStatusChanged', handleStatusChanged);
+    socket.on('cashPaymentRequest:created', handleNewRequest);
+    socket.on('cashPaymentRequest:updated', handleStatusChanged);
 
     return () => {
       socket.off('newAssistanceRequest', handleNewRequest);
       socket.off('assistanceStatusChanged', handleStatusChanged);
+      socket.off('cashPaymentRequest:created', handleNewRequest);
+      socket.off('cashPaymentRequest:updated', handleStatusChanged);
     };
   }, [canAccessAssistance, socket, isConnected, refreshRequests]);
 
