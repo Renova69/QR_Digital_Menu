@@ -56,7 +56,13 @@ export class DashboardController {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
       // Issue 27: also check suspension and soft-delete status.
-      select: { ownerId: true, isActive: true, deletedAt: true, tier: true, forceTier: true },
+      select: {
+        ownerId: true,
+        isActive: true,
+        deletedAt: true,
+        tier: true,
+        forceTier: true,
+      },
     });
 
     if (!restaurant || restaurant.deletedAt) {
@@ -78,7 +84,10 @@ export class DashboardController {
       );
     }
 
-    return { tier: restaurant.tier ?? 'FREE', forceTier: restaurant.forceTier ?? null };
+    return {
+      tier: restaurant.tier ?? 'FREE',
+      forceTier: restaurant.forceTier ?? null,
+    };
   }
 
   @UseGuards(JwtAuthGuard, FeatureGuard)
@@ -135,7 +144,10 @@ export class DashboardController {
 
     this.assertDateRange(dateRange?.startDate, dateRange?.endDate);
 
-    const { tier, forceTier } = await this.verifyDashboardAccess(user, restaurantId);
+    const { tier, forceTier } = await this.verifyDashboardAccess(
+      user,
+      restaurantId,
+    );
     const result = await this.dashboardService.getAnalytics(
       restaurantId,
       period,
@@ -145,10 +157,26 @@ export class DashboardController {
 
     // STARTER has ANALYTICS_BASIC but not ANALYTICS_FULL — strip premium-only fields
     // so the endpoint gate downgrade doesn't expose Pro data to lower tiers.
+    // Full analytics (deep drill-downs) AND all payment-derived metrics are
+    // Professional+ only: payment-method split, refund/collected totals and the
+    // revenue-reconciliation pair mirror the PAYMENTS_STRIPE gate on the
+    // dedicated /payments endpoints, so they must not leak through analytics.
     const effectiveTier = this.featureService.getEffectiveTier(tier, forceTier);
-    if (!this.featureService.hasFeature(effectiveTier, FeatureFlag.ANALYTICS_FULL)) {
+    if (
+      !this.featureService.hasFeature(effectiveTier, FeatureFlag.ANALYTICS_FULL)
+    ) {
       const full = result as Record<string, unknown>;
-      const { topItems: _t, peakHours: _p, categoryBreakdown: _c, ordersByTable: _o, ...basicResult } = full;
+      const {
+        topItems: _t,
+        peakHours: _p,
+        categoryBreakdown: _c,
+        ordersByTable: _o,
+        collectedRevenue: _cr,
+        refundedAmount: _ra,
+        paymentsByMethod: _pm,
+        repeatCustomerRate: _rcr,
+        ...basicResult
+      } = full;
       return basicResult;
     }
 

@@ -369,76 +369,80 @@ const AnalyticsView = () => {
         />
       </section>
 
-      <section className="grid grid-cols-1 xl:grid-cols-[1.5fr_1fr] gap-5">
-        <RevenueReconciliation
-          ordered={data.totalRevenue}
-          collected={data.collectedRevenue}
-          refunded={data.refundedAmount}
-        />
-        <PaymentMethods
-          methods={data.paymentsByMethod ?? []}
-          collected={data.collectedRevenue}
-        />
-      </section>
+      {canFullAnalytics && (
+        <section className="grid grid-cols-1 xl:grid-cols-[1.5fr_1fr] gap-5">
+          <RevenueReconciliation
+            ordered={data.totalRevenue}
+            collected={data.collectedRevenue}
+            refunded={data.refundedAmount}
+          />
+          <PaymentMethods
+            methods={data.paymentsByMethod ?? []}
+            collected={data.collectedRevenue}
+          />
+        </section>
+      )}
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <InsightCard
-          label={t("analytics.revenueLeader", "Revenue leader")}
-          value={insights.bestDay ? formatDate(insights.bestDay.date) : "-"}
-          detail={
-            insights.bestDay
-              ? t("analytics.revenueLeaderDetail", {
-                  revenue: formatEuro(insights.bestDay.revenue),
-                  orders: insights.bestDay.orders,
-                })
-              : t("analytics.noData")
-          }
-          Icon={TrendingUp}
-        />
-        <InsightCard
-          label={t("analytics.peakWindow", "Peak window")}
-          value={insights.busiestWindow?.label ?? "-"}
-          detail={t("analytics.peakWindowDetail", {
-            orders: insights.busiestWindow?.orders ?? 0,
-          })}
-          Icon={Clock3}
-        />
-        <InsightCard
-          label={t("analytics.menuConcentration", "Top 3 menu share")}
-          value={formatPercent(insights.topThreeShare)}
-          detail={
-            insights.heroItem
-              ? t("analytics.menuConcentrationDetail", {
-                  name: insights.heroItem.name,
-                  share: formatPercent(insights.topItemShare),
-                })
-              : t("analytics.noItemData")
-          }
-          Icon={Utensils}
-        />
-        <InsightCard
-          label={t("analytics.tableChampion", "Best table")}
-          value={insights.bestTable?.table ?? "-"}
-          detail={
-            insights.bestTable
-              ? t("analytics.tableChampionDetail", {
-                  revenue: formatEuro(insights.bestTable.revenue),
-                  orders: insights.bestTable.orders,
-                })
-              : t("analytics.noTableData")
-          }
-          Icon={Table2}
-        />
-        <InsightCard
-          label={t("analytics.repeatCustomers", "Repeat guests")}
-          value={formatPercent(data.repeatCustomerRate)}
-          detail={t(
-            "analytics.repeatCustomersDetail",
-            "Share of guests with 2+ orders",
-          )}
-          Icon={Users}
-        />
-      </section>
+      {canFullAnalytics && (
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <InsightCard
+            label={t("analytics.revenueLeader", "Revenue leader")}
+            value={insights.bestDay ? formatDate(insights.bestDay.date) : "-"}
+            detail={
+              insights.bestDay
+                ? t("analytics.revenueLeaderDetail", {
+                    revenue: formatEuro(insights.bestDay.revenue),
+                    orders: insights.bestDay.orders,
+                  })
+                : t("analytics.noData")
+            }
+            Icon={TrendingUp}
+          />
+          <InsightCard
+            label={t("analytics.peakWindow", "Peak window")}
+            value={insights.busiestWindow?.label ?? "-"}
+            detail={t("analytics.peakWindowDetail", {
+              orders: insights.busiestWindow?.orders ?? 0,
+            })}
+            Icon={Clock3}
+          />
+          <InsightCard
+            label={t("analytics.menuConcentration", "Top 3 menu share")}
+            value={formatPercent(insights.topThreeShare)}
+            detail={
+              insights.heroItem
+                ? t("analytics.menuConcentrationDetail", {
+                    name: insights.heroItem.name,
+                    share: formatPercent(insights.topItemShare),
+                  })
+                : t("analytics.noItemData")
+            }
+            Icon={Utensils}
+          />
+          <InsightCard
+            label={t("analytics.tableChampion", "Best table")}
+            value={insights.bestTable?.table ?? "-"}
+            detail={
+              insights.bestTable
+                ? t("analytics.tableChampionDetail", {
+                    revenue: formatEuro(insights.bestTable.revenue),
+                    orders: insights.bestTable.orders,
+                  })
+                : t("analytics.noTableData")
+            }
+            Icon={Table2}
+          />
+          <InsightCard
+            label={t("analytics.repeatCustomers", "Repeat guests")}
+            value={formatPercent(data.repeatCustomerRate)}
+            detail={t(
+              "analytics.repeatCustomersDetail",
+              "Share of guests with 2+ orders",
+            )}
+            Icon={Users}
+          />
+        </section>
+      )}
 
       <section className="grid grid-cols-1 xl:grid-cols-[1.55fr_1fr] gap-5">
         <Panel
