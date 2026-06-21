@@ -440,45 +440,35 @@ describe('DashboardService', () => {
       mockPrisma.payment.groupBy.mockResolvedValue([]);
       // Spy Phase B methods to avoid $queryRaw chaining races from Promise.all
       jest.spyOn(service as any, 'getStaffPerformance').mockResolvedValue([]);
-      jest
-        .spyOn(service as any, 'getCustomerMetrics')
-        .mockResolvedValue({
-          topCustomers: [],
-          churnRiskCount: 0,
-          churnRiskBreakdown: { '30d': 0, '60d': 0, '90d+': 0 },
-          averageClv: 0,
-        });
-      jest
-        .spyOn(service as any, 'getKitchenEfficiency')
-        .mockResolvedValue({
-          overallAvgPrepMinutes: 0,
-          totalCompletedOrders: 0,
-          hourlyAverages: [],
-          zoneAverages: [],
-        });
-      jest
-        .spyOn(service as any, 'getCancelAnalytics')
-        .mockResolvedValue({
-          totalCanceledOrders: 0,
-          revenueLost: 0,
-          cancelRateByItem: [],
-          cancelRateByHour: [],
-        });
+      jest.spyOn(service as any, 'getCustomerMetrics').mockResolvedValue({
+        topCustomers: [],
+        churnRiskCount: 0,
+        churnRiskBreakdown: { '30d': 0, '60d': 0, '90d+': 0 },
+        averageClv: 0,
+      });
+      jest.spyOn(service as any, 'getKitchenEfficiency').mockResolvedValue({
+        overallAvgPrepMinutes: 0,
+        totalCompletedOrders: 0,
+        hourlyAverages: [],
+        zoneAverages: [],
+      });
+      jest.spyOn(service as any, 'getCancelAnalytics').mockResolvedValue({
+        totalCanceledOrders: 0,
+        revenueLost: 0,
+        cancelRateByItem: [],
+        cancelRateByHour: [],
+      });
       jest.spyOn(service as any, 'getTableTurnover').mockResolvedValue([]);
-      jest
-        .spyOn(service as any, 'getMenuProfitability')
-        .mockResolvedValue({
-          items: [],
-          summary: { totalCost: 0, totalProfit: 0, overallMargin: 0 },
-        });
-      jest
-        .spyOn(service as any, 'getGrossProfit')
-        .mockResolvedValue({
-          collectedRevenue: 0,
-          estimatedCOGS: 0,
-          grossProfit: 0,
-          grossMargin: 0,
-        });
+      jest.spyOn(service as any, 'getMenuProfitability').mockResolvedValue({
+        items: [],
+        summary: { totalCost: 0, totalProfit: 0, overallMargin: 0 },
+      });
+      jest.spyOn(service as any, 'getGrossProfit').mockResolvedValue({
+        collectedRevenue: 0,
+        estimatedCOGS: 0,
+        grossProfit: 0,
+        grossMargin: 0,
+      });
     });
 
     afterEach(() => {
@@ -566,6 +556,71 @@ describe('DashboardService', () => {
         0,
       );
       expect(totalOrders).toBe(7);
+    });
+  });
+
+  describe('getAnalytics premium gating (ANALYTICS_FULL)', () => {
+    const PREMIUM_KEYS = [
+      'staffPerformance',
+      'customerMetrics',
+      'kitchenEfficiency',
+      'cancelAnalytics',
+      'tableTurnover',
+      'menuProfitability',
+      'grossProfit',
+    ];
+    const methodFor = (key: string) =>
+      'get' + key.charAt(0).toUpperCase() + key.slice(1);
+
+    beforeEach(() => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        timezone: 'Europe/Sofia',
+      });
+      mockPrisma.order.aggregate.mockResolvedValue({
+        _sum: { totalPrice: 0 },
+        _count: 0,
+        _avg: { totalPrice: 0 },
+      });
+      mockPrisma.order.groupBy.mockResolvedValue([]);
+      mockPrisma.order.findMany.mockResolvedValue([]);
+      mockPrisma.order.count.mockResolvedValue(0);
+      mockPrisma.orderItem.findMany.mockResolvedValue([]);
+      // Spy each premium computation with a sentinel so the assertion checks the
+      // wiring (key lands in the response) without racing the real $queryRaw mock.
+      for (const key of PREMIUM_KEYS) {
+        jest
+          .spyOn(service as any, methodFor(key))
+          .mockResolvedValue(`sentinel:${key}`);
+      }
+    });
+
+    it('includes all 7 premium metrics when includePremium defaults to true', async () => {
+      const result = (await service.getAnalytics(
+        'rest-1',
+        7,
+      )) as AnalyticsResult;
+
+      for (const key of PREMIUM_KEYS) {
+        expect(result[key]).toBe(`sentinel:${key}`);
+      }
+    });
+
+    it('omits premium metrics and skips their computation when includePremium is false', async () => {
+      const result = (await service.getAnalytics(
+        'rest-1',
+        7,
+        undefined,
+        undefined,
+        false,
+      )) as AnalyticsResult;
+
+      for (const key of PREMIUM_KEYS) {
+        expect(result[key]).toBeUndefined();
+        expect((service as any)[methodFor(key)]).not.toHaveBeenCalled();
+      }
+      // Basic-tier fields still computed and returned.
+      expect(result).toHaveProperty('totalRevenue');
+      expect(result).toHaveProperty('completionRate');
     });
   });
 });
