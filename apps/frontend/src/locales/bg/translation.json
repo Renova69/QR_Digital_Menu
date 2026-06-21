@@ -710,7 +710,8 @@
         "menuEngineering": "Анализ на менюто",
         "tableYield": "Ефективност на масите",
         "orderFlow": "Поток на поръчките",
-        "guestVoice": "Глас на гостите"
+        "guestVoice": "Глас на гостите",
+        "paymentMethods": "Методи на плащане"
       },
       "columns": {
         "kpi": "Показател",
@@ -756,7 +757,11 @@
         "rating": "Оценка",
         "count": "Брой",
         "share": "Дял",
-        "revenueBgn": "Приход (лв)"
+        "revenueBgn": "Приход (лв)",
+        "stage": "Етап",
+        "shareOfOrders": "Дял от поръчките",
+        "shareOfCollected": "Дял от събраното",
+        "method": "Метод"
       },
       "summary": {
         "restaurant": "Ресторант",
@@ -778,7 +783,9 @@
         "hourlyDemand": "Търсене по часове",
         "daypartDemand": "Търсене по части на деня",
         "guestVoiceSummary": "Обобщение на гостите",
-        "ratingDistribution": "Разпределение на оценките"
+        "ratingDistribution": "Разпределение на оценките",
+        "revenueReconciliation": "Равнение на приходите",
+        "paymentSplit": "Разпределение по метод на плащане"
       },
       "metrics": {
         "revenue": "Приход",
@@ -791,7 +798,9 @@
         "averageRating": "Средна оценка",
         "positiveRate": "Положителен рейтинг",
         "googleRedirects": "Пренасочвания към Google",
-        "guestFeedback": "Отзиви от гости"
+        "guestFeedback": "Отзиви от гости",
+        "repeatGuests": "Повторни гости",
+        "completionRate": "Процент изпълнение"
       },
       "insights": {
         "revenueLeader": "Най-силен ден по приход",
@@ -835,7 +844,20 @@
         "noDailyData": "Все още няма дневни данни.",
         "visibleInDemandMap": "Показано в картата на търсенето",
         "starRating": "{{rating}} звезди",
-        "noFeedbackLoaded": "Няма заредени данни за отзиви за този експорт"
+        "noFeedbackLoaded": "Няма заредени данни за отзиви за този експорт",
+        "repeatGuestsDetail": "Дял на гостите с 2+ поръчки"
+      },
+      "reconciliation": {
+        "ordered": "Поръчани приходи",
+        "orderedNote": "Редове с поръчки, без отказани",
+        "collected": "Събрани",
+        "collectedNote": "Успешни плащания",
+        "refunded": "Възстановени",
+        "refundRate": "Процент възстановяване {{rate}}%",
+        "netCollected": "Нетно събрани",
+        "netCollectedNote": "Събрани минус възстановени",
+        "uncollected": "Несъбрани",
+        "uncollectedNote": "Поръчани минус събрани (неплатени / в брой)"
       }
     }
   },

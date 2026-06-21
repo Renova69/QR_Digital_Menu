@@ -192,17 +192,24 @@ function getBusiestWindow(hours: PeakHour[]) {
 }
 
 function getDayPartRows(data: AnalyticsData, t: TFunction): Cell[][] {
+  const totalHourRevenue = data.peakHours.reduce(
+    (sum, h) => sum + (h.revenue ?? 0),
+    0,
+  );
   return dayParts.map((part) => {
-    const orders = part.range.reduce(
-      (sum, hour) =>
-        sum + (data.peakHours.find((h) => h.hour === hour)?.orders ?? 0),
-      0,
+    const matched = part.range.map((hour) =>
+      data.peakHours.find((h) => h.hour === hour),
     );
+    const orders = matched.reduce((sum, h) => sum + (h?.orders ?? 0), 0);
+    const revenue = matched.reduce((sum, h) => sum + (h?.revenue ?? 0), 0);
     return [
       text(t(`analytics.export.dayParts.${part.id}`, part.id)),
       text(part.range.map(formatHour).join(", ")),
       int(orders),
+      eur(revenue),
+      bgn(revenue),
       pct(safePercent(orders, data.totalOrders)),
+      pct(safePercent(revenue, totalHourRevenue)),
     ];
   });
 }
@@ -244,6 +251,15 @@ export async function downloadAnalyticsExport(
     (sum, item) => sum + item.revenue,
     0,
   );
+
+  // Phase-2 / reconciliation metrics (Professional+ payload). Guarded with
+  // nullish fallbacks so a partial payload never throws during export.
+  const collectedRevenue = data.collectedRevenue ?? 0;
+  const refundedAmount = data.refundedAmount ?? 0;
+  const netCollected = collectedRevenue - refundedAmount;
+  const uncollected = Math.max(0, data.totalRevenue - collectedRevenue);
+  const refundRate = safePercent(refundedAmount, collectedRevenue);
+  const paymentMethods = data.paymentsByMethod ?? [];
 
   const summarySheet: Cell[][] = [
     section(ex("sections.exportDetails", "Export details"), 5),
@@ -326,6 +342,66 @@ export async function downloadAnalyticsExport(
         ex("labels.completedOrders", "{{count}} completed orders", {
           count: completed,
         }),
+      ),
+    ],
+    [
+      text(ex("metrics.repeatGuests", "Repeat guests")),
+      pct(data.repeatCustomerRate ?? 0),
+      empty(),
+      empty(),
+      text(ex("labels.repeatGuestsDetail", "Share of guests with 2+ orders")),
+    ],
+    [empty(), empty(), empty(), empty(), empty()],
+    section(ex("sections.revenueReconciliation", "Revenue reconciliation"), 5),
+    [
+      h(ex("columns.stage", "Stage")),
+      h(ex("columns.value", "Value")),
+      h(ex("columns.eur", "EUR")),
+      h(ex("columns.bgn", "BGN")),
+      h(ex("columns.notes", "Notes")),
+    ],
+    [
+      text(ex("reconciliation.ordered", "Ordered revenue")),
+      empty(),
+      eur(data.totalRevenue),
+      bgn(data.totalRevenue),
+      text(ex("reconciliation.orderedNote", "Order rows, excludes canceled")),
+    ],
+    [
+      text(ex("reconciliation.collected", "Collected")),
+      empty(),
+      eur(collectedRevenue),
+      bgn(collectedRevenue),
+      text(ex("reconciliation.collectedNote", "Successful payments")),
+    ],
+    [
+      text(ex("reconciliation.refunded", "Refunded")),
+      empty(),
+      eur(refundedAmount),
+      bgn(refundedAmount),
+      text(
+        ex("reconciliation.refundRate", "Refund rate {{rate}}%", {
+          rate: refundRate.toFixed(1),
+        }),
+      ),
+    ],
+    [
+      text(ex("reconciliation.netCollected", "Net collected")),
+      empty(),
+      eur(netCollected),
+      bgn(netCollected),
+      text(ex("reconciliation.netCollectedNote", "Collected minus refunded")),
+    ],
+    [
+      text(ex("reconciliation.uncollected", "Uncollected")),
+      empty(),
+      eur(uncollected),
+      bgn(uncollected),
+      text(
+        ex(
+          "reconciliation.uncollectedNote",
+          "Ordered minus collected (unpaid / cash)",
+        ),
       ),
     ],
     [empty(), empty(), empty(), empty(), empty()],
@@ -479,14 +555,15 @@ export async function downloadAnalyticsExport(
   ];
 
   const demandSheet: Cell[][] = [
-    section(ex("sections.hourlyDemand", "Hourly demand"), 6),
+    section(ex("sections.hourlyDemand", "Hourly demand"), 7),
     [
       h(ex("columns.hour", "Hour")),
       h(ex("columns.orders", "Orders")),
+      h(ex("columns.revenueEur", "Revenue EUR")),
+      h(ex("columns.revenueBgnExcel", "Revenue BGN")),
       h(ex("columns.shareOfTotal", "Share of total")),
       h(ex("columns.shareOfPeak", "Share of peak")),
       h(ex("columns.segment", "Segment")),
-      h(ex("columns.note", "Note")),
     ],
     ...(data.peakHours.length > 0
       ? data.peakHours.map((row) => {
@@ -505,22 +582,24 @@ export async function downloadAnalyticsExport(
           return [
             text(formatHour(row.hour)),
             int(row.orders),
+            eur(row.revenue ?? 0),
+            bgn(row.revenue ?? 0),
             pct(safePercent(row.orders, data.totalOrders)),
             pct(shareOfPeak),
             text(segment),
-            text(ex("labels.visibleInDemandMap", "Visible in demand map")),
           ];
         })
-      : noDataRow(t, 6)),
-    [empty(), empty(), empty(), empty(), empty(), empty()],
-    section(ex("sections.daypartDemand", "Daypart demand"), 6),
+      : noDataRow(t, 7)),
+    [empty(), empty(), empty(), empty(), empty(), empty(), empty()],
+    section(ex("sections.daypartDemand", "Daypart demand"), 7),
     [
       h(ex("columns.daypart", "Daypart")),
       h(ex("columns.hours", "Hours")),
       h(ex("columns.orders", "Orders")),
-      h(ex("columns.shareOfTotal", "Share of total")),
-      empty(),
-      empty(),
+      h(ex("columns.revenueEur", "Revenue EUR")),
+      h(ex("columns.revenueBgnExcel", "Revenue BGN")),
+      h(ex("columns.shareOfOrders", "Share of orders")),
+      h(ex("columns.shareOfRevenue", "Share of revenue")),
     ],
     ...getDayPartRows(data, t),
   ];
@@ -614,6 +693,37 @@ export async function downloadAnalyticsExport(
           pct(safePercent(row.count, data.totalOrders)),
         ])
       : noDataRow(t, 3)),
+  ];
+
+  const paymentMethodsSheet: Cell[][] = [
+    section(ex("sections.paymentSplit", "Payment-method split"), 4),
+    [
+      h(ex("columns.method", "Method")),
+      h(ex("columns.revenueEur", "Revenue EUR")),
+      h(ex("columns.revenueBgnExcel", "Revenue BGN")),
+      h(ex("columns.shareOfCollected", "Share of collected")),
+    ],
+    ...(paymentMethods.length > 0
+      ? paymentMethods.map((row) => [
+          text(row.method),
+          eur(row.amount),
+          bgn(row.amount),
+          pct(safePercent(row.amount, collectedRevenue)),
+        ])
+      : noDataRow(t, 4)),
+    [empty(), empty(), empty(), empty()],
+    [
+      text(ex("reconciliation.collected", "Collected")),
+      eur(collectedRevenue),
+      bgn(collectedRevenue),
+      empty(),
+    ],
+    [
+      text(ex("reconciliation.refunded", "Refunded")),
+      eur(refundedAmount),
+      bgn(refundedAmount),
+      pct(refundRate),
+    ],
   ];
 
   const guestSheet: Cell[][] = feedback
@@ -712,7 +822,8 @@ export async function downloadAnalyticsExport(
         { width: 14 },
         { width: 14 },
         { width: 14 },
-        { width: 24 },
+        { width: 14 },
+        { width: 14 },
       ],
       data: demandSheet as any,
     },
@@ -750,6 +861,11 @@ export async function downloadAnalyticsExport(
       sheet: ex("sheets.orderFlow", "Order Flow"),
       columns: [{ width: 18 }, { width: 10 }, { width: 20 }],
       data: orderFlowSheet as any,
+    },
+    {
+      sheet: ex("sheets.paymentMethods", "Payment Methods"),
+      columns: [{ width: 22 }, { width: 16 }, { width: 16 }, { width: 18 }],
+      data: paymentMethodsSheet as any,
     },
     {
       sheet: ex("sheets.guestVoice", "Guest Voice"),

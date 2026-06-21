@@ -708,7 +708,8 @@
         "menuEngineering": "Menu Engineering",
         "tableYield": "Table Yield",
         "orderFlow": "Order Flow",
-        "guestVoice": "Guest Voice"
+        "guestVoice": "Guest Voice",
+        "paymentMethods": "Payment Methods"
       },
       "columns": {
         "kpi": "KPI",
@@ -754,7 +755,11 @@
         "shareOfSelectedOrders": "Share of selected orders",
         "rating": "Rating",
         "count": "Count",
-        "share": "Share"
+        "share": "Share",
+        "stage": "Stage",
+        "shareOfOrders": "Share of orders",
+        "shareOfCollected": "Share of collected",
+        "method": "Method"
       },
       "summary": {
         "restaurant": "Restaurant",
@@ -776,7 +781,9 @@
         "hourlyDemand": "Hourly demand",
         "daypartDemand": "Daypart demand",
         "guestVoiceSummary": "Guest voice summary",
-        "ratingDistribution": "Rating distribution"
+        "ratingDistribution": "Rating distribution",
+        "revenueReconciliation": "Revenue reconciliation",
+        "paymentSplit": "Payment-method split"
       },
       "metrics": {
         "revenue": "Revenue",
@@ -789,7 +796,9 @@
         "averageRating": "Average rating",
         "positiveRate": "Positive rate",
         "googleRedirects": "Google redirects",
-        "guestFeedback": "Guest feedback"
+        "guestFeedback": "Guest feedback",
+        "repeatGuests": "Repeat guests",
+        "completionRate": "Completion rate"
       },
       "insights": {
         "revenueLeader": "Revenue leader",
@@ -833,7 +842,20 @@
         "noDailyData": "No daily data yet.",
         "visibleInDemandMap": "Visible in demand map",
         "starRating": "{{rating}} star",
-        "noFeedbackLoaded": "No feedback data loaded for this export"
+        "noFeedbackLoaded": "No feedback data loaded for this export",
+        "repeatGuestsDetail": "Share of guests with 2+ orders"
+      },
+      "reconciliation": {
+        "ordered": "Ordered revenue",
+        "orderedNote": "Order rows, excludes canceled",
+        "collected": "Collected",
+        "collectedNote": "Successful payments",
+        "refunded": "Refunded",
+        "refundRate": "Refund rate {{rate}}%",
+        "netCollected": "Net collected",
+        "netCollectedNote": "Collected minus refunded",
+        "uncollected": "Uncollected",
+        "uncollectedNote": "Ordered minus collected (unpaid / cash)"
       }
     }
   },

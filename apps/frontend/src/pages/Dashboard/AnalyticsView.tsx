@@ -323,13 +323,15 @@ const AnalyticsView = () => {
           onPeriodChange={dateRange.setPeriod}
           onCustomRange={dateRange.setCustomRange}
         />
-        <button
-          onClick={handleExport}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-foreground text-background text-xs font-bold shadow-sm hover:opacity-90 transition-opacity"
-        >
-          <Download className="w-4 h-4" />
-          {t("analytics.exportLabel", "Export")}
-        </button>
+        {canFullAnalytics && (
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-foreground text-background text-xs font-bold shadow-sm hover:opacity-90 transition-opacity"
+          >
+            <Download className="w-4 h-4" />
+            {t("analytics.exportLabel", "Export")}
+          </button>
+        )}
       </div>
 
       <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">

@@ -708,7 +708,8 @@
         "menuEngineering": "Analiza meniului",
         "tableYield": "Randamentul meselor",
         "orderFlow": "Fluxul comenzilor",
-        "guestVoice": "Vocea oaspeților"
+        "guestVoice": "Vocea oaspeților",
+        "paymentMethods": "Metode de plată"
       },
       "columns": {
         "kpi": "Indicator",
@@ -754,7 +755,11 @@
         "rating": "Evaluare",
         "count": "Număr",
         "share": "Pondere",
-        "revenueBgn": "Venit (лв)"
+        "revenueBgn": "Venit (лв)",
+        "stage": "Etapă",
+        "shareOfOrders": "Pondere din comenzi",
+        "shareOfCollected": "Pondere din încasat",
+        "method": "Metodă"
       },
       "summary": {
         "restaurant": "Restaurant",
@@ -776,7 +781,9 @@
         "hourlyDemand": "Cerere pe ore",
         "daypartDemand": "Cerere pe perioade ale zilei",
         "guestVoiceSummary": "Rezumat vocea oaspeților",
-        "ratingDistribution": "Distribuția evaluărilor"
+        "ratingDistribution": "Distribuția evaluărilor",
+        "revenueReconciliation": "Reconcilierea veniturilor",
+        "paymentSplit": "Defalcare pe metodă de plată"
       },
       "metrics": {
         "revenue": "Venit",
@@ -789,7 +796,9 @@
         "averageRating": "Evaluare medie",
         "positiveRate": "Rată pozitivă",
         "googleRedirects": "Redirecționări Google",
-        "guestFeedback": "Feedback oaspeți"
+        "guestFeedback": "Feedback oaspeți",
+        "repeatGuests": "Clienți fideli",
+        "completionRate": "Rată de finalizare"
       },
       "insights": {
         "revenueLeader": "Zi lider venit",
@@ -833,7 +842,20 @@
         "noDailyData": "Nu există încă date zilnice.",
         "visibleInDemandMap": "Vizibil în harta cererii",
         "starRating": "{{rating}} stele",
-        "noFeedbackLoaded": "Nu există date de feedback încărcate pentru acest export"
+        "noFeedbackLoaded": "Nu există date de feedback încărcate pentru acest export",
+        "repeatGuestsDetail": "Ponderea clienților cu 2+ comenzi"
+      },
+      "reconciliation": {
+        "ordered": "Venituri comandate",
+        "orderedNote": "Rânduri de comenzi, exclude anulate",
+        "collected": "Încasat",
+        "collectedNote": "Plăți reușite",
+        "refunded": "Rambursat",
+        "refundRate": "Rată rambursare {{rate}}%",
+        "netCollected": "Încasat net",
+        "netCollectedNote": "Încasat minus rambursat",
+        "uncollected": "Neîncasat",
+        "uncollectedNote": "Comandat minus încasat (neplătit / numerar)"
       }
     }
   },
