@@ -1,6 +1,9 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+
+type ViewDef = { name: string; create: string; index: string };
 
 @Injectable()
 export class DashboardViewsService implements OnModuleInit {
@@ -9,6 +12,68 @@ export class DashboardViewsService implements OnModuleInit {
   private refreshing = false;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  // Materialized-view definitions. Each carries a content hash stamped into the
+  // view's COMMENT; createViews only DROP+CREATEs when the hash changes, so a
+  // plain pod restart is a no-op instead of an expensive full rebuild.
+  private readonly viewDefs: ViewDef[] = [
+    {
+      name: 'mv_daily_stats',
+      create: `
+      CREATE MATERIALIZED VIEW mv_daily_stats AS
+      SELECT
+        o."restaurantId",
+        DATE_TRUNC('day', o."createdAt") AS day_utc,
+        COUNT(*)::int                    AS order_count,
+        COALESCE(SUM(o."totalPrice"), 0) AS revenue
+      FROM customer_order o
+      WHERE o.status != 'CANCELED'
+      GROUP BY o."restaurantId", DATE_TRUNC('day', o."createdAt")`,
+      index: `CREATE UNIQUE INDEX mv_daily_stats_uid ON mv_daily_stats ("restaurantId", day_utc)`,
+    },
+    {
+      name: 'mv_peak_hours',
+      create: `
+      CREATE MATERIALIZED VIEW mv_peak_hours AS
+      SELECT
+        o."restaurantId",
+        DATE_TRUNC('day', o."createdAt")        AS day_utc,
+        EXTRACT(HOUR FROM o."createdAt")::int   AS hour_utc,
+        COUNT(*)::int                           AS order_count,
+        COALESCE(SUM(o."totalPrice"), 0)        AS revenue
+      FROM customer_order o
+      WHERE o.status != 'CANCELED'
+      GROUP BY o."restaurantId", DATE_TRUNC('day', o."createdAt"), EXTRACT(HOUR FROM o."createdAt")`,
+      index: `CREATE UNIQUE INDEX mv_peak_hours_uid ON mv_peak_hours ("restaurantId", day_utc, hour_utc)`,
+    },
+    {
+      name: 'mv_item_stats',
+      create: `
+      CREATE MATERIALIZED VIEW mv_item_stats AS
+      SELECT
+        o."restaurantId",
+        oi."menuItemId",
+        mi.name                                        AS item_name,
+        mi.price                                       AS item_price,
+        DATE_TRUNC('day', o."createdAt")               AS day_utc,
+        SUM(oi.quantity)::int                          AS total_quantity,
+        COALESCE(SUM(COALESCE(NULLIF(oi."unitPriceWithOptions", 0), mi.price) * oi.quantity), 0)       AS total_revenue
+      FROM order_item oi
+      JOIN customer_order o  ON oi."orderId"    = o.id
+      JOIN menu_item     mi  ON oi."menuItemId" = mi.id
+      WHERE o.status != 'CANCELED'
+        AND oi."menuItemId" IS NOT NULL
+      GROUP BY o."restaurantId", oi."menuItemId", mi.name, mi.price, DATE_TRUNC('day', o."createdAt")`,
+      index: `CREATE UNIQUE INDEX mv_item_stats_uid ON mv_item_stats ("restaurantId", "menuItemId", day_utc)`,
+    },
+  ];
+
+  private viewVersion(def: ViewDef): string {
+    return createHash('sha1')
+      .update(def.create + def.index)
+      .digest('hex')
+      .slice(0, 16);
+  }
 
   isReady(): boolean {
     return this.ready;
@@ -40,15 +105,15 @@ export class DashboardViewsService implements OnModuleInit {
         `;
         if (!lock?.locked) return false;
 
-        await tx.$executeRawUnsafe(
-          'REFRESH MATERIALIZED VIEW CONCURRENTLY mv_daily_stats',
-        );
-        await tx.$executeRawUnsafe(
-          'REFRESH MATERIALIZED VIEW CONCURRENTLY mv_peak_hours',
-        );
-        await tx.$executeRawUnsafe(
-          'REFRESH MATERIALIZED VIEW CONCURRENTLY mv_item_stats',
-        );
+        // Plain REFRESH (NOT CONCURRENTLY): `REFRESH ... CONCURRENTLY` cannot run
+        // inside a transaction block (Postgres errors), but we need a transaction
+        // for the advisory xact-lock that coordinates pods on PgBouncer (session
+        // locks are unsafe under transaction pooling). These views are small
+        // per-restaurant aggregates, so the brief ACCESS EXCLUSIVE lock during a
+        // plain refresh is an acceptable trade for a refresh that actually runs.
+        await tx.$executeRawUnsafe('REFRESH MATERIALIZED VIEW mv_daily_stats');
+        await tx.$executeRawUnsafe('REFRESH MATERIALIZED VIEW mv_peak_hours');
+        await tx.$executeRawUnsafe('REFRESH MATERIALIZED VIEW mv_item_stats');
         return true;
       });
       if (refreshed) this.logger.log('Analytics views refreshed');
@@ -60,75 +125,33 @@ export class DashboardViewsService implements OnModuleInit {
   }
 
   private async createViews(): Promise<void> {
-    // Revenue + order count per restaurant per UTC day.
-    // Drop first so the WHERE clause can be altered across deploys.
-    await this.prisma.$executeRawUnsafe(
-      `DROP MATERIALIZED VIEW IF EXISTS mv_daily_stats CASCADE`,
-    );
-    await this.prisma.$executeRawUnsafe(`
-      CREATE MATERIALIZED VIEW mv_daily_stats AS
-      SELECT
-        o."restaurantId",
-        DATE_TRUNC('day', o."createdAt") AS day_utc,
-        COUNT(*)::int                    AS order_count,
-        COALESCE(SUM(o."totalPrice"), 0) AS revenue
-      FROM customer_order o
-      WHERE o.status != 'CANCELED'
-      GROUP BY o."restaurantId", DATE_TRUNC('day', o."createdAt")
-    `);
+    // Serialize across pods + version-gate per view: a view is only DROPped and
+    // rebuilt when its content hash differs from the hash stamped in its COMMENT.
+    // A normal restart (unchanged definitions) does zero DDL. DDL here is plain
+    // (no CONCURRENTLY), so running it inside a transaction is safe.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('dashboard_views_create'))`;
 
-    await this.prisma.$executeRawUnsafe(`
-      CREATE UNIQUE INDEX IF NOT EXISTS mv_daily_stats_uid
-        ON mv_daily_stats ("restaurantId", day_utc)
-    `);
+      for (const def of this.viewDefs) {
+        const version = this.viewVersion(def);
+        const rows = await tx.$queryRawUnsafe<{ comment: string | null }[]>(
+          `SELECT obj_description(to_regclass($1), 'pg_class') AS comment`,
+          def.name,
+        );
+        if (rows?.[0]?.comment === `v:${version}`) {
+          continue; // up to date — skip the expensive rebuild
+        }
 
-    // Order count per restaurant per UTC day × UTC hour (for timezone-aware reshaping at read time).
-    await this.prisma.$executeRawUnsafe(
-      `DROP MATERIALIZED VIEW IF EXISTS mv_peak_hours CASCADE`,
-    );
-    await this.prisma.$executeRawUnsafe(`
-      CREATE MATERIALIZED VIEW mv_peak_hours AS
-      SELECT
-        o."restaurantId",
-        DATE_TRUNC('day', o."createdAt")        AS day_utc,
-        EXTRACT(HOUR FROM o."createdAt")::int   AS hour_utc,
-        COUNT(*)::int                           AS order_count,
-        COALESCE(SUM(o."totalPrice"), 0)        AS revenue
-      FROM customer_order o
-      WHERE o.status != 'CANCELED'
-      GROUP BY o."restaurantId", DATE_TRUNC('day', o."createdAt"), EXTRACT(HOUR FROM o."createdAt")
-    `);
-
-    await this.prisma.$executeRawUnsafe(`
-      CREATE UNIQUE INDEX IF NOT EXISTS mv_peak_hours_uid
-        ON mv_peak_hours ("restaurantId", day_utc, hour_utc)
-    `);
-
-    // Item-level stats per restaurant per UTC day.
-    await this.prisma.$executeRawUnsafe(
-      `DROP MATERIALIZED VIEW IF EXISTS mv_item_stats CASCADE`,
-    );
-    await this.prisma.$executeRawUnsafe(`
-      CREATE MATERIALIZED VIEW mv_item_stats AS
-      SELECT
-        o."restaurantId",
-        oi."menuItemId",
-        mi.name                                        AS item_name,
-        mi.price                                       AS item_price,
-        DATE_TRUNC('day', o."createdAt")               AS day_utc,
-        SUM(oi.quantity)::int                          AS total_quantity,
-        COALESCE(SUM(COALESCE(NULLIF(oi."unitPriceWithOptions", 0), mi.price) * oi.quantity), 0)       AS total_revenue
-      FROM order_item oi
-      JOIN customer_order o  ON oi."orderId"    = o.id
-      JOIN menu_item     mi  ON oi."menuItemId" = mi.id
-      WHERE o.status != 'CANCELED'
-        AND oi."menuItemId" IS NOT NULL
-      GROUP BY o."restaurantId", oi."menuItemId", mi.name, mi.price, DATE_TRUNC('day', o."createdAt")
-    `);
-
-    await this.prisma.$executeRawUnsafe(`
-      CREATE UNIQUE INDEX IF NOT EXISTS mv_item_stats_uid
-        ON mv_item_stats ("restaurantId", "menuItemId", day_utc)
-    `);
+        await tx.$executeRawUnsafe(
+          `DROP MATERIALIZED VIEW IF EXISTS ${def.name} CASCADE`,
+        );
+        await tx.$executeRawUnsafe(def.create);
+        await tx.$executeRawUnsafe(def.index);
+        await tx.$executeRawUnsafe(
+          `COMMENT ON MATERIALIZED VIEW ${def.name} IS 'v:${version}'`,
+        );
+        this.logger.log(`Rebuilt ${def.name} (v:${version})`);
+      }
+    });
   }
 }
