@@ -361,12 +361,16 @@ let csrfToken: string | null = null;
 // Dedupe concurrent first-time fetches (#F2): N parallel state-changing requests at
 // startup would each fire their own GET /auth/csrf-token. Share one in-flight promise.
 let csrfFetchPromise: Promise<void> | null = null;
-const fetchCsrfToken = async (): Promise<void> => {
+const fetchCsrfToken = async (force = false): Promise<void> => {
+  if (force) csrfToken = null;
   if (csrfToken) return;
   if (!csrfFetchPromise) {
     csrfFetchPromise = (async () => {
       try {
-        const res = await fetch(`${API_URL}/auth/csrf-token`, { credentials: 'include' });
+        const res = await fetch(`${API_URL}/auth/csrf-token`, {
+          credentials: 'include',
+          cache: 'no-store',
+        });
         const data = await res.json();
         csrfToken = data?.csrfToken ?? null;
       } catch {
@@ -379,14 +383,23 @@ const fetchCsrfToken = async (): Promise<void> => {
   return csrfFetchPromise;
 };
 
+const STATE_CHANGING_METHODS = new Set(['post', 'patch', 'delete', 'put']);
+
+const isStateChangingMethod = (method?: string) =>
+  !!method && STATE_CHANGING_METHODS.has(method.toLowerCase());
+
+const setCsrfHeader = (config: any) => {
+  if (!csrfToken) return;
+  config.headers = config.headers ?? {};
+  config.headers['X-CSRF-Token'] = csrfToken;
+};
+
 api.interceptors.request.use(async (config) => {
   // Auth rides the httpOnly cookie (sent automatically via withCredentials).
   // CSRF token — attach to state-changing requests
-  if (config.method && ['post', 'patch', 'delete', 'put'].includes(config.method)) {
+  if (isStateChangingMethod(config.method)) {
     if (!csrfToken) await fetchCsrfToken();
-    if (csrfToken) {
-      config.headers['X-CSRF-Token'] = csrfToken;
-    }
+    setCsrfHeader(config);
   }
   return config;
 });
@@ -394,7 +407,28 @@ api.interceptors.request.use(async (config) => {
 // Response interceptor — handle 401 Unauthorized (cookie expired)
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const responseMessage =
+      error?.response?.data?.message ??
+      error?.response?.data?.error ??
+      error?.message;
+    const requestConfig = error?.config;
+    const isInvalidCsrf =
+      error?.response?.status === 403 &&
+      responseMessage === 'Invalid CSRF token';
+
+    if (
+      isInvalidCsrf &&
+      requestConfig &&
+      isStateChangingMethod(requestConfig.method) &&
+      !(requestConfig as any)._csrfRetry
+    ) {
+      (requestConfig as any)._csrfRetry = true;
+      await fetchCsrfToken(true);
+      setCsrfHeader(requestConfig);
+      return api(requestConfig);
+    }
+
     logApiError(error);
 
     if (error.response?.status === 401) {
