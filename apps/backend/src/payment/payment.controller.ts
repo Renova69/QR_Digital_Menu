@@ -16,6 +16,8 @@ import {
 import { PaymentHistoryQueryDto } from './dto/payment-history-query.dto';
 import { RefundPaymentDto } from './dto/refund-payment.dto';
 import { SettlePartialDto } from './dto/settle-partial.dto';
+import { CreateCheckoutDto } from './dto/create-checkout.dto';
+import { CreateCashRequestDto } from './dto/create-cash-request.dto';
 import { DateRangeQueryDto } from '../common/dto/date-range-query.dto';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -79,17 +81,7 @@ export class PaymentController {
   @HttpCode(HttpStatus.OK)
   createCheckout(
     @Param('token') token: string,
-    @Body() body: {
-      provider?: 'STRIPE' | 'EPAY' | 'BORICA' | 'MYPOS';
-      tipPercent?: number;
-      boricaCardholder?: {
-        cardholderName?: string;
-        email?: string;
-        phone?: string;
-        billingAddress?: string;
-      };
-      orderIds?: string[];
-    },
+    @Body() body: CreateCheckoutDto,
   ) {
     const provider = (body.provider ?? 'STRIPE').toUpperCase() as
       | 'STRIPE'
@@ -110,7 +102,7 @@ export class PaymentController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   createCashPaymentRequest(
     @Param('token') token: string,
-    @Body() body: { restaurantId: string; orderIds?: string[] },
+    @Body() body: CreateCashRequestDto,
   ) {
     return this.paymentService.createCashPaymentRequest(
       token,
@@ -293,7 +285,10 @@ export class PaymentController {
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
-    return this.paymentService.exportPayments(restaurantId, req.user.id, { from, to });
+    return this.paymentService.exportPayments(restaurantId, req.user.id, {
+      from,
+      to,
+    });
   }
 
   @Get(':paymentId')
