@@ -11,11 +11,7 @@ import { Cron } from '@nestjs/schedule';
 import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { StripeProvider } from './stripe.provider';
-import {
-  EpayNotification,
-  EpayPage,
-  EpayProvider,
-} from './epay.provider';
+import { EpayNotification, EpayPage, EpayProvider } from './epay.provider';
 import { BoricaCardholderInfo, BoricaProvider } from './borica.provider';
 import {
   MYPOS_TEST_CLIENT_NUMBER,
@@ -37,30 +33,26 @@ import {
   Prisma,
 } from '@prisma/client';
 import { SettlePartialDto, SplitMode } from './dto/settle-partial.dto';
+import {
+  BillPaymentScope,
+  CheckoutScope,
+  CheckoutScopeAllocation,
+  CheckoutScopeInput,
+  billScopeFromCashRequest,
+  billScopeFromCheckoutScope,
+  billScopeFromPayment,
+  billScopesEqual,
+  billScopesOverlap,
+  checkoutScopePayload,
+  getCheckoutScopeFromPayload,
+  getCheckoutScopeKey,
+  normalizeCheckoutScope,
+  normalizeScopeOrderIds,
+  paymentBillScopeEquals,
+  paymentScopeMatches,
+} from './payment-scope.utils';
 
 type CheckoutProvider = 'STRIPE' | 'EPAY' | 'BORICA' | 'MYPOS';
-
-type CheckoutScopeInput = {
-  orderIds?: string[];
-};
-
-type CheckoutScopeAllocation = {
-  orderItemId: string;
-  quantity: number;
-  amount: number;
-  snapshotPaid: number;
-};
-
-type CheckoutScope = {
-  kind: 'ORDER_ITEMS';
-  orderIds: string[];
-  allocations: CheckoutScopeAllocation[];
-  chargeSubtotal: number;
-};
-
-type BillPaymentScope =
-  | { kind: 'FULL_TABLE' }
-  | { kind: 'ORDER_ITEMS'; orderIds: string[] };
 
 type CheckoutCharge = {
   subtotal: number;
@@ -322,7 +314,10 @@ export class PaymentService {
     );
   }
 
-  private async verifyRestaurantStaffAccess(restaurantId: string, userId: string) {
+  private async verifyRestaurantStaffAccess(
+    restaurantId: string,
+    userId: string,
+  ) {
     const [restaurant, user] = await Promise.all([
       this.prisma.restaurant.findUnique({
         where: { id: restaurantId },
@@ -348,7 +343,10 @@ export class PaymentService {
     restaurantId: string,
     userId: string,
   ) {
-    const context = await this.verifyRestaurantStaffAccess(restaurantId, userId);
+    const context = await this.verifyRestaurantStaffAccess(
+      restaurantId,
+      userId,
+    );
     if (
       context.user?.role === 'SUPER_ADMIN' ||
       context.restaurant.ownerId === userId ||
@@ -451,11 +449,7 @@ export class PaymentService {
 
   private normalizeTipPercent(tipPercent: number | undefined): number {
     const normalized = Number(tipPercent ?? 0);
-    if (
-      !Number.isFinite(normalized) ||
-      normalized < 0 ||
-      normalized > 100
-    ) {
+    if (!Number.isFinite(normalized) || normalized < 0 || normalized > 100) {
       throw new BadRequestException('tipPercent must be between 0 and 100');
     }
     return normalized;
@@ -467,7 +461,11 @@ export class PaymentService {
     platformFeePercent: number,
   ) {
     const subtotal = orders.reduce((sum, order) => sum + order.totalPrice, 0);
-    return this.calculatePartialTotals(subtotal, tipPercent, platformFeePercent);
+    return this.calculatePartialTotals(
+      subtotal,
+      tipPercent,
+      platformFeePercent,
+    );
   }
 
   /**
@@ -596,7 +594,8 @@ export class PaymentService {
           unitPrice,
           quantity: it.quantity as number,
           paidQuantity: (it.paidQuantity as number) ?? 0,
-          remainingQuantity: (it.quantity as number) - ((it.paidQuantity as number) ?? 0),
+          remainingQuantity:
+            (it.quantity as number) - ((it.paidQuantity as number) ?? 0),
         };
       }),
     );
@@ -608,159 +607,6 @@ export class PaymentService {
       hasLoyaltyDiscount,
       items,
     };
-  }
-
-  private normalizeCheckoutScope(
-    scope?: CheckoutScopeInput,
-  ): { orderIds: string[] } | null {
-    if (!scope?.orderIds) return null;
-    if (!Array.isArray(scope.orderIds)) {
-      throw new BadRequestException('orderIds must be an array');
-    }
-
-    const orderIds = Array.from(
-      new Set(
-        scope.orderIds
-          .map((id) => (typeof id === 'string' ? id.trim() : ''))
-          .filter(Boolean),
-      ),
-    );
-
-    if (orderIds.length === 0) {
-      throw new BadRequestException('Select at least one order to pay');
-    }
-    if (orderIds.length > 50) {
-      throw new BadRequestException('Too many orders selected');
-    }
-
-    return { orderIds };
-  }
-
-  private getCheckoutScopeKey(scope: CheckoutScope | null): string | null {
-    if (!scope) return null;
-    return createHash('sha256')
-      .update(JSON.stringify({
-        kind: scope.kind,
-        orderIds: scope.orderIds,
-        allocations: scope.allocations.map((a) => ({
-          orderItemId: a.orderItemId,
-          quantity: a.quantity,
-          amount: a.amount,
-          snapshotPaid: a.snapshotPaid,
-        })),
-        chargeSubtotal: scope.chargeSubtotal,
-      }))
-      .digest('hex')
-      .slice(0, 16);
-  }
-
-  private getCheckoutScopeFromPayload(payload: unknown): CheckoutScope | null {
-    const base =
-      payload && typeof payload === 'object' && !Array.isArray(payload)
-        ? (payload as Record<string, any>)
-        : null;
-    const scope = base?.checkoutScope;
-    if (
-      !scope ||
-      scope.kind !== 'ORDER_ITEMS' ||
-      !Array.isArray(scope.orderIds) ||
-      !Array.isArray(scope.allocations)
-    ) {
-      return null;
-    }
-
-    const allocations = scope.allocations
-      .map((a: any) => ({
-        orderItemId: typeof a.orderItemId === 'string' ? a.orderItemId : '',
-        quantity: Number(a.quantity),
-        amount: Number(a.amount),
-        snapshotPaid: Number(a.snapshotPaid),
-      }))
-      .filter(
-        (a: CheckoutScopeAllocation) =>
-          a.orderItemId &&
-          Number.isInteger(a.quantity) &&
-          a.quantity > 0 &&
-          Number.isFinite(a.amount) &&
-          a.amount > 0 &&
-          Number.isInteger(a.snapshotPaid) &&
-          a.snapshotPaid >= 0,
-      );
-
-    if (allocations.length === 0) return null;
-
-    return {
-      kind: 'ORDER_ITEMS',
-      orderIds: scope.orderIds
-        .filter((id: unknown) => typeof id === 'string' && id.trim())
-        .map((id: string) => id.trim()),
-      allocations,
-      chargeSubtotal: this.roundMoney(Number(scope.chargeSubtotal) || 0),
-    };
-  }
-
-  private paymentScopeMatches(payment: any, scope: CheckoutScope | null): boolean {
-    const stored = this.getCheckoutScopeFromPayload(payment.providerPayload);
-    if (!stored && !scope) return true;
-    if (!stored || !scope) return false;
-    return this.getCheckoutScopeKey(stored) === this.getCheckoutScopeKey(scope);
-  }
-
-  private checkoutScopePayload(scope: CheckoutScope | null) {
-    return scope ? ({ checkoutScope: scope } as Record<string, unknown>) : undefined;
-  }
-
-  private billScopeFromCheckoutScope(scope: CheckoutScope | null): BillPaymentScope {
-    return scope
-      ? { kind: 'ORDER_ITEMS', orderIds: this.normalizeScopeOrderIds(scope.orderIds) }
-      : { kind: 'FULL_TABLE' };
-  }
-
-  private billScopeFromCashRequest(request: {
-    scope: CashPaymentRequestScope;
-    orderIds?: string[] | null;
-  }): BillPaymentScope {
-    return request.scope === CashPaymentRequestScope.ORDER_ITEMS
-      ? {
-          kind: 'ORDER_ITEMS',
-          orderIds: this.normalizeScopeOrderIds(request.orderIds ?? []),
-        }
-      : { kind: 'FULL_TABLE' };
-  }
-
-  private billScopeFromPayment(payment: any): BillPaymentScope {
-    return this.billScopeFromCheckoutScope(
-      this.getCheckoutScopeFromPayload(payment.providerPayload),
-    );
-  }
-
-  private normalizeScopeOrderIds(orderIds: string[]): string[] {
-    return Array.from(
-      new Set(
-        orderIds
-          .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
-          .map((id) => id.trim()),
-      ),
-    ).sort();
-  }
-
-  private billScopesEqual(a: BillPaymentScope, b: BillPaymentScope): boolean {
-    if (a.kind !== b.kind) return false;
-    if (a.kind === 'FULL_TABLE') return true;
-    if (b.kind === 'FULL_TABLE') return true;
-    const aIds = this.normalizeScopeOrderIds(a.orderIds);
-    const bIds = this.normalizeScopeOrderIds(b.orderIds);
-    return aIds.length === bIds.length && aIds.every((id, index) => id === bIds[index]);
-  }
-
-  private billScopesOverlap(a: BillPaymentScope, b: BillPaymentScope): boolean {
-    if (a.kind === 'FULL_TABLE' || b.kind === 'FULL_TABLE') return true;
-    const bIds = new Set(this.normalizeScopeOrderIds(b.orderIds));
-    return this.normalizeScopeOrderIds(a.orderIds).some((id) => bIds.has(id));
-  }
-
-  private paymentBillScopeEquals(payment: any, scope: BillPaymentScope): boolean {
-    return this.billScopesEqual(this.billScopeFromPayment(payment), scope);
   }
 
   private async assertNoPendingBillScopeConflict(
@@ -779,7 +625,9 @@ export class PaymentService {
       where: {
         tableSessionId: sessionId,
         status: PaymentStatus.PENDING,
-        ...(ignorePaymentIds.size > 0 ? { id: { notIn: [...ignorePaymentIds] } } : {}),
+        ...(ignorePaymentIds.size > 0
+          ? { id: { notIn: [...ignorePaymentIds] } }
+          : {}),
       },
       select: {
         id: true,
@@ -792,8 +640,8 @@ export class PaymentService {
     for (const payment of pendingPayments) {
       if (ignorePaymentIds.has(payment.id)) continue;
       if (payment.status !== PaymentStatus.PENDING) continue;
-      const pendingScope = this.billScopeFromPayment(payment);
-      if (this.billScopesOverlap(candidateScope, pendingScope)) {
+      const pendingScope = billScopeFromPayment(payment);
+      if (billScopesOverlap(candidateScope, pendingScope)) {
         throw new ConflictException(
           'Another payment for this bill is already pending. Please wait for it to finish or cancel it before starting a new one.',
         );
@@ -804,7 +652,9 @@ export class PaymentService {
       where: {
         tableSessionId: sessionId,
         status: CashPaymentRequestStatus.PENDING,
-        ...(ignoreCashRequestIds.size > 0 ? { id: { notIn: [...ignoreCashRequestIds] } } : {}),
+        ...(ignoreCashRequestIds.size > 0
+          ? { id: { notIn: [...ignoreCashRequestIds] } }
+          : {}),
       },
       select: {
         id: true,
@@ -817,8 +667,8 @@ export class PaymentService {
     for (const request of pendingCashRequests) {
       if (ignoreCashRequestIds.has(request.id)) continue;
       if (request.status !== CashPaymentRequestStatus.PENDING) continue;
-      const pendingScope = this.billScopeFromCashRequest(request);
-      if (this.billScopesOverlap(candidateScope, pendingScope)) {
+      const pendingScope = billScopeFromCashRequest(request);
+      if (billScopesOverlap(candidateScope, pendingScope)) {
         throw new ConflictException(
           'Another payment for this bill is already pending. Please wait for it to finish or cancel it before starting a new one.',
         );
@@ -839,7 +689,7 @@ export class PaymentService {
       await this.assertNoPendingBillScopeConflict(
         tx,
         sessionId,
-        this.billScopeFromCheckoutScope(scope),
+        billScopeFromCheckoutScope(scope),
         options,
       );
       return tx.payment.create({ data });
@@ -882,11 +732,7 @@ export class PaymentService {
     request: any,
   ) {
     const payload = this.formatCashPaymentRequest(request);
-    this.events.emitToRestaurant(
-      request.restaurantId,
-      eventName,
-      payload,
-    );
+    this.events.emitToRestaurant(request.restaurantId, eventName, payload);
     this.events.emitToTableSession(request.tableSessionId, eventName, payload);
 
     if (request.status === CashPaymentRequestStatus.PENDING) {
@@ -906,11 +752,14 @@ export class PaymentService {
   } {
     return scope.kind === 'FULL_TABLE'
       ? { scope: 'FULL_TABLE', orderIds: [] }
-      : { scope: 'ORDER_ITEMS', orderIds: this.normalizeScopeOrderIds(scope.orderIds) };
+      : {
+          scope: 'ORDER_ITEMS',
+          orderIds: normalizeScopeOrderIds(scope.orderIds),
+        };
   }
 
   private formatPendingPayment(payment: any): PendingBillPaymentDto {
-    const scope = this.billScopeToPayload(this.billScopeFromPayment(payment));
+    const scope = this.billScopeToPayload(billScopeFromPayment(payment));
     return {
       id: payment.id,
       tableSessionId: payment.tableSessionId,
@@ -935,7 +784,7 @@ export class PaymentService {
         request.scope === CashPaymentRequestScope.ORDER_ITEMS
           ? 'ORDER_ITEMS'
           : 'FULL_TABLE',
-      orderIds: this.normalizeScopeOrderIds(request.orderIds ?? []),
+      orderIds: normalizeScopeOrderIds(request.orderIds ?? []),
       amount: this.roundMoney(request.requestedAmount ?? 0),
       createdAt: request.createdAt ?? new Date(),
     };
@@ -999,11 +848,18 @@ export class PaymentService {
       ...cashRequests.map((request) => this.formatPendingCashRequest(request)),
     ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-    return pending.find((payment) => payment.scope === 'FULL_TABLE') ?? pending[0] ?? null;
+    return (
+      pending.find((payment) => payment.scope === 'FULL_TABLE') ??
+      pending[0] ??
+      null
+    );
   }
 
   private getOrderItemUnitPrice(item: any): number {
-    if (typeof item.unitPriceWithOptions === 'number' && item.unitPriceWithOptions > 0) {
+    if (
+      typeof item.unitPriceWithOptions === 'number' &&
+      item.unitPriceWithOptions > 0
+    ) {
       return this.roundMoney(item.unitPriceWithOptions);
     }
 
@@ -1013,7 +869,9 @@ export class PaymentService {
           0,
         )
       : 0;
-    return this.roundMoney((item.menuItem?.price ?? item.unitPrice ?? 0) + optionsTotal);
+    return this.roundMoney(
+      (item.menuItem?.price ?? item.unitPrice ?? 0) + optionsTotal,
+    );
   }
 
   private async resolveCheckoutCharge(
@@ -1026,7 +884,7 @@ export class PaymentService {
     platformFeePercent: number,
     scopeInput?: CheckoutScopeInput,
   ): Promise<CheckoutCharge> {
-    const normalizedScope = this.normalizeCheckoutScope(scopeInput);
+    const normalizedScope = normalizeCheckoutScope(scopeInput);
 
     const balance = await this.computeSessionBalance(tx, session.id);
     if (balance.remaining <= 0) {
@@ -1128,7 +986,9 @@ export class PaymentService {
       throw new ConflictException('Selected orders are already paid');
     }
     if (chargeSubtotal > balance.remaining + 0.01) {
-      throw new ConflictException('Selected orders exceed the outstanding balance');
+      throw new ConflictException(
+        'Selected orders exceed the outstanding balance',
+      );
     }
 
     const checkoutScope: CheckoutScope = {
@@ -1145,7 +1005,7 @@ export class PaymentService {
         platformFeePercent,
       ),
       checkoutScope,
-      checkoutScopeKey: this.getCheckoutScopeKey(checkoutScope),
+      checkoutScopeKey: getCheckoutScopeKey(checkoutScope),
     };
   }
 
@@ -1173,7 +1033,10 @@ export class PaymentService {
     // the full remaining, so a normal full payment always clears it; only an
     // added-items / tampered / partial-online case falls short and we leave the
     // session OPEN (payment unclaimed) so staff collect the rest.
-    const balance = await this.computeSessionBalance(tx, payment.tableSessionId);
+    const balance = await this.computeSessionBalance(
+      tx,
+      payment.tableSessionId,
+    );
     const paymentNet = this.roundMoney(
       (payment.amount ?? 0) - (payment.tipAmount ?? 0),
     );
@@ -1232,7 +1095,9 @@ export class PaymentService {
     payment: any,
     data: Record<string, any>,
   ): Promise<PaymentClaimResult> {
-    const checkoutScope = this.getCheckoutScopeFromPayload(payment.providerPayload);
+    const checkoutScope = getCheckoutScopeFromPayload(
+      payment.providerPayload,
+    );
     if (checkoutScope) {
       return this.claimSuccessfulScopedCheckoutPayment(
         tx,
@@ -1332,7 +1197,10 @@ export class PaymentService {
       })),
     });
 
-    const balance = await this.computeSessionBalance(tx, payment.tableSessionId);
+    const balance = await this.computeSessionBalance(
+      tx,
+      payment.tableSessionId,
+    );
     let sessionPaid = false;
     if (balance.remaining <= 0.01) {
       const flip = await tx.tableSession.updateMany({
@@ -1531,7 +1399,10 @@ export class PaymentService {
     return new Date(Date.now() + minutes * 60 * 1000);
   }
 
-  private mergeProviderPayload(payload: unknown, patch: Record<string, unknown>) {
+  private mergeProviderPayload(
+    payload: unknown,
+    patch: Record<string, unknown>,
+  ) {
     const base =
       payload && typeof payload === 'object' && !Array.isArray(payload)
         ? (payload as Record<string, unknown>)
@@ -1601,14 +1472,24 @@ export class PaymentService {
   }
 
   private resolveBoricaCardholder(
-    orders: Array<{ customerName?: string | null; customerPhone?: string | null }>,
+    orders: Array<{
+      customerName?: string | null;
+      customerPhone?: string | null;
+    }>,
     input?: BoricaCardholderInput,
   ): BoricaCardholderInfo {
     const fallbackOrder = orders.find((order) => order.customerName?.trim());
-    const cardholderName =
-      (input?.cardholderName?.trim() || fallbackOrder?.customerName?.trim() || '').slice(0, 45);
+    const cardholderName = (
+      input?.cardholderName?.trim() ||
+      fallbackOrder?.customerName?.trim() ||
+      ''
+    ).slice(0, 45);
     const email = (input?.email ?? '').trim();
-    const phone = (input?.phone?.trim() || fallbackOrder?.customerPhone?.trim() || '').slice(0, 32);
+    const phone = (
+      input?.phone?.trim() ||
+      fallbackOrder?.customerPhone?.trim() ||
+      ''
+    ).slice(0, 32);
     const billingAddress = (input?.billingAddress ?? '').trim().slice(0, 50);
 
     if (!cardholderName || !email || !billingAddress) {
@@ -1689,7 +1570,10 @@ export class PaymentService {
       },
     });
 
-    const subtotal = orders.reduce((sum: number, o: any) => sum + o.totalPrice, 0);
+    const subtotal = orders.reduce(
+      (sum: number, o: any) => sum + o.totalPrice,
+      0,
+    );
     const balance = await this.computeSessionBalance(this.prisma, session.id);
     const pendingPayment = await this.getPendingBillPayment(session.id);
 
@@ -1717,7 +1601,7 @@ export class PaymentService {
           unitPrice:
             typeof oi.unitPrice === 'number' && oi.unitPrice > 0
               ? oi.unitPrice
-              : oi.menuItem?.price ?? 0,
+              : (oi.menuItem?.price ?? 0),
           unitPriceWithOptions:
             typeof oi.unitPriceWithOptions === 'number' &&
             oi.unitPriceWithOptions > 0
@@ -1745,10 +1629,16 @@ export class PaymentService {
       tipsEnabled: session.restaurant.tipsEnabled,
       tipOptions: session.restaurant.tipOptions,
       paymentProviders: [
-        ...(this.isStripeConfigured(session.restaurant) ? ['STRIPE' as const] : []),
+        ...(this.isStripeConfigured(session.restaurant)
+          ? ['STRIPE' as const]
+          : []),
         ...(this.isEpayConfigured(session.restaurant) ? ['EPAY' as const] : []),
-        ...(this.isBoricaConfigured(session.restaurant) ? ['BORICA' as const] : []),
-        ...(this.isMyposConfigured(session.restaurant) ? ['MYPOS' as const] : []),
+        ...(this.isBoricaConfigured(session.restaurant)
+          ? ['BORICA' as const]
+          : []),
+        ...(this.isMyposConfigured(session.restaurant)
+          ? ['MYPOS' as const]
+          : []),
       ],
       pendingPayment,
     };
@@ -1783,7 +1673,7 @@ export class PaymentService {
     const result = await this.prisma.$transaction(async (tx) => {
       await this.lockOpenSessionForSettlement(tx, session.id);
 
-      const normalizedScope = this.normalizeCheckoutScope(scopeInput);
+      const normalizedScope = normalizeCheckoutScope(scopeInput);
       const charge = await this.resolveCheckoutCharge(
         tx,
         session,
@@ -1900,7 +1790,8 @@ export class PaymentService {
         tableSession: { select: { token: true } },
       },
     });
-    if (!existing) throw new NotFoundException('Cash payment request not found');
+    if (!existing)
+      throw new NotFoundException('Cash payment request not found');
     await this.verifyCashPaymentOperatorAccess(existing.restaurantId, userId);
     if (existing.status !== CashPaymentRequestStatus.PENDING) {
       throw new ConflictException('Cash payment request is already handled');
@@ -1920,7 +1811,8 @@ export class PaymentService {
           tableSession: true,
         },
       });
-      if (!request) throw new NotFoundException('Cash payment request not found');
+      if (!request)
+        throw new NotFoundException('Cash payment request not found');
       if (request.status !== CashPaymentRequestStatus.PENDING) {
         throw new ConflictException('Cash payment request is already handled');
       }
@@ -2079,7 +1971,8 @@ export class PaymentService {
       where: { id: requestId },
       select: { restaurantId: true, status: true },
     });
-    if (!existing) throw new NotFoundException('Cash payment request not found');
+    if (!existing)
+      throw new NotFoundException('Cash payment request not found');
     await this.verifyCashPaymentOperatorAccess(existing.restaurantId, userId);
     if (existing.status !== CashPaymentRequestStatus.PENDING) {
       throw new ConflictException('Cash payment request is already handled');
@@ -2146,11 +2039,7 @@ export class PaymentService {
         data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
       });
       for (const paymentId of abandonedIds) {
-        this.emitBillPaymentCleared(
-          session.id,
-          paymentId,
-          'ONLINE_PAYMENT',
-        );
+        this.emitBillPaymentCleared(session.id, paymentId, 'ONLINE_PAYMENT');
       }
     }
   }
@@ -2303,7 +2192,7 @@ export class PaymentService {
         p.provider === 'STRIPE' &&
         p.status === 'PENDING' &&
         p.stripePaymentIntentId &&
-        this.paymentScopeMatches(p, resolvedCheckoutScope) &&
+        paymentScopeMatches(p, resolvedCheckoutScope) &&
         (!p.providerReference || p.providerReference === stripeCheckoutKey) &&
         Math.abs((p.amount ?? 0) - total) < 0.001,
     );
@@ -2357,7 +2246,9 @@ export class PaymentService {
           status: 'PENDING',
           provider: 'STRIPE',
           providerReference: stripeCheckoutKey,
-          providerPayload: this.checkoutScopePayload(resolvedCheckoutScope) as any,
+          providerPayload: checkoutScopePayload(
+            resolvedCheckoutScope,
+          ) as any,
           splitMode: resolvedCheckoutScope ? SplitMode.ITEM : undefined,
         },
         { ignorePaymentIds: ignoredPendingPaymentIds },
@@ -2413,7 +2304,7 @@ export class PaymentService {
           id: payment.id,
           tableSessionId: session.id,
           provider: 'STRIPE',
-          providerPayload: this.checkoutScopePayload(resolvedCheckoutScope),
+          providerPayload: checkoutScopePayload(resolvedCheckoutScope),
           amount: total,
           createdAt: new Date(),
         }),
@@ -2480,7 +2371,7 @@ export class PaymentService {
         status: { in: ['PENDING'] },
       },
     });
-    const candidateBillScope = this.billScopeFromCheckoutScope(
+    const candidateBillScope = billScopeFromCheckoutScope(
       resolvedCheckoutScope,
     );
     const ignoredPendingPaymentIds: string[] = [];
@@ -2489,17 +2380,20 @@ export class PaymentService {
       (p) =>
         p.provider === 'EPAY' &&
         p.status === 'PENDING' &&
-        this.paymentBillScopeEquals(p, candidateBillScope),
+        paymentBillScopeEquals(p, candidateBillScope),
     );
     if (pendingEpay) {
       const checkoutForm = (pendingEpay.providerPayload as any)?.checkoutForm;
-      const storedExpiry: string | undefined =
-        (pendingEpay.providerPayload as any)?.expiresAt;
-      const notExpired = storedExpiry ? new Date(storedExpiry) > new Date() : false;
+      const storedExpiry: string | undefined = (
+        pendingEpay.providerPayload as any
+      )?.expiresAt;
+      const notExpired = storedExpiry
+        ? new Date(storedExpiry) > new Date()
+        : false;
       const sameAmount =
         Math.abs((pendingEpay.amount ?? 0) - total) < 0.001 &&
         Math.abs((pendingEpay.tipAmount ?? 0) - tipAmount) < 0.001;
-      const sameScope = this.paymentScopeMatches(
+      const sameScope = paymentScopeMatches(
         pendingEpay,
         resolvedCheckoutScope,
       );
@@ -2559,7 +2453,9 @@ export class PaymentService {
         provider: 'EPAY',
         providerReference: invoice,
         providerStatus: 'PENDING',
-        providerPayload: this.checkoutScopePayload(resolvedCheckoutScope) as any,
+        providerPayload: checkoutScopePayload(
+          resolvedCheckoutScope,
+        ) as any,
         splitMode: resolvedCheckoutScope ? SplitMode.ITEM : undefined,
       },
       { ignorePaymentIds: ignoredPendingPaymentIds },
@@ -2585,7 +2481,7 @@ export class PaymentService {
       where: { id: payment.id },
       data: {
         providerPayload: this.mergeProviderPayload(
-          this.checkoutScopePayload(resolvedCheckoutScope),
+          checkoutScopePayload(resolvedCheckoutScope),
           {
             checkoutForm,
             expiresAt: expiresAt.toISOString(),
@@ -2599,7 +2495,7 @@ export class PaymentService {
         id: payment.id,
         tableSessionId: session.id,
         provider: 'EPAY',
-        providerPayload: this.checkoutScopePayload(resolvedCheckoutScope),
+        providerPayload: checkoutScopePayload(resolvedCheckoutScope),
         amount: total,
         createdAt: new Date(),
       }),
@@ -2662,7 +2558,7 @@ export class PaymentService {
         status: { in: ['PENDING'] },
       },
     });
-    const candidateBillScope = this.billScopeFromCheckoutScope(
+    const candidateBillScope = billScopeFromCheckoutScope(
       resolvedCheckoutScope,
     );
     const ignoredPendingPaymentIds: string[] = [];
@@ -2672,7 +2568,7 @@ export class PaymentService {
       (p) =>
         p.provider === 'MYPOS' &&
         p.status === 'PENDING' &&
-        this.paymentBillScopeEquals(p, candidateBillScope),
+        paymentBillScopeEquals(p, candidateBillScope),
     );
     if (pendingMypos) {
       const age =
@@ -2681,11 +2577,16 @@ export class PaymentService {
       const sameAmount =
         Math.abs((pendingMypos.amount ?? 0) - total) < 0.001 &&
         Math.abs((pendingMypos.tipAmount ?? 0) - tipAmount) < 0.001;
-      const sameScope = this.paymentScopeMatches(
+      const sameScope = paymentScopeMatches(
         pendingMypos,
         resolvedCheckoutScope,
       );
-      if (checkoutForm && sameAmount && sameScope && age < MYPOS_PENDING_TTL_MS) {
+      if (
+        checkoutForm &&
+        sameAmount &&
+        sameScope &&
+        age < MYPOS_PENDING_TTL_MS
+      ) {
         this.emitPendingBillPayment(
           this.formatPendingPayment({
             ...pendingMypos,
@@ -2800,7 +2701,7 @@ export class PaymentService {
             providerReference: orderId,
             providerStatus: 'PENDING',
             providerPayload: this.mergeProviderPayload(
-              this.checkoutScopePayload(resolvedCheckoutScope),
+              checkoutScopePayload(resolvedCheckoutScope),
               {
                 checkoutForm,
                 sessionToken: token,
@@ -2831,7 +2732,7 @@ export class PaymentService {
         id: payment!.id,
         tableSessionId: session.id,
         provider: 'MYPOS',
-        providerPayload: this.checkoutScopePayload(resolvedCheckoutScope),
+        providerPayload: checkoutScopePayload(resolvedCheckoutScope),
         amount: total,
         createdAt: new Date(),
       }),
@@ -2898,7 +2799,7 @@ export class PaymentService {
         status: { in: ['PENDING'] },
       },
     });
-    const candidateBillScope = this.billScopeFromCheckoutScope(
+    const candidateBillScope = billScopeFromCheckoutScope(
       resolvedCheckoutScope,
     );
     const ignoredPendingPaymentIds: string[] = [];
@@ -2907,8 +2808,12 @@ export class PaymentService {
     const backendBase = (process.env.BACKEND_URL || '').replace(/\/+$/, '');
     const isLiveBorica = restaurant.boricaMode === 'LIVE';
     const backendIsHttps = /^https:\/\//i.test(backendBase);
-    const backendIsLocalHttp = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(backendBase);
-    if (!backendBase || (!backendIsHttps && !(backendIsLocalHttp && !isLiveBorica))) {
+    const backendIsLocalHttp =
+      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(backendBase);
+    if (
+      !backendBase ||
+      (!backendIsHttps && !(backendIsLocalHttp && !isLiveBorica))
+    ) {
       throw new BadRequestException(
         'BORICA is not configured correctly: BACKEND_URL must be an absolute HTTPS URL',
       );
@@ -2921,19 +2826,25 @@ export class PaymentService {
       (p) =>
         p.provider === 'BORICA' &&
         p.status === 'PENDING' &&
-        this.paymentBillScopeEquals(p, candidateBillScope),
+        paymentBillScopeEquals(p, candidateBillScope),
     );
     if (pendingBorica) {
-      const age = Date.now() - new Date((pendingBorica as any).createdAt ?? 0).getTime();
+      const age =
+        Date.now() - new Date((pendingBorica as any).createdAt ?? 0).getTime();
       const checkoutForm = (pendingBorica.providerPayload as any)?.checkoutForm;
       const sameAmount =
         Math.abs((pendingBorica.amount ?? 0) - total) < 0.001 &&
         Math.abs((pendingBorica.tipAmount ?? 0) - tipAmount) < 0.001;
-      const sameScope = this.paymentScopeMatches(
+      const sameScope = paymentScopeMatches(
         pendingBorica,
         resolvedCheckoutScope,
       );
-      if (checkoutForm && sameAmount && sameScope && age < BORICA_PENDING_TTL_MS) {
+      if (
+        checkoutForm &&
+        sameAmount &&
+        sameScope &&
+        age < BORICA_PENDING_TTL_MS
+      ) {
         this.emitPendingBillPayment(
           this.formatPendingPayment({
             ...pendingBorica,
@@ -2969,18 +2880,27 @@ export class PaymentService {
               'BORICA TRTYPE=90 returned unknown status',
             );
           }
-          const checkedStatus = statusResult as NonNullable<typeof statusResult>;
+          const checkedStatus = statusResult as NonNullable<
+            typeof statusResult
+          >;
           if (!checkedStatus.verified) {
             await this.markBoricaStatusUnknown(
               pendingBorica.id,
               'BORICA TRTYPE=90 response signature could not be verified',
             );
           }
-          if (checkedStatus.verified && checkedStatus.rc === '00' && checkedStatus.action === '0') {
+          if (
+            checkedStatus.verified &&
+            checkedStatus.rc === '00' &&
+            checkedStatus.action === '0'
+          ) {
             const reconcileOk =
               checkedStatus.order === pendingBorica.providerReference &&
               checkedStatus.terminal === staleKeypair.terminal &&
-              Math.abs(parseFloat(checkedStatus.amount || '0') - (pendingBorica.amount ?? 0)) < 0.01 &&
+              Math.abs(
+                parseFloat(checkedStatus.amount || '0') -
+                  (pendingBorica.amount ?? 0),
+              ) < 0.01 &&
               (checkedStatus.currency || 'EUR').toUpperCase() === 'EUR';
             if (!reconcileOk) {
               await this.markBoricaStatusUnknown(
@@ -3074,12 +2994,13 @@ export class PaymentService {
     let payment: Awaited<ReturnType<typeof this.prisma.payment.create>>;
     const MAX_ORDER_RETRIES = 5;
     for (let attempt = 0; attempt <= MAX_ORDER_RETRIES; attempt++) {
-      const attemptOrder = attempt === 0
-        ? order
-        : this.createEpayInvoice().slice(-6).padStart(6, '0');
+      const attemptOrder =
+        attempt === 0
+          ? order
+          : this.createEpayInvoice().slice(-6).padStart(6, '0');
 
       // For retries we must rebuild the form with the new ORDER so P_SIGN stays valid.
-      let attemptForm = attempt === 0 ? checkoutForm : null as any;
+      let attemptForm = attempt === 0 ? checkoutForm : (null as any);
       if (attempt > 0) {
         try {
           attemptForm = this.borica.buildSaleForm({
@@ -3099,7 +3020,9 @@ export class PaymentService {
           });
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
-          throw new BadRequestException(`BORICA signing error on retry: ${msg}`);
+          throw new BadRequestException(
+            `BORICA signing error on retry: ${msg}`,
+          );
         }
       }
 
@@ -3119,7 +3042,7 @@ export class PaymentService {
             providerReference: attemptOrder,
             providerStatus: 'PENDING',
             providerPayload: this.mergeProviderPayload(
-              this.checkoutScopePayload(resolvedCheckoutScope),
+              checkoutScopePayload(resolvedCheckoutScope),
               {
                 checkoutForm: attemptForm,
                 sessionToken: token,
@@ -3135,7 +3058,9 @@ export class PaymentService {
         break;
       } catch (dbErr: unknown) {
         if (attempt < MAX_ORDER_RETRIES && (dbErr as any)?.code === 'P2002') {
-          this.logger.warn(`BORICA ORDER collision on attempt ${attempt + 1}, retrying`);
+          this.logger.warn(
+            `BORICA ORDER collision on attempt ${attempt + 1}, retrying`,
+          );
           continue;
         }
         throw dbErr;
@@ -3147,7 +3072,7 @@ export class PaymentService {
         id: payment!.id,
         tableSessionId: session.id,
         provider: 'BORICA',
-        providerPayload: this.checkoutScopePayload(resolvedCheckoutScope),
+        providerPayload: checkoutScopePayload(resolvedCheckoutScope),
         amount: total,
         createdAt: new Date(),
       }),
@@ -3196,13 +3121,16 @@ export class PaymentService {
 
     const certPem =
       payment.restaurant?.boricaMode === 'LIVE'
-        ? payment.restaurant.boricaPublicCert ?? ''
-        : process.env.BORICA_TEST_CERT ?? '';
+        ? (payment.restaurant.boricaPublicCert ?? '')
+        : (process.env.BORICA_TEST_CERT ?? '');
 
     const result = this.borica.verifyResult(body, certPem);
 
     const cancelUrl = this.buildPublicMenuReturnUrl(
-      { restaurantId: payment.restaurantId, table: payment.tableSession?.table },
+      {
+        restaurantId: payment.restaurantId,
+        table: payment.tableSession?.table,
+      },
       'borica-cancel',
     );
 
@@ -3245,13 +3173,16 @@ export class PaymentService {
           data: {
             status: 'FAILED',
             providerStatus: result.rc || 'DECLINED',
-            providerPayload: this.mergeProviderPayload(payment.providerPayload, {
-              callbackBody: body,
-              verifiedAt: new Date().toISOString(),
-              verified: true,
-              rc: result.rc,
-              action: result.action,
-            }) as any,
+            providerPayload: this.mergeProviderPayload(
+              payment.providerPayload,
+              {
+                callbackBody: body,
+                verifiedAt: new Date().toISOString(),
+                verified: true,
+                rc: result.rc,
+                action: result.action,
+              },
+            ) as any,
           },
         });
       });
@@ -3261,7 +3192,11 @@ export class PaymentService {
     // #6 — Reconcile callback fields against stored payment before marking PAID.
     // This prevents a replayed or tampered callback from crediting the wrong amount.
     const callbackAmount = parseFloat(body.AMOUNT ?? body.amount ?? '0');
-    const callbackCurrency = (body.CURRENCY ?? body.currency ?? '').toUpperCase();
+    const callbackCurrency = (
+      body.CURRENCY ??
+      body.currency ??
+      ''
+    ).toUpperCase();
     const callbackTerminal = body.TERMINAL ?? body.terminal ?? '';
     const callbackOrder = body.ORDER ?? body.order ?? '';
     const resolvedTerminal =
@@ -3269,7 +3204,8 @@ export class PaymentService {
         ? (payment.restaurant.boricaTerminalId ?? '')
         : (process.env.BORICA_TEST_TID ?? 'V1800001');
     const amountOk = Math.abs(callbackAmount - (payment.amount ?? 0)) < 0.01;
-    const currencyOk = callbackCurrency === (payment.currency ?? 'eur').toUpperCase();
+    const currencyOk =
+      callbackCurrency === (payment.currency ?? 'eur').toUpperCase();
     const terminalOk = callbackTerminal === resolvedTerminal;
     const orderOk = callbackOrder === payment.providerReference;
     if (!amountOk || !currencyOk || !terminalOk || !orderOk) {
@@ -3410,7 +3346,9 @@ export class PaymentService {
     return this.epay.formatNotificationResponses(responses);
   }
 
-  async handleMyposNotification(body: Record<string, unknown>): Promise<string> {
+  async handleMyposNotification(
+    body: Record<string, unknown>,
+  ): Promise<string> {
     const payload: Record<string, string> = {};
     for (const [key, value] of Object.entries(body ?? {})) {
       payload[key] = Array.isArray(value)
@@ -3457,7 +3395,8 @@ export class PaymentService {
     }
 
     const notificationAmount = parseFloat(result.amount || '0');
-    const amountOk = Math.abs(notificationAmount - (payment.amount ?? 0)) < 0.01;
+    const amountOk =
+      Math.abs(notificationAmount - (payment.amount ?? 0)) < 0.01;
     const currencyOk =
       (result.currency || '').toUpperCase() ===
       (payment.currency ?? 'eur').toUpperCase();
@@ -3526,7 +3465,10 @@ export class PaymentService {
     return 'OK';
   }
 
-  private async applyEpayNotification(payment: any, notification: EpayNotification) {
+  private async applyEpayNotification(
+    payment: any,
+    notification: EpayNotification,
+  ) {
     const eventKey = [
       notification.invoice,
       notification.status,
@@ -3547,7 +3489,10 @@ export class PaymentService {
           {
             paymentId: payment.id,
             restaurantId: payment.restaurantId,
-            payload: { status: notification.status, invoice: notification.invoice },
+            payload: {
+              status: notification.status,
+              invoice: notification.invoice,
+            },
           },
         );
         if (!recorded) return { claimed: false, sessionPaid: false };
@@ -3571,7 +3516,10 @@ export class PaymentService {
         {
           paymentId: payment.id,
           restaurantId: payment.restaurantId,
-          payload: { status: notification.status, invoice: notification.invoice },
+          payload: {
+            status: notification.status,
+            invoice: notification.invoice,
+          },
         },
       );
       if (!recorded) return;
@@ -4004,7 +3952,9 @@ export class PaymentService {
           const it = itemById.get(orderItemId);
           if (!it) throw new BadRequestException('Unknown item in selection');
           if (quantity > it.remainingQuantity) {
-            throw new ConflictException('Some selected items are already settled');
+            throw new ConflictException(
+              'Some selected items are already settled',
+            );
           }
           const amount = this.roundMoney(it.unitPrice * quantity);
           allocations.push({
@@ -4463,7 +4413,9 @@ export class PaymentService {
         successfulTransactions: successfulCount,
         refundsCount: refundCount,
       },
-      statusCounts: (statusCounts as Array<{ status: string; _count: number }>).map((item) => ({
+      statusCounts: (
+        statusCounts as Array<{ status: string; _count: number }>
+      ).map((item) => ({
         status: item.status,
         count: item._count,
       })),
