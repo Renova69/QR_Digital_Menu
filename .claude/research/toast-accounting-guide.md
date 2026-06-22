@@ -1,0 +1,678 @@
+- generic [active] [ref=e1]:
+  - generic:
+    - generic:
+      - alertdialog "Manage your consent preferences" [ref=e2]:
+        - document [ref=e4]:
+          - button "Close banner" [ref=e5] [cursor=pointer]:
+            - img [ref=e6]
+          - generic [ref=e9]:
+            - heading "Manage your consent preferences" [level=2] [ref=e11]
+            - generic [ref=e13]: Cookies and similar technologies are used to recognize you, remember your preferences and help the site operate as expected. They are also used to maintain security, analyze site traffic and enable relevant marketing. You can update your preferences at any time.
+          - generic [ref=e14]:
+            - generic [ref=e15]:
+              - button "Opt out of all" [ref=e16] [cursor=pointer]:
+                - generic [ref=e17]: Opt out of all
+              - button "Opt in to all" [ref=e18] [cursor=pointer]:
+                - generic [ref=e19]: Opt in to all
+            - generic [ref=e20]:
+              - button "Manage Preferences" [ref=e21] [cursor=pointer]:
+                - generic [ref=e22]: Manage Preferences
+              - link "Privacy Policy" [ref=e24] [cursor=pointer]:
+                - /url: https://pos.toasttab.com/privacy
+            - link "Consent powered by Ethyca Ethyca" [ref=e26] [cursor=pointer]:
+              - /url: https://www.ethyca.com/janus?utm_source=fides_consent&utm_medium=referral&utm_campaign=cmp_backlinks&utm_term=janus
+              - text: Consent powered by Ethyca
+              - img "Ethyca" [ref=e27]
+      - status [ref=e29]
+  - generic [ref=e32]:
+    - link "Skip to main content" [ref=e33] [cursor=pointer]:
+      - /url: "#main-content"
+    - banner [ref=e34]:
+      - generic [ref=e35]:
+        - generic [ref=e633]:
+          - generic [ref=e638]: This content isn't available in your region. You're viewing the United States version of this page.
+          - button "Close Modal" [ref=e639] [cursor=pointer]:
+            - img [ref=e640]
+        - navigation "Toast Main Navigation" [ref=e36]:
+          - generic [ref=e37]:
+            - navigation "Toast Main Navigation" [ref=e38]:
+              - menubar "Toast Main Navigation" [ref=e39]:
+                - link "Toast Logo" [ref=e40] [cursor=pointer]:
+                  - /url: /
+                  - img "Toast Logo" [ref=e41]
+                - menuitem "Restaurants" [ref=e42] [cursor=pointer]: Restaurants
+                - menuitem "Retail" [ref=e44] [cursor=pointer]: Retail
+                - menuitem "Products" [ref=e46] [cursor=pointer]: Products
+                - menuitem "Pricing" [ref=e48] [cursor=pointer]
+                - menuitem "Resources" [ref=e49] [cursor=pointer]: Resources
+            - generic [ref=e51]:
+              - button "US" [ref=e643] [cursor=pointer]
+              - link "Login" [ref=e52] [cursor=pointer]:
+                - /url: https://www.toasttab.com/login
+              - link "Get a Demo" [ref=e53] [cursor=pointer]:
+                - /url: /request-demo
+          - navigation [ref=e55]:
+            - generic [ref=e56]:
+              - menuitem [ref=e57] [cursor=pointer]:
+                - heading [level=4] [ref=e58]: Restaurants
+              - menuitem [ref=e59] [cursor=pointer]:
+                - heading [level=4] [ref=e60]: Retail
+              - menuitem [ref=e61] [cursor=pointer]:
+                - heading [level=4] [ref=e62]: Products
+              - menuitem [ref=e63] [cursor=pointer]:
+                - heading [level=4] [ref=e64]: Pricing
+              - menuitem [ref=e65] [cursor=pointer]:
+                - heading [level=4] [ref=e66]: Resources
+            - generic [ref=e68]:
+              - link [ref=e69] [cursor=pointer]:
+                - /url: https://www.toasttab.com/local?referrer=pos
+                - text: Search Toast Restaurants
+              - link [ref=e70] [cursor=pointer]:
+                - /url: https://www.toasttab.com/login
+                - text: Login
+              - link [ref=e71] [cursor=pointer]:
+                - /url: /request-demo
+                - text: Get a Demo
+              - link [ref=e72] [cursor=pointer]:
+                - /url: tel:6172971005
+                - generic [ref=e73]: Call Sales
+                - text: (617) 297-1005
+      - progressbar [ref=e74]
+    - main [ref=e75]:
+      - generic [ref=e78]:
+        - generic [ref=e80]:
+          - generic "Restaurant accounting guide"
+        - generic [ref=e81]:
+          - heading "The Complete Guide to Restaurant Accounting and Bookkeeping (2026)" [level=1] [ref=e82]
+          - paragraph [ref=e83]: Proper accounting practices empower you to monitor the financial performance of your restaurant to control cost and maximize profitability.
+          - generic [ref=e86]:
+            - generic [ref=e89]:
+              - generic "17880269 421201031575840 8179374599056591364 o"
+              - generic "17880269 421201031575840 8179374599056591364 o"
+              - img "17880269 421201031575840 8179374599056591364 o" [ref=e90]
+            - paragraph [ref=e91]:
+              - button "Justin Guinn" [ref=e92] [cursor=pointer]
+              - generic [ref=e93]:
+                - text: Author
+                - generic [ref=e94]:
+                  - text: "|"
+                  - time [ref=e95]: November 4, 2024
+      - generic [ref=e98]:
+        - generic [ref=e99]:
+          - heading "Proper accounting practices empower you to analyze and optimize financial performance and profitability" [level=4] [ref=e100]
+          - paragraph [ref=e101]:
+            - text: Restaurant accounting is a massive foundational component of any restaurant operation. It's essential for
+            - link "controlling your costs" [ref=e102] [cursor=pointer]:
+              - /url: /resources/restaurant-cost-control-guide
+            - text: ", keeping track of operational finances, and ensuring your restaurant is performing well enough to hit growth goals — let alone stay in business."
+          - paragraph [ref=e103]: Restaurant accounting activities include everything from accurately recording transactions to creating detailed financial reports. Proper accounting practices allow you to analyze and optimize performance metrics, such as profitability and sales revenue.
+          - paragraph [ref=e104]: This is why everyone on your staff that contributes to sales or costs needs to understand the basics of restaurant accounting. From there, owners, operators, controllers, and the likes should work to streamline accounting and bookkeeping with restaurant-specific automation tools.
+          - paragraph [ref=e105]: Mastering the language of restaurant accounting will help you keep your finances in check and ensure you're making informed decisions across your operation.
+          - paragraph [ref=e106]:
+            - link "051ca794-660f-4fb0-a3d7-ffd52a4adbc7.png" [ref=e107] [cursor=pointer]:
+              - /url: https://cta-redirect.hubspot.com/cta/redirect/412971/051ca794-660f-4fb0-a3d7-ffd52a4adbc7
+              - img "051ca794-660f-4fb0-a3d7-ffd52a4adbc7.png" [ref=e108]
+        - generic [ref=e109]:
+          - heading "Restaurant accounting 101" [level=2] [ref=e110]
+          - heading "What is restaurant accounting?" [level=3] [ref=e111]
+          - paragraph [ref=e112]: Restaurant accounting is the process of recording, analyzing, and interpreting financial data for a restaurant.
+          - paragraph [ref=e113]: "A restaurant accountant’s responsibilities typically include the following tasks:"
+          - list [ref=e114]:
+            - listitem [ref=e115]:
+              - paragraph [ref=e116]: Recording transactions in the general ledger—the master document for capturing financial transactions
+            - listitem [ref=e117]:
+              - paragraph [ref=e118]: Accurately coding and categorizing those transactions, especially expenses
+            - listitem [ref=e119]:
+              - paragraph [ref=e120]: Analyzing ledger and journal entries
+            - listitem [ref=e121]:
+              - paragraph [ref=e122]: Accounts Payable (i.e. processing invoices/bills and paying vendors)
+            - listitem [ref=e123]:
+              - paragraph [ref=e124]: Bank Statement Reconciliation
+            - listitem [ref=e125]:
+              - paragraph [ref=e126]: Creating financial statements to determine financial health including the balance sheet, income statement, and cash flow statement
+            - listitem [ref=e127]:
+              - paragraph [ref=e128]: Defining budgets, benchmark KPIs such as COGS ratios and prime costs, and tracking performance toward goals
+            - listitem [ref=e129]:
+              - paragraph [ref=e130]: Completing tax returns & providing tax advice and assistance
+            - listitem [ref=e131]:
+              - paragraph [ref=e132]: Offering financial insights and advice
+            - listitem [ref=e133]:
+              - paragraph [ref=e134]: Auditing
+          - paragraph [ref=e135]: Accounting is also the means by which you manage and measure the financial health of your restaurant. It enables you to track the performance of your restaurant with detailed profit and loss statements and other financial metrics.
+          - paragraph [ref=e136]: For example, a cash flow statement will tell you whether or not you have enough cash flowing in to cover your expenses. A KPI like prime cost helps you understand how profitable your restaurant really is by analyzing labor and COGS.
+        - generic [ref=e137]:
+          - heading "Restaurant bookkeeping vs restaurant accounting" [level=3] [ref=e138]
+          - paragraph [ref=e139]:
+            - link "Restaurant bookkeeping" [ref=e140] [cursor=pointer]:
+              - /url: /blog/restaurant-bookkeeping
+            - text: is often used interchangeably with restaurant accounting.
+          - paragraph [ref=e141]: While it’s not necessarily incorrect, bookkeeping may only refer to recording and coding transactions in your general ledger. Whereas accounting through and around your ledger for more detailed analysis across the operation.
+          - heading "What are some key benefits of successful restaurant accounting?" [level=3] [ref=e142]
+          - paragraph [ref=e143]: Make informed financial decisions
+          - paragraph [ref=e144]: You can’t improve what you don’t track. Tracking your numbers and KPIs will let you know what business areas require urgent attention.
+          - paragraph [ref=e145]: For example, if your cash flow statement tells you cash flow is negative (more money is flowing in than out), you’ll know it’s time to take swift action. This involves reducing your monthly expenses — maybe by finding a new supplier or going for lower quality goods — increasing sales through a special promotion, or finding external financing for a cash injection.
+          - paragraph [ref=e146]: Improve budgeting
+          - paragraph [ref=e147]: Your budget is your future financial plan that consists of both your planned income and expenses. Proper accounting lets you create accurate budgets by giving you past financial data to predict future revenue and expenses.
+          - paragraph [ref=e148]: Remain compliant
+          - paragraph [ref=e149]:
+            - text: Accurate accounting prevents legal disputes with the internal revenue service over incorrect numbers. It also ensures you adhere to specific accounting principles. In the United States, businesses need to follow the Generally Accepted Accounting Principles (
+            - link "GAAP" [ref=e150] [cursor=pointer]:
+              - /url: https://www.investopedia.com/terms/g/gaap.asp
+              - text: GAAP
+              - img [ref=e151]
+            - text: ). These are the principles, procedures, and processes companies and accountants must follow when creating financial statements.
+        - generic [ref=e158]:
+          - generic [ref=e159]: RESOURCE
+          - heading "Restaurant Invoice Automation Guide" [level=3] [ref=e160]
+          - paragraph [ref=e161]: Use this guide to learn more about your restaurant invoices, the value within, and how to consistently and accurately tap into it to make smarter decisions.
+          - button "Get Free Download" [ref=e163] [cursor=pointer]:
+            - generic [ref=e164]: Get Free Download
+          - img "Served by Toast" [ref=e166]
+        - generic [ref=e167]:
+          - heading "Restaurant-specific accounting considerations" [level=2] [ref=e168]
+          - paragraph [ref=e169]: "There are several considerations that make accounting in the restaurant industry unique. These include:"
+          - heading "1. Tip handling" [level=3] [ref=e170]
+          - paragraph [ref=e171]:
+            - text: Restaurants choose or are held to different methods of tip handling. Whether it’s
+            - link "tip pooling, splits, or tips by paycheck vs. cash tips" [ref=e172] [cursor=pointer]:
+              - /url: /products/toast-tips-manager
+            - text: — it can be tricky keeping your employees happy while maintaining an accurate balance sheet and payroll taxes.
+          - paragraph [ref=e173]: Tip handling is also changing in certain regions, with some restaurants choosing to increase wages while doing away with tips altogether.
+          - heading "2. Inventory management" [level=3] [ref=e174]
+          - paragraph [ref=e175]:
+            - text: Like most businesses, restaurants must manage an inventory of raw materials that will be converted into a final product that is sold to customers.
+            - link "Restaurant inventory management" [ref=e176] [cursor=pointer]:
+              - /url: /blog/on-the-line/restaurant-food-inventory-101
+            - text: allows you to account for and carefully manage the value of these raw materials on your balance sheet to minimize the cost of goods sold.
+          - paragraph [ref=e177]: In other industries, such as retail or manufacturing, businesses can often get away with quarterly or annual inventory counts. Restaurants, however, need to take inventory counts as frequently as daily, weekly, or monthly.
+          - paragraph [ref=e178]: These inventory counts are crucial in calculating the beginning and ending inventory values for specific periods and thus, the cost of goods sold.
+          - heading "3. Profit and loss (P&L) or cash flow statements" [level=3] [ref=e179]
+          - paragraph [ref=e180]: Creating frequent P&L statements can have a significant impact on your business. Knowing how your restaurant is performing not only on a monthly and even weekly basis can provide more costing visibility so you can take action sooner.
+          - paragraph [ref=e181]: A week-to-week view gives insight to your sales and cost trends, making it easier to control your cash flow and know where your finances stand at all times.
+        - generic [ref=e187]:
+          - generic [ref=e188]: RESOURCE
+          - heading "Restaurant Profit and Loss Statement Template" [level=3] [ref=e189]
+          - paragraph [ref=e190]: Evaluate your restaurant's financial strengths and weaknesses with the free P&L and income statement template.
+          - button "Get Free Download" [ref=e192] [cursor=pointer]:
+            - generic [ref=e193]: Get Free Download
+          - img "Served by Toast" [ref=e195]
+        - generic [ref=e196]:
+          - heading "4. Accounting periods for restaurants" [level=3] [ref=e197]
+          - paragraph [ref=e198]: You need to set up your accounting periods properly.
+          - paragraph [ref=e199]: "While many businesses set-up monthly accounting periods, restaurants should set up weekly accounting periods. Weekly restaurant accounting periods:"
+          - list [ref=e200]:
+            - listitem [ref=e201]:
+              - paragraph [ref=e202]: Improve the accuracy of your comparisons
+            - listitem [ref=e203]:
+              - paragraph [ref=e204]: Provide flexibility to choose which day your period starts and ends
+            - listitem [ref=e205]:
+              - paragraph [ref=e206]: Facilitate weekly reporting due to the cyclical and seasonal nature of the industry.
+          - paragraph [ref=e207]: Aligning bi-weekly payroll periods with accounting periods makes reporting more accurate and easier for your accountant.
+          - paragraph [ref=e208]: It’s recommended you manage your accounting periods using the 52-week 4-4-5 or 4-5-4 calendar method.
+          - paragraph [ref=e209]: With either the 4-4-5 or 4-5-4 calendar method, your year consists of four quarters of thirteen weeks each. In the case of the 4-4-5 method, for example, the thirteen weeks consist of two four-week months (the first “4” and second “4”) and one five-week “month” (the “5”).
+          - heading "5. Prepaid accounts" [level=3] [ref=e210]
+          - paragraph [ref=e211]: If you choose to set up weekly accounting periods, it’s important to consider how to account for monthly or annual expenses. These expenses may include rent, lease payments, utilities, or even restaurant management software.
+          - paragraph [ref=e212]: For example, if your restaurant’s Point-of-Sale (POS) software costs $1,200 a year to support and the provider bills you annually in January, you don’t want to reflect that entire expense in January. Instead, you’ll want to distribute it across multiple periods. To do this, use a Prepaid Expense account to hold the balance. Each month, chip away at it, moving 1/12 of the amount to an Expense GL code.
+          - heading "6. Vendor credits / short pays" [level=3] [ref=e213]
+          - paragraph [ref=e214]: Sometimes a delivery doesn’t include everything you’ve been billed for. Items you’ve purchased from your vendor may spoil or not meet your quality standards.
+          - paragraph [ref=e215]: In those cases, you should request a vendor credit and adjust the invoice total. You can either “short pay” the vendor (subtract the credit from the invoice and pay only what you owe) or pay the full amount and account for a credit.
+          - paragraph [ref=e216]: Ultimately, you need to account for vendor credits and ensure you’re not overpaying for goods you didn’t receive. Keeping proper documentation on vendor credits will help resolve any disputes when the vendor submits a monthly vendor statement that you must reconcile against all invoices from that vendor.
+          - heading "Outsourced vs in-house restaurant accounting" [level=2] [ref=e217]
+          - paragraph [ref=e218]: In-house accountants have been the traditional form of restaurant bookkeeping, but companies of all sizes have increasingly turned to outsourced accounting solutions.
+          - paragraph [ref=e219]: Let’s walk through the pros and cons of each to determine whether outsourcing or keeping your accounting in-house is right for your restaurant.
+          - heading "Benefits of outsourcing restaurant accounting" [level=3] [ref=e220]
+          - list [ref=e221]:
+            - listitem [ref=e222]:
+              - paragraph [ref=e223]: By outsourcing, you already have a trained, expert accountant
+            - listitem [ref=e224]:
+              - paragraph [ref=e225]: You don’t have to worry about turnover
+            - listitem [ref=e226]:
+              - paragraph [ref=e227]: Costs are lower without employee benefits (vacation days, sick days)
+            - listitem [ref=e228]:
+              - paragraph [ref=e229]: No office space — in a restaurant, square footage is extremely valuable
+            - listitem [ref=e230]:
+              - paragraph [ref=e231]: You don’t have to buy computers and equipment
+            - listitem [ref=e232]:
+              - paragraph [ref=e233]: Outsourced restaurant accountants can offer comparative data
+            - listitem [ref=e234]:
+              - paragraph [ref=e235]: Outsourced accountants offer a consistently high quality of work because accounting firms require their employees to stay up to date on training and certifications
+          - heading "Downsides of outsourcing restaurant accounting" [level=3] [ref=e236]
+          - list [ref=e237]:
+            - listitem [ref=e238]:
+              - paragraph [ref=e239]: They may not have any restaurant experience and could require a learning curve
+            - listitem [ref=e240]:
+              - paragraph [ref=e241]: You’ll have to rely on asynchronous communication tools to communicate with them
+            - listitem [ref=e242]:
+              - paragraph [ref=e243]: Outsourced accounting can be more expensive with an up-front fee and hourly rates
+          - heading "Benefits of in-house restaurant accounting" [level=3] [ref=e244]
+          - list [ref=e245]:
+            - listitem [ref=e246]:
+              - paragraph [ref=e247]: Accountants are more accessible
+            - listitem [ref=e248]:
+              - paragraph [ref=e249]: You can control the salary that your in-house accountant is paid
+            - listitem [ref=e250]:
+              - paragraph [ref=e251]: Your in-house accountant is more of a team member to your restaurant staff
+            - listitem [ref=e252]:
+              - paragraph [ref=e253]: In-house accountants have the opportunity to grow and evolve alongside your company
+            - listitem [ref=e254]:
+              - paragraph [ref=e255]: Your restaurant will be the sole client of your in-house accountant
+          - heading "Downsides of in-house restaurant accounting" [level=3] [ref=e256]
+          - list [ref=e257]:
+            - listitem [ref=e258]:
+              - paragraph [ref=e259]: In-house accountants may vary in skill sets and not have a restaurant background
+            - listitem [ref=e260]:
+              - paragraph [ref=e261]: Classic 9-5 schedule could create a communication barrier for late night restaurants
+            - listitem [ref=e262]:
+              - paragraph [ref=e263]: Hiring the best person for the job could be a month or years-long task
+          - heading "Which accounting method is right for your restaurant?" [level=2] [ref=e264]
+          - paragraph [ref=e265]:
+            - text: "There are two accounting methods:"
+            - link "cash-basis and accrual accounting" [ref=e266] [cursor=pointer]:
+              - /url: https://bench.co/blog/accounting/cash-vs-accrual-accounting/
+              - text: cash-basis and accrual accounting
+              - img [ref=e267]
+            - text: . The difference between these two methods can be explained by when sales and expenses are recorded.
+          - paragraph [ref=e269]: With cash-basis accounting, you recognize revenue and expenses only when money changes hands. This means you record income when it’s received and expenses when they’re paid.
+          - paragraph [ref=e270]: Accrual accounting, however, requires that you record revenue when it’s earned and expenses when they’re billed. Money does not have to change hands.
+          - paragraph [ref=e271]: The cash-basis method is typically the simplest, and may seem like the obvious choice for your restaurant, especially as you’re recording income and expenses as money changes hands.
+          - paragraph [ref=e272]: There's a few reasons why restaurants choose the accrual method. It suits inventory-heavy businesses, i.e., restaurants. It provides a more accurate picture of your income and expenses. And it's also often preferred by lenders and investors.
+        - generic [ref=e273]:
+          - heading "What key financial reports do you need?" [level=2] [ref=e274]
+          - paragraph [ref=e275]: "There are certain reports required to keep tabs on the financial health of your business. These reports help you:"
+          - list [ref=e276]:
+            - listitem [ref=e277]:
+              - paragraph [ref=e278]: Track business transactions
+            - listitem [ref=e279]:
+              - paragraph [ref=e280]: Forecast futures sales
+            - listitem [ref=e281]:
+              - paragraph [ref=e282]: Create and maintain budgets
+            - listitem [ref=e283]:
+              - paragraph [ref=e284]: Monitor changing costs over time
+            - listitem [ref=e285]:
+              - paragraph [ref=e286]: Assess your financial situation compared to prior period
+          - paragraph [ref=e287]: Here are six of the most important accounting reports.
+          - heading "1. Balance sheet" [level=3] [ref=e288]
+          - paragraph [ref=e289]: A balance sheet provides a snapshot of your finances at a specific point in time. It shows you what your restaurant owns (assets like equipment and cash), what you owe (bank loans and accounts payable), and how much capital you’ve invested (equity).
+          - paragraph [ref=e290]: "To make sure the numbers on your balance sheet are correct, use this fundamental accounting equation: Assets = Equity + Liabilities. If this equation does not balance, you know some finances aren’t accounted for or that you made an error."
+          - paragraph [ref=e291]: On its own, the balance sheet doesn’t tell you much. But when compared to other balance sheets, it’s a useful tool for identifying trends.
+          - paragraph [ref=e292]: "You can use the financial data from the balance sheet to calculate several ratios. One such ratio is the debt-to-equity ratio, which you can calculate using the following formula:"
+          - paragraph [ref=e293]: Liabilities / Equity
+          - paragraph [ref=e294]: This ratio tells you how much debt you use to finance your restaurant and whether you have enough equity to cover your debts. The ideal debt-ratio number varies by industry, but according to 2018 restaurant data 0.85 is high, 0.56 is average, and 0.03 is low.
+          - heading "2. Income statement or Profit and Loss statement" [level=3] [ref=e295]
+          - paragraph [ref=e296]:
+            - text: An income statement is a record of all your income and expenses over a period of time. It's also referred to as a
+            - link "restaurant P&L report" [ref=e297] [cursor=pointer]:
+              - /url: /blog/on-the-line/restaurant-profit-and-loss-statement
+            - text: .
+          - paragraph [ref=e298]: "You typically use your income statement to:"
+          - list [ref=e299]:
+            - listitem [ref=e300]:
+              - paragraph [ref=e301]: Assess overall profitability. If income exceeds expenses, you’re turning a profit
+            - listitem [ref=e302]:
+              - paragraph [ref=e303]: Inform business decisions and strategy. (For example, if you’re running at a loss, you’ll have to pinpoint ways to cut costs, increase revenue or both.)
+            - listitem [ref=e304]:
+              - paragraph [ref=e305]: Calculate vital financial ratios like your profit margin (discussed later)
+          - heading "3. Cash flow statements" [level=3] [ref=e306]
+          - paragraph [ref=e307]: Your cash flow statement is a record of cash flows, i.e., how much money is flowing in (inflows) and out (outflows) of your restaurant. If inflows exceed outflows, cash flow is positive. If outflows exceed inflows, cash flow is negative.
+          - paragraph [ref=e308]: You can calculate cash flow for any period, but it’s usually done monthly. To calculate cash flow on your statement, assess the source of your cash flows across your operations, financing, and investing activities.
+          - paragraph [ref=e309]: Calculating cash flow helps you determine if you have enough cash to support and grow your operations or whether you need a cash injection with external financing.
+          - heading "4. Restaurant chart of accounts" [level=3] [ref=e310]
+          - paragraph [ref=e311]:
+            - text: Your
+            - link "restaurant chart of accounts (COA)" [ref=e312] [cursor=pointer]:
+              - /url: /blog/on-the-line/restaurant-chart-of-accounts
+            - text: is the foundation of all financial record keeping. COAs help you organize accounts and make it easier to work with your accountant.
+          - paragraph [ref=e313]:
+            - text: Your COA is a complete list of all business accounts in your
+            - link "restaurant's general ledger" [ref=e314] [cursor=pointer]:
+              - /url: /blog/on-the-line/restaurant-general-ledger-codes
+            - text: ", organized by assets, liabilities, income, and expenses. These accounts are arranged in a specific order, starting with your balance sheet accounts and ending with your income statement accounts."
+          - paragraph [ref=e315]: You can identify all accounts through their name, a short description, and unique codes, also known as General Ledger, or GL, codes. The GL codes then serve as a way to categorize your expenses. The more granular you can get with your GL codes, the better…especially as it relates to your revenue and costs of goods (COGS) account types.
+          - paragraph [ref=e316]: For example, instead of a generic “Food & Bev” account, you should consider more detailed accounts such as Food-Meat, Food-Seafood, Food-Produce, Beverage-Soft, Beverage-Liquor, Beverage-Beer, etc. The more detailed your revenue and COGS data is the easier it will be to identify trends and identify opportunities for improvement.
+        - generic [ref=e317]:
+          - heading "5. Revenue reports" [level=3] [ref=e318]
+          - paragraph [ref=e319]: Revenue reports show you how much revenue you made for a certain period. For example, a daily sales report will tell how much revenue you made for a single day.
+          - paragraph [ref=e320]: "Use revenue reports to:"
+          - list [ref=e321]:
+            - listitem [ref=e322]:
+              - paragraph [ref=e323]: Drill down into specifics like revenue by category (e.g., beer sales vs. liquor sales), by register and shift, etc.
+            - listitem [ref=e324]:
+              - paragraph [ref=e325]: Determine if you turned a profit by comparing sales to your cost
+            - listitem [ref=e326]:
+              - paragraph [ref=e327]: Identify sales trends over time by comparing sales reports
+            - listitem [ref=e328]:
+              - paragraph [ref=e329]: Pinpoint busier and slower periods based on sales volume
+            - listitem [ref=e330]:
+              - paragraph [ref=e331]: Predict future sales based on past performance
+            - listitem [ref=e332]:
+              - paragraph [ref=e333]: Improve budgeting by reviewing previous reports
+          - heading "6. Prime cost reports" [level=3] [ref=e334]
+          - paragraph [ref=e335]:
+            - link "Restaurant prime costs" [ref=e336] [cursor=pointer]:
+              - /url: /blog/on-the-line/restaurant-prime-cost
+            - text: ", also referred to as controllable costs are, as the name suggests, variable costs that you can control. In a restaurant, prime costs represent the costs to produce and serve your product, e.g., labor and restaurant food costs."
+          - paragraph [ref=e337]: Knowing your prime costs is critical to running a profitable restaurant. A Prime Cost report gives you the information you need to calculate and manage your margins.
+          - paragraph [ref=e338]: A Prime Cost Report is also valuable because it enables you to monitor cost fluctuations and track trends. This allows you to better implement the necessary cost controls.
+        - generic [ref=e339]:
+          - heading "What key performance indicators should you track?" [level=2] [ref=e340]
+          - heading "1. COGS and COGS ratio" [level=3] [ref=e341]
+          - paragraph [ref=e342]:
+            - link "Restaurant cost of goods sold (COGS)" [ref=e343] [cursor=pointer]:
+              - /url: /blog/on-the-line/restaurant-cost-of-goods-sold
+            - text: ", refers to the amount a restaurant spends on supplies and food ingredients to produce the menu items they sell. It indicates whether you’re"
+            - link "pricing your menu properly" [ref=e344] [cursor=pointer]:
+              - /url: /blog/on-the-line/restaurant-menu-pricing-strategy
+            - text: and
+            - link "controlling your costs" [ref=e345] [cursor=pointer]:
+              - /url: /resources/restaurant-cost-control-guide
+            - text: .
+          - paragraph [ref=e346]: "To calculate your COGS for a period, use the following formula:"
+          - paragraph [ref=e347]: Beginning Inventory + Purchases – Ending Inventory
+          - paragraph [ref=e348]: For example, if March’s beginning inventory is $12,000, your purchases are $5,000, and your ending inventory is $7,000, then your COGS is $10,000 ($12,000 + $5,000 – $7000).
+          - paragraph [ref=e349]: "The COGS ratio is the relationship between your COGS and sales, calculated using the following formula:"
+          - paragraph [ref=e350]: COGS/Sales
+          - paragraph [ref=e351]: Keep tabs on this ratio to identify any rising costs.
+          - heading "2. Prime cost" [level=3] [ref=e352]
+          - paragraph [ref=e353]:
+            - link "Prime cost" [ref=e354] [cursor=pointer]:
+              - /url: /blog/on-the-line/restaurant-prime-cost
+            - text: is the sum of your COGS and labor costs, where labor cost includes overtime pay, taxes, healthcare, vacation days, bonuses, salaries, and wages.
+          - paragraph [ref=e355]: Prime cost is one of the most important KPIs to track because it includes the two restaurant costs (food and labor) that make up the majority of your expenses. Keeping tabs on it is critical to controlling costs and running a profitable restaurant.
+          - paragraph [ref=e356]: Your ideal prime cost ratio (prime cost/sales) is between 55 to 60%.
+          - paragraph [ref=e357]: "For a deep-dive into prime cost and how to calculate it, read: How to Calculate Restaurant Prime Cost [Formula]."
+          - heading "3. EBITDA" [level=3] [ref=e358]
+          - paragraph [ref=e359]: EBITDA or “earnings before interest, taxes, depreciation, and amortization” is a measure of your overall financial performance.
+          - paragraph [ref=e360]: It’s a more accurate measure of performance because it represents your earnings that result from operations only and before any accounting adjustments, financial deductions, financing effects, and capital spending.
+          - paragraph [ref=e361]: To calculate EBITDA, grab your earnings, tax and interest numbers from your income statement, and amortization and depreciation from your cash flow statement. EBITDA is commonly used to value companies and is crucial when deciding to buy, sell, or invest in a restaurant.
+          - heading "4. Revenue by head" [level=3] [ref=e362]
+          - paragraph [ref=e363]: "Revenue by head, sales per head or average ticket—regardless of what you choose to call it, tracking this metric over time lets you:"
+          - list [ref=e364]:
+            - listitem [ref=e365]:
+              - paragraph [ref=e366]: Set sales targets
+            - listitem [ref=e367]:
+              - paragraph [ref=e368]: Determine whether you’re meeting your targets
+            - listitem [ref=e369]:
+              - paragraph [ref=e370]: Understand how well you’re maximizing sales by customer
+            - listitem [ref=e371]:
+              - paragraph [ref=e372]: Pinpoint customer spend at certain times of the day and year
+          - paragraph [ref=e373]: "To calculate revenue by head, use this formula:"
+          - paragraph [ref=e374]: Total Sales/Number of Customers
+          - heading "5. Net profit margin" [level=3] [ref=e375]
+          - paragraph [ref=e376]:
+            - link "Net profit margin, margin, profit margin, or gross margin" [ref=e377] [cursor=pointer]:
+              - /url: /blog/on-the-line/average-restaurant-profit-margin
+            - text: is your net profit expressed as a percentage of revenue and is a measure of your profitability.
+          - paragraph [ref=e378]: "Calculate your margin with this formula:"
+          - paragraph [ref=e379]: ((Gross Revenue – Operating Expenses)/ Gross Revenue)*100
+          - paragraph [ref=e380]: "And, follow these steps:"
+          - list [ref=e381]:
+            - listitem [ref=e382]:
+              - paragraph [ref=e383]: First calculate your net profit — the money remaining after you’ve deduced all expenses from sales, e.g., COGS and all other operating expenses like rent, utilities, and marketing
+            - listitem [ref=e384]:
+              - paragraph [ref=e385]: Then divide the net profit by your gross revenue (your total sales over the given timespan), and then multiply by 100
+          - paragraph [ref=e386]: Of course, you’re shooting for a higher margin. This means you’re pricing your menu properly, controlling food and labor costs, and keeping more money in your pocket.
+          - paragraph [ref=e387]: That said, margins in the restaurant industry vary from 0 to 15%, with an average margin of anywhere from 3 to 5%. If you discover your margin is too low and below the average, find ways to boost sales while decreasing costs.
+        - generic [ref=e388]:
+          - heading "How do you find the right accountant?" [level=2] [ref=e389]
+          - paragraph [ref=e390]: Working with a trained accounting professional is a no-brainer for most restaurant operators.
+          - paragraph [ref=e391]: An accountant helps to handle the complexities of financial operations, so operators can focus on other critical areas of the business. As financial experts, they should have an in-depth understanding of your finances and be able to offer you insights on how to improve your business.
+          - paragraph [ref=e392]: Whether you handle accounting internally or hire an outsourced accountant, finding the right accountant can be tricky. Here are a few guidelines to keep in mind when searching for an accountant.
+          - heading "Guidelines for finding an accountant" [level=3] [ref=e393]
+          - list [ref=e394]:
+            - listitem [ref=e395]:
+              - paragraph [ref=e396]: You can outsource to a large or small accounting firm or hire an independent accountant that works full-time or part-time.
+            - listitem [ref=e397]:
+              - paragraph [ref=e398]: Accountants generally charge by the hour, with senior accountants usually having a higher hourly rate. So, if you’re using a large firm, you may want to assign simple tasks to a junior accountant and more complex tasks to a senior accountant to control costs.
+            - listitem [ref=e399]:
+              - paragraph [ref=e400]: Find an accountant who understands and specializes in your industry. A restaurant operation is unique – with different processes and KPIs to other industries.
+            - listitem [ref=e401]:
+              - paragraph [ref=e402]: Find a bookkeeper or accountant who is well-versed in the accounting software you plan to use, so you don’t have to pay an expert to train your team. For example, there’s no shortage of QuickBooks Pro Advisors serving the restaurant industry.
+          - paragraph [ref=e403]: Looking for an outsourced restaurant accountant? We can help. If you’d like guidance on some great accountants that are focused on restaurants, let us know. We can point you in the right direction.
+          - heading "How do you choose the right restaurant accounting software?" [level=2] [ref=e404]
+          - paragraph [ref=e405]: Choosing the right accounting software is an important decision when building your restaurant business.
+          - paragraph [ref=e406]: The right systems and software should allow you and your accountant to maintain accurate books, easily get data in and out of the system and should first and foremost be the best accounting tool for your business needs.
+          - paragraph [ref=e407]: It does not necessarily have to do everything. Instead, it should work well with other systems. Below are some factors to consider when choosing an accounting system.
+          - heading "A checklist for finding the right accounting software" [level=3] [ref=e408]
+          - paragraph [ref=e409]: 1. Your needs
+          - paragraph [ref=e410]: Many small businesses can make do with accounting systems that offer standard accounting features like invoicing, expense and income tracking, and basic reporting.
+          - paragraph [ref=e411]: As a restaurateur, your needs are unique and may not meet the criteria for a generic accounting software. This doesn’t mean that your options are limited to only restaurant-specific accounting software. You should choose restaurant accounting software that meets your accounting needs.
+          - paragraph [ref=e412]: You’ll want to choose software that can easily integrate with other restaurant management systems that can handle your operational and reporting needs. Some of those needs may include systems that can track inventory, manage recipe and plate costs, monitor prices at the ingredient level, automate manual accounts payable tasks, place orders to your vendors, create detailed food cost reports, and so on.
+          - paragraph [ref=e413]: Finally, consider the size of your operation. If you operate a larger restaurant group with multiple business units, you might find a more robust accounting system suits you better.
+          - paragraph [ref=e414]: 2. Your budget
+          - paragraph [ref=e415]: With most accounting software today, you pay a monthly subscription fee. The actual cost will depend on the features available, with more advanced systems costing more.
+          - paragraph [ref=e416]: Make sure you consider a realistic monthly expense based on the features you want when setting a budgeting. If you’re considering switching accounting software, don’t get blindsided by hefty conversion fees. Companies may charge thousands of dollars as a one-time implementation fee to get started.
+          - paragraph [ref=e417]: You should also factor what additional resources or training your team will need to use the software.
+          - paragraph [ref=e418]: 3. Ease-of-use
+          - paragraph [ref=e419]: Feature-rich accounting packages are bloated and difficult to use and you end up paying for features that you don’t use. Your restaurant accounting software must be easy to use for you, your bookkeeper, and perhaps your GMs or chefs if they are required to use the software as well. Keep in mind that not all restaurant management software is designed with operations teams in mind.
+          - paragraph [ref=e420]: Consider the implementation timeline as well. It can take months or even years to begin getting value out of your new system. You want to choose an accounting package that provides you with value and features that you can and will use as soon as possible
+          - paragraph [ref=e421]: 4. Cloud-based and mobile friendly
+          - paragraph [ref=e422]: "Cloud-based restaurant management systems are better than traditional ones for many reasons:"
+          - list [ref=e423]:
+            - listitem [ref=e424]:
+              - paragraph [ref=e425]: "Security: The security of your financial data is paramount, and reliable cloud-based accounting systems secure your data through the Secure Sockets Layer (SSL) protocol. This protocol encrypts your data so that any unauthorized party cannot intercept it. Make sure you review the security protocols of your software."
+            - listitem [ref=e426]:
+              - paragraph [ref=e427]: "Access: Cloud-based restaurant accounting software allows you to easily access the system, the data, the reports anywhere and anytime on any device with an internet connection."
+            - listitem [ref=e428]:
+              - paragraph [ref=e429]: "Paperless: You can store files and documents in the cloud, which reduces paper handling and minimizes printing and distribution costs."
+            - listitem [ref=e430]:
+              - paragraph [ref=e431]: "Organization: Because files are stored in one location, you don’t spend time searching for them on your desktop or filing cabinet."
+            - listitem [ref=e432]:
+              - paragraph [ref=e433]: "Scale: Opening new restaurants? With a cloud-based system, you simply add a unit or spin up a new instance without having to buy new hardware or host new software."
+          - paragraph [ref=e434]: Another major benefit of cloud-based systems is that they are often much more easily integrated with other systems.
+          - paragraph [ref=e435]: 5. Integration options
+          - paragraph [ref=e436]:
+            - text: Accounting software should integrate with other restaurant management software to improve workflow, prevent flipping between apps, and make data sharing easy. A great example is the
+            - link "Toast QuickBooks integration" [ref=e437] [cursor=pointer]:
+              - /url: /blog/quickbooks-restaurant-integration-best-practices
+            - text: ", for both QB Online and Desktop, powered by"
+            - link "xtraCHEF by Toast" [ref=e438] [cursor=pointer]:
+              - /url: /products/xtrachef
+            - text: .
+          - heading "How Toast and xtraCHEF help take the burden out of restaurant accounting" [level=2] [ref=e439]
+          - paragraph [ref=e440]: The seamless integration between Toast, xtraCHEF, and your restaurant accounting platform can unlock untold efficiencies and automation.
+          - paragraph [ref=e441]: When it comes to the software you will use for bookkeeping in your restaurant, the ruler of your front-end is your restaurant POS system.
+          - paragraph [ref=e442]: As the primary source for all the revenue and all of the cash, you want everything to go through there as much as possible so that nothing slips through the cracks and your data is as accurate as it can be.
+          - paragraph [ref=e443]: "Your restaurant POS system is essential to accounting software because:"
+          - list [ref=e444]:
+            - listitem [ref=e445]:
+              - paragraph [ref=e446]: It keeps accounting organized. When everything is mapped correctly, the POS is hugely helpful in keeping accounting organized.
+            - listitem [ref=e447]:
+              - paragraph [ref=e448]: It makes it easier to reconcile cash. For example, you’re able to run petty cash through a POS rather than having them on scraps of paper stuck in the safe. It’s easier to track the expenses when all expenses are in one place.
+            - listitem [ref=e449]:
+              - paragraph [ref=e450]: Restaurant credit card reconciliation is simpler.
+            - listitem [ref=e451]:
+              - paragraph [ref=e452]: A strong hosted online portal makes access easy. Having a hosted portal is phenomenal, because bookkeepers don’t have to deal with scanned copies of reports, they have direct access.
+          - paragraph [ref=e453]: xtraCHEF by Toast is primed to be your single source of truth — and data flower — on the back end.
+          - paragraph [ref=e454]:
+            - text: It’s built to automate time-consuming tasks that take you away from more important work in your restaurant.
+            - link "Invoice processing automation" [ref=e455] [cursor=pointer]:
+              - /url: /blog/on-the-line/benefits-restaurant-invoice-processing/
+            - text: eliminates your manual invoice data entry, automatically coding invoices down to the line-item level..
+          - paragraph [ref=e456]: Solve your paper problems by digitizing invoices, bills, receipts, statements at the point of receipt.
+          - list [ref=e457]:
+            - listitem [ref=e458]:
+              - paragraph [ref=e459]: Snapping a pic of a document with our mobile app and storing it in the cloud
+            - listitem [ref=e460]:
+              - paragraph [ref=e461]: Scanning and uploading a batch of documents to save you and your bookkeeper time (and money)
+            - listitem [ref=e462]:
+              - paragraph [ref=e463]: Storing digital invoices for easy search, access, retrieval, and sharing
+          - paragraph [ref=e464]:
+            - text: Access operational and analytical tools to
+            - link "better manage food costs, inventory, and budgets" [ref=e465] [cursor=pointer]:
+              - /url: /products/xtrachef
+            - text: . xtraCHEF’s costing tools provides Cost Trend Reports and Declining Budget features to improve decision-making and help you boost your bottom line.
+          - paragraph [ref=e466]: Keep the financial information flowing from sales on the floor to costs in the kitchen through to your accountant operations teams by combining Toast and xtraCHEF.
+        - generic [ref=e472]:
+          - generic [ref=e473]: RESOURCE
+          - heading "Restaurant Invoice Automation Guide" [level=3] [ref=e474]
+          - paragraph [ref=e475]: Use this guide to learn more about your restaurant invoices, the value within, and how to consistently and accurately tap into it to make smarter decisions.
+          - button "Get Free Download" [ref=e477] [cursor=pointer]:
+            - generic [ref=e478]: Get Free Download
+          - img "Served by Toast" [ref=e480]
+        - generic [ref=e482]:
+          - generic [ref=e483]:
+            - img [ref=e484]
+            - paragraph [ref=e486]: Is this article helpful?
+          - generic [ref=e487]:
+            - button "Yes" [ref=e488] [cursor=pointer]:
+              - img [ref=e489]
+              - generic [ref=e491]: "Yes"
+            - button "No" [ref=e492] [cursor=pointer]:
+              - img [ref=e493]
+              - generic [ref=e495]: "No"
+        - paragraph [ref=e496]:
+          - emphasis [ref=e497]: "DISCLAIMER: This information is provided for general informational purposes only, and publication does not constitute an endorsement. Toast does not warrant the accuracy or completeness of any information, text, graphics, links, or other items contained within this content. Toast does not guarantee you will achieve any specific results if you follow any advice herein. It may be advisable for you to consult with a professional such as a lawyer, accountant, or business advisor for advice specific to your situation."
+      - generic [ref=e503]:
+        - heading "Subscribe to On the line" [level=3] [ref=e504]
+        - paragraph [ref=e505]: Sign up to get industry intel, advice, tools, and honest takes from real people tackling their restaurants' greatest challenges.
+        - form "Subscription Form" [ref=e506]:
+          - generic [ref=e507]:
+            - textbox "Email" [ref=e509]
+            - button "Subscribe" [ref=e511] [cursor=pointer]:
+              - generic [ref=e512]: Subscribe
+        - paragraph [ref=e513]:
+          - text: By submitting, you agree to receive marketing emails from Toast. We’ll handle your info according to our
+          - link "privacy statement" [ref=e514] [cursor=pointer]:
+            - /url: /privacy/
+          - text: . Additional information for California residents available
+          - link "here" [ref=e515] [cursor=pointer]:
+            - /url: /privacy#addendum-a
+          - text: .
+    - contentinfo [ref=e516]:
+      - generic [ref=e518]:
+        - generic [ref=e519]:
+          - link "Toast" [ref=e520] [cursor=pointer]:
+            - /url: /
+            - img "Toast" [ref=e521]
+          - list [ref=e522]:
+            - listitem [ref=e523]:
+              - paragraph [ref=e524]: 333 Summer Street
+              - paragraph [ref=e525]: Boston, MA 02210
+            - listitem [ref=e526]:
+              - 'link "Sales: (857) 301-6002" [ref=e527] [cursor=pointer]':
+                - /url: tel:(857) 301-6002
+            - listitem [ref=e528]:
+              - 'link "Customer Care: (617) 682-0225" [ref=e529] [cursor=pointer]':
+                - /url: tel:(617) 682-0225
+          - list [ref=e530]:
+            - listitem [ref=e531]:
+              - link "Toast on TikTok" [ref=e532] [cursor=pointer]:
+                - /url: https://www.tiktok.com/@toast_tab
+                - img [ref=e533]
+            - listitem [ref=e535]:
+              - link "Toast on Instagram" [ref=e536] [cursor=pointer]:
+                - /url: https://www.instagram.com/toasttab/
+                - img [ref=e537]
+            - listitem [ref=e539]:
+              - link "Toast on Facebook" [ref=e540] [cursor=pointer]:
+                - /url: https://www.facebook.com/ToastTab
+                - img [ref=e541]
+            - listitem [ref=e543]:
+              - link "Toast on LinkedIn" [ref=e544] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/toast-inc/
+                - img [ref=e545]
+            - listitem [ref=e547]:
+              - link "Toast on YouTube" [ref=e548] [cursor=pointer]:
+                - /url: https://www.youtube.com/@Toasttab
+                - img [ref=e549]
+        - generic [ref=e645]:
+          - navigation [ref=e648]:
+            - paragraph [ref=e649]: Customers
+            - list [ref=e650]:
+              - listitem [ref=e651]:
+                - link "Sign In" [ref=e652] [cursor=pointer]:
+                  - /url: https://www.toasttab.com/login
+              - listitem [ref=e653]:
+                - link "System Status" [ref=e654] [cursor=pointer]:
+                  - /url: https://status.toasttab.com/
+              - listitem [ref=e655]:
+                - link "Refer a Restaurant" [ref=e656] [cursor=pointer]:
+                  - /url: https://refer.toasttab.com/login/?ReturnUrl=%2f
+              - listitem [ref=e657]:
+                - link "Toast Central" [ref=e658] [cursor=pointer]:
+                  - /url: https://central.toasttab.com/s/
+          - navigation [ref=e661]:
+            - paragraph [ref=e662]: Products
+            - list [ref=e663]:
+              - listitem [ref=e664]:
+                - link "Point of Sale" [ref=e665] [cursor=pointer]:
+                  - /url: /restaurant-pos
+              - listitem [ref=e666]:
+                - link "Software" [ref=e667] [cursor=pointer]:
+                  - /url: /products
+              - listitem [ref=e668]:
+                - link "Hardware" [ref=e669] [cursor=pointer]:
+                  - /url: /hardware
+              - listitem [ref=e670]:
+                - link "Integrations" [ref=e671] [cursor=pointer]:
+                  - /url: /partners/directory
+              - listitem [ref=e672]:
+                - link "Product Lifetime Policy" [ref=e673] [cursor=pointer]:
+                  - /url: /product-lifetime-policy
+          - navigation [ref=e676]:
+            - paragraph [ref=e677]: Resources
+            - list [ref=e678]:
+              - listitem [ref=e679]:
+                - link "Resource Center" [ref=e680] [cursor=pointer]:
+                  - /url: /resources
+              - listitem [ref=e681]:
+                - link "Blog" [ref=e682] [cursor=pointer]:
+                  - /url: /blog/on-the-line
+              - listitem [ref=e683]:
+                - link "POS Comparison" [ref=e684] [cursor=pointer]:
+                  - /url: /resources/pos-comparison-tool
+          - navigation [ref=e687]:
+            - paragraph [ref=e688]: Company
+            - list [ref=e689]:
+              - listitem [ref=e690]:
+                - link "About Us" [ref=e691] [cursor=pointer]:
+                  - /url: /about
+              - listitem [ref=e692]:
+                - link "News" [ref=e693] [cursor=pointer]:
+                  - /url: /news
+              - listitem [ref=e694]:
+                - link "Leadership" [ref=e695] [cursor=pointer]:
+                  - /url: /leadership
+              - listitem [ref=e696]:
+                - link "Community" [ref=e697] [cursor=pointer]:
+                  - /url: /community
+              - listitem [ref=e698]:
+                - link "Careers" [ref=e699] [cursor=pointer]:
+                  - /url: https://careers.toasttab.com/homepage
+              - listitem [ref=e700]:
+                - link "Investors" [ref=e701] [cursor=pointer]:
+                  - /url: https://investors.toasttab.com/overview/default.aspx
+              - listitem [ref=e702]:
+                - link "Licenses" [ref=e703] [cursor=pointer]:
+                  - /url: /tps-licenses
+      - generic [ref=e606]:
+        - 'button "Region: United States" [ref=e607] [cursor=pointer]'
+        - generic [ref=e608]:
+          - link "Download on the App Store" [ref=e609] [cursor=pointer]:
+            - /url: https://apps.apple.com/app/apple-store/id6444586410?pt=1364164&ct=Marketing%20Website&mt=8
+            - img "Download on the App Store" [ref=e610]
+          - link "Get it on Google Play" [ref=e611] [cursor=pointer]:
+            - /url: https://play.google.com/store/apps/details?id=com.toasttab.toastoperator&utm_medium=website&utm_source=vanity-url&utm_campaign=prospect-tnow-marketing-2024-04-toast-now-android-marketing-site&utm_term=na&utm_content=na
+            - img "Get it on Google Play" [ref=e612]
+      - list [ref=e614]:
+        - listitem [ref=e615]:
+          - link "Privacy Statement" [ref=e616] [cursor=pointer]:
+            - /url: /privacy
+        - listitem [ref=e617]:
+          - link "California Privacy Statement" [ref=e618] [cursor=pointer]:
+            - /url: /privacy#addendum-a
+        - listitem [ref=e619]:
+          - button "Your Privacy Choices" [ref=e620] [cursor=pointer]
+        - listitem [ref=e621]:
+          - link "Terms of Service" [ref=e622] [cursor=pointer]:
+            - /url: /terms-of-service
+        - listitem [ref=e623]:
+          - link "Merchant Agreement" [ref=e624] [cursor=pointer]:
+            - /url: /merchant-agreement
+        - listitem [ref=e625]:
+          - link "Report IP" [ref=e626] [cursor=pointer]:
+            - /url: /report-intellectual-property
+        - listitem [ref=e627]:
+          - link "Report a Vulnerability" [ref=e628] [cursor=pointer]:
+            - /url: /bugcrowd
+        - listitem [ref=e629]: © 2026 Toast, Inc.
