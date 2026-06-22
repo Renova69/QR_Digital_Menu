@@ -2716,7 +2716,7 @@ export class PaymentService {
         );
         break;
       } catch (err: unknown) {
-        if (attempt < MAX_ORDER_RETRIES && (err as any)?.code === 'P2002') {
+        if (attempt < MAX_ORDER_RETRIES && this.isUniqueConstraintError(err)) {
           this.logger.warn(
             `myPOS OrderID collision on attempt ${attempt + 1}, retrying`,
           );
