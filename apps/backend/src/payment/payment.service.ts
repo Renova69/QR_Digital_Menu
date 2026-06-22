@@ -339,6 +339,14 @@ export class PaymentService {
     );
   }
 
+  /**
+   * Access check for confirming/cancelling a cash collection request. Unlike
+   * verifyPosOperatorAccess (session force/close), this DELIBERATELY allows
+   * STAFF: collecting cash at the table is a cashier/front-of-house action, so
+   * OWNER/MANAGER/WAITER/STAFF all qualify. STAFF still cannot force-open or
+   * close sessions. KITCHEN is excluded from both. Keep the two role sets
+   * divergent on purpose — do not "align" them.
+   */
   private async verifyCashPaymentOperatorAccess(
     restaurantId: string,
     userId: string,
@@ -1095,9 +1103,7 @@ export class PaymentService {
     payment: any,
     data: Record<string, any>,
   ): Promise<PaymentClaimResult> {
-    const checkoutScope = getCheckoutScopeFromPayload(
-      payment.providerPayload,
-    );
+    const checkoutScope = getCheckoutScopeFromPayload(payment.providerPayload);
     if (checkoutScope) {
       return this.claimSuccessfulScopedCheckoutPayment(
         tx,
@@ -2246,9 +2252,7 @@ export class PaymentService {
           status: 'PENDING',
           provider: 'STRIPE',
           providerReference: stripeCheckoutKey,
-          providerPayload: checkoutScopePayload(
-            resolvedCheckoutScope,
-          ) as any,
+          providerPayload: checkoutScopePayload(resolvedCheckoutScope) as any,
           splitMode: resolvedCheckoutScope ? SplitMode.ITEM : undefined,
         },
         { ignorePaymentIds: ignoredPendingPaymentIds },
@@ -2393,10 +2397,7 @@ export class PaymentService {
       const sameAmount =
         Math.abs((pendingEpay.amount ?? 0) - total) < 0.001 &&
         Math.abs((pendingEpay.tipAmount ?? 0) - tipAmount) < 0.001;
-      const sameScope = paymentScopeMatches(
-        pendingEpay,
-        resolvedCheckoutScope,
-      );
+      const sameScope = paymentScopeMatches(pendingEpay, resolvedCheckoutScope);
 
       if (checkoutForm && sameAmount && sameScope && notExpired) {
         this.emitPendingBillPayment(
@@ -2453,9 +2454,7 @@ export class PaymentService {
         provider: 'EPAY',
         providerReference: invoice,
         providerStatus: 'PENDING',
-        providerPayload: checkoutScopePayload(
-          resolvedCheckoutScope,
-        ) as any,
+        providerPayload: checkoutScopePayload(resolvedCheckoutScope) as any,
         splitMode: resolvedCheckoutScope ? SplitMode.ITEM : undefined,
       },
       { ignorePaymentIds: ignoredPendingPaymentIds },
