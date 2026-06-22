@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PaymentHistoryQueryDto } from './dto/payment-history-query.dto';
 import { SettlePartialDto } from './dto/settle-partial.dto';
 import { CheckoutScopeInput } from './payment-scope.utils';
@@ -27,20 +27,44 @@ export class PaymentService {
     return this.sessions.cleanupAbandonedPaymentsAndStaleSessions();
   }
 
-  getOrCreateSession(tableId: string, restaurantId: string, sessionToken?: string) {
-    return this.sessions.getOrCreateSession(tableId, restaurantId, sessionToken);
+  getOrCreateSession(
+    tableId: string,
+    restaurantId: string,
+    sessionToken?: string,
+  ) {
+    return this.sessions.getOrCreateSession(
+      tableId,
+      restaurantId,
+      sessionToken,
+    );
   }
 
   getSessionBill(token: string) {
     return this.sessions.getSessionBill(token);
   }
 
-  createCashPaymentRequest(token: string, restaurantId: string, scopeInput?: CheckoutScopeInput) {
-    return this.settlement.createCashPaymentRequest(token, restaurantId, scopeInput);
+  createCashPaymentRequest(
+    token: string,
+    restaurantId: string,
+    scopeInput?: CheckoutScopeInput,
+  ) {
+    return this.settlement.createCashPaymentRequest(
+      token,
+      restaurantId,
+      scopeInput,
+    );
   }
 
-  listCashPaymentRequests(restaurantId: string, userId: string, status?: string) {
-    return this.settlement.listCashPaymentRequests(restaurantId, userId, status);
+  listCashPaymentRequests(
+    restaurantId: string,
+    userId: string,
+    status?: string,
+  ) {
+    return this.settlement.listCashPaymentRequests(
+      restaurantId,
+      userId,
+      status,
+    );
   }
 
   confirmCashPaymentRequest(requestId: string, userId: string) {
@@ -63,29 +87,59 @@ export class PaymentService {
     checkoutScope?: CheckoutScopeInput,
   ) {
     if (provider === 'STRIPE') {
-      return this.stripeCheckout.createPaymentIntent(token, tipPercent, checkoutScope).then((stripeCheckout) => ({
-        provider: 'STRIPE' as const,
-        ...stripeCheckout,
-      }));
+      return this.stripeCheckout
+        .createPaymentIntent(token, tipPercent, checkoutScope)
+        .then((stripeCheckout) => ({
+          provider: 'STRIPE' as const,
+          ...stripeCheckout,
+        }));
     }
-    if (provider === 'EPAY') return this.epayCheckout.createEpayCheckout(token, tipPercent, checkoutScope);
-    if (provider === 'MYPOS') return this.myposCheckout.createMyposCheckout(token, tipPercent, checkoutScope);
-    if (provider === 'BORICA') return this.boricaCheckout.createBoricaCheckout(token, tipPercent, boricaCardholder, checkoutScope);
-    return this.stripeCheckout.createPaymentIntent(token, tipPercent, checkoutScope).then((stripeCheckout) => ({
-      provider: 'STRIPE' as const,
-      ...stripeCheckout,
-    }));
+    if (provider === 'EPAY')
+      return this.epayCheckout.createEpayCheckout(
+        token,
+        tipPercent,
+        checkoutScope,
+      );
+    if (provider === 'MYPOS')
+      return this.myposCheckout.createMyposCheckout(
+        token,
+        tipPercent,
+        checkoutScope,
+      );
+    if (provider === 'BORICA')
+      return this.boricaCheckout.createBoricaCheckout(
+        token,
+        tipPercent,
+        boricaCardholder,
+        checkoutScope,
+      );
+    // Behavior-preserving: the original PaymentService.createCheckout rejected
+    // unknown providers rather than silently defaulting to Stripe.
+    throw new BadRequestException('Unsupported payment provider');
   }
 
-  createPaymentIntent(token: string, tipPercent: number, checkoutScope?: CheckoutScopeInput) {
-    return this.stripeCheckout.createPaymentIntent(token, tipPercent, checkoutScope);
+  createPaymentIntent(
+    token: string,
+    tipPercent: number,
+    checkoutScope?: CheckoutScopeInput,
+  ) {
+    return this.stripeCheckout.createPaymentIntent(
+      token,
+      tipPercent,
+      checkoutScope,
+    );
   }
 
   handleBoricaCallback(body: Record<string, string>) {
     return this.boricaCheckout.handleBoricaCallback(body);
   }
 
-  handleEpayNotification(body: { ENCODED?: string; CHECKSUM?: string; encoded?: string; checksum?: string }) {
+  handleEpayNotification(body: {
+    ENCODED?: string;
+    CHECKSUM?: string;
+    encoded?: string;
+    checksum?: string;
+  }) {
     return this.epayCheckout.handleEpayNotification(body);
   }
 
@@ -109,7 +163,12 @@ export class PaymentService {
     return this.sessions.closeSessionWithCash(token, restaurantId, userId);
   }
 
-  settlePartial(token: string, restaurantId: string, userId: string, dto: SettlePartialDto) {
+  settlePartial(
+    token: string,
+    restaurantId: string,
+    userId: string,
+    dto: SettlePartialDto,
+  ) {
     return this.settlement.settlePartial(token, restaurantId, userId, dto);
   }
 
@@ -117,19 +176,36 @@ export class PaymentService {
     return this.sessions.forceOpenSession(tableId, restaurantId, userId);
   }
 
-  getTableSessions(restaurantId: string, page: number | undefined, limit: number | undefined, userId: string) {
+  getTableSessions(
+    restaurantId: string,
+    page: number | undefined,
+    limit: number | undefined,
+    userId: string,
+  ) {
     return this.reporting.getTableSessions(restaurantId, page, limit, userId);
   }
 
-  getPaymentHistory(restaurantId: string, query: PaymentHistoryQueryDto, userId: string) {
+  getPaymentHistory(
+    restaurantId: string,
+    query: PaymentHistoryQueryDto,
+    userId: string,
+  ) {
     return this.reporting.getPaymentHistory(restaurantId, query, userId);
   }
 
-  exportPayments(restaurantId: string, userId: string, range: { from?: string; to?: string }) {
+  exportPayments(
+    restaurantId: string,
+    userId: string,
+    range: { from?: string; to?: string },
+  ) {
     return this.reporting.exportPayments(restaurantId, userId, range);
   }
 
-  getPaymentsOverview(restaurantId: string, userId: string, filters: { startDate?: string; endDate?: string } = {}) {
+  getPaymentsOverview(
+    restaurantId: string,
+    userId: string,
+    filters: { startDate?: string; endDate?: string } = {},
+  ) {
     return this.reporting.getPaymentsOverview(restaurantId, userId, filters);
   }
 
@@ -145,7 +221,11 @@ export class PaymentService {
     return this.reporting.getPaymentSettings(restaurantId, userId);
   }
 
-  refundPayment(paymentId: string, userId: string, data: { amount?: number; reason?: string }) {
+  refundPayment(
+    paymentId: string,
+    userId: string,
+    data: { amount?: number; reason?: string },
+  ) {
     return this.stripeCheckout.refundPayment(paymentId, userId, data);
   }
 }
