@@ -1,5 +1,14 @@
 import { ConflictException } from '@nestjs/common';
 import { PaymentService } from './payment.service';
+import { PaymentProviderConfigService } from './payment-provider-config.service';
+import { PaymentCoreService } from './core/payment-core.service';
+import { PaymentReportingService } from './reporting/payment-reporting.service';
+import { StripeCheckoutService } from './providers/stripe-checkout.service';
+import { EpayCheckoutService } from './providers/epay-checkout.service';
+import { MyposCheckoutService } from './providers/mypos-checkout.service';
+import { BoricaCheckoutService } from './providers/borica-checkout.service';
+import { PaymentSessionService } from './session/payment-session.service';
+import { PaymentSettlementService } from './session/payment-settlement.service';
 
 type Provider = 'STRIPE' | 'EPAY' | 'BORICA' | 'MYPOS';
 
@@ -210,14 +219,57 @@ function createHarness() {
   const features = {
     restaurantHasFeature: jest.fn(() => true),
   };
-  const service = new PaymentService(
+  const config = new PaymentProviderConfigService(features as any);
+  const core = new PaymentCoreService(prisma, events as any, features as any);
+  const sessions = new PaymentSessionService(
     prisma,
     stripe as any,
-    epay as any,
-    borica as any,
-    mypos as any,
+    events as any,
+    core,
+    config,
+  );
+  const settlement = new PaymentSettlementService(
+    prisma,
     events as any,
     features as any,
+    core,
+    sessions,
+  );
+  const reporting = new PaymentReportingService(prisma, core);
+  const stripeCheckout = new StripeCheckoutService(
+    prisma,
+    stripe as any,
+    events as any,
+    features as any,
+    core,
+    config,
+  );
+  const epayCheckout = new EpayCheckoutService(
+    prisma,
+    epay as any,
+    core,
+    config,
+  );
+  const myposCheckout = new MyposCheckoutService(
+    prisma,
+    mypos as any,
+    core,
+    config,
+  );
+  const boricaCheckout = new BoricaCheckoutService(
+    prisma,
+    borica as any,
+    core,
+    config,
+  );
+  const service = new PaymentService(
+    sessions,
+    settlement,
+    reporting,
+    stripeCheckout,
+    epayCheckout,
+    myposCheckout,
+    boricaCheckout,
   );
 
   return { service, payments, stripe, prisma };

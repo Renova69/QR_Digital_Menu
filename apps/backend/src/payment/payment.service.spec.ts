@@ -1,4 +1,13 @@
 import { PaymentService } from './payment.service';
+import { PaymentProviderConfigService } from './payment-provider-config.service';
+import { PaymentCoreService } from './core/payment-core.service';
+import { PaymentReportingService } from './reporting/payment-reporting.service';
+import { StripeCheckoutService } from './providers/stripe-checkout.service';
+import { EpayCheckoutService } from './providers/epay-checkout.service';
+import { MyposCheckoutService } from './providers/mypos-checkout.service';
+import { BoricaCheckoutService } from './providers/borica-checkout.service';
+import { PaymentSessionService } from './session/payment-session.service';
+import { PaymentSettlementService } from './session/payment-settlement.service';
 import {
   BadRequestException,
   ConflictException,
@@ -16,6 +25,63 @@ describe('PaymentService', () => {
   let mockBoricaProvider: any;
   let mockMyposProvider: any;
   let mockEvents: any;
+  let mockFeatureService: FeatureService;
+
+  function buildPaymentService(featureService = mockFeatureService) {
+    const config = new PaymentProviderConfigService(featureService);
+    const core = new PaymentCoreService(mockPrisma, mockEvents, featureService);
+    const sessions = new PaymentSessionService(
+      mockPrisma,
+      mockStripeProvider,
+      mockEvents,
+      core,
+      config,
+    );
+    const settlement = new PaymentSettlementService(
+      mockPrisma,
+      mockEvents,
+      featureService,
+      core,
+      sessions,
+    );
+    const reporting = new PaymentReportingService(mockPrisma, core);
+    const stripeCheckout = new StripeCheckoutService(
+      mockPrisma,
+      mockStripeProvider,
+      mockEvents,
+      featureService,
+      core,
+      config,
+    );
+    const epayCheckout = new EpayCheckoutService(
+      mockPrisma,
+      mockEpayProvider,
+      core,
+      config,
+    );
+    const myposCheckout = new MyposCheckoutService(
+      mockPrisma,
+      mockMyposProvider,
+      core,
+      config,
+    );
+    const boricaCheckout = new BoricaCheckoutService(
+      mockPrisma,
+      mockBoricaProvider,
+      core,
+      config,
+    );
+
+    return new PaymentService(
+      sessions,
+      settlement,
+      reporting,
+      stripeCheckout,
+      epayCheckout,
+      myposCheckout,
+      boricaCheckout,
+    );
+  }
 
   beforeEach(() => {
     mockPrisma = {
@@ -154,7 +220,7 @@ describe('PaymentService', () => {
       emitTableStatusChanged: jest.fn(),
     };
 
-    const mockFeatureService = {
+    mockFeatureService = {
       hasFeature: jest.fn().mockReturnValue(true),
       getEffectiveTier: jest.fn().mockImplementation((tier: string) => tier),
       restaurantHasFeature: jest.fn(function (this: any, r: any, f: any) {
@@ -164,15 +230,7 @@ describe('PaymentService', () => {
         );
       }),
     } as unknown as FeatureService;
-    service = new PaymentService(
-      mockPrisma,
-      mockStripeProvider,
-      mockEpayProvider,
-      mockBoricaProvider,
-      mockMyposProvider,
-      mockEvents,
-      mockFeatureService,
-    );
+    service = buildPaymentService();
   });
 
   describe('getOrCreateSession', () => {
@@ -708,15 +766,7 @@ describe('PaymentService', () => {
           );
         }),
       } as unknown as FeatureService;
-      const lockedService = new PaymentService(
-        mockPrisma,
-        mockStripeProvider,
-        mockEpayProvider,
-        mockBoricaProvider,
-        mockMyposProvider,
-        mockEvents,
-        lockedFeatureService,
-      );
+      const lockedService = buildPaymentService(lockedFeatureService);
 
       await expect(
         lockedService.createPaymentIntent('tok1', 0),
@@ -1674,6 +1724,24 @@ describe('PaymentService', () => {
       expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
     });
 
+    it('blocks close when a pending payment appears inside the close transaction', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        status: 'OPEN',
+        restaurantId: 'rest1',
+      });
+      mockPrisma.payment.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'pay-race' });
+
+      await expect(
+        service.closeSession('tok1', 'rest1', 'owner1'),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
+      expect(mockEvents.emitTableStatusChanged).not.toHaveBeenCalled();
+    });
+
     it('throws NotFoundException when session not found', async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue(null);
       await expect(
@@ -2218,6 +2286,24 @@ describe('PaymentService', () => {
       ).rejects.toThrow(ConflictException);
 
       expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+    });
+
+    it('blocks POS card close when a pending payment appears inside the close transaction', async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 's1',
+        tableId: 'table1',
+        restaurantId: 'rest1',
+      });
+      mockPrisma.payment.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'pay-race' });
+
+      await expect(
+        service.closeSessionWithCard('tok1', 'rest1', 'owner1'),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+      expect(mockEvents.emitTableStatusChanged).not.toHaveBeenCalled();
     });
 
     it('throws when session is already closed (race condition)', async () => {
@@ -3471,6 +3557,28 @@ describe('PaymentService', () => {
         provider: 'STRIPE',
         stripePaymentIntentId: 'pi_pending',
       });
+
+      await expect(
+        service.forceOpenSession('table-1', 'rest1', 'owner1'),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.tableSession.update).not.toHaveBeenCalled();
+      expect(mockPrisma.tableSession.create).not.toHaveBeenCalled();
+    });
+
+    it('blocks force-open when a pending payment appears inside the close transaction', async () => {
+      mockPrisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-1',
+        restaurantId: 'rest1',
+      });
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: 'old-session',
+        token: 'old-token',
+        tableId: 'table-1',
+      });
+      mockPrisma.payment.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'pay-race' });
 
       await expect(
         service.forceOpenSession('table-1', 'rest1', 'owner1'),
