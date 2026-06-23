@@ -1,7 +1,7 @@
-import i18n from 'i18next';
-import { initReactI18next } from 'react-i18next';
-import LanguageDetector from 'i18next-browser-languagedetector';
-import resourcesToBackend from 'i18next-resources-to-backend';
+import i18n from "i18next";
+import { initReactI18next } from "react-i18next";
+import LanguageDetector from "i18next-browser-languagedetector";
+import resourcesToBackend from "i18next-resources-to-backend";
 
 // Lazy-load each language's translation bundle on demand instead of statically
 // importing all three into the entry chunk. Previously en/bg/ro (~135 KB gzip
@@ -19,11 +19,27 @@ i18n
   )
   .use(initReactI18next)
   .init({
-    fallbackLng: 'bg',
-    supportedLngs: ['en', 'bg', 'ro'],
+    fallbackLng: "en",
+    // Public-menu target languages. en/bg/ro ship full app bundles; the rest carry
+    // a public-menu-only subset (src/locales/<lang>/translation.json) so customer
+    // chrome localizes too. Missing keys fall back to English, never Bulgarian.
+    supportedLngs: [
+      "en",
+      "bg",
+      "ro",
+      "de",
+      "es",
+      "fr",
+      "it",
+      "zh",
+      "el",
+      "ja",
+      "ru",
+      "ar",
+    ],
     // Strip region subtags (e.g. 'en-US' → 'en') so the detector never asks the
     // backend for a language chunk that does not exist.
-    load: 'languageOnly',
+    load: "languageOnly",
     nsSeparator: false,
     interpolation: {
       escapeValue: false, // React already safeguards from xss

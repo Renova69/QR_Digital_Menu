@@ -199,4 +199,81 @@ describe('TranslationService', () => {
       expect(mockPost).not.toHaveBeenCalled();
     });
   });
+
+  describe('retry, dedupe, and per-language resilience', () => {
+    beforeEach(() => {
+      process.env.DEEPL_API_KEY = 'test-key';
+      // Skip real backoff / inter-language delays.
+      jest.spyOn(service as any, 'sleep').mockResolvedValue(undefined);
+    });
+
+    it('retries transient 429 then succeeds', async () => {
+      mockPost
+        .mockRejectedValueOnce({ response: { status: 429, headers: {} } })
+        .mockRejectedValueOnce({ response: { status: 429, headers: {} } })
+        .mockResolvedValueOnce({ data: { translations: [{ text: 'Soupe' }] } });
+
+      const result = await service.translateTexts(['Soup'], 'FR');
+
+      expect(result).toEqual(['Soupe']);
+      expect(mockPost).toHaveBeenCalledTimes(3);
+    });
+
+    it('does NOT retry on 456 quota error and rethrows', async () => {
+      mockPost.mockRejectedValue({
+        response: { status: 456, data: { message: 'Quota exceeded' } },
+      });
+
+      await expect(
+        service.translateTexts(['Soup'], 'FR'),
+      ).rejects.toBeDefined();
+      expect(mockPost).toHaveBeenCalledTimes(1);
+    });
+
+    it('dedupes identical source strings into one DeepL request', async () => {
+      mockPost.mockImplementation((_url: string, body: any) =>
+        Promise.resolve({
+          data: {
+            translations: body.text.map((t: string) => ({ text: `${t}!` })),
+          },
+        }),
+      );
+
+      const result = await service.translateTexts(['a', 'a', 'b'], 'FR');
+
+      expect(mockPost).toHaveBeenCalledTimes(1);
+      expect(mockPost.mock.calls[0][1].text).toEqual(['a', 'b']);
+      expect(result).toEqual(['a!', 'a!', 'b!']);
+    });
+
+    it('translateObject persists languages that succeed when one language fails', async () => {
+      jest
+        .spyOn(service, 'translateTexts')
+        .mockImplementation((texts: string[], lang: string) =>
+          lang === 'de'
+            ? Promise.reject(new Error('boom'))
+            : Promise.resolve(texts.map((t) => `${t}_${lang}`)),
+        );
+
+      const result = await service.translateObject({ name: 'Soup' }, [
+        'fr',
+        'de',
+        'ja',
+      ]);
+
+      expect(result.fr).toEqual({ name: 'Soup_fr' });
+      expect(result.ja).toEqual({ name: 'Soup_ja' });
+      expect(result.de).toBeUndefined();
+    });
+
+    it('translateObject throws only when every language fails', async () => {
+      jest
+        .spyOn(service, 'translateTexts')
+        .mockRejectedValue(new Error('all dead'));
+
+      await expect(
+        service.translateObject({ name: 'Soup' }, ['fr', 'de']),
+      ).rejects.toThrow('all dead');
+    });
+  });
 });

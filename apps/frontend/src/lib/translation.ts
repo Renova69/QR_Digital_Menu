@@ -1,5 +1,8 @@
 interface Translatable {
-  translations?: Record<string, Record<string, string | string[]>> | null;
+  translations?: Record<
+    string,
+    Record<string, string | string[] | Record<string, string>>
+  > | null;
 }
 
 export function getTranslatedField<T extends Translatable>(
@@ -27,5 +30,13 @@ export function getTranslatedArray<T extends Translatable>(
   const langBlock = t[lang];
   if (!langBlock) return undefined;
   const value = langBlock[field];
-  return Array.isArray(value) ? (value as string[]) : undefined;
+  // Allergens / dietaryTags are stored as a map { original: translated } in the
+  // current schema, but older rows used a plain string[]. Support both so the
+  // chips translate against `lang` instead of silently falling back to the
+  // fetch-time top-level array (which froze them on one language).
+  if (Array.isArray(value)) return value as string[];
+  if (value && typeof value === "object") {
+    return Object.values(value as Record<string, string>);
+  }
+  return undefined;
 }

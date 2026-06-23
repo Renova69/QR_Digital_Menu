@@ -440,140 +440,236 @@ export class RestaurantsService {
       };
     }
 
+    const targets = restaurant.targetLanguages;
+
+    // Skip items that already have translations for ALL target languages so
+    // repeated "Translate All" clicks don't burn the DeepL character quota.
+    // Must check for actual content (name), not just a language key — a prior
+    // failed/pending translation may have left an empty lang entry like { fr: {} }.
+    const needsTranslation = (existing: any): boolean => {
+      if (!existing || typeof existing !== 'object') return true;
+      return targets.some((lang: string) => !existing[lang]?.name);
+    };
+
+    const missingTargets = (existing: any): string[] => {
+      if (!existing || typeof existing !== 'object') return targets;
+      return targets.filter((lang: string) => !existing[lang]?.name);
+    };
+
+    // DeepL Free aggressively rate-limits concurrent bursts. Keep this low so the
+    // per-request retry/backoff in TranslationService rarely has to engage.
+    const TRANSLATE_CONCURRENCY = 2;
+
+    let catOk = 0;
+    let catFail = 0;
+    let catSkip = 0;
+    let itemOk = 0;
+    let itemFail = 0;
+    let itemSkip = 0;
+    let optOk = 0;
+    let optFail = 0;
+    let optSkip = 0;
+    let firstError = '';
+
+    // Process Items FIRST — they are the bulk of the menu and the content guests
+    // actually read. Giving items the DeepL budget before categories/options means
+    // a rate-limit or quota hiccup can never leave items untranslated while only
+    // the (cheap, few) category headers get through.
+    const items = await this.prisma.menuItem.findMany({
+      where: { category: { restaurantId: id } },
+    });
+
+    const itemsToTranslate = items.filter((it) =>
+      needsTranslation(it.translations),
+    );
+    itemSkip = items.length - itemsToTranslate.length;
+
+    const itemRes = await this.processTranslateBatch(
+      itemsToTranslate,
+      TRANSLATE_CONCURRENCY,
+      async (item) => {
+        const parsedTranslations: any =
+          item.translations && typeof item.translations === 'object'
+            ? item.translations
+            : {};
+
+        // Build translation map: name, description, + each allergen and tag
+        const textToTranslate: Record<string, string> = { name: item.name };
+        if (item.description) textToTranslate.description = item.description;
+
+        const allergens = item.allergens || [];
+        allergens.forEach((a: string) => {
+          textToTranslate[`allergen_${a}`] = a;
+        });
+
+        const dietaryTags = item.dietaryTags || [];
+        dietaryTags.forEach((t: string) => {
+          textToTranslate[`tag_${t}`] = t;
+        });
+
+        const newTranslations = await this.translationService.translateObject(
+          textToTranslate,
+          missingTargets(item.translations),
+        );
+
+        // Restructure: pull allergen_ and tag_ keys into arrays per language
+        for (const lang of Object.keys(newTranslations)) {
+          const langData = newTranslations[lang];
+          const translatedAllergens: string[] = [];
+          const translatedTags: string[] = [];
+
+          for (const key of Object.keys(langData)) {
+            if (key.startsWith('allergen_')) {
+              translatedAllergens.push(langData[key]);
+              delete langData[key];
+            } else if (key.startsWith('tag_')) {
+              translatedTags.push(langData[key]);
+              delete langData[key];
+            }
+          }
+
+          if (translatedAllergens.length > 0)
+            langData.allergens = translatedAllergens as any;
+          if (translatedTags.length > 0)
+            langData.dietaryTags = translatedTags as any;
+        }
+
+        await this.prisma.menuItem.update({
+          where: { id: item.id },
+          data: {
+            translations: { ...parsedTranslations, ...newTranslations },
+          },
+        });
+      },
+    );
+    itemOk = itemRes.ok;
+    itemFail = itemRes.failed;
+    if (itemRes.failed > 0 && !firstError)
+      firstError = `items: ${itemRes.failed} of ${itemsToTranslate.length} failed — ${itemRes.firstError}`;
+
     // Process Categories
     const categories = await this.prisma.menuCategory.findMany({
       where: { restaurantId: id },
     });
 
-    await this.processTranslateBatch(categories, 5, async (cat) => {
-      const parsedTranslations: any =
-        cat.translations && typeof cat.translations === 'object'
-          ? cat.translations
-          : {};
-      const newTranslations = await this.translationService.translateObject(
-        { name: cat.name },
-        restaurant.targetLanguages,
-      );
-      await this.prisma.menuCategory.update({
-        where: { id: cat.id },
-        data: { translations: { ...parsedTranslations, ...newTranslations } },
-      });
-    });
+    const catsToTranslate = categories.filter((c) =>
+      needsTranslation(c.translations),
+    );
+    catSkip = categories.length - catsToTranslate.length;
 
-    // Process Items
-    const items = await this.prisma.menuItem.findMany({
-      where: { category: { restaurantId: id } },
-    });
-
-    await this.processTranslateBatch(items, 5, async (item) => {
-      const parsedTranslations: any =
-        item.translations && typeof item.translations === 'object'
-          ? item.translations
-          : {};
-
-      // Build translation map: name, description, + each allergen and tag
-      const textToTranslate: Record<string, string> = { name: item.name };
-      if (item.description) textToTranslate.description = item.description;
-
-      const allergens = item.allergens || [];
-      allergens.forEach((a: string) => {
-        textToTranslate[`allergen_${a}`] = a;
-      });
-
-      const dietaryTags = item.dietaryTags || [];
-      dietaryTags.forEach((t: string) => {
-        textToTranslate[`tag_${t}`] = t;
-      });
-
-      const newTranslations = await this.translationService.translateObject(
-        textToTranslate,
-        restaurant.targetLanguages,
-      );
-
-      // Restructure: pull allergen_ and tag_ keys into arrays per language
-      for (const lang of Object.keys(newTranslations)) {
-        const langData = newTranslations[lang];
-        const translatedAllergens: string[] = [];
-        const translatedTags: string[] = [];
-
-        for (const key of Object.keys(langData)) {
-          if (key.startsWith('allergen_')) {
-            translatedAllergens.push(langData[key]);
-            delete langData[key];
-          } else if (key.startsWith('tag_')) {
-            translatedTags.push(langData[key]);
-            delete langData[key];
-          }
-        }
-
-        if (translatedAllergens.length > 0)
-          langData.allergens = translatedAllergens as any;
-        if (translatedTags.length > 0)
-          langData.dietaryTags = translatedTags as any;
-      }
-
-      await this.prisma.menuItem.update({
-        where: { id: item.id },
-        data: { translations: { ...parsedTranslations, ...newTranslations } },
-      });
-    });
+    const catRes = await this.processTranslateBatch(
+      catsToTranslate,
+      TRANSLATE_CONCURRENCY,
+      async (cat) => {
+        const parsedTranslations: any =
+          cat.translations && typeof cat.translations === 'object'
+            ? cat.translations
+            : {};
+        const newTranslations = await this.translationService.translateObject(
+          { name: cat.name },
+          missingTargets(cat.translations),
+        );
+        await this.prisma.menuCategory.update({
+          where: { id: cat.id },
+          data: {
+            translations: { ...parsedTranslations, ...newTranslations },
+          },
+        });
+      },
+    );
+    catOk = catRes.ok;
+    catFail = catRes.failed;
+    if (catRes.failed > 0 && !firstError)
+      firstError = `categories: ${catRes.failed} of ${catsToTranslate.length} failed — ${catRes.firstError}`;
 
     // Process Options
     const options = await this.prisma.menuOption.findMany({
       where: { menuItem: { category: { restaurantId: id } } },
     });
 
-    await this.processTranslateBatch(options, 5, async (option) => {
-      const parsedTranslations: any =
-        (option as any).translations &&
-        typeof (option as any).translations === 'object'
-          ? (option as any).translations
-          : {};
+    const optsToTranslate = options.filter((o) =>
+      needsTranslation((o as any).translations),
+    );
+    optSkip = options.length - optsToTranslate.length;
 
-      const textToTranslate: Record<string, string> = { name: option.name };
-      const choices = (option.choices as any[]) || [];
-      choices.forEach((c: any) => {
-        if (c.name) textToTranslate[`choice_${c.name}`] = c.name;
-      });
+    const optRes = await this.processTranslateBatch(
+      optsToTranslate,
+      TRANSLATE_CONCURRENCY,
+      async (option) => {
+        const parsedTranslations: any =
+          (option as any).translations &&
+          typeof (option as any).translations === 'object'
+            ? (option as any).translations
+            : {};
 
-      const newTranslations = await this.translationService.translateObject(
-        textToTranslate,
-        restaurant.targetLanguages,
-      );
+        const textToTranslate: Record<string, string> = { name: option.name };
+        const choices = (option.choices as any[]) || [];
+        choices.forEach((c: any) => {
+          if (c.name) textToTranslate[`choice_${c.name}`] = c.name;
+        });
 
-      for (const lang of Object.keys(newTranslations)) {
-        if (!parsedTranslations[lang])
-          parsedTranslations[lang] = { choices: {} };
-        if (!parsedTranslations[lang].choices)
-          parsedTranslations[lang].choices = {};
+        const newTranslations = await this.translationService.translateObject(
+          textToTranslate,
+          missingTargets((option as any).translations),
+        );
 
-        if (newTranslations[lang].name) {
-          parsedTranslations[lang].name = newTranslations[lang].name;
-        }
+        for (const lang of Object.keys(newTranslations)) {
+          if (!parsedTranslations[lang])
+            parsedTranslations[lang] = { choices: {} };
+          if (!parsedTranslations[lang].choices)
+            parsedTranslations[lang].choices = {};
 
-        for (const key of Object.keys(newTranslations[lang])) {
-          if (key.startsWith('choice_')) {
-            const originalChoiceName = key.replace('choice_', '');
-            parsedTranslations[lang].choices[originalChoiceName] =
-              newTranslations[lang][key];
+          if (newTranslations[lang].name) {
+            parsedTranslations[lang].name = newTranslations[lang].name;
+          }
+
+          for (const key of Object.keys(newTranslations[lang])) {
+            if (key.startsWith('choice_')) {
+              const originalChoiceName = key.replace('choice_', '');
+              parsedTranslations[lang].choices[originalChoiceName] =
+                newTranslations[lang][key];
+            }
           }
         }
-      }
 
-      await this.prisma.menuOption.update({
-        where: { id: option.id },
-        data: {
-          translations:
-            Object.keys(parsedTranslations).length > 0
-              ? parsedTranslations
-              : undefined,
-        } as any,
-      });
-    });
+        await this.prisma.menuOption.update({
+          where: { id: option.id },
+          data: {
+            translations:
+              Object.keys(parsedTranslations).length > 0
+                ? parsedTranslations
+                : undefined,
+          } as any,
+        });
+      },
+    );
+    optOk = optRes.ok;
+    optFail = optRes.failed;
+    if (optRes.failed > 0 && !firstError)
+      firstError = `options: ${optRes.failed} of ${optsToTranslate.length} failed — ${optRes.firstError}`;
 
+    if (firstError) {
+      this.logger.error(
+        `translateAll restaurant=${id}: ${firstError}. ` +
+          `OK — cats ${catOk}, items ${itemOk}, opts ${optOk}. ` +
+          `Fail — cats ${catFail}, items ${itemFail}, opts ${optFail}. ` +
+          `Skipped — cats ${catSkip}, items ${itemSkip}, opts ${optSkip}.`,
+      );
+      return {
+        success: false,
+        message: `Translation partially failed: ${firstError}. Translated: ${catOk + itemOk + optOk}, skipped (already done): ${catSkip + itemSkip + optSkip}. Check server logs for details.`,
+      };
+    }
+
+    const total = categories.length + items.length + options.length;
+    const skipped = catSkip + itemSkip + optSkip;
+    const translated = catOk + itemOk + optOk;
     return {
       success: true,
-      message: `Translated ${categories.length} categories, ${items.length} items, and ${options.length} options.`,
+      message:
+        skipped > 0
+          ? `Translated ${translated} entities, skipped ${skipped} (already translated).`
+          : `Translated ${categories.length} categories, ${items.length} items, and ${options.length} options.`,
     };
   }
 
@@ -582,16 +678,43 @@ export class RestaurantsService {
    * avoiding the 48+ second wall-clock penalty of a purely sequential loop
    * with 300ms delays (#N+1-C1). Each batch runs {@link concurrency} items
    * in parallel; the next batch waits for all items in the current batch.
+   *
+   * Returns counts of successfully- and unsuccessfully-processed items plus the
+   * first error message. It never throws on individual-item failure: one bad item
+   * does not abort siblings, and — crucially — the success count is preserved so
+   * the caller can report what actually got translated instead of reporting 0
+   * the moment a single item fails.
    */
   private async processTranslateBatch<T>(
     items: T[],
     concurrency: number,
     fn: (item: T) => Promise<void>,
-  ): Promise<void> {
+  ): Promise<{ ok: number; failed: number; firstError: string }> {
+    if (items.length === 0) return { ok: 0, failed: 0, firstError: '' };
+    let ok = 0;
+    let failed = 0;
+    let firstError = '';
     for (let i = 0; i < items.length; i += concurrency) {
       const batch = items.slice(i, i + concurrency);
-      await Promise.all(batch.map(fn));
+      const results = await Promise.allSettled(batch.map((item) => fn(item)));
+      for (const r of results) {
+        if (r.status === 'fulfilled') {
+          ok++;
+        } else {
+          failed++;
+          if (!firstError) {
+            firstError =
+              r.reason instanceof Error ? r.reason.message : String(r.reason);
+          }
+        }
+      }
     }
+    if (failed > 0) {
+      this.logger.warn(
+        `processTranslateBatch: ${failed} of ${items.length} entities failed translation`,
+      );
+    }
+    return { ok, failed, firstError };
   }
 
   async generateConnectLink(
@@ -635,7 +758,10 @@ export class RestaurantsService {
       );
     } catch (err: unknown) {
       const stripeErr = err as { code?: string; type?: string };
-      if (stripeErr?.code === 'resource_missing' && stripeErr?.type === 'invalid_request_error') {
+      if (
+        stripeErr?.code === 'resource_missing' &&
+        stripeErr?.type === 'invalid_request_error'
+      ) {
         // The Stripe Connect account was hard-deleted. Clear our reference.
         // Only clear paymentsEnabled when no other provider is active.
         this.logger.warn(
@@ -704,7 +830,9 @@ export class RestaurantsService {
    * frontend can embed it inline in QR SVGs without cross-origin canvas taint
    * (Issue 18).
    */
-  async getLogoBase64(restaurantId: string): Promise<{ dataUrl: string } | null> {
+  async getLogoBase64(
+    restaurantId: string,
+  ): Promise<{ dataUrl: string } | null> {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
       select: { logoUrl: true },

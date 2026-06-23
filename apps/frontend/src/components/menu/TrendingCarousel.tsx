@@ -1,19 +1,26 @@
-import React, { useEffect, useState } from 'react';
-import { getTrendingItems } from '../../lib/api';
-import { Item } from '../../types';
-import { ItemWithOptions } from './ItemWithOptions';
-import { useTranslation } from 'react-i18next';
-import { getTranslatedField } from '../../lib/translation';
+import React, { useEffect, useState } from "react";
+import { getTrendingItems } from "../../lib/api";
+import { Item } from "../../types";
+import { ItemWithOptions } from "./ItemWithOptions";
+import { useTranslation } from "react-i18next";
+import { getTranslatedField } from "../../lib/translation";
 
 interface TrendingCarouselProps {
   restaurantId: string;
   allMenuItems: Item[];
+  /** Menu's selected target language — drives content translation, not the UI locale. */
+  selectedLang?: string;
 }
 
-export const TrendingCarousel: React.FC<TrendingCarouselProps> = ({ restaurantId, allMenuItems }) => {
+export const TrendingCarousel: React.FC<TrendingCarouselProps> = ({
+  restaurantId,
+  allMenuItems,
+  selectedLang,
+}) => {
   const [trendingItems, setTrendingItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const { t, i18n } = useTranslation();
+  const lang = selectedLang || i18n.language;
 
   useEffect(() => {
     const fetchTrending = async () => {
@@ -21,7 +28,7 @@ export const TrendingCarousel: React.FC<TrendingCarouselProps> = ({ restaurantId
         const items = await getTrendingItems(restaurantId);
         setTrendingItems(items || []);
       } catch (err) {
-        console.error('Failed to load trending items:', err);
+        console.error("Failed to load trending items:", err);
       } finally {
         setLoading(false);
       }
@@ -60,23 +67,37 @@ export const TrendingCarousel: React.FC<TrendingCarouselProps> = ({ restaurantId
     <div className="mb-10">
       <div className="flex items-center justify-between mb-6 px-4">
         <h2 className="text-2xl font-display font-black tracking-tighter flex items-center gap-2">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-accent animate-pulse align-middle mr-1" aria-hidden="true" /> {t('publicMenu.trendingNow', 'Trending Now')}
+          <span
+            className="inline-block w-2.5 h-2.5 rounded-full bg-accent animate-pulse align-middle mr-1"
+            aria-hidden="true"
+          />{" "}
+          {t("publicMenu.trendingNow", "Trending Now")}
         </h2>
       </div>
-      
+
       <div className="flex overflow-x-auto gap-4 pb-4 px-4 hide-scrollbar snap-x">
-        {trendingItems.map(item => {
-            const translatedItem = {
-                ...item,
-                name: getTranslatedField(item, i18n.language, 'name') || item.name,
-                description: getTranslatedField(item, i18n.language, 'description') || item.description,
-            };
-            const pairings = allMenuItems.filter(i => item.relatedItemIds?.includes(i.id));
-            return (
-                <div key={item.id} className="min-w-[320px] max-w-[380px] snap-center shrink-0">
-                    <ItemWithOptions item={translatedItem} perfectPairings={pairings} />
-                </div>
-            );
+        {trendingItems.map((item) => {
+          const translatedItem = {
+            ...item,
+            name: getTranslatedField(item, lang, "name") || item.name,
+            description:
+              getTranslatedField(item, lang, "description") || item.description,
+          };
+          const pairings = allMenuItems.filter((i) =>
+            item.relatedItemIds?.includes(i.id),
+          );
+          return (
+            <div
+              key={item.id}
+              className="min-w-[320px] max-w-[380px] snap-center shrink-0"
+            >
+              <ItemWithOptions
+                item={translatedItem}
+                perfectPairings={pairings}
+                lang={lang}
+              />
+            </div>
+          );
         })}
       </div>
     </div>
