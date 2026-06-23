@@ -134,23 +134,40 @@ export class MenuImportService {
 
         let categoryId: string;
 
+        // ── Shared category data (new + existing) ────────────────
+        const catData = {
+          availabilityType,
+          ...(cat.translations
+            ? { translations: cat.translations }
+            : {}),
+          ...(cat.imageUrl !== undefined
+            ? { imageUrl: cat.imageUrl }
+            : {}),
+          ...(cat.thumbnailUrl !== undefined
+            ? { thumbnailUrl: cat.thumbnailUrl }
+            : {}),
+          ...(cat.startTime !== undefined
+            ? { startTime: cat.startTime }
+            : {}),
+          ...(cat.endTime !== undefined
+            ? { endTime: cat.endTime }
+            : {}),
+          ...(cat.daysOfWeek !== undefined
+            ? { daysOfWeek: cat.daysOfWeek }
+            : {}),
+          ...(cat.isDrinkCategory !== undefined
+            ? { isDrinkCategory: cat.isDrinkCategory }
+            : {}),
+        };
+
         if (!existingCat) {
           const created = await tx.menuCategory.create({
             data: {
               restaurantId,
               name: catName,
               order: cat.order ?? nextCatOrder++,
-              availabilityType,
               daysOfWeek: [],
-              ...(cat.translations
-                ? { translations: cat.translations }
-                : {}),
-              ...(cat.imageUrl !== undefined
-                ? { imageUrl: cat.imageUrl }
-                : {}),
-              ...(cat.thumbnailUrl !== undefined
-                ? { thumbnailUrl: cat.thumbnailUrl }
-                : {}),
+              ...catData,
             },
           });
           categoryId = created.id;
@@ -178,18 +195,7 @@ export class MenuImportService {
 
           await tx.menuCategory.update({
             where: { id: existingCat.id },
-            data: {
-              availabilityType,
-              ...(cat.translations
-                ? { translations: cat.translations }
-                : {}),
-              ...(cat.imageUrl !== undefined
-                ? { imageUrl: cat.imageUrl }
-                : {}),
-              ...(cat.thumbnailUrl !== undefined
-                ? { thumbnailUrl: cat.thumbnailUrl }
-                : {}),
-            },
+            data: catData,
           });
           categoryId = existingCat.id;
         }
@@ -224,6 +230,7 @@ export class MenuImportService {
             name: itemName,
             description: item.description || null,
             price: item.price ?? 0,
+            costPrice: item.costPrice ?? 0,
             weight: item.weight || null,
             currency,
             allergens: item.allergens ?? [],
@@ -236,6 +243,15 @@ export class MenuImportService {
               : {}),
             ...(item.thumbnailUrl !== undefined
               ? { thumbnailUrl: item.thumbnailUrl }
+              : {}),
+            ...(item.isOutOfStock !== undefined
+              ? { isOutOfStock: item.isOutOfStock }
+              : {}),
+            ...(item.isFeatured !== undefined
+              ? { isFeatured: item.isFeatured }
+              : {}),
+            ...(item.rewardPointsPrice !== undefined
+              ? { rewardPointsPrice: item.rewardPointsPrice }
               : {}),
           };
 
@@ -394,10 +410,15 @@ export class MenuImportService {
         ...(cat.imageUrl ? { imageUrl: cat.imageUrl } : {}),
         ...(cat.thumbnailUrl ? { thumbnailUrl: cat.thumbnailUrl } : {}),
         ...(cat.translations ? { translations: cat.translations } : {}),
+        ...(cat.startTime ? { startTime: cat.startTime } : {}),
+        ...(cat.endTime ? { endTime: cat.endTime } : {}),
+        ...(cat.daysOfWeek?.length ? { daysOfWeek: cat.daysOfWeek } : {}),
+        ...(cat.isDrinkCategory ? { isDrinkCategory: true } : {}),
         items: cat.items.map((item) => ({
           name: item.name,
           ...(item.description ? { description: item.description } : {}),
           price: item.price,
+          ...(item.costPrice ? { costPrice: item.costPrice } : {}),
           currency: item.currency,
           ...(item.weight ? { weight: item.weight } : {}),
           ...(item.allergens?.length ? { allergens: item.allergens } : {}),
@@ -408,6 +429,11 @@ export class MenuImportService {
           ...(item.imageUrl ? { imageUrl: item.imageUrl } : {}),
           ...(item.thumbnailUrl ? { thumbnailUrl: item.thumbnailUrl } : {}),
           ...(item.translations ? { translations: item.translations } : {}),
+          ...(item.isOutOfStock ? { isOutOfStock: true } : {}),
+          ...(item.isFeatured ? { isFeatured: true } : {}),
+          ...(item.rewardPointsPrice
+            ? { rewardPointsPrice: item.rewardPointsPrice }
+            : {}),
           ...(item.options?.length
             ? {
                 options: item.options.map((opt) => ({

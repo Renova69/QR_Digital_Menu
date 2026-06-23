@@ -548,6 +548,21 @@ api.interceptors.request.use(async (config) => {
     if (!csrfToken) await fetchCsrfToken();
     setCsrfHeader(config);
   }
+
+  // ── Frontend trace headers ──────────────────────────────────────────
+  // These let the backend LoggingInterceptor correlate requests back to
+  // the page/component that fired them, helping track down sources of
+  // excessive API calls.
+  config.headers = config.headers ?? {};
+  config.headers["X-Trace-Origin"] =
+    typeof window !== "undefined" ? window.location.pathname : "ssr";
+  // crypto.randomUUID() requires a secure context (HTTPS); fall back for HTTP dev.
+  config.headers["X-Correlation-Id"] =
+    typeof globalThis.crypto?.randomUUID === "function"
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  config.headers["X-Request-Started-At"] = String(Date.now());
+
   return config;
 });
 

@@ -130,7 +130,7 @@ export class DashboardViewsService implements OnModuleInit {
     // A normal restart (unchanged definitions) does zero DDL. DDL here is plain
     // (no CONCURRENTLY), so running it inside a transaction is safe.
     await this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('dashboard_views_create'))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('dashboard_views_create'))`;
 
       for (const def of this.viewDefs) {
         const version = this.viewVersion(def);

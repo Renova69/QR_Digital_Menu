@@ -3,6 +3,8 @@ import {
   IsOptional,
   IsNumber,
   IsArray,
+  IsBoolean,
+  IsInt,
   ValidateNested,
   IsObject,
   IsUrl,
@@ -61,6 +63,11 @@ export class ImportItemDto {
   @IsOptional()
   price?: number;
 
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  costPrice?: number;
+
   @IsString()
   @MaxLength(100)
   @IsOptional()
@@ -102,6 +109,19 @@ export class ImportItemDto {
   @IsUrl({ require_tld: true, protocols: ['https', 'http'] })
   thumbnailUrl?: string;
 
+  @IsBoolean()
+  @IsOptional()
+  isOutOfStock?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isFeatured?: boolean;
+
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  rewardPointsPrice?: number;
+
   @IsArray()
   @ArrayMaxSize(20)
   @ValidateNested({ each: true })
@@ -138,6 +158,23 @@ export class ImportCategoryDto {
   @MaxLength(2048)
   @IsUrl({ require_tld: true, protocols: ['https', 'http'] })
   thumbnailUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  startTime?: string;
+
+  @IsString()
+  @IsOptional()
+  endTime?: string;
+
+  @IsArray()
+  @IsInt({ each: true })
+  @IsOptional()
+  daysOfWeek?: number[];
+
+  @IsBoolean()
+  @IsOptional()
+  isDrinkCategory?: boolean;
 
   @IsArray()
   @ArrayMaxSize(100)

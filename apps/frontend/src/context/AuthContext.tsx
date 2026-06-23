@@ -48,27 +48,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      // Fetch /auth/me and /restaurants in parallel — eliminates the sequential waterfall
-      // /restaurants will 401 if not logged in; Promise.allSettled handles that safely
-      const [meResult, restaurantsResult] = await Promise.allSettled([
-        api.get('/auth/me'),
-        api.get('/restaurants'),
-      ]);
+      try {
+        // Fetch /auth/me first to verify authentication
+        const meResult = await api.get('/auth/me');
+        
+        // A login or logout occurred while /auth/me was in-flight — don't overwrite.
+        if (manualAuthRef.current) {
+          setIsLoading(false);
+          return;
+        }
 
-      // A login or logout occurred while /auth/me was in-flight — don't overwrite.
-      if (manualAuthRef.current) {
+        const userData = meResult.data;
+        setUser(userData);
+
+        // Only fetch restaurants if the user is authenticated, avoiding 401 errors
+        if (userData) {
+          try {
+            const restaurantsResult = await api.get('/restaurants');
+            setPrefetchedRestaurants(restaurantsResult.data);
+          } catch (err) {
+            // It's safe to let the logger catch this if it fails despite auth
+            setPrefetchedRestaurants(null);
+          }
+        }
+      } catch (error) {
+        // Not authenticated
+        if (manualAuthRef.current) {
+          setIsLoading(false);
+          return;
+        }
+        setUser(null);
+        setPrefetchedRestaurants(null);
+      } finally {
         setIsLoading(false);
-        return;
       }
-
-      const userData = meResult.status === 'fulfilled' ? meResult.value.data : null;
-      const restaurantsData =
-        restaurantsResult.status === 'fulfilled' ? restaurantsResult.value.data : null;
-
-      // React 18 batches these automatically — single re-render
-      setUser(userData);
-      setPrefetchedRestaurants(restaurantsData);
-      setIsLoading(false);
     };
 
     initializeAuth();

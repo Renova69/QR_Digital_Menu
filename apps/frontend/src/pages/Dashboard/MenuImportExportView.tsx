@@ -166,12 +166,20 @@ function jsonToPayload(text: string): any[] {
           name: item.name,
           description: item.description || '',
           price: item.price ?? 0,
+          ...(item.costPrice ? { costPrice: item.costPrice } : {}),
           weight: item.weight || null,
           currency: obj.currency === 'BGN' ? 'BGN' : 'EUR',
           allergens,
           dietaryTags,
           options,
           ...(item.translations ? { translations: item.translations } : {}),
+          ...(item.imageUrl ? { imageUrl: item.imageUrl } : {}),
+          ...(item.thumbnailUrl ? { thumbnailUrl: item.thumbnailUrl } : {}),
+          ...(item.isOutOfStock ? { isOutOfStock: item.isOutOfStock } : {}),
+          ...(item.isFeatured ? { isFeatured: item.isFeatured } : {}),
+          ...(item.rewardPointsPrice
+            ? { rewardPointsPrice: item.rewardPointsPrice }
+            : {}),
         };
       },
     );
@@ -180,6 +188,15 @@ function jsonToPayload(text: string): any[] {
       order: cat.sort_order || cat.order || i + 1,
       items,
       ...(cat.translations ? { translations: cat.translations } : {}),
+      ...(cat.availabilityType
+        ? { availabilityType: cat.availabilityType }
+        : {}),
+      ...(cat.imageUrl ? { imageUrl: cat.imageUrl } : {}),
+      ...(cat.thumbnailUrl ? { thumbnailUrl: cat.thumbnailUrl } : {}),
+      ...(cat.startTime ? { startTime: cat.startTime } : {}),
+      ...(cat.endTime ? { endTime: cat.endTime } : {}),
+      ...(cat.daysOfWeek?.length ? { daysOfWeek: cat.daysOfWeek } : {}),
+      ...(cat.isDrinkCategory ? { isDrinkCategory: cat.isDrinkCategory } : {}),
     };
   });
 }
