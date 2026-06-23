@@ -2,7 +2,13 @@ import { useState, useContext } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useTranslation } from "react-i18next";
 import { usePos } from "../../context/PosContext";
-import { createOrder, closeSession, closeSessionWithCard, closeSessionWithCash, getOrCreateSession } from "../../lib/api";
+import {
+  createOrder,
+  closeSession,
+  closeSessionWithCard,
+  closeSessionWithCash,
+  getOrCreateSession,
+} from "../../lib/api";
 import RestaurantContext from "../../context/RestaurantContext";
 import PosSplitDrawer from "./PosSplitDrawer";
 import PosQRBill from "./PosQRBill";
@@ -27,7 +33,10 @@ const SEAT_LABEL_KEYS: Record<string, string> = {
   Shared: "pos.seatShared",
 };
 
-export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) {
+export default function PosCartDrawer({
+  itemCount,
+  total,
+}: PosCartDrawerProps) {
   const { t } = useTranslation();
   // Confirm dialog portals to <body>, outside the POS scoped `.dark` shell.
   const { theme } = usePosTheme();
@@ -76,7 +85,10 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
       // never leave orphan open tables.
       let sessionToken = session.sessionToken;
       if (!sessionToken) {
-        const result = await getOrCreateSession(session.tableId, activeRestaurant.id);
+        const result = await getOrCreateSession(
+          session.tableId,
+          activeRestaurant.id,
+        );
         sessionToken = result.token;
         setSession({
           ...session,
@@ -104,7 +116,8 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
       setExpanded(false);
     } catch (err: any) {
       setSubmitError(
-        err.response?.data?.message ?? t("pos.failedSubmitOrder", "Failed to submit order. Try again.")
+        err.response?.data?.message ??
+          t("pos.failedSubmitOrder", "Failed to submit order. Try again."),
       );
     } finally {
       setSubmitting(false);
@@ -122,7 +135,8 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
       setExpanded(false);
     } catch (err: any) {
       setSubmitError(
-        err.response?.data?.message ?? t("pos.failedCloseSession", "Failed to close session. Try again.")
+        err.response?.data?.message ??
+          t("pos.failedCloseSession", "Failed to close session. Try again."),
       );
     } finally {
       setClosing(false);
@@ -140,7 +154,8 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
       setExpanded(false);
     } catch (err: any) {
       setSubmitError(
-        err.response?.data?.message ?? t("pos.failedCloseSession", "Failed to close session. Try again.")
+        err.response?.data?.message ??
+          t("pos.failedCloseSession", "Failed to close session. Try again."),
       );
     } finally {
       setClosing(false);
@@ -165,7 +180,8 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
       setExpanded(false);
     } catch (err: any) {
       setSubmitError(
-        err.response?.data?.message ?? t("pos.failedCloseSession", "Failed to close session. Try again.")
+        err.response?.data?.message ??
+          t("pos.failedCloseSession", "Failed to close session. Try again."),
       );
     } finally {
       setClosing(false);
@@ -188,12 +204,15 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
     setNoteDraft("");
   };
 
-  const itemsBySeat = items.reduce<Record<string, typeof items>>((acc, item) => {
-    const seat = item.seatNumber || "Shared";
-    if (!acc[seat]) acc[seat] = [];
-    acc[seat].push(item);
-    return acc;
-  }, {});
+  const itemsBySeat = items.reduce<Record<string, typeof items>>(
+    (acc, item) => {
+      const seat = item.seatNumber || "Shared";
+      if (!acc[seat]) acc[seat] = [];
+      acc[seat].push(item);
+      return acc;
+    },
+    {},
+  );
 
   const getSeatLabel = (seat: string) => {
     const key = SEAT_LABEL_KEYS[seat];
@@ -209,16 +228,25 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
         className="w-full flex items-center justify-between py-3 px-4 rounded-lg brand-cta font-semibold min-h-[44px]"
       >
         <span>
-          {itemCount} {itemCount === 1 ? t("pos.item", "item") : t("pos.items", "items")} · €{total.toFixed(2)}
+          {itemCount}{" "}
+          {itemCount === 1 ? t("pos.item", "item") : t("pos.items", "items")} ·
+          €{total.toFixed(2)}
         </span>
-        <span>{expanded ? t("pos.closeCart", "Close") : t("pos.viewCart", "View Cart")}</span>
+        <span>
+          {expanded
+            ? t("pos.closeCart", "Close")
+            : t("pos.viewCart", "View Cart")}
+        </span>
       </button>
 
       {/* Expanded cart */}
       {expanded && (
         <div className="mt-3 border border-border rounded-lg bg-card max-h-[40dvh] overflow-y-auto">
           {Object.entries(itemsBySeat).map(([seat, seatItems]) => (
-            <div key={seat} className="px-4 py-2 border-b border-border last:border-b-0">
+            <div
+              key={seat}
+              className="px-4 py-2 border-b border-border last:border-b-0"
+            >
               <div className="text-xs font-semibold text-muted-foreground mb-2">
                 [{getSeatLabel(seat)}]
               </div>
@@ -253,7 +281,7 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                         </div>
                       )}
                       {!isSubmitted && editingNoteId === item.cartId ? (
-                        <div className="flex items-center gap-1 mt-1">
+                        <div className="mt-1 space-y-1">
                           <input
                             type="text"
                             value={noteDraft}
@@ -262,47 +290,56 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                               if (e.key === "Enter") saveNote(item.cartId);
                               if (e.key === "Escape") cancelEditingNote();
                             }}
-                            placeholder={t("pos.notePlaceholder", "e.g. no salt, extra sauce...")}
-                            className="flex-1 px-2 py-1 rounded bg-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                            placeholder={t(
+                              "pos.notePlaceholder",
+                              "e.g. no salt, extra sauce...",
+                            )}
+                            className="w-full px-2 py-1 rounded bg-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                             autoFocus
                           />
-                          <button
-                            type="button"
-                            onClick={() => saveNote(item.cartId)}
-                            className="text-xs text-primary font-medium px-2 py-1 min-h-[32px]"
-                          >
-                            {t("pos.save", "Save")}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={cancelEditingNote}
-                            className="text-xs text-muted-foreground px-1 py-1 min-h-[32px]"
-                          >
-                            ✕
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => saveNote(item.cartId)}
+                              className="text-xs font-medium px-3 py-1 rounded bg-primary text-primary-foreground active:bg-primary/80 min-h-[32px]"
+                            >
+                              {t("pos.save", "Save")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelEditingNote}
+                              className="text-xs text-muted-foreground px-2 py-1 min-h-[32px]"
+                            >
+                              ✕
+                            </button>
+                          </div>
                         </div>
                       ) : !isSubmitted ? (
                         <button
                           type="button"
-                          onClick={() => startEditingNote(item.cartId, item.itemNote || "")}
+                          onClick={() =>
+                            startEditingNote(item.cartId, item.itemNote || "")
+                          }
                           className="text-xs text-muted-foreground underline mt-1 min-h-[32px]"
                         >
-                          {item.itemNote ? t("pos.editNote", "Edit note") : t("pos.addNote", "+ Add note")}
+                          {item.itemNote
+                            ? t("pos.editNote", "Edit note")
+                            : t("pos.addNote", "+ Add note")}
                         </button>
                       ) : null}
                     </div>
                     {!isSubmitted ? (
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <button
                           type="button"
                           onClick={() =>
                             updateQuantity(item.cartId, item.quantity - 1)
                           }
-                          className="h-11 w-11 rounded-full bg-card border border-border text-foreground flex items-center justify-center text-sm"
+                          className="h-9 w-9 rounded-full bg-card border border-border text-foreground flex items-center justify-center text-sm"
                         >
                           −
                         </button>
-                        <span className="text-sm w-6 text-center">
+                        <span className="text-sm w-5 text-center">
                           {item.quantity}
                         </span>
                         <button
@@ -310,14 +347,14 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                           onClick={() =>
                             updateQuantity(item.cartId, item.quantity + 1)
                           }
-                          className="h-11 w-11 rounded-full bg-card border border-border text-foreground flex items-center justify-center text-sm"
+                          className="h-9 w-9 rounded-full bg-card border border-border text-foreground flex items-center justify-center text-sm"
                         >
                           +
                         </button>
                         <button
                           type="button"
                           onClick={() => removeItem(item.cartId)}
-                          className="ml-2 flex h-11 w-11 items-center justify-center rounded-full bg-destructive/10 text-sm text-destructive"
+                          className="ml-1.5 flex h-9 w-9 items-center justify-center rounded-full bg-destructive/10 text-sm text-destructive"
                         >
                           ✕
                         </button>
@@ -344,7 +381,9 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
               <span>{historyError}</span>
               <button
                 type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent("pos:open-table-modal"))}
+                onClick={() =>
+                  window.dispatchEvent(new CustomEvent("pos:open-table-modal"))
+                }
                 className="underline text-xs font-medium ml-2 shrink-0 min-h-[32px]"
               >
                 {t("pos.retryHistory", "Retry")}
@@ -367,7 +406,10 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
               type="text"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
-              placeholder={t("pos.guestNamePlaceholder", "Guest name (optional)")}
+              placeholder={t(
+                "pos.guestNamePlaceholder",
+                "Guest name (optional)",
+              )}
               className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm placeholder:text-muted-foreground"
               maxLength={100}
             />
@@ -375,39 +417,63 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
             {/* Submit Order — only pending items */}
             <button
               type="button"
-              onClick={() => setConfirmAction({ type: "submit", total: pendingTotal })}
-              disabled={submitting || pendingItems.length === 0 || historyLoading}
+              onClick={() =>
+                setConfirmAction({ type: "submit", total: pendingTotal })
+              }
+              disabled={
+                submitting || pendingItems.length === 0 || historyLoading
+              }
               className="w-full py-3 rounded-lg brand-cta font-semibold disabled:opacity-50 min-h-[44px]"
             >
               {submitting
                 ? t("pos.submitting", "Submitting...")
                 : pendingItems.length === 0
                   ? t("pos.noNewItems", "No new items to submit")
-                  : t("pos.submitOrderTotal", { total: pendingTotal.toFixed(2) })}
+                  : t("pos.submitOrderTotal", {
+                      total: pendingTotal.toFixed(2),
+                    })}
             </button>
 
             {/* Close - Paid by Card — only shown when restaurant has payments enabled */}
             {activeRestaurant?.paymentsEnabled && (
               <button
                 type="button"
-                onClick={() => setConfirmAction({ type: "card", total: submittedTotal })}
+                onClick={() =>
+                  setConfirmAction({ type: "card", total: submittedTotal })
+                }
                 disabled={closing || !hasAnyItems || hasPending}
-                title={hasPending ? t("pos.submitPendingFirst", "Submit pending items first") : undefined}
+                title={
+                  hasPending
+                    ? t("pos.submitPendingFirst", "Submit pending items first")
+                    : undefined
+                }
                 className="w-full py-3 rounded-lg bg-warning text-warning-foreground font-semibold disabled:opacity-50 min-h-[44px]"
               >
-                {closing ? t("pos.closing", "Closing...") : t("pos.closeCardTotal", { total: submittedTotal.toFixed(2) })}
+                {closing
+                  ? t("pos.closing", "Closing...")
+                  : t("pos.closeCardTotal", {
+                      total: submittedTotal.toFixed(2),
+                    })}
               </button>
             )}
 
             {/* Close - Paid by Cash — always visible */}
             <button
               type="button"
-              onClick={() => setConfirmAction({ type: "cash", total: submittedTotal })}
+              onClick={() =>
+                setConfirmAction({ type: "cash", total: submittedTotal })
+              }
               disabled={closing || !hasAnyItems || hasPending}
-              title={hasPending ? t("pos.submitPendingFirst", "Submit pending items first") : undefined}
+              title={
+                hasPending
+                  ? t("pos.submitPendingFirst", "Submit pending items first")
+                  : undefined
+              }
               className="w-full py-3 rounded-lg bg-success text-success-foreground font-semibold disabled:opacity-50 min-h-[44px]"
             >
-              {closing ? t("pos.closing", "Closing...") : t("pos.closeCashTotal", { total: submittedTotal.toFixed(2) })}
+              {closing
+                ? t("pos.closing", "Closing...")
+                : t("pos.closeCashTotal", { total: submittedTotal.toFixed(2) })}
             </button>
 
             {/* Split bill — settle the table in parts (by item / even / custom).
@@ -421,7 +487,11 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                 submittedTotal <= 0 ||
                 hasPending
               }
-              title={hasPending ? t("pos.submitPendingFirst", "Submit pending items first") : undefined}
+              title={
+                hasPending
+                  ? t("pos.submitPendingFirst", "Submit pending items first")
+                  : undefined
+              }
               className="w-full py-3 rounded-lg bg-card border border-border text-foreground font-semibold disabled:opacity-50 min-h-[44px]"
             >
               {t("pos.split.splitBill", "Split bill")}
@@ -434,7 +504,9 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
               disabled={closing}
               className="w-full py-3 rounded-lg bg-destructive text-destructive-foreground font-semibold disabled:opacity-50 min-h-[44px]"
             >
-              {closing ? t("pos.closing", "Closing...") : t("pos.forceCloseNoPayment", "Force Close · No Payment")}
+              {closing
+                ? t("pos.closing", "Closing...")
+                : t("pos.forceCloseNoPayment", "Force Close · No Payment")}
             </button>
           </div>
         </div>
@@ -449,36 +521,52 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
       >
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-          <Dialog.Content className={`fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-md mx-auto rounded-xl bg-background p-6 text-foreground ${theme === "dark" ? "dark" : ""}`}>
+          <Dialog.Content
+            className={`fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-md mx-auto rounded-xl bg-background p-6 text-foreground ${theme === "dark" ? "dark" : ""}`}
+          >
             <Dialog.Title className="text-lg font-semibold mb-2">
-              {confirmAction?.type === "submit" && t("pos.confirmSubmitTitle", "Submit Order")}
-              {confirmAction?.type === "card" && t("pos.confirmCardTitle", "Close Table — Paid by Card")}
-              {confirmAction?.type === "cash" && t("pos.confirmCashTitle", "Close Table — Paid by Cash")}
-              {confirmAction?.type === "force" && t("pos.confirmForceTitle", "Force Close — No Payment")}
+              {confirmAction?.type === "submit" &&
+                t("pos.confirmSubmitTitle", "Submit Order")}
+              {confirmAction?.type === "card" &&
+                t("pos.confirmCardTitle", "Close Table — Paid by Card")}
+              {confirmAction?.type === "cash" &&
+                t("pos.confirmCashTitle", "Close Table — Paid by Cash")}
+              {confirmAction?.type === "force" &&
+                t("pos.confirmForceTitle", "Force Close — No Payment")}
             </Dialog.Title>
             <Dialog.Description className="text-sm text-muted-foreground mb-6">
               {confirmAction?.type === "submit" && (
                 <>
                   {t("pos.confirmSubmitDesc", {
                     count: pendingCount,
-                    itemText: pendingCount === 1 ? t("pos.item", "item") : t("pos.items", "items"),
+                    itemText:
+                      pendingCount === 1
+                        ? t("pos.item", "item")
+                        : t("pos.items", "items"),
                     total: confirmAction.total.toFixed(2),
                   })}
                 </>
               )}
               {confirmAction?.type === "card" && (
                 <>
-                  {t("pos.confirmCardDesc", { total: confirmAction.total.toFixed(2) })}
+                  {t("pos.confirmCardDesc", {
+                    total: confirmAction.total.toFixed(2),
+                  })}
                 </>
               )}
               {confirmAction?.type === "cash" && (
                 <>
-                  {t("pos.confirmCashDesc", { total: confirmAction.total.toFixed(2) })}
+                  {t("pos.confirmCashDesc", {
+                    total: confirmAction.total.toFixed(2),
+                  })}
                 </>
               )}
               {confirmAction?.type === "force" && (
                 <>
-                  {t("pos.confirmForceDesc", "Close table without any payment? This cannot be undone. Use only when the customer is leaving without paying or for testing.")}
+                  {t(
+                    "pos.confirmForceDesc",
+                    "Close table without any payment? This cannot be undone. Use only when the customer is leaving without paying or for testing.",
+                  )}
                 </>
               )}
             </Dialog.Description>
@@ -509,9 +597,12 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
                 }`}
               >
                 {confirmAction?.type === "submit" && t("pos.submit", "Submit")}
-                {confirmAction?.type === "card" && t("pos.confirmPaid", "Confirm Paid")}
-                {confirmAction?.type === "cash" && t("pos.confirmCash", "Confirm Cash")}
-                {confirmAction?.type === "force" && t("pos.forceClose", "Force Close")}
+                {confirmAction?.type === "card" &&
+                  t("pos.confirmPaid", "Confirm Paid")}
+                {confirmAction?.type === "cash" &&
+                  t("pos.confirmCash", "Confirm Cash")}
+                {confirmAction?.type === "force" &&
+                  t("pos.forceClose", "Force Close")}
               </button>
             </div>
           </Dialog.Content>
