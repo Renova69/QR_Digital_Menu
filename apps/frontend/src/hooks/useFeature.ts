@@ -51,6 +51,7 @@ const TIER_FEATURES: Record<SubscriptionTier, FeatureFlag[]> = {
     'orders:receive',
     'orders:call-waiter',
     'analytics:basic',
+    'languages:multi',
   ],
   PROFESSIONAL: [
     'menu:view',

@@ -12,7 +12,7 @@ const FEATURE_MIN_TIER: Partial<Record<FeatureFlag, SubscriptionTier>> = {
   'analytics:full':    'PROFESSIONAL',
   'orders:call-waiter':'PROFESSIONAL',
   'payments:stripe':   'PROFESSIONAL',
-  'languages:multi':   'PROFESSIONAL',
+  'languages:multi':   'STARTER',
   'branding:custom':   'PROFESSIONAL',
   'loyalty':           'PROFESSIONAL',
   'customers:auth':    'PROFESSIONAL',
@@ -54,7 +54,7 @@ const TIERS: Array<{ key: SubscriptionTier; price: number; bullets: string[] }> 
   {
     key: 'STARTER',
     price: 15,
-    bullets: ['Online ordering', 'Basic analytics', '1 staff member'],
+    bullets: ['Online ordering', 'Basic analytics', 'Multi-language menu', '1 staff member'],
   },
   {
     key: 'PROFESSIONAL',

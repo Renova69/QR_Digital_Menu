@@ -23,10 +23,11 @@ describe('FeatureService', () => {
       expect(features).not.toContain(FeatureFlag.POS);
     });
 
-    it('returns orders+call-waiter+analytics for STARTER tier', () => {
+    it('returns orders+call-waiter+analytics+multi-language for STARTER tier', () => {
       const features = service.getFeatures('STARTER');
       expect(features).toContain(FeatureFlag.ORDERS_RECEIVE);
       expect(features).toContain(FeatureFlag.ORDERS_CALL_WAITER);
+      expect(features).toContain(FeatureFlag.LANGUAGES_MULTI);
       expect(features).toContain(FeatureFlag.ANALYTICS_BASIC);
       expect(features).toContain(FeatureFlag.MENU_IMPORT);
       expect(features).not.toContain(FeatureFlag.PAYMENTS_STRIPE);

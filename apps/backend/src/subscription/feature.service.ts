@@ -19,6 +19,7 @@ const STARTER_FEATURES: FeatureFlag[] = [
   FeatureFlag.ORDERS_RECEIVE,
   FeatureFlag.ORDERS_CALL_WAITER,
   FeatureFlag.ANALYTICS_BASIC,
+  FeatureFlag.LANGUAGES_MULTI,
 ];
 
 const PROFESSIONAL_FEATURES: FeatureFlag[] = [
@@ -28,7 +29,6 @@ const PROFESSIONAL_FEATURES: FeatureFlag[] = [
   FeatureFlag.PAYMENTS_BORICA,
   FeatureFlag.PAYMENTS_MYPOS,
   FeatureFlag.PAYMENTS_STRIPE,
-  FeatureFlag.LANGUAGES_MULTI,
   FeatureFlag.BRANDING_CUSTOM,
   FeatureFlag.LOYALTY,
   FeatureFlag.CUSTOMERS_AUTH,

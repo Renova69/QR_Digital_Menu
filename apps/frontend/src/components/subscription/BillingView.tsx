@@ -34,7 +34,7 @@ const PLAN_CONFIG: Record<SubscriptionTier, { monthly: number; highlight: Featur
   },
   STARTER: {
     monthly: 15,
-    highlight: ['orders:receive', 'analytics:basic'],
+    highlight: ['orders:receive', 'analytics:basic', 'languages:multi'],
   },
   PROFESSIONAL: {
     monthly: 25,
