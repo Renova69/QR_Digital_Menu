@@ -6,6 +6,7 @@ describe('DashboardViewsService', () => {
 
   beforeEach(() => {
     mockPrisma = {
+      $executeRaw: jest.fn().mockResolvedValue(1),
       $executeRawUnsafe: jest.fn().mockResolvedValue(1),
       // Comment read defaults to null => every view is treated as stale/missing
       // and gets (re)built.
@@ -28,12 +29,26 @@ describe('DashboardViewsService', () => {
 
       expect(service.isReady()).toBe(true);
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
-      // advisory lock acquired once
-      expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);
+      // pg_advisory_xact_lock returns void, so it must not use $queryRaw.
+      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.$queryRaw).not.toHaveBeenCalled();
       // one comment read per view
       expect(mockPrisma.$queryRawUnsafe).toHaveBeenCalledTimes(3);
       // 3 views × (DROP + CREATE + INDEX + COMMENT)
       expect(mockPrisma.$executeRawUnsafe).toHaveBeenCalledTimes(12);
+    });
+
+    it('uses $executeRaw for void-returning advisory locks', async () => {
+      await service.onModuleInit();
+
+      const lockSql = mockPrisma.$executeRaw.mock.calls
+        .map(([sql]: [TemplateStringsArray | string]) =>
+          Array.isArray(sql) ? sql.join('') : String(sql),
+        )
+        .find((sql: string) => sql.includes('pg_advisory_xact_lock'));
+
+      expect(lockSql).toContain('dashboard_views_create');
+      expect(mockPrisma.$queryRaw).not.toHaveBeenCalled();
     });
 
     it('skips rebuild for views whose stamped version still matches', async () => {

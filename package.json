@@ -9,6 +9,7 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
+    "guard:prisma-raw-void": "node scripts/check-prisma-raw-void.js",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "logs:errors": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/logs.ps1 -Kind errors",
     "logs:payments": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/logs.ps1 -Kind payments",

@@ -32,6 +32,9 @@ jobs:
         working-directory: apps/backend
         run: npx prisma generate
 
+      - name: Prisma raw-query guard
+        run: npm run guard:prisma-raw-void
+
       - name: Backend unit tests
         working-directory: apps/backend
         run: npx jest --reporters=default --ci
