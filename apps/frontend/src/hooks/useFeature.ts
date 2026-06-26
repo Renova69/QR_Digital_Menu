@@ -42,15 +42,15 @@ export type SubscriptionTier = 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE
 // restaurant). Once the API resolves, useTier()/useFeature() always prefer
 // the server-derived `features` array over this constant.
 const TIER_FEATURES: Record<SubscriptionTier, FeatureFlag[]> = {
-  FREE: ['menu:view', 'menu:edit', 'menu:import', 'qr:manage'],
+  FREE: ['menu:view', 'menu:edit', 'menu:import', 'qr:manage', 'analytics:basic'],
   STARTER: [
     'menu:view',
     'menu:edit',
     'menu:import',
     'qr:manage',
+    'analytics:basic',
     'orders:receive',
     'orders:call-waiter',
-    'analytics:basic',
     'languages:multi',
   ],
   PROFESSIONAL: [

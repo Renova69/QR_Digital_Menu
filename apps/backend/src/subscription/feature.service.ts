@@ -12,13 +12,13 @@ const FREE_FEATURES: FeatureFlag[] = [
   FeatureFlag.MENU_EDIT,
   FeatureFlag.MENU_IMPORT,
   FeatureFlag.QR_MANAGE,
+  FeatureFlag.ANALYTICS_BASIC,
 ];
 
 const STARTER_FEATURES: FeatureFlag[] = [
   ...FREE_FEATURES,
   FeatureFlag.ORDERS_RECEIVE,
   FeatureFlag.ORDERS_CALL_WAITER,
-  FeatureFlag.ANALYTICS_BASIC,
   FeatureFlag.LANGUAGES_MULTI,
 ];
 

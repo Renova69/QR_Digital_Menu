@@ -225,7 +225,7 @@ export const useAnalytics = (
 /**
  * Today's revenue goal vs. actual collected revenue. Backend computes both
  * server-side ({ target, actual }) so the card is self-contained. Gated at
- * ANALYTICS_BASIC (STARTER+) — same tier as the summary KPIs it sits beside.
+ * ANALYTICS_BASIC (all tiers) — same tier as the summary KPIs it sits beside.
  */
 export const useDailyTarget = (
   restaurantId: string | undefined,

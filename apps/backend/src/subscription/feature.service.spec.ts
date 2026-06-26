@@ -13,12 +13,13 @@ describe('FeatureService', () => {
   });
 
   describe('getFeatures', () => {
-    it('returns menu+qr+import features for FREE tier', () => {
+    it('returns menu+qr+import+basic analytics features for FREE tier', () => {
       const features = service.getFeatures('FREE');
       expect(features).toContain(FeatureFlag.MENU_VIEW);
       expect(features).toContain(FeatureFlag.MENU_EDIT);
       expect(features).toContain(FeatureFlag.MENU_IMPORT);
       expect(features).toContain(FeatureFlag.QR_MANAGE);
+      expect(features).toContain(FeatureFlag.ANALYTICS_BASIC);
       expect(features).not.toContain(FeatureFlag.ORDERS_RECEIVE);
       expect(features).not.toContain(FeatureFlag.POS);
     });
