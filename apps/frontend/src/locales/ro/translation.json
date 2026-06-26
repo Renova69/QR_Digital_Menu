@@ -1696,13 +1696,14 @@
         "starter": {
           "name": "Starter",
           "period": "pe lună",
-          "description": "Adăugați comenzi online și analize de bază pentru o echipă mică de restaurant.",
+          "description": "Adăugați comenzi online, analize de bază și meniuri multilingve pentru o echipă mică de restaurant.",
           "cta": "Alegeți Starter",
           "b1": "Totul din Gratuit",
           "b2": "Comenzi online",
           "b3": "Analize de bază și sumar",
           "b4": "Flux status comenzi",
-          "b5": "1 membru personal"
+          "b5": "Meniuri multilingve",
+          "b6": "1 membru personal"
         },
         "professional": {
           "name": "Profesional",
@@ -1713,12 +1714,12 @@
           "b1": "Plăți la masă prin Stripe",
           "b2": "Analize complete și export XLSX",
           "b3": "Loialitate și niveluri VIP",
-          "b4": "Meniuri multilingve (DeepL)",
-          "b5": "Branding și teme personalizate",
-          "b6": "Conturi de clienți",
-          "b7": "Upselling inteligent",
-          "b8": "Cheamă ospătarul și recenzii",
-          "b9": "Până la 5 membri personal"
+          "b4": "Branding și teme personalizate",
+          "b5": "Conturi de clienți",
+          "b6": "Upselling inteligent",
+          "b7": "Cheamă ospătarul și recenzii",
+          "b8": "Până la 5 membri personal",
+          "b9": "Rol de manager"
         },
         "enterprise": {
           "name": "Enterprise",
@@ -2060,19 +2061,21 @@
       "starter": {
         "b1": "Tot din Free",
         "b2": "Comenzi online",
-        "b3": "Analize de bază",
-        "b4": "1 angajat"
+        "b3": "Buton chemare chelner",
+        "b4": "Analize de bază",
+        "b5": "Meniu multilingv",
+        "b6": "1 angajat"
       },
       "professional": {
         "b1": "Tot din Starter",
         "b2": "Plăți Stripe la masă",
         "b3": "Analize complete",
         "b4": "Buton chemare chelner",
-        "b5": "Meniu multilingv",
-        "b6": "Branding personalizat",
-        "b7": "Program de loialitate",
-        "b8": "Conturi clienți",
-        "b9": "Upselling și orar",
+        "b5": "Branding personalizat",
+        "b6": "Program de loialitate",
+        "b7": "Conturi clienți",
+        "b8": "Upselling",
+        "b9": "Reguli de timp și happy hour",
         "b10": "Până la 5 angajați + Manager"
       },
       "enterprise": {
@@ -2512,6 +2515,7 @@
           "Tot din Free",
           "Comenzi online",
           "Analiză de bază",
+          "Meniu multilingv",
           "1 angajat"
         ]
       },
@@ -2522,7 +2526,6 @@
           "Plată la masă Stripe",
           "Analiză completă",
           "Buton de chemare ospătar",
-          "Meniu multilingv",
           "Branding personalizat",
           "Program de loialitate",
           "Până la 5 angajați"

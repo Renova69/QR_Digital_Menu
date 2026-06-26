@@ -1,17 +1,19 @@
-import { useState, useContext } from 'react';
+import { useContext, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import { createCheckoutSession, createPortalSession } from '../lib/api';
 import { useTier } from '../hooks/useFeature';
 import { useAuth } from '../context/AuthContext';
 import RestaurantContext from '../context/RestaurantContext';
 
+type Tier = 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
 type Billing = 'monthly' | 'yearly';
+type TFunction = ReturnType<typeof useTranslation>['t'];
 
 interface FeatureRowData {
-  label: string;
-  section?: string;
+  labelKey: string;
+  sectionKey?: string;
   free: boolean | string;
   starter: boolean | string;
   professional: boolean | string;
@@ -19,31 +21,137 @@ interface FeatureRowData {
 }
 
 type TableItem =
-  | { type: 'section'; label: string; key: string }
+  | { type: 'section'; labelKey: string; key: string }
   | { type: 'row'; row: FeatureRowData; index: number };
 
-const YEARLY_DISCOUNT = 0.85;
+interface PlanConfig {
+  key: Tier;
+  monthly: number;
+  highlight: boolean;
+  fitKey: string;
+  bulletKeys: string[];
+}
 
-function tierPrice(monthly: number, billing: Billing): { main: string; meta: string | null } {
+const YEARLY_DISCOUNT = 0.85;
+const TIER_ORDER: Tier[] = ['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'];
+
+const PLAN_CONFIGS: PlanConfig[] = [
+  {
+    key: 'FREE',
+    monthly: 0,
+    highlight: false,
+    fitKey: 'pricing.tiers.free.fit',
+    bulletKeys: [
+      'pricing.tiers.free.b1',
+      'pricing.tiers.free.b2',
+      'pricing.tiers.free.b3',
+      'pricing.tiers.free.b4',
+      'pricing.tiers.free.b5',
+    ],
+  },
+  {
+    key: 'STARTER',
+    monthly: 15,
+    highlight: false,
+    fitKey: 'pricing.tiers.starter.fit',
+    bulletKeys: [
+      'pricing.tiers.starter.b1',
+      'pricing.tiers.starter.b2',
+      'pricing.tiers.starter.b3',
+      'pricing.tiers.starter.b4',
+      'pricing.tiers.starter.b5',
+      'pricing.tiers.starter.b6',
+    ],
+  },
+  {
+    key: 'PROFESSIONAL',
+    monthly: 25,
+    highlight: true,
+    fitKey: 'pricing.tiers.professional.fit',
+    bulletKeys: [
+      'pricing.tiers.professional.b1',
+      'pricing.tiers.professional.b2',
+      'pricing.tiers.professional.b3',
+      'pricing.tiers.professional.b5',
+      'pricing.tiers.professional.b6',
+      'pricing.tiers.professional.b7',
+      'pricing.tiers.professional.b8',
+      'pricing.tiers.professional.b9',
+      'pricing.tiers.professional.b10',
+    ],
+  },
+  {
+    key: 'ENTERPRISE',
+    monthly: 45,
+    highlight: false,
+    fitKey: 'pricing.tiers.enterprise.fit',
+    bulletKeys: [
+      'pricing.tiers.enterprise.b1',
+      'pricing.tiers.enterprise.b2',
+      'pricing.tiers.enterprise.b3',
+      'pricing.tiers.enterprise.b4',
+      'pricing.tiers.enterprise.b5',
+      'pricing.tiers.enterprise.b6',
+      'pricing.tiers.enterprise.b7',
+      'pricing.tiers.enterprise.b8',
+      'pricing.tiers.enterprise.b9',
+      'pricing.tiers.enterprise.b10',
+    ],
+  },
+];
+
+const FEATURE_ROWS: FeatureRowData[] = [
+  { sectionKey: 'pricing.sections.menu', labelKey: 'pricing.features.digitalMenu', free: true, starter: true, professional: true, enterprise: true },
+  { labelKey: 'pricing.features.menuImport', free: true, starter: true, professional: true, enterprise: true },
+  { labelKey: 'pricing.features.qrCodes', free: true, starter: true, professional: true, enterprise: true },
+  { labelKey: 'pricing.features.menuExport', free: true, starter: true, professional: true, enterprise: true },
+  { labelKey: 'pricing.features.multiLanguage', free: false, starter: true, professional: true, enterprise: true },
+  { labelKey: 'pricing.features.menuTemplates', free: false, starter: false, professional: false, enterprise: true },
+  { sectionKey: 'pricing.sections.orders', labelKey: 'pricing.features.onlineOrdering', free: false, starter: true, professional: true, enterprise: true },
+  { labelKey: 'pricing.features.callWaiter', free: false, starter: true, professional: true, enterprise: true },
+  { labelKey: 'pricing.features.dayparting', free: false, starter: false, professional: true, enterprise: true },
+  { labelKey: 'pricing.features.upselling', free: false, starter: false, professional: true, enterprise: true },
+  { sectionKey: 'pricing.sections.payments', labelKey: 'pricing.features.paymentProviders', free: false, starter: false, professional: true, enterprise: true },
+  { sectionKey: 'pricing.sections.analytics', labelKey: 'pricing.features.basicAnalytics', free: true, starter: true, professional: true, enterprise: true },
+  { labelKey: 'pricing.features.fullAnalytics', free: false, starter: false, professional: true, enterprise: true },
+  { sectionKey: 'pricing.sections.customers', labelKey: 'pricing.features.customerAccounts', free: false, starter: false, professional: true, enterprise: true },
+  { labelKey: 'pricing.features.loyalty', free: false, starter: false, professional: true, enterprise: true },
+  { sectionKey: 'pricing.sections.customization', labelKey: 'pricing.features.customBranding', free: false, starter: false, professional: true, enterprise: true },
+  { sectionKey: 'pricing.sections.operations', labelKey: 'pricing.features.pos', free: false, starter: false, professional: false, enterprise: true },
+  { labelKey: 'pricing.features.kds', free: false, starter: false, professional: false, enterprise: true },
+  { labelKey: 'pricing.features.rbac', free: false, starter: false, professional: false, enterprise: true },
+  { labelKey: 'pricing.features.multiLocation', free: false, starter: false, professional: false, enterprise: true },
+  { labelKey: 'pricing.features.thermalPrinters', free: false, starter: false, professional: false, enterprise: true },
+  { sectionKey: 'pricing.sections.team', labelKey: 'pricing.features.staffMembers', free: '0', starter: '1', professional: '5', enterprise: '∞' },
+  { sectionKey: 'pricing.sections.support', labelKey: 'pricing.features.prioritySupport', free: false, starter: false, professional: false, enterprise: true },
+];
+
+const FAQ_KEYS = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8'];
+
+function tierName(t: TFunction, tier: Tier) {
+  return t(`pricing.tierNames.${tier.toLowerCase()}`);
+}
+
+function tierPrice(monthly: number, billing: Billing, t: TFunction): { main: string; meta: string | null } {
   if (monthly === 0) return { main: '€0', meta: null };
-  if (billing === 'monthly') return { main: `€${monthly}`, meta: '/mo' };
+  if (billing === 'monthly') return { main: `€${monthly}`, meta: t('pricing.billing.perMonthShort') };
   const moPrice = (monthly * YEARLY_DISCOUNT).toFixed(2);
   const yrTotal = Math.round(monthly * 12 * YEARLY_DISCOUNT);
-  return { main: `€${moPrice}`, meta: `/mo · €${yrTotal}/yr` };
+  return { main: `€${moPrice}`, meta: t('pricing.billing.yearlyMeta', { total: yrTotal }) };
 }
 
 function FeatureCell({ val }: { val: boolean | string }) {
   if (typeof val === 'string') {
-    return <span className="text-sm font-medium text-foreground">{val}</span>;
+    return <span className="text-sm font-semibold text-foreground">{val}</span>;
   }
   return val ? (
-    <span className="text-primary font-bold text-base">✓</span>
+    <span className="mx-auto flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
+      <Check className="h-3.5 w-3.5" />
+    </span>
   ) : (
-    <span className="text-muted-foreground/40 text-base">—</span>
+    <span className="text-muted-foreground/40">-</span>
   );
 }
-
-const TIER_ORDER = ['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'];
 
 export default function PricingPage() {
   const { t } = useTranslation();
@@ -57,125 +165,15 @@ export default function PricingPage() {
   const { user } = useAuth();
   const activeRestaurantId = useContext(RestaurantContext)?.activeRestaurant?.id;
 
-  const TIERS = [
-    {
-      key: 'FREE',
-      monthly: 0,
-      highlight: false,
-      bullets: [
-        t('pricing.tiers.free.b1', 'Digital menu (view & edit)'),
-        t('pricing.tiers.free.b2', 'QR code management'),
-        t('pricing.tiers.free.b3', 'OCR menu import'),
-        t('pricing.tiers.free.b4', '1 staff member'),
-      ],
-    },
-    {
-      key: 'STARTER',
-      monthly: 15,
-      highlight: false,
-      bullets: [
-        t('pricing.tiers.starter.b1', 'Everything in Free'),
-        t('pricing.tiers.starter.b2', 'Online ordering'),
-        t('pricing.tiers.starter.b3', 'Basic analytics'),
-        t('pricing.tiers.starter.b4', '1 staff member'),
-      ],
-    },
-    {
-      key: 'PROFESSIONAL',
-      monthly: 25,
-      highlight: true,
-      bullets: [
-        t('pricing.tiers.professional.b1', 'Everything in Starter'),
-        t('pricing.tiers.professional.b2', 'Stripe pay-at-table'),
-        t('pricing.tiers.professional.b3', 'Full analytics'),
-        t('pricing.tiers.professional.b4', 'Call waiter button'),
-        t('pricing.tiers.professional.b5', 'Multi-language menu'),
-        t('pricing.tiers.professional.b6', 'Custom branding'),
-        t('pricing.tiers.professional.b7', 'Loyalty program'),
-        t('pricing.tiers.professional.b8', 'Customer accounts'),
-        t('pricing.tiers.professional.b9', 'Upselling & dayparting'),
-        t('pricing.tiers.professional.b10', 'Up to 5 staff + Manager role'),
-      ],
-    },
-    {
-      key: 'ENTERPRISE',
-      monthly: 45,
-      highlight: false,
-      bullets: [
-        t('pricing.tiers.enterprise.b1', 'Everything in Professional'),
-        t('pricing.tiers.enterprise.b2', 'Point of Sale (POS)'),
-        t('pricing.tiers.enterprise.b3', 'Kitchen Display (KDS)'),
-        t('pricing.tiers.enterprise.b4', 'Multi-location'),
-        t('pricing.tiers.enterprise.b5', 'Thermal printers'),
-        t('pricing.tiers.enterprise.b6', 'Menu templates'),
-        t('pricing.tiers.enterprise.b7', 'Advanced RBAC'),
-        t('pricing.tiers.enterprise.b8', 'Unlimited staff'),
-        t('pricing.tiers.enterprise.b9', 'Priority support'),
-      ],
-    },
-  ];
-
-  const FEATURE_ROWS: FeatureRowData[] = [
-    { section: t('pricing.sections.menu', 'Menu'), label: t('pricing.features.digitalMenu', 'Digital menu'), free: true, starter: true, professional: true, enterprise: true },
-    { label: t('pricing.features.ocrImport', 'OCR menu import'), free: true, starter: true, professional: true, enterprise: true },
-    { label: t('pricing.features.multiLanguage', 'Multi-language menu'), free: false, starter: false, professional: true, enterprise: true },
-    { label: t('pricing.features.menuTemplates', 'Menu templates'), free: false, starter: false, professional: false, enterprise: true },
-    { section: t('pricing.sections.orders', 'Orders'), label: t('pricing.features.onlineOrdering', 'Online ordering'), free: false, starter: true, professional: true, enterprise: true },
-    { label: t('pricing.features.callWaiter', 'Call waiter button'), free: false, starter: false, professional: true, enterprise: true },
-    { label: t('pricing.features.pos', 'Point of Sale (POS)'), free: false, starter: false, professional: false, enterprise: true },
-    { label: t('pricing.features.kds', 'Kitchen Display (KDS)'), free: false, starter: false, professional: false, enterprise: true },
-    { section: t('pricing.sections.payments', 'Payments'), label: t('pricing.features.stripePayments', 'Stripe pay-at-table'), free: false, starter: false, professional: true, enterprise: true },
-    { section: t('pricing.sections.analytics', 'Analytics'), label: t('pricing.features.basicAnalytics', 'Basic analytics'), free: false, starter: true, professional: true, enterprise: true },
-    { label: t('pricing.features.fullAnalytics', 'Full analytics'), free: false, starter: false, professional: true, enterprise: true },
-    { section: t('pricing.sections.customers', 'QR & Customers'), label: t('pricing.features.qrCodes', 'QR codes'), free: true, starter: true, professional: true, enterprise: true },
-    { label: t('pricing.features.customerAccounts', 'Customer accounts'), free: false, starter: false, professional: true, enterprise: true },
-    { label: t('pricing.features.loyalty', 'Loyalty program'), free: false, starter: false, professional: true, enterprise: true },
-    { label: t('pricing.features.upselling', 'Upselling'), free: false, starter: false, professional: true, enterprise: true },
-    { label: t('pricing.features.dayparting', 'Dayparting / happy hour'), free: false, starter: false, professional: true, enterprise: true },
-    { section: t('pricing.sections.customization', 'Customization'), label: t('pricing.features.customBranding', 'Custom branding'), free: false, starter: false, professional: true, enterprise: true },
-    { label: t('pricing.features.multiLocation', 'Multi-location'), free: false, starter: false, professional: false, enterprise: true },
-    { label: t('pricing.features.thermalPrinters', 'Thermal printers'), free: false, starter: false, professional: false, enterprise: true },
-    { section: t('pricing.sections.team', 'Team'), label: t('pricing.features.staffMembers', 'Staff members'), free: '1', starter: '1', professional: '5', enterprise: t('pricing.features.unlimited', 'Unlimited') },
-    { label: t('pricing.features.rbac', 'Advanced RBAC'), free: false, starter: false, professional: false, enterprise: true },
-    { section: t('pricing.sections.support', 'Support'), label: t('pricing.features.prioritySupport', 'Priority support'), free: false, starter: false, professional: false, enterprise: true },
-  ];
-
-  const FAQ_ITEMS = [
-    {
-      q: t('pricing.faq.q1', 'Are prices inclusive of VAT?'),
-      a: t('pricing.faq.a1', 'Prices shown exclude VAT. Your local VAT rate applies at checkout via Stripe.'),
-    },
-    {
-      q: t('pricing.faq.q2', 'Can I cancel anytime?'),
-      a: t('pricing.faq.a2', 'Yes. Cancel via the Billing portal at any time. You keep access until the end of the current billing period.'),
-    },
-    {
-      q: t('pricing.faq.q4', 'Do you offer refunds?'),
-      a: t('pricing.faq.a4', 'We do not offer prorated refunds for canceled subscriptions. If you made a mistake during checkout, please contact our support team.'),
-    },
-    {
-      q: t('pricing.faq.q3', 'What happens when I downgrade?'),
-      a: t('pricing.faq.a3', "You move to the new plan's features immediately. Stripe applies a prorated credit for unused time toward your next invoice."),
-    },
-    {
-      q: t('pricing.faq.q4', 'Is there a free trial?'),
-      a: t('pricing.faq.a4', 'The FREE plan is permanent with no time limit — it is your trial. Upgrade whenever you are ready.'),
-    },
-    {
-      q: t('pricing.faq.q5', 'Are there transaction fees?'),
-      a: t('pricing.faq.a5', 'Stripe charges 1.4% + €0.25 per EU card transaction. There is no additional platform fee from us.'),
-    },
-    {
-      q: t('pricing.faq.q6', 'Can I switch between monthly and yearly billing?'),
-      a: t('pricing.faq.a6', 'Yes, via the Billing portal. The change takes effect at your next billing date.'),
-    },
-  ];
-
-  const tableItems = FEATURE_ROWS.reduce<TableItem[]>((acc, row, i) => {
-    if (row.section) acc.push({ type: 'section', label: row.section, key: `section-${i}` });
-    acc.push({ type: 'row', row, index: i });
-    return acc;
-  }, []);
+  const tableItems = useMemo(
+    () =>
+      FEATURE_ROWS.reduce<TableItem[]>((acc, row, i) => {
+        if (row.sectionKey) acc.push({ type: 'section', labelKey: row.sectionKey, key: `section-${i}` });
+        acc.push({ type: 'row', row, index: i });
+        return acc;
+      }, []),
+    [],
+  );
 
   const currentTierIndex = TIER_ORDER.indexOf(currentTier);
 
@@ -186,13 +184,13 @@ export default function PricingPage() {
       const { url } = await createPortalSession(activeRestaurantId);
       window.location.href = url;
     } catch {
-      setError(t('subscription.errorPortal', 'Could not open billing portal. Please try again.'));
+      setError(t('subscription.errorPortal'));
     } finally {
       setLoading('');
     }
   };
 
-  const handleSelect = async (tier: string) => {
+  const handleSelect = async (tier: Tier) => {
     if (!user) {
       sessionStorage.setItem('selectedPlan', tier);
       navigate('/register');
@@ -218,157 +216,159 @@ export default function PricingPage() {
         return;
       }
       const backendMsg = e?.response?.data?.message;
-      setError(
-        import.meta.env.DEV && backendMsg
-          ? backendMsg
-          : t('subscription.errorCheckout', 'Could not start checkout. Please try again.'),
-      );
+      setError(import.meta.env.DEV && backendMsg ? backendMsg : t('subscription.errorCheckout'));
     } finally {
       setLoading('');
     }
   };
 
   return (
-    <div className="min-h-screen bg-background py-20 px-4">
-      <div className="max-w-6xl mx-auto">
-
-        {/* Hero */}
-        <div className="text-center mb-14">
-          <h1 className="text-5xl md:text-7xl font-display font-black text-foreground tracking-tighter mb-4">
-            {t('pricing.title', 'Simple Pricing')}
-          </h1>
-          <p className="text-muted-foreground text-lg max-w-xl mx-auto mb-8">
-            {t('pricing.subtitle', 'Choose the plan that fits your restaurant. Upgrade or downgrade anytime.')}
-          </p>
-
-          {/* Billing toggle */}
-          <div className="inline-flex items-center gap-1 bg-secondary rounded-2xl p-1.5">
-            <button
-              onClick={() => setBilling('monthly')}
-              className={`px-5 py-2 rounded-xl text-sm font-bold transition-all ${
-                billing === 'monthly' ? 'bg-card shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {t('pricing.billing.monthly', 'Monthly')}
-            </button>
-            <button
-              onClick={() => setBilling('yearly')}
-              className={`px-5 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
-                billing === 'yearly' ? 'bg-card shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {t('pricing.billing.yearly', 'Yearly')}
-              <span className="text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide whitespace-nowrap" style={{ background: 'var(--gradient-brand)' }}>
-                {t('pricing.billing.saveAnnual', 'Save 15%')}
-              </span>
-            </button>
+    <div className="min-h-screen bg-background px-4 py-20">
+      <div className="mx-auto max-w-7xl">
+        <section className="mb-14 grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div className="max-w-3xl">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-primary">
+              {t('pricing.badge')}
+            </p>
+            <h1 className="mt-4 text-5xl font-black tracking-tight text-foreground md:text-7xl">
+              {t('pricing.title')}
+            </h1>
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
+              {t('pricing.subtitle')}
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground mt-3">
-            {t('pricing.billing.recurringNote', 'All paid plans auto-renew via Stripe. Cancel anytime from the Billing Portal.')}
-          </p>
-        </div>
+
+          <div className="rounded-2xl border border-border bg-card p-3 shadow-sm">
+            <div className="inline-flex items-center gap-1 rounded-xl bg-secondary p-1.5">
+              <button
+                onClick={() => setBilling('monthly')}
+                className={`rounded-lg px-5 py-2 text-sm font-bold transition-all ${
+                  billing === 'monthly' ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {t('pricing.billing.monthly')}
+              </button>
+              <button
+                onClick={() => setBilling('yearly')}
+                className={`flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-bold transition-all ${
+                  billing === 'yearly' ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {t('pricing.billing.yearly')}
+                <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
+                  {t('pricing.billing.saveAnnual')}
+                </span>
+              </button>
+            </div>
+            <p className="mt-3 max-w-sm text-xs leading-5 text-muted-foreground">
+              {t('pricing.billing.recurringNote')}
+            </p>
+          </div>
+        </section>
 
         {error && (
-          <div className="bg-destructive/10 text-destructive px-5 py-3 rounded-xl text-sm text-center mb-8">
+          <div className="mb-8 rounded-xl bg-destructive/10 px-5 py-3 text-center text-sm text-destructive">
             {error}
           </div>
         )}
 
-        {/* Tier cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-20">
-          {TIERS.map((tier) => {
-            const price = tierPrice(tier.monthly, billing);
+        <section className="mb-20 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+          {PLAN_CONFIGS.map((plan) => {
+            const price = tierPrice(plan.monthly, billing, t);
+            const tierIndex = TIER_ORDER.indexOf(plan.key);
+            const isCurrentTier = plan.key === currentTier;
+            const isLowerTier = hasSubscription && tierIndex < currentTierIndex;
+            const isLoading = loading === plan.key || loading === 'portal';
+            const label = isLoading
+              ? t('subscription.loading')
+              : isCurrentTier
+                ? t('pricing.currentPlan')
+                : isLowerTier
+                  ? t('pricing.manageBilling')
+                  : plan.key === 'FREE'
+                    ? t('pricing.getStarted')
+                    : t('pricing.choosePlan', { tier: tierName(t, plan.key) });
+
             return (
-              <div
-                key={tier.key}
-                className={`relative flex flex-col rounded-3xl border p-8 transition-all ${
-                  tier.highlight
-                    ? 'border-primary shadow-2xl shadow-primary/10 bg-card scale-105'
-                    : 'border-border bg-card hover:border-primary/40 hover:shadow-lg'
+              <article
+                key={plan.key}
+                className={`relative flex min-h-[510px] flex-col rounded-3xl border bg-card p-7 transition-all ${
+                  plan.highlight
+                    ? 'scale-[1.02] border-primary shadow-2xl shadow-primary/10'
+                    : 'border-border hover:border-primary/40 hover:shadow-lg'
                 }`}
               >
-                {tier.highlight && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
-                    <span className="text-white px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-lg whitespace-nowrap" style={{ background: 'var(--gradient-brand)' }}>
-                      {t('pricing.popular', 'Most Popular')}
+                {plan.highlight && (
+                  <div className="absolute -top-4 left-1/2 z-10 -translate-x-1/2">
+                    <span className="rounded-full bg-primary px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white shadow-lg">
+                      {t('pricing.popular')}
                     </span>
                   </div>
                 )}
 
                 <div className="mb-6">
-                  <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-2">
-                    {tier.key}
-                  </h2>
-                  <div className="flex items-end gap-1">
+                  <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">{plan.key}</p>
+                  <p className="mt-3 rounded-xl border border-border bg-secondary/70 px-3 py-2 text-xs font-bold leading-5 text-foreground">
+                    {t(plan.fitKey)}
+                  </p>
+                  <h2 className="mt-2 text-2xl font-black text-foreground">{tierName(t, plan.key)}</h2>
+                  <div className="mt-4 flex items-end gap-1">
                     <span className="text-4xl font-black text-foreground">{price.main}</span>
-                    {price.meta && (
-                      <span className="text-muted-foreground text-xs pb-1 leading-snug">{price.meta}</span>
-                    )}
+                    {price.meta && <span className="pb-1 text-xs leading-snug text-muted-foreground">{price.meta}</span>}
                   </div>
-                  {billing === 'yearly' && tier.monthly > 0 && (
-                    <p className="text-xs text-primary mt-1 font-semibold">
-                      {t('pricing.billing.saveAnnual', 'Save 15%')} {t('auto.vsMonthly', 'vs monthly')}</p>
+                  {billing === 'yearly' && plan.monthly > 0 && (
+                    <p className="mt-1 text-xs font-semibold text-primary">
+                      {t('pricing.billing.saveVsMonthly')}
+                    </p>
                   )}
                 </div>
 
-                <ul className="flex-1 space-y-2.5 mb-8">
-                  {tier.bullets.map((f, i) => (
-                    <li key={i} className="flex items-start gap-2.5 text-sm text-foreground">
-                      <span className="text-primary font-bold mt-0.5 flex-shrink-0">✓</span>
-                      {f}
+                <ul className="mb-8 flex-1 space-y-2.5">
+                  {plan.bulletKeys.map((key) => (
+                    <li key={key} className="flex items-start gap-2.5 text-sm leading-6 text-foreground">
+                      <Check className="mt-1 h-4 w-4 shrink-0 text-primary" />
+                      {t(key)}
                     </li>
                   ))}
                 </ul>
 
-                {(() => {
-                  const tierIndex = TIER_ORDER.indexOf(tier.key);
-                  const isCurrentTier = tier.key === currentTier;
-                  const isLowerTier = hasSubscription && tierIndex < currentTierIndex;
-                  const isLoading = loading === tier.key || loading === 'portal';
-                  const label = isLoading
-                    ? t('subscription.loading', 'Loading...')
-                    : isCurrentTier
-                    ? t('pricing.currentPlan', 'Current Plan')
-                    : isLowerTier
-                    ? t('pricing.manageBilling', 'Manage in Billing Portal')
-                    : tier.key === 'FREE'
-                    ? t('pricing.getStarted', 'Get Started')
-                    : t('pricing.choosePlan', 'Choose {{tier}}', { tier: tier.key });
-                  return (
-                    <button
-                      onClick={() => handleSelect(tier.key)}
-                      disabled={!!loading || !!isCurrentTier}
-                      className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all disabled:opacity-50 ${
-                        isCurrentTier
-                          ? 'bg-primary/20 text-primary cursor-default'
-                          : tier.highlight
-                          ? 'bg-foreground text-background hover:opacity-80'
-                          : 'bg-secondary text-foreground hover:bg-secondary/80'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })()}
-              </div>
+                <button
+                  onClick={() => handleSelect(plan.key)}
+                  disabled={!!loading || isCurrentTier}
+                  className={`w-full rounded-2xl py-3.5 text-sm font-black uppercase tracking-widest transition-all disabled:opacity-50 ${
+                    isCurrentTier
+                      ? 'cursor-default bg-primary/20 text-primary'
+                      : plan.highlight
+                        ? 'bg-foreground text-background hover:opacity-80'
+                        : 'bg-secondary text-foreground hover:bg-secondary/80'
+                  }`}
+                >
+                  {label}
+                </button>
+              </article>
             );
           })}
-        </div>
+        </section>
 
-        {/* Feature comparison table */}
-        <div className="mb-20">
-          <h2 className="text-3xl font-display font-black text-foreground tracking-tight text-center mb-8">
-            {t('pricing.comparison.title', 'Compare all features')}
-          </h2>
-          <div className="overflow-x-auto rounded-2xl border border-border">
-            <table className="w-full min-w-[600px]">
+        <section className="mb-20">
+          <div className="mx-auto mb-8 max-w-3xl text-center">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-primary">
+              {t('pricing.comparison.badge')}
+            </p>
+            <h2 className="mt-4 text-3xl font-black tracking-tight text-foreground md:text-5xl">
+              {t('pricing.comparison.title')}
+            </h2>
+          </div>
+          <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-sm">
+            <table className="w-full min-w-[760px]">
               <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-4 px-5 text-xs font-black uppercase tracking-widest text-muted-foreground w-2/5">
-                    {t('auto.feature', 'Feature')}</th>
-                  {['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'].map((col) => (
-                    <th key={col} className="py-4 px-3 text-center text-[10px] font-black uppercase tracking-widest text-foreground">
-                      {col}
+                <tr className="border-b border-border bg-muted">
+                  <th className="w-2/5 px-5 py-4 text-left text-xs font-black uppercase tracking-widest text-muted-foreground">
+                    {t('pricing.comparison.featureHeader')}
+                  </th>
+                  {TIER_ORDER.map((col) => (
+                    <th key={col} className="px-3 py-4 text-center text-[10px] font-black uppercase tracking-widest text-foreground">
+                      {tierName(t, col)}
                     </th>
                   ))}
                 </tr>
@@ -378,58 +378,62 @@ export default function PricingPage() {
                   if (item.type === 'section') {
                     return (
                       <tr key={item.key} className="bg-secondary/30">
-                        <td colSpan={5} className="py-2 px-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                          {item.label}
+                        <td colSpan={5} className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                          {t(item.labelKey)}
                         </td>
                       </tr>
                     );
                   }
                   const { row, index } = item;
                   return (
-                    <tr key={row.label} className={`border-t border-border/50 ${index % 2 === 0 ? '' : 'bg-secondary/10'}`}>
-                      <td className="py-3 px-5 text-sm text-foreground">{row.label}</td>
-                      <td className="py-3 px-3 text-center"><FeatureCell val={row.free} /></td>
-                      <td className="py-3 px-3 text-center"><FeatureCell val={row.starter} /></td>
-                      <td className="py-3 px-3 text-center"><FeatureCell val={row.professional} /></td>
-                      <td className="py-3 px-3 text-center"><FeatureCell val={row.enterprise} /></td>
+                    <tr key={row.labelKey} className={`border-t border-border/50 ${index % 2 === 0 ? '' : 'bg-secondary/10'}`}>
+                      <td className="px-5 py-3 text-sm font-medium text-foreground">{t(row.labelKey)}</td>
+                      <td className="px-3 py-3 text-center"><FeatureCell val={row.free} /></td>
+                      <td className="px-3 py-3 text-center"><FeatureCell val={row.starter} /></td>
+                      <td className="px-3 py-3 text-center"><FeatureCell val={row.professional} /></td>
+                      <td className="px-3 py-3 text-center"><FeatureCell val={row.enterprise} /></td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
 
-        {/* FAQ */}
-        <div className="mb-20 max-w-3xl mx-auto">
-          <h2 className="text-3xl font-display font-black text-foreground tracking-tight text-center mb-8">
-            {t('pricing.faq.title', 'Frequently asked questions')}
-          </h2>
+        <section className="mx-auto mb-20 grid max-w-6xl gap-8 lg:grid-cols-[0.75fr_1.25fr]">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-primary">
+              {t('pricing.faq.badge')}
+            </p>
+            <h2 className="mt-4 text-3xl font-black tracking-tight text-foreground md:text-5xl">
+              {t('pricing.faq.title')}
+            </h2>
+            <p className="mt-5 text-base leading-8 text-muted-foreground">
+              {t('pricing.faq.subtitle')}
+            </p>
+          </div>
           <div className="space-y-2">
-            {FAQ_ITEMS.map((item, i) => (
-              <div key={i} className="border border-border rounded-2xl overflow-hidden">
+            {FAQ_KEYS.map((key, i) => (
+              <div key={key} className="overflow-hidden rounded-2xl border border-border bg-card">
                 <button
-                  className="w-full flex items-center justify-between px-6 py-4 text-left text-sm font-bold text-foreground hover:bg-secondary/30 transition-colors"
+                  className="flex w-full items-center justify-between gap-4 px-6 py-4 text-left text-sm font-bold text-foreground transition-colors hover:bg-secondary/30"
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                 >
-                  <span>{item.q}</span>
-                  <ChevronDown
-                    className={`flex-shrink-0 w-4 h-4 ml-3 text-muted-foreground transition-transform ${openFaq === i ? 'rotate-180' : ''}`}
-                  />
+                  <span>{t(`pricing.faq.${key}.question`)}</span>
+                  <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${openFaq === i ? 'rotate-180' : ''}`} />
                 </button>
                 {openFaq === i && (
-                  <div className="px-6 pb-4 text-sm text-muted-foreground leading-relaxed">
-                    {item.a}
+                  <div className="px-6 pb-4 text-sm leading-7 text-muted-foreground">
+                    {t(`pricing.faq.${key}.answer`)}
                   </div>
                 )}
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* Footer */}
         <p className="text-center text-xs text-muted-foreground">
-          {t('pricing.terms', 'Prices exclude VAT. Cancel anytime.')}
+          {t('pricing.terms')}
         </p>
       </div>
     </div>

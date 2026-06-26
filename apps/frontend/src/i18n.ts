@@ -19,10 +19,14 @@ i18n
   )
   .use(initReactI18next)
   .init({
-    fallbackLng: "en",
-    // Public-menu target languages. en/bg/ro ship full app bundles; the rest carry
+    fallbackLng: "bg",
+    detection: {
+      order: ["querystring", "localStorage", "cookie"],
+      caches: ["localStorage"],
+    },
+    // Public-menu target languages. bg/en/ro ship full app bundles; the rest carry
     // a public-menu-only subset (src/locales/<lang>/translation.json) so customer
-    // chrome localizes too. Missing keys fall back to English, never Bulgarian.
+    // chrome localizes too. Missing keys fall back to Bulgarian for the BG market.
     supportedLngs: [
       "en",
       "bg",
