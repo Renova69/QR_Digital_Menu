@@ -197,6 +197,10 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
     console.log(`${TAG} connecting to ${config.serverUrl} station="${config.stationName}"`);
   }
 
+  // Hold CPU/Wi-Fi locks for the whole active agent session, including
+  // reconnect attempts while the screen is off.
+  acquireWakeLock();
+
   emit({
     status: 'connecting',
     message: 'Connecting…',
@@ -244,9 +248,7 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
       message: 'Online',
       hint: `${config.stationName} ready to print`,
     });
-    // Ensure clean wake-lock state on reconnect, then hold a wake lock
-    // so Android doesn't suspend the CPU while the agent is active.
-    releaseWakeLock();
+    // Re-assert the lock after reconnect in case Android reclaimed it.
     acquireWakeLock();
   });
 
@@ -261,7 +263,9 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
   socket.on('disconnect', (reason: string) => {
     if (myGeneration !== generation) return;
     clearConnectTimeout();
-    releaseWakeLock();
+    if (authRejected) {
+      releaseWakeLock();
+    }
     emit(classifyDisconnect(reason, authRejected));
   });
 

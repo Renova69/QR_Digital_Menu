@@ -7,6 +7,7 @@ module.exports = function withPrintAgentService(config) {
     // 1. Ensure permissions
     const permissions = manifest['uses-permission'] || [];
     const requiredPermissions = [
+      'android.permission.CAMERA',
       'android.permission.FOREGROUND_SERVICE',
       'android.permission.FOREGROUND_SERVICE_DATA_SYNC',
       'android.permission.FOREGROUND_SERVICE_SPECIAL_USE',

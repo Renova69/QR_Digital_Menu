@@ -10,6 +10,7 @@
       "usesCleartextTraffic": true,
       "permissions": [
         "INTERNET",
+        "CAMERA",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_DATA_SYNC",
         "FOREGROUND_SERVICE_SPECIAL_USE",
@@ -21,6 +22,12 @@
       ]
     },
     "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow QR Menu Print Agent to scan setup QR codes."
+        }
+      ],
       "./plugins/withPrintAgentService"
     ]
   }
