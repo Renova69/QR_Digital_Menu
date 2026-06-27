@@ -383,6 +383,7 @@ export class SuperAdminService {
         name: true,
         tier: true,
         forceTier: true,
+        forceTierExpiresAt: true,
         isActive: true,
         deletedAt: true,
         tierUpdatedAt: true,
@@ -391,6 +392,7 @@ export class SuperAdminService {
         targetLanguages: true,
         paymentsEnabled: true,
         stripeOnboarded: true,
+        stripeSubscriptionId: true,
         owner: {
           select: { id: true, email: true, name: true, createdAt: true },
         },

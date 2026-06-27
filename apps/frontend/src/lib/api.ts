@@ -1219,10 +1219,15 @@ export const getSuperAdminTenant = (id: string) =>
 
 const SUPER_ADMIN_CONFIRMATION = "CONFIRM";
 
-export const updateTenantTier = (id: string, forceTier: string | null) =>
+export const updateTenantTier = (
+  id: string,
+  forceTier: string | null,
+  forceTierExpiresInDays?: number | null,
+) =>
   api
     .patch(`/super-admin/tenants/${id}/tier`, {
       forceTier,
+      forceTierExpiresInDays: forceTierExpiresInDays ?? undefined,
       confirmation: SUPER_ADMIN_CONFIRMATION,
     })
     .then((r) => r.data);

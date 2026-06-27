@@ -238,7 +238,7 @@ describe('SuperAdminService', () => {
       await service.getTenants({ page: NaN as any, limit: NaN as any });
 
       const call = mockPrisma.restaurant.findMany.mock.calls[0][0];
-      expect(call.skip).toBe(0);  // page 1 → skip 0
+      expect(call.skip).toBe(0); // page 1 → skip 0
       expect(call.take).toBe(20); // default limit
     });
   });
@@ -314,6 +314,7 @@ describe('SuperAdminService', () => {
         name: 'Test',
         tier: 'FREE',
         forceTier: null,
+        forceTierExpiresAt: null,
         isActive: true,
         tierUpdatedAt: null,
         createdAt: new Date(),
@@ -321,6 +322,7 @@ describe('SuperAdminService', () => {
         targetLanguages: [],
         paymentsEnabled: false,
         stripeOnboarded: false,
+        stripeSubscriptionId: null,
         owner: {
           id: 'u1',
           email: 'o@test.com',
@@ -346,6 +348,7 @@ describe('SuperAdminService', () => {
         name: 'Test',
         tier: 'FREE',
         forceTier: null,
+        forceTierExpiresAt: null,
         isActive: true,
         tierUpdatedAt: null,
         createdAt: new Date(),
@@ -353,6 +356,7 @@ describe('SuperAdminService', () => {
         targetLanguages: [],
         paymentsEnabled: false,
         stripeOnboarded: false,
+        stripeSubscriptionId: null,
         owner: {
           id: 'u1',
           email: 'o@test.com',
@@ -371,12 +375,14 @@ describe('SuperAdminService', () => {
       expect(result.paymentSummary.totalAmount).toBe(0);
     });
 
-    it('does not leak the raw _count object in the response', async () => {
+    it('does not leak the raw _count object and forwards forceTierExpiresAt', async () => {
+      const expiresAt = new Date('2026-12-31');
       mockPrisma.restaurant.findUnique.mockResolvedValueOnce({
         id: '1',
         name: 'Test',
         tier: 'FREE',
-        forceTier: null,
+        forceTier: 'PROFESSIONAL',
+        forceTierExpiresAt: expiresAt,
         isActive: true,
         tierUpdatedAt: null,
         createdAt: new Date(),
@@ -384,6 +390,7 @@ describe('SuperAdminService', () => {
         targetLanguages: [],
         paymentsEnabled: false,
         stripeOnboarded: false,
+        stripeSubscriptionId: 'sub_test123',
         owner: {
           id: 'u1',
           email: 'o@test.com',
@@ -406,6 +413,8 @@ describe('SuperAdminService', () => {
       expect(result.orderCount).toBe(7);
       expect(result.tableCount).toBe(3);
       expect(result.menuCategoryCount).toBe(2);
+      expect(result.forceTierExpiresAt).toBe(expiresAt);
+      expect(result.stripeSubscriptionId).toBe('sub_test123');
     });
   });
 

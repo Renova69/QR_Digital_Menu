@@ -79,8 +79,4 @@ export class UpdatePaymentsEnabledDto {
   confirmation: string;
 }
 
-export class SuperAdminImportMenuDto extends ImportMenuDto {
-  @IsString()
-  @Matches(/^CONFIRM$/, { message: 'confirmation must be exactly CONFIRM' })
-  confirmation: string;
-}
+export class SuperAdminImportMenuDto extends ImportMenuDto {}
