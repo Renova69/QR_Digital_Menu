@@ -42,7 +42,14 @@ export default function PosTableModal() {
   const restaurantCtx = useContext(RestaurantContext);
   const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
   const restaurantLoading = restaurantCtx?.loading ?? false;
-  const { session, setSession, setHistoryItems, resetCart, setHistoryLoading, setHistoryError } = usePos();
+  const {
+    session,
+    setSession,
+    setHistoryItems,
+    resetCart,
+    setHistoryLoading,
+    setHistoryError,
+  } = usePos();
   const { socket } = useSocket();
 
   const [tables, setTables] = useState<TableStatus[]>([]);
@@ -59,7 +66,12 @@ export default function PosTableModal() {
       getTableStatuses(activeRestaurant.id, zoneId ?? undefined)
         .then(setTables)
         .catch(() =>
-          setError(t("pos.failedLoadTables", "Failed to load tables. Check your connection.")),
+          setError(
+            t(
+              "pos.failedLoadTables",
+              "Failed to load tables. Check your connection.",
+            ),
+          ),
         );
     },
     [activeRestaurant],
@@ -69,8 +81,13 @@ export default function PosTableModal() {
     if (!activeRestaurant) return;
     getZones(activeRestaurant.id)
       .then(setZones)
-      .catch((err) => console.error('Failed to fetch zones:', err));
+      .catch((err) => console.error("Failed to fetch zones:", err));
   }, [activeRestaurant]);
+
+  // Always show table selection on POS startup (fresh load or session restore from draft).
+  useEffect(() => {
+    setOpen(true);
+  }, []);
 
   useEffect(() => {
     if (!session) {
@@ -92,7 +109,12 @@ export default function PosTableModal() {
       getZones(activeRestaurant.id)
         .then((zoneData) => setZones(zoneData))
         .catch(() =>
-          setError(t("pos.failedLoadTables", "Failed to load tables. Check your connection.")),
+          setError(
+            t(
+              "pos.failedLoadTables",
+              "Failed to load tables. Check your connection.",
+            ),
+          ),
         )
         .finally(() => setLoading(false));
     }
@@ -105,12 +127,21 @@ export default function PosTableModal() {
     let ignore = false;
     setError(null);
     getTableStatuses(activeRestaurant.id, selectedZoneId ?? undefined)
-      .then((data) => { if (!ignore) setTables(data); })
+      .then((data) => {
+        if (!ignore) setTables(data);
+      })
       .catch((err) => {
         if (ignore) return;
-        setError(t("pos.failedLoadTables", "Failed to load tables. Check your connection."));
+        setError(
+          t(
+            "pos.failedLoadTables",
+            "Failed to load tables. Check your connection.",
+          ),
+        );
       });
-    return () => { ignore = true; };
+    return () => {
+      ignore = true;
+    };
   }, [selectedZoneId, open, activeRestaurant, t]);
 
   // Auto-refresh when table status, creation, deletion, or zone changes
@@ -185,7 +216,7 @@ export default function PosTableModal() {
           seatNumber: "Shared",
           itemNote: "",
           submitted: true,
-        }))
+        })),
       );
       if (historyItems.length > 0) {
         setHistoryItems(historyItems);
@@ -216,7 +247,9 @@ export default function PosTableModal() {
   if (!activeRestaurant) {
     return (
       <div className="flex items-center justify-center h-dvh text-muted-foreground">
-        {restaurantLoading ? t("pos.loadingRestaurant", "Loading restaurant...") : t("pos.noRestaurant", "No restaurant selected.")}
+        {restaurantLoading
+          ? t("pos.loadingRestaurant", "Loading restaurant...")
+          : t("pos.noRestaurant", "No restaurant selected.")}
       </div>
     );
   }
@@ -224,12 +257,16 @@ export default function PosTableModal() {
   return (
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-        <Dialog.Content className={`fixed inset-x-0 bottom-0 z-50 w-full max-h-[85dvh] overflow-y-auto rounded-t-xl bg-background p-6 pt-safe text-foreground md:inset-auto md:top-1/2 md:left-1/2 md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:bottom-auto ${theme === "dark" ? "dark" : ""}`}>
+        <Dialog.Overlay className="fixed inset-0 bg-black/50 z-[9995]" />
+        <Dialog.Content
+          className={`fixed inset-x-0 bottom-0 z-[9996] w-full max-h-[85dvh] overflow-y-auto rounded-t-xl bg-background p-6 pt-safe text-foreground md:inset-auto md:top-1/2 md:left-1/2 md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:bottom-auto ${theme === "dark" ? "dark" : ""}`}
+        >
           <Dialog.Title className="text-lg font-semibold mb-1">
-            {t('pos.selectTable', 'Select Table')}</Dialog.Title>
+            {t("pos.selectTable", "Select Table")}
+          </Dialog.Title>
           <Dialog.Description className="text-sm text-muted-foreground mb-3">
-            {t('pos.selectTableDesc', 'Choose a table to start taking orders.')}</Dialog.Description>
+            {t("pos.selectTableDesc", "Choose a table to start taking orders.")}
+          </Dialog.Description>
 
           <ZoneSelector
             zones={zones}
@@ -243,7 +280,9 @@ export default function PosTableModal() {
               className="w-full mb-4 py-2 px-4 rounded-lg brand-cta font-medium min-h-[44px]"
               onClick={() => setOpen(false)}
             >
-              {t('pos.backToPos', 'Back to POS — {{name}}', { name: session.tableName })}
+              {t("pos.backToPos", "Back to POS — {{name}}", {
+                name: session.tableName,
+              })}
             </button>
           )}
 
@@ -253,7 +292,9 @@ export default function PosTableModal() {
             </div>
           ) : error ? (
             <div className="flex flex-col items-center py-8">
-              <p className="mb-3 text-center text-sm text-destructive">{error}</p>
+              <p className="mb-3 text-center text-sm text-destructive">
+                {error}
+              </p>
               <button
                 type="button"
                 onClick={() => {
@@ -261,36 +302,50 @@ export default function PosTableModal() {
                   setLoading(true);
                   getTableStatuses(activeRestaurant.id)
                     .then(setTables)
-                    .catch(() => setError(t("pos.failedLoadTables", "Failed to load tables. Check your connection.")))
+                    .catch(() =>
+                      setError(
+                        t(
+                          "pos.failedLoadTables",
+                          "Failed to load tables. Check your connection.",
+                        ),
+                      ),
+                    )
                     .finally(() => setLoading(false));
                 }}
                 className="px-4 py-2 rounded-lg brand-cta text-sm min-h-[44px]"
               >
-                {t('pos.retry', 'Retry')}</button>
+                {t("pos.retry", "Retry")}
+              </button>
             </div>
           ) : (
             <>
-            <div className="min-h-[50vh] max-h-[50vh] md:min-h-[400px] md:max-h-[400px] overflow-y-auto custom-scrollbar pr-1 -mr-1 content-start">
-              <div className="grid grid-cols-3 gap-3">
-                {tables.map((table) => (
-                  <button
-                    key={table.id}
-                    type="button"
-                    onClick={() => handleSelect(table)}
-                    className={`relative flex flex-col items-center justify-center p-4 rounded-lg border-2 min-h-[80px] transition-none ${STATUS_COLORS[table.status]}`}
-                  >
-                    <span className="text-lg font-extrabold">{table.name}</span>
-                    <span className="text-sm font-semibold">
-                      {t(STATUS_LABEL_KEYS[table.status], table.status)}
-                    </span>
-                  </button>
-                ))}
+              <div className="min-h-[50vh] max-h-[50vh] md:min-h-[400px] md:max-h-[400px] overflow-y-auto custom-scrollbar pr-1 -mr-1 content-start">
+                <div className="grid grid-cols-3 gap-3">
+                  {tables.map((table) => (
+                    <button
+                      key={table.id}
+                      type="button"
+                      onClick={() => handleSelect(table)}
+                      className={`relative flex flex-col items-center justify-center p-4 rounded-lg border-2 min-h-[80px] transition-none ${STATUS_COLORS[table.status]}`}
+                    >
+                      <span className="text-lg font-extrabold">
+                        {table.name}
+                      </span>
+                      <span className="text-sm font-semibold">
+                        {t(STATUS_LABEL_KEYS[table.status], table.status)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {tables.length === 0 && (
+                  <p className="text-center text-muted-foreground py-8">
+                    {t(
+                      "pos.noTables",
+                      "No tables found. Create tables in the dashboard first.",
+                    )}
+                  </p>
+                )}
               </div>
-              {tables.length === 0 && (
-                <p className="text-center text-muted-foreground py-8">
-                  {t('pos.noTables', 'No tables found. Create tables in the dashboard first.')}</p>
-              )}
-            </div>
             </>
           )}
         </Dialog.Content>
