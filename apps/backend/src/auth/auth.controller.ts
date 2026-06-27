@@ -185,6 +185,28 @@ export class AuthController {
     return { csrfToken: (req as any)['csrfToken'] ?? null };
   }
 
+  @Post('impersonate/exchange')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async exchangeImpersonation(
+    @Body('code') code: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.exchangeImpersonation(code);
+    setTokenCookie(res, result.token);
+    return { user: result.user };
+  }
+
+  @Post('impersonate/exit')
+  @UseGuards(JwtAuthGuard)
+  async exitImpersonation(
+    @Req() req: ExpressRequest & { user: any },
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    await this.authService.exitImpersonation(req.user);
+    res.clearCookie('token');
+    return { success: true };
+  }
+
   @Post('pin-login')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   async pinLogin(

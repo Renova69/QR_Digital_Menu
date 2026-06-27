@@ -38,6 +38,10 @@ model User {
   staffRestaurant               Restaurant?             @relation("StaffRestaurant", fields: [restaurantId], references: [id])
   adminAuditLogs                AdminAuditLog[]
   cashPaymentRequestsResolved   CashPaymentRequest[]    @relation("CashPaymentRequestResolvedBy")
+  impersonationSessionsAsActor  ImpersonationSession[]  @relation("ImpersonationActor")
+  impersonationSessionsAsTarget ImpersonationSession[]  @relation("ImpersonationTarget")
+  dataRequests                  DataRequest[]           @relation("DataRequestUser")
+  processedDataRequests         DataRequest[]           @relation("DataRequestProcessor")
 
   @@map("app_user")
 }
@@ -785,9 +789,12 @@ model PlatformSettings {
   cookiePolicyContent       Json?
   dataControllerName        String?
   dataControllerEmail       String?
-  dataControllerAddress     String?
-  updatedAt                 DateTime @updatedAt
-  updatedById               String?
+  dataControllerAddress        String?
+  announcementBannerEnabled    Boolean @default(false)
+  announcementBannerText       String?
+  announcementBannerType       String  @default("info")
+  updatedAt                    DateTime @updatedAt
+  updatedById                  String?
 
   @@map("platform_settings")
 }
@@ -807,4 +814,42 @@ model HelpContent {
 
   @@unique([section, categoryKey, itemKey, locale])
   @@map("help_content")
+}
+
+model DataRequest {
+  id                String    @id @default(cuid())
+  userId            String
+  type              String    // ERASURE | EXPORT
+  status            String    @default("PENDING") // PENDING | IN_PROGRESS | COMPLETED | REJECTED
+  requestedAt       DateTime  @default(now())
+  processedAt       DateTime?
+  processedByUserId String?
+  notes             String?
+  downloadUrl       String?
+  user              User      @relation("DataRequestUser", fields: [userId], references: [id], onDelete: Cascade)
+  processedBy       User?     @relation("DataRequestProcessor", fields: [processedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@map("data_request")
+}
+
+model ImpersonationSession {
+  id           String    @id @default(cuid())
+  actorId      String
+  targetId     String
+  restaurantId String
+  exchangeCode String?   @unique
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime
+  usedAt       DateTime?
+  revokedAt    DateTime?
+  actor        User      @relation("ImpersonationActor", fields: [actorId], references: [id], onDelete: Cascade)
+  target       User      @relation("ImpersonationTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([actorId])
+  @@index([targetId])
+  @@index([exchangeCode])
+  @@map("impersonation_session")
 }

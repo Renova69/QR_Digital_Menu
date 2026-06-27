@@ -74,6 +74,9 @@ export class PlatformSettingsService {
       cookiePolicyContent: settings.cookiePolicyContent,
       dataControllerName: settings.dataControllerName,
       dataControllerEmail: settings.dataControllerEmail,
+      announcementBannerEnabled: settings.announcementBannerEnabled,
+      announcementBannerText: settings.announcementBannerText ?? null,
+      announcementBannerType: settings.announcementBannerType,
     };
   }
 }

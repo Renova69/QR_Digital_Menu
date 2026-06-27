@@ -162,3 +162,56 @@ export interface PaginatedResponse<T> {
     limit: number;
   };
 }
+
+export interface TableSession {
+  id: string;
+  token: string;
+  tableId: string;
+  status: "OPEN" | "PAID" | "CLOSED_NO_PAYMENT";
+  createdAt: string;
+  paidAt: string | null;
+  table: { label: string } | null;
+  _count: { orders: number };
+}
+
+export interface LoyaltyAccount {
+  id: string;
+  points: number;
+  lifetimePoints: number;
+  createdAt: string;
+  user: { id: string; email: string; name: string | null };
+}
+
+export interface DataRequest {
+  id: string;
+  type: "ERASURE" | "EXPORT";
+  status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "REJECTED";
+  requestedAt: string;
+  processedAt: string | null;
+  notes: string | null;
+  downloadUrl: string | null;
+  user: { id: string; email: string; name: string | null };
+}
+
+export interface MrrTierRow {
+  tier: string;
+  billing: number;
+  effective: number;
+  price: number;
+  contribution: number;
+}
+
+export interface MrrData {
+  mrr: number;
+  arr: number;
+  byTier: MrrTierRow[];
+  newLast30d: Record<string, number>;
+  recentTierChanges: { action: string; metadata: unknown; createdAt: string }[];
+}
+
+export interface ImpersonationResult {
+  sessionId: string;
+  exchangeCode: string;
+  expiresAt: string;
+  targetUser: { id: string; email: string; name: string | null };
+}

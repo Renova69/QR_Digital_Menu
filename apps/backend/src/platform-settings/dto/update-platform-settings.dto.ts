@@ -102,4 +102,20 @@ export class UpdatePlatformSettingsDto {
   @IsString()
   @MaxLength(500)
   dataControllerAddress?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  announcementBannerEnabled?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  announcementBannerText?: string;
+
+  @ApiPropertyOptional({ enum: ['info', 'warning', 'maintenance'] })
+  @IsOptional()
+  @IsString()
+  announcementBannerType?: string;
 }

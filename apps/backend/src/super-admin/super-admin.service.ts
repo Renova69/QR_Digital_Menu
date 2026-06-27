@@ -9,6 +9,7 @@ import { ImportMenuDto } from '../menu-import/dto/import-menu.dto';
 import { Prisma, SubscriptionTier } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { EventsGateway } from '../events/events.gateway';
+import { randomBytes, createHash } from 'crypto';
 
 const VALID_TIERS: readonly string[] = [
   'FREE',
@@ -790,6 +791,446 @@ export class SuperAdminService {
       },
       { timeout: 60000 },
     );
+  }
+
+  async forceLogoutOwner(restaurantId: string, actorUserId: string) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { id: true, name: true, ownerId: true },
+    });
+    if (!restaurant)
+      throw new NotFoundException({
+        code: 'TENANT_NOT_FOUND',
+        message: 'Restaurant not found',
+      });
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: restaurant.ownerId },
+        data: { passwordChangedAt: new Date() },
+      }),
+      this.prisma.adminAuditLog.create({
+        data: {
+          actorUserId,
+          action: 'FORCE_LOGOUT',
+          targetType: 'USER',
+          targetId: restaurant.ownerId,
+          metadata: { restaurantId, restaurantName: restaurant.name },
+        },
+      }),
+    ]);
+
+    void this.events.evictUser(restaurant.ownerId, 'admin_force_logout');
+    return { success: true };
+  }
+
+  async regenerateImportApiKey(restaurantId: string, actorUserId: string) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { id: true, name: true },
+    });
+    if (!restaurant)
+      throw new NotFoundException({
+        code: 'TENANT_NOT_FOUND',
+        message: 'Restaurant not found',
+      });
+
+    const apiKey = 'ocrk_' + randomBytes(24).toString('hex');
+    const hash = createHash('sha256').update(apiKey).digest('hex');
+
+    await this.prisma.$transaction([
+      this.prisma.restaurant.update({
+        where: { id: restaurantId },
+        data: { importApiKeyHash: hash },
+      }),
+      this.prisma.adminAuditLog.create({
+        data: {
+          actorUserId,
+          action: 'REGENERATE_IMPORT_API_KEY',
+          targetType: 'RESTAURANT',
+          targetId: restaurantId,
+          metadata: { restaurantName: restaurant.name },
+        },
+      }),
+    ]);
+
+    return { apiKey };
+  }
+
+  async getTenantSessions(restaurantId: string, page: number, limit: number) {
+    const p = Math.max(1, page);
+    const l = Math.max(1, Math.min(limit, 100));
+    const [data, total] = await Promise.all([
+      this.prisma.tableSession.findMany({
+        where: { restaurantId, status: { in: ['OPEN', 'PAID'] } },
+        skip: (p - 1) * l,
+        take: l,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          token: true,
+          tableId: true,
+          status: true,
+          createdAt: true,
+          paidAt: true,
+          table: { select: { name: true } },
+          _count: { select: { orders: true } },
+        },
+      }),
+      this.prisma.tableSession.count({
+        where: { restaurantId, status: { in: ['OPEN', 'PAID'] } },
+      }),
+    ]);
+    return { data, meta: { total, page: p, limit: l } };
+  }
+
+  async forceCloseSession(
+    restaurantId: string,
+    sessionId: string,
+    actorUserId: string,
+  ) {
+    const session = await this.prisma.tableSession.findUnique({
+      where: { id: sessionId },
+      select: { id: true, token: true, restaurantId: true, status: true },
+    });
+    if (!session)
+      throw new NotFoundException({
+        code: 'SESSION_NOT_FOUND',
+        message: 'Session not found',
+      });
+    if (session.restaurantId !== restaurantId)
+      throw new BadRequestException({
+        code: 'SESSION_MISMATCH',
+        message: 'Session does not belong to this restaurant',
+      });
+    if (session.status === 'CLOSED_NO_PAYMENT')
+      throw new BadRequestException({
+        code: 'ALREADY_CLOSED',
+        message: 'Session already closed',
+      });
+
+    const [updated] = await this.prisma.$transaction([
+      this.prisma.tableSession.update({
+        where: { id: sessionId },
+        data: { status: 'CLOSED_NO_PAYMENT' },
+        select: { id: true, status: true },
+      }),
+      this.prisma.adminAuditLog.create({
+        data: {
+          actorUserId,
+          action: 'FORCE_CLOSE_SESSION',
+          targetType: 'TABLE_SESSION',
+          targetId: sessionId,
+          metadata: { restaurantId, token: session.token },
+        },
+      }),
+    ]);
+    return updated;
+  }
+
+  async getLoyaltyAccounts(restaurantId: string) {
+    return this.prisma.loyaltyAccount.findMany({
+      where: { restaurantId },
+      select: {
+        id: true,
+        points: true,
+        lifetimePoints: true,
+        createdAt: true,
+        user: { select: { id: true, email: true, name: true } },
+      },
+      orderBy: { points: 'desc' },
+      take: 100,
+    });
+  }
+
+  async adjustLoyaltyPoints(
+    restaurantId: string,
+    loyaltyAccountId: string,
+    delta: number,
+    note: string | null,
+    actorUserId: string,
+  ) {
+    const account = await this.prisma.loyaltyAccount.findUnique({
+      where: { id: loyaltyAccountId },
+      select: { id: true, restaurantId: true, points: true },
+    });
+    if (!account)
+      throw new NotFoundException({
+        code: 'ACCOUNT_NOT_FOUND',
+        message: 'Loyalty account not found',
+      });
+    if (account.restaurantId !== restaurantId)
+      throw new BadRequestException({
+        code: 'ACCOUNT_MISMATCH',
+        message: 'Account does not belong to this restaurant',
+      });
+
+    const newPoints = Math.max(0, account.points + delta);
+    const actualDelta = newPoints - account.points;
+    if (actualDelta === 0) return { success: true, points: account.points };
+
+    await this.prisma.$transaction([
+      this.prisma.loyaltyAccount.update({
+        where: { id: loyaltyAccountId },
+        data: {
+          points: { increment: actualDelta },
+          ...(actualDelta > 0
+            ? { lifetimePoints: { increment: actualDelta } }
+            : {}),
+        },
+      }),
+      this.prisma.loyaltyPointLedger.create({
+        data: {
+          loyaltyAccountId,
+          type: 'ADJUSTMENT',
+          points: actualDelta,
+          remainingPoints: Math.max(0, actualDelta),
+        },
+      }),
+      this.prisma.adminAuditLog.create({
+        data: {
+          actorUserId,
+          action: 'LOYALTY_ADJUST',
+          targetType: 'LOYALTY_ACCOUNT',
+          targetId: loyaltyAccountId,
+          metadata: {
+            restaurantId,
+            delta: actualDelta,
+            previousPoints: account.points,
+            newPoints,
+            note,
+          },
+        },
+      }),
+    ]);
+
+    return { success: true, previousPoints: account.points, newPoints };
+  }
+
+  async clearLoyaltyPoints(
+    restaurantId: string,
+    loyaltyAccountId: string,
+    actorUserId: string,
+  ) {
+    const account = await this.prisma.loyaltyAccount.findUnique({
+      where: { id: loyaltyAccountId },
+      select: { id: true, restaurantId: true, points: true },
+    });
+    if (!account)
+      throw new NotFoundException({
+        code: 'ACCOUNT_NOT_FOUND',
+        message: 'Loyalty account not found',
+      });
+    if (account.restaurantId !== restaurantId)
+      throw new BadRequestException({
+        code: 'ACCOUNT_MISMATCH',
+        message: 'Account does not belong to this restaurant',
+      });
+    if (account.points === 0) return { success: true, clearedPoints: 0 };
+
+    await this.prisma.$transaction([
+      this.prisma.loyaltyAccount.update({
+        where: { id: loyaltyAccountId },
+        data: { points: 0 },
+      }),
+      this.prisma.loyaltyPointLedger.updateMany({
+        where: { loyaltyAccountId, remainingPoints: { gt: 0 } },
+        data: { remainingPoints: 0 },
+      }),
+      this.prisma.loyaltyPointLedger.create({
+        data: {
+          loyaltyAccountId,
+          type: 'ADJUSTMENT',
+          points: -account.points,
+          remainingPoints: 0,
+        },
+      }),
+      this.prisma.adminAuditLog.create({
+        data: {
+          actorUserId,
+          action: 'LOYALTY_CLEAR',
+          targetType: 'LOYALTY_ACCOUNT',
+          targetId: loyaltyAccountId,
+          metadata: { restaurantId, clearedPoints: account.points },
+        },
+      }),
+    ]);
+
+    return { success: true, clearedPoints: account.points };
+  }
+
+  async getMrr() {
+    const TIER_PRICES: Record<string, number> = {
+      FREE: 0,
+      STARTER: 29,
+      PROFESSIONAL: 79,
+      ENTERPRISE: 199,
+    };
+
+    const [tiers, newTenants30d, recentChanges] = await Promise.all([
+      this.prisma.restaurant.findMany({
+        where: { isActive: true, deletedAt: null },
+        select: { tier: true, forceTier: true },
+      }),
+      this.prisma.restaurant.groupBy({
+        by: ['tier'],
+        where: {
+          createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+          deletedAt: null,
+        },
+        _count: { _all: true },
+      }),
+      this.prisma.adminAuditLog.findMany({
+        where: {
+          action: { in: ['TIER_OVERRIDE', 'TIER_CLEAR'] },
+          createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+        },
+        select: { action: true, metadata: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      }),
+    ]);
+
+    const billingCounts = emptyTierCounts();
+    const effectiveCounts = emptyTierCounts();
+    for (const row of tiers) {
+      billingCounts[row.tier] = (billingCounts[row.tier] ?? 0) + 1;
+      const eff = row.forceTier ?? row.tier;
+      effectiveCounts[eff] = (effectiveCounts[eff] ?? 0) + 1;
+    }
+
+    const mrr = Object.entries(TIER_PRICES).reduce(
+      (sum, [tier, price]) => sum + (billingCounts[tier] ?? 0) * price,
+      0,
+    );
+
+    const newByTier: Record<string, number> = {};
+    for (const row of newTenants30d) {
+      newByTier[row.tier] = row._count._all;
+    }
+
+    return {
+      mrr,
+      arr: mrr * 12,
+      byTier: (Object.keys(TIER_PRICES) as string[]).map((tier) => ({
+        tier,
+        billing: billingCounts[tier] ?? 0,
+        effective: effectiveCounts[tier] ?? 0,
+        price: TIER_PRICES[tier] ?? 0,
+        contribution: (billingCounts[tier] ?? 0) * (TIER_PRICES[tier] ?? 0),
+      })),
+      newLast30d: newByTier,
+      recentTierChanges: recentChanges,
+    };
+  }
+
+  async getDataRequests(params: {
+    page: number;
+    limit: number;
+    status?: string;
+    type?: string;
+  }) {
+    const page = clampPage(params.page);
+    const limit = clampLimit(params.limit);
+    const where: Prisma.DataRequestWhereInput = {};
+    if (params.status) where.status = params.status;
+    if (params.type) where.type = params.type;
+
+    const [data, total] = await Promise.all([
+      this.prisma.dataRequest.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { requestedAt: 'desc' },
+        select: {
+          id: true,
+          type: true,
+          status: true,
+          requestedAt: true,
+          processedAt: true,
+          notes: true,
+          downloadUrl: true,
+          user: { select: { id: true, email: true, name: true } },
+        },
+      }),
+      this.prisma.dataRequest.count({ where }),
+    ]);
+
+    return { data, meta: { total, page, limit } };
+  }
+
+  async updateDataRequest(
+    id: string,
+    patch: { status?: string; notes?: string; downloadUrl?: string },
+    actorUserId: string,
+  ) {
+    const request = await this.prisma.dataRequest.findUnique({ where: { id } });
+    if (!request)
+      throw new NotFoundException({
+        code: 'REQUEST_NOT_FOUND',
+        message: 'Data request not found',
+      });
+
+    const isTerminal =
+      patch.status === 'COMPLETED' || patch.status === 'REJECTED';
+    return this.prisma.dataRequest.update({
+      where: { id },
+      data: {
+        ...patch,
+        ...(isTerminal
+          ? { processedAt: new Date(), processedByUserId: actorUserId }
+          : {}),
+      },
+    });
+  }
+
+  async createImpersonationSession(restaurantId: string, actorUserId: string) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: {
+        id: true,
+        name: true,
+        ownerId: true,
+        owner: { select: { id: true, email: true, name: true } },
+      },
+    });
+    if (!restaurant)
+      throw new NotFoundException({
+        code: 'TENANT_NOT_FOUND',
+        message: 'Restaurant not found',
+      });
+
+    const exchangeCode = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min to exchange
+
+    const [session] = await this.prisma.$transaction([
+      this.prisma.impersonationSession.create({
+        data: {
+          actorId: actorUserId,
+          targetId: restaurant.ownerId,
+          restaurantId,
+          exchangeCode,
+          expiresAt,
+        },
+        select: { id: true, expiresAt: true },
+      }),
+      this.prisma.adminAuditLog.create({
+        data: {
+          actorUserId,
+          action: 'IMPERSONATION_START',
+          targetType: 'USER',
+          targetId: restaurant.ownerId,
+          metadata: { restaurantId, restaurantName: restaurant.name },
+        },
+      }),
+    ]);
+
+    return {
+      sessionId: session.id,
+      exchangeCode,
+      expiresAt: session.expiresAt,
+      targetUser: restaurant.owner,
+    };
   }
 
   async getAuditLog(params: {

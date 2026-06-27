@@ -144,7 +144,6 @@ export class AuthService {
     return newUser;
   }
 
-
   async register(createAuthDto: CreateAuthDto) {
     const { email } = createAuthDto;
     const normalizedEmail = this.normalizeEmail(email);
@@ -498,7 +497,11 @@ export class AuthService {
   ): Promise<void> {
     const normalizedEmail = this.normalizeEmail(email);
     const tokenRecord = await this.prisma.verificationToken.findFirst({
-      where: { email: normalizedEmail, usedAt: null, expiresAt: { gt: new Date() } },
+      where: {
+        email: normalizedEmail,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
       orderBy: { createdAt: 'desc' },
     });
     if (!tokenRecord) {
@@ -526,9 +529,7 @@ export class AuthService {
           attempts,
           ...(attempts >= MAX_ATTEMPTS
             ? {
-                lockedUntil: new Date(
-                  Date.now() + LOCKOUT_MINUTES * 60 * 1000,
-                ),
+                lockedUntil: new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000),
               }
             : {}),
         },
@@ -541,7 +542,6 @@ export class AuthService {
       data: { usedAt: new Date(), attempts: 0 },
     });
   }
-
 
   // ── public methods ────────────────────────────────────────────────────
   async sendOtp(
@@ -639,7 +639,9 @@ export class AuthService {
     if (!restaurant) {
       throw new NotFoundException('Restaurant not found');
     }
-    if (!this.featureService.restaurantHasFeature(restaurant, FeatureFlag.POS)) {
+    if (
+      !this.featureService.restaurantHasFeature(restaurant, FeatureFlag.POS)
+    ) {
       throw new ForbiddenException('POS is not available on this plan.');
     }
     // M2.2 — Suspended restaurants cannot use the POS.
@@ -759,9 +761,7 @@ export class AuthService {
       where: { id: enrolledDevice.id },
       data: {
         pinAttempts: attempts,
-        ...(attempts >= MAX_ATTEMPTS
-          ? { pinLockedUntil: lockedUntil }
-          : {}),
+        ...(attempts >= MAX_ATTEMPTS ? { pinLockedUntil: lockedUntil } : {}),
       },
     });
     await this.recordPinLoginAudit({
@@ -984,5 +984,58 @@ export class AuthService {
       },
       isNew,
     };
+  }
+
+  async exchangeImpersonation(code: string) {
+    if (!code || typeof code !== 'string')
+      throw new UnauthorizedException('Missing exchange code.');
+
+    const session = await this.prisma.impersonationSession.findUnique({
+      where: { exchangeCode: code },
+      include: { target: true },
+    });
+
+    if (!session || session.usedAt || session.revokedAt)
+      throw new UnauthorizedException('Invalid or already-used exchange code.');
+
+    if (new Date() > session.expiresAt)
+      throw new UnauthorizedException('Exchange code expired.');
+
+    await this.prisma.impersonationSession.update({
+      where: { id: session.id },
+      data: { usedAt: new Date(), exchangeCode: null },
+    });
+
+    const user = session.target;
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      isImpersonation: true,
+      impersonationSessionId: session.id,
+    };
+
+    return {
+      token: this.jwtService.sign(payload, { expiresIn: '1h' }),
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        restaurantId: user.restaurantId,
+        isImpersonation: true,
+      },
+    };
+  }
+
+  async exitImpersonation(jwtUser: {
+    id: string;
+    impersonationSessionId?: string;
+  }) {
+    if (jwtUser.impersonationSessionId) {
+      await this.prisma.impersonationSession.updateMany({
+        where: { id: jwtUser.impersonationSessionId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    }
   }
 }

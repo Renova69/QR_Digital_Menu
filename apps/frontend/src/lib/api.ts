@@ -1418,4 +1418,75 @@ export const generateAgentToken = (stationId: string, label?: string) =>
 export const revokeAgentToken = (tokenId: string) =>
   api.delete(`/print-stations/tokens/${tokenId}`).then((r) => r.data);
 
+// ── Super-admin: tenant ops ───────────────────────────────────────────────────
+export const superAdminForceLogout = (id: string) =>
+  api.post(`/super-admin/tenants/${id}/force-logout`).then((r) => r.data);
+
+export const superAdminRegenerateApiKey = (id: string) =>
+  api.post(`/super-admin/tenants/${id}/regenerate-api-key`).then((r) => r.data);
+
+export const superAdminImpersonate = (id: string) =>
+  api.post(`/super-admin/tenants/${id}/impersonate`).then((r) => r.data);
+
+// ── Super-admin: payment sessions ────────────────────────────────────────────
+export const superAdminGetSessions = (id: string, page = 1, limit = 20) =>
+  api
+    .get(`/super-admin/tenants/${id}/sessions`, { params: { page, limit } })
+    .then((r) => r.data);
+
+export const superAdminForceCloseSession = (
+  tenantId: string,
+  sessionId: string,
+) =>
+  api
+    .delete(`/super-admin/tenants/${tenantId}/sessions/${sessionId}`)
+    .then((r) => r.data);
+
+// ── Super-admin: loyalty ──────────────────────────────────────────────────────
+export const superAdminGetLoyalty = (id: string) =>
+  api.get(`/super-admin/tenants/${id}/loyalty`).then((r) => r.data);
+
+export const superAdminAdjustLoyalty = (
+  id: string,
+  loyaltyAccountId: string,
+  delta: number,
+  note?: string,
+) =>
+  api
+    .post(`/super-admin/tenants/${id}/loyalty/adjust`, {
+      loyaltyAccountId,
+      delta,
+      note,
+    })
+    .then((r) => r.data);
+
+export const superAdminClearLoyalty = (id: string, loyaltyAccountId: string) =>
+  api
+    .post(`/super-admin/tenants/${id}/loyalty/clear`, { loyaltyAccountId })
+    .then((r) => r.data);
+
+// ── Super-admin: MRR ─────────────────────────────────────────────────────────
+export const superAdminGetMrr = () =>
+  api.get("/super-admin/mrr").then((r) => r.data);
+
+// ── Super-admin: GDPR data requests ──────────────────────────────────────────
+export const superAdminGetDataRequests = (params?: {
+  page?: number;
+  limit?: number;
+  status?: string;
+  type?: string;
+}) => api.get("/super-admin/data-requests", { params }).then((r) => r.data);
+
+export const superAdminUpdateDataRequest = (
+  id: string,
+  patch: { status?: string; notes?: string; downloadUrl?: string },
+) => api.patch(`/super-admin/data-requests/${id}`, patch).then((r) => r.data);
+
+// ── Impersonation exchange (public — no auth required) ────────────────────────
+export const exchangeImpersonation = (code: string) =>
+  api.post("/auth/impersonate/exchange", { code }).then((r) => r.data);
+
+export const exitImpersonation = () =>
+  api.post("/auth/impersonate/exit").then((r) => r.data);
+
 export default api;

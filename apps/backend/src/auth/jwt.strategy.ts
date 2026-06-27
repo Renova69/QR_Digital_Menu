@@ -45,6 +45,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     iat?: number;
     deviceTokenId?: string;
     deviceSessionVersion?: number;
+    isImpersonation?: boolean;
+    impersonationSessionId?: string;
   }) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
@@ -126,6 +128,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('PASSWORD_CHANGED');
     }
 
+    // Validate impersonation session is still active (not revoked/expired).
+    if (payload.isImpersonation && payload.impersonationSessionId) {
+      const impSession = await this.prisma.impersonationSession.findUnique({
+        where: { id: payload.impersonationSessionId },
+        select: { revokedAt: true, expiresAt: true },
+      });
+      if (
+        !impSession ||
+        impSession.revokedAt ||
+        new Date() > impSession.expiresAt
+      ) {
+        throw new UnauthorizedException('IMPERSONATION_REVOKED');
+      }
+    }
+
     if (user.role !== 'SUPER_ADMIN') {
       // Issue 21: only check staffRestaurant (staff roles). OWNER restaurant
       // suspension is deferred to verifyDashboardAccess — this avoids blocking
@@ -164,6 +181,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       user as any;
     return {
       ...result,
+      ...(payload.isImpersonation
+        ? {
+            isImpersonation: true,
+            impersonationSessionId: payload.impersonationSessionId,
+          }
+        : {}),
     };
   }
 }

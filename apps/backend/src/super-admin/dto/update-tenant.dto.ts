@@ -80,3 +80,38 @@ export class UpdatePaymentsEnabledDto {
 }
 
 export class SuperAdminImportMenuDto extends ImportMenuDto {}
+
+export class AdjustLoyaltyPointsDto {
+  @IsString()
+  loyaltyAccountId: string;
+
+  @IsInt()
+  @Min(-100000)
+  @Max(100000)
+  delta: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+}
+
+export class ClearLoyaltyPointsDto {
+  @IsString()
+  loyaltyAccountId: string;
+}
+
+export class UpdateDataRequestDto {
+  @IsOptional()
+  @IsIn(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'REJECTED'])
+  status?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  notes?: string;
+
+  @IsOptional()
+  @IsString()
+  downloadUrl?: string;
+}

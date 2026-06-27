@@ -11,6 +11,14 @@ import {
   importMenuForTenant,
   resetTenantOwnerPassword,
   updateTenantPayments,
+  superAdminForceLogout,
+  superAdminRegenerateApiKey,
+  superAdminImpersonate,
+  superAdminGetSessions,
+  superAdminForceCloseSession,
+  superAdminGetLoyalty,
+  superAdminAdjustLoyalty,
+  superAdminClearLoyalty,
 } from "../../lib/api";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
@@ -26,6 +34,13 @@ import {
   Crown,
   AlertTriangle,
   CheckCircle2,
+  LogOut,
+  Key,
+  UserCheck,
+  Star,
+  Minus,
+  Plus,
+  X as XIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -125,6 +140,17 @@ export default function TenantDetailPage() {
   const [paymentsDialogOpen, setPaymentsDialogOpen] = useState(false);
   const [confirmationText, setConfirmationText] = useState("");
   const [tierExpiryDays, setTierExpiryDays] = useState<string>("");
+
+  // Ops panel state
+  const [newApiKey, setNewApiKey] = useState<string | null>(null);
+  const [impersonateResult, setImpersonateResult] = useState<{
+    exchangeCode: string;
+    targetUser: { email: string };
+  } | null>(null);
+  const [sessionsPage, setSessionsPage] = useState(1);
+  const [loyaltyAdjId, setLoyaltyAdjId] = useState<string>("");
+  const [loyaltyDelta, setLoyaltyDelta] = useState<string>("");
+  const [loyaltyNote, setLoyaltyNote] = useState<string>("");
 
   const {
     data: tenant,
@@ -245,6 +271,74 @@ export default function TenantDetailPage() {
       setPaymentsDialogOpen(false);
     },
     onError: onMutationError,
+  });
+
+  const forceLogoutMutation = useMutation({
+    mutationFn: () => superAdminForceLogout(id!),
+    onError: onMutationError,
+  });
+
+  const regenApiKeyMutation = useMutation({
+    mutationFn: () => superAdminRegenerateApiKey(id!),
+    onSuccess: (data: { apiKey: string }) => setNewApiKey(data.apiKey),
+    onError: onMutationError,
+  });
+
+  const impersonateMutation = useMutation({
+    mutationFn: () => superAdminImpersonate(id!),
+    onSuccess: (data) => setImpersonateResult(data),
+    onError: onMutationError,
+  });
+
+  const forceCloseSessionMutation = useMutation({
+    mutationFn: (sessionId: string) =>
+      superAdminForceCloseSession(id!, sessionId),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: ["super-admin", "sessions", id],
+      }),
+    onError: onMutationError,
+  });
+
+  const adjustLoyaltyMutation = useMutation({
+    mutationFn: ({
+      accountId,
+      delta,
+      note,
+    }: {
+      accountId: string;
+      delta: number;
+      note?: string;
+    }) => superAdminAdjustLoyalty(id!, accountId, delta, note),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["super-admin", "loyalty", id],
+      });
+      setLoyaltyDelta("");
+      setLoyaltyNote("");
+    },
+    onError: onMutationError,
+  });
+
+  const clearLoyaltyMutation = useMutation({
+    mutationFn: (accountId: string) => superAdminClearLoyalty(id!, accountId),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: ["super-admin", "loyalty", id],
+      }),
+    onError: onMutationError,
+  });
+
+  const { data: sessionsData } = useQuery({
+    queryKey: ["super-admin", "sessions", id, sessionsPage],
+    queryFn: () => superAdminGetSessions(id!, sessionsPage),
+    enabled: !!id,
+  });
+
+  const { data: loyaltyAccounts } = useQuery({
+    queryKey: ["super-admin", "loyalty", id],
+    queryFn: () => superAdminGetLoyalty(id!),
+    enabled: !!id,
   });
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -737,6 +831,248 @@ export default function TenantDetailPage() {
                 {importMutation.isPending ? "Importing…" : "Import Menu"}
               </button>
             </div>
+          </div>
+        </SectionCard>
+      )}
+
+      {/* Ops actions */}
+      <SectionCard title="Ops Actions" icon={Key}>
+        <div className="space-y-4">
+          {/* Force logout */}
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-slate-300">Force Logout</p>
+              <p className="text-xs text-slate-500">
+                Invalidates all owner sessions immediately.
+              </p>
+            </div>
+            <button
+              onClick={() => forceLogoutMutation.mutate()}
+              disabled={forceLogoutMutation.isPending}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400 text-xs font-semibold hover:bg-amber-500/20 disabled:opacity-40 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              {forceLogoutMutation.isPending ? "…" : "Force Logout"}
+            </button>
+          </div>
+          {forceLogoutMutation.isSuccess && (
+            <p className="text-xs text-emerald-400">Sessions invalidated.</p>
+          )}
+
+          {/* API key regen */}
+          <div className="border-t border-slate-800 pt-4 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-slate-300">
+                Regenerate Import API Key
+              </p>
+              <p className="text-xs text-slate-500">
+                Old key stops working immediately. Shown once.
+              </p>
+              {newApiKey && (
+                <div className="mt-2 flex items-center gap-2 rounded-md bg-slate-800 px-3 py-2">
+                  <code className="flex-1 text-xs text-emerald-400 break-all">
+                    {newApiKey}
+                  </code>
+                  <button
+                    onClick={() => setNewApiKey(null)}
+                    className="shrink-0 text-slate-500 hover:text-slate-300"
+                  >
+                    <XIcon className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => regenApiKeyMutation.mutate()}
+              disabled={regenApiKeyMutation.isPending}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 text-violet-400 text-xs font-semibold hover:bg-violet-500/20 disabled:opacity-40 transition-colors"
+            >
+              <Key className="w-3.5 h-3.5" />
+              {regenApiKeyMutation.isPending ? "…" : "Regenerate"}
+            </button>
+          </div>
+
+          {/* Impersonate */}
+          <div className="border-t border-slate-800 pt-4 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-slate-300">
+                Impersonate Owner
+              </p>
+              <p className="text-xs text-slate-500">
+                Opens a one-time login link (expires in 5 min).
+              </p>
+              {impersonateResult && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-slate-400">
+                    Target:{" "}
+                    <span className="text-slate-200">
+                      {impersonateResult.targetUser.email}
+                    </span>
+                  </p>
+                  <a
+                    href={`/impersonate/${impersonateResult.exchangeCode}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-violet-400 underline underline-offset-2 hover:text-violet-300"
+                  >
+                    <UserCheck className="h-3 w-3" />
+                    Open tenant session →
+                  </a>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => impersonateMutation.mutate()}
+              disabled={impersonateMutation.isPending}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 text-xs font-semibold hover:bg-indigo-500/20 disabled:opacity-40 transition-colors"
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              {impersonateMutation.isPending ? "…" : "Impersonate"}
+            </button>
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Payment Sessions */}
+      {sessionsData && (
+        <SectionCard
+          title={`Active Sessions (${sessionsData.meta.total})`}
+          icon={CreditCard}
+        >
+          {sessionsData.data.length === 0 ? (
+            <p className="text-sm text-slate-500">No open or paid sessions.</p>
+          ) : (
+            <div className="space-y-2">
+              {sessionsData.data.map((s: any) => (
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between gap-3 rounded-md bg-slate-800/50 px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-slate-300">
+                      Table: {s.table?.name ?? s.tableId}
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      {s._count.orders} orders · {s.status} ·{" "}
+                      {new Date(s.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  {s.status !== "CLOSED_NO_PAYMENT" && (
+                    <button
+                      onClick={() => forceCloseSessionMutation.mutate(s.id)}
+                      disabled={forceCloseSessionMutation.isPending}
+                      className="shrink-0 text-xs text-red-400 border border-red-500/20 rounded px-2 py-1 hover:bg-red-500/10 disabled:opacity-40 transition-colors"
+                    >
+                      Close
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {sessionsData.meta.total > 20 && (
+            <div className="flex gap-2 mt-3">
+              <button
+                disabled={sessionsPage <= 1}
+                onClick={() => setSessionsPage((p) => p - 1)}
+                className="text-xs text-slate-400 border border-slate-700 rounded px-2 py-1 hover:bg-slate-800 disabled:opacity-40"
+              >
+                ← Prev
+              </button>
+              <button
+                disabled={sessionsPage * 20 >= sessionsData.meta.total}
+                onClick={() => setSessionsPage((p) => p + 1)}
+                className="text-xs text-slate-400 border border-slate-700 rounded px-2 py-1 hover:bg-slate-800 disabled:opacity-40"
+              >
+                Next →
+              </button>
+            </div>
+          )}
+        </SectionCard>
+      )}
+
+      {/* Loyalty accounts */}
+      {loyaltyAccounts && loyaltyAccounts.length > 0 && (
+        <SectionCard
+          title={`Loyalty Accounts (${loyaltyAccounts.length})`}
+          icon={Star}
+        >
+          <div className="space-y-3">
+            {loyaltyAccounts.map((acc: any) => (
+              <div
+                key={acc.id}
+                className="rounded-md bg-slate-800/50 p-3 space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-slate-300">
+                      {acc.user.name ?? acc.user.email}
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      {acc.user.email}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-white">
+                      {acc.points} pts
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      {acc.lifetimePoints} lifetime
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    placeholder="±delta"
+                    value={loyaltyAdjId === acc.id ? loyaltyDelta : ""}
+                    onFocus={() => setLoyaltyAdjId(acc.id)}
+                    onChange={(e) => {
+                      setLoyaltyAdjId(acc.id);
+                      setLoyaltyDelta(e.target.value);
+                    }}
+                    className="w-20 rounded border border-slate-600 bg-slate-700 px-2 py-1 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="note (optional)"
+                    value={loyaltyAdjId === acc.id ? loyaltyNote : ""}
+                    onFocus={() => setLoyaltyAdjId(acc.id)}
+                    onChange={(e) => {
+                      setLoyaltyAdjId(acc.id);
+                      setLoyaltyNote(e.target.value);
+                    }}
+                    className="flex-1 rounded border border-slate-600 bg-slate-700 px-2 py-1 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  />
+                  <button
+                    onClick={() => {
+                      const d = parseInt(loyaltyDelta);
+                      if (!d || isNaN(d)) return;
+                      adjustLoyaltyMutation.mutate({
+                        accountId: acc.id,
+                        delta: d,
+                        note: loyaltyNote || undefined,
+                      });
+                    }}
+                    disabled={adjustLoyaltyMutation.isPending}
+                    className="flex items-center gap-1 rounded border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-[11px] text-violet-400 hover:bg-violet-500/20 disabled:opacity-40 transition-colors"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Adjust
+                  </button>
+                  <button
+                    onClick={() => clearLoyaltyMutation.mutate(acc.id)}
+                    disabled={
+                      clearLoyaltyMutation.isPending || acc.points === 0
+                    }
+                    className="flex items-center gap-1 rounded border border-red-500/20 bg-red-500/10 px-2 py-1 text-[11px] text-red-400 hover:bg-red-500/20 disabled:opacity-40 transition-colors"
+                  >
+                    <Minus className="h-3 w-3" />
+                    Clear
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </SectionCard>
       )}

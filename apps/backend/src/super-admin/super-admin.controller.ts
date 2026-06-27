@@ -18,9 +18,12 @@ import { SuperAdminService } from './super-admin.service';
 import { SuperAdminGuard } from './super-admin.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import {
+  AdjustLoyaltyPointsDto,
+  ClearLoyaltyPointsDto,
   ResetOwnerPasswordDto,
   SuperAdminConfirmationDto,
   SuperAdminImportMenuDto,
+  UpdateDataRequestDto,
   UpdatePaymentsEnabledDto,
   UpdateTenantStatusDto,
   UpdateTenantTierDto,
@@ -180,5 +183,113 @@ export class SuperAdminController {
       dateFrom,
       dateTo,
     });
+  }
+
+  @ApiOperation({ summary: 'Force-logout all sessions for a tenant owner' })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Post('tenants/:id/force-logout')
+  forceLogout(@Param('id') id: string, @Request() req: any) {
+    return this.service.forceLogoutOwner(id, req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Regenerate OCR import API key for a tenant' })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Post('tenants/:id/regenerate-api-key')
+  regenerateApiKey(@Param('id') id: string, @Request() req: any) {
+    return this.service.regenerateImportApiKey(id, req.user.id);
+  }
+
+  @ApiOperation({ summary: 'List active payment sessions for a tenant' })
+  @Get('tenants/:id/sessions')
+  getTenantSessions(
+    @Param('id') id: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+  ) {
+    return this.service.getTenantSessions(id, page, limit);
+  }
+
+  @ApiOperation({ summary: 'Force-close a payment session' })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Delete('tenants/:id/sessions/:sessionId')
+  forceCloseSession(
+    @Param('id') id: string,
+    @Param('sessionId') sessionId: string,
+    @Request() req: any,
+  ) {
+    return this.service.forceCloseSession(id, sessionId, req.user.id);
+  }
+
+  @ApiOperation({ summary: 'List loyalty accounts for a tenant' })
+  @Get('tenants/:id/loyalty')
+  getLoyaltyAccounts(@Param('id') id: string) {
+    return this.service.getLoyaltyAccounts(id);
+  }
+
+  @ApiOperation({ summary: 'Adjust loyalty points for an account' })
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Post('tenants/:id/loyalty/adjust')
+  adjustLoyaltyPoints(
+    @Param('id') id: string,
+    @Body() dto: AdjustLoyaltyPointsDto,
+    @Request() req: any,
+  ) {
+    return this.service.adjustLoyaltyPoints(
+      id,
+      dto.loyaltyAccountId,
+      dto.delta,
+      dto.note ?? null,
+      req.user.id,
+    );
+  }
+
+  @ApiOperation({ summary: 'Clear loyalty points for an account' })
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Post('tenants/:id/loyalty/clear')
+  clearLoyaltyPoints(
+    @Param('id') id: string,
+    @Body() dto: ClearLoyaltyPointsDto,
+    @Request() req: any,
+  ) {
+    return this.service.clearLoyaltyPoints(
+      id,
+      dto.loyaltyAccountId,
+      req.user.id,
+    );
+  }
+
+  @ApiOperation({ summary: 'MRR / ARR dashboard' })
+  @Get('mrr')
+  getMrr() {
+    return this.service.getMrr();
+  }
+
+  @ApiOperation({ summary: 'List GDPR data requests' })
+  @Get('data-requests')
+  getDataRequests(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('status') status?: string,
+    @Query('type') type?: string,
+  ) {
+    return this.service.getDataRequests({ page, limit, status, type });
+  }
+
+  @ApiOperation({ summary: 'Update a GDPR data request' })
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Patch('data-requests/:id')
+  updateDataRequest(
+    @Param('id') id: string,
+    @Body() dto: UpdateDataRequestDto,
+    @Request() req: any,
+  ) {
+    return this.service.updateDataRequest(id, dto, req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Create impersonation session for a tenant owner' })
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @Post('tenants/:id/impersonate')
+  impersonate(@Param('id') id: string, @Request() req: any) {
+    return this.service.createImpersonationSession(id, req.user.id);
   }
 }

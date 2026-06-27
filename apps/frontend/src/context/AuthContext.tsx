@@ -1,8 +1,19 @@
-import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
-import { login as apiLogin, register as apiRegister, verifyRegistration as apiVerifyRegistration } from '../lib/api';
-import api from '../lib/api';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  ReactNode,
+} from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import {
+  login as apiLogin,
+  register as apiRegister,
+  verifyRegistration as apiVerifyRegistration,
+} from "../lib/api";
+import api from "../lib/api";
 
 interface User {
   id: string;
@@ -11,6 +22,8 @@ interface User {
   role: string;
   restaurantId?: string;
   onboardingComplete?: boolean;
+  isImpersonation?: boolean;
+  impersonationSessionId?: string;
 }
 
 interface AuthContextType {
@@ -18,10 +31,15 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<any>;
   register: (email: string, password: string, name?: string) => Promise<any>;
-  verifyRegistration: (email: string, password: string, code: string) => Promise<any>;
+  verifyRegistration: (
+    email: string,
+    password: string,
+    code: string,
+  ) => Promise<any>;
   loginWithToken: (user: User) => void;
   updateUser: (user: User) => void;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   isLoading: boolean;
   isError: boolean;
   errorMessage: string | null;
@@ -37,7 +55,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [prefetchedRestaurants, setPrefetchedRestaurants] = useState<any[] | null>(null);
+  const [prefetchedRestaurants, setPrefetchedRestaurants] = useState<
+    any[] | null
+  >(null);
 
   const clearPrefetch = () => setPrefetchedRestaurants(null);
   const queryClient = useQueryClient();
@@ -50,8 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initializeAuth = async () => {
       try {
         // Fetch /auth/me first to verify authentication
-        const meResult = await api.get('/auth/me');
-        
+        const meResult = await api.get("/auth/me");
+
         // A login or logout occurred while /auth/me was in-flight — don't overwrite.
         if (manualAuthRef.current) {
           setIsLoading(false);
@@ -64,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Only fetch restaurants if the user is authenticated, avoiding 401 errors
         if (userData) {
           try {
-            const restaurantsResult = await api.get('/restaurants');
+            const restaurantsResult = await api.get("/restaurants");
             setPrefetchedRestaurants(restaurantsResult.data);
           } catch (err) {
             // It's safe to let the logger catch this if it fails despite auth
@@ -102,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsError(true);
       const msg =
         error.response?.data?.message ||
-        t('auto.loginFailed', 'Login failed. Please check your credentials.');
+        t("auto.loginFailed", "Login failed. Please check your credentials.");
       setErrorMessage(msg);
       throw error;
     }
@@ -127,13 +147,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsError(true);
       const msg =
         error.response?.data?.message ||
-        t('auto.registrationFailed', 'Registration failed. Please try again.');
+        t("auto.registrationFailed", "Registration failed. Please try again.");
       setErrorMessage(msg);
       throw error;
     }
   };
 
-  const verifyRegistration = async (email: string, password: string, code: string) => {
+  const verifyRegistration = async (
+    email: string,
+    password: string,
+    code: string,
+  ) => {
     try {
       setIsError(false);
       setErrorMessage(null);
@@ -146,7 +170,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsError(true);
       const msg =
         error.response?.data?.message ||
-        t('auto.verificationFailed', 'Verification failed. Please check the code.');
+        t(
+          "auto.verificationFailed",
+          "Verification failed. Please check the code.",
+        );
       setErrorMessage(msg);
       throw error;
     }
@@ -164,20 +191,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateUser = (user: User) => setUser(user);
 
+  const refreshUser = async () => {
+    const res = await api.get("/auth/me");
+    setUser(res.data);
+  };
+
   const logout = async () => {
     manualAuthRef.current = true;
     try {
-      await api.post('/auth/logout');
+      await api.post("/auth/logout");
     } catch (_error) {
       // Cookie cleared server-side regardless
     }
     queryClient.clear();
-    localStorage.removeItem('cartItems');
-    localStorage.removeItem('tableNumber');
-    sessionStorage.removeItem('cartRestaurantId');
+    localStorage.removeItem("cartItems");
+    localStorage.removeItem("tableNumber");
+    sessionStorage.removeItem("cartRestaurantId");
     // Clear POS draft so a different staff member on a shared device cannot
     // inherit the previous waiter's open-table session/items (H2).
-    sessionStorage.removeItem('posCartDraft');
+    sessionStorage.removeItem("posCartDraft");
     setUser(null);
     setPrefetchedRestaurants(null);
   };
@@ -191,6 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loginWithToken,
     updateUser,
     logout,
+    refreshUser,
     isLoading,
     isError,
     errorMessage,
@@ -204,7 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }
