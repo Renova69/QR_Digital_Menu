@@ -581,9 +581,10 @@
     "signInToEarn": "Присъединете се към програмата ни — събирайте точки, отключвайте награди.",
     "signIn": "Вход / Регистрация",
     "free": "БЕЗПЛАТНО",
-    "itemNotFound": "itemNotFound",
-    "clearCartAndReturn": "clearCartAndReturn",
-    "loyaltyLoadFailed": "loyaltyLoadFailed",
+    "itemNotFound": "Един или повече артикула не бяха намерени. Изчистете количката и опитайте отново.",
+    "clearCartAndReturn": "Изчисти количката и се върни към менюто",
+    "loyaltyLoadFailed": "Точките за лоялност не могат да се заредят сега — можете да продължите с поръчката.",
+    "tableNotFound": "Масата не е намерена. Сканирайте QR кода отново или помолете персонала за помощ.",
     "nameOptional": "по избор"
   },
   "analytics": {

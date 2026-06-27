@@ -579,9 +579,10 @@
     "signInToEarn": "Alăturați-vă programului de loialitate — colectați puncte, deblocați recompense.",
     "signIn": "Conectare / Înregistrare",
     "free": "GRATUIT",
-    "itemNotFound": "itemNotFound",
-    "clearCartAndReturn": "clearCartAndReturn",
-    "loyaltyLoadFailed": "loyaltyLoadFailed",
+    "itemNotFound": "Unul sau mai multe produse din coș nu au fost găsite. Golești coșul și încearcă din nou.",
+    "clearCartAndReturn": "Golește coșul și revino la meniu",
+    "loyaltyLoadFailed": "Punctele de loialitate nu pot fi încărcate acum — poți continua cu comanda.",
+    "tableNotFound": "Masa nu a fost găsită. Scanează din nou codul QR sau cere ajutor personalului.",
     "nameOptional": "opțional"
   },
   "analytics": {

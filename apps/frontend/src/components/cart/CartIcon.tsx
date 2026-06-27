@@ -10,9 +10,17 @@ interface CartIconProps {
   selectedLang?: string;
   tier?: string;
   features?: string[];
+  themeVars?: React.CSSProperties;
 }
 
-const CartIcon = ({ categories, restaurantId, selectedLang, tier, features }: CartIconProps) => {
+const CartIcon = ({
+  categories,
+  restaurantId,
+  selectedLang,
+  tier,
+  features,
+  themeVars,
+}: CartIconProps) => {
   const { getItemCount } = useCart();
   const [isVisible, setIsVisible] = useState(false);
 
@@ -36,7 +44,10 @@ const CartIcon = ({ categories, restaurantId, selectedLang, tier, features }: Ca
         {hasItems && (
           <span
             className="absolute -top-1 -right-1 text-[10px] font-black rounded-full h-5 w-5 flex items-center justify-center shadow-lg border-2 border-zinc-950 dark:border-white"
-            style={{ background: 'var(--gradient-brand)', color: 'var(--brand-contrast, #fff)' }}
+            style={{
+              background: "var(--gradient-brand)",
+              color: "var(--brand-contrast, #fff)",
+            }}
           >
             {getItemCount()}
           </span>
@@ -50,6 +61,7 @@ const CartIcon = ({ categories, restaurantId, selectedLang, tier, features }: Ca
         selectedLang={selectedLang}
         tier={tier}
         features={features}
+        themeVars={themeVars}
       />
     </>
   );

@@ -1388,6 +1388,7 @@ const PublicMenuPage = () => {
                       selectedLang={selectedLang}
                       tier={tier}
                       features={features}
+                      themeVars={themeVars}
                     />
                   </div>
                 )}

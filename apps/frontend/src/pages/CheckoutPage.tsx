@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
@@ -30,7 +30,8 @@ const CheckoutPage = () => {
   const features = Array.isArray(location.state?.features)
     ? (location.state.features as FeatureFlag[])
     : [];
-  const customersAuthEnabled = features.includes('customers:auth');
+  const themeVars = (location.state?.themeVars ?? {}) as React.CSSProperties;
+  const customersAuthEnabled = features.includes("customers:auth");
   const { t } = useTranslation();
 
   // ── Session-based checkout (POS Payment QR) ──
@@ -50,7 +51,8 @@ const CheckoutPage = () => {
       .then((bill) => setSessionBill(bill))
       .catch((err) =>
         setSessionBillError(
-          err?.response?.data?.message ?? "Failed to load bill. The session may have expired.",
+          err?.response?.data?.message ??
+            "Failed to load bill. The session may have expired.",
         ),
       )
       .finally(() => setSessionBillLoading(false));
@@ -70,10 +72,14 @@ const CheckoutPage = () => {
   const [usePoints, setUsePoints] = useState(false);
   // Fix C-3 — track redemption per cart ENTRY (cartId), not per product (item.id).
   // Two cart lines for the same product must be redeemable independently.
-  const [redeemedCartIds, setRedeemedCartIds] = useState<Set<string>>(new Set());
+  const [redeemedCartIds, setRedeemedCartIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   // Fix M-4 — scope the "not enough points" message to the specific cart entry.
-  const [notEnoughPointsItemId, setNotEnoughPointsItemId] = useState<string | null>(null);
+  const [notEnoughPointsItemId, setNotEnoughPointsItemId] = useState<
+    string | null
+  >(null);
   const [loyaltyLoadFailed, setLoyaltyLoadFailed] = useState(false);
 
   // Gamification helpers — config comes from enroll() or getPublicConfig() API
@@ -148,7 +154,9 @@ const CheckoutPage = () => {
   // Pre-fill name if user is logged in
   useEffect(() => {
     if (user && !customerName) {
-      setCustomerName(user.name || (user.email ? user.email.split("@")[0] : ""));
+      setCustomerName(
+        user.name || (user.email ? user.email.split("@")[0] : ""),
+      );
     }
   }, [user, customerName]);
 
@@ -159,7 +167,9 @@ const CheckoutPage = () => {
   useEffect(() => {
     if (namePrefilledRef.current || user) return;
     if (!restaurantId || !tableNumber) return;
-    const saved = localStorage.getItem(`customerName-${restaurantId}-${tableNumber}`);
+    const saved = localStorage.getItem(
+      `customerName-${restaurantId}-${tableNumber}`,
+    );
     if (saved) setCustomerName(saved);
     namePrefilledRef.current = true;
   }, [user, restaurantId, tableNumber]);
@@ -205,11 +215,12 @@ const CheckoutPage = () => {
       redeemCartIds: Array.from(redeemedCartIds),
       sessionToken:
         restaurantId && tableNumber
-          ? localStorage.getItem(`session-${restaurantId}-${tableNumber}`) || undefined
+          ? localStorage.getItem(`session-${restaurantId}-${tableNumber}`) ||
+            undefined
           : undefined,
     };
 
-    if (user && user.role === 'CUSTOMER') {
+    if (user && user.role === "CUSTOMER") {
       orderData.customerId = user.id;
       if (usePoints) {
         orderData.usePoints = true;
@@ -223,7 +234,10 @@ const CheckoutPage = () => {
       const newOrder = await createOrder(orderData);
 
       if (newOrder.sessionToken && tableNumber) {
-        localStorage.setItem(`session-${restaurantId}-${tableNumber}`, newOrder.sessionToken);
+        localStorage.setItem(
+          `session-${restaurantId}-${tableNumber}`,
+          newOrder.sessionToken,
+        );
         rememberOwnedOrder(
           restaurantId,
           tableNumber,
@@ -234,7 +248,10 @@ const CheckoutPage = () => {
 
       // Remember the name so a returning customer on this table is pre-filled.
       if (customerName.trim() && restaurantId && tableNumber) {
-        localStorage.setItem(`customerName-${restaurantId}-${tableNumber}`, customerName.trim());
+        localStorage.setItem(
+          `customerName-${restaurantId}-${tableNumber}`,
+          customerName.trim(),
+        );
       }
 
       orderPlaced.current = true;
@@ -263,14 +280,15 @@ const CheckoutPage = () => {
           typeof err.response?.data?.message === "string"
             ? err.response.data.message
             : null;
+        const isTableNotFound = backendMessage
+          ?.toLowerCase()
+          .includes("table not found");
         setError(
-          backendMessage ||
-            t("checkout.itemNotFound", {
-              defaultValue:
-                "One or more items in your cart were not found. Please clear your cart and try again.",
-            }),
+          isTableNotFound
+            ? t("checkout.tableNotFound")
+            : t("checkout.itemNotFound"),
         );
-        setShowResetCartAction(true);
+        setShowResetCartAction(!isTableNotFound);
       } else {
         setError(
           t("checkout.failedSubmit", {
@@ -286,266 +304,310 @@ const CheckoutPage = () => {
   // ── Session bill view (POS Payment QR) ──────────────────────────────────
   if (isSessionFlow) {
     return (
-      <div className="max-w-2xl mx-auto px-4 pt-10 pb-24" style={{ paddingBottom: 'max(6rem, calc(env(safe-area-inset-bottom, 0px) + 4rem))' }}>
-        <h1 className="text-4xl font-extrabold text-foreground mb-8 tracking-tight">
-          {paymentComplete
-            ? t("checkout.paymentComplete", "Payment Complete")
-            : t("checkout.yourBill", "Your Bill")}
-        </h1>
+      <div className="min-h-screen premium-bg" style={themeVars}>
+        <div
+          className="max-w-2xl mx-auto px-4 pt-10 pb-24"
+          style={{
+            paddingBottom:
+              "max(6rem, calc(env(safe-area-inset-bottom, 0px) + 4rem))",
+          }}
+        >
+          <h1 className="text-4xl font-extrabold text-foreground mb-8 tracking-tight">
+            {paymentComplete
+              ? t("checkout.paymentComplete", "Payment Complete")
+              : t("checkout.yourBill", "Your Bill")}
+          </h1>
 
-        {/* After a successful payment the session is PAID/closed — do NOT refetch
+          {/* After a successful payment the session is PAID/closed — do NOT refetch
             the bill (it would 404 "Session not found"). Show a thank-you state. */}
-        {paymentComplete && (
-          <div className="glass-panel rounded-2xl p-8 text-center flex flex-col items-center gap-4">
-            <CheckCircle2 className="h-14 w-14 text-green-500" />
-            <p className="text-lg font-semibold text-foreground">
-              {t("checkout.paymentThanks", "Thank you! Your payment was received.")}
-            </p>
-            <button
-              type="button"
-              onClick={() =>
-                navigate(
-                  sessionBill?.restaurantId
-                    ? `/menu/public/${sessionBill.restaurantId}`
-                    : "/",
-                )
-              }
-              className="w-full py-4 rounded-xl brand-cta text-white font-bold text-lg min-h-[52px]"
-            >
-              {t("checkout.backToMenu", "Back to Menu")}
-            </button>
-          </div>
-        )}
-
-        {!paymentComplete && sessionBillLoading && (
-          <div className="flex justify-center py-12">
-            <div className="animate-spin h-8 w-8 border-3 border-primary border-t-transparent rounded-full" />
-          </div>
-        )}
-
-        {!paymentComplete && sessionBillError && (
-          <div className="glass-panel border-l-4 border-red-500 text-red-700 p-4 rounded-2xl mb-8">
-            {sessionBillError}
-          </div>
-        )}
-
-        {!paymentComplete && sessionBill && !sessionBillLoading && (
-          <>
-            <div className="glass-panel rounded-2xl p-5 mb-6">
-              <h2 className="text-sm font-semibold text-muted-foreground mb-3">
-                {t("checkout.orderSummary", "Order Summary")}
-              </h2>
-              {sessionBill.orders?.map((order: any, oi: number) => (
-                <div key={order.id ?? oi} className="mb-4 last:mb-0">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-muted-foreground">
-                      {t("checkout.orderN", { n: oi + 1, defaultValue: "Order {{n}}" })}
-                      {" · "}
-                      {getCustomerFacingOrderSourceLabel(order, t)}
-                    </span>
-                  </div>
-                  {(order.items ?? []).map((it: any, ii: number) => (
-                    <div key={ii} className="flex justify-between text-sm py-1.5 border-b border-border/20 last:border-b-0">
-                      <span className="text-foreground">
-                        {it.name}
-                        {it.quantity > 1 && <span className="text-muted-foreground"> ×{it.quantity}</span>}
-                      </span>
-                      <span className="font-semibold text-foreground tabular-nums">
-                        {formatEuro((it.unitPrice ?? 0) * (it.quantity ?? 1))}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ))}
-              <div className="flex justify-between items-center mt-4 pt-3 border-t border-border">
-                <span className="text-lg font-bold text-foreground">{t("checkout.total", "Total")}</span>
-                <span className="text-2xl font-display font-bold text-foreground tabular-nums">
-                  {formatEuro(sessionBill.subtotal ?? 0)}
-                </span>
-              </div>
-            </div>
-
-            {sessionBill.paymentProviders && sessionBill.paymentProviders.length > 0 ? (
+          {paymentComplete && (
+            <div className="glass-panel rounded-2xl p-8 text-center flex flex-col items-center gap-4">
+              <CheckCircle2 className="h-14 w-14 text-green-500" />
+              <p className="text-lg font-semibold text-foreground">
+                {t(
+                  "checkout.paymentThanks",
+                  "Thank you! Your payment was received.",
+                )}
+              </p>
               <button
                 type="button"
-                onClick={openPayment}
+                onClick={() =>
+                  navigate(
+                    sessionBill?.restaurantId
+                      ? `/menu/public/${sessionBill.restaurantId}`
+                      : "/",
+                  )
+                }
                 className="w-full py-4 rounded-xl brand-cta text-white font-bold text-lg min-h-[52px]"
               >
-                {t("checkout.payNow", "Pay Now")} · {formatEuro(sessionBill.subtotal ?? 0)}
+                {t("checkout.backToMenu", "Back to Menu")}
               </button>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center">
-                {t("checkout.payAtCounter", "Online payment isn't available — please pay your server or at the counter.")}
-              </p>
-            )}
-          </>
-        )}
+            </div>
+          )}
 
-        {paymentModalOpen && sessionToken && (
-          <PaymentModal
-            sessionToken={sessionToken}
-            onClose={() => setPaymentModalOpen(false)}
-            onSuccess={() => {
-              // Session is now PAID — switch to the local success state instead
-              // of reloading (a refetch would 404 the closed session). Bug 2.
-              setPaymentModalOpen(false);
-              setPaymentComplete(true);
-            }}
-          />
-        )}
+          {!paymentComplete && sessionBillLoading && (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin h-8 w-8 border-3 border-primary border-t-transparent rounded-full" />
+            </div>
+          )}
+
+          {!paymentComplete && sessionBillError && (
+            <div className="glass-panel border-l-4 border-red-500 text-red-700 p-4 rounded-2xl mb-8">
+              {sessionBillError}
+            </div>
+          )}
+
+          {!paymentComplete && sessionBill && !sessionBillLoading && (
+            <>
+              <div className="glass-panel rounded-2xl p-5 mb-6">
+                <h2 className="text-sm font-semibold text-muted-foreground mb-3">
+                  {t("checkout.orderSummary", "Order Summary")}
+                </h2>
+                {sessionBill.orders?.map((order: any, oi: number) => (
+                  <div key={order.id ?? oi} className="mb-4 last:mb-0">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-muted-foreground">
+                        {t("checkout.orderN", {
+                          n: oi + 1,
+                          defaultValue: "Order {{n}}",
+                        })}
+                        {" · "}
+                        {getCustomerFacingOrderSourceLabel(order, t)}
+                      </span>
+                    </div>
+                    {(order.items ?? []).map((it: any, ii: number) => (
+                      <div
+                        key={ii}
+                        className="flex justify-between text-sm py-1.5 border-b border-border/20 last:border-b-0"
+                      >
+                        <span className="text-foreground">
+                          {it.name}
+                          {it.quantity > 1 && (
+                            <span className="text-muted-foreground">
+                              {" "}
+                              ×{it.quantity}
+                            </span>
+                          )}
+                        </span>
+                        <span className="font-semibold text-foreground tabular-nums">
+                          {formatEuro((it.unitPrice ?? 0) * (it.quantity ?? 1))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+                <div className="flex justify-between items-center mt-4 pt-3 border-t border-border">
+                  <span className="text-lg font-bold text-foreground">
+                    {t("checkout.total", "Total")}
+                  </span>
+                  <span className="text-2xl font-display font-bold text-foreground tabular-nums">
+                    {formatEuro(sessionBill.subtotal ?? 0)}
+                  </span>
+                </div>
+              </div>
+
+              {sessionBill.paymentProviders &&
+              sessionBill.paymentProviders.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={openPayment}
+                  className="w-full py-4 rounded-xl brand-cta text-white font-bold text-lg min-h-[52px]"
+                >
+                  {t("checkout.payNow", "Pay Now")} ·{" "}
+                  {formatEuro(sessionBill.subtotal ?? 0)}
+                </button>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center">
+                  {t(
+                    "checkout.payAtCounter",
+                    "Online payment isn't available — please pay your server or at the counter.",
+                  )}
+                </p>
+              )}
+            </>
+          )}
+
+          {paymentModalOpen && sessionToken && (
+            <PaymentModal
+              sessionToken={sessionToken}
+              onClose={() => setPaymentModalOpen(false)}
+              onSuccess={() => {
+                // Session is now PAID — switch to the local success state instead
+                // of reloading (a refetch would 404 the closed session). Bug 2.
+                setPaymentModalOpen(false);
+                setPaymentComplete(true);
+              }}
+            />
+          )}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 pt-10 pb-24" style={{ paddingBottom: 'max(6rem, calc(env(safe-area-inset-bottom, 0px) + 4rem))' }}>
-      <button
-        onClick={() => navigate(-1)}
-        className="mb-8 text-muted-foreground hover:text-foreground font-semibold flex items-center gap-2 transition-colors"
+    <div className="min-h-screen premium-bg" style={themeVars}>
+      <div
+        className="max-w-2xl mx-auto px-4 pt-10 pb-24"
+        style={{
+          paddingBottom:
+            "max(6rem, calc(env(safe-area-inset-bottom, 0px) + 4rem))",
+        }}
       >
-        {t("checkout.back")}
-      </button>
+        <button
+          onClick={() => navigate(-1)}
+          className="mb-8 text-muted-foreground hover:text-foreground font-semibold flex items-center gap-2 transition-colors"
+        >
+          {t("checkout.back")}
+        </button>
 
-      <h1 className="text-4xl font-extrabold text-foreground mb-8 tracking-tight">
-        {t("checkout.title")}
-      </h1>
+        <h1 className="text-4xl font-extrabold text-foreground mb-8 tracking-tight">
+          {t("checkout.title")}
+        </h1>
 
-      {error && (
-        <div className="glass-panel border-l-4 border-red-500 text-red-700 p-4 rounded-2xl mb-8 shadow-md">
-          <p className="font-semibold">{error}</p>
-          {showResetCartAction && (
-            <button
-              type="button"
-              onClick={() => {
-                clearCart();
-                setError(null);
-                setShowResetCartAction(false);
-                navigate(-1);
-              }}
-              className="mt-3 inline-flex items-center rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors"
-            >
-              {t("checkout.clearCartAndReturn", {
-                defaultValue: "Clear cart and return to menu",
-              })}
-            </button>
-          )}
-        </div>
-      )}
-
-      <div className="glass-panel p-5 md:p-8 rounded-[2rem] shadow-xl mb-8 border border-white/20">
-        <h2 className="text-2xl font-bold mb-6 text-foreground">
-          {t("checkout.orderSummary")}
-        </h2>
-        <ul className="space-y-4">
-          {items.map((item) => (
-            <li
-              key={item.cartId}
-              className="flex justify-between items-start pb-4 border-b border-border/40 last:border-0 last:pb-0"
-            >
-              <div>
-                <p className="font-bold text-foreground text-lg">
-                  {item.name}{" "}
-                  <span className="text-muted-foreground ml-2">
-                    x{item.quantity}
-                  </span>
-                </p>
-                {item.selectedOptions && item.selectedOptions.length > 0 && (
-                  <ul className="text-sm text-muted-foreground mt-1 space-y-1">
-                    {item.selectedOptions.map((opt) => (
-                      <li
-                        key={opt.choiceName}
-                        className="flex items-center gap-2"
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary/50 block"></span>
-                        {opt.choiceName}{" "}
-                        <span className="text-primary/80 font-semibold">
-                          (+{formatInlineDual(opt.priceModifier ?? 0, 'EUR')})
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {(item as any).rewardPointsPrice && user && (
-                  <>
-                    <button
-                      onClick={() => {
-                        if (redeemedCartIds.has(item.cartId)) {
-                          setRedeemedCartIds((prev) => {
-                            const next = new Set(prev);
-                            next.delete(item.cartId);
-                            return next;
-                          });
-                        } else if (
-                          loyaltyPoints - getItemsPointsCost() >=
-                          (item as any).rewardPointsPrice * item.quantity
-                        ) {
-                          setRedeemedCartIds((prev) => {
-                            const next = new Set(prev);
-                            next.add(item.cartId);
-                            return next;
-                          });
-                        } else {
-                          setNotEnoughPointsItemId(item.cartId);
-                          setTimeout(
-                            () =>
-                              setNotEnoughPointsItemId((cur) =>
-                                cur === item.cartId ? null : cur,
-                              ),
-                            3000,
-                          );
-                        }
-                      }}
-                      className={`mt-2 text-xs font-bold px-2 py-1 rounded-md transition-colors ${
-                        redeemedCartIds.has(item.cartId)
-                          ? "bg-primary text-white"
-                          : "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
-                      }`}
-                    >
-                      {redeemedCartIds.has(item.cartId)
-                        ? t('checkout.redeemedFree')
-                        : t('checkout.redeemForPts', { pts: (item as any).rewardPointsPrice * item.quantity })}
-                    </button>
-                    {notEnoughPointsItemId === item.cartId && (
-                      <p className="text-red-500 text-xs mt-1">{t('checkout.notEnoughPoints')}</p>
-                    )}
-                  </>
-                )}
-              </div>
-              <p className="font-bold text-lg">
-                {redeemedCartIds.has(item.cartId)
-                  ? t('checkout.free')
-                  : formatInlineDual(item.price * item.quantity, 'EUR')}
-              </p>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-6 pt-6 border-t border-border flex justify-between font-extrabold text-2xl text-foreground">
-          <span>{t("cart.total")}:</span>
-          <div className="text-right">
-            <div>{formatEuro(getTotal(redeemedCartIds))}</div>
-            <span className="text-xs text-muted-foreground">{formatBgn(getTotal(redeemedCartIds))}</span>
-          </div>
-        </div>
-
-        {user && restaurantId && loyaltyLoadFailed && (
-          <div className="mt-6 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-600 dark:text-amber-400">
-            {t('checkout.loyaltyLoadFailed', {
-              defaultValue: "Couldn't load your loyalty points right now — you can still place your order.",
-            })}
+        {error && (
+          <div className="glass-panel border-l-4 border-red-500 text-red-700 p-4 rounded-2xl mb-8 shadow-md">
+            <p className="font-semibold">{error}</p>
+            {showResetCartAction && (
+              <button
+                type="button"
+                onClick={() => {
+                  clearCart();
+                  setError(null);
+                  setShowResetCartAction(false);
+                  navigate(-1);
+                }}
+                className="mt-3 inline-flex items-center rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors"
+              >
+                {t("checkout.clearCartAndReturn", {
+                  defaultValue: "Clear cart and return to menu",
+                })}
+              </button>
+            )}
           </div>
         )}
 
-        {user &&
-          restaurantId &&
-          restaurantConfig?.isLoyaltyEnabled && (
+        <div className="glass-panel p-5 md:p-8 rounded-[2rem] shadow-xl mb-8 border border-white/20">
+          <h2 className="text-2xl font-bold mb-6 text-foreground">
+            {t("checkout.orderSummary")}
+          </h2>
+          <ul className="space-y-4">
+            {items.map((item) => (
+              <li
+                key={item.cartId}
+                className="flex justify-between items-start pb-4 border-b border-border/40 last:border-0 last:pb-0"
+              >
+                <div>
+                  <p className="font-bold text-foreground text-lg">
+                    {item.name}{" "}
+                    <span className="text-muted-foreground ml-2">
+                      x{item.quantity}
+                    </span>
+                  </p>
+                  {item.selectedOptions && item.selectedOptions.length > 0 && (
+                    <ul className="text-sm text-muted-foreground mt-1 space-y-1">
+                      {item.selectedOptions.map((opt) => (
+                        <li
+                          key={opt.choiceName}
+                          className="flex items-center gap-2"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary/50 block"></span>
+                          {opt.choiceName}{" "}
+                          <span className="text-primary/80 font-semibold">
+                            (+{formatInlineDual(opt.priceModifier ?? 0, "EUR")})
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {(item as any).rewardPointsPrice && user && (
+                    <>
+                      <button
+                        onClick={() => {
+                          if (redeemedCartIds.has(item.cartId)) {
+                            setRedeemedCartIds((prev) => {
+                              const next = new Set(prev);
+                              next.delete(item.cartId);
+                              return next;
+                            });
+                          } else if (
+                            loyaltyPoints - getItemsPointsCost() >=
+                            (item as any).rewardPointsPrice * item.quantity
+                          ) {
+                            setRedeemedCartIds((prev) => {
+                              const next = new Set(prev);
+                              next.add(item.cartId);
+                              return next;
+                            });
+                          } else {
+                            setNotEnoughPointsItemId(item.cartId);
+                            setTimeout(
+                              () =>
+                                setNotEnoughPointsItemId((cur) =>
+                                  cur === item.cartId ? null : cur,
+                                ),
+                              3000,
+                            );
+                          }
+                        }}
+                        className={`mt-2 text-xs font-bold px-2 py-1 rounded-md transition-colors ${
+                          redeemedCartIds.has(item.cartId)
+                            ? "bg-primary text-white"
+                            : "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
+                        }`}
+                      >
+                        {redeemedCartIds.has(item.cartId)
+                          ? t("checkout.redeemedFree")
+                          : t("checkout.redeemForPts", {
+                              pts:
+                                (item as any).rewardPointsPrice * item.quantity,
+                            })}
+                      </button>
+                      {notEnoughPointsItemId === item.cartId && (
+                        <p className="text-red-500 text-xs mt-1">
+                          {t("checkout.notEnoughPoints")}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+                <p className="font-bold text-lg text-foreground">
+                  {redeemedCartIds.has(item.cartId)
+                    ? t("checkout.free")
+                    : formatInlineDual(item.price * item.quantity, "EUR")}
+                </p>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-6 pt-6 border-t border-border flex justify-between font-extrabold text-2xl text-foreground">
+            <span>{t("cart.total")}:</span>
+            <div className="text-right">
+              <div>{formatEuro(getTotal(redeemedCartIds))}</div>
+              <span className="text-xs text-muted-foreground">
+                {formatBgn(getTotal(redeemedCartIds))}
+              </span>
+            </div>
+          </div>
+
+          {user && restaurantId && loyaltyLoadFailed && (
+            <div className="mt-6 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-600 dark:text-amber-400">
+              {t("checkout.loyaltyLoadFailed", {
+                defaultValue:
+                  "Couldn't load your loyalty points right now — you can still place your order.",
+              })}
+            </div>
+          )}
+
+          {user && restaurantId && restaurantConfig?.isLoyaltyEnabled && (
             <div className="mt-6 pt-6 border-t border-border space-y-4">
               <div className="flex justify-between items-center p-4 bg-primary/10 border border-primary/20 rounded-xl">
                 <div>
-                  <p className="font-bold text-primary">{t('checkout.loyaltyPoints')}</p>
+                  <p className="font-bold text-primary">
+                    {t("checkout.loyaltyPoints")}
+                  </p>
                   <p className="text-sm text-primary/80">
-                    {t('checkout.pointsAvailable', {
+                    {t("checkout.pointsAvailable", {
                       count: getAvailableLoyaltyPoints(),
-                      value: getAvailableRewardValue().toFixed(2)
+                      value: getAvailableRewardValue().toFixed(2),
                     })}
                   </p>
                 </div>
@@ -553,12 +615,12 @@ const CheckoutPage = () => {
                   getTotal(redeemedCartIds) > 0 && (
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-bold text-foreground">
-                        {t('checkout.redeemForDiscount')}
+                        {t("checkout.redeemForDiscount")}
                       </span>
                       <Toggle
                         checked={usePoints}
                         onChange={setUsePoints}
-                        label={t('checkout.redeemForDiscount')}
+                        label={t("checkout.redeemForDiscount")}
                         size="sm"
                       />
                     </div>
@@ -568,14 +630,18 @@ const CheckoutPage = () => {
               {loyaltyData?.expiringSoonPoints > 0 && (
                 <div className="rounded-xl border border-yellow-500/25 bg-yellow-500/10 p-3 text-sm">
                   <p className="font-bold text-yellow-600 dark:text-yellow-400">
-                    {t('checkout.expiringSoon', { value: loyaltyData.expiringSoonValue.toFixed(2) })}
+                    {t("checkout.expiringSoon", {
+                      value: loyaltyData.expiringSoonValue.toFixed(2),
+                    })}
                   </p>
                   <p className="text-muted-foreground">
-                    {t('checkout.pointsExpire', {
+                    {t("checkout.pointsExpire", {
                       points: loyaltyData.expiringSoonPoints,
                       date: loyaltyData.nextExpirationAt
-                        ? new Date(loyaltyData.nextExpirationAt).toLocaleDateString()
-                        : '',
+                        ? new Date(
+                            loyaltyData.nextExpirationAt,
+                          ).toLocaleDateString()
+                        : "",
                     })}
                   </p>
                 </div>
@@ -583,137 +649,154 @@ const CheckoutPage = () => {
 
               {usePoints && loyaltyPoints - getItemsPointsCost() > 0 && (
                 <div className="flex justify-between font-bold text-lg text-green-600">
-                  <span>{t('checkout.discountApplied')}</span>
-                  <span>
-                    -{formatEuro(getEstimatedPointsDiscount())}
-                  </span>
+                  <span>{t("checkout.discountApplied")}</span>
+                  <span>-{formatEuro(getEstimatedPointsDiscount())}</span>
                 </div>
               )}
 
               <div className="flex justify-between font-extrabold text-3xl text-foreground">
-                <span>{t('checkout.finalTotal')}</span>
+                <span>{t("checkout.finalTotal")}</span>
                 <div className="text-right">
-                  <div>{formatEuro(getTotal(redeemedCartIds) - getEstimatedPointsDiscount())}</div>
-                  <span className="text-xs text-muted-foreground">{formatBgn(getTotal(redeemedCartIds) - getEstimatedPointsDiscount())}</span>
+                  <div>
+                    {formatEuro(
+                      getTotal(redeemedCartIds) - getEstimatedPointsDiscount(),
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {formatBgn(
+                      getTotal(redeemedCartIds) - getEstimatedPointsDiscount(),
+                    )}
+                  </span>
                 </div>
               </div>
 
               {isHappyHourActive(restaurantConfig) && (
                 <div className="flex items-center gap-2 text-yellow-500 font-bold bg-yellow-500/10 border border-yellow-500/20 px-3 py-1.5 rounded-lg justify-end">
-                  <Zap className="mr-1 h-3.5 w-3.5" />{t('checkout.happyHourBonus', { multiplier: hhMultiplier })}
+                  <Zap className="mr-1 h-3.5 w-3.5" />
+                  {t("checkout.happyHourBonus", { multiplier: hhMultiplier })}
                 </div>
               )}
 
               <p className="text-sm text-muted-foreground text-right font-medium">
-                {t('checkout.willEarn', {
+                {t("checkout.willEarn", {
                   pts: Math.floor(
-                    (getTotal(redeemedCartIds) - getEstimatedPointsDiscount()) * exchangeRate * finalMultiplier
-                  )
+                    (getTotal(redeemedCartIds) - getEstimatedPointsDiscount()) *
+                      exchangeRate *
+                      finalMultiplier,
+                  ),
                 })}
                 {finalMultiplier > 1 && (
                   <span className="ml-1 text-xs text-primary/70">
-                    ({finalMultiplier}{t('auto.x', 'x)')}</span>
+                    ({finalMultiplier}
+                    {t("auto.x", "x)")}
+                  </span>
                 )}
               </p>
             </div>
           )}
 
-        {!user && restaurantConfig?.isLoyaltyEnabled && (
-          <div className="mt-6 pt-6 border-t border-border">
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-5 bg-primary/5 border border-primary/10 rounded-xl">
-              <div>
-                <p className="font-bold text-foreground">
-                  {t('checkout.earnFreeFood')}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {t('checkout.signInToEarn')}
-                </p>
+          {!user && restaurantConfig?.isLoyaltyEnabled && (
+            <div className="mt-6 pt-6 border-t border-border">
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-5 bg-primary/5 border border-primary/10 rounded-xl">
+                <div>
+                  <p className="font-bold text-foreground">
+                    {t("checkout.earnFreeFood")}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {t("checkout.signInToEarn")}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setIsLoginModalOpen(true)}
+                  variant="outline"
+                  className="shrink-0 rounded-xl border-primary text-primary hover:bg-primary/10"
+                >
+                  {t("checkout.signIn")}
+                </Button>
               </div>
-              <Button
-                onClick={() => setIsLoginModalOpen(true)}
-                variant="outline"
-                className="shrink-0 rounded-xl border-primary text-primary hover:bg-primary/10"
-              >
-                {t('checkout.signIn')}
-              </Button>
             </div>
+          )}
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
+          className="glass-panel p-5 md:p-8 rounded-[2rem] shadow-xl space-y-6 border border-white/20"
+        >
+          <div className="bg-primary/10 border border-primary/20 p-5 rounded-2xl mb-8">
+            <p className="font-bold text-primary text-lg flex items-center gap-2">
+              <span className="bg-primary text-white px-2 py-0.5 rounded-md text-sm">
+                {t("checkout.table")}
+              </span>
+              {tableNumber || t("checkout.notSpecified")}
+            </p>
           </div>
+
+          <div className="space-y-2">
+            <label htmlFor="name" className="text-sm font-bold text-foreground">
+              {t("checkout.name")}{" "}
+              <span className="text-muted-foreground font-normal ml-1">
+                ({t("checkout.nameOptional", "optional")})
+              </span>
+            </label>
+            <Input
+              id="name"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="h-12 rounded-xl"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label
+              htmlFor="phone"
+              className="text-sm font-bold text-foreground"
+            >
+              {t("checkout.phone")}{" "}
+              <span className="text-muted-foreground font-normal ml-1">
+                ({t("checkout.phoneOptional")})
+              </span>
+            </label>
+            <Input
+              id="phone"
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value)}
+              className="h-12 rounded-xl"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label
+              htmlFor="requests"
+              className="text-sm font-bold text-foreground"
+            >
+              {t("checkout.specialRequests")}
+            </label>
+            <Textarea
+              id="requests"
+              value={specialRequests}
+              onChange={(e) => setSpecialRequests(e.target.value)}
+              placeholder={t("checkout.specialPlaceholder")}
+              className="rounded-xl min-h-[100px] resize-none"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full bg-foreground hover:bg-foreground/90 text-background font-bold py-4 px-6 rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+          >
+            {submitting ? t("checkout.submitting") : t("checkout.placeOrder")}
+          </button>
+        </form>
+
+        {customersAuthEnabled && (
+          <CustomerLoginModal
+            isOpen={isLoginModalOpen}
+            onClose={() => setIsLoginModalOpen(false)}
+            returnTo={location.pathname + location.search}
+          />
         )}
       </div>
-
-      <form
-        onSubmit={handleSubmit}
-        className="glass-panel p-5 md:p-8 rounded-[2rem] shadow-xl space-y-6 border border-white/20"
-      >
-        <div className="bg-primary/10 border border-primary/20 p-5 rounded-2xl mb-8">
-          <p className="font-bold text-primary text-lg flex items-center gap-2">
-            <span className="bg-primary text-white px-2 py-0.5 rounded-md text-sm">
-              {t("checkout.table")}
-            </span>
-            {tableNumber || t("checkout.notSpecified")}
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <label htmlFor="name" className="text-sm font-bold text-foreground">
-            {t("checkout.name")}{" "}
-            <span className="text-muted-foreground font-normal ml-1">({t("checkout.nameOptional", "optional")})</span>
-          </label>
-          <Input
-            id="name"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            className="h-12 rounded-xl"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label htmlFor="phone" className="text-sm font-bold text-foreground">
-            {t("checkout.phone")}{" "}
-            <span className="text-muted-foreground font-normal ml-1">
-              ({t("checkout.phoneOptional")})
-            </span>
-          </label>
-          <Input
-            id="phone"
-            value={customerPhone}
-            onChange={(e) => setCustomerPhone(e.target.value)}
-            className="h-12 rounded-xl"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label
-            htmlFor="requests"
-            className="text-sm font-bold text-foreground"
-          >
-            {t("checkout.specialRequests")}
-          </label>
-          <Textarea
-            id="requests"
-            value={specialRequests}
-            onChange={(e) => setSpecialRequests(e.target.value)}
-            placeholder={t("checkout.specialPlaceholder")}
-            className="rounded-xl min-h-[100px] resize-none"
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full bg-foreground hover:bg-foreground/90 text-background font-bold py-4 px-6 rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
-        >
-          {submitting ? t("checkout.submitting") : t("checkout.placeOrder")}
-        </button>
-      </form>
-
-      {customersAuthEnabled && (
-        <CustomerLoginModal
-          isOpen={isLoginModalOpen}
-          onClose={() => setIsLoginModalOpen(false)}
-          returnTo={location.pathname + location.search}
-        />
-      )}
     </div>
   );
 };

@@ -1,6 +1,16 @@
-import { useState, useContext } from "react";
+import React, { useState, useContext, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useTranslation } from "react-i18next";
+import {
+  X,
+  ChevronUp,
+  CheckCircle2,
+  CreditCard,
+  Banknote,
+  Scissors,
+  ChevronDown,
+} from "lucide-react";
 import { usePos } from "../../context/PosContext";
 import {
   createOrder,
@@ -38,7 +48,6 @@ export default function PosCartDrawer({
   total,
 }: PosCartDrawerProps) {
   const { t } = useTranslation();
-  // Confirm dialog portals to <body>, outside the POS scoped `.dark` shell.
   const { theme } = usePosTheme();
   const restaurantCtx = useContext(RestaurantContext);
   const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
@@ -56,33 +65,78 @@ export default function PosCartDrawer({
     historyLoading,
     historyError,
   } = usePos();
-  const [expanded, setExpanded] = useState(false);
+
+  // Sheet state
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetMounted, setSheetMounted] = useState(false);
+
+  // Actions
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [noteDraft, setNoteDraft] = useState("");
   const [closing, setClosing] = useState(false);
-  const [customerName, setCustomerName] = useState("");
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [splitOpen, setSplitOpen] = useState(false);
 
+  // Note editing
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
+
+  // UI state
+  const [customerName, setCustomerName] = useState("");
+  const [submittedCollapsed, setSubmittedCollapsed] = useState(false);
+
+  // Derived
   const pendingItems = items.filter((i) => !i.submitted);
+  const submittedItems = items.filter((i) => i.submitted);
   const pendingTotal = getPendingTotal();
-  const pendingCount = pendingItems.reduce((sum, i) => sum + i.quantity, 0);
-  const hasAnyItems = items.length > 0;
+  const pendingCount = pendingItems.reduce((s, i) => s + i.quantity, 0);
+  const submittedCount = submittedItems.reduce((s, i) => s + i.quantity, 0);
   const submittedTotal = total - pendingTotal;
   const hasPending = pendingItems.length > 0;
+  const hasAnyItems = items.length > 0;
 
+  const pendingBySeat = pendingItems.reduce<
+    Record<string, typeof pendingItems>
+  >((acc, item) => {
+    const seat = item.seatNumber || "Shared";
+    if (!acc[seat]) acc[seat] = [];
+    acc[seat].push(item);
+    return acc;
+  }, {});
+
+  const seatCount = Object.keys(pendingBySeat).length;
+
+  const getSeatLabel = (seat: string) => {
+    const key = SEAT_LABEL_KEYS[seat];
+    return key ? t(key, seat) : seat;
+  };
+
+  // Sheet animation: mount → next frame → transition in
+  const openSheet = () => {
+    setSheetOpen(true);
+  };
+  useEffect(() => {
+    if (sheetOpen) {
+      const raf1 = requestAnimationFrame(() => {
+        const raf2 = requestAnimationFrame(() => setSheetMounted(true));
+        return () => cancelAnimationFrame(raf2);
+      });
+      return () => cancelAnimationFrame(raf1);
+    }
+  }, [sheetOpen]);
+
+  const closeSheet = () => {
+    setSheetMounted(false);
+    setTimeout(() => setSheetOpen(false), 300);
+  };
+
+  // Handlers
   const handleSubmit = async () => {
     if (pendingItems.length === 0 || !session || !activeRestaurant) return;
     setConfirmAction(null);
     setSubmitting(true);
     setSubmitError(null);
-
     try {
-      // Lazily create the table session on the first order. The table only
-      // becomes "occupied" now — not when the waiter tapped it — so mis-taps
-      // never leave orphan open tables.
       let sessionToken = session.sessionToken;
       if (!sessionToken) {
         const result = await getOrCreateSession(
@@ -96,7 +150,6 @@ export default function PosCartDrawer({
           sessionId: result.session.id,
         });
       }
-
       const specialRequests = buildSpecialRequests();
       await createOrder({
         customerName: customerName.trim() || t("pos.defaultGuest", "Guest"),
@@ -113,7 +166,6 @@ export default function PosCartDrawer({
         })),
       });
       markAsSubmitted();
-      setExpanded(false);
     } catch (err: any) {
       setSubmitError(
         err.response?.data?.message ??
@@ -132,7 +184,7 @@ export default function PosCartDrawer({
     try {
       await closeSessionWithCard(session.sessionToken, activeRestaurant.id);
       clearSession();
-      setExpanded(false);
+      closeSheet();
     } catch (err: any) {
       setSubmitError(
         err.response?.data?.message ??
@@ -151,7 +203,7 @@ export default function PosCartDrawer({
     try {
       await closeSessionWithCash(session.sessionToken, activeRestaurant.id);
       clearSession();
-      setExpanded(false);
+      closeSheet();
     } catch (err: any) {
       setSubmitError(
         err.response?.data?.message ??
@@ -165,11 +217,9 @@ export default function PosCartDrawer({
   const handleForceClose = async () => {
     if (!activeRestaurant) return;
     setConfirmAction(null);
-    // No session yet (table selected but no order submitted) — nothing exists
-    // server-side to close; just drop the local selection.
     if (!session?.sessionToken) {
       clearSession();
-      setExpanded(false);
+      closeSheet();
       return;
     }
     setClosing(true);
@@ -177,7 +227,7 @@ export default function PosCartDrawer({
     try {
       await closeSession(session.sessionToken, activeRestaurant.id);
       clearSession();
-      setExpanded(false);
+      closeSheet();
     } catch (err: any) {
       setSubmitError(
         err.response?.data?.message ??
@@ -188,331 +238,543 @@ export default function PosCartDrawer({
     }
   };
 
-  const startEditingNote = (cartId: string, currentNote: string) => {
-    setEditingNoteId(cartId);
-    setNoteDraft(currentNote);
-  };
-
   const saveNote = (cartId: string) => {
     updateNote(cartId, noteDraft.trim());
     setEditingNoteId(null);
     setNoteDraft("");
   };
 
-  const cancelEditingNote = () => {
+  const cancelNote = () => {
     setEditingNoteId(null);
     setNoteDraft("");
   };
 
-  const itemsBySeat = items.reduce<Record<string, typeof items>>(
-    (acc, item) => {
-      const seat = item.seatNumber || "Shared";
-      if (!acc[seat]) acc[seat] = [];
-      acc[seat].push(item);
-      return acc;
-    },
-    {},
-  );
-
-  const getSeatLabel = (seat: string) => {
-    const key = SEAT_LABEL_KEYS[seat];
-    return key ? t(key, seat) : seat;
-  };
-
   return (
     <div className="px-4 py-3">
-      {/* Collapsed bar */}
+      {/* ── Collapsed bar ── */}
       <button
         type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between py-3 px-4 rounded-lg brand-cta font-semibold min-h-[44px]"
+        onClick={openSheet}
+        className="w-full flex items-center justify-between py-3.5 px-5 rounded-xl brand-cta font-semibold min-h-[52px] transition-all active:scale-[0.98]"
       >
-        <span>
-          {itemCount}{" "}
-          {itemCount === 1 ? t("pos.item", "item") : t("pos.items", "items")} ·
-          €{total.toFixed(2)}
-        </span>
-        <span>
-          {expanded
-            ? t("pos.closeCart", "Close")
-            : t("pos.viewCart", "View Cart")}
-        </span>
+        <div className="flex items-center gap-2 text-sm">
+          {hasPending ? (
+            <>
+              <span className="font-bold">
+                {pendingCount}{" "}
+                {pendingCount === 1
+                  ? t("pos.item", "item")
+                  : t("pos.items", "items")}
+              </span>
+              {submittedCount > 0 && (
+                <span className="opacity-70 font-normal text-xs">
+                  +{submittedCount} {t("pos.sent", "sent")}
+                </span>
+              )}
+            </>
+          ) : hasAnyItems ? (
+            <span className="font-medium opacity-90">
+              {t("pos.allSent", "All sent")} · {submittedCount}{" "}
+              {submittedCount === 1
+                ? t("pos.item", "item")
+                : t("pos.items", "items")}
+            </span>
+          ) : (
+            <span className="font-medium opacity-75">
+              {t("pos.noItems", "No items yet")}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {hasPending && (
+            <span className="font-bold text-base">
+              €{pendingTotal.toFixed(2)}
+            </span>
+          )}
+          <ChevronUp size={17} className="opacity-80" />
+        </div>
       </button>
 
-      {/* Expanded cart */}
-      {expanded && (
-        <div className="mt-3 border border-border rounded-lg bg-card max-h-[40dvh] overflow-y-auto">
-          {Object.entries(itemsBySeat).map(([seat, seatItems]) => (
+      {/* ── Bottom sheet portal ── */}
+      {sheetOpen &&
+        createPortal(
+          <>
+            {/* Backdrop */}
             <div
-              key={seat}
-              className="px-4 py-2 border-b border-border last:border-b-0"
-            >
-              <div className="text-xs font-semibold text-muted-foreground mb-2">
-                [{getSeatLabel(seat)}]
-              </div>
-              {seatItems.map((item) => {
-                const isSubmitted = item.submitted;
-                return (
-                  <div
-                    key={item.cartId}
-                    className={`flex items-center gap-2 py-2 border-b border-border last:border-b-0 ${
-                      isSubmitted ? "opacity-60" : ""
-                    }`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate flex items-center gap-1.5">
-                        {item.name}
-                        {isSubmitted && (
-                          <span className="shrink-0 text-xs text-success">
-                            ✓
-                          </span>
-                        )}
-                      </div>
-                      {item.selectedOptions.length > 0 && (
-                        <div className="text-xs text-muted-foreground">
-                          {item.selectedOptions
-                            .map((o) => o.choiceName)
-                            .join(", ")}
-                        </div>
-                      )}
-                      {item.itemNote && editingNoteId !== item.cartId && (
-                        <div className="text-xs text-primary italic mt-0.5">
-                          {t("pos.note", "Note:")} {item.itemNote}
-                        </div>
-                      )}
-                      {!isSubmitted && editingNoteId === item.cartId ? (
-                        <div className="mt-1 space-y-1">
-                          <input
-                            type="text"
-                            value={noteDraft}
-                            onChange={(e) => setNoteDraft(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") saveNote(item.cartId);
-                              if (e.key === "Escape") cancelEditingNote();
-                            }}
-                            placeholder={t(
-                              "pos.notePlaceholder",
-                              "e.g. no salt, extra sauce...",
-                            )}
-                            className="w-full px-2 py-1 rounded bg-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                            autoFocus
-                          />
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => saveNote(item.cartId)}
-                              className="text-xs font-medium px-3 py-1 rounded bg-primary text-primary-foreground active:bg-primary/80 min-h-[32px]"
-                            >
-                              {t("pos.save", "Save")}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={cancelEditingNote}
-                              className="text-xs text-muted-foreground px-2 py-1 min-h-[32px]"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                      ) : !isSubmitted ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            startEditingNote(item.cartId, item.itemNote || "")
-                          }
-                          className="text-xs text-muted-foreground underline mt-1 min-h-[32px]"
-                        >
-                          {item.itemNote
-                            ? t("pos.editNote", "Edit note")
-                            : t("pos.addNote", "+ Add note")}
-                        </button>
-                      ) : null}
-                    </div>
-                    {!isSubmitted ? (
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            updateQuantity(item.cartId, item.quantity - 1)
-                          }
-                          className="h-9 w-9 rounded-full bg-card border border-border text-foreground flex items-center justify-center text-sm"
-                        >
-                          −
-                        </button>
-                        <span className="text-sm w-5 text-center">
-                          {item.quantity}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            updateQuantity(item.cartId, item.quantity + 1)
-                          }
-                          className="h-9 w-9 rounded-full bg-card border border-border text-foreground flex items-center justify-center text-sm"
-                        >
-                          +
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeItem(item.cartId)}
-                          className="ml-1.5 flex h-9 w-9 items-center justify-center rounded-full bg-destructive/10 text-sm text-destructive"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground shrink-0">
-                        ×{item.quantity}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-
-          {submitError && (
-            <div className="bg-destructive/10 px-4 py-2 text-sm text-destructive">
-              {submitError}
-            </div>
-          )}
-
-          {historyError && (
-            <div className="flex items-center justify-between bg-warning/10 px-4 py-2 text-sm text-warning">
-              <span>{historyError}</span>
-              <button
-                type="button"
-                onClick={() =>
-                  window.dispatchEvent(new CustomEvent("pos:open-table-modal"))
-                }
-                className="underline text-xs font-medium ml-2 shrink-0 min-h-[32px]"
-              >
-                {t("pos.retryHistory", "Retry")}
-              </button>
-            </div>
-          )}
-
-          {historyLoading && (
-            <div className="px-4 py-2 text-sm text-muted-foreground flex items-center gap-2">
-              <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-              {t("pos.loadingHistory", "Loading order history...")}
-            </div>
-          )}
-
-          <PosQRBill />
-
-          <div className="p-4 flex flex-col gap-2">
-            {/* Customer name */}
-            <input
-              type="text"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder={t(
-                "pos.guestNamePlaceholder",
-                "Guest name (optional)",
-              )}
-              className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm placeholder:text-muted-foreground"
-              maxLength={100}
+              className={`fixed inset-0 z-[9990] bg-black/50 transition-opacity duration-300 ${sheetMounted ? "opacity-100" : "opacity-0"}`}
+              onClick={closeSheet}
             />
 
-            {/* Submit Order — only pending items */}
-            <button
-              type="button"
-              onClick={() =>
-                setConfirmAction({ type: "submit", total: pendingTotal })
-              }
-              disabled={
-                submitting || pendingItems.length === 0 || historyLoading
-              }
-              className="w-full py-3 rounded-lg brand-cta font-semibold disabled:opacity-50 min-h-[44px]"
+            {/* Sheet */}
+            <div
+              className={`fixed inset-x-0 bottom-0 z-[9991] flex flex-col max-h-[92dvh] rounded-t-2xl bg-background border-t border-border shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${sheetMounted ? "translate-y-0" : "translate-y-full"} ${theme === "dark" ? "dark" : ""}`}
             >
-              {submitting
-                ? t("pos.submitting", "Submitting...")
-                : pendingItems.length === 0
-                  ? t("pos.noNewItems", "No new items to submit")
-                  : t("pos.submitOrderTotal", {
-                      total: pendingTotal.toFixed(2),
-                    })}
-            </button>
+              {/* Drag handle */}
+              <div className="flex justify-center pt-2.5 pb-1 flex-shrink-0">
+                <div className="w-10 h-1 rounded-full bg-muted-foreground/25" />
+              </div>
 
-            {/* Close - Paid by Card — only shown when restaurant has payments enabled */}
-            {activeRestaurant?.paymentsEnabled && (
-              <button
-                type="button"
-                onClick={() =>
-                  setConfirmAction({ type: "card", total: submittedTotal })
-                }
-                disabled={closing || !hasAnyItems || hasPending}
-                title={
-                  hasPending
-                    ? t("pos.submitPendingFirst", "Submit pending items first")
-                    : undefined
-                }
-                className="w-full py-3 rounded-lg bg-warning text-warning-foreground font-semibold disabled:opacity-50 min-h-[44px]"
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-3 border-b border-border flex-shrink-0">
+                <div>
+                  <h2 className="text-base font-bold text-foreground leading-tight">
+                    {session?.tableName
+                      ? t("pos.tableLabel", "Table {{name}}", {
+                          name: session.tableName,
+                        })
+                      : t("pos.cart", "Cart")}
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {hasPending ? (
+                      <>
+                        <span className="text-primary font-semibold">
+                          {pendingCount}{" "}
+                          {pendingCount === 1
+                            ? t("pos.item", "item")
+                            : t("pos.items", "items")}{" "}
+                          pending · €{pendingTotal.toFixed(2)}
+                        </span>
+                        {submittedCount > 0 && (
+                          <span className="ml-1.5">
+                            · {submittedCount} sent (€
+                            {submittedTotal.toFixed(2)})
+                          </span>
+                        )}
+                      </>
+                    ) : submittedCount > 0 ? (
+                      <>
+                        {t("pos.allSent", "All sent")} · €
+                        {submittedTotal.toFixed(2)}{" "}
+                        {t("pos.totalLabel", "total")}
+                      </>
+                    ) : (
+                      t("pos.emptyCart", "Cart is empty")
+                    )}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeSheet}
+                  className="p-2 rounded-full bg-muted hover:bg-muted/60 text-muted-foreground transition-colors"
+                  aria-label={t("common.close", "Close")}
+                >
+                  <X size={17} />
+                </button>
+              </div>
+
+              {/* Scrollable content */}
+              <div className="flex-1 overflow-y-auto overscroll-contain">
+                {/* Guest name */}
+                <div className="px-5 pt-4 pb-3">
+                  <input
+                    type="text"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder={t(
+                      "pos.guestNamePlaceholder",
+                      "Guest name (optional)",
+                    )}
+                    className="w-full rounded-xl border border-border bg-muted px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    maxLength={100}
+                  />
+                </div>
+
+                {/* ── Pending items ── */}
+                {pendingItems.length > 0 && (
+                  <div className="px-5 pb-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-primary">
+                        {t("pos.newOrder", "New order")}
+                      </span>
+                      <span className="text-xs font-semibold text-primary">
+                        €{pendingTotal.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="rounded-xl border border-border overflow-hidden divide-y divide-border">
+                      {Object.entries(pendingBySeat).map(
+                        ([seat, seatItems]) => (
+                          <React.Fragment key={seat}>
+                            {seatCount > 1 && (
+                              <div className="px-3 py-1.5 bg-muted/60 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                                {getSeatLabel(seat)}
+                              </div>
+                            )}
+                            {seatItems.map((item) => (
+                              <div
+                                key={item.cartId}
+                                className="px-3 py-3 bg-card"
+                              >
+                                {/* Item row */}
+                                <div className="flex items-start gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-foreground leading-snug">
+                                      {item.name}
+                                    </p>
+                                    {item.selectedOptions.length > 0 && (
+                                      <p className="text-xs text-muted-foreground mt-0.5">
+                                        {item.selectedOptions
+                                          .map((o) => o.choiceName)
+                                          .join(", ")}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <span className="text-sm font-bold text-foreground shrink-0 mt-0.5">
+                                    €
+                                    {(
+                                      (item.price +
+                                        item.selectedOptions.reduce(
+                                          (s, o) => s + o.priceModifier,
+                                          0,
+                                        )) *
+                                      item.quantity
+                                    ).toFixed(2)}
+                                  </span>
+                                </div>
+
+                                {/* Controls row */}
+                                <div className="flex items-center justify-between mt-2">
+                                  {/* Note */}
+                                  {editingNoteId === item.cartId ? (
+                                    <div className="flex-1 mr-2 space-y-1">
+                                      <input
+                                        type="text"
+                                        value={noteDraft}
+                                        onChange={(e) =>
+                                          setNoteDraft(e.target.value)
+                                        }
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter")
+                                            saveNote(item.cartId);
+                                          if (e.key === "Escape") cancelNote();
+                                        }}
+                                        placeholder={t(
+                                          "pos.notePlaceholder",
+                                          "e.g. no salt, extra sauce...",
+                                        )}
+                                        className="w-full px-2.5 py-1.5 rounded-lg bg-background border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                                        autoFocus
+                                      />
+                                      <div className="flex gap-1.5">
+                                        <button
+                                          type="button"
+                                          onClick={() => saveNote(item.cartId)}
+                                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground min-h-[32px]"
+                                        >
+                                          {t("pos.save", "Save")}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={cancelNote}
+                                          className="text-xs text-muted-foreground px-2 py-1.5 min-h-[32px]"
+                                        >
+                                          {t("common.cancel", "Cancel")}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingNoteId(item.cartId);
+                                        setNoteDraft(item.itemNote || "");
+                                      }}
+                                      className="text-xs text-primary/70 hover:text-primary min-h-[32px] pr-2 text-left"
+                                    >
+                                      {item.itemNote ? (
+                                        <span className="italic">
+                                          ✏ {item.itemNote}
+                                        </span>
+                                      ) : (
+                                        <span>
+                                          + {t("pos.addNote", "Add note")}
+                                        </span>
+                                      )}
+                                    </button>
+                                  )}
+
+                                  {/* Qty + Remove */}
+                                  {editingNoteId !== item.cartId && (
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          updateQuantity(
+                                            item.cartId,
+                                            item.quantity - 1,
+                                          )
+                                        }
+                                        className="h-9 w-9 rounded-full bg-muted border border-border text-foreground flex items-center justify-center text-base font-bold"
+                                      >
+                                        −
+                                      </button>
+                                      <span className="text-sm font-bold w-6 text-center tabular-nums">
+                                        {item.quantity}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          updateQuantity(
+                                            item.cartId,
+                                            item.quantity + 1,
+                                          )
+                                        }
+                                        className="h-9 w-9 rounded-full bg-muted border border-border text-foreground flex items-center justify-center text-base font-bold"
+                                      >
+                                        +
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => removeItem(item.cartId)}
+                                        className="ml-1 h-9 w-9 flex items-center justify-center rounded-full bg-destructive/10 text-destructive text-base"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </React.Fragment>
+                        ),
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Submitted items ── */}
+                {submittedItems.length > 0 && (
+                  <div className="px-5 pb-3">
+                    <button
+                      type="button"
+                      onClick={() => setSubmittedCollapsed((v) => !v)}
+                      className="flex items-center justify-between w-full mb-2"
+                    >
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                        {t("pos.sentToKitchen", "Sent to kitchen")}
+                      </span>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span>€{submittedTotal.toFixed(2)}</span>
+                        {submittedCollapsed ? (
+                          <ChevronDown size={13} />
+                        ) : (
+                          <ChevronUp size={13} />
+                        )}
+                      </div>
+                    </button>
+                    {!submittedCollapsed && (
+                      <div className="rounded-xl border border-border overflow-hidden divide-y divide-border">
+                        {submittedItems.map((item) => (
+                          <div
+                            key={item.cartId}
+                            className="flex items-center gap-3 px-3 py-2.5 bg-card/60"
+                          >
+                            <CheckCircle2
+                              size={14}
+                              className="text-success shrink-0"
+                            />
+                            <span className="flex-1 text-sm text-muted-foreground">
+                              {item.name}
+                              {item.selectedOptions.length > 0 && (
+                                <span className="text-xs ml-1 opacity-70">
+                                  (
+                                  {item.selectedOptions
+                                    .map((o) => o.choiceName)
+                                    .join(", ")}
+                                  )
+                                </span>
+                              )}
+                            </span>
+                            <span className="text-xs text-muted-foreground tabular-nums">
+                              ×{item.quantity}
+                            </span>
+                            <span className="text-sm text-muted-foreground tabular-nums">
+                              €
+                              {(
+                                (item.price +
+                                  item.selectedOptions.reduce(
+                                    (s, o) => s + o.priceModifier,
+                                    0,
+                                  )) *
+                                item.quantity
+                              ).toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* QR Bill */}
+                <div className="px-5 pb-2">
+                  <PosQRBill />
+                </div>
+
+                {/* Errors */}
+                {submitError && (
+                  <div className="mx-5 mb-3 rounded-xl bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+                    {submitError}
+                  </div>
+                )}
+                {historyError && (
+                  <div className="mx-5 mb-3 flex items-center justify-between rounded-xl bg-warning/10 px-4 py-2.5 text-sm text-warning">
+                    <span>{historyError}</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        window.dispatchEvent(
+                          new CustomEvent("pos:open-table-modal"),
+                        )
+                      }
+                      className="underline text-xs font-medium ml-2 shrink-0 min-h-[32px]"
+                    >
+                      {t("pos.retryHistory", "Retry")}
+                    </button>
+                  </div>
+                )}
+                {historyLoading && (
+                  <div className="mx-5 mb-3 rounded-xl bg-muted px-4 py-2.5 text-sm text-muted-foreground flex items-center gap-2">
+                    <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+                    {t("pos.loadingHistory", "Loading order history...")}
+                  </div>
+                )}
+
+                {/* Spacer above sticky footer */}
+                <div className="h-2" />
+              </div>
+
+              {/* ── Sticky footer — action buttons ── */}
+              <div
+                className="flex-shrink-0 border-t border-border bg-background/95 backdrop-blur-sm px-5 pt-4 pb-4 space-y-2"
+                style={{
+                  paddingBottom:
+                    "max(1rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))",
+                }}
               >
-                {closing
-                  ? t("pos.closing", "Closing...")
-                  : t("pos.closeCardTotal", {
-                      total: submittedTotal.toFixed(2),
-                    })}
-              </button>
-            )}
+                {/* Submit */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setConfirmAction({ type: "submit", total: pendingTotal })
+                  }
+                  disabled={
+                    submitting || pendingItems.length === 0 || historyLoading
+                  }
+                  className="w-full py-3.5 rounded-xl brand-cta font-bold text-sm disabled:opacity-40 min-h-[48px] transition-all active:scale-[0.98]"
+                >
+                  {submitting
+                    ? t("pos.submitting", "Submitting...")
+                    : pendingItems.length === 0
+                      ? t("pos.noNewItems", "No new items to submit")
+                      : t("pos.submitOrderTotal", {
+                          total: pendingTotal.toFixed(2),
+                        })}
+                </button>
 
-            {/* Close - Paid by Cash — always visible */}
-            <button
-              type="button"
-              onClick={() =>
-                setConfirmAction({ type: "cash", total: submittedTotal })
-              }
-              disabled={closing || !hasAnyItems || hasPending}
-              title={
-                hasPending
-                  ? t("pos.submitPendingFirst", "Submit pending items first")
-                  : undefined
-              }
-              className="w-full py-3 rounded-lg bg-success text-success-foreground font-semibold disabled:opacity-50 min-h-[44px]"
-            >
-              {closing
-                ? t("pos.closing", "Closing...")
-                : t("pos.closeCashTotal", { total: submittedTotal.toFixed(2) })}
-            </button>
+                {/* Card + Cash */}
+                <div
+                  className="grid gap-2"
+                  style={{
+                    gridTemplateColumns: activeRestaurant?.paymentsEnabled
+                      ? "1fr 1fr"
+                      : "1fr",
+                  }}
+                >
+                  {activeRestaurant?.paymentsEnabled && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setConfirmAction({
+                          type: "card",
+                          total: submittedTotal,
+                        })
+                      }
+                      disabled={closing || !hasAnyItems || hasPending}
+                      title={
+                        hasPending
+                          ? t(
+                              "pos.submitPendingFirst",
+                              "Submit pending items first",
+                            )
+                          : undefined
+                      }
+                      className="flex items-center justify-center gap-1.5 py-3 rounded-xl bg-warning text-warning-foreground font-semibold text-sm disabled:opacity-40 min-h-[48px] transition-all active:scale-[0.98]"
+                    >
+                      <CreditCard size={15} />
+                      {closing
+                        ? t("pos.closing", "Closing...")
+                        : t("pos.closeCardTotal", {
+                            total: submittedTotal.toFixed(2),
+                          })}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConfirmAction({ type: "cash", total: submittedTotal })
+                    }
+                    disabled={closing || !hasAnyItems || hasPending}
+                    title={
+                      hasPending
+                        ? t(
+                            "pos.submitPendingFirst",
+                            "Submit pending items first",
+                          )
+                        : undefined
+                    }
+                    className="flex items-center justify-center gap-1.5 py-3 rounded-xl bg-success text-success-foreground font-semibold text-sm disabled:opacity-40 min-h-[48px] transition-all active:scale-[0.98]"
+                  >
+                    <Banknote size={15} />
+                    {closing
+                      ? t("pos.closing", "Closing...")
+                      : t("pos.closeCashTotal", {
+                          total: submittedTotal.toFixed(2),
+                        })}
+                  </button>
+                </div>
 
-            {/* Split bill — settle the table in parts (by item / even / custom).
-                Requires submitted orders; pending items must be submitted first. */}
-            <button
-              type="button"
-              onClick={() => setSplitOpen(true)}
-              disabled={
-                closing ||
-                !session?.sessionToken ||
-                submittedTotal <= 0 ||
-                hasPending
-              }
-              title={
-                hasPending
-                  ? t("pos.submitPendingFirst", "Submit pending items first")
-                  : undefined
-              }
-              className="w-full py-3 rounded-lg bg-card border border-border text-foreground font-semibold disabled:opacity-50 min-h-[44px]"
-            >
-              {t("pos.split.splitBill", "Split bill")}
-            </button>
+                {/* Split bill */}
+                <button
+                  type="button"
+                  onClick={() => setSplitOpen(true)}
+                  disabled={
+                    closing ||
+                    !session?.sessionToken ||
+                    submittedTotal <= 0 ||
+                    hasPending
+                  }
+                  title={
+                    hasPending
+                      ? t(
+                          "pos.submitPendingFirst",
+                          "Submit pending items first",
+                        )
+                      : undefined
+                  }
+                  className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-card border border-border text-foreground font-semibold text-sm disabled:opacity-40 min-h-[44px] transition-all active:scale-[0.98]"
+                >
+                  <Scissors size={14} />
+                  {t("pos.split.splitBill", "Split bill")}
+                </button>
 
-            {/* Force Close */}
-            <button
-              type="button"
-              onClick={() => setConfirmAction({ type: "force" })}
-              disabled={closing}
-              className="w-full py-3 rounded-lg bg-destructive text-destructive-foreground font-semibold disabled:opacity-50 min-h-[44px]"
-            >
-              {closing
-                ? t("pos.closing", "Closing...")
-                : t("pos.forceCloseNoPayment", "Force Close · No Payment")}
-            </button>
-          </div>
-        </div>
-      )}
+                {/* Force close — de-emphasized */}
+                <button
+                  type="button"
+                  onClick={() => setConfirmAction({ type: "force" })}
+                  disabled={closing}
+                  className="w-full py-2 text-xs text-destructive font-medium hover:underline disabled:opacity-40 min-h-[36px] transition-opacity"
+                >
+                  {closing
+                    ? t("pos.closing", "Closing...")
+                    : t("pos.forceCloseNoPayment", "Force Close · No Payment")}
+                </button>
+              </div>
+            </div>
+          </>,
+          document.body,
+        )}
 
-      {/* Confirmation Dialog */}
+      {/* ── Confirmation dialog ── */}
       <Dialog.Root
         open={confirmAction !== null}
         onOpenChange={(open) => {
@@ -520,11 +782,11 @@ export default function PosCartDrawer({
         }}
       >
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-[9995]" />
           <Dialog.Content
-            className={`fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-md mx-auto rounded-xl bg-background p-6 text-foreground ${theme === "dark" ? "dark" : ""}`}
+            className={`fixed inset-x-4 top-1/2 -translate-y-1/2 z-[9996] max-w-md mx-auto rounded-2xl bg-background p-6 text-foreground shadow-2xl ${theme === "dark" ? "dark" : ""}`}
           >
-            <Dialog.Title className="text-lg font-semibold mb-2">
+            <Dialog.Title className="text-lg font-bold mb-2">
               {confirmAction?.type === "submit" &&
                 t("pos.confirmSubmitTitle", "Submit Order")}
               {confirmAction?.type === "card" &&
@@ -535,46 +797,34 @@ export default function PosCartDrawer({
                 t("pos.confirmForceTitle", "Force Close — No Payment")}
             </Dialog.Title>
             <Dialog.Description className="text-sm text-muted-foreground mb-6">
-              {confirmAction?.type === "submit" && (
-                <>
-                  {t("pos.confirmSubmitDesc", {
-                    count: pendingCount,
-                    itemText:
-                      pendingCount === 1
-                        ? t("pos.item", "item")
-                        : t("pos.items", "items"),
-                    total: confirmAction.total.toFixed(2),
-                  })}
-                </>
-              )}
-              {confirmAction?.type === "card" && (
-                <>
-                  {t("pos.confirmCardDesc", {
-                    total: confirmAction.total.toFixed(2),
-                  })}
-                </>
-              )}
-              {confirmAction?.type === "cash" && (
-                <>
-                  {t("pos.confirmCashDesc", {
-                    total: confirmAction.total.toFixed(2),
-                  })}
-                </>
-              )}
-              {confirmAction?.type === "force" && (
-                <>
-                  {t(
-                    "pos.confirmForceDesc",
-                    "Close table without any payment? This cannot be undone. Use only when the customer is leaving without paying or for testing.",
-                  )}
-                </>
-              )}
+              {confirmAction?.type === "submit" &&
+                t("pos.confirmSubmitDesc", {
+                  count: pendingItems.reduce((s, i) => s + i.quantity, 0),
+                  itemText:
+                    pendingItems.reduce((s, i) => s + i.quantity, 0) === 1
+                      ? t("pos.item", "item")
+                      : t("pos.items", "items"),
+                  total: confirmAction.total.toFixed(2),
+                })}
+              {confirmAction?.type === "card" &&
+                t("pos.confirmCardDesc", {
+                  total: confirmAction.total.toFixed(2),
+                })}
+              {confirmAction?.type === "cash" &&
+                t("pos.confirmCashDesc", {
+                  total: confirmAction.total.toFixed(2),
+                })}
+              {confirmAction?.type === "force" &&
+                t(
+                  "pos.confirmForceDesc",
+                  "Close table without any payment? This cannot be undone.",
+                )}
             </Dialog.Description>
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={() => setConfirmAction(null)}
-                className="flex-1 py-3 rounded-lg bg-card border border-border text-foreground font-medium min-h-[44px]"
+                className="flex-1 py-3 rounded-xl bg-muted border border-border text-foreground font-medium min-h-[44px]"
               >
                 {t("common.cancel", "Cancel")}
               </button>
@@ -586,7 +836,7 @@ export default function PosCartDrawer({
                   else if (confirmAction?.type === "cash") handleCashPayment();
                   else if (confirmAction?.type === "force") handleForceClose();
                 }}
-                className={`flex-1 py-3 rounded-lg font-semibold min-h-[44px] ${
+                className={`flex-1 py-3 rounded-xl font-semibold min-h-[44px] ${
                   confirmAction?.type === "force"
                     ? "bg-destructive text-destructive-foreground"
                     : confirmAction?.type === "card"
@@ -609,6 +859,7 @@ export default function PosCartDrawer({
         </Dialog.Portal>
       </Dialog.Root>
 
+      {/* Split drawer */}
       {session?.sessionToken && activeRestaurant && (
         <PosSplitDrawer
           open={splitOpen}
@@ -617,7 +868,7 @@ export default function PosCartDrawer({
           restaurantId={activeRestaurant.id}
           onFullyPaid={() => {
             clearSession();
-            setExpanded(false);
+            closeSheet();
           }}
         />
       )}

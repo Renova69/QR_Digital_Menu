@@ -579,9 +579,10 @@
     "signInToEarn": "Sign in to earn points on this order.",
     "signIn": "Sign In / Join",
     "free": "FREE",
-    "itemNotFound": "itemNotFound",
-    "clearCartAndReturn": "clearCartAndReturn",
-    "loyaltyLoadFailed": "loyaltyLoadFailed",
+    "itemNotFound": "One or more items in your cart were not found. Please clear your cart and try again.",
+    "clearCartAndReturn": "Clear cart and return to menu",
+    "loyaltyLoadFailed": "Couldn't load your loyalty points right now — you can still place your order.",
+    "tableNotFound": "Table not found. Please scan the QR code again or ask staff for assistance.",
     "nameOptional": "optional"
   },
   "analytics": {
