@@ -30,19 +30,30 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   private keepAliveTimer: ReturnType<typeof setInterval> | null = null;
 
   async onModuleInit() {
-    const maxRetries = 15;
+    const isDev = process.env.NODE_ENV !== 'production';
+    const maxRetries = isDev ? 8 : 15;
+    const baseMs = isDev ? 200 : 1_000;
+    const maxMs = isDev ? 2_000 : 30_000;
 
     for (let i = 0; i < maxRetries; i++) {
+      const t0 = Date.now();
       try {
         await this.$connect();
-        this.logger.log('Connected to database');
+        this.logger.log(
+          `Connected to database (attempt ${i + 1}, ${Date.now() - t0}ms)`,
+        );
         this.startKeepAlive();
         await this.ensureCriticalIndexes();
         return;
       } catch (error) {
-        const delay = jitteredDelay(i, 1_000, 30_000);
+        const duration = Date.now() - t0;
+        const code =
+          (error as Record<string, unknown>)?.code ??
+          (error as Record<string, unknown>)?.errorCode ??
+          'UNKNOWN';
+        const delay = jitteredDelay(i, baseMs, maxMs);
         this.logger.warn(
-          `DB connection attempt ${i + 1}/${maxRetries} failed — retrying in ${Math.round(delay)}ms`,
+          `DB connection attempt ${i + 1}/${maxRetries} failed [${code}] after ${duration}ms — retrying in ${Math.round(delay)}ms`,
         );
         if (i === maxRetries - 1) {
           this.logger.error(
