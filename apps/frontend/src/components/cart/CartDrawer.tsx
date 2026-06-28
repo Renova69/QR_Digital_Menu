@@ -9,21 +9,62 @@ import { formatInlineDual } from "../../lib/currency";
 import { X, ShoppingCart } from "lucide-react";
 
 function resolveItemName(
-  cartItem: { id: string; name: string },
+  cartItem: {
+    id: string;
+    name: string;
+    itemTranslations?: Record<string, any> | null;
+  },
   categories: Category[],
   lang: string,
 ): string {
-  for (const cat of categories) {
-    const found = (cat.items as any[])?.find((i: any) => i.id === cartItem.id);
-    if (found) {
-      return (
-        (lang && (found.translations as any)?.[lang]?.name) ||
-        found.name ||
-        cartItem.name
+  if (lang) {
+    // Prefer live categories (re-fetched with current lang) for freshest translation
+    for (const cat of categories) {
+      const found = (cat.items as any[])?.find(
+        (i: any) => i.id === cartItem.id,
       );
+      if (found) {
+        return (
+          (found.translations as any)?.[lang]?.name ||
+          found.name ||
+          cartItem.name
+        );
+      }
+    }
+    // Fallback: translations stored at add-to-cart time
+    if (cartItem.itemTranslations?.[lang]?.name) {
+      return cartItem.itemTranslations[lang].name;
     }
   }
   return cartItem.name;
+}
+
+function resolveChoiceName(
+  cartItemId: string,
+  opt: {
+    optionId: string;
+    choiceName: string;
+    translations?: Record<string, any> | null;
+  },
+  categories: Category[],
+  lang: string,
+): string {
+  if (!lang) return opt.choiceName;
+  // Primary: look through live categories for option translations
+  for (const cat of categories) {
+    const item = (cat.items as any[])?.find((i: any) => i.id === cartItemId);
+    if (item) {
+      const option = (item.options as any[])?.find(
+        (o: any) => o.id === opt.optionId,
+      );
+      const translated =
+        option?.translations?.[lang]?.choices?.[opt.choiceName];
+      if (translated) return translated;
+      break;
+    }
+  }
+  // Fallback: translations stored at add-to-cart time
+  return opt.translations?.[lang]?.choices?.[opt.choiceName] || opt.choiceName;
 }
 
 const CartDrawer = ({
@@ -209,11 +250,12 @@ const CartDrawer = ({
                               className="flex items-center gap-1.5"
                             >
                               <span className="w-1 h-1 rounded-full bg-primary/50 block flex-shrink-0" />
-                              {(selectedLang &&
-                                opt.translations?.[selectedLang]?.choices?.[
-                                  opt.choiceName
-                                ]) ||
-                                opt.choiceName}{" "}
+                              {resolveChoiceName(
+                                item.id,
+                                opt,
+                                categories || [],
+                                selectedLang || "",
+                              )}{" "}
                               <span className="text-primary/70 font-semibold">
                                 (+
                                 {formatInlineDual(

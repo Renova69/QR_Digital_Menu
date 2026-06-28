@@ -186,5 +186,145 @@
     "staffNotified": "تم إخطار أحد الموظفين، وسيكون عندكم قريبًا!",
     "trendingNow": "الأكثر تداولاً الآن",
     "tryAgain": "حاول مرة أخرى"
+  },
+  "nav": {
+    "dashboard": "لوحة التحكم",
+    "logout": "تسجيل الخروج",
+    "login": "تسجيل الدخول",
+    "getStarted": "ابدأ الآن",
+    "features": "الميزات",
+    "pricing": "الأسعار",
+    "menu": "القائمة"
+  },
+  "cart": {
+    "yourOrder": "طلبك",
+    "empty": "السلة فارغة",
+    "remove": "إزالة",
+    "total": "الإجمالي",
+    "proceedCheckout": "متابعة الدفع",
+    "clearCart": "مسح السلة"
+  },
+  "checkout": {
+    "title": "طلبك",
+    "back": "→ العودة إلى القائمة",
+    "orderSummary": "ملخص الطلب",
+    "orderN": "الطلب {{n}}",
+    "payAtCounter": "الدفع الإلكتروني غير متاح — يرجى الدفع للنادل أو عند الكاشير.",
+    "paymentComplete": "اكتمل الدفع",
+    "paymentThanks": "شكراً لك! تم استلام دفعتك.",
+    "backToMenu": "العودة إلى القائمة",
+    "name": "الاسم",
+    "phone": "رقم الهاتف",
+    "phoneOptional": "اختياري",
+    "specialRequests": "طلبات خاصة",
+    "specialPlaceholder": "الحساسية، تعليمات خاصة، إلخ.",
+    "table": "الطاولة",
+    "notSpecified": "غير محدد",
+    "submitting": "جارٍ إرسال الطلب...",
+    "placeOrder": "تقديم الطلب",
+    "tableRequired": "رقم الطاولة مطلوب. يرجى مسح رمز QR مرة أخرى.",
+    "failedSubmit": "فشل إرسال الطلب. يرجى المحاولة مجدداً.",
+    "loyaltyPoints": "نقاط الولاء",
+    "pointsAvailable": "لديك {{count}} نقطة (القيمة: EUR {{value}})",
+    "redeemForDiscount": "استبدال النقاط بخصم",
+    "discountApplied": "تم تطبيق الخصم:",
+    "finalTotal": "المجموع النهائي:",
+    "willEarn": "ستكسب {{pts}} نقطة",
+    "happyHourBonus": "ساعة سعيدة: {{multiplier}}x نقاط",
+    "redeemedFree": "تم الاستبدال مجاناً",
+    "redeemForPts": "استبدل بـ {{pts}} نقطة",
+    "notEnoughPoints": "نقاطك غير كافية لاستبدال هذا العنصر",
+    "expiringSoon": "EUR {{value}} تنتهي قريباً",
+    "pointsExpire": "{{points}} نقطة تنتهي في {{date}}",
+    "earnFreeFood": "تريد كسب طعام مجاني؟",
+    "signInToEarn": "سجّل الدخول لكسب نقاط على هذا الطلب.",
+    "signIn": "تسجيل الدخول / الانضمام",
+    "free": "مجاني",
+    "itemNotFound": "لم يتم العثور على عنصر أو أكثر في سلتك. امسح السلة وحاول مجدداً.",
+    "clearCartAndReturn": "مسح السلة والعودة إلى القائمة",
+    "loyaltyLoadFailed": "تعذّر تحميل نقاطك الآن — يمكنك متابعة الطلب.",
+    "tableNotFound": "الطاولة غير موجودة. امسح رمز QR مجدداً أو اطلب مساعدة الموظفين.",
+    "nameOptional": "اختياري"
+  },
+  "orderConfirmation": {
+    "liveStatus": "الحالة المباشرة",
+    "orderProgress": "تقدم الطلب",
+    "orderRef": "رقم الطلب",
+    "enjoyingVisit": "هل تستمتع بزيارتك؟",
+    "feedbackHelps": "أخبرنا كيف نؤدي عملنا — هذا يساعدنا كثيراً.",
+    "rateExperience": "قيّم تجربتك",
+    "continueBrowsing": "تصفح القائمة",
+    "steps": {
+      "placed": "تم الطلب",
+      "inKitchen": "في المطبخ",
+      "onWay": "في الطريق!"
+    },
+    "status": {
+      "new": {
+        "title": "تم استلام الطلب",
+        "subtitle": "أُرسل إلى المطبخ — انتظر قليلاً."
+      },
+      "inProgress": {
+        "title": "جارٍ التحضير",
+        "subtitle": "المطبخ يطبخ طلبك الآن!"
+      },
+      "served": {
+        "title": "في الطريق إليك!",
+        "subtitle": "طلبك في الطريق — قريباً!"
+      },
+      "completed": {
+        "title": "استمتع بوجبتك!",
+        "subtitle": "طلبك مكتمل. بالعافية!"
+      },
+      "canceled": {
+        "title": "تم إلغاء الطلب",
+        "subtitle": "يرجى طلب المساعدة من النادل."
+      }
+    }
+  },
+  "feedback": {
+    "howWasExperience": "كيف كانت تجربتك؟",
+    "atRestaurant": "في {{name}}",
+    "helpsUsImprove": "رأيك يساعدنا على التحسين",
+    "tapToRate": "اضغط على نجمة للتقييم",
+    "ratings": {
+      "poor": "سيئ",
+      "fair": "مقبول",
+      "good": "جيد",
+      "great": "جيد جداً",
+      "excellent": "ممتاز"
+    },
+    "gladYouEnjoyed": "يسعدنا أنك استمتعت! هل لديك أفكار إضافية؟",
+    "tellUsDoBetter": "نأسف لذلك. أخبرنا كيف يمكننا التحسين.",
+    "whatDidYouEnjoy": "ما الذي أعجبك أكثر؟ (اختياري)",
+    "whatCouldImprove": "ما الذي يمكن تحسينه؟ (اختياري)",
+    "back": "رجوع",
+    "submit": "إرسال",
+    "submitting": "جارٍ الإرسال...",
+    "missingInfo": "معلومات الطلب مفقودة.",
+    "alreadySubmitted": "لقد أرسلت تقييمك لهذا الطلب مسبقاً.",
+    "failedSubmit": "فشل إرسال التقييم. يرجى المحاولة مجدداً.",
+    "thankYouRedirect": "شكراً لك!",
+    "shareOnGoogle": "هل يمكنك مشاركة تجربتك على Google؟ هذا يساعدنا كثيراً!",
+    "leaveGoogleReview": "اترك تقييماً على Google",
+    "maybeLater": "ربما لاحقاً",
+    "thankYou": "شكراً لك!",
+    "feedbackRecorded": "تم تسجيل تقييمك.",
+    "appreciateTime": "نقدر وقتك في مساعدتنا على التحسين.",
+    "continueBrowsing": "تصفح القائمة"
+  },
+  "language": {
+    "en": "الإنجليزية",
+    "bg": "البلغارية",
+    "de": "الألمانية",
+    "es": "الإسبانية",
+    "fr": "الفرنسية",
+    "it": "الإيطالية",
+    "ro": "الرومانية",
+    "zh": "الصينية",
+    "el": "اليونانية",
+    "ja": "اليابانية",
+    "ru": "الروسية",
+    "ar": "العربية"
   }
 }

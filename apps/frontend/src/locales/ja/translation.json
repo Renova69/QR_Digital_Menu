@@ -186,5 +186,145 @@
     "staffNotified": "担当者に連絡済みですので、まもなくお伺いいたします！",
     "trendingNow": "今話題の",
     "tryAgain": "もう一度試す"
+  },
+  "nav": {
+    "dashboard": "ダッシュボード",
+    "logout": "ログアウト",
+    "login": "ログイン",
+    "getStarted": "始める",
+    "features": "機能",
+    "pricing": "料金",
+    "menu": "メニュー"
+  },
+  "cart": {
+    "yourOrder": "ご注文",
+    "empty": "カートは空です",
+    "remove": "削除",
+    "total": "合計",
+    "proceedCheckout": "注文へ進む",
+    "clearCart": "カートをクリア"
+  },
+  "checkout": {
+    "title": "ご注文",
+    "back": "← メニューに戻る",
+    "orderSummary": "注文内容",
+    "orderN": "注文 {{n}}",
+    "payAtCounter": "オンライン決済は利用できません — スタッフまたはカウンターでお支払いください。",
+    "paymentComplete": "お支払い完了",
+    "paymentThanks": "ありがとうございます！お支払いを受け付けました。",
+    "backToMenu": "メニューに戻る",
+    "name": "お名前",
+    "phone": "電話番号",
+    "phoneOptional": "任意",
+    "specialRequests": "特別なご要望",
+    "specialPlaceholder": "アレルギー、特別な指示など",
+    "table": "テーブル",
+    "notSpecified": "未指定",
+    "submitting": "注文中...",
+    "placeOrder": "注文する",
+    "tableRequired": "テーブル番号が必要です。QRコードを再度スキャンしてください。",
+    "failedSubmit": "注文の送信に失敗しました。もう一度お試しください。",
+    "loyaltyPoints": "ポイント",
+    "pointsAvailable": "{{count}}ポイントがあります（価値: EUR {{value}}）",
+    "redeemForDiscount": "ポイントで割引",
+    "discountApplied": "割引適用:",
+    "finalTotal": "最終合計:",
+    "willEarn": "{{pts}}ポイント獲得予定",
+    "happyHourBonus": "ハッピーアワー: {{multiplier}}倍ポイント",
+    "redeemedFree": "無料で引き換え済み",
+    "redeemForPts": "{{pts}}ポイントで引き換え",
+    "notEnoughPoints": "このアイテムを引き換えるのに十分なポイントがありません",
+    "expiringSoon": "EUR {{value}} まもなく期限切れ",
+    "pointsExpire": "{{points}}ポイントは{{date}}に期限切れ",
+    "earnFreeFood": "無料の食事を獲得しませんか？",
+    "signInToEarn": "このオーダーでポイントを獲得するにはサインインしてください。",
+    "signIn": "サインイン / 登録",
+    "free": "無料",
+    "itemNotFound": "カート内のアイテムが見つかりませんでした。カートをクリアして再度お試しください。",
+    "clearCartAndReturn": "カートをクリアしてメニューに戻る",
+    "loyaltyLoadFailed": "ポイントを読み込めませんでした — 引き続き注文できます。",
+    "tableNotFound": "テーブルが見つかりません。QRコードを再度スキャンするかスタッフにお尋ねください。",
+    "nameOptional": "任意"
+  },
+  "orderConfirmation": {
+    "liveStatus": "ライブ状態",
+    "orderProgress": "注文の進捗",
+    "orderRef": "注文番号",
+    "enjoyingVisit": "お楽しみいただけていますか？",
+    "feedbackHelps": "ご意見をお聞かせください — とても参考になります。",
+    "rateExperience": "ご体験を評価する",
+    "continueBrowsing": "メニューを見続ける",
+    "steps": {
+      "placed": "注文済み",
+      "inKitchen": "調理中",
+      "onWay": "まもなく到着！"
+    },
+    "status": {
+      "new": {
+        "title": "ご注文を受け付けました",
+        "subtitle": "厨房に送りました — 少々お待ちください。"
+      },
+      "inProgress": {
+        "title": "調理中",
+        "subtitle": "厨房でただいま調理中です！"
+      },
+      "served": {
+        "title": "まもなくお届け！",
+        "subtitle": "ご注文が間もなく届きます — もうすぐです！"
+      },
+      "completed": {
+        "title": "お食事をお楽しみください！",
+        "subtitle": "ご注文が完了しました。いただきます！"
+      },
+      "canceled": {
+        "title": "注文がキャンセルされました",
+        "subtitle": "スタッフにお問い合わせください。"
+      }
+    }
+  },
+  "feedback": {
+    "howWasExperience": "ご体験はいかがでしたか？",
+    "atRestaurant": "{{name}}にて",
+    "helpsUsImprove": "ご意見は改善に役立てられます",
+    "tapToRate": "星をタップして評価してください",
+    "ratings": {
+      "poor": "悪い",
+      "fair": "普通",
+      "good": "良い",
+      "great": "とても良い",
+      "excellent": "最高"
+    },
+    "gladYouEnjoyed": "お楽しみいただけて嬉しいです！追加のご意見はありますか？",
+    "tellUsDoBetter": "申し訳ありません。どう改善できるかお聞かせください。",
+    "whatDidYouEnjoy": "一番良かった点は何ですか？（任意）",
+    "whatCouldImprove": "改善できる点は何ですか？（任意）",
+    "back": "戻る",
+    "submit": "送信",
+    "submitting": "送信中...",
+    "missingInfo": "注文情報がありません。",
+    "alreadySubmitted": "このご注文のフィードバックはすでに送信されています。",
+    "failedSubmit": "フィードバックの送信に失敗しました。もう一度お試しください。",
+    "thankYouRedirect": "ありがとうございました！",
+    "shareOnGoogle": "Googleでご体験を共有していただけますか？大変助かります！",
+    "leaveGoogleReview": "Googleレビューを書く",
+    "maybeLater": "後で",
+    "thankYou": "ありがとうございました！",
+    "feedbackRecorded": "フィードバックを受け付けました。",
+    "appreciateTime": "ご意見をお寄せいただきありがとうございます。",
+    "continueBrowsing": "メニューを見続ける"
+  },
+  "language": {
+    "en": "英語",
+    "bg": "ブルガリア語",
+    "de": "ドイツ語",
+    "es": "スペイン語",
+    "fr": "フランス語",
+    "it": "イタリア語",
+    "ro": "ルーマニア語",
+    "zh": "中国語",
+    "el": "ギリシャ語",
+    "ja": "日本語",
+    "ru": "ロシア語",
+    "ar": "アラビア語"
   }
 }

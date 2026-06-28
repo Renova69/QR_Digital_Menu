@@ -2498,11 +2498,15 @@
       "savePercent": "Economisiți 15%",
       "mostPopular": "Cel mai popular",
       "saveVsMonthly": "Economisiți 15% față de lunar",
+      "perMonth": "/lună",
+      "annualTotal": "€{{amount}}/an",
+      "bestFor": "Potrivit pentru",
       "selected": "Selectat",
       "choose": "Alege {{tier}}",
       "continue": "Continuați cu {{tier}}",
       "free": {
         "name": "GRATUIT",
+        "audience": "Locații noi care vor să testeze un meniu digital profesionist.",
         "features": [
           "Meniu digital (vizualizare și editare)",
           "Gestionare coduri QR",
@@ -2512,6 +2516,7 @@
       },
       "starter": {
         "name": "STARTER",
+        "audience": "Restaurante mici cu comenzi și servire la masă.",
         "features": [
           "Tot din Free",
           "Comenzi online",
@@ -2522,6 +2527,7 @@
       },
       "professional": {
         "name": "PROFESIONAL",
+        "audience": "Restaurante în creștere care au nevoie de plăți, loialitate și analize.",
         "features": [
           "Tot din Starter",
           "Plată la masă Stripe",
@@ -2534,6 +2540,7 @@
       },
       "enterprise": {
         "name": "ENTERPRISE",
+        "audience": "Lanțuri și echipe mari cu POS, bucătărie și locații multiple.",
         "features": [
           "Tot din Professional",
           "POS și afișaj bucătărie",

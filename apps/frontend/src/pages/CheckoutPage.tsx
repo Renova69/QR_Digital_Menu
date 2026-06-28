@@ -499,7 +499,9 @@ const CheckoutPage = () => {
               >
                 <div>
                   <p className="font-bold text-foreground text-lg">
-                    {item.name}{" "}
+                    {(selectedLang &&
+                      (item as any).itemTranslations?.[selectedLang]?.name) ||
+                      item.name}{" "}
                     <span className="text-muted-foreground ml-2">
                       x{item.quantity}
                     </span>

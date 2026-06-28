@@ -2672,11 +2672,15 @@
       "savePercent": "Save 15%",
       "mostPopular": "Most Popular",
       "saveVsMonthly": "Save 15% vs monthly",
+      "perMonth": "/mo",
+      "annualTotal": "€{{amount}}/yr",
+      "bestFor": "Best for",
       "selected": "Selected",
       "choose": "Choose {{tier}}",
       "continue": "Continue with {{tier}}",
       "free": {
         "name": "FREE",
+        "audience": "New venues trying a polished digital menu.",
         "features": [
           "Digital menu (view and edit)",
           "QR code management",
@@ -2687,6 +2691,7 @@
       },
       "starter": {
         "name": "STARTER",
+        "audience": "Small restaurants taking orders at the table.",
         "features": [
           "Everything in Free",
           "Online table orders",
@@ -2697,6 +2702,7 @@
       },
       "professional": {
         "name": "PROFESSIONAL",
+        "audience": "Growing restaurants that need payments, loyalty, and deeper insights.",
         "features": [
           "Everything in Starter",
           "Card and local payments",
@@ -2709,6 +2715,7 @@
       },
       "enterprise": {
         "name": "ENTERPRISE",
+        "audience": "Multi-location operations with POS, kitchen workflows, and larger teams.",
         "features": [
           "Everything in Professional",
           "POS and kitchen display",

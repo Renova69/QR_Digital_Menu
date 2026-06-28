@@ -140,6 +140,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
       price: item.price,
       quantity: 1,
       selectedOptions: optionsWithDetails,
+      itemTranslations: (item.translations as Record<string, any>) ?? null,
     };
   };
 

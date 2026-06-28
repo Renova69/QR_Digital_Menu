@@ -25,6 +25,7 @@ interface CartItem {
   price: number;
   quantity: number;
   selectedOptions: SelectedOption[];
+  itemTranslations?: Record<string, any> | null;
 }
 
 // Define what the CartContext provides
