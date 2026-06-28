@@ -64,7 +64,12 @@ export class MenuTranslationService {
           if (!cached) itemTextMap[`tag_${t}`] = t;
         });
         if (Object.keys(itemTextMap).length > 0)
-          pending.push({ type: 'item', entity: item, existing, textMap: itemTextMap });
+          pending.push({
+            type: 'item',
+            entity: item,
+            existing,
+            textMap: itemTextMap,
+          });
 
         for (const option of item.options ?? []) {
           const existing = this.asTransObj(option.translations);
@@ -76,7 +81,12 @@ export class MenuTranslationService {
               optTextMap[`choice_${c.name}`] = c.name;
           });
           if (Object.keys(optTextMap).length > 0)
-            pending.push({ type: 'option', entity: option, existing, textMap: optTextMap });
+            pending.push({
+              type: 'option',
+              entity: option,
+              existing,
+              textMap: optTextMap,
+            });
         }
       }
     }
@@ -142,24 +152,35 @@ export class MenuTranslationService {
           );
         } else if (type === 'item') {
           // Start from existing lang entry so partial updates preserve cached fields
-          const langEntry: Record<string, unknown> = { ...(existing[lang] ?? {}) };
+          const langEntry: Record<string, unknown> = {
+            ...(existing[lang] ?? {}),
+          };
           if (langData.name) langEntry.name = langData.name;
-          if (langData.description) langEntry.description = langData.description;
+          if (langData.description)
+            langEntry.description = langData.description;
           // Allergens/tags stored as maps { original: translated } for diffing
           // Old array format is discarded on first update (apply phase handles both)
-          const prevAllergens: Record<string, string> = Array.isArray(langEntry.allergens)
+          const prevAllergens: Record<string, string> = Array.isArray(
+            langEntry.allergens,
+          )
             ? {}
-            : ((langEntry.allergens as Record<string, string> | undefined) ?? {});
-          const prevTags: Record<string, string> = Array.isArray(langEntry.dietaryTags)
+            : ((langEntry.allergens as Record<string, string> | undefined) ??
+              {});
+          const prevTags: Record<string, string> = Array.isArray(
+            langEntry.dietaryTags,
+          )
             ? {}
-            : ((langEntry.dietaryTags as Record<string, string> | undefined) ?? {});
+            : ((langEntry.dietaryTags as Record<string, string> | undefined) ??
+              {});
           const allergenMap = { ...prevAllergens };
           const tagMap = { ...prevTags };
           for (const [k, v] of Object.entries(langData)) {
-            if (k.startsWith('allergen_')) allergenMap[k.replace('allergen_', '')] = v;
+            if (k.startsWith('allergen_'))
+              allergenMap[k.replace('allergen_', '')] = v;
             else if (k.startsWith('tag_')) tagMap[k.replace('tag_', '')] = v;
           }
-          if (Object.keys(allergenMap).length) langEntry.allergens = allergenMap;
+          if (Object.keys(allergenMap).length)
+            langEntry.allergens = allergenMap;
           if (Object.keys(tagMap).length) langEntry.dietaryTags = tagMap;
           const merged = { ...existing, [lang]: langEntry };
           entity.translations = merged;
@@ -226,12 +247,9 @@ export class MenuTranslationService {
         for (const option of item.options ?? []) {
           const t = option.translations as Record<string, any> | null;
           if (t?.[lang]?.name) option.name = t[lang].name;
-          if (t?.[lang]?.choices) {
-            option.choices = (option.choices as any[]).map((c: any) => ({
-              ...c,
-              name: t[lang].choices[c.name] ?? c.name,
-            }));
-          }
+          // choice.name is the stable DB key used for order validation —
+          // never overwrite it. The frontend reads translated labels via
+          // getChoiceLabel(option, choice) from option.translations directly.
         }
       }
     }
