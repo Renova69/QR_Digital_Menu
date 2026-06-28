@@ -31,6 +31,7 @@ const CheckoutPage = () => {
     ? (location.state.features as FeatureFlag[])
     : [];
   const themeVars = (location.state?.themeVars ?? {}) as React.CSSProperties;
+  const selectedLang = (location.state?.selectedLang ?? "") as string;
   const customersAuthEnabled = features.includes("customers:auth");
   const { t } = useTranslation();
 
@@ -511,7 +512,10 @@ const CheckoutPage = () => {
                           className="flex items-center gap-2"
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-primary/50 block"></span>
-                          {opt.choiceName}{" "}
+                          {(selectedLang &&
+                            (opt as any).translations?.[selectedLang]
+                              ?.choices?.[opt.choiceName]) ||
+                            opt.choiceName}{" "}
                           <span className="text-primary/80 font-semibold">
                             (+{formatInlineDual(opt.priceModifier ?? 0, "EUR")})
                           </span>

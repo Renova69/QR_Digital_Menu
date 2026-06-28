@@ -122,6 +122,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
           optionName: option?.name || "Option",
           choiceName: choice.choiceName,
           priceModifier: choice.priceModifier || 0,
+          translations: (option?.translations as Record<string, any>) ?? null,
         };
       },
     );

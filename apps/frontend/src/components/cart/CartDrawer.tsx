@@ -80,7 +80,7 @@ const CartDrawer = ({
     setShowDrinkUpsell(false);
     onClose();
     navigate("/checkout", {
-      state: { restaurantId, tier, features, themeVars },
+      state: { restaurantId, tier, features, themeVars, selectedLang },
     });
   };
 
@@ -209,7 +209,11 @@ const CartDrawer = ({
                               className="flex items-center gap-1.5"
                             >
                               <span className="w-1 h-1 rounded-full bg-primary/50 block flex-shrink-0" />
-                              {opt.choiceName}{" "}
+                              {(selectedLang &&
+                                opt.translations?.[selectedLang]?.choices?.[
+                                  opt.choiceName
+                                ]) ||
+                                opt.choiceName}{" "}
                               <span className="text-primary/70 font-semibold">
                                 (+
                                 {formatInlineDual(
