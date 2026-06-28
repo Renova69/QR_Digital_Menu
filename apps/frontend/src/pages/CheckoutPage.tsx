@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
-import api, { createOrder, getSessionBill } from "../lib/api";
+import api, { createOrder, getSessionBill, getMenu } from "../lib/api";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
@@ -19,6 +20,55 @@ import { rememberOwnedOrder } from "../lib/publicOrderOwnership";
 
 const MAX_ORDER_DISCOUNT_RATE = 0.15;
 
+function resolveItemName(
+  item: {
+    id: string;
+    name: string;
+    itemTranslations?: Record<string, any> | null;
+  },
+  categories: any[] | undefined,
+  lang: string,
+): string {
+  if (!lang) return item.name;
+  if (categories) {
+    for (const cat of categories) {
+      const found = (cat.items as any[])?.find((i: any) => i.id === item.id);
+      if (found) {
+        return found.translations?.[lang]?.name || found.name || item.name;
+      }
+    }
+  }
+  return item.itemTranslations?.[lang]?.name || item.name;
+}
+
+function resolveChoiceName(
+  itemId: string,
+  opt: {
+    optionId: string;
+    choiceName: string;
+    translations?: Record<string, any> | null;
+  },
+  categories: any[] | undefined,
+  lang: string,
+): string {
+  if (!lang) return opt.choiceName;
+  if (categories) {
+    for (const cat of categories) {
+      const item = (cat.items as any[])?.find((i: any) => i.id === itemId);
+      if (item) {
+        const option = (item.options as any[])?.find(
+          (o: any) => o.id === opt.optionId,
+        );
+        const translated =
+          option?.translations?.[lang]?.choices?.[opt.choiceName];
+        if (translated) return translated;
+        break;
+      }
+    }
+  }
+  return opt.translations?.[lang]?.choices?.[opt.choiceName] || opt.choiceName;
+}
+
 const CheckoutPage = () => {
   const { user } = useAuth();
   const { items, tableNumber, getTotal, clearCart } = useCart();
@@ -34,6 +84,14 @@ const CheckoutPage = () => {
   const selectedLang = (location.state?.selectedLang ?? "") as string;
   const customersAuthEnabled = features.includes("customers:auth");
   const { t } = useTranslation();
+
+  // Fetch menu with selected lang so item/choice names are translated.
+  const { data: menuCategories } = useQuery({
+    queryKey: ["checkout-menu", restaurantId, selectedLang],
+    queryFn: () => getMenu(restaurantId, selectedLang || undefined),
+    enabled: !!restaurantId && !!selectedLang,
+    staleTime: 5 * 60 * 1000,
+  });
 
   // ── Session-based checkout (POS Payment QR) ──
   const sessionToken = searchParams.get("session");
@@ -499,9 +557,7 @@ const CheckoutPage = () => {
               >
                 <div>
                   <p className="font-bold text-foreground text-lg">
-                    {(selectedLang &&
-                      (item as any).itemTranslations?.[selectedLang]?.name) ||
-                      item.name}{" "}
+                    {resolveItemName(item, menuCategories, selectedLang)}{" "}
                     <span className="text-muted-foreground ml-2">
                       x{item.quantity}
                     </span>
@@ -514,10 +570,12 @@ const CheckoutPage = () => {
                           className="flex items-center gap-2"
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-primary/50 block"></span>
-                          {(selectedLang &&
-                            (opt as any).translations?.[selectedLang]
-                              ?.choices?.[opt.choiceName]) ||
-                            opt.choiceName}{" "}
+                          {resolveChoiceName(
+                            item.id,
+                            opt,
+                            menuCategories,
+                            selectedLang,
+                          )}{" "}
                           <span className="text-primary/80 font-semibold">
                             (+{formatInlineDual(opt.priceModifier ?? 0, "EUR")})
                           </span>

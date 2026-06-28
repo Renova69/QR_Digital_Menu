@@ -18,8 +18,10 @@ const api = axios.create({
   withCredentials: true,
 });
 
-export const getMenu = async (restaurantId: string) => {
-  const response = await api.get(`/menu/public/${restaurantId}`);
+export const getMenu = async (restaurantId: string, lang?: string) => {
+  const response = await api.get(`/menu/public/${restaurantId}`, {
+    params: lang ? { lang } : undefined,
+  });
   return response.data;
 };
 
