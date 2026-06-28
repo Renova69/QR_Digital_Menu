@@ -86,12 +86,13 @@ const CheckoutPage = () => {
   const { t } = useTranslation();
 
   // Fetch menu with selected lang so item/choice names are translated.
-  const { data: menuCategories } = useQuery({
+  const { data: menuData } = useQuery({
     queryKey: ["checkout-menu", restaurantId, selectedLang],
     queryFn: () => getMenu(restaurantId, selectedLang || undefined),
     enabled: !!restaurantId && !!selectedLang,
     staleTime: 5 * 60 * 1000,
   });
+  const menuCategories: any[] | undefined = menuData?.categories;
 
   // ── Session-based checkout (POS Payment QR) ──
   const sessionToken = searchParams.get("session");
