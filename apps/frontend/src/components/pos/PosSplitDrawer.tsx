@@ -65,10 +65,13 @@ export default function PosSplitDrawer({
       .then((b) => {
         setBill(b);
         // By-item split is unavailable on loyalty-discounted bills — fall back.
-        if (!b.splitItemsAvailable) setMode((m) => (m === "ITEM" ? "CUSTOM" : m));
+        if (!b.splitItemsAvailable)
+          setMode((m) => (m === "ITEM" ? "CUSTOM" : m));
       })
       .catch(() =>
-        setError(t("pos.split.loadError", "Could not load the bill. Try again.")),
+        setError(
+          t("pos.split.loadError", "Could not load the bill. Try again."),
+        ),
       )
       .finally(() => setLoading(false));
     // `t` is stable across renders (i18next) and intentionally excluded — listing
@@ -190,7 +193,10 @@ export default function PosSplitDrawer({
     } catch (err: any) {
       setError(
         err.response?.data?.message ??
-          t("pos.split.settleError", "Could not record the payment. Try again."),
+          t(
+            "pos.split.settleError",
+            "Could not record the payment. Try again.",
+          ),
       );
     } finally {
       setSubmitting(false);
@@ -210,9 +216,9 @@ export default function PosSplitDrawer({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
+        <Dialog.Overlay className="fixed inset-0 z-[9995] bg-black/50" />
         <Dialog.Content
-          className={`fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-2xl bg-background p-4 text-foreground [padding-bottom:calc(env(safe-area-inset-bottom)+1rem)] sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:-translate-y-1/2 sm:rounded-2xl sm:[padding-bottom:1rem] ${theme === "dark" ? "dark" : ""}`}
+          className={`fixed inset-x-0 bottom-0 z-[9996] mx-auto flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-2xl bg-background p-4 text-foreground [padding-bottom:calc(env(safe-area-inset-bottom)+1rem)] sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:-translate-y-1/2 sm:rounded-2xl sm:[padding-bottom:1rem] ${theme === "dark" ? "dark" : ""}`}
         >
           <div className="mb-3 flex items-center justify-between">
             <Dialog.Title className="text-lg font-semibold text-foreground">
@@ -232,13 +238,17 @@ export default function PosSplitDrawer({
               <span className="text-muted-foreground">
                 {t("pos.split.total", "Bill total")}
               </span>
-              <span className="text-foreground">{eur(bill?.subtotal ?? 0)}</span>
+              <span className="text-foreground">
+                {eur(bill?.subtotal ?? 0)}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">
                 {t("pos.split.paid", "Paid so far")}
               </span>
-              <span className="text-foreground">{eur(bill?.paidSubtotal ?? 0)}</span>
+              <span className="text-foreground">
+                {eur(bill?.paidSubtotal ?? 0)}
+              </span>
             </div>
             <div className="mt-1 flex justify-between border-t border-border pt-1 font-semibold">
               <span className="text-foreground">
@@ -281,7 +291,10 @@ export default function PosSplitDrawer({
                   <div className="space-y-2">
                     {unpaidUnits.length === 0 ? (
                       <p className="py-4 text-center text-sm text-muted-foreground">
-                        {t("pos.split.allItemsPaid", "All items are already paid.")}
+                        {t(
+                          "pos.split.allItemsPaid",
+                          "All items are already paid.",
+                        )}
                       </p>
                     ) : (
                       unpaidUnits.map((u) => {
@@ -307,7 +320,9 @@ export default function PosSplitDrawer({
                             <div className="min-w-0 flex-1">
                               <div
                                 className={`truncate text-sm font-medium ${
-                                  isSelected ? "text-primary" : "text-foreground"
+                                  isSelected
+                                    ? "text-primary"
+                                    : "text-foreground"
                                 }`}
                               >
                                 {u.name}
@@ -337,7 +352,9 @@ export default function PosSplitDrawer({
                               </button>
                               <span
                                 className={`w-6 text-center text-sm ${
-                                  isSelected ? "font-bold text-primary" : "text-muted-foreground"
+                                  isSelected
+                                    ? "font-bold text-primary"
+                                    : "text-muted-foreground"
                                 }`}
                               >
                                 {qty}
@@ -375,7 +392,9 @@ export default function PosSplitDrawer({
                       <button
                         type="button"
                         disabled={paidThisSession || peopleLeft <= 1}
-                        onClick={() => setPeopleLeft(Math.max(1, peopleLeft - 1))}
+                        onClick={() =>
+                          setPeopleLeft(Math.max(1, peopleLeft - 1))
+                        }
                         className="flex h-10 w-10 items-center justify-center rounded-full border border-border text-foreground disabled:opacity-40"
                       >
                         −
@@ -386,13 +405,16 @@ export default function PosSplitDrawer({
                       <button
                         type="button"
                         disabled={paidThisSession || peopleLeft >= 20}
-                        onClick={() => setPeopleLeft(Math.min(20, peopleLeft + 1))}
+                        onClick={() =>
+                          setPeopleLeft(Math.min(20, peopleLeft + 1))
+                        }
                         className="flex h-10 w-10 items-center justify-center rounded-full border border-border text-foreground disabled:opacity-40"
                       >
                         +
                       </button>
                       <span className="ml-auto text-sm text-muted-foreground">
-                        {eur(Math.min(evenShare, remaining))} {t("pos.perPerson", "/ person")}
+                        {eur(Math.min(evenShare, remaining))}{" "}
+                        {t("pos.perPerson", "/ person")}
                       </span>
                     </div>
                     {paidThisSession && (
@@ -427,32 +449,34 @@ export default function PosSplitDrawer({
                 )}
 
                 {/* Optional tip */}
-                {bill.tipsEnabled && bill.tipOptions.length > 0 && baseSubtotal > 0 && (
-                  <div className="mt-3 space-y-2">
-                    <p className="text-sm font-medium text-foreground">
-                      {t("payment.addTip", "Add a tip")}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setTipPercent(0)}
-                        className={`rounded-full border px-3 py-1.5 text-sm ${tipPercent === 0 ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}
-                      >
-                        {t("payment.noTip", "No tip")}
-                      </button>
-                      {bill.tipOptions.map((pct) => (
+                {bill.tipsEnabled &&
+                  bill.tipOptions.length > 0 &&
+                  baseSubtotal > 0 && (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-sm font-medium text-foreground">
+                        {t("payment.addTip", "Add a tip")}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
                         <button
-                          key={pct}
                           type="button"
-                          onClick={() => setTipPercent(pct)}
-                          className={`rounded-full border px-3 py-1.5 text-sm ${tipPercent === pct ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}
+                          onClick={() => setTipPercent(0)}
+                          className={`rounded-full border px-3 py-1.5 text-sm ${tipPercent === 0 ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}
                         >
-                          {pct}%
+                          {t("payment.noTip", "No tip")}
                         </button>
-                      ))}
+                        {bill.tipOptions.map((pct) => (
+                          <button
+                            key={pct}
+                            type="button"
+                            onClick={() => setTipPercent(pct)}
+                            className={`rounded-full border px-3 py-1.5 text-sm ${tipPercent === pct ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}
+                          >
+                            {pct}%
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
 
               {error && (
