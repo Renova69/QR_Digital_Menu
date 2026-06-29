@@ -28,7 +28,8 @@
       "verify": "確認する",
       "verifying": "確認中...",
       "welcomeBody": "ご注文のたびにポイントが貯まります。貯まったポイントは、無料の食事や割引と交換できます。",
-      "welcomeTitle": "ようこそ！"
+      "welcomeTitle": "ようこそ！",
+      "phonePlaceholder": "電話番号（任意）"
     }
   },
   "auto": {
@@ -453,5 +454,37 @@
         ]
       }
     }
+  },
+  "profile": {
+    "title": "マイプロフィール",
+    "welcome": "おかえりなさい、{{name}}さん！",
+    "subtitle": "注文履歴とロイヤルティポイントを確認できます。",
+    "signOut": "ログアウト",
+    "backToMenu": "← メニューに戻る",
+    "vipTiersTitle": "VIPランクとポイント",
+    "currentBalance": "現在の残高",
+    "multiplier": "倍率",
+    "firstReward": "最初のEUR 1リワード",
+    "ptsToGo": "あと{{count}}ポイント",
+    "readyToRedeem": "交換可能",
+    "rewardProgress": "最初のEUR 1リワードまで{{pct}}%です。",
+    "expiringSoonTitle": "EUR {{value}}分のリワードがまもなく失効します",
+    "expiringSoonBody": "{{count}}ポイントが{{date}}失効します。なくなる前にご利用ください。",
+    "expiringSoonOn": " {{date}}に",
+    "lifetime": "累計：{{pts}}ポイント",
+    "ptsToTier": "{{tier}}まであと{{count}}ポイント",
+    "maxTier": "最高ランクに到達",
+    "pastOrders": "過去の注文",
+    "loading": "履歴を読み込み中...",
+    "noOrders": "まだ注文はありません",
+    "noOrdersHint": "対象レストランで注文すると、ここに表示されます。",
+    "at": "—",
+    "noItems": "商品なし",
+    "pleaseLogin": "プロフィールを表示するにはサインインしてください。",
+    "loginButton": "サインイン",
+    "welcomeBack": "おかえりなさい！",
+    "namePlaceholder": "お名前",
+    "nameSaved": "保存しました！",
+    "saveName": "保存"
   }
 }

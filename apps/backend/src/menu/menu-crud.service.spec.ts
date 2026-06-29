@@ -347,7 +347,28 @@ describe('MenuCrudService', () => {
       else process.env.DEEPL_API_KEY = prevKey;
     });
 
-    it('does not translate category names when lang is not a target language', async () => {
+    it('uses the first enabled language when no lang is requested', async () => {
+      const prevKey = process.env.DEEPL_API_KEY;
+      process.env.DEEPL_API_KEY = 'test-key';
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'PROFESSIONAL',
+      });
+      mockPrisma.menuCategory.findMany.mockResolvedValue([makeCategory()]);
+
+      await service.getPublicMenuMeta('rest-1');
+
+      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
+        expect.any(Array),
+        'en',
+      );
+      if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
+      else process.env.DEEPL_API_KEY = prevKey;
+    });
+
+    it('uses the first enabled language when lang is not a target language', async () => {
+      const prevKey = process.env.DEEPL_API_KEY;
+      process.env.DEEPL_API_KEY = 'test-key';
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
         tier: 'PROFESSIONAL',
@@ -356,7 +377,31 @@ describe('MenuCrudService', () => {
 
       await service.getPublicMenuMeta('rest-1', 'zz');
 
-      expect(mockMenuTranslation.applyLazyTranslations).not.toHaveBeenCalled();
+      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
+        expect.any(Array),
+        'en',
+      );
+      if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
+      else process.env.DEEPL_API_KEY = prevKey;
+    });
+
+    it('matches a requested target language case-insensitively', async () => {
+      const prevKey = process.env.DEEPL_API_KEY;
+      process.env.DEEPL_API_KEY = 'test-key';
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'PROFESSIONAL',
+      });
+      mockPrisma.menuCategory.findMany.mockResolvedValue([makeCategory()]);
+
+      await service.getPublicMenuMeta('rest-1', 'BG');
+
+      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
+        expect.any(Array),
+        'bg',
+      );
+      if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
+      else process.env.DEEPL_API_KEY = prevKey;
     });
   });
 

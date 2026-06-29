@@ -53,9 +53,14 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
   const currentLang = lang || i18n.language;
   const priceEuro =
     item.currency === "BGN" ? item.price / BGN_RATE : item.price;
-  const itemName = getTranslatedField(item, currentLang, "name") || item.name;
+  const itemName =
+    getTranslatedField(item, currentLang, "name") ||
+    item.originalName ||
+    item.name;
   const itemDesc =
-    getTranslatedField(item, currentLang, "description") || item.description;
+    getTranslatedField(item, currentLang, "description") ||
+    item.originalDescription ||
+    item.description;
   const getChoiceLabel = (option: MenuOption, choice: OptionChoice) =>
     option.translations?.[currentLang]?.choices?.[choice.name] ||
     choice.name;

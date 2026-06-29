@@ -44,7 +44,9 @@ export function CategoryPills({
         <div className="flex-shrink-0 w-3" aria-hidden="true" />
         {categories.map((cat) => {
           const catName =
-            getTranslatedField(cat, selectedLang, 'name') || cat.name;
+            getTranslatedField(cat, selectedLang, 'name') ||
+            cat.originalName ||
+            cat.name;
           const isActive = activeCategory === cat.id;
           return (
             <button

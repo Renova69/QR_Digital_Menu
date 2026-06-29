@@ -28,7 +28,8 @@
       "verify": "Проверить",
       "verifying": "Проверка...",
       "welcomeBody": "За каждый заказ вы будете получать баллы. Обменяйте их на бесплатные блюда и скидки.",
-      "welcomeTitle": "Добро пожаловать!"
+      "welcomeTitle": "Добро пожаловать!",
+      "phonePlaceholder": "Телефон (необязательно)"
     }
   },
   "auto": {
@@ -453,5 +454,37 @@
         ]
       }
     }
+  },
+  "profile": {
+    "title": "Мой профиль",
+    "welcome": "С возвращением, {{name}}!",
+    "subtitle": "Просмотр истории заказов и бонусных баллов.",
+    "signOut": "Выйти",
+    "backToMenu": "← Назад в меню",
+    "vipTiersTitle": "Ваши VIP-уровни и баллы",
+    "currentBalance": "Текущий баланс",
+    "multiplier": "Множитель",
+    "firstReward": "Первая награда EUR 1",
+    "ptsToGo": "осталось {{count}} баллов",
+    "readyToRedeem": "Готово к обмену",
+    "rewardProgress": "{{pct}}% до первой награды EUR 1.",
+    "expiringSoonTitle": "Награды на EUR {{value}} скоро сгорают",
+    "expiringSoonBody": "{{count}} баллов сгорят{{date}}. Вернитесь, пока они не исчезли.",
+    "expiringSoonOn": " {{date}}",
+    "lifetime": "За всё время: {{pts}} баллов",
+    "ptsToTier": "{{count}} баллов до уровня {{tier}}",
+    "maxTier": "Достигнут максимальный уровень",
+    "pastOrders": "Прошлые заказы",
+    "loading": "Загрузка истории...",
+    "noOrders": "Заказов пока нет",
+    "noOrdersHint": "Когда вы сделаете заказ в участвующих ресторанах, он появится здесь.",
+    "at": "в",
+    "noItems": "Нет товаров",
+    "pleaseLogin": "Войдите, чтобы просмотреть профиль.",
+    "loginButton": "Войти",
+    "welcomeBack": "С возвращением!",
+    "namePlaceholder": "Ваше имя",
+    "nameSaved": "Сохранено!",
+    "saveName": "Сохранить"
   }
 }

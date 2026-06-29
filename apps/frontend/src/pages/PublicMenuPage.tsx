@@ -11,6 +11,7 @@ import {
 } from "../lib/api";
 import { getVisitorId } from "../lib/visitorId";
 import { resolveInitialLanguage } from "../lib/menuLanguage";
+import { getTranslatedArray } from "../lib/translation";
 import { BRANDING_FONT_NAMES } from "../lib/brandingFonts";
 import { PaymentModal } from "../components/payment/PaymentModal";
 import { useCart } from "../context/CartContext";
@@ -255,6 +256,7 @@ const PublicMenuPage = () => {
   const themeInitialized = useRef(false);
   const langFetchId = useRef(0);
   const langFetchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeLanguageRef = useRef("");
 
   const hasActiveFilters =
     activeDietTags.length > 0 || excludedAllergens.length > 0;
@@ -558,6 +560,7 @@ const PublicMenuPage = () => {
           // enabled target language; otherwise default to the first one.
           initialLang =
             resolveInitialLanguage(langs, params.get("lang")) ?? langs[0];
+          activeLanguageRef.current = initialLang;
           setSelectedLang(initialLang);
           void i18n.changeLanguage(initialLang);
           // Warm every target-language UI bundle in the background so switching the
@@ -742,8 +745,14 @@ const PublicMenuPage = () => {
 
   const handleLanguageChange = (code: string) => {
     // Immediate: update UI language + translated item names from embedded translations
+    activeLanguageRef.current = code;
     setSelectedLang(code);
     void i18n.changeLanguage(code);
+    // Filter values and search terms are language-specific display strings.
+    // Clear them so values selected in the previous language cannot hide every
+    // item once translated allergen/tag values replace them.
+    clearFilters();
+    setSearchQuery("");
     // Debounced: only fire API fetch after 350ms of no further switches
     // This prevents N×categories requests on rapid switching
     if (langFetchDebounce.current) clearTimeout(langFetchDebounce.current);
@@ -751,6 +760,29 @@ const PublicMenuPage = () => {
       if (menuMeta?.categories?.length && restaurantId) {
         const cancelled = { v: false };
         loadAllCategoryItems(menuMeta.categories, code, cancelled, false);
+        void getMenuMeta(restaurantId, code)
+          .then((translatedMeta) => {
+            if (
+              activeLanguageRef.current !== code ||
+              !translatedMeta?.restaurant
+            )
+              return;
+            setMenuMeta((current: any) =>
+              current
+                ? {
+                    ...current,
+                    restaurant: {
+                      ...current.restaurant,
+                      ...translatedMeta.restaurant,
+                    },
+                    categories: translatedMeta.categories,
+                  }
+                : translatedMeta,
+            );
+          })
+          .catch((err) =>
+            console.error("Public menu category translation failed:", err),
+          );
       }
     }, 350);
   };
@@ -796,11 +828,13 @@ const PublicMenuPage = () => {
   // without a language-specific keyword list, so allergens entered in any
   // language classify correctly.
   const aggregateTags = (
-    pick: (item: any) => string[] | undefined,
+    field: "allergens" | "dietaryTags",
   ): { tag: string; count: number }[] => {
     const tagCounts = new Map<string, number>();
     for (const item of allLoadedItems) {
-      for (const tag of pick(item) ?? []) {
+      const tags =
+        getTranslatedArray(item, selectedLang, field) ?? item[field] ?? [];
+      for (const tag of tags) {
         tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
       }
     }
@@ -808,8 +842,8 @@ const PublicMenuPage = () => {
       .map(([tag, count]) => ({ tag, count }))
       .sort((a, b) => a.tag.localeCompare(b.tag));
   };
-  const allergenTags = aggregateTags((item) => item.allergens);
-  const dietaryTags = aggregateTags((item) => item.dietaryTags);
+  const allergenTags = aggregateTags("allergens");
+  const dietaryTags = aggregateTags("dietaryTags");
 
   const themeVars = restaurantTheme
     ? ({
@@ -1094,6 +1128,7 @@ const PublicMenuPage = () => {
                     const catName =
                       (selectedLang &&
                         category.translations?.[selectedLang]?.name) ||
+                      category.originalName ||
                       category.name;
                     const categoryItems = loadedItemsMap[category.id];
                     const isItemsLoading =
@@ -1234,11 +1269,13 @@ const PublicMenuPage = () => {
                                 name:
                                   (selectedLang &&
                                     item.translations?.[selectedLang]?.name) ||
+                                  item.originalName ||
                                   item.name,
                                 description:
                                   (selectedLang &&
                                     item.translations?.[selectedLang]
                                       ?.description) ||
+                                  item.originalDescription ||
                                   item.description,
                               };
                               const pairings = upsellEnabled

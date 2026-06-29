@@ -28,7 +28,8 @@
       "verify": "التحقق",
       "verifying": "جاري التحقق...",
       "welcomeBody": "ستكسب نقاطًا مع كل طلب. استبدلها بأطعمة مجانية وخصومات.",
-      "welcomeTitle": "مرحبًا بكم!"
+      "welcomeTitle": "مرحبًا بكم!",
+      "phonePlaceholder": "الهاتف (اختياري)"
     }
   },
   "auto": {
@@ -453,5 +454,37 @@
         ]
       }
     }
+  },
+  "profile": {
+    "title": "ملفي الشخصي",
+    "welcome": "مرحبًا بعودتك، {{name}}!",
+    "subtitle": "اعرض سجل طلباتك ونقاط الولاء.",
+    "signOut": "تسجيل الخروج",
+    "backToMenu": "← العودة إلى القائمة",
+    "vipTiersTitle": "مستويات VIP ونقاطك",
+    "currentBalance": "الرصيد الحالي",
+    "multiplier": "المضاعف",
+    "firstReward": "أول مكافأة بقيمة EUR 1",
+    "ptsToGo": "متبقٍ {{count}} نقطة",
+    "readyToRedeem": "جاهزة للاستبدال",
+    "rewardProgress": "{{pct}}% للوصول إلى أول مكافأة بقيمة EUR 1.",
+    "expiringSoonTitle": "مكافآت بقيمة EUR {{value}} تنتهي قريبًا",
+    "expiringSoonBody": "{{count}} نقطة ستنتهي{{date}}. عُد قبل أن تختفي.",
+    "expiringSoonOn": " في {{date}}",
+    "lifetime": "الإجمالي: {{pts}} نقطة",
+    "ptsToTier": "{{count}} نقطة للوصول إلى {{tier}}",
+    "maxTier": "تم الوصول إلى أعلى مستوى",
+    "pastOrders": "الطلبات السابقة",
+    "loading": "جارٍ تحميل السجل...",
+    "noOrders": "لا توجد طلبات بعد",
+    "noOrdersHint": "عند الطلب من المطاعم المشاركة، ستظهر هنا.",
+    "at": "في",
+    "noItems": "لا توجد عناصر",
+    "pleaseLogin": "يرجى تسجيل الدخول لعرض ملفك الشخصي.",
+    "loginButton": "تسجيل الدخول",
+    "welcomeBack": "مرحبًا بعودتك!",
+    "namePlaceholder": "اسمك",
+    "nameSaved": "تم الحفظ!",
+    "saveName": "حفظ"
   }
 }

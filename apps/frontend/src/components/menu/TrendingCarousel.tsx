@@ -24,6 +24,7 @@ export const TrendingCarousel: React.FC<TrendingCarouselProps> = ({
 
   useEffect(() => {
     const fetchTrending = async () => {
+      setLoading(true);
       try {
         const items = await getTrendingItems(restaurantId, lang);
         setTrendingItems(items || []);
@@ -79,9 +80,14 @@ export const TrendingCarousel: React.FC<TrendingCarouselProps> = ({
         {trendingItems.map((item) => {
           const translatedItem = {
             ...item,
-            name: getTranslatedField(item, lang, "name") || item.name,
+            name:
+              getTranslatedField(item, lang, "name") ||
+              item.originalName ||
+              item.name,
             description:
-              getTranslatedField(item, lang, "description") || item.description,
+              getTranslatedField(item, lang, "description") ||
+              item.originalDescription ||
+              item.description,
           };
           const pairings = allMenuItems.filter((i) =>
             item.relatedItemIds?.includes(i.id),

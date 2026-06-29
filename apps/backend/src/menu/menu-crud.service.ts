@@ -309,15 +309,25 @@ export class MenuCrudService {
     // in the requested language on first paint instead of falling back to the
     // original until item lazy-load warms the cache.
     const targetLangs = (restaurantClone.targetLanguages as string[]) || [];
+    const requestedLang = lang
+      ? targetLangs.find(
+          (candidate) => candidate.toLowerCase() === lang.toLowerCase(),
+        )
+      : undefined;
+    // The frontend cannot know the restaurant's first enabled language until
+    // this metadata response arrives. Resolve absent/invalid deep-link values
+    // to that same first language so category names are translated on the
+    // initial response rather than remaining pinned to the DB source language.
+    const effectiveLang = requestedLang ?? targetLangs[0];
     if (
       hasMultiLanguage &&
-      lang &&
+      effectiveLang &&
       process.env.DEEPL_API_KEY &&
-      targetLangs.includes(lang)
+      targetLangs.includes(effectiveLang)
     ) {
       await this.menuTranslationService.applyLazyTranslations(
         filteredCategories,
-        lang,
+        effectiveLang,
       );
     }
 

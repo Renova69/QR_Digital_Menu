@@ -26,6 +26,7 @@ import {
   resolveCartChoiceName,
   resolveCartItemName,
 } from "../lib/cartTranslation";
+import { resolveInitialLanguage } from "../lib/menuLanguage";
 
 const MAX_ORDER_DISCOUNT_RATE = 0.15;
 
@@ -46,13 +47,21 @@ const CheckoutPage = () => {
   // the in-page selector; that override wins over the deep-link / browser guess.
   const [billLangOverride, setBillLangOverride] = useState<string | null>(null);
   const selectedLang = String(
-    billLangOverride ??
+    (billLangOverride ??
       location.state?.selectedLang ??
       searchParams.get("lang") ??
-      i18n.resolvedLanguage ??
+      i18n.resolvedLanguage) ||
       "bg",
-  );
+  )
+    .toLowerCase()
+    .split("-")[0];
   const customersAuthEnabled = features.includes("customers:auth");
+
+  useEffect(() => {
+    if (i18n.resolvedLanguage !== selectedLang) {
+      void i18n.changeLanguage(selectedLang);
+    }
+  }, [i18n, selectedLang]);
 
   // Fetch menu with selected lang so item/choice names are translated.
   const { data: menuData } = useQuery({
@@ -74,18 +83,42 @@ const CheckoutPage = () => {
 
   useEffect(() => {
     if (!sessionToken) return;
+    let cancelled = false;
     setSessionBillLoading(true);
     setSessionBillError(null);
     getSessionBill(sessionToken, selectedLang)
-      .then((bill) => setSessionBill(bill))
-      .catch((err) =>
-        setSessionBillError(
-          err?.response?.data?.message ??
-            "Failed to load bill. The session may have expired.",
-        ),
-      )
-      .finally(() => setSessionBillLoading(false));
-  }, [sessionToken, selectedLang]);
+      .then((bill) => {
+        if (!cancelled) setSessionBill(bill);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSessionBillError(
+            t(
+              "payment.billLoadError",
+              "Could not load bill — please try again",
+            ),
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setSessionBillLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionToken, selectedLang, t]);
+
+  useEffect(() => {
+    if (!isSessionFlow || !sessionBill?.targetLanguages?.length) return;
+    const resolved = resolveInitialLanguage(
+      sessionBill.targetLanguages,
+      selectedLang,
+    );
+    const normalized = resolved?.toLowerCase().split("-")[0];
+    if (normalized && normalized !== selectedLang) {
+      setBillLangOverride(normalized);
+    }
+  }, [isSessionFlow, selectedLang, sessionBill?.targetLanguages]);
 
   const openPayment = () => setPaymentModalOpen(true);
 
@@ -348,14 +381,14 @@ const CheckoutPage = () => {
           <h1 className="text-4xl font-extrabold text-foreground mb-8 tracking-tight">
             {paymentComplete
               ? t("checkout.paymentComplete", "Payment Complete")
-              : t("checkout.yourBill", "Your Bill")}
+              : t("payment.yourBill", "Your Bill")}
           </h1>
 
           {!paymentComplete &&
             (sessionBill?.targetLanguages?.length ?? 0) > 1 && (
               <div className="mb-6 flex flex-wrap gap-2">
                 {sessionBill!.targetLanguages!.map((code) => {
-                  const active = code === selectedLang;
+                  const active = code.toLowerCase() === selectedLang;
                   return (
                     <button
                       key={code}
@@ -368,7 +401,7 @@ const CheckoutPage = () => {
                           : "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
                       }`}
                     >
-                      {String(t(`language.${code}`, code.toUpperCase()))}
+                      {code.toUpperCase()}
                     </button>
                   );
                 })}
@@ -455,7 +488,7 @@ const CheckoutPage = () => {
                 ))}
                 <div className="flex justify-between items-center mt-4 pt-3 border-t border-border">
                   <span className="text-lg font-bold text-foreground">
-                    {t("checkout.total", "Total")}
+                    {t("payment.total", "Total")}
                   </span>
                   <span className="text-2xl font-display font-bold text-foreground tabular-nums">
                     {formatEuro(sessionBill.subtotal ?? 0)}
@@ -470,7 +503,7 @@ const CheckoutPage = () => {
                   onClick={openPayment}
                   className="w-full py-4 rounded-xl brand-cta text-white font-bold text-lg min-h-[52px]"
                 >
-                  {t("checkout.payNow", "Pay Now")} ·{" "}
+                  {t("payment.pay", "Pay Now")} ·{" "}
                   {formatEuro(sessionBill.subtotal ?? 0)}
                 </button>
               ) : (
