@@ -25,7 +25,7 @@ export const TrendingCarousel: React.FC<TrendingCarouselProps> = ({
   useEffect(() => {
     const fetchTrending = async () => {
       try {
-        const items = await getTrendingItems(restaurantId);
+        const items = await getTrendingItems(restaurantId, lang);
         setTrendingItems(items || []);
       } catch (err) {
         console.error("Failed to load trending items:", err);
@@ -35,7 +35,7 @@ export const TrendingCarousel: React.FC<TrendingCarouselProps> = ({
     };
 
     fetchTrending();
-  }, [restaurantId]);
+  }, [restaurantId, lang]);
 
   if (loading) {
     return (

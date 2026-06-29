@@ -1,5 +1,6 @@
 import {
   IsBoolean,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -116,6 +117,6 @@ export class UpdatePlatformSettingsDto {
 
   @ApiPropertyOptional({ enum: ['info', 'warning', 'maintenance'] })
   @IsOptional()
-  @IsString()
+  @IsIn(['info', 'warning', 'maintenance'])
   announcementBannerType?: string;
 }

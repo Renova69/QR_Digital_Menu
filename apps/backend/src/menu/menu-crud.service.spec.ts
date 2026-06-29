@@ -327,6 +327,37 @@ describe('MenuCrudService', () => {
 
       expect(restaurant).toMatchObject({ accentColor: '#FF0000' });
     });
+
+    it('translates category names when lang is a target language and DEEPL_API_KEY is set', async () => {
+      const prevKey = process.env.DEEPL_API_KEY;
+      process.env.DEEPL_API_KEY = 'test-key';
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'PROFESSIONAL',
+      });
+      mockPrisma.menuCategory.findMany.mockResolvedValue([makeCategory()]);
+
+      await service.getPublicMenuMeta('rest-1', 'bg');
+
+      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
+        expect.any(Array),
+        'bg',
+      );
+      if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
+      else process.env.DEEPL_API_KEY = prevKey;
+    });
+
+    it('does not translate category names when lang is not a target language', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        tier: 'PROFESSIONAL',
+      });
+      mockPrisma.menuCategory.findMany.mockResolvedValue([makeCategory()]);
+
+      await service.getPublicMenuMeta('rest-1', 'zz');
+
+      expect(mockMenuTranslation.applyLazyTranslations).not.toHaveBeenCalled();
+    });
   });
 
   // ── getCategoryItems ──────────────────────────────────────────────────────
@@ -479,6 +510,43 @@ describe('MenuCrudService', () => {
       expect(mockPrisma.menuItem.findMany).toHaveBeenCalled();
       expect(result).toHaveLength(1);
     });
+
+    it('translates trending item names when lang is a target language and DEEPL_API_KEY is set', async () => {
+      const prevKey = process.env.DEEPL_API_KEY;
+      process.env.DEEPL_API_KEY = 'test-key';
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        trendingMode: 'MANUAL',
+        id: 'rest-1',
+        tier: 'PROFESSIONAL',
+        forceTier: null,
+        targetLanguages: ['en', 'bg'],
+      });
+      mockPrisma.menuItem.findMany.mockResolvedValue([makeItem()]);
+
+      await service.getTrendingItems('rest-1', 'bg');
+
+      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
+        expect.any(Array),
+        'bg',
+      );
+      if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
+      else process.env.DEEPL_API_KEY = prevKey;
+    });
+
+    it('does not translate trending items when lang is not a target language', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        trendingMode: 'MANUAL',
+        id: 'rest-1',
+        tier: 'PROFESSIONAL',
+        forceTier: null,
+        targetLanguages: ['en', 'bg'],
+      });
+      mockPrisma.menuItem.findMany.mockResolvedValue([makeItem()]);
+
+      await service.getTrendingItems('rest-1', 'zz');
+
+      expect(mockMenuTranslation.applyLazyTranslations).not.toHaveBeenCalled();
+    });
   });
 
   // ── Category CRUD ─────────────────────────────────────────────────────────
@@ -532,7 +600,9 @@ describe('MenuCrudService', () => {
         restaurantId: 'rest-1',
       });
       mockPrisma.menuCategory.count.mockResolvedValue(0);
-      mockPrisma.menuCategory.create.mockResolvedValue(makeCategory({ order: 0 }));
+      mockPrisma.menuCategory.create.mockResolvedValue(
+        makeCategory({ order: 0 }),
+      );
 
       const result = await service.createCategory(
         'rest-1',

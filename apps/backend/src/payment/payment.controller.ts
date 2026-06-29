@@ -64,8 +64,8 @@ export class PaymentController {
   }
 
   @Get('session/:token/bill')
-  getSessionBill(@Param('token') token: string) {
-    return this.paymentService.getSessionBill(token);
+  getSessionBill(@Param('token') token: string, @Query('lang') lang?: string) {
+    return this.paymentService.getSessionBill(token, lang);
   }
 
   @Post('session/:token/intent')

@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Item, MenuOption, OptionChoice } from "../../types";
-import { useCart, type SelectedOption } from "../../context/CartContext";
+import {
+  useCart,
+  type CartItem,
+  type SelectedOption,
+} from "../../context/CartContext";
 import { useTranslation } from "react-i18next";
 import { ImageLightbox } from "./ImageLightbox";
 import {
@@ -44,19 +48,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [pendingMainItem, setPendingMainItem] = useState<{
-    cartId: string;
-    id: string;
-    name: string;
-    price: number;
-    quantity: number;
-    selectedOptions: Array<{
-      optionId: string;
-      optionName: string;
-      choiceName: string;
-      priceModifier: number;
-    }>;
-  } | null>(null);
+  const [pendingMainItem, setPendingMainItem] = useState<CartItem | null>(null);
   const { t, i18n } = useTranslation();
   const currentLang = lang || i18n.language;
   const priceEuro =
@@ -65,7 +57,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
   const itemDesc =
     getTranslatedField(item, currentLang, "description") || item.description;
   const getChoiceLabel = (option: MenuOption, choice: OptionChoice) =>
-    (option.translations as any)?.[currentLang]?.choices?.[choice.name] ||
+    option.translations?.[currentLang]?.choices?.[choice.name] ||
     choice.name;
 
   const showToast = (itemName: string) => {
@@ -85,8 +77,8 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
   useEffect(() => {
     if (!item.options?.length) return;
     setSelectedOptions((prev) => {
-      const init: Record<string, any> = { ...prev };
-      (item.options as any[]).forEach((opt: any) => {
+      const init: Record<string, SelectedOption> = { ...prev };
+      item.options?.forEach((opt) => {
         if (
           opt.type === "VARIATION" &&
           opt.choices?.length > 0 &&
@@ -136,12 +128,13 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
     return {
       cartId,
       id: item.id,
-      name: item.name,
+      name: item.originalName ?? item.name,
+      originalName: item.originalName ?? item.name,
       price: item.price,
       quantity: 1,
       selectedOptions: optionsWithDetails,
-      itemTranslations: (item.translations as Record<string, any>) ?? null,
-    };
+      itemTranslations: item.translations ?? null,
+    } satisfies CartItem;
   };
 
   const handleAddToCart = () => {
@@ -227,17 +220,21 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
       addItem(pendingMainItem);
     }
     if (pairing) {
+      const pairingName =
+        getTranslatedField(pairing, currentLang, "name") ?? pairing.name;
       addItem({
         id: pairing.id,
-        name: pairing.name,
+        name: pairing.originalName ?? pairing.name,
+        originalName: pairing.originalName ?? pairing.name,
         price: pairing.price,
         quantity: 1,
         selectedOptions: [],
+        itemTranslations: pairing.translations ?? null,
         cartId: `${pairing.id}-${Date.now()}`,
       });
-      showToast(`${pendingMainItem?.name || item.name} + ${pairing.name}`);
+      showToast(`${itemName} + ${pairingName}`);
     } else {
-      showToast(pendingMainItem?.name || item.name);
+      showToast(itemName);
     }
     setPendingMainItem(null);
     setShowIntercept(false);
@@ -525,7 +522,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
                   const translatedOptName =
                     getTranslatedField(option, currentLang, "name") ||
                     option.name;
-                  const choices: OptionChoice[] = option.choices as any;
+                  const choices: OptionChoice[] = option.choices;
 
                   return (
                     <div key={option.id}>

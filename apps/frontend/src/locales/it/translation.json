@@ -561,6 +561,22 @@
     "itemsTab": "Articoli"
   },
   "payment": {
+    "cashRequestCancelled": "Il personale ha annullato questa richiesta di pagamento in contanti. Chiedi al cameriere o riprova.",
+    "fullTablePaymentPending": "Un'altra persona sta già pagando l'intero conto del tavolo. Questa schermata si aggiornerà automaticamente al termine o all'annullamento.",
+    "partialPaymentPending": "Parte del conto del tavolo è già in pagamento. Puoi pagare i tuoi ordini non saldati o attendere per pagare l'intero tavolo.",
+    "cashRequestAlreadyPending": "La tua richiesta di pagamento in contanti è già in attesa del personale.",
+    "cashRequestUnavailable": "Il pagamento in contanti non è disponibile per questo conto.",
+    "cashRequestFailed": "Non è stato possibile avvisare il personale per il pagamento in contanti.",
+    "myOrders": "I miei ordini",
+    "fullTable": "Intero tavolo",
+    "cardMypos": "Carta (myPOS)",
+    "cashRequestSent": "Il personale è stato avvisato di riscuotere i contanti al tuo tavolo.",
+    "continueToMypos": "Paga con carta (myPOS)",
+    "requestingCash": "Avviso del personale...",
+    "cashRequested": "Richiesta di contanti inviata",
+    "payCashToWaiter": "Paga in contanti al cameriere",
+    "redirectingToMypos": "Apertura del pagamento sicuro myPOS...",
+    "openMypos": "Apri il pagamento myPOS",
     "paymentCancelled": "Pagamento annullato — puoi riprovare.",
     "paymentReceived": "Pagamento ricevuto",
     "requestBill": "Richiedi la fattura",
@@ -3165,19 +3181,50 @@
       "continue": "Continua con {{tier}}",
       "free": {
         "name": "GRATIS",
-        "audience": "Nuovi locali che stanno sperimentando un menu digitale curato nei minimi dettagli."
+        "audience": "Nuovi locali che stanno sperimentando un menu digitale curato nei minimi dettagli.",
+        "features": [
+          "Menu digitale (visualizza e modifica)",
+          "Gestione dei codici QR",
+          "Importazione ed esportazione del menu",
+          "Analisi di base",
+          "0 postazioni staff aggiuntive"
+        ]
       },
       "starter": {
         "name": "ANTIPASTO",
-        "audience": "Piccoli ristoranti che prendono le ordinazioni al tavolo."
+        "audience": "Piccoli ristoranti che prendono le ordinazioni al tavolo.",
+        "features": [
+          "Tutto ciò che è in Free",
+          "Ordini al tavolo online",
+          "Chiama il cameriere",
+          "Menu multilingue",
+          "1 postazione staff"
+        ]
       },
       "professional": {
         "name": "PROFESSIONALE",
-        "audience": "Ristoranti in espansione che necessitano di soluzioni per i pagamenti, programmi fedeltà e analisi più approfondite."
+        "audience": "Ristoranti in espansione che necessitano di soluzioni per i pagamenti, programmi fedeltà e analisi più approfondite.",
+        "features": [
+          "Tutto ciò che è in Starter",
+          "Pagamenti con carta e locali",
+          "Analisi complete",
+          "Branding personalizzato",
+          "Programma fedeltà",
+          "Account clienti",
+          "Fino a 5 dipendenti"
+        ]
       },
       "enterprise": {
         "name": "AZIENDA",
-        "audience": "Attività in più sedi con punti vendita (POS), flussi di lavoro in cucina e team più numerosi."
+        "audience": "Attività in più sedi con punti vendita (POS), flussi di lavoro in cucina e team più numerosi.",
+        "features": [
+          "Tutto ciò che è in Professional",
+          "POS e display da cucina",
+          "Più sedi",
+          "Stampanti termiche",
+          "Personale illimitato",
+          "Onboarding prioritario"
+        ]
       }
     },
     "basics": {

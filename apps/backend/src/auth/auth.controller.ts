@@ -198,6 +198,7 @@ export class AuthController {
 
   @Post('impersonate/exit')
   @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async exitImpersonation(
     @Req() req: ExpressRequest & { user: any },
     @Res({ passthrough: true }) res: Response,

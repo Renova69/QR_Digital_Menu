@@ -39,8 +39,8 @@ export class PaymentService {
     );
   }
 
-  getSessionBill(token: string) {
-    return this.sessions.getSessionBill(token);
+  getSessionBill(token: string, lang?: string) {
+    return this.sessions.getSessionBill(token, lang);
   }
 
   createCashPaymentRequest(

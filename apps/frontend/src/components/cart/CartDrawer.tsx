@@ -6,66 +6,11 @@ import { useTranslation } from "react-i18next";
 import React, { useState, useEffect } from "react";
 import { Category } from "../../types";
 import { formatInlineDual } from "../../lib/currency";
+import {
+  resolveCartChoiceName,
+  resolveCartItemName,
+} from "../../lib/cartTranslation";
 import { X, ShoppingCart } from "lucide-react";
-
-function resolveItemName(
-  cartItem: {
-    id: string;
-    name: string;
-    itemTranslations?: Record<string, any> | null;
-  },
-  categories: Category[],
-  lang: string,
-): string {
-  if (lang) {
-    // Prefer live categories (re-fetched with current lang) for freshest translation
-    for (const cat of categories) {
-      const found = (cat.items as any[])?.find(
-        (i: any) => i.id === cartItem.id,
-      );
-      if (found) {
-        return (
-          (found.translations as any)?.[lang]?.name ||
-          found.name ||
-          cartItem.name
-        );
-      }
-    }
-    // Fallback: translations stored at add-to-cart time
-    if (cartItem.itemTranslations?.[lang]?.name) {
-      return cartItem.itemTranslations[lang].name;
-    }
-  }
-  return cartItem.name;
-}
-
-function resolveChoiceName(
-  cartItemId: string,
-  opt: {
-    optionId: string;
-    choiceName: string;
-    translations?: Record<string, any> | null;
-  },
-  categories: Category[],
-  lang: string,
-): string {
-  if (!lang) return opt.choiceName;
-  // Primary: look through live categories for option translations
-  for (const cat of categories) {
-    const item = (cat.items as any[])?.find((i: any) => i.id === cartItemId);
-    if (item) {
-      const option = (item.options as any[])?.find(
-        (o: any) => o.id === opt.optionId,
-      );
-      const translated =
-        option?.translations?.[lang]?.choices?.[opt.choiceName];
-      if (translated) return translated;
-      break;
-    }
-  }
-  // Fallback: translations stored at add-to-cart time
-  return opt.translations?.[lang]?.choices?.[opt.choiceName] || opt.choiceName;
-}
 
 const CartDrawer = ({
   isOpen,
@@ -88,7 +33,7 @@ const CartDrawer = ({
 }) => {
   const { items, getTotal, clearCart, removeItem, addItem } = useCart();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [showDrinkUpsell, setShowDrinkUpsell] = useState(false);
 
@@ -102,7 +47,7 @@ const CartDrawer = ({
     if (categories && categories.length > 0) {
       const hasDrinks = items.some((cartItem) => {
         const cat = categories.find((c: Category) =>
-          c.items?.some((i: any) => i.id === cartItem.id),
+          c.items?.some((item) => item.id === cartItem.id),
         );
         return cat?.isDrinkCategory;
       });
@@ -127,6 +72,7 @@ const CartDrawer = ({
 
   return createPortal(
     <div
+      dir={i18n.dir(selectedLang || i18n.resolvedLanguage)}
       className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] transition-opacity"
       onClick={onClose}
     >
@@ -156,7 +102,7 @@ const CartDrawer = ({
           <button
             onClick={onClose}
             className="p-2.5 bg-muted hover:bg-muted/60 rounded-full text-muted-foreground transition-all hover:text-foreground"
-            aria-label="Close cart"
+            aria-label={t("common.close", "Close")}
           >
             <X size={20} strokeWidth={3} />
           </button>
@@ -178,13 +124,13 @@ const CartDrawer = ({
                 {categories
                   ?.find((c) => c.isDrinkCategory)
                   ?.items?.slice(0, 4)
-                  .map((drink: any) => (
+                  .map((drink) => (
                     <li
                       key={`upsell-${drink.id}`}
                       className="flex justify-between items-center p-4 bg-muted rounded-[1.5rem] border border-border"
                     >
                       <div className="font-bold text-foreground text-[15px]">
-                        {resolveItemName(
+                        {resolveCartItemName(
                           { id: drink.id, name: drink.name },
                           categories || [],
                           selectedLang || "",
@@ -203,10 +149,12 @@ const CartDrawer = ({
                           onClick={() => {
                             addItem({
                               id: drink.id,
-                              name: drink.name,
+                              name: drink.originalName ?? drink.name,
+                              originalName: drink.originalName ?? drink.name,
                               price: drink.price,
                               quantity: 1,
                               selectedOptions: [],
+                              itemTranslations: drink.translations ?? null,
                               cartId: `${drink.id}-${Date.now()}`,
                             });
                           }}
@@ -235,7 +183,7 @@ const CartDrawer = ({
                   </div>
                   <div className="flex-grow min-w-0">
                     <p className="font-bold text-foreground text-base leading-tight tracking-tight">
-                      {resolveItemName(
+                      {resolveCartItemName(
                         item,
                         categories || [],
                         selectedLang || "",
@@ -244,13 +192,13 @@ const CartDrawer = ({
                     {item.selectedOptions &&
                       item.selectedOptions.length > 0 && (
                         <ul className="text-xs text-muted-foreground mt-1.5 space-y-1">
-                          {item.selectedOptions.map((opt: any, idx: number) => (
+                          {item.selectedOptions.map((opt, idx) => (
                             <li
                               key={`${item.cartId}-opt-${idx}`}
                               className="flex items-center gap-1.5"
                             >
                               <span className="w-1 h-1 rounded-full bg-primary/50 block flex-shrink-0" />
-                              {resolveChoiceName(
+                              {resolveCartChoiceName(
                                 item.id,
                                 opt,
                                 categories || [],

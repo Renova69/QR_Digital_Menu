@@ -1059,6 +1059,22 @@
     "enable": "Activează"
   },
   "payment": {
+    "cashRequestCancelled": "Personalul a anulat solicitarea de plată în numerar. Vă rugăm să întrebați ospătarul sau să încercați din nou.",
+    "fullTablePaymentPending": "Altcineva plătește deja întreaga notă a mesei. Ecranul se va actualiza automat după finalizare sau anulare.",
+    "partialPaymentPending": "O parte din nota mesei este deja în curs de plată. Puteți plăti comenzile dvs. neachitate sau puteți aștepta pentru a plăti întreaga masă.",
+    "cashRequestAlreadyPending": "Solicitarea dvs. de plată în numerar așteaptă deja personalul.",
+    "cashRequestUnavailable": "Plata în numerar nu este disponibilă pentru această notă.",
+    "cashRequestFailed": "Personalul nu a putut fi anunțat pentru plata în numerar.",
+    "myOrders": "Comenzile mele",
+    "fullTable": "Toată masa",
+    "cardMypos": "Card (myPOS)",
+    "cashRequestSent": "Personalul a fost anunțat să încaseze numerarul la masa dvs.",
+    "continueToMypos": "Plătește cu cardul (myPOS)",
+    "requestingCash": "Se anunță personalul...",
+    "cashRequested": "Solicitarea de numerar a fost trimisă",
+    "payCashToWaiter": "Plătește numerar ospătarului",
+    "redirectingToMypos": "Se deschide plata securizată myPOS...",
+    "openMypos": "Deschide plata myPOS",
     "requestBill": "Cere nota",
     "yourBill": "Nota ta",
     "payment": "Plată",
@@ -1559,6 +1575,18 @@
       "security": {
         "title": "Securitate și conformitate",
         "text": "Modul GDPR, protecție CSRF, cookie-uri httpOnly JWT, traseu de audit pentru administratori, blocare a forței brute, limitare a vitezei și mod strict TypeScript."
+      },
+      "paymentProviders": {
+        "title": "Metode de plată locale",
+        "text": "Professional deblochează capabilitățile Stripe, ePay.bg, BORICA și myPOS, în funcție de configurarea localului."
+      },
+      "tableZones": {
+        "title": "Zone și secțiuni",
+        "text": "Organizează mesele pe terasă, sală, bar sau etaj, pentru ca echipele să lucreze mai rapid."
+      },
+      "printersTemplates": {
+        "title": "Imprimante și șabloane",
+        "text": "Enterprise adaugă imprimante termice și șabloane de meniu pentru mai multe fluxuri operaționale."
       }
     },
     "testimonials": {
@@ -1641,7 +1669,15 @@
         "staffSeats": "Locuri personal",
         "multiLocation": "Suport pentru locații multiple",
         "prioritySupport": "Suport prioritar",
-        "superAdmin": "Panou de operațiuni super-admin"
+        "superAdmin": "Panou de operațiuni super-admin",
+        "menuImport": "Import meniu din fișier",
+        "paymentProviders": "Plăți cu cardul și locale",
+        "dayparting": "Reguli pe interval orar și happy hour",
+        "pos": "POS la masă",
+        "kds": "Display de bucătărie",
+        "advancedRoles": "Roluri și permisiuni avansate",
+        "thermalPrinters": "Imprimante termice",
+        "menuTemplates": "Șabloane de meniu"
       },
       "badge": "Comparație planuri",
       "title": "Compară ce deblochează fiecare plan."
@@ -1675,6 +1711,10 @@
         "q7": {
           "question": "Ce limbi sunt suportate pentru meniuri?",
           "answer": "Platforma traduce automat meniurile în engleză, bulgară și română folosind DeepL. Proprietarul restaurantului nu trebuie să furnizeze o cheie API — traducerea este gestionată de platformă cu memorare inteligentă în cache."
+        },
+        "q8": {
+          "question": "Este potrivit fără o echipă tehnică internă?",
+          "answer": "Da. Interfața este concepută pentru proprietari și manageri. Pașii principali sunt profilul, meniul, mesele și codurile QR."
         }
       }
     },
@@ -1692,7 +1732,9 @@
           "b2": "Gestionare coduri QR",
           "b3": "Import meniu OCR și XLSX",
           "b4": "Export meniu (JSON/CSV/XLSX)",
-          "b5": "1 membru personal"
+          "b5": "1 membru personal",
+          "fit": "Ideal pentru localuri mici, cafenele, baruri și locații care au nevoie mai întâi de un meniu digital curat.",
+          "b6": "Fără locuri suplimentare pentru personal"
         },
         "starter": {
           "name": "Starter",
@@ -1704,7 +1746,8 @@
           "b3": "Analize de bază și sumar",
           "b4": "Flux status comenzi",
           "b5": "Meniuri multilingve",
-          "b6": "1 membru personal"
+          "b6": "1 membru personal",
+          "fit": "Ideal pentru localuri mici și medii care au nevoie de comenzi la masă, meniuri multilingve și un acces pentru personal."
         },
         "professional": {
           "name": "Profesional",
@@ -1720,7 +1763,8 @@
           "b6": "Upselling inteligent",
           "b7": "Cheamă ospătarul și recenzii",
           "b8": "Până la 5 membri personal",
-          "b9": "Rol de manager"
+          "b9": "Rol de manager",
+          "fit": "Ideal pentru restaurante, cafenele și baruri active, cu plăți, loialitate, branding și o echipă mai mare."
         },
         "enterprise": {
           "name": "Enterprise",
@@ -1736,7 +1780,8 @@
           "b7": "Roluri avansate (RBAC)",
           "b8": "Panou operațiuni super-admin",
           "b9": "Suport prioritar",
-          "b10": "Personal nelimitat"
+          "b10": "Personal nelimitat",
+          "fit": "Ideal pentru hoteluri, restaurante cu mai multe săli, lanțuri și localuri cu fluxuri de bucătărie, POS sau imprimante."
         }
       }
     },
@@ -1747,8 +1792,19 @@
       "viewPricing": "Vezi prețurile"
     },
     "footer": {
-      "company": "Companie",
-      "legal": "Informații legale",
+      "company": {
+        "title": "Companie",
+        "about": "Pentru cine este",
+        "contact": "Contact",
+        "security": "Securitate"
+      },
+      "legal": {
+        "title": "Legal",
+        "privacy": "Confidențialitate",
+        "terms": "Termeni",
+        "cookies": "Cookie-uri",
+        "gdpr": "GDPR"
+      },
       "links": {
         "about": "Despre",
         "blog": "Blog",
@@ -1766,15 +1822,38 @@
         "termsOfService": "Termeni și condiții"
       },
       "madeWith": "Creat pentru restaurante, cu grijă.",
-      "product": "Produs",
-      "tagline": "Platforma digitală all-in-one pentru restaurante. Meniuri, comenzi, plăți, loialitate, analize, instrumente pentru personal, POS și afișaj de bucătărie — totul dintr-o scanare QR."
+      "product": {
+        "title": "Produs",
+        "features": "Funcții",
+        "pricing": "Prețuri",
+        "dashboard": "Panou",
+        "help": "Ajutor"
+      },
+      "tagline": "Platforma digitală all-in-one pentru restaurante. Meniuri, comenzi, plăți, loialitate, analize, instrumente pentru personal, POS și afișaj de bucătărie — totul dintr-o scanare QR.",
+      "description": "QR Menu ajută localurile din Bulgaria să gestioneze meniuri, mese, comenzi și servire dintr-o singură platformă."
     },
     "heroBadgeBuilt": "Creat pentru restaurante. Iubit de clienți.",
     "heroPills": {
       "lightDarkMode": "Mod luminos /\nîntunecat",
       "noAppDownload": "Fără descărcare\nde aplicație",
       "realTimeUpdates": "Actualizări\nîn timp real",
-      "worksFromQr": "Funcționează din\nscanare QR"
+      "worksFromQr": "Funcționează din\nscanare QR",
+      "noApp": {
+        "line1": "Fără",
+        "line2": "aplicație"
+      },
+      "qrScan": {
+        "line1": "Funcționează",
+        "line2": "prin QR"
+      },
+      "realTime": {
+        "line1": "Actualizări",
+        "line2": "live"
+      },
+      "theme": {
+        "line1": "Mod luminos",
+        "line2": "și întunecat"
+      }
     },
     "heroStartFreeTrial": "Începe perioada gratuită",
     "heroSubtextAlt": "QR MENU ajută restaurantele să își optimizeze operațiunile, să crească vânzările și să ofere experiențe excepționale — totul dintr-o scanare.",
@@ -1788,7 +1867,155 @@
       "noCreditCard": "Fără card de credit",
       "setupInMinutes": "Configurare în câteva minute"
     },
-    "heroWatchDemo": "Vezi demo"
+    "heroWatchDemo": "Vezi demo",
+    "viewPricing": "Vezi planurile",
+    "credibility": {
+      "badge": "Piața bulgară",
+      "title": "Fără un perete fals de clienți. Pregătim primele localuri pentru un start curat și realist.",
+      "subtitle": "Axat pe restaurante, cafenele, baruri, hoteluri și localuri quick-service din Bulgaria care vor o modalitate mai simplă de a digitaliza servirea.",
+      "cards": {
+        "bgMarket": {
+          "value": "BG în primul rând",
+          "label": "Conținut, monedă, fluxuri și direcția produsului pentru localurile din Bulgaria."
+        },
+        "pilotReady": {
+          "value": "Gata de pilot",
+          "label": "Util pentru primele locații care vor să testeze meniul digital și comenzile într-un mod controlat."
+        },
+        "setup": {
+          "value": "1 zi lucrătoare",
+          "label": "Un obiectiv realist pentru meniul inițial, mese și coduri QR atunci când conținutul este pregătit."
+        },
+        "noLockIn": {
+          "value": "Fără obligații",
+          "label": "Începe de la planul gratuit și fă upgrade doar când are sens."
+        }
+      }
+    },
+    "onboarding": {
+      "badge": "Primii pași",
+      "title": "Cum începe un local nou",
+      "subtitle": "Procesul este construit ca să poți lansa esențialul mai întâi, în loc să configurezi totul deodată.",
+      "noteTitle": "Cel mai bun start este mic și măsurabil.",
+      "noteBody": "Mai întâi lansează meniul și codurile QR. Apoi adaugă comenzi, plăți, personal, bucătărie și loialitate, în funcție de fluxul real al localului.",
+      "steps": {
+        "1": {
+          "title": "Profil și mese",
+          "text": "Creează restaurantul, adaugă mese și decide cum deschid oaspeții meniul."
+        },
+        "2": {
+          "title": "Meniu și categorii",
+          "text": "Adaugă produse, prețuri, fotografii, alergeni, variante și ordinea categoriilor."
+        },
+        "3": {
+          "title": "Coduri QR și test",
+          "text": "Generează coduri QR, previzualizează ca oaspete și testează primele comenzi."
+        },
+        "4": {
+          "title": "Upgrade",
+          "text": "Când ești pregătit, activează comenzile, plățile, personalul, bucătăria, analizele și loialitatea."
+        }
+      }
+    },
+    "phone": {
+      "restaurantName": "Vkusna Kashta",
+      "categories": {
+        "all": "Toate",
+        "popular": "Populare",
+        "salads": "Salate",
+        "grill": "Grătar",
+        "desserts": "Deserturi",
+        "drinks": "Băuturi"
+      },
+      "tags": {
+        "vegetarian": "Vegetarian",
+        "vegan": "Vegan"
+      },
+      "allergens": {
+        "milk": "Lapte",
+        "gluten": "Gluten",
+        "fish": "Pește"
+      },
+      "items": {
+        "shopska": {
+          "name": "Salată shopska",
+          "description": "Roșii, castraveți, ardei copt și brânză"
+        },
+        "kyufte": {
+          "name": "Chiftea de casă",
+          "description": "Chiftea la grătar, salată și cartofi prăjiți"
+        },
+        "trout": {
+          "name": "Păstrăv la grătar",
+          "description": "Lămâie, ierburi și legume de sezon"
+        },
+        "banitsa": {
+          "name": "Banița cu brânză",
+          "description": "Foietaj crocant, ou și iaurt"
+        },
+        "lemonade": {
+          "name": "Limonadă de casă",
+          "description": "Lămâie, mentă și apă minerală"
+        }
+      }
+    },
+    "dashboardMock": {
+      "title": "Panou restaurant",
+      "subtitle": "Prezentare generală a comenzilor, meselor și plăților",
+      "range": "Astăzi",
+      "kpis": {
+        "orders": "Comenzi",
+        "revenue": "Venituri",
+        "tables": "Mese active",
+        "service": "Solicitări",
+        "tablesMeta": "6 necesită servire",
+        "serviceMeta": "live",
+        "period": "față de ieri"
+      },
+      "ordersOverview": "Comenzi pe oră",
+      "filters": {
+        "day": "Zi",
+        "week": "Săptămână",
+        "month": "Lună"
+      },
+      "chart": {
+        "day1": "10:00",
+        "day2": "13:00",
+        "day3": "16:00",
+        "day4": "20:00"
+      },
+      "topDishes": "Top produse",
+      "viewAll": "Vezi toate",
+      "dishes": {
+        "shopska": "Salată shopska",
+        "kyufte": "Chiftea",
+        "trout": "Păstrăv",
+        "banitsa": "Banița"
+      },
+      "salesByChannel": "Canale de comandă",
+      "channels": {
+        "qr": "Meniu QR",
+        "staff": "Ospătar",
+        "pos": "POS",
+        "takeaway": "La pachet"
+      },
+      "total": "total",
+      "liveOrders": "Comenzi live",
+      "sync": "sincronizare",
+      "table": "Masa {{number}}",
+      "items": "{{count}} produse",
+      "status": {
+        "preparing": "Se prepară",
+        "ready": "Gata",
+        "new": "Nou"
+      },
+      "viewAllOrders": "Vezi comenzile",
+      "qrCard": {
+        "line1": "Scanează",
+        "line2": "pentru meniu",
+        "table": "Masa 12"
+      }
+    }
   },
   "payments": {
     "title": "Istoric Plăți",
@@ -2032,32 +2259,67 @@
       "monthly": "Lunar",
       "yearly": "Anual",
       "saveAnnual": "Economisiți 15%",
-      "recurringNote": "Toate planurile plătite se reînnoiesc automat prin Stripe. Anulează oricând din Portalul de Facturare."
+      "recurringNote": "Toate planurile plătite se reînnoiesc automat prin Stripe. Anulează oricând din Portalul de Facturare.",
+      "perMonthShort": "/lună",
+      "yearlyMeta": "/lună · €{{total}}/an",
+      "saveVsMonthly": "Cu 15% mai puțin decât lunar"
     },
     "comparison": {
-      "title": "Comparați toate funcțiile"
+      "title": "Comparați toate funcțiile",
+      "badge": "Comparație completă",
+      "featureHeader": "Funcție"
     },
     "faq": {
       "title": "Întrebări frecvente",
-      "q1": "Prețurile includ TVA?",
+      "q1": {
+        "question": "Ce plan ar trebui să aleg dacă abia încep?",
+        "answer": "Începe cu Free dacă primul obiectiv este meniul și codurile QR. Treci la Starter când vrei comenzi la masă și apeluri către ospătar."
+      },
       "a1": "Prețurile afișate nu includ TVA. Rata TVA locală se aplică la plată prin Stripe.",
-      "q2": "Pot anula oricând?",
+      "q2": {
+        "question": "Cât durează lansarea inițială?",
+        "answer": "Cu conținutul meniului pregătit, prima lansare încape de obicei într-o zi de lucru: profil, meniu, mese, coduri QR și test."
+      },
       "a2": "Da. Anulați prin Billing portal oricând. Accesul se păstrează până la sfârșitul perioadei de facturare curente.",
-      "q3": "Ce se întâmplă când cobor planul?",
+      "q3": {
+        "question": "Poate echipa să ajute cu conținutul meniului?",
+        "answer": "Da. Poți începe manual sau importa dintr-un fișier structurat, apoi revizuiești categoriile, prețurile, descrierile, alergenii și fotografiile."
+      },
       "a3": "Treceți imediat la funcțiile noului plan. Stripe aplică un credit proporțional pentru timpul neutilizat.",
-      "q4": "Există o perioadă de probă gratuită?",
+      "q4": {
+        "question": "Când se activează plățile?",
+        "answer": "Plățile sunt în Professional și Enterprise. Activează-le când localul este pregătit să accepte plăți de pe telefon sau asistate de personal."
+      },
       "a4": "Planul FREE este permanent fără limită de timp — acesta este perioada dvs. de probă. Faceți upgrade când sunteți pregătit.",
-      "q5": "Există taxe de tranzacție?",
+      "q5": {
+        "question": "Ce înseamnă 0, 1, 5 sau personal nelimitat?",
+        "answer": "Aceasta este limita pentru conturile suplimentare de personal, în afara proprietarului. Starter are 1, Professional are 5, Enterprise este practic nelimitat."
+      },
       "a5": "Stripe percepe 1.4% + €0.25 per tranzacție cu cardul UE. Nu percepem taxe suplimentare de platformă.",
-      "q6": "Pot comuta între facturare lunară și anuală?",
-      "a6": "Da, prin Billing portal. Modificarea intră în vigoare la data următoarei facturări."
+      "q6": {
+        "question": "Când am nevoie de POS sau display de bucătărie?",
+        "answer": "Acestea sunt funcții Enterprise pentru servire activă la masă, fluxuri de bucătărie, note de plată, imprimante sau mai multe zone."
+      },
+      "a6": "Da, prin Billing portal. Modificarea intră în vigoare la data următoarei facturări.",
+      "badge": "Întrebări frecvente",
+      "subtitle": "Răspunsuri scurte despre lansare, onboarding, plăți și schimbarea planului.",
+      "q7": {
+        "question": "Pot schimba planul?",
+        "answer": "Da. Poți face upgrade când este nevoie sau gestiona abonamentul în funcție de perioada curentă."
+      },
+      "q8": {
+        "question": "Există un contract pe termen lung?",
+        "answer": "Nu trebuie să începi cu un angajament pe termen lung. Ideea este să validezi mai întâi fluxul de lucru în local."
+      }
     },
     "tiers": {
       "free": {
         "b1": "Meniu digital (vizualizare și editare)",
         "b2": "Gestionare coduri QR",
         "b3": "Import meniu (OCR)",
-        "b4": "1 angajat"
+        "b4": "1 angajat",
+        "fit": "Ideal pentru localuri mici, cafenele, baruri și locații care au nevoie mai întâi de un meniu digital curat.",
+        "b5": "Analize de bază"
       },
       "starter": {
         "b1": "Tot din Free",
@@ -2065,7 +2327,8 @@
         "b3": "Buton chemare chelner",
         "b4": "Analize de bază",
         "b5": "Meniu multilingv",
-        "b6": "1 angajat"
+        "b6": "1 angajat",
+        "fit": "Ideal pentru localuri mici și medii, cu comenzi la masă, meniuri multilingve și un acces pentru personal."
       },
       "professional": {
         "b1": "Tot din Starter",
@@ -2077,7 +2340,8 @@
         "b7": "Conturi clienți",
         "b8": "Upselling",
         "b9": "Reguli de timp și happy hour",
-        "b10": "Până la 5 angajați + Manager"
+        "b10": "Până la 5 angajați + Manager",
+        "fit": "Ideal pentru restaurante, cafenele și baruri active, cu plăți, loialitate, branding și până la 5 membri de personal."
       },
       "enterprise": {
         "b1": "Tot din Professional",
@@ -2088,7 +2352,9 @@
         "b6": "Șabloane meniu",
         "b7": "RBAC avansat",
         "b8": "Personal nelimitat",
-        "b9": "Suport prioritar"
+        "b9": "Suport prioritar",
+        "b10": "Roluri de ospătar și bucătărie",
+        "fit": "Ideal pentru hoteluri, lanțuri și localuri cu bucătărie, POS, imprimante sau mai mult de o locație."
       }
     },
     "features": {
@@ -2114,7 +2380,10 @@
       "staffMembers": "Angajați",
       "rbac": "RBAC avansat",
       "prioritySupport": "Suport prioritar",
-      "unlimited": "Nelimitat"
+      "unlimited": "Nelimitat",
+      "menuImport": "Import meniu din fișier",
+      "menuExport": "Export JSON/CSV/XLSX",
+      "paymentProviders": "Stripe, ePay.bg, BORICA și myPOS"
     },
     "sections": {
       "menu": "Meniu",
@@ -2124,10 +2393,18 @@
       "customers": "QR și clienți",
       "customization": "Personalizare",
       "team": "Echipă",
-      "support": "Suport"
+      "support": "Suport",
+      "operations": "Operațiuni"
     },
     "currentPlan": "Plan curent",
-    "manageBilling": "Gestionează în Portalul de Facturare"
+    "manageBilling": "Gestionează în Portalul de Facturare",
+    "badge": "Prețuri",
+    "tierNames": {
+      "free": "Free",
+      "starter": "Starter",
+      "professional": "Professional",
+      "enterprise": "Enterprise"
+    }
   },
   "orderConfirmation": {
     "liveStatus": "Stare in timp real",

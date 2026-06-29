@@ -561,6 +561,22 @@
     "itemsTab": "项目"
   },
   "payment": {
+    "cashRequestCancelled": "工作人员已取消此现金支付请求。请询问服务员或重试。",
+    "fullTablePaymentPending": "其他人正在支付整桌账单。支付完成或取消后，此页面将自动更新。",
+    "partialPaymentPending": "此桌部分账单正在支付中。您可以支付自己的未付款订单，或等待后支付整桌账单。",
+    "cashRequestAlreadyPending": "您的现金支付请求已在等待工作人员处理。",
+    "cashRequestUnavailable": "此账单无法使用现金支付请求。",
+    "cashRequestFailed": "无法通知工作人员收取现金。",
+    "myOrders": "我的订单",
+    "fullTable": "整桌",
+    "cardMypos": "银行卡（myPOS）",
+    "cashRequestSent": "已通知工作人员到您的桌边收取现金。",
+    "continueToMypos": "银行卡支付（myPOS）",
+    "requestingCash": "正在通知工作人员...",
+    "cashRequested": "现金支付请求已发送",
+    "payCashToWaiter": "向服务员支付现金",
+    "redirectingToMypos": "正在打开 myPOS 安全结账页面...",
+    "openMypos": "打开 myPOS 结账",
     "paymentCancelled": "支付已取消——您可以重试。",
     "paymentReceived": "已收到款项",
     "requestBill": "申请账单",
@@ -3165,19 +3181,50 @@
       "continue": "继续进行 {{tier}}",
       "free": {
         "name": "免费",
-        "audience": "新开业的餐厅正尝试推出设计精美的电子菜单。"
+        "audience": "新开业的餐厅正尝试推出设计精美的电子菜单。",
+        "features": [
+          "数字菜单（查看和编辑）",
+          "二维码管理",
+          "菜单导入和导出",
+          "基础分析",
+          "0 个额外员工席位"
+        ]
       },
       "starter": {
         "name": "STARTER",
-        "audience": "小型餐馆提供桌边点餐服务。"
+        "audience": "小型餐馆提供桌边点餐服务。",
+        "features": [
+          "包含 Free 的全部功能",
+          "在线餐桌点单",
+          "呼叫服务员",
+          "多语言菜单",
+          "1 个员工席位"
+        ]
       },
       "professional": {
         "name": "专业",
-        "audience": "处于成长阶段的餐厅，需要支付、会员忠诚度以及更深入的洞察。"
+        "audience": "处于成长阶段的餐厅，需要支付、会员忠诚度以及更深入的洞察。",
+        "features": [
+          "包含 Starter 的全部功能",
+          "银行卡和本地支付",
+          "完整分析",
+          "自定义品牌",
+          "会员忠诚计划",
+          "客户账户",
+          "最多 5 名员工"
+        ]
       },
       "enterprise": {
         "name": "企业",
-        "audience": "涉及多个经营地点的运营，涵盖POS系统、后厨工作流程及规模较大的团队。"
+        "audience": "涉及多个经营地点的运营，涵盖POS系统、后厨工作流程及规模较大的团队。",
+        "features": [
+          "包含 Professional 的全部功能",
+          "POS 和厨房显示屏",
+          "多个门店",
+          "热敏打印机",
+          "无限员工",
+          "优先入驻支持"
+        ]
       }
     },
     "basics": {

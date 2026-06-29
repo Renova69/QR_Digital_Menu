@@ -175,10 +175,9 @@ describe('TranslationService', () => {
           data: { translations: [{ text: 'Burger RO' }] },
         });
 
-      jest.spyOn(global, 'setTimeout').mockImplementation((fn: any) => {
-        fn();
-        return 0 as any;
-      });
+      // Skip the inter-language delay without mutating the global timer (a
+      // global setTimeout mock can bleed into unrelated async code).
+      jest.spyOn(service as any, 'sleep').mockResolvedValue(undefined);
 
       const result = await service.translateObject({ name: 'Burger' }, [
         'BG',
@@ -274,6 +273,50 @@ describe('TranslationService', () => {
       await expect(
         service.translateObject({ name: 'Soup' }, ['fr', 'de']),
       ).rejects.toThrow('all dead');
+    });
+  });
+
+  describe('circuit breaker', () => {
+    beforeEach(() => {
+      process.env.DEEPL_API_KEY = 'test-key';
+      jest.spyOn(service as any, 'sleep').mockResolvedValue(undefined);
+    });
+
+    it('opens after repeated failures and fast-fails without calling DeepL', async () => {
+      mockPost.mockRejectedValue(new Error('deepl down'));
+
+      // Five consecutive failures trip the breaker.
+      for (let i = 0; i < 5; i++) {
+        await expect(service.translateTexts(['x'], 'BG')).rejects.toThrow();
+      }
+      const callsWhileClosed = mockPost.mock.calls.length;
+
+      // Sixth call short-circuits — no further HTTP request is made.
+      await expect(service.translateTexts(['x'], 'BG')).rejects.toThrow(
+        /circuit open/i,
+      );
+      expect(mockPost.mock.calls.length).toBe(callsWhileClosed);
+    });
+
+    it('resets the failure count after a success', async () => {
+      mockPost.mockRejectedValue(new Error('down'));
+      for (let i = 0; i < 4; i++) {
+        await expect(service.translateTexts(['x'], 'BG')).rejects.toThrow();
+      }
+
+      // A success resets the consecutive-failure counter.
+      mockPost.mockReset();
+      mockPost.mockResolvedValue({ data: { translations: [{ text: 'ok' }] } });
+      await service.translateTexts(['x'], 'BG');
+
+      // A single later failure must NOT re-open the breaker (counter was reset),
+      // so DeepL is still attempted.
+      mockPost.mockReset();
+      mockPost.mockRejectedValue(new Error('down again'));
+      await expect(service.translateTexts(['x'], 'BG')).rejects.toThrow(
+        'down again',
+      );
+      expect(mockPost).toHaveBeenCalled();
     });
   });
 });

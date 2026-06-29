@@ -95,10 +95,23 @@
     "yourCartIsEmpty": "カートには商品が入っていません。"
   },
   "common": {
+    "add": "追加",
+    "and": "と",
     "cancel": "キャンセル",
+    "clear": "クリア",
     "close": "閉じる",
+    "confirm": "確認",
+    "copied": "コピーしました",
     "delete": "削除",
-    "deleting": "削除中…"
+    "deleting": "削除中…",
+    "disable": "無効にする",
+    "dismiss": "非表示",
+    "enable": "有効にする",
+    "menu": "メニュー",
+    "pleaseLogin": "続行するにはログインしてください",
+    "remove": "削除",
+    "retry": "再試行",
+    "selectToAdd": "追加するリンクを選択..."
   },
   "forms": {
     "allergens": "アレルゲン",
@@ -139,9 +152,67 @@
     "selectCategoryPrompt": "左側のカテゴリを選択して、そのメニュー項目を管理してください。"
   },
   "payment": {
+    "cashRequestCancelled": "スタッフがこの現金支払いリクエストをキャンセルしました。係員にお尋ねいただくか、もう一度お試しください。",
+    "fullTablePaymentPending": "別のお客様がテーブル全体の会計を支払い中です。完了またはキャンセルされると、この画面は自動的に更新されます。",
+    "partialPaymentPending": "このテーブルの会計の一部が支払い中です。ご自身の未払い注文を支払うか、完了後にテーブル全体をお支払いください。",
+    "cashRequestAlreadyPending": "現金支払いリクエストはすでにスタッフの対応待ちです。",
+    "cashRequestUnavailable": "この会計では現金支払いリクエストを利用できません。",
+    "cashRequestFailed": "現金支払いについてスタッフに通知できませんでした。",
+    "myOrders": "自分の注文",
+    "fullTable": "テーブル全体",
+    "cardMypos": "カード（myPOS）",
+    "cashRequestSent": "テーブルで現金を受け取るようスタッフに通知しました。",
+    "continueToMypos": "カードで支払う（myPOS）",
+    "requestingCash": "スタッフに連絡中...",
+    "cashRequested": "現金支払いリクエストを送信しました",
+    "payCashToWaiter": "スタッフに現金で支払う",
+    "redirectingToMypos": "myPOSの安全な決済画面を開いています...",
+    "openMypos": "myPOS決済を開く",
+    "addTip": "チップを追加しますか？",
+    "backToMenu": "メニューに戻る",
+    "billLoadError": "請求内容を読み込めませんでした。もう一度お試しください",
+    "boricaBillingAddress": "請求先住所",
+    "boricaDetails": "カード名義人情報",
+    "boricaDetailsHelp": "3-Dセキュア認証のため、カード名義人情報をラテン文字で入力してください。",
+    "boricaDetailsRequired": "カード名義人名、メールアドレス、請求先住所を入力してください。",
+    "boricaEmail": "メールアドレス",
+    "boricaName": "カード名義人名（ラテン文字）",
+    "boricaNameInvalid": "BORICAのカード名義人名にはラテン文字を使用してください。",
+    "boricaPhoneOptional": "電話番号（任意）",
+    "cardBorica": "カード（BORICA）",
+    "cardOnline": "オンラインカード決済",
+    "continue": "支払いへ進む",
+    "continueToBorica": "カードで支払う（BORICA）",
+    "continueToEpay": "ePay.bgへ進む",
+    "custom": "カスタム",
+    "failedToLoad": "支払いを開始できませんでした。もう一度お試しください。",
+    "loading": "読み込み中...",
+    "noProviders": "このレストランではオンライン決済が設定されていません。",
+    "noTip": "チップなし",
+    "openBorica": "BORICA決済を開く",
+    "openEpay": "ePay.bgを開く",
+    "pay": "支払う",
+    "payment": "お支払い",
     "paymentCancelled": "支払いがキャンセルされました。もう一度お試しください。",
+    "paymentFailed": "支払いに失敗しました。もう一度お試しください。",
+    "paymentMethod": "支払い方法",
     "paymentReceived": "お支払いの確認が完了しました",
-    "requestBill": "請求書の請求"
+    "processing": "処理中...",
+    "redirecting": "リダイレクト中",
+    "redirectingToBorica": "BORICAの安全な決済画面を開いています...",
+    "redirectingToEpay": "ePay.bgの安全な決済画面を開いています...",
+    "requestBill": "請求書の請求",
+    "sourceStaff": "スタッフ",
+    "sourceStaffWithName": "スタッフ：{{name}}",
+    "sourceYou": "あなた",
+    "stripeUnavailable": "現在お支払いを利用できません。スタッフにお問い合わせください。",
+    "subtotal": "小計",
+    "thankYou": "ありがとうございます！",
+    "tip": "チップ",
+    "tipAmount": "チップ金額",
+    "total": "合計",
+    "unexpectedStatus": "支払い状況を確認できません。スタッフにお問い合わせください",
+    "yourBill": "ご請求"
   },
   "printStations": {
     "title": "プリントステーション"
@@ -153,15 +224,25 @@
     "assistanceError": "スタッフと連絡が取れませんでした。もう一度お試しいただくか、ウェイターにお尋ねください。",
     "callWaiter": "ウェイターを呼ぶ",
     "callWaiterDesc": "注文したいのですが、または質問があります",
+    "calling": "呼び出し中...",
     "checkLink": "リンクをご確認いただくか、スタッフにお尋ねください。",
     "clearFilters": "フィルターをクリアする",
     "contains": "内容物",
     "customizeOptions": "ご注文をカスタマイズする",
     "dietaryPreferences": "食の好み",
+    "drinkUpsell": {
+      "add": "追加",
+      "noThanks": "結構です",
+      "proceedCheckout": "お会計へ進む",
+      "question": "お飲み物もご一緒にいかがですか？",
+      "subtitle": "お食事をさらにお楽しみください。",
+      "title": "ドリンクもいかがですか？"
+    },
     "excludeAllergens": "アレルゲンを除外する",
     "failedLoad": "メニューの読み込みに失敗しました。後ほどもう一度お試しください。",
     "filters": "フィルター",
     "howCanWeHelp": "何かお手伝いできることはありますか？",
+    "language": "言語",
     "logout": "ログアウト",
     "myProfile": "私のプロフィール",
     "needHelp": "至急の助けが必要です",
@@ -178,14 +259,17 @@
     },
     "pickOne": "どれか一つ選んでください",
     "preparingMenu": "メニューを準備中...",
+    "promptTable": "テーブル番号を入力してください：",
     "scanQrForAssistance": "テーブルにあるQRコードをスキャンして、サポートを依頼してください",
     "search": "検索",
     "selectAssistanceType": "必要なサポートの種類をお選びください",
     "selectLanguage": "言語を選択してください",
     "signIn": "ログイン",
     "staffNotified": "担当者に連絡済みですので、まもなくお伺いいたします！",
+    "staffNotifiedShort": "スタッフに通知しました！",
     "trendingNow": "今話題の",
-    "tryAgain": "もう一度試す"
+    "tryAgain": "もう一度試す",
+    "viewingTable": "{{tableNumber}}番テーブルのメニューを表示しています"
   },
   "nav": {
     "dashboard": "ダッシュボード",
@@ -326,5 +410,48 @@
     "ja": "日本語",
     "ru": "ロシア語",
     "ar": "アラビア語"
+  },
+  "onboarding": {
+    "plans": {
+      "free": {
+        "features": [
+          "デジタルメニュー（閲覧と編集）",
+          "QRコード管理",
+          "メニューのインポートとエクスポート",
+          "基本分析",
+          "追加スタッフ枠 0"
+        ]
+      },
+      "starter": {
+        "features": [
+          "Free のすべての機能",
+          "オンラインテーブル注文",
+          "スタッフ呼び出し",
+          "多言語メニュー",
+          "スタッフ枠 1"
+        ]
+      },
+      "professional": {
+        "features": [
+          "Starter のすべての機能",
+          "カードおよび現地決済",
+          "完全な分析",
+          "カスタムブランディング",
+          "ロイヤルティプログラム",
+          "顧客アカウント",
+          "最大5名のスタッフ"
+        ]
+      },
+      "enterprise": {
+        "features": [
+          "Professional のすべての機能",
+          "POS とキッチンディスプレイ",
+          "複数店舗",
+          "サーマルプリンター",
+          "スタッフ無制限",
+          "優先オンボーディング"
+        ]
+      }
+    }
   }
 }

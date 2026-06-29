@@ -47,8 +47,9 @@ export class MenuTranslationService {
         const itemTextMap: Record<string, string> = {};
         if (!existing[lang]?.name) {
           itemTextMap.name = item.name;
-          if (item.description) itemTextMap.description = item.description;
         }
+        if (item.description && !existing[lang]?.description)
+          itemTextMap.description = item.description;
         // Diff allergens/dietaryTags: allergens stored as map { orig: translated };
         // old array format = cannot diff → re-translate all entries
         (item.allergens || []).forEach((a: string) => {
@@ -227,12 +228,21 @@ export class MenuTranslationService {
     // Phase 4: apply all translations (cached + newly fetched) to in-memory objects
     for (const category of categories) {
       const t = category.translations as Record<string, any> | null;
-      if (t?.[lang]?.name) category.name = t[lang].name;
+      if (t?.[lang]?.name) {
+        category.originalName ??= category.name;
+        category.name = t[lang].name;
+      }
 
       for (const item of category.items ?? []) {
         const t = item.translations as Record<string, any> | null;
-        if (t?.[lang]?.name) item.name = t[lang].name;
-        if (t?.[lang]?.description) item.description = t[lang].description;
+        if (t?.[lang]?.name) {
+          item.originalName ??= item.name;
+          item.name = t[lang].name;
+        }
+        if (t?.[lang]?.description) {
+          item.originalDescription ??= item.description;
+          item.description = t[lang].description;
+        }
         if (t?.[lang]?.allergens) {
           item.allergens = Array.isArray(t[lang].allergens)
             ? t[lang].allergens
@@ -246,7 +256,10 @@ export class MenuTranslationService {
 
         for (const option of item.options ?? []) {
           const t = option.translations as Record<string, any> | null;
-          if (t?.[lang]?.name) option.name = t[lang].name;
+          if (t?.[lang]?.name) {
+            option.originalName ??= option.name;
+            option.name = t[lang].name;
+          }
           // choice.name is the stable DB key used for order validation —
           // never overwrite it. The frontend reads translated labels via
           // getChoiceLabel(option, choice) from option.translations directly.

@@ -561,6 +561,22 @@
     "itemsTab": "Artikel"
   },
   "payment": {
+    "cashRequestCancelled": "Das Personal hat diese Barzahlungsanfrage storniert. Fragen Sie bitte Ihre Bedienung oder versuchen Sie es erneut.",
+    "fullTablePaymentPending": "Jemand anderes bezahlt bereits die gesamte Tischrechnung. Diese Ansicht wird nach Abschluss oder Abbruch automatisch aktualisiert.",
+    "partialPaymentPending": "Ein Teil dieser Tischrechnung wird bereits bezahlt. Sie können Ihre eigenen offenen Bestellungen bezahlen oder warten, um den ganzen Tisch zu bezahlen.",
+    "cashRequestAlreadyPending": "Ihre Barzahlungsanfrage wartet bereits auf das Personal.",
+    "cashRequestUnavailable": "Barzahlung ist für diese Rechnung nicht verfügbar.",
+    "cashRequestFailed": "Das Personal konnte nicht zur Barzahlung gerufen werden.",
+    "myOrders": "Meine Bestellungen",
+    "fullTable": "Ganzer Tisch",
+    "cardMypos": "Karte (myPOS)",
+    "cashRequestSent": "Das Personal wurde gebeten, das Bargeld an Ihrem Tisch abzuholen.",
+    "continueToMypos": "Mit Karte bezahlen (myPOS)",
+    "requestingCash": "Personal wird gerufen...",
+    "cashRequested": "Barzahlungsanfrage gesendet",
+    "payCashToWaiter": "Bar bei der Bedienung bezahlen",
+    "redirectingToMypos": "Sichere myPOS-Zahlung wird geöffnet...",
+    "openMypos": "myPOS-Zahlung öffnen",
     "paymentCancelled": "Zahlung abgebrochen – Sie können es erneut versuchen.",
     "paymentReceived": "Zahlung eingegangen",
     "requestBill": "Rechnung anfordern",
@@ -3165,19 +3181,50 @@
       "continue": "Weiter mit {{tier}}",
       "free": {
         "name": "KOSTENLOS",
-        "audience": "Neue Lokale, die eine ausgefeilte digitale Speisekarte ausprobieren."
+        "audience": "Neue Lokale, die eine ausgefeilte digitale Speisekarte ausprobieren.",
+        "features": [
+          "Digitale Speisekarte (ansehen und bearbeiten)",
+          "QR-Code-Verwaltung",
+          "Menü-Import und -Export",
+          "Basis-Analysen",
+          "0 zusätzliche Mitarbeiterplätze"
+        ]
       },
       "starter": {
         "name": "STARTER",
-        "audience": "Kleine Restaurants, in denen die Bestellungen am Tisch aufgenommen werden."
+        "audience": "Kleine Restaurants, in denen die Bestellungen am Tisch aufgenommen werden.",
+        "features": [
+          "Alles aus Free",
+          "Online-Tischbestellungen",
+          "Kellner rufen",
+          "Mehrsprachige Speisekarte",
+          "1 Mitarbeiterplatz"
+        ]
       },
       "professional": {
         "name": "PROFESSIONELL",
-        "audience": "Wachsende Restaurants, die Lösungen für Zahlungsverkehr, Kundenbindung und tiefere Einblicke benötigen."
+        "audience": "Wachsende Restaurants, die Lösungen für Zahlungsverkehr, Kundenbindung und tiefere Einblicke benötigen.",
+        "features": [
+          "Alles aus Starter",
+          "Karten- und lokale Zahlungen",
+          "Vollständige Analysen",
+          "Individuelles Branding",
+          "Treueprogramm",
+          "Kundenkonten",
+          "Bis zu 5 Mitarbeiter"
+        ]
       },
       "enterprise": {
         "name": "UNTERNEHMEN",
-        "audience": "Betriebe mit mehreren Standorten, Kassensystemen, Küchenabläufen und größeren Teams."
+        "audience": "Betriebe mit mehreren Standorten, Kassensystemen, Küchenabläufen und größeren Teams.",
+        "features": [
+          "Alles aus Professional",
+          "Kassensystem und Küchendisplay",
+          "Mehrere Standorte",
+          "Thermodrucker",
+          "Unbegrenzte Mitarbeiter",
+          "Bevorzugtes Onboarding"
+        ]
       }
     },
     "basics": {
@@ -3318,7 +3365,7 @@
   },
   "upgrade": {
     "premiumFeature": "Premium-Funktion",
-    "unlockTitle": "{{Feature}} freischalten",
+    "unlockTitle": "{{feature}} freischalten",
     "subtitle": "Verfügbar ab dem {{tier}}-Tarif. Führen Sie ein Upgrade durch, um diese und weitere Funktionen freizuschalten.",
     "recommended": "Empfohlen",
     "cta": "Auf {{tier}} upgraden",

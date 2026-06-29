@@ -561,6 +561,22 @@
     "itemsTab": "Articles"
   },
   "payment": {
+    "cashRequestCancelled": "Le personnel a annulé cette demande de paiement en espèces. Demandez à votre serveur ou réessayez.",
+    "fullTablePaymentPending": "Une autre personne paie déjà l'ensemble de la table. Cet écran sera automatiquement actualisé à la fin ou à l'annulation du paiement.",
+    "partialPaymentPending": "Une partie de l'addition est déjà en cours de paiement. Vous pouvez régler vos commandes impayées ou attendre pour payer toute la table.",
+    "cashRequestAlreadyPending": "Votre demande de paiement en espèces attend déjà le personnel.",
+    "cashRequestUnavailable": "Le paiement en espèces n'est pas disponible pour cette addition.",
+    "cashRequestFailed": "Impossible de prévenir le personnel pour le paiement en espèces.",
+    "myOrders": "Mes commandes",
+    "fullTable": "Toute la table",
+    "cardMypos": "Carte (myPOS)",
+    "cashRequestSent": "Le personnel a été prévenu pour encaisser à votre table.",
+    "continueToMypos": "Payer par carte (myPOS)",
+    "requestingCash": "Appel du personnel...",
+    "cashRequested": "Demande de paiement en espèces envoyée",
+    "payCashToWaiter": "Payer en espèces au serveur",
+    "redirectingToMypos": "Ouverture du paiement sécurisé myPOS...",
+    "openMypos": "Ouvrir le paiement myPOS",
     "paymentCancelled": "Paiement annulé — vous pouvez réessayer.",
     "paymentReceived": "Paiement reçu",
     "requestBill": "Demander une facture",
@@ -1530,7 +1546,7 @@
         "late": "Tard"
       },
       "labels": {
-        "customRange": "{{début}} à {{fin}}",
+        "customRange": "{{start}} à {{end}}",
         "lastDays": "Il y a {{days}} jours",
         "previousPeriod": "Précédent : de {{start}} à {{end}}",
         "completedOrders": "{{count}} commandes traitées",
@@ -3165,19 +3181,50 @@
       "continue": "Continuer avec {{tier}}",
       "free": {
         "name": "GRATUIT",
-        "audience": "De nouveaux établissements se lancent dans l'aventure des menus numériques soignés."
+        "audience": "De nouveaux établissements se lancent dans l'aventure des menus numériques soignés.",
+        "features": [
+          "Menu numérique (voir et modifier)",
+          "Gestion des codes QR",
+          "Import et export du menu",
+          "Analyses de base",
+          "0 poste de personnel supplémentaire"
+        ]
       },
       "starter": {
         "name": "ENTRÉE",
-        "audience": "De petits restaurants où l'on prend les commandes à table."
+        "audience": "De petits restaurants où l'on prend les commandes à table.",
+        "features": [
+          "Tout ce qui est dans Free",
+          "Commandes à table en ligne",
+          "Appeler le serveur",
+          "Menu multilingue",
+          "1 poste de personnel"
+        ]
       },
       "professional": {
         "name": "PROFESSIONNEL",
-        "audience": "Des restaurants en pleine croissance qui ont besoin de solutions de paiement, de programmes de fidélité et d'analyses plus approfondies."
+        "audience": "Des restaurants en pleine croissance qui ont besoin de solutions de paiement, de programmes de fidélité et d'analyses plus approfondies.",
+        "features": [
+          "Tout ce qui est dans Starter",
+          "Paiements par carte et locaux",
+          "Analyses complètes",
+          "Image de marque personnalisée",
+          "Programme de fidélité",
+          "Comptes clients",
+          "Jusqu'à 5 employés"
+        ]
       },
       "enterprise": {
         "name": "ENTREPRISE",
-        "audience": "Activités multi-sites avec points de vente, flux de travail en cuisine et équipes plus importantes."
+        "audience": "Activités multi-sites avec points de vente, flux de travail en cuisine et équipes plus importantes.",
+        "features": [
+          "Tout ce qui est dans Professional",
+          "Caisse et écran de cuisine",
+          "Plusieurs établissements",
+          "Imprimantes thermiques",
+          "Personnel illimité",
+          "Intégration prioritaire"
+        ]
       }
     },
     "basics": {

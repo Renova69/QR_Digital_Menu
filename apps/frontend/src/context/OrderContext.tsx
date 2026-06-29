@@ -10,6 +10,7 @@ import {
   getOrders,
   updateOrderStatus as apiUpdateOrderStatus,
 } from "../lib/api";
+import { revertFailedOrders } from "../lib/orderStatus";
 import { useSocket } from "./SocketContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./AuthContext";
@@ -123,17 +124,36 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     orderIds: string[],
     status: OrderStatus,
   ) => {
-    const prev = orders;
+    const previous = orders;
     const idSet = new Set(orderIds);
     setOrders((cur) =>
       cur.map((o) => (idSet.has(o.id) ? { ...o, status } : o)),
     );
-    try {
-      await Promise.all(orderIds.map((id) => apiUpdateOrderStatus(id, status)));
-    } catch (error) {
-      setOrders(prev);
-      console.error("Failed to batch update order status:", error);
-      throw error;
+
+    // Settle every call independently — a single failure must not roll back the
+    // orders that the server accepted (the old Promise.all reverted ALL of them
+    // even though some had already changed server-side).
+    const results = await Promise.allSettled(
+      orderIds.map((id) => apiUpdateOrderStatus(id, status)),
+    );
+    const failedIds = orderIds.filter(
+      (_, i) => results[i].status === "rejected",
+    );
+
+    if (failedIds.length > 0) {
+      // Revert only the orders that failed; keep the successful ones updated.
+      setOrders((cur) => revertFailedOrders(cur, previous, failedIds));
+      // Reconcile against authoritative server state in case the socket sync is
+      // delayed or dropped after a partial failure.
+      void refreshOrders();
+      const firstRejection = results.find(
+        (r): r is PromiseRejectedResult => r.status === "rejected",
+      );
+      console.error(
+        "Failed to batch update order status:",
+        firstRejection?.reason,
+      );
+      throw firstRejection?.reason ?? new Error("Batch order update failed");
     }
   };
 

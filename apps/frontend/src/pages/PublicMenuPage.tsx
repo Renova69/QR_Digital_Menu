@@ -10,6 +10,7 @@ import {
   abandonCheckout,
 } from "../lib/api";
 import { getVisitorId } from "../lib/visitorId";
+import { resolveInitialLanguage } from "../lib/menuLanguage";
 import { BRANDING_FONT_NAMES } from "../lib/brandingFonts";
 import { PaymentModal } from "../components/payment/PaymentModal";
 import { useCart } from "../context/CartContext";
@@ -537,7 +538,10 @@ const PublicMenuPage = () => {
         setMenuMeta(null);
         setLoadedItemsMap({});
 
-        const data = await getMenuMeta(restaurantId);
+        const data = await getMenuMeta(
+          restaurantId,
+          params.get("lang") ?? undefined,
+        );
         if (cancelled.v) return;
 
         if (!data?.restaurant) {
@@ -550,7 +554,10 @@ const PublicMenuPage = () => {
         let initialLang: string | undefined;
         if (data.restaurant?.targetLanguages?.length > 0) {
           const langs: string[] = data.restaurant.targetLanguages;
-          initialLang = langs[0];
+          // Honour a `?lang=` deep-link (e.g. a QR code) when it points at an
+          // enabled target language; otherwise default to the first one.
+          initialLang =
+            resolveInitialLanguage(langs, params.get("lang")) ?? langs[0];
           setSelectedLang(initialLang);
           void i18n.changeLanguage(initialLang);
           // Warm every target-language UI bundle in the background so switching the
@@ -784,19 +791,25 @@ const PublicMenuPage = () => {
     themeInitialized.current = false;
   }, [restaurantId]);
 
-  // Dietary/allergen tags derived from all currently loaded items
-  const dietTags: { tag: string; count: number }[] = (() => {
+  // Dietary and allergen tags are aggregated separately, straight from the item
+  // fields (item.allergens vs item.dietaryTags). This keeps the two groups apart
+  // without a language-specific keyword list, so allergens entered in any
+  // language classify correctly.
+  const aggregateTags = (
+    pick: (item: any) => string[] | undefined,
+  ): { tag: string; count: number }[] => {
     const tagCounts = new Map<string, number>();
     for (const item of allLoadedItems) {
-      const tags = [...(item.allergens ?? []), ...(item.dietaryTags ?? [])];
-      for (const tag of tags) {
+      for (const tag of pick(item) ?? []) {
         tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
       }
     }
     return [...tagCounts.entries()]
       .map(([tag, count]) => ({ tag, count }))
       .sort((a, b) => a.tag.localeCompare(b.tag));
-  })();
+  };
+  const allergenTags = aggregateTags((item) => item.allergens);
+  const dietaryTags = aggregateTags((item) => item.dietaryTags);
 
   const themeVars = restaurantTheme
     ? ({
@@ -1056,7 +1069,8 @@ const PublicMenuPage = () => {
                 <FilterPanel
                   isOpen={filterDrawerOpen}
                   onClose={() => setFilterDrawerOpen(false)}
-                  dietTags={dietTags}
+                  dietaryTags={dietaryTags}
+                  allergenTags={allergenTags}
                   activeDietTags={activeDietTags}
                   onDietTagToggle={toggleDietTag}
                   excludedAllergens={excludedAllergens}

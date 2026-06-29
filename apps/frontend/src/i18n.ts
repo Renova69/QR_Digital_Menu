@@ -3,6 +3,17 @@ import { initReactI18next } from "react-i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
 import resourcesToBackend from "i18next-resources-to-backend";
 
+const RTL_LANGUAGES = new Set(["ar", "he", "fa", "ur"]);
+
+function syncDocumentLanguage(language: string) {
+  if (typeof document === "undefined") return;
+  const normalized = language.toLowerCase().split("-")[0];
+  document.documentElement.lang = normalized;
+  document.documentElement.dir = RTL_LANGUAGES.has(normalized) ? "rtl" : "ltr";
+}
+
+i18n.on("languageChanged", syncDocumentLanguage);
+
 // Lazy-load each language's translation bundle on demand instead of statically
 // importing all three into the entry chunk. Previously en/bg/ro (~135 KB gzip
 // combined) shipped to every visitor including the public menu, even though a
@@ -19,7 +30,16 @@ i18n
   )
   .use(initReactI18next)
   .init({
-    fallbackLng: "bg",
+    // JA/RU/AR carry only the customer-facing subset; their dashboard/admin keys
+    // are not yet translated. Fall those back to English (a complete bundle and a
+    // far better default for international owners) rather than Bulgarian. Every
+    // other language keeps the BG-market default.
+    fallbackLng: {
+      ja: ["en"],
+      ru: ["en"],
+      ar: ["en"],
+      default: ["bg"],
+    },
     detection: {
       order: ["querystring", "localStorage", "cookie"],
       caches: ["localStorage"],

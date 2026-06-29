@@ -21,6 +21,33 @@ export class TranslationService {
   private static readonly MAX_RETRIES = 5;
   private static readonly RETRY_BASE_MS = 500;
 
+  // Circuit breaker: during a sustained DeepL outage, retrying every request
+  // (5 × exponential backoff each) blocks every public-menu render. After this
+  // many consecutive failures the breaker opens and translateTexts fast-fails
+  // for a cooldown window — callers fall back to original text without blocking,
+  // and nothing untranslated gets cached.
+  private static readonly CIRCUIT_THRESHOLD = 5;
+  private static readonly CIRCUIT_COOLDOWN_MS = 60_000;
+  private consecutiveFailures = 0;
+  private circuitOpenUntil = 0;
+
+  private isCircuitOpen(): boolean {
+    return Date.now() < this.circuitOpenUntil;
+  }
+
+  private recordSuccess(): void {
+    this.consecutiveFailures = 0;
+    this.circuitOpenUntil = 0;
+  }
+
+  private recordFailure(): void {
+    this.consecutiveFailures++;
+    if (this.consecutiveFailures >= TranslationService.CIRCUIT_THRESHOLD) {
+      this.circuitOpenUntil =
+        Date.now() + TranslationService.CIRCUIT_COOLDOWN_MS;
+    }
+  }
+
   private get apiKey(): string | undefined {
     return process.env.DEEPL_API_KEY;
   }
@@ -56,11 +83,28 @@ export class TranslationService {
       return texts;
     }
 
+    // Fast-fail while the breaker is open instead of blocking on 5× backoff per
+    // request during a sustained outage. Callers treat this like any other
+    // failure (skip DB writes, render original text).
+    if (this.isCircuitOpen()) {
+      this.logger.warn(
+        'DeepL circuit open — skipping translation until cooldown elapses',
+      );
+      throw new Error('DeepL circuit open (degraded mode)');
+    }
+
     // Dedupe identical source strings so DeepL is only asked to translate each
     // distinct string once per request (saves characters + requests). Results
     // are mapped back onto the original positions.
     const unique = [...new Set(texts)];
-    const translatedUnique = await this.postTranslate(unique, targetLanguage);
+    let translatedUnique: string[];
+    try {
+      translatedUnique = await this.postTranslate(unique, targetLanguage);
+      this.recordSuccess();
+    } catch (err) {
+      this.recordFailure();
+      throw err;
+    }
     const bySource = new Map<string, string>();
     for (let i = 0; i < unique.length; i++) {
       bySource.set(unique[i], translatedUnique[i] ?? unique[i]);

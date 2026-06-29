@@ -2,7 +2,12 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
-import api, { createOrder, getSessionBill, getMenu } from "../lib/api";
+import api, {
+  createOrder,
+  getMenu,
+  getSessionBill,
+  type SessionBill,
+} from "../lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -17,57 +22,12 @@ import { Toggle } from "../components/ui/Toggle";
 import type { FeatureFlag } from "../hooks/useFeature";
 import { isHappyHourActive } from "../lib/happyHour";
 import { rememberOwnedOrder } from "../lib/publicOrderOwnership";
+import {
+  resolveCartChoiceName,
+  resolveCartItemName,
+} from "../lib/cartTranslation";
 
 const MAX_ORDER_DISCOUNT_RATE = 0.15;
-
-function resolveItemName(
-  item: {
-    id: string;
-    name: string;
-    itemTranslations?: Record<string, any> | null;
-  },
-  categories: any[] | undefined,
-  lang: string,
-): string {
-  if (!lang) return item.name;
-  if (categories) {
-    for (const cat of categories) {
-      const found = (cat.items as any[])?.find((i: any) => i.id === item.id);
-      if (found) {
-        return found.translations?.[lang]?.name || found.name || item.name;
-      }
-    }
-  }
-  return item.itemTranslations?.[lang]?.name || item.name;
-}
-
-function resolveChoiceName(
-  itemId: string,
-  opt: {
-    optionId: string;
-    choiceName: string;
-    translations?: Record<string, any> | null;
-  },
-  categories: any[] | undefined,
-  lang: string,
-): string {
-  if (!lang) return opt.choiceName;
-  if (categories) {
-    for (const cat of categories) {
-      const item = (cat.items as any[])?.find((i: any) => i.id === itemId);
-      if (item) {
-        const option = (item.options as any[])?.find(
-          (o: any) => o.id === opt.optionId,
-        );
-        const translated =
-          option?.translations?.[lang]?.choices?.[opt.choiceName];
-        if (translated) return translated;
-        break;
-      }
-    }
-  }
-  return opt.translations?.[lang]?.choices?.[opt.choiceName] || opt.choiceName;
-}
 
 const CheckoutPage = () => {
   const { user } = useAuth();
@@ -75,29 +35,38 @@ const CheckoutPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const { t, i18n } = useTranslation();
   const restaurantId = location.state?.restaurantId;
   const tier = location.state?.tier as string | undefined;
   const features = Array.isArray(location.state?.features)
     ? (location.state.features as FeatureFlag[])
     : [];
   const themeVars = (location.state?.themeVars ?? {}) as React.CSSProperties;
-  const selectedLang = (location.state?.selectedLang ?? "") as string;
+  // A customer paying via the POS Payment QR can switch the bill language with
+  // the in-page selector; that override wins over the deep-link / browser guess.
+  const [billLangOverride, setBillLangOverride] = useState<string | null>(null);
+  const selectedLang = String(
+    billLangOverride ??
+      location.state?.selectedLang ??
+      searchParams.get("lang") ??
+      i18n.resolvedLanguage ??
+      "bg",
+  );
   const customersAuthEnabled = features.includes("customers:auth");
-  const { t } = useTranslation();
 
   // Fetch menu with selected lang so item/choice names are translated.
   const { data: menuData } = useQuery({
     queryKey: ["checkout-menu", restaurantId, selectedLang],
-    queryFn: () => getMenu(restaurantId, selectedLang || undefined),
+    queryFn: () => getMenu(restaurantId, selectedLang),
     enabled: !!restaurantId && !!selectedLang,
     staleTime: 5 * 60 * 1000,
   });
-  const menuCategories: any[] | undefined = menuData?.categories;
+  const menuCategories = menuData?.categories;
 
   // ── Session-based checkout (POS Payment QR) ──
   const sessionToken = searchParams.get("session");
   const isSessionFlow = !!sessionToken;
-  const [sessionBill, setSessionBill] = useState<any>(null);
+  const [sessionBill, setSessionBill] = useState<SessionBill | null>(null);
   const [sessionBillLoading, setSessionBillLoading] = useState(false);
   const [sessionBillError, setSessionBillError] = useState<string | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -107,7 +76,7 @@ const CheckoutPage = () => {
     if (!sessionToken) return;
     setSessionBillLoading(true);
     setSessionBillError(null);
-    getSessionBill(sessionToken)
+    getSessionBill(sessionToken, selectedLang)
       .then((bill) => setSessionBill(bill))
       .catch((err) =>
         setSessionBillError(
@@ -116,7 +85,7 @@ const CheckoutPage = () => {
         ),
       )
       .finally(() => setSessionBillLoading(false));
-  }, [sessionToken]);
+  }, [sessionToken, selectedLang]);
 
   const openPayment = () => setPaymentModalOpen(true);
 
@@ -157,7 +126,7 @@ const CheckoutPage = () => {
   const finalMultiplier = Math.max(hhMultiplier, tierMultiplier);
 
   const getItemsPointsCost = () => {
-    return items.reduce((sum, item: any) => {
+    return items.reduce((sum, item) => {
       if (redeemedCartIds.has(item.cartId) && item.rewardPointsPrice) {
         return sum + item.rewardPointsPrice * item.quantity;
       }
@@ -364,7 +333,11 @@ const CheckoutPage = () => {
   // ── Session bill view (POS Payment QR) ──────────────────────────────────
   if (isSessionFlow) {
     return (
-      <div className="min-h-screen premium-bg" style={themeVars}>
+      <div
+        dir={i18n.dir(selectedLang)}
+        className="min-h-screen premium-bg"
+        style={themeVars}
+      >
         <div
           className="max-w-2xl mx-auto px-4 pt-10 pb-24"
           style={{
@@ -377,6 +350,30 @@ const CheckoutPage = () => {
               ? t("checkout.paymentComplete", "Payment Complete")
               : t("checkout.yourBill", "Your Bill")}
           </h1>
+
+          {!paymentComplete &&
+            (sessionBill?.targetLanguages?.length ?? 0) > 1 && (
+              <div className="mb-6 flex flex-wrap gap-2">
+                {sessionBill!.targetLanguages!.map((code) => {
+                  const active = code === selectedLang;
+                  return (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => setBillLangOverride(code)}
+                      aria-pressed={active}
+                      className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                        active
+                          ? "bg-primary text-white"
+                          : "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
+                      }`}
+                    >
+                      {String(t(`language.${code}`, code.toUpperCase()))}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
           {/* After a successful payment the session is PAID/closed — do NOT refetch
             the bill (it would 404 "Session not found"). Show a thank-you state. */}
@@ -505,7 +502,11 @@ const CheckoutPage = () => {
   }
 
   return (
-    <div className="min-h-screen premium-bg" style={themeVars}>
+    <div
+      dir={i18n.dir(selectedLang)}
+      className="min-h-screen premium-bg"
+      style={themeVars}
+    >
       <div
         className="max-w-2xl mx-auto px-4 pt-10 pb-24"
         style={{
@@ -558,7 +559,7 @@ const CheckoutPage = () => {
               >
                 <div>
                   <p className="font-bold text-foreground text-lg">
-                    {resolveItemName(item, menuCategories, selectedLang)}{" "}
+                    {resolveCartItemName(item, menuCategories, selectedLang)}{" "}
                     <span className="text-muted-foreground ml-2">
                       x{item.quantity}
                     </span>
@@ -571,20 +572,21 @@ const CheckoutPage = () => {
                           className="flex items-center gap-2"
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-primary/50 block"></span>
-                          {resolveChoiceName(
+                          {resolveCartChoiceName(
                             item.id,
                             opt,
                             menuCategories,
                             selectedLang,
                           )}{" "}
                           <span className="text-primary/80 font-semibold">
-                            (+{formatInlineDual(opt.priceModifier ?? 0, "EUR")})
+                            (+
+                            {formatInlineDual(opt.priceModifier ?? 0, "EUR")})
                           </span>
                         </li>
                       ))}
                     </ul>
                   )}
-                  {(item as any).rewardPointsPrice && user && (
+                  {item.rewardPointsPrice && user && (
                     <>
                       <button
                         onClick={() => {
@@ -596,7 +598,7 @@ const CheckoutPage = () => {
                             });
                           } else if (
                             loyaltyPoints - getItemsPointsCost() >=
-                            (item as any).rewardPointsPrice * item.quantity
+                            (item.rewardPointsPrice ?? 0) * item.quantity
                           ) {
                             setRedeemedCartIds((prev) => {
                               const next = new Set(prev);
@@ -624,7 +626,7 @@ const CheckoutPage = () => {
                           ? t("checkout.redeemedFree")
                           : t("checkout.redeemForPts", {
                               pts:
-                                (item as any).rewardPointsPrice * item.quantity,
+                                (item.rewardPointsPrice ?? 0) * item.quantity,
                             })}
                       </button>
                       {notEnoughPointsItemId === item.cartId && (

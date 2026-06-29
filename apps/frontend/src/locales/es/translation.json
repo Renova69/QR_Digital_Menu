@@ -561,6 +561,22 @@
     "itemsTab": "Artículos"
   },
   "payment": {
+    "cashRequestCancelled": "El personal canceló esta solicitud de pago en efectivo. Pregunte a su camarero o inténtelo de nuevo.",
+    "fullTablePaymentPending": "Otra persona ya está pagando la cuenta completa de la mesa. Esta pantalla se actualizará automáticamente cuando termine o se cancele.",
+    "partialPaymentPending": "Parte de la cuenta de esta mesa ya se está pagando. Puede pagar sus pedidos pendientes o esperar para pagar la mesa completa.",
+    "cashRequestAlreadyPending": "Su solicitud de pago en efectivo ya está esperando al personal.",
+    "cashRequestUnavailable": "El pago en efectivo no está disponible para esta cuenta.",
+    "cashRequestFailed": "No se pudo avisar al personal para el pago en efectivo.",
+    "myOrders": "Mis pedidos",
+    "fullTable": "Mesa completa",
+    "cardMypos": "Tarjeta (myPOS)",
+    "cashRequestSent": "Se ha avisado al personal para que cobre en efectivo en su mesa.",
+    "continueToMypos": "Pagar con tarjeta (myPOS)",
+    "requestingCash": "Avisando al personal...",
+    "cashRequested": "Solicitud de efectivo enviada",
+    "payCashToWaiter": "Pagar en efectivo al camarero",
+    "redirectingToMypos": "Abriendo el pago seguro de myPOS...",
+    "openMypos": "Abrir pago de myPOS",
     "paymentCancelled": "El pago se ha cancelado. Puedes volver a intentarlo.",
     "paymentReceived": "Pago recibido",
     "requestBill": "Solicitar factura",
@@ -3165,19 +3181,50 @@
       "continue": "Continuar con {{tier}}",
       "free": {
         "name": "GRATIS",
-        "audience": "Nuevos locales que están probando un menú digital con un diseño cuidado."
+        "audience": "Nuevos locales que están probando un menú digital con un diseño cuidado.",
+        "features": [
+          "Menú digital (ver y editar)",
+          "Gestión de códigos QR",
+          "Importación y exportación del menú",
+          "Analíticas básicas",
+          "0 puestos de personal adicionales"
+        ]
       },
       "starter": {
         "name": "ENTRANTE",
-        "audience": "Pequeños restaurantes en los que se toman los pedidos en la mesa."
+        "audience": "Pequeños restaurantes en los que se toman los pedidos en la mesa.",
+        "features": [
+          "Todo lo de Free",
+          "Pedidos en mesa en línea",
+          "Llamar al camarero",
+          "Menú multilingüe",
+          "1 puesto de personal"
+        ]
       },
       "professional": {
         "name": "PROFESIONAL",
-        "audience": "Restaurantes en expansión que necesitan soluciones de pago, programas de fidelización y un análisis más detallado."
+        "audience": "Restaurantes en expansión que necesitan soluciones de pago, programas de fidelización y un análisis más detallado.",
+        "features": [
+          "Todo lo de Starter",
+          "Pagos con tarjeta y locales",
+          "Analíticas completas",
+          "Marca personalizada",
+          "Programa de fidelización",
+          "Cuentas de clientes",
+          "Hasta 5 empleados"
+        ]
       },
       "enterprise": {
         "name": "EMPRESA",
-        "audience": "Operaciones en varias sedes con puntos de venta, flujos de trabajo en cocina y equipos más numerosos."
+        "audience": "Operaciones en varias sedes con puntos de venta, flujos de trabajo en cocina y equipos más numerosos.",
+        "features": [
+          "Todo lo de Professional",
+          "TPV y pantalla de cocina",
+          "Varias ubicaciones",
+          "Impresoras térmicas",
+          "Personal ilimitado",
+          "Incorporación prioritaria"
+        ]
       }
     },
     "basics": {

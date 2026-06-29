@@ -512,25 +512,27 @@ export class RestaurantsService {
           missingTargets(item.translations),
         );
 
-        // Restructure: pull allergen_ and tag_ keys into arrays per language
+        // Keep original values as stable keys so later lazy translation passes
+        // can diff newly-added allergens/tags without retranslating everything.
         for (const lang of Object.keys(newTranslations)) {
           const langData = newTranslations[lang];
-          const translatedAllergens: string[] = [];
-          const translatedTags: string[] = [];
+          const translatedAllergens: Record<string, string> = {};
+          const translatedTags: Record<string, string> = {};
 
           for (const key of Object.keys(langData)) {
             if (key.startsWith('allergen_')) {
-              translatedAllergens.push(langData[key]);
+              translatedAllergens[key.replace('allergen_', '')] =
+                langData[key];
               delete langData[key];
             } else if (key.startsWith('tag_')) {
-              translatedTags.push(langData[key]);
+              translatedTags[key.replace('tag_', '')] = langData[key];
               delete langData[key];
             }
           }
 
-          if (translatedAllergens.length > 0)
+          if (Object.keys(translatedAllergens).length > 0)
             langData.allergens = translatedAllergens as any;
-          if (translatedTags.length > 0)
+          if (Object.keys(translatedTags).length > 0)
             langData.dietaryTags = translatedTags as any;
         }
 

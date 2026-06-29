@@ -1,8 +1,7 @@
+import type { MenuTranslationMap } from "../types";
+
 interface Translatable {
-  translations?: Record<
-    string,
-    Record<string, string | string[] | Record<string, string>>
-  > | null;
+  translations?: MenuTranslationMap | null;
 }
 
 export function getTranslatedField<T extends Translatable>(

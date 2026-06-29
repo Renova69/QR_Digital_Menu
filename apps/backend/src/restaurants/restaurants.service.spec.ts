@@ -620,6 +620,48 @@ describe('RestaurantsService', () => {
       if (prev === undefined) delete process.env.DEEPL_API_KEY;
     });
 
+    it('stores translated allergens and dietary tags as original-keyed maps', async () => {
+      const prev = process.env.DEEPL_API_KEY;
+      process.env.DEEPL_API_KEY = 'test-key';
+      mockPrisma.menuCategory.findMany.mockResolvedValue([]);
+      mockPrisma.menuOption.findMany.mockResolvedValue([]);
+      mockPrisma.menuItem.findMany.mockResolvedValue([
+        {
+          id: 'item1',
+          name: 'Salad',
+          description: null,
+          allergens: ['Nuts'],
+          dietaryTags: ['Vegan'],
+          translations: {},
+        },
+      ]);
+      mockTranslation.translateObject.mockResolvedValue({
+        fr: {
+          name: 'Salade',
+          allergen_Nuts: 'Fruits à coque',
+          tag_Vegan: 'Végétalien',
+        },
+      });
+
+      await service.translateAll('rest1', 'user1');
+
+      expect(mockPrisma.menuItem.update).toHaveBeenCalledWith({
+        where: { id: 'item1' },
+        data: {
+          translations: {
+            fr: {
+              name: 'Salade',
+              allergens: { Nuts: 'Fruits à coque' },
+              dietaryTags: { Vegan: 'Végétalien' },
+            },
+          },
+        },
+      });
+
+      process.env.DEEPL_API_KEY = prev ?? '';
+      if (prev === undefined) delete process.env.DEEPL_API_KEY;
+    });
+
     it('throws ForbiddenException when not owner or manager', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ ownerId: 'other' }),

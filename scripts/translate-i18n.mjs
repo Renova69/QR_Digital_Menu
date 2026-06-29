@@ -13,12 +13,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const LOCALES = resolve(ROOT, 'apps/frontend/src/locales');
 
-// Read DEEPL_API_KEY from backend .env
+// Read DEEPL_API_KEY — env var takes precedence, falls back to .env file
 function readDeeplKey() {
+  if (process.env.DEEPL_API_KEY) return process.env.DEEPL_API_KEY.trim();
   const envPath = resolve(ROOT, 'apps/backend/.env');
   const content = readFileSync(envPath, 'utf8');
   const match = content.match(/^DEEPL_API_KEY=(.+)$/m);
-  if (!match) throw new Error('DEEPL_API_KEY not found in apps/backend/.env');
+  if (!match) throw new Error('DEEPL_API_KEY not set in env or apps/backend/.env');
   return match[1].trim();
 }
 
@@ -41,7 +42,8 @@ const LANG_MAP = {
   ar: 'AR',
 };
 
-// Flatten nested object to { 'a.b.c': 'value' } — skip arrays
+// Flatten nested object to { 'a.b.c': 'value' }.
+// Arrays are flattened as indexed keys: 'a.b.0', 'a.b.1', etc.
 function flatten(obj, prefix = '') {
   const result = {};
   for (const [k, v] of Object.entries(obj)) {
@@ -49,7 +51,9 @@ function flatten(obj, prefix = '') {
     if (typeof v === 'string') {
       result[key] = v;
     } else if (Array.isArray(v)) {
-      // skip array values
+      v.forEach((item, i) => {
+        if (typeof item === 'string') result[`${key}.${i}`] = item;
+      });
     } else if (typeof v === 'object' && v !== null) {
       Object.assign(result, flatten(v, key));
     }
@@ -57,21 +61,37 @@ function flatten(obj, prefix = '') {
   return result;
 }
 
-// Rebuild nested object from flat keys
+// Rebuild nested structure; numeric-keyed siblings become arrays.
 function unflatten(flat) {
   const result = {};
   for (const [path, value] of Object.entries(flat)) {
     const keys = path.split('.');
     let obj = result;
     for (let i = 0; i < keys.length - 1; i++) {
-      if (!obj[keys[i]] || typeof obj[keys[i]] !== 'object') {
-        obj[keys[i]] = {};
+      const nextIsIndex = /^\d+$/.test(keys[i + 1]);
+      if (!Object.prototype.hasOwnProperty.call(obj, keys[i])) {
+        obj[keys[i]] = nextIsIndex ? [] : {};
       }
       obj = obj[keys[i]];
     }
-    obj[keys[keys.length - 1]] = value;
+    const last = keys[keys.length - 1];
+    obj[last] = value;
   }
-  return result;
+  // Convert any plain objects whose keys are all numeric into arrays
+  function toArrays(node) {
+    if (Array.isArray(node)) return node.map(toArrays);
+    if (typeof node !== 'object' || node === null) return node;
+    const keys = Object.keys(node);
+    if (keys.length > 0 && keys.every((k) => /^\d+$/.test(k))) {
+      const arr = [];
+      for (const k of keys) arr[Number(k)] = toArrays(node[k]);
+      return arr;
+    }
+    const out = {};
+    for (const k of keys) out[k] = toArrays(node[k]);
+    return out;
+  }
+  return toArrays(result);
 }
 
 // Send up to 50 strings per request; rate-limit between batches
@@ -90,14 +110,30 @@ async function translateBatch(texts, targetLang) {
 
     let attempt = 0;
     while (attempt < 5) {
-      const res = await fetch(DEEPL_URL, {
-        method: 'POST',
-        headers: {
-          Authorization: `DeepL-Auth-Key ${DEEPL_KEY}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params.toString(),
-      });
+      let res;
+      try {
+        res = await fetch(DEEPL_URL, {
+          method: 'POST',
+          headers: {
+            Authorization: `DeepL-Auth-Key ${DEEPL_KEY}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: params.toString(),
+        });
+      } catch (err) {
+        // Network-level failure (DNS, ECONNREFUSED, timeout) — retry with
+        // backoff instead of aborting the whole batch on a transient blip.
+        if (attempt < 4) {
+          const wait = 1000 * Math.pow(2, attempt);
+          console.log(
+            `    Network error (${err.message}) — retrying in ${wait}ms...`,
+          );
+          await new Promise((r) => setTimeout(r, wait));
+          attempt++;
+          continue;
+        }
+        throw err;
+      }
 
       if (res.ok) {
         const data = await res.json();

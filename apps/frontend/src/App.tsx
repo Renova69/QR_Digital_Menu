@@ -100,6 +100,7 @@ export const PublicLayout = () => (
     <RestaurantProvider>
       <NotificationProvider>
         <CartProvider>
+          <AnnouncementBanner />
           <Outlet />
         </CartProvider>
       </NotificationProvider>

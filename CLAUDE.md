@@ -130,7 +130,13 @@ There is **no `id` field** and the price key is `priceModifier`, not `price`. Th
 - **DB / seed / `ManageOptionsModal.tsx`** — create choices as `{ name, priceModifier }`.
 - **`ItemWithOptions.tsx`** — builds `selectedOptions` as `{ optionId, optionName, choiceName, priceModifier }` when adding to cart. Note: `choiceName` (not `choiceId`).
 - **`orders.service.ts`** — validates choices server-side by matching `c.name === selected.choiceName` and reads `choice.priceModifier`. **Never change this to `c.id` or `choice.price`** — those fields don't exist and will throw "Invalid choice selected" for every order with options.
+- **Translation invariant:** `choice.name` is the canonical Bulgarian validation key and must never be replaced in menu API responses. Store translated choice labels at `option.translations[lang].choices[choice.name]` and resolve them only for display. `option.name` and item/category names are display fields and may be translated in responses.
 - **`CartContext.tsx`** — totals options via `opt.priceModifier || 0`.
+
+Public-menu translation has two deliberately separate sources:
+
+- Restaurant-authored menu content is read from the menu entities' stored `translations` JSON (DeepL may populate missing menu translations).
+- UI chrome such as buttons, errors, cart, checkout, and payment labels comes only from `apps/frontend/src/locales/<lang>/translation.json`. Never send UI translation keys or labels to DeepL at runtime.
 
 Key files for the options flow:
 - `apps/backend/src/orders/orders.service.ts` — server-side choice validation (lines ~143–169)

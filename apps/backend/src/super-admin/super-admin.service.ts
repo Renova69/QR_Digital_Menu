@@ -903,16 +903,26 @@ export class SuperAdminService {
         code: 'SESSION_MISMATCH',
         message: 'Session does not belong to this restaurant',
       });
-    if (session.status === 'CLOSED_NO_PAYMENT')
+    if (
+      session.status === 'CLOSED_NO_PAYMENT' ||
+      session.status === 'CLOSED_PAID'
+    )
       throw new BadRequestException({
         code: 'ALREADY_CLOSED',
         message: 'Session already closed',
       });
 
+    // Force-close must not destroy payment history: a PAID session is settled,
+    // so it closes as CLOSED_PAID. Only an unpaid (OPEN) session becomes
+    // CLOSED_NO_PAYMENT. CLOSED_PAID mirrors the normal paid-close path in
+    // tables.service.ts.
+    const nextStatus =
+      session.status === 'PAID' ? 'CLOSED_PAID' : 'CLOSED_NO_PAYMENT';
+
     const [updated] = await this.prisma.$transaction([
       this.prisma.tableSession.update({
         where: { id: sessionId },
-        data: { status: 'CLOSED_NO_PAYMENT' },
+        data: { status: nextStatus },
         select: { id: true, status: true },
       }),
       this.prisma.adminAuditLog.create({
@@ -921,7 +931,12 @@ export class SuperAdminService {
           action: 'FORCE_CLOSE_SESSION',
           targetType: 'TABLE_SESSION',
           targetId: sessionId,
-          metadata: { restaurantId, token: session.token },
+          metadata: {
+            restaurantId,
+            token: session.token,
+            previousStatus: session.status,
+            status: nextStatus,
+          },
         },
       }),
     ]);

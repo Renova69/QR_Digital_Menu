@@ -68,7 +68,10 @@ export class PaymentSessionService {
     let partialLeftOpen = 0;
 
     for (const session of staleSessions) {
-      const balance = await this.core.computeSessionBalance(this.prisma, session.id);
+      const balance = await this.core.computeSessionBalance(
+        this.prisma,
+        session.id,
+      );
       if (balance.paidSubtotal > 0 && balance.remaining > 0.01) {
         partialLeftOpen++;
         continue;
@@ -151,7 +154,10 @@ export class PaymentSessionService {
     return { session, token: session.token };
   }
 
-  async getSessionBill(token: string): Promise<{
+  async getSessionBill(
+    token: string,
+    lang?: string,
+  ): Promise<{
     sessionId: string;
     tableId: string;
     tableName: string | null;
@@ -161,6 +167,7 @@ export class PaymentSessionService {
     remaining: number;
     splitItemsAvailable: boolean;
     restaurantId: string;
+    targetLanguages: string[];
     tipsEnabled: boolean;
     tipOptions: number[];
     paymentProviders: CheckoutProvider[];
@@ -181,7 +188,9 @@ export class PaymentSessionService {
       include: {
         items: {
           include: {
-            menuItem: { select: { name: true, price: true } },
+            menuItem: {
+              select: { name: true, price: true, translations: true },
+            },
           },
         },
         staff: { select: { name: true, email: true, role: true } },
@@ -192,8 +201,22 @@ export class PaymentSessionService {
       (sum: number, o: any) => sum + o.totalPrice,
       0,
     );
-    const balance = await this.core.computeSessionBalance(this.prisma, session.id);
+    const balance = await this.core.computeSessionBalance(
+      this.prisma,
+      session.id,
+    );
     const pendingPayment = await this.core.getPendingBillPayment(session.id);
+
+    // Resolve the display name against the menu item's stored translations for
+    // the requested language. `name` is a display field only (the by-item split
+    // picker keys on orderItemId), so translating it is safe. Falls back to the
+    // canonical stored name when no translation exists for `lang`.
+    const translatedName = (menuItem: any): string => {
+      const base = menuItem?.name ?? 'Unknown item';
+      if (!lang) return base;
+      const translated = (menuItem?.translations as any)?.[lang]?.name;
+      return typeof translated === 'string' && translated ? translated : base;
+    };
 
     const enrichedOrders = orders.map((order) => ({
       id: order.id,
@@ -213,7 +236,7 @@ export class PaymentSessionService {
         return {
           // orderItemId + paidQuantity drive the by-item split picker.
           orderItemId: oi.id,
-          name: oi.menuItem?.name ?? 'Unknown item',
+          name: translatedName(oi.menuItem),
           quantity: oi.quantity,
           paidQuantity: oi.paidQuantity ?? 0,
           unitPrice:
@@ -244,13 +267,16 @@ export class PaymentSessionService {
       // falls back to even/custom split in that case.
       splitItemsAvailable: !balance.hasLoyaltyDiscount,
       restaurantId: session.restaurantId,
+      targetLanguages: session.restaurant.targetLanguages ?? [],
       tipsEnabled: session.restaurant.tipsEnabled,
       tipOptions: session.restaurant.tipOptions,
       paymentProviders: [
         ...(this.config.isStripeConfigured(session.restaurant)
           ? ['STRIPE' as const]
           : []),
-        ...(this.config.isEpayConfigured(session.restaurant) ? ['EPAY' as const] : []),
+        ...(this.config.isEpayConfigured(session.restaurant)
+          ? ['EPAY' as const]
+          : []),
         ...(this.config.isBoricaConfigured(session.restaurant)
           ? ['BORICA' as const]
           : []),
@@ -310,7 +336,11 @@ export class PaymentSessionService {
         data: { status: 'ABANDONED', providerStatus: 'ABANDONED' },
       });
       for (const paymentId of abandonedIds) {
-        this.core.emitBillPaymentCleared(session.id, paymentId, 'ONLINE_PAYMENT');
+        this.core.emitBillPaymentCleared(
+          session.id,
+          paymentId,
+          'ONLINE_PAYMENT',
+        );
       }
     }
   }

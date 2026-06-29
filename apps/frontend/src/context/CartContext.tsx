@@ -8,24 +8,26 @@ import {
   useMemo,
   useRef,
 } from "react";
+import type { MenuTranslationMap } from "../types";
 
 export interface SelectedOption {
   optionId: string;
   optionName: string;
   choiceName: string;
   priceModifier: number;
-  translations?: Record<string, any> | null;
+  translations?: MenuTranslationMap | null;
 }
 
-// Define the structure of a cart item
-interface CartItem {
-  cartId: string; // Unique key for the cart entry
-  id: string; // Product ID
+export interface CartItem {
+  cartId: string;
+  id: string;
   name: string;
+  originalName?: string;
   price: number;
   quantity: number;
   selectedOptions: SelectedOption[];
-  itemTranslations?: Record<string, any> | null;
+  itemTranslations?: MenuTranslationMap | null;
+  rewardPointsPrice?: number;
 }
 
 // Define what the CartContext provides

@@ -66,7 +66,13 @@ describe('MenuTranslationService', () => {
     it('makes no API calls when all translations are already cached', async () => {
       const category = makeCategory({
         translations: { en: { name: 'Starters' } },
-        items: [makeItem({ translations: { en: { name: 'Soup' } } })],
+        items: [
+          makeItem({
+            translations: {
+              en: { name: 'Soup', description: 'Hot soup' },
+            },
+          }),
+        ],
       });
 
       await service.applyLazyTranslations([category], 'en');
@@ -145,7 +151,9 @@ describe('MenuTranslationService', () => {
         choices: [{ name: 'Small' }, { name: 'Large' }],
       };
       const item = makeItem({
-        translations: { bg: { name: 'Soup' } },
+        translations: {
+          bg: { name: 'Soup', description: 'Hot soup' },
+        },
         options: [option],
       });
       const category = makeCategory({
@@ -320,7 +328,9 @@ describe('MenuTranslationService', () => {
         choices: [{ name: 'Small' }, { name: 'Large' }],
       };
       const item = makeItem({
-        translations: { bg: { name: 'Soup' } },
+        translations: {
+          bg: { name: 'Soup', description: 'Hot soup' },
+        },
         options: [option],
       });
       const category = makeCategory({
@@ -357,7 +367,14 @@ describe('MenuTranslationService', () => {
       const item = makeItem({
         allergens: ['Milk'],
         dietaryTags: ['Vegan'],
-        translations: { bg: { name: 'Супа', allergens: { Milk: 'Мляко' }, dietaryTags: { Vegan: 'Веган' } } },
+        translations: {
+          bg: {
+            name: 'Супа',
+            description: 'Гореща супа',
+            allergens: { Milk: 'Мляко' },
+            dietaryTags: { Vegan: 'Веган' },
+          },
+        },
       });
       const category = makeCategory({
         translations: { bg: { name: 'Стартери' } },
@@ -401,6 +418,84 @@ describe('MenuTranslationService', () => {
       // Actually with old array format and 1 allergen: cached = undefined → queues it
       // But item name IS cached, so only allergens get queued
       expect(item.allergens).toBeDefined();
+    });
+
+    it('translates a missing description without retranslating a cached item name', async () => {
+      const item = makeItem({
+        name: 'Soup',
+        description: 'Hot soup',
+        translations: { fr: { name: 'Soupe' } },
+      });
+      const category = makeCategory({
+        translations: { fr: { name: 'Entrées' } },
+        items: [item],
+      });
+      mockTranslation.translateTexts.mockResolvedValue(['Soupe chaude']);
+
+      await service.applyLazyTranslations([category], 'fr');
+
+      expect(mockTranslation.translateTexts).toHaveBeenCalledWith(
+        ['Hot soup'],
+        'fr',
+      );
+      expect((item.translations as any).fr).toEqual({
+        name: 'Soupe',
+        description: 'Soupe chaude',
+      });
+    });
+
+    it('preserves the canonical item name when applying a translated display name', async () => {
+      const item = makeItem({
+        name: 'Руска салата',
+        translations: {
+          fr: {
+            name: 'Salade russe',
+            description: 'Salade fraîche',
+          },
+        },
+      });
+      const category = makeCategory({
+        translations: { fr: { name: 'Entrées' } },
+        items: [item],
+      });
+
+      await service.applyLazyTranslations([category], 'fr');
+
+      expect(item.name).toBe('Salade russe');
+      expect((item as any).originalName).toBe('Руска салата');
+    });
+
+    it('never mutates the canonical choice key used by order validation', async () => {
+      const choice = { name: 'Голяма', priceModifier: 2 };
+      const option = {
+        id: 'option-1',
+        name: 'Размер',
+        choices: [choice],
+        translations: {
+          fr: {
+            name: 'Taille',
+            choices: { 'Голяма': 'Grande' },
+          },
+        },
+      };
+      const item = makeItem({
+        translations: {
+          fr: {
+            name: 'Soupe',
+            description: 'Soupe chaude',
+          },
+        },
+        options: [option],
+      });
+      const category = makeCategory({
+        translations: { fr: { name: 'Entrées' } },
+        items: [item],
+      });
+
+      await service.applyLazyTranslations([category], 'fr');
+
+      expect(option.name).toBe('Taille');
+      expect(choice.name).toBe('Голяма');
     });
   });
 });

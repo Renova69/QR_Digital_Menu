@@ -220,7 +220,7 @@ export class MenuCrudService {
 
   /** Returns restaurant branding + category metadata (no items).
    *  Frontend uses this for the initial fast paint, then lazy-loads items per category. */
-  async getPublicMenuMeta(restaurantId: string) {
+  async getPublicMenuMeta(restaurantId: string, lang?: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
       select: {
@@ -304,6 +304,22 @@ export class MenuCrudService {
     restaurantClone.features = this.featureService.getFeatures(
       restaurantClone.tier ?? 'FREE',
     );
+
+    // Lazily translate (and cache) category names so the navigation/pills render
+    // in the requested language on first paint instead of falling back to the
+    // original until item lazy-load warms the cache.
+    const targetLangs = (restaurantClone.targetLanguages as string[]) || [];
+    if (
+      hasMultiLanguage &&
+      lang &&
+      process.env.DEEPL_API_KEY &&
+      targetLangs.includes(lang)
+    ) {
+      await this.menuTranslationService.applyLazyTranslations(
+        filteredCategories,
+        lang,
+      );
+    }
 
     return {
       restaurant: this.applyBrandingEntitlement(restaurantClone),
@@ -438,10 +454,16 @@ export class MenuCrudService {
     });
   }
 
-  async getTrendingItems(restaurantId: string) {
+  async getTrendingItems(restaurantId: string, lang?: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: { trendingMode: true, id: true, tier: true, forceTier: true },
+      select: {
+        trendingMode: true,
+        id: true,
+        tier: true,
+        forceTier: true,
+        targetLanguages: true,
+      },
     });
 
     if (
@@ -459,7 +481,7 @@ export class MenuCrudService {
     }
 
     if (restaurant.trendingMode === 'MANUAL') {
-      return this.prisma.menuItem.findMany({
+      const items = await this.prisma.menuItem.findMany({
         where: {
           category: { restaurantId },
           isFeatured: true,
@@ -472,6 +494,7 @@ export class MenuCrudService {
           category: { select: { isDrinkCategory: true, name: true } },
         },
       });
+      return this.applyTrendingTranslations(items, restaurant, lang);
     }
 
     const mostOrdered = await this.prisma.orderItem.groupBy({
@@ -501,11 +524,53 @@ export class MenuCrudService {
       },
     });
 
-    return itemIds
+    const ordered = itemIds
       .map((id: string) =>
         trendingItems.find((item: { id: string }) => item.id === id),
       )
       .filter(Boolean);
+    return this.applyTrendingTranslations(ordered, restaurant, lang);
+  }
+
+  /**
+   * Lazily translate trending item names/options for `lang`. Wraps the items in
+   * a throwaway category (pre-seeded so its own name is never sent to DeepL) and
+   * reuses the shared menu translation pipeline, which also caches results to
+   * the DB. No-op when multi-language is unavailable or `lang` is not enabled.
+   */
+  private async applyTrendingTranslations(
+    items: any[],
+    restaurant: {
+      tier?: string | null;
+      forceTier?: string | null;
+      targetLanguages?: string[] | null;
+    },
+    lang?: string,
+  ): Promise<any[]> {
+    const targetLangs = restaurant.targetLanguages ?? [];
+    if (
+      lang &&
+      process.env.DEEPL_API_KEY &&
+      this.featureService.restaurantHasFeature(
+        restaurant as any,
+        FeatureFlag.LANGUAGES_MULTI,
+      ) &&
+      targetLangs.includes(lang) &&
+      items.length > 0
+    ) {
+      await this.menuTranslationService.applyLazyTranslations(
+        [
+          {
+            id: 'trending',
+            name: ' ',
+            translations: { [lang]: { name: ' ' } },
+            items,
+          },
+        ],
+        lang,
+      );
+    }
+    return items;
   }
 
   async checkRestaurantActive(restaurantId: string): Promise<void> {
@@ -901,20 +966,21 @@ export class MenuCrudService {
 
           for (const lang of Object.keys(newTranslations)) {
             const langData = newTranslations[lang];
-            const translatedAllergens: string[] = [];
-            const translatedTags: string[] = [];
+            const translatedAllergens: Record<string, string> = {};
+            const translatedTags: Record<string, string> = {};
             for (const key of Object.keys(langData)) {
               if (key.startsWith('allergen_')) {
-                translatedAllergens.push(langData[key]);
+                translatedAllergens[key.replace('allergen_', '')] =
+                  langData[key];
                 delete langData[key];
               } else if (key.startsWith('tag_')) {
-                translatedTags.push(langData[key]);
+                translatedTags[key.replace('tag_', '')] = langData[key];
                 delete langData[key];
               }
             }
-            if (translatedAllergens.length)
+            if (Object.keys(translatedAllergens).length)
               (langData as any).allergens = translatedAllergens;
-            if (translatedTags.length)
+            if (Object.keys(translatedTags).length)
               (langData as any).dietaryTags = translatedTags;
           }
 

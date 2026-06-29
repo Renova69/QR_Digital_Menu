@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException } from '@nestjs/common';
 import { SuperAdminService } from './super-admin.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MenuImportService } from '../menu-import/menu-import.service';
@@ -28,6 +29,10 @@ describe('SuperAdminService', () => {
     order: {
       count: jest.fn(),
       updateMany: jest.fn(),
+    },
+    tableSession: {
+      findUnique: jest.fn(),
+      update: jest.fn(),
     },
     payment: {
       aggregate: jest.fn(),
@@ -615,6 +620,108 @@ describe('SuperAdminService', () => {
       ][0] as unknown[];
       expect(Array.isArray(txArgs)).toBe(true);
       expect(txArgs).toHaveLength(3);
+    });
+  });
+
+  describe('forceCloseSession', () => {
+    it('closes an OPEN session as CLOSED_NO_PAYMENT', async () => {
+      mockPrisma.tableSession.findUnique.mockResolvedValueOnce({
+        id: 's1',
+        token: 'tok1',
+        restaurantId: 'r1',
+        status: 'OPEN',
+      });
+      mockPrisma.$transaction.mockResolvedValueOnce([
+        { id: 's1', status: 'CLOSED_NO_PAYMENT' },
+        {},
+      ]);
+
+      const result = await service.forceCloseSession('r1', 's1', ACTOR_ID);
+
+      expect(result).toEqual({ id: 's1', status: 'CLOSED_NO_PAYMENT' });
+      expect(mockPrisma.tableSession.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 's1' },
+          data: { status: 'CLOSED_NO_PAYMENT' },
+        }),
+      );
+    });
+
+    it('closes a PAID session as CLOSED_PAID (preserves payment record)', async () => {
+      mockPrisma.tableSession.findUnique.mockResolvedValueOnce({
+        id: 's1',
+        token: 'tok1',
+        restaurantId: 'r1',
+        status: 'PAID',
+      });
+      mockPrisma.$transaction.mockResolvedValueOnce([
+        { id: 's1', status: 'CLOSED_PAID' },
+        {},
+      ]);
+
+      const result = await service.forceCloseSession('r1', 's1', ACTOR_ID);
+
+      expect(result).toEqual({ id: 's1', status: 'CLOSED_PAID' });
+      expect(mockPrisma.tableSession.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 's1' },
+          data: { status: 'CLOSED_PAID' },
+        }),
+      );
+    });
+
+    it('rejects an already-closed CLOSED_PAID session', async () => {
+      mockPrisma.tableSession.findUnique.mockResolvedValueOnce({
+        id: 's1',
+        token: 'tok1',
+        restaurantId: 'r1',
+        status: 'CLOSED_PAID',
+      });
+
+      await expect(
+        service.forceCloseSession('r1', 's1', ACTOR_ID),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects an already-closed CLOSED_NO_PAYMENT session', async () => {
+      mockPrisma.tableSession.findUnique.mockResolvedValueOnce({
+        id: 's1',
+        token: 'tok1',
+        restaurantId: 'r1',
+        status: 'CLOSED_NO_PAYMENT',
+      });
+
+      await expect(
+        service.forceCloseSession('r1', 's1', ACTOR_ID),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('writes an audit log entry inside the same transaction', async () => {
+      mockPrisma.tableSession.findUnique.mockResolvedValueOnce({
+        id: 's1',
+        token: 'tok1',
+        restaurantId: 'r1',
+        status: 'OPEN',
+      });
+      mockPrisma.$transaction.mockResolvedValueOnce([
+        { id: 's1', status: 'CLOSED_NO_PAYMENT' },
+        {},
+      ]);
+
+      await service.forceCloseSession('r1', 's1', ACTOR_ID);
+
+      expect(mockPrisma.adminAuditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            actorUserId: ACTOR_ID,
+            action: 'FORCE_CLOSE_SESSION',
+            targetType: 'TABLE_SESSION',
+            targetId: 's1',
+          }),
+        }),
+      );
     });
   });
 });

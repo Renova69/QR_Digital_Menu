@@ -25,8 +25,10 @@ export const getMenu = async (restaurantId: string, lang?: string) => {
   return response.data;
 };
 
-export const getMenuMeta = async (restaurantId: string) => {
-  const response = await api.get(`/menu/public/${restaurantId}/meta`);
+export const getMenuMeta = async (restaurantId: string, lang?: string) => {
+  const response = await api.get(`/menu/public/${restaurantId}/meta`, {
+    params: lang ? { lang } : undefined,
+  });
   return response.data as { restaurant: any; categories: any[] };
 };
 
@@ -44,8 +46,10 @@ export const getCategoryItems = async (
   return response.data as any[];
 };
 
-export const getTrendingItems = async (restaurantId: string) => {
-  const response = await api.get(`/menu/public/${restaurantId}/trending`);
+export const getTrendingItems = async (restaurantId: string, lang?: string) => {
+  const response = await api.get(`/menu/public/${restaurantId}/trending`, {
+    params: lang ? { lang } : undefined,
+  });
   return response.data;
 };
 
@@ -699,6 +703,7 @@ export interface SessionBill {
   remaining: number;
   splitItemsAvailable: boolean;
   restaurantId: string;
+  targetLanguages?: string[];
   tipsEnabled: boolean;
   tipOptions: number[];
   paymentProviders: Array<CheckoutProvider>;
@@ -726,8 +731,10 @@ export interface CashPaymentRequest {
   updatedAt: string;
 }
 
-export const getSessionBill = async (token: string) => {
-  const response = await api.get(`/payments/session/${token}/bill`);
+export const getSessionBill = async (token: string, lang?: string) => {
+  const response = await api.get(`/payments/session/${token}/bill`, {
+    params: lang ? { lang } : undefined,
+  });
   return response.data as SessionBill;
 };
 

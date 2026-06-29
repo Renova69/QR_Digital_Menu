@@ -85,7 +85,7 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({ src, alt, onClose 
             <button
                 onClick={onClose}
                 className="absolute top-6 right-6 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-all border border-white/10"
-                aria-label="Close"
+                aria-label={t("common.close", "Close")}
             >
                 <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
                     <path d="M4 4L14 14M14 4L4 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />

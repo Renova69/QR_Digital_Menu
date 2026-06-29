@@ -25,19 +25,37 @@ export interface OptionChoice {
   priceModifier: number;
 }
 
+export interface MenuTranslationEntry {
+  [key: string]:
+    | string
+    | string[]
+    | Record<string, string>
+    | undefined;
+  name?: string;
+  description?: string;
+  allergens?: string[] | Record<string, string>;
+  dietaryTags?: string[] | Record<string, string>;
+  choices?: Record<string, string>;
+}
+
+export type MenuTranslationMap = Record<string, MenuTranslationEntry>;
+
 export interface MenuOption {
   id: string;
   name: string;
+  originalName?: string;
   type: "VARIATION" | "ADDON";
   choices: OptionChoice[];
   menuItemId: string;
-  translations?: any;
+  translations?: MenuTranslationMap | null;
 }
 
 export interface Item {
   id: string;
   name: string;
+  originalName?: string;
   description: string | null;
+  originalDescription?: string | null;
   price: number;
   currency: "EUR" | "BGN";
   categoryId: string;
@@ -50,7 +68,7 @@ export interface Item {
   costPrice?: number;
   relatedItemIds?: string[];
   options?: MenuOption[];
-  translations?: any;
+  translations?: MenuTranslationMap | null;
 }
 
 export type AvailabilityType = "ALWAYS" | "SCHEDULED" | "HIDDEN";
@@ -58,6 +76,7 @@ export type AvailabilityType = "ALWAYS" | "SCHEDULED" | "HIDDEN";
 export interface Category {
   id: string;
   name: string;
+  originalName?: string;
   imageUrl?: string | null;
   thumbnailUrl?: string | null;
   restaurantId: string;
@@ -67,7 +86,7 @@ export interface Category {
   endTime?: string | null;
   daysOfWeek: number[];
   isDrinkCategory?: boolean;
-  translations?: any;
+  translations?: MenuTranslationMap | null;
   printStationId?: string | null;
 }
 

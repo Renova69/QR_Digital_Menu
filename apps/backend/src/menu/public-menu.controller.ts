@@ -34,9 +34,12 @@ export class PublicMenuController {
 
   @Get('public/:restaurantId/meta')
   @Throttle({ default: { limit: 60, ttl: 60000 } })
-  async getPublicMenuMeta(@Param('restaurantId') restaurantId: string) {
+  async getPublicMenuMeta(
+    @Param('restaurantId') restaurantId: string,
+    @Query('lang') lang?: string,
+  ) {
     await this.crud.checkRestaurantActive(restaurantId);
-    return this.crud.getPublicMenuMeta(restaurantId);
+    return this.crud.getPublicMenuMeta(restaurantId, lang);
   }
 
   @Get('public/:restaurantId/categories/:categoryId/items')
@@ -52,9 +55,11 @@ export class PublicMenuController {
 
   @Get('public/:restaurantId/trending')
   @Throttle({ default: { limit: 120, ttl: 60000 } })
-  async getTrendingItems(@Param('restaurantId') restaurantId: string) {
+  async getTrendingItems(
+    @Param('restaurantId') restaurantId: string,
+    @Query('lang') lang?: string,
+  ) {
     await this.crud.checkRestaurantActive(restaurantId);
-    return this.crud.getTrendingItems(restaurantId);
+    return this.crud.getTrendingItems(restaurantId, lang);
   }
-
-  }
+}

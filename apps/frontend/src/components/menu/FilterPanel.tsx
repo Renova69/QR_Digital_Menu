@@ -1,11 +1,21 @@
-import { X, Search } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { useEffect, useRef } from 'react';
+import { X, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { useEffect, useRef } from "react";
+
+interface TagCount {
+  tag: string;
+  count: number;
+}
 
 interface FilterPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  dietTags: { tag: string; count: number }[];
+  // Allergens and dietary tags arrive pre-separated from the source item fields
+  // (item.allergens vs item.dietaryTags), so no language-specific keyword list is
+  // needed to classify them — allergens in any language render under the right
+  // heading.
+  dietaryTags: TagCount[];
+  allergenTags: TagCount[];
   activeDietTags: string[];
   onDietTagToggle: (tag: string) => void;
   excludedAllergens: string[];
@@ -19,7 +29,8 @@ interface FilterPanelProps {
 export function FilterPanel({
   isOpen,
   onClose,
-  dietTags,
+  dietaryTags,
+  allergenTags,
   activeDietTags,
   onDietTagToggle,
   excludedAllergens,
@@ -32,48 +43,42 @@ export function FilterPanel({
   const { t } = useTranslation();
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const knownAllergens = new Set([
-    'gluten', 'wheat', 'milk', 'dairy', 'eggs', 'fish', 'shellfish',
-    'nuts', 'peanuts', 'soy', 'soya', 'celery', 'mustard', 'sesame',
-    'sulphites', 'lupin', 'molluscs', 'crustaceans',
-    'лактоза', 'глутен', 'ядки', 'риба', 'яйца', 'соя',
-    'lactoză', 'gluten', 'nuci', 'pește', 'ouă', 'soia',
-  ]);
-  const allergens = dietTags.filter(({ tag }) =>
-    knownAllergens.has(tag.toLowerCase()),
-  );
-  const dietary = dietTags.filter(({ tag }) =>
-    !knownAllergens.has(tag.toLowerCase()),
-  );
+  const allergens = allergenTags;
+  const dietary = dietaryTags;
 
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === "Escape") onClose();
     };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
 
       <div
         ref={panelRef}
         className="relative ml-auto w-full max-w-sm h-full bg-card border-l border-border shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300"
         role="dialog"
         aria-modal="true"
-        aria-label={t('publicMenu.filters', 'Filters')}
+        aria-label={t("publicMenu.filters", "Filters")}
       >
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-bold">{t('publicMenu.filters', 'Filters')}</h2>
+          <h2 className="text-lg font-bold">
+            {t("publicMenu.filters", "Filters")}
+          </h2>
           <button
             onClick={onClose}
             className="p-2 rounded-xl hover:bg-secondary transition-colors"
-            aria-label={t('common.close', 'Close')}
+            aria-label={t("common.close", "Close")}
           >
             <X className="h-5 w-5" />
           </button>
@@ -86,8 +91,8 @@ export function FilterPanel({
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder={t('publicMenu.search', 'Search')}
-              aria-label={t('publicMenu.search', 'Search')}
+              placeholder={t("publicMenu.search", "Search")}
+              aria-label={t("publicMenu.search", "Search")}
               className="w-full pl-9 pr-3 py-2.5 bg-secondary rounded-xl text-sm font-medium placeholder:text-muted-foreground/50 border border-transparent focus:border-primary/30 focus:outline-none"
             />
           </div>
@@ -96,7 +101,7 @@ export function FilterPanel({
         {dietary.length > 0 && (
           <div className="p-4 border-b border-border">
             <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-3">
-              {t('publicMenu.dietaryPreferences', 'Dietary Preferences')}
+              {t("publicMenu.dietaryPreferences", "Dietary Preferences")}
             </h3>
             <div className="space-y-1">
               {dietary.map(({ tag, count }) => (
@@ -123,7 +128,7 @@ export function FilterPanel({
         {allergens.length > 0 && (
           <div className="p-4">
             <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-3">
-              {t('publicMenu.excludeAllergens', 'Exclude Allergens')}
+              {t("publicMenu.excludeAllergens", "Exclude Allergens")}
             </h3>
             <div className="flex flex-wrap gap-2">
               {allergens.map(({ tag, count }) => (
@@ -133,8 +138,8 @@ export function FilterPanel({
                   aria-pressed={excludedAllergens.includes(tag)}
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all active:scale-95 ${
                     excludedAllergens.includes(tag)
-                      ? 'bg-destructive/15 text-destructive border border-destructive/30 line-through'
-                      : 'bg-secondary text-muted-foreground hover:text-foreground border border-transparent'
+                      ? "bg-destructive/15 text-destructive border border-destructive/30 line-through"
+                      : "bg-secondary text-muted-foreground hover:text-foreground border border-transparent"
                   }`}
                 >
                   {tag}
@@ -148,10 +153,13 @@ export function FilterPanel({
         {filtersActive && onClearFilters && (
           <div className="p-4 border-t border-border">
             <button
-              onClick={() => { onClearFilters(); onClose(); }}
+              onClick={() => {
+                onClearFilters();
+                onClose();
+              }}
               className="w-full py-3 rounded-xl bg-destructive/10 text-destructive text-sm font-bold hover:bg-destructive/20 transition-colors active:scale-[0.98]"
             >
-              {t('publicMenu.clearFilters', 'Clear filters')}
+              {t("publicMenu.clearFilters", "Clear filters")}
             </button>
           </div>
         )}
