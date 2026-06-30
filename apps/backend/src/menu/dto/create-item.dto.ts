@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsEnum,
   IsArray,
+  ArrayMaxSize,
   IsBoolean,
   IsInt,
   Min,
@@ -41,12 +42,16 @@ export class CreateItemDto {
   currency: Currency;
 
   @IsArray()
+  @ArrayMaxSize(15)
   @IsString({ each: true })
+  @MaxLength(50, { each: true })
   @IsOptional()
   allergens?: string[];
 
   @IsArray()
+  @ArrayMaxSize(15)
   @IsString({ each: true })
+  @MaxLength(50, { each: true })
   @IsOptional()
   dietaryTags?: string[];
 

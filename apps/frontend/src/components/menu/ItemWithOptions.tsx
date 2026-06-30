@@ -62,8 +62,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
     item.originalDescription ||
     item.description;
   const getChoiceLabel = (option: MenuOption, choice: OptionChoice) =>
-    option.translations?.[currentLang]?.choices?.[choice.name] ||
-    choice.name;
+    option.translations?.[currentLang]?.choices?.[choice.name] || choice.name;
 
   const showToast = (itemName: string) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -613,8 +612,8 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
                     color: "var(--brand-contrast, #fff)",
                   }}
                 >
-                  {t("publicMenu.addToCart", "Add to Cart")}{" "}
-                  {t("auto.Mdash", "&mdash;")}
+                  {t("publicMenu.addToCart", "Add to Cart")}
+                  {" — "}
                   {formatEuro(
                     item.price +
                       Object.values(selectedOptions).reduce(

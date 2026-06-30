@@ -9,6 +9,7 @@ export class TranslationService {
   // Shared instance with keep-alive agent — prevents TLS socket listener accumulation
   private readonly http: AxiosInstance = axios.create({
     httpsAgent: new https.Agent({ keepAlive: true, maxSockets: 4 }),
+    timeout: 8_000,
   });
 
   // Conservative: DeepL free = 5 req/s, paid = higher but stay safe

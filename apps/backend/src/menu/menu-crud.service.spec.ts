@@ -62,6 +62,7 @@ const BASE_RESTAURANT = {
   themeTextColor: '#000000',
   themeCardColor: '#F5F5F5',
   targetLanguages: ['en', 'bg'],
+  dashboardLanguage: 'bg',
   timezone: 'Europe/Sofia',
   defaultTheme: 'light',
   tier: 'FREE',
@@ -249,6 +250,27 @@ describe('MenuCrudService', () => {
       else process.env.DEEPL_API_KEY = prevKey;
     });
 
+    it('translates the full menu into the dashboard language without requiring multi-language targets', async () => {
+      const prevKey = process.env.DEEPL_API_KEY;
+      process.env.DEEPL_API_KEY = 'test-key';
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        dashboardLanguage: 'en',
+        targetLanguages: ['fr'],
+        tier: 'FREE',
+      });
+      mockPrisma.menuCategory.findMany.mockResolvedValue([makeCategory()]);
+
+      await service.getPublicMenu('rest-1', 'en');
+
+      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
+        expect.any(Array),
+        'en',
+      );
+      if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
+      else process.env.DEEPL_API_KEY = prevKey;
+    });
+
     it('does not call applyLazyTranslations when lang not in targetLanguages', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
@@ -280,8 +302,14 @@ describe('MenuCrudService', () => {
       const result = await service.getPublicMenuMeta('rest-1');
 
       expect(result).toHaveProperty('restaurant');
+      expect(result.restaurant).toMatchObject({ dashboardLanguage: 'bg' });
       expect(result).toHaveProperty('categories');
       expect(result.categories).toHaveLength(1);
+      expect(mockPrisma.restaurant.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: expect.objectContaining({ dashboardLanguage: true }),
+        }),
+      );
     });
 
     it('strips branding fields when effective tier lacks BRANDING_CUSTOM', async () => {
@@ -347,12 +375,14 @@ describe('MenuCrudService', () => {
       else process.env.DEEPL_API_KEY = prevKey;
     });
 
-    it('uses the first enabled language when no lang is requested', async () => {
+    it('uses the dashboard language by default without requiring multi-language targets', async () => {
       const prevKey = process.env.DEEPL_API_KEY;
       process.env.DEEPL_API_KEY = 'test-key';
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
-        tier: 'PROFESSIONAL',
+        dashboardLanguage: 'en',
+        targetLanguages: ['fr'],
+        tier: 'FREE',
       });
       mockPrisma.menuCategory.findMany.mockResolvedValue([makeCategory()]);
 
@@ -366,7 +396,7 @@ describe('MenuCrudService', () => {
       else process.env.DEEPL_API_KEY = prevKey;
     });
 
-    it('uses the first enabled language when lang is not a target language', async () => {
+    it('uses the dashboard language when lang is not a target language', async () => {
       const prevKey = process.env.DEEPL_API_KEY;
       process.env.DEEPL_API_KEY = 'test-key';
       mockPrisma.restaurant.findUnique.mockResolvedValue({
@@ -379,7 +409,7 @@ describe('MenuCrudService', () => {
 
       expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
         expect.any(Array),
-        'en',
+        'bg',
       );
       if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
       else process.env.DEEPL_API_KEY = prevKey;
@@ -426,6 +456,33 @@ describe('MenuCrudService', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe('item-1');
+    });
+
+    it('translates items into the dashboard language without requiring multi-language targets', async () => {
+      const prevKey = process.env.DEEPL_API_KEY;
+      process.env.DEEPL_API_KEY = 'test-key';
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        dashboardLanguage: 'en',
+        targetLanguages: ['fr'],
+        tier: 'FREE',
+      });
+      mockPrisma.menuCategory.findFirst.mockResolvedValue(makeCategory());
+      mockPrisma.menuItem.findMany.mockResolvedValue([makeItem()]);
+
+      await service.getCategoryItems('rest-1', 'cat-1', 'en');
+
+      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
+        expect.any(Array),
+        'en',
+      );
+      expect(mockPrisma.restaurant.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: expect.objectContaining({ dashboardLanguage: true }),
+        }),
+      );
+      if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
+      else process.env.DEEPL_API_KEY = prevKey;
     });
 
     it('throws ForbiddenException for a hidden category', async () => {
@@ -573,6 +630,29 @@ describe('MenuCrudService', () => {
       expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
         expect.any(Array),
         'bg',
+      );
+      if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
+      else process.env.DEEPL_API_KEY = prevKey;
+    });
+
+    it('translates trending items into the dashboard language when it is not a target language', async () => {
+      const prevKey = process.env.DEEPL_API_KEY;
+      process.env.DEEPL_API_KEY = 'test-key';
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        trendingMode: 'MANUAL',
+        id: 'rest-1',
+        tier: 'PROFESSIONAL',
+        forceTier: null,
+        dashboardLanguage: 'ro',
+        targetLanguages: ['fr'],
+      });
+      mockPrisma.menuItem.findMany.mockResolvedValue([makeItem()]);
+
+      await service.getTrendingItems('rest-1', 'ro');
+
+      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
+        expect.any(Array),
+        'ro',
       );
       if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
       else process.env.DEEPL_API_KEY = prevKey;

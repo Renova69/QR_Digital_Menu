@@ -1,5 +1,38 @@
 import { describe, expect, it } from "vitest";
-import { resolveInitialLanguage } from "../menuLanguage";
+import {
+  buildPublicMenuLanguages,
+  resolveInitialLanguage,
+} from "../menuLanguage";
+
+describe("buildPublicMenuLanguages", () => {
+  it.each(["bg", "ro", "en"])(
+    "uses supported dashboard language %s as the public-menu default",
+    (dashboardLanguage) => {
+      const languages = buildPublicMenuLanguages(dashboardLanguage, [
+        "fr",
+        "de",
+      ]);
+
+      expect(languages[0]).toBe(dashboardLanguage);
+    },
+  );
+
+  it("puts the normalized dashboard language first and deduplicates targets", () => {
+    expect(buildPublicMenuLanguages("RO-ro", ["en", "ro", "bg"])).toEqual([
+      "ro",
+      "en",
+      "bg",
+    ]);
+  });
+
+  it("falls back to Bulgarian when the dashboard language is unsupported", () => {
+    expect(buildPublicMenuLanguages("fr", ["fr", "en"])).toEqual([
+      "bg",
+      "en",
+      "fr",
+    ]);
+  });
+});
 
 describe("resolveInitialLanguage", () => {
   it("returns the requested language when it is an enabled target language", () => {

@@ -10,7 +10,10 @@ import {
   abandonCheckout,
 } from "../lib/api";
 import { getVisitorId } from "../lib/visitorId";
-import { resolveInitialLanguage } from "../lib/menuLanguage";
+import {
+  buildPublicMenuLanguages,
+  resolveInitialLanguage,
+} from "../lib/menuLanguage";
 import { getTranslatedArray } from "../lib/translation";
 import { BRANDING_FONT_NAMES } from "../lib/brandingFonts";
 import { PaymentModal } from "../components/payment/PaymentModal";
@@ -553,20 +556,19 @@ const PublicMenuPage = () => {
 
         setMenuMeta(data);
 
-        let initialLang: string | undefined;
-        if (data.restaurant?.targetLanguages?.length > 0) {
-          const langs: string[] = data.restaurant.targetLanguages;
-          // Honour a `?lang=` deep-link (e.g. a QR code) when it points at an
-          // enabled target language; otherwise default to the first one.
-          initialLang =
-            resolveInitialLanguage(langs, params.get("lang")) ?? langs[0];
-          activeLanguageRef.current = initialLang;
-          setSelectedLang(initialLang);
-          void i18n.changeLanguage(initialLang);
-          // Warm every target-language UI bundle in the background so switching the
-          // language selector never suspends (no blank flash while a chunk loads).
-          void i18n.loadLanguages(langs);
-        }
+        // The public menu opens in the owner's default (dashboard) language —
+        // not the first target language — unless a ?lang= deep-link overrides it.
+        const available = buildPublicMenuLanguages(
+          data.restaurant?.dashboardLanguage,
+          data.restaurant?.targetLanguages,
+        );
+        const dashboardLang = available[0];
+        const initialLang =
+          resolveInitialLanguage(available, params.get("lang")) ??
+          dashboardLang;
+        activeLanguageRef.current = initialLang;
+        setSelectedLang(initialLang);
+        void i18n.changeLanguage(initialLang);
 
         loadAllCategoryItems(data.categories, initialLang, cancelled);
       } catch (err) {
@@ -806,6 +808,13 @@ const PublicMenuPage = () => {
     publicThemeMode,
   );
 
+  // Languages selectable on the public menu: the owner's default (dashboard)
+  // language first, then the configured target languages (deduplicated).
+  const availableLanguages = buildPublicMenuLanguages(
+    menuMeta?.restaurant?.dashboardLanguage,
+    menuMeta?.restaurant?.targetLanguages,
+  );
+
   // Seed the theme from the restaurant's defaultTheme exactly once, on first load.
   // After that, the user's localStorage choice or in-session toggle takes precedence.
   // Re-runs if the restaurantId changes (navigation to a different restaurant).
@@ -1015,7 +1024,7 @@ const PublicMenuPage = () => {
 
         <TopBar
           tableNumber={tableNumber}
-          targetLanguages={menuMeta?.restaurant?.targetLanguages ?? []}
+          targetLanguages={availableLanguages}
           selectedLang={selectedLang}
           onLanguageChange={handleLanguageChange}
           restaurantId={restaurantId}

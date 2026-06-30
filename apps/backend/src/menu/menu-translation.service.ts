@@ -244,14 +244,20 @@ export class MenuTranslationService {
           item.description = t[lang].description;
         }
         if (t?.[lang]?.allergens) {
+          const canonicalAllergens = item.allergens || [];
           item.allergens = Array.isArray(t[lang].allergens)
-            ? t[lang].allergens
-            : Object.values(t[lang].allergens);
+            ? canonicalAllergens.length > 0
+              ? t[lang].allergens
+              : []
+            : canonicalAllergens.map((a: string) => t[lang].allergens[a] ?? a);
         }
         if (t?.[lang]?.dietaryTags) {
+          const canonicalTags = item.dietaryTags || [];
           item.dietaryTags = Array.isArray(t[lang].dietaryTags)
-            ? t[lang].dietaryTags
-            : Object.values(t[lang].dietaryTags);
+            ? canonicalTags.length > 0
+              ? t[lang].dietaryTags
+              : []
+            : canonicalTags.map((d: string) => t[lang].dietaryTags[d] ?? d);
         }
 
         for (const option of item.options ?? []) {

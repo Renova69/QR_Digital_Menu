@@ -33,6 +33,28 @@ export class MenuCrudService {
     private readonly storageService: StorageService,
   ) {}
 
+  /**
+   * Public-menu languages consist of the owner's dashboard language first,
+   * followed by configured translation targets. The dashboard language must be
+   * eligible for menu-content translation even when it was not duplicated in
+   * targetLanguages.
+   */
+  private buildPublicMenuLanguages(restaurant: {
+    dashboardLanguage?: string | null;
+    targetLanguages?: string[] | null;
+  }): string[] {
+    const requestedDefault = String(restaurant.dashboardLanguage || 'bg')
+      .toLowerCase()
+      .split('-')[0];
+    const dashboardDefault = ['bg', 'ro', 'en'].includes(requestedDefault)
+      ? requestedDefault
+      : 'bg';
+    const targets = (restaurant.targetLanguages ?? [])
+      .map((language) => language.toLowerCase().split('-')[0])
+      .filter(Boolean);
+    return [...new Set([dashboardDefault, ...targets])];
+  }
+
   private async deleteStoredImagePair(
     imageUrl?: string | null,
     thumbnailUrl?: string | null,
@@ -62,7 +84,7 @@ export class MenuCrudService {
       );
     }
 
-    return choices.map((choice: any) => {
+    const parsed = choices.map((choice: any) => {
       if (!choice || typeof choice !== 'object') {
         throw new BadRequestException('each choice must be an object');
       }
@@ -90,6 +112,16 @@ export class MenuCrudService {
           : {}),
       };
     });
+
+    const seen = new Set<string>();
+    for (const c of parsed) {
+      const key = c.name.toLowerCase();
+      if (seen.has(key)) {
+        throw new BadRequestException(`Duplicate choice name: "${c.name}"`);
+      }
+      seen.add(key);
+    }
+    return parsed;
   }
 
   /** Dayparting requires the DAYPARTING feature on the restaurant's EFFECTIVE
@@ -142,6 +174,7 @@ export class MenuCrudService {
         themeDarkCardColor: true,
         themeDarkAccentColor: true,
         targetLanguages: true,
+        dashboardLanguage: true,
         timezone: true,
         defaultTheme: true,
         tier: true,
@@ -195,16 +228,17 @@ export class MenuCrudService {
       restaurantClone.targetLanguages = [];
     }
 
-    const targetLangs = (restaurantClone.targetLanguages as string[]) || [];
-    if (
-      hasMultiLanguage &&
-      lang &&
-      process.env.DEEPL_API_KEY &&
-      targetLangs.includes(lang)
-    ) {
+    const publicLanguages = this.buildPublicMenuLanguages(restaurantClone);
+    const requestedLang = lang
+      ? publicLanguages.find(
+          (candidate) =>
+            candidate.toLowerCase() === lang.toLowerCase().split('-')[0],
+        )
+      : undefined;
+    if (requestedLang && process.env.DEEPL_API_KEY) {
       await this.menuTranslationService.applyLazyTranslations(
         filteredCategories,
-        lang,
+        requestedLang,
       );
     }
 
@@ -241,6 +275,7 @@ export class MenuCrudService {
         themeDarkCardColor: true,
         themeDarkAccentColor: true,
         targetLanguages: true,
+        dashboardLanguage: true,
         timezone: true,
         defaultTheme: true,
         tier: true,
@@ -308,23 +343,18 @@ export class MenuCrudService {
     // Lazily translate (and cache) category names so the navigation/pills render
     // in the requested language on first paint instead of falling back to the
     // original until item lazy-load warms the cache.
-    const targetLangs = (restaurantClone.targetLanguages as string[]) || [];
+    const publicLanguages = this.buildPublicMenuLanguages(restaurantClone);
     const requestedLang = lang
-      ? targetLangs.find(
-          (candidate) => candidate.toLowerCase() === lang.toLowerCase(),
+      ? publicLanguages.find(
+          (candidate) =>
+            candidate.toLowerCase() === lang.toLowerCase().split('-')[0],
         )
       : undefined;
-    // The frontend cannot know the restaurant's first enabled language until
-    // this metadata response arrives. Resolve absent/invalid deep-link values
-    // to that same first language so category names are translated on the
-    // initial response rather than remaining pinned to the DB source language.
-    const effectiveLang = requestedLang ?? targetLangs[0];
-    if (
-      hasMultiLanguage &&
-      effectiveLang &&
-      process.env.DEEPL_API_KEY &&
-      targetLangs.includes(effectiveLang)
-    ) {
+    // Before this response arrives, the frontend cannot know the owner's
+    // dashboard language. Keep the first-paint category translation aligned
+    // with that public-menu default instead of targetLanguages[0].
+    const effectiveLang = requestedLang ?? publicLanguages[0];
+    if (effectiveLang && process.env.DEEPL_API_KEY) {
       await this.menuTranslationService.applyLazyTranslations(
         filteredCategories,
         effectiveLang,
@@ -350,6 +380,7 @@ export class MenuCrudService {
         tier: true,
         forceTier: true,
         targetLanguages: true,
+        dashboardLanguage: true,
       },
     });
 
@@ -400,16 +431,20 @@ export class MenuCrudService {
       tier,
       FeatureFlag.LANGUAGES_MULTI,
     );
-    if (
-      hasMultiLanguage &&
-      lang &&
-      process.env.DEEPL_API_KEY &&
-      restaurant.targetLanguages.includes(lang)
-    ) {
+    const languageConfig = hasMultiLanguage
+      ? restaurant
+      : { ...restaurant, targetLanguages: [] };
+    const requestedLang = lang
+      ? this.buildPublicMenuLanguages(languageConfig).find(
+          (candidate) =>
+            candidate.toLowerCase() === lang.toLowerCase().split('-')[0],
+        )
+      : undefined;
+    if (requestedLang && process.env.DEEPL_API_KEY) {
       const fakeCategory = { ...category, items };
       await this.menuTranslationService.applyLazyTranslations(
         [fakeCategory as any],
-        lang,
+        requestedLang,
       );
       return fakeCategory.items;
     }
@@ -473,6 +508,7 @@ export class MenuCrudService {
         tier: true,
         forceTier: true,
         targetLanguages: true,
+        dashboardLanguage: true,
       },
     });
 
@@ -546,7 +582,8 @@ export class MenuCrudService {
    * Lazily translate trending item names/options for `lang`. Wraps the items in
    * a throwaway category (pre-seeded so its own name is never sent to DeepL) and
    * reuses the shared menu translation pipeline, which also caches results to
-   * the DB. No-op when multi-language is unavailable or `lang` is not enabled.
+   * the DB. No-op when multi-language is unavailable or `lang` is not enabled
+   * as either the dashboard default or a configured target.
    */
   private async applyTrendingTranslations(
     items: any[],
@@ -554,30 +591,34 @@ export class MenuCrudService {
       tier?: string | null;
       forceTier?: string | null;
       targetLanguages?: string[] | null;
+      dashboardLanguage?: string | null;
     },
     lang?: string,
   ): Promise<any[]> {
-    const targetLangs = restaurant.targetLanguages ?? [];
-    if (
-      lang &&
-      process.env.DEEPL_API_KEY &&
-      this.featureService.restaurantHasFeature(
-        restaurant as any,
-        FeatureFlag.LANGUAGES_MULTI,
-      ) &&
-      targetLangs.includes(lang) &&
-      items.length > 0
-    ) {
+    const hasMultiLanguage = this.featureService.restaurantHasFeature(
+      restaurant as any,
+      FeatureFlag.LANGUAGES_MULTI,
+    );
+    const languageConfig = hasMultiLanguage
+      ? restaurant
+      : { ...restaurant, targetLanguages: [] };
+    const requestedLang = lang
+      ? this.buildPublicMenuLanguages(languageConfig).find(
+          (candidate) =>
+            candidate.toLowerCase() === lang.toLowerCase().split('-')[0],
+        )
+      : undefined;
+    if (requestedLang && process.env.DEEPL_API_KEY && items.length > 0) {
       await this.menuTranslationService.applyLazyTranslations(
         [
           {
             id: 'trending',
             name: ' ',
-            translations: { [lang]: { name: ' ' } },
+            translations: { [requestedLang]: { name: ' ' } },
             items,
           },
         ],
-        lang,
+        requestedLang,
       );
     }
     return items;
@@ -1076,6 +1117,63 @@ export class MenuCrudService {
       await this.storageService.delete(item.thumbnailUrl);
     }
 
+    // Synchronously purge stale cached translations for fields that changed or
+    // were cleared. Runs regardless of DeepL availability so stale data never
+    // survives a failed/skipped pre-warm.
+    const newAllergens = updateItemDto.allergens;
+    const newTags = updateItemDto.dietaryTags;
+    const allergensChanged =
+      newAllergens !== undefined &&
+      JSON.stringify([...(newAllergens ?? [])].sort()) !==
+        JSON.stringify([...(item.allergens ?? [])].sort());
+    const tagsChanged =
+      newTags !== undefined &&
+      JSON.stringify([...(newTags ?? [])].sort()) !==
+        JSON.stringify([...(item.dietaryTags ?? [])].sort());
+    const descCleared =
+      updateItemDto.description !== undefined && !updateItemDto.description;
+
+    if (
+      (allergensChanged || tagsChanged || descCleared) &&
+      item.translations &&
+      typeof item.translations === 'object'
+    ) {
+      const cached: any = { ...(item.translations as Record<string, any>) };
+      let dirty = false;
+      for (const langKey of Object.keys(cached)) {
+        if (
+          allergensChanged &&
+          cached[langKey] &&
+          'allergens' in cached[langKey]
+        ) {
+          delete cached[langKey].allergens;
+          dirty = true;
+        }
+        if (
+          tagsChanged &&
+          cached[langKey] &&
+          'dietaryTags' in cached[langKey]
+        ) {
+          delete cached[langKey].dietaryTags;
+          dirty = true;
+        }
+        if (
+          descCleared &&
+          cached[langKey] &&
+          'description' in cached[langKey]
+        ) {
+          delete cached[langKey].description;
+          dirty = true;
+        }
+      }
+      if (dirty) {
+        await this.prisma.menuItem.update({
+          where: { id: itemId },
+          data: { translations: cached },
+        });
+      }
+    }
+
     const nameChanged = updateItemDto.name && updateItemDto.name !== item.name;
     const descriptionChanged =
       updateItemDto.description !== undefined &&
@@ -1111,9 +1209,27 @@ export class MenuCrudService {
             textToTranslate,
             restaurant.targetLanguages,
           );
+          const mergedTranslations: any = { ...existing };
+          for (const [tLang, tData] of Object.entries(
+            newTranslations as Record<string, Record<string, any>>,
+          )) {
+            mergedTranslations[tLang] = {
+              ...(existing[tLang] ?? {}),
+              ...tData,
+            };
+          }
+          // Description explicitly cleared — purge stale translated descriptions
+          if (
+            updateItemDto.description !== undefined &&
+            !updateItemDto.description
+          ) {
+            for (const langKey of Object.keys(mergedTranslations)) {
+              delete mergedTranslations[langKey]?.description;
+            }
+          }
           await this.prisma.menuItem.update({
             where: { id: itemId },
-            data: { translations: { ...existing, ...newTranslations } },
+            data: { translations: mergedTranslations },
           });
         } catch (e: any) {
           this.logger.error(`Pre-warm failed for item ${itemId}: ${e.message}`);

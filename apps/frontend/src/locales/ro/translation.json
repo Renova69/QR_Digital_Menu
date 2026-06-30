@@ -377,7 +377,7 @@
   "assistance": {
     "title": "Cereri de Asistență",
     "subtitle": "Vedeți ce mese au nevoie de personal și rezolvați rapid.",
-    "active": "Active",
+    "active": "Activ",
     "resolved": "Rezolvate",
     "urgent": "Urgent",
     "noActive": "Nicio cerere de asistență activă",
@@ -1008,7 +1008,7 @@
     "liveView": "Vedere Live",
     "qrManagement": "QR Management",
     "allTables": "Toate Mesele",
-    "active": "Active",
+    "active": "Activ",
     "allFree": "Toate mesele sunt libere",
     "free": "Liberă",
     "noTablesCreated": "Adăugați mese în QR Management",
@@ -1240,7 +1240,7 @@
     "silverMultiplier": " Multiplicator Argint",
     "goldMultiplier": " Multiplicator Aur",
     "silverMustBeLower": "Pragul Argint trebuie să fie mai mic decât Aur.",
-    "happyHour": "Happy Hour (Gamification)",
+    "happyHour": "Happy Hour (Gamificare)",
     "happyHourDesc": "Se declanșează la ora locală a restaurantului.",
     "happyHourStart": "Ora de Început",
     "happyHourEnd": "Ora de Sfârșit",
@@ -2400,7 +2400,7 @@
     "manageBilling": "Gestionează în Portalul de Facturare",
     "badge": "Prețuri",
     "tierNames": {
-      "free": "Free",
+      "free": "Gratuit",
       "starter": "Starter",
       "professional": "Professional",
       "enterprise": "Enterprise"
@@ -2787,8 +2787,9 @@
         "features": [
           "Meniu digital (vizualizare și editare)",
           "Gestionare coduri QR",
-          "Import meniu OCR",
-          "1 angajat"
+          "Import și export meniu",
+          "Analiză de bază",
+          "0 locuri suplimentare pentru personal"
         ]
       },
       "starter": {
@@ -2822,8 +2823,9 @@
           "Tot din Professional",
           "POS și afișaj bucătărie",
           "Locații multiple",
+          "Imprimante termice",
           "Angajați nelimitați",
-          "Suport prioritar"
+          "Onboarding prioritar"
         ]
       }
     },
@@ -2952,7 +2954,7 @@
     "perfectPairings": "Combinații perfecte",
     "noOtherItemsAvailable": "Nu sunt alte articole disponibile.",
     "selectItemsThatGoWellWith": "Selectează articole care se potrivesc cu acesta.",
-    "Mdash": "&mdash;",
+    "Mdash": "—",
     "selectTable": "Selectează masa",
     "chooseATableToStartTaking": "Alege o masă pentru a începe preluarea comenzilor.",
     "backToPOS": "Înapoi la POS —",
