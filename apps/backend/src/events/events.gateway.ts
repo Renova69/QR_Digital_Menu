@@ -8,7 +8,13 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger, forwardRef, Inject, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Logger,
+  forwardRef,
+  Inject,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import type { WrapperType } from '../common/wrapper-type';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -66,7 +72,11 @@ function parseCookie(header: string | undefined, name: string): string | null {
   cors: { origin: wsOrigin, credentials: true },
 })
 export class EventsGateway
-  implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit, OnModuleDestroy
+  implements
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    OnModuleInit,
+    OnModuleDestroy
 {
   @WebSocketServer()
   server: Server;
@@ -74,12 +84,18 @@ export class EventsGateway
   private logger = new Logger('EventsGateway');
 
   // M-5: per-IP rate limit for WebSocket connections (30/min)
-  private readonly wsConnectAttempts = new Map<string, { count: number; resetAt: number }>();
+  private readonly wsConnectAttempts = new Map<
+    string,
+    { count: number; resetAt: number }
+  >();
   private sweepInterval: ReturnType<typeof setInterval> | undefined;
 
   onModuleInit() {
     // Sweep expired IP rate-limit entries every 5 minutes (Issue 38)
-    this.sweepInterval = setInterval(() => this.sweepConnectAttempts(), 5 * 60_000);
+    this.sweepInterval = setInterval(
+      () => this.sweepConnectAttempts(),
+      5 * 60_000,
+    );
   }
 
   onModuleDestroy() {
@@ -156,9 +172,12 @@ export class EventsGateway
     // Print agent auth — agents pass agentToken in socket.auth (no Origin header from React Native)
     const agentToken = client.handshake.auth?.agentToken as string | undefined;
     if (agentToken && !client.data.userId) {
-      const record = await this.printStationService.validateAgentToken(agentToken);
+      const record =
+        await this.printStationService.validateAgentToken(agentToken);
       if (!record) {
-        this.logger.warn(`Invalid agent token from ${client.id} — disconnecting`);
+        this.logger.warn(
+          `Invalid agent token from ${client.id} — disconnecting`,
+        );
         client.emit('agent:rejected', 'invalid_token');
         client.disconnect();
         return;
@@ -169,7 +188,11 @@ export class EventsGateway
         where: { id: record.restaurantId },
         select: { isActive: true },
       });
-      if (!restaurant || restaurant.isActive === false || !record.printStation.isActive) {
+      if (
+        !restaurant ||
+        restaurant.isActive === false ||
+        !record.printStation.isActive
+      ) {
         this.logger.warn(
           `Agent token rejected — suspended/inactive: station=${record.printStationId} socket=${client.id}`,
         );
@@ -187,7 +210,9 @@ export class EventsGateway
       void this.printStationService
         .retryPendingJobs(record.restaurantId, record.printStationId)
         .catch((err: Error) =>
-          this.logger.error(`Retry failed for station ${record.printStationId}: ${err.message}`),
+          this.logger.error(
+            `Retry failed for station ${record.printStationId}: ${err.message}`,
+          ),
         );
 
       this.logger.log(
@@ -447,6 +472,55 @@ export class EventsGateway
     return { event: 'joinedOrderRoom', data: orderId };
   }
 
+  // A legitimate customer only ever joins the room for the restaurant whose
+  // menu they're viewing (occasionally two, across a tab switch). Since this
+  // handler performs no auth/DB check (restaurantId is already public), cap
+  // distinct joins per socket so a single connection can't grow the Socket.IO
+  // adapter's room-membership maps unbounded by spamming arbitrary IDs.
+  private static readonly MAX_PUBLIC_MENU_ROOMS_PER_SOCKET = 5;
+
+  /**
+   * Anonymous customers viewing a restaurant's public menu may join this room
+   * to receive live item-availability changes. Unlike joinRestaurantRoom, no
+   * auth check is performed — restaurant IDs are already public (menu URLs),
+   * and this room only ever receives item-availability broadcasts.
+   */
+  @SubscribeMessage('joinPublicMenuRoom')
+  handleJoinPublicMenuRoom(
+    @MessageBody() restaurantId: string,
+    @ConnectedSocket() client: Socket,
+  ) {
+    if (!restaurantId || typeof restaurantId !== 'string') {
+      return { event: 'roomError', data: 'public-menu' };
+    }
+    const joined: Set<string> = client.data.publicMenuRooms ?? new Set();
+    if (
+      !joined.has(restaurantId) &&
+      joined.size >= EventsGateway.MAX_PUBLIC_MENU_ROOMS_PER_SOCKET
+    ) {
+      this.logger.warn(
+        `Rejected public menu room join — per-socket limit reached: client ${client.id}`,
+      );
+      return { event: 'roomError', data: 'public-menu' };
+    }
+    joined.add(restaurantId);
+    client.data.publicMenuRooms = joined;
+    void client.join(`public_menu_${restaurantId}`);
+    return { event: 'joinedPublicMenuRoom', data: restaurantId };
+  }
+
+  @SubscribeMessage('leavePublicMenuRoom')
+  handleLeavePublicMenuRoom(
+    @MessageBody() restaurantId: string,
+    @ConnectedSocket() client: Socket,
+  ) {
+    (client.data.publicMenuRooms as Set<string> | undefined)?.delete(
+      restaurantId,
+    );
+    void client.leave(`public_menu_${restaurantId}`);
+    return { event: 'leftPublicMenuRoom', data: restaurantId };
+  }
+
   /**
    * Dispatch a generic event to a specific restaurant's room.
    */
@@ -454,12 +528,27 @@ export class EventsGateway
     this.server.to(`restaurant_${restaurantId}`).emit(eventName, payload);
   }
 
+  /**
+   * Notify open public-menu tabs that an item's stock status changed, so
+   * customers see the "86" toggle live instead of only on next page load.
+   */
+  emitPublicMenuItemAvailability(
+    restaurantId: string,
+    payload: { itemId: string; categoryId: string; isOutOfStock: boolean },
+  ) {
+    this.server
+      .to(`public_menu_${restaurantId}`)
+      .emit('menu:item-availability-changed', payload);
+  }
+
   emitOrderEventToRestaurant(
     restaurantId: string,
     eventName: string,
     payload: any,
   ) {
-    this.server.to(`restaurant_orders_${restaurantId}`).emit(eventName, payload);
+    this.server
+      .to(`restaurant_orders_${restaurantId}`)
+      .emit(eventName, payload);
   }
 
   emitToTableSession(sessionId: string, eventName: string, payload: any) {
@@ -535,9 +624,18 @@ export class EventsGateway
     if (!stationId || !restaurantId) return;
     if (typeof body?.jobId !== 'string' || !body.jobId) return;
     await this.printStationService
-      .handlePrintAck(body.jobId, body.success, body.error, stationId, restaurantId, agentTokenId)
+      .handlePrintAck(
+        body.jobId,
+        body.success,
+        body.error,
+        stationId,
+        restaurantId,
+        agentTokenId,
+      )
       .catch((err: Error) =>
-        this.logger.error(`handlePrintAck failed for job ${body.jobId}: ${err.message}`),
+        this.logger.error(
+          `handlePrintAck failed for job ${body.jobId}: ${err.message}`,
+        ),
       );
   }
 

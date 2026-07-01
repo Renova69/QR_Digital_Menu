@@ -721,6 +721,11 @@ enum PaymentStatus {
   FAILED
   REFUNDED
   ABANDONED
+  // F-PAY-1: claimed for refund + allocations already reversed, but the
+  // Stripe outcome is not yet confirmed (ambiguous/timeout response). A
+  // webhook or the reconciliation cron resolves this to REFUNDED (confirmed
+  // success) or back to SUCCEEDED (confirmed failure, allocations restored).
+  REFUND_PENDING
 }
 
 enum PaymentProvider {

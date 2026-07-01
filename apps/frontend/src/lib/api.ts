@@ -18,6 +18,17 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// L-FE-5: the raw pathname on /impersonate/:code embeds a one-time
+// impersonation secret, which backend logging persists verbatim if sent as
+// a header value. Redact known-sensitive dynamic segments before tracing.
+function getTraceOrigin(): string {
+  if (typeof window === "undefined") return "ssr";
+  return window.location.pathname.replace(
+    /\/impersonate\/[^/]+/,
+    "/impersonate/:code",
+  );
+}
+
 export const getMenu = async (restaurantId: string, lang?: string) => {
   const response = await api.get(`/menu/public/${restaurantId}`, {
     params: lang ? { lang } : undefined,
@@ -36,11 +47,13 @@ export const getCategoryItems = async (
   restaurantId: string,
   categoryId: string,
   lang?: string,
+  signal?: AbortSignal,
 ) => {
   const response = await api.get(
     `/menu/public/${restaurantId}/categories/${categoryId}/items`,
     {
       params: lang ? { lang } : undefined,
+      signal,
     },
   );
   return response.data as any[];
@@ -560,8 +573,7 @@ api.interceptors.request.use(async (config) => {
   // the page/component that fired them, helping track down sources of
   // excessive API calls.
   config.headers = config.headers ?? {};
-  config.headers["X-Trace-Origin"] =
-    typeof window !== "undefined" ? window.location.pathname : "ssr";
+  config.headers["X-Trace-Origin"] = getTraceOrigin();
   // crypto.randomUUID() requires a secure context (HTTPS); fall back for HTTP dev.
   config.headers["X-Correlation-Id"] =
     typeof globalThis.crypto?.randomUUID === "function"

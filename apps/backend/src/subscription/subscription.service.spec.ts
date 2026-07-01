@@ -28,7 +28,10 @@ jest.mock('stripe', () =>
 
 jest.mock('../prisma/prisma.service', () => ({ PrismaService: jest.fn() }));
 
-import { ForbiddenException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { SubscriptionService } from './subscription.service';
@@ -57,7 +60,7 @@ describe('SubscriptionService', () => {
       update: jest.Mock;
       updateMany: jest.Mock;
     };
-    adminAuditLog: { create: jest.Mock };
+    adminAuditLog: { create: jest.Mock; createMany: jest.Mock };
     $queryRaw: jest.Mock;
     $transaction: jest.Mock;
     user: { findUniqueOrThrow: jest.Mock };
@@ -93,7 +96,10 @@ describe('SubscriptionService', () => {
         update: jest.fn().mockResolvedValue({}),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
-      adminAuditLog: { create: jest.fn().mockResolvedValue({}) },
+      adminAuditLog: {
+        create: jest.fn().mockResolvedValue({}),
+        createMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       $queryRaw: jest.fn().mockResolvedValue([]),
       $transaction: jest.fn().mockImplementation((arg: unknown) => {
         if (typeof arg === 'function') return (arg as any)(prisma);
@@ -249,15 +255,14 @@ describe('SubscriptionService', () => {
   // ─── confirmCheckoutSession (M-11) ───────────────────────────────────────────
 
   describe('confirmCheckoutSession', () => {
-    it('returns FREE when the Stripe session cannot be retrieved', async () => {
+    // F-PAY-2: a Stripe retrieval failure is not proof the customer has no
+    // subscription — must not silently downgrade to FREE. Surface as retryable.
+    it('throws ServiceUnavailableException when the Stripe session cannot be retrieved', async () => {
       mockSessionRetrieve.mockRejectedValue(new Error('No such session'));
 
-      const result = await service.confirmCheckoutSession(
-        'cs_missing',
-        'owner1',
-      );
-
-      expect(result).toEqual({ tier: 'FREE' });
+      await expect(
+        service.confirmCheckoutSession('cs_missing', 'owner1'),
+      ).rejects.toThrow(ServiceUnavailableException);
       expect(prisma.restaurant.updateMany).not.toHaveBeenCalled();
     });
 
@@ -629,16 +634,18 @@ describe('SubscriptionService', () => {
 
       expect(prisma.$transaction).toHaveBeenCalled();
       expect(prisma.restaurant.updateMany).not.toHaveBeenCalled();
-      expect(prisma.adminAuditLog.create).toHaveBeenCalledWith(
+      expect(prisma.adminAuditLog.createMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            action: 'TIER_DOWNGRADE',
-            targetId: 'rest-1',
-            metadata: expect.objectContaining({
-              actor: 'SYSTEM',
-              previousTier: 'STARTER',
+          data: [
+            expect.objectContaining({
+              action: 'TIER_DOWNGRADE',
+              targetId: 'rest-1',
+              metadata: expect.objectContaining({
+                actor: 'SYSTEM',
+                previousTier: 'STARTER',
+              }),
             }),
-          }),
+          ],
         }),
       );
     });
@@ -649,7 +656,7 @@ describe('SubscriptionService', () => {
       await service.enforceGraceExpiry();
 
       expect(prisma.restaurant.updateMany).not.toHaveBeenCalled();
-      expect(prisma.adminAuditLog.create).not.toHaveBeenCalled();
+      expect(prisma.adminAuditLog.createMany).not.toHaveBeenCalled();
     });
   });
 
@@ -663,16 +670,18 @@ describe('SubscriptionService', () => {
 
       expect(prisma.$transaction).toHaveBeenCalled();
       expect(prisma.restaurant.updateMany).not.toHaveBeenCalled();
-      expect(prisma.adminAuditLog.create).toHaveBeenCalledWith(
+      expect(prisma.adminAuditLog.createMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            action: 'TIER_CLEAR',
-            targetId: 'rest-2',
-            metadata: expect.objectContaining({
-              actor: 'SYSTEM',
-              expiredForceTier: 'ENTERPRISE',
+          data: [
+            expect.objectContaining({
+              action: 'TIER_CLEAR',
+              targetId: 'rest-2',
+              metadata: expect.objectContaining({
+                actor: 'SYSTEM',
+                expiredForceTier: 'ENTERPRISE',
+              }),
             }),
-          }),
+          ],
         }),
       );
     });

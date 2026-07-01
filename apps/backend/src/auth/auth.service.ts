@@ -180,11 +180,21 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await this.usersService.create({
-      email: normalizedEmail,
-      password: hashedPassword,
-      role: 'OWNER',
-    });
+    let user: Awaited<ReturnType<typeof this.usersService.create>>;
+    try {
+      user = await this.usersService.create({
+        email: normalizedEmail,
+        password: hashedPassword,
+        role: 'OWNER',
+      });
+    } catch (err: any) {
+      if (err?.code === 'P2002') {
+        // Concurrent registration with the same email won the race between
+        // our findByEmail check above and this insert.
+        throw new ConflictException('User with this email already exists');
+      }
+      throw err;
+    }
 
     const { password: _, ...result } = user;
     const payload = { email: result.email, sub: result.id };
@@ -1001,10 +1011,22 @@ export class AuthService {
     if (new Date() > session.expiresAt)
       throw new UnauthorizedException('Exchange code expired.');
 
-    await this.prisma.impersonationSession.update({
-      where: { id: session.id },
+    // Atomic guarded consume: exchangeCode is unique, so only one concurrent
+    // caller can match this predicate before it gets nulled out. The loser
+    // sees count !== 1 and is rejected, preventing double JWT issuance.
+    const consumed = await this.prisma.impersonationSession.updateMany({
+      where: {
+        exchangeCode: code,
+        usedAt: null,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
       data: { usedAt: new Date(), exchangeCode: null },
     });
+
+    if (consumed.count !== 1) {
+      throw new UnauthorizedException('Invalid or already-used exchange code.');
+    }
 
     const user = session.target;
     const payload = {

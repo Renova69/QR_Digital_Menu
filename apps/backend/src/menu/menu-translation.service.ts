@@ -137,87 +137,120 @@ export class MenuTranslationService {
 
         if (type === 'category') {
           const langEntry = { name: langData.name ?? entity.name };
+          // F-TRANS-1/2: merge only this lang's fragment atomically at the DB
+          // level (jsonb || operator) instead of writing back a full
+          // read-modify-write snapshot, which a concurrent request for a
+          // different lang could silently clobber.
           const merged = { ...existing, [lang]: langEntry };
           entity.translations = merged;
           dbWrites.push(
-            this.prisma.menuCategory
-              .update({
-                where: { id: entity.id },
-                data: { translations: merged },
-              })
-              .catch((e: unknown) =>
+            this.prisma
+              .$executeRaw`UPDATE "menu_category" SET translations = COALESCE(translations, '{}'::jsonb) || ${JSON.stringify({ [lang]: langEntry })}::jsonb WHERE id = ${entity.id}`.catch(
+              (e: unknown) =>
                 this.logger.warn(
                   `Category translation save failed: ${String(e)}`,
                 ),
-              ),
+            ),
           );
         } else if (type === 'item') {
-          // Start from existing lang entry so partial updates preserve cached fields
+          // Allergens/tags stored as maps { original: translated } for diffing.
+          const allergenFragment: Record<string, string> = {};
+          const tagFragment: Record<string, string> = {};
+          for (const [k, v] of Object.entries(langData)) {
+            if (k.startsWith('allergen_'))
+              allergenFragment[k.replace('allergen_', '')] = v;
+            else if (k.startsWith('tag_'))
+              tagFragment[k.replace('tag_', '')] = v;
+          }
+          const nameOrNull = langData.name ?? null;
+          const descOrNull = langData.description ?? null;
+          // In-memory object updated optimistically for phase 4 (this
+          // request's own view); the DB write below is the source of truth
+          // and merges fresh per-field at write time, not from this snapshot.
           const langEntry: Record<string, unknown> = {
             ...(existing[lang] ?? {}),
           };
-          if (langData.name) langEntry.name = langData.name;
-          if (langData.description)
-            langEntry.description = langData.description;
-          // Allergens/tags stored as maps { original: translated } for diffing
-          // Old array format is discarded on first update (apply phase handles both)
-          const prevAllergens: Record<string, string> = Array.isArray(
-            langEntry.allergens,
-          )
-            ? {}
-            : ((langEntry.allergens as Record<string, string> | undefined) ??
-              {});
-          const prevTags: Record<string, string> = Array.isArray(
-            langEntry.dietaryTags,
-          )
-            ? {}
-            : ((langEntry.dietaryTags as Record<string, string> | undefined) ??
-              {});
-          const allergenMap = { ...prevAllergens };
-          const tagMap = { ...prevTags };
-          for (const [k, v] of Object.entries(langData)) {
-            if (k.startsWith('allergen_'))
-              allergenMap[k.replace('allergen_', '')] = v;
-            else if (k.startsWith('tag_')) tagMap[k.replace('tag_', '')] = v;
-          }
-          if (Object.keys(allergenMap).length)
-            langEntry.allergens = allergenMap;
-          if (Object.keys(tagMap).length) langEntry.dietaryTags = tagMap;
-          const merged = { ...existing, [lang]: langEntry };
-          entity.translations = merged;
+          if (nameOrNull) langEntry.name = nameOrNull;
+          if (descOrNull) langEntry.description = descOrNull;
+          if (Object.keys(allergenFragment).length)
+            langEntry.allergens = {
+              ...(Array.isArray(langEntry.allergens)
+                ? {}
+                : (langEntry.allergens as any)),
+              ...allergenFragment,
+            };
+          if (Object.keys(tagFragment).length)
+            langEntry.dietaryTags = {
+              ...(Array.isArray(langEntry.dietaryTags)
+                ? {}
+                : (langEntry.dietaryTags as any)),
+              ...tagFragment,
+            };
+          entity.translations = { ...existing, [lang]: langEntry };
+
+          // F-TRANS-1/2: per-field jsonb merge at write time — two concurrent
+          // lazy-translation requests for the SAME (entity, lang) (e.g. two
+          // customers both triggering a first-ever French translation) each
+          // merge only the fields they fetched instead of one clobbering the
+          // other's fragment via a full lang-object replace. `jsonb_typeof`
+          // guards discard the legacy array format for allergens/dietaryTags
+          // exactly like the old JS `Array.isArray` check did.
           dbWrites.push(
-            this.prisma.menuItem
-              .update({
-                where: { id: entity.id },
-                data: { translations: merged },
-              })
-              .catch((e: unknown) =>
-                this.logger.warn(`Item translation save failed: ${String(e)}`),
-              ),
+            this.prisma
+              .$executeRaw`UPDATE "menu_item" SET translations = jsonb_set(
+                COALESCE(translations, '{}'::jsonb),
+                ARRAY[${lang}]::text[],
+                jsonb_build_object(
+                  'name', COALESCE(to_jsonb(${nameOrNull}::text), translations #> ARRAY[${lang}, 'name']::text[]),
+                  'description', COALESCE(to_jsonb(${descOrNull}::text), translations #> ARRAY[${lang}, 'description']::text[]),
+                  'allergens', (
+                    CASE WHEN jsonb_typeof(translations #> ARRAY[${lang}, 'allergens']::text[]) = 'object'
+                      THEN translations #> ARRAY[${lang}, 'allergens']::text[]
+                      ELSE '{}'::jsonb
+                    END
+                  ) || ${JSON.stringify(allergenFragment)}::jsonb,
+                  'dietaryTags', (
+                    CASE WHEN jsonb_typeof(translations #> ARRAY[${lang}, 'dietaryTags']::text[]) = 'object'
+                      THEN translations #> ARRAY[${lang}, 'dietaryTags']::text[]
+                      ELSE '{}'::jsonb
+                    END
+                  ) || ${JSON.stringify(tagFragment)}::jsonb
+                ),
+                true
+              ) WHERE id = ${entity.id}`.catch((e: unknown) =>
+              this.logger.warn(`Item translation save failed: ${String(e)}`),
+            ),
           );
         } else {
-          const optLang: Record<string, any> = {
-            ...(existing[lang] ?? {}),
-            choices: { ...(existing[lang]?.choices ?? {}) },
-          };
-          if (langData.name) optLang.name = langData.name;
+          const choicesFragment: Record<string, string> = {};
           for (const [k, v] of Object.entries(langData)) {
             if (k.startsWith('choice_'))
-              optLang.choices[k.replace('choice_', '')] = v;
+              choicesFragment[k.replace('choice_', '')] = v;
           }
-          const merged = { ...existing, [lang]: optLang };
-          entity.translations = merged;
+          const nameOrNull = langData.name ?? null;
+          const optLang: Record<string, any> = {
+            ...(existing[lang] ?? {}),
+            choices: { ...(existing[lang]?.choices ?? {}), ...choicesFragment },
+          };
+          if (nameOrNull) optLang.name = nameOrNull;
+          entity.translations = { ...existing, [lang]: optLang };
+
+          // F-TRANS-1/2: same per-field jsonb merge rationale as the item
+          // branch above, applied to option name + choices map.
           dbWrites.push(
-            this.prisma.menuOption
-              .update({
-                where: { id: entity.id },
-                data: { translations: merged } as any,
-              })
-              .catch((e: unknown) =>
-                this.logger.warn(
-                  `Option translation save failed: ${String(e)}`,
+            this.prisma
+              .$executeRaw`UPDATE "menu_option" SET translations = jsonb_set(
+                COALESCE(translations, '{}'::jsonb),
+                ARRAY[${lang}]::text[],
+                jsonb_build_object(
+                  'name', COALESCE(to_jsonb(${nameOrNull}::text), translations #> ARRAY[${lang}, 'name']::text[]),
+                  'choices', COALESCE(translations #> ARRAY[${lang}, 'choices']::text[], '{}'::jsonb)
+                    || ${JSON.stringify(choicesFragment)}::jsonb
                 ),
-              ),
+                true
+              ) WHERE id = ${entity.id}`.catch((e: unknown) =>
+              this.logger.warn(`Option translation save failed: ${String(e)}`),
+            ),
           );
         }
       }

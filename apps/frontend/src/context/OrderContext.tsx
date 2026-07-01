@@ -24,6 +24,15 @@ export type OrderStatus =
   | "CANCELED"
   | "COMPLETED";
 
+// M-FE-5: matches backend OrderItemOptionDto — the persisted shape of an
+// order item's chosen option, not the cart's transient SelectedOption.
+interface OrderItemSelectedOption {
+  optionId: string;
+  optionName: string;
+  choiceName: string;
+  priceModifier: number;
+}
+
 // Define order interface
 interface Order {
   id: string;
@@ -36,7 +45,7 @@ interface Order {
     id: string;
     menuItemId: string;
     quantity: number;
-    selectedOptions: any[];
+    selectedOptions: OrderItemSelectedOption[];
     menuItem: {
       id: string;
       name: string;
@@ -107,14 +116,17 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   // The socket `orderStatusChanged` event triggers refreshOrders() as
   // authoritative sync, so no manual refetch is needed here.
   const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
-    const prev = orders;
+    const previous = orders;
     setOrders((cur) =>
       cur.map((o) => (o.id === orderId ? { ...o, status } : o)),
     );
     try {
       await apiUpdateOrderStatus(orderId, status);
     } catch (error) {
-      setOrders(prev);
+      // M-FE-2: revert only this order via a functional update, not the
+      // whole captured snapshot — a blind `setOrders(previous)` would erase
+      // any intervening socket updates to other orders.
+      setOrders((cur) => revertFailedOrders(cur, previous, [orderId]));
       console.error("Failed to update order status:", error);
       throw error;
     }
@@ -124,6 +136,10 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     orderIds: string[],
     status: OrderStatus,
   ) => {
+    // M-FE-6: matches the guard `refreshOrders` already applies — UI-layer
+    // consistency only; the server remains the real authorization boundary.
+    if (!canAccessOrders) return;
+
     const previous = orders;
     const idSet = new Set(orderIds);
     setOrders((cur) =>

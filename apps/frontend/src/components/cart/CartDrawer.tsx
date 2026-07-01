@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import React, { useState, useEffect } from "react";
 import { Category } from "../../types";
-import { formatInlineDual } from "../../lib/currency";
+import { formatInlineDual, BGN_RATE } from "../../lib/currency";
 import {
   resolveCartChoiceName,
   resolveCartItemName,
@@ -151,7 +151,12 @@ const CartDrawer = ({
                               id: drink.id,
                               name: drink.originalName ?? drink.name,
                               originalName: drink.originalName ?? drink.name,
-                              price: drink.price,
+                              // F-FE-1/F-FE-3: normalize to EUR — same rule
+                              // as buildMainCartItem/pairing upsell.
+                              price:
+                                drink.currency === "BGN"
+                                  ? drink.price / BGN_RATE
+                                  : drink.price,
                               quantity: 1,
                               selectedOptions: [],
                               itemTranslations: drink.translations ?? null,

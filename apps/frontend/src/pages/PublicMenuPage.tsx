@@ -259,6 +259,10 @@ const PublicMenuPage = () => {
   const themeInitialized = useRef(false);
   const langFetchId = useRef(0);
   const langFetchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // L-TRANS-3: aborts the previous batch's in-flight category requests
+  // whenever a newer batch starts (rapid lang switch) or the page unmounts,
+  // instead of leaving them to run to completion unfreed.
+  const categoryFetchAbortRef = useRef<AbortController | null>(null);
   const activeLanguageRef = useRef("");
 
   const hasActiveFilters =
@@ -334,32 +338,45 @@ const PublicMenuPage = () => {
         Object.fromEntries(categories.map((c: any) => [c.id, null])),
       );
     }
-    categories.forEach(async (cat: any) => {
-      const stale = () => cancelled.v || langFetchId.current !== myFetchId;
-      try {
-        const items = await getCategoryItems(restaurantId!, cat.id, lang);
-        if (!stale())
-          setLoadedItemsMap((prev) => ({ ...prev, [cat.id]: items }));
-      } catch {
-        if (stale()) return;
-        // On translation failure, fall back to default-language items
+    // Free the previous batch's in-flight requests instead of letting them
+    // run to completion unfreed (L-TRANS-3).
+    categoryFetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    categoryFetchAbortRef.current = controller;
+    void Promise.allSettled(
+      categories.map(async (cat: any) => {
+        const stale = () => cancelled.v || langFetchId.current !== myFetchId;
         try {
-          const fallback = await getCategoryItems(
+          const items = await getCategoryItems(
             restaurantId!,
             cat.id,
-            undefined,
+            lang,
+            controller.signal,
           );
           if (!stale())
-            setLoadedItemsMap((prev) => ({ ...prev, [cat.id]: fallback }));
+            setLoadedItemsMap((prev) => ({ ...prev, [cat.id]: items }));
         } catch {
-          // Preserve existing items rather than wiping to empty on complete failure
-          if (!stale())
-            setLoadedItemsMap((prev) =>
-              Array.isArray(prev[cat.id]) ? prev : { ...prev, [cat.id]: [] },
+          if (stale()) return;
+          // On translation failure, fall back to default-language items
+          try {
+            const fallback = await getCategoryItems(
+              restaurantId!,
+              cat.id,
+              undefined,
+              controller.signal,
             );
+            if (!stale())
+              setLoadedItemsMap((prev) => ({ ...prev, [cat.id]: fallback }));
+          } catch {
+            // Preserve existing items rather than wiping to empty on complete failure
+            if (!stale())
+              setLoadedItemsMap((prev) =>
+                Array.isArray(prev[cat.id]) ? prev : { ...prev, [cat.id]: [] },
+              );
+          }
         }
-      }
-    });
+      }),
+    );
   };
 
   // Handle hosted-checkout return params (ePay / BORICA / myPOS redirect back to menu).
@@ -491,6 +508,61 @@ const PublicMenuPage = () => {
     t,
   ]);
 
+  // Live "86" push: anonymous room, no auth required (restaurantId is already
+  // public in the menu URL). Item going out of stock is removed immediately
+  // (mirrors the public API, which never returns out-of-stock items); an item
+  // coming back in stock is re-fetched so it arrives with full translated data.
+  useEffect(() => {
+    if (!socket || !isConnected || !restaurantId) return;
+
+    socket.emit("joinPublicMenuRoom", restaurantId);
+
+    const handleAvailabilityChanged = (payload: {
+      itemId?: string;
+      categoryId?: string;
+      isOutOfStock?: boolean;
+    }) => {
+      const { itemId, categoryId, isOutOfStock } = payload ?? {};
+      if (!itemId || !categoryId) return;
+
+      if (isOutOfStock) {
+        setLoadedItemsMap((prev) => {
+          const items = prev[categoryId];
+          if (!Array.isArray(items)) return prev;
+          return {
+            ...prev,
+            [categoryId]: items.filter((it: any) => it.id !== itemId),
+          };
+        });
+        return;
+      }
+
+      // Guard against a language switch resolving after this one — otherwise
+      // a slower fetch in the old language can overwrite the faster,
+      // already-applied fetch from loadAllCategoryItems in the new language.
+      const requestedLang = activeLanguageRef.current;
+      void getCategoryItems(
+        restaurantId,
+        categoryId,
+        requestedLang || undefined,
+      )
+        .then((items) => {
+          if (activeLanguageRef.current !== requestedLang) return;
+          setLoadedItemsMap((prev) => ({ ...prev, [categoryId]: items }));
+        })
+        .catch(() => {
+          // Transient fetch failure — item will appear on next full menu load.
+        });
+    };
+
+    socket.on("menu:item-availability-changed", handleAvailabilityChanged);
+
+    return () => {
+      socket.off("menu:item-availability-changed", handleAvailabilityChanged);
+      socket.emit("leavePublicMenuRoom", restaurantId);
+    };
+  }, [isConnected, restaurantId, socket]);
+
   useEffect(() => {
     const abandonHostedCheckoutIfReturned = () => {
       const params = new URLSearchParams(window.location.search);
@@ -584,6 +656,7 @@ const PublicMenuPage = () => {
     fetchMenu();
     return () => {
       cancelled.v = true;
+      categoryFetchAbortRef.current?.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantId, location.search]);
@@ -792,6 +865,7 @@ const PublicMenuPage = () => {
   useEffect(() => {
     return () => {
       if (langFetchDebounce.current) clearTimeout(langFetchDebounce.current);
+      categoryFetchAbortRef.current?.abort();
     };
   }, []);
 

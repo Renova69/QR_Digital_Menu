@@ -44,6 +44,7 @@ const OrderConfirmationPage = lazy(
 const FeedbackPage = lazy(() => import("./pages/FeedbackPage"));
 const DeviceLoginPage = lazy(() => import("./pages/DeviceLoginPage"));
 const DeviceEnrollPage = lazy(() => import("./pages/DeviceEnrollPage"));
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
 const SuperAdminLayout = lazy(
   () => import("./pages/super-admin/SuperAdminLayout"),
@@ -256,6 +257,9 @@ function App() {
                     element={<FeedbackPage />}
                   />
                 </Route>
+
+                {/* L-FE-1: catch-all for unknown paths */}
+                <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Suspense>
             <CookieConsentBanner />

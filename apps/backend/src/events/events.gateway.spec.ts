@@ -328,6 +328,95 @@ describe('EventsGateway — room authorization', () => {
     });
   });
 
+  describe('handleJoinPublicMenuRoom', () => {
+    it('joins the public menu room for any restaurantId — no auth required', () => {
+      const client = makeClient();
+
+      const result = gateway.handleJoinPublicMenuRoom('rest-1', client as any);
+
+      expect(client.join).toHaveBeenCalledWith('public_menu_rest-1');
+      expect(result).toEqual({ event: 'joinedPublicMenuRoom', data: 'rest-1' });
+    });
+
+    it('rejects a missing restaurantId', () => {
+      const client = makeClient();
+
+      const result = gateway.handleJoinPublicMenuRoom(
+        undefined as any,
+        client as any,
+      );
+
+      expect(client.join).not.toHaveBeenCalled();
+      expect(result).toEqual({ event: 'roomError', data: 'public-menu' });
+    });
+
+    it('leaves the public menu room', () => {
+      const client = makeClient();
+
+      const result = gateway.handleLeavePublicMenuRoom('rest-1', client as any);
+
+      expect(client.leave).toHaveBeenCalledWith('public_menu_rest-1');
+      expect(result).toEqual({ event: 'leftPublicMenuRoom', data: 'rest-1' });
+    });
+
+    // Security review: no auth check gates this handler (restaurantId is
+    // already public), so a single socket spamming distinct IDs must not be
+    // able to grow the Socket.IO adapter's room-membership maps unbounded.
+    it('caps distinct public menu rooms joined per socket', () => {
+      const client = makeClient();
+
+      for (let i = 0; i < 5; i++) {
+        const result = gateway.handleJoinPublicMenuRoom(
+          `rest-${i}`,
+          client as any,
+        );
+        expect(result).toEqual({
+          event: 'joinedPublicMenuRoom',
+          data: `rest-${i}`,
+        });
+      }
+      expect(client.join).toHaveBeenCalledTimes(5);
+
+      const rejected = gateway.handleJoinPublicMenuRoom(
+        'rest-5',
+        client as any,
+      );
+
+      expect(rejected).toEqual({ event: 'roomError', data: 'public-menu' });
+      expect(client.join).toHaveBeenCalledTimes(5);
+    });
+
+    it('does not count re-joining the same room twice against the cap', () => {
+      const client = makeClient();
+
+      for (let i = 0; i < 5; i++) {
+        gateway.handleJoinPublicMenuRoom(`rest-${i}`, client as any);
+      }
+      const result = gateway.handleJoinPublicMenuRoom('rest-0', client as any);
+
+      expect(result).toEqual({ event: 'joinedPublicMenuRoom', data: 'rest-0' });
+    });
+  });
+
+  describe('emitPublicMenuItemAvailability', () => {
+    it('emits to the restaurant-scoped public menu room only', () => {
+      const server = { to: jest.fn().mockReturnThis(), emit: jest.fn() };
+      (gateway as any).server = server;
+
+      gateway.emitPublicMenuItemAvailability('rest-1', {
+        itemId: 'item-1',
+        categoryId: 'cat-1',
+        isOutOfStock: true,
+      });
+
+      expect(server.to).toHaveBeenCalledWith('public_menu_rest-1');
+      expect(server.emit).toHaveBeenCalledWith(
+        'menu:item-availability-changed',
+        { itemId: 'item-1', categoryId: 'cat-1', isOutOfStock: true },
+      );
+    });
+  });
+
   describe('handleJoinOrderRoom', () => {
     it('joins when the token matches the orderId', () => {
       mockJwt.verify.mockReturnValue({

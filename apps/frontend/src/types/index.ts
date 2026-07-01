@@ -26,11 +26,7 @@ export interface OptionChoice {
 }
 
 export interface MenuTranslationEntry {
-  [key: string]:
-    | string
-    | string[]
-    | Record<string, string>
-    | undefined;
+  [key: string]: string | string[] | Record<string, string> | undefined;
   name?: string;
   description?: string;
   allergens?: string[] | Record<string, string>;
@@ -64,6 +60,7 @@ export interface Item {
   allergens?: string[];
   dietaryTags?: string[];
   isFeatured?: boolean;
+  isOutOfStock?: boolean;
   rewardPointsPrice?: number;
   costPrice?: number;
   relatedItemIds?: string[];

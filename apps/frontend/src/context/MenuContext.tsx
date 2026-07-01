@@ -47,6 +47,7 @@ interface MenuContextType {
       allergens?: string[];
       dietaryTags?: string[];
       isFeatured?: boolean;
+      isOutOfStock?: boolean;
       costPrice?: number;
       rewardPointsPrice?: number;
       relatedItemIds?: string[];
@@ -149,6 +150,7 @@ export const MenuProvider: React.FC<{ children: ReactNode }> = ({
       allergens?: string[];
       dietaryTags?: string[];
       isFeatured?: boolean;
+      isOutOfStock?: boolean;
       rewardPointsPrice?: number;
       relatedItemIds?: string[];
       imageFile?: File | null;

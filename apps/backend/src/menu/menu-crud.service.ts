@@ -20,6 +20,7 @@ import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { stripBrandingFields } from '../restaurants/branding-fields';
 import { StorageService } from '../storage/storage.service';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class MenuCrudService {
@@ -31,6 +32,7 @@ export class MenuCrudService {
     private readonly menuTranslationService: MenuTranslationService,
     private readonly featureService: FeatureService,
     private readonly storageService: StorageService,
+    private readonly events: EventsGateway,
   ) {}
 
   /**
@@ -847,18 +849,15 @@ export class MenuCrudService {
     ) {
       void (async () => {
         try {
-          const existing: any =
-            category.translations && typeof category.translations === 'object'
-              ? category.translations
-              : {};
           const newTranslations = await this.translationService.translateObject(
             { name: updateCategoryDto.name! },
             restaurant.targetLanguages,
           );
-          await this.prisma.menuCategory.update({
-            where: { id: categoryId },
-            data: { translations: { ...existing, ...newTranslations } },
-          });
+          // F-TRANS-2: atomic jsonb `||` merge instead of read-then-replace —
+          // a concurrent lazy translation write (different lang) between the
+          // findUnique above and this write can no longer be clobbered.
+          await this.prisma
+            .$executeRaw`UPDATE "menu_category" SET translations = COALESCE(translations, '{}'::jsonb) || ${JSON.stringify(newTranslations)}::jsonb WHERE id = ${categoryId}`;
         } catch (e: any) {
           this.logger.error(
             `Pre-warm failed for category ${categoryId}: ${e.message}`,
@@ -1085,6 +1084,7 @@ export class MenuCrudService {
         dietaryTags: true,
         imageUrl: true,
         thumbnailUrl: true,
+        isOutOfStock: true,
       },
     });
 
@@ -1100,6 +1100,17 @@ export class MenuCrudService {
       where: { id: itemId },
       data: updateItemDto,
     });
+
+    if (
+      updateItemDto.isOutOfStock !== undefined &&
+      updateItemDto.isOutOfStock !== item.isOutOfStock
+    ) {
+      this.events.emitPublicMenuItemAvailability(item.category.restaurantId, {
+        itemId,
+        categoryId: updated.categoryId,
+        isOutOfStock: updateItemDto.isOutOfStock,
+      });
+    }
 
     // Same logic as updateCategory: delete on null OR non-null replacement (M1.2).
     if (
@@ -1191,11 +1202,6 @@ export class MenuCrudService {
     ) {
       void (async () => {
         try {
-          const existing: any =
-            item.translations && typeof item.translations === 'object'
-              ? item.translations
-              : {};
-
           const textToTranslate: Record<string, string> = {
             name: updateItemDto.name || item.name,
           };
@@ -1209,28 +1215,46 @@ export class MenuCrudService {
             textToTranslate,
             restaurant.targetLanguages,
           );
-          const mergedTranslations: any = { ...existing };
-          for (const [tLang, tData] of Object.entries(
-            newTranslations as Record<string, Record<string, any>>,
-          )) {
-            mergedTranslations[tLang] = {
-              ...(existing[tLang] ?? {}),
-              ...tData,
-            };
-          }
-          // Description explicitly cleared — purge stale translated descriptions
+
+          // F-TRANS-2: atomic per-language jsonb merge instead of read
+          // (possibly stale, from before the DeepL round-trip) -> JS merge ->
+          // full-column replace. Each statement reads and writes
+          // translations->lang in one round-trip, so a concurrent write to a
+          // different language (or a different field of the same language)
+          // can no longer be silently clobbered.
           if (
             updateItemDto.description !== undefined &&
             !updateItemDto.description
           ) {
-            for (const langKey of Object.keys(mergedTranslations)) {
-              delete mergedTranslations[langKey]?.description;
-            }
+            // Description explicitly cleared — purge stale translated
+            // descriptions from every cached language atomically. newTranslations
+            // never carries `description` in this branch (translateObject was
+            // never asked to translate one), so this can't race against the
+            // per-language merges below touching the same field.
+            await this.prisma.$executeRaw`
+              UPDATE "menu_item"
+              SET translations = COALESCE(
+                (SELECT jsonb_object_agg(key, value - 'description')
+                 FROM jsonb_each(COALESCE(translations, '{}'::jsonb))),
+                '{}'::jsonb
+              )
+              WHERE id = ${itemId}
+            `;
           }
-          await this.prisma.menuItem.update({
-            where: { id: itemId },
-            data: { translations: mergedTranslations },
-          });
+          for (const [tLang, tData] of Object.entries(
+            newTranslations as Record<string, Record<string, any>>,
+          )) {
+            await this.prisma.$executeRaw`
+              UPDATE "menu_item"
+              SET translations = jsonb_set(
+                COALESCE(translations, '{}'::jsonb),
+                ARRAY[${tLang}]::text[],
+                COALESCE(translations -> ${tLang}, '{}'::jsonb) || ${JSON.stringify(tData)}::jsonb,
+                true
+              )
+              WHERE id = ${itemId}
+            `;
+          }
         } catch (e: any) {
           this.logger.error(`Pre-warm failed for item ${itemId}: ${e.message}`);
         }
@@ -1486,10 +1510,6 @@ export class MenuCrudService {
     ) {
       void (async () => {
         try {
-          const existingTrans: any =
-            option.translations && typeof option.translations === 'object'
-              ? option.translations
-              : {};
           const textToTranslate: Record<string, string> = {};
           if (updateMenuOptionDto.name)
             textToTranslate.name = updateMenuOptionDto.name;
@@ -1505,23 +1525,38 @@ export class MenuCrudService {
             restaurant.targetLanguages,
           );
 
+          // F-TRANS-2: atomic per-language jsonb_set merge — single-level
+          // path (translations->lang), so Postgres creates the lang key if
+          // missing; name and choices are read fresh from the row at UPDATE
+          // time via COALESCE/#>, not from a snapshot taken before the DeepL
+          // round-trip, so a concurrent write to a different language (or a
+          // different field of the same language) can't be silently lost.
           for (const lang of Object.keys(newTranslations)) {
-            if (!existingTrans[lang]) existingTrans[lang] = { choices: {} };
-            if (!existingTrans[lang].choices) existingTrans[lang].choices = {};
-            if (newTranslations[lang].name)
-              existingTrans[lang].name = newTranslations[lang].name;
-            for (const key of Object.keys(newTranslations[lang])) {
+            const langData = newTranslations[lang] as Record<string, string>;
+            const choicesFragment: Record<string, string> = {};
+            for (const key of Object.keys(langData)) {
               if (key.startsWith('choice_')) {
-                existingTrans[lang].choices[key.replace('choice_', '')] =
-                  newTranslations[lang][key];
+                choicesFragment[key.replace('choice_', '')] = langData[key];
               }
             }
+            const newName = langData.name ?? null;
+            await this.prisma.$executeRaw`
+              UPDATE "menu_option"
+              SET translations = jsonb_set(
+                COALESCE(translations, '{}'::jsonb),
+                ARRAY[${lang}]::text[],
+                jsonb_build_object(
+                  'name',
+                  COALESCE(to_jsonb(${newName}::text), translations #> ARRAY[${lang}, 'name']::text[]),
+                  'choices',
+                  COALESCE(translations #> ARRAY[${lang}, 'choices']::text[], '{}'::jsonb)
+                    || ${JSON.stringify(choicesFragment)}::jsonb
+                ),
+                true
+              )
+              WHERE id = ${optionId}
+            `;
           }
-
-          await this.prisma.menuOption.update({
-            where: { id: optionId },
-            data: { translations: existingTrans } as any,
-          });
         } catch (e: any) {
           this.logger.error(
             `Pre-warm failed for option ${optionId}: ${e.message}`,

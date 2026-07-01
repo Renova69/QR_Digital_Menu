@@ -161,13 +161,42 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
     paymentIntentId: string;
     amountCents?: number;
     reason?: string;
+    idempotencyKey?: string;
   }): Promise<{ refundId: string; status: string | null }> {
-    const refund = await this.stripe.refunds.create({
-      payment_intent: params.paymentIntentId,
-      ...(params.amountCents ? { amount: params.amountCents } : {}),
-      ...(params.reason ? { metadata: { reason: params.reason } } : {}),
-    });
+    const refund = await this.stripe.refunds.create(
+      {
+        payment_intent: params.paymentIntentId,
+        ...(params.amountCents ? { amount: params.amountCents } : {}),
+        // M-PAY-4: Stripe's typed `reason` (duplicate/fraudulent/requested_by_customer)
+        // feeds its dispute/fraud tooling — free text in metadata alone doesn't.
+        // This dashboard flow doesn't yet support restaurant-chosen classification,
+        // so every refund here is an ordinary restaurant-initiated refund.
+        reason: 'requested_by_customer',
+        ...(params.reason ? { metadata: { reason: params.reason } } : {}),
+      },
+      // F-PAY-1: idempotency key so a client retry after a lost/timed-out
+      // response reconciles to the same refund instead of creating a second
+      // one — the underlying failure mode this endpoint must not risk.
+      params.idempotencyKey
+        ? { idempotencyKey: params.idempotencyKey }
+        : undefined,
+    );
 
     return { refundId: refund.id, status: refund.status ?? null };
+  }
+
+  /**
+   * F-PAY-1 reconciliation: list Stripe's own record of refunds for a payment
+   * intent, used when our side is stuck in REFUND_PENDING (timeout/ambiguous
+   * response) and needs to ask Stripe directly what actually happened.
+   */
+  async listRefundsForPaymentIntent(
+    paymentIntentId: string,
+  ): Promise<Array<{ id: string; status: string | null }>> {
+    const refunds = await this.stripe.refunds.list({
+      payment_intent: paymentIntentId,
+      limit: 10,
+    });
+    return refunds.data.map((r) => ({ id: r.id, status: r.status ?? null }));
   }
 }

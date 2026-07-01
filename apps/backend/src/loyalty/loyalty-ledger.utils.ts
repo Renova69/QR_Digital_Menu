@@ -1,4 +1,7 @@
+import { InternalServerErrorException, Logger } from '@nestjs/common';
 import { LoyaltyPointTransactionType, Prisma } from '@prisma/client';
+
+const logger = new Logger('LoyaltyLedger');
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -35,6 +38,20 @@ export function getFirstRewardProgress(points: number, redeemRate: number) {
   };
 }
 
+/**
+ * Locks the loyalty_account row for the remainder of the current
+ * transaction. Every mutator of an account's points/lifetimePoints or its
+ * ledger — order creation, redemption, cancel reversal, and expiry (cron or
+ * on-demand) — must call this first so concurrent mutations against the
+ * same account serialize instead of racing on a stale read (M-ORDER-3).
+ */
+export async function lockLoyaltyAccountRow(
+  tx: Prisma.TransactionClient,
+  loyaltyAccountId: string,
+): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM "loyalty_account" WHERE id = ${loyaltyAccountId} FOR UPDATE`;
+}
+
 export async function expireAccountPoints(
   tx: Prisma.TransactionClient,
   loyaltyAccountId: string,
@@ -50,7 +67,8 @@ export async function expireAccountPoints(
   });
 
   const expiredPoints = expiredEntries.reduce(
-    (sum: number, entry: { remainingPoints: number }) => sum + entry.remainingPoints,
+    (sum: number, entry: { remainingPoints: number }) =>
+      sum + entry.remainingPoints,
     0,
   );
 
@@ -70,17 +88,14 @@ export async function expireAccountPoints(
     },
   });
 
-  const updated = await tx.loyaltyAccount.update({
-    where: { id: loyaltyAccountId },
-    data: { points: { decrement: expiredPoints } },
-  });
-
-  if (updated.points < 0) {
-    await tx.loyaltyAccount.update({
-      where: { id: loyaltyAccountId },
-      data: { points: 0 },
-    });
-  }
+  // Single guarded update instead of decrement-then-clamp (L-ORDER-1): avoids
+  // a transiently negative balance between two writes and computes the clamp
+  // from the current DB value rather than a value read earlier in the tx.
+  await tx.$executeRaw`
+    UPDATE "loyalty_account"
+    SET points = GREATEST(0, points - ${expiredPoints})
+    WHERE id = ${loyaltyAccountId}
+  `;
 
   return expiredPoints;
 }
@@ -114,7 +129,15 @@ export async function redeemAccountPoints(
   }
 
   if (remainingToRedeem > 0) {
-    throw new Error('Loyalty point ledger does not match account balance');
+    // M-ORDER-2: this is a server invariant failure (ledger sum diverged from
+    // the cached account.points balance), not user input — surface as a 500,
+    // but log full context since the client-facing message can't include it.
+    logger.error(
+      `Ledger/account balance mismatch: loyaltyAccountId=${loyaltyAccountId} orderId=${orderId ?? 'n/a'} requested=${pointsToRedeem} unfulfilled=${remainingToRedeem}`,
+    );
+    throw new InternalServerErrorException(
+      'Loyalty point ledger does not match account balance',
+    );
   }
 
   await tx.loyaltyPointLedger.create({

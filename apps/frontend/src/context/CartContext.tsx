@@ -30,6 +30,63 @@ export interface CartItem {
   rewardPointsPrice?: number;
 }
 
+// M-FE-3: localStorage cart is user-editable/corruptible outside the app —
+// validate shape beyond "JSON.parse didn't throw" so a malformed payload
+// (missing fields, NaN/negative price or quantity) can't reach getTotal().
+function isValidSelectedOption(value: unknown): value is SelectedOption {
+  if (!value || typeof value !== "object") return false;
+  const opt = value as Record<string, unknown>;
+  return (
+    typeof opt.optionId === "string" &&
+    typeof opt.optionName === "string" &&
+    typeof opt.choiceName === "string" &&
+    typeof opt.priceModifier === "number" &&
+    Number.isFinite(opt.priceModifier)
+  );
+}
+
+function isValidCartItem(value: unknown): value is CartItem {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Record<string, unknown>;
+  return (
+    typeof item.cartId === "string" &&
+    item.cartId.length > 0 &&
+    typeof item.id === "string" &&
+    item.id.length > 0 &&
+    typeof item.name === "string" &&
+    typeof item.price === "number" &&
+    Number.isFinite(item.price) &&
+    item.price >= 0 &&
+    typeof item.quantity === "number" &&
+    Number.isFinite(item.quantity) &&
+    item.quantity > 0 &&
+    Array.isArray(item.selectedOptions) &&
+    item.selectedOptions.every(isValidSelectedOption)
+  );
+}
+
+function loadCartFromStorage(): CartItem[] {
+  try {
+    const savedItems = localStorage.getItem("cartItems");
+    if (!savedItems) return [];
+    const parsed = JSON.parse(savedItems);
+    if (!Array.isArray(parsed)) {
+      localStorage.removeItem("cartItems");
+      return [];
+    }
+    const valid = parsed.filter(isValidCartItem);
+    if (valid.length !== parsed.length) {
+      // Persist the cleaned list so corrupt entries aren't re-validated (and
+      // re-discarded) on every reload.
+      localStorage.setItem("cartItems", JSON.stringify(valid));
+    }
+    return valid;
+  } catch {
+    localStorage.removeItem("cartItems");
+    return [];
+  }
+}
+
 // Define what the CartContext provides
 interface CartContextType {
   items: CartItem[];
@@ -54,15 +111,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 // Create the provider component
 export function CartProvider({ children }: { children: ReactNode }) {
   // Initialize cart items from localStorage (if available)
-  const [items, setItems] = useState<CartItem[]>(() => {
-    try {
-      const savedItems = localStorage.getItem("cartItems");
-      return savedItems ? JSON.parse(savedItems) : [];
-    } catch {
-      localStorage.removeItem("cartItems");
-      return [];
-    }
-  });
+  const [items, setItems] = useState<CartItem[]>(loadCartFromStorage);
 
   // Ref to access current items without creating dependency in useCallback
   const itemsRef = useRef(items);

@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { MenuImportService } from './menu-import.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
@@ -42,7 +46,9 @@ const mockFeatureService = {
 const mockPrisma = {
   restaurant: {
     // Used by checkOwnership AND by upsertMenu tier fetch
-    findUnique: jest.fn().mockResolvedValue({ tier: 'ENTERPRISE', forceTier: null }),
+    findUnique: jest
+      .fn()
+      .mockResolvedValue({ tier: 'ENTERPRISE', forceTier: null }),
     update: jest.fn().mockResolvedValue({}),
   },
   menuCategory: {
@@ -229,7 +235,9 @@ describe('MenuImportService', () => {
       );
     });
 
-    it('uses BGN currency when item.currency is BGN', async () => {
+    // F-FE-1/F-FE-3: EUR is the only transactional currency — a BGN-tagged
+    // import must be normalized to EUR, never stored as authoritative BGN.
+    it('normalizes a BGN-tagged import to EUR at the fixed rate', async () => {
       const tx = makeTx();
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
@@ -239,7 +247,12 @@ describe('MenuImportService', () => {
             name: 'BGN Menu',
             availabilityType: AvailabilityType.ALWAYS,
             items: [
-              { name: 'Item BGN', price: 2, currency: 'BGN', options: [] },
+              {
+                name: 'Item BGN',
+                price: 1.95583 * 2,
+                currency: 'BGN',
+                options: [],
+              },
             ],
           },
         ],
@@ -247,7 +260,49 @@ describe('MenuImportService', () => {
 
       expect(tx.menuItem.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ currency: Currency.BGN }),
+          data: expect.objectContaining({ currency: Currency.EUR, price: 2 }),
+        }),
+      );
+    });
+
+    // Security-review finding: choice price deltas live on the option, not
+    // the item, so the item-level BGN conversion above doesn't touch them —
+    // a BGN "+2 лв" upcharge must also convert, or it gets reinterpreted as
+    // "+2 EUR" downstream (order totals treat every stored number as EUR).
+    it('normalizes BGN choice price modifiers to EUR at the fixed rate', async () => {
+      const tx = makeTx();
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      await service.upsertMenu('rest-1', {
+        categories: [
+          {
+            name: 'BGN Menu',
+            availabilityType: AvailabilityType.ALWAYS,
+            items: [
+              {
+                name: 'Pizza',
+                price: 1.95583 * 10,
+                currency: 'BGN',
+                options: [
+                  {
+                    name: 'Size',
+                    type: 'ADDON',
+                    choices: [{ name: 'Large', price: 1.95583 * 2 }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(tx.menuOption.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            choices: [
+              expect.objectContaining({ name: 'Large', priceModifier: 2 }),
+            ],
+          }),
         }),
       );
     });
@@ -273,6 +328,28 @@ describe('MenuImportService', () => {
           data: expect.objectContaining({ currency: Currency.EUR }),
         }),
       );
+    });
+
+    // Unsupported currencies must be rejected, not silently coerced to EUR.
+    it('rejects an import item with an unsupported currency', async () => {
+      const tx = makeTx();
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      await expect(
+        service.upsertMenu('rest-1', {
+          categories: [
+            {
+              name: 'USD Menu',
+              availabilityType: AvailabilityType.ALWAYS,
+              items: [
+                { name: 'Item USD', price: 5, currency: 'USD', options: [] },
+              ],
+            },
+          ],
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(tx.menuItem.create).not.toHaveBeenCalled();
     });
 
     it('creates option with ADDON type and weighted choices', async () => {
@@ -392,7 +469,9 @@ describe('MenuImportService', () => {
 
       expect(tx.menuCategory.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ translations: { en: { name: 'Cat' } } }),
+          data: expect.objectContaining({
+            translations: { en: { name: 'Cat' } },
+          }),
         }),
       );
     });
@@ -459,7 +538,14 @@ describe('MenuImportService', () => {
       const tx = makeTx();
       // Preload shows cats with orders 0,1,2 so next should be 3
       mockPrisma.menuCategory.findMany.mockResolvedValue([
-        { id: 'c0', name: 'Existing', order: 2, imageUrl: null, thumbnailUrl: null, items: [] },
+        {
+          id: 'c0',
+          name: 'Existing',
+          order: 2,
+          imageUrl: null,
+          thumbnailUrl: null,
+          items: [],
+        },
       ]);
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
@@ -474,7 +560,9 @@ describe('MenuImportService', () => {
       });
 
       expect(tx.menuCategory.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ order: 3 }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ order: 3 }),
+        }),
       );
     });
 
@@ -515,8 +603,16 @@ describe('MenuImportService', () => {
       await expect(
         service.upsertMenu('rest-1', {
           categories: [
-            { name: 'Mains', availabilityType: AvailabilityType.ALWAYS, items: [] },
-            { name: 'mains', availabilityType: AvailabilityType.ALWAYS, items: [] },
+            {
+              name: 'Mains',
+              availabilityType: AvailabilityType.ALWAYS,
+              items: [],
+            },
+            {
+              name: 'mains',
+              availabilityType: AvailabilityType.ALWAYS,
+              items: [],
+            },
           ],
         }),
       ).rejects.toThrow(BadRequestException);

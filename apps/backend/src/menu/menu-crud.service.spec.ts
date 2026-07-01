@@ -11,6 +11,7 @@ import { TranslationService } from '../translation/translation.service';
 import { MenuTranslationService } from './menu-translation.service';
 import { FeatureService } from '../subscription/feature.service';
 import { StorageService } from '../storage/storage.service';
+import { EventsGateway } from '../events/events.gateway';
 
 const mockPrisma = {
   restaurant: { findUnique: jest.fn() },
@@ -49,6 +50,7 @@ const mockPrisma = {
 const mockTranslation = { translateObject: jest.fn() };
 const mockMenuTranslation = { applyLazyTranslations: jest.fn() };
 const mockStorage = { delete: jest.fn().mockResolvedValue(undefined) };
+const mockEvents = { emitPublicMenuItemAvailability: jest.fn() };
 
 const BASE_RESTAURANT = {
   id: 'rest-1',
@@ -116,6 +118,7 @@ describe('MenuCrudService', () => {
         { provide: TranslationService, useValue: mockTranslation },
         { provide: MenuTranslationService, useValue: mockMenuTranslation },
         { provide: StorageService, useValue: mockStorage },
+        { provide: EventsGateway, useValue: mockEvents },
         FeatureService,
       ],
     }).compile();
@@ -968,6 +971,38 @@ describe('MenuCrudService', () => {
       );
 
       expect(result.name).toBe('Updated');
+      expect(mockEvents.emitPublicMenuItemAvailability).not.toHaveBeenCalled();
+    });
+
+    it('emits a live availability event when isOutOfStock changes', async () => {
+      mockPrisma.menuItem.findUnique.mockResolvedValue(
+        makeItem({ isOutOfStock: false }),
+      );
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.menuItem.update.mockResolvedValue(
+        makeItem({ isOutOfStock: true }),
+      );
+
+      await service.updateItem('item-1', { isOutOfStock: true }, 'user-1');
+
+      expect(mockEvents.emitPublicMenuItemAvailability).toHaveBeenCalledWith(
+        'rest-1',
+        { itemId: 'item-1', categoryId: 'cat-1', isOutOfStock: true },
+      );
+    });
+
+    it('does not emit when isOutOfStock is set to its current value', async () => {
+      mockPrisma.menuItem.findUnique.mockResolvedValue(
+        makeItem({ isOutOfStock: false }),
+      );
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.menuItem.update.mockResolvedValue(
+        makeItem({ isOutOfStock: false }),
+      );
+
+      await service.updateItem('item-1', { isOutOfStock: false }, 'user-1');
+
+      expect(mockEvents.emitPublicMenuItemAvailability).not.toHaveBeenCalled();
     });
   });
 

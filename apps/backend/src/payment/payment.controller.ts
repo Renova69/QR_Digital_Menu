@@ -14,6 +14,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { PaymentHistoryQueryDto } from './dto/payment-history-query.dto';
+import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { RefundPaymentDto } from './dto/refund-payment.dto';
 import { SettlePartialDto } from './dto/settle-partial.dto';
 import { CreateCheckoutDto } from './dto/create-checkout.dto';
@@ -72,7 +73,7 @@ export class PaymentController {
   @HttpCode(HttpStatus.OK)
   createPaymentIntent(
     @Param('token') token: string,
-    @Body() body: { tipPercent: number },
+    @Body() body: CreatePaymentIntentDto,
   ) {
     return this.paymentService.createPaymentIntent(token, body.tipPercent ?? 0);
   }

@@ -193,9 +193,17 @@ const CheckoutPage = () => {
   useEffect(() => {
     if (!restaurantId) return;
 
+    // M-FE-1: abort + ignore-if-stale — without this, a slower request for a
+    // previous restaurant/user can resolve after a newer one and overwrite
+    // current loyalty state.
+    const controller = new AbortController();
     const request = user
-      ? api.post(`/loyalty/${restaurantId}/enroll`)
-      : api.get(`/loyalty/${restaurantId}/config`);
+      ? api.post(`/loyalty/${restaurantId}/enroll`, undefined, {
+          signal: controller.signal,
+        })
+      : api.get(`/loyalty/${restaurantId}/config`, {
+          signal: controller.signal,
+        });
 
     setLoyaltyLoadFailed(false);
     request
@@ -204,11 +212,14 @@ const CheckoutPage = () => {
         setLoyaltyPoints(res.data.points || 0);
       })
       .catch((err) => {
+        if (controller.signal.aborted) return; // superseded by a newer request
         // Surface the failure (#F6) — otherwise the loyalty panel just silently
         // vanishes and a logged-in customer thinks they have no points.
         console.error("[CheckoutPage] Failed to load loyalty data:", err);
         setLoyaltyLoadFailed(true);
       });
+
+    return () => controller.abort();
     // Fix M-6 — depend on the stable user id, not the user object reference,
     // so the enrollment POST does not re-fire on unrelated AuthContext renders.
   }, [user?.id, restaurantId]);
@@ -351,6 +362,21 @@ const CheckoutPage = () => {
             : t("checkout.itemNotFound"),
         );
         setShowResetCartAction(!isTableNotFound);
+      } else if (err.response?.status === 409) {
+        // Item-availability guard (staff 86'd it) or a payment-in-flight
+        // conflict — surface the backend's specific message when available.
+        const backendMessage =
+          typeof err.response?.data?.message === "string"
+            ? err.response.data.message
+            : null;
+        setError(
+          backendMessage ||
+            t("checkout.itemUnavailable", {
+              defaultValue:
+                "One of the items in your cart is no longer available.",
+            }),
+        );
+        setShowResetCartAction(true);
       } else {
         setError(
           t("checkout.failedSubmit", {
@@ -601,7 +627,7 @@ const CheckoutPage = () => {
                     <ul className="text-sm text-muted-foreground mt-1 space-y-1">
                       {item.selectedOptions.map((opt) => (
                         <li
-                          key={opt.choiceName}
+                          key={`${opt.optionId}:${opt.choiceName}`}
                           className="flex items-center gap-2"
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-primary/50 block"></span>

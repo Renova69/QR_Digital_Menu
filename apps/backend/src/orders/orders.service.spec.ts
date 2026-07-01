@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
   UnauthorizedException,
@@ -48,7 +49,7 @@ const makeOrder = (overrides: Record<string, any> = {}) => ({
   restaurantId: 'rest-1',
   tableId: 'table-1',
   tableSessionId: 'sess-1',
-  status: 'PENDING',
+  status: 'NEW',
   totalPrice: 10,
   pointsEarned: 0,
   pointsRedeemed: 0,
@@ -62,6 +63,7 @@ const makeOrder = (overrides: Record<string, any> = {}) => ({
 // tx passed to the main $transaction in create()
 const makeTx = (orderOverride: Record<string, any> = {}) => ({
   $queryRaw: jest.fn().mockResolvedValue([]),
+  $executeRaw: jest.fn().mockResolvedValue(0),
   tableSession: {
     findFirst: jest.fn().mockResolvedValue(null),
     create: jest.fn().mockResolvedValue({ id: 'sess-new', token: 'tok-new' }),
@@ -69,6 +71,9 @@ const makeTx = (orderOverride: Record<string, any> = {}) => ({
   loyaltyAccount: {
     findUnique: jest.fn().mockResolvedValue(null),
     create: jest
+      .fn()
+      .mockResolvedValue({ id: 'acc-1', points: 0, lifetimePoints: 0 }),
+    upsert: jest
       .fn()
       .mockResolvedValue({ id: 'acc-1', points: 0, lifetimePoints: 0 }),
     findUniqueOrThrow: jest
@@ -140,11 +145,15 @@ describe('OrdersService', () => {
         count: jest.fn().mockResolvedValue(0),
         findUnique: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest.fn(),
         create: jest.fn().mockResolvedValue(makeOrder()),
       },
       // #2: create() now checks for an in-flight payment before adding orders.
       payment: { findFirst: jest.fn().mockResolvedValue(null) },
       user: { findUnique: jest.fn() },
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      $executeRaw: jest.fn().mockResolvedValue(0),
       // Default: run the callback with the prisma mock as the tx. updateStatus
       // (#12) now wraps its update in a transaction; create() overrides this
       // per-test with a purpose-built tx (makeTx).
@@ -178,7 +187,9 @@ describe('OrdersService', () => {
         { provide: FeatureService, useValue: featureService },
         {
           provide: PrintStationService,
-          useValue: { routeOrderToPrinters: jest.fn().mockResolvedValue(undefined) },
+          useValue: {
+            routeOrderToPrinters: jest.fn().mockResolvedValue(undefined),
+          },
         },
       ],
     }).compile();
@@ -222,6 +233,18 @@ describe('OrdersService', () => {
           ],
         } as any),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects an order for an out-of-stock item', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([
+        makeMenuItem({ id: 'item-1', isOutOfStock: true }),
+      ]);
+
+      await expect(
+        service.create({
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        } as any),
+      ).rejects.toThrow(ConflictException);
     });
 
     it('throws ForbiddenException when feature flag blocks ordering on plan', async () => {
@@ -952,6 +975,11 @@ describe('OrdersService', () => {
         points: 500,
         lifetimePoints: 500,
       });
+      tx.loyaltyAccount.upsert.mockResolvedValue({
+        id: 'acc-1',
+        points: 500,
+        lifetimePoints: 500,
+      });
       tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
         id: 'acc-1',
         points: 500,
@@ -994,6 +1022,11 @@ describe('OrdersService', () => {
       );
       const tx = makeTx();
       tx.loyaltyAccount.findUnique.mockResolvedValue({
+        id: 'acc-1',
+        points: 500,
+        lifetimePoints: 500,
+      });
+      tx.loyaltyAccount.upsert.mockResolvedValue({
         id: 'acc-1',
         points: 500,
         lifetimePoints: 500,
@@ -1056,6 +1089,11 @@ describe('OrdersService', () => {
         points: 500,
         lifetimePoints: 500,
       });
+      tx.loyaltyAccount.upsert.mockResolvedValue({
+        id: 'acc-1',
+        points: 500,
+        lifetimePoints: 500,
+      });
       tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
         id: 'acc-1',
         points: 500,
@@ -1112,6 +1150,11 @@ describe('OrdersService', () => {
         points: 500,
         lifetimePoints: 500,
       });
+      tx.loyaltyAccount.upsert.mockResolvedValue({
+        id: 'acc-1',
+        points: 500,
+        lifetimePoints: 500,
+      });
       tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
         id: 'acc-1',
         points: 500,
@@ -1148,7 +1191,8 @@ describe('OrdersService', () => {
         makeRestaurant({ isLoyaltyEnabled: true }),
       );
       const tx = makeTx();
-      // Default: loyaltyAccount.findUnique returns null → account created
+      // Default: loyaltyAccount.upsert creates the row (M-ORDER-1: upsert,
+      // not findUnique-then-create, to avoid a P2002 race).
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
       );
@@ -1162,11 +1206,19 @@ describe('OrdersService', () => {
         'cust-1',
       );
 
-      expect(tx.loyaltyAccount.create).toHaveBeenCalled();
+      expect(tx.loyaltyAccount.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            userId_restaurantId: { userId: 'cust-1', restaurantId: 'rest-1' },
+          },
+          create: expect.objectContaining({ points: 0, lifetimePoints: 0 }),
+          update: {},
+        }),
+      );
       expect(tx.loyaltyAccount.update).toHaveBeenCalled();
     });
 
-    it('reuses existing loyalty account (skips create) and still awards points', async () => {
+    it('reuses existing loyalty account (upsert no-ops) and still awards points', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ isLoyaltyEnabled: true }),
@@ -1177,7 +1229,7 @@ describe('OrdersService', () => {
         points: 200,
         lifetimePoints: 500,
       };
-      tx.loyaltyAccount.findUnique.mockResolvedValue(existingAcc);
+      tx.loyaltyAccount.upsert.mockResolvedValue(existingAcc);
       tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue(existingAcc);
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
@@ -1230,6 +1282,11 @@ describe('OrdersService', () => {
       );
       const tx = makeTx();
       tx.loyaltyAccount.findUnique.mockResolvedValue({
+        id: 'acc-1',
+        points: 5,
+        lifetimePoints: 100,
+      });
+      tx.loyaltyAccount.upsert.mockResolvedValue({
         id: 'acc-1',
         points: 5,
         lifetimePoints: 100,
@@ -1367,16 +1424,16 @@ describe('OrdersService', () => {
       prisma.order.findUnique.mockResolvedValue(order);
       prisma.user.findUnique.mockResolvedValue({ restaurantId: null });
 
-      const updated = makeOrder({ status: 'READY' });
-      prisma.order.update.mockResolvedValue(updated);
+      const updated = makeOrder({ status: 'IN_PROGRESS' });
+      prisma.order.findUniqueOrThrow.mockResolvedValue(updated);
 
       const result = await service.updateStatus(
         'order-1',
-        { status: 'READY' } as any,
+        { status: 'IN_PROGRESS' } as any,
         'user-1',
       );
 
-      expect(result.status).toBe('READY');
+      expect(result.status).toBe('IN_PROGRESS');
       expect(events.emitToOrder).toHaveBeenCalledWith(
         'order-1',
         'orderStatusChanged',
@@ -1399,7 +1456,7 @@ describe('OrdersService', () => {
       const order = makeOrder({ tableSessionId: null });
       prisma.order.findUnique.mockResolvedValue(order);
       prisma.user.findUnique.mockResolvedValue({ restaurantId: null });
-      prisma.order.update.mockResolvedValue(
+      prisma.order.findUniqueOrThrow.mockResolvedValue(
         makeOrder({ tableSessionId: null, status: 'SERVED' }),
       );
 
@@ -1417,7 +1474,11 @@ describe('OrdersService', () => {
       prisma.user.findUnique.mockResolvedValue({ restaurantId: null });
 
       await expect(
-        service.updateStatus('order-1', { status: 'READY' } as any, 'user-1'),
+        service.updateStatus(
+          'order-1',
+          { status: 'IN_PROGRESS' } as any,
+          'user-1',
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -1431,8 +1492,11 @@ describe('OrdersService', () => {
         restaurant: { ownerId: 'user-1', loyaltyPointExpiryDays: 90 },
       });
       prisma.order.findUnique.mockResolvedValue(order);
-      prisma.user.findUnique.mockResolvedValue({ restaurantId: null });
-      prisma.order.update.mockResolvedValue(
+      prisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
+      prisma.order.findUniqueOrThrow.mockResolvedValue(
         makeOrder({ status: 'CANCELED', customerId: 'cust-1' }),
       );
       prisma.loyaltyAccount.findUnique.mockResolvedValue({
@@ -1455,18 +1519,24 @@ describe('OrdersService', () => {
         where: { id: { in: ['batch-1'] } },
         data: { remainingPoints: 0 },
       });
-      // account reconciled: 150 - 100 earned + 0 refund = 50; lifetime 150 - 100 = 50
-      expect(prisma.loyaltyAccount.update).toHaveBeenCalledWith({
-        where: { id: 'acc-1' },
-        data: { points: 50, lifetimePoints: 50 },
-      });
+      // account reconciled via one guarded SQL update (F-ORDER-4): clawback=100,
+      // refund=0, originalEarned=100 -> points/lifetimePoints both clamp to 50.
+      expect(prisma.$executeRaw).toHaveBeenCalledWith(
+        expect.anything(),
+        100, // clawback
+        0, // refund
+        100, // originalEarned
+        'acc-1',
+      );
     });
 
     it('does not reverse loyalty for a non-cancel status change', async () => {
       const order = makeOrder({ customerId: 'cust-1', pointsEarned: 100 });
       prisma.order.findUnique.mockResolvedValue(order);
       prisma.user.findUnique.mockResolvedValue({ restaurantId: null });
-      prisma.order.update.mockResolvedValue(makeOrder({ status: 'SERVED' }));
+      prisma.order.findUniqueOrThrow.mockResolvedValue(
+        makeOrder({ status: 'SERVED' }),
+      );
 
       await service.updateStatus(
         'order-1',
@@ -1475,6 +1545,132 @@ describe('OrdersService', () => {
       );
 
       expect(prisma.loyaltyAccount.update).not.toHaveBeenCalled();
+    });
+
+    // F-ORDER-1: no free-form status transitions.
+    it('rejects an invalid status transition', async () => {
+      const order = makeOrder({ status: 'NEW' });
+      prisma.order.findUnique.mockResolvedValue(order);
+      prisma.user.findUnique.mockResolvedValue({ restaurantId: null });
+      prisma.order.findUniqueOrThrow.mockResolvedValue(
+        makeOrder({ status: 'COMPLETED' }),
+      );
+
+      await expect(
+        service.updateStatus(
+          'order-1',
+          { status: 'COMPLETED' } as any,
+          'user-1',
+        ),
+      ).resolves.toBeDefined(); // NEW -> COMPLETED is allowed
+
+      const canceled = makeOrder({ status: 'CANCELED' });
+      prisma.order.findUnique.mockResolvedValue(canceled);
+
+      await expect(
+        service.updateStatus('order-1', { status: 'SERVED' } as any, 'user-1'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    // F-ORDER-1: CANCELED is terminal — closes the CANCELED -> X -> CANCELED
+    // replay that would otherwise double-run loyalty reversal.
+    it('rejects any transition out of CANCELED', async () => {
+      const order = makeOrder({ status: 'CANCELED' });
+      prisma.order.findUnique.mockResolvedValue(order);
+      prisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
+
+      await expect(
+        service.updateStatus(
+          'order-1',
+          { status: 'IN_PROGRESS' } as any,
+          'user-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      await expect(
+        service.updateStatus(
+          'order-1',
+          { status: 'CANCELED' } as any,
+          'user-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    // F-ORDER-5: cancellation is restricted to OWNER/MANAGER.
+    it('rejects cancellation from a non-owner/manager role', async () => {
+      const order = makeOrder({ status: 'NEW' });
+      prisma.order.findUnique.mockResolvedValue(order);
+      prisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'WAITER',
+      });
+
+      await expect(
+        service.updateStatus(
+          'order-1',
+          { status: 'CANCELED' } as any,
+          'user-1',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('allows cancellation from a manager role', async () => {
+      const order = makeOrder({ status: 'NEW' });
+      prisma.order.findUnique.mockResolvedValue(order);
+      prisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'MANAGER',
+      });
+      prisma.order.findUniqueOrThrow.mockResolvedValue(
+        makeOrder({ status: 'CANCELED' }),
+      );
+
+      await expect(
+        service.updateStatus(
+          'order-1',
+          { status: 'CANCELED' } as any,
+          'user-1',
+        ),
+      ).resolves.toBeDefined();
+    });
+
+    // Security-review finding: two concurrent requests can both read the
+    // order as non-CANCELED before either writes. The guarded updateMany
+    // (status: order.status precondition) must make only one win the CAS;
+    // the loser must not run loyalty reversal a second time.
+    it('rejects with ConflictException when the status changed concurrently, and does not reverse loyalty twice', async () => {
+      const order = makeOrder({
+        status: 'NEW',
+        customerId: 'cust-1',
+        pointsRedeemedForDiscount: 50,
+        pointsRedeemedForItems: 0,
+      });
+      prisma.order.findUnique.mockResolvedValue(order);
+      prisma.user.findUnique.mockResolvedValue({
+        restaurantId: null,
+        role: 'OWNER',
+      });
+      // Simulate the loser of the race: a concurrent request already flipped
+      // the status, so the guarded updateMany matches zero rows.
+      prisma.order.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.updateStatus(
+          'order-1',
+          { status: 'CANCELED' } as any,
+          'user-1',
+        ),
+      ).rejects.toThrow(ConflictException);
+
+      expect(prisma.order.updateMany).toHaveBeenCalledWith({
+        where: { id: 'order-1', status: 'NEW' },
+        data: { status: 'CANCELED' },
+      });
+      expect(prisma.loyaltyAccount.findUnique).not.toHaveBeenCalled();
+      expect(prisma.loyaltyPointLedger.create).not.toHaveBeenCalled();
     });
   });
 
@@ -1498,7 +1694,9 @@ describe('OrdersService', () => {
     });
 
     it('persists the DB price modifier, not the client-submitted one (#24)', async () => {
-      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem({ id: 'item-1' })]);
+      prisma.menuItem.findMany.mockResolvedValue([
+        makeMenuItem({ id: 'item-1' }),
+      ]);
       prisma.menuOption.findMany.mockResolvedValue([
         {
           id: 'opt-1',
@@ -1532,7 +1730,8 @@ describe('OrdersService', () => {
       } as any);
 
       const persisted =
-        tx.order.create.mock.calls[0][0].data.items.create[0].selectedOptions[0];
+        tx.order.create.mock.calls[0][0].data.items.create[0]
+          .selectedOptions[0];
       expect(persisted.priceModifier).toBe(2);
       expect(persisted.optionName).toBe('Size');
       expect(persisted.choiceName).toBe('Large');
@@ -1544,7 +1743,9 @@ describe('OrdersService', () => {
   describe('create — choice validation (Issue 2)', () => {
     beforeEach(() => {
       prisma.restaurant.findUnique.mockResolvedValue(makeRestaurant());
-      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem({ id: 'item-1' })]);
+      prisma.menuItem.findMany.mockResolvedValue([
+        makeMenuItem({ id: 'item-1' }),
+      ]);
       prisma.menuOption.findMany.mockResolvedValue([
         {
           id: 'opt-1',
@@ -1557,7 +1758,10 @@ describe('OrdersService', () => {
           ],
         },
       ]);
-      prisma.restaurantTable.findFirst.mockResolvedValue({ id: 'table-1', name: 'table-1' });
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-1',
+        name: 'table-1',
+      });
       prisma.$transaction.mockImplementation((fn: any) => fn(makeTx()));
     });
 
@@ -1572,8 +1776,18 @@ describe('OrdersService', () => {
                 menuItemId: 'item-1',
                 quantity: 1,
                 selectedOptions: [
-                  { optionId: 'opt-1', optionName: 'Size', choiceName: 'Small', priceModifier: 0 },
-                  { optionId: 'opt-1', optionName: 'Size', choiceName: 'Small', priceModifier: 0 },
+                  {
+                    optionId: 'opt-1',
+                    optionName: 'Size',
+                    choiceName: 'Small',
+                    priceModifier: 0,
+                  },
+                  {
+                    optionId: 'opt-1',
+                    optionName: 'Size',
+                    choiceName: 'Small',
+                    priceModifier: 0,
+                  },
                 ],
               },
             ],
@@ -1594,8 +1808,18 @@ describe('OrdersService', () => {
                 menuItemId: 'item-1',
                 quantity: 1,
                 selectedOptions: [
-                  { optionId: 'opt-1', optionName: 'Size', choiceName: 'Small', priceModifier: 0 },
-                  { optionId: 'opt-1', optionName: 'Size', choiceName: 'Large', priceModifier: 2 },
+                  {
+                    optionId: 'opt-1',
+                    optionName: 'Size',
+                    choiceName: 'Small',
+                    priceModifier: 0,
+                  },
+                  {
+                    optionId: 'opt-1',
+                    optionName: 'Size',
+                    choiceName: 'Large',
+                    priceModifier: 2,
+                  },
                 ],
               },
             ],
@@ -1637,7 +1861,10 @@ describe('OrdersService', () => {
       );
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.menuOption.findMany.mockResolvedValue([]);
-      prisma.restaurantTable.findFirst.mockResolvedValue({ id: 'table-1', name: 'table-1' });
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-1',
+        name: 'table-1',
+      });
       mockAuthenticatedCustomer(prisma);
 
       await service.create(
@@ -1667,12 +1894,30 @@ describe('OrdersService', () => {
         makeMenuItem({ id: 'item-exp', price: 10, rewardPointsPrice: 50 }),
       ]);
       prisma.menuOption.findMany.mockResolvedValue([]);
-      prisma.restaurantTable.findFirst.mockResolvedValue({ id: 'table-1', name: 'table-1' });
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-1',
+        name: 'table-1',
+      });
       mockAuthenticatedCustomer(prisma);
       const tx = makeTx();
-      tx.loyaltyAccount.findUnique.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
-      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
-      tx.loyaltyPointLedger.findMany.mockResolvedValue([{ id: 'batch-1', remainingPoints: 500 }]);
+      tx.loyaltyAccount.findUnique.mockResolvedValue({
+        id: 'acc-1',
+        points: 500,
+        lifetimePoints: 500,
+      });
+      tx.loyaltyAccount.upsert.mockResolvedValue({
+        id: 'acc-1',
+        points: 500,
+        lifetimePoints: 500,
+      });
+      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
+        id: 'acc-1',
+        points: 500,
+        lifetimePoints: 500,
+      });
+      tx.loyaltyPointLedger.findMany.mockResolvedValue([
+        { id: 'batch-1', remainingPoints: 500 },
+      ]);
       prisma.$transaction.mockImplementation((fn: any) => fn(tx));
 
       await service.create(
@@ -1703,12 +1948,30 @@ describe('OrdersService', () => {
         makeMenuItem({ id: 'item-1', price: 5, rewardPointsPrice: 100 }),
       ]);
       prisma.menuOption.findMany.mockResolvedValue([]);
-      prisma.restaurantTable.findFirst.mockResolvedValue({ id: 'table-1', name: 'table-1' });
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'table-1',
+        name: 'table-1',
+      });
       mockAuthenticatedCustomer(prisma);
       const tx = makeTx();
-      tx.loyaltyAccount.findUnique.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
-      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({ id: 'acc-1', points: 500, lifetimePoints: 500 });
-      tx.loyaltyPointLedger.findMany.mockResolvedValue([{ id: 'batch-1', remainingPoints: 500 }]);
+      tx.loyaltyAccount.findUnique.mockResolvedValue({
+        id: 'acc-1',
+        points: 500,
+        lifetimePoints: 500,
+      });
+      tx.loyaltyAccount.upsert.mockResolvedValue({
+        id: 'acc-1',
+        points: 500,
+        lifetimePoints: 500,
+      });
+      tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
+        id: 'acc-1',
+        points: 500,
+        lifetimePoints: 500,
+      });
+      tx.loyaltyPointLedger.findMany.mockResolvedValue([
+        { id: 'batch-1', remainingPoints: 500 },
+      ]);
       prisma.$transaction.mockImplementation((fn: any) => fn(tx));
 
       await service.create(

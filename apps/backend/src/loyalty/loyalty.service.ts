@@ -10,6 +10,7 @@ import {
   getFirstRewardProgress,
   getRewardValue,
   markRemindersSent,
+  lockLoyaltyAccountRow,
   MAX_SIGNUP_BONUS,
 } from './loyalty-ledger.utils';
 import {
@@ -21,6 +22,17 @@ import { FeatureService } from '../subscription/feature.service';
 import { isLoyaltyAvailable } from './loyalty-availability.util';
 
 const EXPIRY_BATCH_SIZE = 50;
+
+// M-ORDER-4: customer name and restaurant name are user-controlled and get
+// interpolated into HTML email bodies below — escape before every use.
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 // Effective-tier fields needed to evaluate loyalty availability (#5).
 const LOYALTY_TIER_FIELDS = {
@@ -99,11 +111,13 @@ export class LoyaltyService {
       expiringSoonPoints,
       expiringSoonValue: getRewardValue(expiringSoonPoints, redeemRate),
       nextExpirationAt: expiringBatches[0]?.expiresAt ?? null,
-      expiringSoon: expiringBatches.map((b: { remainingPoints: number; expiresAt: Date }) => ({
-        points: b.remainingPoints,
-        value: getRewardValue(b.remainingPoints, redeemRate),
-        expiresAt: b.expiresAt,
-      })),
+      expiringSoon: expiringBatches.map(
+        (b: { remainingPoints: number; expiresAt: Date }) => ({
+          points: b.remainingPoints,
+          value: getRewardValue(b.remainingPoints, redeemRate),
+          expiresAt: b.expiresAt,
+        }),
+      ),
     };
   }
 
@@ -188,18 +202,21 @@ export class LoyaltyService {
     let expiringSoon: any[] = [];
 
     if (acc && restaurant) {
-      const result = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        await expireAccountPoints(tx, acc!.id);
-        const updatedAccount = await tx.loyaltyAccount.findUniqueOrThrow({
-          where: { id: acc!.id },
-        });
-        const batches = await getExpiringPointBatches(
-          tx,
-          acc!.id,
-          restaurant.loyaltyExpiryReminderDays || 15,
-        );
-        return { updatedAccount, batches };
-      });
+      const result = await this.prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          await lockLoyaltyAccountRow(tx, acc!.id);
+          await expireAccountPoints(tx, acc!.id);
+          const updatedAccount = await tx.loyaltyAccount.findUniqueOrThrow({
+            where: { id: acc!.id },
+          });
+          const batches = await getExpiringPointBatches(
+            tx,
+            acc!.id,
+            restaurant.loyaltyExpiryReminderDays || 15,
+          );
+          return { updatedAccount, batches };
+        },
+      );
 
       acc = result.updatedAccount;
       expiringSoon = result.batches;
@@ -240,6 +257,7 @@ export class LoyaltyService {
       accounts.map(async (account) => {
         const { updated, expiringBatches } = await this.prisma.$transaction(
           async (tx: Prisma.TransactionClient) => {
+            await lockLoyaltyAccountRow(tx, account.id);
             await expireAccountPoints(tx, account.id);
 
             const updated = await tx.loyaltyAccount.findUniqueOrThrow({
@@ -329,8 +347,15 @@ export class LoyaltyService {
     for (const account of accounts) {
       // Per-account short transaction: expire stale points, then read candidates
       const batches = await this.prisma.$transaction(async (tx) => {
+        await lockLoyaltyAccountRow(tx, account.id);
         await expireAccountPoints(tx, account.id);
-        return getExpiringPointBatches(tx, account.id, reminderDays, new Date(), true);
+        return getExpiringPointBatches(
+          tx,
+          account.id,
+          reminderDays,
+          new Date(),
+          true,
+        );
       });
 
       if (batches.length === 0 || !account.user?.email) continue;
@@ -353,24 +378,34 @@ export class LoyaltyService {
               to: [account.user.email],
               subject: `Your loyalty points at ${restaurantName} are expiring soon`,
               text: `Hi ${account.user.name || 'there'},\n\nYou have ${points} loyalty points at ${restaurantName} expiring soon.\n\nVisit us to redeem them!\n\nThe ${restaurantName} team`,
-              html: `<p style="font-family:sans-serif">Hi ${account.user.name || 'there'},</p><p style="font-family:sans-serif">You have <strong>${points} loyalty points</strong> at <strong>${restaurantName}</strong> expiring soon.</p><p style="font-family:sans-serif">Visit us to redeem them!</p><p style="font-family:sans-serif">The ${restaurantName} team</p>`,
+              html: `<p style="font-family:sans-serif">Hi ${escapeHtml(account.user.name || 'there')},</p><p style="font-family:sans-serif">You have <strong>${points} loyalty points</strong> at <strong>${escapeHtml(restaurantName)}</strong> expiring soon.</p><p style="font-family:sans-serif">Visit us to redeem them!</p><p style="font-family:sans-serif">The ${escapeHtml(restaurantName)} team</p>`,
             }),
           });
           if (!res.ok) {
-            this.logger.error(`Expiry reminder HTTP ${res.status} for ${account.user.email}`);
+            this.logger.error(
+              `Expiry reminder HTTP ${res.status} for ${account.user.email}`,
+            );
             sent = false;
           }
         } catch (emailErr) {
-          this.logger.error(`Failed to send expiry reminder to ${account.user.email}`, emailErr);
+          this.logger.error(
+            `Failed to send expiry reminder to ${account.user.email}`,
+            emailErr,
+          );
           sent = false;
         }
       } else {
-        this.logger.log(`[DEV] Expiry reminder for ${account.user.email}: ${points} pts at ${restaurantName}`);
+        this.logger.log(
+          `[DEV] Expiry reminder for ${account.user.email}: ${points} pts at ${restaurantName}`,
+        );
       }
 
       if (sent) {
         await this.prisma.$transaction(async (tx) =>
-          markRemindersSent(tx, batches.map((b) => b.id)),
+          markRemindersSent(
+            tx,
+            batches.map((b) => b.id),
+          ),
         );
         notified.push({
           user: account.user,
@@ -414,8 +449,15 @@ export class LoyaltyService {
       if (!account.user?.email) continue;
 
       const batches = await this.prisma.$transaction(async (tx) => {
+        await lockLoyaltyAccountRow(tx, account.id);
         await expireAccountPoints(tx, account.id);
-        return getExpiringPointBatches(tx, account.id, reminderDays, new Date(), true);
+        return getExpiringPointBatches(
+          tx,
+          account.id,
+          reminderDays,
+          new Date(),
+          true,
+        );
       });
 
       if (batches.length === 0) continue;
@@ -477,7 +519,10 @@ export class LoyaltyService {
 
     return {
       totalMembers: accounts.length,
-      totalPointsOutstanding: accounts.reduce((s: number, a: { points: number }) => s + a.points, 0),
+      totalPointsOutstanding: accounts.reduce(
+        (s: number, a: { points: number }) => s + a.points,
+        0,
+      ),
       totalPointsRedeemed: ordersWithRedemptions.reduce(
         (s: number, o: { pointsRedeemed: number }) => s + o.pointsRedeemed,
         0,
@@ -539,8 +584,15 @@ export class LoyaltyService {
 
           for (const account of accounts) {
             const batches = await this.prisma.$transaction(async (tx) => {
+              await lockLoyaltyAccountRow(tx, account.id);
               await expireAccountPoints(tx, account.id);
-              return getExpiringPointBatches(tx, account.id, reminderDays, new Date(), true);
+              return getExpiringPointBatches(
+                tx,
+                account.id,
+                reminderDays,
+                new Date(),
+                true,
+              );
             });
 
             if (batches.length === 0 || !account.user?.email) continue;
@@ -562,37 +614,55 @@ export class LoyaltyService {
                     to: [account.user.email],
                     subject: `Your loyalty points at ${restaurant.name} are expiring soon`,
                     text: `Hi ${account.user.name || 'there'},\n\nYou have ${points} loyalty points at ${restaurant.name} that will expire soon.\n\nVisit us before they expire to redeem them!\n\nThe ${restaurant.name} team`,
-                    html: `<p style="font-family:sans-serif">Hi ${account.user.name || 'there'},</p><p style="font-family:sans-serif">You have <strong>${points} loyalty points</strong> at <strong>${restaurant.name}</strong> that will expire soon.</p><p style="font-family:sans-serif">Visit us before they expire to redeem them!</p><p style="font-family:sans-serif">The ${restaurant.name} team</p>`,
+                    html: `<p style="font-family:sans-serif">Hi ${escapeHtml(account.user.name || 'there')},</p><p style="font-family:sans-serif">You have <strong>${points} loyalty points</strong> at <strong>${escapeHtml(restaurant.name)}</strong> that will expire soon.</p><p style="font-family:sans-serif">Visit us before they expire to redeem them!</p><p style="font-family:sans-serif">The ${escapeHtml(restaurant.name)} team</p>`,
                   }),
                 });
                 if (!res.ok) {
-                  this.logger.error(`Expiry reminder HTTP ${res.status} for ${account.user.email}`);
+                  this.logger.error(
+                    `Expiry reminder HTTP ${res.status} for ${account.user.email}`,
+                  );
                   sent = false;
                 }
               } catch (emailErr) {
-                this.logger.error(`Failed to send expiry reminder to ${account.user.email}`, emailErr);
+                this.logger.error(
+                  `Failed to send expiry reminder to ${account.user.email}`,
+                  emailErr,
+                );
                 sent = false;
               }
             } else {
-              this.logger.log(`[DEV] Expiry reminder for ${account.user.email}: ${points} pts at ${restaurant.name}`);
+              this.logger.log(
+                `[DEV] Expiry reminder for ${account.user.email}: ${points} pts at ${restaurant.name}`,
+              );
             }
 
             if (sent) {
               await this.prisma.$transaction(async (tx) =>
-                markRemindersSent(tx, batches.map((b) => b.id)),
+                markRemindersSent(
+                  tx,
+                  batches.map((b) => b.id),
+                ),
               );
               totalSent++;
             }
           }
 
-          cursor = accounts.length === EXPIRY_BATCH_SIZE ? accounts.at(-1)!.id : undefined;
+          cursor =
+            accounts.length === EXPIRY_BATCH_SIZE
+              ? accounts.at(-1)!.id
+              : undefined;
         } while (cursor);
 
         if (totalSent > 0) {
-          this.logger.log(`[${restaurant.name}] ${totalSent} expiry reminders sent`);
+          this.logger.log(
+            `[${restaurant.name}] ${totalSent} expiry reminders sent`,
+          );
         }
       } catch (err) {
-        this.logger.error(`Expiry reminder job failed for restaurant ${restaurant.id}`, err);
+        this.logger.error(
+          `Expiry reminder job failed for restaurant ${restaurant.id}`,
+          err,
+        );
       }
     }
   }

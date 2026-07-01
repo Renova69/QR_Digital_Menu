@@ -3,10 +3,21 @@ import { MenuTranslationService } from './menu-translation.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TranslationService } from '../translation/translation.service';
 
+// F-TRANS-1/2: writes now go through $executeRaw (jsonb `||` merge) instead
+// of menuCategory/menuItem/menuOption.update. Helper below inspects the raw
+// SQL template's literal segment to tell which entity table a call targeted.
 const mockPrisma = {
-  menuCategory: { update: jest.fn() },
-  menuItem: { update: jest.fn() },
-  menuOption: { update: jest.fn() },
+  $executeRaw: jest.fn(),
+};
+
+const rawCallsFor = (table: string) =>
+  mockPrisma.$executeRaw.mock.calls.filter((call: any[]) =>
+    (call[0] as TemplateStringsArray)[0].includes(table),
+  );
+
+const rawJsonFragmentFor = (table: string, index = 0): any => {
+  const call = rawCallsFor(table)[index];
+  return call ? JSON.parse(call[1]) : undefined;
 };
 
 const mockTranslation = {
@@ -50,9 +61,7 @@ describe('MenuTranslationService', () => {
     mockTranslation.translateTexts.mockImplementation((texts: string[]) =>
       Promise.resolve([...texts]),
     );
-    mockPrisma.menuCategory.update.mockResolvedValue({});
-    mockPrisma.menuItem.update.mockResolvedValue({});
-    mockPrisma.menuOption.update.mockResolvedValue({});
+    mockPrisma.$executeRaw.mockResolvedValue(0);
   });
 
   describe('applyLazyTranslations', () => {
@@ -60,7 +69,7 @@ describe('MenuTranslationService', () => {
       await service.applyLazyTranslations([], 'en');
 
       expect(mockTranslation.translateTexts).not.toHaveBeenCalled();
-      expect(mockPrisma.menuCategory.update).not.toHaveBeenCalled();
+      expect(mockPrisma.$executeRaw).not.toHaveBeenCalled();
     });
 
     it('makes no API calls when all translations are already cached', async () => {
@@ -90,16 +99,9 @@ describe('MenuTranslationService', () => {
         ['Starters'],
         'bg',
       );
-      expect(mockPrisma.menuCategory.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: 'cat-1' },
-          data: expect.objectContaining({
-            translations: expect.objectContaining({
-              bg: { name: 'Starters BG' },
-            }),
-          }),
-        }),
-      );
+      expect(rawJsonFragmentFor('menu_category')).toEqual({
+        bg: { name: 'Starters BG' },
+      });
     });
 
     it('applies translated name to in-memory category object', async () => {
@@ -165,11 +167,11 @@ describe('MenuTranslationService', () => {
 
       // option name + 2 choices = 3 texts
       expect(mockTranslation.translateTexts).toHaveBeenCalledTimes(1);
-      expect(mockPrisma.menuOption.update).toHaveBeenCalled();
+      expect(rawCallsFor('menu_option')).toHaveLength(1);
     });
 
     it('does not throw when category DB write fails — logs warning only', async () => {
-      mockPrisma.menuCategory.update.mockRejectedValue(new Error('DB error'));
+      mockPrisma.$executeRaw.mockRejectedValue(new Error('DB error'));
       const category = makeCategory({ items: [] });
 
       await expect(
@@ -178,8 +180,12 @@ describe('MenuTranslationService', () => {
     });
 
     it('does not throw when item DB write fails — logs warning only', async () => {
-      mockPrisma.menuCategory.update.mockResolvedValue({});
-      mockPrisma.menuItem.update.mockRejectedValue(new Error('Item DB error'));
+      mockPrisma.$executeRaw.mockImplementation(
+        (strings: TemplateStringsArray) =>
+          strings[0].includes('menu_item')
+            ? Promise.reject(new Error('Item DB error'))
+            : Promise.resolve(0),
+      );
       const item = makeItem({ description: 'Hot' });
       const category = makeCategory({ items: [item] });
 
@@ -189,8 +195,11 @@ describe('MenuTranslationService', () => {
     });
 
     it('does not throw when option DB write fails — logs warning only', async () => {
-      mockPrisma.menuOption.update.mockRejectedValue(
-        new Error('Option DB error'),
+      mockPrisma.$executeRaw.mockImplementation(
+        (strings: TemplateStringsArray) =>
+          strings[0].includes('menu_option')
+            ? Promise.reject(new Error('Option DB error'))
+            : Promise.resolve(0),
       );
       const option = {
         id: 'opt-1',
@@ -252,11 +261,9 @@ describe('MenuTranslationService', () => {
 
       await service.applyLazyTranslations([category], 'ro');
 
-      expect(mockPrisma.menuItem.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: 'item-1' },
-          data: expect.objectContaining({ translations: expect.any(Object) }),
-        }),
+      expect(rawCallsFor('menu_item')).toHaveLength(1);
+      expect((item as any).translations).toEqual(
+        expect.objectContaining({ ro: expect.any(Object) }),
       );
     });
 
@@ -315,7 +322,10 @@ describe('MenuTranslationService', () => {
 
       // Only 'Large' is missing → 1 text
       expect(mockTranslation.translateTexts).toHaveBeenCalledTimes(1);
-      const [texts] = mockTranslation.translateTexts.mock.calls[0] as [string[], string];
+      const [texts] = mockTranslation.translateTexts.mock.calls[0] as [
+        string[],
+        string,
+      ];
       expect(texts).toContain('Large');
       expect(texts).not.toContain('Small');
     });
@@ -324,7 +334,9 @@ describe('MenuTranslationService', () => {
       const option = {
         id: 'opt-1',
         name: 'Size',
-        translations: { bg: { name: 'Размер', choices: { Small: 'Малък', Large: 'Голям' } } },
+        translations: {
+          bg: { name: 'Размер', choices: { Small: 'Малък', Large: 'Голям' } },
+        },
         choices: [{ name: 'Small' }, { name: 'Large' }],
       };
       const item = makeItem({
@@ -358,7 +370,10 @@ describe('MenuTranslationService', () => {
 
       // Only 'Gluten' is missing
       expect(mockTranslation.translateTexts).toHaveBeenCalledTimes(1);
-      const [texts] = mockTranslation.translateTexts.mock.calls[0] as [string[], string];
+      const [texts] = mockTranslation.translateTexts.mock.calls[0] as [
+        string[],
+        string,
+      ];
       expect(texts).toContain('Gluten');
       expect(texts).not.toContain('Milk');
     });
@@ -405,7 +420,9 @@ describe('MenuTranslationService', () => {
       const item = makeItem({
         allergens: ['Milk'],
         dietaryTags: ['Vegan'],
-        translations: { ro: { name: 'Supa', allergens: ['Lapte'], dietaryTags: ['Vegan'] } },
+        translations: {
+          ro: { name: 'Supa', allergens: ['Lapte'], dietaryTags: ['Vegan'] },
+        },
       });
       const category = makeCategory({
         translations: { ro: { name: 'Aperitive' } },
@@ -474,7 +491,7 @@ describe('MenuTranslationService', () => {
         translations: {
           fr: {
             name: 'Taille',
-            choices: { 'Голяма': 'Grande' },
+            choices: { Голяма: 'Grande' },
           },
         },
       };

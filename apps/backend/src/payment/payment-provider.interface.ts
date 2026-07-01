@@ -32,5 +32,6 @@ export interface IPaymentProvider {
     paymentIntentId: string;
     amountCents?: number;
     reason?: string;
+    idempotencyKey?: string;
   }): Promise<{ refundId: string; status: string | null }>;
 }

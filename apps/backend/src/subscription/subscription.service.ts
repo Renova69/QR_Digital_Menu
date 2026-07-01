@@ -3,6 +3,7 @@ import {
   Logger,
   BadRequestException,
   ForbiddenException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -197,8 +198,19 @@ export class SubscriptionService {
       session = await this.stripe.checkout.sessions.retrieve(sessionId, {
         expand: ['line_items'],
       });
-    } catch {
-      return { tier: 'FREE' };
+    } catch (err) {
+      // F-PAY-2: a Stripe API failure (network/rate-limit) is not proof the
+      // customer has no subscription — silently returning FREE would make a
+      // paying customer see FREE tier on a transient error. Surface it as
+      // retryable instead; only an authoritative Stripe result should ever
+      // produce a FREE result here.
+      this.logger.error(
+        `Stripe checkout session retrieval failed for session=${sessionId} userId=${userId}`,
+        err as Error,
+      );
+      throw new ServiceUnavailableException(
+        'Could not confirm your checkout session right now. Please retry shortly.',
+      );
     }
 
     if (session.status !== 'complete') return { tier: 'FREE' };
@@ -513,22 +525,24 @@ export class SubscriptionService {
         SELECT id, "previousTier" FROM updated
       `;
 
-      await Promise.all(
-        rows.map((r) =>
-          tx.adminAuditLog.create({
-            data: {
-              action: 'TIER_DOWNGRADE',
-              targetType: 'RESTAURANT',
-              targetId: r.id,
-              metadata: {
-                actor: 'SYSTEM',
-                reason: 'grace_expiry',
-                previousTier: r.previousTier,
-              },
+      // F-PAY-3: createMany instead of Promise.all(...create) — a single
+      // batched write instead of N concurrent writes on the same transaction
+      // connection (Prisma serializes them anyway under PgBouncer transaction
+      // mode, so Promise.all bought nothing but was still a rule violation).
+      if (rows.length > 0) {
+        await tx.adminAuditLog.createMany({
+          data: rows.map((r) => ({
+            action: 'TIER_DOWNGRADE',
+            targetType: 'RESTAURANT',
+            targetId: r.id,
+            metadata: {
+              actor: 'SYSTEM',
+              reason: 'grace_expiry',
+              previousTier: r.previousTier,
             },
-          }),
-        ),
-      );
+          })),
+        });
+      }
 
       return rows;
     });
@@ -571,22 +585,20 @@ export class SubscriptionService {
         SELECT id, "expiredForceTier" FROM updated
       `;
 
-      await Promise.all(
-        rows.map((r) =>
-          tx.adminAuditLog.create({
-            data: {
-              action: 'TIER_CLEAR',
-              targetType: 'RESTAURANT',
-              targetId: r.id,
-              metadata: {
-                actor: 'SYSTEM',
-                reason: 'force_tier_expiry',
-                expiredForceTier: r.expiredForceTier,
-              },
+      if (rows.length > 0) {
+        await tx.adminAuditLog.createMany({
+          data: rows.map((r) => ({
+            action: 'TIER_CLEAR',
+            targetType: 'RESTAURANT',
+            targetId: r.id,
+            metadata: {
+              actor: 'SYSTEM',
+              reason: 'force_tier_expiry',
+              expiredForceTier: r.expiredForceTier,
             },
-          }),
-        ),
-      );
+          })),
+        });
+      }
 
       return rows;
     });

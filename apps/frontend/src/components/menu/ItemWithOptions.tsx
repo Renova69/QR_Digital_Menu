@@ -134,7 +134,10 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
       id: item.id,
       name: item.originalName ?? item.name,
       originalName: item.originalName ?? item.name,
-      price: item.price,
+      // F-FE-1/F-FE-3: cart/order totals are EUR-only — normalize a
+      // BGN-tagged item price (legacy/import data) rather than storing it
+      // raw, which getTotal() would otherwise sum as if it were EUR.
+      price: priceEuro,
       quantity: 1,
       selectedOptions: optionsWithDetails,
       itemTranslations: item.translations ?? null,
@@ -230,7 +233,10 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
         id: pairing.id,
         name: pairing.originalName ?? pairing.name,
         originalName: pairing.originalName ?? pairing.name,
-        price: pairing.price,
+        // F-FE-1/F-FE-3: same EUR normalization as buildMainCartItem — the
+        // pairing upsell item can carry a BGN-tagged price too.
+        price:
+          pairing.currency === "BGN" ? pairing.price / BGN_RATE : pairing.price,
         quantity: 1,
         selectedOptions: [],
         itemTranslations: pairing.translations ?? null,
@@ -615,7 +621,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
                   {t("publicMenu.addToCart", "Add to Cart")}
                   {" — "}
                   {formatEuro(
-                    item.price +
+                    priceEuro +
                       Object.values(selectedOptions).reduce(
                         (sum, c) => sum + (c.priceModifier || 0),
                         0,

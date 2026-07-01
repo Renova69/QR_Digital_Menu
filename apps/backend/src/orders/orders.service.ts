@@ -8,7 +8,11 @@ import {
   Logger,
 } from '@nestjs/common';
 import { DateTime } from 'luxon';
-import { Prisma, LoyaltyPointTransactionType, OrderStatus } from '@prisma/client';
+import {
+  Prisma,
+  LoyaltyPointTransactionType,
+  OrderStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -19,6 +23,7 @@ import {
   addEarnedPointBatch,
   expireAccountPoints,
   redeemAccountPoints,
+  lockLoyaltyAccountRow,
   MAX_SIGNUP_BONUS,
 } from '../loyalty/loyalty-ledger.utils';
 import {
@@ -38,6 +43,39 @@ const POS_STAFF_ROLES = new Set([
   'KITCHEN',
   'STAFF',
 ]);
+
+/** Roles permitted to cancel an order (and trigger loyalty reversal). */
+const CANCEL_ORDER_ROLES = new Set(['OWNER', 'MANAGER']);
+
+/**
+ * Allowed order-status transitions. CANCELED and COMPLETED are terminal —
+ * neither can transition anywhere except CANCELED can additionally be
+ * reached from COMPLETED (restaurant-initiated post-completion cancel).
+ * Nothing transitions OUT of CANCELED: this both prevents un-cancelling
+ * (which would let a re-cancel replay loyalty reversal and double-refund
+ * redeemed points) and keeps the state machine a strict DAG.
+ */
+const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  [OrderStatus.PENDING_PAYMENT]: [
+    OrderStatus.NEW,
+    OrderStatus.IN_PROGRESS,
+    OrderStatus.CANCELED,
+  ],
+  [OrderStatus.NEW]: [
+    OrderStatus.IN_PROGRESS,
+    OrderStatus.SERVED,
+    OrderStatus.COMPLETED,
+    OrderStatus.CANCELED,
+  ],
+  [OrderStatus.IN_PROGRESS]: [
+    OrderStatus.SERVED,
+    OrderStatus.COMPLETED,
+    OrderStatus.CANCELED,
+  ],
+  [OrderStatus.SERVED]: [OrderStatus.COMPLETED, OrderStatus.CANCELED],
+  [OrderStatus.COMPLETED]: [OrderStatus.CANCELED],
+  [OrderStatus.CANCELED]: [],
+};
 
 const LOYALTY_CONFIG = {
   MAX_ORDER_DISCOUNT: 0.15, // max 15% of order total redeemable
@@ -98,6 +136,15 @@ export class OrdersService {
       if (dbItem.category.restaurantId !== restaurantId) {
         throw new BadRequestException(
           'All items must belong to the same restaurant',
+        );
+      }
+      // Item-availability enforcement: the public menu already hides
+      // out-of-stock items, but a cached client tab or a direct API call can
+      // still submit one — reject server-side rather than accepting an order
+      // the kitchen can't fulfill.
+      if (dbItem.isOutOfStock) {
+        throw new ConflictException(
+          `"${dbItem.name}" is currently out of stock`,
         );
       }
     }
@@ -193,7 +240,7 @@ export class OrdersService {
 
     if (sessionToken) {
       const existingSession = await this.prisma.tableSession.findFirst({
-        where: { token: sessionToken, status: 'OPEN' },
+        where: { token: sessionToken, status: 'OPEN', restaurantId },
       });
       if (existingSession) {
         tableSessionId = existingSession.id;
@@ -355,7 +402,8 @@ export class OrdersService {
         );
       } else {
         // Issue 34: Legacy fallback uses pre-computed cheapest-item set.
-        isRedeemedFree = compedItemIndices.has(itemIdx) && !!dbItem.rewardPointsPrice;
+        isRedeemedFree =
+          compedItemIndices.has(itemIdx) && !!dbItem.rewardPointsPrice;
       }
 
       if (isRedeemedFree) {
@@ -494,29 +542,30 @@ export class OrdersService {
           const earnRate = restaurant.loyaltyExchangeRate || 10;
           const redeemRate = restaurant.loyaltyRedeemRate || 150;
 
-          loyaltyAcc = await tx.loyaltyAccount.findUnique({
+          // M-ORDER-1: upsert instead of findUnique-then-create — concurrent
+          // first orders for the same customer racing on the unique
+          // (userId, restaurantId) key would otherwise hit P2002, which
+          // aborts this interactive transaction rather than something we
+          // could catch-and-retry within it.
+          loyaltyAcc = await tx.loyaltyAccount.upsert({
             where: {
               userId_restaurantId: {
                 userId: effectiveCustomerId,
                 restaurantId,
               },
             },
+            create: {
+              userId: effectiveCustomerId,
+              restaurantId,
+              points: 0,
+              lifetimePoints: 0,
+            },
+            update: {},
           });
-
-          if (!loyaltyAcc) {
-            loyaltyAcc = await tx.loyaltyAccount.create({
-              data: {
-                userId: effectiveCustomerId,
-                restaurantId,
-                points: 0,
-                lifetimePoints: 0,
-              },
-            });
-          }
 
           // Issue 15: Lock the row before reading balance to prevent double-spend
           // when two concurrent orders for the same customer both try to redeem.
-          await tx.$queryRaw`SELECT id FROM "loyalty_account" WHERE id = ${loyaltyAcc.id} FOR UPDATE`;
+          await lockLoyaltyAccountRow(tx, loyaltyAcc.id);
 
           await expireAccountPoints(tx, loyaltyAcc.id);
           loyaltyAcc = await tx.loyaltyAccount.findUniqueOrThrow({
@@ -664,9 +713,13 @@ export class OrdersService {
       );
     }
 
-    void this.printStationService.routeOrderToPrinters(finalOrder.id).catch(
-      (err: Error) => this.logger.error(`Print routing failed for order ${finalOrder.id}: ${err.message}`),
-    );
+    void this.printStationService
+      .routeOrderToPrinters(finalOrder.id)
+      .catch((err: Error) =>
+        this.logger.error(
+          `Print routing failed for order ${finalOrder.id}: ${err.message}`,
+        ),
+      );
 
     // Order-scoped token so the customer can track THIS order over the socket
     // without access to the restaurant's live event feed (see EventsGateway).
@@ -735,7 +788,9 @@ export class OrdersService {
       throw new BadRequestException('Customer not found');
     }
     if (customer.role !== 'CUSTOMER') {
-      throw new BadRequestException('Provided customerId does not refer to a customer account');
+      throw new BadRequestException(
+        'Provided customerId does not refer to a customer account',
+      );
     }
     if (customer.isActive === false || customer.disabledAt) {
       throw new BadRequestException('Customer account is disabled');
@@ -879,20 +934,54 @@ export class OrdersService {
   ) {
     const order = await this.findOne(id, userId);
 
+    const targetStatus = updateOrderDto.status;
+    const allowed = ORDER_STATUS_TRANSITIONS[order.status] ?? [];
+    if (!allowed.includes(targetStatus)) {
+      throw new BadRequestException(
+        `Cannot transition order from ${order.status} to ${targetStatus}.`,
+      );
+    }
+
+    if (targetStatus === OrderStatus.CANCELED) {
+      const actor = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+      if (!actor || !CANCEL_ORDER_ROLES.has(actor.role)) {
+        throw new ForbiddenException(
+          'Only an owner or manager can cancel an order.',
+        );
+      }
+    }
+
     // #12: cancelling an order must claw back the loyalty points it earned and
     // refund the points it consumed — otherwise a customer farms points by
     // ordering and cancelling on repeat. Reversal runs in the same transaction
-    // as the status flip so the two can't diverge.
+    // as the status flip so the two can't diverge. The transition allowlist
+    // above makes CANCELED terminal, so an order can only ever be cancelled
+    // once *sequentially* — but two concurrent requests can both read
+    // `order.status` as non-CANCELED before either writes, both compute
+    // isCanceling=true, and (without a compare-and-swap guard) both run the
+    // reversal, double-crediting the redeemed-points refund. Claim the
+    // transition atomically first, same pattern as exchangeImpersonation's
+    // consume-once updateMany and the Stripe refund's SUCCEEDED->REFUNDED
+    // claim; only the request that wins the CAS reverses loyalty.
     const isCanceling =
       updateOrderDto.status === OrderStatus.CANCELED &&
       order.status !== OrderStatus.CANCELED;
 
     const updatedOrder = await this.prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
-        const updated = await tx.order.update({
-          where: { id },
+        const claim = await tx.order.updateMany({
+          where: { id, status: order.status },
           data: { status: updateOrderDto.status },
         });
+        if (claim.count !== 1) {
+          throw new ConflictException(
+            'Order status changed concurrently; please retry.',
+          );
+        }
+        const updated = await tx.order.findUniqueOrThrow({ where: { id } });
         if (isCanceling && order.customerId) {
           await this.reverseLoyaltyForCanceledOrder(tx, order);
         }
@@ -951,6 +1040,12 @@ export class OrdersService {
     });
     if (!account) return;
 
+    // Lock the account row so this reversal serializes against any concurrent
+    // earn/redeem/expiry on the same account (F-ORDER-4/M-ORDER-3) — without
+    // this, a concurrent transaction could read a pre-lock balance and
+    // overwrite this reversal's effect.
+    await lockLoyaltyAccountRow(tx, account.id);
+
     // Claw back this order's earned points — only what's still unspent.
     const earnedBatches = await tx.loyaltyPointLedger.findMany({
       where: {
@@ -1005,12 +1100,13 @@ export class OrdersService {
       });
     }
 
-    await tx.loyaltyAccount.update({
-      where: { id: account.id },
-      data: {
-        points: Math.max(0, account.points - clawback + refund),
-        lifetimePoints: Math.max(0, account.lifetimePoints - originalEarned),
-      },
-    });
+    // Single guarded update computed from the current (locked) DB row rather
+    // than the possibly-stale `account` values read before the lock (F-ORDER-4).
+    await tx.$executeRaw`
+      UPDATE "loyalty_account"
+      SET points = GREATEST(0, points - ${clawback} + ${refund}),
+          "lifetimePoints" = GREATEST(0, "lifetimePoints" - ${originalEarned})
+      WHERE id = ${account.id}
+    `;
   }
 }

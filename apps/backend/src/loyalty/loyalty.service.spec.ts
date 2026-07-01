@@ -16,10 +16,12 @@ const mockTx = {
     update: jest.fn(),
     updateMany: jest.fn(),
   },
+  $queryRaw: jest.fn().mockResolvedValue([]),
+  $executeRaw: jest.fn().mockResolvedValue(0),
 };
 
-const mockTransaction = jest.fn(async (fn: (tx: typeof mockTx) => Promise<unknown>) =>
-  fn(mockTx),
+const mockTransaction = jest.fn(
+  async (fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx),
 );
 
 const mockPrisma = {
@@ -101,8 +103,16 @@ describe('LoyaltyService', () => {
         loyaltyExpiryReminderDays: 15,
       });
       mockPrisma.loyaltyAccount.findMany.mockResolvedValue([
-        { id: 'a1', points: 100, user: { id: 'u1', email: 'a@b.com', name: 'A' } },
-        { id: 'a2', points: 50, user: { id: 'u2', email: 'c@d.com', name: 'B' } },
+        {
+          id: 'a1',
+          points: 100,
+          user: { id: 'u1', email: 'a@b.com', name: 'A' },
+        },
+        {
+          id: 'a2',
+          points: 50,
+          user: { id: 'u2', email: 'c@d.com', name: 'B' },
+        },
       ]);
       // Both accounts have no expiring batches
       mockTx.loyaltyPointLedger.findMany.mockResolvedValue([]);
@@ -122,12 +132,23 @@ describe('LoyaltyService', () => {
       });
       const expiresAt = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
       mockPrisma.loyaltyAccount.findMany.mockResolvedValue([
-        { id: 'a1', points: 100, user: { id: 'u1', email: 'a@b.com', name: 'A' } },
+        {
+          id: 'a1',
+          points: 100,
+          user: { id: 'u1', email: 'a@b.com', name: 'A' },
+        },
       ]);
       mockTx.loyaltyPointLedger.findMany
         .mockResolvedValueOnce([]) // expireAccountPoints: no stale entries
-        .mockResolvedValueOnce([  // getExpiringPointBatches: one batch
-          { id: 'b1', remainingPoints: 100, expiresAt, reminderSentAt: null, type: 'EARN' },
+        .mockResolvedValueOnce([
+          // getExpiringPointBatches: one batch
+          {
+            id: 'b1',
+            remainingPoints: 100,
+            expiresAt,
+            reminderSentAt: null,
+            type: 'EARN',
+          },
         ]);
 
       const result = await service.getExpiryReminderCandidates('r1', 'owner1');
@@ -146,13 +167,27 @@ describe('LoyaltyService', () => {
       });
       const expiresAt = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
       mockPrisma.loyaltyAccount.findMany.mockResolvedValue([
-        { id: 'a1', points: 100, user: { id: 'u1', email: null, name: 'No Email' } },
-        { id: 'a2', points: 100, user: { id: 'u2', email: 'has@email.test', name: 'Has Email' } },
+        {
+          id: 'a1',
+          points: 100,
+          user: { id: 'u1', email: null, name: 'No Email' },
+        },
+        {
+          id: 'a2',
+          points: 100,
+          user: { id: 'u2', email: 'has@email.test', name: 'Has Email' },
+        },
       ]);
       mockTx.loyaltyPointLedger.findMany
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([
-          { id: 'b1', remainingPoints: 100, expiresAt, reminderSentAt: null, type: 'EARN' },
+          {
+            id: 'b1',
+            remainingPoints: 100,
+            expiresAt,
+            reminderSentAt: null,
+            type: 'EARN',
+          },
         ]);
 
       const result = await service.getExpiryReminderCandidates('r1', 'owner1');
@@ -177,12 +212,23 @@ describe('LoyaltyService', () => {
     beforeEach(() => {
       mockPrisma.restaurant.findFirst.mockResolvedValue(restaurant);
       mockPrisma.loyaltyAccount.findMany.mockResolvedValue([
-        { id: 'a1', points: 100, user: { id: 'u1', email: 'user@example.com', name: 'User' } },
+        {
+          id: 'a1',
+          points: 100,
+          user: { id: 'u1', email: 'user@example.com', name: 'User' },
+        },
       ]);
       mockTx.loyaltyPointLedger.findMany
         .mockResolvedValueOnce([]) // expireAccountPoints: no stale entries
-        .mockResolvedValueOnce([  // getExpiringPointBatches
-          { id: 'b1', remainingPoints: 100, expiresAt, reminderSentAt: null, type: 'EARN' },
+        .mockResolvedValueOnce([
+          // getExpiringPointBatches
+          {
+            id: 'b1',
+            remainingPoints: 100,
+            expiresAt,
+            reminderSentAt: null,
+            type: 'EARN',
+          },
         ]);
       mockTx.loyaltyPointLedger.updateMany.mockResolvedValue({ count: 1 });
     });
@@ -222,6 +268,33 @@ describe('LoyaltyService', () => {
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(2);
       expect(result).toHaveLength(1);
       expect(result[0].points).toBe(100);
+
+      delete process.env.RESEND_API_KEY;
+    });
+
+    // M-ORDER-4: customer/restaurant names are user-controlled and must not
+    // be interpolated raw into the HTML email body.
+    it('escapes HTML in customer and restaurant names before sending', async () => {
+      process.env.RESEND_API_KEY = 'test-key';
+      const fetchMock = jest.fn().mockResolvedValue({ ok: true });
+      global.fetch = fetchMock;
+      mockPrisma.loyaltyAccount.findMany.mockResolvedValue([
+        {
+          id: 'a1',
+          points: 100,
+          user: {
+            id: 'u1',
+            email: 'user@example.com',
+            name: '<script>alert(1)</script>',
+          },
+        },
+      ]);
+
+      await service.notifyExpiryReminders('r1', 'owner1');
+
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(body.html).not.toContain('<script>');
+      expect(body.html).toContain('&lt;script&gt;');
 
       delete process.env.RESEND_API_KEY;
     });

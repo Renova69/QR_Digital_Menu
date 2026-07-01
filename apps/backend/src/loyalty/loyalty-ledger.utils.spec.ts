@@ -43,6 +43,7 @@ describe('loyalty-ledger.utils', () => {
       loyaltyAccount: {
         update: jest.fn(),
       },
+      $executeRaw: jest.fn(),
     });
 
     it('should set remainingPoints to 0 on expired batches', async () => {
@@ -52,7 +53,6 @@ describe('loyalty-ledger.utils', () => {
         { id: 'batch-2', remainingPoints: 25, type: 'SIGNUP' },
       ];
       tx.loyaltyPointLedger.findMany.mockResolvedValue(expiredEntries);
-      tx.loyaltyAccount.update.mockResolvedValue({ points: 0 });
 
       await expireAccountPoints(tx as any, 'acc-1', new Date('2100-01-01'));
 
@@ -63,18 +63,19 @@ describe('loyalty-ledger.utils', () => {
       );
     });
 
-    it('should floor account balance at 0 after expiry', async () => {
+    // L-ORDER-1: a single guarded SQL update clamps at 0 from the current DB
+    // value, instead of a decrement-then-clamp pair that could observe a
+    // transient negative balance.
+    it('clamps the account balance at 0 via one guarded update', async () => {
       const tx = makeTx();
       tx.loyaltyPointLedger.findMany.mockResolvedValue([
         { id: 'batch-1', remainingPoints: 300, type: 'EARN' },
       ]);
-      tx.loyaltyAccount.update
-        .mockResolvedValueOnce({ points: -100 }) // first update goes negative
-        .mockResolvedValueOnce({ points: 0 });
 
       await expireAccountPoints(tx as any, 'acc-1', new Date('2100-01-01'));
 
-      expect(tx.loyaltyAccount.update).toHaveBeenCalledTimes(2);
+      expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+      expect(tx.loyaltyAccount.update).not.toHaveBeenCalled();
     });
 
     it('should return 0 when no expired batches', async () => {
