@@ -188,6 +188,7 @@ export class MenuCrudService {
         youtubeUrl: true,
         address: true,
         contactInfo: true,
+        isActive: true,
       } as any,
     });
 
@@ -196,6 +197,7 @@ export class MenuCrudService {
         `Restaurant with ID "${restaurantId}" not found`,
       );
     }
+    this.assertRestaurantActive(restaurant);
 
     const restaurantClone = { ...restaurant } as any;
     restaurantClone.tier = restaurantClone.forceTier ?? restaurantClone.tier;
@@ -290,6 +292,7 @@ export class MenuCrudService {
         address: true,
         contactInfo: true,
         paymentsEnabled: true,
+        isActive: true,
       } as any,
     });
 
@@ -298,6 +301,7 @@ export class MenuCrudService {
         `Restaurant with ID "${restaurantId}" not found`,
       );
     }
+    this.assertRestaurantActive(restaurant);
 
     const restaurantClone = { ...restaurant } as any;
     restaurantClone.tier = restaurantClone.forceTier ?? restaurantClone.tier;
@@ -383,6 +387,7 @@ export class MenuCrudService {
         forceTier: true,
         targetLanguages: true,
         dashboardLanguage: true,
+        isActive: true,
       },
     });
 
@@ -391,6 +396,7 @@ export class MenuCrudService {
         `Restaurant with ID "${restaurantId}" not found`,
       );
     }
+    this.assertRestaurantActive(restaurant);
 
     const tier = restaurant.forceTier ?? restaurant.tier ?? 'FREE';
     const timezone = restaurant.timezone || 'Europe/Sofia';
@@ -511,8 +517,11 @@ export class MenuCrudService {
         forceTier: true,
         targetLanguages: true,
         dashboardLanguage: true,
+        isActive: true,
       },
     });
+
+    this.assertRestaurantActive(restaurant);
 
     if (
       !restaurant ||
@@ -598,7 +607,7 @@ export class MenuCrudService {
     lang?: string,
   ): Promise<any[]> {
     const hasMultiLanguage = this.featureService.restaurantHasFeature(
-      restaurant as any,
+      restaurant,
       FeatureFlag.LANGUAGES_MULTI,
     );
     const languageConfig = hasMultiLanguage
@@ -626,12 +635,18 @@ export class MenuCrudService {
     return items;
   }
 
-  async checkRestaurantActive(restaurantId: string): Promise<void> {
-    const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
-      select: { isActive: true },
-    });
-    if (restaurant && !restaurant.isActive) {
+  /**
+   * L-TRANS-2: reject a suspended restaurant. The public menu/meta/items/
+   * trending methods all already fetch the restaurant row, so this takes that
+   * row and checks it in memory instead of issuing a second
+   * `restaurant.findUnique` per request (which the controller used to do via a
+   * separate pre-check). Lenient on a missing row — the caller's own not-found
+   * handling decides that.
+   */
+  private assertRestaurantActive(
+    restaurant: { isActive?: boolean } | null | undefined,
+  ): void {
+    if (restaurant && restaurant.isActive === false) {
       throw new ForbiddenException({
         code: 'RESTAURANT_SUSPENDED',
         message: 'This restaurant has been suspended',
@@ -1532,7 +1547,7 @@ export class MenuCrudService {
           // round-trip, so a concurrent write to a different language (or a
           // different field of the same language) can't be silently lost.
           for (const lang of Object.keys(newTranslations)) {
-            const langData = newTranslations[lang] as Record<string, string>;
+            const langData = newTranslations[lang];
             const choicesFragment: Record<string, string> = {};
             for (const key of Object.keys(langData)) {
               if (key.startsWith('choice_')) {

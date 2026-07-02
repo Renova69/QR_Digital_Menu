@@ -1,4 +1,5 @@
 import { writeAppLog } from './app-logger';
+import { redactSensitivePath } from './redact-path';
 
 function getClientIp(req: any): string | undefined {
   const forwardedFor = req.headers?.['x-forwarded-for'];
@@ -53,7 +54,8 @@ export function requestLogger(req: any, res: any, next: () => void) {
     const fields: Record<string, unknown> = {
       requestId,
       method: req.method,
-      path: getRequestPath(req, !isProduction),
+      // M-PAY-1: never persist the session bearer token from the path.
+      path: redactSensitivePath(getRequestPath(req, !isProduction)),
       statusCode,
       durationMs,
       role: user.role,

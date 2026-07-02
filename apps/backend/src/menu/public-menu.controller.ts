@@ -28,7 +28,6 @@ export class PublicMenuController {
     @Param('restaurantId') restaurantId: string,
     @Query('lang') lang?: string,
   ) {
-    await this.crud.checkRestaurantActive(restaurantId);
     return this.crud.getPublicMenu(restaurantId, lang);
   }
 
@@ -38,7 +37,6 @@ export class PublicMenuController {
     @Param('restaurantId') restaurantId: string,
     @Query('lang') lang?: string,
   ) {
-    await this.crud.checkRestaurantActive(restaurantId);
     return this.crud.getPublicMenuMeta(restaurantId, lang);
   }
 
@@ -49,7 +47,6 @@ export class PublicMenuController {
     @Param('categoryId') categoryId: string,
     @Query('lang') lang?: string,
   ) {
-    await this.crud.checkRestaurantActive(restaurantId);
     return this.crud.getCategoryItems(restaurantId, categoryId, lang);
   }
 
@@ -59,7 +56,6 @@ export class PublicMenuController {
     @Param('restaurantId') restaurantId: string,
     @Query('lang') lang?: string,
   ) {
-    await this.crud.checkRestaurantActive(restaurantId);
     return this.crud.getTrendingItems(restaurantId, lang);
   }
 }

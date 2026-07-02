@@ -31,6 +31,11 @@ describe('StripeProvider', () => {
           .fn()
           .mockResolvedValue({ url: 'https://connect.stripe.com/onboard' }),
       },
+      refunds: {
+        create: jest
+          .fn()
+          .mockResolvedValue({ id: 're_test', status: 'pending' }),
+      },
     };
     (provider as any).stripe = mockStripe;
   });
@@ -94,6 +99,32 @@ describe('StripeProvider', () => {
       await expect(
         provider.retrievePaymentIntent('pi_existing'),
       ).rejects.toThrow('stripe timeout');
+    });
+  });
+
+  describe('createRefund', () => {
+    it('persists immutable application correlation metadata on Stripe', async () => {
+      const result = await provider.createRefund({
+        paymentIntentId: 'pi_123',
+        amountCents: 2400,
+        reason: 'guest request',
+        refundAttemptId: 'ra_123',
+        idempotencyKey: 'refund_pay_123',
+      });
+
+      expect(mockStripe.refunds.create).toHaveBeenCalledWith(
+        {
+          payment_intent: 'pi_123',
+          amount: 2400,
+          reason: 'requested_by_customer',
+          metadata: {
+            refundAttemptId: 'ra_123',
+            reason: 'guest request',
+          },
+        },
+        { idempotencyKey: 'refund_pay_123' },
+      );
+      expect(result).toEqual({ refundId: 're_test', status: 'pending' });
     });
   });
 

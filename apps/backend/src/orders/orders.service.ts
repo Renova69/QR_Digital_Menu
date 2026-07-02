@@ -21,6 +21,7 @@ import { OrderQueryDto } from './dto/order-query.dto';
 import {
   addDays,
   addEarnedPointBatch,
+  ensureLoyaltyAccount,
   expireAccountPoints,
   redeemAccountPoints,
   lockLoyaltyAccountRow,
@@ -542,26 +543,14 @@ export class OrdersService {
           const earnRate = restaurant.loyaltyExchangeRate || 10;
           const redeemRate = restaurant.loyaltyRedeemRate || 150;
 
-          // M-ORDER-1: upsert instead of findUnique-then-create — concurrent
-          // first orders for the same customer racing on the unique
-          // (userId, restaurantId) key would otherwise hit P2002, which
-          // aborts this interactive transaction rather than something we
-          // could catch-and-retry within it.
-          loyaltyAcc = await tx.loyaltyAccount.upsert({
-            where: {
-              userId_restaurantId: {
-                userId: effectiveCustomerId,
-                restaurantId,
-              },
-            },
-            create: {
-              userId: effectiveCustomerId,
-              restaurantId,
-              points: 0,
-              lifetimePoints: 0,
-            },
-            update: {},
-          });
+          // M-ORDER-1: use PostgreSQL's native conflict handler. Prisma's
+          // nominal upsert with an empty update can still race and throw P2002
+          // inside an interactive transaction.
+          loyaltyAcc = await ensureLoyaltyAccount(
+            tx,
+            effectiveCustomerId,
+            restaurantId,
+          );
 
           // Issue 15: Lock the row before reading balance to prevent double-spend
           // when two concurrent orders for the same customer both try to redeem.

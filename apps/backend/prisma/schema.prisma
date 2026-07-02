@@ -670,11 +670,46 @@ model Payment {
   restaurant            Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   allocations           PaymentAllocation[]
   providerEvents        PaymentProviderEvent[]
+  refundAttempts        RefundAttempt[]
   cashPaymentRequest    CashPaymentRequest?
 
   @@index([tableSessionId])
   @@index([restaurantId])
   @@map("payment")
+}
+
+// F-PAY-1: a refund's full lifecycle lives here, decoupled from the payment.
+// The application payment stays economically PAID (status SUCCEEDED, allocations
+// intact) while an attempt is PENDING; only a provider-confirmed `succeeded`
+// flips the payment to REFUNDED and reverses allocations. This is what makes
+// async/ambiguous refunds recoverable: the allocation snapshot is persisted
+// here BEFORE Stripe is contacted, so a later webhook/reconciliation can always
+// reconstruct exactly what to reverse — the payment row no longer needs to have
+// destroyed its allocations up front.
+//
+// - idempotencyKey is deterministic (`refund_<paymentId>`) and @unique, so it
+//   both dedupes the Stripe call across HTTP retries AND acts as a one-attempt-
+//   per-payment concurrency guard (a racing double-click hits P2002).
+// - providerRefundId is @unique so a webhook/reconciliation correlates to the
+//   EXACT Stripe refund instead of guessing among a payment intent's refunds.
+model RefundAttempt {
+  id                 String       @id @default(cuid())
+  paymentId          String
+  restaurantId       String
+  provider           PaymentProvider
+  amount             Float
+  idempotencyKey     String       @unique
+  providerRefundId   String?      @unique
+  status             RefundStatus @default(PENDING)
+  reason             String?
+  allocationSnapshot Json         @default("[]")
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  payment            Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([status, provider, updatedAt])
+  @@map("refund_attempt")
 }
 
 model PaymentProviderEvent {
@@ -721,11 +756,19 @@ enum PaymentStatus {
   FAILED
   REFUNDED
   ABANDONED
-  // F-PAY-1: claimed for refund + allocations already reversed, but the
-  // Stripe outcome is not yet confirmed (ambiguous/timeout response). A
-  // webhook or the reconciliation cron resolves this to REFUNDED (confirmed
-  // success) or back to SUCCEEDED (confirmed failure, allocations restored).
+  // DEPRECATED (F-PAY-1 v2): the refund lifecycle now lives in RefundAttempt and
+  // the payment stays SUCCEEDED until a provider-confirmed `succeeded` flips it
+  // straight to REFUNDED. No code writes REFUND_PENDING anymore. The enum value
+  // is retained because dropping a Postgres enum value is destructive and no
+  // production rows should carry it; do not reintroduce writes to it.
   REFUND_PENDING
+}
+
+enum RefundStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELED
 }
 
 enum PaymentProvider {

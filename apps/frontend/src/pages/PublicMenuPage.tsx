@@ -15,6 +15,7 @@ import {
   resolveInitialLanguage,
 } from "../lib/menuLanguage";
 import { getTranslatedArray } from "../lib/translation";
+import { runWithConcurrency } from "../lib/concurrency";
 import { BRANDING_FONT_NAMES } from "../lib/brandingFonts";
 import { PaymentModal } from "../components/payment/PaymentModal";
 import { useCart } from "../context/CartContext";
@@ -45,6 +46,10 @@ import {
   getOwnedOrderIds,
 } from "../lib/publicOrderOwnership";
 import { useSocket } from "../context/SocketContext";
+import {
+  findHostedCheckoutToken,
+  hostedCheckoutStorageKey,
+} from "../lib/tableSessionCredential";
 
 const DEFAULT_PUBLIC_LIGHT: BrandPalette = {
   bg: "#FFFFFF",
@@ -59,8 +64,6 @@ const DEFAULT_PUBLIC_DARK: BrandPalette = {
   card: "#15131F",
   accent: "#8B6FFF",
 };
-
-const hostedCheckoutStorageKey = (token: string) => `hosted-checkout:${token}`;
 
 function hasHostedCheckoutMarker(token: string | null | undefined) {
   if (!token) return false;
@@ -78,22 +81,10 @@ function clearHostedCheckoutMarker(token: string | null | undefined) {
   } catch {}
 }
 
-// POS Payment QR opens /checkout?session=<token>; that token is never written
+// POS Payment QR opens /checkout#session=<token>; that token is never written
 // to localStorage (only normal table ordering does that). On a hosted-checkout
 // return we may therefore have no table-based token — recover it from the marker
 // so cancel can still abandon the PENDING payment and the marker is cleaned up.
-function findHostedCheckoutToken(): string | null {
-  try {
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i);
-      if (key && key.startsWith("hosted-checkout:")) {
-        return key.slice("hosted-checkout:".length);
-      }
-    }
-  } catch {}
-  return null;
-}
-
 function resolvePublicPalette(
   restaurant: Restaurant | undefined,
   mode: BrandMode,
@@ -343,40 +334,40 @@ const PublicMenuPage = () => {
     categoryFetchAbortRef.current?.abort();
     const controller = new AbortController();
     categoryFetchAbortRef.current = controller;
-    void Promise.allSettled(
-      categories.map(async (cat: any) => {
-        const stale = () => cancelled.v || langFetchId.current !== myFetchId;
+    // Bounded pool instead of firing every category at once: caps the DeepL
+    // translation burst and the browser request queue (L-TRANS-3).
+    void runWithConcurrency(categories, 4, async (cat: any) => {
+      const stale = () => cancelled.v || langFetchId.current !== myFetchId;
+      try {
+        const items = await getCategoryItems(
+          restaurantId!,
+          cat.id,
+          lang,
+          controller.signal,
+        );
+        if (!stale())
+          setLoadedItemsMap((prev) => ({ ...prev, [cat.id]: items }));
+      } catch {
+        if (stale()) return;
+        // On translation failure, fall back to default-language items
         try {
-          const items = await getCategoryItems(
+          const fallback = await getCategoryItems(
             restaurantId!,
             cat.id,
-            lang,
+            undefined,
             controller.signal,
           );
           if (!stale())
-            setLoadedItemsMap((prev) => ({ ...prev, [cat.id]: items }));
+            setLoadedItemsMap((prev) => ({ ...prev, [cat.id]: fallback }));
         } catch {
-          if (stale()) return;
-          // On translation failure, fall back to default-language items
-          try {
-            const fallback = await getCategoryItems(
-              restaurantId!,
-              cat.id,
-              undefined,
-              controller.signal,
+          // Preserve existing items rather than wiping to empty on complete failure
+          if (!stale())
+            setLoadedItemsMap((prev) =>
+              Array.isArray(prev[cat.id]) ? prev : { ...prev, [cat.id]: [] },
             );
-            if (!stale())
-              setLoadedItemsMap((prev) => ({ ...prev, [cat.id]: fallback }));
-          } catch {
-            // Preserve existing items rather than wiping to empty on complete failure
-            if (!stale())
-              setLoadedItemsMap((prev) =>
-                Array.isArray(prev[cat.id]) ? prev : { ...prev, [cat.id]: [] },
-              );
-          }
         }
-      }),
-    );
+      }
+    });
   };
 
   // Handle hosted-checkout return params (ePay / BORICA / myPOS redirect back to menu).
@@ -395,7 +386,7 @@ const PublicMenuPage = () => {
     // /checkout URL, never in localStorage) is cleaned up correctly too.
     const storedToken =
       (sessionKey ? localStorage.getItem(sessionKey) : null) ??
-      findHostedCheckoutToken();
+      findHostedCheckoutToken(sessionStorage);
 
     if (
       paymentOutcome === "borica-ok" ||
@@ -572,7 +563,7 @@ const PublicMenuPage = () => {
       const storedToken =
         (restaurantId && tableParam
           ? localStorage.getItem(`session-${restaurantId}-${tableParam}`)
-          : sessionToken) ?? findHostedCheckoutToken();
+          : sessionToken) ?? findHostedCheckoutToken(sessionStorage);
 
       if (!storedToken || !hasHostedCheckoutMarker(storedToken)) return;
 

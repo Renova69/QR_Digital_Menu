@@ -144,6 +144,12 @@ describe('PaymentService', () => {
         createMany: jest.fn().mockResolvedValue({ count: 1 }),
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
+      refundAttempt: {
+        create: jest.fn().mockResolvedValue({ id: 'ra1' }),
+        findUnique: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
       cashPaymentRequest: {
         create: jest.fn(),
         findFirst: jest.fn(),
@@ -163,7 +169,7 @@ describe('PaymentService', () => {
       cancelPaymentIntent: jest.fn().mockResolvedValue(undefined),
       constructWebhookEvent: jest.fn(),
       retrievePaymentIntent: jest.fn().mockResolvedValue(null),
-      listRefundsForPaymentIntent: jest.fn().mockResolvedValue([]),
+      retrieveRefund: jest.fn().mockResolvedValue(null),
     };
     mockEpayProvider = {
       createCheckoutForm: jest.fn(),
@@ -1595,23 +1601,288 @@ describe('PaymentService', () => {
       expect(capturedPayload).toBe(rawPayload);
     });
 
-    // F-PAY-1: refund.updated resolves a payment left in REFUND_PENDING by
-    // refundPayment()'s ambiguous-error path.
+    // F-PAY-1 (v2): refund.updated / refund.failed resolve a PENDING
+    // RefundAttempt. The payment stayed SUCCEEDED with allocations intact, so
+    // `succeeded` finalizes (flip -> REFUNDED + reverse from snapshot) and
+    // `failed`/`canceled` only mark the attempt — nothing to restore.
     describe('refund.updated (F-PAY-1 reconciliation)', () => {
-      const pendingPayment = {
+      const pendingAttempt = {
+        id: 'ra-rp',
+        paymentId: 'pay-rp',
+        status: 'PENDING',
+        allocationSnapshot: [{ orderItemId: 'oi-1', quantity: 2, amount: 5 }],
+      };
+      const paidPayment = {
         id: 'pay-rp',
         restaurantId: 'rest1',
         amount: 24,
-        status: 'REFUND_PENDING',
+        status: 'SUCCEEDED',
         stripePaymentIntentId: 'pi_rp',
         tableSessionId: 's1',
         tableSession: { table: { name: 'Table 3' } },
-        allocations: [{ orderItemId: 'oi-1', quantity: 2, amount: 5 }],
       };
 
-      it('marks the payment REFUNDED and emits an event when the refund succeeded', async () => {
+      it('finalizes the payment to REFUNDED and reverses allocations when the refund succeeded', async () => {
         mockStripeProvider.constructWebhookEvent.mockReturnValue({
           id: 'evt_refund_ok',
+          type: 'refund.updated',
+          data: {
+            object: {
+              id: 're_1',
+              status: 'succeeded',
+              payment_intent: 'pi_rp',
+              amount: 2400,
+            },
+          },
+        });
+        mockPrisma.refundAttempt.findUnique.mockResolvedValue(pendingAttempt);
+        mockPrisma.payment.findUnique.mockResolvedValue(paidPayment);
+        mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+
+        await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+
+        expect(mockPrisma.refundAttempt.findUnique).toHaveBeenCalledWith({
+          where: { providerRefundId: 're_1' },
+        });
+        expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
+          where: { id: 'pay-rp', status: 'SUCCEEDED' },
+          data: { status: 'REFUNDED' },
+        });
+        expect(mockPrisma.orderItem.updateMany).toHaveBeenCalledWith({
+          where: { id: 'oi-1', paidQuantity: { gte: 2 } },
+          data: { paidQuantity: { decrement: 2 } },
+        });
+        expect(mockPrisma.paymentAllocation.deleteMany).toHaveBeenCalledWith({
+          where: { paymentId: 'pay-rp' },
+        });
+        expect(mockPrisma.refundAttempt.updateMany).toHaveBeenCalledWith({
+          where: { id: 'ra-rp' },
+          data: { status: 'SUCCEEDED', providerRefundId: 're_1' },
+        });
+        expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
+          'rest1',
+          'payment:refunded',
+          expect.objectContaining({ paymentId: 'pay-rp', refundId: 're_1' }),
+        );
+      });
+
+      it('aborts finalization when an allocation snapshot cannot be reversed', async () => {
+        mockStripeProvider.constructWebhookEvent.mockReturnValue({
+          id: 'evt_refund_allocation_drift',
+          type: 'refund.updated',
+          data: {
+            object: {
+              id: 're_allocation_drift',
+              status: 'succeeded',
+              payment_intent: 'pi_rp',
+              amount: 2400,
+            },
+          },
+        });
+        mockPrisma.refundAttempt.findUnique.mockResolvedValue(pendingAttempt);
+        mockPrisma.payment.findUnique.mockResolvedValue(paidPayment);
+        mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+        mockPrisma.orderItem.updateMany.mockResolvedValue({ count: 0 });
+
+        await expect(
+          service.handleWebhookEvent(Buffer.from('{}'), 'sig'),
+        ).rejects.toThrow(
+          'Refund allocation invariant failed for order item oi-1',
+        );
+
+        expect(mockPrisma.paymentAllocation.deleteMany).not.toHaveBeenCalled();
+        expect(mockPrisma.refundAttempt.updateMany).not.toHaveBeenCalledWith({
+          where: { id: 'ra-rp' },
+          data: expect.objectContaining({ status: 'SUCCEEDED' }),
+        });
+        expect(mockEvents.emitToRestaurant).not.toHaveBeenCalledWith(
+          expect.anything(),
+          'payment:refunded',
+          expect.anything(),
+        );
+      });
+
+      it('fails closed instead of silently dropping a malformed persisted allocation snapshot', async () => {
+        mockStripeProvider.constructWebhookEvent.mockReturnValue({
+          id: 'evt_refund_malformed_snapshot',
+          type: 'refund.updated',
+          data: {
+            object: {
+              id: 're_malformed_snapshot',
+              status: 'succeeded',
+              payment_intent: 'pi_rp',
+              amount: 2400,
+            },
+          },
+        });
+        mockPrisma.refundAttempt.findUnique.mockResolvedValue({
+          ...pendingAttempt,
+          allocationSnapshot: [
+            { orderItemId: 'oi-1', quantity: -1, amount: 5 },
+          ],
+        });
+        mockPrisma.payment.findUnique.mockResolvedValue(paidPayment);
+
+        await expect(
+          service.handleWebhookEvent(Buffer.from('{}'), 'sig'),
+        ).rejects.toThrow('Refund allocation snapshot is invalid');
+
+        expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+        expect(mockPrisma.paymentAllocation.deleteMany).not.toHaveBeenCalled();
+        expect(mockEvents.emitToRestaurant).not.toHaveBeenCalledWith(
+          expect.anything(),
+          'payment:refunded',
+          expect.anything(),
+        );
+      });
+
+      it('marks the attempt FAILED and leaves the payment paid when the refund failed', async () => {
+        mockStripeProvider.constructWebhookEvent.mockReturnValue({
+          id: 'evt_refund_failed',
+          type: 'refund.updated',
+          data: {
+            object: {
+              id: 're_2',
+              status: 'failed',
+              payment_intent: 'pi_rp',
+              amount: 2400,
+            },
+          },
+        });
+        mockPrisma.refundAttempt.findUnique.mockResolvedValue(pendingAttempt);
+        mockPrisma.payment.findUnique.mockResolvedValue(paidPayment);
+
+        await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+
+        expect(mockPrisma.refundAttempt.updateMany).toHaveBeenCalledWith({
+          where: { id: 'ra-rp', status: 'PENDING' },
+          data: { status: 'FAILED', providerRefundId: 're_2' },
+        });
+        // Payment untouched, no allocation reversal, no refunded event.
+        expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+        expect(mockPrisma.orderItem.updateMany).not.toHaveBeenCalled();
+        expect(mockEvents.emitToRestaurant).not.toHaveBeenCalledWith(
+          expect.anything(),
+          'payment:refunded',
+          expect.anything(),
+        );
+      });
+
+      it('handles the dedicated refund.failed event the same as a failed status', async () => {
+        mockStripeProvider.constructWebhookEvent.mockReturnValue({
+          id: 'evt_refund_failed_evt',
+          type: 'refund.failed',
+          data: {
+            object: {
+              id: 're_9',
+              status: null,
+              payment_intent: 'pi_rp',
+              amount: 2400,
+            },
+          },
+        });
+        mockPrisma.refundAttempt.findUnique.mockResolvedValue(pendingAttempt);
+        mockPrisma.payment.findUnique.mockResolvedValue(paidPayment);
+
+        await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+
+        expect(mockPrisma.refundAttempt.updateMany).toHaveBeenCalledWith({
+          where: { id: 'ra-rp', status: 'PENDING' },
+          data: { status: 'FAILED', providerRefundId: 're_9' },
+        });
+        expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+      });
+
+      it('correlates by application attempt metadata when the refund id is not yet recorded', async () => {
+        mockStripeProvider.constructWebhookEvent.mockReturnValue({
+          id: 'evt_refund_fallback',
+          type: 'refund.updated',
+          data: {
+            object: {
+              id: 're_new',
+              status: 'succeeded',
+              payment_intent: 'pi_rp',
+              amount: 2400,
+              metadata: { refundAttemptId: 'ra-rp' },
+            },
+          },
+        });
+        mockPrisma.refundAttempt.findUnique
+          .mockResolvedValueOnce(null) // providerRefundId not recorded yet
+          .mockResolvedValueOnce(pendingAttempt); // exact application attempt
+        mockPrisma.payment.findUnique.mockResolvedValue(paidPayment);
+        mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+
+        await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+
+        expect(mockPrisma.refundAttempt.findUnique).toHaveBeenNthCalledWith(2, {
+          where: { id: 'ra-rp' },
+        });
+        expect(mockPrisma.payment.findFirst).not.toHaveBeenCalled();
+        expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
+          where: { id: 'pay-rp', status: 'SUCCEEDED' },
+          data: { status: 'REFUNDED' },
+        });
+      });
+
+      it('does not attach an unrelated partial refund by PaymentIntent alone', async () => {
+        mockStripeProvider.constructWebhookEvent.mockReturnValue({
+          id: 'evt_manual_partial',
+          type: 'refund.updated',
+          data: {
+            object: {
+              id: 're_manual',
+              status: 'succeeded',
+              payment_intent: 'pi_rp',
+              amount: 500,
+              metadata: {},
+            },
+          },
+        });
+        mockPrisma.refundAttempt.findUnique.mockResolvedValue(null);
+        // This is the unsafe match the old PaymentIntent fallback would pick.
+        mockPrisma.payment.findFirst.mockResolvedValue({
+          ...paidPayment,
+          refundAttempts: [pendingAttempt],
+        });
+
+        await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+
+        expect(mockPrisma.payment.findFirst).not.toHaveBeenCalled();
+        expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+        expect(mockPrisma.orderItem.updateMany).not.toHaveBeenCalled();
+        expect(mockPrisma.paymentProviderEvent.create).not.toHaveBeenCalled();
+      });
+
+      it('rejects attempt metadata when the Stripe refund amount is not the full payment amount', async () => {
+        mockStripeProvider.constructWebhookEvent.mockReturnValue({
+          id: 'evt_wrong_amount',
+          type: 'refund.updated',
+          data: {
+            object: {
+              id: 're_wrong_amount',
+              status: 'succeeded',
+              payment_intent: 'pi_rp',
+              amount: 500,
+              metadata: { refundAttemptId: 'ra-rp' },
+            },
+          },
+        });
+        mockPrisma.refundAttempt.findUnique
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce(pendingAttempt);
+        mockPrisma.payment.findUnique.mockResolvedValue(paidPayment);
+
+        await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+
+        expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+        expect(mockPrisma.orderItem.updateMany).not.toHaveBeenCalled();
+        expect(mockPrisma.paymentProviderEvent.create).not.toHaveBeenCalled();
+      });
+
+      it('is idempotent: does nothing when the attempt is already resolved', async () => {
+        mockStripeProvider.constructWebhookEvent.mockReturnValue({
+          id: 'evt_refund_resolved',
           type: 'refund.updated',
           data: {
             object: {
@@ -1621,86 +1892,17 @@ describe('PaymentService', () => {
             },
           },
         });
-        mockPrisma.payment.findFirst.mockResolvedValue(pendingPayment);
-        mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+        mockPrisma.refundAttempt.findUnique.mockResolvedValue({
+          ...pendingAttempt,
+          status: 'SUCCEEDED',
+        });
+        mockPrisma.payment.findUnique.mockResolvedValue(paidPayment);
 
         await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
 
-        expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
-          where: { id: 'pay-rp', status: 'REFUND_PENDING' },
-          data: { status: 'REFUNDED' },
-        });
-        expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
-          'rest1',
-          'payment:refunded',
-          expect.objectContaining({ paymentId: 'pay-rp', refundId: 're_1' }),
-        );
-        expect(mockPrisma.orderItem.updateMany).not.toHaveBeenCalled();
-      });
-
-      it('restores allocations/status when the refund failed at Stripe', async () => {
-        mockStripeProvider.constructWebhookEvent.mockReturnValue({
-          id: 'evt_refund_failed',
-          type: 'refund.updated',
-          data: {
-            object: { id: 're_2', status: 'failed', payment_intent: 'pi_rp' },
-          },
-        });
-        mockPrisma.payment.findFirst.mockResolvedValue(pendingPayment);
-        mockPrisma.orderItem.updateMany.mockResolvedValue({ count: 1 });
-
-        await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
-
-        expect(mockPrisma.orderItem.updateMany).toHaveBeenCalledWith({
-          where: { id: 'oi-1' },
-          data: { paidQuantity: { increment: 2 } },
-        });
-        expect(mockPrisma.paymentAllocation.createMany).toHaveBeenCalledWith({
-          data: [
-            {
-              paymentId: 'pay-rp',
-              orderItemId: 'oi-1',
-              quantity: 2,
-              amount: 5,
-            },
-          ],
-        });
-        expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
-          where: { id: 'pay-rp', status: 'REFUND_PENDING' },
-          data: { status: 'SUCCEEDED' },
-        });
-        expect(mockEvents.emitToRestaurant).not.toHaveBeenCalledWith(
-          expect.anything(),
-          'payment:refunded',
-          expect.anything(),
-        );
-      });
-
-      // Security review regression: restoreAllocationsAndStatus must claim
-      // the row (updateMany with the REFUND_PENDING guard) BEFORE applying
-      // the allocation restoration, not after. Two callers can race for the
-      // same stuck payment (this webhook + the reconciliation cron, or the
-      // cron running concurrently across replicas) — if the increment/
-      // createMany ran unconditionally, the loser would double-credit
-      // paidQuantity and create duplicate PaymentAllocation rows even though
-      // its own status updateMany silently no-ops.
-      it('does not double-restore allocations when another caller already claimed the payment', async () => {
-        mockStripeProvider.constructWebhookEvent.mockReturnValue({
-          id: 'evt_refund_failed_race',
-          type: 'refund.updated',
-          data: {
-            object: { id: 're_2', status: 'failed', payment_intent: 'pi_rp' },
-          },
-        });
-        mockPrisma.payment.findFirst.mockResolvedValue(pendingPayment);
-        // Simulates a concurrent caller (e.g. the reconciliation cron) having
-        // already won the claim and flipped this payment to SUCCEEDED.
-        mockPrisma.payment.updateMany.mockResolvedValue({ count: 0 });
-
-        await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
-
-        expect(mockPrisma.orderItem.updateMany).not.toHaveBeenCalled();
-        expect(mockPrisma.paymentAllocation.createMany).not.toHaveBeenCalled();
+        expect(mockPrisma.paymentProviderEvent.create).not.toHaveBeenCalled();
+        expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+        expect(mockPrisma.refundAttempt.updateMany).not.toHaveBeenCalled();
       });
 
       it('ignores a still-pending refund status', async () => {
@@ -1711,15 +1913,15 @@ describe('PaymentService', () => {
             object: { id: 're_3', status: 'pending', payment_intent: 'pi_rp' },
           },
         });
-        mockPrisma.payment.findFirst.mockResolvedValue(pendingPayment);
 
         await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
 
+        // Never even correlates — the status filter short-circuits first.
+        expect(mockPrisma.refundAttempt.findUnique).not.toHaveBeenCalled();
         expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
-        expect(mockPrisma.orderItem.updateMany).not.toHaveBeenCalled();
       });
 
-      it('is a no-op when no payment is in REFUND_PENDING for that payment intent', async () => {
+      it('is a no-op when no attempt matches the refund', async () => {
         mockStripeProvider.constructWebhookEvent.mockReturnValue({
           id: 'evt_refund_none',
           type: 'refund.updated',
@@ -1731,6 +1933,7 @@ describe('PaymentService', () => {
             },
           },
         });
+        mockPrisma.refundAttempt.findUnique.mockResolvedValue(null);
         mockPrisma.payment.findFirst.mockResolvedValue(null);
 
         await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
@@ -2275,7 +2478,7 @@ describe('PaymentService', () => {
       },
     };
 
-    it('creates a Stripe refund and marks the payment refunded', async () => {
+    it('creates a Stripe refund and finalizes to REFUNDED on synchronous success', async () => {
       mockPrisma.payment.findUnique
         .mockResolvedValueOnce(succeededPayload) // initial fetch
         .mockResolvedValueOnce(refundedPayload); // post-update fetch
@@ -2293,22 +2496,30 @@ describe('PaymentService', () => {
         paymentIntentId: 'pi_123',
         amountCents: 2400,
         reason: 'guest request',
+        refundAttemptId: 'ra1',
         idempotencyKey: 'refund_pay1',
       });
-      // F-PAY-1: claim SUCCEEDED -> REFUND_PENDING first, then finalize to
-      // REFUNDED once Stripe confirms synchronously.
-      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith(
+      // F-PAY-1 (v2): attempt persisted PENDING with the snapshot, THEN Stripe,
+      // THEN — on synchronous success only — the payment flips SUCCEEDED ->
+      // REFUNDED. It is never moved to REFUND_PENDING.
+      expect(mockPrisma.refundAttempt.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'pay1', status: 'SUCCEEDED' },
-          data: { status: 'REFUND_PENDING' },
+          data: expect.objectContaining({
+            paymentId: 'pay1',
+            idempotencyKey: 'refund_pay1',
+            status: 'PENDING',
+            allocationSnapshot: [],
+          }),
         }),
       );
-      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: 'pay1', status: 'REFUND_PENDING' },
-          data: { status: 'REFUNDED' },
-        }),
-      );
+      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
+        where: { id: 'pay1', status: 'SUCCEEDED' },
+        data: { status: 'REFUNDED' },
+      });
+      expect(mockPrisma.refundAttempt.updateMany).toHaveBeenCalledWith({
+        where: { id: 'ra1' },
+        data: { status: 'SUCCEEDED', providerRefundId: 're_123' },
+      });
       expect(result.payment.status).toBe('REFUNDED');
       expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
         'rest1',
@@ -2317,11 +2528,11 @@ describe('PaymentService', () => {
       );
     });
 
-    it('reverses split item allocations after a successful refund', async () => {
+    it('reverses split item allocations only after Stripe confirms success', async () => {
       mockPrisma.payment.findUnique
         .mockResolvedValueOnce({
           ...succeededPayload,
-          allocations: [{ orderItemId: 'oi-1', quantity: 2 }],
+          allocations: [{ orderItemId: 'oi-1', quantity: 2, amount: 5 }],
         })
         .mockResolvedValueOnce(refundedPayload);
       mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
@@ -2333,6 +2544,17 @@ describe('PaymentService', () => {
 
       await service.refundPayment('pay1', 'owner1', {});
 
+      // Snapshot persisted before Stripe.
+      expect(mockPrisma.refundAttempt.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            allocationSnapshot: [
+              { orderItemId: 'oi-1', quantity: 2, amount: 5 },
+            ],
+          }),
+        }),
+      );
+      // Reversed from the snapshot on confirmed success.
       expect(mockPrisma.orderItem.updateMany).toHaveBeenCalledWith({
         where: { id: 'oi-1', paidQuantity: { gte: 2 } },
         data: { paidQuantity: { decrement: 2 } },
@@ -2342,83 +2564,15 @@ describe('PaymentService', () => {
       });
     });
 
-    // F-PAY-1: allocations must reverse BEFORE Stripe is contacted, so a
-    // failure here never leaves an external refund with stale internal state.
-    it('reverses allocations before contacting Stripe, and skips Stripe entirely if reversal fails', async () => {
+    // F-PAY-1 (v2): the crux — an ambiguous Stripe error (timeout/connection/
+    // 5xx) must NOT touch the payment or its allocations. The attempt stays
+    // PENDING (snapshot already persisted) and the payment stays SUCCEEDED, so
+    // the bill is never exposed as unpaid and the webhook/cron can resolve it.
+    it('leaves the attempt PENDING and the payment untouched on an ambiguous Stripe error', async () => {
       mockPrisma.payment.findUnique.mockResolvedValueOnce({
         ...succeededPayload,
         allocations: [{ orderItemId: 'oi-1', quantity: 2, amount: 5 }],
       });
-      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
-      mockPrisma.orderItem.updateMany.mockResolvedValue({ count: 0 }); // guard fails
-
-      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
-        'Could not reverse split allocation',
-      );
-
-      expect(mockStripeProvider.createRefund).not.toHaveBeenCalled();
-      expect(mockPrisma.payment.updateMany).toHaveBeenNthCalledWith(1, {
-        where: { id: 'pay1', status: 'SUCCEEDED' },
-        data: { status: 'REFUND_PENDING' },
-      });
-      expect(mockPrisma.payment.updateMany).toHaveBeenNthCalledWith(2, {
-        where: { id: 'pay1', status: 'REFUND_PENDING' },
-        data: { status: 'SUCCEEDED' },
-      });
-    });
-
-    it('restores allocations and status when Stripe definitively rejects the refund', async () => {
-      mockPrisma.payment.findUnique.mockResolvedValueOnce({
-        ...succeededPayload,
-        allocations: [{ orderItemId: 'oi-1', quantity: 2, amount: 5 }],
-      });
-      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
-      mockPrisma.orderItem.updateMany.mockResolvedValue({ count: 1 });
-      // A definitive Stripe rejection (bad request/auth/rate-limit) proves
-      // nothing was created — safe to roll back.
-      mockStripeProvider.createRefund.mockRejectedValue(
-        Object.assign(new Error('stripe refund failed'), {
-          type: 'StripeInvalidRequestError',
-        }),
-      );
-
-      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
-        'stripe refund failed',
-      );
-
-      // Forward reversal (decrement, gte-guarded) then the restore (increment).
-      expect(mockPrisma.orderItem.updateMany).toHaveBeenNthCalledWith(1, {
-        where: { id: 'oi-1', paidQuantity: { gte: 2 } },
-        data: { paidQuantity: { decrement: 2 } },
-      });
-      expect(mockPrisma.orderItem.updateMany).toHaveBeenNthCalledWith(2, {
-        where: { id: 'oi-1' },
-        data: { paidQuantity: { increment: 2 } },
-      });
-      expect(mockPrisma.paymentAllocation.createMany).toHaveBeenCalledWith({
-        data: [
-          { paymentId: 'pay1', orderItemId: 'oi-1', quantity: 2, amount: 5 },
-        ],
-      });
-      expect(mockPrisma.payment.updateMany).toHaveBeenNthCalledWith(2, {
-        where: { id: 'pay1', status: 'REFUND_PENDING' },
-        data: { status: 'SUCCEEDED' },
-      });
-    });
-
-    // F-PAY-1: the core new behavior — an ambiguous Stripe error (timeout/
-    // connection/5xx, or any error we can't positively classify) must NOT be
-    // assumed to mean "no refund happened". Money may have moved at Stripe;
-    // guessing wrong and rolling back would silently give away a "free"
-    // unpaid table while a refund is real. Leave REFUND_PENDING for the
-    // webhook/reconciliation cron to resolve from Stripe's authoritative state.
-    it('does NOT roll back allocations/status when the Stripe error is ambiguous (timeout/connection)', async () => {
-      mockPrisma.payment.findUnique.mockResolvedValueOnce({
-        ...succeededPayload,
-        allocations: [{ orderItemId: 'oi-1', quantity: 2, amount: 5 }],
-      });
-      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
-      mockPrisma.orderItem.updateMany.mockResolvedValue({ count: 1 });
       mockStripeProvider.createRefund.mockRejectedValue(
         Object.assign(new Error('socket hang up'), {
           type: 'StripeConnectionError',
@@ -2429,28 +2583,94 @@ describe('PaymentService', () => {
         'socket hang up',
       );
 
-      // Only the forward reversal happened — no restore/increment call.
-      expect(mockPrisma.orderItem.updateMany).toHaveBeenCalledTimes(1);
-      expect(mockPrisma.orderItem.updateMany).toHaveBeenCalledWith({
-        where: { id: 'oi-1', paidQuantity: { gte: 2 } },
-        data: { paidQuantity: { decrement: 2 } },
-      });
-      expect(mockPrisma.paymentAllocation.createMany).not.toHaveBeenCalled();
-      // Only the initial claim — no rollback updateMany call.
-      expect(mockPrisma.payment.updateMany).toHaveBeenCalledTimes(1);
-      expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
-        where: { id: 'pay1', status: 'SUCCEEDED' },
-        data: { status: 'REFUND_PENDING' },
-      });
+      // Snapshot persisted, but nothing reversed and nothing marked terminal.
+      expect(mockPrisma.refundAttempt.create).toHaveBeenCalled();
+      expect(mockPrisma.orderItem.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.paymentAllocation.deleteMany).not.toHaveBeenCalled();
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.refundAttempt.updateMany).not.toHaveBeenCalled();
     });
 
-    it('throws ConflictException when payment is already refunded (race condition)', async () => {
-      mockPrisma.payment.findUnique.mockResolvedValueOnce(succeededPayload);
-      mockPrisma.payment.updateMany.mockResolvedValue({ count: 0 });
+    it('marks the attempt FAILED (payment untouched) on a definitive Stripe rejection', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValueOnce({
+        ...succeededPayload,
+        allocations: [{ orderItemId: 'oi-1', quantity: 2, amount: 5 }],
+      });
+      mockStripeProvider.createRefund.mockRejectedValue(
+        Object.assign(new Error('stripe refund failed'), {
+          type: 'StripeInvalidRequestError',
+        }),
+      );
+
+      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
+        'stripe refund failed',
+      );
+
+      expect(mockPrisma.refundAttempt.updateMany).toHaveBeenCalledWith({
+        where: { id: 'ra1', status: 'PENDING' },
+        data: { status: 'FAILED' },
+      });
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.orderItem.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('keeps the attempt PENDING when Stripe returns a synchronous pending status', async () => {
+      mockPrisma.payment.findUnique
+        .mockResolvedValueOnce(succeededPayload)
+        .mockResolvedValueOnce(succeededPayload); // payment still SUCCEEDED
+      mockStripeProvider.createRefund.mockResolvedValue({
+        refundId: 're_pending',
+        status: 'pending',
+      });
+
+      const result = await service.refundPayment('pay1', 'owner1', {});
+
+      expect(mockPrisma.refundAttempt.updateMany).toHaveBeenCalledWith({
+        where: { id: 'ra1', status: 'PENDING' },
+        data: { status: 'PENDING', providerRefundId: 're_pending' },
+      });
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+      expect(result.refund?.status).toBe('pending');
+      expect(mockEvents.emitToRestaurant).not.toHaveBeenCalledWith(
+        expect.anything(),
+        'payment:refunded',
+        expect.anything(),
+      );
+    });
+
+    it('rejects a second refund when one is already in progress', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValueOnce({
+        ...succeededPayload,
+        refundAttempts: [{ id: 'ra1', status: 'PENDING' }],
+      });
 
       await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
         ConflictException,
       );
+      expect(mockPrisma.refundAttempt.create).not.toHaveBeenCalled();
+      expect(mockStripeProvider.createRefund).not.toHaveBeenCalled();
+    });
+
+    it('rejects a duplicate refund when the attempt unique key races (P2002)', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValueOnce(succeededPayload);
+      mockPrisma.refundAttempt.create.mockRejectedValueOnce({ code: 'P2002' });
+
+      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockStripeProvider.createRefund).not.toHaveBeenCalled();
+    });
+
+    it('throws ConflictException when the payment is already refunded', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValueOnce({
+        ...succeededPayload,
+        status: 'REFUNDED',
+      });
+
+      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockPrisma.refundAttempt.create).not.toHaveBeenCalled();
       expect(mockStripeProvider.createRefund).not.toHaveBeenCalled();
     });
 
@@ -2464,7 +2684,7 @@ describe('PaymentService', () => {
       await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
         BadRequestException,
       );
-      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.refundAttempt.create).not.toHaveBeenCalled();
     });
 
     it('rejects CASH refunds with BadRequestException (#C4)', async () => {
@@ -2477,7 +2697,7 @@ describe('PaymentService', () => {
       await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
         BadRequestException,
       );
-      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.refundAttempt.create).not.toHaveBeenCalled();
       expect(mockStripeProvider.createRefund).not.toHaveBeenCalled();
     });
 
@@ -2491,7 +2711,7 @@ describe('PaymentService', () => {
       await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
         BadRequestException,
       );
-      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.refundAttempt.create).not.toHaveBeenCalled();
       expect(mockStripeProvider.createRefund).not.toHaveBeenCalled();
     });
 
@@ -2504,56 +2724,28 @@ describe('PaymentService', () => {
       await expect(
         service.refundPayment('pay1', 'owner1', { amount: 10 }),
       ).rejects.toThrow(BadRequestException);
-      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.refundAttempt.create).not.toHaveBeenCalled();
     });
 
-    it('rolls back to SUCCEEDED when a Stripe payment has no payment intent after refund claim (#M1)', async () => {
+    it('throws BadRequestException when a Stripe payment has no payment intent', async () => {
       mockPrisma.payment.findUnique.mockResolvedValueOnce({
         ...succeededPayload,
         stripePaymentIntentId: null,
       });
-      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
 
       await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
         BadRequestException,
       );
 
-      expect(mockPrisma.payment.updateMany).toHaveBeenNthCalledWith(1, {
-        where: { id: 'pay1', status: 'SUCCEEDED' },
-        data: { status: 'REFUND_PENDING' },
-      });
-      expect(mockPrisma.payment.updateMany).toHaveBeenNthCalledWith(2, {
-        where: { id: 'pay1', status: 'REFUND_PENDING' },
-        data: { status: 'SUCCEEDED' },
-      });
-    });
-
-    it('rolls back to SUCCEEDED when Stripe definitively rejects the refund (#M1)', async () => {
-      mockPrisma.payment.findUnique.mockResolvedValueOnce(succeededPayload);
-      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
-      mockStripeProvider.createRefund.mockRejectedValue(
-        Object.assign(new Error('stripe refund failed'), {
-          type: 'StripeInvalidRequestError',
-        }),
-      );
-
-      await expect(service.refundPayment('pay1', 'owner1', {})).rejects.toThrow(
-        'stripe refund failed',
-      );
-
-      expect(mockPrisma.payment.updateMany).toHaveBeenNthCalledWith(1, {
-        where: { id: 'pay1', status: 'SUCCEEDED' },
-        data: { status: 'REFUND_PENDING' },
-      });
-      expect(mockPrisma.payment.updateMany).toHaveBeenNthCalledWith(2, {
-        where: { id: 'pay1', status: 'REFUND_PENDING' },
-        data: { status: 'SUCCEEDED' },
-      });
+      // Rejected before any attempt row or Stripe call.
+      expect(mockPrisma.refundAttempt.create).not.toHaveBeenCalled();
+      expect(mockStripeProvider.createRefund).not.toHaveBeenCalled();
     });
   });
 
-  // F-PAY-1: the reconciliation cron catches REFUND_PENDING payments whose
-  // webhook never arrived (delivery failure/misconfigured endpoint).
+  // F-PAY-1 (v2): the reconciliation cron resolves PENDING RefundAttempts whose
+  // webhook never arrived (delivery failure/misconfigured endpoint) or whose
+  // synchronous response was lost (timeout).
   describe('reconcilePendingRefunds (F-PAY-1 cron)', () => {
     function buildStripeCheckout() {
       const config = new PaymentProviderConfigService(mockFeatureService);
@@ -2572,81 +2764,116 @@ describe('PaymentService', () => {
       );
     }
 
-    const stuckPayment = {
-      id: 'pay-stuck',
-      restaurantId: 'rest1',
-      amount: 24,
-      status: 'REFUND_PENDING',
-      provider: 'STRIPE',
-      stripePaymentIntentId: 'pi_stuck',
-      tableSessionId: 's1',
-      allocations: [{ orderItemId: 'oi-1', quantity: 2, amount: 5 }],
+    const stuckAttempt = {
+      id: 'ra-stuck',
+      paymentId: 'pay-stuck',
+      idempotencyKey: 'refund_pay-stuck',
+      providerRefundId: 're_x',
+      status: 'PENDING',
+      reason: 'guest request',
+      allocationSnapshot: [{ orderItemId: 'oi-1', quantity: 2, amount: 5 }],
+      payment: {
+        id: 'pay-stuck',
+        restaurantId: 'rest1',
+        amount: 24,
+        tableSessionId: 's1',
+        stripePaymentIntentId: 'pi_stuck',
+      },
     };
 
-    it('confirms REFUNDED when Stripe shows a succeeded refund', async () => {
-      mockPrisma.payment.findMany.mockResolvedValue([stuckPayment]);
+    it('confirms REFUNDED via a direct retrieve when the refund id is known', async () => {
+      mockPrisma.refundAttempt.findMany.mockResolvedValue([stuckAttempt]);
       mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
-      mockStripeProvider.listRefundsForPaymentIntent.mockResolvedValue([
-        { id: 're_found', status: 'succeeded' },
-      ]);
+      mockStripeProvider.retrieveRefund.mockResolvedValue({
+        refundId: 're_x',
+        status: 'succeeded',
+      });
 
       await buildStripeCheckout().reconcilePendingRefunds();
 
+      expect(mockStripeProvider.retrieveRefund).toHaveBeenCalledWith('re_x');
       expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
-        where: { id: 'pay-stuck', status: 'REFUND_PENDING' },
+        where: { id: 'pay-stuck', status: 'SUCCEEDED' },
         data: { status: 'REFUNDED' },
+      });
+      expect(mockPrisma.orderItem.updateMany).toHaveBeenCalledWith({
+        where: { id: 'oi-1', paidQuantity: { gte: 2 } },
+        data: { paidQuantity: { decrement: 2 } },
       });
       expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
         'rest1',
         'payment:refunded',
+        expect.objectContaining({ paymentId: 'pay-stuck', refundId: 're_x' }),
+      );
+    });
+
+    it('recovers a lost refund via idempotent re-create when no id was recorded', async () => {
+      mockPrisma.refundAttempt.findMany.mockResolvedValue([
+        { ...stuckAttempt, providerRefundId: null },
+      ]);
+      mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
+      mockStripeProvider.createRefund.mockResolvedValue({
+        refundId: 're_recovered',
+        status: 'succeeded',
+      });
+
+      await buildStripeCheckout().reconcilePendingRefunds();
+
+      // Re-issued with the SAME deterministic key → Stripe returns the same
+      // refund it created for the timed-out call (no double refund).
+      expect(mockStripeProvider.createRefund).toHaveBeenCalledWith(
         expect.objectContaining({
-          paymentId: 'pay-stuck',
-          refundId: 're_found',
+          idempotencyKey: 'refund_pay-stuck',
+          reason: 'guest request',
+          refundAttemptId: 'ra-stuck',
         }),
       );
-      expect(mockPrisma.orderItem.updateMany).not.toHaveBeenCalled();
-    });
-
-    it('restores allocations/status when Stripe shows no successful or pending refund', async () => {
-      mockPrisma.payment.findMany.mockResolvedValue([stuckPayment]);
-      mockPrisma.orderItem.updateMany.mockResolvedValue({ count: 1 });
-      mockStripeProvider.listRefundsForPaymentIntent.mockResolvedValue([
-        { id: 're_failed', status: 'failed' },
-      ]);
-
-      await buildStripeCheckout().reconcilePendingRefunds();
-
-      expect(mockPrisma.orderItem.updateMany).toHaveBeenCalledWith({
-        where: { id: 'oi-1' },
-        data: { paidQuantity: { increment: 2 } },
-      });
       expect(mockPrisma.payment.updateMany).toHaveBeenCalledWith({
-        where: { id: 'pay-stuck', status: 'REFUND_PENDING' },
-        data: { status: 'SUCCEEDED' },
+        where: { id: 'pay-stuck', status: 'SUCCEEDED' },
+        data: { status: 'REFUNDED' },
       });
     });
 
-    it('leaves the payment alone when Stripe shows the refund is still pending', async () => {
-      mockPrisma.payment.findMany.mockResolvedValue([stuckPayment]);
-      mockStripeProvider.listRefundsForPaymentIntent.mockResolvedValue([
-        { id: 're_pending', status: 'pending' },
-      ]);
+    it('marks the attempt FAILED and leaves the payment paid when Stripe shows failed', async () => {
+      mockPrisma.refundAttempt.findMany.mockResolvedValue([stuckAttempt]);
+      mockStripeProvider.retrieveRefund.mockResolvedValue({
+        refundId: 're_x',
+        status: 'failed',
+      });
 
       await buildStripeCheckout().reconcilePendingRefunds();
 
+      expect(mockPrisma.refundAttempt.updateMany).toHaveBeenCalledWith({
+        where: { id: 'ra-stuck', status: 'PENDING' },
+        data: { status: 'FAILED', providerRefundId: 're_x' },
+      });
       expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
       expect(mockPrisma.orderItem.updateMany).not.toHaveBeenCalled();
     });
 
-    it('only queries payments stuck in REFUND_PENDING past the staleness threshold', async () => {
-      mockPrisma.payment.findMany.mockResolvedValue([]);
+    it('leaves the attempt alone when Stripe shows the refund is still pending', async () => {
+      mockPrisma.refundAttempt.findMany.mockResolvedValue([stuckAttempt]);
+      mockStripeProvider.retrieveRefund.mockResolvedValue({
+        refundId: 're_x',
+        status: 'pending',
+      });
 
       await buildStripeCheckout().reconcilePendingRefunds();
 
-      expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
+      expect(mockPrisma.payment.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.refundAttempt.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.orderItem.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('only queries PENDING attempts past the staleness threshold', async () => {
+      mockPrisma.refundAttempt.findMany.mockResolvedValue([]);
+
+      await buildStripeCheckout().reconcilePendingRefunds();
+
+      expect(mockPrisma.refundAttempt.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            status: 'REFUND_PENDING',
+            status: 'PENDING',
             provider: 'STRIPE',
             updatedAt: expect.objectContaining({ lt: expect.any(Date) }),
           }),

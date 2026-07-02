@@ -153,10 +153,7 @@ export class PaymentCoreService {
     );
   }
 
-  async verifyRestaurantStaffAccess(
-    restaurantId: string,
-    userId: string,
-  ) {
+  async verifyRestaurantStaffAccess(restaurantId: string, userId: string) {
     const [restaurant, user] = await Promise.all([
       this.prisma.restaurant.findUnique({
         where: { id: restaurantId },
@@ -187,10 +184,7 @@ export class PaymentCoreService {
    * divergent on purpose — do not "align" them.
    */
 
-  async verifyCashPaymentOperatorAccess(
-    restaurantId: string,
-    userId: string,
-  ) {
+  async verifyCashPaymentOperatorAccess(restaurantId: string, userId: string) {
     const context = await this.verifyRestaurantStaffAccess(
       restaurantId,
       userId,
@@ -416,6 +410,80 @@ export class PaymentCoreService {
       hasLoyaltyDiscount,
       items,
     };
+  }
+
+  /**
+   * M-PAY-5: amount-based balances for MANY sessions in two queries, instead of
+   * computeSessionBalance's two-queries-per-session (the daily retention
+   * cleanup previously called that in a loop over up to 100 sessions). Only the
+   * amount gate is needed there — no per-item breakdown — and the formulas are
+   * kept identical to computeSessionBalance so the two never diverge:
+   *   paidSubtotal = Σ(succeeded amount − tip), remaining = bill − paid.
+   */
+  async computeSessionAmountBalances(
+    tx: {
+      order: { findMany: (args: any) => Promise<any[]> };
+      payment: { findMany: (args: any) => Promise<any[]> };
+    },
+    sessionIds: string[],
+  ): Promise<
+    Map<
+      string,
+      { billSubtotal: number; paidSubtotal: number; remaining: number }
+    >
+  > {
+    const result = new Map<
+      string,
+      { billSubtotal: number; paidSubtotal: number; remaining: number }
+    >();
+    if (sessionIds.length === 0) return result;
+
+    const [orders, payments] = await Promise.all([
+      tx.order.findMany({
+        where: { tableSessionId: { in: sessionIds } },
+        select: { tableSessionId: true, totalPrice: true },
+      }),
+      tx.payment.findMany({
+        where: { tableSessionId: { in: sessionIds }, status: 'SUCCEEDED' },
+        select: {
+          tableSessionId: true,
+          amount: true,
+          tipAmount: true,
+          status: true,
+        },
+      }),
+    ]);
+
+    const billBySession = new Map<string, number>();
+    for (const o of orders) {
+      billBySession.set(
+        o.tableSessionId,
+        (billBySession.get(o.tableSessionId) ?? 0) + (o.totalPrice ?? 0),
+      );
+    }
+
+    const paidBySession = new Map<string, number>();
+    for (const p of payments) {
+      // Defensive re-filter (unit-test mocks ignore the where-clause), mirroring
+      // computeSessionBalance — only succeeded payments reduce the balance.
+      if (p.status !== 'SUCCEEDED') continue;
+      paidBySession.set(
+        p.tableSessionId,
+        (paidBySession.get(p.tableSessionId) ?? 0) +
+          ((p.amount ?? 0) - (p.tipAmount ?? 0)),
+      );
+    }
+
+    for (const id of sessionIds) {
+      const billSubtotal = this.roundMoney(billBySession.get(id) ?? 0);
+      const paidSubtotal = this.roundMoney(paidBySession.get(id) ?? 0);
+      result.set(id, {
+        billSubtotal,
+        paidSubtotal,
+        remaining: this.roundMoney(billSubtotal - paidSubtotal),
+      });
+    }
+    return result;
   }
 
   async assertNoPendingBillScopeConflict(
@@ -1043,10 +1111,7 @@ export class PaymentCoreService {
     };
   }
 
-  mergeProviderPayload(
-    payload: unknown,
-    patch: Record<string, unknown>,
-  ) {
+  mergeProviderPayload(payload: unknown, patch: Record<string, unknown>) {
     const base =
       payload && typeof payload === 'object' && !Array.isArray(payload)
         ? (payload as Record<string, unknown>)
@@ -1170,10 +1235,7 @@ export class PaymentCoreService {
     );
   }
 
-  async emitPaymentClaimEvents(
-    payment: any,
-    claim: PaymentClaimResult,
-  ) {
+  async emitPaymentClaimEvents(payment: any, claim: PaymentClaimResult) {
     if (!claim.claimed) return;
 
     if (!claim.splitMode) {

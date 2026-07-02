@@ -27,6 +27,10 @@ import {
   resolveCartItemName,
 } from "../lib/cartTranslation";
 import { resolveInitialLanguage } from "../lib/menuLanguage";
+import {
+  findHostedCheckoutToken,
+  readTableSessionTokenFromHash,
+} from "../lib/tableSessionCredential";
 
 const MAX_ORDER_DISCOUNT_RATE = 0.15;
 
@@ -73,7 +77,13 @@ const CheckoutPage = () => {
   const menuCategories = menuData?.categories;
 
   // ── Session-based checkout (POS Payment QR) ──
-  const sessionToken = searchParams.get("session");
+  // M-PAY-1: the POS payment credential arrives in the URL fragment, which is
+  // client-only and never reaches Vercel/Cloud Run request logs or Referer.
+  const [sessionToken] = useState<string | null>(
+    () =>
+      readTableSessionTokenFromHash(location.hash) ??
+      findHostedCheckoutToken(window.sessionStorage),
+  );
   const isSessionFlow = !!sessionToken;
   const [sessionBill, setSessionBill] = useState<SessionBill | null>(null);
   const [sessionBillLoading, setSessionBillLoading] = useState(false);

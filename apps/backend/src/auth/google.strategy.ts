@@ -23,7 +23,11 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       clientSecret: clientSecret || 'dummy',
       callbackURL:
         callbackURL || 'http://localhost:3000/api/v1/auth/google/callback',
-      scope: ['profile', 'email'],
+      // M-AUTH-2: `openid` makes Google return a signed ID token carrying the
+      // `email_verified` claim, which passport-google-oauth20 surfaces as
+      // `emails[0].verified`. Without it we cannot trust the email for
+      // account linking.
+      scope: ['openid', 'profile', 'email'],
     });
   }
 
@@ -33,9 +37,19 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     profile: Profile,
   ): Promise<any> {
     const { id, emails, name } = profile;
+    const primaryEmail = (emails ?? [])[0];
     return {
       googleId: id,
-      email: (emails ?? [])[0]?.value,
+      email: primaryEmail?.value,
+      // M-AUTH-2: carry Google's verification signal through to the service.
+      // passport reports it as boolean `true`/`false` or the string form
+      // depending on version — normalize both to a strict boolean here so the
+      // service can reject anything that is not explicitly verified.
+      emailVerified:
+        (primaryEmail as { verified?: boolean | string } | undefined)
+          ?.verified === true ||
+        (primaryEmail as { verified?: boolean | string } | undefined)
+          ?.verified === 'true',
       firstName: name?.givenName,
       lastName: name?.familyName,
     };

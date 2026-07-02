@@ -1,5 +1,6 @@
 import { InternalServerErrorException, Logger } from '@nestjs/common';
 import { LoyaltyPointTransactionType, Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 const logger = new Logger('LoyaltyLedger');
 
@@ -50,6 +51,45 @@ export async function lockLoyaltyAccountRow(
   loyaltyAccountId: string,
 ): Promise<void> {
   await tx.$queryRaw`SELECT id FROM "loyalty_account" WHERE id = ${loyaltyAccountId} FOR UPDATE`;
+}
+
+/**
+ * Ensure the account exists without Prisma's emulated upsert race. In an
+ * interactive transaction, two first orders can both miss the row and
+ * `loyaltyAccount.upsert({ update: {} })` can still surface P2002. PostgreSQL's
+ * native conflict handler waits for the competing insert and turns the loser
+ * into a no-op; the following statement then reads the committed winner.
+ */
+export async function ensureLoyaltyAccount(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  restaurantId: string,
+) {
+  await tx.$executeRaw`
+    INSERT INTO "loyalty_account" (
+      "id",
+      "userId",
+      "restaurantId",
+      "points",
+      "lifetimePoints",
+      "createdAt",
+      "updatedAt"
+    )
+    VALUES (
+      ${randomUUID()},
+      ${userId},
+      ${restaurantId},
+      0,
+      0,
+      CURRENT_TIMESTAMP,
+      CURRENT_TIMESTAMP
+    )
+    ON CONFLICT ("userId", "restaurantId") DO NOTHING
+  `;
+
+  return tx.loyaltyAccount.findUniqueOrThrow({
+    where: { userId_restaurantId: { userId, restaurantId } },
+  });
 }
 
 export async function expireAccountPoints(

@@ -178,6 +178,7 @@ describe('AuthService', () => {
       mockUsersService.findByEmail.mockResolvedValue(user);
       const result = await service.validateGoogleUser({
         email: 'user@example.com',
+        emailVerified: true,
         firstName: 'Test',
         lastName: 'User',
       });
@@ -193,6 +194,7 @@ describe('AuthService', () => {
 
       const result = await service.validateGoogleUser({
         email: 'new@example.com',
+        emailVerified: true,
         firstName: 'Google',
         lastName: 'User',
       });
@@ -209,7 +211,10 @@ describe('AuthService', () => {
 
     // Issue 40b — Google-link invalidates stored password
     it('invalidates stored password when Google account is linked to existing email account (Issue 40b)', async () => {
-      const existingUser = makeUser({ password: 'old-bcrypt-hash', googleId: null });
+      const existingUser = makeUser({
+        password: 'old-bcrypt-hash',
+        googleId: null,
+      });
       mockUsersService.findByEmail.mockResolvedValue(existingUser);
       mockPrisma.user.findUnique.mockResolvedValue(null); // no existing googleId match
       mockHash.mockResolvedValue('invalidated-hash');
@@ -217,6 +222,7 @@ describe('AuthService', () => {
       await service.validateGoogleUser({
         googleId: 'google-id-123',
         email: 'user@example.com',
+        emailVerified: true,
         firstName: 'Test',
         lastName: 'User',
       });
@@ -235,7 +241,10 @@ describe('AuthService', () => {
     });
 
     it('does NOT update password when user already has googleId linked', async () => {
-      const existingUser = makeUser({ password: 'existing-hash', googleId: 'google-id-123' });
+      const existingUser = makeUser({
+        password: 'existing-hash',
+        googleId: 'google-id-123',
+      });
       mockPrisma.user.findUnique.mockResolvedValue(existingUser); // found by googleId lookup
       mockUsersService.findByEmail.mockResolvedValue(existingUser);
 
@@ -248,6 +257,55 @@ describe('AuthService', () => {
 
       // Should return the user directly without any update (found by googleId)
       expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
+
+    // M-AUTH-2 — unverified Google email must not link/create by email
+    it('rejects email-based linking when emailVerified is false', async () => {
+      const existingUser = makeUser({ password: 'hash', googleId: null });
+      mockPrisma.user.findUnique.mockResolvedValue(null); // no googleId match
+      mockUsersService.findByEmail.mockResolvedValue(existingUser);
+
+      await expect(
+        service.validateGoogleUser({
+          googleId: 'attacker-google-id',
+          email: 'victim@example.com',
+          emailVerified: false,
+          firstName: 'Mal',
+          lastName: 'Actor',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(mockUsersService.findByEmail).not.toHaveBeenCalled();
+      expect(mockUsersService.create).not.toHaveBeenCalled();
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects when emailVerified is missing (absent claim)', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.validateGoogleUser({
+          googleId: 'g-1',
+          email: 'someone@example.com',
+          firstName: 'No',
+          lastName: 'Flag',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(mockUsersService.create).not.toHaveBeenCalled();
+    });
+
+    it('still logs in a googleId-matched account without a verification flag', async () => {
+      const existingUser = makeUser({ googleId: 'g-known' });
+      mockPrisma.user.findUnique.mockResolvedValue(existingUser); // step-1 match
+
+      const result = await service.validateGoogleUser({
+        googleId: 'g-known',
+        email: 'known@example.com',
+        // no emailVerified — the stable-ID path must bypass the gate
+      });
+
+      expect(result).toBe(existingUser);
     });
   });
 
@@ -409,14 +467,10 @@ describe('AuthService', () => {
         'FOR UPDATE',
       );
       expect(mockPrisma.$queryRaw.mock.calls[0][1]).toBe(staff.id);
-      expect(
-        mockPrisma.$transaction.mock.invocationCallOrder[0],
-      ).toBeLessThan(
+      expect(mockPrisma.$transaction.mock.invocationCallOrder[0]).toBeLessThan(
         mockPrisma.staffDeviceBinding.findUnique.mock.invocationCallOrder[0],
       );
-      expect(
-        mockPrisma.$queryRaw.mock.invocationCallOrder[0],
-      ).toBeLessThan(
+      expect(mockPrisma.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
         mockPrisma.staffDeviceBinding.count.mock.invocationCallOrder[0],
       );
       expect(
@@ -463,14 +517,10 @@ describe('AuthService', () => {
       ).rejects.toThrow(ForbiddenException);
 
       expect(mockPrisma.$queryRaw).toHaveBeenCalled();
-      expect(
-        mockPrisma.$transaction.mock.invocationCallOrder[0],
-      ).toBeLessThan(
+      expect(mockPrisma.$transaction.mock.invocationCallOrder[0]).toBeLessThan(
         mockPrisma.staffDeviceBinding.findUnique.mock.invocationCallOrder[0],
       );
-      expect(
-        mockPrisma.$queryRaw.mock.invocationCallOrder[0],
-      ).toBeLessThan(
+      expect(mockPrisma.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
         mockPrisma.staffDeviceBinding.count.mock.invocationCallOrder[0],
       );
       expect(mockPrisma.staffPinLoginAudit.create).toHaveBeenCalledWith({
@@ -804,7 +854,9 @@ describe('AuthService', () => {
 
     // Issue 42 — per-phone OTP cooldown
     it('throws HttpException(429) when phone OTP requested within 60s of last request (Issue 42)', async () => {
-      jest.spyOn(service as any, 'twilioConfigured', 'get').mockReturnValue(true);
+      jest
+        .spyOn(service as any, 'twilioConfigured', 'get')
+        .mockReturnValue(true);
       // Simulate a recent token stored against the phone number
       mockPrisma.verificationToken.findFirst.mockResolvedValue({
         id: 'phone-tok1',
@@ -812,15 +864,17 @@ describe('AuthService', () => {
         createdAt: new Date(),
       });
 
-      await expect(
-        service.sendOtp(undefined, '+15550001234'),
-      ).rejects.toThrow(HttpException);
+      await expect(service.sendOtp(undefined, '+15550001234')).rejects.toThrow(
+        HttpException,
+      );
       // Should NOT have called Twilio
       expect(mockPrisma.verificationToken.create).not.toHaveBeenCalled();
     });
 
     it('creates a sentinel VerificationToken for phone cooldown and calls Twilio when no recent token (Issue 42)', async () => {
-      jest.spyOn(service as any, 'twilioConfigured', 'get').mockReturnValue(true);
+      jest
+        .spyOn(service as any, 'twilioConfigured', 'get')
+        .mockReturnValue(true);
       jest.spyOn(service as any, 'sendTwilioOtp').mockResolvedValue(undefined);
       mockPrisma.verificationToken.findFirst.mockResolvedValue(null); // no recent token
 
@@ -1075,12 +1129,16 @@ describe('AuthService', () => {
 
     describe('phone flow — PIN-role rejection', () => {
       beforeEach(() => {
-        jest.spyOn(service as any, 'twilioConfigured', 'get').mockReturnValue(true);
+        jest
+          .spyOn(service as any, 'twilioConfigured', 'get')
+          .mockReturnValue(true);
         jest.spyOn(service as any, 'verifyTwilioOtp').mockResolvedValue(true);
       });
 
       it('rejects a PIN-role user (WAITER) in the phone OTP flow', async () => {
-        mockUsersService.findByPhone.mockResolvedValue(makeUser({ role: 'WAITER' }));
+        mockUsersService.findByPhone.mockResolvedValue(
+          makeUser({ role: 'WAITER' }),
+        );
 
         await expect(
           service.verifyOtp(undefined, '123456', '+15550001111'),
@@ -1089,7 +1147,9 @@ describe('AuthService', () => {
       });
 
       it('rejects a PIN-role user (KITCHEN) in the phone OTP flow', async () => {
-        mockUsersService.findByPhone.mockResolvedValue(makeUser({ role: 'KITCHEN' }));
+        mockUsersService.findByPhone.mockResolvedValue(
+          makeUser({ role: 'KITCHEN' }),
+        );
 
         await expect(
           service.verifyOtp(undefined, '123456', '+15550002222'),

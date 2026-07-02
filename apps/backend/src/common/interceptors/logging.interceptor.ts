@@ -8,6 +8,7 @@ import {
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { writeAppLog } from '../logging/app-logger';
+import { redactSensitivePath } from '../logging/redact-path';
 
 /**
  * Global HTTP logging interceptor.
@@ -31,7 +32,8 @@ export class LoggingInterceptor implements NestInterceptor {
 
     const req = context.switchToHttp().getRequest();
     const { method, originalUrl, url } = req;
-    const path = originalUrl || url;
+    // M-PAY-1: strip the session bearer token from the logged path.
+    const path = redactSensitivePath(originalUrl || url);
 
     // ── Frontend trace context ──────────────────────────────────────────
     const traceOrigin = req.headers['x-trace-origin'] as string | undefined;
@@ -113,7 +115,8 @@ export class LoggingInterceptor implements NestInterceptor {
       controller: context.getClass()?.name,
     };
 
-    const level = statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info';
+    const level =
+      statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info';
 
     // Human-readable summary
     const traceTag = traceOrigin ? ` [${traceOrigin}]` : '';

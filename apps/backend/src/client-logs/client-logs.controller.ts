@@ -1,6 +1,14 @@
-import { Body, Controller, Post, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { writeAppLog } from '../common/logging/app-logger';
+import { redactSensitivePath } from '../common/logging/redact-path';
 
 type ClientLogLevel = 'info' | 'warn' | 'error';
 
@@ -15,7 +23,7 @@ const SENSITIVE_KEY_PATTERN =
 
 // Matches C0 control chars (incl. CR/LF/TAB) and DEL. Defined with String.raw
 // so the source stays printable (no literal control bytes in the file).
-// eslint-disable-next-line no-control-regex
+
 const CONTROL_CHAR_PATTERN = new RegExp(String.raw`[\x00-\x1f\x7f]`, 'g');
 
 // Strip control chars so a client-supplied field can't forge extra log lines
@@ -49,9 +57,38 @@ function safeContext(value: unknown): Record<string, unknown> | undefined {
       continue;
     }
     output[key] =
-      typeof item === 'string' ? asString(item, 1_000) : item ?? null;
+      typeof item === 'string' ? asString(item, 1_000) : (item ?? null);
   }
   return output;
+}
+
+function safeUrl(value: unknown): string | undefined {
+  const raw = asString(value, 2_000);
+  if (!raw) return undefined;
+  try {
+    const parsed = new URL(raw);
+    return `${parsed.origin}${redactSensitivePath(parsed.pathname)}`;
+  } catch {
+    return redactSensitivePath(raw.split(/[?#]/, 1)[0]);
+  }
+}
+
+function asFiniteNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : undefined;
+}
+
+function cspReportBody(body: any): Record<string, unknown> {
+  const envelope = Array.isArray(body) ? body[0] : body;
+  const report =
+    envelope?.['csp-report'] ??
+    envelope?.body ??
+    envelope ??
+    Object.create(null);
+  return report && typeof report === 'object' && !Array.isArray(report)
+    ? report
+    : Object.create(null);
 }
 
 @Controller('client-logs')
@@ -78,5 +115,44 @@ export class ClientLogsController {
     });
 
     return { ok: true, requestId: req?.requestId };
+  }
+
+  @Post('csp')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 120, ttl: 60000 } })
+  collectCsp(@Body() body: any, @Req() req: any): void {
+    const report = cspReportBody(body);
+    const field = (...names: string[]): unknown => {
+      for (const name of names) {
+        if (report[name] !== undefined) return report[name];
+      }
+      return undefined;
+    };
+    const effectiveDirective =
+      asString(
+        field(
+          'effective-directive',
+          'effectiveDirective',
+          'violated-directive',
+        ),
+        160,
+      ) ?? 'unknown-directive';
+
+    writeAppLog('warn', `CSP violation: ${effectiveDirective}`, 'CspReport', {
+      requestId: req?.requestId,
+      documentUrl: safeUrl(field('document-uri', 'documentURL', 'url')),
+      blockedUrl: safeUrl(field('blocked-uri', 'blockedURL')),
+      effectiveDirective,
+      violatedDirective: asString(
+        field('violated-directive', 'violatedDirective'),
+        300,
+      ),
+      disposition: asString(field('disposition'), 40),
+      sourceFile: safeUrl(field('source-file', 'sourceFile')),
+      statusCode: asFiniteNumber(field('status-code', 'statusCode')),
+      lineNumber: asFiniteNumber(field('line-number', 'lineNumber')),
+      columnNumber: asFiniteNumber(field('column-number', 'columnNumber')),
+      userAgent: asString(req?.headers?.['user-agent'], 500),
+    });
   }
 }

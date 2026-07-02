@@ -36,17 +36,16 @@ ALTER TABLE "order_item"
 UPDATE "order_item" oi
 SET
   "unitPrice" = COALESCE(mi.price, 0),
-  "unitPriceWithOptions" = COALESCE(mi.price, 0) + COALESCE(opt.options_total, 0)
+  "unitPriceWithOptions" = COALESCE(mi.price, 0) + COALESCE((
+    SELECT SUM(COALESCE((entry->>'priceModifier')::double precision, 0))
+    FROM jsonb_array_elements(
+      CASE
+        WHEN jsonb_typeof(oi."selectedOptions") = 'array' THEN oi."selectedOptions"
+        ELSE '[]'::jsonb
+      END
+    ) AS entry
+  ), 0)
 FROM "menu_item" mi
-LEFT JOIN LATERAL (
-  SELECT SUM(COALESCE((entry->>'priceModifier')::double precision, 0)) AS options_total
-  FROM jsonb_array_elements(
-    CASE
-      WHEN jsonb_typeof(oi."selectedOptions") = 'array' THEN oi."selectedOptions"
-      ELSE '[]'::jsonb
-    END
-  ) AS entry
-) opt ON true
 WHERE oi."menuItemId" = mi.id
   AND (oi."unitPrice" = 0 OR oi."unitPriceWithOptions" = 0);
 

@@ -222,3 +222,98 @@ describe('PaymentCoreService access checks', () => {
     });
   });
 });
+
+describe('PaymentCoreService.computeSessionAmountBalances (M-PAY-5)', () => {
+  let prisma: {
+    order: { findMany: jest.Mock };
+    payment: { findMany: jest.Mock };
+  };
+  let service: PaymentCoreService;
+
+  beforeEach(() => {
+    prisma = {
+      order: { findMany: jest.fn().mockResolvedValue([]) },
+      payment: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    service = new PaymentCoreService(prisma as any, {} as any, {} as any);
+  });
+
+  it('short-circuits with no queries for an empty id list', async () => {
+    const result = await service.computeSessionAmountBalances(prisma, []);
+    expect(result.size).toBe(0);
+    expect(prisma.order.findMany).not.toHaveBeenCalled();
+    expect(prisma.payment.findMany).not.toHaveBeenCalled();
+  });
+
+  it('fetches all sessions in exactly two batched queries', async () => {
+    await service.computeSessionAmountBalances(prisma, ['s1', 's2', 's3']);
+    expect(prisma.order.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.payment.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { tableSessionId: { in: ['s1', 's2', 's3'] } },
+      }),
+    );
+    expect(prisma.payment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tableSessionId: { in: ['s1', 's2', 's3'] },
+          status: 'SUCCEEDED',
+        },
+      }),
+    );
+  });
+
+  it('computes bill/paid/remaining per session (paid = amount − tip)', async () => {
+    prisma.order.findMany.mockResolvedValue([
+      { tableSessionId: 's1', totalPrice: 10 },
+      { tableSessionId: 's1', totalPrice: 5 },
+      { tableSessionId: 's2', totalPrice: 20 },
+    ]);
+    prisma.payment.findMany.mockResolvedValue([
+      { tableSessionId: 's1', amount: 15, tipAmount: 2, status: 'SUCCEEDED' },
+      { tableSessionId: 's2', amount: 8, tipAmount: 0, status: 'SUCCEEDED' },
+    ]);
+
+    const result = await service.computeSessionAmountBalances(prisma, [
+      's1',
+      's2',
+      's3',
+    ]);
+
+    // s1: bill 15, paid 15−2=13, remaining 2
+    expect(result.get('s1')).toEqual({
+      billSubtotal: 15,
+      paidSubtotal: 13,
+      remaining: 2,
+    });
+    // s2: bill 20, paid 8, remaining 12
+    expect(result.get('s2')).toEqual({
+      billSubtotal: 20,
+      paidSubtotal: 8,
+      remaining: 12,
+    });
+    // s3: no orders/payments → all zero (still present in the map)
+    expect(result.get('s3')).toEqual({
+      billSubtotal: 0,
+      paidSubtotal: 0,
+      remaining: 0,
+    });
+  });
+
+  it('ignores non-succeeded payments even if a mock returns them (defensive re-filter)', async () => {
+    prisma.order.findMany.mockResolvedValue([
+      { tableSessionId: 's1', totalPrice: 30 },
+    ]);
+    prisma.payment.findMany.mockResolvedValue([
+      { tableSessionId: 's1', amount: 30, tipAmount: 0, status: 'PENDING' },
+    ]);
+
+    const result = await service.computeSessionAmountBalances(prisma, ['s1']);
+    expect(result.get('s1')).toEqual({
+      billSubtotal: 30,
+      paidSubtotal: 0,
+      remaining: 30,
+    });
+  });
+});

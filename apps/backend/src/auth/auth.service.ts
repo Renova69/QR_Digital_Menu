@@ -77,9 +77,11 @@ export class AuthService {
   }
 
   async validateGoogleUser(profile: any) {
-    const { googleId, email, firstName, lastName } = profile;
+    const { googleId, email, firstName, lastName, emailVerified } = profile;
 
-    // 1. Find by stable Google ID first (safest — immune to email changes)
+    // 1. Find by stable Google ID first (safest — immune to email changes).
+    // A prior successful login already bound this Google identity, so the
+    // email-verification gate below does not apply to this path.
     if (googleId) {
       const byGoogleId = await this.prisma.user.findUnique({
         where: { googleId },
@@ -90,6 +92,18 @@ export class AuthService {
         }
         return byGoogleId;
       }
+    }
+
+    // M-AUTH-2: everything below trusts the Google-supplied email to either
+    // link to an existing local account or create a new one. Google may return
+    // an unverified email (`email_verified: false`), and passport maps it to
+    // `emailVerified`. Refuse to trust an unverified/absent email as an
+    // identity — otherwise a Google account holding a false claim to a
+    // victim's address could take over that account.
+    if (emailVerified !== true) {
+      throw new UnauthorizedException(
+        'Your Google account email is not verified. Please verify it with Google and try again.',
+      );
     }
 
     // 2. Find by email — link the googleId to this existing account
@@ -911,48 +925,13 @@ export class AuthService {
       if (!email)
         throw new HttpException('email is required', HttpStatus.BAD_REQUEST);
 
-      const tokenRecord = await this.prisma.verificationToken.findFirst({
-        where: { email, usedAt: null, expiresAt: { gt: new Date() } },
-        orderBy: { createdAt: 'desc' },
-      });
-      if (!tokenRecord)
-        throw new UnauthorizedException('Invalid or expired code.');
-
-      if (
-        (tokenRecord as any).lockedUntil &&
-        new Date((tokenRecord as any).lockedUntil) > new Date()
-      ) {
-        throw new HttpException(
-          'Too many attempts. Please try again later.',
-          HttpStatus.TOO_MANY_REQUESTS,
-        );
-      }
-
-      const valid = await bcrypt.compare(code, tokenRecord.code);
-      if (!valid) {
-        const attempts = ((tokenRecord as any).attempts || 0) + 1;
-        const MAX_ATTEMPTS = 5;
-        const LOCKOUT_MINUTES = 10;
-        await this.prisma.verificationToken.update({
-          where: { id: tokenRecord.id },
-          data: {
-            attempts,
-            ...(attempts >= MAX_ATTEMPTS
-              ? {
-                  lockedUntil: new Date(
-                    Date.now() + LOCKOUT_MINUTES * 60 * 1000,
-                  ),
-                }
-              : {}),
-          },
-        });
-        throw new UnauthorizedException('Invalid or expired code.');
-      }
-
-      await this.prisma.verificationToken.update({
-        where: { id: tokenRecord.id },
-        data: { usedAt: new Date(), attempts: 0 },
-      });
+      // M-AUTH-1: single source of truth for OTP validation, attempt-count
+      // lockout, and single-use consumption. This used to re-implement
+      // consumeEmailVerificationCode inline (drift risk), and it queried the
+      // raw `email` rather than the normalized form — so a differently-cased
+      // address could fail to match its own freshly-issued token. The helper
+      // normalizes, matching how issueEmailVerificationCode stores it.
+      await this.consumeEmailVerificationCode(email, code);
 
       user = await this.usersService.findByEmail(email);
       isNew = !user;

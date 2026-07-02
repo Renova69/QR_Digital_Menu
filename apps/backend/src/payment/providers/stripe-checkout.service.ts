@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  InternalServerErrorException,
   NotFoundException,
   Logger,
 } from '@nestjs/common';
@@ -22,6 +23,17 @@ import {
   normalizeCheckoutScope,
   paymentScopeMatches,
 } from '../payment-scope.utils';
+
+/**
+ * F-PAY-1: the per-order-item paid-quantity units a refund must reverse. Stored
+ * as JSON on RefundAttempt so the reversal is reconstructable long after the
+ * live PaymentAllocation rows would otherwise have to be consulted.
+ */
+type AllocationSnapshot = {
+  orderItemId: string;
+  quantity: number;
+  amount: number;
+};
 
 @Injectable()
 export class StripeCheckoutService {
@@ -338,86 +350,168 @@ export class StripeCheckoutService {
       });
     }
 
-    // F-PAY-1: authoritative confirmation of a refund's outcome. Resolves a
-    // payment left in REFUND_PENDING by refundPayment()'s ambiguous-error
-    // path — succeeded confirms REFUNDED, failed/canceled confirms it's safe
-    // to restore allocations. A refund still `pending` produces no event
-    // worth acting on yet, so it's ignored until it resolves.
-    if (event.type === 'refund.updated') {
-      const refundObj = event.data.object as unknown as {
-        id: string;
-        status: string | null;
-        payment_intent: string | { id: string } | null;
-      };
-      const paymentIntentId =
-        typeof refundObj.payment_intent === 'string'
-          ? refundObj.payment_intent
-          : refundObj.payment_intent?.id;
-      if (!paymentIntentId) return;
-      if (
-        refundObj.status !== 'succeeded' &&
-        refundObj.status !== 'failed' &&
-        refundObj.status !== 'canceled'
-      ) {
-        return;
-      }
+    // F-PAY-1 (v2): authoritative confirmation of a refund's outcome. The
+    // refund lifecycle lives in RefundAttempt; the payment stayed SUCCEEDED
+    // with allocations intact while the attempt was PENDING. `succeeded`
+    // finalizes it (flip to REFUNDED + reverse allocations from the persisted
+    // snapshot); `failed`/`canceled` just marks the attempt — nothing needs
+    // restoring because nothing was reversed up front. `refund.failed` is the
+    // dedicated failure event Stripe also emits, handled identically.
+    if (event.type === 'refund.updated' || event.type === 'refund.failed') {
+      await this.handleRefundWebhook(event);
+    }
+  }
 
-      const payment = await this.prisma.payment.findFirst({
-        where: {
-          stripePaymentIntentId: paymentIntentId,
-          status: 'REFUND_PENDING',
-        },
-        include: {
-          tableSession: { include: { table: { select: { name: true } } } },
-          allocations: {
-            select: { orderItemId: true, quantity: true, amount: true },
-          },
-        },
-      });
-      // Nothing to reconcile: already resolved by us, or not a tracked payment.
-      if (!payment) return;
+  private async handleRefundWebhook(event: {
+    id: string;
+    type: string;
+    data: { object: unknown };
+  }): Promise<void> {
+    const refundObj = event.data.object as {
+      id: string;
+      status: string | null;
+      payment_intent: string | { id: string } | null;
+      amount?: number;
+      metadata?: { refundAttemptId?: string };
+    };
+    const status = event.type === 'refund.failed' ? 'failed' : refundObj.status;
+    if (
+      status !== 'succeeded' &&
+      status !== 'failed' &&
+      status !== 'canceled'
+    ) {
+      return;
+    }
+    const paymentIntentId =
+      typeof refundObj.payment_intent === 'string'
+        ? refundObj.payment_intent
+        : refundObj.payment_intent?.id;
 
-      const recorded = await this.prisma.$transaction((tx) =>
-        this.core.recordProviderEvent(tx, PaymentProvider.STRIPE, event.id, {
-          paymentId: payment.id,
-          restaurantId: payment.restaurantId,
-          payload: {
-            type: event.type,
-            refundId: refundObj.id,
-            status: refundObj.status,
-          },
-        }),
+    // Correlate to the EXACT attempt by provider refund id first (F-PAY-1 #3).
+    // If the synchronous path never persisted that id, require the immutable
+    // application attempt id carried in the refund metadata.
+    const { attempt, payment } = await this.resolveRefundAttemptForWebhook(
+      refundObj.id,
+      paymentIntentId,
+      refundObj.metadata?.refundAttemptId,
+    );
+    if (!attempt || !payment) return;
+    if (attempt.status !== 'PENDING') return; // already resolved
+
+    // Even an exact application-attempt metadata match is not sufficient on
+    // its own: metadata is operator-editable in Stripe's Dashboard. Bind the
+    // event to the original PaymentIntent and full application payment amount
+    // before recording or mutating anything.
+    const expectedAmountCents = Math.round(payment.amount * 100);
+    if (
+      !paymentIntentId ||
+      paymentIntentId !== payment.stripePaymentIntentId ||
+      refundObj.amount !== expectedAmountCents
+    ) {
+      this.logger.warn(
+        `Ignoring refund ${refundObj.id}: correlation mismatch for payment ${payment.id}`,
       );
-      if (!recorded) return;
+      return;
+    }
 
-      if (refundObj.status === 'succeeded') {
-        const { count } = await this.prisma.payment.updateMany({
-          where: { id: payment.id, status: 'REFUND_PENDING' },
-          data: { status: 'REFUNDED' },
+    const recorded = await this.prisma.$transaction((tx) =>
+      this.core.recordProviderEvent(tx, PaymentProvider.STRIPE, event.id, {
+        paymentId: payment.id,
+        restaurantId: payment.restaurantId,
+        payload: { type: event.type, refundId: refundObj.id, status },
+      }),
+    );
+    if (!recorded) return;
+
+    if (status === 'succeeded') {
+      const finalized = await this.finalizeRefundSuccess(
+        payment.id,
+        this.parseAllocationSnapshot(attempt.allocationSnapshot),
+        attempt.id,
+        refundObj.id,
+      );
+      if (finalized) {
+        this.events.emitToRestaurant(payment.restaurantId, 'payment:refunded', {
+          paymentId: payment.id,
+          tableSessionId: payment.tableSessionId,
+          amount: payment.amount,
+          tableNumber: payment.tableSession?.table?.name ?? null,
+          refundId: refundObj.id,
         });
-        if (count === 1) {
-          this.events.emitToRestaurant(
-            payment.restaurantId,
-            'payment:refunded',
-            {
-              paymentId: payment.id,
-              tableSessionId: payment.tableSessionId,
-              amount: payment.amount,
-              tableNumber: payment.tableSession?.table?.name ?? null,
-              refundId: refundObj.id,
-            },
-          );
-        }
-      } else {
-        await this.restoreAllocationsAndStatus(
-          payment.id,
-          payment.allocations ?? [],
-        );
-        this.logger.warn(
-          `Refund ${refundObj.id} for payment ${payment.id} ended as ${refundObj.status} at Stripe — restored allocations/status`,
-        );
+      }
+      return;
+    }
+
+    // failed / canceled — payment stays SUCCEEDED, allocations untouched.
+    await this.prisma.refundAttempt.updateMany({
+      where: { id: attempt.id, status: 'PENDING' },
+      data: {
+        status: status === 'failed' ? 'FAILED' : 'CANCELED',
+        providerRefundId: refundObj.id,
+      },
+    });
+    this.logger.warn(
+      `Refund ${refundObj.id} for payment ${payment.id} ended as ${status} at Stripe — attempt marked, bill left paid`,
+    );
+  }
+
+  private async resolveRefundAttemptForWebhook(
+    refundId: string,
+    paymentIntentId: string | undefined,
+    refundAttemptId: string | undefined,
+  ): Promise<{
+    attempt: {
+      id: string;
+      status: string;
+      allocationSnapshot: unknown;
+      paymentId: string;
+    } | null;
+    payment: {
+      id: string;
+      restaurantId: string;
+      amount: number;
+      tableSessionId: string;
+      stripePaymentIntentId: string | null;
+      tableSession?: { table?: { name: string | null } | null } | null;
+    } | null;
+  }> {
+    const paymentInclude = {
+      tableSession: { include: { table: { select: { name: true } } } },
+    };
+
+    const byRefundId = await this.prisma.refundAttempt
+      .findUnique({ where: { providerRefundId: refundId } })
+      .catch(() => null);
+    if (byRefundId) {
+      const payment = await this.prisma.payment.findUnique({
+        where: { id: byRefundId.paymentId },
+        include: paymentInclude,
+      });
+      return { attempt: byRefundId, payment: payment };
+    }
+
+    // The synchronous response can be lost before providerRefundId is saved.
+    // Recover through the immutable application attempt id that was included
+    // in Stripe refund metadata. This is exact; unlike PaymentIntent fallback,
+    // it cannot select an unrelated manual/partial refund.
+    if (refundAttemptId) {
+      const byAttemptId = await this.prisma.refundAttempt
+        .findUnique({ where: { id: refundAttemptId } })
+        .catch(() => null);
+      if (byAttemptId) {
+        const payment = await this.prisma.payment.findUnique({
+          where: { id: byAttemptId.paymentId },
+          include: paymentInclude,
+        });
+        return { attempt: byAttemptId, payment: payment };
       }
     }
+
+    // Never guess by PaymentIntent. Stripe explicitly permits multiple and
+    // partial refunds for one intent, including Dashboard-created refunds. An
+    // event with neither a known providerRefundId nor our immutable metadata is
+    // unrelated/legacy and must be left for the idempotent cron to reconcile.
+    return { attempt: null, payment: null };
   }
 
   async refundPayment(
@@ -434,6 +528,7 @@ export class StripeCheckoutService {
         allocations: {
           select: { orderItemId: true, quantity: true, amount: true },
         },
+        refundAttempts: { select: { id: true, status: true } },
       },
     });
 
@@ -472,118 +567,122 @@ export class StripeCheckoutService {
       );
     }
 
-    // Atomic claim — prevents duplicate refunds under concurrent requests.
-    // updateMany with status condition acts as an optimistic lock: only one
-    // request will get count=1; all others see count=0 and are rejected.
-    // F-PAY-1: claim into REFUND_PENDING, not straight to REFUNDED — the
-    // Stripe call hasn't happened yet, and its outcome can be genuinely
-    // ambiguous (timeout/5xx). REFUNDED is only set once we have positive
-    // confirmation (synchronous success, webhook, or reconciliation poll).
-    const { count } = await this.prisma.payment.updateMany({
-      where: { id: paymentId, status: 'SUCCEEDED' },
-      data: { status: 'REFUND_PENDING' },
-    });
-
-    if (count === 0) {
+    // F-PAY-1 (v2): the payment must be a settled, un-refunded payment. It
+    // stays SUCCEEDED for the whole refund flow — allocations are only reversed
+    // once Stripe confirms `succeeded`, so nothing here re-exposes the bill as
+    // payable (no double-settlement window) and nothing needs reconstructing if
+    // the provider outcome turns out ambiguous.
+    if (payment.status !== 'SUCCEEDED') {
       throw new ConflictException(
         'Payment has already been refunded or is not in a refundable state',
       );
     }
 
-    // F-PAY-1: reverse the internal paid-quantity allocation BEFORE contacting
-    // Stripe, not after. If this purely-internal step fails, nothing external
-    // has happened yet, so rolling back the REFUNDED claim is fully safe. The
-    // previous ordering (Stripe first, allocation reversal second) could leave
-    // money refunded at Stripe while paidQuantity was never decremented, with
-    // no safe way to undo the external refund automatically.
-    const allocations = payment.allocations ?? [];
-    if (allocations.length > 0) {
-      try {
-        await this.prisma.$transaction(async (tx) => {
-          for (const allocation of allocations) {
-            const restored = await tx.orderItem.updateMany({
-              where: {
-                id: allocation.orderItemId,
-                paidQuantity: { gte: allocation.quantity },
-              },
-              data: { paidQuantity: { decrement: allocation.quantity } },
-            });
-            if (restored.count === 0) {
-              throw new Error(
-                `Could not reverse split allocation for order item ${allocation.orderItemId}`,
-              );
-            }
-          }
-
-          await tx.paymentAllocation.deleteMany({
-            where: { paymentId: payment.id },
-          });
-        });
-      } catch (err) {
-        await this.prisma.payment
-          .updateMany({
-            where: { id: paymentId, status: 'REFUND_PENDING' },
-            data: { status: 'SUCCEEDED' },
-          })
-          .catch(() => {});
-        this.logger.error(
-          `Allocation reversal failed for ${paymentId}, refund aborted before contacting Stripe`,
-          err,
+    // One refund attempt per payment (state-aware rejection for UX). The unique
+    // idempotencyKey below is the real concurrency backstop against a racing
+    // double-click.
+    const existingAttempt = payment.refundAttempts?.[0];
+    if (existingAttempt) {
+      if (existingAttempt.status === 'PENDING') {
+        throw new ConflictException(
+          'A refund for this payment is already in progress',
         );
-        throw err;
       }
+      if (existingAttempt.status === 'SUCCEEDED') {
+        throw new ConflictException('Payment has already been refunded');
+      }
+      throw new ConflictException(
+        'A previous refund attempt for this payment failed and requires manual reconciliation',
+      );
+    }
+
+    if (payment.provider === 'STRIPE' && !payment.stripePaymentIntentId) {
+      throw new BadRequestException('Stripe payment intent is missing');
+    }
+
+    const snapshot: AllocationSnapshot[] = (payment.allocations ?? []).map(
+      (a) => ({
+        orderItemId: a.orderItemId,
+        quantity: a.quantity,
+        amount: a.amount,
+      }),
+    );
+    // Deterministic per-payment key: dedupes the Stripe call across HTTP
+    // retries AND, as the RefundAttempt's @unique key, guards against two
+    // concurrent refund requests both reaching Stripe.
+    const idempotencyKey = `refund_${paymentId}`;
+
+    // Persist the attempt (with the allocation snapshot) BEFORE contacting
+    // Stripe. This is the crux of the fix: a later webhook/reconciliation can
+    // always rebuild exactly what to reverse from this row, even though the
+    // live PaymentAllocation rows are still untouched.
+    let attempt: { id: string };
+    try {
+      attempt = await this.prisma.refundAttempt.create({
+        data: {
+          paymentId,
+          restaurantId: payment.restaurantId,
+          provider: payment.provider,
+          amount: payment.amount,
+          idempotencyKey,
+          reason: data.reason ?? null,
+          status: 'PENDING',
+          allocationSnapshot: snapshot,
+        },
+        select: { id: true },
+      });
+    } catch (err) {
+      if (this.core.isUniqueConstraintError(err)) {
+        throw new ConflictException(
+          'A refund for this payment is already in progress',
+        );
+      }
+      throw err;
     }
 
     let refund: { refundId: string; status: string | null } | null = null;
-    let refundConfirmed = false;
-    if (payment.provider === 'STRIPE') {
-      if (!payment.stripePaymentIntentId) {
-        await this.restoreAllocationsAndStatus(paymentId, allocations);
-        throw new BadRequestException('Stripe payment intent is missing');
-      }
-      try {
-        refund = await this.stripe.createRefund({
-          paymentIntentId: payment.stripePaymentIntentId,
-          amountCents: Math.round(payment.amount * 100),
-          reason: data.reason,
-          // Deterministic per-payment key: a retried request after a
-          // lost/timed-out response reconciles to the same Stripe refund
-          // instead of risking a second one.
-          idempotencyKey: `refund_${paymentId}`,
-        });
-        // Confirmed synchronously — finalize now (the common case).
-        await this.prisma.payment.updateMany({
-          where: { id: paymentId, status: 'REFUND_PENDING' },
-          data: { status: 'REFUNDED' },
-        });
-        refundConfirmed = true;
-      } catch (err) {
-        if (this.isDefinitiveRefundFailure(err)) {
-          // Stripe explicitly rejected the request — nothing was created.
-          // Safe to fully undo both the allocation reversal and the claim.
-          await this.restoreAllocationsAndStatus(paymentId, allocations);
-          this.logger.error(
-            `Stripe refund definitively failed for ${paymentId}, status and allocations rolled back`,
-            err,
-          );
-          throw err;
-        }
-        // Ambiguous outcome (timeout/connection/5xx): Stripe may have
-        // already created the refund. Do NOT guess — leave the payment in
-        // REFUND_PENDING with allocations already reversed, and let the
-        // refund.updated webhook or the reconciliation cron resolve it from
-        // Stripe's authoritative state. Guessing wrong here is exactly the
-        // "money refunded but internal state says otherwise" bug this whole
-        // fix exists to prevent. Still surface the error to the caller (the
-        // request itself did not complete successfully) — only the internal
-        // rollback decision differs from the definitive-failure branch above.
+    try {
+      refund = await this.stripe.createRefund({
+        paymentIntentId: payment.stripePaymentIntentId!,
+        amountCents: Math.round(payment.amount * 100),
+        reason: data.reason,
+        refundAttemptId: attempt.id,
+        idempotencyKey,
+      });
+    } catch (err) {
+      if (this.isDefinitiveRefundFailure(err)) {
+        // Stripe explicitly rejected the request — nothing was created, and the
+        // payment/allocations were never touched. Mark the attempt failed.
+        await this.prisma.refundAttempt
+          .updateMany({
+            where: { id: attempt.id, status: 'PENDING' },
+            data: { status: 'FAILED' },
+          })
+          .catch(() => {});
         this.logger.error(
-          `CRITICAL: Stripe refund outcome unknown for ${paymentId} (ambiguous error) — left as REFUND_PENDING pending webhook/reconciliation`,
+          `Stripe refund definitively failed for ${paymentId}`,
           err,
         );
         throw err;
       }
+      // Ambiguous outcome (timeout/connection/5xx): Stripe may have created
+      // the refund. Leave the attempt PENDING (snapshot persisted, no refund id
+      // yet) and the payment SUCCEEDED — the refund.updated webhook or the
+      // reconciliation cron resolves it from Stripe's authoritative state.
+      this.logger.error(
+        `CRITICAL: Stripe refund outcome unknown for ${paymentId} (ambiguous error) — attempt left PENDING for webhook/reconciliation`,
+        err,
+      );
+      throw err;
     }
+
+    // Inspect the synchronous status. Only `succeeded` is final success.
+    const refundConfirmed = await this.applyRefundOutcome(
+      { id: payment.id, restaurantId: payment.restaurantId },
+      attempt.id,
+      snapshot,
+      refund,
+    );
 
     const updated = await this.prisma.payment.findUnique({
       where: { id: paymentId },
@@ -618,55 +717,138 @@ export class StripeCheckoutService {
   }
 
   /**
-   * Undo an already-applied allocation reversal and the REFUND_PENDING claim.
-   * Only ever called once we're SURE no refund was created at Stripe (a
-   * definitive rejection, a missing payment intent, or Stripe's own webhook/
-   * reconciliation confirming failure) — this is a pure-internal
-   * compensating action (F-PAY-1).
+   * Apply a synchronous Stripe refund response to our state. Returns true only
+   * when the refund is confirmed `succeeded` and the payment was finalized to
+   * REFUNDED (F-PAY-1). `pending`/`requires_action` keep the attempt PENDING
+   * (recording the refund id for correlation); `failed`/`canceled` mark the
+   * attempt terminally, leaving the payment SUCCEEDED and allocations intact.
    */
-  private async restoreAllocationsAndStatus(
-    paymentId: string,
-    allocations: { orderItemId: string; quantity: number; amount: number }[],
-  ): Promise<void> {
-    await this.prisma
-      .$transaction(async (tx) => {
-        // Atomic claim first: two callers can race for the same stuck
-        // REFUND_PENDING payment (the refund.updated webhook and the
-        // reconciliation cron both observing it around the same time, or the
-        // cron running concurrently across replicas). Only the caller that
-        // wins this compare-and-swap proceeds to restore allocations —
-        // otherwise both would apply the increment/createMany unconditionally
-        // and double-credit paidQuantity even though only one flips the
-        // status (the loser's status updateMany would just no-op).
-        const claim = await tx.payment.updateMany({
-          where: { id: paymentId, status: 'REFUND_PENDING' },
-          data: { status: 'SUCCEEDED' },
-        });
-        if (claim.count !== 1) return;
+  private async applyRefundOutcome(
+    payment: { id: string; restaurantId: string },
+    attemptId: string,
+    snapshot: AllocationSnapshot[],
+    refund: { refundId: string; status: string | null },
+  ): Promise<boolean> {
+    if (refund.status === 'succeeded') {
+      return this.finalizeRefundSuccess(
+        payment.id,
+        snapshot,
+        attemptId,
+        refund.refundId,
+      );
+    }
 
-        for (const allocation of allocations) {
-          await tx.orderItem.updateMany({
-            where: { id: allocation.orderItemId },
-            data: { paidQuantity: { increment: allocation.quantity } },
-          });
-        }
-        if (allocations.length > 0) {
-          await tx.paymentAllocation.createMany({
-            data: allocations.map((a) => ({
-              paymentId,
-              orderItemId: a.orderItemId,
-              quantity: a.quantity,
-              amount: a.amount,
-            })),
-          });
-        }
-      })
-      .catch((rollbackErr) => {
-        this.logger.error(
-          `CRITICAL: failed to restore allocations/status for ${paymentId} after an aborted refund — manual reconciliation required`,
-          rollbackErr,
-        );
+    const attemptStatus =
+      refund.status === 'failed'
+        ? 'FAILED'
+        : refund.status === 'canceled'
+          ? 'CANCELED'
+          : 'PENDING';
+    await this.prisma.refundAttempt.updateMany({
+      where: { id: attemptId, status: 'PENDING' },
+      data: { status: attemptStatus, providerRefundId: refund.refundId },
+    });
+    if (attemptStatus === 'PENDING') {
+      this.logger.warn(
+        `Refund ${refund.refundId} for payment ${payment.id} is ${
+          refund.status ?? 'unknown'
+        } at Stripe — awaiting webhook/reconciliation`,
+      );
+    }
+    return false;
+  }
+
+  /**
+   * Atomically finalize a confirmed refund: flip the payment SUCCEEDED ->
+   * REFUNDED, reverse the paid-quantity allocations from the persisted
+   * snapshot, drop the allocation rows, and mark the attempt SUCCEEDED. The
+   * payment compare-and-swap makes this idempotent — the synchronous path, the
+   * webhook, and the reconciliation cron can all call it, but only the first to
+   * win the CAS performs the reversal. Returns true iff this call did it.
+   */
+  private async finalizeRefundSuccess(
+    paymentId: string,
+    snapshot: AllocationSnapshot[],
+    attemptId: string,
+    refundId: string,
+  ): Promise<boolean> {
+    return this.prisma.$transaction(async (tx) => {
+      const claim = await tx.payment.updateMany({
+        where: { id: paymentId, status: 'SUCCEEDED' },
+        data: { status: 'REFUNDED' },
       });
+      if (claim.count !== 1) {
+        // Already finalized by another path — just make sure the attempt row
+        // reflects success. No allocation change (the winner did it).
+        await tx.refundAttempt.updateMany({
+          where: { id: attemptId, status: 'PENDING' },
+          data: { status: 'SUCCEEDED', providerRefundId: refundId },
+        });
+        return false;
+      }
+
+      for (const allocation of snapshot) {
+        const reversal = await tx.orderItem.updateMany({
+          where: {
+            id: allocation.orderItemId,
+            paidQuantity: { gte: allocation.quantity },
+          },
+          data: { paidQuantity: { decrement: allocation.quantity } },
+        });
+        if (reversal.count !== 1) {
+          // Fail closed. Because this runs in the same transaction as the
+          // SUCCEEDED -> REFUNDED claim, throwing restores the paid status and
+          // leaves all allocations intact for reconciliation/manual repair.
+          throw new InternalServerErrorException(
+            `Refund allocation invariant failed for order item ${allocation.orderItemId}`,
+          );
+        }
+      }
+      await tx.paymentAllocation.deleteMany({ where: { paymentId } });
+      await tx.refundAttempt.updateMany({
+        where: { id: attemptId },
+        data: { status: 'SUCCEEDED', providerRefundId: refundId },
+      });
+      return true;
+    });
+  }
+
+  /** Parse the persisted snapshot fail-closed; refund accounting is all-or-nothing. */
+  private parseAllocationSnapshot(raw: unknown): AllocationSnapshot[] {
+    if (!Array.isArray(raw)) {
+      throw new InternalServerErrorException(
+        'Refund allocation snapshot is invalid',
+      );
+    }
+
+    const seenOrderItems = new Set<string>();
+    return raw.map((entry) => {
+      const allocation = entry as Partial<AllocationSnapshot> | null;
+      if (
+        !allocation ||
+        typeof allocation !== 'object' ||
+        typeof allocation.orderItemId !== 'string' ||
+        !allocation.orderItemId ||
+        typeof allocation.quantity !== 'number' ||
+        !Number.isSafeInteger(allocation.quantity) ||
+        allocation.quantity <= 0 ||
+        typeof allocation.amount !== 'number' ||
+        !Number.isFinite(allocation.amount) ||
+        allocation.amount < 0 ||
+        seenOrderItems.has(allocation.orderItemId)
+      ) {
+        throw new InternalServerErrorException(
+          'Refund allocation snapshot is invalid',
+        );
+      }
+
+      seenOrderItems.add(allocation.orderItemId);
+      return {
+        orderItemId: allocation.orderItemId,
+        quantity: allocation.quantity,
+        amount: allocation.amount,
+      };
+    });
   }
 
   /**
@@ -688,54 +870,79 @@ export class StripeCheckoutService {
   }
 
   /**
-   * F-PAY-1 reconciliation cron: a refund can be left in REFUND_PENDING if
-   * the webhook never arrives (delivery failure, misconfigured endpoint) —
-   * poll Stripe directly for anything stuck long enough that a normal
-   * async refund should have resolved by now.
+   * F-PAY-1 (v2) reconciliation cron: a refund attempt can be left PENDING if
+   * the webhook never arrives (delivery failure, misconfigured endpoint) or the
+   * synchronous Stripe response was lost (timeout). Ask Stripe directly for the
+   * authoritative outcome of anything stuck longer than a normal async refund
+   * should take.
    */
   @Cron(CronExpression.EVERY_10_MINUTES)
   async reconcilePendingRefunds(): Promise<void> {
     const staleBefore = new Date(Date.now() - 10 * 60 * 1000);
-    const stuck = await this.prisma.payment.findMany({
+    const stuck = await this.prisma.refundAttempt.findMany({
       where: {
-        status: 'REFUND_PENDING',
+        status: 'PENDING',
         provider: 'STRIPE',
         updatedAt: { lt: staleBefore },
       },
-      // Defensive cap: refunds normally resolve within seconds, so this
-      // should stay tiny, but a prolonged Stripe/webhook outage shouldn't be
-      // able to make a single cron tick scan an unbounded backlog.
+      // Defensive cap: refunds normally resolve within seconds, so this should
+      // stay tiny, but a prolonged Stripe/webhook outage shouldn't let a single
+      // cron tick scan an unbounded backlog.
       take: 100,
       include: {
-        allocations: {
-          select: { orderItemId: true, quantity: true, amount: true },
+        payment: {
+          select: {
+            id: true,
+            restaurantId: true,
+            amount: true,
+            tableSessionId: true,
+            stripePaymentIntentId: true,
+          },
         },
       },
     });
 
-    for (const payment of stuck) {
-      if (!payment.stripePaymentIntentId) {
-        // Should be unreachable — refundPayment() always restores+throws
-        // before a payment can reach REFUND_PENDING without an intent ID.
-        // Warn rather than throw so one bad row can't block the batch.
+    for (const attempt of stuck) {
+      const payment = attempt.payment;
+      if (!payment?.stripePaymentIntentId) {
         this.logger.warn(
-          `Reconciliation: payment ${payment.id} is REFUND_PENDING with no stripePaymentIntentId — skipping`,
+          `Reconciliation: refund attempt ${attempt.id} has no Stripe payment intent — skipping`,
         );
         continue;
       }
       try {
-        const refunds = await this.stripe.listRefundsForPaymentIntent(
-          payment.stripePaymentIntentId,
-        );
-        const succeeded = refunds.find((r) => r.status === 'succeeded');
-        const stillPending = refunds.some((r) => r.status === 'pending');
+        // Resolve the EXACT refund. If we already recorded its id, retrieve it
+        // directly; otherwise re-issue create with the deterministic
+        // idempotency key — Stripe returns the same refund it made for the
+        // timed-out call (or creates it if the original never landed), so we
+        // never double-refund and we recover the id + status.
+        const refund = attempt.providerRefundId
+          ? await this.stripe.retrieveRefund(attempt.providerRefundId)
+          : await this.stripe.createRefund({
+              paymentIntentId: payment.stripePaymentIntentId,
+              amountCents: Math.round(payment.amount * 100),
+              // Stripe requires an idempotent replay to use the exact same
+              // parameters. The initial call stores this free-text reason in
+              // refund metadata, so omitting it here turns a recoverable
+              // timeout into a permanent idempotency-parameter mismatch.
+              reason: attempt.reason ?? undefined,
+              refundAttemptId: attempt.id,
+              idempotencyKey: attempt.idempotencyKey,
+            });
+        if (!refund) continue;
 
-        if (succeeded) {
-          const { count } = await this.prisma.payment.updateMany({
-            where: { id: payment.id, status: 'REFUND_PENDING' },
-            data: { status: 'REFUNDED' },
-          });
-          if (count === 1) {
+        const snapshot = this.parseAllocationSnapshot(
+          attempt.allocationSnapshot,
+        );
+
+        if (refund.status === 'succeeded') {
+          const finalized = await this.finalizeRefundSuccess(
+            payment.id,
+            snapshot,
+            attempt.id,
+            refund.refundId,
+          );
+          if (finalized) {
             this.events.emitToRestaurant(
               payment.restaurantId,
               'payment:refunded',
@@ -744,26 +951,36 @@ export class StripeCheckoutService {
                 tableSessionId: payment.tableSessionId,
                 amount: payment.amount,
                 tableNumber: null,
-                refundId: succeeded.id,
+                refundId: refund.refundId,
               },
             );
             this.logger.warn(
               `Reconciliation: confirmed refund for payment ${payment.id} via Stripe API poll`,
             );
           }
-        } else if (!stillPending) {
-          await this.restoreAllocationsAndStatus(
-            payment.id,
-            payment.allocations ?? [],
-          );
+        } else if (refund.status === 'failed' || refund.status === 'canceled') {
+          await this.prisma.refundAttempt.updateMany({
+            where: { id: attempt.id, status: 'PENDING' },
+            data: {
+              status: refund.status === 'failed' ? 'FAILED' : 'CANCELED',
+              providerRefundId: refund.refundId,
+            },
+          });
           this.logger.warn(
-            `Reconciliation: no successful/pending refund found at Stripe for payment ${payment.id} — restored allocations/status`,
+            `Reconciliation: refund for payment ${payment.id} ended ${refund.status} — bill left paid`,
           );
+        } else if (!attempt.providerRefundId) {
+          // We just recovered the refund id from an idempotent re-create;
+          // persist it so the next tick can retrieve it directly.
+          await this.prisma.refundAttempt.updateMany({
+            where: { id: attempt.id, status: 'PENDING' },
+            data: { providerRefundId: refund.refundId },
+          });
         }
-        // else: still pending at Stripe — leave as REFUND_PENDING, recheck next run.
+        // else: still pending at Stripe — leave PENDING, recheck next run.
       } catch (err) {
         this.logger.error(
-          `Reconciliation check failed for payment ${payment.id}`,
+          `Reconciliation check failed for refund attempt ${attempt.id}`,
           err,
         );
       }

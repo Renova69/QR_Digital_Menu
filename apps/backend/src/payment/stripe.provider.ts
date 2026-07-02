@@ -161,6 +161,7 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
     paymentIntentId: string;
     amountCents?: number;
     reason?: string;
+    refundAttemptId: string;
     idempotencyKey?: string;
   }): Promise<{ refundId: string; status: string | null }> {
     const refund = await this.stripe.refunds.create(
@@ -172,7 +173,14 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
         // This dashboard flow doesn't yet support restaurant-chosen classification,
         // so every refund here is an ordinary restaurant-initiated refund.
         reason: 'requested_by_customer',
-        ...(params.reason ? { metadata: { reason: params.reason } } : {}),
+        // F-PAY-1: the application attempt id is the immutable webhook
+        // correlation key. A PaymentIntent can have multiple/manual/partial
+        // refunds, so the intent id alone is never enough to identify which
+        // application attempt an event belongs to.
+        metadata: {
+          refundAttemptId: params.refundAttemptId,
+          ...(params.reason ? { reason: params.reason } : {}),
+        },
       },
       // F-PAY-1: idempotency key so a client retry after a lost/timed-out
       // response reconciles to the same refund instead of creating a second
@@ -186,17 +194,24 @@ export class StripeProvider implements IPaymentProvider, OnModuleInit {
   }
 
   /**
-   * F-PAY-1 reconciliation: list Stripe's own record of refunds for a payment
-   * intent, used when our side is stuck in REFUND_PENDING (timeout/ambiguous
-   * response) and needs to ask Stripe directly what actually happened.
+   * F-PAY-1 reconciliation: fetch the authoritative status of one specific
+   * refund by its id. Used by the reconciliation cron when a refund attempt is
+   * stuck PENDING but we already recorded the provider refund id — we ask
+   * Stripe about that exact refund rather than guessing among the intent's
+   * refunds. Returns null if the refund no longer exists at Stripe.
    */
-  async listRefundsForPaymentIntent(
-    paymentIntentId: string,
-  ): Promise<Array<{ id: string; status: string | null }>> {
-    const refunds = await this.stripe.refunds.list({
-      payment_intent: paymentIntentId,
-      limit: 10,
-    });
-    return refunds.data.map((r) => ({ id: r.id, status: r.status ?? null }));
+  async retrieveRefund(
+    refundId: string,
+  ): Promise<{ refundId: string; status: string | null } | null> {
+    try {
+      const refund = await this.stripe.refunds.retrieve(refundId);
+      return { refundId: refund.id, status: refund.status ?? null };
+    } catch (err) {
+      if (this.isResourceMissingError(err)) {
+        this.logger.warn(`Refund ${refundId} was not found in Stripe`);
+        return null;
+      }
+      throw err;
+    }
   }
 }

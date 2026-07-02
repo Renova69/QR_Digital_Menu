@@ -67,11 +67,19 @@ export class PaymentSessionService {
     let markedPaid = 0;
     let partialLeftOpen = 0;
 
+    // M-PAY-5: one batched balance query for the whole page instead of two
+    // queries per session inside the loop.
+    const balances = await this.core.computeSessionAmountBalances(
+      this.prisma,
+      staleSessions.map((s) => s.id),
+    );
+
     for (const session of staleSessions) {
-      const balance = await this.core.computeSessionBalance(
-        this.prisma,
-        session.id,
-      );
+      const balance = balances.get(session.id) ?? {
+        billSubtotal: 0,
+        paidSubtotal: 0,
+        remaining: 0,
+      };
       if (balance.paidSubtotal > 0 && balance.remaining > 0.01) {
         partialLeftOpen++;
         continue;
@@ -214,7 +222,7 @@ export class PaymentSessionService {
     const translatedName = (menuItem: any): string => {
       const base = menuItem?.name ?? 'Unknown item';
       if (!lang) return base;
-      const translated = (menuItem?.translations as any)?.[lang]?.name;
+      const translated = menuItem?.translations?.[lang]?.name;
       return typeof translated === 'string' && translated ? translated : base;
     };
 

@@ -15,6 +15,7 @@ import cookieParser from 'cookie-parser';
 import { AppLogger } from './common/logging/app-logger';
 import { requestLogger } from './common/logging/request-logger';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { isCsrfExemptPath } from './common/security/csrf-exempt';
 
 function validateFrontendUrl(logger: Logger) {
   const rawFrontendUrl = process.env.FRONTEND_URL?.trim();
@@ -150,7 +151,11 @@ async function bootstrap() {
             ],
             fontSrc: ["'self'", 'https://fonts.gstatic.com'],
             imgSrc: ["'self'", 'data:', 'https:'],
-            connectSrc: ["'self'", 'ws:', 'wss:'],
+            // This CSP is attached to backend-served documents (for example
+            // Swagger). Scheme-wide ws:/wss: would let any injected document
+            // exfiltrate to an arbitrary WebSocket host. Same-origin is the
+            // only backend-document connection source required.
+            connectSrc: ["'self'"],
             frameSrc: ["'self'", 'https://js.stripe.com'],
           },
         },
@@ -165,17 +170,9 @@ async function bootstrap() {
     const COOKIE_SAMESITE: 'lax' | 'strict' | 'none' =
       (process.env.COOKIE_SAMESITE as any) ||
       (process.env.NODE_ENV === 'production' ? 'none' : 'lax');
-    const CSRF_EXEMPT = [
-      '/api/v1/auth/login',
-      '/api/v1/auth/register',
-      '/api/v1/auth/register/verify',
-      '/api/v1/auth/otp/send',
-      '/api/v1/auth/otp/verify',
-      '/api/v1/auth/google',
-      '/api/v1/auth/google/callback',
-      '/api/v1/orders',
-      '/api/v1/client-logs',
-    ];
+    // L-AUTH-1: exemptions + per-entry rationale live in one pinned, tested
+    // module (common/security/csrf-exempt.ts) so a future addition can't
+    // silently drop CSRF protection without failing csrf-exempt.spec.ts.
     // #4: bypass CSRF only for explicit local dev/test. Previously ANY
     // NODE_ENV !== 'production' (staging, preview, or unset on a deployed box)
     // disabled CSRF entirely; those environments now enforce the double-submit
@@ -189,8 +186,7 @@ async function bootstrap() {
         req.path === '/api/v1/payments/epay/notify' ||
         req.path === '/api/v1/payments/borica/callback' ||
         req.path === '/api/v1/subscription/webhook';
-      const isCsrfExempt =
-        CSRF_EXEMPT.includes(req.path) && ['POST'].includes(req.method);
+      const isCsrfExempt = isCsrfExemptPath(req.path, req.method);
 
       if (
         safeMethods.includes(req.method) ||
@@ -231,6 +227,20 @@ async function bootstrap() {
       '/api/v1/subscription/webhook',
       express.raw({ type: 'application/json', limit: '5mb' }),
     );
+    // Browsers use these non-standard JSON media types for legacy report-uri
+    // and the Reporting API. Parse only this bounded endpoint before the
+    // generic application/json parser.
+    app.use(
+      '/api/v1/client-logs/csp',
+      express.json({
+        type: [
+          'application/csp-report',
+          'application/reports+json',
+          'application/json',
+        ],
+        limit: '64kb',
+      }),
+    );
     app.use(express.json({ limit: '1mb' }));
     app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
@@ -269,4 +279,4 @@ async function bootstrap() {
     process.exit(1);
   }
 }
-bootstrap();
+void bootstrap();

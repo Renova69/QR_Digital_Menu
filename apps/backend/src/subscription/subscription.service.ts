@@ -24,6 +24,43 @@ function getTierFromPrice(priceMap: PriceMap, priceId: string): string {
   return 'FREE';
 }
 
+// The DB `tier` column is a SubscriptionTier enum. Writing an unrecognized
+// value (via `tier as any`) would either violate the enum at the DB or corrupt
+// entitlement logic.
+const VALID_TIERS: ReadonlySet<string> = new Set([
+  'FREE',
+  'STARTER',
+  'PROFESSIONAL',
+  'ENTERPRISE',
+]);
+
+/**
+ * M-PAY-3: resolve a tier from `metadata.tier` only when the Stripe price could
+ * not be mapped. Metadata is written server-side from an allowlisted tier and
+ * the webhook is signature-verified, so this is a fallback, not a trust
+ * boundary — but we still coerce anything that is not a known tier to FREE
+ * (never write a raw/garbage value) and warn so a mismapped price surfaces.
+ */
+function normalizeTier(
+  candidate: unknown,
+  logger?: Logger,
+  context?: string,
+): string {
+  if (typeof candidate === 'string' && VALID_TIERS.has(candidate)) {
+    return candidate;
+  }
+  if (candidate != null && candidate !== '' && logger) {
+    const candidateLabel =
+      typeof candidate === 'string'
+        ? candidate
+        : `<non-string:${typeof candidate}>`;
+    logger.warn(
+      `${context ?? 'subscription'}: ignoring unrecognized tier metadata "${candidateLabel}" — defaulting to FREE`,
+    );
+  }
+  return 'FREE';
+}
+
 const PAST_DUE_GRACE_MS = 7 * 24 * 60 * 60 * 1000; // 7-day grace window for past_due (C-1)
 const PROCESSED_SESSIONS_CAP = 10000; // in-memory confirm-session dedup bound
 const IMMEDIATE_DOWNGRADE_STATUSES = [
@@ -235,7 +272,11 @@ export class SubscriptionService {
       | undefined;
     const tier = priceId
       ? getTierFromPrice(this.priceMap, priceId)
-      : ((session.metadata?.tier as string) ?? 'FREE');
+      : normalizeTier(
+          session.metadata?.tier,
+          this.logger,
+          'confirmCheckoutSession',
+        );
     const eventTime = new Date(session.created * 1000);
 
     await this.prisma.restaurant.updateMany({
@@ -396,17 +437,29 @@ export class SubscriptionService {
           priceId = sub.items?.data?.[0]?.price?.id;
           tier = priceId
             ? getTierFromPrice(this.priceMap, priceId)
-            : ((obj.metadata?.tier as string) ?? 'FREE');
+            : normalizeTier(
+                obj.metadata?.tier,
+                this.logger,
+                'checkout.session.completed',
+              );
         } catch (err) {
           this.logger.error(
             `Failed to retrieve subscription ${subscriptionId} for checkout.session.completed: ${
               err instanceof Error ? err.message : err
             }`,
           );
-          tier = (obj.metadata?.tier as string) ?? 'FREE';
+          tier = normalizeTier(
+            obj.metadata?.tier,
+            this.logger,
+            'checkout.session.completed (retrieve failed)',
+          );
         }
       } else {
-        tier = (obj.metadata?.tier as string) ?? 'FREE';
+        tier = normalizeTier(
+          obj.metadata?.tier,
+          this.logger,
+          'checkout.session.completed (no subscription)',
+        );
       }
     } else {
       priceId = obj.items?.data?.[0]?.price?.id as string | undefined;

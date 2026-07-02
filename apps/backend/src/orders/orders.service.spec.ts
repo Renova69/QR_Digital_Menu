@@ -70,12 +70,6 @@ const makeTx = (orderOverride: Record<string, any> = {}) => ({
   },
   loyaltyAccount: {
     findUnique: jest.fn().mockResolvedValue(null),
-    create: jest
-      .fn()
-      .mockResolvedValue({ id: 'acc-1', points: 0, lifetimePoints: 0 }),
-    upsert: jest
-      .fn()
-      .mockResolvedValue({ id: 'acc-1', points: 0, lifetimePoints: 0 }),
     findUniqueOrThrow: jest
       .fn()
       .mockResolvedValue({ id: 'acc-1', points: 0, lifetimePoints: 0 }),
@@ -975,11 +969,6 @@ describe('OrdersService', () => {
         points: 500,
         lifetimePoints: 500,
       });
-      tx.loyaltyAccount.upsert.mockResolvedValue({
-        id: 'acc-1',
-        points: 500,
-        lifetimePoints: 500,
-      });
       tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
         id: 'acc-1',
         points: 500,
@@ -1022,11 +1011,6 @@ describe('OrdersService', () => {
       );
       const tx = makeTx();
       tx.loyaltyAccount.findUnique.mockResolvedValue({
-        id: 'acc-1',
-        points: 500,
-        lifetimePoints: 500,
-      });
-      tx.loyaltyAccount.upsert.mockResolvedValue({
         id: 'acc-1',
         points: 500,
         lifetimePoints: 500,
@@ -1089,11 +1073,6 @@ describe('OrdersService', () => {
         points: 500,
         lifetimePoints: 500,
       });
-      tx.loyaltyAccount.upsert.mockResolvedValue({
-        id: 'acc-1',
-        points: 500,
-        lifetimePoints: 500,
-      });
       tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
         id: 'acc-1',
         points: 500,
@@ -1150,11 +1129,6 @@ describe('OrdersService', () => {
         points: 500,
         lifetimePoints: 500,
       });
-      tx.loyaltyAccount.upsert.mockResolvedValue({
-        id: 'acc-1',
-        points: 500,
-        lifetimePoints: 500,
-      });
       tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
         id: 'acc-1',
         points: 500,
@@ -1191,8 +1165,8 @@ describe('OrdersService', () => {
         makeRestaurant({ isLoyaltyEnabled: true }),
       );
       const tx = makeTx();
-      // Default: loyaltyAccount.upsert creates the row (M-ORDER-1: upsert,
-      // not findUnique-then-create, to avoid a P2002 race).
+      // Native INSERT ... ON CONFLICT creates the first account without the
+      // P2002 race Prisma's empty-update upsert still has.
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
       );
@@ -1206,19 +1180,15 @@ describe('OrdersService', () => {
         'cust-1',
       );
 
-      expect(tx.loyaltyAccount.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            userId_restaurantId: { userId: 'cust-1', restaurantId: 'rest-1' },
-          },
-          create: expect.objectContaining({ points: 0, lifetimePoints: 0 }),
-          update: {},
-        }),
+      const insert = tx.$executeRaw.mock.calls.find((call: any[]) =>
+        String(call[0][0]).includes('INSERT INTO "loyalty_account"'),
       );
+      expect(insert).toBeDefined();
+      expect(insert).toEqual(expect.arrayContaining(['cust-1', 'rest-1']));
       expect(tx.loyaltyAccount.update).toHaveBeenCalled();
     });
 
-    it('reuses existing loyalty account (upsert no-ops) and still awards points', async () => {
+    it('reuses an existing loyalty account after conflict and still awards points', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurant.findUnique.mockResolvedValue(
         makeRestaurant({ isLoyaltyEnabled: true }),
@@ -1229,7 +1199,6 @@ describe('OrdersService', () => {
         points: 200,
         lifetimePoints: 500,
       };
-      tx.loyaltyAccount.upsert.mockResolvedValue(existingAcc);
       tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue(existingAcc);
       prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
         fn(tx),
@@ -1244,7 +1213,14 @@ describe('OrdersService', () => {
         'cust-1',
       );
 
-      expect(tx.loyaltyAccount.create).not.toHaveBeenCalled();
+      expect(tx.loyaltyAccount.findUniqueOrThrow).toHaveBeenCalledWith({
+        where: {
+          userId_restaurantId: {
+            userId: 'cust-1',
+            restaurantId: 'rest-1',
+          },
+        },
+      });
       expect(tx.loyaltyAccount.update).toHaveBeenCalled();
     });
 
@@ -1282,11 +1258,6 @@ describe('OrdersService', () => {
       );
       const tx = makeTx();
       tx.loyaltyAccount.findUnique.mockResolvedValue({
-        id: 'acc-1',
-        points: 5,
-        lifetimePoints: 100,
-      });
-      tx.loyaltyAccount.upsert.mockResolvedValue({
         id: 'acc-1',
         points: 5,
         lifetimePoints: 100,
@@ -1905,11 +1876,6 @@ describe('OrdersService', () => {
         points: 500,
         lifetimePoints: 500,
       });
-      tx.loyaltyAccount.upsert.mockResolvedValue({
-        id: 'acc-1',
-        points: 500,
-        lifetimePoints: 500,
-      });
       tx.loyaltyAccount.findUniqueOrThrow.mockResolvedValue({
         id: 'acc-1',
         points: 500,
@@ -1955,11 +1921,6 @@ describe('OrdersService', () => {
       mockAuthenticatedCustomer(prisma);
       const tx = makeTx();
       tx.loyaltyAccount.findUnique.mockResolvedValue({
-        id: 'acc-1',
-        points: 500,
-        lifetimePoints: 500,
-      });
-      tx.loyaltyAccount.upsert.mockResolvedValue({
         id: 'acc-1',
         points: 500,
         lifetimePoints: 500,

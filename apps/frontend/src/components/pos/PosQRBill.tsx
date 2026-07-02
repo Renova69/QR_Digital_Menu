@@ -4,6 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { QrCode, X } from "lucide-react";
 import { usePos } from "../../context/PosContext";
 import { useTranslation } from "react-i18next";
+import { buildTableSessionCheckoutUrl } from "../../lib/tableSessionCredential";
 
 export default function PosQRBill() {
   const { t } = useTranslation();
@@ -14,7 +15,10 @@ export default function PosQRBill() {
     return null;
   }
 
-  const billUrl = `${window.location.origin}/checkout?session=${session.sessionToken}`;
+  const billUrl = buildTableSessionCheckoutUrl(
+    window.location.origin,
+    session.sessionToken,
+  );
 
   return (
     <div className="border-t border-border p-4">

@@ -26,6 +26,7 @@ import { PaymentService } from './payment.service';
 import { FeatureGuard } from '../subscription/feature.guard';
 import { RequireFeature } from '../subscription/require-feature.decorator';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
+import { TableSessionToken } from './table-session-token.decorator';
 
 @Controller('payments')
 export class PaymentController {
@@ -64,24 +65,27 @@ export class PaymentController {
     );
   }
 
-  @Get('session/:token/bill')
-  getSessionBill(@Param('token') token: string, @Query('lang') lang?: string) {
+  @Get('session/bill')
+  getSessionBill(
+    @TableSessionToken() token: string,
+    @Query('lang') lang?: string,
+  ) {
     return this.paymentService.getSessionBill(token, lang);
   }
 
-  @Post('session/:token/intent')
+  @Post('session/intent')
   @HttpCode(HttpStatus.OK)
   createPaymentIntent(
-    @Param('token') token: string,
+    @TableSessionToken() token: string,
     @Body() body: CreatePaymentIntentDto,
   ) {
     return this.paymentService.createPaymentIntent(token, body.tipPercent ?? 0);
   }
 
-  @Post('session/:token/checkout')
+  @Post('session/checkout')
   @HttpCode(HttpStatus.OK)
   createCheckout(
-    @Param('token') token: string,
+    @TableSessionToken() token: string,
     @Body() body: CreateCheckoutDto,
   ) {
     const provider = (body.provider ?? 'STRIPE').toUpperCase() as
@@ -98,11 +102,11 @@ export class PaymentController {
     );
   }
 
-  @Post('session/:token/cash-request')
+  @Post('session/cash-request')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   createCashPaymentRequest(
-    @Param('token') token: string,
+    @TableSessionToken() token: string,
     @Body() body: CreateCashRequestDto,
   ) {
     return this.paymentService.createCashPaymentRequest(
@@ -112,19 +116,19 @@ export class PaymentController {
     );
   }
 
-  @Post('session/:token/abandon')
+  @Post('session/abandon')
   @HttpCode(HttpStatus.NO_CONTENT)
-  abandonCheckout(@Param('token') token: string) {
+  abandonCheckout(@TableSessionToken() token: string) {
     return this.paymentService.abandonCheckout(token);
   }
 
-  @Post('session/:token/close')
+  @Post('session/close')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, FeatureGuard)
   @RequireFeature(FeatureFlag.POS)
   closeSession(
     @Req() req: any,
-    @Param('token') token: string,
+    @TableSessionToken() token: string,
     @Body() body: { restaurantId: string },
   ) {
     return this.paymentService.closeSession(
@@ -134,13 +138,13 @@ export class PaymentController {
     );
   }
 
-  @Post('session/:token/close-card')
+  @Post('session/close-card')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, FeatureGuard)
   @RequireFeature(FeatureFlag.POS)
   closeSessionWithCard(
     @Req() req: any,
-    @Param('token') token: string,
+    @TableSessionToken() token: string,
     @Body() body: { restaurantId: string },
   ) {
     return this.paymentService.closeSessionWithCard(
@@ -150,13 +154,13 @@ export class PaymentController {
     );
   }
 
-  @Post('session/:token/close-cash')
+  @Post('session/close-cash')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, FeatureGuard)
   @RequireFeature(FeatureFlag.POS)
   closeSessionWithCash(
     @Req() req: any,
-    @Param('token') token: string,
+    @TableSessionToken() token: string,
     @Body() body: { restaurantId: string },
   ) {
     return this.paymentService.closeSessionWithCash(
@@ -166,13 +170,13 @@ export class PaymentController {
     );
   }
 
-  @Post('session/:token/settle-partial')
+  @Post('session/settle-partial')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, FeatureGuard)
   @RequireFeature(FeatureFlag.POS)
   settlePartial(
     @Req() req: any,
-    @Param('token') token: string,
+    @TableSessionToken() token: string,
     @Body() body: SettlePartialDto,
   ) {
     return this.paymentService.settlePartial(

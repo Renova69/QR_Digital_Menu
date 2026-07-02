@@ -1,5 +1,9 @@
 import axios from "axios";
 import { logApiError } from "./clientLogger";
+import {
+  findHostedCheckoutToken,
+  isPublicTableSessionCheckout,
+} from "./tableSessionCredential";
 
 // Auth transport is the httpOnly `token` cookie ONLY (#F1). Every token-issuing
 // endpoint (login/register/otp/google/pin-login) sets it server-side, and it is
@@ -16,6 +20,22 @@ const API_URL = "/api/v1";
 const api = axios.create({
   baseURL: API_URL,
   withCredentials: true,
+});
+
+// M-PAY-1: TableSession.token is a bearer-like public bill credential. Keep it
+// in a dedicated header so Vercel/Cloud Run request URLs, browser history, and
+// Referer values never receive it. All table-session helpers go through this
+// one transport seam.
+const TABLE_SESSION_TOKEN_HEADER = "X-Table-Session-Token";
+const withTableSessionToken = (
+  token: string,
+  config: Record<string, any> = {},
+) => ({
+  ...config,
+  headers: {
+    ...(config.headers ?? {}),
+    [TABLE_SESSION_TOKEN_HEADER]: token,
+  },
 });
 
 // L-FE-5: the raw pathname on /impersonate/:code embeds a one-time
@@ -629,12 +649,14 @@ api.interceptors.response.use(
         "/device-login",
       ];
       const currentPath = window.location.pathname;
-      // POS payment-QR bill is viewed unauthenticated at /checkout?session=...
+      // POS payment-QR bill is viewed unauthenticated with a fragment token.
       // Only that variant bypasses the login redirect — authenticated customer
       // checkout still redirects on 401 (M2).
       const isPublicCheckout =
-        currentPath.startsWith("/checkout") &&
-        new URLSearchParams(window.location.search).has("session");
+        typeof window !== "undefined" &&
+        (isPublicTableSessionCheckout(currentPath, window.location.hash) ||
+          (currentPath.startsWith("/checkout") &&
+            findHostedCheckoutToken(window.sessionStorage) !== null));
       if (
         !isPublicCheckout &&
         !publicPaths.some((p) => currentPath.startsWith(p))
@@ -744,9 +766,12 @@ export interface CashPaymentRequest {
 }
 
 export const getSessionBill = async (token: string, lang?: string) => {
-  const response = await api.get(`/payments/session/${token}/bill`, {
-    params: lang ? { lang } : undefined,
-  });
+  const response = await api.get(
+    "/payments/session/bill",
+    withTableSessionToken(token, {
+      params: lang ? { lang } : undefined,
+    }),
+  );
   return response.data as SessionBill;
 };
 
@@ -771,8 +796,9 @@ export const settlePartial = async (
   data: SettlePartialRequest,
 ) => {
   const response = await api.post(
-    `/payments/session/${token}/settle-partial`,
+    "/payments/session/settle-partial",
     data,
+    withTableSessionToken(token),
   );
   return response.data as {
     amount: number;
@@ -785,9 +811,11 @@ export const createPaymentIntent = async (
   token: string,
   tipPercent: number,
 ) => {
-  const response = await api.post(`/payments/session/${token}/intent`, {
-    tipPercent,
-  });
+  const response = await api.post(
+    "/payments/session/intent",
+    { tipPercent },
+    withTableSessionToken(token),
+  );
   return response.data as {
     clientSecret: string;
     paymentId: string;
@@ -858,7 +886,11 @@ export const createCheckout = async (
     orderIds?: string[];
   },
 ) => {
-  const response = await api.post(`/payments/session/${token}/checkout`, data);
+  const response = await api.post(
+    "/payments/session/checkout",
+    data,
+    withTableSessionToken(token),
+  );
   return response.data as CheckoutResponse;
 };
 
@@ -867,20 +899,27 @@ export const createCashPaymentRequest = async (
   data: { restaurantId: string; orderIds?: string[] },
 ) => {
   const response = await api.post(
-    `/payments/session/${token}/cash-request`,
+    "/payments/session/cash-request",
     data,
+    withTableSessionToken(token),
   );
   return response.data as CashPaymentRequest;
 };
 
 export const abandonCheckout = async (token: string): Promise<void> => {
-  await api.post(`/payments/session/${token}/abandon`);
+  await api.post(
+    "/payments/session/abandon",
+    undefined,
+    withTableSessionToken(token),
+  );
 };
 
 export const closeSession = async (token: string, restaurantId: string) => {
-  const response = await api.post(`/payments/session/${token}/close`, {
-    restaurantId,
-  });
+  const response = await api.post(
+    "/payments/session/close",
+    { restaurantId },
+    withTableSessionToken(token),
+  );
   return response.data;
 };
 
@@ -888,9 +927,11 @@ export const closeSessionWithCard = async (
   token: string,
   restaurantId: string,
 ) => {
-  const response = await api.post(`/payments/session/${token}/close-card`, {
-    restaurantId,
-  });
+  const response = await api.post(
+    "/payments/session/close-card",
+    { restaurantId },
+    withTableSessionToken(token),
+  );
   return response.data as { amount: number };
 };
 
@@ -898,9 +939,11 @@ export const closeSessionWithCash = async (
   token: string,
   restaurantId: string,
 ) => {
-  const response = await api.post(`/payments/session/${token}/close-cash`, {
-    restaurantId,
-  });
+  const response = await api.post(
+    "/payments/session/close-cash",
+    { restaurantId },
+    withTableSessionToken(token),
+  );
   return response.data as { amount: number };
 };
 

@@ -6,6 +6,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { writeAppLog } from '../logging/app-logger';
+import { redactSensitivePath } from '../logging/redact-path';
 
 function getExceptionResponse(exception: unknown, statusCode: number) {
   if (exception instanceof HttpException) {
@@ -25,8 +26,13 @@ function getMessage(responseBody: unknown): string {
     'message' in responseBody
   ) {
     const message = (responseBody as { message?: unknown }).message;
-    if (Array.isArray(message)) return message.join('; ');
-    if (message) return String(message);
+    if (Array.isArray(message)) {
+      const parts = message.filter(
+        (part): part is string => typeof part === 'string',
+      );
+      if (parts.length > 0) return parts.join('; ');
+    }
+    if (typeof message === 'string') return message;
   }
   return 'Unexpected error';
 }
@@ -49,7 +55,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
     writeAppLog(level, getMessage(responseBody), 'ExceptionFilter', {
       requestId,
       method: req?.method,
-      path: req?.originalUrl || req?.url,
+      // M-PAY-1: never log the session bearer token embedded in the path.
+      path: redactSensitivePath(req?.originalUrl || req?.url),
       statusCode,
       errorName: error?.name,
       stack: error?.stack,
