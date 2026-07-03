@@ -31,6 +31,7 @@ import { HelpContentModule } from './help-content/help-content.module';
 import { MenuViewModule } from './menu-views/menu-view.module';
 import { ClientLogsModule } from './client-logs/client-logs.module';
 import { PrintStationModule } from './print-station/print-station.module';
+import { ReservationsModule } from './reservations/reservations.module';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { PrintStationModule } from './print-station/print-station.module';
     MenuViewModule,
     ClientLogsModule,
     PrintStationModule,
+    ReservationsModule,
   ],
   controllers: [AppController],
   providers: [

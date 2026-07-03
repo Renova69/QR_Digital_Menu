@@ -1553,4 +1553,92 @@ export const exchangeImpersonation = (code: string) =>
 export const exitImpersonation = () =>
   api.post("/auth/impersonate/exit").then((r) => r.data);
 
+// ── Reservations ───────────────────────────────────────────────────────────
+// Public (unauthenticated) booking surface.
+export const getReservationConfig = (restaurantId: string) =>
+  api.get(`/reservations/public/${restaurantId}/config`).then((r) => r.data);
+
+export const getReservationAvailability = (
+  restaurantId: string,
+  date: string,
+  adults: number,
+  children: number,
+) =>
+  api
+    .get(`/reservations/public/${restaurantId}/availability`, {
+      params: { date, adults, children },
+    })
+    .then((r) => r.data);
+
+export const createReservation = (restaurantId: string, input: any) =>
+  api.post(`/reservations/public/${restaurantId}`, input).then((r) => r.data);
+
+export const getReservationStatus = (
+  restaurantId: string,
+  referenceCode: string,
+) =>
+  api
+    .get(`/reservations/public/${restaurantId}/status/${referenceCode}`)
+    .then((r) => r.data);
+
+// Dashboard (authenticated) surface.
+export const listReservations = (
+  restaurantId: string,
+  params: { date?: string; status?: string; upcoming?: string } = {},
+) => api.get(`/reservations/${restaurantId}`, { params }).then((r) => r.data);
+
+export const getReservationSettings = (restaurantId: string) =>
+  api.get(`/reservations/${restaurantId}/settings`).then((r) => r.data);
+
+export const updateReservationSettings = (
+  restaurantId: string,
+  data: Record<string, unknown>,
+) =>
+  api.put(`/reservations/${restaurantId}/settings`, data).then((r) => r.data);
+
+export const setReservationServiceHours = (
+  restaurantId: string,
+  rows: { weekday: number; openMinute: number; lastSlotMinute: number }[],
+) =>
+  api
+    .post(`/reservations/${restaurantId}/service-hours`, { rows })
+    .then((r) => r.data);
+
+export const deleteReservationServiceHours = (
+  restaurantId: string,
+  weekday: number,
+) =>
+  api
+    .delete(`/reservations/${restaurantId}/service-hours/${weekday}`)
+    .then((r) => r.data);
+
+export const createManualReservation = (restaurantId: string, input: any) =>
+  api.post(`/reservations/${restaurantId}/manual`, input).then((r) => r.data);
+
+export const reservationAction = (
+  reservationId: string,
+  restaurantId: string,
+  action: string,
+  reason?: string,
+) =>
+  api
+    .post(`/reservations/action/${reservationId}`, {
+      restaurantId,
+      action,
+      reason,
+    })
+    .then((r) => r.data);
+
+export const updateReservationInternal = (
+  reservationId: string,
+  restaurantId: string,
+  data: { internalNotes?: string; staffTags?: string[] },
+) =>
+  api
+    .patch(`/reservations/internal/${reservationId}`, {
+      restaurantId,
+      ...data,
+    })
+    .then((r) => r.data);
+
 export default api;

@@ -45,6 +45,10 @@ const FeedbackPage = lazy(() => import("./pages/FeedbackPage"));
 const DeviceLoginPage = lazy(() => import("./pages/DeviceLoginPage"));
 const DeviceEnrollPage = lazy(() => import("./pages/DeviceEnrollPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
+const BookingPage = lazy(() => import("./pages/BookingPage"));
+const BookingConfirmationPage = lazy(
+  () => import("./pages/BookingConfirmationPage"),
+);
 
 const SuperAdminLayout = lazy(
   () => import("./pages/super-admin/SuperAdminLayout"),
@@ -255,6 +259,11 @@ function App() {
                   <Route
                     path="/feedback/:restaurantId"
                     element={<FeedbackPage />}
+                  />
+                  <Route path="/book/:restaurantId" element={<BookingPage />} />
+                  <Route
+                    path="/booking/confirmation"
+                    element={<BookingConfirmationPage />}
                   />
                 </Route>
 

@@ -50,4 +50,23 @@ describe('CSRF exemptions (L-AUTH-1)', () => {
       (CSRF_EXEMPT_PATHS as string[]).push('/api/v1/anything');
     }).toThrow();
   });
+
+  // Public reservation booking (unauthenticated, no cookie) — dynamic segment.
+  it('exempts the public reservation booking POST (one trailing segment)', () => {
+    expect(
+      isCsrfExemptPath('/api/v1/reservations/public/rest_123', 'POST'),
+    ).toBe(true);
+  });
+
+  it('does not exempt nested reservation POST routes or non-POST', () => {
+    expect(
+      isCsrfExemptPath('/api/v1/reservations/public/rest_123/extra', 'POST'),
+    ).toBe(false);
+    expect(
+      isCsrfExemptPath('/api/v1/reservations/public/rest_123', 'DELETE'),
+    ).toBe(false);
+    expect(isCsrfExemptPath('/api/v1/reservations/rest_123', 'POST')).toBe(
+      false,
+    );
+  });
 });

@@ -19,6 +19,7 @@ import {
   LogOut,
   Users,
   MoreHorizontal,
+  CalendarCheck,
   X,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -34,6 +35,7 @@ import AnalyticsView from "./Dashboard/AnalyticsView";
 import SettingsView from "./Dashboard/SettingsView";
 import { useTranslation } from "react-i18next";
 import PaymentsView from "./Dashboard/PaymentsView";
+import ReservationsView from "./Dashboard/ReservationsView";
 import HelpView from "./Dashboard/HelpView";
 import NotificationBell from "../components/NotificationBell";
 import PaymentToast from "../components/PaymentToast";
@@ -53,6 +55,7 @@ type TabId =
   | "payments"
   | "assistance"
   | "tables"
+  | "reservations"
   | "settings"
   | "help";
 
@@ -77,6 +80,11 @@ const MOBILE_PRIMARY_TABS: TabId[] = [
 ];
 const MOBILE_MORE_TABS: { id: TabId; Icon: LucideIcon; labelKey: string }[] = [
   { id: "payments", Icon: CreditCard, labelKey: "dashboard.tabs.payments" },
+  {
+    id: "reservations",
+    Icon: CalendarCheck,
+    labelKey: "dashboard.tabs.reservations",
+  },
   { id: "analytics", Icon: BarChart2, labelKey: "dashboard.tabs.stats" },
   { id: "settings", Icon: Settings, labelKey: "dashboard.tabs.settings" },
   { id: "help", Icon: HelpCircle, labelKey: "dashboard.tabs.help" },
@@ -90,6 +98,7 @@ const VALID_TABS: TabId[] = [
   "payments",
   "assistance",
   "tables",
+  "reservations",
   "settings",
   "help",
 ];
@@ -148,6 +157,7 @@ const DashboardPage = () => {
   const canAssistance = useFeature("orders:call-waiter");
   const canPos = useFeature("pos");
   const canKds = useFeature("kds");
+  const canReservations = useFeature("reservations:enabled");
 
   // Guard against landing on a tab the tier doesn't entitle (e.g. a forced
   // ?tab=payments URL on a FREE plan). Nav already locks the tap, but this
@@ -159,6 +169,7 @@ const DashboardPage = () => {
       (activeTab === "orders" && !canOrders) ||
       (activeTab === "assistance" && !canAssistance) ||
       (activeTab === "payments" && (!canPayments || !paymentsEnabled)) ||
+      (activeTab === "reservations" && !canReservations) ||
       (activeTab === "analytics" && !canAnalytics);
     if (tabLocked) setActiveTab("summary");
   }, [
@@ -168,6 +179,7 @@ const DashboardPage = () => {
     canAssistance,
     canPayments,
     paymentsEnabled,
+    canReservations,
     canAnalytics,
   ]);
 
@@ -268,6 +280,13 @@ const DashboardPage = () => {
       feature: "payments:stripe",
       locked: !canPayments,
       hidden: !paymentsEnabled,
+    },
+    {
+      id: "reservations" as TabId,
+      Icon: CalendarCheck,
+      label: t("dashboard.tabs.reservations", "Reservations"),
+      feature: "reservations:enabled",
+      locked: !canReservations,
     },
     {
       id: "analytics" as TabId,
@@ -617,6 +636,9 @@ const DashboardPage = () => {
                     !isStaff && <PaymentsView />}
                   {activeTab === "assistance" && <AssistanceView />}
                   {activeTab === "tables" && activeRestaurant && <TableView />}
+                  {activeTab === "reservations" &&
+                    activeRestaurant &&
+                    canReservations && <ReservationsView />}
                   {activeTab === "settings" && activeRestaurant && !isStaff && (
                     <SettingsView />
                   )}
