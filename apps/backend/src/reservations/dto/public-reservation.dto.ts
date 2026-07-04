@@ -33,6 +33,28 @@ export class AvailabilityQueryDto {
   children?: number;
 }
 
+// Feature 2: guest self-service modification via private token link. All fields
+// optional — the guest may change just the time, just the party, or both.
+export class ModifyReservationDto {
+  @IsOptional()
+  @IsDateString()
+  startsAt?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  adultsCount?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(50)
+  childrenCount?: number;
+}
+
 export class CreateReservationDto {
   @IsString()
   @IsNotEmpty()
@@ -91,6 +113,24 @@ export class CreateReservationDto {
   @IsOptional()
   @IsBoolean()
   marketingConsent?: boolean;
+
+  // Feature 1: guest-chosen notification channels. When omitted, the service
+  // defaults to email (if an address was given). SMS requires the phone number
+  // that is already mandatory for a booking.
+  @IsOptional()
+  @IsBoolean()
+  notifyByEmail?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  notifyBySms?: boolean;
+
+  // Feature 3: preferred seating zone (soft hint; must be one the restaurant
+  // offers). Free string capped for safety; validated against the zone list.
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  preferredZone?: string;
 
   @IsOptional()
   @IsString()

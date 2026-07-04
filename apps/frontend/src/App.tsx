@@ -49,6 +49,7 @@ const BookingPage = lazy(() => import("./pages/BookingPage"));
 const BookingConfirmationPage = lazy(
   () => import("./pages/BookingConfirmationPage"),
 );
+const BookingManagePage = lazy(() => import("./pages/BookingManagePage"));
 
 const SuperAdminLayout = lazy(
   () => import("./pages/super-admin/SuperAdminLayout"),
@@ -264,6 +265,10 @@ function App() {
                   <Route
                     path="/booking/confirmation"
                     element={<BookingConfirmationPage />}
+                  />
+                  <Route
+                    path="/booking/manage"
+                    element={<BookingManagePage />}
                   />
                 </Route>
 

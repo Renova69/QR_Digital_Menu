@@ -89,6 +89,7 @@ export interface ReservationPublicConfig {
     requirePhone: boolean;
     allergenSectionEnabled: boolean;
     customPreferences: string[];
+    zones: string[];
   } | null;
   allergens: { allergens: string[]; dietaryTags: string[] };
 }
@@ -115,6 +116,9 @@ export interface StaffReservation {
   customerNotes: string | null;
   internalNotes: string | null;
   customerPreferences: string[];
+  preferredZone: string | null;
+  durationMinutes: number | null;
+  endsAt: string | null;
   allergyNotes: string | null;
   staffTags: string[];
   marketingConsent: boolean;
@@ -134,6 +138,9 @@ export interface ReservationSettings {
   customPreferences: string[];
   notifyEmail?: string | null;
   notifyPhone?: string | null;
+  diningDurationMinutes?: number;
+  largePartyThreshold?: number;
+  largePartyDurationMinutes?: number;
 }
 
 export interface ServiceHours {

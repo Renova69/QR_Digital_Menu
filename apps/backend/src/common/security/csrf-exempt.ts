@@ -41,6 +41,9 @@ export const CSRF_EXEMPT_PATHS: readonly string[] = Object.freeze([
 export const CSRF_EXEMPT_POST_PATTERNS: readonly RegExp[] = Object.freeze([
   // public reservation booking: POST /api/v1/reservations/public/:restaurantId
   /^\/api\/v1\/reservations\/public\/[^/]+$/,
+  // guest self-service (Feature 2): token IS the credential, no ambient cookie.
+  // POST /api/v1/reservations/public/:restaurantId/manage/:token/(cancel|modify)
+  /^\/api\/v1\/reservations\/public\/[^/]+\/manage\/[^/]+\/(cancel|modify)$/,
 ]);
 
 /**

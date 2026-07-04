@@ -1573,6 +1573,37 @@ export const getReservationAvailability = (
 export const createReservation = (restaurantId: string, input: any) =>
   api.post(`/reservations/public/${restaurantId}`, input).then((r) => r.data);
 
+// ── Guest self-service via private manage link (Feature 2) ────────────────
+export const getManageReservation = (restaurantId: string, token: string) =>
+  api
+    .get(
+      `/reservations/public/${restaurantId}/manage/${encodeURIComponent(token)}`,
+    )
+    .then((r) => r.data);
+
+export const cancelManageReservation = (restaurantId: string, token: string) =>
+  api
+    .post(
+      `/reservations/public/${restaurantId}/manage/${encodeURIComponent(
+        token,
+      )}/cancel`,
+    )
+    .then((r) => r.data);
+
+export const modifyManageReservation = (
+  restaurantId: string,
+  token: string,
+  body: { startsAt?: string; adultsCount?: number; childrenCount?: number },
+) =>
+  api
+    .post(
+      `/reservations/public/${restaurantId}/manage/${encodeURIComponent(
+        token,
+      )}/modify`,
+      body,
+    )
+    .then((r) => r.data);
+
 export const getReservationStatus = (
   restaurantId: string,
   referenceCode: string,
@@ -1610,6 +1641,28 @@ export const deleteReservationServiceHours = (
 ) =>
   api
     .delete(`/reservations/${restaurantId}/service-hours/${weekday}`)
+    .then((r) => r.data);
+
+// ── Analytics (Feature 6) ────────────────────────────────────────────────
+export const getReservationAnalytics = (restaurantId: string) =>
+  api.get(`/reservations/${restaurantId}/analytics`).then((r) => r.data);
+
+// ── Blackout days (Feature 5) ────────────────────────────────────────────
+export const listReservationBlackouts = (restaurantId: string) =>
+  api.get(`/reservations/${restaurantId}/blackouts`).then((r) => r.data);
+
+export const addReservationBlackout = (
+  restaurantId: string,
+  date: string,
+  reason?: string,
+) =>
+  api
+    .post(`/reservations/${restaurantId}/blackouts`, { date, reason })
+    .then((r) => r.data);
+
+export const removeReservationBlackout = (restaurantId: string, date: string) =>
+  api
+    .delete(`/reservations/${restaurantId}/blackouts/${date}`)
     .then((r) => r.data);
 
 export const createManualReservation = (restaurantId: string, input: any) =>

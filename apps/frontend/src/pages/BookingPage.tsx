@@ -12,6 +12,7 @@ import {
   Heart,
   Info,
   Leaf,
+  MapPin,
   MilkOff,
   Moon,
   NutOff,
@@ -59,7 +60,11 @@ const PREF_ICON: Record<string, LucideIcon> = {
 function localDateISO(offsetDays = 0): string {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
-  return d.toISOString().slice(0, 10);
+  // Local calendar date — NOT toISOString(), which is UTC and rolls to the
+  // wrong day for hours after local midnight in UTC+ timezones (e.g. Sofia).
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate(),
+  ).padStart(2, "0")}`;
 }
 function prefLabel(pref: string): string {
   return pref
@@ -94,6 +99,12 @@ const BookingPage = () => {
   const [allergyNotes, setAllergyNotes] = useState("");
   const [consent, setConsent] = useState(false);
   const [marketing, setMarketing] = useState(false);
+  // Feature 1: how the guest wants confirmations, cancellations and the 24h
+  // reminder delivered. Email is the default; SMS is opt-in.
+  const [notifyEmail, setNotifyEmail] = useState(true);
+  const [notifySms, setNotifySms] = useState(false);
+  // Feature 3: preferred seating zone (soft hint; empty = no preference).
+  const [zone, setZone] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -171,10 +182,18 @@ const BookingPage = () => {
   };
 
   const maxParty = config?.policy?.maxTotalGuests ?? 12;
+  // Email is required only when the guest asks to be notified by email; SMS
+  // relies on the phone number that is already required for a booking.
+  const emailValid = /.+@.+\..+/.test(email.trim());
+  const notifyOk =
+    (notifyEmail || notifySms) &&
+    (!notifyEmail || emailValid) &&
+    (!notifySms || phone.trim().length > 0);
   const canSubmit =
     !!selectedSlot &&
     name.trim().length > 0 &&
     (!config?.policy?.requirePhone || phone.trim().length > 0) &&
+    notifyOk &&
     total >= 1 &&
     total <= maxParty &&
     !submitting;
@@ -196,6 +215,9 @@ const BookingPage = () => {
         allergyNotes: allergyNotes.trim() || undefined,
         dietaryConsent: dietaryChosen ? consent : undefined,
         marketingConsent: marketing || undefined,
+        notifyByEmail: notifyEmail,
+        notifyBySms: notifySms,
+        preferredZone: zone || undefined,
         idempotencyKey,
       });
       navigate(
@@ -472,7 +494,12 @@ const BookingPage = () => {
 
           <div className="mt-3">
             <Field
-              label={`${t("booking.email", "Email")} (${t("booking.optional", "optional")})`}
+              label={
+                notifyEmail
+                  ? t("booking.email", "Email")
+                  : `${t("booking.email", "Email")} (${t("booking.optional", "optional")})`
+              }
+              required={notifyEmail}
             >
               <input
                 type="email"
@@ -481,6 +508,34 @@ const BookingPage = () => {
                 placeholder="you@example.com"
                 className="bk-input"
               />
+            </Field>
+          </div>
+
+          {/* Feature 1: notification channel choice */}
+          <div className="mt-3">
+            <Field label={t("booking.notifyHow", "How should we update you?")}>
+              <div className="flex flex-wrap gap-2">
+                <ChannelToggle
+                  active={notifyEmail}
+                  onClick={() => setNotifyEmail((v) => !v)}
+                >
+                  {t("booking.notifyEmail", "Email")}
+                </ChannelToggle>
+                <ChannelToggle
+                  active={notifySms}
+                  onClick={() => setNotifySms((v) => !v)}
+                >
+                  {t("booking.notifySms", "SMS")}
+                </ChannelToggle>
+              </div>
+              {!notifyEmail && !notifySms && (
+                <p className="mt-1 text-xs" style={{ color: "var(--accent)" }}>
+                  {t(
+                    "booking.notifyNone",
+                    "Pick at least one way to receive your confirmation and reminder.",
+                  )}
+                </p>
+              )}
             </Field>
           </div>
 
@@ -499,6 +554,30 @@ const BookingPage = () => {
               />
             </Field>
           </div>
+
+          {/* Feature 3: preferred seating zone */}
+          {(config.policy?.zones?.length ?? 0) > 0 && (
+            <div className="mt-4">
+              <MiniTitle icon={<MapPin className="w-4 h-4" />}>
+                {t("booking.seatingZone", "Preferred seating")}
+              </MiniTitle>
+              <div className="flex flex-wrap gap-2">
+                <Chip
+                  active={zone === ""}
+                  onClick={() => setZone("")}
+                  label={t("booking.zoneAny", "No preference")}
+                />
+                {config.policy!.zones.map((z) => (
+                  <Chip
+                    key={z}
+                    active={zone === z}
+                    onClick={() => setZone(zone === z ? "" : z)}
+                    label={z}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Preferences */}
           <div className="mt-4">
@@ -828,6 +907,32 @@ function Chip({
     >
       {Icon && <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />}
       {label}
+    </button>
+  );
+}
+
+// Feature 1: toggle chip for a notification channel (Email / SMS). A checkmark
+// makes the on-state unambiguous alongside the active fill.
+function ChannelToggle({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex items-center gap-1.5 text-sm rounded-full px-3 py-1.5 transition ${
+        active ? "bk-chip-active" : "bk-chip"
+      }`}
+    >
+      {active && <Check className="h-4 w-4 shrink-0" aria-hidden="true" />}
+      {children}
     </button>
   );
 }

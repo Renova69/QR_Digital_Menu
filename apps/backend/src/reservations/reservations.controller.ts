@@ -16,6 +16,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ReservationsService } from './reservations.service';
 import { UpdateReservationSettingsDto } from './dto/reservation-settings.dto';
 import {
+  BlackoutDto,
   ListReservationsQueryDto,
   ManualReservationDto,
   ReservationActionBodyDto,
@@ -72,6 +73,39 @@ export class ReservationsController {
       req.user.id,
       weekday,
     );
+  }
+
+  @Get(':restaurantId/analytics')
+  analytics(@Req() req: any, @Param('restaurantId') restaurantId: string) {
+    return this.reservations.getAnalytics(restaurantId, req.user.id);
+  }
+
+  @Get(':restaurantId/blackouts')
+  listBlackouts(@Req() req: any, @Param('restaurantId') restaurantId: string) {
+    return this.reservations.listBlackouts(restaurantId, req.user.id);
+  }
+
+  @Post(':restaurantId/blackouts')
+  addBlackout(
+    @Req() req: any,
+    @Param('restaurantId') restaurantId: string,
+    @Body() dto: BlackoutDto,
+  ) {
+    return this.reservations.addBlackout(
+      restaurantId,
+      req.user.id,
+      dto.date,
+      dto.reason,
+    );
+  }
+
+  @Delete(':restaurantId/blackouts/:date')
+  removeBlackout(
+    @Req() req: any,
+    @Param('restaurantId') restaurantId: string,
+    @Param('date') date: string,
+  ) {
+    return this.reservations.removeBlackout(restaurantId, req.user.id, date);
   }
 
   @Get(':restaurantId')

@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import { DateTime } from 'luxon';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -23,12 +27,20 @@ export class ReservationAvailabilityService {
     restaurantId: string,
     localDate: string, // YYYY-MM-DD in the restaurant's timezone
     partySize: number,
+    // Feature 2: when re-checking a slot for a modification, the reservation
+    // being changed must not count against its own capacity (else moving within
+    // the same slot or growing the party double-counts the existing hold).
+    excludeReservationId?: string,
   ): Promise<AvailabilitySlot[]> {
-    const [settings, restaurant] = await Promise.all([
+    const [settings, restaurant, blackout] = await Promise.all([
       this.prisma.reservationSettings.findUnique({ where: { restaurantId } }),
       this.prisma.restaurant.findUnique({
         where: { id: restaurantId },
         select: { timezone: true },
+      }),
+      this.prisma.reservationBlackout.findUnique({
+        where: { restaurantId_date: { restaurantId, date: localDate } },
+        select: { id: true },
       }),
     ]);
 
@@ -40,6 +52,10 @@ export class ReservationAvailabilityService {
     if (!day.isValid) {
       throw new BadRequestException('Invalid date');
     }
+
+    // Feature 5: owner-declared closed day → no slots (also blocks the submit
+    // guard, since assertSlotBookable re-derives this same set).
+    if (blackout) return [];
 
     const now = DateTime.now().setZone(zone);
     const earliest = now.plus({ minutes: settings.minLeadMinutes });
@@ -74,6 +90,7 @@ export class ReservationAvailabilityService {
         : await this.coversByStartInstant(
             restaurantId,
             candidates.map((c) => c.toUTC().toMillis()),
+            excludeReservationId,
           );
 
     const slots: AvailabilitySlot[] = [];
@@ -90,9 +107,50 @@ export class ReservationAvailabilityService {
     return slots;
   }
 
+  /**
+   * Server-side guard for a booking submit (Fixes 1 + 2): the chosen instant
+   * must be one the availability engine would actually offer for that party.
+   * This re-derives the slot set — so it rejects times outside service hours,
+   * outside lead/horizon, and (soft) full slots — instead of trusting the
+   * client. A determined direct request can no longer book 03:00 or a full slot.
+   */
+  async assertSlotBookable(
+    restaurantId: string,
+    startsAt: Date,
+    partySize: number,
+    excludeReservationId?: string,
+  ): Promise<void> {
+    if (isNaN(startsAt.getTime())) {
+      throw new BadRequestException('Invalid reservation time');
+    }
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { timezone: true },
+    });
+    const zone = restaurant?.timezone || 'Europe/Sofia';
+    const localDate = DateTime.fromJSDate(startsAt).setZone(zone).toISODate();
+    if (!localDate) throw new BadRequestException('Invalid reservation time');
+
+    const slots = await this.getSlots(
+      restaurantId,
+      localDate,
+      partySize,
+      excludeReservationId,
+    );
+    const bookable = slots.some(
+      (s) => new Date(s.startsAt).getTime() === startsAt.getTime(),
+    );
+    if (!bookable) {
+      throw new ConflictException(
+        'This time is no longer available. Please choose another slot.',
+      );
+    }
+  }
+
   private async coversByStartInstant(
     restaurantId: string,
     startMillis: number[],
+    excludeReservationId?: string,
   ): Promise<Map<number, number>> {
     const starts = startMillis.map((ms) => new Date(ms));
     const rows = await this.prisma.reservation.findMany({
@@ -100,6 +158,7 @@ export class ReservationAvailabilityService {
         restaurantId,
         status: { in: [...ACTIVE_HOLD_STATUSES] },
         startsAt: { in: starts },
+        ...(excludeReservationId ? { id: { not: excludeReservationId } } : {}),
       },
       select: { startsAt: true, adultsCount: true, childrenCount: true },
     });

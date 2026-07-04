@@ -73,6 +73,25 @@ export class UpdateReservationSettingsDto {
   @IsString()
   @MaxLength(32)
   notifyPhone?: string;
+
+  // Feature 4: dining duration / turnover time (minutes).
+  @IsOptional()
+  @IsInt()
+  @Min(30)
+  @Max(600)
+  diningDurationMinutes?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(2)
+  @Max(50)
+  largePartyThreshold?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(30)
+  @Max(600)
+  largePartyDurationMinutes?: number;
 }
 
 export class ServiceHoursDto {

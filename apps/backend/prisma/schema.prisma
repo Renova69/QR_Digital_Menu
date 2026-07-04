@@ -162,6 +162,7 @@ model Restaurant {
   reservations              Reservation[]
   reservationSettings       ReservationSettings?
   reservationServiceHours   ReservationServiceHours[]
+  reservationBlackouts      ReservationBlackout[]
   patrons                   Patron[]
 
   @@index([stripeCustomerId])
@@ -768,6 +769,12 @@ model ReservationSettings {
   customPreferences      String[]   @default([])
   notifyEmail            String?
   notifyPhone            String?
+  // Feature 4: dining duration / turnover. Small parties get the base duration;
+  // parties at or above the threshold get the longer duration. Used to show
+  // staff when a table is expected to free up.
+  diningDurationMinutes     Int     @default(90)
+  largePartyThreshold       Int     @default(5)
+  largePartyDurationMinutes Int     @default(150)
   createdAt              DateTime   @default(now())
   updatedAt              DateTime   @updatedAt
   restaurant             Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
@@ -787,6 +794,23 @@ model ReservationServiceHours {
 
   @@unique([restaurantId, weekday])
   @@map("reservation_service_hours")
+}
+
+// Feature 5: owner-declared closed days (holidays, private events). A blackout
+// suppresses every slot for that restaurant-local calendar date. Stored as a
+// plain YYYY-MM-DD string so it compares directly against the availability
+// engine's timezone-derived local date — no UTC-midnight drift.
+model ReservationBlackout {
+  id           String     @id @default(cuid())
+  restaurantId String
+  date         String // restaurant-local calendar date, YYYY-MM-DD
+  reason       String?
+  createdAt    DateTime   @default(now())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, date])
+  @@index([restaurantId])
+  @@map("reservation_blackout")
 }
 
 // Minimal patron: cross-visit STAFF-ONLY tags, matched by (restaurantId, phone).
@@ -833,6 +857,19 @@ model Reservation {
   allergyNotes        String? // special-category; only stored with consent
   dietaryConsentAt    DateTime?
   marketingConsentAt  DateTime? // set when the guest opts in to promotions
+  // Feature 1: guest-chosen notification channels for confirm/cancel/reminder.
+  notifyByEmail       Boolean             @default(true)
+  notifyBySms         Boolean             @default(false)
+  reminderSentAt      DateTime? // set once the 24h reminder has gone out (dedup)
+  // Feature 3: guest's preferred seating zone (soft hint). Stored as the zone
+  // NAME, not an FK, so a later zone rename/delete never orphans the booking.
+  preferredZone       String?
+  // Feature 2: unguessable token for the guest's private self-service link
+  // (view / modify / cancel without logging in). Null for legacy rows.
+  manageToken         String?             @unique
+  // Feature 4: snapshot of the expected dining duration at booking time so a
+  // later settings change doesn't retroactively move existing table turnovers.
+  durationMinutes     Int?
   idempotencyKey      String?
   createdById         String?
   createdAt           DateTime            @default(now())

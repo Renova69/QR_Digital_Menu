@@ -45,6 +45,26 @@ describe('redactSensitivePath (M-PAY-1)', () => {
     );
   });
 
+  // Feature 2: reservation guest self-service manage token is a bearer credential
+  // in the path — redact it exactly like the payment session token.
+  it.each([
+    `/api/v1/reservations/public/rest_1/manage/${SECRET}`,
+    `/api/v1/reservations/public/rest_1/manage/${SECRET}/cancel`,
+    `/api/v1/reservations/public/rest_1/manage/${SECRET}/modify`,
+  ])('redacts the reservation manage token in %s', (path) => {
+    const result = redactSensitivePath(path);
+    expect(result).not.toContain(SECRET);
+    expect(result).toContain('/manage/:token');
+  });
+
+  it('preserves the manage action segment while redacting the token', () => {
+    expect(
+      redactSensitivePath(
+        `/api/v1/reservations/public/rest_1/manage/${SECRET}/cancel`,
+      ),
+    ).toBe('/api/v1/reservations/public/rest_1/manage/:token/cancel');
+  });
+
   it('handles non-string / empty input safely', () => {
     expect(redactSensitivePath(undefined)).toBe('');
     expect(redactSensitivePath(null)).toBe('');

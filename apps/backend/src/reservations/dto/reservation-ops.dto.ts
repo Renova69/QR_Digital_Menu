@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -99,4 +100,19 @@ export class CoverCountDto {
   @Max(50)
   @IsOptional()
   children?: number;
+}
+
+// Feature 5: owner-declared closed day. `date` is validated again in the
+// service (Luxon) before storage; the regex here is the cheap first boundary.
+export class BlackoutDto {
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'date must be YYYY-MM-DD',
+  })
+  date!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  reason?: string;
 }

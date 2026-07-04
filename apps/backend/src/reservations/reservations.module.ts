@@ -6,6 +6,7 @@ import { ReservationAvailabilityService } from './reservation-availability.servi
 import { ReservationAllergensService } from './reservation-allergens.service';
 import { PatronService } from './patron.service';
 import { ReservationNotificationsService } from './reservation-notifications.service';
+import { ReservationReminderService } from './reservation-reminder.service';
 
 @Module({
   controllers: [PublicReservationsController, ReservationsController],
@@ -15,6 +16,7 @@ import { ReservationNotificationsService } from './reservation-notifications.ser
     ReservationAllergensService,
     PatronService,
     ReservationNotificationsService,
+    ReservationReminderService,
   ],
 })
 export class ReservationsModule {}

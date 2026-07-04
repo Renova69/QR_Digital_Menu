@@ -11,6 +11,10 @@ import {
   setReservationServiceHours,
   createManualReservation,
   updateReservationInternal,
+  listReservationBlackouts,
+  addReservationBlackout,
+  removeReservationBlackout,
+  getReservationAnalytics,
 } from "../../lib/api";
 import {
   STAFF_PATRON_TAGS,
@@ -43,7 +47,13 @@ const TIME_OPTIONS: string[] = (() => {
 })();
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  // Local calendar date — NOT toISOString() (UTC), which shows yesterday for a
+  // few hours after local midnight in UTC+ timezones and sends the wrong `date`
+  // to the (correctly tz-aware) backend list filter.
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate(),
+  ).padStart(2, "0")}`;
 }
 function toHHMM(minutes: number) {
   const h = Math.floor(minutes / 60);
@@ -115,6 +125,83 @@ function TabButton({
   );
 }
 
+interface ReservationAnalytics {
+  windowDays: number;
+  total: number;
+  thisWeek: number;
+  noShows: number;
+  avgPartySize: number;
+  statusCounts: Record<string, number>;
+  popularHours: { hour: number; label: string; count: number }[];
+}
+
+function AnalyticsPanel({ restaurantId }: { restaurantId: string }) {
+  const { t } = useTranslation();
+  const { data } = useQuery<ReservationAnalytics>({
+    queryKey: ["reservation-analytics", restaurantId],
+    queryFn: () => getReservationAnalytics(restaurantId),
+    enabled: !!restaurantId,
+    refetchInterval: 60000,
+  });
+  if (!data) return null;
+
+  const popular =
+    data.popularHours.length > 0
+      ? data.popularHours.map((h) => h.label).join(", ")
+      : "—";
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <StatCard
+        label={t("reservations.statThisWeek", "This week")}
+        value={String(data.thisWeek)}
+      />
+      <StatCard
+        label={t("reservations.stat30d", "Last 30 days")}
+        value={String(data.total)}
+      />
+      <StatCard
+        label={t("reservations.statNoShows", "No-shows (30d)")}
+        value={String(data.noShows)}
+        tone={data.noShows > 0 ? "red" : "default"}
+      />
+      <StatCard
+        label={t("reservations.statAvgParty", "Avg party")}
+        value={data.avgPartySize ? data.avgPartySize.toFixed(1) : "—"}
+      />
+      <div className="col-span-2 sm:col-span-4 rounded-xl bg-white border shadow-sm px-3 py-2 text-xs text-gray-600">
+        <span className="font-medium text-gray-700">
+          {t("reservations.statPopular", "Busiest times")}:
+        </span>{" "}
+        {popular}
+      </div>
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "red";
+}) {
+  return (
+    <div className="rounded-xl bg-white border shadow-sm px-3 py-2">
+      <div className="text-xs text-gray-500">{label}</div>
+      <div
+        className={`text-xl font-bold ${
+          tone === "red" ? "text-red-600" : "text-gray-900"
+        }`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
 function ReservationList({ restaurantId }: { restaurantId: string }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -151,6 +238,9 @@ function ReservationList({ restaurantId }: { restaurantId: string }) {
       qc.invalidateQueries({
         queryKey: ["reservations-upcoming", restaurantId],
       });
+      qc.invalidateQueries({
+        queryKey: ["reservation-analytics", restaurantId],
+      });
     };
     socket.on("reservation:created", refresh);
     socket.on("reservation:updated", refresh);
@@ -163,6 +253,7 @@ function ReservationList({ restaurantId }: { restaurantId: string }) {
   return (
     <div className="lg:grid lg:grid-cols-3 lg:gap-4">
       <div className="lg:col-span-2 space-y-3">
+        <AnalyticsPanel restaurantId={restaurantId} />
         <div className="flex flex-wrap gap-2 items-center">
           <input
             type="date"
@@ -584,7 +675,16 @@ function ReservationCard({
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="font-semibold">{r.guestName}</p>
-          <p className="text-xs text-gray-500">{time}</p>
+          <p className="text-xs text-gray-500">
+            {time}
+            {r.endsAt && (
+              <span className="text-gray-400">
+                {" "}
+                → {format24h(r.endsAt)}{" "}
+                {t("reservations.tableFree", "(table free)")}
+              </span>
+            )}
+          </p>
         </div>
         <span
           className={`text-xs px-2 py-0.5 rounded-full ${STATUS_STYLES[r.status] ?? ""}`}
@@ -607,10 +707,14 @@ function ReservationCard({
       </div>
 
       {(r.customerPreferences.length > 0 ||
+        r.preferredZone ||
         r.allergyNotes ||
         r.staffTags.length > 0 ||
         r.marketingConsent) && (
         <div className="flex flex-wrap gap-1 mt-2">
+          {r.preferredZone && (
+            <Badge tone="indigo" label={`📍 ${r.preferredZone}`} />
+          )}
           {r.customerPreferences.map((p) => (
             <Badge key={p} tone="amber" label={p} />
           ))}
@@ -863,6 +967,39 @@ function ReservationSettingsForm({ restaurantId }: { restaurantId: string }) {
             onCommit={(v) => saveSettings.mutate({ slotIntervalMinutes: v })}
           />
         </div>
+
+        <div className="pt-2">
+          <p className="text-xs font-medium text-gray-600 mb-2">
+            {t("reservations.turnoverTitle", "Dining duration (turnover)")}
+          </p>
+          <div className="grid grid-cols-3 gap-3">
+            <NumInput
+              label={t("reservations.durationBase", "Base (min)")}
+              value={settings?.diningDurationMinutes ?? 90}
+              onCommit={(v) =>
+                saveSettings.mutate({ diningDurationMinutes: v })
+              }
+            />
+            <NumInput
+              label={t("reservations.largeThreshold", "Large party ≥")}
+              value={settings?.largePartyThreshold ?? 5}
+              onCommit={(v) => saveSettings.mutate({ largePartyThreshold: v })}
+            />
+            <NumInput
+              label={t("reservations.largeDuration", "Large (min)")}
+              value={settings?.largePartyDurationMinutes ?? 150}
+              onCommit={(v) =>
+                saveSettings.mutate({ largePartyDurationMinutes: v })
+              }
+            />
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            {t(
+              "reservations.turnoverHelp",
+              "Used to show staff when each table is expected to free up.",
+            )}
+          </p>
+        </div>
       </section>
 
       <section className="bg-white rounded-xl shadow-sm p-4 space-y-3">
@@ -900,6 +1037,119 @@ function ReservationSettingsForm({ restaurantId }: { restaurantId: string }) {
           saving={saveSettings.isPending}
         />
       </section>
+
+      <section className="bg-white rounded-xl shadow-sm p-4 space-y-3">
+        <h3 className="font-semibold text-sm">
+          {t("reservations.blackoutTitle", "Closed days")}
+        </h3>
+        <p className="text-xs text-gray-500">
+          {t(
+            "reservations.blackoutHelp",
+            "Block specific dates (holidays, private events). No slots are offered on a closed day.",
+          )}
+        </p>
+        <BlackoutEditor restaurantId={restaurantId} />
+      </section>
+    </div>
+  );
+}
+
+function BlackoutEditor({ restaurantId }: { restaurantId: string }) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const [date, setDate] = useState("");
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const key = ["reservation-blackouts", restaurantId];
+  const { data: blackouts = [], isLoading } = useQuery({
+    queryKey: key,
+    queryFn: () => listReservationBlackouts(restaurantId),
+    enabled: !!restaurantId,
+  });
+
+  const add = useMutation({
+    mutationFn: () => addReservationBlackout(restaurantId, date, reason),
+    onSuccess: () => {
+      setDate("");
+      setReason("");
+      setError(null);
+      qc.invalidateQueries({ queryKey: key });
+    },
+    onError: (e: any) =>
+      setError(e?.response?.data?.message ?? "Could not add closed day"),
+  });
+
+  const remove = useMutation({
+    mutationFn: (d: string) => removeReservationBlackout(restaurantId, d),
+    onSuccess: () => qc.invalidateQueries({ queryKey: key }),
+  });
+
+  // Prevent selecting a past date in the picker (local date, not UTC).
+  const today = todayISO();
+
+  return (
+    <div className="space-y-3">
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      <div className="space-y-1.5">
+        {isLoading && (
+          <span className="text-xs text-gray-400">
+            {t("reservations.loading", "Loading…")}
+          </span>
+        )}
+        {!isLoading && blackouts.length === 0 && (
+          <span className="text-xs text-gray-400">
+            {t("reservations.noBlackouts", "No closed days set.")}
+          </span>
+        )}
+        {blackouts.map((b: { date: string; reason?: string | null }) => (
+          <div
+            key={b.date}
+            className="flex items-center justify-between rounded-lg border px-3 py-1.5"
+          >
+            <span className="text-sm">
+              <strong className="font-medium">{b.date}</strong>
+              {b.reason && <span className="text-gray-500"> — {b.reason}</span>}
+            </span>
+            <button
+              onClick={() => remove.mutate(b.date)}
+              disabled={remove.isPending}
+              className="text-red-400 hover:text-red-700 text-sm"
+              aria-label={t("reservations.remove", "Remove")}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <input
+          type="date"
+          value={date}
+          min={today}
+          onChange={(e) => setDate(e.target.value)}
+          className="border rounded-lg px-3 py-1.5 text-sm"
+        />
+        <input
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          maxLength={200}
+          placeholder={t(
+            "reservations.blackoutReasonPlaceholder",
+            "Reason (optional)",
+          )}
+          className="flex-1 min-w-[8rem] border rounded-lg px-3 py-1.5 text-sm"
+        />
+        <button
+          onClick={() => date && add.mutate()}
+          disabled={!date || add.isPending}
+          className="text-sm px-3 py-1.5 rounded-lg bg-white border font-medium disabled:opacity-50"
+        >
+          {t("reservations.add", "Add")}
+        </button>
+      </div>
     </div>
   );
 }
