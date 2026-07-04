@@ -93,7 +93,8 @@
     "upgradeToProfessional": "Перейти на версию «Профессиональная»",
     "variationCustomerChoosesOne": "Вариант (клиент выбирает один)",
     "x": "x)",
-    "yourCartIsEmpty": "Ваша корзина пуста."
+    "yourCartIsEmpty": "Ваша корзина пуста.",
+    "ddMmYy": "дд/мм/гг"
   },
   "common": {
     "add": "Добавить",
