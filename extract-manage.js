@@ -1,0 +1,1 @@
+const fs = require('fs'); const content = fs.readFileSync('apps/frontend/src/pages/BookingManagePage.tsx', 'utf8'); const m = [...content.matchAll(/t\(['"](manage\.[^'"]+)['"]/g)]; console.log([...new Set(m.map(x => x[1]))]);

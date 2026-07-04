@@ -98,6 +98,7 @@ export interface ReservationCreateResult {
   referenceCode: string;
   status: ReservationStatus;
   startsAt: string;
+  manageToken?: string | null;
 }
 
 export interface StaffReservation {

@@ -49,7 +49,14 @@ const BookingManagePage = () => {
   const { t } = useTranslation();
   const params = new URLSearchParams(useLocation().search);
   const restaurantId = params.get("r") ?? "";
-  const token = params.get("token") ?? "";
+  // Prefer sessionStorage (set by confirmation page); fall back to URL param
+  // for email links where the guest opens the link on a different device.
+  const token =
+    sessionStorage.getItem("manage_token") ?? params.get("token") ?? "";
+  // Clean up after read so stale tokens don't linger.
+  useEffect(() => {
+    if (token) sessionStorage.removeItem("manage_token");
+  }, [token]);
 
   const [config, setConfig] = useState<ReservationPublicConfig | null>(null);
   const [theme, setTheme] = useState<PublicBrandMode>("light");

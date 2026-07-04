@@ -1138,11 +1138,13 @@ export class ReservationsService {
     referenceCode: string;
     status: string;
     startsAt: Date;
+    manageToken?: string | null;
   }) {
     return {
       referenceCode: r.referenceCode,
       status: r.status,
       startsAt: r.startsAt,
+      manageToken: r.manageToken ?? null,
     };
   }
 

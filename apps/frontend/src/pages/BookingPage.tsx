@@ -74,6 +74,19 @@ function prefLabel(pref: string): string {
     .join(" ");
 }
 
+const COUNTRIES = [
+  { code: "+359", flag: "🇧🇬", label: "BG" },
+  { code: "+40",  flag: "🇷🇴", label: "RO" },
+  { code: "+30",  flag: "🇬🇷", label: "GR" },
+  { code: "+90",  flag: "🇹🇷", label: "TR" },
+  { code: "+49",  flag: "🇩🇪", label: "DE" },
+  { code: "+44",  flag: "🇬🇧", label: "UK" },
+  { code: "+39",  flag: "🇮🇹", label: "IT" },
+  { code: "+34",  flag: "🇪🇸", label: "ES" },
+  { code: "+33",  flag: "🇫🇷", label: "FR" },
+  { code: "+1",   flag: "🇺🇸", label: "US" },
+];
+
 const BookingPage = () => {
   const { restaurantId } = useParams<{ restaurantId: string }>();
   const navigate = useNavigate();
@@ -92,6 +105,7 @@ const BookingPage = () => {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
   const [name, setName] = useState("");
+  const [countryCode, setCountryCode] = useState("+359");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
@@ -136,10 +150,15 @@ const BookingPage = () => {
             (d?.restaurant?.defaultTheme as PublicBrandMode) || "light",
           ),
         );
-        if (d?.defaultLanguage) {
-          setLang(d.defaultLanguage);
-          void i18n.changeLanguage(d.defaultLanguage);
-        }
+        const params = new URLSearchParams(window.location.search);
+        let initialLang =
+          params.get("lang") ||
+          localStorage.getItem("i18nextLng") ||
+          d?.defaultLanguage ||
+          "bg";
+        if (initialLang.includes("-")) initialLang = initialLang.split("-")[0];
+        setLang(initialLang);
+        void i18n.changeLanguage(initialLang);
       })
       .catch(() => !cancelled && setConfig(null))
       .finally(() => !cancelled && setLoading(false));
@@ -205,7 +224,7 @@ const BookingPage = () => {
     try {
       const result = await createReservation(restaurantId, {
         guestName: name.trim(),
-        guestPhone: phone.trim(),
+        guestPhone: phone.trim() ? (countryCode + phone.replace(/^0+/, "").replace(/\D/g, "")).trim() : "",
         guestEmail: email.trim() || undefined,
         startsAt: selectedSlot,
         adultsCount: adults,
@@ -220,6 +239,14 @@ const BookingPage = () => {
         preferredZone: zone || undefined,
         idempotencyKey,
       });
+      // Store manage token in sessionStorage (not URL) — avoids bearer token
+      // in browser history, Referer headers, and server access logs.
+      if (result.manageToken) {
+        sessionStorage.setItem(
+          `manage_${result.referenceCode}`,
+          result.manageToken,
+        );
+      }
       navigate(
         `/booking/confirmation?ref=${encodeURIComponent(
           result.referenceCode,
@@ -260,7 +287,7 @@ const BookingPage = () => {
       .bk-faint{color:var(--faint)}
       .bk-accent{color:var(--accent)}
       .bk-input{width:100%;background:var(--input);border:1px solid var(--border);border-radius:.75rem;padding:.6rem .75rem;color:var(--text);outline:none}
-      .bk-input::placeholder{color:var(--faint)}
+      .bk-input::placeholder{color:var(--faint);font-size:0.9em}
       .bk-input:focus{border-color:var(--accent)}
       .bk-chip{background:var(--card);border:1px solid var(--border);color:var(--text)}
       .bk-chip:hover{border-color:var(--accent)}
@@ -471,22 +498,41 @@ const BookingPage = () => {
               label={t("booking.phone", "Mobile phone")}
               required={config.policy?.requirePhone}
             >
-              <div className="flex items-center bk-input p-0 overflow-hidden">
-                <span
-                  className="flex items-center gap-1.5 px-2.5 py-2.5 text-sm bk-muted whitespace-nowrap"
-                  style={{ borderRight: "1px solid var(--border)" }}
+              <div 
+                className="flex items-stretch bk-input overflow-hidden focus-within:border-[var(--accent)] transition-colors"
+                style={{ padding: 0 }}
+              >
+                <div 
+                  className="relative flex flex-col items-center justify-center shrink-0"
+                  style={{ borderRight: "1px solid var(--border)", width: "3.2rem", background: "var(--card)" }}
                 >
-                  <Flag className="h-3.5 w-3.5" aria-hidden="true" />
-                  BG +359
-                </span>
+                  <select
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    aria-label="Country code"
+                  >
+                    {COUNTRIES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.code}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none flex flex-col items-center justify-center leading-[1.1] bk-muted">
+                    <span className="text-[9px] font-bold uppercase tracking-wider">{COUNTRIES.find((c) => c.code === countryCode)?.label || "BG"}</span>
+                    <span className="text-[10px] font-medium">{countryCode}</span>
+                  </div>
+                </div>
                 <input
+                  type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder={t(
                     "booking.phonePlaceholder",
                     "Enter mobile number",
                   )}
-                  className="w-full px-2.5 py-2.5 bg-transparent outline-none"
+                  className="flex-1 min-w-0 w-full bg-transparent outline-none"
+                  style={{ padding: ".6rem .75rem" }}
                 />
               </div>
             </Field>

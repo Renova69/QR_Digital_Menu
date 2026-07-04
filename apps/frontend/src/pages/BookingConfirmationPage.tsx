@@ -47,6 +47,11 @@ const BookingConfirmationPage = () => {
   const params = new URLSearchParams(useLocation().search);
   const referenceCode = params.get("ref") ?? "";
   const restaurantId = params.get("r") ?? "";
+  // Read manage token from sessionStorage (set by BookingPage after create).
+  // Keeps bearer token out of URL query — no history, Referer, or server-log leak.
+  const manageToken = referenceCode
+    ? (sessionStorage.getItem(`manage_${referenceCode}`) ?? "")
+    : "";
 
   const [status, setStatus] = useState<string | null>(null);
   const [startsAt, setStartsAt] = useState<string | null>(null);
@@ -182,6 +187,25 @@ const BookingConfirmationPage = () => {
             )}
           </>
         )}
+
+        {restaurantId &&
+          manageToken &&
+          (status === "PENDING" || status === "CONFIRMED") && (
+            <Link
+              to={`/booking/manage?r=${encodeURIComponent(restaurantId)}`}
+              onClick={() => {
+                // Pass bearer token via sessionStorage, not URL query.
+                sessionStorage.setItem("manage_token", manageToken);
+              }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+              style={{
+                color: "var(--accent)",
+                border: "1px solid var(--accent)",
+              }}
+            >
+              {t("booking.manageReservation", "Manage reservation")}
+            </Link>
+          )}
 
         {restaurantId && (
           <Link
