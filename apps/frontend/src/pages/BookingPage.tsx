@@ -47,9 +47,6 @@ import {
 } from "../lib/publicTheme";
 
 const PREF_ICON: Record<string, LucideIcon> = {
-  PET: PawPrint,
-  HIGH_CHAIR: Baby,
-  QUIET_TABLE: VolumeX,
   VEGAN: Sprout,
   VEGETARIAN: Salad,
   GLUTEN_INTOLERANT: WheatOff,
