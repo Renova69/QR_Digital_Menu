@@ -67,10 +67,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const manualAuthRef = useRef(false);
 
   useEffect(() => {
+    // Guard against setState after unmount: if the provider is torn down while
+    // /auth/me (or /restaurants) is still in flight, the settling promise must
+    // not schedule a React update — otherwise it throws post-teardown (e.g.
+    // "window is not defined" under jsdom, which fails the test run).
+    let active = true;
     const initializeAuth = async () => {
       try {
         // Fetch /auth/me first to verify authentication
         const meResult = await api.get("/auth/me");
+        if (!active) return;
 
         // A login or logout occurred while /auth/me was in-flight — don't overwrite.
         if (manualAuthRef.current) {
@@ -85,14 +91,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (userData) {
           try {
             const restaurantsResult = await api.get("/restaurants");
+            if (!active) return;
             setPrefetchedRestaurants(restaurantsResult.data);
           } catch (err) {
             // It's safe to let the logger catch this if it fails despite auth
+            if (!active) return;
             setPrefetchedRestaurants(null);
           }
         }
       } catch (error) {
         // Not authenticated
+        if (!active) return;
         if (manualAuthRef.current) {
           setIsLoading(false);
           return;
@@ -100,11 +109,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setPrefetchedRestaurants(null);
       } finally {
-        setIsLoading(false);
+        if (active) setIsLoading(false);
       }
     };
 
     initializeAuth();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
