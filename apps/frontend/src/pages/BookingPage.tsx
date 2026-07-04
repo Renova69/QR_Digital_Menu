@@ -48,23 +48,9 @@ import {
   setStoredPublicTheme,
 } from "../lib/publicTheme";
 import { zoneLabel } from "../lib/zoneCatalog";
-import DatePicker, { registerLocale } from "react-datepicker";
+import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { bg, ro, enGB, fr, de, es, it, ru, el, ar, ja } from "date-fns/locale";
-import { zhCN as zh } from "date-fns/locale";
-
-registerLocale("bg", bg);
-registerLocale("ro", ro);
-registerLocale("en", enGB);
-registerLocale("fr", fr);
-registerLocale("de", de);
-registerLocale("es", es);
-registerLocale("it", it);
-registerLocale("ru", ru);
-registerLocale("zh", zh);
-registerLocale("el", el);
-registerLocale("ar", ar);
-registerLocale("ja", ja);
+import "../lib/dateLocales";
 
 function parseDateString(dateStr: string): Date {
   if (!dateStr) return new Date();
