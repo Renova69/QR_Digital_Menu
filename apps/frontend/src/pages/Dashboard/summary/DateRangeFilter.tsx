@@ -14,12 +14,22 @@ interface DateRangeFilterProps {
   onCustomRange: (start: string, end: string) => void;
 }
 
-const isoToDisplayDate = (value?: string) => {
-  if (!value) return '';
-  const [year, month, day] = value.split('-');
-  if (!year || !month || !day) return '';
-  return `${day}/${month}/${year.slice(2)}`;
-};
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import '../../../lib/dateLocales';
+
+function parseDateString(dateStr?: string): Date | undefined {
+  if (!dateStr) return undefined;
+  const [y, m, d] = dateStr.split("-").map(Number);
+  if (!y || !m || !d) return undefined;
+  return new Date(y, m - 1, d);
+}
+function formatDateString(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 const CustomDateInput = ({
   value,
@@ -34,38 +44,23 @@ const CustomDateInput = ({
   onChange: (val: string) => void;
   isCustomActive: boolean;
 }) => {
-  const { t } = useTranslation();
-  const dateInputRef = useRef<HTMLInputElement>(null);
+  const { t, i18n } = useTranslation();
 
   return (
     <div className="relative inline-flex items-center">
-      <input
-        type="text"
-        value={value ? isoToDisplayDate(value) : ''}
-        placeholder={t('auto.ddMmYy', 'dd/mm/yy')}
-        readOnly
-        onClick={() => {
-          try {
-            dateInputRef.current?.showPicker();
-          } catch (e) {
-            dateInputRef.current?.focus();
-          }
-        }}
+      <DatePicker
+        selected={parseDateString(value)}
+        onChange={(d: Date | null) => d && onChange(formatDateString(d))}
+        minDate={parseDateString(min)}
+        maxDate={parseDateString(max)}
+        locale={i18n.language}
+        dateFormat="P"
+        placeholderText={t('auto.ddMmYy', 'dd/mm/yy')}
         className={`w-[110px] bg-secondary border rounded-lg px-2.5 py-1.5 text-[11px] text-foreground focus:outline-none transition-colors cursor-pointer pr-8 ${
           isCustomActive ? 'border-primary' : 'border-border focus:border-primary'
         }`}
       />
       <Calendar className="absolute right-2.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-      <input
-        ref={dateInputRef}
-        type="date"
-        value={value}
-        min={min}
-        max={max}
-        onChange={(e) => onChange(e.target.value)}
-        className="absolute w-0 h-0 opacity-0 pointer-events-none"
-        tabIndex={-1}
-      />
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { useContext, useMemo, useRef } from "react";
+import { useContext, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Area,
@@ -68,13 +68,23 @@ import {
   TableTurnoverPanel,
 } from "./analytics/advancedPanels";
 import DateRangeFilter from "./summary/DateRangeFilter";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import "../../lib/dateLocales";
+
+function formatISO(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 const AnalyticsView = () => {
   const { activeRestaurant }: any = useContext(RestaurantContext);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const canFullAnalytics = useFeature("analytics:full");
   const dateRange = useSummaryDateRange();
-  const closeoutDateRef = useRef<HTMLInputElement | null>(null);
+  const [closeoutDate, setCloseoutDate] = useState<Date>(new Date());
 
   const { data, isLoading, error } = useAnalytics(
     activeRestaurant?.id,
@@ -606,24 +616,17 @@ const AnalyticsView = () => {
             eyebrow={t("analytics.accountantTools", "Accountant tools")}
           >
             <div className="flex items-center gap-3">
-              <input
-                ref={(el) => {
-                  closeoutDateRef.current = el;
-                  if (el && !el.value) {
-                    el.value =
-                      dateRange?.startDate?.split("T")[0] ??
-                      new Date().toISOString().split("T")[0];
-                  }
-                }}
-                type="date"
-                className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs font-mono"
+              <DatePicker
+                selected={closeoutDate}
+                onChange={(d: Date | null) => d && setCloseoutDate(d)}
+                locale={i18n.language}
+                dateFormat="P"
+                className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs font-mono w-[110px]"
               />
               <button
                 className="rounded-lg bg-foreground text-background px-4 py-2 text-xs font-black uppercase tracking-widest hover:opacity-90 transition-opacity"
                 onClick={async () => {
-                  const date =
-                    closeoutDateRef.current?.value ||
-                    new Date().toISOString().split("T")[0];
+                  const date = formatISO(closeoutDate);
                   const { getDailyCloseout } = await import("../../lib/api");
                   const closeout = await getDailyCloseout(
                     activeRestaurant?.id!,
