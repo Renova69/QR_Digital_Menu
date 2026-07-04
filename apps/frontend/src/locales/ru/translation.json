@@ -656,5 +656,20 @@
   "zonesPicker": {
     "choose": "Выберите зону…",
     "custom": "Своя (не будет переводиться)…"
+  },
+  "manage": {
+    "title": "Manage your reservation",
+    "party": "Party of {{n}}",
+    "locked": "This reservation can no longer be changed online. Please contact the restaurant.",
+    "saveError": "Could not update. Please choose another time.",
+    "saved": "Your reservation has been updated.",
+    "partyMax": "Max {{n}} guests.",
+    "saveChanges": "Save changes",
+    "discard": "Discard",
+    "change": "Change time or party size",
+    "cancelling": "Cancelling…",
+    "confirmCancel": "Yes, cancel it",
+    "keep": "Keep it",
+    "cancel": "Cancel reservation"
   }
 }

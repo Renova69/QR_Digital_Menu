@@ -46,7 +46,7 @@ function localDateISO(d: Date = new Date()): string {
 }
 
 const BookingManagePage = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const params = new URLSearchParams(useLocation().search);
   const restaurantId = params.get("r") ?? "";
   // Capture token ONCE on mount (useState initializer runs only on the first
@@ -208,7 +208,7 @@ const BookingManagePage = () => {
 
   const whenLabel = useMemo(() => {
     if (!reservation) return "";
-    return new Date(reservation.startsAt).toLocaleString(undefined, {
+    return new Date(reservation.startsAt).toLocaleString(i18n.language || undefined, {
       // Show the restaurant's local time, not the guest's browser tz.
       timeZone: config?.restaurant?.timezone ?? undefined,
       weekday: "short",
@@ -227,6 +227,22 @@ const BookingManagePage = () => {
         (reservation?.policy?.bookingHorizonDays ?? 60) * 24 * 3600 * 1000,
     ),
   );
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "CONFIRMED":
+      case "ARRIVED":
+        return "#16a34a";
+      case "PENDING":
+        return "#f97316";
+      case "CANCELLED":
+      case "DECLINED":
+      case "NO_SHOW":
+        return "#ef4444";
+      default:
+        return "var(--muted)";
+    }
+  };
 
   return (
     <div
@@ -281,11 +297,14 @@ const BookingManagePage = () => {
                   n: reservation.totalGuests,
                 })}
                 {reservation.preferredZone
-                  ? ` · ${reservation.preferredZone}`
+                  ? ` · ${t(`zones.${reservation.preferredZone}`, reservation.preferredZone)}`
                   : ""}
               </div>
-              <div className="mt-1 text-xs uppercase tracking-wide">
-                {reservation.status}
+              <div
+                className="mt-1 text-xs font-bold uppercase tracking-wide"
+                style={{ color: getStatusColor(reservation.status) }}
+              >
+                {t(`reservations.status.${reservation.status}`, reservation.status)}
               </div>
             </div>
 
