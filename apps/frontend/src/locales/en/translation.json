@@ -1,4 +1,26 @@
 {
+  "zones": {
+    "INDOOR": "Indoor",
+    "MAIN_HALL": "Main hall",
+    "TERRACE": "Terrace",
+    "GARDEN": "Garden",
+    "BALCONY": "Balcony",
+    "ROOFTOP": "Rooftop",
+    "BAR": "Bar",
+    "LOUNGE": "Lounge",
+    "POOLSIDE": "Poolside",
+    "SEASIDE": "Seaside",
+    "WINDOW": "Window",
+    "PRIVATE_ROOM": "Private room",
+    "NON_SMOKING": "Non-smoking",
+    "SMOKING": "Smoking area",
+    "KIDS_AREA": "Kids area",
+    "QUIET": "Quiet area"
+  },
+  "zonesPicker": {
+    "choose": "Choose a zone…",
+    "custom": "Custom (won't translate)…"
+  },
   "booking": {
     "loading": "Loading…",
     "title": "Book a table",
@@ -24,9 +46,10 @@
     "notesPlaceholder": "e.g. birthday, near window, anniversary…",
     "preferences": "Preferences",
     "dietary": "Dietary / allergy",
+    "accessibility": "Accessibility & assistance",
     "allergyNotes": "Allergy / intolerance notes",
     "allergyPlaceholder": "Tell us about any allergy or intolerance",
-    "consent": "I consent to the restaurant storing this dietary/allergy information to serve me safely.",
+    "consent": "I consent to the restaurant storing this dietary and health/accessibility information to serve me safely.",
     "marketing": "I'd like to receive news, offers and promotions from this restaurant.",
     "menuAllergens": "Menu allergens & dietary information",
     "allergenIntro": "This restaurant's menu contains items marked with:",
@@ -49,7 +72,9 @@
       "VEGETARIAN": "Vegetarian",
       "GLUTEN_INTOLERANT": "Gluten Intolerant",
       "LACTOSE_INTOLERANT": "Lactose Intolerant",
-      "NUT_ALLERGY": "Nut Allergy"
+      "NUT_ALLERGY": "Nut Allergy",
+      "WHEELCHAIR_ACCESS": "Wheelchair Access",
+      "PREGNANT": "Pregnant"
     },
     "pickTime": "Pick a time",
     "saving": "Saving…",
@@ -57,7 +82,8 @@
     "notifyEmail": "Email",
     "notifySms": "SMS",
     "seatingZone": "Preferred seating",
-    "zoneAny": "No preference"
+    "zoneAny": "No preference",
+    "manageReservation": "Manage reservation"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -172,7 +198,8 @@
       "importExport": "Import/Export",
       "pos": "POS",
       "kitchen": "Kitchen",
-      "help": "Help Center"
+      "help": "Help Center",
+      "reservations": "Reservations"
     },
     "enterpriseCard": "Custom SLA, white-label & priority support",
     "proCard": "Unlock analytics, loyalty & more",
@@ -3521,6 +3548,17 @@
     "noCustomPrefs": "No custom chips yet.",
     "addChipPlaceholder": "Add a chip…",
     "savePrefs": "Save chips",
-    "saveHours": "Save service hours"
+    "saveHours": "Save service hours",
+    "guestModified": "Guest modified",
+    "tags": {
+      "VIP": "VIP",
+      "REGULAR": "Regular",
+      "WINE_LOVER": "Wine Lover",
+      "OFTEN_LATE": "Often Late",
+      "NO_SHOW_RISK": "No-Show Risk",
+      "PREFERS_TERRACE": "Prefers Terrace",
+      "PREFERS_WINDOW": "Prefers Window",
+      "NEEDS_CALL_CONFIRMATION": "Needs Call Confirmation"
+    }
   }
 }

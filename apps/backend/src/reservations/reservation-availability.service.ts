@@ -87,9 +87,10 @@ export class ReservationAvailabilityService {
     const bookedBySlot =
       capacity === null
         ? new Map<number, number>()
-        : await this.coversByStartInstant(
+        : await this.coversByWindow(
             restaurantId,
             candidates.map((c) => c.toUTC().toMillis()),
+            settings.slotIntervalMinutes,
             excludeReservationId,
           );
 
@@ -147,26 +148,55 @@ export class ReservationAvailabilityService {
     }
   }
 
-  private async coversByStartInstant(
+  /**
+   * Covers held per candidate slot. Each active-hold reservation counts toward
+   * the slot window `[slotStart, slotStart + interval)` that contains its start
+   * — so a staff manual booking made off the slot grid (e.g. 19:07 with 30-min
+   * slots) still counts against the 19:00 cap instead of being invisible to it.
+   * Keyed by candidate-start epoch millis so `getSlots` can look up by the same
+   * `candidate.toUTC().toMillis()`.
+   */
+  private async coversByWindow(
     restaurantId: string,
-    startMillis: number[],
+    candidateStartMillis: number[],
+    slotIntervalMinutes: number,
     excludeReservationId?: string,
   ): Promise<Map<number, number>> {
-    const starts = startMillis.map((ms) => new Date(ms));
+    const map = new Map<number, number>();
+    if (candidateStartMillis.length === 0) return map;
+
+    const intervalMs = slotIntervalMinutes * 60_000;
+    // Ascending window-starts for a clean "largest start <= t" lookup.
+    const starts = [...candidateStartMillis].sort((a, b) => a - b);
+    const spanStart = new Date(starts[0]);
+    const spanEnd = new Date(starts[starts.length - 1] + intervalMs);
+
     const rows = await this.prisma.reservation.findMany({
       where: {
         restaurantId,
         status: { in: [...ACTIVE_HOLD_STATUSES] },
-        startsAt: { in: starts },
+        startsAt: { gte: spanStart, lt: spanEnd },
         ...(excludeReservationId ? { id: { not: excludeReservationId } } : {}),
       },
       select: { startsAt: true, adultsCount: true, childrenCount: true },
     });
-    // Key by epoch millis so lookups match regardless of ISO formatting.
-    const map = new Map<number, number>();
+
     for (const r of rows) {
-      const key = r.startsAt.getTime();
-      map.set(key, (map.get(key) ?? 0) + r.adultsCount + r.childrenCount);
+      const t = r.startsAt.getTime();
+      // Largest candidate start <= t; count it only if t is within that window
+      // (guards the gaps a DST-skipped middle slot could leave).
+      let slotStart: number | null = null;
+      for (let i = starts.length - 1; i >= 0; i--) {
+        if (starts[i] <= t) {
+          if (t < starts[i] + intervalMs) slotStart = starts[i];
+          break;
+        }
+      }
+      if (slotStart === null) continue;
+      map.set(
+        slotStart,
+        (map.get(slotStart) ?? 0) + r.adultsCount + r.childrenCount,
+      );
     }
     return map;
   }

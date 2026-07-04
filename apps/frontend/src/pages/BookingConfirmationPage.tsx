@@ -176,6 +176,8 @@ const BookingConfirmationPage = () => {
             {startsAt && (
               <p className="text-sm" style={{ color: "var(--muted)" }}>
                 {new Date(startsAt).toLocaleString(undefined, {
+                  // Show the restaurant's local time, not the guest's browser tz.
+                  timeZone: config?.restaurant?.timezone ?? undefined,
                   weekday: "short",
                   day: "2-digit",
                   month: "short",
@@ -188,34 +190,36 @@ const BookingConfirmationPage = () => {
           </>
         )}
 
-        {restaurantId &&
-          manageToken &&
-          (status === "PENDING" || status === "CONFIRMED") && (
+        <div className="flex flex-col items-center gap-3">
+          {restaurantId &&
+            manageToken &&
+            (status === "PENDING" || status === "CONFIRMED") && (
+              <Link
+                to={`/booking/manage?r=${encodeURIComponent(restaurantId)}`}
+                onClick={() => {
+                  // Pass bearer token via sessionStorage, not URL query.
+                  sessionStorage.setItem("manage_token", manageToken);
+                }}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+                style={{
+                  color: "var(--accent)",
+                  border: "1px solid var(--accent)",
+                }}
+              >
+                {t("booking.manageReservation", "Manage reservation")}
+              </Link>
+            )}
+
+          {restaurantId && (
             <Link
-              to={`/booking/manage?r=${encodeURIComponent(restaurantId)}`}
-              onClick={() => {
-                // Pass bearer token via sessionStorage, not URL query.
-                sessionStorage.setItem("manage_token", manageToken);
-              }}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors"
-              style={{
-                color: "var(--accent)",
-                border: "1px solid var(--accent)",
-              }}
+              to={`/menu/public/${restaurantId}`}
+              className="inline-block text-sm font-medium underline"
+              style={{ color: "var(--accent)" }}
             >
-              {t("booking.manageReservation", "Manage reservation")}
+              {t("booking.backToMenu", "Back to menu")}
             </Link>
           )}
-
-        {restaurantId && (
-          <Link
-            to={`/menu/public/${restaurantId}`}
-            className="inline-block text-sm font-medium underline"
-            style={{ color: "var(--accent)" }}
-          >
-            {t("booking.backToMenu", "Back to menu")}
-          </Link>
-        )}
+        </div>
       </div>
     </div>
   );

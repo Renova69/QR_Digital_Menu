@@ -195,7 +195,7 @@ export class TablesService {
     return this.prisma.restaurantTable.findMany({
       where: { restaurantId },
       orderBy: { name: 'asc' },
-      include: { zone: { select: { id: true, name: true } } },
+      include: { zone: { select: { id: true, name: true, zoneKey: true } } },
     });
   }
 
@@ -243,7 +243,7 @@ export class TablesService {
       this.prisma.restaurantTable.findMany({
         where: tableWhere,
         orderBy: { name: 'asc' },
-        include: { zone: { select: { id: true, name: true } } },
+        include: { zone: { select: { id: true, name: true, zoneKey: true } } },
       }),
       this.prisma.tableSession.findMany({
         where: {
@@ -279,6 +279,7 @@ export class TablesService {
           name: table.name,
           zoneId: table.zone?.id ?? null,
           zoneName: table.zone?.name ?? null,
+          zoneKey: table.zone?.zoneKey ?? null,
           status: 'empty' as const,
           sessionId: null,
           sessionToken: null,
@@ -297,6 +298,7 @@ export class TablesService {
         name: table.name,
         zoneId: table.zone?.id ?? null,
         zoneName: table.zone?.name ?? null,
+        zoneKey: table.zone?.zoneKey ?? null,
         status,
         sessionId: session.id,
         sessionToken: session.token,

@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createTable,
   deleteTable,
@@ -13,11 +13,16 @@ import {
   reorderZones,
   updateTable,
   getLogoBase64,
-} from '../../lib/api';
-import type { TableZone } from '../../lib/api';
-import { Button } from '../ui/button';
-import { Modal } from '../ui/modal';
-import { useTranslation } from 'react-i18next';
+} from "../../lib/api";
+import type { TableZone } from "../../lib/api";
+import {
+  ZONE_CATALOG_KEYS,
+  humanizeZoneKey,
+  zoneLabel,
+} from "../../lib/zoneCatalog";
+import { Button } from "../ui/button";
+import { Modal } from "../ui/modal";
+import { useTranslation } from "react-i18next";
 import {
   ArrowDown,
   ArrowUp,
@@ -34,27 +39,30 @@ import {
   Trash2,
   Check,
   X,
-} from 'lucide-react';
-import PrintableQRCodes, { PrintOrientation, PrintTemplate } from './PrintableQRCodes';
-import RestaurantContext from '../../context/RestaurantContext';
-import LiveTablesView from '../../pages/Dashboard/LiveTablesView';
-import { useTier } from '../../hooks/useFeature';
-import { cn } from '../../lib/utils';
-import { useAuth } from '../../context/AuthContext';
+} from "lucide-react";
+import PrintableQRCodes, {
+  PrintOrientation,
+  PrintTemplate,
+} from "./PrintableQRCodes";
+import RestaurantContext from "../../context/RestaurantContext";
+import LiveTablesView from "../../pages/Dashboard/LiveTablesView";
+import { useTier } from "../../hooks/useFeature";
+import { cn } from "../../lib/utils";
+import { useAuth } from "../../context/AuthContext";
 
 const templateOptions: Array<{ value: PrintTemplate; label: string }> = [
-  { value: 'classic', label: 'Classic' },
-  { value: 'premium', label: 'Premium' },
-  { value: 'minimal', label: 'Minimal' },
+  { value: "classic", label: "Classic" },
+  { value: "premium", label: "Premium" },
+  { value: "minimal", label: "Minimal" },
 ];
 
 const orientationOptions: Array<{ value: PrintOrientation; label: string }> = [
-  { value: 'portrait', label: 'Portrait' },
-  { value: 'landscape', label: 'Landscape' },
+  { value: "portrait", label: "Portrait" },
+  { value: "landscape", label: "Landscape" },
 ];
 
 function normalizeTableName(name: string) {
-  return name.trim().replace(/\s+/g, ' ').toLowerCase();
+  return name.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 async function copyToClipboard(text: string): Promise<boolean> {
@@ -63,17 +71,19 @@ async function copyToClipboard(text: string): Promise<boolean> {
       await navigator.clipboard.writeText(text);
       return true;
     }
-  } catch { /* fall through to fallback */ }
+  } catch {
+    /* fall through to fallback */
+  }
 
   // Fallback for non-HTTPS / older browsers
   try {
-    const ta = document.createElement('textarea');
+    const ta = document.createElement("textarea");
     ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.left = '-9999px';
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
     document.body.appendChild(ta);
     ta.select();
-    const ok = document.execCommand('copy');
+    const ok = document.execCommand("copy");
     document.body.removeChild(ta);
     return ok;
   } catch {
@@ -82,14 +92,19 @@ async function copyToClipboard(text: string): Promise<boolean> {
 }
 
 const TableView: React.FC = () => {
-  const { activeRestaurant: restaurant } = React.useContext(RestaurantContext) as any;
+  const { activeRestaurant: restaurant } = React.useContext(
+    RestaurantContext,
+  ) as any;
   const restaurantId = restaurant?.id;
   const queryClient = useQueryClient();
-  const [newTableName, setNewTableName] = useState('');
-  const [newTableZoneId, setNewTableZoneId] = useState<string>('');
-  const [tableSearch, setTableSearch] = useState('');
+  const [newTableName, setNewTableName] = useState("");
+  const [newTableZoneId, setNewTableZoneId] = useState<string>("");
+  const [tableSearch, setTableSearch] = useState("");
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
-  const [selectedTable, setSelectedTable] = useState<{ id: string; name: string } | null>(null);
+  const [selectedTable, setSelectedTable] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [copiedTableId, setCopiedTableId] = useState<string | null>(null);
   const qrCodeRef = useRef<HTMLDivElement>(null);
   const qrCanvasRef = useRef<HTMLDivElement>(null);
@@ -97,15 +112,16 @@ const TableView: React.FC = () => {
   const { t } = useTranslation();
   const { tier } = useTier();
   const { user } = useAuth();
-  const isManagerOrOwner = user?.role === 'OWNER' || user?.role === 'MANAGER';
-  const isFree = tier === 'FREE';
-  const defaultTab = !isManagerOrOwner ? 'live' : (isFree ? 'qr' : 'live');
-  const [subTab, setSubTab] = useState<'live' | 'qr' | 'zones'>(defaultTab);
-  const [printTemplate, setPrintTemplate] = useState<PrintTemplate>('classic');
-  const [printOrientation, setPrintOrientation] = useState<PrintOrientation>('portrait');
+  const isManagerOrOwner = user?.role === "OWNER" || user?.role === "MANAGER";
+  const isFree = tier === "FREE";
+  const defaultTab = !isManagerOrOwner ? "live" : isFree ? "qr" : "live";
+  const [subTab, setSubTab] = useState<"live" | "qr" | "zones">(defaultTab);
+  const [printTemplate, setPrintTemplate] = useState<PrintTemplate>("classic");
+  const [printOrientation, setPrintOrientation] =
+    useState<PrintOrientation>("portrait");
 
   const { data: tables, isLoading } = useQuery({
-    queryKey: ['tables', restaurantId],
+    queryKey: ["tables", restaurantId],
     queryFn: () => getTables(restaurantId),
     enabled: !!restaurantId,
   });
@@ -114,24 +130,28 @@ const TableView: React.FC = () => {
     mutationFn: ({ name, zoneId }: { name: string; zoneId?: string }) =>
       createTable(restaurantId, name, zoneId || undefined),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tables', restaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['tableStatuses', restaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['zones', restaurantId] });
-      setNewTableName('');
+      queryClient.invalidateQueries({ queryKey: ["tables", restaurantId] });
+      queryClient.invalidateQueries({
+        queryKey: ["tableStatuses", restaurantId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["zones", restaurantId] });
+      setNewTableName("");
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteTable(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tables', restaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['tableStatuses', restaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['zones', restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["tables", restaurantId] });
+      queryClient.invalidateQueries({
+        queryKey: ["tableStatuses", restaurantId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["zones", restaurantId] });
     },
   });
 
   const { data: sessions } = useQuery({
-    queryKey: ['tableSessions', restaurantId],
+    queryKey: ["tableSessions", restaurantId],
     queryFn: () => getTableSessions(restaurantId),
     enabled: !!restaurantId,
     refetchInterval: 30000,
@@ -139,7 +159,12 @@ const TableView: React.FC = () => {
 
   const sessionByTableId = useMemo(() => {
     const map = new Map<string, { token: string; status: string }>();
-    (sessions || []).forEach((session: any) => map.set(session.tableId, { token: session.token, status: session.status }));
+    (sessions || []).forEach((session: any) =>
+      map.set(session.tableId, {
+        token: session.token,
+        status: session.status,
+      }),
+    );
     return map;
   }, [sessions]);
 
@@ -147,30 +172,40 @@ const TableView: React.FC = () => {
     const query = tableSearch.trim().toLowerCase();
     return (tables || []).filter((table: any) => {
       if (!query) return true;
-      return String(table.name ?? '').toLowerCase().includes(query);
+      return String(table.name ?? "")
+        .toLowerCase()
+        .includes(query);
     });
   }, [tableSearch, tables]);
 
   const normalizedNewTableName = normalizeTableName(newTableName);
   const duplicateTable = useMemo(() => {
     if (!normalizedNewTableName) return false;
-    return (tables || []).some((table: any) => normalizeTableName(table.name) === normalizedNewTableName);
+    return (tables || []).some(
+      (table: any) => normalizeTableName(table.name) === normalizedNewTableName,
+    );
   }, [normalizedNewTableName, tables]);
 
   const tableStats = useMemo(() => {
     const tableCount = tables?.length ?? 0;
-    const activeSessions = (sessions || []).filter((session: any) => session.status === 'OPEN').length;
-    const paidSessions = (sessions || []).filter((session: any) => session.status === 'PAID').length;
+    const activeSessions = (sessions || []).filter(
+      (session: any) => session.status === "OPEN",
+    ).length;
+    const paidSessions = (sessions || []).filter(
+      (session: any) => session.status === "PAID",
+    ).length;
     return { tableCount, activeSessions, paidSessions };
   }, [sessions, tables]);
 
   // ── Zone state ──────────────────────────────────────────────────────────
-  const [newZoneName, setNewZoneName] = useState('');
+  const [newZoneName, setNewZoneName] = useState("");
+  // "" = nothing picked, a catalog key, or "__custom__" for a free-text zone.
+  const [newZoneKey, setNewZoneKey] = useState("");
   const [editingZoneId, setEditingZoneId] = useState<string | null>(null);
-  const [editingZoneName, setEditingZoneName] = useState('');
+  const [editingZoneName, setEditingZoneName] = useState("");
 
   const { data: zones } = useQuery({
-    queryKey: ['zones', restaurantId],
+    queryKey: ["zones", restaurantId],
     queryFn: () => getZones(restaurantId),
     enabled: !!restaurantId,
   });
@@ -184,22 +219,31 @@ const TableView: React.FC = () => {
   }, [zones]);
 
   const zoneInvalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['zones', restaurantId] });
-    queryClient.invalidateQueries({ queryKey: ['tables', restaurantId] });
-    queryClient.invalidateQueries({ queryKey: ['tableStatuses', restaurantId] });
+    queryClient.invalidateQueries({ queryKey: ["zones", restaurantId] });
+    queryClient.invalidateQueries({ queryKey: ["tables", restaurantId] });
+    queryClient.invalidateQueries({
+      queryKey: ["tableStatuses", restaurantId],
+    });
   };
 
   const createZoneMutation = useMutation({
-    mutationFn: (name: string) => createZone(restaurantId, name),
+    mutationFn: (input: { name: string; zoneKey: string | null }) =>
+      createZone(restaurantId, input.name, input.zoneKey),
     onSuccess: () => {
       zoneInvalidate();
-      setNewZoneName('');
+      setNewZoneName("");
+      setNewZoneKey("");
     },
   });
 
   const updateZoneMutation = useMutation({
-    mutationFn: ({ zoneId, data }: { zoneId: string; data: { name?: string; displayOrder?: number } }) =>
-      updateZone(zoneId, data),
+    mutationFn: ({
+      zoneId,
+      data,
+    }: {
+      zoneId: string;
+      data: { name?: string; displayOrder?: number };
+    }) => updateZone(zoneId, data),
     onSuccess: () => zoneInvalidate(),
   });
 
@@ -209,33 +253,51 @@ const TableView: React.FC = () => {
   });
 
   const reorderZonesMutation = useMutation({
-    mutationFn: (items: { id: string; displayOrder: number }[]) => reorderZones(restaurantId, items),
+    mutationFn: (items: { id: string; displayOrder: number }[]) =>
+      reorderZones(restaurantId, items),
     onSuccess: () => zoneInvalidate(),
   });
 
   const updateTableMutation = useMutation({
-    mutationFn: ({ tableId, data }: { tableId: string; data: { name?: string; zoneId?: string | null } }) =>
-      updateTable(tableId, data),
+    mutationFn: ({
+      tableId,
+      data,
+    }: {
+      tableId: string;
+      data: { name?: string; zoneId?: string | null };
+    }) => updateTable(tableId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tables', restaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['tableStatuses', restaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['zones', restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["tables", restaurantId] });
+      queryClient.invalidateQueries({
+        queryKey: ["tableStatuses", restaurantId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["zones", restaurantId] });
     },
   });
 
   const moveZoneUp = (index: number) => {
     if (!zones || index === 0) return;
-    const items = zones.map((z, i) => ({ id: z.id, displayOrder: z.displayOrder }));
-    [items[index - 1].displayOrder, items[index].displayOrder] =
-      [items[index].displayOrder, items[index - 1].displayOrder];
+    const items = zones.map((z, i) => ({
+      id: z.id,
+      displayOrder: z.displayOrder,
+    }));
+    [items[index - 1].displayOrder, items[index].displayOrder] = [
+      items[index].displayOrder,
+      items[index - 1].displayOrder,
+    ];
     reorderZonesMutation.mutate(items);
   };
 
   const moveZoneDown = (index: number) => {
     if (!zones || index === zones.length - 1) return;
-    const items = zones.map((z, i) => ({ id: z.id, displayOrder: z.displayOrder }));
-    [items[index].displayOrder, items[index + 1].displayOrder] =
-      [items[index + 1].displayOrder, items[index].displayOrder];
+    const items = zones.map((z, i) => ({
+      id: z.id,
+      displayOrder: z.displayOrder,
+    }));
+    [items[index].displayOrder, items[index + 1].displayOrder] = [
+      items[index + 1].displayOrder,
+      items[index].displayOrder,
+    ];
     reorderZonesMutation.mutate(items);
   };
 
@@ -243,7 +305,7 @@ const TableView: React.FC = () => {
     event.preventDefault();
     if (newTableName.trim() && !duplicateTable) {
       createMutation.mutate({
-        name: newTableName.trim().replace(/\s+/g, ' '),
+        name: newTableName.trim().replace(/\s+/g, " "),
         zoneId: newTableZoneId || undefined,
       });
     }
@@ -251,8 +313,17 @@ const TableView: React.FC = () => {
 
   const handleCreateZone = (event: React.FormEvent) => {
     event.preventDefault();
-    if (newZoneName.trim()) {
-      createZoneMutation.mutate(newZoneName.trim());
+    if (newZoneKey === "__custom__") {
+      // Fully custom zone (won't translate) — free-text name, no preset key.
+      if (newZoneName.trim()) {
+        createZoneMutation.mutate({ name: newZoneName.trim(), zoneKey: null });
+      }
+    } else if (newZoneKey) {
+      // Preset: store a stable fallback name + the translatable catalog key.
+      createZoneMutation.mutate({
+        name: humanizeZoneKey(newZoneKey),
+        zoneKey: newZoneKey,
+      });
     }
   };
 
@@ -264,7 +335,7 @@ const TableView: React.FC = () => {
   const handleDownloadQR = () => {
     const container = qrCanvasRef.current;
     if (!container) return;
-    const sourceCanvas = container.querySelector('canvas');
+    const sourceCanvas = container.querySelector("canvas");
     if (!sourceCanvas) return;
 
     // 4-module quiet zone required by QR spec. 512 px / ~29 modules ≈ 17.7 px/module
@@ -272,13 +343,13 @@ const TableView: React.FC = () => {
     const QUIET_ZONE = 72;
     const srcW = sourceCanvas.width;
     const outW = srcW + QUIET_ZONE * 2;
-    const out = document.createElement('canvas');
+    const out = document.createElement("canvas");
     out.width = outW;
     out.height = outW;
-    const ctx = out.getContext('2d')!;
+    const ctx = out.getContext("2d")!;
 
     // White background (quiet zone)
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, outW, outW);
 
     // Draw QR centered with pixel-snapping
@@ -286,9 +357,9 @@ const TableView: React.FC = () => {
     ctx.drawImage(sourceCanvas, QUIET_ZONE, QUIET_ZONE);
 
     const finish = () => {
-      const pngFile = out.toDataURL('image/png');
-      const downloadLink = document.createElement('a');
-      downloadLink.download = `qr-menu-table-${selectedTable?.name || 'unknown'}.png`;
+      const pngFile = out.toDataURL("image/png");
+      const downloadLink = document.createElement("a");
+      downloadLink.download = `qr-menu-table-${selectedTable?.name || "unknown"}.png`;
       downloadLink.href = pngFile;
       downloadLink.click();
     };
@@ -300,7 +371,7 @@ const TableView: React.FC = () => {
         const x = QUIET_ZONE + Math.round((srcW - logoPx) / 2);
         const y = QUIET_ZONE + Math.round((srcW - logoPx) / 2);
         const pad = Math.max(2, Math.round(srcW * 0.008));
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = "#ffffff";
         ctx.fillRect(x - pad, y - pad, logoPx + pad * 2, logoPx + pad * 2);
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(logoImg, x, y, logoPx, logoPx);
@@ -314,14 +385,17 @@ const TableView: React.FC = () => {
   };
 
   const getQrCodeUrl = () => {
-    if (!restaurantId || !selectedTable) return '';
+    if (!restaurantId || !selectedTable) return "";
     return `${window.location.origin}/menu/public/${restaurantId}?table=${encodeURIComponent(selectedTable.name)}`;
   };
 
-  const logoUrl = restaurant.logoUrl?.startsWith('http')
+  const logoUrl = restaurant.logoUrl?.startsWith("http")
     ? restaurant.logoUrl
     : restaurant.logoUrl
-      ? `${(import.meta as any).env.VITE_API_URL || 'http://localhost:3000/api'}`.replace('/api', '') + `/${restaurant.logoUrl}`
+      ? `${(import.meta as any).env.VITE_API_URL || "http://localhost:3000/api"}`.replace(
+          "/api",
+          "",
+        ) + `/${restaurant.logoUrl}`
       : null;
 
   // Fetch logo as base64 data URL via the backend proxy so embedding it in
@@ -346,7 +420,9 @@ const TableView: React.FC = () => {
         if (!cancelled) setLogoDataUrl(null);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [logoUrl, restaurantId]);
 
   return (
@@ -354,24 +430,40 @@ const TableView: React.FC = () => {
       <div className="mb-6 flex flex-col gap-5 border-b border-border/70 pb-5 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-black leading-tight text-foreground">
-            {t('dashboard.tabs.tables', 'Tables & QR')}
+            {t("dashboard.tabs.tables", "Tables & QR")}
           </h1>
           <p className="mt-1 text-sm font-medium text-muted-foreground">
-            {t('auto.trackTableSessionsManageQ', 'Track table sessions, manage QR codes, and print table-ready assets.')}</p>
+            {t(
+              "auto.trackTableSessionsManageQ",
+              "Track table sessions, manage QR codes, and print table-ready assets.",
+            )}
+          </p>
         </div>
 
         <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center">
           <div className="rounded-lg border border-border bg-card px-3 py-2 shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{t('auto.tables', 'Tables')}</p>
-            <p className="mt-0.5 text-xl font-black text-foreground">{tableStats.tableCount}</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+              {t("auto.tables", "Tables")}
+            </p>
+            <p className="mt-0.5 text-xl font-black text-foreground">
+              {tableStats.tableCount}
+            </p>
           </div>
           <div className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary">{t('auto.open', 'Open')}</p>
-            <p className="mt-0.5 text-xl font-black text-primary">{tableStats.activeSessions}</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary">
+              {t("auto.open", "Open")}
+            </p>
+            <p className="mt-0.5 text-xl font-black text-primary">
+              {tableStats.activeSessions}
+            </p>
           </div>
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 shadow-sm dark:border-emerald-400/20 dark:bg-emerald-400/10">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-200">{t('auto.paid', 'Paid')}</p>
-            <p className="mt-0.5 text-xl font-black text-emerald-700 dark:text-emerald-200">{tableStats.paidSessions}</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-200">
+              {t("auto.paid", "Paid")}
+            </p>
+            <p className="mt-0.5 text-xl font-black text-emerald-700 dark:text-emerald-200">
+              {tableStats.paidSessions}
+            </p>
           </div>
         </div>
       </div>
@@ -381,98 +473,142 @@ const TableView: React.FC = () => {
           {!isFree && (
             <button
               type="button"
-              onClick={() => setSubTab('live')}
+              onClick={() => setSubTab("live")}
               className={cn(
-                'flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4',
-                subTab === 'live'
-                  ? 'bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                "flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4",
+                subTab === "live"
+                  ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
               <Eye className="h-4 w-4" />
-              {t('tables.liveView')}
+              {t("tables.liveView")}
             </button>
           )}
           {isManagerOrOwner && (
             <>
               <button
                 type="button"
-                onClick={() => setSubTab('qr')}
+                onClick={() => setSubTab("qr")}
                 className={cn(
-                  'flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4',
-                  subTab === 'qr'
-                    ? 'bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  "flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4",
+                  subTab === "qr"
+                    ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
                 <QrCode className="h-4 w-4" />
-                {t('tables.qrManagement')}
+                {t("tables.qrManagement")}
               </button>
               <button
                 type="button"
-                onClick={() => setSubTab('zones')}
+                onClick={() => setSubTab("zones")}
                 className={cn(
-                  'flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4',
-                  subTab === 'zones'
-                    ? 'bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  "flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4",
+                  subTab === "zones"
+                    ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
                 <MapPin className="h-4 w-4" />
-                {t('auto.zones', 'Zones')}</button>
+                {t("auto.zones", "Zones")}
+              </button>
             </>
           )}
         </div>
       </div>
 
-      {subTab === 'live' ? (
+      {subTab === "live" ? (
         <LiveTablesView />
-      ) : subTab === 'zones' ? (
+      ) : subTab === "zones" ? (
         <div className="space-y-6">
-          <form onSubmit={handleCreateZone} className="rounded-lg border border-border bg-card p-4 shadow-sm">
+          <form
+            onSubmit={handleCreateZone}
+            className="rounded-lg border border-border bg-card p-4 shadow-sm"
+          >
             <div className="mb-4 flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <MapPin className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-base font-black text-foreground">{t('auto.tableZones', 'Table Zones')}</h2>
+                <h2 className="text-base font-black text-foreground">
+                  {t("auto.tableZones", "Table Zones")}
+                </h2>
                 <p className="mt-0.5 text-sm font-medium text-muted-foreground">
-                  {t('auto.organizeTablesIntoZonesRe', 'Organize tables into zones (Restaurant, Garden, Terrace, etc.)')}</p>
+                  {t(
+                    "auto.organizeTablesIntoZonesRe",
+                    "Organize tables into zones (Restaurant, Garden, Terrace, etc.)",
+                  )}
+                </p>
               </div>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
-              <input
-                type="text"
-                value={newZoneName}
-                onChange={(e) => setNewZoneName(e.target.value)}
-                placeholder={t('auto.zoneName', 'Zone name...')}
-                className="h-11 flex-1 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
-              />
+              {/* Preset catalog so the zone label translates on the booking
+                  page + dashboard. "Custom" is a free-text escape hatch that
+                  won't translate. */}
+              <select
+                value={newZoneKey}
+                onChange={(e) => setNewZoneKey(e.target.value)}
+                className="h-11 flex-1 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+              >
+                <option value="">
+                  {t("zonesPicker.choose", "Choose a zone…")}
+                </option>
+                {ZONE_CATALOG_KEYS.map((k) => (
+                  <option key={k} value={k}>
+                    {t(`zones.${k}`, humanizeZoneKey(k))}
+                  </option>
+                ))}
+                <option value="__custom__">
+                  {t("zonesPicker.custom", "Custom (won't translate)…")}
+                </option>
+              </select>
+              {newZoneKey === "__custom__" && (
+                <input
+                  type="text"
+                  value={newZoneName}
+                  onChange={(e) => setNewZoneName(e.target.value)}
+                  placeholder={t("auto.zoneName", "Zone name...")}
+                  className="h-11 flex-1 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
+                />
+              )}
               <button
                 type="submit"
-                disabled={createZoneMutation.isPending || !newZoneName.trim()}
+                disabled={
+                  createZoneMutation.isPending ||
+                  !newZoneKey ||
+                  (newZoneKey === "__custom__" && !newZoneName.trim())
+                }
                 className="flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Plus className="h-4 w-4" />
-                {t('auto.addZone', 'Add Zone')}</button>
+                {t("auto.addZone", "Add Zone")}
+              </button>
             </div>
           </form>
 
           <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
             <div className="mb-4 flex items-center gap-2">
               <LayoutGrid className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">{t('auto.zoneList', 'Zone list')}</h2>
+              <h2 className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">
+                {t("auto.zoneList", "Zone list")}
+              </h2>
             </div>
 
             {!zones || zones.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">{t('auto.noZonesCreatedYet', 'No zones created yet.')}</p>
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                {t("auto.noZonesCreatedYet", "No zones created yet.")}
+              </p>
             ) : (
               <div className="space-y-2">
                 {[...zones]
                   .sort((a, b) => a.displayOrder - b.displayOrder)
                   .map((zone, index) => (
-                    <div key={zone.id} className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
+                    <div
+                      key={zone.id}
+                      className="flex items-center gap-3 rounded-lg border border-border bg-background p-3"
+                    >
                       <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
 
                       {editingZoneId === zone.id ? (
@@ -484,17 +620,23 @@ const TableView: React.FC = () => {
                             className="h-9 flex-1 rounded border border-border bg-background px-2 text-sm font-medium outline-none focus:border-primary"
                             autoFocus
                             onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                updateZoneMutation.mutate({ zoneId: zone.id, data: { name: editingZoneName.trim() } });
+                              if (e.key === "Enter") {
+                                updateZoneMutation.mutate({
+                                  zoneId: zone.id,
+                                  data: { name: editingZoneName.trim() },
+                                });
                                 setEditingZoneId(null);
                               }
-                              if (e.key === 'Escape') setEditingZoneId(null);
+                              if (e.key === "Escape") setEditingZoneId(null);
                             }}
                           />
                           <button
                             type="button"
                             onClick={() => {
-                              updateZoneMutation.mutate({ zoneId: zone.id, data: { name: editingZoneName.trim() } });
+                              updateZoneMutation.mutate({
+                                zoneId: zone.id,
+                                data: { name: editingZoneName.trim() },
+                              });
                               setEditingZoneId(null);
                             }}
                             className="shrink-0 rounded p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
@@ -513,8 +655,16 @@ const TableView: React.FC = () => {
                         </>
                       ) : (
                         <>
-                          <span className="flex-1 text-sm font-bold text-foreground">{zone.name}</span>
-                          <span className="text-xs text-muted-foreground">{zone._count?.tables ?? 0} {t('auto.tables', 'tables')}</span>
+                          <span className="flex-1 text-sm font-bold text-foreground">
+                            {zoneLabel(t, {
+                              key: zone.zoneKey,
+                              name: zone.name,
+                            })}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {zone._count?.tables ?? 0}{" "}
+                            {t("auto.tables", "tables")}
+                          </span>
                           <button
                             type="button"
                             onClick={() => moveZoneUp(index)}
@@ -533,21 +683,29 @@ const TableView: React.FC = () => {
                           >
                             <ArrowDown className="h-4 w-4" />
                           </button>
+                          {/* Preset zones translate from their key, so inline
+                              renaming doesn't apply — only custom zones. */}
+                          {!zone.zoneKey && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingZoneId(zone.id);
+                                setEditingZoneName(zone.name);
+                              }}
+                              className="shrink-0 rounded p-1.5 text-muted-foreground hover:bg-muted"
+                              aria-label="Edit"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => {
-                              setEditingZoneId(zone.id);
-                              setEditingZoneName(zone.name);
-                            }}
-                            className="shrink-0 rounded p-1.5 text-muted-foreground hover:bg-muted"
-                            aria-label="Edit"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (window.confirm('Delete this zone? Tables in it will become unassigned.')) {
+                              if (
+                                window.confirm(
+                                  "Delete this zone? Tables in it will become unassigned.",
+                                )
+                              ) {
                                 deleteZoneMutation.mutate(zone.id);
                               }
                             }}
@@ -568,15 +726,24 @@ const TableView: React.FC = () => {
       ) : (
         <div className="space-y-6">
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <form onSubmit={handleCreate} className="rounded-lg border border-border bg-card p-4 shadow-sm">
+            <form
+              onSubmit={handleCreate}
+              className="rounded-lg border border-border bg-card p-4 shadow-sm"
+            >
               <div className="mb-4 flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Plus className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-black text-foreground">{t('tables.title')}</h2>
+                  <h2 className="text-base font-black text-foreground">
+                    {t("tables.title")}
+                  </h2>
                   <p className="mt-0.5 text-sm font-medium text-muted-foreground">
-                    {t('auto.addTableNamesExactlyAsGuestsShould', 'Add table names exactly as guests should see them in QR links.')}</p>
+                    {t(
+                      "auto.addTableNamesExactlyAsGuestsShould",
+                      "Add table names exactly as guests should see them in QR links.",
+                    )}
+                  </p>
                 </div>
               </div>
 
@@ -585,7 +752,7 @@ const TableView: React.FC = () => {
                   type="text"
                   value={newTableName}
                   onChange={(event) => setNewTableName(event.target.value)}
-                  placeholder={t('tables.addPlaceholder')}
+                  placeholder={t("tables.addPlaceholder")}
                   className="h-11 flex-1 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
                 />
                 {zones && zones.length > 1 && (
@@ -597,22 +764,34 @@ const TableView: React.FC = () => {
                     {[...zones]
                       .sort((a, b) => a.displayOrder - b.displayOrder)
                       .map((z) => (
-                        <option key={z.id} value={z.id}>{z.name}</option>
-                    ))}
+                        <option key={z.id} value={z.id}>
+                          {zoneLabel(t, z)}
+                        </option>
+                      ))}
                   </select>
                 )}
                 <button
                   type="submit"
-                  disabled={createMutation.isPending || !newTableName.trim() || duplicateTable}
+                  disabled={
+                    createMutation.isPending ||
+                    !newTableName.trim() ||
+                    duplicateTable
+                  }
                   className="flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Plus className="h-4 w-4" />
-                  {createMutation.isPending ? t('tables.adding') : t('tables.addButton')}
+                  {createMutation.isPending
+                    ? t("tables.adding")
+                    : t("tables.addButton")}
                 </button>
               </div>
               {duplicateTable && (
                 <p className="mt-2 text-xs font-bold text-red-600">
-                  {t('auto.aTableWithThisNameAlready', 'A table with this name already exists.')}</p>
+                  {t(
+                    "auto.aTableWithThisNameAlready",
+                    "A table with this name already exists.",
+                  )}
+                </p>
               )}
             </form>
 
@@ -622,30 +801,45 @@ const TableView: React.FC = () => {
                   <Printer className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-black text-foreground">{t('auto.printSetup', 'Print setup')}</h2>
-                  <p className="mt-0.5 text-sm font-medium text-muted-foreground">{t('auto.chooseAQRLayoutBeforePrin', 'Choose a QR layout before printing all tables.')}</p>
+                  <h2 className="text-base font-black text-foreground">
+                    {t("auto.printSetup", "Print setup")}
+                  </h2>
+                  <p className="mt-0.5 text-sm font-medium text-muted-foreground">
+                    {t(
+                      "auto.chooseAQRLayoutBeforePrin",
+                      "Choose a QR layout before printing all tables.",
+                    )}
+                  </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <select
                   value={printTemplate}
-                  onChange={(event) => setPrintTemplate(event.target.value as PrintTemplate)}
+                  onChange={(event) =>
+                    setPrintTemplate(event.target.value as PrintTemplate)
+                  }
                   className="h-10 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/20"
                   aria-label="Print template"
                 >
                   {templateOptions.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
                   ))}
                 </select>
                 <select
                   value={printOrientation}
-                  onChange={(event) => setPrintOrientation(event.target.value as PrintOrientation)}
+                  onChange={(event) =>
+                    setPrintOrientation(event.target.value as PrintOrientation)
+                  }
                   className="h-10 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:ring-2 focus:ring-primary/20"
                   aria-label="Print orientation"
                 >
                   {orientationOptions.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -657,7 +851,7 @@ const TableView: React.FC = () => {
                 className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border bg-muted px-4 text-xs font-black text-foreground transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Printer className="h-4 w-4" />
-                {t('tables.printAllQr')}
+                {t("tables.printAllQr")}
               </button>
             </div>
           </div>
@@ -665,14 +859,16 @@ const TableView: React.FC = () => {
           <div className="flex flex-col gap-3 border-b border-border pb-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-2">
               <LayoutGrid className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">{t('auto.qRTableGrid', 'QR table grid')}</h2>
+              <h2 className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">
+                {t("auto.qRTableGrid", "QR table grid")}
+              </h2>
             </div>
             <div className="relative lg:w-80">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={tableSearch}
                 onChange={(event) => setTableSearch(event.target.value)}
-                placeholder={t('auto.searchTable', 'Search table...')}
+                placeholder={t("auto.searchTable", "Search table...")}
                 className="h-10 w-full rounded-lg border border-border bg-card pl-10 pr-3 text-sm font-medium text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
               />
             </div>
@@ -681,12 +877,17 @@ const TableView: React.FC = () => {
           {isLoading ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {[...Array(8)].map((_, index) => (
-                <div key={index} className="h-32 animate-pulse rounded-lg bg-muted/50" />
+                <div
+                  key={index}
+                  className="h-32 animate-pulse rounded-lg bg-muted/50"
+                />
               ))}
             </div>
           ) : filteredTables.length === 0 ? (
             <div className="flex min-h-[260px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center text-sm font-medium text-muted-foreground">
-              {tables?.length === 0 ? t('tables.noTables') : 'No tables match your search.'}
+              {tables?.length === 0
+                ? t("tables.noTables")
+                : "No tables match your search."}
             </div>
           ) : (
             <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
@@ -694,25 +895,33 @@ const TableView: React.FC = () => {
                 const session = sessionByTableId.get(table.id);
                 const publicUrl = `${window.location.origin}/menu/public/${restaurantId}?table=${encodeURIComponent(table.name)}`;
                 return (
-                  <article key={table.id} className="flex flex-col gap-2.5 rounded-lg border border-border bg-card p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                  <article
+                    key={table.id}
+                    className="flex flex-col gap-2.5 rounded-lg border border-border bg-card p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                  >
                     <div className="flex items-center justify-between gap-2">
                       <span className="inline-flex h-5 items-center gap-1 rounded-full bg-primary/10 px-1.5 text-[10px] font-black uppercase text-primary">
                         <QrCode className="h-3 w-3" />
-                        {t('auto.qRReady', 'QR ready')}</span>
+                        {t("auto.qRReady", "QR ready")}
+                      </span>
                       {session && (
-                        <span className={cn(
-                          'rounded-full px-2 py-0.5 text-[10px] font-black uppercase',
-                          session.status === 'OPEN'
-                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200'
-                            : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200',
-                        )}>
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-0.5 text-[10px] font-black uppercase",
+                            session.status === "OPEN"
+                              ? "bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200"
+                              : "bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200",
+                          )}
+                        >
                           {session.status}
                         </span>
                       )}
                     </div>
 
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-2xl font-black tracking-tight text-foreground">{table.name}</span>
+                      <span className="text-2xl font-black tracking-tight text-foreground">
+                        {table.name}
+                      </span>
                       <button
                         type="button"
                         onClick={async () => {
@@ -731,22 +940,28 @@ const TableView: React.FC = () => {
                           <Copy className="h-3 w-3" />
                         )}
                         {copiedTableId === table.id
-                          ? t('auto.copied', 'Copied!')
-                          : t('auto.copyURL', 'Copy URL')}</button>
+                          ? t("auto.copied", "Copied!")
+                          : t("auto.copyURL", "Copy URL")}
+                      </button>
                     </div>
 
                     {zones && zones.length > 0 && (
                       <select
-                        value={table.zone?.id ?? ''}
+                        value={table.zone?.id ?? ""}
                         onChange={(e) => {
                           const newZoneId = e.target.value || null;
-                          updateTableMutation.mutate({ tableId: table.id, data: { zoneId: newZoneId } });
+                          updateTableMutation.mutate({
+                            tableId: table.id,
+                            data: { zoneId: newZoneId },
+                          });
                         }}
                         className="h-7 w-full rounded border border-border bg-background px-1.5 text-[11px] font-medium text-foreground outline-none focus:border-primary"
                       >
-                        <option value="">{t('auto.noZone', 'No zone')}</option>
+                        <option value="">{t("auto.noZone", "No zone")}</option>
                         {zones.map((z: TableZone) => (
-                          <option key={z.id} value={z.id}>{z.name}</option>
+                          <option key={z.id} value={z.id}>
+                            {zoneLabel(t, z)}
+                          </option>
                         ))}
                       </select>
                     )}
@@ -758,13 +973,14 @@ const TableView: React.FC = () => {
                         className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-xs font-black text-white shadow-[0_8px_16px_-10px_rgba(110,86,248,0.8)] transition hover:bg-accent"
                       >
                         <QrCode className="h-3.5 w-3.5" />
-                        {t('auto.generateQR', 'Generate QR')}</button>
+                        {t("auto.generateQR", "Generate QR")}
+                      </button>
                       <button
                         type="button"
                         onClick={() => deleteMutation.mutate(table.id)}
                         disabled={deleteMutation.isPending}
                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-red-200 bg-card text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-500/30 dark:hover:bg-red-500/10"
-                        aria-label={t('tables.delete')}
+                        aria-label={t("tables.delete")}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -778,41 +994,59 @@ const TableView: React.FC = () => {
           <Modal
             open={isQrModalOpen}
             onOpenChange={setIsQrModalOpen}
-            title={selectedTable ? t('tables.qrTitle', { name: selectedTable.name }) : t('tables.generateQR')}
-            description={selectedTable ? t('tables.qrInstructions', { name: selectedTable.name }) : undefined}
+            title={
+              selectedTable
+                ? t("tables.qrTitle", { name: selectedTable.name })
+                : t("tables.generateQR")
+            }
+            description={
+              selectedTable
+                ? t("tables.qrInstructions", { name: selectedTable.name })
+                : undefined
+            }
           >
             {selectedTable && (
               <div className="flex flex-col items-center">
-                <div className="mb-6 inline-block rounded-2xl border-8 border-white bg-white p-6 shadow-inner" ref={qrCodeRef}>
+                <div
+                  className="mb-6 inline-block rounded-2xl border-8 border-white bg-white p-6 shadow-inner"
+                  ref={qrCodeRef}
+                >
                   <QRCodeSVG
                     value={getQrCodeUrl()}
                     size={256}
-                    fgColor={restaurant.accentColor || '#000000'}
+                    fgColor={restaurant.accentColor || "#000000"}
                     bgColor="#ffffff"
                     level="H"
-                    imageSettings={logoDataUrl ? {
-                      src: logoDataUrl,
-                      height: 38,
-                      width: 38,
-                      excavate: true,
-                    } : undefined}
+                    imageSettings={
+                      logoDataUrl
+                        ? {
+                            src: logoDataUrl,
+                            height: 38,
+                            width: 38,
+                            excavate: true,
+                          }
+                        : undefined
+                    }
                   />
                 </div>
                 {/* Hidden canvas QR used for PNG download — renders clean QR without
                     logo; we draw the logo manually on top to avoid anti-aliasing and
                     nested data-URI corruption (Issue 18). */}
-                <div ref={qrCanvasRef} style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+                <div
+                  ref={qrCanvasRef}
+                  style={{ position: "absolute", left: "-9999px", top: 0 }}
+                >
                   <QRCodeCanvas
                     value={getQrCodeUrl()}
                     size={512}
-                    fgColor={restaurant.accentColor || '#000000'}
+                    fgColor={restaurant.accentColor || "#000000"}
                     bgColor="#ffffff"
                     level="H"
                   />
                 </div>
                 <Button className="w-full gap-2" onClick={handleDownloadQR}>
                   <Download className="h-4 w-4" />
-                  {t('tables.downloadPNG')}
+                  {t("tables.downloadPNG")}
                 </Button>
               </div>
             )}

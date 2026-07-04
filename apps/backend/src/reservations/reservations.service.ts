@@ -163,16 +163,18 @@ export class ReservationsService {
         },
       }),
       this.prisma.reservationSettings.findUnique({ where: { restaurantId } }),
-      // Feature 3: seating zones reuse the POS table zones the owner already set.
+      // Feature 3: seating zones reuse the POS table zones the owner already
+      // set. Return the preset `key` (translatable on the booking form) plus the
+      // raw `name` as a fallback for fully custom zones.
       this.prisma.tableZone.findMany({
         where: { restaurantId },
         orderBy: { displayOrder: 'asc' },
-        select: { name: true },
+        select: { name: true, zoneKey: true },
       }),
     ]);
     if (!restaurant) throw new NotFoundException('Restaurant not found');
 
-    const zones = zoneRows.map((z) => z.name);
+    const zones = zoneRows.map((z) => ({ key: z.zoneKey, name: z.name }));
 
     const entitled = this.features.restaurantHasFeature(
       restaurant,
@@ -599,15 +601,20 @@ export class ReservationsService {
     const notifyBySms = dto.notifyBySms ?? false;
 
     // Feature 3: accept a preferred seating zone only when it matches a zone the
-    // restaurant actually has (queried lazily, and only when one was chosen).
+    // restaurant actually has. The client sends the preset key (e.g. TERRACE)
+    // or, for a custom zone, its name — match either. Store the preset key when
+    // the zone has one so the dashboard can translate it; else store the name.
     let preferredZone: string | null = null;
     const requestedZone = dto.preferredZone?.trim();
     if (requestedZone) {
-      const match = await this.prisma.tableZone.findUnique({
-        where: { restaurantId_name: { restaurantId, name: requestedZone } },
-        select: { name: true },
+      const match = await this.prisma.tableZone.findFirst({
+        where: {
+          restaurantId,
+          OR: [{ zoneKey: requestedZone }, { name: requestedZone }],
+        },
+        select: { zoneKey: true, name: true },
       });
-      preferredZone = match?.name ?? null;
+      preferredZone = match ? (match.zoneKey ?? match.name) : null;
     }
 
     // Feature 2: unguessable token for the guest's private self-service link.
@@ -801,7 +808,14 @@ export class ReservationsService {
     const rows = await this.prisma.reservation.findMany({
       where,
       orderBy: { startsAt: 'asc' },
-      include: { patron: { select: { staffTags: true, staffNotes: true } } },
+      include: {
+        patron: { select: { staffTags: true, staffNotes: true } },
+        events: {
+          where: { type: 'MODIFIED' },
+          select: { id: true, metadata: true },
+          take: 1,
+        },
+      },
       take: 500,
     });
     return rows.map((r) => this.toStaffView(r));
@@ -1173,6 +1187,12 @@ export class ReservationsService {
       allergyNotes: r.allergyNotes,
       staffTags: r.patron?.staffTags ?? [],
       marketingConsent: !!r.marketingConsentAt,
+      guestModified: (r.events ?? []).some(
+        (e: any) =>
+          e.metadata &&
+          typeof e.metadata === 'object' &&
+          (e.metadata as any).source === 'GUEST',
+      ),
       createdAt: r.createdAt,
     };
   }

@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   type LucideIcon,
+  Accessibility,
   Baby,
   CalendarDays,
   Check,
@@ -32,6 +33,7 @@ import {
 } from "../lib/api";
 import {
   AvailabilitySlot,
+  ACCESSIBILITY_PREFERENCES,
   CUSTOMER_PREFERENCES,
   DIETARY_PREFERENCES,
   ReservationPublicConfig,
@@ -45,6 +47,7 @@ import {
   RTL_LANGS,
   setStoredPublicTheme,
 } from "../lib/publicTheme";
+import { zoneLabel } from "../lib/zoneCatalog";
 
 const PREF_ICON: Record<string, LucideIcon> = {
   VEGAN: Sprout,
@@ -52,6 +55,8 @@ const PREF_ICON: Record<string, LucideIcon> = {
   GLUTEN_INTOLERANT: WheatOff,
   LACTOSE_INTOLERANT: MilkOff,
   NUT_ALLERGY: NutOff,
+  WHEELCHAIR_ACCESS: Accessibility,
+  PREGNANT: Baby,
 };
 
 function localDateISO(offsetDays = 0): string {
@@ -73,15 +78,15 @@ function prefLabel(pref: string): string {
 
 const COUNTRIES = [
   { code: "+359", flag: "🇧🇬", label: "BG" },
-  { code: "+40",  flag: "🇷🇴", label: "RO" },
-  { code: "+30",  flag: "🇬🇷", label: "GR" },
-  { code: "+90",  flag: "🇹🇷", label: "TR" },
-  { code: "+49",  flag: "🇩🇪", label: "DE" },
-  { code: "+44",  flag: "🇬🇧", label: "UK" },
-  { code: "+39",  flag: "🇮🇹", label: "IT" },
-  { code: "+34",  flag: "🇪🇸", label: "ES" },
-  { code: "+33",  flag: "🇫🇷", label: "FR" },
-  { code: "+1",   flag: "🇺🇸", label: "US" },
+  { code: "+40", flag: "🇷🇴", label: "RO" },
+  { code: "+30", flag: "🇬🇷", label: "GR" },
+  { code: "+90", flag: "🇹🇷", label: "TR" },
+  { code: "+49", flag: "🇩🇪", label: "DE" },
+  { code: "+44", flag: "🇬🇧", label: "UK" },
+  { code: "+39", flag: "🇮🇹", label: "IT" },
+  { code: "+34", flag: "🇪🇸", label: "ES" },
+  { code: "+33", flag: "🇫🇷", label: "FR" },
+  { code: "+1", flag: "🇺🇸", label: "US" },
 ];
 
 const BookingPage = () => {
@@ -221,7 +226,9 @@ const BookingPage = () => {
     try {
       const result = await createReservation(restaurantId, {
         guestName: name.trim(),
-        guestPhone: phone.trim() ? (countryCode + phone.replace(/^0+/, "").replace(/\D/g, "")).trim() : "",
+        guestPhone: phone.trim()
+          ? (countryCode + phone.replace(/^0+/, "").replace(/\D/g, "")).trim()
+          : "",
         guestEmail: email.trim() || undefined,
         startsAt: selectedSlot,
         adultsCount: adults,
@@ -328,8 +335,14 @@ const BookingPage = () => {
 
   const r = config.restaurant;
   const languages = config.languages ?? [];
-  const dietaryPrefKeys = CUSTOMER_PREFERENCES.filter((p) =>
-    DIETARY_PREFERENCES.includes(p),
+  // Three display groups. Dietary + accessibility are both consent-gated
+  // (special-category), but shown under separate headings; "other" is general.
+  const dietaryPrefKeys = CUSTOMER_PREFERENCES.filter(
+    (p) =>
+      DIETARY_PREFERENCES.includes(p) && !ACCESSIBILITY_PREFERENCES.includes(p),
+  );
+  const accessibilityPrefKeys = CUSTOMER_PREFERENCES.filter((p) =>
+    ACCESSIBILITY_PREFERENCES.includes(p),
   );
   const otherPrefKeys = CUSTOMER_PREFERENCES.filter(
     (p) => !DIETARY_PREFERENCES.includes(p),
@@ -495,13 +508,17 @@ const BookingPage = () => {
               label={t("booking.phone", "Mobile phone")}
               required={config.policy?.requirePhone}
             >
-              <div 
+              <div
                 className="flex items-stretch bk-input overflow-hidden focus-within:border-[var(--accent)] transition-colors"
                 style={{ padding: 0 }}
               >
-                <div 
+                <div
                   className="relative flex flex-col items-center justify-center shrink-0"
-                  style={{ borderRight: "1px solid var(--border)", width: "3.2rem", background: "var(--card)" }}
+                  style={{
+                    borderRight: "1px solid var(--border)",
+                    width: "3.2rem",
+                    background: "var(--card)",
+                  }}
                 >
                   <select
                     value={countryCode}
@@ -516,8 +533,13 @@ const BookingPage = () => {
                     ))}
                   </select>
                   <div className="pointer-events-none flex flex-col items-center justify-center leading-[1.1] bk-muted">
-                    <span className="text-[9px] font-bold uppercase tracking-wider">{COUNTRIES.find((c) => c.code === countryCode)?.label || "BG"}</span>
-                    <span className="text-[10px] font-medium">{countryCode}</span>
+                    <span className="text-[9px] font-bold uppercase tracking-wider">
+                      {COUNTRIES.find((c) => c.code === countryCode)?.label ||
+                        "BG"}
+                    </span>
+                    <span className="text-[10px] font-medium">
+                      {countryCode}
+                    </span>
                   </div>
                 </div>
                 <input
@@ -610,14 +632,17 @@ const BookingPage = () => {
                   onClick={() => setZone("")}
                   label={t("booking.zoneAny", "No preference")}
                 />
-                {config.policy!.zones.map((z) => (
-                  <Chip
-                    key={z}
-                    active={zone === z}
-                    onClick={() => setZone(zone === z ? "" : z)}
-                    label={z}
-                  />
-                ))}
+                {config.policy!.zones.map((z) => {
+                  const id = z.key ?? z.name;
+                  return (
+                    <Chip
+                      key={id}
+                      active={zone === id}
+                      onClick={() => setZone(zone === id ? "" : id)}
+                      label={zoneLabel(t, z)}
+                    />
+                  );
+                })}
               </div>
             </div>
           )}
@@ -680,23 +705,45 @@ const BookingPage = () => {
                 className="bk-input resize-none"
               />
             </div>
-            {dietaryChosen && (
-              <label className="flex items-start gap-2 mt-2 text-xs bk-muted">
-                <input
-                  type="checkbox"
-                  checked={consent}
-                  onChange={(e) => setConsent(e.target.checked)}
-                  className="mt-0.5"
-                />
-                <span>
-                  {t(
-                    "booking.consent",
-                    "I consent to the restaurant storing this dietary/allergy information to serve me safely.",
-                  )}
-                </span>
-              </label>
-            )}
           </div>
+
+          {/* Accessibility & assistance (own heading; still consent-gated) */}
+          {accessibilityPrefKeys.length > 0 && (
+            <div className="mt-4">
+              <MiniTitle icon={<Accessibility className="w-4 h-4" />}>
+                {t("booking.accessibility", "Accessibility & assistance")}
+              </MiniTitle>
+              <div className="flex flex-wrap gap-2">
+                {accessibilityPrefKeys.map((p) => (
+                  <Chip
+                    key={p}
+                    active={prefs.includes(p)}
+                    onClick={() => togglePref(p)}
+                    icon={PREF_ICON[p]}
+                    label={t(`booking.pref.${p}`, prefLabel(p))}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Consent — covers dietary AND health/accessibility (special-category) */}
+          {dietaryChosen && (
+            <label className="flex items-start gap-2 mt-3 text-xs bk-muted">
+              <input
+                type="checkbox"
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                {t(
+                  "booking.consent",
+                  "I consent to the restaurant storing this dietary and health/accessibility information to serve me safely.",
+                )}
+              </span>
+            </label>
+          )}
 
           {/* Marketing opt-in (unchecked by default per GDPR) */}
           <label

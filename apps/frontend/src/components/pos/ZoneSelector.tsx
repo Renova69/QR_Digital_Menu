@@ -1,5 +1,6 @@
 import type { TableZone } from "../../lib/api";
 import { useTranslation } from "react-i18next";
+import { zoneLabel } from "../../lib/zoneCatalog";
 
 interface ZoneSelectorProps {
   zones: TableZone[];
@@ -40,7 +41,7 @@ export default function ZoneSelector({
               : "bg-muted text-muted-foreground hover:bg-muted/80"
           }`}
         >
-          {zone.name}
+          {zoneLabel(t, { name: zone.name, zoneKey: zone.zoneKey })}
           {zone._count?.tables !== undefined && (
             <span className="ml-1.5 opacity-70 text-xs">
               ({zone._count.tables})

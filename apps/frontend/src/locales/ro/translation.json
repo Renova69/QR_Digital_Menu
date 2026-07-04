@@ -1,4 +1,26 @@
 {
+  "zones": {
+    "INDOOR": "Interior",
+    "MAIN_HALL": "Sala principală",
+    "TERRACE": "Terasă",
+    "GARDEN": "Grădină",
+    "BALCONY": "Balcon",
+    "ROOFTOP": "Terasă pe acoperiș",
+    "BAR": "Bar",
+    "LOUNGE": "Lounge",
+    "POOLSIDE": "Lângă piscină",
+    "SEASIDE": "La mare",
+    "WINDOW": "Lângă fereastră",
+    "PRIVATE_ROOM": "Sală privată",
+    "NON_SMOKING": "Nefumători",
+    "SMOKING": "Zonă fumători",
+    "KIDS_AREA": "Zonă copii",
+    "QUIET": "Zonă liniștită"
+  },
+  "zonesPicker": {
+    "choose": "Alegeți o zonă…",
+    "custom": "Personalizat (fără traducere)…"
+  },
   "booking": {
     "loading": "Se încarcă…",
     "title": "Rezervă o masă",
@@ -24,9 +46,10 @@
     "notesPlaceholder": "ex. zi de naștere, lângă fereastră…",
     "preferences": "Preferințe",
     "dietary": "Diete / alergii",
+    "accessibility": "Accesibilitate și asistență",
     "allergyNotes": "Note despre alergii/intoleranțe",
     "allergyPlaceholder": "Spune-ne despre orice alergie",
-    "consent": "Sunt de acord ca restaurantul să stocheze aceste informații pentru a mă servi în siguranță.",
+    "consent": "Sunt de acord ca restaurantul să stocheze aceste informații despre dietă și sănătate/accesibilitate pentru a mă servi în siguranță.",
     "marketing": "Aș dori să primesc noutăți și oferte.",
     "menuAllergens": "Alergenii din meniu",
     "allergenIntro": "Meniul conține preparate marcate cu:",
@@ -49,7 +72,9 @@
       "VEGETARIAN": "Vegetarian",
       "GLUTEN_INTOLERANT": "Intoleranță la gluten",
       "LACTOSE_INTOLERANT": "Intoleranță la lactoză",
-      "NUT_ALLERGY": "Alergie la nuci"
+      "NUT_ALLERGY": "Alergie la nuci",
+      "WHEELCHAIR_ACCESS": "Acces pentru scaun cu rotile",
+      "PREGNANT": "Însărcinată"
     },
     "pickTime": "Alege ora",
     "saving": "Se salvează…",
@@ -57,7 +82,8 @@
     "notifyEmail": "Email",
     "notifySms": "SMS",
     "seatingZone": "Zona preferată",
-    "zoneAny": "Fără preferință"
+    "zoneAny": "Fără preferință",
+    "manageReservation": "Manage reservation"
   },
   "nav": {
     "dashboard": "Panou",
@@ -172,7 +198,8 @@
       "importExport": "Import/Export",
       "pos": "POS",
       "kitchen": "Bucătărie",
-      "help": "Centru de ajutor"
+      "help": "Centru de ajutor",
+      "reservations": "Rezervări"
     },
     "enterpriseCard": "SLA personalizat, white-label și suport prioritar",
     "proCard": "Deblochează analize, loialitate și altele",
@@ -3608,6 +3635,17 @@
     "noCustomPrefs": "Încă nu există etichete.",
     "addChipPlaceholder": "Adaugă etichetă…",
     "savePrefs": "Salvează etichete",
-    "saveHours": "Salvează orele"
+    "saveHours": "Salvează orele",
+    "guestModified": "Guest modified",
+    "tags": {
+      "VIP": "VIP",
+      "REGULAR": "Client fidel",
+      "WINE_LOVER": "Iubitor de vin",
+      "OFTEN_LATE": "Întârzie des",
+      "NO_SHOW_RISK": "Risc de neprezentare",
+      "PREFERS_TERRACE": "Preferă terasa",
+      "PREFERS_WINDOW": "Preferă la geam",
+      "NEEDS_CALL_CONFIRMATION": "Necesită confirmare telefonică"
+    }
   }
 }

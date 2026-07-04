@@ -28,17 +28,30 @@ export const CUSTOMER_PREFERENCES = [
   "GLUTEN_INTOLERANT",
   "LACTOSE_INTOLERANT",
   "NUT_ALLERGY",
+  "WHEELCHAIR_ACCESS",
+  "PREGNANT",
   "PET",
   "HIGH_CHAIR",
   "QUIET_TABLE",
 ] as const;
 
+// Special-category (health/accessibility) prefs — gated behind consent. Mirror
+// of the backend set; keep the two in sync.
 export const DIETARY_PREFERENCES: readonly string[] = [
   "VEGAN",
   "VEGETARIAN",
   "GLUTEN_INTOLERANT",
   "LACTOSE_INTOLERANT",
   "NUT_ALLERGY",
+  "WHEELCHAIR_ACCESS",
+  "PREGNANT",
+];
+
+// Accessibility/assistance subset of the consent-gated set — same consent rule,
+// but shown under its own heading (NOT "Dietary/allergy") on the form.
+export const ACCESSIBILITY_PREFERENCES: readonly string[] = [
+  "WHEELCHAIR_ACCESS",
+  "PREGNANT",
 ];
 
 export const STAFF_PATRON_TAGS = [
@@ -89,7 +102,7 @@ export interface ReservationPublicConfig {
     requirePhone: boolean;
     allergenSectionEnabled: boolean;
     customPreferences: string[];
-    zones: string[];
+    zones: { key: string | null; name: string }[];
   } | null;
   allergens: { allergens: string[]; dietaryTags: string[] };
 }
@@ -123,6 +136,7 @@ export interface StaffReservation {
   allergyNotes: string | null;
   staffTags: string[];
   marketingConsent: boolean;
+  guestModified: boolean;
   createdAt: string;
 }
 

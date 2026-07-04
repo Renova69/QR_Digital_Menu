@@ -3451,7 +3451,8 @@
     "notifyEmail": "邮件",
     "notifySms": "短信",
     "seatingZone": "座位偏好",
-    "zoneAny": "无偏好"
+    "zoneAny": "无偏好",
+    "manageReservation": "Manage reservation"
   },
   "reservations": {
     "tabList": "预订列表",
@@ -3503,6 +3504,29 @@
     "noCustomPrefs": "暂无自定义标签。",
     "addChipPlaceholder": "添加标签…",
     "savePrefs": "保存标签",
-    "saveHours": "保存时间"
+    "saveHours": "保存时间",
+    "guestModified": "Guest modified"
+  },
+  "zones": {
+    "INDOOR": "室内",
+    "MAIN_HALL": "大厅",
+    "TERRACE": "露台",
+    "GARDEN": "花园",
+    "BALCONY": "阳台",
+    "ROOFTOP": "屋顶",
+    "BAR": "酒吧",
+    "LOUNGE": "休息室",
+    "POOLSIDE": "池畔",
+    "SEASIDE": "海边",
+    "WINDOW": "靠窗",
+    "PRIVATE_ROOM": "包间",
+    "NON_SMOKING": "无烟区",
+    "SMOKING": "吸烟区",
+    "KIDS_AREA": "儿童区",
+    "QUIET": "安静区"
+  },
+  "zonesPicker": {
+    "choose": "选择区域…",
+    "custom": "自定义（不翻译）…"
   }
 }

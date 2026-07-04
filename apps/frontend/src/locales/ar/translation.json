@@ -545,7 +545,8 @@
     "notifyEmail": "البريد الإلكتروني",
     "notifySms": "رسالة نصية",
     "seatingZone": "المنطقة المفضلة",
-    "zoneAny": "بدون تفضيل"
+    "zoneAny": "بدون تفضيل",
+    "manageReservation": "Manage reservation"
   },
   "reservations": {
     "tabList": "الحجوزات",
@@ -597,6 +598,29 @@
     "noCustomPrefs": "لا توجد علامات بعد.",
     "addChipPlaceholder": "أضف علامة…",
     "savePrefs": "حفظ العلامات",
-    "saveHours": "حفظ ساعات العمل"
+    "saveHours": "حفظ ساعات العمل",
+    "guestModified": "Guest modified"
+  },
+  "zones": {
+    "INDOOR": "داخلي",
+    "MAIN_HALL": "القاعة الرئيسية",
+    "TERRACE": "تراس",
+    "GARDEN": "حديقة",
+    "BALCONY": "شرفة",
+    "ROOFTOP": "السطح",
+    "BAR": "بار",
+    "LOUNGE": "استراحة",
+    "POOLSIDE": "بجانب المسبح",
+    "SEASIDE": "بجانب البحر",
+    "WINDOW": "بجانب النافذة",
+    "PRIVATE_ROOM": "غرفة خاصة",
+    "NON_SMOKING": "لغير المدخنين",
+    "SMOKING": "منطقة التدخين",
+    "KIDS_AREA": "منطقة الأطفال",
+    "QUIET": "منطقة هادئة"
+  },
+  "zonesPicker": {
+    "choose": "اختر منطقة…",
+    "custom": "مخصص (لن يترجم)…"
   }
 }

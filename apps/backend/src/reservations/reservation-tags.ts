@@ -4,27 +4,45 @@
  * cannot drift between layers.
  */
 
-// Guest self-selects these on the public form. Dietary items are
-// special-category (health) data — only persisted with explicit consent.
+// Guest self-selects these on the public form. The health/accessibility items
+// are special-category (GDPR Art. 9) data — only persisted with explicit
+// consent (see SENSITIVE_PREFERENCES below).
 export const CUSTOMER_PREFERENCES = [
   'VEGAN',
   'VEGETARIAN',
   'GLUTEN_INTOLERANT',
   'LACTOSE_INTOLERANT',
   'NUT_ALLERGY',
+  'WHEELCHAIR_ACCESS',
+  'PREGNANT',
   'PET',
   'HIGH_CHAIR',
   'QUIET_TABLE',
 ] as const;
 export type CustomerPreference = (typeof CUSTOMER_PREFERENCES)[number];
 
-// Dietary/health-sensitive subset of the above — gated behind consent.
+// Special-category (health / disability) subset of the above — gated behind
+// explicit consent. Kept as built-ins on purpose: an owner should reach for
+// WHEELCHAIR_ACCESS/PREGNANT here (consent-protected) instead of re-creating
+// them as unprotected custom chips. Custom chips remain non-sensitive.
+// (Export name is historical — it covers all special-category prefs, not just
+// dietary ones.)
 export const DIETARY_PREFERENCES: readonly CustomerPreference[] = [
   'VEGAN',
   'VEGETARIAN',
   'GLUTEN_INTOLERANT',
   'LACTOSE_INTOLERANT',
   'NUT_ALLERGY',
+  'WHEELCHAIR_ACCESS',
+  'PREGNANT',
+];
+
+// Accessibility/assistance subset of the consent-gated set above — same consent
+// rule, but the public form shows these under their own heading rather than
+// under "Dietary/allergy". Display-only grouping; consent still applies.
+export const ACCESSIBILITY_PREFERENCES: readonly CustomerPreference[] = [
+  'WHEELCHAIR_ACCESS',
+  'PREGNANT',
 ];
 
 // Staff-assigned, cross-visit. NEVER shown to the guest or emitted to any

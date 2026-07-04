@@ -545,7 +545,8 @@
     "notifyEmail": "メール",
     "notifySms": "SMS",
     "seatingZone": "希望エリア",
-    "zoneAny": "希望なし"
+    "zoneAny": "希望なし",
+    "manageReservation": "Manage reservation"
   },
   "reservations": {
     "tabList": "予約一覧",
@@ -597,6 +598,29 @@
     "noCustomPrefs": "タグはまだありません。",
     "addChipPlaceholder": "タグを追加…",
     "savePrefs": "タグを保存",
-    "saveHours": "時間を保存"
+    "saveHours": "時間を保存",
+    "guestModified": "Guest modified"
+  },
+  "zones": {
+    "INDOOR": "屋内",
+    "MAIN_HALL": "メインホール",
+    "TERRACE": "テラス",
+    "GARDEN": "庭園",
+    "BALCONY": "バルコニー",
+    "ROOFTOP": "屋上",
+    "BAR": "バー",
+    "LOUNGE": "ラウンジ",
+    "POOLSIDE": "プールサイド",
+    "SEASIDE": "海辺",
+    "WINDOW": "窓際",
+    "PRIVATE_ROOM": "個室",
+    "NON_SMOKING": "禁煙席",
+    "SMOKING": "喫煙エリア",
+    "KIDS_AREA": "キッズエリア",
+    "QUIET": "静かなエリア"
+  },
+  "zonesPicker": {
+    "choose": "ゾーンを選択…",
+    "custom": "カスタム（翻訳されません）…"
   }
 }

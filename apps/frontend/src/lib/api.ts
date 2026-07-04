@@ -251,7 +251,10 @@ export const getTableStatuses = async (
     customerNames: string[];
     sessionStatus: string | null;
     updatedAt: string;
-    zone?: { id: string; name: string };
+    zone?: { id: string; name: string; zoneKey: string | null };
+    zoneId?: string | null;
+    zoneName?: string | null;
+    zoneKey?: string | null;
   }>;
 };
 
@@ -268,6 +271,7 @@ export const updateTable = async (
 export interface TableZone {
   id: string;
   name: string;
+  zoneKey?: string | null;
   restaurantId: string;
   displayOrder: number;
   _count?: { tables: number };
@@ -281,10 +285,12 @@ export const getZones = async (restaurantId: string) => {
 export const createZone = async (
   restaurantId: string,
   name: string,
+  zoneKey?: string | null,
   displayOrder?: number,
 ) => {
   const response = await api.post(`/restaurants/${restaurantId}/zones`, {
     name,
+    zoneKey: zoneKey ?? undefined,
     displayOrder,
   });
   return response.data as TableZone;
@@ -292,7 +298,7 @@ export const createZone = async (
 
 export const updateZone = async (
   zoneId: string,
-  data: { name?: string; displayOrder?: number },
+  data: { name?: string; zoneKey?: string | null; displayOrder?: number },
 ) => {
   const response = await api.patch(`/zones/${zoneId}`, data);
   return response.data as TableZone;

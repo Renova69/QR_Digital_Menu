@@ -22,6 +22,16 @@ import {
   type StaffReservation,
 } from "../../types/reservations";
 import { Button } from "../../components/ui/button";
+import {
+  Users,
+  Phone,
+  Mail,
+  MapPin,
+  AlertTriangle,
+  Megaphone,
+  Lock,
+  Pencil,
+} from "lucide-react";
 
 const STATUS_STYLES: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-800",
@@ -65,8 +75,9 @@ function fromHHMM(value: string): number {
   return (h || 0) * 60 + (m || 0);
 }
 // Always render in 24-hour format regardless of browser locale.
-function format24h(iso: string): string {
+function format24h(iso: string, tz?: string): string {
   return new Date(iso).toLocaleString(undefined, {
+    timeZone: tz,
     day: "2-digit",
     month: "short",
     hour: "2-digit",
@@ -345,21 +356,27 @@ function ReservationList({ restaurantId }: { restaurantId: string }) {
   );
 }
 
-function dayKey(iso: string): string {
+function dayKey(iso: string, tz?: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
+    timeZone: tz,
     weekday: "short",
     day: "2-digit",
     month: "short",
   });
 }
-function dayInputValue(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate(),
-  ).padStart(2, "0")}`;
+function dayInputValue(iso: string, tz?: string): string {
+  // en-CA formats as YYYY-MM-DD; timeZone pins it to the restaurant's calendar
+  // day so the "jump to day" value matches the grouping header.
+  return new Date(iso).toLocaleDateString("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
 }
-function time24(iso: string): string {
+function time24(iso: string, tz?: string): string {
   return new Date(iso).toLocaleTimeString(undefined, {
+    timeZone: tz,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -386,6 +403,8 @@ function UpcomingSummary({
   onPick: (dateInputValue: string) => void;
 }) {
   const { t } = useTranslation();
+  const { activeRestaurant } = useRestaurantContext();
+  const tz = activeRestaurant?.timezone;
   const [showAll, setShowAll] = useState(false);
   const { data = [], isLoading } = useQuery({
     queryKey: ["reservations-upcoming", restaurantId, showAll],
@@ -400,13 +419,13 @@ function UpcomingSummary({
   const groups = useMemo(() => {
     const map = new Map<string, { input: string; rows: StaffReservation[] }>();
     for (const r of data as StaffReservation[]) {
-      const key = dayKey(r.startsAt);
+      const key = dayKey(r.startsAt, tz);
       if (!map.has(key))
-        map.set(key, { input: dayInputValue(r.startsAt), rows: [] });
+        map.set(key, { input: dayInputValue(r.startsAt, tz), rows: [] });
       map.get(key)!.rows.push(r);
     }
     return [...map.entries()];
-  }, [data]);
+  }, [data, tz]);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border p-3 lg:sticky lg:top-4">
@@ -465,7 +484,7 @@ function UpcomingSummary({
                     className="w-full flex items-center gap-2 py-1.5 text-left hover:bg-gray-50 rounded"
                   >
                     <span className="text-xs font-mono w-10 shrink-0">
-                      {time24(r.startsAt)}
+                      {time24(r.startsAt, tz)}
                     </span>
                     <span
                       className={`w-2 h-2 rounded-full shrink-0 ${statusDotClass(
@@ -484,8 +503,9 @@ function UpcomingSummary({
                     >
                       {r.guestName}
                     </span>
-                    <span className="text-xs text-gray-400 shrink-0">
-                      {r.totalGuests}👥
+                    <span className="text-xs text-gray-400 shrink-0 flex items-center gap-0.5">
+                      {r.totalGuests}
+                      <Users className="w-3 h-3" />
                     </span>
                   </button>
                 ))}
@@ -522,6 +542,11 @@ function ManualBookingForm({
         guestName: name.trim(),
         guestPhone: phone.trim(),
         guestEmail: email.trim() || undefined,
+        // NOTE: the datetime-local value is read in the staff browser's tz.
+        // Staff entering a manual booking are on-site (same tz as the
+        // restaurant), so this is correct in practice. Converting a wall-clock
+        // time into the restaurant tz for a remote manager would need a tz lib
+        // (no Luxon on the frontend) — deferred.
         startsAt: new Date(when).toISOString(),
         adultsCount: adults,
         childrenCount: children,
@@ -613,7 +638,7 @@ function ManualBookingForm({
                 : "bg-white text-gray-700"
             }`}
           >
-            {tag}
+            {t(`reservations.tags.${tag}`, tag.replace(/_/g, " "))}
           </button>
         ))}
       </div>
@@ -643,8 +668,10 @@ function ReservationCard({
 }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  const { activeRestaurant } = useRestaurantContext();
+  const tz = activeRestaurant?.timezone;
   const started = new Date(r.startsAt).getTime() <= Date.now();
-  const time = format24h(r.startsAt);
+  const time = format24h(r.startsAt, tz);
 
   const [editing, setEditing] = useState(false);
   const [tags, setTags] = useState<string[]>(r.staffTags ?? []);
@@ -674,13 +701,21 @@ function ReservationCard({
     <div className="bg-white rounded-xl shadow-sm p-3 border">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="font-semibold">{r.guestName}</p>
+          <p className="font-semibold flex items-center gap-1.5">
+            {r.guestName}
+            {r.guestModified && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                <Pencil className="w-3 h-3" />
+                {t("reservations.guestModified", "Guest modified")}
+              </span>
+            )}
+          </p>
           <p className="text-xs text-gray-500">
             {time}
             {r.endsAt && (
               <span className="text-gray-400">
                 {" "}
-                → {format24h(r.endsAt)}{" "}
+                → {format24h(r.endsAt, tz)}{" "}
                 {t("reservations.tableFree", "(table free)")}
               </span>
             )}
@@ -694,15 +729,22 @@ function ReservationCard({
       </div>
 
       <div className="text-xs text-gray-600 mt-1 flex flex-wrap gap-x-3 gap-y-1">
-        <span>
-          👥 {r.adultsCount}
-          {r.childrenCount > 0 ? ` + ${r.childrenCount} 🧒` : ""} (
+        <span className="inline-flex items-center gap-0.5">
+          <Users className="w-3 h-3" /> {r.adultsCount}
+          {r.childrenCount > 0 ? ` + ${r.childrenCount} ch.` : ""} (
           {r.totalGuests})
         </span>
-        <a href={`tel:${r.guestPhone}`} className="text-indigo-600">
-          📞 {r.guestPhone}
+        <a
+          href={`tel:${r.guestPhone}`}
+          className="text-indigo-600 inline-flex items-center gap-0.5"
+        >
+          <Phone className="w-3 h-3" /> {r.guestPhone}
         </a>
-        {r.guestEmail && <span>✉️ {r.guestEmail}</span>}
+        {r.guestEmail && (
+          <span className="inline-flex items-center gap-0.5">
+            <Mail className="w-3 h-3" /> {r.guestEmail}
+          </span>
+        )}
         <span className="font-mono text-gray-400">{r.referenceCode}</span>
       </div>
 
@@ -713,16 +755,23 @@ function ReservationCard({
         r.marketingConsent) && (
         <div className="flex flex-wrap gap-1 mt-2">
           {r.preferredZone && (
-            <Badge tone="indigo" label={`📍 ${r.preferredZone}`} />
+            <Badge
+              tone="indigo"
+              label={t(`zones.${r.preferredZone}`, r.preferredZone)}
+            />
           )}
           {r.customerPreferences.map((p) => (
             <Badge key={p} tone="amber" label={p} />
           ))}
-          {r.allergyNotes && <Badge tone="red" label={`⚠ ${r.allergyNotes}`} />}
+          {r.allergyNotes && <Badge tone="red" label={r.allergyNotes} />}
           {r.staffTags.map((tag) => (
-            <Badge key={tag} tone="indigo" label={tag} />
+            <Badge
+              key={tag}
+              tone="indigo"
+              label={t(`reservations.tags.${tag}`, tag.replace(/_/g, " "))}
+            />
           ))}
-          {r.marketingConsent && <Badge tone="green" label="📣 Marketing OK" />}
+          {r.marketingConsent && <Badge tone="green" label="Marketing OK" />}
         </div>
       )}
 
@@ -730,7 +779,9 @@ function ReservationCard({
         <p className="text-xs text-gray-600 mt-2 italic">“{r.customerNotes}”</p>
       )}
       {r.internalNotes && (
-        <p className="text-xs text-gray-500 mt-1">🔒 {r.internalNotes}</p>
+        <p className="text-xs text-gray-500 mt-1 flex items-start gap-1">
+          <Lock className="w-3 h-3 mt-0.5 shrink-0" /> {r.internalNotes}
+        </p>
       )}
 
       <div className="flex flex-wrap gap-2 mt-3">
@@ -799,7 +850,7 @@ function ReservationCard({
                     : "bg-white text-gray-700"
                 }`}
               >
-                {tag}
+                {t(`reservations.tags.${tag}`, tag.replace(/_/g, " "))}
               </button>
             ))}
           </div>

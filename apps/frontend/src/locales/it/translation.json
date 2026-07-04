@@ -3451,7 +3451,8 @@
     "notifyEmail": "Email",
     "notifySms": "SMS",
     "seatingZone": "Zona preferita",
-    "zoneAny": "Nessuna preferenza"
+    "zoneAny": "Nessuna preferenza",
+    "manageReservation": "Manage reservation"
   },
   "reservations": {
     "tabList": "Prenotazioni",
@@ -3503,6 +3504,29 @@
     "noCustomPrefs": "Nessun tag.",
     "addChipPlaceholder": "Aggiungi tag…",
     "savePrefs": "Salva tag",
-    "saveHours": "Salva orari"
+    "saveHours": "Salva orari",
+    "guestModified": "Guest modified"
+  },
+  "zones": {
+    "INDOOR": "Interno",
+    "MAIN_HALL": "Sala principale",
+    "TERRACE": "Terrazza",
+    "GARDEN": "Giardino",
+    "BALCONY": "Balcone",
+    "ROOFTOP": "Terrazza panoramica",
+    "BAR": "Bar",
+    "LOUNGE": "Lounge",
+    "POOLSIDE": "A bordo piscina",
+    "SEASIDE": "In riva al mare",
+    "WINDOW": "Vicino alla finestra",
+    "PRIVATE_ROOM": "Sala privata",
+    "NON_SMOKING": "Non fumatori",
+    "SMOKING": "Area fumatori",
+    "KIDS_AREA": "Area bambini",
+    "QUIET": "Area tranquilla"
+  },
+  "zonesPicker": {
+    "choose": "Scegli una zona…",
+    "custom": "Personalizzato (non verrà tradotto)…"
   }
 }
