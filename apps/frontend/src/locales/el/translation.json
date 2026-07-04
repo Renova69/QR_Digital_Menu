@@ -3516,6 +3516,25 @@
       "PREFERS_TERRACE": "Προτιμά βεράντα",
       "PREFERS_WINDOW": "Προτιμά παράθυρο",
       "NEEDS_CALL_CONFIRMATION": "Χρειάζεται επιβεβαίωση"
+    },
+    "status": {
+      "PENDING": "Pending",
+      "CONFIRMED": "Confirmed",
+      "ARRIVED": "Arrived",
+      "NO_SHOW": "No Show",
+      "CANCELLED": "Cancelled"
+    },
+    "preferences": {
+      "VEGAN": "Vegan",
+      "VEGETARIAN": "Vegetarian",
+      "GLUTEN_INTOLERANT": "Gluten Free",
+      "LACTOSE_INTOLERANT": "Lactose Free",
+      "NUT_ALLERGY": "Nut Allergy",
+      "WHEELCHAIR_ACCESS": "Wheelchair Access",
+      "PREGNANT": "Pregnant",
+      "PET": "Pet",
+      "HIGH_CHAIR": "High Chair",
+      "QUIET_TABLE": "Quiet Table"
     }
   },
   "zones": {

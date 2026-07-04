@@ -599,7 +599,26 @@
     "addChipPlaceholder": "أضف علامة…",
     "savePrefs": "حفظ العلامات",
     "saveHours": "حفظ ساعات العمل",
-    "guestModified": "Guest modified"
+    "guestModified": "Guest modified",
+    "status": {
+      "PENDING": "Pending",
+      "CONFIRMED": "Confirmed",
+      "ARRIVED": "Arrived",
+      "NO_SHOW": "No Show",
+      "CANCELLED": "Cancelled"
+    },
+    "preferences": {
+      "VEGAN": "Vegan",
+      "VEGETARIAN": "Vegetarian",
+      "GLUTEN_INTOLERANT": "Gluten Free",
+      "LACTOSE_INTOLERANT": "Lactose Free",
+      "NUT_ALLERGY": "Nut Allergy",
+      "WHEELCHAIR_ACCESS": "Wheelchair Access",
+      "PREGNANT": "Pregnant",
+      "PET": "Pet",
+      "HIGH_CHAIR": "High Chair",
+      "QUIET_TABLE": "Quiet Table"
+    }
   },
   "zones": {
     "INDOOR": "داخلي",

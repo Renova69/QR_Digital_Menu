@@ -3646,6 +3646,25 @@
       "PREFERS_TERRACE": "Preferă terasa",
       "PREFERS_WINDOW": "Preferă la geam",
       "NEEDS_CALL_CONFIRMATION": "Necesită confirmare telefonică"
+    },
+    "status": {
+      "PENDING": "În așteptare",
+      "CONFIRMED": "Confirmat",
+      "ARRIVED": "Sosiți",
+      "NO_SHOW": "Neprezentare",
+      "CANCELLED": "Anulat"
+    },
+    "preferences": {
+      "VEGAN": "Vegan",
+      "VEGETARIAN": "Vegetarian",
+      "GLUTEN_INTOLERANT": "Fără gluten",
+      "LACTOSE_INTOLERANT": "Fără lactoză",
+      "NUT_ALLERGY": "Alergie la nuci",
+      "WHEELCHAIR_ACCESS": "Scaun cu rotile",
+      "PREGNANT": "Însărcinate",
+      "PET": "Animal de companie",
+      "HIGH_CHAIR": "Scaun copii",
+      "QUIET_TABLE": "Masă liniștită"
     }
   }
 }

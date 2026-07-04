@@ -75,8 +75,8 @@ function fromHHMM(value: string): number {
   return (h || 0) * 60 + (m || 0);
 }
 // Always render in 24-hour format regardless of browser locale.
-function format24h(iso: string, tz?: string): string {
-  return new Date(iso).toLocaleString(undefined, {
+function format24h(iso: string, tz?: string, locale?: string): string {
+  return new Date(iso).toLocaleString(locale || undefined, {
     timeZone: tz,
     day: "2-digit",
     month: "short",
@@ -356,8 +356,8 @@ function ReservationList({ restaurantId }: { restaurantId: string }) {
   );
 }
 
-function dayKey(iso: string, tz?: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
+function dayKey(iso: string, tz?: string, locale?: string): string {
+  return new Date(iso).toLocaleDateString(locale || undefined, {
     timeZone: tz,
     weekday: "short",
     day: "2-digit",
@@ -402,7 +402,7 @@ function UpcomingSummary({
   restaurantId: string;
   onPick: (dateInputValue: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { activeRestaurant } = useRestaurantContext();
   const tz = activeRestaurant?.timezone;
   const [showAll, setShowAll] = useState(false);
@@ -419,13 +419,13 @@ function UpcomingSummary({
   const groups = useMemo(() => {
     const map = new Map<string, { input: string; rows: StaffReservation[] }>();
     for (const r of data as StaffReservation[]) {
-      const key = dayKey(r.startsAt, tz);
+      const key = dayKey(r.startsAt, tz, i18n.language);
       if (!map.has(key))
         map.set(key, { input: dayInputValue(r.startsAt, tz), rows: [] });
       map.get(key)!.rows.push(r);
     }
     return [...map.entries()];
-  }, [data, tz]);
+  }, [data, tz, i18n.language]);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border p-3 lg:sticky lg:top-4">
@@ -490,7 +490,7 @@ function UpcomingSummary({
                       className={`w-2 h-2 rounded-full shrink-0 ${statusDotClass(
                         r.status,
                       )}`}
-                      title={r.status}
+                      title={t(`reservations.status.${r.status}`, r.status)}
                     />
                     <span
                       className={`text-sm truncate flex-1 ${
@@ -666,12 +666,12 @@ function ReservationCard({
   onAction: (a: ReservationAction) => void;
   busy: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const qc = useQueryClient();
   const { activeRestaurant } = useRestaurantContext();
   const tz = activeRestaurant?.timezone;
   const started = new Date(r.startsAt).getTime() <= Date.now();
-  const time = format24h(r.startsAt, tz);
+  const time = format24h(r.startsAt, tz, i18n.language);
 
   const [editing, setEditing] = useState(false);
   const [tags, setTags] = useState<string[]>(r.staffTags ?? []);
@@ -715,7 +715,7 @@ function ReservationCard({
             {r.endsAt && (
               <span className="text-gray-400">
                 {" "}
-                → {format24h(r.endsAt, tz)}{" "}
+                → {format24h(r.endsAt, tz, i18n.language)}{" "}
                 {t("reservations.tableFree", "(table free)")}
               </span>
             )}
@@ -724,7 +724,7 @@ function ReservationCard({
         <span
           className={`text-xs px-2 py-0.5 rounded-full ${STATUS_STYLES[r.status] ?? ""}`}
         >
-          {r.status}
+          {t(`reservations.status.${r.status}`, r.status)}
         </span>
       </div>
 
@@ -761,7 +761,7 @@ function ReservationCard({
             />
           )}
           {r.customerPreferences.map((p) => (
-            <Badge key={p} tone="amber" label={p} />
+            <Badge key={p} tone="amber" label={t(`reservations.preferences.${p}`, p.replace(/_/g, " "))} />
           ))}
           {r.allergyNotes && <Badge tone="red" label={r.allergyNotes} />}
           {r.staffTags.map((tag) => (

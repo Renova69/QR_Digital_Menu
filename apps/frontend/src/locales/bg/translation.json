@@ -3561,6 +3561,25 @@
       "PREFERS_TERRACE": "Предпочита тераса",
       "PREFERS_WINDOW": "Предпочита до прозореца",
       "NEEDS_CALL_CONFIRMATION": "Нужда от потвърждение по тел."
+    },
+    "status": {
+      "PENDING": "Очаква",
+      "CONFIRMED": "Потвърдена",
+      "ARRIVED": "Пристигнали",
+      "NO_SHOW": "Не се явили",
+      "CANCELLED": "Отказана"
+    },
+    "preferences": {
+      "VEGAN": "Веган",
+      "VEGETARIAN": "Вегетарианец",
+      "GLUTEN_INTOLERANT": "Без глутен",
+      "LACTOSE_INTOLERANT": "Без лактоза",
+      "NUT_ALLERGY": "Алергия към ядки",
+      "WHEELCHAIR_ACCESS": "Инвалидна количка",
+      "PREGNANT": "Бременни",
+      "PET": "С домашен любимец",
+      "HIGH_CHAIR": "Детско столче",
+      "QUIET_TABLE": "Тиха маса"
     }
   }
 }
