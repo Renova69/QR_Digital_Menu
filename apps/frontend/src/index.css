@@ -152,6 +152,10 @@
     @apply tracking-tight font-bold;
     font-family: var(--font-display);
   }
+
+  ::placeholder {
+    font-size: 0.9em;
+  }
 }
 
 @layer utilities {

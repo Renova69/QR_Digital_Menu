@@ -49,7 +49,13 @@ const BookingManagePage = () => {
   const { t } = useTranslation();
   const params = new URLSearchParams(useLocation().search);
   const restaurantId = params.get("r") ?? "";
-  const token = params.get("token") ?? "";
+  // Capture token ONCE on mount (useState initializer runs only on the first
+  // render). sessionStorage is already scoped to the browser tab/session and
+  // auto-clears on close, so manual cleanup is unnecessary and would break
+  // page refreshes or React re-mounts (StrictMode, router transitions, etc.).
+  const [token] = useState(
+    () => sessionStorage.getItem("manage_token") ?? params.get("token") ?? "",
+  );
 
   const [config, setConfig] = useState<ReservationPublicConfig | null>(null);
   const [theme, setTheme] = useState<PublicBrandMode>("light");
@@ -203,6 +209,8 @@ const BookingManagePage = () => {
   const whenLabel = useMemo(() => {
     if (!reservation) return "";
     return new Date(reservation.startsAt).toLocaleString(undefined, {
+      // Show the restaurant's local time, not the guest's browser tz.
+      timeZone: config?.restaurant?.timezone ?? undefined,
       weekday: "short",
       day: "2-digit",
       month: "short",
@@ -210,7 +218,7 @@ const BookingManagePage = () => {
       minute: "2-digit",
       hour12: false,
     });
-  }, [reservation]);
+  }, [reservation, config]);
 
   const partyValid = total >= 1 && total <= maxParty;
   const maxDate = localDateISO(

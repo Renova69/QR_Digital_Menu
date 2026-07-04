@@ -40,7 +40,12 @@ export class TableZonesService {
       dto.displayOrder ?? (await this.maxDisplayOrder(restaurantId)) + 1000;
 
     const zone = await this.prisma.tableZone.create({
-      data: { name: dto.name.trim(), restaurantId, displayOrder },
+      data: {
+        name: dto.name.trim(),
+        zoneKey: dto.zoneKey ?? null,
+        restaurantId,
+        displayOrder,
+      },
     });
     this.events.emitZoneChanged(restaurantId);
     return zone;
@@ -67,6 +72,7 @@ export class TableZonesService {
       where: { id: zoneId },
       data: {
         ...(dto.name !== undefined && { name: dto.name.trim() }),
+        ...(dto.zoneKey !== undefined && { zoneKey: dto.zoneKey }),
         ...(dto.displayOrder !== undefined && {
           displayOrder: dto.displayOrder,
         }),

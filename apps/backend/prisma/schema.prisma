@@ -189,6 +189,9 @@ model MenuView {
 model TableZone {
   id           String            @id @default(cuid())
   name         String
+  // Preset catalog key (zone-catalog.ts) so the label can be translated on the
+  // public booking form + dashboard. Null = fully custom zone (uses `name`).
+  zoneKey      String?
   restaurantId String
   displayOrder Int               @default(0)
   createdAt    DateTime          @default(now())
