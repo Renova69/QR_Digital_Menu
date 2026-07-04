@@ -31,6 +31,7 @@ export default defineConfig(({ mode }) => {
       include: ["react-qr-code"],
     },
     build: {
+      chunkSizeWarningLimit: 1000,
       // Split heavy third-party libs out of the main bundle (#5) so the entry
       // chunk shrinks and vendors cache independently across deploys.
       rollupOptions: {
