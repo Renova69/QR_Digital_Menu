@@ -3,6 +3,10 @@
     "mtime": 1781633705.559277,
     "hash": "425860bd3ec5597e4a7b41d580d506b4"
   },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\extract-manage.js": {
+    "mtime": 1783155490.2898295,
+    "hash": "c69e42a59acb78bf1d8de68246b684b0"
+  },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\index.js": {
     "mtime": 1781349412.0789185,
     "hash": "8e83a776b8c168bfbd8f7137389ffef5"
@@ -58,6 +62,10 @@
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\query_table.js": {
     "mtime": 1780128176.6488721,
     "hash": "482f19407769ed1859903d87ef7bea4b"
+  },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\remove-emoji-prefs.js": {
+    "mtime": 1783169139.795208,
+    "hash": "d63776763e333c425d0be496d18afe0a"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\reset_password.js": {
     "mtime": 1778183992.2720027,
@@ -234,6 +242,10 @@
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\prisma\\migrations\\20260704130000_reservation_dining_duration\\migration.sql": {
     "mtime": 1783114922.4738102,
     "hash": "ed2643254877b790c14526cdeb5edfe1"
+  },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\prisma\\migrations\\20260704140000_table_zone_key\\migration.sql": {
+    "mtime": 1783183851.2641644,
+    "hash": "4c633991b8ca0cae0505719b8ef50e10"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\prisma\\sql\\2026-05-30-hash-import-api-key.sql": {
     "mtime": 1780116711.169479,
@@ -967,9 +979,13 @@
     "mtime": 1783015095.6017356,
     "hash": "1aa1463ef65e73c8892635de129c33c6"
   },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\reservations\\reservation-availability.service.spec.ts": {
+    "mtime": 1783168622.8242142,
+    "hash": "cde944bb2be1b0bc62829c7094e5ca0e"
+  },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\reservations\\reservation-availability.service.ts": {
-    "mtime": 1783114463.6187794,
-    "hash": "69f97afa3c55390cff2bae378259c8ed"
+    "mtime": 1783168592.222927,
+    "hash": "38b53a54b3320eb2e4010caf6197e956"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\reservations\\reservation-notifications.service.ts": {
     "mtime": 1783146292.7739654,
@@ -988,8 +1004,8 @@
     "hash": "9cdb90ea61e1f00145ec5d4b67178121"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\reservations\\reservation-tags.ts": {
-    "mtime": 1783059307.9594157,
-    "hash": "1e496e01bc607703a44138c156e6303d"
+    "mtime": 1783171184.7711532,
+    "hash": "0a93f556eb2ea46c0935c0af3fef84d8"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\reservations\\reservations.controller.ts": {
     "mtime": 1783115215.7778938,
@@ -1004,8 +1020,8 @@
     "hash": "d914aa915ca10353bec78fa3a188629b"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\reservations\\reservations.service.ts": {
-    "mtime": 1783146782.0320017,
-    "hash": "bd0616334570d30a052327744c88cf1c"
+    "mtime": 1783184067.2437983,
+    "hash": "c7e0ea679076b2a59f1facc6285e2182"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\reservations\\dto\\public-reservation.dto.ts": {
     "mtime": 1783114477.7803977,
@@ -1200,20 +1216,24 @@
     "hash": "4cd1ba68eddb256ccf7267ef76448afe"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\table-zones\\table-zones.service.ts": {
-    "mtime": 1781285050.2678225,
-    "hash": "c517f1b8b6a523dd3e19ae7b80d5cddd"
+    "mtime": 1783184033.7952828,
+    "hash": "deaaf326d2c9669d053755f1ad0e2444"
+  },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\table-zones\\zone-catalog.ts": {
+    "mtime": 1783183825.6590745,
+    "hash": "4c2443e7d71a2341db8197db1f77dc59"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\table-zones\\dto\\create-zone.dto.ts": {
-    "mtime": 1779639164.426158,
-    "hash": "2122602ba22f52cc73e6c28557a74073"
+    "mtime": 1783184008.6937249,
+    "hash": "c4e62911960cbfa86a045787ec9761cd"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\table-zones\\dto\\reorder-zones.dto.ts": {
     "mtime": 1779639167.9157574,
     "hash": "10f947cdd319bb3b557c0ed334dd8473"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\table-zones\\dto\\update-zone.dto.ts": {
-    "mtime": 1779639165.9300272,
-    "hash": "62e915922a48ec5286bc6f7d81776486"
+    "mtime": 1783184018.135187,
+    "hash": "31d8cd3bc06e72b15f8cf6671c01058a"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\tables\\tables.controller.ts": {
     "mtime": 1780464299.0091512,
@@ -1228,8 +1248,8 @@
     "hash": "12b187199498f0c7d30ae134aa74fbf3"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\tables\\tables.service.ts": {
-    "mtime": 1782239539.9811506,
-    "hash": "5e9d1102514025ea86ded7d6e5861f36"
+    "mtime": 1783187122.2345345,
+    "hash": "6fb3b04442141e469995e38971ff41e1"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\backend\\src\\tables\\dto\\create-table.dto.ts": {
     "mtime": 1779640264.6566465,
@@ -1568,8 +1588,8 @@
     "hash": "767966d3087b9c3526252dfb7bf96d39"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\pos\\ZoneSelector.tsx": {
-    "mtime": 1781850538.9723835,
-    "hash": "f50b71475b00f865b479696aa1ba6f47"
+    "mtime": 1783186923.7686706,
+    "hash": "98ed0de9c025ad89a9e2c01b221a1133"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\staff\\StaffCreatedModal.test.tsx": {
     "mtime": 1781799670.0149777,
@@ -1604,8 +1624,8 @@
     "hash": "f0e049b824b8701fbc264e9346145255"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\tables\\TableView.tsx": {
-    "mtime": 1781714938.7688973,
-    "hash": "e94185306a2a8f5a6100f71862389da0"
+    "mtime": 1783186983.5947433,
+    "hash": "328bb4e7c46e6c54fbcbff00a8a194e0"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\components\\ui\\BrandingEditor.tsx": {
     "mtime": 1780375639.2550087,
@@ -1792,8 +1812,8 @@
     "hash": "a73f446ee13b45df9a227da46bbc9cbd"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\api.ts": {
-    "mtime": 1783115225.318875,
-    "hash": "67a1630c3ba8778654bca80cf4272717"
+    "mtime": 1783187127.2524064,
+    "hash": "125f80c3727132aa143123a9123d9278"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\brandingFonts.ts": {
     "mtime": 1780129356.9439356,
@@ -1879,6 +1899,10 @@
     "mtime": 1779858249.2225702,
     "hash": "ef7b9a209fe30dc2ee7fe3e130a8eb49"
   },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\zoneCatalog.ts": {
+    "mtime": 1783187633.7341404,
+    "hash": "84add0f70783d51ba828855d02c09d92"
+  },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\__tests__\\cartTranslation.test.ts": {
     "mtime": 1782836835.6940198,
     "hash": "349eb25548eeab2877ca24fa9caba749"
@@ -1916,20 +1940,20 @@
     "hash": "a6936f3c5de9f85f7c9b57d7946543da"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\BookingConfirmationPage.tsx": {
-    "mtime": 1783094170.7153172,
-    "hash": "69f9891a6ebc566d748741c970b56c81"
+    "mtime": 1783170200.8546681,
+    "hash": "1c9a54847a2665d0b18bc2c82a95919e"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\BookingManagePage.tsx": {
-    "mtime": 1783114767.493191,
-    "hash": "5ce42cfbade0cd93b1a911f238503424"
+    "mtime": 1783170219.7240636,
+    "hash": "e1fdc034905894378ce4c69fc29af6da"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\BookingPage.icons.test.ts": {
-    "mtime": 1783060385.3786457,
-    "hash": "9400154c8d5752303041455ee95ab0a6"
+    "mtime": 1783164986.2248323,
+    "hash": "786d6728fbf8b004483dbe267d042bfc"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\BookingPage.tsx": {
-    "mtime": 1783146328.671852,
-    "hash": "6ea128565e22f7ae7d08295a1e0c3f92"
+    "mtime": 1783184404.6925404,
+    "hash": "952f6812666c93bbbb3f2f187315e71f"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\CheckoutPage.tsx": {
     "mtime": 1782994985.896036,
@@ -2048,8 +2072,8 @@
     "hash": "f3952c05df83bdfda101968665638234"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\ReservationsView.tsx": {
-    "mtime": 1783146352.515804,
-    "hash": "cd877ef398477e30f545d54c17106bcd"
+    "mtime": 1783184422.0081062,
+    "hash": "65b977c97cc73aa77c39a92df93d89e3"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\SettingsView.test.tsx": {
     "mtime": 1781803105.7900882,
@@ -2136,8 +2160,8 @@
     "hash": "1a1178a7f2ec41565345d8963e1ffdea"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\summary\\LiveTablesGrid.tsx": {
-    "mtime": 1780159872.3261228,
-    "hash": "846179777513d41fbe96734d3f7994ab"
+    "mtime": 1783187333.1356812,
+    "hash": "772da0c0bcaac94c11334442e4ee3e49"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\pages\\Dashboard\\summary\\LoyaltyRetentionCard.tsx": {
     "mtime": 1780159708.3300607,
@@ -2264,8 +2288,8 @@
     "hash": "9838fc73e6a021236d3f13b58901b310"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\types\\reservations.ts": {
-    "mtime": 1783115054.180396,
-    "hash": "765393c3669a5b9bb1cefc43d07fe4e9"
+    "mtime": 1783184133.841184,
+    "hash": "bd4babb1b896bdbf6b5c6a8d6492d2a0"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\utils\\colors.ts": {
     "mtime": 1779718054.5599635,
