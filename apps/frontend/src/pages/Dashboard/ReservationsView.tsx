@@ -34,12 +34,12 @@ import {
 } from "lucide-react";
 
 const STATUS_STYLES: Record<string, string> = {
-  PENDING: "bg-amber-100 text-amber-800",
-  CONFIRMED: "bg-green-100 text-green-800",
-  DECLINED: "bg-red-100 text-red-700",
-  CANCELLED: "bg-gray-100 text-gray-600",
-  NO_SHOW: "bg-red-100 text-red-700",
-  ARRIVED: "bg-indigo-100 text-indigo-800",
+  PENDING: "bg-orange-500 text-white font-bold",
+  CONFIRMED: "bg-green-600 text-white font-bold",
+  DECLINED: "bg-red-600 text-white font-bold",
+  CANCELLED: "bg-red-600 text-white font-bold",
+  NO_SHOW: "bg-red-600 text-white font-bold",
+  ARRIVED: "bg-indigo-600 text-white font-bold",
 };
 
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7];
@@ -385,13 +385,13 @@ function time24(iso: string, tz?: string): string {
 function statusDotClass(status: string): string {
   switch (status) {
     case "CONFIRMED":
-      return "bg-green-500";
+      return "bg-green-600";
     case "ARRIVED":
-      return "bg-indigo-500";
+      return "bg-indigo-600";
     case "PENDING":
-      return "bg-amber-500";
+      return "bg-orange-500";
     default: // DECLINED / CANCELLED / NO_SHOW
-      return "bg-gray-400";
+      return "bg-red-600";
   }
 }
 
@@ -756,7 +756,7 @@ function ReservationCard({
         <div className="flex flex-wrap gap-1 mt-2">
           {r.preferredZone && (
             <Badge
-              tone="indigo"
+              tone="blue"
               label={t(`zones.${r.preferredZone}`, r.preferredZone)}
             />
           )}
@@ -883,6 +883,7 @@ function Badge({ tone, label }: { tone: string; label: string }) {
     red: "bg-red-100 text-red-700",
     indigo: "bg-indigo-100 text-indigo-800",
     green: "bg-green-100 text-green-700",
+    blue: "bg-blue-100 text-blue-800",
   };
   return (
     <span className={`text-xs px-2 py-0.5 rounded-full ${tones[tone] ?? ""}`}>
