@@ -570,6 +570,30 @@ export class EventsGateway
     this.emitToRestaurant(restaurantId, 'zone:changed', {});
   }
 
+  // Reservation events go to the private restaurant room only. Payloads are
+  // summaries — NEVER guest contact, dietary/allergy, internal notes, or staff
+  // tags. Clients refetch authoritative details over an authenticated request.
+  emitReservationCreated(
+    restaurantId: string,
+    payload: {
+      id: string;
+      referenceCode: string;
+      status: string;
+      startsAt: Date;
+      guestName: string;
+      totalGuests: number;
+    },
+  ) {
+    this.emitToRestaurant(restaurantId, 'reservation:created', payload);
+  }
+
+  emitReservationUpdated(
+    restaurantId: string,
+    payload: { id: string; status: string },
+  ) {
+    this.emitToRestaurant(restaurantId, 'reservation:updated', payload);
+  }
+
   /**
    * Emit a print job to the station room.
    * Returns true if at least one agent socket is present (job delivered),

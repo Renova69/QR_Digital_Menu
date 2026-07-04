@@ -50,4 +50,61 @@ describe('CSRF exemptions (L-AUTH-1)', () => {
       (CSRF_EXEMPT_PATHS as string[]).push('/api/v1/anything');
     }).toThrow();
   });
+
+  // Public reservation booking (unauthenticated, no cookie) — dynamic segment.
+  it('exempts the public reservation booking POST (one trailing segment)', () => {
+    expect(
+      isCsrfExemptPath('/api/v1/reservations/public/rest_123', 'POST'),
+    ).toBe(true);
+  });
+
+  it('does not exempt nested reservation POST routes or non-POST', () => {
+    expect(
+      isCsrfExemptPath('/api/v1/reservations/public/rest_123/extra', 'POST'),
+    ).toBe(false);
+    expect(
+      isCsrfExemptPath('/api/v1/reservations/public/rest_123', 'DELETE'),
+    ).toBe(false);
+    expect(isCsrfExemptPath('/api/v1/reservations/rest_123', 'POST')).toBe(
+      false,
+    );
+  });
+
+  // Guest self-service (Feature 2) — token IS the credential, no ambient cookie.
+  it('exempts the guest manage cancel/modify POST routes', () => {
+    expect(
+      isCsrfExemptPath(
+        '/api/v1/reservations/public/rest_123/manage/TOKEN_abc/cancel',
+        'POST',
+      ),
+    ).toBe(true);
+    expect(
+      isCsrfExemptPath(
+        '/api/v1/reservations/public/rest_123/manage/TOKEN_abc/modify',
+        'POST',
+      ),
+    ).toBe(true);
+  });
+
+  it('does not exempt other manage verbs or the manage GET', () => {
+    expect(
+      isCsrfExemptPath(
+        '/api/v1/reservations/public/rest_123/manage/TOKEN_abc/delete',
+        'POST',
+      ),
+    ).toBe(false);
+    // GET view route is not a state change and is never method-POST here.
+    expect(
+      isCsrfExemptPath(
+        '/api/v1/reservations/public/rest_123/manage/TOKEN_abc',
+        'POST',
+      ),
+    ).toBe(false);
+    expect(
+      isCsrfExemptPath(
+        '/api/v1/reservations/public/rest_123/manage/TOKEN_abc/cancel',
+        'GET',
+      ),
+    ).toBe(false);
+  });
 });

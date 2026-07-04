@@ -34,6 +34,7 @@ const PROFESSIONAL_FEATURES: FeatureFlag[] = [
   FeatureFlag.CUSTOMERS_AUTH,
   FeatureFlag.UPSELLING,
   FeatureFlag.DAYPARTING,
+  FeatureFlag.RESERVATIONS,
 ];
 
 const TIER_FEATURES: Record<Tier, FeatureFlag[]> = {

@@ -17,9 +17,22 @@
  */
 const SESSION_TOKEN_PATH = /(\/session\/)([^/?#]+)(?=\/)/g;
 
+/**
+ * Reservation guest self-service (Feature 2) uses the same pattern: the
+ * `manageToken` is a bearer credential embedded as the segment after
+ * `.../manage/` on `GET /reservations/public/:id/manage/<token>` and its
+ * `/cancel` and `/modify` POSTs. It must be redacted from logs for the same
+ * reason as the payment session token. No trailing-`/` lookahead here — the
+ * bare `GET .../manage/<token>` view route (no action segment) must be
+ * redacted too — and `[^/?#]+` still stops at the next slash/query/fragment.
+ */
+const MANAGE_TOKEN_PATH = /(\/manage\/)([^/?#]+)/g;
+
 export function redactSensitivePath(path: unknown): string {
   if (typeof path !== 'string' || path.length === 0) {
     return typeof path === 'string' ? path : '';
   }
-  return path.replace(SESSION_TOKEN_PATH, '$1:token');
+  return path
+    .replace(SESSION_TOKEN_PATH, '$1:token')
+    .replace(MANAGE_TOKEN_PATH, '$1:token');
 }

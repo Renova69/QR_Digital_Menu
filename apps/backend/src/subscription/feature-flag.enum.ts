@@ -24,4 +24,5 @@ export enum FeatureFlag {
   PRINTERS_THERMAL = 'printers:thermal',
   TEMPLATES_MENU = 'templates:menu',
   STAFF_UNLIMITED = 'staff:unlimited',
+  RESERVATIONS = 'reservations:enabled',
 }

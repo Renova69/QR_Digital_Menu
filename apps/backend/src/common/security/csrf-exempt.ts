@@ -33,10 +33,26 @@ export const CSRF_EXEMPT_PATHS: readonly string[] = Object.freeze([
 ]);
 
 /**
+ * POST routes with a dynamic segment that are exempt for the same reason as the
+ * static list: unauthenticated public surfaces with no ambient cookie to
+ * protect. Kept as tight anchored patterns (single trailing segment) so they
+ * can't accidentally exempt a nested state-changing route.
+ */
+export const CSRF_EXEMPT_POST_PATTERNS: readonly RegExp[] = Object.freeze([
+  // public reservation booking: POST /api/v1/reservations/public/:restaurantId
+  /^\/api\/v1\/reservations\/public\/[^/]+$/,
+  // guest self-service (Feature 2): token IS the credential, no ambient cookie.
+  // POST /api/v1/reservations/public/:restaurantId/manage/:token/(cancel|modify)
+  /^\/api\/v1\/reservations\/public\/[^/]+\/manage\/[^/]+\/(cancel|modify)$/,
+]);
+
+/**
  * True when a request should skip the CSRF double-submit check. Exemptions are
  * POST-only — a route exempt for its POST must still enforce CSRF on any other
  * state-changing method it might later expose.
  */
 export function isCsrfExemptPath(path: string, method: string): boolean {
-  return method === 'POST' && CSRF_EXEMPT_PATHS.includes(path);
+  if (method !== 'POST') return false;
+  if (CSRF_EXEMPT_PATHS.includes(path)) return true;
+  return CSRF_EXEMPT_POST_PATTERNS.some((re) => re.test(path));
 }

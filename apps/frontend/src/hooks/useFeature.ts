@@ -1,40 +1,45 @@
-import { useContext } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import RestaurantContext from '../context/RestaurantContext';
-import { useAuth } from '../context/AuthContext';
-import { getSubscriptionStatus } from '../lib/api';
+import { useContext } from "react";
+import { useQuery } from "@tanstack/react-query";
+import RestaurantContext from "../context/RestaurantContext";
+import { useAuth } from "../context/AuthContext";
+import { getSubscriptionStatus } from "../lib/api";
 
 const ALL_FEATURE_FLAGS = [
-  'menu:view',
-  'menu:edit',
-  'menu:import',
-  'qr:manage',
-  'orders:receive',
-  'orders:call-waiter',
-  'analytics:basic',
-  'analytics:full',
-  'payments:epay',
-  'payments:borica',
-  'payments:mypos',
-  'payments:stripe',
-  'languages:multi',
-  'branding:custom',
-  'loyalty',
-  'customers:auth',
-  'upselling',
-  'dayparting',
-  'pos',
-  'kds',
-  'rbac',
-  'multilocation',
-  'printers:thermal',
-  'templates:menu',
-  'staff:unlimited',
+  "menu:view",
+  "menu:edit",
+  "menu:import",
+  "qr:manage",
+  "orders:receive",
+  "orders:call-waiter",
+  "analytics:basic",
+  "analytics:full",
+  "payments:epay",
+  "payments:borica",
+  "payments:mypos",
+  "payments:stripe",
+  "languages:multi",
+  "branding:custom",
+  "loyalty",
+  "customers:auth",
+  "upselling",
+  "dayparting",
+  "pos",
+  "kds",
+  "rbac",
+  "multilocation",
+  "printers:thermal",
+  "templates:menu",
+  "staff:unlimited",
+  "reservations:enabled",
 ] as const;
 
 export type FeatureFlag = (typeof ALL_FEATURE_FLAGS)[number];
 
-export type SubscriptionTier = 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
+export type SubscriptionTier =
+  | "FREE"
+  | "STARTER"
+  | "PROFESSIONAL"
+  | "ENTERPRISE";
 
 // Fallback only — API response is authoritative.
 // This local map mirrors the backend tier→feature mapping and is used only
@@ -42,61 +47,68 @@ export type SubscriptionTier = 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE
 // restaurant). Once the API resolves, useTier()/useFeature() always prefer
 // the server-derived `features` array over this constant.
 const TIER_FEATURES: Record<SubscriptionTier, FeatureFlag[]> = {
-  FREE: ['menu:view', 'menu:edit', 'menu:import', 'qr:manage', 'analytics:basic'],
+  FREE: [
+    "menu:view",
+    "menu:edit",
+    "menu:import",
+    "qr:manage",
+    "analytics:basic",
+  ],
   STARTER: [
-    'menu:view',
-    'menu:edit',
-    'menu:import',
-    'qr:manage',
-    'analytics:basic',
-    'orders:receive',
-    'orders:call-waiter',
-    'languages:multi',
+    "menu:view",
+    "menu:edit",
+    "menu:import",
+    "qr:manage",
+    "analytics:basic",
+    "orders:receive",
+    "orders:call-waiter",
+    "languages:multi",
   ],
   PROFESSIONAL: [
-    'menu:view',
-    'menu:edit',
-    'menu:import',
-    'qr:manage',
-    'orders:receive',
-    'orders:call-waiter',
-    'analytics:basic',
-    'analytics:full',
-    'payments:epay',
-    'payments:borica',
-    'payments:mypos',
-    'payments:stripe',
-    'languages:multi',
-    'branding:custom',
-    'loyalty',
-    'customers:auth',
-    'upselling',
-    'dayparting',
+    "menu:view",
+    "menu:edit",
+    "menu:import",
+    "qr:manage",
+    "orders:receive",
+    "orders:call-waiter",
+    "analytics:basic",
+    "analytics:full",
+    "payments:epay",
+    "payments:borica",
+    "payments:mypos",
+    "payments:stripe",
+    "languages:multi",
+    "branding:custom",
+    "loyalty",
+    "customers:auth",
+    "upselling",
+    "dayparting",
+    "reservations:enabled",
   ],
   ENTERPRISE: [...ALL_FEATURE_FLAGS],
 };
 
 function getStaffLimit(tier: SubscriptionTier): number {
   switch (tier) {
-    case 'FREE':
+    case "FREE":
       return 0;
-    case 'STARTER':
+    case "STARTER":
       return 1;
-    case 'PROFESSIONAL':
+    case "PROFESSIONAL":
       return 5;
-    case 'ENTERPRISE':
+    case "ENTERPRISE":
       return 999999;
   }
 }
 
 function getAllowedStaffRoles(tier: SubscriptionTier): string[] {
   switch (tier) {
-    case 'STARTER':
-      return ['STAFF'];
-    case 'PROFESSIONAL':
-      return ['STAFF', 'MANAGER'];
-    case 'ENTERPRISE':
-      return ['STAFF', 'MANAGER', 'WAITER', 'KITCHEN'];
+    case "STARTER":
+      return ["STAFF"];
+    case "PROFESSIONAL":
+      return ["STAFF", "MANAGER"];
+    case "ENTERPRISE":
+      return ["STAFF", "MANAGER", "WAITER", "KITCHEN"];
     default:
       return [];
   }
@@ -126,7 +138,7 @@ export function useTier(): {
   const hasRestaurant = !!activeRestaurantId && !!userId;
 
   const { data, isLoading } = useQuery({
-    queryKey: ['subscription-status', userId, activeRestaurantId],
+    queryKey: ["subscription-status", userId, activeRestaurantId],
     queryFn: () => getSubscriptionStatus(activeRestaurantId ?? undefined),
     staleTime: 60_000,
     refetchInterval: 30_000,
@@ -139,12 +151,12 @@ export function useTier(): {
     (data?.tier as SubscriptionTier) ??
     (ctx?.activeRestaurant?.forceTier as SubscriptionTier | null | undefined) ??
     (ctx?.activeRestaurant?.tier as SubscriptionTier) ??
-    'FREE';
+    "FREE";
   const apiFeatures = Array.isArray(data?.features)
     ? (data.features as FeatureFlag[])
     : null;
   const apiStaffLimit =
-    typeof data?.staffLimit === 'number' && Number.isFinite(data.staffLimit)
+    typeof data?.staffLimit === "number" && Number.isFinite(data.staffLimit)
       ? data.staffLimit
       : null;
   const apiAllowedStaffRoles = Array.isArray(data?.allowedStaffRoles)
@@ -176,8 +188,11 @@ export function useFeature(feature: FeatureFlag): boolean {
  * route state). Callers that can use a hook should prefer {@link useFeature}
  * (or {@link useTier}), which is authoritative because it reads the API response.
  */
-export function hasTierFeature(tier: string | undefined | null, feature: FeatureFlag): boolean {
-  const t = (tier as SubscriptionTier) ?? 'FREE';
+export function hasTierFeature(
+  tier: string | undefined | null,
+  feature: FeatureFlag,
+): boolean {
+  const t = (tier as SubscriptionTier) ?? "FREE";
   const feats = TIER_FEATURES[t] ?? TIER_FEATURES.FREE;
   return feats.includes(feature);
 }

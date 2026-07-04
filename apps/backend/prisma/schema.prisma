@@ -159,6 +159,11 @@ model Restaurant {
   printAgentTokens          PrintAgentToken[]
   printJobs                 PrintJob[]
   dailyTargets              DailyTarget[]
+  reservations              Reservation[]
+  reservationSettings       ReservationSettings?
+  reservationServiceHours   ReservationServiceHours[]
+  reservationBlackouts      ReservationBlackout[]
+  patrons                   Patron[]
 
   @@index([stripeCustomerId])
   @@index([pastDueGraceExpiry])
@@ -743,6 +748,158 @@ model DailyTarget {
   @@map("daily_target")
 }
 
+// ── Reservations (Phase 1) ────────────────────────────────────────────────
+// Reservation *requests*, deliberately decoupled from TableSession/table status.
+// A reservation never opens a session and never marks a table occupied.
+
+model ReservationSettings {
+  id                     String     @id @default(cuid())
+  restaurantId           String     @unique
+  enabled                Boolean    @default(false)
+  slotIntervalMinutes    Int        @default(30)
+  minLeadMinutes         Int        @default(60)
+  bookingHorizonDays     Int        @default(60)
+  maxTotalGuests         Int        @default(12)
+  maxCoversPerSlot       Int?
+  autoConfirm            Boolean    @default(false)
+  requirePhone           Boolean    @default(true)
+  allergenSectionEnabled Boolean    @default(true)
+  // Owner-defined extra preference chips shown on the public booking form
+  // (e.g. "Swimming pool", "Terrace", "Kids area"). Non-dietary, no consent.
+  customPreferences      String[]   @default([])
+  notifyEmail            String?
+  notifyPhone            String?
+  // Feature 4: dining duration / turnover. Small parties get the base duration;
+  // parties at or above the threshold get the longer duration. Used to show
+  // staff when a table is expected to free up.
+  diningDurationMinutes     Int     @default(90)
+  largePartyThreshold       Int     @default(5)
+  largePartyDurationMinutes Int     @default(150)
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+  restaurant             Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("reservation_settings")
+}
+
+model ReservationServiceHours {
+  id             String     @id @default(cuid())
+  restaurantId   String
+  weekday        Int // ISO 1..7
+  openMinute     Int // minutes from local midnight, 0..1439
+  lastSlotMinute Int // last bookable slot start
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  restaurant     Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, weekday])
+  @@map("reservation_service_hours")
+}
+
+// Feature 5: owner-declared closed days (holidays, private events). A blackout
+// suppresses every slot for that restaurant-local calendar date. Stored as a
+// plain YYYY-MM-DD string so it compares directly against the availability
+// engine's timezone-derived local date — no UTC-midnight drift.
+model ReservationBlackout {
+  id           String     @id @default(cuid())
+  restaurantId String
+  date         String // restaurant-local calendar date, YYYY-MM-DD
+  reason       String?
+  createdAt    DateTime   @default(now())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, date])
+  @@index([restaurantId])
+  @@map("reservation_blackout")
+}
+
+// Minimal patron: cross-visit STAFF-ONLY tags, matched by (restaurantId, phone).
+// Holds no dietary/allergy data — that stays per-reservation.
+model Patron {
+  id           String        @id @default(cuid())
+  restaurantId String
+  phone        String
+  name              String
+  email             String?
+  staffTags         String[]      @default([])
+  staffNotes        String?
+  // Durable marketing opt-in for this patron (separate from the transactional
+  // reservation). Only opted-in patrons may be targeted with promotions.
+  marketingConsent   Boolean      @default(false)
+  marketingConsentAt DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  restaurant        Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  reservations      Reservation[]
+
+  @@unique([restaurantId, phone])
+  @@index([restaurantId])
+  @@map("patron")
+}
+
+model Reservation {
+  id                  String              @id @default(cuid())
+  restaurantId        String
+  patronId            String?
+  referenceCode       String
+  source              ReservationSource   @default(PUBLIC)
+  status              ReservationStatus   @default(PENDING)
+  guestName           String
+  guestPhone          String // normalized E.164
+  guestEmail          String?
+  startsAt            DateTime // UTC instant of the requested slot
+  occasion            ReservationOccasion @default(NONE)
+  adultsCount         Int
+  childrenCount       Int                 @default(0)
+  customerNotes       String?
+  internalNotes       String? // STAFF ONLY — never in public responses/sockets
+  customerPreferences String[]            @default([])
+  allergyNotes        String? // special-category; only stored with consent
+  dietaryConsentAt    DateTime?
+  marketingConsentAt  DateTime? // set when the guest opts in to promotions
+  // Feature 1: guest-chosen notification channels for confirm/cancel/reminder.
+  notifyByEmail       Boolean             @default(true)
+  notifyBySms         Boolean             @default(false)
+  reminderSentAt      DateTime? // set once the 24h reminder has gone out (dedup)
+  // Feature 3: guest's preferred seating zone (soft hint). Stored as the zone
+  // NAME, not an FK, so a later zone rename/delete never orphans the booking.
+  preferredZone       String?
+  // Feature 2: unguessable token for the guest's private self-service link
+  // (view / modify / cancel without logging in). Null for legacy rows.
+  manageToken         String?             @unique
+  // Feature 4: snapshot of the expected dining duration at booking time so a
+  // later settings change doesn't retroactively move existing table turnovers.
+  durationMinutes     Int?
+  idempotencyKey      String?
+  createdById         String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  restaurant          Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  patron              Patron?             @relation(fields: [patronId], references: [id], onDelete: SetNull)
+  events              ReservationEvent[]
+
+  @@unique([restaurantId, referenceCode])
+  @@unique([restaurantId, idempotencyKey])
+  @@index([restaurantId, startsAt])
+  @@index([restaurantId, status, startsAt])
+  @@index([patronId])
+  @@map("reservation")
+}
+
+// Append-only audit trail for reservation transitions.
+model ReservationEvent {
+  id            String      @id @default(cuid())
+  reservationId String
+  type          String
+  actorUserId   String?
+  metadata      Json?
+  createdAt     DateTime    @default(now())
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@index([reservationId, createdAt])
+  @@map("reservation_event")
+}
+
 enum TableSessionStatus {
   OPEN
   PAID
@@ -769,6 +926,29 @@ enum RefundStatus {
   SUCCEEDED
   FAILED
   CANCELED
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+  CANCELLED
+  NO_SHOW
+  ARRIVED
+}
+
+enum ReservationSource {
+  PUBLIC
+  STAFF
+}
+
+enum ReservationOccasion {
+  NONE
+  BIRTHDAY
+  ANNIVERSARY
+  BUSINESS
+  FAMILY
+  OTHER
 }
 
 enum PaymentProvider {
