@@ -48,6 +48,35 @@ import {
   setStoredPublicTheme,
 } from "../lib/publicTheme";
 import { zoneLabel } from "../lib/zoneCatalog";
+import DatePicker, { registerLocale } from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { bg, ro, enGB, fr, de, es, it, ru, el, ar, ja } from "date-fns/locale";
+import { zhCN as zh } from "date-fns/locale";
+
+registerLocale("bg", bg);
+registerLocale("ro", ro);
+registerLocale("en", enGB);
+registerLocale("fr", fr);
+registerLocale("de", de);
+registerLocale("es", es);
+registerLocale("it", it);
+registerLocale("ru", ru);
+registerLocale("zh", zh);
+registerLocale("el", el);
+registerLocale("ar", ar);
+registerLocale("ja", ja);
+
+function parseDateString(dateStr: string): Date {
+  if (!dateStr) return new Date();
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+function formatDateString(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 const PREF_ICON: Record<string, LucideIcon> = {
   VEGAN: Sprout,
@@ -440,17 +469,23 @@ const BookingPage = () => {
             </label>
             <div className="flex items-center bk-input px-3 py-0">
               <CalendarDays className="w-4 h-4 bk-faint shrink-0" />
-              <input
-                type="date"
-                value={date}
-                min={localDateISO()}
-                max={localDateISO(config.policy?.bookingHorizonDays ?? 60)}
-                onChange={(e) => setDate(e.target.value)}
+              <DatePicker
+                selected={parseDateString(date)}
+                onChange={(d: Date | null) => d && setDate(formatDateString(d))}
+                minDate={parseDateString(localDateISO())}
+                maxDate={parseDateString(localDateISO(config.policy?.bookingHorizonDays ?? 60))}
+                locale={i18n.language}
+                dateFormat="P"
                 className="w-full px-2 py-2.5 bg-transparent outline-none"
-                style={{
-                  color: "var(--text)",
-                  colorScheme: isDark ? "dark" : "light",
-                }}
+                wrapperClassName="w-full"
+                customInput={
+                  <input
+                    style={{
+                      color: "var(--text)",
+                      colorScheme: isDark ? "dark" : "light",
+                    }}
+                  />
+                }
               />
             </div>
           </div>
