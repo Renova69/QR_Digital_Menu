@@ -93,7 +93,8 @@
     "upgradeToProfessional": "Professional 版にアップグレードする",
     "variationCustomerChoosesOne": "バリエーション（お客様は1つお選びください）",
     "x": "10",
-    "yourCartIsEmpty": "カートには商品が入っていません。"
+    "yourCartIsEmpty": "カートには商品が入っていません。",
+    "ddMmYy": "年/月/日"
   },
   "common": {
     "add": "追加",

@@ -93,7 +93,8 @@
     "upgradeToProfessional": "الترقية إلى الإصدار الاحترافي",
     "variationCustomerChoosesOne": "الخيار (يختار العميل خيارًا واحدًا)",
     "x": "x)",
-    "yourCartIsEmpty": "سلة التسوق فارغة."
+    "yourCartIsEmpty": "سلة التسوق فارغة.",
+    "ddMmYy": "ي ي/ش ش/س س"
   },
   "common": {
     "add": "إضافة",
