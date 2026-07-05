@@ -635,25 +635,32 @@ export class AuthService {
         // OTP is an auth factor — use a CSPRNG, not Math.random.
         const code = randomInt(100000, 1000000).toString();
         const hashedCode = await bcrypt.hash(code, 10);
-        // Send first; only persist the (hashed) code once the SIM gateway
-        // accepts it, so a failed send doesn't lock the user out for 60s.
-        const result = await sendViaSmsGateway(
-          phone,
-          `${code} is your verification code. It expires in 10 minutes.`,
-        );
-        if (!result.ok) {
-          this.logger.error(
-            `SMS gateway OTP send failed (${result.status}): ${result.detail.slice(0, 200)}`,
+        const isDev = process.env.NODE_ENV !== 'production';
+        const shouldSend = !isDev || process.env.SMS_FORCE_SEND === 'true';
+        if (shouldSend) {
+          // Send first; only persist the (hashed) code once the SIM gateway
+          // accepts it, so a failed send doesn't lock the user out for 60s.
+          const result = await sendViaSmsGateway(
+            phone,
+            `${code} is your verification code. It expires in 10 minutes.`,
+            { ttlSeconds: 10 * 60 },
           );
-          const isClientError = result.status >= 400 && result.status < 500;
-          throw new HttpException(
-            isClientError
-              ? 'Could not send a code to that phone number. Please check it is correct.'
-              : 'SMS service temporarily unavailable. Please try again shortly.',
-            isClientError
-              ? HttpStatus.UNPROCESSABLE_ENTITY
-              : HttpStatus.BAD_GATEWAY,
-          );
+          if (!result.ok) {
+            this.logger.error(
+              `SMS gateway OTP send failed (${result.status}): ${result.detail.slice(0, 200)}`,
+            );
+            const isClientError = result.status >= 400 && result.status < 500;
+            throw new HttpException(
+              isClientError
+                ? 'Could not send a code to that phone number. Please check it is correct.'
+                : 'SMS service temporarily unavailable. Please try again shortly.',
+              isClientError
+                ? HttpStatus.UNPROCESSABLE_ENTITY
+                : HttpStatus.BAD_GATEWAY,
+            );
+          }
+        } else {
+          this.logger.log(`[dev] SMS OTP: ${code}`);
         }
         await this.prisma.verificationToken.create({
           data: {
@@ -662,7 +669,6 @@ export class AuthService {
             expiresAt: new Date(Date.now() + 10 * 60 * 1000),
           },
         });
-        const isDev = process.env.NODE_ENV !== 'production';
         return {
           success: true,
           channel: 'sms',

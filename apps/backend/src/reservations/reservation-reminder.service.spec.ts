@@ -17,7 +17,7 @@ const dueRow = {
   id: 'res1',
   restaurantId: 'rest1',
   guestEmail: 'g@example.com',
-  guestPhone: '+359888123456',
+  guestPhone: '+359000000000',
   guestName: 'Ivan',
   startsAt: new Date(Date.now() + 12 * 3600 * 1000),
   referenceCode: 'ABC123',

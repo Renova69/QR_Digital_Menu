@@ -339,7 +339,7 @@ export class ReservationsService {
       id: r.id,
       status: 'CANCELLED',
     });
-    this.notifications.notify('CANCELLED', {
+    await this.notifications.notify('CANCELLED', {
       restaurantId,
       guestEmail: r.guestEmail,
       guestPhone: r.guestPhone,
@@ -456,7 +456,7 @@ export class ReservationsService {
       status: r.status,
     });
     // Re-send the guest the current-state notice with the new details.
-    this.notifications.notify(
+    await this.notifications.notify(
       r.status === 'CONFIRMED' ? 'CONFIRMED' : 'RECEIVED',
       {
         restaurantId,
@@ -754,7 +754,7 @@ export class ReservationsService {
 
     // Guest notification: "received" for a pending request, "confirmed" if
     // auto-confirmed. Sent over the channels the guest opted into (Feature 1).
-    this.notifications.notify(
+    await this.notifications.notify(
       created.status === 'CONFIRMED' ? 'CONFIRMED' : 'RECEIVED',
       {
         restaurantId,
@@ -772,7 +772,7 @@ export class ReservationsService {
 
     // Fix 5: notify the owner/manager of the new request (email and/or SMS).
     if (ctx.settings?.notifyEmail || ctx.settings?.notifyPhone) {
-      this.notifications.notifyOwner({
+      await this.notifications.notifyOwner({
         restaurantId,
         notifyEmail: ctx.settings.notifyEmail,
         notifyPhone: ctx.settings.notifyPhone,
@@ -905,7 +905,7 @@ export class ReservationsService {
             ? 'CANCELLED'
             : null;
     if (guestKind) {
-      this.notifications.notify(guestKind, {
+      await this.notifications.notify(guestKind, {
         restaurantId,
         guestEmail: reservation.guestEmail,
         guestPhone: reservation.guestPhone,

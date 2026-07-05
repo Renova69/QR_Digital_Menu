@@ -72,7 +72,7 @@ export class ReservationReminderService {
       if (count === 0) continue;
 
       dispatched += 1;
-      this.notifications.notify('REMINDER', {
+      await this.notifications.notify('REMINDER', {
         restaurantId: r.restaurantId,
         guestEmail: r.guestEmail,
         guestPhone: r.guestPhone,

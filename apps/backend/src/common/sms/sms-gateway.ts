@@ -22,6 +22,8 @@
  * SMS_PROVIDER=smsgateway) so you can flip back without reconfiguring.
  */
 const DEFAULT_SMS_GATEWAY_URL = 'https://api.sms-gate.app/3rdparty/v1/message';
+const DEFAULT_SMS_TTL_SECONDS = 60 * 60;
+const DEFAULT_SMS_TIMEOUT_MS = 10_000;
 
 export type SmsProvider = 'twilio' | 'smsgateway';
 
@@ -43,6 +45,17 @@ export interface SmsSendResult {
   detail: string;
 }
 
+export interface SmsSendOptions {
+  /** Server-side queue expiry. OTP callers should use their shorter lifetime. */
+  ttlSeconds?: number;
+  /** Bounds both Cloud Run request latency and a stalled gateway connection. */
+  timeoutMs?: number;
+}
+
+function blockedResult(detail: string): SmsSendResult {
+  return { ok: false, status: 0, detail };
+}
+
 /**
  * POST a single SMS to the gateway. Returns a structured result — never throws
  * on an HTTP error so a failed send can't roll back a booking or lock a login.
@@ -50,24 +63,59 @@ export interface SmsSendResult {
 export async function sendViaSmsGateway(
   to: string,
   body: string,
+  options: SmsSendOptions = {},
 ): Promise<SmsSendResult> {
+  const fetchIsMocked = Boolean(
+    (globalThis.fetch as typeof fetch & { _isMockFunction?: boolean })
+      ?._isMockFunction,
+  );
+  if (process.env.NODE_ENV === 'test' && !fetchIsMocked) {
+    return blockedResult('Live SMS network access blocked under NODE_ENV=test');
+  }
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    process.env.NODE_ENV !== 'test' &&
+    process.env.SMS_FORCE_SEND !== 'true'
+  ) {
+    return blockedResult(
+      'Live SMS send blocked outside production; set SMS_FORCE_SEND=true explicitly',
+    );
+  }
+
   const url = process.env.SMS_GATEWAY_URL || DEFAULT_SMS_GATEWAY_URL;
   const username = process.env.SMS_GATEWAY_USERNAME || '';
   const password = process.env.SMS_GATEWAY_PASSWORD || '';
   const auth = Buffer.from(`${username}:${password}`).toString('base64');
+  const ttlSeconds = options.ttlSeconds ?? DEFAULT_SMS_TTL_SECONDS;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_SMS_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${auth}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      textMessage: { text: body },
-      phoneNumbers: [to],
-    }),
-  });
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        textMessage: { text: body },
+        phoneNumbers: [to],
+        ttl: ttlSeconds,
+      }),
+      signal: controller.signal,
+    });
 
-  const detail = res.ok ? '' : await res.text().catch(() => '');
-  return { ok: res.ok, status: res.status, detail };
+    const detail = res.ok ? '' : await res.text().catch(() => '');
+    return { ok: res.ok, status: res.status, detail };
+  } catch (error) {
+    const detail = controller.signal.aborted
+      ? `SMS gateway request timed out after ${timeoutMs}ms`
+      : error instanceof Error
+        ? error.message
+        : 'Unknown SMS gateway network error';
+    return blockedResult(detail);
+  } finally {
+    clearTimeout(timeout);
+  }
 }

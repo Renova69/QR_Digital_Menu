@@ -69,8 +69,11 @@ export class ReservationNotificationsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  notify(kind: ReservationNotificationKind, input: NotifyInput): void {
-    void this.send(kind, input).catch((err) =>
+  async notify(
+    kind: ReservationNotificationKind,
+    input: NotifyInput,
+  ): Promise<void> {
+    await this.send(kind, input).catch((err) =>
       this.logger.error(
         `Reservation ${kind} notification failed for ${input.referenceCode}`,
         err instanceof Error ? err.message : err,
@@ -196,10 +199,11 @@ export class ReservationNotificationsService {
 
   /**
    * Fix 5: notify the owner/manager (settings.notifyEmail / notifyPhone) when a
-   * new booking arrives. Fire-and-forget.
+   * new booking arrives. The caller awaits completion so Cloud Run cannot
+   * suspend the instance before the outbound request has been accepted.
    */
-  notifyOwner(input: OwnerNotifyInput): void {
-    void this.sendOwner(input).catch((err) =>
+  async notifyOwner(input: OwnerNotifyInput): Promise<void> {
+    await this.sendOwner(input).catch((err) =>
       this.logger.error(
         `Owner new-booking notification failed for ${input.referenceCode}`,
         err instanceof Error ? err.message : err,
@@ -314,7 +318,9 @@ export class ReservationNotificationsService {
         );
         return;
       }
-      const result = await sendViaSmsGateway(to, body);
+      const result = await sendViaSmsGateway(to, body, {
+        ttlSeconds: 60 * 60,
+      });
       if (!result.ok) {
         this.logger.error(
           `SMS gateway reservation SMS failed (${result.status}): ${result.detail.slice(0, 200)}`,

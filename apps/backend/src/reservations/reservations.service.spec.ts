@@ -264,7 +264,7 @@ describe('ReservationsService.executeAction (state machine)', () => {
 describe('ReservationsService.createPublic (consent gate + entitlement)', () => {
   const baseDto = {
     guestName: 'Guest',
-    guestPhone: '0888123456',
+    guestPhone: '0100000000',
     startsAt: FUTURE.toISOString(),
     adultsCount: 2,
     customerPreferences: ['VEGAN', 'PET'],
@@ -361,7 +361,7 @@ describe('ReservationsService.createPublic (consent gate + entitlement)', () => 
     });
     await service.createPublic('rest1', { ...baseDto, dietaryConsent: true });
     expect(txReservationCreate.mock.calls[0][0].data.guestPhone).toBe(
-      '+359888123456',
+      '+359100000000',
     );
   });
 
@@ -393,7 +393,7 @@ describe('ReservationsService guest self-service (manage token, Feature 2)', () 
     status: 'CONFIRMED',
     guestName: 'Guest',
     guestEmail: 'g@example.com',
-    guestPhone: '+359888123456',
+    guestPhone: '+359000000000',
     startsAt: FUTURE,
     adultsCount: 2,
     childrenCount: 0,
@@ -546,7 +546,7 @@ describe('ReservationsService guest self-service (manage token, Feature 2)', () 
 describe('ReservationsService createReservation hardening', () => {
   const dto = {
     guestName: 'Guest',
-    guestPhone: '0888123456',
+    guestPhone: '0100000000',
     startsAt: FUTURE.toISOString(),
     adultsCount: 2,
   };
@@ -597,7 +597,7 @@ describe('ReservationsService createReservation hardening', () => {
       startsAt: FUTURE,
       guestName: 'Guest',
       guestEmail: 'g@example.com',
-      guestPhone: '+359888123456',
+      guestPhone: '+359000000000',
       adultsCount: 2,
       childrenCount: 0,
       notifyByEmail: true,

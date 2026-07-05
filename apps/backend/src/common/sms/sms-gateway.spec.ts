@@ -51,6 +51,8 @@ describe('sms-gateway', () => {
 
   describe('sendViaSmsGateway', () => {
     it('POSTs the capcom6 body shape with basic auth to the default URL', async () => {
+      process.env.NODE_ENV = 'test';
+      process.env.SMS_FORCE_SEND = 'true';
       process.env.SMS_GATEWAY_USERNAME = 'user';
       process.env.SMS_GATEWAY_PASSWORD = 'pass';
       delete process.env.SMS_GATEWAY_URL;
@@ -58,7 +60,7 @@ describe('sms-gateway', () => {
         .spyOn(global, 'fetch')
         .mockResolvedValue({ ok: true, status: 202 } as Response);
 
-      const result = await sendViaSmsGateway('+359888123456', 'hello');
+      const result = await sendViaSmsGateway('+359000000000', 'hello');
 
       expect(result).toEqual({ ok: true, status: 202, detail: '' });
       const [url, request] = fetchMock.mock.calls[0];
@@ -69,11 +71,14 @@ describe('sms-gateway', () => {
       const body = JSON.parse(request?.body as string);
       expect(body).toEqual({
         textMessage: { text: 'hello' },
-        phoneNumbers: ['+359888123456'],
+        phoneNumbers: ['+359000000000'],
+        ttl: 3600,
       });
     });
 
     it('honours a custom SMS_GATEWAY_URL (self-hosted private server)', async () => {
+      process.env.NODE_ENV = 'test';
+      process.env.SMS_FORCE_SEND = 'true';
       process.env.SMS_GATEWAY_USERNAME = 'user';
       process.env.SMS_GATEWAY_PASSWORD = 'pass';
       process.env.SMS_GATEWAY_URL = 'http://192.168.1.50:8080/message';
@@ -81,7 +86,7 @@ describe('sms-gateway', () => {
         .spyOn(global, 'fetch')
         .mockResolvedValue({ ok: true, status: 202 } as Response);
 
-      await sendViaSmsGateway('+359888123456', 'hi');
+      await sendViaSmsGateway('+359000000000', 'hi');
 
       expect(fetchMock.mock.calls[0][0]).toBe(
         'http://192.168.1.50:8080/message',
@@ -89,6 +94,8 @@ describe('sms-gateway', () => {
     });
 
     it('returns the error detail without throwing on a failed send', async () => {
+      process.env.NODE_ENV = 'test';
+      process.env.SMS_FORCE_SEND = 'true';
       process.env.SMS_GATEWAY_USERNAME = 'user';
       process.env.SMS_GATEWAY_PASSWORD = 'pass';
       jest.spyOn(global, 'fetch').mockResolvedValue({
@@ -97,12 +104,70 @@ describe('sms-gateway', () => {
         text: () => Promise.resolve('Unauthorized'),
       } as Response);
 
-      const result = await sendViaSmsGateway('+359888123456', 'hi');
+      const result = await sendViaSmsGateway('+359000000000', 'hi');
 
       expect(result).toEqual({
         ok: false,
         status: 401,
         detail: 'Unauthorized',
+      });
+    });
+
+    it('supports a short TTL for OTP messages', async () => {
+      process.env.NODE_ENV = 'test';
+      process.env.SMS_FORCE_SEND = 'true';
+      process.env.SMS_GATEWAY_USERNAME = 'user';
+      process.env.SMS_GATEWAY_PASSWORD = 'pass';
+      const fetchMock = jest
+        .spyOn(global, 'fetch')
+        .mockResolvedValue({ ok: true, status: 202 } as Response);
+
+      await sendViaSmsGateway('+359000000000', 'otp', { ttlSeconds: 600 });
+
+      const body = JSON.parse(fetchMock.mock.calls[0][1]?.body as string);
+      expect(body.ttl).toBe(600);
+    });
+
+    it('blocks a real network call under NODE_ENV=test', async () => {
+      process.env.NODE_ENV = 'test';
+      process.env.SMS_FORCE_SEND = 'true';
+      process.env.SMS_GATEWAY_USERNAME = 'user';
+      process.env.SMS_GATEWAY_PASSWORD = 'pass';
+      const originalFetch = global.fetch;
+      let called = false;
+      global.fetch = (async () => {
+        called = true;
+        throw new Error('must not reach the network');
+      }) as typeof fetch;
+
+      try {
+        const result = await sendViaSmsGateway('+359000000000', 'blocked');
+
+        expect(called).toBe(false);
+        expect(result).toEqual(
+          expect.objectContaining({
+            ok: false,
+            status: 0,
+            detail: expect.stringContaining('blocked'),
+          }),
+        );
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it('returns a structured failure when fetch rejects', async () => {
+      process.env.NODE_ENV = 'production';
+      process.env.SMS_GATEWAY_USERNAME = 'user';
+      process.env.SMS_GATEWAY_PASSWORD = 'pass';
+      jest.spyOn(global, 'fetch').mockRejectedValue(new Error('network down'));
+
+      await expect(
+        sendViaSmsGateway('+359000000000', 'hello'),
+      ).resolves.toEqual({
+        ok: false,
+        status: 0,
+        detail: 'network down',
       });
     });
   });

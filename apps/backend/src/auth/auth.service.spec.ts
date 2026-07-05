@@ -940,24 +940,32 @@ describe('AuthService', () => {
 
   describe('phone OTP via SIM SMS gateway', () => {
     const savedEnv = {
+      nodeEnv: process.env.NODE_ENV,
       provider: process.env.SMS_PROVIDER,
       user: process.env.SMS_GATEWAY_USERNAME,
       pass: process.env.SMS_GATEWAY_PASSWORD,
+      forceSend: process.env.SMS_FORCE_SEND,
     };
 
     beforeEach(() => {
+      process.env.NODE_ENV = 'test';
       process.env.SMS_PROVIDER = 'smsgateway';
       process.env.SMS_GATEWAY_USERNAME = 'device-user';
       process.env.SMS_GATEWAY_PASSWORD = 'device-pass';
+      process.env.SMS_FORCE_SEND = 'true';
     });
 
     afterEach(() => {
+      if (savedEnv.nodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = savedEnv.nodeEnv;
       if (savedEnv.provider === undefined) delete process.env.SMS_PROVIDER;
       else process.env.SMS_PROVIDER = savedEnv.provider;
       if (savedEnv.user === undefined) delete process.env.SMS_GATEWAY_USERNAME;
       else process.env.SMS_GATEWAY_USERNAME = savedEnv.user;
       if (savedEnv.pass === undefined) delete process.env.SMS_GATEWAY_PASSWORD;
       else process.env.SMS_GATEWAY_PASSWORD = savedEnv.pass;
+      if (savedEnv.forceSend === undefined) delete process.env.SMS_FORCE_SEND;
+      else process.env.SMS_FORCE_SEND = savedEnv.forceSend;
     });
 
     it('sends a locally-generated code through the gateway and stores its hash', async () => {
@@ -970,7 +978,7 @@ describe('AuthService', () => {
       // that same mock with its retained call count — clear before asserting.
       fetchMock.mockClear();
 
-      const result = await service.sendOtp(undefined, '+359888123456');
+      const result = await service.sendOtp(undefined, '+359000000000');
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(fetchMock.mock.calls[0][0]).toBe(
@@ -979,13 +987,40 @@ describe('AuthService', () => {
       expect(mockPrisma.verificationToken.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            email: '+359888123456',
+            email: '+359000000000',
             code: 'hashed-code',
           }),
         }),
       );
       expect(result).toEqual(
         expect.objectContaining({ success: true, channel: 'sms' }),
+      );
+    });
+
+    it('does not contact the live gateway in dev without SMS_FORCE_SEND', async () => {
+      delete process.env.SMS_FORCE_SEND;
+      mockPrisma.verificationToken.findFirst.mockResolvedValue(null);
+      mockHash.mockResolvedValue('hashed-code');
+      const fetchMock = jest.spyOn(global, 'fetch');
+      fetchMock.mockClear();
+
+      const result = await service.sendOtp(undefined, '+359000000000');
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(mockPrisma.verificationToken.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            email: '+359000000000',
+            code: 'hashed-code',
+          }),
+        }),
+      );
+      expect(result).toEqual(
+        expect.objectContaining({
+          success: true,
+          channel: 'sms',
+          devCode: expect.any(String),
+        }),
       );
     });
 
@@ -998,7 +1033,7 @@ describe('AuthService', () => {
         text: () => Promise.resolve('bad number'),
       } as Response);
 
-      await expect(service.sendOtp(undefined, '+359888123456')).rejects.toThrow(
+      await expect(service.sendOtp(undefined, '+359000000000')).rejects.toThrow(
         HttpException,
       );
       expect(mockPrisma.verificationToken.create).not.toHaveBeenCalled();
@@ -1008,7 +1043,7 @@ describe('AuthService', () => {
       const verifyTwilio = jest.spyOn(service as any, 'verifyTwilioOtp');
       mockPrisma.verificationToken.findFirst.mockResolvedValue({
         id: 'tok-1',
-        email: '+359888123456',
+        email: '+359000000000',
         code: 'stored-hash',
         usedAt: null,
         attempts: 0,
@@ -1016,13 +1051,13 @@ describe('AuthService', () => {
       });
       mockCompare.mockResolvedValueOnce(true);
       mockUsersService.findByPhone.mockResolvedValue(
-        makeUser({ role: 'CUSTOMER', phone: '+359888123456' }),
+        makeUser({ role: 'CUSTOMER', phone: '+359000000000' }),
       );
 
       const result = await service.verifyOtp(
         undefined,
         '123456',
-        '+359888123456',
+        '+359000000000',
       );
 
       expect(verifyTwilio).not.toHaveBeenCalled();

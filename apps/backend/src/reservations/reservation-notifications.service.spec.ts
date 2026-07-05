@@ -7,6 +7,18 @@ describe('ReservationNotificationsService', () => {
     timezone: 'Europe/Sofia',
     contactInfo: 'София',
   };
+  const productionReservationRequest = {
+    restaurantId: 'rest-1',
+    guestEmail: null,
+    guestPhone: '+359000000000',
+    guestName: 'Guest',
+    startsAt: new Date('2030-01-01T18:00:00Z'),
+    referenceCode: 'REQ789',
+    notifyByEmail: false,
+    notifyBySms: true,
+    notificationLocale: 'en',
+    manageToken: 'manage-secret',
+  };
 
   let service: ReservationNotificationsService;
 
@@ -72,7 +84,7 @@ describe('ReservationNotificationsService', () => {
       .mockResolvedValue({ ok: true } as Response);
 
     await (service as any).sendSms(
-      '+359888123456',
+      '+359000000000',
       'Потвърдена резервация',
       'guest CONFIRMED',
     );
@@ -94,16 +106,28 @@ describe('ReservationNotificationsService', () => {
       .spyOn(global, 'fetch')
       .mockResolvedValue({ ok: true, status: 202 } as Response);
 
-    await (service as any).sendSms(
-      '+359877669442',
-      'live test',
-      'guest CONFIRMED',
-    );
+    await service.notify('RECEIVED', productionReservationRequest);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toBe(
       'https://api.sms-gate.app/3rdparty/v1/message',
     );
+  });
+
+  it('returns a promise that completes the guest notification', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.SMS_PROVIDER = 'smsgateway';
+    process.env.SMS_GATEWAY_USERNAME = 'device-user';
+    process.env.SMS_GATEWAY_PASSWORD = 'device-pass';
+    const fetchMock = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue({ ok: true, status: 202 } as Response);
+
+    const completion = service.notify('RECEIVED', productionReservationRequest);
+
+    expect(completion).toBeInstanceOf(Promise);
+    await completion;
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('dev-logs instead of sending when SMS_FORCE_SEND is not set', async () => {
@@ -112,7 +136,7 @@ describe('ReservationNotificationsService', () => {
     process.env.SMS_PROVIDER = 'smsgateway';
     const fetchMock = jest.spyOn(global, 'fetch');
 
-    await (service as any).sendSms('+359877669442', 'noop', 'guest CONFIRMED');
+    await service.notify('RECEIVED', productionReservationRequest);
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -127,18 +151,17 @@ describe('ReservationNotificationsService', () => {
       .spyOn(global, 'fetch')
       .mockResolvedValue({ ok: true, status: 202 } as Response);
 
-    await (service as any).sendSms(
-      '+359888123456',
-      'Потвърдена резервация',
-      'guest CONFIRMED',
-    );
+    await service.notify('RECEIVED', productionReservationRequest);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, request] = fetchMock.mock.calls[0];
     expect(url).toBe('https://api.sms-gate.app/3rdparty/v1/message');
     const body = JSON.parse(request?.body as string);
-    expect(body.phoneNumbers).toEqual(['+359888123456']);
-    expect(body.textMessage.text).toBe('Потвърдена резервация');
+    expect(body.phoneNumbers).toEqual(['+359000000000']);
+    expect(body.textMessage.text).toContain(
+      "we've received your reservation request",
+    );
+    expect(body.textMessage.text).toContain('REQ789');
   });
 
   it('reports missing gateway credentials without logging guest PII', async () => {
@@ -151,20 +174,14 @@ describe('ReservationNotificationsService', () => {
       .mockImplementation(() => undefined);
     const fetchMock = jest.spyOn(global, 'fetch');
 
-    await (service as any).sendSms(
-      '+359888123456',
-      'private reservation text',
-      'guest CONFIRMED',
-    );
+    await service.notify('RECEIVED', productionReservationRequest);
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(error).toHaveBeenCalledWith(
       expect.stringContaining('SMS_GATEWAY_USERNAME'),
     );
-    expect(JSON.stringify(error.mock.calls)).not.toContain('+359888123456');
-    expect(JSON.stringify(error.mock.calls)).not.toContain(
-      'private reservation text',
-    );
+    expect(JSON.stringify(error.mock.calls)).not.toContain('+359000000000');
+    expect(JSON.stringify(error.mock.calls)).not.toContain('REQ789');
   });
 
   it('reports missing production sender configuration without logging guest PII', async () => {
@@ -177,18 +194,12 @@ describe('ReservationNotificationsService', () => {
       .spyOn((service as any).logger, 'error')
       .mockImplementation(() => undefined);
 
-    await (service as any).sendSms(
-      '+359888123456',
-      'private reservation text',
-      'guest CONFIRMED',
-    );
+    await service.notify('RECEIVED', productionReservationRequest);
 
     expect(error).toHaveBeenCalledWith(
       expect.stringContaining('TWILIO_MESSAGING_SERVICE_SID'),
     );
-    expect(JSON.stringify(error.mock.calls)).not.toContain('+359888123456');
-    expect(JSON.stringify(error.mock.calls)).not.toContain(
-      'private reservation text',
-    );
+    expect(JSON.stringify(error.mock.calls)).not.toContain('+359000000000');
+    expect(JSON.stringify(error.mock.calls)).not.toContain('REQ789');
   });
 });
