@@ -245,7 +245,13 @@ async function bootstrap() {
     app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
     app.setGlobalPrefix('api', {
-      exclude: [{ path: '/', method: RequestMethod.GET }],
+      exclude: [
+        { path: '/', method: RequestMethod.GET },
+        // Short reservation manage-link redirect: `{BACKEND_URL}/r/:token`.
+        // Excluded from the /api prefix (and version-neutral in its controller)
+        // so the SMS link stays short.
+        { path: 'r/:token', method: RequestMethod.GET },
+      ],
     });
 
     app.enableVersioning({

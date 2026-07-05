@@ -266,6 +266,33 @@ export class ReservationsService {
 
   // ── Guest self-service via private manage token (Feature 2) ───────────────
 
+  /**
+   * Resolve a manage token to the full frontend manage URL for the short SMS
+   * redirect (`GET /r/:token`). Looks the reservation up by token alone (the
+   * token is @unique and is itself the credential), then reconstructs the
+   * public manage link with the stored restaurant + notification locale.
+   * Returns null when the token is unknown so the caller can 404/redirect home.
+   */
+  async resolveManageRedirect(token: string): Promise<string | null> {
+    const trimmed = (token || '').trim();
+    if (!trimmed) return null;
+    const r = await this.prisma.reservation.findUnique({
+      where: { manageToken: trimmed },
+      select: { restaurantId: true, notificationLocale: true },
+    });
+    if (!r) return null;
+    const base = (process.env.FRONTEND_URL || 'http://localhost:3001').replace(
+      /\/+$/,
+      '',
+    );
+    const params = new URLSearchParams({
+      r: r.restaurantId,
+      token: trimmed,
+      lang: r.notificationLocale || 'en',
+    });
+    return `${base}/booking/manage?${params.toString()}`;
+  }
+
   private async loadByToken(restaurantId: string, token: string) {
     const trimmed = (token || '').trim();
     if (!trimmed) throw new NotFoundException('Reservation not found');

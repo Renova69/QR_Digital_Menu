@@ -180,9 +180,8 @@ describe('ReservationNotificationsService', () => {
     expect(url).toBe('https://api.sms-gate.app/3rdparty/v1/message');
     const body = JSON.parse(request?.body as string);
     expect(body.phoneNumbers).toEqual(['+359000000000']);
-    expect(body.textMessage.text).toContain(
-      "we've received your reservation request",
-    );
+    // Terse SMS status line (not the long email prose).
+    expect(body.textMessage.text).toContain('Booking request received');
     expect(body.textMessage.text).toContain('REQ789');
   });
 
@@ -235,7 +234,8 @@ describe('ReservationNotificationsService', () => {
     }
   });
 
-  it('keeps the guest SMS to headcount + allergies only', async () => {
+  it('keeps the guest SMS terse: status + party size, no allergy or prose', async () => {
+    process.env.BACKEND_URL = 'https://api.example.com';
     const sendSms = jest
       .spyOn(service as any, 'sendSms')
       .mockResolvedValue(undefined);
@@ -246,9 +246,13 @@ describe('ReservationNotificationsService', () => {
     });
 
     const [, body] = sendSms.mock.calls[0];
+    expect(body).toContain('Booking confirmed');
     expect(body).toContain('Guests: 4');
-    expect(body).toContain('Peanut allergy');
-    // Non-critical detail stays out of the SMS to control segment count.
+    // Uses the short in-house redirect, not the long frontend query URL.
+    expect(body).toContain('https://api.example.com/r/manage-secret');
+    expect(body).not.toContain('/booking/manage?');
+    // Health data and non-critical prose stay out of the SMS.
+    expect(body).not.toContain('Peanut allergy');
     expect(body).not.toContain('Birthday');
     expect(body).not.toContain('Window seat');
   });
@@ -269,7 +273,7 @@ describe('ReservationNotificationsService', () => {
     expect(text).toContain('Guests: 4');
   });
 
-  it('enriches the owner notification with details and allergies in SMS', async () => {
+  it('adds full details to the owner email but keeps allergy out of owner SMS', async () => {
     const sendEmail = jest
       .spyOn(service as any, 'sendEmail')
       .mockResolvedValue(undefined);
@@ -295,11 +299,13 @@ describe('ReservationNotificationsService', () => {
       allergyNotes: 'Peanut allergy',
     });
 
+    // Email carries the full picture, including allergy.
     const ownerHtml = sendEmail.mock.calls[0][2];
     expect(ownerHtml).toContain('Birthday');
     expect(ownerHtml).toContain('Peanut allergy');
+    // SMS must not carry health data.
     const ownerSms = sendSms.mock.calls[0][1];
-    expect(ownerSms).toContain('Peanut allergy');
+    expect(ownerSms).not.toContain('Peanut allergy');
   });
 
   it('reports missing production sender configuration without logging guest PII', async () => {

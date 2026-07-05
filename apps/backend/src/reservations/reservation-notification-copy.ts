@@ -608,6 +608,118 @@ export function getReservationDetailLabels(
   return DETAILS[normalizeReservationNotificationLocale(locale)];
 }
 
+// ── Terse SMS status lines. The email carries the full lifecycle prose; SMS
+// gets a short status phrase to keep the segment count (and cost) down. Kept in
+// its own map so the long-form COPY stays untouched.
+const SMS_STATUS: Record<
+  ReservationNotificationLocale,
+  Record<ReservationNotificationKind, string>
+> = {
+  en: {
+    RECEIVED: 'Booking request received',
+    CONFIRMED: 'Booking confirmed',
+    DECLINED: 'Booking not available',
+    CANCELLED: 'Booking cancelled',
+    REMINDER: 'Reminder: booking tomorrow',
+    MODIFIED: 'Booking updated',
+  },
+  bg: {
+    RECEIVED: 'Заявка за резервация получена',
+    CONFIRMED: 'Резервацията е потвърдена',
+    DECLINED: 'Резервацията не е възможна',
+    CANCELLED: 'Резервацията е отменена',
+    REMINDER: 'Напомняне: резервация утре',
+    MODIFIED: 'Резервацията е променена',
+  },
+  de: {
+    RECEIVED: 'Reservierungsanfrage erhalten',
+    CONFIRMED: 'Reservierung bestätigt',
+    DECLINED: 'Reservierung nicht möglich',
+    CANCELLED: 'Reservierung storniert',
+    REMINDER: 'Erinnerung: Reservierung morgen',
+    MODIFIED: 'Reservierung aktualisiert',
+  },
+  es: {
+    RECEIVED: 'Solicitud de reserva recibida',
+    CONFIRMED: 'Reserva confirmada',
+    DECLINED: 'Reserva no disponible',
+    CANCELLED: 'Reserva cancelada',
+    REMINDER: 'Recordatorio: reserva mañana',
+    MODIFIED: 'Reserva actualizada',
+  },
+  fr: {
+    RECEIVED: 'Demande de réservation reçue',
+    CONFIRMED: 'Réservation confirmée',
+    DECLINED: 'Réservation indisponible',
+    CANCELLED: 'Réservation annulée',
+    REMINDER: 'Rappel : réservation demain',
+    MODIFIED: 'Réservation modifiée',
+  },
+  it: {
+    RECEIVED: 'Richiesta di prenotazione ricevuta',
+    CONFIRMED: 'Prenotazione confermata',
+    DECLINED: 'Prenotazione non disponibile',
+    CANCELLED: 'Prenotazione annullata',
+    REMINDER: 'Promemoria: prenotazione domani',
+    MODIFIED: 'Prenotazione aggiornata',
+  },
+  ro: {
+    RECEIVED: 'Cerere de rezervare primită',
+    CONFIRMED: 'Rezervare confirmată',
+    DECLINED: 'Rezervare indisponibilă',
+    CANCELLED: 'Rezervare anulată',
+    REMINDER: 'Memento: rezervare mâine',
+    MODIFIED: 'Rezervare actualizată',
+  },
+  zh: {
+    RECEIVED: '预订请求已收到',
+    CONFIRMED: '预订已确认',
+    DECLINED: '预订不可用',
+    CANCELLED: '预订已取消',
+    REMINDER: '提醒：明天的预订',
+    MODIFIED: '预订已更新',
+  },
+  el: {
+    RECEIVED: 'Ελήφθη αίτημα κράτησης',
+    CONFIRMED: 'Κράτηση επιβεβαιώθηκε',
+    DECLINED: 'Κράτηση μη διαθέσιμη',
+    CANCELLED: 'Κράτηση ακυρώθηκε',
+    REMINDER: 'Υπενθύμιση: κράτηση αύριο',
+    MODIFIED: 'Κράτηση ενημερώθηκε',
+  },
+  ja: {
+    RECEIVED: '予約リクエスト受付',
+    CONFIRMED: '予約確定',
+    DECLINED: '予約不可',
+    CANCELLED: '予約キャンセル',
+    REMINDER: '明日のご予約リマインド',
+    MODIFIED: '予約更新',
+  },
+  ru: {
+    RECEIVED: 'Запрос на бронирование получен',
+    CONFIRMED: 'Бронирование подтверждено',
+    DECLINED: 'Бронирование недоступно',
+    CANCELLED: 'Бронирование отменено',
+    REMINDER: 'Напоминание: бронь завтра',
+    MODIFIED: 'Бронирование обновлено',
+  },
+  ar: {
+    RECEIVED: 'تم استلام طلب الحجز',
+    CONFIRMED: 'تم تأكيد الحجز',
+    DECLINED: 'الحجز غير متاح',
+    CANCELLED: 'تم إلغاء الحجز',
+    REMINDER: 'تذكير: حجز غداً',
+    MODIFIED: 'تم تحديث الحجز',
+  },
+};
+
+export function getReservationSmsStatus(
+  locale: string | null | undefined,
+  kind: ReservationNotificationKind,
+): string {
+  return SMS_STATUS[normalizeReservationNotificationLocale(locale)][kind];
+}
+
 export function normalizeReservationNotificationLocale(
   locale: string | null | undefined,
 ): ReservationNotificationLocale {

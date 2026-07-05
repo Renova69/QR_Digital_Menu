@@ -9,6 +9,7 @@ import {
 import {
   getReservationNotificationCopy,
   getReservationDetailLabels,
+  getReservationSmsStatus,
   normalizeReservationNotificationLocale,
   type ReservationNotificationKind,
   type ReservationDetailLabels,
@@ -144,14 +145,24 @@ export class ReservationNotificationsService {
 
     // Feature 2: only surface the manage link on live bookings — a declined or
     // cancelled booking has nothing to manage.
-    const manageLink =
-      input.manageToken && MANAGEABLE_KINDS.has(kind)
-        ? this.buildManageLink(
-            input.restaurantId,
-            input.manageToken,
-            notificationLocale,
-          )
-        : null;
+    const manageable = !!input.manageToken && MANAGEABLE_KINDS.has(kind);
+    // Email uses the full self-descriptive URL; SMS uses the short in-house
+    // redirect (`{BACKEND_URL}/r/{token}`) to save characters. The token never
+    // leaves our infra — no third-party shortener.
+    const manageLink = manageable
+      ? this.buildManageLink(
+          input.restaurantId,
+          input.manageToken!,
+          notificationLocale,
+        )
+      : null;
+    const shortManageLink = manageable
+      ? this.buildShortManageLink(
+          input.manageToken!,
+          input.restaurantId,
+          notificationLocale,
+        )
+      : null;
 
     const { subject, intro } = this.template(
       kind,
@@ -212,9 +223,12 @@ export class ReservationNotificationsService {
     }
 
     if (wantSms && phone) {
-      const smsDetails = details.smsExtra ? `. ${details.smsExtra}` : '';
-      const body = `${restaurant.name}: ${introText} ${when}. ${copy.refShort} ${input.referenceCode}${smsDetails}${
-        manageLink ? ` ${copy.manage}: ${manageLink}` : ''
+      // Terse SMS: restaurant · status · when · party size · ref · short link.
+      // No prose intro, no allergy — those live in the email.
+      const status = getReservationSmsStatus(notificationLocale, kind);
+      const guests = details.smsExtra ? ` · ${details.smsExtra}` : '';
+      const body = `${restaurant.name}: ${status}. ${when}${guests}. ${copy.refShort} ${input.referenceCode}${
+        shortManageLink ? ` ${shortManageLink}` : ''
       }`;
       await this.sendSms(phone, body, `guest ${kind}`);
     }
@@ -236,6 +250,25 @@ export class ReservationNotificationsService {
       lang: notificationLocale,
     });
     return `${base}/booking/manage?${params.toString()}`;
+  }
+
+  /**
+   * Short in-house manage link for SMS: `{BACKEND_URL}/r/{token}`. The backend
+   * `GET /r/:token` route resolves the restaurant + locale and 302-redirects to
+   * the full frontend manage page, so the SMS drops the long query string. When
+   * BACKEND_URL isn't set (local dev), fall back to the full frontend link so
+   * the link still works instead of pointing at a non-existent short route.
+   */
+  private buildShortManageLink(
+    token: string,
+    restaurantId: string,
+    notificationLocale: string,
+  ): string {
+    const backend = process.env.BACKEND_URL?.trim().replace(/\/+$/, '');
+    if (backend) return `${backend}/r/${token}`;
+    // No backend URL configured (local dev): fall back to the full frontend
+    // link so the SMS link still resolves correctly.
+    return this.buildManageLink(restaurantId, token, notificationLocale);
   }
 
   /**
@@ -466,7 +499,7 @@ function stripTags(html: string): string {
 interface RenderedBookingDetails {
   htmlRows: string;
   textLines: string[];
-  // SMS carries only the safety/ops-critical facts (headcount + allergies).
+  // SMS carries only the headcount (health data is kept out of SMS).
   smsExtra: string;
 }
 
@@ -527,11 +560,12 @@ function buildBookingDetails(
   const allergies = d.allergyNotes?.trim();
   if (allergies) push(labels.allergies, allergies);
 
+  // SMS carries ONLY the headcount. Allergy/dietary is health data and stays
+  // out of the plaintext SMS channel — it lives in the email instead.
   const smsBits: string[] = [];
   if (includeGuests && partySize !== null) {
     smsBits.push(`${labels.guests}: ${partySize}`);
   }
-  if (allergies) smsBits.push(`${labels.allergies}: ${allergies}`);
 
   return {
     htmlRows: htmlParts.length
