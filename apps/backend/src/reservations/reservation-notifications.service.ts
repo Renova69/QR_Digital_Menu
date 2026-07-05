@@ -1,16 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DateTime } from 'luxon';
 import { PrismaService } from '../prisma/prisma.service';
-
-type NotifyKind =
-  | 'RECEIVED'
-  | 'CONFIRMED'
-  | 'DECLINED'
-  | 'CANCELLED'
-  | 'REMINDER';
+import {
+  getReservationNotificationCopy,
+  normalizeReservationNotificationLocale,
+  type ReservationNotificationKind,
+} from './reservation-notification-copy';
 
 // Kinds where the private manage link is still actionable for the guest.
-const MANAGEABLE_KINDS = new Set<NotifyKind>([
+const MANAGEABLE_KINDS = new Set<ReservationNotificationKind>([
   'RECEIVED',
   'CONFIRMED',
   'REMINDER',
@@ -23,6 +21,7 @@ interface NotifyInput {
   guestName: string;
   startsAt: Date;
   referenceCode: string;
+  notificationLocale?: string | null;
   // Feature 1: which channels the guest opted into. Defaults keep the prior
   // email-only behaviour when a caller doesn't pass them.
   notifyByEmail?: boolean;
@@ -54,8 +53,8 @@ function escapeHtml(value: string): string {
 /**
  * Fire-and-forget guest notifications for reservation lifecycle events. Email
  * reuses the Resend transport already used for auth OTP; SMS uses Twilio
- * (Feature 1). Both dev-log instead of sending when creds are absent or
- * NODE_ENV !== production, so no cost is incurred in dev/test. Never throws into
+ * (Feature 1). Dev/test logs instead of sending; production reports missing
+ * transport configuration without logging guest PII. Never throws into
  * the caller — a failed send must not roll back a booking or a status change.
  * Durable outbox/retry is a documented Phase-1.5 upgrade.
  */
@@ -65,7 +64,7 @@ export class ReservationNotificationsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  notify(kind: NotifyKind, input: NotifyInput): void {
+  notify(kind: ReservationNotificationKind, input: NotifyInput): void {
     void this.send(kind, input).catch((err) =>
       this.logger.error(
         `Reservation ${kind} notification failed for ${input.referenceCode}`,
@@ -74,7 +73,10 @@ export class ReservationNotificationsService {
     );
   }
 
-  private async send(kind: NotifyKind, input: NotifyInput): Promise<void> {
+  private async send(
+    kind: ReservationNotificationKind,
+    input: NotifyInput,
+  ): Promise<void> {
     // Default to email when the caller didn't express a preference, preserving
     // the original behaviour for staff/manual paths.
     const wantEmail = input.notifyByEmail ?? true;
@@ -89,22 +91,39 @@ export class ReservationNotificationsService {
     });
     if (!restaurant) return;
 
+    const notificationLocale = normalizeReservationNotificationLocale(
+      input.notificationLocale,
+    );
+    const copy = getReservationNotificationCopy(notificationLocale);
     const when = DateTime.fromJSDate(input.startsAt)
       .setZone(restaurant.timezone || 'Europe/Sofia')
-      .toFormat('cccc, dd LLL yyyy HH:mm');
+      .setLocale(notificationLocale)
+      .toLocaleString({
+        weekday: 'long',
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+      });
 
     // Feature 2: only surface the manage link on live bookings — a declined or
     // cancelled booking has nothing to manage.
     const manageLink =
       input.manageToken && MANAGEABLE_KINDS.has(kind)
-        ? this.buildManageLink(input.restaurantId, input.manageToken)
+        ? this.buildManageLink(
+            input.restaurantId,
+            input.manageToken,
+            notificationLocale,
+          )
         : null;
 
     const { subject, intro } = this.template(
       kind,
       restaurant.name,
       input.guestName,
-      when,
+      notificationLocale,
     );
     // `intro` is HTML (escaped values + <strong> tags). For the SMS and the
     // plain-text email part, strip the tags AND decode the entities so a name
@@ -118,16 +137,16 @@ export class ReservationNotificationsService {
         <p style="font-size:15px;color:#333">${intro}</p>
         <p style="font-size:14px;color:#555">
           <strong>${escapeHtml(when)}</strong><br/>
-          ${escapeHtml('Reference')}: <strong>${escapeHtml(
+          ${escapeHtml(copy.reference)}: <strong>${escapeHtml(
             input.referenceCode,
           )}</strong>
         </p>
         ${
           manageLink
             ? `<p style="font-size:14px;margin:16px 0">
-                 <a href="${escapeHtml(manageLink)}" style="display:inline-block;padding:10px 18px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none">Manage your reservation</a>
+                 <a href="${escapeHtml(manageLink)}" style="display:inline-block;padding:10px 18px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none">${escapeHtml(copy.manage)}</a>
                </p>
-               <p style="font-size:12px;color:#888">Use this private link to change the time, party size, or cancel.</p>`
+               <p style="font-size:12px;color:#888">${escapeHtml(copy.manageHelp)}</p>`
             : ''
         }
         ${
@@ -138,27 +157,35 @@ export class ReservationNotificationsService {
             : ''
         }
       </div>`;
-      const text = `${introText}\n\n${when}\nReference: ${input.referenceCode}${
-        manageLink ? `\n\nManage your reservation: ${manageLink}` : ''
+      const text = `${introText}\n\n${when}\n${copy.reference}: ${input.referenceCode}${
+        manageLink ? `\n\n${copy.manage}: ${manageLink}` : ''
       }`;
       await this.sendEmail(to, subject, html, text, `guest ${kind}`);
     }
 
     if (wantSms && phone) {
-      const body = `${restaurant.name}: ${introText} ${when}. Ref ${input.referenceCode}${
-        manageLink ? ` Manage: ${manageLink}` : ''
+      const body = `${restaurant.name}: ${introText} ${when}. ${copy.refShort} ${input.referenceCode}${
+        manageLink ? ` ${copy.manage}: ${manageLink}` : ''
       }`;
       await this.sendSms(phone, body, `guest ${kind}`);
     }
   }
 
   /** Public guest-facing manage URL. FRONTEND_URL drives cross-origin prod. */
-  private buildManageLink(restaurantId: string, token: string): string {
+  private buildManageLink(
+    restaurantId: string,
+    token: string,
+    notificationLocale: string,
+  ): string {
     const base = (process.env.FRONTEND_URL || 'http://localhost:3001').replace(
       /\/+$/,
       '',
     );
-    const params = new URLSearchParams({ r: restaurantId, token });
+    const params = new URLSearchParams({
+      r: restaurantId,
+      token,
+      lang: notificationLocale,
+    });
     return `${base}/booking/manage?${params.toString()}`;
   }
 
@@ -251,9 +278,9 @@ export class ReservationNotificationsService {
   }
 
   /**
-   * Twilio SMS transport (Feature 1). Dev-logs instead of sending when creds are
-   * absent or NODE_ENV !== production, so no SMS charge is incurred in dev/test.
-   * Never throws.
+   * Twilio SMS transport (Feature 1). Dev/test logs instead of sending.
+   * Production accepts either a Messaging Service SID or direct From number,
+   * and reports incomplete configuration without including guest PII.
    */
   private async sendSms(
     to: string,
@@ -263,11 +290,36 @@ export class ReservationNotificationsService {
     const sid = process.env.TWILIO_ACCOUNT_SID;
     const token = process.env.TWILIO_AUTH_TOKEN;
     const from = process.env.TWILIO_FROM_NUMBER;
+    const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
     const isDev = process.env.NODE_ENV !== 'production';
-    if (isDev || !sid || !token || !from) {
+    if (isDev) {
       this.logger.log(`[dev] Reservation ${context} SMS to ${to}: ${body}`);
       return;
     }
+    if (!sid || !token || (!from && !messagingServiceSid)) {
+      const missing = [
+        !sid ? 'TWILIO_ACCOUNT_SID' : null,
+        !token ? 'TWILIO_AUTH_TOKEN' : null,
+        !from && !messagingServiceSid
+          ? 'TWILIO_FROM_NUMBER or TWILIO_MESSAGING_SERVICE_SID'
+          : null,
+      ].filter(Boolean);
+      this.logger.error(
+        `Reservation SMS disabled in production: missing ${missing.join(', ')}`,
+      );
+      return;
+    }
+
+    const form = new URLSearchParams({
+      To: to,
+      Body: body,
+    });
+    if (messagingServiceSid) {
+      form.set('MessagingServiceSid', messagingServiceSid);
+    } else {
+      form.set('From', from!);
+    }
+
     const res = await fetch(
       `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
       {
@@ -276,11 +328,7 @@ export class ReservationNotificationsService {
           Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString('base64')}`,
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: new URLSearchParams({
-          To: to,
-          From: from,
-          Body: body,
-        }).toString(),
+        body: form.toString(),
       },
     );
     if (!res.ok) {
@@ -292,41 +340,33 @@ export class ReservationNotificationsService {
   }
 
   private template(
-    kind: NotifyKind,
+    kind: ReservationNotificationKind,
     restaurantName: string,
     guestName: string,
-    when: string,
+    notificationLocale?: string | null,
   ): { subject: string; intro: string } {
+    const copy = getReservationNotificationCopy(notificationLocale);
     const name = escapeHtml(guestName);
     const rest = escapeHtml(restaurantName);
-    switch (kind) {
-      case 'CONFIRMED':
-        return {
-          subject: `Reservation confirmed — ${restaurantName}`,
-          intro: `Hi ${name}, your reservation at <strong>${rest}</strong> is <strong>confirmed</strong>. See you soon!`,
-        };
-      case 'DECLINED':
-        return {
-          subject: `Reservation update — ${restaurantName}`,
-          intro: `Hi ${name}, unfortunately your reservation request at <strong>${rest}</strong> could not be accepted. Please contact us for other options.`,
-        };
-      case 'CANCELLED':
-        return {
-          subject: `Reservation cancelled — ${restaurantName}`,
-          intro: `Hi ${name}, your reservation at <strong>${rest}</strong> has been <strong>cancelled</strong>. If this is unexpected, please contact us.`,
-        };
-      case 'REMINDER':
-        return {
-          subject: `Reminder: your reservation tomorrow — ${restaurantName}`,
-          intro: `Hi ${name}, this is a reminder of your reservation at <strong>${rest}</strong>. We look forward to seeing you!`,
-        };
-      default:
-        return {
-          subject: `Reservation request received — ${restaurantName}`,
-          intro: `Hi ${name}, we've received your reservation request at <strong>${rest}</strong>. We'll confirm shortly — this is not yet a confirmation.`,
-        };
-    }
+    return {
+      subject: fillTemplate(copy.subjects[kind], {
+        restaurant: restaurantName,
+      }),
+      intro: fillTemplate(copy.messages[kind], {
+        name,
+        restaurant: rest,
+      }),
+    };
   }
+}
+
+function fillTemplate(
+  template: string,
+  values: Record<string, string>,
+): string {
+  return template.replace(/\{(\w+)\}/g, (match, key: string) =>
+    Object.prototype.hasOwnProperty.call(values, key) ? values[key] : match,
+  );
 }
 
 function stripTags(html: string): string {

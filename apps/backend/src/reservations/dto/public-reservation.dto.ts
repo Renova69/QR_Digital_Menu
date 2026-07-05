@@ -1,10 +1,11 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
   IsDateString,
   IsEmail,
   IsEnum,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -14,6 +15,7 @@ import {
   Min,
 } from 'class-validator';
 import { ReservationOccasion } from '@prisma/client';
+import { SUPPORTED_TARGET_LANGUAGE_CODES } from '../../restaurants/restaurant-languages';
 
 export class AvailabilityQueryDto {
   @IsString()
@@ -73,6 +75,17 @@ export class CreateReservationDto {
 
   @IsDateString()
   startsAt!: string; // UTC ISO instant of the chosen slot
+
+  // Language selected on the public booking page. Persisted with the booking
+  // so later confirmations, cancellations and reminders stay consistent.
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string'
+      ? value.trim().toLowerCase().split(/[-_]/)[0]
+      : value,
+  )
+  @IsIn(SUPPORTED_TARGET_LANGUAGE_CODES)
+  locale?: string;
 
   @IsInt()
   @Min(1)

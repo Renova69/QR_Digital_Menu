@@ -863,6 +863,7 @@ model Reservation {
   // Feature 1: guest-chosen notification channels for confirm/cancel/reminder.
   notifyByEmail       Boolean             @default(true)
   notifyBySms         Boolean             @default(false)
+  notificationLocale  String              @default("en")
   reminderSentAt      DateTime? // set once the 24h reminder has gone out (dedup)
   // Feature 3: guest's preferred seating zone (soft hint). Stored as the zone
   // NAME, not an FK, so a later zone rename/delete never orphans the booking.

@@ -174,6 +174,9 @@ const BookingPage = () => {
           d?.defaultLanguage ||
           "bg";
         if (initialLang.includes("-")) initialLang = initialLang.split("-")[0];
+        if (d.languages?.length && !d.languages.includes(initialLang)) {
+          initialLang = d.defaultLanguage || d.languages[0] || "bg";
+        }
         setLang(initialLang);
         void i18n.changeLanguage(initialLang);
       })
@@ -246,6 +249,7 @@ const BookingPage = () => {
           : "",
         guestEmail: email.trim() || undefined,
         startsAt: selectedSlot,
+        locale: (lang || i18n.language || "en").split(/[-_]/)[0],
         adultsCount: adults,
         childrenCount: children,
         customerNotes: notes.trim() || undefined,

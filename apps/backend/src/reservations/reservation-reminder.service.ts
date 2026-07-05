@@ -54,6 +54,7 @@ export class ReservationReminderService {
         referenceCode: true,
         notifyByEmail: true,
         notifyBySms: true,
+        notificationLocale: true,
         manageToken: true,
       },
       take: REMINDER_BATCH,
@@ -80,6 +81,7 @@ export class ReservationReminderService {
         referenceCode: r.referenceCode,
         notifyByEmail: r.notifyByEmail,
         notifyBySms: r.notifyBySms,
+        notificationLocale: r.notificationLocale,
         manageToken: r.manageToken,
       });
     }

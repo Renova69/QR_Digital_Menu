@@ -50,6 +50,7 @@ const BookingManagePage = () => {
   const { t, i18n } = useTranslation();
   const params = new URLSearchParams(useLocation().search);
   const restaurantId = params.get("r") ?? "";
+  const requestedLanguage = params.get("lang")?.split(/[-_]/)[0] ?? "";
   // Capture token ONCE on mount (useState initializer runs only on the first
   // render). sessionStorage is already scoped to the browser tab/session and
   // auto-clears on close, so manual cleanup is unnecessary and would break
@@ -81,6 +82,12 @@ const BookingManagePage = () => {
 
   const total = adults + children;
   const maxParty = reservation?.policy?.maxTotalGuests ?? 12;
+
+  useEffect(() => {
+    if (requestedLanguage) {
+      void i18n.changeLanguage(requestedLanguage);
+    }
+  }, [i18n, requestedLanguage]);
 
   const loadReservation = async () => {
     if (!restaurantId || !token) {

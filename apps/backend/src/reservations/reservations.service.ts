@@ -17,6 +17,7 @@ import { ReservationAvailabilityService } from './reservation-availability.servi
 import { ReservationAllergensService } from './reservation-allergens.service';
 import { PatronService } from './patron.service';
 import { ReservationNotificationsService } from './reservation-notifications.service';
+import { normalizeReservationNotificationLocale } from './reservation-notification-copy';
 import {
   hasDietaryPreference,
   sanitizeCustomerPreferences,
@@ -114,10 +115,14 @@ export class ReservationsService {
     }
   }
 
-  private async requireEntitlement(restaurantId: string): Promise<void> {
+  private async requireEntitlement(restaurantId: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: { tier: true, forceTier: true },
+      select: {
+        tier: true,
+        forceTier: true,
+        dashboardLanguage: true,
+      },
     });
     if (
       !this.features.restaurantHasFeature(restaurant, FeatureFlag.RESERVATIONS)
@@ -127,6 +132,7 @@ export class ReservationsService {
         message: 'Reservations require a Professional plan or above',
       });
     }
+    return restaurant;
   }
 
   // ── Public surface ──────────────────────────────────────────────────────
@@ -342,6 +348,7 @@ export class ReservationsService {
       referenceCode: r.referenceCode,
       notifyByEmail: r.notifyByEmail,
       notifyBySms: r.notifyBySms,
+      notificationLocale: r.notificationLocale,
     });
     return { status: 'CANCELLED' as const };
   }
@@ -460,6 +467,7 @@ export class ReservationsService {
         referenceCode: r.referenceCode,
         notifyByEmail: r.notifyByEmail,
         notifyBySms: r.notifyBySms,
+        notificationLocale: r.notificationLocale,
         manageToken: r.manageToken,
       },
     );
@@ -474,7 +482,7 @@ export class ReservationsService {
   }
 
   async createPublic(restaurantId: string, dto: CreateReservationDto) {
-    await this.requireEntitlement(restaurantId);
+    const restaurant = await this.requireEntitlement(restaurantId);
     const settings = await this.prisma.reservationSettings.findUnique({
       where: { restaurantId },
     });
@@ -484,6 +492,7 @@ export class ReservationsService {
     return this.createReservation(restaurantId, dto, {
       source: 'PUBLIC',
       settings,
+      defaultLocale: restaurant?.dashboardLanguage ?? 'bg',
     });
   }
 
@@ -494,12 +503,19 @@ export class ReservationsService {
   ) {
     const role = await this.resolveActor(restaurantId, userId);
     this.assertRole(role, ['MANAGER', 'WAITER']);
-    const settings = await this.prisma.reservationSettings.findUnique({
-      where: { restaurantId },
-    });
+    const [settings, restaurant] = await Promise.all([
+      this.prisma.reservationSettings.findUnique({
+        where: { restaurantId },
+      }),
+      this.prisma.restaurant.findUnique({
+        where: { id: restaurantId },
+        select: { dashboardLanguage: true },
+      }),
+    ]);
     return this.createReservation(restaurantId, dto, {
       source: 'STAFF',
       settings,
+      defaultLocale: restaurant?.dashboardLanguage ?? 'bg',
       createdById: userId,
       internalNotes: dto.internalNotes,
       staffTags: dto.staffTags,
@@ -523,6 +539,7 @@ export class ReservationsService {
         largePartyThreshold?: number;
         largePartyDurationMinutes?: number;
       } | null;
+      defaultLocale?: string | null;
       createdById?: string;
       internalNotes?: string;
       staffTags?: string[];
@@ -599,6 +616,9 @@ export class ReservationsService {
     // address was given; SMS only when the guest opted in (phone is mandatory).
     const notifyByEmail = dto.notifyByEmail ?? !!dto.guestEmail?.trim();
     const notifyBySms = dto.notifyBySms ?? false;
+    const notificationLocale = normalizeReservationNotificationLocale(
+      dto.locale ?? ctx.defaultLocale,
+    );
 
     // Feature 3: accept a preferred seating zone only when it matches a zone the
     // restaurant actually has. The client sends the preset key (e.g. TERRACE)
@@ -672,6 +692,7 @@ export class ReservationsService {
               marketingConsentAt,
               notifyByEmail,
               notifyBySms,
+              notificationLocale,
               preferredZone,
               manageToken,
               durationMinutes,
@@ -744,6 +765,7 @@ export class ReservationsService {
         referenceCode: created.referenceCode,
         notifyByEmail: created.notifyByEmail,
         notifyBySms: created.notifyBySms,
+        notificationLocale: created.notificationLocale,
         manageToken: created.manageToken,
       },
     );
@@ -892,6 +914,7 @@ export class ReservationsService {
         referenceCode: reservation.referenceCode,
         notifyByEmail: reservation.notifyByEmail,
         notifyBySms: reservation.notifyBySms,
+        notificationLocale: reservation.notificationLocale,
         manageToken: reservation.manageToken,
       });
     }

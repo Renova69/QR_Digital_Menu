@@ -166,10 +166,15 @@ describe('ReservationsService.executeAction (state machine)', () => {
   };
 
   it('accepts a PENDING reservation (guarded CAS) and emits', async () => {
-    const { service, prisma, events } = build();
+    const { service, prisma, events, notifications } = build();
     asOwner(prisma);
     prisma.reservation.findFirst
-      .mockResolvedValueOnce({ id: 'r1', status: 'PENDING', startsAt: FUTURE })
+      .mockResolvedValueOnce({
+        id: 'r1',
+        status: 'PENDING',
+        startsAt: FUTURE,
+        notificationLocale: 'bg',
+      })
       .mockResolvedValueOnce({
         id: 'r1',
         status: 'CONFIRMED',
@@ -192,6 +197,10 @@ describe('ReservationsService.executeAction (state machine)', () => {
       id: 'r1',
       status: 'CONFIRMED',
     });
+    expect(notifications.notify).toHaveBeenCalledWith(
+      'CONFIRMED',
+      expect.objectContaining({ notificationLocale: 'bg' }),
+    );
   });
 
   it('rejects the action when the CAS finds no matching source status', async () => {
@@ -390,6 +399,7 @@ describe('ReservationsService guest self-service (manage token, Feature 2)', () 
     childrenCount: 0,
     notifyByEmail: true,
     notifyBySms: false,
+    notificationLocale: 'bg',
     manageToken: 'tok_live',
     updatedAt: new Date('2026-07-01T10:00:00.000Z'),
   };
@@ -433,7 +443,10 @@ describe('ReservationsService guest self-service (manage token, Feature 2)', () 
     expect(events.emitReservationUpdated).toHaveBeenCalled();
     expect(notifications.notify).toHaveBeenCalledWith(
       'CANCELLED',
-      expect.objectContaining({ referenceCode: 'ABC234' }),
+      expect.objectContaining({
+        referenceCode: 'ABC234',
+        notificationLocale: 'bg',
+      }),
     );
   });
 
@@ -572,6 +585,40 @@ describe('ReservationsService createReservation hardening', () => {
     expect(
       txReservationCreate.mock.calls[0][0].data.marketingConsentAt,
     ).not.toBeNull();
+  });
+
+  it('persists the guest locale and reuses it for lifecycle notifications', async () => {
+    const { service, prisma, txReservationCreate, notifications } = build();
+    prisma.reservationSettings.findUnique.mockResolvedValue(enabledSettings);
+    txReservationCreate.mockResolvedValueOnce({
+      id: 'r1',
+      referenceCode: 'ABC234',
+      status: 'PENDING',
+      startsAt: FUTURE,
+      guestName: 'Guest',
+      guestEmail: 'g@example.com',
+      guestPhone: '+359888123456',
+      adultsCount: 2,
+      childrenCount: 0,
+      notifyByEmail: true,
+      notifyBySms: false,
+      notificationLocale: 'bg',
+      manageToken: 'manage-secret',
+    });
+
+    await service.createPublic('rest1', {
+      ...dto,
+      guestEmail: 'g@example.com',
+      locale: 'bg',
+    });
+
+    expect(txReservationCreate.mock.calls[0][0].data.notificationLocale).toBe(
+      'bg',
+    );
+    expect(notifications.notify).toHaveBeenCalledWith(
+      'RECEIVED',
+      expect.objectContaining({ notificationLocale: 'bg' }),
+    );
   });
 
   it('replays the idempotent result instead of 500 on a concurrent key collision (C-MED-5)', async () => {

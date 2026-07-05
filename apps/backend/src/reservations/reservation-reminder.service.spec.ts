@@ -23,6 +23,7 @@ const dueRow = {
   referenceCode: 'ABC123',
   notifyByEmail: true,
   notifyBySms: true,
+  notificationLocale: 'bg',
 };
 
 describe('ReservationReminderService.sweep', () => {
@@ -51,6 +52,7 @@ describe('ReservationReminderService.sweep', () => {
         referenceCode: 'ABC123',
         notifyByEmail: true,
         notifyBySms: true,
+        notificationLocale: 'bg',
       }),
     );
   });
