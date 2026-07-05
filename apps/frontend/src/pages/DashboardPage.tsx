@@ -125,12 +125,27 @@ const DashboardPage = () => {
     useState<FeatureFlag | null>(null);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const tabFromParamApplied = useRef(false);
   const dashLangSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isStaff = user?.role?.toUpperCase() === "STAFF";
   const STAFF_ALLOWED_TABS: TabId[] = ["orders", "assistance", "tables"];
+
+  // Persist the active tab in the URL (?tab=) so a refresh / react remount
+  // restores where the user was instead of resetting to the default tab. The
+  // mount effect below reads ?tab= back on load. `replace` keeps tab switches
+  // out of the history stack so the back button still leaves the dashboard.
+  const selectTab = (id: TabId) => {
+    setActiveTab(id);
+    setSearchParams(
+      (prev) => {
+        prev.set("tab", id);
+        return prev;
+      },
+      { replace: true },
+    );
+  };
 
   useEffect(() => {
     if (tabFromParamApplied.current) return;
@@ -347,7 +362,7 @@ const DashboardPage = () => {
                   onClick={() =>
                     locked
                       ? feature && setLockedFeatureClicked(feature)
-                      : setActiveTab(id)
+                      : selectTab(id)
                   }
                   aria-current={isActive ? "page" : undefined}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer ${
@@ -446,7 +461,7 @@ const DashboardPage = () => {
               ))}
             {!isStaff && (
               <button
-                onClick={() => setActiveTab("help")}
+                onClick={() => selectTab("help")}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all cursor-pointer"
               >
                 <HelpCircle className="w-4 h-4 shrink-0" />
@@ -695,7 +710,7 @@ const DashboardPage = () => {
                   onClick={() =>
                     isLocked
                       ? tabFeature && setLockedFeatureClicked(tabFeature)
-                      : setActiveTab(id)
+                      : selectTab(id)
                   }
                   className={`flex-1 flex flex-col items-center justify-center gap-0.5 relative transition-colors active:scale-95 ${
                     isLocked
@@ -854,7 +869,7 @@ const DashboardPage = () => {
                         if (isLocked) {
                           if (lockFeature) setLockedFeatureClicked(lockFeature);
                         } else {
-                          setActiveTab(id);
+                          selectTab(id);
                         }
                         setMobileMoreOpen(false);
                       }}
