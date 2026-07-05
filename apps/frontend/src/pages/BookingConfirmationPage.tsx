@@ -10,6 +10,7 @@ import {
   PublicBrandMode,
   resolvePublicPalette,
 } from "../lib/publicTheme";
+import { useReservationRealtime } from "../hooks/useReservationRealtime";
 
 const STATUS_META: Record<
   string,
@@ -58,6 +59,17 @@ const BookingConfirmationPage = () => {
   const [loading, setLoading] = useState(true);
   const [config, setConfig] = useState<ReservationPublicConfig | null>(null);
   const [theme, setTheme] = useState<PublicBrandMode>("light");
+
+  useReservationRealtime(restaurantId, manageToken, (update) => {
+    setStatus(update.status);
+    // Status paints immediately; this refresh also picks up a changed time.
+    void getReservationStatus(restaurantId, referenceCode)
+      .then((data) => {
+        setStatus(data.status);
+        setStartsAt(data.startsAt);
+      })
+      .catch(() => {});
+  });
 
   // Load branding/theme so this page matches the booking page + public menu.
   useEffect(() => {

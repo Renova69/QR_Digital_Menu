@@ -19,6 +19,7 @@ import {
   PublicBrandMode,
   resolvePublicPalette,
 } from "../lib/publicTheme";
+import { useReservationRealtime } from "../hooks/useReservationRealtime";
 
 interface ManageReservation {
   referenceCode: string;
@@ -132,6 +133,24 @@ const BookingManagePage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantId, token]);
 
+  useReservationRealtime(restaurantId, token, (update) => {
+    // Paint the new state immediately, then refetch the authoritative public
+    // view so action availability and any concurrently changed fields agree.
+    setReservation((current) => {
+      if (!current) return current;
+      const canManage =
+        (update.status === "PENDING" || update.status === "CONFIRMED") &&
+        new Date(current.startsAt).getTime() > Date.now();
+      return {
+        ...current,
+        status: update.status,
+        canModify: canManage,
+        canCancel: canManage,
+      };
+    });
+    void loadReservation();
+  });
+
   // Fetch availability while the guest is editing.
   useEffect(() => {
     if (!editing || !restaurantId) return;
@@ -208,16 +227,19 @@ const BookingManagePage = () => {
 
   const whenLabel = useMemo(() => {
     if (!reservation) return "";
-    return new Date(reservation.startsAt).toLocaleString(i18n.language || undefined, {
-      // Show the restaurant's local time, not the guest's browser tz.
-      timeZone: config?.restaurant?.timezone ?? undefined,
-      weekday: "short",
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    return new Date(reservation.startsAt).toLocaleString(
+      i18n.language || undefined,
+      {
+        // Show the restaurant's local time, not the guest's browser tz.
+        timeZone: config?.restaurant?.timezone ?? undefined,
+        weekday: "short",
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      },
+    );
   }, [reservation, config]);
 
   const partyValid = total >= 1 && total <= maxParty;
@@ -304,7 +326,10 @@ const BookingManagePage = () => {
                 className="mt-1 text-xs font-bold uppercase tracking-wide"
                 style={{ color: getStatusColor(reservation.status) }}
               >
-                {t(`reservations.status.${reservation.status}`, reservation.status)}
+                {t(
+                  `reservations.status.${reservation.status}`,
+                  reservation.status,
+                )}
               </div>
             </div>
 

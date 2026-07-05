@@ -30,6 +30,7 @@ describe('EventsGateway — room authorization', () => {
     mockPrisma = {
       user: { findUnique: jest.fn() },
       restaurant: { findUnique: jest.fn() },
+      reservation: { findUnique: jest.fn() },
       tableSession: { findUnique: jest.fn() },
     };
     mockPrintStationService = {
@@ -478,6 +479,72 @@ describe('EventsGateway — room authorization', () => {
   });
 
   // ─── signOrderToken: issuance ────────────────────────────────────────────
+
+  describe('handleJoinReservationRoom', () => {
+    it('joins the reservation room when the private manage token matches the restaurant', async () => {
+      mockPrisma.reservation.findUnique.mockResolvedValue({
+        id: 'reservation-1',
+        restaurantId: 'rest-1',
+        status: 'PENDING',
+      });
+      const client = makeClient();
+
+      await gateway.handleJoinReservationRoom(
+        { restaurantId: 'rest-1', token: 'manage-secret' },
+        client as any,
+      );
+
+      expect(mockPrisma.reservation.findUnique).toHaveBeenCalledWith({
+        where: { manageToken: 'manage-secret' },
+        select: { id: true, restaurantId: true, status: true },
+      });
+      expect(client.join).toHaveBeenCalledWith('reservation_reservation-1');
+      expect(client.emit).toHaveBeenCalledWith('reservation:updated', {
+        id: 'reservation-1',
+        status: 'PENDING',
+      });
+    });
+
+    it('rejects a manage token replayed against another restaurant', async () => {
+      mockPrisma.reservation.findUnique.mockResolvedValue({
+        id: 'reservation-1',
+        restaurantId: 'rest-other',
+        status: 'PENDING',
+      });
+      const client = makeClient();
+
+      await gateway.handleJoinReservationRoom(
+        { restaurantId: 'rest-1', token: 'manage-secret' },
+        client as any,
+      );
+
+      expect(client.join).not.toHaveBeenCalled();
+      expect(client.emit).toHaveBeenCalledWith('roomError', {
+        room: 'reservation',
+        restaurantId: 'rest-1',
+        error: 'UNAUTHORIZED',
+      });
+    });
+  });
+
+  describe('emitReservationUpdated', () => {
+    it('notifies both the private dashboard room and the scoped guest room', () => {
+      const server = { to: jest.fn().mockReturnThis(), emit: jest.fn() };
+      (gateway as any).server = server;
+
+      gateway.emitReservationUpdated('rest-1', {
+        id: 'reservation-1',
+        status: 'CONFIRMED',
+      });
+
+      expect(server.to).toHaveBeenCalledWith('restaurant_rest-1');
+      expect(server.to).toHaveBeenCalledWith('reservation_reservation-1');
+      expect(server.emit).toHaveBeenCalledWith('reservation:updated', {
+        id: 'reservation-1',
+        status: 'CONFIRMED',
+      });
+    });
+  });
 
   describe('signOrderToken', () => {
     it('signs an order-track scoped token for the given orderId', () => {

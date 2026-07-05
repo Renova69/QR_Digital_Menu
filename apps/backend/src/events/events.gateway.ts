@@ -472,6 +472,69 @@ export class EventsGateway
     return { event: 'joinedOrderRoom', data: orderId };
   }
 
+  private async resolveReservationRoom(
+    restaurantId: string | undefined,
+    token: string | undefined,
+  ) {
+    const trimmedToken = token?.trim();
+    if (!restaurantId || !trimmedToken) return null;
+
+    const reservation = await this.prisma.reservation.findUnique({
+      where: { manageToken: trimmedToken },
+      select: { id: true, restaurantId: true, status: true },
+    });
+    return reservation?.restaurantId === restaurantId ? reservation : null;
+  }
+
+  /**
+   * Public guests may listen only to the reservation identified by their
+   * private manage token. Send the current status after joining so a dashboard
+   * update cannot be lost between the initial HTTP read and room membership.
+   */
+  @SubscribeMessage('joinReservationRoom')
+  async handleJoinReservationRoom(
+    @MessageBody() body: { restaurantId?: string; token?: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const restaurantId = body?.restaurantId;
+    const reservation = await this.resolveReservationRoom(
+      restaurantId,
+      body?.token,
+    );
+    if (!reservation) {
+      client.emit('roomError', {
+        room: 'reservation',
+        restaurantId,
+        error: 'UNAUTHORIZED',
+      });
+      return { event: 'roomError', data: 'reservation' };
+    }
+
+    void client.join(`reservation_${reservation.id}`);
+    client.emit('reservation:updated', {
+      id: reservation.id,
+      status: reservation.status,
+    });
+    return { event: 'joinedReservationRoom', data: reservation.id };
+  }
+
+  @SubscribeMessage('leaveReservationRoom')
+  async handleLeaveReservationRoom(
+    @MessageBody() body: { restaurantId?: string; token?: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const reservation = await this.resolveReservationRoom(
+      body?.restaurantId,
+      body?.token,
+    );
+    if (!reservation) {
+      return { event: 'leftReservationRoom', data: null };
+    }
+
+    void client.leave(`reservation_${reservation.id}`);
+    return { event: 'leftReservationRoom', data: reservation.id };
+  }
+
   // A legitimate customer only ever joins the room for the restaurant whose
   // menu they're viewing (occasionally two, across a tab switch). Since this
   // handler performs no auth/DB check (restaurantId is already public), cap
@@ -592,6 +655,9 @@ export class EventsGateway
     payload: { id: string; status: string },
   ) {
     this.emitToRestaurant(restaurantId, 'reservation:updated', payload);
+    this.server
+      .to(`reservation_${payload.id}`)
+      .emit('reservation:updated', payload);
   }
 
   /**
