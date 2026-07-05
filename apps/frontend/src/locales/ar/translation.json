@@ -644,7 +644,8 @@
   },
   "zonesPicker": {
     "choose": "اختر منطقة…",
-    "custom": "مخصص (لن يترجم)…"
+    "custom": "مخصص (لن يترجم)…",
+    "deleteConfirm": "حذف هذه المنطقة؟ سيتم نقل جميع الطاولات الموجودة فيها إلى المنطقة الافتراضية."
   },
   "manage": {
     "title": "Manage your reservation",

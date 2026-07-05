@@ -3549,7 +3549,8 @@
   },
   "zonesPicker": {
     "choose": "Elegir una zona…",
-    "custom": "Personalizado (no se traducirá)…"
+    "custom": "Personalizado (no se traducirá)…",
+    "deleteConfirm": "¿Eliminar esta zona? Todas las mesas que contiene se moverán a la zona predeterminada."
   },
   "manage": {
     "title": "Manage your reservation",

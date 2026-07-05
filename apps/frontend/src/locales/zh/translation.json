@@ -3549,7 +3549,8 @@
   },
   "zonesPicker": {
     "choose": "选择区域…",
-    "custom": "自定义（不翻译）…"
+    "custom": "自定义（不翻译）…",
+    "deleteConfirm": "删除此区域？其中的所有餐桌将被移动到默认区域。"
   },
   "manage": {
     "title": "Manage your reservation",

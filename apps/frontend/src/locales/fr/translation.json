@@ -3549,7 +3549,8 @@
   },
   "zonesPicker": {
     "choose": "Choisir une zone…",
-    "custom": "Personnalisé (ne sera pas traduit)…"
+    "custom": "Personnalisé (ne sera pas traduit)…",
+    "deleteConfirm": "Supprimer cette zone ? Toutes les tables qu'elle contient seront déplacées vers la zone par défaut."
   },
   "manage": {
     "title": "Manage your reservation",

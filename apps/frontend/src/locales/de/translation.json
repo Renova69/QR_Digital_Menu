@@ -3549,7 +3549,8 @@
   },
   "zonesPicker": {
     "choose": "Zone wählen…",
-    "custom": "Benutzerdefiniert (keine Übersetzung)…"
+    "custom": "Benutzerdefiniert (keine Übersetzung)…",
+    "deleteConfirm": "Diese Zone löschen? Alle Tische darin werden in die Standardzone verschoben."
   },
   "manage": {
     "title": "Manage your reservation",

@@ -644,7 +644,8 @@
   },
   "zonesPicker": {
     "choose": "ゾーンを選択…",
-    "custom": "カスタム（翻訳されません）…"
+    "custom": "カスタム（翻訳されません）…",
+    "deleteConfirm": "このゾーンを削除しますか？中のすべてのテーブルはデフォルトゾーンに移動されます。"
   },
   "manage": {
     "title": "Manage your reservation",
