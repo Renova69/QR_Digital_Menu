@@ -1348,16 +1348,16 @@
     "hash": "459d21de3285a5f73d0d932370ce45d1"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\App.tsx": {
-    "mtime": 1783192042.9967182,
-    "hash": "ff469afcadf4638241eadc06e38462c8"
+    "mtime": 1783235384.5759983,
+    "hash": "e36c16526c5b89ddefa6c989a2d69379"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\i18n.ts": {
     "mtime": 1782836835.6610138,
     "hash": "04b116386f7db106078313d648676db1"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\index.tsx": {
-    "mtime": 1781351870.4705868,
-    "hash": "33160ba19b312eed91cf97aa7abbbbe0"
+    "mtime": 1783235393.3442025,
+    "hash": "21adbda6826916241346de638513a0cb"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\reportWebVitals.d.ts": {
     "mtime": 1777796201.3456657,
@@ -1854,6 +1854,14 @@
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\imageUrl.ts": {
     "mtime": 1780375488.8754382,
     "hash": "05e2b6abc4c17b87dd18b50cfe458de7"
+  },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\lazyWithReload.test.ts": {
+    "mtime": 1783235497.126929,
+    "hash": "ba281ae1b96a9b1830e54b1a351b1d3d"
+  },
+  "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\lazyWithReload.ts": {
+    "mtime": 1783235479.428576,
+    "hash": "b096a870d2cc1e649bf8e93e85702593"
   },
   "F:\\PROGRAMING\\QR_Digital_Menu-main\\apps\\frontend\\src\\lib\\menuExport.ts": {
     "mtime": 1781283958.8603292,
