@@ -455,22 +455,28 @@ export class ReservationsService {
       id: r.id,
       status: r.status,
     });
-    // Re-send the guest the current-state notice with the new details.
-    await this.notifications.notify(
-      r.status === 'CONFIRMED' ? 'CONFIRMED' : 'RECEIVED',
-      {
-        restaurantId,
-        guestEmail: r.guestEmail,
-        guestPhone: r.guestPhone,
-        guestName: r.guestName,
-        startsAt,
-        referenceCode: r.referenceCode,
-        notifyByEmail: r.notifyByEmail,
-        notifyBySms: r.notifyBySms,
-        notificationLocale: r.notificationLocale,
-        manageToken: r.manageToken,
-      },
-    );
+    // Acknowledge the change with a dedicated "updated" notice that echoes the
+    // NEW details (party size / time), not the generic received/confirmed copy.
+    await this.notifications.notify('MODIFIED', {
+      restaurantId,
+      guestEmail: r.guestEmail,
+      guestPhone: r.guestPhone,
+      guestName: r.guestName,
+      startsAt,
+      referenceCode: r.referenceCode,
+      notifyByEmail: r.notifyByEmail,
+      notifyBySms: r.notifyBySms,
+      notificationLocale: r.notificationLocale,
+      manageToken: r.manageToken,
+      // New headcount from this edit; the remaining details are unchanged.
+      adultsCount: adults,
+      childrenCount: children,
+      occasion: r.occasion,
+      customerNotes: r.customerNotes,
+      customerPreferences: r.customerPreferences,
+      preferredZone: r.preferredZone,
+      allergyNotes: r.allergyNotes,
+    });
 
     return {
       status: r.status,
@@ -767,6 +773,13 @@ export class ReservationsService {
         notifyBySms: created.notifyBySms,
         notificationLocale: created.notificationLocale,
         manageToken: created.manageToken,
+        adultsCount: created.adultsCount,
+        childrenCount: created.childrenCount,
+        occasion: created.occasion,
+        customerNotes: created.customerNotes,
+        customerPreferences: created.customerPreferences,
+        preferredZone: created.preferredZone,
+        allergyNotes: created.allergyNotes,
       },
     );
 
@@ -781,6 +794,13 @@ export class ReservationsService {
         startsAt: created.startsAt,
         partySize: created.adultsCount + created.childrenCount,
         referenceCode: created.referenceCode,
+        adultsCount: created.adultsCount,
+        childrenCount: created.childrenCount,
+        occasion: created.occasion,
+        customerNotes: created.customerNotes,
+        customerPreferences: created.customerPreferences,
+        preferredZone: created.preferredZone,
+        allergyNotes: created.allergyNotes,
       });
     }
 
@@ -916,6 +936,13 @@ export class ReservationsService {
         notifyBySms: reservation.notifyBySms,
         notificationLocale: reservation.notificationLocale,
         manageToken: reservation.manageToken,
+        adultsCount: reservation.adultsCount,
+        childrenCount: reservation.childrenCount,
+        occasion: reservation.occasion,
+        customerNotes: reservation.customerNotes,
+        customerPreferences: reservation.customerPreferences,
+        preferredZone: reservation.preferredZone,
+        allergyNotes: reservation.allergyNotes,
       });
     }
 

@@ -8,8 +8,10 @@ import {
 } from '../common/sms/sms-gateway';
 import {
   getReservationNotificationCopy,
+  getReservationDetailLabels,
   normalizeReservationNotificationLocale,
   type ReservationNotificationKind,
+  type ReservationDetailLabels,
 } from './reservation-notification-copy';
 
 // Kinds where the private manage link is still actionable for the guest.
@@ -17,9 +19,33 @@ const MANAGEABLE_KINDS = new Set<ReservationNotificationKind>([
   'RECEIVED',
   'CONFIRMED',
   'REMINDER',
+  'MODIFIED',
 ]);
 
-interface NotifyInput {
+// Kinds that describe an upcoming visit, so echoing the booking details the
+// guest provided (party size, occasion, preferences, seating, notes, allergies)
+// is useful. A decline/cancel has nothing to detail. MODIFIED especially wants
+// the details block — it is the "here are your new details" confirmation.
+const DETAIL_KINDS = new Set<ReservationNotificationKind>([
+  'RECEIVED',
+  'CONFIRMED',
+  'REMINDER',
+  'MODIFIED',
+]);
+
+// Guest-provided booking details surfaced in notifications. All optional so
+// legacy/manual call paths that omit them keep the prior lean message.
+interface BookingDetailFields {
+  adultsCount?: number | null;
+  childrenCount?: number | null;
+  occasion?: string | null;
+  customerNotes?: string | null;
+  customerPreferences?: string[] | null;
+  preferredZone?: string | null;
+  allergyNotes?: string | null;
+}
+
+interface NotifyInput extends BookingDetailFields {
   restaurantId: string;
   guestEmail?: string | null;
   guestPhone?: string | null;
@@ -35,7 +61,7 @@ interface NotifyInput {
   manageToken?: string | null;
 }
 
-interface OwnerNotifyInput {
+interface OwnerNotifyInput extends BookingDetailFields {
   restaurantId: string;
   notifyEmail?: string | null;
   notifyPhone?: string | null;
@@ -138,6 +164,16 @@ export class ReservationNotificationsService {
     // like `Bar & Grill` reads correctly instead of `Bar &amp; Grill`.
     const introText = decodeEntities(stripTags(intro));
 
+    // Echo the guest-provided booking details on upcoming-visit notices. Email
+    // gets the full block; SMS carries only headcount + allergies to keep the
+    // segment count (and cost) down.
+    const details = DETAIL_KINDS.has(kind)
+      ? buildBookingDetails(
+          getReservationDetailLabels(notificationLocale),
+          input,
+        )
+      : EMPTY_DETAILS;
+
     if (wantEmail && to) {
       const html = `
       <div style="font-family:sans-serif;max-width:480px;margin:auto">
@@ -149,6 +185,7 @@ export class ReservationNotificationsService {
             input.referenceCode,
           )}</strong>
         </p>
+        ${details.htmlRows}
         ${
           manageLink
             ? `<p style="font-size:14px;margin:16px 0">
@@ -165,14 +202,18 @@ export class ReservationNotificationsService {
             : ''
         }
       </div>`;
-      const text = `${introText}\n\n${when}\n${copy.reference}: ${input.referenceCode}${
+      const detailsText = details.textLines.length
+        ? `\n\n${details.textLines.join('\n')}`
+        : '';
+      const text = `${introText}\n\n${when}\n${copy.reference}: ${input.referenceCode}${detailsText}${
         manageLink ? `\n\n${copy.manage}: ${manageLink}` : ''
       }`;
       await this.sendEmail(to, subject, html, text, `guest ${kind}`);
     }
 
     if (wantSms && phone) {
-      const body = `${restaurant.name}: ${introText} ${when}. ${copy.refShort} ${input.referenceCode}${
+      const smsDetails = details.smsExtra ? `. ${details.smsExtra}` : '';
+      const body = `${restaurant.name}: ${introText} ${when}. ${copy.refShort} ${input.referenceCode}${smsDetails}${
         manageLink ? ` ${copy.manage}: ${manageLink}` : ''
       }`;
       await this.sendSms(phone, body, `guest ${kind}`);
@@ -226,6 +267,17 @@ export class ReservationNotificationsService {
       .setZone(restaurant.timezone || 'Europe/Sofia')
       .toFormat('cccc, dd LLL yyyy HH:mm');
 
+    // Owner copy stays English (matches the existing owner subject/body). The
+    // headcount is already on the summary line, so skip the guests row here and
+    // append only occasion/preferences/seating/notes/allergies.
+    const details = buildBookingDetails(
+      getReservationDetailLabels('en'),
+      input,
+      {
+        includeGuests: false,
+      },
+    );
+
     if (email) {
       const subject = `New reservation request — ${input.guestName} (${input.partySize})`;
       const html = `
@@ -238,13 +290,18 @@ export class ReservationNotificationsService {
           ${escapeHtml(input.guestPhone)}<br/>
           Reference: <strong>${escapeHtml(input.referenceCode)}</strong>
         </p>
+        ${details.htmlRows}
       </div>`;
-      const text = `New reservation: ${input.guestName} (${input.partySize})\n${when}\n${input.guestPhone}\nReference: ${input.referenceCode}`;
+      const detailsText = details.textLines.length
+        ? `\n${details.textLines.join('\n')}`
+        : '';
+      const text = `New reservation: ${input.guestName} (${input.partySize})\n${when}\n${input.guestPhone}\nReference: ${input.referenceCode}${detailsText}`;
       await this.sendEmail(email, subject, html, text, 'owner new-booking');
     }
 
     if (phone) {
-      const body = `New booking: ${input.guestName} (${input.partySize}) ${when}. ${input.guestPhone}. Ref ${input.referenceCode}`;
+      const smsDetails = details.smsExtra ? `. ${details.smsExtra}` : '';
+      const body = `New booking: ${input.guestName} (${input.partySize}) ${when}. ${input.guestPhone}. Ref ${input.referenceCode}${smsDetails}`;
       await this.sendSms(phone, body, 'owner new-booking');
     }
   }
@@ -404,6 +461,85 @@ function fillTemplate(
 
 function stripTags(html: string): string {
   return html.replace(/<[^>]+>/g, '');
+}
+
+interface RenderedBookingDetails {
+  htmlRows: string;
+  textLines: string[];
+  // SMS carries only the safety/ops-critical facts (headcount + allergies).
+  smsExtra: string;
+}
+
+const EMPTY_DETAILS: RenderedBookingDetails = {
+  htmlRows: '',
+  textLines: [],
+  smsExtra: '',
+};
+
+/**
+ * Turn the guest-provided booking fields into the three channel renderings.
+ * Counts are labelled (`Adults: 3`) rather than inflected into the noun, so no
+ * locale needs plural handling. `includeGuests: false` is used for the owner
+ * message, whose summary line already shows the headcount.
+ */
+function buildBookingDetails(
+  labels: ReservationDetailLabels,
+  d: BookingDetailFields,
+  opts: { includeGuests?: boolean } = {},
+): RenderedBookingDetails {
+  const includeGuests = opts.includeGuests !== false;
+  const textLines: string[] = [];
+  const htmlParts: string[] = [];
+  const push = (label: string, value: string): void => {
+    textLines.push(`${label}: ${value}`);
+    htmlParts.push(
+      `<strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}`,
+    );
+  };
+
+  const adults = typeof d.adultsCount === 'number' ? d.adultsCount : null;
+  const children = typeof d.childrenCount === 'number' ? d.childrenCount : 0;
+  const partySize = adults !== null ? adults + children : null;
+
+  if (includeGuests && partySize !== null) {
+    const counts = [`${labels.adults}: ${adults}`];
+    if (children > 0) counts.push(`${labels.children}: ${children}`);
+    push(labels.guests, `${partySize} (${counts.join(', ')})`);
+  }
+
+  if (d.occasion && d.occasion !== 'NONE') {
+    const occLabel =
+      labels.occasions[d.occasion as keyof typeof labels.occasions];
+    if (occLabel) push(labels.occasion, occLabel);
+  }
+
+  const prefs = (d.customerPreferences ?? []).filter(
+    (p): p is string => !!p && p.trim().length > 0,
+  );
+  if (prefs.length) push(labels.preferences, prefs.join(', '));
+
+  const zone = d.preferredZone?.trim();
+  if (zone) push(labels.seating, zone);
+
+  const notes = d.customerNotes?.trim();
+  if (notes) push(labels.notes, notes);
+
+  const allergies = d.allergyNotes?.trim();
+  if (allergies) push(labels.allergies, allergies);
+
+  const smsBits: string[] = [];
+  if (includeGuests && partySize !== null) {
+    smsBits.push(`${labels.guests}: ${partySize}`);
+  }
+  if (allergies) smsBits.push(`${labels.allergies}: ${allergies}`);
+
+  return {
+    htmlRows: htmlParts.length
+      ? `<p style="font-size:14px;color:#555">${htmlParts.join('<br/>')}</p>`
+      : '',
+    textLines,
+    smsExtra: smsBits.join('. '),
+  };
 }
 
 // Reverse escapeHtml for the plain-text/SMS channels. `&amp;` is decoded LAST so

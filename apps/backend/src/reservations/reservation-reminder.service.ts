@@ -56,6 +56,13 @@ export class ReservationReminderService {
         notifyBySms: true,
         notificationLocale: true,
         manageToken: true,
+        adultsCount: true,
+        childrenCount: true,
+        occasion: true,
+        customerNotes: true,
+        customerPreferences: true,
+        preferredZone: true,
+        allergyNotes: true,
       },
       take: REMINDER_BATCH,
     });
@@ -83,6 +90,13 @@ export class ReservationReminderService {
         notifyBySms: r.notifyBySms,
         notificationLocale: r.notificationLocale,
         manageToken: r.manageToken,
+        adultsCount: r.adultsCount,
+        childrenCount: r.childrenCount,
+        occasion: r.occasion,
+        customerNotes: r.customerNotes,
+        customerPreferences: r.customerPreferences,
+        preferredZone: r.preferredZone,
+        allergyNotes: r.allergyNotes,
       });
     }
 

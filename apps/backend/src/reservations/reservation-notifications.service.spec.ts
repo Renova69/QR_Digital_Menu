@@ -20,6 +20,28 @@ describe('ReservationNotificationsService', () => {
     manageToken: 'manage-secret',
   };
 
+  // A booking carrying every guest-provided detail, for the enriched-content
+  // tests below.
+  const detailedGuestInput = {
+    restaurantId: 'rest-1',
+    guestEmail: 'guest@example.com',
+    guestPhone: '+359000000000',
+    guestName: 'Guest',
+    startsAt: new Date('2030-01-01T18:00:00Z'),
+    referenceCode: 'REQ789',
+    notificationLocale: 'en',
+    notifyByEmail: true,
+    notifyBySms: true,
+    manageToken: 'manage-secret',
+    adultsCount: 3,
+    childrenCount: 1,
+    occasion: 'BIRTHDAY',
+    customerPreferences: ['Window seat', 'Quiet area'],
+    preferredZone: 'Terrace',
+    customerNotes: 'High chair please',
+    allergyNotes: 'Peanut allergy',
+  };
+
   let service: ReservationNotificationsService;
 
   beforeEach(() => {
@@ -182,6 +204,102 @@ describe('ReservationNotificationsService', () => {
     );
     expect(JSON.stringify(error.mock.calls)).not.toContain('+359000000000');
     expect(JSON.stringify(error.mock.calls)).not.toContain('REQ789');
+  });
+
+  it('includes all guest-provided details in the guest email', async () => {
+    const sendEmail = jest
+      .spyOn(service as any, 'sendEmail')
+      .mockResolvedValue(undefined);
+
+    await (service as any).send('CONFIRMED', {
+      ...detailedGuestInput,
+      notifyBySms: false,
+    });
+
+    const [, , html, text] = sendEmail.mock.calls[0];
+    for (const needle of [
+      'Guests',
+      '4',
+      'Adults',
+      'Children',
+      'Occasion',
+      'Birthday',
+      'Window seat',
+      'Quiet area',
+      'Terrace',
+      'High chair please',
+      'Peanut allergy',
+    ]) {
+      expect(text).toContain(needle);
+      expect(html).toContain(needle);
+    }
+  });
+
+  it('keeps the guest SMS to headcount + allergies only', async () => {
+    const sendSms = jest
+      .spyOn(service as any, 'sendSms')
+      .mockResolvedValue(undefined);
+
+    await (service as any).send('CONFIRMED', {
+      ...detailedGuestInput,
+      notifyByEmail: false,
+    });
+
+    const [, body] = sendSms.mock.calls[0];
+    expect(body).toContain('Guests: 4');
+    expect(body).toContain('Peanut allergy');
+    // Non-critical detail stays out of the SMS to control segment count.
+    expect(body).not.toContain('Birthday');
+    expect(body).not.toContain('Window seat');
+  });
+
+  it('renders a distinct "updated" notice for a guest modification', async () => {
+    const sendEmail = jest
+      .spyOn(service as any, 'sendEmail')
+      .mockResolvedValue(undefined);
+
+    await (service as any).send('MODIFIED', {
+      ...detailedGuestInput,
+      notifyBySms: false,
+    });
+
+    const [, subject, html, text] = sendEmail.mock.calls[0];
+    expect(subject).toBe('Reservation updated — Ресторант Тест');
+    expect(html).toContain('has been <strong>updated</strong>');
+    expect(text).toContain('Guests: 4');
+  });
+
+  it('enriches the owner notification with details and allergies in SMS', async () => {
+    const sendEmail = jest
+      .spyOn(service as any, 'sendEmail')
+      .mockResolvedValue(undefined);
+    const sendSms = jest
+      .spyOn(service as any, 'sendSms')
+      .mockResolvedValue(undefined);
+
+    await (service as any).sendOwner({
+      restaurantId: 'rest-1',
+      notifyEmail: 'owner@example.com',
+      notifyPhone: '+359111111111',
+      guestName: 'Guest',
+      guestPhone: '+359000000000',
+      startsAt: new Date('2030-01-01T18:00:00Z'),
+      partySize: 4,
+      referenceCode: 'REQ789',
+      adultsCount: 3,
+      childrenCount: 1,
+      occasion: 'BIRTHDAY',
+      customerPreferences: ['Window seat'],
+      preferredZone: 'Terrace',
+      customerNotes: 'High chair',
+      allergyNotes: 'Peanut allergy',
+    });
+
+    const ownerHtml = sendEmail.mock.calls[0][2];
+    expect(ownerHtml).toContain('Birthday');
+    expect(ownerHtml).toContain('Peanut allergy');
+    const ownerSms = sendSms.mock.calls[0][1];
+    expect(ownerSms).toContain('Peanut allergy');
   });
 
   it('reports missing production sender configuration without logging guest PII', async () => {

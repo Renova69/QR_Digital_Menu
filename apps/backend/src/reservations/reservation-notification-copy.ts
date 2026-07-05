@@ -5,7 +5,8 @@ export type ReservationNotificationKind =
   | 'CONFIRMED'
   | 'DECLINED'
   | 'CANCELLED'
-  | 'REMINDER';
+  | 'REMINDER'
+  | 'MODIFIED';
 
 export type ReservationNotificationLocale =
   (typeof SUPPORTED_TARGET_LANGUAGE_CODES)[number];
@@ -27,6 +28,7 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
       DECLINED: 'Reservation update — {restaurant}',
       CANCELLED: 'Reservation cancelled — {restaurant}',
       REMINDER: 'Reminder: your reservation tomorrow — {restaurant}',
+      MODIFIED: 'Reservation updated — {restaurant}',
     },
     messages: {
       RECEIVED:
@@ -39,6 +41,8 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
         'Hi {name}, your reservation at <strong>{restaurant}</strong> has been <strong>cancelled</strong>. If this is unexpected, please contact us.',
       REMINDER:
         'Hi {name}, this is a reminder of your reservation at <strong>{restaurant}</strong>. We look forward to seeing you!',
+      MODIFIED:
+        'Hi {name}, your reservation at <strong>{restaurant}</strong> has been <strong>updated</strong>. Here are your new details:',
     },
     reference: 'Reference',
     refShort: 'Ref',
@@ -53,6 +57,7 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
       DECLINED: 'Промяна по резервацията — {restaurant}',
       CANCELLED: 'Резервацията е отменена — {restaurant}',
       REMINDER: 'Напомняне: резервацията ви е утре — {restaurant}',
+      MODIFIED: 'Резервацията е променена — {restaurant}',
     },
     messages: {
       RECEIVED:
@@ -65,6 +70,8 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
         'Здравейте, {name}. Резервацията ви в <strong>{restaurant}</strong> е <strong>отменена</strong>. Ако това е неочаквано, свържете се с нас.',
       REMINDER:
         'Здравейте, {name}. Напомняме ви за резервацията ви в <strong>{restaurant}</strong>. Очакваме ви!',
+      MODIFIED:
+        'Здравейте, {name}. Вашата резервация в <strong>{restaurant}</strong> беше <strong>променена</strong>. Ето новите данни:',
     },
     reference: 'Референтен номер',
     refShort: 'Реф.',
@@ -79,6 +86,7 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
       DECLINED: 'Reservierungsaktualisierung — {restaurant}',
       CANCELLED: 'Reservierung storniert — {restaurant}',
       REMINDER: 'Erinnerung: Ihre Reservierung ist morgen — {restaurant}',
+      MODIFIED: 'Reservierung aktualisiert — {restaurant}',
     },
     messages: {
       RECEIVED:
@@ -91,6 +99,8 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
         'Hallo {name}, Ihre Reservierung bei <strong>{restaurant}</strong> wurde <strong>storniert</strong>. Falls dies unerwartet ist, kontaktieren Sie uns bitte.',
       REMINDER:
         'Hallo {name}, dies ist eine Erinnerung an Ihre Reservierung bei <strong>{restaurant}</strong>. Wir freuen uns auf Ihren Besuch!',
+      MODIFIED:
+        'Hallo {name}, Ihre Reservierung bei <strong>{restaurant}</strong> wurde <strong>aktualisiert</strong>. Hier sind Ihre neuen Details:',
     },
     reference: 'Referenz',
     refShort: 'Ref.',
@@ -105,6 +115,7 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
       DECLINED: 'Actualización de la reserva — {restaurant}',
       CANCELLED: 'Reserva cancelada — {restaurant}',
       REMINDER: 'Recordatorio: tu reserva es mañana — {restaurant}',
+      MODIFIED: 'Reserva actualizada — {restaurant}',
     },
     messages: {
       RECEIVED:
@@ -117,6 +128,8 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
         'Hola {name}, tu reserva en <strong>{restaurant}</strong> ha sido <strong>cancelada</strong>. Si no lo esperabas, contáctanos.',
       REMINDER:
         'Hola {name}, te recordamos tu reserva en <strong>{restaurant}</strong>. ¡Te esperamos!',
+      MODIFIED:
+        'Hola {name}, tu reserva en <strong>{restaurant}</strong> ha sido <strong>actualizada</strong>. Estos son tus nuevos datos:',
     },
     reference: 'Referencia',
     refShort: 'Ref.',
@@ -131,6 +144,7 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
       DECLINED: 'Mise à jour de la réservation — {restaurant}',
       CANCELLED: 'Réservation annulée — {restaurant}',
       REMINDER: 'Rappel : votre réservation est demain — {restaurant}',
+      MODIFIED: 'Réservation modifiée — {restaurant}',
     },
     messages: {
       RECEIVED:
@@ -143,6 +157,8 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
         'Bonjour {name}, votre réservation chez <strong>{restaurant}</strong> a été <strong>annulée</strong>. Si cela est inattendu, contactez-nous.',
       REMINDER:
         'Bonjour {name}, voici un rappel de votre réservation chez <strong>{restaurant}</strong>. Nous avons hâte de vous accueillir !',
+      MODIFIED:
+        'Bonjour {name}, votre réservation chez <strong>{restaurant}</strong> a été <strong>modifiée</strong>. Voici vos nouvelles informations :',
     },
     reference: 'Référence',
     refShort: 'Réf.',
@@ -157,6 +173,7 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
       DECLINED: 'Aggiornamento della prenotazione — {restaurant}',
       CANCELLED: 'Prenotazione cancellata — {restaurant}',
       REMINDER: 'Promemoria: la tua prenotazione è domani — {restaurant}',
+      MODIFIED: 'Prenotazione aggiornata — {restaurant}',
     },
     messages: {
       RECEIVED:
@@ -169,6 +186,8 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
         'Ciao {name}, la tua prenotazione presso <strong>{restaurant}</strong> è stata <strong>cancellata</strong>. Se non te lo aspettavi, contattaci.',
       REMINDER:
         'Ciao {name}, questo è un promemoria per la tua prenotazione presso <strong>{restaurant}</strong>. Ti aspettiamo!',
+      MODIFIED:
+        'Ciao {name}, la tua prenotazione presso <strong>{restaurant}</strong> è stata <strong>aggiornata</strong>. Ecco i tuoi nuovi dettagli:',
     },
     reference: 'Riferimento',
     refShort: 'Rif.',
@@ -183,6 +202,7 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
       DECLINED: 'Actualizare rezervare — {restaurant}',
       CANCELLED: 'Rezervare anulată — {restaurant}',
       REMINDER: 'Memento: rezervarea ta este mâine — {restaurant}',
+      MODIFIED: 'Rezervare actualizată — {restaurant}',
     },
     messages: {
       RECEIVED:
@@ -195,6 +215,8 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
         'Bună, {name}. Rezervarea ta la <strong>{restaurant}</strong> a fost <strong>anulată</strong>. Dacă nu te așteptai la aceasta, contactează-ne.',
       REMINDER:
         'Bună, {name}. Îți reamintim de rezervarea ta la <strong>{restaurant}</strong>. Te așteptăm!',
+      MODIFIED:
+        'Bună, {name}. Rezervarea ta la <strong>{restaurant}</strong> a fost <strong>actualizată</strong>. Iată noile detalii:',
     },
     reference: 'Referință',
     refShort: 'Ref.',
@@ -209,6 +231,7 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
       DECLINED: '预订状态更新 — {restaurant}',
       CANCELLED: '预订已取消 — {restaurant}',
       REMINDER: '提醒：您的预订在明天 — {restaurant}',
+      MODIFIED: '预订已更新 — {restaurant}',
     },
     messages: {
       RECEIVED:
@@ -221,6 +244,8 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
         '您好，{name}。您在 <strong>{restaurant}</strong> 的预订已<strong>取消</strong>。如果这并非您的预期，请联系我们。',
       REMINDER:
         '您好，{name}。提醒您在 <strong>{restaurant}</strong> 的预订。期待您的光临！',
+      MODIFIED:
+        '您好，{name}。您在 <strong>{restaurant}</strong> 的预订已<strong>更新</strong>。以下是您的最新信息：',
     },
     reference: '预订编号',
     refShort: '编号',
@@ -234,6 +259,7 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
       DECLINED: 'Ενημέρωση κράτησης — {restaurant}',
       CANCELLED: 'Η κράτηση ακυρώθηκε — {restaurant}',
       REMINDER: 'Υπενθύμιση: η κράτησή σας είναι αύριο — {restaurant}',
+      MODIFIED: 'Η κράτηση ενημερώθηκε — {restaurant}',
     },
     messages: {
       RECEIVED:
@@ -246,6 +272,8 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
         'Γεια σας {name}, η κράτησή σας στο <strong>{restaurant}</strong> έχει <strong>ακυρωθεί</strong>. Αν αυτό είναι απρόσμενο, επικοινωνήστε μαζί μας.',
       REMINDER:
         'Γεια σας {name}, σας υπενθυμίζουμε την κράτησή σας στο <strong>{restaurant}</strong>. Σας περιμένουμε!',
+      MODIFIED:
+        'Γεια σας {name}, η κράτησή σας στο <strong>{restaurant}</strong> <strong>ενημερώθηκε</strong>. Τα νέα σας στοιχεία:',
     },
     reference: 'Αριθμός αναφοράς',
     refShort: 'Αρ.',
@@ -260,6 +288,7 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
       DECLINED: '予約状況のお知らせ — {restaurant}',
       CANCELLED: '予約がキャンセルされました — {restaurant}',
       REMINDER: '明日のご予約のお知らせ — {restaurant}',
+      MODIFIED: 'ご予約内容を更新しました — {restaurant}',
     },
     messages: {
       RECEIVED:
@@ -272,6 +301,8 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
         '{name} 様、<strong>{restaurant}</strong> へのご予約は<strong>キャンセルされました</strong>。お心当たりがない場合は店舗へお問い合わせください。',
       REMINDER:
         '{name} 様、<strong>{restaurant}</strong> へのご予約のお知らせです。ご来店をお待ちしております。',
+      MODIFIED:
+        '{name} 様、<strong>{restaurant}</strong> へのご予約内容を<strong>更新しました</strong>。新しい内容は次のとおりです：',
     },
     reference: '予約番号',
     refShort: '番号',
@@ -286,6 +317,7 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
       DECLINED: 'Обновление бронирования — {restaurant}',
       CANCELLED: 'Бронирование отменено — {restaurant}',
       REMINDER: 'Напоминание: ваше бронирование завтра — {restaurant}',
+      MODIFIED: 'Бронирование обновлено — {restaurant}',
     },
     messages: {
       RECEIVED:
@@ -298,6 +330,8 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
         'Здравствуйте, {name}. Ваше бронирование в <strong>{restaurant}</strong> <strong>отменено</strong>. Если это произошло неожиданно, свяжитесь с нами.',
       REMINDER:
         'Здравствуйте, {name}. Напоминаем о вашем бронировании в <strong>{restaurant}</strong>. Ждём вас!',
+      MODIFIED:
+        'Здравствуйте, {name}. Ваше бронирование в <strong>{restaurant}</strong> было <strong>обновлено</strong>. Ваши новые данные:',
     },
     reference: 'Номер брони',
     refShort: '№',
@@ -312,6 +346,7 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
       DECLINED: 'تحديث الحجز — {restaurant}',
       CANCELLED: 'تم إلغاء الحجز — {restaurant}',
       REMINDER: 'تذكير: حجزك غداً — {restaurant}',
+      MODIFIED: 'تم تحديث الحجز — {restaurant}',
     },
     messages: {
       RECEIVED:
@@ -324,6 +359,8 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
         'مرحباً {name}، تم <strong>إلغاء</strong> حجزك لدى <strong>{restaurant}</strong>. إذا لم تكن تتوقع ذلك، فتواصل معنا.',
       REMINDER:
         'مرحباً {name}، نذكّرك بحجزك لدى <strong>{restaurant}</strong>. نتطلع لاستقبالك!',
+      MODIFIED:
+        'مرحباً {name}، تم <strong>تحديث</strong> حجزك لدى <strong>{restaurant}</strong>. إليك بياناتك الجديدة:',
     },
     reference: 'المرجع',
     refShort: 'المرجع',
@@ -332,6 +369,244 @@ const COPY: Record<ReservationNotificationLocale, NotificationCopy> = {
       'استخدم هذا الرابط الخاص لتغيير الوقت أو عدد الضيوف أو إلغاء الحجز.',
   },
 };
+
+// ── Booking-detail labels (party size, occasion, preferences, seating, notes,
+// allergies). Kept in a separate map so the lifecycle COPY above stays a clean
+// diff. Occasion values mirror the Prisma `ReservationOccasion` enum (NONE is
+// never rendered). Counts are labelled (`Adults: 3`) rather than inflected into
+// the noun so no locale needs plural-form handling.
+export type ReservationOccasionKey =
+  | 'BIRTHDAY'
+  | 'ANNIVERSARY'
+  | 'BUSINESS'
+  | 'FAMILY'
+  | 'OTHER';
+
+export interface ReservationDetailLabels {
+  guests: string;
+  adults: string;
+  children: string;
+  occasion: string;
+  preferences: string;
+  seating: string;
+  notes: string;
+  allergies: string;
+  occasions: Record<ReservationOccasionKey, string>;
+}
+
+const DETAILS: Record<ReservationNotificationLocale, ReservationDetailLabels> =
+  {
+    en: {
+      guests: 'Guests',
+      adults: 'Adults',
+      children: 'Children',
+      occasion: 'Occasion',
+      preferences: 'Preferences',
+      seating: 'Preferred area',
+      notes: 'Notes',
+      allergies: 'Allergies / dietary',
+      occasions: {
+        BIRTHDAY: 'Birthday',
+        ANNIVERSARY: 'Anniversary',
+        BUSINESS: 'Business',
+        FAMILY: 'Family',
+        OTHER: 'Other',
+      },
+    },
+    bg: {
+      guests: 'Гости',
+      adults: 'Възрастни',
+      children: 'Деца',
+      occasion: 'Повод',
+      preferences: 'Предпочитания',
+      seating: 'Предпочитана зона',
+      notes: 'Бележки',
+      allergies: 'Алергии / диета',
+      occasions: {
+        BIRTHDAY: 'Рожден ден',
+        ANNIVERSARY: 'Годишнина',
+        BUSINESS: 'Бизнес',
+        FAMILY: 'Семейство',
+        OTHER: 'Друго',
+      },
+    },
+    de: {
+      guests: 'Gäste',
+      adults: 'Erwachsene',
+      children: 'Kinder',
+      occasion: 'Anlass',
+      preferences: 'Präferenzen',
+      seating: 'Bevorzugter Bereich',
+      notes: 'Anmerkungen',
+      allergies: 'Allergien / Ernährung',
+      occasions: {
+        BIRTHDAY: 'Geburtstag',
+        ANNIVERSARY: 'Jahrestag',
+        BUSINESS: 'Geschäftlich',
+        FAMILY: 'Familie',
+        OTHER: 'Sonstiges',
+      },
+    },
+    es: {
+      guests: 'Comensales',
+      adults: 'Adultos',
+      children: 'Niños',
+      occasion: 'Ocasión',
+      preferences: 'Preferencias',
+      seating: 'Zona preferida',
+      notes: 'Notas',
+      allergies: 'Alergias / dieta',
+      occasions: {
+        BIRTHDAY: 'Cumpleaños',
+        ANNIVERSARY: 'Aniversario',
+        BUSINESS: 'Negocios',
+        FAMILY: 'Familia',
+        OTHER: 'Otro',
+      },
+    },
+    fr: {
+      guests: 'Convives',
+      adults: 'Adultes',
+      children: 'Enfants',
+      occasion: 'Occasion',
+      preferences: 'Préférences',
+      seating: 'Zone préférée',
+      notes: 'Remarques',
+      allergies: 'Allergies / régime',
+      occasions: {
+        BIRTHDAY: 'Anniversaire',
+        ANNIVERSARY: 'Anniversaire de mariage',
+        BUSINESS: 'Affaires',
+        FAMILY: 'Famille',
+        OTHER: 'Autre',
+      },
+    },
+    it: {
+      guests: 'Ospiti',
+      adults: 'Adulti',
+      children: 'Bambini',
+      occasion: 'Occasione',
+      preferences: 'Preferenze',
+      seating: 'Zona preferita',
+      notes: 'Note',
+      allergies: 'Allergie / dieta',
+      occasions: {
+        BIRTHDAY: 'Compleanno',
+        ANNIVERSARY: 'Anniversario',
+        BUSINESS: 'Lavoro',
+        FAMILY: 'Famiglia',
+        OTHER: 'Altro',
+      },
+    },
+    ro: {
+      guests: 'Oaspeți',
+      adults: 'Adulți',
+      children: 'Copii',
+      occasion: 'Ocazie',
+      preferences: 'Preferințe',
+      seating: 'Zonă preferată',
+      notes: 'Observații',
+      allergies: 'Alergii / dietă',
+      occasions: {
+        BIRTHDAY: 'Zi de naștere',
+        ANNIVERSARY: 'Aniversare',
+        BUSINESS: 'Afaceri',
+        FAMILY: 'Familie',
+        OTHER: 'Altele',
+      },
+    },
+    zh: {
+      guests: '客人',
+      adults: '成人',
+      children: '儿童',
+      occasion: '场合',
+      preferences: '偏好',
+      seating: '偏好区域',
+      notes: '备注',
+      allergies: '过敏 / 饮食',
+      occasions: {
+        BIRTHDAY: '生日',
+        ANNIVERSARY: '纪念日',
+        BUSINESS: '商务',
+        FAMILY: '家庭',
+        OTHER: '其他',
+      },
+    },
+    el: {
+      guests: 'Άτομα',
+      adults: 'Ενήλικες',
+      children: 'Παιδιά',
+      occasion: 'Περίσταση',
+      preferences: 'Προτιμήσεις',
+      seating: 'Προτιμώμενη ζώνη',
+      notes: 'Σημειώσεις',
+      allergies: 'Αλλεργίες / διατροφή',
+      occasions: {
+        BIRTHDAY: 'Γενέθλια',
+        ANNIVERSARY: 'Επέτειος',
+        BUSINESS: 'Επαγγελματικό',
+        FAMILY: 'Οικογένεια',
+        OTHER: 'Άλλο',
+      },
+    },
+    ja: {
+      guests: '人数',
+      adults: '大人',
+      children: '子供',
+      occasion: 'ご利用シーン',
+      preferences: 'ご希望',
+      seating: '希望エリア',
+      notes: '備考',
+      allergies: 'アレルギー / 食事制限',
+      occasions: {
+        BIRTHDAY: '誕生日',
+        ANNIVERSARY: '記念日',
+        BUSINESS: 'ビジネス',
+        FAMILY: '家族',
+        OTHER: 'その他',
+      },
+    },
+    ru: {
+      guests: 'Гости',
+      adults: 'Взрослые',
+      children: 'Дети',
+      occasion: 'Повод',
+      preferences: 'Предпочтения',
+      seating: 'Предпочтительная зона',
+      notes: 'Примечания',
+      allergies: 'Аллергии / питание',
+      occasions: {
+        BIRTHDAY: 'День рождения',
+        ANNIVERSARY: 'Годовщина',
+        BUSINESS: 'Деловая встреча',
+        FAMILY: 'Семья',
+        OTHER: 'Другое',
+      },
+    },
+    ar: {
+      guests: 'الضيوف',
+      adults: 'البالغون',
+      children: 'الأطفال',
+      occasion: 'المناسبة',
+      preferences: 'التفضيلات',
+      seating: 'المنطقة المفضلة',
+      notes: 'ملاحظات',
+      allergies: 'الحساسية / النظام الغذائي',
+      occasions: {
+        BIRTHDAY: 'عيد ميلاد',
+        ANNIVERSARY: 'ذكرى سنوية',
+        BUSINESS: 'عمل',
+        FAMILY: 'عائلة',
+        OTHER: 'أخرى',
+      },
+    },
+  };
+
+export function getReservationDetailLabels(
+  locale: string | null | undefined,
+): ReservationDetailLabels {
+  return DETAILS[normalizeReservationNotificationLocale(locale)];
+}
 
 export function normalizeReservationNotificationLocale(
   locale: string | null | undefined,
