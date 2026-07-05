@@ -59,12 +59,16 @@ export default defineConfig(({ mode }) => {
             if (id.includes("@radix-ui")) return "radix";
             if (id.includes("react-router") || id.includes("@tanstack"))
               return "router-query";
-            if (
-              id.includes("/react/") ||
-              id.includes("/react-dom/") ||
-              id.includes("/scheduler/")
-            )
-              return "react";
+            // React core, react-dom and scheduler stay in `vendor` alongside
+            // React-consuming libs (react-i18next, etc.). A dedicated `react`
+            // chunk created a circular chunk import: react-i18next (in `vendor`)
+            // evaluates `React.createContext()` at module top-level, while the
+            // `react` chunk in turn imported shared helpers back from `vendor`.
+            // On the cyclic init the vendor chunk ran first, so `React` was
+            // still undefined → "Cannot read properties of undefined (reading
+            // 'createContext')" and a blank prod page. Dev (unbundled ESM) never
+            // hit the cycle. Keeping React in `vendor` makes every other split
+            // chunk a one-way leaf importer of React — no cycle possible.
             return "vendor";
           },
         },
