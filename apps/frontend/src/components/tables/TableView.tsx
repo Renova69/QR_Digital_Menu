@@ -703,7 +703,10 @@ const TableView: React.FC = () => {
                             onClick={() => {
                               if (
                                 window.confirm(
-                                  "Delete this zone? Tables in it will become unassigned.",
+                                  t(
+                                    "zonesPicker.deleteConfirm",
+                                    "Delete this zone? Any tables in it will be moved to the default zone.",
+                                  ),
                                 )
                               ) {
                                 deleteZoneMutation.mutate(zone.id);

@@ -818,7 +818,7 @@ const BookingPage = () => {
                   key={a}
                   className="text-xs rounded-full px-2.5 py-1 bk-card"
                 >
-                  {a}
+                  {t(`menuTags.${a.toLowerCase()}`, a)}
                 </span>
               ))}
             </div>
