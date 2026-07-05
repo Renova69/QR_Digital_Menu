@@ -2,6 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { DateTime } from 'luxon';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  smsProvider,
+  smsGatewayConfigured,
+  sendViaSmsGateway,
+} from '../common/sms/sms-gateway';
+import {
   getReservationNotificationCopy,
   normalizeReservationNotificationLocale,
   type ReservationNotificationKind,
@@ -291,11 +296,33 @@ export class ReservationNotificationsService {
     const token = process.env.TWILIO_AUTH_TOKEN;
     const from = process.env.TWILIO_FROM_NUMBER;
     const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
+    // Dev normally dev-logs instead of sending. Set SMS_FORCE_SEND=true to
+    // actually deliver locally (for testing a real SIM-gateway send).
     const isDev = process.env.NODE_ENV !== 'production';
-    if (isDev) {
+    const forceSend = process.env.SMS_FORCE_SEND === 'true';
+    if (isDev && !forceSend) {
       this.logger.log(`[dev] Reservation ${context} SMS to ${to}: ${body}`);
       return;
     }
+
+    // SIM SMS gateway (capcom6) path — active when SMS_PROVIDER=smsgateway.
+    // Twilio config below is left untouched so switching back is a flag flip.
+    if (smsProvider() === 'smsgateway') {
+      if (!smsGatewayConfigured()) {
+        this.logger.error(
+          'Reservation SMS disabled in production: missing SMS_GATEWAY_USERNAME or SMS_GATEWAY_PASSWORD',
+        );
+        return;
+      }
+      const result = await sendViaSmsGateway(to, body);
+      if (!result.ok) {
+        this.logger.error(
+          `SMS gateway reservation SMS failed (${result.status}): ${result.detail.slice(0, 200)}`,
+        );
+      }
+      return;
+    }
+
     if (!sid || !token || (!from && !messagingServiceSid)) {
       const missing = [
         !sid ? 'TWILIO_ACCOUNT_SID' : null,

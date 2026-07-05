@@ -46,6 +46,13 @@ describe('AuthService', () => {
     mockCompare.mockImplementation(real.compare);
     mockHash.mockImplementation(real.hash);
 
+    // Hermetic OTP provider baseline — a developer's local .env
+    // (SMS_PROVIDER=smsgateway) must not flip the default Twilio Verify path.
+    delete process.env.SMS_PROVIDER;
+    delete process.env.SMS_GATEWAY_USERNAME;
+    delete process.env.SMS_GATEWAY_PASSWORD;
+    delete process.env.SMS_GATEWAY_URL;
+
     mockPrisma = {
       verificationToken: {
         findFirst: jest.fn(),
@@ -926,6 +933,106 @@ describe('AuthService', () => {
         'rest1',
       );
       expect(result.success).toBe(true);
+    });
+  });
+
+  // ─── phone OTP via SIM SMS gateway (SMS_PROVIDER=smsgateway) ─────────────────
+
+  describe('phone OTP via SIM SMS gateway', () => {
+    const savedEnv = {
+      provider: process.env.SMS_PROVIDER,
+      user: process.env.SMS_GATEWAY_USERNAME,
+      pass: process.env.SMS_GATEWAY_PASSWORD,
+    };
+
+    beforeEach(() => {
+      process.env.SMS_PROVIDER = 'smsgateway';
+      process.env.SMS_GATEWAY_USERNAME = 'device-user';
+      process.env.SMS_GATEWAY_PASSWORD = 'device-pass';
+    });
+
+    afterEach(() => {
+      if (savedEnv.provider === undefined) delete process.env.SMS_PROVIDER;
+      else process.env.SMS_PROVIDER = savedEnv.provider;
+      if (savedEnv.user === undefined) delete process.env.SMS_GATEWAY_USERNAME;
+      else process.env.SMS_GATEWAY_USERNAME = savedEnv.user;
+      if (savedEnv.pass === undefined) delete process.env.SMS_GATEWAY_PASSWORD;
+      else process.env.SMS_GATEWAY_PASSWORD = savedEnv.pass;
+    });
+
+    it('sends a locally-generated code through the gateway and stores its hash', async () => {
+      mockPrisma.verificationToken.findFirst.mockResolvedValue(null); // no cooldown
+      mockHash.mockResolvedValue('hashed-code');
+      const fetchMock = jest
+        .spyOn(global, 'fetch')
+        .mockResolvedValue({ ok: true, status: 202 } as Response);
+      // Earlier email tests leave an unrestored fetch spy; jest.spyOn returns
+      // that same mock with its retained call count — clear before asserting.
+      fetchMock.mockClear();
+
+      const result = await service.sendOtp(undefined, '+359888123456');
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0][0]).toBe(
+        'https://api.sms-gate.app/3rdparty/v1/message',
+      );
+      expect(mockPrisma.verificationToken.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            email: '+359888123456',
+            code: 'hashed-code',
+          }),
+        }),
+      );
+      expect(result).toEqual(
+        expect.objectContaining({ success: true, channel: 'sms' }),
+      );
+    });
+
+    it('does not persist a code and surfaces a client error when the gateway rejects the number', async () => {
+      mockPrisma.verificationToken.findFirst.mockResolvedValue(null);
+      mockHash.mockResolvedValue('hashed-code');
+      jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: false,
+        status: 400,
+        text: () => Promise.resolve('bad number'),
+      } as Response);
+
+      await expect(service.sendOtp(undefined, '+359888123456')).rejects.toThrow(
+        HttpException,
+      );
+      expect(mockPrisma.verificationToken.create).not.toHaveBeenCalled();
+    });
+
+    it('verifies a gateway-issued code against the DB (no Twilio Verify call)', async () => {
+      const verifyTwilio = jest.spyOn(service as any, 'verifyTwilioOtp');
+      mockPrisma.verificationToken.findFirst.mockResolvedValue({
+        id: 'tok-1',
+        email: '+359888123456',
+        code: 'stored-hash',
+        usedAt: null,
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      mockCompare.mockResolvedValueOnce(true);
+      mockUsersService.findByPhone.mockResolvedValue(
+        makeUser({ role: 'CUSTOMER', phone: '+359888123456' }),
+      );
+
+      const result = await service.verifyOtp(
+        undefined,
+        '123456',
+        '+359888123456',
+      );
+
+      expect(verifyTwilio).not.toHaveBeenCalled();
+      expect(mockPrisma.verificationToken.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'tok-1' },
+          data: expect.objectContaining({ usedAt: expect.any(Date) }),
+        }),
+      );
+      expect(result.token).toBe('test-jwt-token');
     });
   });
 

@@ -17,6 +17,11 @@ import { isPinRole, PIN_LOGIN_ROLES } from '../users/staff-roles';
 import { PrismaService } from '../prisma/prisma.service';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
+import {
+  smsProvider,
+  smsGatewayConfigured,
+  sendViaSmsGateway,
+} from '../common/sms/sms-gateway';
 
 const STAFF_DEVICE_LIMIT = 3;
 
@@ -519,10 +524,22 @@ export class AuthService {
     email: string,
     code: string,
   ): Promise<void> {
-    const normalizedEmail = this.normalizeEmail(email);
+    await this.consumeCodeForIdentifier(this.normalizeEmail(email), code);
+  }
+
+  /**
+   * Shared OTP verification for both email and phone. The `identifier` is the
+   * value stored in VerificationToken.email — a normalized email for the email
+   * flow, or the raw E.164 phone for the SIM-gateway phone flow. Enforces
+   * single-use, expiry, and attempt-count lockout.
+   */
+  private async consumeCodeForIdentifier(
+    identifier: string,
+    code: string,
+  ): Promise<void> {
     const tokenRecord = await this.prisma.verificationToken.findFirst({
       where: {
-        email: normalizedEmail,
+        email: identifier,
         usedAt: null,
         expiresAt: { gt: new Date() },
       },
@@ -585,9 +602,13 @@ export class AuthService {
       );
     }
 
-    // Phone-first flow via Twilio
+    // Phone-first flow. Two providers, chosen by SMS_PROVIDER:
+    //  - 'twilio'      → Twilio Verify generates AND checks the code.
+    //  - 'smsgateway'  → we generate the code, send it through the SIM gateway,
+    //                    and verify it against our own DB (like the email flow).
     if (phone && !email) {
-      if (!this.twilioConfigured) {
+      const usingGateway = smsProvider() === 'smsgateway';
+      if (usingGateway ? !smsGatewayConfigured() : !this.twilioConfigured) {
         throw new HttpException(
           'SMS/WhatsApp verification is not configured. Use email instead.',
           HttpStatus.NOT_IMPLEMENTED,
@@ -609,7 +630,47 @@ export class AuthService {
           HttpStatus.TOO_MANY_REQUESTS,
         );
       }
-      // Send first — only record the sentinel if Twilio succeeds.
+
+      if (usingGateway) {
+        // OTP is an auth factor — use a CSPRNG, not Math.random.
+        const code = randomInt(100000, 1000000).toString();
+        const hashedCode = await bcrypt.hash(code, 10);
+        // Send first; only persist the (hashed) code once the SIM gateway
+        // accepts it, so a failed send doesn't lock the user out for 60s.
+        const result = await sendViaSmsGateway(
+          phone,
+          `${code} is your verification code. It expires in 10 minutes.`,
+        );
+        if (!result.ok) {
+          this.logger.error(
+            `SMS gateway OTP send failed (${result.status}): ${result.detail.slice(0, 200)}`,
+          );
+          const isClientError = result.status >= 400 && result.status < 500;
+          throw new HttpException(
+            isClientError
+              ? 'Could not send a code to that phone number. Please check it is correct.'
+              : 'SMS service temporarily unavailable. Please try again shortly.',
+            isClientError
+              ? HttpStatus.UNPROCESSABLE_ENTITY
+              : HttpStatus.BAD_GATEWAY,
+          );
+        }
+        await this.prisma.verificationToken.create({
+          data: {
+            email: phone,
+            code: hashedCode,
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+          },
+        });
+        const isDev = process.env.NODE_ENV !== 'production';
+        return {
+          success: true,
+          channel: 'sms',
+          ...(isDev ? { devCode: code } : {}),
+        };
+      }
+
+      // Twilio Verify: send first — only record the sentinel if Twilio succeeds.
       // Creating the sentinel before the send would lock the user out for 60s
       // even when the OTP was never delivered.
       await this.sendTwilioOtp(phone);
@@ -886,17 +947,23 @@ export class AuthService {
     let user: any;
     let isNew = false;
 
-    // Phone-first flow
+    // Phone-first flow — verify against whichever provider issued the code.
     if (phone && !email) {
-      if (!this.twilioConfigured) {
-        throw new HttpException(
-          'SMS verification not configured.',
-          HttpStatus.NOT_IMPLEMENTED,
-        );
+      if (smsProvider() === 'smsgateway') {
+        // We issued the code ourselves; verify it from our DB (throws on
+        // invalid/expired/locked). Mirrors the email flow.
+        await this.consumeCodeForIdentifier(phone, code);
+      } else {
+        if (!this.twilioConfigured) {
+          throw new HttpException(
+            'SMS verification not configured.',
+            HttpStatus.NOT_IMPLEMENTED,
+          );
+        }
+        const approved = await this.verifyTwilioOtp(phone, code);
+        if (!approved)
+          throw new UnauthorizedException('Invalid or expired code.');
       }
-      const approved = await this.verifyTwilioOtp(phone, code);
-      if (!approved)
-        throw new UnauthorizedException('Invalid or expired code.');
 
       user = await this.usersService.findByPhone(phone);
       isNew = !user;
