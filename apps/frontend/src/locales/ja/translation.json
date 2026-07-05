@@ -606,7 +606,8 @@
       "CONFIRMED": "Confirmed",
       "ARRIVED": "Arrived",
       "NO_SHOW": "No Show",
-      "CANCELLED": "Cancelled"
+      "CANCELLED": "Cancelled",
+      "DECLINED": "Declined"
     },
     "preferences": {
       "VEGAN": "Vegan",
@@ -619,7 +620,9 @@
       "PET": "Pet",
       "HIGH_CHAIR": "High Chair",
       "QUIET_TABLE": "Quiet Table"
-    }
+    },
+    "upcomingHelp": "Pending, confirmed & arrived, from today, by day.",
+    "allHelp": "Every reservation incl. past, declined and cancelled."
   },
   "zones": {
     "INDOOR": "屋内",
@@ -657,5 +660,19 @@
     "confirmCancel": "Yes, cancel it",
     "keep": "Keep it",
     "cancel": "Cancel reservation"
+  },
+  "menuTags": {
+    "dairy": "Dairy",
+    "shellfish": "Shellfish",
+    "unclear": "Unclear",
+    "vegetarian": "Vegetarian",
+    "бекон": "Bacon",
+    "peanuts": "Peanuts",
+    "nuts": "Tree Nuts",
+    "eggs": "Eggs",
+    "soy": "Soy",
+    "wheat": "Wheat",
+    "fish": "Fish",
+    "vegan": "Vegan"
   }
 }

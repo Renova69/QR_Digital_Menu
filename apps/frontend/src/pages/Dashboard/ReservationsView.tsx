@@ -289,7 +289,7 @@ function ReservationList({ restaurantId }: { restaurantId: string }) {
               "CANCELLED",
             ].map((s) => (
               <option key={s} value={s}>
-                {s}
+                {t(`reservations.status.${s}`, s)}
               </option>
             ))}
           </select>

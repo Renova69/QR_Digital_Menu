@@ -19,7 +19,8 @@
   },
   "zonesPicker": {
     "choose": "Alegeți o zonă…",
-    "custom": "Personalizat (fără traducere)…"
+    "custom": "Personalizat (fără traducere)…",
+    "deleteConfirm": "Ștergeți această zonă? Toate mesele din ea vor fi mutate în zona implicită."
   },
   "booking": {
     "loading": "Se încarcă…",
@@ -3652,7 +3653,8 @@
       "CONFIRMED": "Confirmat",
       "ARRIVED": "Sosiți",
       "NO_SHOW": "Neprezentare",
-      "CANCELLED": "Anulat"
+      "CANCELLED": "Anulat",
+      "DECLINED": "Declined"
     },
     "preferences": {
       "VEGAN": "Vegan",
@@ -3665,7 +3667,9 @@
       "PET": "Animal de companie",
       "HIGH_CHAIR": "Scaun copii",
       "QUIET_TABLE": "Masă liniștită"
-    }
+    },
+    "upcomingHelp": "Pending, confirmed & arrived, from today, by day.",
+    "allHelp": "Every reservation incl. past, declined and cancelled."
   },
   "manage": {
     "title": "Gestionează rezervarea",
@@ -3681,5 +3685,19 @@
     "confirmCancel": "Da, anulează",
     "keep": "Păstrează",
     "cancel": "Anulează rezervarea"
+  },
+  "menuTags": {
+    "dairy": "Lactate",
+    "shellfish": "Crustacee",
+    "unclear": "Neclar",
+    "vegetarian": "Vegetarian",
+    "бекон": "Bacon",
+    "peanuts": "Arahide",
+    "nuts": "Nuci",
+    "eggs": "Ouă",
+    "soy": "Soia",
+    "wheat": "Grâu",
+    "fish": "Pește",
+    "vegan": "Vegan"
   }
 }
