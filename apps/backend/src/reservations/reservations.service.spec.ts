@@ -37,6 +37,7 @@ function build() {
     reservationEvent: { create: jest.fn() },
     reservationSettings: { findUnique: jest.fn() },
     reservationServiceHours: { count: jest.fn(), findMany: jest.fn() },
+    tableZone: { findMany: jest.fn().mockResolvedValue([]) },
     patron: { update: jest.fn() },
     $transaction: jest.fn((fn: any) => fn(tx)),
   };
@@ -192,6 +193,27 @@ describe('ReservationsService access control', () => {
     });
     expect(arg.where.startsAt.gte).toBeInstanceOf(Date);
     expect(arg.where.startsAt.lte).toBeUndefined();
+  });
+});
+
+describe('ReservationsService public entitlement', () => {
+  it('reports public booking as disabled when stored settings outlive the entitlement', async () => {
+    const { service, prisma, features } = build();
+    prisma.restaurant.findUnique.mockResolvedValue({
+      name: 'Test Bistro',
+      tier: 'STARTER',
+      forceTier: null,
+      isActive: true,
+      dashboardLanguage: 'en',
+      targetLanguages: [],
+    });
+    prisma.reservationSettings.findUnique.mockResolvedValue({ enabled: true });
+    features.restaurantHasFeature.mockReturnValue(false);
+
+    const config = await service.getPublicConfig('rest1');
+
+    expect(config.enabled).toBe(false);
+    expect(config.policy).toBeNull();
   });
 });
 

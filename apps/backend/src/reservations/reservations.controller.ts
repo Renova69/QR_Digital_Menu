@@ -13,6 +13,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
+import { FeatureGuard } from '../subscription/feature.guard';
+import { RequireFeature } from '../subscription/require-feature.decorator';
 import { ReservationsService } from './reservations.service';
 import {
   SetServiceHoursDto,
@@ -27,7 +30,8 @@ import {
 } from './dto/reservation-ops.dto';
 
 @Controller('reservations')
-@UseGuards(JwtAuthGuard)
+@RequireFeature(FeatureFlag.RESERVATIONS)
+@UseGuards(JwtAuthGuard, FeatureGuard)
 export class ReservationsController {
   constructor(private readonly reservations: ReservationsService) {}
 

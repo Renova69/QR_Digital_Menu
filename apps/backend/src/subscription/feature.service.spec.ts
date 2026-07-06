@@ -40,9 +40,23 @@ describe('FeatureService', () => {
       expect(features).toContain(FeatureFlag.PAYMENTS_STRIPE);
       expect(features).toContain(FeatureFlag.LOYALTY);
       expect(features).toContain(FeatureFlag.BRANDING_CUSTOM);
+      expect(features).toContain(FeatureFlag.RESERVATIONS);
       expect(features).toContain(FeatureFlag.LANGUAGES_MULTI);
       expect(features).not.toContain(FeatureFlag.POS);
       expect(features).not.toContain(FeatureFlag.KDS);
+    });
+
+    it('gates reservations to PROFESSIONAL and ENTERPRISE', () => {
+      expect(service.hasFeature('FREE', FeatureFlag.RESERVATIONS)).toBe(false);
+      expect(service.hasFeature('STARTER', FeatureFlag.RESERVATIONS)).toBe(
+        false,
+      );
+      expect(service.hasFeature('PROFESSIONAL', FeatureFlag.RESERVATIONS)).toBe(
+        true,
+      );
+      expect(service.hasFeature('ENTERPRISE', FeatureFlag.RESERVATIONS)).toBe(
+        true,
+      );
     });
 
     it('returns all features for ENTERPRISE tier', () => {
