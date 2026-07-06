@@ -2135,6 +2135,7 @@
           "b7": "Upselling e regole temporali",
           "b8": "Fino a 5 postazioni per il personale",
           "b9": "Ruolo di manager",
+          "b10": "Prenotazioni",
           "fit": "Ideale per ristoranti, caffetterie e bar molto frequentati che gestiscono pagamenti, programmi fedeltà, attività di branding e dispongono di uno staff numeroso."
         },
         "enterprise": {
@@ -2174,6 +2175,7 @@
         "customerAccounts": "Account dei clienti",
         "smartUpselling": "Upselling e suggerimenti",
         "dayparting": "Regole temporali e happy hour",
+        "reservations": "Prenotazioni",
         "pos": "POS al tavolo",
         "kds": "Esposizione in cucina",
         "advancedRoles": "Ruoli e autorizzazioni avanzati",
@@ -2752,6 +2754,7 @@
         "b8": "Orari e happy hour",
         "b9": "Fino a 5 postazioni per il personale",
         "b10": "Ruolo di manager",
+        "b11": "Prenotazioni",
         "fit": "Ideale per ristoranti, caffetterie e bar con attività intensa, che gestiscono pagamenti, programmi fedeltà e branding, con un massimo di 5 dipendenti."
       },
       "enterprise": {
@@ -2784,6 +2787,7 @@
       "qrCodes": "Codici QR",
       "customerAccounts": "Account dei clienti",
       "loyalty": "Livelli di fedeltà e VIP",
+      "reservations": "Prenotazioni",
       "upselling": "Upselling",
       "dayparting": "Orari e happy hour",
       "customBranding": "Personalizzazione del marchio",
@@ -3457,6 +3461,7 @@
   "reservations": {
     "tabList": "Prenotazioni",
     "tabSettings": "Impostazioni",
+    "windDownNotice": "Le prenotazioni esistenti restano disponibili per la gestione. Effettua l'upgrade per accettare o configurare nuove prenotazioni.",
     "statThisWeek": "Questa settimana",
     "stat30d": "Ultimi 30 giorni",
     "statNoShows": "Mancate presentazioni (30g)",

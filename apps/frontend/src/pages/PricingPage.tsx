@@ -78,6 +78,7 @@ const PLAN_CONFIGS: PlanConfig[] = [
       'pricing.tiers.professional.b8',
       'pricing.tiers.professional.b9',
       'pricing.tiers.professional.b10',
+      'pricing.tiers.professional.b11',
     ],
   },
   {

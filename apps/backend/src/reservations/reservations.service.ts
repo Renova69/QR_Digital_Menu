@@ -82,7 +82,7 @@ export class ReservationsService {
     const [restaurant, user] = await Promise.all([
       this.prisma.restaurant.findUnique({
         where: { id: restaurantId },
-        select: { ownerId: true },
+        select: { ownerId: true, isActive: true },
       }),
       this.prisma.user.findUnique({
         where: { id: userId },
@@ -91,6 +91,9 @@ export class ReservationsService {
     ]);
     if (!restaurant) throw new NotFoundException('Restaurant not found');
     if (user?.role === 'SUPER_ADMIN') return 'SUPER_ADMIN';
+    if (restaurant.isActive === false) {
+      throw new ForbiddenException('Restaurant is not active');
+    }
     if (restaurant.ownerId === userId) return 'OWNER';
     // KITCHEN never touches reservations (no guest PII).
     if (

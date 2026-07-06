@@ -40,6 +40,7 @@ describe('ReservationReminderService.sweep', () => {
     expect(where.reminderSentAt).toBeNull();
     expect(where.startsAt.gt).toBeInstanceOf(Date);
     expect(where.startsAt.lte).toBeInstanceOf(Date);
+    expect(where.restaurant).toEqual({ isActive: true });
     // Compare-and-swap claim keyed on reminderSentAt still null.
     expect(updateMany).toHaveBeenCalledWith(
       expect.objectContaining({

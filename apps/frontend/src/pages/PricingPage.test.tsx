@@ -49,13 +49,20 @@ describe("PricingPage reservation entitlement", () => {
     expect(cells?.[2].querySelector("svg")).toBeNull();
     expect(cells?.[3].querySelector("svg")).not.toBeNull();
     expect(cells?.[4].querySelector("svg")).not.toBeNull();
+    expect(screen.getByText("pricing.tiers.professional.b11")).toBeTruthy();
   });
 
   it.each([
     ["en", "Reservations"],
     ["bg", "Резервации"],
+    ["de", "Reservierungen"],
+    ["el", "Κρατήσεις"],
+    ["es", "Reservas"],
+    ["fr", "Réservations"],
+    ["it", "Prenotazioni"],
     ["ro", "Rezervări"],
-  ])("includes the reservation feature label in %s", (language, label) => {
+    ["zh", "预订"],
+  ])("keeps reservation pricing copy complete in %s", (language, label) => {
     const path = resolve(
       dirname(fileURLToPath(import.meta.url)),
       `../locales/${language}/translation.json`,
@@ -63,5 +70,8 @@ describe("PricingPage reservation entitlement", () => {
     const locale = JSON.parse(readFileSync(path, "utf8"));
 
     expect(locale.pricing.features.reservations).toBe(label);
+    expect(locale.pricing.tiers.professional.b11).toBe(label);
+    expect(locale.landing.pricingSection.plans.professional.b10).toBe(label);
+    expect(locale.landing.comparisonTable.rows.reservations).toBe(label);
   });
 });

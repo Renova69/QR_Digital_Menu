@@ -552,6 +552,7 @@
   "reservations": {
     "tabList": "予約一覧",
     "tabSettings": "設定",
+    "windDownNotice": "既存の予約は引き続き管理できます。新しい予約の受付や設定を行うにはプランをアップグレードしてください。",
     "statThisWeek": "今週",
     "stat30d": "過去30日間",
     "statNoShows": "無断キャンセル",

@@ -101,6 +101,19 @@ describe('ReservationsService access control', () => {
     await expect(service.list('rest1', 'owner', {})).resolves.toEqual([]);
   });
 
+  it('denies operational access when the restaurant is suspended', async () => {
+    const { service, prisma } = build();
+    prisma.restaurant.findUnique.mockResolvedValue({
+      ownerId: 'owner',
+      isActive: false,
+    });
+
+    await expect(service.list('rest1', 'owner', {})).rejects.toThrow(
+      ForbiddenException,
+    );
+    expect(prisma.reservation.findMany).not.toHaveBeenCalled();
+  });
+
   it('aggregates analytics, excluding declined/cancelled from party avg (Feature 6)', async () => {
     const { service, prisma } = build();
     prisma.restaurant.findUnique.mockResolvedValue({

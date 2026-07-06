@@ -184,7 +184,6 @@ const DashboardPage = () => {
       (activeTab === "orders" && !canOrders) ||
       (activeTab === "assistance" && !canAssistance) ||
       (activeTab === "payments" && (!canPayments || !paymentsEnabled)) ||
-      (activeTab === "reservations" && !canReservations) ||
       (activeTab === "analytics" && !canAnalytics);
     if (tabLocked) setActiveTab("summary");
   }, [
@@ -300,8 +299,8 @@ const DashboardPage = () => {
       id: "reservations" as TabId,
       Icon: CalendarCheck,
       label: t("dashboard.tabs.reservations", "Reservations"),
-      feature: "reservations:enabled",
-      locked: !canReservations,
+      feature: null,
+      locked: false,
     },
     {
       id: "analytics" as TabId,
@@ -652,8 +651,9 @@ const DashboardPage = () => {
                   {activeTab === "assistance" && <AssistanceView />}
                   {activeTab === "tables" && activeRestaurant && <TableView />}
                   {activeTab === "reservations" &&
-                    activeRestaurant &&
-                    canReservations && <ReservationsView />}
+                    activeRestaurant && (
+                      <ReservationsView canConfigure={canReservations} />
+                    )}
                   {activeTab === "settings" && activeRestaurant && !isStaff && (
                     <SettingsView />
                   )}

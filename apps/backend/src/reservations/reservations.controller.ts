@@ -30,17 +30,18 @@ import {
 } from './dto/reservation-ops.dto';
 
 @Controller('reservations')
-@RequireFeature(FeatureFlag.RESERVATIONS)
 @UseGuards(JwtAuthGuard, FeatureGuard)
 export class ReservationsController {
   constructor(private readonly reservations: ReservationsService) {}
 
   @Get(':restaurantId/settings')
+  @RequireFeature(FeatureFlag.RESERVATIONS)
   getSettings(@Req() req: any, @Param('restaurantId') restaurantId: string) {
     return this.reservations.getSettings(restaurantId, req.user.id);
   }
 
   @Put(':restaurantId/settings')
+  @RequireFeature(FeatureFlag.RESERVATIONS)
   updateSettings(
     @Req() req: any,
     @Param('restaurantId') restaurantId: string,
@@ -54,6 +55,7 @@ export class ReservationsController {
   }
 
   @Post(':restaurantId/service-hours')
+  @RequireFeature(FeatureFlag.RESERVATIONS)
   setServiceHours(
     @Req() req: any,
     @Param('restaurantId') restaurantId: string,
@@ -67,6 +69,7 @@ export class ReservationsController {
   }
 
   @Delete(':restaurantId/service-hours/:weekday')
+  @RequireFeature(FeatureFlag.RESERVATIONS)
   deleteServiceHours(
     @Req() req: any,
     @Param('restaurantId') restaurantId: string,
@@ -80,16 +83,19 @@ export class ReservationsController {
   }
 
   @Get(':restaurantId/analytics')
+  @RequireFeature(FeatureFlag.RESERVATIONS)
   analytics(@Req() req: any, @Param('restaurantId') restaurantId: string) {
     return this.reservations.getAnalytics(restaurantId, req.user.id);
   }
 
   @Get(':restaurantId/blackouts')
+  @RequireFeature(FeatureFlag.RESERVATIONS)
   listBlackouts(@Req() req: any, @Param('restaurantId') restaurantId: string) {
     return this.reservations.listBlackouts(restaurantId, req.user.id);
   }
 
   @Post(':restaurantId/blackouts')
+  @RequireFeature(FeatureFlag.RESERVATIONS)
   addBlackout(
     @Req() req: any,
     @Param('restaurantId') restaurantId: string,
@@ -104,6 +110,7 @@ export class ReservationsController {
   }
 
   @Delete(':restaurantId/blackouts/:date')
+  @RequireFeature(FeatureFlag.RESERVATIONS)
   removeBlackout(
     @Req() req: any,
     @Param('restaurantId') restaurantId: string,
@@ -122,6 +129,7 @@ export class ReservationsController {
   }
 
   @Post(':restaurantId/manual')
+  @RequireFeature(FeatureFlag.RESERVATIONS)
   createManual(
     @Req() req: any,
     @Param('restaurantId') restaurantId: string,
