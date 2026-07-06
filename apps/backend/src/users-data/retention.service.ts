@@ -3,6 +3,11 @@ import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 
+// Scan-tracking rows (MenuView) are only ever read for the last 7 days of
+// stats, but accumulate one row per public-menu open forever. Prune rows older
+// than a year so the table stays bounded without losing long-range history.
+const MENU_VIEW_RETENTION_DAYS = 365;
+
 @Injectable()
 export class RetentionService {
   private readonly logger = new Logger(RetentionService.name);
@@ -55,8 +60,14 @@ export class RetentionService {
       },
     });
 
+    const menuViewCutoff = new Date(now);
+    menuViewCutoff.setDate(menuViewCutoff.getDate() - MENU_VIEW_RETENTION_DAYS);
+    const { count: deletedMenuViews } = await this.prisma.menuView.deleteMany({
+      where: { createdAt: { lt: menuViewCutoff } },
+    });
+
     this.logger.log(
-      `Retention run: deleted ${deletedVerificationTokens} tokens, anonymized ${anonymizedOrders} orders`,
+      `Retention run: deleted ${deletedVerificationTokens} tokens, anonymized ${anonymizedOrders} orders, pruned ${deletedMenuViews} menu views`,
     );
   }
 }

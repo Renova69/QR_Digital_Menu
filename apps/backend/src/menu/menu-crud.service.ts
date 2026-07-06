@@ -14,13 +14,18 @@ import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { CreateMenuOptionDto } from './dto/create-menu-option.dto';
 import { UpdateMenuOptionDto } from './dto/update-menu-option.dto';
-import { Prisma, AvailabilityType } from '@prisma/client';
+import { Prisma, AvailabilityType, OrderStatus } from '@prisma/client';
 import { DateTime } from 'luxon';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { stripBrandingFields } from '../restaurants/branding-fields';
 import { StorageService } from '../storage/storage.service';
 import { EventsGateway } from '../events/events.gateway';
+
+// AUTO-trending window: only orders from the last N days count toward
+// "most ordered", so trending reflects current demand rather than all-time
+// history (and the groupBy scan stays bounded).
+const TRENDING_WINDOW_DAYS = 30;
 
 @Injectable()
 export class MenuCrudService {
@@ -55,6 +60,60 @@ export class MenuCrudService {
       .map((language) => language.toLowerCase().split('-')[0])
       .filter(Boolean);
     return [...new Set([dashboardDefault, ...targets])];
+  }
+
+  /** Resolve a requested language against the restaurant's public-menu
+   *  languages (dashboard default + targets, targets gated by LANGUAGES_MULTI).
+   *  Returns the canonical enabled code, or undefined when `lang` is absent or
+   *  not enabled. Shared by the single-category and batched item endpoints. */
+  private resolveRequestedLang(
+    restaurant: {
+      targetLanguages?: string[] | null;
+      dashboardLanguage?: string | null;
+    },
+    tier: string,
+    lang?: string,
+  ): string | undefined {
+    if (!lang) return undefined;
+    const hasMultiLanguage = this.featureService.hasFeature(
+      tier,
+      FeatureFlag.LANGUAGES_MULTI,
+    );
+    const languageConfig = hasMultiLanguage
+      ? restaurant
+      : { ...restaurant, targetLanguages: [] };
+    return this.buildPublicMenuLanguages(languageConfig).find(
+      (candidate) =>
+        candidate.toLowerCase() === lang.toLowerCase().split('-')[0],
+    );
+  }
+
+  /** Fetch the public-facing restaurant context (effective tier + timezone +
+   *  languages) and reject missing or suspended restaurants. Shared by the
+   *  single-category and batched item endpoints. */
+  private async loadPublicRestaurantContext(restaurantId: string) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: {
+        timezone: true,
+        tier: true,
+        forceTier: true,
+        targetLanguages: true,
+        dashboardLanguage: true,
+        isActive: true,
+      },
+    });
+    if (!restaurant) {
+      throw new NotFoundException(
+        `Restaurant with ID "${restaurantId}" not found`,
+      );
+    }
+    this.assertRestaurantActive(restaurant);
+    return {
+      restaurant,
+      tier: restaurant.forceTier ?? restaurant.tier ?? 'FREE',
+      timezone: restaurant.timezone || 'Europe/Sofia',
+    };
   }
 
   private async deleteStoredImagePair(
@@ -379,27 +438,8 @@ export class MenuCrudService {
     categoryId: string,
     lang?: string,
   ) {
-    const restaurant = await this.prisma.restaurant.findUnique({
-      where: { id: restaurantId },
-      select: {
-        timezone: true,
-        tier: true,
-        forceTier: true,
-        targetLanguages: true,
-        dashboardLanguage: true,
-        isActive: true,
-      },
-    });
-
-    if (!restaurant) {
-      throw new NotFoundException(
-        `Restaurant with ID "${restaurantId}" not found`,
-      );
-    }
-    this.assertRestaurantActive(restaurant);
-
-    const tier = restaurant.forceTier ?? restaurant.tier ?? 'FREE';
-    const timezone = restaurant.timezone || 'Europe/Sofia';
+    const { restaurant, tier, timezone } =
+      await this.loadPublicRestaurantContext(restaurantId);
 
     const category = await this.prisma.menuCategory.findFirst({
       where: { id: categoryId, restaurantId },
@@ -435,19 +475,7 @@ export class MenuCrudService {
       include: { options: true },
     });
 
-    const hasMultiLanguage = this.featureService.hasFeature(
-      tier,
-      FeatureFlag.LANGUAGES_MULTI,
-    );
-    const languageConfig = hasMultiLanguage
-      ? restaurant
-      : { ...restaurant, targetLanguages: [] };
-    const requestedLang = lang
-      ? this.buildPublicMenuLanguages(languageConfig).find(
-          (candidate) =>
-            candidate.toLowerCase() === lang.toLowerCase().split('-')[0],
-        )
-      : undefined;
+    const requestedLang = this.resolveRequestedLang(restaurant, tier, lang);
     if (requestedLang && process.env.DEEPL_API_KEY) {
       const fakeCategory = { ...category, items };
       await this.menuTranslationService.applyLazyTranslations(
@@ -458,6 +486,52 @@ export class MenuCrudService {
     }
 
     return items;
+  }
+
+  /** Returns items (with options + translation) for ALL currently-visible
+   *  categories in a single call — one restaurant fetch + one translation batch.
+   *  Replaces the frontend's per-category fan-out, which re-fetched the
+   *  restaurant row once per category and triggered a separate DeepL burst each
+   *  time. Keyed by categoryId so the client can populate its per-category map
+   *  directly. Categories hidden by availability are simply absent from the map. */
+  async getPublicMenuItems(
+    restaurantId: string,
+    lang?: string,
+  ): Promise<Record<string, any[]>> {
+    const { restaurant, tier, timezone } =
+      await this.loadPublicRestaurantContext(restaurantId);
+
+    const allCategories = await this.prisma.menuCategory.findMany({
+      where: { restaurantId },
+      include: {
+        items: {
+          where: { isOutOfStock: false },
+          orderBy: { order: 'asc' },
+          include: { options: true },
+        },
+      },
+      orderBy: { order: 'asc' },
+    });
+
+    const filtered = this.filterByAvailability(
+      allCategories as any[],
+      timezone,
+      tier,
+    );
+
+    const requestedLang = this.resolveRequestedLang(restaurant, tier, lang);
+    if (requestedLang && process.env.DEEPL_API_KEY) {
+      await this.menuTranslationService.applyLazyTranslations(
+        filtered as any[],
+        requestedLang,
+      );
+    }
+
+    const itemsByCategory: Record<string, any[]> = {};
+    for (const category of filtered) {
+      itemsByCategory[(category as any).id] = (category as any).items ?? [];
+    }
+    return itemsByCategory;
   }
 
   private filterByAvailability<
@@ -554,11 +628,22 @@ export class MenuCrudService {
       return this.applyTrendingTranslations(items, restaurant, lang);
     }
 
+    const trendingSince = DateTime.now()
+      .minus({ days: TRENDING_WINDOW_DAYS })
+      .toJSDate();
     const mostOrdered = await this.prisma.orderItem.groupBy({
       by: ['menuItemId'],
       where: {
-        order: { restaurantId },
         menuItemId: { not: null },
+        // Only real, recent sales drive AUTO trending: exclude CANCELED orders
+        // (a canceled bulk order must not fake-inflate popularity) and bound the
+        // scan to a rolling window. Served by Order
+        // @@index([restaurantId, status, createdAt]).
+        order: {
+          restaurantId,
+          status: { not: OrderStatus.CANCELED },
+          createdAt: { gte: trendingSince },
+        },
       },
       _sum: { quantity: true },
       orderBy: { _sum: { quantity: 'desc' } },

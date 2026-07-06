@@ -50,6 +50,18 @@ export class PublicMenuController {
     return this.crud.getCategoryItems(restaurantId, categoryId, lang);
   }
 
+  // Batched items for every visible category in one round trip — the initial
+  // public-menu load and language switch use this instead of one request per
+  // category (kills the N restaurant reads + N DeepL bursts).
+  @Get('public/:restaurantId/items')
+  @Throttle({ default: { limit: 120, ttl: 60000 } })
+  async getPublicMenuItems(
+    @Param('restaurantId') restaurantId: string,
+    @Query('lang') lang?: string,
+  ) {
+    return this.crud.getPublicMenuItems(restaurantId, lang);
+  }
+
   @Get('public/:restaurantId/trending')
   @Throttle({ default: { limit: 120, ttl: 60000 } })
   async getTrendingItems(
