@@ -79,6 +79,21 @@ export const getCategoryItems = async (
   return response.data as any[];
 };
 
+// Batched: items for every visible category in one request, keyed by categoryId.
+// Used for the initial public-menu load and language switch instead of one
+// request per category.
+export const getAllCategoryItems = async (
+  restaurantId: string,
+  lang?: string,
+  signal?: AbortSignal,
+) => {
+  const response = await api.get(`/menu/public/${restaurantId}/items`, {
+    params: lang ? { lang } : undefined,
+    signal,
+  });
+  return response.data as Record<string, any[]>;
+};
+
 export const getTrendingItems = async (restaurantId: string, lang?: string) => {
   const response = await api.get(`/menu/public/${restaurantId}/trending`, {
     params: lang ? { lang } : undefined,
