@@ -27,6 +27,7 @@ const SESSION_TOKEN_PATH = /(\/session\/)([^/?#]+)(?=\/)/g;
  * redacted too — and `[^/?#]+` still stops at the next slash/query/fragment.
  */
 const MANAGE_TOKEN_PATH = /(\/manage\/)([^/?#]+)/g;
+const SHORT_RESERVATION_TOKEN_PATH = /(^\/r\/)([^/?#]+)/g;
 
 export function redactSensitivePath(path: unknown): string {
   if (typeof path !== 'string' || path.length === 0) {
@@ -34,5 +35,6 @@ export function redactSensitivePath(path: unknown): string {
   }
   return path
     .replace(SESSION_TOKEN_PATH, '$1:token')
-    .replace(MANAGE_TOKEN_PATH, '$1:token');
+    .replace(MANAGE_TOKEN_PATH, '$1:token')
+    .replace(SHORT_RESERVATION_TOKEN_PATH, '$1:token');
 }

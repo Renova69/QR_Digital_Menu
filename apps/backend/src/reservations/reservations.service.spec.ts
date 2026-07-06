@@ -144,6 +144,41 @@ describe('ReservationsService access control', () => {
     expect(stats.statusCounts.DECLINED).toBe(1);
   });
 
+  it('excludes future reservations from historical analytics', async () => {
+    const { service, prisma } = build();
+    prisma.restaurant.findUnique.mockResolvedValue({
+      ownerId: 'owner',
+      timezone: 'Europe/Sofia',
+    });
+    const rows = [
+      {
+        startsAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        status: 'CONFIRMED',
+        adultsCount: 2,
+        childrenCount: 0,
+      },
+      {
+        startsAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        status: 'CONFIRMED',
+        adultsCount: 8,
+        childrenCount: 0,
+      },
+    ];
+    prisma.reservation.findMany.mockImplementation(
+      async ({ where: { startsAt } }: any) =>
+        rows.filter(
+          (row) =>
+            row.startsAt >= startsAt.gte &&
+            (!startsAt.lte || row.startsAt <= startsAt.lte),
+        ),
+    );
+
+    const stats = await service.getAnalytics('rest1', 'owner');
+
+    expect(stats.total).toBe(1);
+    expect(stats.avgPartySize).toBe(2);
+  });
+
   it('upcoming mode filters to actionable statuses from today, ignoring date', async () => {
     const { service, prisma } = build();
     prisma.restaurant.findUnique.mockResolvedValue({ ownerId: 'owner' });
@@ -351,6 +386,28 @@ describe('ReservationsService.createPublic (consent gate + entitlement)', () => 
     ).rejects.toThrow(ForbiddenException);
   });
 
+  it('rejects public bookings for an inactive restaurant', async () => {
+    const { service, prisma } = build();
+    prisma.restaurant.findUnique.mockResolvedValue({
+      tier: 'PROFESSIONAL',
+      forceTier: null,
+      dashboardLanguage: 'en',
+      isActive: false,
+    });
+    prisma.reservationSettings.findUnique.mockResolvedValue({
+      enabled: true,
+      maxTotalGuests: 12,
+      autoConfirm: false,
+      requirePhone: true,
+    });
+
+    await expect(
+      service.createPublic('rest1', { ...baseDto, dietaryConsent: true }),
+    ).rejects.toMatchObject({
+      message: 'Restaurant is not active',
+    });
+  });
+
   it('normalizes the phone to E.164 (+359 default)', async () => {
     const { service, prisma, txReservationCreate } = build();
     prisma.reservationSettings.findUnique.mockResolvedValue({
@@ -457,6 +514,19 @@ describe('ReservationsService guest self-service (manage token, Feature 2)', () 
     await expect(
       service.cancelByManageToken('rest1', 'tok_live'),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('refuses to cancel a booking that has already started', async () => {
+    const { service, prisma } = build();
+    prisma.reservation.findUnique.mockResolvedValue({
+      ...liveReservation,
+      startsAt: PAST,
+    });
+
+    await expect(
+      service.cancelByManageToken('rest1', 'tok_live'),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.reservation.updateMany).not.toHaveBeenCalled();
   });
 
   it('changes party size in the SAME slot without re-running the slot guard', async () => {

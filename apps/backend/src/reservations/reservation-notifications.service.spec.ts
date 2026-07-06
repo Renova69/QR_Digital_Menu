@@ -163,6 +163,22 @@ describe('ReservationNotificationsService', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('does not write guest contact details or manage tokens to development logs', async () => {
+    process.env.NODE_ENV = 'test';
+    delete process.env.SMS_FORCE_SEND;
+    const log = jest
+      .spyOn((service as any).logger, 'log')
+      .mockImplementation(() => undefined);
+
+    await service.notify('RECEIVED', detailedGuestInput);
+
+    const output = JSON.stringify(log.mock.calls);
+    expect(output).not.toContain('guest@example.com');
+    expect(output).not.toContain('+359000000000');
+    expect(output).not.toContain('REQ789');
+    expect(output).not.toContain('manage-secret');
+  });
+
   it('sends via the SIM SMS gateway when SMS_PROVIDER=smsgateway', async () => {
     process.env.NODE_ENV = 'production';
     process.env.SMS_PROVIDER = 'smsgateway';

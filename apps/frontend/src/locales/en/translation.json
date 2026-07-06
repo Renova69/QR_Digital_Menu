@@ -3572,8 +3572,8 @@
     "preferences": {
       "VEGAN": "Vegan",
       "VEGETARIAN": "Vegetarian",
-      "GLUTEN_INTOLERANT": "Gluten Free",
-      "LACTOSE_INTOLERANT": "Lactose Free",
+      "GLUTEN_INTOLERANT": "Gluten Intolerant",
+      "LACTOSE_INTOLERANT": "Lactose Intolerant",
       "NUT_ALLERGY": "Nut Allergy",
       "WHEELCHAIR_ACCESS": "Wheelchair Access",
       "PREGNANT": "Pregnant",

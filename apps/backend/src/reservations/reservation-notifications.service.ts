@@ -349,9 +349,7 @@ export class ReservationNotificationsService {
   ): Promise<void> {
     const isDev = process.env.NODE_ENV !== 'production';
     if (isDev || !process.env.RESEND_API_KEY) {
-      this.logger.log(
-        `[dev] Reservation ${context} email to ${to}: ${subject}`,
-      );
+      this.logger.log(`[dev] Reservation ${context} email suppressed`);
       return;
     }
     const res = await fetch('https://api.resend.com/emails', {
@@ -395,7 +393,7 @@ export class ReservationNotificationsService {
     const isDev = process.env.NODE_ENV !== 'production';
     const forceSend = process.env.SMS_FORCE_SEND === 'true';
     if (isDev && !forceSend) {
-      this.logger.log(`[dev] Reservation ${context} SMS to ${to}: ${body}`);
+      this.logger.log(`[dev] Reservation ${context} SMS suppressed`);
       return;
     }
 

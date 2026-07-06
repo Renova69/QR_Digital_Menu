@@ -233,6 +233,7 @@ const BookingPage = () => {
     name.trim().length > 0 &&
     (!config?.policy?.requirePhone || phone.trim().length > 0) &&
     notifyOk &&
+    (!dietaryChosen || consent) &&
     total >= 1 &&
     total <= maxParty &&
     !submitting;
@@ -463,7 +464,9 @@ const BookingPage = () => {
                 selected={parseDateString(date)}
                 onChange={(d: Date | null) => d && setDate(formatDateString(d))}
                 minDate={parseDateString(localDateISO())}
-                maxDate={parseDateString(localDateISO(config.policy?.bookingHorizonDays ?? 60))}
+                maxDate={parseDateString(
+                  localDateISO(config.policy?.bookingHorizonDays ?? 60),
+                )}
                 locale={i18n.language}
                 dateFormat="P"
                 className="w-full px-2 py-2.5 bg-transparent outline-none"

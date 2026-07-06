@@ -14,7 +14,10 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ReservationsService } from './reservations.service';
-import { UpdateReservationSettingsDto } from './dto/reservation-settings.dto';
+import {
+  SetServiceHoursDto,
+  UpdateReservationSettingsDto,
+} from './dto/reservation-settings.dto';
 import {
   BlackoutDto,
   ListReservationsQueryDto,
@@ -50,15 +53,12 @@ export class ReservationsController {
   setServiceHours(
     @Req() req: any,
     @Param('restaurantId') restaurantId: string,
-    @Body()
-    body: {
-      rows: { weekday: number; openMinute: number; lastSlotMinute: number }[];
-    },
+    @Body() body: SetServiceHoursDto,
   ) {
     return this.reservations.setServiceHours(
       restaurantId,
       req.user.id,
-      body.rows ?? [],
+      body.rows,
     );
   }
 
