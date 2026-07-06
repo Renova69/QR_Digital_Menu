@@ -291,13 +291,11 @@ export class MenuCrudService {
       restaurantClone.targetLanguages = [];
     }
 
-    const publicLanguages = this.buildPublicMenuLanguages(restaurantClone);
-    const requestedLang = lang
-      ? publicLanguages.find(
-          (candidate) =>
-            candidate.toLowerCase() === lang.toLowerCase().split('-')[0],
-        )
-      : undefined;
+    const requestedLang = this.resolveRequestedLang(
+      restaurantClone,
+      restaurantClone.tier ?? 'FREE',
+      lang,
+    );
     if (requestedLang && process.env.DEEPL_API_KEY) {
       await this.menuTranslationService.applyLazyTranslations(
         filteredCategories,
@@ -408,17 +406,16 @@ export class MenuCrudService {
     // Lazily translate (and cache) category names so the navigation/pills render
     // in the requested language on first paint instead of falling back to the
     // original until item lazy-load warms the cache.
-    const publicLanguages = this.buildPublicMenuLanguages(restaurantClone);
-    const requestedLang = lang
-      ? publicLanguages.find(
-          (candidate) =>
-            candidate.toLowerCase() === lang.toLowerCase().split('-')[0],
-        )
-      : undefined;
+    const requestedLang = this.resolveRequestedLang(
+      restaurantClone,
+      restaurantClone.tier ?? 'FREE',
+      lang,
+    );
     // Before this response arrives, the frontend cannot know the owner's
     // dashboard language. Keep the first-paint category translation aligned
     // with that public-menu default instead of targetLanguages[0].
-    const effectiveLang = requestedLang ?? publicLanguages[0];
+    const effectiveLang =
+      requestedLang ?? this.buildPublicMenuLanguages(restaurantClone)[0];
     if (effectiveLang && process.env.DEEPL_API_KEY) {
       await this.menuTranslationService.applyLazyTranslations(
         filteredCategories,

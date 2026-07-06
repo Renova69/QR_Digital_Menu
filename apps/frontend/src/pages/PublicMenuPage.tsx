@@ -1,11 +1,7 @@
 import { useCallback, useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import type { Restaurant } from "../services/restaurantService";
-import {
-  getMenuMeta,
-  createAssistanceRequest,
-  getSessionBill,
-} from "../lib/api";
+import { createAssistanceRequest, getSessionBill } from "../lib/api";
 import { buildPublicMenuLanguages } from "../lib/menuLanguage";
 import { getTranslatedArray } from "../lib/translation";
 import { BRANDING_FONT_NAMES } from "../lib/brandingFonts";
@@ -142,16 +138,13 @@ const PublicMenuPage = () => {
   // tracking, and cart hygiene. Table/session bootstrap stays below.
   const {
     menuMeta,
-    setMenuMeta,
     loadedItemsMap,
     setLoadedItemsMap,
     loading,
     error,
     selectedLang,
-    setSelectedLang,
     activeLanguageRef,
-    langFetchDebounce,
-    loadAllCategoryItems,
+    changeLanguage,
     allLoadedItems,
   } = usePublicMenuData(restaurantId);
 
@@ -177,7 +170,7 @@ const PublicMenuPage = () => {
   } | null>(null);
   const [isAssistanceDialogOpen, setIsAssistanceDialogOpen] = useState(false);
 
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
@@ -444,47 +437,13 @@ const PublicMenuPage = () => {
   };
 
   const handleLanguageChange = (code: string) => {
-    // Immediate: update UI language + translated item names from embedded translations
-    activeLanguageRef.current = code;
-    setSelectedLang(code);
-    void i18n.changeLanguage(code);
     // Filter values and search terms are language-specific display strings.
     // Clear them so values selected in the previous language cannot hide every
-    // item once translated allergen/tag values replace them.
+    // item once translated allergen/tag values replace them, then hand the
+    // data reload (i18n + debounced fetch + meta merge) to the data hook.
     clearFilters();
     setSearchQuery("");
-    // Debounced: only fire API fetch after 350ms of no further switches
-    // This prevents N×categories requests on rapid switching
-    if (langFetchDebounce.current) clearTimeout(langFetchDebounce.current);
-    langFetchDebounce.current = setTimeout(() => {
-      if (menuMeta?.categories?.length && restaurantId) {
-        const cancelled = { v: false };
-        loadAllCategoryItems(menuMeta.categories, code, cancelled, false);
-        void getMenuMeta(restaurantId, code)
-          .then((translatedMeta) => {
-            if (
-              activeLanguageRef.current !== code ||
-              !translatedMeta?.restaurant
-            )
-              return;
-            setMenuMeta((current: any) =>
-              current
-                ? {
-                    ...current,
-                    restaurant: {
-                      ...current.restaurant,
-                      ...translatedMeta.restaurant,
-                    },
-                    categories: translatedMeta.categories,
-                  }
-                : translatedMeta,
-            );
-          })
-          .catch((err) =>
-            console.error("Public menu category translation failed:", err),
-          );
-      }
-    }, 350);
+    changeLanguage(code);
   };
 
   const scrollToCategory = (id: string) => {

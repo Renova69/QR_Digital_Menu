@@ -18,21 +18,13 @@ export interface PublicMenuMeta {
 
 export interface PublicMenuData {
   menuMeta: PublicMenuMeta | null;
-  setMenuMeta: Dispatch<SetStateAction<PublicMenuMeta | null>>;
   loadedItemsMap: Record<string, any[] | null>;
   setLoadedItemsMap: Dispatch<SetStateAction<Record<string, any[] | null>>>;
   loading: boolean;
   error: string | null;
   selectedLang: string;
-  setSelectedLang: Dispatch<SetStateAction<string>>;
   activeLanguageRef: MutableRefObject<string>;
-  langFetchDebounce: MutableRefObject<ReturnType<typeof setTimeout> | null>;
-  loadAllCategoryItems: (
-    categories: any[],
-    lang: string | undefined,
-    cancelled: { v: boolean },
-    resetFirst?: boolean,
-  ) => void;
+  changeLanguage: (code: string) => void;
   allLoadedItems: any[];
 }
 
@@ -255,18 +247,56 @@ export function usePublicMenuData(
     };
   }, []);
 
+  // Switch the menu language: update i18n + the active-language guard
+  // immediately, then (debounced) reload items and merge the translated meta.
+  // Callers own any UI-side reset (filters/search) before invoking this.
+  const changeLanguage = (code: string) => {
+    activeLanguageRef.current = code;
+    setSelectedLang(code);
+    void i18n.changeLanguage(code);
+    // Debounced: only fire the API fetch after 350ms of no further switches so
+    // rapid toggling doesn't burst the backend.
+    if (langFetchDebounce.current) clearTimeout(langFetchDebounce.current);
+    langFetchDebounce.current = setTimeout(() => {
+      if (menuMeta?.categories?.length && restaurantId) {
+        const cancelled = { v: false };
+        loadAllCategoryItems(menuMeta.categories, code, cancelled, false);
+        void getMenuMeta(restaurantId, code)
+          .then((translatedMeta) => {
+            if (
+              activeLanguageRef.current !== code ||
+              !translatedMeta?.restaurant
+            )
+              return;
+            setMenuMeta((current) =>
+              current
+                ? {
+                    ...current,
+                    restaurant: {
+                      ...current.restaurant,
+                      ...translatedMeta.restaurant,
+                    },
+                    categories: translatedMeta.categories,
+                  }
+                : (translatedMeta as PublicMenuMeta),
+            );
+          })
+          .catch((err) =>
+            console.error("Public menu category translation failed:", err),
+          );
+      }
+    }, 350);
+  };
+
   return {
     menuMeta,
-    setMenuMeta,
     loadedItemsMap,
     setLoadedItemsMap,
     loading,
     error,
     selectedLang,
-    setSelectedLang,
     activeLanguageRef,
-    langFetchDebounce,
-    loadAllCategoryItems,
+    changeLanguage,
     allLoadedItems,
   };
 }
