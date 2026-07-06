@@ -429,16 +429,7 @@ export class ReservationsService {
       where: { restaurantId },
     });
 
-    if (slotChanged) {
-      // Moving to a different time must satisfy the full guard (hours, lead,
-      // horizon, blackout, capacity) — excluding this reservation's own hold.
-      await this.availability.assertSlotBookable(
-        restaurantId,
-        startsAt,
-        total,
-        r.id,
-      );
-    } else {
+    if (!slotChanged) {
       // Same slot, party-size-only change: the time is already an accepted
       // booking, so re-applying the lead-time/hours guard would wrongly reject
       // an edit made inside the lead window. Enforce only the hard party cap.
@@ -454,44 +445,71 @@ export class ReservationsService {
     // the dining duration (else the staff "table free" time would go stale).
     const durationMinutes = computeDiningDuration(total, settings);
 
-    // Guarded CAS on BOTH status and updatedAt: a concurrent staff decision or a
-    // second modify (retry / shared link) that already wrote bumps updatedAt, so
-    // this write no-ops instead of silently clobbering it (last-writer-wins).
-    // Resetting reminderSentAt on a time change re-arms the 24h reminder for the
-    // new slot; a party-only change keeps the existing reminder state.
-    const { count } = await this.prisma.reservation.updateMany({
-      where: {
-        id: r.id,
-        restaurantId,
-        status: r.status,
-        updatedAt: r.updatedAt,
-      },
-      data: {
-        startsAt,
-        adultsCount: adults,
-        childrenCount: children,
-        durationMinutes,
-        ...(slotChanged ? { reminderSentAt: null } : {}),
-      },
-    });
-    if (count === 0) {
-      throw new ConflictException(
-        'This reservation was just updated elsewhere. Please reload.',
-      );
-    }
+    await this.prisma.$transaction(
+      async (tx) => {
+        await this.lockReservationCapacity(tx, restaurantId);
 
-    await this.prisma.reservationEvent.create({
-      data: {
-        reservationId: r.id,
-        type: 'MODIFIED',
-        metadata: {
-          source: 'GUEST',
-          startsAt: startsAt.toISOString(),
-          adultsCount: adults,
-          childrenCount: children,
-        },
+        if (slotChanged) {
+          // Moving to a different time must satisfy the full guard (hours, lead,
+          // horizon, blackout, capacity) — excluding this reservation's own hold.
+          await this.availability.assertSlotBookable(
+            restaurantId,
+            startsAt,
+            total,
+            r.id,
+            tx,
+          );
+        } else if (total > r.adultsCount + r.childrenCount) {
+          await this.availability.assertCapacityAvailable(
+            restaurantId,
+            startsAt,
+            total,
+            r.id,
+            tx,
+          );
+        }
+
+        // Guarded CAS on BOTH status and updatedAt: a concurrent staff decision or
+        // second modify that already wrote bumps updatedAt, so this write no-ops
+        // instead of silently clobbering it (last-writer-wins).
+        const { count } = await tx.reservation.updateMany({
+          where: {
+            id: r.id,
+            restaurantId,
+            status: r.status,
+            updatedAt: r.updatedAt,
+          },
+          data: {
+            startsAt,
+            adultsCount: adults,
+            childrenCount: children,
+            durationMinutes,
+            // A time change re-arms the 24h reminder for the new slot.
+            ...(slotChanged ? { reminderSentAt: null } : {}),
+          },
+        });
+        if (count === 0) {
+          throw new ConflictException(
+            'This reservation was just updated elsewhere. Please reload.',
+          );
+        }
+
+        await tx.reservationEvent.create({
+          data: {
+            reservationId: r.id,
+            type: 'MODIFIED',
+            metadata: {
+              source: 'GUEST',
+              startsAt: startsAt.toISOString(),
+              adultsCount: adults,
+              childrenCount: children,
+            },
+          },
+        });
       },
-    });
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+    );
+
     this.events.emitReservationUpdated(restaurantId, {
       id: r.id,
       status: r.status,
@@ -612,13 +630,6 @@ export class ReservationsService {
       throw new BadRequestException('Invalid reservation time');
     }
 
-    // Fixes 1 + 2: re-validate the slot server-side for public bookings (in
-    // service hours, within lead/horizon, not full). Staff manual bookings are
-    // trusted and may book outside hours (e.g. taking a phone booking).
-    if (ctx.source === 'PUBLIC') {
-      await this.availability.assertSlotBookable(restaurantId, startsAt, total);
-    }
-
     // Consent gate: only persist dietary/allergy (special-category) data when
     // the guest explicitly consented. Staff manual bookings bypass the gate.
     // Owner-defined custom preference labels are allowed through validation too.
@@ -690,80 +701,120 @@ export class ReservationsService {
     // Feature 4: snapshot the expected dining duration for this party size.
     const durationMinutes = computeDiningDuration(total, ctx.settings);
 
-    let created;
+    let outcome: {
+      reservation: Prisma.ReservationGetPayload<object>;
+      replayed: boolean;
+    };
     try {
-      created = await this.withReferenceRetry(async (referenceCode) =>
-        this.prisma.$transaction(async (tx) => {
-          const patron = await this.patrons.matchOrCreate(
-            tx,
-            restaurantId,
-            phone,
-            dto.guestName.trim(),
-            dto.guestEmail,
-          );
-          // Patron-level updates (staff tags, durable marketing opt-in). Marketing
-          // consent is sticky once given; a later booking without it doesn't revoke.
-          const patronData: Record<string, unknown> = {};
-          if (ctx.staffTags?.length) {
-            patronData.staffTags = sanitizeStaffTags(ctx.staffTags);
-          }
-          if (marketingConsentAt) {
-            patronData.marketingConsent = true;
-            patronData.marketingConsentAt = marketingConsentAt;
-          }
-          if (Object.keys(patronData).length > 0) {
-            await tx.patron.update({
-              where: { id: patron.id },
-              data: patronData,
-            });
-          }
-          const reservation = await tx.reservation.create({
-            data: {
+      outcome = await this.withReferenceRetry(async (referenceCode) =>
+        this.prisma.$transaction(
+          async (tx) => {
+            await this.lockReservationCapacity(tx, restaurantId);
+
+            // The fast idempotency check above avoids taking a lock for ordinary
+            // retries. This second check is the concurrency boundary: a request
+            // that waited for the same restaurant lock must observe the winner
+            // before running capacity checks or emitting duplicate effects.
+            if (dto.idempotencyKey) {
+              const existing = await tx.reservation.findUnique({
+                where: {
+                  restaurantId_idempotencyKey: {
+                    restaurantId,
+                    idempotencyKey: dto.idempotencyKey,
+                  },
+                },
+              });
+              if (existing) {
+                return { reservation: existing, replayed: true };
+              }
+            }
+
+            // Public bookings must make the capacity decision while holding the
+            // same transaction-scoped lock used for the insert. Staff bookings
+            // deliberately remain an override, but take the lock so later public
+            // requests see them in commit order.
+            if (ctx.source === 'PUBLIC') {
+              await this.availability.assertSlotBookable(
+                restaurantId,
+                startsAt,
+                total,
+                undefined,
+                tx,
+              );
+            }
+
+            const patron = await this.patrons.matchOrCreate(
+              tx,
               restaurantId,
-              patronId: patron.id,
-              referenceCode,
-              source: ctx.source,
-              status,
-              guestName: dto.guestName.trim(),
-              guestPhone: phone,
-              guestEmail: dto.guestEmail?.trim() || null,
-              startsAt,
-              occasion: dto.occasion ?? ReservationOccasion.NONE,
-              adultsCount: adults,
-              childrenCount: children,
-              customerNotes: dto.customerNotes?.trim() || null,
-              internalNotes: ctx.internalNotes?.trim() || null,
-              customerPreferences,
-              allergyNotes,
-              dietaryConsentAt,
-              marketingConsentAt,
-              notifyByEmail,
-              notifyBySms,
-              notificationLocale,
-              preferredZone,
-              manageToken,
-              durationMinutes,
-              idempotencyKey: dto.idempotencyKey ?? null,
-              createdById: ctx.createdById ?? null,
-            },
-          });
-          await tx.reservationEvent.create({
-            data: {
-              reservationId: reservation.id,
-              type: 'CREATED',
-              actorUserId: ctx.createdById ?? null,
-              metadata: { source: ctx.source, status },
-            },
-          });
-          return reservation;
-        }),
+              phone,
+              dto.guestName.trim(),
+              dto.guestEmail,
+            );
+            // Patron-level updates (staff tags, durable marketing opt-in). Marketing
+            // consent is sticky once given; a later booking without it doesn't revoke.
+            const patronData: Record<string, unknown> = {};
+            if (ctx.staffTags?.length) {
+              patronData.staffTags = sanitizeStaffTags(ctx.staffTags);
+            }
+            if (marketingConsentAt) {
+              patronData.marketingConsent = true;
+              patronData.marketingConsentAt = marketingConsentAt;
+            }
+            if (Object.keys(patronData).length > 0) {
+              await tx.patron.update({
+                where: { id: patron.id },
+                data: patronData,
+              });
+            }
+            const reservation = await tx.reservation.create({
+              data: {
+                restaurantId,
+                patronId: patron.id,
+                referenceCode,
+                source: ctx.source,
+                status,
+                guestName: dto.guestName.trim(),
+                guestPhone: phone,
+                guestEmail: dto.guestEmail?.trim() || null,
+                startsAt,
+                occasion: dto.occasion ?? ReservationOccasion.NONE,
+                adultsCount: adults,
+                childrenCount: children,
+                customerNotes: dto.customerNotes?.trim() || null,
+                internalNotes: ctx.internalNotes?.trim() || null,
+                customerPreferences,
+                allergyNotes,
+                dietaryConsentAt,
+                marketingConsentAt,
+                notifyByEmail,
+                notifyBySms,
+                notificationLocale,
+                preferredZone,
+                manageToken,
+                durationMinutes,
+                idempotencyKey: dto.idempotencyKey ?? null,
+                createdById: ctx.createdById ?? null,
+              },
+            });
+            await tx.reservationEvent.create({
+              data: {
+                reservationId: reservation.id,
+                type: 'CREATED',
+                actorUserId: ctx.createdById ?? null,
+                metadata: { source: ctx.source, status },
+              },
+            });
+            return { reservation, replayed: false };
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+        ),
       );
     } catch (err) {
-      // Idempotency race: two concurrent requests with the same key both passed
-      // the earlier findUnique, and this one lost the unique-constraint insert.
-      // Return the winner's row instead of surfacing a raw 500 (the whole point
-      // of the idempotency key). Prisma's P2002 `meta.target` is a string[] (or
-      // occasionally a string), so normalize before matching.
+      // Defense in depth for a writer that does not participate in this lock
+      // (for example an older deployment during a rolling release): return the
+      // idempotency-key winner instead of surfacing a raw unique-constraint 500.
+      // Prisma's P2002 `meta.target` is a string[] (or occasionally a string),
+      // so normalize before matching.
       const meta = (err as { code?: string; meta?: { target?: unknown } })
         ?.meta;
       const rawTarget = meta?.target;
@@ -789,6 +840,11 @@ export class ReservationsService {
       }
       throw err;
     }
+
+    if (outcome.replayed) {
+      return this.toCreateResult(outcome.reservation);
+    }
+    const created = outcome.reservation;
 
     this.events.emitReservationCreated(restaurantId, {
       id: created.id,
@@ -1240,6 +1296,22 @@ export class ReservationsService {
 
   // ── Helpers ─────────────────────────────────────────────────────────────
 
+  private async lockReservationCapacity(
+    tx: Prisma.TransactionClient,
+    restaurantId: string,
+  ): Promise<void> {
+    // One transaction-scoped lock per restaurant serializes the short
+    // capacity-check/write critical section across processes and pods. Hash
+    // collisions can only cause harmless extra serialization, never an unsafe
+    // unlock. Parameters remain bound through Prisma's tagged template.
+    await tx.$executeRaw`
+      SELECT pg_advisory_xact_lock(
+        hashtext('reservation_capacity'),
+        hashtext(${restaurantId})
+      )
+    `;
+  }
+
   private toCreateResult(r: {
     referenceCode: string;
     status: string;
@@ -1283,7 +1355,7 @@ export class ReservationsService {
         (e: any) =>
           e.metadata &&
           typeof e.metadata === 'object' &&
-          (e.metadata as any).source === 'GUEST',
+          e.metadata.source === 'GUEST',
       ),
       createdAt: r.createdAt,
     };
@@ -1307,7 +1379,7 @@ export class ReservationsService {
     return code;
   }
 
-  private async withReferenceRetry<T extends { referenceCode: string }>(
+  private async withReferenceRetry<T>(
     fn: (referenceCode: string) => Promise<T>,
   ): Promise<T> {
     for (let attempt = 0; attempt < 4; attempt++) {

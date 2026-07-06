@@ -10,6 +10,10 @@ const FUTURE = new Date(Date.now() + 2 * 24 * 3600 * 1000);
 const PAST = new Date(Date.now() - 60 * 60 * 1000);
 
 function build() {
+  const reservationFindUnique = jest.fn().mockResolvedValue(null);
+  const reservationFindMany = jest.fn().mockResolvedValue([]);
+  const reservationUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+  const reservationUpdate = jest.fn();
   const txReservationCreate = jest.fn().mockResolvedValue({
     id: 'r1',
     referenceCode: 'ABC234',
@@ -20,19 +24,26 @@ function build() {
     childrenCount: 0,
   });
   const tx = {
-    reservation: { create: txReservationCreate },
+    reservation: {
+      create: txReservationCreate,
+      findUnique: reservationFindUnique,
+      findMany: reservationFindMany,
+      updateMany: reservationUpdateMany,
+      update: reservationUpdate,
+    },
     reservationEvent: { create: jest.fn() },
     patron: { update: jest.fn() },
+    $executeRaw: jest.fn().mockResolvedValue(1),
   };
   const prisma: any = {
     restaurant: { findUnique: jest.fn() },
     user: { findUnique: jest.fn() },
     reservation: {
       findFirst: jest.fn(),
-      findUnique: jest.fn().mockResolvedValue(null),
-      findMany: jest.fn().mockResolvedValue([]),
-      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-      update: jest.fn(),
+      findUnique: reservationFindUnique,
+      findMany: reservationFindMany,
+      updateMany: reservationUpdateMany,
+      update: reservationUpdate,
     },
     reservationEvent: { create: jest.fn() },
     reservationSettings: { findUnique: jest.fn() },
@@ -44,6 +55,7 @@ function build() {
   const availability = {
     getSlots: jest.fn().mockResolvedValue([]),
     assertSlotBookable: jest.fn().mockResolvedValue(undefined),
+    assertCapacityAvailable: jest.fn().mockResolvedValue(undefined),
   };
   const allergens = {
     getMenuAllergenSummary: jest
@@ -567,7 +579,7 @@ describe('ReservationsService guest self-service (manage token, Feature 2)', () 
   it('changes party size in the SAME slot without re-running the slot guard', async () => {
     // C-HIGH-2: a party-only edit must not re-apply the lead-time/hours guard,
     // which would wrongly reject an edit made inside the lead window.
-    const { service, prisma, availability } = build();
+    const { service, prisma, availability, tx } = build();
     prisma.reservation.findUnique.mockResolvedValue(liveReservation);
     prisma.reservationSettings.findUnique.mockResolvedValue({
       maxTotalGuests: 12,
@@ -580,13 +592,66 @@ describe('ReservationsService guest self-service (manage token, Feature 2)', () 
 
     expect(res.totalGuests).toBe(4);
     expect(availability.assertSlotBookable).not.toHaveBeenCalled();
+    expect(availability.assertCapacityAvailable).toHaveBeenCalledWith(
+      'rest1',
+      FUTURE,
+      4,
+      'r1',
+      tx,
+    );
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: 'ReadCommitted',
+    });
     // Same-slot change keeps the existing reminder state (no reset).
     const data = prisma.reservation.updateMany.mock.calls[0][0].data;
     expect(data.reminderSentAt).toBeUndefined();
   });
 
+  it('rejects a same-slot party increase when the capacity guard says the slot is full', async () => {
+    const { service, prisma, availability, tx } = build();
+    prisma.reservation.findUnique.mockResolvedValue(liveReservation);
+    prisma.reservationSettings.findUnique.mockResolvedValue({
+      maxTotalGuests: 12,
+    });
+    availability.assertCapacityAvailable.mockRejectedValueOnce(
+      new ConflictException('This time is no longer available.'),
+    );
+
+    await expect(
+      service.modifyByManageToken('rest1', 'tok_live', { adultsCount: 4 }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(availability.assertCapacityAvailable).toHaveBeenCalledWith(
+      'rest1',
+      FUTURE,
+      4,
+      'r1',
+      tx,
+    );
+    expect(prisma.reservation.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('allows a same-slot party decrease without consulting the capacity cap', async () => {
+    const { service, prisma, availability, tx } = build();
+    prisma.reservation.findUnique.mockResolvedValue({
+      ...liveReservation,
+      adultsCount: 4,
+    });
+    prisma.reservationSettings.findUnique.mockResolvedValue({
+      maxTotalGuests: 12,
+    });
+
+    await expect(
+      service.modifyByManageToken('rest1', 'tok_live', { adultsCount: 2 }),
+    ).resolves.toEqual(expect.objectContaining({ totalGuests: 2 }));
+
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(availability.assertCapacityAvailable).not.toHaveBeenCalled();
+  });
+
   it('re-validates availability (excluding own hold) and re-arms the reminder when the time changes', async () => {
-    const { service, prisma, availability } = build();
+    const { service, prisma, availability, tx } = build();
     prisma.reservation.findUnique.mockResolvedValue(liveReservation);
     prisma.reservationSettings.findUnique.mockResolvedValue({
       maxTotalGuests: 12,
@@ -602,6 +667,7 @@ describe('ReservationsService guest self-service (manage token, Feature 2)', () 
       expect.any(Date),
       2,
       'r1',
+      tx,
     );
     // A time change re-arms the 24h reminder for the new slot.
     const data = prisma.reservation.updateMany.mock.calls[0][0].data;
@@ -663,7 +729,7 @@ describe('ReservationsService createReservation hardening', () => {
   };
 
   it('does not record marketing consent for a STAFF manual booking (S-LOW)', async () => {
-    const { service, prisma, txReservationCreate } = build();
+    const { service, prisma, tx, txReservationCreate, availability } = build();
     prisma.restaurant.findUnique.mockResolvedValue({ ownerId: 'owner' });
     prisma.reservationSettings.findUnique.mockResolvedValue(enabledSettings);
 
@@ -675,10 +741,12 @@ describe('ReservationsService createReservation hardening', () => {
     expect(
       txReservationCreate.mock.calls[0][0].data.marketingConsentAt,
     ).toBeNull();
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(availability.assertSlotBookable).not.toHaveBeenCalled();
   });
 
   it('records marketing consent for a PUBLIC booking when opted in', async () => {
-    const { service, prisma, txReservationCreate } = build();
+    const { service, prisma, tx, txReservationCreate, availability } = build();
     prisma.reservationSettings.findUnique.mockResolvedValue(enabledSettings);
 
     await service.createPublic('rest1', {
@@ -690,6 +758,23 @@ describe('ReservationsService createReservation hardening', () => {
     expect(
       txReservationCreate.mock.calls[0][0].data.marketingConsentAt,
     ).not.toBeNull();
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: 'ReadCommitted',
+    });
+    expect(availability.assertSlotBookable).toHaveBeenCalledWith(
+      'rest1',
+      FUTURE,
+      2,
+      undefined,
+      tx,
+    );
+    expect(tx.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      availability.assertSlotBookable.mock.invocationCallOrder[0],
+    );
+    expect(
+      availability.assertSlotBookable.mock.invocationCallOrder[0],
+    ).toBeLessThan(txReservationCreate.mock.invocationCallOrder[0]);
   });
 
   it('persists the guest locale and reuses it for lifecycle notifications', async () => {
@@ -738,6 +823,7 @@ describe('ReservationsService createReservation hardening', () => {
     };
     prisma.reservation.findUnique
       .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(winner);
     const p2002 = Object.assign(new Error('unique constraint'), {
       code: 'P2002',
@@ -752,5 +838,44 @@ describe('ReservationsService createReservation hardening', () => {
     });
 
     expect(res.referenceCode).toBe('WIN123');
+  });
+
+  it('rechecks idempotency behind the lock before capacity and emits no duplicate effects', async () => {
+    const {
+      service,
+      prisma,
+      tx,
+      txReservationCreate,
+      availability,
+      events,
+      notifications,
+    } = build();
+    prisma.reservationSettings.findUnique.mockResolvedValue(enabledSettings);
+    const winner = {
+      referenceCode: 'WIN123',
+      status: 'PENDING',
+      startsAt: FUTURE,
+      manageToken: 'winner-token',
+    };
+    prisma.reservation.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(winner);
+
+    const result = await service.createPublic('rest1', {
+      ...dto,
+      idempotencyKey: 'key-1',
+    });
+
+    expect(result).toEqual({
+      referenceCode: 'WIN123',
+      status: 'PENDING',
+      startsAt: FUTURE,
+      manageToken: 'winner-token',
+    });
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(availability.assertSlotBookable).not.toHaveBeenCalled();
+    expect(txReservationCreate).not.toHaveBeenCalled();
+    expect(events.emitReservationCreated).not.toHaveBeenCalled();
+    expect(notifications.notify).not.toHaveBeenCalled();
   });
 });
