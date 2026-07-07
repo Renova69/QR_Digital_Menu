@@ -86,28 +86,49 @@ function format24h(iso: string, tz?: string, locale?: string): string {
   });
 }
 
-const ReservationsView = () => {
+const ReservationsView = ({
+  canConfigure = true,
+}: {
+  canConfigure?: boolean;
+}) => {
   const { t } = useTranslation();
   const { activeRestaurant } = useRestaurantContext();
   const restaurantId = activeRestaurant?.id ?? "";
   const [subTab, setSubTab] = useState<"list" | "settings">("list");
 
+  useEffect(() => {
+    if (!canConfigure && subTab === "settings") setSubTab("list");
+  }, [canConfigure, subTab]);
+
   return (
     <div className="p-4 space-y-4">
+      {!canConfigure && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {t(
+            "reservations.windDownNotice",
+            "Existing reservations remain available to service. Upgrade to accept or configure new bookings.",
+          )}
+        </div>
+      )}
       <div className="flex gap-2">
         <TabButton
           active={subTab === "list"}
           onClick={() => setSubTab("list")}
           label={t("reservations.tabList", "Reservations")}
         />
-        <TabButton
-          active={subTab === "settings"}
-          onClick={() => setSubTab("settings")}
-          label={t("reservations.tabSettings", "Settings")}
-        />
+        {canConfigure && (
+          <TabButton
+            active={subTab === "settings"}
+            onClick={() => setSubTab("settings")}
+            label={t("reservations.tabSettings", "Settings")}
+          />
+        )}
       </div>
       {!restaurantId ? null : subTab === "list" ? (
-        <ReservationList restaurantId={restaurantId} />
+        <ReservationList
+          restaurantId={restaurantId}
+          canCreate={canConfigure}
+        />
       ) : (
         <ReservationSettingsForm restaurantId={restaurantId} />
       )}
@@ -213,7 +234,13 @@ function StatCard({
   );
 }
 
-function ReservationList({ restaurantId }: { restaurantId: string }) {
+function ReservationList({
+  restaurantId,
+  canCreate,
+}: {
+  restaurantId: string;
+  canCreate: boolean;
+}) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [date, setDate] = useState(todayISO());
@@ -264,7 +291,7 @@ function ReservationList({ restaurantId }: { restaurantId: string }) {
   return (
     <div className="lg:grid lg:grid-cols-3 lg:gap-4">
       <div className="lg:col-span-2 space-y-3">
-        <AnalyticsPanel restaurantId={restaurantId} />
+        {canCreate && <AnalyticsPanel restaurantId={restaurantId} />}
         <div className="flex flex-wrap gap-2 items-center">
           <input
             type="date"
@@ -293,17 +320,19 @@ function ReservationList({ restaurantId }: { restaurantId: string }) {
               </option>
             ))}
           </select>
-          <button
-            onClick={() => setShowManual((v) => !v)}
-            className="ml-auto text-sm px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-medium"
-          >
-            {showManual
-              ? t("reservations.close", "Close")
-              : t("reservations.newBooking", "+ New booking")}
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => setShowManual((v) => !v)}
+              className="ml-auto text-sm px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-medium"
+            >
+              {showManual
+                ? t("reservations.close", "Close")
+                : t("reservations.newBooking", "+ New booking")}
+            </button>
+          )}
         </div>
 
-        {showManual && (
+        {canCreate && showManual && (
           <ManualBookingForm
             restaurantId={restaurantId}
             onDone={() => {

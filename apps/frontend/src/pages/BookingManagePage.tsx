@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   getManageReservation,
@@ -48,15 +48,18 @@ function localDateISO(d: Date = new Date()): string {
 
 const BookingManagePage = () => {
   const { t, i18n } = useTranslation();
-  const params = new URLSearchParams(useLocation().search);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const params = new URLSearchParams(location.search);
   const restaurantId = params.get("r") ?? "";
   const requestedLanguage = params.get("lang")?.split(/[-_]/)[0] ?? "";
+  const tokenFromQuery = params.get("token") ?? "";
   // Capture token ONCE on mount (useState initializer runs only on the first
   // render). sessionStorage is already scoped to the browser tab/session and
   // auto-clears on close, so manual cleanup is unnecessary and would break
   // page refreshes or React re-mounts (StrictMode, router transitions, etc.).
   const [token] = useState(
-    () => sessionStorage.getItem("manage_token") ?? params.get("token") ?? "",
+    () => tokenFromQuery || sessionStorage.getItem("manage_token") || "",
   );
 
   const [config, setConfig] = useState<ReservationPublicConfig | null>(null);
@@ -82,6 +85,21 @@ const BookingManagePage = () => {
 
   const total = adults + children;
   const maxParty = reservation?.policy?.maxTotalGuests ?? 12;
+
+  useEffect(() => {
+    if (!tokenFromQuery) return;
+    sessionStorage.setItem("manage_token", tokenFromQuery);
+    const clean = new URLSearchParams(location.search);
+    clean.delete("token");
+    const search = clean.toString();
+    void navigate(
+      {
+        pathname: location.pathname,
+        search: search ? `?${search}` : "",
+      },
+      { replace: true },
+    );
+  }, [location.pathname, location.search, navigate, tokenFromQuery]);
 
   useEffect(() => {
     if (requestedLanguage) {

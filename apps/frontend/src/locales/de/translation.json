@@ -2135,6 +2135,7 @@
           "b7": "Upselling und Zeitregeln",
           "b8": "Bis zu 5 Mitarbeiterlizenzen",
           "b9": "Führungsrolle",
+          "b10": "Reservierungen",
           "fit": "Ideal für gut frequentierte Restaurants, Cafés und Bars mit Zahlungsabwicklung, Treueprogrammen, Markenpräsenz und einem größeren Team."
         },
         "enterprise": {
@@ -2174,6 +2175,7 @@
         "customerAccounts": "Kundenkonten",
         "smartUpselling": "Upselling und Empfehlungen",
         "dayparting": "Zeitabhängige Regeln und Happy Hour",
+        "reservations": "Reservierungen",
         "pos": "Kassensystem am Tisch",
         "kds": "Küchenauslage",
         "advancedRoles": "Erweiterte Rollen und Berechtigungen",
@@ -2752,6 +2754,7 @@
         "b8": "Öffnungszeiten und Happy Hour",
         "b9": "Bis zu 5 Mitarbeiterlizenzen",
         "b10": "Führungsrolle",
+        "b11": "Reservierungen",
         "fit": "Ideal für aktive Restaurants, Cafés und Bars mit Zahlungsabwicklung, Treueprogramm, Markenpräsenz und bis zu 5 Mitarbeitern."
       },
       "enterprise": {
@@ -2784,6 +2787,7 @@
       "qrCodes": "QR-Codes",
       "customerAccounts": "Kundenkonten",
       "loyalty": "Treue- und VIP-Stufen",
+      "reservations": "Reservierungen",
       "upselling": "Upselling",
       "dayparting": "Öffnungszeiten und Happy Hour",
       "customBranding": "Individuelles Branding",
@@ -3457,6 +3461,7 @@
   "reservations": {
     "tabList": "Reservierungen",
     "tabSettings": "Einstellungen",
+    "windDownNotice": "Bestehende Reservierungen können weiterhin bearbeitet werden. Führen Sie ein Upgrade durch, um neue Reservierungen anzunehmen oder zu konfigurieren.",
     "statThisWeek": "Diese Woche",
     "stat30d": "Letzte 30 Tage",
     "statNoShows": "No-Shows (30t)",

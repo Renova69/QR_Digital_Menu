@@ -83,6 +83,8 @@ describe("BookingManagePage live reservation status", () => {
   beforeEach(() => {
     sessionStorage.clear();
     sessionStorage.setItem("manage_token", "manage-secret");
+    apiMocks.getManageReservation.mockReset();
+    apiMocks.getReservationConfig.mockReset();
     apiMocks.getReservationConfig.mockResolvedValue({
       restaurant: {
         name: "Test Bistro",
@@ -133,6 +135,27 @@ describe("BookingManagePage live reservation status", () => {
     expect(await screen.findByText("CONFIRMED")).toBeTruthy();
     await waitFor(() =>
       expect(apiMocks.getManageReservation).toHaveBeenCalledTimes(2),
+    );
+  });
+
+  it("prefers a fresh link token over a stale token from another reservation", async () => {
+    sessionStorage.setItem("manage_token", "stale-token");
+    apiMocks.getManageReservation.mockReset();
+    apiMocks.getManageReservation.mockResolvedValue(pendingReservation);
+
+    render(
+      <MemoryRouter
+        initialEntries={["/booking/manage?r=rest-1&token=fresh-token"]}
+      >
+        <BookingManagePage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() =>
+      expect(apiMocks.getManageReservation).toHaveBeenCalledWith(
+        "rest-1",
+        "fresh-token",
+      ),
     );
   });
 });

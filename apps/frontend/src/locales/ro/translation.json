@@ -1761,6 +1761,7 @@
         "menuImport": "Import meniu din fișier",
         "paymentProviders": "Plăți cu cardul și locale",
         "dayparting": "Reguli pe interval orar și happy hour",
+        "reservations": "Rezervări",
         "pos": "POS la masă",
         "kds": "Display de bucătărie",
         "advancedRoles": "Roluri și permisiuni avansate",
@@ -1852,6 +1853,7 @@
           "b7": "Cheamă ospătarul și recenzii",
           "b8": "Până la 5 membri personal",
           "b9": "Rol de manager",
+          "b10": "Rezervări",
           "fit": "Ideal pentru restaurante, cafenele și baruri active, cu plăți, loialitate, branding și o echipă mai mare."
         },
         "enterprise": {
@@ -2429,6 +2431,7 @@
         "b8": "Upselling",
         "b9": "Reguli de timp și happy hour",
         "b10": "Până la 5 angajați + Manager",
+        "b11": "Rezervări",
         "fit": "Ideal pentru restaurante, cafenele și baruri active, cu plăți, loialitate, branding și până la 5 membri de personal."
       },
       "enterprise": {
@@ -2460,6 +2463,7 @@
       "qrCodes": "Coduri QR",
       "customerAccounts": "Conturi clienți",
       "loyalty": "Program de loialitate",
+      "reservations": "Rezervări",
       "upselling": "Upselling",
       "dayparting": "Program orar / happy hour",
       "customBranding": "Branding personalizat",
@@ -3589,6 +3593,7 @@
   "reservations": {
     "tabList": "Rezervări",
     "tabSettings": "Setări",
+    "windDownNotice": "Rezervările existente rămân disponibile pentru administrare. Actualizați planul pentru a accepta sau configura rezervări noi.",
     "statThisWeek": "Săptămâna aceasta",
     "stat30d": "Ultimele 30 de zile",
     "statNoShows": "Neprezentări (30z)",

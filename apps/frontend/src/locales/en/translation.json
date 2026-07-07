@@ -1729,6 +1729,7 @@
           "b7": "Upselling and time rules",
           "b8": "Up to 5 staff seats",
           "b9": "Manager role",
+          "b10": "Reservations",
           "fit": "Best for active restaurants, cafes, and bars with payments, loyalty, branding, and a larger team."
         },
         "enterprise": {
@@ -1768,6 +1769,7 @@
         "customerAccounts": "Customer accounts",
         "smartUpselling": "Upselling and suggestions",
         "dayparting": "Time-based rules and happy hour",
+        "reservations": "Reservations",
         "pos": "Tableside POS",
         "kds": "Kitchen display",
         "advancedRoles": "Advanced roles and permissions",
@@ -2344,6 +2346,7 @@
         "b8": "Time rules and happy hour",
         "b9": "Up to 5 staff seats",
         "b10": "Manager role",
+        "b11": "Reservations",
         "fit": "Best for active restaurants, cafes, and bars with payments, loyalty, branding, and up to 5 staff."
       },
       "enterprise": {
@@ -2376,6 +2379,7 @@
       "qrCodes": "QR codes",
       "customerAccounts": "Customer accounts",
       "loyalty": "Loyalty and VIP tiers",
+      "reservations": "Reservations",
       "upselling": "Upselling",
       "dayparting": "Time rules and happy hour",
       "customBranding": "Custom branding",
@@ -3502,6 +3506,7 @@
   "reservations": {
     "tabList": "Reservations",
     "tabSettings": "Settings",
+    "windDownNotice": "Existing reservations remain available to service. Upgrade to accept or configure new bookings.",
     "statThisWeek": "This week",
     "stat30d": "Last 30 days",
     "statNoShows": "No-shows (30d)",
@@ -3572,8 +3577,8 @@
     "preferences": {
       "VEGAN": "Vegan",
       "VEGETARIAN": "Vegetarian",
-      "GLUTEN_INTOLERANT": "Gluten Free",
-      "LACTOSE_INTOLERANT": "Lactose Free",
+      "GLUTEN_INTOLERANT": "Gluten Intolerant",
+      "LACTOSE_INTOLERANT": "Lactose Intolerant",
       "NUT_ALLERGY": "Nut Allergy",
       "WHEELCHAIR_ACCESS": "Wheelchair Access",
       "PREGNANT": "Pregnant",

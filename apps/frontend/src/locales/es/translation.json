@@ -2135,6 +2135,7 @@
           "b7": "Venta de productos de mayor valor y normas temporales",
           "b8": "Hasta 5 puestos de personal",
           "b9": "Función de responsable",
+          "b10": "Reservas",
           "fit": "Ideal para restaurantes, cafeterías y bares con gran volumen de actividad, que gestionan pagos, programas de fidelización, imagen de marca y cuentan con un equipo numeroso."
         },
         "enterprise": {
@@ -2174,6 +2175,7 @@
         "customerAccounts": "Cuentas de clientes",
         "smartUpselling": "Ventas adicionales y sugerencias",
         "dayparting": "Reglas basadas en el horario y la hora feliz",
+        "reservations": "Reservas",
         "pos": "TPV en la mesa",
         "kds": "Expositor de cocina",
         "advancedRoles": "Funciones y permisos avanzados",
@@ -2752,6 +2754,7 @@
         "b8": "Horarios y hora feliz",
         "b9": "Hasta 5 puestos de personal",
         "b10": "Función de responsable",
+        "b11": "Reservas",
         "fit": "Ideal para restaurantes, cafeterías y bares con gran volumen de actividad, que gestionan pagos, programas de fidelización y la imagen de marca, y que cuentan con hasta 5 empleados."
       },
       "enterprise": {
@@ -2784,6 +2787,7 @@
       "qrCodes": "Códigos QR",
       "customerAccounts": "Cuentas de clientes",
       "loyalty": "Niveles de fidelidad y VIP",
+      "reservations": "Reservas",
       "upselling": "Venta de productos de mayor valor",
       "dayparting": "Horarios y hora feliz",
       "customBranding": "Personalización de la imagen de marca",
@@ -3457,6 +3461,7 @@
   "reservations": {
     "tabList": "Reservas",
     "tabSettings": "Ajustes",
+    "windDownNotice": "Las reservas existentes siguen disponibles para su gestión. Actualiza el plan para aceptar o configurar nuevas reservas.",
     "statThisWeek": "Esta semana",
     "stat30d": "Últimos 30 días",
     "statNoShows": "No presentados (30d)",

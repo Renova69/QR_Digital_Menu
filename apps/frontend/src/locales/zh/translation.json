@@ -2135,6 +2135,7 @@
           "b7": "追加销售与时间规则",
           "b8": "最多 5 个员工席位",
           "b9": "经理职位",
+          "b10": "预订",
           "fit": "最适合业务繁忙的餐厅、咖啡馆和酒吧，支持支付、会员计划、品牌推广，且拥有较大型团队。"
         },
         "enterprise": {
@@ -2174,6 +2175,7 @@
         "customerAccounts": "客户账户",
         "smartUpselling": "追加销售与推荐",
         "dayparting": "基于时间的规则和欢乐时光",
+        "reservations": "预订",
         "pos": "桌边POS",
         "kds": "厨房展示",
         "advancedRoles": "高级角色和权限",
@@ -2752,6 +2754,7 @@
         "b8": "时间规定和欢乐时光",
         "b9": "最多 5 个员工席位",
         "b10": "经理职位",
+        "b11": "预订",
         "fit": "最适合业务繁忙的餐厅、咖啡馆和酒吧，支持支付、会员计划、品牌推广，且员工人数不超过5人。"
       },
       "enterprise": {
@@ -2784,6 +2787,7 @@
       "qrCodes": "二维码",
       "customerAccounts": "客户账户",
       "loyalty": "忠诚度与VIP等级",
+      "reservations": "预订",
       "upselling": "向上销售",
       "dayparting": "时间规定和欢乐时光",
       "customBranding": "定制品牌标识",
@@ -3457,6 +3461,7 @@
   "reservations": {
     "tabList": "预订列表",
     "tabSettings": "设置",
+    "windDownNotice": "现有预订仍可继续管理。升级套餐后即可接受或配置新的预订。",
     "statThisWeek": "本周",
     "stat30d": "过去 30 天",
     "statNoShows": "未到店",

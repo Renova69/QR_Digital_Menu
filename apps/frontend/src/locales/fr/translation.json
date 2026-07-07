@@ -2135,6 +2135,7 @@
           "b7": "Vente incitative et règles relatives au temps",
           "b8": "Jusqu'à 5 postes pour le personnel",
           "b9": "Fonction de responsable",
+          "b10": "Réservations",
           "fit": "Idéal pour les restaurants, cafés et bars très fréquentés qui gèrent des paiements, un programme de fidélité, leur image de marque et disposent d'une équipe plus importante."
         },
         "enterprise": {
@@ -2174,6 +2175,7 @@
         "customerAccounts": "Comptes clients",
         "smartUpselling": "Vente incitative et suggestions",
         "dayparting": "Règles liées à l'heure et « happy hour »",
+        "reservations": "Réservations",
         "pos": "Système de point de vente à table",
         "kds": "Présentoir de cuisine",
         "advancedRoles": "Rôles et autorisations avancés",
@@ -2752,6 +2754,7 @@
         "b8": "Horaires et happy hour",
         "b9": "Jusqu'à 5 postes pour le personnel",
         "b10": "Fonction de responsable",
+        "b11": "Réservations",
         "fit": "Idéal pour les restaurants, cafés et bars en pleine activité proposant des services de paiement, de fidélisation et de promotion de l'image de marque, et comptant jusqu'à 5 employés."
       },
       "enterprise": {
@@ -2784,6 +2787,7 @@
       "qrCodes": "Codes QR",
       "customerAccounts": "Comptes clients",
       "loyalty": "Fidélité et niveaux VIP",
+      "reservations": "Réservations",
       "upselling": "Vente incitative",
       "dayparting": "Horaires et happy hour",
       "customBranding": "Personnalisation de l'image de marque",
@@ -3457,6 +3461,7 @@
   "reservations": {
     "tabList": "Réservations",
     "tabSettings": "Paramètres",
+    "windDownNotice": "Les réservations existantes restent disponibles pour être gérées. Passez à un forfait supérieur pour accepter ou configurer de nouvelles réservations.",
     "statThisWeek": "Cette semaine",
     "stat30d": "30 derniers jours",
     "statNoShows": "Non-présentations (30j)",

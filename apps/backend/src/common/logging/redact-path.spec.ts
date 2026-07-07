@@ -65,6 +65,10 @@ describe('redactSensitivePath (M-PAY-1)', () => {
     ).toBe('/api/v1/reservations/public/rest_1/manage/:token/cancel');
   });
 
+  it('redacts the reservation token from the short manage-link route', () => {
+    expect(redactSensitivePath(`/r/${SECRET}`)).toBe('/r/:token');
+  });
+
   it('handles non-string / empty input safely', () => {
     expect(redactSensitivePath(undefined)).toBe('');
     expect(redactSensitivePath(null)).toBe('');

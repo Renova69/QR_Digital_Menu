@@ -272,7 +272,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-primary/10">
               <span className="text-4xl font-display font-black text-primary/40">
-                {itemName[0]}
+                {itemName?.[0] ?? "?"}
               </span>
             </div>
           )}
@@ -459,7 +459,7 @@ export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
                             ) : (
                               <div className="w-full h-full flex items-center justify-center bg-primary/10">
                                 <span className="text-xl font-display font-black text-primary">
-                                  {pairingName[0]}
+                                  {pairingName?.[0] ?? "?"}
                                 </span>
                               </div>
                             )}

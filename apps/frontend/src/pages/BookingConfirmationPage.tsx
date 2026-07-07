@@ -41,6 +41,11 @@ const STATUS_META: Record<
     fallback: "This reservation has been cancelled.",
     hue: "#6b7280",
   },
+  NO_SHOW: {
+    key: "reservations.status.NO_SHOW",
+    fallback: "This reservation was marked as a no-show.",
+    hue: "#ef4444",
+  },
 };
 
 const BookingConfirmationPage = () => {
@@ -57,6 +62,7 @@ const BookingConfirmationPage = () => {
   const [status, setStatus] = useState<string | null>(null);
   const [startsAt, setStartsAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [config, setConfig] = useState<ReservationPublicConfig | null>(null);
   const [theme, setTheme] = useState<PublicBrandMode>("light");
 
@@ -65,6 +71,7 @@ const BookingConfirmationPage = () => {
     // Status paints immediately; this refresh also picks up a changed time.
     void getReservationStatus(restaurantId, referenceCode)
       .then((data) => {
+        setError(null);
         setStatus(data.status);
         setStartsAt(data.startsAt);
       })
@@ -95,23 +102,33 @@ const BookingConfirmationPage = () => {
   // Poll status while still PENDING so the guest sees accept/decline live.
   useEffect(() => {
     if (!restaurantId || !referenceCode) {
+      setError(t("manage.invalidLink", "This link is invalid or incomplete."));
       setLoading(false);
       return;
     }
     let cancelled = false;
+    let hasLoadedStatus = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const poll = () => {
       getReservationStatus(restaurantId, referenceCode)
         .then((data) => {
           if (cancelled) return;
+          hasLoadedStatus = true;
+          setError(null);
           setStatus(data.status);
           setStartsAt(data.startsAt);
           if (data.status === "PENDING") {
             timer = setTimeout(poll, 12000);
           }
         })
-        .catch(() => {})
+        .catch(() => {
+          if (!cancelled && !hasLoadedStatus) {
+            setError(
+              t("manage.notFound", "We couldn't find this reservation."),
+            );
+          }
+        })
         .finally(() => !cancelled && setLoading(false));
     };
     poll();
@@ -173,6 +190,8 @@ const BookingConfirmationPage = () => {
           <p style={{ color: "var(--muted)" }}>
             {t("booking.loading", "Loading…")}
           </p>
+        ) : error ? (
+          <p className="text-sm text-red-500">{error}</p>
         ) : (
           <>
             <div

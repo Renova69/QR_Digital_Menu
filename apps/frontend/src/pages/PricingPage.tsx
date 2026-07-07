@@ -78,6 +78,7 @@ const PLAN_CONFIGS: PlanConfig[] = [
       'pricing.tiers.professional.b8',
       'pricing.tiers.professional.b9',
       'pricing.tiers.professional.b10',
+      'pricing.tiers.professional.b11',
     ],
   },
   {
@@ -116,6 +117,7 @@ const FEATURE_ROWS: FeatureRowData[] = [
   { labelKey: 'pricing.features.fullAnalytics', free: false, starter: false, professional: true, enterprise: true },
   { sectionKey: 'pricing.sections.customers', labelKey: 'pricing.features.customerAccounts', free: false, starter: false, professional: true, enterprise: true },
   { labelKey: 'pricing.features.loyalty', free: false, starter: false, professional: true, enterprise: true },
+  { labelKey: 'pricing.features.reservations', free: false, starter: false, professional: true, enterprise: true },
   { sectionKey: 'pricing.sections.customization', labelKey: 'pricing.features.customBranding', free: false, starter: false, professional: true, enterprise: true },
   { sectionKey: 'pricing.sections.operations', labelKey: 'pricing.features.pos', free: false, starter: false, professional: false, enterprise: true },
   { labelKey: 'pricing.features.kds', free: false, starter: false, professional: false, enterprise: true },

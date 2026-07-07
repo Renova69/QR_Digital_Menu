@@ -531,6 +531,100 @@ describe('MenuCrudService', () => {
 
   // ── getTrendingItems ──────────────────────────────────────────────────────
 
+  describe('getPublicMenuItems', () => {
+    it('throws NotFoundException when restaurant not found', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(null);
+
+      await expect(service.getPublicMenuItems('nope')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('throws ForbiddenException when restaurant is suspended', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        isActive: false,
+      });
+
+      await expect(service.getPublicMenuItems('rest-1')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('returns items keyed by categoryId for every visible category', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.menuCategory.findMany.mockResolvedValue([
+        makeCategory({ id: 'cat-1', items: [makeItem({ id: 'item-1' })] }),
+        makeCategory({
+          id: 'cat-2',
+          name: 'Mains',
+          items: [makeItem({ id: 'item-2', categoryId: 'cat-2' })],
+        }),
+      ]);
+
+      const result = await service.getPublicMenuItems('rest-1');
+
+      expect(Object.keys(result)).toEqual(['cat-1', 'cat-2']);
+      expect(result['cat-1']).toHaveLength(1);
+      expect(result['cat-1'][0].id).toBe('item-1');
+      expect(result['cat-2'][0].id).toBe('item-2');
+    });
+
+    it('omits HIDDEN categories from the map', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.menuCategory.findMany.mockResolvedValue([
+        makeCategory({ id: 'cat-1', items: [makeItem()] }),
+        makeCategory({
+          id: 'cat-2',
+          availabilityType: 'HIDDEN',
+          items: [makeItem({ id: 'hidden' })],
+        }),
+      ]);
+
+      const result = await service.getPublicMenuItems('rest-1');
+
+      expect(Object.keys(result)).toEqual(['cat-1']);
+    });
+
+    it('only fetches in-stock items', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.menuCategory.findMany.mockResolvedValue([makeCategory()]);
+
+      await service.getPublicMenuItems('rest-1');
+
+      expect(mockPrisma.menuCategory.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: expect.objectContaining({
+            items: expect.objectContaining({
+              where: { isOutOfStock: false },
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('calls applyLazyTranslations once for the whole menu when lang valid and DEEPL key set', async () => {
+      const prevKey = process.env.DEEPL_API_KEY;
+      process.env.DEEPL_API_KEY = 'test-key';
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.menuCategory.findMany.mockResolvedValue([
+        makeCategory({ items: [makeItem()] }),
+      ]);
+
+      await service.getPublicMenuItems('rest-1', 'bg');
+
+      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledTimes(
+        1,
+      );
+      expect(mockMenuTranslation.applyLazyTranslations).toHaveBeenCalledWith(
+        expect.any(Array),
+        'bg',
+      );
+      if (prevKey === undefined) delete process.env.DEEPL_API_KEY;
+      else process.env.DEEPL_API_KEY = prevKey;
+    });
+  });
+
   describe('getTrendingItems', () => {
     it('returns [] when restaurant not found', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(null);

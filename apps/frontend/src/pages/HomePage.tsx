@@ -333,6 +333,13 @@ const comparisonRows: FeatureRow[] = [
     enterprise: true,
   },
   {
+    labelKey: "landing.comparisonTable.rows.reservations",
+    free: false,
+    starter: false,
+    professional: true,
+    enterprise: true,
+  },
+  {
     labelKey: "landing.comparisonTable.rows.pos",
     free: false,
     starter: false,
@@ -983,6 +990,7 @@ const HomePage = () => {
         t("landing.pricingSection.plans.professional.b7"),
         t("landing.pricingSection.plans.professional.b8"),
         t("landing.pricingSection.plans.professional.b9"),
+        t("landing.pricingSection.plans.professional.b10"),
       ],
     },
     {

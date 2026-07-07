@@ -43,6 +43,7 @@ export class ReservationReminderService {
         status: 'CONFIRMED',
         reminderSentAt: null,
         startsAt: { gt: now, lte: windowEnd },
+        restaurant: { isActive: true },
       },
       select: {
         id: true,

@@ -82,7 +82,7 @@ export class ReservationsService {
     const [restaurant, user] = await Promise.all([
       this.prisma.restaurant.findUnique({
         where: { id: restaurantId },
-        select: { ownerId: true },
+        select: { ownerId: true, isActive: true },
       }),
       this.prisma.user.findUnique({
         where: { id: userId },
@@ -91,6 +91,9 @@ export class ReservationsService {
     ]);
     if (!restaurant) throw new NotFoundException('Restaurant not found');
     if (user?.role === 'SUPER_ADMIN') return 'SUPER_ADMIN';
+    if (restaurant.isActive === false) {
+      throw new ForbiddenException('Restaurant is not active');
+    }
     if (restaurant.ownerId === userId) return 'OWNER';
     // KITCHEN never touches reservations (no guest PII).
     if (
@@ -122,8 +125,12 @@ export class ReservationsService {
         tier: true,
         forceTier: true,
         dashboardLanguage: true,
+        isActive: true,
       },
     });
+    if (restaurant?.isActive === false) {
+      throw new ForbiddenException('Restaurant is not active');
+    }
     if (
       !this.features.restaurantHasFeature(restaurant, FeatureFlag.RESERVATIONS)
     ) {
@@ -338,6 +345,12 @@ export class ReservationsService {
 
   async cancelByManageToken(restaurantId: string, token: string) {
     const r = await this.loadByToken(restaurantId, token);
+    const now = new Date();
+    if (r.startsAt <= now) {
+      throw new ConflictException(
+        'This reservation has already started and cannot be cancelled online.',
+      );
+    }
 
     // Guarded CAS: only a live booking can be self-cancelled; a concurrent
     // staff action or double-submit no-ops.
@@ -346,6 +359,7 @@ export class ReservationsService {
         id: r.id,
         restaurantId,
         status: { in: ['PENDING', 'CONFIRMED'] },
+        startsAt: { gt: now },
       },
       data: { status: 'CANCELLED' },
     });
@@ -1127,9 +1141,10 @@ export class ReservationsService {
     const now = DateTime.now().setZone(zone);
     const since = now.minus({ days: windowDays }).startOf('day').toJSDate();
     const weekStart = now.minus({ days: 7 }).toJSDate();
+    const until = now.toJSDate();
 
     const rows = await this.prisma.reservation.findMany({
-      where: { restaurantId, startsAt: { gte: since } },
+      where: { restaurantId, startsAt: { gte: since, lte: until } },
       select: {
         startsAt: true,
         status: true,
@@ -1147,7 +1162,7 @@ export class ReservationsService {
 
     for (const r of rows) {
       statusCounts[r.status] = (statusCounts[r.status] ?? 0) + 1;
-      if (r.startsAt >= weekStart) thisWeek += 1;
+      if (r.startsAt >= weekStart && r.startsAt <= until) thisWeek += 1;
       // Party-size average over bookings that represent real demand (exclude
       // declined/cancelled requests that never became a real party).
       if (r.status !== 'DECLINED' && r.status !== 'CANCELLED') {

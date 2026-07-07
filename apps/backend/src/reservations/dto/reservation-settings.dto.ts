@@ -1,4 +1,7 @@
+import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayUnique,
   IsArray,
   IsBoolean,
   IsEmail,
@@ -8,6 +11,7 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
 
 export class UpdateReservationSettingsDto {
@@ -109,4 +113,13 @@ export class ServiceHoursDto {
   @Min(0)
   @Max(1439)
   lastSlotMinute!: number;
+}
+
+export class SetServiceHoursDto {
+  @IsArray()
+  @ArrayMaxSize(7)
+  @ArrayUnique((row: ServiceHoursDto) => row.weekday)
+  @ValidateNested({ each: true })
+  @Type(() => ServiceHoursDto)
+  rows!: ServiceHoursDto[];
 }
