@@ -1333,4 +1333,56 @@ describe('MenuCrudService', () => {
       });
     });
   });
+
+  // ── Image cleanup — shared-URL reference guard ────────────────────────────
+  describe('shared image URL guard on delete', () => {
+    const SHARED = 'https://cdn.example.com/shared.webp';
+    const SHARED_THUMB = 'https://cdn.example.com/shared_thumb.webp';
+
+    const arrangeRemoveItem = () => {
+      mockPrisma.menuItem.findUnique.mockResolvedValue({
+        imageUrl: SHARED,
+        thumbnailUrl: SHARED_THUMB,
+        category: { restaurantId: 'rest-1' },
+      });
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.menuItem.findMany.mockResolvedValue([]);
+      mockPrisma.menuItem.delete.mockResolvedValue({ id: 'item-1' });
+    };
+
+    it('does NOT delete the R2 object when another row still references it', async () => {
+      arrangeRemoveItem();
+      mockPrisma.menuItem.count.mockResolvedValue(1); // another item shares it
+      mockPrisma.menuCategory.count.mockResolvedValue(0);
+
+      await service.removeItem('item-1', 'user-1');
+
+      expect(mockStorage.delete).not.toHaveBeenCalled();
+    });
+
+    it('deletes the R2 object when no other row references it', async () => {
+      arrangeRemoveItem();
+      mockPrisma.menuItem.count.mockResolvedValue(0);
+      mockPrisma.menuCategory.count.mockResolvedValue(0);
+
+      await service.removeItem('item-1', 'user-1');
+
+      expect(mockStorage.delete).toHaveBeenCalledWith(SHARED);
+      expect(mockStorage.delete).toHaveBeenCalledWith(SHARED_THUMB);
+    });
+
+    it('excludes the row being deleted from the reference check', async () => {
+      arrangeRemoveItem();
+      mockPrisma.menuItem.count.mockResolvedValue(0);
+      mockPrisma.menuCategory.count.mockResolvedValue(0);
+
+      await service.removeItem('item-1', 'user-1');
+
+      expect(mockPrisma.menuItem.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: { notIn: ['item-1'] } }),
+        }),
+      );
+    });
+  });
 });
