@@ -6,6 +6,7 @@ import {
   VersioningType,
 } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { PrismaService } from './prisma/prisma.service';
 import { RedisIoAdapter } from './adapters/redis-io.adapter';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import * as express from 'express';
@@ -241,8 +242,11 @@ async function bootstrap() {
         limit: '64kb',
       }),
     );
-    app.use(express.json({ limit: '1mb' }));
-    app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+    // Menu import/export payloads (full menu + translations) can be large.
+    // NOTE: this was already 1mb, so a 109KB import never hit it — the import
+    // 500 in BUGS.md has a different root cause (needs the backend stack trace).
+    app.use(express.json({ limit: '10mb' }));
+    app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
     app.setGlobalPrefix('api', {
       exclude: [
@@ -276,6 +280,10 @@ async function bootstrap() {
     const redisAdapter = new RedisIoAdapter(app);
     await redisAdapter.connectToRedis();
     app.useWebSocketAdapter(redisAdapter);
+
+    // Establish the Prisma connection pool before accepting traffic so the
+    // first requests after boot don't race an un-connected client (BUGS.md S2).
+    await app.get(PrismaService).$connect();
 
     const port = parseInt(process.env.PORT || '3000', 10);
     await app.listen(port, '0.0.0.0');
