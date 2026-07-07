@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DateTime } from 'luxon';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -12,7 +13,8 @@ export interface AvailabilitySlot {
 }
 
 // Reservation statuses that still hold covers for the soft per-slot cap.
-const ACTIVE_HOLD_STATUSES = ['PENDING', 'CONFIRMED'] as const;
+const ACTIVE_HOLD_STATUSES = ['PENDING', 'CONFIRMED', 'ARRIVED'] as const;
+type AvailabilityDb = PrismaService | Prisma.TransactionClient;
 
 @Injectable()
 export class ReservationAvailabilityService {
@@ -31,14 +33,15 @@ export class ReservationAvailabilityService {
     // being changed must not count against its own capacity (else moving within
     // the same slot or growing the party double-counts the existing hold).
     excludeReservationId?: string,
+    db: AvailabilityDb = this.prisma,
   ): Promise<AvailabilitySlot[]> {
     const [settings, restaurant, blackout] = await Promise.all([
-      this.prisma.reservationSettings.findUnique({ where: { restaurantId } }),
-      this.prisma.restaurant.findUnique({
+      db.reservationSettings.findUnique({ where: { restaurantId } }),
+      db.restaurant.findUnique({
         where: { id: restaurantId },
         select: { timezone: true },
       }),
-      this.prisma.reservationBlackout.findUnique({
+      db.reservationBlackout.findUnique({
         where: { restaurantId_date: { restaurantId, date: localDate } },
         select: { id: true },
       }),
@@ -61,7 +64,7 @@ export class ReservationAvailabilityService {
     const earliest = now.plus({ minutes: settings.minLeadMinutes });
     const latest = now.plus({ days: settings.bookingHorizonDays });
 
-    const hours = await this.prisma.reservationServiceHours.findUnique({
+    const hours = await db.reservationServiceHours.findUnique({
       where: {
         restaurantId_weekday: { restaurantId, weekday: day.weekday },
       },
@@ -92,6 +95,7 @@ export class ReservationAvailabilityService {
             candidates.map((c) => c.toUTC().toMillis()),
             settings.slotIntervalMinutes,
             excludeReservationId,
+            db,
           );
 
     const slots: AvailabilitySlot[] = [];
@@ -120,11 +124,12 @@ export class ReservationAvailabilityService {
     startsAt: Date,
     partySize: number,
     excludeReservationId?: string,
+    db: AvailabilityDb = this.prisma,
   ): Promise<void> {
     if (isNaN(startsAt.getTime())) {
       throw new BadRequestException('Invalid reservation time');
     }
-    const restaurant = await this.prisma.restaurant.findUnique({
+    const restaurant = await db.restaurant.findUnique({
       where: { id: restaurantId },
       select: { timezone: true },
     });
@@ -137,11 +142,92 @@ export class ReservationAvailabilityService {
       localDate,
       partySize,
       excludeReservationId,
+      db,
     );
     const bookable = slots.some(
       (s) => new Date(s.startsAt).getTime() === startsAt.getTime(),
     );
     if (!bookable) {
+      throw new ConflictException(
+        'This time is no longer available. Please choose another slot.',
+      );
+    }
+  }
+
+  /**
+   * Enforce only the per-slot cover cap for an existing reservation edit.
+   * Unlike `assertSlotBookable`, this deliberately ignores lead time, booking
+   * horizon, blackouts, and current service enablement: those rules must not
+   * invalidate a booking the restaurant already accepted. If the reservation
+   * is outside the current slot grid (for example a staff override), there is
+   * no capacity window to enforce and the override remains valid.
+   */
+  async assertCapacityAvailable(
+    restaurantId: string,
+    startsAt: Date,
+    partySize: number,
+    excludeReservationId?: string,
+    db: AvailabilityDb = this.prisma,
+  ): Promise<void> {
+    if (isNaN(startsAt.getTime())) {
+      throw new BadRequestException('Invalid reservation time');
+    }
+
+    const [settings, restaurant] = await Promise.all([
+      db.reservationSettings.findUnique({ where: { restaurantId } }),
+      db.restaurant.findUnique({
+        where: { id: restaurantId },
+        select: { timezone: true },
+      }),
+    ]);
+    if (!settings || settings.maxCoversPerSlot === null) return;
+    if (partySize < 1 || partySize > settings.maxTotalGuests) {
+      throw new BadRequestException(
+        `Party size must be between 1 and ${settings.maxTotalGuests}`,
+      );
+    }
+
+    const zone = restaurant?.timezone || 'Europe/Sofia';
+    const local = DateTime.fromJSDate(startsAt).setZone(zone);
+    const hours = await db.reservationServiceHours.findUnique({
+      where: {
+        restaurantId_weekday: {
+          restaurantId,
+          weekday: local.weekday,
+        },
+      },
+    });
+    if (!hours) return;
+
+    const intervalMs = settings.slotIntervalMinutes * 60_000;
+    let windowStart: number | null = null;
+    for (
+      let minute = hours.openMinute;
+      minute <= hours.lastSlotMinute;
+      minute += settings.slotIntervalMinutes
+    ) {
+      const candidate = local.startOf('day').plus({ minutes: minute });
+      const candidateMillis = candidate.toUTC().toMillis();
+      const targetMillis = startsAt.getTime();
+      if (
+        targetMillis >= candidateMillis &&
+        targetMillis < candidateMillis + intervalMs
+      ) {
+        windowStart = candidateMillis;
+        break;
+      }
+    }
+    if (windowStart === null) return;
+
+    const bookedBySlot = await this.coversByWindow(
+      restaurantId,
+      [windowStart],
+      settings.slotIntervalMinutes,
+      excludeReservationId,
+      db,
+    );
+    const booked = bookedBySlot.get(windowStart) ?? 0;
+    if (booked + partySize > settings.maxCoversPerSlot) {
       throw new ConflictException(
         'This time is no longer available. Please choose another slot.',
       );
@@ -161,6 +247,7 @@ export class ReservationAvailabilityService {
     candidateStartMillis: number[],
     slotIntervalMinutes: number,
     excludeReservationId?: string,
+    db: AvailabilityDb = this.prisma,
   ): Promise<Map<number, number>> {
     const map = new Map<number, number>();
     if (candidateStartMillis.length === 0) return map;
@@ -171,7 +258,7 @@ export class ReservationAvailabilityService {
     const spanStart = new Date(starts[0]);
     const spanEnd = new Date(starts[starts.length - 1] + intervalMs);
 
-    const rows = await this.prisma.reservation.findMany({
+    const rows = await db.reservation.findMany({
       where: {
         restaurantId,
         status: { in: [...ACTIVE_HOLD_STATUSES] },

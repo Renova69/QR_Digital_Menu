@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon';
+import { ConflictException } from '@nestjs/common';
 import { ReservationAvailabilityService } from './reservation-availability.service';
 
 const ZONE = 'Europe/Sofia';
@@ -78,5 +79,32 @@ describe('ReservationAvailabilityService.getSlots capacity windowing', () => {
     // The 19:30 booking counts for 19:30, NOT for the earlier 19:00 window.
     expect(starts).toContain(utcIso('19:00'));
     expect(starts).not.toContain(utcIso('19:30'));
+  });
+
+  it('keeps ARRIVED reservations in the active cover hold', async () => {
+    const { service, findMany } = build([]);
+
+    await service.getSlots('rest1', DATE, 2);
+
+    expect(findMany.mock.calls[0][0].where.status.in).toEqual([
+      'PENDING',
+      'CONFIRMED',
+      'ARRIVED',
+    ]);
+  });
+
+  it('rejects a same-slot party increase that would exceed the cover cap', async () => {
+    const { service } = build([
+      { startsAt: instant('19:10'), adultsCount: 2, childrenCount: 0 },
+    ]);
+
+    await expect(
+      service.assertCapacityAvailable(
+        'rest1',
+        instant('19:00'),
+        3,
+        'reservation-being-edited',
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });

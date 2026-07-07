@@ -1,15 +1,22 @@
+import { ConflictException } from '@nestjs/common';
 import {
   Currency,
   LoyaltyPointTransactionType,
   OptionType,
   OrderStatus,
   PrismaClient,
+  ReservationStatus,
+  SubscriptionTier,
   UserRole,
 } from '@prisma/client';
 import { MenuCrudService } from '../src/menu/menu-crud.service';
 import { OrdersService } from '../src/orders/orders.service';
 import { MenuTranslationService } from '../src/menu/menu-translation.service';
 import { ensureLoyaltyAccount } from '../src/loyalty/loyalty-ledger.utils';
+import { PatronService } from '../src/reservations/patron.service';
+import { ReservationAvailabilityService } from '../src/reservations/reservation-availability.service';
+import { ReservationsService } from '../src/reservations/reservations.service';
+import { FeatureService } from '../src/subscription/feature.service';
 
 const concurrencyDatabaseUrl = process.env.CONCURRENCY_DATABASE_URL;
 const describeWithDatabase = concurrencyDatabaseUrl ? describe : describe.skip;
@@ -71,6 +78,62 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
     return { owner, customer, restaurant };
   }
 
+  async function createReservationFixture(suffix: string) {
+    const fixture = await createRestaurantFixture(suffix);
+    const restaurant = await prisma.restaurant.update({
+      where: { id: fixture.restaurant.id },
+      data: {
+        tier: SubscriptionTier.PROFESSIONAL,
+        timezone: 'UTC',
+      },
+    });
+    const startsAt = new Date(Date.now() + 2 * 86_400_000);
+    startsAt.setUTCHours(19, 0, 0, 0);
+    const weekday = startsAt.getUTCDay() || 7;
+    await prisma.reservationSettings.create({
+      data: {
+        restaurantId: restaurant.id,
+        enabled: true,
+        slotIntervalMinutes: 30,
+        minLeadMinutes: 0,
+        bookingHorizonDays: 60,
+        maxTotalGuests: 12,
+        maxCoversPerSlot: 4,
+        requirePhone: true,
+      },
+    });
+    await prisma.reservationServiceHours.create({
+      data: {
+        restaurantId: restaurant.id,
+        weekday,
+        openMinute: 18 * 60 + 30,
+        lastSlotMinute: 19 * 60,
+      },
+    });
+    return { ...fixture, restaurant, startsAt };
+  }
+
+  function buildReservationService() {
+    const events = {
+      emitReservationCreated: jest.fn(),
+      emitReservationUpdated: jest.fn(),
+    };
+    const notifications = {
+      notify: jest.fn().mockResolvedValue(undefined),
+      notifyOwner: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = new ReservationsService(
+      prisma as never,
+      new ReservationAvailabilityService(prisma as never),
+      {} as never,
+      new PatronService(prisma as never),
+      new FeatureService(),
+      events as never,
+      notifications as never,
+    );
+    return { service, events, notifications };
+  }
+
   async function waitFor(
     assertion: () => Promise<void>,
     timeoutMs = 5_000,
@@ -109,6 +172,141 @@ describeWithDatabase('Pre-production PostgreSQL concurrency invariants', () => {
         },
       }),
     ).resolves.toBe(1);
+  });
+
+  it('never exceeds the reservation cover cap when public bookings race', async () => {
+    const { restaurant, startsAt } = await createReservationFixture(
+      'reservation-capacity',
+    );
+    const { service } = buildReservationService();
+
+    const results = await Promise.allSettled([
+      service.createPublic(restaurant.id, {
+        guestName: 'Capacity One',
+        guestPhone: '+359888000001',
+        startsAt: startsAt.toISOString(),
+        adultsCount: 3,
+        idempotencyKey: 'capacity-one',
+      }),
+      service.createPublic(restaurant.id, {
+        guestName: 'Capacity Two',
+        guestPhone: '+359888000002',
+        startsAt: startsAt.toISOString(),
+        adultsCount: 3,
+        idempotencyKey: 'capacity-two',
+      }),
+    ]);
+
+    const fulfilled = results.filter((result) => result.status === 'fulfilled');
+    const rejected = results.filter(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0].reason).toBeInstanceOf(ConflictException);
+
+    const reservations = await prisma.reservation.findMany({
+      where: {
+        restaurantId: restaurant.id,
+        startsAt,
+        status: { in: ['PENDING', 'CONFIRMED'] },
+      },
+    });
+    expect(
+      reservations.reduce(
+        (sum, row) => sum + row.adultsCount + row.childrenCount,
+        0,
+      ),
+    ).toBe(3);
+  });
+
+  it('creates one reservation and one set of effects when idempotent requests race', async () => {
+    const { restaurant, startsAt } = await createReservationFixture(
+      'reservation-idempotency',
+    );
+    const { service, events, notifications } = buildReservationService();
+    const request = {
+      guestName: 'Idempotent Guest',
+      guestPhone: '+359888000003',
+      startsAt: startsAt.toISOString(),
+      adultsCount: 2,
+      idempotencyKey: 'same-reservation-request',
+    };
+
+    const results = await Promise.all(
+      Array.from({ length: 12 }, () =>
+        service.createPublic(restaurant.id, request),
+      ),
+    );
+
+    expect(new Set(results.map((result) => result.referenceCode))).toHaveSize(
+      1,
+    );
+    await expect(
+      prisma.reservation.count({
+        where: {
+          restaurantId: restaurant.id,
+          idempotencyKey: request.idempotencyKey,
+        },
+      }),
+    ).resolves.toBe(1);
+    expect(events.emitReservationCreated).toHaveBeenCalledTimes(1);
+    expect(notifications.notify).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows only one capacity-increasing write when a guest move races a public booking', async () => {
+    const { restaurant, startsAt } =
+      await createReservationFixture('reservation-move');
+    const { service } = buildReservationService();
+    const originalStartsAt = new Date(startsAt.getTime() - 30 * 60_000);
+    const existing = await prisma.reservation.create({
+      data: {
+        restaurantId: restaurant.id,
+        referenceCode: 'MOVE01',
+        status: ReservationStatus.CONFIRMED,
+        guestName: 'Moving Guest',
+        guestPhone: '+359888000004',
+        startsAt: originalStartsAt,
+        adultsCount: 3,
+        manageToken: `move-${runPrefix}`,
+      },
+    });
+
+    const results = await Promise.allSettled([
+      service.modifyByManageToken(restaurant.id, existing.manageToken!, {
+        startsAt: startsAt.toISOString(),
+      }),
+      service.createPublic(restaurant.id, {
+        guestName: 'Competing Guest',
+        guestPhone: '+359888000005',
+        startsAt: startsAt.toISOString(),
+        adultsCount: 3,
+        idempotencyKey: 'competing-public-booking',
+      }),
+    ]);
+
+    const rejected = results.filter(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    expect(
+      results.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0].reason).toBeInstanceOf(ConflictException);
+
+    const targetReservations = await prisma.reservation.findMany({
+      where: {
+        restaurantId: restaurant.id,
+        startsAt,
+        status: { in: ['PENDING', 'CONFIRMED'] },
+      },
+    });
+    expect(
+      targetReservations.reduce(
+        (sum, row) => sum + row.adultsCount + row.childrenCount,
+        0,
+      ),
+    ).toBe(3);
   });
 
   it('allows only one cancellation to reverse loyalty under concurrent requests', async () => {
