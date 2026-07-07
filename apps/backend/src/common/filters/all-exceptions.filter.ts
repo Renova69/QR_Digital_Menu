@@ -52,18 +52,22 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const level = statusCode >= 500 ? 'error' : 'warn';
     const error = exception instanceof Error ? exception : undefined;
 
-    writeAppLog(level, getMessage(responseBody), 'ExceptionFilter', {
-      requestId,
-      method: req?.method,
-      // M-PAY-1: never log the session bearer token embedded in the path.
-      path: redactSensitivePath(req?.originalUrl || req?.url),
-      statusCode,
-      errorName: error?.name,
-      stack: error?.stack,
-      userId: req?.user?.id,
-      role: req?.user?.role,
-      restaurantId: req?.user?.restaurantId,
-    });
+    try {
+      writeAppLog(level, getMessage(responseBody), 'ExceptionFilter', {
+        requestId,
+        method: req?.method,
+        // M-PAY-1: never log the session bearer token embedded in the path.
+        path: redactSensitivePath(req?.originalUrl || req?.url),
+        statusCode,
+        errorName: error?.name,
+        stack: error?.stack,
+        userId: req?.user?.id,
+        role: req?.user?.role,
+        restaurantId: req?.user?.restaurantId,
+      });
+    } catch {
+      // Logging must never prevent the actual error response from being sent.
+    }
 
     if (res?.headersSent) return;
 
