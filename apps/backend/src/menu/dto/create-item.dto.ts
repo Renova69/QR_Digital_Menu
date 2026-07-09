@@ -73,4 +73,9 @@ export class CreateItemDto {
   @Min(1)
   @IsOptional()
   rewardPointsPrice?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
 }
