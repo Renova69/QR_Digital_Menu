@@ -313,6 +313,7 @@ model MenuItem {
   currency          Currency
   allergens         String[]
   dietaryTags       String[]
+  tags              String[]     @default([])
   imageUrl          String?
   thumbnailUrl      String?
   isOutOfStock      Boolean      @default(false)
