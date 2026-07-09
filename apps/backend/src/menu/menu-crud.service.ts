@@ -47,6 +47,11 @@ export class MenuCrudService {
     private readonly events: EventsGateway,
   ) {}
 
+  private readonly autoTrendingCache = new Map<
+    string,
+    { data: any[]; expiresAt: number }
+  >();
+
   /**
    * Public-menu languages consist of the owner's dashboard language first,
    * followed by configured translation targets. The dashboard language must be
@@ -642,6 +647,7 @@ export class MenuCrudService {
         targetLanguages: true,
         dashboardLanguage: true,
         isActive: true,
+        timezone: true,
       },
     });
 
@@ -668,14 +674,23 @@ export class MenuCrudService {
           isFeatured: true,
           isOutOfStock: false,
         },
-        take: 4,
         orderBy: { order: 'asc' },
         include: {
           options: true,
           category: { select: { isDrinkCategory: true, name: true } },
         },
       });
-      return this.applyTrendingTranslations(items, restaurant, lang);
+      const scoredItems = this.applyContextualScoring(
+        items,
+        restaurant.timezone || 'UTC',
+      ).slice(0, 4);
+      return this.applyTrendingTranslations(scoredItems, restaurant, lang);
+    }
+
+    const cacheKey = `${restaurantId}:${lang || 'default'}`;
+    const cached = this.autoTrendingCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.data;
     }
 
     const trendingSince = DateTime.now()
@@ -697,7 +712,7 @@ export class MenuCrudService {
       },
       _sum: { quantity: true },
       orderBy: { _sum: { quantity: 'desc' } },
-      take: 4,
+      take: 20,
     });
 
     const itemIds = mostOrdered
@@ -721,7 +736,52 @@ export class MenuCrudService {
         trendingItems.find((item: { id: string }) => item.id === id),
       )
       .filter(Boolean);
-    return this.applyTrendingTranslations(ordered, restaurant, lang);
+
+    const scoredItems = this.applyContextualScoring(
+      ordered,
+      restaurant.timezone || 'UTC',
+    ).slice(0, 4);
+
+    const result = await this.applyTrendingTranslations(
+      scoredItems,
+      restaurant,
+      lang,
+    );
+    this.autoTrendingCache.set(cacheKey, {
+      data: result,
+      expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes cache
+    });
+    return result;
+  }
+
+  private applyContextualScoring(items: any[], timezone: string): any[] {
+    const now = DateTime.now().setZone(timezone);
+    const hour = now.hour;
+    const weekday = now.weekday; // 1 = Monday, 7 = Sunday
+    
+    const activeContexts = new Set<string>();
+    
+    if (hour >= 6 && hour < 11) activeContexts.add('MORNING');
+    if (hour >= 11 && hour < 15) activeContexts.add('LUNCH');
+    if (hour >= 17 && hour < 22) activeContexts.add('EVENING');
+    if (hour >= 22 || hour < 4) activeContexts.add('LATE_NIGHT');
+    
+    if (weekday === 6 || weekday === 7) activeContexts.add('WEEKEND');
+    
+    return items
+      .map((item, index) => {
+        let score = 100 - index; // Base score preserves original ranking
+        if (item.tags && Array.isArray(item.tags)) {
+          item.tags.forEach((tag: string) => {
+            if (activeContexts.has(tag)) {
+              score *= 1.5;
+            }
+          });
+        }
+        return { item, score };
+      })
+      .sort((a, b) => b.score - a.score)
+      .map((entry) => entry.item);
   }
 
   /**
@@ -880,6 +940,17 @@ export class MenuCrudService {
     const count = await this.prisma.menuCategory.count({
       where: { restaurantId },
     });
+
+    if ((sanitizedDto as any).printStationId) {
+      const station = await this.prisma.printStation.findUnique({
+        where: { id: (sanitizedDto as any).printStationId },
+        select: { restaurantId: true },
+      });
+      if (!station || station.restaurantId !== restaurantId) {
+        throw new BadRequestException('Invalid print station ID');
+      }
+    }
+
     const data: Prisma.MenuCategoryUncheckedCreateInput = {
       ...sanitizedDto,
       restaurantId,
@@ -962,6 +1033,16 @@ export class MenuCrudService {
           endTime: null,
           daysOfWeek: [],
         };
+
+    if (sanitizedDto.printStationId) {
+      const station = await this.prisma.printStation.findUnique({
+        where: { id: sanitizedDto.printStationId },
+        select: { restaurantId: true },
+      });
+      if (!station || station.restaurantId !== category.restaurantId) {
+        throw new BadRequestException('Invalid print station ID');
+      }
+    }
 
     const updated = await this.prisma.menuCategory.update({
       where: { id: categoryId },

@@ -18,6 +18,7 @@ const mockPrisma = {
   // Non-owner ownership checks now look up the user to allow assigned MANAGERs
   // (#15). Default null → not a manager → ForbiddenException as before.
   user: { findUnique: jest.fn().mockResolvedValue(null) },
+  printStation: { findUnique: jest.fn() },
   menuCategory: {
     findMany: jest.fn(),
     findFirst: jest.fn(),
@@ -184,7 +185,9 @@ describe('MenuCrudService', () => {
       // Pin to 2026-01-14T10:00Z = Wednesday in Sofia (UTC+2) → weekday 3
       const spy = jest
         .spyOn(DateTime, 'now')
-        .mockReturnValue(DateTime.fromISO('2026-01-14T10:00:00.000Z') as any);
+        .mockReturnValue(
+          DateTime.fromISO('2026-01-14T10:00:00.000Z') as unknown as DateTime,
+        );
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
         tier: 'PROFESSIONAL',
@@ -211,7 +214,9 @@ describe('MenuCrudService', () => {
       // Pin to 2026-01-14T18:00Z = 20:00 Sofia — outside 09:00-17:00
       const spy = jest
         .spyOn(DateTime, 'now')
-        .mockReturnValue(DateTime.fromISO('2026-01-14T18:00:00.000Z') as any);
+        .mockReturnValue(
+          DateTime.fromISO('2026-01-14T18:00:00.000Z') as unknown as DateTime,
+        );
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         ...BASE_RESTAURANT,
         tier: 'PROFESSIONAL',
@@ -503,7 +508,9 @@ describe('MenuCrudService', () => {
     it('throws ForbiddenException for a scheduled category outside its availability window', async () => {
       const spy = jest
         .spyOn(DateTime, 'now')
-        .mockReturnValue(DateTime.fromISO('2026-01-14T18:00:00.000Z') as any);
+        .mockReturnValue(
+          DateTime.fromISO('2026-01-14T18:00:00.000Z') as unknown as DateTime,
+        );
 
       try {
         mockPrisma.restaurant.findUnique.mockResolvedValue({
@@ -681,7 +688,39 @@ describe('MenuCrudService', () => {
       const result = await service.getTrendingItems('rest-1');
 
       // Ordered by groupBy rank: item-2 first
-      expect((result[0] as any).id).toBe('item-2');
+      expect((result[0] as { id: string }).id).toBe('item-2');
+    });
+
+    describe('Contextual Upselling Scoring', () => {
+      beforeEach(() => {
+        jest.useFakeTimers();
+      });
+
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
+      it('boosts rank of MORNING tagged item during morning hours (09:00)', async () => {
+        jest.setSystemTime(new Date('2023-10-10T09:00:00Z')); // A Tuesday at 09:00 AM UTC
+        mockPrisma.restaurant.findUnique.mockResolvedValue({
+          trendingMode: 'MANUAL',
+          id: 'rest-1',
+          tier: 'PROFESSIONAL',
+          timezone: 'UTC',
+        });
+        
+        mockPrisma.menuItem.findMany.mockResolvedValue([
+          { ...makeItem(), id: 'item-1', tags: [] },
+          { ...makeItem(), id: 'item-2', tags: ['MORNING'] },
+        ]);
+
+        const result = await service.getTrendingItems('rest-1');
+        
+        // item-2 should be boosted and rank above item-1
+        expect(result).toHaveLength(2);
+        expect((result[0] as { id: string }).id).toBe('item-2');
+        expect((result[1] as { id: string }).id).toBe('item-1');
+      });
     });
 
     it('returns [] in AUTO mode when no orders exist', async () => {
@@ -778,7 +817,11 @@ describe('MenuCrudService', () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.createCategory('missing', { name: 'Drinks' } as any, 'user-1'),
+        service.createCategory(
+          'missing',
+          { name: 'Drinks' } as Parameters<typeof service.createCategory>[1],
+          'user-1',
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -788,7 +831,7 @@ describe('MenuCrudService', () => {
       await expect(
         service.createCategory(
           'rest-1',
-          { name: 'Drinks' } as any,
+          { name: 'Drinks' } as Parameters<typeof service.createCategory>[1],
           'other-user',
         ),
       ).rejects.toThrow(ForbiddenException);
@@ -835,6 +878,24 @@ describe('MenuCrudService', () => {
       expect(result.id).toBe('cat-1');
       expect(mockPrisma.menuCategory.create).toHaveBeenCalled();
     });
+
+    it('throws BadRequestException if print station belongs to another restaurant (IDOR)', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.printStation.findUnique.mockResolvedValue({
+        id: 'station-1',
+        restaurantId: 'other-rest-id',
+      });
+
+      await expect(
+        service.createCategory(
+          'rest-1',
+          { name: 'Drinks', printStationId: 'station-1' } as Parameters<
+            typeof service.createCategory
+          >[1],
+          'user-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('findAllCategories', () => {
@@ -861,7 +922,11 @@ describe('MenuCrudService', () => {
       mockPrisma.menuCategory.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.updateCategory('missing', { name: 'New' } as any, 'user-1'),
+        service.updateCategory(
+          'missing',
+          { name: 'New' } as Parameters<typeof service.updateCategory>[1],
+          'user-1',
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -870,7 +935,11 @@ describe('MenuCrudService', () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
 
       await expect(
-        service.updateCategory('cat-1', { name: 'New' } as any, 'other'),
+        service.updateCategory(
+          'cat-1',
+          { name: 'New' } as Parameters<typeof service.updateCategory>[1],
+          'other',
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -889,6 +958,25 @@ describe('MenuCrudService', () => {
       );
 
       expect(result.name).toBe('Updated');
+    });
+
+    it('throws BadRequestException if assigned print station belongs to another restaurant (IDOR)', async () => {
+      mockPrisma.menuCategory.findUnique.mockResolvedValue(makeCategory());
+      mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
+      mockPrisma.printStation.findUnique.mockResolvedValue({
+        id: 'station-1',
+        restaurantId: 'another-restaurant',
+      });
+
+      await expect(
+        service.updateCategory(
+          'cat-1',
+          { name: 'Updated', printStationId: 'station-1' } as Parameters<
+            typeof service.updateCategory
+          >[1],
+          'user-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -979,7 +1067,9 @@ describe('MenuCrudService', () => {
       await expect(
         service.createItem(
           'missing',
-          { name: 'Soup', price: 5 } as any,
+          { name: 'Soup', price: 5 } as Parameters<
+            typeof service.createItem
+          >[1],
           'user-1',
         ),
       ).rejects.toThrow(NotFoundException);
@@ -992,7 +1082,13 @@ describe('MenuCrudService', () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
 
       await expect(
-        service.createItem('cat-1', { name: 'Soup', price: 5 } as any, 'other'),
+        service.createItem(
+          'cat-1',
+          { name: 'Soup', price: 5 } as Parameters<
+            typeof service.createItem
+          >[1],
+          'other',
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -1006,7 +1102,7 @@ describe('MenuCrudService', () => {
 
       const result = await service.createItem(
         'cat-1',
-        { name: 'Soup', price: 5 } as any,
+        { name: 'Soup', price: 5 } as Parameters<typeof service.createItem>[1],
         'user-1',
       );
 
@@ -1046,7 +1142,11 @@ describe('MenuCrudService', () => {
       mockPrisma.menuItem.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.updateItem('missing', { name: 'New' } as any, 'user-1'),
+        service.updateItem(
+          'missing',
+          { name: 'New' } as Parameters<typeof service.updateItem>[1],
+          'user-1',
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -1207,7 +1307,9 @@ describe('MenuCrudService', () => {
       await expect(
         service.createMenuOption(
           'missing',
-          { name: 'Size', choices: '[]' } as any,
+          { name: 'Size', choices: '[]' } as Parameters<
+            typeof service.createMenuOption
+          >[1],
           'user-1',
         ),
       ).rejects.toThrow(NotFoundException);
@@ -1220,7 +1322,9 @@ describe('MenuCrudService', () => {
       await expect(
         service.createMenuOption(
           'item-1',
-          { name: 'Size', choices: '{"key":"val"}' } as any,
+          { name: 'Size', choices: '{"key":"val"}' } as Parameters<
+            typeof service.createMenuOption
+          >[1],
           'user-1',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -1233,7 +1337,9 @@ describe('MenuCrudService', () => {
       await expect(
         service.createMenuOption(
           'item-1',
-          { name: 'Size', choices: '[bad json' } as any,
+          { name: 'Size', choices: '[bad json' } as Parameters<
+            typeof service.createMenuOption
+          >[1],
           'user-1',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -1255,7 +1361,7 @@ describe('MenuCrudService', () => {
         {
           name: 'Size',
           choices: '[{"name":"Small","priceModifier":0}]',
-        } as any,
+        } as Parameters<typeof service.createMenuOption>[1],
         'user-1',
       );
 
@@ -1269,7 +1375,11 @@ describe('MenuCrudService', () => {
       mockPrisma.menuOption.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.updateMenuOption('missing', { name: 'New' } as any, 'user-1'),
+        service.updateMenuOption(
+          'missing',
+          { name: 'New' } as Parameters<typeof service.updateMenuOption>[1],
+          'user-1',
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -1283,7 +1393,9 @@ describe('MenuCrudService', () => {
       await expect(
         service.updateMenuOption(
           'opt-1',
-          { choices: '"not-array"' } as any,
+          { choices: '"not-array"' } as Parameters<
+            typeof service.updateMenuOption
+          >[1],
           'user-1',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -1383,6 +1495,41 @@ describe('MenuCrudService', () => {
           where: expect.objectContaining({ id: { notIn: ['item-1'] } }),
         }),
       );
+    });
+  });
+
+  describe('Upsells (Trending Items Feature Flag)', () => {
+    it('returns empty array when restaurant lacks UPSELLING feature', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest-1',
+        trendingMode: 'MANUAL',
+        tier: 'FREE',
+      });
+      jest
+        .spyOn(service['featureService'], 'restaurantHasFeature')
+        .mockReturnValue(false);
+
+      const result = await service.getTrendingItems('rest-1');
+
+      expect(result).toEqual([]);
+      expect(mockPrisma.menuItem.findMany).not.toHaveBeenCalled();
+    });
+
+    it('returns featured items when restaurant has UPSELLING feature enabled', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest-1',
+        trendingMode: 'MANUAL',
+        tier: 'PROFESSIONAL',
+      });
+      jest
+        .spyOn(service['featureService'], 'restaurantHasFeature')
+        .mockReturnValue(true);
+      mockPrisma.menuItem.findMany.mockResolvedValue([makeItem()]);
+
+      const result = await service.getTrendingItems('rest-1');
+
+      expect(result).toHaveLength(1);
+      expect(mockPrisma.menuItem.findMany).toHaveBeenCalled();
     });
   });
 });
