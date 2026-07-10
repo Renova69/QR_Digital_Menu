@@ -332,10 +332,24 @@ describe('TablesService', () => {
       expect(result).toEqual(mockTable);
     });
 
-    it('blocks delete when table has historical closed sessions', async () => {
-      prisma.tableSession.findFirst
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({ id: 'sess-closed' });
+    it('allows delete when the table only has closed (non-active) historical sessions', async () => {
+      // No OPEN/PAID session exists, but the table has taken orders in the
+      // past. Deletion must still be allowed — Payment.tableSessionId /
+      // CashPaymentRequest.tableId are SetNull on delete precisely so this
+      // preserves payment history instead of requiring the table to have
+      // never been used.
+      prisma.tableSession.findFirst.mockResolvedValue(null);
+
+      const result = await service.remove('table-1', 'owner-1');
+
+      expect(prisma.restaurantTable.delete).toHaveBeenCalledWith({
+        where: { id: 'table-1' },
+      });
+      expect(result).toEqual(mockTable);
+    });
+
+    it('blocks delete when table has an active (OPEN/PAID) session', async () => {
+      prisma.tableSession.findFirst.mockResolvedValue({ id: 'sess-active' });
 
       await expect(service.remove('table-1', 'owner-1')).rejects.toThrow(
         ConflictException,

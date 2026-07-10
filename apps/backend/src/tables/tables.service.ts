@@ -396,15 +396,10 @@ export class TablesService {
         'Cannot delete a table with an active session',
       );
     }
-    const historicalSession = await this.prisma.tableSession.findFirst({
-      where: { tableId: id },
-      select: { id: true },
-    });
-    if (historicalSession) {
-      throw new ConflictException(
-        'Cannot delete a table with historical sessions',
-      );
-    }
+    // Historical (closed) sessions do NOT block deletion — Payment.tableSessionId
+    // and CashPaymentRequest.tableId are SetNull on delete precisely so removing
+    // a table with only closed-out sessions preserves that payment history
+    // instead of blocking the removal outright (phase3_db_integrity_fixes).
     const deleted = await this.prisma.restaurantTable.delete({
       where: { id },
     });
