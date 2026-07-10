@@ -19,7 +19,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:15
+        image: postgres:17
         env:
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci
@@ -57,7 +57,7 @@ jobs:
 
       - name: Backend unit tests
         working-directory: apps/backend
-        run: npx jest --reporters=default --ci
+        run: npx jest --reporters=default --ci --coverage
 
       - name: Frontend type-check
         working-directory: apps/frontend
@@ -65,7 +65,7 @@ jobs:
 
       - name: Frontend tests
         working-directory: apps/frontend
-        run: npx vitest run
+        run: npx vitest run --coverage
 
       - name: Build (both apps)
         run: npx turbo run build

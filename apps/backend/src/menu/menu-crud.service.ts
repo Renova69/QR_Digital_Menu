@@ -14,7 +14,12 @@ import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { CreateMenuOptionDto } from './dto/create-menu-option.dto';
 import { UpdateMenuOptionDto } from './dto/update-menu-option.dto';
-import { Prisma, AvailabilityType, OrderStatus, MenuItem } from '@prisma/client';
+import {
+  Prisma,
+  AvailabilityType,
+  OrderStatus,
+  MenuItem,
+} from '@prisma/client';
 import { DateTime } from 'luxon';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
@@ -46,6 +51,11 @@ export class MenuCrudService {
     private readonly storageService: StorageService,
     private readonly events: EventsGateway,
   ) {}
+
+  private readonly autoTrendingCache = new Map<
+    string,
+    { data: any[]; expiresAt: number }
+  >();
 
   /**
    * Public-menu languages consist of the owner's dashboard language first,
@@ -682,6 +692,12 @@ export class MenuCrudService {
       return this.applyTrendingTranslations(scoredItems, restaurant, lang);
     }
 
+    const cacheKey = `${restaurantId}:${lang || 'default'}`;
+    const cached = this.autoTrendingCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.data;
+    }
+
     const trendingSince = DateTime.now()
       .minus({ days: TRENDING_WINDOW_DAYS })
       .toJSDate();
@@ -731,27 +747,35 @@ export class MenuCrudService {
       restaurant.timezone || 'UTC',
     ).slice(0, 4);
 
-    return this.applyTrendingTranslations(
+    const result = await this.applyTrendingTranslations(
       scoredItems,
       restaurant,
       lang,
     );
+    this.autoTrendingCache.set(cacheKey, {
+      data: result,
+      expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes cache
+    });
+    return result;
   }
 
-  private applyContextualScoring(items: Partial<MenuItem>[], timezone: string): Partial<MenuItem>[] {
+  private applyContextualScoring(
+    items: Partial<MenuItem>[],
+    timezone: string,
+  ): Partial<MenuItem>[] {
     const now = DateTime.now().setZone(timezone);
     const hour = now.hour;
     const weekday = now.weekday; // 1 = Monday, 7 = Sunday
-    
+
     const activeContexts = new Set<string>();
-    
+
     if (hour >= 6 && hour < 11) activeContexts.add('MORNING');
     if (hour >= 11 && hour < 15) activeContexts.add('LUNCH');
     if (hour >= 17 && hour < 22) activeContexts.add('EVENING');
     if (hour >= 22 || hour < 4) activeContexts.add('LATE_NIGHT');
-    
+
     if (weekday === 6 || weekday === 7) activeContexts.add('WEEKEND');
-    
+
     return items
       .map((item, index) => {
         let score = items.length - index; // Base score preserves original ranking
@@ -925,6 +949,16 @@ export class MenuCrudService {
       where: { restaurantId },
     });
 
+    if ((sanitizedDto as any).printStationId) {
+      const station = await this.prisma.printStation.findUnique({
+        where: { id: (sanitizedDto as any).printStationId },
+        select: { restaurantId: true },
+      });
+      if (!station || station.restaurantId !== restaurantId) {
+        throw new BadRequestException('Invalid print station ID');
+      }
+    }
+
     const data: Prisma.MenuCategoryUncheckedCreateInput = {
       ...sanitizedDto,
       restaurantId,
@@ -1007,6 +1041,16 @@ export class MenuCrudService {
           endTime: null,
           daysOfWeek: [],
         };
+
+    if (sanitizedDto.printStationId) {
+      const station = await this.prisma.printStation.findUnique({
+        where: { id: sanitizedDto.printStationId },
+        select: { restaurantId: true },
+      });
+      if (!station || station.restaurantId !== category.restaurantId) {
+        throw new BadRequestException('Invalid print station ID');
+      }
+    }
 
     const updated = await this.prisma.menuCategory.update({
       where: { id: categoryId },

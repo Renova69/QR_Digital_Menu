@@ -27,7 +27,7 @@ describe('CreateItemDto', () => {
     };
     const dto = plainToInstance(CreateItemDto, payload);
     const errors = await validate(dto);
-    
+
     const tagsError = errors.find((err) => err.property === 'tags');
     expect(tagsError).toBeDefined();
     expect(tagsError!.constraints).toHaveProperty('isArray');
@@ -42,9 +42,39 @@ describe('CreateItemDto', () => {
     };
     const dto = plainToInstance(CreateItemDto, payload);
     const errors = await validate(dto);
-    
+
     const tagsError = errors.find((err) => err.property === 'tags');
     expect(tagsError).toBeDefined();
     expect(tagsError!.constraints).toHaveProperty('isString');
+  });
+
+  it('should reject more than 15 tags', async () => {
+    const payload = {
+      name: 'Test Item',
+      price: 10,
+      currency: Currency.EUR,
+      tags: Array.from({ length: 16 }, (_, i) => `TAG_${i}`),
+    };
+    const dto = plainToInstance(CreateItemDto, payload);
+    const errors = await validate(dto);
+
+    const tagsError = errors.find((err) => err.property === 'tags');
+    expect(tagsError).toBeDefined();
+    expect(tagsError!.constraints).toHaveProperty('arrayMaxSize');
+  });
+
+  it('should reject a tag longer than 50 characters', async () => {
+    const payload = {
+      name: 'Test Item',
+      price: 10,
+      currency: Currency.EUR,
+      tags: ['A'.repeat(51)],
+    };
+    const dto = plainToInstance(CreateItemDto, payload);
+    const errors = await validate(dto);
+
+    const tagsError = errors.find((err) => err.property === 'tags');
+    expect(tagsError).toBeDefined();
+    expect(tagsError!.constraints).toHaveProperty('maxLength');
   });
 });

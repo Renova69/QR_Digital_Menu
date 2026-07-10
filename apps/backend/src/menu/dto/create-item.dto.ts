@@ -74,8 +74,10 @@ export class CreateItemDto {
   @IsOptional()
   rewardPointsPrice?: number;
 
-  @IsOptional()
   @IsArray()
+  @ArrayMaxSize(15)
   @IsString({ each: true })
+  @MaxLength(50, { each: true })
+  @IsOptional()
   tags?: string[];
 }

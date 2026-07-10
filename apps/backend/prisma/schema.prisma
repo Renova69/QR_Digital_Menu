@@ -43,6 +43,7 @@ model User {
   dataRequests                  DataRequest[]           @relation("DataRequestUser")
   processedDataRequests         DataRequest[]           @relation("DataRequestProcessor")
 
+  @@index([restaurantId])
   @@map("app_user")
 }
 
@@ -168,6 +169,7 @@ model Restaurant {
   @@index([stripeCustomerId])
   @@index([pastDueGraceExpiry])
   @@index([forceTierExpiresAt])
+  @@index([ownerId])
   @@map("restaurant")
 }
 
@@ -396,6 +398,10 @@ model OrderItem {
   paidQuantity    Int                 @default(0)
   selectedOptions Json
   notes           String?             @db.VarChar(500)
+  // Point-in-time snapshot of the menu item's name at order time, so historical
+  // orders/receipts/reporting keep showing what was actually ordered even after
+  // the MenuItem is renamed or deleted (menuItemId -> SetNull orphans this row).
+  itemName        String              @default("Unknown item")
   menuItem        MenuItem?           @relation(fields: [menuItemId], references: [id])
   order           Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
   allocations     PaymentAllocation[]
@@ -442,7 +448,9 @@ model CashPaymentRequest {
   id             String                   @id @default(cuid())
   restaurantId   String
   tableSessionId String
-  tableId        String
+  // Nullable: SetNull below preserves the cash-payment-request audit trail
+  // when a table is removed after its session is closed (was Cascade).
+  tableId        String?
   status         CashPaymentRequestStatus @default(PENDING)
   scope          CashPaymentRequestScope  @default(FULL_TABLE)
   scopeKey       String
@@ -456,7 +464,7 @@ model CashPaymentRequest {
   updatedAt      DateTime                 @updatedAt
   restaurant     Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   tableSession   TableSession             @relation(fields: [tableSessionId], references: [id], onDelete: Cascade)
-  table          RestaurantTable          @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  table          RestaurantTable?         @relation(fields: [tableId], references: [id], onDelete: SetNull)
   payment        Payment?                 @relation(fields: [paymentId], references: [id], onDelete: SetNull)
   resolvedBy     User?                    @relation("CashPaymentRequestResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
 
@@ -658,7 +666,10 @@ model TableSession {
 
 model Payment {
   id                    String          @id @default(cuid())
-  tableSessionId        String
+  // Nullable: SetNull below preserves the payment/financial audit trail when a
+  // table is removed after its session is closed (was Cascade — deleting a
+  // RestaurantTable used to silently wipe its Payment rows).
+  tableSessionId        String?
   restaurantId          String
   stripePaymentIntentId String?         @unique
   providerReference     String?         @unique
@@ -675,7 +686,7 @@ model Payment {
   splitMode             String?
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
-  tableSession          TableSession        @relation(fields: [tableSessionId], references: [id], onDelete: Cascade)
+  tableSession          TableSession?       @relation(fields: [tableSessionId], references: [id], onDelete: SetNull)
   restaurant            Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   allocations           PaymentAllocation[]
   providerEvents        PaymentProviderEvent[]

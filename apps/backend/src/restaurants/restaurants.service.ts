@@ -15,6 +15,14 @@ import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { stripBrandingFields } from './branding-fields';
 import { encryptSecret } from '../payment/secret-crypto';
 import { DeviceEnrollmentService } from './device-enrollment.service';
+import * as dns from 'dns';
+import * as http from 'http';
+import * as https from 'https';
+
+// Logo fetch (getLogoBase64) hardening: bound the request so a slow/malicious
+// origin can't hang a request or exhaust memory with an oversized response.
+const LOGO_FETCH_TIMEOUT_MS = 5000;
+const LOGO_MAX_BYTES = 5 * 1024 * 1024; // 5MB — logos are small; fail closed past this.
 
 const RESTAURANT_READ_SELECT = {
   id: true,
@@ -847,40 +855,145 @@ export class RestaurantsService {
       }
 
       const hostname = parsedUrl.hostname.toLowerCase();
-
-      const dns = require('dns');
-      const { address } = await dns.promises
-        .lookup(hostname)
-        .catch(() => ({ address: null }));
-      if (!address) return null;
-
-      // Block common internal/cloud metadata IP ranges against the resolved IP
-      if (
-        address === '127.0.0.1' ||
-        address === '::1' ||
-        address.startsWith('169.254.') ||
-        address.startsWith('10.') ||
-        address.startsWith('192.168.') ||
-        (address.startsWith('172.') &&
-          parseInt(address.split('.')[1], 10) >= 16 &&
-          parseInt(address.split('.')[1], 10) <= 31) ||
-        address.toLowerCase().startsWith('fc') ||
-        address.toLowerCase().startsWith('fd') ||
-        address.toLowerCase().startsWith('fe80') ||
-        hostname === 'localhost' ||
-        hostname.endsWith('.local')
-      ) {
+      if (hostname === 'localhost' || hostname.endsWith('.local')) {
         return null;
       }
 
-      const res = await fetch(restaurant.logoUrl);
-      if (!res.ok) return null;
-      const buffer = Buffer.from(await res.arrayBuffer());
-      const mime = res.headers.get('content-type') ?? 'image/webp';
-      const b64 = buffer.toString('base64');
+      // Resolve DNS exactly ONCE and reuse this same address for both the
+      // validation check below AND the actual connection in fetchPinnedIp.
+      // Never re-resolve — a second lookup is the DNS-rebinding window: an
+      // attacker's authoritative DNS can return a public IP for the first
+      // lookup (passing validation) and a private/internal IP for a second,
+      // later lookup timed to land after validation passes but before the
+      // real request connects.
+      const { address } = await dns.promises
+        .lookup(hostname)
+        .catch(() => ({ address: null as string | null }));
+      if (!address || this.isBlockedIp(address)) return null;
+
+      const result = await this.fetchPinnedIp(parsedUrl, address, hostname);
+      if (!result) return null;
+
+      const mime = result.contentType ?? 'image/webp';
+      const b64 = result.buffer.toString('base64');
       return { dataUrl: `data:${mime};base64,${b64}` };
     } catch {
       return null;
     }
+  }
+
+  /** True when `rawAddress` falls in a private/reserved/loopback/link-local
+   *  range that must never be reachable from a server-side fetch (SSRF guard
+   *  for getLogoBase64). Parses octets numerically instead of string-prefix
+   *  matching, and unwraps IPv4-mapped IPv6 literals (e.g.
+   *  `::ffff:169.254.169.254`) first so that form can't bypass the IPv4
+   *  checks. Fails closed on anything malformed. */
+  private isBlockedIp(rawAddress: string): boolean {
+    const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(rawAddress);
+    const address = mapped ? mapped[1] : rawAddress;
+
+    if (address.includes('.')) {
+      const octets = address.split('.').map((n) => Number(n));
+      if (
+        octets.length !== 4 ||
+        octets.some((n) => !Number.isInteger(n) || n < 0 || n > 255)
+      ) {
+        return true; // malformed IPv4 literal — fail closed
+      }
+      const [a, b] = octets;
+      if (a === 127) return true; // loopback
+      if (a === 10) return true; // RFC1918
+      if (a === 172 && b >= 16 && b <= 31) return true; // RFC1918
+      if (a === 192 && b === 168) return true; // RFC1918
+      if (a === 169 && b === 254) return true; // link-local / cloud metadata
+      if (a === 0) return true; // "this network"
+      if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT 100.64.0.0/10
+      return false;
+    }
+
+    const lower = address.toLowerCase();
+    if (lower === '::1') return true; // loopback
+    if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // unique local fc00::/7
+    if (lower.startsWith('fe80')) return true; // link-local fe80::/10
+    return false;
+  }
+
+  /** Fetch `parsedUrl` by connecting directly to the pre-validated `ip`
+   *  (never re-resolving DNS — see getLogoBase64), sending the original
+   *  `hostname` as the Host header and, for https, as the TLS `servername`
+   *  so certificate validation still checks against the real domain. Bounds
+   *  the request with a timeout and a response-size cap. Returns `null` on
+   *  any non-2xx status, timeout, oversized body, or transport error. */
+  private fetchPinnedIp(
+    parsedUrl: URL,
+    ip: string,
+    hostname: string,
+  ): Promise<{ buffer: Buffer; contentType: string | null } | null> {
+    return new Promise((resolve) => {
+      const isHttps = parsedUrl.protocol === 'https:';
+      const client = isHttps ? https : http;
+      const port = parsedUrl.port
+        ? parseInt(parsedUrl.port, 10)
+        : isHttps
+          ? 443
+          : 80;
+
+      let settled = false;
+      const finish = (
+        value: { buffer: Buffer; contentType: string | null } | null,
+      ) => {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
+
+      const req = client.request(
+        {
+          host: ip,
+          port,
+          path: `${parsedUrl.pathname}${parsedUrl.search}`,
+          method: 'GET',
+          headers: { Host: hostname },
+          ...(isHttps ? { servername: hostname } : {}),
+          timeout: LOGO_FETCH_TIMEOUT_MS,
+        },
+        (res) => {
+          if (
+            !res.statusCode ||
+            res.statusCode < 200 ||
+            res.statusCode >= 300
+          ) {
+            res.resume();
+            finish(null);
+            return;
+          }
+          const chunks: Buffer[] = [];
+          let total = 0;
+          res.on('data', (chunk: Buffer) => {
+            total += chunk.length;
+            if (total > LOGO_MAX_BYTES) {
+              req.destroy();
+              finish(null);
+              return;
+            }
+            chunks.push(chunk);
+          });
+          res.on('end', () => {
+            finish({
+              buffer: Buffer.concat(chunks),
+              contentType: res.headers['content-type'] ?? null,
+            });
+          });
+          res.on('error', () => finish(null));
+        },
+      );
+
+      req.on('timeout', () => {
+        req.destroy();
+        finish(null);
+      });
+      req.on('error', () => finish(null));
+      req.end();
+    });
   }
 }

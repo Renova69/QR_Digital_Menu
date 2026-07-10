@@ -28,7 +28,9 @@ export type CashPaymentRequestDto = {
   id: string;
   restaurantId: string;
   tableSessionId: string;
-  tableId: string;
+  // Nullable: CashPaymentRequest.tableId is SetNull on table deletion (was
+  // Cascade) so historical cash-payment records survive table removal.
+  tableId: string | null;
   tableName: string | null;
   status: CashPaymentRequestStatus;
   scope: CashPaymentRequestScope;

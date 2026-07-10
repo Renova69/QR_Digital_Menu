@@ -470,7 +470,9 @@ export class StripeCheckoutService {
       id: string;
       restaurantId: string;
       amount: number;
-      tableSessionId: string;
+      // Nullable: Payment.tableSessionId is SetNull on TableSession/table
+      // deletion (was Cascade) so historical payments survive table removal.
+      tableSessionId: string | null;
       stripePaymentIntentId: string | null;
       tableSession?: { table?: { name: string | null } | null } | null;
     } | null;

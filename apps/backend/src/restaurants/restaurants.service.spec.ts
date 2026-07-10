@@ -1,5 +1,59 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { EventEmitter } from 'events';
+import * as dns from 'dns';
+import * as https from 'https';
+import * as http from 'http';
 import { RestaurantsService } from './restaurants.service';
+
+// http.request/https.request are non-configurable on the live module binding
+// in this Node version, so jest.spyOn(http, 'request') throws "Cannot
+// redefine property". Replace the whole module with the real exports plus a
+// mockable `request`, instead of trying to redefine the live property.
+jest.mock('http', () => ({
+  ...jest.requireActual('http'),
+  request: jest.fn(),
+}));
+jest.mock('https', () => ({
+  ...jest.requireActual('https'),
+  request: jest.fn(),
+}));
+
+/** Mocks https.request/http.request to simulate a response without any real
+ *  network I/O, and captures the exact options the SUT connected with (so
+ *  tests can assert the connection target/headers, e.g. that the resolved IP
+ *  — not a re-resolved hostname — was used). */
+function mockPinnedHttpResponse(opts: {
+  secure?: boolean;
+  statusCode?: number;
+  contentType?: string | null;
+  body?: Buffer;
+}) {
+  const {
+    secure = true,
+    statusCode = 200,
+    contentType = 'image/png',
+    body = Buffer.from('logo-bytes'),
+  } = opts;
+  const target = secure ? https : http;
+  const spy = (target.request as jest.Mock).mockImplementation(
+    (options: any, callback: any) => {
+      const req: any = new EventEmitter();
+      req.end = jest.fn();
+      req.destroy = jest.fn();
+      const res: any = new EventEmitter();
+      res.statusCode = statusCode;
+      res.headers = { 'content-type': contentType };
+      res.resume = jest.fn();
+      process.nextTick(() => {
+        callback(res);
+        res.emit('data', body);
+        res.emit('end');
+      });
+      return req;
+    },
+  );
+  return { spy, options: () => spy.mock.calls[0]?.[0] as any };
+}
 
 const makeRestaurant = (overrides: Record<string, unknown> = {}) => ({
   id: 'rest1',
@@ -708,41 +762,126 @@ describe('RestaurantsService', () => {
   });
 
   describe('getLogoBase64', () => {
-    it('returns null if logoUrl is an internal IP (SSRF prevention)', async () => {
-      mockPrisma.restaurant!.findUnique.mockResolvedValue({
+    afterEach(() => {
+      jest.restoreAllMocks();
+      (http.request as jest.Mock).mockReset();
+      (https.request as jest.Mock).mockReset();
+    });
+
+    it('returns null if logoUrl is a literal internal IP (SSRF prevention)', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
         logoUrl: 'http://169.254.169.254/latest/meta-data/',
       });
+      const lookupSpy = jest
+        .spyOn(dns.promises, 'lookup')
+        .mockResolvedValue({ address: '169.254.169.254', family: 4 } as any);
+
       const result = await service.getLogoBase64('rest1');
+
       expect(result).toBeNull();
+      expect(lookupSpy).toHaveBeenCalledTimes(1);
+      // Blocked before any connection is attempted.
+      expect(http.request as jest.Mock).not.toHaveBeenCalled();
     });
 
     it('returns null if logoUrl is localhost (SSRF prevention)', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         logoUrl: 'http://localhost:3000/secret',
       });
+      const lookupSpy = jest.spyOn(dns.promises, 'lookup');
+
       const result = await service.getLogoBase64('rest1');
+
       expect(result).toBeNull();
+      // Rejected on the hostname string check, before even resolving DNS.
+      expect(lookupSpy).not.toHaveBeenCalled();
+    });
+
+    it('rejects an IPv4-mapped IPv6 literal for a cloud-metadata address (bypass check)', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        logoUrl: 'http://metadata.example.com/latest/meta-data/',
+      });
+      jest.spyOn(dns.promises, 'lookup').mockResolvedValue({
+        address: '::ffff:169.254.169.254',
+        family: 6,
+      } as any);
+
+      const result = await service.getLogoBase64('rest1');
+
+      expect(result).toBeNull();
+      expect(http.request as jest.Mock).not.toHaveBeenCalled();
     });
 
     it('fetches and returns base64 if URL is valid', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         logoUrl: 'https://example.com/logo.png',
       });
-
-      const mockFetch = jest.fn().mockResolvedValue({
-        ok: true,
-        arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(8)),
-        headers: {
-          get: jest.fn().mockReturnValue('image/png'),
-        },
+      jest
+        .spyOn(dns.promises, 'lookup')
+        .mockResolvedValue({ address: '93.184.216.34', family: 4 } as any);
+      const { options } = mockPinnedHttpResponse({
+        contentType: 'image/png',
+        body: Buffer.from('logo-bytes'),
       });
-      global.fetch = mockFetch as unknown as typeof fetch;
 
       const result = await service.getLogoBase64('rest1');
+
       expect(result).toEqual({
         dataUrl: expect.stringContaining('data:image/png;base64,'),
       });
-      expect(mockFetch).toHaveBeenCalledWith('https://example.com/logo.png');
+      expect(
+        Buffer.from(result!.dataUrl.split(',')[1], 'base64').toString(),
+      ).toBe('logo-bytes');
+      // Connects to the resolved IP directly, not the hostname — this is what
+      // actually pins the request against DNS rebinding.
+      expect(options().host).toBe('93.184.216.34');
+      expect(options().headers.Host).toBe('example.com');
+      expect(options().servername).toBe('example.com');
+    });
+
+    it('never re-resolves DNS between validation and the actual request (no rebinding window)', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        logoUrl: 'https://example.com/logo.png',
+      });
+      const lookupSpy = jest
+        .spyOn(dns.promises, 'lookup')
+        .mockResolvedValue({ address: '93.184.216.34', family: 4 } as any);
+      mockPinnedHttpResponse({ contentType: 'image/png' });
+
+      await service.getLogoBase64('rest1');
+
+      expect(lookupSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns null when the response exceeds the size cap', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        logoUrl: 'https://example.com/logo.png',
+      });
+      jest
+        .spyOn(dns.promises, 'lookup')
+        .mockResolvedValue({ address: '93.184.216.34', family: 4 } as any);
+      mockPinnedHttpResponse({
+        contentType: 'image/png',
+        body: Buffer.alloc(6 * 1024 * 1024), // over the 5MB cap
+      });
+
+      const result = await service.getLogoBase64('rest1');
+
+      expect(result).toBeNull();
+    });
+
+    it('returns null on a non-2xx response', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        logoUrl: 'https://example.com/logo.png',
+      });
+      jest
+        .spyOn(dns.promises, 'lookup')
+        .mockResolvedValue({ address: '93.184.216.34', family: 4 } as any);
+      mockPinnedHttpResponse({ statusCode: 404 });
+
+      const result = await service.getLogoBase64('rest1');
+
+      expect(result).toBeNull();
     });
   });
 });
