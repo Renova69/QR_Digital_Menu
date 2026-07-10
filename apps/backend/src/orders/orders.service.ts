@@ -333,6 +333,7 @@ export class OrdersService {
     let itemsPointsRedeemed = 0;
     const itemsData: {
       menuItemId: string;
+      itemName: string;
       quantity: number;
       unitPrice: number;
       unitPriceWithOptions: number;
@@ -512,6 +513,7 @@ export class OrdersService {
 
       itemsData.push({
         menuItemId: item.menuItemId,
+        itemName: dbItem.name,
         quantity: item.quantity,
         unitPrice,
         unitPriceWithOptions,

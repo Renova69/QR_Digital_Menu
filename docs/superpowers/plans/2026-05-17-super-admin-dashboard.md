@@ -13,6 +13,7 @@
 ### Task 1: Schema — Add SUPER_ADMIN role, forceTier, isActive
 
 **Files:**
+
 - Modify: `apps/backend/prisma/schema.prisma:292-299` (UserRole enum)
 - Modify: `apps/backend/prisma/schema.prisma:32-97` (Restaurant model)
 
@@ -84,6 +85,7 @@ git commit -m "feat: add SUPER_ADMIN role, forceTier and isActive to Restaurant"
 ### Task 2: FeatureService — respect forceTier override
 
 **Files:**
+
 - Modify: `apps/backend/src/subscription/feature.service.ts:47-48`
 
 - [ ] **Step 1: Add getEffectiveTier method to FeatureService**
@@ -101,31 +103,32 @@ Open `apps/backend/src/subscription/feature.service.ts`. Add a new method after 
 Open `apps/backend/src/subscription/feature.guard.ts`. Change line 49 from:
 
 ```typescript
-    const tier = restaurant?.tier ?? 'FREE';
+const tier = restaurant?.tier ?? "FREE";
 ```
 
 To:
 
 ```typescript
-    const tier = this.featureService.getEffectiveTier(
-      restaurant?.tier ?? 'FREE',
-      restaurant?.forceTier,
-    );
+const tier = this.featureService.getEffectiveTier(
+  restaurant?.tier ?? "FREE",
+  restaurant?.forceTier,
+);
 ```
 
 Also update the Prisma `select` on the restaurant queries to include `forceTier`. Change the `select` on lines 34-43:
 
 The first query (staff path, line 39-42):
+
 ```typescript
-    const restaurant = user?.restaurantId
-      ? await this.prisma.restaurant.findUnique({
-          where: { id: user.restaurantId },
-          select: { tier: true, forceTier: true },
-        })
-      : await this.prisma.restaurant.findFirst({
-          where: { ownerId: userId },
-          select: { tier: true, forceTier: true },
-        });
+const restaurant = user?.restaurantId
+  ? await this.prisma.restaurant.findUnique({
+      where: { id: user.restaurantId },
+      select: { tier: true, forceTier: true },
+    })
+  : await this.prisma.restaurant.findFirst({
+      where: { ownerId: userId },
+      select: { tier: true, forceTier: true },
+    });
 ```
 
 - [ ] **Step 3: Commit**
@@ -140,6 +143,7 @@ git commit -m "feat: FeatureService respects forceTier override for tier resolut
 ### Task 3: SuperAdminGuard — create role guard
 
 **Files:**
+
 - Create: `apps/backend/src/super-admin/super-admin.guard.ts`
 
 - [ ] **Step 1: Write failing guard test**
@@ -147,8 +151,8 @@ git commit -m "feat: FeatureService respects forceTier override for tier resolut
 Create `apps/backend/src/super-admin/super-admin.guard.spec.ts`:
 
 ```typescript
-import { SuperAdminGuard } from './super-admin.guard';
-import { ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { SuperAdminGuard } from "./super-admin.guard";
+import { ExecutionContext, ForbiddenException } from "@nestjs/common";
 
 function mockContext(role?: string): ExecutionContext {
   return {
@@ -160,24 +164,24 @@ function mockContext(role?: string): ExecutionContext {
   } as unknown as ExecutionContext;
 }
 
-describe('SuperAdminGuard', () => {
+describe("SuperAdminGuard", () => {
   let guard: SuperAdminGuard;
 
   beforeEach(() => {
     guard = new SuperAdminGuard();
   });
 
-  it('should allow SUPER_ADMIN user', () => {
-    const ctx = mockContext('SUPER_ADMIN');
+  it("should allow SUPER_ADMIN user", () => {
+    const ctx = mockContext("SUPER_ADMIN");
     expect(guard.canActivate(ctx)).toBe(true);
   });
 
-  it('should reject OWNER user', () => {
-    const ctx = mockContext('OWNER');
+  it("should reject OWNER user", () => {
+    const ctx = mockContext("OWNER");
     expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
   });
 
-  it('should reject unauthenticated user (no user)', () => {
+  it("should reject unauthenticated user (no user)", () => {
     const ctx = mockContext(undefined);
     expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
   });
@@ -194,16 +198,21 @@ Expected: FAIL — module not found
 Create `apps/backend/src/super-admin/super-admin.guard.ts`:
 
 ```typescript
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from "@nestjs/common";
 
 @Injectable()
 export class SuperAdminGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
-    if (request.user?.role !== 'SUPER_ADMIN') {
+    if (request.user?.role !== "SUPER_ADMIN") {
       throw new ForbiddenException({
-        code: 'SUPER_ADMIN_REQUIRED',
-        message: 'Only super admins can access this resource',
+        code: "SUPER_ADMIN_REQUIRED",
+        message: "Only super admins can access this resource",
       });
     }
     return true;
@@ -228,6 +237,7 @@ git commit -m "feat: add SuperAdminGuard for platform admin endpoints"
 ### Task 4: DTOs — create update-tenant DTO
 
 **Files:**
+
 - Create: `apps/backend/src/super-admin/dto/update-tenant.dto.ts`
 
 - [ ] **Step 1: Create DTO file**
@@ -235,14 +245,19 @@ git commit -m "feat: add SuperAdminGuard for platform admin endpoints"
 Create `apps/backend/src/super-admin/dto/update-tenant.dto.ts`:
 
 ```typescript
-import { IsIn, IsOptional, IsBoolean } from 'class-validator';
-import { SubscriptionTier } from '@prisma/client';
+import { IsIn, IsOptional, IsBoolean } from "class-validator";
+import { SubscriptionTier } from "@prisma/client";
 
-const TIERS: SubscriptionTier[] = ['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'];
+const TIERS: SubscriptionTier[] = [
+  "FREE",
+  "STARTER",
+  "PROFESSIONAL",
+  "ENTERPRISE",
+];
 
 export class UpdateTenantTierDto {
   @IsOptional()
-  @IsIn(TIERS, { message: 'forceTier must be a valid SubscriptionTier' })
+  @IsIn(TIERS, { message: "forceTier must be a valid SubscriptionTier" })
   forceTier?: SubscriptionTier | null;
 }
 
@@ -264,6 +279,7 @@ git commit -m "feat: add super-admin DTOs for tier and status updates"
 ### Task 5: SuperAdminService — stats and tenant queries
 
 **Files:**
+
 - Create: `apps/backend/src/super-admin/super-admin.service.ts`
 
 - [ ] **Step 1: Write failing service test**
@@ -271,11 +287,11 @@ git commit -m "feat: add super-admin DTOs for tier and status updates"
 Create `apps/backend/src/super-admin/super-admin.service.spec.ts`:
 
 ```typescript
-import { Test, TestingModule } from '@nestjs/testing';
-import { SuperAdminService } from './super-admin.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { Test, TestingModule } from "@nestjs/testing";
+import { SuperAdminService } from "./super-admin.service";
+import { PrismaService } from "../prisma/prisma.service";
 
-describe('SuperAdminService', () => {
+describe("SuperAdminService", () => {
   let service: SuperAdminService;
   let prisma: PrismaService;
 
@@ -304,15 +320,15 @@ describe('SuperAdminService', () => {
     prisma = module.get<PrismaService>(PrismaService);
   });
 
-  describe('getStats', () => {
-    it('should return platform stats', async () => {
+  describe("getStats", () => {
+    it("should return platform stats", async () => {
       mockPrisma.restaurant.count.mockResolvedValue(10);
       mockPrisma.user.count.mockResolvedValue(50);
       mockPrisma.$queryRaw.mockResolvedValue([
-        { tier: 'FREE', count: '5' },
-        { tier: 'STARTER', count: '3' },
-        { tier: 'PROFESSIONAL', count: '1' },
-        { tier: 'ENTERPRISE', count: '1' },
+        { tier: "FREE", count: "5" },
+        { tier: "STARTER", count: "3" },
+        { tier: "PROFESSIONAL", count: "1" },
+        { tier: "ENTERPRISE", count: "1" },
       ]);
 
       const result = await service.getStats();
@@ -337,9 +353,9 @@ Expected: FAIL — service not defined
 Create `apps/backend/src/super-admin/super-admin.service.ts`:
 
 ```typescript
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import { Prisma } from "@prisma/client";
 
 const TIER_ORDER: Record<string, number> = {
   FREE: 0,
@@ -353,22 +369,32 @@ export class SuperAdminService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getStats() {
-    const [totalRestaurants, totalUsers, activeSubscriptions, suspendedCount, byTierRaw] =
-      await Promise.all([
-        this.prisma.restaurant.count(),
-        this.prisma.user.count(),
-        this.prisma.restaurant.count({
-          where: { stripeSubscriptionId: { not: null } },
-        }),
-        this.prisma.restaurant.count({
-          where: { isActive: false },
-        }),
-        this.prisma.$queryRaw<
-          Array<{ tier: string; count: bigint }>
-        >(Prisma.sql`SELECT tier, COUNT(*)::int FROM restaurant GROUP BY tier`),
-      ]);
+    const [
+      totalRestaurants,
+      totalUsers,
+      activeSubscriptions,
+      suspendedCount,
+      byTierRaw,
+    ] = await Promise.all([
+      this.prisma.restaurant.count(),
+      this.prisma.user.count(),
+      this.prisma.restaurant.count({
+        where: { stripeSubscriptionId: { not: null } },
+      }),
+      this.prisma.restaurant.count({
+        where: { isActive: false },
+      }),
+      this.prisma.$queryRaw<Array<{ tier: string; count: bigint }>>(
+        Prisma.sql`SELECT tier, COUNT(*)::int FROM restaurant GROUP BY tier`,
+      ),
+    ]);
 
-    const byTier: Record<string, number> = { FREE: 0, STARTER: 0, PROFESSIONAL: 0, ENTERPRISE: 0 };
+    const byTier: Record<string, number> = {
+      FREE: 0,
+      STARTER: 0,
+      PROFESSIONAL: 0,
+      ENTERPRISE: 0,
+    };
     for (const row of byTierRaw) {
       byTier[row.tier] = Number(row.count);
     }
@@ -397,8 +423,8 @@ export class SuperAdminService {
 
     if (params.search) {
       where.OR = [
-        { name: { contains: params.search, mode: 'insensitive' } },
-        { owner: { email: { contains: params.search, mode: 'insensitive' } } },
+        { name: { contains: params.search, mode: "insensitive" } },
+        { owner: { email: { contains: params.search, mode: "insensitive" } } },
       ];
     }
 
@@ -406,9 +432,9 @@ export class SuperAdminService {
       where.tier = params.tier as any;
     }
 
-    if (params.status === 'suspended') {
+    if (params.status === "suspended") {
       where.isActive = false;
-    } else if (params.status === 'active') {
+    } else if (params.status === "active") {
       where.isActive = true;
     }
 
@@ -417,7 +443,7 @@ export class SuperAdminService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         select: {
           id: true,
           name: true,
@@ -459,7 +485,10 @@ export class SuperAdminService {
     });
 
     if (!restaurant) {
-      throw new NotFoundException({ code: 'TENANT_NOT_FOUND', message: 'Restaurant not found' });
+      throw new NotFoundException({
+        code: "TENANT_NOT_FOUND",
+        message: "Restaurant not found",
+      });
     }
 
     // Get payment summary
@@ -480,9 +509,14 @@ export class SuperAdminService {
   }
 
   async updateTier(id: string, forceTier: string | null) {
-    const restaurant = await this.prisma.restaurant.findUnique({ where: { id } });
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id },
+    });
     if (!restaurant) {
-      throw new NotFoundException({ code: 'TENANT_NOT_FOUND', message: 'Restaurant not found' });
+      throw new NotFoundException({
+        code: "TENANT_NOT_FOUND",
+        message: "Restaurant not found",
+      });
     }
 
     return this.prisma.restaurant.update({
@@ -498,9 +532,14 @@ export class SuperAdminService {
   }
 
   async updateStatus(id: string, isActive: boolean) {
-    const restaurant = await this.prisma.restaurant.findUnique({ where: { id } });
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id },
+    });
     if (!restaurant) {
-      throw new NotFoundException({ code: 'TENANT_NOT_FOUND', message: 'Restaurant not found' });
+      throw new NotFoundException({
+        code: "TENANT_NOT_FOUND",
+        message: "Restaurant not found",
+      });
     }
 
     return this.prisma.restaurant.update({
@@ -533,6 +572,7 @@ git commit -m "feat: add SuperAdminService with stats and tenant management"
 ### Task 6: SuperAdminController — wire API endpoints
 
 **Files:**
+
 - Create: `apps/backend/src/super-admin/super-admin.controller.ts`
 
 - [ ] **Step 1: Create SuperAdminController**
@@ -550,51 +590,48 @@ import {
   UseGuards,
   ParseIntPipe,
   DefaultValuePipe,
-} from '@nestjs/common';
-import { SuperAdminService } from './super-admin.service';
-import { SuperAdminGuard } from './super-admin.guard';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { UpdateTenantTierDto, UpdateTenantStatusDto } from './dto/update-tenant.dto';
+} from "@nestjs/common";
+import { SuperAdminService } from "./super-admin.service";
+import { SuperAdminGuard } from "./super-admin.guard";
+import { JwtAuthGuard } from "../auth/jwt-auth.guard";
+import {
+  UpdateTenantTierDto,
+  UpdateTenantStatusDto,
+} from "./dto/update-tenant.dto";
 
-@Controller('super-admin')
+@Controller("super-admin")
 @UseGuards(JwtAuthGuard, SuperAdminGuard)
 export class SuperAdminController {
   constructor(private readonly service: SuperAdminService) {}
 
-  @Get('stats')
+  @Get("stats")
   getStats() {
     return this.service.getStats();
   }
 
-  @Get('tenants')
+  @Get("tenants")
   getTenants(
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
-    @Query('search') search?: string,
-    @Query('tier') tier?: string,
-    @Query('status') status?: string,
+    @Query("page", new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query("limit", new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query("search") search?: string,
+    @Query("tier") tier?: string,
+    @Query("status") status?: string,
   ) {
     return this.service.getTenants({ page, limit, search, tier, status });
   }
 
-  @Get('tenants/:id')
-  getTenant(@Param('id') id: string) {
+  @Get("tenants/:id")
+  getTenant(@Param("id") id: string) {
     return this.service.getTenantById(id);
   }
 
-  @Patch('tenants/:id/tier')
-  updateTier(
-    @Param('id') id: string,
-    @Body() dto: UpdateTenantTierDto,
-  ) {
+  @Patch("tenants/:id/tier")
+  updateTier(@Param("id") id: string, @Body() dto: UpdateTenantTierDto) {
     return this.service.updateTier(id, dto.forceTier ?? null);
   }
 
-  @Patch('tenants/:id/status')
-  updateStatus(
-    @Param('id') id: string,
-    @Body() dto: UpdateTenantStatusDto,
-  ) {
+  @Patch("tenants/:id/status")
+  updateStatus(@Param("id") id: string, @Body() dto: UpdateTenantStatusDto) {
     return this.service.updateStatus(id, dto.isActive);
   }
 }
@@ -612,6 +649,7 @@ git commit -m "feat: add SuperAdminController with 5 endpoints"
 ### Task 7: SuperAdminModule — register module
 
 **Files:**
+
 - Create: `apps/backend/src/super-admin/super-admin.module.ts`
 - Modify: `apps/backend/src/app.module.ts:23`
 
@@ -620,10 +658,10 @@ git commit -m "feat: add SuperAdminController with 5 endpoints"
 Create `apps/backend/src/super-admin/super-admin.module.ts`:
 
 ```typescript
-import { Module } from '@nestjs/common';
-import { SuperAdminController } from './super-admin.controller';
-import { SuperAdminService } from './super-admin.service';
-import { PrismaModule } from '../prisma/prisma.module';
+import { Module } from "@nestjs/common";
+import { SuperAdminController } from "./super-admin.controller";
+import { SuperAdminService } from "./super-admin.service";
+import { PrismaModule } from "../prisma/prisma.module";
 
 @Module({
   imports: [PrismaModule],
@@ -640,7 +678,7 @@ Open `apps/backend/src/app.module.ts`. Add the import:
 After line 23 (`import { SubscriptionModule } from './subscription/subscription.module';`):
 
 ```typescript
-import { SuperAdminModule } from './super-admin/super-admin.module';
+import { SuperAdminModule } from "./super-admin/super-admin.module";
 ```
 
 Add `SuperAdminModule` to the `imports` array. After `SubscriptionModule` (line 38):
@@ -663,6 +701,7 @@ git commit -m "feat: register SuperAdminModule in app module"
 ### Task 8: Suspend enforcement — isActive checks
 
 **Files:**
+
 - Modify: `apps/backend/src/subscription/feature.guard.ts`
 - Modify: `apps/backend/src/auth/jwt.strategy.ts`
 - Modify: `apps/backend/src/menu/public-menu.controller.ts`
@@ -675,12 +714,12 @@ Open `apps/backend/src/subscription/feature.guard.ts`. IN the `canActivate` meth
 After the restaurant fetch (after the `const tier =` line), add:
 
 ```typescript
-    if (restaurant?.forceTier !== undefined && restaurant?.isActive === false) {
-      throw new ForbiddenException({
-        code: 'RESTAURANT_SUSPENDED',
-        message: 'This restaurant has been suspended',
-      });
-    }
+if (restaurant?.forceTier !== undefined && restaurant?.isActive === false) {
+  throw new ForbiddenException({
+    code: "RESTAURANT_SUSPENDED",
+    message: "This restaurant has been suspended",
+  });
+}
 ```
 
 Update the query selects to also include `isActive`. The staff path query should select `{ tier: true, forceTier: true, isActive: true }` and the owner path query should select `{ tier: true, forceTier: true, isActive: true }`.
@@ -688,12 +727,17 @@ Update the query selects to also include `isActive`. The staff path query should
 Full updated guards:
 
 ```typescript
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
-import { FeatureService } from './feature.service';
-import { REQUIRE_FEATURE_KEY } from './require-feature.decorator';
-import { FeatureFlag } from './feature-flag.enum';
-import { PrismaService } from '../prisma/prisma.service';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
+import { FeatureService } from "./feature.service";
+import { REQUIRE_FEATURE_KEY } from "./require-feature.decorator";
+import { FeatureFlag } from "./feature-flag.enum";
+import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
 export class FeatureGuard implements CanActivate {
@@ -704,10 +748,10 @@ export class FeatureGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredFeatures = this.reflector.getAllAndOverride<FeatureFlag[]>(REQUIRE_FEATURE_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredFeatures = this.reflector.getAllAndOverride<FeatureFlag[]>(
+      REQUIRE_FEATURE_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     if (!requiredFeatures || requiredFeatures.length === 0) {
       return true;
@@ -717,7 +761,7 @@ export class FeatureGuard implements CanActivate {
     const userId = request.user?.id ?? request.user?.sub;
 
     if (!userId) {
-      throw new ForbiddenException({ code: 'AUTH_REQUIRED' });
+      throw new ForbiddenException({ code: "AUTH_REQUIRED" });
     }
 
     const user = await this.prisma.user.findUnique({
@@ -726,7 +770,7 @@ export class FeatureGuard implements CanActivate {
     });
 
     // SUPER_ADMIN bypasses all tier and suspension checks
-    if (user?.role === 'SUPER_ADMIN') {
+    if (user?.role === "SUPER_ADMIN") {
       return true;
     }
 
@@ -742,22 +786,24 @@ export class FeatureGuard implements CanActivate {
 
     if (restaurant?.isActive === false) {
       throw new ForbiddenException({
-        code: 'RESTAURANT_SUSPENDED',
-        message: 'This restaurant has been suspended',
+        code: "RESTAURANT_SUSPENDED",
+        message: "This restaurant has been suspended",
       });
     }
 
     const tier = this.featureService.getEffectiveTier(
-      restaurant?.tier ?? 'FREE',
+      restaurant?.tier ?? "FREE",
       restaurant?.forceTier,
     );
 
-    const missing = requiredFeatures.filter((f) => !this.featureService.hasFeature(tier, f));
+    const missing = requiredFeatures.filter(
+      (f) => !this.featureService.hasFeature(tier, f),
+    );
     if (missing.length > 0) {
       throw new ForbiddenException({
-        code: 'FEATURE_LOCKED',
+        code: "FEATURE_LOCKED",
         requiredFeatures: missing,
-        message: `Your plan (${tier}) does not include: ${missing.join(', ')}`,
+        message: `Your plan (${tier}) does not include: ${missing.join(", ")}`,
       });
     }
 
@@ -817,8 +863,8 @@ const restaurant = await this.prisma.restaurant.findUnique({
 
 if (!restaurant?.isActive) {
   throw new ForbiddenException({
-    code: 'RESTAURANT_SUSPENDED',
-    message: 'This restaurant has been suspended',
+    code: "RESTAURANT_SUSPENDED",
+    message: "This restaurant has been suspended",
   });
 }
 ```
@@ -839,6 +885,7 @@ git commit -m "feat: enforce restaurant suspension on menu, orders, and feature 
 ### Task 9: Frontend — API client additions
 
 **Files:**
+
 - Modify: `apps/frontend/src/lib/api.ts`
 - Modify: `apps/frontend/src/types/index.ts`
 
@@ -902,23 +949,40 @@ Open `apps/frontend/src/lib/api.ts`. After the subscription section (after line 
 ```typescript
 // Super Admin
 export const getSuperAdminStats = () =>
-  api.get('/super-admin/stats').then((r) => r.data as import('../types').SuperAdminStats);
-
-export const getSuperAdminTenants = (
-  params?: { page?: number; limit?: number; search?: string; tier?: string; status?: string },
-) =>
   api
-    .get('/super-admin/tenants', { params })
-    .then((r) => r.data as import('../types').PaginatedResponse<import('../types').TenantSummary>);
+    .get("/super-admin/stats")
+    .then((r) => r.data as import("../types").SuperAdminStats);
+
+export const getSuperAdminTenants = (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  tier?: string;
+  status?: string;
+}) =>
+  api
+    .get("/super-admin/tenants", { params })
+    .then(
+      (r) =>
+        r.data as import("../types").PaginatedResponse<
+          import("../types").TenantSummary
+        >,
+    );
 
 export const getSuperAdminTenant = (id: string) =>
-  api.get(`/super-admin/tenants/${id}`).then((r) => r.data as import('../types').TenantDetail);
+  api
+    .get(`/super-admin/tenants/${id}`)
+    .then((r) => r.data as import("../types").TenantDetail);
 
 export const updateTenantTier = (id: string, forceTier: string | null) =>
-  api.patch(`/super-admin/tenants/${id}/tier`, { forceTier }).then((r) => r.data);
+  api
+    .patch(`/super-admin/tenants/${id}/tier`, { forceTier })
+    .then((r) => r.data);
 
 export const updateTenantStatus = (id: string, isActive: boolean) =>
-  api.patch(`/super-admin/tenants/${id}/status`, { isActive }).then((r) => r.data);
+  api
+    .patch(`/super-admin/tenants/${id}/status`, { isActive })
+    .then((r) => r.data);
 ```
 
 - [ ] **Step 3: Commit**
@@ -933,6 +997,7 @@ git commit -m "feat: add super-admin API client functions and types"
 ### Task 10: SuperAdminRoute — frontend guard
 
 **Files:**
+
 - Create: `apps/frontend/src/components/SuperAdminRoute.tsx`
 
 - [ ] **Step 1: Create SuperAdminRoute**
@@ -943,7 +1008,11 @@ Create `apps/frontend/src/components/SuperAdminRoute.tsx`:
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-export default function SuperAdminRoute({ children }: { children: JSX.Element }) {
+export default function SuperAdminRoute({
+  children,
+}: {
+  children: JSX.Element;
+}) {
   const { user, isLoading } = useAuth();
   const location = useLocation();
 
@@ -979,6 +1048,7 @@ git commit -m "feat: add SuperAdminRoute guard component"
 ### Task 11: SuperAdminLayout — dark sidebar layout
 
 **Files:**
+
 - Create: `apps/frontend/src/pages/super-admin/SuperAdminLayout.tsx`
 
 - [ ] **Step 1: Create SuperAdminLayout**
@@ -1052,6 +1122,7 @@ git commit -m "feat: add SuperAdminLayout with dark sidebar"
 ### Task 12: Frontend routing — App.tsx + LoginPage
 
 **Files:**
+
 - Modify: `apps/frontend/src/App.tsx`
 - Modify: `apps/frontend/src/pages/LoginPage.tsx`
 
@@ -1060,15 +1131,15 @@ git commit -m "feat: add SuperAdminLayout with dark sidebar"
 Open `apps/frontend/src/pages/LoginPage.tsx`. Replace the `useEffect` at line 10-13:
 
 ```tsx
-  useEffect(() => {
-    if (user) {
-      if (user.role === 'SUPER_ADMIN') {
-        navigate('/super-admin');
-      } else {
-        navigate('/dashboard');
-      }
+useEffect(() => {
+  if (user) {
+    if (user.role === "SUPER_ADMIN") {
+      navigate("/super-admin");
+    } else {
+      navigate("/dashboard");
     }
-  }, [user, navigate]);
+  }
+}, [user, navigate]);
 ```
 
 - [ ] **Step 2: Add super-admin routes to App.tsx**
@@ -1076,10 +1147,14 @@ Open `apps/frontend/src/pages/LoginPage.tsx`. Replace the `useEffect` at line 10
 Open `apps/frontend/src/App.tsx`. Add lazy imports after the existing ones (after line 34):
 
 ```tsx
-const SuperAdminLayout = lazy(() => import("./pages/super-admin/SuperAdminLayout"));
+const SuperAdminLayout = lazy(
+  () => import("./pages/super-admin/SuperAdminLayout"),
+);
 const OverviewPage = lazy(() => import("./pages/super-admin/OverviewPage"));
 const TenantsPage = lazy(() => import("./pages/super-admin/TenantsPage"));
-const TenantDetailPage = lazy(() => import("./pages/super-admin/TenantDetailPage"));
+const TenantDetailPage = lazy(
+  () => import("./pages/super-admin/TenantDetailPage"),
+);
 ```
 
 Add import for SuperAdminRoute (after line 18):
@@ -1091,43 +1166,45 @@ import SuperAdminRoute from "./components/SuperAdminRoute";
 Add the super-admin route group. After the PosLayout route group (after line 147) and before the public layout section:
 
 ```tsx
-            {/* Super Admin — dark sidebar, platform-wide access */}
-            <Route
-              element={
-                <SocketProvider>
-                  <RestaurantProvider>
-                    <NotificationProvider>
-                      <SuperAdminLayout />
-                    </NotificationProvider>
-                  </RestaurantProvider>
-                </SocketProvider>
-              }
-            >
-              <Route
-                path="/super-admin"
-                element={
-                  <SuperAdminRoute>
-                    <OverviewPage />
-                  </SuperAdminRoute>
-                }
-              />
-              <Route
-                path="/super-admin/tenants"
-                element={
-                  <SuperAdminRoute>
-                    <TenantsPage />
-                  </SuperAdminRoute>
-                }
-              />
-              <Route
-                path="/super-admin/tenants/:id"
-                element={
-                  <SuperAdminRoute>
-                    <TenantDetailPage />
-                  </SuperAdminRoute>
-                }
-              />
-            </Route>
+{
+  /* Super Admin — dark sidebar, platform-wide access */
+}
+<Route
+  element={
+    <SocketProvider>
+      <RestaurantProvider>
+        <NotificationProvider>
+          <SuperAdminLayout />
+        </NotificationProvider>
+      </RestaurantProvider>
+    </SocketProvider>
+  }
+>
+  <Route
+    path="/super-admin"
+    element={
+      <SuperAdminRoute>
+        <OverviewPage />
+      </SuperAdminRoute>
+    }
+  />
+  <Route
+    path="/super-admin/tenants"
+    element={
+      <SuperAdminRoute>
+        <TenantsPage />
+      </SuperAdminRoute>
+    }
+  />
+  <Route
+    path="/super-admin/tenants/:id"
+    element={
+      <SuperAdminRoute>
+        <TenantDetailPage />
+      </SuperAdminRoute>
+    }
+  />
+</Route>;
 ```
 
 - [ ] **Step 3: Commit**
@@ -1142,6 +1219,7 @@ git commit -m "feat: wire super-admin routes and login redirect"
 ### Task 13: OverviewPage — platform stats
 
 **Files:**
+
 - Create: `apps/frontend/src/pages/super-admin/OverviewPage.tsx`
 
 - [ ] **Step 1: Create OverviewPage**
@@ -1152,7 +1230,14 @@ Create `apps/frontend/src/pages/super-admin/OverviewPage.tsx`:
 import { useQuery } from "@tanstack/react-query";
 import { getSuperAdminStats } from "../../lib/api";
 import { Building2, Users, CreditCard, AlertTriangle } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  Legend,
+} from "recharts";
 
 const TIER_COLORS: Record<string, string> = {
   FREE: "hsl(var(--color-muted-foreground))",
@@ -1173,7 +1258,10 @@ export default function OverviewPage() {
         <h2 className="text-2xl font-bold">Overview</h2>
         <div className="grid grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-24 rounded-xl glass-panel animate-pulse" />
+            <div
+              key={i}
+              className="h-24 rounded-xl glass-panel animate-pulse"
+            />
           ))}
         </div>
       </div>
@@ -1189,9 +1277,17 @@ export default function OverviewPage() {
   }
 
   const cards = [
-    { label: "Total Restaurants", value: data.totalRestaurants, icon: Building2 },
+    {
+      label: "Total Restaurants",
+      value: data.totalRestaurants,
+      icon: Building2,
+    },
     { label: "Total Users", value: data.totalUsers, icon: Users },
-    { label: "Active Subscriptions", value: data.activeSubscriptions, icon: CreditCard },
+    {
+      label: "Active Subscriptions",
+      value: data.activeSubscriptions,
+      icon: CreditCard,
+    },
     { label: "Suspended", value: data.suspendedCount, icon: AlertTriangle },
   ];
 
@@ -1235,7 +1331,10 @@ export default function OverviewPage() {
                 label={({ name, value }) => `${name}: ${value}`}
               >
                 {chartData.map((entry) => (
-                  <Cell key={entry.name} fill={TIER_COLORS[entry.name] ?? "#888"} />
+                  <Cell
+                    key={entry.name}
+                    fill={TIER_COLORS[entry.name] ?? "#888"}
+                  />
                 ))}
               </Pie>
               <Tooltip />
@@ -1261,6 +1360,7 @@ git commit -m "feat: add OverviewPage with platform stats and tier chart"
 ### Task 14: TenantsPage — searchable tenant table
 
 **Files:**
+
 - Create: `apps/frontend/src/pages/super-admin/TenantsPage.tsx`
 
 - [ ] **Step 1: Create TenantsPage**
@@ -1284,7 +1384,14 @@ export default function TenantsPage() {
   const [statusFilter, setStatusFilter] = useState("");
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["super-admin", "tenants", page, search, tierFilter, statusFilter],
+    queryKey: [
+      "super-admin",
+      "tenants",
+      page,
+      search,
+      tierFilter,
+      statusFilter,
+    ],
     queryFn: () =>
       getSuperAdminTenants({
         page,
@@ -1319,7 +1426,10 @@ export default function TenantsPage() {
 
         <select
           value={tierFilter}
-          onChange={(e) => { setTierFilter(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setTierFilter(e.target.value);
+            setPage(1);
+          }}
           className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
         >
           <option value="">All Tiers</option>
@@ -1331,7 +1441,10 @@ export default function TenantsPage() {
 
         <select
           value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
           className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
         >
           <option value="">All Status</option>
@@ -1344,23 +1457,40 @@ export default function TenantsPage() {
       {isLoading ? (
         <div className="space-y-3">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-12 rounded-lg glass-panel animate-pulse" />
+            <div
+              key={i}
+              className="h-12 rounded-lg glass-panel animate-pulse"
+            />
           ))}
         </div>
       ) : isError ? (
-        <p className="text-muted-foreground text-center py-8">Failed to load tenants.</p>
+        <p className="text-muted-foreground text-center py-8">
+          Failed to load tenants.
+        </p>
       ) : (
         <>
           <div className="glass-panel rounded-xl overflow-hidden">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Name</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Owner</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Tier</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Override</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Stripe</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Status</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">
+                    Name
+                  </th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">
+                    Owner
+                  </th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">
+                    Tier
+                  </th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">
+                    Override
+                  </th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">
+                    Stripe
+                  </th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">
+                    Status
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -1371,14 +1501,21 @@ export default function TenantsPage() {
                     className="border-b border-border/50 hover:bg-accent/5 cursor-pointer transition-colors"
                   >
                     <td className="px-4 py-3 text-sm font-medium">{t.name}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{t.owner.email}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      {t.owner.email}
+                    </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
-                        t.tier === 'ENTERPRISE' ? 'bg-violet-500/10 text-violet-500' :
-                        t.tier === 'PROFESSIONAL' ? 'bg-accent/10 text-accent' :
-                        t.tier === 'STARTER' ? 'bg-green-500/10 text-green-500' :
-                        'bg-muted text-muted-foreground'
-                      }`}>
+                      <span
+                        className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+                          t.tier === "ENTERPRISE"
+                            ? "bg-violet-500/10 text-violet-500"
+                            : t.tier === "PROFESSIONAL"
+                              ? "bg-accent/10 text-accent"
+                              : t.tier === "STARTER"
+                                ? "bg-green-500/10 text-green-500"
+                                : "bg-muted text-muted-foreground"
+                        }`}
+                      >
                         {t.tier}
                       </span>
                     </td>
@@ -1392,15 +1529,21 @@ export default function TenantsPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs ${t.stripeOnboarded ? 'text-green-500' : 'text-muted-foreground'}`}>
-                        {t.stripeOnboarded ? 'Connected' : '—'}
+                      <span
+                        className={`text-xs ${t.stripeOnboarded ? "text-green-500" : "text-muted-foreground"}`}
+                      >
+                        {t.stripeOnboarded ? "Connected" : "—"}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
-                        t.isActive ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
-                      }`}>
-                        {t.isActive ? 'Active' : 'Suspended'}
+                      <span
+                        className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+                          t.isActive
+                            ? "bg-green-500/10 text-green-500"
+                            : "bg-red-500/10 text-red-500"
+                        }`}
+                      >
+                        {t.isActive ? "Active" : "Suspended"}
                       </span>
                     </td>
                   </tr>
@@ -1450,6 +1593,7 @@ git commit -m "feat: add TenantsPage with search, filters, and pagination"
 ### Task 15: TenantDetailPage — tier override + suspend
 
 **Files:**
+
 - Create: `apps/frontend/src/pages/super-admin/TenantDetailPage.tsx`
 
 - [ ] **Step 1: Create TenantDetailPage**
@@ -1460,7 +1604,11 @@ Create `apps/frontend/src/pages/super-admin/TenantDetailPage.tsx`:
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSuperAdminTenant, updateTenantTier, updateTenantStatus } from "../../lib/api";
+import {
+  getSuperAdminTenant,
+  updateTenantTier,
+  updateTenantStatus,
+} from "../../lib/api";
 import * as Dialog from "@radix-ui/react-dialog";
 import { ArrowLeft } from "lucide-react";
 
@@ -1474,7 +1622,11 @@ export default function TenantDetailPage() {
   const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
   const [selectedTier, setSelectedTier] = useState<string>("");
 
-  const { data: tenant, isLoading, isError } = useQuery({
+  const {
+    data: tenant,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ["super-admin", "tenant", id],
     queryFn: () => getSuperAdminTenant(id!),
     enabled: !!id,
@@ -1483,7 +1635,9 @@ export default function TenantDetailPage() {
   const tierMutation = useMutation({
     mutationFn: (forceTier: string | null) => updateTenantTier(id!, forceTier),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["super-admin", "tenant", id] });
+      queryClient.invalidateQueries({
+        queryKey: ["super-admin", "tenant", id],
+      });
       queryClient.invalidateQueries({ queryKey: ["super-admin", "tenants"] });
       setTierDialogOpen(false);
     },
@@ -1492,7 +1646,9 @@ export default function TenantDetailPage() {
   const statusMutation = useMutation({
     mutationFn: (isActive: boolean) => updateTenantStatus(id!, isActive),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["super-admin", "tenant", id] });
+      queryClient.invalidateQueries({
+        queryKey: ["super-admin", "tenant", id],
+      });
       queryClient.invalidateQueries({ queryKey: ["super-admin", "tenants"] });
       setSuspendDialogOpen(false);
     },
@@ -1557,14 +1713,18 @@ export default function TenantDetailPage() {
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Stripe</p>
-          <p className={`text-sm font-medium ${tenant.stripeOnboarded ? 'text-green-500' : 'text-muted-foreground'}`}>
-            {tenant.stripeOnboarded ? 'Connected' : 'Not Connected'}
+          <p
+            className={`text-sm font-medium ${tenant.stripeOnboarded ? "text-green-500" : "text-muted-foreground"}`}
+          >
+            {tenant.stripeOnboarded ? "Connected" : "Not Connected"}
           </p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Status</p>
-          <p className={`text-sm font-medium ${tenant.isActive ? 'text-green-500' : 'text-red-500'}`}>
-            {tenant.isActive ? 'Active' : 'Suspended'}
+          <p
+            className={`text-sm font-medium ${tenant.isActive ? "text-green-500" : "text-red-500"}`}
+          >
+            {tenant.isActive ? "Active" : "Suspended"}
           </p>
         </div>
         <div>
@@ -1573,11 +1733,15 @@ export default function TenantDetailPage() {
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Payments Processed</p>
-          <p className="text-sm font-medium">{tenant.paymentSummary.totalPayments}</p>
+          <p className="text-sm font-medium">
+            {tenant.paymentSummary.totalPayments}
+          </p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Payment Volume</p>
-          <p className="text-sm font-medium">&euro;{tenant.paymentSummary.totalAmount.toFixed(2)}</p>
+          <p className="text-sm font-medium">
+            &euro;{tenant.paymentSummary.totalAmount.toFixed(2)}
+          </p>
         </div>
       </div>
 
@@ -1586,7 +1750,9 @@ export default function TenantDetailPage() {
         <h3 className="text-lg font-semibold mb-4">Tier Management</h3>
         <div className="flex flex-wrap items-center gap-4">
           <div>
-            <p className="text-xs text-muted-foreground mb-1">Current Stripe Tier</p>
+            <p className="text-xs text-muted-foreground mb-1">
+              Current Stripe Tier
+            </p>
             <span className="inline-flex px-2 py-0.5 rounded text-sm font-medium bg-accent/10 text-accent">
               {tenant.tier}
             </span>
@@ -1605,15 +1771,19 @@ export default function TenantDetailPage() {
           <Dialog.Root open={tierDialogOpen} onOpenChange={setTierDialogOpen}>
             <Dialog.Trigger asChild>
               <button className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium">
-                {tenant.forceTier ? 'Change Override' : 'Override Tier'}
+                {tenant.forceTier ? "Change Override" : "Override Tier"}
               </button>
             </Dialog.Trigger>
             <Dialog.Portal>
               <Dialog.Overlay className="fixed inset-0 bg-black/50" />
               <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background rounded-xl p-6 shadow-xl w-[400px] max-w-[90vw]">
-                <Dialog.Title className="text-lg font-semibold mb-2">Override Tier</Dialog.Title>
+                <Dialog.Title className="text-lg font-semibold mb-2">
+                  Override Tier
+                </Dialog.Title>
                 <Dialog.Description className="text-sm text-muted-foreground mb-4">
-                  This overrides the Stripe-driven tier. The restaurant will get features of the selected tier regardless of their Stripe subscription.
+                  This overrides the Stripe-driven tier. The restaurant will get
+                  features of the selected tier regardless of their Stripe
+                  subscription.
                 </Dialog.Description>
                 <select
                   value={selectedTier}
@@ -1622,7 +1792,9 @@ export default function TenantDetailPage() {
                 >
                   <option value="">Select tier...</option>
                   {TIERS.map((t) => (
-                    <option key={t} value={t}>{t}</option>
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
                   ))}
                 </select>
                 <div className="flex justify-end gap-3">
@@ -1632,11 +1804,13 @@ export default function TenantDetailPage() {
                     </button>
                   </Dialog.Close>
                   <button
-                    onClick={() => selectedTier && tierMutation.mutate(selectedTier)}
+                    onClick={() =>
+                      selectedTier && tierMutation.mutate(selectedTier)
+                    }
                     disabled={!selectedTier || tierMutation.isPending}
                     className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium disabled:opacity-50"
                   >
-                    {tierMutation.isPending ? 'Applying...' : 'Apply'}
+                    {tierMutation.isPending ? "Applying..." : "Apply"}
                   </button>
                 </div>
                 {tenant.forceTier && (
@@ -1663,28 +1837,33 @@ export default function TenantDetailPage() {
             : "This restaurant is currently suspended. Reactivate to restore access."}
         </p>
 
-        <Dialog.Root open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
+        <Dialog.Root
+          open={suspendDialogOpen}
+          onOpenChange={setSuspendDialogOpen}
+        >
           <Dialog.Trigger asChild>
             <button
               className={`px-4 py-2 rounded-lg text-sm font-medium ${
                 tenant.isActive
-                  ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20'
-                  : 'bg-green-500/10 text-green-500 hover:bg-green-500/20'
+                  ? "bg-red-500/10 text-red-500 hover:bg-red-500/20"
+                  : "bg-green-500/10 text-green-500 hover:bg-green-500/20"
               }`}
             >
-              {tenant.isActive ? 'Suspend Restaurant' : 'Reactivate Restaurant'}
+              {tenant.isActive ? "Suspend Restaurant" : "Reactivate Restaurant"}
             </button>
           </Dialog.Trigger>
           <Dialog.Portal>
             <Dialog.Overlay className="fixed inset-0 bg-black/50" />
             <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background rounded-xl p-6 shadow-xl w-[400px] max-w-[90vw]">
               <Dialog.Title className="text-lg font-semibold mb-2">
-                {tenant.isActive ? 'Suspend Restaurant?' : 'Reactivate Restaurant?'}
+                {tenant.isActive
+                  ? "Suspend Restaurant?"
+                  : "Reactivate Restaurant?"}
               </Dialog.Title>
               <Dialog.Description className="text-sm text-muted-foreground mb-4">
                 {tenant.isActive
-                  ? 'All menu access, ordering, and dashboard will be frozen. This action is reversible.'
-                  : 'The restaurant will regain full access. Owners and staff will be able to log in again.'}
+                  ? "All menu access, ordering, and dashboard will be frozen. This action is reversible."
+                  : "The restaurant will regain full access. Owners and staff will be able to log in again."}
               </Dialog.Description>
               <div className="flex justify-end gap-3">
                 <Dialog.Close asChild>
@@ -1696,14 +1875,14 @@ export default function TenantDetailPage() {
                   onClick={() => statusMutation.mutate(!tenant.isActive)}
                   disabled={statusMutation.isPending}
                   className={`px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50 ${
-                    tenant.isActive ? 'bg-red-500' : 'bg-green-500'
+                    tenant.isActive ? "bg-red-500" : "bg-green-500"
                   }`}
                 >
                   {statusMutation.isPending
-                    ? 'Processing...'
+                    ? "Processing..."
                     : tenant.isActive
-                      ? 'Yes, Suspend'
-                      : 'Yes, Reactivate'}
+                      ? "Yes, Suspend"
+                      : "Yes, Reactivate"}
                 </button>
               </div>
             </Dialog.Content>
@@ -1727,6 +1906,7 @@ git commit -m "feat: add TenantDetailPage with tier override and suspend control
 ### Task 16: i18n — add EN translation keys
 
 **Files:**
+
 - Modify: `apps/frontend/src/locales/en/translation.json`
 
 - [ ] **Step 1: Read current translation.json to find insertion point**
@@ -1779,6 +1959,7 @@ git commit -m "feat: add superAdmin i18n keys (EN)"
 ### Task 17: Backend e2e smoke test
 
 **Files:**
+
 - Create: `apps/backend/test/super-admin.e2e-spec.ts`
 
 - [ ] **Step 1: Create e2e test**
@@ -1786,12 +1967,12 @@ git commit -m "feat: add superAdmin i18n keys (EN)"
 Create `apps/backend/test/super-admin.e2e-spec.ts`:
 
 ```typescript
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
-import { AppModule } from '../src/app.module';
+import { Test, TestingModule } from "@nestjs/testing";
+import { INestApplication } from "@nestjs/common";
+import * as request from "supertest";
+import { AppModule } from "../src/app.module";
 
-describe('SuperAdmin (e2e)', () => {
+describe("SuperAdmin (e2e)", () => {
   let app: INestApplication;
   let jwtToken: string;
 
@@ -1808,15 +1989,15 @@ describe('SuperAdmin (e2e)', () => {
     await app.close();
   });
 
-  it('/api/v1/super-admin/stats (GET) without auth → 401', () => {
+  it("/api/v1/super-admin/stats (GET) without auth → 401", () => {
     return request(app.getHttpServer())
-      .get('/api/v1/super-admin/stats')
+      .get("/api/v1/super-admin/stats")
       .expect(401);
   });
 
-  it('/api/v1/super-admin/tenants (GET) without auth → 401', () => {
+  it("/api/v1/super-admin/tenants (GET) without auth → 401", () => {
     return request(app.getHttpServer())
-      .get('/api/v1/super-admin/tenants')
+      .get("/api/v1/super-admin/tenants")
       .expect(401);
   });
 });

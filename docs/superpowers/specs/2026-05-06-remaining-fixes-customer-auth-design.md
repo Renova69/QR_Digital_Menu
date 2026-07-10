@@ -37,6 +37,7 @@ model VerificationToken {
 ```
 
 **Existing `User` model** — add optional field:
+
 ```prisma
 phone String?
 ```
@@ -46,14 +47,17 @@ Run `npx prisma db push` (additive, no data loss).
 ### Backend
 
 **`apps/backend/.env` and `.env.example`** — add:
+
 ```
 RESEND_API_KEY=re_...
 ```
+
 If `RESEND_API_KEY` is absent, email sending is skipped; OTP is printed to console and included in response as `devCode`. This is the zero-config dev mode.
 
 **`apps/backend/src/auth/auth.service.ts`** — add two methods:
 
 `sendOtp(email: string, phone?: string)`:
+
 - Delete all unused `VerificationToken` rows for this email
 - If a valid (unexpired, unused) token was created within last 60 seconds → throw `429` (rate limit)
 - Generate 6-digit code string `Math.floor(100000 + Math.random() * 900000).toString()`
@@ -64,6 +68,7 @@ If `RESEND_API_KEY` is absent, email sending is skipped; OTP is printed to conso
 - Return `{ success: true, ...(isDev ? { devCode: code } : {}) }`
 
 `verifyOtp(email: string, code: string, phone?: string)`:
+
 - Find latest `VerificationToken` where `email` matches, `usedAt` is null, `expiresAt > now`
 - If not found → throw `UnauthorizedException('Invalid or expired code')`
 - `bcrypt.compare(code, token.code)` → if false → throw same
@@ -90,6 +95,7 @@ No new guards needed — both are public endpoints.
 State machine: `step: 'entry' | 'otp' | 'welcome'`
 
 Step `entry`:
+
 - Title: `t('auth.otp.title')`
 - Google button (existing)
 - Divider "Or"
@@ -99,6 +105,7 @@ Step `entry`:
 - Dev: if response includes `devCode`, show it in a yellow dev-only banner
 
 Step `otp`:
+
 - Title: `t('auth.otp.enterCode')`
 - Subtitle: `t('auth.otp.sentTo', { email })`
 - Single `<Input>` for 6-digit code (type="number", maxLength=6)
@@ -107,12 +114,14 @@ Step `otp`:
 - "← Change email" link → back to `entry`
 
 Step `welcome` (new customers only):
+
 - Checkmark icon
 - Title: `t('auth.otp.welcomeTitle')`
 - Body: `t('auth.otp.welcomeBody')` — "You'll earn points on every order. Redeem them for free food and discounts."
 - "Let's order!" button → close modal
 
 `AuthContext` — add `loginWithToken(token: string, user: User)` method:
+
 ```ts
 loginWithToken(token: string, user: User) {
   localStorage.setItem('token', token);
@@ -121,17 +130,20 @@ loginWithToken(token: string, user: User) {
   api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 }
 ```
+
 Mirrors the existing `login()` pattern — no extra API call needed since OTP verify already returns both.
 
 **`apps/frontend/src/pages/PublicMenuPage.tsx`** — action bar, logged-in state:
 
 Current:
+
 ```jsx
 <span>{user.name?.split(" ")[0] || "Me"}</span>
 <span>{t("publicMenu.logout")}</span>
 ```
 
 Change to two separate interactive elements:
+
 ```jsx
 // Profile chip — navigates to /profile?returnTo=<current url>
 <button onClick={() => navigate(`/profile?returnTo=${encodeURIComponent(location.pathname + location.search)}`)}>
@@ -144,6 +156,7 @@ Change to two separate interactive elements:
 ```
 
 **`apps/frontend/src/pages/CustomerProfilePage.tsx`** — changes:
+
 - Import `useTranslation`, `useSearchParams`, `Link`
 - Add "← Back to menu" button when `?returnTo` param present
 - Replace all hardcoded English strings with `t('profile.*')` keys (see Translation section below)
@@ -162,19 +175,29 @@ Change to two separate interactive elements:
 **Fix:**
 
 `apps/frontend/src/components/cart/CartIcon.tsx`:
+
 - Accept new prop `selectedLang: string`
 - Pass `selectedLang` down to `CartDrawer`
 
 `apps/frontend/src/components/cart/CartDrawer.tsx`:
+
 - Accept new prop `selectedLang: string`
 - Accept existing `categories` prop (already passed)
 - Utility function `resolveItemName(cartItem, categories, selectedLang)`:
   ```ts
-  function resolveItemName(cartItem: CartItem, categories: any[], lang: string): string {
+  function resolveItemName(
+    cartItem: CartItem,
+    categories: any[],
+    lang: string,
+  ): string {
     for (const cat of categories) {
       const found = cat.items?.find((i: any) => i.id === cartItem.id);
       if (found) {
-        return (lang && found.translations?.[lang]?.name) || found.name || cartItem.name;
+        return (
+          (lang && found.translations?.[lang]?.name) ||
+          found.name ||
+          cartItem.name
+        );
       }
     }
     return cartItem.name;
@@ -184,6 +207,7 @@ Change to two separate interactive elements:
 - Also apply to cart item name in the order summary row and total line
 
 `apps/frontend/src/pages/PublicMenuPage.tsx`:
+
 - Pass `selectedLang={selectedLang}` to `<CartIcon>`
 
 ### 2b Options Pre-selection
@@ -193,13 +217,18 @@ Change to two separate interactive elements:
 **Fix in `apps/frontend/src/components/menu/ItemWithOptions.tsx`:**
 
 Add `useEffect` after `selectedOptions` state declaration:
+
 ```ts
 useEffect(() => {
   if (!item.options?.length) return;
-  setSelectedOptions(prev => {
+  setSelectedOptions((prev) => {
     const init: Record<string, any> = { ...prev };
     item.options.forEach((opt: any) => {
-      if (opt.type === 'VARIATION' && opt.choices?.length > 0 && !init[opt.id]) {
+      if (
+        opt.type === "VARIATION" &&
+        opt.choices?.length > 0 &&
+        !init[opt.id]
+      ) {
         init[opt.id] = {
           optionId: opt.id,
           optionName: opt.name,
@@ -225,8 +254,13 @@ Effect fires when `item.id` changes (new item opened). Only sets options that ar
 - Each card: remove fixed `h-[130mm]`, add `break-inside: avoid`, `page-break-inside: avoid`, set `min-h-[140mm] max-h-[148mm] w-full` so 2 cards fit per A4 page
 - Add scoped `<style>` block inside the component:
   ```css
-  @page { size: A4 portrait; margin: 12mm; }
-  body { margin: 0; }
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+  body {
+    margin: 0;
+  }
   ```
 - The QR card itself: centered content, full-width border, 12mm padding
 
@@ -237,6 +271,7 @@ Effect fires when `item.id` changes (new item opened). Only sets options that ar
 **Fix in `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx`:**
 
 All `XAxis` and `YAxis` components — add:
+
 ```jsx
 tick={{ fill: 'hsl(var(--color-muted-foreground))' }}
 axisLine={{ stroke: 'hsl(var(--color-border))' }}
@@ -244,6 +279,7 @@ tickLine={false}
 ```
 
 All `Tooltip` components — replace default with a custom component:
+
 ```tsx
 const ChartTooltip = ({ active, payload, label, formatter }: any) => {
   if (!active || !payload?.length) return null;
@@ -374,24 +410,24 @@ All keys added to all three locale files: `en/translation.json`, `bg/translation
 
 ## Files Changed Summary
 
-| File | Change |
-|------|--------|
-| `apps/backend/prisma/schema.prisma` | Add `VerificationToken` model, `User.phone?` |
-| `apps/backend/src/auth/auth.service.ts` | Add `sendOtp`, `verifyOtp` methods; inject `PrismaService` |
-| `apps/backend/src/auth/auth.controller.ts` | Add `POST /otp/send`, `POST /otp/verify` |
-| `apps/backend/src/auth/auth.module.ts` | No change (PrismaModule already @Global) |
-| `apps/backend/.env` + `.env.example` | Add `RESEND_API_KEY`, `RESEND_FROM_EMAIL` |
-| `apps/backend/src/menu/menu.service.ts` | Delete category image audit rule |
-| `apps/frontend/src/context/AuthContext.tsx` | Add `loginWithToken` method |
-| `apps/frontend/src/components/auth/CustomerLoginModal.tsx` | Full rewrite — OTP 3-step flow |
-| `apps/frontend/src/pages/PublicMenuPage.tsx` | Pass `selectedLang` to CartIcon; update logged-in action bar |
-| `apps/frontend/src/pages/CustomerProfilePage.tsx` | Full translation + back button + `returnTo` nav |
-| `apps/frontend/src/pages/App.tsx` | Verify `/profile` route |
-| `apps/frontend/src/components/cart/CartIcon.tsx` | Accept + forward `selectedLang` prop |
-| `apps/frontend/src/components/cart/CartDrawer.tsx` | `resolveItemName` util + upsell string translations |
-| `apps/frontend/src/components/menu/ItemWithOptions.tsx` | Pre-select first VARIATION choice + pairing string translations |
-| `apps/frontend/src/components/tables/PrintableQRCodes.tsx` | Grid → single column, A4 page rules |
-| `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx` | Dark mode chart fixes |
-| `apps/frontend/src/locales/en/translation.json` | Add `auth.otp`, `publicMenu.*`, `profile.*` keys |
-| `apps/frontend/src/locales/bg/translation.json` | Same keys in Bulgarian |
-| `apps/frontend/src/locales/ro/translation.json` | Same keys in Romanian |
+| File                                                       | Change                                                          |
+| ---------------------------------------------------------- | --------------------------------------------------------------- |
+| `apps/backend/prisma/schema.prisma`                        | Add `VerificationToken` model, `User.phone?`                    |
+| `apps/backend/src/auth/auth.service.ts`                    | Add `sendOtp`, `verifyOtp` methods; inject `PrismaService`      |
+| `apps/backend/src/auth/auth.controller.ts`                 | Add `POST /otp/send`, `POST /otp/verify`                        |
+| `apps/backend/src/auth/auth.module.ts`                     | No change (PrismaModule already @Global)                        |
+| `apps/backend/.env` + `.env.example`                       | Add `RESEND_API_KEY`, `RESEND_FROM_EMAIL`                       |
+| `apps/backend/src/menu/menu.service.ts`                    | Delete category image audit rule                                |
+| `apps/frontend/src/context/AuthContext.tsx`                | Add `loginWithToken` method                                     |
+| `apps/frontend/src/components/auth/CustomerLoginModal.tsx` | Full rewrite — OTP 3-step flow                                  |
+| `apps/frontend/src/pages/PublicMenuPage.tsx`               | Pass `selectedLang` to CartIcon; update logged-in action bar    |
+| `apps/frontend/src/pages/CustomerProfilePage.tsx`          | Full translation + back button + `returnTo` nav                 |
+| `apps/frontend/src/pages/App.tsx`                          | Verify `/profile` route                                         |
+| `apps/frontend/src/components/cart/CartIcon.tsx`           | Accept + forward `selectedLang` prop                            |
+| `apps/frontend/src/components/cart/CartDrawer.tsx`         | `resolveItemName` util + upsell string translations             |
+| `apps/frontend/src/components/menu/ItemWithOptions.tsx`    | Pre-select first VARIATION choice + pairing string translations |
+| `apps/frontend/src/components/tables/PrintableQRCodes.tsx` | Grid → single column, A4 page rules                             |
+| `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx`      | Dark mode chart fixes                                           |
+| `apps/frontend/src/locales/en/translation.json`            | Add `auth.otp`, `publicMenu.*`, `profile.*` keys                |
+| `apps/frontend/src/locales/bg/translation.json`            | Same keys in Bulgarian                                          |
+| `apps/frontend/src/locales/ro/translation.json`            | Same keys in Romanian                                           |

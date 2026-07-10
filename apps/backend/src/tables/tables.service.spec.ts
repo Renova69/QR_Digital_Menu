@@ -264,6 +264,7 @@ describe('TablesService', () => {
           items: [
             {
               quantity: 2,
+              unitPriceWithOptions: 5,
               selectedOptions: [],
               menuItem: { name: 'Burger', price: 5 },
             },
@@ -297,7 +298,14 @@ describe('TablesService', () => {
           status: 'NEW',
           specialRequests: null,
           createdAt: new Date(),
-          items: [{ quantity: 1, selectedOptions: [], menuItem: null }],
+          items: [
+            {
+              quantity: 1,
+              unitPriceWithOptions: 5,
+              selectedOptions: [],
+              menuItem: null,
+            },
+          ],
         },
       ]);
 
@@ -334,6 +342,46 @@ describe('TablesService', () => {
     it('throws ForbiddenException when user is not owner', async () => {
       await expect(service.remove('table-1', 'other-user')).rejects.toThrow(
         ForbiddenException,
+      );
+    });
+  });
+
+  describe('Edge Cases (Additional)', () => {
+    it('getTablesWithStatus returns correct orderCount when orders contain null customerNames', async () => {
+      const session = {
+        id: 'sess-2',
+        tableId: 'table-1',
+        status: 'OPEN',
+        createdAt: new Date(),
+        orders: [
+          { customerName: null, totalPrice: 15, status: 'NEW' },
+          { customerName: '', totalPrice: 10, status: 'NEW' },
+        ],
+      };
+      prisma.tableSession.findMany.mockResolvedValue([session]);
+
+      const result = await service.getTablesWithStatus(
+        'rest-1',
+        undefined,
+        mockOwner,
+      );
+
+      expect(result[0].orderCount).toBe(2);
+      expect(result[0].totalAmount).toBe(25);
+    });
+
+    it('getTablesWithStatus applies zoneId filter to restaurantTable.findMany', async () => {
+      prisma.tableSession.findMany.mockResolvedValue([]);
+
+      await service.getTablesWithStatus('rest-1', 'zone-x', mockOwner);
+
+      expect(prisma.restaurantTable.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            restaurantId: 'rest-1',
+            zoneId: 'zone-x',
+          }),
+        }),
       );
     });
   });

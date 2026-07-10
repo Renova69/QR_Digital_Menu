@@ -184,7 +184,12 @@ export class BoricaProvider {
     const n = nonce();
 
     const psign = this.signStatusCheck(
-      { TERMINAL: params.terminal, TRTYPE: '90', ORDER: params.order, NONCE: n },
+      {
+        TERMINAL: params.terminal,
+        TRTYPE: '90',
+        ORDER: params.order,
+        NONCE: n,
+      },
       params.privateKeyPem,
     );
 
@@ -222,7 +227,7 @@ export class BoricaProvider {
     body: Record<string, string>,
     certPem: string,
   ): BoricaCallbackResult {
-    const get = (k: string) => (body[k] ?? body[k.toLowerCase()] ?? '');
+    const get = (k: string) => body[k] ?? body[k.toLowerCase()] ?? '';
 
     const ACTION = get('ACTION');
     const RC = get('RC');
@@ -336,7 +341,9 @@ function buildMInfo(cardholder: BoricaCardholderInfo): string {
     cardholderName: cardholder.cardholderName.slice(0, 45),
     email: cardholder.email,
     billAddrLine1: cardholder.billingAddress.slice(0, 50),
-    shipAddrLine1: (cardholder.shippingAddress || cardholder.billingAddress).slice(0, 50),
+    shipAddrLine1: (
+      cardholder.shippingAddress || cardholder.billingAddress
+    ).slice(0, 50),
   };
 
   const mobilePhone = buildMobilePhone(cardholder.phone);

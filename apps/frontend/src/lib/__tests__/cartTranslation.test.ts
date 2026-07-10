@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  resolveCartChoiceName,
-  resolveCartItemName,
-} from "../cartTranslation";
+import { resolveCartChoiceName, resolveCartItemName } from "../cartTranslation";
 
 describe("resolveCartItemName", () => {
   it("uses the requested live translation while a language-specific menu response is loading", () => {
@@ -69,7 +66,7 @@ describe("resolveCartChoiceName", () => {
       translations: {
         es: {
           choices: {
-            "Голяма": "Grande",
+            Голяма: "Grande",
           },
         },
       },

@@ -102,7 +102,8 @@ describe('SubscriptionService', () => {
       },
       $queryRaw: jest.fn().mockResolvedValue([]),
       $transaction: jest.fn().mockImplementation((arg: unknown) => {
-        if (typeof arg === 'function') return (arg as any)(prisma);
+        if (typeof arg === 'function')
+          return (arg as (tx: typeof prisma) => Promise<unknown>)(prisma);
         return Promise.all(arg as unknown[]);
       }),
       user: {
@@ -595,7 +596,7 @@ describe('SubscriptionService', () => {
       const pastTime = Math.floor(Date.now() / 1000) - 10 * 24 * 3600; // period ended 10 days ago
       mockConstructEvent.mockReturnValue({
         type: 'customer.subscription.updated',
-        created: Math.floor(Date.now() / 1000),
+        created: pastTime,
         data: {
           object: {
             id: 'sub_past_due_expired',

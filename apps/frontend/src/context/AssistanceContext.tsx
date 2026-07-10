@@ -5,20 +5,20 @@ import {
   useState,
   useEffect,
   ReactNode,
-} from 'react';
+} from "react";
 import {
   getAssistanceRequests,
-  updateAssistanceRequest as apiUpdateAssistanceRequest
-} from '../lib/api';
-import { useSocket } from './SocketContext';
-import { useAuth } from './AuthContext';
+  updateAssistanceRequest as apiUpdateAssistanceRequest,
+} from "../lib/api";
+import { useSocket } from "./SocketContext";
+import { useAuth } from "./AuthContext";
 
 // Define assistance request interface
 interface AssistanceRequest {
   id: string;
   tableId: string;
   isResolved: boolean;
-  type?: 'STANDARD' | 'URGENT' | 'CASH_PAYMENT';
+  type?: "STANDARD" | "URGENT" | "CASH_PAYMENT";
   createdAt: string;
   updatedAt: string;
 }
@@ -32,7 +32,9 @@ interface AssistanceContextType {
 }
 
 // Create the context
-const AssistanceContext = createContext<AssistanceContextType | undefined>(undefined);
+const AssistanceContext = createContext<AssistanceContextType | undefined>(
+  undefined,
+);
 
 // Create the provider component
 export function AssistanceProvider({ children }: { children: ReactNode }) {
@@ -43,7 +45,7 @@ export function AssistanceProvider({ children }: { children: ReactNode }) {
   const canAccessAssistance =
     isAuthenticated &&
     !!role &&
-    ['OWNER', 'MANAGER', 'WAITER', 'KITCHEN', 'STAFF'].includes(role);
+    ["OWNER", "MANAGER", "WAITER", "KITCHEN", "STAFF"].includes(role);
 
   // Function to refresh requests from API
   const refreshRequests = useCallback(async () => {
@@ -56,7 +58,7 @@ export function AssistanceProvider({ children }: { children: ReactNode }) {
       const data = await getAssistanceRequests();
       setRequests(data);
     } catch (error) {
-      console.error('Failed to fetch assistance requests:', error);
+      console.error("Failed to fetch assistance requests:", error);
     }
   }, [canAccessAssistance]);
 
@@ -66,7 +68,7 @@ export function AssistanceProvider({ children }: { children: ReactNode }) {
       await apiUpdateAssistanceRequest(requestId, { isResolved: true });
       await refreshRequests();
     } catch (error) {
-      console.error('Failed to mark request as resolved:', error);
+      console.error("Failed to mark request as resolved:", error);
       throw error;
     }
   };
@@ -77,7 +79,7 @@ export function AssistanceProvider({ children }: { children: ReactNode }) {
       await apiUpdateAssistanceRequest(requestId, { isResolved: false });
       await refreshRequests();
     } catch (error) {
-      console.error('Failed to mark request as unresolved:', error);
+      console.error("Failed to mark request as unresolved:", error);
       throw error;
     }
   };
@@ -93,9 +95,9 @@ export function AssistanceProvider({ children }: { children: ReactNode }) {
 
     const handleNewRequest = () => {
       // Audio notification for call waiter
-      const audio = new Audio('/notification.mp3');
+      const audio = new Audio("/notification.mp3");
       audio.play().catch(() => {});
-      
+
       refreshRequests();
     };
 
@@ -103,25 +105,25 @@ export function AssistanceProvider({ children }: { children: ReactNode }) {
       refreshRequests();
     };
 
-    socket.on('newAssistanceRequest', handleNewRequest);
-    socket.on('assistanceStatusChanged', handleStatusChanged);
-    socket.on('cashPaymentRequest:created', handleNewRequest);
-    socket.on('cashPaymentRequest:updated', handleStatusChanged);
+    socket.on("newAssistanceRequest", handleNewRequest);
+    socket.on("assistanceStatusChanged", handleStatusChanged);
+    socket.on("cashPaymentRequest:created", handleNewRequest);
+    socket.on("cashPaymentRequest:updated", handleStatusChanged);
 
     return () => {
-      socket.off('newAssistanceRequest', handleNewRequest);
-      socket.off('assistanceStatusChanged', handleStatusChanged);
-      socket.off('cashPaymentRequest:created', handleNewRequest);
-      socket.off('cashPaymentRequest:updated', handleStatusChanged);
+      socket.off("newAssistanceRequest", handleNewRequest);
+      socket.off("assistanceStatusChanged", handleStatusChanged);
+      socket.off("cashPaymentRequest:created", handleNewRequest);
+      socket.off("cashPaymentRequest:updated", handleStatusChanged);
     };
   }, [canAccessAssistance, socket, isConnected, refreshRequests]);
 
   const value = {
-      requests,
-      refreshRequests,
-      markAsResolved,
-      markAsUnresolved,
-  }
+    requests,
+    refreshRequests,
+    markAsResolved,
+    markAsUnresolved,
+  };
 
   return (
     <AssistanceContext.Provider value={value}>
@@ -134,7 +136,7 @@ export function AssistanceProvider({ children }: { children: ReactNode }) {
 export function useAssistance() {
   const context = useContext(AssistanceContext);
   if (context === undefined) {
-    throw new Error('useAssistance must be used within an AssistanceProvider');
+    throw new Error("useAssistance must be used within an AssistanceProvider");
   }
   return context;
 }

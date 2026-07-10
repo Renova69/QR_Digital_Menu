@@ -37,15 +37,17 @@ model RestaurantTable {
   restaurantId String
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
-  
+
   @@map("restaurant_table")
 }
 ```
 
 Add the inverse relation to the `Restaurant` model:
+
 ```prisma
   tables             RestaurantTable[]
 ```
+
 </action>
 <acceptance_criteria>
 - Schema contains the new model with all correct relation fields.
@@ -97,7 +99,8 @@ Update `tables.service.ts` and `tables.controller.ts` to implement:
 Ensure endpoints fetch the user ID from `@Request()` and check restaurant ownership if necessary, or just query scoped to `restaurantId`. Ensure DTO validation is handled.
 </action>
 <acceptance_criteria>
+
 - `tables.controller.ts` has endpoints matching the requirements.
 - `tables.service.ts` leverages `PrismaService` successfully.
-</acceptance_criteria>
-</task>
+  </acceptance_criteria>
+  </task>

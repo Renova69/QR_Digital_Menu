@@ -1,4 +1,4 @@
-const OWNED_ORDERS_PREFIX = 'public-owned-orders';
+const OWNED_ORDERS_PREFIX = "public-owned-orders";
 
 function ownedOrdersKey(
   restaurantId: string,
@@ -20,7 +20,9 @@ export function getOwnedOrderIds(
     );
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed)
-      ? parsed.filter((id): id is string => typeof id === 'string' && id.length > 0)
+      ? parsed.filter(
+          (id): id is string => typeof id === "string" && id.length > 0,
+        )
       : [];
   } catch {
     return [];
@@ -37,7 +39,10 @@ export function rememberOwnedOrder(
   try {
     const key = ownedOrdersKey(restaurantId, tableNumber, sessionToken);
     const current = getOwnedOrderIds(restaurantId, tableNumber, sessionToken);
-    localStorage.setItem(key, JSON.stringify(Array.from(new Set([...current, orderId]))));
+    localStorage.setItem(
+      key,
+      JSON.stringify(Array.from(new Set([...current, orderId]))),
+    );
   } catch {
     // Best-effort local ownership hint. Checkout still works as full-table pay.
   }
@@ -50,6 +55,8 @@ export function clearOwnedOrderIds(
 ) {
   if (!restaurantId || !tableNumber || !sessionToken) return;
   try {
-    localStorage.removeItem(ownedOrdersKey(restaurantId, tableNumber, sessionToken));
+    localStorage.removeItem(
+      ownedOrdersKey(restaurantId, tableNumber, sessionToken),
+    );
   } catch {}
 }

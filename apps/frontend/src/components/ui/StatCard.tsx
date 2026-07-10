@@ -1,5 +1,5 @@
-import React from 'react';
-import { type LucideIcon } from 'lucide-react';
+import React from "react";
+import { type LucideIcon } from "lucide-react";
 
 interface StatCardProps {
   label: string;
@@ -14,7 +14,7 @@ export const StatCard: React.FC<StatCardProps> = ({
   label,
   value,
   Icon,
-  color = 'primary',
+  color = "primary",
   subtitle,
   delta,
 }) => {
@@ -25,7 +25,9 @@ export const StatCard: React.FC<StatCardProps> = ({
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
             {label}
           </p>
-          <div className={`p-2.5 rounded-xl bg-primary/10 border border-primary/15`}>
+          <div
+            className={`p-2.5 rounded-xl bg-primary/10 border border-primary/15`}
+          >
             <Icon className="h-4 w-4 text-primary" />
           </div>
         </div>

@@ -63,9 +63,10 @@ In `create-order.dto.ts`, add the class-validator properties for `customerName`,
 In `update-order.dto.ts`, map the status change wrapper expecting `status: OrderStatus`.
 </action>
 <acceptance_criteria>
+
 - DTOs enforce structured payload types corresponding to frontend checkout behaviors.
-</acceptance_criteria>
-</task>
+  </acceptance_criteria>
+  </task>
 
 <task id="1.3">
 <title>Build OrdersService Creation Logic</title>
@@ -96,12 +97,13 @@ Update `orders.service.ts`:
 - `updateStatus(orderId, status, userId)`: Update the Prisma `status` if the user owns the parent restaurant.
 
 Update `orders.controller.ts`:
+
 - Route `POST /` remains public (no guard).
 - Route `GET /` acquires `@UseGuards(JwtAuthGuard)` and passes `req.user.id` to `findAll()`.
 - Route `PATCH /:id/status` mapped, guarded, passing user lookup.
-</action>
-<acceptance_criteria>
+  </action>
+  <acceptance_criteria>
 - Dashboard endpoints are protected.
 - Customers can create unauthenticated orders.
-</acceptance_criteria>
-</task>
+  </acceptance_criteria>
+  </task>

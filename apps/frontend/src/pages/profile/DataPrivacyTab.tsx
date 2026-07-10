@@ -3,7 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
-import { getPublicLegalSettings, exportUserData, deleteUserAccount } from "../../lib/api";
+import {
+  getPublicLegalSettings,
+  exportUserData,
+  deleteUserAccount,
+} from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
 
 export default function DataPrivacyTab() {
@@ -21,7 +25,9 @@ export default function DataPrivacyTab() {
   const exportMutation = useMutation({
     mutationFn: exportUserData,
     onSuccess: (data) => {
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -30,7 +36,12 @@ export default function DataPrivacyTab() {
       URL.revokeObjectURL(url);
       setExportError(null);
     },
-    onError: () => setExportError(t('gdpr.exportError', { defaultValue: 'Export failed. Please try again.' })),
+    onError: () =>
+      setExportError(
+        t("gdpr.exportError", {
+          defaultValue: "Export failed. Please try again.",
+        }),
+      ),
   });
 
   const deleteMutation = useMutation({
@@ -42,7 +53,8 @@ export default function DataPrivacyTab() {
   });
 
   if (!settings?.gdprEnabled) return null;
-  if (!settings?.erasureEndpointEnabled && !settings?.dataExportEndpointEnabled) return null;
+  if (!settings?.erasureEndpointEnabled && !settings?.dataExportEndpointEnabled)
+    return null;
 
   return (
     <div className="rounded-xl border border-gray-200 dark:border-white/10 p-6 space-y-5">
@@ -92,13 +104,16 @@ export default function DataPrivacyTab() {
                     disabled={deleteMutation.isPending}
                     className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
                   >
-                    {deleteMutation.isPending ? "Deleting…" : t("gdpr.deleteAccountConfirm")}
+                    {deleteMutation.isPending
+                      ? "Deleting…"
+                      : t("gdpr.deleteAccountConfirm")}
                   </button>
                 </AlertDialog.Action>
               </div>
               {deleteMutation.isError && (
                 <p className="text-xs text-red-500 mt-3 text-center">
-                  {(deleteMutation.error as any)?.response?.data?.message || "Deletion failed."}
+                  {(deleteMutation.error as any)?.response?.data?.message ||
+                    "Deletion failed."}
                 </p>
               )}
             </AlertDialog.Content>

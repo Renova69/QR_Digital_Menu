@@ -21,8 +21,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     super({
       clientID: clientId || 'dummy',
       clientSecret: clientSecret || 'dummy',
-      callbackURL:
-        callbackURL || 'http://localhost:3000/api/v1/auth/google/callback',
+      callbackURL: callbackURL || '/api/v1/auth/google/callback',
       // M-AUTH-2: `openid` makes Google return a signed ID token carrying the
       // `email_verified` claim, which passport-google-oauth20 surfaces as
       // `emails[0].verified`. Without it we cannot trust the email for

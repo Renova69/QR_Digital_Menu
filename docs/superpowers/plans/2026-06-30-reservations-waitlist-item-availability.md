@@ -47,27 +47,27 @@ evidence required before enabling deposits or SMS in production.
 
 These defaults remove implementation ambiguity. Owners can change them later in reservation settings.
 
-| Decision | MVP behavior |
-|---|---|
-| Reservation entitlement | New `reservations` feature flag; Professional and Enterprise tiers |
-| Availability toggle entitlement | Existing menu capability; OWNER, MANAGER, or assigned KITCHEN role |
-| Booking URL | `/book/:restaurantId` |
-| Dashboard placement | New `reservations` dashboard tab |
-| Slot interval | 30 minutes |
-| Default table duration | 90 minutes |
-| Turnover buffer | 15 minutes |
-| Minimum booking lead time | 60 minutes |
-| Booking horizon | 60 days |
-| No-show grace period | 15 minutes |
-| Reminder | 24 hours before start |
-| Deposit Checkout hold | 30 minutes, the minimum custom Stripe Checkout expiry |
-| Waitlist ready hold | 10 minutes |
-| Contact requirement | Guest name plus at least one of email or normalized E.164 phone |
-| Table choice | Backend assigns the smallest available table that fits the party |
-| Combined tables | Not in MVP; one reservation has at most one table |
-| Currency | EUR only; deposit values stored as integer euro cents |
-| Time storage | UTC instants; weekly schedules interpreted in `Restaurant.timezone` |
-| Offline booking | Never queue a booking offline; save the form draft and re-check availability when online |
+| Decision                        | MVP behavior                                                                             |
+| ------------------------------- | ---------------------------------------------------------------------------------------- |
+| Reservation entitlement         | New `reservations` feature flag; Professional and Enterprise tiers                       |
+| Availability toggle entitlement | Existing menu capability; OWNER, MANAGER, or assigned KITCHEN role                       |
+| Booking URL                     | `/book/:restaurantId`                                                                    |
+| Dashboard placement             | New `reservations` dashboard tab                                                         |
+| Slot interval                   | 30 minutes                                                                               |
+| Default table duration          | 90 minutes                                                                               |
+| Turnover buffer                 | 15 minutes                                                                               |
+| Minimum booking lead time       | 60 minutes                                                                               |
+| Booking horizon                 | 60 days                                                                                  |
+| No-show grace period            | 15 minutes                                                                               |
+| Reminder                        | 24 hours before start                                                                    |
+| Deposit Checkout hold           | 30 minutes, the minimum custom Stripe Checkout expiry                                    |
+| Waitlist ready hold             | 10 minutes                                                                               |
+| Contact requirement             | Guest name plus at least one of email or normalized E.164 phone                          |
+| Table choice                    | Backend assigns the smallest available table that fits the party                         |
+| Combined tables                 | Not in MVP; one reservation has at most one table                                        |
+| Currency                        | EUR only; deposit values stored as integer euro cents                                    |
+| Time storage                    | UTC instants; weekly schedules interpreted in `Restaurant.timezone`                      |
+| Offline booking                 | Never queue a booking offline; save the form draft and re-check availability when online |
 
 Reservations are disabled by default. Existing restaurants must configure table capacities, service periods, policies,
 and communication channels before public booking can be enabled.
@@ -572,34 +572,34 @@ When seated:
 
 ### Public
 
-| Method | Route | Purpose |
-|---|---|---|
-| GET | `/restaurants/:id/reservations/config` | Branding, policy summary, enabled state |
-| GET | `/restaurants/:id/reservations/availability` | Slots by date and party size |
-| POST | `/restaurants/:id/reservations` | Create booking; requires idempotency key |
-| POST | `/reservations/manage/exchange` | Exchange raw management token from body |
-| GET | `/reservations/manage` | Read reservation using scoped cookie |
-| POST | `/reservations/manage/cancel` | Cancel using scoped cookie + CSRF |
-| GET | `/reservations/deposit/status/:referenceCode` | Non-secret status for post-Checkout page |
-| POST | `/reservations/stripe/webhook` | Raw-body, signature-verified provider webhook |
+| Method | Route                                         | Purpose                                       |
+| ------ | --------------------------------------------- | --------------------------------------------- |
+| GET    | `/restaurants/:id/reservations/config`        | Branding, policy summary, enabled state       |
+| GET    | `/restaurants/:id/reservations/availability`  | Slots by date and party size                  |
+| POST   | `/restaurants/:id/reservations`               | Create booking; requires idempotency key      |
+| POST   | `/reservations/manage/exchange`               | Exchange raw management token from body       |
+| GET    | `/reservations/manage`                        | Read reservation using scoped cookie          |
+| POST   | `/reservations/manage/cancel`                 | Cancel using scoped cookie + CSRF             |
+| GET    | `/reservations/deposit/status/:referenceCode` | Non-secret status for post-Checkout page      |
+| POST   | `/reservations/stripe/webhook`                | Raw-body, signature-verified provider webhook |
 
 Apply strict throttles to availability search, booking, and token exchange. Add CAPTCHA escalation after repeated booking
 attempts, not on every normal booking.
 
 ### Authenticated Restaurant Operations
 
-| Method | Route | Roles |
-|---|---|---|
-| GET/PUT | `/restaurants/:id/reservation-settings` | OWNER, MANAGER |
-| GET/POST/DELETE | `/restaurants/:id/reservation-periods` | OWNER, MANAGER |
-| GET/POST/DELETE | `/restaurants/:id/reservation-blackouts` | OWNER, MANAGER |
-| GET | `/restaurants/:id/reservations` | OWNER, MANAGER, WAITER, STAFF |
-| POST | `/restaurants/:id/reservations/manual` | OWNER, MANAGER, WAITER |
-| POST | `/reservations/:id/action` | Role checked by action |
-| GET | `/restaurants/:id/waitlist` | OWNER, MANAGER, WAITER, STAFF |
-| POST | `/restaurants/:id/waitlist` | OWNER, MANAGER, WAITER, STAFF |
-| POST | `/waitlist/:id/action` | Role checked by action |
-| GET | `/restaurants/:id/reservation-analytics` | OWNER, MANAGER |
+| Method          | Route                                    | Roles                         |
+| --------------- | ---------------------------------------- | ----------------------------- |
+| GET/PUT         | `/restaurants/:id/reservation-settings`  | OWNER, MANAGER                |
+| GET/POST/DELETE | `/restaurants/:id/reservation-periods`   | OWNER, MANAGER                |
+| GET/POST/DELETE | `/restaurants/:id/reservation-blackouts` | OWNER, MANAGER                |
+| GET             | `/restaurants/:id/reservations`          | OWNER, MANAGER, WAITER, STAFF |
+| POST            | `/restaurants/:id/reservations/manual`   | OWNER, MANAGER, WAITER        |
+| POST            | `/reservations/:id/action`               | Role checked by action        |
+| GET             | `/restaurants/:id/waitlist`              | OWNER, MANAGER, WAITER, STAFF |
+| POST            | `/restaurants/:id/waitlist`              | OWNER, MANAGER, WAITER, STAFF |
+| POST            | `/waitlist/:id/action`                   | Role checked by action        |
+| GET             | `/restaurants/:id/reservation-analytics` | OWNER, MANAGER                |
 
 Action authorization:
 

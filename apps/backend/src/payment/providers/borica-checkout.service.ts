@@ -269,7 +269,10 @@ export class BoricaCheckoutService {
                   providerStatus: 'RECOVERED_VIA_STATUS_CHECK',
                 }),
               );
-              await this.core.emitPaymentClaimEvents(pendingBorica as any, claim);
+              await this.core.emitPaymentClaimEvents(
+                pendingBorica as any,
+                claim,
+              );
               throw new ConflictException('ALREADY_PAID');
             }
           }
@@ -596,16 +599,19 @@ export class BoricaCheckoutService {
       return this.core.claimSuccessfulPayment(tx, payment, {
         status: 'SUCCEEDED',
         providerStatus: 'PAID',
-        providerPayload: this.core.mergeProviderPayload(payment.providerPayload, {
-          callbackBody: body,
-          verifiedAt: new Date().toISOString(),
-          verified: true,
-          rc: result.rc,
-          action: result.action,
-          rrn: result.rrn,
-          intRef: result.intRef,
-          approval: result.approval,
-        }) as any,
+        providerPayload: this.core.mergeProviderPayload(
+          payment.providerPayload,
+          {
+            callbackBody: body,
+            verifiedAt: new Date().toISOString(),
+            verified: true,
+            rc: result.rc,
+            action: result.action,
+            rrn: result.rrn,
+            intRef: result.intRef,
+            approval: result.approval,
+          },
+        ) as any,
       });
     });
 

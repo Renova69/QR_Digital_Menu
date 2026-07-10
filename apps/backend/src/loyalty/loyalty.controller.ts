@@ -16,15 +16,13 @@ import { FeatureFlag } from '../subscription/feature-flag.enum';
 export class LoyaltyController {
   constructor(private readonly loyaltyService: LoyaltyService) {}
 
-  @RequireFeature(FeatureFlag.LOYALTY)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(JwtAuthGuard)
   @Get('accounts')
   getLoyaltyAccounts(@Request() req: any) {
     return this.loyaltyService.getLoyaltyAccounts(req.user.id);
   }
 
-  @RequireFeature(FeatureFlag.LOYALTY)
-  @UseGuards(JwtAuthGuard, FeatureGuard)
+  @UseGuards(JwtAuthGuard)
   @Get('orders/history')
   getHistory(@Request() req: any) {
     return this.loyaltyService.getHistory(req.user.id);

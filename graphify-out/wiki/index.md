@@ -4,9 +4,7 @@
 
 **Graph:** 2669 nodes, 4314 edges, 48 communities
 
-
 ## Communities
-
 
 - [Community 0](community_0_Community 0.md) — 92 nodes
 

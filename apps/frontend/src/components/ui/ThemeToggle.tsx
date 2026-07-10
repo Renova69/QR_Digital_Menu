@@ -1,34 +1,44 @@
-import { useEffect, useRef, useState } from 'react';
-import { Sun, Moon } from 'lucide-react';
-import { useTheme } from '../../context/ThemeContext';
+import { useEffect, useRef, useState } from "react";
+import { Sun, Moon } from "lucide-react";
+import { useTheme } from "../../context/ThemeContext";
 
 interface ThemeToggleProps {
   storageKey?: string;
-  defaultTheme?: 'light' | 'dark';
-  size?: 'sm' | 'default';
-  onThemeChange?: (theme: 'light' | 'dark') => void;
+  defaultTheme?: "light" | "dark";
+  size?: "sm" | "default";
+  onThemeChange?: (theme: "light" | "dark") => void;
 }
 
-function getInitialPublicTheme(storageKey: string, defaultTheme: 'light' | 'dark') {
-  if (typeof window === 'undefined') return defaultTheme;
-  const stored = localStorage.getItem(storageKey) as 'light' | 'dark' | null;
+function getInitialPublicTheme(
+  storageKey: string,
+  defaultTheme: "light" | "dark",
+) {
+  if (typeof window === "undefined") return defaultTheme;
+  const stored = localStorage.getItem(storageKey) as "light" | "dark" | null;
   return stored ?? defaultTheme;
 }
 
-function GlobalThemeToggle({ size }: { size: 'sm' | 'default' }) {
+function GlobalThemeToggle({ size }: { size: "sm" | "default" }) {
   const { theme, toggleTheme } = useTheme();
-  const sizeClass = size === 'sm' ? 'h-9 w-9 rounded-xl' : 'h-11 w-11 rounded-2xl';
+  const sizeClass =
+    size === "sm" ? "h-9 w-9 rounded-xl" : "h-11 w-11 rounded-2xl";
 
   return (
     <button
       type="button"
       onClick={toggleTheme}
       className={`relative flex items-center justify-center bg-secondary/80 hover:bg-secondary transition-all active:scale-90 border border-border/50 shadow-lg shadow-black/5 cursor-pointer ${sizeClass}`}
-      aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+      aria-label={
+        theme === "light" ? "Switch to dark mode" : "Switch to light mode"
+      }
     >
       <div className="relative overflow-hidden w-5 h-5 flex items-center justify-center">
-        <Sun className={`absolute h-5 w-5 text-primary transition-all duration-500 transform ${theme === 'dark' ? 'translate-y-0 rotate-0 opacity-100' : 'translate-y-10 rotate-90 opacity-0'}`} />
-        <Moon className={`absolute h-5 w-5 text-primary transition-all duration-500 transform ${theme === 'light' ? 'translate-y-0 rotate-0 opacity-100' : 'translate-y-10 -rotate-90 opacity-0'}`} />
+        <Sun
+          className={`absolute h-5 w-5 text-primary transition-all duration-500 transform ${theme === "dark" ? "translate-y-0 rotate-0 opacity-100" : "translate-y-10 rotate-90 opacity-0"}`}
+        />
+        <Moon
+          className={`absolute h-5 w-5 text-primary transition-all duration-500 transform ${theme === "light" ? "translate-y-0 rotate-0 opacity-100" : "translate-y-10 -rotate-90 opacity-0"}`}
+        />
       </div>
       <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-white/10 to-transparent opacity-0 transition-opacity pointer-events-none" />
     </button>
@@ -37,12 +47,12 @@ function GlobalThemeToggle({ size }: { size: 'sm' | 'default' }) {
 
 function PublicThemeToggle({
   storageKey,
-  defaultTheme = 'light',
+  defaultTheme = "light",
   size,
   onThemeChange,
-}: Required<Pick<ThemeToggleProps, 'storageKey'>> &
-  Pick<ThemeToggleProps, 'defaultTheme' | 'size' | 'onThemeChange'>) {
-  const [theme, setTheme] = useState<'light' | 'dark'>(() =>
+}: Required<Pick<ThemeToggleProps, "storageKey">> &
+  Pick<ThemeToggleProps, "defaultTheme" | "size" | "onThemeChange">) {
+  const [theme, setTheme] = useState<"light" | "dark">(() =>
     getInitialPublicTheme(storageKey, defaultTheme),
   );
 
@@ -64,13 +74,13 @@ function PublicThemeToggle({
   //      an opinion in localStorage we never override it.
   useEffect(() => {
     if (localStorage.getItem(storageKey) === null) {
-      setTheme(defaultTheme ?? 'light');
+      setTheme(defaultTheme ?? "light");
     }
   }, [storageKey, defaultTheme]);
 
   const toggleTheme = () => {
-    setTheme(prev => {
-      const next = prev === 'light' ? 'dark' : 'light';
+    setTheme((prev) => {
+      const next = prev === "light" ? "dark" : "light";
       try {
         localStorage.setItem(storageKey, next);
       } catch {
@@ -80,18 +90,25 @@ function PublicThemeToggle({
     });
   };
 
-  const sizeClass = size === 'sm' ? 'h-9 w-9 rounded-xl' : 'h-11 w-11 rounded-2xl';
+  const sizeClass =
+    size === "sm" ? "h-9 w-9 rounded-xl" : "h-11 w-11 rounded-2xl";
 
   return (
     <button
       type="button"
       onClick={toggleTheme}
       className={`relative flex items-center justify-center bg-secondary/80 hover:bg-secondary transition-all active:scale-90 border border-border/50 shadow-lg shadow-black/5 cursor-pointer ${sizeClass}`}
-      aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+      aria-label={
+        theme === "light" ? "Switch to dark mode" : "Switch to light mode"
+      }
     >
       <div className="relative overflow-hidden w-5 h-5 flex items-center justify-center">
-        <Sun className={`absolute h-5 w-5 text-primary transition-all duration-500 transform ${theme === 'dark' ? 'translate-y-0 rotate-0 opacity-100' : 'translate-y-10 rotate-90 opacity-0'}`} />
-        <Moon className={`absolute h-5 w-5 text-primary transition-all duration-500 transform ${theme === 'light' ? 'translate-y-0 rotate-0 opacity-100' : 'translate-y-10 -rotate-90 opacity-0'}`} />
+        <Sun
+          className={`absolute h-5 w-5 text-primary transition-all duration-500 transform ${theme === "dark" ? "translate-y-0 rotate-0 opacity-100" : "translate-y-10 rotate-90 opacity-0"}`}
+        />
+        <Moon
+          className={`absolute h-5 w-5 text-primary transition-all duration-500 transform ${theme === "light" ? "translate-y-0 rotate-0 opacity-100" : "translate-y-10 -rotate-90 opacity-0"}`}
+        />
       </div>
       <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-white/10 to-transparent opacity-0 transition-opacity pointer-events-none" />
     </button>
@@ -99,12 +116,12 @@ function PublicThemeToggle({
 }
 
 export const ThemeToggle = ({
-  storageKey = 'theme',
-  defaultTheme = 'light',
-  size = 'default',
+  storageKey = "theme",
+  defaultTheme = "light",
+  size = "default",
   onThemeChange,
 }: ThemeToggleProps) => {
-  if (storageKey === 'theme') {
+  if (storageKey === "theme") {
     return <GlobalThemeToggle size={size} />;
   }
   return (

@@ -14,30 +14,30 @@ Add a 3-tier SaaS subscription system so restaurant owners pay the platform for 
 
 ## Tiers
 
-| Tier | Price | Target |
-|------|-------|--------|
-| **Free** | €0/mo | Small restaurants, price-sensitive market |
-| **Starter** | ~€15/mo | Growing restaurants wanting analytics + payments |
-| **Pro** | ~€35/mo | Full-featured: loyalty, multi-language, staff roles |
+| Tier        | Price   | Target                                              |
+| ----------- | ------- | --------------------------------------------------- |
+| **Free**    | €0/mo   | Small restaurants, price-sensitive market           |
+| **Starter** | ~€15/mo | Growing restaurants wanting analytics + payments    |
+| **Pro**     | ~€35/mo | Full-featured: loyalty, multi-language, staff roles |
 
 ---
 
 ## Feature Gating Matrix
 
-| Feature | Free | Starter | Pro |
-|---------|:----:|:-------:|:---:|
-| Tables | 3 max | Unlimited | Unlimited |
-| Menu items | 20 max | Unlimited | Unlimited |
-| Basic ordering + QR codes | ✅ | ✅ | ✅ |
-| Custom branding | ❌ | ✅ | ✅ |
-| Analytics dashboard | ❌ | ✅ | ✅ |
-| Customer feedback + Google Review | ❌ | ✅ | ✅ |
-| Live table view (realtime) | ❌ | ✅ | ✅ |
-| Stripe pay-at-table | ❌ | ✅ | ✅ |
-| Waiter POS (`/staff/pos`) | ❌ | ✅ | ✅ |
-| Loyalty program | ❌ | ❌ | ✅ |
-| Multi-language (DeepL) | ❌ | ❌ | ✅ |
-| Staff roles (Phase 18) | ❌ | ❌ | ✅ |
+| Feature                           |  Free  |  Starter  |    Pro    |
+| --------------------------------- | :----: | :-------: | :-------: |
+| Tables                            | 3 max  | Unlimited | Unlimited |
+| Menu items                        | 20 max | Unlimited | Unlimited |
+| Basic ordering + QR codes         |   ✅   |    ✅     |    ✅     |
+| Custom branding                   |   ❌   |    ✅     |    ✅     |
+| Analytics dashboard               |   ❌   |    ✅     |    ✅     |
+| Customer feedback + Google Review |   ❌   |    ✅     |    ✅     |
+| Live table view (realtime)        |   ❌   |    ✅     |    ✅     |
+| Stripe pay-at-table               |   ❌   |    ✅     |    ✅     |
+| Waiter POS (`/staff/pos`)         |   ❌   |    ✅     |    ✅     |
+| Loyalty program                   |   ❌   |    ❌     |    ✅     |
+| Multi-language (DeepL)            |   ❌   |    ❌     |    ✅     |
+| Staff roles (Phase 18)            |   ❌   |    ❌     |    ✅     |
 
 Usage limits (tables, menu items) enforced server-side on `POST` create — return `403` with descriptive message when limit hit. Feature routes enforced via `@TierRequired` guard.
 
@@ -96,22 +96,24 @@ Registered in `app.module.ts` alongside existing modules. Uses `@nestjs/schedule
 
 Base path: `/api/subscription`
 
-| Method | Route | Auth | Description |
-|--------|-------|------|-------------|
-| GET | `/status` | JWT | Current subscription info for dashboard |
-| POST | `/checkout` | JWT | Create Stripe Checkout Session, return URL |
-| POST | `/portal` | JWT | Create Stripe Billing Portal Session, return URL |
-| POST | `/webhook` | None (raw body) | Stripe webhook receiver |
+| Method | Route       | Auth            | Description                                      |
+| ------ | ----------- | --------------- | ------------------------------------------------ |
+| GET    | `/status`   | JWT             | Current subscription info for dashboard          |
+| POST   | `/checkout` | JWT             | Create Stripe Checkout Session, return URL       |
+| POST   | `/portal`   | JWT             | Create Stripe Billing Portal Session, return URL |
+| POST   | `/webhook`  | None (raw body) | Stripe webhook receiver                          |
 
 ### Service — `SubscriptionService`
 
 **`createCheckoutSession(restaurantId, tier)`**
+
 1. Find/create `stripeCustomerId` on Stripe, save to DB
 2. If restaurant `subscriptionStatus = TRIALING` and `trialEndsAt > now`: pass `subscription_data.trial_end = trialEndsAt` (Unix timestamp) to Stripe. Stripe captures the card immediately but does NOT charge or change access until the trial naturally ends. Owner keeps Pro features for remaining trial days regardless of which tier they subscribe to.
 3. Create Stripe Checkout Session with `mode: 'subscription'`, correct price ID, `success_url`, `cancel_url`
 4. Return `{ url }` for frontend redirect
 
 **`createPortalSession(restaurantId)`**
+
 1. Lookup `stripeCustomerId` from DB
 2. Create Stripe Billing Portal Session
 3. Return `{ url }` for frontend redirect
@@ -119,12 +121,12 @@ Base path: `/api/subscription`
 **`handleWebhook(rawBody, signature)`**
 Verify Stripe signature. Handle 4 events:
 
-| Event | Action |
-|-------|--------|
-| `checkout.session.completed` | Idempotency check first: if `stripeSubscriptionId` already exists in DB, return `200 OK` and skip. Otherwise set `subscriptionTier`, `subscriptionStatus = ACTIVE`, save `stripeSubscriptionId` + `stripePriceId`. |
-| `customer.subscription.updated` | Sync `subscriptionTier` + `stripePriceId` (handles upgrade/downgrade via Stripe Portal). Idempotent by nature — always overwrites to current state. |
-| `customer.subscription.deleted` | Set `subscriptionTier = FREE`, `subscriptionStatus = CANCELED`, clear `stripeSubscriptionId` + `stripePriceId`. |
-| `invoice.payment_failed` | Set `subscriptionStatus = PAST_DUE` (grace period, not immediate downgrade). |
+| Event                           | Action                                                                                                                                                                                                             |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `checkout.session.completed`    | Idempotency check first: if `stripeSubscriptionId` already exists in DB, return `200 OK` and skip. Otherwise set `subscriptionTier`, `subscriptionStatus = ACTIVE`, save `stripeSubscriptionId` + `stripePriceId`. |
+| `customer.subscription.updated` | Sync `subscriptionTier` + `stripePriceId` (handles upgrade/downgrade via Stripe Portal). Idempotent by nature — always overwrites to current state.                                                                |
+| `customer.subscription.deleted` | Set `subscriptionTier = FREE`, `subscriptionStatus = CANCELED`, clear `stripeSubscriptionId` + `stripePriceId`.                                                                                                    |
+| `invoice.payment_failed`        | Set `subscriptionStatus = PAST_DUE` (grace period, not immediate downgrade).                                                                                                                                       |
 
 **Idempotency rule:** Stripe explicitly retries failed webhooks. On `checkout.session.completed`, check `restaurant.stripeSubscriptionId === event.subscription` before writing. If already set, return `200 OK` immediately — no DB write, no race condition.
 
@@ -141,6 +143,7 @@ Find restaurants where `subscriptionStatus = TRIALING` AND `trialEndsAt < now`. 
 ```
 
 Guard resolves the active restaurant from JWT user, checks:
+
 1. If `subscriptionStatus = TRIALING` and `trialEndsAt > now` → pass (full Pro access)
 2. If `subscriptionTier >= requiredTier` → pass
 3. Otherwise → throw `ForbiddenException` with `{ code: 'TIER_REQUIRED', requiredTier }`
@@ -163,6 +166,7 @@ STRIPE_PRICE_PRO=price_...
 ### Context update — `RestaurantContext`
 
 Expose from existing restaurant fetch (no new API call):
+
 - `subscriptionTier: SubscriptionTier`
 - `subscriptionStatus: SubscriptionStatus`
 - `trialEndsAt: string | null`
@@ -170,7 +174,9 @@ Expose from existing restaurant fetch (no new API call):
 ### New hook — `useTierAccess(requiredTier)`
 
 ```typescript
-const { hasAccess, isTrialing, daysLeft } = useTierAccess(SubscriptionTier.STARTER)
+const { hasAccess, isTrialing, daysLeft } = useTierAccess(
+  SubscriptionTier.STARTER,
+);
 ```
 
 Returns `hasAccess: boolean` (true if trialing-not-expired or tier sufficient), `isTrialing: boolean`, `daysLeft: number`.
@@ -178,12 +184,14 @@ Returns `hasAccess: boolean` (true if trialing-not-expired or tier sufficient), 
 ### New components
 
 **`/pricing` — Public pricing page**
+
 - Route in `App.tsx`, no auth required
 - 3-column feature comparison table
 - "Start Free Trial" CTA → registers + creates restaurant → redirects to dashboard
 
 **`SubscriptionBanner` — Dashboard top banner**
 Shown conditionally:
+
 - Trialing: "X days left in your Pro trial — Subscribe to keep access" + Upgrade button
 - Past due: "Payment failed — update your card" + Manage Billing button
 - Free: Subtle "You're on the Free plan — Upgrade for more features" + Upgrade button
@@ -211,6 +219,7 @@ Shows: current plan name, status badge, trial end date (if trialing), next billi
 ## Key Files to Create / Modify
 
 ### Create
+
 - `apps/backend/src/subscription/subscription.module.ts`
 - `apps/backend/src/subscription/subscription.service.ts`
 - `apps/backend/src/subscription/subscription.controller.ts`
@@ -224,6 +233,7 @@ Shows: current plan name, status badge, trial end date (if trialing), next billi
 - `apps/frontend/src/hooks/useTierAccess.ts`
 
 ### Modify
+
 - `apps/backend/src/app.module.ts` — register `SubscriptionModule`
 - `apps/backend/src/restaurants/restaurants.service.ts` — set trial fields on `create()`
 - `apps/backend/src/menu/menu.service.ts` — enforce 20-item Free limit on `create()`; apply `.take(20)` in `getPublicMenu()` when `subscriptionTier === FREE`
@@ -241,6 +251,7 @@ Shows: current plan name, status badge, trial end date (if trialing), next billi
 ## Downgrade Behavior
 
 When a restaurant downgrades (trial expires, subscription canceled, payment failed):
+
 - Existing data is **never deleted** — tables > 3 and items > 20 remain in the dashboard safely
 - **New creates** are blocked (POST endpoints return `403` when at limit)
 - **Public menu enforcement:** `MenuService.getPublicMenu()` applies `.take(20)` when `subscriptionTier === FREE`. The owner can keep 60 items in the dashboard and edit/rename them freely — but customers on the QR menu only see the first 20 until the owner re-subscribes. This closes the loophole where owners could bypass the item limit via `PATCH` edits on existing records.

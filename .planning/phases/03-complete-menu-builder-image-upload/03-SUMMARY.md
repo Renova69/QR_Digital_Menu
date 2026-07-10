@@ -22,12 +22,12 @@ Attached the local file upload flow sequentially right after new instances of it
 
 ## Tasks Completed
 
-| # | Task | Status |
-|---|------|--------|
-| 3.1 | Add upload API service function | ✓ |
-| 3.2 | Add mutation to useMenu hook | ✓ |
-| 3.3 | Expose uploadImage in MenuContext | ✓ |
-| 3.4 | Add file input to CreateItemForm | ✓ |
+| #   | Task                              | Status |
+| --- | --------------------------------- | ------ |
+| 3.1 | Add upload API service function   | ✓      |
+| 3.2 | Add mutation to useMenu hook      | ✓      |
+| 3.3 | Expose uploadImage in MenuContext | ✓      |
+| 3.4 | Add file input to CreateItemForm  | ✓      |
 
 ## Deviations from Plan
 

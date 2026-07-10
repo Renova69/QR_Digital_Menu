@@ -67,7 +67,9 @@ export const CustomerProfilePage: React.FC = () => {
 
       {loyaltyAccounts.length > 0 && (
         <div className="glass-panel p-8 rounded-[2rem] border-white/5 mb-8">
-          <h2 className="text-xl font-bold mb-6">{t("profile.vipTiersTitle")}</h2>
+          <h2 className="text-xl font-bold mb-6">
+            {t("profile.vipTiersTitle")}
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {loyaltyAccounts.map((acc: any) => {
               const tier: string = acc.tier ?? "Bronze";
@@ -98,7 +100,8 @@ export const CustomerProfilePage: React.FC = () => {
                 typeof acc.rewardValue === "number"
                   ? acc.rewardValue
                   : acc.points / (acc.restaurant?.loyaltyRedeemRate || 150);
-              const rewardProgress: number = acc.firstRewardProgressPercent ?? 0;
+              const rewardProgress: number =
+                acc.firstRewardProgressPercent ?? 0;
               const pointsToFirstReward: number = acc.pointsToFirstReward ?? 0;
               const expiringSoonPoints = acc.expiringSoonPoints || 0;
               const expiringSoonValue = acc.expiringSoonValue || 0;
@@ -128,9 +131,11 @@ export const CustomerProfilePage: React.FC = () => {
                         {t("profile.currentBalance")}
                       </p>
                       <p className={`text-3xl font-black ${textColor}`}>
-                        {acc.points} {t('auto.pts', 'pts')}</p>
+                        {acc.points} {t("auto.pts", "pts")}
+                      </p>
                       <p className="text-sm font-bold text-muted-foreground mt-1">
-                        {t('auto.valueEUR', 'Value: EUR')}{rewardValue.toFixed(2)}
+                        {t("auto.valueEUR", "Value: EUR")}
+                        {rewardValue.toFixed(2)}
                       </p>
                     </div>
                     <div className="text-right">
@@ -234,7 +239,9 @@ export const CustomerProfilePage: React.FC = () => {
                 className="p-6 bg-primary/5 border border-primary/10 rounded-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-4"
               >
                 <div>
-                  <h3 className="font-black text-lg">{order.restaurant.name}</h3>
+                  <h3 className="font-black text-lg">
+                    {order.restaurant.name}
+                  </h3>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mt-1">
                     {new Date(order.createdAt).toLocaleDateString()}{" "}
                     {t("profile.at")}{" "}
@@ -254,10 +261,13 @@ export const CustomerProfilePage: React.FC = () => {
                     €{order.totalPrice.toFixed(2)}
                   </p>
                   <div className="mt-2 inline-flex items-center gap-2 bg-green-500/10 text-green-600 px-3 py-1 rounded-full text-xs font-bold">
-                    <span>+{order.pointsEarned} {t('auto.pts', 'Pts')}</span>
+                    <span>
+                      +{order.pointsEarned} {t("auto.pts", "Pts")}
+                    </span>
                     {order.pointsRedeemed > 0 && (
                       <span className="text-red-500 ml-1">
-                        (-{order.pointsRedeemed} {t('auto.pts', 'Pts)')}</span>
+                        (-{order.pointsRedeemed} {t("auto.pts", "Pts)")}
+                      </span>
                     )}
                   </div>
                 </div>

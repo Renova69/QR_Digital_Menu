@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { BGN_RATE, formatEuro, formatBgn, formatDualCurrency, formatInlineDual } from "../currency";
+import {
+  BGN_RATE,
+  formatEuro,
+  formatBgn,
+  formatDualCurrency,
+  formatInlineDual,
+} from "../currency";
 
 describe("currency", () => {
   describe("BGN_RATE", () => {

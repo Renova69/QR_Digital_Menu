@@ -56,7 +56,11 @@ export class HelpContentController {
   @UseGuards(JwtAuthGuard, SuperAdminGuard)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Patch('super-admin/help-content/:id')
-  update(@Param('id') id: string, @Body() dto: UpdateHelpContentDto, @Request() req: any) {
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateHelpContentDto,
+    @Request() req: any,
+  ) {
     return this.helpContentService.update(id, dto, req.user.id);
   }
 

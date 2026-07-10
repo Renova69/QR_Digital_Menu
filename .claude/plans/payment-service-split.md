@@ -521,18 +521,18 @@ After code changes:
 
 ## Known Risks and Controls
 
-| Risk | Impact | Control |
-| --- | --- | --- |
-| Nested or split transaction | Critical | Use tx-accepting core primitives; split `createPendingPaymentAfterScopeGuard` into tx and wrapper variants |
-| Provider webhook idempotency drift | Critical | Keep `recordProviderEvent` and payment claim in the same tx |
-| POS double-collect race | Critical | Preserve abandonment-before-POS-mutation checks and open-session locks |
-| Item split double-pay | Critical | Preserve `paidQuantity` optimistic locks and allocation writes in the same tx |
-| Circular DI | High | One-way dependencies only; no service injects `PaymentService`; no `forwardRef` |
-| Test setup churn | Medium | Keep public method assertions; update constructor/mocks deliberately |
-| Config behavior drift | Medium | Move provider config verbatim; inject `FeatureService`; do not rewrite crypto |
-| Event emitted before rollback | Medium | Emit only after transaction returns successfully |
-| Reporting access regression | Medium | Use `PaymentCoreService.verifyRestaurantAccess`; do not duplicate access checks |
-| Facade removal too early | Medium | Keep facade until final optional cleanup |
+| Risk                               | Impact   | Control                                                                                                    |
+| ---------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------- |
+| Nested or split transaction        | Critical | Use tx-accepting core primitives; split `createPendingPaymentAfterScopeGuard` into tx and wrapper variants |
+| Provider webhook idempotency drift | Critical | Keep `recordProviderEvent` and payment claim in the same tx                                                |
+| POS double-collect race            | Critical | Preserve abandonment-before-POS-mutation checks and open-session locks                                     |
+| Item split double-pay              | Critical | Preserve `paidQuantity` optimistic locks and allocation writes in the same tx                              |
+| Circular DI                        | High     | One-way dependencies only; no service injects `PaymentService`; no `forwardRef`                            |
+| Test setup churn                   | Medium   | Keep public method assertions; update constructor/mocks deliberately                                       |
+| Config behavior drift              | Medium   | Move provider config verbatim; inject `FeatureService`; do not rewrite crypto                              |
+| Event emitted before rollback      | Medium   | Emit only after transaction returns successfully                                                           |
+| Reporting access regression        | Medium   | Use `PaymentCoreService.verifyRestaurantAccess`; do not duplicate access checks                            |
+| Facade removal too early           | Medium   | Keep facade until final optional cleanup                                                                   |
 
 ## Implementation Order
 

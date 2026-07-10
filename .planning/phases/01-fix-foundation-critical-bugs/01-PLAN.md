@@ -47,6 +47,7 @@ Fix the auth response mismatch between backend and frontend, and consolidate the
 Modify `AuthService.login()` in `backend/src/auth/auth.service.ts` to return both the token and user data:
 
 Change the `login` method from:
+
 ```typescript
 async login(user: any) {
   const payload = { email: user.email, sub: user.id };
@@ -57,6 +58,7 @@ async login(user: any) {
 ```
 
 To:
+
 ```typescript
 async login(user: any) {
   const payload = { email: user.email, sub: user.id };
@@ -75,12 +77,14 @@ async login(user: any) {
 Also modify `AuthService.register()` to auto-login after registration by returning the same `{ token, user }` format:
 
 Change the register method's return from:
+
 ```typescript
 const { password: _, ...result } = user;
 return result;
 ```
 
 To:
+
 ```typescript
 const { password: _, ...result } = user;
 const payload = { email: result.email, sub: result.id };
@@ -94,6 +98,7 @@ return {
   },
 };
 ```
+
 </action>
 <acceptance_criteria>
 - `backend/src/auth/auth.service.ts` login method returns object with `token` key (not `access_token`)
@@ -123,11 +128,13 @@ The AuthContext `login` method destructures `{ token, user }` which matches. The
 Add `isError` to the AuthContext interface and value to match what components using the hook version might need:
 
 In the `AuthContextType` interface, add:
+
 ```typescript
 isError?: boolean;
 ```
 
 In the `AuthProvider` component, add a state:
+
 ```typescript
 const [isError, setIsError] = useState(false);
 ```
@@ -135,15 +142,16 @@ const [isError, setIsError] = useState(false);
 Include `isError` in the value object.
 
 Wrap the login and register methods with try/catch that sets `isError`:
+
 ```typescript
 const login = async (email: string, password: string) => {
   try {
     setIsError(false);
     const { token, user } = await apiLogin(email, password);
-    localStorage.setItem('token', token);
+    localStorage.setItem("token", token);
     setToken(token);
     setUser(user);
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
     return { token, user };
   } catch (error) {
     setIsError(true);
@@ -155,12 +163,13 @@ const login = async (email: string, password: string) => {
 Do the same pattern for register.
 </action>
 <acceptance_criteria>
+
 - `frontend/src/context/AuthContext.tsx` contains `isError` in AuthContextType interface
 - `frontend/src/context/AuthContext.tsx` login method sets Authorization header after successful login
 - `frontend/src/context/AuthContext.tsx` login method calls `apiLogin` and destructures `{ token, user }`
 - `frontend/src/context/AuthContext.tsx` register method calls `apiRegister` and destructures `{ token, user }`
-</acceptance_criteria>
-</task>
+  </acceptance_criteria>
+  </task>
 
 <task id="1.3">
 <title>Delete hooks/useAuth.ts and update all imports</title>
@@ -193,23 +202,25 @@ Update all files that import from `hooks/useAuth` to import from `context/AuthCo
    To: `import { useAuth } from '../context/AuthContext';`
 
 These are the only 3 files importing from `hooks/useAuth`. The following already import from `context/AuthContext`:
+
 - `ProtectedRoute.tsx` — no change
 - `Header.tsx` — no change
 - `DashboardPage.tsx` — no change
 - `CheckoutPage.tsx` — no change
 - `RestaurantContext.tsx` — no change
-</action>
-<acceptance_criteria>
+  </action>
+  <acceptance_criteria>
 - File `frontend/src/hooks/useAuth.ts` does not exist
 - `grep -r "hooks/useAuth" frontend/src/` returns no results
 - `frontend/src/components/ui/LoginDialog.tsx` imports useAuth from `../../context/AuthContext`
 - `frontend/src/pages/LoginPage.tsx` imports useAuth from `../context/AuthContext`
 - `frontend/src/pages/MenuEditorPage.tsx` imports useAuth from `../context/AuthContext`
 - `LoginDialog.tsx` calls `login(email, password)` not `login({ email, password })`
-</acceptance_criteria>
-</task>
+  </acceptance_criteria>
+  </task>
 
 ## Verification
+
 ```bash
 # No references to deleted hook
 grep -r "hooks/useAuth" frontend/src/

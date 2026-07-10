@@ -12,27 +12,28 @@
 
 ## File Map
 
-| File | Action | Responsibility |
-|------|--------|---------------|
-| `apps/backend/prisma/schema.prisma` | Modify | Add `OrderSource` enum, `source`, `staffUserId`, `staff` relation |
-| `apps/backend/prisma/migrations/…` | Generated | DB migration |
-| `apps/backend/src/auth/optional-jwt.strategy.ts` | **Create** | Passport strategy — returns null on missing/invalid JWT |
-| `apps/backend/src/auth/optional-jwt-auth.guard.ts` | **Create** | Guard wrapping optional strategy |
-| `apps/backend/src/auth/auth.module.ts` | Modify | Register `OptionalJwtStrategy` |
-| `apps/backend/src/orders/orders.controller.ts` | Modify | Apply `OptionalJwtAuthGuard`, pass `req.user?.id` |
-| `apps/backend/src/orders/orders.service.ts` | Modify | Accept `staffUserId`, write `source`/`staffUserId` on create; include staff in `findAll` |
-| `apps/backend/src/payment/payment.service.ts` | Modify | `getSessionBill` returns itemized orders with `source`/`staffName` |
-| `apps/backend/src/tables/tables.service.ts` | Modify | `getTableOrders` includes staff relation, returns `source`/`staffName` |
-| `apps/frontend/src/context/OrderContext.tsx` | Modify | Add `source`, `staffName` to `Order` interface |
-| `apps/frontend/src/components/payment/PaymentModal.tsx` | Modify | Itemized bill grouped by source |
-| `apps/frontend/src/components/tables/TableDetailModal.tsx` | Modify | Source badge per order |
-| `apps/frontend/src/pages/Dashboard/OrdersView.tsx` | Modify | Source badge in order cards |
+| File                                                       | Action     | Responsibility                                                                           |
+| ---------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------- |
+| `apps/backend/prisma/schema.prisma`                        | Modify     | Add `OrderSource` enum, `source`, `staffUserId`, `staff` relation                        |
+| `apps/backend/prisma/migrations/…`                         | Generated  | DB migration                                                                             |
+| `apps/backend/src/auth/optional-jwt.strategy.ts`           | **Create** | Passport strategy — returns null on missing/invalid JWT                                  |
+| `apps/backend/src/auth/optional-jwt-auth.guard.ts`         | **Create** | Guard wrapping optional strategy                                                         |
+| `apps/backend/src/auth/auth.module.ts`                     | Modify     | Register `OptionalJwtStrategy`                                                           |
+| `apps/backend/src/orders/orders.controller.ts`             | Modify     | Apply `OptionalJwtAuthGuard`, pass `req.user?.id`                                        |
+| `apps/backend/src/orders/orders.service.ts`                | Modify     | Accept `staffUserId`, write `source`/`staffUserId` on create; include staff in `findAll` |
+| `apps/backend/src/payment/payment.service.ts`              | Modify     | `getSessionBill` returns itemized orders with `source`/`staffName`                       |
+| `apps/backend/src/tables/tables.service.ts`                | Modify     | `getTableOrders` includes staff relation, returns `source`/`staffName`                   |
+| `apps/frontend/src/context/OrderContext.tsx`               | Modify     | Add `source`, `staffName` to `Order` interface                                           |
+| `apps/frontend/src/components/payment/PaymentModal.tsx`    | Modify     | Itemized bill grouped by source                                                          |
+| `apps/frontend/src/components/tables/TableDetailModal.tsx` | Modify     | Source badge per order                                                                   |
+| `apps/frontend/src/pages/Dashboard/OrdersView.tsx`         | Modify     | Source badge in order cards                                                              |
 
 ---
 
 ## Task 1: Prisma Schema — Add OrderSource enum and fields to Order
 
 **Files:**
+
 - Modify: `apps/backend/prisma/schema.prisma`
 
 - [ ] **Step 1: Add the enum and two fields to schema**
@@ -89,6 +90,7 @@ git commit -m "feat(db): add OrderSource enum and staffUserId to Order"
 ## Task 2: Optional JWT Strategy + Guard
 
 **Files:**
+
 - Create: `apps/backend/src/auth/optional-jwt.strategy.ts`
 - Create: `apps/backend/src/auth/optional-jwt-auth.guard.ts`
 - Modify: `apps/backend/src/auth/auth.module.ts`
@@ -98,21 +100,24 @@ git commit -m "feat(db): add OrderSource enum and staffUserId to Order"
 Create `apps/backend/src/auth/optional-jwt.strategy.ts`:
 
 ```typescript
-import { Injectable } from '@nestjs/common';
-import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
-import { ConfigService } from '@nestjs/config';
+import { Injectable } from "@nestjs/common";
+import { PassportStrategy } from "@nestjs/passport";
+import { ExtractJwt, Strategy } from "passport-jwt";
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
-export class OptionalJwtStrategy extends PassportStrategy(Strategy, 'jwt-optional') {
+export class OptionalJwtStrategy extends PassportStrategy(
+  Strategy,
+  "jwt-optional",
+) {
   constructor(private readonly configService: ConfigService) {
     const allowBearerAuth =
-      process.env.NODE_ENV === 'test' ||
-      process.env.NODE_ENV === 'development' ||
-      process.env.ALLOW_BEARER_AUTH === 'true';
+      process.env.NODE_ENV === "test" ||
+      process.env.NODE_ENV === "development" ||
+      process.env.ALLOW_BEARER_AUTH === "true";
 
     const extractors =
-      allowBearerAuth && process.env.NODE_ENV !== 'production'
+      allowBearerAuth && process.env.NODE_ENV !== "production"
         ? [
             ExtractJwt.fromAuthHeaderAsBearerToken(),
             (req: any) => req?.cookies?.token ?? null,
@@ -123,9 +128,9 @@ export class OptionalJwtStrategy extends PassportStrategy(Strategy, 'jwt-optiona
       jwtFromRequest: ExtractJwt.fromExtractors(extractors),
       ignoreExpiration: false,
       secretOrKey: (() => {
-        if (process.env.NODE_ENV === 'test') return 'test-secret';
-        const secret = configService.get<string>('JWT_SECRET');
-        if (!secret) throw new Error('JWT_SECRET must be set');
+        if (process.env.NODE_ENV === "test") return "test-secret";
+        const secret = configService.get<string>("JWT_SECRET");
+        if (!secret) throw new Error("JWT_SECRET must be set");
         return secret;
       })(),
     });
@@ -143,11 +148,11 @@ export class OptionalJwtStrategy extends PassportStrategy(Strategy, 'jwt-optiona
 Create `apps/backend/src/auth/optional-jwt-auth.guard.ts`:
 
 ```typescript
-import { Injectable, ExecutionContext } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Injectable, ExecutionContext } from "@nestjs/common";
+import { AuthGuard } from "@nestjs/passport";
 
 @Injectable()
-export class OptionalJwtAuthGuard extends AuthGuard('jwt-optional') {
+export class OptionalJwtAuthGuard extends AuthGuard("jwt-optional") {
   // Override to never throw — return null user when JWT is absent or invalid.
   handleRequest(_err: any, user: any) {
     return user ?? null;
@@ -164,11 +169,17 @@ export class OptionalJwtAuthGuard extends AuthGuard('jwt-optional') {
 Open `apps/backend/src/auth/auth.module.ts`. Add `OptionalJwtStrategy` to imports at the top and to the `providers` array:
 
 ```typescript
-import { OptionalJwtStrategy } from './optional-jwt.strategy';
+import { OptionalJwtStrategy } from "./optional-jwt.strategy";
 
 @Module({
   // …imports unchanged…
-  providers: [AuthService, LocalStrategy, JwtStrategy, GoogleStrategy, OptionalJwtStrategy],
+  providers: [
+    AuthService,
+    LocalStrategy,
+    JwtStrategy,
+    GoogleStrategy,
+    OptionalJwtStrategy,
+  ],
   exports: [AuthService],
 })
 export class AuthModule {}
@@ -197,6 +208,7 @@ git commit -m "feat(auth): add OptionalJwtStrategy and guard for public endpoint
 ## Task 3: Orders Controller — Wire Optional Guard
 
 **Files:**
+
 - Modify: `apps/backend/src/orders/orders.controller.ts`
 
 - [ ] **Step 1: Add guard import and apply to POST /orders**
@@ -231,6 +243,7 @@ Expected: no errors.
 Start backend: `npm run start:dev`
 
 In another terminal:
+
 ```bash
 curl -s -X POST http://localhost:3000/api/orders \
   -H "Content-Type: application/json" \
@@ -252,6 +265,7 @@ git commit -m "feat(orders): apply OptionalJwtAuthGuard to POST /orders"
 ## Task 4: Orders Service — Write source and staffUserId on Create
 
 **Files:**
+
 - Modify: `apps/backend/src/orders/orders.service.ts`
 
 - [ ] **Step 1: Update create() signature**
@@ -287,7 +301,7 @@ const order = await tx.order.create({
     pointsRedeemed: pointsRedeemedForDiscount + pointsRedeemedForItems,
     restaurantId,
     tableSessionId,
-    source: staffUserId ? 'POS' : 'CUSTOMER',
+    source: staffUserId ? "POS" : "CUSTOMER",
     staffUserId: staffUserId ?? undefined,
     items: { create: itemsData },
   },
@@ -298,6 +312,7 @@ const order = await tx.order.create({
 - [ ] **Step 3: Add staff include to findAll**
 
 In `findAll()`, the `prisma.order.findMany` call has:
+
 ```typescript
 include: {
   items: { include: { menuItem: true } },
@@ -305,6 +320,7 @@ include: {
 ```
 
 Extend it to:
+
 ```typescript
 include: {
   items: { include: { menuItem: true } },
@@ -333,6 +349,7 @@ git commit -m "feat(orders): record source and staffUserId on order create"
 ## Task 5: Payment Service — Expand getSessionBill Response
 
 **Files:**
+
 - Modify: `apps/backend/src/payment/payment.service.ts`
 
 - [ ] **Step 1: Add staff include to the order query**
@@ -365,6 +382,7 @@ include: {
 - [ ] **Step 2: Expand the return value**
 
 The current return is:
+
 ```typescript
 return {
   orders,
@@ -381,15 +399,15 @@ Replace with:
 const enrichedOrders = orders.map((order) => ({
   id: order.id,
   source: order.source,
-  staffName: order.staff
-    ? (order.staff.name ?? order.staff.email)
-    : null,
+  staffName: order.staff ? (order.staff.name ?? order.staff.email) : null,
   totalPrice: order.totalPrice,
   items: order.items.map((oi) => ({
-    name: oi.menuItem?.name ?? 'Unknown item',
+    name: oi.menuItem?.name ?? "Unknown item",
     quantity: oi.quantity,
     unitPrice: oi.menuItem?.price ?? 0,
-    selectedOptions: Array.isArray(oi.selectedOptions) ? oi.selectedOptions : [],
+    selectedOptions: Array.isArray(oi.selectedOptions)
+      ? oi.selectedOptions
+      : [],
   })),
 }));
 
@@ -423,6 +441,7 @@ git commit -m "feat(payment): expand getSessionBill with itemized orders and sta
 ## Task 6: Tables Service — Expand getTableOrders Response
 
 **Files:**
+
 - Modify: `apps/backend/src/tables/tables.service.ts`
 
 - [ ] **Step 1: Add staff include to the order query**
@@ -440,7 +459,7 @@ const orders = await this.prisma.order.findMany({
     },
     staff: { select: { name: true, email: true } },
   },
-  orderBy: { createdAt: 'desc' },
+  orderBy: { createdAt: "desc" },
 });
 ```
 
@@ -457,17 +476,24 @@ return orders.map((order) => ({
   specialRequests: order.specialRequests,
   createdAt: order.createdAt,
   source: order.source,
-  staffName: order.staff
-    ? (order.staff.name ?? order.staff.email)
-    : null,
+  staffName: order.staff ? (order.staff.name ?? order.staff.email) : null,
   items: order.items.map((oi) => ({
-    name: oi.menuItem?.name ?? 'Unknown item',
+    name: oi.menuItem?.name ?? "Unknown item",
     quantity: oi.quantity,
-    totalPrice: ((oi.menuItem?.price ?? 0) + (Array.isArray(oi.selectedOptions)
-      ? (oi.selectedOptions as any[]).reduce((sum: number, option: any) => sum + Number(option?.priceModifier ?? 0), 0)
-      : 0)) * oi.quantity,
+    totalPrice:
+      ((oi.menuItem?.price ?? 0) +
+        (Array.isArray(oi.selectedOptions)
+          ? (oi.selectedOptions as any[]).reduce(
+              (sum: number, option: any) =>
+                sum + Number(option?.priceModifier ?? 0),
+              0,
+            )
+          : 0)) *
+      oi.quantity,
     options: Array.isArray(oi.selectedOptions)
-      ? (oi.selectedOptions as any[]).map((o: any) => o?.choiceName).filter(Boolean)
+      ? (oi.selectedOptions as any[])
+          .map((o: any) => o?.choiceName)
+          .filter(Boolean)
       : [],
   })),
 }));
@@ -494,6 +520,7 @@ git commit -m "feat(tables): include source and staffName in getTableOrders resp
 ## Task 7: Frontend — Extend OrderContext Order Interface
 
 **Files:**
+
 - Modify: `apps/frontend/src/context/OrderContext.tsx`
 
 - [ ] **Step 1: Add source and staffName to the Order interface**
@@ -523,7 +550,7 @@ interface Order {
   specialRequests?: string;
   createdAt: string;
   updatedAt: string;
-  source?: 'CUSTOMER' | 'POS';
+  source?: "CUSTOMER" | "POS";
   staffName?: string | null;
   tableSession?: {
     status: string;
@@ -554,6 +581,7 @@ git commit -m "feat(frontend): add source and staffName to OrderContext Order in
 ## Task 8: PaymentModal — Itemized Bill Grouped by Source
 
 **Files:**
+
 - Modify: `apps/frontend/src/components/payment/PaymentModal.tsx`
 
 - [ ] **Step 1: Update BillData interface and BillOrder type**
@@ -569,7 +597,7 @@ interface BillItem {
 
 interface BillOrder {
   id: string;
-  source: 'CUSTOMER' | 'POS';
+  source: "CUSTOMER" | "POS";
   staffName: string | null;
   totalPrice: number;
   items: BillItem[];
@@ -589,14 +617,14 @@ Add this helper function before the `PaymentForm` component:
 
 ```typescript
 function getSourceLabel(order: BillOrder): string {
-  if (order.source === 'CUSTOMER') return 'You';
+  if (order.source === "CUSTOMER") return "You";
   if (order.staffName) {
     // Show first name only (or full email if no name)
-    return order.staffName.includes('@')
-      ? order.staffName.split('@')[0]
-      : order.staffName.split(' ')[0];
+    return order.staffName.includes("@")
+      ? order.staffName.split("@")[0]
+      : order.staffName.split(" ")[0];
   }
-  return 'Staff';
+  return "Staff";
 }
 ```
 
@@ -606,7 +634,7 @@ function getSourceLabel(order: BillOrder): string {
 // Show headers whenever any POS order exists — covers mixed, POS-only single staff,
 // and POS-only multiple staff. Pure CUSTOMER sessions get a flat list.
 function showGroupHeaders(orders: BillOrder[]): boolean {
-  return orders.some((o) => o.source === 'POS');
+  return orders.some((o) => o.source === "POS");
 }
 ```
 
@@ -675,6 +703,7 @@ git commit -m "feat(payment): show itemized bill grouped by source in PaymentMod
 ## Task 9: TableDetailModal — Source Badge per Order
 
 **Files:**
+
 - Modify: `apps/frontend/src/components/tables/TableDetailModal.tsx`
 
 - [ ] **Step 1: Add source and staffName to OrderDetail interface**
@@ -695,7 +724,7 @@ interface OrderDetail {
   }[];
   totalPrice: number;
   status: string;
-  source?: 'CUSTOMER' | 'POS';
+  source?: "CUSTOMER" | "POS";
   staffName?: string | null;
 }
 ```
@@ -731,9 +760,16 @@ In the `orders.map((order) => …)` JSX, find the order header section:
 
 ```tsx
 <div className="flex flex-wrap items-center gap-2">
-  <span className="font-black text-sm text-foreground">{formatOrderCode(order.id)}</span>
-  <span className={cn('rounded-md px-2 py-1 text-[10px] font-black uppercase', orderStatusStyles[order.status])}>
-    {t(statusLabels[order.status] || 'orders.tabs.new')}
+  <span className="font-black text-sm text-foreground">
+    {formatOrderCode(order.id)}
+  </span>
+  <span
+    className={cn(
+      "rounded-md px-2 py-1 text-[10px] font-black uppercase",
+      orderStatusStyles[order.status],
+    )}
+  >
+    {t(statusLabels[order.status] || "orders.tabs.new")}
   </span>
 </div>
 ```
@@ -742,9 +778,16 @@ Add the `SourceBadge` after the status badge:
 
 ```tsx
 <div className="flex flex-wrap items-center gap-2">
-  <span className="font-black text-sm text-foreground">{formatOrderCode(order.id)}</span>
-  <span className={cn('rounded-md px-2 py-1 text-[10px] font-black uppercase', orderStatusStyles[order.status])}>
-    {t(statusLabels[order.status] || 'orders.tabs.new')}
+  <span className="font-black text-sm text-foreground">
+    {formatOrderCode(order.id)}
+  </span>
+  <span
+    className={cn(
+      "rounded-md px-2 py-1 text-[10px] font-black uppercase",
+      orderStatusStyles[order.status],
+    )}
+  >
+    {t(statusLabels[order.status] || "orders.tabs.new")}
   </span>
   <SourceBadge source={order.source} staffName={order.staffName} />
 </div>
@@ -771,6 +814,7 @@ git commit -m "feat(tables): add source badge to order cards in TableDetailModal
 ## Task 10: OrdersView — Source Badge in Order Cards
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/Dashboard/OrdersView.tsx`
 
 - [ ] **Step 1: Add source/staffName to the DashboardOrder type**
@@ -779,7 +823,7 @@ Open `apps/frontend/src/pages/Dashboard/OrdersView.tsx`. The `DashboardOrder` ty
 
 ```typescript
 type OrdersContextValue = ReturnType<typeof useOrders>;
-type DashboardOrder = OrdersContextValue['orders'][number];
+type DashboardOrder = OrdersContextValue["orders"][number];
 ```
 
 Because `OrderContext.tsx` `Order` interface was updated in Task 7, `DashboardOrder` already has `source?: 'CUSTOMER' | 'POS'` and `staffName?: string | null`. No interface change needed here.

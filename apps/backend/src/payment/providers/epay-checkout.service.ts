@@ -284,20 +284,20 @@ export class EpayCheckoutService {
     return this.epay.formatNotificationResponses(responses);
   }
 
-  async applyEpayNotification(
-    payment: any,
-    notification: EpayNotification,
-  ) {
+  async applyEpayNotification(payment: any, notification: EpayNotification) {
     const eventKey = [
       notification.invoice,
       notification.status,
       notification.stan ?? '',
       notification.bcode ?? '',
     ].join(':');
-    const providerPayload = this.core.mergeProviderPayload(payment.providerPayload, {
-      notification,
-      notifiedAt: new Date().toISOString(),
-    });
+    const providerPayload = this.core.mergeProviderPayload(
+      payment.providerPayload,
+      {
+        notification,
+        notifiedAt: new Date().toISOString(),
+      },
+    );
 
     if (notification.status === 'PAID') {
       const claim = await this.prisma.$transaction(async (tx) => {

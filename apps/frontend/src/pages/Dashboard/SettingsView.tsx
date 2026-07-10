@@ -14,7 +14,14 @@ import {
 } from "./settings";
 import PrintStationsView from "./PrintStationsView";
 
-type SettingsTab = "general" | "loyalty" | "payments" | "staff" | "branding" | "subscription" | "printers";
+type SettingsTab =
+  | "general"
+  | "loyalty"
+  | "payments"
+  | "staff"
+  | "branding"
+  | "subscription"
+  | "printers";
 
 const SettingsView = () => {
   const { activeRestaurant, fetchRestaurants } = useRestaurantContext();
@@ -30,7 +37,16 @@ const SettingsView = () => {
 
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
     const tab = searchParams.get("settingsTab") as SettingsTab | null;
-    return tab && ["general", "loyalty", "payments", "staff", "branding", "subscription", "printers"].includes(tab)
+    return tab &&
+      [
+        "general",
+        "loyalty",
+        "payments",
+        "staff",
+        "branding",
+        "subscription",
+        "printers",
+      ].includes(tab)
       ? tab
       : "general";
   });
@@ -40,12 +56,32 @@ const SettingsView = () => {
     // Visible to all non-free tiers as an upsell; content shows a locked state
     // (with "settings preserved") when canLoyalty is false (#5).
     { id: "loyalty", label: t("settings.tabs.loyalty"), visible: !isFree },
-    { id: "payments", label: t("settings.tabs.payments"), visible: canPayments },
-    { id: "staff", label: t("settings.tabs.staff"), visible: canManageStaff && allowedStaffRoles.length > 0 },
+    {
+      id: "payments",
+      label: t("settings.tabs.payments"),
+      visible: canPayments,
+    },
+    {
+      id: "staff",
+      label: t("settings.tabs.staff"),
+      visible: canManageStaff && allowedStaffRoles.length > 0,
+    },
     // Visible to all non-free tiers as an upsell; content shows locked state when canBranding is false
-    { id: "branding", label: t("settings.tabs.branding", "Branding"), visible: !isFree },
-    { id: "subscription", label: t("settings.tabs.subscription"), visible: true },
-    { id: "printers", label: t("printStations.title", "Printers"), visible: !isFree },
+    {
+      id: "branding",
+      label: t("settings.tabs.branding", "Branding"),
+      visible: !isFree,
+    },
+    {
+      id: "subscription",
+      label: t("settings.tabs.subscription"),
+      visible: true,
+    },
+    {
+      id: "printers",
+      label: t("printStations.title", "Printers"),
+      visible: !isFree,
+    },
   ];
 
   const visibleTabs = tabs.filter((t) => t.visible);
@@ -74,8 +110,12 @@ const SettingsView = () => {
   return (
     <div className="w-full space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-foreground">{t("settings.title")}</h2>
-        <p className="text-sm text-muted-foreground mt-1">{t("settings.desc")}</p>
+        <h2 className="text-2xl font-bold text-foreground">
+          {t("settings.title")}
+        </h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          {t("settings.desc")}
+        </p>
       </div>
 
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-clip text-left">
@@ -104,7 +144,10 @@ const SettingsView = () => {
           {activeTab === "loyalty" && !canLoyalty && (
             <div className="rounded-xl border border-border bg-muted/30 p-8 text-center">
               <h3 className="text-lg font-semibold text-foreground">
-                {t("settings.loyaltyLocked", "Loyalty is part of the Professional plan")}
+                {t(
+                  "settings.loyaltyLocked",
+                  "Loyalty is part of the Professional plan",
+                )}
               </h3>
               <p className="mt-2 text-sm text-muted-foreground">
                 {t(

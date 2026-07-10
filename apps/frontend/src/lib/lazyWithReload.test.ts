@@ -87,7 +87,9 @@ describe("withStaleChunkReload", () => {
   it("passes through a successful import", async () => {
     const { withStaleChunkReload } = await freshModule();
     const mod = { default: () => null };
-    const loader = withStaleChunkReload(vi.fn().mockResolvedValue(mod) as any);
+    const loader = withStaleChunkReload(
+      vi.fn().mockResolvedValue(mod) as vi.Mock,
+    );
     await expect(loader()).resolves.toBe(mod);
     expect(reloadMock).not.toHaveBeenCalled();
   });
@@ -101,7 +103,7 @@ describe("withStaleChunkReload", () => {
           new Error(
             "Failed to fetch dynamically imported module: /assets/BookingConfirmationPage-CeZ4QyIk.js",
           ),
-        ) as any,
+        ) as vi.Mock,
     );
     let settled = false;
     void loader().then(
@@ -116,7 +118,7 @@ describe("withStaleChunkReload", () => {
   it("propagates a non-chunk error instead of reloading", async () => {
     const { withStaleChunkReload } = await freshModule();
     const loader = withStaleChunkReload(
-      vi.fn().mockRejectedValue(new Error("render exploded")) as any,
+      vi.fn().mockRejectedValue(new Error("render exploded")) as vi.Mock,
     );
     await expect(loader()).rejects.toThrow("render exploded");
     expect(reloadMock).not.toHaveBeenCalled();
@@ -125,7 +127,9 @@ describe("withStaleChunkReload", () => {
   it("propagates a repeat stale failure inside the cooldown (no loop)", async () => {
     const { withStaleChunkReload } = await freshModule();
     const err = new Error("Failed to fetch dynamically imported module: /x.js");
-    const loader = withStaleChunkReload(vi.fn().mockRejectedValue(err) as any);
+    const loader = withStaleChunkReload(
+      vi.fn().mockRejectedValue(err) as vi.Mock,
+    );
     // First failure reloads (never resolves); in-memory guard now blocks more.
     void loader();
     await tick();

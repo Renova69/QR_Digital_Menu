@@ -1,15 +1,22 @@
-import React, { useContext, useMemo, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getTableOrders, getTableStatuses, closeSession } from '../../lib/api';
-import { useTranslation } from 'react-i18next';
-import RestaurantContext from '../../context/RestaurantContext';
-import { useSocket } from '../../context/SocketContext';
-import TableCard from '../../components/tables/TableCard';
-import TableDetailModal from '../../components/tables/TableDetailModal';
-import { cn } from '../../lib/utils';
-import { CheckCircle2, CircleDollarSign, Grid3X3, Search, Timer, Users } from 'lucide-react';
+import React, { useContext, useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getTableOrders, getTableStatuses, closeSession } from "../../lib/api";
+import { useTranslation } from "react-i18next";
+import RestaurantContext from "../../context/RestaurantContext";
+import { useSocket } from "../../context/SocketContext";
+import TableCard from "../../components/tables/TableCard";
+import TableDetailModal from "../../components/tables/TableDetailModal";
+import { cn } from "../../lib/utils";
+import {
+  CheckCircle2,
+  CircleDollarSign,
+  Grid3X3,
+  Search,
+  Timer,
+  Users,
+} from "lucide-react";
 
-type FilterMode = 'active' | 'occupied' | 'paid' | 'all';
+type FilterMode = "active" | "occupied" | "paid" | "all";
 
 const filterConfig: Array<{
   id: FilterMode;
@@ -17,10 +24,20 @@ const filterConfig: Array<{
   fallback: string;
   Icon: typeof Grid3X3;
 }> = [
-  { id: 'active', labelKey: 'tables.active', fallback: 'Active', Icon: Timer },
-  { id: 'occupied', labelKey: 'tables.occupied', fallback: 'Occupied', Icon: Users },
-  { id: 'paid', labelKey: 'tables.paid', fallback: 'Paid', Icon: CircleDollarSign },
-  { id: 'all', labelKey: 'tables.allTables', fallback: 'All', Icon: Grid3X3 },
+  { id: "active", labelKey: "tables.active", fallback: "Active", Icon: Timer },
+  {
+    id: "occupied",
+    labelKey: "tables.occupied",
+    fallback: "Occupied",
+    Icon: Users,
+  },
+  {
+    id: "paid",
+    labelKey: "tables.paid",
+    fallback: "Paid",
+    Icon: CircleDollarSign,
+  },
+  { id: "all", labelKey: "tables.allTables", fallback: "All", Icon: Grid3X3 },
 ];
 
 const LiveTablesView: React.FC = () => {
@@ -29,15 +46,19 @@ const LiveTablesView: React.FC = () => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { socket } = useSocket();
-  const [filter, setFilter] = useState<FilterMode>('active');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [filter, setFilter] = useState<FilterMode>("active");
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedTable, setSelectedTable] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [tableOrders, setTableOrders] = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
 
-  const { data: tables, isLoading, error } = useQuery({
-    queryKey: ['tableStatuses', restaurantId],
+  const {
+    data: tables,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["tableStatuses", restaurantId],
     queryFn: () => getTableStatuses(restaurantId),
     enabled: !!restaurantId,
   });
@@ -46,14 +67,16 @@ const LiveTablesView: React.FC = () => {
     if (!socket || !restaurantId) return;
 
     const handleTableInvalidation = () => {
-      queryClient.invalidateQueries({ queryKey: ['tableStatuses', restaurantId] });
+      queryClient.invalidateQueries({
+        queryKey: ["tableStatuses", restaurantId],
+      });
     };
 
-    socket.on('table:status-changed', handleTableInvalidation);
-    socket.on('table:updated', handleTableInvalidation);
+    socket.on("table:status-changed", handleTableInvalidation);
+    socket.on("table:updated", handleTableInvalidation);
     return () => {
-      socket.off('table:status-changed', handleTableInvalidation);
-      socket.off('table:updated', handleTableInvalidation);
+      socket.off("table:status-changed", handleTableInvalidation);
+      socket.off("table:updated", handleTableInvalidation);
     };
   }, [socket, restaurantId, queryClient]);
 
@@ -61,10 +84,14 @@ const LiveTablesView: React.FC = () => {
     const source = tables ?? [];
     return {
       total: source.length,
-      active: source.filter((table: any) => table.status !== 'empty').length,
-      occupied: source.filter((table: any) => table.status === 'occupied').length,
-      paid: source.filter((table: any) => table.status === 'paid').length,
-      revenue: source.reduce((sum: number, table: any) => sum + Number(table.totalAmount ?? 0), 0),
+      active: source.filter((table: any) => table.status !== "empty").length,
+      occupied: source.filter((table: any) => table.status === "occupied")
+        .length,
+      paid: source.filter((table: any) => table.status === "paid").length,
+      revenue: source.reduce(
+        (sum: number, table: any) => sum + Number(table.totalAmount ?? 0),
+        0,
+      ),
     };
   }, [tables]);
 
@@ -75,19 +102,21 @@ const LiveTablesView: React.FC = () => {
     return tables
       .filter((table: any) => {
         switch (filter) {
-          case 'active':
-            return table.status !== 'empty';
-          case 'occupied':
-            return table.status === 'occupied';
-          case 'paid':
-            return table.status === 'paid';
-          case 'all':
+          case "active":
+            return table.status !== "empty";
+          case "occupied":
+            return table.status === "occupied";
+          case "paid":
+            return table.status === "paid";
+          case "all":
             return true;
         }
       })
       .filter((table: any) => {
         if (!query) return true;
-        return String(table.name ?? '').toLowerCase().includes(query);
+        return String(table.name ?? "")
+          .toLowerCase()
+          .includes(query);
       });
   }, [tables, filter, searchTerm]);
 
@@ -102,7 +131,7 @@ const LiveTablesView: React.FC = () => {
     setSelectedTable(table);
     setModalOpen(true);
     setTableOrders([]);
-    if (!restaurantId || table.status === 'empty') return;
+    if (!restaurantId || table.status === "empty") return;
     setOrdersLoading(true);
     try {
       const orders = await getTableOrders(table.id, restaurantId);
@@ -117,8 +146,12 @@ const LiveTablesView: React.FC = () => {
   const closeSessionMutation = useMutation({
     mutationFn: (token: string) => closeSession(token, restaurantId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tableStatuses', restaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['tableSessions', restaurantId] });
+      queryClient.invalidateQueries({
+        queryKey: ["tableStatuses", restaurantId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["tableSessions", restaurantId],
+      });
       setModalOpen(false);
     },
   });
@@ -129,9 +162,12 @@ const LiveTablesView: React.FC = () => {
     if (!selectedTable?.sessionToken) return;
     const confirmed = window.confirm(
       t(
-        'auto.closeSessionConfirm',
-        'Close the session for table {{table}}? The open bill of €{{amount}} will be discarded with no payment recorded.',
-        { table: selectedTable.name, amount: Number(selectedTable.totalAmount ?? 0).toFixed(2) },
+        "auto.closeSessionConfirm",
+        "Close the session for table {{table}}? The open bill of €{{amount}} will be discarded with no payment recorded.",
+        {
+          table: selectedTable.name,
+          amount: Number(selectedTable.totalAmount ?? 0).toFixed(2),
+        },
       ),
     );
     if (confirmed) closeSessionMutation.mutate(selectedTable.sessionToken);
@@ -141,7 +177,10 @@ const LiveTablesView: React.FC = () => {
     return (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {[...Array(8)].map((_, index) => (
-          <div key={index} className="aspect-[1.08/1] animate-pulse rounded-lg bg-muted/50" />
+          <div
+            key={index}
+            className="aspect-[1.08/1] animate-pulse rounded-lg bg-muted/50"
+          />
         ))}
       </div>
     );
@@ -151,12 +190,18 @@ const LiveTablesView: React.FC = () => {
     return (
       <div className="flex min-h-[300px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center">
         <div>
-          <p className="mb-4 font-bold text-muted-foreground">{t('tables.failedLoadTables')}</p>
+          <p className="mb-4 font-bold text-muted-foreground">
+            {t("tables.failedLoadTables")}
+          </p>
           <button
-            onClick={() => queryClient.invalidateQueries({ queryKey: ['tableStatuses', restaurantId] })}
+            onClick={() =>
+              queryClient.invalidateQueries({
+                queryKey: ["tableStatuses", restaurantId],
+              })
+            }
             className="rounded-lg bg-primary px-4 py-2 text-sm font-black text-white"
           >
-            {t('tables.retry')}
+            {t("tables.retry")}
           </button>
         </div>
       </div>
@@ -168,7 +213,9 @@ const LiveTablesView: React.FC = () => {
       <div className="flex min-h-[360px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center">
         <div>
           <Grid3X3 className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
-          <p className="font-bold text-muted-foreground">{t('tables.noTablesCreated')}</p>
+          <p className="font-bold text-muted-foreground">
+            {t("tables.noTablesCreated")}
+          </p>
         </div>
       </div>
     );
@@ -178,16 +225,29 @@ const LiveTablesView: React.FC = () => {
     <section>
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{t('tables.totalTables')}</p>
-          <p className="mt-1 text-2xl font-black text-foreground">{stats.total}</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+            {t("tables.totalTables")}
+          </p>
+          <p className="mt-1 text-2xl font-black text-foreground">
+            {stats.total}
+          </p>
         </div>
         <div className="rounded-lg border border-primary/20 bg-primary/10 px-4 py-3 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary">{t('tables.active')}</p>
-          <p className="mt-1 text-2xl font-black text-primary">{stats.active}</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary">
+            {t("tables.active")}
+          </p>
+          <p className="mt-1 text-2xl font-black text-primary">
+            {stats.active}
+          </p>
         </div>
         <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 shadow-sm dark:border-blue-400/20 dark:bg-blue-400/10">
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700 dark:text-blue-200">{t('tables.openValue')}</p>
-          <p className="mt-1 text-2xl font-black text-blue-700 dark:text-blue-200">{t('auto.Euro', '€')}{stats.revenue.toFixed(2)}</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700 dark:text-blue-200">
+            {t("tables.openValue")}
+          </p>
+          <p className="mt-1 text-2xl font-black text-blue-700 dark:text-blue-200">
+            {t("auto.Euro", "€")}
+            {stats.revenue.toFixed(2)}
+          </p>
         </div>
       </div>
 
@@ -202,13 +262,22 @@ const LiveTablesView: React.FC = () => {
                   type="button"
                   onClick={() => setFilter(id)}
                   className={cn(
-                    'flex h-9 items-center gap-2 rounded-md px-4 text-sm font-bold transition active:scale-[0.98]',
-                    active ? 'bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    "flex h-9 items-center gap-2 rounded-md px-4 text-sm font-bold transition active:scale-[0.98]",
+                    active
+                      ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
                   <Icon className="h-4 w-4" />
                   <span>{t(labelKey, fallback)}</span>
-                  <span className={cn('flex h-5 min-w-6 items-center justify-center rounded-full px-2 text-[11px] font-black', active ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground')}>
+                  <span
+                    className={cn(
+                      "flex h-5 min-w-6 items-center justify-center rounded-full px-2 text-[11px] font-black",
+                      active
+                        ? "bg-white/20 text-white"
+                        : "bg-muted text-muted-foreground",
+                    )}
+                  >
                     {counts[id]}
                   </span>
                 </button>
@@ -222,7 +291,7 @@ const LiveTablesView: React.FC = () => {
           <input
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder={t('tables.searchTable')}
+            placeholder={t("tables.searchTable")}
             className="h-10 w-full rounded-lg border border-border bg-card pl-10 pr-3 text-sm font-medium text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
           />
         </div>
@@ -232,7 +301,9 @@ const LiveTablesView: React.FC = () => {
         <div className="flex min-h-[280px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center">
           <div>
             <CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
-            <p className="font-bold text-muted-foreground">{t('tables.allFree')}</p>
+            <p className="font-bold text-muted-foreground">
+              {t("tables.allFree")}
+            </p>
           </div>
         </div>
       ) : (
@@ -259,7 +330,11 @@ const LiveTablesView: React.FC = () => {
         table={selectedTable}
         orders={tableOrders}
         ordersLoading={ordersLoading}
-        paymentInfo={selectedTable?.status === 'paid' ? { amount: selectedTable.totalAmount } : null}
+        paymentInfo={
+          selectedTable?.status === "paid"
+            ? { amount: selectedTable.totalAmount }
+            : null
+        }
         onCloseSession={handleCloseSession}
         closing={closeSessionMutation.isPending}
       />

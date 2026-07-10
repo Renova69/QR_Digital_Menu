@@ -1,8 +1,18 @@
-import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
-import { getRestaurants, getRestaurantById, createRestaurant as createRestaurantApi } from '../services/restaurantService';
-import type { Restaurant } from '../services/restaurantService';
-import { useAuth } from './AuthContext';
-import { useSocket } from './SocketContext';
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  useContext,
+  ReactNode,
+} from "react";
+import {
+  getRestaurants,
+  getRestaurantById,
+  createRestaurant as createRestaurantApi,
+} from "../services/restaurantService";
+import type { Restaurant } from "../services/restaurantService";
+import { useAuth } from "./AuthContext";
+import { useSocket } from "./SocketContext";
 
 export type { Restaurant };
 
@@ -11,25 +21,37 @@ export interface RestaurantContextType {
   activeRestaurant: Restaurant | null;
   loading: boolean;
   error: Error | null;
-  createRestaurant: (restaurantData: { name: string; city?: string; dashboardLanguage?: string }) => Promise<void>;
+  createRestaurant: (restaurantData: {
+    name: string;
+    city?: string;
+    dashboardLanguage?: string;
+  }) => Promise<void>;
   selectRestaurant: (restaurant: Restaurant | null) => void;
   fetchRestaurants: () => Promise<void>;
 }
 
-const RestaurantContext = createContext<RestaurantContextType | undefined>(undefined);
+const RestaurantContext = createContext<RestaurantContextType | undefined>(
+  undefined,
+);
 
 export const useRestaurantContext = () => {
   const context = useContext(RestaurantContext);
   if (!context) {
-    throw new Error('useRestaurantContext must be used within RestaurantProvider');
+    throw new Error(
+      "useRestaurantContext must be used within RestaurantProvider",
+    );
   }
   return context;
 };
 
-export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const { user, prefetchedRestaurants, clearPrefetch } = useAuth();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [activeRestaurant, setActiveRestaurant] = useState<Restaurant | null>(null);
+  const [activeRestaurant, setActiveRestaurant] = useState<Restaurant | null>(
+    null,
+  );
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
   const { socket, isConnected } = useSocket();
@@ -39,26 +61,29 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({ children
     if (!socket || !isConnected) return;
 
     if (activeRestaurant) {
-      socket.emit('joinRestaurantRoom', activeRestaurant.id);
+      socket.emit("joinRestaurantRoom", activeRestaurant.id);
     }
 
     return () => {
       if (activeRestaurant) {
-        socket.emit('leaveRestaurantRoom', activeRestaurant.id);
+        socket.emit("leaveRestaurantRoom", activeRestaurant.id);
       }
     };
   }, [activeRestaurant, socket, isConnected]);
 
   // Internal fetch — accepts prefetched data to skip network call on initial load
   // showLoading=false for background refreshes to avoid unmounting mounted views
-  const _fetchRestaurants = async (prefetchedData?: any[] | null, showLoading = true) => {
+  const _fetchRestaurants = async (
+    prefetchedData?: any[] | null,
+    showLoading = true,
+  ) => {
     if (showLoading) setLoading(true);
     try {
       setError(null);
       const role = user?.role?.toUpperCase();
       const isAssignedStaff =
         !!user?.restaurantId &&
-        ['MANAGER', 'WAITER', 'KITCHEN', 'STAFF'].includes(role || '');
+        ["MANAGER", "WAITER", "KITCHEN", "STAFF"].includes(role || "");
 
       if (isAssignedStaff) {
         const restaurant = await getRestaurantById(user.restaurantId!);
@@ -75,7 +100,7 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({ children
 
       setRestaurants(data);
       if (data.length > 0) {
-        setActiveRestaurant(current => {
+        setActiveRestaurant((current) => {
           if (current) {
             const updated = data.find((r: Restaurant) => r.id === current.id);
             return updated || data[0];
@@ -118,9 +143,13 @@ export const RestaurantProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   }, [user]);
 
-  const createRestaurant = async (restaurantData: { name: string; city?: string; dashboardLanguage?: string }) => {
+  const createRestaurant = async (restaurantData: {
+    name: string;
+    city?: string;
+    dashboardLanguage?: string;
+  }) => {
     const newRestaurant = await createRestaurantApi(restaurantData);
-    setRestaurants(prev => [...prev, newRestaurant]);
+    setRestaurants((prev) => [...prev, newRestaurant]);
     setActiveRestaurant(newRestaurant);
   };
 

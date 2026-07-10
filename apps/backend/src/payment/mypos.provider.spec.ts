@@ -1,7 +1,4 @@
-import {
-  MYPOS_TEST_PRIVATE_KEY,
-  MyposProvider,
-} from './mypos.provider';
+import { MYPOS_TEST_PRIVATE_KEY, MyposProvider } from './mypos.provider';
 import * as crypto from 'crypto';
 
 describe('MyposProvider', () => {
@@ -69,15 +66,9 @@ describe('MyposProvider', () => {
       RequestSTAN: '000006',
       RequestDateTime: '2015-08-21 10:39:37',
     };
-    notifyBody.Signature = provider.signPostData(
-      notifyBody,
-      privateKey,
-    );
+    notifyBody.Signature = provider.signPostData(notifyBody, privateKey);
 
-    const result = provider.verifyNotification(
-      notifyBody,
-      publicKey,
-    );
+    const result = provider.verifyNotification(notifyBody, publicKey);
 
     expect(result).toEqual(
       expect.objectContaining({
@@ -105,17 +96,49 @@ describe('MyposProvider', () => {
       Currency: 'EUR',
       OrderID: 'MP123',
     };
-    notifyBody.Signature = provider.signPostData(
-      notifyBody,
-      privateKey,
-    );
+    notifyBody.Signature = provider.signPostData(notifyBody, privateKey);
     notifyBody.Amount = '99.99';
 
-    const result = provider.verifyNotification(
-      notifyBody,
-      publicKey,
-    );
+    const result = provider.verifyNotification(notifyBody, publicKey);
 
     expect(result.verified).toBe(false);
+  });
+
+  describe('getActionUrl', () => {
+    it('returns checkout-test URL for DEMO mode', () => {
+      const url = provider.getActionUrl('DEMO');
+      expect(url).toBe('https://www.mypos.com/vmp/checkout-test');
+    });
+
+    it('returns checkout URL for LIVE mode', () => {
+      const url = provider.getActionUrl('LIVE');
+      expect(url).toBe('https://www.mypos.com/vmp/checkout');
+    });
+  });
+
+  describe('getField edge cases', () => {
+    it('extracts field regardless of casing', () => {
+      const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
+        modulusLength: 2048,
+        privateKeyEncoding: { type: 'pkcs1', format: 'pem' },
+        publicKeyEncoding: { type: 'spki', format: 'pem' },
+      });
+      const notifyBody: Record<string, string> = {
+        ipcmethod: 'IPCPurchaseNotify',
+        sid: '000000000000010',
+        amount: '23.45',
+        currency: 'EUR',
+        orderid: 'MP123',
+      };
+      // We are just checking if verifyNotification maps the fields correctly
+      // even if signature is invalid
+      const result = provider.verifyNotification(notifyBody, publicKey);
+
+      expect(result.method).toBe('IPCPurchaseNotify');
+      expect(result.storeId).toBe('000000000000010');
+      expect(result.amount).toBe('23.45');
+      expect(result.currency).toBe('EUR');
+      expect(result.orderId).toBe('MP123');
+    });
   });
 });

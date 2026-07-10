@@ -5,6 +5,7 @@
 ## Nodes
 
 ### auth.service.spec.ts
+
 - **ID:** `apps_backend_src_auth_auth_service_spec_ts`
 - **Type:** code
 - **Degree:** 13
@@ -17,6 +18,7 @@
   - ↔ `mockHash` [_`contains`_ | c77]
 
 ### seed.ts
+
 - **ID:** `apps_backend_prisma_seed_ts`
 - **Type:** code
 - **Degree:** 4
@@ -29,6 +31,7 @@
   - ↔ `seedHelpContent()` [_`imports`_ | c96]
 
 ### reset_password.js
+
 - **ID:** `apps_backend_reset_password_js`
 - **Type:** code
 - **Degree:** 4
@@ -41,6 +44,7 @@
   - ↔ `main()` [_`contains`_ | c139]
 
 ### get_users.js
+
 - **ID:** `apps_backend_get_users_js`
 - **Type:** code
 - **Degree:** 3
@@ -52,6 +56,7 @@
   - ↔ `main()` [_`contains`_ | c147]
 
 ### debug-pairings.ts
+
 - **ID:** `apps_backend_debug_pairings_ts`
 - **Type:** code
 - **Degree:** 2
@@ -61,6 +66,7 @@
   - ↔ `main()` [_`contains`_ | c157]
 
 ### debug-prisma.ts
+
 - **ID:** `apps_backend_debug_prisma_ts`
 - **Type:** code
 - **Degree:** 2
@@ -70,6 +76,7 @@
   - ↔ `main()` [_`contains`_ | c158]
 
 ### fix-points.migration.ts
+
 - **ID:** `apps_backend_src_orders_fix_points_migration_ts`
 - **Type:** code
 - **Degree:** 2
@@ -80,6 +87,7 @@
   - ↔ `prisma` [_`contains`_ | c162]
 
 ### test_cat.ts
+
 - **ID:** `apps_backend_test_cat_ts`
 - **Type:** code
 - **Degree:** 2
@@ -89,6 +97,7 @@
   - ↔ `main()` [_`contains`_ | c159]
 
 ### test_db.ts
+
 - **ID:** `apps_backend_test_db_ts`
 - **Type:** code
 - **Degree:** 2
@@ -98,6 +107,7 @@
   - ↔ `main()` [_`contains`_ | c160]
 
 ### main()
+
 - **ID:** `prisma_seed_main`
 - **Type:** code
 - **Degree:** 2
@@ -106,24 +116,28 @@
   - ↔ `seedHelpContent()` [_`calls`_ | c96]
 
 ### { PrismaClient }
+
 - **ID:** `backend_get_users_prismaclient`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/get_users.js` @ L1
 
 ### bcrypt
+
 - **ID:** `backend_reset_password_bcrypt`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/reset_password.js` @ L2
 
 ### fixPointsCalculation()
+
 - **ID:** `orders_fix_points_migration_fixpointscalculation`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/orders/fix-points.migration.ts` @ L5
 
 ### prisma
+
 - **ID:** `prisma_seed_prisma`
 - **Type:** code
 - **Degree:** 1

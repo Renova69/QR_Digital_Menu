@@ -57,7 +57,9 @@ describe('ReservationNotificationsService', () => {
       restaurant: {
         findUnique: jest.fn().mockResolvedValue(restaurant),
       },
-    } as any);
+    } as unknown as ConstructorParameters<
+      typeof ReservationNotificationsService
+    >[0]);
   });
 
   afterEach(() => {
@@ -69,11 +71,10 @@ describe('ReservationNotificationsService', () => {
   });
 
   it('renders the guest confirmation in the persisted Bulgarian locale', async () => {
-    const sendEmail = jest
-      .spyOn(service as any, 'sendEmail')
-      .mockResolvedValue(undefined);
+    service['sendEmail'] = jest.fn().mockResolvedValue(undefined);
+    const sendEmail = service['sendEmail'] as jest.Mock;
 
-    await (service as any).send('CONFIRMED', {
+    await service['send']('CONFIRMED', {
       restaurantId: 'rest-1',
       guestEmail: 'guest@example.com',
       guestName: 'Мария',
@@ -105,7 +106,7 @@ describe('ReservationNotificationsService', () => {
       .spyOn(global, 'fetch')
       .mockResolvedValue({ ok: true } as Response);
 
-    await (service as any).sendSms(
+    await service['sendSms'](
       '+359000000000',
       'Потвърдена резервация',
       'guest CONFIRMED',
@@ -167,7 +168,7 @@ describe('ReservationNotificationsService', () => {
     process.env.NODE_ENV = 'test';
     delete process.env.SMS_FORCE_SEND;
     const log = jest
-      .spyOn((service as any).logger, 'log')
+      .spyOn(service['logger'], 'log')
       .mockImplementation(() => undefined);
 
     await service.notify('RECEIVED', detailedGuestInput);
@@ -207,7 +208,7 @@ describe('ReservationNotificationsService', () => {
     delete process.env.SMS_GATEWAY_USERNAME;
     delete process.env.SMS_GATEWAY_PASSWORD;
     const error = jest
-      .spyOn((service as any).logger, 'error')
+      .spyOn(service['logger'], 'error')
       .mockImplementation(() => undefined);
     const fetchMock = jest.spyOn(global, 'fetch');
 
@@ -222,11 +223,10 @@ describe('ReservationNotificationsService', () => {
   });
 
   it('includes all guest-provided details in the guest email', async () => {
-    const sendEmail = jest
-      .spyOn(service as any, 'sendEmail')
-      .mockResolvedValue(undefined);
+    service['sendEmail'] = jest.fn().mockResolvedValue(undefined);
+    const sendEmail = service['sendEmail'] as jest.Mock;
 
-    await (service as any).send('CONFIRMED', {
+    await service['send']('CONFIRMED', {
       ...detailedGuestInput,
       notifyBySms: false,
     });
@@ -252,11 +252,10 @@ describe('ReservationNotificationsService', () => {
 
   it('keeps the guest SMS terse: status + party size, no allergy or prose', async () => {
     process.env.BACKEND_URL = 'https://api.example.com';
-    const sendSms = jest
-      .spyOn(service as any, 'sendSms')
-      .mockResolvedValue(undefined);
+    service['sendSms'] = jest.fn().mockResolvedValue(undefined);
+    const sendSms = service['sendSms'] as jest.Mock;
 
-    await (service as any).send('CONFIRMED', {
+    await service['send']('CONFIRMED', {
       ...detailedGuestInput,
       notifyByEmail: false,
     });
@@ -274,11 +273,10 @@ describe('ReservationNotificationsService', () => {
   });
 
   it('renders a distinct "updated" notice for a guest modification', async () => {
-    const sendEmail = jest
-      .spyOn(service as any, 'sendEmail')
-      .mockResolvedValue(undefined);
+    service['sendEmail'] = jest.fn().mockResolvedValue(undefined);
+    const sendEmail = service['sendEmail'] as jest.Mock;
 
-    await (service as any).send('MODIFIED', {
+    await service['send']('MODIFIED', {
       ...detailedGuestInput,
       notifyBySms: false,
     });
@@ -290,14 +288,12 @@ describe('ReservationNotificationsService', () => {
   });
 
   it('adds full details to the owner email but keeps allergy out of owner SMS', async () => {
-    const sendEmail = jest
-      .spyOn(service as any, 'sendEmail')
-      .mockResolvedValue(undefined);
-    const sendSms = jest
-      .spyOn(service as any, 'sendSms')
-      .mockResolvedValue(undefined);
+    service['sendEmail'] = jest.fn().mockResolvedValue(undefined);
+    const sendEmail = service['sendEmail'] as jest.Mock;
+    service['sendSms'] = jest.fn().mockResolvedValue(undefined);
+    const sendSms = service['sendSms'] as jest.Mock;
 
-    await (service as any).sendOwner({
+    await service['sendOwner']({
       restaurantId: 'rest-1',
       notifyEmail: 'owner@example.com',
       notifyPhone: '+359111111111',
@@ -331,7 +327,7 @@ describe('ReservationNotificationsService', () => {
     delete process.env.TWILIO_MESSAGING_SERVICE_SID;
     delete process.env.TWILIO_FROM_NUMBER;
     const error = jest
-      .spyOn((service as any).logger, 'error')
+      .spyOn(service['logger'], 'error')
       .mockImplementation(() => undefined);
 
     await service.notify('RECEIVED', productionReservationRequest);

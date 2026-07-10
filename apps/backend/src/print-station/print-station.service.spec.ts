@@ -25,6 +25,8 @@ const mockPrisma = {
     findUnique: jest.fn(),
     findMany: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
+    count: jest.fn(),
   },
   order: { findUnique: jest.fn() },
 };
@@ -73,6 +75,18 @@ describe('PrintStationService', () => {
   });
 
   describe('routeOrderToPrinters', () => {
+    it('does nothing when order has no items', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue({
+        id: 'order_empty',
+        restaurantId: 'r1',
+        tableName: 'T1',
+        customerName: 'C1',
+        items: [],
+      });
+      await service.routeOrderToPrinters('order_empty');
+      expect(mockPrisma.printJob.create).not.toHaveBeenCalled();
+    });
+
     it('creates PrintJob and emits when agent connected', async () => {
       mockEvents.emitPrintJob.mockReturnValue(true);
       mockPrisma.order.findUnique.mockResolvedValue({
@@ -86,14 +100,21 @@ describe('PrintStationService', () => {
             menuItem: {
               name: 'Burger',
               category: {
-                printStation: { id: 'station1', name: 'Kitchen', isActive: true },
+                printStation: {
+                  id: 'station1',
+                  name: 'Kitchen',
+                  isActive: true,
+                },
               },
             },
             selectedOptions: [],
           },
         ],
       });
-      mockPrisma.printJob.create.mockResolvedValue({ id: 'job1', ticketBase64: 'abc' });
+      mockPrisma.printJob.create.mockResolvedValue({
+        id: 'job1',
+        ticketBase64: 'abc',
+      });
       mockPrisma.printJob.update.mockResolvedValue({});
 
       await service.routeOrderToPrinters('order123');
@@ -123,14 +144,21 @@ describe('PrintStationService', () => {
             menuItem: {
               name: 'Salad',
               category: {
-                printStation: { id: 'station1', name: 'Kitchen', isActive: true },
+                printStation: {
+                  id: 'station1',
+                  name: 'Kitchen',
+                  isActive: true,
+                },
               },
             },
             selectedOptions: [],
           },
         ],
       });
-      mockPrisma.printJob.create.mockResolvedValue({ id: 'job2', ticketBase64: 'xyz' });
+      mockPrisma.printJob.create.mockResolvedValue({
+        id: 'job2',
+        ticketBase64: 'xyz',
+      });
 
       await service.routeOrderToPrinters('order456');
 
@@ -159,10 +187,19 @@ describe('PrintStationService', () => {
 
   describe('handlePrintAck', () => {
     it('sets status to PRINTED on success', async () => {
-      mockPrisma.printJob.findFirst.mockResolvedValue({ id: 'j1', attempts: 1 });
+      mockPrisma.printJob.findFirst.mockResolvedValue({
+        id: 'j1',
+        attempts: 1,
+      });
       mockPrisma.printJob.update.mockResolvedValue({});
 
-      await service.handlePrintAck('j1', true, undefined, 'station-1', 'rest-1');
+      await service.handlePrintAck(
+        'j1',
+        true,
+        undefined,
+        'station-1',
+        'rest-1',
+      );
 
       expect(mockPrisma.printJob.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -172,10 +209,19 @@ describe('PrintStationService', () => {
     });
 
     it('sets status to FAILED when max attempts reached', async () => {
-      mockPrisma.printJob.findFirst.mockResolvedValue({ id: 'j2', attempts: 3 });
+      mockPrisma.printJob.findFirst.mockResolvedValue({
+        id: 'j2',
+        attempts: 3,
+      });
       mockPrisma.printJob.update.mockResolvedValue({});
 
-      await service.handlePrintAck('j2', false, 'connection refused', 'station-1', 'rest-1');
+      await service.handlePrintAck(
+        'j2',
+        false,
+        'connection refused',
+        'station-1',
+        'rest-1',
+      );
 
       expect(mockPrisma.printJob.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -185,10 +231,19 @@ describe('PrintStationService', () => {
     });
 
     it('sets status back to PENDING for retry when under max attempts', async () => {
-      mockPrisma.printJob.findFirst.mockResolvedValue({ id: 'j3', attempts: 1 });
+      mockPrisma.printJob.findFirst.mockResolvedValue({
+        id: 'j3',
+        attempts: 1,
+      });
       mockPrisma.printJob.update.mockResolvedValue({});
 
-      await service.handlePrintAck('j3', false, 'timeout', 'station-1', 'rest-1');
+      await service.handlePrintAck(
+        'j3',
+        false,
+        'timeout',
+        'station-1',
+        'rest-1',
+      );
 
       expect(mockPrisma.printJob.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -200,8 +255,25 @@ describe('PrintStationService', () => {
     it('silently ignores ack for a job that does not belong to the station (IDOR guard)', async () => {
       mockPrisma.printJob.findFirst.mockResolvedValue(null);
 
-      await service.handlePrintAck('j-other', true, undefined, 'station-1', 'rest-1');
+      await service.handlePrintAck(
+        'j-other',
+        true,
+        undefined,
+        'station-1',
+        'rest-1',
+      );
 
+      expect(mockPrisma.printJob.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('retryPendingJobs', () => {
+    it('leaves job as PENDING if agent connection drops (emit fails)', async () => {
+      mockEvents.emitPrintJob.mockReturnValue(false); // Connection dropped
+      mockPrisma.printJob.findMany.mockResolvedValue([
+        { id: 'job1', ticketBase64: 'abc', attempts: 0, status: 'PENDING' },
+      ]);
+      await service.retryPendingJobs('r1', 'station1');
       expect(mockPrisma.printJob.update).not.toHaveBeenCalled();
     });
   });
@@ -263,6 +335,116 @@ describe('PrintStationService', () => {
         'station-1',
         'token-1',
       );
+    });
+  });
+
+  describe('generateToken', () => {
+    it('generates a token and saves its hash', async () => {
+      mockPrisma.printStation.findUnique.mockResolvedValue({
+        id: 'station-1',
+        restaurantId: 'r1',
+      });
+      mockPrisma.printAgentToken.create.mockResolvedValue({
+        id: 'token-1',
+        restaurantId: 'r1',
+        printStationId: 'station-1',
+        label: 'My Token',
+      });
+
+      const result = await service.generateToken('r1', 'station-1', 'My Token');
+
+      expect(result).toHaveProperty('token');
+      expect(mockPrisma.printAgentToken.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          restaurantId: 'r1',
+          printStationId: 'station-1',
+          label: 'My Token',
+          tokenHash: expect.any(String),
+        }),
+        select: expect.any(Object),
+      });
+    });
+  });
+
+  describe('remove', () => {
+    it('throws ConflictException if there are active print jobs', async () => {
+      mockPrisma.printStation.findUnique.mockResolvedValue({
+        id: 'station-1',
+        restaurantId: 'r1',
+      });
+      mockPrisma.printJob.count.mockResolvedValue(2);
+
+      await expect(service.remove('r1', 'station-1')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockPrisma.printJob.count).toHaveBeenCalledWith({
+        where: {
+          printStationId: 'station-1',
+          status: { in: ['PENDING', 'SENT'] },
+        },
+      });
+    });
+
+    it('deletes the print station if no active jobs exist', async () => {
+      mockPrisma.printStation.findUnique.mockResolvedValue({
+        id: 'station-1',
+        restaurantId: 'r1',
+      });
+      mockPrisma.printJob.count.mockResolvedValue(0);
+      mockPrisma.printStation.delete.mockResolvedValue({});
+
+      await service.remove('r1', 'station-1');
+
+      expect(mockPrisma.printStation.delete).toHaveBeenCalledWith({
+        where: { id: 'station-1' },
+      });
+    });
+  });
+
+  describe('getJobs', () => {
+    it('returns jobs filtered by status', async () => {
+      mockPrisma.printStation.findUnique.mockResolvedValue({
+        id: 'station-1',
+        restaurantId: 'r1',
+      });
+      mockPrisma.printJob.findMany.mockResolvedValue([
+        { id: 'job1', status: 'PRINTED' },
+      ]);
+      const result = await service.getJobs('r1', 'station-1', 'PRINTED');
+      expect(mockPrisma.printJob.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            restaurantId: 'r1',
+            printStationId: 'station-1',
+            status: 'PRINTED',
+          },
+        }),
+      );
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  describe('getStationHealth', () => {
+    it('returns station health including status counts', async () => {
+      mockPrisma.printStation.findMany.mockResolvedValue([
+        {
+          id: 's1',
+          name: 'Bar',
+          isActive: true,
+          agentTokens: [{ lastSeenAt: new Date('2026-07-08T10:00:00Z') }],
+          _count: { printJobs: 5 },
+          printJobs: [
+            { status: 'FAILED', createdAt: new Date() },
+            { status: 'PRINTED', createdAt: new Date() },
+          ],
+        },
+      ]);
+      const result = await service.getStationHealth('r1');
+      expect(result).toHaveLength(1);
+      expect(result[0].pending).toBe(5);
+      expect(result[0].failed).toBe(1);
+      expect(result[0].isActive).toBe(true);
+      expect(result[0].lastSeen).toEqual(new Date('2026-07-08T10:00:00Z'));
     });
   });
 });

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './jwt.strategy';
 
 import { FeatureService } from '../subscription/feature.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 describe('JwtStrategy', () => {
   const prisma = {
@@ -19,7 +20,7 @@ describe('JwtStrategy', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     strategy = new JwtStrategy(
-      prisma as any,
+      prisma as unknown as PrismaService,
       {
         get: jest.fn().mockReturnValue('test-secret'),
       } as unknown as ConfigService,

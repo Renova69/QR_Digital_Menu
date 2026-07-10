@@ -650,10 +650,9 @@ const DashboardPage = () => {
                     !isStaff && <PaymentsView />}
                   {activeTab === "assistance" && <AssistanceView />}
                   {activeTab === "tables" && activeRestaurant && <TableView />}
-                  {activeTab === "reservations" &&
-                    activeRestaurant && (
-                      <ReservationsView canConfigure={canReservations} />
-                    )}
+                  {activeTab === "reservations" && activeRestaurant && (
+                    <ReservationsView canConfigure={canReservations} />
+                  )}
                   {activeTab === "settings" && activeRestaurant && !isStaff && (
                     <SettingsView />
                   )}

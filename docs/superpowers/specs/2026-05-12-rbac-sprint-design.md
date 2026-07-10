@@ -21,13 +21,16 @@ Route `/staff/kitchen` renders `KitchenPage` wrapped in `StaffRoute` at `apps/fr
 Merge the standalone `useAuth.ts` hook (TanStack Query wrapper) into `AuthContext.tsx` (raw useState). Single source of truth backed by React Query, JWT stays in httpOnly cookie — no localStorage token access anywhere.
 
 **Files to change:**
+
 - `apps/frontend/src/context/AuthContext.tsx` — absorb `useAuth` logic, export `useAuth` from here
 - `apps/frontend/src/hooks/useAuth.ts` — delete after migration
 - All consumers of `useAuth` — update import path only (API unchanged)
 
 **Contract (unchanged):**
+
 ```ts
-const { user, isLoading, isAuthenticated, login, logout, loginWithToken } = useAuth()
+const { user, isLoading, isAuthenticated, login, logout, loginWithToken } =
+  useAuth();
 ```
 
 ### 2.2 Provider Splitting
@@ -36,13 +39,14 @@ Heavy providers (`SocketProvider`, `CartProvider`, `OrderProvider`, `AssistanceP
 
 **Target layout wiring:**
 
-| Layout | Providers needed |
-|--------|-----------------|
-| `AppLayout` (dashboard, settings, staff views) | Auth, Restaurant, Socket, Notification |
-| `PosLayout` (/staff/pos) | Auth, Pos (isolated from CartContext), Socket, Notification |
-| `PublicLayout` (customer menu, checkout) | Auth, Cart, Order, Assistance, Socket, Restaurant, Notification |
+| Layout                                         | Providers needed                                                |
+| ---------------------------------------------- | --------------------------------------------------------------- |
+| `AppLayout` (dashboard, settings, staff views) | Auth, Restaurant, Socket, Notification                          |
+| `PosLayout` (/staff/pos)                       | Auth, Pos (isolated from CartContext), Socket, Notification     |
+| `PublicLayout` (customer menu, checkout)       | Auth, Cart, Order, Assistance, Socket, Restaurant, Notification |
 
 **Files to change:**
+
 - `apps/frontend/src/App.tsx` — restructure provider nesting per layout
 - `apps/frontend/src/layouts/AppLayout.tsx` — add provider wrapper
 - `apps/frontend/src/layouts/PosLayout.tsx` — add provider wrapper
@@ -57,6 +61,7 @@ Heavy providers (`SocketProvider`, `CartProvider`, `OrderProvider`, `AssistanceP
 ### 3.1 Verify Split Services
 
 Three split services exist (untracked) and are complete:
+
 - `apps/backend/src/menu/menu-crud.service.ts` — CRUD operations for categories, items, options
 - `apps/backend/src/menu/menu-audit.service.ts` — menu health checks, audit rules
 - `apps/backend/src/menu/menu-translation.service.ts` — DeepL pre-warm + on-demand translation
@@ -67,13 +72,13 @@ These are already wired into `menu.module.ts` providers but controllers still im
 
 Five controllers import `MenuService` from `./menu.service`. Each must be updated to import only the split service(s) it actually uses:
 
-| Controller | Current import | Replace with |
-|-----------|---------------|--------------|
-| `category.controller.ts` | `MenuService` | `MenuCrudService` |
-| `item.controller.ts` | `MenuService` | `MenuCrudService` |
-| `public-menu.controller.ts` | `MenuService` | `MenuCrudService` + `MenuTranslationService` |
-| `audit.controller.ts` | `MenuService` | `MenuAuditService` |
-| `menu-option.controller.ts` | `MenuService` | `MenuCrudService` |
+| Controller                  | Current import | Replace with                                 |
+| --------------------------- | -------------- | -------------------------------------------- |
+| `category.controller.ts`    | `MenuService`  | `MenuCrudService`                            |
+| `item.controller.ts`        | `MenuService`  | `MenuCrudService`                            |
+| `public-menu.controller.ts` | `MenuService`  | `MenuCrudService` + `MenuTranslationService` |
+| `audit.controller.ts`       | `MenuService`  | `MenuAuditService`                           |
+| `menu-option.controller.ts` | `MenuService`  | `MenuCrudService`                            |
 
 Constructor signatures and method calls updated to match.
 
@@ -111,30 +116,32 @@ Migration: existing `STAFF` users upgraded to `WAITER` role via data migration s
 
 ### 4.2 Permission Matrix
 
-| Action | OWNER | MANAGER | WAITER | KITCHEN |
-|--------|-------|---------|--------|---------|
-| Full dashboard access | Yes | Yes | No | No |
-| Staff management (create/delete) | Yes | Yes | No | No |
-| Menu CRUD | Yes | Yes | No | No |
-| Analytics | Yes | Yes | No | No |
-| Orders — view/manage | Yes | Yes | View own | View KDS |
-| POS access | Yes | Yes | Auto-redirect | No |
-| Kitchen display | Yes | Yes | No | Auto-redirect |
-| Delete restaurant | Yes | No | No | No |
-| Stripe/billing | Yes | No | No | No |
-| Shared device mode toggle | Yes | Yes | No | No |
+| Action                           | OWNER | MANAGER | WAITER        | KITCHEN       |
+| -------------------------------- | ----- | ------- | ------------- | ------------- |
+| Full dashboard access            | Yes   | Yes     | No            | No            |
+| Staff management (create/delete) | Yes   | Yes     | No            | No            |
+| Menu CRUD                        | Yes   | Yes     | No            | No            |
+| Analytics                        | Yes   | Yes     | No            | No            |
+| Orders — view/manage             | Yes   | Yes     | View own      | View KDS      |
+| POS access                       | Yes   | Yes     | Auto-redirect | No            |
+| Kitchen display                  | Yes   | Yes     | No            | Auto-redirect |
+| Delete restaurant                | Yes   | No      | No            | No            |
+| Stripe/billing                   | Yes   | No      | No            | No            |
+| Shared device mode toggle        | Yes   | Yes     | No            | No            |
 
 Guard implementation: `StaffRoute` expanded to accept allowed roles array. Dashboard routes wrapped with role check blocking WAITER and KITCHEN.
 
 ### 4.3 New Endpoints
 
 **`POST /api/restaurants/:id/staff`** — Create staff member (OWNER/MANAGER only)
+
 - Body: `{ name: string, email?: string, role: "WAITER" | "KITCHEN" | "MANAGER" }`
 - Generates random 4-digit PIN, bcrypt-hashes it (10 rounds), saves user
 - Returns `{ user, rawPin: "1234" }` — raw PIN shown once, never stored
 - Rate-limited: 10 requests per minute per restaurant
 
 **`POST /api/auth/pin-login`** — PIN-based shared device login
+
 - Body: `{ restaurantId: string, pin: string }`
 - Looks up user by restaurantId + role IN (WAITER, KITCHEN, MANAGER), compares bcrypt hash
 - Issues same httpOnly JWT cookie as normal login
@@ -144,16 +151,16 @@ Guard implementation: `StaffRoute` expanded to accept allowed roles array. Dashb
 
 ### 4.4 Files to Create/Change
 
-| File | Action |
-|------|--------|
-| `apps/backend/prisma/schema.prisma` | Modify — enum + pinHash field |
-| `apps/backend/src/auth/auth.service.ts` | Modify — add `pinLogin()` method |
-| `apps/backend/src/auth/auth.controller.ts` | Modify — add `POST /auth/pin-login` route |
-| `apps/backend/src/auth/dto/pin-login.dto.ts` | Create — validation DTO |
-| `apps/backend/src/users/users.service.ts` | Modify — add `createStaffMember()` method |
-| `apps/backend/src/users/dto/create-staff.dto.ts` | Create — validation DTO |
-| `apps/backend/src/users/users.controller.ts` | Modify — add `POST /restaurants/:id/staff` route |
-| `apps/frontend/src/components/StaffRoute.tsx` | Modify — expand allowed roles, add smart redirect |
+| File                                             | Action                                            |
+| ------------------------------------------------ | ------------------------------------------------- |
+| `apps/backend/prisma/schema.prisma`              | Modify — enum + pinHash field                     |
+| `apps/backend/src/auth/auth.service.ts`          | Modify — add `pinLogin()` method                  |
+| `apps/backend/src/auth/auth.controller.ts`       | Modify — add `POST /auth/pin-login` route         |
+| `apps/backend/src/auth/dto/pin-login.dto.ts`     | Create — validation DTO                           |
+| `apps/backend/src/users/users.service.ts`        | Modify — add `createStaffMember()` method         |
+| `apps/backend/src/users/dto/create-staff.dto.ts` | Create — validation DTO                           |
+| `apps/backend/src/users/users.controller.ts`     | Modify — add `POST /restaurants/:id/staff` route  |
+| `apps/frontend/src/components/StaffRoute.tsx`    | Modify — expand allowed roles, add smart redirect |
 
 ---
 
@@ -162,6 +169,7 @@ Guard implementation: `StaffRoute` expanded to accept allowed roles array. Dashb
 ### 5.1 Device Mode Activation
 
 Manager Settings page gets an "Enable Shared Device Mode" button. On click:
+
 1. Saves `{ restaurantId, restaurantName }` to `localStorage` key `sharedDevice`
 2. Redirects to `/device-login`
 
@@ -170,6 +178,7 @@ Manager Settings page gets an "Enable Shared Device Mode" button. On click:
 Full-viewport, dark-themed, mobile-first (375px baseline) touch interface.
 
 **States:**
+
 - **Idle:** Restaurant name + icon header, 4 empty PIN dots, 3×3 numeric grid + 0 + backspace
 - **Partial entry:** Filled dots for each digit tapped (indigo `#6366f1`), backspace clears last
 - **Submitting:** All 4 dots filled, auto-submit fires on 4th digit — no submit button needed
@@ -185,6 +194,7 @@ Full-viewport, dark-themed, mobile-first (375px baseline) touch interface.
 ### 5.3 Smart Routing
 
 `StaffRoute` updated to redirect by role after authentication:
+
 - `WAITER` → `/staff/pos`
 - `KITCHEN` → `/staff/kitchen`
 - `MANAGER` / `OWNER` → requested path (dashboard, settings, etc.)
@@ -201,13 +211,13 @@ KDS (`/staff/kitchen`) stays always on — no auto-lock. Manual logout button on
 
 ### 5.5 Files to Create/Change
 
-| File | Action |
-|------|--------|
-| `apps/frontend/src/pages/DeviceLoginPage.tsx` | Create — full keypad UI with all states |
-| `apps/frontend/src/components/StaffRoute.tsx` | Modify — role-based redirect |
-| `apps/frontend/src/layouts/PosLayout.tsx` | Modify — add idle timer |
+| File                                                 | Action                                   |
+| ---------------------------------------------------- | ---------------------------------------- |
+| `apps/frontend/src/pages/DeviceLoginPage.tsx`        | Create — full keypad UI with all states  |
+| `apps/frontend/src/components/StaffRoute.tsx`        | Modify — role-based redirect             |
+| `apps/frontend/src/layouts/PosLayout.tsx`            | Modify — add idle timer                  |
 | `apps/frontend/src/pages/dashboard/SettingsView.tsx` | Modify — add shared device toggle button |
-| `apps/frontend/src/App.tsx` | Modify — add `/device-login` route |
+| `apps/frontend/src/App.tsx`                          | Modify — add `/device-login` route       |
 
 ---
 
@@ -227,10 +237,10 @@ Phase 1 is pre-completed and skipped.
 
 ## Risk Register
 
-| Risk | Likelihood | Mitigation |
-|------|-----------|------------|
-| Provider split breaks useContext consumers | Medium | Audit every `useContext` call site before moving; verify React tree at each layout |
-| Old MenuService deletion breaks undiscovered import | Low | Grep entire codebase for `menu.service` imports before deleting |
-| PIN brute-force bypass | Low | Reuse existing OTP lockout pattern (attempts counter + lockedUntil timestamp) |
-| STAFF→WAITER migration breaks existing users | Low | Data migration script; STAFF role kept in enum for backward compat |
-| Auto-lock fires during active POS use (e.g., long order entry) | Medium | Reset timer on ANY pointer/touch/keyboard event; 5-min window is generous |
+| Risk                                                           | Likelihood | Mitigation                                                                         |
+| -------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------- |
+| Provider split breaks useContext consumers                     | Medium     | Audit every `useContext` call site before moving; verify React tree at each layout |
+| Old MenuService deletion breaks undiscovered import            | Low        | Grep entire codebase for `menu.service` imports before deleting                    |
+| PIN brute-force bypass                                         | Low        | Reuse existing OTP lockout pattern (attempts counter + lockedUntil timestamp)      |
+| STAFF→WAITER migration breaks existing users                   | Low        | Data migration script; STAFF role kept in enum for backward compat                 |
+| Auto-lock fires during active POS use (e.g., long order entry) | Medium     | Reset timer on ANY pointer/touch/keyboard event; 5-min window is generous          |

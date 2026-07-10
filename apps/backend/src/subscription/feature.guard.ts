@@ -82,20 +82,18 @@ export class FeatureGuard implements CanActivate {
 
     const cacheKey = `_restaurantCache_${restaurantId ?? 'default'}`;
     if (!request[cacheKey]) {
-      const restaurant = restaurantId
-        ? await this.prisma.restaurant.findUnique({
-            where: { id: restaurantId },
-            select: RESTAURANT_SELECT,
-          })
-        : user?.restaurantId
-          ? await this.prisma.restaurant.findUnique({
-              where: { id: user.restaurantId },
-              select: RESTAURANT_SELECT,
-            })
-          : await this.prisma.restaurant.findFirst({
-              where: { ownerId: userId },
-              select: RESTAURANT_SELECT,
-            });
+      let restaurant = null;
+      if (restaurantId) {
+        restaurant = await this.prisma.restaurant.findUnique({
+          where: { id: restaurantId },
+          select: RESTAURANT_SELECT,
+        });
+      } else if (user?.restaurantId) {
+        restaurant = await this.prisma.restaurant.findUnique({
+          where: { id: user.restaurantId },
+          select: RESTAURANT_SELECT,
+        });
+      }
       request[cacheKey] = restaurant;
     }
     const restaurant = request[cacheKey];

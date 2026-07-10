@@ -1,7 +1,7 @@
 // apps/frontend/src/components/menu/CategoryPills.tsx
-import { useEffect, useRef } from 'react';
-import { Category } from '../../types';
-import { getTranslatedField } from '../../lib/translation';
+import { useEffect, useRef } from "react";
+import { Category } from "../../types";
+import { getTranslatedField } from "../../lib/translation";
 
 interface CategoryPillsProps {
   categories: Category[];
@@ -23,7 +23,11 @@ export function CategoryPills({
     if (!activeCategory) return;
     const el = pillRefs.current[activeCategory];
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      el.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
     }
   }, [activeCategory]);
 
@@ -34,31 +38,42 @@ export function CategoryPills({
         className="flex gap-2 overflow-x-auto hide-scrollbar glass-panel p-1.5 rounded-[1.75rem] border-white/5 shadow-lg"
         style={{
           // Fade the first/last ~1.5rem so partially-visible pills blend out rather than hard-clip
-          maskImage: 'linear-gradient(to right, transparent, black 1.5rem, black calc(100% - 1.5rem), transparent)',
-          WebkitMaskImage: 'linear-gradient(to right, transparent, black 1.5rem, black calc(100% - 1.5rem), transparent)',
+          maskImage:
+            "linear-gradient(to right, transparent, black 1.5rem, black calc(100% - 1.5rem), transparent)",
+          WebkitMaskImage:
+            "linear-gradient(to right, transparent, black 1.5rem, black calc(100% - 1.5rem), transparent)",
           // scrollIntoView respects this padding so it won't land items inside the fade zone
-          scrollPaddingInline: '1.5rem',
+          scrollPaddingInline: "1.5rem",
         }}
       >
         {/* Left spacer keeps first pill clear of the fade zone */}
         <div className="flex-shrink-0 w-3" aria-hidden="true" />
         {categories.map((cat) => {
           const catName =
-            getTranslatedField(cat, selectedLang, 'name') ||
+            getTranslatedField(cat, selectedLang, "name") ||
             cat.originalName ||
             cat.name;
           const isActive = activeCategory === cat.id;
           return (
             <button
               key={cat.id}
-              ref={(el) => { pillRefs.current[cat.id] = el; }}
+              ref={(el) => {
+                pillRefs.current[cat.id] = el;
+              }}
               onClick={() => onSelect(cat.id)}
               className={`whitespace-nowrap px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all duration-200 active:scale-95 flex-shrink-0 ${
                 isActive
-                  ? 'shadow-md'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                  ? "shadow-md"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
               }`}
-              style={isActive ? { background: 'var(--gradient-brand)', color: 'var(--brand-contrast, #fff)' } : {}}
+              style={
+                isActive
+                  ? {
+                      background: "var(--gradient-brand)",
+                      color: "var(--brand-contrast, #fff)",
+                    }
+                  : {}
+              }
             >
               {catName}
             </button>

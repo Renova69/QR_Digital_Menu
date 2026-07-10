@@ -7,6 +7,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
 import { FeatureService } from '../subscription/feature.service';
@@ -195,9 +197,11 @@ describe('OrdersService', () => {
 
   describe('create', () => {
     it('rejects empty items array', async () => {
-      await expect(service.create({ items: [] } as any)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.create({ items: [] } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('throws NotFoundException when menu items missing from DB', async () => {
@@ -209,7 +213,9 @@ describe('OrdersService', () => {
             { menuItemId: 'item-1', quantity: 1, selectedOptions: [] },
             { menuItemId: 'item-missing', quantity: 1, selectedOptions: [] },
           ],
-        } as any),
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -225,7 +231,9 @@ describe('OrdersService', () => {
             { menuItemId: 'item-1', quantity: 1, selectedOptions: [] },
             { menuItemId: 'item-2', quantity: 1, selectedOptions: [] },
           ],
-        } as any),
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -237,7 +245,9 @@ describe('OrdersService', () => {
       await expect(
         service.create({
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
-        } as any),
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -248,7 +258,9 @@ describe('OrdersService', () => {
       await expect(
         service.create({
           items: [{ menuItemId: 'item-1', quantity: 1 }],
-        } as any),
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -263,7 +275,9 @@ describe('OrdersService', () => {
         service.create({
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
           tableId: 'unknown-table',
-        } as any),
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -278,7 +292,9 @@ describe('OrdersService', () => {
           { menuItemId: 'item-1', quantity: 2, selectedOptions: [] },
           { menuItemId: 'item-2', quantity: 1, selectedOptions: [] },
         ],
-      } as any);
+      } as unknown as Partial<
+        CreateOrderDto & UpdateOrderDto
+      > as CreateOrderDto & UpdateOrderDto);
 
       // price computed inside tx.order.create arg; we check the call arg
       const createCall = tx.order.create.mock.calls[0][0];
@@ -315,7 +331,9 @@ describe('OrdersService', () => {
       await service.create(
         {
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
-        } as any,
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
         'customer-user',
       );
 
@@ -333,7 +351,9 @@ describe('OrdersService', () => {
           {
             items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
             customerId: 'other-customer',
-          } as any,
+          } as unknown as Partial<
+            CreateOrderDto & UpdateOrderDto
+          > as CreateOrderDto & UpdateOrderDto,
           'cust-1',
         ),
       ).rejects.toThrow(UnauthorizedException);
@@ -369,7 +389,9 @@ describe('OrdersService', () => {
           {
             items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
             customerId: 'some-customer-id',
-          } as any,
+          } as unknown as Partial<
+            CreateOrderDto & UpdateOrderDto
+          > as CreateOrderDto & UpdateOrderDto,
           'waiter-1',
         ),
       ).resolves.toBeDefined();
@@ -398,7 +420,9 @@ describe('OrdersService', () => {
           {
             items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
             customerId: 'ghost-id',
-          } as any,
+          } as unknown as Partial<
+            CreateOrderDto & UpdateOrderDto
+          > as CreateOrderDto & UpdateOrderDto,
           'waiter-1',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -429,7 +453,9 @@ describe('OrdersService', () => {
           {
             items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
             customerId: 'disabled-cust',
-          } as any,
+          } as unknown as Partial<
+            CreateOrderDto & UpdateOrderDto
+          > as CreateOrderDto & UpdateOrderDto,
           'waiter-1',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -460,7 +486,9 @@ describe('OrdersService', () => {
           {
             items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
             customerId: 'manager-id',
-          } as any,
+          } as unknown as Partial<
+            CreateOrderDto & UpdateOrderDto
+          > as CreateOrderDto & UpdateOrderDto,
           'waiter-1',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -485,7 +513,9 @@ describe('OrdersService', () => {
         service.create(
           {
             items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
-          } as any,
+          } as unknown as Partial<
+            CreateOrderDto & UpdateOrderDto
+          > as CreateOrderDto & UpdateOrderDto,
           'disabled-cust',
         ),
       ).rejects.toThrow(UnauthorizedException);
@@ -503,7 +533,9 @@ describe('OrdersService', () => {
         service.create(
           {
             items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
-          } as any,
+          } as unknown as Partial<
+            CreateOrderDto & UpdateOrderDto
+          > as CreateOrderDto & UpdateOrderDto,
           'deleted-user-id',
         ),
       ).rejects.toThrow(UnauthorizedException);
@@ -527,7 +559,9 @@ describe('OrdersService', () => {
         {
           source: 'POS',
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
-        } as any,
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
         'waiter-1',
       );
 
@@ -558,7 +592,9 @@ describe('OrdersService', () => {
             selectedOptions: [{ optionId: 'opt-1', choiceName: 'Large' }],
           },
         ],
-      } as any);
+      } as unknown as Partial<
+        CreateOrderDto & UpdateOrderDto
+      > as CreateOrderDto & UpdateOrderDto);
 
       const createCall = tx.order.create.mock.calls[0][0];
       expect(createCall.data.totalPrice).toBe(26); // (10+3)*2
@@ -583,7 +619,9 @@ describe('OrdersService', () => {
               selectedOptions: [{ optionId: 'opt-1', choiceName: 'XL' }],
             },
           ],
-        } as any),
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -604,7 +642,9 @@ describe('OrdersService', () => {
               ],
             },
           ],
-        } as any),
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -623,7 +663,9 @@ describe('OrdersService', () => {
       const result = await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
         sessionToken: 'tok-exist',
-      } as any);
+      } as unknown as Partial<
+        CreateOrderDto & UpdateOrderDto
+      > as CreateOrderDto & UpdateOrderDto);
 
       expect(result.sessionToken).toBe('tok-exist');
     });
@@ -642,7 +684,9 @@ describe('OrdersService', () => {
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
         tableId: 'T1',
-      } as any);
+      } as unknown as Partial<
+        CreateOrderDto & UpdateOrderDto
+      > as CreateOrderDto & UpdateOrderDto);
 
       expect(events.emitTableStatusChanged).toHaveBeenCalled();
     });
@@ -661,7 +705,9 @@ describe('OrdersService', () => {
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
         tableId: 'T1',
-      } as any);
+      } as unknown as Partial<
+        CreateOrderDto & UpdateOrderDto
+      > as CreateOrderDto & UpdateOrderDto);
 
       const createArgs = tx.order.create.mock.calls[0][0];
       expect(createArgs.data.tableId).toBe('table-cuid-1');
@@ -682,7 +728,9 @@ describe('OrdersService', () => {
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
         tableId: 'T1',
-      } as any);
+      } as unknown as Partial<
+        CreateOrderDto & UpdateOrderDto
+      > as CreateOrderDto & UpdateOrderDto);
 
       // makeOrder() returns tableSessionId 'sess-1'; the key assertion is the
       // second arg is the cuid 'table-cuid-1', never the name 'T1'.
@@ -709,7 +757,9 @@ describe('OrdersService', () => {
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
         tableId: 'T9',
         sessionToken: 'tok-exist',
-      } as any);
+      } as unknown as Partial<
+        CreateOrderDto & UpdateOrderDto
+      > as CreateOrderDto & UpdateOrderDto);
 
       const createArgs = tx.order.create.mock.calls[0][0];
       expect(createArgs.data.tableId).toBe('table-cuid-9');
@@ -729,7 +779,9 @@ describe('OrdersService', () => {
         service.create({
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
           usePoints: true,
-        } as any),
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -740,7 +792,9 @@ describe('OrdersService', () => {
       await expect(
         service.create({
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
-        } as any),
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -755,7 +809,9 @@ describe('OrdersService', () => {
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
         sessionToken: 'stale-token',
-      } as any);
+      } as unknown as Partial<
+        CreateOrderDto & UpdateOrderDto
+      > as CreateOrderDto & UpdateOrderDto);
 
       // The stale-token lookup ran (tableSession.findFirst was called)
       expect(prisma.tableSession.findFirst).toHaveBeenCalled();
@@ -776,7 +832,9 @@ describe('OrdersService', () => {
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
         tableId: 'T1',
-      } as any);
+      } as unknown as Partial<
+        CreateOrderDto & UpdateOrderDto
+      > as CreateOrderDto & UpdateOrderDto);
 
       expect(tx.tableSession.create).toHaveBeenCalled();
     });
@@ -803,7 +861,9 @@ describe('OrdersService', () => {
       const result = await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
         tableId: 'T1',
-      } as any);
+      } as unknown as Partial<
+        CreateOrderDto & UpdateOrderDto
+      > as CreateOrderDto & UpdateOrderDto);
 
       // Result carries the winner's session token.
       expect(result.sessionToken).toBe('tok-raced');
@@ -840,7 +900,9 @@ describe('OrdersService', () => {
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
         tableId: 'T1',
-      } as any);
+      } as unknown as Partial<
+        CreateOrderDto & UpdateOrderDto
+      > as CreateOrderDto & UpdateOrderDto);
 
       expect(tx.tableSession.create).not.toHaveBeenCalled();
     });
@@ -866,7 +928,9 @@ describe('OrdersService', () => {
         {
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
           customerId: 'cust-1',
-        } as any,
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
         'cust-1',
       );
 
@@ -891,7 +955,9 @@ describe('OrdersService', () => {
 
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
-      } as any);
+      } as unknown as Partial<
+        CreateOrderDto & UpdateOrderDto
+      > as CreateOrderDto & UpdateOrderDto);
 
       expect(tx.order.create).toHaveBeenCalled();
     });
@@ -929,7 +995,9 @@ describe('OrdersService', () => {
           {
             items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
             customerId: 'cust-1',
-          } as any,
+          } as unknown as Partial<
+            CreateOrderDto & UpdateOrderDto
+          > as CreateOrderDto & UpdateOrderDto,
           'cust-1',
         );
         return tx;
@@ -987,7 +1055,9 @@ describe('OrdersService', () => {
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
           customerId: 'cust-1',
           redeemItemIds: ['item-1'],
-        } as any,
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
         'cust-1',
       );
 
@@ -1046,7 +1116,9 @@ describe('OrdersService', () => {
           ],
           customerId: 'cust-1',
           redeemCartIds: ['cart-b'], // redeem only the second line
-        } as any,
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
         'cust-1',
       );
 
@@ -1104,7 +1176,9 @@ describe('OrdersService', () => {
           ],
           customerId: 'cust-1',
           redeemCartIds: ['cart-a', 'cart-b'],
-        } as any,
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
         'cust-1',
       );
 
@@ -1150,7 +1224,9 @@ describe('OrdersService', () => {
           ],
           customerId: 'cust-1',
           redeemItemIds: ['burger'], // one redemption of burger — only first line comped
-        } as any,
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
         'cust-1',
       );
 
@@ -1176,7 +1252,9 @@ describe('OrdersService', () => {
         {
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
           customerId: 'cust-1',
-        } as any,
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
         'cust-1',
       );
 
@@ -1209,7 +1287,9 @@ describe('OrdersService', () => {
         {
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
           customerId: 'cust-1',
-        } as any,
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
         'cust-1',
       );
 
@@ -1243,7 +1323,9 @@ describe('OrdersService', () => {
         {
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
           customerId: 'cust-1',
-        } as any,
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
         'cust-1',
       );
 
@@ -1281,7 +1363,9 @@ describe('OrdersService', () => {
           customerId: 'cust-1',
           usePoints: true,
           redeemPoints: 10000,
-        } as any,
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
         'cust-1',
       );
 
@@ -1400,7 +1484,9 @@ describe('OrdersService', () => {
 
       const result = await service.updateStatus(
         'order-1',
-        { status: 'IN_PROGRESS' } as any,
+        { status: 'IN_PROGRESS' } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
         'user-1',
       );
 
@@ -1433,7 +1519,9 @@ describe('OrdersService', () => {
 
       await service.updateStatus(
         'order-1',
-        { status: 'SERVED' } as any,
+        { status: 'SERVED' } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
         'user-1',
       );
 
@@ -1447,7 +1535,9 @@ describe('OrdersService', () => {
       await expect(
         service.updateStatus(
           'order-1',
-          { status: 'IN_PROGRESS' } as any,
+          { status: 'IN_PROGRESS' } as unknown as Partial<
+            CreateOrderDto & UpdateOrderDto
+          > as CreateOrderDto & UpdateOrderDto,
           'user-1',
         ),
       ).rejects.toThrow(NotFoundException);
@@ -1481,7 +1571,9 @@ describe('OrdersService', () => {
 
       await service.updateStatus(
         'order-1',
-        { status: 'CANCELED' } as any,
+        { status: 'CANCELED' } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
         'user-1',
       );
 
@@ -1511,7 +1603,9 @@ describe('OrdersService', () => {
 
       await service.updateStatus(
         'order-1',
-        { status: 'SERVED' } as any,
+        { status: 'SERVED' } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
         'user-1',
       );
 
@@ -1530,7 +1624,9 @@ describe('OrdersService', () => {
       await expect(
         service.updateStatus(
           'order-1',
-          { status: 'COMPLETED' } as any,
+          { status: 'COMPLETED' } as unknown as Partial<
+            CreateOrderDto & UpdateOrderDto
+          > as CreateOrderDto & UpdateOrderDto,
           'user-1',
         ),
       ).resolves.toBeDefined(); // NEW -> COMPLETED is allowed
@@ -1539,7 +1635,13 @@ describe('OrdersService', () => {
       prisma.order.findUnique.mockResolvedValue(canceled);
 
       await expect(
-        service.updateStatus('order-1', { status: 'SERVED' } as any, 'user-1'),
+        service.updateStatus(
+          'order-1',
+          { status: 'SERVED' } as unknown as Partial<
+            CreateOrderDto & UpdateOrderDto
+          > as CreateOrderDto & UpdateOrderDto,
+          'user-1',
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -1556,7 +1658,9 @@ describe('OrdersService', () => {
       await expect(
         service.updateStatus(
           'order-1',
-          { status: 'IN_PROGRESS' } as any,
+          { status: 'IN_PROGRESS' } as unknown as Partial<
+            CreateOrderDto & UpdateOrderDto
+          > as CreateOrderDto & UpdateOrderDto,
           'user-1',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -1564,7 +1668,9 @@ describe('OrdersService', () => {
       await expect(
         service.updateStatus(
           'order-1',
-          { status: 'CANCELED' } as any,
+          { status: 'CANCELED' } as unknown as Partial<
+            CreateOrderDto & UpdateOrderDto
+          > as CreateOrderDto & UpdateOrderDto,
           'user-1',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -1582,7 +1688,9 @@ describe('OrdersService', () => {
       await expect(
         service.updateStatus(
           'order-1',
-          { status: 'CANCELED' } as any,
+          { status: 'CANCELED' } as unknown as Partial<
+            CreateOrderDto & UpdateOrderDto
+          > as CreateOrderDto & UpdateOrderDto,
           'user-1',
         ),
       ).rejects.toThrow(ForbiddenException);
@@ -1602,7 +1710,9 @@ describe('OrdersService', () => {
       await expect(
         service.updateStatus(
           'order-1',
-          { status: 'CANCELED' } as any,
+          { status: 'CANCELED' } as unknown as Partial<
+            CreateOrderDto & UpdateOrderDto
+          > as CreateOrderDto & UpdateOrderDto,
           'user-1',
         ),
       ).resolves.toBeDefined();
@@ -1631,7 +1741,9 @@ describe('OrdersService', () => {
       await expect(
         service.updateStatus(
           'order-1',
-          { status: 'CANCELED' } as any,
+          { status: 'CANCELED' } as unknown as Partial<
+            CreateOrderDto & UpdateOrderDto
+          > as CreateOrderDto & UpdateOrderDto,
           'user-1',
         ),
       ).rejects.toThrow(ConflictException);
@@ -1660,7 +1772,9 @@ describe('OrdersService', () => {
         service.create({
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
           sessionToken: 'tok-open',
-        } as any),
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto),
       ).rejects.toThrow(/payment is in progress/i);
     });
 
@@ -1698,7 +1812,9 @@ describe('OrdersService', () => {
             ],
           },
         ],
-      } as any);
+      } as unknown as Partial<
+        CreateOrderDto & UpdateOrderDto
+      > as CreateOrderDto & UpdateOrderDto);
 
       const persisted =
         tx.order.create.mock.calls[0][0].data.items.create[0]
@@ -1762,7 +1878,9 @@ describe('OrdersService', () => {
                 ],
               },
             ],
-          } as any,
+          } as unknown as Partial<
+            CreateOrderDto & UpdateOrderDto
+          > as CreateOrderDto & UpdateOrderDto,
           null,
         ),
       ).rejects.toThrow('Duplicate choice selection');
@@ -1794,7 +1912,9 @@ describe('OrdersService', () => {
                 ],
               },
             ],
-          } as any,
+          } as unknown as Partial<
+            CreateOrderDto & UpdateOrderDto
+          > as CreateOrderDto & UpdateOrderDto,
           null,
         ),
       ).rejects.toThrow('allows at most one choice');
@@ -1813,7 +1933,9 @@ describe('OrdersService', () => {
                 selectedOptions: [],
               },
             ],
-          } as any,
+          } as unknown as Partial<
+            CreateOrderDto & UpdateOrderDto
+          > as CreateOrderDto & UpdateOrderDto,
           null,
         ),
       ).rejects.toThrow('requires one choice');
@@ -1843,7 +1965,9 @@ describe('OrdersService', () => {
           restaurantId: 'rest-1',
           tableId: 'table-1',
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
-        } as any,
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
         'cust-1',
       );
 
@@ -1895,7 +2019,9 @@ describe('OrdersService', () => {
             { menuItemId: 'item-cheap', quantity: 1, selectedOptions: [] },
           ],
           redeemItemIds: ['item-cheap', 'item-exp'],
-        } as any,
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
         'cust-1',
       );
 
@@ -1944,7 +2070,9 @@ describe('OrdersService', () => {
             { menuItemId: 'item-1', quantity: 1, selectedOptions: [] },
           ],
           redeemItemIds: ['item-1'], // redeem 1 of 2
-        } as any,
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto,
         'cust-1',
       );
 

@@ -19,11 +19,11 @@ Fully connected `SummaryView` establishing the root Dashboard layout wrapping `t
 
 ## Tasks Completed
 
-| # | Task | Status |
-|---|------|--------|
-| 2.1 | Build Dashboard Summary View | ✓ |
-| 2.2 | Dashboard Branding Editor UI | ✓ |
-| 2.3 | Global Loading States & UX Consistency | ✓ |
+| #   | Task                                   | Status |
+| --- | -------------------------------------- | ------ |
+| 2.1 | Build Dashboard Summary View           | ✓      |
+| 2.2 | Dashboard Branding Editor UI           | ✓      |
+| 2.3 | Global Loading States & UX Consistency | ✓      |
 
 ## Deviations from Plan
 

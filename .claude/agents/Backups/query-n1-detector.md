@@ -15,18 +15,24 @@ You scan NestJS service files for N+1 query patterns that kill database performa
 ## Key patterns to detect
 
 ### Pattern 1: Prisma query inside loop (classic N+1)
+
 ```typescript
 // BAD: 1 query per item = N+1
 for (const item of items) {
-  const details = await this.prisma.detail.findUnique({ where: { itemId: item.id } });
+  const details = await this.prisma.detail.findUnique({
+    where: { itemId: item.id },
+  });
 }
 
 // GOOD: single batch query
-const ids = items.map(i => i.id);
-const details = await this.prisma.detail.findMany({ where: { id: { in: ids } } });
+const ids = items.map((i) => i.id);
+const details = await this.prisma.detail.findMany({
+  where: { id: { in: ids } },
+});
 ```
 
 ### Pattern 2: Missing `include` on relations
+
 ```typescript
 // BAD: separate query for each relation
 const orders = await this.prisma.customerOrder.findMany({ where: { tableId } });
@@ -35,22 +41,26 @@ const orders = await this.prisma.customerOrder.findMany({ where: { tableId } });
 // GOOD: nested include
 const orders = await this.prisma.customerOrder.findMany({
   where: { tableId },
-  include: { orderItems: { include: { menuItem: true } } }
+  include: { orderItems: { include: { menuItem: true } } },
 });
 ```
 
 ### Pattern 3: `Promise.all` with individual Prisma queries
+
 ```typescript
 // BAD: N parallel queries instead of one batch
-const results = await Promise.all(ids.map(id =>
-  this.prisma.entity.findUnique({ where: { id } })
-));
+const results = await Promise.all(
+  ids.map((id) => this.prisma.entity.findUnique({ where: { id } })),
+);
 
 // GOOD: single findMany
-const results = await this.prisma.entity.findMany({ where: { id: { in: ids } } });
+const results = await this.prisma.entity.findMany({
+  where: { id: { in: ids } },
+});
 ```
 
 ### Pattern 4: Unbounded `findMany` (no pagination)
+
 ```typescript
 // BAD: returns entire table
 const allOrders = await this.prisma.customerOrder.findMany();
@@ -60,13 +70,14 @@ const orders = await this.prisma.customerOrder.findMany({ take: 50, skip: 0 });
 ```
 
 ### Pattern 5: Missing `select` (fetching all columns)
+
 ```typescript
 // BAD: fetches every column including large JSON fields
 const restaurants = await this.prisma.restaurant.findMany();
 
 // BETTER: select only needed fields
 const restaurants = await this.prisma.restaurant.findMany({
-  select: { id: true, name: true, slug: true }
+  select: { id: true, name: true, slug: true },
 });
 ```
 
@@ -79,6 +90,7 @@ find apps/backend/src -name "*.service.ts" ! -name "*.spec.ts" | sort
 ## Workflow
 
 ### 1. Find Prisma calls in loops
+
 ```bash
 # Find `for...of` loops containing Prisma calls
 for f in $(find apps/backend/src -name "*.service.ts" ! -name "*.spec.ts"); do
@@ -89,27 +101,32 @@ done
 ```
 
 ### 2. Find missing include patterns
+
 ```bash
 # Find findMany without include
 grep -rn "findMany\|findUnique\|findFirst" apps/backend/src/ --include="*.ts" | grep -v "include:" | grep -v "\.spec\.ts"
 ```
 
 ### 3. Find Promise.all with individual queries
+
 ```bash
 grep -rn "Promise\.all.*map.*findUnique\|Promise\.all.*map.*findFirst\|Promise\.all.*map.*create\|Promise\.all.*map.*update\|Promise\.all.*map.*delete" apps/backend/src/ --include="*.ts" | grep -v "\.spec\.ts"
 ```
 
 ### 4. Find unbounded findMany
+
 ```bash
 grep -rn "\.findMany({" apps/backend/src/ --include="*.ts" | grep -v "take:" | grep -v "\.spec\.ts"
 ```
 
 ### 5. Check for `$transaction` with `Promise.all` (known anti-pattern from CLAUDE.md)
+
 ```bash
 grep -rn "\$transaction.*Promise\.all\|Promise\.all.*inside.*transaction" apps/backend/src/ --include="*.ts" | grep -v "\.spec\.ts"
 ```
 
 ## High-risk tables (large/high-traffic)
+
 - `customer_order` — grows unbounded, heavily queried
 - `order_item` — 1:N from order
 - `payment` — payment history, queried per session

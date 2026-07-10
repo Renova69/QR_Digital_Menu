@@ -5,6 +5,7 @@
 ### Module Pattern
 
 Every domain feature follows the standard NestJS module triad:
+
 ```
 {domain}/
   ├── {domain}.module.ts       # Module with imports/providers/controllers
@@ -18,7 +19,7 @@ Every domain feature follows the standard NestJS module triad:
 
 ```typescript
 // Typical controller structure in backend/src/restaurants/restaurants.controller.ts
-@Controller('restaurants')
+@Controller("restaurants")
 export class RestaurantsController {
   constructor(private readonly restaurantsService: RestaurantsService) {}
 
@@ -75,6 +76,7 @@ private async checkRestaurantOwnership(restaurantId: string, userId: string) {
 ### DTO Pattern
 
 DTOs use `class-validator` decorators:
+
 ```typescript
 // Typical DTO pattern
 export class CreateAuthDto {
@@ -88,6 +90,7 @@ export class CreateAuthDto {
 ```
 
 Update DTOs extend Create DTOs using `@nestjs/mapped-types`:
+
 ```typescript
 export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {}
 ```
@@ -134,13 +137,15 @@ export const useAuth = () => {
   const queryClient = useQueryClient();
 
   const { data: user, isLoading } = useQuery({
-    queryKey: ['user'],
+    queryKey: ["user"],
     queryFn: fetchUser,
   });
 
   const loginMutation = useMutation({
-    mutationFn: async (credentials) => { /* ... */ },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['user'] }),
+    mutationFn: async (credentials) => {
+      /* ... */
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["user"] }),
   });
 
   return { user, isLoading, login: loginMutation.mutateAsync };
@@ -184,15 +189,17 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 ### API Service Pattern
 
 Two layers of API abstraction:
+
 1. **`lib/api.ts`** — Axios instance + standalone API functions
 2. **`services/*.ts`** — Module-specific API wrappers (used by some components)
 
 Token management:
+
 ```typescript
 // Set after login
-api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 // Clear on logout
-delete api.defaults.headers.common['Authorization'];
+delete api.defaults.headers.common["Authorization"];
 ```
 
 ### Styling Conventions
@@ -211,11 +218,13 @@ delete api.defaults.headers.common['Authorization'];
 ## Code Formatting
 
 ### Backend
+
 - **Prettier:** Single quotes, trailing commas
 - **ESLint:** TypeScript ESLint recommended with type checking
 - **Indentation:** 2 spaces (Prettier default)
 
 ### Frontend
+
 - **No explicit Prettier/ESLint config** — relies on Vite defaults and editor settings
 - **Indentation:** 2 spaces
 

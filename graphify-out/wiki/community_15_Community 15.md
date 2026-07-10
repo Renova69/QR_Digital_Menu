@@ -5,6 +5,7 @@
 ## Nodes
 
 ### csvToPayload()
+
 - **ID:** `dashboard_menuimportview_csvtopayload`
 - **Type:** code
 - **Degree:** 4
@@ -13,6 +14,7 @@
   - ↔ `MenuImportView.tsx` [_`contains`_ | c12]
 
 ### confirmMenuImport()
+
 - **ID:** `lib_api_confirmmenuimport`
 - **Type:** code
 - **Degree:** 3
@@ -23,6 +25,7 @@
   - ↔ `MenuImportView.tsx` [_`imports`_ | c12]
 
 ### getImportApiKey()
+
 - **ID:** `lib_api_getimportapikey`
 - **Type:** code
 - **Degree:** 3
@@ -33,6 +36,7 @@
   - ↔ `MenuImportView.tsx` [_`imports`_ | c12]
 
 ### regenerateImportApiKey()
+
 - **ID:** `lib_api_regenerateimportapikey`
 - **Type:** code
 - **Degree:** 3
@@ -43,6 +47,7 @@
   - ↔ `MenuImportView.tsx` [_`imports`_ | c12]
 
 ### revealImportApiKey()
+
 - **ID:** `lib_api_revealimportapikey`
 - **Type:** code
 - **Degree:** 3
@@ -53,6 +58,7 @@
   - ↔ `MenuImportView.tsx` [_`imports`_ | c12]
 
 ### parseCSVLine()
+
 - **ID:** `dashboard_menuimportview_parsecsvline`
 - **Type:** code
 - **Degree:** 2
@@ -63,6 +69,7 @@
   - ↔ `MenuImportView.tsx` [_`contains`_ | c12]
 
 ### parseVariants()
+
 - **ID:** `dashboard_menuimportview_parsevariants`
 - **Type:** code
 - **Degree:** 2
@@ -73,6 +80,7 @@
   - ↔ `MenuImportView.tsx` [_`contains`_ | c12]
 
 ### splitTags()
+
 - **ID:** `dashboard_menuimportview_splittags`
 - **Type:** code
 - **Degree:** 2
@@ -83,6 +91,7 @@
   - ↔ `MenuImportView.tsx` [_`contains`_ | c12]
 
 ### ApiKeyPanel()
+
 - **ID:** `dashboard_menuimportview_apikeypanel`
 - **Type:** code
 - **Degree:** 1
@@ -91,6 +100,7 @@
   - ↔ `MenuImportView.tsx` [_`contains`_ | c12]
 
 ### FileImporter()
+
 - **ID:** `dashboard_menuimportview_fileimporter`
 - **Type:** code
 - **Degree:** 1
@@ -99,6 +109,7 @@
   - ↔ `MenuImportView.tsx` [_`contains`_ | c12]
 
 ### jsonToPayload()
+
 - **ID:** `dashboard_menuimportview_jsontopayload`
 - **Type:** code
 - **Degree:** 1
@@ -107,6 +118,7 @@
   - ↔ `MenuImportView.tsx` [_`contains`_ | c12]
 
 ### KNOWN_ALLERGENS
+
 - **ID:** `dashboard_menuimportview_known_allergens`
 - **Type:** code
 - **Degree:** 1
@@ -115,6 +127,7 @@
   - ↔ `MenuImportView.tsx` [_`contains`_ | c12]
 
 ### MenuImportView()
+
 - **ID:** `dashboard_menuimportview_menuimportview`
 - **Type:** code
 - **Degree:** 1
@@ -123,6 +136,7 @@
   - ↔ `MenuImportView.tsx` [_`contains`_ | c12]
 
 ### ParsedMenu
+
 - **ID:** `dashboard_menuimportview_parsedmenu`
 - **Type:** code
 - **Degree:** 1
@@ -131,6 +145,7 @@
   - ↔ `MenuImportView.tsx` [_`contains`_ | c12]
 
 ### PreviewTable()
+
 - **ID:** `dashboard_menuimportview_previewtable`
 - **Type:** code
 - **Degree:** 1

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState } from "react";
 import {
   Bell,
   Check,
@@ -12,15 +12,15 @@ import {
   Utensils,
   Volume2,
   X,
-} from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { useOrders, OrderStatus } from '../../context/OrderContext';
-import { cn } from '../../lib/utils';
-import TableDetailModal from '../../components/tables/TableDetailModal';
+} from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { useOrders, OrderStatus } from "../../context/OrderContext";
+import { cn } from "../../lib/utils";
+import TableDetailModal from "../../components/tables/TableDetailModal";
 
 type OrdersContextValue = ReturnType<typeof useOrders>;
-type DashboardOrder = OrdersContextValue['orders'][number];
-type DashboardOrderItem = DashboardOrder['items'][number];
+type DashboardOrder = OrdersContextValue["orders"][number];
+type DashboardOrderItem = DashboardOrder["items"][number];
 
 const ORDER_STATUSES: Array<{
   status: OrderStatus;
@@ -29,30 +29,60 @@ const ORDER_STATUSES: Array<{
   Icon: typeof Bell;
   tone: string;
 }> = [
-  { status: 'NEW', labelKey: 'orders.tabs.new', fallback: 'New', Icon: Bell, tone: 'text-primary' },
-  { status: 'IN_PROGRESS', labelKey: 'orders.tabs.inProgress', fallback: 'In Progress', Icon: Flame, tone: 'text-orange-500' },
-  { status: 'SERVED', labelKey: 'orders.tabs.served', fallback: 'Served', Icon: Utensils, tone: 'text-slate-600 dark:text-slate-300' },
-  { status: 'COMPLETED', labelKey: 'orders.tabs.completed', fallback: 'Completed', Icon: Check, tone: 'text-emerald-600' },
-  { status: 'CANCELED', labelKey: 'orders.tabs.canceled', fallback: 'Canceled', Icon: X, tone: 'text-rose-600' },
+  {
+    status: "NEW",
+    labelKey: "orders.tabs.new",
+    fallback: "New",
+    Icon: Bell,
+    tone: "text-primary",
+  },
+  {
+    status: "IN_PROGRESS",
+    labelKey: "orders.tabs.inProgress",
+    fallback: "In Progress",
+    Icon: Flame,
+    tone: "text-orange-500",
+  },
+  {
+    status: "SERVED",
+    labelKey: "orders.tabs.served",
+    fallback: "Served",
+    Icon: Utensils,
+    tone: "text-slate-600 dark:text-slate-300",
+  },
+  {
+    status: "COMPLETED",
+    labelKey: "orders.tabs.completed",
+    fallback: "Completed",
+    Icon: Check,
+    tone: "text-emerald-600",
+  },
+  {
+    status: "CANCELED",
+    labelKey: "orders.tabs.canceled",
+    fallback: "Canceled",
+    Icon: X,
+    tone: "text-rose-600",
+  },
 ];
 
 const statusAccent: Record<OrderStatus, string> = {
-  NEW: 'before:bg-blue-500',
-  IN_PROGRESS: 'before:bg-orange-500',
-  SERVED: 'before:bg-slate-500',
-  COMPLETED: 'before:bg-emerald-500',
-  CANCELED: 'before:bg-rose-500',
+  NEW: "before:bg-blue-500",
+  IN_PROGRESS: "before:bg-orange-500",
+  SERVED: "before:bg-slate-500",
+  COMPLETED: "before:bg-emerald-500",
+  CANCELED: "before:bg-rose-500",
 };
 
 function getOrderCode(id: string) {
   return `#${id.slice(-6).toUpperCase()}`;
 }
 
-function formatOrderTime(createdAt: string, locale: string = 'en-US') {
+function formatOrderTime(createdAt: string, locale: string = "en-US") {
   return new Date(createdAt).toLocaleTimeString(locale, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
     hour12: false,
   });
 }
@@ -64,12 +94,15 @@ function getElapsedLabel(createdAt: string | undefined, t: any) {
     Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000),
   );
 
-  if (diffMinutes < 1) return t('auto.justNow', 'just now');
-  if (diffMinutes === 1) return t('auto.1MinAgo', '1 min ago');
-  if (diffMinutes < 60) return t('auto.minAgo', '{{min}} min ago', { min: diffMinutes });
+  if (diffMinutes < 1) return t("auto.justNow", "just now");
+  if (diffMinutes === 1) return t("auto.1MinAgo", "1 min ago");
+  if (diffMinutes < 60)
+    return t("auto.minAgo", "{{min}} min ago", { min: diffMinutes });
 
   const hours = Math.floor(diffMinutes / 60);
-  return hours === 1 ? t('auto.1HourAgo', '1 hour ago') : t('auto.hoursAgo', '{{hours}} hours ago', { hours });
+  return hours === 1
+    ? t("auto.1HourAgo", "1 hour ago")
+    : t("auto.hoursAgo", "{{hours}} hours ago", { hours });
 }
 
 function getItemTotal(item: DashboardOrderItem) {
@@ -87,7 +120,7 @@ function getSpecialRequestRows(requests?: string) {
   if (!requests?.trim()) return [];
 
   return requests
-    .split('|')
+    .split("|")
     .map((part) => part.trim())
     .filter(Boolean)
     .map((part) => {
@@ -98,24 +131,39 @@ function getSpecialRequestRows(requests?: string) {
 }
 
 function stripTrailingColon(value: string) {
-  return value.replace(/:\s*$/, '');
+  return value.replace(/:\s*$/, "");
 }
 
-function SourceBadge({ source, staff }: { source?: 'CUSTOMER' | 'POS'; staff?: any }) {
+function SourceBadge({
+  source,
+  staff,
+}: {
+  source?: "CUSTOMER" | "POS";
+  staff?: any;
+}) {
   const { t, i18n } = useTranslation();
   if (!source) return null;
-  if (source === 'CUSTOMER') {
+  if (source === "CUSTOMER") {
     return (
       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
-        {t('auto.qR', 'QR')}</span>
+        {t("auto.qR", "QR")}
+      </span>
     );
   }
-  
-  const roleStr = staff?.role ? String(staff.role) : '';
-  const roleName = roleStr ? roleStr.charAt(0).toUpperCase() + roleStr.slice(1).toLowerCase() : 'Staff';
-  const translatedRole = roleStr ? t(`roles.${roleStr.toLowerCase()}`, roleName) : t('roles.staff', 'Staff');
-  const name = staff?.name ? staff.name.split(' ')[0] : (staff?.email ? staff.email.split('@')[0] : 'Staff');
-  
+
+  const roleStr = staff?.role ? String(staff.role) : "";
+  const roleName = roleStr
+    ? roleStr.charAt(0).toUpperCase() + roleStr.slice(1).toLowerCase()
+    : "Staff";
+  const translatedRole = roleStr
+    ? t(`roles.${roleStr.toLowerCase()}`, roleName)
+    : t("roles.staff", "Staff");
+  const name = staff?.name
+    ? staff.name.split(" ")[0]
+    : staff?.email
+      ? staff.email.split("@")[0]
+      : "Staff";
+
   return (
     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
       {translatedRole}: {name}
@@ -126,21 +174,26 @@ function SourceBadge({ source, staff }: { source?: 'CUSTOMER' | 'POS'; staff?: a
 const OrdersView = () => {
   const { t, i18n } = useTranslation();
   const { orders, updateOrderStatus, batchUpdateOrderStatus } = useOrders();
-  const [activeTab, setActiveTab] = useState<OrderStatus>('NEW');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(null);
+  const [activeTab, setActiveTab] = useState<OrderStatus>("NEW");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(
+    null,
+  );
 
   const counts = useMemo(() => {
-    return ORDER_STATUSES.reduce<Record<OrderStatus, number>>((acc, { status }) => {
-      acc[status] = orders.filter((order) => order.status === status).length;
-      return acc;
-    }, {
-      NEW: 0,
-      IN_PROGRESS: 0,
-      SERVED: 0,
-      COMPLETED: 0,
-      CANCELED: 0,
-    });
+    return ORDER_STATUSES.reduce<Record<OrderStatus, number>>(
+      (acc, { status }) => {
+        acc[status] = orders.filter((order) => order.status === status).length;
+        return acc;
+      },
+      {
+        NEW: 0,
+        IN_PROGRESS: 0,
+        SERVED: 0,
+        COMPLETED: 0,
+        CANCELED: 0,
+      },
+    );
   }, [orders]);
 
   const filteredOrders = useMemo(() => {
@@ -152,55 +205,72 @@ const OrdersView = () => {
         if (!query) return true;
 
         const itemNames = order.items
-          .map((item) => item.menuItem?.name ?? '')
-          .join(' ')
+          .map((item) => item.menuItem?.name ?? "")
+          .join(" ")
           .toLowerCase();
 
         return [
           order.id.toLowerCase(),
           getOrderCode(order.id).toLowerCase(),
-          String(order.tableName ?? order.tableId ?? '').toLowerCase(),
+          String(order.tableName ?? order.tableId ?? "").toLowerCase(),
           `table ${order.tableName ?? order.tableId}`.toLowerCase(),
           itemNames,
         ].some((value) => value.includes(query));
       })
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
   }, [activeTab, orders, searchTerm]);
 
-  const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
+  const handleStatusChange = async (
+    orderId: string,
+    newStatus: OrderStatus,
+  ) => {
     try {
       await updateOrderStatus(orderId, newStatus);
     } catch (error) {
-      console.error('Failed to update order status:', error);
+      console.error("Failed to update order status:", error);
     }
   };
 
   const handleSoundPreview = () => {
-    new Audio('/notification.mp3').play().catch(() => {});
+    new Audio("/notification.mp3").play().catch(() => {});
   };
 
-  const activeStatus = ORDER_STATUSES.find((status) => status.status === activeTab);
+  const activeStatus = ORDER_STATUSES.find(
+    (status) => status.status === activeTab,
+  );
   const selectedTable = selectedOrder
     ? {
-        name: t('orders.table', { id: selectedOrder.tableName ?? selectedOrder.tableId }),
-        status: selectedOrder.tableSession?.status === 'PAID' ? 'paid' : selectedOrder.status === 'CANCELED' ? 'waiting' : 'occupied',
+        name: t("orders.table", {
+          id: selectedOrder.tableName ?? selectedOrder.tableId,
+        }),
+        status:
+          selectedOrder.tableSession?.status === "PAID"
+            ? "paid"
+            : selectedOrder.status === "CANCELED"
+              ? "waiting"
+              : "occupied",
         sessionId: selectedOrder.id,
         orderCount: 1,
         totalAmount: selectedOrder.totalPrice,
         customerNames: (() => {
           // POS orders: show "Waiter: 444" instead of the hardcoded "Staff".
-          if (selectedOrder.source === 'POS') {
+          if (selectedOrder.source === "POS") {
             const staff: any = selectedOrder.staff;
-            const rawName = staff?.name ?? staff?.email ?? '';
-            const first = rawName ? String(rawName).split(/[ @]/)[0] : 'Staff';
+            const rawName = staff?.name ?? staff?.email ?? "";
+            const first = rawName ? String(rawName).split(/[ @]/)[0] : "Staff";
             const role = staff?.role
-              ? String(staff.role).charAt(0).toUpperCase() + String(staff.role).slice(1).toLowerCase()
-              : 'Staff';
+              ? String(staff.role).charAt(0).toUpperCase() +
+                String(staff.role).slice(1).toLowerCase()
+              : "Staff";
             return [`${role}: ${first}`];
           }
           return selectedOrder.customerName ? [selectedOrder.customerName] : [];
         })(),
-        sessionStatus: selectedOrder.tableSession?.status ?? selectedOrder.status,
+        sessionStatus:
+          selectedOrder.tableSession?.status ?? selectedOrder.status,
         updatedAt: selectedOrder.createdAt,
       }
     : null;
@@ -215,11 +285,13 @@ const OrdersView = () => {
           totalPrice: selectedOrder.totalPrice,
           staff: selectedOrder.staff,
           items: selectedOrder.items.map((item) => ({
-            name: item.menuItem?.name ?? t('orders.unknownItem', 'Item'),
+            name: item.menuItem?.name ?? t("orders.unknownItem", "Item"),
             quantity: item.quantity,
             totalPrice: getItemTotal(item),
             options: Array.isArray(item.selectedOptions)
-              ? item.selectedOptions.map((option: any) => option.choiceName).filter(Boolean)
+              ? item.selectedOptions
+                  .map((option: any) => option.choiceName)
+                  .filter(Boolean)
               : [],
           })),
         },
@@ -233,16 +305,19 @@ const OrdersView = () => {
           <button
             type="button"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-sm transition hover:bg-muted"
-            aria-label={t('common.menu', 'Menu')}
+            aria-label={t("common.menu", "Menu")}
           >
             <Menu className="h-5 w-5" />
           </button>
           <div>
             <h1 className="text-2xl font-black leading-tight text-foreground">
-              {t('dashboard.tabs.orders', 'Orders')}
+              {t("dashboard.tabs.orders", "Orders")}
             </h1>
             <p className="mt-1 text-sm font-medium text-muted-foreground">
-              {t('orders.subtitle', 'Track and route every order in real-time.')}
+              {t(
+                "orders.subtitle",
+                "Track and route every order in real-time.",
+              )}
             </p>
           </div>
         </div>
@@ -253,7 +328,10 @@ const OrdersView = () => {
             <input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder={t('orders.searchPlaceholder', 'Search by order # or table...')}
+              placeholder={t(
+                "orders.searchPlaceholder",
+                "Search by order # or table...",
+              )}
               className="h-10 w-full rounded-lg border border-border bg-card pl-10 pr-3 text-sm font-medium text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15"
             />
           </div>
@@ -261,7 +339,7 @@ const OrdersView = () => {
             type="button"
             onClick={handleSoundPreview}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary transition hover:bg-primary/15"
-            aria-label={t('orders.previewSound', 'Preview order sound')}
+            aria-label={t("orders.previewSound", "Preview order sound")}
           >
             <Volume2 className="h-4 w-4" />
           </button>
@@ -278,20 +356,22 @@ const OrdersView = () => {
                 type="button"
                 onClick={() => setActiveTab(status)}
                 className={cn(
-                  'flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4',
+                  "flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition active:scale-[0.98] sm:h-9 sm:px-4",
                   isActive
-                    ? 'bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(110,86,248,0.8)]"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
-                <Icon className={cn('h-4 w-4', isActive ? 'text-white' : tone)} />
+                <Icon
+                  className={cn("h-4 w-4", isActive ? "text-white" : tone)}
+                />
                 <span>{t(labelKey, fallback)}</span>
                 <span
                   className={cn(
-                    'flex h-5 min-w-6 items-center justify-center rounded-full px-2 text-[11px] font-black',
+                    "flex h-5 min-w-6 items-center justify-center rounded-full px-2 text-[11px] font-black",
                     isActive
-                      ? 'bg-white/20 text-white'
-                      : 'bg-muted text-muted-foreground',
+                      ? "bg-white/20 text-white"
+                      : "bg-muted text-muted-foreground",
                   )}
                 >
                   {counts[status]}
@@ -304,34 +384,52 @@ const OrdersView = () => {
 
       {filteredOrders.length > 0 && (
         <div className="mb-4">
-          {activeTab === 'NEW' && (
+          {activeTab === "NEW" && (
             <button
               type="button"
-              onClick={() => batchUpdateOrderStatus(filteredOrders.map((o) => o.id), 'IN_PROGRESS')}
+              onClick={() =>
+                batchUpdateOrderStatus(
+                  filteredOrders.map((o) => o.id),
+                  "IN_PROGRESS",
+                )
+              }
               className="flex items-center gap-2 h-10 px-4 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm font-bold hover:bg-primary/15 transition-colors"
             >
               <Play className="w-4 h-4" />
-              {t('auto.markAllAsInProgress', 'Mark all as In Progress (')}{filteredOrders.length})
+              {t("auto.markAllAsInProgress", "Mark all as In Progress (")}
+              {filteredOrders.length})
             </button>
           )}
-          {activeTab === 'IN_PROGRESS' && (
+          {activeTab === "IN_PROGRESS" && (
             <button
               type="button"
-              onClick={() => batchUpdateOrderStatus(filteredOrders.map((o) => o.id), 'SERVED')}
+              onClick={() =>
+                batchUpdateOrderStatus(
+                  filteredOrders.map((o) => o.id),
+                  "SERVED",
+                )
+              }
               className="flex items-center gap-2 h-10 px-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm font-bold hover:bg-emerald-500/15 transition-colors"
             >
               <Utensils className="w-4 h-4" />
-              {t('auto.markAllAsServed', 'Mark all as Served (')}{filteredOrders.length})
+              {t("auto.markAllAsServed", "Mark all as Served (")}
+              {filteredOrders.length})
             </button>
           )}
-          {activeTab === 'SERVED' && (
+          {activeTab === "SERVED" && (
             <button
               type="button"
-              onClick={() => batchUpdateOrderStatus(filteredOrders.map((o) => o.id), 'COMPLETED')}
+              onClick={() =>
+                batchUpdateOrderStatus(
+                  filteredOrders.map((o) => o.id),
+                  "COMPLETED",
+                )
+              }
               className="flex items-center gap-2 h-10 px-4 rounded-lg bg-slate-500/10 border border-slate-500/20 text-slate-400 text-sm font-bold hover:bg-slate-500/15 transition-colors"
             >
               <Check className="w-4 h-4" />
-              {t('auto.markAllAsCompleted', 'Mark all as Completed (')}{filteredOrders.length})
+              {t("auto.markAllAsCompleted", "Mark all as Completed (")}
+              {filteredOrders.length})
             </button>
           )}
         </div>
@@ -340,7 +438,9 @@ const OrdersView = () => {
       {filteredOrders.length > 0 ? (
         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {filteredOrders.map((order) => {
-            const specialRequests = getSpecialRequestRows(order.specialRequests);
+            const specialRequests = getSpecialRequestRows(
+              order.specialRequests,
+            );
 
             return (
               <article
@@ -349,14 +449,14 @@ const OrdersView = () => {
                 tabIndex={0}
                 onClick={() => setSelectedOrder(order)}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
+                  if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
                     setSelectedOrder(order);
                   }
                 }}
                 className={cn(
-                  'relative flex aspect-[1/1.05] cursor-pointer flex-col overflow-hidden rounded-lg border border-border bg-card p-4 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-primary/40',
-                  'before:absolute before:bottom-0 before:left-0 before:top-0 before:w-1',
+                  "relative flex aspect-[1/1.05] cursor-pointer flex-col overflow-hidden rounded-lg border border-border bg-card p-4 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-primary/40",
+                  "before:absolute before:bottom-0 before:left-0 before:top-0 before:w-1",
                   statusAccent[order.status],
                 )}
               >
@@ -370,7 +470,8 @@ const OrdersView = () => {
                       {specialRequests.length > 0 && (
                         <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full bg-[#F97316] px-2 text-[10px] font-black uppercase text-white">
                           <ClipboardList className="h-3 w-3" />
-                          {t('auto.note', 'Note')}</span>
+                          {t("auto.note", "Note")}
+                        </span>
                       )}
                     </div>
                     <span className="whitespace-nowrap text-xs font-bold text-muted-foreground">
@@ -379,19 +480,23 @@ const OrdersView = () => {
                   </div>
 
                   <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
-                      <span className="rounded-md bg-muted px-2.5 py-1 font-black text-foreground">
-                        {t('orders.table', { id: order.tableName ?? order.tableId })}
-                      </span>
-                      <span className="flex min-w-0 items-center gap-1.5 truncate">
-                        <Clock className="h-3.5 w-3.5" />
-                        {t('orders.pluckedAt', { time: formatOrderTime(order.createdAt, i18n.language) })}
-                      </span>
+                    <span className="rounded-md bg-muted px-2.5 py-1 font-black text-foreground">
+                      {t("orders.table", {
+                        id: order.tableName ?? order.tableId,
+                      })}
+                    </span>
+                    <span className="flex min-w-0 items-center gap-1.5 truncate">
+                      <Clock className="h-3.5 w-3.5" />
+                      {t("orders.pluckedAt", {
+                        time: formatOrderTime(order.createdAt, i18n.language),
+                      })}
+                    </span>
                   </div>
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-hidden">
                   <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                    {stripTrailingColon(t('orders.items', 'Items'))}
+                    {stripTrailingColon(t("orders.items", "Items"))}
                   </p>
 
                   <ul className="space-y-1.5">
@@ -400,23 +505,29 @@ const OrdersView = () => {
                         key={`${item.id}-${index}`}
                         className="grid grid-cols-[28px_minmax(0,1fr)_auto] items-start gap-2 text-xs"
                       >
-                        <span className="font-black text-primary">{item.quantity}x</span>
+                        <span className="font-black text-primary">
+                          {item.quantity}x
+                        </span>
                         <div className="min-w-0">
                           <span className="block truncate font-semibold leading-snug text-foreground">
-                            {item.menuItem?.name ?? t('orders.unknownItem', 'Item')}
+                            {item.menuItem?.name ??
+                              t("orders.unknownItem", "Item")}
                           </span>
-                          {Array.isArray(item.selectedOptions) && item.selectedOptions.length > 0 && (
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {item.selectedOptions.map((option: any, optionIndex: number) => (
-                                <span
-                                  key={`${item.id}-option-${optionIndex}`}
-                                  className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground"
-                                >
-                                  {option.choiceName}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+                          {Array.isArray(item.selectedOptions) &&
+                            item.selectedOptions.length > 0 && (
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {item.selectedOptions.map(
+                                  (option: any, optionIndex: number) => (
+                                    <span
+                                      key={`${item.id}-option-${optionIndex}`}
+                                      className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground"
+                                    >
+                                      {option.choiceName}
+                                    </span>
+                                  ),
+                                )}
+                              </div>
+                            )}
                         </div>
                         <span className="whitespace-nowrap font-bold text-muted-foreground">
                           €{getItemTotal(item).toFixed(2)}
@@ -425,7 +536,8 @@ const OrdersView = () => {
                     ))}
                     {order.items.length > 6 && (
                       <li className="text-xs font-black text-muted-foreground">
-                        +{order.items.length - 6} {t('auto.more', 'more')}</li>
+                        +{order.items.length - 6} {t("auto.more", "more")}
+                      </li>
                     )}
                   </ul>
 
@@ -433,7 +545,9 @@ const OrdersView = () => {
                     <div className="mt-3 overflow-hidden rounded-lg border border-[#F59E0B] bg-[#FFE1B3] px-2.5 py-2 text-orange-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_1px_0_rgba(146,64,14,0.08)] dark:border-orange-400/20 dark:bg-orange-400/10 dark:text-orange-100 dark:shadow-none">
                       <div className="mb-1 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-orange-900 dark:text-orange-100/70">
                         <ClipboardList className="h-3.5 w-3.5" />
-                        {stripTrailingColon(t('orders.specialRequests', 'Special Requests'))}
+                        {stripTrailingColon(
+                          t("orders.specialRequests", "Special Requests"),
+                        )}
                       </div>
                       <p className="truncate text-[11px] font-bold leading-relaxed text-orange-950 dark:text-orange-100">
                         {specialRequests[0]?.seat && (
@@ -450,7 +564,7 @@ const OrdersView = () => {
                 <div className="mt-auto border-t border-border pt-3">
                   <div className="mb-2 flex items-end justify-between gap-4">
                     <span className="text-xs font-medium text-muted-foreground">
-                      {t('orders.total', 'Total')}
+                      {t("orders.total", "Total")}
                     </span>
                     <span className="text-xl font-black tracking-tight text-foreground">
                       €{order.totalPrice.toFixed(2)}
@@ -458,96 +572,97 @@ const OrdersView = () => {
                   </div>
 
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                    {order.status === 'NEW' && (
+                    {order.status === "NEW" && (
                       <>
                         <button
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            handleStatusChange(order.id, 'IN_PROGRESS');
+                            handleStatusChange(order.id, "IN_PROGRESS");
                           }}
                           className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent active:scale-[0.98]"
                         >
                           <Play className="h-3.5 w-3.5 fill-current" />
-                          {t('orders.startPreparing')}
+                          {t("orders.startPreparing")}
                         </button>
                         <button
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            handleStatusChange(order.id, 'CANCELED');
+                            handleStatusChange(order.id, "CANCELED");
                           }}
                           className="flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-card px-3 text-xs font-black text-rose-600 transition hover:bg-rose-50 dark:border-rose-500/30 dark:hover:bg-rose-500/10"
                         >
                           <X className="h-3.5 w-3.5" />
-                          {t('orders.cancel')}
+                          {t("orders.cancel")}
                         </button>
                       </>
                     )}
 
-                    {order.status === 'IN_PROGRESS' && (
+                    {order.status === "IN_PROGRESS" && (
                       <>
                         <button
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            handleStatusChange(order.id, 'SERVED');
+                            handleStatusChange(order.id, "SERVED");
                           }}
                           className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent active:scale-[0.98]"
                         >
                           <ChefHat className="h-3.5 w-3.5" />
-                          {t('orders.markServed')}
+                          {t("orders.markServed")}
                         </button>
                         <button
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            handleStatusChange(order.id, 'CANCELED');
+                            handleStatusChange(order.id, "CANCELED");
                           }}
                           className="flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-card px-3 text-xs font-black text-rose-600 transition hover:bg-rose-50 dark:border-rose-500/30 dark:hover:bg-rose-500/10"
                         >
                           <X className="h-3.5 w-3.5" />
-                          {t('orders.cancel')}
+                          {t("orders.cancel")}
                         </button>
                       </>
                     )}
 
-                    {order.status === 'SERVED' && (
+                    {order.status === "SERVED" && (
                       <>
                         <button
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            handleStatusChange(order.id, 'COMPLETED');
+                            handleStatusChange(order.id, "COMPLETED");
                           }}
                           className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-black text-white shadow-[0_10px_20px_-12px_rgba(110,86,248,0.9)] transition hover:bg-accent active:scale-[0.98]"
                         >
                           <Check className="h-3.5 w-3.5" />
-                          {t('orders.markCompleted')}
+                          {t("orders.markCompleted")}
                         </button>
                         <button
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            handleStatusChange(order.id, 'NEW');
+                            handleStatusChange(order.id, "NEW");
                           }}
                           className="flex h-10 items-center justify-center rounded-lg border border-border bg-card px-3 text-xs font-black text-foreground transition hover:bg-muted"
                         >
-                          {t('orders.reopen')}
+                          {t("orders.reopen")}
                         </button>
                       </>
                     )}
 
-                    {(order.status === 'COMPLETED' || order.status === 'CANCELED') && (
+                    {(order.status === "COMPLETED" ||
+                      order.status === "CANCELED") && (
                       <button
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          handleStatusChange(order.id, 'NEW');
+                          handleStatusChange(order.id, "NEW");
                         }}
                         className="col-span-2 flex h-10 items-center justify-center rounded-lg border border-border bg-muted px-3 text-xs font-black text-foreground transition hover:bg-secondary"
                       >
-                        {t('orders.reopen')}
+                        {t("orders.reopen")}
                       </button>
                     )}
                   </div>
@@ -560,19 +675,29 @@ const OrdersView = () => {
         <div className="flex min-h-[360px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8 text-center shadow-sm">
           <div>
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-              {activeStatus ? <activeStatus.Icon className="h-6 w-6" /> : <Bell className="h-6 w-6" />}
+              {activeStatus ? (
+                <activeStatus.Icon className="h-6 w-6" />
+              ) : (
+                <Bell className="h-6 w-6" />
+              )}
             </div>
             <p className="text-lg font-black text-foreground">
-              {t('orders.noOrders', {
+              {t("orders.noOrders", {
                 status: activeStatus
-                  ? t(activeStatus.labelKey, activeStatus.fallback).toLowerCase()
-                  : 'matching',
+                  ? t(
+                      activeStatus.labelKey,
+                      activeStatus.fallback,
+                    ).toLowerCase()
+                  : "matching",
               })}
             </p>
             <p className="mt-1 text-sm font-medium text-muted-foreground">
               {searchTerm
-                ? t('orders.noSearchResults', 'Try a different order number, table, or dish.')
-                : t('orders.clearKitchen', 'The kitchen is clear for now.')}
+                ? t(
+                    "orders.noSearchResults",
+                    "Try a different order number, table, or dish.",
+                  )
+                : t("orders.clearKitchen", "The kitchen is clear for now.")}
             </p>
           </div>
         </div>
@@ -585,7 +710,11 @@ const OrdersView = () => {
         }}
         table={selectedTable}
         orders={selectedTableOrders}
-        paymentInfo={selectedOrder?.tableSession?.status === 'PAID' ? { amount: selectedOrder.totalPrice } : null}
+        paymentInfo={
+          selectedOrder?.tableSession?.status === "PAID"
+            ? { amount: selectedOrder.totalPrice }
+            : null
+        }
       />
     </section>
   );

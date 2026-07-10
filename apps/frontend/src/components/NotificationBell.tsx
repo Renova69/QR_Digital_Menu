@@ -1,23 +1,27 @@
-import { useState, useRef, useEffect } from 'react';
-import { Bell, CreditCard } from 'lucide-react';
-import { useNotifications } from '../context/NotificationContext';
+import { useState, useRef, useEffect } from "react";
+import { Bell, CreditCard } from "lucide-react";
+import { useNotifications } from "../context/NotificationContext";
 import { useTranslation } from "react-i18next";
 
 const NotificationBell = () => {
-    const { t } = useTranslation();
+  const { t } = useTranslation();
   const { notifications, unreadCount, markAllRead } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
     if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [isOpen]);
 
@@ -28,7 +32,7 @@ const NotificationBell = () => {
 
   const timeAgo = (ts: number) => {
     const seconds = Math.floor((Date.now() - ts) / 1000);
-    if (seconds < 60) return 'just now';
+    if (seconds < 60) return "just now";
     const minutes = Math.floor(seconds / 60);
     if (minutes < 60) return `${minutes}m ago`;
     const hours = Math.floor(minutes / 60);
@@ -45,8 +49,11 @@ const NotificationBell = () => {
       >
         <Bell className="w-6 h-6 text-muted-foreground" />
         {unreadCount > 0 && (
-          <span className="absolute top-1.5 right-1.5 text-white text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 shadow-lg" style={{ background: 'var(--gradient-brand)' }}>
-            {unreadCount > 9 ? '9+' : unreadCount}
+          <span
+            className="absolute top-1.5 right-1.5 text-white text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 shadow-lg"
+            style={{ background: "var(--gradient-brand)" }}
+          >
+            {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </button>
@@ -55,30 +62,36 @@ const NotificationBell = () => {
         <div className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto glass-panel border border-white/10 rounded-2xl shadow-2xl z-50">
           <div className="p-4 border-b border-border/40 flex items-center justify-between">
             <h3 className="font-black text-xs uppercase tracking-widest text-foreground">
-              {t('auto.paymentNotifications', 'Payment Notifications')}</h3>
+              {t("auto.paymentNotifications", "Payment Notifications")}
+            </h3>
             <span className="text-[10px] text-muted-foreground font-bold">
-              {notifications.length} {t('auto.total', 'total')}</span>
+              {notifications.length} {t("auto.total", "total")}
+            </span>
           </div>
 
           {notifications.length === 0 ? (
             <div className="p-8 text-center">
               <CreditCard className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground font-bold">{t('auto.noPaymentsYet', 'No payments yet')}</p>
+              <p className="text-sm text-muted-foreground font-bold">
+                {t("auto.noPaymentsYet", "No payments yet")}
+              </p>
             </div>
           ) : (
             <div className="divide-y divide-border/20">
               {notifications.map((n) => (
                 <div
                   key={n.id}
-                  className={`p-4 hover:bg-secondary/40 transition-colors ${!n.read ? 'bg-primary/5' : ''}`}
+                  className={`p-4 hover:bg-secondary/40 transition-colors ${!n.read ? "bg-primary/5" : ""}`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-foreground">
-                        {t('auto.table', 'Table')}{n.tableNumber ?? '?'}
+                        {t("auto.table", "Table")}
+                        {n.tableNumber ?? "?"}
                         {n.customerName && (
                           <span className="text-muted-foreground font-normal">
-                            {' '}— {n.customerName}
+                            {" "}
+                            — {n.customerName}
                           </span>
                         )}
                       </p>

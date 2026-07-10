@@ -41,6 +41,7 @@ Modify:
 ### Task 1: Backend — force-open session endpoint
 
 **Files:**
+
 - Modify: `apps/backend/src/payment/payment.service.ts`
 - Modify: `apps/backend/src/payment/payment.controller.ts`
 
@@ -99,8 +100,14 @@ forceOpenSession(
 In `apps/frontend/src/lib/api.ts`, add after the `getOrCreateSession` function (after line 182):
 
 ```typescript
-export const forceOpenSession = async (tableId: string, restaurantId: string) => {
-  const response = await api.post('/payments/session/force-open', { tableId, restaurantId });
+export const forceOpenSession = async (
+  tableId: string,
+  restaurantId: string,
+) => {
+  const response = await api.post("/payments/session/force-open", {
+    tableId,
+    restaurantId,
+  });
   return response.data as { session: any; token: string };
 };
 ```
@@ -122,6 +129,7 @@ git commit -m "feat: add force-open session endpoint for POS"
 ### Task 2: StaffRoute auth guard
 
 **Files:**
+
 - Create: `apps/frontend/src/components/StaffRoute.tsx`
 
 - [ ] **Step 1: Create StaffRoute component**
@@ -168,6 +176,7 @@ git commit -m "feat: add StaffRoute auth guard for STAFF/OWNER roles"
 ### Task 3: PosContext — isolated cart state
 
 **Files:**
+
 - Create: `apps/frontend/src/context/PosContext.tsx`
 
 - [ ] **Step 1: Create PosContext with full implementation**
@@ -242,13 +251,13 @@ export function PosProvider({ children }: { children: ReactNode }) {
       return;
     }
     setItems((prev) =>
-      prev.map((i) => (i.cartId === cartId ? { ...i, quantity: qty } : i))
+      prev.map((i) => (i.cartId === cartId ? { ...i, quantity: qty } : i)),
     );
   }, []);
 
   const updateNote = useCallback((cartId: string, note: string) => {
     setItems((prev) =>
-      prev.map((i) => (i.cartId === cartId ? { ...i, itemNote: note } : i))
+      prev.map((i) => (i.cartId === cartId ? { ...i, itemNote: note } : i)),
     );
   }, []);
 
@@ -270,7 +279,7 @@ export function PosProvider({ children }: { children: ReactNode }) {
     return items.reduce((sum, item) => {
       const optionsTotal = item.selectedOptions.reduce(
         (optSum, opt) => optSum + opt.priceModifier,
-        0
+        0,
       );
       return sum + (item.price + optionsTotal) * item.quantity;
     }, 0);
@@ -331,6 +340,7 @@ git commit -m "feat: add PosContext with in-memory cart, session, and seat state
 ### Task 4: PosLayout — full-viewport shell
 
 **Files:**
+
 - Create: `apps/frontend/src/pages/pos/PosLayout.tsx`
 
 - [ ] **Step 1: Create PosLayout**
@@ -359,6 +369,7 @@ git commit -m "feat: add PosLayout — full-viewport shell for POS"
 ### Task 5: PosPage — component composition
 
 **Files:**
+
 - Create: `apps/frontend/src/pages/pos/PosPage.tsx`
 
 - [ ] **Step 1: Create PosPage shell**
@@ -426,6 +437,7 @@ git commit -m "feat: create PosPage shell composing POS components"
 ### Task 6: PosTableModal — table selection
 
 **Files:**
+
 - Create: `apps/frontend/src/components/pos/PosTableModal.tsx`
 
 - [ ] **Step 1: Create PosTableModal component**
@@ -433,7 +445,11 @@ git commit -m "feat: create PosPage shell composing POS components"
 ```tsx
 import { useState, useEffect, useContext } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { getTableStatuses, getOrCreateSession, forceOpenSession } from "../../lib/api";
+import {
+  getTableStatuses,
+  getOrCreateSession,
+  forceOpenSession,
+} from "../../lib/api";
 import { usePos } from "../../context/PosContext";
 import RestaurantContext from "../../context/RestaurantContext";
 
@@ -450,10 +466,13 @@ interface TableStatus {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  empty: "bg-green-100 border-green-300 text-green-800 dark:bg-green-900/30 dark:border-green-700 dark:text-green-400",
-  occupied: "bg-red-100 border-red-300 text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-400",
+  empty:
+    "bg-green-100 border-green-300 text-green-800 dark:bg-green-900/30 dark:border-green-700 dark:text-green-400",
+  occupied:
+    "bg-red-100 border-red-300 text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-400",
   paid: "bg-blue-100 border-blue-300 text-blue-800 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-400",
-  waiting: "bg-yellow-100 border-yellow-300 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-700 dark:text-yellow-400",
+  waiting:
+    "bg-yellow-100 border-yellow-300 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-700 dark:text-yellow-400",
 };
 
 export default function PosTableModal() {
@@ -612,6 +631,7 @@ git commit -m "feat: add PosTableModal — table grid with status, force-open su
 ### Task 7: PosTopBar — search + active table
 
 **Files:**
+
 - Create: `apps/frontend/src/components/pos/PosTopBar.tsx`
 
 - [ ] **Step 1: Create PosTopBar component**
@@ -629,7 +649,7 @@ export default function PosTopBar() {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
     window.dispatchEvent(
-      new CustomEvent("pos:search", { detail: e.target.value })
+      new CustomEvent("pos:search", { detail: e.target.value }),
     );
   };
 
@@ -688,6 +708,7 @@ git commit -m "feat: add PosTopBar with search input and active table chip"
 ### Task 8: PosCategoryFilter — sticky category pills
 
 **Files:**
+
 - Create: `apps/frontend/src/components/pos/PosCategoryFilter.tsx`
 
 - [ ] **Step 1: Create PosCategoryFilter component**
@@ -721,7 +742,7 @@ export default function PosCategoryFilter() {
   const handleSelect = (categoryId: string | null) => {
     setActiveCategory(categoryId);
     window.dispatchEvent(
-      new CustomEvent("pos:category-filter", { detail: categoryId })
+      new CustomEvent("pos:category-filter", { detail: categoryId }),
     );
   };
 
@@ -769,6 +790,7 @@ git commit -m "feat: add PosCategoryFilter — horizontally scrollable category 
 ### Task 9: PosItemCard — single item card
 
 **Files:**
+
 - Create: `apps/frontend/src/components/pos/PosItemCard.tsx`
 
 - [ ] **Step 1: Create PosItemCard component**
@@ -800,7 +822,7 @@ export default function PosItemCard({ item }: PosItemCardProps) {
   const handleTap = () => {
     if (hasOptions) {
       window.dispatchEvent(
-        new CustomEvent("pos:open-options", { detail: item })
+        new CustomEvent("pos:open-options", { detail: item }),
       );
     } else {
       addItem({
@@ -844,6 +866,7 @@ git commit -m "feat: add PosItemCard — tap to add, triggers options drawer if 
 ### Task 10: PosItemGrid — 2-column item grid
 
 **Files:**
+
 - Create: `apps/frontend/src/components/pos/PosItemGrid.tsx`
 
 - [ ] **Step 1: Create PosItemGrid component**
@@ -957,6 +980,7 @@ git commit -m "feat: add PosItemGrid — 2-column grid with search/category filt
 ### Task 11: PosOptionsDrawer — modifier selection sheet
 
 **Files:**
+
 - Create: `apps/frontend/src/components/pos/PosOptionsDrawer.tsx`
 
 - [ ] **Step 1: Create PosOptionsDrawer component**
@@ -996,7 +1020,10 @@ export default function PosOptionsDrawer() {
       setItem(detail);
       setOpen(true);
       // Default select first choice for required VARIATION options
-      const defaults: Record<string, { choiceName: string; priceModifier: number }> = {};
+      const defaults: Record<
+        string,
+        { choiceName: string; priceModifier: number }
+      > = {};
       for (const opt of detail.options ?? []) {
         if (opt.required && opt.choices.length > 0) {
           defaults[opt.id] = {
@@ -1016,7 +1043,7 @@ export default function PosOptionsDrawer() {
     optionId: string,
     optionName: string,
     choiceName: string,
-    priceModifier: number
+    priceModifier: number,
   ) => {
     setSelections((prev) => ({
       ...prev,
@@ -1036,7 +1063,7 @@ export default function PosOptionsDrawer() {
           choiceName: sel.choiceName,
           priceModifier: sel.priceModifier,
         };
-      }
+      },
     );
 
     addItem({
@@ -1071,9 +1098,7 @@ export default function PosOptionsDrawer() {
             <div key={opt.id} className="mb-4">
               <label className="text-sm font-medium text-foreground mb-2 block">
                 {opt.name}
-                {opt.required && (
-                  <span className="text-red-500 ml-1">*</span>
-                )}
+                {opt.required && <span className="text-red-500 ml-1">*</span>}
               </label>
               {opt.type === "VARIATION" ? (
                 <div className="flex flex-wrap gap-2">
@@ -1089,7 +1114,7 @@ export default function PosOptionsDrawer() {
                             opt.id,
                             opt.name,
                             choice.name,
-                            choice.priceModifier
+                            choice.priceModifier,
                           )
                         }
                         className={`px-3 py-2 rounded-lg text-sm min-h-[44px] transition-none ${
@@ -1171,7 +1196,7 @@ export default function PosOptionsDrawer() {
               item.price +
               Object.values(selections).reduce(
                 (sum, s) => sum + (s.priceModifier || 0),
-                0
+                0,
               )
             ).toFixed(2)}
           </button>
@@ -1194,6 +1219,7 @@ git commit -m "feat: add PosOptionsDrawer — Radix Sheet for modifier/note sele
 ### Task 12: PosSeatSelector — seat pill row
 
 **Files:**
+
 - Create: `apps/frontend/src/components/pos/PosSeatSelector.tsx`
 
 - [ ] **Step 1: Create PosSeatSelector component**
@@ -1239,6 +1265,7 @@ git commit -m "feat: add PosSeatSelector — seat pill row for grouping items"
 ### Task 13: PosCartDrawer — cart panel + submit
 
 **Files:**
+
 - Create: `apps/frontend/src/components/pos/PosCartDrawer.tsx`
 
 - [ ] **Step 1: Create PosCartDrawer component**
@@ -1254,7 +1281,10 @@ interface PosCartDrawerProps {
   total: number;
 }
 
-export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) {
+export default function PosCartDrawer({
+  itemCount,
+  total,
+}: PosCartDrawerProps) {
   const restaurantCtx = useContext(RestaurantContext);
   const activeRestaurant = restaurantCtx?.activeRestaurant ?? null;
   const {
@@ -1293,19 +1323,22 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
       setExpanded(false);
     } catch (err: any) {
       setSubmitError(
-        err.response?.data?.message ?? "Failed to submit order. Try again."
+        err.response?.data?.message ?? "Failed to submit order. Try again.",
       );
     } finally {
       setSubmitting(false);
     }
   };
 
-  const itemsBySeat = items.reduce<Record<string, typeof items>>((acc, item) => {
-    const seat = item.seatNumber || "Shared";
-    if (!acc[seat]) acc[seat] = [];
-    acc[seat].push(item);
-    return acc;
-  }, {});
+  const itemsBySeat = items.reduce<Record<string, typeof items>>(
+    (acc, item) => {
+      const seat = item.seatNumber || "Shared";
+      if (!acc[seat]) acc[seat] = [];
+      acc[seat].push(item);
+      return acc;
+    },
+    {},
+  );
 
   return (
     <div className="px-4 py-3">
@@ -1325,7 +1358,10 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
       {expanded && (
         <div className="mt-3 border border-border rounded-lg bg-card max-h-[40dvh] overflow-y-auto">
           {Object.entries(itemsBySeat).map(([seat, seatItems]) => (
-            <div key={seat} className="px-4 py-2 border-b border-border last:border-b-0">
+            <div
+              key={seat}
+              className="px-4 py-2 border-b border-border last:border-b-0"
+            >
               <div className="text-xs font-semibold text-muted-foreground mb-2">
                 [{seat}]
               </div>
@@ -1399,7 +1435,9 @@ export default function PosCartDrawer({ itemCount, total }: PosCartDrawerProps) 
               disabled={submitting || items.length === 0}
               className="w-full py-3 rounded-lg bg-green-600 text-white font-semibold disabled:opacity-50 min-h-[44px]"
             >
-              {submitting ? "Submitting..." : `Submit Order · €${total.toFixed(2)}`}
+              {submitting
+                ? "Submitting..."
+                : `Submit Order · €${total.toFixed(2)}`}
             </button>
           </div>
         </div>
@@ -1421,6 +1459,7 @@ git commit -m "feat: add PosCartDrawer — expandable cart with seat groups, qty
 ### Task 14: Wire App.tsx — add POS route
 
 **Files:**
+
 - Modify: `apps/frontend/src/App.tsx`
 
 - [ ] **Step 1: Add imports and POS route to App.tsx**
@@ -1437,7 +1476,9 @@ import { PosProvider } from "./context/PosContext";
 Add this route block after the `</Route>` closing `AppLayout` routes and before the `{/* Customer-facing routes */}` comment (after line 80):
 
 ```tsx
-{/* Staff POS — no chrome, full viewport */}
+{
+  /* Staff POS — no chrome, full viewport */
+}
 <Route element={<PosLayout />}>
   <Route
     path="/staff/pos"
@@ -1449,7 +1490,7 @@ Add this route block after the `</Route>` closing `AppLayout` routes and before 
       </StaffRoute>
     }
   />
-</Route>
+</Route>;
 ```
 
 The final route structure of `App.tsx` should be:
@@ -1499,6 +1540,7 @@ git commit -m "feat: wire /staff/pos route with PosLayout, StaffRoute, PosProvid
 ### Task 15: PosSplitBill — split bill calculator
 
 **Files:**
+
 - Create: `apps/frontend/src/components/pos/PosSplitBill.tsx`
 
 - [ ] **Step 1: Create PosSplitBill component**
@@ -1513,8 +1555,7 @@ interface PosSplitBillProps {
 export default function PosSplitBill({ total }: PosSplitBillProps) {
   const [splitCount, setSplitCount] = useState(1);
 
-  const perPerson =
-    splitCount > 0 ? total / splitCount : total;
+  const perPerson = splitCount > 0 ? total / splitCount : total;
 
   return (
     <div className="p-4 border-t border-border">
@@ -1558,6 +1599,7 @@ git commit -m "feat: add PosSplitBill — integer split calculator, per-person d
 ### Task 16: PosQRBill — QR code for session bill
 
 **Files:**
+
 - Create: `apps/frontend/src/components/pos/PosQRBill.tsx`
 
 - [ ] **Step 1: Check qrcode.react availability**
@@ -1608,6 +1650,7 @@ git commit -m "feat: add PosQRBill — QR code pointing to session bill URL"
 ### Task 17: Integration — wire Phase D components into PosCartDrawer
 
 **Files:**
+
 - Modify: `apps/frontend/src/components/pos/PosCartDrawer.tsx`
 
 - [ ] **Step 1: Add PosSplitBill and PosQRBill to the expanded cart view**
@@ -1723,6 +1766,7 @@ During code review and bug fixing, the implementation diverged from this plan in
 Plan used `if (!item) return null` which unmounts `Dialog.Root` before Radix cleans up its Portal. The `fixed inset-0 z-50` overlay stays in `document.body`, invisible but blocking all clicks after first drawer interaction.
 
 Actual pattern — always mount Root, conditionally render Portal content:
+
 ```tsx
 <Dialog.Root open={open} onOpenChange={handleOpenChange}>
   <Dialog.Portal>
@@ -1743,9 +1787,13 @@ Also: uses `Dialog` import (not `Sheet`) for consistency with PosTableModal. Bot
 Plan used `crypto.randomUUID()` directly. This throws `TypeError` in non-secure contexts (HTTP without localhost, some WebViews). Every tap on a non-option item → silent crash in click handler.
 
 Actual: `generateId()` wrapper with `Math.random()` fallback:
+
 ```typescript
 function generateId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -1761,13 +1809,14 @@ function generateId(): string {
 Plan sent `tableId: session.tableId` (UUID) and `tableSessionId: session.sessionId` (field doesn't exist in DTO). Backend `OrdersService.create()` line 107 explicitly states: `"Frontend sends table name (e.g. '1'), not cuid — resolve to real id"`. Plan payload would cause every order to fail with `NotFoundException('Table not found')`.
 
 Actual payload:
+
 ```typescript
 await createOrder({
   customerName: "Staff",
-  tableId: session.tableName,         // human-readable name, not UUID
+  tableId: session.tableName, // human-readable name, not UUID
   restaurantId: activeRestaurant.id,
   specialRequests,
-  sessionToken: session.sessionToken,  // matches CreateOrderDto field
+  sessionToken: session.sessionToken, // matches CreateOrderDto field
   items: items.map((item) => ({
     menuItemId: item.menuItemId,
     quantity: item.quantity,
@@ -1824,20 +1873,20 @@ Plan: `size={200}`. Actual: `size={256}` — marginally better scan reliability.
 
 ### Files Modified Beyond Plan Scope
 
-| File | Extra Changes |
-|------|--------------|
-| `PosContext.tsx` | Added `generateId()`, `clearSession` resets `activeSeat` |
-| `PosItemGrid.tsx` | Props-based data, `error` state display, filter clearing |
-| `PosCategoryFilter.tsx` | Props-based data, `menuError` display, filter clearing |
-| `PosItemCard.tsx` | `added` animation state |
-| `PosTableModal.tsx` | `actionError`, `error` with retry, `handleOpenChange` blocks dismiss when no session |
-| `PosCartDrawer.tsx` | Inline note editing, Force Close button, correct `createOrder` payload |
-| `PosOptionsDrawer.tsx` | Always-mounted Dialog.Root, conditional Portal content |
-| `PosTopBar.tsx` | Removed dead `RestaurantContext` import |
-| `PosSplitBill.tsx` | Split count capped at 20 |
-| `PosQRBill.tsx` | Size 256px |
-| `StaffRoute.tsx` | `toUpperCase()` defensive role check |
-| `PosPage.tsx` | Centralized menu fetch with `AbortController` |
+| File                    | Extra Changes                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------------ |
+| `PosContext.tsx`        | Added `generateId()`, `clearSession` resets `activeSeat`                             |
+| `PosItemGrid.tsx`       | Props-based data, `error` state display, filter clearing                             |
+| `PosCategoryFilter.tsx` | Props-based data, `menuError` display, filter clearing                               |
+| `PosItemCard.tsx`       | `added` animation state                                                              |
+| `PosTableModal.tsx`     | `actionError`, `error` with retry, `handleOpenChange` blocks dismiss when no session |
+| `PosCartDrawer.tsx`     | Inline note editing, Force Close button, correct `createOrder` payload               |
+| `PosOptionsDrawer.tsx`  | Always-mounted Dialog.Root, conditional Portal content                               |
+| `PosTopBar.tsx`         | Removed dead `RestaurantContext` import                                              |
+| `PosSplitBill.tsx`      | Split count capped at 20                                                             |
+| `PosQRBill.tsx`         | Size 256px                                                                           |
+| `StaffRoute.tsx`        | `toUpperCase()` defensive role check                                                 |
+| `PosPage.tsx`           | Centralized menu fetch with `AbortController`                                        |
 
 ---
 
@@ -1852,6 +1901,7 @@ During bug fixing and feature refinement, the following were added beyond the in
 Adding same item to cart twice produced duplicate `menuItemId` values in the items array. Prisma `findMany({ where: { id: { in: ["id1", "id1"] } } })` returns 1 row but `menuItemIds.length` is 2 → `1 !== 2` → bogus `NotFoundException('Some menu items not found')`.
 
 Fix: deduplicate with `Set` before DB lookup:
+
 ```typescript
 const menuItemIds = [...new Set(createOrderDto.items.map((i) => i.menuItemId))];
 ```
@@ -1863,6 +1913,7 @@ const menuItemIds = [...new Set(createOrderDto.items.map((i) => i.menuItemId))];
 Added third action button for physical card terminal payments. All 3 buttons now require confirmation via Radix Dialog to prevent misclicks.
 
 **Backend — `closeSessionWithCard()`:**
+
 - Creates `Payment` record with `provider: 'MYPOS'`, `status: 'SUCCEEDED'`
 - Sets session status to `PAID` with `paidAt` timestamp
 - Emits `emitTableStatusChanged` and `payment:confirmed` events
@@ -1871,6 +1922,7 @@ Added third action button for physical card terminal payments. All 3 buttons now
 **Backend — endpoint:** `POST /payments/session/:token/close-card` (JWT-guarded)
 
 **Frontend — PosCartDrawer changes:**
+
 - `ConfirmAction` type tracks which action is pending confirmation
 - Three buttons: Submit Order (green), Close - Paid by Card (amber), Force Close (red)
 - Radix `Dialog.Root` positioned center-screen (`top-1/2 -translate-y-1/2`)
@@ -1884,6 +1936,7 @@ Added third action button for physical card terminal payments. All 3 buttons now
 Reopening an occupied table now shows all previously submitted orders as read-only history. Submitting only sends new items to kitchen.
 
 **PosCartItem — `submitted` flag:**
+
 ```typescript
 interface PosCartItem {
   // ... existing fields
@@ -1904,6 +1957,7 @@ interface PosCartItem {
 
 **Backend — `getSessionBill` enhanced:**
 Now includes order items with menu item names via Prisma `include`:
+
 ```typescript
 include: {
   items: {
@@ -1918,6 +1972,7 @@ include: {
 When selecting a table with `orderCount > 0`, calls `getSessionBill(token)` after `getOrCreateSession`. Converts each order item to `PosCartItem` with `submitted: true`. Calls `resetCart()` before setting new session to clear previous table's data.
 
 **PosCartDrawer — dual-mode display:**
+
 - Submitted items: `opacity-60`, ✓ checkmark, quantity displayed as `×N` text, no edit/delete controls
 - Pending items: full controls (qty +/−, delete, note editing)
 - Submit button: shows pending count and pending total, disabled when no pending items ("No new items to submit")
@@ -1931,16 +1986,19 @@ When selecting a table with `orderCount > 0`, calls `getSessionBill(token)` afte
 Dashboard Live View (Tables & QR → Live View tab) previously showed "No orders" when clicking any table because `LiveTablesView.tsx:142` passed `orders={[]}` hardcoded.
 
 **Backend — new endpoint:** `GET /tables/:tableId/orders?restaurantId=X` (JWT-guarded)
+
 - Finds active OPEN session for the table
 - Returns all orders with items including menu item names
 - Returns empty array if no active session
 
 **Frontend — LiveTablesView:**
+
 - `handleTableClick` now async — if `table.orderCount > 0`, fetches from new endpoint
 - Shows loading spinner while fetching
 - Passes real order data to `TableDetailModal`
 
 **Frontend — TableDetailModal:**
+
 - Added `ordersLoading` prop — shows spinner while loading
 - "No orders" message only shown when not loading and orders array is empty
 

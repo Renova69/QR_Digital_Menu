@@ -4,14 +4,14 @@ const prisma = new PrismaClient();
 
 async function main() {
   const item = await prisma.menuItem.findFirst({
-    where: { 
-      name: { 
+    where: {
+      name: {
         contains: 'Truffle Burrata',
-        mode: 'insensitive' 
-      } 
-    }
+        mode: 'insensitive',
+      },
+    },
   });
-  
+
   if (!item) {
     console.log('Item not found');
     return;
@@ -22,8 +22,8 @@ async function main() {
   if (item.relatedItemIds && item.relatedItemIds.length > 0) {
     const pairings = await prisma.menuItem.findMany({
       where: {
-        id: { in: item.relatedItemIds }
-      }
+        id: { in: item.relatedItemIds },
+      },
     });
     console.log('Pairings found in DB:', JSON.stringify(pairings, null, 2));
   } else {

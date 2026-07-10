@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 import {
   Search,
   HelpCircle,
@@ -20,25 +20,138 @@ import {
   Star,
   ShoppingBag,
   Info,
-  Coffee, Pizza, Beer, Wine, IceCream, MapPin, Phone, Mail, FileText, Image, Layout, Globe, Tag, Ticket, Zap, Clock, Calendar, MessageSquare, Lightbulb, GraduationCap, Video, Book, Bookmark, Compass, LifeBuoy, Wrench, PlayCircle, FileQuestion
-} from 'lucide-react';
+  Coffee,
+  Pizza,
+  Beer,
+  Wine,
+  IceCream,
+  MapPin,
+  Phone,
+  Mail,
+  FileText,
+  Image,
+  Layout,
+  Globe,
+  Tag,
+  Ticket,
+  Zap,
+  Clock,
+  Calendar,
+  MessageSquare,
+  Lightbulb,
+  GraduationCap,
+  Video,
+  Book,
+  Bookmark,
+  Compass,
+  LifeBuoy,
+  Wrench,
+  PlayCircle,
+  FileQuestion,
+} from "lucide-react";
 
 const ICON_MAP: Record<string, any> = {
-  BookOpen, Utensils, QrCode, CreditCard, Award, Monitor, ShieldAlert, Settings, Users, Star, ShoppingBag, Info, HelpCircle,
-  Coffee, Pizza, Beer, Wine, IceCream, MapPin, Phone, Mail, FileText, Image, Layout, Globe, Tag, Ticket, Zap, Clock, Calendar, MessageSquare, Lightbulb, GraduationCap, Video, Book, Bookmark, Compass, LifeBuoy, Wrench, PlayCircle, FileQuestion
+  BookOpen,
+  Utensils,
+  QrCode,
+  CreditCard,
+  Award,
+  Monitor,
+  ShieldAlert,
+  Settings,
+  Users,
+  Star,
+  ShoppingBag,
+  Info,
+  HelpCircle,
+  Coffee,
+  Pizza,
+  Beer,
+  Wine,
+  IceCream,
+  MapPin,
+  Phone,
+  Mail,
+  FileText,
+  Image,
+  Layout,
+  Globe,
+  Tag,
+  Ticket,
+  Zap,
+  Clock,
+  Calendar,
+  MessageSquare,
+  Lightbulb,
+  GraduationCap,
+  Video,
+  Book,
+  Bookmark,
+  Compass,
+  LifeBuoy,
+  Wrench,
+  PlayCircle,
+  FileQuestion,
 };
-import { getHelpContent, type HelpContentItem } from '../../lib/api';
+import { getHelpContent, type HelpContentItem } from "../../lib/api";
 
-type HelpCategory = 'getting-started' | 'menu' | 'tables' | 'payments' | 'loyalty' | 'staff' | 'legal';
+type HelpCategory =
+  | "getting-started"
+  | "menu"
+  | "tables"
+  | "payments"
+  | "loyalty"
+  | "staff"
+  | "legal";
 
-const CATEGORY_META: { id: HelpCategory; labelKey: string; defaultLabel: string; icon: any }[] = [
-  { id: 'getting-started', labelKey: 'help.categories.gettingStarted', defaultLabel: 'Getting Started', icon: BookOpen },
-  { id: 'menu',            labelKey: 'help.categories.menu',           defaultLabel: 'Menu Builder',    icon: Utensils },
-  { id: 'tables',          labelKey: 'help.categories.tables',         defaultLabel: 'Tables & QR Codes', icon: QrCode },
-  { id: 'payments',        labelKey: 'help.categories.payments',       defaultLabel: 'Stripe Payments',  icon: CreditCard },
-  { id: 'loyalty',         labelKey: 'help.categories.loyalty',        defaultLabel: 'Loyalty Program',  icon: Award },
-  { id: 'staff',           labelKey: 'help.categories.staff',          defaultLabel: 'POS & KDS Systems', icon: Monitor },
-  { id: 'legal',           labelKey: 'help.categories.legal',          defaultLabel: 'Privacy & GDPR',   icon: ShieldAlert },
+const CATEGORY_META: {
+  id: HelpCategory;
+  labelKey: string;
+  defaultLabel: string;
+  icon: any;
+}[] = [
+  {
+    id: "getting-started",
+    labelKey: "help.categories.gettingStarted",
+    defaultLabel: "Getting Started",
+    icon: BookOpen,
+  },
+  {
+    id: "menu",
+    labelKey: "help.categories.menu",
+    defaultLabel: "Menu Builder",
+    icon: Utensils,
+  },
+  {
+    id: "tables",
+    labelKey: "help.categories.tables",
+    defaultLabel: "Tables & QR Codes",
+    icon: QrCode,
+  },
+  {
+    id: "payments",
+    labelKey: "help.categories.payments",
+    defaultLabel: "Stripe Payments",
+    icon: CreditCard,
+  },
+  {
+    id: "loyalty",
+    labelKey: "help.categories.loyalty",
+    defaultLabel: "Loyalty Program",
+    icon: Award,
+  },
+  {
+    id: "staff",
+    labelKey: "help.categories.staff",
+    defaultLabel: "POS & KDS Systems",
+    icon: Monitor,
+  },
+  {
+    id: "legal",
+    labelKey: "help.categories.legal",
+    defaultLabel: "Privacy & GDPR",
+    icon: ShieldAlert,
+  },
 ];
 
 function groupBy<T>(items: T[], key: keyof T): Map<string, T[]> {
@@ -73,12 +186,12 @@ function getGuideSteps(catItems: HelpContentItem[]): string[] {
 const HelpView = () => {
   const { t, i18n } = useTranslation();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
 
   const { data: items = [] } = useQuery({
-    queryKey: ['help-content', 'dashboard', i18n.language],
-    queryFn: () => getHelpContent('dashboard', i18n.language),
+    queryKey: ["help-content", "dashboard", i18n.language],
+    queryFn: () => getHelpContent("dashboard", i18n.language),
   });
 
   const activeItems = items.filter((i) => i.active);
@@ -92,47 +205,60 @@ const HelpView = () => {
     }
   }
 
-  const categoriesByKey = groupBy(activeItems, 'categoryKey');
+  const categoriesByKey = groupBy(activeItems, "categoryKey");
 
   // Build display categories in the order from the database
   const DISPLAY_CATEGORIES = orderedCategoryKeys.map((k) => {
     const hardcoded = CATEGORY_META.find((c) => c.id === k);
-    const metaItem = activeItems.find((i) => i.categoryKey === k && i.itemKey === 'category-meta');
-    const titleItem = activeItems.find((i) => i.categoryKey === k && i.itemKey === 'guide-title');
+    const metaItem = activeItems.find(
+      (i) => i.categoryKey === k && i.itemKey === "category-meta",
+    );
+    const titleItem = activeItems.find(
+      (i) => i.categoryKey === k && i.itemKey === "guide-title",
+    );
     const iconName = metaItem?.title;
-    const resolvedIcon = (iconName && ICON_MAP[iconName]) ? ICON_MAP[iconName] : (hardcoded?.icon || BookOpen);
+    const resolvedIcon =
+      iconName && ICON_MAP[iconName]
+        ? ICON_MAP[iconName]
+        : hardcoded?.icon || BookOpen;
 
     return {
-      id: k as typeof CATEGORY_META[0]['id'],
+      id: k as (typeof CATEGORY_META)[0]["id"],
       labelKey: hardcoded ? hardcoded.labelKey : `help.categories.${k}`,
-      defaultLabel: metaItem?.body || (hardcoded ? hardcoded.defaultLabel : (titleItem?.title || (k.charAt(0).toUpperCase() + k.slice(1).replace(/-/g, ' ')))),
+      defaultLabel:
+        metaItem?.body ||
+        (hardcoded
+          ? hardcoded.defaultLabel
+          : titleItem?.title ||
+            k.charAt(0).toUpperCase() + k.slice(1).replace(/-/g, " ")),
       icon: resolvedIcon,
     };
   });
 
   // Default to first category with content
-  const resolvedCategory = activeCategory && categoriesByKey.has(activeCategory)
-    ? activeCategory
-    : orderedCategoryKeys[0] || 'getting-started';
+  const resolvedCategory =
+    activeCategory && categoriesByKey.has(activeCategory)
+      ? activeCategory
+      : orderedCategoryKeys[0] || "getting-started";
 
   const activeMeta = DISPLAY_CATEGORIES.find((c) => c.id === resolvedCategory);
 
   // Build guide data for the active category
   const catItems = categoriesByKey.get(resolvedCategory) || [];
-  const guideTitle = getGuideField(catItems, 'guide-title');
-  const guideDesc = getGuideField(catItems, 'guide-desc');
+  const guideTitle = getGuideField(catItems, "guide-title");
+  const guideDesc = getGuideField(catItems, "guide-desc");
   const guideSteps = getGuideSteps(catItems);
-  const guideTip = getGuideField(catItems, 'guide-tip');
-  const guideWarning = getGuideField(catItems, 'guide-warning');
+  const guideTip = getGuideField(catItems, "guide-tip");
+  const guideWarning = getGuideField(catItems, "guide-warning");
 
   // FAQ items are those whose itemKey starts with 'faq-'
-  const faqItems = catItems.filter((i) => i.itemKey.startsWith('faq-'));
+  const faqItems = catItems.filter((i) => i.itemKey.startsWith("faq-"));
 
   // Search filtering
   const searchLower = searchQuery.toLowerCase();
   const filteredFaqs = searchQuery
     ? activeItems
-        .filter((i) => i.itemKey.startsWith('faq-'))
+        .filter((i) => i.itemKey.startsWith("faq-"))
         .filter(
           (i) =>
             i.title.toLowerCase().includes(searchLower) ||
@@ -165,17 +291,23 @@ const HelpView = () => {
         <div>
           <h2 className="text-3xl font-display font-black text-foreground tracking-tight mb-1 flex items-center gap-3">
             <HelpCircle className="h-8 w-8 text-primary" />
-            {t('help.title', 'Help Center')}
+            {t("help.title", "Help Center")}
           </h2>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            {t('help.desc', 'Find tutorials, guides, and answers to frequently asked questions.')}
+            {t(
+              "help.desc",
+              "Find tutorials, guides, and answers to frequently asked questions.",
+            )}
           </p>
         </div>
 
         <div className="relative w-full md:w-80">
           <input
             type="text"
-            placeholder={t('help.searchPlaceholder', 'Search help guides and FAQs...')}
+            placeholder={t(
+              "help.searchPlaceholder",
+              "Search help guides and FAQs...",
+            )}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-secondary/30 hover:bg-secondary/40 focus:bg-background border border-border/50 focus:border-primary/40 rounded-xl px-10 py-3 text-sm focus:outline-none transition-all pr-4 text-foreground placeholder:text-muted-foreground/60"
@@ -202,18 +334,20 @@ const HelpView = () => {
                 key={cat.id}
                 onClick={() => {
                   setActiveCategory(cat.id);
-                  setSearchQuery('');
+                  setSearchQuery("");
                   setExpandedFaq(null);
                 }}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all border cursor-pointer shrink-0 ${
                   isActive
-                    ? 'bg-primary/10 text-primary border-primary/20'
-                    : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground border-transparent'
+                    ? "bg-primary/10 text-primary border-primary/20"
+                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border-transparent"
                 }`}
               >
                 <CatIcon className="w-4 h-4 shrink-0" />
                 <span>{t(cat.labelKey, cat.defaultLabel)}</span>
-                {isActive && <ChevronRight className="hidden lg:block ml-auto w-4 h-4" />}
+                {isActive && (
+                  <ChevronRight className="hidden lg:block ml-auto w-4 h-4" />
+                )}
               </button>
             );
           })}
@@ -233,7 +367,9 @@ const HelpView = () => {
                     {guideTitle}
                   </h3>
                   {guideDesc && (
-                    <p className="text-sm text-muted-foreground mt-1">{guideDesc}</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {guideDesc}
+                    </p>
                   )}
                 </div>
               </div>
@@ -242,7 +378,7 @@ const HelpView = () => {
               {guideSteps.length > 0 && (
                 <div className="space-y-4">
                   <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground">
-                    {t('help.tutorialSteps', 'Step-by-step Guide')}
+                    {t("help.tutorialSteps", "Step-by-step Guide")}
                   </h4>
                   <ol className="space-y-4">
                     {guideSteps.map((step, idx) => (
@@ -265,7 +401,7 @@ const HelpView = () => {
                   <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                   <div>
                     <span className="text-[10px] font-black uppercase tracking-wider text-primary">
-                      {t('help.tipLabel', 'Tip')}
+                      {t("help.tipLabel", "Tip")}
                     </span>
                     <p className="text-sm text-foreground mt-1 leading-relaxed">
                       {guideTip}
@@ -279,7 +415,7 @@ const HelpView = () => {
                   <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
                   <div>
                     <span className="text-[10px] font-black uppercase tracking-wider text-orange-500">
-                      {t('help.warningLabel', 'Important')}
+                      {t("help.warningLabel", "Important")}
                     </span>
                     <p className="text-sm text-foreground mt-1 leading-relaxed">
                       {guideWarning}
@@ -293,7 +429,9 @@ const HelpView = () => {
           {/* Search results notice */}
           {searchQuery && (
             <div className="text-sm text-muted-foreground pl-1">
-              {t('auto.found', 'Found')}{filteredFaqs.length} {t('auto.fAQsMatching', 'FAQs matching "')}{searchQuery}"
+              {t("auto.found", "Found")}
+              {filteredFaqs.length} {t("auto.fAQsMatching", 'FAQs matching "')}
+              {searchQuery}"
             </div>
           )}
 
@@ -301,13 +439,16 @@ const HelpView = () => {
           <div className="space-y-4">
             <h3 className="text-lg font-display font-black text-foreground border-b border-border/30 pb-2">
               {searchQuery
-                ? t('help.faqSearchResults', 'Matching FAQs')
-                : t('help.faqTitle', 'Frequently Asked Questions')}
+                ? t("help.faqSearchResults", "Matching FAQs")
+                : t("help.faqTitle", "Frequently Asked Questions")}
             </h3>
 
             {filteredFaqs.length === 0 ? (
               <div className="glass-panel p-8 text-center text-muted-foreground rounded-2xl border-white/5">
-                {t('help.noFaqsFound', 'No FAQs matching your query. Try searching for other keywords.')}
+                {t(
+                  "help.noFaqsFound",
+                  "No FAQs matching your query. Try searching for other keywords.",
+                )}
               </div>
             ) : (
               <div className="space-y-3">
@@ -325,7 +466,7 @@ const HelpView = () => {
                         <span>{faq.title}</span>
                         <ChevronDown
                           className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-300 ${
-                            isExpanded ? 'rotate-185' : ''
+                            isExpanded ? "rotate-185" : ""
                           }`}
                         />
                       </button>

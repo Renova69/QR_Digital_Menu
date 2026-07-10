@@ -26,7 +26,7 @@ export default function PosItemCard({ item }: PosItemCardProps) {
   const handleTap = () => {
     if (hasOptions) {
       window.dispatchEvent(
-        new CustomEvent("pos:open-options", { detail: item })
+        new CustomEvent("pos:open-options", { detail: item }),
       );
     } else {
       addItem({

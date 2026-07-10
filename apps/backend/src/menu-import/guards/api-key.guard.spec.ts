@@ -18,13 +18,15 @@ const makeContext = (
         params: { id: opts.restaurantId },
       }),
     }),
-  }) as any as ExecutionContext;
+  }) as unknown as ExecutionContext;
 
 describe('ApiKeyGuard', () => {
   let guard: ApiKeyGuard;
 
   beforeEach(() => {
-    guard = new ApiKeyGuard(mockPrisma as any);
+    guard = new ApiKeyGuard(
+      mockPrisma as unknown as ConstructorParameters<typeof ApiKeyGuard>[0],
+    );
     jest.clearAllMocks();
   });
 

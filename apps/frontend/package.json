@@ -62,7 +62,10 @@
     "extends": [
       "react-app",
       "react-app/jest"
-    ]
+    ],
+    "rules": {
+      "@typescript-eslint/no-explicit-any": "error"
+    }
   },
   "browserslist": {
     "production": [
@@ -83,6 +86,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.7.0",
+    "@vitest/coverage-v8": "^3.2.7",
     "autoprefixer": "^10.4.21",
     "jsdom": "^26.1.0",
     "tailwindcss": "^4.1.12",

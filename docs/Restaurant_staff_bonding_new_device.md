@@ -1,12 +1,13 @@
 # Restaurant Staff Bonding For New Devices
 
 ## The issue
-Two  restaurants open next to each other , rest1 and rest2 , 
-both owner/managers do onboarding and create a new restaurant with food menu and staff. Staff got their own pin and separate devices as phones/tables for POS and KDS screens. 
 
-waiter from rest1 take a new phone and goes where? as phone new going to /device-login  but it shows /login page that requires user/pass and its ment for owner/manager login. 
+Two restaurants open next to each other , rest1 and rest2 ,
+both owner/managers do onboarding and create a new restaurant with food menu and staff. Staff got their own pin and separate devices as phones/tables for POS and KDS screens.
 
-How staff from rest1 and rest2 are entering to /device-login on a  new phone ? How phone would now to log them properly , for example waiter1 to rest1 and waiter2 to rest2
+waiter from rest1 take a new phone and goes where? as phone new going to /device-login but it shows /login page that requires user/pass and its ment for owner/manager login.
+
+How staff from rest1 and rest2 are entering to /device-login on a new phone ? How phone would now to log them properly , for example waiter1 to rest1 and waiter2 to rest2
 
 ## Goal
 
@@ -209,7 +210,7 @@ localStorage.setItem(
     restaurantName,
     allowedModes,
     bondedAt: new Date().toISOString(),
-  })
+  }),
 );
 ```
 
@@ -350,16 +351,11 @@ Manual test checklist:
 - Keep bonding in localStorage for first implementation.
 - Add backend registered devices later only if audit/history/revocation becomes necessary.
 
-
-
-
-
-## IMPLEMENTATION DONE 13.05.2026 at time 19:40 
+## IMPLEMENTATION DONE 13.05.2026 at time 19:40
 
 Implemented the QR-based staff device bonding flow without hardcoded restaurant/staff examples.
 
 What’s included:
-
 
 Added DeviceEnrollmentToken Prisma model and migration:
 
@@ -381,13 +377,10 @@ Added /device-enroll?token=... page that verifies the token, stores the bonded r
 
 Updated /device-login missing-config message to tell staff to scan the manager-generated QR.
 
-
 Verification passed:
-
 
 npm.cmd --workspace backend exec -- nest build
 
 npm.cmd --workspace frontend run build
 
 npm.cmd --workspace backend exec -- prisma validate
-

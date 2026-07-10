@@ -246,10 +246,9 @@ export class ReservationNotificationsService {
     );
     const params = new URLSearchParams({
       r: restaurantId,
-      token,
       lang: notificationLocale,
     });
-    return `${base}/booking/manage?${params.toString()}`;
+    return `${base}/booking/manage?${params.toString()}#token=${token}`;
   }
 
   /**
@@ -369,7 +368,7 @@ export class ReservationNotificationsService {
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
       this.logger.error(
-        `Resend reservation email failed (${res.status}): ${detail.slice(0, 200)}`,
+        `Resend reservation email failed (${res.status}): ${redactProviderDetail(detail).slice(0, 200)}`,
       );
     }
   }
@@ -411,7 +410,7 @@ export class ReservationNotificationsService {
       });
       if (!result.ok) {
         this.logger.error(
-          `SMS gateway reservation SMS failed (${result.status}): ${result.detail.slice(0, 200)}`,
+          `SMS gateway reservation SMS failed (${result.status}): ${redactProviderDetail(result.detail).slice(0, 200)}`,
         );
       }
       return;
@@ -455,7 +454,7 @@ export class ReservationNotificationsService {
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
       this.logger.error(
-        `Twilio reservation SMS failed (${res.status}): ${detail.slice(0, 200)}`,
+        `Twilio reservation SMS failed (${res.status}): ${redactProviderDetail(detail).slice(0, 200)}`,
       );
     }
   }
@@ -583,4 +582,20 @@ function decodeEntities(text: string): string {
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&amp;/g, '&');
+}
+
+/**
+ * Strip sensitive PII or bearer tokens from raw provider error responses before
+ * they land in our internal logs.
+ */
+function redactProviderDetail(text: string): string {
+  if (!text) return text;
+  // Redact phones (e.g. +359888123456 or 0888123456)
+  let redacted = text.replace(/(?:\+?\d{10,15})/g, '[REDACTED_PHONE]');
+  // Redact emails
+  redacted = redacted.replace(/[\w.-]+@[\w.-]+\.\w+/g, '[REDACTED_EMAIL]');
+  // Redact tokens in query strings or short links
+  redacted = redacted.replace(/token=[\w.-]+/g, 'token=[REDACTED]');
+  redacted = redacted.replace(/\/r\/[\w.-]+/g, '/r/[REDACTED]');
+  return redacted;
 }

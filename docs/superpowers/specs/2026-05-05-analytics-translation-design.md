@@ -1,4 +1,5 @@
 # Analytics Fix + Translation Overhaul — Design Spec
+
 **Date:** 2026-05-05  
 **Status:** Approved
 
@@ -17,20 +18,22 @@ Two independent but related improvements:
 
 ### 2.1 Problems
 
-| # | Problem | Root Cause |
-|---|---------|-----------|
-| 1 | New orders don't update analytics charts | `staleTime: 5min`, no socket-driven invalidation |
-| 2 | Revenue trend shows orders on wrong calendar day | `getRevenueTrend` groups by UTC `.toISOString()` instead of restaurant timezone |
-| 3 | Peak hours chart shows wrong hour buckets | `getPeakHours` uses `.getHours()` (UTC) instead of restaurant local time |
-| 4 | Summary "today" count wrong for non-UTC restaurants | `getSummary` sets `today` using server UTC midnight |
+| #   | Problem                                             | Root Cause                                                                      |
+| --- | --------------------------------------------------- | ------------------------------------------------------------------------------- |
+| 1   | New orders don't update analytics charts            | `staleTime: 5min`, no socket-driven invalidation                                |
+| 2   | Revenue trend shows orders on wrong calendar day    | `getRevenueTrend` groups by UTC `.toISOString()` instead of restaurant timezone |
+| 3   | Peak hours chart shows wrong hour buckets           | `getPeakHours` uses `.getHours()` (UTC) instead of restaurant local time        |
+| 4   | Summary "today" count wrong for non-UTC restaurants | `getSummary` sets `today` using server UTC midnight                             |
 
 ### 2.2 Frontend changes
 
 **`apps/frontend/src/hooks/useAnalytics.ts`**
+
 - Set `staleTime: 0` — cache always considered stale, fetches immediately on mount
 - Keep `refetchInterval: 30000` as background safety net
 
 **`apps/frontend/src/context/OrderContext.tsx`**
+
 - Import `useQueryClient` from `@tanstack/react-query`
 - On any incoming order socket event (new order or status change): call `queryClient.invalidateQueries({ queryKey: ['analytics'] })`
 - Effect: analytics refetch the moment an order arrives, not at the next 30s poll tick
@@ -40,17 +43,21 @@ Two independent but related improvements:
 **`apps/backend/src/dashboard/dashboard.service.ts`**
 
 `getAnalytics()`:
+
 - Fetch `restaurant.timezone` at the top of the method (single `findUnique` select)
 - Pass `tz: string` into `getRevenueTrend` and `getPeakHours`
 
 `getRevenueTrend(restaurantId, start, end, tz)`:
+
 - Replace `order.createdAt.toISOString().split('T')[0]` with `DateTime.fromJSDate(order.createdAt, { zone: tz }).toISODate()`
 - Initialize date range loop using Luxon `DateTime` in the same timezone so day boundaries are correct
 
 `getPeakHours(restaurantId, start, end, tz)`:
+
 - Replace `order.createdAt.getHours()` with `DateTime.fromJSDate(order.createdAt, { zone: tz }).hour`
 
 `getSummary(restaurantId)`:
+
 - Derive `today` midnight using `DateTime.now().setZone(tz).startOf('day').toJSDate()` — requires fetching timezone first
 
 Import: `import { DateTime } from 'luxon'` — already a backend dependency.
@@ -69,6 +76,7 @@ Platform owns the DeepL key. Owners configure target languages and trigger trans
 - `restaurant.deeplApiKey` column: stays in schema, never read or written again (CLAUDE.md requirement)
 
 **`apps/backend/src/translation/translation.service.ts`**
+
 - Remove `apiKey` parameter from `translateTexts`, `translateText`, `translateObject`
 - Read `process.env.DEEPL_API_KEY` internally
 - Free-tier detection: `process.env.DEEPL_API_KEY?.endsWith(':fx')`
@@ -77,11 +85,13 @@ Platform owns the DeepL key. Owners configure target languages and trigger trans
 ### 3.3 "Translate All" — owner-triggered
 
 **`apps/backend/src/restaurants/restaurants.service.ts`** — `translateAll()`:
+
 - Remove `restaurant.deeplApiKey` guard — replace with `process.env.DEEPL_API_KEY` check
 - Remove `restaurant.deeplApiKey` from all `this.translationService.*` call sites
 - Logic unchanged: categories → items (name, description, allergens, tags) → options + choices
 
 **Post-save pre-warm** (fire-and-forget):
+
 - In `MenuService` create/update item handler and category handler: after DB write succeeds, fire async pre-warm for any `restaurant.targetLanguages` where the item has no existing translation
 - Pattern: `void (async () => { const t = await translationService.translateObject(...); await prisma.menuItem.update(...translations) })()` — does not block the HTTP response
 - Effect: new/edited menu items are translated in the background before the first customer arrives
@@ -93,6 +103,7 @@ Platform owns the DeepL key. Owners configure target languages and trigger trans
 `GET /api/menu/public/:restaurantId?lang=ro`
 
 Flow:
+
 1. Fetch full menu data as normal (unchanged)
 2. If `lang` query param provided AND `DEEPL_API_KEY` set:
    - For each category: if `translations?.[lang]` exists → overlay translated name. If missing → translate live → write `translations[lang]` to DB → overlay.
@@ -107,17 +118,17 @@ Flow:
 
 ### 3.5 What gets translated
 
-| Content | Owner "Translate All" | Lazy fallback |
-|---------|----------------------|---------------|
-| Category names | yes | yes |
-| Item name | yes | yes |
-| Item description | yes | yes |
-| Allergens | yes | yes |
-| Dietary tags | yes | yes |
-| Option names | yes | yes |
-| Choice names | yes | yes |
-| Dashboard UI strings | no — static i18n JSON | no |
-| Dashboard buttons/labels | no — static i18n JSON | no |
+| Content                  | Owner "Translate All" | Lazy fallback |
+| ------------------------ | --------------------- | ------------- |
+| Category names           | yes                   | yes           |
+| Item name                | yes                   | yes           |
+| Item description         | yes                   | yes           |
+| Allergens                | yes                   | yes           |
+| Dietary tags             | yes                   | yes           |
+| Option names             | yes                   | yes           |
+| Choice names             | yes                   | yes           |
+| Dashboard UI strings     | no — static i18n JSON | no            |
+| Dashboard buttons/labels | no — static i18n JSON | no            |
 
 ---
 
@@ -139,6 +150,7 @@ Public menu page retains its own language picker for customers, persisted per-re
 ### 4.3 SettingsView cleanup
 
 Remove:
+
 - `deeplApiKey` state variable
 - DeepL API Key input field + label
 - `handleForceTranslate` API key guard (`if (!deeplApiKey)`)
@@ -146,10 +158,12 @@ Remove:
 - `deeplApiKey` from `updateRestaurant` call in `handleForceTranslate`
 
 Keep:
+
 - Target language checkboxes (unchanged)
 - "Translate All Now" button — enabled when `targetLanguages.length > 0`
 
 Add:
+
 - Small info text: "Translation powered by DeepL" (no key visible to owner)
 - English (`{ code: 'en', name: 'English' }`) added to `AVAILABLE_LANGUAGES` — required since BG is now the source language
 
@@ -158,6 +172,7 @@ Add:
 Files: `en/translation.json`, `bg/translation.json`, `ro/translation.json`
 
 Strings currently hardcoded in English (missing from JSON, must be added to all 3 files):
+
 - "Timezone" label (`SettingsView`)
 - "Export" button (`AnalyticsView`)
 - "Translation powered by DeepL" (new)
@@ -167,20 +182,20 @@ Strings currently hardcoded in English (missing from JSON, must be added to all 
 
 ## 5. File Change Summary
 
-| File | Change |
-|------|--------|
-| `apps/backend/.env` | Add `DEEPL_API_KEY` |
-| `apps/backend/src/translation/translation.service.ts` | Drop `apiKey` param, read from env |
-| `apps/backend/src/restaurants/restaurants.service.ts` | Drop `deeplApiKey` guard in `translateAll` |
-| `apps/backend/src/menu/menu.service.ts` | Add `lang` param, lazy translate + DB write |
-| `apps/backend/src/menu/menu.controller.ts` | Accept `?lang` query param |
-| `apps/backend/src/dashboard/dashboard.service.ts` | Fetch restaurant timezone, Luxon date/hour grouping in all relevant methods |
-| `apps/frontend/src/hooks/useAnalytics.ts` | `staleTime: 0` |
-| `apps/frontend/src/context/OrderContext.tsx` | Invalidate `['analytics']` on order socket events |
-| `apps/frontend/src/pages/Dashboard/SettingsView.tsx` | Remove API key field, add English to language list, remove key guard |
-| `apps/frontend/src/i18n.ts` | `fallbackLng: 'bg'` |
-| `apps/frontend/src/components/Header.tsx` | Language picker → wired to i18next + lang context |
-| `apps/frontend/src/locales/*/translation.json` | Audit + fill missing keys |
+| File                                                  | Change                                                                      |
+| ----------------------------------------------------- | --------------------------------------------------------------------------- |
+| `apps/backend/.env`                                   | Add `DEEPL_API_KEY`                                                         |
+| `apps/backend/src/translation/translation.service.ts` | Drop `apiKey` param, read from env                                          |
+| `apps/backend/src/restaurants/restaurants.service.ts` | Drop `deeplApiKey` guard in `translateAll`                                  |
+| `apps/backend/src/menu/menu.service.ts`               | Add `lang` param, lazy translate + DB write                                 |
+| `apps/backend/src/menu/menu.controller.ts`            | Accept `?lang` query param                                                  |
+| `apps/backend/src/dashboard/dashboard.service.ts`     | Fetch restaurant timezone, Luxon date/hour grouping in all relevant methods |
+| `apps/frontend/src/hooks/useAnalytics.ts`             | `staleTime: 0`                                                              |
+| `apps/frontend/src/context/OrderContext.tsx`          | Invalidate `['analytics']` on order socket events                           |
+| `apps/frontend/src/pages/Dashboard/SettingsView.tsx`  | Remove API key field, add English to language list, remove key guard        |
+| `apps/frontend/src/i18n.ts`                           | `fallbackLng: 'bg'`                                                         |
+| `apps/frontend/src/components/Header.tsx`             | Language picker → wired to i18next + lang context                           |
+| `apps/frontend/src/locales/*/translation.json`        | Audit + fill missing keys                                                   |
 
 ---
 

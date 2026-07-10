@@ -5,6 +5,7 @@
 ## Nodes
 
 ### DashboardService
+
 - **ID:** `dashboard_dashboard_service_dashboardservice`
 - **Type:** code
 - **Degree:** 19
@@ -25,6 +26,7 @@
   - ↔ `.getSummary()` [_`method`_ | c55]
 
 ### dashboard.controller.ts
+
 - **ID:** `apps_backend_src_dashboard_dashboard_controller_ts`
 - **Type:** code
 - **Degree:** 18
@@ -39,6 +41,7 @@
   - ↔ `dashboard.service.ts` [_`imports_from`_ | c6]
 
 ### auth-user.decorator.ts
+
 - **ID:** `apps_backend_src_auth_auth_user_decorator_ts`
 - **Type:** code
 - **Degree:** 2
@@ -48,6 +51,7 @@
   - → `dashboard.controller.ts` [_`imports_from`_ | EXTRACTED | score: 1.0]
 
 ### AuthUser
+
 - **ID:** `auth_auth_user_decorator_authuser`
 - **Type:** code
 - **Degree:** 2
@@ -56,6 +60,7 @@
   - → `dashboard.controller.ts` [_`imports`_ | EXTRACTED | score: 1.0]
 
 ### .getCategoryBreakdown()
+
 - **ID:** `dashboard_dashboard_service_dashboardservice_getcategorybreakdown`
 - **Type:** code
 - **Degree:** 2
@@ -64,6 +69,7 @@
   - ↔ `.getAnalytics()` [_`calls`_ | c55]
 
 ### .getOrdersByStatus()
+
 - **ID:** `dashboard_dashboard_service_dashboardservice_getordersbystatus`
 - **Type:** code
 - **Degree:** 2
@@ -72,6 +78,7 @@
   - ↔ `.getAnalytics()` [_`calls`_ | c55]
 
 ### .getOrdersByTable()
+
 - **ID:** `dashboard_dashboard_service_dashboardservice_getordersbytable`
 - **Type:** code
 - **Degree:** 2
@@ -80,6 +87,7 @@
   - ↔ `.getAnalytics()` [_`calls`_ | c55]
 
 ### .getPeakHours()
+
 - **ID:** `dashboard_dashboard_service_dashboardservice_getpeakhours`
 - **Type:** code
 - **Degree:** 2
@@ -88,6 +96,7 @@
   - ↔ `.getAnalytics()` [_`calls`_ | c55]
 
 ### .getPeriodStats()
+
 - **ID:** `dashboard_dashboard_service_dashboardservice_getperiodstats`
 - **Type:** code
 - **Degree:** 2
@@ -96,6 +105,7 @@
   - ↔ `.getAnalytics()` [_`calls`_ | c55]
 
 ### .getRevenueTrend()
+
 - **ID:** `dashboard_dashboard_service_dashboardservice_getrevenuetrend`
 - **Type:** code
 - **Degree:** 2
@@ -104,6 +114,7 @@
   - ↔ `.getAnalytics()` [_`calls`_ | c55]
 
 ### .getTopItems()
+
 - **ID:** `dashboard_dashboard_service_dashboardservice_gettopitems`
 - **Type:** code
 - **Degree:** 2
@@ -112,6 +123,7 @@
   - ↔ `.getAnalytics()` [_`calls`_ | c55]
 
 ### getAnalytics()
+
 - **ID:** `lib_api_getanalytics`
 - **Type:** code
 - **Degree:** 2
@@ -121,6 +133,7 @@
   - ↔ `api.ts` [_`contains`_ | c3]
 
 ### .getSummary()
+
 - **ID:** `feedback_feedback_service_feedbackservice_getsummary`
 - **Type:** code
 - **Degree:** 1

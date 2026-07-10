@@ -12,11 +12,36 @@ import * as bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 const SALT_ROUNDS = 10;
 
-const DEMOS: { email: string; name: string; restaurantName: string; tier: SubscriptionTier }[] = [
-  { email: 'demo.free@qrmenu.test',         name: 'Demo Free',         restaurantName: 'Free Bistro',         tier: SubscriptionTier.FREE },
-  { email: 'demo.starter@qrmenu.test',      name: 'Demo Starter',      restaurantName: 'Starter Kitchen',     tier: SubscriptionTier.STARTER },
-  { email: 'demo.pro@qrmenu.test',          name: 'Demo Professional', restaurantName: 'Pro Dining',          tier: SubscriptionTier.PROFESSIONAL },
-  { email: 'demo.enterprise@qrmenu.test',   name: 'Demo Enterprise',   restaurantName: 'Enterprise Restaurant', tier: SubscriptionTier.ENTERPRISE },
+const DEMOS: {
+  email: string;
+  name: string;
+  restaurantName: string;
+  tier: SubscriptionTier;
+}[] = [
+  {
+    email: 'demo.free@qrmenu.test',
+    name: 'Demo Free',
+    restaurantName: 'Free Bistro',
+    tier: SubscriptionTier.FREE,
+  },
+  {
+    email: 'demo.starter@qrmenu.test',
+    name: 'Demo Starter',
+    restaurantName: 'Starter Kitchen',
+    tier: SubscriptionTier.STARTER,
+  },
+  {
+    email: 'demo.pro@qrmenu.test',
+    name: 'Demo Professional',
+    restaurantName: 'Pro Dining',
+    tier: SubscriptionTier.PROFESSIONAL,
+  },
+  {
+    email: 'demo.enterprise@qrmenu.test',
+    name: 'Demo Enterprise',
+    restaurantName: 'Enterprise Restaurant',
+    tier: SubscriptionTier.ENTERPRISE,
+  },
 ];
 
 async function main() {
@@ -26,13 +51,21 @@ async function main() {
   // FORCE_SEED_WIPE gate (running it against a populated DB is fine). Guards
   // below just prevent accidentally writing to the wrong database.
   if (process.env.NODE_ENV === 'production') {
-    console.error('❌ Seed aborted: NODE_ENV=production. Never seed against a production database.');
+    console.error(
+      '❌ Seed aborted: NODE_ENV=production. Never seed against a production database.',
+    );
     process.exit(1);
   }
   const dbUrl = process.env.DATABASE_URL ?? '';
-  if (!dbUrl.includes('localhost') && !dbUrl.includes('127.0.0.1') && dbUrl !== '') {
+  if (
+    !dbUrl.includes('localhost') &&
+    !dbUrl.includes('127.0.0.1') &&
+    dbUrl !== ''
+  ) {
     console.error('❌ Seed aborted: DATABASE_URL points to a remote database.');
-    console.error('   Connect to a local/dev database, or set ALLOW_REMOTE_SEED=true to override.');
+    console.error(
+      '   Connect to a local/dev database, or set ALLOW_REMOTE_SEED=true to override.',
+    );
     if (process.env.ALLOW_REMOTE_SEED !== 'true') process.exit(1);
     console.warn('⚠️  ALLOW_REMOTE_SEED=true — proceeding with remote seed.');
   }
@@ -41,19 +74,27 @@ async function main() {
   const password = await bcrypt.hash('demo1234', SALT_ROUNDS);
 
   for (const d of DEMOS) {
-    const existing = await prisma.user.findUnique({ where: { email: d.email } });
-    const user = existing ?? await prisma.user.create({
-      data: { email: d.email, password, name: d.name, role: 'OWNER' },
+    const existing = await prisma.user.findUnique({
+      where: { email: d.email },
     });
+    const user =
+      existing ??
+      (await prisma.user.create({
+        data: { email: d.email, password, name: d.name, role: 'OWNER' },
+      }));
 
-    const existingRestaurant = await prisma.restaurant.findFirst({ where: { ownerId: user.id } });
+    const existingRestaurant = await prisma.restaurant.findFirst({
+      where: { ownerId: user.id },
+    });
     if (existingRestaurant) {
       await prisma.restaurant.update({
         where: { id: existingRestaurant.id },
         data: {
           tier: d.tier,
           forceTier: null,
-          paymentsEnabled: d.tier === SubscriptionTier.PROFESSIONAL || d.tier === SubscriptionTier.ENTERPRISE,
+          paymentsEnabled:
+            d.tier === SubscriptionTier.PROFESSIONAL ||
+            d.tier === SubscriptionTier.ENTERPRISE,
         },
       });
       console.log(`Updated ${d.restaurantName} -> ${d.tier}`);
@@ -64,10 +105,14 @@ async function main() {
           country: 'BG',
           ownerId: user.id,
           tier: d.tier,
-          paymentsEnabled: d.tier === SubscriptionTier.PROFESSIONAL || d.tier === SubscriptionTier.ENTERPRISE,
+          paymentsEnabled:
+            d.tier === SubscriptionTier.PROFESSIONAL ||
+            d.tier === SubscriptionTier.ENTERPRISE,
         },
       });
-      console.log(`Created ${d.restaurantName} (${d.tier}) — owner: ${d.email} / demo1234`);
+      console.log(
+        `Created ${d.restaurantName} (${d.tier}) — owner: ${d.email} / demo1234`,
+      );
     }
   }
 

@@ -134,4 +134,19 @@ describe('ReservationsController HTTP entitlement boundary', () => {
       .expect(200, { settings: null });
     expect(reservations.getSettings).toHaveBeenCalledWith('rest-1', 'user-1');
   });
+
+  it('returns 403 for getSettings when user tier is FREE', async () => {
+    tier = 'FREE';
+    await request(app.getHttpServer())
+      .get('/reservations/rest-1/settings')
+      .expect(403);
+  });
+
+  it('allows getSettings for ENTERPRISE tier', async () => {
+    tier = 'ENTERPRISE';
+    await request(app.getHttpServer())
+      .get('/reservations/rest-1/settings')
+      .expect(200, { settings: null });
+    expect(reservations.getSettings).toHaveBeenCalledWith('rest-1', 'user-1');
+  });
 });

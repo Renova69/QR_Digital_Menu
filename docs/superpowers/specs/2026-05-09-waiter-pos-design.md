@@ -20,23 +20,25 @@ New `PosLayout` (third layout alongside `AppLayout` and `PublicLayout`) wraps `/
 
 ## Decisions Made
 
-| Question | Decision |
-|---|---|
-| Seat-level ordering | Local frontend grouping only — no DB persistence |
-| Course firing | **Dropped** — out of scope |
-| Custom discount | **Dropped** — out of scope |
-| Per-item notes | Aggregated into `Order.specialRequests` string at submit time — no schema change |
-| Cart state | New `PosContext` isolated from customer `CartContext` |
-| POS layout | New `PosLayout` — zero chrome, full viewport |
+| Question            | Decision                                                                         |
+| ------------------- | -------------------------------------------------------------------------------- |
+| Seat-level ordering | Local frontend grouping only — no DB persistence                                 |
+| Course firing       | **Dropped** — out of scope                                                       |
+| Custom discount     | **Dropped** — out of scope                                                       |
+| Per-item notes      | Aggregated into `Order.specialRequests` string at submit time — no schema change |
+| Cart state          | New `PosContext` isolated from customer `CartContext`                            |
+| POS layout          | New `PosLayout` — zero chrome, full viewport                                     |
 
 ---
 
 ## 1. Routing & Auth
 
 ### `StaffRoute.tsx`
+
 New auth guard at `apps/frontend/src/components/StaffRoute.tsx`. Allows `OWNER` and `STAFF` roles. Redirects unauthenticated to `/login`, `CUSTOMER` to `/profile`. Same pattern as existing `ProtectedRoute`.
 
 ### `App.tsx` addition
+
 ```tsx
 <Route element={<PosLayout />}>
   <Route
@@ -66,7 +68,7 @@ State is **in-memory only** — no localStorage. POS cart is ephemeral; cleared 
 
 ```ts
 interface PosCartItem {
-  cartId: string;       // uuid — unique per seat+item+options combo
+  cartId: string; // uuid — unique per seat+item+options combo
   menuItemId: string;
   name: string;
   price: number;
@@ -77,15 +79,15 @@ interface PosCartItem {
     choiceName: string;
     priceModifier: number;
   }>;
-  seatNumber: string;   // "Seat 1" | "Seat 2" | "Seat 3" | "Shared" — display only
-  itemNote: string;     // free text — folded into specialRequests on submit
-  submitted: boolean;   // true = already sent to kitchen, read-only in cart
+  seatNumber: string; // "Seat 1" | "Seat 2" | "Seat 3" | "Shared" — display only
+  itemNote: string; // free text — folded into specialRequests on submit
+  submitted: boolean; // true = already sent to kitchen, read-only in cart
 }
 
 interface PosSession {
   tableId: string;
   tableName: string;
-  sessionToken: string | null;  // null = no active session
+  sessionToken: string | null; // null = no active session
   sessionId: string | null;
 }
 ```
@@ -95,22 +97,22 @@ interface PosSession {
 ```ts
 interface PosContextType {
   items: PosCartItem[];
-  addItem: (item: Omit<PosCartItem, 'cartId' | 'submitted'>) => void;
+  addItem: (item: Omit<PosCartItem, "cartId" | "submitted">) => void;
   removeItem: (cartId: string) => void;
   updateQuantity: (cartId: string, qty: number) => void;
   updateNote: (cartId: string, note: string) => void;
-  clearCart: () => void;           // clears only pending (submitted: false) items
-  resetCart: () => void;           // clears ALL items — used when switching tables
-  markAsSubmitted: () => void;     // marks all pending items as submitted
-  setHistoryItems: (items: PosCartItem[]) => void;  // loads submitted items from session
+  clearCart: () => void; // clears only pending (submitted: false) items
+  resetCart: () => void; // clears ALL items — used when switching tables
+  markAsSubmitted: () => void; // marks all pending items as submitted
+  setHistoryItems: (items: PosCartItem[]) => void; // loads submitted items from session
   session: PosSession | null;
   setSession: (s: PosSession) => void;
   clearSession: () => void;
-  getTotal: () => number;          // full session total (submitted + pending)
-  getPendingTotal: () => number;   // pending-only total — used for submit button
+  getTotal: () => number; // full session total (submitted + pending)
+  getPendingTotal: () => number; // pending-only total — used for submit button
   activeSeat: string;
   setActiveSeat: (seat: string) => void;
-  buildSpecialRequests: () => string;  // only includes pending items
+  buildSpecialRequests: () => string; // only includes pending items
 }
 ```
 
@@ -176,11 +178,11 @@ Safe-area insets applied to top and bottom bars via `pt-safe` / `pb-safe` utilit
 
 ### Existing endpoints used by POS (no changes needed)
 
-| Endpoint | Auth | Used for |
-|---|---|---|
-| `POST /api/payments/session` | Public | Normal table open — idempotent `getOrCreateSession(tableId, restaurantId)` |
-| `POST /api/payments/session/:token/close` | JWT | Force Close — already sets `CLOSED_NO_PAYMENT`, already JWT-guarded |
-| `GET /api/payments/session/:token/bill` | Public | Fetch session orders with item names — used to load history on table reopen |
+| Endpoint                                  | Auth   | Used for                                                                    |
+| ----------------------------------------- | ------ | --------------------------------------------------------------------------- |
+| `POST /api/payments/session`              | Public | Normal table open — idempotent `getOrCreateSession(tableId, restaurantId)`  |
+| `POST /api/payments/session/:token/close` | JWT    | Force Close — already sets `CLOSED_NO_PAYMENT`, already JWT-guarded         |
+| `GET /api/payments/session/:token/bill`   | Public | Fetch session orders with item names — used to load history on table reopen |
 
 ### New endpoints
 
@@ -191,6 +193,7 @@ Safe-area insets applied to top and bottom bars via `pt-safe` / `pb-safe` utilit
 **Body:** `{ tableId: string, restaurantId: string }`
 
 **Logic:**
+
 1. Find any existing `OPEN` session for `tableId`
 2. If found → set status to `CLOSED_NO_PAYMENT`
 3. Create new `TableSession` with status `OPEN`
@@ -205,6 +208,7 @@ Safe-area insets applied to top and bottom bars via `pt-safe` / `pb-safe` utilit
 **Body:** `{ restaurantId: string }`
 
 **Logic:**
+
 1. Find OPEN session by token
 2. Sum all order totals
 3. Create `Payment` record with `provider: 'MYPOS'`, `status: 'SUCCEEDED'`
@@ -287,24 +291,24 @@ No Prisma schema changes. `PaymentProvider.MYPOS` and `TableSessionStatus.PAID` 
 
 ## 7. Files to Create / Modify
 
-| Action | Path |
-|---|---|
-| Create | `apps/frontend/src/components/StaffRoute.tsx` |
-| Create | `apps/frontend/src/context/PosContext.tsx` |
-| Create | `apps/frontend/src/pages/pos/PosLayout.tsx` |
-| Create | `apps/frontend/src/pages/pos/PosPage.tsx` |
-| Create | `apps/frontend/src/components/pos/PosTopBar.tsx` |
-| Create | `apps/frontend/src/components/pos/PosCategoryFilter.tsx` |
-| Create | `apps/frontend/src/components/pos/PosItemGrid.tsx` |
-| Create | `apps/frontend/src/components/pos/PosItemCard.tsx` |
-| Create | `apps/frontend/src/components/pos/PosOptionsDrawer.tsx` |
-| Create | `apps/frontend/src/components/pos/PosCartDrawer.tsx` |
-| Create | `apps/frontend/src/components/pos/PosSeatSelector.tsx` |
-| Create | `apps/frontend/src/components/pos/PosTableModal.tsx` |
-| Create | `apps/frontend/src/components/pos/PosSplitBill.tsx` |
-| Create | `apps/frontend/src/components/pos/PosQRBill.tsx` |
-| Modify | `apps/frontend/src/App.tsx` — add PosLayout + /staff/pos route |
+| Action | Path                                                                             |
+| ------ | -------------------------------------------------------------------------------- |
+| Create | `apps/frontend/src/components/StaffRoute.tsx`                                    |
+| Create | `apps/frontend/src/context/PosContext.tsx`                                       |
+| Create | `apps/frontend/src/pages/pos/PosLayout.tsx`                                      |
+| Create | `apps/frontend/src/pages/pos/PosPage.tsx`                                        |
+| Create | `apps/frontend/src/components/pos/PosTopBar.tsx`                                 |
+| Create | `apps/frontend/src/components/pos/PosCategoryFilter.tsx`                         |
+| Create | `apps/frontend/src/components/pos/PosItemGrid.tsx`                               |
+| Create | `apps/frontend/src/components/pos/PosItemCard.tsx`                               |
+| Create | `apps/frontend/src/components/pos/PosOptionsDrawer.tsx`                          |
+| Create | `apps/frontend/src/components/pos/PosCartDrawer.tsx`                             |
+| Create | `apps/frontend/src/components/pos/PosSeatSelector.tsx`                           |
+| Create | `apps/frontend/src/components/pos/PosTableModal.tsx`                             |
+| Create | `apps/frontend/src/components/pos/PosSplitBill.tsx`                              |
+| Create | `apps/frontend/src/components/pos/PosQRBill.tsx`                                 |
+| Modify | `apps/frontend/src/App.tsx` — add PosLayout + /staff/pos route                   |
 | Modify | `apps/backend/src/payment/payment.controller.ts` — 1 new endpoint (`force-open`) |
-| Modify | `apps/backend/src/payment/payment.service.ts` — `forceOpenSession()` method |
+| Modify | `apps/backend/src/payment/payment.service.ts` — `forceOpenSession()` method      |
 
 No changes to: `prisma/schema.prisma`, `CartContext`, `OrderContext`, `DashboardPage`, any public menu routes.

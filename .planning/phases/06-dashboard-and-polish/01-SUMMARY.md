@@ -20,12 +20,12 @@ Effectively integrated color parameters bounding native custom URL attributes re
 
 ## Tasks Completed
 
-| # | Task | Status |
-|---|------|--------|
-| 1.1 | Database schema branding | ✓ |
-| 1.2 | Implement Backend Updating Endpoints | ✓ |
-| 1.3 | Revamp PublicMenuPage visual branding | ✓ |
-| 1.4 | Polish the HomePage landing component | ✓ |
+| #   | Task                                  | Status |
+| --- | ------------------------------------- | ------ |
+| 1.1 | Database schema branding              | ✓      |
+| 1.2 | Implement Backend Updating Endpoints  | ✓      |
+| 1.3 | Revamp PublicMenuPage visual branding | ✓      |
+| 1.4 | Polish the HomePage landing component | ✓      |
 
 ## Deviations from Plan
 

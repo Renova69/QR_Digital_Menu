@@ -1,7 +1,15 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
-import { useSocket } from './SocketContext';
-import { useAuth } from './AuthContext';
-import RestaurantContext from './RestaurantContext';
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  ReactNode,
+} from "react";
+import { useSocket } from "./SocketContext";
+import { useAuth } from "./AuthContext";
+import RestaurantContext from "./RestaurantContext";
 
 export interface PaymentNotification {
   id: string;
@@ -35,16 +43,19 @@ const NotificationContext = createContext<NotificationContextType>({
   __providerMounted: false,
 });
 
-export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const NotificationProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const [notifications, setNotifications] = useState<PaymentNotification[]>([]);
   const [showToast, setShowToast] = useState<PaymentNotification | null>(null);
   const { socket, isConnected } = useSocket();
   const { user } = useAuth();
-  const activeRestaurant = useContext(RestaurantContext)?.activeRestaurant as any;
+  const activeRestaurant = useContext(RestaurantContext)
+    ?.activeRestaurant as any;
   const userRoleRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (user && 'role' in user) {
+    if (user && "role" in user) {
       userRoleRef.current = (user as any).role;
     }
   }, [user]);
@@ -61,7 +72,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       customerName: string | null;
     }) => {
       const notifyAll = activeRestaurant.notifyAllStaffOnPayment ?? true;
-      const isOwner = userRoleRef.current === 'OWNER';
+      const isOwner = userRoleRef.current === "OWNER";
 
       if (!notifyAll && !isOwner) return;
 
@@ -75,12 +86,14 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       setNotifications((prev) => [notification, ...prev].slice(0, 20));
       setShowToast(notification);
 
-      if (window.matchMedia('(pointer: coarse)').matches) {
-        try { navigator.vibrate(200); } catch {}
+      if (window.matchMedia("(pointer: coarse)").matches) {
+        try {
+          navigator.vibrate(200);
+        } catch {}
       }
     };
 
-    socket.on('payment:confirmed', handlePaymentConfirmed);
+    socket.on("payment:confirmed", handlePaymentConfirmed);
 
     const handlePaymentRefunded = (data: {
       paymentId: string;
@@ -104,10 +117,10 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       setShowToast(notification);
     };
 
-    socket.on('payment:refunded', handlePaymentRefunded);
+    socket.on("payment:refunded", handlePaymentRefunded);
     return () => {
-      socket.off('payment:confirmed', handlePaymentConfirmed);
-      socket.off('payment:refunded', handlePaymentRefunded);
+      socket.off("payment:confirmed", handlePaymentConfirmed);
+      socket.off("payment:refunded", handlePaymentRefunded);
     };
   }, [socket, isConnected, activeRestaurant]);
 
@@ -126,7 +139,15 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   return (
     <NotificationContext.Provider
-      value={{ notifications, unreadCount, showToast, dismissToast, markAllRead, clearAll, __providerMounted: true }}
+      value={{
+        notifications,
+        unreadCount,
+        showToast,
+        dismissToast,
+        markAllRead,
+        clearAll,
+        __providerMounted: true,
+      }}
     >
       {children}
     </NotificationContext.Provider>

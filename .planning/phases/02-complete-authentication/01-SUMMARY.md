@@ -23,11 +23,11 @@ Google OAuth callback now redirects to `${FRONTEND_URL}/auth/callback?token=${jw
 
 ## Tasks Completed
 
-| # | Task | Status |
-|---|------|--------|
-| 1.1 | Fix Google OAuth callback to redirect to frontend | ✓ |
-| 1.2 | Create OAuthCallbackPage on frontend | ✓ |
-| 1.3 | Add Axios request and response interceptors | ✓ |
+| #   | Task                                              | Status |
+| --- | ------------------------------------------------- | ------ |
+| 1.1 | Fix Google OAuth callback to redirect to frontend | ✓      |
+| 1.2 | Create OAuthCallbackPage on frontend              | ✓      |
+| 1.3 | Add Axios request and response interceptors       | ✓      |
 
 ## Deviations from Plan
 

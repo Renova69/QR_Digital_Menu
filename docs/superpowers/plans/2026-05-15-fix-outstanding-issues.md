@@ -12,32 +12,32 @@
 
 ## Audit Summary — What's Already Done (verified against actual files)
 
-| Item | Evidence |
-|------|---------|
-| Pagination — Orders | `orders.controller.ts:33` uses `PaginationDto`, `orders.service.ts:13` imports it |
-| Pagination — Assistance | `assistance.controller.ts:33` uses `PaginationDto` |
-| Pagination — Feedback | `feedback.controller.ts` + `feedback.service.ts` wired |
-| Menu service split | `menu.module.ts` imports only `MenuCrudService`, `MenuTranslationService`, `MenuAuditService`. Old `menu.service.ts` deleted. |
-| Service-level unit tests | 10 `.spec.ts` files committed and tracked |
-| Provider nesting / layout split | `App.tsx` — `AppLayout`/`PublicLayout`/`PosLayout` each scope their own providers |
-| Dual auth system | Only `AuthContext.tsx` exists, no separate `useAuth.ts` |
-| `FeedbackPage` `window.location` | Uses `useParams`/`useSearchParams` from React Router |
-| OTP email delivery via Resend | `auth.service.ts:249–262` — Resend REST call wired in production OTP flow |
-| Customer auth flow | Email OTP + Twilio SMS/WhatsApp. Magic link is dead code — zero frontend callers. |
+| Item                             | Evidence                                                                                                                      |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Pagination — Orders              | `orders.controller.ts:33` uses `PaginationDto`, `orders.service.ts:13` imports it                                             |
+| Pagination — Assistance          | `assistance.controller.ts:33` uses `PaginationDto`                                                                            |
+| Pagination — Feedback            | `feedback.controller.ts` + `feedback.service.ts` wired                                                                        |
+| Menu service split               | `menu.module.ts` imports only `MenuCrudService`, `MenuTranslationService`, `MenuAuditService`. Old `menu.service.ts` deleted. |
+| Service-level unit tests         | 10 `.spec.ts` files committed and tracked                                                                                     |
+| Provider nesting / layout split  | `App.tsx` — `AppLayout`/`PublicLayout`/`PosLayout` each scope their own providers                                             |
+| Dual auth system                 | Only `AuthContext.tsx` exists, no separate `useAuth.ts`                                                                       |
+| `FeedbackPage` `window.location` | Uses `useParams`/`useSearchParams` from React Router                                                                          |
+| OTP email delivery via Resend    | `auth.service.ts:249–262` — Resend REST call wired in production OTP flow                                                     |
+| Customer auth flow               | Email OTP + Twilio SMS/WhatsApp. Magic link is dead code — zero frontend callers.                                             |
 
 ---
 
 ## File Map
 
-| File | Task | Change |
-|------|------|--------|
-| `apps/backend/src/events/events.gateway.ts` | Task 1 | CORS `*` → `FRONTEND_URL` env |
-| `apps/backend/src/auth/auth.controller.ts` | Task 2 | Delete `POST /auth/magic-link` endpoint |
-| `apps/backend/src/auth/auth.service.ts` | Task 2 | Delete `sendMagicLink()` method |
-| `apps/backend/src/loyalty/loyalty.service.ts` | Task 3 | Wire expiry reminder emails via Resend |
-| `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx` | Task 4 | Add peak hours + category breakdown to CSV export |
-| `apps/backend/tsconfig.json` + all backend `.ts` | Task 5 | Enable `strictNullChecks`, `noImplicitAny`, fix all errors |
-| `MAIN_FEATURES.md` | Task 6 | Sync doc with actual codebase state |
+| File                                                  | Task   | Change                                                     |
+| ----------------------------------------------------- | ------ | ---------------------------------------------------------- |
+| `apps/backend/src/events/events.gateway.ts`           | Task 1 | CORS `*` → `FRONTEND_URL` env                              |
+| `apps/backend/src/auth/auth.controller.ts`            | Task 2 | Delete `POST /auth/magic-link` endpoint                    |
+| `apps/backend/src/auth/auth.service.ts`               | Task 2 | Delete `sendMagicLink()` method                            |
+| `apps/backend/src/loyalty/loyalty.service.ts`         | Task 3 | Wire expiry reminder emails via Resend                     |
+| `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx` | Task 4 | Add peak hours + category breakdown to CSV export          |
+| `apps/backend/tsconfig.json` + all backend `.ts`      | Task 5 | Enable `strictNullChecks`, `noImplicitAny`, fix all errors |
+| `MAIN_FEATURES.md`                                    | Task 6 | Sync doc with actual codebase state                        |
 
 ---
 
@@ -46,6 +46,7 @@
 **Problem:** `EventsGateway` has `cors: { origin: '*' }` — any page can subscribe to any restaurant's real-time events (orders, payments, assistance).
 
 **Files:**
+
 - Modify: `apps/backend/src/events/events.gateway.ts`
 
 - [ ] **Step 1: Update the gateway decorator**
@@ -91,6 +92,7 @@ git commit -m "fix: restrict Socket.io CORS to FRONTEND_URL instead of wildcard"
 **Context:** The app uses Email OTP (+ Twilio SMS) for customer auth. `POST /auth/magic-link` is orphaned — zero frontend callers, zero references in `apps/frontend/src`. The implementation leaks the raw JWT in the HTTP response body and uses `console.log`. Rather than fixing dead code, delete it.
 
 **Files:**
+
 - Modify: `apps/backend/src/auth/auth.controller.ts` — delete the `POST magic-link` endpoint
 - Modify: `apps/backend/src/auth/auth.service.ts` — delete `sendMagicLink()` method
 
@@ -150,6 +152,7 @@ git commit -m "chore: remove dead magic-link endpoint — app uses Email OTP flo
 **Problem:** `runDailyExpiryReminders` cron marks batches as sent but never actually sends emails. Two `// TODO` comments (lines 316, 464).
 
 **Context:** The cron already:
+
 - Finds all loyalty-enabled restaurants
 - For each restaurant, finds accounts with expiring points
 - Marks the batches as `reminderSentAt`
@@ -158,6 +161,7 @@ git commit -m "chore: remove dead magic-link endpoint — app uses Email OTP flo
 All that's missing: sending the Resend email per candidate.
 
 **Files:**
+
 - Modify: `apps/backend/src/loyalty/loyalty.service.ts`
 
 - [ ] **Step 1: Add the email sender helper inside the cron method**
@@ -166,7 +170,7 @@ In `apps/backend/src/loyalty/loyalty.service.ts`, replace the `if (candidates.le
 
 ```typescript
 if (candidates.length > 0) {
-  const isDev = process.env.NODE_ENV !== 'production';
+  const isDev = process.env.NODE_ENV !== "production";
 
   for (const candidate of candidates) {
     if (!candidate.user.email) continue;
@@ -175,14 +179,14 @@ if (candidates.length > 0) {
 
     if (!isDev && process.env.RESEND_API_KEY) {
       try {
-        await fetch('https://api.resend.com/emails', {
-          method: 'POST',
+        await fetch("https://api.resend.com/emails", {
+          method: "POST",
           headers: {
             Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com',
+            from: process.env.RESEND_FROM_EMAIL || "noreply@yourdomain.com",
             to: [candidate.user.email],
             subject: `Your loyalty points at ${candidate.restaurantName} are expiring soon`,
             text: message,
@@ -213,6 +217,7 @@ Note: The `loyaltyRedeemRate` is already on the `restaurant` object fetched at l
 - [ ] **Step 2: Remove the first TODO comment (line ~316)**
 
 That comment is in the `getExpiryReminderCandidates` preview method (not the cron). It reads:
+
 ```typescript
 // TODO: replace with actual email/push delivery here
 ```
@@ -231,6 +236,7 @@ npm run dev
 ```
 
 Manually trigger via the POST endpoint (owner auth required):
+
 ```bash
 # Get a JWT first (login as owner), then:
 curl -X POST http://localhost:3000/api/loyalty/<restaurantId>/expiry-reminders/notify \
@@ -254,6 +260,7 @@ git commit -m "feat: wire loyalty expiry reminder emails via Resend"
 **Problem:** `handleExportCSV` in `AnalyticsView.tsx` exports summary + revenue trend + top items, but omits peak hours and category breakdown — both are already in `data` in memory.
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx`
 
 - [ ] **Step 1: Extend the CSV export function**
@@ -262,16 +269,16 @@ In `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx`, find `handleExportCSV`
 
 ```typescript
 // Peak hours
-csv += '\nPeak Hour;Orders\n';
-data.peakHours.forEach(row => {
-  const label = `${row.hour.toString().padStart(2, '0')}:00`;
+csv += "\nPeak Hour;Orders\n";
+data.peakHours.forEach((row) => {
+  const label = `${row.hour.toString().padStart(2, "0")}:00`;
   csv += `"${label}";"${row.orders}"\n`;
 });
 
 // Category breakdown
 if (data.categoryBreakdown && data.categoryBreakdown.length > 0) {
-  csv += '\nCategory;Value\n';
-  data.categoryBreakdown.forEach(row => {
+  csv += "\nCategory;Value\n";
+  data.categoryBreakdown.forEach((row) => {
     csv += `"${row.name}";"${row.value}"\n`;
   });
 }
@@ -307,6 +314,7 @@ git commit -m "feat: add peak hours and category breakdown to analytics CSV expo
 **Approach:** Enable one flag at a time, fix all errors, commit after each. This keeps diffs reviewable.
 
 **Files:**
+
 - Modify: `apps/backend/tsconfig.json`
 - Modify: various `apps/backend/src/**/*.ts` (wherever TS errors surface)
 
@@ -315,10 +323,13 @@ git commit -m "feat: add peak hours and category breakdown to analytics CSV expo
 - [ ] **Step 5a-1: Enable the flag**
 
 In `apps/backend/tsconfig.json`, change:
+
 ```json
 "noImplicitAny": false,
 ```
+
 to:
+
 ```json
 "noImplicitAny": true,
 ```
@@ -336,6 +347,7 @@ Read the first 60 lines to understand the pattern of errors.
 Common patterns you will see and how to fix them:
 
 **Implicit `any` on function parameters:**
+
 ```typescript
 // Error: Parameter 'x' implicitly has an 'any' type
 async findAll(userId, pagination) { ... }
@@ -344,6 +356,7 @@ async findAll(userId: string, pagination: PaginationDto) { ... }
 ```
 
 **Implicit `any` on catch variables (NestJS pattern):**
+
 ```typescript
 // Error: Variable 'err' implicitly has type 'any' in some usages
 } catch (err) {
@@ -356,6 +369,7 @@ async findAll(userId: string, pagination: PaginationDto) { ... }
 ```
 
 **Implicit `any` on untyped destructuring:**
+
 ```typescript
 // Error: Binding element 'id' implicitly has an 'any' type
 const { id } = req.user;
@@ -385,10 +399,13 @@ git commit -m "chore: enable noImplicitAny in backend TypeScript config"
 - [ ] **Step 5b-1: Enable the flag**
 
 In `apps/backend/tsconfig.json`, change:
+
 ```json
 "strictNullChecks": false,
 ```
+
 to:
+
 ```json
 "strictNullChecks": true,
 ```
@@ -402,6 +419,7 @@ cd apps/backend && npx tsc --noEmit 2>&1 | tee /tmp/ts-errors-null.txt | head -6
 This will be more errors than step 5a. Common patterns:
 
 **Nullable Prisma results:**
+
 ```typescript
 // Error: Object is possibly 'null'
 const restaurant = await this.prisma.restaurant.findFirst({ ... });
@@ -412,14 +430,16 @@ restaurant.name; // now safe
 ```
 
 **Optional chaining on nullable fields:**
+
 ```typescript
 // Error: 'restaurant.timezone' is possibly undefined
 const tz = restaurant.timezone;
 // Fix:
-const tz = restaurant.timezone ?? 'UTC';
+const tz = restaurant.timezone ?? "UTC";
 ```
 
 **Optional request user (JWT decorated controllers):**
+
 ```typescript
 // Error: req.user possibly undefined
 const userId = req.user.id;
@@ -428,6 +448,7 @@ const userId = (req.user as { id: string }).id;
 ```
 
 **Nullable foreign keys in Prisma models:**
+
 ```typescript
 // Error: 'order.customerId' is possibly null
 const accId = order.customerId;
@@ -459,17 +480,18 @@ git commit -m "chore: enable strictNullChecks in backend TypeScript config"
 **Problem:** The doc claims several items are "in progress" or "not done" when they are in fact complete. Also needs to reflect Tasks 1–4 from this plan once merged.
 
 **Files:**
+
 - Modify: `MAIN_FEATURES.md`
 
 - [ ] **Step 6-1: Update section 9.2 "What's Partially Built or Planned"**
 
 Change the following rows:
 
-| Row | Old state | New state |
-|-----|-----------|-----------|
-| Menu Service Split | "IN PROGRESS May 2026" | "✅ Complete — `menu-crud.service.ts`, `menu-audit.service.ts`, `menu-translation.service.ts`. Old `menu.service.ts` deleted." |
-| Service-Level Tests | "IN PROGRESS (untracked)" | "✅ Complete — 10 `.spec.ts` files committed. CI coverage gate pending." |
-| Email Notification Pipeline | "Resend API used for OTP only. TODO comment in cron." | "✅ Complete — loyalty expiry reminders wired to Resend. Magic link wired to Resend." |
+| Row                         | Old state                                             | New state                                                                                                                      |
+| --------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Menu Service Split          | "IN PROGRESS May 2026"                                | "✅ Complete — `menu-crud.service.ts`, `menu-audit.service.ts`, `menu-translation.service.ts`. Old `menu.service.ts` deleted." |
+| Service-Level Tests         | "IN PROGRESS (untracked)"                             | "✅ Complete — 10 `.spec.ts` files committed. CI coverage gate pending."                                                       |
+| Email Notification Pipeline | "Resend API used for OTP only. TODO comment in cron." | "✅ Complete — loyalty expiry reminders wired to Resend. Magic link wired to Resend."                                          |
 
 - [ ] **Step 6-2: Update section 10.1 "Quick Wins"**
 
@@ -489,6 +511,7 @@ Mark the following as resolved:
 - [ ] **Step 6-4: Update section 6.3 "Security Gaps"**
 
 Add row for Socket.io CORS:
+
 ```
 | Socket.io CORS wildcard | Low | **Resolved** — `EventsGateway` CORS origin now reads `FRONTEND_URL` env var instead of `'*'`. |
 ```
@@ -528,6 +551,7 @@ Tasks 1–4 and 6 can be done in any order. Task 5 must be last.
 ## Self-Review
 
 **Spec coverage:**
+
 - ✅ Socket.io CORS wildcard → Task 1
 - ✅ Magic link token leak + console.log → Task 2
 - ✅ Loyalty expiry emails TODO → Task 3

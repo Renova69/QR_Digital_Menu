@@ -7,7 +7,12 @@ interface ToggleProps {
   size?: "sm" | "default";
 }
 
-export function Toggle({ checked, onChange, label, size = "default" }: ToggleProps) {
+export function Toggle({
+  checked,
+  onChange,
+  label,
+  size = "default",
+}: ToggleProps) {
   const id = useId();
   const h = size === "sm" ? "h-5" : "h-6";
   const w = size === "sm" ? "w-9" : "w-10";

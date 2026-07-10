@@ -1,6 +1,6 @@
-import { useEffect, useState, useRef } from 'react';
-import { ImagePlus, X } from 'lucide-react';
-import { getDisplayUrl } from '../../lib/imageUrl';
+import { useEffect, useState, useRef } from "react";
+import { ImagePlus, X } from "lucide-react";
+import { getDisplayUrl } from "../../lib/imageUrl";
 import { useTranslation } from "react-i18next";
 
 interface ImageUploadInputProps {
@@ -10,7 +10,7 @@ interface ImageUploadInputProps {
   onRemove?: () => void;
   label?: string;
   hint?: string;
-  aspectRatio?: 'square' | 'wide' | 'banner';
+  aspectRatio?: "square" | "wide" | "banner";
   /** Override button labels for i18n */
   changeLabel?: string;
   removeLabel?: string;
@@ -20,27 +20,27 @@ interface ImageUploadInputProps {
 }
 
 const ASPECT_CLASSES = {
-  square: 'aspect-square',
-  wide: 'aspect-[4/3]',
-  banner: 'aspect-[3/1]',
+  square: "aspect-square",
+  wide: "aspect-[4/3]",
+  banner: "aspect-[3/1]",
 };
 
-const ACCEPTED_TYPES = 'image/jpeg,image/png';
+const ACCEPTED_TYPES = "image/jpeg,image/png";
 
 export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
   currentImageUrl,
   onFileSelect,
   onRemove,
-  label = 'Image',
-  hint = 'JPEG or PNG only. Max 5MB.',
-  aspectRatio = 'square',
-  changeLabel = 'Change image',
-  removeLabel = 'Remove image',
-  uploadLabel = 'Click to upload',
-  invalidTypeMessage = 'Please upload a JPEG or PNG image.',
-  maxSizeMessage = 'Image must be 5MB or smaller.',
+  label = "Image",
+  hint = "JPEG or PNG only. Max 5MB.",
+  aspectRatio = "square",
+  changeLabel = "Change image",
+  removeLabel = "Remove image",
+  uploadLabel = "Click to upload",
+  invalidTypeMessage = "Please upload a JPEG or PNG image.",
+  maxSizeMessage = "Image must be 5MB or smaller.",
 }) => {
-    const { t } = useTranslation();
+  const { t } = useTranslation();
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,13 +60,13 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const validTypes = ['image/jpeg', 'image/png'];
+    const validTypes = ["image/jpeg", "image/png"];
     if (!validTypes.includes(file.type)) {
       onFileSelect(null);
       setPreview(null);
       setFileName(null);
       setError(invalidTypeMessage);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
@@ -75,7 +75,7 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
       setPreview(null);
       setFileName(null);
       setError(maxSizeMessage);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
@@ -93,7 +93,7 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
     setRemoved(true);
     onFileSelect(null);
     onRemove?.();
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   return (
@@ -117,8 +117,8 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
         >
           <img
             src={getDisplayUrl(displayImage)}
-            alt={t('auto.preview', 'Preview')}
-            className={`w-full h-full ${aspectRatio === 'wide' ? 'object-contain' : 'object-cover'}`}
+            alt={t("auto.preview", "Preview")}
+            className={`w-full h-full ${aspectRatio === "wide" ? "object-contain" : "object-cover"}`}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -36,7 +36,11 @@ function build() {
     $executeRaw: jest.fn().mockResolvedValue(1),
   };
   const prisma: any = {
-    restaurant: { findUnique: jest.fn() },
+    restaurant: {
+      findUnique: jest
+        .fn()
+        .mockResolvedValue({ isActive: true, tier: 'PROFESSIONAL' }),
+    },
     user: { findUnique: jest.fn() },
     reservation: {
       findFirst: jest.fn(),
@@ -74,12 +78,18 @@ function build() {
   const notifications = { notify: jest.fn() };
   const service = new ReservationsService(
     prisma,
-    availability as any,
-    allergens as any,
-    patrons as any,
-    features as any,
-    events as any,
-    notifications as any,
+    availability as unknown as ConstructorParameters<
+      typeof ReservationsService
+    >[1],
+    allergens as unknown as ConstructorParameters<
+      typeof ReservationsService
+    >[2],
+    patrons as unknown as ConstructorParameters<typeof ReservationsService>[3],
+    features as unknown as ConstructorParameters<typeof ReservationsService>[4],
+    events as unknown as ConstructorParameters<typeof ReservationsService>[5],
+    notifications as unknown as ConstructorParameters<
+      typeof ReservationsService
+    >[6],
   );
   return {
     service,
@@ -743,6 +753,18 @@ describe('ReservationsService createReservation hardening', () => {
     ).toBeNull();
     expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
     expect(availability.assertSlotBookable).not.toHaveBeenCalled();
+  });
+
+  it('throws NotFoundException for a STAFF manual booking when restaurant is missing', async () => {
+    const { service, prisma } = build();
+    prisma.restaurant.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.createManual('rest1', 'owner', {
+        ...dto,
+        guestName: 'Manual Guest',
+      }),
+    ).rejects.toThrow(NotFoundException);
   });
 
   it('records marketing consent for a PUBLIC booking when opted in', async () => {

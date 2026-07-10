@@ -21,11 +21,11 @@ Completed the loop for Phase 4 by building the rich operational dashboard UI com
 
 ## Tasks Completed
 
-| # | Task | Status |
-|---|------|--------|
-| 2.1 | Add Table API methods | ✓ |
-| 2.2 | Create TableView UI component | ✓ |
-| 2.3 | Integrate TableView into DashboardPage | ✓ |
+| #   | Task                                   | Status |
+| --- | -------------------------------------- | ------ |
+| 2.1 | Add Table API methods                  | ✓      |
+| 2.2 | Create TableView UI component          | ✓      |
+| 2.3 | Integrate TableView into DashboardPage | ✓      |
 
 ## Deviations from Plan
 

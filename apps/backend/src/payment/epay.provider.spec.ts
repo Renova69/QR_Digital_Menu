@@ -8,12 +8,19 @@ describe('EpayProvider', () => {
   });
 
   it('generates and verifies HMAC SHA1 checksums', () => {
-    const encoded = provider.encodeRequest({ INVOICE: '123456', AMOUNT: '22.80' });
+    const encoded = provider.encodeRequest({
+      INVOICE: '123456',
+      AMOUNT: '22.80',
+    });
     const checksum = provider.signEncoded(encoded, 'secret-word');
 
     expect(checksum).toMatch(/^[a-f0-9]{40}$/);
-    expect(provider.verifyChecksum(encoded, checksum, 'secret-word')).toBe(true);
-    expect(provider.verifyChecksum(encoded, checksum, 'wrong-secret')).toBe(false);
+    expect(provider.verifyChecksum(encoded, checksum, 'secret-word')).toBe(
+      true,
+    );
+    expect(provider.verifyChecksum(encoded, checksum, 'wrong-secret')).toBe(
+      false,
+    );
   });
 
   it('builds the hosted checkout form with the required ePay fields', () => {
@@ -96,9 +103,10 @@ describe('EpayProvider', () => {
   });
 
   it('rejects invalid notification payloads', () => {
-    const encoded = Buffer.from('INVOICE=123456:STATUS=UNKNOWN', 'utf8').toString(
-      'base64',
-    );
+    const encoded = Buffer.from(
+      'INVOICE=123456:STATUS=UNKNOWN',
+      'utf8',
+    ).toString('base64');
 
     expect(() => provider.parseNotifications(encoded)).toThrow(
       'Invalid ePay notification payload',

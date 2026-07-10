@@ -5,6 +5,7 @@
 ## Nodes
 
 ### PaymentModal()
+
 - **ID:** `payment_paymentmodal_paymentmodal`
 - **Type:** code
 - **Degree:** 5
@@ -17,6 +18,7 @@
   - ↔ `formatBgn()` [_`calls`_ | c21]
 
 ### getSessionBill()
+
 - **ID:** `lib_api_getsessionbill`
 - **Type:** code
 - **Degree:** 4
@@ -28,6 +30,7 @@
   - ↔ `PublicMenuPage.tsx` [_`imports`_ | c35]
 
 ### PaymentForm()
+
 - **ID:** `payment_paymentmodal_paymentform`
 - **Type:** code
 - **Degree:** 3
@@ -38,6 +41,7 @@
   - ↔ `formatBgn()` [_`calls`_ | c21]
 
 ### createPaymentIntent()
+
 - **ID:** `lib_api_createpaymentintent`
 - **Type:** code
 - **Degree:** 2
@@ -47,6 +51,7 @@
   - ↔ `api.ts` [_`contains`_ | c3]
 
 ### BillData
+
 - **ID:** `payment_paymentmodal_billdata`
 - **Type:** code
 - **Degree:** 1
@@ -55,6 +60,7 @@
   - ↔ `PaymentModal.tsx` [_`contains`_ | c89]
 
 ### PaymentModalProps
+
 - **ID:** `payment_paymentmodal_paymentmodalprops`
 - **Type:** code
 - **Degree:** 1
@@ -63,6 +69,7 @@
   - ↔ `PaymentModal.tsx` [_`contains`_ | c89]
 
 ### Step
+
 - **ID:** `payment_paymentmodal_step`
 - **Type:** code
 - **Degree:** 1
@@ -71,6 +78,7 @@
   - ↔ `PaymentModal.tsx` [_`contains`_ | c89]
 
 ### stripePromise
+
 - **ID:** `payment_paymentmodal_stripepromise`
 - **Type:** code
 - **Degree:** 1

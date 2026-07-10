@@ -5,7 +5,8 @@ import { getPublicLegalSettings } from "../../lib/api";
 const SITE_COOKIES = [
   {
     name: "token",
-    purpose: "Authentication — keeps you signed in (httpOnly, not readable by JavaScript)",
+    purpose:
+      "Authentication — keeps you signed in (httpOnly, not readable by JavaScript)",
     duration: "Session / 7 days",
   },
   {
@@ -29,13 +30,19 @@ export default function CookiePolicyPage() {
   });
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">{t('auto.loading', 'Loading…')}</p></div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-400">{t("auto.loading", "Loading…")}</p>
+      </div>
+    );
   }
 
   if (!data?.cookiePolicyEnabled) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-400">{t('auto.404PageNotFound', '404 — Page not found')}</p>
+        <p className="text-gray-400">
+          {t("auto.404PageNotFound", "404 — Page not found")}
+        </p>
       </div>
     );
   }
@@ -48,7 +55,9 @@ export default function CookiePolicyPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-12">
-      <h1 className="text-2xl font-bold mb-6">{t('auto.cookiePolicy', 'Cookie Policy')}</h1>
+      <h1 className="text-2xl font-bold mb-6">
+        {t("auto.cookiePolicy", "Cookie Policy")}
+      </h1>
       {content && (
         <pre className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-sans mb-10">
           {content}
@@ -61,23 +70,36 @@ export default function CookiePolicyPage() {
           <thead>
             <tr className="border-b text-left text-gray-500">
               <th className="py-2 pr-4 font-medium">{t("gdpr.cookieName")}</th>
-              <th className="py-2 pr-4 font-medium">{t("gdpr.cookiePurpose")}</th>
+              <th className="py-2 pr-4 font-medium">
+                {t("gdpr.cookiePurpose")}
+              </th>
               <th className="py-2 font-medium">{t("gdpr.cookieDuration")}</th>
             </tr>
           </thead>
           <tbody>
             {SITE_COOKIES.map((c) => (
-              <tr key={c.name} className="border-b border-gray-100 dark:border-white/5">
+              <tr
+                key={c.name}
+                className="border-b border-gray-100 dark:border-white/5"
+              >
                 <td className="py-3 pr-4 font-mono text-xs">{c.name}</td>
-                <td className="py-3 pr-4 text-gray-600 dark:text-gray-400">{c.purpose}</td>
-                <td className="py-3 text-gray-600 dark:text-gray-400">{c.duration}</td>
+                <td className="py-3 pr-4 text-gray-600 dark:text-gray-400">
+                  {c.purpose}
+                </td>
+                <td className="py-3 text-gray-600 dark:text-gray-400">
+                  {c.duration}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <p className="mt-6 text-xs text-gray-500">
-        {t('auto.allCookiesListedAreStrictlyNecessar', 'All cookies listed are strictly necessary. No tracking or advertising cookies are used.')}</p>
+        {t(
+          "auto.allCookiesListedAreStrictlyNecessar",
+          "All cookies listed are strictly necessary. No tracking or advertising cookies are used.",
+        )}
+      </p>
     </div>
   );
 }

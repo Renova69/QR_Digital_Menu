@@ -45,6 +45,14 @@ export class AuthService {
     return email.toLowerCase().trim();
   }
 
+  private normalizePhone(phone: string): string {
+    let cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length === 10) {
+      cleaned = '1' + cleaned;
+    }
+    return '+' + cleaned;
+  }
+
   async validateUser(email: string, pass: string): Promise<any> {
     const user = await this.usersService.findByEmail(email);
     // Generic message for both unknown-email and wrong-password so the
@@ -607,6 +615,7 @@ export class AuthService {
     //  - 'smsgateway'  → we generate the code, send it through the SIM gateway,
     //                    and verify it against our own DB (like the email flow).
     if (phone && !email) {
+      phone = this.normalizePhone(phone);
       const usingGateway = smsProvider() === 'smsgateway';
       if (usingGateway ? !smsGatewayConfigured() : !this.twilioConfigured) {
         throw new HttpException(
@@ -814,7 +823,7 @@ export class AuthService {
       if (user.disabledAt) {
         // Generic message — a distinct "disabled" error after a correct PIN
         // match would let an attacker confirm a valid PIN via enumeration.
-        throw new UnauthorizedException('Invalid PIN.');
+        continue;
       }
 
       await this.recordSuccessfulStaffDeviceLogin(
@@ -842,19 +851,22 @@ export class AuthService {
       };
     }
 
-    // Failed attempt — increment per-device counter only.
-    const attempts = (enrolledDevice.pinAttempts ?? 0) + 1;
-    const lockedUntil =
-      attempts >= MAX_ATTEMPTS
-        ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000)
-        : null;
-    await this.prisma.deviceEnrollmentToken.update({
+    // Failed attempt — increment per-device counter atomically.
+    const updatedDevice = await this.prisma.deviceEnrollmentToken.update({
       where: { id: enrolledDevice.id },
-      data: {
-        pinAttempts: attempts,
-        ...(attempts >= MAX_ATTEMPTS ? { pinLockedUntil: lockedUntil } : {}),
-      },
+      data: { pinAttempts: { increment: 1 } },
     });
+    const attempts = updatedDevice.pinAttempts;
+
+    let lockedUntil = enrolledDevice.pinLockedUntil;
+    if (attempts >= MAX_ATTEMPTS && !lockedUntil) {
+      lockedUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000);
+      await this.prisma.deviceEnrollmentToken.update({
+        where: { id: enrolledDevice.id },
+        data: { pinLockedUntil: lockedUntil },
+      });
+    }
+
     await this.recordPinLoginAudit({
       deviceTokenId: enrolledDevice.id,
       restaurantId,
@@ -1014,7 +1026,6 @@ export class AuthService {
           email,
           password,
           role: 'CUSTOMER',
-          ...(phone ? { phone } : {}),
           ...(cleanName ? { name: cleanName } : {}),
         });
       } else if (isPinRole(user.role)) {
@@ -1023,7 +1034,6 @@ export class AuthService {
         throw new UnauthorizedException('This account has been disabled.');
       } else {
         const updates: any = {};
-        if (phone && !user.phone) updates.phone = phone;
         if (cleanName && !user.name) updates.name = cleanName;
         if (Object.keys(updates).length) {
           user = await this.prisma.user.update({

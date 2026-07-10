@@ -5,6 +5,7 @@
 ## Nodes
 
 ### colors.ts
+
 - **ID:** `apps_frontend_src_utils_colors_ts`
 - **Type:** code
 - **Degree:** 9
@@ -22,6 +23,7 @@
   - ↔ `getReadableTextColor()` [_`contains`_ | c5]
 
 ### getContrastStatus()
+
 - **ID:** `utils_colors_getcontraststatus`
 - **Type:** code
 - **Degree:** 6
@@ -33,6 +35,7 @@
   - ↔ `paletteContrastOk()` [_`calls`_ | c5]
 
 ### getContrastRatio()
+
 - **ID:** `utils_colors_getcontrastratio`
 - **Type:** code
 - **Degree:** 5
@@ -43,6 +46,7 @@
   - ↔ `getReadableTextColor()` [_`calls`_ | c5]
 
 ### ColorSchemeEditor()
+
 - **ID:** `branding_colorschemeeditor_colorschemeeditor`
 - **Type:** code
 - **Degree:** 3
@@ -53,6 +57,7 @@
   - ↔ `getReadableTextColor()` [_`calls`_ | c5]
 
 ### getLuminance()
+
 - **ID:** `utils_colors_getluminance`
 - **Type:** code
 - **Degree:** 2
@@ -61,6 +66,7 @@
   - → `getContrastRatio()` [_`calls`_ | EXTRACTED | score: 1.0]
 
 ### hexToRgb()
+
 - **ID:** `utils_colors_hextorgb`
 - **Type:** code
 - **Degree:** 2

@@ -403,7 +403,7 @@
               - /url: /blog/on-the-line/average-restaurant-profit-margin
             - text: is your net profit expressed as a percentage of revenue and is a measure of your profitability.
           - paragraph [ref=e378]: "Calculate your margin with this formula:"
-          - paragraph [ref=e379]: ((Gross Revenue – Operating Expenses)/ Gross Revenue)*100
+          - paragraph [ref=e379]: ((Gross Revenue – Operating Expenses)/ Gross Revenue)\*100
           - paragraph [ref=e380]: "And, follow these steps:"
           - list [ref=e381]:
             - listitem [ref=e382]:

@@ -30,20 +30,27 @@ In `frontend/src/context/CartContext.tsx`, update the `getTotal` function so tha
 For each cart item, its base price plus the sum of its `selectedOptions`'s `priceModifier`s, all multiplied by its `quantity`.
 
 Replace:
+
 ```typescript
-  const getTotal = () => {
-    return items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  };
+const getTotal = () => {
+  return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+};
 ```
+
 With:
+
 ```typescript
-  const getTotal = () => {
-    return items.reduce((sum, item) => {
-      const optionsTotal = item.selectedOptions.reduce((optSum, opt) => optSum + (opt.priceModifier || 0), 0);
-      return sum + ((item.price + optionsTotal) * item.quantity);
-    }, 0);
-  };
+const getTotal = () => {
+  return items.reduce((sum, item) => {
+    const optionsTotal = item.selectedOptions.reduce(
+      (optSum, opt) => optSum + (opt.priceModifier || 0),
+      0,
+    );
+    return sum + (item.price + optionsTotal) * item.quantity;
+  }, 0);
+};
 ```
+
 </action>
 <acceptance_criteria>
 - `CartContext.tsx`'s `getTotal` adds `option.priceModifier` to the base price before multiplying by `quantity`.
@@ -59,31 +66,47 @@ With:
 In `frontend/src/pages/MenuEditorPage.tsx`, use the boolean states `isLoadingCategories` and `isLoadingItems` from `useMenuContext()`.
 
 Add them to the destructuring:
+
 ```tsx
-const { categories, items, selectedCategory, setCategories, setItems, isLoadingCategories, isLoadingItems } = useMenuContext();
+const {
+  categories,
+  items,
+  selectedCategory,
+  setCategories,
+  setItems,
+  isLoadingCategories,
+  isLoadingItems,
+} = useMenuContext();
 ```
 
 Wrap `<CategoryList />` conditionally:
+
 ```tsx
-{isLoadingCategories ? (
-  <div className="flex justify-center p-4">
-    <p className="text-gray-500">Loading categories...</p>
-  </div>
-) : (
-  <CategoryList />
-)}
+{
+  isLoadingCategories ? (
+    <div className="flex justify-center p-4">
+      <p className="text-gray-500">Loading categories...</p>
+    </div>
+  ) : (
+    <CategoryList />
+  );
+}
 ```
 
 Wrap `<ItemList />` conditionally:
+
 ```tsx
-{isLoadingItems ? (
-  <div className="flex justify-center p-4">
-    <p className="text-gray-500">Loading items...</p>
-  </div>
-) : (
-  <ItemList />
-)}
+{
+  isLoadingItems ? (
+    <div className="flex justify-center p-4">
+      <p className="text-gray-500">Loading items...</p>
+    </div>
+  ) : (
+    <ItemList />
+  );
+}
 ```
+
 </action>
 <acceptance_criteria>
 - `MenuEditorPage.tsx` accesses `isLoadingCategories` and `isLoadingItems`.

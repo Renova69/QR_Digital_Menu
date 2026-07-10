@@ -132,7 +132,9 @@ export class StorageService {
     // limitInputPixels caps decompression to 200MP (150M is sharp default; 200M
     // = 14142×14142px which covers all realistic restaurant photos). Guards
     // against decompression-bomb payloads that would OOM the process.
-    const mainBuffer = await sharp(fileBuffer, { limitInputPixels: 200_000_000 })
+    const mainBuffer = await sharp(fileBuffer, {
+      limitInputPixels: 200_000_000,
+    })
       .rotate() // auto-rotate based on EXIF orientation
       .resize({
         width: StorageService.MAX_DIMENSION,
@@ -144,7 +146,9 @@ export class StorageService {
       .toBuffer();
 
     // --- Thumbnail: smaller resize + lower quality WebP ---
-    const thumbBuffer = await sharp(fileBuffer, { limitInputPixels: 200_000_000 })
+    const thumbBuffer = await sharp(fileBuffer, {
+      limitInputPixels: 200_000_000,
+    })
       .rotate()
       .resize({
         width: StorageService.THUMB_DIMENSION,
@@ -239,7 +243,7 @@ export class StorageService {
         this.s3.send(
           new DeleteObjectCommand({
             Bucket: this.bucket,
-            Key: key.replace('.webp', '_thumb.webp'),
+            Key: key.replace(/\.[^/.]+$/, '') + '_thumb.webp',
           }),
         ),
       ]);

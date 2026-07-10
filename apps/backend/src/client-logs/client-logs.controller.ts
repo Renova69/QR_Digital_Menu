@@ -47,7 +47,11 @@ function asLevel(value: unknown): ClientLogLevel {
     : 'error';
 }
 
-function safeContext(value: unknown): Record<string, unknown> | undefined {
+function safeContext(
+  value: unknown,
+  depth = 0,
+): Record<string, unknown> | undefined {
+  if (depth > 2) return undefined;
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return undefined;
   }
@@ -56,8 +60,12 @@ function safeContext(value: unknown): Record<string, unknown> | undefined {
     if (SENSITIVE_KEY_PATTERN.test(key)) {
       continue;
     }
-    output[key] =
-      typeof item === 'string' ? asString(item, 1_000) : (item ?? null);
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      output[key] = safeContext(item, depth + 1);
+    } else {
+      output[key] =
+        typeof item === 'string' ? asString(item, 1_000) : (item ?? null);
+    }
   }
   return output;
 }
@@ -105,8 +113,8 @@ export class ClientLogsController {
       clientSessionId: asString(body?.clientSessionId, 120),
       clientEventId: asString(body?.clientEventId, 120),
       eventType,
-      url: asString(body?.url, 2_000),
-      path: asString(body?.path, 1_000),
+      url: safeUrl(body?.url),
+      path: safeUrl(body?.path),
       userAgent: asString(body?.userAgent ?? req?.headers?.['user-agent'], 500),
       appVersion: asString(body?.appVersion, 120),
       buildMode: asString(body?.buildMode, 40),

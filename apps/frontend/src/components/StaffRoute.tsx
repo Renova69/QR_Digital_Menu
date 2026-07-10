@@ -19,7 +19,7 @@ export default function StaffRoute({ children }: { children: ReactElement }) {
   const { user, isLoading } = useAuth();
   const { activeRestaurant } = useRestaurantContext();
   const location = useLocation();
-  const canPos = useFeature('pos');
+  const canPos = useFeature("pos");
 
   if (isLoading) {
     return (

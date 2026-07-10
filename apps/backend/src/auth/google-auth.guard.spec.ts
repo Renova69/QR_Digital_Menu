@@ -23,7 +23,7 @@ const makeCtx = (
       getRequest: () => req,
       getResponse: () => ({ cookie: jest.fn(), clearCookie: jest.fn() }),
     }),
-  } as any as ExecutionContext;
+  } as Partial<ExecutionContext> as ExecutionContext;
 };
 
 describe('GoogleAuthGuard', () => {
@@ -43,7 +43,7 @@ describe('GoogleAuthGuard', () => {
           getRequest: () => ({ query: {}, cookies: {} }),
           getResponse: () => res,
         }),
-      } as any;
+      } as Partial<ExecutionContext> as ExecutionContext;
 
       const result = await guard.canActivate(ctx);
 

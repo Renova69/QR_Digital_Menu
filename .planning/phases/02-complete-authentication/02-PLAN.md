@@ -95,16 +95,16 @@ export default ErrorBoundary;
 ```
 
 Wrap the app in `frontend/src/App.tsx`:
+
 - Import `ErrorBoundary` at the top
 - Wrap `<Router>` with `<ErrorBoundary>`:
 
 ```tsx
 <ErrorBoundary>
-  <Router>
-    ...
-  </Router>
+  <Router>...</Router>
 </ErrorBoundary>
 ```
+
 </action>
 <acceptance_criteria>
 - File `frontend/src/components/ErrorBoundary.tsx` exists
@@ -125,16 +125,19 @@ Wrap the app in `frontend/src/App.tsx`:
 Update AuthContext to track an error message string. In `frontend/src/context/AuthContext.tsx`:
 
 Add to `AuthContextType` interface:
+
 ```typescript
 errorMessage: string | null;
 ```
 
 Add state:
+
 ```typescript
 const [errorMessage, setErrorMessage] = useState<string | null>(null);
 ```
 
 In the `login` catch block, extract the error message:
+
 ```typescript
 } catch (error: any) {
   setIsError(true);
@@ -145,6 +148,7 @@ In the `login` catch block, extract the error message:
 ```
 
 Same pattern for `register`:
+
 ```typescript
 } catch (error: any) {
   setIsError(true);
@@ -161,20 +165,25 @@ Add `errorMessage` to the value object.
 Update `LoginDialog.tsx` to show error messages:
 
 Add `errorMessage` to the useAuth destructuring:
+
 ```typescript
 const { login, register, isLoading, errorMessage } = useAuth();
 ```
 
 Add error display before the form:
+
 ```tsx
-{errorMessage && (
-  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-    <p className="text-sm text-red-600">{errorMessage}</p>
-  </div>
-)}
+{
+  errorMessage && (
+    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+      <p className="text-sm text-red-600">{errorMessage}</p>
+    </div>
+  );
+}
 ```
 
 Wrap `handleSubmit` in try/catch to suppress the re-throw:
+
 ```typescript
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -189,6 +198,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
 };
 ```
+
 </action>
 <acceptance_criteria>
 - `frontend/src/context/AuthContext.tsx` contains `errorMessage` in AuthContextType
@@ -200,6 +210,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 </task>
 
 ## Verification
+
 ```bash
 # Error Boundary exists and wraps app
 test -f frontend/src/components/ErrorBoundary.tsx

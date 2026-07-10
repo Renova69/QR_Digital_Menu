@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-05  
 **Status:** Approved  
-**Scope:** Frontend only — no backend changes required  
+**Scope:** Frontend only — no backend changes required
 
 ---
 
@@ -14,6 +14,7 @@ Two classes of i18n bugs exist across the frontend:
 2. **Missing locale keys** — Some components call `t(key, 'fallback')` but the key is absent from all three locale JSON files (`en`, `bg`, `ro`). BG/RO users always see the English fallback.
 
 Additionally, two bugs:
+
 - **Duplicate language picker** — `Header.tsx` and `DashboardPage.tsx` both render a language selector; on the dashboard both are visible simultaneously.
 - **QR print broken** — `window.print()` in `TableView.tsx` prints the entire page; QR codes appear as an overlay on the full site rather than printing cleanly.
 
@@ -46,6 +47,7 @@ Remove the language picker block from `DashboardPage.tsx` (lines 96–110). The 
 
 **QR print layout:**  
 Add `@media print` CSS (in `index.css` or a scoped `<style>` in `PrintableQRCodes`):
+
 - Hide everything: `body > * { display: none }`
 - Show only the printable container: `.printable-qr-sheet { display: block !important }`
 - Stack QR code cards cleanly with page breaks
@@ -53,13 +55,15 @@ Add `@media print` CSS (in `index.css` or a scoped `<style>` in `PrintableQRCode
 ### Locale keys added
 
 **`publicMenu` additions:**
+
 ```
 language        — "Language"
-logout          — "Logout"  
+logout          — "Logout"
 trendingNow     — "Trending Now"
 ```
 
 **`checkout` changes + additions:**
+
 ```
 title           — "Your Order"  (was "Checkout")
 loyaltyPoints   — "Loyalty Points"
@@ -76,11 +80,13 @@ signInToEarn    — "Sign in to earn points on this order."
 ```
 
 **`common` additions:**
+
 ```
 pleaseLogin     — "Please log in to continue"
 ```
 
 ### Components changed
+
 - `CheckoutPage.tsx` — wire 12 loyalty strings; replace `alert()` with inline error state
 - `TrendingCarousel.tsx` — locale JSON only (already calls `t()` with fallback)
 - `PublicMenuPage.tsx` — locale JSON only (already calls `t()` with fallback)
@@ -92,6 +98,7 @@ pleaseLogin     — "Please log in to continue"
 ### Locale keys added
 
 **`summary` section (new keys):**
+
 ```
 statusSnapshot              — "Status Snapshot"
 loyaltyProgramPerformance   — "Loyalty Program Performance"
@@ -103,21 +110,25 @@ unspentCustomerPoints       — "Unspent Customer Points"
 ```
 
 **`orders` additions:**
+
 ```
 pluckedAt   — "Placed {{time}}"
 ```
 
 **`assistance` additions:**
+
 ```
 resolvedAt  — "Resolved {{time}}"
 ```
 
 **`tables` additions:**
+
 ```
 printAllQr  — "Print All QR Codes"
 ```
 
 **`analytics` additions:**
+
 ```
 export              — "Export"
 categoryBreakdown   — "Category Breakdown"
@@ -127,6 +138,7 @@ dateTo              — "To"
 ```
 
 **`menuCheck` section (new):**
+
 ```
 title           — "Menu Health"
 subtitle        — "AI-powered audit to optimize your menu"
@@ -143,6 +155,7 @@ fieldLabel      — "Field: {{field}}"
 ```
 
 **`loyaltySettings` section (new):**
+
 ```
 sectionTitle        — "Loyalty & Rewards Program"
 enableLoyalty       — "Enable Loyalty Program"
@@ -164,6 +177,7 @@ silverMustBeLower   — "Silver threshold must be lower than Gold threshold."
 ```
 
 **`branding` additions:**
+
 ```
 typography      — "Typography"
 headingFont     — "Heading Font"
@@ -180,6 +194,7 @@ restaurantTimezoneDesc — "Used for automated menu scheduling."
 ```
 
 ### Components changed
+
 - `SummaryView.tsx` — wire loyalty stat labels
 - `AssistanceView.tsx` — replace `"Resolved " + toLocaleTimeString()` → `t('assistance.resolvedAt', { time })`
 - `OrdersView.tsx` — replace `"Plucked " + toLocaleTimeString()` → `t('orders.pluckedAt', { time })`
@@ -197,6 +212,7 @@ restaurantTimezoneDesc — "Used for automated menu scheduling."
 ### Locale keys added
 
 **`nav` section (new):**
+
 ```
 dashboard   — "Dashboard"
 logout      — "Logout"
@@ -205,14 +221,17 @@ getStarted  — "Get Started"
 ```
 
 **`dashboard` additions:**
+
 ```
 tabs.home       — "Home"
 tabs.requests   — "Requests"
 tabs.stats      — "Stats"
 ```
-*(existing `tabs.orders`, `tabs.tables`, `tabs.settings`, `tabs.menuEditor` already present)*
+
+_(existing `tabs.orders`, `tabs.tables`, `tabs.settings`, `tabs.menuEditor` already present)_
 
 **`menuEditor` additions:**
+
 ```
 storefrontUpselling — "Storefront Upselling"
 trendingEngine      — "Trending Engine"
@@ -224,6 +243,7 @@ trendingDescManual  — "Click the stars on items to feature them on your menu."
 ```
 
 ### Components changed
+
 - `Header.tsx` — wire "Dashboard", "Logout", "Login", "Get Started" using `t('nav.*')`
 - `DashboardPage.tsx` — `BOTTOM_NAV_TABS` `short` labels moved from static array to render-time `t()` calls; wire mobile "Menu Editor" link
 - `MenuEditorPage.tsx` — wire section heading, trending engine label, three mode options, dynamic description text
@@ -235,6 +255,7 @@ trendingDescManual  — "Click the stars on items to feature them on your menu."
 All new keys must have translations in all three locale files simultaneously. EN is the source of truth. BG is the primary target (restaurant owner audience). RO must be complete.
 
 Key translation notes for implementer:
+
 - "Your Order" → BG: "Вашата поръчка" / RO: "Comanda dvs."
 - "Trending Now" → BG: "Популярно сега" / RO: "În tendințe"
 - "Loyalty Points" → BG: "Точки за лоялност" / RO: "Puncte de loialitate"

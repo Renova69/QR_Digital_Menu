@@ -335,7 +335,10 @@ describe('DeviceEnrollmentService', () => {
 
   describe('revokeRestaurantDevices', () => {
     it('revokes all restaurant device tokens and evicts their sockets', async () => {
-      mockTokenStore.findMany.mockResolvedValue([{ id: 'tok1' }, { id: 'tok2' }]);
+      mockTokenStore.findMany.mockResolvedValue([
+        { id: 'tok1' },
+        { id: 'tok2' },
+      ]);
 
       const result = await service.revokeRestaurantDevices(
         'rest1',
@@ -364,7 +367,10 @@ describe('DeviceEnrollmentService', () => {
 
   describe('evictRestaurantDevices', () => {
     it('expires active sessions and evicts used non-revoked device tokens without revoking them', async () => {
-      mockTokenStore.findMany.mockResolvedValue([{ id: 'tok1' }, { id: 'tok2' }]);
+      mockTokenStore.findMany.mockResolvedValue([
+        { id: 'tok1' },
+        { id: 'tok2' },
+      ]);
 
       const result = await service.evictRestaurantDevices(
         'rest1',

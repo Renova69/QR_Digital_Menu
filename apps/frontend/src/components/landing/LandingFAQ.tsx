@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
-import { HelpCircle, ChevronDown } from 'lucide-react';
-import { getHelpContent, type HelpContentItem } from '../../lib/api';
+import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
+import { HelpCircle, ChevronDown } from "lucide-react";
+import { getHelpContent, type HelpContentItem } from "../../lib/api";
 
 function groupBy<T>(items: T[], key: keyof T): Map<string, T[]> {
   const map = new Map<string, T[]>();
@@ -21,23 +21,23 @@ const LandingFAQ = () => {
   const answerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const { data: items = [] } = useQuery({
-    queryKey: ['help-content', 'landing', i18n.language],
-    queryFn: () => getHelpContent('landing', i18n.language),
+    queryKey: ["help-content", "landing", i18n.language],
+    queryFn: () => getHelpContent("landing", i18n.language),
   });
 
   const faqGroups = groupBy(
     items.filter((i) => i.active),
-    'itemKey',
+    "itemKey",
   );
 
   useEffect(() => {
     answerRefs.current.forEach((el, id) => {
       if (id === expandedId) {
-        el.style.maxHeight = el.scrollHeight + 'px';
-        el.style.opacity = '1';
+        el.style.maxHeight = el.scrollHeight + "px";
+        el.style.opacity = "1";
       } else {
-        el.style.maxHeight = '0px';
-        el.style.opacity = '0';
+        el.style.maxHeight = "0px";
+        el.style.opacity = "0";
       }
     });
   }, [expandedId]);
@@ -53,20 +53,25 @@ const LandingFAQ = () => {
         <div className="text-center mb-16 md:mb-20">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.15em] mb-4 border border-primary/20">
             <HelpCircle className="w-3.5 h-3.5" />
-            {t('landing.faq.badge', 'Got Questions?')}
+            {t("landing.faq.badge", "Got Questions?")}
           </div>
           <h2 className="text-3xl sm:text-4xl md:text-6xl font-display font-black text-foreground tracking-tight mb-4">
-            {t('landing.faq.title', 'Frequently Asked Questions')}
+            {t("landing.faq.title", "Frequently Asked Questions")}
           </h2>
           <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto font-medium">
-            {t('landing.faq.subtitle', 'Everything you need to know before getting started.')}
+            {t(
+              "landing.faq.subtitle",
+              "Everything you need to know before getting started.",
+            )}
           </p>
         </div>
 
         {/* FAQ accordion */}
         <div className="space-y-3">
           {Array.from(faqGroups.entries())
-            .sort(([, a], [, b]) => (a[0]?.sortOrder ?? 0) - (b[0]?.sortOrder ?? 0))
+            .sort(
+              ([, a], [, b]) => (a[0]?.sortOrder ?? 0) - (b[0]?.sortOrder ?? 0),
+            )
             .map(([itemKey, localeItems]) => {
               const item = localeItems[0];
               if (!item) return null;
@@ -84,7 +89,9 @@ const LandingFAQ = () => {
                     <span className="leading-snug pr-4">{item.title}</span>
                     <ChevronDown
                       className={`w-5 h-5 shrink-0 transition-all duration-300 ease-out ${
-                        isExpanded ? 'rotate-180 text-primary' : 'text-muted-foreground'
+                        isExpanded
+                          ? "rotate-180 text-primary"
+                          : "text-muted-foreground"
                       }`}
                     />
                   </button>
@@ -94,7 +101,7 @@ const LandingFAQ = () => {
                       if (el) answerRefs.current.set(itemKey, el);
                     }}
                     className="overflow-hidden transition-all duration-300 ease-out"
-                    style={{ maxHeight: '0px', opacity: '0' }}
+                    style={{ maxHeight: "0px", opacity: "0" }}
                   >
                     <div className="px-5 md:px-6 pb-5 md:pb-6">
                       <p className="text-sm md:text-base text-muted-foreground leading-relaxed">

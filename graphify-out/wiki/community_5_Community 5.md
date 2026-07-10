@@ -5,6 +5,7 @@
 ## Nodes
 
 ### AuthService
+
 - **ID:** `auth_auth_service_authservice`
 - **Type:** code
 - **Degree:** 22
@@ -28,6 +29,7 @@
   - ↔ `.constructor()` [_`method`_ | c41]
 
 ### AuthController
+
 - **ID:** `auth_auth_controller_authcontroller`
 - **Type:** code
 - **Degree:** 16
@@ -46,6 +48,7 @@
   - ↔ `.updateProfile()` [_`method`_ | c54]
 
 ### UsersService
+
 - **ID:** `users_users_service_usersservice`
 - **Type:** code
 - **Degree:** 15
@@ -61,6 +64,7 @@
   - ↔ `users.service.ts` [_`contains`_ | c44]
 
 ### setTokenCookie()
+
 - **ID:** `auth_auth_controller_settokencookie`
 - **Type:** code
 - **Degree:** 6
@@ -75,6 +79,7 @@
   - ↔ `.pinLogin()` [_`calls`_ | c54]
 
 ### GoogleAuthGuard
+
 - **ID:** `auth_google_auth_guard_googleauthguard`
 - **Type:** code
 - **Degree:** 5
@@ -88,6 +93,7 @@
   - ↔ `.canActivate()` [_`method`_ | c85]
 
 ### JwtStrategy
+
 - **ID:** `auth_jwt_strategy_jwtstrategy`
 - **Type:** code
 - **Degree:** 5
@@ -101,6 +107,7 @@
   - ↔ `.constructor()` [_`method`_ | c6]
 
 ### .sendTwilioOtp()
+
 - **ID:** `auth_auth_service_authservice_sendtwiliootp`
 - **Type:** code
 - **Degree:** 4
@@ -109,6 +116,7 @@
   - → `.sendOtp()` [_`calls`_ | EXTRACTED | score: 1.0]
 
 ### .verifyTwilioOtp()
+
 - **ID:** `auth_auth_service_authservice_verifytwiliootp`
 - **Type:** code
 - **Degree:** 4
@@ -117,6 +125,7 @@
   - → `.verifyOtp()` [_`calls`_ | EXTRACTED | score: 1.0]
 
 ### GoogleStrategy
+
 - **ID:** `auth_google_strategy_googlestrategy`
 - **Type:** code
 - **Degree:** 4
@@ -128,6 +137,7 @@
   - ↔ `.validate()` [_`method`_ | c52]
 
 ### LocalStrategy
+
 - **ID:** `auth_local_strategy_localstrategy`
 - **Type:** code
 - **Degree:** 4
@@ -139,6 +149,7 @@
   - ↔ `.validate()` [_`method`_ | c52]
 
 ### CreateAuthDto
+
 - **ID:** `dto_create_auth_dto_createauthdto`
 - **Type:** code
 - **Degree:** 4
@@ -150,6 +161,7 @@
   - ↔ `update-auth.dto.ts` [_`imports`_ | c76]
 
 ### .googleAuthRedirect()
+
 - **ID:** `auth_auth_controller_authcontroller_googleauthredirect`
 - **Type:** code
 - **Degree:** 3
@@ -158,6 +170,7 @@
   - ↔ `.login()` [_`calls`_ | c54]
 
 ### .sendOtp()
+
 - **ID:** `auth_auth_service_authservice_sendotp`
 - **Type:** code
 - **Degree:** 3
@@ -166,6 +179,7 @@
   - ↔ `.checkCustomersAuthFeature()` [_`calls`_ | c41]
 
 ### .twilioBasicAuth()
+
 - **ID:** `auth_auth_service_authservice_twiliobasicauth`
 - **Type:** code
 - **Degree:** 3
@@ -175,6 +189,7 @@
   - → `.verifyTwilioOtp()` [_`calls`_ | EXTRACTED | score: 1.0]
 
 ### .twilioVerifyUrl()
+
 - **ID:** `auth_auth_service_authservice_twilioverifyurl`
 - **Type:** code
 - **Degree:** 3
@@ -184,6 +199,7 @@
   - → `.verifyTwilioOtp()` [_`calls`_ | EXTRACTED | score: 1.0]
 
 ### .verifyOtp()
+
 - **ID:** `auth_auth_service_authservice_verifyotp`
 - **Type:** code
 - **Degree:** 3
@@ -192,6 +208,7 @@
   - ↔ `.checkCustomersAuthFeature()` [_`calls`_ | c41]
 
 ### UsersModule
+
 - **ID:** `users_users_module_usersmodule`
 - **Type:** code
 - **Degree:** 3
@@ -202,6 +219,7 @@
   - ↔ `users.module.ts` [_`contains`_ | c52]
 
 ### AuthModule
+
 - **ID:** `auth_auth_module_authmodule`
 - **Type:** code
 - **Degree:** 2
@@ -211,6 +229,7 @@
   - ↔ `auth.module.ts` [_`contains`_ | c52]
 
 ### LocalAuthGuard
+
 - **ID:** `auth_local_auth_guard_localauthguard`
 - **Type:** code
 - **Degree:** 2
@@ -220,6 +239,7 @@
   - ↔ `local-auth.guard.ts` [_`contains`_ | c76]
 
 ### login()
+
 - **ID:** `lib_api_login`
 - **Type:** code
 - **Degree:** 2
@@ -229,6 +249,7 @@
   - ↔ `api.ts` [_`contains`_ | c3]
 
 ### register()
+
 - **ID:** `lib_api_register`
 - **Type:** code
 - **Degree:** 2
@@ -238,30 +259,35 @@
   - ↔ `api.ts` [_`contains`_ | c3]
 
 ### .getCsrfToken()
+
 - **ID:** `auth_auth_controller_authcontroller_getcsrftoken`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/auth/auth.controller.ts` @ L155
 
 ### .getProfile()
+
 - **ID:** `auth_auth_controller_authcontroller_getprofile`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/auth/auth.controller.ts` @ L69
 
 ### .googleAuth()
+
 - **ID:** `auth_auth_controller_authcontroller_googleauth`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/auth/auth.controller.ts` @ L87
 
 ### .logout()
+
 - **ID:** `auth_auth_controller_authcontroller_logout`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/auth/auth.controller.ts` @ L138
 
 ### COOKIE_OPTIONS
+
 - **ID:** `auth_auth_controller_cookie_options`
 - **Type:** code
 - **Degree:** 1
@@ -270,42 +296,49 @@
   - ↔ `auth.controller.ts` [_`contains`_ | c76]
 
 ### .twilioConfigured()
+
 - **ID:** `auth_auth_service_authservice_twilioconfigured`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/auth/auth.service.ts` @ L117
 
 ### .updateProfile()
+
 - **ID:** `auth_auth_service_authservice_updateprofile`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/auth/auth.service.ts` @ L382
 
 ### .validateGoogleUser()
+
 - **ID:** `auth_auth_service_authservice_validategoogleuser`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/auth/auth.service.ts` @ L60
 
 ### .validateUser()
+
 - **ID:** `auth_auth_service_authservice_validateuser`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/auth/auth.service.ts` @ L28
 
 ### .getAuthenticateOptions()
+
 - **ID:** `auth_google_auth_guard_googleauthguard_getauthenticateoptions`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/auth/google-auth.guard.ts` @ L49
 
 ### .validate()
+
 - **ID:** `auth_jwt_strategy_jwtstrategy_validate`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/auth/jwt.strategy.ts` @ L41
 
 ### UpdateAuthDto
+
 - **ID:** `dto_update_auth_dto_updateauthdto`
 - **Type:** code
 - **Degree:** 1
@@ -314,12 +347,14 @@
   - ↔ `update-auth.dto.ts` [_`contains`_ | c76]
 
 ### .findByEmail()
+
 - **ID:** `users_users_service_usersservice_findbyemail`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/users/users.service.ts` @ L18
 
 ### .findByPhone()
+
 - **ID:** `users_users_service_usersservice_findbyphone`
 - **Type:** code
 - **Degree:** 1

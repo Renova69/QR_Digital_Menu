@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ArgumentsHost } from '@nestjs/common';
 import { AllExceptionsFilter } from './all-exceptions.filter';
 import { writeAppLog } from '../logging/app-logger';
 
@@ -37,7 +37,7 @@ describe('AllExceptionsFilter', () => {
 
     new AllExceptionsFilter().catch(
       new BadRequestException('Invalid input'),
-      host as any,
+      host as unknown as ArgumentsHost,
     );
 
     expect(status).toHaveBeenCalledWith(400);

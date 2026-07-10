@@ -43,7 +43,7 @@ export default function PosPage() {
   const { socket } = useSocket();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const canPos = useFeature('pos');
+  const canPos = useFeature("pos");
   const [paidNotice, setPaidNotice] = useState<string | null>(null);
 
   // When the customer pays via the Payment QR, the backend emits
@@ -52,7 +52,10 @@ export default function PosPage() {
   // open table (Bug 1).
   useEffect(() => {
     if (!socket) return;
-    const onPaid = (data: { tableSessionId?: string; tableNumber?: string }) => {
+    const onPaid = (data: {
+      tableSessionId?: string;
+      tableNumber?: string;
+    }) => {
       if (
         data?.tableSessionId &&
         session?.sessionId &&
@@ -76,15 +79,18 @@ export default function PosPage() {
 
   useEffect(() => {
     if (activeRestaurant && !canPos) {
-      navigate('/dashboard', { replace: true });
+      navigate("/dashboard", { replace: true });
     }
   }, [activeRestaurant, canPos, navigate]);
 
-  useIdleTimer(() => {
-    // Cart is persisted to sessionStorage — restored on next login
-    logout();
-    navigate("/device-login", { replace: true });
-  }, 10 * 60 * 1000); // 10 min — longer for POS context
+  useIdleTimer(
+    () => {
+      // Cart is persisted to sessionStorage — restored on next login
+      logout();
+      navigate("/device-login", { replace: true });
+    },
+    10 * 60 * 1000,
+  ); // 10 min — longer for POS context
 
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -101,10 +107,11 @@ export default function PosPage() {
     api
       .get(`/menu/public/${activeRestaurant.id}`, { signal: controller.signal })
       .then((res) => {
-        const cats: Category[] = res.data.categories?.map((c: any) => ({
-          id: c.id,
-          name: c.name,
-        })) ?? [];
+        const cats: Category[] =
+          res.data.categories?.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+          })) ?? [];
         setCategories(cats);
 
         const allItems: MenuItem[] = [];
@@ -133,7 +140,9 @@ export default function PosPage() {
       {paidNotice && (
         <div className="fixed top-4 left-1/2 z-50 flex max-w-[92vw] -translate-x-1/2 items-center gap-3 rounded-xl bg-success px-4 py-3 text-success-foreground shadow-lg">
           <span className="text-sm font-semibold">
-            {t("pos.tablePaid", "Table {{name}} paid — bill cleared", { name: paidNotice })}
+            {t("pos.tablePaid", "Table {{name}} paid — bill cleared", {
+              name: paidNotice,
+            })}
           </span>
           <button
             type="button"

@@ -1,5 +1,16 @@
 import { PaymentService } from './payment.service';
 import { PaymentProviderConfigService } from './payment-provider-config.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { EventsGateway } from '../events/events.gateway';
+import { PaymentProvider } from '@prisma/client';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
+import { SplitMode, SplitProvider } from './dto/settle-partial.dto';
+
+type DeepPartial<T> = T extends Function
+  ? jest.Mock
+  : T extends object
+    ? { [P in keyof T]: DeepPartial<T[P]> }
+    : T;
 import { PaymentCoreService } from './core/payment-core.service';
 import { PaymentReportingService } from './reporting/payment-reporting.service';
 import { StripeCheckoutService } from './providers/stripe-checkout.service';
@@ -15,64 +26,74 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { StripeProvider } from './stripe.provider';
+import { EpayProvider } from './epay.provider';
+import { MyposProvider } from './mypos.provider';
+import { BoricaProvider } from './borica.provider';
 import { FeatureService } from '../subscription/feature.service';
 
 describe('PaymentService', () => {
   let service: PaymentService;
-  let mockPrisma: any;
-  let mockStripeProvider: any;
-  let mockEpayProvider: any;
-  let mockBoricaProvider: any;
-  let mockMyposProvider: any;
-  let mockEvents: any;
+  let mockPrisma: DeepPartial<PrismaService>;
+  let mockStripeProvider: DeepPartial<StripeProvider>;
+  let mockEpayProvider: DeepPartial<EpayProvider>;
+  let mockBoricaProvider: DeepPartial<BoricaProvider>;
+  let mockMyposProvider: DeepPartial<MyposProvider>;
+  let mockEvents: DeepPartial<EventsGateway>;
   let mockFeatureService: FeatureService;
 
   function buildPaymentService(featureService = mockFeatureService) {
+    const _prisma = mockPrisma as unknown as PrismaService;
+    const _stripe = mockStripeProvider as unknown as StripeProvider;
+    const _epay = mockEpayProvider as unknown as EpayProvider;
+    const _borica = mockBoricaProvider as unknown as BoricaProvider;
+    const _mypos = mockMyposProvider as unknown as MyposProvider;
+    const _events = mockEvents as unknown as EventsGateway;
+
     const config = new PaymentProviderConfigService(featureService);
-    const core = new PaymentCoreService(mockPrisma, mockEvents, featureService);
+    const core = new PaymentCoreService(_prisma, _events, featureService);
     const sessions = new PaymentSessionService(
-      mockPrisma,
-      mockStripeProvider,
-      mockEvents,
+      _prisma,
+      _stripe as unknown as StripeProvider,
+      _events,
       core,
       config,
     );
     const settlement = new PaymentSettlementService(
-      mockPrisma,
-      mockEvents,
+      _prisma,
+      _events,
       featureService,
       core,
       sessions,
     );
-    const reporting = new PaymentReportingService(mockPrisma, core);
+    const reporting = new PaymentReportingService(_prisma, core);
     const stripeCheckout = new StripeCheckoutService(
-      mockPrisma,
-      mockStripeProvider,
-      mockEvents,
+      _prisma,
+      _stripe as unknown as StripeProvider,
+      _events,
       featureService,
       core,
       config,
     );
     const epayCheckout = new EpayCheckoutService(
-      mockPrisma,
-      mockEpayProvider,
+      _prisma,
+      _epay as unknown as EpayProvider,
       core,
       config,
     );
     const myposCheckout = new MyposCheckoutService(
-      mockPrisma,
-      mockMyposProvider,
+      _prisma,
+      _mypos as unknown as MyposProvider,
       core,
       config,
     );
     const boricaCheckout = new BoricaCheckoutService(
-      mockPrisma,
-      mockBoricaProvider,
+      _prisma,
+      _borica as unknown as BoricaProvider,
       core,
       config,
     );
-
-    return new PaymentService(
+    const service = new PaymentService(
       sessions,
       settlement,
       reporting,
@@ -81,6 +102,7 @@ describe('PaymentService', () => {
       myposCheckout,
       boricaCheckout,
     );
+    return service;
   }
 
   beforeEach(() => {
@@ -158,11 +180,11 @@ describe('PaymentService', () => {
         update: jest.fn(),
       },
       $queryRaw: jest.fn().mockResolvedValue([{ id: 's1' }]),
-      $transaction: jest.fn((arg: any) => {
-        if (typeof arg === 'function') return arg(mockPrisma);
+      $transaction: jest.fn((arg: unknown[]) => {
+        if (typeof arg === 'function') return (arg as Function)(mockPrisma);
         return Promise.all(arg);
       }),
-    };
+    } as unknown as DeepPartial<PrismaService>;
     mockStripeProvider = {
       createPaymentIntent: jest.fn(),
       createRefund: jest.fn(),
@@ -170,7 +192,7 @@ describe('PaymentService', () => {
       constructWebhookEvent: jest.fn(),
       retrievePaymentIntent: jest.fn().mockResolvedValue(null),
       retrieveRefund: jest.fn().mockResolvedValue(null),
-    };
+    } as unknown as DeepPartial<StripeProvider>;
     mockEpayProvider = {
       createCheckoutForm: jest.fn(),
       parseNotifications: jest.fn(),
@@ -178,12 +200,12 @@ describe('PaymentService', () => {
       formatNotificationResponses: jest.fn((responses) =>
         responses
           .map(
-            (response: any) =>
+            (response: { invoice: string; status: string }) =>
               `INVOICE=${response.invoice}:STATUS=${response.status}`,
           )
           .join('\n'),
       ),
-    };
+    } as unknown as DeepPartial<EpayProvider>;
     mockBoricaProvider = {
       buildSaleForm: jest.fn().mockReturnValue({
         action: 'https://3dsgate-dev.borica.bg/cgi-bin/cgi_link',
@@ -203,9 +225,9 @@ describe('PaymentService', () => {
         .mockReturnValue('https://3dsgate-dev.borica.bg/cgi-bin/cgi_link'),
       // Default: status check unavailable (null = outcome unknown, keep pending)
       queryTransactionStatus: jest.fn().mockResolvedValue(null),
-    };
+    } as unknown as DeepPartial<BoricaProvider>;
     mockMyposProvider = {
-      createCheckoutForm: jest.fn(({ orderId }: any) => ({
+      createCheckoutForm: jest.fn(({ orderId }: { orderId: string }) => ({
         action: 'https://www.mypos.com/vmp/checkout-test',
         method: 'POST' as const,
         fields: {
@@ -225,17 +247,21 @@ describe('PaymentService', () => {
         requestStan: '000006',
         requestDateTime: '2015-08-21 10:39:37',
       }),
-    };
+    } as unknown as DeepPartial<MyposProvider>;
     mockEvents = {
       emitToRestaurant: jest.fn(),
       emitToTableSession: jest.fn(),
       emitTableStatusChanged: jest.fn(),
-    };
+    } as unknown as DeepPartial<EventsGateway>;
 
     mockFeatureService = {
       hasFeature: jest.fn().mockReturnValue(true),
       getEffectiveTier: jest.fn().mockImplementation((tier: string) => tier),
-      restaurantHasFeature: jest.fn(function (this: any, r: any, f: any) {
+      restaurantHasFeature: jest.fn(function (
+        this: FeatureService,
+        r: { tier?: string; forceTier?: string | null },
+        f: FeatureFlag,
+      ) {
         return this.hasFeature(
           this.getEffectiveTier(r?.tier ?? 'FREE', r?.forceTier ?? null),
           f,
@@ -377,7 +403,7 @@ describe('PaymentService', () => {
       expect(result.pendingPayment).toMatchObject({
         id: 'cash-full',
         source: 'CASH_REQUEST',
-        provider: 'CASH',
+        provider: PaymentProvider.CASH,
         scope: 'FULL_TABLE',
         amount: 20,
       });
@@ -530,7 +556,7 @@ describe('PaymentService', () => {
       });
       mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20.0 }]);
       mockPrisma.payment.create.mockResolvedValue({ id: 'pay1' });
-      mockStripeProvider.createPaymentIntent.mockResolvedValue({
+      mockStripeProvider.createPaymentIntent!.mockResolvedValue({
         clientSecret: 'cs_test',
         paymentIntentId: 'pi_test',
       });
@@ -625,7 +651,7 @@ describe('PaymentService', () => {
         { id: 'paid-old', status: 'SUCCEEDED', amount: 10, tipAmount: 0 },
       ]);
       mockPrisma.payment.create.mockResolvedValue({ id: 'pay-owned' });
-      mockStripeProvider.createPaymentIntent.mockResolvedValue({
+      mockStripeProvider.createPaymentIntent!.mockResolvedValue({
         clientSecret: 'cs_owned',
         paymentIntentId: 'pi_owned',
       });
@@ -722,7 +748,7 @@ describe('PaymentService', () => {
       mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
       mockPrisma.payment.findMany.mockResolvedValue([]);
       mockPrisma.payment.create.mockResolvedValue({ id: 'pay-fail' });
-      mockStripeProvider.createPaymentIntent.mockRejectedValue(
+      mockStripeProvider.createPaymentIntent!.mockRejectedValue(
         new Error('stripe down'),
       );
       mockPrisma.payment.update.mockResolvedValue({});
@@ -807,7 +833,7 @@ describe('PaymentService', () => {
       mockPrisma.payment.findMany.mockResolvedValue([
         { id: 'stale', status: 'PENDING', stripePaymentIntentId: 'pi_stale' },
       ]);
-      mockStripeProvider.cancelPaymentIntent.mockRejectedValue(
+      mockStripeProvider.cancelPaymentIntent!.mockRejectedValue(
         new Error('already succeeded'),
       );
 
@@ -855,7 +881,11 @@ describe('PaymentService', () => {
       const lockedFeatureService = {
         hasFeature: jest.fn().mockReturnValue(false),
         getEffectiveTier: jest.fn().mockImplementation((tier: string) => tier),
-        restaurantHasFeature: jest.fn(function (this: any, r: any, f: any) {
+        restaurantHasFeature: jest.fn(function (
+          this: FeatureService,
+          r: { tier?: string; forceTier?: string | null },
+          f: FeatureFlag,
+        ) {
           return this.hasFeature(
             this.getEffectiveTier(r?.tier ?? 'FREE', r?.forceTier ?? null),
             f,
@@ -898,7 +928,7 @@ describe('PaymentService', () => {
       mockPrisma.payment.findMany.mockResolvedValue([]);
       mockPrisma.payment.create.mockResolvedValue({ id: 'pay-epay' });
       mockPrisma.payment.update.mockResolvedValue({});
-      mockEpayProvider.createCheckoutForm.mockReturnValue({
+      mockEpayProvider.createCheckoutForm!.mockReturnValue({
         action: 'https://demo.epay.bg/',
         method: 'POST',
         fields: {
@@ -966,13 +996,13 @@ describe('PaymentService', () => {
     };
 
     beforeEach(() => {
-      mockEpayProvider.parseNotifications.mockReturnValue([notification]);
-      mockEpayProvider.verifyChecksum.mockReturnValue(true);
+      mockEpayProvider.parseNotifications!.mockReturnValue([notification]);
+      mockEpayProvider.verifyChecksum!.mockReturnValue(true);
     });
 
     it('returns ERR when checksum verification fails', async () => {
       mockPrisma.payment.findMany.mockResolvedValue([epayPayment]);
-      mockEpayProvider.verifyChecksum.mockReturnValue(false);
+      mockEpayProvider.verifyChecksum!.mockReturnValue(false);
 
       const result = await service.handleEpayNotification({
         ENCODED: 'encoded',
@@ -1114,7 +1144,7 @@ describe('PaymentService', () => {
 
       expect(result).toEqual(
         expect.objectContaining({
-          provider: 'MYPOS',
+          provider: PaymentProvider.MYPOS,
           paymentId: 'pay-mypos',
           total: 20,
           action: 'https://www.mypos.com/vmp/checkout-test',
@@ -1131,7 +1161,7 @@ describe('PaymentService', () => {
       );
       expect(mockPrisma.payment.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          provider: 'MYPOS',
+          provider: PaymentProvider.MYPOS,
           status: 'PENDING',
           providerStatus: 'PENDING',
           providerReference: expect.stringMatching(/^MP/),
@@ -1197,7 +1227,7 @@ describe('PaymentService', () => {
 
     beforeEach(() => {
       mockPrisma.payment.findFirst.mockResolvedValue(myposPayment);
-      mockMyposProvider.verifyNotification.mockReturnValue({
+      mockMyposProvider.verifyNotification!.mockReturnValue({
         verified: true,
         method: 'IPCPurchaseNotify',
         orderId: 'MP123',
@@ -1211,7 +1241,7 @@ describe('PaymentService', () => {
     });
 
     it('returns ERR and does not mutate state when signature is invalid', async () => {
-      mockMyposProvider.verifyNotification.mockReturnValueOnce({
+      mockMyposProvider.verifyNotification!.mockReturnValueOnce({
         verified: false,
         method: 'IPCPurchaseNotify',
         orderId: 'MP123',
@@ -1260,7 +1290,7 @@ describe('PaymentService', () => {
 
   describe('handleWebhookEvent', () => {
     it('on payment_intent.succeeded: updates Payment + TableSession + emits socket event', async () => {
-      mockStripeProvider.constructWebhookEvent.mockReturnValue({
+      mockStripeProvider.constructWebhookEvent!.mockReturnValue({
         type: 'payment_intent.succeeded',
         data: { object: { id: 'pi_test' } },
       });
@@ -1318,7 +1348,7 @@ describe('PaymentService', () => {
     });
 
     it('on scoped payment_intent.succeeded: settles selected items and leaves the session open when balance remains', async () => {
-      mockStripeProvider.constructWebhookEvent.mockReturnValue({
+      mockStripeProvider.constructWebhookEvent!.mockReturnValue({
         type: 'payment_intent.succeeded',
         id: 'evt_scoped',
         data: { object: { id: 'pi_scoped' } },
@@ -1431,7 +1461,7 @@ describe('PaymentService', () => {
     });
 
     it('does NOT mark the session PAID when the payment underpays the current bill (#2)', async () => {
-      mockStripeProvider.constructWebhookEvent.mockReturnValue({
+      mockStripeProvider.constructWebhookEvent!.mockReturnValue({
         type: 'payment_intent.succeeded',
         data: { object: { id: 'pi_test' } },
       });
@@ -1459,7 +1489,7 @@ describe('PaymentService', () => {
     });
 
     it('is idempotent: a double-delivered succeeded event skips socket emission (#H3)', async () => {
-      mockStripeProvider.constructWebhookEvent.mockReturnValue({
+      mockStripeProvider.constructWebhookEvent!.mockReturnValue({
         type: 'payment_intent.succeeded',
         data: { object: { id: 'pi_test' } },
       });
@@ -1485,7 +1515,7 @@ describe('PaymentService', () => {
     });
 
     it('falls back to claiming by payment id when intent id not yet stored (#H3)', async () => {
-      mockStripeProvider.constructWebhookEvent.mockReturnValue({
+      mockStripeProvider.constructWebhookEvent!.mockReturnValue({
         type: 'payment_intent.succeeded',
         data: { object: { id: 'pi_test', metadata: { paymentId: 'pay1' } } },
       });
@@ -1523,7 +1553,7 @@ describe('PaymentService', () => {
     });
 
     it('ignores a stale succeeded event when another provider already paid the session', async () => {
-      mockStripeProvider.constructWebhookEvent.mockReturnValue({
+      mockStripeProvider.constructWebhookEvent!.mockReturnValue({
         type: 'payment_intent.succeeded',
         data: { object: { id: 'pi_old' } },
       });
@@ -1550,7 +1580,7 @@ describe('PaymentService', () => {
     });
 
     it('on payment_intent.payment_failed: updates Payment status to FAILED', async () => {
-      mockStripeProvider.constructWebhookEvent.mockReturnValue({
+      mockStripeProvider.constructWebhookEvent!.mockReturnValue({
         type: 'payment_intent.payment_failed',
         data: { object: { id: 'pi_test' } },
       });
@@ -1570,7 +1600,7 @@ describe('PaymentService', () => {
     });
 
     it('silently returns when payment record not found for succeeded event', async () => {
-      mockStripeProvider.constructWebhookEvent.mockReturnValue({
+      mockStripeProvider.constructWebhookEvent!.mockReturnValue({
         type: 'payment_intent.succeeded',
         data: { object: { id: 'pi_orphan' } },
       });
@@ -1588,14 +1618,14 @@ describe('PaymentService', () => {
     // DO NOT change to @Body() or req.rawBody — that breaks HMAC verification.
     it('passes raw Buffer payload to constructWebhookEvent (Issue 36 regression)', async () => {
       const rawPayload = Buffer.from('{"type":"test"}');
-      mockStripeProvider.constructWebhookEvent.mockReturnValue({
+      mockStripeProvider.constructWebhookEvent!.mockReturnValue({
         type: 'unknown.event',
         data: { object: {} },
       });
 
       await service.handleWebhookEvent(rawPayload, 'sig');
 
-      const [capturedPayload] = mockStripeProvider.constructWebhookEvent.mock
+      const [capturedPayload] = mockStripeProvider.constructWebhookEvent!.mock
         .calls[0] as [Buffer, string];
       expect(Buffer.isBuffer(capturedPayload)).toBe(true);
       expect(capturedPayload).toBe(rawPayload);
@@ -1623,7 +1653,7 @@ describe('PaymentService', () => {
       };
 
       it('finalizes the payment to REFUNDED and reverses allocations when the refund succeeded', async () => {
-        mockStripeProvider.constructWebhookEvent.mockReturnValue({
+        mockStripeProvider.constructWebhookEvent!.mockReturnValue({
           id: 'evt_refund_ok',
           type: 'refund.updated',
           data: {
@@ -1667,7 +1697,7 @@ describe('PaymentService', () => {
       });
 
       it('aborts finalization when an allocation snapshot cannot be reversed', async () => {
-        mockStripeProvider.constructWebhookEvent.mockReturnValue({
+        mockStripeProvider.constructWebhookEvent!.mockReturnValue({
           id: 'evt_refund_allocation_drift',
           type: 'refund.updated',
           data: {
@@ -1703,7 +1733,7 @@ describe('PaymentService', () => {
       });
 
       it('fails closed instead of silently dropping a malformed persisted allocation snapshot', async () => {
-        mockStripeProvider.constructWebhookEvent.mockReturnValue({
+        mockStripeProvider.constructWebhookEvent!.mockReturnValue({
           id: 'evt_refund_malformed_snapshot',
           type: 'refund.updated',
           data: {
@@ -1737,7 +1767,7 @@ describe('PaymentService', () => {
       });
 
       it('marks the attempt FAILED and leaves the payment paid when the refund failed', async () => {
-        mockStripeProvider.constructWebhookEvent.mockReturnValue({
+        mockStripeProvider.constructWebhookEvent!.mockReturnValue({
           id: 'evt_refund_failed',
           type: 'refund.updated',
           data: {
@@ -1769,7 +1799,7 @@ describe('PaymentService', () => {
       });
 
       it('handles the dedicated refund.failed event the same as a failed status', async () => {
-        mockStripeProvider.constructWebhookEvent.mockReturnValue({
+        mockStripeProvider.constructWebhookEvent!.mockReturnValue({
           id: 'evt_refund_failed_evt',
           type: 'refund.failed',
           data: {
@@ -1794,7 +1824,7 @@ describe('PaymentService', () => {
       });
 
       it('correlates by application attempt metadata when the refund id is not yet recorded', async () => {
-        mockStripeProvider.constructWebhookEvent.mockReturnValue({
+        mockStripeProvider.constructWebhookEvent!.mockReturnValue({
           id: 'evt_refund_fallback',
           type: 'refund.updated',
           data: {
@@ -1826,7 +1856,7 @@ describe('PaymentService', () => {
       });
 
       it('does not attach an unrelated partial refund by PaymentIntent alone', async () => {
-        mockStripeProvider.constructWebhookEvent.mockReturnValue({
+        mockStripeProvider.constructWebhookEvent!.mockReturnValue({
           id: 'evt_manual_partial',
           type: 'refund.updated',
           data: {
@@ -1855,7 +1885,7 @@ describe('PaymentService', () => {
       });
 
       it('rejects attempt metadata when the Stripe refund amount is not the full payment amount', async () => {
-        mockStripeProvider.constructWebhookEvent.mockReturnValue({
+        mockStripeProvider.constructWebhookEvent!.mockReturnValue({
           id: 'evt_wrong_amount',
           type: 'refund.updated',
           data: {
@@ -1881,7 +1911,7 @@ describe('PaymentService', () => {
       });
 
       it('is idempotent: does nothing when the attempt is already resolved', async () => {
-        mockStripeProvider.constructWebhookEvent.mockReturnValue({
+        mockStripeProvider.constructWebhookEvent!.mockReturnValue({
           id: 'evt_refund_resolved',
           type: 'refund.updated',
           data: {
@@ -1906,7 +1936,7 @@ describe('PaymentService', () => {
       });
 
       it('ignores a still-pending refund status', async () => {
-        mockStripeProvider.constructWebhookEvent.mockReturnValue({
+        mockStripeProvider.constructWebhookEvent!.mockReturnValue({
           id: 'evt_refund_pending',
           type: 'refund.updated',
           data: {
@@ -1922,7 +1952,7 @@ describe('PaymentService', () => {
       });
 
       it('is a no-op when no attempt matches the refund', async () => {
-        mockStripeProvider.constructWebhookEvent.mockReturnValue({
+        mockStripeProvider.constructWebhookEvent!.mockReturnValue({
           id: 'evt_refund_none',
           type: 'refund.updated',
           data: {
@@ -1977,7 +2007,7 @@ describe('PaymentService', () => {
           amount: 20,
         },
       ]);
-      mockStripeProvider.retrievePaymentIntent.mockResolvedValue({
+      mockStripeProvider.retrievePaymentIntent!.mockResolvedValue({
         clientSecret: 'cs_existing',
       });
 
@@ -1999,9 +2029,9 @@ describe('PaymentService', () => {
           amount: 20,
         },
       ]);
-      mockStripeProvider.retrievePaymentIntent.mockResolvedValue(null);
+      mockStripeProvider.retrievePaymentIntent!.mockResolvedValue(null);
       mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
-      mockStripeProvider.createPaymentIntent.mockResolvedValue({
+      mockStripeProvider.createPaymentIntent!.mockResolvedValue({
         clientSecret: 'cs_new',
         paymentIntentId: 'pi_new',
       });
@@ -2046,7 +2076,7 @@ describe('PaymentService', () => {
           amount: 20,
         },
       ]);
-      mockStripeProvider.retrievePaymentIntent.mockRejectedValue(
+      mockStripeProvider.retrievePaymentIntent!.mockRejectedValue(
         new Error('stripe timeout'),
       );
 
@@ -2061,7 +2091,7 @@ describe('PaymentService', () => {
     it('creates new intent when no PENDING Stripe intent exists', async () => {
       mockPrisma.payment.findMany.mockResolvedValue([]);
       mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
-      mockStripeProvider.createPaymentIntent.mockResolvedValue({
+      mockStripeProvider.createPaymentIntent!.mockResolvedValue({
         clientSecret: 'cs_new',
         paymentIntentId: 'pi_new',
       });
@@ -2088,7 +2118,7 @@ describe('PaymentService', () => {
         status: 'PENDING',
         stripePaymentIntentId: 'pi_existing',
       });
-      mockStripeProvider.retrievePaymentIntent.mockResolvedValue({
+      mockStripeProvider.retrievePaymentIntent!.mockResolvedValue({
         clientSecret: 'cs_existing',
       });
 
@@ -2483,7 +2513,7 @@ describe('PaymentService', () => {
         .mockResolvedValueOnce(succeededPayload) // initial fetch
         .mockResolvedValueOnce(refundedPayload); // post-update fetch
       mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
-      mockStripeProvider.createRefund.mockResolvedValue({
+      mockStripeProvider.createRefund!.mockResolvedValue({
         refundId: 're_123',
         status: 'succeeded',
       });
@@ -2537,7 +2567,7 @@ describe('PaymentService', () => {
         .mockResolvedValueOnce(refundedPayload);
       mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.orderItem.updateMany.mockResolvedValue({ count: 1 });
-      mockStripeProvider.createRefund.mockResolvedValue({
+      mockStripeProvider.createRefund!.mockResolvedValue({
         refundId: 're_123',
         status: 'succeeded',
       });
@@ -2573,7 +2603,7 @@ describe('PaymentService', () => {
         ...succeededPayload,
         allocations: [{ orderItemId: 'oi-1', quantity: 2, amount: 5 }],
       });
-      mockStripeProvider.createRefund.mockRejectedValue(
+      mockStripeProvider.createRefund!.mockRejectedValue(
         Object.assign(new Error('socket hang up'), {
           type: 'StripeConnectionError',
         }),
@@ -2596,7 +2626,7 @@ describe('PaymentService', () => {
         ...succeededPayload,
         allocations: [{ orderItemId: 'oi-1', quantity: 2, amount: 5 }],
       });
-      mockStripeProvider.createRefund.mockRejectedValue(
+      mockStripeProvider.createRefund!.mockRejectedValue(
         Object.assign(new Error('stripe refund failed'), {
           type: 'StripeInvalidRequestError',
         }),
@@ -2618,7 +2648,7 @@ describe('PaymentService', () => {
       mockPrisma.payment.findUnique
         .mockResolvedValueOnce(succeededPayload)
         .mockResolvedValueOnce(succeededPayload); // payment still SUCCEEDED
-      mockStripeProvider.createRefund.mockResolvedValue({
+      mockStripeProvider.createRefund!.mockResolvedValue({
         refundId: 're_pending',
         status: 'pending',
       });
@@ -2677,7 +2707,7 @@ describe('PaymentService', () => {
     it('rejects MYPOS refunds with BadRequestException', async () => {
       mockPrisma.payment.findUnique.mockResolvedValueOnce({
         ...succeededPayload,
-        provider: 'MYPOS',
+        provider: PaymentProvider.MYPOS,
         stripePaymentIntentId: null,
       });
 
@@ -2690,7 +2720,7 @@ describe('PaymentService', () => {
     it('rejects CASH refunds with BadRequestException (#C4)', async () => {
       mockPrisma.payment.findUnique.mockResolvedValueOnce({
         ...succeededPayload,
-        provider: 'CASH',
+        provider: PaymentProvider.CASH,
         stripePaymentIntentId: null,
       });
 
@@ -2718,7 +2748,7 @@ describe('PaymentService', () => {
     it('rejects partial refunds', async () => {
       mockPrisma.payment.findUnique.mockResolvedValueOnce({
         ...succeededPayload,
-        provider: 'CASH',
+        provider: PaymentProvider.CASH,
       });
 
       await expect(
@@ -2748,16 +2778,15 @@ describe('PaymentService', () => {
   // synchronous response was lost (timeout).
   describe('reconcilePendingRefunds (F-PAY-1 cron)', () => {
     function buildStripeCheckout() {
+      const _prisma = mockPrisma as unknown as PrismaService;
+      const _stripe = mockStripeProvider as unknown as StripeProvider;
+      const _events = mockEvents as unknown as EventsGateway;
       const config = new PaymentProviderConfigService(mockFeatureService);
-      const core = new PaymentCoreService(
-        mockPrisma,
-        mockEvents,
-        mockFeatureService,
-      );
+      const core = new PaymentCoreService(_prisma, _events, mockFeatureService);
       return new StripeCheckoutService(
-        mockPrisma,
-        mockStripeProvider,
-        mockEvents,
+        _prisma,
+        _stripe,
+        _events,
         mockFeatureService,
         core,
         config,
@@ -2784,7 +2813,7 @@ describe('PaymentService', () => {
     it('confirms REFUNDED via a direct retrieve when the refund id is known', async () => {
       mockPrisma.refundAttempt.findMany.mockResolvedValue([stuckAttempt]);
       mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
-      mockStripeProvider.retrieveRefund.mockResolvedValue({
+      mockStripeProvider.retrieveRefund!.mockResolvedValue({
         refundId: 're_x',
         status: 'succeeded',
       });
@@ -2812,7 +2841,7 @@ describe('PaymentService', () => {
         { ...stuckAttempt, providerRefundId: null },
       ]);
       mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
-      mockStripeProvider.createRefund.mockResolvedValue({
+      mockStripeProvider.createRefund!.mockResolvedValue({
         refundId: 're_recovered',
         status: 'succeeded',
       });
@@ -2836,7 +2865,7 @@ describe('PaymentService', () => {
 
     it('marks the attempt FAILED and leaves the payment paid when Stripe shows failed', async () => {
       mockPrisma.refundAttempt.findMany.mockResolvedValue([stuckAttempt]);
-      mockStripeProvider.retrieveRefund.mockResolvedValue({
+      mockStripeProvider.retrieveRefund!.mockResolvedValue({
         refundId: 're_x',
         status: 'failed',
       });
@@ -2853,7 +2882,7 @@ describe('PaymentService', () => {
 
     it('leaves the attempt alone when Stripe shows the refund is still pending', async () => {
       mockPrisma.refundAttempt.findMany.mockResolvedValue([stuckAttempt]);
-      mockStripeProvider.retrieveRefund.mockResolvedValue({
+      mockStripeProvider.retrieveRefund!.mockResolvedValue({
         refundId: 're_x',
         status: 'pending',
       });
@@ -2935,7 +2964,7 @@ describe('PaymentService', () => {
           data: expect.objectContaining({
             amount: 25,
             status: 'SUCCEEDED',
-            provider: 'MYPOS',
+            provider: PaymentProvider.MYPOS,
           }),
         }),
       );
@@ -3042,7 +3071,7 @@ describe('PaymentService', () => {
           data: expect.objectContaining({
             amount: 15,
             status: 'SUCCEEDED',
-            provider: 'CASH',
+            provider: PaymentProvider.CASH,
           }),
         }),
       );
@@ -3156,7 +3185,7 @@ describe('PaymentService', () => {
         expect.objectContaining({
           id: 'cash-req-1',
           source: 'CASH_REQUEST',
-          provider: 'CASH',
+          provider: PaymentProvider.CASH,
           scope: 'FULL_TABLE',
           amount: 30,
         }),
@@ -3281,7 +3310,7 @@ describe('PaymentService', () => {
             amount: 30,
             tipAmount: 0,
             platformFeeAmount: 0,
-            provider: 'CASH',
+            provider: PaymentProvider.CASH,
             status: 'SUCCEEDED',
           }),
         }),
@@ -3442,7 +3471,7 @@ describe('PaymentService', () => {
       });
       mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 10 }]);
       mockPrisma.payment.findMany.mockResolvedValue([]);
-      mockBoricaProvider.buildSaleForm.mockImplementationOnce(() => {
+      mockBoricaProvider.buildSaleForm!.mockImplementationOnce(() => {
         throw new Error('invalid private key');
       });
 
@@ -3571,7 +3600,7 @@ describe('PaymentService', () => {
       });
       mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
       mockPrisma.payment.findMany.mockResolvedValue([stalePending]);
-      mockBoricaProvider.queryTransactionStatus.mockResolvedValueOnce({
+      mockBoricaProvider.queryTransactionStatus!.mockResolvedValueOnce({
         verified: true,
         rc: '00',
         action: '0',
@@ -3585,7 +3614,9 @@ describe('PaymentService', () => {
         paresStat: 'Y',
         eci: '05',
       });
-      mockPrisma.$transaction.mockImplementation((fn: any) => fn(mockPrisma));
+      mockPrisma.$transaction.mockImplementation((fn: Function) =>
+        fn(mockPrisma),
+      );
       mockPrisma.payment.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.tableSession.updateMany.mockResolvedValue({ count: 1 });
 
@@ -3639,7 +3670,7 @@ describe('PaymentService', () => {
       });
       mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
       mockPrisma.payment.findMany.mockResolvedValue([stalePending]);
-      mockBoricaProvider.queryTransactionStatus.mockResolvedValueOnce({
+      mockBoricaProvider.queryTransactionStatus!.mockResolvedValueOnce({
         verified: true,
         rc: '00',
         action: '0',
@@ -3653,7 +3684,9 @@ describe('PaymentService', () => {
         paresStat: 'Y',
         eci: '05',
       });
-      mockPrisma.$transaction.mockImplementation((fn: any) => fn(mockPrisma));
+      mockPrisma.$transaction.mockImplementation((fn: Function) =>
+        fn(mockPrisma),
+      );
       mockPrisma.tableSession.updateMany.mockResolvedValueOnce({ count: 0 });
 
       await expect(
@@ -3693,7 +3726,7 @@ describe('PaymentService', () => {
       });
       mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
       mockPrisma.payment.findMany.mockResolvedValue([stalePending]);
-      mockBoricaProvider.queryTransactionStatus.mockResolvedValueOnce(null);
+      mockBoricaProvider.queryTransactionStatus!.mockResolvedValueOnce(null);
 
       await expect(
         service.createCheckout('tok1', 'BORICA', 0, boricaCardholder),
@@ -3729,7 +3762,7 @@ describe('PaymentService', () => {
       });
       mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
       mockPrisma.payment.findMany.mockResolvedValue([stalePending]);
-      mockBoricaProvider.queryTransactionStatus.mockResolvedValueOnce({
+      mockBoricaProvider.queryTransactionStatus!.mockResolvedValueOnce({
         verified: true,
         rc: '00',
         action: '0',
@@ -3777,7 +3810,7 @@ describe('PaymentService', () => {
       });
       mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
       mockPrisma.payment.findMany.mockResolvedValue([stalePending]);
-      mockBoricaProvider.queryTransactionStatus.mockResolvedValueOnce({
+      mockBoricaProvider.queryTransactionStatus!.mockResolvedValueOnce({
         verified: true,
         rc: '05',
         action: '2',
@@ -3856,7 +3889,7 @@ describe('PaymentService', () => {
       process.env.BORICA_TEST_TID = 'V1800001';
       process.env.BORICA_TEST_CERT = 'test-cert';
       mockPrisma.payment.findFirst.mockResolvedValue(boricaPayment);
-      mockBoricaProvider.verifyResult.mockReturnValue({
+      (mockBoricaProvider.verifyResult as jest.Mock).mockReturnValue({
         verified: true,
         rc: '00',
         action: '0',
@@ -3872,7 +3905,9 @@ describe('PaymentService', () => {
     });
 
     it('does NOT mark FAILED when signature is invalid (#4)', async () => {
-      mockBoricaProvider.verifyResult.mockReturnValueOnce({ verified: false });
+      (mockBoricaProvider.verifyResult as jest.Mock).mockReturnValueOnce({
+        verified: false,
+      });
 
       const url = await service.handleBoricaCallback(validBody);
 
@@ -3881,7 +3916,7 @@ describe('PaymentService', () => {
     });
 
     it('marks FAILED and redirects cancel when BORICA reports decline (rc != 00) (#4)', async () => {
-      mockBoricaProvider.verifyResult.mockReturnValueOnce({
+      (mockBoricaProvider.verifyResult as jest.Mock).mockReturnValueOnce({
         verified: true,
         rc: '17',
         action: '0',
@@ -4035,8 +4070,8 @@ describe('PaymentService', () => {
     it('ITEM mode: settles only selected units and leaves the session OPEN with the remaining balance', async () => {
       const result = await service.settlePartial('tok1', 'rest1', 'owner1', {
         restaurantId: 'rest1',
-        mode: 'ITEM' as any,
-        provider: 'CASH' as any,
+        mode: SplitMode.ITEM,
+        provider: SplitProvider.CASH,
         allocations: [{ orderItemId: 'oi-drink', quantity: 1 }],
       });
 
@@ -4048,7 +4083,7 @@ describe('PaymentService', () => {
           data: expect.objectContaining({
             amount: 5,
             status: 'SUCCEEDED',
-            provider: 'CASH',
+            provider: PaymentProvider.CASH,
             splitMode: 'ITEM',
           }),
         }),
@@ -4092,8 +4127,8 @@ describe('PaymentService', () => {
 
       const result = await service.settlePartial('tok1', 'rest1', 'owner1', {
         restaurantId: 'rest1',
-        mode: 'ITEM' as any,
-        provider: 'MYPOS' as any,
+        mode: SplitMode.ITEM,
+        provider: SplitProvider.MYPOS,
         tipPercent: 10,
         allocations: [
           { orderItemId: 'oi-drink', quantity: 1 },
@@ -4124,8 +4159,8 @@ describe('PaymentService', () => {
     it('ITEM mode: adds a tip on the selected subtotal only', async () => {
       const result = await service.settlePartial('tok1', 'rest1', 'owner1', {
         restaurantId: 'rest1',
-        mode: 'ITEM' as any,
-        provider: 'CASH' as any,
+        mode: SplitMode.ITEM,
+        provider: SplitProvider.CASH,
         allocations: [{ orderItemId: 'oi-salad', quantity: 1 }],
         tipPercent: 10,
       });
@@ -4146,8 +4181,8 @@ describe('PaymentService', () => {
       await expect(
         service.settlePartial('tok1', 'rest1', 'owner1', {
           restaurantId: 'rest1',
-          mode: 'ITEM' as any,
-          provider: 'CASH' as any,
+          mode: SplitMode.ITEM,
+          provider: SplitProvider.CASH,
           allocations: [{ orderItemId: 'oi-drink', quantity: 1 }],
         }),
       ).rejects.toThrow(BadRequestException);
@@ -4157,8 +4192,8 @@ describe('PaymentService', () => {
       await expect(
         service.settlePartial('tok1', 'rest1', 'owner1', {
           restaurantId: 'rest1',
-          mode: 'ITEM' as any,
-          provider: 'CASH' as any,
+          mode: SplitMode.ITEM,
+          provider: SplitProvider.CASH,
           allocations: [{ orderItemId: 'oi-drink', quantity: 3 }],
         }),
       ).rejects.toThrow(ConflictException);
@@ -4169,8 +4204,8 @@ describe('PaymentService', () => {
       await expect(
         service.settlePartial('tok1', 'rest1', 'owner1', {
           restaurantId: 'rest1',
-          mode: 'ITEM' as any,
-          provider: 'CASH' as any,
+          mode: SplitMode.ITEM,
+          provider: SplitProvider.CASH,
           allocations: [{ orderItemId: 'oi-drink', quantity: 1 }],
         }),
       ).rejects.toThrow(ConflictException);
@@ -4179,8 +4214,8 @@ describe('PaymentService', () => {
     it('EVEN mode: charges one share of the remaining balance', async () => {
       const result = await service.settlePartial('tok1', 'rest1', 'owner1', {
         restaurantId: 'rest1',
-        mode: 'EVEN' as any,
-        provider: 'CASH' as any,
+        mode: SplitMode.EVEN,
+        provider: SplitProvider.CASH,
         splitCount: 3,
       });
       expect(result.amount).toBeCloseTo(10);
@@ -4206,8 +4241,8 @@ describe('PaymentService', () => {
 
       const result = await service.settlePartial('tok1', 'rest1', 'owner1', {
         restaurantId: 'rest1',
-        mode: 'EVEN' as any,
-        provider: 'CASH' as any,
+        mode: SplitMode.EVEN,
+        provider: SplitProvider.CASH,
         splitCount: 1,
       });
 
@@ -4219,8 +4254,8 @@ describe('PaymentService', () => {
     it('CUSTOM mode: charges the given amount and reduces the balance', async () => {
       const result = await service.settlePartial('tok1', 'rest1', 'owner1', {
         restaurantId: 'rest1',
-        mode: 'CUSTOM' as any,
-        provider: 'CASH' as any,
+        mode: SplitMode.CUSTOM,
+        provider: SplitProvider.CASH,
         amount: 12,
       });
       expect(result.amount).toBeCloseTo(12);
@@ -4233,8 +4268,8 @@ describe('PaymentService', () => {
       await expect(
         service.settlePartial('tok1', 'rest1', 'owner1', {
           restaurantId: 'rest1',
-          mode: 'CUSTOM' as any,
-          provider: 'CASH' as any,
+          mode: SplitMode.CUSTOM,
+          provider: SplitProvider.CASH,
           amount: 12,
         }),
       ).rejects.toThrow(ConflictException);
@@ -4252,8 +4287,8 @@ describe('PaymentService', () => {
       await expect(
         service.settlePartial('tok1', 'rest1', 'owner1', {
           restaurantId: 'rest1',
-          mode: 'CUSTOM' as any,
-          provider: 'CASH' as any,
+          mode: SplitMode.CUSTOM,
+          provider: SplitProvider.CASH,
           amount: 5,
         }),
       ).rejects.toThrow(ConflictException);
@@ -4264,8 +4299,8 @@ describe('PaymentService', () => {
     it('CUSTOM mode: never collects more than the outstanding balance', async () => {
       const result = await service.settlePartial('tok1', 'rest1', 'owner1', {
         restaurantId: 'rest1',
-        mode: 'CUSTOM' as any,
-        provider: 'CASH' as any,
+        mode: SplitMode.CUSTOM,
+        provider: SplitProvider.CASH,
         amount: 100,
       });
       expect(result.amount).toBeCloseTo(30);
@@ -4280,8 +4315,8 @@ describe('PaymentService', () => {
       await expect(
         service.settlePartial('tok1', 'rest1', 'owner1', {
           restaurantId: 'rest1',
-          mode: 'CUSTOM' as any,
-          provider: 'CASH' as any,
+          mode: SplitMode.CUSTOM,
+          provider: SplitProvider.CASH,
           amount: 5,
         }),
       ).rejects.toThrow(ConflictException);
@@ -4298,8 +4333,8 @@ describe('PaymentService', () => {
       await expect(
         service.settlePartial('tok1', 'rest1', 'kitchen-user', {
           restaurantId: 'rest1',
-          mode: 'CUSTOM' as any,
-          provider: 'CASH' as any,
+          mode: SplitMode.CUSTOM,
+          provider: SplitProvider.CASH,
           amount: 5,
         }),
       ).rejects.toThrow(ForbiddenException);

@@ -16,12 +16,19 @@ import { AvailabilityType, Currency, OptionType } from '@prisma/client';
  *  No findFirst/aggregate since the new implementation preloads before tx.
  *  deleteMany is tracked on categories/items to assert additive-only contract. */
 const makeTx = () => ({
+  restaurant: {
+    findUnique: jest
+      .fn()
+      .mockResolvedValue({ tier: 'ENTERPRISE', forceTier: null }),
+  },
   menuCategory: {
+    findMany: jest.fn().mockResolvedValue([]),
     create: jest.fn().mockResolvedValue({ id: 'cat-1' }),
     update: jest.fn().mockResolvedValue({}),
     deleteMany: jest.fn(), // must NOT be called (L3.2)
   },
   menuItem: {
+    findMany: jest.fn().mockResolvedValue([]),
     create: jest.fn().mockResolvedValue({ id: 'item-1' }),
     update: jest.fn().mockResolvedValue({}),
     deleteMany: jest.fn(), // must NOT be called (L3.2)
@@ -116,7 +123,9 @@ describe('MenuImportService', () => {
     it('throws immediately (before transaction) when dto.categories is empty', async () => {
       // BadRequestException is thrown before the $transaction call in the new impl
       await expect(
-        service.upsertMenu('rest-1', { categories: [] } as any),
+        service.upsertMenu('rest-1', { categories: [] } as Parameters<
+          typeof service.upsertMenu
+        >[1]),
       ).rejects.toThrow('No categories in payload');
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
@@ -132,7 +141,9 @@ describe('MenuImportService', () => {
       }));
 
       await expect(
-        service.upsertMenu('rest-1', { categories } as any),
+        service.upsertMenu('rest-1', { categories } as Parameters<
+          typeof service.upsertMenu
+        >[1]),
       ).rejects.toThrow('exceeds the 1000 item limit');
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
@@ -636,6 +647,255 @@ describe('MenuImportService', () => {
       ).rejects.toThrow(BadRequestException);
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
+
+    it('deletes old R2 objects (H1.1) when thumbnail is replaced on existing category', async () => {
+      const tx = makeTx();
+      const OLD_URL = 'https://r2.example.com/old-cat-thumb.webp';
+      mockPrisma.menuCategory.findMany.mockResolvedValue([
+        {
+          id: 'cat-existing',
+          name: 'Mains',
+          order: 0,
+          imageUrl: null,
+          thumbnailUrl: OLD_URL,
+          items: [],
+        },
+      ]);
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      await service.upsertMenu('rest-1', {
+        categories: [
+          {
+            name: 'Mains',
+            availabilityType: AvailabilityType.ALWAYS,
+            thumbnailUrl: 'https://r2.example.com/new-cat-thumb.webp',
+            items: [],
+          },
+        ],
+      });
+
+      expect(mockStorageService.delete).toHaveBeenCalledWith(OLD_URL);
+    });
+
+    it('deletes old R2 objects when image is replaced on existing item', async () => {
+      const tx = makeTx();
+      const OLD_URL = 'https://r2.example.com/old-item.webp';
+      mockPrisma.menuCategory.findMany.mockResolvedValue([
+        {
+          id: 'cat-existing',
+          name: 'Mains',
+          order: 0,
+          imageUrl: null,
+          thumbnailUrl: null,
+          items: [
+            {
+              id: 'item-existing',
+              name: 'Burger',
+              order: 0,
+              imageUrl: OLD_URL,
+              thumbnailUrl: null,
+            },
+          ],
+        },
+      ]);
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      await service.upsertMenu('rest-1', {
+        categories: [
+          {
+            name: 'Mains',
+            availabilityType: AvailabilityType.ALWAYS,
+            items: [
+              {
+                name: 'Burger',
+                price: 10,
+                options: [],
+                imageUrl: 'https://r2.example.com/new-item.webp',
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(mockStorageService.delete).toHaveBeenCalledWith(OLD_URL);
+    });
+
+    it('deletes old R2 objects when thumbnail is replaced on existing item', async () => {
+      const tx = makeTx();
+      const OLD_URL = 'https://r2.example.com/old-item-thumb.webp';
+      mockPrisma.menuCategory.findMany.mockResolvedValue([
+        {
+          id: 'cat-existing',
+          name: 'Mains',
+          order: 0,
+          imageUrl: null,
+          thumbnailUrl: null,
+          items: [
+            {
+              id: 'item-existing',
+              name: 'Burger',
+              order: 0,
+              imageUrl: null,
+              thumbnailUrl: OLD_URL,
+            },
+          ],
+        },
+      ]);
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      await service.upsertMenu('rest-1', {
+        categories: [
+          {
+            name: 'Mains',
+            availabilityType: AvailabilityType.ALWAYS,
+            items: [
+              {
+                name: 'Burger',
+                price: 10,
+                options: [],
+                thumbnailUrl: 'https://r2.example.com/new-item-thumb.webp',
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(mockStorageService.delete).toHaveBeenCalledWith(OLD_URL);
+    });
+
+    it('uses provided txClient if passed and does not open a new transaction', async () => {
+      const txClient = makeTx();
+
+      await service.upsertMenu(
+        'rest-1',
+        {
+          categories: [
+            {
+              name: 'Mains',
+              availabilityType: AvailabilityType.ALWAYS,
+              items: [],
+            },
+          ],
+        },
+        txClient as unknown as Parameters<typeof service.upsertMenu>[2],
+      );
+
+      expect(txClient.menuCategory.create).toHaveBeenCalled();
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects aggregate imports that exceed the total option cap', async () => {
+      const categories = [
+        {
+          name: 'Cat 1',
+          items: [
+            {
+              name: 'Item 1',
+              price: 1,
+              options: Array.from({ length: 2001 }, (_, i) => ({
+                name: `Opt ${i}`,
+                type: 'VARIATION',
+                choices: [],
+              })),
+            },
+          ],
+        },
+      ];
+
+      await expect(
+        service.upsertMenu('rest-1', { categories } as Parameters<
+          typeof service.upsertMenu
+        >[1]),
+      ).rejects.toThrow('exceeds the 2000 option limit');
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects aggregate imports that exceed the total choice cap', async () => {
+      const categories = [
+        {
+          name: 'Cat 1',
+          items: [
+            {
+              name: 'Item 1',
+              price: 1,
+              options: [
+                {
+                  name: 'Opt 1',
+                  type: 'VARIATION',
+                  choices: Array.from({ length: 5001 }, (_, i) => ({
+                    name: `Choice ${i}`,
+                    price: 1,
+                  })),
+                },
+              ],
+            },
+          ],
+        },
+      ];
+
+      await expect(
+        service.upsertMenu('rest-1', { categories } as Parameters<
+          typeof service.upsertMenu
+        >[1]),
+      ).rejects.toThrow('exceeds the 5000 choice limit');
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('preserves existing option translations when item is updated', async () => {
+      const tx = makeTx();
+      mockPrisma.menuCategory.findMany.mockResolvedValue([
+        {
+          id: 'cat-existing',
+          name: 'Mains',
+          order: 0,
+          imageUrl: null,
+          thumbnailUrl: null,
+          items: [
+            {
+              id: 'item-existing',
+              name: 'Burger',
+              order: 0,
+              imageUrl: null,
+              thumbnailUrl: null,
+              options: [
+                { name: 'Size', translations: { es: { name: 'Tamaño' } } },
+              ],
+            },
+          ],
+        },
+      ]);
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      await service.upsertMenu('rest-1', {
+        categories: [
+          {
+            name: 'Mains',
+            availabilityType: AvailabilityType.ALWAYS,
+            items: [
+              {
+                name: 'Burger',
+                price: 10,
+                options: [
+                  {
+                    name: 'Size',
+                    type: 'VARIATION',
+                    choices: [{ name: 'Large', price: 1 }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(tx.menuOption.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            translations: { es: { name: 'Tamaño' } },
+          }),
+        }),
+      );
+    });
   });
 
   // ── exportMenu ────────────────────────────────────────────────────────────
@@ -749,7 +1009,7 @@ describe('MenuImportService', () => {
       const result = await service.getOrCreateApiKey('rest-1', 'user-1');
 
       expect(result).toEqual({ configured: true });
-      expect((result as any).apiKey).toBeUndefined();
+      expect((result as { apiKey?: string }).apiKey).toBeUndefined();
       expect(mockPrisma.restaurant.update).not.toHaveBeenCalled();
     });
 
@@ -785,6 +1045,72 @@ describe('MenuImportService', () => {
       const stored =
         mockPrisma.restaurant.update.mock.calls[0][0].data.importApiKeyHash;
       expect(stored).toBe(service.hashKey(result.apiKey));
+    });
+  });
+
+  describe('Import/Export Edge Cases (Expanded Coverage)', () => {
+    it('successfully processes an import with a category but no items', async () => {
+      const tx = makeTx();
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      const result = await service.upsertMenu('rest-1', {
+        categories: [
+          {
+            name: 'Empty Category',
+            availabilityType: 'ALWAYS' as AvailabilityType,
+            items: [],
+          },
+        ],
+      });
+
+      expect(tx.menuCategory.create).toHaveBeenCalled();
+      expect(tx.menuItem.create).not.toHaveBeenCalled();
+      expect(result.categories).toBe(1);
+      expect(result.created).toBe(0);
+    });
+
+    it('correctly associates options with their respective items when multiple items exist', async () => {
+      const tx = makeTx();
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+      await service.upsertMenu('rest-1', {
+        categories: [
+          {
+            name: 'Combo Meals',
+            availabilityType: 'ALWAYS' as AvailabilityType,
+            items: [
+              {
+                name: 'Burger Combo',
+                price: 15,
+                options: [
+                  {
+                    name: 'Drink Size',
+                    type: 'VARIATION',
+                    choices: [{ name: 'Large', price: 1 }],
+                  },
+                ],
+              },
+              {
+                name: 'Salad Combo',
+                price: 12,
+                options: [],
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(tx.menuItem.create).toHaveBeenCalledTimes(2);
+      expect(tx.menuOption.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects an import payload if the structure is completely invalid', async () => {
+      await expect(
+        service.upsertMenu(
+          'rest-1',
+          null as unknown as Parameters<typeof service.upsertMenu>[1],
+        ),
+      ).rejects.toThrow();
     });
   });
 });

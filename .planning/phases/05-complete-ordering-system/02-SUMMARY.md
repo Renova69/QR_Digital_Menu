@@ -18,11 +18,11 @@ Finalized UI synchronization syncing DTO updates flawlessly. Patched Dashboard T
 
 ## Tasks Completed
 
-| # | Task | Status |
-|---|------|--------|
-| 2.1 | Align CheckoutPage payload | ✓ |
-| 2.2 | Sync OrderContext polling | ✓ |
-| 2.3 | Dashboard Orders Tab Notification Badge | ✓ |
+| #   | Task                                    | Status |
+| --- | --------------------------------------- | ------ |
+| 2.1 | Align CheckoutPage payload              | ✓      |
+| 2.2 | Sync OrderContext polling               | ✓      |
+| 2.3 | Dashboard Orders Tab Notification Badge | ✓      |
 
 ## Deviations from Plan
 

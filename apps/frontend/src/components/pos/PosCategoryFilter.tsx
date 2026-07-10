@@ -12,7 +12,10 @@ interface PosCategoryFilterProps {
   menuError: string | null;
 }
 
-export default function PosCategoryFilter({ categories, menuError }: PosCategoryFilterProps) {
+export default function PosCategoryFilter({
+  categories,
+  menuError,
+}: PosCategoryFilterProps) {
   const { t } = useTranslation();
   const { categoryFilter, setCategoryFilter } = usePos();
 
@@ -51,7 +54,9 @@ export default function PosCategoryFilter({ categories, menuError }: PosCategory
         ))}
       </div>
       {menuError && (
-        <p className="px-4 pb-1 text-xs text-destructive">{t("pos.failedCategories", "Failed to load categories")}</p>
+        <p className="px-4 pb-1 text-xs text-destructive">
+          {t("pos.failedCategories", "Failed to load categories")}
+        </p>
       )}
     </>
   );

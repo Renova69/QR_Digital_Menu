@@ -1,8 +1,27 @@
 import { StripeProvider } from './stripe.provider';
+import Stripe from 'stripe';
 
 describe('StripeProvider', () => {
   let provider: StripeProvider;
-  let mockStripe: any;
+  let mockStripe: {
+    paymentIntents: {
+      create: jest.Mock;
+      retrieve: jest.Mock;
+    };
+    webhooks: {
+      constructEvent: jest.Mock;
+    };
+    accounts: {
+      create: jest.Mock;
+      retrieve: jest.Mock;
+    };
+    accountLinks: {
+      create: jest.Mock;
+    };
+    refunds: {
+      create: jest.Mock;
+    };
+  };
 
   beforeEach(() => {
     process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_secret';
@@ -37,7 +56,7 @@ describe('StripeProvider', () => {
           .mockResolvedValue({ id: 're_test', status: 'pending' }),
       },
     };
-    (provider as any).stripe = mockStripe;
+    Object.defineProperty(provider, 'stripe', { value: mockStripe });
   });
 
   describe('createPaymentIntent', () => {
@@ -183,7 +202,7 @@ describe('StripeProvider', () => {
       delete process.env.STRIPE_SECRET_KEY;
       const p = new StripeProvider();
       const warnSpy = jest
-        .spyOn((p as any).logger, 'warn')
+        .spyOn(p['logger'], 'warn')
         .mockImplementation(() => {});
       p.onModuleInit();
       expect(warnSpy).toHaveBeenCalledWith(
@@ -197,7 +216,7 @@ describe('StripeProvider', () => {
       process.env.STRIPE_WEBHOOK_SECRET = 'NONE';
       const p = new StripeProvider();
       const warnSpy = jest
-        .spyOn((p as any).logger, 'warn')
+        .spyOn(p['logger'], 'warn')
         .mockImplementation(() => {});
       p.onModuleInit();
       expect(warnSpy).toHaveBeenCalledWith(
@@ -210,7 +229,7 @@ describe('StripeProvider', () => {
       process.env.STRIPE_WEBHOOK_SECRET = '';
       const p = new StripeProvider();
       const warnSpy = jest
-        .spyOn((p as any).logger, 'warn')
+        .spyOn(p['logger'], 'warn')
         .mockImplementation(() => {});
       p.onModuleInit();
       expect(warnSpy).toHaveBeenCalledWith(

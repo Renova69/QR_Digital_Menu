@@ -12,39 +12,40 @@
 
 ## File Map
 
-| Action | Path |
-|--------|------|
-| Modify | `apps/backend/prisma/schema.prisma` |
-| Create | `apps/backend/src/payment/payment-provider.interface.ts` |
-| Create | `apps/backend/src/payment/stripe.provider.ts` |
-| Create | `apps/backend/src/payment/stripe.provider.spec.ts` |
-| Create | `apps/backend/src/payment/payment.service.ts` |
-| Create | `apps/backend/src/payment/payment.service.spec.ts` |
-| Create | `apps/backend/src/payment/payment.controller.ts` |
-| Create | `apps/backend/src/payment/payment.module.ts` |
-| Modify | `apps/backend/src/main.ts` |
-| Modify | `apps/backend/src/app.module.ts` |
-| Modify | `apps/backend/src/restaurants/restaurants.service.ts` |
+| Action | Path                                                              |
+| ------ | ----------------------------------------------------------------- |
+| Modify | `apps/backend/prisma/schema.prisma`                               |
+| Create | `apps/backend/src/payment/payment-provider.interface.ts`          |
+| Create | `apps/backend/src/payment/stripe.provider.ts`                     |
+| Create | `apps/backend/src/payment/stripe.provider.spec.ts`                |
+| Create | `apps/backend/src/payment/payment.service.ts`                     |
+| Create | `apps/backend/src/payment/payment.service.spec.ts`                |
+| Create | `apps/backend/src/payment/payment.controller.ts`                  |
+| Create | `apps/backend/src/payment/payment.module.ts`                      |
+| Modify | `apps/backend/src/main.ts`                                        |
+| Modify | `apps/backend/src/app.module.ts`                                  |
+| Modify | `apps/backend/src/restaurants/restaurants.service.ts`             |
 | Create | `apps/backend/src/restaurants/restaurants-stripe.service.spec.ts` |
-| Modify | `apps/backend/src/restaurants/restaurants.controller.ts` |
-| Modify | `apps/backend/src/restaurants/restaurants.module.ts` |
-| Modify | `apps/backend/src/restaurants/dto/update-restaurant.dto.ts` |
-| Modify | `apps/backend/src/orders/dto/create-order.dto.ts` |
-| Modify | `apps/backend/src/orders/orders.service.ts` |
-| Modify | `apps/frontend/src/lib/api.ts` |
-| Modify | `apps/frontend/src/pages/PublicMenuPage.tsx` |
-| Create | `apps/frontend/src/components/payment/PaymentModal.tsx` |
-| Modify | `apps/frontend/src/pages/Dashboard/SettingsView.tsx` |
-| Modify | `apps/frontend/src/components/tables/TableView.tsx` |
-| Modify | `apps/frontend/src/locales/en/translation.json` |
-| Modify | `apps/frontend/src/locales/bg/translation.json` |
-| Modify | `apps/frontend/src/locales/ro/translation.json` |
+| Modify | `apps/backend/src/restaurants/restaurants.controller.ts`          |
+| Modify | `apps/backend/src/restaurants/restaurants.module.ts`              |
+| Modify | `apps/backend/src/restaurants/dto/update-restaurant.dto.ts`       |
+| Modify | `apps/backend/src/orders/dto/create-order.dto.ts`                 |
+| Modify | `apps/backend/src/orders/orders.service.ts`                       |
+| Modify | `apps/frontend/src/lib/api.ts`                                    |
+| Modify | `apps/frontend/src/pages/PublicMenuPage.tsx`                      |
+| Create | `apps/frontend/src/components/payment/PaymentModal.tsx`           |
+| Modify | `apps/frontend/src/pages/Dashboard/SettingsView.tsx`              |
+| Modify | `apps/frontend/src/components/tables/TableView.tsx`               |
+| Modify | `apps/frontend/src/locales/en/translation.json`                   |
+| Modify | `apps/frontend/src/locales/bg/translation.json`                   |
+| Modify | `apps/frontend/src/locales/ro/translation.json`                   |
 
 ---
 
 ## Task 1: DB Schema — TableSession, Payment, new enums, field additions
 
 **Files:**
+
 - Modify: `apps/backend/prisma/schema.prisma`
 
 > No unit test for schema — verify by running `npx prisma db push` successfully.
@@ -146,9 +147,11 @@ In the `RestaurantTable` model block, after `restaurant` relation, add:
 - [ ] **Step 5: Push schema to Neon**
 
 Run in `apps/backend`:
+
 ```bash
 cd apps/backend && npx prisma db push
 ```
+
 Expected: `Your database is now in sync with your Prisma schema.`
 
 - [ ] **Step 6: Regenerate Prisma client**
@@ -156,6 +159,7 @@ Expected: `Your database is now in sync with your Prisma schema.`
 ```bash
 cd apps/backend && npx prisma generate
 ```
+
 Expected: `Generated Prisma Client (v6.x.x) to ./node_modules/@prisma/client`
 
 - [ ] **Step 7: Commit**
@@ -176,6 +180,7 @@ git commit -m "feat: add TableSession, Payment models and Stripe fields to schem
 ```bash
 cd apps/backend && npm install stripe
 ```
+
 Expected: `added 1 package`
 
 - [ ] **Step 2: Install Stripe.js in frontend**
@@ -183,6 +188,7 @@ Expected: `added 1 package`
 ```bash
 cd apps/frontend && npm install @stripe/stripe-js @stripe/react-stripe-js
 ```
+
 Expected: `added 2 packages`
 
 - [ ] **Step 3: Commit**
@@ -197,6 +203,7 @@ git commit -m "chore: install stripe + @stripe/react-stripe-js packages"
 ## Task 3: Payment provider interface + StripeProvider
 
 **Files:**
+
 - Create: `apps/backend/src/payment/payment-provider.interface.ts`
 - Create: `apps/backend/src/payment/stripe.provider.ts`
 - Create: `apps/backend/src/payment/stripe.provider.spec.ts`
@@ -206,9 +213,9 @@ git commit -m "chore: install stripe + @stripe/react-stripe-js packages"
 Create `apps/backend/src/payment/stripe.provider.spec.ts`:
 
 ```typescript
-import { StripeProvider } from './stripe.provider';
+import { StripeProvider } from "./stripe.provider";
 
-describe('StripeProvider', () => {
+describe("StripeProvider", () => {
   let provider: StripeProvider;
   let mockStripe: any;
 
@@ -217,85 +224,98 @@ describe('StripeProvider', () => {
     mockStripe = {
       paymentIntents: {
         create: jest.fn().mockResolvedValue({
-          client_secret: 'cs_test_secret',
-          id: 'pi_test_123',
+          client_secret: "cs_test_secret",
+          id: "pi_test_123",
         }),
       },
       webhooks: {
-        constructEvent: jest.fn().mockReturnValue({ type: 'payment_intent.succeeded' }),
+        constructEvent: jest
+          .fn()
+          .mockReturnValue({ type: "payment_intent.succeeded" }),
       },
       accounts: {
-        create: jest.fn().mockResolvedValue({ id: 'acct_new' }),
+        create: jest.fn().mockResolvedValue({ id: "acct_new" }),
         retrieve: jest.fn().mockResolvedValue({ charges_enabled: true }),
       },
       accountLinks: {
-        create: jest.fn().mockResolvedValue({ url: 'https://connect.stripe.com/onboard' }),
+        create: jest
+          .fn()
+          .mockResolvedValue({ url: "https://connect.stripe.com/onboard" }),
       },
     };
     (provider as any).stripe = mockStripe;
   });
 
-  describe('createPaymentIntent', () => {
-    it('creates a PaymentIntent with correct params and returns clientSecret + paymentIntentId', async () => {
+  describe("createPaymentIntent", () => {
+    it("creates a PaymentIntent with correct params and returns clientSecret + paymentIntentId", async () => {
       const result = await provider.createPaymentIntent({
         amountCents: 2000,
-        currency: 'eur',
-        restaurantStripeAccountId: 'acct_123',
+        currency: "eur",
+        restaurantStripeAccountId: "acct_123",
         platformFeeCents: 100,
-        metadata: { sessionId: 's1', paymentId: 'p1' },
+        metadata: { sessionId: "s1", paymentId: "p1" },
       });
 
       expect(mockStripe.paymentIntents.create).toHaveBeenCalledWith({
         amount: 2000,
-        currency: 'eur',
+        currency: "eur",
         automatic_payment_methods: { enabled: true },
         application_fee_amount: 100,
-        transfer_data: { destination: 'acct_123' },
-        metadata: { sessionId: 's1', paymentId: 'p1' },
+        transfer_data: { destination: "acct_123" },
+        metadata: { sessionId: "s1", paymentId: "p1" },
       });
-      expect(result).toEqual({ clientSecret: 'cs_test_secret', paymentIntentId: 'pi_test_123' });
+      expect(result).toEqual({
+        clientSecret: "cs_test_secret",
+        paymentIntentId: "pi_test_123",
+      });
     });
   });
 
-  describe('constructWebhookEvent', () => {
-    it('delegates to stripe.webhooks.constructEvent and returns the event', () => {
-      const payload = Buffer.from('{}');
-      const sig = 'sig_test';
+  describe("constructWebhookEvent", () => {
+    it("delegates to stripe.webhooks.constructEvent and returns the event", () => {
+      const payload = Buffer.from("{}");
+      const sig = "sig_test";
       const result = provider.constructWebhookEvent(payload, sig);
       expect(mockStripe.webhooks.constructEvent).toHaveBeenCalledWith(
         payload,
         sig,
         process.env.STRIPE_WEBHOOK_SECRET,
       );
-      expect(result.type).toBe('payment_intent.succeeded');
+      expect(result.type).toBe("payment_intent.succeeded");
     });
   });
 
-  describe('createExpressAccount', () => {
-    it('creates a Stripe Express account and returns the id', async () => {
+  describe("createExpressAccount", () => {
+    it("creates a Stripe Express account and returns the id", async () => {
       const result = await provider.createExpressAccount();
-      expect(mockStripe.accounts.create).toHaveBeenCalledWith({ type: 'express' });
-      expect(result).toBe('acct_new');
-    });
-  });
-
-  describe('createAccountLink', () => {
-    it('creates an account link and returns the url', async () => {
-      const result = await provider.createAccountLink('acct_123', 'https://refresh', 'https://return');
-      expect(mockStripe.accountLinks.create).toHaveBeenCalledWith({
-        account: 'acct_123',
-        refresh_url: 'https://refresh',
-        return_url: 'https://return',
-        type: 'account_onboarding',
+      expect(mockStripe.accounts.create).toHaveBeenCalledWith({
+        type: "express",
       });
-      expect(result).toBe('https://connect.stripe.com/onboard');
+      expect(result).toBe("acct_new");
     });
   });
 
-  describe('retrieveAccount', () => {
-    it('retrieves a Stripe account and returns charges_enabled', async () => {
-      const result = await provider.retrieveAccount('acct_123');
-      expect(mockStripe.accounts.retrieve).toHaveBeenCalledWith('acct_123');
+  describe("createAccountLink", () => {
+    it("creates an account link and returns the url", async () => {
+      const result = await provider.createAccountLink(
+        "acct_123",
+        "https://refresh",
+        "https://return",
+      );
+      expect(mockStripe.accountLinks.create).toHaveBeenCalledWith({
+        account: "acct_123",
+        refresh_url: "https://refresh",
+        return_url: "https://return",
+        type: "account_onboarding",
+      });
+      expect(result).toBe("https://connect.stripe.com/onboard");
+    });
+  });
+
+  describe("retrieveAccount", () => {
+    it("retrieves a Stripe account and returns charges_enabled", async () => {
+      const result = await provider.retrieveAccount("acct_123");
+      expect(mockStripe.accounts.retrieve).toHaveBeenCalledWith("acct_123");
       expect(result).toBe(true);
     });
   });
@@ -307,6 +327,7 @@ describe('StripeProvider', () => {
 ```bash
 cd apps/backend && npx jest src/payment/stripe.provider.spec.ts -t "StripeProvider" --no-coverage
 ```
+
 Expected: FAIL — `Cannot find module './stripe.provider'`
 
 - [ ] **Step 3: Create the interface**
@@ -332,16 +353,16 @@ export interface IPaymentProvider {
 Create `apps/backend/src/payment/stripe.provider.ts`:
 
 ```typescript
-import { Injectable } from '@nestjs/common';
-import Stripe from 'stripe';
-import { IPaymentProvider } from './payment-provider.interface';
+import { Injectable } from "@nestjs/common";
+import Stripe from "stripe";
+import { IPaymentProvider } from "./payment-provider.interface";
 
 @Injectable()
 export class StripeProvider implements IPaymentProvider {
   private readonly stripe: Stripe;
 
   constructor() {
-    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
+    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
   }
 
   async createPaymentIntent(params: {
@@ -366,12 +387,12 @@ export class StripeProvider implements IPaymentProvider {
     return this.stripe.webhooks.constructEvent(
       payload,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET || '',
+      process.env.STRIPE_WEBHOOK_SECRET || "",
     );
   }
 
   async createExpressAccount(): Promise<string> {
-    const account = await this.stripe.accounts.create({ type: 'express' });
+    const account = await this.stripe.accounts.create({ type: "express" });
     return account.id;
   }
 
@@ -384,7 +405,7 @@ export class StripeProvider implements IPaymentProvider {
       account: accountId,
       refresh_url: refreshUrl,
       return_url: returnUrl,
-      type: 'account_onboarding',
+      type: "account_onboarding",
     });
     return link.url;
   }
@@ -401,6 +422,7 @@ export class StripeProvider implements IPaymentProvider {
 ```bash
 cd apps/backend && npx jest src/payment/stripe.provider.spec.ts --no-coverage
 ```
+
 Expected: PASS — 5 tests pass
 
 - [ ] **Step 6: Run full test suite to check no regressions**
@@ -408,6 +430,7 @@ Expected: PASS — 5 tests pass
 ```bash
 cd apps/backend && npm test -- --no-coverage
 ```
+
 Expected: All previously passing tests still pass
 
 - [ ] **Step 7: Commit**
@@ -422,6 +445,7 @@ git commit -m "feat: add IPaymentProvider interface and StripeProvider implement
 ## Task 4: PaymentService
 
 **Files:**
+
 - Create: `apps/backend/src/payment/payment.service.ts`
 - Create: `apps/backend/src/payment/payment.service.spec.ts`
 
@@ -430,10 +454,14 @@ git commit -m "feat: add IPaymentProvider interface and StripeProvider implement
 Create `apps/backend/src/payment/payment.service.spec.ts`:
 
 ```typescript
-import { PaymentService } from './payment.service';
-import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { PaymentService } from "./payment.service";
+import {
+  ForbiddenException,
+  BadRequestException,
+  NotFoundException,
+} from "@nestjs/common";
 
-describe('PaymentService', () => {
+describe("PaymentService", () => {
   let service: PaymentService;
   let mockPrisma: any;
   let mockStripeProvider: any;
@@ -469,115 +497,147 @@ describe('PaymentService', () => {
     service = new PaymentService(mockPrisma, mockStripeProvider, mockEvents);
   });
 
-  describe('getOrCreateSession', () => {
-    it('returns existing OPEN session when valid token is provided', async () => {
-      const existing = { id: 's1', token: 'tok1', status: 'OPEN' };
+  describe("getOrCreateSession", () => {
+    it("returns existing OPEN session when valid token is provided", async () => {
+      const existing = { id: "s1", token: "tok1", status: "OPEN" };
       mockPrisma.tableSession.findFirst.mockResolvedValue(existing);
 
-      const result = await service.getOrCreateSession('table1', 'rest1', 'tok1');
+      const result = await service.getOrCreateSession(
+        "table1",
+        "rest1",
+        "tok1",
+      );
 
       expect(result.session).toEqual(existing);
-      expect(result.token).toBe('tok1');
+      expect(result.token).toBe("tok1");
       expect(mockPrisma.tableSession.create).not.toHaveBeenCalled();
     });
 
-    it('creates a new session when no token is provided', async () => {
-      const created = { id: 's2', token: 'tok2', status: 'OPEN' };
+    it("creates a new session when no token is provided", async () => {
+      const created = { id: "s2", token: "tok2", status: "OPEN" };
       mockPrisma.tableSession.create.mockResolvedValue(created);
 
-      const result = await service.getOrCreateSession('table1', 'rest1', undefined);
+      const result = await service.getOrCreateSession(
+        "table1",
+        "rest1",
+        undefined,
+      );
 
       expect(mockPrisma.tableSession.create).toHaveBeenCalledWith({
-        data: { tableId: 'table1', restaurantId: 'rest1' },
+        data: { tableId: "table1", restaurantId: "rest1" },
       });
-      expect(result.token).toBe('tok2');
+      expect(result.token).toBe("tok2");
     });
 
-    it('creates a new session when token does not match an OPEN session', async () => {
-      const created = { id: 's3', token: 'tok3', status: 'OPEN' };
+    it("creates a new session when token does not match an OPEN session", async () => {
+      const created = { id: "s3", token: "tok3", status: "OPEN" };
       mockPrisma.tableSession.findFirst.mockResolvedValue(null);
       mockPrisma.tableSession.create.mockResolvedValue(created);
 
-      const result = await service.getOrCreateSession('table1', 'rest1', 'stale-token');
+      const result = await service.getOrCreateSession(
+        "table1",
+        "rest1",
+        "stale-token",
+      );
 
       expect(mockPrisma.tableSession.create).toHaveBeenCalled();
-      expect(result.token).toBe('tok3');
+      expect(result.token).toBe("tok3");
     });
   });
 
-  describe('getSessionBill', () => {
-    it('returns bill info including subtotal and tip options', async () => {
+  describe("getSessionBill", () => {
+    it("returns bill info including subtotal and tip options", async () => {
       const session = {
-        id: 's1',
-        token: 'tok1',
-        restaurantId: 'rest1',
-        status: 'OPEN',
+        id: "s1",
+        token: "tok1",
+        restaurantId: "rest1",
+        status: "OPEN",
         restaurant: { tipsEnabled: true, tipOptions: [5, 10, 15] },
       };
       mockPrisma.tableSession.findFirst.mockResolvedValue(session);
       mockPrisma.order.findMany.mockResolvedValue([
-        { totalPrice: 15.00 },
-        { totalPrice: 8.50 },
+        { totalPrice: 15.0 },
+        { totalPrice: 8.5 },
       ]);
 
-      const result = await service.getSessionBill('tok1');
+      const result = await service.getSessionBill("tok1");
 
       expect(result.subtotal).toBeCloseTo(23.5);
       expect(result.tipsEnabled).toBe(true);
       expect(result.tipOptions).toEqual([5, 10, 15]);
     });
 
-    it('throws NotFoundException when session not found', async () => {
+    it("throws NotFoundException when session not found", async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue(null);
-      await expect(service.getSessionBill('bad-token')).rejects.toThrow(NotFoundException);
+      await expect(service.getSessionBill("bad-token")).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
-  describe('createPaymentIntent', () => {
-    it('throws ForbiddenException when paymentsEnabled is false', async () => {
+  describe("createPaymentIntent", () => {
+    it("throws ForbiddenException when paymentsEnabled is false", async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue({
-        id: 's1',
-        restaurantId: 'rest1',
-        restaurant: { paymentsEnabled: false, stripeOnboarded: true, stripeAccountId: 'acct_1', platformFeePercent: 0.5, tipsEnabled: false, tipOptions: [] },
+        id: "s1",
+        restaurantId: "rest1",
+        restaurant: {
+          paymentsEnabled: false,
+          stripeOnboarded: true,
+          stripeAccountId: "acct_1",
+          platformFeePercent: 0.5,
+          tipsEnabled: false,
+          tipOptions: [],
+        },
       });
       mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
 
-      await expect(service.createPaymentIntent('tok1', 0)).rejects.toThrow(ForbiddenException);
+      await expect(service.createPaymentIntent("tok1", 0)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
-    it('throws BadRequestException when stripeOnboarded is false', async () => {
+    it("throws BadRequestException when stripeOnboarded is false", async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue({
-        id: 's1',
-        restaurantId: 'rest1',
-        restaurant: { paymentsEnabled: true, stripeOnboarded: false, stripeAccountId: null, platformFeePercent: 0.5, tipsEnabled: false, tipOptions: [] },
+        id: "s1",
+        restaurantId: "rest1",
+        restaurant: {
+          paymentsEnabled: true,
+          stripeOnboarded: false,
+          stripeAccountId: null,
+          platformFeePercent: 0.5,
+          tipsEnabled: false,
+          tipOptions: [],
+        },
       });
       mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20 }]);
 
-      await expect(service.createPaymentIntent('tok1', 0)).rejects.toThrow(BadRequestException);
+      await expect(service.createPaymentIntent("tok1", 0)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
-    it('calculates totals, creates Payment record, and returns clientSecret', async () => {
+    it("calculates totals, creates Payment record, and returns clientSecret", async () => {
       mockPrisma.tableSession.findFirst.mockResolvedValue({
-        id: 's1',
-        restaurantId: 'rest1',
+        id: "s1",
+        restaurantId: "rest1",
         restaurant: {
           paymentsEnabled: true,
           stripeOnboarded: true,
-          stripeAccountId: 'acct_123',
+          stripeAccountId: "acct_123",
           platformFeePercent: 0.5,
           tipsEnabled: true,
           tipOptions: [5, 10],
         },
       });
-      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20.00 }]);
-      mockPrisma.payment.create.mockResolvedValue({ id: 'pay1' });
+      mockPrisma.order.findMany.mockResolvedValue([{ totalPrice: 20.0 }]);
+      mockPrisma.payment.create.mockResolvedValue({ id: "pay1" });
       mockStripeProvider.createPaymentIntent.mockResolvedValue({
-        clientSecret: 'cs_test',
-        paymentIntentId: 'pi_test',
+        clientSecret: "cs_test",
+        paymentIntentId: "pi_test",
       });
       mockPrisma.payment.update.mockResolvedValue({});
 
-      const result = await service.createPaymentIntent('tok1', 10); // 10% tip
+      const result = await service.createPaymentIntent("tok1", 10); // 10% tip
 
       // subtotal = 20, tip = 2 (10%), total = 22
       expect(result.total).toBeCloseTo(22);
@@ -585,70 +645,82 @@ describe('PaymentService', () => {
       expect(mockStripeProvider.createPaymentIntent).toHaveBeenCalledWith(
         expect.objectContaining({
           amountCents: 2200, // 22 * 100
-          currency: 'eur',
-          restaurantStripeAccountId: 'acct_123',
+          currency: "eur",
+          restaurantStripeAccountId: "acct_123",
           platformFeeCents: 11, // 22 * 0.5 / 100 * 100 = 11
         }),
       );
-      expect(result.clientSecret).toBe('cs_test');
+      expect(result.clientSecret).toBe("cs_test");
     });
   });
 
-  describe('handleWebhookEvent', () => {
-    it('on payment_intent.succeeded: updates Payment + TableSession + emits socket event', async () => {
+  describe("handleWebhookEvent", () => {
+    it("on payment_intent.succeeded: updates Payment + TableSession + emits socket event", async () => {
       mockStripeProvider.constructWebhookEvent.mockReturnValue({
-        type: 'payment_intent.succeeded',
-        data: { object: { id: 'pi_test' } },
+        type: "payment_intent.succeeded",
+        data: { object: { id: "pi_test" } },
       });
-      const payment = { id: 'pay1', tableSessionId: 's1', tableSession: { restaurantId: 'rest1' } };
+      const payment = {
+        id: "pay1",
+        tableSessionId: "s1",
+        tableSession: { restaurantId: "rest1" },
+      };
       mockPrisma.payment.findFirst.mockResolvedValue(payment);
       mockPrisma.payment.update.mockResolvedValue({});
       mockPrisma.tableSession.update.mockResolvedValue({});
 
-      await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+      await service.handleWebhookEvent(Buffer.from("{}"), "sig");
 
       expect(mockPrisma.payment.update).toHaveBeenCalledWith({
-        where: { id: 'pay1' },
-        data: { status: 'SUCCEEDED', stripePaymentIntentId: 'pi_test' },
+        where: { id: "pay1" },
+        data: { status: "SUCCEEDED", stripePaymentIntentId: "pi_test" },
       });
       expect(mockPrisma.tableSession.update).toHaveBeenCalledWith({
-        where: { id: 's1' },
-        data: { status: 'PAID', paidAt: expect.any(Date) },
+        where: { id: "s1" },
+        data: { status: "PAID", paidAt: expect.any(Date) },
       });
       expect(mockEvents.emitToRestaurant).toHaveBeenCalledWith(
-        'rest1',
-        'payment:confirmed',
+        "rest1",
+        "payment:confirmed",
         expect.any(Object),
       );
     });
 
-    it('on payment_intent.payment_failed: updates Payment status to FAILED', async () => {
+    it("on payment_intent.payment_failed: updates Payment status to FAILED", async () => {
       mockStripeProvider.constructWebhookEvent.mockReturnValue({
-        type: 'payment_intent.payment_failed',
-        data: { object: { id: 'pi_test' } },
+        type: "payment_intent.payment_failed",
+        data: { object: { id: "pi_test" } },
       });
-      mockPrisma.payment.findFirst.mockResolvedValue({ id: 'pay1', tableSessionId: 's1', tableSession: { restaurantId: 'rest1' } });
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: "pay1",
+        tableSessionId: "s1",
+        tableSession: { restaurantId: "rest1" },
+      });
       mockPrisma.payment.update.mockResolvedValue({});
 
-      await service.handleWebhookEvent(Buffer.from('{}'), 'sig');
+      await service.handleWebhookEvent(Buffer.from("{}"), "sig");
 
       expect(mockPrisma.payment.update).toHaveBeenCalledWith({
-        where: { id: 'pay1' },
-        data: { status: 'FAILED' },
+        where: { id: "pay1" },
+        data: { status: "FAILED" },
       });
     });
   });
 
-  describe('closeSession', () => {
-    it('sets session status to CLOSED_NO_PAYMENT', async () => {
-      mockPrisma.tableSession.findFirst.mockResolvedValue({ id: 's1', status: 'OPEN', restaurantId: 'rest1' });
+  describe("closeSession", () => {
+    it("sets session status to CLOSED_NO_PAYMENT", async () => {
+      mockPrisma.tableSession.findFirst.mockResolvedValue({
+        id: "s1",
+        status: "OPEN",
+        restaurantId: "rest1",
+      });
       mockPrisma.tableSession.update.mockResolvedValue({});
 
-      await service.closeSession('tok1', 'rest1');
+      await service.closeSession("tok1", "rest1");
 
       expect(mockPrisma.tableSession.update).toHaveBeenCalledWith({
-        where: { id: 's1' },
-        data: { status: 'CLOSED_NO_PAYMENT' },
+        where: { id: "s1" },
+        data: { status: "CLOSED_NO_PAYMENT" },
       });
     });
   });
@@ -660,6 +732,7 @@ describe('PaymentService', () => {
 ```bash
 cd apps/backend && npx jest src/payment/payment.service.spec.ts --no-coverage
 ```
+
 Expected: FAIL — `Cannot find module './payment.service'`
 
 - [ ] **Step 3: Implement PaymentService**
@@ -672,10 +745,10 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
-} from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { StripeProvider } from './stripe.provider';
-import { EventsGateway } from '../events/events.gateway';
+} from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import { StripeProvider } from "./stripe.provider";
+import { EventsGateway } from "../events/events.gateway";
 
 @Injectable()
 export class PaymentService {
@@ -692,7 +765,7 @@ export class PaymentService {
   ): Promise<{ session: any; token: string }> {
     if (token) {
       const existing = await this.prisma.tableSession.findFirst({
-        where: { token, status: 'OPEN' },
+        where: { token, status: "OPEN" },
       });
       if (existing) return { session: existing, token };
     }
@@ -705,11 +778,11 @@ export class PaymentService {
 
   async getSessionBill(token: string) {
     const session = await this.prisma.tableSession.findFirst({
-      where: { token, status: 'OPEN' },
+      where: { token, status: "OPEN" },
       include: { restaurant: true },
     });
 
-    if (!session) throw new NotFoundException('Session not found');
+    if (!session) throw new NotFoundException("Session not found");
 
     const orders = await this.prisma.order.findMany({
       where: { tableSessionId: session.id },
@@ -728,20 +801,22 @@ export class PaymentService {
 
   async createPaymentIntent(token: string, tipPercent: number) {
     const session = await this.prisma.tableSession.findFirst({
-      where: { token, status: 'OPEN' },
+      where: { token, status: "OPEN" },
       include: { restaurant: true },
     });
 
-    if (!session) throw new NotFoundException('Session not found');
+    if (!session) throw new NotFoundException("Session not found");
 
     const { restaurant } = session;
 
     if (!restaurant.paymentsEnabled) {
-      throw new ForbiddenException('Payments are not enabled for this restaurant');
+      throw new ForbiddenException(
+        "Payments are not enabled for this restaurant",
+      );
     }
 
     if (!restaurant.stripeOnboarded || !restaurant.stripeAccountId) {
-      throw new BadRequestException('Stripe not connected');
+      throw new BadRequestException("Stripe not connected");
     }
 
     const orders = await this.prisma.order.findMany({
@@ -751,7 +826,7 @@ export class PaymentService {
     const subtotal = orders.reduce((sum, o) => sum + o.totalPrice, 0);
     const tipAmount = Math.round(subtotal * tipPercent) / 100;
     const total = subtotal + tipAmount;
-    const platformFee = total * restaurant.platformFeePercent / 100;
+    const platformFee = (total * restaurant.platformFeePercent) / 100;
 
     const payment = await this.prisma.payment.create({
       data: {
@@ -760,18 +835,19 @@ export class PaymentService {
         amount: total,
         tipAmount,
         platformFeeAmount: platformFee,
-        currency: 'eur',
-        status: 'PENDING',
+        currency: "eur",
+        status: "PENDING",
       },
     });
 
-    const { clientSecret, paymentIntentId } = await this.stripe.createPaymentIntent({
-      amountCents: Math.round(total * 100),
-      currency: 'eur',
-      restaurantStripeAccountId: restaurant.stripeAccountId,
-      platformFeeCents: Math.round(platformFee * 100),
-      metadata: { sessionId: session.id, paymentId: payment.id },
-    });
+    const { clientSecret, paymentIntentId } =
+      await this.stripe.createPaymentIntent({
+        amountCents: Math.round(total * 100),
+        currency: "eur",
+        restaurantStripeAccountId: restaurant.stripeAccountId,
+        platformFeeCents: Math.round(platformFee * 100),
+        metadata: { sessionId: session.id, paymentId: payment.id },
+      });
 
     await this.prisma.payment.update({
       where: { id: payment.id },
@@ -784,7 +860,7 @@ export class PaymentService {
   async handleWebhookEvent(payload: Buffer, signature: string) {
     const event = this.stripe.constructWebhookEvent(payload, signature);
 
-    if (event.type === 'payment_intent.succeeded') {
+    if (event.type === "payment_intent.succeeded") {
       const intent = event.data.object as any;
       const payment = await this.prisma.payment.findFirst({
         where: { stripePaymentIntentId: intent.id },
@@ -794,22 +870,22 @@ export class PaymentService {
 
       await this.prisma.payment.update({
         where: { id: payment.id },
-        data: { status: 'SUCCEEDED', stripePaymentIntentId: intent.id },
+        data: { status: "SUCCEEDED", stripePaymentIntentId: intent.id },
       });
 
       await this.prisma.tableSession.update({
         where: { id: payment.tableSessionId },
-        data: { status: 'PAID', paidAt: new Date() },
+        data: { status: "PAID", paidAt: new Date() },
       });
 
       this.events.emitToRestaurant(
         payment.tableSession.restaurantId,
-        'payment:confirmed',
+        "payment:confirmed",
         { paymentId: payment.id, tableSessionId: payment.tableSessionId },
       );
     }
 
-    if (event.type === 'payment_intent.payment_failed') {
+    if (event.type === "payment_intent.payment_failed") {
       const intent = event.data.object as any;
       const payment = await this.prisma.payment.findFirst({
         where: { stripePaymentIntentId: intent.id },
@@ -818,27 +894,27 @@ export class PaymentService {
 
       await this.prisma.payment.update({
         where: { id: payment.id },
-        data: { status: 'FAILED' },
+        data: { status: "FAILED" },
       });
     }
   }
 
   async closeSession(token: string, restaurantId: string) {
     const session = await this.prisma.tableSession.findFirst({
-      where: { token, restaurantId, status: 'OPEN' },
+      where: { token, restaurantId, status: "OPEN" },
     });
-    if (!session) throw new NotFoundException('Session not found');
+    if (!session) throw new NotFoundException("Session not found");
 
     await this.prisma.tableSession.update({
       where: { id: session.id },
-      data: { status: 'CLOSED_NO_PAYMENT' },
+      data: { status: "CLOSED_NO_PAYMENT" },
     });
   }
 
   async getTableSessions(restaurantId: string) {
     return this.prisma.tableSession.findMany({
-      where: { restaurantId, status: { in: ['OPEN', 'PAID'] } },
-      orderBy: { createdAt: 'desc' },
+      where: { restaurantId, status: { in: ["OPEN", "PAID"] } },
+      orderBy: { createdAt: "desc" },
     });
   }
 }
@@ -849,6 +925,7 @@ export class PaymentService {
 ```bash
 cd apps/backend && npx jest src/payment/payment.service.spec.ts --no-coverage
 ```
+
 Expected: PASS — 8 tests pass
 
 - [ ] **Step 5: Run full test suite**
@@ -856,6 +933,7 @@ Expected: PASS — 8 tests pass
 ```bash
 cd apps/backend && npm test -- --no-coverage
 ```
+
 Expected: All tests pass
 
 - [ ] **Step 6: Commit**
@@ -870,6 +948,7 @@ git commit -m "feat: add PaymentService with session, bill, intent, and webhook 
 ## Task 5: PaymentController + PaymentModule
 
 **Files:**
+
 - Create: `apps/backend/src/payment/payment.controller.ts`
 - Create: `apps/backend/src/payment/payment.module.ts`
 
@@ -890,18 +969,23 @@ import {
   Headers,
   HttpCode,
   HttpStatus,
-} from '@nestjs/common';
-import { SkipThrottle } from '@nestjs/throttler';
-import { PaymentService } from './payment.service';
+} from "@nestjs/common";
+import { SkipThrottle } from "@nestjs/throttler";
+import { PaymentService } from "./payment.service";
 
-@Controller('payments')
+@Controller("payments")
 export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}
 
-  @Post('session')
+  @Post("session")
   @HttpCode(HttpStatus.OK)
   getOrCreateSession(
-    @Body() body: { tableId: string; restaurantId: string; sessionToken?: string },
+    @Body()
+    body: {
+      tableId: string;
+      restaurantId: string;
+      sessionToken?: string;
+    },
   ) {
     return this.paymentService.getOrCreateSession(
       body.tableId,
@@ -910,40 +994,40 @@ export class PaymentController {
     );
   }
 
-  @Get('session/:token/bill')
-  getSessionBill(@Param('token') token: string) {
+  @Get("session/:token/bill")
+  getSessionBill(@Param("token") token: string) {
     return this.paymentService.getSessionBill(token);
   }
 
-  @Post('session/:token/intent')
+  @Post("session/:token/intent")
   @HttpCode(HttpStatus.OK)
   createPaymentIntent(
-    @Param('token') token: string,
+    @Param("token") token: string,
     @Body() body: { tipPercent: number },
   ) {
     return this.paymentService.createPaymentIntent(token, body.tipPercent ?? 0);
   }
 
-  @Post('session/:token/close')
+  @Post("session/:token/close")
   @HttpCode(HttpStatus.OK)
   closeSession(
-    @Param('token') token: string,
+    @Param("token") token: string,
     @Body() body: { restaurantId: string },
   ) {
     return this.paymentService.closeSession(token, body.restaurantId);
   }
 
-  @Get('sessions/:restaurantId')
-  getTableSessions(@Param('restaurantId') restaurantId: string) {
+  @Get("sessions/:restaurantId")
+  getTableSessions(@Param("restaurantId") restaurantId: string) {
     return this.paymentService.getTableSessions(restaurantId);
   }
 
-  @Post('webhook')
+  @Post("webhook")
   @HttpCode(HttpStatus.OK)
   @SkipThrottle()
   handleWebhook(
     @Req() req: any,
-    @Headers('stripe-signature') signature: string,
+    @Headers("stripe-signature") signature: string,
   ) {
     return this.paymentService.handleWebhookEvent(req.body, signature);
   }
@@ -955,10 +1039,10 @@ export class PaymentController {
 Create `apps/backend/src/payment/payment.module.ts`:
 
 ```typescript
-import { Module } from '@nestjs/common';
-import { PaymentService } from './payment.service';
-import { PaymentController } from './payment.controller';
-import { StripeProvider } from './stripe.provider';
+import { Module } from "@nestjs/common";
+import { PaymentService } from "./payment.service";
+import { PaymentController } from "./payment.controller";
+import { StripeProvider } from "./stripe.provider";
 
 @Module({
   controllers: [PaymentController],
@@ -973,6 +1057,7 @@ export class PaymentModule {}
 ```bash
 cd apps/backend && npm test -- --no-coverage
 ```
+
 Expected: All tests pass (new files have no spec yet — that's fine)
 
 - [ ] **Step 4: Commit**
@@ -987,6 +1072,7 @@ git commit -m "feat: add PaymentController and PaymentModule"
 ## Task 6: main.ts — raw body for webhook
 
 **Files:**
+
 - Modify: `apps/backend/src/main.ts`
 
 The webhook endpoint requires the raw (unparsed) request body for Stripe signature verification. NestJS applies body-parser by default. We disable it and apply manually so the webhook path gets raw bytes.
@@ -996,50 +1082,50 @@ The webhook endpoint requires the raw (unparsed) request body for Stripe signatu
 Replace the full contents of `apps/backend/src/main.ts` with:
 
 ```typescript
-import { NestFactory } from '@nestjs/core';
-import { RequestMethod } from '@nestjs/common';
-import * as express from 'express';
-import { AppModule } from './app.module';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { NestFactory } from "@nestjs/core";
+import { RequestMethod } from "@nestjs/common";
+import * as express from "express";
+import { AppModule } from "./app.module";
+import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 
 async function bootstrap() {
   try {
     const app = await NestFactory.create(AppModule, { bodyParser: false });
 
     app.enableCors({
-      origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+      origin: process.env.FRONTEND_URL || "http://localhost:3001",
       credentials: true,
     });
 
     // Webhook must receive raw body for Stripe signature verification
-    app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+    app.use("/api/payments/webhook", express.raw({ type: "application/json" }));
 
     // All other routes get parsed JSON
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
 
-    app.setGlobalPrefix('api', {
-      exclude: [{ path: '/', method: RequestMethod.GET }],
+    app.setGlobalPrefix("api", {
+      exclude: [{ path: "/", method: RequestMethod.GET }],
     });
 
     const config = new DocumentBuilder()
-      .setTitle('QR Menu API')
-      .setDescription('API for QR-based restaurant menu system')
-      .setVersion('1.0')
-      .addTag('authentication', 'Endpoints for user authentication')
-      .addTag('menu', 'Endpoints for menu management')
-      .addTag('restaurants', 'Endpoints for restaurant management')
-      .addTag('dashboard', 'Endpoints for dashboard statistics')
+      .setTitle("QR Menu API")
+      .setDescription("API for QR-based restaurant menu system")
+      .setVersion("1.0")
+      .addTag("authentication", "Endpoints for user authentication")
+      .addTag("menu", "Endpoints for menu management")
+      .addTag("restaurants", "Endpoints for restaurant management")
+      .addTag("dashboard", "Endpoints for dashboard statistics")
       .addBearerAuth()
       .build();
 
     const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api-docs', app, document);
+    SwaggerModule.setup("api-docs", app, document);
 
-    await app.listen(3000, '0.0.0.0');
-    console.log('✅ Application is running');
+    await app.listen(3000, "0.0.0.0");
+    console.log("✅ Application is running");
   } catch (error) {
-    console.error('❌ Application failed to start:', error);
+    console.error("❌ Application failed to start:", error);
     process.exit(1);
   }
 }
@@ -1051,6 +1137,7 @@ bootstrap();
 ```bash
 cd apps/backend && npm run build
 ```
+
 Expected: Build succeeds with no TypeScript errors
 
 - [ ] **Step 3: Commit**
@@ -1065,6 +1152,7 @@ git commit -m "fix: configure raw body for Stripe webhook endpoint in main.ts"
 ## Task 7: app.module.ts — register PaymentModule
 
 **Files:**
+
 - Modify: `apps/backend/src/app.module.ts`
 
 - [ ] **Step 1: Add PaymentModule import**
@@ -1072,7 +1160,7 @@ git commit -m "fix: configure raw body for Stripe webhook endpoint in main.ts"
 In `apps/backend/src/app.module.ts`, add the import:
 
 ```typescript
-import { PaymentModule } from './payment/payment.module';
+import { PaymentModule } from "./payment/payment.module";
 ```
 
 And add `PaymentModule` to the `imports` array after `LoyaltyModule`:
@@ -1087,6 +1175,7 @@ And add `PaymentModule` to the `imports` array after `LoyaltyModule`:
 ```bash
 cd apps/backend && npm test -- --no-coverage
 ```
+
 Expected: All tests pass
 
 - [ ] **Step 3: Commit**
@@ -1101,6 +1190,7 @@ git commit -m "feat: register PaymentModule in AppModule"
 ## Task 8: RestaurantsService — Stripe Connect methods
 
 **Files:**
+
 - Modify: `apps/backend/src/restaurants/restaurants.service.ts`
 - Create: `apps/backend/src/restaurants/restaurants-stripe.service.spec.ts`
 
@@ -1109,10 +1199,10 @@ git commit -m "feat: register PaymentModule in AppModule"
 Create `apps/backend/src/restaurants/restaurants-stripe.service.spec.ts`:
 
 ```typescript
-import { RestaurantsService } from './restaurants.service';
-import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import { RestaurantsService } from "./restaurants.service";
+import { NotFoundException, ForbiddenException } from "@nestjs/common";
 
-describe('RestaurantsService — Stripe Connect', () => {
+describe("RestaurantsService — Stripe Connect", () => {
   let service: RestaurantsService;
   let mockPrisma: any;
   let mockTranslation: any;
@@ -1127,108 +1217,116 @@ describe('RestaurantsService — Stripe Connect', () => {
     };
     mockTranslation = {};
     mockStripe = {
-      createExpressAccount: jest.fn().mockResolvedValue('acct_new'),
-      createAccountLink: jest.fn().mockResolvedValue('https://connect.stripe.com/onboard'),
+      createExpressAccount: jest.fn().mockResolvedValue("acct_new"),
+      createAccountLink: jest
+        .fn()
+        .mockResolvedValue("https://connect.stripe.com/onboard"),
       retrieveAccount: jest.fn().mockResolvedValue(true),
     };
 
-    service = new RestaurantsService(mockPrisma, mockTranslation as any, mockStripe as any);
+    service = new RestaurantsService(
+      mockPrisma,
+      mockTranslation as any,
+      mockStripe as any,
+    );
   });
 
-  describe('generateConnectLink', () => {
-    it('creates a new Express account when restaurant has no stripeAccountId', async () => {
+  describe("generateConnectLink", () => {
+    it("creates a new Express account when restaurant has no stripeAccountId", async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
-        id: 'rest1',
-        ownerId: 'user1',
+        id: "rest1",
+        ownerId: "user1",
         stripeAccountId: null,
       });
 
-      const result = await service.generateConnectLink('rest1', 'user1');
+      const result = await service.generateConnectLink("rest1", "user1");
 
       expect(mockStripe.createExpressAccount).toHaveBeenCalled();
       expect(mockPrisma.restaurant.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'rest1' },
-          data: expect.objectContaining({ stripeAccountId: 'acct_new' }),
+          where: { id: "rest1" },
+          data: expect.objectContaining({ stripeAccountId: "acct_new" }),
         }),
       );
-      expect(result.url).toBe('https://connect.stripe.com/onboard');
+      expect(result.url).toBe("https://connect.stripe.com/onboard");
     });
 
-    it('reuses existing stripeAccountId when already set', async () => {
+    it("reuses existing stripeAccountId when already set", async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
-        id: 'rest1',
-        ownerId: 'user1',
-        stripeAccountId: 'acct_existing',
+        id: "rest1",
+        ownerId: "user1",
+        stripeAccountId: "acct_existing",
       });
 
-      await service.generateConnectLink('rest1', 'user1');
+      await service.generateConnectLink("rest1", "user1");
 
       expect(mockStripe.createExpressAccount).not.toHaveBeenCalled();
       expect(mockStripe.createAccountLink).toHaveBeenCalledWith(
-        'acct_existing',
+        "acct_existing",
         expect.any(String),
         expect.any(String),
       );
     });
 
-    it('throws ForbiddenException when userId does not own restaurant', async () => {
+    it("throws ForbiddenException when userId does not own restaurant", async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
-        id: 'rest1',
-        ownerId: 'other-user',
+        id: "rest1",
+        ownerId: "other-user",
         stripeAccountId: null,
       });
 
-      await expect(service.generateConnectLink('rest1', 'user1')).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.generateConnectLink("rest1", "user1"),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
-  describe('getStripeStatus', () => {
-    it('returns stripeOnboarded=true and updates DB when charges_enabled', async () => {
+  describe("getStripeStatus", () => {
+    it("returns stripeOnboarded=true and updates DB when charges_enabled", async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
-        id: 'rest1',
-        ownerId: 'user1',
-        stripeAccountId: 'acct_123',
+        id: "rest1",
+        ownerId: "user1",
+        stripeAccountId: "acct_123",
         stripeOnboarded: false,
       });
       mockStripe.retrieveAccount.mockResolvedValue(true);
 
-      const result = await service.getStripeStatus('rest1', 'user1');
+      const result = await service.getStripeStatus("rest1", "user1");
 
       expect(mockPrisma.restaurant.update).toHaveBeenCalledWith({
-        where: { id: 'rest1' },
+        where: { id: "rest1" },
         data: { stripeOnboarded: true },
       });
       expect(result.stripeOnboarded).toBe(true);
     });
 
-    it('returns stripeOnboarded=false when no stripeAccountId', async () => {
+    it("returns stripeOnboarded=false when no stripeAccountId", async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
-        id: 'rest1',
-        ownerId: 'user1',
+        id: "rest1",
+        ownerId: "user1",
         stripeAccountId: null,
         stripeOnboarded: false,
       });
 
-      const result = await service.getStripeStatus('rest1', 'user1');
+      const result = await service.getStripeStatus("rest1", "user1");
 
       expect(mockStripe.retrieveAccount).not.toHaveBeenCalled();
       expect(result.stripeOnboarded).toBe(false);
     });
   });
 
-  describe('disconnectStripe', () => {
-    it('clears stripeAccountId and sets stripeOnboarded=false', async () => {
+  describe("disconnectStripe", () => {
+    it("clears stripeAccountId and sets stripeOnboarded=false", async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
-        id: 'rest1',
-        ownerId: 'user1',
-        stripeAccountId: 'acct_123',
+        id: "rest1",
+        ownerId: "user1",
+        stripeAccountId: "acct_123",
       });
 
-      await service.disconnectStripe('rest1', 'user1');
+      await service.disconnectStripe("rest1", "user1");
 
       expect(mockPrisma.restaurant.update).toHaveBeenCalledWith({
-        where: { id: 'rest1' },
+        where: { id: "rest1" },
         data: { stripeAccountId: null, stripeOnboarded: false },
       });
     });
@@ -1241,6 +1339,7 @@ describe('RestaurantsService — Stripe Connect', () => {
 ```bash
 cd apps/backend && npx jest src/restaurants/restaurants-stripe.service.spec.ts --no-coverage
 ```
+
 Expected: FAIL — `service.generateConnectLink is not a function` (method not yet added)
 
 - [ ] **Step 3: Inject StripeProvider and add connect methods to RestaurantsService**
@@ -1248,11 +1347,13 @@ Expected: FAIL — `service.generateConnectLink is not a function` (method not y
 In `apps/backend/src/restaurants/restaurants.service.ts`, update the constructor and add three new methods:
 
 Add import at top:
+
 ```typescript
-import { StripeProvider } from '../payment/stripe.provider';
+import { StripeProvider } from "../payment/stripe.provider";
 ```
 
 Update the constructor:
+
 ```typescript
   constructor(
     private readonly prisma: PrismaService,
@@ -1322,6 +1423,7 @@ Add these three methods at the end of the class (before the closing `}`):
 ```bash
 cd apps/backend && npx jest src/restaurants/restaurants-stripe.service.spec.ts --no-coverage
 ```
+
 Expected: PASS — 6 tests pass
 
 - [ ] **Step 5: Run full test suite**
@@ -1329,6 +1431,7 @@ Expected: PASS — 6 tests pass
 ```bash
 cd apps/backend && npm test -- --no-coverage
 ```
+
 Expected: All tests pass
 
 - [ ] **Step 6: Commit**
@@ -1343,6 +1446,7 @@ git commit -m "feat: add Stripe Connect methods to RestaurantsService"
 ## Task 9: RestaurantsController + RestaurantsModule — connect routes
 
 **Files:**
+
 - Modify: `apps/backend/src/restaurants/restaurants.controller.ts`
 - Modify: `apps/backend/src/restaurants/restaurants.module.ts`
 
@@ -1372,12 +1476,12 @@ In `apps/backend/src/restaurants/restaurants.controller.ts`, after the existing 
 Replace `apps/backend/src/restaurants/restaurants.module.ts` with:
 
 ```typescript
-import { Module } from '@nestjs/common';
-import { RestaurantsService } from './restaurants.service';
-import { RestaurantsController } from './restaurants.controller';
-import { PrismaModule } from '../prisma/prisma.module';
-import { TranslationModule } from '../translation/translation.module';
-import { PaymentModule } from '../payment/payment.module';
+import { Module } from "@nestjs/common";
+import { RestaurantsService } from "./restaurants.service";
+import { RestaurantsController } from "./restaurants.controller";
+import { PrismaModule } from "../prisma/prisma.module";
+import { TranslationModule } from "../translation/translation.module";
+import { PaymentModule } from "../payment/payment.module";
 
 @Module({
   imports: [PrismaModule, TranslationModule, PaymentModule],
@@ -1393,6 +1497,7 @@ export class RestaurantsModule {}
 ```bash
 cd apps/backend && npm test -- --no-coverage
 ```
+
 Expected: All tests pass
 
 - [ ] **Step 4: Commit**
@@ -1407,6 +1512,7 @@ git commit -m "feat: add Stripe Connect routes to RestaurantsController"
 ## Task 10: update-restaurant.dto.ts — payment fields
 
 **Files:**
+
 - Modify: `apps/backend/src/restaurants/dto/update-restaurant.dto.ts`
 
 - [ ] **Step 1: Add payment validation fields**
@@ -1425,7 +1531,7 @@ import {
   IsInt,
   Min,
   Max,
-} from 'class-validator';
+} from "class-validator";
 ```
 
 Then add these fields at the end of the class (before closing `}`):
@@ -1458,6 +1564,7 @@ Then add these fields at the end of the class (before closing `}`):
 ```bash
 cd apps/backend && npm test -- --no-coverage
 ```
+
 Expected: All tests pass
 
 - [ ] **Step 3: Commit**
@@ -1472,6 +1579,7 @@ git commit -m "feat: add payment DTO fields to UpdateRestaurantDto"
 ## Task 11: Orders — sessionToken wiring
 
 **Files:**
+
 - Modify: `apps/backend/src/orders/dto/create-order.dto.ts`
 - Modify: `apps/backend/src/orders/orders.service.ts`
 - Modify: `apps/backend/src/orders/orders.module.ts`
@@ -1491,6 +1599,7 @@ In `apps/backend/src/orders/dto/create-order.dto.ts`, add after the `redeemItemI
 - [ ] **Step 2: Wire sessionToken in OrdersService**
 
 In `apps/backend/src/orders/orders.service.ts`, update the `create` method to:
+
 1. Accept `sessionToken` from the DTO
 2. Resolve or create a `TableSession`
 3. Link the order to the session
@@ -1501,41 +1610,41 @@ Find the section in `create()` where the `Order` is created (around line 180+). 
 First, add this helper at the top of the `create` method (before the items validation):
 
 ```typescript
-    // Resolve or create TableSession for pay-at-table
-    let sessionToken = createOrderDto.sessionToken;
-    let tableSessionId: string | undefined;
+// Resolve or create TableSession for pay-at-table
+let sessionToken = createOrderDto.sessionToken;
+let tableSessionId: string | undefined;
 
-    if (createOrderDto.tableId) {
-      // Lookup the table to get restaurantId
-      // restaurantId is derived from menu items below — wire session after restaurant check
-    }
+if (createOrderDto.tableId) {
+  // Lookup the table to get restaurantId
+  // restaurantId is derived from menu items below — wire session after restaurant check
+}
 ```
 
 Actually, the full session wiring needs to happen AFTER `restaurantId` is known (line ~55). Here is the complete block to insert after the restaurant validation (after the `if (dbItem.category.restaurantId !== restaurantId)` throw block, before the happy hour section):
 
 ```typescript
-    // Resolve or create TableSession
-    let sessionToken = createOrderDto.sessionToken;
-    let tableSessionId: string | undefined;
+// Resolve or create TableSession
+let sessionToken = createOrderDto.sessionToken;
+let tableSessionId: string | undefined;
 
-    if (sessionToken) {
-      const existingSession = await this.prisma.tableSession.findFirst({
-        where: { token: sessionToken, status: 'OPEN' },
-      });
-      if (existingSession) {
-        tableSessionId = existingSession.id;
-      } else {
-        sessionToken = undefined; // stale token — will create new below
-      }
-    }
+if (sessionToken) {
+  const existingSession = await this.prisma.tableSession.findFirst({
+    where: { token: sessionToken, status: "OPEN" },
+  });
+  if (existingSession) {
+    tableSessionId = existingSession.id;
+  } else {
+    sessionToken = undefined; // stale token — will create new below
+  }
+}
 
-    if (!tableSessionId) {
-      const newSession = await this.prisma.tableSession.create({
-        data: { tableId: createOrderDto.tableId, restaurantId },
-      });
-      tableSessionId = newSession.id;
-      sessionToken = newSession.token;
-    }
+if (!tableSessionId) {
+  const newSession = await this.prisma.tableSession.create({
+    data: { tableId: createOrderDto.tableId, restaurantId },
+  });
+  tableSessionId = newSession.id;
+  sessionToken = newSession.token;
+}
 ```
 
 Then in the `prisma.order.create` call, add `tableSessionId` to the `data` block:
@@ -1547,7 +1656,7 @@ Then in the `prisma.order.create` call, add `tableSessionId` to the `data` block
 And update the return value of `create()` to include `sessionToken`. Find the final `return` statement and wrap it:
 
 ```typescript
-    return { ...order, sessionToken };
+return { ...order, sessionToken };
 ```
 
 **Note:** The exact line numbers shift. Read the current file to locate the `prisma.order.create` call (it's the large `data: { ... }` block with `customerName`, `tableId`, `restaurantId`, etc.) and add `tableSessionId` to it. The `return order` at the end becomes `return { ...order, sessionToken }`.
@@ -1557,6 +1666,7 @@ And update the return value of `create()` to include `sessionToken`. Find the fi
 ```bash
 cd apps/backend && npm run build
 ```
+
 Expected: Build succeeds
 
 - [ ] **Step 4: Run tests**
@@ -1564,6 +1674,7 @@ Expected: Build succeeds
 ```bash
 cd apps/backend && npm test -- --no-coverage
 ```
+
 Expected: All tests pass
 
 - [ ] **Step 5: Commit**
@@ -1578,6 +1689,7 @@ git commit -m "feat: wire TableSession to Order creation, return sessionToken in
 ## Task 12: Frontend api.ts — payment API functions
 
 **Files:**
+
 - Modify: `apps/frontend/src/lib/api.ts`
 
 - [ ] **Step 1: Add payment API functions**
@@ -1587,8 +1699,16 @@ In `apps/frontend/src/lib/api.ts`, append these functions at the end of the file
 ```typescript
 // Payment / TableSession
 
-export const getOrCreateSession = async (tableId: string, restaurantId: string, sessionToken?: string) => {
-  const response = await api.post('/payments/session', { tableId, restaurantId, sessionToken });
+export const getOrCreateSession = async (
+  tableId: string,
+  restaurantId: string,
+  sessionToken?: string,
+) => {
+  const response = await api.post("/payments/session", {
+    tableId,
+    restaurantId,
+    sessionToken,
+  });
   return response.data as { session: any; token: string };
 };
 
@@ -1603,8 +1723,13 @@ export const getSessionBill = async (token: string) => {
   };
 };
 
-export const createPaymentIntent = async (token: string, tipPercent: number) => {
-  const response = await api.post(`/payments/session/${token}/intent`, { tipPercent });
+export const createPaymentIntent = async (
+  token: string,
+  tipPercent: number,
+) => {
+  const response = await api.post(`/payments/session/${token}/intent`, {
+    tipPercent,
+  });
   return response.data as {
     clientSecret: string;
     paymentId: string;
@@ -1614,17 +1739,28 @@ export const createPaymentIntent = async (token: string, tipPercent: number) => 
 };
 
 export const closeSession = async (token: string, restaurantId: string) => {
-  const response = await api.post(`/payments/session/${token}/close`, { restaurantId });
+  const response = await api.post(`/payments/session/${token}/close`, {
+    restaurantId,
+  });
   return response.data;
 };
 
 export const getTableSessions = async (restaurantId: string) => {
   const response = await api.get(`/payments/sessions/${restaurantId}`);
-  return response.data as Array<{ id: string; token: string; tableId: string; status: string; createdAt: string; paidAt?: string }>;
+  return response.data as Array<{
+    id: string;
+    token: string;
+    tableId: string;
+    status: string;
+    createdAt: string;
+    paidAt?: string;
+  }>;
 };
 
 export const generateStripeConnectLink = async (restaurantId: string) => {
-  const response = await api.post(`/restaurants/${restaurantId}/stripe/connect`);
+  const response = await api.post(
+    `/restaurants/${restaurantId}/stripe/connect`,
+  );
   return response.data as { url: string };
 };
 
@@ -1634,7 +1770,9 @@ export const getStripeStatus = async (restaurantId: string) => {
 };
 
 export const disconnectStripe = async (restaurantId: string) => {
-  const response = await api.post(`/restaurants/${restaurantId}/stripe/disconnect`);
+  const response = await api.post(
+    `/restaurants/${restaurantId}/stripe/disconnect`,
+  );
   return response.data;
 };
 ```
@@ -1651,9 +1789,11 @@ git commit -m "feat: add payment and Stripe Connect API functions to frontend ap
 ## Task 13: Frontend PublicMenuPage — session token + Request Bill button
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/PublicMenuPage.tsx`
 
 Changes:
+
 1. Read `sessionToken` from `localStorage` keyed by `session-{tableId}` before order submission
 2. Pass `sessionToken` to `createOrder`, store returned `sessionToken` if present
 3. Show "Request Bill" button in the action bar when a session token exists
@@ -1664,14 +1804,15 @@ Changes:
 In `PublicMenuPage.tsx`, after the existing state declarations, add:
 
 ```typescript
-  const [sessionToken, setSessionToken] = useState<string | null>(null);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+const [sessionToken, setSessionToken] = useState<string | null>(null);
+const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 ```
 
 Add the import for `PaymentModal` at the top:
+
 ```typescript
-import { PaymentModal } from '../components/payment/PaymentModal';
-import { getSessionBill } from '../lib/api';
+import { PaymentModal } from "../components/payment/PaymentModal";
+import { getSessionBill } from "../lib/api";
 ```
 
 - [ ] **Step 2: Load session token from localStorage on mount**
@@ -1679,11 +1820,11 @@ import { getSessionBill } from '../lib/api';
 In the `useEffect` where `table` is read from URL params (around lines 42–49), add:
 
 ```typescript
-    if (table) {
-      setTableNumber(table);
-      const stored = localStorage.getItem(`session-${table}`);
-      if (stored) setSessionToken(stored);
-    }
+if (table) {
+  setTableNumber(table);
+  const stored = localStorage.getItem(`session-${table}`);
+  if (stored) setSessionToken(stored);
+}
 ```
 
 - [ ] **Step 3: Persist session token from order response**
@@ -1691,12 +1832,14 @@ In the `useEffect` where `table` is read from URL params (around lines 42–49),
 Find the `handleCheckout` or order submission function in `PublicMenuPage.tsx`. The actual order submission happens in `CheckoutPage.tsx` (not in `PublicMenuPage`). Instead, the session token needs to be passed down to the cart and returned from checkout.
 
 Since order submission happens in `CheckoutPage.tsx`, the session management is:
+
 - `PublicMenuPage` reads `localStorage.getItem('session-{table}')` on mount and stores in state
 - `CheckoutPage` must also read/write the session token
 
 The `PublicMenuPage` state for `sessionToken` is used to show/hide the Request Bill button. The `CheckoutPage` manages its own localStorage read/write since it has direct access to the `tableId` from cart context.
 
 In `CheckoutPage.tsx`, after a successful order creation, add:
+
 ```typescript
 if (orderResponse.sessionToken) {
   localStorage.setItem(`session-${tableNumber}`, orderResponse.sessionToken);
@@ -1706,12 +1849,12 @@ if (orderResponse.sessionToken) {
 For now, in `PublicMenuPage`, update the effect to re-check localStorage whenever `tableNumber` changes:
 
 ```typescript
-  useEffect(() => {
-    if (tableNumber) {
-      const stored = localStorage.getItem(`session-${tableNumber}`);
-      setSessionToken(stored);
-    }
-  }, [tableNumber]);
+useEffect(() => {
+  if (tableNumber) {
+    const stored = localStorage.getItem(`session-${tableNumber}`);
+    setSessionToken(stored);
+  }
+}, [tableNumber]);
 ```
 
 - [ ] **Step 4: Add Request Bill button to action bar**
@@ -1719,24 +1862,26 @@ For now, in `PublicMenuPage`, update the effect to re-check localStorage wheneve
 Find the action bar section in `PublicMenuPage.tsx` (the `div` containing the `CartIcon` and Call Waiter button — it has `fixed bottom-0` classes). Add a Request Bill button before `CartIcon`:
 
 ```tsx
-          {sessionToken && (
-            <Button
-              variant="default"
-              size="sm"
-              className="bg-accent text-accent-foreground"
-              onClick={async () => {
-                try {
-                  await getSessionBill(sessionToken);
-                  setIsPaymentModalOpen(true);
-                } catch {
-                  setSessionToken(null);
-                  if (tableNumber) localStorage.removeItem(`session-${tableNumber}`);
-                }
-              }}
-            >
-              {t('payment.requestBill')}
-            </Button>
-          )}
+{
+  sessionToken && (
+    <Button
+      variant="default"
+      size="sm"
+      className="bg-accent text-accent-foreground"
+      onClick={async () => {
+        try {
+          await getSessionBill(sessionToken);
+          setIsPaymentModalOpen(true);
+        } catch {
+          setSessionToken(null);
+          if (tableNumber) localStorage.removeItem(`session-${tableNumber}`);
+        }
+      }}
+    >
+      {t("payment.requestBill")}
+    </Button>
+  );
+}
 ```
 
 - [ ] **Step 5: Add PaymentModal to render tree**
@@ -1744,18 +1889,20 @@ Find the action bar section in `PublicMenuPage.tsx` (the `div` containing the `C
 At the end of the JSX return, before the closing `</>`, add:
 
 ```tsx
-      {isPaymentModalOpen && sessionToken && restaurantId && (
-        <PaymentModal
-          sessionToken={sessionToken}
-          restaurantId={restaurantId}
-          onClose={() => setIsPaymentModalOpen(false)}
-          onSuccess={() => {
-            setIsPaymentModalOpen(false);
-            setSessionToken(null);
-            if (tableNumber) localStorage.removeItem(`session-${tableNumber}`);
-          }}
-        />
-      )}
+{
+  isPaymentModalOpen && sessionToken && restaurantId && (
+    <PaymentModal
+      sessionToken={sessionToken}
+      restaurantId={restaurantId}
+      onClose={() => setIsPaymentModalOpen(false)}
+      onSuccess={() => {
+        setIsPaymentModalOpen(false);
+        setSessionToken(null);
+        if (tableNumber) localStorage.removeItem(`session-${tableNumber}`);
+      }}
+    />
+  );
+}
 ```
 
 - [ ] **Step 6: Update CheckoutPage to persist session token**
@@ -1763,10 +1910,13 @@ At the end of the JSX return, before the closing `</>`, add:
 In `apps/frontend/src/pages/CheckoutPage.tsx`, find the `createOrder` call response handler. Add session token persistence:
 
 ```typescript
-      const orderData = await createOrder({ ...payload, sessionToken: localStorage.getItem(`session-${cartTableNumber}`) || undefined });
-      if (orderData.sessionToken && cartTableNumber) {
-        localStorage.setItem(`session-${cartTableNumber}`, orderData.sessionToken);
-      }
+const orderData = await createOrder({
+  ...payload,
+  sessionToken: localStorage.getItem(`session-${cartTableNumber}`) || undefined,
+});
+if (orderData.sessionToken && cartTableNumber) {
+  localStorage.setItem(`session-${cartTableNumber}`, orderData.sessionToken);
+}
 ```
 
 - [ ] **Step 7: Build frontend to check for TypeScript errors**
@@ -1774,6 +1924,7 @@ In `apps/frontend/src/pages/CheckoutPage.tsx`, find the `createOrder` call respo
 ```bash
 cd apps/frontend && npm run build 2>&1 | head -50
 ```
+
 Expected: Build succeeds or shows only warnings (not errors)
 
 - [ ] **Step 8: Commit**
@@ -1788,6 +1939,7 @@ git commit -m "feat: add session token management and Request Bill button to Pub
 ## Task 14: Frontend PaymentModal.tsx
 
 **Files:**
+
 - Create: `apps/frontend/src/components/payment/PaymentModal.tsx`
 
 Three-step modal: tip selection → Stripe Elements → confirmation.
@@ -1797,16 +1949,21 @@ Three-step modal: tip selection → Stripe Elements → confirmation.
 Create `apps/frontend/src/components/payment/PaymentModal.tsx`:
 
 ```tsx
-import { useState, useEffect } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { getSessionBill, createPaymentIntent } from '../../lib/api';
-import { Button } from '../ui/button';
-import { useTranslation } from 'react-i18next';
-import { CheckCircle2, X } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { loadStripe } from "@stripe/stripe-js";
+import {
+  Elements,
+  PaymentElement,
+  useStripe,
+  useElements,
+} from "@stripe/react-stripe-js";
+import { getSessionBill, createPaymentIntent } from "../../lib/api";
+import { Button } from "../ui/button";
+import { useTranslation } from "react-i18next";
+import { CheckCircle2, X } from "lucide-react";
 
 const stripePromise = loadStripe(
-  (import.meta as any).env.VITE_STRIPE_PUBLISHABLE_KEY || '',
+  (import.meta as any).env.VITE_STRIPE_PUBLISHABLE_KEY || "",
 );
 
 interface PaymentModalProps {
@@ -1816,7 +1973,7 @@ interface PaymentModalProps {
   onSuccess: () => void;
 }
 
-type Step = 'tip' | 'pay' | 'done';
+type Step = "tip" | "pay" | "done";
 
 interface BillData {
   subtotal: number;
@@ -1853,13 +2010,13 @@ function PaymentForm({
     const result = await stripe.confirmPayment({
       elements,
       confirmParams: { return_url: window.location.href },
-      redirect: 'if_required',
+      redirect: "if_required",
     });
 
     if (result.error) {
-      setError(result.error.message || t('payment.paymentFailed'));
+      setError(result.error.message || t("payment.paymentFailed"));
       setProcessing(false);
-    } else if (result.paymentIntent?.status === 'succeeded') {
+    } else if (result.paymentIntent?.status === "succeeded") {
       onSuccess();
     }
   };
@@ -1868,17 +2025,17 @@ function PaymentForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="text-sm text-muted-foreground space-y-1">
         <div className="flex justify-between">
-          <span>{t('payment.subtotal')}</span>
+          <span>{t("payment.subtotal")}</span>
           <span>€{(total - tipAmount).toFixed(2)}</span>
         </div>
         {tipAmount > 0 && (
           <div className="flex justify-between">
-            <span>{t('payment.tip')}</span>
+            <span>{t("payment.tip")}</span>
             <span>€{tipAmount.toFixed(2)}</span>
           </div>
         )}
         <div className="flex justify-between font-semibold text-foreground border-t pt-1">
-          <span>{t('payment.total')}</span>
+          <span>{t("payment.total")}</span>
           <span>€{total.toFixed(2)}</span>
         </div>
       </div>
@@ -1888,23 +2045,39 @@ function PaymentForm({
       {error && <p className="text-red-500 text-sm">{error}</p>}
 
       <div className="flex gap-2">
-        <Button type="button" variant="outline" onClick={onClose} disabled={processing}>
-          {t('common.cancel')}
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onClose}
+          disabled={processing}
+        >
+          {t("common.cancel")}
         </Button>
-        <Button type="submit" className="flex-1" disabled={processing || !stripe}>
-          {processing ? t('payment.processing') : `${t('payment.pay')} €${total.toFixed(2)}`}
+        <Button
+          type="submit"
+          className="flex-1"
+          disabled={processing || !stripe}
+        >
+          {processing
+            ? t("payment.processing")
+            : `${t("payment.pay")} €${total.toFixed(2)}`}
         </Button>
       </div>
     </form>
   );
 }
 
-export function PaymentModal({ sessionToken, restaurantId, onClose, onSuccess }: PaymentModalProps) {
+export function PaymentModal({
+  sessionToken,
+  restaurantId,
+  onClose,
+  onSuccess,
+}: PaymentModalProps) {
   const { t } = useTranslation();
-  const [step, setStep] = useState<Step>('tip');
+  const [step, setStep] = useState<Step>("tip");
   const [bill, setBill] = useState<BillData | null>(null);
   const [selectedTip, setSelectedTip] = useState(0);
-  const [customTip, setCustomTip] = useState('');
+  const [customTip, setCustomTip] = useState("");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentTotal, setPaymentTotal] = useState(0);
   const [paymentTip, setPaymentTip] = useState(0);
@@ -1917,7 +2090,8 @@ export function PaymentModal({ sessionToken, restaurantId, onClose, onSuccess }:
       .catch(() => onClose());
   }, [sessionToken]);
 
-  const activeTipPercent = customTip !== '' ? parseFloat(customTip) || 0 : selectedTip;
+  const activeTipPercent =
+    customTip !== "" ? parseFloat(customTip) || 0 : selectedTip;
 
   const handleContinueToPayment = async () => {
     setLoading(true);
@@ -1927,9 +2101,9 @@ export function PaymentModal({ sessionToken, restaurantId, onClose, onSuccess }:
       setClientSecret(result.clientSecret);
       setPaymentTotal(result.total);
       setPaymentTip(result.tipAmount);
-      setStep('pay');
+      setStep("pay");
     } catch (e: any) {
-      setError(e.response?.data?.message || t('payment.failedToLoad'));
+      setError(e.response?.data?.message || t("payment.failedToLoad"));
     } finally {
       setLoading(false);
     }
@@ -1940,47 +2114,59 @@ export function PaymentModal({ sessionToken, restaurantId, onClose, onSuccess }:
       <div className="bg-card text-card-foreground rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-6 space-y-4 shadow-2xl">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">
-            {step === 'tip' && t('payment.yourBill')}
-            {step === 'pay' && t('payment.payment')}
-            {step === 'done' && t('payment.thankYou')}
+            {step === "tip" && t("payment.yourBill")}
+            {step === "pay" && t("payment.payment")}
+            {step === "done" && t("payment.thankYou")}
           </h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <button
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground"
+          >
             <X size={20} />
           </button>
         </div>
 
-        {step === 'tip' && bill && (
+        {step === "tip" && bill && (
           <div className="space-y-4">
             <p className="text-2xl font-bold">€{bill.subtotal.toFixed(2)}</p>
 
             {bill.tipsEnabled && (
               <div className="space-y-2">
-                <p className="text-sm font-medium">{t('payment.addTip')}</p>
+                <p className="text-sm font-medium">{t("payment.addTip")}</p>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => { setSelectedTip(0); setCustomTip(''); }}
-                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${selectedTip === 0 && customTip === '' ? 'bg-accent text-accent-foreground border-accent' : 'border-border'}`}
+                    onClick={() => {
+                      setSelectedTip(0);
+                      setCustomTip("");
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${selectedTip === 0 && customTip === "" ? "bg-accent text-accent-foreground border-accent" : "border-border"}`}
                   >
-                    {t('payment.noTip')}
+                    {t("payment.noTip")}
                   </button>
                   {bill.tipOptions.map((pct) => (
                     <button
                       key={pct}
-                      onClick={() => { setSelectedTip(pct); setCustomTip(''); }}
-                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${selectedTip === pct && customTip === '' ? 'bg-accent text-accent-foreground border-accent' : 'border-border'}`}
+                      onClick={() => {
+                        setSelectedTip(pct);
+                        setCustomTip("");
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${selectedTip === pct && customTip === "" ? "bg-accent text-accent-foreground border-accent" : "border-border"}`}
                     >
                       {pct}%
                     </button>
                   ))}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm">{t('payment.custom')}</span>
+                  <span className="text-sm">{t("payment.custom")}</span>
                   <input
                     type="number"
                     min="0"
                     max="100"
                     value={customTip}
-                    onChange={(e) => { setCustomTip(e.target.value); setSelectedTip(0); }}
+                    onChange={(e) => {
+                      setCustomTip(e.target.value);
+                      setSelectedTip(0);
+                    }}
                     placeholder="0"
                     className="w-16 px-2 py-1 border border-border rounded text-sm bg-background"
                   />
@@ -1988,7 +2174,8 @@ export function PaymentModal({ sessionToken, restaurantId, onClose, onSuccess }:
                 </div>
                 {activeTipPercent > 0 && (
                   <p className="text-sm text-muted-foreground">
-                    {t('payment.tipAmount')}: €{(bill.subtotal * activeTipPercent / 100).toFixed(2)}
+                    {t("payment.tipAmount")}: €
+                    {((bill.subtotal * activeTipPercent) / 100).toFixed(2)}
                   </p>
                 )}
               </div>
@@ -1996,34 +2183,40 @@ export function PaymentModal({ sessionToken, restaurantId, onClose, onSuccess }:
 
             {error && <p className="text-red-500 text-sm">{error}</p>}
 
-            <Button className="w-full" onClick={handleContinueToPayment} disabled={loading}>
-              {loading ? t('payment.loading') : t('payment.continue')}
+            <Button
+              className="w-full"
+              onClick={handleContinueToPayment}
+              disabled={loading}
+            >
+              {loading ? t("payment.loading") : t("payment.continue")}
             </Button>
           </div>
         )}
 
-        {step === 'pay' && clientSecret && (
+        {step === "pay" && clientSecret && (
           <Elements
             stripe={stripePromise}
-            options={{ clientSecret, appearance: { theme: 'stripe' } }}
+            options={{ clientSecret, appearance: { theme: "stripe" } }}
           >
             <PaymentForm
               clientSecret={clientSecret}
               total={paymentTotal}
               tipAmount={paymentTip}
-              onSuccess={() => setStep('done')}
+              onSuccess={() => setStep("done")}
               onClose={onClose}
             />
           </Elements>
         )}
 
-        {step === 'done' && (
+        {step === "done" && (
           <div className="flex flex-col items-center gap-4 py-4">
             <CheckCircle2 size={48} className="text-green-500" />
-            <p className="text-lg font-medium">{t('payment.paymentReceived')}</p>
+            <p className="text-lg font-medium">
+              {t("payment.paymentReceived")}
+            </p>
             <p className="text-2xl font-bold">€{paymentTotal.toFixed(2)}</p>
             <Button className="w-full" onClick={onSuccess}>
-              {t('payment.backToMenu')}
+              {t("payment.backToMenu")}
             </Button>
           </div>
         )}
@@ -2038,6 +2231,7 @@ export function PaymentModal({ sessionToken, restaurantId, onClose, onSuccess }:
 ```bash
 cd apps/frontend && npm run build 2>&1 | head -50
 ```
+
 Expected: Build succeeds (warnings OK, errors not OK)
 
 - [ ] **Step 3: Commit**
@@ -2052,9 +2246,11 @@ git commit -m "feat: add PaymentModal with tip selection, Stripe Elements, and c
 ## Task 15: Frontend SettingsView — Payments tab
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/Dashboard/SettingsView.tsx`
 
 Add a "Payments" tab with three sections:
+
 1. Accept digital payments toggle (`paymentsEnabled`)
 2. Stripe Connect section (connect/disconnect)
 3. Tips section (toggle + quick % options)
@@ -2064,20 +2260,28 @@ Add a "Payments" tab with three sections:
 In `apps/frontend/src/pages/Dashboard/SettingsView.tsx`, at the top:
 
 Add imports:
+
 ```typescript
-import { generateStripeConnectLink, getStripeStatus, disconnectStripe } from '../../lib/api';
+import {
+  generateStripeConnectLink,
+  getStripeStatus,
+  disconnectStripe,
+} from "../../lib/api";
 ```
 
 After the existing state declarations, add:
+
 ```typescript
-  // Payment settings
-  const [paymentsEnabled, setPaymentsEnabled] = useState(false);
-  const [tipsEnabled, setTipsEnabled] = useState(false);
-  const [tipOptions, setTipOptions] = useState<number[]>([2, 4, 5]);
-  const [newTipOption, setNewTipOption] = useState('');
-  const [stripeOnboarded, setStripeOnboarded] = useState(false);
-  const [stripeLoading, setStripeLoading] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState<'general' | 'loyalty' | 'payments'>('general');
+// Payment settings
+const [paymentsEnabled, setPaymentsEnabled] = useState(false);
+const [tipsEnabled, setTipsEnabled] = useState(false);
+const [tipOptions, setTipOptions] = useState<number[]>([2, 4, 5]);
+const [newTipOption, setNewTipOption] = useState("");
+const [stripeOnboarded, setStripeOnboarded] = useState(false);
+const [stripeLoading, setStripeLoading] = useState(false);
+const [activeSettingsTab, setActiveSettingsTab] = useState<
+  "general" | "loyalty" | "payments"
+>("general");
 ```
 
 - [ ] **Step 2: Populate payment state from activeRestaurant**
@@ -2085,23 +2289,27 @@ After the existing state declarations, add:
 Find the `useEffect` that populates state from `activeRestaurant` (where `setAddress`, `setContactInfo` etc. are called). Add to it:
 
 ```typescript
-    setPaymentsEnabled(activeRestaurant.paymentsEnabled ?? false);
-    setTipsEnabled(activeRestaurant.tipsEnabled ?? false);
-    setTipOptions(activeRestaurant.tipOptions ?? [2, 4, 5]);
-    setStripeOnboarded(activeRestaurant.stripeOnboarded ?? false);
+setPaymentsEnabled(activeRestaurant.paymentsEnabled ?? false);
+setTipsEnabled(activeRestaurant.tipsEnabled ?? false);
+setTipOptions(activeRestaurant.tipOptions ?? [2, 4, 5]);
+setStripeOnboarded(activeRestaurant.stripeOnboarded ?? false);
 ```
 
 Also add a Stripe status refresh when the component mounts (handles the `?stripe=success` return):
+
 ```typescript
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('stripe') === 'success' && activeRestaurant?.id) {
-      getStripeStatus(activeRestaurant.id).then((s) => setStripeOnboarded(s.stripeOnboarded));
-    }
+const params = new URLSearchParams(window.location.search);
+if (params.get("stripe") === "success" && activeRestaurant?.id) {
+  getStripeStatus(activeRestaurant.id).then((s) =>
+    setStripeOnboarded(s.stripeOnboarded),
+  );
+}
 ```
 
 - [ ] **Step 3: Add payment fields to save handler**
 
 Find the `handleSave` function (calls `updateRestaurant`). Add payment fields to the payload:
+
 ```typescript
       paymentsEnabled,
       tipsEnabled,
@@ -2115,22 +2323,24 @@ In the JSX, add tab buttons before the existing sections. The current SettingsVi
 Find the outermost `<div>` inside the component's return and add tab navigation at the top:
 
 ```tsx
-      {/* Tab nav */}
-      <div className="flex gap-1 border-b border-border mb-6">
-        {(['general', 'loyalty', 'payments'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveSettingsTab(tab)}
-            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-              activeSettingsTab === tab
-                ? 'border-accent text-accent'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {t(`settings.tabs.${tab}`)}
-          </button>
-        ))}
-      </div>
+{
+  /* Tab nav */
+}
+<div className="flex gap-1 border-b border-border mb-6">
+  {(["general", "loyalty", "payments"] as const).map((tab) => (
+    <button
+      key={tab}
+      onClick={() => setActiveSettingsTab(tab)}
+      className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+        activeSettingsTab === tab
+          ? "border-accent text-accent"
+          : "border-transparent text-muted-foreground hover:text-foreground"
+      }`}
+    >
+      {t(`settings.tabs.${tab}`)}
+    </button>
+  ))}
+</div>;
 ```
 
 Wrap the existing content (general + loyalty sections) in `{activeSettingsTab === 'general' && (...)}` and `{activeSettingsTab === 'loyalty' && (...)}` blocks.
@@ -2138,134 +2348,158 @@ Wrap the existing content (general + loyalty sections) in `{activeSettingsTab ==
 After those, add the payments tab:
 
 ```tsx
-      {activeSettingsTab === 'payments' && (
-        <div className="space-y-6">
-          {/* Enable payments toggle */}
-          <div className="p-4 border border-border rounded-lg space-y-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">{t('payment.settings.acceptPayments')}</p>
-                <p className="text-sm text-muted-foreground">{t('payment.settings.acceptPaymentsDesc')}</p>
-              </div>
-              <button
-                onClick={() => setPaymentsEnabled(!paymentsEnabled)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${paymentsEnabled ? 'bg-accent' : 'bg-muted'}`}
-                role="switch"
-                aria-checked={paymentsEnabled}
-              >
-                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${paymentsEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-              </button>
-            </div>
-            {paymentsEnabled && !stripeOnboarded && (
-              <p className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-950 p-2 rounded">
-                {t('payment.settings.connectStripeWarning')}
+{
+  activeSettingsTab === "payments" && (
+    <div className="space-y-6">
+      {/* Enable payments toggle */}
+      <div className="p-4 border border-border rounded-lg space-y-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-medium">
+              {t("payment.settings.acceptPayments")}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {t("payment.settings.acceptPaymentsDesc")}
+            </p>
+          </div>
+          <button
+            onClick={() => setPaymentsEnabled(!paymentsEnabled)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${paymentsEnabled ? "bg-accent" : "bg-muted"}`}
+            role="switch"
+            aria-checked={paymentsEnabled}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${paymentsEnabled ? "translate-x-6" : "translate-x-1"}`}
+            />
+          </button>
+        </div>
+        {paymentsEnabled && !stripeOnboarded && (
+          <p className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-950 p-2 rounded">
+            {t("payment.settings.connectStripeWarning")}
+          </p>
+        )}
+      </div>
+
+      {/* Stripe Connect */}
+      <div className="p-4 border border-border rounded-lg space-y-3">
+        <p className="font-medium">{t("payment.settings.stripeConnect")}</p>
+        {stripeOnboarded ? (
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-green-600 font-medium">
+              ✓ {t("payment.settings.stripeConnected")}
+            </span>
+            <button
+              onClick={async () => {
+                if (!activeRestaurant?.id) return;
+                if (!window.confirm(t("payment.settings.disconnectConfirm")))
+                  return;
+                await disconnectStripe(activeRestaurant.id);
+                setStripeOnboarded(false);
+              }}
+              className="text-sm text-red-500 hover:underline"
+            >
+              {t("payment.settings.disconnect")}
+            </button>
+          </div>
+        ) : (
+          <Button
+            variant="outline"
+            disabled={stripeLoading}
+            onClick={async () => {
+              if (!activeRestaurant?.id) return;
+              setStripeLoading(true);
+              try {
+                const { url } = await generateStripeConnectLink(
+                  activeRestaurant.id,
+                );
+                window.location.href = url;
+              } catch {
+                setStripeLoading(false);
+              }
+            }}
+          >
+            {stripeLoading
+              ? t("payment.settings.connecting")
+              : t("payment.settings.connectStripe")}
+          </Button>
+        )}
+      </div>
+
+      {/* Tips */}
+      {paymentsEnabled && (
+        <div className="p-4 border border-border rounded-lg space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="font-medium">{t("payment.settings.tips")}</p>
+            <button
+              onClick={() => setTipsEnabled(!tipsEnabled)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${tipsEnabled ? "bg-accent" : "bg-muted"}`}
+              role="switch"
+              aria-checked={tipsEnabled}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${tipsEnabled ? "translate-x-6" : "translate-x-1"}`}
+              />
+            </button>
+          </div>
+          {tipsEnabled && (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                {t("payment.settings.quickTipOptions")}
               </p>
-            )}
-          </div>
-
-          {/* Stripe Connect */}
-          <div className="p-4 border border-border rounded-lg space-y-3">
-            <p className="font-medium">{t('payment.settings.stripeConnect')}</p>
-            {stripeOnboarded ? (
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-green-600 font-medium">✓ {t('payment.settings.stripeConnected')}</span>
-                <button
-                  onClick={async () => {
-                    if (!activeRestaurant?.id) return;
-                    if (!window.confirm(t('payment.settings.disconnectConfirm'))) return;
-                    await disconnectStripe(activeRestaurant.id);
-                    setStripeOnboarded(false);
-                  }}
-                  className="text-sm text-red-500 hover:underline"
-                >
-                  {t('payment.settings.disconnect')}
-                </button>
-              </div>
-            ) : (
-              <Button
-                variant="outline"
-                disabled={stripeLoading}
-                onClick={async () => {
-                  if (!activeRestaurant?.id) return;
-                  setStripeLoading(true);
-                  try {
-                    const { url } = await generateStripeConnectLink(activeRestaurant.id);
-                    window.location.href = url;
-                  } catch {
-                    setStripeLoading(false);
-                  }
-                }}
-              >
-                {stripeLoading ? t('payment.settings.connecting') : t('payment.settings.connectStripe')}
-              </Button>
-            )}
-          </div>
-
-          {/* Tips */}
-          {paymentsEnabled && (
-            <div className="p-4 border border-border rounded-lg space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="font-medium">{t('payment.settings.tips')}</p>
-                <button
-                  onClick={() => setTipsEnabled(!tipsEnabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${tipsEnabled ? 'bg-accent' : 'bg-muted'}`}
-                  role="switch"
-                  aria-checked={tipsEnabled}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${tipsEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
-              </div>
-              {tipsEnabled && (
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">{t('payment.settings.quickTipOptions')}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {tipOptions.map((pct) => (
-                      <span key={pct} className="flex items-center gap-1 px-2 py-1 bg-muted rounded text-sm">
-                        {pct}%
-                        <button
-                          onClick={() => setTipOptions(tipOptions.filter((t) => t !== pct))}
-                          className="text-muted-foreground hover:text-red-500 ml-1"
-                          aria-label={`Remove ${pct}%`}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      min="1"
-                      max="100"
-                      value={newTipOption}
-                      onChange={(e) => setNewTipOption(e.target.value)}
-                      placeholder="e.g. 15"
-                      className={inputCls + ' w-24'}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const v = parseInt(newTipOption);
-                        if (v > 0 && v <= 100 && !tipOptions.includes(v)) {
-                          setTipOptions([...tipOptions, v].sort((a, b) => a - b));
-                          setNewTipOption('');
-                        }
-                      }}
+              <div className="flex flex-wrap gap-2">
+                {tipOptions.map((pct) => (
+                  <span
+                    key={pct}
+                    className="flex items-center gap-1 px-2 py-1 bg-muted rounded text-sm"
+                  >
+                    {pct}%
+                    <button
+                      onClick={() =>
+                        setTipOptions(tipOptions.filter((t) => t !== pct))
+                      }
+                      className="text-muted-foreground hover:text-red-500 ml-1"
+                      aria-label={`Remove ${pct}%`}
                     >
-                      {t('payment.settings.addTipOption')}
-                    </Button>
-                  </div>
-                </div>
-              )}
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={newTipOption}
+                  onChange={(e) => setNewTipOption(e.target.value)}
+                  placeholder="e.g. 15"
+                  className={inputCls + " w-24"}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const v = parseInt(newTipOption);
+                    if (v > 0 && v <= 100 && !tipOptions.includes(v)) {
+                      setTipOptions([...tipOptions, v].sort((a, b) => a - b));
+                      setNewTipOption("");
+                    }
+                  }}
+                >
+                  {t("payment.settings.addTipOption")}
+                </Button>
+              </div>
             </div>
           )}
-
-          <Button onClick={handleSave} disabled={loading}>
-            {loading ? t('settings.saving') : t('settings.saveSettings')}
-          </Button>
         </div>
       )}
+
+      <Button onClick={handleSave} disabled={loading}>
+        {loading ? t("settings.saving") : t("settings.saveSettings")}
+      </Button>
+    </div>
+  );
+}
 ```
 
 - [ ] **Step 5: Build to verify**
@@ -2273,6 +2507,7 @@ After those, add the payments tab:
 ```bash
 cd apps/frontend && npm run build 2>&1 | head -50
 ```
+
 Expected: Build succeeds
 
 - [ ] **Step 6: Commit**
@@ -2287,6 +2522,7 @@ git commit -m "feat: add Payments tab to SettingsView with Stripe Connect and ti
 ## Task 16: Frontend TableView — session status indicators
 
 **Files:**
+
 - Modify: `apps/frontend/src/components/tables/TableView.tsx`
 
 Add a colored dot per table card showing OPEN (orange) or PAID (green) session status. Add a "Close session" button for OPEN sessions (waiter clears when customer pays cash).
@@ -2294,35 +2530,53 @@ Add a colored dot per table card showing OPEN (orange) or PAID (green) session s
 - [ ] **Step 1: Fetch table sessions**
 
 In `apps/frontend/src/components/tables/TableView.tsx`, add import:
+
 ```typescript
-import { getTables, createTable, deleteTable, getTableSessions, closeSession } from '../../lib/api';
+import {
+  getTables,
+  createTable,
+  deleteTable,
+  getTableSessions,
+  closeSession,
+} from "../../lib/api";
 ```
 
 Add session query below the existing `tables` query:
-```typescript
-  const { data: sessions } = useQuery({
-    queryKey: ['tableSessions', restaurantId],
-    queryFn: () => getTableSessions(restaurantId),
-    enabled: !!restaurantId,
-    refetchInterval: 30000,
-  });
 
-  const sessionByTableId = React.useMemo(() => {
-    const map = new Map<string, { token: string; status: string }>();
-    (sessions || []).forEach((s) => map.set(s.tableId, { token: s.token, status: s.status }));
-    return map;
-  }, [sessions]);
+```typescript
+const { data: sessions } = useQuery({
+  queryKey: ["tableSessions", restaurantId],
+  queryFn: () => getTableSessions(restaurantId),
+  enabled: !!restaurantId,
+  refetchInterval: 30000,
+});
+
+const sessionByTableId = React.useMemo(() => {
+  const map = new Map<string, { token: string; status: string }>();
+  (sessions || []).forEach((s) =>
+    map.set(s.tableId, { token: s.token, status: s.status }),
+  );
+  return map;
+}, [sessions]);
 ```
 
 Add close session mutation:
+
 ```typescript
-  const closeSessionMutation = useMutation({
-    mutationFn: ({ token, restaurantId: rid }: { token: string; restaurantId: string }) =>
-      closeSession(token, rid),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tableSessions', restaurantId] });
-    },
-  });
+const closeSessionMutation = useMutation({
+  mutationFn: ({
+    token,
+    restaurantId: rid,
+  }: {
+    token: string;
+    restaurantId: string;
+  }) => closeSession(token, rid),
+  onSuccess: () => {
+    queryClient.invalidateQueries({
+      queryKey: ["tableSessions", restaurantId],
+    });
+  },
+});
 ```
 
 - [ ] **Step 2: Add status dot and close button to each table card**
@@ -2330,27 +2584,40 @@ Add close session mutation:
 Find the table card rendering in `TableView.tsx` (the `map` over `tables`). Inside each card, add the session indicator:
 
 ```tsx
-                {/* Session status indicator */}
-                {(() => {
-                  const session = sessionByTableId.get(table.id);
-                  if (!session) return null;
-                  return (
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`inline-block w-2 h-2 rounded-full ${session.status === 'OPEN' ? 'bg-orange-400' : 'bg-green-400'}`} />
-                      <span className="text-xs text-muted-foreground">
-                        {session.status === 'OPEN' ? t('tables.sessionOpen') : t('tables.sessionPaid')}
-                      </span>
-                      {session.status === 'OPEN' && (
-                        <button
-                          onClick={() => closeSessionMutation.mutate({ token: session.token, restaurantId })}
-                          className="text-xs text-muted-foreground hover:text-red-500 underline"
-                        >
-                          {t('tables.closeSession')}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })()}
+{
+  /* Session status indicator */
+}
+{
+  (() => {
+    const session = sessionByTableId.get(table.id);
+    if (!session) return null;
+    return (
+      <div className="flex items-center gap-2 mt-1">
+        <span
+          className={`inline-block w-2 h-2 rounded-full ${session.status === "OPEN" ? "bg-orange-400" : "bg-green-400"}`}
+        />
+        <span className="text-xs text-muted-foreground">
+          {session.status === "OPEN"
+            ? t("tables.sessionOpen")
+            : t("tables.sessionPaid")}
+        </span>
+        {session.status === "OPEN" && (
+          <button
+            onClick={() =>
+              closeSessionMutation.mutate({
+                token: session.token,
+                restaurantId,
+              })
+            }
+            className="text-xs text-muted-foreground hover:text-red-500 underline"
+          >
+            {t("tables.closeSession")}
+          </button>
+        )}
+      </div>
+    );
+  })();
+}
 ```
 
 - [ ] **Step 3: Build to verify**
@@ -2358,6 +2625,7 @@ Find the table card rendering in `TableView.tsx` (the `map` over `tables`). Insi
 ```bash
 cd apps/frontend && npm run build 2>&1 | head -50
 ```
+
 Expected: Build succeeds
 
 - [ ] **Step 4: Commit**
@@ -2372,6 +2640,7 @@ git commit -m "feat: add session status indicators and close session to TableVie
 ## Task 17: Locale keys — EN/BG/RO
 
 **Files:**
+
 - Modify: `apps/frontend/src/locales/en/translation.json`
 - Modify: `apps/frontend/src/locales/bg/translation.json`
 - Modify: `apps/frontend/src/locales/ro/translation.json`
@@ -2432,6 +2701,7 @@ Also add the settings tabs key. Find the `"settings"` → `"tabs"` section in th
 ```
 
 Also add a `"common"` key if it doesn't already exist (used by PaymentModal cancel button):
+
 ```json
   "common": {
     "cancel": "Cancel"
@@ -2486,6 +2756,7 @@ In `apps/frontend/src/locales/bg/translation.json`, add the same `"payment"` and
 ```
 
 Also add to `"settings"` → `"tabs"`:
+
 ```json
       "payments": "Плащания",
       "general": "Общи",
@@ -2540,6 +2811,7 @@ In `apps/frontend/src/locales/ro/translation.json`:
 ```
 
 Also add to `"settings"` → `"tabs"`:
+
 ```json
       "payments": "Plăți",
       "general": "General",
@@ -2551,6 +2823,7 @@ Also add to `"settings"` → `"tabs"`:
 ```bash
 cd apps/frontend && npm run build 2>&1 | head -50
 ```
+
 Expected: Build succeeds
 
 - [ ] **Step 5: Run backend tests**
@@ -2558,6 +2831,7 @@ Expected: Build succeeds
 ```bash
 cd apps/backend && npm test -- --no-coverage
 ```
+
 Expected: All tests pass
 
 - [ ] **Step 6: Final commit**
@@ -2572,9 +2846,11 @@ git commit -m "feat: add payment and table session i18n keys in EN/BG/RO"
 ## Dev Webhook Setup (after all tasks complete)
 
 To test webhooks locally, install the Stripe CLI and run:
+
 ```bash
 stripe listen --forward-to localhost:3000/api/payments/webhook
 ```
+
 Copy the `whsec_...` secret it prints and update `STRIPE_WEBHOOK_SECRET` in `apps/backend/.env`.
 
 ---

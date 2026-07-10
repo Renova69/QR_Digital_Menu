@@ -21,7 +21,7 @@ You review database access for correctness on **Neon hosted Postgres behind PgBo
 
 ## Hard rules (this codebase)
 
-1. **NEVER `Promise.all` over Prisma writes inside a single interactive `$transaction`.** PgBouncer transaction mode + parallel writes on one tx client corrupts/errors. Use `updateMany`, array-form `$transaction([...])`, or sequential `for` loops. (Per-account *separate* `$transaction` calls run via `Promise.all` is fine — that's N independent txns, not parallel writes in one.)
+1. **NEVER `Promise.all` over Prisma writes inside a single interactive `$transaction`.** PgBouncer transaction mode + parallel writes on one tx client corrupts/errors. Use `updateMany`, array-form `$transaction([...])`, or sequential `for` loops. (Per-account _separate_ `$transaction` calls run via `Promise.all` is fine — that's N independent txns, not parallel writes in one.)
 2. **Migrations are additive + idempotent.** New columns/indexes use `ADD COLUMN IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS`. Prefer `npx prisma db push` when history is drifted (per CLAUDE.md).
 3. **Schema ↔ raw-SQL index drift.** Any index created in a raw migration MUST also exist as `@@index` in schema.prisma with the matching default name (`<table>_<col>_idx`), else `prisma migrate` generates a DROP. Verify both sides.
 4. **Materialized views need DROP + CREATE to redefine.** `CREATE MATERIALIZED VIEW IF NOT EXISTS` will NOT pick up a changed definition on an existing view; `REFRESH` re-runs the stored (old) query. `dashboard-views.service.ts` must `DROP MATERIALIZED VIEW IF EXISTS … CASCADE` before each `CREATE`. Refresh uses `pg_try_advisory_xact_lock` to coordinate pods.

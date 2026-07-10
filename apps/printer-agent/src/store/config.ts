@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface AgentConfig {
   serverUrl: string;
@@ -8,7 +8,7 @@ export interface AgentConfig {
   stationName: string;
 }
 
-const KEY = 'agent_config_v1';
+const KEY = "agent_config_v1";
 
 export async function loadConfig(): Promise<AgentConfig | null> {
   const raw = await AsyncStorage.getItem(KEY);

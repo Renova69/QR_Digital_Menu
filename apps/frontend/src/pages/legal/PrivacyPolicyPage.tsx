@@ -12,13 +12,19 @@ export default function PrivacyPolicyPage() {
   });
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">{t('auto.loading', 'Loading…')}</p></div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-400">{t("auto.loading", "Loading…")}</p>
+      </div>
+    );
   }
 
   if (!data?.privacyPolicyEnabled) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-400">{t('auto.404PageNotFound', '404 — Page not found')}</p>
+        <p className="text-gray-400">
+          {t("auto.404PageNotFound", "404 — Page not found")}
+        </p>
       </div>
     );
   }
@@ -31,13 +37,18 @@ export default function PrivacyPolicyPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-12">
-      <h1 className="text-2xl font-bold mb-6">{t('auto.privacyPolicy', 'Privacy Policy')}</h1>
+      <h1 className="text-2xl font-bold mb-6">
+        {t("auto.privacyPolicy", "Privacy Policy")}
+      </h1>
       <pre className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-sans">
         {content}
       </pre>
       {data.dataControllerName && (
         <div className="mt-10 pt-6 border-t text-xs text-gray-500 space-y-1">
-          <p><strong>{t('auto.dataController', 'Data Controller:')}</strong> {data.dataControllerName}</p>
+          <p>
+            <strong>{t("auto.dataController", "Data Controller:")}</strong>{" "}
+            {data.dataControllerName}
+          </p>
           {data.dataControllerEmail && <p>{data.dataControllerEmail}</p>}
           {data.dataControllerAddress && <p>{data.dataControllerAddress}</p>}
         </div>

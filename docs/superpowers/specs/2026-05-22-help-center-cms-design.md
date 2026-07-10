@@ -42,20 +42,20 @@ model HelpContent {
 
 **Super-admin CRUD** (behind `JwtAuthGuard + SuperAdminGuard`):
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| `GET` | `/super-admin/help-content?section=landing\|dashboard` | List all items for a section |
-| `POST` | `/super-admin/help-content` | Create item |
-| `PATCH` | `/super-admin/help-content/:id` | Update item |
-| `DELETE` | `/super-admin/help-content/:id` | Delete item |
-| `PATCH` | `/super-admin/help-content/reorder` | Bulk reorder (array of `{id, sortOrder}`) |
+| Method   | Path                                                   | Purpose                                   |
+| -------- | ------------------------------------------------------ | ----------------------------------------- |
+| `GET`    | `/super-admin/help-content?section=landing\|dashboard` | List all items for a section              |
+| `POST`   | `/super-admin/help-content`                            | Create item                               |
+| `PATCH`  | `/super-admin/help-content/:id`                        | Update item                               |
+| `DELETE` | `/super-admin/help-content/:id`                        | Delete item                               |
+| `PATCH`  | `/super-admin/help-content/reorder`                    | Bulk reorder (array of `{id, sortOrder}`) |
 
 **Public read** (no auth):
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| `GET` | `/help-content/landing` | Landing FAQ consumer |
-| `GET` | `/help-content/dashboard` | Dashboard HelpView consumer (JWT optional, operators need it) |
+| Method | Path                      | Purpose                                                       |
+| ------ | ------------------------- | ------------------------------------------------------------- |
+| `GET`  | `/help-content/landing`   | Landing FAQ consumer                                          |
+| `GET`  | `/help-content/dashboard` | Dashboard HelpView consumer (JWT optional, operators need it) |
 
 ### Backend Files
 
@@ -85,6 +85,7 @@ model HelpContent {
 Main CMS page with two sub-tabs:
 
 **Landing FAQ tab:**
+
 - Flat list of FAQ items sorted by `sortOrder`
 - Each item shows: question preview, active toggle, locale badges (EN/BG/RO)
 - Edit opens a Dialog with `LocaleTextEditor`-style tabs for title + body per locale
@@ -92,6 +93,7 @@ Main CMS page with two sub-tabs:
 - Delete with confirmation
 
 **Dashboard Help tab:**
+
 - Accordion list of categories
 - Expanded category shows its items
 - Each category: edit name, delete (with all items), add items within

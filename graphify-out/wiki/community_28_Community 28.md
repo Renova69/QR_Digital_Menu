@@ -5,6 +5,7 @@
 ## Nodes
 
 ### AnalyticsView()
+
 - **ID:** `dashboard_analyticsview_analyticsview`
 - **Type:** code
 - **Degree:** 7
@@ -17,6 +18,7 @@
   - ↔ `AnalyticsView.tsx` [_`contains`_ | c32]
 
 ### CustomTooltip()
+
 - **ID:** `dashboard_analyticsview_customtooltip`
 - **Type:** code
 - **Degree:** 2
@@ -26,6 +28,7 @@
   - ↔ `AnalyticsView.tsx` [_`contains`_ | c32]
 
 ### getFeedbackSummary()
+
 - **ID:** `lib_api_getfeedbacksummary`
 - **Type:** code
 - **Degree:** 2
@@ -35,6 +38,7 @@
   - ↔ `AnalyticsView.tsx` [_`imports`_ | c32]
 
 ### EmptyState()
+
 - **ID:** `dashboard_analyticsview_emptystate`
 - **Type:** code
 - **Degree:** 1

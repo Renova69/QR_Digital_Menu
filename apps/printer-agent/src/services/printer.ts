@@ -1,4 +1,4 @@
-import TcpSocket from 'react-native-tcp-socket';
+import TcpSocket from "react-native-tcp-socket";
 
 export function sendToPrinter(
   ip: string,
@@ -21,12 +21,12 @@ export function sendToPrinter(
       else resolve();
     };
 
-    const timer = setTimeout(() => done(new Error('Print timeout')), timeoutMs);
+    const timer = setTimeout(() => done(new Error("Print timeout")), timeoutMs);
 
     client = TcpSocket.createConnection({ host: ip, port }, () => {
       // 'binary' encoding maps each char code directly to a byte — no Buffer
       // polyfill needed, avoiding the .buffer (ArrayBuffer) crash in Hermes
-      client!.write(data, 'binary', (writeErr?: Error | null) => {
+      client!.write(data, "binary", (writeErr?: Error | null) => {
         if (writeErr) {
           done(writeErr);
         } else {
@@ -36,6 +36,6 @@ export function sendToPrinter(
       });
     });
 
-    client.on('error', done);
+    client.on("error", done);
   });
 }

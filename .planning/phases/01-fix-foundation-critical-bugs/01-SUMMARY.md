@@ -25,11 +25,11 @@ Backend auth endpoints now return `{ token, user: { id, email, name, role } }` c
 
 ## Tasks Completed
 
-| # | Task | Status |
-|---|------|--------|
-| 1.1 | Fix backend login to return { token, user } | ✓ |
-| 1.2 | Update AuthContext with isError and consistent handling | ✓ |
-| 1.3 | Delete hooks/useAuth.ts and update all imports | ✓ |
+| #   | Task                                                    | Status |
+| --- | ------------------------------------------------------- | ------ |
+| 1.1 | Fix backend login to return { token, user }             | ✓      |
+| 1.2 | Update AuthContext with isError and consistent handling | ✓      |
+| 1.3 | Delete hooks/useAuth.ts and update all imports          | ✓      |
 
 ## Deviations from Plan
 

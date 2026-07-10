@@ -5,6 +5,7 @@
 ## Nodes
 
 ### Menu health check false positive Р Р†Р вЂљРІР‚Сњ deleted category-image audit rule from menu.service.ts, no UI exists to add category images
+
 - **ID:** `MenuHealthFalsePositive`
 - **Type:** code
 - **Degree:** 0

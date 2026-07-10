@@ -1,6 +1,6 @@
-import React from 'react';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import React from "react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface SortableItemProps {
   id: string;
@@ -8,7 +8,11 @@ interface SortableItemProps {
   handle?: boolean; // if true, only the [data-drag-handle] element is draggable
 }
 
-export const SortableItem = ({ id, children, handle = false }: SortableItemProps) => {
+export const SortableItem = ({
+  id,
+  children,
+  handle = false,
+}: SortableItemProps) => {
   const {
     attributes,
     listeners,
@@ -27,7 +31,7 @@ export const SortableItem = ({ id, children, handle = false }: SortableItemProps
 
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
-      {React.Children.map(children, child => {
+      {React.Children.map(children, (child) => {
         if (React.isValidElement(child)) {
           return React.cloneElement(child as React.ReactElement<any>, {
             dragHandleProps: {

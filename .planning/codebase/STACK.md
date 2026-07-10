@@ -2,16 +2,17 @@
 
 ## Languages & Runtimes
 
-| Layer | Language | Version Target |
-|-------|----------|----------------|
-| Backend | TypeScript | ES2022, CommonJS modules |
+| Layer    | Language         | Version Target                  |
+| -------- | ---------------- | ------------------------------- |
+| Backend  | TypeScript       | ES2022, CommonJS modules        |
 | Frontend | TypeScript / JSX | ES modules (`"type": "module"`) |
-| Database | SQL (PostgreSQL) | 15 (Alpine docker image) |
-| Runtime | Node.js | 20 (Alpine docker image) |
+| Database | SQL (PostgreSQL) | 15 (Alpine docker image)        |
+| Runtime  | Node.js          | 20 (Alpine docker image)        |
 
 ## Frameworks
 
 ### Backend — NestJS v11
+
 - **Core:** `@nestjs/common`, `@nestjs/core`, `@nestjs/platform-express` (v11.0.1)
 - **Config:** `@nestjs/config` (v4.0.2) — global config via `ConfigModule.forRoot()`
 - **Auth:** `@nestjs/passport` (v11.0.5), `@nestjs/jwt` (v11.0.0)
@@ -20,6 +21,7 @@
 - **Build:** NestJS CLI (`@nestjs/cli` v11.0.0), `nest build` output to `dist/`
 
 ### Frontend — React 18 + Vite
+
 - **React:** v18.2.0 with `react-dom` v18.2.0
 - **Build tool:** Vite v6.2.7 with `@vitejs/plugin-react` (v4.7.0)
 - **Routing:** `react-router-dom` v7.8.2
@@ -55,6 +57,7 @@
 ## Build & Tooling
 
 ### Backend
+
 - **Compiler:** TypeScript v5.7.3 via `ts-jest`, `ts-node`, `ts-loader`
 - **Linter:** ESLint v9.18.0 with `typescript-eslint`, flat config (`eslint.config.mjs`)
 - **Formatter:** Prettier v3.4.2 — single quotes, trailing commas
@@ -62,6 +65,7 @@
 - **Test runner:** Jest v30.0.0 with `ts-jest`, `supertest` for E2E
 
 ### Frontend
+
 - **Build:** Vite v6.2.7
 - **TypeScript:** v5.9.2 with `vite-tsconfig-paths` for path aliases
 - **CSS Processing:** PostCSS with `@tailwindcss/postcss` v4.1.12
@@ -70,27 +74,27 @@
 
 ## Configuration Files
 
-| File | Purpose |
-|------|---------|
-| `backend/tsconfig.json` | Backend TS config (CommonJS, ES2022, decorators) |
-| `backend/tsconfig.build.json` | Production build excludes |
-| `backend/nest-cli.json` | NestJS CLI options |
-| `backend/eslint.config.mjs` | ESLint flat config |
-| `backend/.prettierrc` | Prettier settings |
-| `frontend/vite.config.js` | Vite + React plugin + tsconfig paths |
-| `frontend/tailwind.config.js` | Tailwind theme with shadcn/ui design tokens |
-| `frontend/postcss.config.js` | PostCSS with Tailwind |
-| `frontend/tsconfig.json` | Frontend TS config |
-| `docker-compose.yml` | Multi-service deployment orchestration |
+| File                          | Purpose                                          |
+| ----------------------------- | ------------------------------------------------ |
+| `backend/tsconfig.json`       | Backend TS config (CommonJS, ES2022, decorators) |
+| `backend/tsconfig.build.json` | Production build excludes                        |
+| `backend/nest-cli.json`       | NestJS CLI options                               |
+| `backend/eslint.config.mjs`   | ESLint flat config                               |
+| `backend/.prettierrc`         | Prettier settings                                |
+| `frontend/vite.config.js`     | Vite + React plugin + tsconfig paths             |
+| `frontend/tailwind.config.js` | Tailwind theme with shadcn/ui design tokens      |
+| `frontend/postcss.config.js`  | PostCSS with Tailwind                            |
+| `frontend/tsconfig.json`      | Frontend TS config                               |
+| `docker-compose.yml`          | Multi-service deployment orchestration           |
 
 ## Environment Variables
 
-| Variable | Service | Purpose |
-|----------|---------|---------|
-| `DATABASE_URL` | Backend | PostgreSQL connection string |
-| `JWT_SECRET` | Backend | JWT signing secret |
-| `GOOGLE_CLIENT_ID` | Backend | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | Backend | Google OAuth client secret |
-| `GOOGLE_CALLBACK_URL` | Backend | Google OAuth redirect URL |
-| `FRONTEND_URL` | Backend | CORS origin (`http://localhost:3001`) |
-| `VITE_API_URL` | Frontend | Backend API base URL (`http://localhost:3000/api`) |
+| Variable               | Service  | Purpose                                            |
+| ---------------------- | -------- | -------------------------------------------------- |
+| `DATABASE_URL`         | Backend  | PostgreSQL connection string                       |
+| `JWT_SECRET`           | Backend  | JWT signing secret                                 |
+| `GOOGLE_CLIENT_ID`     | Backend  | Google OAuth client ID                             |
+| `GOOGLE_CLIENT_SECRET` | Backend  | Google OAuth client secret                         |
+| `GOOGLE_CALLBACK_URL`  | Backend  | Google OAuth redirect URL                          |
+| `FRONTEND_URL`         | Backend  | CORS origin (`http://localhost:3001`)              |
+| `VITE_API_URL`         | Frontend | Backend API base URL (`http://localhost:3000/api`) |

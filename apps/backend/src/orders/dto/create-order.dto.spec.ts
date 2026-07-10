@@ -85,7 +85,9 @@ describe('CreateOrderDto validation', () => {
       expect(
         validateSync(dto, { whitelist: true, forbidNonWhitelisted: false }),
       ).toHaveLength(0);
-      expect((dto as any).redeemPoints).toBeUndefined();
+      expect(
+        (dto as unknown as Record<string, unknown>)['redeemPoints'],
+      ).toBeUndefined();
     });
   });
 

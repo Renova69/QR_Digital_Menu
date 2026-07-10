@@ -95,7 +95,7 @@ describe('SuperAdminService', () => {
         .mockResolvedValueOnce(12)
         .mockResolvedValueOnce(50);
       mockPrisma.payment.aggregate.mockResolvedValueOnce({
-        _sum: { amount: '123.45' as any },
+        _sum: { amount: '123.45' as unknown as number },
         _count: 6,
       });
       // allTiers query (lightweight: tier + forceTier only)
@@ -240,7 +240,10 @@ describe('SuperAdminService', () => {
       mockPrisma.restaurant.findMany.mockResolvedValueOnce([]);
       mockPrisma.restaurant.count.mockResolvedValueOnce(0);
 
-      await service.getTenants({ page: NaN as any, limit: NaN as any });
+      await service.getTenants({
+        page: NaN as unknown as number,
+        limit: NaN as unknown as number,
+      });
 
       const call = mockPrisma.restaurant.findMany.mock.calls[0][0];
       expect(call.skip).toBe(0); // page 1 → skip 0
@@ -337,7 +340,7 @@ describe('SuperAdminService', () => {
         _count: { menuCategories: 3, orders: 10, tables: 5 },
       });
       mockPrisma.payment.aggregate.mockResolvedValueOnce({
-        _sum: { amount: '123.456' as any },
+        _sum: { amount: '123.456' as unknown as number },
         _count: 4,
       });
 
@@ -609,17 +612,19 @@ describe('SuperAdminService', () => {
       await service.deleteStaff('r1', 's1', ACTOR_ID);
 
       expect(mockPrisma.order.updateMany).toHaveBeenCalledWith({
-        where: {
-          OR: [{ staffUserId: 's1' }, { customerId: 's1' }],
-        },
-        data: { staffUserId: null, customerId: null },
+        where: { staffUserId: 's1' },
+        data: { staffUserId: null },
+      });
+      expect(mockPrisma.order.updateMany).toHaveBeenCalledWith({
+        where: { customerId: 's1' },
+        data: { customerId: null },
       });
       // Verify updateMany is inside the $transaction array, not called standalone
       const txArgs = mockPrisma.$transaction.mock.calls[
         mockPrisma.$transaction.mock.calls.length - 1
       ][0] as unknown[];
       expect(Array.isArray(txArgs)).toBe(true);
-      expect(txArgs).toHaveLength(3);
+      expect(txArgs).toHaveLength(4);
     });
   });
 
@@ -722,6 +727,27 @@ describe('SuperAdminService', () => {
           }),
         }),
       );
+    });
+
+    it('throws NotFoundException if the session does not exist', async () => {
+      mockPrisma.tableSession.findUnique.mockResolvedValueOnce(null);
+      await expect(
+        service.forceCloseSession('r1', 's1', ACTOR_ID),
+      ).rejects.toThrow();
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException if the session belongs to a different restaurant', async () => {
+      mockPrisma.tableSession.findUnique.mockResolvedValueOnce({
+        id: 's1',
+        token: 'tok1',
+        restaurantId: 'other-r1',
+        status: 'OPEN',
+      });
+      await expect(
+        service.forceCloseSession('r1', 's1', ACTOR_ID),
+      ).rejects.toThrow();
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
   });
 });

@@ -5,6 +5,7 @@
 ## Nodes
 
 ### assistance.entity.ts
+
 - **ID:** `apps_backend_src_assistance_entities_assistance_entity_ts`
 - **Type:** code
 - **Degree:** 1
@@ -13,6 +14,7 @@
   - → `Assistance` [_`contains`_ | EXTRACTED | score: 1.0]
 
 ### Assistance
+
 - **ID:** `entities_assistance_entity_assistance`
 - **Type:** code
 - **Degree:** 1

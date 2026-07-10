@@ -36,7 +36,10 @@ export default function PosOptionsDrawer() {
       const detail = (e as CustomEvent).detail as ItemWithOptions;
       setItem(detail);
       setOpen(true);
-      const defaults: Record<string, { choiceName: string; priceModifier: number }> = {};
+      const defaults: Record<
+        string,
+        { choiceName: string; priceModifier: number }
+      > = {};
       for (const opt of detail.options ?? []) {
         if (opt.required && opt.choices.length > 0) {
           defaults[opt.id] = {
@@ -60,7 +63,7 @@ export default function PosOptionsDrawer() {
     optionId: string,
     _optionName: string,
     choiceName: string,
-    priceModifier: number
+    priceModifier: number,
   ) => {
     setSelections((prev) => ({
       ...prev,
@@ -80,7 +83,7 @@ export default function PosOptionsDrawer() {
           choiceName: sel.choiceName,
           priceModifier: sel.priceModifier,
         };
-      }
+      },
     );
 
     addItem({
@@ -98,7 +101,7 @@ export default function PosOptionsDrawer() {
 
   const optionsPrice = Object.values(selections).reduce(
     (sum, s) => sum + (s.priceModifier || 0),
-    0
+    0,
   );
 
   return (
@@ -107,7 +110,9 @@ export default function PosOptionsDrawer() {
         {item && (
           <>
             <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-            <Dialog.Content className={`fixed inset-x-0 bottom-0 z-50 max-h-[70dvh] overflow-y-auto rounded-t-xl bg-background p-6 pb-safe text-foreground ${theme === "dark" ? "dark" : ""}`}>
+            <Dialog.Content
+              className={`fixed inset-x-0 bottom-0 z-50 max-h-[70dvh] overflow-y-auto rounded-t-xl bg-background p-6 pb-safe text-foreground ${theme === "dark" ? "dark" : ""}`}
+            >
               <Dialog.Title className="text-lg font-semibold mb-1">
                 {item.name}
               </Dialog.Title>
@@ -137,7 +142,7 @@ export default function PosOptionsDrawer() {
                                 opt.id,
                                 opt.name,
                                 choice.name,
-                                choice.priceModifier
+                                choice.priceModifier,
                               )
                             }
                             className={`px-3 py-2 rounded-lg text-sm min-h-[44px] transition-none ${
@@ -203,7 +208,10 @@ export default function PosOptionsDrawer() {
                   type="text"
                   value={itemNote}
                   onChange={(e) => setItemNote(e.target.value)}
-                  placeholder={t("pos.notePlaceholder", "e.g. no salt, extra sauce...")}
+                  placeholder={t(
+                    "pos.notePlaceholder",
+                    "e.g. no salt, extra sauce...",
+                  )}
                   className="w-full px-3 py-2 rounded-lg bg-card border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
@@ -213,7 +221,9 @@ export default function PosOptionsDrawer() {
                 onClick={handleAddToCart}
                 className="w-full py-3 rounded-lg brand-cta font-semibold text-sm min-h-[44px]"
               >
-                {t("pos.addToCart", { total: (item.price + optionsPrice).toFixed(2) })}
+                {t("pos.addToCart", {
+                  total: (item.price + optionsPrice).toFixed(2),
+                })}
               </button>
             </Dialog.Content>
           </>

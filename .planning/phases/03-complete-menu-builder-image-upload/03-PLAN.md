@@ -63,12 +63,14 @@ export const uploadItemImage = async (itemId: string, file: File): Promise<void>
 In `frontend/src/hooks/useMenu.ts`, import `uploadItemImage` from `menuService`.
 
 Add the mutation block:
+
 ```typescript
 const uploadImageMutation = useMutation({
-  mutationFn: ({ itemId, file }: { itemId: string; file: File }) => uploadItemImage(itemId, file),
+  mutationFn: ({ itemId, file }: { itemId: string; file: File }) =>
+    uploadItemImage(itemId, file),
   onSuccess: () => {
     // We could pass categoryId to invalidate exactly, or just invalidate all items
-    queryClient.invalidateQueries({ queryKey: ['items'] });
+    queryClient.invalidateQueries({ queryKey: ["items"] });
   },
 });
 ```
@@ -76,10 +78,11 @@ const uploadImageMutation = useMutation({
 Export `uploadImage: uploadImageMutation.mutateAsync` in the hook's return object.
 </action>
 <acceptance_criteria>
+
 - `useMenu.ts` exports `uploadImage`.
 - It invalidates `['items']` on success.
-</acceptance_criteria>
-</task>
+  </acceptance_criteria>
+  </task>
 
 <task id="3.3">
 <title>Expose uploadImage in MenuContext</title>
@@ -90,26 +93,55 @@ Export `uploadImage: uploadImageMutation.mutateAsync` in the hook's return objec
 In MenuContext, we don't strictly need to expose it if we adjust `handleCreateItem` instead, but for consistency we can pass the function. Alternatively, let's keep it simple: alter `MenuContextType` to optionally accept an `imageFile` during creation.
 
 Update `MenuContextType` inside `frontend/src/context/MenuContext.tsx`:
+
 ```typescript
-createItem: (itemData: { name: string; description: string; price: number; imageFile?: File | null }) => Promise<void>;
+createItem: (itemData: {
+  name: string;
+  description: string;
+  price: number;
+  imageFile?: File | null;
+}) => Promise<void>;
 ```
 
 Extract `uploadImage` from `useMenu` inside `MenuProvider`:
+
 ```typescript
-const { categories, isLoadingCategories, createCategory, getItemsQuery, createItem, setCategories, setItems, uploadImage } = useMenu(activeRestaurant?.id);
+const {
+  categories,
+  isLoadingCategories,
+  createCategory,
+  getItemsQuery,
+  createItem,
+  setCategories,
+  setItems,
+  uploadImage,
+} = useMenu(activeRestaurant?.id);
 ```
 
 Update `handleCreateItem`:
+
 ```typescript
-const handleCreateItem = async (itemData: { name: string; description: string; price: number; imageFile?: File | null }) => {
+const handleCreateItem = async (itemData: {
+  name: string;
+  description: string;
+  price: number;
+  imageFile?: File | null;
+}) => {
   if (!selectedCategory) return;
   const { imageFile, ...rest } = itemData;
-  const newItem = await createItem({ ...rest, categoryId: selectedCategory.id, currency: 'EUR', allergens: [], dietaryTags: [] });
+  const newItem = await createItem({
+    ...rest,
+    categoryId: selectedCategory.id,
+    currency: "EUR",
+    allergens: [],
+    dietaryTags: [],
+  });
   if (imageFile && newItem) {
     await uploadImage({ itemId: newItem.id, file: imageFile });
   }
 };
 ```
+
 </action>
 <acceptance_criteria>
 - `MenuContextType.createItem` takes an optional `imageFile`.

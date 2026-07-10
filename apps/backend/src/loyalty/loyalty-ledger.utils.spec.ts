@@ -54,7 +54,11 @@ describe('loyalty-ledger.utils', () => {
       ];
       tx.loyaltyPointLedger.findMany.mockResolvedValue(expiredEntries);
 
-      await expireAccountPoints(tx as any, 'acc-1', new Date('2100-01-01'));
+      await expireAccountPoints(
+        tx as unknown as Parameters<typeof expireAccountPoints>[0],
+        'acc-1',
+        new Date('2100-01-01'),
+      );
 
       expect(tx.loyaltyPointLedger.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -72,7 +76,11 @@ describe('loyalty-ledger.utils', () => {
         { id: 'batch-1', remainingPoints: 300, type: 'EARN' },
       ]);
 
-      await expireAccountPoints(tx as any, 'acc-1', new Date('2100-01-01'));
+      await expireAccountPoints(
+        tx as unknown as Parameters<typeof expireAccountPoints>[0],
+        'acc-1',
+        new Date('2100-01-01'),
+      );
 
       expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
       expect(tx.loyaltyAccount.update).not.toHaveBeenCalled();
@@ -82,7 +90,10 @@ describe('loyalty-ledger.utils', () => {
       const tx = makeTx();
       tx.loyaltyPointLedger.findMany.mockResolvedValue([]);
 
-      const result = await expireAccountPoints(tx as any, 'acc-1');
+      const result = await expireAccountPoints(
+        tx as unknown as Parameters<typeof expireAccountPoints>[0],
+        'acc-1',
+      );
       expect(result).toBe(0);
     });
   });
@@ -99,7 +110,7 @@ describe('loyalty-ledger.utils', () => {
           update: jest.fn(),
           create: jest.fn(),
         },
-      } as any;
+      } as unknown as Parameters<typeof redeemAccountPoints>[0];
 
       await redeemAccountPoints(tx, 'acc-1', 75);
 
@@ -130,7 +141,7 @@ describe('loyalty-ledger.utils', () => {
           update: jest.fn(),
           create: jest.fn(),
         },
-      } as any;
+      } as unknown as Parameters<typeof redeemAccountPoints>[0];
 
       await expect(redeemAccountPoints(tx, 'acc-1', 100)).rejects.toThrow(
         'Loyalty point ledger does not match account balance',
@@ -144,7 +155,7 @@ describe('loyalty-ledger.utils', () => {
           update: jest.fn(),
           create: jest.fn(),
         },
-      } as any;
+      } as unknown as Parameters<typeof redeemAccountPoints>[0];
 
       await redeemAccountPoints(tx, 'acc-1', 0);
       expect(tx.loyaltyPointLedger.findMany).not.toHaveBeenCalled();
@@ -159,7 +170,7 @@ describe('loyalty-ledger.utils', () => {
           update: jest.fn(),
           create: jest.fn(),
         },
-      } as any;
+      } as unknown as Parameters<typeof redeemAccountPoints>[0];
 
       await redeemAccountPoints(tx, 'acc-1', 100, 'order-1');
 
@@ -179,7 +190,7 @@ describe('loyalty-ledger.utils', () => {
     it('should create correct ledger entry for EARN', async () => {
       const tx = {
         loyaltyPointLedger: { create: jest.fn() },
-      } as any;
+      } as unknown as Parameters<typeof addEarnedPointBatch>[0];
       const expiresAt = new Date('2024-12-31');
 
       await addEarnedPointBatch(tx, 'acc-1', 100, 'EARN', expiresAt, 'order-1');
@@ -200,7 +211,7 @@ describe('loyalty-ledger.utils', () => {
     it('should do nothing when points <= 0', async () => {
       const tx = {
         loyaltyPointLedger: { create: jest.fn() },
-      } as any;
+      } as unknown as Parameters<typeof addEarnedPointBatch>[0];
 
       await addEarnedPointBatch(tx, 'acc-1', 0, 'EARN', new Date());
       expect(tx.loyaltyPointLedger.create).not.toHaveBeenCalled();

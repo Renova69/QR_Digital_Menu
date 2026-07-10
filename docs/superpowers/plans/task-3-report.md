@@ -86,3 +86,12 @@ Ran all test suites matching menu-crud.service.spec.ts.
 - **Tests Run**: `npm run test -- src/menu/menu-crud.service.spec.ts`
 - **Output**: 89 passed, 89 total.
 - **Commits Made**: Committed all the fixes above.
+
+### Fixes for Review 3
+- **What I fixed**:
+  - Replaced hardcoded `Math.max(0, 100 - index)` with `items.length - index` in `menu-crud.service.ts` to dynamically scale the base score with the array size.
+  - Added test case `boosts rank of MORNING tagged item during morning hours in America/New_York (09:00 EDT = 13:00 UTC)` in `menu-crud.service.spec.ts` to verify timezone interpretation correctness.
+  - Updated mock test arrays to 4 items in all contextual scoring tests, ensuring the upselling multiplier works as expected and successfully overtakes base items.
+- **Tests Run**: `npm run test -- src/menu/menu-crud.service.spec.ts`
+- **Output**: 90 passed, 90 total.
+- **Commits Made**: `261e82c8 fix(menu): scale base score with input array length and add timezone test coverage`

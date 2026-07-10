@@ -1,24 +1,29 @@
-import { io, Socket } from 'socket.io-client';
-import { AgentConfig } from '../store/config';
-import { sendToPrinter } from './printer';
-import { acquireWakeLock, releaseWakeLock } from './wakeLock';
+import { io, Socket } from "socket.io-client";
+import { AgentConfig } from "../store/config";
+import { sendToPrinter } from "./printer";
+import { acquireWakeLock, releaseWakeLock } from "./wakeLock";
 
 interface PrintJobPayload {
   jobId: string;
   ticket: string; // base64-encoded ESC/POS bytes built by backend
 }
 
-export type ConnectionStatus = 'connecting' | 'connected' | 'printing' | 'disconnected' | 'error';
+export type ConnectionStatus =
+  | "connecting"
+  | "connected"
+  | "printing"
+  | "disconnected"
+  | "error";
 
 export interface StatusUpdate {
   status: ConnectionStatus;
-  message: string;     // short label shown in status card
-  hint?: string;       // actionable guidance shown below message
+  message: string; // short label shown in status card
+  hint?: string; // actionable guidance shown below message
 }
 
 type StatusListener = (update: StatusUpdate) => void;
 
-const TAG = '[PrintAgent]';
+const TAG = "[PrintAgent]";
 
 // H-5: generation counter isolates callbacks when startSocketService is called again
 // before the previous socket has fully closed (avoids module-level mutable state races)
@@ -29,7 +34,9 @@ let connectTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 function emit(update: StatusUpdate) {
   if (__DEV__) {
-    console.log(`${TAG} status=${update.status} msg="${update.message}"${update.hint ? ` hint="${update.hint}"` : ''}`);
+    console.log(
+      `${TAG} status=${update.status} msg="${update.message}"${update.hint ? ` hint="${update.hint}"` : ""}`,
+    );
   }
   onStatusChange?.(update);
 }
@@ -42,12 +49,14 @@ function clearConnectTimeout() {
 }
 
 function isPrivateServerUrl(url: string): boolean {
-  return /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|localhost|127\.)/i.test(url);
+  return /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|localhost|127\.)/i.test(
+    url,
+  );
 }
 
 function classifyConnectError(err: Error, serverUrl: string): StatusUpdate {
-  const msg = (err.message ?? '').toLowerCase();
-  const raw = err.message || 'unknown error';
+  const msg = (err.message ?? "").toLowerCase();
+  const raw = err.message || "unknown error";
   const isLocal = isPrivateServerUrl(serverUrl);
 
   if (__DEV__) {
@@ -55,117 +64,124 @@ function classifyConnectError(err: Error, serverUrl: string): StatusUpdate {
   }
 
   if (
-    msg.includes('econnrefused') ||
-    msg.includes('err_connection_refused') ||
-    msg.includes('connection refused')
+    msg.includes("econnrefused") ||
+    msg.includes("err_connection_refused") ||
+    msg.includes("connection refused")
   ) {
     return {
-      status: 'error',
-      message: 'Server not running',
+      status: "error",
+      message: "Server not running",
       hint: `Port is closed — check the backend is running.\n(${raw})`,
     };
   }
 
   if (
-    msg.includes('etimedout') ||
-    msg.includes('timeout') ||
-    msg.includes('timed out')
+    msg.includes("etimedout") ||
+    msg.includes("timeout") ||
+    msg.includes("timed out")
   ) {
     return {
-      status: 'error',
-      message: 'Connection timed out',
+      status: "error",
+      message: "Connection timed out",
       hint: isLocal
         ? `Local server unreachable. Make sure your phone is on the same Wi-Fi as ${serverUrl}.\n(${raw})`
         : `Server not responding. Check the Server URL and your network.\n(${raw})`,
     };
   }
 
-  if (msg.includes('cors')) {
+  if (msg.includes("cors")) {
     return {
-      status: 'error',
-      message: 'CORS rejected',
+      status: "error",
+      message: "CORS rejected",
       hint: `Server refused the connection origin.\n(${raw})`,
     };
   }
 
   if (
-    msg.includes('websocket') ||
-    msg.includes('transport') ||
-    msg.includes('xhr poll')
+    msg.includes("websocket") ||
+    msg.includes("transport") ||
+    msg.includes("xhr poll")
   ) {
     return {
-      status: 'error',
-      message: 'WebSocket error',
+      status: "error",
+      message: "WebSocket error",
       hint: isLocal
         ? `Cannot reach local server. Ensure phone is on the same Wi-Fi as ${serverUrl}.\n(${raw})`
         : `WebSocket connection failed. If using https://, verify the server URL is correct.\n(${raw})`,
     };
   }
 
-  if (msg.includes('network') || msg.includes('net::')) {
+  if (msg.includes("network") || msg.includes("net::")) {
     return {
-      status: 'error',
-      message: 'Network error',
+      status: "error",
+      message: "Network error",
       hint: `No network connection. Check Wi-Fi or mobile data.\n(${raw})`,
     };
   }
 
   return {
-    status: 'error',
-    message: 'Connection failed',
+    status: "error",
+    message: "Connection failed",
     hint: `${raw}\nCheck Server URL and network.`,
   };
 }
 
-function classifyDisconnect(reason: string, authRejected: boolean): StatusUpdate {
+function classifyDisconnect(
+  reason: string,
+  authRejected: boolean,
+): StatusUpdate {
   if (__DEV__) {
-    console.log(`${TAG} disconnect reason="${reason}" authRejected=${authRejected}`);
+    console.log(
+      `${TAG} disconnect reason="${reason}" authRejected=${authRejected}`,
+    );
   }
 
   if (authRejected) {
     return {
-      status: 'error',
-      message: 'Token rejected',
-      hint: 'Agent token is invalid, revoked, or the station is disabled. Tap Reset & Reconfigure and generate a new token from the dashboard.',
+      status: "error",
+      message: "Token rejected",
+      hint: "Agent token is invalid, revoked, or the station is disabled. Tap Reset & Reconfigure and generate a new token from the dashboard.",
     };
   }
 
   switch (reason) {
-    case 'server namespace disconnect':
-    case 'io server disconnect':
+    case "server namespace disconnect":
+    case "io server disconnect":
       return {
-        status: 'disconnected',
-        message: 'Disconnected by server',
-        hint: 'Server closed the connection. If this keeps happening, regenerate the agent token.',
+        status: "disconnected",
+        message: "Disconnected by server",
+        hint: "Server closed the connection. If this keeps happening, regenerate the agent token.",
       };
-    case 'ping timeout':
+    case "ping timeout":
       return {
-        status: 'disconnected',
-        message: 'Server not responding',
-        hint: 'Lost heartbeat with server. Reconnecting…',
+        status: "disconnected",
+        message: "Server not responding",
+        hint: "Lost heartbeat with server. Reconnecting…",
       };
-    case 'transport error':
+    case "transport error":
       return {
-        status: 'disconnected',
-        message: 'Network dropped',
-        hint: 'Wi-Fi connection lost. Reconnecting when network returns…',
+        status: "disconnected",
+        message: "Network dropped",
+        hint: "Wi-Fi connection lost. Reconnecting when network returns…",
       };
-    case 'transport close':
+    case "transport close":
       return {
-        status: 'disconnected',
-        message: 'Connection lost',
-        hint: 'Reconnecting…',
+        status: "disconnected",
+        message: "Connection lost",
+        hint: "Reconnecting…",
       };
     default:
       return {
-        status: 'disconnected',
-        message: 'Disconnected',
+        status: "disconnected",
+        message: "Disconnected",
         hint: `Reason: ${reason}. Reconnecting…`,
       };
   }
 }
 
-async function pingServer(serverUrl: string): Promise<'ok' | 'unreachable' | 'running'> {
+async function pingServer(
+  serverUrl: string,
+): Promise<"ok" | "unreachable" | "running"> {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
@@ -173,13 +189,16 @@ async function pingServer(serverUrl: string): Promise<'ok' | 'unreachable' | 'ru
       signal: controller.signal,
     }).finally(() => clearTimeout(timer));
     // Any HTTP response means the server is up (even 404/403)
-    return res.status < 500 ? 'ok' : 'running';
+    return res.status < 500 ? "ok" : "running";
   } catch {
-    return 'unreachable';
+    return "unreachable";
   }
 }
 
-export function startSocketService(config: AgentConfig, listener: StatusListener): void {
+export function startSocketService(
+  config: AgentConfig,
+  listener: StatusListener,
+): void {
   if (socket) {
     socket.disconnect();
     socket = null;
@@ -194,7 +213,9 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
   let healthChecked = false;
 
   if (__DEV__) {
-    console.log(`${TAG} connecting to ${config.serverUrl} station="${config.stationName}"`);
+    console.log(
+      `${TAG} connecting to ${config.serverUrl} station="${config.stationName}"`,
+    );
   }
 
   // Hold CPU/Wi-Fi locks for the whole active agent session, including
@@ -202,8 +223,8 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
   acquireWakeLock();
 
   emit({
-    status: 'connecting',
-    message: 'Connecting…',
+    status: "connecting",
+    message: "Connecting…",
     hint: `Reaching ${config.serverUrl}`,
   });
 
@@ -217,7 +238,7 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
     // Use polling→websocket (standard socket.io order): polling establishes the
     // session over HTTP first, then upgrades. If WebSocket upgrade is blocked,
     // it stays on polling — still functional for print jobs.
-    transports: ['polling', 'websocket'],
+    transports: ["polling", "websocket"],
   });
 
   // Timeout guard — if no connect within 12s, surface a helpful message
@@ -229,14 +250,14 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
         console.log(`${TAG} connect timeout — no response within 12s`);
       }
       emit({
-        status: 'error',
-        message: 'Connection timed out',
+        status: "error",
+        message: "Connection timed out",
         hint: `No response from ${config.serverUrl} after 12s. Check:\n• Same Wi-Fi network?\n• Backend running?\n• Server URL correct?`,
       });
     }
   }, 12_000);
 
-  socket.on('connect', () => {
+  socket.on("connect", () => {
     if (myGeneration !== generation) return;
     clearConnectTimeout();
     authRejected = false;
@@ -244,15 +265,15 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
       console.log(`${TAG} connected socketId=${socket?.id}`);
     }
     emit({
-      status: 'connected',
-      message: 'Online',
+      status: "connected",
+      message: "Online",
       hint: `${config.stationName} ready to print`,
     });
     // Re-assert the lock after reconnect in case Android reclaimed it.
     acquireWakeLock();
   });
 
-  socket.on('agent:rejected', (reason: string) => {
+  socket.on("agent:rejected", (reason: string) => {
     if (myGeneration !== generation) return;
     if (__DEV__) {
       console.log(`${TAG} agent:rejected reason="${reason}"`);
@@ -260,7 +281,7 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
     authRejected = true;
   });
 
-  socket.on('disconnect', (reason: string) => {
+  socket.on("disconnect", (reason: string) => {
     if (myGeneration !== generation) return;
     clearConnectTimeout();
     if (authRejected) {
@@ -269,7 +290,7 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
     emit(classifyDisconnect(reason, authRejected));
   });
 
-  socket.on('connect_error', (err: Error) => {
+  socket.on("connect_error", (err: Error) => {
     if (myGeneration !== generation) return;
     clearConnectTimeout();
 
@@ -281,10 +302,10 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
       healthChecked = true;
       void pingServer(config.serverUrl).then((reachability) => {
         if (myGeneration !== generation) return;
-        if (reachability === 'unreachable') {
+        if (reachability === "unreachable") {
           emit({
-            status: 'error',
-            message: 'Server unreachable',
+            status: "error",
+            message: "Server unreachable",
             hint: isPrivateServerUrl(config.serverUrl)
               ? `Cannot reach ${config.serverUrl}.\n• Is your phone on the same Wi-Fi?\n• Is the backend (npm run dev) running?`
               : `Cannot reach ${config.serverUrl}. Check the Server URL and your network.`,
@@ -299,31 +320,31 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
     }
   });
 
-  socket.on('reconnect_attempt', (attempt: number) => {
+  socket.on("reconnect_attempt", (attempt: number) => {
     if (myGeneration !== generation) return;
     if (__DEV__) {
       console.log(`${TAG} reconnect attempt #${attempt}`);
     }
     emit({
-      status: 'connecting',
+      status: "connecting",
       message: `Reconnecting… (attempt ${attempt})`,
-      hint: 'Waiting for network or server to come back.',
+      hint: "Waiting for network or server to come back.",
     });
   });
 
-  socket.on('reconnect_failed', () => {
+  socket.on("reconnect_failed", () => {
     if (myGeneration !== generation) return;
     if (__DEV__) {
       console.log(`${TAG} reconnect_failed — giving up`);
     }
     emit({
-      status: 'error',
-      message: 'Cannot reconnect',
-      hint: 'All reconnection attempts failed. Tap Reset & Reconfigure to check your settings.',
+      status: "error",
+      message: "Cannot reconnect",
+      hint: "All reconnection attempts failed. Tap Reset & Reconfigure to check your settings.",
     });
   });
 
-  socket.on('print:job', (payload: PrintJobPayload) => {
+  socket.on("print:job", (payload: PrintJobPayload) => {
     // Intentionally NOT async at the handler level — unhandled async rejections
     // crash Hermes in production builds. All async work is inside a caught promise.
     void (async () => {
@@ -333,37 +354,56 @@ export function startSocketService(config: AgentConfig, listener: StatusListener
         const ticket = payload?.ticket;
         if (!jobId || !ticket) {
           if (__DEV__) {
-            console.warn(`${TAG} print:job received with missing fields`, payload);
+            console.warn(
+              `${TAG} print:job received with missing fields`,
+              payload,
+            );
           }
           return;
         }
 
         const shortId = jobId.slice(-8).toUpperCase();
         if (__DEV__) {
-          console.log(`${TAG} print:job jobId=${shortId} ticketBytes=${ticket.length}`);
+          console.log(
+            `${TAG} print:job jobId=${shortId} ticketBytes=${ticket.length}`,
+          );
         }
-        emit({ status: 'printing', message: `Printing…`, hint: `Job ${shortId}` });
+        emit({
+          status: "printing",
+          message: `Printing…`,
+          hint: `Job ${shortId}`,
+        });
 
         // atob gives a binary string (each char = one byte 0-255) — pass directly
         // to sendToPrinter which writes with 'binary' encoding; no Buffer polyfill touched
         const binary = atob(ticket);
         if (__DEV__) {
-          console.log(`${TAG} sending ${binary.length} bytes to ${config.printerIp}:${config.printerPort}`);
+          console.log(
+            `${TAG} sending ${binary.length} bytes to ${config.printerIp}:${config.printerPort}`,
+          );
         }
         await sendToPrinter(config.printerIp, config.printerPort, binary);
-        socket?.emit('print:ack', { jobId, success: true });
-        emit({ status: 'connected', message: 'Online', hint: `Last print OK — job ${shortId}` });
+        socket?.emit("print:ack", { jobId, success: true });
+        emit({
+          status: "connected",
+          message: "Online",
+          hint: `Last print OK — job ${shortId}`,
+        });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         if (__DEV__) {
           console.error(`${TAG} printer error:`, message);
         }
         try {
-          socket?.emit('print:ack', { jobId: payload?.jobId, success: false, error: message });
+          socket?.emit("print:ack", {
+            jobId: payload?.jobId,
+            success: false,
+            error: message,
+          });
         } catch {}
         emit({
-          status: 'connected',
-          message: 'Print failed',
+          status: "connected",
+          message: "Print failed",
           hint: `${message}. Check printer IP ${config.printerIp}:${config.printerPort}.`,
         });
       }

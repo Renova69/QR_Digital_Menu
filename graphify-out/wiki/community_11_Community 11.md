@@ -5,6 +5,7 @@
 ## Nodes
 
 ### api.ts
+
 - **ID:** `apps_frontend_src_lib_api_ts`
 - **Type:** code
 - **Degree:** 159
@@ -29,6 +30,7 @@
   - ↔ `ManageOptionsModal.tsx` [_`imports_from`_ | c57]
 
 ### SettingsView()
+
 - **ID:** `dashboard_settingsview_settingsview`
 - **Type:** code
 - **Degree:** 4
@@ -40,6 +42,7 @@
   - ↔ `SettingsView.tsx` [_`contains`_ | c8]
 
 ### createOrder()
+
 - **ID:** `lib_api_createorder`
 - **Type:** code
 - **Degree:** 3
@@ -49,6 +52,7 @@
   - ↔ `CheckoutPage.tsx` [_`imports`_ | c117]
 
 ### generateStripeConnectLink()
+
 - **ID:** `lib_api_generatestripeconnectlink`
 - **Type:** code
 - **Degree:** 3
@@ -58,6 +62,7 @@
   - ↔ `PaymentSetupStep.tsx` [_`imports`_ | c20]
 
 ### deleteTable()
+
 - **ID:** `lib_api_deletetable`
 - **Type:** code
 - **Degree:** 2
@@ -66,6 +71,7 @@
   - ↔ `TableView.tsx` [_`imports`_ | c27]
 
 ### getGoogleReviewUrl()
+
 - **ID:** `lib_api_getgooglereviewurl`
 - **Type:** code
 - **Degree:** 2
@@ -74,6 +80,7 @@
   - ↔ `FeedbackPage.tsx` [_`imports`_ | c23]
 
 ### getTables()
+
 - **ID:** `lib_api_gettables`
 - **Type:** code
 - **Degree:** 2
@@ -82,6 +89,7 @@
   - ↔ `TableView.tsx` [_`imports`_ | c27]
 
 ### submitFeedback()
+
 - **ID:** `lib_api_submitfeedback`
 - **Type:** code
 - **Degree:** 2
@@ -90,6 +98,7 @@
   - ↔ `FeedbackPage.tsx` [_`imports`_ | c23]
 
 ### triggerTranslation()
+
 - **ID:** `lib_api_triggertranslation`
 - **Type:** code
 - **Degree:** 2
@@ -98,30 +107,35 @@
   - ↔ `GeneralSettingsTab.tsx` [_`imports`_ | c8]
 
 ### api
+
 - **ID:** `lib_api_api`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/frontend/src/lib/api.ts` @ L19
 
 ### fetchCsrfToken()
+
 - **ID:** `lib_api_fetchcsrftoken`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/frontend/src/lib/api.ts` @ L318
 
 ### getCurrentUser()
+
 - **ID:** `lib_api_getcurrentuser`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/frontend/src/lib/api.ts` @ L56
 
 ### publicPaths
+
 - **ID:** `lib_api_publicpaths`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/frontend/src/lib/api.ts` @ L356
 
 ### FeedbackPage()
+
 - **ID:** `pages_feedbackpage_feedbackpage`
 - **Type:** code
 - **Degree:** 1
@@ -130,6 +144,7 @@
   - ↔ `FeedbackPage.tsx` [_`contains`_ | c23]
 
 ### FeedbackStep
+
 - **ID:** `pages_feedbackpage_feedbackstep`
 - **Type:** code
 - **Degree:** 1

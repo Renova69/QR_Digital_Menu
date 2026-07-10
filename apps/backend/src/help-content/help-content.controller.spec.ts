@@ -86,7 +86,11 @@ describe('HelpContentController', () => {
     it('should update an item', async () => {
       mockService.update.mockResolvedValue({ id: '1', title: 'Updated' });
 
-      const result = await controller.update('1', { title: 'Updated' }, mockReq);
+      const result = await controller.update(
+        '1',
+        { title: 'Updated' },
+        mockReq,
+      );
 
       expect(result).toHaveProperty('title', 'Updated');
     });
@@ -106,9 +110,10 @@ describe('HelpContentController', () => {
     it('should reorder items', async () => {
       await controller.reorder({ items: [{ id: '1', sortOrder: 0 }] }, mockReq);
 
-      expect(mockService.reorder).toHaveBeenCalledWith([
-        { id: '1', sortOrder: 0 },
-      ], ACTOR);
+      expect(mockService.reorder).toHaveBeenCalledWith(
+        [{ id: '1', sortOrder: 0 }],
+        ACTOR,
+      );
     });
   });
 });

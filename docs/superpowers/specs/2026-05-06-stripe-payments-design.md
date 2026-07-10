@@ -87,6 +87,7 @@ enum PaymentProvider {
 ### Modify: `Order`
 
 Add one field:
+
 ```prisma
 tableSessionId String?
 tableSession   TableSession? @relation(fields: [tableSessionId], references: [id])
@@ -95,6 +96,7 @@ tableSession   TableSession? @relation(fields: [tableSessionId], references: [id
 ### Modify: `Restaurant`
 
 Add fields:
+
 ```prisma
 stripeAccountId      String?
 stripeOnboarded      Boolean  @default(false)
@@ -107,6 +109,7 @@ platformFeePercent   Float    @default(0.5)
 ### Modify: `Table`
 
 Add relation:
+
 ```prisma
 sessions TableSession[]
 ```
@@ -118,6 +121,7 @@ sessions TableSession[]
 ### New module: `PaymentModule`
 
 **Files:**
+
 - `apps/backend/src/payment/payment.module.ts`
 - `apps/backend/src/payment/payment.service.ts` — orchestration + provider selection
 - `apps/backend/src/payment/payment.controller.ts` — HTTP routes
@@ -125,6 +129,7 @@ sessions TableSession[]
 - `apps/backend/src/payment/payment-provider.interface.ts` — abstraction interface
 
 **Payment provider interface** (`payment-provider.interface.ts`):
+
 ```typescript
 export interface IPaymentProvider {
   createPaymentIntent(params: {
@@ -140,6 +145,7 @@ export interface IPaymentProvider {
 ```
 
 **StripeProvider** (`stripe.provider.ts`):
+
 - Initializes `new Stripe(process.env.STRIPE_SECRET_KEY)`
 - `createPaymentIntent`: calls `stripe.paymentIntents.create()` with `transfer_data.destination` = restaurant's `stripeAccountId`, `application_fee_amount` = platform fee in cents
 - `constructWebhookEvent`: calls `stripe.webhooks.constructEvent()`
@@ -147,15 +153,18 @@ export interface IPaymentProvider {
 **PaymentService** (`payment.service.ts`) — key methods:
 
 `getOrCreateSession(tableId, restaurantId, token?)`:
+
 - If token provided → find session by token where status=OPEN → return it
 - Else → create new TableSession → return `{ session, token }`
 
 `getSessionBill(token)`:
+
 - Find session by token, status=OPEN
 - Sum all linked orders' `totalPrice`
 - Return `{ orders, subtotal, restaurantId, tipsEnabled, tipOptions }`
 
 `createPaymentIntent(token, tipPercent)`:
+
 - Fetch session + restaurant
 - Validate restaurant has `paymentsEnabled = true` → else throw `403 Forbidden`
 - Validate restaurant has `stripeOnboarded = true` → else throw `400 Bad Request('Stripe not connected')`
@@ -166,6 +175,7 @@ export interface IPaymentProvider {
 - Return `{ clientSecret, paymentId, total, tipAmount }`
 
 `handleWebhookEvent(payload, signature)`:
+
 - `stripeProvider.constructWebhookEvent(payload, signature)`
 - On `payment_intent.succeeded`:
   - Find Payment by `stripePaymentIntentId`
@@ -193,11 +203,13 @@ POST /api/restaurants/:id/stripe/disconnect  → clear stripeAccountId (owner au
 ```
 
 `generateConnectLink(restaurantId)`:
+
 - Call `stripe.accountLinks.create({ account: existingAccountId OR stripe.accounts.create({ type: 'express' }), refresh_url, return_url, type: 'account_onboarding' })`
 - Store `stripeAccountId` on restaurant
 - Return `{ url }` — frontend redirects to it
 
 On return from Stripe (`return_url` = `/dashboard/settings?stripe=success`):
+
 - Frontend calls `GET /api/restaurants/:id/stripe/status`
 - Backend calls `stripe.accounts.retrieve(stripeAccountId)` → check `charges_enabled`
 - If true → set `stripeOnboarded = true`
@@ -205,12 +217,14 @@ On return from Stripe (`return_url` = `/dashboard/settings?stripe=success`):
 ### Orders service change
 
 `createOrder()` — add session wiring:
+
 - Accept optional `sessionToken` in the order DTO
 - Call `paymentService.getOrCreateSession(tableId, restaurantId, sessionToken)`
 - Set `order.tableSessionId`
 - Return `sessionToken` in response (frontend stores in localStorage if not already set)
 
 ### New env vars (already in .env)
+
 ```
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_PUBLISHABLE_KEY=pk_test_...     (frontend only)
@@ -230,6 +244,7 @@ STRIPE_WEBHOOK_SECRET=...              (set after webhook endpoint created in St
 ### Public menu — session token management
 
 `PublicMenuPage.tsx` / order submission:
+
 - Before `POST /api/orders`, read `sessionToken` from `localStorage.getItem('session-{tableId}')`
 - Include `sessionToken` in order body
 - On order success, if response includes `sessionToken` → `localStorage.setItem('session-{tableId}', token)`
@@ -237,6 +252,7 @@ STRIPE_WEBHOOK_SECRET=...              (set after webhook endpoint created in St
 ### "Request Bill" button
 
 Added to public menu action bar (alongside Sign In / Cart):
+
 - Visible only when `localStorage` has a session token for current table
 - Calls `GET /api/payments/session/:token/bill` to confirm session has orders
 - Opens `PaymentModal`
@@ -244,10 +260,12 @@ Added to public menu action bar (alongside Sign In / Cart):
 ### New: `PaymentModal.tsx`
 
 Step 1 — **Tip selection** (if `tipsEnabled`):
+
 - "No Tip" button + quick % buttons (from `tipOptions`) + "Custom" input
 - "Continue" → step 2
 
 Step 2 — **Stripe Elements**:
+
 - Load `@stripe/stripe-js` with `VITE_STRIPE_PUBLISHABLE_KEY`
 - Call `POST /api/payments/session/:token/intent` with tip percent
 - Mount `<PaymentElement>` (handles card / Apple Pay / Google Pay automatically)
@@ -255,6 +273,7 @@ Step 2 — **Stripe Elements**:
 - On payment success → clear `localStorage` session token → show confirmation
 
 Step 3 — **Confirmation**:
+
 - Checkmark, "Payment received", total paid
 - "Back to menu" button
 
@@ -263,16 +282,19 @@ Step 3 — **Confirmation**:
 New tab in `SettingsView.tsx`:
 
 **Enable payments toggle (top of tab):**
+
 - Toggle: "Accept digital payments" → sets `paymentsEnabled`
 - When OFF: "Request Bill" button hidden on public menu; payment intent routes return 403 for this restaurant; Stripe Connect + tips sections still visible so owner can configure in advance
 - When ON but `!stripeOnboarded`: show warning banner "Connect Stripe to start accepting payments"
 - Use case: restaurants using app for ordering + loyalty only (cash / physical POS) can leave this off indefinitely
 
 **Stripe Connect section:**
+
 - If `!stripeOnboarded`: "Connect Stripe" button → calls `POST /api/restaurants/:id/stripe/connect` → redirect to Stripe onboarding URL
 - If `stripeOnboarded`: green badge "Stripe Connected" + "Disconnect" option
 
 **Tips section** (visible when `paymentsEnabled`):
+
 - Toggle: "Enable tips"
 - When enabled: editable list of quick-tip % options (default [2, 4, 5]) + add/remove buttons
 - Save → `PATCH /api/restaurants/:id` with `{ tipsEnabled, tipOptions }`
@@ -280,6 +302,7 @@ New tab in `SettingsView.tsx`:
 ### Owner dashboard — table view
 
 Each table card shows:
+
 - Orange dot = OPEN session (orders pending payment)
 - Green dot = PAID (recent session)
 - Owner can manually close a session (cash payment / customer left) via a "Close session" button
@@ -289,6 +312,7 @@ Each table card shows:
 ## MyPOS — Future Integration
 
 When ready, add `MyposPaymentProvider` implementing `IPaymentProvider`:
+
 - `createPaymentIntent` → MyPOS online payment API call → returns redirect URL or embedded widget
 - `constructWebhookEvent` → parse MyPOS callback
 
@@ -323,25 +347,25 @@ confirmation screen
 
 ## Files Changed Summary
 
-| File | Change |
-|------|--------|
-| `apps/backend/prisma/schema.prisma` | Add `TableSession`, `Payment`, new enums, Restaurant/Order/Table fields |
-| `apps/backend/src/payment/payment-provider.interface.ts` | New — provider abstraction |
-| `apps/backend/src/payment/stripe.provider.ts` | New — Stripe implementation |
-| `apps/backend/src/payment/payment.service.ts` | New — orchestration |
-| `apps/backend/src/payment/payment.controller.ts` | New — HTTP routes |
-| `apps/backend/src/payment/payment.module.ts` | New — module wiring |
-| `apps/backend/src/restaurants/restaurants.service.ts` | Add Stripe Connect onboarding methods |
-| `apps/backend/src/restaurants/restaurants.controller.ts` | Add `/stripe/connect`, `/stripe/status` routes |
-| `apps/backend/src/orders/orders.service.ts` | Accept `sessionToken`, wire `tableSessionId` |
-| `apps/backend/src/orders/dto/create-order.dto.ts` | Add optional `sessionToken` field |
-| `apps/backend/src/app.module.ts` | Register `PaymentModule` |
-| `apps/backend/.env` + `.env.example` | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` |
-| `apps/frontend/.env` | `VITE_STRIPE_PUBLISHABLE_KEY` |
-| `apps/frontend/src/pages/PublicMenuPage.tsx` | Session token management, "Request Bill" button |
-| `apps/frontend/src/components/payment/PaymentModal.tsx` | New — tip + Stripe Elements + confirmation |
-| `apps/frontend/src/pages/Dashboard/SettingsView.tsx` | Payments tab (Connect + tips config) |
-| `apps/frontend/src/pages/Dashboard/TablesView.tsx` | Session status indicators per table |
-| `apps/frontend/src/locales/en/translation.json` | Payment + tips i18n keys |
-| `apps/frontend/src/locales/bg/translation.json` | Same in Bulgarian |
-| `apps/frontend/src/locales/ro/translation.json` | Same in Romanian |
+| File                                                     | Change                                                                  |
+| -------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `apps/backend/prisma/schema.prisma`                      | Add `TableSession`, `Payment`, new enums, Restaurant/Order/Table fields |
+| `apps/backend/src/payment/payment-provider.interface.ts` | New — provider abstraction                                              |
+| `apps/backend/src/payment/stripe.provider.ts`            | New — Stripe implementation                                             |
+| `apps/backend/src/payment/payment.service.ts`            | New — orchestration                                                     |
+| `apps/backend/src/payment/payment.controller.ts`         | New — HTTP routes                                                       |
+| `apps/backend/src/payment/payment.module.ts`             | New — module wiring                                                     |
+| `apps/backend/src/restaurants/restaurants.service.ts`    | Add Stripe Connect onboarding methods                                   |
+| `apps/backend/src/restaurants/restaurants.controller.ts` | Add `/stripe/connect`, `/stripe/status` routes                          |
+| `apps/backend/src/orders/orders.service.ts`              | Accept `sessionToken`, wire `tableSessionId`                            |
+| `apps/backend/src/orders/dto/create-order.dto.ts`        | Add optional `sessionToken` field                                       |
+| `apps/backend/src/app.module.ts`                         | Register `PaymentModule`                                                |
+| `apps/backend/.env` + `.env.example`                     | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`                            |
+| `apps/frontend/.env`                                     | `VITE_STRIPE_PUBLISHABLE_KEY`                                           |
+| `apps/frontend/src/pages/PublicMenuPage.tsx`             | Session token management, "Request Bill" button                         |
+| `apps/frontend/src/components/payment/PaymentModal.tsx`  | New — tip + Stripe Elements + confirmation                              |
+| `apps/frontend/src/pages/Dashboard/SettingsView.tsx`     | Payments tab (Connect + tips config)                                    |
+| `apps/frontend/src/pages/Dashboard/TablesView.tsx`       | Session status indicators per table                                     |
+| `apps/frontend/src/locales/en/translation.json`          | Payment + tips i18n keys                                                |
+| `apps/frontend/src/locales/bg/translation.json`          | Same in Bulgarian                                                       |
+| `apps/frontend/src/locales/ro/translation.json`          | Same in Romanian                                                        |

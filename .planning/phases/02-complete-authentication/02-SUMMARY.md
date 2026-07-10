@@ -23,10 +23,10 @@ Created React Error Boundary class component with fallback UI (error message + r
 
 ## Tasks Completed
 
-| # | Task | Status |
-|---|------|--------|
-| 2.1 | Create React Error Boundary component | ✓ |
-| 2.2 | Add auth error feedback to LoginDialog | ✓ |
+| #   | Task                                   | Status |
+| --- | -------------------------------------- | ------ |
+| 2.1 | Create React Error Boundary component  | ✓      |
+| 2.2 | Add auth error feedback to LoginDialog | ✓      |
 
 ## Deviations from Plan
 

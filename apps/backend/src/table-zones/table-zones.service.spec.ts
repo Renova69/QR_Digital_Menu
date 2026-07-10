@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, ConflictException } from '@nestjs/common';
 import { TableZonesService } from './table-zones.service';
 
 describe('TableZonesService', () => {
@@ -13,7 +13,19 @@ describe('TableZonesService', () => {
       },
       tableZone: {
         findMany: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        aggregate: jest.fn(),
+        delete: jest.fn(),
+        findUnique: jest.fn(),
       },
+      restaurantTable: {
+        updateMany: jest.fn(),
+      },
+      user: {
+        findUnique: jest.fn(),
+      },
+      $transaction: jest.fn().mockImplementation((args) => Promise.all(args)),
     };
     events = {
       emitZoneChanged: jest.fn(),
@@ -62,6 +74,60 @@ describe('TableZonesService', () => {
       ).rejects.toThrow(ForbiddenException);
 
       expect(prisma.tableZone.findMany).not.toHaveBeenCalled();
+    });
+
+    describe('create', () => {
+      it('throws ConflictException if zone with same name exists', async () => {
+        prisma.restaurant.findUnique.mockResolvedValue({ ownerId: 'owner-1' });
+        prisma.tableZone.findFirst.mockResolvedValue({ id: 'existing-zone' });
+
+        await expect(
+          service.create('rest-1', { name: 'Main' }, 'owner-1'),
+        ).rejects.toThrow(ConflictException);
+      });
+
+      it('creates a new zone successfully', async () => {
+        prisma.restaurant.findUnique.mockResolvedValue({ ownerId: 'owner-1' });
+        prisma.tableZone.findFirst.mockResolvedValue(null);
+        prisma.tableZone.aggregate.mockResolvedValue({
+          _max: { displayOrder: 100 },
+        });
+        prisma.tableZone.create.mockResolvedValue({
+          id: 'new-zone',
+          displayOrder: 1100,
+        });
+
+        const result = await service.create(
+          'rest-1',
+          { name: 'Patio' },
+          'owner-1',
+        );
+
+        expect(result).toEqual({ id: 'new-zone', displayOrder: 1100 });
+        expect(prisma.tableZone.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({
+            name: 'Patio',
+            displayOrder: 1100,
+            restaurantId: 'rest-1',
+          }),
+        });
+        expect(events.emitZoneChanged).toHaveBeenCalledWith('rest-1');
+      });
+    });
+
+    describe('remove', () => {
+      it('throws ConflictException when trying to delete the last zone', async () => {
+        prisma.tableZone.findUnique.mockResolvedValue({
+          id: 'zone-1',
+          restaurantId: 'rest-1',
+        });
+        prisma.restaurant.findUnique.mockResolvedValue({ ownerId: 'owner-1' });
+        prisma.tableZone.findMany.mockResolvedValue([{ id: 'zone-1' }]); // Only 1 zone
+
+        await expect(service.remove('zone-1', 'owner-1')).rejects.toThrow(
+          ConflictException,
+        );
+      });
     });
   });
 });

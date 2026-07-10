@@ -1,6 +1,7 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OptionalJwtStrategy } from './optional-jwt.strategy';
+import { PrismaService } from '../prisma/prisma.service';
 
 describe('OptionalJwtStrategy', () => {
   const prisma = {
@@ -14,8 +15,10 @@ describe('OptionalJwtStrategy', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     strategy = new OptionalJwtStrategy(
-      { get: jest.fn().mockReturnValue('test-secret') } as unknown as ConfigService,
-      prisma as any,
+      {
+        get: jest.fn().mockReturnValue('test-secret'),
+      } as unknown as ConfigService,
+      prisma as unknown as PrismaService,
     );
   });
 
@@ -54,7 +57,11 @@ describe('OptionalJwtStrategy', () => {
     const staleIat = Math.floor(passwordChangedAt.getTime() / 1000) - 60;
 
     await expect(
-      strategy.validate({ sub: 'staff-1', email: 'staff@test.com', iat: staleIat }),
+      strategy.validate({
+        sub: 'staff-1',
+        email: 'staff@test.com',
+        iat: staleIat,
+      }),
     ).rejects.toThrow('PASSWORD_CHANGED');
   });
 

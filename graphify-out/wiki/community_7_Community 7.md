@@ -5,6 +5,7 @@
 ## Nodes
 
 ### MenuCrudService
+
 - **ID:** `menu_menu_crud_service_menucrudservice`
 - **Type:** code
 - **Degree:** 30
@@ -27,6 +28,7 @@
   - ↔ `.constructor()` [_`method`_ | c26]
 
 ### .checkRestaurantOwnership()
+
 - **ID:** `menu_menu_crud_service_menucrudservice_checkrestaurantownership`
 - **Type:** code
 - **Degree:** 16
@@ -47,6 +49,7 @@
   - ↔ `.updateItem()` [_`calls`_ | c26]
 
 ### useMenu.ts
+
 - **ID:** `apps_frontend_src_hooks_usemenu_ts`
 - **Type:** code
 - **Degree:** 15
@@ -68,6 +71,7 @@
   - ↔ `Category` [_`imports`_ | c45]
 
 ### public-menu.controller.ts
+
 - **ID:** `apps_backend_src_menu_public_menu_controller_ts`
 - **Type:** code
 - **Degree:** 6
@@ -80,6 +84,7 @@
   - ↔ `PublicMenuController` [_`contains`_ | c114]
 
 ### CreateMenuOptionDto
+
 - **ID:** `dto_create_menu_option_dto_createmenuoptiondto`
 - **Type:** code
 - **Degree:** 4
@@ -91,6 +96,7 @@
   - ↔ `update-menu-option.dto.ts` [_`imports`_ | c73]
 
 ### UpdateMenuOptionDto
+
 - **ID:** `dto_update_menu_option_dto_updatemenuoptiondto`
 - **Type:** code
 - **Degree:** 3
@@ -101,6 +107,7 @@
   - ↔ `update-menu-option.dto.ts` [_`contains`_ | c73]
 
 ### getTrendingItems()
+
 - **ID:** `lib_api_gettrendingitems`
 - **Type:** code
 - **Degree:** 2
@@ -110,48 +117,56 @@
   - ↔ `api.ts` [_`contains`_ | c3]
 
 ### .findAllCategories()
+
 - **ID:** `menu_menu_crud_service_menucrudservice_findallcategories`
 - **Type:** code
 - **Degree:** 2
 - **Source:** `apps/backend/src/menu/menu-crud.service.ts` @ L382
 
 ### .findAllItemsInCategory()
+
 - **ID:** `menu_menu_crud_service_menucrudservice_findallitemsincategory`
 - **Type:** code
 - **Degree:** 2
 - **Source:** `apps/backend/src/menu/menu-crud.service.ts` @ L561
 
 ### .removeCategory()
+
 - **ID:** `menu_menu_crud_service_menucrudservice_removecategory`
 - **Type:** code
 - **Degree:** 2
 - **Source:** `apps/backend/src/menu/menu-crud.service.ts` @ L458
 
 ### .removeItem()
+
 - **ID:** `menu_menu_crud_service_menucrudservice_removeitem`
 - **Type:** code
 - **Degree:** 2
 - **Source:** `apps/backend/src/menu/menu-crud.service.ts` @ L678
 
 ### .removeMenuOption()
+
 - **ID:** `menu_menu_crud_service_menucrudservice_removemenuoption`
 - **Type:** code
 - **Degree:** 2
 - **Source:** `apps/backend/src/menu/menu-crud.service.ts` @ L859
 
 ### .updateCategoryImage()
+
 - **ID:** `menu_menu_crud_service_menucrudservice_updatecategoryimage`
 - **Type:** code
 - **Degree:** 2
 - **Source:** `apps/backend/src/menu/menu-crud.service.ts` @ L471
 
 ### .updateItemImage()
+
 - **ID:** `menu_menu_crud_service_menucrudservice_updateitemimage`
 - **Type:** code
 - **Degree:** 2
 - **Source:** `apps/backend/src/menu/menu-crud.service.ts` @ L642
 
 ### createItem()
+
 - **ID:** `services_menuservice_createitem`
 - **Type:** code
 - **Degree:** 2
@@ -160,6 +175,7 @@
   - ↔ `menuService.ts` [_`contains`_ | c45]
 
 ### deleteCategory()
+
 - **ID:** `services_menuservice_deletecategory`
 - **Type:** code
 - **Degree:** 2
@@ -168,6 +184,7 @@
   - ↔ `menuService.ts` [_`contains`_ | c45]
 
 ### deleteItem()
+
 - **ID:** `services_menuservice_deleteitem`
 - **Type:** code
 - **Degree:** 2
@@ -176,6 +193,7 @@
   - ↔ `menuService.ts` [_`contains`_ | c45]
 
 ### getCategories()
+
 - **ID:** `services_menuservice_getcategories`
 - **Type:** code
 - **Degree:** 2
@@ -184,6 +202,7 @@
   - ↔ `menuService.ts` [_`contains`_ | c45]
 
 ### getItems()
+
 - **ID:** `services_menuservice_getitems`
 - **Type:** code
 - **Degree:** 2
@@ -192,6 +211,7 @@
   - ↔ `menuService.ts` [_`contains`_ | c45]
 
 ### updateCategory()
+
 - **ID:** `services_menuservice_updatecategory`
 - **Type:** code
 - **Degree:** 2
@@ -200,6 +220,7 @@
   - ↔ `menuService.ts` [_`contains`_ | c45]
 
 ### updateItem()
+
 - **ID:** `services_menuservice_updateitem`
 - **Type:** code
 - **Degree:** 2
@@ -208,6 +229,7 @@
   - ↔ `menuService.ts` [_`contains`_ | c45]
 
 ### updateItemOrder()
+
 - **ID:** `services_menuservice_updateitemorder`
 - **Type:** code
 - **Degree:** 2
@@ -217,6 +239,7 @@
   - ↔ `menuService.ts` [_`contains`_ | c45]
 
 ### uploadCategoryImage()
+
 - **ID:** `services_menuservice_uploadcategoryimage`
 - **Type:** code
 - **Degree:** 2
@@ -226,6 +249,7 @@
   - ↔ `menuService.ts` [_`contains`_ | c45]
 
 ### uploadItemImage()
+
 - **ID:** `services_menuservice_uploaditemimage`
 - **Type:** code
 - **Degree:** 2
@@ -234,6 +258,7 @@
   - ↔ `menuService.ts` [_`contains`_ | c45]
 
 ### Currency
+
 - **ID:** `dto_create_item_dto_currency`
 - **Type:** code
 - **Degree:** 1
@@ -242,6 +267,7 @@
   - ↔ `create-item.dto.ts` [_`contains`_ | c73]
 
 ### .getAllMenuData()
+
 - **ID:** `menu_public_menu_controller_publicmenucontroller_getallmenudata`
 - **Type:** code
 - **Degree:** 1
@@ -250,6 +276,7 @@
   - ↔ `PublicMenuController` [_`method`_ | c114]
 
 ### .testRoute()
+
 - **ID:** `menu_public_menu_controller_publicmenucontroller_testroute`
 - **Type:** code
 - **Degree:** 1

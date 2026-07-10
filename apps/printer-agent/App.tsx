@@ -1,14 +1,23 @@
-import React, { useEffect, useState } from 'react';
-import { SafeAreaView, StatusBar, StyleSheet, ActivityIndicator, View, Linking } from 'react-native';
-import { AgentConfig, loadConfig } from './src/store/config';
-import SetupScreen, { parseSetupUrl } from './src/screens/SetupScreen';
-import StatusScreen from './src/screens/StatusScreen';
+import React, { useEffect, useState } from "react";
+import {
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  ActivityIndicator,
+  View,
+  Linking,
+} from "react-native";
+import { AgentConfig, loadConfig } from "./src/store/config";
+import SetupScreen, { parseSetupUrl } from "./src/screens/SetupScreen";
+import StatusScreen from "./src/screens/StatusScreen";
 
 export default function App() {
   const [config, setConfig] = useState<AgentConfig | null | undefined>(
     undefined,
   );
-  const [setupConfig, setSetupConfig] = useState<Partial<AgentConfig> | null>(null);
+  const [setupConfig, setSetupConfig] = useState<Partial<AgentConfig> | null>(
+    null,
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -33,7 +42,7 @@ export default function App() {
       }
     })();
 
-    const subscription = Linking.addEventListener('url', ({ url }) => {
+    const subscription = Linking.addEventListener("url", ({ url }) => {
       applySetupUrl(url);
     });
 
@@ -45,7 +54,14 @@ export default function App() {
 
   if (config === undefined) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#0f0f23', justifyContent: 'center', alignItems: 'center' }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#0f0f23",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
         <ActivityIndicator size="large" color="#6366f1" />
       </View>
     );
@@ -76,5 +92,5 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0f0f23' },
+  root: { flex: 1, backgroundColor: "#0f0f23" },
 });

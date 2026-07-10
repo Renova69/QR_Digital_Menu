@@ -5,6 +5,7 @@
 ## Nodes
 
 ### TranslationService
+
 - **ID:** `translation_translation_service_translationservice`
 - **Type:** code
 - **Degree:** 14
@@ -23,6 +24,7 @@
   - ↔ `restaurants.service.ts` [_`imports`_ | c62]
 
 ### StripeProvider
+
 - **ID:** `payment_stripe_provider_stripeprovider`
 - **Type:** code
 - **Degree:** 13
@@ -40,6 +42,7 @@
   - ↔ `.onModuleInit()` [_`method`_ | c43]
 
 ### stripe.provider.spec.ts
+
 - **ID:** `apps_backend_src_payment_stripe_provider_spec_ts`
 - **Type:** code
 - **Degree:** 7
@@ -55,6 +58,7 @@
   - ↔ `devProvider` [_`contains`_ | c43]
 
 ### AppController
+
 - **ID:** `src_app_controller_appcontroller`
 - **Type:** code
 - **Degree:** 6
@@ -68,6 +72,7 @@
   - ↔ `app.module.ts` [_`imports`_ | c15]
 
 ### .sleep()
+
 - **ID:** `translation_translation_service_translationservice_sleep`
 - **Type:** code
 - **Degree:** 4
@@ -78,6 +83,7 @@
   - ↔ `.withRetry()` [_`calls`_ | c6]
 
 ### app.controller.spec.ts
+
 - **ID:** `apps_backend_src_app_controller_spec_ts`
 - **Type:** code
 - **Degree:** 3
@@ -89,6 +95,7 @@
   - ↔ `app.controller.ts` [_`imports_from`_ | c123]
 
 ### .onModuleInit()
+
 - **ID:** `prisma_prisma_service_prismaservice_onmoduleinit`
 - **Type:** code
 - **Degree:** 3
@@ -100,6 +107,7 @@
   - ↔ `PrismaService` [_`method`_ | c6]
 
 ### .translateObject()
+
 - **ID:** `translation_translation_service_translationservice_translateobject`
 - **Type:** code
 - **Degree:** 3
@@ -108,6 +116,7 @@
   - ↔ `.translateTexts()` [_`calls`_ | c33]
 
 ### payment-provider.interface.ts
+
 - **ID:** `apps_backend_src_payment_payment_provider_interface_ts`
 - **Type:** code
 - **Degree:** 2
@@ -118,6 +127,7 @@
   - ↔ `stripe.provider.ts` [_`imports_from`_ | c43]
 
 ### IPaymentProvider
+
 - **ID:** `payment_payment_provider_interface_ipaymentprovider`
 - **Type:** code
 - **Degree:** 2
@@ -126,6 +136,7 @@
   - ↔ `stripe.provider.ts` [_`imports`_ | c43]
 
 ### .translateText()
+
 - **ID:** `translation_translation_service_translationservice_translatetext`
 - **Type:** code
 - **Degree:** 2
@@ -134,60 +145,70 @@
   - ↔ `.translateTexts()` [_`calls`_ | c33]
 
 ### payload
+
 - **ID:** `payment_stripe_provider_spec_payload`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/payment/stripe.provider.spec.ts` @ L58
 
 ### .constructWebhookEvent()
+
 - **ID:** `payment_stripe_provider_stripeprovider_constructwebhookevent`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/payment/stripe.provider.ts` @ L48
 
 ### .createAccountLink()
+
 - **ID:** `payment_stripe_provider_stripeprovider_createaccountlink`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/payment/stripe.provider.ts` @ L65
 
 ### .createExpressAccount()
+
 - **ID:** `payment_stripe_provider_stripeprovider_createexpressaccount`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/payment/stripe.provider.ts` @ L60
 
 ### .retrieveAccount()
+
 - **ID:** `payment_stripe_provider_stripeprovider_retrieveaccount`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/payment/stripe.provider.ts` @ L79
 
 ### .getApiInfo()
+
 - **ID:** `src_app_controller_appcontroller_getapiinfo`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/app.controller.ts` @ L37
 
 ### .getRoot()
+
 - **ID:** `src_app_controller_appcontroller_getroot`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/app.controller.ts` @ L12
 
 ### result
+
 - **ID:** `src_app_controller_spec_result`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/app.controller.spec.ts` @ L17
 
 ### .apiKey()
+
 - **ID:** `translation_translation_service_translationservice_apikey`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/translation/translation.service.ts` @ L17
 
 ### .baseUrl()
+
 - **ID:** `translation_translation_service_translationservice_baseurl`
 - **Type:** code
 - **Degree:** 1

@@ -11,7 +11,9 @@ type SharedDeviceConfig = {
   deviceToken?: string;
 };
 
-type DeviceEnrollmentResult = Awaited<ReturnType<typeof verifyDeviceEnrollment>>;
+type DeviceEnrollmentResult = Awaited<
+  ReturnType<typeof verifyDeviceEnrollment>
+>;
 
 const verificationRequests = new Map<string, Promise<DeviceEnrollmentResult>>();
 
@@ -47,7 +49,9 @@ function getApiMessage(error: any) {
 function isAlreadyUsedEnrollmentError(error: any) {
   const status = error?.response?.status;
   const message = getApiMessage(error).toLowerCase();
-  return status === 410 && message.includes("already") && message.includes("used");
+  return (
+    status === 410 && message.includes("already") && message.includes("used")
+  );
 }
 
 function isSharedDeviceDisabledError(error: any) {
@@ -99,7 +103,10 @@ export default function DeviceEnrollPage() {
         setRestaurantName(result.restaurantName);
         setState("ready");
         setMessage("Device linked. Opening staff PIN login...");
-        redirectTimer = setTimeout(() => navigate("/device-login", { replace: true }), 1000);
+        redirectTimer = setTimeout(
+          () => navigate("/device-login", { replace: true }),
+          1000,
+        );
       } catch (err: any) {
         if (cancelled) return;
         const existingDevice = readSharedDeviceConfig();
@@ -119,8 +126,13 @@ export default function DeviceEnrollPage() {
         if (alreadyUsed && existingDevice?.deviceToken === token) {
           setRestaurantName(existingDevice.restaurantName || "");
           setState("ready");
-          setMessage("This device is already linked. Opening staff PIN login...");
-          redirectTimer = setTimeout(() => navigate("/device-login", { replace: true }), 1000);
+          setMessage(
+            "This device is already linked. Opening staff PIN login...",
+          );
+          redirectTimer = setTimeout(
+            () => navigate("/device-login", { replace: true }),
+            1000,
+          );
           return;
         }
 
@@ -133,7 +145,10 @@ export default function DeviceEnrollPage() {
         }
 
         setState("error");
-        setMessage(getApiMessage(err) || "This device enrollment link is invalid or expired.");
+        setMessage(
+          getApiMessage(err) ||
+            "This device enrollment link is invalid or expired.",
+        );
       }
     };
 
@@ -162,10 +177,10 @@ export default function DeviceEnrollPage() {
           {state === "shared-device-off"
             ? "Shared Device Mode Off"
             : state === "error"
-            ? "Device Link Failed"
-            : state === "ready"
-              ? "Device Linked"
-              : "Linking Device"}
+              ? "Device Link Failed"
+              : state === "ready"
+                ? "Device Linked"
+                : "Linking Device"}
         </h1>
 
         {restaurantName && (
@@ -181,16 +196,20 @@ export default function DeviceEnrollPage() {
             <p className="text-xs text-slate-500">
               {state === "shared-device-off"
                 ? t(
-                    'auto.enableSharedDeviceModeFirst',
-                    'Ask a manager to enable Shared Device Mode in Staff settings, then generate a fresh Staff Device QR for this device.',
+                    "auto.enableSharedDeviceModeFirst",
+                    "Ask a manager to enable Shared Device Mode in Staff settings, then generate a fresh Staff Device QR for this device.",
                   )
-                : t('auto.askAManagerToGenerateAFreshStaff', 'Ask a manager to generate a fresh staff device QR from Settings.')}
+                : t(
+                    "auto.askAManagerToGenerateAFreshStaff",
+                    "Ask a manager to generate a fresh staff device QR from Settings.",
+                  )}
             </p>
             <Link
               to="/login"
               className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-950"
             >
-              {t('auto.managerLogin', 'Manager Login')}</Link>
+              {t("auto.managerLogin", "Manager Login")}
+            </Link>
           </div>
         )}
       </div>

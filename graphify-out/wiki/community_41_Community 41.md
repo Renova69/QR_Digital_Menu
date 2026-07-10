@@ -5,6 +5,7 @@
 ## Nodes
 
 ### Demo restaurant dataset Р Р†Р вЂљРІР‚Сњ rich menu with categories, items, options, allergens, pricing; used for testing and onboarding
+
 - **ID:** `DemoDatasetExpansion`
 - **Type:** rationale
 - **Degree:** 0

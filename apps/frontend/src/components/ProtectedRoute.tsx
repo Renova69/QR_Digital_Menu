@@ -38,8 +38,7 @@ export default function ProtectedRoute({
     DASHBOARD_BLOCKED_ROLES.includes(role) &&
     location.pathname.startsWith("/dashboard")
   ) {
-    const redirect =
-      role === "WAITER" ? "/staff/pos" : "/staff/kitchen";
+    const redirect = role === "WAITER" ? "/staff/pos" : "/staff/kitchen";
     return <Navigate to={redirect} replace />;
   }
 

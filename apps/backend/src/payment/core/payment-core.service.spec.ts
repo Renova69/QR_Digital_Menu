@@ -1,5 +1,14 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PaymentCoreService } from './payment-core.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { EventsGateway } from '../../events/events.gateway';
+import { FeatureService } from '../../subscription/feature.service';
+
+type DeepPartial<T> = T extends Function
+  ? T
+  : T extends object
+    ? { [P in keyof T]?: DeepPartial<T[P]> }
+    : T;
 
 // Direct unit coverage for the payment access perimeter. Before the split these
 // checks lived in PaymentService and were exercised only transitively; this spec
@@ -21,9 +30,9 @@ describe('PaymentCoreService access checks', () => {
       user: { findUnique: jest.fn() },
     };
     service = new PaymentCoreService(
-      prisma as any,
-      {} as any, // EventsGateway — unused by access checks
-      {} as any, // FeatureService — unused by access checks
+      prisma as unknown as PrismaService,
+      {} as Partial<EventsGateway> as EventsGateway, // EventsGateway — unused by access checks
+      {} as Partial<FeatureService> as FeatureService, // FeatureService — unused by access checks
     );
   });
 
@@ -235,7 +244,11 @@ describe('PaymentCoreService.computeSessionAmountBalances (M-PAY-5)', () => {
       order: { findMany: jest.fn().mockResolvedValue([]) },
       payment: { findMany: jest.fn().mockResolvedValue([]) },
     };
-    service = new PaymentCoreService(prisma as any, {} as any, {} as any);
+    service = new PaymentCoreService(
+      prisma as unknown as PrismaService,
+      {} as Partial<EventsGateway> as EventsGateway,
+      {} as Partial<FeatureService> as FeatureService,
+    );
   });
 
   it('short-circuits with no queries for an empty id list', async () => {

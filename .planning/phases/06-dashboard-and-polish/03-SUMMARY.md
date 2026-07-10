@@ -19,10 +19,10 @@ Completed standard diagnostic closure steps mapping out dependency faults caught
 
 ## Tasks Completed
 
-| # | Task | Status |
-|---|------|--------|
-| 3.1 | Install Missing `@types/multer` Dependency | ✓ |
-| 3.2 | Fix AuthGuard Absolute Path Referencing | ✓ |
+| #   | Task                                       | Status |
+| --- | ------------------------------------------ | ------ |
+| 3.1 | Install Missing `@types/multer` Dependency | ✓      |
+| 3.2 | Fix AuthGuard Absolute Path Referencing    | ✓      |
 
 ## Deviations from Plan
 

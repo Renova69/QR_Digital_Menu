@@ -23,7 +23,11 @@ interface PosItemGridProps {
   error: string | null;
 }
 
-export default function PosItemGrid({ items, loading, error }: PosItemGridProps) {
+export default function PosItemGrid({
+  items,
+  loading,
+  error,
+}: PosItemGridProps) {
   const { t } = useTranslation();
   const { searchQuery, categoryFilter, setSearchQuery } = usePos();
 

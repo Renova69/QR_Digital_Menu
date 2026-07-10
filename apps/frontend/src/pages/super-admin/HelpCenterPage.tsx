@@ -1,9 +1,62 @@
-import { useState, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, GripVertical, BookOpen, Utensils, QrCode, CreditCard, Award, Monitor, ShieldAlert, Settings, Users, Star, ShoppingBag, Info, HelpCircle, Coffee, Pizza, Beer, Wine, IceCream, MapPin, Phone, Mail, FileText, Image, Layout, Globe, Tag, Ticket, Zap, Clock, Calendar, MessageSquare, Lightbulb, GraduationCap, Video, Book, Bookmark, Compass, LifeBuoy, Wrench, PlayCircle, FileQuestion } from 'lucide-react';
-import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { useState, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+  GripVertical,
+  BookOpen,
+  Utensils,
+  QrCode,
+  CreditCard,
+  Award,
+  Monitor,
+  ShieldAlert,
+  Settings,
+  Users,
+  Star,
+  ShoppingBag,
+  Info,
+  HelpCircle,
+  Coffee,
+  Pizza,
+  Beer,
+  Wine,
+  IceCream,
+  MapPin,
+  Phone,
+  Mail,
+  FileText,
+  Image,
+  Layout,
+  Globe,
+  Tag,
+  Ticket,
+  Zap,
+  Clock,
+  Calendar,
+  MessageSquare,
+  Lightbulb,
+  GraduationCap,
+  Video,
+  Book,
+  Bookmark,
+  Compass,
+  LifeBuoy,
+  Wrench,
+  PlayCircle,
+  FileQuestion,
+} from "lucide-react";
+import { DndContext, closestCenter, DragEndEvent } from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   getAdminHelpContent,
   createHelpContent,
@@ -11,24 +64,28 @@ import {
   deleteHelpContent,
   reorderHelpContent,
   type HelpContentItem,
-} from '../../lib/api';
+} from "../../lib/api";
 import { useTranslation } from "react-i18next";
 
-type Tab = 'landing' | 'dashboard';
-type Locale = 'en' | 'bg' | 'ro';
-type DashboardItemType = 'faq' | 'guide-step' | 'guide-tip' | 'guide-warning';
+type Tab = "landing" | "dashboard";
+type Locale = "en" | "bg" | "ro";
+type DashboardItemType = "faq" | "guide-step" | "guide-tip" | "guide-warning";
 
 const LOCALES: { key: Locale; label: string }[] = [
-  { key: 'en', label: 'EN' },
-  { key: 'bg', label: 'BG' },
-  { key: 'ro', label: 'RO' },
+  { key: "en", label: "EN" },
+  { key: "bg", label: "BG" },
+  { key: "ro", label: "RO" },
 ];
 
-const ITEM_TYPE_META: { key: DashboardItemType; label: string; emoji: string }[] = [
-  { key: 'faq', label: 'FAQ Item', emoji: '❓' },
-  { key: 'guide-step', label: 'Guide Step', emoji: '📋' },
-  { key: 'guide-tip', label: 'Tip', emoji: '💡' },
-  { key: 'guide-warning', label: 'Warning', emoji: '⚠️' },
+const ITEM_TYPE_META: {
+  key: DashboardItemType;
+  label: string;
+  emoji: string;
+}[] = [
+  { key: "faq", label: "FAQ Item", emoji: "❓" },
+  { key: "guide-step", label: "Guide Step", emoji: "📋" },
+  { key: "guide-tip", label: "Tip", emoji: "💡" },
+  { key: "guide-warning", label: "Warning", emoji: "⚠️" },
 ];
 
 function groupBy<T>(items: T[], key: keyof T): Map<string, T[]> {
@@ -43,8 +100,14 @@ function groupBy<T>(items: T[], key: keyof T): Map<string, T[]> {
 }
 
 /* ─── Locale tabs reusable component ─── */
-function LocaleTabs({ active, onChange }: { active: Locale; onChange: (l: Locale) => void }) {
-    const { t } = useTranslation();
+function LocaleTabs({
+  active,
+  onChange,
+}: {
+  active: Locale;
+  onChange: (l: Locale) => void;
+}) {
+  const { t } = useTranslation();
   return (
     <div className="flex gap-1">
       {LOCALES.map(({ key, label }) => (
@@ -53,8 +116,8 @@ function LocaleTabs({ active, onChange }: { active: Locale; onChange: (l: Locale
           onClick={() => onChange(key)}
           className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-colors ${
             active === key
-              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
-              : 'bg-slate-800/40 text-slate-500 hover:text-slate-300 border border-transparent'
+              ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
+              : "bg-slate-800/40 text-slate-500 hover:text-slate-300 border border-transparent"
           }`}
         >
           {label}
@@ -66,33 +129,73 @@ function LocaleTabs({ active, onChange }: { active: Locale; onChange: (l: Locale
 
 /* ─── Item type badge (for dashboard expanded view) ─── */
 function ItemTypeBadge({ itemKey }: { itemKey: string }) {
-    const { t } = useTranslation();
-  let label = '';
-  let cls = 'bg-slate-800 text-slate-500';
-  if (itemKey === 'guide-title') { label = 'TITLE'; cls = 'bg-emerald-500/15 text-emerald-400'; }
-  else if (itemKey === 'guide-desc') { label = 'DESC'; cls = 'bg-blue-500/15 text-blue-400'; }
-  else if (itemKey.startsWith('guide-step-')) { label = `STEP ${parseInt(itemKey.replace('guide-step-', '')) + 1}`; cls = 'bg-indigo-500/15 text-indigo-400'; }
-  else if (itemKey === 'guide-tip') { label = 'TIP'; cls = 'bg-amber-500/15 text-amber-400'; }
-  else if (itemKey === 'guide-warning') { label = 'WARNING'; cls = 'bg-orange-500/15 text-orange-400'; }
-  else if (itemKey.startsWith('faq-')) { label = 'FAQ'; cls = 'bg-purple-500/15 text-purple-400'; }
-  else { label = itemKey; }
-  return <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${cls}`}>{label}</span>;
+  const { t } = useTranslation();
+  let label = "";
+  let cls = "bg-slate-800 text-slate-500";
+  if (itemKey === "guide-title") {
+    label = "TITLE";
+    cls = "bg-emerald-500/15 text-emerald-400";
+  } else if (itemKey === "guide-desc") {
+    label = "DESC";
+    cls = "bg-blue-500/15 text-blue-400";
+  } else if (itemKey.startsWith("guide-step-")) {
+    label = `STEP ${parseInt(itemKey.replace("guide-step-", "")) + 1}`;
+    cls = "bg-indigo-500/15 text-indigo-400";
+  } else if (itemKey === "guide-tip") {
+    label = "TIP";
+    cls = "bg-amber-500/15 text-amber-400";
+  } else if (itemKey === "guide-warning") {
+    label = "WARNING";
+    cls = "bg-orange-500/15 text-orange-400";
+  } else if (itemKey.startsWith("faq-")) {
+    label = "FAQ";
+    cls = "bg-purple-500/15 text-purple-400";
+  } else {
+    label = itemKey;
+  }
+  return (
+    <span
+      className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${cls}`}
+    >
+      {label}
+    </span>
+  );
 }
 
 /* ─── Sortable row wrapper (uses @dnd-kit like the menu editor) ─── */
-function SortableRow({ id, children }: { id: string; children: (props: { dragHandleProps: any; isDragging: boolean }) => React.ReactNode }) {
-    const { t } = useTranslation();
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id });
+function SortableRow({
+  id,
+  children,
+}: {
+  id: string;
+  children: (props: {
+    dragHandleProps: any;
+    isDragging: boolean;
+  }) => React.ReactNode;
+}) {
+  const { t } = useTranslation();
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.45 : 1,
     zIndex: isDragging ? 50 : undefined,
-    position: 'relative' as const,
+    position: "relative" as const,
   };
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
-      {children({ dragHandleProps: { ref: setActivatorNodeRef, ...listeners }, isDragging })}
+      {children({
+        dragHandleProps: { ref: setActivatorNodeRef, ...listeners },
+        isDragging,
+      })}
     </div>
   );
 }
@@ -108,30 +211,46 @@ interface EditDialogProps {
   onClose: () => void;
 }
 
-function EditDialog({ item, defaultSection, defaultCategoryKey, onClose }: EditDialogProps) {
-    const { t } = useTranslation();
+function EditDialog({
+  item,
+  defaultSection,
+  defaultCategoryKey,
+  onClose,
+}: EditDialogProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const isCreate = item === null;
-  const [locale, setLocale] = useState<Locale>('en');
+  const [locale, setLocale] = useState<Locale>("en");
 
   const existingLocales = isCreate
     ? ({} as Record<Locale, { title: string; body: string }>)
     : (Object.fromEntries(
-        (queryClient.getQueryData<HelpContentItem[]>(['admin-help-content', item!.section]) || [])
-          .filter((i) => i.categoryKey === item!.categoryKey && i.itemKey === item!.itemKey)
+        (
+          queryClient.getQueryData<HelpContentItem[]>([
+            "admin-help-content",
+            item!.section,
+          ]) || []
+        )
+          .filter(
+            (i) =>
+              i.categoryKey === item!.categoryKey &&
+              i.itemKey === item!.itemKey,
+          )
           .map((i) => [i.locale, { title: i.title, body: i.body }]),
       ) as Record<Locale, { title: string; body: string }>);
 
-  const [forms, setForms] = useState<Record<Locale, { title: string; body: string }>>({
-    en: existingLocales.en || { title: '', body: '' },
-    bg: existingLocales.bg || { title: '', body: '' },
-    ro: existingLocales.ro || { title: '', body: '' },
+  const [forms, setForms] = useState<
+    Record<Locale, { title: string; body: string }>
+  >({
+    en: existingLocales.en || { title: "", body: "" },
+    bg: existingLocales.bg || { title: "", body: "" },
+    ro: existingLocales.ro || { title: "", body: "" },
   });
 
   const createMutation = useMutation({
     mutationFn: async () => {
       const section = item?.section || defaultSection;
-      const categoryKey = item?.categoryKey || defaultCategoryKey || 'general';
+      const categoryKey = item?.categoryKey || defaultCategoryKey || "general";
       const baseKey = item?.itemKey || `faq-${Date.now()}`;
       for (const loc of LOCALES) {
         const f = forms[loc.key];
@@ -141,14 +260,14 @@ function EditDialog({ item, defaultSection, defaultCategoryKey, onClose }: EditD
             categoryKey,
             itemKey: baseKey,
             locale: loc.key,
-            title: f.title || '',
-            body: f.body || '',
+            title: f.title || "",
+            body: f.body || "",
           });
         }
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-help-content'] });
+      queryClient.invalidateQueries({ queryKey: ["admin-help-content"] });
       onClose();
     },
   });
@@ -156,27 +275,36 @@ function EditDialog({ item, defaultSection, defaultCategoryKey, onClose }: EditD
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!item) return;
-      const sameKeyItems = (queryClient.getQueryData<HelpContentItem[]>(['admin-help-content', item.section]) || [])
-        .filter((i) => i.categoryKey === item.categoryKey && i.itemKey === item.itemKey);
+      const sameKeyItems = (
+        queryClient.getQueryData<HelpContentItem[]>([
+          "admin-help-content",
+          item.section,
+        ]) || []
+      ).filter(
+        (i) => i.categoryKey === item.categoryKey && i.itemKey === item.itemKey,
+      );
       for (const loc of LOCALES) {
         const f = forms[loc.key];
         const existing = sameKeyItems.find((i) => i.locale === loc.key);
         if (existing) {
-          await updateHelpContent(existing.id, { title: f.title, body: f.body });
+          await updateHelpContent(existing.id, {
+            title: f.title,
+            body: f.body,
+          });
         } else if (f.title || f.body) {
           await createHelpContent({
             section: item.section,
             categoryKey: item.categoryKey,
             itemKey: item.itemKey,
             locale: loc.key,
-            title: f.title || '',
-            body: f.body || '',
+            title: f.title || "",
+            body: f.body || "",
           });
         }
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-help-content'] });
+      queryClient.invalidateQueries({ queryKey: ["admin-help-content"] });
       onClose();
     },
   });
@@ -193,9 +321,14 @@ function EditDialog({ item, defaultSection, defaultCategoryKey, onClose }: EditD
       <div className="bg-[#020617] border border-slate-800 rounded-xl w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
           <h3 className="font-bold text-sm text-white">
-            {isCreate ? 'Create FAQ Item' : 'Edit Help Item'}
+            {isCreate ? "Create FAQ Item" : "Edit Help Item"}
           </h3>
-          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">✕</button>
+          <button
+            onClick={onClose}
+            className="text-slate-500 hover:text-white transition-colors"
+          >
+            ✕
+          </button>
         </div>
 
         <div className="px-5 py-3 border-b border-slate-800">
@@ -204,34 +337,59 @@ function EditDialog({ item, defaultSection, defaultCategoryKey, onClose }: EditD
 
         <div className="p-5 flex flex-col gap-4">
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.title', 'Title')}</label>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+              {t("auto.title", "Title")}
+            </label>
             <input
               value={forms[locale].title}
-              onChange={(e) => setForms((prev) => ({ ...prev, [locale]: { ...prev[locale], title: e.target.value } }))}
+              onChange={(e) =>
+                setForms((prev) => ({
+                  ...prev,
+                  [locale]: { ...prev[locale], title: e.target.value },
+                }))
+              }
               className="w-full bg-[#0d1117] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50"
-              placeholder={t('auto.questionOrSectionTitle', 'Question or section title')}
+              placeholder={t(
+                "auto.questionOrSectionTitle",
+                "Question or section title",
+              )}
             />
           </div>
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.body', 'Body')}</label>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+              {t("auto.body", "Body")}
+            </label>
             <textarea
               value={forms[locale].body}
-              onChange={(e) => setForms((prev) => ({ ...prev, [locale]: { ...prev[locale], body: e.target.value } }))}
+              onChange={(e) =>
+                setForms((prev) => ({
+                  ...prev,
+                  [locale]: { ...prev[locale], body: e.target.value },
+                }))
+              }
               rows={4}
               className="w-full bg-[#0d1117] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50 resize-none"
-              placeholder={t('auto.answerOrHelpContent', 'Answer or help content')}
+              placeholder={t(
+                "auto.answerOrHelpContent",
+                "Answer or help content",
+              )}
             />
           </div>
         </div>
 
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-slate-800">
-          <button onClick={onClose} className="px-4 py-2 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition-colors">{t('auto.cancel', 'Cancel')}</button>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+          >
+            {t("auto.cancel", "Cancel")}
+          </button>
           <button
             onClick={handleSave}
             disabled={isLoading}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-md text-xs font-bold text-white transition-colors"
           >
-            {isLoading ? 'Saving...' : 'Save All Languages'}
+            {isLoading ? "Saving..." : "Save All Languages"}
           </button>
         </div>
       </div>
@@ -247,62 +405,69 @@ interface DashboardCategoryDialogProps {
 }
 
 function DashboardCategoryDialog({ onClose }: DashboardCategoryDialogProps) {
-    const { t } = useTranslation();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const [locale, setLocale] = useState<Locale>('en');
-  const [categoryId, setCategoryId] = useState('');
-  const [selectedIcon, setSelectedIcon] = useState('BookOpen');
+  const [locale, setLocale] = useState<Locale>("en");
+  const [categoryId, setCategoryId] = useState("");
+  const [selectedIcon, setSelectedIcon] = useState("BookOpen");
 
   const AVAILABLE_ICONS = [
-    { name: 'BookOpen', icon: BookOpen },
-    { name: 'Utensils', icon: Utensils },
-    { name: 'Coffee', icon: Coffee },
-    { name: 'Pizza', icon: Pizza },
-    { name: 'Beer', icon: Beer },
-    { name: 'Wine', icon: Wine },
-    { name: 'IceCream', icon: IceCream },
-    { name: 'QrCode', icon: QrCode },
-    { name: 'CreditCard', icon: CreditCard },
-    { name: 'Award', icon: Award },
-    { name: 'Tag', icon: Tag },
-    { name: 'Ticket', icon: Ticket },
-    { name: 'Monitor', icon: Monitor },
-    { name: 'Layout', icon: Layout },
-    { name: 'Settings', icon: Settings },
-    { name: 'Users', icon: Users },
-    { name: 'Star', icon: Star },
-    { name: 'ShoppingBag', icon: ShoppingBag },
-    { name: 'Clock', icon: Clock },
-    { name: 'Calendar', icon: Calendar },
-    { name: 'MapPin', icon: MapPin },
-    { name: 'Phone', icon: Phone },
-    { name: 'Mail', icon: Mail },
-    { name: 'MessageSquare', icon: MessageSquare },
-    { name: 'Globe', icon: Globe },
-    { name: 'FileText', icon: FileText },
-    { name: 'Image', icon: Image },
-    { name: 'ShieldAlert', icon: ShieldAlert },
-    { name: 'Zap', icon: Zap },
-    { name: 'Info', icon: Info },
-    { name: 'HelpCircle', icon: HelpCircle },
-    { name: 'FileQuestion', icon: FileQuestion },
-    { name: 'Lightbulb', icon: Lightbulb },
-    { name: 'GraduationCap', icon: GraduationCap },
-    { name: 'Video', icon: Video },
-    { name: 'Book', icon: Book },
-    { name: 'Bookmark', icon: Bookmark },
-    { name: 'Compass', icon: Compass },
-    { name: 'LifeBuoy', icon: LifeBuoy },
-    { name: 'Wrench', icon: Wrench },
-    { name: 'PlayCircle', icon: PlayCircle },
+    { name: "BookOpen", icon: BookOpen },
+    { name: "Utensils", icon: Utensils },
+    { name: "Coffee", icon: Coffee },
+    { name: "Pizza", icon: Pizza },
+    { name: "Beer", icon: Beer },
+    { name: "Wine", icon: Wine },
+    { name: "IceCream", icon: IceCream },
+    { name: "QrCode", icon: QrCode },
+    { name: "CreditCard", icon: CreditCard },
+    { name: "Award", icon: Award },
+    { name: "Tag", icon: Tag },
+    { name: "Ticket", icon: Ticket },
+    { name: "Monitor", icon: Monitor },
+    { name: "Layout", icon: Layout },
+    { name: "Settings", icon: Settings },
+    { name: "Users", icon: Users },
+    { name: "Star", icon: Star },
+    { name: "ShoppingBag", icon: ShoppingBag },
+    { name: "Clock", icon: Clock },
+    { name: "Calendar", icon: Calendar },
+    { name: "MapPin", icon: MapPin },
+    { name: "Phone", icon: Phone },
+    { name: "Mail", icon: Mail },
+    { name: "MessageSquare", icon: MessageSquare },
+    { name: "Globe", icon: Globe },
+    { name: "FileText", icon: FileText },
+    { name: "Image", icon: Image },
+    { name: "ShieldAlert", icon: ShieldAlert },
+    { name: "Zap", icon: Zap },
+    { name: "Info", icon: Info },
+    { name: "HelpCircle", icon: HelpCircle },
+    { name: "FileQuestion", icon: FileQuestion },
+    { name: "Lightbulb", icon: Lightbulb },
+    { name: "GraduationCap", icon: GraduationCap },
+    { name: "Video", icon: Video },
+    { name: "Book", icon: Book },
+    { name: "Bookmark", icon: Bookmark },
+    { name: "Compass", icon: Compass },
+    { name: "LifeBuoy", icon: LifeBuoy },
+    { name: "Wrench", icon: Wrench },
+    { name: "PlayCircle", icon: PlayCircle },
   ];
 
-  type GuideForm = { tabName: string; title: string; desc: string; steps: string[]; tip: string; warning: string };
+  type GuideForm = {
+    tabName: string;
+    title: string;
+    desc: string;
+    steps: string[];
+    tip: string;
+    warning: string;
+  };
 
   const [forms, setForms] = useState<Record<Locale, GuideForm>>({
-    en: { tabName: '', title: '', desc: '', steps: [''], tip: '', warning: '' },
-    bg: { tabName: '', title: '', desc: '', steps: [''], tip: '', warning: '' },
-    ro: { tabName: '', title: '', desc: '', steps: [''], tip: '', warning: '' },
+    en: { tabName: "", title: "", desc: "", steps: [""], tip: "", warning: "" },
+    bg: { tabName: "", title: "", desc: "", steps: [""], tip: "", warning: "" },
+    ro: { tabName: "", title: "", desc: "", steps: [""], tip: "", warning: "" },
   });
 
   const createMutation = useMutation({
@@ -310,26 +475,68 @@ function DashboardCategoryDialog({ onClose }: DashboardCategoryDialogProps) {
       for (const loc of LOCALES) {
         const f = forms[loc.key];
         if (!f.title) continue;
-        await createHelpContent({ section: 'dashboard', categoryKey: categoryId, itemKey: 'category-meta', locale: loc.key, title: selectedIcon, body: f.tabName });
-        await createHelpContent({ section: 'dashboard', categoryKey: categoryId, itemKey: 'guide-title', locale: loc.key, title: f.title, body: '' });
+        await createHelpContent({
+          section: "dashboard",
+          categoryKey: categoryId,
+          itemKey: "category-meta",
+          locale: loc.key,
+          title: selectedIcon,
+          body: f.tabName,
+        });
+        await createHelpContent({
+          section: "dashboard",
+          categoryKey: categoryId,
+          itemKey: "guide-title",
+          locale: loc.key,
+          title: f.title,
+          body: "",
+        });
         if (f.desc) {
-          await createHelpContent({ section: 'dashboard', categoryKey: categoryId, itemKey: 'guide-desc', locale: loc.key, title: '', body: f.desc });
+          await createHelpContent({
+            section: "dashboard",
+            categoryKey: categoryId,
+            itemKey: "guide-desc",
+            locale: loc.key,
+            title: "",
+            body: f.desc,
+          });
         }
         for (let i = 0; i < f.steps.length; i++) {
           if (f.steps[i].trim()) {
-            await createHelpContent({ section: 'dashboard', categoryKey: categoryId, itemKey: `guide-step-${i}`, locale: loc.key, title: '', body: f.steps[i] });
+            await createHelpContent({
+              section: "dashboard",
+              categoryKey: categoryId,
+              itemKey: `guide-step-${i}`,
+              locale: loc.key,
+              title: "",
+              body: f.steps[i],
+            });
           }
         }
         if (f.tip) {
-          await createHelpContent({ section: 'dashboard', categoryKey: categoryId, itemKey: 'guide-tip', locale: loc.key, title: '', body: f.tip });
+          await createHelpContent({
+            section: "dashboard",
+            categoryKey: categoryId,
+            itemKey: "guide-tip",
+            locale: loc.key,
+            title: "",
+            body: f.tip,
+          });
         }
         if (f.warning) {
-          await createHelpContent({ section: 'dashboard', categoryKey: categoryId, itemKey: 'guide-warning', locale: loc.key, title: '', body: f.warning });
+          await createHelpContent({
+            section: "dashboard",
+            categoryKey: categoryId,
+            itemKey: "guide-warning",
+            locale: loc.key,
+            title: "",
+            body: f.warning,
+          });
         }
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-help-content'] });
+      queryClient.invalidateQueries({ queryKey: ["admin-help-content"] });
       onClose();
     },
   });
@@ -337,19 +544,25 @@ function DashboardCategoryDialog({ onClose }: DashboardCategoryDialogProps) {
   const updateStep = (index: number, value: string) => {
     setForms((prev) => ({
       ...prev,
-      [locale]: { ...prev[locale], steps: prev[locale].steps.map((s, i) => (i === index ? value : s)) },
+      [locale]: {
+        ...prev[locale],
+        steps: prev[locale].steps.map((s, i) => (i === index ? value : s)),
+      },
     }));
   };
   const addStep = () => {
     setForms((prev) => ({
       ...prev,
-      [locale]: { ...prev[locale], steps: [...prev[locale].steps, ''] },
+      [locale]: { ...prev[locale], steps: [...prev[locale].steps, ""] },
     }));
   };
   const removeStep = (index: number) => {
     setForms((prev) => ({
       ...prev,
-      [locale]: { ...prev[locale], steps: prev[locale].steps.filter((_, i) => i !== index) },
+      [locale]: {
+        ...prev[locale],
+        steps: prev[locale].steps.filter((_, i) => i !== index),
+      },
     }));
   };
 
@@ -357,38 +570,60 @@ function DashboardCategoryDialog({ onClose }: DashboardCategoryDialogProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
       <div className="bg-[#020617] border border-slate-800 rounded-xl w-full max-w-2xl mx-4 max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
-          <h3 className="font-bold text-sm text-white">{t('auto.createDashboardCategory', 'Create Dashboard Category')}</h3>
-          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">✕</button>
+          <h3 className="font-bold text-sm text-white">
+            {t("auto.createDashboardCategory", "Create Dashboard Category")}
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-slate-500 hover:text-white transition-colors"
+          >
+            ✕
+          </button>
         </div>
 
         <div className="px-5 py-3 border-b border-slate-800 flex items-center justify-between">
           <LocaleTabs active={locale} onChange={setLocale} />
-          <span className="text-[10px] text-slate-600">{t('auto.fillContentPerLanguage', 'Fill content per language')}</span>
+          <span className="text-[10px] text-slate-600">
+            {t("auto.fillContentPerLanguage", "Fill content per language")}
+          </span>
         </div>
 
         <div className="p-5 space-y-4">
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.categoryID', 'Category ID')}</label>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+              {t("auto.categoryID", "Category ID")}
+            </label>
             <input
               value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
+              onChange={(e) =>
+                setCategoryId(
+                  e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"),
+                )
+              }
               className="w-full bg-[#0d1117] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50"
-              placeholder={t('auto.eGIntegrations', 'e.g. integrations')}
+              placeholder={t("auto.eGIntegrations", "e.g. integrations")}
             />
-            <p className="text-[10px] text-slate-600 mt-1">{t('auto.lowercaseHyphensOnlyThisBecomesTh', 'Lowercase, hyphens only. This becomes the category key.')}</p>
+            <p className="text-[10px] text-slate-600 mt-1">
+              {t(
+                "auto.lowercaseHyphensOnlyThisBecomesTh",
+                "Lowercase, hyphens only. This becomes the category key.",
+              )}
+            </p>
           </div>
 
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.categoryIcon', 'Category Icon')}</label>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+              {t("auto.categoryIcon", "Category Icon")}
+            </label>
             <div className="flex gap-2 flex-wrap">
               {AVAILABLE_ICONS.map(({ name, icon: Icon }) => (
                 <button
                   key={name}
                   onClick={() => setSelectedIcon(name)}
                   className={`p-2 rounded-lg transition-colors border ${
-                    selectedIcon === name 
-                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' 
-                      : 'bg-[#0d1117] border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500'
+                    selectedIcon === name
+                      ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
+                      : "bg-[#0d1117] border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500"
                   }`}
                   title={name}
                 >
@@ -400,44 +635,72 @@ function DashboardCategoryDialog({ onClose }: DashboardCategoryDialogProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.tabNameSidebar', 'Tab Name (Sidebar)')}</label>
+              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                {t("auto.tabNameSidebar", "Tab Name (Sidebar)")}
+              </label>
               <input
                 value={forms[locale].tabName}
-                onChange={(e) => setForms((prev) => ({ ...prev, [locale]: { ...prev[locale], tabName: e.target.value } }))}
+                onChange={(e) =>
+                  setForms((prev) => ({
+                    ...prev,
+                    [locale]: { ...prev[locale], tabName: e.target.value },
+                  }))
+                }
                 className="w-full bg-[#0d1117] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50"
-                placeholder={t('auto.eGPrivacyGDPR', 'e.g. Privacy & GDPR')}
+                placeholder={t("auto.eGPrivacyGDPR", "e.g. Privacy & GDPR")}
               />
             </div>
             <div>
-              <label className="block text-[10px] font-semibold text-emerald-400 uppercase tracking-wider mb-1.5">{t('auto.GuideTitle', '📖 Guide Title')}</label>
+              <label className="block text-[10px] font-semibold text-emerald-400 uppercase tracking-wider mb-1.5">
+                {t("auto.GuideTitle", "📖 Guide Title")}
+              </label>
               <input
                 value={forms[locale].title}
-                onChange={(e) => setForms((prev) => ({ ...prev, [locale]: { ...prev[locale], title: e.target.value } }))}
+                onChange={(e) =>
+                  setForms((prev) => ({
+                    ...prev,
+                    [locale]: { ...prev[locale], title: e.target.value },
+                  }))
+                }
                 className="w-full bg-[#0d1117] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50"
-                placeholder={t('auto.eGGDPRCompliance', 'e.g. GDPR Compliance')}
+                placeholder={t("auto.eGGDPRCompliance", "e.g. GDPR Compliance")}
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.description', 'Description')}</label>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+              {t("auto.description", "Description")}
+            </label>
             <textarea
               value={forms[locale].desc}
-              onChange={(e) => setForms((prev) => ({ ...prev, [locale]: { ...prev[locale], desc: e.target.value } }))}
+              onChange={(e) =>
+                setForms((prev) => ({
+                  ...prev,
+                  [locale]: { ...prev[locale], desc: e.target.value },
+                }))
+              }
               rows={2}
               className="w-full bg-[#0d1117] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50 resize-none"
-              placeholder={t('auto.briefDescriptionOfThisHelpCategory', 'Brief description of this help category')}
+              placeholder={t(
+                "auto.briefDescriptionOfThisHelpCategory",
+                "Brief description of this help category",
+              )}
             />
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">{t('auto.StepByStepGuide', '📋 Step-by-step Guide')}</label>
+              <label className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">
+                {t("auto.StepByStepGuide", "📋 Step-by-step Guide")}
+              </label>
             </div>
             <div className="space-y-2">
               {forms[locale].steps.map((step, i) => (
                 <div key={i} className="flex gap-2 items-start">
-                  <span className="text-[10px] text-slate-600 mt-2.5 w-4 shrink-0 text-right">{i + 1}.</span>
+                  <span className="text-[10px] text-slate-600 mt-2.5 w-4 shrink-0 text-right">
+                    {i + 1}.
+                  </span>
                   <textarea
                     value={step}
                     onChange={(e) => updateStep(i, e.target.value)}
@@ -446,57 +709,96 @@ function DashboardCategoryDialog({ onClose }: DashboardCategoryDialogProps) {
                     placeholder={`Step ${i + 1} instructions...`}
                   />
                   {forms[locale].steps.length > 1 && (
-                    <button onClick={() => removeStep(i)} className="text-slate-600 hover:text-red-400 transition-colors mt-2">
+                    <button
+                      onClick={() => removeStep(i)}
+                      className="text-slate-600 hover:text-red-400 transition-colors mt-2"
+                    >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
               ))}
               <div className="flex justify-end pt-1">
-                <button 
-                  onClick={addStep} 
+                <button
+                  onClick={addStep}
                   className="bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 px-3 py-1.5 rounded-md text-[10px] text-emerald-400 hover:text-emerald-300 transition-colors font-semibold flex items-center gap-1"
                 >
-                  <Plus className="w-3 h-3" /> {t('auto.addStep', 'Add Step')}</button>
+                  <Plus className="w-3 h-3" /> {t("auto.addStep", "Add Step")}
+                </button>
               </div>
             </div>
           </div>
 
           <div>
             <label className="block text-[10px] font-semibold text-amber-400 uppercase tracking-wider mb-1.5">
-              {t('auto.Tip', '💡 Tip')}<span className="text-slate-600 normal-case font-normal">{t('auto.OptionalRendersAsGreenCallout', '(optional — renders as green callout)')}</span>
+              {t("auto.Tip", "💡 Tip")}
+              <span className="text-slate-600 normal-case font-normal">
+                {t(
+                  "auto.OptionalRendersAsGreenCallout",
+                  "(optional — renders as green callout)",
+                )}
+              </span>
             </label>
             <textarea
               value={forms[locale].tip}
-              onChange={(e) => setForms((prev) => ({ ...prev, [locale]: { ...prev[locale], tip: e.target.value } }))}
+              onChange={(e) =>
+                setForms((prev) => ({
+                  ...prev,
+                  [locale]: { ...prev[locale], tip: e.target.value },
+                }))
+              }
               rows={2}
               className="w-full bg-[#0d1117] border border-amber-900/30 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-500/50 resize-none"
-              placeholder={t('auto.helpfulTipForUsers', 'Helpful tip for users...')}
+              placeholder={t(
+                "auto.helpfulTipForUsers",
+                "Helpful tip for users...",
+              )}
             />
           </div>
 
           <div>
             <label className="block text-[10px] font-semibold text-orange-400 uppercase tracking-wider mb-1.5">
-              {t('auto.Warning', '⚠️ Warning')}<span className="text-slate-600 normal-case font-normal">{t('auto.OptionalRendersAsOrangeCallout', '(optional — renders as orange callout)')}</span>
+              {t("auto.Warning", "⚠️ Warning")}
+              <span className="text-slate-600 normal-case font-normal">
+                {t(
+                  "auto.OptionalRendersAsOrangeCallout",
+                  "(optional — renders as orange callout)",
+                )}
+              </span>
             </label>
             <textarea
               value={forms[locale].warning}
-              onChange={(e) => setForms((prev) => ({ ...prev, [locale]: { ...prev[locale], warning: e.target.value } }))}
+              onChange={(e) =>
+                setForms((prev) => ({
+                  ...prev,
+                  [locale]: { ...prev[locale], warning: e.target.value },
+                }))
+              }
               rows={2}
               className="w-full bg-[#0d1117] border border-orange-900/30 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-orange-500/50 resize-none"
-              placeholder={t('auto.importantWarningForUsers', 'Important warning for users...')}
+              placeholder={t(
+                "auto.importantWarningForUsers",
+                "Important warning for users...",
+              )}
             />
           </div>
         </div>
 
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-slate-800">
-          <button onClick={onClose} className="px-4 py-2 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition-colors">{t('auto.cancel', 'Cancel')}</button>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+          >
+            {t("auto.cancel", "Cancel")}
+          </button>
           <button
             onClick={() => createMutation.mutate()}
-            disabled={!categoryId || !forms.en.title || createMutation.isPending}
+            disabled={
+              !categoryId || !forms.en.title || createMutation.isPending
+            }
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-md text-xs font-bold text-white transition-colors"
           >
-            {createMutation.isPending ? 'Creating...' : 'Create Category'}
+            {createMutation.isPending ? "Creating..." : "Create Category"}
           </button>
         </div>
       </div>
@@ -513,37 +815,45 @@ interface DashboardItemDialogProps {
   onClose: () => void;
 }
 
-function DashboardItemDialog({ categoryKey, existingItems, onClose }: DashboardItemDialogProps) {
-    const { t } = useTranslation();
+function DashboardItemDialog({
+  categoryKey,
+  existingItems,
+  onClose,
+}: DashboardItemDialogProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const [locale, setLocale] = useState<Locale>('en');
-  const [itemType, setItemType] = useState<DashboardItemType>('faq');
+  const [locale, setLocale] = useState<Locale>("en");
+  const [itemType, setItemType] = useState<DashboardItemType>("faq");
 
-  const [forms, setForms] = useState<Record<Locale, { title: string; body: string }>>({
-    en: { title: '', body: '' },
-    bg: { title: '', body: '' },
-    ro: { title: '', body: '' },
+  const [forms, setForms] = useState<
+    Record<Locale, { title: string; body: string }>
+  >({
+    en: { title: "", body: "" },
+    bg: { title: "", body: "" },
+    ro: { title: "", body: "" },
   });
 
-  const hasTip = existingItems.some((i) => i.itemKey === 'guide-tip');
-  const hasWarning = existingItems.some((i) => i.itemKey === 'guide-warning');
+  const hasTip = existingItems.some((i) => i.itemKey === "guide-tip");
+  const hasWarning = existingItems.some((i) => i.itemKey === "guide-warning");
 
   const getItemKey = (): string => {
     switch (itemType) {
-      case 'faq':
+      case "faq":
         return `faq-${Date.now()}`;
-      case 'guide-step': {
-        const existingSteps = existingItems.filter((i) => i.itemKey.startsWith('guide-step-'));
+      case "guide-step": {
+        const existingSteps = existingItems.filter((i) =>
+          i.itemKey.startsWith("guide-step-"),
+        );
         const maxStep = existingSteps.reduce((max, i) => {
-          const num = parseInt(i.itemKey.replace('guide-step-', ''));
+          const num = parseInt(i.itemKey.replace("guide-step-", ""));
           return isNaN(num) ? max : Math.max(max, num);
         }, -1);
         return `guide-step-${maxStep + 1}`;
       }
-      case 'guide-tip':
-        return 'guide-tip';
-      case 'guide-warning':
-        return 'guide-warning';
+      case "guide-tip":
+        return "guide-tip";
+      case "guide-warning":
+        return "guide-warning";
     }
   };
 
@@ -554,18 +864,18 @@ function DashboardItemDialog({ categoryKey, existingItems, onClose }: DashboardI
         const f = forms[loc.key];
         if (f.title || f.body) {
           await createHelpContent({
-            section: 'dashboard',
+            section: "dashboard",
             categoryKey,
             itemKey,
             locale: loc.key,
-            title: f.title || '',
-            body: f.body || '',
+            title: f.title || "",
+            body: f.body || "",
           });
         }
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-help-content'] });
+      queryClient.invalidateQueries({ queryKey: ["admin-help-content"] });
       onClose();
     },
   });
@@ -575,9 +885,15 @@ function DashboardItemDialog({ categoryKey, existingItems, onClose }: DashboardI
       <div className="bg-[#020617] border border-slate-800 rounded-xl w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
           <h3 className="font-bold text-sm text-white">
-            {t('auto.addItemTo', 'Add Item to')}<span className="text-emerald-400">"{categoryKey}"</span>
+            {t("auto.addItemTo", "Add Item to")}
+            <span className="text-emerald-400">"{categoryKey}"</span>
           </h3>
-          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">✕</button>
+          <button
+            onClick={onClose}
+            className="text-slate-500 hover:text-white transition-colors"
+          >
+            ✕
+          </button>
         </div>
 
         <div className="px-5 py-3 border-b border-slate-800">
@@ -586,10 +902,14 @@ function DashboardItemDialog({ categoryKey, existingItems, onClose }: DashboardI
 
         <div className="p-5 space-y-4">
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.itemType', 'Item Type')}</label>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+              {t("auto.itemType", "Item Type")}
+            </label>
             <div className="flex gap-1.5 flex-wrap">
               {ITEM_TYPE_META.map(({ key, label, emoji }) => {
-                const disabled = (key === 'guide-tip' && hasTip) || (key === 'guide-warning' && hasWarning);
+                const disabled =
+                  (key === "guide-tip" && hasTip) ||
+                  (key === "guide-warning" && hasWarning);
                 return (
                   <button
                     key={key}
@@ -597,67 +917,93 @@ function DashboardItemDialog({ categoryKey, existingItems, onClose }: DashboardI
                     disabled={disabled}
                     className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-colors border ${
                       itemType === key
-                        ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'
+                        ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
                         : disabled
-                          ? 'bg-slate-800/20 text-slate-700 border-transparent cursor-not-allowed'
-                          : 'bg-slate-800/40 text-slate-500 hover:text-slate-300 border-transparent'
+                          ? "bg-slate-800/20 text-slate-700 border-transparent cursor-not-allowed"
+                          : "bg-slate-800/40 text-slate-500 hover:text-slate-300 border-transparent"
                     }`}
                   >
-                    {emoji} {label} {disabled && '(exists)'}
+                    {emoji} {label} {disabled && "(exists)"}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {itemType === 'faq' && (
+          {itemType === "faq" && (
             <div>
-              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.question', 'Question')}</label>
+              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                {t("auto.question", "Question")}
+              </label>
               <input
                 value={forms[locale].title}
-                onChange={(e) => setForms((prev) => ({ ...prev, [locale]: { ...prev[locale], title: e.target.value } }))}
+                onChange={(e) =>
+                  setForms((prev) => ({
+                    ...prev,
+                    [locale]: { ...prev[locale], title: e.target.value },
+                  }))
+                }
                 className="w-full bg-[#0d1117] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50"
-                placeholder={t('auto.fAQQuestion', 'FAQ question...')}
+                placeholder={t("auto.fAQQuestion", "FAQ question...")}
               />
             </div>
           )}
 
           <div>
             <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-              {itemType === 'faq' ? 'Answer' : itemType === 'guide-step' ? 'Step Instructions' : itemType === 'guide-tip' ? 'Tip Content' : 'Warning Content'}
+              {itemType === "faq"
+                ? "Answer"
+                : itemType === "guide-step"
+                  ? "Step Instructions"
+                  : itemType === "guide-tip"
+                    ? "Tip Content"
+                    : "Warning Content"}
             </label>
             <textarea
               value={forms[locale].body}
-              onChange={(e) => setForms((prev) => ({ ...prev, [locale]: { ...prev[locale], body: e.target.value } }))}
+              onChange={(e) =>
+                setForms((prev) => ({
+                  ...prev,
+                  [locale]: { ...prev[locale], body: e.target.value },
+                }))
+              }
               rows={4}
               className={`w-full bg-[#0d1117] border rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none resize-none ${
-                itemType === 'guide-tip'
-                  ? 'border-amber-900/30 focus:border-amber-500/50'
-                  : itemType === 'guide-warning'
-                    ? 'border-orange-900/30 focus:border-orange-500/50'
-                    : 'border-slate-700 focus:border-emerald-500/50'
+                itemType === "guide-tip"
+                  ? "border-amber-900/30 focus:border-amber-500/50"
+                  : itemType === "guide-warning"
+                    ? "border-orange-900/30 focus:border-orange-500/50"
+                    : "border-slate-700 focus:border-emerald-500/50"
               }`}
               placeholder={
-                itemType === 'faq'
-                  ? 'Answer to the question...'
-                  : itemType === 'guide-step'
-                    ? 'What the user should do in this step...'
-                    : itemType === 'guide-tip'
-                      ? 'Helpful tip (renders as green callout)...'
-                      : 'Important warning (renders as orange callout)...'
+                itemType === "faq"
+                  ? "Answer to the question..."
+                  : itemType === "guide-step"
+                    ? "What the user should do in this step..."
+                    : itemType === "guide-tip"
+                      ? "Helpful tip (renders as green callout)..."
+                      : "Important warning (renders as orange callout)..."
               }
             />
           </div>
         </div>
 
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-slate-800">
-          <button onClick={onClose} className="px-4 py-2 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition-colors">{t('auto.cancel', 'Cancel')}</button>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+          >
+            {t("auto.cancel", "Cancel")}
+          </button>
           <button
             onClick={() => createMutation.mutate()}
-            disabled={createMutation.isPending || (!forms[locale].title && !forms[locale].body)}
+            disabled={
+              createMutation.isPending ||
+              (!forms[locale].title && !forms[locale].body)
+            }
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-md text-xs font-bold text-white transition-colors"
           >
-            {createMutation.isPending ? 'Adding...' : 'Add Item'}
+            {createMutation.isPending ? "Adding..." : "Add Item"}
           </button>
         </div>
       </div>
@@ -669,21 +1015,29 @@ function DashboardItemDialog({ categoryKey, existingItems, onClose }: DashboardI
    Main Page
    ══════════════════════════════════════════════════════════ */
 export default function HelpCenterPage() {
-    const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>('landing');
+  const { t } = useTranslation();
+  const [tab, setTab] = useState<Tab>("landing");
   const [editItem, setEditItem] = useState<HelpContentItem | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Dashboard-specific dialog state
   const [dashCategoryOpen, setDashCategoryOpen] = useState(false);
-  const [dashAddItemCategory, setDashAddItemCategory] = useState<string | null>(null);
-  const [editCategorySettings, setEditCategorySettings] = useState<{ categoryKey: string; metaItems: HelpContentItem[]; titleItems: HelpContentItem[] } | null>(null);
+  const [dashAddItemCategory, setDashAddItemCategory] = useState<string | null>(
+    null,
+  );
+  const [editCategorySettings, setEditCategorySettings] = useState<{
+    categoryKey: string;
+    metaItems: HelpContentItem[];
+    titleItems: HelpContentItem[];
+  } | null>(null);
 
   const queryClient = useQueryClient();
 
   const { data: items = [], isLoading } = useQuery({
-    queryKey: ['admin-help-content', tab],
+    queryKey: ["admin-help-content", tab],
     queryFn: () => getAdminHelpContent(tab),
   });
 
@@ -694,7 +1048,7 @@ export default function HelpCenterPage() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-help-content'] });
+      queryClient.invalidateQueries({ queryKey: ["admin-help-content"] });
     },
   });
 
@@ -705,7 +1059,7 @@ export default function HelpCenterPage() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-help-content'] });
+      queryClient.invalidateQueries({ queryKey: ["admin-help-content"] });
     },
   });
 
@@ -714,22 +1068,30 @@ export default function HelpCenterPage() {
       return reorderHelpContent(payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-help-content'] });
+      queryClient.invalidateQueries({ queryKey: ["admin-help-content"] });
     },
     onError: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-help-content'] });
+      queryClient.invalidateQueries({ queryKey: ["admin-help-content"] });
     },
   });
 
-  const landingItems = tab === 'landing' ? groupBy(items, 'itemKey') : new Map<string, HelpContentItem[]>();
-  const dashboardCategories = tab === 'dashboard' ? groupBy(items, 'categoryKey') : new Map<string, HelpContentItem[]>();
+  const landingItems =
+    tab === "landing"
+      ? groupBy(items, "itemKey")
+      : new Map<string, HelpContentItem[]>();
+  const dashboardCategories =
+    tab === "dashboard"
+      ? groupBy(items, "categoryKey")
+      : new Map<string, HelpContentItem[]>();
 
   // ─── Sorted entries for drag-and-drop ───
-  const sortedLandingEntries = Array.from(landingItems.entries())
-    .sort(([, a], [, b]) => (a[0]?.sortOrder ?? 0) - (b[0]?.sortOrder ?? 0));
+  const sortedLandingEntries = Array.from(landingItems.entries()).sort(
+    ([, a], [, b]) => (a[0]?.sortOrder ?? 0) - (b[0]?.sortOrder ?? 0),
+  );
 
-  const sortedDashboardEntries = Array.from(dashboardCategories.entries())
-    .sort(([, a], [, b]) => (a[0]?.sortOrder ?? 0) - (b[0]?.sortOrder ?? 0));
+  const sortedDashboardEntries = Array.from(dashboardCategories.entries()).sort(
+    ([, a], [, b]) => (a[0]?.sortOrder ?? 0) - (b[0]?.sortOrder ?? 0),
+  );
 
   // ─── Reorder handlers ───
   const handleLandingReorder = useCallback(
@@ -744,14 +1106,19 @@ export default function HelpCenterPage() {
       });
       if (payload.length === 0) return;
       // Optimistic update in cache
-      queryClient.setQueryData<HelpContentItem[]>(['admin-help-content', 'landing'], (old) => {
-        if (!old) return old;
-        const orderMap = new Map(payload.map((p) => [p.id, p.sortOrder]));
-        return old.map((item) => {
-          const newOrder = orderMap.get(item.id);
-          return newOrder !== undefined ? { ...item, sortOrder: newOrder } : item;
-        });
-      });
+      queryClient.setQueryData<HelpContentItem[]>(
+        ["admin-help-content", "landing"],
+        (old) => {
+          if (!old) return old;
+          const orderMap = new Map(payload.map((p) => [p.id, p.sortOrder]));
+          return old.map((item) => {
+            const newOrder = orderMap.get(item.id);
+            return newOrder !== undefined
+              ? { ...item, sortOrder: newOrder }
+              : item;
+          });
+        },
+      );
       reorderMutation.mutate(payload);
     },
     [queryClient, reorderMutation],
@@ -768,14 +1135,19 @@ export default function HelpCenterPage() {
         }
       });
       if (payload.length === 0) return;
-      queryClient.setQueryData<HelpContentItem[]>(['admin-help-content', 'dashboard'], (old) => {
-        if (!old) return old;
-        const orderMap = new Map(payload.map((p) => [p.id, p.sortOrder]));
-        return old.map((item) => {
-          const newOrder = orderMap.get(item.id);
-          return newOrder !== undefined ? { ...item, sortOrder: newOrder } : item;
-        });
-      });
+      queryClient.setQueryData<HelpContentItem[]>(
+        ["admin-help-content", "dashboard"],
+        (old) => {
+          if (!old) return old;
+          const orderMap = new Map(payload.map((p) => [p.id, p.sortOrder]));
+          return old.map((item) => {
+            const newOrder = orderMap.get(item.id);
+            return newOrder !== undefined
+              ? { ...item, sortOrder: newOrder }
+              : item;
+          });
+        },
+      );
       reorderMutation.mutate(payload);
     },
     [queryClient, reorderMutation],
@@ -785,23 +1157,29 @@ export default function HelpCenterPage() {
   const landingSortIds = sortedLandingEntries.map(([key]) => key);
   const dashSortIds = sortedDashboardEntries.map(([key]) => key);
 
-  const handleLandingDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIdx = sortedLandingEntries.findIndex(([k]) => k === active.id);
-    const newIdx = sortedLandingEntries.findIndex(([k]) => k === over.id);
-    if (oldIdx === -1 || newIdx === -1) return;
-    handleLandingReorder(arrayMove(sortedLandingEntries, oldIdx, newIdx));
-  }, [sortedLandingEntries, handleLandingReorder]);
+  const handleLandingDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const oldIdx = sortedLandingEntries.findIndex(([k]) => k === active.id);
+      const newIdx = sortedLandingEntries.findIndex(([k]) => k === over.id);
+      if (oldIdx === -1 || newIdx === -1) return;
+      handleLandingReorder(arrayMove(sortedLandingEntries, oldIdx, newIdx));
+    },
+    [sortedLandingEntries, handleLandingReorder],
+  );
 
-  const handleDashDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIdx = sortedDashboardEntries.findIndex(([k]) => k === active.id);
-    const newIdx = sortedDashboardEntries.findIndex(([k]) => k === over.id);
-    if (oldIdx === -1 || newIdx === -1) return;
-    handleDashboardReorder(arrayMove(sortedDashboardEntries, oldIdx, newIdx));
-  }, [sortedDashboardEntries, handleDashboardReorder]);
+  const handleDashDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const oldIdx = sortedDashboardEntries.findIndex(([k]) => k === active.id);
+      const newIdx = sortedDashboardEntries.findIndex(([k]) => k === over.id);
+      if (oldIdx === -1 || newIdx === -1) return;
+      handleDashboardReorder(arrayMove(sortedDashboardEntries, oldIdx, newIdx));
+    },
+    [sortedDashboardEntries, handleDashboardReorder],
+  );
 
   const handleDelete = (itemKey: string, ids: string[]) => {
     if (confirm(`Delete "${itemKey}" and all its translations?`)) {
@@ -812,7 +1190,11 @@ export default function HelpCenterPage() {
   const handleDeleteCategory = (categoryKey: string) => {
     const catItems = dashboardCategories.get(categoryKey) || [];
     const ids = catItems.map((i) => i.id);
-    if (confirm(`Delete category "${categoryKey}" and all ${catItems.length} items?`)) {
+    if (
+      confirm(
+        `Delete category "${categoryKey}" and all ${catItems.length} items?`,
+      )
+    ) {
       deleteMutation.mutate(ids);
     }
   };
@@ -837,24 +1219,30 @@ export default function HelpCenterPage() {
   return (
     <div>
       <div className="mb-2">
-        <h1 className="text-xl font-bold text-white">{t('auto.helpCenter', 'Help Center')}</h1>
+        <h1 className="text-xl font-bold text-white">
+          {t("auto.helpCenter", "Help Center")}
+        </h1>
         <p className="text-xs text-slate-500 mt-1">
-          {t('auto.manageAllHelpAndFAQContentAcrossT', 'Manage all help and FAQ content across the platform — no redeployment needed.')}</p>
+          {t(
+            "auto.manageAllHelpAndFAQContentAcrossT",
+            "Manage all help and FAQ content across the platform — no redeployment needed.",
+          )}
+        </p>
       </div>
 
       {/* Sub-tabs */}
       <div className="flex gap-2 mb-6">
-        {([
-          { key: 'landing' as Tab, label: 'Landing FAQ' },
-          { key: 'dashboard' as Tab, label: 'Dashboard Help' },
-        ]).map(({ key, label }) => (
+        {[
+          { key: "landing" as Tab, label: "Landing FAQ" },
+          { key: "dashboard" as Tab, label: "Dashboard Help" },
+        ].map(({ key, label }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
             className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors border ${
               tab === key
-                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'
-                : 'bg-slate-800/40 text-slate-400 hover:text-slate-200 border-transparent'
+                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
+                : "bg-slate-800/40 text-slate-400 hover:text-slate-200 border-transparent"
             }`}
           >
             {label}
@@ -863,32 +1251,48 @@ export default function HelpCenterPage() {
       </div>
 
       {isLoading ? (
-        <div className="text-slate-500 text-sm py-12 text-center">{t('auto.loading', 'Loading...')}</div>
+        <div className="text-slate-500 text-sm py-12 text-center">
+          {t("auto.loading", "Loading...")}
+        </div>
       ) : (
         <>
           {/* ─── Landing FAQ tab ─── */}
-          {tab === 'landing' && (
+          {tab === "landing" && (
             <div className="bg-[#020617] border border-slate-800 rounded-xl p-5">
               <div className="flex items-center gap-2 mb-4">
-                <h2 className="text-sm font-semibold text-white">{t('auto.fAQItems', 'FAQ Items')}</h2>
+                <h2 className="text-sm font-semibold text-white">
+                  {t("auto.fAQItems", "FAQ Items")}
+                </h2>
                 <span className="text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">
-                  {landingItems.size} {t('auto.items', 'items')}</span>
-                <span className="text-[10px] text-slate-600 ml-1">{t('auto.DragToReorder', '⠿ Drag to reorder')}</span>
+                  {landingItems.size} {t("auto.items", "items")}
+                </span>
+                <span className="text-[10px] text-slate-600 ml-1">
+                  {t("auto.DragToReorder", "⠿ Drag to reorder")}
+                </span>
                 <button
                   onClick={() => setCreateOpen(true)}
                   className="ml-auto px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-md text-[11px] font-bold text-white transition-colors flex items-center gap-1"
                 >
-                  <Plus className="w-3 h-3" /> {t('auto.addItem', 'Add Item')}</button>
+                  <Plus className="w-3 h-3" /> {t("auto.addItem", "Add Item")}
+                </button>
               </div>
 
-              <DndContext collisionDetection={closestCenter} onDragEnd={handleLandingDragEnd}>
-                <SortableContext items={landingSortIds} strategy={verticalListSortingStrategy}>
+              <DndContext
+                collisionDetection={closestCenter}
+                onDragEnd={handleLandingDragEnd}
+              >
+                <SortableContext
+                  items={landingSortIds}
+                  strategy={verticalListSortingStrategy}
+                >
                   <div className="space-y-1">
                     {sortedLandingEntries.map(([itemKey, localeItems]) => {
-                      const enItem = localeItems.find((i) => i.locale === 'en');
+                      const enItem = localeItems.find((i) => i.locale === "en");
                       const ids = localeItems.map((i) => i.id);
                       const isActive = localeItems.some((i) => i.active);
-                      const localesPresent = localeItems.map((i) => i.locale.toUpperCase());
+                      const localesPresent = localeItems.map((i) =>
+                        i.locale.toUpperCase(),
+                      );
 
                       return (
                         <SortableRow key={itemKey} id={itemKey}>
@@ -911,9 +1315,9 @@ export default function HelpCenterPage() {
                                         <span
                                           key={loc}
                                           className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                                            loc === 'EN'
-                                              ? 'bg-emerald-500/15 text-emerald-400'
-                                              : 'bg-slate-800 text-slate-500'
+                                            loc === "EN"
+                                              ? "bg-emerald-500/15 text-emerald-400"
+                                              : "bg-slate-800 text-slate-500"
                                           }`}
                                         >
                                           {loc}
@@ -922,25 +1326,34 @@ export default function HelpCenterPage() {
                                     </div>
                                   </div>
                                   {enItem?.body && (
-                                    <p className="text-[11px] text-slate-500 truncate">{enItem.body}</p>
+                                    <p className="text-[11px] text-slate-500 truncate">
+                                      {enItem.body}
+                                    </p>
                                   )}
                                 </div>
                               </div>
                               <div className="flex items-center gap-2 ml-4 shrink-0">
                                 <button
-                                  onClick={() => toggleMutation.mutate({ ids, active: !isActive })}
+                                  onClick={() =>
+                                    toggleMutation.mutate({
+                                      ids,
+                                      active: !isActive,
+                                    })
+                                  }
                                   className={`w-8 h-4 rounded-full transition-colors relative ${
-                                    isActive ? 'bg-emerald-600' : 'bg-slate-700'
+                                    isActive ? "bg-emerald-600" : "bg-slate-700"
                                   }`}
                                 >
                                   <div
                                     className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${
-                                      isActive ? 'left-[18px]' : 'left-[2px]'
+                                      isActive ? "left-[18px]" : "left-[2px]"
                                     }`}
                                   />
                                 </button>
                                 <button
-                                  onClick={() => setEditItem(enItem || localeItems[0])}
+                                  onClick={() =>
+                                    setEditItem(enItem || localeItems[0])
+                                  }
                                   className="text-slate-500 hover:text-slate-300 transition-colors"
                                 >
                                   <Pencil className="w-3.5 h-3.5" />
@@ -964,33 +1377,53 @@ export default function HelpCenterPage() {
           )}
 
           {/* ─── Dashboard Help tab ─── */}
-          {tab === 'dashboard' && (
+          {tab === "dashboard" && (
             <div className="bg-[#020617] border border-slate-800 rounded-xl p-5">
               <div className="flex items-center gap-2 mb-4">
-                <h2 className="text-sm font-semibold text-white">{t('auto.dashboardHelpCategories', 'Dashboard Help Categories')}</h2>
-                <span className="text-[10px] text-slate-600 ml-1">{t('auto.DragToReorder', '⠿ Drag to reorder')}</span>
+                <h2 className="text-sm font-semibold text-white">
+                  {t(
+                    "auto.dashboardHelpCategories",
+                    "Dashboard Help Categories",
+                  )}
+                </h2>
+                <span className="text-[10px] text-slate-600 ml-1">
+                  {t("auto.DragToReorder", "⠿ Drag to reorder")}
+                </span>
                 <button
                   onClick={() => setDashCategoryOpen(true)}
                   className="ml-auto px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-md text-[11px] font-bold text-white transition-colors flex items-center gap-1"
                 >
-                  <Plus className="w-3 h-3" /> {t('auto.addCategory', 'Add Category')}</button>
+                  <Plus className="w-3 h-3" />{" "}
+                  {t("auto.addCategory", "Add Category")}
+                </button>
               </div>
 
-              <DndContext collisionDetection={closestCenter} onDragEnd={handleDashDragEnd}>
-                <SortableContext items={dashSortIds} strategy={verticalListSortingStrategy}>
+              <DndContext
+                collisionDetection={closestCenter}
+                onDragEnd={handleDashDragEnd}
+              >
+                <SortableContext
+                  items={dashSortIds}
+                  strategy={verticalListSortingStrategy}
+                >
                   <div className="space-y-1.5">
                     {sortedDashboardEntries.map(([categoryKey, catItems]) => {
                       const isExpanded = expandedCategories.has(categoryKey);
-                      const groupedItems = groupBy(catItems, 'itemKey');
+                      const groupedItems = groupBy(catItems, "itemKey");
 
-                      const sortedEntries = Array.from(groupedItems.entries()).sort(([a], [b]) => {
+                      const sortedEntries = Array.from(
+                        groupedItems.entries(),
+                      ).sort(([a], [b]) => {
                         const order = (k: string) => {
-                          if (k === 'guide-title') return 0;
-                          if (k === 'guide-desc') return 1;
-                          if (k.startsWith('guide-step-')) return 2 + parseInt(k.replace('guide-step-', '') || '0');
-                          if (k === 'guide-tip') return 100;
-                          if (k === 'guide-warning') return 101;
-                          if (k.startsWith('faq-')) return 200;
+                          if (k === "guide-title") return 0;
+                          if (k === "guide-desc") return 1;
+                          if (k.startsWith("guide-step-"))
+                            return (
+                              2 + parseInt(k.replace("guide-step-", "") || "0")
+                            );
+                          if (k === "guide-tip") return 100;
+                          if (k === "guide-warning") return 101;
+                          if (k.startsWith("faq-")) return 200;
                           return 300;
                         };
                         return order(a) - order(b);
@@ -1018,29 +1451,52 @@ export default function HelpCenterPage() {
                                   )}
                                   <div className="flex items-center gap-1.5">
                                     <span className="text-xs font-semibold text-slate-200">
-                                      {groupedItems.get('category-meta')?.find(i => i.locale === 'en')?.body || 
-                                       groupedItems.get('guide-title')?.find(i => i.locale === 'en')?.title || 
-                                       categoryKey}
+                                      {groupedItems
+                                        .get("category-meta")
+                                        ?.find((i) => i.locale === "en")
+                                        ?.body ||
+                                        groupedItems
+                                          .get("guide-title")
+                                          ?.find((i) => i.locale === "en")
+                                          ?.title ||
+                                        categoryKey}
                                     </span>
-                                    <span className="text-[10px] text-slate-500 font-mono">({categoryKey})</span>
+                                    <span className="text-[10px] text-slate-500 font-mono">
+                                      ({categoryKey})
+                                    </span>
                                   </div>
                                   <span className="text-[10px] text-slate-600 bg-slate-800 px-1.5 py-0.5 rounded">
-                                    {groupedItems.size} {t('auto.items', 'items')}</span>
+                                    {groupedItems.size}{" "}
+                                    {t("auto.items", "items")}
+                                  </span>
                                 </button>
-                                <div className="flex gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                <div
+                                  className="flex gap-1.5 shrink-0"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   <button
-                                    onClick={() => setEditCategorySettings({ 
-                                      categoryKey, 
-                                      metaItems: groupedItems.get('category-meta') || [],
-                                      titleItems: groupedItems.get('guide-title') || []
-                                    })}
+                                    onClick={() =>
+                                      setEditCategorySettings({
+                                        categoryKey,
+                                        metaItems:
+                                          groupedItems.get("category-meta") ||
+                                          [],
+                                        titleItems:
+                                          groupedItems.get("guide-title") || [],
+                                      })
+                                    }
                                     className="text-slate-500 hover:text-emerald-400 transition-colors p-0.5"
-                                    title={t('auto.categorySettings', 'Category Settings')}
+                                    title={t(
+                                      "auto.categorySettings",
+                                      "Category Settings",
+                                    )}
                                   >
                                     <Settings className="w-3 h-3" />
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteCategory(categoryKey)}
+                                    onClick={() =>
+                                      handleDeleteCategory(categoryKey)
+                                    }
                                     className="text-slate-500 hover:text-red-400 transition-colors p-0.5"
                                   >
                                     <Trash2 className="w-3 h-3" />
@@ -1050,43 +1506,56 @@ export default function HelpCenterPage() {
 
                               {isExpanded && (
                                 <div className="border-t border-slate-800/40">
-                                  {sortedEntries.map(([itemKey, localeItems]) => {
-                                    const enItem = localeItems.find((i) => i.locale === 'en');
-                                    const ids = localeItems.map((i) => i.id);
+                                  {sortedEntries.map(
+                                    ([itemKey, localeItems]) => {
+                                      const enItem = localeItems.find(
+                                        (i) => i.locale === "en",
+                                      );
+                                      const ids = localeItems.map((i) => i.id);
 
-                                    return (
-                                      <div
-                                        key={itemKey}
-                                        className="flex items-center justify-between px-4 py-2 hover:bg-slate-800/20 transition-colors border-b border-slate-800/20 last:border-b-0"
-                                      >
-                                        <div className="flex items-center gap-2 pl-5 min-w-0">
-                                          <ItemTypeBadge itemKey={itemKey} />
-                                          <span className="text-[11px] text-slate-300 truncate">
-                                            {enItem?.title || enItem?.body?.slice(0, 60) || itemKey}
-                                          </span>
+                                      return (
+                                        <div
+                                          key={itemKey}
+                                          className="flex items-center justify-between px-4 py-2 hover:bg-slate-800/20 transition-colors border-b border-slate-800/20 last:border-b-0"
+                                        >
+                                          <div className="flex items-center gap-2 pl-5 min-w-0">
+                                            <ItemTypeBadge itemKey={itemKey} />
+                                            <span className="text-[11px] text-slate-300 truncate">
+                                              {enItem?.title ||
+                                                enItem?.body?.slice(0, 60) ||
+                                                itemKey}
+                                            </span>
+                                          </div>
+                                          <div className="flex gap-1.5 shrink-0">
+                                            <button
+                                              onClick={() => {
+                                                if (enItem) setEditItem(enItem);
+                                              }}
+                                              className="text-slate-500 hover:text-slate-300 transition-colors p-0.5"
+                                            >
+                                              <Pencil className="w-3 h-3" />
+                                            </button>
+                                            <button
+                                              onClick={() =>
+                                                handleDelete(itemKey, ids)
+                                              }
+                                              className="text-slate-500 hover:text-red-400 transition-colors p-0.5"
+                                            >
+                                              <Trash2 className="w-3 h-3" />
+                                            </button>
+                                          </div>
                                         </div>
-                                        <div className="flex gap-1.5 shrink-0">
-                                          <button
-                                            onClick={() => { if (enItem) setEditItem(enItem); }}
-                                            className="text-slate-500 hover:text-slate-300 transition-colors p-0.5"
-                                          >
-                                            <Pencil className="w-3 h-3" />
-                                          </button>
-                                          <button
-                                            onClick={() => handleDelete(itemKey, ids)}
-                                            className="text-slate-500 hover:text-red-400 transition-colors p-0.5"
-                                          >
-                                            <Trash2 className="w-3 h-3" />
-                                          </button>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
+                                      );
+                                    },
+                                  )}
                                   <button
-                                    onClick={() => setDashAddItemCategory(categoryKey)}
+                                    onClick={() =>
+                                      setDashAddItemCategory(categoryKey)
+                                    }
                                     className="w-full text-left px-4 py-2 text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
                                   >
-                                    {t('auto.AddHelpItem', '+ Add help item')}</button>
+                                    {t("auto.AddHelpItem", "+ Add help item")}
+                                  </button>
                                 </div>
                               )}
                             </div>
@@ -1137,115 +1606,120 @@ export default function HelpCenterPage() {
   );
 }
 
-function DashboardCategorySettingsDialog({ 
-  categoryKey, 
-  metaItems, 
+function DashboardCategorySettingsDialog({
+  categoryKey,
+  metaItems,
   titleItems,
-  onClose 
-}: { 
-  categoryKey: string, 
-  metaItems: HelpContentItem[], 
-  titleItems: HelpContentItem[],
-  onClose: () => void 
+  onClose,
+}: {
+  categoryKey: string;
+  metaItems: HelpContentItem[];
+  titleItems: HelpContentItem[];
+  onClose: () => void;
 }) {
-    const { t } = useTranslation();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const currentIcon = metaItems.find(i => i.locale === 'en')?.title || 'BookOpen';
-  const currentTabName = metaItems.find(i => i.locale === 'en')?.body || '';
-  const currentGuideTitle = titleItems.find(i => i.locale === 'en')?.title || '';
-  
+  const currentIcon =
+    metaItems.find((i) => i.locale === "en")?.title || "BookOpen";
+  const currentTabName = metaItems.find((i) => i.locale === "en")?.body || "";
+  const currentGuideTitle =
+    titleItems.find((i) => i.locale === "en")?.title || "";
+
   const [selectedIcon, setSelectedIcon] = useState(currentIcon);
   const [tabName, setTabName] = useState(currentTabName);
   const [guideTitle, setGuideTitle] = useState(currentGuideTitle);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState("");
 
   const AVAILABLE_ICONS = [
-    { name: 'BookOpen', icon: BookOpen },
-    { name: 'Utensils', icon: Utensils },
-    { name: 'Coffee', icon: Coffee },
-    { name: 'Pizza', icon: Pizza },
-    { name: 'Beer', icon: Beer },
-    { name: 'Wine', icon: Wine },
-    { name: 'IceCream', icon: IceCream },
-    { name: 'QrCode', icon: QrCode },
-    { name: 'CreditCard', icon: CreditCard },
-    { name: 'Award', icon: Award },
-    { name: 'Tag', icon: Tag },
-    { name: 'Ticket', icon: Ticket },
-    { name: 'Monitor', icon: Monitor },
-    { name: 'Layout', icon: Layout },
-    { name: 'Settings', icon: Settings },
-    { name: 'Users', icon: Users },
-    { name: 'Star', icon: Star },
-    { name: 'ShoppingBag', icon: ShoppingBag },
-    { name: 'Clock', icon: Clock },
-    { name: 'Calendar', icon: Calendar },
-    { name: 'MapPin', icon: MapPin },
-    { name: 'Phone', icon: Phone },
-    { name: 'Mail', icon: Mail },
-    { name: 'MessageSquare', icon: MessageSquare },
-    { name: 'Globe', icon: Globe },
-    { name: 'FileText', icon: FileText },
-    { name: 'Image', icon: Image },
-    { name: 'ShieldAlert', icon: ShieldAlert },
-    { name: 'Zap', icon: Zap },
-    { name: 'Info', icon: Info },
-    { name: 'HelpCircle', icon: HelpCircle },
-    { name: 'FileQuestion', icon: FileQuestion },
-    { name: 'Lightbulb', icon: Lightbulb },
-    { name: 'GraduationCap', icon: GraduationCap },
-    { name: 'Video', icon: Video },
-    { name: 'Book', icon: Book },
-    { name: 'Bookmark', icon: Bookmark },
-    { name: 'Compass', icon: Compass },
-    { name: 'LifeBuoy', icon: LifeBuoy },
-    { name: 'Wrench', icon: Wrench },
-    { name: 'PlayCircle', icon: PlayCircle },
+    { name: "BookOpen", icon: BookOpen },
+    { name: "Utensils", icon: Utensils },
+    { name: "Coffee", icon: Coffee },
+    { name: "Pizza", icon: Pizza },
+    { name: "Beer", icon: Beer },
+    { name: "Wine", icon: Wine },
+    { name: "IceCream", icon: IceCream },
+    { name: "QrCode", icon: QrCode },
+    { name: "CreditCard", icon: CreditCard },
+    { name: "Award", icon: Award },
+    { name: "Tag", icon: Tag },
+    { name: "Ticket", icon: Ticket },
+    { name: "Monitor", icon: Monitor },
+    { name: "Layout", icon: Layout },
+    { name: "Settings", icon: Settings },
+    { name: "Users", icon: Users },
+    { name: "Star", icon: Star },
+    { name: "ShoppingBag", icon: ShoppingBag },
+    { name: "Clock", icon: Clock },
+    { name: "Calendar", icon: Calendar },
+    { name: "MapPin", icon: MapPin },
+    { name: "Phone", icon: Phone },
+    { name: "Mail", icon: Mail },
+    { name: "MessageSquare", icon: MessageSquare },
+    { name: "Globe", icon: Globe },
+    { name: "FileText", icon: FileText },
+    { name: "Image", icon: Image },
+    { name: "ShieldAlert", icon: ShieldAlert },
+    { name: "Zap", icon: Zap },
+    { name: "Info", icon: Info },
+    { name: "HelpCircle", icon: HelpCircle },
+    { name: "FileQuestion", icon: FileQuestion },
+    { name: "Lightbulb", icon: Lightbulb },
+    { name: "GraduationCap", icon: GraduationCap },
+    { name: "Video", icon: Video },
+    { name: "Book", icon: Book },
+    { name: "Bookmark", icon: Bookmark },
+    { name: "Compass", icon: Compass },
+    { name: "LifeBuoy", icon: LifeBuoy },
+    { name: "Wrench", icon: Wrench },
+    { name: "PlayCircle", icon: PlayCircle },
   ];
 
   const updateMutation = useMutation({
     mutationFn: async () => {
       // Update Icon and Tab Name
-      for (const loc of [{ key: 'en' }, { key: 'bg' }, { key: 'ro' }]) {
-        const existingMeta = metaItems.find(m => m.locale === loc.key);
+      for (const loc of [{ key: "en" }, { key: "bg" }, { key: "ro" }]) {
+        const existingMeta = metaItems.find((m) => m.locale === loc.key);
         if (existingMeta) {
-          await updateHelpContent(existingMeta.id, { title: selectedIcon, body: tabName });
+          await updateHelpContent(existingMeta.id, {
+            title: selectedIcon,
+            body: tabName,
+          });
         } else {
           await createHelpContent({
-            section: 'dashboard',
+            section: "dashboard",
             categoryKey,
-            itemKey: 'category-meta',
+            itemKey: "category-meta",
             locale: loc.key,
             title: selectedIcon,
-            body: tabName
+            body: tabName,
           });
         }
 
         // Update Guide Title
         if (guideTitle.trim()) {
-          const existingTitle = titleItems.find(m => m.locale === loc.key);
+          const existingTitle = titleItems.find((m) => m.locale === loc.key);
           if (existingTitle) {
             await updateHelpContent(existingTitle.id, { title: guideTitle });
           } else {
             await createHelpContent({
-              section: 'dashboard',
+              section: "dashboard",
               categoryKey,
-              itemKey: 'guide-title',
+              itemKey: "guide-title",
               locale: loc.key,
               title: guideTitle,
-              body: ''
+              body: "",
             });
           }
         }
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-help-content'] });
+      queryClient.invalidateQueries({ queryKey: ["admin-help-content"] });
       onClose();
     },
     onError: () => {
-      setErrorMsg('Failed to save settings. Please try again.');
-    }
+      setErrorMsg("Failed to save settings. Please try again.");
+    },
   });
 
   return (
@@ -1253,45 +1727,63 @@ function DashboardCategorySettingsDialog({
       <div className="bg-[#020617] border border-slate-800 rounded-xl w-full max-w-2xl mx-4">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
           <div className="flex items-center gap-3">
-            <h3 className="font-bold text-sm text-white">{t('auto.settingsFor', 'Settings for')}<span className="text-emerald-400">"{categoryKey}"</span></h3>
-            {errorMsg && <span className="text-xs text-red-400 bg-red-400/10 px-2 py-1 rounded font-semibold">{errorMsg}</span>}
+            <h3 className="font-bold text-sm text-white">
+              {t("auto.settingsFor", "Settings for")}
+              <span className="text-emerald-400">"{categoryKey}"</span>
+            </h3>
+            {errorMsg && (
+              <span className="text-xs text-red-400 bg-red-400/10 px-2 py-1 rounded font-semibold">
+                {errorMsg}
+              </span>
+            )}
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">✕</button>
+          <button
+            onClick={onClose}
+            className="text-slate-500 hover:text-white transition-colors"
+          >
+            ✕
+          </button>
         </div>
 
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.tabNameSidebar', 'Tab Name (Sidebar)')}</label>
+              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                {t("auto.tabNameSidebar", "Tab Name (Sidebar)")}
+              </label>
               <input
                 value={tabName}
                 onChange={(e) => setTabName(e.target.value)}
                 className="w-full bg-[#0d1117] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50"
-                placeholder={t('auto.eGPrivacyGDPR', 'e.g. Privacy & GDPR')}
+                placeholder={t("auto.eGPrivacyGDPR", "e.g. Privacy & GDPR")}
               />
             </div>
             <div>
-              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.guideTitleH1', 'Guide Title (H1)')}</label>
+              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                {t("auto.guideTitleH1", "Guide Title (H1)")}
+              </label>
               <input
                 value={guideTitle}
                 onChange={(e) => setGuideTitle(e.target.value)}
                 className="w-full bg-[#0d1117] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50"
-                placeholder={t('auto.eGGDPRCompliance', 'e.g. GDPR Compliance')}
+                placeholder={t("auto.eGGDPRCompliance", "e.g. GDPR Compliance")}
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{t('auto.categoryIcon', 'Category Icon')}</label>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+              {t("auto.categoryIcon", "Category Icon")}
+            </label>
             <div className="flex gap-2 flex-wrap max-h-[40vh] overflow-y-auto pr-2">
               {AVAILABLE_ICONS.map(({ name, icon: Icon }) => (
                 <button
                   key={name}
                   onClick={() => setSelectedIcon(name)}
                   className={`p-3 rounded-lg transition-colors border ${
-                    selectedIcon === name 
-                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' 
-                      : 'bg-[#0d1117] border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500'
+                    selectedIcon === name
+                      ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
+                      : "bg-[#0d1117] border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500"
                   }`}
                   title={name}
                 >
@@ -1303,13 +1795,23 @@ function DashboardCategorySettingsDialog({
         </div>
 
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-slate-800">
-          <button onClick={onClose} className="px-4 py-2 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition-colors">{t('auto.cancel', 'Cancel')}</button>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+          >
+            {t("auto.cancel", "Cancel")}
+          </button>
           <button
             onClick={() => updateMutation.mutate()}
-            disabled={updateMutation.isPending || (selectedIcon === currentIcon && tabName === currentTabName && guideTitle === currentGuideTitle)}
+            disabled={
+              updateMutation.isPending ||
+              (selectedIcon === currentIcon &&
+                tabName === currentTabName &&
+                guideTitle === currentGuideTitle)
+            }
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-md text-xs font-bold text-white transition-colors"
           >
-            {updateMutation.isPending ? 'Saving...' : 'Save Settings'}
+            {updateMutation.isPending ? "Saving..." : "Save Settings"}
           </button>
         </div>
       </div>

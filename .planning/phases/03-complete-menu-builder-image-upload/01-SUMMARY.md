@@ -22,12 +22,12 @@ Configured the backend to statically serve image assets directly from the `uploa
 
 ## Tasks Completed
 
-| # | Task | Status |
-|---|------|--------|
-| 1.1 | Ensure uploads directory exists | ✓ |
-| 1.2 | Serve static assets in NestJS main.ts | ✓ |
-| 1.3 | Fix image path storage in item.controller.ts | ✓ |
-| 1.4 | Fix image rendering in ItemWithOptions.tsx | ✓ |
+| #   | Task                                         | Status |
+| --- | -------------------------------------------- | ------ |
+| 1.1 | Ensure uploads directory exists              | ✓      |
+| 1.2 | Serve static assets in NestJS main.ts        | ✓      |
+| 1.3 | Fix image path storage in item.controller.ts | ✓      |
+| 1.4 | Fix image rendering in ItemWithOptions.tsx   | ✓      |
 
 ## Deviations from Plan
 

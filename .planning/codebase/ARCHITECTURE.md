@@ -56,18 +56,21 @@ PostgreSQL
 ### Key Abstractions
 
 #### PrismaService (`backend/src/prisma/prisma.service.ts`)
+
 - Extends `PrismaClient`, implements `OnModuleInit`
 - Retry logic for database connections (15 attempts, 2s delay)
 - Shutdown hooks for graceful exit (SIGINT/SIGTERM)
 - Shared across all modules via `PrismaModule` (exported globally)
 
 #### AuthService (`backend/src/auth/auth.service.ts`)
+
 - Validates users via email/password (bcrypt compare)
 - Issues JWT tokens with `{ email, sub: userId }` payload
 - Handles Google OAuth user creation/lookup
 - Registration with duplicate email detection
 
 #### MenuService (`backend/src/menu/menu.service.ts`)
+
 - Most complex service (219 lines)
 - Manages categories, items, and menu options
 - Ownership validation via `checkRestaurantOwnership()` on every mutation
@@ -81,7 +84,7 @@ PostgreSQL
    → LocalAuthGuard → LocalStrategy.validate()
    → AuthService.login() → JWT signed and returned
 
-2. Protected routes: 
+2. Protected routes:
    → JwtAuthGuard → JwtStrategy.validate()
    → Extracts user from JWT payload
 
@@ -104,14 +107,14 @@ PostgreSQL
 
 The frontend uses a **Context API + Hooks pattern** (6 contexts):
 
-| Context | File | Purpose |
-|---------|------|---------|
-| `AuthContext` | `frontend/src/context/AuthContext.tsx` | User auth state, login/register/logout |
-| `RestaurantContext` | `frontend/src/context/RestaurantContext.tsx` | Active restaurant selection |
-| `MenuContext` | `frontend/src/context/MenuContext.tsx` | Menu editor state |
-| `CartContext` | `frontend/src/context/CartContext.tsx` | Shopping cart with localStorage persistence |
-| `OrderContext` | `frontend/src/context/OrderContext.tsx` | Order management |
-| `AssistanceContext` | `frontend/src/context/AssistanceContext.tsx` | "Call waiter" feature state |
+| Context             | File                                         | Purpose                                     |
+| ------------------- | -------------------------------------------- | ------------------------------------------- |
+| `AuthContext`       | `frontend/src/context/AuthContext.tsx`       | User auth state, login/register/logout      |
+| `RestaurantContext` | `frontend/src/context/RestaurantContext.tsx` | Active restaurant selection                 |
+| `MenuContext`       | `frontend/src/context/MenuContext.tsx`       | Menu editor state                           |
+| `CartContext`       | `frontend/src/context/CartContext.tsx`       | Shopping cart with localStorage persistence |
+| `OrderContext`      | `frontend/src/context/OrderContext.tsx`      | Order management                            |
+| `AssistanceContext` | `frontend/src/context/AssistanceContext.tsx` | "Call waiter" feature state                 |
 
 ### Context Nesting (App.tsx)
 
@@ -127,15 +130,15 @@ Router
 
 ### Routing Structure
 
-| Path | Component | Access |
-|------|-----------|--------|
-| `/` | `HomePage` | Public |
-| `/login` | `LoginPage` | Public |
-| `/menu/public/:restaurantId` | `PublicMenuPage` | Public |
-| `/checkout` | `CheckoutPage` | Public |
-| `/order-confirmation` | `OrderConfirmationPage` | Public |
-| `/dashboard` | `DashboardPage` | Protected |
-| `/dashboard/menu` | `MenuEditorPage` | Protected |
+| Path                         | Component               | Access    |
+| ---------------------------- | ----------------------- | --------- |
+| `/`                          | `HomePage`              | Public    |
+| `/login`                     | `LoginPage`             | Public    |
+| `/menu/public/:restaurantId` | `PublicMenuPage`        | Public    |
+| `/checkout`                  | `CheckoutPage`          | Public    |
+| `/order-confirmation`        | `OrderConfirmationPage` | Public    |
+| `/dashboard`                 | `DashboardPage`         | Protected |
+| `/dashboard/menu`            | `MenuEditorPage`        | Protected |
 
 ### Data Fetching
 
@@ -160,6 +163,7 @@ App
 ### UI Component Library
 
 Custom shadcn/ui-style components in `frontend/src/components/ui/`:
+
 - `button.tsx` — CVA-based variant button
 - `card.tsx` — Card layout primitives
 - `input.tsx` — Styled input
@@ -172,18 +176,21 @@ Custom shadcn/ui-style components in `frontend/src/components/ui/`:
 ## Data Flow
 
 ### Customer Order Flow
+
 ```
 Customer scans QR → PublicMenuPage → Browse menu → Add to Cart (CartContext)
 → Checkout → CheckoutPage → Submit order (POST /api/orders) → OrderConfirmation
 ```
 
 ### Admin Menu Management Flow
+
 ```
 Login → Dashboard → Menu Editor → CRUD operations
 → Changes persisted via Prisma → Visible on public menu
 ```
 
 ### Data Model Relationships
+
 ```
 User (owner) ←──1:N──→ Restaurant
 Restaurant ←──1:N──→ MenuCategory ←──1:N──→ MenuItem ←──1:N──→ MenuOption
@@ -193,10 +200,10 @@ Restaurant ←──1:N──→ AssistanceRequest
 
 ## Entry Points
 
-| Entry Point | File | Purpose |
-|-------------|------|---------|
-| Backend main | `backend/src/main.ts` | NestJS bootstrap, CORS, Swagger, `/api` prefix |
-| Frontend main | `frontend/src/index.tsx` | React root render with QueryClientProvider |
-| App routes | `frontend/src/App.tsx` | Router + Context providers + Route definitions |
-| Docker entry | `docker-compose.yml` | Multi-service orchestration |
-| Database seed | `backend/prisma/seed.ts` | Demo data initialization |
+| Entry Point   | File                     | Purpose                                        |
+| ------------- | ------------------------ | ---------------------------------------------- |
+| Backend main  | `backend/src/main.ts`    | NestJS bootstrap, CORS, Swagger, `/api` prefix |
+| Frontend main | `frontend/src/index.tsx` | React root render with QueryClientProvider     |
+| App routes    | `frontend/src/App.tsx`   | Router + Context providers + Route definitions |
+| Docker entry  | `docker-compose.yml`     | Multi-service orchestration                    |
+| Database seed | `backend/prisma/seed.ts` | Demo data initialization                       |

@@ -8,9 +8,9 @@ async function main() {
   // Actually let's just find the restaurant of the Truffle Burrata
   const item = await prisma.menuItem.findFirst({
     where: { name: { contains: 'Truffle Burrata' } },
-    include: { category: true }
+    include: { category: true },
   });
-  
+
   if (!item) return;
   const restaurantIdFound = item.category.restaurantId;
 
@@ -20,14 +20,19 @@ async function main() {
       items: {
         where: { isOutOfStock: false },
         orderBy: { order: 'asc' },
-        include: { options: true }
+        include: { options: true },
       },
     },
     orderBy: { order: 'asc' },
   });
 
-  const truffleBurrata = allCategories.flatMap(c => c.items).find(i => i.name.includes('Truffle Burrata'));
-  console.log('Truffle Burrata from findMany:', JSON.stringify(truffleBurrata, null, 2));
+  const truffleBurrata = allCategories
+    .flatMap((c) => c.items)
+    .find((i) => i.name.includes('Truffle Burrata'));
+  console.log(
+    'Truffle Burrata from findMany:',
+    JSON.stringify(truffleBurrata, null, 2),
+  );
   console.log('relatedItemIds present?', !!truffleBurrata?.relatedItemIds);
   console.log('relatedItemIds value:', truffleBurrata?.relatedItemIds);
 }

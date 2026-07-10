@@ -46,30 +46,35 @@ Add a `.gitkeep` if desired, though we are focusing on execution.
 Modify `backend/src/main.ts` to use `NestExpressApplication` and serve the `uploads` directory statically.
 
 Add imports:
+
 ```typescript
-import { NestExpressApplication } from '@nestjs/platform-express';
-import { join } from 'path';
+import { NestExpressApplication } from "@nestjs/platform-express";
+import { join } from "path";
 ```
 
 Update `NestFactory.create` to pass the express application generic:
+
 ```typescript
 const app = await NestFactory.create<NestExpressApplication>(AppModule);
 ```
 
 Before `app.setGlobalPrefix('api');`, add the static assets configuration:
+
 ```typescript
-app.useStaticAssets(join(__dirname, '..', '..', 'uploads'), {
-  prefix: '/uploads/',
+app.useStaticAssets(join(__dirname, "..", "..", "uploads"), {
+  prefix: "/uploads/",
 });
 ```
-*(Note: `__dirname` inside `dist/src` is `dist/src`, so `..`, `..` goes to the root `backend` folder where `uploads` resides).*
+
+_(Note: `__dirname` inside `dist/src` is `dist/src`, so `..`, `..` goes to the root `backend` folder where `uploads` resides)._
 </action>
 <acceptance_criteria>
+
 - `main.ts` imports `NestExpressApplication` and `join`
 - `main.ts` creates the app with `<NestExpressApplication>`
 - `main.ts` calls `app.useStaticAssets` on the `uploads` directory
-</acceptance_criteria>
-</task>
+  </acceptance_criteria>
+  </task>
 
 <task id="1.3">
 <title>Fix image path storage in item.controller.ts</title>
@@ -80,6 +85,7 @@ app.useStaticAssets(join(__dirname, '..', '..', 'uploads'), {
 In `backend/src/menu/item.controller.ts`, inside the `uploadImage` method, Multer gives `file.path` which on Windows could be `uploads\file.png`. We need a normalized URL path.
 
 Update the `uploadImage` method:
+
 ```typescript
     @Post(':id/image')
     @UseInterceptors(FileInterceptor('file', {
@@ -97,6 +103,7 @@ Update the `uploadImage` method:
         return this.menuService.updateItemImage(id, imageUrl, req.user.id);
     }
 ```
+
 </action>
 <acceptance_criteria>
 - `item.controller.ts` stores `uploads/${file.filename}` instead of `file.path`.
@@ -114,16 +121,23 @@ Currently it uses `http://localhost:3000/`. Let's dynamically construct it using
 
 ```tsx
 const getImageUrl = (url: string) => {
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-  const baseUrl = apiUrl.replace('/api', '');
+  const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+  const baseUrl = apiUrl.replace("/api", "");
   return `${baseUrl}/${url}`;
 };
 
 // ... inside render:
-{item.imageUrl && (
-  <img src={getImageUrl(item.imageUrl)} alt={item.name} className="w-full h-32 object-cover mb-4 rounded-md" />
-)}
+{
+  item.imageUrl && (
+    <img
+      src={getImageUrl(item.imageUrl)}
+      alt={item.name}
+      className="w-full h-32 object-cover mb-4 rounded-md"
+    />
+  );
+}
 ```
+
 </action>
 <acceptance_criteria>
 - `ItemWithOptions.tsx` dynamically constructs the full image URL.

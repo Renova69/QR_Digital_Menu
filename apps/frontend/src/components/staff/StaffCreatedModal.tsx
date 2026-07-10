@@ -116,14 +116,16 @@ export default function StaffCreatedModal({
         </button>
 
         <h3 className="text-lg font-semibold text-foreground mb-1">
-          {rawPin || tempPassword ? t("staff.created.title") : t("staff.created.rebondTitle")}
+          {rawPin || tempPassword
+            ? t("staff.created.title")
+            : t("staff.created.rebondTitle")}
         </h3>
         <p className="text-sm text-muted-foreground mb-6">
           {isPasswordOnly
             ? t("staff.created.passwordInstruction")
             : rawPin
-            ? t("staff.created.scanInstruction")
-            : t("staff.created.rebondInstruction", { name: staffName })}
+              ? t("staff.created.scanInstruction")
+              : t("staff.created.rebondInstruction", { name: staffName })}
         </p>
 
         {enrollmentError && (
@@ -147,9 +149,12 @@ export default function StaffCreatedModal({
             )}
           </>
         ) : (
-          !enrollmentError && !tempPassword && (
+          !enrollmentError &&
+          !tempPassword && (
             <div className="bg-muted rounded-xl p-8 mb-6 flex items-center justify-center">
-              <p className="text-sm text-muted-foreground">{t("staff.created.qrUnavailable")}</p>
+              <p className="text-sm text-muted-foreground">
+                {t("staff.created.qrUnavailable")}
+              </p>
             </div>
           )
         )}
@@ -157,16 +162,24 @@ export default function StaffCreatedModal({
         {tempPassword && (
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 mb-4 text-center">
             <p className="text-sm text-muted-foreground mb-1">
-              {t("staff.created.passwordFor", { name: staffName, defaultValue: `Dashboard Password for ${staffName}` })}
+              {t("staff.created.passwordFor", {
+                name: staffName,
+                defaultValue: `Dashboard Password for ${staffName}`,
+              })}
             </p>
             <p className="text-xs text-muted-foreground mb-2">
-              {t('auto.email', 'Email:')}<span className="font-semibold text-foreground">{staffEmail}</span>
+              {t("auto.email", "Email:")}
+              <span className="font-semibold text-foreground">
+                {staffEmail}
+              </span>
             </p>
             <p className="text-2xl font-mono font-bold text-foreground tracking-widest select-all">
               {tempPassword}
             </p>
             <p className="text-[10px] uppercase font-bold text-blue-500 mt-2">
-              {t("staff.created.copyPasswordWarning", { defaultValue: "Copy this now. It won't be shown again." })}
+              {t("staff.created.copyPasswordWarning", {
+                defaultValue: "Copy this now. It won't be shown again.",
+              })}
             </p>
           </div>
         )}
@@ -176,7 +189,9 @@ export default function StaffCreatedModal({
             <p className="text-sm text-muted-foreground mb-1">
               {t("staff.created.pinFor", { name: staffName })}
             </p>
-            <p className={`text-3xl font-mono font-bold text-foreground tracking-widest ${pinVisible ? "select-all" : ""}`}>
+            <p
+              className={`text-3xl font-mono font-bold text-foreground tracking-widest ${pinVisible ? "select-all" : ""}`}
+            >
               {pinVisible ? rawPin : "****"}
             </p>
             <p className="text-xs text-muted-foreground mt-2">
@@ -202,7 +217,9 @@ export default function StaffCreatedModal({
             className="w-full inline-flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <FontAwesomeIcon icon={linkCopied ? faCheck : faCopy} />
-            {linkCopied ? t("staff.created.linkCopied") : t("staff.created.copyLink")}
+            {linkCopied
+              ? t("staff.created.linkCopied")
+              : t("staff.created.copyLink")}
           </button>
         )}
       </div>

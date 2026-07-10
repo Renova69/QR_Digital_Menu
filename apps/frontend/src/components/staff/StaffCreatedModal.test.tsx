@@ -12,11 +12,14 @@ const mockT = vi.fn((key: string, opts?: any) => {
   const fallbacks: Record<string, string> = {
     "staff.created.title": "Staff Account Created",
     "staff.created.rebondTitle": "Device Bonding QR",
-    "staff.created.scanInstruction": "Scan QR on the staff device, then enter the PIN below.",
-    "staff.created.passwordInstruction": "Share this temporary dashboard login with the staff member.",
+    "staff.created.scanInstruction":
+      "Scan QR on the staff device, then enter the PIN below.",
+    "staff.created.passwordInstruction":
+      "Share this temporary dashboard login with the staff member.",
     "staff.created.expiresIn": "Expires in",
     "staff.created.expired": "Expired",
-    "staff.created.copyPinWarning": "Copy this PIN now — it won't be shown again.",
+    "staff.created.copyPinWarning":
+      "Copy this PIN now — it won't be shown again.",
     "staff.created.copyPin": "Copy PIN",
     "staff.created.revealPin": "Reveal PIN",
     "staff.created.copied": "Copied!",
@@ -63,7 +66,7 @@ describe("StaffCreatedModal", () => {
 
   it("renders nothing when open is false", () => {
     const { container } = render(
-      <StaffCreatedModal {...defaultProps} open={false} />
+      <StaffCreatedModal {...defaultProps} open={false} />,
     );
     expect(container.innerHTML).toBe("");
   });
@@ -100,9 +103,7 @@ describe("StaffCreatedModal", () => {
   });
 
   it("renders QR code SVG with role img", () => {
-    const { container } = render(
-      <StaffCreatedModal {...defaultProps} />
-    );
+    const { container } = render(<StaffCreatedModal {...defaultProps} />);
     const qrSvg = container.querySelector('svg[role="img"]');
     expect(qrSvg).toBeTruthy();
   });
@@ -158,7 +159,9 @@ describe("StaffCreatedModal", () => {
     render(<StaffCreatedModal {...defaultProps} rawPin="123456" />);
     expect(mockT).toHaveBeenCalledWith("staff.created.title");
     expect(mockT).toHaveBeenCalledWith("staff.created.scanInstruction");
-    expect(mockT).toHaveBeenCalledWith("staff.created.pinFor", { name: "Alice" });
+    expect(mockT).toHaveBeenCalledWith("staff.created.pinFor", {
+      name: "Alice",
+    });
     expect(mockT).toHaveBeenCalledWith("staff.created.copyPinWarning");
   });
 });

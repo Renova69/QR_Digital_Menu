@@ -1,5 +1,6 @@
 import { Outlet } from "react-router-dom";
 import { PosThemeProvider, usePosTheme } from "../../context/PosThemeContext";
+import { AssistanceProvider } from "../../context/AssistanceContext";
 
 function PosThemeShell() {
   const { theme } = usePosTheme();
@@ -18,7 +19,9 @@ function PosThemeShell() {
 export default function PosLayout() {
   return (
     <PosThemeProvider>
-      <PosThemeShell />
+      <AssistanceProvider>
+        <PosThemeShell />
+      </AssistanceProvider>
     </PosThemeProvider>
   );
 }

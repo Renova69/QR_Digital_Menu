@@ -1,7 +1,16 @@
 import {
-  Controller, Get, Post, Patch, Delete, Query,
-  Param, Body, UseGuards, Request,
-  NotFoundException, ForbiddenException,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Query,
+  Param,
+  Body,
+  UseGuards,
+  Request,
+  NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PrintStationService } from './print-station.service';
@@ -27,11 +36,16 @@ export class PrintStationController {
     restaurantIdParam?: string,
   ): Promise<string> {
     if (userRole !== 'OWNER') {
-      throw new ForbiddenException('Print station management requires OWNER role');
+      throw new ForbiddenException(
+        'Print station management requires OWNER role',
+      );
     }
     if (restaurantIdParam) {
       // findOne verifies existence and ownership; throws on failure.
-      const restaurant = await this.restaurantsService.findOne(restaurantIdParam, userId);
+      const restaurant = await this.restaurantsService.findOne(
+        restaurantIdParam,
+        userId,
+      );
       if (!restaurant.isActive) {
         throw new ForbiddenException('Restaurant is suspended');
       }
@@ -50,7 +64,11 @@ export class PrintStationController {
     @Request() req: any,
     @Query('restaurantId') restaurantId?: string,
   ) {
-    const id = await this.getRestaurantId(req.user.id, req.user.role, restaurantId);
+    const id = await this.getRestaurantId(
+      req.user.id,
+      req.user.role,
+      restaurantId,
+    );
     return this.service.list(id);
   }
 
@@ -59,7 +77,11 @@ export class PrintStationController {
     @Request() req: any,
     @Query('restaurantId') restaurantId?: string,
   ) {
-    const id = await this.getRestaurantId(req.user.id, req.user.role, restaurantId);
+    const id = await this.getRestaurantId(
+      req.user.id,
+      req.user.role,
+      restaurantId,
+    );
     return this.service.getStationHealth(id);
   }
 
@@ -69,7 +91,11 @@ export class PrintStationController {
     @Body() dto: CreatePrintStationDto,
     @Query('restaurantId') restaurantId?: string,
   ) {
-    const id = await this.getRestaurantId(req.user.id, req.user.role, restaurantId);
+    const id = await this.getRestaurantId(
+      req.user.id,
+      req.user.role,
+      restaurantId,
+    );
     return this.service.create(id, dto);
   }
 
@@ -80,7 +106,11 @@ export class PrintStationController {
     @Body() dto: UpdatePrintStationDto,
     @Query('restaurantId') restaurantId?: string,
   ) {
-    const resolvedId = await this.getRestaurantId(req.user.id, req.user.role, restaurantId);
+    const resolvedId = await this.getRestaurantId(
+      req.user.id,
+      req.user.role,
+      restaurantId,
+    );
     return this.service.update(resolvedId, id, dto);
   }
 
@@ -90,7 +120,11 @@ export class PrintStationController {
     @Param('id') id: string,
     @Query('restaurantId') restaurantId?: string,
   ) {
-    const resolvedId = await this.getRestaurantId(req.user.id, req.user.role, restaurantId);
+    const resolvedId = await this.getRestaurantId(
+      req.user.id,
+      req.user.role,
+      restaurantId,
+    );
     await this.service.remove(resolvedId, id);
     return { success: true };
   }
@@ -102,7 +136,11 @@ export class PrintStationController {
     @Query('status') status?: string,
     @Query('restaurantId') restaurantId?: string,
   ) {
-    const resolvedId = await this.getRestaurantId(req.user.id, req.user.role, restaurantId);
+    const resolvedId = await this.getRestaurantId(
+      req.user.id,
+      req.user.role,
+      restaurantId,
+    );
     return this.service.getJobs(resolvedId, id, status);
   }
 
@@ -113,7 +151,11 @@ export class PrintStationController {
     @Body() dto: GenerateTokenDto,
     @Query('restaurantId') restaurantId?: string,
   ) {
-    const resolvedId = await this.getRestaurantId(req.user.id, req.user.role, restaurantId);
+    const resolvedId = await this.getRestaurantId(
+      req.user.id,
+      req.user.role,
+      restaurantId,
+    );
     return this.service.generateToken(resolvedId, id, dto.label);
   }
 
@@ -123,7 +165,11 @@ export class PrintStationController {
     @Param('tokenId') tokenId: string,
     @Query('restaurantId') restaurantId?: string,
   ) {
-    const resolvedId = await this.getRestaurantId(req.user.id, req.user.role, restaurantId);
+    const resolvedId = await this.getRestaurantId(
+      req.user.id,
+      req.user.role,
+      restaurantId,
+    );
     await this.service.revokeToken(resolvedId, tokenId);
     return { success: true };
   }

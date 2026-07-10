@@ -1,4 +1,7 @@
-import { CashPaymentRequestScope, CashPaymentRequestStatus } from '@prisma/client';
+import {
+  CashPaymentRequestScope,
+  CashPaymentRequestStatus,
+} from '@prisma/client';
 import { SplitMode } from './dto/settle-partial.dto';
 import { CheckoutScope } from './payment-scope.utils';
 

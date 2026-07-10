@@ -14,70 +14,84 @@ You audit all 5 authentication paths for security. One bypass compromises all ro
 
 ## Key files
 
-| File | Role |
-|------|------|
-| `apps/backend/src/auth/auth.controller.ts` | Login, register, OAuth, OTP, magic link, csrf-token endpoints |
-| `apps/backend/src/auth/auth.service.ts` | `pinLogin()`, `validateUser()`, OTP/magic-link generation |
-| `apps/backend/src/auth/jwt.strategy.ts` | JWT cookie + Bearer header strategy |
-| `apps/backend/src/auth/optional-jwt.strategy.ts` | Optional JWT for public endpoints |
-| `apps/backend/src/auth/google.strategy.ts` | Google OAuth 2.0 strategy |
-| `apps/backend/src/auth/jwt-auth.guard.ts` | JWT guard — applied to most admin endpoints |
-| `apps/backend/src/users/staff-roles.ts` | `PIN_LOGIN_ROLES`, `isPinRole()` |
-| `apps/backend/src/main.ts` | CSRF middleware, Helmet CSP, cookieParser, NODE_ENV enforcement |
-| `apps/frontend/src/context/AuthContext.tsx` | Frontend auth state, `/auth/me` polling |
+| File                                             | Role                                                            |
+| ------------------------------------------------ | --------------------------------------------------------------- |
+| `apps/backend/src/auth/auth.controller.ts`       | Login, register, OAuth, OTP, magic link, csrf-token endpoints   |
+| `apps/backend/src/auth/auth.service.ts`          | `pinLogin()`, `validateUser()`, OTP/magic-link generation       |
+| `apps/backend/src/auth/jwt.strategy.ts`          | JWT cookie + Bearer header strategy                             |
+| `apps/backend/src/auth/optional-jwt.strategy.ts` | Optional JWT for public endpoints                               |
+| `apps/backend/src/auth/google.strategy.ts`       | Google OAuth 2.0 strategy                                       |
+| `apps/backend/src/auth/jwt-auth.guard.ts`        | JWT guard — applied to most admin endpoints                     |
+| `apps/backend/src/users/staff-roles.ts`          | `PIN_LOGIN_ROLES`, `isPinRole()`                                |
+| `apps/backend/src/main.ts`                       | CSRF middleware, Helmet CSP, cookieParser, NODE_ENV enforcement |
+| `apps/frontend/src/context/AuthContext.tsx`      | Frontend auth state, `/auth/me` polling                         |
 
 ## Auth paths
 
-| Path | Method | Guard | Token storage |
-|------|--------|-------|---------------|
-| Email + password | POST /auth/login | LocalAuthGuard | httpOnly JWT cookie |
-| Google OAuth | GET /auth/google + callback | GoogleAuthGuard | httpOnly JWT cookie |
-| Magic link | POST /auth/magic-link/send + /verify | None | httpOnly JWT cookie |
-| Email OTP | POST /auth/otp/send + /verify | None | httpOnly JWT cookie |
-| Staff PIN | POST /auth/pin-login | None (rate-limited) | httpOnly JWT cookie (PIN_LOGIN_ROLES only) |
+| Path             | Method                               | Guard               | Token storage                              |
+| ---------------- | ------------------------------------ | ------------------- | ------------------------------------------ |
+| Email + password | POST /auth/login                     | LocalAuthGuard      | httpOnly JWT cookie                        |
+| Google OAuth     | GET /auth/google + callback          | GoogleAuthGuard     | httpOnly JWT cookie                        |
+| Magic link       | POST /auth/magic-link/send + /verify | None                | httpOnly JWT cookie                        |
+| Email OTP        | POST /auth/otp/send + /verify        | None                | httpOnly JWT cookie                        |
+| Staff PIN        | POST /auth/pin-login                 | None (rate-limited) | httpOnly JWT cookie (PIN_LOGIN_ROLES only) |
 
 ## Workflow
 
 ### 1. JWT security
+
 ```bash
 grep -n "secret\|expiresIn\|sign\|verify\|cookie\|sameSite\|httpOnly\|secure\|token" apps/backend/src/auth/jwt.strategy.ts apps/backend/src/auth/auth.service.ts | head -30
 ```
+
 Check: JWT secret from env only. Token stored in httpOnly cookie, NOT localStorage. sameSite: 'lax' dev / 'none' production. secure: true in production. Never read from localStorage in AuthContext.
 
 ### 2. PIN login scoping
+
 ```bash
 grep -n "PIN_LOGIN_ROLES\|pinLogin\|pinHash\|isPinRole" apps/backend/src/auth/auth.service.ts apps/backend/src/users/staff-roles.ts
 ```
+
 Check: `pinLogin` scoped to `PIN_LOGIN_ROLES` only. OWNER/MANAGER/STAFF must never authenticate via 4-digit PIN. New roles added must not automatically become PIN-capable.
 
 ### 3. CSRF protection
+
 ```bash
 grep -n "csrfToken\|X-CSRF-Token\|csrf-token\|double.submit\|CSRF" apps/backend/src/main.ts apps/frontend/src/lib/api.ts
 ```
+
 Check: CSRF double-submit cookie pattern on all POST/PATCH/DELETE/PUT. Skipped for Stripe webhook path. Dev mode bypass.
 
 ### 4. OAuth redirect safety
+
 ```bash
 grep -n "redirect\|callback\|redirect_uri\|state\|GoogleStrategy" apps/backend/src/auth/google.strategy.ts apps/backend/src/auth/auth.controller.ts
 ```
+
 Check: OAuth state parameter validated. Redirect URI whitelisted. No open redirect vulnerability.
 
 ### 5. Magic link / OTP security
+
 ```bash
 grep -n "magic.*link\|otp\|OTP\|generateOtp\|sendOtp\|magicLink\|TTL\|expir" apps/backend/src/auth/auth.service.ts
 ```
+
 Check: Short TTL (<10 min). Single-use. Rate-limited per email. Not logged.
 
 ### 6. Bearer token production gate
+
 ```bash
 grep -n "ALLOW_BEARER_AUTH\|bearer\|NODE_ENV\|K_SERVICE\|CLOUD_RUN_JOB" apps/backend/src/auth/jwt.strategy.ts apps/backend/src/main.ts
 ```
+
 Check: Bearer JWT only in test/dev/ALLOW_BEARER_AUTH=true. Production is cookie-only. main.ts crashes if production env detected without NODE_ENV=production.
 
 ### 7. Account disable enforcement
+
 ```bash
 grep -n "isActive\|disabledAt\|disabledReason\|ACCOUNT_DISABLED" apps/backend/src/auth/jwt.strategy.ts apps/backend/src/auth/auth.service.ts
 ```
+
 Check: JWT strategy rejects disabled users (including SUPER_ADMIN) with `UnauthorizedException('ACCOUNT_DISABLED')`. Login rejects disabled accounts before token issuance.
 
 ## Severity

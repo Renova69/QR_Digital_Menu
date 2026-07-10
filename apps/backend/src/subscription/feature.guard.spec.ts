@@ -4,7 +4,7 @@ import { FeatureService } from './feature.service';
 import { FeatureFlag } from './feature-flag.enum';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../prisma/prisma.service';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, ExecutionContext } from '@nestjs/common';
 
 jest.mock('../prisma/prisma.service');
 
@@ -38,7 +38,7 @@ describe('FeatureGuard', () => {
       getHandler: () => ({}),
       getClass: () => ({}),
       switchToHttp: () => ({ getRequest: () => ({ user: { id: userId } }) }),
-    } as any;
+    } as unknown as ExecutionContext;
   }
 
   function makeCtxWithReq(req: Record<string, any>, userId = 'u1') {
@@ -48,7 +48,7 @@ describe('FeatureGuard', () => {
       switchToHttp: () => ({
         getRequest: () => ({ user: { id: userId }, ...req }),
       }),
-    } as any;
+    } as unknown as ExecutionContext;
   }
 
   it('allows if no feature requirement set', async () => {
@@ -70,10 +70,18 @@ describe('FeatureGuard', () => {
     (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
       FeatureFlag.PAYMENTS_STRIPE,
     ]);
-    // Owner: no restaurantId, falls back to findFirst by ownerId
-    prismaMock.user.findUnique.mockResolvedValue({ restaurantId: null });
-    prismaMock.restaurant.findFirst.mockResolvedValue({ tier: 'PROFESSIONAL' });
-    expect(await guard.canActivate(makeCtx())).toBe(true);
+    prismaMock.user.findUnique.mockResolvedValue({
+      restaurantId: null,
+      role: 'OWNER',
+    });
+    prismaMock.restaurant.findUnique.mockResolvedValue({
+      ownerId: 'u1',
+      tier: 'PROFESSIONAL',
+      isActive: true,
+      forceTier: null,
+    });
+    const ctx = makeCtxWithReq({ query: { restaurantId: 'rest-owner' } });
+    expect(await guard.canActivate(ctx)).toBe(true);
   });
 
   it('throws ForbiddenException when staff tier lacks the feature', async () => {
@@ -91,22 +99,31 @@ describe('FeatureGuard', () => {
     (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
       FeatureFlag.POS,
     ]);
-    prismaMock.user.findUnique.mockResolvedValue({ restaurantId: null });
-    prismaMock.restaurant.findFirst.mockResolvedValue({ tier: 'STARTER' });
-    await expect(guard.canActivate(makeCtx())).rejects.toThrow(
-      ForbiddenException,
-    );
+    prismaMock.user.findUnique.mockResolvedValue({
+      restaurantId: null,
+      role: 'OWNER',
+    });
+    prismaMock.restaurant.findUnique.mockResolvedValue({
+      ownerId: 'u1',
+      tier: 'STARTER',
+      isActive: true,
+      forceTier: null,
+    });
+    const ctx = makeCtxWithReq({ query: { restaurantId: 'rest-owner' } });
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
   it('throws ForbiddenException when user has no restaurant', async () => {
     (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
       FeatureFlag.ORDERS_RECEIVE,
     ]);
-    prismaMock.user.findUnique.mockResolvedValue({ restaurantId: null });
-    prismaMock.restaurant.findFirst.mockResolvedValue(null);
-    await expect(guard.canActivate(makeCtx())).rejects.toThrow(
-      ForbiddenException,
-    );
+    prismaMock.user.findUnique.mockResolvedValue({
+      restaurantId: null,
+      role: 'OWNER',
+    });
+    prismaMock.restaurant.findUnique.mockResolvedValue(null);
+    const ctx = makeCtxWithReq({ query: { restaurantId: 'rest-owner' } });
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
   // ── target-aware resolution (#2) ─────────────────────────────────────────
@@ -259,7 +276,7 @@ describe('FeatureGuard', () => {
       restaurantId: null,
       role: 'OWNER',
     });
-    prismaMock.restaurant.findFirst.mockResolvedValue({
+    prismaMock.restaurant.findUnique.mockResolvedValue({
       ownerId: 'u-sub',
       tier: 'PROFESSIONAL',
       forceTier: null,
@@ -269,8 +286,13 @@ describe('FeatureGuard', () => {
     const ctx = {
       getHandler: () => ({}),
       getClass: () => ({}),
-      switchToHttp: () => ({ getRequest: () => ({ user: { sub: 'u-sub' } }) }),
-    } as any;
+      switchToHttp: () => ({
+        getRequest: () => ({
+          user: { sub: 'u-sub' },
+          query: { restaurantId: 'rest-owner' },
+        }),
+      }),
+    } as unknown as ExecutionContext;
 
     expect(await guard.canActivate(ctx)).toBe(true);
     expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
@@ -287,7 +309,7 @@ describe('FeatureGuard', () => {
       getHandler: () => ({}),
       getClass: () => ({}),
       switchToHttp: () => ({ getRequest: () => ({ user: {} }) }),
-    } as any;
+    } as unknown as ExecutionContext;
 
     await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });

@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { ChevronDown, Search, X, CheckCircle2 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { BRANDING_FONTS } from '../../lib/brandingFonts';
+import React, { useEffect, useRef, useState, useMemo } from "react";
+import { ChevronDown, Search, X, CheckCircle2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { BRANDING_FONTS } from "../../lib/brandingFonts";
 
 // Single source of truth shared with the public menu's load allowlist (#12).
 const FONTS = BRANDING_FONTS;
@@ -11,10 +11,10 @@ const FONTS = BRANDING_FONTS;
 // the document head with anonymous links that get added/removed each render.
 function ensureFontLoaded(name: string) {
   if (!name || document.querySelector(`link[data-font="${name}"]`)) return;
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.setAttribute('data-font', name);
-  link.href = `https://fonts.googleapis.com/css2?family=${name.replace(/ /g, '+')}:wght@400;700&display=swap`;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.setAttribute("data-font", name);
+  link.href = `https://fonts.googleapis.com/css2?family=${name.replace(/ /g, "+")}:wght@400;700&display=swap`;
   document.head.appendChild(link);
 }
 
@@ -34,7 +34,7 @@ export const FontPicker: React.FC<FontPickerProps> = ({
   isHeading = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
 
@@ -54,18 +54,22 @@ export const FontPicker: React.FC<FontPickerProps> = ({
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, [isOpen]);
 
   const currentFont = FONTS.find((f) => f.name === value);
   const suggestedPairs = isHeading && currentFont ? currentFont.pairsWith : [];
-  const pairingIsGood = pairedFont ? suggestedPairs.includes(pairedFont) : false;
+  const pairingIsGood = pairedFont
+    ? suggestedPairs.includes(pairedFont)
+    : false;
   const topSuggestions = suggestedPairs.slice(0, 2);
 
   const filtered = useMemo(() => {
     if (!search) return FONTS;
-    return FONTS.filter((f) => f.name.toLowerCase().includes(search.toLowerCase()));
+    return FONTS.filter((f) =>
+      f.name.toLowerCase().includes(search.toLowerCase()),
+    );
   }, [search]);
 
   const categories = useMemo(
@@ -75,7 +79,9 @@ export const FontPicker: React.FC<FontPickerProps> = ({
 
   return (
     <div className="relative" ref={rootRef}>
-      <label className="block text-sm font-medium text-foreground/80 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-foreground/80 mb-1">
+        {label}
+      </label>
       <button
         type="button"
         onClick={() => setIsOpen((o) => !o)}
@@ -87,19 +93,24 @@ export const FontPicker: React.FC<FontPickerProps> = ({
         <span className="text-sm truncate">{value}</span>
         <ChevronDown
           size={13}
-          className={`flex-shrink-0 opacity-50 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          className={`flex-shrink-0 opacity-50 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
 
       {isHeading && pairedFont && (
-        <p className={`text-[10px] mt-1 flex items-center gap-1 ${pairingIsGood ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+        <p
+          className={`text-[10px] mt-1 flex items-center gap-1 ${pairingIsGood ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}
+        >
           {pairingIsGood ? (
             <>
               <CheckCircle2 size={10} className="flex-shrink-0" />
-              {t('branding.fontPairingGood', 'Pairs well with')} {pairedFont}
+              {t("branding.fontPairingGood", "Pairs well with")} {pairedFont}
             </>
           ) : topSuggestions.length > 0 ? (
-            <>{t('branding.fontPairingSuggest', 'Try pairing with:')} {topSuggestions.join(', ')}</>
+            <>
+              {t("branding.fontPairingSuggest", "Try pairing with:")}{" "}
+              {topSuggestions.join(", ")}
+            </>
           ) : null}
         </p>
       )}
@@ -108,14 +119,21 @@ export const FontPicker: React.FC<FontPickerProps> = ({
         <div
           className="absolute z-50 w-full mt-1 bg-card border border-border rounded-xl shadow-xl overflow-hidden"
           role="listbox"
-          style={{ maxHeight: '320px', display: 'flex', flexDirection: 'column' }}
+          style={{
+            maxHeight: "320px",
+            display: "flex",
+            flexDirection: "column",
+          }}
         >
           <div className="p-2 border-b border-border bg-card flex-shrink-0">
             <div className="relative">
-              <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <Search
+                size={11}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+              />
               <input
                 type="text"
-                placeholder={t('branding.fontSearch', 'Search fonts...')}
+                placeholder={t("branding.fontSearch", "Search fonts...")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onClick={(e) => e.stopPropagation()}
@@ -125,7 +143,7 @@ export const FontPicker: React.FC<FontPickerProps> = ({
               {search && (
                 <button
                   type="button"
-                  onClick={() => setSearch('')}
+                  onClick={() => setSearch("")}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   <X size={11} />
@@ -136,7 +154,9 @@ export const FontPicker: React.FC<FontPickerProps> = ({
 
           <div className="overflow-y-auto custom-scrollbar flex-1">
             {categories.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-6">{t('branding.noFontsFound', 'No fonts found')}</p>
+              <p className="text-xs text-muted-foreground text-center py-6">
+                {t("branding.noFontsFound", "No fonts found")}
+              </p>
             )}
             {categories.map((category) => (
               <div key={category}>
@@ -156,29 +176,38 @@ export const FontPicker: React.FC<FontPickerProps> = ({
                         onClick={() => {
                           onChange(font.name);
                           setIsOpen(false);
-                          setSearch('');
+                          setSearch("");
                         }}
                         className={`w-full text-left px-3 py-2.5 flex items-center justify-between transition-colors ${
                           value === font.name
-                            ? 'bg-primary/10 text-primary'
-                            : 'hover:bg-muted text-foreground'
+                            ? "bg-primary/10 text-primary"
+                            : "hover:bg-muted text-foreground"
                         }`}
                       >
                         <div className="min-w-0">
-                          <span style={{ fontFamily: font.name }} className="text-sm font-bold block truncate">
+                          <span
+                            style={{ fontFamily: font.name }}
+                            className="text-sm font-bold block truncate"
+                          >
                             {font.name}
                           </span>
-                          <span style={{ fontFamily: font.name }} className="text-xs opacity-50 block">
-                            {t('auto.aaBb123', 'Aa Bb 123')}</span>
+                          <span
+                            style={{ fontFamily: font.name }}
+                            className="text-xs opacity-50 block"
+                          >
+                            {t("auto.aaBb123", "Aa Bb 123")}
+                          </span>
                         </div>
                         <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
                           {isPair && isHeading && (
                             <span className="text-[9px] font-semibold text-green-600 dark:text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded">
-                              {t('branding.fontPairsBadge', 'pairs')}
+                              {t("branding.fontPairsBadge", "pairs")}
                             </span>
                           )}
                           {value === font.name && (
-                            <span className="text-[10px] font-semibold text-primary">✓</span>
+                            <span className="text-[10px] font-semibold text-primary">
+                              ✓
+                            </span>
                           )}
                         </div>
                       </button>

@@ -1,5 +1,8 @@
 import { RestaurantsService } from './restaurants.service';
 import { ForbiddenException } from '@nestjs/common';
+import { FeatureService } from '../subscription/feature.service';
+import { DeviceEnrollmentService } from './device-enrollment.service';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
 
 describe('RestaurantsService — Stripe Connect', () => {
   let service: RestaurantsService;
@@ -28,7 +31,11 @@ describe('RestaurantsService — Stripe Connect', () => {
         (tier: string, force?: string | null) => force ?? tier,
       ),
       hasFeature: jest.fn().mockReturnValue(true),
-      restaurantHasFeature: jest.fn(function (this: any, r: any, f: any) {
+      restaurantHasFeature: jest.fn(function (
+        this: FeatureService,
+        r: { tier?: string; forceTier?: string | null },
+        f: FeatureFlag,
+      ) {
         return this.hasFeature(
           this.getEffectiveTier(r?.tier ?? 'FREE', r?.forceTier ?? null),
           f,
@@ -40,8 +47,10 @@ describe('RestaurantsService — Stripe Connect', () => {
       mockPrisma,
       mockTranslation,
       mockStripe,
-      mockFeature as any,
-      { revokeRestaurantDevices: jest.fn() } as any,
+      mockFeature as unknown as FeatureService,
+      {
+        revokeRestaurantDevices: jest.fn(),
+      } as unknown as DeviceEnrollmentService,
     );
   });
 
@@ -143,7 +152,11 @@ describe('RestaurantsService — Stripe Connect', () => {
 
       expect(mockPrisma.restaurant.update).toHaveBeenCalledWith({
         where: { id: 'rest1' },
-        data: { stripeAccountId: null, stripeOnboarded: false, paymentsEnabled: false },
+        data: {
+          stripeAccountId: null,
+          stripeOnboarded: false,
+          paymentsEnabled: false,
+        },
       });
     });
 

@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import { BoricaProvider } from './borica.provider';
 
 jest.mock('axios');
@@ -118,16 +118,33 @@ describe('BoricaProvider', () => {
       };
 
       const macFields = [
-        'ACTION', 'RC', 'APPROVAL', 'TERMINAL', 'TRTYPE', 'AMOUNT',
-        'CURRENCY', 'ORDER', 'RRN', 'INT_REF', 'PARES_STATUS', 'ECI',
-        'TIMESTAMP', 'NONCE',
+        'ACTION',
+        'RC',
+        'APPROVAL',
+        'TERMINAL',
+        'TRTYPE',
+        'AMOUNT',
+        'CURRENCY',
+        'ORDER',
+        'RRN',
+        'INT_REF',
+        'PARES_STATUS',
+        'ECI',
+        'TIMESTAMP',
+        'NONCE',
       ];
       // Mirror macField: empty → '-', otherwise length-prefix (matches verifyResult).
-      const msg = macFields.map((k) => {
-        const v = base[k] ?? '';
-        return v === '' ? '-' : `${v.length}${v}`;
-      }).join('') + '-';
-      base.P_SIGN = createSign('RSA-SHA256').update(msg).sign(privateKeyPem, 'hex').toUpperCase();
+      const msg =
+        macFields
+          .map((k) => {
+            const v = base[k] ?? '';
+            return v === '' ? '-' : `${v.length}${v}`;
+          })
+          .join('') + '-';
+      base.P_SIGN = createSign('RSA-SHA256')
+        .update(msg)
+        .sign(privateKeyPem, 'hex')
+        .toUpperCase();
       return base;
     }
 
@@ -136,7 +153,10 @@ describe('BoricaProvider', () => {
       // their cert. Here we sign with test.key and verify with the extracted
       // public key to prove the verify logic is correct.
       const { createPublicKey } = require('crypto');
-      const pubKeyPem = createPublicKey(PRIVATE_KEY_PEM).export({ type: 'spki', format: 'pem' }) as string;
+      const pubKeyPem = createPublicKey(PRIVATE_KEY_PEM).export({
+        type: 'spki',
+        format: 'pem',
+      }) as string;
 
       const body = buildSignedCallback(PRIVATE_KEY_PEM);
       const result = provider.verifyResult(body, pubKeyPem);
@@ -148,7 +168,10 @@ describe('BoricaProvider', () => {
 
     it('rejects tampered AMOUNT', () => {
       const { createPublicKey } = require('crypto');
-      const pubKeyPem = createPublicKey(PRIVATE_KEY_PEM).export({ type: 'spki', format: 'pem' }) as string;
+      const pubKeyPem = createPublicKey(PRIVATE_KEY_PEM).export({
+        type: 'spki',
+        format: 'pem',
+      }) as string;
 
       const body = buildSignedCallback(PRIVATE_KEY_PEM);
       // Tamper amount after signing
@@ -160,7 +183,10 @@ describe('BoricaProvider', () => {
 
     it('verifies callback with empty optional fields (APPROVAL, PARES_STATUS, ECI → "-")', () => {
       const { createPublicKey } = require('crypto');
-      const pubKeyPem = createPublicKey(PRIVATE_KEY_PEM).export({ type: 'spki', format: 'pem' }) as string;
+      const pubKeyPem = createPublicKey(PRIVATE_KEY_PEM).export({
+        type: 'spki',
+        format: 'pem',
+      }) as string;
 
       const body = buildSignedCallback(PRIVATE_KEY_PEM, {
         APPROVAL: '',
@@ -204,17 +230,38 @@ describe('BoricaProvider', () => {
       }) as string;
 
       const fields: Record<string, string> = {
-        ACTION: '0', RC: '00', APPROVAL: '123456', TERMINAL, TRTYPE: '90',
-        AMOUNT: '10.00', CURRENCY: '', ORDER: '000099', RRN: '123456789012',
-        INT_REF: 'ABCDEF123456', PARES_STATUS: 'Y', ECI: '05',
-        TIMESTAMP: '20260605120000', NONCE: 'ABCDEF01234567890123456789ABCDEF',
+        ACTION: '0',
+        RC: '00',
+        APPROVAL: '123456',
+        TERMINAL,
+        TRTYPE: '90',
+        AMOUNT: '10.00',
+        CURRENCY: '',
+        ORDER: '000099',
+        RRN: '123456789012',
+        INT_REF: 'ABCDEF123456',
+        PARES_STATUS: 'Y',
+        ECI: '05',
+        TIMESTAMP: '20260605120000',
+        NONCE: 'ABCDEF01234567890123456789ABCDEF',
       };
       // BORICA signs a TRTYPE=90 status response with 'USD' substituted for the
       // empty CURRENCY; verifyResult must mirror that to validate the MAC.
       const macOrder = [
-        'ACTION', 'RC', 'APPROVAL', 'TERMINAL', 'TRTYPE', 'AMOUNT',
-        'CURRENCY', 'ORDER', 'RRN', 'INT_REF', 'PARES_STATUS', 'ECI',
-        'TIMESTAMP', 'NONCE',
+        'ACTION',
+        'RC',
+        'APPROVAL',
+        'TERMINAL',
+        'TRTYPE',
+        'AMOUNT',
+        'CURRENCY',
+        'ORDER',
+        'RRN',
+        'INT_REF',
+        'PARES_STATUS',
+        'ECI',
+        'TIMESTAMP',
+        'NONCE',
       ];
       const msg =
         macOrder
@@ -266,7 +313,9 @@ describe('BoricaProvider', () => {
       expect(form.fields.TRTYPE).toBe('1');
       expect(form.fields.ADDENDUM).toBe('AD,TD');
       expect(form.fields['AD.CUST_BOR_ORDER_ID']).toBe('000007');
-      const mInfo = JSON.parse(Buffer.from(form.fields.M_INFO, 'base64').toString('utf8'));
+      const mInfo = JSON.parse(
+        Buffer.from(form.fields.M_INFO, 'base64').toString('utf8'),
+      );
       expect(mInfo).toEqual(
         expect.objectContaining({
           threeDSRequestorChallengeInd: '04',
@@ -288,7 +337,12 @@ describe('BoricaProvider', () => {
   describe('signStatusCheck', () => {
     it('produces a non-empty uppercase-hex P_SIGN over TERMINAL+TRTYPE+ORDER+NONCE', () => {
       const psign = provider.signStatusCheck(
-        { TERMINAL, TRTYPE: '90', ORDER: '000099', NONCE: 'ABCDEF01234567890123456789ABCDEF' },
+        {
+          TERMINAL,
+          TRTYPE: '90',
+          ORDER: '000099',
+          NONCE: 'ABCDEF01234567890123456789ABCDEF',
+        },
         PRIVATE_KEY_PEM,
       );
       expect(psign).toBeTruthy();
@@ -297,7 +351,12 @@ describe('BoricaProvider', () => {
 
     it('self-verifies with extracted public key (excludes AMOUNT/CURRENCY/TIMESTAMP)', () => {
       const { createPublicKey, createVerify } = require('crypto');
-      const fields = { TERMINAL, TRTYPE: '90', ORDER: '000099', NONCE: 'ABCDEF01234567890123456789ABCDEF' };
+      const fields = {
+        TERMINAL,
+        TRTYPE: '90',
+        ORDER: '000099',
+        NONCE: 'ABCDEF01234567890123456789ABCDEF',
+      };
       const psign = provider.signStatusCheck(fields, PRIVATE_KEY_PEM);
       const msg =
         `${TERMINAL.length}${TERMINAL}` +
@@ -306,7 +365,9 @@ describe('BoricaProvider', () => {
         `${'ABCDEF01234567890123456789ABCDEF'.length}ABCDEF01234567890123456789ABCDEF` +
         '-';
       const pubKey = createPublicKey(PRIVATE_KEY_PEM);
-      const ok = createVerify('RSA-SHA256').update(msg).verify(pubKey, Buffer.from(psign, 'hex'));
+      const ok = createVerify('RSA-SHA256')
+        .update(msg)
+        .verify(pubKey, Buffer.from(psign, 'hex'));
       expect(ok).toBe(true);
     });
   });
@@ -326,20 +387,33 @@ describe('BoricaProvider', () => {
 
     it('returns null when axios throws (network error)', async () => {
       mockedAxios.post.mockRejectedValueOnce(new Error('Network error'));
-      const result = await provider.queryTransactionStatus(statusParams, 'DEMO');
+      const result = await provider.queryTransactionStatus(
+        statusParams,
+        'DEMO',
+      );
       expect(result).toBeNull();
     });
 
     it('returns null when response is not an object (non-JSON / HTML)', async () => {
-      mockedAxios.post.mockResolvedValueOnce({ data: '<html>Error page</html>' } as any);
-      const result = await provider.queryTransactionStatus(statusParams, 'DEMO');
+      mockedAxios.post.mockResolvedValueOnce({
+        data: '<html>Error page</html>',
+      } as Partial<AxiosResponse>);
+      const result = await provider.queryTransactionStatus(
+        statusParams,
+        'DEMO',
+      );
       expect(result).toBeNull();
     });
 
     it('returns null on timeout', async () => {
-      const timeoutErr = Object.assign(new Error('timeout'), { code: 'ECONNABORTED' });
+      const timeoutErr = Object.assign(new Error('timeout'), {
+        code: 'ECONNABORTED',
+      });
       mockedAxios.post.mockRejectedValueOnce(timeoutErr);
-      const result = await provider.queryTransactionStatus(statusParams, 'DEMO');
+      const result = await provider.queryTransactionStatus(
+        statusParams,
+        'DEMO',
+      );
       expect(result).toBeNull();
     });
 
@@ -350,7 +424,9 @@ describe('BoricaProvider', () => {
         expect.stringContaining('3dsgate-dev.borica.bg'),
         expect.stringMatching(/TRTYPE=90/),
         expect.objectContaining({
-          headers: expect.objectContaining({ 'Content-Type': 'application/x-www-form-urlencoded' }),
+          headers: expect.objectContaining({
+            'Content-Type': 'application/x-www-form-urlencoded',
+          }),
           responseType: 'json',
         }),
       );
@@ -363,26 +439,64 @@ describe('BoricaProvider', () => {
 
     it('parses a valid JSON BORICA status response and verifies signature', async () => {
       const { createSign, createPublicKey } = require('crypto');
-      const pubKeyPem = createPublicKey(PRIVATE_KEY_PEM).export({ type: 'spki', format: 'pem' }) as string;
+      const pubKeyPem = createPublicKey(PRIVATE_KEY_PEM).export({
+        type: 'spki',
+        format: 'pem',
+      }) as string;
 
       const base: Record<string, string> = {
-        ACTION: '0', RC: '00', APPROVAL: '123456', TERMINAL,
-        TRTYPE: '1', AMOUNT: '10.00', CURRENCY: 'EUR', ORDER: '000099',
-        RRN: '123456789012', INT_REF: 'ABCDEF123456', PARES_STATUS: 'Y',
-        ECI: '05', TIMESTAMP: '20260605120000', NONCE: 'ABCDEF01234567890123456789ABCDEF',
+        ACTION: '0',
+        RC: '00',
+        APPROVAL: '123456',
+        TERMINAL,
+        TRTYPE: '1',
+        AMOUNT: '10.00',
+        CURRENCY: 'EUR',
+        ORDER: '000099',
+        RRN: '123456789012',
+        INT_REF: 'ABCDEF123456',
+        PARES_STATUS: 'Y',
+        ECI: '05',
+        TIMESTAMP: '20260605120000',
+        NONCE: 'ABCDEF01234567890123456789ABCDEF',
       };
-      const macFields = ['ACTION','RC','APPROVAL','TERMINAL','TRTYPE','AMOUNT','CURRENCY',
-        'ORDER','RRN','INT_REF','PARES_STATUS','ECI','TIMESTAMP','NONCE'];
-      const msg = macFields.map((k) => {
-        const v = base[k] ?? '';
-        return v === '' ? '-' : `${v.length}${v}`;
-      }).join('') + '-';
-      base.P_SIGN = createSign('RSA-SHA256').update(msg).sign(PRIVATE_KEY_PEM, 'hex').toUpperCase();
+      const macFields = [
+        'ACTION',
+        'RC',
+        'APPROVAL',
+        'TERMINAL',
+        'TRTYPE',
+        'AMOUNT',
+        'CURRENCY',
+        'ORDER',
+        'RRN',
+        'INT_REF',
+        'PARES_STATUS',
+        'ECI',
+        'TIMESTAMP',
+        'NONCE',
+      ];
+      const msg =
+        macFields
+          .map((k) => {
+            const v = base[k] ?? '';
+            return v === '' ? '-' : `${v.length}${v}`;
+          })
+          .join('') + '-';
+      base.P_SIGN = createSign('RSA-SHA256')
+        .update(msg)
+        .sign(PRIVATE_KEY_PEM, 'hex')
+        .toUpperCase();
 
       // BORICA returns JSON for status-check responses
-      mockedAxios.post.mockResolvedValueOnce({ data: base } as any);
+      mockedAxios.post.mockResolvedValueOnce({
+        data: base,
+      } as Partial<AxiosResponse>);
 
-      const result = await provider.queryTransactionStatus({ ...statusParams, certPem: pubKeyPem }, 'DEMO');
+      const result = await provider.queryTransactionStatus(
+        { ...statusParams, certPem: pubKeyPem },
+        'DEMO',
+      );
       expect(result).not.toBeNull();
       expect(result!.verified).toBe(true);
       expect(result!.rc).toBe('00');
@@ -393,15 +507,28 @@ describe('BoricaProvider', () => {
     it('returns verified=false for a response with a bad P_SIGN', async () => {
       mockedAxios.post.mockResolvedValueOnce({
         data: {
-          ACTION: '0', RC: '00', APPROVAL: '123456', TERMINAL,
-          TRTYPE: '1', AMOUNT: '10.00', CURRENCY: 'EUR', ORDER: '000099',
-          RRN: '123456789012', INT_REF: 'ABCDEF123456', PARES_STATUS: 'Y',
-          ECI: '05', TIMESTAMP: '20260605120000', NONCE: 'ABCDEF01234567890123456789ABCDEF',
+          ACTION: '0',
+          RC: '00',
+          APPROVAL: '123456',
+          TERMINAL,
+          TRTYPE: '1',
+          AMOUNT: '10.00',
+          CURRENCY: 'EUR',
+          ORDER: '000099',
+          RRN: '123456789012',
+          INT_REF: 'ABCDEF123456',
+          PARES_STATUS: 'Y',
+          ECI: '05',
+          TIMESTAMP: '20260605120000',
+          NONCE: 'ABCDEF01234567890123456789ABCDEF',
           P_SIGN: 'DEADBEEF',
         },
-      } as any);
+      } as Partial<AxiosResponse>);
 
-      const result = await provider.queryTransactionStatus(statusParams, 'DEMO');
+      const result = await provider.queryTransactionStatus(
+        statusParams,
+        'DEMO',
+      );
       expect(result).not.toBeNull();
       expect(result!.verified).toBe(false);
     });

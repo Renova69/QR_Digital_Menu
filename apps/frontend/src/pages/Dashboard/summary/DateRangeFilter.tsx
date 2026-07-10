@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from 'react';
-import { Calendar } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import type { DateRangePreset } from '../../../hooks/useSummaryDateRange';
+import { useEffect, useState, useRef } from "react";
+import { Calendar } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { DateRangePreset } from "../../../hooks/useSummaryDateRange";
 
 interface DateRangeFilterProps {
   period: number;
@@ -14,9 +14,9 @@ interface DateRangeFilterProps {
   onCustomRange: (start: string, end: string) => void;
 }
 
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
-import '../../../lib/dateLocales';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import "../../../lib/dateLocales";
 
 function parseDateString(dateStr?: string): Date | undefined {
   if (!dateStr) return undefined;
@@ -55,9 +55,11 @@ const CustomDateInput = ({
         maxDate={parseDateString(max)}
         locale={i18n.language}
         dateFormat="P"
-        placeholderText={t('auto.ddMmYy', 'dd/mm/yy')}
+        placeholderText={t("auto.ddMmYy", "dd/mm/yy")}
         className={`w-[110px] bg-secondary border rounded-lg px-2.5 py-1.5 text-[11px] text-foreground focus:outline-none transition-colors cursor-pointer pr-8 ${
-          isCustomActive ? 'border-primary' : 'border-border focus:border-primary'
+          isCustomActive
+            ? "border-primary"
+            : "border-border focus:border-primary"
         }`}
       />
       <Calendar className="absolute right-2.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
@@ -78,12 +80,12 @@ const DateRangeFilter = ({
   onCustomRange,
 }: DateRangeFilterProps) => {
   const { t } = useTranslation();
-  const [draftStart, setDraftStart] = useState(startDate || '');
-  const [draftEnd, setDraftEnd] = useState(endDate || '');
+  const [draftStart, setDraftStart] = useState(startDate || "");
+  const [draftEnd, setDraftEnd] = useState(endDate || "");
 
   useEffect(() => {
-    setDraftStart(startDate || '');
-    setDraftEnd(endDate || '');
+    setDraftStart(startDate || "");
+    setDraftEnd(endDate || "");
   }, [startDate, endDate]);
 
   const handleStartChange = (value: string) => {
@@ -105,7 +107,9 @@ const DateRangeFilter = ({
   return (
     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div>
-        <h2 className="text-xl font-display font-bold text-foreground">{title ?? t('dashboard.tabs.summary')}</h2>
+        <h2 className="text-xl font-display font-bold text-foreground">
+          {title ?? t("dashboard.tabs.summary")}
+        </h2>
         <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
           <Calendar className="w-3 h-3" />
           {subtitle ?? label}
@@ -118,11 +122,15 @@ const DateRangeFilter = ({
             onClick={() => onPeriodChange(days)}
             className={`px-3.5 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
               period === days && !isCustomActive
-                ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
-                : 'bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80'
+                ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
+                : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80"
             }`}
           >
-            {days === 7 ? t('analytics.days7') : days === 14 ? t('analytics.days14') : t('analytics.days30')}
+            {days === 7
+              ? t("analytics.days7")
+              : days === 14
+                ? t("analytics.days14")
+                : t("analytics.days30")}
           </button>
         ))}
         <div className="w-px h-5 bg-border mx-1" />

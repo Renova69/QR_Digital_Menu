@@ -10,6 +10,7 @@
 - **Schema:** `backend/prisma/schema.prisma`
 
 ### Connection Pattern
+
 ```typescript
 // backend/src/prisma/prisma.service.ts
 // PrismaService extends PrismaClient with retry logic on module init
@@ -43,22 +44,22 @@ async onModuleInit() {
 
 ### API Endpoints Consumed by Frontend
 
-| Endpoint | Method | Purpose | Auth Required |
-|----------|--------|---------|---------------|
-| `/auth/login` | POST | Email/password login | No |
-| `/auth/register` | POST | User registration | No |
-| `/auth/me` | GET | Get current user | Yes |
-| `/menu/public/:restaurantId` | GET | Public menu for customers | No |
-| `/restaurants` | GET/POST | Restaurant CRUD | Yes |
-| `/restaurants/:id` | GET/PATCH/DELETE | Single restaurant operations | Yes |
-| `/orders` | GET/POST | Order management | Partial |
-| `/orders/:id/status` | PATCH | Update order status | Yes |
-| `/assistance-requests` | GET/POST | Assistance request management | Partial |
-| `/assistance-requests/:id` | PATCH | Resolve assistance request | Yes |
-| `/dashboard/summary` | GET | Dashboard statistics | Yes |
-| `/menu/categories` | GET/POST | Category management | Yes |
-| `/menu/items` | GET/POST | Item management | Yes |
-| `/menu/options` | GET/POST | Menu option management | Yes |
+| Endpoint                     | Method           | Purpose                       | Auth Required |
+| ---------------------------- | ---------------- | ----------------------------- | ------------- |
+| `/auth/login`                | POST             | Email/password login          | No            |
+| `/auth/register`             | POST             | User registration             | No            |
+| `/auth/me`                   | GET              | Get current user              | Yes           |
+| `/menu/public/:restaurantId` | GET              | Public menu for customers     | No            |
+| `/restaurants`               | GET/POST         | Restaurant CRUD               | Yes           |
+| `/restaurants/:id`           | GET/PATCH/DELETE | Single restaurant operations  | Yes           |
+| `/orders`                    | GET/POST         | Order management              | Partial       |
+| `/orders/:id/status`         | PATCH            | Update order status           | Yes           |
+| `/assistance-requests`       | GET/POST         | Assistance request management | Partial       |
+| `/assistance-requests/:id`   | PATCH            | Resolve assistance request    | Yes           |
+| `/dashboard/summary`         | GET              | Dashboard statistics          | Yes           |
+| `/menu/categories`           | GET/POST         | Category management           | Yes           |
+| `/menu/items`                | GET/POST         | Item management               | Yes           |
+| `/menu/options`              | GET/POST         | Menu option management        | Yes           |
 
 ## API Documentation — Swagger
 
@@ -70,22 +71,26 @@ async onModuleInit() {
 ## Containerization — Docker
 
 ### Backend Service (`app`)
+
 - **Dockerfile:** `backend/Dockerfile` (Node 20 Alpine)
 - **Port:** 3000
 - **Build steps:** `npm install` → `prisma generate` → `nest build`
 - **Volumes:** Source code mounted, `node_modules` and `dist` excluded
 
 ### Frontend Service
+
 - **Dockerfile:** `frontend/Dockerfile` (Node 20 Alpine)
 - **Port:** 3001 (via `serve`)
 - **Note:** Dockerfile has a bug — runs `npm run build` before `COPY . .`
 
 ### Test Service (`test-app`)
+
 - **Same image as backend**
 - **Command:** `npm run test:e2e`
 - **Environment:** `NODE_ENV=test`, separate test database (`qr_menu_test`)
 
 ### Database Service (`db`)
+
 - **Image:** `postgres:15-alpine`
 - **Healthcheck:** `pg_isready -U postgres` every 5s
 
@@ -97,6 +102,7 @@ async onModuleInit() {
 ## Future Integrations (Planned)
 
 Per `README.md` and `CODING_ROADMAP.md`:
+
 - **File Storage:** Currently local → planned migration to AWS S3 / GCP Cloud Storage
 - **Managed Database:** AWS RDS / GCP Cloud SQL
 - **Container Orchestration:** AWS ECS/Fargate, GCP Cloud Run, or Kubernetes

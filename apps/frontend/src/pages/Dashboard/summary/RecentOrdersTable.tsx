@@ -18,17 +18,27 @@ interface RecentOrdersTableProps {
 
 const statusClass = (status: string) => {
   switch (status) {
-    case 'NEW': return 'bg-primary/15 text-primary';
-    case 'SERVED': return 'bg-emerald-500/15 text-emerald-500';
-    case 'CANCELED': return 'bg-destructive/15 text-destructive';
-    default: return 'bg-amber-500/15 text-amber-500';
+    case "NEW":
+      return "bg-primary/15 text-primary";
+    case "SERVED":
+      return "bg-emerald-500/15 text-emerald-500";
+    case "CANCELED":
+      return "bg-destructive/15 text-destructive";
+    default:
+      return "bg-amber-500/15 text-amber-500";
   }
 };
 
 const formatDateTime = (dateStr: string, locale: string) =>
-  new Date(dateStr).toLocaleDateString(locale, { month: 'short', day: 'numeric' }) +
-  ' · ' +
-  new Date(dateStr).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  new Date(dateStr).toLocaleDateString(locale, {
+    month: "short",
+    day: "numeric",
+  }) +
+  " · " +
+  new Date(dateStr).toLocaleTimeString(locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
 const RecentOrdersTable = ({ orders }: RecentOrdersTableProps) => {
   const { t, i18n } = useTranslation();
@@ -36,28 +46,49 @@ const RecentOrdersTable = ({ orders }: RecentOrdersTableProps) => {
   return (
     <div className="glass-panel rounded-[1.5rem] p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-display font-bold text-foreground">{t('auto.last50Orders', 'Last 50 orders')}</h3>
+        <h3 className="text-sm font-display font-bold text-foreground">
+          {t("auto.last50Orders", "Last 50 orders")}
+        </h3>
       </div>
-        <div className="max-h-[420px] overflow-y-auto pr-1 space-y-2">
-          {orders.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-8">{t('dashboard.noOrdersPeriod')}</p>
-          ) : (
+      <div className="max-h-[420px] overflow-y-auto pr-1 space-y-2">
+        {orders.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-8">
+            {t("dashboard.noOrdersPeriod")}
+          </p>
+        ) : (
           orders.map((order) => (
-            <div key={order.id} className="flex items-center gap-3 py-2 px-3 rounded-xl hover:bg-secondary/50 transition-colors">
+            <div
+              key={order.id}
+              className="flex items-center gap-3 py-2 px-3 rounded-xl hover:bg-secondary/50 transition-colors"
+            >
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-foreground">
-                  #{order.id.slice(-6).toUpperCase()} {t('auto.Table', '— Table')}{order.tableName || order.tableId || '—'}
+                  #{order.id.slice(-6).toUpperCase()}{" "}
+                  {t("auto.Table", "— Table")}
+                  {order.tableName || order.tableId || "—"}
                 </p>
                 <p className="text-[10px] text-muted-foreground">
-                  {order.customerPhone ? `${order.customerPhone} · ` : ''}{formatDateTime(order.createdAt, i18n.language)}
+                  {order.customerPhone ? `${order.customerPhone} · ` : ""}
+                  {formatDateTime(order.createdAt, i18n.language)}
                 </p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-xs font-bold text-foreground">{formatEuro(order.totalPrice)}</p>
-                <p className="text-[10px] text-muted-foreground">{t('dashboard.itemsCount', { count: order.items?.length ?? 0 })}</p>
+                <p className="text-xs font-bold text-foreground">
+                  {formatEuro(order.totalPrice)}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  {t("dashboard.itemsCount", {
+                    count: order.items?.length ?? 0,
+                  })}
+                </p>
               </div>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${statusClass(order.status)}`}>
-                {t(`orders.tabs.${order.status === 'IN_PROGRESS' ? 'inProgress' : order.status.toLowerCase()}`, order.status)}
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${statusClass(order.status)}`}
+              >
+                {t(
+                  `orders.tabs.${order.status === "IN_PROGRESS" ? "inProgress" : order.status.toLowerCase()}`,
+                  order.status,
+                )}
               </span>
             </div>
           ))

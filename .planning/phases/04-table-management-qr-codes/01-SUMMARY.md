@@ -24,12 +24,12 @@ Successfully extended the database schema to handle physical `RestaurantTable` e
 
 ## Tasks Completed
 
-| # | Task | Status |
-|---|------|--------|
-| 1.1 | Add Table model to schema | ✓ |
-| 1.2 | Push schema and migrate DB | ✓ |
-| 1.3 | Generate Tables backend resource | ✓ |
-| 1.4 | Implement Table CRUD endpoints | ✓ |
+| #   | Task                             | Status |
+| --- | -------------------------------- | ------ |
+| 1.1 | Add Table model to schema        | ✓      |
+| 1.2 | Push schema and migrate DB       | ✓      |
+| 1.3 | Generate Tables backend resource | ✓      |
+| 1.4 | Implement Table CRUD endpoints   | ✓      |
 
 ## Deviations from Plan
 

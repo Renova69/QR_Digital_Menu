@@ -215,6 +215,7 @@ frontend/
 ## Naming Conventions
 
 ### Files
+
 - **Backend controllers:** `{domain}.controller.ts` (e.g., `restaurants.controller.ts`)
 - **Backend services:** `{domain}.service.ts`
 - **Backend modules:** `{domain}.module.ts`
@@ -225,6 +226,7 @@ frontend/
 - **Frontend contexts:** `{Name}Context.tsx`
 
 ### Code
+
 - **Backend:** Classes use PascalCase, methods use camelCase
 - **Frontend:** Components use PascalCase, hooks use camelCase with `use` prefix
 - **Database tables:** snake_case (via Prisma `@@map()`)
@@ -232,13 +234,13 @@ frontend/
 
 ## Key Locations
 
-| What | Where |
-|------|-------|
-| API routes | `backend/src/*/[name].controller.ts` |
-| Business logic | `backend/src/*/[name].service.ts` |
-| Database schema | `backend/prisma/schema.prisma` |
-| App routes | `frontend/src/App.tsx` |
-| API client | `frontend/src/lib/api.ts` |
-| Design tokens | `frontend/src/index.css` |
-| Type definitions | `frontend/src/types/index.ts` |
-| Docker config | `docker-compose.yml` |
+| What             | Where                                |
+| ---------------- | ------------------------------------ |
+| API routes       | `backend/src/*/[name].controller.ts` |
+| Business logic   | `backend/src/*/[name].service.ts`    |
+| Database schema  | `backend/prisma/schema.prisma`       |
+| App routes       | `frontend/src/App.tsx`               |
+| API client       | `frontend/src/lib/api.ts`            |
+| Design tokens    | `frontend/src/index.css`             |
+| Type definitions | `frontend/src/types/index.ts`        |
+| Docker config    | `docker-compose.yml`                 |

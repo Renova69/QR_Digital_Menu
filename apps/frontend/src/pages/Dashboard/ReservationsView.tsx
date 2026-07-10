@@ -125,10 +125,7 @@ const ReservationsView = ({
         )}
       </div>
       {!restaurantId ? null : subTab === "list" ? (
-        <ReservationList
-          restaurantId={restaurantId}
-          canCreate={canConfigure}
-        />
+        <ReservationList restaurantId={restaurantId} canCreate={canConfigure} />
       ) : (
         <ReservationSettingsForm restaurantId={restaurantId} />
       )}
@@ -790,7 +787,11 @@ function ReservationCard({
             />
           )}
           {r.customerPreferences.map((p) => (
-            <Badge key={p} tone="amber" label={t(`reservations.preferences.${p}`, p.replace(/_/g, " "))} />
+            <Badge
+              key={p}
+              tone="amber"
+              label={t(`reservations.preferences.${p}`, p.replace(/_/g, " "))}
+            />
           ))}
           {r.allergyNotes && <Badge tone="red" label={r.allergyNotes} />}
           {r.staffTags.map((tag) => (

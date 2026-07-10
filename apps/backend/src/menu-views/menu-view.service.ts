@@ -72,27 +72,36 @@ export class MenuViewService {
       unique_visitors: bigint | number;
     };
 
-    const [totalViews, todayViews, perTableRaw, uniqueTotalRows, perTableUnique] =
-      await Promise.all([
-        this.prisma.menuView.count({
-          where: { restaurantId, createdAt: { gte: since } },
-        }),
-        this.prisma.menuView.count({
-          where: { restaurantId, createdAt: { gte: today } },
-        }),
-        this.prisma.menuView.groupBy({
-          by: ['tableId', 'tableName'],
-          where: { restaurantId, createdAt: { gte: since }, tableId: { not: null } },
-          _count: { id: true },
-        }),
-        this.prisma.$queryRaw<UniqueTotalRow[]>`
+    const [
+      totalViews,
+      todayViews,
+      perTableRaw,
+      uniqueTotalRows,
+      perTableUnique,
+    ] = await Promise.all([
+      this.prisma.menuView.count({
+        where: { restaurantId, createdAt: { gte: since } },
+      }),
+      this.prisma.menuView.count({
+        where: { restaurantId, createdAt: { gte: today } },
+      }),
+      this.prisma.menuView.groupBy({
+        by: ['tableId', 'tableName'],
+        where: {
+          restaurantId,
+          createdAt: { gte: since },
+          tableId: { not: null },
+        },
+        _count: { id: true },
+      }),
+      this.prisma.$queryRaw<UniqueTotalRow[]>`
           SELECT COUNT(DISTINCT "visitorId")::int AS count
           FROM menu_view
           WHERE "restaurantId" = ${restaurantId}
             AND "createdAt" >= ${since}
             AND "visitorId" IS NOT NULL
         `,
-        this.prisma.$queryRaw<PerTableUniqueRow[]>`
+      this.prisma.$queryRaw<PerTableUniqueRow[]>`
           SELECT "tableId",
                  "tableName",
                  COUNT(DISTINCT "visitorId")::int AS unique_visitors
@@ -103,7 +112,7 @@ export class MenuViewService {
             AND "tableId" IS NOT NULL
           GROUP BY "tableId", "tableName"
         `,
-      ]);
+    ]);
 
     const uniqueTotal = Number(uniqueTotalRows[0]?.count ?? 0);
 

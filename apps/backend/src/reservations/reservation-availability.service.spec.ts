@@ -37,7 +37,11 @@ function build(reservations: any[]) {
     },
     reservation: { findMany },
   };
-  const service = new ReservationAvailabilityService(prisma as any);
+  const service = new ReservationAvailabilityService(
+    prisma as unknown as ConstructorParameters<
+      typeof ReservationAvailabilityService
+    >[0],
+  );
   return { service, findMany };
 }
 

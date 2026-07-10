@@ -38,7 +38,8 @@ export const getZonedClockParts = (
 
     const part = (type: Intl.DateTimeFormatPartTypes) =>
       parts.find((p) => p.type === type)?.value;
-    const weekday = ISO_WEEKDAY_BY_SHORT_NAME[(part("weekday") || "").toLowerCase()];
+    const weekday =
+      ISO_WEEKDAY_BY_SHORT_NAME[(part("weekday") || "").toLowerCase()];
     const hour = Number(part("hour"));
     const minute = Number(part("minute"));
 
@@ -49,7 +50,10 @@ export const getZonedClockParts = (
     return { weekday, minutes: (hour % 24) * 60 + minute };
   } catch {
     const localWeekday = date.getDay() === 0 ? 7 : date.getDay();
-    return { weekday: localWeekday, minutes: date.getHours() * 60 + date.getMinutes() };
+    return {
+      weekday: localWeekday,
+      minutes: date.getHours() * 60 + date.getMinutes(),
+    };
   }
 };
 
@@ -83,7 +87,10 @@ export const isHappyHourActive = (
 
   const timeZone = config.timezone || "Europe/Sofia";
   const current = getZonedClockParts(now, timeZone);
-  const previous = getZonedClockParts(new Date(now.getTime() - 24 * 60 * 60 * 1000), timeZone);
+  const previous = getZonedClockParts(
+    new Date(now.getTime() - 24 * 60 * 60 * 1000),
+    timeZone,
+  );
 
   const inHappyHour =
     startMinutes <= endMinutes

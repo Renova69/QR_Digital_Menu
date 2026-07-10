@@ -16,15 +16,16 @@ Replace the current two-row layout (table banner + logo + language pill) with a 
 
 ### Layout (left to right)
 
-| Element | Rendering | Notes |
-|---------|-----------|-------|
-| Table chip | `🪑 5` — blue pill, icon + number | Hidden when no `tableNumber` query param |
-| Search input | `🔍 Search menu...` — flex-1, no border | Only text visible is placeholder. i18n key: `publicMenu.searchPlaceholder` |
-| Filter button | ☰ icon, 30×30px | Blue highlight when filter panel open or filters active |
-| Theme toggle | Sun/Moon icon, 30×30px | Existing `ThemeToggle` component, `size="sm"` |
-| Language selector | 2-char code: `EN` / `BG` / `RO` | Tap cycles or opens quick popover. Shows only codes from `restaurant.targetLanguages` |
+| Element           | Rendering                               | Notes                                                                                 |
+| ----------------- | --------------------------------------- | ------------------------------------------------------------------------------------- |
+| Table chip        | `🪑 5` — blue pill, icon + number       | Hidden when no `tableNumber` query param                                              |
+| Search input      | `🔍 Search menu...` — flex-1, no border | Only text visible is placeholder. i18n key: `publicMenu.searchPlaceholder`            |
+| Filter button     | ☰ icon, 30×30px                        | Blue highlight when filter panel open or filters active                               |
+| Theme toggle      | Sun/Moon icon, 30×30px                  | Existing `ThemeToggle` component, `size="sm"`                                         |
+| Language selector | 2-char code: `EN` / `BG` / `RO`         | Tap cycles or opens quick popover. Shows only codes from `restaurant.targetLanguages` |
 
 ### Styling
+
 - Glass panel: `bg-white/85 dark:bg-black/85 backdrop-blur-md rounded-[18px]`
 - Padding: `px-2 py-1.5`
 - Gap between elements: `gap-1.5`
@@ -32,6 +33,7 @@ Replace the current two-row layout (table banner + logo + language pill) with a 
 - Position: sticky top-3 z-40
 
 ### States
+
 - **No table:** Table chip hidden, search bar expands
 - **Filter active:** ☰ button gets accent background + badge dot
 
@@ -44,37 +46,46 @@ Opens as a slide-down panel below the top bar when ☰ is tapped. Not a modal �
 ### Structure
 
 #### 2a. Dietary Preference Toggles (Include Filter)
+
 Label: i18n `filters.showOnly`
 
 Toggle pills in a flex-wrap row. Each is a checkbox styled as a pill:
+
 - **Off:** `bg-muted/50 border border-transparent`
 - **On:** Green accent border + tinted background
 
 Tags sourced dynamically from `menuData` — collect all unique `dietaryTags` across items:
+
 - `spicy`, `vegan`, `new`, `popular`, `keto`, etc.
 
 Multi-select. Show only items matching at least one selected dietary tag.
 
 #### 2b. Divider
+
 Thin line with i18n label `filters.or` centered.
 
 #### 2c. Allergen Exclusion Pills (Exclude Filter)
+
 Label: i18n `filters.excludeAllergens` — shows "Изключи" (BG), "Exclude" (EN), etc.
 
 Pills in a flex-wrap row. Tap to toggle exclusion:
+
 - **Off:** `border-border bg-white`
 - **On (excluded):** Red border + red-tinted bg + ✕ icon
 
 Allergens sourced dynamically from all `item.allergens` arrays:
+
 - `milk`, `wheat`, `nuts`, `fish`, `eggs`, `shellfish`, `soy`, `garlic`, etc.
 
 Exclusion logic: items whose `allergens` array contains any excluded allergen are hidden.
 
 #### 2d. Footer
+
 - Active filter count: `"3 filters active"` — i18n `filters.activeCount`
 - "Clear all" link — resets all toggles and pills
 
 ### Behavior
+
 - Search in top bar AND filters work together (intersection)
 - Panel closes on tapping outside or tapping ☰ again
 - Filter state preserved when panel closes
@@ -85,24 +96,28 @@ Exclusion logic: items whose `allergens` array contains any excluded allergen ar
 ## 3. Price Display — Dual Currency (EUR + BGN)
 
 ### Format
+
 ```
 12.50 € / 24.45 лв
 ```
+
 - EUR primary (bold), BGN secondary (muted, smaller)
 - Slash separator
 - Fixed exchange rate: **1 EUR = 1.95583 BGN** (Bulgarian National Bank)
 
 ### Where this applies
-| Location | Current | New |
-|----------|---------|-----|
-| Item card | `€12.50` | `12.50 € / 24.45 лв` |
-| CartDrawer line items | `€25.00` | `25.00 € / 48.90 лв` |
-| CartDrawer total | `€28.50` | `28.50 € / 55.75 лв` |
-| CheckoutPage | `€12.50` | `12.50 € / 24.45 лв` |
+
+| Location               | Current  | New                                         |
+| ---------------------- | -------- | ------------------------------------------- |
+| Item card              | `€12.50` | `12.50 € / 24.45 лв`                        |
+| CartDrawer line items  | `€25.00` | `25.00 € / 48.90 лв`                        |
+| CartDrawer total       | `€28.50` | `28.50 € / 55.75 лв`                        |
+| CheckoutPage           | `€12.50` | `12.50 € / 24.45 лв`                        |
 | TrendingCarousel cards | `€12.50` | `12.50 €` (single line, no BGN — too small) |
-| PaymentModal | `€28.50` | `28.50 € / 55.75 лв` |
+| PaymentModal           | `€28.50` | `28.50 € / 55.75 лв`                        |
 
 ### Implementation
+
 - Create shared utility: `src/lib/currency.ts`
   ```ts
   export const BGN_RATE = 1.95583;
@@ -119,6 +134,7 @@ Exclusion logic: items whose `allergens` array contains any excluded allergen ar
 ## 4. Item Card — Horizontal Layout
 
 ### Layout
+
 ```
 ┌──────────┬──────────────────────┐
 │          │ Name                 │
@@ -130,6 +146,7 @@ Exclusion logic: items whose `allergens` array contains any excluded allergen ar
 ```
 
 ### Specs
+
 - **Image:** 33% width, min 110px, object-fit cover. Fallback: initial letter on gradient background when no image.
 - **Content:** flex-1, flex-col, justify-between. Padding: `px-3 py-2.5`.
 - **Name:** `text-sm font-bold`, single line
@@ -143,6 +160,7 @@ Exclusion logic: items whose `allergens` array contains any excluded allergen ar
 - **Gap between cards:** `gap-3` (12px)
 
 ### States
+
 - **Out of stock:** Card opacity 50%, "+ Add" replaced with "Out of stock" muted text
 - **In cart:** Button shows quantity: `3 ✓` instead of `+ Add`
 
@@ -153,6 +171,7 @@ Exclusion logic: items whose `allergens` array contains any excluded allergen ar
 Replace mobile `<select>` dropdown with horizontal scrollable pill row (same as desktop).
 
 ### Specs
+
 - Horizontal flex row, `overflow-x-auto`, no scrollbar (`scrollbar-width: none`)
 - Pills: `rounded-full px-3.5 py-1.5 text-[11px] font-semibold`
 - Active pill: `bg-accent text-white`
@@ -166,6 +185,7 @@ Replace mobile `<select>` dropdown with horizontal scrollable pill row (same as 
 ## 6. Trending Carousel — Slim Cards
 
 ### Specs
+
 - Horizontal scroll row, small cards
 - Each card: `flex items-center gap-2 bg-white rounded-2xl p-2 shadow-sm min-w-[140px]`
 - Image: `w-10 h-10 rounded-xl object-cover`
@@ -181,6 +201,7 @@ Replace mobile `<select>` dropdown with horizontal scrollable pill row (same as 
 Layout: **Option B** — Waiter · Profile | Bill · Cart
 
 ### Structure
+
 ```
 ┌─────────────────────────────────────────────┐
 │  🔔 Waiter    👤 Profile  │  💳 Bill   🛒3  │
@@ -188,6 +209,7 @@ Layout: **Option B** — Waiter · Profile | Bill · Cart
 ```
 
 ### Specs
+
 - Glass panel bar, identical container to current: `rounded-[2rem] glass-panel max-w-[480px]`
 - **Left group:** Call Waiter (bell icon + label on sm+) + Profile/Login (user icon)
   - Logged in: profile icon → navigates to `/profile`
@@ -199,12 +221,13 @@ Layout: **Option B** — Waiter · Profile | Bill · Cart
 - All buttons: `h-10 min-w-[40px]` touch targets
 
 ### Button visibility by state
-| State | Waiter | Profile | Divider | Bill | Cart |
-|-------|--------|---------|---------|------|------|
-| No table, not logged in | ✓ | Sign In | — | — | ✓ |
-| No table, logged in | ✓ | Profile | — | — | ✓ |
-| Table, no session | ✓ | Sign In | — | — | ✓ |
-| Table + session | ✓ | Profile | ✓ | ✓ | ✓ |
+
+| State                   | Waiter | Profile | Divider | Bill | Cart |
+| ----------------------- | ------ | ------- | ------- | ---- | ---- |
+| No table, not logged in | ✓      | Sign In | —       | —    | ✓    |
+| No table, logged in     | ✓      | Profile | —       | —    | ✓    |
+| Table, no session       | ✓      | Sign In | —       | —    | ✓    |
+| Table + session         | ✓      | Profile | ✓       | ✓    | ✓    |
 
 ---
 
@@ -214,24 +237,25 @@ All user-facing strings must use `t()` with keys in EN/BG/RO locales.
 
 ### New translation keys needed
 
-| Key | EN | BG | RO |
-|-----|----|----|----|
-| `publicMenu.searchPlaceholder` | Search menu... | Търси в менюто... | Caută în meniu... |
-| `filters.showOnly` | Show Only | Покажи само | Arată doar |
-| `filters.excludeAllergens` | Exclude | Изключи | Exclude |
-| `filters.or` | or | или | sau |
-| `filters.activeCount` | {{count}} filters active | {{count}} активни филтъра | {{count}} filtre active |
-| `filters.clearAll` | Clear all | Изчисти | Șterge tot |
-| `publicMenu.spicy` | Spicy | Лютиво | Picant |
-| `publicMenu.vegan` | Vegan | Веган | Vegan |
-| `publicMenu.new` | New | Ново | Nou |
-| `publicMenu.popular` | Popular | Популярно | Popular |
-| `publicMenu.keto` | Keto | Кето | Keto |
-| `publicMenu.addToCart` | + Add | + Добави | + Adaugă |
-| `publicMenu.outOfStock` | Out of stock | Изчерпано | Stoc epuizat |
-| `publicMenu.optionsCount` | +{{count}} options | +{{count}} опции | +{{count}} opțiuni |
+| Key                            | EN                       | BG                        | RO                      |
+| ------------------------------ | ------------------------ | ------------------------- | ----------------------- |
+| `publicMenu.searchPlaceholder` | Search menu...           | Търси в менюто...         | Caută în meniu...       |
+| `filters.showOnly`             | Show Only                | Покажи само               | Arată doar              |
+| `filters.excludeAllergens`     | Exclude                  | Изключи                   | Exclude                 |
+| `filters.or`                   | or                       | или                       | sau                     |
+| `filters.activeCount`          | {{count}} filters active | {{count}} активни филтъра | {{count}} filtre active |
+| `filters.clearAll`             | Clear all                | Изчисти                   | Șterge tot              |
+| `publicMenu.spicy`             | Spicy                    | Лютиво                    | Picant                  |
+| `publicMenu.vegan`             | Vegan                    | Веган                     | Vegan                   |
+| `publicMenu.new`               | New                      | Ново                      | Nou                     |
+| `publicMenu.popular`           | Popular                  | Популярно                 | Popular                 |
+| `publicMenu.keto`              | Keto                     | Кето                      | Keto                    |
+| `publicMenu.addToCart`         | + Add                    | + Добави                  | + Adaugă                |
+| `publicMenu.outOfStock`        | Out of stock             | Изчерпано                 | Stoc epuizat            |
+| `publicMenu.optionsCount`      | +{{count}} options       | +{{count}} опции          | +{{count}} opțiuni      |
 
 ### Existing keys to reuse
+
 - `publicMenu.viewingTable` — current table banner text (no longer used, replaced by table chip)
 - `publicMenu.callWaiter` — bottom nav label
 - `publicMenu.signIn` — bottom nav login
@@ -255,15 +279,18 @@ export function formatBgn(value: number): string {
 
 export function formatDualCurrency(
   value: number,
-  primaryCurrency: 'EUR' | 'BGN' = 'EUR'
+  primaryCurrency: "EUR" | "BGN" = "EUR",
 ): { primary: string; secondary: string } {
-  if (primaryCurrency === 'EUR') {
+  if (primaryCurrency === "EUR") {
     return { primary: formatEuro(value), secondary: formatBgn(value) };
   }
   return { primary: formatBgn(value), secondary: formatEuro(value / BGN_RATE) };
 }
 
-export function formatInlineDual(value: number, primaryCurrency: 'EUR' | 'BGN' = 'EUR'): string {
+export function formatInlineDual(
+  value: number,
+  primaryCurrency: "EUR" | "BGN" = "EUR",
+): string {
   const { primary, secondary } = formatDualCurrency(value, primaryCurrency);
   return `${primary} / ${secondary}`;
 }
@@ -273,22 +300,22 @@ export function formatInlineDual(value: number, primaryCurrency: 'EUR' | 'BGN' =
 
 ## 10. Component Changes Summary
 
-| File | Change |
-|------|--------|
-| `PublicMenuPage.tsx` | Major refactor — extract top bar, filter panel, category nav, trending, bottom nav into sub-components or restructure inline sections. Remove logo rendering. |
-| `ItemWithOptions.tsx` | Horizontal card layout. Price format changed. Add button → pill. |
-| `CartDrawer.tsx` | Dual-currency prices on line items + total. |
-| `CheckoutPage.tsx` | Dual-currency prices. |
-| `PaymentModal.tsx` | Dual-currency prices. |
-| `TrendingCarousel.tsx` | Slim card layout. |
-| `CartIcon.tsx` | No functional changes (used in bottom nav). |
-| `ThemeToggle.tsx` | No changes (already supports `size="sm"`). |
-| **NEW** `src/lib/currency.ts` | Shared currency formatting utility. |
-| **NEW** `src/components/menu/FilterPanel.tsx` | Filter panel component (dietary toggles + allergen pills). |
-| **NEW** `src/components/menu/CategoryPills.tsx` | Horizontal scroll category pills (extracted from PublicMenuPage). |
-| `src/locales/en/translation.json` | ~15 new keys |
-| `src/locales/bg/translation.json` | ~15 new keys |
-| `src/locales/ro/translation.json` | ~15 new keys |
+| File                                            | Change                                                                                                                                                        |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PublicMenuPage.tsx`                            | Major refactor — extract top bar, filter panel, category nav, trending, bottom nav into sub-components or restructure inline sections. Remove logo rendering. |
+| `ItemWithOptions.tsx`                           | Horizontal card layout. Price format changed. Add button → pill.                                                                                              |
+| `CartDrawer.tsx`                                | Dual-currency prices on line items + total.                                                                                                                   |
+| `CheckoutPage.tsx`                              | Dual-currency prices.                                                                                                                                         |
+| `PaymentModal.tsx`                              | Dual-currency prices.                                                                                                                                         |
+| `TrendingCarousel.tsx`                          | Slim card layout.                                                                                                                                             |
+| `CartIcon.tsx`                                  | No functional changes (used in bottom nav).                                                                                                                   |
+| `ThemeToggle.tsx`                               | No changes (already supports `size="sm"`).                                                                                                                    |
+| **NEW** `src/lib/currency.ts`                   | Shared currency formatting utility.                                                                                                                           |
+| **NEW** `src/components/menu/FilterPanel.tsx`   | Filter panel component (dietary toggles + allergen pills).                                                                                                    |
+| **NEW** `src/components/menu/CategoryPills.tsx` | Horizontal scroll category pills (extracted from PublicMenuPage).                                                                                             |
+| `src/locales/en/translation.json`               | ~15 new keys                                                                                                                                                  |
+| `src/locales/bg/translation.json`               | ~15 new keys                                                                                                                                                  |
+| `src/locales/ro/translation.json`               | ~15 new keys                                                                                                                                                  |
 
 ---
 

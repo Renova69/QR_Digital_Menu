@@ -308,4 +308,35 @@ describe('LoyaltyService', () => {
       expect(result).toHaveLength(1);
     });
   });
+
+  describe('Edge Cases (Additional)', () => {
+    it('getAnalytics handles completely empty loyalty accounts array', async () => {
+      mockPrisma.restaurant.findFirst.mockResolvedValue({
+        id: 'r1',
+        isLoyaltyEnabled: true,
+      });
+      mockPrisma.loyaltyAccount.findMany.mockResolvedValue([]);
+      mockPrisma.order.findMany.mockResolvedValue([]);
+      mockPrisma.order.groupBy.mockResolvedValue([]);
+      mockPrisma.loyaltyAccount.findFirst.mockResolvedValue(null);
+
+      const result = await service.getAnalytics('r1', 'owner1');
+      expect(result).toBeDefined();
+      expect(mockPrisma.loyaltyAccount.findMany).toHaveBeenCalledWith({
+        where: { restaurantId: 'r1' },
+      });
+    });
+
+    it('notifyExpiryReminders returns early when no candidates are found', async () => {
+      mockPrisma.restaurant.findFirst.mockResolvedValue({
+        id: 'r1',
+        loyaltyRedeemRate: 150,
+        loyaltyExpiryReminderDays: 15,
+      });
+      mockPrisma.loyaltyAccount.findMany.mockResolvedValue([]);
+
+      const result = await service.notifyExpiryReminders('r1', 'owner1');
+      expect(result).toEqual([]);
+    });
+  });
 });

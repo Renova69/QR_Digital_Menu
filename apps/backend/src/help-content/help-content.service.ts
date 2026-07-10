@@ -69,13 +69,18 @@ export class HelpContentService {
         action: 'HELP_CONTENT_DELETE',
         targetType: 'HelpContent',
         targetId: id,
-        metadata: existing ? { section: existing.section, locale: existing.locale } : undefined,
+        metadata: existing
+          ? { section: existing.section, locale: existing.locale }
+          : undefined,
       },
     });
     return { deleted: true };
   }
 
-  async reorder(items: { id: string; sortOrder: number }[], actorUserId: string) {
+  async reorder(
+    items: { id: string; sortOrder: number }[],
+    actorUserId: string,
+  ) {
     if (items.length === 0) return { updated: 0 };
 
     await this.prisma.$transaction([

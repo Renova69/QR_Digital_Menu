@@ -27,6 +27,7 @@ import {
   UserCheck,
   MonitorSmartphone,
   Plus,
+  CalendarDays,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
@@ -200,6 +201,13 @@ const featureCards = [
     textKey: "landing.featureSuite.security.text",
     tone: "from-slate-500 to-gray-700",
     toneBg: "bg-slate-500/10 text-slate-500",
+  },
+  {
+    icon: CalendarDays,
+    titleKey: "landing.featureSuite.reservations.title",
+    textKey: "landing.featureSuite.reservations.text",
+    tone: "from-blue-400 to-cyan-500",
+    toneBg: "bg-blue-400/10 text-blue-500",
   },
 ];
 
@@ -596,7 +604,10 @@ function createMockItems(t: (key: string) => string): Item[] {
       price: 7.9,
       currency: "BGN",
       categoryId: "cat-popular",
-      allergens: [t("landing.phone.allergens.gluten"), t("landing.phone.allergens.milk")],
+      allergens: [
+        t("landing.phone.allergens.gluten"),
+        t("landing.phone.allergens.milk"),
+      ],
     },
     {
       id: "item-5",
@@ -735,28 +746,108 @@ function PhoneMockup() {
 function DashboardPreview() {
   const { t } = useTranslation();
   const kpis = [
-    { label: t("landing.dashboardMock.kpis.orders"), value: "1 246", trend: "+18.6%" },
-    { label: t("landing.dashboardMock.kpis.revenue"), value: "24 860 лв.", trend: "+22.1%" },
-    { label: t("landing.dashboardMock.kpis.tables"), value: "21", trend: t("landing.dashboardMock.kpis.tablesMeta") },
-    { label: t("landing.dashboardMock.kpis.service"), value: "6", trend: t("landing.dashboardMock.kpis.serviceMeta") },
+    {
+      label: t("landing.dashboardMock.kpis.orders"),
+      value: "1 246",
+      trend: "+18.6%",
+    },
+    {
+      label: t("landing.dashboardMock.kpis.revenue"),
+      value: "24 860 лв.",
+      trend: "+22.1%",
+    },
+    {
+      label: t("landing.dashboardMock.kpis.tables"),
+      value: "21",
+      trend: t("landing.dashboardMock.kpis.tablesMeta"),
+    },
+    {
+      label: t("landing.dashboardMock.kpis.service"),
+      value: "6",
+      trend: t("landing.dashboardMock.kpis.serviceMeta"),
+    },
   ];
   const topDishes = [
-    { rank: 1, name: t("landing.dashboardMock.dishes.shopska"), count: 342, bg: "radial-gradient(circle, #8CCB7A, #3E8E41)" },
-    { rank: 2, name: t("landing.dashboardMock.dishes.kyufte"), count: 289, bg: "radial-gradient(circle, #D9A45E, #8B4513)" },
-    { rank: 3, name: t("landing.dashboardMock.dishes.trout"), count: 207, bg: "radial-gradient(circle, #F08054, #C44E2A)" },
-    { rank: 4, name: t("landing.dashboardMock.dishes.banitsa"), count: 187, bg: "radial-gradient(circle, #F4DB95, #C9A04E)" },
+    {
+      rank: 1,
+      name: t("landing.dashboardMock.dishes.shopska"),
+      count: 342,
+      bg: "radial-gradient(circle, #8CCB7A, #3E8E41)",
+    },
+    {
+      rank: 2,
+      name: t("landing.dashboardMock.dishes.kyufte"),
+      count: 289,
+      bg: "radial-gradient(circle, #D9A45E, #8B4513)",
+    },
+    {
+      rank: 3,
+      name: t("landing.dashboardMock.dishes.trout"),
+      count: 207,
+      bg: "radial-gradient(circle, #F08054, #C44E2A)",
+    },
+    {
+      rank: 4,
+      name: t("landing.dashboardMock.dishes.banitsa"),
+      count: 187,
+      bg: "radial-gradient(circle, #F4DB95, #C9A04E)",
+    },
   ];
   const channels = [
-    { color: "#6E56F8", label: t("landing.dashboardMock.channels.qr"), pct: "46%" },
-    { color: "#A78BFA", label: t("landing.dashboardMock.channels.staff"), pct: "28%" },
-    { color: "#34D399", label: t("landing.dashboardMock.channels.pos"), pct: "19%" },
-    { color: "#FBBF24", label: t("landing.dashboardMock.channels.takeaway"), pct: "7%" },
+    {
+      color: "#6E56F8",
+      label: t("landing.dashboardMock.channels.qr"),
+      pct: "46%",
+    },
+    {
+      color: "#A78BFA",
+      label: t("landing.dashboardMock.channels.staff"),
+      pct: "28%",
+    },
+    {
+      color: "#34D399",
+      label: t("landing.dashboardMock.channels.pos"),
+      pct: "19%",
+    },
+    {
+      color: "#FBBF24",
+      label: t("landing.dashboardMock.channels.takeaway"),
+      pct: "7%",
+    },
   ];
   const liveOrders = [
-    { id: "#1254", table: t("landing.dashboardMock.table", { number: 12 }), items: t("landing.dashboardMock.items", { count: 2 }), price: "24.90 лв.", status: t("landing.dashboardMock.status.preparing"), statusColor: "bg-amber-500/15 text-amber-700 dark:text-amber-300" },
-    { id: "#1255", table: t("landing.dashboardMock.table", { number: 5 }), items: t("landing.dashboardMock.items", { count: 3 }), price: "33.60 лв.", status: t("landing.dashboardMock.status.preparing"), statusColor: "bg-amber-500/15 text-amber-700 dark:text-amber-300" },
-    { id: "#1256", table: t("landing.dashboardMock.table", { number: 8 }), items: t("landing.dashboardMock.items", { count: 1 }), price: "18.20 лв.", status: t("landing.dashboardMock.status.ready"), statusColor: "bg-emerald-500/15 text-emerald-600" },
-    { id: "#1257", table: t("landing.dashboardMock.table", { number: 3 }), items: t("landing.dashboardMock.items", { count: 4 }), price: "52.00 лв.", status: t("landing.dashboardMock.status.new"), statusColor: "bg-primary/15 text-primary" },
+    {
+      id: "#1254",
+      table: t("landing.dashboardMock.table", { number: 12 }),
+      items: t("landing.dashboardMock.items", { count: 2 }),
+      price: "24.90 лв.",
+      status: t("landing.dashboardMock.status.preparing"),
+      statusColor: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+    },
+    {
+      id: "#1255",
+      table: t("landing.dashboardMock.table", { number: 5 }),
+      items: t("landing.dashboardMock.items", { count: 3 }),
+      price: "33.60 лв.",
+      status: t("landing.dashboardMock.status.preparing"),
+      statusColor: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+    },
+    {
+      id: "#1256",
+      table: t("landing.dashboardMock.table", { number: 8 }),
+      items: t("landing.dashboardMock.items", { count: 1 }),
+      price: "18.20 лв.",
+      status: t("landing.dashboardMock.status.ready"),
+      statusColor: "bg-emerald-500/15 text-emerald-600",
+    },
+    {
+      id: "#1257",
+      table: t("landing.dashboardMock.table", { number: 3 }),
+      items: t("landing.dashboardMock.items", { count: 4 }),
+      price: "52.00 лв.",
+      status: t("landing.dashboardMock.status.new"),
+      statusColor: "bg-primary/15 text-primary",
+    },
   ];
 
   return (
@@ -764,26 +855,45 @@ function DashboardPreview() {
       <div className="rounded-[22px] border border-border bg-card p-4 shadow-lg sm:p-[22px]">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="text-lg font-bold text-foreground">{t("landing.dashboardMock.title")}</div>
-            <div className="mt-0.5 text-xs text-muted-foreground">{t("landing.dashboardMock.subtitle")}</div>
+            <div className="text-lg font-bold text-foreground">
+              {t("landing.dashboardMock.title")}
+            </div>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              {t("landing.dashboardMock.subtitle")}
+            </div>
           </div>
           <div className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs text-muted-foreground">
             {t("landing.dashboardMock.range")}
             <svg width="10" height="10" viewBox="0 0 10 10">
-              <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+              <path
+                d="M2 4l3 3 3-3"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                fill="none"
+                strokeLinecap="round"
+              />
             </svg>
           </div>
         </div>
 
         <div className="mb-4 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
           {kpis.map((kpi) => (
-            <div key={kpi.label} className="rounded-xl border border-border bg-secondary p-3">
-              <div className="mb-1 text-[11px] text-muted-foreground">{kpi.label}</div>
+            <div
+              key={kpi.label}
+              className="rounded-xl border border-border bg-secondary p-3"
+            >
+              <div className="mb-1 text-[11px] text-muted-foreground">
+                {kpi.label}
+              </div>
               <div className="flex flex-wrap items-baseline gap-1.5 text-[17px] font-bold text-foreground">
                 {kpi.value}
-                <span className="text-[10px] font-semibold text-emerald-500">{kpi.trend}</span>
+                <span className="text-[10px] font-semibold text-emerald-500">
+                  {kpi.trend}
+                </span>
               </div>
-              <div className="mt-1 text-[10px] text-muted-foreground">{t("landing.dashboardMock.kpis.period")}</div>
+              <div className="mt-1 text-[10px] text-muted-foreground">
+                {t("landing.dashboardMock.kpis.period")}
+              </div>
             </div>
           ))}
         </div>
@@ -791,53 +901,109 @@ function DashboardPreview() {
         <div className="mb-3.5 grid gap-3.5 lg:grid-cols-[1.35fr_0.9fr]">
           <div className="rounded-[14px] border border-border bg-secondary p-3.5">
             <div className="mb-2 flex items-center justify-between gap-3">
-              <span className="text-[13px] font-bold text-foreground">{t("landing.dashboardMock.ordersOverview")}</span>
+              <span className="text-[13px] font-bold text-foreground">
+                {t("landing.dashboardMock.ordersOverview")}
+              </span>
               <div className="inline-flex gap-0.5 text-[11px] text-muted-foreground">
-                <span className="rounded-md px-2 py-1">{t("landing.dashboardMock.filters.day")}</span>
-                <span className="rounded-md px-2 py-1">{t("landing.dashboardMock.filters.week")}</span>
-                <span className="rounded-md bg-primary/10 px-2 py-1 font-semibold text-primary">{t("landing.dashboardMock.filters.month")}</span>
+                <span className="rounded-md px-2 py-1">
+                  {t("landing.dashboardMock.filters.day")}
+                </span>
+                <span className="rounded-md px-2 py-1">
+                  {t("landing.dashboardMock.filters.week")}
+                </span>
+                <span className="rounded-md bg-primary/10 px-2 py-1 font-semibold text-primary">
+                  {t("landing.dashboardMock.filters.month")}
+                </span>
               </div>
             </div>
-            <svg className="h-[130px] w-full" viewBox="0 0 360 130" preserveAspectRatio="none">
+            <svg
+              className="h-[130px] w-full"
+              viewBox="0 0 360 130"
+              preserveAspectRatio="none"
+            >
               <defs>
                 <linearGradient id="heroLineGrad" x1="0" x2="0" y1="0" y2="1">
                   <stop offset="0%" stopColor="#8B6FFF" stopOpacity="0.35" />
                   <stop offset="100%" stopColor="#8B6FFF" stopOpacity="0" />
                 </linearGradient>
               </defs>
-              <g stroke="currentColor" className="text-border" strokeDasharray="2,3" fill="none">
+              <g
+                stroke="currentColor"
+                className="text-border"
+                strokeDasharray="2,3"
+                fill="none"
+              >
                 <line x1="0" y1="20" x2="360" y2="20" />
                 <line x1="0" y1="55" x2="360" y2="55" />
                 <line x1="0" y1="90" x2="360" y2="90" />
               </g>
-              <path d="M30,90 L75,75 L120,80 L165,55 L210,65 L255,40 L300,45 L345,25" fill="none" stroke="#8B6FFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M30,90 L75,75 L120,80 L165,55 L210,65 L255,40 L300,45 L345,25 L345,120 L30,120 Z" fill="url(#heroLineGrad)" />
+              <path
+                d="M30,90 L75,75 L120,80 L165,55 L210,65 L255,40 L300,45 L345,25"
+                fill="none"
+                stroke="#8B6FFF"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M30,90 L75,75 L120,80 L165,55 L210,65 L255,40 L300,45 L345,25 L345,120 L30,120 Z"
+                fill="url(#heroLineGrad)"
+              />
               <g fill="#8B6FFF">
                 {[30, 75, 120, 165, 210, 255, 300, 345].map((cx, idx) => (
-                  <circle key={cx} cx={cx} cy={[90, 75, 80, 55, 65, 40, 45, 25][idx]} r="3" />
+                  <circle
+                    key={cx}
+                    cx={cx}
+                    cy={[90, 75, 80, 55, 65, 40, 45, 25][idx]}
+                    r="3"
+                  />
                 ))}
               </g>
               <g className="fill-muted-foreground text-[8px]">
-                <text x="18" y="128" fill="currentColor">{t("landing.dashboardMock.chart.day1")}</text>
-                <text x="92" y="128" fill="currentColor">{t("landing.dashboardMock.chart.day2")}</text>
-                <text x="168" y="128" fill="currentColor">{t("landing.dashboardMock.chart.day3")}</text>
-                <text x="250" y="128" fill="currentColor">{t("landing.dashboardMock.chart.day4")}</text>
+                <text x="18" y="128" fill="currentColor">
+                  {t("landing.dashboardMock.chart.day1")}
+                </text>
+                <text x="92" y="128" fill="currentColor">
+                  {t("landing.dashboardMock.chart.day2")}
+                </text>
+                <text x="168" y="128" fill="currentColor">
+                  {t("landing.dashboardMock.chart.day3")}
+                </text>
+                <text x="250" y="128" fill="currentColor">
+                  {t("landing.dashboardMock.chart.day4")}
+                </text>
               </g>
             </svg>
           </div>
 
           <div className="rounded-[14px] border border-border bg-secondary p-3.5">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-[13px] font-bold text-foreground">{t("landing.dashboardMock.topDishes")}</span>
-              <span className="text-[11px] font-semibold text-primary">{t("landing.dashboardMock.viewAll")}</span>
+              <span className="text-[13px] font-bold text-foreground">
+                {t("landing.dashboardMock.topDishes")}
+              </span>
+              <span className="text-[11px] font-semibold text-primary">
+                {t("landing.dashboardMock.viewAll")}
+              </span>
             </div>
             <div className="flex flex-col gap-1.5">
               {topDishes.map((dish) => (
-                <div key={dish.name} className="grid grid-cols-[18px_22px_1fr_auto] items-center gap-2 text-[11px]">
-                  <span className="font-semibold text-muted-foreground">{dish.rank}</span>
-                  <div className="h-[22px] w-[22px] rounded-md" style={{ background: dish.bg }} />
-                  <span className="truncate font-medium text-foreground">{dish.name}</span>
-                  <span className="font-semibold text-muted-foreground">{dish.count}</span>
+                <div
+                  key={dish.name}
+                  className="grid grid-cols-[18px_22px_1fr_auto] items-center gap-2 text-[11px]"
+                >
+                  <span className="font-semibold text-muted-foreground">
+                    {dish.rank}
+                  </span>
+                  <div
+                    className="h-[22px] w-[22px] rounded-md"
+                    style={{ background: dish.bg }}
+                  />
+                  <span className="truncate font-medium text-foreground">
+                    {dish.name}
+                  </span>
+                  <span className="font-semibold text-muted-foreground">
+                    {dish.count}
+                  </span>
                 </div>
               ))}
             </div>
@@ -846,26 +1012,79 @@ function DashboardPreview() {
 
         <div className="grid gap-3.5 lg:grid-cols-[1fr_1.2fr]">
           <div className="rounded-[14px] border border-border bg-secondary p-3.5">
-            <div className="mb-2.5 text-xs font-bold text-foreground">{t("landing.dashboardMock.salesByChannel")}</div>
+            <div className="mb-2.5 text-xs font-bold text-foreground">
+              {t("landing.dashboardMock.salesByChannel")}
+            </div>
             <div className="grid grid-cols-[94px_1fr] items-center gap-2.5">
               <div className="relative">
                 <svg viewBox="0 0 100 100" className="h-[94px] w-[94px]">
-                  <circle r="40" cx="50" cy="50" fill="none" stroke="#6E56F8" strokeWidth="14" strokeDasharray="116 251" transform="rotate(-90 50 50)" />
-                  <circle r="40" cx="50" cy="50" fill="none" stroke="#A78BFA" strokeWidth="14" strokeDasharray="70 251" strokeDashoffset="-116" transform="rotate(-90 50 50)" />
-                  <circle r="40" cx="50" cy="50" fill="none" stroke="#34D399" strokeWidth="14" strokeDasharray="48 251" strokeDashoffset="-186" transform="rotate(-90 50 50)" />
-                  <circle r="40" cx="50" cy="50" fill="none" stroke="#FBBF24" strokeWidth="14" strokeDasharray="17 251" strokeDashoffset="-234" transform="rotate(-90 50 50)" />
+                  <circle
+                    r="40"
+                    cx="50"
+                    cy="50"
+                    fill="none"
+                    stroke="#6E56F8"
+                    strokeWidth="14"
+                    strokeDasharray="116 251"
+                    transform="rotate(-90 50 50)"
+                  />
+                  <circle
+                    r="40"
+                    cx="50"
+                    cy="50"
+                    fill="none"
+                    stroke="#A78BFA"
+                    strokeWidth="14"
+                    strokeDasharray="70 251"
+                    strokeDashoffset="-116"
+                    transform="rotate(-90 50 50)"
+                  />
+                  <circle
+                    r="40"
+                    cx="50"
+                    cy="50"
+                    fill="none"
+                    stroke="#34D399"
+                    strokeWidth="14"
+                    strokeDasharray="48 251"
+                    strokeDashoffset="-186"
+                    transform="rotate(-90 50 50)"
+                  />
+                  <circle
+                    r="40"
+                    cx="50"
+                    cy="50"
+                    fill="none"
+                    stroke="#FBBF24"
+                    strokeWidth="14"
+                    strokeDasharray="17 251"
+                    strokeDashoffset="-234"
+                    transform="rotate(-90 50 50)"
+                  />
                 </svg>
                 <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
-                  <div className="text-[12px] font-bold text-foreground">24.8k</div>
-                  <div className="text-[9px] text-muted-foreground">{t("landing.dashboardMock.total")}</div>
+                  <div className="text-[12px] font-bold text-foreground">
+                    24.8k
+                  </div>
+                  <div className="text-[9px] text-muted-foreground">
+                    {t("landing.dashboardMock.total")}
+                  </div>
                 </div>
               </div>
               <div className="flex flex-col gap-1 text-[10px]">
                 {channels.map((item) => (
-                  <div key={item.label} className="grid grid-cols-[10px_1fr_auto] items-center gap-1.5 text-muted-foreground">
-                    <span className="h-2 w-2 rounded-sm" style={{ background: item.color }} />
+                  <div
+                    key={item.label}
+                    className="grid grid-cols-[10px_1fr_auto] items-center gap-1.5 text-muted-foreground"
+                  >
+                    <span
+                      className="h-2 w-2 rounded-sm"
+                      style={{ background: item.color }}
+                    />
                     <span>{item.label}</span>
-                    <span className="font-semibold text-foreground">{item.pct}</span>
+                    <span className="font-semibold text-foreground">
+                      {item.pct}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -875,25 +1094,49 @@ function DashboardPreview() {
           <div className="rounded-[14px] border border-border bg-secondary p-3.5">
             <div className="mb-2.5 flex items-center justify-between text-xs font-bold text-foreground">
               <span>{t("landing.dashboardMock.liveOrders")}</span>
-              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-600">{t("landing.dashboardMock.sync")}</span>
+              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-600">
+                {t("landing.dashboardMock.sync")}
+              </span>
             </div>
             <div className="space-y-1.5 text-[10.5px]">
               {liveOrders.map((order) => (
-                <div key={order.id} className="grid grid-cols-[48px_1fr_auto] items-center gap-2 rounded-lg bg-background/55 px-2 py-1.5">
-                  <span className="font-semibold text-foreground">{order.id}</span>
-                  <span className="truncate text-muted-foreground">{order.table} · {order.items} · {order.price}</span>
-                  <span className={"rounded-[5px] px-1.5 py-0.5 text-[9px] font-semibold " + order.statusColor}>{order.status}</span>
+                <div
+                  key={order.id}
+                  className="grid grid-cols-[48px_1fr_auto] items-center gap-2 rounded-lg bg-background/55 px-2 py-1.5"
+                >
+                  <span className="font-semibold text-foreground">
+                    {order.id}
+                  </span>
+                  <span className="truncate text-muted-foreground">
+                    {order.table} · {order.items} · {order.price}
+                  </span>
+                  <span
+                    className={
+                      "rounded-[5px] px-1.5 py-0.5 text-[9px] font-semibold " +
+                      order.statusColor
+                    }
+                  >
+                    {order.status}
+                  </span>
                 </div>
               ))}
             </div>
-            <div className="mt-2 text-right text-[11px] font-semibold text-primary">{t("landing.dashboardMock.viewAllOrders")}</div>
+            <div className="mt-2 text-right text-[11px] font-semibold text-primary">
+              {t("landing.dashboardMock.viewAllOrders")}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="absolute -bottom-10 -right-2 hidden w-[150px] -rotate-3 rounded-[14px] p-3.5 text-white shadow-[0_20px_40px_-10px_rgba(110,86,248,.5)] sm:block" style={{ background: "linear-gradient(160deg, #6E56F8 0%, #4A39B8 100%)" }}>
+      <div
+        className="absolute -bottom-10 -right-2 hidden w-[150px] -rotate-3 rounded-[14px] p-3.5 text-white shadow-[0_20px_40px_-10px_rgba(110,86,248,.5)] sm:block"
+        style={{
+          background: "linear-gradient(160deg, #6E56F8 0%, #4A39B8 100%)",
+        }}
+      >
         <div className="mb-2.5 text-[11px] font-semibold leading-tight">
-          {t("landing.dashboardMock.qrCard.line1")}<br />
+          {t("landing.dashboardMock.qrCard.line1")}
+          <br />
           {t("landing.dashboardMock.qrCard.line2")}
         </div>
         <div className="rounded-lg bg-white p-1.5">
@@ -909,13 +1152,24 @@ function DashboardPreview() {
               <rect x="6" y="72" width="22" height="22" />
               <rect x="10" y="76" width="14" height="14" fill="#fff" />
               <rect x="13" y="79" width="8" height="8" />
-              {[34, 42, 50, 58, 66, 38, 46, 54, 62, 74, 86, 34, 50, 58, 66, 78, 90].map((x, i) => (
-                <rect key={String(x) + "-" + i} x={x} y={i < 5 ? 34 : i < 11 ? 58 : 82} width="4" height="4" />
+              {[
+                34, 42, 50, 58, 66, 38, 46, 54, 62, 74, 86, 34, 50, 58, 66, 78,
+                90,
+              ].map((x, i) => (
+                <rect
+                  key={String(x) + "-" + i}
+                  x={x}
+                  y={i < 5 ? 34 : i < 11 ? 58 : 82}
+                  width="4"
+                  height="4"
+                />
               ))}
             </g>
           </svg>
         </div>
-        <div className="mt-2 text-xs font-bold">{t("landing.dashboardMock.qrCard.table")}</div>
+        <div className="mt-2 text-xs font-bold">
+          {t("landing.dashboardMock.qrCard.table")}
+        </div>
       </div>
     </div>
   );
@@ -1038,7 +1292,10 @@ const HomePage = () => {
 
       {/* ══════════════════ 2. HERO ══════════════════ */}
       <section className="relative overflow-hidden border-b border-border bg-background dark:bg-[radial-gradient(ellipse_1100px_600px_at_75%_30%,rgba(110,86,248,0.18),transparent_70%),radial-gradient(ellipse_800px_500px_at_20%_80%,rgba(110,86,248,0.12),transparent_70%),var(--color-background)]">
-        <div className="absolute inset-0 -z-0 bg-[radial-gradient(rgba(110,86,248,0.12)_1px,transparent_1px)] bg-[size:24px_24px]" aria-hidden="true" />
+        <div
+          className="absolute inset-0 -z-0 bg-[radial-gradient(rgba(110,86,248,0.12)_1px,transparent_1px)] bg-[size:24px_24px]"
+          aria-hidden="true"
+        />
         <div className="relative z-10 mx-auto max-w-[1480px] px-5 py-12 sm:px-10 md:px-[60px] md:pb-20 md:pt-16">
           <div className="grid items-center gap-10 xl:grid-cols-[minmax(380px,0.9fr)_minmax(720px,1.1fr)]">
             <div className="flex max-w-2xl flex-col items-start">
@@ -1047,7 +1304,9 @@ const HomePage = () => {
                 {t("landing.heroBadge")}
               </span>
               <h1 className="mb-6 text-[clamp(40px,5vw,64px)] font-extrabold leading-[1.04] tracking-tight text-foreground">
-                <span className="text-primary">{t("landing.heroWordAccent")}</span>
+                <span className="text-primary">
+                  {t("landing.heroWordAccent")}
+                </span>
                 <br />
                 {t("landing.heroLine1")}
                 <br />
@@ -1059,7 +1318,10 @@ const HomePage = () => {
 
               <div className="mb-8 grid w-full max-w-[560px] grid-cols-2 gap-2.5 sm:grid-cols-4">
                 {heroPills.map(({ icon: Icon, line1Key, line2Key }) => (
-                  <div key={line1Key} className="flex min-h-[74px] items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-3 text-[12.5px] font-medium leading-tight text-foreground shadow-sm">
+                  <div
+                    key={line1Key}
+                    className="flex min-h-[74px] items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-3 text-[12.5px] font-medium leading-tight text-foreground shadow-sm"
+                  >
                     <Icon className="h-[18px] w-[18px] shrink-0 text-muted-foreground" />
                     <span>
                       {t(line1Key)}
@@ -1071,13 +1333,22 @@ const HomePage = () => {
               </div>
 
               <div className="mb-5 flex flex-col gap-3 sm:flex-row">
-                <Button asChild size="lg" className="h-[52px] cursor-pointer rounded-[14px] px-[26px] text-base">
+                <Button
+                  asChild
+                  size="lg"
+                  className="h-[52px] cursor-pointer rounded-[14px] px-[26px] text-base"
+                >
                   <Link to="/register">
                     {t("landing.startFreeTrial")}
                     <ArrowRight className="ml-2 h-[18px] w-[18px]" />
                   </Link>
                 </Button>
-                <Button asChild size="lg" variant="outline" className="h-[52px] cursor-pointer rounded-[14px] px-[26px] text-base">
+                <Button
+                  asChild
+                  size="lg"
+                  variant="outline"
+                  className="h-[52px] cursor-pointer rounded-[14px] px-[26px] text-base"
+                >
                   <Link to="/pricing">
                     <ReceiptText className="mr-2 h-4 w-4" />
                     {t("landing.viewPricing")}
@@ -1115,7 +1386,10 @@ const HomePage = () => {
       </section>
 
       {/* ══════════════════ 3. BG MARKET READINESS ══════════════════ */}
-      <section id="credibility" className="border-y border-border bg-muted py-14 md:py-20">
+      <section
+        id="credibility"
+        className="border-y border-border bg-muted py-14 md:py-20"
+      >
         <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:px-8">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.22em] text-primary">
@@ -1130,9 +1404,16 @@ const HomePage = () => {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             {credibilityCards.map((item) => (
-              <div key={item.valueKey} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-                <p className="text-2xl font-black text-foreground">{t(item.valueKey)}</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{t(item.labelKey)}</p>
+              <div
+                key={item.valueKey}
+                className="rounded-2xl border border-border bg-card p-5 shadow-sm"
+              >
+                <p className="text-2xl font-black text-foreground">
+                  {t(item.valueKey)}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {t(item.labelKey)}
+                </p>
               </div>
             ))}
           </div>
@@ -1174,7 +1455,9 @@ const HomePage = () => {
                 <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
                   <Icon className="h-5 w-5" />
                 </div>
-                <h3 className="text-lg font-black text-foreground">{t(labelKey)}</h3>
+                <h3 className="text-lg font-black text-foreground">
+                  {t(labelKey)}
+                </h3>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
                   {t(textKey)}
                 </p>
@@ -1247,7 +1530,10 @@ const HomePage = () => {
 
             <div className="grid gap-4 md:grid-cols-2">
               {[1, 2, 3, 4].map((step) => (
-                <article key={step} className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+                <article
+                  key={step}
+                  className="rounded-2xl border border-border bg-card p-6 shadow-sm"
+                >
                   <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-sm font-black text-primary">
                     {step}
                   </div>
@@ -1299,31 +1585,63 @@ const HomePage = () => {
           <div className="rounded-[1.75rem] border border-background/10 bg-background/[0.06] p-4">
             <div className="grid gap-4 sm:grid-cols-3">
               {[
-                ["landing.opsCenter.stats.liveOrders", "38", "12 " + t("landing.opsCenter.stats.preparing")],
-                ["landing.opsCenter.stats.tablesActive", "21", "6 " + t("landing.opsCenter.stats.needService")],
-                ["landing.opsCenter.stats.payments", "2.8k лв.", t("landing.opsCenter.stats.today")],
+                [
+                  "landing.opsCenter.stats.liveOrders",
+                  "38",
+                  "12 " + t("landing.opsCenter.stats.preparing"),
+                ],
+                [
+                  "landing.opsCenter.stats.tablesActive",
+                  "21",
+                  "6 " + t("landing.opsCenter.stats.needService"),
+                ],
+                [
+                  "landing.opsCenter.stats.payments",
+                  "2.8k лв.",
+                  t("landing.opsCenter.stats.today"),
+                ],
               ].map(([labelKey, value, meta]) => (
-                <div key={labelKey} className="rounded-2xl bg-background/[0.07] p-5">
-                  <p className="text-xs font-bold text-background/45">{t(labelKey)}</p>
-                  <p className="mt-2 text-3xl font-black">{value}</p>
-                  <p className="mt-1 text-xs font-bold text-primary">
-                    {meta}
+                <div
+                  key={labelKey}
+                  className="rounded-2xl bg-background/[0.07] p-5"
+                >
+                  <p className="text-xs font-bold text-background/45">
+                    {t(labelKey)}
                   </p>
+                  <p className="mt-2 text-3xl font-black">{value}</p>
+                  <p className="mt-1 text-xs font-bold text-primary">{meta}</p>
                 </div>
               ))}
             </div>
             <div className="mt-4 rounded-2xl bg-background/[0.07] p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm font-black">{t("landing.opsCenter.kitchen.title")}</p>
+                <p className="text-sm font-black">
+                  {t("landing.opsCenter.kitchen.title")}
+                </p>
                 <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-black text-emerald-600 dark:text-emerald-400">
                   {t("landing.opsCenter.kitchen.status")}
                 </span>
               </div>
               <div className="mt-5 space-y-3">
                 {[
-                  ["#1254", t("landing.dashboardMock.table", { number: 12 }), "4 " + t("landing.opsCenter.kitchen.items"), t("landing.opsCenter.kitchen.preparing")],
-                  ["#1255", t("landing.dashboardMock.table", { number: 5 }), "2 " + t("landing.opsCenter.kitchen.items"), t("landing.opsCenter.kitchen.ready")],
-                  ["#1256", t("landing.opsCenter.kitchen.takeaway"), "6 " + t("landing.opsCenter.kitchen.items"), t("landing.opsCenter.kitchen.new")],
+                  [
+                    "#1254",
+                    t("landing.dashboardMock.table", { number: 12 }),
+                    "4 " + t("landing.opsCenter.kitchen.items"),
+                    t("landing.opsCenter.kitchen.preparing"),
+                  ],
+                  [
+                    "#1255",
+                    t("landing.dashboardMock.table", { number: 5 }),
+                    "2 " + t("landing.opsCenter.kitchen.items"),
+                    t("landing.opsCenter.kitchen.ready"),
+                  ],
+                  [
+                    "#1256",
+                    t("landing.opsCenter.kitchen.takeaway"),
+                    "6 " + t("landing.opsCenter.kitchen.items"),
+                    t("landing.opsCenter.kitchen.new"),
+                  ],
                 ].map(([id, table, items, status]) => (
                   <div
                     key={id}
@@ -1570,7 +1888,11 @@ const HomePage = () => {
                 </h5>
                 <div className="space-y-3">
                   {group.links.map((item) => (
-                    <Link key={item.labelKey} to={item.to} className="block text-sm text-muted-foreground transition-colors hover:text-primary">
+                    <Link
+                      key={item.labelKey}
+                      to={item.to}
+                      className="block text-sm text-muted-foreground transition-colors hover:text-primary"
+                    >
                       {t(item.labelKey)}
                     </Link>
                   ))}
@@ -1589,7 +1911,11 @@ const HomePage = () => {
                   { labelKey: "landing.footer.legal.cookies", to: "/cookies" },
                   { labelKey: "landing.footer.legal.gdpr", to: "/privacy" },
                 ].map((item) => (
-                  <Link key={item.labelKey} to={item.to} className="block text-sm text-muted-foreground transition-colors hover:text-primary">
+                  <Link
+                    key={item.labelKey}
+                    to={item.to}
+                    className="block text-sm text-muted-foreground transition-colors hover:text-primary"
+                  >
                     {t(item.labelKey)}
                   </Link>
                 ))}

@@ -5,6 +5,7 @@
 ## Nodes
 
 ### menu.entity.ts
+
 - **ID:** `apps_backend_src_menu_entities_menu_entity_ts`
 - **Type:** code
 - **Degree:** 1
@@ -13,6 +14,7 @@
   - → `Menu` [_`contains`_ | EXTRACTED | score: 1.0]
 
 ### Menu
+
 - **ID:** `entities_menu_entity_menu`
 - **Type:** code
 - **Degree:** 1

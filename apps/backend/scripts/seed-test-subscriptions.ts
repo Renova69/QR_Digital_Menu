@@ -25,7 +25,9 @@ async function main() {
   const restaurants = await prisma.restaurant.findMany({
     where: {
       stripeSubscriptionId: null,
-      tier: { in: ['STARTER', 'PROFESSIONAL', 'ENTERPRISE'] as SubscriptionTier[] },
+      tier: {
+        in: ['STARTER', 'PROFESSIONAL', 'ENTERPRISE'] as SubscriptionTier[],
+      },
       deletedAt: null,
     },
     include: {
@@ -43,7 +45,9 @@ async function main() {
   for (const restaurant of restaurants) {
     const priceId = PRICE_MAP[restaurant.tier];
     if (!priceId) {
-      console.warn(`  SKIP ${restaurant.name} — no price ID for tier ${restaurant.tier}`);
+      console.warn(
+        `  SKIP ${restaurant.name} — no price ID for tier ${restaurant.tier}`,
+      );
       continue;
     }
 
@@ -90,7 +94,9 @@ async function main() {
         },
       });
 
-      console.log(`  ✓ ${restaurant.name} (${restaurant.tier}) → sub ${sub.id} [${sub.status}]\n`);
+      console.log(
+        `  ✓ ${restaurant.name} (${restaurant.tier}) → sub ${sub.id} [${sub.status}]\n`,
+      );
     } catch (err: any) {
       console.error(`  ✗ ${restaurant.name} — ${err.message}\n`);
     }

@@ -22,6 +22,7 @@ Modify: apps/frontend/src/pages/Dashboard/SettingsView.tsx
 ### Task 1: Create StaffCreatedModal Component
 
 **Files:**
+
 - Create: `apps/frontend/src/components/staff/StaffCreatedModal.tsx`
 
 - [ ] **Step 1: Write the StaffCreatedModal component**
@@ -38,7 +39,7 @@ interface StaffCreatedModalProps {
   open: boolean;
   onClose: () => void;
   staffName: string;
-  rawPin?: string;         // only for new staff; absent for re-bond
+  rawPin?: string; // only for new staff; absent for re-bond
   enrollmentUrl: string;
   expiresAt: string;
 }
@@ -104,8 +105,7 @@ export default function StaffCreatedModal({
 
         {/* Expiry countdown */}
         <p className="text-xs text-muted-foreground text-center mb-4">
-          Expires in {timeLeft} ·{" "}
-          {new Date(expiresAt).toLocaleTimeString()}
+          Expires in {timeLeft} · {new Date(expiresAt).toLocaleTimeString()}
         </p>
 
         {/* PIN display (new staff only) */}
@@ -169,6 +169,7 @@ git commit -m "feat: add StaffCreatedModal component with QR code and PIN displa
 ### Task 2: Move Shared Device Mode & QR Enrollment from General to Staff Tab
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/Dashboard/SettingsView.tsx`
 
 - [ ] **Step 1: Remove Shared Device Mode + QR sections from General tab**
@@ -189,11 +190,17 @@ Delete lines 471-564 in SettingsView.tsx (the entire `{/* ── Shared Device M
 Insert after line 857 (`</div>` closing the staff heading), before the `{staffError && ...}` block:
 
 ```tsx
-{/* Shared Device Mode */}
+{
+  /* Shared Device Mode */
+}
 <div className="border-b border-border pb-6">
-  <h3 className="text-lg font-medium text-foreground mb-1">Shared Device Mode</h3>
+  <h3 className="text-lg font-medium text-foreground mb-1">
+    Shared Device Mode
+  </h3>
   <p className="text-sm text-muted-foreground mb-4">
-    Enable PIN-based login for hourly staff on a shared tablet. This configures the device for staff PIN entry without requiring individual email/password accounts.
+    Enable PIN-based login for hourly staff on a shared tablet. This configures
+    the device for staff PIN entry without requiring individual email/password
+    accounts.
   </p>
   <div className="flex items-center gap-3">
     <Button
@@ -204,7 +211,9 @@ Insert after line 857 (`</div>` closing the staff heading), before the `{staffEr
         if (sharedDeviceEnabled) {
           localStorage.removeItem("sharedDevice");
           setSharedDeviceConfig(null);
-          setSharedDeviceMessage("Shared Device Mode disabled for this device.");
+          setSharedDeviceMessage(
+            "Shared Device Mode disabled for this device.",
+          );
           setTimeout(() => setSharedDeviceMessage(""), 5000);
         } else {
           const config = {
@@ -213,23 +222,30 @@ Insert after line 857 (`</div>` closing the staff heading), before the `{staffEr
           };
           localStorage.setItem("sharedDevice", JSON.stringify(config));
           setSharedDeviceConfig(config);
-          setSharedDeviceMessage("Shared Device Mode enabled. Staff can now log in at /device-login with their PIN.");
+          setSharedDeviceMessage(
+            "Shared Device Mode enabled. Staff can now log in at /device-login with their PIN.",
+          );
           setTimeout(() => setSharedDeviceMessage(""), 5000);
         }
       }}
     >
-      {sharedDeviceEnabled ? "Disable Shared Device Mode" : "Enable Shared Device Mode"}
+      {sharedDeviceEnabled
+        ? "Disable Shared Device Mode"
+        : "Enable Shared Device Mode"}
     </Button>
     {sharedDeviceMessage && (
-      <span className="text-sm text-green-600 dark:text-green-400">{sharedDeviceMessage}</span>
+      <span className="text-sm text-green-600 dark:text-green-400">
+        {sharedDeviceMessage}
+      </span>
     )}
   </div>
   {!sharedDeviceEnabled && (
     <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-      Shared Device Mode is off. Enable it so staff can use PIN login at /device-login.
+      Shared Device Mode is off. Enable it so staff can use PIN login at
+      /device-login.
     </p>
   )}
-</div>
+</div>;
 ```
 
 - [ ] **Step 3: Add standalone Generate Staff Device QR section in Staff tab**
@@ -237,14 +253,17 @@ Insert after line 857 (`</div>` closing the staff heading), before the `{staffEr
 Insert after the Shared Device Mode section (from Step 2), before the invite form:
 
 ```tsx
-{/* Bond a Device (standalone) */}
+{
+  /* Bond a Device (standalone) */
+}
 <div className="border-b border-border pb-6">
   <div className="rounded-lg border border-border bg-muted/20 p-4">
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
         <p className="font-medium text-sm text-foreground">Bond a Device</p>
         <p className="text-xs text-muted-foreground mt-1">
-          Generate a QR code to bond a device to this restaurant. Use for existing staff getting a new phone or tablet.
+          Generate a QR code to bond a device to this restaurant. Use for
+          existing staff getting a new phone or tablet.
         </p>
       </div>
       <Button
@@ -272,7 +291,8 @@ Insert after the Shared Device Mode section (from Step 2), before the invite for
             Scan this QR on the staff device.
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Expires at {new Date(deviceEnrollmentExpiresAt).toLocaleTimeString()}.
+            Expires at{" "}
+            {new Date(deviceEnrollmentExpiresAt).toLocaleTimeString()}.
           </p>
           <div className="mt-3 flex gap-2">
             <Button
@@ -296,7 +316,7 @@ Insert after the Shared Device Mode section (from Step 2), before the invite for
       </div>
     )}
   </div>
-</div>
+</div>;
 ```
 
 - [ ] **Step 4: Verify frontend builds**
@@ -316,6 +336,7 @@ git commit -m "refactor: move Shared Device Mode and QR enrollment from General 
 ### Task 3: Chain Staff Creation with QR Enrollment in Modal
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/Dashboard/SettingsView.tsx`
 
 - [ ] **Step 1: Add modal state and import at top of SettingsView**
@@ -335,7 +356,13 @@ const [staffCreatedModal, setStaffCreatedModal] = useState<{
   rawPin: string;
   enrollmentUrl: string;
   expiresAt: string;
-}>({ open: false, staffName: "", rawPin: "", enrollmentUrl: "", expiresAt: "" });
+}>({
+  open: false,
+  staffName: "",
+  rawPin: "",
+  enrollmentUrl: "",
+  expiresAt: "",
+});
 ```
 
 - [ ] **Step 2: Rewrite handleInviteStaff to chain API calls and open modal**
@@ -382,7 +409,9 @@ const handleInviteStaff = async () => {
     setInviteRole("WAITER");
     await fetchStaff();
   } catch (err: any) {
-    setStaffError(err.response?.data?.message || "Failed to create staff member");
+    setStaffError(
+      err.response?.data?.message || "Failed to create staff member",
+    );
   }
 };
 ```
@@ -429,6 +458,7 @@ git commit -m "feat: chain staff creation with QR enrollment, show result in Sta
 ### Task 4: Add Re-Bond Button to Staff Table Rows
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/Dashboard/SettingsView.tsx`
 
 - [ ] **Step 1: Add handleRebondStaff helper function**
@@ -472,7 +502,7 @@ Modify the `<td>` at line 956 (the actions column) to include a re-bond button b
     >
       <FontAwesomeIcon icon={faQrcode} />
     </button>
-    {s.role !== 'OWNER' && (
+    {s.role !== "OWNER" && (
       <button
         type="button"
         onClick={() => handleRemoveStaff(s.id)}
@@ -491,7 +521,14 @@ Modify the `<td>` at line 956 (the actions column) to include a re-bond button b
 Update line 5 — add `faQrcode` to the import:
 
 ```tsx
-import { faTriangleExclamation, faMedal, faTrash, faCopy, faCheck, faQrcode } from "@fortawesome/free-solid-svg-icons";
+import {
+  faTriangleExclamation,
+  faMedal,
+  faTrash,
+  faCopy,
+  faCheck,
+  faQrcode,
+} from "@fortawesome/free-solid-svg-icons";
 ```
 
 - [ ] **Step 4: Verify frontend builds**
@@ -517,6 +554,7 @@ git commit -m "feat: add per-staff re-bond QR button to staff table"
 ```bash
 cd apps/frontend && npm run build
 ```
+
 Expected: Build succeeds with no errors or warnings.
 
 - [ ] **Step 2: Smoke test checklist**
@@ -524,6 +562,7 @@ Expected: Build succeeds with no errors or warnings.
 Start dev server: `npm run dev` (from root)
 
 Manual tests:
+
 1. Login as OWNER → Dashboard → Settings → Staff tab
 2. Verify Shared Device Mode toggle is visible at top of Staff tab
 3. Enable Shared Device Mode → verify success message
@@ -548,6 +587,7 @@ git commit -m "chore: integration fixes from staff settings consolidation"
 ## Self-Review
 
 **1. Spec coverage:**
+
 - Move Shared Device Mode to Staff tab — Task 2 Step 2 ✓
 - Move Generate Staff Device QR to Staff tab — Task 2 Step 3 ✓
 - Chain staff creation with QR enrollment — Task 3 Step 2 ✓

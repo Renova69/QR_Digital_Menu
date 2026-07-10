@@ -4,7 +4,7 @@ import { DashboardViewsService } from './dashboard-views.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderStatus } from '@prisma/client';
 
-const mockPrisma: Record<string, any> = {
+const mockPrisma = {
   restaurant: { findUnique: jest.fn() },
   order: {
     count: jest.fn(),
@@ -20,7 +20,18 @@ const mockPrisma: Record<string, any> = {
 
 const mockViews = { isReady: jest.fn().mockReturnValue(false) };
 
-type AnalyticsResult = Record<string, any>;
+interface AnalyticsResult {
+  period: number;
+  comparison: { revenueChange: number; ordersChange: number };
+  ordersByStatus: Array<{ status: string; count: number }>;
+  completionRate: number;
+  topItems: Array<{ name: string; quantity: number }>;
+  categoryBreakdown: Array<{ category: string }>;
+  ordersByTable: Array<{ table: string }>;
+  revenueTrend: Array<unknown>;
+  peakHours: Array<{ count: number; orders: number }>;
+  [key: string]: unknown; // fallback for tests
+}
 
 describe('DashboardService', () => {
   let service: DashboardService;
@@ -91,7 +102,8 @@ describe('DashboardService', () => {
   describe('cache lifecycle', () => {
     it('sweeps expired analytics cache entries on the module interval', () => {
       jest.useFakeTimers();
-      const sweepSpy = jest.spyOn(service as any, 'sweepExpiredCache');
+      const sweepSpy = jest.fn();
+      service['sweepExpiredCache'] = sweepSpy;
 
       service.onModuleInit();
       jest.advanceTimersByTime(60_000);
@@ -311,31 +323,31 @@ describe('DashboardService', () => {
         { createdAt: new Date(), totalPrice: 50, tableId: 'table-1' },
       ]);
       // Phase B: spy on new private methods to prevent $queryRaw chaining races
-      jest.spyOn(service as any, 'getStaffPerformance').mockResolvedValue([]);
-      jest.spyOn(service as any, 'getCustomerMetrics').mockResolvedValue({
+      service['getStaffPerformance'] = jest.fn().mockResolvedValue([]);
+      service['getCustomerMetrics'] = jest.fn().mockResolvedValue({
         topCustomers: [],
         churnRiskCount: 0,
         churnRiskBreakdown: { '30d': 0, '60d': 0, '90d+': 0 },
         averageClv: 0,
       });
-      jest.spyOn(service as any, 'getKitchenEfficiency').mockResolvedValue({
+      service['getKitchenEfficiency'] = jest.fn().mockResolvedValue({
         overallAvgPrepMinutes: 0,
         totalCompletedOrders: 0,
         hourlyAverages: [],
         zoneAverages: [],
       });
-      jest.spyOn(service as any, 'getCancelAnalytics').mockResolvedValue({
+      service['getCancelAnalytics'] = jest.fn().mockResolvedValue({
         totalCanceledOrders: 0,
         revenueLost: 0,
         cancelRateByItem: [],
         cancelRateByHour: [],
       });
-      jest.spyOn(service as any, 'getTableTurnover').mockResolvedValue([]);
-      jest.spyOn(service as any, 'getMenuProfitability').mockResolvedValue({
+      service['getTableTurnover'] = jest.fn().mockResolvedValue([]);
+      service['getMenuProfitability'] = jest.fn().mockResolvedValue({
         items: [],
         summary: { totalCost: 0, totalProfit: 0, overallMargin: 0 },
       });
-      jest.spyOn(service as any, 'getGrossProfit').mockResolvedValue({
+      service['getGrossProfit'] = jest.fn().mockResolvedValue({
         collectedRevenue: 0,
         estimatedCOGS: 0,
         grossProfit: 0,
@@ -439,31 +451,31 @@ describe('DashboardService', () => {
       });
       mockPrisma.payment.groupBy.mockResolvedValue([]);
       // Spy Phase B methods to avoid $queryRaw chaining races from Promise.all
-      jest.spyOn(service as any, 'getStaffPerformance').mockResolvedValue([]);
-      jest.spyOn(service as any, 'getCustomerMetrics').mockResolvedValue({
+      service['getStaffPerformance'] = jest.fn().mockResolvedValue([]);
+      service['getCustomerMetrics'] = jest.fn().mockResolvedValue({
         topCustomers: [],
         churnRiskCount: 0,
         churnRiskBreakdown: { '30d': 0, '60d': 0, '90d+': 0 },
         averageClv: 0,
       });
-      jest.spyOn(service as any, 'getKitchenEfficiency').mockResolvedValue({
+      service['getKitchenEfficiency'] = jest.fn().mockResolvedValue({
         overallAvgPrepMinutes: 0,
         totalCompletedOrders: 0,
         hourlyAverages: [],
         zoneAverages: [],
       });
-      jest.spyOn(service as any, 'getCancelAnalytics').mockResolvedValue({
+      service['getCancelAnalytics'] = jest.fn().mockResolvedValue({
         totalCanceledOrders: 0,
         revenueLost: 0,
         cancelRateByItem: [],
         cancelRateByHour: [],
       });
-      jest.spyOn(service as any, 'getTableTurnover').mockResolvedValue([]);
-      jest.spyOn(service as any, 'getMenuProfitability').mockResolvedValue({
+      service['getTableTurnover'] = jest.fn().mockResolvedValue([]);
+      service['getMenuProfitability'] = jest.fn().mockResolvedValue({
         items: [],
         summary: { totalCost: 0, totalProfit: 0, overallMargin: 0 },
       });
-      jest.spyOn(service as any, 'getGrossProfit').mockResolvedValue({
+      service['getGrossProfit'] = jest.fn().mockResolvedValue({
         collectedRevenue: 0,
         estimatedCOGS: 0,
         grossProfit: 0,
@@ -510,31 +522,31 @@ describe('DashboardService', () => {
 
     it('maps peak hours view rows — shifts UTC hour to local', async () => {
       // Phase B: spy on new methods
-      jest.spyOn(service as any, 'getStaffPerformance').mockResolvedValue([]);
-      jest.spyOn(service as any, 'getCustomerMetrics').mockResolvedValue({
+      service['getStaffPerformance'] = jest.fn().mockResolvedValue([]);
+      service['getCustomerMetrics'] = jest.fn().mockResolvedValue({
         topCustomers: [],
         churnRiskCount: 0,
         churnRiskBreakdown: { '30d': 0, '60d': 0, '90d+': 0 },
         averageClv: 0,
       });
-      jest.spyOn(service as any, 'getKitchenEfficiency').mockResolvedValue({
+      service['getKitchenEfficiency'] = jest.fn().mockResolvedValue({
         overallAvgPrepMinutes: 0,
         totalCompletedOrders: 0,
         hourlyAverages: [],
         zoneAverages: [],
       });
-      jest.spyOn(service as any, 'getCancelAnalytics').mockResolvedValue({
+      service['getCancelAnalytics'] = jest.fn().mockResolvedValue({
         totalCanceledOrders: 0,
         revenueLost: 0,
         cancelRateByItem: [],
         cancelRateByHour: [],
       });
-      jest.spyOn(service as any, 'getTableTurnover').mockResolvedValue([]);
-      jest.spyOn(service as any, 'getMenuProfitability').mockResolvedValue({
+      service['getTableTurnover'] = jest.fn().mockResolvedValue([]);
+      service['getMenuProfitability'] = jest.fn().mockResolvedValue({
         items: [],
         summary: { totalCost: 0, totalProfit: 0, overallMargin: 0 },
       });
-      jest.spyOn(service as any, 'getGrossProfit').mockResolvedValue({
+      service['getGrossProfit'] = jest.fn().mockResolvedValue({
         collectedRevenue: 0,
         estimatedCOGS: 0,
         grossProfit: 0,
@@ -588,8 +600,8 @@ describe('DashboardService', () => {
       // Spy each premium computation with a sentinel so the assertion checks the
       // wiring (key lands in the response) without racing the real $queryRaw mock.
       for (const key of PREMIUM_KEYS) {
-        jest
-          .spyOn(service as any, methodFor(key))
+        (service as unknown as Record<string, jest.Mock>)[methodFor(key)] = jest
+          .fn()
           .mockResolvedValue(`sentinel:${key}`);
       }
     });
@@ -616,11 +628,63 @@ describe('DashboardService', () => {
 
       for (const key of PREMIUM_KEYS) {
         expect(result[key]).toBeUndefined();
-        expect((service as any)[methodFor(key)]).not.toHaveBeenCalled();
+        expect(
+          (service as unknown as Record<string, jest.Mock>)[methodFor(key)],
+        ).not.toHaveBeenCalled();
       }
       // Basic-tier fields still computed and returned.
       expect(result).toHaveProperty('totalRevenue');
       expect(result).toHaveProperty('completionRate');
+    });
+  });
+
+  describe('Analytics Edge Cases (Expanded Coverage)', () => {
+    it('handles null totalRevenue when computing getSummary with empty metrics', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'UTC' });
+      mockPrisma.order.count.mockResolvedValue(0);
+      mockPrisma.order.aggregate.mockResolvedValue({
+        _sum: { totalPrice: null },
+      });
+      mockPrisma.assistanceRequest.count.mockResolvedValue(0);
+      mockPrisma.order.findMany.mockResolvedValue([]);
+
+      const result = await service.getSummary('rest-empty');
+      expect(result.totalRevenue).toBe(0);
+      expect(result.ordersToday).toBe(0);
+      expect(result.openAssistanceRequests).toBe(0);
+    });
+
+    it('returns properly formatted comparison object for getAnalytics when previous period data is identical', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'UTC' });
+      mockPrisma.order.findMany.mockResolvedValue([]);
+      mockPrisma.order.aggregate.mockResolvedValue({
+        _sum: { totalPrice: 100 },
+        _count: 5,
+        _avg: { totalPrice: 20 },
+      });
+      mockPrisma.orderItem.findMany.mockResolvedValue([]);
+      mockPrisma.order.groupBy.mockResolvedValue([]);
+
+      const result = (await service.getAnalytics(
+        'rest-1',
+        7,
+      )) as AnalyticsResult;
+      expect(result.comparison.revenueChange).toBe(0);
+      expect(result.comparison.ordersChange).toBe(0);
+    });
+
+    it('returns 0 completionRate when order.aggregate returns zero count', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({ timezone: 'UTC' });
+      mockPrisma.order.aggregate.mockResolvedValue({
+        _sum: { totalPrice: 0 },
+        _count: 0,
+        _avg: { totalPrice: 0 },
+      });
+      const result = (await service.getAnalytics(
+        'rest-1',
+        7,
+      )) as AnalyticsResult;
+      expect(result.completionRate).toBe(0);
     });
   });
 });

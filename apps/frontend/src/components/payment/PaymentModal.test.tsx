@@ -51,7 +51,7 @@ const i18nMocks = vi.hoisted(() => ({
 }));
 const socketMocks = vi.hoisted(() => {
   const handlers: Record<string, Array<(payload?: unknown) => void>> = {};
-  const socket: any = {
+  const socket: Record<string, unknown> = {
     emit: vi.fn(),
     on: vi.fn((event: string, handler: (payload?: unknown) => void) => {
       handlers[event] = [...(handlers[event] ?? []), handler];
@@ -66,7 +66,7 @@ const socketMocks = vi.hoisted(() => {
   return {
     handlers,
     socket,
-    state: { socket: null as any, isConnected: false },
+    state: { socket: null as unknown as object, isConnected: false },
   };
 });
 

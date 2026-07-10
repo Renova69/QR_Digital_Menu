@@ -128,7 +128,10 @@ export class ReservationsService {
         isActive: true,
       },
     });
-    if (restaurant?.isActive === false) {
+    if (!restaurant) {
+      throw new NotFoundException('Restaurant not found');
+    }
+    if (restaurant.isActive === false) {
       throw new ForbiddenException('Restaurant is not active');
     }
     if (

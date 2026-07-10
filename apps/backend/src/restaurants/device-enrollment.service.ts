@@ -68,7 +68,10 @@ export class DeviceEnrollmentService {
     createdById: string,
     frontendBaseUrl: string,
   ) {
-    const restaurant = await this.verifyManagerAccess(restaurantId, createdById);
+    const restaurant = await this.verifyManagerAccess(
+      restaurantId,
+      createdById,
+    );
 
     if (restaurant.sharedDeviceModeEnabled === false) {
       throw new ForbiddenException({
@@ -201,7 +204,9 @@ export class DeviceEnrollmentService {
     });
 
     await Promise.all(
-      tokens.map((token) => this.eventsGateway.evictDeviceToken(token.id, reason)),
+      tokens.map((token) =>
+        this.eventsGateway.evictDeviceToken(token.id, reason),
+      ),
     );
 
     return { success: true, revokedAt, count: tokens.length };
@@ -232,7 +237,9 @@ export class DeviceEnrollmentService {
     }
 
     await Promise.all(
-      tokens.map((token) => this.eventsGateway.evictDeviceToken(token.id, reason)),
+      tokens.map((token) =>
+        this.eventsGateway.evictDeviceToken(token.id, reason),
+      ),
     );
 
     return { success: true, count: tokens.length };

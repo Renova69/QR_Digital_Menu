@@ -13,6 +13,7 @@
 ### Task 1: Shared Currency Utility
 
 **Files:**
+
 - Create: `apps/frontend/src/lib/currency.ts`
 - Modify: None yet (utility is pure, no callers in this task)
 
@@ -38,9 +39,9 @@ export function formatBgn(value: number): string {
  */
 export function formatDualCurrency(
   value: number,
-  primaryCurrency: 'EUR' | 'BGN' = 'EUR',
+  primaryCurrency: "EUR" | "BGN" = "EUR",
 ): { primary: string; secondary: string } {
-  if (primaryCurrency === 'EUR') {
+  if (primaryCurrency === "EUR") {
     return { primary: formatEuro(value), secondary: formatBgn(value) };
   }
   // Primary is BGN, derive EUR as secondary
@@ -51,7 +52,10 @@ export function formatDualCurrency(
 }
 
 /** Single-line inline format: "12.50 € / 24.45 лв" */
-export function formatInlineDual(value: number, primaryCurrency: 'EUR' | 'BGN' = 'EUR'): string {
+export function formatInlineDual(
+  value: number,
+  primaryCurrency: "EUR" | "BGN" = "EUR",
+): string {
   const { primary, secondary } = formatDualCurrency(value, primaryCurrency);
   return `${primary} / ${secondary}`;
 }
@@ -74,6 +78,7 @@ git commit -m "feat: add shared currency utility — dual EUR/BGN formatters at 
 ### Task 2: TopBar Component
 
 **Files:**
+
 - Create: `apps/frontend/src/components/menu/TopBar.tsx`
 - Modify: `apps/frontend/src/pages/PublicMenuPage.tsx` (replace lines 278-299 + language select lines 367-394)
 
@@ -81,12 +86,14 @@ git commit -m "feat: add shared currency utility — dual EUR/BGN formatters at 
 
 ```tsx
 // apps/frontend/src/components/menu/TopBar.tsx
-import { Search, Filter, Globe } from 'lucide-react';
-import { ThemeToggle } from '../ui/ThemeToggle';
-import { useTranslation } from 'react-i18next';
+import { Search, Filter, Globe } from "lucide-react";
+import { ThemeToggle } from "../ui/ThemeToggle";
+import { useTranslation } from "react-i18next";
 
 const LANG_CODES: Record<string, string> = {
-  en: 'EN', bg: 'BG', ro: 'RO',
+  en: "EN",
+  bg: "BG",
+  ro: "RO",
 };
 
 interface TopBarProps {
@@ -95,7 +102,7 @@ interface TopBarProps {
   selectedLang: string;
   onLanguageChange: (code: string) => void;
   restaurantId?: string;
-  defaultTheme?: 'light' | 'dark';
+  defaultTheme?: "light" | "dark";
   onFilterClick: () => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
@@ -134,7 +141,7 @@ export function TopBar({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder={t('publicMenu.search', 'Search')}
+            placeholder={t("publicMenu.search", "Search")}
             className="w-full pl-9 pr-3 py-2 bg-secondary/50 rounded-xl text-sm font-medium text-foreground placeholder:text-muted-foreground/50 border border-transparent focus:border-accent/30 focus:outline-none transition-colors"
           />
         </div>
@@ -142,7 +149,7 @@ export function TopBar({
         {/* Filter button */}
         <button
           onClick={onFilterClick}
-          aria-label={t('publicMenu.filters', 'Filters')}
+          aria-label={t("publicMenu.filters", "Filters")}
           className="p-2 rounded-xl hover:bg-secondary/60 transition-colors flex-shrink-0"
         >
           <Filter className="h-5 w-5 text-foreground/70" />
@@ -151,8 +158,8 @@ export function TopBar({
         {/* Theme toggle */}
         <ThemeToggle
           size="sm"
-          storageKey={restaurantId ? `theme-${restaurantId}` : 'theme'}
-          defaultTheme={defaultTheme ?? 'light'}
+          storageKey={restaurantId ? `theme-${restaurantId}` : "theme"}
+          defaultTheme={defaultTheme ?? "light"}
         />
 
         {/* Language selector — icon + code pills */}
@@ -165,8 +172,8 @@ export function TopBar({
                 onClick={() => onLanguageChange(code)}
                 className={`px-1.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
                   selectedLang === code
-                    ? 'bg-accent text-accent-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {LANG_CODES[code] ?? code.toUpperCase()}
@@ -185,8 +192,8 @@ export function TopBar({
 In `PublicMenuPage.tsx`, add after line 53 (`const [activeCategory, setActiveCategory]`):
 
 ```tsx
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+const [searchQuery, setSearchQuery] = useState("");
+const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 ```
 
 - [ ] **Step 3: Replace top section of PublicMenuPage JSX**
@@ -194,18 +201,23 @@ In `PublicMenuPage.tsx`, add after line 53 (`const [activeCategory, setActiveCat
 Replace lines 278–394 (the two theme toggle blocks + logo + language select) with:
 
 ```tsx
-        {/* Top Bar — search, filter, theme, lang, table chip */}
-        <TopBar
-          tableNumber={tableNumber}
-          targetLanguages={menuData?.restaurant?.targetLanguages ?? []}
-          selectedLang={selectedLang}
-          onLanguageChange={(code) => { setSelectedLang(code); i18n.changeLanguage(code); }}
-          restaurantId={restaurantId}
-          defaultTheme={(restaurantTheme?.defaultTheme as 'light' | 'dark') ?? 'light'}
-          onFilterClick={() => setFilterDrawerOpen(true)}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-        />
+{
+  /* Top Bar — search, filter, theme, lang, table chip */
+}
+<TopBar
+  tableNumber={tableNumber}
+  targetLanguages={menuData?.restaurant?.targetLanguages ?? []}
+  selectedLang={selectedLang}
+  onLanguageChange={(code) => {
+    setSelectedLang(code);
+    i18n.changeLanguage(code);
+  }}
+  restaurantId={restaurantId}
+  defaultTheme={(restaurantTheme?.defaultTheme as "light" | "dark") ?? "light"}
+  onFilterClick={() => setFilterDrawerOpen(true)}
+  searchQuery={searchQuery}
+  onSearchChange={setSearchQuery}
+/>;
 ```
 
 And remove the logo block (lines 335–394) entirely.
@@ -235,6 +247,7 @@ git commit -m "feat: add TopBar component — search, filter, theme, lang codes,
 ### Task 3: FilterPanel Component
 
 **Files:**
+
 - Create: `apps/frontend/src/components/menu/FilterPanel.tsx`
 - Modify: `apps/frontend/src/pages/PublicMenuPage.tsx` (wire in FilterPanel, replace old dietTags filter buttons)
 
@@ -242,9 +255,9 @@ git commit -m "feat: add TopBar component — search, filter, theme, lang codes,
 
 ```tsx
 // apps/frontend/src/components/menu/FilterPanel.tsx
-import { X, Search } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { useEffect, useRef } from 'react';
+import { X, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { useEffect, useRef } from "react";
 
 interface FilterPanelProps {
   isOpen: boolean;
@@ -280,28 +293,59 @@ export function FilterPanel({
 
   // Separate allergens (tags that start with numbers or common allergen names) from dietary tags
   const knownAllergens = new Set([
-    'gluten', 'wheat', 'milk', 'dairy', 'eggs', 'fish', 'shellfish',
-    'nuts', 'peanuts', 'soy', 'soya', 'celery', 'mustard', 'sesame',
-    'sulphites', 'lupin', 'molluscs', 'crustaceans',
-    'gluten', 'wheat', 'milk', 'dairy', 'eggs', 'fish', 'nuts',
-    'лактоза', 'глутен', 'ядки', 'риба', 'яйца', 'соя',
-    'lactoză', 'gluten', 'nuci', 'pește', 'ouă', 'soia',
+    "gluten",
+    "wheat",
+    "milk",
+    "dairy",
+    "eggs",
+    "fish",
+    "shellfish",
+    "nuts",
+    "peanuts",
+    "soy",
+    "soya",
+    "celery",
+    "mustard",
+    "sesame",
+    "sulphites",
+    "lupin",
+    "molluscs",
+    "crustaceans",
+    "gluten",
+    "wheat",
+    "milk",
+    "dairy",
+    "eggs",
+    "fish",
+    "nuts",
+    "лактоза",
+    "глутен",
+    "ядки",
+    "риба",
+    "яйца",
+    "соя",
+    "lactoză",
+    "gluten",
+    "nuci",
+    "pește",
+    "ouă",
+    "soia",
   ]);
   const allergens = dietTags.filter(({ tag }) =>
     knownAllergens.has(tag.toLowerCase()),
   );
-  const dietary = dietTags.filter(({ tag }) =>
-    !knownAllergens.has(tag.toLowerCase()),
+  const dietary = dietTags.filter(
+    ({ tag }) => !knownAllergens.has(tag.toLowerCase()),
   );
 
   // Close on Escape
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === "Escape") onClose();
     };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -309,7 +353,10 @@ export function FilterPanel({
   return (
     <div className="fixed inset-0 z-50 flex">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
 
       {/* Panel */}
       <div
@@ -317,15 +364,17 @@ export function FilterPanel({
         className="relative ml-auto w-full max-w-sm h-full bg-card border-l border-border shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300"
         role="dialog"
         aria-modal="true"
-        aria-label={t('publicMenu.filters', 'Filters')}
+        aria-label={t("publicMenu.filters", "Filters")}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-bold">{t('publicMenu.filters', 'Filters')}</h2>
+          <h2 className="text-lg font-bold">
+            {t("publicMenu.filters", "Filters")}
+          </h2>
           <button
             onClick={onClose}
             className="p-2 rounded-xl hover:bg-secondary transition-colors"
-            aria-label={t('common.close', 'Close')}
+            aria-label={t("common.close", "Close")}
           >
             <X className="h-5 w-5" />
           </button>
@@ -339,7 +388,7 @@ export function FilterPanel({
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder={t('publicMenu.search', 'Search')}
+              placeholder={t("publicMenu.search", "Search")}
               className="w-full pl-9 pr-3 py-2.5 bg-secondary rounded-xl text-sm font-medium placeholder:text-muted-foreground/50 border border-transparent focus:border-accent/30 focus:outline-none"
             />
           </div>
@@ -349,7 +398,7 @@ export function FilterPanel({
         {dietary.length > 0 && (
           <div className="p-4 border-b border-border">
             <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-3">
-              {t('filters.dietaryPreferences', 'Dietary Preferences')}
+              {t("filters.dietaryPreferences", "Dietary Preferences")}
             </h3>
             <div className="space-y-1">
               {dietary.map(({ tag, count }) => (
@@ -377,7 +426,7 @@ export function FilterPanel({
         {allergens.length > 0 && (
           <div className="p-4">
             <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-3">
-              {t('filters.excludeAllergens', 'Exclude Allergens')}
+              {t("filters.excludeAllergens", "Exclude Allergens")}
             </h3>
             <div className="flex flex-wrap gap-2">
               {allergens.map(({ tag, count }) => (
@@ -387,8 +436,8 @@ export function FilterPanel({
                   aria-pressed={excludedAllergens.includes(tag)}
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all active:scale-95 ${
                     excludedAllergens.includes(tag)
-                      ? 'bg-destructive/15 text-destructive border border-destructive/30 line-through'
-                      : 'bg-secondary text-muted-foreground hover:text-foreground border border-transparent'
+                      ? "bg-destructive/15 text-destructive border border-destructive/30 line-through"
+                      : "bg-secondary text-muted-foreground hover:text-foreground border border-transparent"
                   }`}
                 >
                   {tag}
@@ -409,20 +458,22 @@ export function FilterPanel({
 After the state additions from Task 2 (after line 53 in original), add:
 
 ```tsx
-  const [activeDietTags, setActiveDietTags] = useState<string[]>([]);
-  const [excludedAllergens, setExcludedAllergens] = useState<string[]>([]);
+const [activeDietTags, setActiveDietTags] = useState<string[]>([]);
+const [excludedAllergens, setExcludedAllergens] = useState<string[]>([]);
 
-  const toggleDietTag = (tag: string) => {
-    setActiveDietTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
-    );
-  };
+const toggleDietTag = (tag: string) => {
+  setActiveDietTags((prev) =>
+    prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+  );
+};
 
-  const toggleAllergen = (allergen: string) => {
-    setExcludedAllergens((prev) =>
-      prev.includes(allergen) ? prev.filter((a) => a !== allergen) : [...prev, allergen],
-    );
-  };
+const toggleAllergen = (allergen: string) => {
+  setExcludedAllergens((prev) =>
+    prev.includes(allergen)
+      ? prev.filter((a) => a !== allergen)
+      : [...prev, allergen],
+  );
+};
 ```
 
 - [ ] **Step 3: Replace old filter buttons with FilterPanel + updated item filtering**
@@ -430,62 +481,67 @@ After the state additions from Task 2 (after line 53 in original), add:
 In PublicMenuPage JSX, replace the old dietTags filter block (lines 418–447) with:
 
 ```tsx
-                {/* Filter Panel */}
-                <FilterPanel
-                  isOpen={filterDrawerOpen}
-                  onClose={() => setFilterDrawerOpen(false)}
-                  dietTags={dietTags}
-                  activeDietTags={activeDietTags}
-                  onDietTagToggle={toggleDietTag}
-                  excludedAllergens={excludedAllergens}
-                  onAllergenToggle={toggleAllergen}
-                  searchQuery={searchQuery}
-                  onSearchChange={setSearchQuery}
-                />
+{
+  /* Filter Panel */
+}
+<FilterPanel
+  isOpen={filterDrawerOpen}
+  onClose={() => setFilterDrawerOpen(false)}
+  dietTags={dietTags}
+  activeDietTags={activeDietTags}
+  onDietTagToggle={toggleDietTag}
+  excludedAllergens={excludedAllergens}
+  onAllergenToggle={toggleAllergen}
+  searchQuery={searchQuery}
+  onSearchChange={setSearchQuery}
+/>;
 ```
 
 Update the item filtering logic (lines 570–573) to use the new multi-select + allergen exclusion:
 
 ```tsx
-                          const filteredItems = (() => {
-                            let items = category.items;
+const filteredItems = (() => {
+  let items = category.items;
 
-                            // Search filter
-                            if (searchQuery.trim()) {
-                              const q = searchQuery.toLowerCase();
-                              items = items.filter((item: any) =>
-                                item.name.toLowerCase().includes(q) ||
-                                (item.description ?? '').toLowerCase().includes(q),
-                              );
-                            }
+  // Search filter
+  if (searchQuery.trim()) {
+    const q = searchQuery.toLowerCase();
+    items = items.filter(
+      (item: any) =>
+        item.name.toLowerCase().includes(q) ||
+        (item.description ?? "").toLowerCase().includes(q),
+    );
+  }
 
-                            // Dietary tag filter (INCLUDE — multi-select AND logic)
-                            if (activeDietTags.length > 0) {
-                              items = items.filter((item: any) =>
-                                activeDietTags.every((tag) =>
-                                  [...(item.allergens ?? []), ...(item.dietaryTags ?? [])].includes(tag),
-                                ),
-                              );
-                            }
+  // Dietary tag filter (INCLUDE — multi-select AND logic)
+  if (activeDietTags.length > 0) {
+    items = items.filter((item: any) =>
+      activeDietTags.every((tag) =>
+        [...(item.allergens ?? []), ...(item.dietaryTags ?? [])].includes(tag),
+      ),
+    );
+  }
 
-                            // Allergen exclusion (EXCLUDE — remove items containing these)
-                            if (excludedAllergens.length > 0) {
-                              items = items.filter((item: any) =>
-                                !excludedAllergens.some((allergen) =>
-                                  (item.allergens ?? []).some(
-                                    (a: string) => a.toLowerCase() === allergen.toLowerCase(),
-                                  ),
-                                ),
-                              );
-                            }
+  // Allergen exclusion (EXCLUDE — remove items containing these)
+  if (excludedAllergens.length > 0) {
+    items = items.filter(
+      (item: any) =>
+        !excludedAllergens.some((allergen) =>
+          (item.allergens ?? []).some(
+            (a: string) => a.toLowerCase() === allergen.toLowerCase(),
+          ),
+        ),
+    );
+  }
 
-                            return items;
-                          })();
+  return items;
+})();
 ```
 
 - [ ] **Step 4: Add import and remove unused state**
 
 Add import:
+
 ```tsx
 import { FilterPanel } from "../components/menu/FilterPanel";
 ```
@@ -509,346 +565,410 @@ git commit -m "feat: add FilterPanel — dietary toggles + allergen exclusion pi
 ### Task 4: Horizontal Item Card Redesign (ItemWithOptions.tsx)
 
 **Files:**
+
 - Modify: `apps/frontend/src/components/menu/ItemWithOptions.tsx`
 
 - [ ] **Step 1: Rewrite ItemWithOptions to horizontal layout + dual-currency + pill button**
 
 ```tsx
 // apps/frontend/src/components/menu/ItemWithOptions.tsx
-import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { Item, MenuOption, OptionChoice } from '../../types';
-import { useCart } from '../../context/CartContext';
-import { useTranslation } from 'react-i18next';
-import { ImageLightbox } from './ImageLightbox';
-import { formatInlineDual } from '../../lib/currency';
+import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import { Item, MenuOption, OptionChoice } from "../../types";
+import { useCart } from "../../context/CartContext";
+import { useTranslation } from "react-i18next";
+import { ImageLightbox } from "./ImageLightbox";
+import { formatInlineDual } from "../../lib/currency";
 
 interface ItemWithOptionsProps {
   item: Item;
   perfectPairings?: Item[];
 }
 
-export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({ item, perfectPairings }) => {
-    const { addItem } = useCart();
-    const [selectedOptions, setSelectedOptions] = useState<Record<string, OptionChoice>>({});
-    const [showIntercept, setShowIntercept] = useState(false);
-    const [toastMessage, setToastMessage] = useState<string | null>(null);
-    const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const [lightboxOpen, setLightboxOpen] = useState(false);
-    const [pendingMainItem, setPendingMainItem] = useState<{
-        cartId: string;
-        id: string;
-        name: string;
-        price: number;
-        quantity: number;
-        selectedOptions: Array<{
-            optionId: string;
-            optionName: string;
-            choiceName: string;
-            priceModifier: number;
-        }>;
-    } | null>(null);
-    const { t, i18n } = useTranslation();
+export const ItemWithOptions: React.FC<ItemWithOptionsProps> = ({
+  item,
+  perfectPairings,
+}) => {
+  const { addItem } = useCart();
+  const [selectedOptions, setSelectedOptions] = useState<
+    Record<string, OptionChoice>
+  >({});
+  const [showIntercept, setShowIntercept] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [pendingMainItem, setPendingMainItem] = useState<{
+    cartId: string;
+    id: string;
+    name: string;
+    price: number;
+    quantity: number;
+    selectedOptions: Array<{
+      optionId: string;
+      optionName: string;
+      choiceName: string;
+      priceModifier: number;
+    }>;
+  } | null>(null);
+  const { t, i18n } = useTranslation();
 
-    const currentLang = i18n.language;
-    const translations = item.translations as any;
-    const itemName = (currentLang && translations && translations[currentLang]?.name) || item.name;
-    const itemDesc = (currentLang && translations && translations[currentLang]?.description) || item.description;
+  const currentLang = i18n.language;
+  const translations = item.translations as any;
+  const itemName =
+    (currentLang && translations && translations[currentLang]?.name) ||
+    item.name;
+  const itemDesc =
+    (currentLang && translations && translations[currentLang]?.description) ||
+    item.description;
 
-    const showToast = (itemName: string) => {
-        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-        setToastMessage(itemName);
-        toastTimerRef.current = setTimeout(() => setToastMessage(null), 2200);
+  const showToast = (itemName: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToastMessage(itemName);
+    toastTimerRef.current = setTimeout(() => setToastMessage(null), 2200);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
+  }, []);
 
-    useEffect(() => {
-        return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
-    }, []);
-
-    useEffect(() => {
-      if (!item.options?.length) return;
-      setSelectedOptions((prev) => {
-        const init: Record<string, any> = { ...prev };
-        (item.options as any[]).forEach((opt: any) => {
-          if (
-            opt.type === 'VARIATION' &&
-            opt.choices?.length > 0 &&
-            !init[opt.id]
-          ) {
-            init[opt.id] = {
-              optionId: opt.id,
-              optionName: opt.name,
-              choiceName: opt.choices[0].name,
-              priceModifier: opt.choices[0].priceModifier ?? 0,
-            };
-          }
-        });
-        return init;
+  useEffect(() => {
+    if (!item.options?.length) return;
+    setSelectedOptions((prev) => {
+      const init: Record<string, any> = { ...prev };
+      (item.options as any[]).forEach((opt: any) => {
+        if (
+          opt.type === "VARIATION" &&
+          opt.choices?.length > 0 &&
+          !init[opt.id]
+        ) {
+          init[opt.id] = {
+            optionId: opt.id,
+            optionName: opt.name,
+            choiceName: opt.choices[0].name,
+            priceModifier: opt.choices[0].priceModifier ?? 0,
+          };
+        }
       });
-    }, [item.id]);
+      return init;
+    });
+  }, [item.id]);
 
-    const preserveScrollPosition = () => {
-        const y = window.scrollY;
-        requestAnimationFrame(() => {
-            window.scrollTo({ top: y });
-        });
-    };
+  const preserveScrollPosition = () => {
+    const y = window.scrollY;
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: y });
+    });
+  };
 
-    const getImageUrl = (url: string) => {
-        if (url.startsWith('http')) return url;
-        const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000/api';
-        const baseUrl = apiUrl.replace('/api', '');
-        return `${baseUrl}/${url}`;
-    };
+  const getImageUrl = (url: string) => {
+    if (url.startsWith("http")) return url;
+    const apiUrl =
+      (import.meta as any).env.VITE_API_URL || "http://localhost:3000/api";
+    const baseUrl = apiUrl.replace("/api", "");
+    return `${baseUrl}/${url}`;
+  };
 
-    const handleOptionChange = (option: MenuOption, choice: OptionChoice) => {
-        setSelectedOptions(prev => ({
-            ...prev,
-            [option.id]: choice,
-        }));
-    };
+  const handleOptionChange = (option: MenuOption, choice: OptionChoice) => {
+    setSelectedOptions((prev) => ({
+      ...prev,
+      [option.id]: choice,
+    }));
+  };
 
-    const buildMainCartItem = () => {
-        const optionsWithDetails = Object.entries(selectedOptions).map(([optionId, choice]) => {
-            const option = item.options?.find(o => o.id === optionId);
-            return {
-                optionId: optionId,
-                optionName: option?.name || 'Option',
-                choiceName: choice.name,
-                priceModifier: choice.priceModifier || 0,
-            };
-        });
-
-        const cartId = optionsWithDetails.length > 0
-           ? `${item.id}-${optionsWithDetails.map(o => `${o.optionId}:${o.choiceName}`).join('|')}`
-           : item.id;
-
+  const buildMainCartItem = () => {
+    const optionsWithDetails = Object.entries(selectedOptions).map(
+      ([optionId, choice]) => {
+        const option = item.options?.find((o) => o.id === optionId);
         return {
-            cartId,
-            id: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: 1,
-            selectedOptions: optionsWithDetails,
+          optionId: optionId,
+          optionName: option?.name || "Option",
+          choiceName: choice.name,
+          priceModifier: choice.priceModifier || 0,
         };
-    };
-
-    const handleAddToCart = () => {
-        const mainCartItem = buildMainCartItem();
-        if (perfectPairings && perfectPairings.length > 0) {
-            setPendingMainItem(mainCartItem);
-            setShowIntercept(true);
-            preserveScrollPosition();
-            return;
-        }
-        addItem(mainCartItem);
-        showToast(item.name);
-        preserveScrollPosition();
-    };
-
-    const handlePairingAction = (pairing?: Item) => {
-        if (pendingMainItem) {
-            addItem(pendingMainItem);
-        }
-        if (pairing) {
-            addItem({
-                id: pairing.id,
-                name: pairing.name,
-                price: pairing.price,
-                quantity: 1,
-                selectedOptions: [],
-                cartId: `${pairing.id}-${Date.now()}`
-            });
-            showToast(`${pendingMainItem?.name || item.name} + ${pairing.name}`);
-        } else {
-            showToast(pendingMainItem?.name || item.name);
-        }
-        setPendingMainItem(null);
-        setShowIntercept(false);
-        preserveScrollPosition();
-    };
-
-    const priceLabel = formatInlineDual(item.price, item.currency);
-
-    return (
-        <>
-            {/* Horizontal card: image 1/3 left, content right */}
-            <div
-                className="glass-panel p-3 rounded-[1.75rem] flex gap-3 shadow-lg relative overflow-hidden group border-white/5 animate-in slide-in-from-bottom-4 duration-500"
-                style={{ backgroundColor: 'var(--theme-card, inherit)' }}
-            >
-                {/* Image — 1/3 width */}
-                {item.imageUrl ? (
-                    <div
-                        className="w-[30%] flex-shrink-0 rounded-2xl overflow-hidden cursor-zoom-in relative group/img"
-                        onClick={() => setLightboxOpen(true)}
-                    >
-                        <img
-                            src={getImageUrl(item.imageUrl)}
-                            alt={itemName}
-                            loading="lazy"
-                            className="w-full h-full object-cover aspect-square group-hover:scale-105 transition-transform duration-300"
-                        />
-                    </div>
-                ) : (
-                    <div className="w-[30%] flex-shrink-0 rounded-2xl bg-secondary/30 flex items-center justify-center aspect-square">
-                        <span className="text-2xl font-serif font-black text-muted-foreground/30">
-                            {itemName[0]}
-                        </span>
-                    </div>
-                )}
-
-                {/* Content — 2/3 width */}
-                <div className="flex-1 min-w-0 flex flex-col justify-between">
-                    <div>
-                        <h3
-                            className="text-base font-serif font-black tracking-tight leading-tight truncate"
-                            style={{ fontFamily: 'var(--font-heading, inherit)', color: 'var(--theme-text, inherit)' }}
-                        >
-                            {itemName}
-                        </h3>
-                        {itemDesc && (
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
-                                {itemDesc}
-                            </p>
-                        )}
-                    </div>
-
-                    {/* Tags */}
-                    {(item.dietaryTags?.length || item.allergens?.length) ? (() => {
-                      const translatedAllergens = (currentLang && translations && translations[currentLang]?.allergens) || item.allergens || [];
-                      const translatedTags = (currentLang && translations && translations[currentLang]?.dietaryTags) || item.dietaryTags || [];
-                      return (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {translatedTags.map((tag: string, idx: number) => (
-                          <span key={idx} className="px-2 py-0.5 rounded-full border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[9px] uppercase font-bold tracking-wide bg-emerald-500/5">
-                            {tag}
-                          </span>
-                        ))}
-                        {translatedAllergens.map((allergen: string, idx: number) => (
-                          <span key={idx} className="px-2 py-0.5 rounded-full border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[9px] uppercase font-bold tracking-wide bg-amber-500/5">
-                            {allergen}
-                          </span>
-                        ))}
-                      </div>
-                      );
-                    })() : null}
-
-                    {/* Price + Add button row */}
-                    <div className="flex items-center justify-between mt-2.5">
-                        <span className="text-xs font-bold text-foreground/80">
-                            {priceLabel}
-                        </span>
-                        <button
-                            onClick={handleAddToCart}
-                            className="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-accent text-accent-foreground text-[11px] font-bold uppercase tracking-wide hover:shadow-[0_6px_16px_-4px_var(--color-accent)] active:scale-95 transition-all"
-                            aria-label={`${t('publicMenu.addToCart')}: ${itemName}`}
-                        >
-                            {t('publicMenu.addShort', '+ Add')}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Toast */}
-                {toastMessage && (
-                    <div
-                        className="absolute bottom-3 left-3 right-3 z-30 flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg border border-emerald-500/20"
-                        style={{
-                            background: 'linear-gradient(135deg, rgba(16,185,129,0.95) 0%, rgba(5,150,105,0.95) 100%)',
-                            animation: 'toastSlideUp 0.35s cubic-bezier(0.16,1,0.3,1), toastFadeOut 0.4s ease 1.8s forwards',
-                        }}
-                    >
-                        <span className="text-white font-bold text-[10px] uppercase tracking-wider truncate">
-                            {toastMessage}
-                        </span>
-                        <span className="text-white/70 text-[9px] font-semibold uppercase ml-auto flex-shrink-0">
-                            {t('publicMenu.addedToCart', 'Added')}
-                        </span>
-                    </div>
-                )}
-            </div>
-
-            {/* Perfect Pairing Modal Portal — unchanged from original */}
-            {showIntercept && perfectPairings && perfectPairings.length > 0 && typeof document !== 'undefined' && createPortal(
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-y-auto">
-                    <div
-                        className="absolute inset-0 bg-black/80 backdrop-blur-xl animate-in fade-in duration-300"
-                        onClick={() => handlePairingAction(undefined)}
-                    />
-                    <div className="relative w-full max-w-3xl bg-zinc-900 border border-white/10 shadow-2xl rounded-[3rem] overflow-hidden animate-in zoom-in-95 duration-300">
-                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-accent/20 blur-[120px] pointer-events-none" />
-                        <div className="relative z-10 p-8 sm:p-12 flex flex-col md:flex-row gap-10">
-                            <div className="flex-1 flex flex-col justify-center text-center md:text-left">
-                                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent/20 border border-accent/30 w-fit mx-auto md:mx-0 mb-6">
-                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-accent-foreground">{t('publicMenu.pairing.title')}</span>
-                                </div>
-                                <h3 className="text-4xl sm:text-5xl font-serif font-black text-white tracking-tighter leading-[0.95] mb-6">
-                                    {t('publicMenu.pairing.completeYour', { name: item.name })}
-                                </h3>
-                                <p className="text-zinc-400 text-sm font-medium leading-relaxed mb-8 max-w-[280px] mx-auto md:mx-0">
-                                    {t('publicMenu.pairing.chefDescription')}
-                                </p>
-                                <button
-                                    onClick={() => handlePairingAction(undefined)}
-                                    className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-white transition-colors text-center md:text-left"
-                                >
-                                    {t('publicMenu.pairing.noThanks')}
-                                </button>
-                            </div>
-                            <div className="flex-1 space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                                {perfectPairings.map((pairing) => {
-                                    const pTrans = pairing.translations as any;
-                                    const pairingName = (currentLang && pTrans && pTrans[currentLang]?.name) || pairing.name;
-                                    const pairPrice = formatInlineDual(pairing.price, pairing.currency);
-                                    return (
-                                    <div
-                                        key={`intercept-${pairing.id}`}
-                                        className="group relative bg-white/5 hover:bg-white/10 rounded-[2rem] p-4 border border-white/5 transition-all duration-300"
-                                    >
-                                        <div className="flex items-center gap-4 mb-4">
-                                            <div className="w-16 h-16 rounded-2xl overflow-hidden shrink-0 bg-black shadow-xl border border-white/10 group-hover:scale-105 transition-transform duration-300">
-                                                {pairing.imageUrl ? (
-                                                    <img src={getImageUrl(pairing.imageUrl)} alt={pairingName} className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center bg-accent/10">
-                                                        <span className="text-xl font-serif font-black text-accent">{pairingName[0]}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="flex-grow min-w-0">
-                                                <h4 className="text-lg font-serif font-bold text-white leading-tight truncate">{pairingName}</h4>
-                                                <p className="text-accent font-bold text-sm mt-1">{pairPrice}</p>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => handlePairingAction(pairing)}
-                                            className="w-full py-3.5 rounded-[1.25rem] bg-white text-black font-black uppercase text-[9px] tracking-[0.2em] transition-all hover:bg-accent hover:text-white"
-                                        >
-                                            {t('publicMenu.pairing.addToOrder')}
-                                        </button>
-                                    </div>
-                                )})}
-                            </div>
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
-
-            {/* Image Lightbox */}
-            {lightboxOpen && item.imageUrl && (
-                <ImageLightbox
-                    src={getImageUrl(item.imageUrl)}
-                    alt={item.name}
-                    onClose={() => setLightboxOpen(false)}
-                />
-            )}
-        </>
+      },
     );
+
+    const cartId =
+      optionsWithDetails.length > 0
+        ? `${item.id}-${optionsWithDetails.map((o) => `${o.optionId}:${o.choiceName}`).join("|")}`
+        : item.id;
+
+    return {
+      cartId,
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      quantity: 1,
+      selectedOptions: optionsWithDetails,
+    };
+  };
+
+  const handleAddToCart = () => {
+    const mainCartItem = buildMainCartItem();
+    if (perfectPairings && perfectPairings.length > 0) {
+      setPendingMainItem(mainCartItem);
+      setShowIntercept(true);
+      preserveScrollPosition();
+      return;
+    }
+    addItem(mainCartItem);
+    showToast(item.name);
+    preserveScrollPosition();
+  };
+
+  const handlePairingAction = (pairing?: Item) => {
+    if (pendingMainItem) {
+      addItem(pendingMainItem);
+    }
+    if (pairing) {
+      addItem({
+        id: pairing.id,
+        name: pairing.name,
+        price: pairing.price,
+        quantity: 1,
+        selectedOptions: [],
+        cartId: `${pairing.id}-${Date.now()}`,
+      });
+      showToast(`${pendingMainItem?.name || item.name} + ${pairing.name}`);
+    } else {
+      showToast(pendingMainItem?.name || item.name);
+    }
+    setPendingMainItem(null);
+    setShowIntercept(false);
+    preserveScrollPosition();
+  };
+
+  const priceLabel = formatInlineDual(item.price, item.currency);
+
+  return (
+    <>
+      {/* Horizontal card: image 1/3 left, content right */}
+      <div
+        className="glass-panel p-3 rounded-[1.75rem] flex gap-3 shadow-lg relative overflow-hidden group border-white/5 animate-in slide-in-from-bottom-4 duration-500"
+        style={{ backgroundColor: "var(--theme-card, inherit)" }}
+      >
+        {/* Image — 1/3 width */}
+        {item.imageUrl ? (
+          <div
+            className="w-[30%] flex-shrink-0 rounded-2xl overflow-hidden cursor-zoom-in relative group/img"
+            onClick={() => setLightboxOpen(true)}
+          >
+            <img
+              src={getImageUrl(item.imageUrl)}
+              alt={itemName}
+              loading="lazy"
+              className="w-full h-full object-cover aspect-square group-hover:scale-105 transition-transform duration-300"
+            />
+          </div>
+        ) : (
+          <div className="w-[30%] flex-shrink-0 rounded-2xl bg-secondary/30 flex items-center justify-center aspect-square">
+            <span className="text-2xl font-serif font-black text-muted-foreground/30">
+              {itemName[0]}
+            </span>
+          </div>
+        )}
+
+        {/* Content — 2/3 width */}
+        <div className="flex-1 min-w-0 flex flex-col justify-between">
+          <div>
+            <h3
+              className="text-base font-serif font-black tracking-tight leading-tight truncate"
+              style={{
+                fontFamily: "var(--font-heading, inherit)",
+                color: "var(--theme-text, inherit)",
+              }}
+            >
+              {itemName}
+            </h3>
+            {itemDesc && (
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
+                {itemDesc}
+              </p>
+            )}
+          </div>
+
+          {/* Tags */}
+          {item.dietaryTags?.length || item.allergens?.length
+            ? (() => {
+                const translatedAllergens =
+                  (currentLang &&
+                    translations &&
+                    translations[currentLang]?.allergens) ||
+                  item.allergens ||
+                  [];
+                const translatedTags =
+                  (currentLang &&
+                    translations &&
+                    translations[currentLang]?.dietaryTags) ||
+                  item.dietaryTags ||
+                  [];
+                return (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {translatedTags.map((tag: string, idx: number) => (
+                      <span
+                        key={idx}
+                        className="px-2 py-0.5 rounded-full border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[9px] uppercase font-bold tracking-wide bg-emerald-500/5"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                    {translatedAllergens.map(
+                      (allergen: string, idx: number) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-0.5 rounded-full border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[9px] uppercase font-bold tracking-wide bg-amber-500/5"
+                        >
+                          {allergen}
+                        </span>
+                      ),
+                    )}
+                  </div>
+                );
+              })()
+            : null}
+
+          {/* Price + Add button row */}
+          <div className="flex items-center justify-between mt-2.5">
+            <span className="text-xs font-bold text-foreground/80">
+              {priceLabel}
+            </span>
+            <button
+              onClick={handleAddToCart}
+              className="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-accent text-accent-foreground text-[11px] font-bold uppercase tracking-wide hover:shadow-[0_6px_16px_-4px_var(--color-accent)] active:scale-95 transition-all"
+              aria-label={`${t("publicMenu.addToCart")}: ${itemName}`}
+            >
+              {t("publicMenu.addShort", "+ Add")}
+            </button>
+          </div>
+        </div>
+
+        {/* Toast */}
+        {toastMessage && (
+          <div
+            className="absolute bottom-3 left-3 right-3 z-30 flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg border border-emerald-500/20"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(16,185,129,0.95) 0%, rgba(5,150,105,0.95) 100%)",
+              animation:
+                "toastSlideUp 0.35s cubic-bezier(0.16,1,0.3,1), toastFadeOut 0.4s ease 1.8s forwards",
+            }}
+          >
+            <span className="text-white font-bold text-[10px] uppercase tracking-wider truncate">
+              {toastMessage}
+            </span>
+            <span className="text-white/70 text-[9px] font-semibold uppercase ml-auto flex-shrink-0">
+              {t("publicMenu.addedToCart", "Added")}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Perfect Pairing Modal Portal — unchanged from original */}
+      {showIntercept &&
+        perfectPairings &&
+        perfectPairings.length > 0 &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-y-auto">
+            <div
+              className="absolute inset-0 bg-black/80 backdrop-blur-xl animate-in fade-in duration-300"
+              onClick={() => handlePairingAction(undefined)}
+            />
+            <div className="relative w-full max-w-3xl bg-zinc-900 border border-white/10 shadow-2xl rounded-[3rem] overflow-hidden animate-in zoom-in-95 duration-300">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-accent/20 blur-[120px] pointer-events-none" />
+              <div className="relative z-10 p-8 sm:p-12 flex flex-col md:flex-row gap-10">
+                <div className="flex-1 flex flex-col justify-center text-center md:text-left">
+                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent/20 border border-accent/30 w-fit mx-auto md:mx-0 mb-6">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-accent-foreground">
+                      {t("publicMenu.pairing.title")}
+                    </span>
+                  </div>
+                  <h3 className="text-4xl sm:text-5xl font-serif font-black text-white tracking-tighter leading-[0.95] mb-6">
+                    {t("publicMenu.pairing.completeYour", { name: item.name })}
+                  </h3>
+                  <p className="text-zinc-400 text-sm font-medium leading-relaxed mb-8 max-w-[280px] mx-auto md:mx-0">
+                    {t("publicMenu.pairing.chefDescription")}
+                  </p>
+                  <button
+                    onClick={() => handlePairingAction(undefined)}
+                    className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-white transition-colors text-center md:text-left"
+                  >
+                    {t("publicMenu.pairing.noThanks")}
+                  </button>
+                </div>
+                <div className="flex-1 space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                  {perfectPairings.map((pairing) => {
+                    const pTrans = pairing.translations as any;
+                    const pairingName =
+                      (currentLang && pTrans && pTrans[currentLang]?.name) ||
+                      pairing.name;
+                    const pairPrice = formatInlineDual(
+                      pairing.price,
+                      pairing.currency,
+                    );
+                    return (
+                      <div
+                        key={`intercept-${pairing.id}`}
+                        className="group relative bg-white/5 hover:bg-white/10 rounded-[2rem] p-4 border border-white/5 transition-all duration-300"
+                      >
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="w-16 h-16 rounded-2xl overflow-hidden shrink-0 bg-black shadow-xl border border-white/10 group-hover:scale-105 transition-transform duration-300">
+                            {pairing.imageUrl ? (
+                              <img
+                                src={getImageUrl(pairing.imageUrl)}
+                                alt={pairingName}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-accent/10">
+                                <span className="text-xl font-serif font-black text-accent">
+                                  {pairingName[0]}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-grow min-w-0">
+                            <h4 className="text-lg font-serif font-bold text-white leading-tight truncate">
+                              {pairingName}
+                            </h4>
+                            <p className="text-accent font-bold text-sm mt-1">
+                              {pairPrice}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handlePairingAction(pairing)}
+                          className="w-full py-3.5 rounded-[1.25rem] bg-white text-black font-black uppercase text-[9px] tracking-[0.2em] transition-all hover:bg-accent hover:text-white"
+                        >
+                          {t("publicMenu.pairing.addToOrder")}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* Image Lightbox */}
+      {lightboxOpen && item.imageUrl && (
+        <ImageLightbox
+          src={getImageUrl(item.imageUrl)}
+          alt={item.name}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
+    </>
+  );
 };
 ```
 
 Key changes from original:
+
 - Layout: vertical → horizontal (`flex gap-3`, image 30% left, content 70% right)
 - Image: `aspect-square` with `w-[30%]`, no-URL fallback shows first letter
 - Price: `formatInlineDual(item.price, item.currency)` → `"12.50 € / 24.45 лв"`
@@ -873,6 +993,7 @@ git commit -m "feat: redesign item cards — horizontal layout, dual-currency pr
 ### Task 5: Category Horizontal Scroll Pills
 
 **Files:**
+
 - Create: `apps/frontend/src/components/menu/CategoryPills.tsx`
 - Modify: `apps/frontend/src/pages/PublicMenuPage.tsx` (replace category nav section)
 
@@ -880,7 +1001,7 @@ git commit -m "feat: redesign item cards — horizontal layout, dual-currency pr
 
 ```tsx
 // apps/frontend/src/components/menu/CategoryPills.tsx
-import { Category } from '../../types';
+import { Category } from "../../types";
 
 interface CategoryPillsProps {
   categories: Category[];
@@ -900,8 +1021,7 @@ export function CategoryPills({
       <div className="flex gap-2 overflow-x-auto hide-scrollbar glass-panel p-1.5 rounded-[1.75rem] border-white/5 shadow-lg">
         {categories.map((cat) => {
           const catName =
-            (selectedLang &&
-              (cat.translations as any)?.[selectedLang]?.name) ||
+            (selectedLang && (cat.translations as any)?.[selectedLang]?.name) ||
             cat.name;
           const isActive = activeCategory === cat.id;
           return (
@@ -910,8 +1030,8 @@ export function CategoryPills({
               onClick={() => onSelect(cat.id)}
               className={`whitespace-nowrap px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-wider transition-all duration-200 active:scale-95 flex-shrink-0 ${
                 isActive
-                  ? 'bg-foreground text-background shadow-md'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                  ? "bg-foreground text-background shadow-md"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
               }`}
             >
               {catName}
@@ -929,13 +1049,15 @@ export function CategoryPills({
 Replace the entire "Premium Sticky Navigation" block (lines 449–516 in original) with:
 
 ```tsx
-                {/* Category Horizontal Scroll Pills */}
-                <CategoryPills
-                  categories={menuData.categories}
-                  activeCategory={activeCategory}
-                  selectedLang={selectedLang}
-                  onSelect={scrollToCategory}
-                />
+{
+  /* Category Horizontal Scroll Pills */
+}
+<CategoryPills
+  categories={menuData.categories}
+  activeCategory={activeCategory}
+  selectedLang={selectedLang}
+  onSelect={scrollToCategory}
+/>;
 ```
 
 - [ ] **Step 3: Add import**
@@ -961,6 +1083,7 @@ git commit -m "feat: add CategoryPills — horizontal scroll pill navigation rep
 ### Task 6: Slim Trending Carousel
 
 **Files:**
+
 - Modify: `apps/frontend/src/components/menu/TrendingCarousel.tsx`
 
 The TrendingCarousel is only 80 lines — it renders `ItemWithOptions` inside a horizontal scroll. Since ItemWithOptions now uses horizontal layout (Task 4), the carousel cards automatically get the new design. Changes needed:
@@ -974,48 +1097,61 @@ The TrendingCarousel is only 80 lines — it renders `ItemWithOptions` inside a 
 ```tsx
 // Replace lines 33–51 (skeleton loader) with compact version:
 if (loading) {
-    return (
-      <div className="mb-10">
-        <div className="flex items-center justify-between mb-4 px-4">
-          <div className="h-6 w-32 bg-secondary rounded-lg animate-pulse" />
-        </div>
-        <div className="flex overflow-hidden gap-4 px-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="min-w-[320px] max-w-[380px] shrink-0">
-              <div className="glass-panel p-3 rounded-[1.75rem] border-white/5 h-[120px] flex gap-3 animate-pulse">
-                <div className="w-[30%] rounded-2xl bg-secondary flex-shrink-0" />
-                <div className="flex-1 space-y-2 py-1">
-                  <div className="h-4 w-3/4 bg-secondary rounded-lg" />
-                  <div className="h-3 w-1/2 bg-secondary rounded-lg" />
-                  <div className="h-3 w-full bg-secondary rounded-lg mt-auto" />
-                </div>
+  return (
+    <div className="mb-10">
+      <div className="flex items-center justify-between mb-4 px-4">
+        <div className="h-6 w-32 bg-secondary rounded-lg animate-pulse" />
+      </div>
+      <div className="flex overflow-hidden gap-4 px-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="min-w-[320px] max-w-[380px] shrink-0">
+            <div className="glass-panel p-3 rounded-[1.75rem] border-white/5 h-[120px] flex gap-3 animate-pulse">
+              <div className="w-[30%] rounded-2xl bg-secondary flex-shrink-0" />
+              <div className="flex-1 space-y-2 py-1">
+                <div className="h-4 w-3/4 bg-secondary rounded-lg" />
+                <div className="h-3 w-1/2 bg-secondary rounded-lg" />
+                <div className="h-3 w-full bg-secondary rounded-lg mt-auto" />
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
-    );
+    </div>
+  );
 }
 ```
 
 Replace the carousel card wrapper (lines 64–77) with wider cards:
 
 ```tsx
-      <div className="flex overflow-x-auto gap-4 pb-4 px-4 hide-scrollbar snap-x">
-        {trendingItems.map(item => {
-            const translatedItem = {
-                ...item,
-                name: (i18n.language && (item as any).translations && (item as any).translations[i18n.language]?.name) || item.name,
-                description: (i18n.language && (item as any).translations && (item as any).translations[i18n.language]?.description) || item.description,
-            };
-            const pairings = allMenuItems.filter(i => item.relatedItemIds?.includes(i.id));
-            return (
-                <div key={item.id} className="min-w-[320px] max-w-[380px] snap-center shrink-0">
-                    <ItemWithOptions item={translatedItem} perfectPairings={pairings} />
-                </div>
-            );
-        })}
+<div className="flex overflow-x-auto gap-4 pb-4 px-4 hide-scrollbar snap-x">
+  {trendingItems.map((item) => {
+    const translatedItem = {
+      ...item,
+      name:
+        (i18n.language &&
+          (item as any).translations &&
+          (item as any).translations[i18n.language]?.name) ||
+        item.name,
+      description:
+        (i18n.language &&
+          (item as any).translations &&
+          (item as any).translations[i18n.language]?.description) ||
+        item.description,
+    };
+    const pairings = allMenuItems.filter((i) =>
+      item.relatedItemIds?.includes(i.id),
+    );
+    return (
+      <div
+        key={item.id}
+        className="min-w-[320px] max-w-[380px] snap-center shrink-0"
+      >
+        <ItemWithOptions item={translatedItem} perfectPairings={pairings} />
       </div>
+    );
+  })}
+</div>
 ```
 
 And update the section margin: `mb-16` → `mb-10` (line 57).
@@ -1027,7 +1163,7 @@ Expected: No new errors.
 
 - [ ] **Step 3: Commit**
 
-```bash
+````bash
 git add apps/frontend/src/components/menu/TrendingCarousel.tsx
 git commit -m "feat: slim TrendingCarousel — wider horizontal cards, compact skeleton loader"
 
@@ -1133,9 +1269,10 @@ Replace the action bar (lines 642–738) with regrouped B-style layout: user-pro
             </div>
           </div>
         </div>
-```
+````
 
 Changes from original:
+
 - Removed vertical dividers between groups
 - Waiter + Profile/Sign-In grouped left (user-centric)
 - Bill + Cart grouped right (purchase actions)
@@ -1160,6 +1297,7 @@ git commit -m "feat: regroup bottom nav — profile/waiter left, bill/cart right
 ### Task 8: i18n Keys — EN/BG/RO
 
 **Files:**
+
 - Modify: `apps/frontend/src/locales/en/translation.json`
 - Modify: `apps/frontend/src/locales/bg/translation.json`
 - Modify: `apps/frontend/src/locales/ro/translation.json`
@@ -1214,6 +1352,7 @@ git commit -m "feat: add i18n keys — search, filters, addShort, dietary/allerg
 ### Task 9: Dual-Currency in CartDrawer, CheckoutPage, PaymentModal
 
 **Files:**
+
 - Modify: `apps/frontend/src/components/cart/CartDrawer.tsx`
 - Modify: `apps/frontend/src/pages/CheckoutPage.tsx`
 - Modify: `apps/frontend/src/components/payment/PaymentModal.tsx`
@@ -1234,6 +1373,7 @@ Replace all `€{...}` patterns with `formatInlineDual(...)`:
 - [ ] **Step 2: Update CheckoutPage.tsx dual-currency**
 
 Search for all `€{` patterns and replace:
+
 1. Add import: `import { formatInlineDual, formatEuro } from '../lib/currency';`
 2. Replace all item price displays and total displays with `formatInlineDual`.
 
@@ -1252,6 +1392,7 @@ Line 193: `€{(bill.subtotal * activeTipPercent / 100).toFixed(2)}` → `{forma
 Line 226: `€{(payment?.total ?? 0).toFixed(2)}` → `{formatEuro(payment?.total ?? 0)}`
 
 For subtotal/total displays (lines 73, 83, 156, 226), also add BGN line underneath:
+
 ```tsx
 // After each formatEuro display for totals, add:
 <span className="text-xs text-muted-foreground">{formatBgn(total)}</span>
@@ -1274,6 +1415,7 @@ git commit -m "feat: dual-currency prices in CartDrawer, Checkout, PaymentModal 
 ### Task 10: Final Integration — Remove Dead Code & Polish
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/PublicMenuPage.tsx`
 
 - [ ] **Step 1: Remove dead/unused code from PublicMenuPage**
@@ -1313,18 +1455,18 @@ npm run build      # Vite build succeeds
 
 ## Files Summary
 
-| File | Change |
-|------|--------|
-| `apps/frontend/src/lib/currency.ts` | **Create** — dual-currency formatters |
-| `apps/frontend/src/components/menu/TopBar.tsx` | **Create** — search, filter, theme, lang |
-| `apps/frontend/src/components/menu/FilterPanel.tsx` | **Create** — dietary toggles + allergen pills |
-| `apps/frontend/src/components/menu/CategoryPills.tsx` | **Create** — horizontal scroll pills |
-| `apps/frontend/src/components/menu/ItemWithOptions.tsx` | **Modify** — horizontal layout, dual-currency, pill button |
-| `apps/frontend/src/components/menu/TrendingCarousel.tsx` | **Modify** — dual-currency, compact cards |
-| `apps/frontend/src/pages/PublicMenuPage.tsx` | **Modify** — wire components, regroup nav, remove logo/dead code |
-| `apps/frontend/src/pages/CheckoutPage.tsx` | **Modify** — dual-currency prices |
-| `apps/frontend/src/components/cart/CartDrawer.tsx` | **Modify** — dual-currency prices |
-| `apps/frontend/src/components/payment/PaymentModal.tsx` | **Modify** — dual-currency prices |
-| `apps/frontend/src/locales/en/translation.json` | **Modify** — 5 new keys |
-| `apps/frontend/src/locales/bg/translation.json` | **Modify** — 5 new keys |
-| `apps/frontend/src/locales/ro/translation.json` | **Modify** — 5 new keys |
+| File                                                     | Change                                                           |
+| -------------------------------------------------------- | ---------------------------------------------------------------- |
+| `apps/frontend/src/lib/currency.ts`                      | **Create** — dual-currency formatters                            |
+| `apps/frontend/src/components/menu/TopBar.tsx`           | **Create** — search, filter, theme, lang                         |
+| `apps/frontend/src/components/menu/FilterPanel.tsx`      | **Create** — dietary toggles + allergen pills                    |
+| `apps/frontend/src/components/menu/CategoryPills.tsx`    | **Create** — horizontal scroll pills                             |
+| `apps/frontend/src/components/menu/ItemWithOptions.tsx`  | **Modify** — horizontal layout, dual-currency, pill button       |
+| `apps/frontend/src/components/menu/TrendingCarousel.tsx` | **Modify** — dual-currency, compact cards                        |
+| `apps/frontend/src/pages/PublicMenuPage.tsx`             | **Modify** — wire components, regroup nav, remove logo/dead code |
+| `apps/frontend/src/pages/CheckoutPage.tsx`               | **Modify** — dual-currency prices                                |
+| `apps/frontend/src/components/cart/CartDrawer.tsx`       | **Modify** — dual-currency prices                                |
+| `apps/frontend/src/components/payment/PaymentModal.tsx`  | **Modify** — dual-currency prices                                |
+| `apps/frontend/src/locales/en/translation.json`          | **Modify** — 5 new keys                                          |
+| `apps/frontend/src/locales/bg/translation.json`          | **Modify** — 5 new keys                                          |
+| `apps/frontend/src/locales/ro/translation.json`          | **Modify** — 5 new keys                                          |

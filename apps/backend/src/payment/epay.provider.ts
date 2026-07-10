@@ -111,7 +111,10 @@ export class EpayProvider {
   }
 
   formatNotificationResponses(
-    responses: Array<{ invoice: string; status: 'OK' | 'NO' | `ERR=${string}` }>,
+    responses: Array<{
+      invoice: string;
+      status: 'OK' | 'NO' | `ERR=${string}`;
+    }>,
   ): string {
     return responses
       .map((response) =>
@@ -133,7 +136,11 @@ export class EpayProvider {
 
     const invoice = fields.get('INVOICE');
     const status = fields.get('STATUS') as EpayNotificationStatus | undefined;
-    if (!invoice || !status || !['PAID', 'DENIED', 'EXPIRED'].includes(status)) {
+    if (
+      !invoice ||
+      !status ||
+      !['PAID', 'DENIED', 'EXPIRED'].includes(status)
+    ) {
       throw new Error('Invalid ePay notification payload');
     }
 

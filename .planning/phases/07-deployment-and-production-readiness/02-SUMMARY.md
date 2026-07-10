@@ -20,10 +20,10 @@ Installed advanced global Guards bounding abusive token polling effectively miti
 
 ## Tasks Completed
 
-| # | Task | Status |
-|---|------|--------|
-| 2.1 | Implement Rate Limiting via Throttler | ✓ |
-| 2.2 | Establish Health Check Infrastructure | ✓ |
+| #   | Task                                  | Status |
+| --- | ------------------------------------- | ------ |
+| 2.1 | Implement Rate Limiting via Throttler | ✓      |
+| 2.2 | Establish Health Check Infrastructure | ✓      |
 
 ## Deviations from Plan
 

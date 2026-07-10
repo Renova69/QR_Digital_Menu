@@ -19,12 +19,12 @@ Finalized standard deploy hooks managing exact container limits natively. Handle
 
 ## Tasks Completed
 
-| # | Task | Status |
-|---|------|--------|
-| 1.1 | Optimize Frontend Dockerfile | ✓ |
-| 1.2 | Integrate Frontend into Docker Compose | ✓ |
-| 1.3 | Update Backend Dockerfile for Migrations | ✓ |
-| 1.4 | Generate `.env.example` configurations | ✓ |
+| #   | Task                                     | Status |
+| --- | ---------------------------------------- | ------ |
+| 1.1 | Optimize Frontend Dockerfile             | ✓      |
+| 1.2 | Integrate Frontend into Docker Compose   | ✓      |
+| 1.3 | Update Backend Dockerfile for Migrations | ✓      |
+| 1.4 | Generate `.env.example` configurations   | ✓      |
 
 ## Deviations from Plan
 

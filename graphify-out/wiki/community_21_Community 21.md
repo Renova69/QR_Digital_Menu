@@ -5,6 +5,7 @@
 ## Nodes
 
 ### card.tsx
+
 - **ID:** `apps_frontend_src_components_ui_card_tsx`
 - **Type:** code
 - **Degree:** 9
@@ -22,6 +23,7 @@
   - ↔ `cn()` [_`imports`_ | c0]
 
 ### Card
+
 - **ID:** `ui_card_card`
 - **Type:** code
 - **Degree:** 2
@@ -30,6 +32,7 @@
   - ↔ `SummaryCard.tsx` [_`imports`_ | c0]
 
 ### CardContent
+
 - **ID:** `ui_card_cardcontent`
 - **Type:** code
 - **Degree:** 2
@@ -38,6 +41,7 @@
   - ↔ `SummaryCard.tsx` [_`imports`_ | c0]
 
 ### CardHeader
+
 - **ID:** `ui_card_cardheader`
 - **Type:** code
 - **Degree:** 2
@@ -46,6 +50,7 @@
   - ↔ `SummaryCard.tsx` [_`imports`_ | c0]
 
 ### CardTitle
+
 - **ID:** `ui_card_cardtitle`
 - **Type:** code
 - **Degree:** 2
@@ -54,6 +59,7 @@
   - ↔ `SummaryCard.tsx` [_`imports`_ | c0]
 
 ### SummaryCard()
+
 - **ID:** `dashboard_summarycard_summarycard`
 - **Type:** code
 - **Degree:** 1
@@ -62,6 +68,7 @@
   - ↔ `SummaryCard.tsx` [_`contains`_ | c0]
 
 ### SummaryCardProps
+
 - **ID:** `dashboard_summarycard_summarycardprops`
 - **Type:** code
 - **Degree:** 1
@@ -70,12 +77,14 @@
   - ↔ `SummaryCard.tsx` [_`contains`_ | c0]
 
 ### CardDescription
+
 - **ID:** `ui_card_carddescription`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/frontend/src/components/ui/card.tsx` @ L23
 
 ### CardFooter
+
 - **ID:** `ui_card_cardfooter`
 - **Type:** code
 - **Degree:** 1

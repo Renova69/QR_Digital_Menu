@@ -31,8 +31,12 @@ export class UsersService {
   ): Promise<string> {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const candidate = crypto.randomInt(0, 10000).toString().padStart(4, '0');
-      const hashes = existingHashes.map((e) => e.pinHash).filter(Boolean) as string[];
-      const results = await Promise.all(hashes.map((h) => bcrypt.compare(candidate, h)));
+      const hashes = existingHashes
+        .map((e) => e.pinHash)
+        .filter(Boolean) as string[];
+      const results = await Promise.all(
+        hashes.map((h) => bcrypt.compare(candidate, h)),
+      );
       if (!results.some(Boolean)) return candidate;
     }
     throw new ConflictException(
@@ -279,7 +283,10 @@ export class UsersService {
         const generatedPin = await this.generateUniquePin(
           await this.getExistingPinHashes(restaurantId, userId),
         );
-        pinCredential = { rawPin: generatedPin, pinHash: await bcrypt.hash(generatedPin, 10) };
+        pinCredential = {
+          rawPin: generatedPin,
+          pinHash: await bcrypt.hash(generatedPin, 10),
+        };
       } else {
         clearPin = true;
       }
@@ -302,7 +309,12 @@ export class UsersService {
             }
           : {}),
         ...(clearPin
-          ? { pinHash: null, pinAttempts: 0, pinLockedUntil: null, passwordChangedAt: new Date() }
+          ? {
+              pinHash: null,
+              pinAttempts: 0,
+              pinLockedUntil: null,
+              passwordChangedAt: new Date(),
+            }
           : {}),
         ...(typeof data.isActive === 'boolean'
           ? {

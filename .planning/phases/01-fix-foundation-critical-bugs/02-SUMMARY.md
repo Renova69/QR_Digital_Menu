@@ -26,13 +26,13 @@ Fixed stale AppController unit test (was testing deleted `getHello()`, now tests
 
 ## Tasks Completed
 
-| # | Task | Status |
-|---|------|--------|
-| 2.1 | Fix AppController unit test | ✓ |
-| 2.2 | Fix E2E tests to use /api prefix | ✓ |
-| 2.3 | Add cascade deletes to Prisma schema | ✓ |
-| 2.4 | Fix frontend Dockerfile and add dev script | ✓ |
-| 2.5 | Remove unused frontend/backend directory | ✓ |
+| #   | Task                                       | Status |
+| --- | ------------------------------------------ | ------ |
+| 2.1 | Fix AppController unit test                | ✓      |
+| 2.2 | Fix E2E tests to use /api prefix           | ✓      |
+| 2.3 | Add cascade deletes to Prisma schema       | ✓      |
+| 2.4 | Fix frontend Dockerfile and add dev script | ✓      |
+| 2.5 | Remove unused frontend/backend directory   | ✓      |
 
 ## Deviations from Plan
 

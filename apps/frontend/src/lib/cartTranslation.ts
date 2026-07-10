@@ -76,8 +76,7 @@ export function resolveCartChoiceName(
   }
 
   return (
-    selectedOption.translations?.[lang]?.choices?.[
-      selectedOption.choiceName
-    ] ?? selectedOption.choiceName
+    selectedOption.translations?.[lang]?.choices?.[selectedOption.choiceName] ??
+    selectedOption.choiceName
   );
 }

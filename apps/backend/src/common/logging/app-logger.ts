@@ -49,9 +49,9 @@ export function safeLogValue(value: unknown, depth = 0): unknown {
   }
   if (depth >= 3) return '[max-depth]';
   if (Array.isArray(value)) {
-    return value.slice(0, MAX_ARRAY_LENGTH).map((item) =>
-      safeLogValue(item, depth + 1),
-    );
+    return value
+      .slice(0, MAX_ARRAY_LENGTH)
+      .map((item) => safeLogValue(item, depth + 1));
   }
   if (typeof value === 'object') {
     const output: Record<string, unknown> = {};

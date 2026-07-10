@@ -19,7 +19,7 @@ describe('TranslationService', () => {
 
   beforeEach(async () => {
     process.env = { ...originalEnv };
-    mockPost = (axios as any).__mockPost;
+    mockPost = (axios as unknown as { __mockPost: jest.Mock }).__mockPost;
     mockPost.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
@@ -177,7 +177,7 @@ describe('TranslationService', () => {
 
       // Skip the inter-language delay without mutating the global timer (a
       // global setTimeout mock can bleed into unrelated async code).
-      jest.spyOn(service as any, 'sleep').mockResolvedValue(undefined);
+      service['sleep'] = jest.fn().mockResolvedValue(undefined);
 
       const result = await service.translateObject({ name: 'Burger' }, [
         'BG',
@@ -203,7 +203,7 @@ describe('TranslationService', () => {
     beforeEach(() => {
       process.env.DEEPL_API_KEY = 'test-key';
       // Skip real backoff / inter-language delays.
-      jest.spyOn(service as any, 'sleep').mockResolvedValue(undefined);
+      service['sleep'] = jest.fn().mockResolvedValue(undefined);
     });
 
     it('retries transient 429 then succeeds', async () => {
@@ -279,7 +279,7 @@ describe('TranslationService', () => {
   describe('circuit breaker', () => {
     beforeEach(() => {
       process.env.DEEPL_API_KEY = 'test-key';
-      jest.spyOn(service as any, 'sleep').mockResolvedValue(undefined);
+      service['sleep'] = jest.fn().mockResolvedValue(undefined);
     });
 
     it('opens after repeated failures and fast-fails without calling DeepL', async () => {

@@ -9,7 +9,7 @@ const STORAGE_KEY = "cookieConsent";
 export default function CookieConsentBanner() {
   const { i18n, t } = useTranslation();
   const [dismissed, setDismissed] = useState(
-    () => localStorage.getItem(STORAGE_KEY) === "acknowledged"
+    () => localStorage.getItem(STORAGE_KEY) === "acknowledged",
   );
 
   const { data } = useQuery({

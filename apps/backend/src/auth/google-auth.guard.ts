@@ -73,7 +73,8 @@ export class GoogleAuthGuard extends AuthGuard('google') {
       // Only permit same-origin destinations. Blocking cross-origin returnTo
       // prevents an open redirect that sends an authenticated user to an
       // attacker-controlled domain with their session cookie alive (#AUTH-C1).
-      const frontendOrigin = process.env.FRONTEND_URL || 'http://localhost:3001';
+      const frontendOrigin =
+        process.env.FRONTEND_URL || 'http://localhost:3001';
       let allowed = false;
       if (returnTo.startsWith('/') && !returnTo.startsWith('//')) {
         // Relative path (e.g. /dashboard) — safe. Reject protocol-relative

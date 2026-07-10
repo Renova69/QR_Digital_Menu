@@ -17,12 +17,12 @@ Billing via Stripe Subscriptions. No trial required at launch — clean 4-tier l
 
 ## Tiers
 
-| Tier | Price | Target |
-|------|-------|--------|
-| **Free** | €0/mo | Digital menu only — QR code leads to view-only menu. Lead generation. |
-| **Starter** | €10/mo | Small restaurants / fast food. QR ordering + basic dashboard. |
-| **Professional** | €25/mo | Growing venues. Payments, loyalty, multi-language, branding. |
-| **Enterprise** | €40/mo | Full operations. POS, KDS, RBAC, thermal printing, multi-location. |
+| Tier             | Price  | Target                                                                |
+| ---------------- | ------ | --------------------------------------------------------------------- |
+| **Free**         | €0/mo  | Digital menu only — QR code leads to view-only menu. Lead generation. |
+| **Starter**      | €10/mo | Small restaurants / fast food. QR ordering + basic dashboard.         |
+| **Professional** | €25/mo | Growing venues. Payments, loyalty, multi-language, branding.          |
+| **Enterprise**   | €40/mo | Full operations. POS, KDS, RBAC, thermal printing, multi-location.    |
 
 ---
 
@@ -30,50 +30,50 @@ Billing via Stripe Subscriptions. No trial required at launch — clean 4-tier l
 
 ### Customer-Facing
 
-| Feature | Free | Starter | Professional | Enterprise |
-|---------|:---:|:-------:|:------------:|:----------:|
-| View menu (QR) | ✅ | ✅ | ✅ | ✅ |
-| Place orders (QR) | ❌ | ✅ | ✅ | ✅ |
-| Call waiter | ❌ | ❌ | ✅ | ✅ |
-| Pay at table (Stripe) | ❌ | ❌ | ✅ | ✅ |
-| Loyalty points + tiers | ❌ | ❌ | ✅ | ✅ |
-| Multi-language menu | ❌ | 1 lang | ✅ | ✅ |
-| Customer accounts (OTP) | ❌ | ❌ | ✅ | ✅ |
+| Feature                 | Free | Starter | Professional | Enterprise |
+| ----------------------- | :--: | :-----: | :----------: | :--------: |
+| View menu (QR)          |  ✅  |   ✅    |      ✅      |     ✅     |
+| Place orders (QR)       |  ❌  |   ✅    |      ✅      |     ✅     |
+| Call waiter             |  ❌  |   ❌    |      ✅      |     ✅     |
+| Pay at table (Stripe)   |  ❌  |   ❌    |      ✅      |     ✅     |
+| Loyalty points + tiers  |  ❌  |   ❌    |      ✅      |     ✅     |
+| Multi-language menu     |  ❌  | 1 lang  |      ✅      |     ✅     |
+| Customer accounts (OTP) |  ❌  |   ❌    |      ✅      |     ✅     |
 
 ### Dashboard / Staff
 
-| Feature | Free | Starter | Professional | Enterprise |
-|---------|:---:|:-------:|:------------:|:----------:|
-| Menu CRUD + images | ✅ | ✅ | ✅ | ✅ |
-| QR code management | ✅ | ✅ | ✅ | ✅ |
-| Table management | ✅ | Unlimited | Unlimited | Unlimited |
-| Order receiving | ❌ | ✅ | ✅ | ✅ |
-| Basic analytics | ❌ | ✅ | ✅ | ✅ |
-| Full analytics | ❌ | ❌ | ✅ | ✅ |
-| Custom branding | ❌ | ❌ | ✅ | ✅ |
-| Google Review redirect | ❌ | ❌ | ✅ | ✅ |
-| Dayparting | ❌ | ❌ | ✅ | ✅ |
-| Upselling / trending | ❌ | ❌ | ✅ | ✅ |
-| Menu CSV import | ❌ | ✅ | ✅ | ✅ |
-| DeepL translation | ❌ | ❌ | ✅ | ✅ |
-| Waiter POS (`/staff/pos`) | ❌ | ❌ | ❌ | ✅ |
-| KDS (`/staff/kitchen`) | ❌ | ❌ | ❌ | ✅ |
-| Thermal printer support | ❌ | ❌ | ❌ | ✅ |
-| RBAC (staff roles) | ❌ | ❌ | ❌ | ✅ |
-| Multi-location | ❌ | ❌ | ❌ | ✅ |
-| Menu templates | ❌ | ❌ | ❌ | ✅ |
-| Bulk price updates | ❌ | ❌ | ❌ | ✅ |
-| Shared device mode | ❌ | ❌ | ❌ | ✅ |
-| Device enrollment (PIN) | ❌ | ❌ | ❌ | ✅ |
+| Feature                   | Free |  Starter  | Professional | Enterprise |
+| ------------------------- | :--: | :-------: | :----------: | :--------: |
+| Menu CRUD + images        |  ✅  |    ✅     |      ✅      |     ✅     |
+| QR code management        |  ✅  |    ✅     |      ✅      |     ✅     |
+| Table management          |  ✅  | Unlimited |  Unlimited   | Unlimited  |
+| Order receiving           |  ❌  |    ✅     |      ✅      |     ✅     |
+| Basic analytics           |  ❌  |    ✅     |      ✅      |     ✅     |
+| Full analytics            |  ❌  |    ❌     |      ✅      |     ✅     |
+| Custom branding           |  ❌  |    ❌     |      ✅      |     ✅     |
+| Google Review redirect    |  ❌  |    ❌     |      ✅      |     ✅     |
+| Dayparting                |  ❌  |    ❌     |      ✅      |     ✅     |
+| Upselling / trending      |  ❌  |    ❌     |      ✅      |     ✅     |
+| Menu CSV import           |  ❌  |    ✅     |      ✅      |     ✅     |
+| DeepL translation         |  ❌  |    ❌     |      ✅      |     ✅     |
+| Waiter POS (`/staff/pos`) |  ❌  |    ❌     |      ❌      |     ✅     |
+| KDS (`/staff/kitchen`)    |  ❌  |    ❌     |      ❌      |     ✅     |
+| Thermal printer support   |  ❌  |    ❌     |      ❌      |     ✅     |
+| RBAC (staff roles)        |  ❌  |    ❌     |      ❌      |     ✅     |
+| Multi-location            |  ❌  |    ❌     |      ❌      |     ✅     |
+| Menu templates            |  ❌  |    ❌     |      ❌      |     ✅     |
+| Bulk price updates        |  ❌  |    ❌     |      ❌      |     ✅     |
+| Shared device mode        |  ❌  |    ❌     |      ❌      |     ✅     |
+| Device enrollment (PIN)   |  ❌  |    ❌     |      ❌      |     ✅     |
 
 ### Staff Seats
 
-| Tier | Staff Limit |
-|------|-------------|
-| Free | 1 (owner only) |
-| Starter | 1 (owner only) |
-| Professional | 5 |
-| Enterprise | Unlimited |
+| Tier         | Staff Limit    |
+| ------------ | -------------- |
+| Free         | 1 (owner only) |
+| Starter      | 1 (owner only) |
+| Professional | 5              |
+| Enterprise   | Unlimited      |
 
 ---
 
@@ -93,28 +93,28 @@ Single source of truth: `FeatureService` resolves `SubscriptionTier` → `Featur
 
 ```typescript
 enum FeatureFlag {
-  MENU_VIEW = 'menu:view',
-  MENU_EDIT = 'menu:edit',
-  MENU_IMPORT = 'menu:import',
-  QR_MANAGE = 'qr:manage',
-  ORDERS_RECEIVE = 'orders:receive',
-  ORDERS_CALL_WAITER = 'orders:call-waiter',
-  ANALYTICS_BASIC = 'analytics:basic',
-  ANALYTICS_FULL = 'analytics:full',
-  PAYMENTS_STRIPE = 'payments:stripe',
-  LANGUAGES_MULTI = 'languages:multi',
-  BRANDING_CUSTOM = 'branding:custom',
-  LOYALTY = 'loyalty',
-  CUSTOMERS_AUTH = 'customers:auth',
-  UPSELLING = 'upselling',
-  DAYPARTING = 'dayparting',
-  POS = 'pos',
-  KDS = 'kds',
-  RBAC = 'rbac',
-  MULTILOCATION = 'multilocation',
-  PRINTERS_THERMAL = 'printers:thermal',
-  TEMPLATES_MENU = 'templates:menu',
-  STAFF_UNLIMITED = 'staff:unlimited',
+  MENU_VIEW = "menu:view",
+  MENU_EDIT = "menu:edit",
+  MENU_IMPORT = "menu:import",
+  QR_MANAGE = "qr:manage",
+  ORDERS_RECEIVE = "orders:receive",
+  ORDERS_CALL_WAITER = "orders:call-waiter",
+  ANALYTICS_BASIC = "analytics:basic",
+  ANALYTICS_FULL = "analytics:full",
+  PAYMENTS_STRIPE = "payments:stripe",
+  LANGUAGES_MULTI = "languages:multi",
+  BRANDING_CUSTOM = "branding:custom",
+  LOYALTY = "loyalty",
+  CUSTOMERS_AUTH = "customers:auth",
+  UPSELLING = "upselling",
+  DAYPARTING = "dayparting",
+  POS = "pos",
+  KDS = "kds",
+  RBAC = "rbac",
+  MULTILOCATION = "multilocation",
+  PRINTERS_THERMAL = "printers:thermal",
+  TEMPLATES_MENU = "templates:menu",
+  STAFF_UNLIMITED = "staff:unlimited",
 }
 ```
 
@@ -155,12 +155,12 @@ No `trialEndsAt` needed (no trial).
 
 ### Products + Prices
 
-| Stripe Product | Monthly Price ID (env var) |
-|----------------|---------------------------|
-| QR Menu Free | — (no charge) |
-| QR Menu Starter | `STRIPE_PRICE_STARTER` |
+| Stripe Product       | Monthly Price ID (env var)  |
+| -------------------- | --------------------------- |
+| QR Menu Free         | — (no charge)               |
+| QR Menu Starter      | `STRIPE_PRICE_STARTER`      |
 | QR Menu Professional | `STRIPE_PRICE_PROFESSIONAL` |
-| QR Menu Enterprise | `STRIPE_PRICE_ENTERPRISE` |
+| QR Menu Enterprise   | `STRIPE_PRICE_ENTERPRISE`   |
 
 ### Env Vars
 
@@ -201,12 +201,12 @@ async applySubscriptionEvent(customerId: string, event: Stripe.Event, tier: Subs
 }
 ```
 
-| Event | Action |
-|-------|--------|
-| `checkout.session.completed` | Extract tier from price metadata. Call `applySubscriptionEvent()` with atomic timestamp gate. |
-| `customer.subscription.updated` | Same atomic gate. Sync tier + price ID (handles upgrade/downgrade via Portal). |
-| `customer.subscription.deleted` | Same atomic gate. Set `tier = FREE`, clear `stripeSubscriptionId` + `stripePriceId`. |
-| `invoice.payment_failed` | Set `tier = FREE`, clear Stripe IDs after Stripe exhausts retries (3 attempts over ~2 weeks). Listen for `customer.subscription.deleted` instead of acting on first failure. |
+| Event                           | Action                                                                                                                                                                       |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `checkout.session.completed`    | Extract tier from price metadata. Call `applySubscriptionEvent()` with atomic timestamp gate.                                                                                |
+| `customer.subscription.updated` | Same atomic gate. Sync tier + price ID (handles upgrade/downgrade via Portal).                                                                                               |
+| `customer.subscription.deleted` | Same atomic gate. Set `tier = FREE`, clear `stripeSubscriptionId` + `stripePriceId`.                                                                                         |
+| `invoice.payment_failed`        | Set `tier = FREE`, clear Stripe IDs after Stripe exhausts retries (3 attempts over ~2 weeks). Listen for `customer.subscription.deleted` instead of acting on first failure. |
 
 This guarantees: no race between concurrent webhooks, replay-safe (same event replayed = no-op), zero additional infrastructure (no queues, no advisory locks).
 
@@ -218,12 +218,12 @@ This guarantees: no race between concurrent webhooks, replay-safe (same event re
 
 Base path: `/api/subscription`
 
-| Method | Route | Auth | Description |
-|--------|-------|------|-------------|
-| GET | `/status` | JWT | Current tier + features for dashboard |
-| POST | `/checkout` | JWT | Create Stripe Checkout Session, return URL |
-| POST | `/portal` | JWT | Create Stripe Billing Portal Session, return URL |
-| POST | `/webhook` | None (raw body) | Stripe webhook receiver |
+| Method | Route       | Auth            | Description                                      |
+| ------ | ----------- | --------------- | ------------------------------------------------ |
+| GET    | `/status`   | JWT             | Current tier + features for dashboard            |
+| POST   | `/checkout` | JWT             | Create Stripe Checkout Session, return URL       |
+| POST   | `/portal`   | JWT             | Create Stripe Billing Portal Session, return URL |
+| POST   | `/webhook`  | None (raw body) | Stripe webhook receiver                          |
 
 ### Guard — `RequireFeature`
 
@@ -271,12 +271,12 @@ Used everywhere: conditional rendering, route guards, component visibility.
 
 Seed script creates 4 demo accounts:
 
-| Demo Account | Tier | Pre-built Content |
-|-------------|------|-------------------|
-| `demo-free@qrmenu.com` | FREE | Menu with categories + items, QR codes. No cart on public menu. |
-| `demo-starter@qrmenu.com` | STARTER | Full menu, QR ordering, basic analytics data, imported menu items. |
-| `demo-pro@qrmenu.com` | PROFESSIONAL | Payments enabled, loyalty points, 3 languages, custom branding, dayparting. |
-| `demo-enterprise@qrmenu.com` | ENTERPRISE | POS configured, KDS, staff roles, multi-location preset. |
+| Demo Account                 | Tier         | Pre-built Content                                                           |
+| ---------------------------- | ------------ | --------------------------------------------------------------------------- |
+| `demo-free@qrmenu.com`       | FREE         | Menu with categories + items, QR codes. No cart on public menu.             |
+| `demo-starter@qrmenu.com`    | STARTER      | Full menu, QR ordering, basic analytics data, imported menu items.          |
+| `demo-pro@qrmenu.com`        | PROFESSIONAL | Payments enabled, loyalty points, 3 languages, custom branding, dayparting. |
+| `demo-enterprise@qrmenu.com` | ENTERPRISE   | POS configured, KDS, staff roles, multi-location preset.                    |
 
 All share password `demo123`. Restaurant names: "Demo Free Bistro", "Demo Starter Kitchen", "Demo Professional Restaurant", "Demo Enterprise Group".
 

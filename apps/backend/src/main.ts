@@ -245,8 +245,15 @@ async function bootstrap() {
     // Menu import/export payloads (full menu + translations) can be large.
     // NOTE: this was already 1mb, so a 109KB import never hit it — the import
     // 500 in BUGS.md has a different root cause (needs the backend stack trace).
-    app.use(express.json({ limit: '10mb' }));
-    app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+    app.use((req: any, res: any, next: any) => {
+      if (req.path.includes('/menu/import')) {
+        express.json({ limit: '10mb' })(req, res, next);
+      } else {
+        next();
+      }
+    });
+    app.use(express.json({ limit: '1mb' }));
+    app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
     app.setGlobalPrefix('api', {
       exclude: [

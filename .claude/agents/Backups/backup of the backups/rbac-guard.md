@@ -24,22 +24,24 @@ KITCHEN    — KDS + PIN login only, no dashboard
 ```
 
 Source of truth: `apps/backend/src/users/staff-roles.ts`
+
 - `PIN_LOGIN_ROLES = ['WAITER', 'KITCHEN']` — these authenticate via 4-digit PIN at shared devices
 - `isPinRole(role)` — guards against pinLogin minting dashboard JWTs
 
 ## Guard types in use
 
-| Guard | File | What it does |
-|-------|------|-------------|
-| `JwtAuthGuard` | `auth/jwt-auth.guard.ts` | Requires valid JWT cookie/Bearer token |
+| Guard                  | File                              | What it does                                        |
+| ---------------------- | --------------------------------- | --------------------------------------------------- |
+| `JwtAuthGuard`         | `auth/jwt-auth.guard.ts`          | Requires valid JWT cookie/Bearer token              |
 | `OptionalJwtAuthGuard` | `auth/optional-jwt-auth.guard.ts` | Extracts user if JWT present, passes through if not |
-| `SuperAdminGuard` | `auth/super-admin.guard.ts` | Requires SUPER_ADMIN role |
-| `FeatureGuard` | `subscription/feature.guard.ts` | Checks subscription tier feature flags |
-| `RolesGuard` | (if exists) | Checks specific role requirements |
+| `SuperAdminGuard`      | `auth/super-admin.guard.ts`       | Requires SUPER_ADMIN role                           |
+| `FeatureGuard`         | `subscription/feature.guard.ts`   | Checks subscription tier feature flags              |
+| `RolesGuard`           | (if exists)                       | Checks specific role requirements                   |
 
 ## Workflow
 
 ### 1. Find all controllers and their guards
+
 ```bash
 # List all controller files
 find apps/backend/src -name "*.controller.ts" ! -name "*.spec.ts" | sort
@@ -53,6 +55,7 @@ done
 ```
 
 ### 2. Extract route handlers and their guards
+
 ```bash
 # Find endpoints WITHOUT any guard
 for f in $(find apps/backend/src -name "*.controller.ts" ! -name "*.spec.ts"); do
@@ -66,12 +69,15 @@ done
 ```
 
 ### 3. Flag public endpoints missing OptionalJwtAuthGuard
+
 Public endpoints that should capture staff attribution need `OptionalJwtAuthGuard`. Example: order creation captures `staffUserId` for POS vs QR attribution.
 
 ### 4. Verify SuperAdminGuard coverage
+
 All `/super-admin/*` endpoints must have `@UseGuards(JwtAuthGuard, SuperAdminGuard)`.
 
 ### 5. Check FeatureGuard consistency
+
 Payment endpoints should pair `JwtAuthGuard` with `FeatureGuard` — flag any that don't.
 
 ## Known patterns (from CLAUDE.md)

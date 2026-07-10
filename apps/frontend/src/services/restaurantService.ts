@@ -1,4 +1,4 @@
-import api from '../lib/api';
+import api from "../lib/api";
 
 export interface Restaurant {
   id: string;
@@ -14,8 +14,8 @@ export interface Restaurant {
   contactInfo?: string;
   targetLanguages?: string[];
   timezone?: string;
-  defaultTheme?: 'light' | 'dark';
-  trendingMode?: 'AUTO' | 'MANUAL' | 'OFF';
+  defaultTheme?: "light" | "dark";
+  trendingMode?: "AUTO" | "MANUAL" | "OFF";
   fontHeading?: string;
   fontBody?: string;
   themeBgColor?: string;
@@ -48,36 +48,36 @@ export interface Restaurant {
   stripeOnboarded?: boolean;
   stripeAccountId?: string;
   epayEnabled?: boolean;
-  epayMode?: 'DEMO' | 'LIVE';
+  epayMode?: "DEMO" | "LIVE";
   epayClientId?: string | null;
   epayMerchantEmail?: string | null;
   epaySecretConfigured?: boolean;
-  epayPage?: 'credit_paydirect' | 'paylogin';
+  epayPage?: "credit_paydirect" | "paylogin";
   boricaEnabled?: boolean;
-  boricaMode?: 'DEMO' | 'LIVE';
+  boricaMode?: "DEMO" | "LIVE";
   boricaTerminalId?: string | null;
   boricaMerchantId?: string | null;
   boricaMerchantName?: string | null;
   boricaPrivateKeyConfigured?: boolean;
   boricaPublicCert?: string | null;
-  boricaCurrency?: 'EUR';
+  boricaCurrency?: "EUR";
   myposEnabled?: boolean;
-  myposMode?: 'DEMO' | 'LIVE';
+  myposMode?: "DEMO" | "LIVE";
   myposClientNumber?: string | null;
   myposStoreId?: string | null;
   myposKeyIndex?: string | null;
   myposPrivateKeyConfigured?: boolean;
   myposPublicCert?: string | null;
-  myposCurrency?: 'EUR';
+  myposCurrency?: "EUR";
   tipsEnabled?: boolean;
   tipOptions?: number[];
   platformFeePercent?: number;
   notifyAllStaffOnPayment?: boolean;
   sharedDeviceModeEnabled?: boolean;
   isActive?: boolean;
-  tier?: 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
+  tier?: "FREE" | "STARTER" | "PROFESSIONAL" | "ENTERPRISE";
   features?: string[];
-  forceTier?: 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE' | null;
+  forceTier?: "FREE" | "STARTER" | "PROFESSIONAL" | "ENTERPRISE" | null;
   tierUpdatedAt?: string;
   stripeSubscriptionId?: string;
   facebookUrl?: string;
@@ -89,20 +89,24 @@ export interface Restaurant {
 
 export const getRestaurants = async (): Promise<Restaurant[]> => {
   try {
-    const response = await api.get<Restaurant[]>('/restaurants');
+    const response = await api.get<Restaurant[]>("/restaurants");
     return response.data;
   } catch (error) {
-    console.error('Error fetching restaurants:', error);
+    console.error("Error fetching restaurants:", error);
     throw error;
   }
 };
 
-export const createRestaurant = async (restaurantData: { name: string; city?: string; dashboardLanguage?: string }): Promise<Restaurant> => {
+export const createRestaurant = async (restaurantData: {
+  name: string;
+  city?: string;
+  dashboardLanguage?: string;
+}): Promise<Restaurant> => {
   try {
-    const response = await api.post<Restaurant>('/restaurants', restaurantData);
+    const response = await api.post<Restaurant>("/restaurants", restaurantData);
     return response.data;
   } catch (error) {
-    console.error('Error creating restaurant:', error);
+    console.error("Error creating restaurant:", error);
     throw error;
   }
 };
@@ -112,17 +116,20 @@ export const getRestaurantById = async (id: string): Promise<Restaurant> => {
     const response = await api.get<Restaurant>(`/restaurants/${id}`);
     return response.data;
   } catch (error) {
-    console.error('Error fetching restaurant:', error);
+    console.error("Error fetching restaurant:", error);
     throw error;
   }
 };
 
-export const updateRestaurant = async (id: string, data: Partial<Restaurant>): Promise<Restaurant> => {
+export const updateRestaurant = async (
+  id: string,
+  data: Partial<Restaurant>,
+): Promise<Restaurant> => {
   try {
     const response = await api.patch<Restaurant>(`/restaurants/${id}`, data);
     return response.data;
   } catch (error) {
-    console.error('Error updating restaurant:', error);
+    console.error("Error updating restaurant:", error);
     throw error;
   }
 };

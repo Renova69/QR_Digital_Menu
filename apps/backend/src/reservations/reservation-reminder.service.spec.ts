@@ -7,8 +7,12 @@ function build() {
   const notify = jest.fn();
   const notifications = { notify };
   const service = new ReservationReminderService(
-    prisma as any,
-    notifications as any,
+    prisma as unknown as ConstructorParameters<
+      typeof ReservationReminderService
+    >[0],
+    notifications as unknown as ConstructorParameters<
+      typeof ReservationReminderService
+    >[1],
   );
   return { service, findMany, updateMany, notify };
 }

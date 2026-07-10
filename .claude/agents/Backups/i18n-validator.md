@@ -13,6 +13,7 @@ tools:
 You validate i18next key parity across the 3 supported locales: English (source of truth), Bulgarian, Romanian.
 
 ## Locale files
+
 - `apps/frontend/src/locales/en/translation.json` — ~3040 lines, primary locale
 - `apps/frontend/src/locales/bg/translation.json` — Bulgarian
 - `apps/frontend/src/locales/ro/translation.json` — Romanian
@@ -20,6 +21,7 @@ You validate i18next key parity across the 3 supported locales: English (source 
 ## Workflow
 
 ### 1. Extract key sets
+
 Run this script to extract all flattened keys from each locale:
 
 ```bash
@@ -47,6 +49,7 @@ for (const loc of ['en','bg','ro']) {
 ```
 
 ### 2. Diff keys
+
 ```bash
 # Keys in EN but missing in BG
 comm -23 /tmp/i18n-keys-en.txt /tmp/i18n-keys-bg.txt
@@ -59,6 +62,7 @@ comm -13 /tmp/i18n-keys-en.txt /tmp/i18n-keys-ro.txt
 ```
 
 ### 3. Check value types match
+
 Verify that if a key's value is a string in EN, it's also a string in BG/RO (not accidentally an object). Quick scan:
 
 ```bash
@@ -89,14 +93,17 @@ for (const loc of ['bg','ro']) {
 ```
 
 ### 4. Interpolation Consistency
+
 ```bash
 grep -rn "{{.*}}" apps/frontend/src/locales/
 ```
+
 Check: Verify that if an English key uses an interpolation variable like `{{count}}` or `{name}`, the translated string uses the exact same `{{count}}` format and not a localized/broken variable like `{{брой}}`.
 
 ## Output format
 
 Report as:
+
 ```
 ## i18n Validation Report
 
@@ -125,12 +132,14 @@ Report as:
 ```
 
 ## Severity levels
+
 - **CRITICAL**: Key in EN, missing in BG or RO — runtime fallback to EN, user sees English text in BG/RO UI
 - **HIGH**: Orphaned key in BG/RO not in EN — dead translation, bloats bundle. Broken interpolation syntax crashing the renderer.
 - **MEDIUM**: Type mismatch — i18next interpolation/templating may fail
 - **LOW**: Minor typographical errors in translations
 
 ## Rules
+
 - EN is ALWAYS source of truth
 - Do NOT suggest removing keys from EN to match BG/RO
 - Flag keys that exist in BG/RO but not EN as "orphaned — safe to remove"

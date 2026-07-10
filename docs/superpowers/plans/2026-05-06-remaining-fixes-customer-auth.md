@@ -12,32 +12,33 @@
 
 ## File Map
 
-| File | Change |
-|------|--------|
-| `apps/backend/prisma/schema.prisma` | Add `VerificationToken` model; add `phone String?` to `User` |
-| `apps/backend/.env` + `.env.example` | Add `RESEND_API_KEY`, `RESEND_FROM_EMAIL` |
-| `apps/backend/src/auth/auth.service.ts` | Inject `PrismaService`; add `sendOtp` + `verifyOtp` |
-| `apps/backend/src/auth/auth.service.spec.ts` | New — OTP unit tests |
-| `apps/backend/src/auth/auth.controller.ts` | Add `POST /otp/send`, `POST /otp/verify` |
-| `apps/backend/src/menu/menu.service.ts` | Delete category-image audit rule (lines 859–868) |
-| `apps/frontend/src/context/AuthContext.tsx` | Add `loginWithToken(token, user)` method |
-| `apps/frontend/src/components/auth/CustomerLoginModal.tsx` | Full rewrite — 3-step OTP flow |
-| `apps/frontend/src/pages/PublicMenuPage.tsx` | Action bar: profile chip + logout icon; pass `selectedLang` to CartIcon |
-| `apps/frontend/src/pages/CustomerProfilePage.tsx` | Full `t()` wiring + `returnTo` back button |
-| `apps/frontend/src/components/cart/CartIcon.tsx` | Add + forward `selectedLang` prop |
-| `apps/frontend/src/components/cart/CartDrawer.tsx` | `resolveItemName` util + upsell/footer string translations |
-| `apps/frontend/src/components/menu/ItemWithOptions.tsx` | VARIATION pre-selection `useEffect` + pairing string translations |
-| `apps/frontend/src/components/tables/PrintableQRCodes.tsx` | Single-column layout + `@page` A4 rules |
-| `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx` | Fix axis `tick.fill` for dark mode |
-| `apps/frontend/src/locales/en/translation.json` | Add `auth.otp.*`, `publicMenu.signIn/myProfile/pairing/drinkUpsell`, `profile.*` |
-| `apps/frontend/src/locales/bg/translation.json` | Same keys in Bulgarian |
-| `apps/frontend/src/locales/ro/translation.json` | Same keys in Romanian |
+| File                                                       | Change                                                                           |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `apps/backend/prisma/schema.prisma`                        | Add `VerificationToken` model; add `phone String?` to `User`                     |
+| `apps/backend/.env` + `.env.example`                       | Add `RESEND_API_KEY`, `RESEND_FROM_EMAIL`                                        |
+| `apps/backend/src/auth/auth.service.ts`                    | Inject `PrismaService`; add `sendOtp` + `verifyOtp`                              |
+| `apps/backend/src/auth/auth.service.spec.ts`               | New — OTP unit tests                                                             |
+| `apps/backend/src/auth/auth.controller.ts`                 | Add `POST /otp/send`, `POST /otp/verify`                                         |
+| `apps/backend/src/menu/menu.service.ts`                    | Delete category-image audit rule (lines 859–868)                                 |
+| `apps/frontend/src/context/AuthContext.tsx`                | Add `loginWithToken(token, user)` method                                         |
+| `apps/frontend/src/components/auth/CustomerLoginModal.tsx` | Full rewrite — 3-step OTP flow                                                   |
+| `apps/frontend/src/pages/PublicMenuPage.tsx`               | Action bar: profile chip + logout icon; pass `selectedLang` to CartIcon          |
+| `apps/frontend/src/pages/CustomerProfilePage.tsx`          | Full `t()` wiring + `returnTo` back button                                       |
+| `apps/frontend/src/components/cart/CartIcon.tsx`           | Add + forward `selectedLang` prop                                                |
+| `apps/frontend/src/components/cart/CartDrawer.tsx`         | `resolveItemName` util + upsell/footer string translations                       |
+| `apps/frontend/src/components/menu/ItemWithOptions.tsx`    | VARIATION pre-selection `useEffect` + pairing string translations                |
+| `apps/frontend/src/components/tables/PrintableQRCodes.tsx` | Single-column layout + `@page` A4 rules                                          |
+| `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx`      | Fix axis `tick.fill` for dark mode                                               |
+| `apps/frontend/src/locales/en/translation.json`            | Add `auth.otp.*`, `publicMenu.signIn/myProfile/pairing/drinkUpsell`, `profile.*` |
+| `apps/frontend/src/locales/bg/translation.json`            | Same keys in Bulgarian                                                           |
+| `apps/frontend/src/locales/ro/translation.json`            | Same keys in Romanian                                                            |
 
 ---
 
 ### Task 1: DB Schema + Env Vars
 
 **Files:**
+
 - Modify: `apps/backend/prisma/schema.prisma`
 - Modify: `apps/backend/.env`
 - Modify: `apps/backend/.env.example`
@@ -86,12 +87,14 @@ model VerificationToken {
 - [ ] **Step 3: Add env vars**
 
 In `apps/backend/.env`, add:
+
 ```
 RESEND_API_KEY=re_your_key_here
 RESEND_FROM_EMAIL=noreply@yourdomain.com
 ```
 
 In `apps/backend/.env.example`, add the same lines (with placeholder values):
+
 ```
 RESEND_API_KEY=re_...
 RESEND_FROM_EMAIL=noreply@yourdomain.com
@@ -100,11 +103,13 @@ RESEND_FROM_EMAIL=noreply@yourdomain.com
 - [ ] **Step 4: Push schema to Neon**
 
 Run from `apps/backend/`:
+
 ```bash
 npx prisma db push
 ```
 
 Expected output includes:
+
 ```
 Your database is now in sync with your Prisma schema.
 ```
@@ -121,6 +126,7 @@ git commit -m "feat: add VerificationToken model and User.phone field"
 ### Task 2: AuthService OTP Methods + Tests
 
 **Files:**
+
 - Modify: `apps/backend/src/auth/auth.service.ts`
 - Create: `apps/backend/src/auth/auth.service.spec.ts`
 
@@ -131,11 +137,11 @@ Context: `auth.service.ts` currently has constructor `(usersService, jwtService)
 Create `apps/backend/src/auth/auth.service.spec.ts`:
 
 ```typescript
-import { AuthService } from './auth.service';
-import { JwtService } from '@nestjs/jwt';
-import { HttpException, UnauthorizedException } from '@nestjs/common';
+import { AuthService } from "./auth.service";
+import { JwtService } from "@nestjs/jwt";
+import { HttpException, UnauthorizedException } from "@nestjs/common";
 
-describe('AuthService OTP', () => {
+describe("AuthService OTP", () => {
   let service: AuthService;
   let mockPrisma: any;
   let mockUsersService: any;
@@ -155,7 +161,7 @@ describe('AuthService OTP', () => {
       findByEmail: jest.fn(),
       create: jest.fn(),
     };
-    mockJwt = { sign: jest.fn().mockReturnValue('test-jwt-token') };
+    mockJwt = { sign: jest.fn().mockReturnValue("test-jwt-token") };
 
     service = new AuthService(
       mockUsersService as any,
@@ -164,95 +170,95 @@ describe('AuthService OTP', () => {
     );
   });
 
-  describe('sendOtp', () => {
-    it('creates a VerificationToken and returns success:true', async () => {
+  describe("sendOtp", () => {
+    it("creates a VerificationToken and returns success:true", async () => {
       mockPrisma.verificationToken.findFirst.mockResolvedValue(null);
 
-      const result = await service.sendOtp('user@example.com');
+      const result = await service.sendOtp("user@example.com");
 
       expect(mockPrisma.verificationToken.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ email: 'user@example.com' }),
+          data: expect.objectContaining({ email: "user@example.com" }),
         }),
       );
       expect(result.success).toBe(true);
     });
 
-    it('includes devCode in response when RESEND_API_KEY is not set', async () => {
+    it("includes devCode in response when RESEND_API_KEY is not set", async () => {
       delete process.env.RESEND_API_KEY;
       mockPrisma.verificationToken.findFirst.mockResolvedValue(null);
 
-      const result = await service.sendOtp('user@example.com');
+      const result = await service.sendOtp("user@example.com");
 
       expect(result.devCode).toBeDefined();
       expect(result.devCode).toMatch(/^\d{6}$/);
     });
 
-    it('throws HttpException(429) when token created within last 60 seconds', async () => {
+    it("throws HttpException(429) when token created within last 60 seconds", async () => {
       mockPrisma.verificationToken.findFirst.mockResolvedValue({
-        id: 'tok1',
+        id: "tok1",
         createdAt: new Date(),
       });
 
-      await expect(service.sendOtp('user@example.com')).rejects.toThrow(
+      await expect(service.sendOtp("user@example.com")).rejects.toThrow(
         HttpException,
       );
     });
   });
 
-  describe('verifyOtp', () => {
-    it('throws UnauthorizedException when no valid token exists', async () => {
+  describe("verifyOtp", () => {
+    it("throws UnauthorizedException when no valid token exists", async () => {
       mockPrisma.verificationToken.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.verifyOtp('user@example.com', '123456'),
+        service.verifyOtp("user@example.com", "123456"),
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('returns JWT + isNew:true for a new user with valid code', async () => {
-      const bcrypt = require('bcryptjs');
-      const plainCode = '654321';
+    it("returns JWT + isNew:true for a new user with valid code", async () => {
+      const bcrypt = require("bcryptjs");
+      const plainCode = "654321";
       const hashedCode = await bcrypt.hash(plainCode, 10);
 
       mockPrisma.verificationToken.findFirst.mockResolvedValue({
-        id: 'tok1',
+        id: "tok1",
         code: hashedCode,
         expiresAt: new Date(Date.now() + 60_000),
       });
       mockUsersService.findByEmail.mockResolvedValue(null);
       mockUsersService.create.mockResolvedValue({
-        id: 'usr1',
-        email: 'user@example.com',
+        id: "usr1",
+        email: "user@example.com",
         name: null,
-        role: 'CUSTOMER',
+        role: "CUSTOMER",
       });
 
-      const result = await service.verifyOtp('user@example.com', plainCode);
+      const result = await service.verifyOtp("user@example.com", plainCode);
 
       expect(result.isNew).toBe(true);
-      expect(result.token).toBe('test-jwt-token');
-      expect(result.user.email).toBe('user@example.com');
+      expect(result.token).toBe("test-jwt-token");
+      expect(result.user.email).toBe("user@example.com");
     });
 
-    it('returns isNew:false for an existing user', async () => {
-      const bcrypt = require('bcryptjs');
-      const plainCode = '111222';
+    it("returns isNew:false for an existing user", async () => {
+      const bcrypt = require("bcryptjs");
+      const plainCode = "111222";
       const hashedCode = await bcrypt.hash(plainCode, 10);
 
       mockPrisma.verificationToken.findFirst.mockResolvedValue({
-        id: 'tok2',
+        id: "tok2",
         code: hashedCode,
         expiresAt: new Date(Date.now() + 60_000),
       });
       mockUsersService.findByEmail.mockResolvedValue({
-        id: 'usr2',
-        email: 'existing@example.com',
-        name: 'Existing User',
-        role: 'CUSTOMER',
+        id: "usr2",
+        email: "existing@example.com",
+        name: "Existing User",
+        role: "CUSTOMER",
         phone: null,
       });
 
-      const result = await service.verifyOtp('existing@example.com', plainCode);
+      const result = await service.verifyOtp("existing@example.com", plainCode);
 
       expect(result.isNew).toBe(false);
       expect(mockUsersService.create).not.toHaveBeenCalled();
@@ -281,13 +287,13 @@ import {
   NotFoundException,
   HttpException,
   HttpStatus,
-} from '@nestjs/common';
-import { CreateAuthDto } from './dto/create-auth.dto';
-import * as bcrypt from 'bcryptjs';
-import { JwtService } from '@nestjs/jwt';
-import { UsersService } from '../users/users.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { UserRole } from '@prisma/client';
+} from "@nestjs/common";
+import { CreateAuthDto } from "./dto/create-auth.dto";
+import * as bcrypt from "bcryptjs";
+import { JwtService } from "@nestjs/jwt";
+import { UsersService } from "../users/users.service";
+import { PrismaService } from "../prisma/prisma.service";
+import { UserRole } from "@prisma/client";
 
 @Injectable()
 export class AuthService {
@@ -301,14 +307,14 @@ export class AuthService {
     const user = await this.usersService.findByEmail(email);
     if (!user) {
       throw new NotFoundException(
-        'No account found with this email. Please check or create an account.',
+        "No account found with this email. Please check or create an account.",
       );
     }
     if (user.password && (await bcrypt.compare(pass, user.password))) {
       const { password, ...result } = user;
       return result;
     }
-    throw new UnauthorizedException('Incorrect password. Please try again.');
+    throw new UnauthorizedException("Incorrect password. Please try again.");
   }
 
   async login(user: any) {
@@ -337,7 +343,7 @@ export class AuthService {
         email,
         name: `${firstName} ${lastName}`,
         password: generatedPassword,
-        role: 'OWNER',
+        role: "OWNER",
       });
     }
 
@@ -350,7 +356,7 @@ export class AuthService {
     const existingUser = await this.usersService.findByEmail(email);
 
     if (existingUser) {
-      throw new ConflictException('User with this email already exists');
+      throw new ConflictException("User with this email already exists");
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -358,7 +364,7 @@ export class AuthService {
     const user = await this.usersService.create({
       email,
       password: hashedPassword,
-      role: 'OWNER',
+      role: "OWNER",
     });
 
     const { password: _, ...result } = user;
@@ -385,14 +391,14 @@ export class AuthService {
       user = await this.usersService.create({
         email,
         password: generatedPassword,
-        role: 'CUSTOMER' as any,
+        role: "CUSTOMER" as any,
       });
     }
 
     const payload = { email: user.email, sub: user.id };
-    const token = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const token = this.jwtService.sign(payload, { expiresIn: "15m" });
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3001";
     let link = `${frontendUrl}/auth/callback?token=${token}`;
     if (returnTo) {
       link += `&returnTo=${encodeURIComponent(returnTo)}`;
@@ -401,7 +407,7 @@ export class AuthService {
     console.log(`\n\n🔗 MAGIC LINK FOR ${email}:`);
     console.log(`${link}\n\n`);
 
-    return { success: true, message: 'Magic link generated in console', link };
+    return { success: true, message: "Magic link generated in console", link };
   }
 
   async sendOtp(
@@ -418,7 +424,7 @@ export class AuthService {
     });
     if (recentToken) {
       throw new HttpException(
-        'Please wait before requesting another code.',
+        "Please wait before requesting another code.",
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
@@ -443,16 +449,16 @@ export class AuthService {
     const isDev = !process.env.RESEND_API_KEY;
 
     if (!isDev) {
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
+      await fetch("https://api.resend.com/emails", {
+        method: "POST",
         headers: {
           Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: process.env.RESEND_FROM_EMAIL || 'noreply@yourdomain.com',
+          from: process.env.RESEND_FROM_EMAIL || "noreply@yourdomain.com",
           to: [email],
-          subject: 'Your verification code',
+          subject: "Your verification code",
           text: `Your verification code: ${code}\n\nExpires in 10 minutes.`,
           html: `<p style="font-family:sans-serif;font-size:16px;">Your verification code:</p><p style="font-family:monospace;font-size:32px;font-weight:bold;letter-spacing:8px;">${code}</p><p style="font-family:sans-serif;color:#666;">Expires in 10 minutes. If you did not request this, ignore this email.</p>`,
         }),
@@ -475,16 +481,16 @@ export class AuthService {
         usedAt: null,
         expiresAt: { gt: new Date() },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
     if (!tokenRecord) {
-      throw new UnauthorizedException('Invalid or expired code.');
+      throw new UnauthorizedException("Invalid or expired code.");
     }
 
     const valid = await bcrypt.compare(code, tokenRecord.code);
     if (!valid) {
-      throw new UnauthorizedException('Invalid or expired code.');
+      throw new UnauthorizedException("Invalid or expired code.");
     }
 
     await this.prisma.verificationToken.update({
@@ -503,7 +509,7 @@ export class AuthService {
       user = await this.usersService.create({
         email,
         password,
-        role: 'CUSTOMER' as any,
+        role: "CUSTOMER" as any,
         ...(phone ? { phone } : {}),
       });
     } else if (phone && !(user as any).phone) {
@@ -516,7 +522,12 @@ export class AuthService {
     const payload = { email: user.email, sub: user.id };
     return {
       token: this.jwtService.sign(payload),
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
       isNew,
     };
   }
@@ -530,6 +541,7 @@ cd apps/backend && npx jest auth.service.spec.ts --no-coverage
 ```
 
 Expected output:
+
 ```
 PASS src/auth/auth.service.spec.ts
   AuthService OTP
@@ -558,6 +570,7 @@ git commit -m "feat: add email OTP send/verify to AuthService"
 ### Task 3: AuthController OTP Routes
 
 **Files:**
+
 - Modify: `apps/backend/src/auth/auth.controller.ts`
 
 Context: `auth.controller.ts` is at `apps/backend/src/auth/auth.controller.ts`. It currently has `register`, `login`, `getProfile`, `googleAuth`, `googleAuthRedirect`, `sendMagicLink`. Add two new public POST endpoints below `sendMagicLink`. No guards needed — both are public (unauthenticated) endpoints.
@@ -604,9 +617,11 @@ curl -s -X POST http://localhost:3000/api/auth/otp/send \
 ```
 
 Expected (dev mode, no RESEND_API_KEY set):
+
 ```json
-{"success":true,"devCode":"XXXXXX"}
+{ "success": true, "devCode": "XXXXXX" }
 ```
+
 The 6-digit code is also printed in the NestJS console.
 
 - [ ] **Step 4: Commit**
@@ -621,6 +636,7 @@ git commit -m "feat: expose POST /auth/otp/send and /auth/otp/verify endpoints"
 ### Task 4: Locale Files — Add All New Keys (EN + BG + RO)
 
 **Files:**
+
 - Modify: `apps/frontend/src/locales/en/translation.json`
 - Modify: `apps/frontend/src/locales/bg/translation.json`
 - Modify: `apps/frontend/src/locales/ro/translation.json`
@@ -925,6 +941,7 @@ git commit -m "feat: add auth.otp, publicMenu, and profile translation keys (EN/
 ### Task 5: AuthContext — Add `loginWithToken`
 
 **Files:**
+
 - Modify: `apps/frontend/src/context/AuthContext.tsx`
 
 Context: `AuthContext.tsx` is at `apps/frontend/src/context/AuthContext.tsx`. The `AuthContextType` interface has `login`, `register`, `logout`. The `login` method stores the JWT in localStorage, sets `token` state, sets `user` state, and sets the axios header. `loginWithToken` must do the same thing without an API call (we already have the data from the OTP verify response).
@@ -953,10 +970,10 @@ In `apps/frontend/src/context/AuthContext.tsx`, add the `loginWithToken` functio
 
 ```typescript
 const loginWithToken = (token: string, user: User) => {
-  localStorage.setItem('token', token);
+  localStorage.setItem("token", token);
   setToken(token);
   setUser(user);
-  api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 };
 ```
 
@@ -1004,6 +1021,7 @@ git commit -m "feat: add loginWithToken to AuthContext for OTP sign-in"
 ### Task 6: CustomerLoginModal — 3-Step OTP Rewrite
 
 **Files:**
+
 - Modify: `apps/frontend/src/components/auth/CustomerLoginModal.tsx`
 
 Context: Full replacement of the existing magic-link modal. The existing file uses a single-step form that calls `POST /auth/magic-link`. Replace entirely with a 3-step state machine: `entry` (email + phone + Google), `otp` (code input + resend countdown), `welcome` (new user only). Requires `loginWithToken` from `AuthContext` (Task 5) and locale keys (Task 4).
@@ -1366,6 +1384,7 @@ Expected: no errors.
 - [ ] **Step 3: Smoke test manually**
 
 Start the dev server (`npm run dev` from root). Open the public menu page. Click "Sign In" in the action bar. Verify:
+
 - Step 1 shows Google button + email + phone fields
 - Submit email → advances to step 2 with 6-digit code input
 - In dev mode, the yellow banner shows the code
@@ -1384,6 +1403,7 @@ git commit -m "feat: replace magic link with 3-step email OTP modal"
 ### Task 7: PublicMenuPage — Profile Nav + Pass `selectedLang` to CartIcon
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/PublicMenuPage.tsx`
 
 Context: `PublicMenuPage.tsx` currently imports `{ useParams, useLocation }` from react-router-dom (line 2) — `useNavigate` is NOT imported yet. Lucide imports are `{ Bell, Globe }` (line 9) — `LogOut` is NOT imported yet. The action bar logged-in section is around lines 546–566. `<CartIcon>` is called around line 569 with `categories` and `restaurantId` props — `selectedLang` is NOT passed yet. `selectedLang` state already exists at line 32.
@@ -1391,10 +1411,13 @@ Context: `PublicMenuPage.tsx` currently imports `{ useParams, useLocation }` fro
 - [ ] **Step 1: Add `useNavigate` to react-router-dom import**
 
 Change line 2 from:
+
 ```typescript
 import { useParams, useLocation } from "react-router-dom";
 ```
+
 to:
+
 ```typescript
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 ```
@@ -1402,10 +1425,13 @@ import { useParams, useLocation, useNavigate } from "react-router-dom";
 - [ ] **Step 2: Add `LogOut` to lucide-react import**
 
 Change line 9 from:
+
 ```typescript
 import { Bell, Globe } from "lucide-react";
 ```
+
 to:
+
 ```typescript
 import { Bell, Globe, LogOut } from "lucide-react";
 ```
@@ -1413,6 +1439,7 @@ import { Bell, Globe, LogOut } from "lucide-react";
 - [ ] **Step 3: Add `navigate` constant inside component**
 
 After `const location = useLocation();` (line 18), add:
+
 ```typescript
 const navigate = useNavigate();
 ```
@@ -1420,6 +1447,7 @@ const navigate = useNavigate();
 - [ ] **Step 4: Replace the logged-in action bar section**
 
 Find this block (around lines 546–566):
+
 ```jsx
 {user ? (
   <button
@@ -1438,6 +1466,7 @@ Find this block (around lines 546–566):
 ```
 
 Replace with:
+
 ```jsx
 {user ? (
   <div className="flex items-center gap-0.5 flex-shrink-0">
@@ -1472,14 +1501,13 @@ Replace with:
 - [ ] **Step 5: Pass `selectedLang` to CartIcon**
 
 Find the `<CartIcon>` JSX (around line 569):
+
 ```jsx
-<CartIcon
-  categories={menuData?.categories}
-  restaurantId={restaurantId}
-/>
+<CartIcon categories={menuData?.categories} restaurantId={restaurantId} />
 ```
 
 Change to:
+
 ```jsx
 <CartIcon
   categories={menuData?.categories}
@@ -1508,6 +1536,7 @@ git commit -m "feat: add profile nav to public menu action bar, forward selected
 ### Task 8: CustomerProfilePage — Translation + Back Button
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/CustomerProfilePage.tsx`
 
 Context: The full file was read. It has ~20 hardcoded English strings and hardcoded tier-threshold comparisons for colors (uses `acc.lifetimePoints >= 2000`). The spec says to use `acc.tier` directly. The file currently imports `useAuth`, `api`, `useNavigate`, `Button`. Add `useTranslation` and `useSearchParams` imports. `useSearchParams` is from `react-router-dom`.
@@ -1828,6 +1857,7 @@ git commit -m "feat: translate CustomerProfilePage and add returnTo back button"
 ### Task 9: Cart Language Sync + Upsell String Translations
 
 **Files:**
+
 - Modify: `apps/frontend/src/components/cart/CartIcon.tsx`
 - Modify: `apps/frontend/src/components/cart/CartDrawer.tsx`
 
@@ -2228,6 +2258,7 @@ git commit -m "fix: cart items resolve translated name on language switch; trans
 ### Task 10: ItemWithOptions — VARIATION Pre-selection + Pairing Translations
 
 **Files:**
+
 - Modify: `apps/frontend/src/components/menu/ItemWithOptions.tsx`
 
 Context: `ItemWithOptions.tsx` already imports `useTranslation` (line 5) and uses `{ t, i18n }` (line 33). `selectedOptions` state is at line 15: `const [selectedOptions, setSelectedOptions] = useState<Record<string, OptionChoice>>({})`. The VARIATION pre-selection `useEffect` must be added after the state declarations (after the cleanup effect at line 47). The 5 hardcoded strings are at lines 299, 303, 307, 314, 348.
@@ -2239,25 +2270,25 @@ In `apps/frontend/src/components/menu/ItemWithOptions.tsx`, add this `useEffect`
 ```typescript
 // Pre-select first choice for each VARIATION option when item changes
 useEffect(() => {
-    if (!item.options?.length) return;
-    setSelectedOptions((prev) => {
-        const init: Record<string, any> = { ...prev };
-        (item.options as any[]).forEach((opt: any) => {
-            if (
-                opt.type === 'VARIATION' &&
-                opt.choices?.length > 0 &&
-                !init[opt.id]
-            ) {
-                init[opt.id] = {
-                    optionId: opt.id,
-                    optionName: opt.name,
-                    choiceName: opt.choices[0].name,
-                    priceModifier: opt.choices[0].priceModifier ?? 0,
-                };
-            }
-        });
-        return init;
+  if (!item.options?.length) return;
+  setSelectedOptions((prev) => {
+    const init: Record<string, any> = { ...prev };
+    (item.options as any[]).forEach((opt: any) => {
+      if (
+        opt.type === "VARIATION" &&
+        opt.choices?.length > 0 &&
+        !init[opt.id]
+      ) {
+        init[opt.id] = {
+          optionId: opt.id,
+          optionName: opt.name,
+          choiceName: opt.choices[0].name,
+          priceModifier: opt.choices[0].priceModifier ?? 0,
+        };
+      }
     });
+    return init;
+  });
 }, [item.id]);
 ```
 
@@ -2266,52 +2297,77 @@ useEffect(() => {
 In `apps/frontend/src/components/menu/ItemWithOptions.tsx`:
 
 Line 299 — change:
+
 ```jsx
-<span className="text-[10px] font-black uppercase tracking-[0.2em] text-accent-foreground">Perfect Pairing</span>
+<span className="text-[10px] font-black uppercase tracking-[0.2em] text-accent-foreground">
+  Perfect Pairing
+</span>
 ```
+
 to:
+
 ```jsx
-<span className="text-[10px] font-black uppercase tracking-[0.2em] text-accent-foreground">{t('publicMenu.pairing.title')}</span>
+<span className="text-[10px] font-black uppercase tracking-[0.2em] text-accent-foreground">
+  {t("publicMenu.pairing.title")}
+</span>
 ```
 
 Lines 302–304 — change:
+
 ```jsx
 <h3 className="text-4xl sm:text-5xl font-serif font-black text-white tracking-tighter leading-[0.95] mb-6">
-    Complete Your <br className="hidden sm:block" /> {item.name}
+  Complete Your <br className="hidden sm:block" /> {item.name}
 </h3>
 ```
+
 to:
+
 ```jsx
 <h3 className="text-4xl sm:text-5xl font-serif font-black text-white tracking-tighter leading-[0.95] mb-6">
-    {t('publicMenu.pairing.completeYour', { name: item.name })}
+  {t("publicMenu.pairing.completeYour", { name: item.name })}
 </h3>
 ```
 
 Line 307 — change:
+
 ```jsx
 Exquisite additions selected by our chef to elevate your experience.
 ```
+
 to:
+
 ```jsx
-{t('publicMenu.pairing.chefDescription')}
+{
+  t("publicMenu.pairing.chefDescription");
+}
 ```
 
 Line 314 — change:
+
 ```jsx
 No thanks, continue
 ```
+
 to:
+
 ```jsx
-{t('publicMenu.pairing.noThanks')}
+{
+  t("publicMenu.pairing.noThanks");
+}
 ```
 
 Line 348 — change:
+
 ```jsx
 Add to order
 ```
+
 to:
+
 ```jsx
-{t('publicMenu.pairing.addToOrder')}
+{
+  t("publicMenu.pairing.addToOrder");
+}
 ```
 
 - [ ] **Step 3: Verify TypeScript compiles**
@@ -2325,6 +2381,7 @@ Expected: no errors.
 - [ ] **Step 4: Manual smoke test**
 
 Open the public menu. Open an item that has VARIATION-type options (e.g., Fine de Claire Oysters with Half Dozen / Full Dozen). Verify:
+
 - The modal opens with the first option (Half Dozen) pre-selected
 - The base item without any option is no longer orderable
 - The "Perfect Pairing" modal text renders in the current language
@@ -2341,6 +2398,7 @@ git commit -m "fix: pre-select first VARIATION option; translate pairing modal s
 ### Task 11: PrintableQRCodes — Single-Column A4 Layout
 
 **Files:**
+
 - Modify: `apps/frontend/src/components/tables/PrintableQRCodes.tsx`
 
 Context: Current layout uses `grid grid-cols-2 gap-8 p-8` (line 24) causing QR cards to be side-by-side. When there are more than 2 tables or when a card falls at a page boundary, cards are cut or overflow. Fix: single-column layout with A4 page rules so each card is full-width and fits 2 per printed A4 page.
@@ -2470,6 +2528,7 @@ git commit -m "fix: QR print layout — single column, A4 page rules, no cross-p
 ### Task 12: AnalyticsView — Fix Axis Labels in Dark Mode
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx`
 
 Context: Recharts renders `<XAxis>` and `<YAxis>` as SVG `<text>` elements. The current code sets `tick={{ fill: 'currentColor' }}` on axes with `className="text-muted-foreground"`. In dark mode, SVG `currentColor` does not reliably inherit the CSS `color` property from parent elements — the text renders black, invisible against a dark background. Fix: replace `fill: 'currentColor'` with the explicit HSL CSS variable `hsl(var(--color-muted-foreground))` on all axis ticks.
@@ -2482,38 +2541,48 @@ In `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx`, make these 5 changes:
 
 **AreaChart (Revenue Trend) — XAxis around line 196:**
 Change `tick={{ fontSize: 10, fontWeight: 900, fill: 'currentColor' }}` to:
+
 ```jsx
 tick={{ fontSize: 10, fontWeight: 900, fill: 'hsl(var(--color-muted-foreground))' }}
 ```
+
 Also remove `className="text-muted-foreground"` from the same XAxis (it is redundant after this fix).
 
 **AreaChart (Revenue Trend) — YAxis around line 205:**
 Change `tick={{ fontSize: 10, fontWeight: 900, fill: 'currentColor' }}` to:
+
 ```jsx
 tick={{ fontSize: 10, fontWeight: 900, fill: 'hsl(var(--color-muted-foreground))' }}
 ```
+
 Remove `className="text-muted-foreground"` from the same YAxis.
 
 **BarChart (Popular Selections) — YAxis around line 245:**
 Change `tick={{ fontSize: 10, fontWeight: 800, fill: 'currentColor' }}` to:
+
 ```jsx
 tick={{ fontSize: 10, fontWeight: 800, fill: 'hsl(var(--color-foreground))' }}
 ```
+
 (Item names use `foreground`, not muted — they are primary content.)
 Remove `className="text-foreground"`.
 
 **BarChart (Peak Hours) — XAxis around line 268:**
 Change `tick={{ fontSize: 9, fontWeight: 800, fill: 'currentColor' }}` to:
+
 ```jsx
 tick={{ fontSize: 9, fontWeight: 800, fill: 'hsl(var(--color-muted-foreground))' }}
 ```
+
 Remove `className="text-muted-foreground"`.
 
 **BarChart (Top Tables) — XAxis and YAxis around lines 329–330:**
 Change both `tick={{ fontSize: 10, fontWeight: 800, fill: 'currentColor' }}` to:
+
 ```jsx
 tick={{ fontSize: 10, fontWeight: 800, fill: 'hsl(var(--color-muted-foreground))' }}
 ```
+
 Remove `className="text-muted-foreground"` from both.
 
 - [ ] **Step 2: Verify TypeScript compiles**
@@ -2540,6 +2609,7 @@ git commit -m "fix: analytics chart axis labels visible in dark mode"
 ### Task 13: MenuService — Remove Category Image Audit Rule
 
 **Files:**
+
 - Modify: `apps/backend/src/menu/menu.service.ts`
 
 Context: The audit function at `apps/backend/src/menu/menu.service.ts` around lines 859–868 adds an `info`-level issue "Category has no banner image. Adding one improves visual appeal." for every category that lacks an `imageUrl`. There is no UI in the menu editor to add category images, so this rule fires for all categories and is misleading. Delete the 10-line block.
@@ -2549,16 +2619,15 @@ Context: The audit function at `apps/backend/src/menu/menu.service.ts` around li
 In `apps/backend/src/menu/menu.service.ts`, find and delete this entire block (approximately lines 859–868):
 
 ```typescript
-      // Rule: Category has no image
-      if (!(category as any).imageUrl) {
-        issues.push({
-          type: 'info',
-          message:
-            'Category has no banner image. Adding one improves visual appeal.',
-          categoryId: category.id,
-          field: 'imageUrl',
-        });
-      }
+// Rule: Category has no image
+if (!(category as any).imageUrl) {
+  issues.push({
+    type: "info",
+    message: "Category has no banner image. Adding one improves visual appeal.",
+    categoryId: category.id,
+    field: "imageUrl",
+  });
+}
 ```
 
 Leave the surrounding code (empty-category check before it, missing-translations check after it) intact.

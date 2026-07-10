@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -102,7 +106,10 @@ describe('UsersService', () => {
 
   describe('create', () => {
     it('normalizes email to lowercase on create', async () => {
-      await service.create({ email: 'BOB@Example.COM', name: 'Bob' } as any);
+      await service.create({
+        email: 'BOB@Example.COM',
+        name: 'Bob',
+      } as unknown as Parameters<typeof service.create>[0]);
       expect(prisma.user.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ email: 'bob@example.com' }),
@@ -111,7 +118,9 @@ describe('UsersService', () => {
     });
 
     it('skips normalization when email is absent', async () => {
-      await service.create({ name: 'No Email' } as any);
+      await service.create({ name: 'No Email' } as unknown as Parameters<
+        typeof service.create
+      >[0]);
       expect(prisma.user.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ name: 'No Email' }),
@@ -350,7 +359,9 @@ describe('UsersService', () => {
         return compareCallCount === 1; // true = collision on first, false on subsequent
       });
       // Return one existing hash so the collision path is triggered
-      prisma.user.findMany.mockResolvedValue([{ pinHash: 'some-existing-hash' }]);
+      prisma.user.findMany.mockResolvedValue([
+        { pinHash: 'some-existing-hash' },
+      ]);
 
       const result = await service.createStaffMember('rest-1', {
         name: 'Waiter',
@@ -385,10 +396,15 @@ describe('UsersService', () => {
       // Make every bcrypt.compare return true — every candidate PIN is a "duplicate"
       mockBcryptCompare.mockResolvedValue(true as never);
       // Return one existing hash so the uniqueness check runs
-      prisma.user.findMany.mockResolvedValue([{ pinHash: 'some-existing-hash' }]);
+      prisma.user.findMany.mockResolvedValue([
+        { pinHash: 'some-existing-hash' },
+      ]);
 
       await expect(
-        service.createStaffMember('rest-1', { name: 'Unlucky', role: 'WAITER' }),
+        service.createStaffMember('rest-1', {
+          name: 'Unlucky',
+          role: 'WAITER',
+        }),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -483,13 +499,52 @@ describe('UsersService', () => {
     });
   });
 
-  describe('updateStaffMember credential reconciliation', () => {
+  describe('updateStaffMember', () => {
     beforeEach(() => {
       prisma.restaurant.findUnique.mockResolvedValue({
         id: 'rest-1',
         ownerId: 'owner-1',
         tier: 'ENTERPRISE',
       });
+    });
+
+    it('throws NotFoundException if staff member not found', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+      await expect(
+        service.updateStaffMember('rest-1', 'user-1', { role: 'STAFF' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ForbiddenException if user.role is OWNER', async () => {
+      prisma.user.findFirst.mockResolvedValue({ ...mockUser, role: 'OWNER' });
+      await expect(
+        service.updateStaffMember('rest-1', 'user-1', { role: 'STAFF' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws ForbiddenException if user is MANAGER and caller is not OWNER', async () => {
+      prisma.user.findFirst.mockResolvedValue({ ...mockUser, role: 'MANAGER' });
+      await expect(
+        service.updateStaffMember(
+          'rest-1',
+          'user-1',
+          { role: 'STAFF' },
+          'MANAGER',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws ForbiddenException if the requested role is not allowed on the current tier', async () => {
+      prisma.user.findFirst.mockResolvedValue({ ...mockUser, role: 'WAITER' });
+      prisma.restaurant.findUnique.mockResolvedValue({
+        id: 'rest-1',
+        ownerId: 'owner-1',
+        tier: 'STARTER',
+      });
+      // STARTER tier usually does not allow MANAGER role
+      await expect(
+        service.updateStaffMember('rest-1', 'user-1', { role: 'MANAGER' }),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('clears pinHash when changing a device role to a dashboard role (WAITER → STAFF)', async () => {
@@ -507,7 +562,7 @@ describe('UsersService', () => {
           data: expect.objectContaining({ pinHash: null }),
         }),
       );
-      expect((result as any).rawPin).toBeUndefined();
+      expect((result as { rawPin?: string }).rawPin).toBeUndefined();
     });
 
     it('mints a PIN when changing a dashboard role to a device role (STAFF → WAITER)', async () => {
@@ -520,7 +575,7 @@ describe('UsersService', () => {
       const result = await service.updateStaffMember('rest-1', 'u', {
         role: 'WAITER',
       });
-      expect((result as any).rawPin).toMatch(/^\d{4}$/);
+      expect((result as { rawPin?: string }).rawPin).toMatch(/^\d{4}$/);
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -582,7 +637,10 @@ describe('UsersService', () => {
         }),
       });
       expect(result).toHaveProperty('id', 'user-1');
-      expect(events.evictUser).toHaveBeenCalledWith('user-1', 'account_removed');
+      expect(events.evictUser).toHaveBeenCalledWith(
+        'user-1',
+        'account_removed',
+      );
     });
 
     it('hard-deletes staff member when requested and writes audit log', async () => {
@@ -610,7 +668,10 @@ describe('UsersService', () => {
           },
         },
       });
-      expect(events.evictUser).toHaveBeenCalledWith('user-1', 'account_deleted');
+      expect(events.evictUser).toHaveBeenCalledWith(
+        'user-1',
+        'account_deleted',
+      );
       expect(result).toHaveProperty('id', 'user-1');
     });
 
@@ -625,6 +686,13 @@ describe('UsersService', () => {
       prisma.user.findFirst.mockResolvedValue({ ...mockUser, role: 'OWNER' });
       await expect(
         service.removeStaffMember('rest-1', 'user-1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws ForbiddenException when trying to remove MANAGER and caller is not OWNER', async () => {
+      prisma.user.findFirst.mockResolvedValue({ ...mockUser, role: 'MANAGER' });
+      await expect(
+        service.removeStaffMember('rest-1', 'user-1', 'MANAGER'),
       ).rejects.toThrow(ForbiddenException);
     });
   });

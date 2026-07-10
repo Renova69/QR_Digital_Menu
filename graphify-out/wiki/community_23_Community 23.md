@@ -5,6 +5,7 @@
 ## Nodes
 
 ### useAnalytics()
+
 - **ID:** `hooks_useanalytics_useanalytics`
 - **Type:** code
 - **Degree:** 5
@@ -17,6 +18,7 @@
   - ↔ `SummaryView()` [_`calls`_ | c88]
 
 ### AnalyticsData
+
 - **ID:** `hooks_useanalytics_analyticsdata`
 - **Type:** code
 - **Degree:** 3
@@ -27,6 +29,7 @@
   - ↔ `KpiRow.tsx` [_`imports`_ | c109]
 
 ### PeakHour
+
 - **ID:** `hooks_useanalytics_peakhour`
 - **Type:** code
 - **Degree:** 2
@@ -36,6 +39,7 @@
   - ↔ `analyticsExport.ts` [_`imports`_ | c31]
 
 ### RevenueTrendPoint
+
 - **ID:** `hooks_useanalytics_revenuetrendpoint`
 - **Type:** code
 - **Degree:** 2
@@ -45,6 +49,7 @@
   - ↔ `OrdersOverviewChart.tsx` [_`imports`_ | c69]
 
 ### TopItem
+
 - **ID:** `hooks_useanalytics_topitem`
 - **Type:** code
 - **Degree:** 2
@@ -54,6 +59,7 @@
   - ↔ `TopDishesTable.tsx` [_`imports`_ | c69]
 
 ### CategoryBreakdown
+
 - **ID:** `hooks_useanalytics_categorybreakdown`
 - **Type:** code
 - **Degree:** 1
@@ -62,6 +68,7 @@
   - ↔ `useAnalytics.ts` [_`contains`_ | c69]
 
 ### OrderStatusBreakdown
+
 - **ID:** `hooks_useanalytics_orderstatusbreakdown`
 - **Type:** code
 - **Degree:** 1
@@ -70,6 +77,7 @@
   - ↔ `useAnalytics.ts` [_`contains`_ | c69]
 
 ### TableMetric
+
 - **ID:** `hooks_useanalytics_tablemetric`
 - **Type:** code
 - **Degree:** 1

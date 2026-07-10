@@ -12,23 +12,23 @@
 
 ## File Map
 
-| File | Change |
-|------|--------|
-| `apps/backend/.env` | Add `DEEPL_API_KEY` placeholder |
-| `apps/backend/src/dashboard/dashboard.service.ts` | Fetch restaurant.timezone; Luxon in getRevenueTrend, getPeakHours, getSummary |
-| `apps/backend/src/translation/translation.service.ts` | Drop `apiKey` param, read from env |
-| `apps/backend/src/restaurants/dto/update-restaurant.dto.ts` | Remove `deeplApiKey` field |
-| `apps/backend/src/restaurants/restaurants.service.ts` | Drop `deeplApiKey` guard in `translateAll` |
-| `apps/backend/src/menu/menu.service.ts` | Fire-and-forget pre-warm on create/update; add lazy translate to `getPublicMenu` |
-| `apps/backend/src/menu/public-menu.controller.ts` | Accept `?lang` query param |
-| `apps/frontend/src/hooks/useAnalytics.ts` | `staleTime: 0` |
-| `apps/frontend/src/context/OrderContext.tsx` | Invalidate `['analytics']` on socket events |
-| `apps/frontend/src/pages/Dashboard/SettingsView.tsx` | Remove API key field/state/guard; add English to AVAILABLE_LANGUAGES |
-| `apps/frontend/src/i18n.ts` | `fallbackLng: 'bg'` |
-| `apps/frontend/src/components/Header.tsx` | Add language picker (i18next) |
-| `apps/frontend/src/locales/en/translation.json` | Audit + fill missing keys |
-| `apps/frontend/src/locales/bg/translation.json` | Audit + fill missing keys |
-| `apps/frontend/src/locales/ro/translation.json` | Audit + fill missing keys |
+| File                                                        | Change                                                                           |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `apps/backend/.env`                                         | Add `DEEPL_API_KEY` placeholder                                                  |
+| `apps/backend/src/dashboard/dashboard.service.ts`           | Fetch restaurant.timezone; Luxon in getRevenueTrend, getPeakHours, getSummary    |
+| `apps/backend/src/translation/translation.service.ts`       | Drop `apiKey` param, read from env                                               |
+| `apps/backend/src/restaurants/dto/update-restaurant.dto.ts` | Remove `deeplApiKey` field                                                       |
+| `apps/backend/src/restaurants/restaurants.service.ts`       | Drop `deeplApiKey` guard in `translateAll`                                       |
+| `apps/backend/src/menu/menu.service.ts`                     | Fire-and-forget pre-warm on create/update; add lazy translate to `getPublicMenu` |
+| `apps/backend/src/menu/public-menu.controller.ts`           | Accept `?lang` query param                                                       |
+| `apps/frontend/src/hooks/useAnalytics.ts`                   | `staleTime: 0`                                                                   |
+| `apps/frontend/src/context/OrderContext.tsx`                | Invalidate `['analytics']` on socket events                                      |
+| `apps/frontend/src/pages/Dashboard/SettingsView.tsx`        | Remove API key field/state/guard; add English to AVAILABLE_LANGUAGES             |
+| `apps/frontend/src/i18n.ts`                                 | `fallbackLng: 'bg'`                                                              |
+| `apps/frontend/src/components/Header.tsx`                   | Add language picker (i18next)                                                    |
+| `apps/frontend/src/locales/en/translation.json`             | Audit + fill missing keys                                                        |
+| `apps/frontend/src/locales/bg/translation.json`             | Audit + fill missing keys                                                        |
+| `apps/frontend/src/locales/ro/translation.json`             | Audit + fill missing keys                                                        |
 
 ---
 
@@ -39,6 +39,7 @@
 ### Task 1: Backend — timezone-aware analytics in DashboardService
 
 **Files:**
+
 - Modify: `apps/backend/src/dashboard/dashboard.service.ts`
 
 Context: `getAnalytics` dispatches several sub-methods. None of them know the restaurant timezone. `getRevenueTrend` groups by UTC date (wrong for non-UTC restaurants). `getPeakHours` uses `.getHours()` (UTC). `getSummary` sets "today" using server UTC midnight. Luxon is already installed (`luxon` is in the backend's node_modules, used in `menu.service.ts` and `orders.service.ts`).
@@ -48,7 +49,7 @@ Context: `getAnalytics` dispatches several sub-methods. None of them know the re
 Open `apps/backend/src/dashboard/dashboard.service.ts`. Add at line 3 (after the existing imports):
 
 ```typescript
-import { DateTime } from 'luxon';
+import { DateTime } from "luxon";
 ```
 
 - [ ] **Step 2: Update `getAnalytics` to fetch restaurant timezone and pass it to sub-methods**
@@ -304,9 +305,11 @@ async getSummary(restaurantId: string) {
 - [ ] **Step 6: Verify the file compiles**
 
 Run in `apps/backend`:
+
 ```bash
 npx tsc --noEmit
 ```
+
 Expected: no errors (or only pre-existing unrelated errors).
 
 - [ ] **Step 7: Commit**
@@ -321,6 +324,7 @@ git commit -m "fix(analytics): timezone-aware date and hour grouping using Luxon
 ### Task 2: Frontend — staleTime=0 in useAnalytics
 
 **Files:**
+
 - Modify: `apps/frontend/src/hooks/useAnalytics.ts`
 
 Context: `staleTime: 5 * 60 * 1000` means TanStack Query considers the cached data fresh for 5 minutes and never re-fetches during that window even if the component re-mounts. Setting to 0 means the cache is always stale; data is fetched immediately on mount. The `refetchInterval: 30000` safety-net polling stays.
@@ -328,10 +332,13 @@ Context: `staleTime: 5 * 60 * 1000` means TanStack Query considers the cached da
 - [ ] **Step 1: Change staleTime to 0**
 
 In `apps/frontend/src/hooks/useAnalytics.ts`, replace:
+
 ```typescript
     staleTime: 5 * 60 * 1000, // 5 minutes — analytics don't need real-time updates
 ```
+
 with:
+
 ```typescript
     staleTime: 0,
 ```
@@ -348,6 +355,7 @@ git commit -m "fix(analytics): set staleTime=0 so analytics refetch on every mou
 ### Task 3: Frontend — analytics cache invalidation on order socket events
 
 **Files:**
+
 - Modify: `apps/frontend/src/context/OrderContext.tsx`
 
 Context: `OrderContext` already listens to `newOrder` and `orderStatusChanged` socket events and refreshes its local orders list. We need to also invalidate the TanStack Query analytics cache so analytics refetch immediately when a new order arrives — without waiting for the 30s poll.
@@ -355,22 +363,40 @@ Context: `OrderContext` already listens to `newOrder` and `orderStatusChanged` s
 - [ ] **Step 1: Add useQueryClient import**
 
 In `apps/frontend/src/context/OrderContext.tsx`, change the first import line from:
+
 ```typescript
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 ```
+
 to:
+
 ```typescript
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useCallback,
+} from "react";
 ```
 
 Add after the existing imports (after the `useSocket` import):
+
 ```typescript
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from "@tanstack/react-query";
 ```
 
 - [ ] **Step 2: Obtain queryClient inside the provider and invalidate on order events**
 
 Inside `OrderProvider`, after the existing state declarations, add:
+
 ```typescript
 const queryClient = useQueryClient();
 ```
@@ -378,36 +404,37 @@ const queryClient = useQueryClient();
 Then update the `handleNewOrder` and `handleOrderStatusChanged` handlers inside the `useEffect` to also invalidate analytics:
 
 Replace:
-```typescript
-    const handleNewOrder = () => {
-      // Small chime for new UI event
-      const audio = new Audio('/notification.mp3');
-      audio.play().catch(() => {}); // Catch autoplay restrictions
-      
-      // We can either append to state or just refresh fully
-      refreshOrders();
-    };
 
-    const handleOrderStatusChanged = () => {
-       // Refresh or perfectly mutate state
-       refreshOrders();
-    };
+```typescript
+const handleNewOrder = () => {
+  // Small chime for new UI event
+  const audio = new Audio("/notification.mp3");
+  audio.play().catch(() => {}); // Catch autoplay restrictions
+
+  // We can either append to state or just refresh fully
+  refreshOrders();
+};
+
+const handleOrderStatusChanged = () => {
+  // Refresh or perfectly mutate state
+  refreshOrders();
+};
 ```
 
 with:
 
 ```typescript
-    const handleNewOrder = () => {
-      const audio = new Audio('/notification.mp3');
-      audio.play().catch(() => {});
-      refreshOrders();
-      void queryClient.invalidateQueries({ queryKey: ['analytics'] });
-    };
+const handleNewOrder = () => {
+  const audio = new Audio("/notification.mp3");
+  audio.play().catch(() => {});
+  refreshOrders();
+  void queryClient.invalidateQueries({ queryKey: ["analytics"] });
+};
 
-    const handleOrderStatusChanged = () => {
-      refreshOrders();
-      void queryClient.invalidateQueries({ queryKey: ['analytics'] });
-    };
+const handleOrderStatusChanged = () => {
+  refreshOrders();
+  void queryClient.invalidateQueries({ queryKey: ["analytics"] });
+};
 ```
 
 - [ ] **Step 3: Verify the component renders without error**
@@ -430,6 +457,7 @@ git commit -m "fix(analytics): invalidate analytics cache on incoming order sock
 ### Task 4: Backend — TranslationService reads DeepL key from env
 
 **Files:**
+
 - Modify: `apps/backend/src/translation/translation.service.ts`
 - Modify: `apps/backend/.env`
 
@@ -438,6 +466,7 @@ Context: All three public methods currently accept `apiKey: string` as a param. 
 - [ ] **Step 1: Add DEEPL_API_KEY to .env**
 
 Open `apps/backend/.env` and add at the end:
+
 ```
 DEEPL_API_KEY=your-deepl-key-here
 ```
@@ -449,8 +478,8 @@ Replace `your-deepl-key-here` with the actual DeepL API key. Free-tier keys end 
 Replace the entire content of `apps/backend/src/translation/translation.service.ts` with:
 
 ```typescript
-import { Injectable, Logger } from '@nestjs/common';
-import axios from 'axios';
+import { Injectable, Logger } from "@nestjs/common";
+import axios from "axios";
 
 @Injectable()
 export class TranslationService {
@@ -461,9 +490,9 @@ export class TranslationService {
   }
 
   private get baseUrl(): string {
-    return this.apiKey?.endsWith(':fx')
-      ? 'https://api-free.deepl.com'
-      : 'https://api.deepl.com';
+    return this.apiKey?.endsWith(":fx")
+      ? "https://api-free.deepl.com"
+      : "https://api.deepl.com";
   }
 
   async translateTexts(
@@ -474,7 +503,7 @@ export class TranslationService {
 
     const key = this.apiKey;
     if (!key) {
-      this.logger.warn('DEEPL_API_KEY not set — returning original texts');
+      this.logger.warn("DEEPL_API_KEY not set — returning original texts");
       return texts;
     }
 
@@ -488,7 +517,7 @@ export class TranslationService {
         {
           headers: {
             Authorization: `DeepL-Auth-Key ${key}`,
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
         },
       );
@@ -518,12 +547,12 @@ export class TranslationService {
     }
 
     if (!this.apiKey) {
-      this.logger.warn('DEEPL_API_KEY not set — skipping translateObject');
+      this.logger.warn("DEEPL_API_KEY not set — skipping translateObject");
       return translations;
     }
 
     const entriesToTranslate = Object.entries(obj).filter(
-      ([_, value]) => value && value.trim() !== '',
+      ([_, value]) => value && value.trim() !== "",
     );
     if (entriesToTranslate.length === 0) return translations;
 
@@ -564,6 +593,7 @@ git commit -m "feat(translation): platform-managed DeepL key, remove apiKey para
 ### Task 5: Backend — remove deeplApiKey from UpdateRestaurantDto
 
 **Files:**
+
 - Modify: `apps/backend/src/restaurants/dto/update-restaurant.dto.ts`
 
 Context: Removing this field from the DTO prevents any frontend from accidentally writing `deeplApiKey` to the DB. The column stays in the schema (CLAUDE.md requirement) but nothing writes to it.
@@ -596,6 +626,7 @@ git commit -m "fix(translation): remove deeplApiKey from UpdateRestaurantDto —
 ### Task 6: Backend — RestaurantsService.translateAll uses platform key
 
 **Files:**
+
 - Modify: `apps/backend/src/restaurants/restaurants.service.ts`
 
 Context: `translateAll` currently guards on `restaurant.deeplApiKey` and passes it to every `translationService.*` call. After Task 4, `TranslationService` reads from env and accepts no key arg. We replace the guard with an env check and remove the third argument from all translation calls.
@@ -646,11 +677,14 @@ with:
 There are three `translateObject` calls in `translateAll`. Each currently has `restaurant.deeplApiKey` as the third argument. Remove that third argument from all three.
 
 Change all occurrences of:
+
 ```typescript
         restaurant.targetLanguages,
         restaurant.deeplApiKey,
 ```
+
 to:
+
 ```typescript
         restaurant.targetLanguages,
 ```
@@ -677,6 +711,7 @@ git commit -m "fix(translation): translateAll uses platform DEEPL_API_KEY, remov
 ### Task 7: Backend — MenuService fire-and-forget pre-warm on create/update
 
 **Files:**
+
 - Modify: `apps/backend/src/menu/menu.service.ts`
 
 Context: Currently `createCategory`, `updateCategory`, `createItem`, `updateItem` check `restaurant.googleTranslateApiKey` (wrong — legacy), and `createMenuOption`, `updateMenuOption` check `restaurant.deeplApiKey`. All block the HTTP response while translating. After this task they use the platform env key and fire-and-forget (non-blocking). `TranslationService` methods no longer accept a key arg (Task 4).
@@ -1091,6 +1126,7 @@ git commit -m "fix(translation): fire-and-forget pre-warm on create/update using
 ### Task 8: Backend — lazy translation in getPublicMenu + controller lang param
 
 **Files:**
+
 - Modify: `apps/backend/src/menu/menu.service.ts` (getPublicMenu method only)
 - Modify: `apps/backend/src/menu/public-menu.controller.ts`
 
@@ -1101,11 +1137,11 @@ Context: When a customer visits `GET /api/menu/public/:restaurantId?lang=ro`, th
 Replace the entire content of `apps/backend/src/menu/public-menu.controller.ts` with:
 
 ```typescript
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
-import { MenuService } from './menu.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
+import { MenuService } from "./menu.service";
+import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 
-@Controller('menu')
+@Controller("menu")
 export class PublicMenuController {
   constructor(private readonly menuService: MenuService) {}
 
@@ -1117,22 +1153,22 @@ export class PublicMenuController {
     };
   }
 
-  @Get('public/:restaurantId')
+  @Get("public/:restaurantId")
   getPublicMenu(
-    @Param('restaurantId') restaurantId: string,
-    @Query('lang') lang?: string,
+    @Param("restaurantId") restaurantId: string,
+    @Query("lang") lang?: string,
   ) {
     return this.menuService.getPublicMenu(restaurantId, lang);
   }
 
-  @Get('public/:restaurantId/trending')
-  getTrendingItems(@Param('restaurantId') restaurantId: string) {
+  @Get("public/:restaurantId/trending")
+  getTrendingItems(@Param("restaurantId") restaurantId: string) {
     return this.menuService.getTrendingItems(restaurantId);
   }
 
-  @Get('test')
+  @Get("test")
   testRoute() {
-    return { message: 'PublicMenuController is working!' };
+    return { message: "PublicMenuController is working!" };
   }
 }
 ```
@@ -1156,149 +1192,163 @@ to:
 In `getPublicMenu`, find the existing return statement:
 
 ```typescript
-    return { restaurant, categories: filteredCategories };
+return { restaurant, categories: filteredCategories };
 ```
 
 Replace it with:
 
 ```typescript
-    if (lang && process.env.DEEPL_API_KEY) {
-      for (const category of filteredCategories) {
-        const catTrans: any =
-          category.translations && typeof category.translations === 'object'
-            ? { ...(category.translations as any) }
+if (lang && process.env.DEEPL_API_KEY) {
+  for (const category of filteredCategories) {
+    const catTrans: any =
+      category.translations && typeof category.translations === "object"
+        ? { ...(category.translations as any) }
+        : {};
+
+    if (!catTrans[lang]?.name) {
+      try {
+        const translated = await this.translationService.translateObject(
+          { name: category.name },
+          [lang],
+        );
+        if (translated[lang]) {
+          const merged = { ...catTrans, ...translated };
+          await this.prisma.menuCategory.update({
+            where: { id: category.id },
+            data: { translations: merged },
+          });
+          catTrans[lang] = translated[lang];
+        }
+      } catch {
+        /* keep original */
+      }
+      await new Promise((r) => setTimeout(r, 300));
+    }
+
+    if (catTrans[lang]?.name) {
+      (category as any).name = catTrans[lang].name;
+    }
+
+    for (const item of (category as any).items ?? []) {
+      const itemTrans: any =
+        item.translations && typeof item.translations === "object"
+          ? { ...(item.translations as any) }
+          : {};
+
+      if (!itemTrans[lang]?.name) {
+        try {
+          const textToTranslate: Record<string, string> = { name: item.name };
+          if (item.description) textToTranslate.description = item.description;
+          (item.allergens || []).forEach((a: string) => {
+            textToTranslate[`allergen_${a}`] = a;
+          });
+          (item.dietaryTags || []).forEach((t: string) => {
+            textToTranslate[`tag_${t}`] = t;
+          });
+
+          const translated = await this.translationService.translateObject(
+            textToTranslate,
+            [lang],
+          );
+
+          if (translated[lang]) {
+            const langData = translated[lang];
+            const translatedAllergens: string[] = [];
+            const translatedTags: string[] = [];
+            for (const key of Object.keys(langData)) {
+              if (key.startsWith("allergen_")) {
+                translatedAllergens.push(langData[key]);
+                delete langData[key];
+              } else if (key.startsWith("tag_")) {
+                translatedTags.push(langData[key]);
+                delete langData[key];
+              }
+            }
+            if (translatedAllergens.length)
+              (langData as any).allergens = translatedAllergens;
+            if (translatedTags.length)
+              (langData as any).dietaryTags = translatedTags;
+
+            const merged = { ...itemTrans, ...translated };
+            await this.prisma.menuItem.update({
+              where: { id: item.id },
+              data: { translations: merged },
+            });
+            itemTrans[lang] = langData;
+          }
+        } catch {
+          /* keep original */
+        }
+        await new Promise((r) => setTimeout(r, 300));
+      }
+
+      if (itemTrans[lang]?.name) item.name = itemTrans[lang].name;
+      if (itemTrans[lang]?.description)
+        item.description = itemTrans[lang].description;
+      if (itemTrans[lang]?.allergens)
+        item.allergens = itemTrans[lang].allergens;
+      if (itemTrans[lang]?.dietaryTags)
+        item.dietaryTags = itemTrans[lang].dietaryTags;
+
+      for (const option of item.options ?? []) {
+        const optTrans: any =
+          option.translations && typeof option.translations === "object"
+            ? { ...(option.translations as any) }
             : {};
 
-        if (!catTrans[lang]?.name) {
+        if (!optTrans[lang]?.name) {
           try {
+            const textToTranslate: Record<string, string> = {
+              name: option.name,
+            };
+            const choices = (option.choices as any[]) || [];
+            choices.forEach((c: any) => {
+              if (c.name) textToTranslate[`choice_${c.name}`] = c.name;
+            });
+
             const translated = await this.translationService.translateObject(
-              { name: category.name },
+              textToTranslate,
               [lang],
             );
+
             if (translated[lang]) {
-              const merged = { ...catTrans, ...translated };
-              await this.prisma.menuCategory.update({
-                where: { id: category.id },
-                data: { translations: merged },
+              if (!optTrans[lang]) optTrans[lang] = { choices: {} };
+              if (!optTrans[lang].choices) optTrans[lang].choices = {};
+
+              const langData = translated[lang];
+              if (langData.name) optTrans[lang].name = langData.name;
+              for (const key of Object.keys(langData)) {
+                if (key.startsWith("choice_")) {
+                  optTrans[lang].choices[key.replace("choice_", "")] =
+                    langData[key];
+                }
+              }
+
+              await this.prisma.menuOption.update({
+                where: { id: option.id },
+                data: { translations: optTrans } as any,
               });
-              catTrans[lang] = translated[lang];
             }
-          } catch { /* keep original */ }
+          } catch {
+            /* keep original */
+          }
           await new Promise((r) => setTimeout(r, 300));
         }
 
-        if (catTrans[lang]?.name) {
-          (category as any).name = catTrans[lang].name;
-        }
-
-        for (const item of (category as any).items ?? []) {
-          const itemTrans: any =
-            item.translations && typeof item.translations === 'object'
-              ? { ...(item.translations as any) }
-              : {};
-
-          if (!itemTrans[lang]?.name) {
-            try {
-              const textToTranslate: Record<string, string> = { name: item.name };
-              if (item.description) textToTranslate.description = item.description;
-              (item.allergens || []).forEach((a: string) => {
-                textToTranslate[`allergen_${a}`] = a;
-              });
-              (item.dietaryTags || []).forEach((t: string) => {
-                textToTranslate[`tag_${t}`] = t;
-              });
-
-              const translated = await this.translationService.translateObject(
-                textToTranslate,
-                [lang],
-              );
-
-              if (translated[lang]) {
-                const langData = translated[lang];
-                const translatedAllergens: string[] = [];
-                const translatedTags: string[] = [];
-                for (const key of Object.keys(langData)) {
-                  if (key.startsWith('allergen_')) {
-                    translatedAllergens.push(langData[key]);
-                    delete langData[key];
-                  } else if (key.startsWith('tag_')) {
-                    translatedTags.push(langData[key]);
-                    delete langData[key];
-                  }
-                }
-                if (translatedAllergens.length) (langData as any).allergens = translatedAllergens;
-                if (translatedTags.length) (langData as any).dietaryTags = translatedTags;
-
-                const merged = { ...itemTrans, ...translated };
-                await this.prisma.menuItem.update({
-                  where: { id: item.id },
-                  data: { translations: merged },
-                });
-                itemTrans[lang] = langData;
-              }
-            } catch { /* keep original */ }
-            await new Promise((r) => setTimeout(r, 300));
-          }
-
-          if (itemTrans[lang]?.name) item.name = itemTrans[lang].name;
-          if (itemTrans[lang]?.description) item.description = itemTrans[lang].description;
-          if (itemTrans[lang]?.allergens) item.allergens = itemTrans[lang].allergens;
-          if (itemTrans[lang]?.dietaryTags) item.dietaryTags = itemTrans[lang].dietaryTags;
-
-          for (const option of item.options ?? []) {
-            const optTrans: any =
-              option.translations && typeof option.translations === 'object'
-                ? { ...(option.translations as any) }
-                : {};
-
-            if (!optTrans[lang]?.name) {
-              try {
-                const textToTranslate: Record<string, string> = { name: option.name };
-                const choices = (option.choices as any[]) || [];
-                choices.forEach((c: any) => {
-                  if (c.name) textToTranslate[`choice_${c.name}`] = c.name;
-                });
-
-                const translated = await this.translationService.translateObject(
-                  textToTranslate,
-                  [lang],
-                );
-
-                if (translated[lang]) {
-                  if (!optTrans[lang]) optTrans[lang] = { choices: {} };
-                  if (!optTrans[lang].choices) optTrans[lang].choices = {};
-
-                  const langData = translated[lang];
-                  if (langData.name) optTrans[lang].name = langData.name;
-                  for (const key of Object.keys(langData)) {
-                    if (key.startsWith('choice_')) {
-                      optTrans[lang].choices[key.replace('choice_', '')] = langData[key];
-                    }
-                  }
-
-                  await this.prisma.menuOption.update({
-                    where: { id: option.id },
-                    data: { translations: optTrans } as any,
-                  });
-                }
-              } catch { /* keep original */ }
-              await new Promise((r) => setTimeout(r, 300));
-            }
-
-            if (optTrans[lang]?.name) option.name = optTrans[lang].name;
-            if (optTrans[lang]?.choices) {
-              const choices = (option.choices as any[]) || [];
-              option.choices = choices.map((c: any) => ({
-                ...c,
-                name: optTrans[lang].choices[c.name] || c.name,
-              }));
-            }
-          }
+        if (optTrans[lang]?.name) option.name = optTrans[lang].name;
+        if (optTrans[lang]?.choices) {
+          const choices = (option.choices as any[]) || [];
+          option.choices = choices.map((c: any) => ({
+            ...c,
+            name: optTrans[lang].choices[c.name] || c.name,
+          }));
         }
       }
     }
+  }
+}
 
-    return { restaurant, categories: filteredCategories };
+return { restaurant, categories: filteredCategories };
 ```
 
 - [ ] **Step 4: Verify compile**
@@ -1312,9 +1362,11 @@ Expected: zero errors.
 - [ ] **Step 5: Manual test**
 
 Start backend, visit:
+
 ```
 GET http://localhost:3000/api/menu/public/<restaurantId>?lang=en
 ```
+
 Confirm response contains English names for categories, items, options (or original if no key set). Second call returns same data without DeepL API hit (DB cached).
 
 - [ ] **Step 6: Commit**
@@ -1329,6 +1381,7 @@ git commit -m "feat(translation): lazy on-demand public menu translation with DB
 ### Task 9: Frontend — SettingsView cleanup
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/Dashboard/SettingsView.tsx`
 
 Context: Remove `deeplApiKey` state variable, the password input for it, the `handleForceTranslate` guard (`if (!deeplApiKey)`), the `deeplApiKey` in `handleSave` payload, and the `updateRestaurant` call inside `handleForceTranslate`. Add English to `AVAILABLE_LANGUAGES`. Add "Translation powered by DeepL" info text. Enable translate button when `targetLanguages.length > 0` (no key required).
@@ -1336,13 +1389,15 @@ Context: Remove `deeplApiKey` state variable, the password input for it, the `ha
 - [ ] **Step 1: Remove deeplApiKey state and its initialization**
 
 Remove:
+
 ```typescript
-  const [deeplApiKey, setDeeplApiKey] = useState("");
+const [deeplApiKey, setDeeplApiKey] = useState("");
 ```
 
 Remove from the `useEffect` that populates from `activeRestaurant`:
+
 ```typescript
-      setDeeplApiKey(activeRestaurant.deeplApiKey || "");
+setDeeplApiKey(activeRestaurant.deeplApiKey || "");
 ```
 
 - [ ] **Step 2: Remove deeplApiKey from handleSave**
@@ -1352,73 +1407,84 @@ In `handleSave`, remove `deeplApiKey,` from the `updateRestaurant` call payload 
 - [ ] **Step 3: Simplify handleForceTranslate**
 
 Replace the existing `handleForceTranslate`:
+
 ```typescript
-  const handleForceTranslate = async () => {
-    if (!activeRestaurant) return;
-    if (!deeplApiKey) {
-      setStatus({ loading: false, error: t("settings.apiKeyRequired"), success: "" });
-      return;
-    }
+const handleForceTranslate = async () => {
+  if (!activeRestaurant) return;
+  if (!deeplApiKey) {
+    setStatus({
+      loading: false,
+      error: t("settings.apiKeyRequired"),
+      success: "",
+    });
+    return;
+  }
 
-    setTranslating(true);
-    setStatus({ loading: false, error: "", success: "" });
+  setTranslating(true);
+  setStatus({ loading: false, error: "", success: "" });
 
-    try {
-      await updateRestaurant(activeRestaurant.id, { deeplApiKey, targetLanguages });
-      const res = await triggerTranslation(activeRestaurant.id);
-      if (res.success) {
-        setStatus({ loading: false, error: "", success: res.message });
-      } else {
-        setStatus({ loading: false, error: res.message, success: "" });
-      }
-    } catch (err: any) {
-      setStatus({
-        loading: false,
-        error: err.response?.data?.message || t("settings.failedInitiate"),
-        success: "",
-      });
-    } finally {
-      setTranslating(false);
+  try {
+    await updateRestaurant(activeRestaurant.id, {
+      deeplApiKey,
+      targetLanguages,
+    });
+    const res = await triggerTranslation(activeRestaurant.id);
+    if (res.success) {
+      setStatus({ loading: false, error: "", success: res.message });
+    } else {
+      setStatus({ loading: false, error: res.message, success: "" });
     }
-  };
+  } catch (err: any) {
+    setStatus({
+      loading: false,
+      error: err.response?.data?.message || t("settings.failedInitiate"),
+      success: "",
+    });
+  } finally {
+    setTranslating(false);
+  }
+};
 ```
 
 with:
 
 ```typescript
-  const handleForceTranslate = async () => {
-    if (!activeRestaurant) return;
+const handleForceTranslate = async () => {
+  if (!activeRestaurant) return;
 
-    setTranslating(true);
-    setStatus({ loading: false, error: "", success: "" });
+  setTranslating(true);
+  setStatus({ loading: false, error: "", success: "" });
 
-    try {
-      const res = await triggerTranslation(activeRestaurant.id);
-      if (res.success) {
-        setStatus({ loading: false, error: "", success: res.message });
-      } else {
-        setStatus({ loading: false, error: res.message, success: "" });
-      }
-    } catch (err: any) {
-      setStatus({
-        loading: false,
-        error: err.response?.data?.message || t("settings.failedInitiate"),
-        success: "",
-      });
-    } finally {
-      setTranslating(false);
+  try {
+    const res = await triggerTranslation(activeRestaurant.id);
+    if (res.success) {
+      setStatus({ loading: false, error: "", success: res.message });
+    } else {
+      setStatus({ loading: false, error: res.message, success: "" });
     }
-  };
+  } catch (err: any) {
+    setStatus({
+      loading: false,
+      error: err.response?.data?.message || t("settings.failedInitiate"),
+      success: "",
+    });
+  } finally {
+    setTranslating(false);
+  }
+};
 ```
 
 - [ ] **Step 4: Add English to AVAILABLE_LANGUAGES**
 
 Replace:
+
 ```typescript
 const AVAILABLE_LANGUAGES = [
   { code: "bg", name: "Bulgarian" },
 ```
+
 with:
+
 ```typescript
 const AVAILABLE_LANGUAGES = [
   { code: "en", name: "English" },
@@ -1430,27 +1496,30 @@ const AVAILABLE_LANGUAGES = [
 Find and remove the entire `<div>` block containing the DeepL API key label + password input:
 
 ```tsx
-              <div>
-                <label className="block text-sm font-medium text-foreground/80 mb-1">
-                  {t("settings.deeplApiKey", "DeepL API Key")}
-                </label>
-                <input
-                  type="password"
-                  value={deeplApiKey}
-                  onChange={(e) => setDeeplApiKey(e.target.value)}
-                  placeholder="DeepL-Auth-Key..."
-                  className={inputCls}
-                />
-              </div>
+<div>
+  <label className="block text-sm font-medium text-foreground/80 mb-1">
+    {t("settings.deeplApiKey", "DeepL API Key")}
+  </label>
+  <input
+    type="password"
+    value={deeplApiKey}
+    onChange={(e) => setDeeplApiKey(e.target.value)}
+    placeholder="DeepL-Auth-Key..."
+    className={inputCls}
+  />
+</div>
 ```
 
 - [ ] **Step 6: Update the Translate All Now button — enable when targetLanguages selected**
 
 Change the `disabled` condition on the button from:
+
 ```tsx
                 disabled={translating || !deeplApiKey}
 ```
+
 to:
+
 ```tsx
                 disabled={translating || targetLanguages.length === 0}
 ```
@@ -1458,10 +1527,11 @@ to:
 - [ ] **Step 7: Add "Translation powered by DeepL" info text below the translate button panel**
 
 After the closing `</div>` of the yellow translate panel, add:
+
 ```tsx
-            <p className="text-xs text-muted-foreground mt-2">
-              {t("settings.translationPoweredBy")}
-            </p>
+<p className="text-xs text-muted-foreground mt-2">
+  {t("settings.translationPoweredBy")}
+</p>
 ```
 
 - [ ] **Step 8: Verify the component renders without TypeScript errors**
@@ -1482,6 +1552,7 @@ git commit -m "fix(translation): remove API key UI from SettingsView, enable tra
 ### Task 10: Frontend — i18n fallbackLng + Header language picker
 
 **Files:**
+
 - Modify: `apps/frontend/src/i18n.ts`
 - Modify: `apps/frontend/src/components/Header.tsx`
 
@@ -1490,10 +1561,13 @@ Context: Change default fallback language to BG (Bulgarian is the primary market
 - [ ] **Step 1: Change fallbackLng to 'bg' in i18n.ts**
 
 In `apps/frontend/src/i18n.ts`, replace:
+
 ```typescript
     fallbackLng: 'en',
 ```
+
 with:
+
 ```typescript
     fallbackLng: 'bg',
 ```
@@ -1617,11 +1691,13 @@ git commit -m "feat(i18n): fallbackLng=bg, add language picker to dashboard head
 ### Task 11: Locale JSON audit — add missing translation keys
 
 **Files:**
+
 - Modify: `apps/frontend/src/locales/en/translation.json`
 - Modify: `apps/frontend/src/locales/bg/translation.json`
 - Modify: `apps/frontend/src/locales/ro/translation.json`
 
 Context: Several i18n keys are used in components but missing from the JSON files:
+
 - `settings.failedSave` — used in `SettingsView` catch block (`handleSave`)
 - `settings.failedInitiate` — used in `SettingsView` catch block (`handleForceTranslate`)
 - `settings.timezone` — label hardcoded as "Timezone" in `SettingsView`
@@ -1629,6 +1705,7 @@ Context: Several i18n keys are used in components but missing from the JSON file
 - `settings.translationPoweredBy` — new string added in Task 9
 
 Also remove obsolete keys no longer referenced by any component:
+
 - `settings.deeplApiKey` — removed in Task 9 (the input field is gone)
 - `settings.apiKeyRequired` — the guard is gone; key is unused
 
@@ -1639,6 +1716,7 @@ For BG/RO files: `settings.googleApiKey` is a leftover from the Google Translate
 In the `"settings"` object, make these changes:
 
 Add the five new/missing keys:
+
 ```json
     "failedSave": "Failed to save settings. Please try again.",
     "failedInitiate": "Failed to initiate translation. Please try again.",
@@ -1648,10 +1726,12 @@ Add the five new/missing keys:
 ```
 
 Remove these two obsolete keys:
+
 - `"deeplApiKey"` (line with `"DeepL API Key"`)
 - `"apiKeyRequired"` (line with `"DeepL API Key is required."`)
 
 The resulting `settings` object in EN should be:
+
 ```json
   "settings": {
     "title": "Settings",
@@ -1682,6 +1762,7 @@ The resulting `settings` object in EN should be:
 Remove: `"googleApiKey"`, `"apiKeyRequired"` keys.
 
 Add the five missing keys (translated to Bulgarian):
+
 ```json
     "failedSave": "Неуспешно запазване на настройките. Моля, опитайте отново.",
     "failedInitiate": "Неуспешно стартиране на превода. Моля, опитайте отново.",
@@ -1691,6 +1772,7 @@ Add the five missing keys (translated to Bulgarian):
 ```
 
 Update `"localizationDesc"` to remove the Google API key reference:
+
 ```json
     "localizationDesc": "Активирайте автоматичния превод за вашето цифрово меню. Артикулите ще бъдат превеждани чрез DeepL.",
 ```
@@ -1700,6 +1782,7 @@ Update `"localizationDesc"` to remove the Google API key reference:
 Remove: `"googleApiKey"`, `"apiKeyRequired"` keys.
 
 Add the five missing keys (translated to Romanian):
+
 ```json
     "failedSave": "Salvarea setărilor a eșuat. Vă rugăm să încercați din nou.",
     "failedInitiate": "Inițierea traducerii a eșuat. Vă rugăm să încercați din nou.",
@@ -1709,6 +1792,7 @@ Add the five missing keys (translated to Romanian):
 ```
 
 Update `"localizationDesc"`:
+
 ```json
     "localizationDesc": "Activați traducerea automată pentru meniul digital. Articolele vor fi traduse prin DeepL.",
 ```
@@ -1756,27 +1840,27 @@ git commit -m "fix(i18n): audit locale JSON files — add missing keys, remove o
 
 **Spec coverage check:**
 
-| Spec requirement | Task |
-|-----------------|------|
-| `staleTime: 0` | Task 2 |
-| Analytics cache invalidation on socket | Task 3 |
-| `getRevenueTrend` Luxon timezone | Task 1 |
-| `getPeakHours` Luxon hour | Task 1 |
-| `getSummary` Luxon today | Task 1 |
-| TranslationService env key, drop apiKey param | Task 4 |
-| `deeplApiKey` not written via DTO | Task 5 |
-| `translateAll` uses env key | Task 6 |
-| Post-save pre-warm fire-and-forget | Task 7 |
-| Public menu `?lang` param | Task 8 |
-| Lazy translate + DB cache public menu | Task 8 |
-| Remove API key field from SettingsView | Task 9 |
-| Enable translate btn by language selection | Task 9 |
-| English added to AVAILABLE_LANGUAGES | Task 9 |
-| "Translation powered by DeepL" text | Task 9 |
-| `fallbackLng: 'bg'` | Task 10 |
-| Language picker in header | Task 10 |
-| i18n JSON missing key audit | Task 11 |
-| Timezone label in i18n | Task 11 |
+| Spec requirement                              | Task    |
+| --------------------------------------------- | ------- |
+| `staleTime: 0`                                | Task 2  |
+| Analytics cache invalidation on socket        | Task 3  |
+| `getRevenueTrend` Luxon timezone              | Task 1  |
+| `getPeakHours` Luxon hour                     | Task 1  |
+| `getSummary` Luxon today                      | Task 1  |
+| TranslationService env key, drop apiKey param | Task 4  |
+| `deeplApiKey` not written via DTO             | Task 5  |
+| `translateAll` uses env key                   | Task 6  |
+| Post-save pre-warm fire-and-forget            | Task 7  |
+| Public menu `?lang` param                     | Task 8  |
+| Lazy translate + DB cache public menu         | Task 8  |
+| Remove API key field from SettingsView        | Task 9  |
+| Enable translate btn by language selection    | Task 9  |
+| English added to AVAILABLE_LANGUAGES          | Task 9  |
+| "Translation powered by DeepL" text           | Task 9  |
+| `fallbackLng: 'bg'`                           | Task 10 |
+| Language picker in header                     | Task 10 |
+| i18n JSON missing key audit                   | Task 11 |
+| Timezone label in i18n                        | Task 11 |
 
 All spec requirements covered.
 

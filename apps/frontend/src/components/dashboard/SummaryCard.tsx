@@ -1,5 +1,5 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface SummaryCardProps {
   title: string;
@@ -7,7 +7,11 @@ interface SummaryCardProps {
   icon: React.ReactNode;
 }
 
-export const SummaryCard: React.FC<SummaryCardProps> = ({ title, value, icon }) => {
+export const SummaryCard: React.FC<SummaryCardProps> = ({
+  title,
+  value,
+  icon,
+}) => {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

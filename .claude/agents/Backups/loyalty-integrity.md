@@ -14,13 +14,13 @@ You verify correctness of loyalty subsystem math. This is the most heavily modif
 
 ## Key files
 
-| File | Role |
-|------|------|
-| `apps/backend/src/loyalty/loyalty-ledger.utils.ts` | FIFO point ledger ops: expire, redeem, add, getExpiring |
-| `apps/backend/src/loyalty/loyalty-tiers.utils.ts` | `getTierInfo()`, `tierConfigFromRestaurant()` — single source of tier truth |
-| `apps/backend/src/loyalty/loyalty.service.ts` | `buildRewardSummary()`, `runDailyExpiryReminders` cron |
-| `apps/backend/src/orders/orders.service.ts` | Happy-hour detection (Luxon), multiplier = `Math.max(happyHour, tier)` |
-| `apps/backend/src/restaurants/dto/update-restaurant.dto.ts` | `loyaltyExchangeRate` + `loyaltyRedeemRate` validation |
+| File                                                        | Role                                                                        |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `apps/backend/src/loyalty/loyalty-ledger.utils.ts`          | FIFO point ledger ops: expire, redeem, add, getExpiring                     |
+| `apps/backend/src/loyalty/loyalty-tiers.utils.ts`           | `getTierInfo()`, `tierConfigFromRestaurant()` — single source of tier truth |
+| `apps/backend/src/loyalty/loyalty.service.ts`               | `buildRewardSummary()`, `runDailyExpiryReminders` cron                      |
+| `apps/backend/src/orders/orders.service.ts`                 | Happy-hour detection (Luxon), multiplier = `Math.max(happyHour, tier)`      |
+| `apps/backend/src/restaurants/dto/update-restaurant.dto.ts` | `loyaltyExchangeRate` + `loyaltyRedeemRate` validation                      |
 
 ## Rate semantics (from CLAUDE.md — past source of bugs)
 
@@ -37,24 +37,28 @@ You verify correctness of loyalty subsystem math. This is the most heavily modif
 
 ## Bug history reference
 
-| Bug | Root cause | Fix |
-|-----|-----------|-----|
-| Insane point awards | `loyaltyExchangeRate = 20` in DB (migration defaulted wrong) | Migration `20260503200750` corrected to 10 |
-| Wrong reward value | `points/redeemRate` displayed unrounded | `Math.round(... * 100) / 100` |
-| Expiry reminders spam | `onlyUnnotified` flag not filtering | Added `markRemindersSent()` |
-| Multiplier additive | Happy-hour + tier stacked additively | Changed to `Math.max(happyHour, tier)` |
+| Bug                   | Root cause                                                   | Fix                                        |
+| --------------------- | ------------------------------------------------------------ | ------------------------------------------ |
+| Insane point awards   | `loyaltyExchangeRate = 20` in DB (migration defaulted wrong) | Migration `20260503200750` corrected to 10 |
+| Wrong reward value    | `points/redeemRate` displayed unrounded                      | `Math.round(... * 100) / 100`              |
+| Expiry reminders spam | `onlyUnnotified` flag not filtering                          | Added `markRemindersSent()`                |
+| Multiplier additive   | Happy-hour + tier stacked additively                         | Changed to `Math.max(happyHour, tier)`     |
 
 ## Workflow
 
 ### 1. Tier threshold consistency
+
 ```bash
 # Tier thresholds should ONLY be read from tierConfigFromRestaurant()
 grep -rn "500\|2000\|1.2\|1.5" apps/backend/src/loyalty/ --include="*.ts" | grep -v spec | grep -v "\.spec\."
 ```
+
 Flag any hardcoded threshold (500/2000) or multiplier (1.2/1.5) outside `loyalty-tiers.utils.ts`.
 
 ### 2. FIFO ledger audit
+
 Check `loyalty-ledger.utils.ts` for:
+
 - `expireAccountPoints`: expires oldest unspent entries first
 - `redeemAccountPoints`: redeems from oldest unspent entries first
 - `addEarnedPointBatch`: creates new entries with future expiry
@@ -62,22 +66,26 @@ Check `loyalty-ledger.utils.ts` for:
 - **NEVER** use `Promise.all` over Prisma writes inside `$transaction` — use `updateMany` instead.
 
 ### 3. Earn rate math
+
 ```bash
 # Trace the earn formula
 grep -n "loyaltyExchangeRate\|earnRate\|points.*floor\|Math\.floor.*totalEuros" apps/backend/src/orders/orders.service.ts
 ```
 
 ### 4. Redeem rate math
+
 ```bash
 # Verify reward calculation
 grep -n "loyaltyRedeemRate\|redeemRate\|rewardValue\|getRewardValue" apps/backend/src/loyalty/
 ```
 
 ### 5. Happy hour + tier stacking
+
 - Must use `Math.max(happyHour, tier)` — NOT additive
 - Must use Luxon with restaurant IANA `timezone` field — NOT raw `new Date()`
 
 ### 6. Expiry cron
+
 - `runDailyExpiryReminders` runs at midnight UTC (`@nestjs/schedule` in loyalty.module.ts)
 - Verify: expiryLookahead config, reminder delay before expiry, `onlyUnnotified` prevents duplicates
 

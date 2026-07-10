@@ -83,7 +83,7 @@ describe('AuthService', () => {
           pinLockedUntil: null,
           sessionVersion: 0,
         }),
-        update: jest.fn().mockResolvedValue({}),
+        update: jest.fn().mockResolvedValue({ pinAttempts: 1 }),
       },
       staffDeviceBinding: {
         findUnique: jest.fn().mockResolvedValue(null),
@@ -400,7 +400,7 @@ describe('AuthService', () => {
     const deviceToken = 'device-token-12345678901234567890123456789012';
 
     it('throws UnauthorizedException when device is not enrolled', async () => {
-      mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValue(null);
+      mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValueOnce(null);
       await expect(
         service.pinLogin('rest1', '1234', deviceToken),
       ).rejects.toThrow(UnauthorizedException);
@@ -432,7 +432,7 @@ describe('AuthService', () => {
     it('throws HttpException(429) when device is locked (M2.1 per-device lockout)', async () => {
       const futureDate = new Date(Date.now() + 60 * 60 * 1000);
       // Lockout is now on the device token, not on the user
-      mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValue({
+      mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValueOnce({
         id: 'device-token-1',
         pinAttempts: 5,
         pinLockedUntil: futureDate,
@@ -573,7 +573,7 @@ describe('AuthService', () => {
       ).rejects.toThrow(UnauthorizedException);
       expect(mockPrisma.deviceEnrollmentToken.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ pinAttempts: 1 }),
+          data: expect.objectContaining({ pinAttempts: { increment: 1 } }),
         }),
       );
       expect(mockPrisma.staffPinLoginAudit.create).toHaveBeenCalledWith({
@@ -588,7 +588,7 @@ describe('AuthService', () => {
 
     it('sets pinLockedUntil on device token and throws HttpException(429) after MAX_ATTEMPTS', async () => {
       mockCompare.mockResolvedValue(false);
-      mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValue({
+      mockPrisma.deviceEnrollmentToken.findFirst.mockResolvedValueOnce({
         id: 'device-token-1',
         pinAttempts: 4,
         pinLockedUntil: null,
@@ -597,6 +597,9 @@ describe('AuthService', () => {
       mockPrisma.user.findMany.mockResolvedValue([
         makeUser({ pinHash: 'hash' }),
       ]);
+      mockPrisma.deviceEnrollmentToken.update.mockResolvedValueOnce({
+        pinAttempts: 5,
+      });
 
       await expect(
         service.pinLogin('rest1', 'wrong', deviceToken),
@@ -771,7 +774,7 @@ describe('AuthService', () => {
       const prevKey = process.env.RESEND_API_KEY;
       process.env.NODE_ENV = 'production';
       process.env.RESEND_API_KEY = 'test-resend-key';
-      global.fetch = jest.fn().mockResolvedValue({ ok: true }) as any;
+      global.fetch = jest.fn().mockResolvedValue({ ok: true }) as jest.Mock;
       mockPrisma.verificationToken.findFirst.mockResolvedValue(null);
       mockHash.mockResolvedValue('hashed-code');
 
@@ -798,7 +801,7 @@ describe('AuthService', () => {
         ok: false,
         status: 422,
         text: async () => 'Invalid `to` field',
-      }) as any;
+      }) as jest.Mock;
       mockPrisma.verificationToken.findFirst.mockResolvedValue(null);
       mockHash.mockResolvedValue('hashed-code');
 
@@ -826,7 +829,7 @@ describe('AuthService', () => {
         ok: false,
         status: 503,
         text: async () => '',
-      }) as any;
+      }) as jest.Mock;
       mockPrisma.verificationToken.findFirst.mockResolvedValue(null);
       mockHash.mockResolvedValue('hashed-code');
 
@@ -862,7 +865,11 @@ describe('AuthService', () => {
     // Issue 42 — per-phone OTP cooldown
     it('throws HttpException(429) when phone OTP requested within 60s of last request (Issue 42)', async () => {
       jest
-        .spyOn(service as any, 'twilioConfigured', 'get')
+        .spyOn(
+          service as unknown as { twilioConfigured: boolean },
+          'twilioConfigured',
+          'get',
+        )
         .mockReturnValue(true);
       // Simulate a recent token stored against the phone number
       mockPrisma.verificationToken.findFirst.mockResolvedValue({
@@ -880,9 +887,13 @@ describe('AuthService', () => {
 
     it('creates a sentinel VerificationToken for phone cooldown and calls Twilio when no recent token (Issue 42)', async () => {
       jest
-        .spyOn(service as any, 'twilioConfigured', 'get')
+        .spyOn(
+          service as unknown as { twilioConfigured: boolean },
+          'twilioConfigured',
+          'get',
+        )
         .mockReturnValue(true);
-      jest.spyOn(service as any, 'sendTwilioOtp').mockResolvedValue(undefined);
+      service['sendTwilioOtp'] = jest.fn().mockResolvedValue(undefined);
       mockPrisma.verificationToken.findFirst.mockResolvedValue(null); // no recent token
 
       const result = await service.sendOtp(undefined, '+15550005678');
@@ -1040,7 +1051,7 @@ describe('AuthService', () => {
     });
 
     it('verifies a gateway-issued code against the DB (no Twilio Verify call)', async () => {
-      const verifyTwilio = jest.spyOn(service as any, 'verifyTwilioOtp');
+      const verifyTwilio = (service['verifyTwilioOtp'] = jest.fn());
       mockPrisma.verificationToken.findFirst.mockResolvedValue({
         id: 'tok-1',
         email: '+359000000000',
@@ -1194,8 +1205,6 @@ describe('AuthService', () => {
       const hashedCode = await jest
         .requireActual<typeof bcrypt>('bcryptjs')
         .hash(plainCode, 10);
-      mockCompare.mockImplementation(jest.requireActual('bcryptjs').compare);
-
       mockPrisma.verificationToken.findFirst.mockResolvedValue({
         id: 'tok-pin',
         code: hashedCode,
@@ -1232,11 +1241,11 @@ describe('AuthService', () => {
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('updates existing user phone and name when provided in email flow', async () => {
+    it('updates existing user name when provided in email flow, but ignores unverified phone', async () => {
       const plainCode = '999777';
       const hashedCode = await jest
-        .requireActual<typeof bcrypt>('bcryptjs')
-        .hash(plainCode, 10);
+        .requireActual('bcryptjs')
+        .hash(plainCode, 1);
       mockCompare.mockImplementation(jest.requireActual('bcryptjs').compare);
 
       mockPrisma.verificationToken.findFirst.mockResolvedValue({
@@ -1262,19 +1271,25 @@ describe('AuthService', () => {
       expect(mockPrisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            phone: '+1234567890',
             name: 'Alice',
           }),
         }),
       );
+      expect(
+        mockPrisma.user.update.mock.calls[0][0].data.phone,
+      ).toBeUndefined();
     });
 
     describe('phone flow — PIN-role rejection', () => {
       beforeEach(() => {
         jest
-          .spyOn(service as any, 'twilioConfigured', 'get')
+          .spyOn(
+            service as unknown as { twilioConfigured: boolean },
+            'twilioConfigured',
+            'get',
+          )
           .mockReturnValue(true);
-        jest.spyOn(service as any, 'verifyTwilioOtp').mockResolvedValue(true);
+        service['verifyTwilioOtp'] = jest.fn().mockResolvedValue(true);
       });
 
       it('rejects a PIN-role user (WAITER) in the phone OTP flow', async () => {

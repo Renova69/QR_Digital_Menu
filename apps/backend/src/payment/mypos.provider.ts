@@ -78,7 +78,9 @@ export const MYPOS_TEST_PUBLIC_CERT = [
 export class MyposProvider {
   getActionUrl(mode: MyposMode): string {
     if (mode === 'DEMO') {
-      return process.env.MYPOS_DEMO_URL || 'https://www.mypos.com/vmp/checkout-test';
+      return (
+        process.env.MYPOS_DEMO_URL || 'https://www.mypos.com/vmp/checkout-test'
+      );
     }
     return process.env.MYPOS_LIVE_URL || 'https://www.mypos.com/vmp/checkout';
   }

@@ -72,7 +72,8 @@ export default function DeviceLoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPreparing, setIsPreparing] = useState(true);
   const [isCheckingDeviceStatus, setIsCheckingDeviceStatus] = useState(false);
-  const [sharedDeviceModeDisabled, setSharedDeviceModeDisabled] = useState(false);
+  const [sharedDeviceModeDisabled, setSharedDeviceModeDisabled] =
+    useState(false);
   const [restaurantName, setRestaurantName] = useState("");
   const [deviceConfig, setDeviceConfig] = useState<SharedDeviceConfig | null>(
     () => readSharedDeviceConfig(),
@@ -108,7 +109,9 @@ export default function DeviceLoginPage() {
         return;
       }
 
-      setRestaurantName(status.restaurantName || deviceConfig.restaurantName || "");
+      setRestaurantName(
+        status.restaurantName || deviceConfig.restaurantName || "",
+      );
       setSharedDeviceModeDisabled(status.sharedDeviceModeEnabled === false);
       if (status.sharedDeviceModeEnabled) {
         setError("");
@@ -150,16 +153,24 @@ export default function DeviceLoginPage() {
     const interval = setInterval(
       // Skip the poll while the tab is backgrounded — saves battery/network on
       // an always-on POS tablet (L3). refreshDeviceStatus runs again on resume.
-      () => { if (!document.hidden) void refreshDeviceStatus(); },
+      () => {
+        if (!document.hidden) void refreshDeviceStatus();
+      },
       sharedDeviceModeDisabled ? 5000 : 30000,
     );
-    const onVisible = () => { if (!document.hidden) void refreshDeviceStatus(); };
+    const onVisible = () => {
+      if (!document.hidden) void refreshDeviceStatus();
+    };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [deviceConfig?.deviceToken, refreshDeviceStatus, sharedDeviceModeDisabled]);
+  }, [
+    deviceConfig?.deviceToken,
+    refreshDeviceStatus,
+    sharedDeviceModeDisabled,
+  ]);
 
   useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
@@ -206,7 +217,7 @@ export default function DeviceLoginPage() {
         navigate(target, { replace: true });
       } catch (err: any) {
         const responseData = err.response?.data;
-        const msg = getApiMessage(err) || t('auto.invalidPin', 'Invalid PIN');
+        const msg = getApiMessage(err) || t("auto.invalidPin", "Invalid PIN");
         if (isSharedDeviceDisabledError(err)) {
           setSharedDeviceModeDisabled(true);
           setError(msg);
@@ -251,12 +262,25 @@ export default function DeviceLoginPage() {
         setIsSubmitting(false);
       }
     },
-    [clearDeviceConfig, deviceConfig, loginWithToken, navigate, sharedDeviceModeDisabled, t],
+    [
+      clearDeviceConfig,
+      deviceConfig,
+      loginWithToken,
+      navigate,
+      sharedDeviceModeDisabled,
+      t,
+    ],
   );
 
   const handleKeyPress = useCallback(
     (digit: string) => {
-      if (isPreparing || isSubmitting || lockedUntil || sharedDeviceModeDisabled) return;
+      if (
+        isPreparing ||
+        isSubmitting ||
+        lockedUntil ||
+        sharedDeviceModeDisabled
+      )
+        return;
       setError("");
 
       if (digit === "backspace") {
@@ -271,7 +295,14 @@ export default function DeviceLoginPage() {
         submitPin(newPin);
       }
     },
-    [pin, isPreparing, isSubmitting, lockedUntil, sharedDeviceModeDisabled, submitPin],
+    [
+      pin,
+      isPreparing,
+      isSubmitting,
+      lockedUntil,
+      sharedDeviceModeDisabled,
+      submitPin,
+    ],
   );
 
   if (!deviceConfig?.restaurantId || !deviceConfig?.deviceToken) {
@@ -280,11 +311,12 @@ export default function DeviceLoginPage() {
         <div className="text-center">
           <div className="text-5xl mb-4">🍽</div>
           <h1 className="text-white text-lg font-semibold mb-2">
-            {t('auto.noDeviceConfigured', 'No Device Configured')}</h1>
+            {t("auto.noDeviceConfigured", "No Device Configured")}
+          </h1>
           <p className="text-slate-400 text-sm">
             {t(
-              'auto.askManagerStaffDevice',
-              'Ask a manager to generate a Staff Device QR from Settings, then scan it on this device.',
+              "auto.askManagerStaffDevice",
+              "Ask a manager to generate a Staff Device QR from Settings, then scan it on this device.",
             )}
           </p>
         </div>
@@ -299,9 +331,10 @@ export default function DeviceLoginPage() {
         <div className="text-center">
           <div className="text-5xl mb-4">🔒</div>
           <h1 className="text-white text-lg font-semibold mb-2">
-            {t('auto.tooManyAttempts', 'Too Many Attempts')}</h1>
+            {t("auto.tooManyAttempts", "Too Many Attempts")}
+          </h1>
           <p className="text-slate-400 text-sm">
-            {t('auto.tryAgainInMinutes', 'Try again in {{count}} minutes.', {
+            {t("auto.tryAgainInMinutes", "Try again in {{count}} minutes.", {
               count: remainingMin,
             })}
           </p>
@@ -318,15 +351,15 @@ export default function DeviceLoginPage() {
             ||
           </div>
           <h1 className="text-white text-lg font-semibold mb-2">
-            {t('auto.staffPinLoginPaused', 'Staff PIN Login Paused')}
+            {t("auto.staffPinLoginPaused", "Staff PIN Login Paused")}
           </h1>
           <p className="text-slate-300 text-sm font-medium mb-2">
-            {restaurantName || t('auto.restaurant', 'Restaurant')}
+            {restaurantName || t("auto.restaurant", "Restaurant")}
           </p>
           <p className="text-slate-400 text-sm">
             {t(
-              'auto.sharedDeviceModePaused',
-              'Shared Device Mode is off. This device will return to PIN login when a manager enables it again.',
+              "auto.sharedDeviceModePaused",
+              "Shared Device Mode is off. This device will return to PIN login when a manager enables it again.",
             )}
           </p>
           <button
@@ -336,8 +369,8 @@ export default function DeviceLoginPage() {
             className="mt-6 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-60"
           >
             {isCheckingDeviceStatus
-              ? t('auto.checking', 'Checking...')
-              : t('auto.checkAgain', 'Check again')}
+              ? t("auto.checking", "Checking...")
+              : t("auto.checkAgain", "Check again")}
           </button>
         </div>
       </div>
@@ -356,9 +389,10 @@ export default function DeviceLoginPage() {
           🍽
         </div>
         <div className="text-slate-400 text-xs uppercase tracking-widest mb-1">
-          {t('auto.sharedDevice', 'Shared Device')}</div>
+          {t("auto.sharedDevice", "Shared Device")}
+        </div>
         <div className="text-slate-100 text-lg font-semibold">
-          {restaurantName || t('auto.restaurant', 'Restaurant')}
+          {restaurantName || t("auto.restaurant", "Restaurant")}
         </div>
       </div>
 
@@ -388,8 +422,8 @@ export default function DeviceLoginPage() {
       {(isPreparing || isSubmitting) && (
         <div className="text-slate-400 text-sm mb-6">
           {isPreparing
-            ? t('auto.preparingDevice', 'Preparing device...')
-            : t('auto.verifying', 'Verifying...')}
+            ? t("auto.preparingDevice", "Preparing device...")
+            : t("auto.verifying", "Verifying...")}
         </div>
       )}
 

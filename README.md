@@ -14,10 +14,12 @@ A full-stack digital menu platform for restaurants. Owners create and manage men
 The QR Menu app allows restaurant owners to create, manage, and publish digital menus. Customers scan a QR code to instantly access the menu, place contactless orders, and call for a waiter — all from their device.
 
 **Target Audience:**
+
 - Restaurant owners and staff (admin dashboard)
 - Restaurant patrons (customer-facing menu)
 
 **Constraints:**
+
 - Web-based, responsive for desktop & mobile
 - Backend runs self-hosted or cloud-native (managed DB)
 - PostgreSQL database (Neon Serverless)
@@ -26,15 +28,15 @@ The QR Menu app allows restaurant owners to create, manage, and publish digital 
 
 ## 2. Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| **Monorepo Tooling**| **Turborepo** (Fast task orchestration) |
-| **Frontend** | React 18, Vite, TypeScript, Tailwind CSS, Radix UI, TanStack Query, dnd-kit |
-| **Backend** | NestJS 11, TypeScript, Prisma 6 ORM |
-| **Database** | **Neon** (Serverless PostgreSQL) |
-| **Authentication** | JWT + Google OAuth (via Passport.js) |
-| **API Docs** | Swagger/OpenAPI (available at `/api-docs`) |
-| **Deployment** | Docker Compose (optional for production simulation) |
+| Layer                | Technology                                                                  |
+| -------------------- | --------------------------------------------------------------------------- |
+| **Monorepo Tooling** | **Turborepo** (Fast task orchestration)                                     |
+| **Frontend**         | React 18, Vite, TypeScript, Tailwind CSS, Radix UI, TanStack Query, dnd-kit |
+| **Backend**          | NestJS 11, TypeScript, Prisma 6 ORM                                         |
+| **Database**         | **Neon** (Serverless PostgreSQL)                                            |
+| **Authentication**   | JWT + Google OAuth (via Passport.js)                                        |
+| **API Docs**         | Swagger/OpenAPI (available at `/api-docs`)                                  |
+| **Deployment**       | Docker Compose (optional for production simulation)                         |
 
 ---
 
@@ -49,6 +51,7 @@ The QR Menu app allows restaurant owners to create, manage, and publish digital 
 This project uses **Turborepo**. You no longer need to manage separate terminal processes or bulky Docker containers for daily development.
 
 **TL;DR:**
+
 ```bash
 # 1. Install dependencies at the root
 npm install
@@ -88,6 +91,7 @@ packages/
 ```
 
 ### Backend Details
+
 ```
 apps/backend/src/
   auth/                  # JWT + Google OAuth
@@ -102,6 +106,7 @@ apps/backend/src/
 ```
 
 ### Frontend (React + Vite)
+
 ```
 frontend/
   src/
@@ -153,28 +158,30 @@ frontend/
 
 Key models in `prisma/schema.prisma`:
 
-| Model | Purpose |
-|-------|---------|
-| `User` | Restaurant owners (email, password, role) |
-| `Restaurant` | Restaurant profiles (name, country, branding) |
-| `RestaurantTable` | Tables per restaurant (for QR codes) |
-| `MenuCategory` | Menu sections with ordering |
-| `MenuItem` | Individual dishes (price, allergens, dietary tags, image) |
-| `MenuOption` | Variations & add-ons (VARIATION or ADDON type) |
-| `Order` | Customer orders with status tracking |
-| `OrderItem` | Individual items within an order |
-| `AssistanceRequest` | "Call Waiter" requests |
+| Model               | Purpose                                                   |
+| ------------------- | --------------------------------------------------------- |
+| `User`              | Restaurant owners (email, password, role)                 |
+| `Restaurant`        | Restaurant profiles (name, country, branding)             |
+| `RestaurantTable`   | Tables per restaurant (for QR codes)                      |
+| `MenuCategory`      | Menu sections with ordering                               |
+| `MenuItem`          | Individual dishes (price, allergens, dietary tags, image) |
+| `MenuOption`        | Variations & add-ons (VARIATION or ADDON type)            |
+| `Order`             | Customer orders with status tracking                      |
+| `OrderItem`         | Individual items within an order                          |
+| `AssistanceRequest` | "Call Waiter" requests                                    |
 
 ---
 
 ## 7. Scaling Plan
 
 **Now (MVP / Self-host):**
+
 - Docker Compose on VPS (backend + frontend + Postgres)
 - Local file storage for uploads
 - Polling for data updates
 
 **V2 (Growth):**
+
 - WebSockets for real-time order tracking & notifications
 - Stripe for digital payments
 - Multi-language menu support
@@ -182,6 +189,7 @@ Key models in `prisma/schema.prisma`:
 - Staff role management
 
 **V3 (Enterprise):**
+
 - Database → AWS RDS / Cloud SQL
 - Uploads → S3 / GCS
 - Backend → AWS ECS (Fargate) / GCP Cloud Run

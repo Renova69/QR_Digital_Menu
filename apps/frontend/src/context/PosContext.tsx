@@ -12,7 +12,10 @@ const STORAGE_KEY = "posCartDraft";
 const MAX_SPECIAL_REQUESTS_LEN = 2000;
 
 function generateId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -39,13 +42,19 @@ function loadDraft(): {
   }
 }
 
-function saveDraft(items: PosCartItem[], session: PosSession | null, activeSeat: string) {
+function saveDraft(
+  items: PosCartItem[],
+  session: PosSession | null,
+  activeSeat: string,
+) {
   try {
     sessionStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({ items, session, activeSeat }),
     );
-  } catch { /* quota exceeded — non-critical */ }
+  } catch {
+    /* quota exceeded — non-critical */
+  }
 }
 
 function clearDraft() {
@@ -110,9 +119,15 @@ export function PosProvider({ children }: { children: ReactNode }) {
   // Lazy init reads sessionStorage on every mount — NOT a module-level const.
   // A frozen module snapshot meant SPA re-login never restored the draft and
   // refresh-restore was inconsistent (H2).
-  const [items, setItems] = useState<PosCartItem[]>(() => loadDraft()?.items ?? []);
-  const [session, setSessionState] = useState<PosSession | null>(() => loadDraft()?.session ?? null);
-  const [activeSeat, setActiveSeat] = useState(() => loadDraft()?.activeSeat ?? "Seat 1");
+  const [items, setItems] = useState<PosCartItem[]>(
+    () => loadDraft()?.items ?? [],
+  );
+  const [session, setSessionState] = useState<PosSession | null>(
+    () => loadDraft()?.session ?? null,
+  );
+  const [activeSeat, setActiveSeat] = useState(
+    () => loadDraft()?.activeSeat ?? "Seat 1",
+  );
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -137,10 +152,13 @@ export function PosProvider({ children }: { children: ReactNode }) {
     clearDraft();
   }, []);
 
-  const addItem = useCallback((item: Omit<PosCartItem, "cartId" | "submitted">) => {
-    const cartId = generateId();
-    setItems((prev) => [...prev, { ...item, cartId, submitted: false }]);
-  }, []);
+  const addItem = useCallback(
+    (item: Omit<PosCartItem, "cartId" | "submitted">) => {
+      const cartId = generateId();
+      setItems((prev) => [...prev, { ...item, cartId, submitted: false }]);
+    },
+    [],
+  );
 
   const removeItem = useCallback((cartId: string) => {
     setItems((prev) => prev.filter((i) => i.cartId !== cartId));
@@ -152,13 +170,13 @@ export function PosProvider({ children }: { children: ReactNode }) {
       return;
     }
     setItems((prev) =>
-      prev.map((i) => (i.cartId === cartId ? { ...i, quantity: qty } : i))
+      prev.map((i) => (i.cartId === cartId ? { ...i, quantity: qty } : i)),
     );
   }, []);
 
   const updateNote = useCallback((cartId: string, note: string) => {
     setItems((prev) =>
-      prev.map((i) => (i.cartId === cartId ? { ...i, itemNote: note } : i))
+      prev.map((i) => (i.cartId === cartId ? { ...i, itemNote: note } : i)),
     );
   }, []);
 
@@ -172,7 +190,7 @@ export function PosProvider({ children }: { children: ReactNode }) {
 
   const markAsSubmitted = useCallback(() => {
     setItems((prev) =>
-      prev.map((i) => (i.submitted ? i : { ...i, submitted: true }))
+      prev.map((i) => (i.submitted ? i : { ...i, submitted: true })),
     );
   }, []);
 
@@ -191,7 +209,7 @@ export function PosProvider({ children }: { children: ReactNode }) {
     return items.reduce((sum, item) => {
       const optionsTotal = item.selectedOptions.reduce(
         (optSum, opt) => optSum + opt.priceModifier,
-        0
+        0,
       );
       return sum + (item.price + optionsTotal) * item.quantity;
     }, 0);
@@ -203,7 +221,7 @@ export function PosProvider({ children }: { children: ReactNode }) {
       .reduce((sum, item) => {
         const optionsTotal = item.selectedOptions.reduce(
           (optSum, opt) => optSum + opt.priceModifier,
-          0
+          0,
         );
         return sum + (item.price + optionsTotal) * item.quantity;
       }, 0);
@@ -231,33 +249,57 @@ export function PosProvider({ children }: { children: ReactNode }) {
   }, [items]);
 
   // Memoized so POS consumers don't re-render on unrelated parent renders (#F4).
-  const value: PosContextType = useMemo(() => ({
-    items,
-    addItem,
-    removeItem,
-    updateQuantity,
-    updateNote,
-    clearCart,
-    resetCart,
-    markAsSubmitted,
-    setHistoryItems,
-    session,
-    setSession,
-    clearSession,
-    getTotal,
-    getPendingTotal,
-    activeSeat,
-    setActiveSeat,
-    buildSpecialRequests,
-    historyLoading,
-    setHistoryLoading,
-    historyError,
-    setHistoryError,
-    searchQuery,
-    setSearchQuery,
-    categoryFilter,
-    setCategoryFilter,
-  }), [items, addItem, removeItem, updateQuantity, updateNote, clearCart, resetCart, markAsSubmitted, setHistoryItems, session, setSession, clearSession, getTotal, getPendingTotal, activeSeat, buildSpecialRequests, historyLoading, historyError, searchQuery, categoryFilter]);
+  const value: PosContextType = useMemo(
+    () => ({
+      items,
+      addItem,
+      removeItem,
+      updateQuantity,
+      updateNote,
+      clearCart,
+      resetCart,
+      markAsSubmitted,
+      setHistoryItems,
+      session,
+      setSession,
+      clearSession,
+      getTotal,
+      getPendingTotal,
+      activeSeat,
+      setActiveSeat,
+      buildSpecialRequests,
+      historyLoading,
+      setHistoryLoading,
+      historyError,
+      setHistoryError,
+      searchQuery,
+      setSearchQuery,
+      categoryFilter,
+      setCategoryFilter,
+    }),
+    [
+      items,
+      addItem,
+      removeItem,
+      updateQuantity,
+      updateNote,
+      clearCart,
+      resetCart,
+      markAsSubmitted,
+      setHistoryItems,
+      session,
+      setSession,
+      clearSession,
+      getTotal,
+      getPendingTotal,
+      activeSeat,
+      buildSpecialRequests,
+      historyLoading,
+      historyError,
+      searchQuery,
+      categoryFilter,
+    ],
+  );
 
   return <PosContext.Provider value={value}>{children}</PosContext.Provider>;
 }

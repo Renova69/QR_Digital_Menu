@@ -51,15 +51,16 @@ const BookingManagePage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const params = new URLSearchParams(location.search);
+  const hashParams = new URLSearchParams(location.hash.slice(1));
   const restaurantId = params.get("r") ?? "";
   const requestedLanguage = params.get("lang")?.split(/[-_]/)[0] ?? "";
-  const tokenFromQuery = params.get("token") ?? "";
+  const tokenFromUrl = hashParams.get("token") ?? params.get("token") ?? "";
   // Capture token ONCE on mount (useState initializer runs only on the first
   // render). sessionStorage is already scoped to the browser tab/session and
   // auto-clears on close, so manual cleanup is unnecessary and would break
   // page refreshes or React re-mounts (StrictMode, router transitions, etc.).
   const [token] = useState(
-    () => tokenFromQuery || sessionStorage.getItem("manage_token") || "",
+    () => tokenFromUrl || sessionStorage.getItem("manage_token") || "",
   );
 
   const [config, setConfig] = useState<ReservationPublicConfig | null>(null);
@@ -87,19 +88,31 @@ const BookingManagePage = () => {
   const maxParty = reservation?.policy?.maxTotalGuests ?? 12;
 
   useEffect(() => {
-    if (!tokenFromQuery) return;
-    sessionStorage.setItem("manage_token", tokenFromQuery);
-    const clean = new URLSearchParams(location.search);
-    clean.delete("token");
-    const search = clean.toString();
+    if (!tokenFromUrl) return;
+    sessionStorage.setItem("manage_token", tokenFromUrl);
+    const cleanSearch = new URLSearchParams(location.search);
+    cleanSearch.delete("token");
+    const search = cleanSearch.toString();
+
+    const cleanHash = new URLSearchParams(location.hash.slice(1));
+    cleanHash.delete("token");
+    const hash = cleanHash.toString();
+
     void navigate(
       {
         pathname: location.pathname,
         search: search ? `?${search}` : "",
+        hash: hash ? `#${hash}` : "",
       },
       { replace: true },
     );
-  }, [location.pathname, location.search, navigate, tokenFromQuery]);
+  }, [
+    location.pathname,
+    location.search,
+    location.hash,
+    navigate,
+    tokenFromUrl,
+  ]);
 
   useEffect(() => {
     if (requestedLanguage) {

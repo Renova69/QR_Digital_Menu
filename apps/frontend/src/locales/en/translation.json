@@ -1431,7 +1431,7 @@
     "mostPopular": "Most Popular",
     "getStarted": "Get Started",
     "contactSales": "Contact Sales",
-    "bottomCtaTitle": "Launch your first QR menu without heavy implementation.",
+    "bottomCtaTitle": "Launch your QR menu without the complicated setup.",
     "bottomCtaWordAccent": "",
     "bottomCtaSubtitle": "Start with menu and QR codes. When the venue is ready, add orders, payments, loyalty, staff, POS, and kitchen.",
     "bottomCtaButton": "Get started free",
@@ -1495,6 +1495,10 @@
       "menuImport": {
         "title": "Menu Import & Export",
         "desc": "Bulk-import menu items from structured files. Export for backup, cross-location cloning, or offline editing."
+      },
+      "reservations": {
+        "title": "Table Reservations",
+        "desc": "Accept and manage table reservations with automated SMS and email notifications to keep guests informed."
       }
     },
     "tiers": {
@@ -1537,7 +1541,7 @@
       "subtitle": "The essentials before launching your first QR menu."
     },
     "announcementBar": {
-      "text": "First for the Bulgarian market: menu, orders, payments, and service flow in one system.",
+      "text": "The first all-in-one platform for the Bulgarian market: menus, orders, payments, and service.",
       "cta": "Launch QR menu"
     },
     "trustBar": {
@@ -1546,10 +1550,10 @@
     "advantages": {
       "badge": "Why QR Menu",
       "title": "Less waiting, clearer orders, better control.",
-      "subtitle": "The platform follows day-to-day venue work: menus update instantly, guests order easily, and the team sees what is happening.",
+      "subtitle": "Built around your daily workflow: menus update instantly, guests order easily, and the team sees what is happening.",
       "items": {
         "launchMenu": {
-          "label": "Menu ready for changes",
+          "label": "Effortless menu updates",
           "text": "Add items from a file or manually, arrange categories, generate QR codes, and edit everything in real time."
         },
         "reduceFriction": {
@@ -1557,12 +1561,12 @@
           "text": "Guests browse, order, and request service from their phone without installing an app."
         },
         "knowGuests": {
-          "label": "Clearer guest signals",
+          "label": "Real-time guest insights",
           "text": "Waiter calls, feedback, and order history help teams react before small issues become complaints."
         },
         "moveFaster": {
           "label": "A calmer shift",
-          "text": "Orders, tables, kitchen, payments, staff, and analytics live in one working surface."
+          "text": "Orders, tables, kitchen, payments, staff, and analytics all in a single, unified dashboard."
         }
       },
       "viewAllFeatures": "View all features"
@@ -1618,7 +1622,7 @@
       },
       "staffManagement": {
         "title": "Staff and roles",
-        "text": "Staff, managers, waiters, and kitchen users with PIN access, roles, and plan-aware limits."
+        "text": "Staff, managers, waiters, and kitchen users with PIN access, custom roles, and secure permissions."
       },
       "menuImportExport": {
         "title": "Import and export",
@@ -1643,6 +1647,10 @@
       "security": {
         "title": "Security and privacy",
         "text": "GDPR module, cookie consent, protected sessions, abuse limits, and access control."
+      },
+      "reservations": {
+        "title": "Table reservations",
+        "text": "Accept and manage table reservations with automated SMS and email notifications to keep guests informed."
       }
     },
     "testimonials": {

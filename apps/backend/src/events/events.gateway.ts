@@ -588,7 +588,7 @@ export class EventsGateway
    * Dispatch a generic event to a specific restaurant's room.
    */
   emitToRestaurant(restaurantId: string, eventName: string, payload: any) {
-    this.server.to(`restaurant_${restaurantId}`).emit(eventName, payload);
+    this.server?.to(`restaurant_${restaurantId}`).emit(eventName, payload);
   }
 
   /**
@@ -600,7 +600,7 @@ export class EventsGateway
     payload: { itemId: string; categoryId: string; isOutOfStock: boolean },
   ) {
     this.server
-      .to(`public_menu_${restaurantId}`)
+      ?.to(`public_menu_${restaurantId}`)
       .emit('menu:item-availability-changed', payload);
   }
 
@@ -610,12 +610,12 @@ export class EventsGateway
     payload: any,
   ) {
     this.server
-      .to(`restaurant_orders_${restaurantId}`)
+      ?.to(`restaurant_orders_${restaurantId}`)
       .emit(eventName, payload);
   }
 
   emitToTableSession(sessionId: string, eventName: string, payload: any) {
-    this.server.to(`table_session_${sessionId}`).emit(eventName, payload);
+    this.server?.to(`table_session_${sessionId}`).emit(eventName, payload);
   }
 
   emitTableStatusChanged(
@@ -656,7 +656,7 @@ export class EventsGateway
   ) {
     this.emitToRestaurant(restaurantId, 'reservation:updated', payload);
     this.server
-      .to(`reservation_${payload.id}`)
+      ?.to(`reservation_${payload.id}`)
       .emit('reservation:updated', payload);
   }
 

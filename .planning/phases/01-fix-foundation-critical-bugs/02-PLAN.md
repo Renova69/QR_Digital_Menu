@@ -40,10 +40,10 @@ Fix all stale tests, add cascade deletes to Prisma schema, fix the frontend Dock
 Replace the entire content of `backend/src/app.controller.spec.ts` with a test that matches the current `AppController`:
 
 ```typescript
-import { Test, TestingModule } from '@nestjs/testing';
-import { AppController } from './app.controller';
+import { Test, TestingModule } from "@nestjs/testing";
+import { AppController } from "./app.controller";
 
-describe('AppController', () => {
+describe("AppController", () => {
   let appController: AppController;
 
   beforeEach(async () => {
@@ -54,16 +54,19 @@ describe('AppController', () => {
     appController = app.get<AppController>(AppController);
   });
 
-  describe('getApiInfo', () => {
-    it('should return API information object', () => {
+  describe("getApiInfo", () => {
+    it("should return API information object", () => {
       const result = appController.getApiInfo();
-      expect(result).toHaveProperty('message', 'QR Menu API');
-      expect(result).toHaveProperty('version', '1.0.0');
-      expect(result).toHaveProperty('documentation', '/api-docs');
-      expect(result).toHaveProperty('endpoints');
-      expect(result.endpoints).toHaveProperty('authentication', '/api/auth');
-      expect(result.endpoints).toHaveProperty('menu', '/api/menu');
-      expect(result.endpoints).toHaveProperty('restaurants', '/api/restaurants');
+      expect(result).toHaveProperty("message", "QR Menu API");
+      expect(result).toHaveProperty("version", "1.0.0");
+      expect(result).toHaveProperty("documentation", "/api-docs");
+      expect(result).toHaveProperty("endpoints");
+      expect(result.endpoints).toHaveProperty("authentication", "/api/auth");
+      expect(result.endpoints).toHaveProperty("menu", "/api/menu");
+      expect(result.endpoints).toHaveProperty(
+        "restaurants",
+        "/api/restaurants",
+      );
     });
   });
 });
@@ -72,12 +75,13 @@ describe('AppController', () => {
 Note: `AppService` is removed from providers since `AppController` constructor no longer takes it (the constructor is `constructor() {}`).
 </action>
 <acceptance_criteria>
+
 - `backend/src/app.controller.spec.ts` contains `getApiInfo` test
 - `backend/src/app.controller.spec.ts` does NOT import `AppService`
 - `backend/src/app.controller.spec.ts` asserts `message` equals `'QR Menu API'`
 - `backend/src/app.controller.spec.ts` asserts result has `endpoints` property
-</acceptance_criteria>
-</task>
+  </acceptance_criteria>
+  </task>
 
 <task id="2.2">
 <title>Fix E2E tests to use /api prefix</title>
@@ -90,12 +94,12 @@ Note: `AppService` is removed from providers since `AppController` constructor n
 Replace the content of `backend/test/app.e2e-spec.ts`:
 
 ```typescript
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
-import { AppModule } from './../src/app.module';
+import { Test, TestingModule } from "@nestjs/testing";
+import { INestApplication } from "@nestjs/common";
+import * as request from "supertest";
+import { AppModule } from "./../src/app.module";
 
-describe('AppController (e2e)', () => {
+describe("AppController (e2e)", () => {
   let app: INestApplication;
 
   beforeAll(async () => {
@@ -104,7 +108,7 @@ describe('AppController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
+    app.setGlobalPrefix("api");
     await app.init();
   });
 
@@ -112,13 +116,13 @@ describe('AppController (e2e)', () => {
     await app.close();
   });
 
-  it('/api (GET)', () => {
+  it("/api (GET)", () => {
     return request(app.getHttpServer())
-      .get('/api')
+      .get("/api")
       .expect(200)
       .expect((res) => {
-        expect(res.body.message).toBe('QR Menu API');
-        expect(res.body.version).toBe('1.0.0');
+        expect(res.body.message).toBe("QR Menu API");
+        expect(res.body.version).toBe("1.0.0");
       });
   });
 });
@@ -127,12 +131,12 @@ describe('AppController (e2e)', () => {
 Update `backend/test/dashboard.e2e-spec.ts` to also set the global prefix:
 
 ```typescript
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
-import { AppModule } from '../src/app.module';
+import { Test, TestingModule } from "@nestjs/testing";
+import { INestApplication } from "@nestjs/common";
+import * as request from "supertest";
+import { AppModule } from "../src/app.module";
 
-describe('DashboardController (e2e)', () => {
+describe("DashboardController (e2e)", () => {
   let app: INestApplication;
 
   beforeAll(async () => {
@@ -141,7 +145,7 @@ describe('DashboardController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
+    app.setGlobalPrefix("api");
     await app.init();
   });
 
@@ -149,15 +153,16 @@ describe('DashboardController (e2e)', () => {
     await app.close();
   });
 
-  describe('/api/dashboard/summary (GET)', () => {
-    it('should return 401 Unauthorized if no token is provided', () => {
+  describe("/api/dashboard/summary (GET)", () => {
+    it("should return 401 Unauthorized if no token is provided", () => {
       return request(app.getHttpServer())
-        .get('/api/dashboard/summary?restaurantId=some-id')
+        .get("/api/dashboard/summary?restaurantId=some-id")
         .expect(401);
     });
   });
 });
 ```
+
 </action>
 <acceptance_criteria>
 - `backend/test/app.e2e-spec.ts` contains `app.setGlobalPrefix('api')`
@@ -209,15 +214,16 @@ Update `backend/prisma/schema.prisma` to add `onDelete: Cascade` to all child re
 8. `AssistanceRequest.restaurant` relation (line 144):
    Change: `restaurant Restaurant @relation(fields: [restaurantId], references: [id])`
    To: `restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)`
-</action>
-<acceptance_criteria>
+   </action>
+   <acceptance_criteria>
+
 - `grep -c "onDelete: Cascade" backend/prisma/schema.prisma` returns 7
 - `grep "onDelete: SetNull" backend/prisma/schema.prisma` returns 1 match (OrderItem.menuItem)
 - Deleting a restaurant will cascade to its categories, items, orders, and assistance requests
 - Deleting a category will cascade delete its items
 - Deleting an item will cascade delete its options
-</acceptance_criteria>
-</task>
+  </acceptance_criteria>
+  </task>
 
 <task id="2.4">
 <title>Fix frontend Dockerfile and add dev script</title>
@@ -247,6 +253,7 @@ CMD ["npm", "run", "start"]
 The fix: `COPY . .` is now BEFORE `RUN npm run build` (previously it was after, meaning the build had no source files).
 
 Add a `dev` script to `frontend/package.json` in the scripts section:
+
 ```json
 "dev": "vite --host",
 ```
@@ -254,12 +261,13 @@ Add a `dev` script to `frontend/package.json` in the scripts section:
 Add it right before the existing `"start"` script.
 </action>
 <acceptance_criteria>
+
 - `frontend/Dockerfile` has `COPY . .` on a line BEFORE `RUN npm run build`
 - `frontend/Dockerfile` does NOT have `RUN npm run build` before `COPY . .`
 - `frontend/package.json` contains `"dev": "vite --host"`
 - `grep "dev" frontend/package.json` shows the dev script
-</acceptance_criteria>
-</task>
+  </acceptance_criteria>
+  </task>
 
 <task id="2.5">
 <title>Remove unused frontend/backend directory</title>
@@ -272,6 +280,7 @@ Delete the entire `frontend/backend/` directory. It contains only a `package.jso
 ```bash
 rm -rf frontend/backend/
 ```
+
 </action>
 <acceptance_criteria>
 - Directory `frontend/backend/` does not exist
@@ -280,6 +289,7 @@ rm -rf frontend/backend/
 </task>
 
 ## Verification
+
 ```bash
 # Unit test should pass (if deps available)
 cd backend && npx jest src/app.controller.spec.ts --no-cache 2>&1 | head -20

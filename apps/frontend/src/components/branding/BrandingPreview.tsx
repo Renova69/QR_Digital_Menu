@@ -1,9 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { Smartphone, Monitor, Sun, Moon, ShoppingCart, List, Tag } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import type { BrandPalette } from './ThemePresets';
-import { getReadableTextColor } from '../../utils/colors';
-import { getDisplayUrl } from '../../lib/imageUrl';
+import React, { useState, useEffect } from "react";
+import {
+  Smartphone,
+  Monitor,
+  Sun,
+  Moon,
+  ShoppingCart,
+  List,
+  Tag,
+} from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { BrandPalette } from "./ThemePresets";
+import { getReadableTextColor } from "../../utils/colors";
+import { getDisplayUrl } from "../../lib/imageUrl";
 
 interface BrandingPreviewProps {
   fontHeading: string;
@@ -12,16 +20,31 @@ interface BrandingPreviewProps {
   darkPalette: BrandPalette;
   restaurantName?: string;
   logoUrl?: string | null;
-  defaultTheme?: 'light' | 'dark';
+  defaultTheme?: "light" | "dark";
 }
 
-type Scene = 'card' | 'category' | 'cart';
-type Device = 'mobile' | 'desktop';
+type Scene = "card" | "category" | "cart";
+type Device = "mobile" | "desktop";
 
 const SCENE_KEYS = [
-  { id: 'card' as const, icon: Tag, labelKey: 'branding.previewCard', fallback: 'Card' },
-  { id: 'category' as const, icon: List, labelKey: 'branding.previewCategory', fallback: 'Category' },
-  { id: 'cart' as const, icon: ShoppingCart, labelKey: 'branding.previewCart', fallback: 'Cart' },
+  {
+    id: "card" as const,
+    icon: Tag,
+    labelKey: "branding.previewCard",
+    fallback: "Card",
+  },
+  {
+    id: "category" as const,
+    icon: List,
+    labelKey: "branding.previewCategory",
+    fallback: "Category",
+  },
+  {
+    id: "cart" as const,
+    icon: ShoppingCart,
+    labelKey: "branding.previewCart",
+    fallback: "Cart",
+  },
 ];
 
 export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
@@ -29,13 +52,13 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
   fontBody,
   lightPalette,
   darkPalette,
-  restaurantName = 'Your Restaurant',
+  restaurantName = "Your Restaurant",
   logoUrl,
-  defaultTheme = 'light',
+  defaultTheme = "light",
 }) => {
-  const [scene, setScene] = useState<Scene>('card');
-  const [device, setDevice] = useState<Device>('mobile');
-  const [themeMode, setThemeMode] = useState<'light' | 'dark'>(defaultTheme);
+  const [scene, setScene] = useState<Scene>("card");
+  const [device, setDevice] = useState<Device>("mobile");
+  const [themeMode, setThemeMode] = useState<"light" | "dark">(defaultTheme);
   const { t } = useTranslation();
 
   // Sync phone chrome when parent defaultTheme toggle changes
@@ -43,7 +66,7 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
     setThemeMode(defaultTheme);
   }, [defaultTheme]);
 
-  const palette = themeMode === 'dark' ? darkPalette : lightPalette;
+  const palette = themeMode === "dark" ? darkPalette : lightPalette;
   const bg = palette.bg;
   const text = palette.text;
   const card = palette.card;
@@ -57,25 +80,48 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
           className="text-sm font-bold tracking-tight mb-1.5"
           style={{ fontFamily: fontHeading, color: text }}
         >
-          {t('branding.previewSignatureDishes', 'Signature Dishes')}
+          {t("branding.previewSignatureDishes", "Signature Dishes")}
         </h2>
-        <div className="w-6 h-0.5 rounded-full" style={{ backgroundColor: accent }} />
+        <div
+          className="w-6 h-0.5 rounded-full"
+          style={{ backgroundColor: accent }}
+        />
       </div>
-      <div className="rounded-xl overflow-hidden shadow-sm" style={{ backgroundColor: card }}>
+      <div
+        className="rounded-xl overflow-hidden shadow-sm"
+        style={{ backgroundColor: card }}
+      >
         <div
           className="w-full h-20 flex items-center justify-center"
           style={{ backgroundColor: `${text}0D` }}
         >
-          <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke={text} opacity={0.15}>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          <svg
+            className="w-7 h-7"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke={text}
+            opacity={0.15}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
           </svg>
         </div>
         <div className="p-3">
           <div className="flex justify-between items-start mb-1">
-            <h3 className="text-xs font-bold" style={{ fontFamily: fontHeading, color: text }}>
-              {t('branding.previewDishName', 'Truffle Burrata')}
+            <h3
+              className="text-xs font-bold"
+              style={{ fontFamily: fontHeading, color: text }}
+            >
+              {t("branding.previewDishName", "Truffle Burrata")}
             </h3>
-            <span className="text-xs font-black" style={{ color: accent, fontFamily: fontBody }}>
+            <span
+              className="text-xs font-black"
+              style={{ color: accent, fontFamily: fontBody }}
+            >
               €18
             </span>
           </div>
@@ -83,13 +129,20 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
             className="text-[10px] leading-relaxed mb-2.5"
             style={{ fontFamily: fontBody, color: text, opacity: 0.65 }}
           >
-            {t('branding.previewDishDesc', 'Fresh burrata with black truffle shavings and aged balsamic.')}
+            {t(
+              "branding.previewDishDesc",
+              "Fresh burrata with black truffle shavings and aged balsamic.",
+            )}
           </p>
           <button
             className="w-full py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider"
-            style={{ backgroundColor: accent, color: accentText, fontFamily: fontBody }}
+            style={{
+              backgroundColor: accent,
+              color: accentText,
+              fontFamily: fontBody,
+            }}
           >
-            {t('branding.previewAddToOrder', 'Add to order')}
+            {t("branding.previewAddToOrder", "Add to order")}
           </button>
         </div>
       </div>
@@ -97,10 +150,10 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
   );
 
   const categoryLabels = [
-    t('branding.previewStarters', 'Starters'),
-    t('branding.previewMains', 'Mains'),
-    t('branding.previewDesserts', 'Desserts'),
-    t('branding.previewDrinks', 'Drinks'),
+    t("branding.previewStarters", "Starters"),
+    t("branding.previewMains", "Mains"),
+    t("branding.previewDesserts", "Desserts"),
+    t("branding.previewDrinks", "Drinks"),
   ];
 
   const CategoryScene = (
@@ -143,8 +196,8 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
   );
 
   const cartItems = [
-    t('branding.previewItem1', 'Truffle Burrata'),
-    t('branding.previewItem2', 'Grilled Salmon'),
+    t("branding.previewItem1", "Truffle Burrata"),
+    t("branding.previewItem2", "Grilled Salmon"),
   ];
 
   const CartScene = (
@@ -153,7 +206,7 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
         className="text-xs font-bold mb-2"
         style={{ fontFamily: fontHeading, color: text }}
       >
-        {t('branding.previewYourOrder', 'Your Order')}
+        {t("branding.previewYourOrder", "Your Order")}
       </h3>
       {cartItems.map((item, i) => (
         <div
@@ -181,8 +234,11 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
         </div>
       ))}
       <div className="flex justify-between pt-1">
-        <span className="text-[10px] font-semibold" style={{ color: text, fontFamily: fontBody }}>
-          {t('branding.previewTotal', 'Total')}
+        <span
+          className="text-[10px] font-semibold"
+          style={{ color: text, fontFamily: fontBody }}
+        >
+          {t("branding.previewTotal", "Total")}
         </span>
         <span className="text-xs font-black" style={{ color: accent }}>
           €40.00
@@ -190,9 +246,13 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
       </div>
       <button
         className="w-full py-2 rounded-lg text-[10px] font-black uppercase tracking-wider"
-        style={{ backgroundColor: accent, color: accentText, fontFamily: fontBody }}
+        style={{
+          backgroundColor: accent,
+          color: accentText,
+          fontFamily: fontBody,
+        }}
       >
-        {t('branding.previewPlaceOrder', 'Place Order')}
+        {t("branding.previewPlaceOrder", "Place Order")}
       </button>
     </div>
   );
@@ -205,29 +265,29 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
 
   const menuHeader = (compact = false) => (
     <div
-      className={`flex items-center justify-between border-b ${compact ? 'px-4 py-2.5' : 'px-5 py-3'}`}
+      className={`flex items-center justify-between border-b ${compact ? "px-4 py-2.5" : "px-5 py-3"}`}
       style={{ borderColor: `${text}12`, backgroundColor: bg }}
     >
       {logoUrl ? (
         <img
           src={getDisplayUrl(logoUrl)}
           alt={restaurantName}
-          className={`object-contain ${compact ? 'h-6' : 'h-8'}`}
+          className={`object-contain ${compact ? "h-6" : "h-8"}`}
         />
       ) : (
         <span
-          className={`font-bold ${compact ? 'text-xs' : 'text-sm'}`}
+          className={`font-bold ${compact ? "text-xs" : "text-sm"}`}
           style={{ fontFamily: fontHeading, color: text }}
         >
           {restaurantName}
         </span>
       )}
       <div
-        className={`rounded-full flex items-center justify-center ${compact ? 'w-5 h-5' : 'w-6 h-6'}`}
+        className={`rounded-full flex items-center justify-center ${compact ? "w-5 h-5" : "w-6 h-6"}`}
         style={{ backgroundColor: `${accent}20` }}
       >
         <div
-          className={`rounded-full ${compact ? 'w-1.5 h-1.5' : 'w-2 h-2'}`}
+          className={`rounded-full ${compact ? "w-1.5 h-1.5" : "w-2 h-2"}`}
           style={{ backgroundColor: accent }}
         />
       </div>
@@ -235,18 +295,22 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
   );
 
   const MobilePreview = (
-    <div className="relative mx-auto" style={{ width: '200px' }}>
+    <div className="relative mx-auto" style={{ width: "200px" }}>
       <div
         className="relative rounded-[2.2rem] p-[5px] shadow-2xl"
-        style={{ backgroundColor: themeMode === 'dark' ? '#1a1a1a' : '#2d2d2d' }}
+        style={{
+          backgroundColor: themeMode === "dark" ? "#1a1a1a" : "#2d2d2d",
+        }}
       >
         <div
           className="absolute top-2.5 left-1/2 -translate-x-1/2 w-12 h-3 rounded-full z-10"
-          style={{ backgroundColor: themeMode === 'dark' ? '#1a1a1a' : '#2d2d2d' }}
+          style={{
+            backgroundColor: themeMode === "dark" ? "#1a1a1a" : "#2d2d2d",
+          }}
         />
         <div
           className="rounded-[1.8rem] overflow-hidden"
-          style={{ backgroundColor: bg, minHeight: '340px' }}
+          style={{ backgroundColor: bg, minHeight: "340px" }}
         >
           <div
             className="flex items-center justify-between px-4 pt-5 pb-1"
@@ -256,8 +320,14 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
               9:41
             </span>
             <div className="flex gap-0.5 items-center">
-              <div className="w-2.5 h-1.5 rounded-sm" style={{ backgroundColor: text, opacity: 0.5 }} />
-              <div className="w-1 h-1.5 rounded-sm" style={{ backgroundColor: text, opacity: 0.3 }} />
+              <div
+                className="w-2.5 h-1.5 rounded-sm"
+                style={{ backgroundColor: text, opacity: 0.5 }}
+              />
+              <div
+                className="w-1 h-1.5 rounded-sm"
+                style={{ backgroundColor: text, opacity: 0.3 }}
+              />
             </div>
           </div>
           {menuHeader(true)}
@@ -277,7 +347,9 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
         <div className="w-2 h-2 rounded-full bg-yellow-400/80" />
         <div className="w-2 h-2 rounded-full bg-green-400/80" />
         <div className="flex-1 mx-2 h-4 bg-background rounded text-[8px] flex items-center px-2 text-muted-foreground font-mono overflow-hidden">
-          {restaurantName.toLowerCase().replace(/\s+/g, '')}{t('auto.Menu', '.menu')}</div>
+          {restaurantName.toLowerCase().replace(/\s+/g, "")}
+          {t("auto.Menu", ".menu")}
+        </div>
       </div>
       {menuHeader(false)}
       {sceneContent[scene]}
@@ -299,8 +371,8 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
                 aria-pressed={scene === id}
                 className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-all ${
                   scene === id
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <Icon size={9} />
@@ -314,26 +386,26 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
           <div className="flex gap-0.5 bg-muted rounded-lg p-1">
             <button
               type="button"
-              onClick={() => setDevice('mobile')}
-              aria-label={t('branding.previewMobile', 'Mobile')}
-              aria-pressed={device === 'mobile'}
+              onClick={() => setDevice("mobile")}
+              aria-label={t("branding.previewMobile", "Mobile")}
+              aria-pressed={device === "mobile"}
               className={`p-1.5 rounded-md transition-all ${
-                device === 'mobile'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                device === "mobile"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Smartphone size={11} />
             </button>
             <button
               type="button"
-              onClick={() => setDevice('desktop')}
-              aria-label={t('branding.previewDesktop', 'Desktop')}
-              aria-pressed={device === 'desktop'}
+              onClick={() => setDevice("desktop")}
+              aria-label={t("branding.previewDesktop", "Desktop")}
+              aria-pressed={device === "desktop"}
               className={`p-1.5 rounded-md transition-all ${
-                device === 'desktop'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                device === "desktop"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Monitor size={11} />
@@ -341,18 +413,24 @@ export const BrandingPreview: React.FC<BrandingPreviewProps> = ({
           </div>
           <button
             type="button"
-            onClick={() => setThemeMode((m) => (m === 'light' ? 'dark' : 'light'))}
-            aria-label={themeMode === 'light' ? t('branding.previewDarkMode', 'Preview dark mode') : t('branding.previewLightMode', 'Preview light mode')}
-            aria-pressed={themeMode === 'dark'}
+            onClick={() =>
+              setThemeMode((m) => (m === "light" ? "dark" : "light"))
+            }
+            aria-label={
+              themeMode === "light"
+                ? t("branding.previewDarkMode", "Preview dark mode")
+                : t("branding.previewLightMode", "Preview light mode")
+            }
+            aria-pressed={themeMode === "dark"}
             className="p-1.5 rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors"
           >
-            {themeMode === 'light' ? <Moon size={11} /> : <Sun size={11} />}
+            {themeMode === "light" ? <Moon size={11} /> : <Sun size={11} />}
           </button>
         </div>
       </div>
 
       <div className="transition-all duration-300">
-        {device === 'mobile' ? MobilePreview : DesktopPreview}
+        {device === "mobile" ? MobilePreview : DesktopPreview}
       </div>
     </div>
   );

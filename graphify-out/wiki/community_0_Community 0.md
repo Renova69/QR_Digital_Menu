@@ -5,6 +5,7 @@
 ## Nodes
 
 ### cn()
+
 - **ID:** `lib_utils_cn`
 - **Type:** code
 - **Degree:** 25
@@ -17,6 +18,7 @@
   - ↔ `TableCard()` [_`calls`_ | c0]
 
 ### button.tsx
+
 - **ID:** `apps_frontend_src_components_ui_button_tsx`
 - **Type:** code
 - **Degree:** 24
@@ -36,6 +38,7 @@
   - ↔ `CreateItemForm.tsx` [_`imports_from`_ | c40]
 
 ### Button
+
 - **ID:** `ui_button_button`
 - **Type:** code
 - **Degree:** 20
@@ -50,6 +53,7 @@
   - ↔ `CreateItemForm.tsx` [_`imports`_ | c40]
 
 ### utils.ts
+
 - **ID:** `apps_frontend_src_lib_utils_ts`
 - **Type:** code
 - **Degree:** 16
@@ -64,6 +68,7 @@
   - ↔ `TableView.tsx` [_`imports_from`_ | c27]
 
 ### ItemList.tsx
+
 - **ID:** `apps_frontend_src_components_menu_itemlist_tsx`
 - **Type:** code
 - **Degree:** 15
@@ -85,6 +90,7 @@
   - ↔ `index.ts` [_`imports_from`_ | c49]
 
 ### useCart()
+
 - **ID:** `context_cartcontext_usecart`
 - **Type:** code
 - **Degree:** 15
@@ -100,6 +106,7 @@
   - ↔ `CartContext.tsx` [_`contains`_ | c63]
 
 ### useMenuContext()
+
 - **ID:** `context_menucontext_usemenucontext`
 - **Type:** code
 - **Degree:** 15
@@ -114,6 +121,7 @@
   - ↔ `CreateItemForm.tsx` [_`imports`_ | c40]
 
 ### HomePage.tsx
+
 - **ID:** `apps_frontend_src_pages_homepage_tsx`
 - **Type:** code
 - **Degree:** 14
@@ -128,6 +136,7 @@
   - ↔ `featureCards` [_`contains`_ | c23]
 
 ### input.tsx
+
 - **ID:** `apps_frontend_src_components_ui_input_tsx`
 - **Type:** code
 - **Degree:** 12
@@ -145,6 +154,7 @@
   - ↔ `CreateItemForm.tsx` [_`imports_from`_ | c40]
 
 ### CartDrawer.tsx
+
 - **ID:** `apps_frontend_src_components_cart_cartdrawer_tsx`
 - **Type:** code
 - **Degree:** 11
@@ -163,6 +173,7 @@
   - ↔ `formatInlineDual()` [_`imports`_ | c21]
 
 ### modal.tsx
+
 - **ID:** `apps_frontend_src_components_ui_modal_tsx`
 - **Type:** code
 - **Degree:** 9
@@ -178,6 +189,7 @@
   - ↔ `ManageOptionsModal.tsx` [_`imports_from`_ | c57]
 
 ### ItemWithOptions()
+
 - **ID:** `menu_itemwithoptions_itemwithoptions`
 - **Type:** code
 - **Degree:** 9
@@ -192,6 +204,7 @@
   - ↔ `getTranslatedField()` [_`calls`_ | c21]
 
 ### Item
+
 - **ID:** `types_index_item`
 - **Type:** code
 - **Degree:** 9
@@ -204,6 +217,7 @@
   - ↔ `MenuContext.tsx` [_`imports`_ | c45]
 
 ### Input
+
 - **ID:** `ui_input_input`
 - **Type:** code
 - **Degree:** 9
@@ -216,6 +230,7 @@
   - ↔ `CreateItemForm.tsx` [_`imports`_ | c40]
 
 ### useToast()
+
 - **ID:** `ui_toast_usetoast`
 - **Type:** code
 - **Degree:** 9
@@ -227,6 +242,7 @@
   - ↔ `BrandingEditor.tsx` [_`imports`_ | c5]
 
 ### textarea.tsx
+
 - **ID:** `apps_frontend_src_components_ui_textarea_tsx`
 - **Type:** code
 - **Degree:** 8
@@ -243,6 +259,7 @@
   - ↔ `FeedbackPage.tsx` [_`imports_from`_ | c23]
 
 ### Modal()
+
 - **ID:** `ui_modal_modal`
 - **Type:** code
 - **Degree:** 8
@@ -255,6 +272,7 @@
   - ↔ `ManageOptionsModal.tsx` [_`imports`_ | c57]
 
 ### toast.tsx
+
 - **ID:** `apps_frontend_src_components_ui_toast_tsx`
 - **Type:** code
 - **Degree:** 7
@@ -270,6 +288,7 @@
   - ↔ `BrandingEditor.tsx` [_`imports_from`_ | c5]
 
 ### PublicMenuPage()
+
 - **ID:** `pages_publicmenupage_publicmenupage`
 - **Type:** code
 - **Degree:** 7
@@ -282,6 +301,7 @@
   - ↔ `hexToRgba()` [_`calls`_ | c35]
 
 ### index.tsx
+
 - **ID:** `apps_frontend_src_index_tsx`
 - **Type:** code
 - **Degree:** 6
@@ -295,6 +315,7 @@
   - ↔ `reportWebVitals.js` [_`imports_from`_ | c116]
 
 ### CheckoutPage()
+
 - **ID:** `pages_checkoutpage_checkoutpage`
 - **Type:** code
 - **Degree:** 6
@@ -307,6 +328,7 @@
   - ↔ `CheckoutPage.tsx` [_`contains`_ | c117]
 
 ### TableView()
+
 - **ID:** `tables_tableview_tableview`
 - **Type:** code
 - **Degree:** 6
@@ -321,6 +343,7 @@
   - ↔ `useAuth()` [_`calls`_ | c7]
 
 ### Cart.tsx
+
 - **ID:** `apps_frontend_src_components_menu_cart_tsx`
 - **Type:** code
 - **Degree:** 5
@@ -334,6 +357,7 @@
   - ↔ `CartContext.tsx` [_`imports_from`_ | c63]
 
 ### CustomerLoginModal()
+
 - **ID:** `auth_customerloginmodal_customerloginmodal`
 - **Type:** code
 - **Degree:** 5
@@ -346,6 +370,7 @@
   - ↔ `useAuth()` [_`calls`_ | c7]
 
 ### CategorySettingsModal()
+
 - **ID:** `menu_categorysettingsmodal_categorysettingsmodal`
 - **Type:** code
 - **Degree:** 5
@@ -359,6 +384,7 @@
   - ↔ `useFeature()` [_`calls`_ | c8]
 
 ### BrandingEditor()
+
 - **ID:** `ui_brandingeditor_brandingeditor`
 - **Type:** code
 - **Degree:** 5
@@ -372,6 +398,7 @@
   - ↔ `SettingsView.tsx` [_`imports`_ | c8]
 
 ### ImageUploadInput()
+
 - **ID:** `ui_imageuploadinput_imageuploadinput`
 - **Type:** code
 - **Degree:** 5
@@ -384,6 +411,7 @@
   - ↔ `ImageUploadInput.tsx` [_`contains`_ | c40]
 
 ### Textarea
+
 - **ID:** `ui_textarea_textarea`
 - **Type:** code
 - **Degree:** 5
@@ -395,6 +423,7 @@
   - ↔ `FeedbackPage.tsx` [_`imports`_ | c23]
 
 ### CartDrawer()
+
 - **ID:** `cart_cartdrawer_cartdrawer`
 - **Type:** code
 - **Degree:** 4
@@ -406,6 +435,7 @@
   - ↔ `formatInlineDual()` [_`calls`_ | c21]
 
 ### CreateItemForm()
+
 - **ID:** `menu_createitemform_createitemform`
 - **Type:** code
 - **Degree:** 4
@@ -418,6 +448,7 @@
   - ↔ `MenuEditorPage.tsx` [_`imports`_ | c50]
 
 ### EditItemForm()
+
 - **ID:** `menu_edititemform_edititemform`
 - **Type:** code
 - **Degree:** 4
@@ -430,6 +461,7 @@
   - ↔ `EditItemForm.tsx` [_`contains`_ | c40]
 
 ### BrandingPreview()
+
 - **ID:** `branding_brandingpreview_brandingpreview`
 - **Type:** code
 - **Degree:** 3
@@ -440,6 +472,7 @@
   - ↔ `getReadableTextColor()` [_`calls`_ | c5]
 
 ### MenuProvider()
+
 - **ID:** `context_menucontext_menuprovider`
 - **Type:** code
 - **Degree:** 3
@@ -451,6 +484,7 @@
   - ↔ `MenuContext.tsx` [_`contains`_ | c45]
 
 ### useMenu()
+
 - **ID:** `hooks_usemenu_usemenu`
 - **Type:** code
 - **Degree:** 3
@@ -460,6 +494,7 @@
   - ↔ `useMenu.ts` [_`contains`_ | c45]
 
 ### CategoryList()
+
 - **ID:** `menu_categorylist_categorylist`
 - **Type:** code
 - **Degree:** 3
@@ -471,6 +506,7 @@
   - ↔ `MenuEditorPage.tsx` [_`imports`_ | c50]
 
 ### ImageLightbox()
+
 - **ID:** `menu_imagelightbox_imagelightbox`
 - **Type:** code
 - **Degree:** 3
@@ -481,6 +517,7 @@
   - ↔ `ItemWithOptions.tsx` [_`imports`_ | c21]
 
 ### ItemList()
+
 - **ID:** `menu_itemlist_itemlist`
 - **Type:** code
 - **Degree:** 3
@@ -491,6 +528,7 @@
   - ↔ `MenuEditorPage.tsx` [_`imports`_ | c50]
 
 ### MenuEditorPage()
+
 - **ID:** `pages_menueditorpage_menueditorpage`
 - **Type:** code
 - **Degree:** 3
@@ -500,6 +538,7 @@
   - ↔ `MenuEditorPage.tsx` [_`contains`_ | c50]
 
 ### PrintableQRCodes()
+
 - **ID:** `tables_printableqrcodes_printableqrcodes`
 - **Type:** code
 - **Degree:** 3
@@ -510,6 +549,7 @@
   - ↔ `resolveLogoUrl()` [_`calls`_ | c27]
 
 ### SortableItem()
+
 - **ID:** `ui_sortableitem_sortableitem`
 - **Type:** code
 - **Degree:** 3
@@ -519,6 +559,7 @@
   - ↔ `SortableItem.tsx` [_`contains`_ | c50]
 
 ### i18n.ts
+
 - **ID:** `apps_frontend_src_i18n_ts`
 - **Type:** code
 - **Degree:** 2
@@ -528,6 +569,7 @@
   - → `index.tsx` [_`imports_from`_ | EXTRACTED | score: 1.0]
 
 ### FontPicker()
+
 - **ID:** `branding_fontpicker_fontpicker`
 - **Type:** code
 - **Degree:** 2
@@ -537,6 +579,7 @@
   - ↔ `BrandingEditor.tsx` [_`imports`_ | c5]
 
 ### CartIcon()
+
 - **ID:** `cart_carticon_carticon`
 - **Type:** code
 - **Degree:** 2
@@ -547,6 +590,7 @@
   - ↔ `CartIcon.tsx` [_`contains`_ | c63]
 
 ### Cart()
+
 - **ID:** `menu_cart_cart`
 - **Type:** code
 - **Degree:** 2
@@ -555,6 +599,7 @@
   - → `useCart()` [_`calls`_ | EXTRACTED | score: 1.0]
 
 ### ManageOptionsModal()
+
 - **ID:** `menu_manageoptionsmodal_manageoptionsmodal`
 - **Type:** code
 - **Degree:** 2
@@ -563,6 +608,7 @@
   - ↔ `ManageOptionsModal.tsx` [_`contains`_ | c57]
 
 ### TrendingCarousel()
+
 - **ID:** `menu_trendingcarousel_trendingcarousel`
 - **Type:** code
 - **Degree:** 2
@@ -572,6 +618,7 @@
   - ↔ `PublicMenuPage.tsx` [_`imports`_ | c35]
 
 ### CustomerProfilePage()
+
 - **ID:** `pages_customerprofilepage_customerprofilepage`
 - **Type:** code
 - **Degree:** 2
@@ -581,6 +628,7 @@
   - ↔ `CustomerProfilePage.tsx` [_`contains`_ | c7]
 
 ### createCategory()
+
 - **ID:** `services_menuservice_createcategory`
 - **Type:** code
 - **Degree:** 2
@@ -590,6 +638,7 @@
   - ↔ `menuService.ts` [_`contains`_ | c45]
 
 ### AvailabilityType
+
 - **ID:** `types_index_availabilitytype`
 - **Type:** code
 - **Degree:** 2
@@ -599,6 +648,7 @@
   - ↔ `index.ts` [_`contains`_ | c49]
 
 ### OptionChoice
+
 - **ID:** `types_index_optionchoice`
 - **Type:** code
 - **Degree:** 2
@@ -608,6 +658,7 @@
   - ↔ `index.ts` [_`contains`_ | c49]
 
 ### Channel
+
 - **ID:** `auth_customerloginmodal_channel`
 - **Type:** code
 - **Degree:** 1
@@ -616,6 +667,7 @@
   - ↔ `CustomerLoginModal.tsx` [_`contains`_ | c23]
 
 ### COUNTRIES
+
 - **ID:** `auth_customerloginmodal_countries`
 - **Type:** code
 - **Degree:** 1
@@ -624,6 +676,7 @@
   - ↔ `CustomerLoginModal.tsx` [_`contains`_ | c23]
 
 ### BrandingPreviewProps
+
 - **ID:** `branding_brandingpreview_brandingpreviewprops`
 - **Type:** code
 - **Degree:** 1
@@ -632,6 +685,7 @@
   - ↔ `BrandingPreview.tsx` [_`contains`_ | c5]
 
 ### FontPickerProps
+
 - **ID:** `branding_fontpicker_fontpickerprops`
 - **Type:** code
 - **Degree:** 1
@@ -640,6 +694,7 @@
   - ↔ `FontPicker.tsx` [_`contains`_ | c5]
 
 ### FONTS
+
 - **ID:** `branding_fontpicker_fonts`
 - **Type:** code
 - **Degree:** 1
@@ -648,12 +703,14 @@
   - ↔ `FontPicker.tsx` [_`contains`_ | c5]
 
 ### resolveItemName()
+
 - **ID:** `cart_cartdrawer_resolveitemname`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/frontend/src/components/cart/CartDrawer.tsx` @ L11
 
 ### CartIconProps
+
 - **ID:** `cart_carticon_carticonprops`
 - **Type:** code
 - **Degree:** 1
@@ -662,6 +719,7 @@
   - ↔ `CartIcon.tsx` [_`contains`_ | c63]
 
 ### CartContext
+
 - **ID:** `context_cartcontext_cartcontext`
 - **Type:** code
 - **Degree:** 1
@@ -670,6 +728,7 @@
   - ↔ `CartContext.tsx` [_`contains`_ | c63]
 
 ### CartItem
+
 - **ID:** `context_cartcontext_cartitem`
 - **Type:** code
 - **Degree:** 1
@@ -678,6 +737,7 @@
   - ↔ `CartContext.tsx` [_`contains`_ | c63]
 
 ### MenuContext
+
 - **ID:** `context_menucontext_menucontext`
 - **Type:** code
 - **Degree:** 1
@@ -686,6 +746,7 @@
   - ↔ `MenuContext.tsx` [_`contains`_ | c45]
 
 ### MenuContextType
+
 - **ID:** `context_menucontext_menucontexttype`
 - **Type:** code
 - **Degree:** 1
@@ -694,6 +755,7 @@
   - ↔ `MenuContext.tsx` [_`contains`_ | c45]
 
 ### fetchPublicMenu()
+
 - **ID:** `hooks_usepublicmenu_fetchpublicmenu`
 - **Type:** code
 - **Degree:** 1
@@ -702,6 +764,7 @@
   - ↔ `usePublicMenu.ts` [_`contains`_ | c49]
 
 ### usePublicMenu()
+
 - **ID:** `hooks_usepublicmenu_usepublicmenu`
 - **Type:** code
 - **Degree:** 1
@@ -710,6 +773,7 @@
   - ↔ `usePublicMenu.ts` [_`contains`_ | c49]
 
 ### getMenu()
+
 - **ID:** `lib_api_getmenu`
 - **Type:** code
 - **Degree:** 1
@@ -718,6 +782,7 @@
   - ↔ `api.ts` [_`contains`_ | c3]
 
 ### CategoryRow()
+
 - **ID:** `menu_categorylist_categoryrow`
 - **Type:** code
 - **Degree:** 1
@@ -726,6 +791,7 @@
   - ↔ `CategoryList.tsx` [_`contains`_ | c50]
 
 ### DAYS
+
 - **ID:** `menu_categorysettingsmodal_days`
 - **Type:** code
 - **Degree:** 1
@@ -734,6 +800,7 @@
   - ↔ `CategorySettingsModal.tsx` [_`contains`_ | c57]
 
 ### EditItemFormProps
+
 - **ID:** `menu_edititemform_edititemformprops`
 - **Type:** code
 - **Degree:** 1
@@ -742,12 +809,14 @@
   - ↔ `EditItemForm.tsx` [_`contains`_ | c40]
 
 ### ItemRow()
+
 - **ID:** `menu_itemlist_itemrow`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/frontend/src/components/menu/ItemList.tsx` @ L91
 
 ### ItemWithOptionsProps
+
 - **ID:** `menu_itemwithoptions_itemwithoptionsprops`
 - **Type:** code
 - **Degree:** 1
@@ -756,6 +825,7 @@
   - ↔ `ItemWithOptions.tsx` [_`contains`_ | c21]
 
 ### ChoiceInput
+
 - **ID:** `menu_manageoptionsmodal_choiceinput`
 - **Type:** code
 - **Degree:** 1
@@ -764,6 +834,7 @@
   - ↔ `ManageOptionsModal.tsx` [_`contains`_ | c57]
 
 ### PRESETS
+
 - **ID:** `menu_manageoptionsmodal_presets`
 - **Type:** code
 - **Degree:** 1
@@ -772,12 +843,14 @@
   - ↔ `ManageOptionsModal.tsx` [_`contains`_ | c57]
 
 ### HomePage()
+
 - **ID:** `pages_homepage_homepage`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/frontend/src/pages/HomePage.tsx` @ L547
 
 ### ConfirmAction
+
 - **ID:** `pos_poscartdrawer_confirmaction`
 - **Type:** code
 - **Degree:** 1
@@ -786,6 +859,7 @@
   - ↔ `PosCartDrawer.tsx` [_`contains`_ | c2]
 
 ### PosCartDrawerProps
+
 - **ID:** `pos_poscartdrawer_poscartdrawerprops`
 - **Type:** code
 - **Degree:** 1
@@ -794,6 +868,7 @@
   - ↔ `PosCartDrawer.tsx` [_`contains`_ | c2]
 
 ### Category
+
 - **ID:** `pos_pospage_category`
 - **Type:** code
 - **Degree:** 1
@@ -802,6 +877,7 @@
   - ↔ `PosPage.tsx` [_`contains`_ | c2]
 
 ### PosSplitBill()
+
 - **ID:** `pos_possplitbill_possplitbill`
 - **Type:** code
 - **Degree:** 1
@@ -810,6 +886,7 @@
   - ↔ `PosSplitBill.tsx` [_`contains`_ | c2]
 
 ### PosSplitBillProps
+
 - **ID:** `pos_possplitbill_possplitbillprops`
 - **Type:** code
 - **Degree:** 1
@@ -818,30 +895,35 @@
   - ↔ `PosSplitBill.tsx` [_`contains`_ | c2]
 
 ### resources
+
 - **ID:** `src_i18n_resources`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/frontend/src/i18n.ts` @ L9
 
 ### container
+
 - **ID:** `src_index_container`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/frontend/src/index.tsx` @ L12
 
 ### queryClient
+
 - **ID:** `src_index_queryclient`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/frontend/src/index.tsx` @ L11
 
 ### root
+
 - **ID:** `src_index_root`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/frontend/src/index.tsx` @ L15
 
 ### reportWebVitals()
+
 - **ID:** `src_reportwebvitals_reportwebvitals`
 - **Type:** code
 - **Degree:** 1
@@ -850,18 +932,21 @@
   - ↔ `reportWebVitals.js` [_`contains`_ | c116]
 
 ### ButtonProps
+
 - **ID:** `ui_button_buttonprops`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/frontend/src/components/ui/button.tsx` @ L33
 
 ### buttonVariants
+
 - **ID:** `ui_button_buttonvariants`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/frontend/src/components/ui/button.tsx` @ L7
 
 ### ASPECT_CLASSES
+
 - **ID:** `ui_imageuploadinput_aspect_classes`
 - **Type:** code
 - **Degree:** 1
@@ -870,18 +955,21 @@
   - ↔ `ImageUploadInput.tsx` [_`contains`_ | c40]
 
 ### InputProps
+
 - **ID:** `ui_input_inputprops`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/frontend/src/components/ui/input.tsx` @ L5
 
 ### ModalProps
+
 - **ID:** `ui_modal_modalprops`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/frontend/src/components/ui/modal.tsx` @ L5
 
 ### SortableItemProps
+
 - **ID:** `ui_sortableitem_sortableitemprops`
 - **Type:** code
 - **Degree:** 1
@@ -890,18 +978,21 @@
   - ↔ `SortableItem.tsx` [_`contains`_ | c50]
 
 ### TextareaProps
+
 - **ID:** `ui_textarea_textareaprops`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/frontend/src/components/ui/textarea.tsx` @ L5
 
 ### Toast()
+
 - **ID:** `ui_toast_toast`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/frontend/src/components/ui/toast.tsx` @ L11
 
 ### ToastProps
+
 - **ID:** `ui_toast_toastprops`
 - **Type:** code
 - **Degree:** 1

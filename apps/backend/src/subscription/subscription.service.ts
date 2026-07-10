@@ -471,11 +471,8 @@ export class SubscriptionService {
       const subStatus = obj.status as string | undefined;
 
       if (subStatus === 'past_due') {
-        const periodEnd = obj.current_period_end as number | undefined;
-        const graceExpiry = periodEnd
-          ? new Date(periodEnd * 1000 + PAST_DUE_GRACE_MS)
-          : null;
-        if (graceExpiry && new Date() > graceExpiry) {
+        const graceExpiry = new Date(eventTime.getTime() + PAST_DUE_GRACE_MS);
+        if (new Date() > graceExpiry) {
           tier = 'FREE';
           this.logger.warn(
             `past_due grace expired for customer=${customerId} (graceEnd=${graceExpiry.toISOString()}) — downgrading to FREE`,

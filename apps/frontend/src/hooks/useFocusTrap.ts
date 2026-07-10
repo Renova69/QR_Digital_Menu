@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from "react";
 
 /**
  * Traps keyboard focus within a container element.
@@ -15,28 +15,31 @@ export function useFocusTrap(isOpen: boolean, onClose?: () => void) {
     (e: KeyboardEvent) => {
       if (!containerRef.current) return;
 
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         e.stopPropagation();
         onClose?.();
         return;
       }
 
-      if (e.key !== 'Tab') return;
+      if (e.key !== "Tab") return;
 
       const focusableSelectors = [
-        'a[href]',
-        'button:not([disabled])',
-        'input:not([disabled])',
-        'select:not([disabled])',
-        'textarea:not([disabled])',
+        "a[href]",
+        "button:not([disabled])",
+        "input:not([disabled])",
+        "select:not([disabled])",
+        "textarea:not([disabled])",
         '[tabindex]:not([tabindex="-1"])',
-      ].join(', ');
+      ].join(", ");
 
-      const focusableElements = containerRef.current.querySelectorAll(focusableSelectors);
+      const focusableElements =
+        containerRef.current.querySelectorAll(focusableSelectors);
       if (focusableElements.length === 0) return;
 
       const firstElement = focusableElements[0] as HTMLElement;
-      const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+      const lastElement = focusableElements[
+        focusableElements.length - 1
+      ] as HTMLElement;
 
       if (e.shiftKey) {
         // Shift+Tab: if at first element, wrap to last
@@ -70,11 +73,11 @@ export function useFocusTrap(isOpen: boolean, onClose?: () => void) {
       firstFocusable?.focus();
     }, 50);
 
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
 
     return () => {
       clearTimeout(timer);
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown);
       // Restore focus to the previously focused element
       previousFocusRef.current?.focus();
     };

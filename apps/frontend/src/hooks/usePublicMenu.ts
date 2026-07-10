@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
-import api from '../lib/api';
-import { Category } from '../types';
+import { useQuery } from "@tanstack/react-query";
+import api from "../lib/api";
+import { Category } from "../types";
 
 const fetchPublicMenu = async (
   restaurantId: string,
@@ -17,7 +17,7 @@ export const usePublicMenu = (
   lang?: string,
 ) => {
   return useQuery({
-    queryKey: ['publicMenu', restaurantId, lang ?? 'default'],
+    queryKey: ["publicMenu", restaurantId, lang ?? "default"],
     queryFn: () => fetchPublicMenu(restaurantId!, lang),
     enabled: !!restaurantId,
   });

@@ -10,6 +10,13 @@ import { BoricaCheckoutService } from './providers/borica-checkout.service';
 import { PaymentSessionService } from './session/payment-session.service';
 import { PaymentSettlementService } from './session/payment-settlement.service';
 
+import { StripeProvider } from './stripe.provider';
+import { EpayProvider } from './epay.provider';
+import { MyposProvider } from './mypos.provider';
+import { BoricaProvider } from './borica.provider';
+import { EventsGateway } from '../events/events.gateway';
+import { FeatureService } from '../subscription/feature.service';
+
 type Provider = 'STRIPE' | 'EPAY' | 'BORICA' | 'MYPOS';
 
 const cardholder = {
@@ -23,11 +30,18 @@ function matchesWhere(payment: any, where: any = {}) {
   for (const [key, expected] of Object.entries(where)) {
     const actual = payment[key];
     if (expected && typeof expected === 'object' && !Array.isArray(expected)) {
-      if ('in' in expected && !(expected as any).in.includes(actual)) return false;
-      if ('notIn' in expected && (expected as any).notIn.includes(actual)) return false;
-      if ('not' in expected && actual === (expected as any).not) return false;
-      if ('gte' in expected && !(actual >= (expected as any).gte)) return false;
-      if ('lte' in expected && !(actual <= (expected as any).lte)) return false;
+      const exp = expected as {
+        in?: any[];
+        notIn?: any[];
+        not?: any;
+        gte?: any;
+        lte?: any;
+      };
+      if ('in' in expected && !exp.in?.includes(actual)) return false;
+      if ('notIn' in expected && exp.notIn?.includes(actual)) return false;
+      if ('not' in expected && actual === exp.not) return false;
+      if ('gte' in expected && !(actual >= exp.gte)) return false;
+      if ('lte' in expected && !(actual <= exp.lte)) return false;
       continue;
     }
     if (actual !== expected) return false;
@@ -104,10 +118,15 @@ function createHarness() {
       findUnique: jest.fn(async () => restaurant),
     },
     user: {
-      findUnique: jest.fn(async () => ({ restaurantId: 'rest1', role: 'OWNER' })),
+      findUnique: jest.fn(async () => ({
+        restaurantId: 'rest1',
+        role: 'OWNER',
+      })),
     },
     order: {
-      findMany: jest.fn(async () => [{ totalPrice: 20, customerName: 'Maria' }]),
+      findMany: jest.fn(async () => [
+        { totalPrice: 20, customerName: 'Maria' },
+      ]),
       findFirst: jest.fn(async () => ({ customerName: 'Maria' })),
     },
     payment: {
@@ -127,17 +146,26 @@ function createHarness() {
         return payment;
       }),
       findMany: jest.fn(async (args: any = {}) => {
-        let rows = payments.filter((payment) => matchesWhere(payment, args.where));
+        let rows = payments.filter((payment) =>
+          matchesWhere(payment, args.where),
+        );
         if (args.orderBy?.createdAt === 'desc') {
-          rows = [...rows].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+          rows = [...rows].sort(
+            (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+          );
         }
         if (typeof args.skip === 'number' || typeof args.take === 'number') {
-          rows = rows.slice(args.skip ?? 0, (args.skip ?? 0) + (args.take ?? rows.length));
+          rows = rows.slice(
+            args.skip ?? 0,
+            (args.skip ?? 0) + (args.take ?? rows.length),
+          );
         }
         return args.include ? rows.map(withIncludes) : rows;
       }),
       findFirst: jest.fn(async (args: any = {}) => {
-        const rows = payments.filter((payment) => matchesWhere(payment, args.where));
+        const rows = payments.filter((payment) =>
+          matchesWhere(payment, args.where),
+        );
         return rows[0] ?? null;
       }),
       update: jest.fn(async ({ where, data }: any) => {
@@ -156,8 +184,10 @@ function createHarness() {
         }
         return { count };
       }),
-      count: jest.fn(async (args: any = {}) =>
-        payments.filter((payment) => matchesWhere(payment, args.where)).length,
+      count: jest.fn(
+        async (args: any = {}) =>
+          payments.filter((payment) => matchesWhere(payment, args.where))
+            .length,
       ),
     },
     cashPaymentRequest: {
@@ -186,7 +216,8 @@ function createHarness() {
       fields: {
         ENCODED: 'encoded',
         CHECKSUM: 'checksum',
-        URL_CANCEL: 'http://localhost:3001/menu/public/rest1?table=7&payment=epay-cancel',
+        URL_CANCEL:
+          'http://localhost:3001/menu/public/rest1?table=7&payment=epay-cancel',
       },
     })),
     parseNotifications: jest.fn(),
@@ -219,46 +250,52 @@ function createHarness() {
   const features = {
     restaurantHasFeature: jest.fn(() => true),
   };
-  const config = new PaymentProviderConfigService(features as any);
-  const core = new PaymentCoreService(prisma, events as any, features as any);
+  const config = new PaymentProviderConfigService(
+    features as unknown as FeatureService,
+  );
+  const core = new PaymentCoreService(
+    prisma,
+    events as unknown as EventsGateway,
+    features as unknown as FeatureService,
+  );
   const sessions = new PaymentSessionService(
     prisma,
-    stripe as any,
-    events as any,
+    stripe as unknown as StripeProvider,
+    events as unknown as EventsGateway,
     core,
     config,
   );
   const settlement = new PaymentSettlementService(
     prisma,
-    events as any,
-    features as any,
+    events as unknown as EventsGateway,
+    features as unknown as FeatureService,
     core,
     sessions,
   );
   const reporting = new PaymentReportingService(prisma, core);
   const stripeCheckout = new StripeCheckoutService(
     prisma,
-    stripe as any,
-    events as any,
-    features as any,
+    stripe as unknown as StripeProvider,
+    events as unknown as EventsGateway,
+    features as unknown as FeatureService,
     core,
     config,
   );
   const epayCheckout = new EpayCheckoutService(
     prisma,
-    epay as any,
+    epay as unknown as EpayProvider,
     core,
     config,
   );
   const myposCheckout = new MyposCheckoutService(
     prisma,
-    mypos as any,
+    mypos as unknown as MyposProvider,
     core,
     config,
   );
   const boricaCheckout = new BoricaCheckoutService(
     prisma,
-    borica as any,
+    borica as unknown as BoricaProvider,
     core,
     config,
   );
@@ -356,12 +393,16 @@ describe('Payment abandonment behavior proof', () => {
         ConflictException,
       );
 
-      const pending = payments.filter((payment) => payment.status === 'PENDING');
+      const pending = payments.filter(
+        (payment) => payment.status === 'PENDING',
+      );
       expect(pending).toHaveLength(1);
       expect(pending[0].provider).toBe(from);
 
       await service.abandonCheckout('tok1');
-      await expect(checkout(service, to)).resolves.toMatchObject({ provider: to });
+      await expect(checkout(service, to)).resolves.toMatchObject({
+        provider: to,
+      });
     }
   });
 
@@ -381,10 +422,18 @@ describe('Payment abandonment behavior proof', () => {
       updatedAt: new Date(),
     });
 
-    await expect(checkout(service, 'STRIPE')).rejects.toBeInstanceOf(ConflictException);
-    await expect(checkout(service, 'EPAY')).rejects.toBeInstanceOf(ConflictException);
-    await expect(checkout(service, 'BORICA')).rejects.toBeInstanceOf(ConflictException);
-    await expect(checkout(service, 'MYPOS')).rejects.toBeInstanceOf(ConflictException);
+    await expect(checkout(service, 'STRIPE')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    await expect(checkout(service, 'EPAY')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    await expect(checkout(service, 'BORICA')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    await expect(checkout(service, 'MYPOS')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
   });
 
   it('browser-back abandon signal hides the pending hosted checkout from dashboard history', async () => {

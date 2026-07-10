@@ -1,7 +1,7 @@
 import type { TFunction } from "i18next";
 
 export type CustomerFacingOrderSource = {
-  source?: 'CUSTOMER' | 'POS' | string | null;
+  source?: "CUSTOMER" | "POS" | string | null;
   staffName?: string | null;
 };
 
@@ -12,19 +12,21 @@ export function getCustomerFacingOrderSourceLabel(
   order: CustomerFacingOrderSource,
   t: TFunction,
 ) {
-  if (order.source === 'CUSTOMER') {
-    return String(t('payment.sourceYou', { defaultValue: 'You' }));
+  if (order.source === "CUSTOMER") {
+    return String(t("payment.sourceYou", { defaultValue: "You" }));
   }
 
   const staffName = order.staffName?.trim();
   if (!staffName) {
-    return String(t('payment.sourceStaff', { defaultValue: 'Staff' }));
+    return String(t("payment.sourceStaff", { defaultValue: "Staff" }));
   }
 
-  const label = String(t('payment.sourceStaffWithName', {
-    name: staffName,
-    defaultValue: 'Staff: {{name}}',
-  }));
+  const label = String(
+    t("payment.sourceStaffWithName", {
+      name: staffName,
+      defaultValue: "Staff: {{name}}",
+    }),
+  );
 
   return interpolateNameFallback(label, staffName);
 }

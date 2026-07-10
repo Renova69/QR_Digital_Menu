@@ -5,6 +5,7 @@
 ## Nodes
 
 ### PaymentService
+
 - **ID:** `payment_payment_service_paymentservice`
 - **Type:** code
 - **Degree:** 24
@@ -19,6 +20,7 @@
   - ↔ `.constructor()` [_`method`_ | c11]
 
 ### PaymentController
+
 - **ID:** `payment_payment_controller_paymentcontroller`
 - **Type:** code
 - **Degree:** 18
@@ -31,6 +33,7 @@
   - ↔ `.getSessionBill()` [_`method`_ | c47]
 
 ### PaymentHistoryQueryDto
+
 - **ID:** `dto_payment_history_query_dto_paymenthistoryquerydto`
 - **Type:** code
 - **Degree:** 3
@@ -41,6 +44,7 @@
   - ↔ `payment-history-query.dto.ts` [_`contains`_ | c18]
 
 ### closeSession()
+
 - **ID:** `lib_api_closesession`
 - **Type:** code
 - **Degree:** 3
@@ -51,6 +55,7 @@
   - ↔ `api.ts` [_`contains`_ | c3]
 
 ### closeSessionWithCard()
+
 - **ID:** `lib_api_closesessionwithcard`
 - **Type:** code
 - **Degree:** 2
@@ -60,6 +65,7 @@
   - ↔ `api.ts` [_`contains`_ | c3]
 
 ### forceOpenSession()
+
 - **ID:** `lib_api_forceopensession`
 - **Type:** code
 - **Degree:** 2
@@ -69,6 +75,7 @@
   - ↔ `api.ts` [_`contains`_ | c3]
 
 ### getOrCreateSession()
+
 - **ID:** `lib_api_getorcreatesession`
 - **Type:** code
 - **Degree:** 2
@@ -78,6 +85,7 @@
   - ↔ `api.ts` [_`contains`_ | c3]
 
 ### getPaymentHistory()
+
 - **ID:** `lib_api_getpaymenthistory`
 - **Type:** code
 - **Degree:** 2
@@ -87,6 +95,7 @@
   - ↔ `PaymentsView.tsx` [_`imports`_ | c0]
 
 ### getTableSessions()
+
 - **ID:** `lib_api_gettablesessions`
 - **Type:** code
 - **Degree:** 2
@@ -96,6 +105,7 @@
   - ↔ `api.ts` [_`contains`_ | c3]
 
 ### dto
+
 - **ID:** `dto_payment_history_query_dto_spec_dto`
 - **Type:** code
 - **Degree:** 1
@@ -104,12 +114,14 @@
   - ↔ `payment-history-query.dto.spec.ts` [_`contains`_ | c18]
 
 ### .handleWebhookEvent()
+
 - **ID:** `payment_payment_service_paymentservice_handlewebhookevent`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/payment/payment.service.ts` @ L239
 
 ### created
+
 - **ID:** `payment_payment_service_spec_created`
 - **Type:** code
 - **Degree:** 1
@@ -118,6 +130,7 @@
   - ↔ `payment.service.spec.ts` [_`contains`_ | c11]
 
 ### existing
+
 - **ID:** `payment_payment_service_spec_existing`
 - **Type:** code
 - **Degree:** 1
@@ -126,6 +139,7 @@
   - ↔ `payment.service.spec.ts` [_`contains`_ | c11]
 
 ### session
+
 - **ID:** `payment_payment_service_spec_session`
 - **Type:** code
 - **Degree:** 1
@@ -134,6 +148,7 @@
   - ↔ `payment.service.spec.ts` [_`contains`_ | c11]
 
 ### sessions
+
 - **ID:** `payment_payment_service_spec_sessions`
 - **Type:** code
 - **Degree:** 1

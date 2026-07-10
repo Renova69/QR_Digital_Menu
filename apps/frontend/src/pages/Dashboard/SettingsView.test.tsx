@@ -1,5 +1,13 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeAll,
+  beforeEach,
+  afterAll,
+} from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import SettingsView from "./SettingsView";
@@ -15,7 +23,12 @@ vi.mock("react-i18next", () => ({
 
 vi.mock("../../context/AuthContext", () => ({
   useAuth: () => ({
-    user: { id: "u1", role: mockAuthState.role, restaurantId: "rest-1", email: "owner@test.com" },
+    user: {
+      id: "u1",
+      role: mockAuthState.role,
+      restaurantId: "rest-1",
+      email: "owner@test.com",
+    },
     isAuthenticated: true,
   }),
 }));
@@ -23,6 +36,7 @@ vi.mock("../../context/AuthContext", () => ({
 // Non-free tier with staff roles so the Staff tab is visible.
 vi.mock("../../hooks/useFeature", () => ({
   useFeature: () => true,
+
   useTier: () => ({
     tier: "PROFESSIONAL",
     allowedStaffRoles: ["MANAGER", "WAITER", "KITCHEN", "STAFF"],
@@ -30,8 +44,18 @@ vi.mock("../../hooks/useFeature", () => ({
 }));
 
 vi.mock("@fortawesome/react-fontawesome", () => ({
-  FontAwesomeIcon: ({ icon, ...props }: any) => (
-    <svg data-testid="fa-icon" data-icon={icon?.iconName} {...props} />
+  FontAwesomeIcon: ({
+    icon,
+    ...props
+  }: {
+    icon?: { iconName?: string };
+    [key: string]: unknown;
+  }) => (
+    <svg
+      data-testid="fa-icon"
+      data-icon={icon?.iconName}
+      {...(props as React.SVGProps<SVGSVGElement>)}
+    />
   ),
 }));
 
@@ -62,7 +86,10 @@ vi.mock("../../components/ui/BrandingEditor", () => ({
 }));
 
 vi.mock("../../components/ui/button", () => ({
-  Button: ({ children, ...props }: any) => (
+  Button: ({
+    children,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button {...props}>{children}</button>
   ),
 }));
@@ -83,12 +110,19 @@ const mockRestaurant = {
 };
 
 const wrapper = ({ children }: { children: React.ReactNode }) => {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return (
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
         <RestaurantContext.Provider
-          value={{ activeRestaurant: mockRestaurant, fetchRestaurants: vi.fn() } as any}
+          value={
+            {
+              activeRestaurant: mockRestaurant,
+              fetchRestaurants: vi.fn(),
+            } as unknown as React.ContextType<typeof RestaurantContext>
+          }
         >
           {children}
         </RestaurantContext.Provider>
@@ -102,9 +136,15 @@ const store: Record<string, string> = {};
 beforeAll(() => {
   vi.stubGlobal("localStorage", {
     getItem: (k: string) => store[k] ?? null,
-    setItem: (k: string, v: string) => { store[k] = v; },
-    removeItem: (k: string) => { delete store[k]; },
-    clear: () => { for (const k of Object.keys(store)) delete store[k]; },
+    setItem: (k: string, v: string) => {
+      store[k] = v;
+    },
+    removeItem: (k: string) => {
+      delete store[k];
+    },
+    clear: () => {
+      for (const k of Object.keys(store)) delete store[k];
+    },
   });
 });
 
@@ -115,7 +155,7 @@ beforeEach(() => {
   vi.mocked(updateRestaurant).mockResolvedValue({
     ...mockRestaurant,
     sharedDeviceModeEnabled: true,
-  } as any);
+  } as Awaited<ReturnType<typeof updateRestaurant>>);
 });
 
 afterAll(() => {
@@ -191,7 +231,9 @@ describe("SettingsView - Staff tab", () => {
       target: { value: "WAITER" },
     });
 
-    expect(screen.getByText("staff.enableSharedDeviceBeforePinStaff")).toBeTruthy();
+    expect(
+      screen.getByText("staff.enableSharedDeviceBeforePinStaff"),
+    ).toBeTruthy();
     const disabledCreateButton = screen
       .getAllByText("staff.createStaffAccount")
       .map((node) => node.closest("button"))

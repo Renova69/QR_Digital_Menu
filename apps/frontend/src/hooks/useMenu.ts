@@ -1,88 +1,114 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  getCategories, 
-  createCategory, 
-  updateCategory, 
-  deleteCategory, 
-  getItems, 
-  createItem, 
-  updateItem, 
-  deleteItem, 
-  uploadItemImage 
-} from '../services/menuService';
-import { Category, Item } from '../types';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  getCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  getItems,
+  createItem,
+  updateItem,
+  deleteItem,
+  uploadItemImage,
+} from "../services/menuService";
+import { Category, Item } from "../types";
 
 export const useMenu = (restaurantId: string | undefined) => {
   const queryClient = useQueryClient();
 
   const { data: categories, isLoading: isLoadingCategories } = useQuery({
-    queryKey: ['categories', restaurantId],
+    queryKey: ["categories", restaurantId],
     queryFn: () => getCategories(restaurantId!),
     enabled: !!restaurantId,
     staleTime: 60_000,
   });
 
-  const setCategories = (updater: (old: Category[] | undefined) => Category[]) => {
-    queryClient.setQueryData(['categories', restaurantId], updater);
+  const setCategories = (
+    updater: (old: Category[] | undefined) => Category[],
+  ) => {
+    queryClient.setQueryData(["categories", restaurantId], updater);
   };
 
   const createCategoryMutation = useMutation({
-    mutationFn: (categoryData: { name: string; isDrinkCategory?: boolean }) => createCategory(restaurantId!, categoryData),
+    mutationFn: (categoryData: { name: string; isDrinkCategory?: boolean }) =>
+      createCategory(restaurantId!, categoryData),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories', restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["categories", restaurantId] });
     },
   });
 
   const updateCategoryMutation = useMutation({
-    mutationFn: ({ id, ...data }: { id: string } & Partial<Omit<Category, 'id' | 'restaurantId' | 'items'>>) => updateCategory(id, data),
+    mutationFn: ({
+      id,
+      ...data
+    }: { id: string } & Partial<
+      Omit<Category, "id" | "restaurantId" | "items">
+    >) => updateCategory(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories', restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["categories", restaurantId] });
     },
   });
 
   const deleteCategoryMutation = useMutation({
     mutationFn: (id: string) => deleteCategory(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories', restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["categories", restaurantId] });
     },
   });
 
-  const getItemsQuery = (categoryId: string | undefined) => useQuery({
-    queryKey: ['items', categoryId],
-    queryFn: () => getItems(categoryId!),
-    enabled: !!categoryId,
-    staleTime: 60_000,
-  });
+  const getItemsQuery = (categoryId: string | undefined) =>
+    useQuery({
+      queryKey: ["items", categoryId],
+      queryFn: () => getItems(categoryId!),
+      enabled: !!categoryId,
+      staleTime: 60_000,
+    });
 
-  const setItems = (categoryId: string, updater: (old: Item[] | undefined) => Item[]) => {
-    queryClient.setQueryData(['items', categoryId], updater);
+  const setItems = (
+    categoryId: string,
+    updater: (old: Item[] | undefined) => Item[],
+  ) => {
+    queryClient.setQueryData(["items", categoryId], updater);
   };
 
   const createItemMutation = useMutation({
-    mutationFn: (itemData: { categoryId: string } & Omit<Item, 'id' | 'categoryId'>) => createItem(itemData.categoryId, itemData),
+    mutationFn: (
+      itemData: { categoryId: string } & Omit<Item, "id" | "categoryId">,
+    ) => createItem(itemData.categoryId, itemData),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['items', variables.categoryId] });
+      queryClient.invalidateQueries({
+        queryKey: ["items", variables.categoryId],
+      });
     },
   });
 
   const updateItemMutation = useMutation({
-    mutationFn: (vars: { id: string, categoryId: string, data: Partial<Omit<Item, 'id' | 'categoryId'>> }) => updateItem(vars.id, vars.data),
+    mutationFn: (vars: {
+      id: string;
+      categoryId: string;
+      data: Partial<Omit<Item, "id" | "categoryId">>;
+    }) => updateItem(vars.id, vars.data),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['items', variables.categoryId] });
+      queryClient.invalidateQueries({
+        queryKey: ["items", variables.categoryId],
+      });
     },
   });
 
   const deleteItemMutation = useMutation({
-    mutationFn: (vars: { id: string, categoryId: string }) => deleteItem(vars.id),
+    mutationFn: (vars: { id: string; categoryId: string }) =>
+      deleteItem(vars.id),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['items', variables.categoryId] });
+      queryClient.invalidateQueries({
+        queryKey: ["items", variables.categoryId],
+      });
     },
   });
 
   const uploadImageMutation = useMutation({
-    mutationFn: ({ itemId, file }: { itemId: string; file: File }) => uploadItemImage(itemId, file),
+    mutationFn: ({ itemId, file }: { itemId: string; file: File }) =>
+      uploadItemImage(itemId, file),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ["items"] });
     },
   });
 

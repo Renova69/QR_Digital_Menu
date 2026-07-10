@@ -13,51 +13,55 @@
 ## File Map
 
 ### Create (backend — 8 files)
-| File | Purpose |
-|------|---------|
-| `apps/backend/src/subscription/subscription.module.ts` | NestJS module registration |
-| `apps/backend/src/subscription/subscription.service.ts` | Tier→feature resolution, Stripe Checkout/Portal session creation, webhook handling with atomic timestamp gate |
-| `apps/backend/src/subscription/subscription.controller.ts` | `/api/subscription/status`, `/checkout`, `/portal`, `/webhook` |
-| `apps/backend/src/subscription/feature.service.ts` | `getFeatures(tier)` → `FeatureFlag[]`, `hasFeature(tier, flag)` → `boolean` |
-| `apps/backend/src/subscription/feature.guard.ts` | NestJS guard reading `@RequireFeature()` metadata, resolving restaurant from JWT, calling `FeatureService` |
-| `apps/backend/src/subscription/require-feature.decorator.ts` | `@RequireFeature(FeatureFlag)` decorator |
-| `apps/backend/src/subscription/feature-flag.enum.ts` | `FeatureFlag` string enum (21 values) |
-| `apps/backend/src/subscription/dto/checkout.dto.ts` | `{ tier: SubscriptionTier }` DTO |
+
+| File                                                         | Purpose                                                                                                       |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `apps/backend/src/subscription/subscription.module.ts`       | NestJS module registration                                                                                    |
+| `apps/backend/src/subscription/subscription.service.ts`      | Tier→feature resolution, Stripe Checkout/Portal session creation, webhook handling with atomic timestamp gate |
+| `apps/backend/src/subscription/subscription.controller.ts`   | `/api/subscription/status`, `/checkout`, `/portal`, `/webhook`                                                |
+| `apps/backend/src/subscription/feature.service.ts`           | `getFeatures(tier)` → `FeatureFlag[]`, `hasFeature(tier, flag)` → `boolean`                                   |
+| `apps/backend/src/subscription/feature.guard.ts`             | NestJS guard reading `@RequireFeature()` metadata, resolving restaurant from JWT, calling `FeatureService`    |
+| `apps/backend/src/subscription/require-feature.decorator.ts` | `@RequireFeature(FeatureFlag)` decorator                                                                      |
+| `apps/backend/src/subscription/feature-flag.enum.ts`         | `FeatureFlag` string enum (21 values)                                                                         |
+| `apps/backend/src/subscription/dto/checkout.dto.ts`          | `{ tier: SubscriptionTier }` DTO                                                                              |
 
 ### Create (frontend — 7 files)
-| File | Purpose |
-|------|---------|
-| `apps/frontend/src/hooks/useFeature.ts` | React hook wrapping `useContext(RestaurantContext)` → `hasFeature(flag)` |
-| `apps/frontend/src/pages/PricingPage.tsx` | Public `/pricing` route, 4-column comparison table |
-| `apps/frontend/src/components/subscription/SubscriptionBanner.tsx` | Dashboard top banner — tier badge + upgrade CTA |
-| `apps/frontend/src/components/subscription/UpgradeModal.tsx` | Modal triggered when clicking locked feature |
-| `apps/frontend/src/components/subscription/BillingView.tsx` | Settings tab — current tier, Manage Billing button |
-| `apps/backend/prisma/seed-demo-restaurants.ts` | Seed script creating 4 demo restaurants (one per tier) |
-| (i18n keys added inline to existing translation.json files) |
+
+| File                                                               | Purpose                                                                  |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `apps/frontend/src/hooks/useFeature.ts`                            | React hook wrapping `useContext(RestaurantContext)` → `hasFeature(flag)` |
+| `apps/frontend/src/pages/PricingPage.tsx`                          | Public `/pricing` route, 4-column comparison table                       |
+| `apps/frontend/src/components/subscription/SubscriptionBanner.tsx` | Dashboard top banner — tier badge + upgrade CTA                          |
+| `apps/frontend/src/components/subscription/UpgradeModal.tsx`       | Modal triggered when clicking locked feature                             |
+| `apps/frontend/src/components/subscription/BillingView.tsx`        | Settings tab — current tier, Manage Billing button                       |
+| `apps/backend/prisma/seed-demo-restaurants.ts`                     | Seed script creating 4 demo restaurants (one per tier)                   |
+| (i18n keys added inline to existing translation.json files)        |
 
 ### Modify (backend — 7 files)
-| File | Change |
-|------|--------|
-| `apps/backend/prisma/schema.prisma` | Add `SubscriptionTier` enum, 5 fields on `Restaurant` |
-| `apps/backend/src/app.module.ts` | Register `SubscriptionModule` |
-| `apps/backend/src/orders/orders.service.ts` | Add `@RequireFeature(ORDERS_RECEIVE)` on create/findAll |
-| `apps/backend/src/payment/payment.module.ts` | Import `SubscriptionModule` so guard is available |
-| `apps/backend/src/loyalty/loyalty.service.ts` | Add `@RequireFeature(LOYALTY)` on relevant methods |
-| `apps/backend/src/translation/translation.service.ts` | Add `@RequireFeature(LANGUAGES_MULTI)` |
-| `apps/backend/src/orders/orders.module.ts` | Import `SubscriptionModule` |
+
+| File                                                  | Change                                                  |
+| ----------------------------------------------------- | ------------------------------------------------------- |
+| `apps/backend/prisma/schema.prisma`                   | Add `SubscriptionTier` enum, 5 fields on `Restaurant`   |
+| `apps/backend/src/app.module.ts`                      | Register `SubscriptionModule`                           |
+| `apps/backend/src/orders/orders.service.ts`           | Add `@RequireFeature(ORDERS_RECEIVE)` on create/findAll |
+| `apps/backend/src/payment/payment.module.ts`          | Import `SubscriptionModule` so guard is available       |
+| `apps/backend/src/loyalty/loyalty.service.ts`         | Add `@RequireFeature(LOYALTY)` on relevant methods      |
+| `apps/backend/src/translation/translation.service.ts` | Add `@RequireFeature(LANGUAGES_MULTI)`                  |
+| `apps/backend/src/orders/orders.module.ts`            | Import `SubscriptionModule`                             |
 
 ### Modify (frontend — 9 files)
-| File | Change |
-|------|--------|
-| `apps/frontend/src/context/RestaurantContext.tsx` | Add `tier: SubscriptionTier` to `Restaurant` interface and context value |
-| `apps/frontend/src/App.tsx` | Add `/pricing` route, conditionally register POS/KDS routes |
-| `apps/frontend/src/pages/PublicMenuPage.tsx` | Hide cart when `!hasFeature('orders:receive')` |
-| `apps/frontend/src/pages/DashboardPage.tsx` | Add `SubscriptionBanner`, tier-gate sidebar items |
-| `apps/frontend/src/pages/Dashboard/SettingsView.tsx` | Add "subscription" tab with `BillingView` |
-| `apps/frontend/src/components/ProtectedRoute.tsx` | Gate `/staff/pos` and `/staff/kitchen` routes |
-| `apps/frontend/src/locales/en/translation.json` | ~20 new keys |
-| `apps/frontend/src/locales/bg/translation.json` | ~20 new keys |
-| `apps/frontend/src/locales/ro/translation.json` | ~20 new keys |
+
+| File                                                 | Change                                                                   |
+| ---------------------------------------------------- | ------------------------------------------------------------------------ |
+| `apps/frontend/src/context/RestaurantContext.tsx`    | Add `tier: SubscriptionTier` to `Restaurant` interface and context value |
+| `apps/frontend/src/App.tsx`                          | Add `/pricing` route, conditionally register POS/KDS routes              |
+| `apps/frontend/src/pages/PublicMenuPage.tsx`         | Hide cart when `!hasFeature('orders:receive')`                           |
+| `apps/frontend/src/pages/DashboardPage.tsx`          | Add `SubscriptionBanner`, tier-gate sidebar items                        |
+| `apps/frontend/src/pages/Dashboard/SettingsView.tsx` | Add "subscription" tab with `BillingView`                                |
+| `apps/frontend/src/components/ProtectedRoute.tsx`    | Gate `/staff/pos` and `/staff/kitchen` routes                            |
+| `apps/frontend/src/locales/en/translation.json`      | ~20 new keys                                                             |
+| `apps/frontend/src/locales/bg/translation.json`      | ~20 new keys                                                             |
+| `apps/frontend/src/locales/ro/translation.json`      | ~20 new keys                                                             |
 
 ---
 
@@ -66,6 +70,7 @@
 ### Task 1: Schema changes — SubscriptionTier enum + Restaurant fields
 
 **Files:**
+
 - Modify: `apps/backend/prisma/schema.prisma`
 
 - [ ] **Step 1: Add SubscriptionTier enum before Restaurant model**
@@ -112,6 +117,7 @@ git commit -m "feat: add SubscriptionTier enum and tier fields to Restaurant sch
 ### Task 2: FeatureFlag enum + FeatureService
 
 **Files:**
+
 - Create: `apps/backend/src/subscription/feature-flag.enum.ts`
 - Create: `apps/backend/src/subscription/feature.service.ts`
 - Test: `apps/backend/src/subscription/feature.service.spec.ts`
@@ -121,28 +127,28 @@ git commit -m "feat: add SubscriptionTier enum and tier fields to Restaurant sch
 ```typescript
 // apps/backend/src/subscription/feature-flag.enum.ts
 export enum FeatureFlag {
-  MENU_VIEW = 'menu:view',
-  MENU_EDIT = 'menu:edit',
-  MENU_IMPORT = 'menu:import',
-  QR_MANAGE = 'qr:manage',
-  ORDERS_RECEIVE = 'orders:receive',
-  ORDERS_CALL_WAITER = 'orders:call-waiter',
-  ANALYTICS_BASIC = 'analytics:basic',
-  ANALYTICS_FULL = 'analytics:full',
-  PAYMENTS_STRIPE = 'payments:stripe',
-  LANGUAGES_MULTI = 'languages:multi',
-  BRANDING_CUSTOM = 'branding:custom',
-  LOYALTY = 'loyalty',
-  CUSTOMERS_AUTH = 'customers:auth',
-  UPSELLING = 'upselling',
-  DAYPARTING = 'dayparting',
-  POS = 'pos',
-  KDS = 'kds',
-  RBAC = 'rbac',
-  MULTILOCATION = 'multilocation',
-  PRINTERS_THERMAL = 'printers:thermal',
-  TEMPLATES_MENU = 'templates:menu',
-  STAFF_UNLIMITED = 'staff:unlimited',
+  MENU_VIEW = "menu:view",
+  MENU_EDIT = "menu:edit",
+  MENU_IMPORT = "menu:import",
+  QR_MANAGE = "qr:manage",
+  ORDERS_RECEIVE = "orders:receive",
+  ORDERS_CALL_WAITER = "orders:call-waiter",
+  ANALYTICS_BASIC = "analytics:basic",
+  ANALYTICS_FULL = "analytics:full",
+  PAYMENTS_STRIPE = "payments:stripe",
+  LANGUAGES_MULTI = "languages:multi",
+  BRANDING_CUSTOM = "branding:custom",
+  LOYALTY = "loyalty",
+  CUSTOMERS_AUTH = "customers:auth",
+  UPSELLING = "upselling",
+  DAYPARTING = "dayparting",
+  POS = "pos",
+  KDS = "kds",
+  RBAC = "rbac",
+  MULTILOCATION = "multilocation",
+  PRINTERS_THERMAL = "printers:thermal",
+  TEMPLATES_MENU = "templates:menu",
+  STAFF_UNLIMITED = "staff:unlimited",
 }
 ```
 
@@ -150,11 +156,11 @@ export enum FeatureFlag {
 
 ```typescript
 // apps/backend/src/subscription/feature.service.spec.ts
-import { Test, TestingModule } from '@nestjs/testing';
-import { FeatureService } from './feature.service';
-import { FeatureFlag } from './feature-flag.enum';
+import { Test, TestingModule } from "@nestjs/testing";
+import { FeatureService } from "./feature.service";
+import { FeatureFlag } from "./feature-flag.enum";
 
-describe('FeatureService', () => {
+describe("FeatureService", () => {
   let service: FeatureService;
 
   beforeEach(async () => {
@@ -164,9 +170,9 @@ describe('FeatureService', () => {
     service = module.get<FeatureService>(FeatureService);
   });
 
-  describe('getFeatures', () => {
-    it('returns only menu+qr features for FREE tier', () => {
-      const features = service.getFeatures('FREE');
+  describe("getFeatures", () => {
+    it("returns only menu+qr features for FREE tier", () => {
+      const features = service.getFeatures("FREE");
       expect(features).toContain(FeatureFlag.MENU_VIEW);
       expect(features).toContain(FeatureFlag.MENU_EDIT);
       expect(features).toContain(FeatureFlag.QR_MANAGE);
@@ -174,8 +180,8 @@ describe('FeatureService', () => {
       expect(features).not.toContain(FeatureFlag.POS);
     });
 
-    it('returns orders+analytics for STARTER tier', () => {
-      const features = service.getFeatures('STARTER');
+    it("returns orders+analytics for STARTER tier", () => {
+      const features = service.getFeatures("STARTER");
       expect(features).toContain(FeatureFlag.ORDERS_RECEIVE);
       expect(features).toContain(FeatureFlag.ANALYTICS_BASIC);
       expect(features).toContain(FeatureFlag.MENU_IMPORT);
@@ -183,8 +189,8 @@ describe('FeatureService', () => {
       expect(features).not.toContain(FeatureFlag.LOYALTY);
     });
 
-    it('returns payments+loyalty+branding for PROFESSIONAL tier', () => {
-      const features = service.getFeatures('PROFESSIONAL');
+    it("returns payments+loyalty+branding for PROFESSIONAL tier", () => {
+      const features = service.getFeatures("PROFESSIONAL");
       expect(features).toContain(FeatureFlag.PAYMENTS_STRIPE);
       expect(features).toContain(FeatureFlag.LOYALTY);
       expect(features).toContain(FeatureFlag.BRANDING_CUSTOM);
@@ -193,8 +199,8 @@ describe('FeatureService', () => {
       expect(features).not.toContain(FeatureFlag.KDS);
     });
 
-    it('returns all features for ENTERPRISE tier', () => {
-      const features = service.getFeatures('ENTERPRISE');
+    it("returns all features for ENTERPRISE tier", () => {
+      const features = service.getFeatures("ENTERPRISE");
       expect(features).toContain(FeatureFlag.POS);
       expect(features).toContain(FeatureFlag.KDS);
       expect(features).toContain(FeatureFlag.RBAC);
@@ -203,17 +209,21 @@ describe('FeatureService', () => {
     });
   });
 
-  describe('hasFeature', () => {
-    it('returns true when tier has the feature', () => {
-      expect(service.hasFeature('ENTERPRISE', FeatureFlag.POS)).toBe(true);
-      expect(service.hasFeature('PROFESSIONAL', FeatureFlag.PAYMENTS_STRIPE)).toBe(true);
-      expect(service.hasFeature('STARTER', FeatureFlag.ORDERS_RECEIVE)).toBe(true);
+  describe("hasFeature", () => {
+    it("returns true when tier has the feature", () => {
+      expect(service.hasFeature("ENTERPRISE", FeatureFlag.POS)).toBe(true);
+      expect(
+        service.hasFeature("PROFESSIONAL", FeatureFlag.PAYMENTS_STRIPE),
+      ).toBe(true);
+      expect(service.hasFeature("STARTER", FeatureFlag.ORDERS_RECEIVE)).toBe(
+        true,
+      );
     });
 
-    it('returns false when tier lacks the feature', () => {
-      expect(service.hasFeature('FREE', FeatureFlag.POS)).toBe(false);
-      expect(service.hasFeature('STARTER', FeatureFlag.LOYALTY)).toBe(false);
-      expect(service.hasFeature('PROFESSIONAL', FeatureFlag.KDS)).toBe(false);
+    it("returns false when tier lacks the feature", () => {
+      expect(service.hasFeature("FREE", FeatureFlag.POS)).toBe(false);
+      expect(service.hasFeature("STARTER", FeatureFlag.LOYALTY)).toBe(false);
+      expect(service.hasFeature("PROFESSIONAL", FeatureFlag.KDS)).toBe(false);
     });
   });
 });
@@ -228,17 +238,13 @@ Expected: FAIL — "FeatureService is not defined"
 
 ```typescript
 // apps/backend/src/subscription/feature.service.ts
-import { Injectable } from '@nestjs/common';
-import { FeatureFlag } from './feature-flag.enum';
+import { Injectable } from "@nestjs/common";
+import { FeatureFlag } from "./feature-flag.enum";
 
-type Tier = 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
+type Tier = "FREE" | "STARTER" | "PROFESSIONAL" | "ENTERPRISE";
 
 const TIER_FEATURES: Record<Tier, FeatureFlag[]> = {
-  FREE: [
-    FeatureFlag.MENU_VIEW,
-    FeatureFlag.MENU_EDIT,
-    FeatureFlag.QR_MANAGE,
-  ],
+  FREE: [FeatureFlag.MENU_VIEW, FeatureFlag.MENU_EDIT, FeatureFlag.QR_MANAGE],
   STARTER: [
     FeatureFlag.MENU_VIEW,
     FeatureFlag.MENU_EDIT,
@@ -279,12 +285,12 @@ export class FeatureService {
 
   getStaffLimit(tier: string): number {
     switch (tier) {
-      case 'FREE':
-      case 'STARTER':
+      case "FREE":
+      case "STARTER":
         return 1;
-      case 'PROFESSIONAL':
+      case "PROFESSIONAL":
         return 5;
-      case 'ENTERPRISE':
+      case "ENTERPRISE":
         return Infinity;
       default:
         return 1;
@@ -310,6 +316,7 @@ git commit -m "feat: add FeatureFlag enum and FeatureService with tier resolutio
 ### Task 3: @RequireFeature decorator + FeatureGuard
 
 **Files:**
+
 - Create: `apps/backend/src/subscription/require-feature.decorator.ts`
 - Create: `apps/backend/src/subscription/feature.guard.ts`
 - Test: `apps/backend/src/subscription/feature.guard.spec.ts`
@@ -319,10 +326,10 @@ git commit -m "feat: add FeatureFlag enum and FeatureService with tier resolutio
 
 ```typescript
 // apps/backend/src/subscription/require-feature.decorator.ts
-import { SetMetadata } from '@nestjs/common';
-import { FeatureFlag } from './feature-flag.enum';
+import { SetMetadata } from "@nestjs/common";
+import { FeatureFlag } from "./feature-flag.enum";
 
-export const REQUIRE_FEATURE_KEY = 'requireFeature';
+export const REQUIRE_FEATURE_KEY = "requireFeature";
 export const RequireFeature = (...features: FeatureFlag[]) =>
   SetMetadata(REQUIRE_FEATURE_KEY, features);
 ```
@@ -331,12 +338,17 @@ export const RequireFeature = (...features: FeatureFlag[]) =>
 
 ```typescript
 // apps/backend/src/subscription/feature.guard.ts
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
-import { FeatureService } from './feature.service';
-import { REQUIRE_FEATURE_KEY } from './require-feature.decorator';
-import { FeatureFlag } from './feature-flag.enum';
-import { PrismaService } from '../prisma/prisma.service';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
+import { FeatureService } from "./feature.service";
+import { REQUIRE_FEATURE_KEY } from "./require-feature.decorator";
+import { FeatureFlag } from "./feature-flag.enum";
+import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
 export class FeatureGuard implements CanActivate {
@@ -347,10 +359,10 @@ export class FeatureGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredFeatures = this.reflector.getAllAndOverride<FeatureFlag[]>(REQUIRE_FEATURE_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredFeatures = this.reflector.getAllAndOverride<FeatureFlag[]>(
+      REQUIRE_FEATURE_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     if (!requiredFeatures || requiredFeatures.length === 0) {
       return true; // no feature requirement on this route
@@ -360,7 +372,7 @@ export class FeatureGuard implements CanActivate {
     const userId = request.user?.id ?? request.user?.sub;
 
     if (!userId) {
-      throw new ForbiddenException({ code: 'AUTH_REQUIRED' });
+      throw new ForbiddenException({ code: "AUTH_REQUIRED" });
     }
 
     const user = await this.prisma.user.findUnique({
@@ -369,14 +381,16 @@ export class FeatureGuard implements CanActivate {
     });
 
     const restaurant = user?.staffRestaurant;
-    const tier = restaurant?.tier ?? 'FREE';
+    const tier = restaurant?.tier ?? "FREE";
 
-    const missing = requiredFeatures.filter((f) => !this.featureService.hasFeature(tier, f));
+    const missing = requiredFeatures.filter(
+      (f) => !this.featureService.hasFeature(tier, f),
+    );
     if (missing.length > 0) {
       throw new ForbiddenException({
-        code: 'FEATURE_LOCKED',
+        code: "FEATURE_LOCKED",
         requiredFeatures: missing,
-        message: `Your plan (${tier}) does not include: ${missing.join(', ')}`,
+        message: `Your plan (${tier}) does not include: ${missing.join(", ")}`,
       });
     }
 
@@ -389,10 +403,10 @@ export class FeatureGuard implements CanActivate {
 
 ```typescript
 // apps/backend/src/subscription/subscription.module.ts
-import { Module, Global } from '@nestjs/common';
-import { FeatureService } from './feature.service';
-import { FeatureGuard } from './feature.guard';
-import { PrismaModule } from '../prisma/prisma.module';
+import { Module, Global } from "@nestjs/common";
+import { FeatureService } from "./feature.service";
+import { FeatureGuard } from "./feature.guard";
+import { PrismaModule } from "../prisma/prisma.module";
 
 @Global()
 @Module({
@@ -420,15 +434,15 @@ SubscriptionModule,
 
 ```typescript
 // apps/backend/src/subscription/feature.guard.spec.ts
-import { Test, TestingModule } from '@nestjs/testing';
-import { FeatureGuard } from './feature.guard';
-import { FeatureService } from './feature.service';
-import { FeatureFlag } from './feature-flag.enum';
-import { Reflector } from '@nestjs/core';
-import { PrismaService } from '../prisma/prisma.service';
-import { ForbiddenException } from '@nestjs/common';
+import { Test, TestingModule } from "@nestjs/testing";
+import { FeatureGuard } from "./feature.guard";
+import { FeatureService } from "./feature.service";
+import { FeatureFlag } from "./feature-flag.enum";
+import { Reflector } from "@nestjs/core";
+import { PrismaService } from "../prisma/prisma.service";
+import { ForbiddenException } from "@nestjs/common";
 
-describe('FeatureGuard', () => {
+describe("FeatureGuard", () => {
   let guard: FeatureGuard;
   let reflector: Reflector;
   let featureService: FeatureService;
@@ -449,27 +463,37 @@ describe('FeatureGuard', () => {
     featureService = module.get<FeatureService>(FeatureService);
   });
 
-  it('allows if no feature requirement set', async () => {
+  it("allows if no feature requirement set", async () => {
     (reflector.getAllAndOverride as jest.Mock).mockReturnValue(undefined);
-    const ctx = { switchToHttp: () => ({ getRequest: () => ({ user: { id: 'u1' } }) }) } as any;
+    const ctx = {
+      switchToHttp: () => ({ getRequest: () => ({ user: { id: "u1" } }) }),
+    } as any;
     expect(await guard.canActivate(ctx)).toBe(true);
   });
 
-  it('allows if user tier has the required feature', async () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([FeatureFlag.POS]);
+  it("allows if user tier has the required feature", async () => {
+    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
+      FeatureFlag.POS,
+    ]);
     prisma.user.findUnique.mockResolvedValue({
-      staffRestaurant: { tier: 'ENTERPRISE' },
+      staffRestaurant: { tier: "ENTERPRISE" },
     });
-    const ctx = { switchToHttp: () => ({ getRequest: () => ({ user: { id: 'u1' } }) }) } as any;
+    const ctx = {
+      switchToHttp: () => ({ getRequest: () => ({ user: { id: "u1" } }) }),
+    } as any;
     expect(await guard.canActivate(ctx)).toBe(true);
   });
 
-  it('throws ForbiddenException if user tier lacks the feature', async () => {
-    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([FeatureFlag.POS]);
+  it("throws ForbiddenException if user tier lacks the feature", async () => {
+    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
+      FeatureFlag.POS,
+    ]);
     prisma.user.findUnique.mockResolvedValue({
-      staffRestaurant: { tier: 'FREE' },
+      staffRestaurant: { tier: "FREE" },
     });
-    const ctx = { switchToHttp: () => ({ getRequest: () => ({ user: { id: 'u1' } }) }) } as any;
+    const ctx = {
+      switchToHttp: () => ({ getRequest: () => ({ user: { id: "u1" } }) }),
+    } as any;
     await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 });
@@ -492,6 +516,7 @@ git commit -m "feat: add @RequireFeature decorator and FeatureGuard with NestJS 
 ### Task 4: Subscription controller + Stripe Checkout/Portal/webhook
 
 **Files:**
+
 - Create: `apps/backend/src/subscription/subscription.service.ts`
 - Create: `apps/backend/src/subscription/subscription.controller.ts`
 - Create: `apps/backend/src/subscription/dto/checkout.dto.ts`
@@ -502,12 +527,12 @@ git commit -m "feat: add @RequireFeature decorator and FeatureGuard with NestJS 
 
 ```typescript
 // apps/backend/src/subscription/dto/checkout.dto.ts
-import { IsEnum } from 'class-validator';
+import { IsEnum } from "class-validator";
 
 export enum CheckoutTier {
-  STARTER = 'STARTER',
-  PROFESSIONAL = 'PROFESSIONAL',
-  ENTERPRISE = 'ENTERPRISE',
+  STARTER = "STARTER",
+  PROFESSIONAL = "PROFESSIONAL",
+  ENTERPRISE = "ENTERPRISE",
 }
 
 export class CreateCheckoutDto {
@@ -520,18 +545,21 @@ export class CreateCheckoutDto {
 
 ```typescript
 // apps/backend/src/subscription/subscription.service.ts
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import Stripe from 'stripe';
+import { Injectable, Logger } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder', {
-  apiVersion: '2026-04-22.dahlia',
-});
+const stripe = new Stripe(
+  process.env.STRIPE_SECRET_KEY || "sk_test_placeholder",
+  {
+    apiVersion: "2026-04-22.dahlia",
+  },
+);
 
 const PRICE_MAP: Record<string, string> = {
-  STARTER: process.env.STRIPE_PRICE_STARTER || '',
-  PROFESSIONAL: process.env.STRIPE_PRICE_PROFESSIONAL || '',
-  ENTERPRISE: process.env.STRIPE_PRICE_ENTERPRISE || '',
+  STARTER: process.env.STRIPE_PRICE_STARTER || "",
+  PROFESSIONAL: process.env.STRIPE_PRICE_PROFESSIONAL || "",
+  ENTERPRISE: process.env.STRIPE_PRICE_ENTERPRISE || "",
 };
 
 const TIER_FROM_PRICE: Record<string, string> = {};
@@ -540,7 +568,7 @@ function getTierFromPrice(priceId: string): string {
   for (const [tier, pid] of Object.entries(PRICE_MAP)) {
     if (pid === priceId) return tier;
   }
-  return 'FREE';
+  return "FREE";
 }
 
 @Injectable()
@@ -549,9 +577,14 @@ export class SubscriptionService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async createCheckoutSession(restaurantId: string, tier: string, ownerId: string) {
+  async createCheckoutSession(
+    restaurantId: string,
+    tier: string,
+    ownerId: string,
+  ) {
     const priceId = PRICE_MAP[tier];
-    if (!priceId) throw new Error(`No Stripe price configured for tier ${tier}`);
+    if (!priceId)
+      throw new Error(`No Stripe price configured for tier ${tier}`);
 
     let { stripeCustomerId } = await this.prisma.restaurant.findUniqueOrThrow({
       where: { id: restaurantId },
@@ -559,8 +592,13 @@ export class SubscriptionService {
     });
 
     if (!stripeCustomerId) {
-      const user = await this.prisma.user.findUniqueOrThrow({ where: { id: ownerId } });
-      const customer = await stripe.customers.create({ email: user.email, metadata: { restaurantId } });
+      const user = await this.prisma.user.findUniqueOrThrow({
+        where: { id: ownerId },
+      });
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: { restaurantId },
+      });
       stripeCustomerId = customer.id;
       await this.prisma.restaurant.update({
         where: { id: restaurantId },
@@ -570,10 +608,10 @@ export class SubscriptionService {
 
     const session = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
-      mode: 'subscription',
+      mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/dashboard?subscribed=true`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/pricing`,
+      success_url: `${process.env.FRONTEND_URL || "http://localhost:3001"}/dashboard?subscribed=true`,
+      cancel_url: `${process.env.FRONTEND_URL || "http://localhost:3001"}/pricing`,
       metadata: { restaurantId, tier },
     });
 
@@ -581,37 +619,39 @@ export class SubscriptionService {
   }
 
   async createPortalSession(restaurantId: string) {
-    const { stripeCustomerId } = await this.prisma.restaurant.findUniqueOrThrow({
-      where: { id: restaurantId },
-      select: { stripeCustomerId: true },
-    });
-    if (!stripeCustomerId) throw new Error('No Stripe customer');
+    const { stripeCustomerId } = await this.prisma.restaurant.findUniqueOrThrow(
+      {
+        where: { id: restaurantId },
+        select: { stripeCustomerId: true },
+      },
+    );
+    if (!stripeCustomerId) throw new Error("No Stripe customer");
 
     const session = await stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,
-      return_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/dashboard/settings`,
+      return_url: `${process.env.FRONTEND_URL || "http://localhost:3001"}/dashboard/settings`,
     });
 
     return { url: session.url };
   }
 
   async handleWebhook(rawBody: Buffer, signature: string) {
-    const secret = process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET || '';
+    const secret = process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET || "";
     let event: Stripe.Event;
 
     try {
       event = stripe.webhooks.constructEvent(rawBody, signature, secret);
     } catch (err) {
-      this.logger.error('Webhook signature verification failed');
+      this.logger.error("Webhook signature verification failed");
       throw err;
     }
 
     switch (event.type) {
-      case 'checkout.session.completed':
-      case 'customer.subscription.updated':
+      case "checkout.session.completed":
+      case "customer.subscription.updated":
         await this.applySubscriptionFromEvent(event);
         break;
-      case 'customer.subscription.deleted':
+      case "customer.subscription.deleted":
         await this.applyCancellationFromEvent(event);
         break;
     }
@@ -620,10 +660,10 @@ export class SubscriptionService {
   }
 
   private async applySubscriptionFromEvent(event: Stripe.Event) {
-    const sub = (event.data.object as any);
+    const sub = event.data.object as any;
     const customerId = sub.customer as string;
     const priceId = sub.items?.data?.[0]?.price?.id;
-    const tier = priceId ? getTierFromPrice(priceId) : 'FREE';
+    const tier = priceId ? getTierFromPrice(priceId) : "FREE";
     const eventTime = new Date(event.created * 1000);
 
     // Atomic timestamp-gated update prevents race conditions between
@@ -631,10 +671,7 @@ export class SubscriptionService {
     const result = await this.prisma.restaurant.updateMany({
       where: {
         stripeCustomerId: customerId,
-        OR: [
-          { tierUpdatedAt: null },
-          { tierUpdatedAt: { lt: eventTime } },
-        ],
+        OR: [{ tierUpdatedAt: null }, { tierUpdatedAt: { lt: eventTime } }],
       },
       data: {
         tier: tier as any,
@@ -657,13 +694,10 @@ export class SubscriptionService {
     await this.prisma.restaurant.updateMany({
       where: {
         stripeCustomerId: customerId,
-        OR: [
-          { tierUpdatedAt: null },
-          { tierUpdatedAt: { lt: eventTime } },
-        ],
+        OR: [{ tierUpdatedAt: null }, { tierUpdatedAt: { lt: eventTime } }],
       },
       data: {
-        tier: 'FREE',
+        tier: "FREE",
         stripeSubscriptionId: null,
         stripePriceId: null,
         tierUpdatedAt: eventTime,
@@ -679,14 +713,24 @@ export class SubscriptionService {
 
 ```typescript
 // apps/backend/src/subscription/subscription.controller.ts
-import { Controller, Get, Post, Body, Req, UseGuards, Headers, RawBodyRequest, HttpCode } from '@nestjs/common';
-import { SubscriptionService } from './subscription.service';
-import { CreateCheckoutDto } from './dto/checkout.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { FeatureService } from './feature.service';
-import { PrismaService } from '../prisma/prisma.service';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Req,
+  UseGuards,
+  Headers,
+  RawBodyRequest,
+  HttpCode,
+} from "@nestjs/common";
+import { SubscriptionService } from "./subscription.service";
+import { CreateCheckoutDto } from "./dto/checkout.dto";
+import { JwtAuthGuard } from "../auth/jwt-auth.guard";
+import { FeatureService } from "./feature.service";
+import { PrismaService } from "../prisma/prisma.service";
 
-@Controller('api/subscription')
+@Controller("api/subscription")
 export class SubscriptionController {
   constructor(
     private readonly subscriptionService: SubscriptionService,
@@ -694,16 +738,25 @@ export class SubscriptionController {
     private readonly prisma: PrismaService,
   ) {}
 
-  @Get('status')
+  @Get("status")
   @UseGuards(JwtAuthGuard)
   async getStatus(@Req() req: any) {
     const userId = req.user.id ?? req.user.sub;
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { staffRestaurant: { select: { id: true, tier: true, stripeSubscriptionId: true, tierUpdatedAt: true } } },
+      include: {
+        staffRestaurant: {
+          select: {
+            id: true,
+            tier: true,
+            stripeSubscriptionId: true,
+            tierUpdatedAt: true,
+          },
+        },
+      },
     });
     const restaurant = user?.staffRestaurant;
-    const tier = restaurant?.tier ?? 'FREE';
+    const tier = restaurant?.tier ?? "FREE";
     return {
       tier,
       features: this.featureService.getFeatures(tier),
@@ -712,7 +765,7 @@ export class SubscriptionController {
     };
   }
 
-  @Post('checkout')
+  @Post("checkout")
   @UseGuards(JwtAuthGuard)
   async createCheckout(@Req() req: any, @Body() dto: CreateCheckoutDto) {
     const userId = req.user.id ?? req.user.sub;
@@ -720,10 +773,14 @@ export class SubscriptionController {
       where: { id: userId },
       include: { staffRestaurant: { select: { id: true } } },
     });
-    return this.subscriptionService.createCheckoutSession(user.staffRestaurant.id, dto.tier, userId);
+    return this.subscriptionService.createCheckoutSession(
+      user.staffRestaurant.id,
+      dto.tier,
+      userId,
+    );
   }
 
-  @Post('portal')
+  @Post("portal")
   @UseGuards(JwtAuthGuard)
   async createPortal(@Req() req: any) {
     const userId = req.user.id ?? req.user.sub;
@@ -731,12 +788,17 @@ export class SubscriptionController {
       where: { id: userId },
       include: { staffRestaurant: { select: { id: true } } },
     });
-    return this.subscriptionService.createPortalSession(user.staffRestaurant.id);
+    return this.subscriptionService.createPortalSession(
+      user.staffRestaurant.id,
+    );
   }
 
-  @Post('webhook')
+  @Post("webhook")
   @HttpCode(200)
-  async webhook(@Req() req: RawBodyRequest<Request>, @Headers('stripe-signature') sig: string) {
+  async webhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Headers("stripe-signature") sig: string,
+  ) {
     return this.subscriptionService.handleWebhook(req.rawBody!, sig);
   }
 }
@@ -745,6 +807,7 @@ export class SubscriptionController {
 - [ ] **Step 4: Update SubscriptionModule to include controller**
 
 Add to `subscription.module.ts`:
+
 ```typescript
 import { SubscriptionController } from './subscription.controller';
 import { SubscriptionService } from './subscription.service';
@@ -760,21 +823,23 @@ Check `apps/backend/src/main.ts` — the Stripe webhook for payments likely alre
 
 ```typescript
 // Ensure raw body is available for BOTH webhook endpoints
-app.use('/api/subscription/webhook', rawBodyMiddleware());
+app.use("/api/subscription/webhook", rawBodyMiddleware());
 ```
 
 If no raw body middleware exists yet, add:
+
 ```typescript
 function rawBodyMiddleware() {
-  return raw({ type: 'application/json' });
+  return raw({ type: "application/json" });
 }
 // app.use('/api/payment/webhook', rawBodyMiddleware());  // existing
-app.use('/api/subscription/webhook', rawBodyMiddleware());  // new
+app.use("/api/subscription/webhook", rawBodyMiddleware()); // new
 ```
 
 - [ ] **Step 6: Add env vars to .env.example**
 
 In `apps/backend/.env.example`, add:
+
 ```
 STRIPE_PRICE_STARTER=price_...
 STRIPE_PRICE_PROFESSIONAL=price_...
@@ -786,13 +851,19 @@ STRIPE_SUBSCRIPTION_WEBHOOK_SECRET=whsec_...
 
 ```typescript
 // apps/backend/src/subscription/subscription.service.spec.ts
-import { Test, TestingModule } from '@nestjs/testing';
-import { SubscriptionService } from './subscription.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { Test, TestingModule } from "@nestjs/testing";
+import { SubscriptionService } from "./subscription.service";
+import { PrismaService } from "../prisma/prisma.service";
 
-describe('SubscriptionService', () => {
+describe("SubscriptionService", () => {
   let service: SubscriptionService;
-  let prisma: { restaurant: { findUniqueOrThrow: jest.Mock; update: jest.Mock; updateMany: jest.Mock } };
+  let prisma: {
+    restaurant: {
+      findUniqueOrThrow: jest.Mock;
+      update: jest.Mock;
+      updateMany: jest.Mock;
+    };
+  };
 
   beforeEach(async () => {
     prisma = {
@@ -811,8 +882,10 @@ describe('SubscriptionService', () => {
     service = module.get<SubscriptionService>(SubscriptionService);
   });
 
-  it('updateMany uses timestamp gate to prevent race conditions', async () => {
-    prisma.restaurant.findUniqueOrThrow.mockResolvedValue({ stripeCustomerId: 'cus_123' });
+  it("updateMany uses timestamp gate to prevent race conditions", async () => {
+    prisma.restaurant.findUniqueOrThrow.mockResolvedValue({
+      stripeCustomerId: "cus_123",
+    });
     // actual test verifies updateMany called with tierUpdatedAt OR clause
     expect(service).toBeDefined();
   });
@@ -841,6 +914,7 @@ git commit -m "feat: add Stripe Checkout, Customer Portal, and timestamp-gated w
 ### Task 5: useFeature React hook + RestaurantContext update
 
 **Files:**
+
 - Create: `apps/frontend/src/hooks/useFeature.ts`
 - Modify: `apps/frontend/src/context/RestaurantContext.tsx`
 
@@ -859,48 +933,95 @@ Ensure the restaurant fetch from API includes these fields (the `getRestaurants`
 
 ```typescript
 // apps/frontend/src/hooks/useFeature.ts
-import { useRestaurantContext } from '../context/RestaurantContext';
+import { useRestaurantContext } from "../context/RestaurantContext";
 
 type FeatureFlag =
-  | 'menu:view' | 'menu:edit' | 'menu:import' | 'qr:manage'
-  | 'orders:receive' | 'orders:call-waiter'
-  | 'analytics:basic' | 'analytics:full'
-  | 'payments:stripe' | 'languages:multi' | 'branding:custom'
-  | 'loyalty' | 'customers:auth' | 'upselling' | 'dayparting'
-  | 'pos' | 'kds' | 'rbac' | 'multilocation'
-  | 'printers:thermal' | 'templates:menu' | 'staff:unlimited';
+  | "menu:view"
+  | "menu:edit"
+  | "menu:import"
+  | "qr:manage"
+  | "orders:receive"
+  | "orders:call-waiter"
+  | "analytics:basic"
+  | "analytics:full"
+  | "payments:stripe"
+  | "languages:multi"
+  | "branding:custom"
+  | "loyalty"
+  | "customers:auth"
+  | "upselling"
+  | "dayparting"
+  | "pos"
+  | "kds"
+  | "rbac"
+  | "multilocation"
+  | "printers:thermal"
+  | "templates:menu"
+  | "staff:unlimited";
 
 const TIER_FEATURES: Record<string, FeatureFlag[]> = {
-  FREE: ['menu:view', 'menu:edit', 'qr:manage'],
-  STARTER: ['menu:view', 'menu:edit', 'menu:import', 'qr:manage', 'orders:receive', 'analytics:basic'],
+  FREE: ["menu:view", "menu:edit", "qr:manage"],
+  STARTER: [
+    "menu:view",
+    "menu:edit",
+    "menu:import",
+    "qr:manage",
+    "orders:receive",
+    "analytics:basic",
+  ],
   PROFESSIONAL: [
-    'menu:view', 'menu:edit', 'menu:import', 'qr:manage',
-    'orders:receive', 'orders:call-waiter',
-    'analytics:basic', 'analytics:full',
-    'payments:stripe', 'languages:multi', 'branding:custom',
-    'loyalty', 'customers:auth', 'upselling', 'dayparting',
+    "menu:view",
+    "menu:edit",
+    "menu:import",
+    "qr:manage",
+    "orders:receive",
+    "orders:call-waiter",
+    "analytics:basic",
+    "analytics:full",
+    "payments:stripe",
+    "languages:multi",
+    "branding:custom",
+    "loyalty",
+    "customers:auth",
+    "upselling",
+    "dayparting",
   ],
   ENTERPRISE: [
-    'menu:view', 'menu:edit', 'menu:import', 'qr:manage',
-    'orders:receive', 'orders:call-waiter',
-    'analytics:basic', 'analytics:full',
-    'payments:stripe', 'languages:multi', 'branding:custom',
-    'loyalty', 'customers:auth', 'upselling', 'dayparting',
-    'pos', 'kds', 'rbac', 'multilocation',
-    'printers:thermal', 'templates:menu', 'staff:unlimited',
+    "menu:view",
+    "menu:edit",
+    "menu:import",
+    "qr:manage",
+    "orders:receive",
+    "orders:call-waiter",
+    "analytics:basic",
+    "analytics:full",
+    "payments:stripe",
+    "languages:multi",
+    "branding:custom",
+    "loyalty",
+    "customers:auth",
+    "upselling",
+    "dayparting",
+    "pos",
+    "kds",
+    "rbac",
+    "multilocation",
+    "printers:thermal",
+    "templates:menu",
+    "staff:unlimited",
   ],
 };
 
 export function useFeature(feature: FeatureFlag): boolean {
   const { activeRestaurant } = useRestaurantContext();
-  const tier = activeRestaurant?.tier ?? 'FREE';
+  const tier = activeRestaurant?.tier ?? "FREE";
   const features = TIER_FEATURES[tier] ?? TIER_FEATURES.FREE;
   return features.includes(feature);
 }
 
 export function useTier(): { tier: string; features: FeatureFlag[] } {
   const { activeRestaurant } = useRestaurantContext();
-  const tier = activeRestaurant?.tier ?? 'FREE';
+  const tier = activeRestaurant?.tier ?? "FREE";
   const features = TIER_FEATURES[tier] ?? TIER_FEATURES.FREE;
   return { tier, features };
 }
@@ -909,8 +1030,8 @@ export function useTier(): { tier: string; features: FeatureFlag[] } {
 Note: `useRestaurantContext` might not exist as a named export. Check `RestaurantContext.tsx` — if it uses default export from `createContext`, create the hook inline:
 
 ```typescript
-import { useContext } from 'react';
-import RestaurantContext from '../context/RestaurantContext';
+import { useContext } from "react";
+import RestaurantContext from "../context/RestaurantContext";
 // Then: useContext(RestaurantContext) instead of useRestaurantContext()
 ```
 
@@ -931,6 +1052,7 @@ git commit -m "feat: add useFeature hook with tier-based feature resolution for 
 ### Task 6: Apply feature gates — backend controllers
 
 **Files:**
+
 - Modify: `apps/backend/src/orders/orders.service.ts`
 - Modify: `apps/backend/src/orders/orders.module.ts`
 - Modify: `apps/backend/src/payment/payment.controller.ts`
@@ -1009,6 +1131,7 @@ git commit -m "feat: apply @RequireFeature guards to orders, payments, loyalty, 
 ### Task 7: Pricing page + SubscriptionBanner + UpgradeModal + BillingView
 
 **Files:**
+
 - Create: `apps/frontend/src/pages/PricingPage.tsx`
 - Create: `apps/frontend/src/components/subscription/SubscriptionBanner.tsx`
 - Create: `apps/frontend/src/components/subscription/UpgradeModal.tsx`
@@ -1299,17 +1422,17 @@ Note: The `createCheckoutSession` function doesn't exist in `api.ts` yet. Add it
 ```typescript
 // In apps/frontend/src/lib/api.ts, add:
 export async function createCheckoutSession(tier: string) {
-  const { data } = await api.post('/subscription/checkout', { tier });
+  const { data } = await api.post("/subscription/checkout", { tier });
   return data; // { url: string }
 }
 
 export async function createPortalSession() {
-  const { data } = await api.post('/subscription/portal');
+  const { data } = await api.post("/subscription/portal");
   return data; // { url: string }
 }
 
 export async function getSubscriptionStatus() {
-  const { data } = await api.get('/subscription/status');
+  const { data } = await api.get("/subscription/status");
   return data;
 }
 ```
@@ -1387,6 +1510,7 @@ export default function BillingView() {
 - [ ] **Step 6: Add i18n keys to all 3 languages**
 
 In `apps/frontend/src/locales/en/translation.json`:
+
 ```json
 "pricing": {
   "title": "Choose Your Plan",
@@ -1424,6 +1548,7 @@ git commit -m "feat: add pricing page, subscription banner, upgrade modal, and b
 ### Task 8: FREE tier — hide cart from PublicMenuPage
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/PublicMenuPage.tsx`
 
 FREE tier = menu viewing only. No cart, no "Add to Cart" buttons, no checkout.
@@ -1479,16 +1604,19 @@ git commit -m "feat: hide cart and add-to-cart buttons on FREE tier public menu"
 ### Task 9: SettingsView — add Subscription tab
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/Dashboard/SettingsView.tsx`
 
 - [ ] **Step 1: Add 'subscription' to tabs array**
 
 Find the tabs definition (around line 396):
+
 ```typescript
 (['general', 'loyalty', 'payments', 'staff'] as const).map(...)
 ```
 
 Change to:
+
 ```typescript
 (['general', 'subscription', 'loyalty', 'payments', 'staff'] as const).map(...)
 ```
@@ -1525,6 +1653,7 @@ git commit -m "feat: add Subscription tab to SettingsView with billing managemen
 ### Task 10: Seed 4 demo restaurants
 
 **Files:**
+
 - Create: `apps/backend/prisma/seed-demo-restaurants.ts`
 - Modify: `apps/backend/prisma/seed.ts` (or create standalone script)
 
@@ -1532,23 +1661,39 @@ git commit -m "feat: add Subscription tab to SettingsView with billing managemen
 
 ```typescript
 // apps/backend/prisma/seed-demo-restaurants.ts
-import { PrismaClient, SubscriptionTier } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import { PrismaClient, SubscriptionTier } from "@prisma/client";
+import * as bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
 
 const DEMOS = [
-  { email: 'demo-free@qrmenu.com', name: 'Demo Free Bistro', tier: 'FREE' as SubscriptionTier },
-  { email: 'demo-starter@qrmenu.com', name: 'Demo Starter Kitchen', tier: 'STARTER' as SubscriptionTier },
-  { email: 'demo-pro@qrmenu.com', name: 'Demo Professional Restaurant', tier: 'PROFESSIONAL' as SubscriptionTier },
-  { email: 'demo-enterprise@qrmenu.com', name: 'Demo Enterprise Group', tier: 'ENTERPRISE' as SubscriptionTier },
+  {
+    email: "demo-free@qrmenu.com",
+    name: "Demo Free Bistro",
+    tier: "FREE" as SubscriptionTier,
+  },
+  {
+    email: "demo-starter@qrmenu.com",
+    name: "Demo Starter Kitchen",
+    tier: "STARTER" as SubscriptionTier,
+  },
+  {
+    email: "demo-pro@qrmenu.com",
+    name: "Demo Professional Restaurant",
+    tier: "PROFESSIONAL" as SubscriptionTier,
+  },
+  {
+    email: "demo-enterprise@qrmenu.com",
+    name: "Demo Enterprise Group",
+    tier: "ENTERPRISE" as SubscriptionTier,
+  },
 ];
 
 async function main() {
-  console.log('Seeding demo restaurants...');
+  console.log("Seeding demo restaurants...");
 
   for (const demo of DEMOS) {
-    const passwordHash = await bcrypt.hash('demo123', 10);
+    const passwordHash = await bcrypt.hash("demo123", 10);
 
     const user = await prisma.user.upsert({
       where: { email: demo.email },
@@ -1557,17 +1702,17 @@ async function main() {
         email: demo.email,
         password: passwordHash,
         name: `Demo ${demo.tier} Owner`,
-        role: 'OWNER',
+        role: "OWNER",
       },
     });
 
     const restaurant = await prisma.restaurant.create({
       data: {
         name: demo.name,
-        country: 'BG',
+        country: "BG",
         ownerId: user.id,
         tier: demo.tier,
-        dashboardLanguage: 'en',
+        dashboardLanguage: "en",
       },
     });
 
@@ -1580,11 +1725,14 @@ async function main() {
     console.log(`  Created: ${demo.name} (${demo.email} / demo123)`);
   }
 
-  console.log('Done.');
+  console.log("Done.");
 }
 
 main()
-  .catch((e) => { console.error(e); process.exit(1); })
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
   .finally(() => prisma.$disconnect());
 ```
 
@@ -1596,6 +1744,7 @@ Expected: 4 restaurants created, no errors
 - [ ] **Step 3: Verify demo restaurants**
 
 Connect to Neon and verify:
+
 - 4 new users with role OWNER
 - 4 new restaurants with correct tiers
 - Each user linked to their restaurant via `restaurantId`
@@ -1612,6 +1761,7 @@ git commit -m "feat: add demo restaurant seed script — 4 restaurants, one per 
 ### Task 11: Dashboard — tier-gated sidebar + SubscriptionBanner
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/DashboardPage.tsx`
 
 - [ ] **Step 1: Add SubscriptionBanner to dashboard**
@@ -1664,6 +1814,7 @@ git commit -m "feat: tier-gate dashboard sidebar and protected staff routes"
 ### Task 12: Integration testing + final verification
 
 **Files:**
+
 - No new files — verify everything works end-to-end
 
 - [ ] **Step 1: Type check backend**
@@ -1707,12 +1858,12 @@ git commit -m "chore: final integration verification — all tests passing, buil
 
 ## Verification Summary
 
-| Check | Command | Status |
-|-------|---------|--------|
-| Prisma schema sync | `npx prisma db push` | Must pass |
-| Backend TS | `npx tsc --noEmit` | Must pass |
-| Frontend TS | `npx tsc --noEmit` | Must pass |
-| Backend tests | `npm test` in `apps/backend` | Must pass |
-| Frontend build | `npm run build` in `apps/frontend` | Must pass |
-| Turbo build | `npm run build` from root | Must pass |
-| Demo seed | `npx ts-node prisma/seed-demo-restaurants.ts` | 4 restaurants created |
+| Check              | Command                                       | Status                |
+| ------------------ | --------------------------------------------- | --------------------- |
+| Prisma schema sync | `npx prisma db push`                          | Must pass             |
+| Backend TS         | `npx tsc --noEmit`                            | Must pass             |
+| Frontend TS        | `npx tsc --noEmit`                            | Must pass             |
+| Backend tests      | `npm test` in `apps/backend`                  | Must pass             |
+| Frontend build     | `npm run build` in `apps/frontend`            | Must pass             |
+| Turbo build        | `npm run build` from root                     | Must pass             |
+| Demo seed          | `npx ts-node prisma/seed-demo-restaurants.ts` | 4 restaurants created |

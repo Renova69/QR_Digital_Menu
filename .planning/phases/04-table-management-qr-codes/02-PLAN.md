@@ -36,14 +36,15 @@ export const getTables = async (restaurantId: string) => {
 };
 
 export const createTable = async (restaurantId: string, name: string) => {
-  const response = await api.post(`/restaurants/${restaurantId}/tables`, { name });
-  return response.data;
+const response = await api.post(`/restaurants/${restaurantId}/tables`, { name });
+return response.data;
 };
 
 export const deleteTable = async (tableId: string) => {
-  const response = await api.delete(`/tables/${tableId}`);
-  return response.data;
+const response = await api.delete(`/tables/${tableId}`);
+return response.data;
 };
+
 ```
 </action>
 <acceptance_criteria>
@@ -74,7 +75,7 @@ Create `frontend/src/components/tables/TableView.tsx`. It should:
 <action>
 In `frontend/src/pages/DashboardPage.tsx`, transition the UI:
 1. Modify the `activeTab` states to allow `'tables'` instead of `'qr'` purely.
-2. Update the navigation buttons sequentially. 
+2. Update the navigation buttons sequentially.
 3. Remove the old standalone `<Input />` for ad-hoc Table generation in `DashboardPage`.
 4. Render `<TableView restaurantId={activeRestaurant.id} />` when `activeTab === 'tables'`.
 </action>
@@ -83,3 +84,4 @@ In `frontend/src/pages/DashboardPage.tsx`, transition the UI:
 - Old manual ad-hoc table generator is purged in favor of the formal `TableView`.
 </acceptance_criteria>
 </task>
+```

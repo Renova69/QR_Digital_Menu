@@ -1,30 +1,36 @@
-import { describe, it, expect, beforeAll } from 'vitest';
-import { render } from '@testing-library/react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useContext } from 'react';
-import { PublicLayout, AppLayout } from './App';
-import { useCart } from './context/CartContext';
-import { useOrders } from './context/OrderContext';
-import { useAssistance } from './context/AssistanceContext';
-import { AuthProvider } from './context/AuthContext';
-import RestaurantContext from './context/RestaurantContext';
-import { useNotifications } from './context/NotificationContext';
-import { ThemeProvider } from './context/ThemeContext';
+import { describe, it, expect, beforeAll } from "vitest";
+import { render } from "@testing-library/react";
+import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useContext } from "react";
+import { PublicLayout, AppLayout } from "./App";
+import { useCart } from "./context/CartContext";
+import { useOrders } from "./context/OrderContext";
+import { useAssistance } from "./context/AssistanceContext";
+import { AuthProvider } from "./context/AuthContext";
+import RestaurantContext from "./context/RestaurantContext";
+import { useNotifications } from "./context/NotificationContext";
+import { ThemeProvider } from "./context/ThemeContext";
 
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
   return {
     getItem: (key: string) => store[key] ?? null,
-    setItem: (key: string, value: string) => { store[key] = value; },
-    removeItem: (key: string) => { delete store[key]; },
-    clear: () => { store = {}; },
+    setItem: (key: string, value: string) => {
+      store[key] = value;
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
   };
 })();
 
 beforeAll(() => {
-  Object.defineProperty(window, 'localStorage', { value: localStorageMock });
-  Object.defineProperty(window, 'matchMedia', {
+  Object.defineProperty(window, "localStorage", { value: localStorageMock });
+  Object.defineProperty(window, "matchMedia", {
     value: (query: string) => ({
       matches: false,
       media: query,
@@ -52,35 +58,41 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 function CartConsumer() {
   const cart = useCart();
-  return <div data-testid="cart">{cart ? 'available' : 'null'}</div>;
+  return <div data-testid="cart">{cart ? "available" : "null"}</div>;
 }
 
 function OrderConsumer() {
   const orders = useOrders();
-  return <div data-testid="orders">{orders ? 'available' : 'null'}</div>;
+  return <div data-testid="orders">{orders ? "available" : "null"}</div>;
 }
 
 function AssistanceConsumer() {
   const assistance = useAssistance();
-  return <div data-testid="assistance">{assistance ? 'available' : 'null'}</div>;
+  return (
+    <div data-testid="assistance">{assistance ? "available" : "null"}</div>
+  );
 }
 
 function RestaurantConsumer() {
   const ctx = useContext(RestaurantContext);
-  return <div data-testid="restaurant">{ctx ? 'available' : 'null'}</div>;
+  return <div data-testid="restaurant">{ctx ? "available" : "null"}</div>;
 }
 
 function NotificationConsumer() {
   const ctx = useNotifications();
-  return <div data-testid="notification">{ctx.__providerMounted ? 'available' : 'null'}</div>;
+  return (
+    <div data-testid="notification">
+      {ctx.__providerMounted ? "available" : "null"}
+    </div>
+  );
 }
 
-describe('App provider scoping', () => {
-  it('PublicLayout provides CartContext so children can call useCart without throwing', () => {
+describe("App provider scoping", () => {
+  it("PublicLayout provides CartContext so children can call useCart without throwing", () => {
     expect(() => {
       render(
         <AuthProvider>
-          <MemoryRouter initialEntries={['/test']}>
+          <MemoryRouter initialEntries={["/test"]}>
             <Routes>
               <Route element={<PublicLayout />}>
                 <Route path="/test" element={<CartConsumer />} />
@@ -93,11 +105,11 @@ describe('App provider scoping', () => {
     }).not.toThrow();
   });
 
-  it('AppLayout provides OrderContext so children can call useOrders without throwing', () => {
+  it("AppLayout provides OrderContext so children can call useOrders without throwing", () => {
     expect(() => {
       render(
         <AuthProvider>
-          <MemoryRouter initialEntries={['/test']}>
+          <MemoryRouter initialEntries={["/test"]}>
             <Routes>
               <Route element={<AppLayout />}>
                 <Route path="/test" element={<OrderConsumer />} />
@@ -110,11 +122,11 @@ describe('App provider scoping', () => {
     }).not.toThrow();
   });
 
-  it('AppLayout provides AssistanceContext so children can call useAssistance without throwing', () => {
+  it("AppLayout provides AssistanceContext so children can call useAssistance without throwing", () => {
     expect(() => {
       render(
         <AuthProvider>
-          <MemoryRouter initialEntries={['/test']}>
+          <MemoryRouter initialEntries={["/test"]}>
             <Routes>
               <Route element={<AppLayout />}>
                 <Route path="/test" element={<AssistanceConsumer />} />
@@ -127,11 +139,11 @@ describe('App provider scoping', () => {
     }).not.toThrow();
   });
 
-  it('AppLayout provides RestaurantContext so children can access it without throwing', () => {
+  it("AppLayout provides RestaurantContext so children can access it without throwing", () => {
     expect(() => {
       render(
         <AuthProvider>
-          <MemoryRouter initialEntries={['/test']}>
+          <MemoryRouter initialEntries={["/test"]}>
             <Routes>
               <Route element={<AppLayout />}>
                 <Route path="/test" element={<RestaurantConsumer />} />
@@ -144,10 +156,10 @@ describe('App provider scoping', () => {
     }).not.toThrow();
   });
 
-  it('AppLayout provides NotificationContext with __providerMounted true', () => {
+  it("AppLayout provides NotificationContext with __providerMounted true", () => {
     const { getByTestId } = render(
       <AuthProvider>
-        <MemoryRouter initialEntries={['/test']}>
+        <MemoryRouter initialEntries={["/test"]}>
           <Routes>
             <Route element={<AppLayout />}>
               <Route path="/test" element={<NotificationConsumer />} />
@@ -157,6 +169,6 @@ describe('App provider scoping', () => {
       </AuthProvider>,
       { wrapper },
     );
-    expect(getByTestId('notification').textContent).toBe('available');
+    expect(getByTestId("notification").textContent).toBe("available");
   });
 });

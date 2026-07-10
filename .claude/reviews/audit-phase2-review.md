@@ -16,6 +16,7 @@ Overall the audit fixes are sound and well-structured. No security vulnerabiliti
 ## Findings
 
 ### CRITICAL
+
 None.
 
 ### HIGH
@@ -96,43 +97,43 @@ Not a security issue. Remove inner wrappers for clarity.
 
 ## Validation Results
 
-| Check | Result |
-|-------|--------|
-| Type check | Not run (no `tsc --noEmit` script) |
-| Lint | Not run |
-| Tests | ✅ 772 passing (run during implementation) |
-| Build | Not run post-merge |
-| Migration | ✅ Applied to Neon DB |
-| Prisma generate | ✅ Client regenerated |
+| Check           | Result                                     |
+| --------------- | ------------------------------------------ |
+| Type check      | Not run (no `tsc --noEmit` script)         |
+| Lint            | Not run                                    |
+| Tests           | ✅ 772 passing (run during implementation) |
+| Build           | Not run post-merge                         |
+| Migration       | ✅ Applied to Neon DB                      |
+| Prisma generate | ✅ Client regenerated                      |
 
 ---
 
 ## Files Reviewed
 
-| File | Type |
-|------|------|
-| apps/backend/Dockerfile | Modified |
-| apps/backend/prisma/migrations/20260611000000_schema_safety_constraints/migration.sql | Added |
-| apps/backend/prisma/schema.prisma | Modified |
-| apps/backend/src/dashboard/dashboard.service.ts | Modified |
-| apps/backend/src/events/events.gateway.ts | Modified |
-| apps/backend/src/loyalty/loyalty.service.ts | Modified |
-| apps/backend/src/menu-import/menu-import.service.ts | Modified |
-| apps/backend/src/menu/menu-translation.service.ts | Modified |
-| apps/backend/src/payment/payment.controller.ts | Modified |
-| apps/backend/src/payment/payment.service.spec.ts | Modified |
-| apps/backend/src/restaurants/restaurants.service.ts | Modified |
-| apps/backend/src/subscription/subscription.service.ts | Modified |
-| apps/backend/src/tables/tables.service.ts | Modified |
-| apps/backend/src/users-data/retention.service.ts | Modified |
-| apps/backend/src/users/users.service.ts | Modified |
-| apps/frontend/src/App.tsx | Modified |
-| apps/frontend/src/components/menu/ItemWithOptions.tsx | Modified |
-| apps/frontend/src/pages/PublicMenuPage.tsx | Modified |
-| apps/frontend/src/pages/super-admin/TenantDetailPage.tsx | Modified |
-| apps/printer-agent/index.js | Modified |
-| apps/printer-agent/src/services/printer.ts | Modified |
-| deploy.ps1 | Modified |
+| File                                                                                  | Type     |
+| ------------------------------------------------------------------------------------- | -------- |
+| apps/backend/Dockerfile                                                               | Modified |
+| apps/backend/prisma/migrations/20260611000000_schema_safety_constraints/migration.sql | Added    |
+| apps/backend/prisma/schema.prisma                                                     | Modified |
+| apps/backend/src/dashboard/dashboard.service.ts                                       | Modified |
+| apps/backend/src/events/events.gateway.ts                                             | Modified |
+| apps/backend/src/loyalty/loyalty.service.ts                                           | Modified |
+| apps/backend/src/menu-import/menu-import.service.ts                                   | Modified |
+| apps/backend/src/menu/menu-translation.service.ts                                     | Modified |
+| apps/backend/src/payment/payment.controller.ts                                        | Modified |
+| apps/backend/src/payment/payment.service.spec.ts                                      | Modified |
+| apps/backend/src/restaurants/restaurants.service.ts                                   | Modified |
+| apps/backend/src/subscription/subscription.service.ts                                 | Modified |
+| apps/backend/src/tables/tables.service.ts                                             | Modified |
+| apps/backend/src/users-data/retention.service.ts                                      | Modified |
+| apps/backend/src/users/users.service.ts                                               | Modified |
+| apps/frontend/src/App.tsx                                                             | Modified |
+| apps/frontend/src/components/menu/ItemWithOptions.tsx                                 | Modified |
+| apps/frontend/src/pages/PublicMenuPage.tsx                                            | Modified |
+| apps/frontend/src/pages/super-admin/TenantDetailPage.tsx                              | Modified |
+| apps/printer-agent/index.js                                                           | Modified |
+| apps/printer-agent/src/services/printer.ts                                            | Modified |
+| deploy.ps1                                                                            | Modified |
 
 ## Priority fixes
 

@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { LoginDialog } from '../components/ui/LoginDialog';
-import { useAuth } from '../context/AuthContext';
+import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { LoginDialog } from "../components/ui/LoginDialog";
+import { useAuth } from "../context/AuthContext";
 
 const RegisterPage: React.FC = () => {
   const { user } = useAuth();
@@ -10,22 +10,26 @@ const RegisterPage: React.FC = () => {
   useEffect(() => {
     if (user) {
       if (user.onboardingComplete) {
-        navigate('/dashboard');
+        navigate("/dashboard");
       } else {
-        navigate('/onboarding');
+        navigate("/onboarding");
       }
     }
   }, [user, navigate]);
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
-      navigate('/');
+      navigate("/");
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-      <LoginDialog open={true} onOpenChange={handleOpenChange} defaultIsLogin={false} />
+      <LoginDialog
+        open={true}
+        onOpenChange={handleOpenChange}
+        defaultIsLogin={false}
+      />
     </div>
   );
 };

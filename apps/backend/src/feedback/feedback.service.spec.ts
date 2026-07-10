@@ -270,4 +270,36 @@ describe('FeedbackService', () => {
       expect(result.ratingDistribution[1]).toBe(0);
     });
   });
+
+  describe('verifyRestaurantAccess (via getSummary)', () => {
+    it('allows access if user is assigned to the restaurant', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ownerId: 'owner-1',
+      });
+      mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1' });
+
+      mockPrisma.feedback.aggregate.mockResolvedValue({
+        _count: { _all: 0 },
+        _avg: { rating: null },
+      });
+      mockPrisma.feedback.groupBy.mockResolvedValue([]);
+      mockPrisma.feedback.count.mockResolvedValue(0);
+
+      const result = await service.getSummary('rest-1', 'staff-1');
+      expect(result.totalFeedbacks).toBe(0); // indicates it didn't throw ForbiddenException
+    });
+
+    it('throws ForbiddenException if user is not owner and not assigned', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ownerId: 'owner-1',
+      });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        restaurantId: 'other-rest',
+      });
+
+      await expect(service.getSummary('rest-1', 'staff-1')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
 });

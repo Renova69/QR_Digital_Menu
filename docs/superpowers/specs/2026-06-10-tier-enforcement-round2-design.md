@@ -60,27 +60,32 @@ Delete the `if (!canFullAnalytics) { return <upgrade card> }` early return entir
 **Change 3 — Insert inline upgrade card after Revenue Trend:**
 
 ```tsx
-{!canFullAnalytics && (
-  <div className="glass-panel p-6 rounded-lg border-primary/20 flex items-center justify-between gap-4">
-    <div className="flex items-center gap-4">
-      <Lock className="w-5 h-5 text-primary flex-shrink-0" />
-      <div>
-        <p className="text-sm font-black uppercase tracking-widest text-foreground">
-          {t('tierLocked.analyticsTitle', 'Full Analytics locked')}
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          {t('tierLocked.analyticsDesc', 'Deep menu, table, demand, and guest analytics require Professional plan.')}
-        </p>
+{
+  !canFullAnalytics && (
+    <div className="glass-panel p-6 rounded-lg border-primary/20 flex items-center justify-between gap-4">
+      <div className="flex items-center gap-4">
+        <Lock className="w-5 h-5 text-primary flex-shrink-0" />
+        <div>
+          <p className="text-sm font-black uppercase tracking-widest text-foreground">
+            {t("tierLocked.analyticsTitle", "Full Analytics locked")}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {t(
+              "tierLocked.analyticsDesc",
+              "Deep menu, table, demand, and guest analytics require Professional plan.",
+            )}
+          </p>
+        </div>
       </div>
+      <a
+        href="/pricing"
+        className="px-4 py-2 brand-cta text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap flex-shrink-0"
+      >
+        {t("tierLocked.upgrade", "Upgrade")}
+      </a>
     </div>
-    <a
-      href="/pricing"
-      className="px-4 py-2 brand-cta text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap flex-shrink-0"
-    >
-      {t('tierLocked.upgrade', 'Upgrade')}
-    </a>
-  </div>
-)}
+  );
+}
 ```
 
 Reuses existing i18n keys — no new locale strings.
@@ -88,6 +93,7 @@ Reuses existing i18n keys — no new locale strings.
 **Change 4 — Wrap deep sections in `{canFullAnalytics && ...}`:**
 
 Sections to wrap:
+
 - Top Items
 - Peak Hours
 - Category Breakdown
@@ -98,24 +104,24 @@ Sections to wrap:
 
 ## Resulting render tree by tier
 
-| Section | FREE | STARTER | PROFESSIONAL+ |
-|---|---|---|---|
-| KPI cards | ✗ (403) | ✓ | ✓ |
-| Revenue Trend | ✗ (403) | ✓ | ✓ |
-| Upgrade card | ✗ | ✓ | ✗ |
-| Top Items | ✗ | ✗ | ✓ |
-| Peak Hours | ✗ | ✗ | ✓ |
-| Category Breakdown | ✗ | ✗ | ✓ |
-| Top Tables | ✗ | ✗ | ✓ |
-| Feedback | ✗ | ✗ | ✓ |
+| Section            | FREE    | STARTER | PROFESSIONAL+ |
+| ------------------ | ------- | ------- | ------------- |
+| KPI cards          | ✗ (403) | ✓       | ✓             |
+| Revenue Trend      | ✗ (403) | ✓       | ✓             |
+| Upgrade card       | ✗       | ✓       | ✗             |
+| Top Items          | ✗       | ✗       | ✓             |
+| Peak Hours         | ✗       | ✗       | ✓             |
+| Category Breakdown | ✗       | ✗       | ✓             |
+| Top Tables         | ✗       | ✗       | ✓             |
+| Feedback           | ✗       | ✗       | ✓             |
 
 ---
 
 ## Files to modify
 
-| File | Change |
-|---|---|
-| `apps/backend/src/dashboard/dashboard.controller.ts` | Line 73–74: `ANALYTICS_FULL` → `ANALYTICS_BASIC` |
+| File                                                  | Change                                                                               |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `apps/backend/src/dashboard/dashboard.controller.ts`  | Line 73–74: `ANALYTICS_FULL` → `ANALYTICS_BASIC`                                     |
 | `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx` | Remove early-return block; fix enabled flag; insert upgrade card; wrap deep sections |
 
 ---
@@ -123,12 +129,14 @@ Sections to wrap:
 ## Verification
 
 **Backend:**
+
 1. `cd apps/backend && npx tsc --noEmit` — clean
 2. `npm test` — existing specs pass
 3. Manual: STARTER hits `GET /api/v1/dashboard/analytics` → 200 (not 403)
 4. Manual: FREE hits `GET /api/v1/dashboard/analytics` → 403
 
 **Frontend:**
+
 1. `cd apps/frontend && npx tsc --noEmit` — clean
 2. `npm test` — Vitest green
 3. Manual (STARTER): Analytics tab shows KPI cards + Revenue Trend + upgrade card; deep sections absent

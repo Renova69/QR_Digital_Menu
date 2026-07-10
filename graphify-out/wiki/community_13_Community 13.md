@@ -5,6 +5,7 @@
 ## Nodes
 
 ### table.tsx
+
 - **ID:** `apps_frontend_src_components_ui_table_tsx`
 - **Type:** code
 - **Degree:** 11
@@ -24,6 +25,7 @@
   - ↔ `TableHeader` [_`contains`_ | c79]
 
 ### Order
+
 - **ID:** `types_index_order`
 - **Type:** code
 - **Degree:** 3
@@ -34,6 +36,7 @@
   - ↔ `index.ts` [_`contains`_ | c49]
 
 ### Table
+
 - **ID:** `ui_table_table`
 - **Type:** code
 - **Degree:** 2
@@ -42,6 +45,7 @@
   - ↔ `RecentOrders.tsx` [_`imports`_ | c79]
 
 ### TableBody
+
 - **ID:** `ui_table_tablebody`
 - **Type:** code
 - **Degree:** 2
@@ -50,6 +54,7 @@
   - ↔ `RecentOrders.tsx` [_`imports`_ | c79]
 
 ### TableCell
+
 - **ID:** `ui_table_tablecell`
 - **Type:** code
 - **Degree:** 2
@@ -58,6 +63,7 @@
   - ↔ `RecentOrders.tsx` [_`imports`_ | c79]
 
 ### TableHead
+
 - **ID:** `ui_table_tablehead`
 - **Type:** code
 - **Degree:** 2
@@ -66,6 +72,7 @@
   - ↔ `RecentOrders.tsx` [_`imports`_ | c79]
 
 ### TableRow
+
 - **ID:** `ui_table_tablerow`
 - **Type:** code
 - **Degree:** 2
@@ -74,6 +81,7 @@
   - ↔ `RecentOrders.tsx` [_`imports`_ | c79]
 
 ### order.entity.ts
+
 - **ID:** `apps_backend_src_orders_entities_order_entity_ts`
 - **Type:** code
 - **Degree:** 1
@@ -82,6 +90,7 @@
   - ↔ `Order` [_`contains`_ | c178]
 
 ### RecentOrders()
+
 - **ID:** `dashboard_recentorders_recentorders`
 - **Type:** code
 - **Degree:** 1
@@ -90,6 +99,7 @@
   - ↔ `RecentOrders.tsx` [_`contains`_ | c79]
 
 ### RecentOrdersProps
+
 - **ID:** `dashboard_recentorders_recentordersprops`
 - **Type:** code
 - **Degree:** 1
@@ -98,6 +108,7 @@
   - ↔ `RecentOrders.tsx` [_`contains`_ | c79]
 
 ### DashboardSummary
+
 - **ID:** `hooks_usedashboard_dashboardsummary`
 - **Type:** code
 - **Degree:** 1
@@ -106,6 +117,7 @@
   - ↔ `useDashboard.ts` [_`contains`_ | c49]
 
 ### fetchDashboardSummary()
+
 - **ID:** `hooks_usedashboard_fetchdashboardsummary`
 - **Type:** code
 - **Degree:** 1
@@ -114,6 +126,7 @@
   - ↔ `useDashboard.ts` [_`contains`_ | c49]
 
 ### useDashboard()
+
 - **ID:** `hooks_usedashboard_usedashboard`
 - **Type:** code
 - **Degree:** 1
@@ -122,12 +135,14 @@
   - ↔ `useDashboard.ts` [_`contains`_ | c49]
 
 ### TableCaption
+
 - **ID:** `ui_table_tablecaption`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/frontend/src/components/ui/table.tsx` @ L96
 
 ### TableFooter
+
 - **ID:** `ui_table_tablefooter`
 - **Type:** code
 - **Degree:** 1

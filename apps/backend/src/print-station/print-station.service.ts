@@ -61,7 +61,8 @@ export class PrintStationService {
     const existing = await this.prisma.printStation.findUnique({
       where: { restaurantId_name: { restaurantId, name: dto.name } },
     });
-    if (existing) throw new ConflictException(`Station "${dto.name}" already exists`);
+    if (existing)
+      throw new ConflictException(`Station "${dto.name}" already exists`);
 
     return this.prisma.printStation.create({
       data: {
@@ -73,9 +74,16 @@ export class PrintStationService {
     });
   }
 
-  async update(restaurantId: string, stationId: string, dto: UpdatePrintStationDto) {
+  async update(
+    restaurantId: string,
+    stationId: string,
+    dto: UpdatePrintStationDto,
+  ) {
     await this.assertOwnership(restaurantId, stationId);
-    return this.prisma.printStation.update({ where: { id: stationId }, data: dto as any });
+    return this.prisma.printStation.update({
+      where: { id: stationId },
+      data: dto as any,
+    });
   }
 
   async remove(restaurantId: string, stationId: string) {
@@ -123,7 +131,11 @@ export class PrintStationService {
     if (!record) throw new NotFoundException('Token not found');
     await this.prisma.printAgentToken.delete({ where: { id: tokenId } });
     // M-4: Disconnect any live agent sessions still using this token
-    await this.events.disconnectAgentByTokenId(record.restaurantId, record.printStationId, tokenId);
+    await this.events.disconnectAgentByTokenId(
+      record.restaurantId,
+      record.printStationId,
+      tokenId,
+    );
   }
 
   async validateAgentToken(token: string) {
@@ -225,12 +237,21 @@ export class PrintStationService {
         },
       });
 
-      const emitted = await this.events.emitPrintJob(order.restaurantId, stationId, job.id, ticketBase64);
+      const emitted = await this.events.emitPrintJob(
+        order.restaurantId,
+        stationId,
+        job.id,
+        ticketBase64,
+      );
 
       if (emitted) {
         await this.prisma.printJob.update({
           where: { id: job.id },
-          data: { status: 'SENT', attempts: { increment: 1 }, lastAttemptAt: new Date() },
+          data: {
+            status: 'SENT',
+            attempts: { increment: 1 },
+            lastAttemptAt: new Date(),
+          },
         });
         this.logger.log(`Print job ${job.id} sent to station ${station.name}`);
       } else {
@@ -243,7 +264,10 @@ export class PrintStationService {
 
   // ─── Retry on Agent Reconnect ─────────────────────────────────────────────
 
-  async retryPendingJobs(restaurantId: string, stationId: string): Promise<void> {
+  async retryPendingJobs(
+    restaurantId: string,
+    stationId: string,
+  ): Promise<void> {
     const staleThreshold = new Date(Date.now() - STALE_SENT_MS);
 
     const jobs = await this.prisma.printJob.findMany({
@@ -261,15 +285,26 @@ export class PrintStationService {
 
     if (jobs.length === 0) return;
 
-    this.logger.log(`Retrying ${jobs.length} pending job(s) for station ${stationId}`);
+    this.logger.log(
+      `Retrying ${jobs.length} pending job(s) for station ${stationId}`,
+    );
 
     for (const job of jobs) {
       // H-2: only mark SENT when emit actually reached a socket
-      const emitted = await this.events.emitPrintJob(restaurantId, stationId, job.id, job.ticketBase64);
+      const emitted = await this.events.emitPrintJob(
+        restaurantId,
+        stationId,
+        job.id,
+        job.ticketBase64,
+      );
       if (emitted) {
         await this.prisma.printJob.update({
           where: { id: job.id },
-          data: { status: 'SENT', attempts: { increment: 1 }, lastAttemptAt: new Date() },
+          data: {
+            status: 'SENT',
+            attempts: { increment: 1 },
+            lastAttemptAt: new Date(),
+          },
         });
       }
     }
@@ -278,6 +313,19 @@ export class PrintStationService {
   @Cron(CronExpression.EVERY_MINUTE)
   async retryStuckPrintJobs(): Promise<void> {
     const staleThreshold = new Date(Date.now() - STALE_SENT_MS);
+
+    await this.prisma.printJob.updateMany({
+      where: {
+        status: 'SENT',
+        attempts: { gte: MAX_PRINT_ATTEMPTS },
+        lastAttemptAt: { lt: staleThreshold },
+      },
+      data: {
+        status: 'FAILED',
+        errorMessage: 'Max retry attempts exhausted without ACK',
+      },
+    });
+
     const stations = await this.prisma.printJob.findMany({
       where: {
         printStationId: { not: null },

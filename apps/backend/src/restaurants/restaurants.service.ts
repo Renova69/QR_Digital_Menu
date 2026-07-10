@@ -521,8 +521,7 @@ export class RestaurantsService {
 
           for (const key of Object.keys(langData)) {
             if (key.startsWith('allergen_')) {
-              translatedAllergens[key.replace('allergen_', '')] =
-                langData[key];
+              translatedAllergens[key.replace('allergen_', '')] = langData[key];
               delete langData[key];
             } else if (key.startsWith('tag_')) {
               translatedTags[key.replace('tag_', '')] = langData[key];
@@ -842,6 +841,38 @@ export class RestaurantsService {
     if (!restaurant?.logoUrl) return null;
 
     try {
+      const parsedUrl = new URL(restaurant.logoUrl);
+      if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
+        return null;
+      }
+
+      const hostname = parsedUrl.hostname.toLowerCase();
+
+      const dns = require('dns');
+      const { address } = await dns.promises
+        .lookup(hostname)
+        .catch(() => ({ address: null }));
+      if (!address) return null;
+
+      // Block common internal/cloud metadata IP ranges against the resolved IP
+      if (
+        address === '127.0.0.1' ||
+        address === '::1' ||
+        address.startsWith('169.254.') ||
+        address.startsWith('10.') ||
+        address.startsWith('192.168.') ||
+        (address.startsWith('172.') &&
+          parseInt(address.split('.')[1], 10) >= 16 &&
+          parseInt(address.split('.')[1], 10) <= 31) ||
+        address.toLowerCase().startsWith('fc') ||
+        address.toLowerCase().startsWith('fd') ||
+        address.toLowerCase().startsWith('fe80') ||
+        hostname === 'localhost' ||
+        hostname.endsWith('.local')
+      ) {
+        return null;
+      }
+
       const res = await fetch(restaurant.logoUrl);
       if (!res.ok) return null;
       const buffer = Buffer.from(await res.arrayBuffer());

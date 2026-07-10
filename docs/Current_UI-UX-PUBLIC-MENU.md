@@ -28,10 +28,10 @@ Contrast with `AppLayout` which wraps with `<Header />` + `<main className="cont
 
 ## Entry Points
 
-| Trigger | URL |
-|---------|-----|
-| QR code scan | `/menu/public/:restaurantId?table=<name>` |
-| Direct link | `/menu/public/:restaurantId` |
+| Trigger           | URL                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------- |
+| QR code scan      | `/menu/public/:restaurantId?table=<name>`                                             |
+| Direct link       | `/menu/public/:restaurantId`                                                          |
 | Language override | `?lang=bg` / `?lang=en` / `?lang=ro` (validated against `restaurant.targetLanguages`) |
 
 ---
@@ -116,18 +116,18 @@ PublicLayout (App.tsx:51-61)
 
 File: `apps/frontend/src/components/menu/ItemWithOptions.tsx` (391 lines)
 
-| Feature | Detail |
-|---------|--------|
-| Image | Square aspect, click → ImageLightbox portal (pinch-to-zoom, swipe-to-close) |
-| Name + Price | Translated via `item.translations[currentLang]?.name` |
-| Description | `line-clamp-2 md:line-clamp-3`, translated |
-| Dietary tags | Emerald badges (`item.dietaryTags`) |
-| Allergens | Amber badges (`item.allergens`) |
-| Options: VARIATION | Radio buttons, auto-selects first choice on `item.id` change |
-| Options: ADD_ON | Checkboxes, unselected by default |
-| Add to Cart | Builds `cartId` from `item.id-optionId:choiceName` pipe-separated keys |
-| Toast | 2.2s animated overlay on add-to-cart |
-| Perfect Pairing | If `relatedItemIds` exist → portal modal with pairing suggestions |
+| Feature            | Detail                                                                      |
+| ------------------ | --------------------------------------------------------------------------- |
+| Image              | Square aspect, click → ImageLightbox portal (pinch-to-zoom, swipe-to-close) |
+| Name + Price       | Translated via `item.translations[currentLang]?.name`                       |
+| Description        | `line-clamp-2 md:line-clamp-3`, translated                                  |
+| Dietary tags       | Emerald badges (`item.dietaryTags`)                                         |
+| Allergens          | Amber badges (`item.allergens`)                                             |
+| Options: VARIATION | Radio buttons, auto-selects first choice on `item.id` change                |
+| Options: ADD_ON    | Checkboxes, unselected by default                                           |
+| Add to Cart        | Builds `cartId` from `item.id-optionId:choiceName` pipe-separated keys      |
+| Toast              | 2.2s animated overlay on add-to-cart                                        |
+| Perfect Pairing    | If `relatedItemIds` exist → portal modal with pairing suggestions           |
 
 ---
 
@@ -135,12 +135,12 @@ File: `apps/frontend/src/components/menu/ItemWithOptions.tsx` (391 lines)
 
 File: `apps/frontend/src/components/cart/CartDrawer.tsx` (305 lines)
 
-| State | Visual |
-|-------|--------|
-| Empty | Shopping cart icon + "Your cart is empty" |
-| Has items | Item list: quantity ±, name (resolved via `resolveItemName()` for live translation), options, price, total |
-| Drink upsell | Checkout clicked, no drinks in cart → drink suggestion list with "Add" buttons |
-| Clear Cart | Button empties cart |
+| State        | Visual                                                                                                     |
+| ------------ | ---------------------------------------------------------------------------------------------------------- |
+| Empty        | Shopping cart icon + "Your cart is empty"                                                                  |
+| Has items    | Item list: quantity ±, name (resolved via `resolveItemName()` for live translation), options, price, total |
+| Drink upsell | Checkout clicked, no drinks in cart → drink suggestion list with "Add" buttons                             |
+| Clear Cart   | Button empties cart                                                                                        |
 
 **Mobile:** Bottom sheet (`h-[88vh]`, `rounded-t-[2.5rem]`, `cartSlideUp` animation)
 **Desktop:** Right panel (`max-w-sm`, `rounded-l-[2.5rem]`, `cartSlideRight` animation)
@@ -155,11 +155,11 @@ File: `apps/frontend/src/components/auth/CustomerLoginModal.tsx` (321 lines)
 
 3-step state machine:
 
-| Step | Content |
-|------|---------|
-| **Entry** | Google OAuth button + email/phone tabs + country code selector (10 countries) |
-| **OTP** | 6-digit code input + devCode banner (dev mode) + 60s resend countdown |
-| **Welcome** | New customer welcome card + "Let's Order" button |
+| Step        | Content                                                                       |
+| ----------- | ----------------------------------------------------------------------------- |
+| **Entry**   | Google OAuth button + email/phone tabs + country code selector (10 countries) |
+| **OTP**     | 6-digit code input + devCode banner (dev mode) + 60s resend countdown         |
+| **Welcome** | New customer welcome card + "Let's Order" button                              |
 
 Auth flow: `POST /api/auth/otp/send` → `POST /api/auth/otp/verify` → `AuthContext.loginWithToken(token, user)`.
 
@@ -171,11 +171,11 @@ File: `apps/frontend/src/components/payment/PaymentModal.tsx` (232 lines)
 
 3-step flow:
 
-| Step | Content |
-|------|---------|
-| **Tip** | Bill subtotal + tip percentage buttons (from `restaurant.quickTipOptions`) |
-| **Stripe** | `PaymentElement` form via `@stripe/react-stripe-js` |
-| **Done** | Checkmark + "Payment Received" |
+| Step       | Content                                                                    |
+| ---------- | -------------------------------------------------------------------------- |
+| **Tip**    | Bill subtotal + tip percentage buttons (from `restaurant.quickTipOptions`) |
+| **Stripe** | `PaymentElement` form via `@stripe/react-stripe-js`                        |
+| **Done**   | Checkmark + "Payment Received"                                             |
 
 Calls: `GET /api/payments/session/:token/bill` → `POST /api/payments/session/:token/intent` → Stripe `confirmPayment`.
 
@@ -183,52 +183,52 @@ Calls: `GET /api/payments/session/:token/bill` → `POST /api/payments/session/:
 
 ## All UI States
 
-| State | Trigger | Visual | File:Line |
-|-------|---------|--------|-----------|
-| Loading | Initial API fetch | Centered spinner + "Preparing your menu..." | PublicMenuPage.tsx:309-316 |
-| Error | API failure / missing restaurant | Glass panel + error message + "Try Again" button | PublicMenuPage.tsx:318-332 |
-| Empty menu | `categories.length === 0` | "No items yet" placeholder | PublicMenuPage.tsx:398-404 |
-| Empty filter | No items match `activeFilter` | "No items match this filter" per category | PublicMenuPage.tsx:576-581 |
-| Cart empty | `items.length === 0` | Shopping cart icon + "Your cart is empty" | CartDrawer.tsx:181-202 |
-| Cart has items | Items exist | Item list with qty, options, prices, total | CartDrawer.tsx:204-248 |
-| Drink upsell | Checkout clicked, no drinks | Drink suggestions with "Add" buttons | CartDrawer.tsx:128-180 |
-| Authenticated user | `user` non-null | Profile chip + Logout in action bar | PublicMenuPage.tsx:676-698 |
-| Unauthenticated | `user` null | "Sign In" button | PublicMenuPage.tsx:699-706 |
-| Has session | `sessionToken` in localStorage | "Request Bill" button | PublicMenuPage.tsx:709-728 |
-| No table | Table param missing | "Scan QR code" alert on call waiter | PublicMenuPage.tsx:628-641 |
-| Assistance sent | `assistanceSent === true` | Success toast, button disabled 60s | PublicMenuPage.tsx:303-307 |
-| Assistance loading | `assistanceLoading === true` | Button shows "Calling..." | PublicMenuPage.tsx:670 |
-| Trending loading | API loading | Component removed from DOM (returns null) | TrendingCarousel.tsx:32 |
-| Trending empty | No trending items | Component removed from DOM (returns null) | TrendingCarousel.tsx:32 |
-| Pairing modal | `relatedItemIds.length > 0` | Dark backdrop + pairing cards | ItemWithOptions.tsx:307-380 |
-| Image lightbox | Click item image | Full-screen zoomable image | ImageLightbox.tsx:10-130 |
-| Tip step | Payment modal opens | Bill subtotal + tip % buttons | PaymentModal.tsx:151-201 |
-| Stripe step | Continue after tip | Stripe PaymentElement form | PaymentModal.tsx:204-216 |
-| Done step | Payment succeeds | Checkmark + "Payment Received" | PaymentModal.tsx:219-228 |
-| Login entry | Click "Sign In" | Google + email/phone tabs | CustomerLoginModal.tsx:178-259 |
-| Login OTP | Code sent | 6-digit input + resend countdown | CustomerLoginModal.tsx:263-301 |
-| Login welcome | New customer verified | Welcome card | CustomerLoginModal.tsx:305-315 |
-| No custom theme | No branding colors set | Default Tailwind theme | PublicMenuPage.tsx:210-213 |
-| Custom theme | Branding colors set | CSS custom properties override | PublicMenuPage.tsx:231-249 |
-| Dark mode | ThemeToggle toggled | `.dark` class on `<html>` | ThemeToggle.tsx:23-31 |
+| State              | Trigger                          | Visual                                           | File:Line                      |
+| ------------------ | -------------------------------- | ------------------------------------------------ | ------------------------------ |
+| Loading            | Initial API fetch                | Centered spinner + "Preparing your menu..."      | PublicMenuPage.tsx:309-316     |
+| Error              | API failure / missing restaurant | Glass panel + error message + "Try Again" button | PublicMenuPage.tsx:318-332     |
+| Empty menu         | `categories.length === 0`        | "No items yet" placeholder                       | PublicMenuPage.tsx:398-404     |
+| Empty filter       | No items match `activeFilter`    | "No items match this filter" per category        | PublicMenuPage.tsx:576-581     |
+| Cart empty         | `items.length === 0`             | Shopping cart icon + "Your cart is empty"        | CartDrawer.tsx:181-202         |
+| Cart has items     | Items exist                      | Item list with qty, options, prices, total       | CartDrawer.tsx:204-248         |
+| Drink upsell       | Checkout clicked, no drinks      | Drink suggestions with "Add" buttons             | CartDrawer.tsx:128-180         |
+| Authenticated user | `user` non-null                  | Profile chip + Logout in action bar              | PublicMenuPage.tsx:676-698     |
+| Unauthenticated    | `user` null                      | "Sign In" button                                 | PublicMenuPage.tsx:699-706     |
+| Has session        | `sessionToken` in localStorage   | "Request Bill" button                            | PublicMenuPage.tsx:709-728     |
+| No table           | Table param missing              | "Scan QR code" alert on call waiter              | PublicMenuPage.tsx:628-641     |
+| Assistance sent    | `assistanceSent === true`        | Success toast, button disabled 60s               | PublicMenuPage.tsx:303-307     |
+| Assistance loading | `assistanceLoading === true`     | Button shows "Calling..."                        | PublicMenuPage.tsx:670         |
+| Trending loading   | API loading                      | Component removed from DOM (returns null)        | TrendingCarousel.tsx:32        |
+| Trending empty     | No trending items                | Component removed from DOM (returns null)        | TrendingCarousel.tsx:32        |
+| Pairing modal      | `relatedItemIds.length > 0`      | Dark backdrop + pairing cards                    | ItemWithOptions.tsx:307-380    |
+| Image lightbox     | Click item image                 | Full-screen zoomable image                       | ImageLightbox.tsx:10-130       |
+| Tip step           | Payment modal opens              | Bill subtotal + tip % buttons                    | PaymentModal.tsx:151-201       |
+| Stripe step        | Continue after tip               | Stripe PaymentElement form                       | PaymentModal.tsx:204-216       |
+| Done step          | Payment succeeds                 | Checkmark + "Payment Received"                   | PaymentModal.tsx:219-228       |
+| Login entry        | Click "Sign In"                  | Google + email/phone tabs                        | CustomerLoginModal.tsx:178-259 |
+| Login OTP          | Code sent                        | 6-digit input + resend countdown                 | CustomerLoginModal.tsx:263-301 |
+| Login welcome      | New customer verified            | Welcome card                                     | CustomerLoginModal.tsx:305-315 |
+| No custom theme    | No branding colors set           | Default Tailwind theme                           | PublicMenuPage.tsx:210-213     |
+| Custom theme       | Branding colors set              | CSS custom properties override                   | PublicMenuPage.tsx:231-249     |
+| Dark mode          | ThemeToggle toggled              | `.dark` class on `<html>`                        | ThemeToggle.tsx:23-31          |
 
 ---
 
 ## Mobile vs Desktop Behavior
 
-| Feature | Mobile | Desktop | File:Line |
-|---------|--------|---------|-----------|
-| Category nav | Native `<select>` dropdown | Horizontal scrolling pills | PublicMenuPage.tsx:453-516 |
-| CartDrawer | Bottom sheet: `h-[88vh]`, slide-up | Right panel: `max-w-sm`, slide-right | CartDrawer.tsx:84-91 |
-| Item grid | 1 column (`grid-cols-1`) | 2 columns (`md:grid-cols-2`) | PublicMenuPage.tsx:585 |
-| Assistance dialog | Bottom sheet | Centered modal | PublicMenuPage.tsx:744 |
-| Payment modal | Bottom sheet | Centered modal | PaymentModal.tsx:137 |
-| Category banner | `aspect-[2/1]` | `md:aspect-[3/1]` | PublicMenuPage.tsx:537 |
-| Heading font | `text-5xl` | `md:text-8xl` | PublicMenuPage.tsx:360 |
-| Action bar buttons | Icon-only (Bell) | Icon + label | PublicMenuPage.tsx:666 |
-| Item image | `h-48` | `md:aspect-square` | ItemWithOptions.tsx:164 |
-| Description | `line-clamp-2` | `md:line-clamp-3` | ItemWithOptions.tsx:205 |
-| Sticky nav offset | `top-4` | `md:top-6` | PublicMenuPage.tsx:451 |
+| Feature            | Mobile                             | Desktop                              | File:Line                  |
+| ------------------ | ---------------------------------- | ------------------------------------ | -------------------------- |
+| Category nav       | Native `<select>` dropdown         | Horizontal scrolling pills           | PublicMenuPage.tsx:453-516 |
+| CartDrawer         | Bottom sheet: `h-[88vh]`, slide-up | Right panel: `max-w-sm`, slide-right | CartDrawer.tsx:84-91       |
+| Item grid          | 1 column (`grid-cols-1`)           | 2 columns (`md:grid-cols-2`)         | PublicMenuPage.tsx:585     |
+| Assistance dialog  | Bottom sheet                       | Centered modal                       | PublicMenuPage.tsx:744     |
+| Payment modal      | Bottom sheet                       | Centered modal                       | PaymentModal.tsx:137       |
+| Category banner    | `aspect-[2/1]`                     | `md:aspect-[3/1]`                    | PublicMenuPage.tsx:537     |
+| Heading font       | `text-5xl`                         | `md:text-8xl`                        | PublicMenuPage.tsx:360     |
+| Action bar buttons | Icon-only (Bell)                   | Icon + label                         | PublicMenuPage.tsx:666     |
+| Item image         | `h-48`                             | `md:aspect-square`                   | ItemWithOptions.tsx:164    |
+| Description        | `line-clamp-2`                     | `md:line-clamp-3`                    | ItemWithOptions.tsx:205    |
+| Sticky nav offset  | `top-4`                            | `md:top-6`                           | PublicMenuPage.tsx:451     |
 
 ---
 
@@ -237,18 +237,20 @@ Calls: `GET /api/payments/session/:token/bill` → `POST /api/payments/session/:
 Flow: `Restaurant` DB row → API response → JS `style` object → CSS custom properties
 
 ### Restaurant fields used:
-| Field | Applied as |
-|-------|-----------|
-| `logoUrl` | `<img>` in header (PublicMenuPage.tsx:339-348) |
-| `accentColor` | Ambient background blobs + `--color-accent` CSS var (PublicMenuPage.tsx:231-249) |
-| `fontHeading` | Google Font loaded dynamically → `--font-heading` (PublicMenuPage.tsx:150-168) |
-| `fontBody` | Google Font loaded dynamically → `--font-body` (PublicMenuPage.tsx:150-168) |
-| `themeBgColor` | `--custom-bg` → mapped to `--color-background` in `:root` |
-| `themeTextColor` | `--custom-text` → mapped to `--color-foreground` in `:root` |
-| `themeCardColor` | `--custom-card` → mapped to `--color-card` in `:root` |
-| `defaultTheme` | `'light'` or `'dark'`, passed to ThemeToggle |
+
+| Field            | Applied as                                                                       |
+| ---------------- | -------------------------------------------------------------------------------- |
+| `logoUrl`        | `<img>` in header (PublicMenuPage.tsx:339-348)                                   |
+| `accentColor`    | Ambient background blobs + `--color-accent` CSS var (PublicMenuPage.tsx:231-249) |
+| `fontHeading`    | Google Font loaded dynamically → `--font-heading` (PublicMenuPage.tsx:150-168)   |
+| `fontBody`       | Google Font loaded dynamically → `--font-body` (PublicMenuPage.tsx:150-168)      |
+| `themeBgColor`   | `--custom-bg` → mapped to `--color-background` in `:root`                        |
+| `themeTextColor` | `--custom-text` → mapped to `--color-foreground` in `:root`                      |
+| `themeCardColor` | `--custom-card` → mapped to `--color-card` in `:root`                            |
+| `defaultTheme`   | `'light'` or `'dark'`, passed to ThemeToggle                                     |
 
 ### CSS cascade (`index.css`):
+
 - `:root` maps `--custom-*` → `--color-*` tokens
 - `.dark` **ignores** all `--custom-*` with `!important` — dark mode uses default dark palette regardless of branding
 
@@ -257,11 +259,13 @@ Flow: `Restaurant` DB row → API response → JS `style` object → CSS custom 
 ## Translation Mechanics
 
 ### Language Selection
+
 - Dropdown rendered only when `restaurant.targetLanguages.length > 0` (PublicMenuPage.tsx:368)
 - Initial: browser language ∩ targetLanguages, fallback to first target language (lines 90-94)
 - Switch: updates `selectedLang` + calls `i18n.changeLanguage(val)` (lines 170-174)
 
 ### Item-Level Translation
+
 - `ItemWithOptions` reads `item.translations[currentLang]?.name` at render time (ItemWithOptions.tsx:37-38)
 - Category names: `category.translations[selectedLang]?.name` (PublicMenuPage.tsx:521-524)
 - Options: `option.translations[currentLang]?.name` + choice names from `.choices` (ItemWithOptions.tsx:232-240)
@@ -269,6 +273,7 @@ Flow: `Restaurant` DB row → API response → JS `style` object → CSS custom 
 - Cart: `resolveItemName()` looks up live translated name by item ID + lang, bypassing stale add-time snapshot (CartDrawer.tsx:9-25)
 
 ### Backend Lazy Translation
+
 - `MenuTranslationService.applyLazyTranslations()` — per category/item/option, checks if translation exists, calls DeepL if missing, saves to DB, mutates in-memory
 - 300ms rate limit between API calls
 - `?lang=` validated against `restaurant.targetLanguages` (arbitrary codes rejected)
@@ -322,13 +327,13 @@ Render:
 
 ## Context Providers on Public Menu
 
-| Context | Purpose | File |
-|---------|---------|------|
-| `AuthContext` | User session (at Router level, not PublicLayout) | `context/AuthContext.tsx` |
-| `CartContext` | Cart items, totals, localStorage sync, prune | `context/CartContext.tsx` |
-| `SocketContext` | Real-time socket.io connection | `context/SocketContext.tsx` |
-| `RestaurantContext` | Active restaurant, socket room join | `context/RestaurantContext.tsx` |
-| `NotificationContext` | Payment notifications + toast state | `context/NotificationContext.tsx` |
+| Context               | Purpose                                          | File                              |
+| --------------------- | ------------------------------------------------ | --------------------------------- |
+| `AuthContext`         | User session (at Router level, not PublicLayout) | `context/AuthContext.tsx`         |
+| `CartContext`         | Cart items, totals, localStorage sync, prune     | `context/CartContext.tsx`         |
+| `SocketContext`       | Real-time socket.io connection                   | `context/SocketContext.tsx`       |
+| `RestaurantContext`   | Active restaurant, socket room join              | `context/RestaurantContext.tsx`   |
+| `NotificationContext` | Payment notifications + toast state              | `context/NotificationContext.tsx` |
 
 **NOT on public menu:** `OrderContext`, `AssistanceContext` (public menu calls assistance API directly).
 
@@ -336,61 +341,61 @@ Render:
 
 ## Key API Calls
 
-| Call | Endpoint | Auth |
-|------|----------|------|
-| `getMenu` | `GET /api/menu/public/:id` | Public |
-| `getTrendingItems` | `GET /api/menu/public/:id/trending` | Public |
-| `createAssistanceRequest` | `POST /api/assistance-requests` | Public |
-| `getSessionBill` | `GET /api/payments/session/:token/bill` | Public |
-| `createPaymentIntent` | `POST /api/payments/session/:token/intent` | Public |
-| `sendOtp` | `POST /api/auth/otp/send` | Public |
-| `verifyOtp` | `POST /api/auth/otp/verify` | Public |
+| Call                      | Endpoint                                   | Auth   |
+| ------------------------- | ------------------------------------------ | ------ |
+| `getMenu`                 | `GET /api/menu/public/:id`                 | Public |
+| `getTrendingItems`        | `GET /api/menu/public/:id/trending`        | Public |
+| `createAssistanceRequest` | `POST /api/assistance-requests`            | Public |
+| `getSessionBill`          | `GET /api/payments/session/:token/bill`    | Public |
+| `createPaymentIntent`     | `POST /api/payments/session/:token/intent` | Public |
+| `sendOtp`                 | `POST /api/auth/otp/send`                  | Public |
+| `verifyOtp`               | `POST /api/auth/otp/verify`                | Public |
 
 ---
 
 ## Key Files (All)
 
-| File | Role | Lines | Importance |
-|------|------|-------|------------|
-| `apps/frontend/src/App.tsx` | Route definitions, PublicLayout | 51-61, 141-155 | Critical |
-| `apps/frontend/src/pages/PublicMenuPage.tsx` | Main public menu component | 812 | Critical |
-| `apps/frontend/src/components/menu/ItemWithOptions.tsx` | Menu item card with options, pairings, lightbox | 391 | Critical |
-| `apps/frontend/src/components/cart/CartDrawer.tsx` | Cart side/bottom sheet overlay | 305 | High |
-| `apps/frontend/src/components/cart/CartIcon.tsx` | Cart badge button | 51 | High |
-| `apps/frontend/src/components/payment/PaymentModal.tsx` | 3-step payment: Tip → Stripe → Done | 232 | High |
-| `apps/frontend/src/components/auth/CustomerLoginModal.tsx` | 3-step login: entry → OTP → welcome | 321 | High |
-| `apps/frontend/src/components/menu/TrendingCarousel.tsx` | Horizontal trending items carousel | 59 | Medium |
-| `apps/frontend/src/components/menu/ImageLightbox.tsx` | Pinch-to-zoom, swipe-to-close viewer | 130 | Medium |
-| `apps/frontend/src/components/ui/ThemeToggle.tsx` | Light/dark per-restaurant toggle | 55 | Medium |
-| `apps/frontend/src/context/CartContext.tsx` | Cart state: items, totals, localStorage, prune | 162 | Critical |
-| `apps/frontend/src/context/AuthContext.tsx` | Auth state: user, login, logout, init | 117 | High |
-| `apps/frontend/src/context/SocketContext.tsx` | Socket.io connection | 49 | High |
-| `apps/frontend/src/context/NotificationContext.tsx` | Payment notifications | 111 | Medium |
-| `apps/frontend/src/context/RestaurantContext.tsx` | Restaurant list, active selection | 156 | Medium |
-| `apps/frontend/src/lib/api.ts` | Axios instance, CSRF interceptor, all API functions | 353 | Critical |
-| `apps/frontend/src/types/index.ts` | TypeScript types: Item, Category, MenuOption, etc. | 63 | Critical |
-| `apps/frontend/src/index.css` | Tailwind theme, CSS custom props, glass-panel, animations | 216 | Critical |
-| `apps/frontend/index.html` | viewport-fit=cover, PWA metas | 33 | Low |
-| `apps/frontend/src/pages/CheckoutPage.tsx` | Checkout form: name, phone, special requests, loyalty | 531 | High |
-| `apps/frontend/src/pages/OrderConfirmationPage.tsx` | Order confirmed with live status | — | Medium |
-| `apps/frontend/src/pages/FeedbackPage.tsx` | Customer feedback + Google review redirect | — | Medium |
-| `apps/backend/src/menu/public-menu.controller.ts` | Public menu API routes | 37 | Critical |
-| `apps/backend/src/menu/menu-crud.service.ts` | getPublicMenu() logic | — | Critical |
-| `apps/backend/src/menu/menu-translation.service.ts` | Lazy DeepL translation | 152 | Critical |
+| File                                                       | Role                                                      | Lines          | Importance |
+| ---------------------------------------------------------- | --------------------------------------------------------- | -------------- | ---------- |
+| `apps/frontend/src/App.tsx`                                | Route definitions, PublicLayout                           | 51-61, 141-155 | Critical   |
+| `apps/frontend/src/pages/PublicMenuPage.tsx`               | Main public menu component                                | 812            | Critical   |
+| `apps/frontend/src/components/menu/ItemWithOptions.tsx`    | Menu item card with options, pairings, lightbox           | 391            | Critical   |
+| `apps/frontend/src/components/cart/CartDrawer.tsx`         | Cart side/bottom sheet overlay                            | 305            | High       |
+| `apps/frontend/src/components/cart/CartIcon.tsx`           | Cart badge button                                         | 51             | High       |
+| `apps/frontend/src/components/payment/PaymentModal.tsx`    | 3-step payment: Tip → Stripe → Done                       | 232            | High       |
+| `apps/frontend/src/components/auth/CustomerLoginModal.tsx` | 3-step login: entry → OTP → welcome                       | 321            | High       |
+| `apps/frontend/src/components/menu/TrendingCarousel.tsx`   | Horizontal trending items carousel                        | 59             | Medium     |
+| `apps/frontend/src/components/menu/ImageLightbox.tsx`      | Pinch-to-zoom, swipe-to-close viewer                      | 130            | Medium     |
+| `apps/frontend/src/components/ui/ThemeToggle.tsx`          | Light/dark per-restaurant toggle                          | 55             | Medium     |
+| `apps/frontend/src/context/CartContext.tsx`                | Cart state: items, totals, localStorage, prune            | 162            | Critical   |
+| `apps/frontend/src/context/AuthContext.tsx`                | Auth state: user, login, logout, init                     | 117            | High       |
+| `apps/frontend/src/context/SocketContext.tsx`              | Socket.io connection                                      | 49             | High       |
+| `apps/frontend/src/context/NotificationContext.tsx`        | Payment notifications                                     | 111            | Medium     |
+| `apps/frontend/src/context/RestaurantContext.tsx`          | Restaurant list, active selection                         | 156            | Medium     |
+| `apps/frontend/src/lib/api.ts`                             | Axios instance, CSRF interceptor, all API functions       | 353            | Critical   |
+| `apps/frontend/src/types/index.ts`                         | TypeScript types: Item, Category, MenuOption, etc.        | 63             | Critical   |
+| `apps/frontend/src/index.css`                              | Tailwind theme, CSS custom props, glass-panel, animations | 216            | Critical   |
+| `apps/frontend/index.html`                                 | viewport-fit=cover, PWA metas                             | 33             | Low        |
+| `apps/frontend/src/pages/CheckoutPage.tsx`                 | Checkout form: name, phone, special requests, loyalty     | 531            | High       |
+| `apps/frontend/src/pages/OrderConfirmationPage.tsx`        | Order confirmed with live status                          | —              | Medium     |
+| `apps/frontend/src/pages/FeedbackPage.tsx`                 | Customer feedback + Google review redirect                | —              | Medium     |
+| `apps/backend/src/menu/public-menu.controller.ts`          | Public menu API routes                                    | 37             | Critical   |
+| `apps/backend/src/menu/menu-crud.service.ts`               | getPublicMenu() logic                                     | —              | Critical   |
+| `apps/backend/src/menu/menu-translation.service.ts`        | Lazy DeepL translation                                    | 152            | Critical   |
 
 ---
 
 ## External Dependencies
 
-| Library | Usage |
-|---------|-------|
-| `react-router-dom` v7 | Routing, `useParams`, `useNavigate`, `useLocation` |
-| `axios` | HTTP client with CSRF interceptor |
-| `socket.io-client` | Real-time socket for restaurant room |
-| `i18next` + `react-i18next` | i18n, `useTranslation` hook |
-| `lucide-react` | Icons (ShoppingCart, Bell, Globe, LogOut, UserCircle, etc.) |
-| `@fortawesome/react-fontawesome` | FontAwesome icons (faCircleCheck, faBolt) |
-| `@stripe/react-stripe-js` + `@stripe/stripe-js` | Stripe Elements in PaymentModal |
-| `@radix-ui/react-slot` | Polymorphic `Slot` in Button |
-| `class-variance-authority` | CVA variant management |
-| `tailwind-merge` | Conditional Tailwind class merging |
+| Library                                         | Usage                                                       |
+| ----------------------------------------------- | ----------------------------------------------------------- |
+| `react-router-dom` v7                           | Routing, `useParams`, `useNavigate`, `useLocation`          |
+| `axios`                                         | HTTP client with CSRF interceptor                           |
+| `socket.io-client`                              | Real-time socket for restaurant room                        |
+| `i18next` + `react-i18next`                     | i18n, `useTranslation` hook                                 |
+| `lucide-react`                                  | Icons (ShoppingCart, Bell, Globe, LogOut, UserCircle, etc.) |
+| `@fortawesome/react-fontawesome`                | FontAwesome icons (faCircleCheck, faBolt)                   |
+| `@stripe/react-stripe-js` + `@stripe/stripe-js` | Stripe Elements in PaymentModal                             |
+| `@radix-ui/react-slot`                          | Polymorphic `Slot` in Button                                |
+| `class-variance-authority`                      | CVA variant management                                      |
+| `tailwind-merge`                                | Conditional Tailwind class merging                          |

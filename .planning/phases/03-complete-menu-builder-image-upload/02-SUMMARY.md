@@ -20,10 +20,10 @@ Resolved a bug where cart total calculations only accounted for base item prices
 
 ## Tasks Completed
 
-| # | Task | Status |
-|---|------|--------|
-| 2.1 | Fix Cart Total Calculation to Include Modifiers | ✓ |
-| 2.2 | Add loading states to MenuEditorPage | ✓ |
+| #   | Task                                            | Status |
+| --- | ----------------------------------------------- | ------ |
+| 2.1 | Fix Cart Total Calculation to Include Modifiers | ✓      |
+| 2.2 | Add loading states to MenuEditorPage            | ✓      |
 
 ## Deviations from Plan
 

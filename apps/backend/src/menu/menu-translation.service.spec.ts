@@ -262,9 +262,10 @@ describe('MenuTranslationService', () => {
       await service.applyLazyTranslations([category], 'ro');
 
       expect(rawCallsFor('menu_item')).toHaveLength(1);
-      expect((item as any).translations).toEqual(
-        expect.objectContaining({ ro: expect.any(Object) }),
-      );
+      expect(
+        (item as unknown as { translations?: Record<string, unknown> })
+          .translations,
+      ).toEqual(expect.objectContaining({ ro: expect.any(Object) }));
     });
 
     it('handles item with null allergens, dietaryTags, options, and empty description', async () => {
@@ -455,7 +456,9 @@ describe('MenuTranslationService', () => {
         ['Hot soup'],
         'fr',
       );
-      expect((item.translations as any).fr).toEqual({
+      expect(
+        (item.translations as unknown as Record<string, unknown>)['fr'],
+      ).toEqual({
         name: 'Soupe',
         description: 'Soupe chaude',
       });
@@ -479,7 +482,9 @@ describe('MenuTranslationService', () => {
       await service.applyLazyTranslations([category], 'fr');
 
       expect(item.name).toBe('Salade russe');
-      expect((item as any).originalName).toBe('Руска салата');
+      expect((item as { originalName?: string }).originalName).toBe(
+        'Руска салата',
+      );
     });
 
     it('never mutates the canonical choice key used by order validation', async () => {

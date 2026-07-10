@@ -10,14 +10,14 @@ A 4th layout route inside `apps/frontend` providing platform administrators (SUP
 
 ## Key Decisions
 
-| Decision | Choice |
-|----------|--------|
-| App architecture | Routes inside existing `apps/frontend` (4th layout, like PosLayout) |
-| SuperAdmin creation | Manual DB insert (user handles) |
-| SuperAdmin login | Same `/login` page, role-based redirect to `/super-admin` |
-| Restaurant suspend | Full freeze — public menu, dashboard, orders all blocked (403) |
-| forceTier override | forceTier wins over Stripe webhooks; Stripe continues billing normally |
-| forceTier cleared | Falls back to Stripe-driven `tier` column |
+| Decision            | Choice                                                                 |
+| ------------------- | ---------------------------------------------------------------------- |
+| App architecture    | Routes inside existing `apps/frontend` (4th layout, like PosLayout)    |
+| SuperAdmin creation | Manual DB insert (user handles)                                        |
+| SuperAdmin login    | Same `/login` page, role-based redirect to `/super-admin`              |
+| Restaurant suspend  | Full freeze — public menu, dashboard, orders all blocked (403)         |
+| forceTier override  | forceTier wins over Stripe webhooks; Stripe continues billing normally |
+| forceTier cleared   | Falls back to Stripe-driven `tier` column                              |
 
 ## Schema Changes
 
@@ -66,13 +66,13 @@ Checks `request.user.role === 'SUPER_ADMIN'`. All super-admin routes use `@UseGu
 
 ### Endpoints
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/api/v1/super-admin/stats` | Platform KPIs |
-| GET | `/api/v1/super-admin/tenants` | Paginated tenant list (search, filter) |
-| GET | `/api/v1/super-admin/tenants/:id` | Single tenant detail |
-| PATCH | `/api/v1/super-admin/tenants/:id/tier` | Set/clear forceTier |
-| PATCH | `/api/v1/super-admin/tenants/:id/status` | Toggle isActive (suspend/reactivate) |
+| Method | Path                                     | Purpose                                |
+| ------ | ---------------------------------------- | -------------------------------------- |
+| GET    | `/api/v1/super-admin/stats`              | Platform KPIs                          |
+| GET    | `/api/v1/super-admin/tenants`            | Paginated tenant list (search, filter) |
+| GET    | `/api/v1/super-admin/tenants/:id`        | Single tenant detail                   |
+| PATCH  | `/api/v1/super-admin/tenants/:id/tier`   | Set/clear forceTier                    |
+| PATCH  | `/api/v1/super-admin/tenants/:id/status` | Toggle isActive (suspend/reactivate)   |
 
 ### GET /stats response shape
 
@@ -97,7 +97,9 @@ Response: `{ data: TenantSummary[], meta: { total, page, limit } }`
 ### PATCH /tenants/:id/tier
 
 ```typescript
-{ forceTier: SubscriptionTier | null }
+{
+  forceTier: SubscriptionTier | null;
+}
 ```
 
 `null` clears override, restoring Stripe-driven tier.
@@ -105,7 +107,9 @@ Response: `{ data: TenantSummary[], meta: { total, page, limit } }`
 ### PATCH /tenants/:id/status
 
 ```typescript
-{ isActive: boolean }
+{
+  isActive: boolean;
+}
 ```
 
 ### Tier resolution — feature.service.ts change
@@ -120,6 +124,7 @@ Single line change. Stripe webhook handler unchanged — it updates `tier` colum
 ### Suspend enforcement
 
 Three check points:
+
 1. `FeatureGuard.canActivate()` — if `restaurant.isActive === false` and user not SUPER_ADMIN, throw 403 `RESTAURANT_SUSPENDED`
 2. Public menu endpoints (`GET /menu/public/:id`, `/menu/public/:id/meta`, etc.) — check `isActive`, return 403 if suspended
 3. Order creation (`POST /orders`) — validate restaurant is active before creating
@@ -141,12 +146,12 @@ apps/frontend/src/
 
 ### Modified files
 
-| File | Change |
-|------|--------|
-| `App.tsx` | Add `/super-admin/*` route group with SuperAdminLayout |
-| `LoginPage.tsx` | Add `SUPER_ADMIN → /super-admin` redirect |
-| `lib/api.ts` | Add 5 super-admin API functions |
-| `locales/en/translation.json` | Add `superAdmin` namespace (~25 keys) |
+| File                          | Change                                                 |
+| ----------------------------- | ------------------------------------------------------ |
+| `App.tsx`                     | Add `/super-admin/*` route group with SuperAdminLayout |
+| `LoginPage.tsx`               | Add `SUPER_ADMIN → /super-admin` redirect              |
+| `lib/api.ts`                  | Add 5 super-admin API functions                        |
+| `locales/en/translation.json` | Add `superAdmin` namespace (~25 keys)                  |
 
 ### SuperAdminRoute guard
 
@@ -159,6 +164,7 @@ Add to existing role redirect map: `SUPER_ADMIN → /super-admin`.
 ### SuperAdminLayout
 
 Dark sidebar layout — distinct from AppLayout/PublicLayout/PosLayout:
+
 - Sidebar: `bg-gray-950`, platform branding "QR Menu Admin", Lucide nav icons
 - Nav items: Overview (`LayoutDashboard`), Tenants (`Building2`)
 - Main content area: standard padding, `<Outlet />`
@@ -221,13 +227,13 @@ TenantDetailPage → useMutation(api.updateTenantTier)
 
 ## Testing
 
-| Layer | Tests |
-|-------|-------|
-| Backend unit | `super-admin.service.spec.ts` — stats aggregation, tenant queries, tier update, status update |
-| Backend guard | `super-admin.guard.spec.ts` — rejects non-SUPER_ADMIN, passes SUPER_ADMIN |
-| Backend e2e | `super-admin.e2e-spec.ts` — endpoint auth + CRUD smoke test |
-| Frontend unit | `SuperAdminRoute.spec.tsx` — redirect behavior per role |
-| Frontend component | `OverviewPage.spec.tsx`, `TenantsPage.spec.tsx`, `TenantDetailPage.spec.tsx` |
+| Layer              | Tests                                                                                         |
+| ------------------ | --------------------------------------------------------------------------------------------- |
+| Backend unit       | `super-admin.service.spec.ts` — stats aggregation, tenant queries, tier update, status update |
+| Backend guard      | `super-admin.guard.spec.ts` — rejects non-SUPER_ADMIN, passes SUPER_ADMIN                     |
+| Backend e2e        | `super-admin.e2e-spec.ts` — endpoint auth + CRUD smoke test                                   |
+| Frontend unit      | `SuperAdminRoute.spec.tsx` — redirect behavior per role                                       |
+| Frontend component | `OverviewPage.spec.tsx`, `TenantsPage.spec.tsx`, `TenantDetailPage.spec.tsx`                  |
 
 ## Implementation Phases
 

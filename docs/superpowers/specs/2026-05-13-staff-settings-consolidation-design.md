@@ -45,16 +45,17 @@ Frontend chains them: `createStaff()` → on success `createDeviceEnrollment()` 
 
 ### StaffCreatedModal States
 
-| State | UI |
-|-------|----|
-| Loading | Spinner + "Creating staff account..." |
-| Ready | QR code (200px centered), PIN in large monospace, expiry countdown (10 min), Copy PIN + Copy Link buttons, close button |
-| Partial failure (staff created, QR failed) | "Staff account created. QR generation failed — use Re-bond button in staff list." |
-| Full failure | Error toast, modal closes |
+| State                                      | UI                                                                                                                      |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Loading                                    | Spinner + "Creating staff account..."                                                                                   |
+| Ready                                      | QR code (200px centered), PIN in large monospace, expiry countdown (10 min), Copy PIN + Copy Link buttons, close button |
+| Partial failure (staff created, QR failed) | "Staff account created. QR generation failed — use Re-bond button in staff list."                                       |
+| Full failure                               | Error toast, modal closes                                                                                               |
 
 ## Re-bond Button (per staff row)
 
 Small icon button in Actions column. On click:
+
 1. Calls `createDeviceEnrollment(restaurantId)`
 2. Opens modal showing QR + "Scan to bond this device for [staff name]"
 3. No PIN displayed (staff already has one)
@@ -68,22 +69,23 @@ Small icon button in Actions column. On click:
 
 ## Files Changed
 
-| File | Action |
-|------|--------|
-| `apps/frontend/src/pages/Dashboard/SettingsView.tsx` | Move sections from General to Staff tab; add chaining logic; add re-bond buttons |
-| `apps/frontend/src/components/staff/StaffCreatedModal.tsx` | Create — modal with QR + PIN display |
+| File                                                       | Action                                                                           |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `apps/frontend/src/pages/Dashboard/SettingsView.tsx`       | Move sections from General to Staff tab; add chaining logic; add re-bond buttons |
+| `apps/frontend/src/components/staff/StaffCreatedModal.tsx` | Create — modal with QR + PIN display                                             |
 
 ## New Component: StaffCreatedModal
 
 Props:
+
 ```ts
 interface StaffCreatedModalProps {
   open: boolean;
   onClose: () => void;
   staffName: string;
-  rawPin: string;          // from createStaff
-  enrollmentUrl: string;   // from createDeviceEnrollment
-  expiresAt: string;        // from createDeviceEnrollment
+  rawPin: string; // from createStaff
+  enrollmentUrl: string; // from createDeviceEnrollment
+  expiresAt: string; // from createDeviceEnrollment
 }
 ```
 

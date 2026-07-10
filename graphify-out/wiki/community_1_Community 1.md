@@ -5,6 +5,7 @@
 ## Nodes
 
 ### JwtAuthGuard
+
 - **ID:** `auth_jwt_auth_guard_jwtauthguard`
 - **Type:** code
 - **Degree:** 25
@@ -21,6 +22,7 @@
   - ↔ `help-content.controller.ts` [_`imports`_ | c86]
 
 ### restaurants.controller.ts
+
 - **ID:** `apps_backend_src_restaurants_restaurants_controller_ts`
 - **Type:** code
 - **Degree:** 23
@@ -35,6 +37,7 @@
   - ↔ `RestaurantsService` [_`imports`_ | c28]
 
 ### EventsGateway
+
 - **ID:** `events_events_gateway_eventsgateway`
 - **Type:** code
 - **Degree:** 19
@@ -56,6 +59,7 @@
   - ↔ `events.module.ts` [_`imports`_ | c15]
 
 ### PrismaModule
+
 - **ID:** `prisma_prisma_module_prismamodule`
 - **Type:** code
 - **Degree:** 18
@@ -68,6 +72,7 @@
   - ↔ `feedback.module.ts` [_`imports`_ | c18]
 
 ### TablesService
+
 - **ID:** `tables_tables_service_tablesservice`
 - **Type:** code
 - **Degree:** 14
@@ -83,6 +88,7 @@
   - ↔ `.constructor()` [_`method`_ | c14]
 
 ### assistance.controller.ts
+
 - **ID:** `apps_backend_src_assistance_assistance_controller_ts`
 - **Type:** code
 - **Degree:** 12
@@ -99,6 +105,7 @@
   - ↔ `UpdateAssistanceDto` [_`imports`_ | c24]
 
 ### menu-option.controller.ts
+
 - **ID:** `apps_backend_src_menu_menu_option_controller_ts`
 - **Type:** code
 - **Degree:** 11
@@ -113,6 +120,7 @@
   - ↔ `CreateMenuOptionDto` [_`imports`_ | c73]
 
 ### AssistanceService
+
 - **ID:** `assistance_assistance_service_assistanceservice`
 - **Type:** code
 - **Degree:** 11
@@ -125,6 +133,7 @@
   - ↔ `.verifyRequestAccess()` [_`method`_ | c112]
 
 ### StorageService
+
 - **ID:** `storage_storage_service_storageservice`
 - **Type:** code
 - **Degree:** 11
@@ -142,6 +151,7 @@
   - ↔ `storage.service.ts` [_`contains`_ | c60]
 
 ### restaurantService.ts
+
 - **ID:** `apps_frontend_src_services_restaurantservice_ts`
 - **Type:** code
 - **Degree:** 10
@@ -156,6 +166,7 @@
   - ↔ `RestaurantBasicsStep.tsx` [_`imports_from`_ | c17]
 
 ### TablesController
+
 - **ID:** `tables_tables_controller_tablescontroller`
 - **Type:** code
 - **Degree:** 10
@@ -168,6 +179,7 @@
   - ↔ `.findAll()` [_`method`_ | c14]
 
 ### menu-translation.service.ts
+
 - **ID:** `apps_backend_src_menu_menu_translation_service_ts`
 - **Type:** code
 - **Degree:** 9
@@ -180,6 +192,7 @@
   - ↔ `PrismaService` [_`imports`_ | c6]
 
 ### FeedbackService
+
 - **ID:** `feedback_feedback_service_feedbackservice`
 - **Type:** code
 - **Degree:** 9
@@ -192,6 +205,7 @@
   - ↔ `.constructor()` [_`method`_ | c18]
 
 ### PaginationDto
+
 - **ID:** `dto_pagination_dto_paginationdto`
 - **Type:** code
 - **Degree:** 7
@@ -204,6 +218,7 @@
   - ↔ `order-query.dto.ts` [_`imports`_ | c34]
 
 ### FeedbackController
+
 - **ID:** `feedback_feedback_controller_feedbackcontroller`
 - **Type:** code
 - **Degree:** 7
@@ -216,6 +231,7 @@
   - ↔ `.findAll()` [_`method`_ | c18]
 
 ### OrdersController
+
 - **ID:** `orders_orders_controller_orderscontroller`
 - **Type:** code
 - **Degree:** 7
@@ -228,6 +244,7 @@
   - ↔ `.findOne()` [_`method`_ | c129]
 
 ### audit.controller.ts
+
 - **ID:** `apps_backend_src_menu_audit_controller_ts`
 - **Type:** code
 - **Degree:** 6
@@ -241,6 +258,7 @@
   - ↔ `menu.module.ts` [_`imports_from`_ | c37]
 
 ### CategoryController
+
 - **ID:** `menu_category_controller_categorycontroller`
 - **Type:** code
 - **Degree:** 6
@@ -253,6 +271,7 @@
   - ↔ `.updateOrder()` [_`method`_ | c61]
 
 ### CategoryDetailController
+
 - **ID:** `menu_category_controller_categorydetailcontroller`
 - **Type:** code
 - **Degree:** 6
@@ -265,6 +284,7 @@
   - ↔ `.uploadImage()` [_`method`_ | c143]
 
 ### ItemController
+
 - **ID:** `menu_item_controller_itemcontroller`
 - **Type:** code
 - **Degree:** 6
@@ -279,6 +299,7 @@
   - ↔ `menu.module.ts` [_`imports`_ | c37]
 
 ### ItemDetailController
+
 - **ID:** `menu_item_controller_itemdetailcontroller`
 - **Type:** code
 - **Degree:** 6
@@ -293,6 +314,7 @@
   - ↔ `menu.module.ts` [_`imports`_ | c37]
 
 ### MenuAuditService
+
 - **ID:** `menu_menu_audit_service_menuauditservice`
 - **Type:** code
 - **Degree:** 6
@@ -306,6 +328,7 @@
   - ↔ `menu.module.ts` [_`imports`_ | c37]
 
 ### main.ts
+
 - **ID:** `apps_backend_src_main_ts`
 - **Type:** code
 - **Degree:** 5
@@ -318,6 +341,7 @@
   - ↔ `RedisIoAdapter` [_`imports`_ | c84]
 
 ### MenuOptionDetailController
+
 - **ID:** `menu_menu_option_controller_menuoptiondetailcontroller`
 - **Type:** code
 - **Degree:** 5
@@ -329,6 +353,7 @@
   - ↔ `menu.module.ts` [_`imports`_ | c37]
 
 ### AppModule
+
 - **ID:** `src_app_module_appmodule`
 - **Type:** code
 - **Degree:** 5
@@ -342,6 +367,7 @@
   - ↔ `super-admin.e2e-spec.ts` [_`imports`_ | c84]
 
 ### updateRestaurant()
+
 - **ID:** `lib_api_updaterestaurant`
 - **Type:** code
 - **Degree:** 4
@@ -353,6 +379,7 @@
   - ↔ `PaymentSettingsTab.tsx` [_`imports`_ | c8]
 
 ### MenuAuditController
+
 - **ID:** `menu_audit_controller_menuauditcontroller`
 - **Type:** code
 - **Degree:** 4
@@ -363,12 +390,14 @@
   - ↔ `menu.module.ts` [_`imports`_ | c37]
 
 ### .uploadOptimised()
+
 - **ID:** `storage_storage_service_storageservice_uploadoptimised`
 - **Type:** code
 - **Degree:** 4
 - **Source:** `apps/backend/src/storage/storage.service.ts` @ L111
 
 ### TranslationModule
+
 - **ID:** `translation_translation_module_translationmodule`
 - **Type:** code
 - **Degree:** 4
@@ -380,6 +409,7 @@
   - ↔ `translation.module.ts` [_`contains`_ | c37]
 
 ### AssistanceModule
+
 - **ID:** `assistance_assistance_module_assistancemodule`
 - **Type:** code
 - **Degree:** 3
@@ -390,6 +420,7 @@
   - ↔ `dashboard.module.ts` [_`imports`_ | c15]
 
 ### CreateFeedbackDto
+
 - **ID:** `dto_create_feedback_dto_createfeedbackdto`
 - **Type:** code
 - **Degree:** 3
@@ -400,6 +431,7 @@
   - ↔ `create-feedback.dto.ts` [_`contains`_ | c18]
 
 ### .emitToRestaurant()
+
 - **ID:** `events_events_gateway_eventsgateway_emittorestaurant`
 - **Type:** code
 - **Degree:** 3
@@ -410,6 +442,7 @@
   - ↔ `.emitZoneChanged()` [_`calls`_ | c24]
 
 ### EventsModule
+
 - **ID:** `events_events_module_eventsmodule`
 - **Type:** code
 - **Degree:** 3
@@ -420,6 +453,7 @@
   - ↔ `tables.module.ts` [_`imports`_ | c15]
 
 ### HealthController
+
 - **ID:** `health_health_controller_healthcontroller`
 - **Type:** code
 - **Degree:** 3
@@ -431,6 +465,7 @@
   - ↔ `health.module.ts` [_`imports`_ | c15]
 
 ### getStripeStatus()
+
 - **ID:** `lib_api_getstripestatus`
 - **Type:** code
 - **Degree:** 3
@@ -441,6 +476,7 @@
   - ↔ `OnboardingPage.tsx` [_`imports`_ | c20]
 
 ### OrdersModule
+
 - **ID:** `orders_orders_module_ordersmodule`
 - **Type:** code
 - **Degree:** 3
@@ -451,6 +487,7 @@
   - ↔ `orders.module.ts` [_`contains`_ | c15]
 
 ### PaymentModule
+
 - **ID:** `payment_payment_module_paymentmodule`
 - **Type:** code
 - **Degree:** 3
@@ -461,6 +498,7 @@
   - ↔ `restaurants.module.ts` [_`imports`_ | c15]
 
 ### .generateConnectLink()
+
 - **ID:** `restaurants_restaurants_service_restaurantsservice_generateconnectlink`
 - **Type:** code
 - **Degree:** 3
@@ -471,6 +509,7 @@
   - ↔ `.update()` [_`calls`_ | c28]
 
 ### .translateAll()
+
 - **ID:** `restaurants_restaurants_service_restaurantsservice_translateall`
 - **Type:** code
 - **Degree:** 3
@@ -481,6 +520,7 @@
   - ↔ `.update()` [_`calls`_ | c28]
 
 ### .updateLogo()
+
 - **ID:** `restaurants_restaurants_service_restaurantsservice_updatelogo`
 - **Type:** code
 - **Degree:** 3
@@ -491,6 +531,7 @@
   - ↔ `.update()` [_`calls`_ | c28]
 
 ### createRestaurant()
+
 - **ID:** `services_restaurantservice_createrestaurant`
 - **Type:** code
 - **Degree:** 3
@@ -500,6 +541,7 @@
   - ↔ `RestaurantBasicsStep.tsx` [_`imports`_ | c17]
 
 ### AppService
+
 - **ID:** `src_app_service_appservice`
 - **Type:** code
 - **Degree:** 3
@@ -511,6 +553,7 @@
   - ↔ `app.service.ts` [_`contains`_ | c161]
 
 ### restaurants-stripe.service.spec.ts
+
 - **ID:** `apps_backend_src_restaurants_restaurants_stripe_service_spec_ts`
 - **Type:** code
 - **Degree:** 2
@@ -520,6 +563,7 @@
   - ↔ `RestaurantsService` [_`imports`_ | c28]
 
 ### app.e2e-spec.ts
+
 - **ID:** `apps_backend_test_app_e2e_spec_ts`
 - **Type:** code
 - **Degree:** 2
@@ -528,6 +572,7 @@
   - ↔ `app.module.ts` [_`imports_from`_ | c15]
 
 ### dashboard.e2e-spec.ts
+
 - **ID:** `apps_backend_test_dashboard_e2e_spec_ts`
 - **Type:** code
 - **Degree:** 2
@@ -536,6 +581,7 @@
   - ↔ `app.module.ts` [_`imports_from`_ | c15]
 
 ### DashboardModule
+
 - **ID:** `dashboard_dashboard_module_dashboardmodule`
 - **Type:** code
 - **Degree:** 2
@@ -545,12 +591,14 @@
   - ↔ `dashboard.module.ts` [_`contains`_ | c15]
 
 ### .emitTableStatusChanged()
+
 - **ID:** `events_events_gateway_eventsgateway_emittablestatuschanged`
 - **Type:** code
 - **Degree:** 2
 - **Source:** `apps/backend/src/events/events.gateway.ts` @ L103
 
 ### FeedbackModule
+
 - **ID:** `feedback_feedback_module_feedbackmodule`
 - **Type:** code
 - **Degree:** 2
@@ -560,6 +608,7 @@
   - ↔ `feedback.module.ts` [_`contains`_ | c18]
 
 ### HealthModule
+
 - **ID:** `health_health_module_healthmodule`
 - **Type:** code
 - **Degree:** 2
@@ -569,6 +618,7 @@
   - ↔ `health.module.ts` [_`contains`_ | c15]
 
 ### createAssistanceRequest()
+
 - **ID:** `lib_api_createassistancerequest`
 - **Type:** code
 - **Degree:** 2
@@ -578,6 +628,7 @@
   - ↔ `PublicMenuPage.tsx` [_`imports`_ | c35]
 
 ### createTable()
+
 - **ID:** `lib_api_createtable`
 - **Type:** code
 - **Degree:** 2
@@ -587,6 +638,7 @@
   - ↔ `api.ts` [_`contains`_ | c3]
 
 ### disconnectStripe()
+
 - **ID:** `lib_api_disconnectstripe`
 - **Type:** code
 - **Degree:** 2
@@ -596,6 +648,7 @@
   - ↔ `PaymentSettingsTab.tsx` [_`imports`_ | c8]
 
 ### getTableOrders()
+
 - **ID:** `lib_api_gettableorders`
 - **Type:** code
 - **Degree:** 2
@@ -605,6 +658,7 @@
   - ↔ `LiveTablesView.tsx` [_`imports`_ | c3]
 
 ### updateAssistanceRequest()
+
 - **ID:** `lib_api_updateassistancerequest`
 - **Type:** code
 - **Degree:** 2
@@ -614,6 +668,7 @@
   - ↔ `api.ts` [_`contains`_ | c3]
 
 ### MenuModule
+
 - **ID:** `menu_menu_module_menumodule`
 - **Type:** code
 - **Degree:** 2
@@ -623,6 +678,7 @@
   - ↔ `menu.module.ts` [_`contains`_ | c37]
 
 ### .applyLazyTranslations()
+
 - **ID:** `menu_menu_translation_service_menutranslationservice_applylazytranslations`
 - **Type:** code
 - **Degree:** 2
@@ -632,6 +688,7 @@
   - ↔ `.asTransObj()` [_`calls`_ | c72]
 
 ### .findOne()
+
 - **ID:** `orders_orders_service_ordersservice_findone`
 - **Type:** code
 - **Degree:** 2
@@ -641,6 +698,7 @@
   - ↔ `.updateStatus()` [_`calls`_ | c56]
 
 ### RestaurantsModule
+
 - **ID:** `restaurants_restaurants_module_restaurantsmodule`
 - **Type:** code
 - **Degree:** 2
@@ -650,6 +708,7 @@
   - ↔ `restaurants.module.ts` [_`contains`_ | c15]
 
 ### StorageModule
+
 - **ID:** `storage_storage_module_storagemodule`
 - **Type:** code
 - **Degree:** 2
@@ -659,6 +718,7 @@
   - ↔ `storage.module.ts` [_`contains`_ | c60]
 
 ### sharp
+
 - **ID:** `storage_storage_service_sharp`
 - **Type:** code
 - **Degree:** 2
@@ -669,6 +729,7 @@
   - ↔ `storage.service.ts` [_`contains`_ | c60]
 
 ### .upload()
+
 - **ID:** `storage_storage_service_storageservice_upload`
 - **Type:** code
 - **Degree:** 2
@@ -677,6 +738,7 @@
   - → `.uploadOptimised()` [_`calls`_ | EXTRACTED | score: 1.0]
 
 ### .uploadWithThumbnail()
+
 - **ID:** `storage_storage_service_storageservice_uploadwiththumbnail`
 - **Type:** code
 - **Degree:** 2
@@ -685,6 +747,7 @@
   - → `.uploadOptimised()` [_`calls`_ | EXTRACTED | score: 1.0]
 
 ### TablesModule
+
 - **ID:** `tables_tables_module_tablesmodule`
 - **Type:** code
 - **Degree:** 2
@@ -694,6 +757,7 @@
   - ↔ `tables.module.ts` [_`contains`_ | c15]
 
 ### .getTablesWithStatus()
+
 - **ID:** `tables_tables_service_tablesservice_gettableswithstatus`
 - **Type:** code
 - **Degree:** 2
@@ -702,6 +766,7 @@
   - ↔ `.verifyRestaurantAccess()` [_`calls`_ | c14]
 
 ### .constructor()
+
 - **ID:** `auth_auth_service_authservice_constructor`
 - **Type:** code
 - **Degree:** 1
@@ -710,6 +775,7 @@
   - ↔ `AuthService` [_`method`_ | c41]
 
 ### PaginatedResult
+
 - **ID:** `dto_pagination_dto_paginatedresult`
 - **Type:** code
 - **Degree:** 1
@@ -718,48 +784,56 @@
   - ↔ `pagination.dto.ts` [_`contains`_ | c18]
 
 ### .emitToOrder()
+
 - **ID:** `events_events_gateway_eventsgateway_emittoorder`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/events/events.gateway.ts` @ L121
 
 ### .handleConnection()
+
 - **ID:** `events_events_gateway_eventsgateway_handleconnection`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/events/events.gateway.ts` @ L44
 
 ### .handleDisconnect()
+
 - **ID:** `events_events_gateway_eventsgateway_handledisconnect`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/events/events.gateway.ts` @ L48
 
 ### .handleJoinOrderRoom()
+
 - **ID:** `events_events_gateway_eventsgateway_handlejoinorderroom`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/events/events.gateway.ts` @ L87
 
 ### .handleJoinRoom()
+
 - **ID:** `events_events_gateway_eventsgateway_handlejoinroom`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/events/events.gateway.ts` @ L57
 
 ### .handleLeaveRoom()
+
 - **ID:** `events_events_gateway_eventsgateway_handleleaveroom`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/events/events.gateway.ts` @ L72
 
 ### .check()
+
 - **ID:** `health_health_controller_healthcontroller_check`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/health/health.controller.ts` @ L8
 
 ### allowedTypes
+
 - **ID:** `menu_item_controller_allowedtypes`
 - **Type:** code
 - **Degree:** 1
@@ -768,36 +842,42 @@
   - ↔ `item.controller.ts` [_`contains`_ | c73]
 
 ### .findAll()
+
 - **ID:** `menu_item_controller_itemcontroller_findall`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/menu/item.controller.ts` @ L40
 
 ### .updateOrder()
+
 - **ID:** `menu_item_controller_itemcontroller_updateorder`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/menu/item.controller.ts` @ L45
 
 ### .update()
+
 - **ID:** `menu_item_controller_itemdetailcontroller_update`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/menu/item.controller.ts` @ L63
 
 ### .uploadImage()
+
 - **ID:** `menu_item_controller_itemdetailcontroller_uploadimage`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/menu/item.controller.ts` @ L90
 
 ### .auditMenu()
+
 - **ID:** `menu_menu_audit_service_menuauditservice_auditmenu`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/menu/menu-audit.service.ts` @ L8
 
 ### .uploadLogo()
+
 - **ID:** `restaurants_restaurants_controller_restaurantscontroller_uploadlogo`
 - **Type:** code
 - **Degree:** 1
@@ -806,18 +886,21 @@
   - ↔ `RestaurantsController` [_`method`_ | c68]
 
 ### .getHello()
+
 - **ID:** `src_app_service_appservice_gethello`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/app.service.ts` @ L5
 
 ### bootstrap()
+
 - **ID:** `src_main_bootstrap`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/main.ts` @ L11
 
 ### ProcessedUpload
+
 - **ID:** `storage_storage_service_processedupload`
 - **Type:** code
 - **Degree:** 1
@@ -826,18 +909,21 @@
   - ↔ `storage.service.ts` [_`contains`_ | c60]
 
 ### .delete()
+
 - **ID:** `storage_storage_service_storageservice_delete`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/storage/storage.service.ts` @ L187
 
 ### .remove()
+
 - **ID:** `tables_tables_service_tablesservice_remove`
 - **Type:** code
 - **Degree:** 1
 - **Source:** `apps/backend/src/tables/tables.service.ts` @ L305
 
 ### .create()
+
 - **ID:** `users_users_service_usersservice_create`
 - **Type:** code
 - **Degree:** 1

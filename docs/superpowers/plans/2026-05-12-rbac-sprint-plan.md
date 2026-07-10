@@ -51,6 +51,7 @@ Phase 5 (Frontend):
 ### Task 2.1: Clean Up AuthContext
 
 **Files:**
+
 - Modify: `apps/frontend/src/context/AuthContext.tsx`
 
 **Reality check:** No separate `useAuth.ts` exists — `useAuth` is already defined and exported from `AuthContext.tsx:118-124`. The AuthContext already uses raw useState (not TanStack Query). Token lives in httpOnly cookie; the `token` state variable in AuthContext is redundant for auth flow (only used by `setAuthToken` to set an axios header, but server reads cookie first). This task adds `isAuthenticated` and removes the `token` state.
@@ -60,9 +61,15 @@ Phase 5 (Frontend):
 ```tsx
 // apps/frontend/src/context/AuthContext.tsx
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { login as apiLogin, register as apiRegister } from '../lib/api';
-import api from '../lib/api';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { login as apiLogin, register as apiRegister } from "../lib/api";
+import api from "../lib/api";
 
 interface User {
   id: string;
@@ -95,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const userData = await api.get('/auth/me');
+        const userData = await api.get("/auth/me");
         setUser(userData.data);
       } catch (_error) {
         // Not logged in — cookie missing or expired
@@ -116,7 +123,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { user };
     } catch (error: any) {
       setIsError(true);
-      const msg = error.response?.data?.message || 'Login failed. Please check your credentials.';
+      const msg =
+        error.response?.data?.message ||
+        "Login failed. Please check your credentials.";
       setErrorMessage(msg);
       throw error;
     }
@@ -131,7 +140,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { user };
     } catch (error: any) {
       setIsError(true);
-      const msg = error.response?.data?.message || 'Registration failed. Please try again.';
+      const msg =
+        error.response?.data?.message ||
+        "Registration failed. Please try again.";
       setErrorMessage(msg);
       throw error;
     }
@@ -145,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await api.post('/auth/logout');
+      await api.post("/auth/logout");
     } catch (_error) {
       // Cookie cleared server-side regardless
     }
@@ -171,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }
@@ -200,6 +211,7 @@ git commit -m "refactor: clean up AuthContext — add isAuthenticated, remove re
 ### Task 2.2: Split Providers Per Layout
 
 **Files:**
+
 - Modify: `apps/frontend/src/App.tsx`
 
 **Strategy:** Nest providers inside each layout route element instead of wrapping the entire `<Routes>` tree. AuthProvider stays at root (needed by all layouts for auth state). Other providers move to route-level wrappers.
@@ -207,7 +219,12 @@ git commit -m "refactor: clean up AuthContext — add isAuthenticated, remove re
 - [ ] **Step 1: Rewrite App.tsx with layout-scoped providers**
 
 ```tsx
-import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Outlet,
+} from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext";
 import { OrderProvider } from "./context/OrderContext";
@@ -371,6 +388,7 @@ Expected: Build succeeds. No provider-not-found errors.
 - [ ] **Step 3: Quick smoke test — check each layout renders**
 
 Start dev server: `cd apps/frontend && npm run dev`
+
 - Visit `/login` — should render without errors
 - Visit `/menu/public/<any-id>` — should render public menu
 - Visit `/staff/pos` — should redirect to login (no auth)
@@ -388,6 +406,7 @@ git commit -m "refactor: split providers per layout — heavy contexts only wrap
 ### Task 3.1: Move getPublicMenu + getTrendingItems into MenuCrudService
 
 **Files:**
+
 - Modify: `apps/backend/src/menu/menu-crud.service.ts`
 
 **Why:** `getPublicMenu` and `getTrendingItems` are the only 2 methods that live directly in the old `MenuService` (not delegated). They must move to a split service before the old file can be deleted. MenuCrudService already imports TranslationService — adding these methods keeps related read operations together.
@@ -575,6 +594,7 @@ git commit -m "refactor: move getPublicMenu and getTrendingItems into MenuCrudSe
 ### Task 3.2: Update Controllers to Use Split Services
 
 **Files:**
+
 - Modify: `apps/backend/src/menu/category.controller.ts`
 - Modify: `apps/backend/src/menu/item.controller.ts`
 - Modify: `apps/backend/src/menu/public-menu.controller.ts`
@@ -686,6 +706,7 @@ git commit -m "refactor: update menu controllers to use split services directly"
 ### Task 3.3: Delete Old menu.service.ts + Clean menu.module.ts
 
 **Files:**
+
 - Delete: `apps/backend/src/menu/menu.service.ts`
 - Modify: `apps/backend/src/menu/menu.module.ts`
 
@@ -708,23 +729,23 @@ rm apps/backend/src/menu/menu.service.ts
 ```typescript
 // apps/backend/src/menu/menu.module.ts
 
-import { Module } from '@nestjs/common';
-import { MenuCrudService } from './menu-crud.service';
-import { MenuTranslationService } from './menu-translation.service';
-import { MenuAuditService } from './menu-audit.service';
+import { Module } from "@nestjs/common";
+import { MenuCrudService } from "./menu-crud.service";
+import { MenuTranslationService } from "./menu-translation.service";
+import { MenuAuditService } from "./menu-audit.service";
 import {
   CategoryController,
   CategoryDetailController,
-} from './category.controller';
-import { ItemController, ItemDetailController } from './item.controller';
-import { PublicMenuController } from './public-menu.controller';
+} from "./category.controller";
+import { ItemController, ItemDetailController } from "./item.controller";
+import { PublicMenuController } from "./public-menu.controller";
 import {
   MenuOptionController,
   MenuOptionDetailController,
-} from './menu-option.controller';
-import { PrismaModule } from '../prisma/prisma.module';
-import { TranslationModule } from '../translation/translation.module';
-import { MenuAuditController } from './audit.controller';
+} from "./menu-option.controller";
+import { PrismaModule } from "../prisma/prisma.module";
+import { TranslationModule } from "../translation/translation.module";
+import { MenuAuditController } from "./audit.controller";
 
 @Module({
   imports: [PrismaModule, TranslationModule],
@@ -745,6 +766,7 @@ export class MenuModule {}
 ```
 
 Key changes from original:
+
 - Removed `import { MenuService } from './menu.service';` (line 2)
 - Removed `MenuService` from `providers` array (was `[MenuService, MenuCrudService, ...]`)
 - Changed `exports: [MenuService]` → `exports: [MenuCrudService, MenuTranslationService, MenuAuditService]`
@@ -779,6 +801,7 @@ git commit -m "refactor: delete monolithic menu.service.ts, clean module exports
 ### Task 4.1: Update Prisma Schema + Migrate
 
 **Files:**
+
 - Modify: `apps/backend/prisma/schema.prisma`
 
 - [ ] **Step 1: Expand UserRole enum and add pinHash field**
@@ -836,6 +859,7 @@ git commit -m "feat: expand UserRole enum (MANAGER/WAITER/KITCHEN), add pinHash 
 ### Task 4.2: Create Validation DTOs
 
 **Files:**
+
 - Create: `apps/backend/src/auth/dto/pin-login.dto.ts`
 - Create: `apps/backend/src/users/dto/create-staff.dto.ts`
 
@@ -844,7 +868,7 @@ git commit -m "feat: expand UserRole enum (MANAGER/WAITER/KITCHEN), add pinHash 
 ```typescript
 // apps/backend/src/auth/dto/pin-login.dto.ts
 
-import { IsString, Length } from 'class-validator';
+import { IsString, Length } from "class-validator";
 
 export class PinLoginDto {
   @IsString()
@@ -861,7 +885,7 @@ export class PinLoginDto {
 ```typescript
 // apps/backend/src/users/dto/create-staff.dto.ts
 
-import { IsString, IsEmail, IsOptional, IsIn } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsIn } from "class-validator";
 
 export class CreateStaffDto {
   @IsString()
@@ -872,7 +896,7 @@ export class CreateStaffDto {
   email?: string;
 
   @IsString()
-  @IsIn(['MANAGER', 'WAITER', 'KITCHEN'])
+  @IsIn(["MANAGER", "WAITER", "KITCHEN"])
   role: string;
 }
 ```
@@ -889,6 +913,7 @@ git commit -m "feat: add PinLoginDto and CreateStaffDto validation schemas"
 ### Task 4.3: Add createStaffMember to UsersService
 
 **Files:**
+
 - Modify: `apps/backend/src/users/users.service.ts`
 
 - [ ] **Step 1: Add createStaffMember method**
@@ -945,6 +970,7 @@ git commit -m "feat: add createStaffMember with random PIN generation to UsersSe
 ### Task 4.4: Add Staff Creation Endpoint
 
 **Files:**
+
 - Create: `apps/backend/src/users/users.controller.ts` (if it doesn't exist — checking revealed no `users.controller.ts` exists yet)
 - Modify: `apps/backend/src/users/users.module.ts` (check if it exports UsersService)
 
@@ -1018,6 +1044,7 @@ git commit -m "feat: add POST /auth/restaurants/:id/staff endpoint for staff cre
 ### Task 4.5: Add pinLogin to AuthService
 
 **Files:**
+
 - Modify: `apps/backend/src/auth/auth.service.ts`
 
 - [ ] **Step 1: Add pinLogin method**
@@ -1091,6 +1118,7 @@ async pinLogin(restaurantId: string, pin: string) {
 Actually, let me add the attempt tracking fields to the schema in Task 4.1 while we're already modifying it. Let me update Task 4.1's schema changes.
 
 **Add to schema.prisma User model in Task 4.1:**
+
 ```prisma
 model User {
   // ...
@@ -1185,6 +1213,7 @@ git commit -m "feat: add pinLogin method with brute-force protection to AuthServ
 ### Task 4.6: Add PIN Login Endpoint
 
 **Files:**
+
 - Modify: `apps/backend/src/auth/auth.controller.ts`
 
 - [ ] **Step 1: Add POST /auth/pin-login route**
@@ -1226,6 +1255,7 @@ git commit -m "feat: add POST /auth/pin-login endpoint for shared device PIN aut
 ### Task 4.7: Update Frontend Route Guards
 
 **Files:**
+
 - Modify: `apps/frontend/src/components/StaffRoute.tsx`
 - Modify: `apps/frontend/src/components/ProtectedRoute.tsx`
 
@@ -1338,6 +1368,7 @@ git commit -m "feat: expand StaffRoute roles, add smart redirect for WAITER/KITC
 ### Task 5.1: Create DeviceLoginPage (PIN Keypad UI)
 
 **Files:**
+
 - Create: `apps/frontend/src/pages/DeviceLoginPage.tsx`
 
 - [ ] **Step 1: Write the full DeviceLoginPage component**
@@ -1431,7 +1462,7 @@ export default function DeviceLoginPage() {
         setIsSubmitting(false);
       }
     },
-    [deviceConfig, loginWithToken, navigate]
+    [deviceConfig, loginWithToken, navigate],
   );
 
   const handleKeyPress = useCallback(
@@ -1451,7 +1482,7 @@ export default function DeviceLoginPage() {
         submitPin(newPin);
       }
     },
-    [pin, isSubmitting, lockedUntil, submitPin]
+    [pin, isSubmitting, lockedUntil, submitPin],
   );
 
   // No device configured state
@@ -1460,7 +1491,9 @@ export default function DeviceLoginPage() {
       <div className="min-h-dvh flex items-center justify-center bg-[#0f172a] p-6">
         <div className="text-center">
           <div className="text-5xl mb-4">🍽</div>
-          <h1 className="text-white text-lg font-semibold mb-2">No Device Configured</h1>
+          <h1 className="text-white text-lg font-semibold mb-2">
+            No Device Configured
+          </h1>
           <p className="text-slate-400 text-sm">
             Ask a manager to enable Shared Device Mode from the Settings page.
           </p>
@@ -1476,7 +1509,9 @@ export default function DeviceLoginPage() {
       <div className="min-h-dvh flex items-center justify-center bg-[#0f172a] p-6">
         <div className="text-center">
           <div className="text-5xl mb-4">🔒</div>
-          <h1 className="text-white text-lg font-semibold mb-2">Too Many Attempts</h1>
+          <h1 className="text-white text-lg font-semibold mb-2">
+            Too Many Attempts
+          </h1>
           <p className="text-slate-400 text-sm">
             Try again in {remainingMin} minute{remainingMin !== 1 ? "s" : ""}.
           </p>
@@ -1515,7 +1550,11 @@ export default function DeviceLoginPage() {
             className="w-4 h-4 rounded-full border-2 transition-colors duration-200"
             style={{
               borderColor: error ? "#ef4444" : filled ? "#6366f1" : "#475569",
-              backgroundColor: error ? "#ef4444" : filled ? "#6366f1" : "transparent",
+              backgroundColor: error
+                ? "#ef4444"
+                : filled
+                  ? "#6366f1"
+                  : "transparent",
             }}
           />
         ))}
@@ -1523,9 +1562,7 @@ export default function DeviceLoginPage() {
 
       {/* Error message */}
       {error && (
-        <div className="text-red-500 text-sm mb-6 text-center">
-          {error}
-        </div>
+        <div className="text-red-500 text-sm mb-6 text-center">{error}</div>
       )}
 
       {/* Submitting spinner */}
@@ -1589,19 +1626,24 @@ git commit -m "feat: create DeviceLoginPage with PIN keypad, error/lockout state
 ### Task 5.2: Add /device-login Route
 
 **Files:**
+
 - Modify: `apps/frontend/src/App.tsx`
 
 - [ ] **Step 1: Add import and route**
 
 Add import at top of App.tsx:
+
 ```tsx
 import DeviceLoginPage from "./pages/DeviceLoginPage";
 ```
 
 Add route inside `<Routes>`, inside the `PublicLayout` route group (no auth needed):
+
 ```tsx
-{/* Inside <Route element={<PublicLayout />}> */}
-<Route path="/device-login" element={<DeviceLoginPage />} />
+{
+  /* Inside <Route element={<PublicLayout />}> */
+}
+<Route path="/device-login" element={<DeviceLoginPage />} />;
 ```
 
 - [ ] **Step 2: Verify build**
@@ -1621,6 +1663,7 @@ git commit -m "feat: add /device-login route"
 ### Task 5.3: Add Shared Device Toggle to SettingsView
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/Dashboard/SettingsView.tsx`
 
 - [ ] **Step 1: Read SettingsView to find insertion point**
@@ -1632,7 +1675,9 @@ The SettingsView has many state variables in a long function component. Find the
 Near the bottom of the settings form, before the Save button, add:
 
 ```tsx
-{/* Shared Device Mode */}
+{
+  /* Shared Device Mode */
+}
 <div className="border-t border-border pt-6 mt-6">
   <h3 className="text-lg font-semibold mb-2">Shared Device Mode</h3>
   <p className="text-sm text-muted-foreground mb-4">
@@ -1665,7 +1710,7 @@ Near the bottom of the settings form, before the Save button, add:
       return "Not configured";
     })()}
   </p>
-</div>
+</div>;
 ```
 
 Note: Requires `activeRestaurant` from `RestaurantContext`. This is already destructured at the top of the component.
@@ -1687,6 +1732,7 @@ git commit -m "feat: add shared device mode toggle to SettingsView"
 ### Task 5.4: Add Auto-Lock to PosLayout
 
 **Files:**
+
 - Modify: `apps/frontend/src/layouts/PosLayout.tsx`
 - Create: `apps/frontend/src/hooks/useIdleTimer.ts`
 
@@ -1699,7 +1745,7 @@ import { useEffect, useRef } from "react";
 
 export function useIdleTimer(
   onIdle: () => void,
-  timeoutMs: number = 5 * 60 * 1000
+  timeoutMs: number = 5 * 60 * 1000,
 ) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1880,6 +1926,7 @@ npm run dev
 ```
 
 Manual tests:
+
 1. Visit `/device-login` — see "No Device Configured" message
 2. Login as OWNER → go to Dashboard → Settings → click "Enable Shared Device Mode" → redirects to `/device-login`
 3. Enter wrong PIN 5 times → see lockout message
@@ -1898,6 +1945,7 @@ git commit -m "chore: integration fixes from RBAC sprint smoke testing"
 ## Self-Review
 
 **1. Spec coverage:**
+
 - Phase 2.1 (Auth consolidate): Covered — AuthContext cleaned up, no separate useAuth.ts exists
 - Phase 2.2 (Provider split): Covered — providers moved per-layout in App.tsx
 - Phase 3.1 (Split services verify): Covered — getPublicMenu/getTrendingItems moved to MenuCrudService

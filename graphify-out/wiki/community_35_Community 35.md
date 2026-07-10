@@ -5,6 +5,7 @@
 ## Nodes
 
 ### run_verification()
+
 - **ID:** `verification_verify_restaurant_run_verification`
 - **Type:** code
 - **Degree:** 2
@@ -13,6 +14,7 @@
   - ↔ `int()` [_`calls`_ | c145]
 
 ### verify_menu_editor.py
+
 - **ID:** `jules_scratch_verification_verify_menu_editor_py`
 - **Type:** code
 - **Degree:** 1
@@ -21,6 +23,7 @@
   - ↔ `run_verification()` [_`contains`_ | c145]
 
 ### verify_restaurant.py
+
 - **ID:** `jules_scratch_verification_verify_restaurant_py`
 - **Type:** code
 - **Degree:** 1

@@ -144,7 +144,10 @@ export class PaymentReportingService {
     userId: string,
     filters: { startDate?: string; endDate?: string } = {},
   ) {
-    const restaurant = await this.core.verifyRestaurantAccess(restaurantId, userId);
+    const restaurant = await this.core.verifyRestaurantAccess(
+      restaurantId,
+      userId,
+    );
     const dateFilter: { gte?: Date; lte?: Date } = {};
     if (filters.startDate) dateFilter.gte = new Date(filters.startDate);
     if (filters.endDate) {
@@ -371,7 +374,10 @@ export class PaymentReportingService {
   }
 
   async getPaymentSettings(restaurantId: string, userId: string) {
-    const restaurant = await this.core.verifyRestaurantAccess(restaurantId, userId);
+    const restaurant = await this.core.verifyRestaurantAccess(
+      restaurantId,
+      userId,
+    );
     return {
       paymentsEnabled: restaurant.paymentsEnabled,
       stripeOnboarded: restaurant.stripeOnboarded,

@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { CreditCard, ExternalLink, CheckCircle } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { generateStripeConnectLink } from '../../../lib/api';
+import { useState } from "react";
+import { CreditCard, ExternalLink, CheckCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { generateStripeConnectLink } from "../../../lib/api";
 
 interface Props {
   restaurantId: string;
@@ -11,19 +11,29 @@ interface Props {
   onSkip: () => void;
 }
 
-export default function PaymentSetupStep({ restaurantId, returnUrl, refreshUrl, onNext, onSkip }: Props) {
+export default function PaymentSetupStep({
+  restaurantId,
+  returnUrl,
+  refreshUrl,
+  onNext,
+  onSkip,
+}: Props) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleConnect = async () => {
     setLoading(true);
-    setError('');
+    setError("");
     try {
-      const data = await generateStripeConnectLink(restaurantId, returnUrl, refreshUrl);
+      const data = await generateStripeConnectLink(
+        restaurantId,
+        returnUrl,
+        refreshUrl,
+      );
       window.location.href = data.url;
     } catch (err: any) {
-      setError(err.response?.data?.message || t('onboarding.payment.error'));
+      setError(err.response?.data?.message || t("onboarding.payment.error"));
       setLoading(false);
     }
   };
@@ -31,8 +41,12 @@ export default function PaymentSetupStep({ restaurantId, returnUrl, refreshUrl, 
   return (
     <div className="space-y-6 max-w-md">
       <div>
-        <h2 className="text-2xl font-display font-bold text-foreground">{t('onboarding.payment.title')}</h2>
-        <p className="text-sm text-muted-foreground mt-1">{t('onboarding.payment.subtitle')}</p>
+        <h2 className="text-2xl font-display font-bold text-foreground">
+          {t("onboarding.payment.title")}
+        </h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          {t("onboarding.payment.subtitle")}
+        </p>
       </div>
 
       <div className="glass-panel rounded-2xl p-6 space-y-4">
@@ -41,23 +55,27 @@ export default function PaymentSetupStep({ restaurantId, returnUrl, refreshUrl, 
             <CreditCard className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <p className="text-sm font-bold text-foreground">{t('onboarding.payment.stripeConnect')}</p>
-            <p className="text-xs text-muted-foreground">{t('onboarding.payment.stripeDesc')}</p>
+            <p className="text-sm font-bold text-foreground">
+              {t("onboarding.payment.stripeConnect")}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {t("onboarding.payment.stripeDesc")}
+            </p>
           </div>
         </div>
 
         <ul className="space-y-1.5 text-xs text-muted-foreground">
           <li className="flex items-center gap-2">
             <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-            {t('onboarding.payment.featureCards')}
+            {t("onboarding.payment.featureCards")}
           </li>
           <li className="flex items-center gap-2">
             <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-            {t('onboarding.payment.featureSplit')}
+            {t("onboarding.payment.featureSplit")}
           </li>
           <li className="flex items-center gap-2">
             <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-            {t('onboarding.payment.featurePayouts')}
+            {t("onboarding.payment.featurePayouts")}
           </li>
         </ul>
 
@@ -68,9 +86,11 @@ export default function PaymentSetupStep({ restaurantId, returnUrl, refreshUrl, 
           disabled={loading}
           className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-all disabled:opacity-50"
         >
-          {loading ? t('onboarding.payment.redirecting') : (
+          {loading ? (
+            t("onboarding.payment.redirecting")
+          ) : (
             <>
-              {t('onboarding.payment.connectButton')}
+              {t("onboarding.payment.connectButton")}
               <ExternalLink className="w-3.5 h-3.5" />
             </>
           )}
@@ -82,7 +102,7 @@ export default function PaymentSetupStep({ restaurantId, returnUrl, refreshUrl, 
           onClick={onSkip}
           className="text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
-          {t('onboarding.payment.skip')}
+          {t("onboarding.payment.skip")}
         </button>
       </div>
     </div>

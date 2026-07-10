@@ -12,25 +12,25 @@
 
 ## File Map
 
-| File | Change |
-|------|--------|
-| `apps/frontend/src/locales/en/translation.json` | Add ~70 new keys across 3 phases |
-| `apps/frontend/src/locales/bg/translation.json` | Same keys in Bulgarian |
-| `apps/frontend/src/locales/ro/translation.json` | Same keys in Romanian |
-| `apps/frontend/src/index.css` | Add `@media print` rules for QR print fix |
-| `apps/frontend/src/pages/DashboardPage.tsx` | Remove duplicate language picker; move mobile nav labels to render time |
-| `apps/frontend/src/pages/CheckoutPage.tsx` | Wire 14 loyalty strings; replace `alert()` with inline state |
-| `apps/frontend/src/pages/Dashboard/SummaryView.tsx` | Wire 7 loyalty stat labels |
-| `apps/frontend/src/pages/Dashboard/AssistanceView.tsx` | Wire `resolvedAt` |
-| `apps/frontend/src/pages/Dashboard/OrdersView.tsx` | Wire `pluckedAt` |
-| `apps/frontend/src/components/tables/TableView.tsx` | Wire `printAllQr` |
-| `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx` | Wire export button and date range labels |
-| `apps/frontend/src/pages/Dashboard/SettingsView.tsx` | Wire ~20 loyalty + happy hour field labels |
-| `apps/frontend/src/components/ui/BrandingEditor.tsx` | Wire typography, theme, live preview, timezone labels |
-| `apps/frontend/src/components/branding/ColorSchemeEditor.tsx` | Wire 4 color scheme labels |
-| `apps/frontend/src/components/dashboard/MenuCheckWidget.tsx` | Wire all frontend chrome strings |
-| `apps/frontend/src/components/Header.tsx` | Wire Dashboard, Logout, Login, Get Started |
-| `apps/frontend/src/pages/MenuEditorPage.tsx` | Wire Storefront Upselling, Trending Engine section |
+| File                                                          | Change                                                                  |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `apps/frontend/src/locales/en/translation.json`               | Add ~70 new keys across 3 phases                                        |
+| `apps/frontend/src/locales/bg/translation.json`               | Same keys in Bulgarian                                                  |
+| `apps/frontend/src/locales/ro/translation.json`               | Same keys in Romanian                                                   |
+| `apps/frontend/src/index.css`                                 | Add `@media print` rules for QR print fix                               |
+| `apps/frontend/src/pages/DashboardPage.tsx`                   | Remove duplicate language picker; move mobile nav labels to render time |
+| `apps/frontend/src/pages/CheckoutPage.tsx`                    | Wire 14 loyalty strings; replace `alert()` with inline state            |
+| `apps/frontend/src/pages/Dashboard/SummaryView.tsx`           | Wire 7 loyalty stat labels                                              |
+| `apps/frontend/src/pages/Dashboard/AssistanceView.tsx`        | Wire `resolvedAt`                                                       |
+| `apps/frontend/src/pages/Dashboard/OrdersView.tsx`            | Wire `pluckedAt`                                                        |
+| `apps/frontend/src/components/tables/TableView.tsx`           | Wire `printAllQr`                                                       |
+| `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx`         | Wire export button and date range labels                                |
+| `apps/frontend/src/pages/Dashboard/SettingsView.tsx`          | Wire ~20 loyalty + happy hour field labels                              |
+| `apps/frontend/src/components/ui/BrandingEditor.tsx`          | Wire typography, theme, live preview, timezone labels                   |
+| `apps/frontend/src/components/branding/ColorSchemeEditor.tsx` | Wire 4 color scheme labels                                              |
+| `apps/frontend/src/components/dashboard/MenuCheckWidget.tsx`  | Wire all frontend chrome strings                                        |
+| `apps/frontend/src/components/Header.tsx`                     | Wire Dashboard, Logout, Login, Get Started                              |
+| `apps/frontend/src/pages/MenuEditorPage.tsx`                  | Wire Storefront Upselling, Trending Engine section                      |
 
 ---
 
@@ -41,6 +41,7 @@
 ### Task 1: Add Phase 1 locale keys (all three locale files)
 
 **Files:**
+
 - Modify: `apps/frontend/src/locales/en/translation.json`
 - Modify: `apps/frontend/src/locales/bg/translation.json`
 - Modify: `apps/frontend/src/locales/ro/translation.json`
@@ -50,6 +51,7 @@
 Open `apps/frontend/src/locales/en/translation.json`. Add the following keys:
 
 In `"publicMenu"` object, add after `"addedToCart"`:
+
 ```json
 "language": "Language",
 "logout": "Logout",
@@ -57,6 +59,7 @@ In `"publicMenu"` object, add after `"addedToCart"`:
 ```
 
 Replace `"checkout"` object entirely:
+
 ```json
 "checkout": {
   "title": "Your Order",
@@ -91,6 +94,7 @@ Replace `"checkout"` object entirely:
 ```
 
 Add a top-level `"common"` key (anywhere at root level):
+
 ```json
 "common": {
   "pleaseLogin": "Please log in to continue"
@@ -102,6 +106,7 @@ Add a top-level `"common"` key (anywhere at root level):
 Open `apps/frontend/src/locales/bg/translation.json`. Make the same structural additions with Bulgarian values:
 
 In `"publicMenu"`, add after `"addedToCart"`:
+
 ```json
 "language": "Език",
 "logout": "Изход",
@@ -109,6 +114,7 @@ In `"publicMenu"`, add after `"addedToCart"`:
 ```
 
 Replace `"checkout"` object entirely:
+
 ```json
 "checkout": {
   "title": "Вашата поръчка",
@@ -143,6 +149,7 @@ Replace `"checkout"` object entirely:
 ```
 
 Add `"common"`:
+
 ```json
 "common": {
   "pleaseLogin": "Моля влезте в акаунта си"
@@ -154,6 +161,7 @@ Add `"common"`:
 Open `apps/frontend/src/locales/ro/translation.json`. Make the same structural additions with Romanian values:
 
 In `"publicMenu"`, add after `"addedToCart"`:
+
 ```json
 "language": "Limbă",
 "logout": "Deconectare",
@@ -161,6 +169,7 @@ In `"publicMenu"`, add after `"addedToCart"`:
 ```
 
 Replace `"checkout"` object entirely:
+
 ```json
 "checkout": {
   "title": "Comanda dvs.",
@@ -195,6 +204,7 @@ Replace `"checkout"` object entirely:
 ```
 
 Add `"common"`:
+
 ```json
 "common": {
   "pleaseLogin": "Vă rugăm să vă conectați"
@@ -213,6 +223,7 @@ git commit -m "i18n: add Phase 1 locale keys (checkout loyalty, publicMenu, comm
 ### Task 2: Fix duplicate language picker
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/DashboardPage.tsx`
 
 - [ ] **Step 1: Remove the language picker block from DashboardPage**
@@ -228,9 +239,20 @@ In `DashboardPage.tsx`, find the outer `<div className="flex flex-wrap items-cen
       rel="noopener noreferrer"
       className="group relative bg-foreground text-background px-5 md:px-8 py-3 md:py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-2xl hover:shadow-[0_20px_40px_-10px_var(--color-primary)] hover:-translate-y-1 flex items-center gap-2 md:gap-3 overflow-hidden"
     >
-      <span className="relative z-10">{t('dashboard.viewPublicMenu')}</span>
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 relative z-10 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+      <span className="relative z-10">{t("dashboard.viewPublicMenu")}</span>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4 relative z-10 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={3}
+          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+        />
       </svg>
       <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
     </a>
@@ -256,6 +278,7 @@ git commit -m "fix: remove duplicate language picker from DashboardPage"
 ### Task 3: Fix QR print layout
 
 **Files:**
+
 - Modify: `apps/frontend/src/index.css`
 
 - [ ] **Step 1: Add print CSS to index.css**
@@ -299,6 +322,7 @@ git commit -m "fix: print only QR codes using visibility @media print"
 ### Task 4: Wire CheckoutPage loyalty strings
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/CheckoutPage.tsx`
 
 - [ ] **Step 1: Add notEnoughPointsError state**
@@ -312,6 +336,7 @@ const [notEnoughPointsError, setNotEnoughPointsError] = useState(false);
 - [ ] **Step 2: Replace alert() with state setter**
 
 Find this block (around line 285–292):
+
 ```tsx
 } else {
   alert("Not enough points to redeem this item.");
@@ -319,6 +344,7 @@ Find this block (around line 285–292):
 ```
 
 Replace with:
+
 ```tsx
 } else {
   setNotEnoughPointsError(true);
@@ -329,35 +355,49 @@ Replace with:
 - [ ] **Step 3: Wire the item redeem button label**
 
 Find lines 300–302:
+
 ```tsx
-{redeemedItemIds.includes(item.id)
-  ? "Redeemed Free"
-  : `Redeem for ${(item as any).rewardPointsPrice * item.quantity} pts`}
+{
+  redeemedItemIds.includes(item.id)
+    ? "Redeemed Free"
+    : `Redeem for ${(item as any).rewardPointsPrice * item.quantity} pts`;
+}
 ```
 
 Replace with:
+
 ```tsx
-{redeemedItemIds.includes(item.id)
-  ? t('checkout.redeemedFree')
-  : t('checkout.redeemForPts', { pts: (item as any).rewardPointsPrice * item.quantity })}
+{
+  redeemedItemIds.includes(item.id)
+    ? t("checkout.redeemedFree")
+    : t("checkout.redeemForPts", {
+        pts: (item as any).rewardPointsPrice * item.quantity,
+      });
+}
 ```
 
 - [ ] **Step 4: Add inline error message below redeem button**
 
 After the closing `</button>` tag for the redeem button (around line 303), add:
+
 ```tsx
-{notEnoughPointsError && (
-  <p className="text-red-500 text-xs mt-1">{t('checkout.notEnoughPoints')}</p>
-)}
+{
+  notEnoughPointsError && (
+    <p className="text-red-500 text-xs mt-1">{t("checkout.notEnoughPoints")}</p>
+  );
+}
 ```
 
 - [ ] **Step 5: Wire "FREE" label**
 
 Find line 308:
+
 ```tsx
 ? "FREE"
 ```
+
 Replace with:
+
 ```tsx
 ? t('checkout.free')
 ```
@@ -365,6 +405,7 @@ Replace with:
 - [ ] **Step 6: Wire the loyalty points section heading and available points**
 
 Find around line 325:
+
 ```tsx
 <p className="font-bold text-accent">Loyalty Points</p>
 <p className="text-sm text-accent/80">
@@ -374,6 +415,7 @@ Find around line 325:
 ```
 
 Replace with:
+
 ```tsx
 <p className="font-bold text-accent">{t('checkout.loyaltyPoints')}</p>
 <p className="text-sm text-accent/80">
@@ -387,65 +429,80 @@ Replace with:
 - [ ] **Step 7: Wire "Redeem points for discount" toggle label**
 
 Find around line 335:
+
 ```tsx
 <span className="text-sm font-bold text-foreground">
   Redeem points for discount
 </span>
 ```
+
 Replace with:
+
 ```tsx
 <span className="text-sm font-bold text-foreground">
-  {t('checkout.redeemForDiscount')}
+  {t("checkout.redeemForDiscount")}
 </span>
 ```
 
 - [ ] **Step 8: Wire "Discount applied:" line**
 
 Find around line 375:
+
 ```tsx
 <span>Discount applied:</span>
 ```
+
 Replace with:
+
 ```tsx
-<span>{t('checkout.discountApplied')}</span>
+<span>{t("checkout.discountApplied")}</span>
 ```
 
 - [ ] **Step 9: Wire "Final Total:" line**
 
 Find around line 384:
+
 ```tsx
 <span>Final Total:</span>
 ```
+
 Replace with:
+
 ```tsx
-<span>{t('checkout.finalTotal')}</span>
+<span>{t("checkout.finalTotal")}</span>
 ```
 
 - [ ] **Step 10: Wire Happy Hour bonus line**
 
 Find around line 396:
+
 ```tsx
 ⚡ Happy Hour: {hhMultiplier}x Points
 ```
+
 Replace with:
+
 ```tsx
-{t('checkout.happyHourBonus', { multiplier: hhMultiplier })}
+{
+  t("checkout.happyHourBonus", { multiplier: hhMultiplier });
+}
 ```
 
 - [ ] **Step 11: Wire "You will earn" line**
 
 Find around line 400–414 the `<p>` that starts with `"You will earn"`. Replace the whole `<p>` with:
+
 ```tsx
 <p className="text-sm text-muted-foreground text-right font-medium">
-  {t('checkout.willEarn', {
+  {t("checkout.willEarn", {
     pts: Math.floor(
-      (getCheckoutTotal() - getPointsDiscount()) * exchangeRate * finalMultiplier
-    )
+      (getCheckoutTotal() - getPointsDiscount()) *
+        exchangeRate *
+        finalMultiplier,
+    ),
   })}
   {finalMultiplier > 1 && (
-    <span className="ml-1 text-xs text-accent/70">
-      ({finalMultiplier}x)
-    </span>
+    <span className="ml-1 text-xs text-accent/70">({finalMultiplier}x)</span>
   )}
 </p>
 ```
@@ -453,6 +510,7 @@ Find around line 400–414 the `<p>` that starts with `"You will earn"`. Replace
 - [ ] **Step 12: Wire the guest sign-in promo block**
 
 Find around lines 423–435:
+
 ```tsx
 <p className="font-bold text-foreground">
   Want to earn free food?
@@ -461,12 +519,15 @@ Find around lines 423–435:
   Sign in to earn points on this order.
 </p>
 ```
+
 And the button:
+
 ```tsx
 Sign In / Join
 ```
 
 Replace with:
+
 ```tsx
 <p className="font-bold text-foreground">
   {t('checkout.earnFreeFood')}
@@ -475,9 +536,13 @@ Replace with:
   {t('checkout.signInToEarn')}
 </p>
 ```
+
 And:
+
 ```tsx
-{t('checkout.signIn')}
+{
+  t("checkout.signIn");
+}
 ```
 
 - [ ] **Step 13: Verify**
@@ -500,6 +565,7 @@ git commit -m "i18n: wire checkout loyalty strings and replace alert() with inli
 ### Task 5: Add Phase 2 locale keys (all three locale files)
 
 **Files:**
+
 - Modify: `apps/frontend/src/locales/en/translation.json`
 - Modify: `apps/frontend/src/locales/bg/translation.json`
 - Modify: `apps/frontend/src/locales/ro/translation.json`
@@ -509,6 +575,7 @@ git commit -m "i18n: wire checkout loyalty strings and replace alert() with inli
 Add the following to `apps/frontend/src/locales/en/translation.json`:
 
 In `"summary"` object (add it as a new top-level key):
+
 ```json
 "summary": {
   "statusSnapshot": "Status Snapshot",
@@ -522,21 +589,25 @@ In `"summary"` object (add it as a new top-level key):
 ```
 
 In `"orders"` object, add after `"noOrders"`:
+
 ```json
 "pluckedAt": "Placed {{time}}"
 ```
 
 In `"assistance"` object, add after `"showMore"`:
+
 ```json
 "resolvedAt": "Resolved {{time}}"
 ```
 
 In `"tables"` object, add after `"loadingTables"`:
+
 ```json
 "printAllQr": "Print All QR Codes"
 ```
 
 In `"analytics"` object, add after `"days30"`:
+
 ```json
 "export": "Export",
 "categoryBreakdown": "Category Breakdown",
@@ -546,6 +617,7 @@ In `"analytics"` object, add after `"days30"`:
 ```
 
 Add top-level `"menuCheck"`:
+
 ```json
 "menuCheck": {
   "title": "Menu Health",
@@ -564,6 +636,7 @@ Add top-level `"menuCheck"`:
 ```
 
 Add top-level `"loyaltySettings"`:
+
 ```json
 "loyaltySettings": {
   "sectionTitle": "Loyalty & Rewards Program",
@@ -598,6 +671,7 @@ Add top-level `"loyaltySettings"`:
 ```
 
 Add to `"branding"` object:
+
 ```json
 "typography": "Typography",
 "headingFont": "Heading Font",
@@ -619,6 +693,7 @@ Add to `"branding"` object:
 Apply all the same keys to `apps/frontend/src/locales/bg/translation.json` with Bulgarian translations:
 
 `"summary"`:
+
 ```json
 "summary": {
   "statusSnapshot": "Моментна снимка",
@@ -632,21 +707,25 @@ Apply all the same keys to `apps/frontend/src/locales/bg/translation.json` with 
 ```
 
 `"orders"` addition:
+
 ```json
 "pluckedAt": "Направена в {{time}}"
 ```
 
 `"assistance"` addition:
+
 ```json
 "resolvedAt": "Приключено в {{time}}"
 ```
 
 `"tables"` addition:
+
 ```json
 "printAllQr": "Отпечатай всички QR кодове"
 ```
 
 `"analytics"` additions:
+
 ```json
 "export": "Експорт",
 "categoryBreakdown": "Разбивка по категории",
@@ -656,6 +735,7 @@ Apply all the same keys to `apps/frontend/src/locales/bg/translation.json` with 
 ```
 
 `"menuCheck"`:
+
 ```json
 "menuCheck": {
   "title": "Здраве на менюто",
@@ -674,6 +754,7 @@ Apply all the same keys to `apps/frontend/src/locales/bg/translation.json` with 
 ```
 
 `"loyaltySettings"`:
+
 ```json
 "loyaltySettings": {
   "sectionTitle": "Програма за лоялност и награди",
@@ -708,6 +789,7 @@ Apply all the same keys to `apps/frontend/src/locales/bg/translation.json` with 
 ```
 
 `"branding"` additions:
+
 ```json
 "typography": "Типография",
 "headingFont": "Заглавен шрифт",
@@ -729,6 +811,7 @@ Apply all the same keys to `apps/frontend/src/locales/bg/translation.json` with 
 Apply all keys to `apps/frontend/src/locales/ro/translation.json` with Romanian translations:
 
 `"summary"`:
+
 ```json
 "summary": {
   "statusSnapshot": "Instantaneu Status",
@@ -742,21 +825,25 @@ Apply all keys to `apps/frontend/src/locales/ro/translation.json` with Romanian 
 ```
 
 `"orders"` addition:
+
 ```json
 "pluckedAt": "Plasată la {{time}}"
 ```
 
 `"assistance"` addition:
+
 ```json
 "resolvedAt": "Rezolvat la {{time}}"
 ```
 
 `"tables"` addition:
+
 ```json
 "printAllQr": "Tipărește toate codurile QR"
 ```
 
 `"analytics"` additions:
+
 ```json
 "export": "Export",
 "categoryBreakdown": "Defalcare pe Categorii",
@@ -766,6 +853,7 @@ Apply all keys to `apps/frontend/src/locales/ro/translation.json` with Romanian 
 ```
 
 `"menuCheck"`:
+
 ```json
 "menuCheck": {
   "title": "Sănătatea Meniului",
@@ -784,6 +872,7 @@ Apply all keys to `apps/frontend/src/locales/ro/translation.json` with Romanian 
 ```
 
 `"loyaltySettings"`:
+
 ```json
 "loyaltySettings": {
   "sectionTitle": "Program de Loialitate și Recompense",
@@ -818,6 +907,7 @@ Apply all keys to `apps/frontend/src/locales/ro/translation.json` with Romanian 
 ```
 
 `"branding"` additions:
+
 ```json
 "typography": "Tipografie",
 "headingFont": "Font Titlu",
@@ -846,83 +936,119 @@ git commit -m "i18n: add Phase 2 locale keys (summary, orders, analytics, menuCh
 ### Task 6: Wire SummaryView
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/Dashboard/SummaryView.tsx`
 
 - [ ] **Step 1: Wire Status Snapshot label**
 
 Find line 52:
+
 ```tsx
 Status Snapshot
 ```
+
 Replace with:
+
 ```tsx
-{t('summary.statusSnapshot')}
+{
+  t("summary.statusSnapshot");
+}
 ```
 
 - [ ] **Step 2: Wire Loyalty Program Performance heading**
 
 Find line 115:
+
 ```tsx
 Loyalty Program Performance
 ```
+
 Replace with:
+
 ```tsx
-{t('summary.loyaltyProgramPerformance')}
+{
+  t("summary.loyaltyProgramPerformance");
+}
 ```
 
 - [ ] **Step 3: Wire Total VIP Members label**
 
 Find:
+
 ```tsx
 Total VIP Members
 ```
+
 Replace with:
+
 ```tsx
-{t('summary.totalVipMembers')}
+{
+  t("summary.totalVipMembers");
+}
 ```
 
 - [ ] **Step 4: Wire Points Redeemed label**
 
 Find:
+
 ```tsx
 Points Redeemed
 ```
+
 Replace with:
+
 ```tsx
-{t('summary.pointsRedeemed')}
+{
+  t("summary.pointsRedeemed");
+}
 ```
 
 - [ ] **Step 5: Wire Freebies & Discounts Issued label**
 
 Find:
+
 ```tsx
 Freebies & Discounts Issued
 ```
+
 Replace with:
+
 ```tsx
-{t('summary.freebiesIssued')}
+{
+  t("summary.freebiesIssued");
+}
 ```
 
 - [ ] **Step 6: Wire Points Outstanding Liability label**
 
 Find:
+
 ```tsx
 Points Outstanding Liability
 ```
+
 Replace with:
+
 ```tsx
-{t('summary.pointsOutstandingLiability')}
+{
+  t("summary.pointsOutstandingLiability");
+}
 ```
 
 - [ ] **Step 7: Wire Unspent Customer Points label**
 
 Find:
+
 ```tsx
 Unspent Customer Points
 ```
+
 Replace with:
+
 ```tsx
-{t('summary.unspentCustomerPoints')}
+{
+  t("summary.unspentCustomerPoints");
+}
 ```
 
 - [ ] **Step 8: Commit**
@@ -937,29 +1063,48 @@ git commit -m "i18n: wire SummaryView loyalty stat labels"
 ### Task 7: Wire AssistanceView and OrdersView timestamps
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/Dashboard/AssistanceView.tsx`
 - Modify: `apps/frontend/src/pages/Dashboard/OrdersView.tsx`
 
 - [ ] **Step 1: Wire AssistanceView resolved timestamp**
 
 In `AssistanceView.tsx`, find line 93:
+
 ```tsx
-<p className="font-serif font-black text-foreground uppercase tracking-tight">Resolved {new Date(request.updatedAt).toLocaleTimeString()}</p>
+<p className="font-serif font-black text-foreground uppercase tracking-tight">
+  Resolved {new Date(request.updatedAt).toLocaleTimeString()}
+</p>
 ```
+
 Replace with:
+
 ```tsx
-<p className="font-serif font-black text-foreground uppercase tracking-tight">{t('assistance.resolvedAt', { time: new Date(request.updatedAt).toLocaleTimeString() })}</p>
+<p className="font-serif font-black text-foreground uppercase tracking-tight">
+  {t("assistance.resolvedAt", {
+    time: new Date(request.updatedAt).toLocaleTimeString(),
+  })}
+</p>
 ```
 
 - [ ] **Step 2: Wire OrdersView plucked timestamp**
 
 In `OrdersView.tsx`, find line 70:
+
 ```tsx
-<span className="text-[11px] text-muted-foreground font-bold uppercase tracking-[0.1em] opacity-60">Plucked {new Date(order.createdAt).toLocaleTimeString()}</span>
+<span className="text-[11px] text-muted-foreground font-bold uppercase tracking-[0.1em] opacity-60">
+  Plucked {new Date(order.createdAt).toLocaleTimeString()}
+</span>
 ```
+
 Replace with:
+
 ```tsx
-<span className="text-[11px] text-muted-foreground font-bold uppercase tracking-[0.1em] opacity-60">{t('orders.pluckedAt', { time: new Date(order.createdAt).toLocaleTimeString() })}</span>
+<span className="text-[11px] text-muted-foreground font-bold uppercase tracking-[0.1em] opacity-60">
+  {t("orders.pluckedAt", {
+    time: new Date(order.createdAt).toLocaleTimeString(),
+  })}
+</span>
 ```
 
 - [ ] **Step 3: Commit**
@@ -974,40 +1119,56 @@ git commit -m "i18n: wire resolvedAt and pluckedAt timestamps"
 ### Task 8: Wire TableView and AnalyticsView
 
 **Files:**
+
 - Modify: `apps/frontend/src/components/tables/TableView.tsx`
 - Modify: `apps/frontend/src/pages/Dashboard/AnalyticsView.tsx`
 
 - [ ] **Step 1: Wire Print All QR Codes button**
 
 In `TableView.tsx`, find line 123:
+
 ```tsx
 Print All QR Codes
 ```
+
 Replace with:
+
 ```tsx
-{t('tables.printAllQr')}
+{
+  t("tables.printAllQr");
+}
 ```
 
 - [ ] **Step 2: Wire AnalyticsView Export button**
 
 In `AnalyticsView.tsx`, find line 114:
+
 ```tsx
-Export
+Export;
 ```
+
 Replace with:
+
 ```tsx
-{t('analytics.export')}
+{
+  t("analytics.export");
+}
 ```
 
 - [ ] **Step 3: Wire date range labels**
 
 In `AnalyticsView.tsx`, find the date input block around line 116–128. The "TO" separator text between the two date inputs:
+
 ```tsx
 <span className="text-muted-foreground text-[10px] font-black">TO</span>
 ```
+
 Replace with:
+
 ```tsx
-<span className="text-muted-foreground text-[10px] font-black">{t('analytics.dateTo').toUpperCase()}</span>
+<span className="text-muted-foreground text-[10px] font-black">
+  {t("analytics.dateTo").toUpperCase()}
+</span>
 ```
 
 Note: `analytics.categoryBreakdown` and `analytics.topTables` are already called via `t()` with fallbacks in the code — adding those keys to the locale files in Task 5 is sufficient for those two strings.
@@ -1024,31 +1185,38 @@ git commit -m "i18n: wire TableView print button and AnalyticsView export/date l
 ### Task 9: Wire SettingsView loyalty and happy hour fields
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/Dashboard/SettingsView.tsx`
 
 - [ ] **Step 1: Wire section title and enable toggle**
 
 Find:
+
 ```tsx
 <h3 className="text-lg font-medium text-foreground mb-4">
   Loyalty & Rewards Program
 </h3>
 ```
+
 Replace with:
+
 ```tsx
 <h3 className="text-lg font-medium text-foreground mb-4">
-  {t('loyaltySettings.sectionTitle')}
+  {t("loyaltySettings.sectionTitle")}
 </h3>
 ```
 
 Find:
+
 ```tsx
 <p className="font-bold text-accent">Enable Loyalty Program</p>
 <p className="text-xs text-muted-foreground mt-1">
   Allow customers to earn and spend points on orders.
 </p>
 ```
+
 Replace with:
+
 ```tsx
 <p className="font-bold text-accent">{t('loyaltySettings.enableLoyalty')}</p>
 <p className="text-xs text-muted-foreground mt-1">
@@ -1069,7 +1237,9 @@ Find and replace the three field labels in the points economy grid:
   Awarded on first order. Capped at 75 pts server-side.
 </p>
 ```
+
 →
+
 ```tsx
 <label className="block text-sm font-medium text-foreground/80 mb-1">
   {t('loyaltySettings.signupBonus')}
@@ -1089,7 +1259,9 @@ Find and replace the three field labels in the points economy grid:
   Points earned per €1 spent. e.g. 10 pts/€ on a €10 order = 100 pts.
 </p>
 ```
+
 →
+
 ```tsx
 <label className="block text-sm font-medium text-foreground/80 mb-1">
   {t('loyaltySettings.earnRate')}
@@ -1109,7 +1281,9 @@ Find and replace the three field labels in the points economy grid:
   Points needed for €1 discount. Higher = less generous for customers.
 </p>
 ```
+
 →
+
 ```tsx
 <label className="block text-sm font-medium text-foreground/80 mb-1">
   {t('loyaltySettings.redeemRate')}
@@ -1123,22 +1297,37 @@ Find and replace the three field labels in the points economy grid:
 - [ ] **Step 3: Wire cashback preview**
 
 Find:
+
 ```tsx
 Effective cashback rate:{" "}
 ```
+
 Replace with:
+
 ```tsx
-{t('loyaltySettings.cashbackInfo', { pct: ((loyaltyExchangeRate / loyaltyRedeemRate) * 100).toFixed(1) })}
+{
+  t("loyaltySettings.cashbackInfo", {
+    pct: ((loyaltyExchangeRate / loyaltyRedeemRate) * 100).toFixed(1),
+  });
+}
 ```
+
 Note: Remove the separate `<span>` that renders the percentage — it's now embedded in the key via `{{pct}}`.
 
 For the warning span, find:
+
 ```tsx
-<span className="ml-2 text-yellow-500">⚠ High — check earn rate is pts/€, not €/pt</span>
+<span className="ml-2 text-yellow-500">
+  ⚠ High — check earn rate is pts/€, not €/pt
+</span>
 ```
+
 Replace with:
+
 ```tsx
-<span className="ml-2 text-yellow-500">{t('loyaltySettings.cashbackWarning')}</span>
+<span className="ml-2 text-yellow-500">
+  {t("loyaltySettings.cashbackWarning")}
+</span>
 ```
 
 - [ ] **Step 4: Wire expiry fields**
@@ -1185,61 +1374,72 @@ git commit -m "i18n: wire SettingsView loyalty and happy hour field labels"
 ### Task 10: Wire BrandingEditor and ColorSchemeEditor
 
 **Files:**
+
 - Modify: `apps/frontend/src/components/ui/BrandingEditor.tsx`
 - Modify: `apps/frontend/src/components/branding/ColorSchemeEditor.tsx`
 
 - [ ] **Step 1: Wire BrandingEditor typography section**
 
 In `BrandingEditor.tsx`, find:
+
 ```tsx
 <h4 className="text-sm font-bold mb-4">Typography</h4>
 ```
+
 Replace with:
+
 ```tsx
-<h4 className="text-sm font-bold mb-4">{t('branding.typography')}</h4>
+<h4 className="text-sm font-bold mb-4">{t("branding.typography")}</h4>
 ```
 
 The `FontPicker` receives `label` as a string prop. Replace:
+
 ```tsx
-<FontPicker 
-  label="Heading Font" 
-  value={fontHeading} 
-  onChange={setFontHeading} 
+<FontPicker
+  label="Heading Font"
+  value={fontHeading}
+  onChange={setFontHeading}
 />
-<FontPicker 
-  label="Body Font" 
-  value={fontBody} 
-  onChange={setFontBody} 
+<FontPicker
+  label="Body Font"
+  value={fontBody}
+  onChange={setFontBody}
 />
 ```
+
 With:
+
 ```tsx
-<FontPicker 
-  label={t('branding.headingFont')} 
-  value={fontHeading} 
-  onChange={setFontHeading} 
+<FontPicker
+  label={t('branding.headingFont')}
+  value={fontHeading}
+  onChange={setFontHeading}
 />
-<FontPicker 
-  label={t('branding.bodyFont')} 
-  value={fontBody} 
-  onChange={setFontBody} 
+<FontPicker
+  label={t('branding.bodyFont')}
+  value={fontBody}
+  onChange={setFontBody}
 />
 ```
 
 - [ ] **Step 2: Wire Color Scheme heading**
 
 Find:
+
 ```tsx
 <h4 className="text-sm font-bold mb-4">Color Scheme</h4>
 ```
+
 Replace with:
+
 ```tsx
-<h4 className="text-sm font-bold mb-4">{t('branding.colorScheme')}</h4>
+<h4 className="text-sm font-bold mb-4">{t("branding.colorScheme")}</h4>
 ```
 
 - [ ] **Step 3: Wire Default Customer Theme section**
 
 Find:
+
 ```tsx
 <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">
   Default Customer Theme
@@ -1248,7 +1448,9 @@ Find:
   Customers see this mode when they first scan the QR code. They can still toggle it.
 </p>
 ```
+
 Replace with:
+
 ```tsx
 <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">
   {t('branding.defaultTheme')}
@@ -1261,6 +1463,7 @@ Replace with:
 - [ ] **Step 4: Wire Restaurant Timezone section**
 
 Find:
+
 ```tsx
 <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
   Restaurant Timezone
@@ -1269,7 +1472,9 @@ Find:
   Used for automated menu scheduling.
 </p>
 ```
+
 Replace with:
+
 ```tsx
 <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">
   {t('branding.restaurantTimezone')}
@@ -1282,14 +1487,19 @@ Replace with:
 - [ ] **Step 5: Wire Live Preview heading**
 
 Find:
+
 ```tsx
 Live Preview
 ```
+
 (inside the `<h4>` in the right column)
 
 Replace with:
+
 ```tsx
-{t('branding.livePreview')}
+{
+  t("branding.livePreview");
+}
 ```
 
 - [ ] **Step 6: Wire ColorSchemeEditor labels**
@@ -1297,12 +1507,15 @@ Replace with:
 In `apps/frontend/src/components/branding/ColorSchemeEditor.tsx`, the component currently receives no `t` — add `useTranslation`:
 
 At the top of the component function add:
+
 ```tsx
 const { t } = useTranslation();
 ```
+
 And add `import { useTranslation } from 'react-i18next';` to the imports.
 
 Replace the four hardcoded labels:
+
 ```tsx
 Menu Background  →  {t('branding.menuBackground')}
 Text Color       →  {t('branding.textColor')}
@@ -1322,38 +1535,50 @@ git commit -m "i18n: wire BrandingEditor and ColorSchemeEditor labels"
 ### Task 11: Wire MenuCheckWidget
 
 **Files:**
+
 - Modify: `apps/frontend/src/components/dashboard/MenuCheckWidget.tsx`
 
 - [ ] **Step 1: Wire title, subtitle, rescan**
 
 Find:
+
 ```tsx
 <h3 className="text-xl font-serif font-black text-foreground tracking-tight">Menu Health</h3>
 <p className="text-sm text-muted-foreground mt-1">AI-powered audit to optimize your menu</p>
 ```
+
 Replace with:
+
 ```tsx
 <h3 className="text-xl font-serif font-black text-foreground tracking-tight">{t('menuCheck.title')}</h3>
 <p className="text-sm text-muted-foreground mt-1">{t('menuCheck.subtitle')}</p>
 ```
 
 Find:
+
 ```tsx
-Rescan
+Rescan;
 ```
+
 Replace with:
+
 ```tsx
-{t('menuCheck.rescan')}
+{
+  t("menuCheck.rescan");
+}
 ```
 
 - [ ] **Step 2: Wire perfect score state**
 
 Find:
+
 ```tsx
 <h4 className="text-lg font-bold text-green-600 dark:text-green-400 mb-1">Perfect Score!</h4>
 <p className="text-sm text-green-700/70 dark:text-green-300/70">Your menu is fully optimized and ready to convert customers.</p>
 ```
+
 Replace with:
+
 ```tsx
 <h4 className="text-lg font-bold text-green-600 dark:text-green-400 mb-1">{t('menuCheck.perfectScore')}</h4>
 <p className="text-sm text-green-700/70 dark:text-green-300/70">{t('menuCheck.perfectScoreDesc')}</p>
@@ -1362,51 +1587,83 @@ Replace with:
 - [ ] **Step 3: Wire severity badge counts**
 
 Find:
+
 ```tsx
-{errors.length} Critical
+{
+  errors.length;
+}
+Critical;
 ```
+
 Replace with:
+
 ```tsx
-{t('menuCheck.critical', { count: errors.length })}
+{
+  t("menuCheck.critical", { count: errors.length });
+}
 ```
 
 Find:
+
 ```tsx
-{warnings.length} Warnings
+{
+  warnings.length;
+}
+Warnings;
 ```
+
 Replace with:
+
 ```tsx
-{t('menuCheck.warnings', { count: warnings.length })}
+{
+  t("menuCheck.warnings", { count: warnings.length });
+}
 ```
 
 Find:
+
 ```tsx
-{infos.length} Suggestions
+{
+  infos.length;
+}
+Suggestions;
 ```
+
 Replace with:
+
 ```tsx
-{t('menuCheck.suggestions', { count: infos.length })}
+{
+  t("menuCheck.suggestions", { count: infos.length });
+}
 ```
 
 - [ ] **Step 4: Wire item/category issue label and fix button**
 
 Find line 135:
+
 ```tsx
 {issue.itemId ? 'Item Issue' : 'Category Issue'} &middot; Field: {issue.field}
 ```
+
 Replace with:
+
 ```tsx
 {issue.itemId ? t('menuCheck.itemIssue') : t('menuCheck.categoryIssue')} &middot; {t('menuCheck.fieldLabel', { field: issue.field })}
 ```
 
 Find:
+
 ```tsx
-Fix
+Fix;
 ```
+
 (inside the fix button, line 147)
 Replace with:
+
 ```tsx
-{t('menuCheck.fix')}
+{
+  t("menuCheck.fix");
+}
 ```
 
 - [ ] **Step 5: Commit**
@@ -1425,6 +1682,7 @@ git commit -m "i18n: wire MenuCheckWidget chrome strings"
 ### Task 12: Add Phase 3 locale keys (all three locale files)
 
 **Files:**
+
 - Modify: `apps/frontend/src/locales/en/translation.json`
 - Modify: `apps/frontend/src/locales/bg/translation.json`
 - Modify: `apps/frontend/src/locales/ro/translation.json`
@@ -1432,6 +1690,7 @@ git commit -m "i18n: wire MenuCheckWidget chrome strings"
 - [ ] **Step 1: Add keys to EN locale**
 
 Add a top-level `"nav"` key:
+
 ```json
 "nav": {
   "dashboard": "Dashboard",
@@ -1442,6 +1701,7 @@ Add a top-level `"nav"` key:
 ```
 
 In `"dashboard"` → `"tabs"`, add:
+
 ```json
 "home": "Home",
 "requests": "Requests",
@@ -1449,6 +1709,7 @@ In `"dashboard"` → `"tabs"`, add:
 ```
 
 Add to `"menuAdmin"` (already exists):
+
 ```json
 "storefrontUpselling": "Storefront Upselling",
 "trendingEngine": "Trending Engine",
@@ -1462,6 +1723,7 @@ Add to `"menuAdmin"` (already exists):
 - [ ] **Step 2: Add keys to BG locale**
 
 Add `"nav"`:
+
 ```json
 "nav": {
   "dashboard": "Табло",
@@ -1472,6 +1734,7 @@ Add `"nav"`:
 ```
 
 In `"dashboard"` → `"tabs"`, add:
+
 ```json
 "home": "Начало",
 "requests": "Повиквания",
@@ -1479,6 +1742,7 @@ In `"dashboard"` → `"tabs"`, add:
 ```
 
 Add to `"menuAdmin"`:
+
 ```json
 "storefrontUpselling": "Витрина за допълнителни продажби",
 "trendingEngine": "Двигател за тенденции",
@@ -1492,6 +1756,7 @@ Add to `"menuAdmin"`:
 - [ ] **Step 3: Add keys to RO locale**
 
 Add `"nav"`:
+
 ```json
 "nav": {
   "dashboard": "Panou",
@@ -1502,6 +1767,7 @@ Add `"nav"`:
 ```
 
 In `"dashboard"` → `"tabs"`, add:
+
 ```json
 "home": "Acasă",
 "requests": "Solicitări",
@@ -1509,6 +1775,7 @@ In `"dashboard"` → `"tabs"`, add:
 ```
 
 Add to `"menuAdmin"`:
+
 ```json
 "storefrontUpselling": "Vânzări Suplimentare Vitrină",
 "trendingEngine": "Motor de Tendințe",
@@ -1531,6 +1798,7 @@ git commit -m "i18n: add Phase 3 locale keys (nav, dashboard tabs, menuAdmin tre
 ### Task 13: Wire Header.tsx
 
 **Files:**
+
 - Modify: `apps/frontend/src/components/Header.tsx`
 
 - [ ] **Step 1: Add `t` to the existing `useTranslation` call**
@@ -1538,10 +1806,13 @@ git commit -m "i18n: add Phase 3 locale keys (nav, dashboard tabs, menuAdmin tre
 `Header.tsx` already imports `useTranslation` and destructures `i18n`. Add `t` to the destructure:
 
 Find:
+
 ```tsx
 const { i18n } = useTranslation();
 ```
+
 Replace with:
+
 ```tsx
 const { i18n, t } = useTranslation();
 ```
@@ -1549,49 +1820,69 @@ const { i18n, t } = useTranslation();
 - [ ] **Step 2: Wire Dashboard link**
 
 Find:
+
 ```tsx
-Dashboard
+Dashboard;
 ```
+
 (inside the `<Link to="/dashboard">`)
 Replace with:
+
 ```tsx
-{t('nav.dashboard')}
+{
+  t("nav.dashboard");
+}
 ```
 
 - [ ] **Step 3: Wire Logout button**
 
 Find:
+
 ```tsx
-Logout
+Logout;
 ```
+
 (inside the logout `<button>`)
 Replace with:
+
 ```tsx
-{t('nav.logout')}
+{
+  t("nav.logout");
+}
 ```
 
 - [ ] **Step 4: Wire Login link**
 
 Find:
+
 ```tsx
-Login
+Login;
 ```
+
 (inside the `<Link to="/login">`)
 Replace with:
+
 ```tsx
-{t('nav.login')}
+{
+  t("nav.login");
+}
 ```
 
 - [ ] **Step 5: Wire Get Started link**
 
 Find:
+
 ```tsx
 Get Started
 ```
+
 (inside the `<Link to="/register">`)
 Replace with:
+
 ```tsx
-{t('nav.getStarted')}
+{
+  t("nav.getStarted");
+}
 ```
 
 - [ ] **Step 6: Commit**
@@ -1606,54 +1897,63 @@ git commit -m "i18n: wire Header nav labels (Dashboard, Logout, Login, Get Start
 ### Task 14: Wire DashboardPage mobile nav labels
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/DashboardPage.tsx`
 
 - [ ] **Step 1: Replace static BOTTOM_NAV_TABS array with render-time labels**
 
-The current `BOTTOM_NAV_TABS` is a static `const` outside the component with hardcoded `short` strings. `t()` cannot be called outside a component. 
+The current `BOTTOM_NAV_TABS` is a static `const` outside the component with hardcoded `short` strings. `t()` cannot be called outside a component.
 
 Remove the `short` property from the static array and move labels to the render:
 
 Replace the static array:
+
 ```tsx
 const BOTTOM_NAV_TABS: { id: TabId; Icon: LucideIcon; short: string }[] = [
-  { id: 'summary',    Icon: LayoutDashboard, short: 'Home' },
-  { id: 'orders',     Icon: ShoppingBag,     short: 'Orders' },
-  { id: 'assistance', Icon: Bell,            short: 'Requests' },
-  { id: 'tables',     Icon: Table2,          short: 'Tables' },
-  { id: 'settings',  Icon: Settings,        short: 'Settings' },
+  { id: "summary", Icon: LayoutDashboard, short: "Home" },
+  { id: "orders", Icon: ShoppingBag, short: "Orders" },
+  { id: "assistance", Icon: Bell, short: "Requests" },
+  { id: "tables", Icon: Table2, short: "Tables" },
+  { id: "settings", Icon: Settings, short: "Settings" },
 ];
 ```
 
 With:
+
 ```tsx
 const BOTTOM_NAV_TABS: { id: TabId; Icon: LucideIcon; labelKey: string }[] = [
-  { id: 'summary',    Icon: LayoutDashboard, labelKey: 'dashboard.tabs.home' },
-  { id: 'orders',     Icon: ShoppingBag,     labelKey: 'dashboard.tabs.orders' },
-  { id: 'assistance', Icon: Bell,            labelKey: 'dashboard.tabs.requests' },
-  { id: 'tables',     Icon: Table2,          labelKey: 'dashboard.tabs.tables' },
-  { id: 'settings',  Icon: Settings,        labelKey: 'dashboard.tabs.settings' },
+  { id: "summary", Icon: LayoutDashboard, labelKey: "dashboard.tabs.home" },
+  { id: "orders", Icon: ShoppingBag, labelKey: "dashboard.tabs.orders" },
+  { id: "assistance", Icon: Bell, labelKey: "dashboard.tabs.requests" },
+  { id: "tables", Icon: Table2, labelKey: "dashboard.tabs.tables" },
+  { id: "settings", Icon: Settings, labelKey: "dashboard.tabs.settings" },
 ];
 ```
 
 - [ ] **Step 2: Update the render to use labelKey**
 
 In the mobile bottom nav `map`, find:
+
 ```tsx
 {BOTTOM_NAV_TABS.map(({ id, Icon, short }) => {
 ```
+
 Replace with:
+
 ```tsx
 {BOTTOM_NAV_TABS.map(({ id, Icon, labelKey }) => {
 ```
 
 Find:
+
 ```tsx
 <span className="text-[9px] font-bold uppercase tracking-wide leading-none">
   {short}
 </span>
 ```
+
 Replace with:
+
 ```tsx
 <span className="text-[9px] font-bold uppercase tracking-wide leading-none">
   {t(labelKey)}
@@ -1663,27 +1963,35 @@ Replace with:
 - [ ] **Step 3: Wire the Analytics shortcut label**
 
 Find the Analytics shortcut button (after the main BOTTOM_NAV_TABS map):
+
 ```tsx
 <span className="text-[9px] font-bold uppercase tracking-wide leading-none">
   Stats
 </span>
 ```
+
 Replace with:
+
 ```tsx
 <span className="text-[9px] font-bold uppercase tracking-wide leading-none">
-  {t('dashboard.tabs.stats')}
+  {t("dashboard.tabs.stats")}
 </span>
 ```
 
 - [ ] **Step 4: Wire mobile Menu Editor link**
 
 Find the mobile "Menu Editor" hardcoded link (around line 180):
+
 ```tsx
 Menu Editor
 ```
+
 Replace with:
+
 ```tsx
-{t('dashboard.tabs.menuEditor')}
+{
+  t("dashboard.tabs.menuEditor");
+}
 ```
 
 - [ ] **Step 5: Commit**
@@ -1698,15 +2006,19 @@ git commit -m "i18n: wire DashboardPage mobile nav labels and Menu Editor link"
 ### Task 15: Wire MenuEditorPage trending section
 
 **Files:**
+
 - Modify: `apps/frontend/src/pages/MenuEditorPage.tsx`
 
 - [ ] **Step 1: Confirm useTranslation is imported**
 
 Check the imports at the top of `MenuEditorPage.tsx`. If `useTranslation` is not yet imported, add:
+
 ```tsx
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from "react-i18next";
 ```
+
 And add inside the component:
+
 ```tsx
 const { t } = useTranslation();
 ```
@@ -1714,34 +2026,51 @@ const { t } = useTranslation();
 - [ ] **Step 2: Wire Storefront Upselling heading**
 
 Find:
+
 ```tsx
-<h2 className="text-sm font-black uppercase tracking-widest text-zinc-400">Storefront Upselling</h2>
+<h2 className="text-sm font-black uppercase tracking-widest text-zinc-400">
+  Storefront Upselling
+</h2>
 ```
+
 Replace with:
+
 ```tsx
-<h2 className="text-sm font-black uppercase tracking-widest text-zinc-400">{t('menuAdmin.storefrontUpselling')}</h2>
+<h2 className="text-sm font-black uppercase tracking-widest text-zinc-400">
+  {t("menuAdmin.storefrontUpselling")}
+</h2>
 ```
 
 - [ ] **Step 3: Wire Trending Engine label**
 
 Find:
+
 ```tsx
-<label className="block text-[11px] font-black uppercase tracking-widest text-muted-foreground mb-2">Trending Engine</label>
+<label className="block text-[11px] font-black uppercase tracking-widest text-muted-foreground mb-2">
+  Trending Engine
+</label>
 ```
+
 Replace with:
+
 ```tsx
-<label className="block text-[11px] font-black uppercase tracking-widest text-muted-foreground mb-2">{t('menuAdmin.trendingEngine')}</label>
+<label className="block text-[11px] font-black uppercase tracking-widest text-muted-foreground mb-2">
+  {t("menuAdmin.trendingEngine")}
+</label>
 ```
 
 - [ ] **Step 4: Wire mode option labels**
 
 Find:
+
 ```tsx
 <option value="AUTO">🤖 Auto (Algorithm)</option>
 <option value="MANUAL">⭐ Manual (Hand-picked)</option>
 <option value="OFF">🚫 Off</option>
 ```
+
 Replace with:
+
 ```tsx
 <option value="AUTO">🤖 {t('menuAdmin.trendingModeAuto')}</option>
 <option value="MANUAL">⭐ {t('menuAdmin.trendingModeManual')}</option>
@@ -1751,12 +2080,23 @@ Replace with:
 - [ ] **Step 5: Wire dynamic description text**
 
 Find:
+
 ```tsx
-{activeRestaurant?.trendingMode === 'MANUAL' ? 'Click the stars on items to feature them on your menu.' : 'Automatically analyzes sales to trend popular items.'}
+{
+  activeRestaurant?.trendingMode === "MANUAL"
+    ? "Click the stars on items to feature them on your menu."
+    : "Automatically analyzes sales to trend popular items.";
+}
 ```
+
 Replace with:
+
 ```tsx
-{activeRestaurant?.trendingMode === 'MANUAL' ? t('menuAdmin.trendingDescManual') : t('menuAdmin.trendingDescAuto')}
+{
+  activeRestaurant?.trendingMode === "MANUAL"
+    ? t("menuAdmin.trendingDescManual")
+    : t("menuAdmin.trendingDescAuto");
+}
 ```
 
 - [ ] **Step 6: Commit**

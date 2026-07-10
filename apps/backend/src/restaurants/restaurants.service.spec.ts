@@ -13,11 +13,11 @@ const makeRestaurant = (overrides: Record<string, unknown> = {}) => ({
 
 describe('RestaurantsService', () => {
   let service: RestaurantsService;
-  let mockPrisma: any;
-  let mockTranslation: any;
-  let mockStripe: any;
-  let mockFeature: any;
-  let mockDeviceEnrollment: any;
+  let mockPrisma: Record<string, Record<string, jest.Mock>>;
+  let mockTranslation: Record<string, jest.Mock>;
+  let mockStripe: Record<string, jest.Mock>;
+  let mockFeature: Record<string, jest.Mock>;
+  let mockDeviceEnrollment: Record<string, jest.Mock>;
 
   beforeEach(() => {
     mockPrisma = {
@@ -63,7 +63,11 @@ describe('RestaurantsService', () => {
         (tier: string, force?: string | null) => force ?? tier,
       ),
       hasFeature: jest.fn().mockReturnValue(true),
-      restaurantHasFeature: jest.fn(function (this: any, r: any, f: any) {
+      restaurantHasFeature: jest.fn(function (
+        this: { hasFeature: Function; getEffectiveTier: Function },
+        r: { tier?: string; forceTier?: string | null },
+        f: string,
+      ) {
         return this.hasFeature(
           this.getEffectiveTier(r?.tier ?? 'FREE', r?.forceTier ?? null),
           f,
@@ -72,16 +76,30 @@ describe('RestaurantsService', () => {
     };
 
     mockDeviceEnrollment = {
-      revokeRestaurantDevices: jest.fn().mockResolvedValue({ success: true, count: 0 }),
-      evictRestaurantDevices: jest.fn().mockResolvedValue({ success: true, count: 0 }),
+      revokeRestaurantDevices: jest
+        .fn()
+        .mockResolvedValue({ success: true, count: 0 }),
+      evictRestaurantDevices: jest
+        .fn()
+        .mockResolvedValue({ success: true, count: 0 }),
     };
 
     service = new RestaurantsService(
-      mockPrisma,
-      mockTranslation,
-      mockStripe,
-      mockFeature,
-      mockDeviceEnrollment,
+      mockPrisma as unknown as ConstructorParameters<
+        typeof RestaurantsService
+      >[0],
+      mockTranslation as unknown as ConstructorParameters<
+        typeof RestaurantsService
+      >[1],
+      mockStripe as unknown as ConstructorParameters<
+        typeof RestaurantsService
+      >[2],
+      mockFeature as unknown as ConstructorParameters<
+        typeof RestaurantsService
+      >[3],
+      mockDeviceEnrollment as unknown as ConstructorParameters<
+        typeof RestaurantsService
+      >[4],
     );
   });
 
@@ -333,7 +351,11 @@ describe('RestaurantsService', () => {
       });
 
       await expect(
-        service.update('rest1', {} as any, 'waiter1'),
+        service.update(
+          'rest1',
+          {} as Parameters<typeof service.update>[1],
+          'waiter1',
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -351,12 +373,18 @@ describe('RestaurantsService', () => {
 
       await service.update(
         'rest1',
-        { sharedDeviceModeEnabled: false } as any,
+        { sharedDeviceModeEnabled: false } as Parameters<
+          typeof service.update
+        >[1],
         'user1',
       );
 
-      expect(mockDeviceEnrollment.evictRestaurantDevices).toHaveBeenCalledWith('rest1');
-      expect(mockDeviceEnrollment.revokeRestaurantDevices).not.toHaveBeenCalled();
+      expect(mockDeviceEnrollment.evictRestaurantDevices).toHaveBeenCalledWith(
+        'rest1',
+      );
+      expect(
+        mockDeviceEnrollment.revokeRestaurantDevices,
+      ).not.toHaveBeenCalled();
     });
   });
 
@@ -504,10 +532,12 @@ describe('RestaurantsService', () => {
         role: 'OWNER',
       });
       // Prevent real 300ms delays in loops
-      jest.spyOn(global, 'setTimeout').mockImplementation((fn: any) => {
-        if (typeof fn === 'function') fn();
-        return 0 as any;
-      });
+      jest
+        .spyOn(global, 'setTimeout')
+        .mockImplementation((fn: (...args: unknown[]) => void) => {
+          if (typeof fn === 'function') fn();
+          return 0 as unknown as NodeJS.Timeout;
+        });
     });
 
     afterEach(() => {
@@ -674,6 +704,45 @@ describe('RestaurantsService', () => {
       await expect(service.translateAll('rest1', 'waiter1')).rejects.toThrow(
         ForbiddenException,
       );
+    });
+  });
+
+  describe('getLogoBase64', () => {
+    it('returns null if logoUrl is an internal IP (SSRF prevention)', async () => {
+      mockPrisma.restaurant!.findUnique.mockResolvedValue({
+        logoUrl: 'http://169.254.169.254/latest/meta-data/',
+      });
+      const result = await service.getLogoBase64('rest1');
+      expect(result).toBeNull();
+    });
+
+    it('returns null if logoUrl is localhost (SSRF prevention)', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        logoUrl: 'http://localhost:3000/secret',
+      });
+      const result = await service.getLogoBase64('rest1');
+      expect(result).toBeNull();
+    });
+
+    it('fetches and returns base64 if URL is valid', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        logoUrl: 'https://example.com/logo.png',
+      });
+
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(8)),
+        headers: {
+          get: jest.fn().mockReturnValue('image/png'),
+        },
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const result = await service.getLogoBase64('rest1');
+      expect(result).toEqual({
+        dataUrl: expect.stringContaining('data:image/png;base64,'),
+      });
+      expect(mockFetch).toHaveBeenCalledWith('https://example.com/logo.png');
     });
   });
 });

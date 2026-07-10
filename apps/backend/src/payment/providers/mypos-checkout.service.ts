@@ -194,7 +194,10 @@ export class MyposCheckoutService {
           currency,
           description,
           urlOk: this.config.buildPublicMenuReturnUrl(session, 'mypos-ok'),
-          urlCancel: this.config.buildPublicMenuReturnUrl(session, 'mypos-cancel'),
+          urlCancel: this.config.buildPublicMenuReturnUrl(
+            session,
+            'mypos-cancel',
+          ),
           urlNotify: notifyUrl,
           language: 'BG',
         });
@@ -237,7 +240,10 @@ export class MyposCheckoutService {
         );
         break;
       } catch (err: unknown) {
-        if (attempt < MAX_ORDER_RETRIES && this.core.isUniqueConstraintError(err)) {
+        if (
+          attempt < MAX_ORDER_RETRIES &&
+          this.core.isUniqueConstraintError(err)
+        ) {
           this.logger.warn(
             `myPOS OrderID collision on attempt ${attempt + 1}, retrying`,
           );
@@ -351,13 +357,16 @@ export class MyposCheckoutService {
       return 'ERR=reconciliation';
     }
 
-    const providerPayload = this.core.mergeProviderPayload(payment.providerPayload, {
-      notification: payload,
-      notifiedAt: new Date().toISOString(),
-      transactionRef: result.transactionRef || null,
-      requestStan: result.requestStan || null,
-      requestDateTime: result.requestDateTime || null,
-    });
+    const providerPayload = this.core.mergeProviderPayload(
+      payment.providerPayload,
+      {
+        notification: payload,
+        notifiedAt: new Date().toISOString(),
+        transactionRef: result.transactionRef || null,
+        requestStan: result.requestStan || null,
+        requestDateTime: result.requestDateTime || null,
+      },
+    );
 
     const eventKey = [
       orderId,

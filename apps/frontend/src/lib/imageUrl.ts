@@ -7,11 +7,11 @@
  * URL.createObjectURL are already absolute and must pass through unchanged.
  */
 export function getDisplayUrl(url: string): string {
-  if (url.startsWith('http') || url.startsWith('blob:')) return url;
+  if (url.startsWith("http") || url.startsWith("blob:")) return url;
   // Relative URL — prepend the backend origin derived from VITE_API_URL.
   const apiUrl =
     (import.meta as unknown as { env: Record<string, string> }).env
-      .VITE_API_URL || 'http://localhost:3000/api';
-  const baseUrl = apiUrl.replace(/\/api$/, '');
-  return `${baseUrl}/${url.replace(/^\//, '')}`;
+      .VITE_API_URL || "http://localhost:3000/api";
+  const baseUrl = apiUrl.replace(/\/api$/, "");
+  return `${baseUrl}/${url.replace(/^\//, "")}`;
 }

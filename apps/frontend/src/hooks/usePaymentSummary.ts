@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { getPaymentSummary } from '../lib/api';
+import { useQuery } from "@tanstack/react-query";
+import { getPaymentSummary } from "../lib/api";
 
 export const usePaymentSummary = (
   restaurantId: string | undefined,
@@ -8,7 +8,7 @@ export const usePaymentSummary = (
   enabled = true,
 ) => {
   return useQuery({
-    queryKey: ['paymentSummary', restaurantId, startDate, endDate],
+    queryKey: ["paymentSummary", restaurantId, startDate, endDate],
     queryFn: () => getPaymentSummary(restaurantId!, startDate, endDate),
     enabled: !!restaurantId && enabled,
     staleTime: 60_000,

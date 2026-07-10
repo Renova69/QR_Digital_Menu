@@ -1,4 +1,5 @@
 # Staff Attribution & Itemized Bill — Design Spec
+
 **Date:** 2026-05-24  
 **Status:** Approved
 
@@ -45,11 +46,11 @@ model Order {
 
 Attribution is **per-order, displayed per-item**. Each POS cart submission creates one order. All items in that order share the same source/staff. Example:
 
-| Order | Source   | Staff       | Items                  |
-|-------|----------|-------------|------------------------|
-| A     | CUSTOMER | —           | Pizza x1, Beer x2      |
-| B     | POS      | Maria       | Steak x1               |
-| C     | POS      | João        | Wine x1                |
+| Order | Source   | Staff | Items             |
+| ----- | -------- | ----- | ----------------- |
+| A     | CUSTOMER | —     | Pizza x1, Beer x2 |
+| B     | POS      | Maria | Steak x1          |
+| C     | POS      | João  | Wine x1           |
 
 Client bill shows: Pizza → "You", Beer → "You", Steak → "Maria", Wine → "João".
 
@@ -58,11 +59,13 @@ Client bill shows: Pizza → "You", Beer → "You", Steak → "Maria", Wine → 
 ## Backend Changes
 
 ### 1. Optional JWT Strategy (new file)
+
 `apps/backend/src/auth/optional-jwt.strategy.ts` + `optional-jwt-auth.guard.ts`
 
 Passport strategy that attempts JWT cookie verification. Returns `null` instead of throwing `UnauthorizedException` when cookie is absent or invalid. Registered in `AuthModule`.
 
 ### 2. `orders.controller.ts`
+
 Add `@UseGuards(OptionalJwtAuthGuard)` to `POST /orders`. Pass `req.user?.id ?? null` to service.
 
 ```typescript
@@ -77,6 +80,7 @@ Public customer requests: no cookie → `req.user = null` → unaffected.
 POS requests: JWT cookie present → `req.user.id` populated → staff attributed.
 
 ### 3. `orders.service.ts`
+
 `create()` gains `staffUserId: string | null` as second parameter.
 
 ```typescript
@@ -95,6 +99,7 @@ async create(dto: CreateOrderDto, staffUserId: string | null = null) {
 No other logic in `create()` changes.
 
 ### 4. `payment.service.ts` → `getSessionBill()`
+
 Add staff relation to order query. Expand response to include itemized orders:
 
 ```typescript
@@ -107,11 +112,12 @@ include: {
 ```
 
 New response shape per order:
+
 ```typescript
 {
   id: string;
-  source: 'CUSTOMER' | 'POS';
-  staffName: string | null;  // staff.name ?? staff.email ?? null
+  source: "CUSTOMER" | "POS";
+  staffName: string | null; // staff.name ?? staff.email ?? null
   items: Array<{
     name: string;
     quantity: number;
@@ -124,6 +130,7 @@ New response shape per order:
 `subtotal`, `tipsEnabled`, `tipOptions`, `restaurantId` fields unchanged.
 
 ### 5. `tables.service.ts` → `getTableOrders()`
+
 Add staff relation include. Return `source` and `staffName` per order. Used by dashboard table detail modal.
 
 ---
@@ -133,10 +140,11 @@ Add staff relation include. Return `source` and `staffName` per order. Used by d
 ### 1. `PaymentModal.tsx` — Itemized Bill View
 
 `BillData` interface expands:
+
 ```typescript
 interface BillOrder {
   id: string;
-  source: 'CUSTOMER' | 'POS';
+  source: "CUSTOMER" | "POS";
   staffName: string | null;
   items: Array<{ name: string; quantity: number; unitPrice: number }>;
 }
@@ -171,6 +179,7 @@ Subtotal                     €63.00
 ### 2. `TableDetailModal.tsx` — Dashboard Table Detail
 
 Each order card gains a source badge in its header:
+
 - `CUSTOMER` → `Self-order` (blue badge)
 - `POS` → staff name (amber badge), e.g. `Maria`
 
@@ -179,15 +188,18 @@ Badge sits next to the order timestamp. Items within each order unchanged.
 ### 3. `OrdersView.tsx` — Dashboard Orders List
 
 Add `Source` column to the orders table:
+
 - `Self` for CUSTOMER
 - Staff name for POS
 
 Small inline badge, same color coding as above.
 
 ### 4. `KitchenPage.tsx`
+
 **No changes.** Kitchen only needs table + items + timing.
 
 ### 5. `PosCartDrawer.tsx`
+
 **No changes.** JWT cookie is sent automatically with every `api` request via `withCredentials: true`. Staff attribution is extracted server-side.
 
 ---
@@ -197,6 +209,7 @@ Small inline badge, same color coding as above.
 Industry-standard NestJS pattern. The `OptionalJwtStrategy` extends `PassportStrategy` with `session: false`. In the `validate()` method it returns the user payload when the JWT is valid; in `handleRequest()` it overrides the default to return `null` on error rather than throwing.
 
 This is the correct approach because:
+
 - `POST /orders` must remain public for unauthenticated customer QR flows.
 - POS sends the JWT cookie automatically (browser includes cookies on same-origin requests via Vite proxy in dev, and `withCredentials: true` in prod).
 - No frontend changes needed — attribution is entirely server-side.
@@ -205,20 +218,20 @@ This is the correct approach because:
 
 ## Files Changed Summary
 
-| File | Change |
-|------|--------|
-| `prisma/schema.prisma` | Add `OrderSource` enum, `source`, `staffUserId`, `staff` relation to `Order` |
-| `prisma/migrations/...` | Generated migration |
-| `auth/optional-jwt.strategy.ts` | New — optional JWT passport strategy |
-| `auth/optional-jwt-auth.guard.ts` | New — guard wrapping optional strategy |
-| `auth/auth.module.ts` | Register new strategy |
-| `orders/orders.controller.ts` | Add `OptionalJwtAuthGuard`, pass `staffUserId` |
-| `orders/orders.service.ts` | Accept `staffUserId`, set `source` field |
-| `payment/payment.service.ts` | Expand `getSessionBill` response with itemized orders + staff names |
-| `tables/tables.service.ts` | Add staff relation include to `getTableOrders` |
-| `components/payment/PaymentModal.tsx` | Itemized bill grouped by source |
-| `pages/Dashboard/LiveTablesView.tsx` or `TableDetailModal.tsx` | Source badge per order |
-| `pages/Dashboard/OrdersView.tsx` | Source column/badge |
+| File                                                           | Change                                                                       |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `prisma/schema.prisma`                                         | Add `OrderSource` enum, `source`, `staffUserId`, `staff` relation to `Order` |
+| `prisma/migrations/...`                                        | Generated migration                                                          |
+| `auth/optional-jwt.strategy.ts`                                | New — optional JWT passport strategy                                         |
+| `auth/optional-jwt-auth.guard.ts`                              | New — guard wrapping optional strategy                                       |
+| `auth/auth.module.ts`                                          | Register new strategy                                                        |
+| `orders/orders.controller.ts`                                  | Add `OptionalJwtAuthGuard`, pass `staffUserId`                               |
+| `orders/orders.service.ts`                                     | Accept `staffUserId`, set `source` field                                     |
+| `payment/payment.service.ts`                                   | Expand `getSessionBill` response with itemized orders + staff names          |
+| `tables/tables.service.ts`                                     | Add staff relation include to `getTableOrders`                               |
+| `components/payment/PaymentModal.tsx`                          | Itemized bill grouped by source                                              |
+| `pages/Dashboard/LiveTablesView.tsx` or `TableDetailModal.tsx` | Source badge per order                                                       |
+| `pages/Dashboard/OrdersView.tsx`                               | Source column/badge                                                          |
 
 **Not changed:** `KitchenPage.tsx`, `PosCartDrawer.tsx`, `PosContext.tsx`, `CheckoutPage.tsx`
 

@@ -5,6 +5,7 @@
 **Goal:** Enable restaurants to route orders to multiple ESC/POS printers (kitchen, bar, etc.) via a dedicated Android Expo print-agent app, with full reliability: every print job is persisted to DB and retried if the agent was offline.
 
 **Architecture:**
+
 - Backend adds `PrintStation`, `PrintAgentToken`, and `PrintJob` (PENDING→SENT→PRINTED/FAILED) Prisma models.
 - On order create, `PrintStationService.routeOrderToPrinters()` groups items by `MenuCategory.printStationId`, creates one `PrintJob` per station (status=PENDING), then emits `print:job {jobId, ticket}` via Socket.io to the station room. If the room has no connected agent the job stays PENDING.
 - On agent (re)connect, the gateway queries all PENDING + stale-SENT jobs for that station and re-emits them — no order ticket is ever lost.
@@ -19,6 +20,7 @@
 ## File Map
 
 ### Backend — new files
+
 - `apps/backend/src/print-station/print-station.module.ts`
 - `apps/backend/src/print-station/print-station.service.ts`
 - `apps/backend/src/print-station/print-station.controller.ts`
@@ -29,6 +31,7 @@
 - `apps/backend/src/print-station/escpos.util.spec.ts`
 
 ### Backend — modified files
+
 - `apps/backend/prisma/schema.prisma` — add `PrintStation`, `PrintAgentToken`, `PrintJob`, `PrintJobStatus` enum; relations on `MenuCategory`, `Restaurant`, `Order`
 - `apps/backend/src/app.module.ts` — register `PrintStationModule`
 - `apps/backend/src/events/events.gateway.ts` — agent token auth, retry-on-reconnect, `emitPrintJob()`, handle `print:ack`
@@ -36,11 +39,13 @@
 - `apps/backend/src/orders/orders.module.ts` — import `PrintStationModule`
 
 ### Frontend dashboard — new/modified files
+
 - `apps/frontend/src/pages/Dashboard/PrintStationsView.tsx` — station CRUD, token management, job health badges
 - `apps/frontend/src/lib/api.ts` — print-station API calls
 - `apps/frontend/src/i18n/en.json`, `bg.json`, `ro.json` — i18n keys
 
 ### Expo app — new project
+
 - `apps/printer-agent/` — entire new Expo bare project
 
 ---
@@ -50,6 +55,7 @@
 ### Task 1: Prisma Schema — PrintStation + PrintAgentToken + PrintJob
 
 **Files:**
+
 - Modify: `apps/backend/prisma/schema.prisma`
 
 - [ ] **Step 1: Add PrintJobStatus enum**
@@ -186,6 +192,7 @@ git commit -m "feat(db): add PrintStation, PrintAgentToken, PrintJob models with
 ### Task 2: DTOs
 
 **Files:**
+
 - Create: `apps/backend/src/print-station/dto/create-print-station.dto.ts`
 - Create: `apps/backend/src/print-station/dto/update-print-station.dto.ts`
 
@@ -193,7 +200,7 @@ git commit -m "feat(db): add PrintStation, PrintAgentToken, PrintJob models with
 
 ```typescript
 // apps/backend/src/print-station/dto/create-print-station.dto.ts
-import { IsString, IsInt, IsOptional, Min, Max } from 'class-validator';
+import { IsString, IsInt, IsOptional, Min, Max } from "class-validator";
 
 export class CreatePrintStationDto {
   @IsString()
@@ -214,7 +221,14 @@ export class CreatePrintStationDto {
 
 ```typescript
 // apps/backend/src/print-station/dto/update-print-station.dto.ts
-import { IsString, IsInt, IsOptional, Min, Max, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsInt,
+  IsOptional,
+  Min,
+  Max,
+  IsBoolean,
+} from "class-validator";
 
 export class UpdatePrintStationDto {
   @IsOptional()
@@ -249,6 +263,7 @@ git commit -m "feat(print-station): add DTOs"
 ### Task 3: ESC/POS Ticket Builder Utility
 
 **Files:**
+
 - Create: `apps/backend/src/print-station/escpos.util.ts`
 - Create: `apps/backend/src/print-station/escpos.util.spec.ts`
 
@@ -273,11 +288,11 @@ const CMD = {
 };
 
 function text(str: string): Buffer {
-  return Buffer.from(str + '\n', 'utf8');
+  return Buffer.from(str + "\n", "utf8");
 }
 
 function divider(): Buffer {
-  return text('--------------------------------');
+  return text("--------------------------------");
 }
 
 export interface PrintItem {
@@ -315,7 +330,11 @@ export function buildEscPosTicket(ticket: PrintTicket): Buffer {
   parts.push(text(ticket.customerName), CMD.ALIGN_LEFT, divider());
 
   for (const item of ticket.items) {
-    parts.push(CMD.BOLD_ON, text(`${item.quantity}x  ${item.name}`), CMD.BOLD_OFF);
+    parts.push(
+      CMD.BOLD_ON,
+      text(`${item.quantity}x  ${item.name}`),
+      CMD.BOLD_OFF,
+    );
     if (item.options && item.options.length > 0) {
       for (const opt of item.options) {
         parts.push(text(`   + ${opt}`));
@@ -326,9 +345,9 @@ export function buildEscPosTicket(ticket: PrintTicket): Buffer {
     }
   }
 
-  const time = ticket.timestamp.toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
+  const time = ticket.timestamp.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
   });
 
   parts.push(divider(), CMD.ALIGN_CENTER, text(time), CMD.FEED_4, CMD.CUT);
@@ -340,53 +359,53 @@ export function buildEscPosTicket(ticket: PrintTicket): Buffer {
 
 ```typescript
 // apps/backend/src/print-station/escpos.util.spec.ts
-import { buildEscPosTicket } from './escpos.util';
+import { buildEscPosTicket } from "./escpos.util";
 
-describe('buildEscPosTicket', () => {
-  it('returns a Buffer', () => {
+describe("buildEscPosTicket", () => {
+  it("returns a Buffer", () => {
     const result = buildEscPosTicket({
-      stationName: 'Kitchen',
-      orderShortId: 'ABC123',
-      tableName: 'T1',
-      customerName: 'John',
-      items: [{ quantity: 2, name: 'Burger', notes: 'no onion' }],
-      timestamp: new Date('2026-01-01T12:00:00Z'),
+      stationName: "Kitchen",
+      orderShortId: "ABC123",
+      tableName: "T1",
+      customerName: "John",
+      items: [{ quantity: 2, name: "Burger", notes: "no onion" }],
+      timestamp: new Date("2026-01-01T12:00:00Z"),
     });
     expect(Buffer.isBuffer(result)).toBe(true);
     expect(result.length).toBeGreaterThan(0);
   });
 
-  it('includes item name and quantity', () => {
+  it("includes item name and quantity", () => {
     const result = buildEscPosTicket({
-      stationName: 'Bar',
-      orderShortId: 'XYZ',
-      customerName: 'Alice',
-      items: [{ quantity: 3, name: 'Beer' }],
+      stationName: "Bar",
+      orderShortId: "XYZ",
+      customerName: "Alice",
+      items: [{ quantity: 3, name: "Beer" }],
       timestamp: new Date(),
     });
-    expect(result.toString('utf8')).toContain('3x  Beer');
+    expect(result.toString("utf8")).toContain("3x  Beer");
   });
 
-  it('includes notes when present', () => {
+  it("includes notes when present", () => {
     const result = buildEscPosTicket({
-      stationName: 'Kitchen',
-      orderShortId: '001',
-      customerName: 'Bob',
-      items: [{ quantity: 1, name: 'Steak', notes: 'rare' }],
+      stationName: "Kitchen",
+      orderShortId: "001",
+      customerName: "Bob",
+      items: [{ quantity: 1, name: "Steak", notes: "rare" }],
       timestamp: new Date(),
     });
-    expect(result.toString('utf8')).toContain('>> rare');
+    expect(result.toString("utf8")).toContain(">> rare");
   });
 
-  it('omits table line when tableName not provided', () => {
+  it("omits table line when tableName not provided", () => {
     const result = buildEscPosTicket({
-      stationName: 'Kitchen',
-      orderShortId: '002',
-      customerName: 'Eve',
-      items: [{ quantity: 1, name: 'Soup' }],
+      stationName: "Kitchen",
+      orderShortId: "002",
+      customerName: "Eve",
+      items: [{ quantity: 1, name: "Soup" }],
       timestamp: new Date(),
     });
-    expect(result.toString('utf8')).not.toContain('Table:');
+    expect(result.toString("utf8")).not.toContain("Table:");
   });
 });
 ```
@@ -412,6 +431,7 @@ git commit -m "feat(print-station): ESC/POS ticket builder with tests"
 ### Task 4: PrintStation Service (with PrintJob persistence + retry)
 
 **Files:**
+
 - Create: `apps/backend/src/print-station/print-station.service.ts`
 - Create: `apps/backend/src/print-station/print-station.service.spec.ts`
 
@@ -425,12 +445,12 @@ import {
   ConflictException,
   ForbiddenException,
   Logger,
-} from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreatePrintStationDto } from './dto/create-print-station.dto';
-import { UpdatePrintStationDto } from './dto/update-print-station.dto';
-import { buildEscPosTicket, PrintItem } from './escpos.util';
-import { EventsGateway } from '../events/events.gateway';
+} from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import { CreatePrintStationDto } from "./dto/create-print-station.dto";
+import { UpdatePrintStationDto } from "./dto/update-print-station.dto";
+import { buildEscPosTicket, PrintItem } from "./escpos.util";
+import { EventsGateway } from "../events/events.gateway";
 
 const MAX_PRINT_ATTEMPTS = 3;
 /** A SENT job older than this is considered stale and will be retried on reconnect */
@@ -456,11 +476,11 @@ export class PrintStationService {
         },
         _count: {
           select: {
-            printJobs: { where: { status: { in: ['PENDING', 'FAILED'] } } },
+            printJobs: { where: { status: { in: ["PENDING", "FAILED"] } } },
           },
         },
       },
-      orderBy: { name: 'asc' },
+      orderBy: { name: "asc" },
     });
   }
 
@@ -468,7 +488,8 @@ export class PrintStationService {
     const existing = await this.prisma.printStation.findUnique({
       where: { restaurantId_name: { restaurantId, name: dto.name } },
     });
-    if (existing) throw new ConflictException(`Station "${dto.name}" already exists`);
+    if (existing)
+      throw new ConflictException(`Station "${dto.name}" already exists`);
 
     return this.prisma.printStation.create({
       data: {
@@ -480,9 +501,16 @@ export class PrintStationService {
     });
   }
 
-  async update(restaurantId: string, stationId: string, dto: UpdatePrintStationDto) {
+  async update(
+    restaurantId: string,
+    stationId: string,
+    dto: UpdatePrintStationDto,
+  ) {
     await this.assertOwnership(restaurantId, stationId);
-    return this.prisma.printStation.update({ where: { id: stationId }, data: dto });
+    return this.prisma.printStation.update({
+      where: { id: stationId },
+      data: dto,
+    });
   }
 
   async remove(restaurantId: string, stationId: string) {
@@ -503,7 +531,7 @@ export class PrintStationService {
     const record = await this.prisma.printAgentToken.findFirst({
       where: { id: tokenId, restaurantId },
     });
-    if (!record) throw new NotFoundException('Token not found');
+    if (!record) throw new NotFoundException("Token not found");
     await this.prisma.printAgentToken.delete({ where: { id: tokenId } });
   }
 
@@ -515,10 +543,14 @@ export class PrintStationService {
   }
 
   async touchLastSeen(token: string) {
-    await this.prisma.printAgentToken.update({
-      where: { token },
-      data: { lastSeenAt: new Date() },
-    }).catch(() => { /* token may have been revoked — swallow */ });
+    await this.prisma.printAgentToken
+      .update({
+        where: { token },
+        data: { lastSeenAt: new Date() },
+      })
+      .catch(() => {
+        /* token may have been revoked — swallow */
+      });
   }
 
   // ─── Order Routing ────────────────────────────────────────────────────────
@@ -564,7 +596,7 @@ export class PrintStationService {
 
       stationMap.get(station.id)!.items.push({
         quantity: item.quantity,
-        name: item.menuItem?.name ?? 'Unknown item',
+        name: item.menuItem?.name ?? "Unknown item",
         options,
         notes: null,
       });
@@ -580,7 +612,7 @@ export class PrintStationService {
         timestamp: new Date(),
       });
 
-      const ticketBase64 = ticket.toString('base64');
+      const ticketBase64 = ticket.toString("base64");
 
       // Always persist the job first — if emit fails, job stays PENDING
       const job = await this.prisma.printJob.create({
@@ -589,16 +621,21 @@ export class PrintStationService {
           printStationId: stationId,
           orderId,
           ticketBase64,
-          status: 'PENDING',
+          status: "PENDING",
         },
       });
 
-      const emitted = this.events.emitPrintJob(order.restaurantId, stationId, job.id, ticketBase64);
+      const emitted = this.events.emitPrintJob(
+        order.restaurantId,
+        stationId,
+        job.id,
+        ticketBase64,
+      );
 
       if (emitted) {
         await this.prisma.printJob.update({
           where: { id: job.id },
-          data: { status: 'SENT', attempts: 1, lastAttemptAt: new Date() },
+          data: { status: "SENT", attempts: 1, lastAttemptAt: new Date() },
         });
         this.logger.log(`Print job ${job.id} sent to station ${station.name}`);
       } else {
@@ -615,7 +652,10 @@ export class PrintStationService {
    * Called by EventsGateway when a print agent connects (or reconnects).
    * Re-emits any PENDING jobs and SENT jobs that are stale (> 30s without ack).
    */
-  async retryPendingJobs(restaurantId: string, stationId: string): Promise<void> {
+  async retryPendingJobs(
+    restaurantId: string,
+    stationId: string,
+  ): Promise<void> {
     const staleThreshold = new Date(Date.now() - STALE_SENT_MS);
 
     const jobs = await this.prisma.printJob.findMany({
@@ -623,15 +663,15 @@ export class PrintStationService {
         restaurantId,
         printStationId: stationId,
         status: {
-          in: ['PENDING', 'SENT'],
+          in: ["PENDING", "SENT"],
         },
         attempts: { lt: MAX_PRINT_ATTEMPTS },
         OR: [
-          { status: 'PENDING' },
-          { status: 'SENT', lastAttemptAt: { lt: staleThreshold } },
+          { status: "PENDING" },
+          { status: "SENT", lastAttemptAt: { lt: staleThreshold } },
         ],
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: "asc" },
     });
 
     if (jobs.length === 0) return;
@@ -641,12 +681,17 @@ export class PrintStationService {
     );
 
     for (const job of jobs) {
-      this.events.emitPrintJob(restaurantId, stationId, job.id, job.ticketBase64);
+      this.events.emitPrintJob(
+        restaurantId,
+        stationId,
+        job.id,
+        job.ticketBase64,
+      );
 
       await this.prisma.printJob.update({
         where: { id: job.id },
         data: {
-          status: 'SENT',
+          status: "SENT",
           attempts: { increment: 1 },
           lastAttemptAt: new Date(),
         },
@@ -670,7 +715,7 @@ export class PrintStationService {
     if (success) {
       await this.prisma.printJob.update({
         where: { id: jobId },
-        data: { status: 'PRINTED', errorMessage: null },
+        data: { status: "PRINTED", errorMessage: null },
       });
     } else {
       const newAttempts = job.attempts; // already incremented on emit
@@ -679,8 +724,8 @@ export class PrintStationService {
       await this.prisma.printJob.update({
         where: { id: jobId },
         data: {
-          status: permanentlyFailed ? 'FAILED' : 'PENDING',
-          errorMessage: error ?? 'Unknown printer error',
+          status: permanentlyFailed ? "FAILED" : "PENDING",
+          errorMessage: error ?? "Unknown printer error",
         },
       });
 
@@ -703,33 +748,45 @@ export class PrintStationService {
         isActive: true,
         agentTokens: { select: { lastSeenAt: true } },
         printJobs: {
-          where: { status: { in: ['PENDING', 'FAILED', 'PRINTED'] } },
+          where: { status: { in: ["PENDING", "FAILED", "PRINTED"] } },
           select: { status: true, createdAt: true },
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
           take: 50,
         },
       },
     });
 
     return stations.map((s) => {
-      const pending = s.printJobs.filter((j) => j.status === 'PENDING').length;
-      const failed = s.printJobs.filter((j) => j.status === 'FAILED').length;
-      const lastPrinted = s.printJobs.find((j) => j.status === 'PRINTED')?.createdAt ?? null;
-      const lastSeen = s.agentTokens
-        .map((t) => t.lastSeenAt)
-        .filter(Boolean)
-        .sort()
-        .at(-1) ?? null;
+      const pending = s.printJobs.filter((j) => j.status === "PENDING").length;
+      const failed = s.printJobs.filter((j) => j.status === "FAILED").length;
+      const lastPrinted =
+        s.printJobs.find((j) => j.status === "PRINTED")?.createdAt ?? null;
+      const lastSeen =
+        s.agentTokens
+          .map((t) => t.lastSeenAt)
+          .filter(Boolean)
+          .sort()
+          .at(-1) ?? null;
 
-      return { id: s.id, name: s.name, isActive: s.isActive, pending, failed, lastPrinted, lastSeen };
+      return {
+        id: s.id,
+        name: s.name,
+        isActive: s.isActive,
+        pending,
+        failed,
+        lastPrinted,
+        lastSeen,
+      };
     });
   }
 
   // ─── Private ─────────────────────────────────────────────────────────────
 
   private async assertOwnership(restaurantId: string, stationId: string) {
-    const station = await this.prisma.printStation.findUnique({ where: { id: stationId } });
-    if (!station) throw new NotFoundException('Print station not found');
+    const station = await this.prisma.printStation.findUnique({
+      where: { id: stationId },
+    });
+    if (!station) throw new NotFoundException("Print station not found");
     if (station.restaurantId !== restaurantId) throw new ForbiddenException();
     return station;
   }
@@ -740,11 +797,11 @@ export class PrintStationService {
 
 ```typescript
 // apps/backend/src/print-station/print-station.service.spec.ts
-import { Test } from '@nestjs/testing';
-import { PrintStationService } from './print-station.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { EventsGateway } from '../events/events.gateway';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { Test } from "@nestjs/testing";
+import { PrintStationService } from "./print-station.service";
+import { PrismaService } from "../prisma/prisma.service";
+import { EventsGateway } from "../events/events.gateway";
+import { ConflictException, NotFoundException } from "@nestjs/common";
 
 const mockPrisma = {
   printStation: {
@@ -772,7 +829,7 @@ const mockPrisma = {
 
 const mockEvents = { emitPrintJob: jest.fn().mockReturnValue(true) };
 
-describe('PrintStationService', () => {
+describe("PrintStationService", () => {
   let service: PrintStationService;
 
   beforeEach(async () => {
@@ -787,132 +844,184 @@ describe('PrintStationService', () => {
     jest.clearAllMocks();
   });
 
-  describe('create', () => {
-    it('throws ConflictException when name already exists', async () => {
-      mockPrisma.printStation.findUnique.mockResolvedValue({ id: 'existing' });
+  describe("create", () => {
+    it("throws ConflictException when name already exists", async () => {
+      mockPrisma.printStation.findUnique.mockResolvedValue({ id: "existing" });
       await expect(
-        service.create('r1', { name: 'Kitchen', printerIp: '192.168.1.1' }),
+        service.create("r1", { name: "Kitchen", printerIp: "192.168.1.1" }),
       ).rejects.toThrow(ConflictException);
     });
 
-    it('creates station with default port 9100', async () => {
+    it("creates station with default port 9100", async () => {
       mockPrisma.printStation.findUnique.mockResolvedValue(null);
-      mockPrisma.printStation.create.mockResolvedValue({ id: 'new', name: 'Kitchen', printerPort: 9100 });
-      const result = await service.create('r1', { name: 'Kitchen', printerIp: '192.168.1.1' });
+      mockPrisma.printStation.create.mockResolvedValue({
+        id: "new",
+        name: "Kitchen",
+        printerPort: 9100,
+      });
+      const result = await service.create("r1", {
+        name: "Kitchen",
+        printerIp: "192.168.1.1",
+      });
       expect(result.printerPort).toBe(9100);
     });
   });
 
-  describe('routeOrderToPrinters', () => {
-    it('creates PrintJob and emits when agent connected', async () => {
+  describe("routeOrderToPrinters", () => {
+    it("creates PrintJob and emits when agent connected", async () => {
       mockEvents.emitPrintJob.mockReturnValue(true);
       mockPrisma.order.findUnique.mockResolvedValue({
-        id: 'order123',
-        restaurantId: 'r1',
-        tableName: 'T5',
-        customerName: 'Alice',
-        items: [{
-          quantity: 2,
-          menuItem: {
-            name: 'Burger',
-            category: { printStation: { id: 'station1', name: 'Kitchen', isActive: true } },
+        id: "order123",
+        restaurantId: "r1",
+        tableName: "T5",
+        customerName: "Alice",
+        items: [
+          {
+            quantity: 2,
+            menuItem: {
+              name: "Burger",
+              category: {
+                printStation: {
+                  id: "station1",
+                  name: "Kitchen",
+                  isActive: true,
+                },
+              },
+            },
+            selectedOptions: [],
           },
-          selectedOptions: [],
-        }],
+        ],
       });
-      mockPrisma.printJob.create.mockResolvedValue({ id: 'job1', ticketBase64: 'abc' });
+      mockPrisma.printJob.create.mockResolvedValue({
+        id: "job1",
+        ticketBase64: "abc",
+      });
       mockPrisma.printJob.update.mockResolvedValue({});
 
-      await service.routeOrderToPrinters('order123');
+      await service.routeOrderToPrinters("order123");
 
       expect(mockPrisma.printJob.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ status: 'PENDING' }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "PENDING" }),
+        }),
       );
       expect(mockPrisma.printJob.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ status: 'SENT' }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "SENT" }),
+        }),
       );
     });
 
-    it('leaves job as PENDING when no agent connected', async () => {
+    it("leaves job as PENDING when no agent connected", async () => {
       mockEvents.emitPrintJob.mockReturnValue(false);
       mockPrisma.order.findUnique.mockResolvedValue({
-        id: 'order456',
-        restaurantId: 'r1',
+        id: "order456",
+        restaurantId: "r1",
         tableName: null,
-        customerName: 'Bob',
-        items: [{
-          quantity: 1,
-          menuItem: {
-            name: 'Salad',
-            category: { printStation: { id: 'station1', name: 'Kitchen', isActive: true } },
+        customerName: "Bob",
+        items: [
+          {
+            quantity: 1,
+            menuItem: {
+              name: "Salad",
+              category: {
+                printStation: {
+                  id: "station1",
+                  name: "Kitchen",
+                  isActive: true,
+                },
+              },
+            },
+            selectedOptions: [],
           },
-          selectedOptions: [],
-        }],
+        ],
       });
-      mockPrisma.printJob.create.mockResolvedValue({ id: 'job2', ticketBase64: 'xyz' });
+      mockPrisma.printJob.create.mockResolvedValue({
+        id: "job2",
+        ticketBase64: "xyz",
+      });
 
-      await service.routeOrderToPrinters('order456');
+      await service.routeOrderToPrinters("order456");
 
       expect(mockPrisma.printJob.update).not.toHaveBeenCalled();
     });
 
-    it('skips items with no station assigned', async () => {
+    it("skips items with no station assigned", async () => {
       mockPrisma.order.findUnique.mockResolvedValue({
-        id: 'order789',
-        restaurantId: 'r1',
+        id: "order789",
+        restaurantId: "r1",
         tableName: null,
-        customerName: 'Eve',
-        items: [{
-          quantity: 1,
-          menuItem: { name: 'Water', category: { printStation: null } },
-          selectedOptions: [],
-        }],
+        customerName: "Eve",
+        items: [
+          {
+            quantity: 1,
+            menuItem: { name: "Water", category: { printStation: null } },
+            selectedOptions: [],
+          },
+        ],
       });
 
-      await service.routeOrderToPrinters('order789');
+      await service.routeOrderToPrinters("order789");
       expect(mockPrisma.printJob.create).not.toHaveBeenCalled();
     });
   });
 
-  describe('handlePrintAck', () => {
-    it('sets status to PRINTED on success', async () => {
-      mockPrisma.printJob.findUnique.mockResolvedValue({ id: 'j1', attempts: 1 });
+  describe("handlePrintAck", () => {
+    it("sets status to PRINTED on success", async () => {
+      mockPrisma.printJob.findUnique.mockResolvedValue({
+        id: "j1",
+        attempts: 1,
+      });
       mockPrisma.printJob.update.mockResolvedValue({});
 
-      await service.handlePrintAck('j1', true);
+      await service.handlePrintAck("j1", true);
 
       expect(mockPrisma.printJob.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ status: 'PRINTED' }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "PRINTED" }),
+        }),
       );
     });
 
-    it('sets status to FAILED when max attempts reached', async () => {
-      mockPrisma.printJob.findUnique.mockResolvedValue({ id: 'j2', attempts: 3 });
+    it("sets status to FAILED when max attempts reached", async () => {
+      mockPrisma.printJob.findUnique.mockResolvedValue({
+        id: "j2",
+        attempts: 3,
+      });
       mockPrisma.printJob.update.mockResolvedValue({});
 
-      await service.handlePrintAck('j2', false, 'connection refused');
+      await service.handlePrintAck("j2", false, "connection refused");
 
       expect(mockPrisma.printJob.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ status: 'FAILED' }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "FAILED" }),
+        }),
       );
     });
 
-    it('sets status back to PENDING for retry when under max attempts', async () => {
-      mockPrisma.printJob.findUnique.mockResolvedValue({ id: 'j3', attempts: 1 });
+    it("sets status back to PENDING for retry when under max attempts", async () => {
+      mockPrisma.printJob.findUnique.mockResolvedValue({
+        id: "j3",
+        attempts: 1,
+      });
       mockPrisma.printJob.update.mockResolvedValue({});
 
-      await service.handlePrintAck('j3', false, 'timeout');
+      await service.handlePrintAck("j3", false, "timeout");
 
       expect(mockPrisma.printJob.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ status: 'PENDING' }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "PENDING" }),
+        }),
       );
     });
   });
 
-  describe('revokeToken', () => {
-    it('throws NotFoundException when token not in restaurant', async () => {
+  describe("revokeToken", () => {
+    it("throws NotFoundException when token not in restaurant", async () => {
       mockPrisma.printAgentToken.findFirst.mockResolvedValue(null);
-      await expect(service.revokeToken('r1', 'bad-id')).rejects.toThrow(NotFoundException);
+      await expect(service.revokeToken("r1", "bad-id")).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });
@@ -939,6 +1048,7 @@ git commit -m "feat(print-station): service with PrintJob persistence, retry log
 ### Task 5: PrintStation Controller
 
 **Files:**
+
 - Create: `apps/backend/src/print-station/print-station.controller.ts`
 
 - [ ] **Step 1: Write the controller**
@@ -946,15 +1056,22 @@ git commit -m "feat(print-station): service with PrintJob persistence, retry log
 ```typescript
 // apps/backend/src/print-station/print-station.controller.ts
 import {
-  Controller, Get, Post, Patch, Delete,
-  Param, Body, UseGuards, Request,
-} from '@nestjs/common';
-import { IsString, IsOptional } from 'class-validator';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PrintStationService } from './print-station.service';
-import { CreatePrintStationDto } from './dto/create-print-station.dto';
-import { UpdatePrintStationDto } from './dto/update-print-station.dto';
-import { RestaurantsService } from '../restaurants/restaurants.service';
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  UseGuards,
+  Request,
+} from "@nestjs/common";
+import { IsString, IsOptional } from "class-validator";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { PrintStationService } from "./print-station.service";
+import { CreatePrintStationDto } from "./dto/create-print-station.dto";
+import { UpdatePrintStationDto } from "./dto/update-print-station.dto";
+import { RestaurantsService } from "../restaurants/restaurants.service";
 
 class GenerateTokenDto {
   @IsOptional()
@@ -963,7 +1080,7 @@ class GenerateTokenDto {
 }
 
 @UseGuards(JwtAuthGuard)
-@Controller('print-stations')
+@Controller("print-stations")
 export class PrintStationController {
   constructor(
     private readonly service: PrintStationService,
@@ -972,7 +1089,7 @@ export class PrintStationController {
 
   private async getRestaurantId(userId: string): Promise<string> {
     const restaurant = await this.restaurantsService.findByOwner(userId);
-    if (!restaurant) throw new Error('Restaurant not found');
+    if (!restaurant) throw new Error("Restaurant not found");
     return restaurant.id;
   }
 
@@ -982,7 +1099,7 @@ export class PrintStationController {
     return this.service.list(restaurantId);
   }
 
-  @Get('health')
+  @Get("health")
   async health(@Request() req: any) {
     const restaurantId = await this.getRestaurantId(req.user.id);
     return this.service.getStationHealth(restaurantId);
@@ -994,35 +1111,35 @@ export class PrintStationController {
     return this.service.create(restaurantId, dto);
   }
 
-  @Patch(':id')
+  @Patch(":id")
   async update(
     @Request() req: any,
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() dto: UpdatePrintStationDto,
   ) {
     const restaurantId = await this.getRestaurantId(req.user.id);
     return this.service.update(restaurantId, id, dto);
   }
 
-  @Delete(':id')
-  async remove(@Request() req: any, @Param('id') id: string) {
+  @Delete(":id")
+  async remove(@Request() req: any, @Param("id") id: string) {
     const restaurantId = await this.getRestaurantId(req.user.id);
     await this.service.remove(restaurantId, id);
     return { success: true };
   }
 
-  @Post(':id/tokens')
+  @Post(":id/tokens")
   async generateToken(
     @Request() req: any,
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() dto: GenerateTokenDto,
   ) {
     const restaurantId = await this.getRestaurantId(req.user.id);
     return this.service.generateToken(restaurantId, id, dto.label);
   }
 
-  @Delete('tokens/:tokenId')
-  async revokeToken(@Request() req: any, @Param('tokenId') tokenId: string) {
+  @Delete("tokens/:tokenId")
+  async revokeToken(@Request() req: any, @Param("tokenId") tokenId: string) {
     const restaurantId = await this.getRestaurantId(req.user.id);
     await this.service.revokeToken(restaurantId, tokenId);
     return { success: true };
@@ -1042,6 +1159,7 @@ git commit -m "feat(print-station): REST controller with health endpoint"
 ### Task 6: PrintStation Module + App Registration
 
 **Files:**
+
 - Create: `apps/backend/src/print-station/print-station.module.ts`
 - Modify: `apps/backend/src/app.module.ts`
 
@@ -1049,11 +1167,11 @@ git commit -m "feat(print-station): REST controller with health endpoint"
 
 ```typescript
 // apps/backend/src/print-station/print-station.module.ts
-import { Module } from '@nestjs/common';
-import { PrintStationService } from './print-station.service';
-import { PrintStationController } from './print-station.controller';
-import { RestaurantsModule } from '../restaurants/restaurants.module';
-import { EventsModule } from '../events/events.module';
+import { Module } from "@nestjs/common";
+import { PrintStationService } from "./print-station.service";
+import { PrintStationController } from "./print-station.controller";
+import { RestaurantsModule } from "../restaurants/restaurants.module";
+import { EventsModule } from "../events/events.module";
 
 @Module({
   imports: [RestaurantsModule, EventsModule],
@@ -1069,7 +1187,7 @@ export class PrintStationModule {}
 Open `apps/backend/src/app.module.ts`. Add import:
 
 ```typescript
-import { PrintStationModule } from './print-station/print-station.module';
+import { PrintStationModule } from "./print-station/print-station.module";
 ```
 
 Add `PrintStationModule` to the `imports` array after `PaymentModule`.
@@ -1095,6 +1213,7 @@ git commit -m "feat(print-station): register module"
 ### Task 7: Extend EventsGateway — Agent Auth + Retry on Reconnect + Ack Handler
 
 **Files:**
+
 - Modify: `apps/backend/src/events/events.gateway.ts`
 
 - [ ] **Step 1: Inject PrintStationService**
@@ -1102,7 +1221,7 @@ git commit -m "feat(print-station): register module"
 At the top of `events.gateway.ts`, add import:
 
 ```typescript
-import { PrintStationService } from '../print-station/print-station.service';
+import { PrintStationService } from "../print-station/print-station.service";
 ```
 
 Update the constructor to inject it:
@@ -1143,7 +1262,9 @@ if (agentToken && !client.data.userId) {
   void this.printStationService
     .retryPendingJobs(record.restaurantId, record.printStationId)
     .catch((err) =>
-      this.logger.error(`Retry failed for station ${record.printStationId}: ${err.message}`),
+      this.logger.error(
+        `Retry failed for station ${record.printStationId}: ${err.message}`,
+      ),
     );
 
   this.logger.log(
@@ -1206,18 +1327,20 @@ async handlePrintAck(
 Open `apps/backend/src/events/events.module.ts`. Add:
 
 ```typescript
-import { PrintStationModule } from '../print-station/print-station.module';
+import { PrintStationModule } from "../print-station/print-station.module";
 // Add PrintStationModule to imports array
 ```
 
 **Note:** This creates a potential circular dependency (`PrintStationModule` imports `EventsModule`, `EventsModule` imports `PrintStationModule`). Resolve with `forwardRef`:
 
 In `events.module.ts`:
+
 ```typescript
 imports: [JwtModule, forwardRef(() => PrintStationModule)],
 ```
 
 In `print-station.module.ts`:
+
 ```typescript
 imports: [RestaurantsModule, forwardRef(() => EventsModule)],
 ```
@@ -1243,6 +1366,7 @@ git commit -m "feat(events): agent auth, retry-on-reconnect, print:ack handler, 
 ### Task 8: Hook OrdersService to Route Print Jobs
 
 **Files:**
+
 - Modify: `apps/backend/src/orders/orders.service.ts`
 - Modify: `apps/backend/src/orders/orders.module.ts`
 
@@ -1251,7 +1375,7 @@ git commit -m "feat(events): agent auth, retry-on-reconnect, print:ack handler, 
 Add import at top of `orders.service.ts`:
 
 ```typescript
-import { PrintStationService } from '../print-station/print-station.service';
+import { PrintStationService } from "../print-station/print-station.service";
 ```
 
 Update the constructor:
@@ -1274,7 +1398,9 @@ In `OrdersService.create()`, find the point where the order has been successfull
 void this.printStationService
   .routeOrderToPrinters(order.id)
   .catch((err) =>
-    this.logger.error(`Print routing failed for order ${order.id}: ${err.message}`),
+    this.logger.error(
+      `Print routing failed for order ${order.id}: ${err.message}`,
+    ),
   );
 ```
 
@@ -1283,7 +1409,7 @@ void this.printStationService
 In `apps/backend/src/orders/orders.module.ts`, add:
 
 ```typescript
-import { PrintStationModule } from '../print-station/print-station.module';
+import { PrintStationModule } from "../print-station/print-station.module";
 // Add PrintStationModule to imports array (use forwardRef if needed)
 ```
 
@@ -1319,6 +1445,7 @@ git commit -m "feat(orders): trigger print routing after order create"
 ### Task 9: Print Stations Settings Tab with Health Badges
 
 **Files:**
+
 - Create: `apps/frontend/src/pages/Dashboard/PrintStationsView.tsx`
 - Modify: `apps/frontend/src/lib/api.ts`
 - Modify: `apps/frontend/src/i18n/en.json`, `bg.json`, `ro.json`
@@ -1329,25 +1456,34 @@ git commit -m "feat(orders): trigger print routing after order create"
 // Append to apps/frontend/src/lib/api.ts
 
 export const getPrintStations = () =>
-  api.get('/print-stations').then((r) => r.data);
+  api.get("/print-stations").then((r) => r.data);
 
 export const getPrintStationHealth = () =>
-  api.get('/print-stations/health').then((r) => r.data);
+  api.get("/print-stations/health").then((r) => r.data);
 
 export const createPrintStation = (data: {
-  name: string; printerIp: string; printerPort?: number;
-}) => api.post('/print-stations', data).then((r) => r.data);
+  name: string;
+  printerIp: string;
+  printerPort?: number;
+}) => api.post("/print-stations", data).then((r) => r.data);
 
 export const updatePrintStation = (
   id: string,
-  data: Partial<{ name: string; printerIp: string; printerPort: number; isActive: boolean }>,
+  data: Partial<{
+    name: string;
+    printerIp: string;
+    printerPort: number;
+    isActive: boolean;
+  }>,
 ) => api.patch(`/print-stations/${id}`, data).then((r) => r.data);
 
 export const deletePrintStation = (id: string) =>
   api.delete(`/print-stations/${id}`).then((r) => r.data);
 
 export const generateAgentToken = (stationId: string, label?: string) =>
-  api.post(`/print-stations/${stationId}/tokens`, { label }).then((r) => r.data);
+  api
+    .post(`/print-stations/${stationId}/tokens`, { label })
+    .then((r) => r.data);
 
 export const revokeAgentToken = (tokenId: string) =>
   api.delete(`/print-stations/tokens/${tokenId}`).then((r) => r.data);
@@ -1388,35 +1524,54 @@ Add equivalent keys (translated) to `bg.json` and `ro.json`.
 
 ```tsx
 // apps/frontend/src/pages/Dashboard/PrintStationsView.tsx
-import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { formatDistanceToNow } from 'date-fns';
-import { Plus, Trash2, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
-import { toast } from 'sonner';
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { formatDistanceToNow } from "date-fns";
+import { Plus, Trash2, Wifi, WifiOff, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
 import {
-  getPrintStations, getPrintStationHealth,
-  createPrintStation, deletePrintStation,
-  generateAgentToken, revokeAgentToken,
-} from '../../lib/api';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Badge } from '../../components/ui/badge';
+  getPrintStations,
+  getPrintStationHealth,
+  createPrintStation,
+  deletePrintStation,
+  generateAgentToken,
+  revokeAgentToken,
+} from "../../lib/api";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
+import { Badge } from "../../components/ui/badge";
 
 interface StationHealth {
-  id: string; name: string; isActive: boolean;
-  pending: number; failed: number;
-  lastPrinted: string | null; lastSeen: string | null;
+  id: string;
+  name: string;
+  isActive: boolean;
+  pending: number;
+  failed: number;
+  lastPrinted: string | null;
+  lastSeen: string | null;
 }
 
 interface AgentToken {
-  id: string; label: string | null; lastSeenAt: string | null; createdAt: string;
+  id: string;
+  label: string | null;
+  lastSeenAt: string | null;
+  createdAt: string;
 }
 
 interface PrintStation {
-  id: string; name: string; printerIp: string; printerPort: number;
-  isActive: boolean; agentTokens: AgentToken[];
+  id: string;
+  name: string;
+  printerIp: string;
+  printerPort: number;
+  isActive: boolean;
+  agentTokens: AgentToken[];
 }
 
 function HealthBadge({ health }: { health: StationHealth | undefined }) {
@@ -1428,7 +1583,10 @@ function HealthBadge({ health }: { health: StationHealth | undefined }) {
 
   if (!agentOnline) {
     return (
-      <Badge variant="outline" className="text-amber-500 border-amber-500 gap-1">
+      <Badge
+        variant="outline"
+        className="text-amber-500 border-amber-500 gap-1"
+      >
         <WifiOff className="w-3 h-3" /> Offline
         {health.pending > 0 && ` · ${health.pending} pending`}
       </Badge>
@@ -1443,7 +1601,10 @@ function HealthBadge({ health }: { health: StationHealth | undefined }) {
   }
   if (health.pending > 0) {
     return (
-      <Badge variant="outline" className="text-amber-500 border-amber-500 gap-1">
+      <Badge
+        variant="outline"
+        className="text-amber-500 border-amber-500 gap-1"
+      >
         <Wifi className="w-3 h-3" /> {health.pending} pending
       </Badge>
     );
@@ -1458,17 +1619,17 @@ function HealthBadge({ health }: { health: StationHealth | undefined }) {
 export default function PrintStationsView() {
   const { t } = useTranslation();
   const qc = useQueryClient();
-  const [newName, setNewName] = useState('');
-  const [newIp, setNewIp] = useState('');
-  const [newPort, setNewPort] = useState('9100');
+  const [newName, setNewName] = useState("");
+  const [newIp, setNewIp] = useState("");
+  const [newPort, setNewPort] = useState("9100");
 
   const { data: stations = [], isLoading } = useQuery<PrintStation[]>({
-    queryKey: ['print-stations'],
+    queryKey: ["print-stations"],
     queryFn: getPrintStations,
   });
 
   const { data: health = [] } = useQuery<StationHealth[]>({
-    queryKey: ['print-stations-health'],
+    queryKey: ["print-stations-health"],
     queryFn: getPrintStationHealth,
     refetchInterval: 15_000,
   });
@@ -1477,34 +1638,40 @@ export default function PrintStationsView() {
 
   const createMutation = useMutation({
     mutationFn: () =>
-      createPrintStation({ name: newName, printerIp: newIp, printerPort: parseInt(newPort) }),
+      createPrintStation({
+        name: newName,
+        printerIp: newIp,
+        printerPort: parseInt(newPort),
+      }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['print-stations'] });
-      setNewName(''); setNewIp(''); setNewPort('9100');
+      qc.invalidateQueries({ queryKey: ["print-stations"] });
+      setNewName("");
+      setNewIp("");
+      setNewPort("9100");
     },
-    onError: () => toast.error('Failed to create station'),
+    onError: () => toast.error("Failed to create station"),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deletePrintStation(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['print-stations'] }),
-    onError: () => toast.error('Failed to delete station'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["print-stations"] }),
+    onError: () => toast.error("Failed to delete station"),
   });
 
   const generateTokenMutation = useMutation({
     mutationFn: (stationId: string) => generateAgentToken(stationId),
     onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ['print-stations'] });
+      qc.invalidateQueries({ queryKey: ["print-stations"] });
       navigator.clipboard.writeText(data.token);
-      toast.success(t('printStations.tokenCopied'));
+      toast.success(t("printStations.tokenCopied"));
     },
-    onError: () => toast.error('Failed to generate token'),
+    onError: () => toast.error("Failed to generate token"),
   });
 
   const revokeTokenMutation = useMutation({
     mutationFn: (tokenId: string) => revokeAgentToken(tokenId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['print-stations'] }),
-    onError: () => toast.error('Failed to revoke token'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["print-stations"] }),
+    onError: () => toast.error("Failed to revoke token"),
   });
 
   if (isLoading) return <div className="p-6 text-sm">Loading...</div>;
@@ -1512,33 +1679,52 @@ export default function PrintStationsView() {
   return (
     <div className="p-6 max-w-3xl space-y-6">
       <div>
-        <h2 className="text-xl font-semibold">{t('printStations.title')}</h2>
-        <p className="text-sm text-muted-foreground mt-1">{t('printStations.description')}</p>
+        <h2 className="text-xl font-semibold">{t("printStations.title")}</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          {t("printStations.description")}
+        </p>
       </div>
 
       {/* Add station */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">{t('printStations.addStation')}</CardTitle>
+          <CardTitle className="text-base">
+            {t("printStations.addStation")}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Input placeholder={t('printStations.namePlaceholder')} value={newName} onChange={(e) => setNewName(e.target.value)} />
-            <Input placeholder={t('printStations.ipPlaceholder')} value={newIp} onChange={(e) => setNewIp(e.target.value)} />
-            <Input placeholder="9100" value={newPort} onChange={(e) => setNewPort(e.target.value)} type="number" />
+            <Input
+              placeholder={t("printStations.namePlaceholder")}
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+            />
+            <Input
+              placeholder={t("printStations.ipPlaceholder")}
+              value={newIp}
+              onChange={(e) => setNewIp(e.target.value)}
+            />
+            <Input
+              placeholder="9100"
+              value={newPort}
+              onChange={(e) => setNewPort(e.target.value)}
+              type="number"
+            />
           </div>
           <Button
             onClick={() => createMutation.mutate()}
             disabled={!newName || !newIp || createMutation.isPending}
           >
             <Plus className="w-4 h-4 mr-2" />
-            {t('printStations.addStation')}
+            {t("printStations.addStation")}
           </Button>
         </CardContent>
       </Card>
 
       {stations.length === 0 && (
-        <p className="text-muted-foreground text-sm">{t('printStations.noStations')}</p>
+        <p className="text-muted-foreground text-sm">
+          {t("printStations.noStations")}
+        </p>
       )}
 
       {stations.map((station) => (
@@ -1549,38 +1735,56 @@ export default function PrintStationsView() {
               <HealthBadge health={healthMap[station.id]} />
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>{station.printerIp}:{station.printerPort}</span>
-              <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(station.id)}>
+              <span>
+                {station.printerIp}:{station.printerPort}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => deleteMutation.mutate(station.id)}
+              >
                 <Trash2 className="w-4 h-4 text-destructive" />
               </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
             <Button
-              size="sm" variant="outline"
+              size="sm"
+              variant="outline"
               onClick={() => generateTokenMutation.mutate(station.id)}
               disabled={generateTokenMutation.isPending}
             >
               <Plus className="w-3 h-3 mr-1" />
-              {t('printStations.generateToken')} (copies to clipboard)
+              {t("printStations.generateToken")} (copies to clipboard)
             </Button>
 
             {station.agentTokens.length > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  {t('printStations.agentTokens')}
+                  {t("printStations.agentTokens")}
                 </p>
                 {station.agentTokens.map((tok) => (
-                  <div key={tok.id} className="flex items-center justify-between rounded border px-3 py-2 text-sm">
+                  <div
+                    key={tok.id}
+                    className="flex items-center justify-between rounded border px-3 py-2 text-sm"
+                  >
                     <div>
-                      <span className="font-medium">{tok.label ?? 'Agent'}</span>
+                      <span className="font-medium">
+                        {tok.label ?? "Agent"}
+                      </span>
                       <span className="ml-3 text-muted-foreground text-xs">
                         {tok.lastSeenAt
-                          ? formatDistanceToNow(new Date(tok.lastSeenAt), { addSuffix: true })
-                          : t('printStations.neverConnected')}
+                          ? formatDistanceToNow(new Date(tok.lastSeenAt), {
+                              addSuffix: true,
+                            })
+                          : t("printStations.neverConnected")}
                       </span>
                     </div>
-                    <Button size="icon" variant="ghost" onClick={() => revokeTokenMutation.mutate(tok.id)}>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => revokeTokenMutation.mutate(tok.id)}
+                    >
                       <Trash2 className="w-3 h-3 text-destructive" />
                     </Button>
                   </div>
@@ -1611,6 +1815,7 @@ git commit -m "feat(dashboard): print stations tab with health badges and job st
 ### Task 10: Category → Station Assignment
 
 **Files:**
+
 - Modify: `apps/backend/src/menu/dto/update-category.dto.ts` (or equivalent)
 - Modify: Category management modal in `apps/frontend/src/`
 
@@ -1634,7 +1839,7 @@ In the category management modal component, add:
 
 ```tsx
 const { data: stations = [] } = useQuery({
-  queryKey: ['print-stations'],
+  queryKey: ["print-stations"],
   queryFn: getPrintStations,
 });
 
@@ -1642,16 +1847,20 @@ const { data: stations = [] } = useQuery({
 <div>
   <label className="text-sm font-medium">Print Station</label>
   <select
-    value={form.printStationId ?? ''}
-    onChange={(e) => setForm({ ...form, printStationId: e.target.value || null })}
+    value={form.printStationId ?? ""}
+    onChange={(e) =>
+      setForm({ ...form, printStationId: e.target.value || null })
+    }
     className="mt-1 w-full rounded border px-3 py-2 text-sm bg-background"
   >
     <option value="">None (no printing)</option>
     {(stations as any[]).map((s) => (
-      <option key={s.id} value={s.id}>{s.name} — {s.printerIp}</option>
+      <option key={s.id} value={s.id}>
+        {s.name} — {s.printerIp}
+      </option>
     ))}
   </select>
-</div>
+</div>;
 ```
 
 - [ ] **Step 4: Commit**
@@ -1668,6 +1877,7 @@ git commit -m "feat(menu): category → print station assignment"
 ### Task 11: Bootstrap Expo Bare Project
 
 **Files:**
+
 - Create: `apps/printer-agent/` (entire new project)
 
 - [ ] **Step 1: Scaffold the project**
@@ -1708,9 +1918,7 @@ Replace the contents of `apps/printer-agent/app.json`:
         "WAKE_LOCK"
       ]
     },
-    "plugins": [
-      "@supersami/rn-foreground-service"
-    ]
+    "plugins": ["@supersami/rn-foreground-service"]
   }
 }
 ```
@@ -1753,6 +1961,7 @@ git commit -m "feat(printer-agent): bootstrap Expo bare project"
 ### Task 12: Config Storage + Setup Screen
 
 **Files:**
+
 - Create: `apps/printer-agent/src/store/config.ts`
 - Create: `apps/printer-agent/src/screens/SetupScreen.tsx`
 
@@ -1760,7 +1969,7 @@ git commit -m "feat(printer-agent): bootstrap Expo bare project"
 
 ```typescript
 // apps/printer-agent/src/store/config.ts
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface AgentConfig {
   serverUrl: string;
@@ -1770,13 +1979,16 @@ export interface AgentConfig {
   stationName: string;
 }
 
-const KEY = 'agent_config_v1';
+const KEY = "agent_config_v1";
 
 export async function loadConfig(): Promise<AgentConfig | null> {
   const raw = await AsyncStorage.getItem(KEY);
   if (!raw) return null;
-  try { return JSON.parse(raw) as AgentConfig; }
-  catch { return null; }
+  try {
+    return JSON.parse(raw) as AgentConfig;
+  } catch {
+    return null;
+  }
 }
 
 export async function saveConfig(config: AgentConfig): Promise<void> {
@@ -1792,33 +2004,40 @@ export async function clearConfig(): Promise<void> {
 
 ```tsx
 // apps/printer-agent/src/screens/SetupScreen.tsx
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ScrollView, Alert,
-} from 'react-native';
-import { saveConfig, AgentConfig } from '../store/config';
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Alert,
+} from "react-native";
+import { saveConfig, AgentConfig } from "../store/config";
 
-interface Props { onComplete: (config: AgentConfig) => void; }
+interface Props {
+  onComplete: (config: AgentConfig) => void;
+}
 
 export default function SetupScreen({ onComplete }: Props) {
-  const [serverUrl, setServerUrl] = useState('https://');
-  const [agentToken, setAgentToken] = useState('');
-  const [printerIp, setPrinterIp] = useState('');
-  const [printerPort, setPrinterPort] = useState('9100');
-  const [stationName, setStationName] = useState('Kitchen');
+  const [serverUrl, setServerUrl] = useState("https://");
+  const [agentToken, setAgentToken] = useState("");
+  const [printerIp, setPrinterIp] = useState("");
+  const [printerPort, setPrinterPort] = useState("9100");
+  const [stationName, setStationName] = useState("Kitchen");
 
   const handleSave = async () => {
     if (!agentToken.trim() || !printerIp.trim()) {
-      Alert.alert('Missing fields', 'Agent token and printer IP are required.');
+      Alert.alert("Missing fields", "Agent token and printer IP are required.");
       return;
     }
     const config: AgentConfig = {
-      serverUrl: serverUrl.replace(/\/$/, ''),
+      serverUrl: serverUrl.replace(/\/$/, ""),
       agentToken: agentToken.trim(),
       printerIp: printerIp.trim(),
       printerPort: parseInt(printerPort, 10) || 9100,
-      stationName: stationName.trim() || 'Kitchen',
+      stationName: stationName.trim() || "Kitchen",
     };
     await saveConfig(config);
     onComplete(config);
@@ -1827,14 +2046,46 @@ export default function SetupScreen({ onComplete }: Props) {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Print Agent Setup</Text>
-      <Text style={styles.subtitle}>Configure once — runs silently in background 24/7</Text>
+      <Text style={styles.subtitle}>
+        Configure once — runs silently in background 24/7
+      </Text>
 
       {[
-        { label: 'Server URL', value: serverUrl, onChange: setServerUrl, placeholder: 'https://your-app.run.app', keyboard: 'url' as const },
-        { label: 'Agent Token (paste from dashboard)', value: agentToken, onChange: setAgentToken, placeholder: 'cuid...', keyboard: 'default' as const },
-        { label: 'Printer IP', value: printerIp, onChange: setPrinterIp, placeholder: '192.168.1.50', keyboard: 'numeric' as const },
-        { label: 'Printer Port', value: printerPort, onChange: setPrinterPort, placeholder: '9100', keyboard: 'numeric' as const },
-        { label: 'Station Name', value: stationName, onChange: setStationName, placeholder: 'Kitchen / Bar', keyboard: 'default' as const },
+        {
+          label: "Server URL",
+          value: serverUrl,
+          onChange: setServerUrl,
+          placeholder: "https://your-app.run.app",
+          keyboard: "url" as const,
+        },
+        {
+          label: "Agent Token (paste from dashboard)",
+          value: agentToken,
+          onChange: setAgentToken,
+          placeholder: "cuid...",
+          keyboard: "default" as const,
+        },
+        {
+          label: "Printer IP",
+          value: printerIp,
+          onChange: setPrinterIp,
+          placeholder: "192.168.1.50",
+          keyboard: "numeric" as const,
+        },
+        {
+          label: "Printer Port",
+          value: printerPort,
+          onChange: setPrinterPort,
+          placeholder: "9100",
+          keyboard: "numeric" as const,
+        },
+        {
+          label: "Station Name",
+          value: stationName,
+          onChange: setStationName,
+          placeholder: "Kitchen / Bar",
+          keyboard: "default" as const,
+        },
       ].map(({ label, value, onChange, placeholder, keyboard }) => (
         <View key={label}>
           <Text style={styles.label}>{label}</Text>
@@ -1858,20 +2109,28 @@ export default function SetupScreen({ onComplete }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 24, backgroundColor: '#0f0f23', minHeight: '100%' },
-  title: { fontSize: 22, fontWeight: '700', color: '#fff', marginBottom: 4 },
-  subtitle: { fontSize: 13, color: '#888', marginBottom: 32 },
-  label: { fontSize: 13, color: '#aaa', marginBottom: 6, marginTop: 16 },
+  container: { padding: 24, backgroundColor: "#0f0f23", minHeight: "100%" },
+  title: { fontSize: 22, fontWeight: "700", color: "#fff", marginBottom: 4 },
+  subtitle: { fontSize: 13, color: "#888", marginBottom: 32 },
+  label: { fontSize: 13, color: "#aaa", marginBottom: 6, marginTop: 16 },
   input: {
-    backgroundColor: '#1e1e3a', color: '#fff', borderRadius: 8,
-    paddingHorizontal: 14, paddingVertical: 12, fontSize: 14,
-    borderWidth: 1, borderColor: '#333',
+    backgroundColor: "#1e1e3a",
+    color: "#fff",
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: "#333",
   },
   button: {
-    backgroundColor: '#6366f1', borderRadius: 8, paddingVertical: 14,
-    alignItems: 'center', marginTop: 32,
+    backgroundColor: "#6366f1",
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 32,
   },
-  buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  buttonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 });
 ```
 
@@ -1887,13 +2146,14 @@ git commit -m "feat(printer-agent): config store + setup screen"
 ### Task 13: TCP Printer Service
 
 **Files:**
+
 - Create: `apps/printer-agent/src/services/printer.service.ts`
 
 - [ ] **Step 1: Write TCP printer service**
 
 ```typescript
 // apps/printer-agent/src/services/printer.service.ts
-import TcpSocket from 'react-native-tcp-socket';
+import TcpSocket from "react-native-tcp-socket";
 
 export async function printTicket(
   ip: string,
@@ -1901,7 +2161,7 @@ export async function printTicket(
   base64Ticket: string,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const bytes = Buffer.from(base64Ticket, 'base64');
+    const bytes = Buffer.from(base64Ticket, "base64");
 
     const client = TcpSocket.createConnection({ host: ip, port }, () => {
       client.write(bytes);
@@ -1911,15 +2171,15 @@ export async function printTicket(
       }, 500);
     });
 
-    client.on('error', (err) => {
+    client.on("error", (err) => {
       client.destroy();
       reject(new Error(`Printer TCP error: ${err.message}`));
     });
 
     client.setTimeout(5000);
-    client.on('timeout', () => {
+    client.on("timeout", () => {
       client.destroy();
-      reject(new Error('Printer connection timeout'));
+      reject(new Error("Printer connection timeout"));
     });
   });
 }
@@ -1937,17 +2197,18 @@ git commit -m "feat(printer-agent): TCP printer service"
 ### Task 14: Socket Service with print:ack
 
 **Files:**
+
 - Create: `apps/printer-agent/src/services/socket.service.ts`
 
 - [ ] **Step 1: Write socket service**
 
 ```typescript
 // apps/printer-agent/src/services/socket.service.ts
-import { io, Socket } from 'socket.io-client';
-import { AgentConfig } from '../store/config';
-import { printTicket } from './printer.service';
+import { io, Socket } from "socket.io-client";
+import { AgentConfig } from "../store/config";
+import { printTicket } from "./printer.service";
 
-export type AgentStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
+export type AgentStatus = "connecting" | "connected" | "disconnected" | "error";
 
 type StatusCallback = (status: AgentStatus, detail?: string) => void;
 type PrintCallback = (jobId: string, success: boolean, error?: string) => void;
@@ -1966,30 +2227,33 @@ export function startSocketAgent(
 
   socket = io(config.serverUrl, {
     auth: { agentToken: config.agentToken },
-    transports: ['websocket'],
+    transports: ["websocket"],
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 2000,
     reconnectionDelayMax: 30_000,
   });
 
-  socket.on('connect', () => onStatus('connected'));
-  socket.on('disconnect', (reason) => onStatus('disconnected', reason));
-  socket.on('connect_error', (err) => onStatus('error', err.message));
+  socket.on("connect", () => onStatus("connected"));
+  socket.on("disconnect", (reason) => onStatus("disconnected", reason));
+  socket.on("connect_error", (err) => onStatus("error", err.message));
 
-  socket.on('print:job', async ({ jobId, ticket }: { jobId: string; ticket: string }) => {
-    try {
-      await printTicket(config.printerIp, config.printerPort, ticket);
-      // Acknowledge success
-      socket?.emit('print:ack', { jobId, success: true });
-      onPrint(jobId, true);
-    } catch (err: any) {
-      const errorMsg = err?.message ?? 'Unknown error';
-      // Acknowledge failure — backend will retry or mark FAILED
-      socket?.emit('print:ack', { jobId, success: false, error: errorMsg });
-      onPrint(jobId, false, errorMsg);
-    }
-  });
+  socket.on(
+    "print:job",
+    async ({ jobId, ticket }: { jobId: string; ticket: string }) => {
+      try {
+        await printTicket(config.printerIp, config.printerPort, ticket);
+        // Acknowledge success
+        socket?.emit("print:ack", { jobId, success: true });
+        onPrint(jobId, true);
+      } catch (err: any) {
+        const errorMsg = err?.message ?? "Unknown error";
+        // Acknowledge failure — backend will retry or mark FAILED
+        socket?.emit("print:ack", { jobId, success: false, error: errorMsg });
+        onPrint(jobId, false, errorMsg);
+      }
+    },
+  );
 }
 
 export function stopSocketAgent(): void {
@@ -2010,6 +2274,7 @@ git commit -m "feat(printer-agent): socket service with print:ack on success/fai
 ### Task 15: Foreground Service + Status Screen + App Entry
 
 **Files:**
+
 - Create: `apps/printer-agent/src/screens/StatusScreen.tsx`
 - Modify: `apps/printer-agent/App.tsx`
 
@@ -2017,34 +2282,51 @@ git commit -m "feat(printer-agent): socket service with print:ack on success/fai
 
 ```tsx
 // apps/printer-agent/src/screens/StatusScreen.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 import {
-  View, Text, TouchableOpacity,
-  StyleSheet, ScrollView, AppState,
-} from 'react-native';
-import VIForegroundService from '@supersami/rn-foreground-service';
-import { startSocketAgent, stopSocketAgent, AgentStatus } from '../services/socket.service';
-import { AgentConfig, clearConfig } from '../store/config';
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  AppState,
+} from "react-native";
+import VIForegroundService from "@supersami/rn-foreground-service";
+import {
+  startSocketAgent,
+  stopSocketAgent,
+  AgentStatus,
+} from "../services/socket.service";
+import { AgentConfig, clearConfig } from "../store/config";
 
-interface Props { config: AgentConfig; onReset: () => void; }
-interface LogEntry { time: string; message: string; ok: boolean; }
+interface Props {
+  config: AgentConfig;
+  onReset: () => void;
+}
+interface LogEntry {
+  time: string;
+  message: string;
+  ok: boolean;
+}
 
 const STATUS_COLOR: Record<AgentStatus, string> = {
-  connected: '#22c55e',
-  connecting: '#6366f1',
-  disconnected: '#f59e0b',
-  error: '#ef4444',
+  connected: "#22c55e",
+  connecting: "#6366f1",
+  disconnected: "#f59e0b",
+  error: "#ef4444",
 };
 
 export default function StatusScreen({ config, onReset }: Props) {
-  const [status, setStatus] = useState<AgentStatus>('connecting');
+  const [status, setStatus] = useState<AgentStatus>("connecting");
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [printCount, setPrintCount] = useState(0);
   const [failCount, setFailCount] = useState(0);
 
   const addLog = (message: string, ok: boolean) => {
-    const time = new Date().toLocaleTimeString('en-GB', {
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    const time = new Date().toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
     });
     setLogs((prev) => [{ time, message, ok }, ...prev].slice(0, 100));
   };
@@ -2053,16 +2335,16 @@ export default function StatusScreen({ config, onReset }: Props) {
     VIForegroundService.getInstance().startService({
       id: 1001,
       title: `Print Agent — ${config.stationName}`,
-      text: 'Listening for orders...',
-      icon: 'ic_notification',
-      importance: 'low',
+      text: "Listening for orders...",
+      icon: "ic_notification",
+      importance: "low",
     });
 
     startSocketAgent(
       config,
       (s, detail) => {
         setStatus(s);
-        addLog(detail ? `${s}: ${detail}` : s, s === 'connected');
+        addLog(detail ? `${s}: ${detail}` : s, s === "connected");
       },
       (jobId, success, error) => {
         if (success) {
@@ -2094,7 +2376,9 @@ export default function StatusScreen({ config, onReset }: Props) {
         <View style={[styles.dot, { backgroundColor: STATUS_COLOR[status] }]} />
       </View>
       <Text style={styles.statusText}>{status}</Text>
-      <Text style={styles.printer}>{config.printerIp}:{config.printerPort}</Text>
+      <Text style={styles.printer}>
+        {config.printerIp}:{config.printerPort}
+      </Text>
 
       <View style={styles.statsRow}>
         <View style={styles.stat}>
@@ -2102,15 +2386,20 @@ export default function StatusScreen({ config, onReset }: Props) {
           <Text style={styles.statLabel}>Printed</Text>
         </View>
         <View style={styles.stat}>
-          <Text style={[styles.statNum, failCount > 0 && styles.red]}>{failCount}</Text>
+          <Text style={[styles.statNum, failCount > 0 && styles.red]}>
+            {failCount}
+          </Text>
           <Text style={styles.statLabel}>Failed</Text>
         </View>
       </View>
 
       <ScrollView style={styles.log}>
         {logs.map((l, i) => (
-          <Text key={i} style={[styles.logLine, { color: l.ok ? '#4ade80' : '#f87171' }]}>
-            {l.time}  {l.message}
+          <Text
+            key={i}
+            style={[styles.logLine, { color: l.ok ? "#4ade80" : "#f87171" }]}
+          >
+            {l.time} {l.message}
           </Text>
         ))}
       </ScrollView>
@@ -2123,21 +2412,36 @@ export default function StatusScreen({ config, onReset }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f0f23', padding: 24 },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontSize: 22, fontWeight: '700', color: '#fff' },
+  container: { flex: 1, backgroundColor: "#0f0f23", padding: 24 },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  title: { fontSize: 22, fontWeight: "700", color: "#fff" },
   dot: { width: 14, height: 14, borderRadius: 7 },
-  statusText: { fontSize: 13, color: '#888', marginTop: 4, textTransform: 'capitalize' },
-  printer: { fontSize: 12, color: '#555', marginTop: 2, marginBottom: 16 },
-  statsRow: { flexDirection: 'row', gap: 24, marginBottom: 16 },
-  stat: { alignItems: 'center' },
-  statNum: { fontSize: 28, fontWeight: '700', color: '#fff' },
-  statLabel: { fontSize: 11, color: '#666' },
-  red: { color: '#ef4444' },
-  log: { flex: 1, backgroundColor: '#0a0a1a', borderRadius: 8, padding: 12, marginBottom: 8 },
-  logLine: { fontSize: 11, fontFamily: 'monospace', marginBottom: 3 },
-  resetBtn: { padding: 12, alignItems: 'center' },
-  resetText: { color: '#ef4444', fontSize: 13 },
+  statusText: {
+    fontSize: 13,
+    color: "#888",
+    marginTop: 4,
+    textTransform: "capitalize",
+  },
+  printer: { fontSize: 12, color: "#555", marginTop: 2, marginBottom: 16 },
+  statsRow: { flexDirection: "row", gap: 24, marginBottom: 16 },
+  stat: { alignItems: "center" },
+  statNum: { fontSize: 28, fontWeight: "700", color: "#fff" },
+  statLabel: { fontSize: 11, color: "#666" },
+  red: { color: "#ef4444" },
+  log: {
+    flex: 1,
+    backgroundColor: "#0a0a1a",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+  },
+  logLine: { fontSize: 11, fontFamily: "monospace", marginBottom: 3 },
+  resetBtn: { padding: 12, alignItems: "center" },
+  resetText: { color: "#ef4444", fontSize: 13 },
 });
 ```
 
@@ -2145,23 +2449,32 @@ const styles = StyleSheet.create({
 
 ```tsx
 // apps/printer-agent/App.tsx
-import React, { useEffect, useState } from 'react';
-import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator } from 'react-native';
-import { AgentConfig, loadConfig } from './src/store/config';
-import SetupScreen from './src/screens/SetupScreen';
-import StatusScreen from './src/screens/StatusScreen';
+import React, { useEffect, useState } from "react";
+import { StatusBar } from "expo-status-bar";
+import { View, ActivityIndicator } from "react-native";
+import { AgentConfig, loadConfig } from "./src/store/config";
+import SetupScreen from "./src/screens/SetupScreen";
+import StatusScreen from "./src/screens/StatusScreen";
 
 export default function App() {
-  const [config, setConfig] = useState<AgentConfig | null | 'loading'>('loading');
+  const [config, setConfig] = useState<AgentConfig | null | "loading">(
+    "loading",
+  );
 
   useEffect(() => {
     loadConfig().then(setConfig);
   }, []);
 
-  if (config === 'loading') {
+  if (config === "loading") {
     return (
-      <View style={{ flex: 1, backgroundColor: '#0f0f23', justifyContent: 'center', alignItems: 'center' }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#0f0f23",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
         <ActivityIndicator color="#6366f1" />
       </View>
     );
@@ -2170,10 +2483,11 @@ export default function App() {
   return (
     <>
       <StatusBar style="light" />
-      {!config
-        ? <SetupScreen onComplete={setConfig} />
-        : <StatusScreen config={config} onReset={() => setConfig(null)} />
-      }
+      {!config ? (
+        <SetupScreen onComplete={setConfig} />
+      ) : (
+        <StatusScreen config={config} onReset={() => setConfig(null)} />
+      )}
     </>
   );
 }
@@ -2215,6 +2529,7 @@ Open APK download URL in browser → Install
 ```
 
 Open the app, enter:
+
 - Server URL: `https://your-cloudrun.app`
 - Agent Token: (paste from dashboard)
 - Printer IP: (local network IP of thermal printer)
@@ -2241,6 +2556,7 @@ git commit -m "feat(printer-agent): EAS build config for APK distribution"
 ## Self-Review
 
 ### Spec Coverage
+
 - ✅ `PrintJob` DB model — PENDING / SENT / PRINTED / FAILED
 - ✅ Job created PENDING before emit — never silently lost
 - ✅ `emitPrintJob` returns `boolean` — true only if room has a live agent socket
@@ -2260,9 +2576,11 @@ git commit -m "feat(printer-agent): EAS build config for APK distribution"
 - ✅ Fire-and-forget routing in OrdersService — print failure never breaks order creation
 
 ### Circular Dependency Note
+
 `PrintStationModule` ↔ `EventsModule` is a known circular dependency. Both module files use `forwardRef(() => ...)` in their imports array. This is documented in Task 7 Step 5. NestJS resolves this at runtime without issue.
 
 ### Known Limitations
+
 - **iOS** — foreground service is Android-only. iOS will eventually kill the app in background. Restaurant should use Android device.
 - **`findByOwner`** must exist on `RestaurantsService`. If not present, add `findByOwner(userId: string)` that returns `this.prisma.restaurant.findFirst({ where: { ownerId: userId } })`.
 - **CORS** — React Native socket clients send no `Origin` header. The existing `!origin` guard in `wsOrigin` already allows this. No change needed.

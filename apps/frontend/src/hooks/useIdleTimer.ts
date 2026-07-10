@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 
 export function useIdleTimer(
   onIdle: () => void,
-  timeoutMs: number = 5 * 60 * 1000
+  timeoutMs: number = 5 * 60 * 1000,
 ) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

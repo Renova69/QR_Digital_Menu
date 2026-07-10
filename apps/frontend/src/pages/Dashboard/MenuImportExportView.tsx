@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useContext } from 'react';
+import { useState, useRef, useCallback, useContext } from "react";
 import {
   Upload,
   Key,
@@ -11,29 +11,29 @@ import {
   Trash2,
   Download,
   Loader2,
-} from 'lucide-react';
-import { readSheet as readXlsxSheet } from 'read-excel-file/browser';
-import { downloadMenuExport } from '../../lib/menuExport';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
-import RestaurantContext from '../../context/RestaurantContext';
+} from "lucide-react";
+import { readSheet as readXlsxSheet } from "read-excel-file/browser";
+import { downloadMenuExport } from "../../lib/menuExport";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import RestaurantContext from "../../context/RestaurantContext";
 import {
   getImportApiKey,
   regenerateImportApiKey,
   confirmMenuImport,
   exportMenu,
-} from '../../lib/api';
+} from "../../lib/api";
 
-type SubTabId = 'import' | 'export';
+type SubTabId = "import" | "export";
 
 const KNOWN_ALLERGENS = [
-  'nuts',
-  'dairy',
-  'soy',
-  'gluten',
-  'peanuts',
-  'shellfish',
-  'egg',
+  "nuts",
+  "dairy",
+  "soy",
+  "gluten",
+  "peanuts",
+  "shellfish",
+  "egg",
 ];
 const MAX_IMPORT_FILE_SIZE = 1 * 1024 * 1024; // 1MB — matches server body-parser limit
 
@@ -49,7 +49,7 @@ function splitTags(tags: string[]) {
 
 function parseCSVLine(line: string): string[] {
   const fields: string[] = [];
-  let field = '';
+  let field = "";
   let inQuotes = false;
   for (let i = 0; i < line.length; i++) {
     const ch = line[i];
@@ -60,9 +60,9 @@ function parseCSVLine(line: string): string[] {
       } else {
         inQuotes = !inQuotes;
       }
-    } else if (ch === ',' && !inQuotes) {
+    } else if (ch === "," && !inQuotes) {
       fields.push(field);
-      field = '';
+      field = "";
     } else {
       field += ch;
     }
@@ -74,13 +74,13 @@ function parseCSVLine(line: string): string[] {
 function parseVariants(str: string) {
   if (!str) return [];
   return str
-    .split(';')
+    .split(";")
     .map((v) => v.trim())
     .filter(Boolean)
     .map((v) => {
-      const parts = v.split(':');
+      const parts = v.split(":");
       return {
-        name: parts[0]?.trim() || '',
+        name: parts[0]?.trim() || "",
         price: parseFloat(parts[1]) || 0,
         weight: parts[2]?.trim() || null,
       };
@@ -89,41 +89,41 @@ function parseVariants(str: string) {
 
 function csvToPayload(text: string): any[] {
   const lines = text
-    .replace(/^﻿/, '')
-    .split('\n')
+    .replace(/^﻿/, "")
+    .split("\n")
     .filter((l) => l.trim());
-  if (lines.length < 2) throw new Error('CSV has no data rows');
+  if (lines.length < 2) throw new Error("CSV has no data rows");
   const headers = parseCSVLine(lines[0]).map((h) =>
-    h.trim().toLowerCase().replace(/"/g, ''),
+    h.trim().toLowerCase().replace(/"/g, ""),
   );
   const catMap = new Map<string, any[]>();
   for (const line of lines.slice(1)) {
     const fields = parseCSVLine(line);
     const row: Record<string, string> = {};
     headers.forEach((h, i) => {
-      row[h] = (fields[i] || '').trim();
+      row[h] = (fields[i] || "").trim();
     });
-    const catName = row['category'];
+    const catName = row["category"];
     if (!catName) continue;
     if (!catMap.has(catName)) catMap.set(catName, []);
-    const rawTags = row['tags']
-      ? row['tags']
-          .split(',')
+    const rawTags = row["tags"]
+      ? row["tags"]
+          .split(",")
           .map((t) => t.trim())
           .filter(Boolean)
       : [];
     const { allergens, dietaryTags } = splitTags(rawTags);
-    const variants = parseVariants(row['variants'] || '');
+    const variants = parseVariants(row["variants"] || "");
     catMap.get(catName)!.push({
-      name: row['item_name'] || '',
-      description: row['description'] || '',
-      price: parseFloat(row['price']) || 0,
-      weight: row['weight'] || null,
-      currency: 'BGN',
+      name: row["item_name"] || "",
+      description: row["description"] || "",
+      price: parseFloat(row["price"]) || 0,
+      weight: row["weight"] || null,
+      currency: "BGN",
       allergens,
       dietaryTags,
       options: variants.length
-        ? [{ name: 'Size / Variant', type: 'VARIATION', choices: variants }]
+        ? [{ name: "Size / Variant", type: "VARIATION", choices: variants }]
         : [],
     });
   }
@@ -152,8 +152,8 @@ function jsonToPayload(text: string): any[] {
           (item.variants?.length
             ? [
                 {
-                  name: 'Size / Variant',
-                  type: 'VARIATION',
+                  name: "Size / Variant",
+                  type: "VARIATION",
                   choices: item.variants.map((v: any) => ({
                     name: v.name,
                     price: v.price,
@@ -164,11 +164,11 @@ function jsonToPayload(text: string): any[] {
             : []);
         return {
           name: item.name,
-          description: item.description || '',
+          description: item.description || "",
           price: item.price ?? 0,
           ...(item.costPrice ? { costPrice: item.costPrice } : {}),
           weight: item.weight || null,
-          currency: obj.currency === 'BGN' ? 'BGN' : 'EUR',
+          currency: obj.currency === "BGN" ? "BGN" : "EUR",
           allergens,
           dietaryTags,
           options,
@@ -204,61 +204,61 @@ function jsonToPayload(text: string): any[] {
 // XLSX export column order: Category, Item Name, Description, Price, Weight, Currency, Tags, Variants
 async function xlsxToPayload(file: File): Promise<any[]> {
   const rows = (await readXlsxSheet(file)) as unknown as any[][];
-  if (rows.length < 2) throw new Error('XLSX has no data rows');
+  if (rows.length < 2) throw new Error("XLSX has no data rows");
 
   const headers = rows[0].map((h: any) =>
-    String(h ?? '')
+    String(h ?? "")
       .trim()
       .toLowerCase()
-      .replace(/\s+/g, '_'),
+      .replace(/\s+/g, "_"),
   );
 
   const col = (name: string) => headers.indexOf(name);
-  const catIdx = col('category');
-  const nameIdx = col('item_name');
-  const descIdx = col('description');
-  const priceIdx = col('price');
-  const weightIdx = col('weight');
-  const currencyIdx = col('currency');
-  const tagsIdx = col('tags');
-  const variantsIdx = col('variants');
+  const catIdx = col("category");
+  const nameIdx = col("item_name");
+  const descIdx = col("description");
+  const priceIdx = col("price");
+  const weightIdx = col("weight");
+  const currencyIdx = col("currency");
+  const tagsIdx = col("tags");
+  const variantsIdx = col("variants");
 
   if (catIdx === -1 || nameIdx === -1)
-    throw new Error('XLSX missing required columns: category, item_name');
+    throw new Error("XLSX missing required columns: category, item_name");
 
   const catMap = new Map<string, any[]>();
   for (const row of rows.slice(1)) {
-    const catName = String(row[catIdx] ?? '').trim();
+    const catName = String(row[catIdx] ?? "").trim();
     if (!catName) continue;
     if (!catMap.has(catName)) catMap.set(catName, []);
 
     const rawTags =
       tagsIdx >= 0 && row[tagsIdx]
         ? String(row[tagsIdx])
-            .split(',')
+            .split(",")
             .map((t: string) => t.trim())
             .filter(Boolean)
         : [];
     const { allergens, dietaryTags } = splitTags(rawTags);
     const variants =
-      variantsIdx >= 0 ? parseVariants(String(row[variantsIdx] ?? '')) : [];
+      variantsIdx >= 0 ? parseVariants(String(row[variantsIdx] ?? "")) : [];
 
     catMap.get(catName)!.push({
-      name: String(row[nameIdx] ?? '').trim(),
-      description: descIdx >= 0 ? String(row[descIdx] ?? '').trim() : '',
+      name: String(row[nameIdx] ?? "").trim(),
+      description: descIdx >= 0 ? String(row[descIdx] ?? "").trim() : "",
       price:
         priceIdx >= 0
-          ? typeof row[priceIdx] === 'number'
+          ? typeof row[priceIdx] === "number"
             ? row[priceIdx]
             : parseFloat(String(row[priceIdx])) || 0
           : 0,
       weight: weightIdx >= 0 && row[weightIdx] ? String(row[weightIdx]) : null,
       currency:
-        currencyIdx >= 0 && row[currencyIdx] ? String(row[currencyIdx]) : 'BGN',
+        currencyIdx >= 0 && row[currencyIdx] ? String(row[currencyIdx]) : "BGN",
       allergens,
       dietaryTags,
       options: variants.length
-        ? [{ name: 'Size / Variant', type: 'VARIATION', choices: variants }]
+        ? [{ name: "Size / Variant", type: "VARIATION", choices: variants }]
         : [],
     });
   }
@@ -281,7 +281,7 @@ function ApiKeyPanel({ restaurantId }: { restaurantId: string }) {
   const [showRegen, setShowRegen] = useState(false);
 
   const { data } = useQuery({
-    queryKey: ['import-api-key', restaurantId],
+    queryKey: ["import-api-key", restaurantId],
     queryFn: () => getImportApiKey(restaurantId),
     enabled: !!restaurantId,
   });
@@ -296,7 +296,7 @@ function ApiKeyPanel({ restaurantId }: { restaurantId: string }) {
       setFullKey(d.apiKey);
       setShowRegen(false);
       queryClient.invalidateQueries({
-        queryKey: ['import-api-key', restaurantId],
+        queryKey: ["import-api-key", restaurantId],
       });
     },
   });
@@ -308,7 +308,7 @@ function ApiKeyPanel({ restaurantId }: { restaurantId: string }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const apiUrl = `${(import.meta as any).env?.VITE_API_URL || 'http://localhost:3000/api'}/restaurants/${restaurantId}/menu/import`;
+  const apiUrl = `${(import.meta as any).env?.VITE_API_URL || "http://localhost:3000/api"}/restaurants/${restaurantId}/menu/import`;
 
   return (
     <div className="glass-panel rounded-2xl p-6 border border-white/10 space-y-5">
@@ -318,12 +318,12 @@ function ApiKeyPanel({ restaurantId }: { restaurantId: string }) {
         </div>
         <div>
           <h3 className="font-black text-sm uppercase tracking-widest text-foreground">
-            {t('importExport.ocrApiKey', 'OCR API Key')}
+            {t("importExport.ocrApiKey", "OCR API Key")}
           </h3>
           <p className="text-xs text-muted-foreground">
             {t(
-              'importExport.ocrApiKeyDesc',
-              'Used by the offline OCR tool to push menus directly',
+              "importExport.ocrApiKeyDesc",
+              "Used by the offline OCR tool to push menus directly",
             )}
           </p>
         </div>
@@ -331,13 +331,18 @@ function ApiKeyPanel({ restaurantId }: { restaurantId: string }) {
 
       <div className="flex items-center gap-2">
         <code className="flex-1 bg-secondary/60 rounded-xl px-4 py-3 text-sm font-mono text-foreground truncate border border-border/40">
-          {oneTimeKey ?? (isConfigured ? '•••••••• ' + t('importExport.keyHidden', 'key hidden') + ' ••••••••' : '—')}
+          {oneTimeKey ??
+            (isConfigured
+              ? "•••••••• " +
+                t("importExport.keyHidden", "key hidden") +
+                " ••••••••"
+              : "—")}
         </code>
         {oneTimeKey && (
           <button
             onClick={copyKey}
             className="p-3 rounded-xl bg-secondary/60 border border-border/40 hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
-            title={t('importExport.copyKey', 'Copy')}
+            title={t("importExport.copyKey", "Copy")}
           >
             {copied ? (
               <Check className="w-4 h-4 text-green-500" />
@@ -351,16 +356,16 @@ function ApiKeyPanel({ restaurantId }: { restaurantId: string }) {
       {oneTimeKey ? (
         <p className="text-xs text-amber-500 font-medium">
           {t(
-            'importExport.saveKeyNow',
-            'Copy this key now — for security it is not stored in readable form and cannot be shown again.',
+            "importExport.saveKeyNow",
+            "Copy this key now — for security it is not stored in readable form and cannot be shown again.",
           )}
         </p>
       ) : (
         isConfigured && (
           <p className="text-xs text-muted-foreground">
             {t(
-              'importExport.keyConfigured',
-              'A key is configured. It cannot be displayed again — regenerate to issue a new one.',
+              "importExport.keyConfigured",
+              "A key is configured. It cannot be displayed again — regenerate to issue a new one.",
             )}
           </p>
         )
@@ -368,7 +373,7 @@ function ApiKeyPanel({ restaurantId }: { restaurantId: string }) {
 
       <details className="group">
         <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors font-semibold uppercase tracking-wider">
-          {t('importExport.curlExample', 'curl example')}
+          {t("importExport.curlExample", "curl example")}
         </summary>
         <pre className="mt-2 bg-secondary/40 rounded-xl p-4 text-[11px] font-mono text-muted-foreground overflow-x-auto whitespace-pre-wrap">
           {`POST ${apiUrl}
@@ -384,8 +389,8 @@ Content-Type: application/json
           <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
           <p className="text-xs text-destructive flex-1">
             {t(
-              'importExport.regenerateWarning',
-              'This will invalidate the current key. The OCR tool will need the new key.',
+              "importExport.regenerateWarning",
+              "This will invalidate the current key. The OCR tool will need the new key.",
             )}
           </p>
           <button
@@ -393,13 +398,13 @@ Content-Type: application/json
             disabled={regenMutation.isPending}
             className="text-xs font-black uppercase tracking-wider px-3 py-2 rounded-lg bg-destructive text-white hover:bg-destructive/80 transition-colors"
           >
-            {regenMutation.isPending ? '...' : t('common.confirm', 'Confirm')}
+            {regenMutation.isPending ? "..." : t("common.confirm", "Confirm")}
           </button>
           <button
             onClick={() => setShowRegen(false)}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            {t('common.cancel', 'Cancel')}
+            {t("common.cancel", "Cancel")}
           </button>
         </div>
       ) : (
@@ -408,7 +413,7 @@ Content-Type: application/json
           className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors font-semibold"
         >
           <RefreshCw className="w-3 h-3" />
-          {t('importExport.regenerateKey', 'Regenerate key')}
+          {t("importExport.regenerateKey", "Regenerate key")}
         </button>
       )}
     </div>
@@ -420,7 +425,7 @@ Content-Type: application/json
 interface ParsedMenu {
   categories: any[];
   filename: string;
-  format: 'json' | 'csv';
+  format: "json" | "csv";
   totalItems: number;
   error?: string;
 }
@@ -436,28 +441,28 @@ function FileImporter({
 
   const processFile = useCallback(
     (file: File) => {
-      const ext = file.name.split('.').pop()?.toLowerCase();
+      const ext = file.name.split(".").pop()?.toLowerCase();
       if (file.size > MAX_IMPORT_FILE_SIZE) {
         onParsed({
           categories: [],
           filename: file.name,
-          format: 'json',
+          format: "json",
           totalItems: 0,
-          error: 'Import files must be 1MB or smaller',
+          error: "Import files must be 1MB or smaller",
         });
         return;
       }
-      if (ext !== 'json' && ext !== 'csv' && ext !== 'xlsx') {
+      if (ext !== "json" && ext !== "csv" && ext !== "xlsx") {
         onParsed({
           categories: [],
           filename: file.name,
-          format: 'json',
+          format: "json",
           totalItems: 0,
-          error: 'Only .json, .csv, and .xlsx files are supported',
+          error: "Only .json, .csv, and .xlsx files are supported",
         });
         return;
       }
-      if (ext === 'xlsx') {
+      if (ext === "xlsx") {
         xlsxToPayload(file)
           .then((categories) => {
             const totalItems = categories.reduce(
@@ -467,7 +472,7 @@ function FileImporter({
             onParsed({
               categories,
               filename: file.name,
-              format: 'json',
+              format: "json",
               totalItems,
             });
           })
@@ -475,7 +480,7 @@ function FileImporter({
             onParsed({
               categories: [],
               filename: file.name,
-              format: 'json',
+              format: "json",
               totalItems: 0,
               error: err.message,
             });
@@ -487,7 +492,7 @@ function FileImporter({
         const text = e.target?.result as string;
         try {
           const categories =
-            ext === 'csv' ? csvToPayload(text) : jsonToPayload(text);
+            ext === "csv" ? csvToPayload(text) : jsonToPayload(text);
           const totalItems = categories.reduce(
             (s: number, c: any) => s + (c.items?.length || 0),
             0,
@@ -495,20 +500,20 @@ function FileImporter({
           onParsed({
             categories,
             filename: file.name,
-            format: ext as 'json' | 'csv',
+            format: ext as "json" | "csv",
             totalItems,
           });
         } catch (err: any) {
           onParsed({
             categories: [],
             filename: file.name,
-            format: ext as 'json' | 'csv',
+            format: ext as "json" | "csv",
             totalItems: 0,
             error: err.message,
           });
         }
       };
-      reader.readAsText(file, 'utf-8');
+      reader.readAsText(file, "utf-8");
     },
     [onParsed],
   );
@@ -534,8 +539,8 @@ function FileImporter({
       onClick={() => inputRef.current?.click()}
       className={`relative rounded-2xl border-2 border-dashed transition-all cursor-pointer p-10 text-center ${
         dragging
-          ? 'border-primary bg-primary/5'
-          : 'border-border/40 hover:border-primary/50 hover:bg-secondary/30'
+          ? "border-primary bg-primary/5"
+          : "border-border/40 hover:border-primary/50 hover:bg-secondary/30"
       }`}
     >
       <input
@@ -550,36 +555,42 @@ function FileImporter({
       />
       <div className="flex flex-col items-center gap-3">
         <Upload
-          className={`w-8 h-8 transition-colors ${dragging ? 'text-primary' : 'text-muted-foreground'}`}
+          className={`w-8 h-8 transition-colors ${dragging ? "text-primary" : "text-muted-foreground"}`}
         />
         <div>
           <p className="font-bold text-sm text-foreground">
             {t(
-              'importExport.dropFileHere',
-              'Drop file here or click to browse',
+              "importExport.dropFileHere",
+              "Drop file here or click to browse",
             )}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            {t('importExport.acceptsFormats', 'Accepts')}{' '}
-            <code className="bg-secondary px-1 rounded">{t('auto.Json', '.json')}</code>{' '}
-            <code className="bg-secondary px-1 rounded">{t('auto.Csv', '.csv')}</code>{' '}
-            <code className="bg-secondary px-1 rounded">{t('auto.Xlsx', '.xlsx')}</code>
+            {t("importExport.acceptsFormats", "Accepts")}{" "}
+            <code className="bg-secondary px-1 rounded">
+              {t("auto.Json", ".json")}
+            </code>{" "}
+            <code className="bg-secondary px-1 rounded">
+              {t("auto.Csv", ".csv")}
+            </code>{" "}
+            <code className="bg-secondary px-1 rounded">
+              {t("auto.Xlsx", ".xlsx")}
+            </code>
           </p>
         </div>
         <div className="flex gap-4 mt-2">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <FileJson className="w-3.5 h-3.5" />
             <span>
-              {t('importExport.fullJsonFormat', 'Full JSON / SaaS push format')}
+              {t("importExport.fullJsonFormat", "Full JSON / SaaS push format")}
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <FileText className="w-3.5 h-3.5" />
-            <span>{t('importExport.csvFlatExport', 'CSV flat export')}</span>
+            <span>{t("importExport.csvFlatExport", "CSV flat export")}</span>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <FileText className="w-3.5 h-3.5 text-green-500" />
-            <span>{t('importExport.xlsxImport', 'XLSX (exported menu)')}</span>
+            <span>{t("importExport.xlsxImport", "XLSX (exported menu)")}</span>
           </div>
         </div>
       </div>
@@ -607,11 +618,11 @@ function PreviewTable({
             {parsed.filename}
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {totalCats}{' '}
+            {totalCats}{" "}
             {totalCats === 1
-              ? t('importExport.category', 'category')
-              : t('importExport.categories', 'categories')}{' '}
-            · {parsed.totalItems} {t('importExport.items', 'items')}
+              ? t("importExport.category", "category")
+              : t("importExport.categories", "categories")}{" "}
+            · {parsed.totalItems} {t("importExport.items", "items")}
           </p>
         </div>
         <button
@@ -619,7 +630,7 @@ function PreviewTable({
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           <Trash2 className="w-3.5 h-3.5" />
-          {t('common.clear', 'Clear')}
+          {t("common.clear", "Clear")}
         </button>
       </div>
 
@@ -628,19 +639,19 @@ function PreviewTable({
           <thead>
             <tr className="bg-secondary/60 border-b border-border/40">
               <th className="text-left px-4 py-3 text-xs font-black uppercase tracking-widest text-muted-foreground">
-                {t('importExport.categoryHeader', 'Category')}
+                {t("importExport.categoryHeader", "Category")}
               </th>
               <th className="text-left px-4 py-3 text-xs font-black uppercase tracking-widest text-muted-foreground">
-                {t('importExport.itemHeader', 'Item')}
+                {t("importExport.itemHeader", "Item")}
               </th>
               <th className="text-left px-4 py-3 text-xs font-black uppercase tracking-widest text-muted-foreground">
-                {t('importExport.priceHeader', 'Price')}
+                {t("importExport.priceHeader", "Price")}
               </th>
               <th className="text-left px-4 py-3 text-xs font-black uppercase tracking-widest text-muted-foreground hidden md:table-cell">
-                {t('importExport.weightHeader', 'Weight')}
+                {t("importExport.weightHeader", "Weight")}
               </th>
               <th className="text-left px-4 py-3 text-xs font-black uppercase tracking-widest text-muted-foreground hidden lg:table-cell">
-                {t('importExport.tagsHeader', 'Tags')}
+                {t("importExport.tagsHeader", "Tags")}
               </th>
             </tr>
           </thead>
@@ -652,20 +663,20 @@ function PreviewTable({
                   className="border-b border-border/20 last:border-0 hover:bg-secondary/20 transition-colors"
                 >
                   <td className="px-4 py-2.5 text-xs text-muted-foreground font-medium">
-                    {i === 0 ? cat.name : ''}
+                    {i === 0 ? cat.name : ""}
                   </td>
                   <td className="px-4 py-2.5 font-medium text-foreground">
                     {item.name}
                   </td>
                   <td
-                    className={`px-4 py-2.5 font-mono text-sm ${!item.price ? 'text-amber-500' : 'text-foreground'}`}
+                    className={`px-4 py-2.5 font-mono text-sm ${!item.price ? "text-amber-500" : "text-foreground"}`}
                   >
                     {item.price
-                      ? `${item.price} ${item.currency || 'BGN'}`
-                      : '—'}
+                      ? `${item.price} ${item.currency || "BGN"}`
+                      : "—"}
                   </td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground hidden md:table-cell">
-                    {item.weight || '—'}
+                    {item.weight || "—"}
                   </td>
                   <td className="px-4 py-2.5 hidden lg:table-cell">
                     <div className="flex flex-wrap gap-1">
@@ -695,8 +706,8 @@ function PreviewTable({
         <p className="flex items-center gap-2 text-xs text-amber-500">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
           {t(
-            'importExport.noPrice',
-            'Items with no price are highlighted in amber. They will import with price 0.',
+            "importExport.noPrice",
+            "Items with no price are highlighted in amber. They will import with price 0.",
           )}
         </p>
       )}
@@ -722,9 +733,9 @@ function ImportTab({ restaurantId }: { restaurantId: string }) {
     onSuccess: (data) => {
       setResult(data);
       setParsed(null);
-      queryClient.invalidateQueries({ queryKey: ['menu'] });
-      queryClient.invalidateQueries({ queryKey: ['categories', restaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ["menu"] });
+      queryClient.invalidateQueries({ queryKey: ["categories", restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["items"] });
     },
   });
 
@@ -740,12 +751,12 @@ function ImportTab({ restaurantId }: { restaurantId: string }) {
           <Check className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
           <div>
             <p className="font-black text-sm text-foreground">
-              {t('importExport.importComplete', 'Import complete')}
+              {t("importExport.importComplete", "Import complete")}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               {t(
-                'importExport.importResult',
-                '{{created}} items created · {{updated}} items updated · {{categories}} new categories',
+                "importExport.importResult",
+                "{{created}} items created · {{updated}} items updated · {{categories}} new categories",
                 {
                   created: result.created,
                   updated: result.updated,
@@ -758,7 +769,7 @@ function ImportTab({ restaurantId }: { restaurantId: string }) {
             onClick={() => setResult(null)}
             className="ml-auto text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            {t('common.dismiss', 'Dismiss')}
+            {t("common.dismiss", "Dismiss")}
           </button>
         </div>
       )}
@@ -772,12 +783,12 @@ function ImportTab({ restaurantId }: { restaurantId: string }) {
           </div>
           <div>
             <h3 className="font-black text-sm uppercase tracking-widest text-foreground">
-              {t('importExport.fileImport', 'File Import')}
+              {t("importExport.fileImport", "File Import")}
             </h3>
             <p className="text-xs text-muted-foreground">
               {t(
-                'importExport.fileImportDesc',
-                'Upload a JSON or CSV export from the OCR tool',
+                "importExport.fileImportDesc",
+                "Upload a JSON or CSV export from the OCR tool",
               )}
             </p>
           </div>
@@ -791,7 +802,7 @@ function ImportTab({ restaurantId }: { restaurantId: string }) {
               onClick={() => setParsed(null)}
               className="ml-auto text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              {t('common.dismiss', 'Dismiss')}
+              {t("common.dismiss", "Dismiss")}
             </button>
           </div>
         ) : parsed ? (
@@ -802,7 +813,7 @@ function ImportTab({ restaurantId }: { restaurantId: string }) {
                 onClick={() => setParsed(null)}
                 className="px-5 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:text-foreground transition-colors"
               >
-                {t('common.cancel', 'Cancel')}
+                {t("common.cancel", "Cancel")}
               </button>
               <button
                 onClick={handleConfirm}
@@ -810,10 +821,10 @@ function ImportTab({ restaurantId }: { restaurantId: string }) {
                 className="px-6 py-2.5 rounded-xl brand-cta text-white text-sm font-black uppercase tracking-widest transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {importMutation.isPending
-                  ? t('importExport.importing', 'Importing…')
+                  ? t("importExport.importing", "Importing…")
                   : t(
-                      'importExport.confirmImport',
-                      'Confirm Import ({{count}} items)',
+                      "importExport.confirmImport",
+                      "Confirm Import ({{count}} items)",
                       { count: parsed.totalItems },
                     )}
               </button>
@@ -821,7 +832,7 @@ function ImportTab({ restaurantId }: { restaurantId: string }) {
             {importMutation.isError && (
               <p className="text-xs text-destructive">
                 {(importMutation.error as any)?.response?.data?.message ||
-                  t('importExport.importFailed', 'Import failed')}
+                  t("importExport.importFailed", "Import failed")}
               </p>
             )}
           </>
@@ -841,7 +852,7 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
   const [copied, setCopied] = useState(false);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['menu-export', restaurantId],
+    queryKey: ["menu-export", restaurantId],
     queryFn: () => exportMenu(restaurantId),
     enabled: false, // fetch only on button click
   });
@@ -849,9 +860,9 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
   const downloadJSON = useCallback(
     (exportData: any) => {
       const json = JSON.stringify(exportData, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
+      const blob = new Blob([json], { type: "application/json" });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = `menu-export-${restaurantId}.json`;
       a.click();
@@ -908,12 +919,12 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
           </div>
           <div>
             <h3 className="font-black text-sm uppercase tracking-widest text-foreground">
-              {t('importExport.exportMenu', 'Export Menu')}
+              {t("importExport.exportMenu", "Export Menu")}
             </h3>
             <p className="text-xs text-muted-foreground">
               {t(
-                'importExport.exportMenuDesc',
-                'Download your full menu as JSON or CSV for backup, cross-location cloning, or offline editing.',
+                "importExport.exportMenuDesc",
+                "Download your full menu as JSON or CSV for backup, cross-location cloning, or offline editing.",
               )}
             </p>
           </div>
@@ -930,7 +941,7 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
             ) : (
               <FileJson className="w-4 h-4" />
             )}
-            {t('importExport.downloadJson', 'Download JSON')}
+            {t("importExport.downloadJson", "Download JSON")}
           </button>
           <button
             onClick={handleExportXLSX}
@@ -942,7 +953,7 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
             ) : (
               <FileText className="w-4 h-4" />
             )}
-            {t('importExport.downloadXlsx', 'Download XLSX')}
+            {t("importExport.downloadXlsx", "Download XLSX")}
           </button>
           <button
             onClick={handleCopyJSON}
@@ -955,8 +966,8 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
               <Copy className="w-4 h-4" />
             )}
             {copied
-              ? t('common.copied', 'Copied')
-              : t('importExport.copyJson', 'Copy JSON')}
+              ? t("common.copied", "Copied")
+              : t("importExport.copyJson", "Copy JSON")}
           </button>
         </div>
 
@@ -965,19 +976,19 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-secondary/40 text-xs text-muted-foreground">
             <Check className="w-3.5 h-3.5 text-green-500" />
             {t(
-              'importExport.menuReady',
-              'Menu ready: {{catCount}} {{catLabel}} · {{itemCount}} {{itemLabel}}',
+              "importExport.menuReady",
+              "Menu ready: {{catCount}} {{catLabel}} · {{itemCount}} {{itemLabel}}",
               {
                 catCount,
                 catLabel:
                   catCount === 1
-                    ? t('importExport.category', 'category')
-                    : t('importExport.categories', 'categories'),
+                    ? t("importExport.category", "category")
+                    : t("importExport.categories", "categories"),
                 itemCount,
                 itemLabel:
                   itemCount === 1
-                    ? t('importExport.item', 'item')
-                    : t('importExport.items', 'items'),
+                    ? t("importExport.item", "item")
+                    : t("importExport.items", "items"),
               },
             )}
           </div>
@@ -988,7 +999,7 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
             <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
             <p className="text-sm text-destructive">
               {(error as any)?.response?.data?.message ||
-                t('importExport.fetchFailed', 'Failed to fetch menu data')}
+                t("importExport.fetchFailed", "Failed to fetch menu data")}
             </p>
           </div>
         )}
@@ -997,20 +1008,20 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
       {/* Format info */}
       <div className="glass-panel rounded-2xl p-6 border border-white/10 space-y-4">
         <h4 className="font-black text-xs uppercase tracking-widest text-muted-foreground">
-          {t('importExport.exportFormat', 'Export Format')}
+          {t("importExport.exportFormat", "Export Format")}
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="rounded-xl bg-secondary/40 p-4 space-y-2">
             <div className="flex items-center gap-2">
               <FileJson className="w-4 h-4 text-primary" />
               <span className="font-bold text-xs text-foreground">
-                {t('importExport.jsonFormat', 'JSON (round-trip safe)')}
+                {t("importExport.jsonFormat", "JSON (round-trip safe)")}
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
               {t(
-                'importExport.jsonFormatDesc',
-                'Full export with all metadata: translations, options, images, availability. Safe to re-import via the Import tab or OCR tool.',
+                "importExport.jsonFormatDesc",
+                "Full export with all metadata: translations, options, images, availability. Safe to re-import via the Import tab or OCR tool.",
               )}
             </p>
           </div>
@@ -1018,13 +1029,13 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-primary" />
               <span className="font-bold text-xs text-foreground">
-                {t('importExport.xlsxFormat', 'XLSX (styled spreadsheet)')}
+                {t("importExport.xlsxFormat", "XLSX (styled spreadsheet)")}
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
               {t(
-                'importExport.xlsxFormatDesc',
-                'Excel spreadsheet with styled headers, proper column widths, and correct encoding for all languages including Cyrillic.',
+                "importExport.xlsxFormatDesc",
+                "Excel spreadsheet with styled headers, proper column widths, and correct encoding for all languages including Cyrillic.",
               )}
             </p>
           </div>
@@ -1039,7 +1050,7 @@ function ExportTab({ restaurantId }: { restaurantId: string }) {
 export default function MenuImportExportView() {
   const { activeRestaurant }: any = useContext(RestaurantContext);
   const { t } = useTranslation();
-  const [activeSubTab, setActiveSubTab] = useState<SubTabId>('import');
+  const [activeSubTab, setActiveSubTab] = useState<SubTabId>("import");
 
   if (!activeRestaurant) return null;
 
@@ -1047,12 +1058,12 @@ export default function MenuImportExportView() {
     <div className="space-y-8 max-w-4xl mx-auto">
       <div>
         <h2 className="text-2xl font-display font-black text-foreground">
-          {t('importExport.title', 'Import & Export')}
+          {t("importExport.title", "Import & Export")}
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
           {t(
-            'importExport.description',
-            'Import menus digitized by the offline OCR tool, or export your menu for backup and cross-location cloning.',
+            "importExport.description",
+            "Import menus digitized by the offline OCR tool, or export your menu for backup and cross-location cloning.",
           )}
         </p>
       </div>
@@ -1061,13 +1072,13 @@ export default function MenuImportExportView() {
       <div className="flex gap-1 border-b border-border/40 pb-1">
         {[
           {
-            id: 'import' as SubTabId,
-            label: t('importExport.import', 'Import'),
+            id: "import" as SubTabId,
+            label: t("importExport.import", "Import"),
             icon: Upload,
           },
           {
-            id: 'export' as SubTabId,
-            label: t('importExport.export', 'Export'),
+            id: "export" as SubTabId,
+            label: t("importExport.export", "Export"),
             icon: Download,
           },
         ].map(({ id, label, icon: Icon }) => {
@@ -1078,8 +1089,8 @@ export default function MenuImportExportView() {
               onClick={() => setActiveSubTab(id)}
               className={`${
                 isActive
-                  ? 'bg-foreground text-background shadow-lg'
-                  : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground'
+                  ? "bg-foreground text-background shadow-lg"
+                  : "text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
               }
                 px-5 py-3 rounded-xl font-bold text-[11px] uppercase tracking-[0.12em] transition-all flex items-center gap-2 active:scale-95`}
               role="tab"
@@ -1094,10 +1105,10 @@ export default function MenuImportExportView() {
 
       {/* Sub-tab content */}
       <div>
-        {activeSubTab === 'import' && (
+        {activeSubTab === "import" && (
           <ImportTab restaurantId={activeRestaurant.id} />
         )}
-        {activeSubTab === 'export' && (
+        {activeSubTab === "export" && (
           <ExportTab restaurantId={activeRestaurant.id} />
         )}
       </div>

@@ -420,7 +420,7 @@ export class SuperAdminService {
     }
 
     const paymentStats = await this.prisma.payment.aggregate({
-      where: { restaurantId: id },
+      where: { restaurantId: id, status: 'SUCCEEDED' },
       _sum: { amount: true },
       _count: true,
     });
@@ -737,10 +737,12 @@ export class SuperAdminService {
 
     await this.prisma.$transaction([
       this.prisma.order.updateMany({
-        where: {
-          OR: [{ staffUserId: staffId }, { customerId: staffId }],
-        },
-        data: { staffUserId: null, customerId: null },
+        where: { staffUserId: staffId },
+        data: { staffUserId: null },
+      }),
+      this.prisma.order.updateMany({
+        where: { customerId: staffId },
+        data: { customerId: null },
       }),
       this.prisma.user.delete({ where: { id: staffId } }),
       this.prisma.adminAuditLog.create({

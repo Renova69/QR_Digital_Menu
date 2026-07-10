@@ -22,11 +22,13 @@ You audit Prisma migration SQL for safety issues before they reach production. T
 ## Where to look
 
 Latest pending migration:
+
 ```bash
 ls -t apps/backend/prisma/migrations/*/migration.sql | head -1
 ```
 
 Or review a specific migration:
+
 ```bash
 cat apps/backend/prisma/migrations/<timestamp>_<name>/migration.sql
 ```

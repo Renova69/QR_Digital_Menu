@@ -1,4 +1,5 @@
 import { StorageService } from './storage.service';
+import { ConfigService } from '@nestjs/config';
 
 const mockSharpChain = {
   rotate: jest.fn().mockReturnThis(),
@@ -43,7 +44,7 @@ describe('StorageService', () => {
     mockSharpChain.toBuffer.mockResolvedValue(Buffer.from('img-data'));
     mockSharpChain.metadata.mockResolvedValue({ width: 800, height: 600 });
     mockS3Send.mockResolvedValue({});
-    service = new StorageService(mockConfigService as any);
+    service = new StorageService(mockConfigService as unknown as ConfigService);
   });
 
   describe('upload', () => {

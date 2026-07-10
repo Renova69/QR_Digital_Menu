@@ -229,7 +229,9 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @IsOptional()
   @IsString()
   @MaxLength(32)
-  @Matches(/^[A-Za-z0-9]+$/, { message: 'epayClientId must contain only letters and numbers' })
+  @Matches(/^[A-Za-z0-9]+$/, {
+    message: 'epayClientId must contain only letters and numbers',
+  })
   epayClientId?: string | null;
 
   @IsOptional()
@@ -258,7 +260,9 @@ export class UpdateRestaurantDto extends PartialType(CreateRestaurantDto) {
   @IsOptional()
   @IsString()
   @MaxLength(20)
-  @Matches(/^[A-Za-z0-9]+$/, { message: 'boricaTerminalId must contain only letters and numbers' })
+  @Matches(/^[A-Za-z0-9]+$/, {
+    message: 'boricaTerminalId must contain only letters and numbers',
+  })
   boricaTerminalId?: string | null;
 
   @IsOptional()

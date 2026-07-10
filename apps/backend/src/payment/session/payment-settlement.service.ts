@@ -93,9 +93,14 @@ export class PaymentSettlementService {
         orderBy: { createdAt: 'desc' },
       });
 
-      await this.core.assertNoPendingBillScopeConflict(tx, session.id, billScope, {
-        ignoreCashRequestIds: existing ? [existing.id] : [],
-      });
+      await this.core.assertNoPendingBillScopeConflict(
+        tx,
+        session.id,
+        billScope,
+        {
+          ignoreCashRequestIds: existing ? [existing.id] : [],
+        },
+      );
 
       if (existing) {
         const request = await tx.cashPaymentRequest.update({
@@ -165,7 +170,9 @@ export class PaymentSettlementService {
       take: 100,
     });
 
-    return requests.map((request) => this.core.formatCashPaymentRequest(request));
+    return requests.map((request) =>
+      this.core.formatCashPaymentRequest(request),
+    );
   }
 
   async confirmCashPaymentRequest(
@@ -184,7 +191,10 @@ export class PaymentSettlementService {
     });
     if (!existing)
       throw new NotFoundException('Cash payment request not found');
-    await this.core.verifyCashPaymentOperatorAccess(existing.restaurantId, userId);
+    await this.core.verifyCashPaymentOperatorAccess(
+      existing.restaurantId,
+      userId,
+    );
     if (existing.status !== CashPaymentRequestStatus.PENDING) {
       throw new ConflictException('Cash payment request is already handled');
     }
@@ -228,9 +238,15 @@ export class PaymentSettlementService {
       let chargeSubtotal: number;
       let checkoutScope: CheckoutScope | null = null;
       if (request.scope === CashPaymentRequestScope.ORDER_ITEMS) {
-        const charge = await this.core.resolveCheckoutCharge(tx, session, 0, 0, {
-          orderIds: request.orderIds,
-        });
+        const charge = await this.core.resolveCheckoutCharge(
+          tx,
+          session,
+          0,
+          0,
+          {
+            orderIds: request.orderIds,
+          },
+        );
         chargeSubtotal = charge.subtotal;
         checkoutScope = charge.checkoutScope;
       } else {
@@ -284,7 +300,10 @@ export class PaymentSettlementService {
         });
       }
 
-      const balanceAfter = await this.core.computeSessionBalance(tx, session.id);
+      const balanceAfter = await this.core.computeSessionBalance(
+        tx,
+        session.id,
+      );
       let sessionPaid = false;
       if (balanceAfter.remaining <= 0.01) {
         const flip = await tx.tableSession.updateMany({
@@ -365,7 +384,10 @@ export class PaymentSettlementService {
     });
     if (!existing)
       throw new NotFoundException('Cash payment request not found');
-    await this.core.verifyCashPaymentOperatorAccess(existing.restaurantId, userId);
+    await this.core.verifyCashPaymentOperatorAccess(
+      existing.restaurantId,
+      userId,
+    );
     if (existing.status !== CashPaymentRequestStatus.PENDING) {
       throw new ConflictException('Cash payment request is already handled');
     }
@@ -379,7 +401,10 @@ export class PaymentSettlementService {
       },
       include: { table: { select: { name: true } } },
     });
-    this.core.emitCashPaymentRequestEvent('cashPaymentRequest:updated', request);
+    this.core.emitCashPaymentRequestEvent(
+      'cashPaymentRequest:updated',
+      request,
+    );
     return this.core.formatCashPaymentRequest(request);
   }
 
@@ -491,7 +516,9 @@ export class PaymentSettlementService {
         throw new BadRequestException('Nothing left to settle');
       }
 
-      const tipAmount = this.core.roundMoney((chargeSubtotal * tipPercent) / 100);
+      const tipAmount = this.core.roundMoney(
+        (chargeSubtotal * tipPercent) / 100,
+      );
       const total = this.core.roundMoney(chargeSubtotal + tipAmount);
 
       const payment = await tx.payment.create({
@@ -534,7 +561,9 @@ export class PaymentSettlementService {
         });
       }
 
-      const newRemaining = this.core.roundMoney(balance.remaining - chargeSubtotal);
+      const newRemaining = this.core.roundMoney(
+        balance.remaining - chargeSubtotal,
+      );
       let sessionPaid = false;
       if (newRemaining <= 0.01) {
         const flip = await tx.tableSession.updateMany({

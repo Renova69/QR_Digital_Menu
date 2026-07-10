@@ -119,7 +119,10 @@ describe('HelpContentService', () => {
     it('should delete a help content item', async () => {
       mockPrisma.helpContent.delete.mockResolvedValue({ id: '1' });
 
-      mockPrisma.helpContent.findUnique.mockResolvedValue({ section: 'landing', locale: 'en' });
+      mockPrisma.helpContent.findUnique.mockResolvedValue({
+        section: 'landing',
+        locale: 'en',
+      });
       const result = await service.delete('1', ACTOR);
 
       expect(result).toEqual({ deleted: true });
@@ -133,10 +136,13 @@ describe('HelpContentService', () => {
         sortOrder: 0,
       });
 
-      await service.reorder([
-        { id: '1', sortOrder: 0 },
-        { id: '2', sortOrder: 1 },
-      ], ACTOR);
+      await service.reorder(
+        [
+          { id: '1', sortOrder: 0 },
+          { id: '2', sortOrder: 1 },
+        ],
+        ACTOR,
+      );
 
       expect(mockPrisma.helpContent.update).toHaveBeenCalledTimes(2);
     });

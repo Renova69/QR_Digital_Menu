@@ -1,5 +1,5 @@
-import { Rocket } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { Rocket } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   restaurantName: string;
@@ -10,10 +10,10 @@ export default function FinishStep({ restaurantName, onDone }: Props) {
   const { t } = useTranslation();
 
   const tips = [
-    t('onboarding.finish.tipCategories'),
-    t('onboarding.finish.tipQrCodes'),
-    t('onboarding.finish.tipStaff'),
-    t('onboarding.finish.tipBranding'),
+    t("onboarding.finish.tipCategories"),
+    t("onboarding.finish.tipQrCodes"),
+    t("onboarding.finish.tipStaff"),
+    t("onboarding.finish.tipBranding"),
   ];
 
   return (
@@ -22,13 +22,15 @@ export default function FinishStep({ restaurantName, onDone }: Props) {
         <Rocket className="w-10 h-10 text-primary" />
       </div>
       <div className="space-y-2">
-        <h2 className="text-3xl font-display font-bold text-foreground">{t('onboarding.finish.title')}</h2>
+        <h2 className="text-3xl font-display font-bold text-foreground">
+          {t("onboarding.finish.title")}
+        </h2>
         <p className="text-muted-foreground">
-          {t('onboarding.finish.subtitle', { restaurantName })}
+          {t("onboarding.finish.subtitle", { restaurantName })}
         </p>
       </div>
       <div className="space-y-2 text-sm text-muted-foreground">
-        <p>{t('onboarding.finish.nextSteps')}</p>
+        <p>{t("onboarding.finish.nextSteps")}</p>
         <ul className="space-y-1 text-left list-none">
           {tips.map((tip) => (
             <li key={tip} className="flex items-center gap-2">
@@ -42,7 +44,7 @@ export default function FinishStep({ restaurantName, onDone }: Props) {
         onClick={onDone}
         className="mt-4 px-8 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-all shadow-lg hover:shadow-primary/30"
       >
-        {t('onboarding.finish.cta')}
+        {t("onboarding.finish.cta")}
       </button>
     </div>
   );

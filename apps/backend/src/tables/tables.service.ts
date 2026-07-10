@@ -365,16 +365,7 @@ export class TablesService {
       items: order.items.map((oi: any) => ({
         name: oi.menuItem?.name ?? 'Unknown item',
         quantity: oi.quantity,
-        totalPrice:
-          ((oi.menuItem?.price ?? 0) +
-            (Array.isArray(oi.selectedOptions)
-              ? (oi.selectedOptions as any[]).reduce(
-                  (sum: number, option: any) =>
-                    sum + Number(option?.priceModifier ?? 0),
-                  0,
-                )
-              : 0)) *
-          oi.quantity,
+        totalPrice: Number(oi.unitPriceWithOptions ?? 0) * oi.quantity,
         options: Array.isArray(oi.selectedOptions)
           ? (oi.selectedOptions as any[])
               .map((option: any) => option?.choiceName)
@@ -397,6 +388,14 @@ export class TablesService {
       table.restaurantId,
       userId,
     );
+    const activeSession = await this.prisma.tableSession.findFirst({
+      where: { tableId: id, status: { in: ['OPEN', 'PAID'] } },
+    });
+    if (activeSession) {
+      throw new ConflictException(
+        'Cannot delete a table with an active session',
+      );
+    }
     const deleted = await this.prisma.restaurantTable.delete({
       where: { id },
     });
