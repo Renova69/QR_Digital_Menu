@@ -781,6 +781,28 @@ describe('MenuCrudService', () => {
         expect(result).toHaveLength(2);
         expect((result[0] as { id: string }).id).toBe('item-2');
       });
+
+      it('boosts rank of MORNING tagged item in AUTO mode during morning hours', async () => {
+        jest.setSystemTime(new Date('2023-10-10T09:00:00Z')); // A Tuesday at 09:00 AM UTC
+        mockPrisma.restaurant.findUnique.mockResolvedValue({ trendingMode: 'AUTO', id: 'rest-1', tier: 'PROFESSIONAL', timezone: 'UTC' });
+        
+        mockPrisma.orderItem.groupBy.mockResolvedValue([
+          { menuItemId: 'item-1', _sum: { quantity: 10 } },
+          { menuItemId: 'item-2', _sum: { quantity: 5 } },
+        ]);
+        
+        mockPrisma.menuItem.findMany.mockResolvedValue([
+          { ...makeItem(), id: 'item-1', tags: [] },
+          { ...makeItem(), id: 'item-2', tags: ['MORNING'] },
+        ]);
+
+        const result = await service.getTrendingItems('rest-1');
+        
+        // item-2 should be boosted and rank above item-1 despite lower order quantity
+        expect(result).toHaveLength(2);
+        expect((result[0] as { id: string }).id).toBe('item-2');
+        expect((result[1] as { id: string }).id).toBe('item-1');
+      });
     });
 
     it('returns [] in AUTO mode when no orders exist', async () => {
