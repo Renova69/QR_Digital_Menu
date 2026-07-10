@@ -1,0 +1,3 @@
+[submodule "PRINT EMULATOR/escpresso"]
+	path = PRINT EMULATOR/escpresso
+	url = https://github.com/jflaflamme/escpresso.git
