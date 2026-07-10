@@ -9,6 +9,11 @@ import {
   useRef,
 } from "react";
 import type { MenuTranslationMap } from "../types";
+import type {
+  FulfillmentMode,
+  ServicePointPaymentMethod,
+  ServicePointType,
+} from "../lib/api";
 
 export interface SelectedOption {
   optionId: string;
@@ -28,6 +33,14 @@ export interface CartItem {
   selectedOptions: SelectedOption[];
   itemTranslations?: MenuTranslationMap | null;
   rewardPointsPrice?: number;
+}
+
+export interface OrderLocation {
+  type: ServicePointType;
+  label: string;
+  token?: string | null;
+  fulfillmentModes: FulfillmentMode[];
+  paymentMethods: ServicePointPaymentMethod[];
 }
 
 // M-FE-3: localStorage cart is user-editable/corruptible outside the app —
@@ -87,6 +100,37 @@ function loadCartFromStorage(): CartItem[] {
   }
 }
 
+function isValidOrderLocation(value: unknown): value is OrderLocation {
+  if (!value || typeof value !== "object") return false;
+  const location = value as Record<string, unknown>;
+  return (
+    typeof location.type === "string" &&
+    typeof location.label === "string" &&
+    location.label.length > 0 &&
+    (location.token === undefined ||
+      location.token === null ||
+      typeof location.token === "string") &&
+    Array.isArray(location.fulfillmentModes) &&
+    location.fulfillmentModes.every((mode) => typeof mode === "string") &&
+    Array.isArray(location.paymentMethods) &&
+    location.paymentMethods.every((method) => typeof method === "string")
+  );
+}
+
+function loadOrderLocationFromStorage(): OrderLocation | null {
+  try {
+    const saved = localStorage.getItem("orderLocation");
+    if (!saved) return null;
+    const parsed = JSON.parse(saved);
+    if (isValidOrderLocation(parsed)) return parsed;
+    localStorage.removeItem("orderLocation");
+    return null;
+  } catch {
+    localStorage.removeItem("orderLocation");
+    return null;
+  }
+}
+
 // Define what the CartContext provides
 interface CartContextType {
   items: CartItem[];
@@ -101,7 +145,9 @@ interface CartContextType {
   getItemCount: () => number;
   getTotal: (excludeCartIds?: Set<string>) => number;
   tableNumber: string | null;
-  setTableNumber: (table: string) => void;
+  setTableNumber: (table: string | null) => void;
+  orderLocation: OrderLocation | null;
+  setOrderLocation: (location: OrderLocation | null) => void;
   pruneInvalidItems: (validItemIds: string[]) => number;
 }
 
@@ -123,6 +169,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [tableNumber, setTableNumberState] = useState<string | null>(() => {
     return localStorage.getItem("tableNumber") || null;
   });
+  const [orderLocation, setOrderLocationState] = useState<OrderLocation | null>(
+    loadOrderLocationFromStorage,
+  );
 
   // Debounce cart persistence — rapid add/remove coalesces into one write
   const cartSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -156,6 +205,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem("tableNumber");
     }
   }, [tableNumber]);
+
+  useEffect(() => {
+    if (orderLocation) {
+      localStorage.setItem("orderLocation", JSON.stringify(orderLocation));
+    } else {
+      localStorage.removeItem("orderLocation");
+    }
+  }, [orderLocation]);
 
   // Add an item to the cart (or increase quantity if already exists)
   const addItem = useCallback((item: CartItem) => {
@@ -223,8 +280,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   // Set the table number
-  const setTableNumber = useCallback((table: string) => {
+  const setTableNumber = useCallback((table: string | null) => {
     setTableNumberState(table);
+  }, []);
+
+  const setOrderLocation = useCallback((location: OrderLocation | null) => {
+    setOrderLocationState(location);
   }, []);
 
   // Remove stale cart entries that no longer exist in the current menu dataset
@@ -253,6 +314,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       getTotal,
       tableNumber,
       setTableNumber,
+      orderLocation,
+      setOrderLocation,
       pruneInvalidItems,
     }),
     [
@@ -265,6 +328,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       getTotal,
       tableNumber,
       setTableNumber,
+      orderLocation,
+      setOrderLocation,
       pruneInvalidItems,
     ],
   );

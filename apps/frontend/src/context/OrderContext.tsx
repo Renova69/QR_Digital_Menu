@@ -40,6 +40,10 @@ interface Order {
   customerPhone?: string;
   tableId: string;
   tableName?: string | null;
+  servicePointType?: string | null;
+  servicePointLabel?: string | null;
+  fulfillmentType?: string | null;
+  paymentPreference?: string | null;
   status: OrderStatus;
   items: Array<{
     id: string;

@@ -7,11 +7,22 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
 import { CreateTableDto } from './dto/create-table.dto';
 import { UpdateTableDto } from './dto/update-table.dto';
 import { assertRestaurantActive } from '../restaurants/assert-restaurant-active';
+import {
+  DEFAULT_FULFILLMENT_MODES,
+  DEFAULT_PAYMENT_METHODS,
+  FULFILLMENT_MODES,
+  PAYMENT_METHODS,
+  SERVICE_POINT_TYPES,
+  type FulfillmentMode,
+  type ServicePointPaymentMethod,
+  type ServicePointType,
+} from './service-point.constants';
 
 const PAID_SESSION_AUTO_CLOSE_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -57,6 +68,7 @@ export class TablesService {
     userId: string,
   ) {
     const normalizedName = createTableDto.name.trim().replace(/\s+/g, ' ');
+    const type = this.normalizeServicePointType(createTableDto.type);
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
     });
@@ -74,11 +86,15 @@ export class TablesService {
       select: { id: true },
     });
     if (existingTable) {
-      throw new ConflictException(`Table "${normalizedName}" already exists`);
+      throw new ConflictException(
+        `${type === 'TABLE' ? 'Table' : 'Service point'} "${normalizedName}" already exists`,
+      );
     }
 
     let zoneId = createTableDto.zoneId ?? null;
-    if (!zoneId) {
+    if (type !== 'TABLE') {
+      zoneId = null;
+    } else if (!zoneId) {
       const defaultZone = await this.prisma.tableZone.findFirst({
         where: { restaurantId },
         orderBy: { displayOrder: 'asc' },
@@ -91,6 +107,17 @@ export class TablesService {
         name: normalizedName,
         restaurantId,
         zoneId,
+        type,
+        publicToken: type === 'TABLE' ? null : this.createPublicToken(),
+        isActive: createTableDto.isActive ?? true,
+        fulfillmentModes: this.normalizeFulfillmentModes(
+          type,
+          createTableDto.fulfillmentModes,
+        ),
+        paymentMethods: this.normalizePaymentMethods(
+          type,
+          createTableDto.paymentMethods,
+        ),
       },
     });
     this.events.emitToRestaurant(restaurantId, 'table:created', {
@@ -134,6 +161,9 @@ export class TablesService {
             name: `Table ${maxN + i + 1}`,
             restaurantId,
             zoneId: defaultZone?.id ?? null,
+            type: 'TABLE',
+            fulfillmentModes: DEFAULT_FULFILLMENT_MODES.TABLE,
+            paymentMethods: DEFAULT_PAYMENT_METHODS.TABLE,
           },
         }),
       ),
@@ -159,6 +189,9 @@ export class TablesService {
     );
 
     if (dto.zoneId !== undefined) {
+      if (table.type !== 'TABLE' && dto.zoneId) {
+        throw new BadRequestException('Only tables can be assigned to zones');
+      }
       if (dto.zoneId !== null) {
         const zone = await this.prisma.tableZone.findUnique({
           where: { id: dto.zoneId },
@@ -182,9 +215,26 @@ export class TablesService {
       dto.name = normalizedName;
     }
 
+    const data = { ...dto };
+    if (table.type !== 'TABLE') {
+      data.zoneId = null;
+    }
+    if (dto.fulfillmentModes !== undefined) {
+      data.fulfillmentModes = this.normalizeFulfillmentModes(
+        table.type as ServicePointType,
+        dto.fulfillmentModes,
+      );
+    }
+    if (dto.paymentMethods !== undefined) {
+      data.paymentMethods = this.normalizePaymentMethods(
+        table.type as ServicePointType,
+        dto.paymentMethods,
+      );
+    }
+
     const updated = await this.prisma.restaurantTable.update({
       where: { id },
-      data: dto,
+      data,
     });
     this.events.emitToRestaurant(table.restaurantId, 'table:updated', {
       tableId: id,
@@ -197,9 +247,59 @@ export class TablesService {
 
   async findAll(restaurantId: string) {
     return this.prisma.restaurantTable.findMany({
-      where: { restaurantId },
+      where: { restaurantId, type: 'TABLE' },
       orderBy: { name: 'asc' },
       include: { zone: { select: { id: true, name: true, zoneKey: true } } },
+    });
+  }
+
+  async findServicePoints(restaurantId: string) {
+    return this.prisma.restaurantTable.findMany({
+      where: { restaurantId, type: { not: 'TABLE' } },
+      orderBy: [{ type: 'asc' }, { name: 'asc' }],
+      include: { zone: { select: { id: true, name: true, zoneKey: true } } },
+    });
+  }
+
+  async resolvePublicServicePoint(restaurantId: string, publicToken: string) {
+    const servicePoint = await this.prisma.restaurantTable.findFirst({
+      where: {
+        restaurantId,
+        publicToken,
+        isActive: true,
+        type: { not: 'TABLE' },
+      },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        publicToken: true,
+        fulfillmentModes: true,
+        paymentMethods: true,
+      },
+    });
+    if (!servicePoint) throw new NotFoundException('Service point not found');
+    return servicePoint;
+  }
+
+  async rotatePublicToken(id: string, userId: string) {
+    const table = await this.prisma.restaurantTable.findUnique({
+      where: { id },
+      include: { restaurant: true },
+    });
+    if (!table) throw new NotFoundException('Service point not found');
+    assertRestaurantActive(table.restaurant);
+    await this.assertOwnerOrManager(
+      table.restaurant.ownerId,
+      table.restaurantId,
+      userId,
+    );
+    if (table.type === 'TABLE') {
+      throw new BadRequestException('Table QR links use the table name');
+    }
+    return this.prisma.restaurantTable.update({
+      where: { id },
+      data: { publicToken: this.createPublicToken() },
     });
   }
 
@@ -241,7 +341,7 @@ export class TablesService {
 
   async getTablesWithStatus(restaurantId: string, zoneId?: string, user?: any) {
     await this.verifyRestaurantAccess(restaurantId, user);
-    const tableWhere: any = { restaurantId };
+    const tableWhere: any = { restaurantId, type: 'TABLE' };
     if (zoneId) {
       tableWhere.zoneId = zoneId;
     }
@@ -415,5 +515,50 @@ export class TablesService {
     });
     this.events.emitZoneChanged(deleted.restaurantId);
     return deleted;
+  }
+
+  private createPublicToken() {
+    return randomBytes(18).toString('base64url');
+  }
+
+  private normalizeServicePointType(type?: string): ServicePointType {
+    const normalized = (type ?? 'TABLE').toUpperCase();
+    if (!SERVICE_POINT_TYPES.includes(normalized as ServicePointType)) {
+      throw new BadRequestException('Invalid service point type');
+    }
+    return normalized as ServicePointType;
+  }
+
+  private normalizeFulfillmentModes(
+    type: ServicePointType,
+    modes?: string[],
+  ): FulfillmentMode[] {
+    if (!modes || modes.length === 0) return DEFAULT_FULFILLMENT_MODES[type];
+    const uniqueModes = [...new Set(modes)];
+    if (
+      uniqueModes.some(
+        (mode) => !FULFILLMENT_MODES.includes(mode as FulfillmentMode),
+      )
+    ) {
+      throw new BadRequestException('Invalid fulfillment mode');
+    }
+    return uniqueModes as FulfillmentMode[];
+  }
+
+  private normalizePaymentMethods(
+    type: ServicePointType,
+    methods?: string[],
+  ): ServicePointPaymentMethod[] {
+    if (!methods || methods.length === 0) return DEFAULT_PAYMENT_METHODS[type];
+    const uniqueMethods = [...new Set(methods)];
+    if (
+      uniqueMethods.some(
+        (method) =>
+          !PAYMENT_METHODS.includes(method as ServicePointPaymentMethod),
+      )
+    ) {
+      throw new BadRequestException('Invalid payment method');
+    }
+    return uniqueMethods as ServicePointPaymentMethod[];
   }
 }

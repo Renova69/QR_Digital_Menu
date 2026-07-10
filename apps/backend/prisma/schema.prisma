@@ -32,7 +32,7 @@ model User {
   staffOrders                   Order[]                 @relation("StaffOrders")
   createdDeviceEnrollmentTokens DeviceEnrollmentToken[]
   staffDeviceBindings           StaffDeviceBinding[]
-  lastLoginDeviceToken          DeviceEnrollmentToken?   @relation("LastStaffDeviceLogin", fields: [lastLoginDeviceTokenId], references: [id], onDelete: SetNull)
+  lastLoginDeviceToken          DeviceEnrollmentToken?  @relation("LastStaffDeviceLogin", fields: [lastLoginDeviceTokenId], references: [id], onDelete: SetNull)
   loyaltyAccounts               LoyaltyAccount[]
   restaurants                   Restaurant[]            @relation("OwnedRestaurants")
   staffRestaurant               Restaurant?             @relation("StaffRestaurant", fields: [restaurantId], references: [id])
@@ -48,13 +48,13 @@ model User {
 }
 
 model Restaurant {
-  id                        String                  @id @default(cuid())
+  id                        String                    @id @default(cuid())
   name                      String
-  country                   String                  @default("Bulgaria")
+  country                   String                    @default("Bulgaria")
   city                      String?
   logoUrl                   String?
   logoThumbnailUrl          String?
-  accentColor               String?                 @default("#4F46E5")
+  accentColor               String?                   @default("#4F46E5")
   googleReviewUrl           String?
   facebookUrl               String?
   instagramUrl              String?
@@ -63,14 +63,14 @@ model Restaurant {
   youtubeUrl                String?
   address                   String?
   contactInfo               String?
-  targetLanguages           String[]                @default([])
-  dashboardLanguage         String?                 @default("en")
-  timezone                  String?                 @default("Europe/Sofia")
+  targetLanguages           String[]                  @default([])
+  dashboardLanguage         String?                   @default("en")
+  timezone                  String?                   @default("Europe/Sofia")
   ownerId                   String
-  createdAt                 DateTime                @default(now())
-  updatedAt                 DateTime                @updatedAt
-  fontBody                  String?                 @default("Outfit")
-  fontHeading               String?                 @default("Playfair Display")
+  createdAt                 DateTime                  @default(now())
+  updatedAt                 DateTime                  @updatedAt
+  fontBody                  String?                   @default("Outfit")
+  fontHeading               String?                   @default("Playfair Display")
   themeBgColor              String?
   themeCardColor            String?
   themeTextColor            String?
@@ -82,55 +82,55 @@ model Restaurant {
   themeDarkTextColor        String?
   themeDarkCardColor        String?
   themeDarkAccentColor      String?
-  trendingMode              String                  @default("AUTO")
-  happyHourEnable           Boolean                 @default(false)
-  happyHourDays             Int[]                   @default([1, 2, 3, 4, 5, 6, 7])
+  trendingMode              String                    @default("AUTO")
+  happyHourEnable           Boolean                   @default(false)
+  happyHourDays             Int[]                     @default([1, 2, 3, 4, 5, 6, 7])
   happyHourEndTime          String?
-  happyHourMultiplier       Float                   @default(2.0)
+  happyHourMultiplier       Float                     @default(2.0)
   happyHourStartTime        String?
-  isLoyaltyEnabled          Boolean                 @default(true)
-  loyaltyExchangeRate       Int                     @default(10)
-  loyaltySignupBonus        Int                     @default(50)
-  loyaltyRedeemRate         Int                     @default(150)
-  loyaltyExpiryReminderDays Int                     @default(15)
-  loyaltyGoldMultiplier     Float                   @default(1.5)
-  loyaltyGoldThreshold      Int                     @default(2000)
-  loyaltyPointExpiryDays    Int                     @default(90)
-  loyaltySilverMultiplier   Float                   @default(1.2)
-  loyaltySilverThreshold    Int                     @default(500)
-  defaultTheme              String?                 @default("light")
-  importApiKeyHash          String?                 @unique
+  isLoyaltyEnabled          Boolean                   @default(true)
+  loyaltyExchangeRate       Int                       @default(10)
+  loyaltySignupBonus        Int                       @default(50)
+  loyaltyRedeemRate         Int                       @default(150)
+  loyaltyExpiryReminderDays Int                       @default(15)
+  loyaltyGoldMultiplier     Float                     @default(1.5)
+  loyaltyGoldThreshold      Int                       @default(2000)
+  loyaltyPointExpiryDays    Int                       @default(90)
+  loyaltySilverMultiplier   Float                     @default(1.2)
+  loyaltySilverThreshold    Int                       @default(500)
+  defaultTheme              String?                   @default("light")
+  importApiKeyHash          String?                   @unique
   stripeAccountId           String?
-  stripeOnboarded           Boolean                 @default(false)
-  paymentsEnabled           Boolean                 @default(false)
-  epayEnabled               Boolean                 @default(false)
-  epayMode                  String                  @default("DEMO")
+  stripeOnboarded           Boolean                   @default(false)
+  paymentsEnabled           Boolean                   @default(false)
+  epayEnabled               Boolean                   @default(false)
+  epayMode                  String                    @default("DEMO")
   epayClientId              String?
   epayMerchantEmail         String?
   epaySecretEncrypted       String?
-  epayPage                  String                  @default("credit_paydirect")
-  boricaEnabled             Boolean                 @default(false)
-  boricaMode                String                  @default("DEMO")
+  epayPage                  String                    @default("credit_paydirect")
+  boricaEnabled             Boolean                   @default(false)
+  boricaMode                String                    @default("DEMO")
   boricaTerminalId          String?
   boricaMerchantId          String?
   boricaMerchantName        String?
   boricaPrivateKeyEncrypted String?
   boricaPublicCert          String?
-  boricaCurrency            String                  @default("EUR")
-  myposEnabled              Boolean                 @default(false)
-  myposMode                 String                  @default("DEMO")
+  boricaCurrency            String                    @default("EUR")
+  myposEnabled              Boolean                   @default(false)
+  myposMode                 String                    @default("DEMO")
   myposClientNumber         String?
   myposStoreId              String?
   myposKeyIndex             String?
   myposPrivateKeyEncrypted  String?
   myposPublicCert           String?
-  myposCurrency             String                  @default("EUR")
-  sharedDeviceModeEnabled   Boolean                 @default(false)
-  notifyAllStaffOnPayment   Boolean                 @default(true)
-  tipsEnabled               Boolean                 @default(false)
-  tipOptions                Int[]                   @default([2, 4, 5])
-  platformFeePercent        Float                   @default(0.5)
-  tier                      SubscriptionTier        @default(FREE)
+  myposCurrency             String                    @default("EUR")
+  sharedDeviceModeEnabled   Boolean                   @default(false)
+  notifyAllStaffOnPayment   Boolean                   @default(true)
+  tipsEnabled               Boolean                   @default(false)
+  tipOptions                Int[]                     @default([2, 4, 5])
+  platformFeePercent        Float                     @default(0.5)
+  tier                      SubscriptionTier          @default(FREE)
   stripeCustomerId          String?
   stripeSubscriptionId      String?
   stripePriceId             String?
@@ -138,7 +138,7 @@ model Restaurant {
   pastDueGraceExpiry        DateTime?
   forceTier                 SubscriptionTier?
   forceTierExpiresAt        DateTime?
-  isActive                  Boolean                 @default(true)
+  isActive                  Boolean                   @default(true)
   deletedAt                 DateTime?
   assistanceRequests        AssistanceRequest[]
   cashPaymentRequests       CashPaymentRequest[]
@@ -149,8 +149,8 @@ model Restaurant {
   loyaltyAccounts           LoyaltyAccount[]
   menuCategories            MenuCategory[]
   menuViews                 MenuView[]
-  owner                     User                    @relation("OwnedRestaurants", fields: [ownerId], references: [id], onDelete: Cascade)
-  staffMembers              User[]                  @relation("StaffRestaurant")
+  owner                     User                      @relation("OwnedRestaurants", fields: [ownerId], references: [id], onDelete: Cascade)
+  staffMembers              User[]                    @relation("StaffRestaurant")
   tables                    RestaurantTable[]
   tableSessions             TableSession[]
   tableZones                TableZone[]
@@ -207,19 +207,19 @@ model TableZone {
 }
 
 model PrintStation {
-  id               String            @id @default(cuid())
-  restaurantId     String
-  name             String
-  printerIp        String
-  printerPort      Int               @default(9100)
-  isActive         Boolean           @default(true)
-  receiptTemplate  Json?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  restaurant       Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  categories       MenuCategory[]
-  agentTokens      PrintAgentToken[]
-  printJobs        PrintJob[]
+  id              String            @id @default(cuid())
+  restaurantId    String
+  name            String
+  printerIp       String
+  printerPort     Int               @default(9100)
+  isActive        Boolean           @default(true)
+  receiptTemplate Json?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  restaurant      Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  categories      MenuCategory[]
+  agentTokens     PrintAgentToken[]
+  printJobs       PrintJob[]
 
   @@unique([restaurantId, name])
   @@index([restaurantId])
@@ -265,19 +265,25 @@ model PrintJob {
 }
 
 model RestaurantTable {
-  id           String         @id @default(cuid())
-  name         String
-  restaurantId String
-  zoneId       String?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  restaurant   Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  zone         TableZone?     @relation(fields: [zoneId], references: [id], onDelete: SetNull)
-  sessions     TableSession[]
+  id                  String               @id @default(cuid())
+  name                String
+  restaurantId        String
+  zoneId              String?
+  type                String               @default("TABLE")
+  publicToken         String?              @unique
+  isActive            Boolean              @default(true)
+  fulfillmentModes    String[]             @default(["DINE_IN"])
+  paymentMethods      String[]             @default(["ONLINE", "CASH"])
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  restaurant          Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  zone                TableZone?           @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  sessions            TableSession[]
   cashPaymentRequests CashPaymentRequest[]
 
   @@unique([restaurantId, name])
   @@index([restaurantId, zoneId])
+  @@index([restaurantId, type, isActive])
   @@map("restaurant_table")
 }
 
@@ -310,7 +316,7 @@ model MenuItem {
   name              String
   description       String?
   price             Float
-  costPrice         Float?      @default(0)
+  costPrice         Float?       @default(0)
   weight            String?
   currency          Currency
   allergens         String[]
@@ -356,6 +362,10 @@ model Order {
   customerPhone             String?
   tableId                   String?
   tableName                 String?
+  servicePointType          String?
+  servicePointLabel         String?
+  fulfillmentType           String?
+  paymentPreference         String?
   status                    OrderStatus          @default(NEW)
   restaurantId              String
   totalPrice                Float
@@ -387,24 +397,24 @@ model Order {
 }
 
 model OrderItem {
-  id              String              @id @default(cuid())
-  orderId         String
-  menuItemId      String?
-  quantity        Int
-  unitPrice       Float               @default(0)
-  unitPriceWithOptions Float          @default(0)
+  id                   String              @id @default(cuid())
+  orderId              String
+  menuItemId           String?
+  quantity             Int
+  unitPrice            Float               @default(0)
+  unitPriceWithOptions Float               @default(0)
   // Units of this line already settled by a split payment. Split-bill remaining
   // is computed from (quantity - paidQuantity); see PaymentService.settlePartial.
-  paidQuantity    Int                 @default(0)
-  selectedOptions Json
-  notes           String?             @db.VarChar(500)
+  paidQuantity         Int                 @default(0)
+  selectedOptions      Json
+  notes                String?             @db.VarChar(500)
   // Point-in-time snapshot of the menu item's name at order time, so historical
   // orders/receipts/reporting keep showing what was actually ordered even after
   // the MenuItem is renamed or deleted (menuItemId -> SetNull orphans this row).
-  itemName        String              @default("Unknown item")
-  menuItem        MenuItem?           @relation(fields: [menuItemId], references: [id])
-  order           Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  allocations     PaymentAllocation[]
+  itemName             String              @default("Unknown item")
+  menuItem             MenuItem?           @relation(fields: [menuItemId], references: [id])
+  order                Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  allocations          PaymentAllocation[]
 
   @@index([orderId])
   @@map("order_item")
@@ -445,31 +455,31 @@ model AssistanceRequest {
 }
 
 model CashPaymentRequest {
-  id             String                   @id @default(cuid())
-  restaurantId   String
+  id              String                   @id @default(cuid())
+  restaurantId    String
   // Nullable: SetNull below preserves the cash-payment-request audit trail
   // when a table is removed after its session is closed. The active payment
   // flows still require a live session before a request can be confirmed.
-  tableSessionId String?
+  tableSessionId  String?
   // Nullable: SetNull below preserves the cash-payment-request audit trail
   // when a table is removed after its session is closed.
-  tableId        String?
-  status         CashPaymentRequestStatus @default(PENDING)
-  scope          CashPaymentRequestScope  @default(FULL_TABLE)
-  scopeKey       String
-  orderIds       String[]                 @default([])
+  tableId         String?
+  status          CashPaymentRequestStatus @default(PENDING)
+  scope           CashPaymentRequestScope  @default(FULL_TABLE)
+  scopeKey        String
+  orderIds        String[]                 @default([])
   requestedAmount Float
-  currency       String                   @default("EUR")
-  paymentId      String?                  @unique
-  resolvedById   String?
-  resolvedAt     DateTime?
-  createdAt      DateTime                 @default(now())
-  updatedAt      DateTime                 @updatedAt
-  restaurant     Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  tableSession   TableSession?            @relation(fields: [tableSessionId], references: [id], onDelete: SetNull)
-  table          RestaurantTable?         @relation(fields: [tableId], references: [id], onDelete: SetNull)
-  payment        Payment?                 @relation(fields: [paymentId], references: [id], onDelete: SetNull)
-  resolvedBy     User?                    @relation("CashPaymentRequestResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+  currency        String                   @default("EUR")
+  paymentId       String?                  @unique
+  resolvedById    String?
+  resolvedAt      DateTime?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  restaurant      Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  tableSession    TableSession?            @relation(fields: [tableSessionId], references: [id], onDelete: SetNull)
+  table           RestaurantTable?         @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  payment         Payment?                 @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  resolvedBy      User?                    @relation("CashPaymentRequestResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
 
   @@index([restaurantId, status, createdAt])
   @@index([tableSessionId, status])
@@ -479,21 +489,21 @@ model CashPaymentRequest {
 }
 
 model DeviceEnrollmentToken {
-  id             String     @id @default(cuid())
-  tokenHash      String     @unique
+  id             String               @id @default(cuid())
+  tokenHash      String               @unique
   restaurantId   String
   createdById    String
   expiresAt      DateTime
   usedAt         DateTime?
   revokedAt      DateTime?
-  sessionVersion Int        @default(0)
-  pinAttempts    Int        @default(0)
+  sessionVersion Int                  @default(0)
+  pinAttempts    Int                  @default(0)
   pinLockedUntil DateTime?
-  createdAt      DateTime   @default(now())
-  restaurant     Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  createdBy      User       @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt      DateTime             @default(now())
+  restaurant     Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdBy      User                 @relation(fields: [createdById], references: [id], onDelete: Cascade)
   staffBindings  StaffDeviceBinding[]
-  lastLoginUsers User[]     @relation("LastStaffDeviceLogin")
+  lastLoginUsers User[]               @relation("LastStaffDeviceLogin")
 
   @@index([restaurantId])
   @@index([expiresAt])
@@ -648,18 +658,18 @@ model VerificationToken {
 }
 
 model TableSession {
-  id           String             @id @default(cuid())
-  token        String             @unique @default(cuid())
-  tableId      String
-  restaurantId String
-  status       TableSessionStatus @default(OPEN)
-  createdAt    DateTime           @default(now())
-  paidAt       DateTime?
-  orders       Order[]
-  payments     Payment[]
+  id                  String               @id @default(cuid())
+  token               String               @unique @default(cuid())
+  tableId             String
+  restaurantId        String
+  status              TableSessionStatus   @default(OPEN)
+  createdAt           DateTime             @default(now())
+  paidAt              DateTime?
+  orders              Order[]
+  payments            Payment[]
   cashPaymentRequests CashPaymentRequest[]
-  restaurant   Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  table        RestaurantTable    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  restaurant          Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table               RestaurantTable      @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
   @@index([token])
   @@index([tableId, status])
@@ -668,29 +678,29 @@ model TableSession {
 }
 
 model Payment {
-  id                    String          @id @default(cuid())
+  id                    String                 @id @default(cuid())
   // Nullable: SetNull below preserves the payment/financial audit trail when a
   // table is removed after its session is closed (was Cascade — deleting a
   // RestaurantTable used to silently wipe its Payment rows).
   tableSessionId        String?
   restaurantId          String
-  stripePaymentIntentId String?         @unique
-  providerReference     String?         @unique
+  stripePaymentIntentId String?                @unique
+  providerReference     String?                @unique
   providerStatus        String?
   providerPayload       Json?
   amount                Float
-  tipAmount             Float           @default(0)
-  platformFeeAmount     Float           @default(0)
-  currency              String          @default("EUR")
-  status                PaymentStatus   @default(PENDING)
-  provider              PaymentProvider @default(STRIPE)
+  tipAmount             Float                  @default(0)
+  platformFeeAmount     Float                  @default(0)
+  currency              String                 @default("EUR")
+  status                PaymentStatus          @default(PENDING)
+  provider              PaymentProvider        @default(STRIPE)
   // Marks how a partial/split payment was settled (ITEM/EVEN/CUSTOM). Null for a
   // full-bill payment. Reporting/audit only — the PAID gate is amount-based.
   splitMode             String?
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
-  tableSession          TableSession?       @relation(fields: [tableSessionId], references: [id], onDelete: SetNull)
-  restaurant            Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  tableSession          TableSession?          @relation(fields: [tableSessionId], references: [id], onDelete: SetNull)
+  restaurant            Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   allocations           PaymentAllocation[]
   providerEvents        PaymentProviderEvent[]
   refundAttempts        RefundAttempt[]
@@ -716,19 +726,19 @@ model Payment {
 // - providerRefundId is @unique so a webhook/reconciliation correlates to the
 //   EXACT Stripe refund instead of guessing among a payment intent's refunds.
 model RefundAttempt {
-  id                 String       @id @default(cuid())
+  id                 String          @id @default(cuid())
   paymentId          String
   restaurantId       String
   provider           PaymentProvider
   amount             Float
-  idempotencyKey     String       @unique
-  providerRefundId   String?      @unique
-  status             RefundStatus @default(PENDING)
+  idempotencyKey     String          @unique
+  providerRefundId   String?         @unique
+  status             RefundStatus    @default(PENDING)
   reason             String?
-  allocationSnapshot Json         @default("[]")
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
-  payment            Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  allocationSnapshot Json            @default("[]")
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  payment            Payment         @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   @@index([paymentId])
   @@index([status, provider, updatedAt])
@@ -771,31 +781,31 @@ model DailyTarget {
 // A reservation never opens a session and never marks a table occupied.
 
 model ReservationSettings {
-  id                     String     @id @default(cuid())
-  restaurantId           String     @unique
-  enabled                Boolean    @default(false)
-  slotIntervalMinutes    Int        @default(30)
-  minLeadMinutes         Int        @default(60)
-  bookingHorizonDays     Int        @default(60)
-  maxTotalGuests         Int        @default(12)
-  maxCoversPerSlot       Int?
-  autoConfirm            Boolean    @default(false)
-  requirePhone           Boolean    @default(true)
-  allergenSectionEnabled Boolean    @default(true)
+  id                        String     @id @default(cuid())
+  restaurantId              String     @unique
+  enabled                   Boolean    @default(false)
+  slotIntervalMinutes       Int        @default(30)
+  minLeadMinutes            Int        @default(60)
+  bookingHorizonDays        Int        @default(60)
+  maxTotalGuests            Int        @default(12)
+  maxCoversPerSlot          Int?
+  autoConfirm               Boolean    @default(false)
+  requirePhone              Boolean    @default(true)
+  allergenSectionEnabled    Boolean    @default(true)
   // Owner-defined extra preference chips shown on the public booking form
   // (e.g. "Swimming pool", "Terrace", "Kids area"). Non-dietary, no consent.
-  customPreferences      String[]   @default([])
-  notifyEmail            String?
-  notifyPhone            String?
+  customPreferences         String[]   @default([])
+  notifyEmail               String?
+  notifyPhone               String?
   // Feature 4: dining duration / turnover. Small parties get the base duration;
   // parties at or above the threshold get the longer duration. Used to show
   // staff when a table is expected to free up.
-  diningDurationMinutes     Int     @default(90)
-  largePartyThreshold       Int     @default(5)
-  largePartyDurationMinutes Int     @default(150)
-  createdAt              DateTime   @default(now())
-  updatedAt              DateTime   @updatedAt
-  restaurant             Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  diningDurationMinutes     Int        @default(90)
+  largePartyThreshold       Int        @default(5)
+  largePartyDurationMinutes Int        @default(150)
+  createdAt                 DateTime   @default(now())
+  updatedAt                 DateTime   @updatedAt
+  restaurant                Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@map("reservation_settings")
 }
@@ -834,21 +844,21 @@ model ReservationBlackout {
 // Minimal patron: cross-visit STAFF-ONLY tags, matched by (restaurantId, phone).
 // Holds no dietary/allergy data — that stays per-reservation.
 model Patron {
-  id           String        @id @default(cuid())
-  restaurantId String
-  phone        String
-  name              String
-  email             String?
-  staffTags         String[]      @default([])
-  staffNotes        String?
+  id                 String        @id @default(cuid())
+  restaurantId       String
+  phone              String
+  name               String
+  email              String?
+  staffTags          String[]      @default([])
+  staffNotes         String?
   // Durable marketing opt-in for this patron (separate from the transactional
   // reservation). Only opted-in patrons may be targeted with promotions.
-  marketingConsent   Boolean      @default(false)
+  marketingConsent   Boolean       @default(false)
   marketingConsentAt DateTime?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  restaurant        Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  reservations      Reservation[]
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  restaurant         Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  reservations       Reservation[]
 
   @@unique([restaurantId, phone])
   @@index([restaurantId])
@@ -1036,12 +1046,12 @@ model PlatformSettings {
   cookiePolicyContent       Json?
   dataControllerName        String?
   dataControllerEmail       String?
-  dataControllerAddress        String?
-  announcementBannerEnabled    Boolean @default(false)
-  announcementBannerText       String?
-  announcementBannerType       String  @default("info")
-  updatedAt                    DateTime @updatedAt
-  updatedById                  String?
+  dataControllerAddress     String?
+  announcementBannerEnabled Boolean  @default(false)
+  announcementBannerText    String?
+  announcementBannerType    String   @default("info")
+  updatedAt                 DateTime @updatedAt
+  updatedById               String?
 
   @@map("platform_settings")
 }
@@ -1066,7 +1076,7 @@ model HelpContent {
 model DataRequest {
   id                String    @id @default(cuid())
   userId            String
-  type              String    // ERASURE | EXPORT
+  type              String // ERASURE | EXPORT
   status            String    @default("PENDING") // PENDING | IN_PROGRESS | COMPLETED | REJECTED
   requestedAt       DateTime  @default(now())
   processedAt       DateTime?

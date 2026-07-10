@@ -17,6 +17,7 @@ const apiMocks = vi.hoisted(() => ({
   getAllCategoryItems: vi.fn(),
   createAssistanceRequest: vi.fn(),
   getSessionBill: vi.fn(),
+  resolvePublicServicePoint: vi.fn(),
   recordMenuView: vi.fn(),
   abandonCheckout: vi.fn(),
 }));
@@ -58,6 +59,8 @@ vi.mock("../lib/visitorId", () => ({ getVisitorId: () => "visitor-1" }));
 
 const cartMocks = vi.hoisted(() => ({
   setTableNumber: vi.fn(),
+  setOrderLocation: vi.fn(),
+  orderLocation: null,
   pruneInvalidItems: vi.fn(() => 0),
   clearCart: vi.fn(),
 }));

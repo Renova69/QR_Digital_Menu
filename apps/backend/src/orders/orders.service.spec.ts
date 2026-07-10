@@ -714,6 +714,78 @@ describe('OrdersService', () => {
       expect(createArgs.data.tableName).toBe('T1');
     });
 
+    it('creates a service-point order from a public token', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'room-cuid-304',
+        name: 'Room 304',
+        type: 'ROOM',
+        publicToken: 'sp-token',
+        isActive: true,
+        fulfillmentModes: ['ROOM_DELIVERY', 'PICKUP'],
+        paymentMethods: ['ONLINE', 'PAY_ON_DELIVERY'],
+      });
+      const tx = makeTx();
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
+
+      const result = await service.create({
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        servicePointToken: 'sp-token',
+        fulfillmentType: 'ROOM_DELIVERY',
+        paymentPreference: 'PAY_ON_DELIVERY',
+      } as unknown as Partial<
+        CreateOrderDto & UpdateOrderDto
+      > as CreateOrderDto & UpdateOrderDto);
+
+      expect(result.sessionToken).toBe('tok-new');
+      expect(prisma.restaurantTable.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            publicToken: 'sp-token',
+            restaurantId: 'rest-1',
+            type: { not: 'TABLE' },
+          }),
+        }),
+      );
+      const createArgs = tx.order.create.mock.calls[0][0];
+      expect(createArgs.data).toEqual(
+        expect.objectContaining({
+          tableId: 'room-cuid-304',
+          tableName: 'Room 304',
+          servicePointType: 'ROOM',
+          servicePointLabel: 'Room 304',
+          fulfillmentType: 'ROOM_DELIVERY',
+          paymentPreference: 'PAY_ON_DELIVERY',
+        }),
+      );
+    });
+
+    it('rejects a service-point fulfillment choice that is not enabled', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'pickup-cuid',
+        name: 'Lobby pickup',
+        type: 'PICKUP',
+        publicToken: 'pickup-token',
+        isActive: true,
+        fulfillmentModes: ['PICKUP'],
+        paymentMethods: ['PAY_AT_PICKUP'],
+      });
+
+      await expect(
+        service.create({
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          servicePointToken: 'pickup-token',
+          fulfillmentType: 'ROOM_DELIVERY',
+          paymentPreference: 'PAY_AT_PICKUP',
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('emits table status with the table cuid, not the name (#M1)', async () => {
       prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
       prisma.restaurantTable.findFirst.mockResolvedValue({

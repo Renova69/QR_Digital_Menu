@@ -13,6 +13,10 @@ export interface Order {
   tableId: string;
   /** Human-readable table label for display (e.g. "1", "Terrace 3"). */
   tableName?: string | null;
+  servicePointType?: string | null;
+  servicePointLabel?: string | null;
+  fulfillmentType?: string | null;
+  paymentPreference?: string | null;
   status: OrderStatus;
   restaurantId: string;
   totalPrice: number;

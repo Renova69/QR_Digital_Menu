@@ -20,6 +20,7 @@ const CartDrawer = ({
   selectedLang,
   tier,
   features,
+  paymentsEnabled,
   themeVars,
 }: {
   isOpen: boolean;
@@ -29,6 +30,7 @@ const CartDrawer = ({
   selectedLang?: string;
   tier?: string;
   features?: string[];
+  paymentsEnabled?: boolean;
   themeVars?: React.CSSProperties;
 }) => {
   const { items, getTotal, clearCart, removeItem, addItem } = useCart();
@@ -66,7 +68,14 @@ const CartDrawer = ({
     setShowDrinkUpsell(false);
     onClose();
     navigate("/checkout", {
-      state: { restaurantId, tier, features, themeVars, selectedLang },
+      state: {
+        restaurantId,
+        tier,
+        features,
+        paymentsEnabled,
+        themeVars,
+        selectedLang,
+      },
     });
   };
 

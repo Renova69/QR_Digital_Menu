@@ -10,6 +10,7 @@ interface CartIconProps {
   selectedLang?: string;
   tier?: string;
   features?: string[];
+  paymentsEnabled?: boolean;
   themeVars?: React.CSSProperties;
 }
 
@@ -19,6 +20,7 @@ const CartIcon = ({
   selectedLang,
   tier,
   features,
+  paymentsEnabled,
   themeVars,
 }: CartIconProps) => {
   const { getItemCount } = useCart();
@@ -61,6 +63,7 @@ const CartIcon = ({
         selectedLang={selectedLang}
         tier={tier}
         features={features}
+        paymentsEnabled={paymentsEnabled}
         themeVars={themeVars}
       />
     </>

@@ -6,7 +6,9 @@ import api, {
   createOrder,
   getMenu,
   getSessionBill,
+  type FulfillmentMode,
   type SessionBill,
+  type ServicePointPaymentMethod,
 } from "../lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "../components/ui/button";
@@ -36,7 +38,7 @@ const MAX_ORDER_DISCOUNT_RATE = 0.15;
 
 const CheckoutPage = () => {
   const { user } = useAuth();
-  const { items, tableNumber, getTotal, clearCart } = useCart();
+  const { items, tableNumber, orderLocation, getTotal, clearCart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -46,6 +48,7 @@ const CheckoutPage = () => {
   const features = Array.isArray(location.state?.features)
     ? (location.state.features as FeatureFlag[])
     : [];
+  const paymentsEnabled = !!location.state?.paymentsEnabled;
   const themeVars = (location.state?.themeVars ?? {}) as React.CSSProperties;
   // A customer paying via the POS Payment QR can switch the bill language with
   // the in-page selector; that override wins over the deep-link / browser guess.
@@ -135,6 +138,10 @@ const CheckoutPage = () => {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [specialRequests, setSpecialRequests] = useState("");
+  const [fulfillmentType, setFulfillmentType] =
+    useState<FulfillmentMode | null>(null);
+  const [paymentPreference, setPaymentPreference] =
+    useState<ServicePointPaymentMethod | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showResetCartAction, setShowResetCartAction] = useState(false);
@@ -158,6 +165,36 @@ const CheckoutPage = () => {
   const restaurantConfig = loyaltyData?.restaurantConfig || loyaltyData;
   const exchangeRate = restaurantConfig?.loyaltyExchangeRate || 10;
   const effectiveRedeemRate = restaurantConfig?.loyaltyRedeemRate || 150;
+  const isServicePointOrder = !!orderLocation && orderLocation.type !== "TABLE";
+  const orderLocationKey =
+    tableNumber ?? (orderLocation?.token ? `sp-${orderLocation.token}` : null);
+  const sessionStorageKey =
+    restaurantId && orderLocationKey
+      ? `session-${restaurantId}-${orderLocationKey}`
+      : null;
+  const customerNameStorageKey =
+    restaurantId && orderLocationKey
+      ? `customerName-${restaurantId}-${orderLocationKey}`
+      : null;
+  const fulfillmentOptions = isServicePointOrder
+    ? orderLocation.fulfillmentModes
+    : [];
+  const paymentOptions = isServicePointOrder
+    ? orderLocation.paymentMethods.filter(
+        (method) => method !== "ONLINE" || paymentsEnabled,
+      )
+    : [];
+  const fulfillmentOptionsKey = fulfillmentOptions.join("|");
+  const paymentOptionsKey = paymentOptions.join("|");
+  const locationDisplayLabel =
+    tableNumber ?? orderLocation?.label ?? t("checkout.notSpecified");
+  const locationTypeLabel = tableNumber
+    ? t("checkout.table")
+    : orderLocation?.type === "ROOM"
+      ? t("servicePoints.room", "Room")
+      : orderLocation?.type === "PICKUP"
+        ? t("servicePoints.pickup", "Pickup")
+        : t("servicePoints.location", "Location");
 
   const hhMultiplier = isHappyHourActive(restaurantConfig)
     ? restaurantConfig?.happyHourMultiplier || 2.0
@@ -182,6 +219,30 @@ const CheckoutPage = () => {
 
   const getAvailableRewardValue = () =>
     getAvailableLoyaltyPoints() / effectiveRedeemRate;
+
+  useEffect(() => {
+    if (!isServicePointOrder) {
+      setFulfillmentType(null);
+      return;
+    }
+    setFulfillmentType((current) =>
+      current && fulfillmentOptions.includes(current)
+        ? current
+        : fulfillmentOptions[0] || null,
+    );
+  }, [fulfillmentOptionsKey, isServicePointOrder]);
+
+  useEffect(() => {
+    if (!isServicePointOrder) {
+      setPaymentPreference(null);
+      return;
+    }
+    setPaymentPreference((current) =>
+      current && paymentOptions.includes(current)
+        ? current
+        : paymentOptions[0] || null,
+    );
+  }, [isServicePointOrder, paymentOptionsKey]);
 
   // Fix H-6 — this is an APPROXIMATE client-side preview only. The backend
   // recalculates and caps the loyalty discount from DB prices and DB points.
@@ -249,13 +310,11 @@ const CheckoutPage = () => {
   const namePrefilledRef = useRef(false);
   useEffect(() => {
     if (namePrefilledRef.current || user) return;
-    if (!restaurantId || !tableNumber) return;
-    const saved = localStorage.getItem(
-      `customerName-${restaurantId}-${tableNumber}`,
-    );
+    if (!customerNameStorageKey) return;
+    const saved = localStorage.getItem(customerNameStorageKey);
     if (saved) setCustomerName(saved);
     namePrefilledRef.current = true;
-  }, [user, restaurantId, tableNumber]);
+  }, [customerNameStorageKey, user]);
 
   // Redirect if no items in cart — skip when order was just submitted,
   // or when viewing a POS session bill (Payment QR flow).
@@ -275,15 +334,51 @@ const CheckoutPage = () => {
     // orders (the backend has no order idempotency).
     if (submitting) return;
 
-    if (!tableNumber) {
+    if (!tableNumber && !orderLocation) {
       setError(t("checkout.tableRequired"));
+      return;
+    }
+
+    if (
+      isServicePointOrder &&
+      fulfillmentOptions.length > 0 &&
+      !fulfillmentType
+    ) {
+      setError(
+        t(
+          "servicePoints.fulfillmentRequired",
+          "Choose how to receive the order.",
+        ),
+      );
+      return;
+    }
+
+    if (isServicePointOrder && paymentOptions.length === 0) {
+      setError(
+        t(
+          "servicePoints.noPaymentMethods",
+          "No payment method is currently available for this order.",
+        ),
+      );
+      return;
+    }
+
+    if (isServicePointOrder && !paymentPreference) {
+      setError(t("servicePoints.paymentRequired", "Choose a payment method."));
       return;
     }
 
     const orderData: any = {
       customerName,
       customerPhone,
-      tableId: tableNumber,
+      tableId: tableNumber ?? undefined,
+      servicePointToken: orderLocation?.token ?? undefined,
+      fulfillmentType: isServicePointOrder
+        ? (fulfillmentType ?? undefined)
+        : undefined,
+      paymentPreference: isServicePointOrder
+        ? (paymentPreference ?? undefined)
+        : undefined,
       // cartId is included on each line so the backend can match redeemCartIds
       // exactly — even when the same product appears twice with different options.
       items: items.map((item) => ({
@@ -296,11 +391,9 @@ const CheckoutPage = () => {
       // Send the stable cartId-keyed set so the backend comps the specific line
       // the user chose, not just the first matching menuItemId.
       redeemCartIds: Array.from(redeemedCartIds),
-      sessionToken:
-        restaurantId && tableNumber
-          ? localStorage.getItem(`session-${restaurantId}-${tableNumber}`) ||
-            undefined
-          : undefined,
+      sessionToken: sessionStorageKey
+        ? localStorage.getItem(sessionStorageKey) || undefined
+        : undefined,
     };
 
     if (user && user.role === "CUSTOMER") {
@@ -316,25 +409,19 @@ const CheckoutPage = () => {
 
       const newOrder = await createOrder(orderData);
 
-      if (newOrder.sessionToken && tableNumber) {
-        localStorage.setItem(
-          `session-${restaurantId}-${tableNumber}`,
-          newOrder.sessionToken,
-        );
+      if (newOrder.sessionToken && orderLocationKey && sessionStorageKey) {
+        localStorage.setItem(sessionStorageKey, newOrder.sessionToken);
         rememberOwnedOrder(
           restaurantId,
-          tableNumber,
+          orderLocationKey,
           newOrder.sessionToken,
           newOrder.id,
         );
       }
 
       // Remember the name so a returning customer on this table is pre-filled.
-      if (customerName.trim() && restaurantId && tableNumber) {
-        localStorage.setItem(
-          `customerName-${restaurantId}-${tableNumber}`,
-          customerName.trim(),
-        );
+      if (customerName.trim() && customerNameStorageKey) {
+        localStorage.setItem(customerNameStorageKey, customerName.trim());
       }
 
       orderPlaced.current = true;
@@ -347,7 +434,7 @@ const CheckoutPage = () => {
           orderId: newOrder.id,
           orderTrackToken: newOrder.orderTrackToken,
           restaurantId: newOrder.restaurantId,
-          tableNumber,
+          tableNumber: locationDisplayLabel,
           tier,
           // Fix H-6 — the backend is authoritative for the loyalty discount.
           // Forward the actual points it redeemed (if present) so downstream
@@ -397,6 +484,27 @@ const CheckoutPage = () => {
       }
       setSubmitting(false);
     }
+  };
+
+  const getFulfillmentLabel = (mode: FulfillmentMode) => {
+    if (mode === "ROOM_DELIVERY") {
+      return t("servicePoints.deliverToRoom", "Deliver to room");
+    }
+    if (mode === "PICKUP") {
+      return t("servicePoints.pickupOrder", "I will pick it up");
+    }
+    return t("servicePoints.dineIn", "Dine in");
+  };
+
+  const getPaymentLabel = (method: ServicePointPaymentMethod) => {
+    if (method === "ONLINE") return t("servicePoints.payOnline", "Pay online");
+    if (method === "PAY_ON_DELIVERY") {
+      return t("servicePoints.payOnDelivery", "Pay on delivery");
+    }
+    if (method === "PAY_AT_PICKUP") {
+      return t("servicePoints.payAtPickup", "Pay at pickup");
+    }
+    return t("servicePoints.payCash", "Pay cash");
   };
 
   // ── Session bill view (POS Payment QR) ──────────────────────────────────
@@ -861,11 +969,74 @@ const CheckoutPage = () => {
           <div className="bg-primary/10 border border-primary/20 p-5 rounded-2xl mb-8">
             <p className="font-bold text-primary text-lg flex items-center gap-2">
               <span className="bg-primary text-white px-2 py-0.5 rounded-md text-sm">
-                {t("checkout.table")}
+                {locationTypeLabel}
               </span>
-              {tableNumber || t("checkout.notSpecified")}
+              {locationDisplayLabel}
             </p>
           </div>
+
+          {isServicePointOrder && fulfillmentOptions.length > 1 && (
+            <div className="space-y-2">
+              <p className="text-sm font-bold text-foreground">
+                {t(
+                  "servicePoints.fulfillmentQuestion",
+                  "Where should we send it?",
+                )}
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {fulfillmentOptions.map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setFulfillmentType(mode)}
+                    className={`h-12 rounded-xl border px-3 text-sm font-black transition ${
+                      fulfillmentType === mode
+                        ? "border-primary bg-primary text-white"
+                        : "border-border bg-background text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {getFulfillmentLabel(mode)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {isServicePointOrder && paymentOptions.length > 1 && (
+            <div className="space-y-2">
+              <p className="text-sm font-bold text-foreground">
+                {t(
+                  "servicePoints.paymentQuestion",
+                  "How would you like to pay?",
+                )}
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {paymentOptions.map((method) => (
+                  <button
+                    key={method}
+                    type="button"
+                    onClick={() => setPaymentPreference(method)}
+                    className={`h-12 rounded-xl border px-3 text-sm font-black transition ${
+                      paymentPreference === method
+                        ? "border-primary bg-primary text-white"
+                        : "border-border bg-background text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {getPaymentLabel(method)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {isServicePointOrder && paymentOptions.length === 0 && (
+            <div className="rounded-xl border border-destructive/25 bg-destructive/10 p-4 text-sm font-semibold text-destructive">
+              {t(
+                "servicePoints.noPaymentMethods",
+                "No payment method is currently available for this order.",
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <label htmlFor="name" className="text-sm font-bold text-foreground">

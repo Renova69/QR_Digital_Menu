@@ -85,6 +85,7 @@ export class AssistanceService {
       where: {
         name: createAssistanceDto.tableId,
         restaurantId: createAssistanceDto.restaurantId,
+        type: 'TABLE',
       },
     });
     if (!table) {

@@ -203,9 +203,30 @@ export const triggerTranslation = async (restaurantId: string) => {
 };
 
 // Tables
+export type ServicePointType = "TABLE" | "ROOM" | "PICKUP" | "OTHER";
+export type FulfillmentMode = "DINE_IN" | "ROOM_DELIVERY" | "PICKUP";
+export type ServicePointPaymentMethod =
+  | "ONLINE"
+  | "CASH"
+  | "PAY_ON_DELIVERY"
+  | "PAY_AT_PICKUP";
+
+export interface ServicePoint {
+  id: string;
+  name: string;
+  restaurantId?: string;
+  zoneId?: string | null;
+  type: ServicePointType;
+  publicToken: string | null;
+  isActive: boolean;
+  fulfillmentModes: FulfillmentMode[];
+  paymentMethods: ServicePointPaymentMethod[];
+  zone?: { id: string; name: string; zoneKey?: string | null } | null;
+}
+
 export const getTables = async (restaurantId: string) => {
   const response = await api.get(`/restaurants/${restaurantId}/tables`);
-  return response.data;
+  return response.data as ServicePoint[];
 };
 
 export const createTable = async (
@@ -218,6 +239,45 @@ export const createTable = async (
     zoneId,
   });
   return response.data;
+};
+
+export const getServicePoints = async (restaurantId: string) => {
+  const response = await api.get(`/restaurants/${restaurantId}/service-points`);
+  return response.data as ServicePoint[];
+};
+
+export const createServicePoint = async (
+  restaurantId: string,
+  data: {
+    name: string;
+    type: Exclude<ServicePointType, "TABLE">;
+    isActive?: boolean;
+    fulfillmentModes?: FulfillmentMode[];
+    paymentMethods?: ServicePointPaymentMethod[];
+  },
+) => {
+  const response = await api.post(
+    `/restaurants/${restaurantId}/service-points`,
+    data,
+  );
+  return response.data as ServicePoint;
+};
+
+export const resolvePublicServicePoint = async (
+  restaurantId: string,
+  token: string,
+) => {
+  const response = await api.get(
+    `/restaurants/${restaurantId}/service-points/public/${encodeURIComponent(token)}`,
+  );
+  return response.data as ServicePoint;
+};
+
+export const rotateServicePointToken = async (servicePointId: string) => {
+  const response = await api.post(
+    `/tables/${servicePointId}/public-token/rotate`,
+  );
+  return response.data as ServicePoint;
 };
 
 export const deleteTable = async (tableId: string) => {
@@ -275,10 +335,16 @@ export const getTableStatuses = async (
 
 export const updateTable = async (
   tableId: string,
-  data: { name?: string; zoneId?: string | null },
+  data: {
+    name?: string;
+    zoneId?: string | null;
+    isActive?: boolean;
+    fulfillmentModes?: FulfillmentMode[];
+    paymentMethods?: ServicePointPaymentMethod[];
+  },
 ) => {
   const response = await api.patch(`/tables/${tableId}`, data);
-  return response.data;
+  return response.data as ServicePoint;
 };
 
 // ── Table Zones ─────────────────────────────────────────────────────────────────

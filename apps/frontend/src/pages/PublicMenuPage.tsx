@@ -1,7 +1,11 @@
 import { useCallback, useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import type { Restaurant } from "../services/restaurantService";
-import { createAssistanceRequest, getSessionBill } from "../lib/api";
+import {
+  createAssistanceRequest,
+  getSessionBill,
+  resolvePublicServicePoint,
+} from "../lib/api";
 import { buildPublicMenuLanguages } from "../lib/menuLanguage";
 import { getTranslatedArray } from "../lib/translation";
 import { BRANDING_FONT_NAMES } from "../lib/brandingFonts";
@@ -132,7 +136,7 @@ const PublicMenuPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const { setTableNumber } = useCart();
+  const { setTableNumber, orderLocation, setOrderLocation } = useCart();
 
   // Menu data lifecycle: meta + batched items fetch, language resolution, view
   // tracking, and cart hygiene. Table/session bootstrap stays below.
@@ -185,8 +189,9 @@ const PublicMenuPage = () => {
   const languagesEnabled = hasFeature("languages:multi");
   const upsellEnabled = hasFeature("upselling");
   const customersAuthEnabled = hasFeature("customers:auth");
+  const tableCallWaiterEnabled = callWaiterEnabled && !!tableNumber;
   const showActionBar =
-    ordersEnabled || callWaiterEnabled || customersAuthEnabled;
+    ordersEnabled || tableCallWaiterEnabled || customersAuthEnabled;
   const [activeDietTags, setActiveDietTags] = useState<string[]>([]);
   const [excludedAllergens, setExcludedAllergens] = useState<string[]>([]);
 
@@ -200,14 +205,23 @@ const PublicMenuPage = () => {
   const themeInitialized = useRef(false);
   const hasActiveFilters =
     activeDietTags.length > 0 || excludedAllergens.length > 0;
+  const sessionLocationKey =
+    tableNumber ?? (orderLocation?.token ? `sp-${orderLocation.token}` : null);
+  const sessionStorageKey =
+    restaurantId && sessionLocationKey
+      ? `session-${restaurantId}-${sessionLocationKey}`
+      : null;
+  const canRequestBill =
+    paymentsEnabled &&
+    (!orderLocation || orderLocation.paymentMethods.includes("ONLINE"));
 
   const clearPaidSession = useCallback(
     (message?: string) => {
       const tokenToClear = sessionToken;
       setIsPaymentModalOpen(false);
-      if (restaurantId && tableNumber && tokenToClear) {
-        clearOwnedOrderIds(restaurantId, tableNumber, tokenToClear);
-        localStorage.removeItem(`session-${restaurantId}-${tableNumber}`);
+      if (restaurantId && sessionLocationKey && tokenToClear) {
+        clearOwnedOrderIds(restaurantId, sessionLocationKey, tokenToClear);
+        if (sessionStorageKey) localStorage.removeItem(sessionStorageKey);
       }
       setSessionToken(null);
       setOwnedOrderIds([]);
@@ -219,7 +233,7 @@ const PublicMenuPage = () => {
           t("payment.paymentReceived", "Payment received successfully"),
       });
     },
-    [restaurantId, sessionToken, tableNumber, t],
+    [restaurantId, sessionLocationKey, sessionStorageKey, sessionToken, t],
   );
 
   const toggleDietTag = (tag: string) => {
@@ -288,13 +302,53 @@ const PublicMenuPage = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const table = params.get("table");
+    const servicePointToken = params.get("sp");
+    let cancelled = false;
+
+    if (servicePointToken && restaurantId) {
+      setTableNumberState(null);
+      setTableNumber(null);
+      setSessionToken(null);
+
+      resolvePublicServicePoint(restaurantId, servicePointToken)
+        .then((servicePoint) => {
+          if (cancelled) return;
+          setOrderLocation({
+            type: servicePoint.type,
+            label: servicePoint.name,
+            token: servicePoint.publicToken,
+            fulfillmentModes: servicePoint.fulfillmentModes,
+            paymentMethods: servicePoint.paymentMethods,
+          });
+          const stored = localStorage.getItem(
+            `session-${restaurantId}-sp-${servicePointToken}`,
+          );
+          setSessionToken(stored);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setOrderLocation(null);
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setOrderLocation(null);
     setTableNumberState(table);
     if (table) {
       setTableNumber(table);
       const stored = localStorage.getItem(`session-${restaurantId}-${table}`);
       if (stored) setSessionToken(stored);
+    } else {
+      setTableNumber(null);
+      setSessionToken(null);
     }
-  }, [restaurantId, location.search]);
+    return () => {
+      cancelled = true;
+    };
+  }, [restaurantId, location.search, setOrderLocation, setTableNumber]);
 
   // IntersectionObserver: track active category for scroll-spy pill nav
   useEffect(() => {
@@ -330,17 +384,17 @@ const PublicMenuPage = () => {
   }, [menuMeta]);
 
   useEffect(() => {
-    if (tableNumber) {
-      const stored = localStorage.getItem(
-        `session-${restaurantId}-${tableNumber}`,
-      );
+    if (sessionStorageKey) {
+      const stored = localStorage.getItem(sessionStorageKey);
       setSessionToken(stored);
     }
-  }, [restaurantId, tableNumber]);
+  }, [sessionStorageKey]);
 
   useEffect(() => {
-    setOwnedOrderIds(getOwnedOrderIds(restaurantId, tableNumber, sessionToken));
-  }, [restaurantId, tableNumber, sessionToken, isPaymentModalOpen]);
+    setOwnedOrderIds(
+      getOwnedOrderIds(restaurantId, sessionLocationKey, sessionToken),
+    );
+  }, [restaurantId, sessionLocationKey, sessionToken, isPaymentModalOpen]);
 
   // Restore call-waiter cooldown across reloads — the 60s anti-spam window is
   // persisted per restaurant+table so reloading the page can't bypass it.
@@ -681,7 +735,7 @@ const PublicMenuPage = () => {
         />
 
         <TopBar
-          tableNumber={tableNumber}
+          tableNumber={tableNumber ?? orderLocation?.label ?? null}
           targetLanguages={availableLanguages}
           selectedLang={selectedLang}
           onLanguageChange={handleLanguageChange}
@@ -1007,7 +1061,7 @@ const PublicMenuPage = () => {
             >
               {/* LEFT GROUP: Waiter + Profile/Sign-In */}
               <div className="flex items-center gap-0.5">
-                {callWaiterEnabled && (
+                {tableCallWaiterEnabled && (
                   <button
                     onClick={() => {
                       if (assistanceSent || assistanceLoading) return;
@@ -1071,7 +1125,7 @@ const PublicMenuPage = () => {
 
               {/* RIGHT GROUP: Bill + Cart */}
               <div className="flex items-center gap-0.5">
-                {sessionToken && paymentsEnabled && (
+                {sessionToken && canRequestBill && (
                   <Button
                     variant="default"
                     size="sm"
@@ -1087,10 +1141,8 @@ const PublicMenuPage = () => {
                         const status = err?.response?.status;
                         if (status === 404 || status === 410) {
                           setSessionToken(null);
-                          if (tableNumber)
-                            localStorage.removeItem(
-                              `session-${restaurantId}-${tableNumber}`,
-                            );
+                          if (sessionStorageKey)
+                            localStorage.removeItem(sessionStorageKey);
                         }
                       }
                     }}
@@ -1106,6 +1158,7 @@ const PublicMenuPage = () => {
                       selectedLang={selectedLang}
                       tier={tier}
                       features={features}
+                      paymentsEnabled={paymentsEnabled}
                       themeVars={themeVars}
                     />
                   </div>

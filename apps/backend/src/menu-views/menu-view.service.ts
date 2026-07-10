@@ -21,7 +21,7 @@ export class MenuViewService {
       let tableId: string | null = null;
       if (data.table) {
         const found = await this.prisma.restaurantTable.findFirst({
-          where: { name: data.table, restaurantId },
+          where: { name: data.table, restaurantId, type: 'TABLE' },
           select: { id: true },
         });
         tableId = found?.id ?? null;

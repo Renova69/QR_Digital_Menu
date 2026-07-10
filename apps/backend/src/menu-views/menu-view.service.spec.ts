@@ -45,7 +45,7 @@ describe('MenuViewService', () => {
 
       expect(mockPrisma.restaurantTable.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { name: 'T1', restaurantId: 'rest1' },
+          where: { name: 'T1', restaurantId: 'rest1', type: 'TABLE' },
         }),
       );
       expect(mockPrisma.menuView.create).toHaveBeenCalledWith({

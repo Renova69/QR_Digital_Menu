@@ -32,6 +32,11 @@ describe('TablesService', () => {
         findUnique: jest
           .fn()
           .mockResolvedValue({ ...mockTable, restaurant: mockRestaurant }),
+        update: jest.fn().mockResolvedValue({
+          ...mockTable,
+          type: 'ROOM',
+          publicToken: 'new-token',
+        }),
         delete: jest.fn().mockResolvedValue(mockTable),
       },
       tableSession: {
@@ -149,11 +154,63 @@ describe('TablesService', () => {
       const result = await service.findAll('rest-1');
       expect(prisma.restaurantTable.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { restaurantId: 'rest-1' },
+          where: { restaurantId: 'rest-1', type: 'TABLE' },
           orderBy: { name: 'asc' },
         }),
       );
       expect(result).toEqual([mockTable]);
+    });
+  });
+
+  describe('service points', () => {
+    it('returns only non-table service points', async () => {
+      await service.findServicePoints('rest-1');
+      expect(prisma.restaurantTable.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { restaurantId: 'rest-1', type: { not: 'TABLE' } },
+        }),
+      );
+    });
+
+    it('resolves an active public service point by token', async () => {
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'room-304',
+        name: 'Room 304',
+        type: 'ROOM',
+        publicToken: 'sp-token',
+        fulfillmentModes: ['ROOM_DELIVERY', 'PICKUP'],
+        paymentMethods: ['ONLINE', 'PAY_ON_DELIVERY'],
+      });
+
+      await expect(
+        service.resolvePublicServicePoint('rest-1', 'sp-token'),
+      ).resolves.toMatchObject({ id: 'room-304', name: 'Room 304' });
+      expect(prisma.restaurantTable.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            restaurantId: 'rest-1',
+            publicToken: 'sp-token',
+            isActive: true,
+            type: { not: 'TABLE' },
+          }),
+        }),
+      );
+    });
+
+    it('rotates a service point public token for the owner', async () => {
+      prisma.restaurantTable.findUnique.mockResolvedValue({
+        ...mockTable,
+        type: 'ROOM',
+        restaurant: mockRestaurant,
+      });
+
+      await service.rotatePublicToken('room-304', 'owner-1');
+      expect(prisma.restaurantTable.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'room-304' },
+          data: { publicToken: expect.any(String) },
+        }),
+      );
     });
   });
 

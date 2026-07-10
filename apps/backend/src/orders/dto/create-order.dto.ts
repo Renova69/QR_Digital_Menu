@@ -9,9 +9,16 @@ import {
   Min,
   Max,
   MaxLength,
+  IsIn,
 } from 'class-validator';
 
 import { Type } from 'class-transformer';
+import {
+  FULFILLMENT_MODES,
+  PAYMENT_METHODS,
+  type FulfillmentMode,
+  type ServicePointPaymentMethod,
+} from '../../tables/service-point.constants';
 
 class OrderItemOptionDto {
   @IsString()
@@ -64,7 +71,22 @@ export class CreateOrderDto {
   customerPhone?: string;
 
   @IsString()
-  tableId: string;
+  @IsOptional()
+  tableId?: string;
+
+  @IsString()
+  @IsOptional()
+  servicePointToken?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsIn(FULFILLMENT_MODES)
+  fulfillmentType?: FulfillmentMode;
+
+  @IsString()
+  @IsOptional()
+  @IsIn(PAYMENT_METHODS)
+  paymentPreference?: ServicePointPaymentMethod;
 
   @IsString()
   @IsOptional()

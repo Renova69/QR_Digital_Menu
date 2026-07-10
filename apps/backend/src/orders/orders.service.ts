@@ -35,6 +35,10 @@ import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { isLoyaltyAvailable } from '../loyalty/loyalty-availability.util';
 import { PrintStationService } from '../print-station/print-station.service';
+import {
+  type FulfillmentMode,
+  type ServicePointPaymentMethod,
+} from '../tables/service-point.constants';
 
 /** Roles that may be attributed as POS staff on an order (#4). */
 const POS_STAFF_ROLES = new Set([
@@ -238,12 +242,52 @@ export class OrdersService {
     let sessionToken = createOrderDto.sessionToken;
     let tableSessionId: string | undefined;
     let resolvedTableCuid: string | null = null;
+    let tableNameSnapshot: string | null = createOrderDto.tableId ?? null;
+    let servicePointType: string | null = null;
+    let servicePointLabel: string | null = null;
+    let fulfillmentType: FulfillmentMode | null = null;
+    let paymentPreference: ServicePointPaymentMethod | null = null;
+
+    const servicePoint = createOrderDto.servicePointToken
+      ? await this.prisma.restaurantTable.findFirst({
+          where: {
+            publicToken: createOrderDto.servicePointToken,
+            restaurantId,
+            isActive: true,
+            type: { not: 'TABLE' },
+          },
+        })
+      : null;
+
+    if (createOrderDto.servicePointToken && !servicePoint) {
+      throw new NotFoundException('Service point not found');
+    }
+
+    if (servicePoint) {
+      tableNameSnapshot = servicePoint.name;
+      servicePointType = servicePoint.type;
+      servicePointLabel = servicePoint.name;
+      fulfillmentType = this.resolveServicePointChoice<FulfillmentMode>(
+        servicePoint.fulfillmentModes as FulfillmentMode[],
+        createOrderDto.fulfillmentType,
+        'fulfillment type',
+      );
+      paymentPreference =
+        this.resolveServicePointChoice<ServicePointPaymentMethod>(
+          servicePoint.paymentMethods as ServicePointPaymentMethod[],
+          createOrderDto.paymentPreference,
+          'payment preference',
+        );
+    }
 
     if (sessionToken) {
       const existingSession = await this.prisma.tableSession.findFirst({
         where: { token: sessionToken, status: 'OPEN', restaurantId },
       });
-      if (existingSession) {
+      if (
+        existingSession &&
+        (!servicePoint || existingSession.tableId === servicePoint.id)
+      ) {
         tableSessionId = existingSession.id;
         resolvedTableCuid = existingSession.tableId;
       } else {
@@ -251,16 +295,28 @@ export class OrdersService {
       }
     }
 
-    if (!tableSessionId && createOrderDto.tableId) {
+    if (!tableSessionId && servicePoint) {
+      resolvedTableCuid = servicePoint.id;
+
+      const newSession = await this.getOrCreateOpenSession(
+        servicePoint.id,
+        restaurantId,
+      );
+      tableSessionId = newSession.id;
+      sessionToken = newSession.token;
+    } else if (!tableSessionId && createOrderDto.tableId) {
       // Frontend sends table name (e.g. "1"), not cuid — resolve to real id
       const table = await this.prisma.restaurantTable.findFirst({
-        where: { name: createOrderDto.tableId, restaurantId },
+        where: { name: createOrderDto.tableId, restaurantId, type: 'TABLE' },
       });
       if (!table)
         throw new NotFoundException('Table not found for this restaurant');
 
       const tableCuid = table.id;
       resolvedTableCuid = tableCuid;
+      tableNameSnapshot = table.name;
+      servicePointType = 'TABLE';
+      servicePointLabel = table.name;
 
       const newSession = await this.getOrCreateOpenSession(
         tableCuid,
@@ -637,7 +693,11 @@ export class OrdersService {
             customerPhone: createOrderDto.customerPhone,
             customerId: effectiveCustomerId,
             tableId: resolvedTableCuid,
-            tableName: createOrderDto.tableId ?? null,
+            tableName: tableNameSnapshot,
+            servicePointType,
+            servicePointLabel,
+            fulfillmentType,
+            paymentPreference,
             specialRequests: createOrderDto.specialRequests,
             totalPrice: finalTotal,
             pointsEarned,
@@ -916,6 +976,24 @@ export class OrdersService {
       typeof error === 'object' &&
       (error as { code?: string }).code === 'P2002'
     );
+  }
+
+  private resolveServicePointChoice<T extends string>(
+    allowed: T[],
+    requested: T | undefined,
+    label: string,
+  ): T {
+    if (!allowed.length) {
+      throw new BadRequestException(`No ${label} is enabled`);
+    }
+    if (!requested) {
+      if (allowed.length === 1) return allowed[0];
+      throw new BadRequestException(`Select a ${label}`);
+    }
+    if (!allowed.includes(requested)) {
+      throw new BadRequestException(`Invalid ${label}`);
+    }
+    return requested;
   }
 
   async updateStatus(

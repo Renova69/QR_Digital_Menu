@@ -171,6 +171,45 @@ function SourceBadge({
   );
 }
 
+function getOrderLocationText(order: DashboardOrder, t: any) {
+  const label = order.servicePointLabel ?? order.tableName ?? order.tableId;
+  if (order.servicePointType === "ROOM") {
+    const raw = String(label ?? "");
+    return /^room\b/i.test(raw)
+      ? raw
+      : `${t("servicePoints.room", "Room")} ${raw}`;
+  }
+  if (order.servicePointType === "PICKUP") {
+    return label || t("servicePoints.pickup", "Pickup");
+  }
+  if (order.servicePointType === "OTHER") {
+    return label || t("servicePoints.location", "Location");
+  }
+  return t("orders.table", { id: label });
+}
+
+function getFulfillmentLabel(value: string | null | undefined, t: any) {
+  if (value === "ROOM_DELIVERY") {
+    return t("servicePoints.deliverToRoom", "Deliver to room");
+  }
+  if (value === "PICKUP") {
+    return t("servicePoints.pickupOrder", "Pick up");
+  }
+  return null;
+}
+
+function getPaymentLabel(value: string | null | undefined, t: any) {
+  if (value === "ONLINE") return t("servicePoints.payOnline", "Pay online");
+  if (value === "PAY_ON_DELIVERY") {
+    return t("servicePoints.payOnDelivery", "Pay on delivery");
+  }
+  if (value === "PAY_AT_PICKUP") {
+    return t("servicePoints.payAtPickup", "Pay at pickup");
+  }
+  if (value === "CASH") return t("servicePoints.payCash", "Cash");
+  return null;
+}
+
 const OrdersView = () => {
   const { t, i18n } = useTranslation();
   const { orders, updateOrderStatus, batchUpdateOrderStatus } = useOrders();
@@ -214,6 +253,10 @@ const OrdersView = () => {
           getOrderCode(order.id).toLowerCase(),
           String(order.tableName ?? order.tableId ?? "").toLowerCase(),
           `table ${order.tableName ?? order.tableId}`.toLowerCase(),
+          String(order.servicePointLabel ?? "").toLowerCase(),
+          String(order.servicePointType ?? "").toLowerCase(),
+          String(order.fulfillmentType ?? "").toLowerCase(),
+          String(order.paymentPreference ?? "").toLowerCase(),
           itemNames,
         ].some((value) => value.includes(query));
       })
@@ -243,9 +286,7 @@ const OrdersView = () => {
   );
   const selectedTable = selectedOrder
     ? {
-        name: t("orders.table", {
-          id: selectedOrder.tableName ?? selectedOrder.tableId,
-        }),
+        name: getOrderLocationText(selectedOrder, t),
         status:
           selectedOrder.tableSession?.status === "PAID"
             ? "paid"
@@ -444,6 +485,12 @@ const OrdersView = () => {
             const specialRequests = getSpecialRequestRows(
               order.specialRequests,
             );
+            const locationLabel = getOrderLocationText(order, t);
+            const fulfillmentLabel = getFulfillmentLabel(
+              order.fulfillmentType,
+              t,
+            );
+            const paymentLabel = getPaymentLabel(order.paymentPreference, t);
 
             return (
               <article
@@ -482,12 +529,20 @@ const OrdersView = () => {
                     </span>
                   </div>
 
-                  <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
                     <span className="rounded-md bg-muted px-2.5 py-1 font-black text-foreground">
-                      {t("orders.table", {
-                        id: order.tableName ?? order.tableId,
-                      })}
+                      {locationLabel}
                     </span>
+                    {fulfillmentLabel && (
+                      <span className="rounded-md bg-sky-100 px-2.5 py-1 font-black text-sky-700 dark:bg-sky-400/15 dark:text-sky-200">
+                        {fulfillmentLabel}
+                      </span>
+                    )}
+                    {paymentLabel && (
+                      <span className="rounded-md bg-emerald-100 px-2.5 py-1 font-black text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200">
+                        {paymentLabel}
+                      </span>
+                    )}
                     <span className="flex min-w-0 items-center gap-1.5 truncate">
                       <Clock className="h-3.5 w-3.5" />
                       {t("orders.pluckedAt", {

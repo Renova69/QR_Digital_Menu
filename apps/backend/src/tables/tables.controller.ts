@@ -46,6 +46,34 @@ export class TablesController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('restaurants/:restaurantId/service-points')
+  createServicePoint(
+    @Param('restaurantId') restaurantId: string,
+    @Body() createTableDto: CreateTableDto,
+    @Request() req: any,
+  ) {
+    return this.tablesService.create(
+      restaurantId,
+      { ...createTableDto, type: createTableDto.type ?? 'ROOM' },
+      req.user.id,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('restaurants/:restaurantId/service-points')
+  findServicePoints(@Param('restaurantId') restaurantId: string) {
+    return this.tablesService.findServicePoints(restaurantId);
+  }
+
+  @Get('restaurants/:restaurantId/service-points/public/:token')
+  resolvePublicServicePoint(
+    @Param('restaurantId') restaurantId: string,
+    @Param('token') token: string,
+  ) {
+    return this.tablesService.resolvePublicServicePoint(restaurantId, token);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('tables/status/:restaurantId')
   getTablesWithStatus(
     @Param('restaurantId') restaurantId: string,
@@ -77,6 +105,12 @@ export class TablesController {
     @Request() req: any,
   ) {
     return this.tablesService.update(id, dto, req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('tables/:id/public-token/rotate')
+  rotatePublicToken(@Param('id') id: string, @Request() req: any) {
+    return this.tablesService.rotatePublicToken(id, req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
