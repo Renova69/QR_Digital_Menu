@@ -754,7 +754,7 @@ export class MenuCrudService {
     
     return items
       .map((item, index) => {
-        let score = Math.max(0, 100 - index); // Base score preserves original ranking
+        let score = items.length - index; // Base score preserves original ranking
         if (item.tags && Array.isArray(item.tags)) {
           item.tags.forEach((tag: string) => {
             if (activeContexts.has(tag)) {

@@ -712,12 +712,37 @@ describe('MenuCrudService', () => {
         mockPrisma.menuItem.findMany.mockResolvedValue([
           { ...makeItem(), id: 'item-1', tags: [] },
           { ...makeItem(), id: 'item-2', tags: ['MORNING'] },
+          { ...makeItem(), id: 'item-3', tags: [] },
+          { ...makeItem(), id: 'item-4', tags: [] },
         ]);
 
         const result = await service.getTrendingItems('rest-1');
         
         // item-2 should be boosted and rank above item-1
-        expect(result).toHaveLength(2);
+        expect(result).toHaveLength(4);
+        expect((result[0] as { id: string }).id).toBe('item-2');
+        expect((result[1] as { id: string }).id).toBe('item-1');
+      });
+
+      it('boosts rank of MORNING tagged item during morning hours in America/New_York (09:00 EDT = 13:00 UTC)', async () => {
+        jest.setSystemTime(new Date('2023-10-10T13:00:00Z')); // 13:00 UTC is 09:00 EDT
+        mockPrisma.restaurant.findUnique.mockResolvedValue({
+          trendingMode: 'MANUAL',
+          id: 'rest-1',
+          tier: 'PROFESSIONAL',
+          timezone: 'America/New_York',
+        });
+        
+        mockPrisma.menuItem.findMany.mockResolvedValue([
+          { ...makeItem(), id: 'item-1', tags: [] },
+          { ...makeItem(), id: 'item-2', tags: ['MORNING'] },
+          { ...makeItem(), id: 'item-3', tags: [] },
+          { ...makeItem(), id: 'item-4', tags: [] },
+        ]);
+
+        const result = await service.getTrendingItems('rest-1');
+        
+        expect(result).toHaveLength(4);
         expect((result[0] as { id: string }).id).toBe('item-2');
         expect((result[1] as { id: string }).id).toBe('item-1');
       });
@@ -728,9 +753,11 @@ describe('MenuCrudService', () => {
         mockPrisma.menuItem.findMany.mockResolvedValue([
           { ...makeItem(), id: 'item-1', tags: [] },
           { ...makeItem(), id: 'item-2', tags: ['LUNCH'] },
+          { ...makeItem(), id: 'item-3', tags: [] },
+          { ...makeItem(), id: 'item-4', tags: [] },
         ]);
         const result = await service.getTrendingItems('rest-1');
-        expect(result).toHaveLength(2);
+        expect(result).toHaveLength(4);
         expect((result[0] as { id: string }).id).toBe('item-2');
       });
 
@@ -740,9 +767,11 @@ describe('MenuCrudService', () => {
         mockPrisma.menuItem.findMany.mockResolvedValue([
           { ...makeItem(), id: 'item-1', tags: [] },
           { ...makeItem(), id: 'item-2', tags: ['EVENING'] },
+          { ...makeItem(), id: 'item-3', tags: [] },
+          { ...makeItem(), id: 'item-4', tags: [] },
         ]);
         const result = await service.getTrendingItems('rest-1');
-        expect(result).toHaveLength(2);
+        expect(result).toHaveLength(4);
         expect((result[0] as { id: string }).id).toBe('item-2');
       });
 
@@ -752,9 +781,11 @@ describe('MenuCrudService', () => {
         mockPrisma.menuItem.findMany.mockResolvedValue([
           { ...makeItem(), id: 'item-1', tags: [] },
           { ...makeItem(), id: 'item-2', tags: ['LATE_NIGHT'] },
+          { ...makeItem(), id: 'item-3', tags: [] },
+          { ...makeItem(), id: 'item-4', tags: [] },
         ]);
         const result = await service.getTrendingItems('rest-1');
-        expect(result).toHaveLength(2);
+        expect(result).toHaveLength(4);
         expect((result[0] as { id: string }).id).toBe('item-2');
       });
 
@@ -764,9 +795,11 @@ describe('MenuCrudService', () => {
         mockPrisma.menuItem.findMany.mockResolvedValue([
           { ...makeItem(), id: 'item-1', tags: [] },
           { ...makeItem(), id: 'item-2', tags: ['LATE_NIGHT'] },
+          { ...makeItem(), id: 'item-3', tags: [] },
+          { ...makeItem(), id: 'item-4', tags: [] },
         ]);
         const result = await service.getTrendingItems('rest-1');
-        expect(result).toHaveLength(2);
+        expect(result).toHaveLength(4);
         expect((result[0] as { id: string }).id).toBe('item-2');
       });
 
@@ -776,9 +809,11 @@ describe('MenuCrudService', () => {
         mockPrisma.menuItem.findMany.mockResolvedValue([
           { ...makeItem(), id: 'item-1', tags: [] },
           { ...makeItem(), id: 'item-2', tags: ['WEEKEND'] },
+          { ...makeItem(), id: 'item-3', tags: [] },
+          { ...makeItem(), id: 'item-4', tags: [] },
         ]);
         const result = await service.getTrendingItems('rest-1');
-        expect(result).toHaveLength(2);
+        expect(result).toHaveLength(4);
         expect((result[0] as { id: string }).id).toBe('item-2');
       });
 
@@ -789,17 +824,21 @@ describe('MenuCrudService', () => {
         mockPrisma.orderItem.groupBy.mockResolvedValue([
           { menuItemId: 'item-1', _sum: { quantity: 10 } },
           { menuItemId: 'item-2', _sum: { quantity: 5 } },
+          { menuItemId: 'item-3', _sum: { quantity: 1 } },
+          { menuItemId: 'item-4', _sum: { quantity: 1 } },
         ]);
         
         mockPrisma.menuItem.findMany.mockResolvedValue([
           { ...makeItem(), id: 'item-1', tags: [] },
           { ...makeItem(), id: 'item-2', tags: ['MORNING'] },
+          { ...makeItem(), id: 'item-3', tags: [] },
+          { ...makeItem(), id: 'item-4', tags: [] },
         ]);
 
         const result = await service.getTrendingItems('rest-1');
         
         // item-2 should be boosted and rank above item-1 despite lower order quantity
-        expect(result).toHaveLength(2);
+        expect(result).toHaveLength(4);
         expect((result[0] as { id: string }).id).toBe('item-2');
         expect((result[1] as { id: string }).id).toBe('item-1');
       });
