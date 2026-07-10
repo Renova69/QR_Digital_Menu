@@ -307,7 +307,7 @@ export class EventsGateway
   ) {
     const userId = client.data.userId as string | undefined;
     if (!userId || !(await this.canAccessRestaurant(userId, restaurantId))) {
-      this.logger.warn(
+      this.logger[userId ? 'warn' : 'debug'](
         `Denied restaurant room join: client ${client.id} → restaurant_${restaurantId}`,
       );
       client.emit('roomError', {
@@ -347,7 +347,7 @@ export class EventsGateway
       : { allowed: false, error: 'UNAUTHORIZED' as const };
 
     if (!access.allowed) {
-      this.logger.warn(
+      this.logger[userId || access.error !== 'UNAUTHORIZED' ? 'warn' : 'debug'](
         `Denied restaurant orders room join: client ${client.id} -> restaurant_orders_${restaurantId}`,
       );
       client.emit('roomError', {

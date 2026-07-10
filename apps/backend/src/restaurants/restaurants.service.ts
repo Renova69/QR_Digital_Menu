@@ -904,33 +904,99 @@ export class RestaurantsService {
    *  `::ffff:169.254.169.254`) first so that form can't bypass the IPv4
    *  checks. Fails closed on anything malformed. */
   private isBlockedIp(rawAddress: string): boolean {
-    const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(rawAddress);
-    const address = mapped ? mapped[1] : rawAddress;
+    return this.isBlockedIpParsed(rawAddress);
+  }
+
+  private isBlockedIpParsed(rawAddress: string): boolean {
+    const withoutBrackets = rawAddress.trim().replace(/^\[|\]$/g, '');
+    const address = withoutBrackets.split('%')[0].toLowerCase();
+    const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(address);
+    if (mapped) return this.isBlockedIpv4(mapped[1]);
 
     if (address.includes('.')) {
-      const octets = address.split('.').map((n) => Number(n));
-      if (
-        octets.length !== 4 ||
-        octets.some((n) => !Number.isInteger(n) || n < 0 || n > 255)
-      ) {
-        return true; // malformed IPv4 literal — fail closed
-      }
-      const [a, b] = octets;
-      if (a === 127) return true; // loopback
-      if (a === 10) return true; // RFC1918
-      if (a === 172 && b >= 16 && b <= 31) return true; // RFC1918
-      if (a === 192 && b === 168) return true; // RFC1918
-      if (a === 169 && b === 254) return true; // link-local / cloud metadata
-      if (a === 0) return true; // "this network"
-      if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT 100.64.0.0/10
-      return false;
+      return this.isBlockedIpv4(address);
     }
 
-    const lower = address.toLowerCase();
-    if (lower === '::1') return true; // loopback
-    if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // unique local fc00::/7
-    if (lower.startsWith('fe80')) return true; // link-local fe80::/10
+    const segments = this.expandIpv6(address);
+    if (!segments) return true;
+
+    const [first] = segments;
+    const isUnspecified = segments.every((segment) => segment === 0);
+    const isLoopback =
+      segments.slice(0, 7).every((segment) => segment === 0) &&
+      segments[7] === 1;
+    if (isUnspecified || isLoopback) return true;
+
+    const isIpv4Mapped =
+      segments.slice(0, 5).every((segment) => segment === 0) &&
+      segments[5] === 0xffff;
+    if (isIpv4Mapped) {
+      const ipv4 = [
+        segments[6] >> 8,
+        segments[6] & 0xff,
+        segments[7] >> 8,
+        segments[7] & 0xff,
+      ].join('.');
+      return this.isBlockedIpv4(ipv4);
+    }
+
+    if ((first & 0xfe00) === 0xfc00) return true; // unique-local fc00::/7
+    if ((first & 0xffc0) === 0xfe80) return true; // link-local fe80::/10
+    if ((first & 0xff00) === 0xff00) return true; // multicast ff00::/8
+    if (first === 0x2001 && segments[1] === 0x0db8) return true; // documentation
     return false;
+  }
+
+  private isBlockedIpv4(address: string): boolean {
+    const octets = address.split('.').map((n) => Number(n));
+    if (
+      octets.length !== 4 ||
+      octets.some((n) => !Number.isInteger(n) || n < 0 || n > 255)
+    ) {
+      return true;
+    }
+    const [a, b, c] = octets;
+    if (a === 0) return true;
+    if (a === 10) return true;
+    if (a === 127) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true;
+    if (a === 192 && b === 0 && c === 0) return true;
+    if (a === 192 && b === 0 && c === 2) return true;
+    if (a === 198 && (b === 18 || b === 19)) return true;
+    if (a === 198 && b === 51 && c === 100) return true;
+    if (a === 203 && b === 0 && c === 113) return true;
+    if (a >= 224) return true;
+    return false;
+  }
+
+  private expandIpv6(address: string): number[] | null {
+    if (!address.includes(':')) return null;
+    const parts = address.split('::');
+    if (parts.length > 2) return null;
+
+    const parseSide = (side: string): number[] | null => {
+      if (!side) return [];
+      const parsed = side.split(':').map((segment) => {
+        if (!/^[0-9a-f]{1,4}$/i.test(segment)) return Number.NaN;
+        return parseInt(segment, 16);
+      });
+      return parsed.some((segment) => Number.isNaN(segment)) ? null : parsed;
+    };
+
+    const left = parseSide(parts[0]);
+    const right = parseSide(parts[1] ?? '');
+    if (!left || !right) return null;
+
+    if (parts.length === 1) {
+      return left.length === 8 ? left : null;
+    }
+
+    const missing = 8 - left.length - right.length;
+    if (missing < 1) return null;
+    return [...left, ...Array(missing).fill(0), ...right];
   }
 
   /** Fetch `parsedUrl` by connecting directly to the pre-validated `ip`

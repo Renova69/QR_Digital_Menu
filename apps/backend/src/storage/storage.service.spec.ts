@@ -127,6 +127,11 @@ describe('StorageService', () => {
       expect(mockS3Send).toHaveBeenCalled();
     });
 
+    it('deleteExact deletes only the provided managed key', async () => {
+      await service.deleteExact('abc123.webp');
+      expect(mockS3Send).toHaveBeenCalledTimes(1);
+    });
+
     it('extracts key from full https URL', async () => {
       await service.delete('https://cdn.example.com/abc123.webp');
       expect(mockS3Send).toHaveBeenCalled();

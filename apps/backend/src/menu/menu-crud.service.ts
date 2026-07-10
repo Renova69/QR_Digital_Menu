@@ -54,7 +54,11 @@ export class MenuCrudService {
 
   private readonly autoTrendingCache = new Map<
     string,
-    { data: any[]; expiresAt: number }
+    { data: Partial<MenuItem>[]; expiresAt: number }
+  >();
+  private readonly autoTrendingInFlight = new Map<
+    string,
+    Promise<Partial<MenuItem>[]>
   >();
 
   /**
@@ -175,7 +179,7 @@ export class MenuCrudService {
       this.logger.log(`Kept shared image (still referenced): ${url}`);
       return;
     }
-    await this.storageService.delete(url);
+    await this.storageService.deleteExact(url);
   }
 
   private async deleteStoredImagePair(
@@ -641,7 +645,10 @@ export class MenuCrudService {
     });
   }
 
-  async getTrendingItems(restaurantId: string, lang?: string) {
+  async getTrendingItems(
+    restaurantId: string,
+    lang?: string,
+  ): Promise<Partial<MenuItem>[]> {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
       select: {
@@ -700,65 +707,74 @@ export class MenuCrudService {
       return cached.data;
     }
 
-    const trendingSince = DateTime.now()
-      .minus({ days: TRENDING_WINDOW_DAYS })
-      .toJSDate();
-    const mostOrdered = await this.prisma.orderItem.groupBy({
-      by: ['menuItemId'],
-      where: {
-        menuItemId: { not: null },
-        // Only real, recent sales drive AUTO trending: exclude CANCELED orders
-        // (a canceled bulk order must not fake-inflate popularity) and bound the
-        // scan to a rolling window. Served by Order
-        // @@index([restaurantId, status, createdAt]).
-        order: {
-          restaurantId,
-          status: { not: OrderStatus.CANCELED },
-          createdAt: { gte: trendingSince },
+    const inFlight = this.autoTrendingInFlight.get(cacheKey);
+    if (inFlight) return inFlight;
+
+    const load = (async () => {
+      const trendingSince = DateTime.now()
+        .minus({ days: TRENDING_WINDOW_DAYS })
+        .toJSDate();
+      const mostOrdered = await this.prisma.orderItem.groupBy({
+        by: ['menuItemId'],
+        where: {
+          menuItemId: { not: null },
+          // Only real, recent sales drive AUTO trending: exclude CANCELED orders
+          // (a canceled bulk order must not fake-inflate popularity) and bound the
+          // scan to a rolling window. Served by Order
+          // @@index([restaurantId, status, createdAt]).
+          order: {
+            restaurantId,
+            status: { not: OrderStatus.CANCELED },
+            createdAt: { gte: trendingSince },
+          },
         },
-      },
-      _sum: { quantity: true },
-      orderBy: { _sum: { quantity: 'desc' } },
-      take: 20,
+        _sum: { quantity: true },
+        orderBy: { _sum: { quantity: 'desc' } },
+        take: 20,
+      });
+
+      const itemIds = mostOrdered
+        .map((mo: { menuItemId: string | null }) => mo.menuItemId)
+        .filter((id: string | null): id is string => id !== null);
+      if (itemIds.length === 0) return [];
+
+      const trendingItems = await this.prisma.menuItem.findMany({
+        where: {
+          id: { in: itemIds },
+          isOutOfStock: false,
+        },
+        include: {
+          options: true,
+          category: { select: { isDrinkCategory: true, name: true } },
+        },
+      });
+
+      const ordered = itemIds
+        .map((id: string) =>
+          trendingItems.find((item: { id: string }) => item.id === id),
+        )
+        .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+      const scoredItems = this.applyContextualScoring(
+        ordered as Partial<MenuItem>[],
+        timezone,
+      ).slice(0, 4);
+
+      const result = await this.applyTrendingTranslations(
+        scoredItems,
+        restaurant,
+        lang,
+      );
+      this.autoTrendingCache.set(cacheKey, {
+        data: result,
+        expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes cache
+      });
+      return result;
+    })().finally(() => {
+      this.autoTrendingInFlight.delete(cacheKey);
     });
-
-    const itemIds = mostOrdered
-      .map((mo: { menuItemId: string | null }) => mo.menuItemId)
-      .filter((id: string | null): id is string => id !== null);
-    if (itemIds.length === 0) return [];
-
-    const trendingItems = await this.prisma.menuItem.findMany({
-      where: {
-        id: { in: itemIds },
-        isOutOfStock: false,
-      },
-      include: {
-        options: true,
-        category: { select: { isDrinkCategory: true, name: true } },
-      },
-    });
-
-    const ordered = itemIds
-      .map((id: string) =>
-        trendingItems.find((item: { id: string }) => item.id === id),
-      )
-      .filter((item): item is NonNullable<typeof item> => Boolean(item));
-
-    const scoredItems = this.applyContextualScoring(
-      ordered as Partial<MenuItem>[],
-      timezone,
-    ).slice(0, 4);
-
-    const result = await this.applyTrendingTranslations(
-      scoredItems,
-      restaurant,
-      lang,
-    );
-    this.autoTrendingCache.set(cacheKey, {
-      data: result,
-      expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes cache
-    });
-    return result;
+    this.autoTrendingInFlight.set(cacheKey, load);
+    return load;
   }
 
   private applyContextualScoring(

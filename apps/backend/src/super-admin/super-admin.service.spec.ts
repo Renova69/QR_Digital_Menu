@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import { SuperAdminService } from './super-admin.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MenuImportService } from '../menu-import/menu-import.service';
+import { ImportMenuDto } from '../menu-import/dto/import-menu.dto';
 import { EventsGateway } from '../events/events.gateway';
 
 const ACTOR_ID = 'actor-user-id';
@@ -520,6 +521,90 @@ describe('SuperAdminService', () => {
         'Restaurant already deleted',
       );
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('importMenu', () => {
+    it('runs registered image cleanup only after the admin import transaction commits', async () => {
+      const dto: ImportMenuDto = {
+        categories: [{ name: 'Mains', items: [] }],
+      };
+      const cleanup = jest.fn().mockResolvedValue(undefined);
+      const tx = {
+        restaurant: {
+          findUnique: jest.fn().mockResolvedValue({ id: 'rest-1' }),
+        },
+        adminAuditLog: {
+          create: jest.fn().mockResolvedValue({}),
+        },
+      };
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (txClient: typeof tx) => Promise<unknown>) => fn(tx),
+      );
+      mockMenuImport.upsertMenu.mockImplementation(
+        async (
+          _restaurantId: string,
+          _dto: ImportMenuDto,
+          _tx: typeof tx,
+          postCommitCleanup: Array<() => Promise<void>>,
+        ) => {
+          postCommitCleanup.push(cleanup);
+          expect(cleanup).not.toHaveBeenCalled();
+          return { success: true, created: 0, updated: 1, categories: 0 };
+        },
+      );
+
+      const result = await service.importMenu('rest-1', dto, ACTOR_ID);
+
+      expect(result).toEqual({
+        success: true,
+        created: 0,
+        updated: 1,
+        categories: 0,
+      });
+      expect(mockMenuImport.upsertMenu).toHaveBeenCalledWith(
+        'rest-1',
+        dto,
+        tx,
+        expect.any(Array),
+      );
+      expect(tx.adminAuditLog.create).toHaveBeenCalled();
+      expect(cleanup).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not run registered image cleanup when the admin import transaction rolls back', async () => {
+      const dto: ImportMenuDto = {
+        categories: [{ name: 'Mains', items: [] }],
+      };
+      const cleanup = jest.fn().mockResolvedValue(undefined);
+      const tx = {
+        restaurant: {
+          findUnique: jest.fn().mockResolvedValue({ id: 'rest-1' }),
+        },
+        adminAuditLog: {
+          create: jest.fn().mockRejectedValue(new Error('audit failed')),
+        },
+      };
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (txClient: typeof tx) => Promise<unknown>) => fn(tx),
+      );
+      mockMenuImport.upsertMenu.mockImplementation(
+        async (
+          _restaurantId: string,
+          _dto: ImportMenuDto,
+          _tx: typeof tx,
+          postCommitCleanup: Array<() => Promise<void>>,
+        ) => {
+          postCommitCleanup.push(cleanup);
+          return { success: true, created: 0, updated: 1, categories: 0 };
+        },
+      );
+
+      await expect(service.importMenu('rest-1', dto, ACTOR_ID)).rejects.toThrow(
+        'audit failed',
+      );
+
+      expect(cleanup).not.toHaveBeenCalled();
     });
   });
 

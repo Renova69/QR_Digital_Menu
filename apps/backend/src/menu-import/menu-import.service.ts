@@ -23,6 +23,12 @@ const MAX_IMPORT_TOTAL_CHOICES = 5_000;
 const BGN_TO_EUR_RATE = 1.95583;
 const VALID_IMPORT_CURRENCIES = new Set(['EUR', 'BGN']);
 
+type ImageRefExclusions = {
+  excludeItemIds?: string[];
+  excludeCategoryIds?: string[];
+};
+type ImageCleanupTask = () => Promise<void>;
+
 @Injectable()
 export class MenuImportService {
   private readonly logger = new Logger(MenuImportService.name);
@@ -48,9 +54,14 @@ export class MenuImportService {
     restaurantId: string,
     dto: ImportMenuDto,
     txClient?: Prisma.TransactionClient,
+    postCommitCleanup?: ImageCleanupTask[],
   ) {
     const stats = { created: 0, updated: 0, categories: 0 };
     const db = txClient ?? this.prisma;
+    const pendingImageDeletes: Array<{
+      url: string;
+      exclude: ImageRefExclusions;
+    }> = [];
 
     if (!dto.categories?.length)
       throw new BadRequestException('No categories in payload');
@@ -167,24 +178,25 @@ export class MenuImportService {
           categoryId = created.id;
           stats.categories++;
         } else {
-          // Delete old R2 objects if images are being replaced
           if (
             existingCat.imageUrl &&
             cat.imageUrl !== undefined &&
             existingCat.imageUrl !== cat.imageUrl
           ) {
-            await this.storageService
-              .delete(existingCat.imageUrl)
-              .catch(() => {});
+            pendingImageDeletes.push({
+              url: existingCat.imageUrl,
+              exclude: { excludeCategoryIds: [existingCat.id] },
+            });
           }
           if (
             existingCat.thumbnailUrl &&
             cat.thumbnailUrl !== undefined &&
             existingCat.thumbnailUrl !== cat.thumbnailUrl
           ) {
-            await this.storageService
-              .delete(existingCat.thumbnailUrl)
-              .catch(() => {});
+            pendingImageDeletes.push({
+              url: existingCat.thumbnailUrl,
+              exclude: { excludeCategoryIds: [existingCat.id] },
+            });
           }
 
           await tx.menuCategory.update({
@@ -268,24 +280,25 @@ export class MenuImportService {
 
           let menuItemId: string;
           if (existing) {
-            // Delete old R2 objects if images are being replaced
             if (
               existing.imageUrl &&
               item.imageUrl !== undefined &&
               existing.imageUrl !== item.imageUrl
             ) {
-              await this.storageService
-                .delete(existing.imageUrl)
-                .catch(() => {});
+              pendingImageDeletes.push({
+                url: existing.imageUrl,
+                exclude: { excludeItemIds: [existing.id] },
+              });
             }
             if (
               existing.thumbnailUrl &&
               item.thumbnailUrl !== undefined &&
               existing.thumbnailUrl !== item.thumbnailUrl
             ) {
-              await this.storageService
-                .delete(existing.thumbnailUrl)
-                .catch(() => {});
+              pendingImageDeletes.push({
+                url: existing.thumbnailUrl,
+                exclude: { excludeItemIds: [existing.id] },
+              });
             }
 
             await tx.menuItem.update({
@@ -362,7 +375,60 @@ export class MenuImportService {
       throw err;
     }
 
+    const cleanupImages = async () => {
+      await Promise.all(
+        pendingImageDeletes.map(({ url, exclude }) =>
+          this.deleteImageIfUnreferenced(url, exclude),
+        ),
+      );
+    };
+
+    if (postCommitCleanup) {
+      postCommitCleanup.push(cleanupImages);
+    } else {
+      await cleanupImages();
+    }
+
     return { success: true, ...stats };
+  }
+
+  private async isImageReferencedElsewhere(
+    url: string,
+    exclude: ImageRefExclusions = {},
+  ): Promise<boolean> {
+    const { excludeItemIds = [], excludeCategoryIds = [] } = exclude;
+    const [itemRefs, categoryRefs] = await Promise.all([
+      this.prisma.menuItem.count({
+        where: {
+          OR: [{ imageUrl: url }, { thumbnailUrl: url }],
+          ...(excludeItemIds.length ? { id: { notIn: excludeItemIds } } : {}),
+        },
+      }),
+      this.prisma.menuCategory.count({
+        where: {
+          OR: [{ imageUrl: url }, { thumbnailUrl: url }],
+          ...(excludeCategoryIds.length
+            ? { id: { notIn: excludeCategoryIds } }
+            : {}),
+        },
+      }),
+    ]);
+    return itemRefs + categoryRefs > 0;
+  }
+
+  private async deleteImageIfUnreferenced(
+    url: string,
+    exclude: ImageRefExclusions = {},
+  ): Promise<void> {
+    try {
+      if (await this.isImageReferencedElsewhere(url, exclude)) {
+        this.logger.log(`Kept shared image (still referenced): ${url}`);
+        return;
+      }
+      await this.storageService.deleteExact(url);
+    } catch (error) {
+      this.logger.warn(`Skipped image cleanup for ${url}: ${error}`);
+    }
   }
 
   private assertImportSize(dto: ImportMenuDto) {

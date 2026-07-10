@@ -223,6 +223,26 @@ export class StorageService {
     }
   }
 
+  async deleteExact(keyOrUrl: string): Promise<void> {
+    const key = this.extractManagedKey(keyOrUrl);
+    if (!key) {
+      this.logger.warn(`Skipping unmanaged image URL: ${keyOrUrl}`);
+      return;
+    }
+
+    try {
+      await this.s3.send(
+        new DeleteObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+        }),
+      );
+      this.logger.log(`Deleted: ${key}`);
+    } catch (error) {
+      this.logger.warn(`Failed to delete ${key}: ${error}`);
+    }
+  }
+
   async delete(keyOrUrl: string): Promise<void> {
     const key = this.extractManagedKey(keyOrUrl);
     if (!key) {
@@ -231,21 +251,12 @@ export class StorageService {
     }
 
     try {
-      // Delete both main image and thumbnail
+      // Delete both main image and its derived thumbnail variant. Callers that
+      // already know the exact DB column URL should use deleteExact() to avoid
+      // deleting an unchanged thumbnail still referenced by another row.
       await Promise.all([
-        this.s3.send(
-          new DeleteObjectCommand({
-            Bucket: this.bucket,
-            Key: key,
-          }),
-        ),
-        // Also attempt to delete the thumbnail variant
-        this.s3.send(
-          new DeleteObjectCommand({
-            Bucket: this.bucket,
-            Key: key.replace(/\.[^/.]+$/, '') + '_thumb.webp',
-          }),
-        ),
+        this.deleteExact(key),
+        this.deleteExact(key.replace(/\.[^/.]+$/, '') + '_thumb.webp'),
       ]);
       this.logger.log(`Deleted: ${key} (+ thumbnail)`);
     } catch (error) {

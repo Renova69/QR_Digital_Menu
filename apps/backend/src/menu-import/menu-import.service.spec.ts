@@ -41,6 +41,7 @@ const makeTx = () => ({
 
 const mockStorageService = {
   delete: jest.fn().mockResolvedValue(undefined),
+  deleteExact: jest.fn().mockResolvedValue(undefined),
 };
 
 // Default: dayparting enabled (ENTERPRISE tier) so SCHEDULED is preserved in tests
@@ -61,6 +62,10 @@ const mockPrisma = {
   menuCategory: {
     // Preload — returns [] (no existing cats) by default
     findMany: jest.fn().mockResolvedValue([]),
+    count: jest.fn().mockResolvedValue(0),
+  },
+  menuItem: {
+    count: jest.fn().mockResolvedValue(0),
   },
   $transaction: jest.fn(),
 };
@@ -85,6 +90,10 @@ describe('MenuImportService', () => {
     mockPrisma.restaurant.update.mockResolvedValue({});
     // Default: no existing categories (all creates)
     mockPrisma.menuCategory.findMany.mockResolvedValue([]);
+    mockPrisma.menuCategory.count.mockResolvedValue(0);
+    mockPrisma.menuItem.count.mockResolvedValue(0);
+    mockStorageService.delete.mockResolvedValue(undefined);
+    mockStorageService.deleteExact.mockResolvedValue(undefined);
   });
 
   // ── checkOwnership ────────────────────────────────────────────────────────
@@ -150,7 +159,9 @@ describe('MenuImportService', () => {
 
     it('creates category and item when neither exists', async () => {
       const tx = makeTx();
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (txClient: typeof tx) => Promise<unknown>) => fn(tx),
+      );
 
       const result = await service.upsertMenu('rest-1', {
         categories: [
@@ -196,7 +207,9 @@ describe('MenuImportService', () => {
           ],
         },
       ]);
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (txClient: typeof tx) => Promise<unknown>) => fn(tx),
+      );
 
       const result = await service.upsertMenu('rest-1', {
         categories: [
@@ -225,7 +238,9 @@ describe('MenuImportService', () => {
 
     it('defaults to ALWAYS when availabilityType is invalid', async () => {
       const tx = makeTx();
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (txClient: typeof tx) => Promise<unknown>) => fn(tx),
+      );
 
       await service.upsertMenu('rest-1', {
         categories: [
@@ -250,7 +265,9 @@ describe('MenuImportService', () => {
     // import must be normalized to EUR, never stored as authoritative BGN.
     it('normalizes a BGN-tagged import to EUR at the fixed rate', async () => {
       const tx = makeTx();
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (txClient: typeof tx) => Promise<unknown>) => fn(tx),
+      );
 
       await service.upsertMenu('rest-1', {
         categories: [
@@ -282,7 +299,9 @@ describe('MenuImportService', () => {
     // "+2 EUR" downstream (order totals treat every stored number as EUR).
     it('normalizes BGN choice price modifiers to EUR at the fixed rate', async () => {
       const tx = makeTx();
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (txClient: typeof tx) => Promise<unknown>) => fn(tx),
+      );
 
       await service.upsertMenu('rest-1', {
         categories: [
@@ -500,7 +519,9 @@ describe('MenuImportService', () => {
           items: [],
         },
       ]);
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (txClient: typeof tx) => Promise<unknown>) => fn(tx),
+      );
 
       await service.upsertMenu('rest-1', {
         categories: [
@@ -513,7 +534,7 @@ describe('MenuImportService', () => {
         ],
       });
 
-      expect(mockStorageService.delete).toHaveBeenCalledWith(OLD_URL);
+      expect(mockStorageService.deleteExact).toHaveBeenCalledWith(OLD_URL);
     });
 
     it('does NOT delete old image when same URL is re-sent', async () => {
@@ -529,7 +550,9 @@ describe('MenuImportService', () => {
           items: [],
         },
       ]);
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (txClient: typeof tx) => Promise<unknown>) => fn(tx),
+      );
 
       await service.upsertMenu('rest-1', {
         categories: [
@@ -542,7 +565,84 @@ describe('MenuImportService', () => {
         ],
       });
 
-      expect(mockStorageService.delete).not.toHaveBeenCalled();
+      expect(mockStorageService.deleteExact).not.toHaveBeenCalled();
+    });
+
+    it('does NOT delete a replaced category image when another row still references the old URL', async () => {
+      const tx = makeTx();
+      const OLD_URL = 'https://r2.example.com/shared-cat.webp';
+      mockPrisma.menuCategory.findMany.mockResolvedValue([
+        {
+          id: 'cat-existing',
+          name: 'Mains',
+          order: 0,
+          imageUrl: OLD_URL,
+          thumbnailUrl: null,
+          items: [],
+        },
+      ]);
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (txClient: typeof tx) => Promise<unknown>) => fn(tx),
+      );
+      mockPrisma.menuItem.count.mockResolvedValue(1);
+      mockPrisma.menuCategory.count.mockResolvedValue(0);
+
+      await service.upsertMenu('rest-1', {
+        categories: [
+          {
+            name: 'Mains',
+            availabilityType: AvailabilityType.ALWAYS,
+            imageUrl: 'https://r2.example.com/new-cat.webp',
+            items: [],
+          },
+        ],
+      });
+
+      expect(mockStorageService.deleteExact).not.toHaveBeenCalled();
+      expect(mockPrisma.menuCategory.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: { notIn: ['cat-existing'] } }),
+        }),
+      );
+    });
+
+    it('does not fail a committed import when best-effort image cleanup cannot count references', async () => {
+      const tx = makeTx();
+      const OLD_URL = 'https://r2.example.com/old-cat.webp';
+      mockPrisma.menuCategory.findMany.mockResolvedValue([
+        {
+          id: 'cat-existing',
+          name: 'Mains',
+          order: 0,
+          imageUrl: OLD_URL,
+          thumbnailUrl: null,
+          items: [],
+        },
+      ]);
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (txClient: typeof tx) => Promise<unknown>) => fn(tx),
+      );
+      mockPrisma.menuItem.count.mockRejectedValue(new Error('count failed'));
+
+      await expect(
+        service.upsertMenu('rest-1', {
+          categories: [
+            {
+              name: 'Mains',
+              availabilityType: AvailabilityType.ALWAYS,
+              imageUrl: 'https://r2.example.com/new-cat.webp',
+              items: [],
+            },
+          ],
+        }),
+      ).resolves.toEqual({
+        success: true,
+        created: 0,
+        updated: 0,
+        categories: 0,
+      });
+
+      expect(mockStorageService.deleteExact).not.toHaveBeenCalled();
     });
 
     it('increments nextCatOrder from max existing order', async () => {
@@ -674,7 +774,7 @@ describe('MenuImportService', () => {
         ],
       });
 
-      expect(mockStorageService.delete).toHaveBeenCalledWith(OLD_URL);
+      expect(mockStorageService.deleteExact).toHaveBeenCalledWith(OLD_URL);
     });
 
     it('deletes old R2 objects when image is replaced on existing item', async () => {
@@ -717,7 +817,7 @@ describe('MenuImportService', () => {
         ],
       });
 
-      expect(mockStorageService.delete).toHaveBeenCalledWith(OLD_URL);
+      expect(mockStorageService.deleteExact).toHaveBeenCalledWith(OLD_URL);
     });
 
     it('deletes old R2 objects when thumbnail is replaced on existing item', async () => {
@@ -760,7 +860,7 @@ describe('MenuImportService', () => {
         ],
       });
 
-      expect(mockStorageService.delete).toHaveBeenCalledWith(OLD_URL);
+      expect(mockStorageService.deleteExact).toHaveBeenCalledWith(OLD_URL);
     });
 
     it('uses provided txClient if passed and does not open a new transaction', async () => {
@@ -782,6 +882,45 @@ describe('MenuImportService', () => {
 
       expect(txClient.menuCategory.create).toHaveBeenCalled();
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('defers image cleanup for an external transaction until the caller runs the post-commit task', async () => {
+      const txClient = makeTx();
+      const OLD_URL = 'https://r2.example.com/old-cat.webp';
+      txClient.menuCategory.findMany.mockResolvedValue([
+        {
+          id: 'cat-existing',
+          name: 'Mains',
+          order: 0,
+          imageUrl: OLD_URL,
+          thumbnailUrl: null,
+          items: [],
+        },
+      ]);
+      const postCommitCleanup: Array<() => Promise<void>> = [];
+
+      await service.upsertMenu(
+        'rest-1',
+        {
+          categories: [
+            {
+              name: 'Mains',
+              availabilityType: AvailabilityType.ALWAYS,
+              imageUrl: 'https://r2.example.com/new-cat.webp',
+              items: [],
+            },
+          ],
+        },
+        txClient as unknown as Parameters<typeof service.upsertMenu>[2],
+        postCommitCleanup,
+      );
+
+      expect(mockStorageService.deleteExact).not.toHaveBeenCalled();
+      expect(postCommitCleanup).toHaveLength(1);
+
+      await postCommitCleanup[0]();
+
+      expect(mockStorageService.deleteExact).toHaveBeenCalledWith(OLD_URL);
     });
 
     it('rejects aggregate imports that exceed the total option cap', async () => {

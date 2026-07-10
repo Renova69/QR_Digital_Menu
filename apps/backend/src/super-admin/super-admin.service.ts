@@ -764,7 +764,8 @@ export class SuperAdminService {
     dto: ImportMenuDto,
     actorUserId: string,
   ) {
-    return this.prisma.$transaction(
+    const postCommitCleanup: Array<() => Promise<void>> = [];
+    const stats = await this.prisma.$transaction(
       async (tx) => {
         const restaurant = await tx.restaurant.findUnique({
           where: { id: restaurantId },
@@ -777,7 +778,12 @@ export class SuperAdminService {
           });
         }
 
-        const stats = await this.menuImport.upsertMenu(restaurantId, dto, tx);
+        const stats = await this.menuImport.upsertMenu(
+          restaurantId,
+          dto,
+          tx,
+          postCommitCleanup,
+        );
 
         await tx.adminAuditLog.create({
           data: {
@@ -793,6 +799,9 @@ export class SuperAdminService {
       },
       { timeout: 60000 },
     );
+
+    await Promise.all(postCommitCleanup.map((cleanup) => cleanup()));
+    return stats;
   }
 
   async forceLogoutOwner(restaurantId: string, actorUserId: string) {

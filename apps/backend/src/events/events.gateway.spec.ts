@@ -21,6 +21,16 @@ describe('EventsGateway — room authorization', () => {
       emit: jest.fn(),
     }) as unknown as import('socket.io').Socket;
 
+  const gatewayLogger = () =>
+    (
+      gateway as unknown as {
+        logger: {
+          warn: (message: string) => void;
+          debug: (message: string) => void;
+        };
+      }
+    ).logger;
+
   let mockPrintStationService: any;
 
   beforeEach(() => {
@@ -113,6 +123,8 @@ describe('EventsGateway — room authorization', () => {
   describe('handleJoinRoom', () => {
     it('rejects anonymous sockets', async () => {
       const client = makeClient(); // no userId
+      const warnSpy = jest.spyOn(gatewayLogger(), 'warn');
+      const debugSpy = jest.spyOn(gatewayLogger(), 'debug');
 
       await gateway.handleJoinRoom(
         'rest-1',
@@ -123,6 +135,10 @@ describe('EventsGateway — room authorization', () => {
       expect(client.emit).toHaveBeenCalledWith(
         'roomError',
         expect.objectContaining({ restaurantId: 'rest-1' }),
+      );
+      expect(warnSpy).not.toHaveBeenCalled();
+      expect(debugSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Denied restaurant room join'),
       );
     });
 
@@ -244,6 +260,23 @@ describe('EventsGateway — room authorization', () => {
   // ─── joinOrderRoom: order-scoped token ───────────────────────────────────
 
   describe('handleJoinRestaurantOrdersRoom', () => {
+    it('debug-logs anonymous pre-auth denials without warning', async () => {
+      const client = makeClient();
+      const warnSpy = jest.spyOn(gatewayLogger(), 'warn');
+      const debugSpy = jest.spyOn(gatewayLogger(), 'debug');
+
+      await gateway.handleJoinRestaurantOrdersRoom(
+        'rest-1',
+        client as unknown as import('socket.io').Socket,
+      );
+
+      expect(client.join).not.toHaveBeenCalled();
+      expect(warnSpy).not.toHaveBeenCalled();
+      expect(debugSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Denied restaurant orders room join'),
+      );
+    });
+
     it('allows an authorized paid-tier owner into the live orders room', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({
         role: 'OWNER',

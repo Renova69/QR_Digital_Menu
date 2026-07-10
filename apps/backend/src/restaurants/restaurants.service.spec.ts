@@ -838,6 +838,51 @@ describe('RestaurantsService', () => {
       expect(http.request as jest.Mock).not.toHaveBeenCalled();
     });
 
+    it('rejects hex-form IPv4-mapped IPv6 metadata addresses', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        logoUrl: 'http://metadata.example.com/latest/meta-data/',
+      });
+      jest.spyOn(dns.promises, 'lookup').mockResolvedValue({
+        address: '::ffff:a9fe:a9fe',
+        family: 6,
+      } as dns.LookupAddress);
+
+      const result = await service.getLogoBase64('rest1');
+
+      expect(result).toBeNull();
+      expect(http.request as jest.Mock).not.toHaveBeenCalled();
+    });
+
+    it('rejects the full IPv6 link-local fe80::/10 range, not only fe80::/16', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        logoUrl: 'http://linklocal.example.com/logo.png',
+      });
+      jest.spyOn(dns.promises, 'lookup').mockResolvedValue({
+        address: 'fe90::1',
+        family: 6,
+      } as dns.LookupAddress);
+
+      const result = await service.getLogoBase64('rest1');
+
+      expect(result).toBeNull();
+      expect(http.request as jest.Mock).not.toHaveBeenCalled();
+    });
+
+    it('rejects expanded IPv6 loopback addresses', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        logoUrl: 'http://loopback.example.com/logo.png',
+      });
+      jest.spyOn(dns.promises, 'lookup').mockResolvedValue({
+        address: '0:0:0:0:0:0:0:1',
+        family: 6,
+      } as dns.LookupAddress);
+
+      const result = await service.getLogoBase64('rest1');
+
+      expect(result).toBeNull();
+      expect(http.request as jest.Mock).not.toHaveBeenCalled();
+    });
+
     it('fetches and returns base64 if URL is valid', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         logoUrl: 'https://example.com/logo.png',

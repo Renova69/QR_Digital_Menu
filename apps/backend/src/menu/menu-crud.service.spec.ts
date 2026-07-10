@@ -50,7 +50,10 @@ const mockPrisma = {
 
 const mockTranslation = { translateObject: jest.fn() };
 const mockMenuTranslation = { applyLazyTranslations: jest.fn() };
-const mockStorage = { delete: jest.fn().mockResolvedValue(undefined) };
+const mockStorage = {
+  delete: jest.fn().mockResolvedValue(undefined),
+  deleteExact: jest.fn().mockResolvedValue(undefined),
+};
 const mockEvents = { emitPublicMenuItemAvailability: jest.fn() };
 
 const BASE_RESTAURANT = {
@@ -132,6 +135,7 @@ describe('MenuCrudService', () => {
     mockMenuTranslation.applyLazyTranslations.mockResolvedValue(undefined);
     mockTranslation.translateObject.mockResolvedValue({});
     mockStorage.delete.mockResolvedValue(undefined);
+    mockStorage.deleteExact.mockResolvedValue(undefined);
     mockPrisma.$transaction.mockResolvedValue([]);
   });
 
@@ -933,6 +937,38 @@ describe('MenuCrudService', () => {
       expect(await service.getTrendingItems('rest-1')).toEqual([]);
     });
 
+    it('deduplicates concurrent AUTO cache misses for the same context key', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        trendingMode: 'AUTO',
+        id: 'rest-1',
+        tier: 'PROFESSIONAL',
+        timezone: 'UTC',
+      });
+      let resolveGroupBy:
+        | ((
+            value: Array<{ menuItemId: string; _sum: { quantity: number } }>,
+          ) => void)
+        | undefined;
+      mockPrisma.orderItem.groupBy.mockReturnValue(
+        new Promise((resolve) => {
+          resolveGroupBy = resolve;
+        }),
+      );
+      mockPrisma.menuItem.findMany.mockResolvedValue([
+        { ...makeItem(), id: 'item-1', tags: [] },
+      ]);
+
+      const first = service.getTrendingItems('rest-1');
+      const second = service.getTrendingItems('rest-1');
+      resolveGroupBy!([{ menuItemId: 'item-1', _sum: { quantity: 10 } }]);
+
+      const [firstResult, secondResult] = await Promise.all([first, second]);
+
+      expect(mockPrisma.orderItem.groupBy).toHaveBeenCalledTimes(1);
+      expect(firstResult).toBe(secondResult);
+      expect((firstResult[0] as { id: string }).id).toBe('item-1');
+    });
+
     it('uses forceTier when deciding if trending is available', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue({
         trendingMode: 'MANUAL',
@@ -1668,7 +1704,7 @@ describe('MenuCrudService', () => {
 
       await service.removeItem('item-1', 'user-1');
 
-      expect(mockStorage.delete).not.toHaveBeenCalled();
+      expect(mockStorage.deleteExact).not.toHaveBeenCalled();
     });
 
     it('deletes the R2 object when no other row references it', async () => {
@@ -1678,8 +1714,8 @@ describe('MenuCrudService', () => {
 
       await service.removeItem('item-1', 'user-1');
 
-      expect(mockStorage.delete).toHaveBeenCalledWith(SHARED);
-      expect(mockStorage.delete).toHaveBeenCalledWith(SHARED_THUMB);
+      expect(mockStorage.deleteExact).toHaveBeenCalledWith(SHARED);
+      expect(mockStorage.deleteExact).toHaveBeenCalledWith(SHARED_THUMB);
     });
 
     it('excludes the row being deleted from the reference check', async () => {

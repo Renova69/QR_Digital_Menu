@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Mock } from "vitest";
 import { PaymentModal } from "./PaymentModal";
 
 const apiMocks = vi.hoisted(() => ({
@@ -51,7 +52,7 @@ const i18nMocks = vi.hoisted(() => ({
 }));
 const socketMocks = vi.hoisted(() => {
   const handlers: Record<string, Array<(payload?: unknown) => void>> = {};
-  const socket: Record<string, unknown> = {
+  const socket: { emit: Mock; on: Mock; off: Mock } = {
     emit: vi.fn(),
     on: vi.fn((event: string, handler: (payload?: unknown) => void) => {
       handlers[event] = [...(handlers[event] ?? []), handler];
@@ -66,7 +67,10 @@ const socketMocks = vi.hoisted(() => {
   return {
     handlers,
     socket,
-    state: { socket: null as unknown as object, isConnected: false },
+    state: {
+      socket: null as { emit: Mock; on: Mock; off: Mock } | null,
+      isConnected: false,
+    },
   };
 });
 
