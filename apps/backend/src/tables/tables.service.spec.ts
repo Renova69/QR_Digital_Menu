@@ -112,6 +112,18 @@ describe('TablesService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
+    it('throws ForbiddenException for a soft-deleted/suspended restaurant, even for its own owner', async () => {
+      prisma.restaurant.findUnique.mockResolvedValue({
+        ...mockRestaurant,
+        isActive: false,
+        deletedAt: new Date(),
+      });
+      await expect(
+        service.create('rest-1', { name: 'T1' }, 'owner-1'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.restaurantTable.create).not.toHaveBeenCalled();
+    });
+
     it('throws ConflictException when table name already exists for restaurant', async () => {
       prisma.restaurantTable.findFirst.mockResolvedValue({
         id: 'existing-table',
@@ -239,6 +251,24 @@ describe('TablesService', () => {
       );
       expect(result[0].customerNames).toEqual(['Alice']);
     });
+
+    it('blocks assigned staff from status reads when restaurant is soft-deleted', async () => {
+      prisma.restaurant.findUnique.mockResolvedValue({
+        ...mockRestaurant,
+        isActive: true,
+        deletedAt: new Date(),
+      });
+
+      await expect(
+        service.getTablesWithStatus('rest-1', undefined, {
+          id: 'waiter-1',
+          role: 'WAITER',
+          restaurantId: 'rest-1',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.restaurantTable.findMany).not.toHaveBeenCalled();
+      expect(prisma.tableSession.findMany).not.toHaveBeenCalled();
+    });
   });
 
   describe('getTableOrders', () => {
@@ -286,6 +316,24 @@ describe('TablesService', () => {
         totalPrice: 10,
         options: [],
       });
+    });
+
+    it('blocks assigned staff from order reads when restaurant is suspended', async () => {
+      prisma.restaurant.findUnique.mockResolvedValue({
+        ...mockRestaurant,
+        isActive: false,
+        deletedAt: null,
+      });
+
+      await expect(
+        service.getTableOrders('table-1', 'rest-1', {
+          id: 'waiter-1',
+          role: 'WAITER',
+          restaurantId: 'rest-1',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.tableSession.findFirst).not.toHaveBeenCalled();
+      expect(prisma.order.findMany).not.toHaveBeenCalled();
     });
 
     it('falls back to "Unknown item" when menuItem is null', async () => {

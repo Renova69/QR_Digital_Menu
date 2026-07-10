@@ -102,6 +102,48 @@ describe('PaymentCoreService access checks', () => {
         service.verifyRestaurantAccess(RID, 'intruder'),
       ).rejects.toThrow(ForbiddenException);
     });
+
+    it('denies the owner when the restaurant is soft-deleted/suspended', async () => {
+      prisma.restaurant.findUnique.mockResolvedValue(
+        restaurant({ isActive: false }),
+      );
+      await expect(service.verifyRestaurantAccess(RID, OWNER)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('denies the owner when deletedAt is set even if isActive was not cleared', async () => {
+      prisma.restaurant.findUnique.mockResolvedValue(
+        restaurant({ isActive: true, deletedAt: new Date() }),
+      );
+      await expect(service.verifyRestaurantAccess(RID, OWNER)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('denies an assigned MANAGER when the restaurant is soft-deleted/suspended', async () => {
+      prisma.restaurant.findUnique.mockResolvedValue(
+        restaurant({ isActive: false }),
+      );
+      prisma.user.findUnique.mockResolvedValue(user({ role: 'MANAGER' }));
+      await expect(
+        service.verifyRestaurantAccess(RID, 'u-MANAGER'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('still allows SUPER_ADMIN when the restaurant is soft-deleted/suspended', async () => {
+      prisma.restaurant.findUnique.mockResolvedValue(
+        restaurant({ isActive: false }),
+      );
+      prisma.user.findUnique.mockResolvedValue(
+        user({ restaurantId: 'other', role: 'SUPER_ADMIN' }),
+      );
+      await expect(
+        service.verifyRestaurantAccess(RID, 'admin'),
+      ).resolves.toBeDefined();
+    });
   });
 
   describe('verifyPosOperatorAccess (session force/close/settle — excludes STAFF/KITCHEN)', () => {
@@ -155,6 +197,30 @@ describe('PaymentCoreService access checks', () => {
         service.verifyPosOperatorAccess(RID, 'intruder'),
       ).rejects.toThrow(ForbiddenException);
     });
+
+    it('denies the owner when the restaurant is soft-deleted/suspended', async () => {
+      prisma.restaurant.findUnique.mockResolvedValue({
+        ownerId: OWNER,
+        isActive: false,
+      });
+      prisma.user.findUnique.mockResolvedValue(user({ role: 'WAITER' }));
+      await expect(service.verifyPosOperatorAccess(RID, OWNER)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('still allows SUPER_ADMIN when the restaurant is soft-deleted/suspended', async () => {
+      prisma.restaurant.findUnique.mockResolvedValue({
+        ownerId: OWNER,
+        isActive: false,
+      });
+      prisma.user.findUnique.mockResolvedValue(
+        user({ restaurantId: 'other', role: 'SUPER_ADMIN' }),
+      );
+      await expect(
+        service.verifyPosOperatorAccess(RID, 'admin'),
+      ).resolves.toBeUndefined();
+    });
   });
 
   describe('verifyRestaurantStaffAccess (any assigned user)', () => {
@@ -174,6 +240,28 @@ describe('PaymentCoreService access checks', () => {
       await expect(
         service.verifyRestaurantStaffAccess(RID, 'intruder'),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('denies an assigned user when the restaurant is soft-deleted/suspended', async () => {
+      prisma.restaurant.findUnique.mockResolvedValue(
+        restaurant({ isActive: false }),
+      );
+      prisma.user.findUnique.mockResolvedValue(user({ role: 'KITCHEN' }));
+      await expect(
+        service.verifyRestaurantStaffAccess(RID, 'kitchen-user'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('still allows SUPER_ADMIN when the restaurant is soft-deleted/suspended', async () => {
+      prisma.restaurant.findUnique.mockResolvedValue(
+        restaurant({ isActive: false }),
+      );
+      prisma.user.findUnique.mockResolvedValue(
+        user({ restaurantId: 'other', role: 'SUPER_ADMIN' }),
+      );
+      await expect(
+        service.verifyRestaurantStaffAccess(RID, 'admin'),
+      ).resolves.toBeDefined();
     });
   });
 

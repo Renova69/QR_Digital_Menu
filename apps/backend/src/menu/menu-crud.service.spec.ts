@@ -1072,6 +1072,40 @@ describe('MenuCrudService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
+    it('throws ForbiddenException for a soft-deleted/suspended restaurant, even for its own owner', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        isActive: false,
+        deletedAt: new Date(),
+      });
+
+      await expect(
+        service.createCategory(
+          'rest-1',
+          { name: 'Drinks' } as Parameters<typeof service.createCategory>[1],
+          'user-1',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.menuCategory.create).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when deletedAt is set even if isActive was not cleared', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue({
+        ...BASE_RESTAURANT,
+        isActive: true,
+        deletedAt: new Date(),
+      });
+
+      await expect(
+        service.createCategory(
+          'rest-1',
+          { name: 'Drinks' } as Parameters<typeof service.createCategory>[1],
+          'user-1',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.menuCategory.create).not.toHaveBeenCalled();
+    });
+
     it('creates and returns category', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(BASE_RESTAURANT);
       mockPrisma.menuCategory.count.mockResolvedValue(2);

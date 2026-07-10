@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
 import { CreateTableDto } from './dto/create-table.dto';
 import { UpdateTableDto } from './dto/update-table.dto';
+import { assertRestaurantActive } from '../restaurants/assert-restaurant-active';
 
 const PAID_SESSION_AUTO_CLOSE_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -62,6 +63,7 @@ export class TablesService {
     if (!restaurant) {
       throw new NotFoundException('Restaurant not found');
     }
+    assertRestaurantActive(restaurant);
     await this.assertOwnerOrManager(restaurant.ownerId, restaurantId, userId);
 
     const existingTable = await this.prisma.restaurantTable.findFirst({
@@ -107,6 +109,7 @@ export class TablesService {
       where: { id: restaurantId },
     });
     if (!restaurant) throw new NotFoundException('Restaurant not found');
+    assertRestaurantActive(restaurant);
     await this.assertOwnerOrManager(restaurant.ownerId, restaurantId, userId);
 
     const defaultZone = await this.prisma.tableZone.findFirst({
@@ -148,6 +151,7 @@ export class TablesService {
       include: { restaurant: true },
     });
     if (!table) throw new NotFoundException('Table not found');
+    assertRestaurantActive(table.restaurant);
     await this.assertOwnerOrManager(
       table.restaurant.ownerId,
       table.restaurantId,
@@ -220,15 +224,17 @@ export class TablesService {
     user: any,
   ): Promise<void> {
     if (!user) throw new ForbiddenException('Access denied');
-    // Staff/Manager: restaurantId is embedded in JWT payload by jwt.strategy
-    if (user.restaurantId === restaurantId) return;
     if (user.role?.toUpperCase() === 'SUPER_ADMIN') return;
-    // Owner: verify via DB
+
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: { ownerId: true },
+      select: { ownerId: true, isActive: true, deletedAt: true },
     });
     if (!restaurant) throw new NotFoundException('Restaurant not found');
+    assertRestaurantActive(restaurant);
+    // Staff/Manager: restaurantId is embedded in JWT payload by jwt.strategy,
+    // but only after the restaurant row has been checked for suspension/delete.
+    if (user.restaurantId === restaurantId) return;
     if (restaurant.ownerId !== user.id)
       throw new ForbiddenException('Access denied');
   }
@@ -383,6 +389,7 @@ export class TablesService {
     if (!table) {
       throw new NotFoundException('Table not found');
     }
+    assertRestaurantActive(table.restaurant);
     await this.assertOwnerOrManager(
       table.restaurant.ownerId,
       table.restaurantId,

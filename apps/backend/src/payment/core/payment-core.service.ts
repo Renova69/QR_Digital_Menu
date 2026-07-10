@@ -18,6 +18,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { SplitMode } from '../dto/settle-partial.dto';
+import { assertRestaurantActive } from '../../restaurants/assert-restaurant-active';
 import {
   BillPaymentScope,
   CheckoutScope,
@@ -61,6 +62,8 @@ export class PaymentCoreService {
       select: {
         id: true,
         ownerId: true,
+        isActive: true,
+        deletedAt: true,
         paymentsEnabled: true,
         stripeOnboarded: true,
         stripeAccountId: true,
@@ -97,6 +100,7 @@ export class PaymentCoreService {
     }
 
     if (restaurant.ownerId === userId) {
+      assertRestaurantActive(restaurant);
       return restaurant;
     }
 
@@ -105,7 +109,10 @@ export class PaymentCoreService {
       select: { restaurantId: true, role: true },
     });
 
+    // SUPER_ADMIN can still inspect/manage a suspended or soft-deleted
+    // restaurant (support/investigation); every other caller is blocked below.
     if (user?.role === 'SUPER_ADMIN') return restaurant;
+    assertRestaurantActive(restaurant);
 
     if (
       user?.restaurantId === restaurantId &&
@@ -132,7 +139,7 @@ export class PaymentCoreService {
     const [restaurant, user] = await Promise.all([
       this.prisma.restaurant.findUnique({
         where: { id: restaurantId },
-        select: { ownerId: true },
+        select: { ownerId: true, isActive: true, deletedAt: true },
       }),
       this.prisma.user.findUnique({
         where: { id: userId },
@@ -141,6 +148,7 @@ export class PaymentCoreService {
     ]);
     if (!restaurant) throw new NotFoundException('Restaurant not found');
     if (user?.role === 'SUPER_ADMIN') return;
+    assertRestaurantActive(restaurant);
     if (restaurant.ownerId === userId) return;
     if (
       user?.restaurantId === restaurantId &&
@@ -157,7 +165,7 @@ export class PaymentCoreService {
     const [restaurant, user] = await Promise.all([
       this.prisma.restaurant.findUnique({
         where: { id: restaurantId },
-        select: { id: true, ownerId: true },
+        select: { id: true, ownerId: true, isActive: true, deletedAt: true },
       }),
       this.prisma.user.findUnique({
         where: { id: userId },
@@ -167,6 +175,7 @@ export class PaymentCoreService {
 
     if (!restaurant) throw new NotFoundException('Restaurant not found');
     if (user?.role === 'SUPER_ADMIN') return { restaurant, user };
+    assertRestaurantActive(restaurant);
     if (restaurant.ownerId === userId) return { restaurant, user };
     if (user?.restaurantId === restaurantId) return { restaurant, user };
 

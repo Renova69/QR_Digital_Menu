@@ -27,6 +27,7 @@ import { stripBrandingFields } from '../restaurants/branding-fields';
 import { StorageService } from '../storage/storage.service';
 import { EventsGateway } from '../events/events.gateway';
 import { withKeyLock } from '../common/key-mutex';
+import { assertRestaurantActive } from '../restaurants/assert-restaurant-active';
 
 // AUTO-trending window: only orders from the last N days count toward
 // "most ordered", so trending reflects current demand rather than all-time
@@ -123,6 +124,7 @@ export class MenuCrudService {
         targetLanguages: true,
         dashboardLanguage: true,
         isActive: true,
+        deletedAt: true,
       },
     });
     if (!restaurant) {
@@ -320,6 +322,7 @@ export class MenuCrudService {
         address: true,
         contactInfo: true,
         isActive: true,
+        deletedAt: true,
       } as any,
     });
 
@@ -422,6 +425,7 @@ export class MenuCrudService {
         contactInfo: true,
         paymentsEnabled: true,
         isActive: true,
+        deletedAt: true,
       } as any,
     });
 
@@ -664,6 +668,7 @@ export class MenuCrudService {
         targetLanguages: true,
         dashboardLanguage: true,
         isActive: true,
+        deletedAt: true,
         timezone: true,
       },
     });
@@ -879,14 +884,12 @@ export class MenuCrudService {
    * handling decides that.
    */
   private assertRestaurantActive(
-    restaurant: { isActive?: boolean } | null | undefined,
+    restaurant:
+      | { isActive?: boolean | null; deletedAt?: Date | string | null }
+      | null
+      | undefined,
   ): void {
-    if (restaurant && restaurant.isActive === false) {
-      throw new ForbiddenException({
-        code: 'RESTAURANT_SUSPENDED',
-        message: 'This restaurant has been suspended',
-      });
-    }
+    assertRestaurantActive(restaurant);
   }
 
   private async checkRestaurantOwnership(restaurantId: string, userId: string) {
@@ -899,6 +902,7 @@ export class MenuCrudService {
         `Restaurant with ID "${restaurantId}" not found`,
       );
     }
+    this.assertRestaurantActive(restaurant);
 
     if (restaurant.ownerId !== userId) {
       // Assigned MANAGERs manage their own restaurant's menu. This mirrors the
