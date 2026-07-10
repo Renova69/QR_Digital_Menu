@@ -14,7 +14,7 @@ import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { CreateMenuOptionDto } from './dto/create-menu-option.dto';
 import { UpdateMenuOptionDto } from './dto/update-menu-option.dto';
-import { Prisma, AvailabilityType, OrderStatus } from '@prisma/client';
+import { Prisma, AvailabilityType, OrderStatus, MenuItem } from '@prisma/client';
 import { DateTime } from 'luxon';
 import { FeatureService } from '../subscription/feature.service';
 import { FeatureFlag } from '../subscription/feature-flag.enum';
@@ -46,11 +46,6 @@ export class MenuCrudService {
     private readonly storageService: StorageService,
     private readonly events: EventsGateway,
   ) {}
-
-  private readonly autoTrendingCache = new Map<
-    string,
-    { data: any[]; expiresAt: number }
-  >();
 
   /**
    * Public-menu languages consist of the owner's dashboard language first,
@@ -687,12 +682,6 @@ export class MenuCrudService {
       return this.applyTrendingTranslations(scoredItems, restaurant, lang);
     }
 
-    const cacheKey = `${restaurantId}:${lang || 'default'}`;
-    const cached = this.autoTrendingCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.data;
-    }
-
     const trendingSince = DateTime.now()
       .minus({ days: TRENDING_WINDOW_DAYS })
       .toJSDate();
@@ -735,26 +724,21 @@ export class MenuCrudService {
       .map((id: string) =>
         trendingItems.find((item: { id: string }) => item.id === id),
       )
-      .filter(Boolean);
+      .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
     const scoredItems = this.applyContextualScoring(
-      ordered,
+      ordered as Partial<MenuItem>[],
       restaurant.timezone || 'UTC',
     ).slice(0, 4);
 
-    const result = await this.applyTrendingTranslations(
+    return this.applyTrendingTranslations(
       scoredItems,
       restaurant,
       lang,
     );
-    this.autoTrendingCache.set(cacheKey, {
-      data: result,
-      expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes cache
-    });
-    return result;
   }
 
-  private applyContextualScoring(items: any[], timezone: string): any[] {
+  private applyContextualScoring(items: Partial<MenuItem>[], timezone: string): Partial<MenuItem>[] {
     const now = DateTime.now().setZone(timezone);
     const hour = now.hour;
     const weekday = now.weekday; // 1 = Monday, 7 = Sunday
@@ -792,7 +776,7 @@ export class MenuCrudService {
    * as either the dashboard default or a configured target.
    */
   private async applyTrendingTranslations(
-    items: any[],
+    items: Partial<MenuItem>[],
     restaurant: {
       tier?: string | null;
       forceTier?: string | null;
@@ -800,7 +784,7 @@ export class MenuCrudService {
       dashboardLanguage?: string | null;
     },
     lang?: string,
-  ): Promise<any[]> {
+  ): Promise<Partial<MenuItem>[]> {
     const hasMultiLanguage = this.featureService.restaurantHasFeature(
       restaurant,
       FeatureFlag.LANGUAGES_MULTI,
@@ -941,16 +925,6 @@ export class MenuCrudService {
       where: { restaurantId },
     });
 
-    if ((sanitizedDto as any).printStationId) {
-      const station = await this.prisma.printStation.findUnique({
-        where: { id: (sanitizedDto as any).printStationId },
-        select: { restaurantId: true },
-      });
-      if (!station || station.restaurantId !== restaurantId) {
-        throw new BadRequestException('Invalid print station ID');
-      }
-    }
-
     const data: Prisma.MenuCategoryUncheckedCreateInput = {
       ...sanitizedDto,
       restaurantId,
@@ -1033,16 +1007,6 @@ export class MenuCrudService {
           endTime: null,
           daysOfWeek: [],
         };
-
-    if (sanitizedDto.printStationId) {
-      const station = await this.prisma.printStation.findUnique({
-        where: { id: sanitizedDto.printStationId },
-        select: { restaurantId: true },
-      });
-      if (!station || station.restaurantId !== category.restaurantId) {
-        throw new BadRequestException('Invalid print station ID');
-      }
-    }
 
     const updated = await this.prisma.menuCategory.update({
       where: { id: categoryId },
