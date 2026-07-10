@@ -177,36 +177,38 @@ function getOrderLocationText(order: DashboardOrder, t: any) {
     const raw = String(label ?? "");
     return /^room\b/i.test(raw)
       ? raw
-      : `${t("servicePoints.room", "Room")} ${raw}`;
+      : `${t("servicePoints.types.room", "Room")} ${raw}`;
   }
   if (order.servicePointType === "PICKUP") {
-    return label || t("servicePoints.pickup", "Pickup");
+    return label || t("servicePoints.types.pickup", "Pickup");
   }
   if (order.servicePointType === "OTHER") {
-    return label || t("servicePoints.location", "Location");
+    return label || t("servicePoints.types.location", "Location");
   }
   return t("orders.table", { id: label });
 }
 
 function getFulfillmentLabel(value: string | null | undefined, t: any) {
   if (value === "ROOM_DELIVERY") {
-    return t("servicePoints.deliverToRoom", "Deliver to room");
+    return t("servicePoints.fulfillmentModes.roomDelivery", "Deliver to room");
   }
   if (value === "PICKUP") {
-    return t("servicePoints.pickupOrder", "Pick up");
+    return t("servicePoints.fulfillmentModes.pickupBadge", "Pick up");
   }
   return null;
 }
 
 function getPaymentLabel(value: string | null | undefined, t: any) {
-  if (value === "ONLINE") return t("servicePoints.payOnline", "Pay online");
+  if (value === "ONLINE") {
+    return t("servicePoints.paymentMethods.online", "Pay online");
+  }
   if (value === "PAY_ON_DELIVERY") {
-    return t("servicePoints.payOnDelivery", "Pay on delivery");
+    return t("servicePoints.paymentMethods.payOnDelivery", "Pay on delivery");
   }
   if (value === "PAY_AT_PICKUP") {
-    return t("servicePoints.payAtPickup", "Pay at pickup");
+    return t("servicePoints.paymentMethods.payAtPickup", "Pay at pickup");
   }
-  if (value === "CASH") return t("servicePoints.payCash", "Cash");
+  if (value === "CASH") return t("servicePoints.paymentMethods.cash", "Cash");
   return null;
 }
 

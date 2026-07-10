@@ -191,10 +191,10 @@ const CheckoutPage = () => {
   const locationTypeLabel = tableNumber
     ? t("checkout.table")
     : orderLocation?.type === "ROOM"
-      ? t("servicePoints.room", "Room")
+      ? t("servicePoints.types.room", "Room")
       : orderLocation?.type === "PICKUP"
-        ? t("servicePoints.pickup", "Pickup")
-        : t("servicePoints.location", "Location");
+        ? t("servicePoints.types.pickup", "Pickup")
+        : t("servicePoints.types.location", "Location");
 
   const hhMultiplier = isHappyHourActive(restaurantConfig)
     ? restaurantConfig?.happyHourMultiplier || 2.0
@@ -346,7 +346,7 @@ const CheckoutPage = () => {
     ) {
       setError(
         t(
-          "servicePoints.fulfillmentRequired",
+          "servicePoints.checkout.fulfillmentRequired",
           "Choose how to receive the order.",
         ),
       );
@@ -356,7 +356,7 @@ const CheckoutPage = () => {
     if (isServicePointOrder && paymentOptions.length === 0) {
       setError(
         t(
-          "servicePoints.noPaymentMethods",
+          "servicePoints.checkout.noPaymentMethods",
           "No payment method is currently available for this order.",
         ),
       );
@@ -364,7 +364,9 @@ const CheckoutPage = () => {
     }
 
     if (isServicePointOrder && !paymentPreference) {
-      setError(t("servicePoints.paymentRequired", "Choose a payment method."));
+      setError(
+        t("servicePoints.checkout.paymentRequired", "Choose a payment method."),
+      );
       return;
     }
 
@@ -488,23 +490,31 @@ const CheckoutPage = () => {
 
   const getFulfillmentLabel = (mode: FulfillmentMode) => {
     if (mode === "ROOM_DELIVERY") {
-      return t("servicePoints.deliverToRoom", "Deliver to room");
+      return t(
+        "servicePoints.fulfillmentModes.roomDelivery",
+        "Deliver to room",
+      );
     }
     if (mode === "PICKUP") {
-      return t("servicePoints.pickupOrder", "I will pick it up");
+      return t(
+        "servicePoints.fulfillmentModes.pickupCustomer",
+        "I will pick it up",
+      );
     }
-    return t("servicePoints.dineIn", "Dine in");
+    return t("servicePoints.fulfillmentModes.dineIn", "Dine in");
   };
 
   const getPaymentLabel = (method: ServicePointPaymentMethod) => {
-    if (method === "ONLINE") return t("servicePoints.payOnline", "Pay online");
+    if (method === "ONLINE") {
+      return t("servicePoints.paymentMethods.online", "Pay online");
+    }
     if (method === "PAY_ON_DELIVERY") {
-      return t("servicePoints.payOnDelivery", "Pay on delivery");
+      return t("servicePoints.paymentMethods.payOnDelivery", "Pay on delivery");
     }
     if (method === "PAY_AT_PICKUP") {
-      return t("servicePoints.payAtPickup", "Pay at pickup");
+      return t("servicePoints.paymentMethods.payAtPickup", "Pay at pickup");
     }
-    return t("servicePoints.payCash", "Pay cash");
+    return t("servicePoints.paymentMethods.cashCustomer", "Pay cash");
   };
 
   // ── Session bill view (POS Payment QR) ──────────────────────────────────
@@ -979,7 +989,7 @@ const CheckoutPage = () => {
             <div className="space-y-2">
               <p className="text-sm font-bold text-foreground">
                 {t(
-                  "servicePoints.fulfillmentQuestion",
+                  "servicePoints.checkout.fulfillmentQuestion",
                   "Where should we send it?",
                 )}
               </p>
@@ -1006,7 +1016,7 @@ const CheckoutPage = () => {
             <div className="space-y-2">
               <p className="text-sm font-bold text-foreground">
                 {t(
-                  "servicePoints.paymentQuestion",
+                  "servicePoints.checkout.paymentQuestion",
                   "How would you like to pay?",
                 )}
               </p>
@@ -1032,7 +1042,7 @@ const CheckoutPage = () => {
           {isServicePointOrder && paymentOptions.length === 0 && (
             <div className="rounded-xl border border-destructive/25 bg-destructive/10 p-4 text-sm font-semibold text-destructive">
               {t(
-                "servicePoints.noPaymentMethods",
+                "servicePoints.checkout.noPaymentMethods",
                 "No payment method is currently available for this order.",
               )}
             </div>

@@ -75,30 +75,69 @@ const orientationOptions: Array<{ value: PrintOrientation; label: string }> = [
 
 const servicePointTypes: Array<{
   value: Exclude<ServicePointType, "TABLE">;
-  label: string;
+  labelKey: string;
+  fallback: string;
 }> = [
-  { value: "ROOM", label: "Room" },
-  { value: "PICKUP", label: "Pickup" },
-  { value: "OTHER", label: "Other" },
+  { value: "ROOM", labelKey: "servicePoints.types.room", fallback: "Room" },
+  {
+    value: "PICKUP",
+    labelKey: "servicePoints.types.pickup",
+    fallback: "Pickup",
+  },
+  {
+    value: "OTHER",
+    labelKey: "servicePoints.types.other",
+    fallback: "Other",
+  },
 ];
 
 const fulfillmentOptions: Array<{
   value: FulfillmentMode;
-  label: string;
+  labelKey: string;
+  fallback: string;
 }> = [
-  { value: "ROOM_DELIVERY", label: "Deliver to room" },
-  { value: "PICKUP", label: "Guest pickup" },
-  { value: "DINE_IN", label: "Dine in" },
+  {
+    value: "ROOM_DELIVERY",
+    labelKey: "servicePoints.fulfillmentModes.roomDelivery",
+    fallback: "Deliver to room",
+  },
+  {
+    value: "PICKUP",
+    labelKey: "servicePoints.fulfillmentModes.pickupAdmin",
+    fallback: "Guest pickup",
+  },
+  {
+    value: "DINE_IN",
+    labelKey: "servicePoints.fulfillmentModes.dineIn",
+    fallback: "Dine in",
+  },
 ];
 
 const paymentOptions: Array<{
   value: ServicePointPaymentMethod;
-  label: string;
+  labelKey: string;
+  fallback: string;
 }> = [
-  { value: "ONLINE", label: "Pay online" },
-  { value: "PAY_ON_DELIVERY", label: "Pay on delivery" },
-  { value: "PAY_AT_PICKUP", label: "Pay at pickup" },
-  { value: "CASH", label: "Cash" },
+  {
+    value: "ONLINE",
+    labelKey: "servicePoints.paymentMethods.online",
+    fallback: "Pay online",
+  },
+  {
+    value: "PAY_ON_DELIVERY",
+    labelKey: "servicePoints.paymentMethods.payOnDelivery",
+    fallback: "Pay on delivery",
+  },
+  {
+    value: "PAY_AT_PICKUP",
+    labelKey: "servicePoints.paymentMethods.payAtPickup",
+    fallback: "Pay at pickup",
+  },
+  {
+    value: "CASH",
+    labelKey: "servicePoints.paymentMethods.cash",
+    fallback: "Cash",
+  },
 ];
 
 type TablesSubTab = "live" | "qr" | "zones" | "service-points";
@@ -177,6 +216,23 @@ const TableView: React.FC = () => {
     ServicePointPaymentMethod[]
   >(["ONLINE", "PAY_ON_DELIVERY"]);
   const [servicePointSearch, setServicePointSearch] = useState("");
+
+  const getServicePointTypeLabel = (type?: ServicePointType | null) => {
+    const option = servicePointTypes.find((entry) => entry.value === type);
+    return option
+      ? t(option.labelKey, option.fallback)
+      : t("servicePoints.types.location", "Location");
+  };
+
+  const getFulfillmentOptionLabel = (mode: FulfillmentMode) => {
+    const option = fulfillmentOptions.find((entry) => entry.value === mode);
+    return option ? t(option.labelKey, option.fallback) : mode;
+  };
+
+  const getPaymentOptionLabel = (method: ServicePointPaymentMethod) => {
+    const option = paymentOptions.find((entry) => entry.value === method);
+    return option ? t(option.labelKey, option.fallback) : method;
+  };
 
   const { data: tables, isLoading } = useQuery({
     queryKey: ["tables", restaurantId],
@@ -947,7 +1003,7 @@ const TableView: React.FC = () => {
               >
                 {servicePointTypes.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {option.label}
+                    {t(option.labelKey, option.fallback)}
                   </option>
                 ))}
               </select>
@@ -1002,7 +1058,7 @@ const TableView: React.FC = () => {
                           : "border-border bg-background text-muted-foreground hover:bg-muted",
                       )}
                     >
-                      {option.label}
+                      {t(option.labelKey, option.fallback)}
                     </button>
                   ))}
                 </div>
@@ -1024,7 +1080,7 @@ const TableView: React.FC = () => {
                           : "border-border bg-background text-muted-foreground hover:bg-muted",
                       )}
                     >
-                      {option.label}
+                      {t(option.labelKey, option.fallback)}
                     </button>
                   ))}
                 </div>
@@ -1081,12 +1137,12 @@ const TableView: React.FC = () => {
                   .filter((option) =>
                     point.fulfillmentModes.includes(option.value),
                   )
-                  .map((option) => option.label);
+                  .map((option) => getFulfillmentOptionLabel(option.value));
                 const pointPayment = paymentOptions
                   .filter((option) =>
                     point.paymentMethods.includes(option.value),
                   )
-                  .map((option) => option.label);
+                  .map((option) => getPaymentOptionLabel(option.value));
 
                 return (
                   <article
@@ -1096,7 +1152,7 @@ const TableView: React.FC = () => {
                     <div className="flex items-center justify-between gap-2">
                       <span className="inline-flex h-5 items-center gap-1 rounded-full bg-primary/10 px-1.5 text-[10px] font-black uppercase text-primary">
                         <Hotel className="h-3 w-3" />
-                        {point.type}
+                        {getServicePointTypeLabel(point.type)}
                       </span>
                       <button
                         type="button"

@@ -32,6 +32,7 @@ const PUBLIC_ROOTS = [
   "nav",
   "auth",
   "profile",
+  "servicePoints",
 ];
 // Owner-facing subtrees that live under an otherwise-public root.
 const NON_PUBLIC_PREFIXES = ["payment.settings"];

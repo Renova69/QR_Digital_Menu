@@ -1257,6 +1257,50 @@
     "tableNotFound": "No se ha encontrado la mesa. Escanea de nuevo el código QR o pide ayuda al personal.",
     "nameOptional": "opcional"
   },
+  "servicePoints": {
+    "title": "Service Points",
+    "createTitle": "Create service point",
+    "createSubtitle": "Create room or pickup QR codes with their own fulfillment and payment choices.",
+    "namePlaceholder": "Room 304, Lobby pickup, Pool bar...",
+    "add": "Add",
+    "duplicate": "A table or service point with this name already exists.",
+    "fulfillment": "Fulfillment",
+    "payment": "Payment",
+    "qrGrid": "Service point QR grid",
+    "search": "Search service points...",
+    "empty": "No service points yet. Add a room or pickup QR above.",
+    "noMatches": "No service points match.",
+    "rotateToken": "Rotate QR token",
+    "qrTitle": "{{name}} QR",
+    "qrInstructions": "Place this QR at the room or pickup point.",
+    "types": {
+      "room": "Room",
+      "pickup": "Pickup",
+      "other": "Other",
+      "location": "Location"
+    },
+    "fulfillmentModes": {
+      "roomDelivery": "Deliver to room",
+      "pickupAdmin": "Guest pickup",
+      "pickupCustomer": "I will pick it up",
+      "pickupBadge": "Pick up",
+      "dineIn": "Dine in"
+    },
+    "paymentMethods": {
+      "online": "Pay online",
+      "payOnDelivery": "Pay on delivery",
+      "payAtPickup": "Pay at pickup",
+      "cash": "Cash",
+      "cashCustomer": "Pay cash"
+    },
+    "checkout": {
+      "fulfillmentQuestion": "Where should we send it?",
+      "paymentQuestion": "How would you like to pay?",
+      "fulfillmentRequired": "Choose how to receive the order.",
+      "paymentRequired": "Choose a payment method.",
+      "noPaymentMethods": "No payment method is currently available for this order."
+    }
+  },
   "analytics": {
     "title": "{{name}} Analytics",
     "lastNDays": "Rendimiento de los últimos {{days}} días",

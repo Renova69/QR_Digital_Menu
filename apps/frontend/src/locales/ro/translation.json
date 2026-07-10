@@ -673,6 +673,50 @@
     "tableNotFound": "Masa nu a fost găsită. Scanează din nou codul QR sau cere ajutor personalului.",
     "nameOptional": "opțional"
   },
+  "servicePoints": {
+    "title": "Puncte de servire",
+    "createTitle": "Creeaz? punct de servire",
+    "createSubtitle": "Creeaz? coduri QR pentru camere sau ridicare, cu op?iuni proprii de livrare ?i plat?.",
+    "namePlaceholder": "Camera 304, ridicare lobby, bar la piscin?...",
+    "add": "Adaug?",
+    "duplicate": "Exist? deja o mas? sau un punct de servire cu acest nume.",
+    "fulfillment": "Modalitate de servire",
+    "payment": "Plat?",
+    "qrGrid": "Gril? QR pentru puncte de servire",
+    "search": "Caut? puncte de servire...",
+    "empty": "Nu exist? ?nc? puncte de servire. Adaug? mai sus un QR pentru camer? sau ridicare.",
+    "noMatches": "Niciun punct de servire nu corespunde.",
+    "rotateToken": "Rote?te tokenul QR",
+    "qrTitle": "QR {{name}}",
+    "qrInstructions": "Plaseaz? acest QR ?n camer? sau la punctul de ridicare.",
+    "types": {
+      "room": "Camer?",
+      "pickup": "Ridicare",
+      "other": "Alt punct",
+      "location": "Loca?ie"
+    },
+    "fulfillmentModes": {
+      "roomDelivery": "Livrare ?n camer?",
+      "pickupAdmin": "Ridicare de c?tre oaspete",
+      "pickupCustomer": "O voi ridica eu",
+      "pickupBadge": "Ridicare",
+      "dineIn": "Servire la mas?"
+    },
+    "paymentMethods": {
+      "online": "Plat? online",
+      "payOnDelivery": "Plat? la livrare",
+      "payAtPickup": "Plat? la ridicare",
+      "cash": "Numerar",
+      "cashCustomer": "Plat? ?n numerar"
+    },
+    "checkout": {
+      "fulfillmentQuestion": "Unde s? trimitem comanda?",
+      "paymentQuestion": "Cum dore?ti s? pl?te?ti?",
+      "fulfillmentRequired": "Alege cum dore?ti s? prime?ti comanda.",
+      "paymentRequired": "Alege metoda de plat?.",
+      "noPaymentMethods": "Nu este disponibil? nicio metod? de plat? pentru aceast? comand?."
+    }
+  },
   "analytics": {
     "title": "Analize {{name}}",
     "lastNDays": "Ultimele {{days}} Zile",
