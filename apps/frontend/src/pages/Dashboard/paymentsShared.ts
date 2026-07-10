@@ -17,7 +17,7 @@ export interface PaymentRecord {
   createdAt: string;
   tableNumber?: string | null;
   customerName?: string | null;
-  tableSessionId: string;
+  tableSessionId: string | null;
   breakdown?: {
     subtotal: number;
     tip: number;

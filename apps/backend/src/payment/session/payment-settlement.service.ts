@@ -198,6 +198,11 @@ export class PaymentSettlementService {
     if (existing.status !== CashPaymentRequestStatus.PENDING) {
       throw new ConflictException('Cash payment request is already handled');
     }
+    if (!existing.tableSessionId || !existing.tableSession) {
+      throw new ConflictException(
+        'Cash payment request is no longer attached to an active session',
+      );
+    }
 
     await this.session.abandonCheckoutOrThrowIfPending(
       existing.tableSession.token,
@@ -217,6 +222,11 @@ export class PaymentSettlementService {
         throw new NotFoundException('Cash payment request not found');
       if (request.status !== CashPaymentRequestStatus.PENDING) {
         throw new ConflictException('Cash payment request is already handled');
+      }
+      if (!request.tableSessionId) {
+        throw new ConflictException(
+          'Cash payment request is no longer attached to an active session',
+        );
       }
 
       const session = await tx.tableSession.findFirst({

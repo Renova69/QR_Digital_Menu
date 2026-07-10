@@ -636,17 +636,16 @@ export class PaymentCoreService {
     request: any,
   ) {
     const payload = this.formatCashPaymentRequest(request);
+    const tableSessionId = request.tableSessionId ?? null;
     this.events.emitToRestaurant(request.restaurantId, eventName, payload);
-    this.events.emitToTableSession(request.tableSessionId, eventName, payload);
+    if (tableSessionId) {
+      this.events.emitToTableSession(tableSessionId, eventName, payload);
+    }
 
-    if (request.status === CashPaymentRequestStatus.PENDING) {
+    if (request.status === CashPaymentRequestStatus.PENDING && tableSessionId) {
       this.emitPendingBillPayment(this.formatPendingCashRequest(request));
-    } else {
-      this.emitBillPaymentCleared(
-        request.tableSessionId,
-        request.id,
-        'CASH_REQUEST',
-      );
+    } else if (tableSessionId) {
+      this.emitBillPaymentCleared(tableSessionId, request.id, 'CASH_REQUEST');
     }
   }
 

@@ -382,8 +382,8 @@ describe('TablesService', () => {
 
     it('allows delete when the table only has closed (non-active) historical sessions', async () => {
       // No OPEN/PAID session exists, but the table has taken orders in the
-      // past. Deletion must still be allowed — Payment.tableSessionId /
-      // CashPaymentRequest.tableId are SetNull on delete precisely so this
+      // past. Deletion must still be allowed: Payment.tableSessionId and the
+      // CashPaymentRequest table/session pointers are SetNull on delete, so this
       // preserves payment history instead of requiring the table to have
       // never been used.
       prisma.tableSession.findFirst.mockResolvedValue(null);

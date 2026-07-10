@@ -447,9 +447,12 @@ model AssistanceRequest {
 model CashPaymentRequest {
   id             String                   @id @default(cuid())
   restaurantId   String
-  tableSessionId String
   // Nullable: SetNull below preserves the cash-payment-request audit trail
-  // when a table is removed after its session is closed (was Cascade).
+  // when a table is removed after its session is closed. The active payment
+  // flows still require a live session before a request can be confirmed.
+  tableSessionId String?
+  // Nullable: SetNull below preserves the cash-payment-request audit trail
+  // when a table is removed after its session is closed.
   tableId        String?
   status         CashPaymentRequestStatus @default(PENDING)
   scope          CashPaymentRequestScope  @default(FULL_TABLE)
@@ -463,7 +466,7 @@ model CashPaymentRequest {
   createdAt      DateTime                 @default(now())
   updatedAt      DateTime                 @updatedAt
   restaurant     Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  tableSession   TableSession             @relation(fields: [tableSessionId], references: [id], onDelete: Cascade)
+  tableSession   TableSession?            @relation(fields: [tableSessionId], references: [id], onDelete: SetNull)
   table          RestaurantTable?         @relation(fields: [tableId], references: [id], onDelete: SetNull)
   payment        Payment?                 @relation(fields: [paymentId], references: [id], onDelete: SetNull)
   resolvedBy     User?                    @relation("CashPaymentRequestResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)

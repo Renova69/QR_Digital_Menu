@@ -27,7 +27,9 @@ export type PaymentClaimResult = {
 export type CashPaymentRequestDto = {
   id: string;
   restaurantId: string;
-  tableSessionId: string;
+  // Nullable after historical table/session deletion; pending requests still
+  // require a live session before they can be confirmed.
+  tableSessionId: string | null;
   // Nullable: CashPaymentRequest.tableId is SetNull on table deletion (was
   // Cascade) so historical cash-payment records survive table removal.
   tableId: string | null;

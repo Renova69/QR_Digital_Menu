@@ -403,10 +403,10 @@ export class TablesService {
         'Cannot delete a table with an active session',
       );
     }
-    // Historical (closed) sessions do NOT block deletion — Payment.tableSessionId
-    // and CashPaymentRequest.tableId are SetNull on delete precisely so removing
-    // a table with only closed-out sessions preserves that payment history
-    // instead of blocking the removal outright (phase3_db_integrity_fixes).
+    // Historical (closed) sessions do NOT block deletion. Payment.tableSessionId
+    // and CashPaymentRequest table pointers are SetNull on delete, so removing
+    // a table with only closed-out sessions preserves payment history instead
+    // of blocking the removal outright.
     const deleted = await this.prisma.restaurantTable.delete({
       where: { id },
     });

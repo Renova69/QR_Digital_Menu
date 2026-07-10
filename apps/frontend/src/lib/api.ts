@@ -775,8 +775,8 @@ export type CashPaymentRequestScope = "FULL_TABLE" | "ORDER_ITEMS";
 export interface CashPaymentRequest {
   id: string;
   restaurantId: string;
-  tableSessionId: string;
-  tableId: string;
+  tableSessionId: string | null;
+  tableId: string | null;
   tableName: string | null;
   status: CashPaymentRequestStatus;
   scope: CashPaymentRequestScope;
