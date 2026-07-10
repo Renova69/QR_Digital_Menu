@@ -26,6 +26,7 @@ import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { stripBrandingFields } from '../restaurants/branding-fields';
 import { StorageService } from '../storage/storage.service';
 import { EventsGateway } from '../events/events.gateway';
+import { withKeyLock } from '../common/key-mutex';
 
 // AUTO-trending window: only orders from the last N days count toward
 // "most ordered", so trending reflects current demand rather than all-time
@@ -169,17 +170,21 @@ export class MenuCrudService {
   /** Delete a single stored image, but only when no OTHER menu row still points
    *  at it. Note StorageService.delete(mainUrl) also removes the derived
    *  `_thumb` object, so a shared URL must be preserved for the rows that still
-   *  use it. */
+   *  use it. The reference-check + delete runs under a per-URL lock so two
+   *  concurrent deletes of rows sharing the same image can't both read a
+   *  stale "still referenced" count and disagree about who should delete it. */
   private async deleteImageIfUnreferenced(
     url: string | null | undefined,
     exclude: ImageRefExclusions = {},
   ): Promise<void> {
     if (!url) return;
-    if (await this.isImageReferencedElsewhere(url, exclude)) {
-      this.logger.log(`Kept shared image (still referenced): ${url}`);
-      return;
-    }
-    await this.storageService.deleteExact(url);
+    await withKeyLock(url, async () => {
+      if (await this.isImageReferencedElsewhere(url, exclude)) {
+        this.logger.log(`Kept shared image (still referenced): ${url}`);
+        return;
+      }
+      await this.storageService.deleteExact(url);
+    });
   }
 
   private async deleteStoredImagePair(

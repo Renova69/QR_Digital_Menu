@@ -12,6 +12,7 @@ import { FeatureFlag } from '../subscription/feature-flag.enum';
 import { ImportMenuDto } from './dto/import-menu.dto';
 import { randomBytes, createHash } from 'crypto';
 import { AvailabilityType, Currency, OptionType, Prisma } from '@prisma/client';
+import { withKeyLock } from '../common/key-mutex';
 
 const VALID_AVAILABILITY = new Set(Object.values(AvailabilityType));
 const MAX_IMPORT_TOTAL_ITEMS = 1_000;
@@ -416,19 +417,24 @@ export class MenuImportService {
     return itemRefs + categoryRefs > 0;
   }
 
+  /** Runs under a per-URL lock (shared process-wide, see key-mutex.ts) so a
+   *  concurrent delete of the same URL from menu-crud.service.ts or another
+   *  import can't race this reference-check against a stale count. */
   private async deleteImageIfUnreferenced(
     url: string,
     exclude: ImageRefExclusions = {},
   ): Promise<void> {
-    try {
-      if (await this.isImageReferencedElsewhere(url, exclude)) {
-        this.logger.log(`Kept shared image (still referenced): ${url}`);
-        return;
+    await withKeyLock(url, async () => {
+      try {
+        if (await this.isImageReferencedElsewhere(url, exclude)) {
+          this.logger.log(`Kept shared image (still referenced): ${url}`);
+          return;
+        }
+        await this.storageService.deleteExact(url);
+      } catch (error) {
+        this.logger.warn(`Skipped image cleanup for ${url}: ${error}`);
       }
-      await this.storageService.deleteExact(url);
-    } catch (error) {
-      this.logger.warn(`Skipped image cleanup for ${url}: ${error}`);
-    }
+    });
   }
 
   private assertImportSize(dto: ImportMenuDto) {
