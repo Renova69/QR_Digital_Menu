@@ -109,6 +109,7 @@ const RESTAURANT_READ_SELECT = {
   forceTier: true,
   tierUpdatedAt: true,
   isActive: true,
+  deletedAt: true,
 };
 
 // Fields stripped from every public-facing restaurant read.
@@ -146,7 +147,7 @@ export class RestaurantsService {
 
   async create(createRestaurantDto: CreateRestaurantDto, userId: string) {
     const existing = await this.prisma.restaurant.count({
-      where: { ownerId: userId },
+      where: { ownerId: userId, deletedAt: null },
     });
     if (existing > 0) {
       throw new ConflictException(
@@ -203,11 +204,11 @@ export class RestaurantsService {
 
     const rows = user?.restaurantId
       ? await this.prisma.restaurant.findMany({
-          where: { id: user.restaurantId },
+          where: { id: user.restaurantId, deletedAt: null },
           select: RESTAURANT_READ_SELECT,
         })
       : await this.prisma.restaurant.findMany({
-          where: { ownerId: userId },
+          where: { ownerId: userId, deletedAt: null },
           select: RESTAURANT_READ_SELECT,
         });
 
@@ -220,7 +221,7 @@ export class RestaurantsService {
       select: RESTAURANT_READ_SELECT,
     });
 
-    if (!restaurant) {
+    if (!restaurant || restaurant.deletedAt) {
       throw new NotFoundException(`Restaurant with ID "${id}" not found`);
     }
 
@@ -238,7 +239,7 @@ export class RestaurantsService {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id },
     });
-    if (!restaurant) {
+    if (!restaurant || restaurant.deletedAt) {
       throw new NotFoundException(`Restaurant with ID "${id}" not found`);
     }
     if (restaurant.ownerId !== userId) {
@@ -262,7 +263,7 @@ export class RestaurantsService {
       }),
     ]);
 
-    if (!restaurant) {
+    if (!restaurant || restaurant.deletedAt) {
       throw new NotFoundException(`Restaurant with ID "${id}" not found`);
     }
 
@@ -288,7 +289,7 @@ export class RestaurantsService {
       }),
     ]);
 
-    if (!restaurant) {
+    if (!restaurant || restaurant.deletedAt) {
       throw new NotFoundException(`Restaurant with ID "${id}" not found`);
     }
 
@@ -394,12 +395,26 @@ export class RestaurantsService {
   }
 
   async remove(id: string, userId: string) {
-    // First, ensure the restaurant exists and the user has permission
-    await this.findOne(id, userId);
-
-    return this.prisma.restaurant.delete({
+    const restaurant = await this.prisma.restaurant.findUnique({
       where: { id },
+      select: { id: true, ownerId: true, deletedAt: true },
     });
+    if (!restaurant || restaurant.deletedAt) {
+      throw new NotFoundException(`Restaurant with ID "${id}" not found`);
+    }
+    if (restaurant.ownerId !== userId) {
+      throw new ForbiddenException(
+        'You do not have permission to access this resource',
+      );
+    }
+
+    const updated = await this.prisma.restaurant.update({
+      where: { id },
+      select: RESTAURANT_READ_SELECT,
+      data: { deletedAt: new Date(), isActive: false },
+    });
+    await this.deviceEnrollmentService.evictRestaurantDevices(id);
+    return this.toRestaurantReadDto(updated);
   }
 
   async updateLogo(

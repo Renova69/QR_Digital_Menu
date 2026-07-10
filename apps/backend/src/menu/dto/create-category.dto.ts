@@ -52,4 +52,8 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsBoolean()
   isDrinkCategory?: boolean;
+
+  @IsOptional()
+  @IsString()
+  printStationId?: string | null;
 }

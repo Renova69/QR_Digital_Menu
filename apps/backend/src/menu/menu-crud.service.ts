@@ -685,14 +685,16 @@ export class MenuCrudService {
           category: { select: { isDrinkCategory: true, name: true } },
         },
       });
-      const scoredItems = this.applyContextualScoring(
-        items,
-        restaurant.timezone || 'UTC',
-      ).slice(0, 4);
+      const timezone = restaurant.timezone || 'UTC';
+      const scoredItems = this.applyContextualScoring(items, timezone).slice(
+        0,
+        4,
+      );
       return this.applyTrendingTranslations(scoredItems, restaurant, lang);
     }
 
-    const cacheKey = `${restaurantId}:${lang || 'default'}`;
+    const timezone = restaurant.timezone || 'UTC';
+    const cacheKey = `${restaurantId}:${lang || 'default'}:${this.getActiveUpsellContextKey(timezone)}`;
     const cached = this.autoTrendingCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.data;
@@ -744,7 +746,7 @@ export class MenuCrudService {
 
     const scoredItems = this.applyContextualScoring(
       ordered as Partial<MenuItem>[],
-      restaurant.timezone || 'UTC',
+      timezone,
     ).slice(0, 4);
 
     const result = await this.applyTrendingTranslations(
@@ -763,33 +765,42 @@ export class MenuCrudService {
     items: Partial<MenuItem>[],
     timezone: string,
   ): Partial<MenuItem>[] {
+    const activeContexts = this.getActiveUpsellContexts(timezone);
+
+    return items
+      .map((item, index) => {
+        let score = items.length - index; // Base score preserves original ranking
+        if (
+          item.tags &&
+          Array.isArray(item.tags) &&
+          item.tags.some((tag: string) => activeContexts.has(tag))
+        ) {
+          score *= 1.5;
+        }
+        return { item, score };
+      })
+      .sort((a, b) => b.score - a.score)
+      .map((entry) => entry.item);
+  }
+
+  private getActiveUpsellContexts(timezone: string): Set<string> {
     const now = DateTime.now().setZone(timezone);
     const hour = now.hour;
     const weekday = now.weekday; // 1 = Monday, 7 = Sunday
-
     const activeContexts = new Set<string>();
 
     if (hour >= 6 && hour < 11) activeContexts.add('MORNING');
     if (hour >= 11 && hour < 15) activeContexts.add('LUNCH');
     if (hour >= 17 && hour < 22) activeContexts.add('EVENING');
     if (hour >= 22 || hour < 4) activeContexts.add('LATE_NIGHT');
-
     if (weekday === 6 || weekday === 7) activeContexts.add('WEEKEND');
 
-    return items
-      .map((item, index) => {
-        let score = items.length - index; // Base score preserves original ranking
-        if (item.tags && Array.isArray(item.tags)) {
-          item.tags.forEach((tag: string) => {
-            if (activeContexts.has(tag)) {
-              score *= 1.5;
-            }
-          });
-        }
-        return { item, score };
-      })
-      .sort((a, b) => b.score - a.score)
-      .map((entry) => entry.item);
+    return activeContexts;
+  }
+
+  private getActiveUpsellContextKey(timezone: string): string {
+    const contexts = [...this.getActiveUpsellContexts(timezone)].sort();
+    return contexts.length ? contexts.join('+') : 'none';
   }
 
   /**
@@ -949,9 +960,9 @@ export class MenuCrudService {
       where: { restaurantId },
     });
 
-    if ((sanitizedDto as any).printStationId) {
+    if (sanitizedDto.printStationId) {
       const station = await this.prisma.printStation.findUnique({
-        where: { id: (sanitizedDto as any).printStationId },
+        where: { id: sanitizedDto.printStationId },
         select: { restaurantId: true },
       });
       if (!station || station.restaurantId !== restaurantId) {
@@ -1169,11 +1180,13 @@ export class MenuCrudService {
     await this.deleteStoredImagePair(category.imageUrl, category.thumbnailUrl, {
       excludeCategoryIds: [categoryId],
     });
-    for (const item of category.items) {
-      await this.deleteStoredImagePair(item.imageUrl, item.thumbnailUrl, {
-        excludeItemIds: [item.id],
-      });
-    }
+    await Promise.all(
+      category.items.map((item) =>
+        this.deleteStoredImagePair(item.imageUrl, item.thumbnailUrl, {
+          excludeItemIds: [item.id],
+        }),
+      ),
+    );
     return deleted;
   }
 

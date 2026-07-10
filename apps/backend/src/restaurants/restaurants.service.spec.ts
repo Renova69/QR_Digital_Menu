@@ -62,6 +62,8 @@ const makeRestaurant = (overrides: Record<string, unknown> = {}) => ({
   stripeAccountId: null,
   stripeOnboarded: false,
   targetLanguages: [] as string[],
+  isActive: true,
+  deletedAt: null,
   ...overrides,
 });
 
@@ -201,7 +203,7 @@ describe('RestaurantsService', () => {
 
       expect(mockPrisma.restaurant.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { ownerId: 'user1' },
+          where: { ownerId: 'user1', deletedAt: null },
           select: expect.objectContaining({ id: true, tier: true }),
         }),
       );
@@ -216,7 +218,7 @@ describe('RestaurantsService', () => {
 
       expect(mockPrisma.restaurant.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'rest1' },
+          where: { id: 'rest1', deletedAt: null },
           select: expect.objectContaining({ id: true, tier: true }),
         }),
       );
@@ -510,17 +512,30 @@ describe('RestaurantsService', () => {
   // ─── remove ──────────────────────────────────────────────────────────────────
 
   describe('remove', () => {
-    it('calls findOne then deletes restaurant', async () => {
+    it('soft-deletes restaurant instead of cascading financial history', async () => {
       mockPrisma.restaurant.findUnique.mockResolvedValue(makeRestaurant());
-      const deleted = makeRestaurant();
-      mockPrisma.restaurant.delete.mockResolvedValue(deleted);
+      const deleted = makeRestaurant({
+        isActive: false,
+        deletedAt: new Date(),
+      });
+      mockPrisma.restaurant.update.mockResolvedValue(deleted);
 
       const result = await service.remove('rest1', 'user1');
 
-      expect(mockPrisma.restaurant.delete).toHaveBeenCalledWith({
-        where: { id: 'rest1' },
-      });
-      expect(result).toBe(deleted);
+      expect(mockPrisma.restaurant.delete).not.toHaveBeenCalled();
+      expect(mockPrisma.restaurant.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'rest1' },
+          data: expect.objectContaining({
+            isActive: false,
+            deletedAt: expect.any(Date),
+          }),
+        }),
+      );
+      expect(mockDeviceEnrollment.evictRestaurantDevices).toHaveBeenCalledWith(
+        'rest1',
+      );
+      expect(result).toMatchObject({ id: 'rest1', isActive: false });
     });
 
     it('throws ForbiddenException when not owner', async () => {
@@ -530,6 +545,17 @@ describe('RestaurantsService', () => {
       await expect(service.remove('rest1', 'user1')).rejects.toThrow(
         ForbiddenException,
       );
+    });
+
+    it('throws NotFoundException when restaurant is already soft-deleted', async () => {
+      mockPrisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ deletedAt: new Date(), isActive: false }),
+      );
+
+      await expect(service.remove('rest1', 'user1')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(mockPrisma.restaurant.update).not.toHaveBeenCalled();
     });
   });
 

@@ -205,7 +205,7 @@ const OrdersView = () => {
         if (!query) return true;
 
         const itemNames = order.items
-          .map((item) => item.menuItem?.name ?? "")
+          .map((item) => item.menuItem?.name ?? item.itemName ?? "")
           .join(" ")
           .toLowerCase();
 
@@ -285,7 +285,10 @@ const OrdersView = () => {
           totalPrice: selectedOrder.totalPrice,
           staff: selectedOrder.staff,
           items: selectedOrder.items.map((item) => ({
-            name: item.menuItem?.name ?? t("orders.unknownItem", "Item"),
+            name:
+              item.menuItem?.name ??
+              item.itemName ??
+              t("orders.unknownItem", "Item"),
             quantity: item.quantity,
             totalPrice: getItemTotal(item),
             options: Array.isArray(item.selectedOptions)
@@ -511,6 +514,7 @@ const OrdersView = () => {
                         <div className="min-w-0">
                           <span className="block truncate font-semibold leading-snug text-foreground">
                             {item.menuItem?.name ??
+                              item.itemName ??
                               t("orders.unknownItem", "Item")}
                           </span>
                           {Array.isArray(item.selectedOptions) &&

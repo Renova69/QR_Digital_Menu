@@ -187,7 +187,8 @@ export default function KitchenPage() {
                             className="text-xs text-gray-400 flex justify-between"
                           >
                             <span>
-                              {item.quantity}x {item.menuItem?.name ?? "Item"}
+                              {item.quantity}x{" "}
+                              {item.menuItem?.name ?? item.itemName ?? "Item"}
                             </span>
                           </li>
                         ))}
@@ -279,7 +280,8 @@ export default function KitchenPage() {
                             className="text-sm flex justify-between"
                           >
                             <span className="text-gray-200 font-medium">
-                              {item.quantity}x {item.menuItem?.name ?? "Item"}
+                              {item.quantity}x{" "}
+                              {item.menuItem?.name ?? item.itemName ?? "Item"}
                             </span>
                           </li>
                         ))}

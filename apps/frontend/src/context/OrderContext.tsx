@@ -43,7 +43,8 @@ interface Order {
   status: OrderStatus;
   items: Array<{
     id: string;
-    menuItemId: string;
+    menuItemId: string | null;
+    itemName?: string;
     quantity: number;
     selectedOptions: OrderItemSelectedOption[];
     menuItem: {
@@ -51,7 +52,7 @@ interface Order {
       name: string;
       price: number;
       description?: string;
-    };
+    } | null;
   }>;
   totalPrice: number;
   specialRequests?: string;

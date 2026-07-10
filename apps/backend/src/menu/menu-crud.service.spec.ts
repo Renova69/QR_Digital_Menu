@@ -842,6 +842,31 @@ describe('MenuCrudService', () => {
         expect((result[0] as { id: string }).id).toBe('item-2');
       });
 
+      it('applies only one contextual boost when an item matches multiple active tags', async () => {
+        jest.setSystemTime(new Date('2023-10-14T12:00:00Z')); // Saturday lunch: LUNCH + WEEKEND
+        mockPrisma.restaurant.findUnique.mockResolvedValue({
+          trendingMode: 'MANUAL',
+          id: 'rest-1',
+          tier: 'PROFESSIONAL',
+          timezone: 'UTC',
+        });
+        mockPrisma.menuItem.findMany.mockResolvedValue([
+          { ...makeItem(), id: 'item-1', tags: [] },
+          { ...makeItem(), id: 'item-2', tags: [] },
+          { ...makeItem(), id: 'item-3', tags: ['LUNCH', 'WEEKEND'] },
+          { ...makeItem(), id: 'item-4', tags: [] },
+        ]);
+
+        const result = await service.getTrendingItems('rest-1');
+
+        expect(result.map((item) => (item as { id: string }).id)).toEqual([
+          'item-1',
+          'item-2',
+          'item-3',
+          'item-4',
+        ]);
+      });
+
       it('boosts rank of MORNING tagged item in AUTO mode during morning hours', async () => {
         jest.setSystemTime(new Date('2023-10-10T09:00:00Z')); // A Tuesday at 09:00 AM UTC
         mockPrisma.restaurant.findUnique.mockResolvedValue({
@@ -871,6 +896,29 @@ describe('MenuCrudService', () => {
         expect(result).toHaveLength(4);
         expect((result[0] as { id: string }).id).toBe('item-2');
         expect((result[1] as { id: string }).id).toBe('item-1');
+      });
+
+      it('does not reuse AUTO cache entries across active-context changes inside the TTL', async () => {
+        mockPrisma.restaurant.findUnique.mockResolvedValue({
+          trendingMode: 'AUTO',
+          id: 'rest-1',
+          tier: 'PROFESSIONAL',
+          timezone: 'UTC',
+        });
+        mockPrisma.orderItem.groupBy.mockResolvedValue([
+          { menuItemId: 'item-1', _sum: { quantity: 10 } },
+        ]);
+        mockPrisma.menuItem.findMany.mockResolvedValue([
+          { ...makeItem(), id: 'item-1', tags: [] },
+        ]);
+
+        jest.setSystemTime(new Date('2023-10-10T10:59:00Z'));
+        await service.getTrendingItems('rest-1');
+
+        jest.setSystemTime(new Date('2023-10-10T11:00:00Z'));
+        await service.getTrendingItems('rest-1');
+
+        expect(mockPrisma.orderItem.groupBy).toHaveBeenCalledTimes(2);
       });
     });
 

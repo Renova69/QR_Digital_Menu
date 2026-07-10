@@ -332,6 +332,17 @@ describe('TablesService', () => {
       expect(result).toEqual(mockTable);
     });
 
+    it('blocks delete when table has historical closed sessions', async () => {
+      prisma.tableSession.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'sess-closed' });
+
+      await expect(service.remove('table-1', 'owner-1')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(prisma.restaurantTable.delete).not.toHaveBeenCalled();
+    });
+
     it('throws NotFoundException when table does not exist', async () => {
       prisma.restaurantTable.findUnique.mockResolvedValue(null);
       await expect(service.remove('bad-id', 'owner-1')).rejects.toThrow(

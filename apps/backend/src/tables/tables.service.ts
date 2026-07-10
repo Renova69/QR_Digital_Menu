@@ -396,6 +396,15 @@ export class TablesService {
         'Cannot delete a table with an active session',
       );
     }
+    const historicalSession = await this.prisma.tableSession.findFirst({
+      where: { tableId: id },
+      select: { id: true },
+    });
+    if (historicalSession) {
+      throw new ConflictException(
+        'Cannot delete a table with historical sessions',
+      );
+    }
     const deleted = await this.prisma.restaurantTable.delete({
       where: { id },
     });
