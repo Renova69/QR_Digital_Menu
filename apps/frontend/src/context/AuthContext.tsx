@@ -226,6 +226,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPrefetchedRestaurants(null);
   };
 
+  useEffect(() => {
+    if (user && user.role !== "customer") {
+      import("../utils/pushSubscription")
+        .then(({ subscribeToPushNotifications }) => {
+          subscribeToPushNotifications();
+        })
+        .catch((err) => {
+          console.error("Failed to load push subscription utility:", err);
+        });
+    }
+  }, [user]);
+
   const value: AuthContextType = {
     user,
     isAuthenticated: !!user,

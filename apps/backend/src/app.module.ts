@@ -32,6 +32,7 @@ import { MenuViewModule } from './menu-views/menu-view.module';
 import { ClientLogsModule } from './client-logs/client-logs.module';
 import { PrintStationModule } from './print-station/print-station.module';
 import { ReservationsModule } from './reservations/reservations.module';
+import { PushModule } from './push/push.module';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { ReservationsModule } from './reservations/reservations.module';
     ClientLogsModule,
     PrintStationModule,
     ReservationsModule,
+    PushModule,
   ],
   controllers: [AppController],
   providers: [

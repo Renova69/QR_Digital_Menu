@@ -42,6 +42,7 @@ model User {
   impersonationSessionsAsTarget ImpersonationSession[]  @relation("ImpersonationTarget")
   dataRequests                  DataRequest[]           @relation("DataRequestUser")
   processedDataRequests         DataRequest[]           @relation("DataRequestProcessor")
+  pushSubscriptions             PushSubscription[]
 
   @@index([restaurantId])
   @@map("app_user")
@@ -1111,3 +1112,18 @@ model ImpersonationSession {
   @@index([exchangeCode])
   @@map("impersonation_session")
 }
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("push_subscription")
+}
+
