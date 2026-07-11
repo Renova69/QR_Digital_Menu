@@ -47,6 +47,7 @@ function validateFrontendUrl(logger: Logger) {
 }
 
 async function bootstrap() {
+  // Trigger hot reload for Prisma schema update
   const appLogger = new AppLogger();
   const logger = new Logger('Bootstrap');
   try {
