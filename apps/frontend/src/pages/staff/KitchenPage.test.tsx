@@ -92,6 +92,39 @@ describe("KitchenPage", () => {
     expect(screen.getByText("2x Burger")).toBeDefined();
   });
 
+  it("distinguishes a room number from a table with the same number", () => {
+    (useOrders as Mock).mockReturnValue({
+      orders: [
+        {
+          id: "table-order",
+          status: "NEW",
+          tableId: "table-cuid",
+          tableName: "1",
+          servicePointType: null,
+          servicePointLabel: null,
+          items: [],
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: "room-order",
+          status: "NEW",
+          tableId: "room-cuid",
+          tableName: "1",
+          servicePointType: "ROOM",
+          servicePointLabel: "1",
+          items: [],
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      updateOrderStatus: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(screen.getByText("Table 1")).toBeDefined();
+    expect(screen.getByText("Room 1")).toBeDefined();
+  });
+
   it("cycles order status when clicked", () => {
     const updateSpy = vi.fn();
     (useOrders as Mock).mockReturnValue({

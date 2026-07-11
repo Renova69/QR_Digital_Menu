@@ -102,7 +102,9 @@ vi.mock("../components/menu/CategoryPills", () => ({
 }));
 vi.mock("../components/menu/SocialBar", () => ({ default: () => null }));
 vi.mock("../components/menu/Footer", () => ({ default: () => null }));
-vi.mock("../components/cart/CartIcon", () => ({ default: () => null }));
+vi.mock("../components/cart/CartIcon", () => ({
+  default: () => <div data-testid="cart-icon" />,
+}));
 vi.mock("../components/payment/PaymentModal", () => ({
   PaymentModal: () => null,
 }));
@@ -169,6 +171,15 @@ describe("PublicMenuPage", () => {
     apiMocks.abandonCheckout.mockResolvedValue(undefined);
     apiMocks.createAssistanceRequest.mockResolvedValue({});
     apiMocks.getSessionBill.mockResolvedValue({});
+    apiMocks.resolvePublicServicePoint.mockResolvedValue({
+      id: "room-301",
+      name: "301",
+      type: "ROOM",
+      publicToken: "room-token",
+      fulfillmentModes: ["ROOM_DELIVERY"],
+      paymentMethods: ["PAY_ON_DELIVERY"],
+    });
+    cartMocks.orderLocation = null;
   });
 
   afterEach(() => {
@@ -203,6 +214,54 @@ describe("PublicMenuPage", () => {
       table: "7",
       visitorId: "visitor-1",
     });
+  });
+
+  it("clears a previous location before resolving a new service-point token", async () => {
+    cartMocks.orderLocation = {
+      type: "ROOM",
+      label: "Old room",
+      token: "old-token",
+    } as any;
+    let resolvePoint: (value: any) => void = () => {};
+    apiMocks.resolvePublicServicePoint.mockReturnValue(
+      new Promise((resolve) => {
+        resolvePoint = resolve;
+      }),
+    );
+
+    renderMenu("/menu/rest-1?sp=new-token");
+
+    await waitFor(() =>
+      expect(cartMocks.setOrderLocation).toHaveBeenCalledWith(null),
+    );
+    expect(screen.queryByTestId("cart-icon")).toBeNull();
+
+    resolvePoint({
+      id: "room-302",
+      name: "302",
+      type: "ROOM",
+      publicToken: "new-token",
+      fulfillmentModes: ["ROOM_DELIVERY"],
+      paymentMethods: ["PAY_ON_DELIVERY"],
+    });
+    await waitFor(() =>
+      expect(cartMocks.setOrderLocation).toHaveBeenCalledWith(
+        expect.objectContaining({ token: "new-token" }),
+      ),
+    );
+  });
+
+  it("shows an error and disables ordering for an invalid service-point QR", async () => {
+    apiMocks.resolvePublicServicePoint.mockRejectedValue(new Error("invalid"));
+
+    renderMenu("/menu/rest-1?sp=rotated-token");
+
+    expect(
+      await screen.findByText(
+        "This service-point QR is invalid or inactive. Please scan the current QR or ask staff for help.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("cart-icon")).toBeNull();
   });
 
   it("shows the error state when meta has no restaurant", async () => {

@@ -689,6 +689,7 @@
     "rotateToken": "Rotate QR token",
     "qrTitle": "{{name}} QR",
     "qrInstructions": "Place this QR at the room or pickup point.",
+    "invalidQr": "This service-point QR is invalid or inactive. Please scan the current QR or ask staff for help.",
     "types": {
       "room": "Room",
       "pickup": "Pickup",

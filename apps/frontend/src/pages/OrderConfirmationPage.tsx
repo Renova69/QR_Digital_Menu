@@ -161,6 +161,9 @@ const OrderConfirmationPage = () => {
   const orderId = location.state?.orderId || "";
   const orderTrackToken = location.state?.orderTrackToken || "";
   const tableNumber = location.state?.tableNumber || "";
+  const menuReturnUrl =
+    location.state?.menuReturnUrl ||
+    `/menu/public/${restaurantId}${tableNumber ? `?table=${encodeURIComponent(tableNumber)}` : ""}`;
   const tier = (location.state?.tier as string) || "FREE";
 
   const [orderStatus, setOrderStatus] = useState<StatusKey>("NEW");
@@ -257,7 +260,7 @@ const OrderConfirmationPage = () => {
             <button
               onClick={() =>
                 navigate(
-                  `/feedback/${restaurantId}?orderId=${orderNumber}&returnUrl=${encodeURIComponent(`/menu/public/${restaurantId}${tableNumber ? `?table=${tableNumber}` : ""}`)}`,
+                  `/feedback/${restaurantId}?orderId=${orderNumber}&returnUrl=${encodeURIComponent(menuReturnUrl)}`,
                 )
               }
               className="w-full py-3 px-4 rounded-xl bg-amber-400/15 border border-amber-400/30 text-amber-600 dark:text-amber-400 font-black text-xs uppercase tracking-widest hover:bg-amber-400/25 transition-colors active:scale-95"
@@ -269,11 +272,7 @@ const OrderConfirmationPage = () => {
 
         {/* Navigation */}
         <button
-          onClick={() =>
-            navigate(
-              `/menu/public/${restaurantId}${tableNumber ? `?table=${tableNumber}` : ""}`,
-            )
-          }
+          onClick={() => navigate(menuReturnUrl)}
           className="w-full bg-foreground text-background font-black uppercase tracking-widest py-4 px-6 rounded-2xl shadow-xl transition-all active:scale-95 text-xs hover:opacity-90"
         >
           {t("orderConfirmation.continueBrowsing")}

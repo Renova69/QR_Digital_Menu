@@ -46,6 +46,7 @@ const stripePromise = stripePublishableKey
 interface PaymentModalProps {
   sessionToken: string;
   ownedOrderIds?: string[];
+  allowCashRequest?: boolean;
   onClose: () => void;
   onSuccess: () => void;
   onCashRequestCreated?: (requestId: string) => void;
@@ -310,6 +311,7 @@ function PaymentForm({
 export function PaymentModal({
   sessionToken,
   ownedOrderIds = [],
+  allowCashRequest = true,
   onClose,
   onSuccess,
   onCashRequestCreated,
@@ -1100,22 +1102,24 @@ export function PaymentModal({
                         ? t("payment.continueToMypos", "Pay by card (myPOS)")
                         : t("payment.continue", "Continue")}
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full flex-shrink-0 gap-2"
-                onClick={handleCashPaymentRequest}
-                disabled={
-                  cashRequesting || cashRequested || activePaymentScopeLocked
-                }
-              >
-                <Banknote className="h-4 w-4" />
-                {cashRequesting
-                  ? t("payment.requestingCash", "Asking staff...")
-                  : cashRequested
-                    ? t("payment.cashRequested", "Cash request sent")
-                    : t("payment.payCashToWaiter", "Pay cash to waiter")}
-              </Button>
+              {allowCashRequest && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full flex-shrink-0 gap-2"
+                  onClick={handleCashPaymentRequest}
+                  disabled={
+                    cashRequesting || cashRequested || activePaymentScopeLocked
+                  }
+                >
+                  <Banknote className="h-4 w-4" />
+                  {cashRequesting
+                    ? t("payment.requestingCash", "Asking staff...")
+                    : cashRequested
+                      ? t("payment.cashRequested", "Cash request sent")
+                      : t("payment.payCashToWaiter", "Pay cash to waiter")}
+                </Button>
+              )}
             </div>
           </>
         )}

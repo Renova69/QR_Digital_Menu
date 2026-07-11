@@ -104,18 +104,19 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
   // Function to refresh orders from API
   const refreshOrders = useCallback(async () => {
-    if (!canAccessOrders) {
+    const restaurantId = activeRestaurant?.id;
+    if (!canAccessOrders || !restaurantId) {
       setOrders([]);
       return;
     }
 
     try {
-      const data = await getOrders();
+      const data = await getOrders({ restaurantId });
       setOrders(data);
     } catch (error) {
       console.error("Failed to fetch orders:", error);
     }
-  }, [canAccessOrders]);
+  }, [activeRestaurant?.id, canAccessOrders]);
 
   // Optimistic update — mutate local state immediately, revert on error.
   // The socket `orderStatusChanged` event triggers refreshOrders() as

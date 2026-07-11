@@ -336,6 +336,26 @@ describe("PaymentModal hosted provider choices", () => {
     expect(apiMocks.createCheckout).not.toHaveBeenCalled();
   });
 
+  it("hides the cash fallback when the caller requires online payment", async () => {
+    apiMocks.getSessionBill.mockResolvedValueOnce(billWithProviders(["MYPOS"]));
+
+    render(
+      <PaymentModal
+        sessionToken="tok1"
+        allowCashRequest={false}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("button", { name: "Pay by card (myPOS)" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Pay cash to waiter" }),
+    ).toBeNull();
+  });
+
   it("completes the modal when staff marks its cash request paid over the session socket", async () => {
     socketMocks.state.socket = socketMocks.socket;
     socketMocks.state.isConnected = true;

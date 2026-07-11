@@ -184,6 +184,15 @@ export class OrdersService {
     }
 
     if (
+      createOrderDto.paymentPreference === 'ONLINE' &&
+      !restaurant.paymentsEnabled
+    ) {
+      throw new BadRequestException(
+        'Online payment is not available for this restaurant.',
+      );
+    }
+
+    if (
       !this.featureService.restaurantHasFeature(
         restaurant,
         FeatureFlag.ORDERS_RECEIVE,
@@ -282,7 +291,12 @@ export class OrdersService {
 
     if (sessionToken) {
       const existingSession = await this.prisma.tableSession.findFirst({
-        where: { token: sessionToken, status: 'OPEN', restaurantId },
+        where: {
+          token: sessionToken,
+          status: 'OPEN',
+          restaurantId,
+          isServicePoint: !!servicePoint,
+        },
       });
       if (
         existingSession &&
@@ -301,6 +315,7 @@ export class OrdersService {
       const newSession = await this.getOrCreateOpenSession(
         servicePoint.id,
         restaurantId,
+        true,
       );
       tableSessionId = newSession.id;
       sessionToken = newSession.token;
@@ -866,9 +881,22 @@ export class OrdersService {
       select: { restaurantId: true },
     });
 
-    const baseWhere = user?.restaurantId
-      ? { restaurantId: user.restaurantId }
-      : { restaurant: { ownerId: userId } };
+    let baseWhere: Prisma.OrderWhereInput;
+    if (query.restaurantId) {
+      if (user?.restaurantId && user.restaurantId !== query.restaurantId) {
+        throw new ForbiddenException('Forbidden access');
+      }
+      baseWhere = user?.restaurantId
+        ? { restaurantId: query.restaurantId }
+        : {
+            restaurantId: query.restaurantId,
+            restaurant: { ownerId: userId },
+          };
+    } else {
+      baseWhere = user?.restaurantId
+        ? { restaurantId: user.restaurantId }
+        : { restaurant: { ownerId: userId } };
+    }
 
     const createdAt: { gte?: Date; lte?: Date } = {};
     if (query.startDate) createdAt.gte = new Date(query.startDate);
@@ -946,17 +974,34 @@ export class OrdersService {
   private async getOrCreateOpenSession(
     tableCuid: string,
     restaurantId: string,
+    isServicePoint = false,
   ): Promise<{ id: string; token: string }> {
+    if (isServicePoint) {
+      return this.prisma.tableSession.create({
+        data: { tableId: tableCuid, restaurantId, isServicePoint: true },
+        select: { id: true, token: true },
+      });
+    }
+
     try {
       return await this.prisma.$transaction(
         async (tx: Prisma.TransactionClient) => {
           const existing = await tx.tableSession.findFirst({
-            where: { tableId: tableCuid, restaurantId, status: 'OPEN' },
+            where: {
+              tableId: tableCuid,
+              restaurantId,
+              status: 'OPEN',
+              isServicePoint: false,
+            },
             select: { id: true, token: true },
           });
           if (existing) return existing;
           return tx.tableSession.create({
-            data: { tableId: tableCuid, restaurantId },
+            data: {
+              tableId: tableCuid,
+              restaurantId,
+              isServicePoint: false,
+            },
             select: { id: true, token: true },
           });
         },
@@ -965,7 +1010,12 @@ export class OrdersService {
       if (!this.isUniqueConstraintError(e)) throw e;
       // Concurrent request already created the OPEN session — re-read it.
       const raced = await this.prisma.tableSession.findFirst({
-        where: { tableId: tableCuid, restaurantId, status: 'OPEN' },
+        where: {
+          tableId: tableCuid,
+          restaurantId,
+          status: 'OPEN',
+          isServicePoint: false,
+        },
         select: { id: true, token: true },
       });
       if (!raced)

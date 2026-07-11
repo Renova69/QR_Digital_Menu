@@ -19,6 +19,7 @@ import { useTranslation } from "react-i18next";
 import {
   Check,
   Copy,
+  Edit2,
   Hotel,
   Package,
   Plus,
@@ -26,6 +27,7 @@ import {
   RefreshCw,
   Search,
   Trash2,
+  X,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -124,6 +126,12 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
   >(["ONLINE", "PAY_ON_DELIVERY"]);
   const [servicePointSearch, setServicePointSearch] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [editingServicePoint, setEditingServicePoint] = useState<{
+    id: string;
+    name: string;
+    fulfillmentModes: FulfillmentMode[];
+    paymentMethods: ServicePointPaymentMethod[];
+  } | null>(null);
 
   const getServicePointTypeLabel = (type?: ServicePointType | null) => {
     const option = servicePointTypes.find((entry) => entry.value === type);
@@ -191,6 +199,24 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       updateTable(id, { isActive }),
     onSuccess: () => invalidateServicePoints(),
+  });
+
+  const updateServicePointMutation = useMutation({
+    mutationFn: (input: {
+      id: string;
+      name: string;
+      fulfillmentModes: FulfillmentMode[];
+      paymentMethods: ServicePointPaymentMethod[];
+    }) =>
+      updateTable(input.id, {
+        name: input.name.trim().replace(/\s+/g, " "),
+        fulfillmentModes: input.fulfillmentModes,
+        paymentMethods: input.paymentMethods,
+      }),
+    onSuccess: () => {
+      invalidateServicePoints();
+      setEditingServicePoint(null);
+    },
   });
 
   const deleteMutation = useMutation({
@@ -270,6 +296,43 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
     }
+  };
+
+  const startEditing = (point: ServicePoint) => {
+    setEditingServicePoint({
+      id: point.id,
+      name: point.name,
+      fulfillmentModes: [...point.fulfillmentModes],
+      paymentMethods: [...point.paymentMethods],
+    });
+  };
+
+  const toggleEditingFulfillment = (mode: FulfillmentMode) => {
+    setEditingServicePoint((current) => {
+      if (!current) return current;
+      const selected = current.fulfillmentModes.includes(mode);
+      if (selected && current.fulfillmentModes.length === 1) return current;
+      return {
+        ...current,
+        fulfillmentModes: selected
+          ? current.fulfillmentModes.filter((value) => value !== mode)
+          : [...current.fulfillmentModes, mode],
+      };
+    });
+  };
+
+  const toggleEditingPayment = (method: ServicePointPaymentMethod) => {
+    setEditingServicePoint((current) => {
+      if (!current) return current;
+      const selected = current.paymentMethods.includes(method);
+      if (selected && current.paymentMethods.length === 1) return current;
+      return {
+        ...current,
+        paymentMethods: selected
+          ? current.paymentMethods.filter((value) => value !== method)
+          : [...current.paymentMethods, method],
+      };
+    });
   };
 
   return (
@@ -431,6 +494,7 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
       ) : (
         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredServicePoints.map((point) => {
+            const isEditing = editingServicePoint?.id === point.id;
             const publicUrl = point.publicToken
               ? `${window.location.origin}/menu/public/${restaurantId}?sp=${encodeURIComponent(point.publicToken)}`
               : "";
@@ -451,58 +515,151 @@ const ServicePointsTab: React.FC<ServicePointsTabProps> = ({
                     <Hotel className="h-3 w-3" />
                     {getServicePointTypeLabel(point.type)}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      toggleActiveMutation.mutate({
-                        id: point.id,
-                        isActive: !point.isActive,
-                      })
-                    }
-                    className={cn(
-                      "rounded-full px-2 py-0.5 text-[10px] font-black uppercase",
-                      point.isActive
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200"
-                        : "bg-muted text-muted-foreground",
-                    )}
-                  >
-                    {point.isActive
-                      ? t("auto.active", "Active")
-                      : t("auto.inactive", "Inactive")}
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-xl font-black tracking-tight text-foreground">
-                    {point.name}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(point.id, publicUrl)}
-                    className="flex h-7 shrink-0 items-center gap-1 rounded px-2 text-[10px] font-black text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                    title={publicUrl}
-                  >
-                    {copiedId === point.id ? (
-                      <Check className="h-3 w-3 text-green-500" />
-                    ) : (
-                      <Copy className="h-3 w-3" />
-                    )}
-                    {copiedId === point.id
-                      ? t("auto.copied", "Copied!")
-                      : t("auto.copyURL", "Copy URL")}
-                  </button>
-                </div>
-
-                <div className="space-y-1">
-                  {[...pointFulfillment, ...pointPayment].map((label) => (
-                    <span
-                      key={label}
-                      className="mr-1 inline-flex rounded-md bg-muted px-2 py-1 text-[10px] font-black text-muted-foreground"
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => startEditing(point)}
+                      className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                      aria-label={t("menuAdmin.edit", "Edit")}
                     >
-                      {label}
-                    </span>
-                  ))}
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        toggleActiveMutation.mutate({
+                          id: point.id,
+                          isActive: !point.isActive,
+                        })
+                      }
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[10px] font-black uppercase",
+                        point.isActive
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {point.isActive
+                        ? t("auto.active", "Active")
+                        : t("auto.inactive", "Inactive")}
+                    </button>
+                  </div>
                 </div>
+
+                {isEditing && editingServicePoint ? (
+                  <div
+                    data-testid="service-point-editor"
+                    className="space-y-3 rounded-lg border border-border bg-background p-3"
+                  >
+                    <input
+                      value={editingServicePoint.name}
+                      onChange={(event) =>
+                        setEditingServicePoint((current) =>
+                          current
+                            ? { ...current, name: event.target.value }
+                            : current,
+                        )
+                      }
+                      className="h-9 w-full rounded border border-border bg-card px-2 text-sm font-bold text-foreground outline-none focus:border-primary"
+                    />
+                    <div className="flex flex-wrap gap-1.5">
+                      {fulfillmentOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => toggleEditingFulfillment(option.value)}
+                          className={cn(
+                            "rounded border px-2 py-1 text-[10px] font-black",
+                            editingServicePoint.fulfillmentModes.includes(
+                              option.value,
+                            )
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border text-muted-foreground",
+                          )}
+                        >
+                          {t(option.labelKey, option.fallback)}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {paymentOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => toggleEditingPayment(option.value)}
+                          className={cn(
+                            "rounded border px-2 py-1 text-[10px] font-black",
+                            editingServicePoint.paymentMethods.includes(
+                              option.value,
+                            )
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border text-muted-foreground",
+                          )}
+                        >
+                          {t(option.labelKey, option.fallback)}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateServicePointMutation.mutate(editingServicePoint)
+                        }
+                        disabled={
+                          !editingServicePoint.name.trim() ||
+                          updateServicePointMutation.isPending
+                        }
+                        className="flex h-8 flex-1 items-center justify-center gap-1 rounded bg-primary text-xs font-black text-white disabled:opacity-50"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        {t("menuAdmin.save", "Save")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingServicePoint(null)}
+                        className="flex h-8 flex-1 items-center justify-center gap-1 rounded border border-border text-xs font-black text-muted-foreground"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        {t("menuAdmin.cancel", "Cancel")}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-xl font-black tracking-tight text-foreground">
+                        {point.name}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(point.id, publicUrl)}
+                        className="flex h-7 shrink-0 items-center gap-1 rounded px-2 text-[10px] font-black text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                        title={publicUrl}
+                      >
+                        {copiedId === point.id ? (
+                          <Check className="h-3 w-3 text-green-500" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                        {copiedId === point.id
+                          ? t("auto.copied", "Copied!")
+                          : t("auto.copyURL", "Copy URL")}
+                      </button>
+                    </div>
+
+                    <div className="space-y-1">
+                      {[...pointFulfillment, ...pointPayment].map((label) => (
+                        <span
+                          key={label}
+                          className="mr-1 inline-flex rounded-md bg-muted px-2 py-1 text-[10px] font-black text-muted-foreground"
+                        >
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
 
                 <div className="flex items-center gap-2">
                   <button

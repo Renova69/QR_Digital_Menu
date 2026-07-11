@@ -153,6 +153,9 @@ const PublicMenuPage = () => {
   } = usePublicMenuData(restaurantId);
 
   const [tableNumber, setTableNumberState] = useState<string | null>(null);
+  const [servicePointResolution, setServicePointResolution] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
   const [assistanceSent, setAssistanceSent] = useState(false);
   const [assistanceLoading, setAssistanceLoading] = useState(false);
   const [assistanceError, setAssistanceError] = useState(false);
@@ -190,8 +193,16 @@ const PublicMenuPage = () => {
   const upsellEnabled = hasFeature("upselling");
   const customersAuthEnabled = hasFeature("customers:auth");
   const tableCallWaiterEnabled = callWaiterEnabled && !!tableNumber;
+  const requestedServicePointToken = useMemo(
+    () => new URLSearchParams(location.search).get("sp"),
+    [location.search],
+  );
+  const servicePointReady =
+    !requestedServicePointToken || servicePointResolution === "ready";
   const showActionBar =
-    ordersEnabled || tableCallWaiterEnabled || customersAuthEnabled;
+    (ordersEnabled && servicePointReady) ||
+    tableCallWaiterEnabled ||
+    customersAuthEnabled;
   const [activeDietTags, setActiveDietTags] = useState<string[]>([]);
   const [excludedAllergens, setExcludedAllergens] = useState<string[]>([]);
 
@@ -308,7 +319,9 @@ const PublicMenuPage = () => {
     if (servicePointToken && restaurantId) {
       setTableNumberState(null);
       setTableNumber(null);
+      setOrderLocation(null);
       setSessionToken(null);
+      setServicePointResolution("loading");
 
       resolvePublicServicePoint(restaurantId, servicePointToken)
         .then((servicePoint) => {
@@ -320,6 +333,7 @@ const PublicMenuPage = () => {
             fulfillmentModes: servicePoint.fulfillmentModes,
             paymentMethods: servicePoint.paymentMethods,
           });
+          setServicePointResolution("ready");
           const stored = localStorage.getItem(
             `session-${restaurantId}-sp-${servicePointToken}`,
           );
@@ -328,6 +342,7 @@ const PublicMenuPage = () => {
         .catch(() => {
           if (cancelled) return;
           setOrderLocation(null);
+          setServicePointResolution("error");
         });
 
       return () => {
@@ -336,6 +351,7 @@ const PublicMenuPage = () => {
     }
 
     setOrderLocation(null);
+    setServicePointResolution("idle");
     setTableNumberState(table);
     if (table) {
       setTableNumber(table);
@@ -751,6 +767,17 @@ const PublicMenuPage = () => {
           languagesEnabled={languagesEnabled}
         />
 
+        {servicePointResolution === "error" && (
+          <div className="mb-8 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-destructive shadow-sm">
+            <p className="font-bold">
+              {t(
+                "servicePoints.invalidQr",
+                "This service-point QR is invalid or inactive. Please scan the current QR or ask staff for help.",
+              )}
+            </p>
+          </div>
+        )}
+
         {assistanceSent && (
           <div className="glass-panel border-l-4 border-emerald-500 text-emerald-600 dark:text-emerald-400 p-4 mb-8 rounded-2xl shadow-xl animate-in zoom-in-95 duration-300">
             <p className="font-bold">
@@ -1150,7 +1177,7 @@ const PublicMenuPage = () => {
                     {t("payment.requestBill")}
                   </Button>
                 )}
-                {ordersEnabled && (
+                {ordersEnabled && servicePointReady && (
                   <div className="flex-shrink-0">
                     <CartIcon
                       categories={categoriesForCart}

@@ -81,6 +81,7 @@ const SummaryView = () => {
     ],
     queryFn: () =>
       getOrders({
+        restaurantId: restaurantId!,
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
         limit: 50,

@@ -44,11 +44,18 @@ vi.mock("../lib/api", () => ({
   getSessionBill: vi.fn(),
 }));
 
-vi.mock("../../components/pos/PosCartDrawer", () => ({
-  default: () => <div data-testid="pos-cart-drawer" />,
-}));
-vi.mock("../../components/pos/PaymentModal", () => ({
-  default: () => <div data-testid="payment-modal" />,
+vi.mock("../components/payment/PaymentModal", () => ({
+  PaymentModal: ({
+    sessionToken,
+    allowCashRequest,
+  }: {
+    sessionToken: string;
+    allowCashRequest?: boolean;
+  }) => (
+    <div data-testid="payment-modal" data-allow-cash={String(allowCashRequest)}>
+      {sessionToken}
+    </div>
+  ),
 }));
 
 Object.defineProperty(window, "localStorage", {
@@ -92,6 +99,21 @@ describe("CheckoutPage", () => {
       id: "order1",
       restaurantId: "r1",
       sessionToken: "token123",
+    });
+    (api.getSessionBill as Mock).mockResolvedValue({
+      sessionId: "session-1",
+      restaurantId: "r1",
+      tableId: "room-301",
+      tableName: "301",
+      orders: [],
+      subtotal: 10,
+      paidSubtotal: 0,
+      remaining: 10,
+      splitItemsAvailable: false,
+      tipsEnabled: false,
+      tipOptions: [],
+      paymentProviders: ["MYPOS"],
+      pendingPayment: null,
     });
   });
 
@@ -151,5 +173,101 @@ describe("CheckoutPage", () => {
         expect.anything(),
       );
     });
+  });
+
+  it("requires explicit choices when a service point offers multiple options", async () => {
+    (useCart as Mock).mockReturnValue({
+      items: [
+        {
+          id: "item1",
+          cartId: "c1",
+          quantity: 1,
+          price: 10,
+          selectedOptions: [],
+          rewardPointsPrice: 0,
+        },
+      ],
+      tableNumber: null,
+      orderLocation: {
+        type: "ROOM",
+        label: "301",
+        token: "room-token",
+        fulfillmentModes: ["ROOM_DELIVERY", "PICKUP"],
+        paymentMethods: ["ONLINE", "PAY_ON_DELIVERY"],
+      },
+      getTotal: () => 10,
+      clearCart: vi.fn(),
+    });
+
+    render(<CheckoutPage />);
+    fireEvent.change(screen.getByLabelText(/checkout.name/i), {
+      target: { value: "Carl" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: /checkout.placeOrder/i }),
+    );
+
+    await waitFor(() => {
+      expect(api.createOrder).not.toHaveBeenCalled();
+      expect(
+        screen.getByText("servicePoints.checkout.fulfillmentRequired"),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("opens the secure session payment flow for an online service-point order", async () => {
+    (useLocation as Mock).mockReturnValue({
+      state: {
+        restaurantId: "r1",
+        paymentsEnabled: true,
+      },
+      hash: "",
+    });
+    (useCart as Mock).mockReturnValue({
+      items: [
+        {
+          id: "item1",
+          cartId: "c1",
+          quantity: 1,
+          price: 10,
+          selectedOptions: [],
+          rewardPointsPrice: 0,
+        },
+      ],
+      tableNumber: null,
+      orderLocation: {
+        type: "ROOM",
+        label: "301",
+        token: "room-token",
+        fulfillmentModes: ["ROOM_DELIVERY"],
+        paymentMethods: ["ONLINE"],
+      },
+      getTotal: () => 10,
+      clearCart: vi.fn(),
+    });
+
+    render(<CheckoutPage />);
+    fireEvent.change(screen.getByLabelText(/checkout.name/i), {
+      target: { value: "Carl" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: /checkout.placeOrder/i }),
+    );
+
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith(
+        "/checkout#session=token123",
+        expect.objectContaining({
+          replace: true,
+          state: expect.objectContaining({
+            menuReturnUrl: "/menu/public/r1?sp=room-token",
+            autoOpenPayment: true,
+          }),
+        }),
+      ),
+    );
+    const paymentModal = await screen.findByTestId("payment-modal");
+    expect(paymentModal).toHaveTextContent("token123");
+    expect(paymentModal).toHaveAttribute("data-allow-cash", "false");
   });
 });

@@ -4,6 +4,7 @@ import { useOrders, OrderStatus } from "../../context/OrderContext";
 import { useSocket } from "../../context/SocketContext";
 import { useFeature } from "../../hooks/useFeature";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import RestaurantContext from "../../context/RestaurantContext";
 
 function elapsedMinutes(createdAt: string): number {
@@ -18,6 +19,56 @@ const COLUMNS: { status: OrderStatus; label: string; color: string }[] = [
 ];
 
 const HISTORY_HOURS = 24;
+
+interface KdsOrderLocation {
+  tableId?: string | null;
+  tableName?: string | null;
+  servicePointType?: string | null;
+  servicePointLabel?: string | null;
+}
+
+function withLocationPrefix(raw: string, prefix: string, english: string) {
+  const normalized = raw.toLocaleLowerCase();
+  const translatedPrefix = prefix.toLocaleLowerCase();
+  if (
+    normalized === translatedPrefix ||
+    normalized.startsWith(`${translatedPrefix} `) ||
+    normalized === english ||
+    normalized.startsWith(`${english} `)
+  ) {
+    return raw;
+  }
+  return `${prefix} ${raw}`;
+}
+
+function getKdsLocationLabel(order: KdsOrderLocation, t: TFunction) {
+  const raw = String(
+    order.servicePointLabel ?? order.tableName ?? order.tableId ?? "—",
+  ).trim();
+
+  if (order.servicePointType === "ROOM") {
+    return withLocationPrefix(
+      raw,
+      t("servicePoints.types.room", "Room"),
+      "room",
+    );
+  }
+  if (order.servicePointType === "PICKUP") {
+    return withLocationPrefix(
+      raw,
+      t("servicePoints.types.pickup", "Pickup"),
+      "pickup",
+    );
+  }
+  if (order.servicePointType === "OTHER") {
+    return withLocationPrefix(
+      raw,
+      t("servicePoints.types.location", "Location"),
+      "location",
+    );
+  }
+  return withLocationPrefix(raw, t("auto.table", "Table"), "table");
+}
 
 export default function KitchenPage() {
   const { t } = useTranslation();
@@ -194,8 +245,7 @@ export default function KitchenPage() {
                         ))}
                       </ul>
                       <p className="text-[10px] text-gray-600">
-                        {t("auto.table", "Table")}
-                        {order.tableName || order.tableId || "—"}
+                        {getKdsLocationLabel(order, t)}
                         {order.customerName ? ` — ${order.customerName}` : ""}
                       </p>
                     </div>
@@ -238,7 +288,7 @@ export default function KitchenPage() {
                 {colOrders.map((order) => {
                   const minutes = getElapsed(order.id, order.createdAt);
                   const urgent = minutes > 15;
-                  const tableNum = order.tableName || order.tableId || "—";
+                  const locationLabel = getKdsLocationLabel(order, t);
 
                   return (
                     <button
@@ -257,8 +307,7 @@ export default function KitchenPage() {
                             #{order.id.slice(-8)}
                           </span>
                           <span className="text-sm font-bold text-gray-300">
-                            {t("auto.table", "Table")}
-                            {tableNum}
+                            {locationLabel}
                           </span>
                         </div>
                         <span

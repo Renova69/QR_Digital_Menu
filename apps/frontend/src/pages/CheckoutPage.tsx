@@ -30,6 +30,7 @@ import {
 } from "../lib/cartTranslation";
 import { resolveInitialLanguage } from "../lib/menuLanguage";
 import {
+  buildTableSessionCheckoutUrl,
   findHostedCheckoutToken,
   readTableSessionTokenFromHash,
 } from "../lib/tableSessionCredential";
@@ -82,7 +83,7 @@ const CheckoutPage = () => {
   // ── Session-based checkout (POS Payment QR) ──
   // M-PAY-1: the POS payment credential arrives in the URL fragment, which is
   // client-only and never reaches Vercel/Cloud Run request logs or Referer.
-  const [sessionToken] = useState<string | null>(
+  const [sessionToken, setSessionToken] = useState<string | null>(
     () =>
       readTableSessionTokenFromHash(location.hash) ??
       findHostedCheckoutToken(window.sessionStorage),
@@ -93,6 +94,16 @@ const CheckoutPage = () => {
   const [sessionBillError, setSessionBillError] = useState<string | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState(false);
+  const [allowCashRequest, setAllowCashRequest] = useState(
+    location.state?.autoOpenPayment !== true,
+  );
+  const autoOpenPaymentRef = useRef(location.state?.autoOpenPayment === true);
+
+  useEffect(() => {
+    if (!sessionToken || !autoOpenPaymentRef.current) return;
+    autoOpenPaymentRef.current = false;
+    setPaymentModalOpen(true);
+  }, [sessionToken]);
 
   useEffect(() => {
     if (!sessionToken) return;
@@ -188,6 +199,15 @@ const CheckoutPage = () => {
   const paymentOptionsKey = paymentOptions.join("|");
   const locationDisplayLabel =
     tableNumber ?? orderLocation?.label ?? t("checkout.notSpecified");
+  const menuReturnUrl = restaurantId
+    ? `/menu/public/${restaurantId}${
+        tableNumber
+          ? `?table=${encodeURIComponent(tableNumber)}`
+          : orderLocation?.token
+            ? `?sp=${encodeURIComponent(orderLocation.token)}`
+            : ""
+      }`
+    : "/";
   const locationTypeLabel = tableNumber
     ? t("checkout.table")
     : orderLocation?.type === "ROOM"
@@ -225,24 +245,20 @@ const CheckoutPage = () => {
       setFulfillmentType(null);
       return;
     }
-    setFulfillmentType((current) =>
-      current && fulfillmentOptions.includes(current)
-        ? current
-        : fulfillmentOptions[0] || null,
+    setFulfillmentType(
+      fulfillmentOptions.length === 1 ? fulfillmentOptions[0] : null,
     );
-  }, [fulfillmentOptionsKey, isServicePointOrder]);
+  }, [fulfillmentOptionsKey, isServicePointOrder, orderLocation?.token]);
 
   useEffect(() => {
     if (!isServicePointOrder) {
       setPaymentPreference(null);
       return;
     }
-    setPaymentPreference((current) =>
-      current && paymentOptions.includes(current)
-        ? current
-        : paymentOptions[0] || null,
+    setPaymentPreference(
+      paymentOptions.length === 1 ? paymentOptions[0] : null,
     );
-  }, [isServicePointOrder, paymentOptionsKey]);
+  }, [isServicePointOrder, orderLocation?.token, paymentOptionsKey]);
 
   // Fix H-6 — this is an APPROXIMATE client-side preview only. The backend
   // recalculates and caps the loyalty discount from DB prices and DB points.
@@ -430,6 +446,27 @@ const CheckoutPage = () => {
       clearCart();
       setShowResetCartAction(false);
 
+      if (paymentPreference === "ONLINE" && newOrder.sessionToken) {
+        const paymentUrl = new URL(
+          buildTableSessionCheckoutUrl(
+            window.location.origin,
+            newOrder.sessionToken,
+          ),
+        );
+        autoOpenPaymentRef.current = true;
+        setAllowCashRequest(false);
+        setSessionToken(newOrder.sessionToken);
+        navigate(`${paymentUrl.pathname}${paymentUrl.hash}`, {
+          replace: true,
+          state: {
+            ...location.state,
+            menuReturnUrl,
+            autoOpenPayment: true,
+          },
+        });
+        return;
+      }
+
       navigate("/order-confirmation", {
         state: {
           orderNumber: newOrder.id,
@@ -437,6 +474,7 @@ const CheckoutPage = () => {
           orderTrackToken: newOrder.orderTrackToken,
           restaurantId: newOrder.restaurantId,
           tableNumber: locationDisplayLabel,
+          menuReturnUrl,
           tier,
           // Fix H-6 — the backend is authoritative for the loyalty discount.
           // Forward the actual points it redeemed (if present) so downstream
@@ -577,9 +615,11 @@ const CheckoutPage = () => {
                 type="button"
                 onClick={() =>
                   navigate(
-                    sessionBill?.restaurantId
-                      ? `/menu/public/${sessionBill.restaurantId}`
-                      : "/",
+                    location.state?.menuReturnUrl
+                      ? location.state.menuReturnUrl
+                      : sessionBill?.restaurantId
+                        ? `/menu/public/${sessionBill.restaurantId}`
+                        : "/",
                   )
                 }
                 className="w-full py-4 rounded-xl brand-cta text-white font-bold text-lg min-h-[52px]"
@@ -674,6 +714,7 @@ const CheckoutPage = () => {
           {paymentModalOpen && sessionToken && (
             <PaymentModal
               sessionToken={sessionToken}
+              allowCashRequest={allowCashRequest}
               onClose={() => setPaymentModalOpen(false)}
               onSuccess={() => {
                 // Session is now PAID — switch to the local success state instead

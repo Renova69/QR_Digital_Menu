@@ -30,6 +30,7 @@ const makeRestaurant = (overrides: Record<string, any> = {}) => ({
   loyaltyRedeemRate: 150,
   loyaltyPointExpiryDays: 90,
   loyaltySignupBonus: 0,
+  paymentsEnabled: true,
   loyaltySilverThreshold: 500,
   loyaltyGoldThreshold: 2000,
   loyaltySilverMultiplier: 120,
@@ -122,7 +123,12 @@ describe('OrdersService', () => {
       menuItem: { findMany: jest.fn().mockResolvedValue(twoItems) },
       menuOption: { findMany: jest.fn().mockResolvedValue([]) },
       restaurant: { findUnique: jest.fn().mockResolvedValue(makeRestaurant()) },
-      tableSession: { findFirst: jest.fn().mockResolvedValue(null) },
+      tableSession: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest
+          .fn()
+          .mockResolvedValue({ id: 'sess-new', token: 'tok-new' }),
+      },
       restaurantTable: {
         findFirst: jest
           .fn()
@@ -763,6 +769,14 @@ describe('OrdersService', () => {
       > as CreateOrderDto & UpdateOrderDto);
 
       expect(result.sessionToken).toBe('tok-new');
+      expect(prisma.tableSession.create).toHaveBeenCalledWith({
+        data: {
+          tableId: 'room-cuid-304',
+          restaurantId: 'rest-1',
+          isServicePoint: true,
+        },
+        select: { id: true, token: true },
+      });
       expect(prisma.restaurantTable.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
@@ -783,6 +797,52 @@ describe('OrdersService', () => {
           paymentPreference: 'PAY_ON_DELIVERY',
         }),
       );
+    });
+
+    it('creates a separate session for each service-point guest', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'pickup-cuid',
+        name: 'Lobby pickup',
+        type: 'PICKUP',
+        publicToken: 'pickup-token',
+        isActive: true,
+        fulfillmentModes: ['PICKUP'],
+        paymentMethods: ['PAY_AT_PICKUP'],
+      });
+      const tx = makeTx();
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => any) =>
+        fn(tx),
+      );
+      const input = {
+        customerName: 'Guest',
+        items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        servicePointToken: 'pickup-token',
+        fulfillmentType: 'PICKUP',
+        paymentPreference: 'PAY_AT_PICKUP',
+      } as CreateOrderDto;
+
+      await service.create(input);
+      await service.create(input);
+
+      expect(prisma.tableSession.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('rejects online preference when restaurant payments are disabled', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.restaurant.findUnique.mockResolvedValue(
+        makeRestaurant({ paymentsEnabled: false }),
+      );
+
+      await expect(
+        service.create({
+          customerName: 'Guest',
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          servicePointToken: 'sp-token',
+          fulfillmentType: 'ROOM_DELIVERY',
+          paymentPreference: 'ONLINE',
+        } as CreateOrderDto),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('rejects a service-point fulfillment choice that is not enabled', async () => {
@@ -1485,6 +1545,39 @@ describe('OrdersService', () => {
   // ── findAll ──────────────────────────────────────────────────────────────
 
   describe('findAll', () => {
+    it('scopes an owner request to the explicitly selected restaurant', async () => {
+      prisma.user.findUnique.mockResolvedValue({ restaurantId: null });
+      prisma.order.findMany.mockResolvedValue([makeOrder()]);
+      prisma.order.count.mockResolvedValue(1);
+
+      await service.findAll('owner-1', {
+        restaurantId: 'rest-1',
+        page: 1,
+        limit: 10,
+      });
+
+      expect(prisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            restaurantId: 'rest-1',
+            restaurant: { ownerId: 'owner-1' },
+          },
+        }),
+      );
+    });
+
+    it('rejects staff requesting orders for another restaurant', async () => {
+      prisma.user.findUnique.mockResolvedValue({ restaurantId: 'rest-1' });
+
+      await expect(
+        service.findAll('staff-1', {
+          restaurantId: 'rest-2',
+          page: 1,
+          limit: 10,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
     it('filters by ownerId when user has no restaurantId', async () => {
       prisma.user.findUnique.mockResolvedValue({ restaurantId: null });
       prisma.order.findMany.mockResolvedValue([makeOrder()]);

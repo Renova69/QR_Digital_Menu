@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createTable,
@@ -20,14 +19,11 @@ import {
   humanizeZoneKey,
   zoneLabel,
 } from "../../lib/zoneCatalog";
-import { Button } from "../ui/button";
-import { Modal } from "../ui/modal";
 import { useTranslation } from "react-i18next";
 import {
   ArrowDown,
   ArrowUp,
   Copy,
-  Download,
   Edit2,
   Eye,
   Hotel,
@@ -46,6 +42,7 @@ import PrintableQRCodes, {
   PrintTemplate,
 } from "./PrintableQRCodes";
 import ServicePointsTab from "./ServicePointsTab";
+import QrCodeModal, { type QrCodeTarget } from "./QrCodeModal";
 import RestaurantContext from "../../context/RestaurantContext";
 import LiveTablesView from "../../pages/Dashboard/LiveTablesView";
 import { useTier } from "../../hooks/useFeature";
@@ -76,15 +73,8 @@ const TableView: React.FC = () => {
   const [newTableZoneId, setNewTableZoneId] = useState<string>("");
   const [tableSearch, setTableSearch] = useState("");
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
-  const [selectedTable, setSelectedTable] = useState<{
-    id: string;
-    name: string;
-    type?: ServicePointType;
-    publicToken?: string | null;
-  } | null>(null);
+  const [selectedTable, setSelectedTable] = useState<QrCodeTarget | null>(null);
   const [copiedTableId, setCopiedTableId] = useState<string | null>(null);
-  const qrCodeRef = useRef<HTMLDivElement>(null);
-  const qrCanvasRef = useRef<HTMLDivElement>(null);
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const { t } = useTranslation();
   const { tier } = useTier();
@@ -322,71 +312,6 @@ const TableView: React.FC = () => {
   }) => {
     setSelectedTable(table);
     setIsQrModalOpen(true);
-  };
-
-  const handleDownloadQR = () => {
-    const container = qrCanvasRef.current;
-    if (!container) return;
-    const sourceCanvas = container.querySelector("canvas");
-    if (!sourceCanvas) return;
-
-    // 4-module quiet zone required by QR spec. 512 px / ~29 modules ≈ 17.7 px/module
-    // for version-5 QR; 4 × 17.7 ≈ 71 px. Use 72 px for clean integer.
-    const QUIET_ZONE = 72;
-    const srcW = sourceCanvas.width;
-    const outW = srcW + QUIET_ZONE * 2;
-    const out = document.createElement("canvas");
-    out.width = outW;
-    out.height = outW;
-    const ctx = out.getContext("2d")!;
-
-    // White background (quiet zone)
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, outW, outW);
-
-    // Draw QR centered with pixel-snapping
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(sourceCanvas, QUIET_ZONE, QUIET_ZONE);
-
-    const finish = () => {
-      const pngFile = out.toDataURL("image/png");
-      const downloadLink = document.createElement("a");
-      const targetKind =
-        selectedTable?.type && selectedTable.type !== "TABLE"
-          ? "service-point"
-          : "table";
-      downloadLink.download = `qr-menu-${targetKind}-${selectedTable?.name || "unknown"}.png`;
-      downloadLink.href = pngFile;
-      downloadLink.click();
-    };
-
-    if (logoDataUrl) {
-      const logoImg = new Image();
-      logoImg.onload = () => {
-        const logoPx = Math.round(srcW * 0.138);
-        const x = QUIET_ZONE + Math.round((srcW - logoPx) / 2);
-        const y = QUIET_ZONE + Math.round((srcW - logoPx) / 2);
-        const pad = Math.max(2, Math.round(srcW * 0.008));
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(x - pad, y - pad, logoPx + pad * 2, logoPx + pad * 2);
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(logoImg, x, y, logoPx, logoPx);
-        finish();
-      };
-      logoImg.onerror = finish;
-      logoImg.src = logoDataUrl;
-    } else {
-      finish();
-    }
-  };
-
-  const getQrCodeUrl = () => {
-    if (!restaurantId || !selectedTable) return "";
-    if (selectedTable.type && selectedTable.type !== "TABLE") {
-      if (!selectedTable.publicToken) return "";
-      return `${window.location.origin}/menu/public/${restaurantId}?sp=${encodeURIComponent(selectedTable.publicToken)}`;
-    }
-    return `${window.location.origin}/menu/public/${restaurantId}?table=${encodeURIComponent(selectedTable.name)}`;
   };
 
   const logoUrl = restaurant.logoUrl?.startsWith("http")
@@ -1009,77 +934,6 @@ const TableView: React.FC = () => {
             </div>
           )}
 
-          <Modal
-            open={isQrModalOpen}
-            onOpenChange={setIsQrModalOpen}
-            title={
-              selectedTable
-                ? selectedTable.type && selectedTable.type !== "TABLE"
-                  ? t("servicePoints.qrTitle", {
-                      name: selectedTable.name,
-                      defaultValue: "{{name}} QR",
-                    })
-                  : t("tables.qrTitle", { name: selectedTable.name })
-                : t("tables.generateQR")
-            }
-            description={
-              selectedTable
-                ? selectedTable.type && selectedTable.type !== "TABLE"
-                  ? t(
-                      "servicePoints.qrInstructions",
-                      "Place this QR at the room or pickup point.",
-                    )
-                  : t("tables.qrInstructions", { name: selectedTable.name })
-                : undefined
-            }
-          >
-            {selectedTable && (
-              <div className="flex flex-col items-center">
-                <div
-                  className="mb-6 inline-block rounded-2xl border-8 border-white bg-white p-6 shadow-inner"
-                  ref={qrCodeRef}
-                >
-                  <QRCodeSVG
-                    value={getQrCodeUrl()}
-                    size={256}
-                    fgColor={restaurant.accentColor || "#000000"}
-                    bgColor="#ffffff"
-                    level="H"
-                    imageSettings={
-                      logoDataUrl
-                        ? {
-                            src: logoDataUrl,
-                            height: 38,
-                            width: 38,
-                            excavate: true,
-                          }
-                        : undefined
-                    }
-                  />
-                </div>
-                {/* Hidden canvas QR used for PNG download — renders clean QR without
-                    logo; we draw the logo manually on top to avoid anti-aliasing and
-                    nested data-URI corruption (Issue 18). */}
-                <div
-                  ref={qrCanvasRef}
-                  style={{ position: "absolute", left: "-9999px", top: 0 }}
-                >
-                  <QRCodeCanvas
-                    value={getQrCodeUrl()}
-                    size={512}
-                    fgColor={restaurant.accentColor || "#000000"}
-                    bgColor="#ffffff"
-                    level="H"
-                  />
-                </div>
-                <Button className="w-full gap-2" onClick={handleDownloadQR}>
-                  <Download className="h-4 w-4" />
-                  {t("tables.downloadPNG")}
-                </Button>
-              </div>
-            )}
-          </Modal>
-
           <PrintableQRCodes
             restaurant={restaurant}
             tables={tables || []}
@@ -1088,6 +942,13 @@ const TableView: React.FC = () => {
           />
         </div>
       )}
+      <QrCodeModal
+        open={isQrModalOpen}
+        onOpenChange={setIsQrModalOpen}
+        restaurant={restaurant}
+        target={selectedTable}
+        logoDataUrl={logoDataUrl}
+      />
     </section>
   );
 };

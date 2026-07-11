@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -27,7 +28,11 @@ export class TablesController {
     @Body() createTableDto: CreateTableDto,
     @Request() req: any,
   ) {
-    return this.tablesService.create(restaurantId, createTableDto, req.user.id);
+    return this.tablesService.create(
+      restaurantId,
+      { ...createTableDto, type: 'TABLE' },
+      req.user.id,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -52,9 +57,17 @@ export class TablesController {
     @Body() createTableDto: CreateTableDto,
     @Request() req: any,
   ) {
+    if (createTableDto.type === 'TABLE') {
+      throw new BadRequestException(
+        'The service-point endpoint does not accept table records.',
+      );
+    }
     return this.tablesService.create(
       restaurantId,
-      { ...createTableDto, type: createTableDto.type ?? 'ROOM' },
+      {
+        ...createTableDto,
+        type: createTableDto.type ?? 'ROOM',
+      },
       req.user.id,
     );
   }

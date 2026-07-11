@@ -663,6 +663,7 @@ model TableSession {
   tableId             String
   restaurantId        String
   status              TableSessionStatus   @default(OPEN)
+  isServicePoint      Boolean              @default(false)
   createdAt           DateTime             @default(now())
   paidAt              DateTime?
   orders              Order[]

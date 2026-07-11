@@ -139,6 +139,7 @@ export const createOrder = async (orderData: any) => {
 };
 
 export const getOrders = async (params?: {
+  restaurantId?: string;
   startDate?: string;
   endDate?: string;
   page?: number;
