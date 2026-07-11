@@ -1,6 +1,26 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  OnModuleInit,
+} from '@nestjs/common';
 import * as webpush from 'web-push';
 import { PrismaService } from '../prisma/prisma.service';
+
+/**
+ * Exact hosts / host suffixes of the browser push services we accept. The
+ * subscription `endpoint` is later fetched server-side by web-push, so an
+ * unvalidated endpoint is an SSRF vector (metadata IP, internal hosts). Only
+ * these HTTPS push origins may be persisted.
+ */
+const ALLOWED_PUSH_HOSTS: readonly string[] = [
+  'fcm.googleapis.com', // Chrome / Chromium / FCM
+  'web.push.apple.com', // Safari / Apple
+];
+const ALLOWED_PUSH_HOST_SUFFIXES: readonly string[] = [
+  '.push.services.mozilla.com', // Firefox (updates.push.services.mozilla.com)
+  '.notify.windows.com', // Edge / WNS
+];
 
 @Injectable()
 export class PushService implements OnModuleInit {
@@ -8,6 +28,24 @@ export class PushService implements OnModuleInit {
   private isVapidConfigured = false;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  /** Reject any endpoint that isn't an HTTPS URL on a known push service host. */
+  private assertAllowedPushEndpoint(endpoint: string): void {
+    let url: URL;
+    try {
+      url = new URL(endpoint);
+    } catch {
+      throw new BadRequestException('Invalid push endpoint');
+    }
+    const host = url.hostname.toLowerCase();
+    const allowed =
+      url.protocol === 'https:' &&
+      (ALLOWED_PUSH_HOSTS.includes(host) ||
+        ALLOWED_PUSH_HOST_SUFFIXES.some((suffix) => host.endsWith(suffix)));
+    if (!allowed) {
+      throw new BadRequestException('Unsupported push endpoint');
+    }
+  }
 
   onModuleInit() {
     this.configureVapid();
@@ -22,14 +60,21 @@ export class PushService implements OnModuleInit {
     }
 
     if (!publicKey || !privateKey) {
-      this.logger.warn('VAPID keys not fully configured in environment. Generating dynamic fallback keys...');
+      this.logger.warn(
+        'VAPID keys not fully configured in environment. Generating ephemeral fallback keys...',
+      );
       const keys = webpush.generateVAPIDKeys();
       publicKey = keys.publicKey;
       privateKey = keys.privateKey;
-      
-      // Log them so the user can easily add them to their .env file
-      this.logger.log(`Generated Public VAPID Key: ${publicKey}`);
-      this.logger.log(`Generated Private VAPID Key: ${privateKey}`);
+
+      // Log ONLY the public key. The private key is a secret — never write it to
+      // any log sink (Cloud Logging retains it). The public key is enough for the
+      // operator to correlate; the pair must be set in env for stable delivery.
+      this.logger.warn(
+        `Generated ephemeral VAPID public key: ${publicKey}. ` +
+          'Set VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY in the environment — ephemeral ' +
+          'keys change on every restart and invalidate all existing subscriptions.',
+      );
     }
 
     try {
@@ -44,8 +89,9 @@ export class PushService implements OnModuleInit {
   async createSubscription(userId: string, subscription: any) {
     const { endpoint, keys } = subscription;
     if (!endpoint || !keys?.p256dh || !keys?.auth) {
-      throw new Error('Invalid subscription object format');
+      throw new BadRequestException('Invalid subscription object format');
     }
+    this.assertAllowedPushEndpoint(endpoint);
 
     return this.prisma.pushSubscription.upsert({
       where: { endpoint },
@@ -63,9 +109,16 @@ export class PushService implements OnModuleInit {
     });
   }
 
-  async sendPushNotification(userId: string, title: string, body: string, urlPath = '/orders') {
+  async sendPushNotification(
+    userId: string,
+    title: string,
+    body: string,
+    urlPath = '/orders',
+  ) {
     if (!this.isVapidConfigured) {
-      this.logger.warn('Web Push VAPID details are not configured. Cannot send notification.');
+      this.logger.warn(
+        'Web Push VAPID details are not configured. Cannot send notification.',
+      );
       return;
     }
 
@@ -89,14 +142,22 @@ export class PushService implements OnModuleInit {
         },
       };
 
-      return webpush.sendNotification(pushSubscription, payload)
+      return webpush
+        .sendNotification(pushSubscription, payload)
         .catch(async (error) => {
           // If the subscription is expired or invalid, remove it from our DB
           if (error.statusCode === 410 || error.statusCode === 404) {
-            this.logger.log(`Removing expired or invalid push subscription: ${sub.endpoint}`);
-            await this.prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
+            this.logger.log(
+              `Removing expired or invalid push subscription: ${sub.endpoint}`,
+            );
+            await this.prisma.pushSubscription
+              .delete({ where: { id: sub.id } })
+              .catch(() => {});
           } else {
-            this.logger.error(`Error sending push notification to endpoint ${sub.endpoint}:`, error);
+            this.logger.error(
+              `Error sending push notification to endpoint ${sub.endpoint}:`,
+              error,
+            );
           }
         });
     });

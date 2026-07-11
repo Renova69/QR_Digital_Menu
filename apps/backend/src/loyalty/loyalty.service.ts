@@ -482,15 +482,19 @@ export class LoyaltyService {
 
     if (!restaurant) throw new ForbiddenException('Forbidden');
 
-    // Read-only — expiry runs in cron; no writes inside an analytics fetch (Issue 12)
-    const accounts = await this.prisma.loyaltyAccount.findMany({
-      where: { restaurantId },
-    });
-
-    const [ordersWithRedemptions, customerOrderCounts, topAccount] =
+    // Read-only — expiry runs in cron; no writes inside an analytics fetch
+    // (Issue 12). #M10: aggregate in the DB instead of loading every account /
+    // redeemed order into memory just to sum — these tables grow unboundedly.
+    const [accountAgg, redeemedAgg, customerOrderCounts, topAccount] =
       await Promise.all([
-        this.prisma.order.findMany({
+        this.prisma.loyaltyAccount.aggregate({
+          where: { restaurantId },
+          _count: { _all: true },
+          _sum: { points: true },
+        }),
+        this.prisma.order.aggregate({
           where: { restaurantId, pointsRedeemed: { gt: 0 } },
+          _sum: { pointsRedeemed: true },
         }),
         this.prisma.order.groupBy({
           by: ['customerPhone'],
@@ -518,15 +522,9 @@ export class LoyaltyService {
         : 0;
 
     return {
-      totalMembers: accounts.length,
-      totalPointsOutstanding: accounts.reduce(
-        (s: number, a: { points: number }) => s + a.points,
-        0,
-      ),
-      totalPointsRedeemed: ordersWithRedemptions.reduce(
-        (s: number, o: { pointsRedeemed: number }) => s + o.pointsRedeemed,
-        0,
-      ),
+      totalMembers: accountAgg._count._all,
+      totalPointsOutstanding: accountAgg._sum.points ?? 0,
+      totalPointsRedeemed: redeemedAgg._sum.pointsRedeemed ?? 0,
       repeatRate,
       topMember: topAccount
         ? {

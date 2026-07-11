@@ -856,7 +856,13 @@ export class RestaurantsService {
    */
   async getLogoBase64(
     restaurantId: string,
+    userId: string,
   ): Promise<{ dataUrl: string } | null> {
+    // Ownership check: this triggers a server-side outbound fetch, so restrict
+    // it to the restaurant's owner/manager (matches uploadLogo) rather than any
+    // authenticated account.
+    await this.findOneForManagement(restaurantId, userId);
+
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
       select: { logoUrl: true },
