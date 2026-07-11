@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
         srcDir: "src",
         filename: "sw.ts",
         registerType: "autoUpdate",
-        injectRegister: "inline",
+        injectRegister: "auto",
         manifest: {
           name: "QR Digital Menu",
           short_name: "QR Menu",

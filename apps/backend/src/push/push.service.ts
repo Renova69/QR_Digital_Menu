@@ -16,7 +16,10 @@ export class PushService implements OnModuleInit {
   private configureVapid() {
     let publicKey = process.env.VAPID_PUBLIC_KEY;
     let privateKey = process.env.VAPID_PRIVATE_KEY;
-    const email = process.env.RESEND_FROM_EMAIL || 'mailto:admin@qrmenu.app';
+    let email = process.env.RESEND_FROM_EMAIL || 'mailto:admin@qrmenu.app';
+    if (email && !email.startsWith('mailto:') && !email.startsWith('https:')) {
+      email = `mailto:${email}`;
+    }
 
     if (!publicKey || !privateKey) {
       this.logger.warn('VAPID keys not fully configured in environment. Generating dynamic fallback keys...');

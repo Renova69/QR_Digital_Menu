@@ -10,6 +10,20 @@ import "./i18n";
 import { installGlobalErrorLogging } from "./lib/clientLogger";
 import { reloadOnceForStaleChunk } from "./lib/lazyWithReload";
 
+import { registerSW } from 'virtual:pwa-register';
+
+if ('serviceWorker' in navigator) {
+  registerSW({
+    immediate: true,
+    onRegistered(r) {
+      console.log('SW Registered:', r);
+    },
+    onRegisterError(error) {
+      console.error('SW registration error', error);
+    }
+  });
+}
+
 installGlobalErrorLogging();
 
 // A modulepreload <link> for a route chunk that a new deploy has purged fires
