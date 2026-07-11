@@ -164,12 +164,22 @@ describe('TablesService', () => {
 
   describe('service points', () => {
     it('returns only non-table service points', async () => {
-      await service.findServicePoints('rest-1');
+      await service.findServicePoints('rest-1', mockOwner);
       expect(prisma.restaurantTable.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { restaurantId: 'rest-1', type: { not: 'TABLE' } },
         }),
       );
+    });
+
+    it('throws ForbiddenException when a non-owner, non-staff user requests another restaurant service points', async () => {
+      await expect(
+        service.findServicePoints('rest-1', {
+          id: 'stranger-1',
+          role: 'OWNER',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.restaurantTable.findMany).not.toHaveBeenCalled();
     });
 
     it('resolves an active public service point by token', async () => {

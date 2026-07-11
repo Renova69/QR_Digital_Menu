@@ -326,6 +326,12 @@ export class OrdersService {
       sessionToken = newSession.token;
     }
 
+    if (!resolvedTableCuid) {
+      throw new BadRequestException(
+        'A table or service point is required to place an order.',
+      );
+    }
+
     // #2: refuse to grow a session's bill while a payment is in flight. If a
     // PENDING payment exists, the customer is mid-checkout against a fixed total;
     // letting them add a pricey item now and then pay the stale low intent would

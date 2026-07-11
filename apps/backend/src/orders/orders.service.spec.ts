@@ -123,7 +123,11 @@ describe('OrdersService', () => {
       menuOption: { findMany: jest.fn().mockResolvedValue([]) },
       restaurant: { findUnique: jest.fn().mockResolvedValue(makeRestaurant()) },
       tableSession: { findFirst: jest.fn().mockResolvedValue(null) },
-      restaurantTable: { findFirst: jest.fn().mockResolvedValue(null) },
+      restaurantTable: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValue({ id: 'table-cuid-1', name: 'T1' }),
+      },
       loyaltyAccount: {
         findUnique: jest.fn().mockResolvedValue(null),
         findUniqueOrThrow: jest.fn(),
@@ -292,6 +296,7 @@ describe('OrdersService', () => {
           { menuItemId: 'item-1', quantity: 2, selectedOptions: [] },
           { menuItemId: 'item-2', quantity: 1, selectedOptions: [] },
         ],
+        tableId: 'T1',
       } as unknown as Partial<
         CreateOrderDto & UpdateOrderDto
       > as CreateOrderDto & UpdateOrderDto);
@@ -331,6 +336,7 @@ describe('OrdersService', () => {
       await service.create(
         {
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          tableId: 'T1',
         } as unknown as Partial<
           CreateOrderDto & UpdateOrderDto
         > as CreateOrderDto & UpdateOrderDto,
@@ -389,6 +395,7 @@ describe('OrdersService', () => {
           {
             items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
             customerId: 'some-customer-id',
+            tableId: 'T1',
           } as unknown as Partial<
             CreateOrderDto & UpdateOrderDto
           > as CreateOrderDto & UpdateOrderDto,
@@ -559,6 +566,7 @@ describe('OrdersService', () => {
         {
           source: 'POS',
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+          tableId: 'T1',
         } as unknown as Partial<
           CreateOrderDto & UpdateOrderDto
         > as CreateOrderDto & UpdateOrderDto,
@@ -592,6 +600,7 @@ describe('OrdersService', () => {
             selectedOptions: [{ optionId: 'opt-1', choiceName: 'Large' }],
           },
         ],
+        tableId: 'T1',
       } as unknown as Partial<
         CreateOrderDto & UpdateOrderDto
       > as CreateOrderDto & UpdateOrderDto);
@@ -653,6 +662,7 @@ describe('OrdersService', () => {
       prisma.tableSession.findFirst.mockResolvedValue({
         id: 'sess-exist',
         token: 'tok-exist',
+        tableId: 'table-cuid-1',
       });
 
       const tx = makeTx();
@@ -668,6 +678,19 @@ describe('OrdersService', () => {
       > as CreateOrderDto & UpdateOrderDto);
 
       expect(result.sessionToken).toBe('tok-exist');
+    });
+
+    it('rejects an order with no tableId, servicePointToken, or resolvable sessionToken', async () => {
+      prisma.menuItem.findMany.mockResolvedValue([makeMenuItem()]);
+      prisma.tableSession.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create({
+          items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        } as unknown as Partial<
+          CreateOrderDto & UpdateOrderDto
+        > as CreateOrderDto & UpdateOrderDto),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('emits table status changed when order has tableSessionId', async () => {
@@ -881,6 +904,7 @@ describe('OrdersService', () => {
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
         sessionToken: 'stale-token',
+        tableId: 'T1',
       } as unknown as Partial<
         CreateOrderDto & UpdateOrderDto
       > as CreateOrderDto & UpdateOrderDto);
@@ -1000,6 +1024,7 @@ describe('OrdersService', () => {
         {
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
           customerId: 'cust-1',
+          tableId: 'T1',
         } as unknown as Partial<
           CreateOrderDto & UpdateOrderDto
         > as CreateOrderDto & UpdateOrderDto,
@@ -1027,6 +1052,7 @@ describe('OrdersService', () => {
 
       await service.create({
         items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
+        tableId: 'T1',
       } as unknown as Partial<
         CreateOrderDto & UpdateOrderDto
       > as CreateOrderDto & UpdateOrderDto);
@@ -1067,6 +1093,7 @@ describe('OrdersService', () => {
           {
             items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
             customerId: 'cust-1',
+            tableId: 'T1',
           } as unknown as Partial<
             CreateOrderDto & UpdateOrderDto
           > as CreateOrderDto & UpdateOrderDto,
@@ -1127,6 +1154,7 @@ describe('OrdersService', () => {
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
           customerId: 'cust-1',
           redeemItemIds: ['item-1'],
+          tableId: 'T1',
         } as unknown as Partial<
           CreateOrderDto & UpdateOrderDto
         > as CreateOrderDto & UpdateOrderDto,
@@ -1188,6 +1216,7 @@ describe('OrdersService', () => {
           ],
           customerId: 'cust-1',
           redeemCartIds: ['cart-b'], // redeem only the second line
+          tableId: 'T1',
         } as unknown as Partial<
           CreateOrderDto & UpdateOrderDto
         > as CreateOrderDto & UpdateOrderDto,
@@ -1248,6 +1277,7 @@ describe('OrdersService', () => {
           ],
           customerId: 'cust-1',
           redeemCartIds: ['cart-a', 'cart-b'],
+          tableId: 'T1',
         } as unknown as Partial<
           CreateOrderDto & UpdateOrderDto
         > as CreateOrderDto & UpdateOrderDto,
@@ -1296,6 +1326,7 @@ describe('OrdersService', () => {
           ],
           customerId: 'cust-1',
           redeemItemIds: ['burger'], // one redemption of burger — only first line comped
+          tableId: 'T1',
         } as unknown as Partial<
           CreateOrderDto & UpdateOrderDto
         > as CreateOrderDto & UpdateOrderDto,
@@ -1324,6 +1355,7 @@ describe('OrdersService', () => {
         {
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
           customerId: 'cust-1',
+          tableId: 'T1',
         } as unknown as Partial<
           CreateOrderDto & UpdateOrderDto
         > as CreateOrderDto & UpdateOrderDto,
@@ -1359,6 +1391,7 @@ describe('OrdersService', () => {
         {
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
           customerId: 'cust-1',
+          tableId: 'T1',
         } as unknown as Partial<
           CreateOrderDto & UpdateOrderDto
         > as CreateOrderDto & UpdateOrderDto,
@@ -1395,6 +1428,7 @@ describe('OrdersService', () => {
         {
           items: [{ menuItemId: 'item-1', quantity: 1, selectedOptions: [] }],
           customerId: 'cust-1',
+          tableId: 'T1',
         } as unknown as Partial<
           CreateOrderDto & UpdateOrderDto
         > as CreateOrderDto & UpdateOrderDto,
@@ -1435,6 +1469,7 @@ describe('OrdersService', () => {
           customerId: 'cust-1',
           usePoints: true,
           redeemPoints: 10000,
+          tableId: 'T1',
         } as unknown as Partial<
           CreateOrderDto & UpdateOrderDto
         > as CreateOrderDto & UpdateOrderDto,
@@ -1884,6 +1919,7 @@ describe('OrdersService', () => {
             ],
           },
         ],
+        tableId: 'T1',
       } as unknown as Partial<
         CreateOrderDto & UpdateOrderDto
       > as CreateOrderDto & UpdateOrderDto);

@@ -61,8 +61,11 @@ export class TablesController {
 
   @UseGuards(JwtAuthGuard)
   @Get('restaurants/:restaurantId/service-points')
-  findServicePoints(@Param('restaurantId') restaurantId: string) {
-    return this.tablesService.findServicePoints(restaurantId);
+  findServicePoints(
+    @Param('restaurantId') restaurantId: string,
+    @Request() req: any,
+  ) {
+    return this.tablesService.findServicePoints(restaurantId, req.user);
   }
 
   @Get('restaurants/:restaurantId/service-points/public/:token')

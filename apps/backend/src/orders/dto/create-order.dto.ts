@@ -76,6 +76,7 @@ export class CreateOrderDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(128)
   servicePointToken?: string;
 
   @IsString()

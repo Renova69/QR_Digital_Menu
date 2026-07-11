@@ -253,7 +253,8 @@ export class TablesService {
     });
   }
 
-  async findServicePoints(restaurantId: string) {
+  async findServicePoints(restaurantId: string, user: any) {
+    await this.verifyRestaurantAccess(restaurantId, user);
     return this.prisma.restaurantTable.findMany({
       where: { restaurantId, type: { not: 'TABLE' } },
       orderBy: [{ type: 'asc' }, { name: 'asc' }],
