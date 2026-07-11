@@ -17,6 +17,7 @@ const FREE_FEATURES: FeatureFlag[] = [
 
 const STARTER_FEATURES: FeatureFlag[] = [
   ...FREE_FEATURES,
+  FeatureFlag.SERVICE_POINTS,
   FeatureFlag.ORDERS_RECEIVE,
   FeatureFlag.ORDERS_CALL_WAITER,
   FeatureFlag.LANGUAGES_MULTI,

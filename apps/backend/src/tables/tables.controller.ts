@@ -16,6 +16,9 @@ import { TablesService } from './tables.service';
 import { CreateTableDto } from './dto/create-table.dto';
 import { UpdateTableDto } from './dto/update-table.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { FeatureGuard } from '../subscription/feature.guard';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
+import { RequireFeature } from '../subscription/require-feature.decorator';
 
 @Controller()
 export class TablesController {
@@ -45,12 +48,14 @@ export class TablesController {
     return this.tablesService.bulkCreate(restaurantId, count, req.user.id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('restaurants/:restaurantId/tables')
-  findAll(@Param('restaurantId') restaurantId: string) {
-    return this.tablesService.findAll(restaurantId);
+  findAll(@Param('restaurantId') restaurantId: string, @Request() req: any) {
+    return this.tablesService.findAll(restaurantId, req.user);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @RequireFeature(FeatureFlag.SERVICE_POINTS)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
   @Post('restaurants/:restaurantId/service-points')
   createServicePoint(
     @Param('restaurantId') restaurantId: string,
@@ -72,7 +77,8 @@ export class TablesController {
     );
   }
 
-  @UseGuards(JwtAuthGuard)
+  @RequireFeature(FeatureFlag.SERVICE_POINTS)
+  @UseGuards(JwtAuthGuard, FeatureGuard)
   @Get('restaurants/:restaurantId/service-points')
   findServicePoints(
     @Param('restaurantId') restaurantId: string,

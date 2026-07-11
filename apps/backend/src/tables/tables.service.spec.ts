@@ -7,16 +7,25 @@ import {
 import { TablesService } from './tables.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
+import { FeatureService } from '../subscription/feature.service';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
 
 describe('TablesService', () => {
   let service: TablesService;
   let prisma: any;
   let events: any;
+  let featureService: any;
 
-  const mockRestaurant = { id: 'rest-1', ownerId: 'owner-1' };
+  const mockRestaurant = {
+    id: 'rest-1',
+    ownerId: 'owner-1',
+    tier: 'STARTER',
+    forceTier: null,
+  };
   const mockTable = {
     id: 'table-1',
     name: 'T1',
+    type: 'TABLE',
     restaurantId: 'rest-1',
     updatedAt: new Date(),
   };
@@ -56,11 +65,16 @@ describe('TablesService', () => {
       emitZoneChanged: jest.fn(),
     };
 
+    featureService = {
+      restaurantHasFeature: jest.fn().mockReturnValue(true),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TablesService,
         { provide: PrismaService, useValue: prisma },
         { provide: EventsGateway, useValue: events },
+        { provide: FeatureService, useValue: featureService },
       ],
     }).compile();
 
@@ -151,7 +165,7 @@ describe('TablesService', () => {
 
   describe('findAll', () => {
     it('returns all tables ordered by name', async () => {
-      const result = await service.findAll('rest-1');
+      const result = await service.findAll('rest-1', mockOwner);
       expect(prisma.restaurantTable.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { restaurantId: 'rest-1', type: 'TABLE' },
@@ -163,6 +177,21 @@ describe('TablesService', () => {
   });
 
   describe('service points', () => {
+    it('rejects creating a service point when the restaurant plan does not include them', async () => {
+      featureService.restaurantHasFeature.mockReturnValue(false);
+
+      await expect(
+        service.create('rest-1', { name: 'Room 304', type: 'ROOM' }, 'owner-1'),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'FEATURE_LOCKED' }),
+      });
+      expect(featureService.restaurantHasFeature).toHaveBeenCalledWith(
+        mockRestaurant,
+        FeatureFlag.SERVICE_POINTS,
+      );
+      expect(prisma.restaurantTable.create).not.toHaveBeenCalled();
+    });
+
     it('returns only non-table service points', async () => {
       await service.findServicePoints('rest-1', mockOwner);
       expect(prisma.restaurantTable.findMany).toHaveBeenCalledWith(
@@ -170,6 +199,17 @@ describe('TablesService', () => {
           where: { restaurantId: 'rest-1', type: { not: 'TABLE' } },
         }),
       );
+    });
+
+    it('rejects listing service points when the restaurant plan does not include them', async () => {
+      featureService.restaurantHasFeature.mockReturnValue(false);
+
+      await expect(
+        service.findServicePoints('rest-1', mockOwner),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'FEATURE_LOCKED' }),
+      });
+      expect(prisma.restaurantTable.findMany).not.toHaveBeenCalled();
     });
 
     it('throws ForbiddenException when a non-owner, non-staff user requests another restaurant service points', async () => {
@@ -190,6 +230,7 @@ describe('TablesService', () => {
         publicToken: 'sp-token',
         fulfillmentModes: ['ROOM_DELIVERY', 'PICKUP'],
         paymentMethods: ['ONLINE', 'PAY_ON_DELIVERY'],
+        restaurant: mockRestaurant,
       });
 
       await expect(
@@ -207,6 +248,23 @@ describe('TablesService', () => {
       );
     });
 
+    it('does not resolve a public service-point token after the feature is removed', async () => {
+      featureService.restaurantHasFeature.mockReturnValue(false);
+      prisma.restaurantTable.findFirst.mockResolvedValue({
+        id: 'room-304',
+        name: 'Room 304',
+        type: 'ROOM',
+        publicToken: 'sp-token',
+        fulfillmentModes: ['ROOM_DELIVERY'],
+        paymentMethods: ['PAY_ON_DELIVERY'],
+        restaurant: { ...mockRestaurant, tier: 'FREE' },
+      });
+
+      await expect(
+        service.resolvePublicServicePoint('rest-1', 'sp-token'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
     it('rotates a service point public token for the owner', async () => {
       prisma.restaurantTable.findUnique.mockResolvedValue({
         ...mockTable,
@@ -221,6 +279,38 @@ describe('TablesService', () => {
           data: { publicToken: expect.any(String) },
         }),
       );
+    });
+
+    it('rejects rotating a service-point token after the feature is removed', async () => {
+      featureService.restaurantHasFeature.mockReturnValue(false);
+      prisma.restaurantTable.findUnique.mockResolvedValue({
+        ...mockTable,
+        type: 'ROOM',
+        restaurant: { ...mockRestaurant, tier: 'FREE' },
+      });
+
+      await expect(
+        service.rotatePublicToken('room-304', 'owner-1'),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'FEATURE_LOCKED' }),
+      });
+      expect(prisma.restaurantTable.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects updating a service point after the feature is removed', async () => {
+      featureService.restaurantHasFeature.mockReturnValue(false);
+      prisma.restaurantTable.findUnique.mockResolvedValue({
+        ...mockTable,
+        type: 'ROOM',
+        restaurant: { ...mockRestaurant, tier: 'FREE' },
+      });
+
+      await expect(
+        service.update('room-304', { name: 'Room 305' }, 'owner-1'),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'FEATURE_LOCKED' }),
+      });
+      expect(prisma.restaurantTable.update).not.toHaveBeenCalled();
     });
   });
 
@@ -483,6 +573,22 @@ describe('TablesService', () => {
       await expect(service.remove('table-1', 'other-user')).rejects.toThrow(
         ForbiddenException,
       );
+    });
+
+    it('rejects deleting a service point after the feature is removed', async () => {
+      featureService.restaurantHasFeature.mockReturnValue(false);
+      prisma.restaurantTable.findUnique.mockResolvedValue({
+        ...mockTable,
+        type: 'ROOM',
+        restaurant: { ...mockRestaurant, tier: 'FREE' },
+      });
+
+      await expect(service.remove('room-304', 'owner-1')).rejects.toMatchObject(
+        {
+          response: expect.objectContaining({ code: 'FEATURE_LOCKED' }),
+        },
+      );
+      expect(prisma.restaurantTable.delete).not.toHaveBeenCalled();
     });
   });
 

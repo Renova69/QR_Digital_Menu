@@ -13,6 +13,8 @@ import { EventsGateway } from '../events/events.gateway';
 import { CreateTableDto } from './dto/create-table.dto';
 import { UpdateTableDto } from './dto/update-table.dto';
 import { assertRestaurantActive } from '../restaurants/assert-restaurant-active';
+import { FeatureService } from '../subscription/feature.service';
+import { FeatureFlag } from '../subscription/feature-flag.enum';
 import {
   DEFAULT_FULFILLMENT_MODES,
   DEFAULT_PAYMENT_METHODS,
@@ -33,6 +35,7 @@ export class TablesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly events: EventsGateway,
+    private readonly featureService: FeatureService,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -77,6 +80,9 @@ export class TablesService {
     }
     assertRestaurantActive(restaurant);
     await this.assertOwnerOrManager(restaurant.ownerId, restaurantId, userId);
+    if (type !== 'TABLE') {
+      this.assertServicePointsEnabled(restaurant);
+    }
 
     const existingTable = await this.prisma.restaurantTable.findFirst({
       where: {
@@ -94,7 +100,18 @@ export class TablesService {
     let zoneId = createTableDto.zoneId ?? null;
     if (type !== 'TABLE') {
       zoneId = null;
-    } else if (!zoneId) {
+    } else if (zoneId) {
+      // Validate the client-supplied zone belongs to THIS restaurant (#M9).
+      // update() already does this; create() previously trusted the id, letting
+      // a table link to another tenant's zone and turning a bad/deleted id into
+      // an uncaught Prisma FK (P2003) 500.
+      const zone = await this.prisma.tableZone.findUnique({
+        where: { id: zoneId },
+      });
+      if (!zone || zone.restaurantId !== restaurantId) {
+        throw new NotFoundException('Zone not found');
+      }
+    } else {
       const defaultZone = await this.prisma.tableZone.findFirst({
         where: { restaurantId },
         orderBy: { displayOrder: 'asc' },
@@ -187,6 +204,9 @@ export class TablesService {
       table.restaurantId,
       userId,
     );
+    if (table.type !== 'TABLE') {
+      this.assertServicePointsEnabled(table.restaurant);
+    }
 
     if (dto.zoneId !== undefined) {
       if (table.type !== 'TABLE' && dto.zoneId) {
@@ -245,7 +265,8 @@ export class TablesService {
     return updated;
   }
 
-  async findAll(restaurantId: string) {
+  async findAll(restaurantId: string, user?: any) {
+    await this.verifyRestaurantAccess(restaurantId, user);
     return this.prisma.restaurantTable.findMany({
       where: { restaurantId, type: 'TABLE' },
       orderBy: { name: 'asc' },
@@ -254,7 +275,11 @@ export class TablesService {
   }
 
   async findServicePoints(restaurantId: string, user: any) {
-    await this.verifyRestaurantAccess(restaurantId, user);
+    await this.verifyRestaurantAccess(
+      restaurantId,
+      user,
+      FeatureFlag.SERVICE_POINTS,
+    );
     return this.prisma.restaurantTable.findMany({
       where: { restaurantId, type: { not: 'TABLE' } },
       orderBy: [{ type: 'asc' }, { name: 'asc' }],
@@ -277,10 +302,22 @@ export class TablesService {
         publicToken: true,
         fulfillmentModes: true,
         paymentMethods: true,
+        restaurant: { select: { tier: true, forceTier: true } },
       },
     });
     if (!servicePoint) throw new NotFoundException('Service point not found');
-    return servicePoint;
+    if (
+      !this.featureService.restaurantHasFeature(
+        servicePoint.restaurant,
+        FeatureFlag.SERVICE_POINTS,
+      )
+    ) {
+      // Public callers should not be able to distinguish a revoked QR from an
+      // invalid one after a restaurant downgrades.
+      throw new NotFoundException('Service point not found');
+    }
+    const { restaurant: _restaurant, ...publicServicePoint } = servicePoint;
+    return publicServicePoint;
   }
 
   async rotatePublicToken(id: string, userId: string) {
@@ -298,6 +335,7 @@ export class TablesService {
     if (table.type === 'TABLE') {
       throw new BadRequestException('Table QR links use the table name');
     }
+    this.assertServicePointsEnabled(table.restaurant);
     return this.prisma.restaurantTable.update({
       where: { id },
       data: { publicToken: this.createPublicToken() },
@@ -320,24 +358,52 @@ export class TablesService {
     throw new ForbiddenException('You do not own this restaurant');
   }
 
+  private assertServicePointsEnabled(restaurant: {
+    tier?: string | null;
+    forceTier?: string | null;
+  }): void {
+    if (
+      !this.featureService.restaurantHasFeature(
+        restaurant,
+        FeatureFlag.SERVICE_POINTS,
+      )
+    ) {
+      throw new ForbiddenException({
+        code: 'FEATURE_LOCKED',
+        requiredFeatures: [FeatureFlag.SERVICE_POINTS],
+        message: 'Service points are not available on this plan',
+      });
+    }
+  }
+
   private async verifyRestaurantAccess(
     restaurantId: string,
     user: any,
+    requiredFeature?: FeatureFlag,
   ): Promise<void> {
     if (!user) throw new ForbiddenException('Access denied');
     if (user.role?.toUpperCase() === 'SUPER_ADMIN') return;
 
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: { ownerId: true, isActive: true, deletedAt: true },
+      select: {
+        ownerId: true,
+        tier: true,
+        forceTier: true,
+        isActive: true,
+        deletedAt: true,
+      },
     });
     if (!restaurant) throw new NotFoundException('Restaurant not found');
     assertRestaurantActive(restaurant);
     // Staff/Manager: restaurantId is embedded in JWT payload by jwt.strategy,
     // but only after the restaurant row has been checked for suspension/delete.
-    if (user.restaurantId === restaurantId) return;
-    if (restaurant.ownerId !== user.id)
-      throw new ForbiddenException('Access denied');
+    const hasAccess =
+      user.restaurantId === restaurantId || restaurant.ownerId === user.id;
+    if (!hasAccess) throw new ForbiddenException('Access denied');
+    if (requiredFeature === FeatureFlag.SERVICE_POINTS) {
+      this.assertServicePointsEnabled(restaurant);
+    }
   }
 
   async getTablesWithStatus(restaurantId: string, zoneId?: string, user?: any) {
@@ -356,6 +422,11 @@ export class TablesService {
         where: {
           restaurantId,
           status: { in: ['OPEN', 'PAID'] },
+          // Service-point sessions are isolated per-customer and never map to a
+          // physical TABLE row (which is all this view renders). Excluding them
+          // avoids loading an unbounded backlog of counter sessions (+ their
+          // orders/staff joins) on every dashboard/POS poll.
+          isServicePoint: false,
         },
         include: {
           orders: {
@@ -371,10 +442,16 @@ export class TablesService {
       }),
     ]);
 
-    // OPEN wins over PAID when both exist (new customer sat at paid table)
+    // OPEN wins over PAID when both exist (new customer sat at paid table).
+    // Later Map entries overwrite earlier ones, so OPEN must sort last. Use a
+    // spec-compliant comparator (both operands considered) rather than relying
+    // on the engine's sort stability.
     const sessionByTableId = new Map(
       sessions
-        .sort((a, b) => (a.status === 'OPEN' ? 1 : -1))
+        .sort(
+          (a, b) =>
+            (a.status === 'OPEN' ? 1 : 0) - (b.status === 'OPEN' ? 1 : 0),
+        )
         .map((s) => [s.tableId, s]),
     );
 
@@ -496,6 +573,9 @@ export class TablesService {
       table.restaurantId,
       userId,
     );
+    if (table.type !== 'TABLE') {
+      this.assertServicePointsEnabled(table.restaurant);
+    }
     const activeSession = await this.prisma.tableSession.findFirst({
       where: { tableId: id, status: { in: ['OPEN', 'PAID'] } },
     });
