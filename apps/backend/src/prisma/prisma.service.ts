@@ -98,9 +98,29 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
    */
   private async ensureCriticalIndexes(): Promise<void> {
     try {
+      // Predicate MUST match the migration
+      // (20260711100000_isolate_service_point_sessions): service-point sessions
+      // are excluded so multiple concurrent OPEN sessions are allowed per
+      // counter, while still enforcing one OPEN session per physical table.
+      // `IF NOT EXISTS` matches by name only, so if a stale index with the old
+      // predicate (status='OPEN' only) is present we drop it first, then create
+      // the correct one. The DROP is a no-op on a fresh DB.
+      await this.$executeRawUnsafe(
+        `DO $$
+         BEGIN
+           IF EXISTS (
+             SELECT 1 FROM pg_indexes
+             WHERE indexname = 'table_session_one_open_per_table_restaurant_idx'
+               AND indexdef NOT LIKE '%isServicePoint%'
+           ) THEN
+             DROP INDEX "table_session_one_open_per_table_restaurant_idx";
+           END IF;
+         END $$;`,
+      );
       await this.$executeRawUnsafe(
         `CREATE UNIQUE INDEX IF NOT EXISTS "table_session_one_open_per_table_restaurant_idx" ` +
-          `ON "table_session" ("restaurantId", "tableId") WHERE "status" = 'OPEN'`,
+          `ON "table_session" ("restaurantId", "tableId") ` +
+          `WHERE "status" = 'OPEN' AND "isServicePoint" = false`,
       );
     } catch (error) {
       this.logger.error(
